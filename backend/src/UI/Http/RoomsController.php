@@ -4,6 +4,8 @@ namespace App\UI\Http;
 
 use App\Application\Card\CardLocalizationService;
 use App\Application\Deck\DeckValidator;
+use App\Application\Game\Compact\CompactGameCardStateMapper;
+use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRandomizer;
@@ -527,6 +529,8 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         GameSnapshotFactory $snapshotFactory,
         GameProjectionService $projection,
+        CompactGameCardStateMapper $compactStateMapper,
+        GameplayCompactRuntimeFlags $compactRuntimeFlags,
         DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         CardLocalizationService $localization,
@@ -605,6 +609,9 @@ class RoomsController extends ApiController
         }
 
         $game = new Game($room, $snapshotFactory->fromRoom($room));
+        if ($compactRuntimeFlags->enabled() && $compactStateMapper->isCompactSnapshot($game->snapshot())) {
+            $game->replaceSnapshot($compactStateMapper->withGameMetadata($game->snapshot(), $game->id(), $game->status()));
+        }
         $room->start($game);
         $entityManager->persist($game);
         $entityManager->flush();

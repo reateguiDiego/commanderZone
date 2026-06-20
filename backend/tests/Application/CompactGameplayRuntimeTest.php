@@ -3,10 +3,12 @@
 namespace App\Tests\Application;
 
 use App\Application\Game\Compact\CompactGameCardStateMapper;
+use App\Application\Game\Compact\CompactGameStateInvariantChecker;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameSnapshotFactory;
+use App\Application\Game\Performance\GameplayBaselineFixtureFactory;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
@@ -40,16 +42,21 @@ class CompactGameplayRuntimeTest extends TestCase
         ))->fromRoom($room);
 
         self::assertSame(CompactGameCardStateMapper::SNAPSHOT_FORMAT, $snapshot['runtimeFormat'] ?? null);
+        self::assertArrayHasKey('instances', $snapshot);
+        self::assertArrayHasKey('zones', $snapshot);
+        self::assertArrayHasKey('loc', $snapshot);
         self::assertArrayHasKey('cardCatalog', $snapshot);
+        self::assertArrayHasKey('owner-id', $snapshot['zones']);
         self::assertNotEmpty($snapshot['cardCatalog']);
 
-        $commander = $snapshot['players']['owner-id']['zones']['command'][0];
-        self::assertArrayHasKey('cardKey', $commander);
-        self::assertArrayNotHasKey('name', $commander);
-        self::assertArrayNotHasKey('imageUris', $commander);
-        self::assertArrayNotHasKey('oracleText', $commander);
-        self::assertArrayNotHasKey('cardFaces', $commander);
-        self::assertArrayHasKey($commander['cardKey'], $snapshot['cardCatalog']);
+        $commanderInstanceId = $snapshot['zones']['owner-id']['command'][0];
+        self::assertIsString($commanderInstanceId);
+        self::assertArrayHasKey($commanderInstanceId, $snapshot['instances']);
+        self::assertArrayNotHasKey('name', $snapshot['instances'][$commanderInstanceId]);
+        self::assertArrayNotHasKey('imageUris', $snapshot['instances'][$commanderInstanceId]);
+        self::assertArrayNotHasKey('oracleText', $snapshot['instances'][$commanderInstanceId]);
+        self::assertArrayNotHasKey('cardFaces', $snapshot['instances'][$commanderInstanceId]);
+        self::assertArrayHasKey($snapshot['instances'][$commanderInstanceId]['cardKey'], $snapshot['cardCatalog']);
     }
 
     public function testProjectionHydratesCompactRuntimeForBootstrapWithoutLeakingOpponentPrivateCardData(): void
@@ -84,9 +91,11 @@ class CompactGameplayRuntimeTest extends TestCase
         $game = new Game($room, (new CompactGameCardStateMapper())->compactSnapshot($snapshot));
         $projected = (new GameProjectionService(new GameCommandHandler()))->project($game, $viewer);
         $ownerProjection = $projected['players'][$owner->id()];
+        $privacyIssues = (new CompactGameStateInvariantChecker())->checkProjectionPrivacy($projected, $viewer->id());
 
         self::assertSame('Visible Ring', $ownerProjection['zones']['battlefield'][0]['name']);
         self::assertSame('Visible Commander', $ownerProjection['zones']['command'][0]['name']);
+        self::assertSame([], $privacyIssues);
 
         $hiddenHandCard = $ownerProjection['zones']['hand'][0];
         self::assertSame('Hidden card', $hiddenHandCard['name']);
@@ -123,15 +132,18 @@ class CompactGameplayRuntimeTest extends TestCase
         ], $actor);
 
         $snapshot = $game->snapshot();
-        $battlefield = $snapshot['players'][$actor->id()]['zones']['battlefield'];
+        $battlefieldIds = $snapshot['zones'][$actor->id()]['battlefield'];
         self::assertSame(CompactGameCardStateMapper::SNAPSHOT_FORMAT, $snapshot['runtimeFormat'] ?? null);
-        self::assertCount(2, $battlefield);
-        self::assertSame($battlefield[0]['cardKey'], $battlefield[1]['cardKey']);
+        self::assertCount(2, $battlefieldIds);
+        self::assertSame(
+            $snapshot['instances'][$battlefieldIds[0]]['cardKey'],
+            $snapshot['instances'][$battlefieldIds[1]]['cardKey'],
+        );
         self::assertCount(1, $snapshot['cardCatalog']);
-        self::assertArrayNotHasKey('name', $battlefield[0]);
-        self::assertArrayNotHasKey('imageUris', $battlefield[0]);
-        self::assertArrayNotHasKey('oracleText', $battlefield[1]);
-        self::assertArrayNotHasKey('cardFaces', $battlefield[1]);
+        self::assertArrayNotHasKey('name', $snapshot['instances'][$battlefieldIds[0]]);
+        self::assertArrayNotHasKey('imageUris', $snapshot['instances'][$battlefieldIds[0]]);
+        self::assertArrayNotHasKey('oracleText', $snapshot['instances'][$battlefieldIds[1]]);
+        self::assertArrayNotHasKey('cardFaces', $snapshot['instances'][$battlefieldIds[1]]);
 
         $handler->apply($game, 'stack.card_added', [
             'playerId' => $actor->id(),
@@ -139,12 +151,9 @@ class CompactGameplayRuntimeTest extends TestCase
             'instanceId' => 'battlefield-1',
         ], $actor);
 
-        $stackCard = $game->snapshot()['stack'][0]['card'];
-        self::assertSame($battlefield[0]['cardKey'], $stackCard['cardKey']);
-        self::assertArrayNotHasKey('name', $stackCard);
-        self::assertArrayNotHasKey('imageUris', $stackCard);
-        self::assertArrayNotHasKey('oracleText', $stackCard);
-        self::assertArrayNotHasKey('cardFaces', $stackCard);
+        $stackItem = $game->snapshot()['stack'][0];
+        self::assertSame('battlefield-1', $stackItem['instanceId']);
+        self::assertArrayNotHasKey('card', $stackItem);
     }
 
     public function testCommandHandlerCompactsCreatedTokensWithoutDuplicatingStaticPayload(): void
@@ -176,15 +185,91 @@ class CompactGameplayRuntimeTest extends TestCase
         ], $actor);
 
         $snapshot = $game->snapshot();
-        $tokens = $snapshot['players'][$actor->id()]['zones']['battlefield'];
+        $tokens = $snapshot['zones'][$actor->id()]['battlefield'];
         self::assertSame(CompactGameCardStateMapper::SNAPSHOT_FORMAT, $snapshot['runtimeFormat'] ?? null);
         self::assertCount(2, $tokens);
-        self::assertSame($tokens[0]['cardKey'], $tokens[1]['cardKey']);
+        self::assertSame(
+            $snapshot['instances'][$tokens[0]]['cardKey'],
+            $snapshot['instances'][$tokens[1]]['cardKey'],
+        );
         self::assertCount(1, $snapshot['cardCatalog']);
-        self::assertArrayNotHasKey('name', $tokens[0]);
-        self::assertArrayNotHasKey('imageUris', $tokens[0]);
-        self::assertArrayNotHasKey('oracleText', $tokens[1]);
-        self::assertArrayNotHasKey('cardFaces', $tokens[1]);
+        self::assertArrayNotHasKey('name', $snapshot['instances'][$tokens[0]]);
+        self::assertArrayNotHasKey('imageUris', $snapshot['instances'][$tokens[0]]);
+        self::assertArrayNotHasKey('oracleText', $snapshot['instances'][$tokens[1]]);
+        self::assertArrayNotHasKey('cardFaces', $snapshot['instances'][$tokens[1]]);
+    }
+
+    public function testCompactGameStateRoundTripsLargeFourPlayerLegacyGameWithLocRelationsAndInvariantChecks(): void
+    {
+        [$snapshot, $viewer] = $this->fourPlayerLegacySnapshot();
+        $snapshot['attachments'] = [[
+            'id' => 'attachment-1',
+            'equipmentInstanceId' => 'p1-battlefield-001',
+            'attachedToInstanceId' => 'p1-battlefield-002',
+            'createdAt' => '2026-01-01T00:10:00+00:00',
+        ]];
+        $snapshot['arrows'] = [[
+            'id' => 'arrow-1',
+            'fromInstanceId' => 'p1-battlefield-001',
+            'toInstanceId' => 'p2-battlefield-001',
+            'color' => 'yellow',
+            'createdAt' => '2026-01-01T00:11:00+00:00',
+        ]];
+        $snapshot['specialEntities'] = [[
+            'id' => 'helper-1',
+            'template' => 'monarch',
+            'scope' => 'global',
+            'ownerPlayerId' => 'p1',
+            'state' => [],
+            'createdAt' => '2026-01-01T00:12:00+00:00',
+        ]];
+
+        $mapper = new CompactGameCardStateMapper();
+        $checker = new CompactGameStateInvariantChecker();
+        $compact = $mapper->compactSnapshot($snapshot, 'game-large-1', 'active');
+        $roundTrip = $mapper->hydrateSnapshot($compact);
+        $projected = (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($roundTrip, $viewer);
+
+        self::assertSame('game-large-1', $compact['gameId']);
+        self::assertSame('active', $compact['status']);
+        self::assertCount(4, $compact['players']);
+        self::assertCount(4, $compact['zones']);
+        self::assertCount(400, $compact['instances']);
+        self::assertCount(400, $compact['loc']);
+        self::assertSame('p1', $compact['loc']['p1-battlefield-001']['playerId']);
+        self::assertSame('battlefield', $compact['loc']['p1-battlefield-001']['zone']);
+        self::assertSame('p1-battlefield-001', $compact['zones']['p1']['battlefield'][0]);
+        self::assertArrayHasKey('attachment-1', $compact['relations']['attachments']);
+        self::assertArrayHasKey('arrow-1', $compact['relations']['arrows']);
+        self::assertArrayHasKey('helper-1', $compact['relations']['helpers']);
+        self::assertSame([], $checker->check($compact));
+        self::assertSame([], $checker->checkProjectionPrivacy($projected, $viewer->id()));
+        self::assertCount(4, $roundTrip['players']);
+        self::assertCount(58, $roundTrip['players']['p1']['zones']['library']);
+        self::assertCount(7, $roundTrip['players']['p1']['zones']['hand']);
+        self::assertCount(20, $roundTrip['players']['p1']['zones']['battlefield']);
+        self::assertTrue($roundTrip['players']['p1']['zones']['battlefield'][5]['faceDown']);
+        self::assertTrue($roundTrip['players']['p1']['zones']['command'][0]['isCommander']);
+        self::assertSame('Hidden card', $projected['players']['p1']['zones']['hand'][1]['name']);
+    }
+
+    public function testBaselineFixtureCanReplayThroughCompactGameStateRoundTrip(): void
+    {
+        $fixture = (new GameplayBaselineFixtureFactory())->create('compact-replay');
+        $game = $fixture->game();
+        $owner = $fixture->user('p1');
+        $mapper = new CompactGameCardStateMapper();
+        $checker = new CompactGameStateInvariantChecker();
+
+        $compact = $mapper->compactSnapshot($game->snapshot(), $game->id(), $game->status());
+        $roundTrip = $mapper->hydrateSnapshot($compact);
+        $projected = (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($roundTrip, $owner);
+
+        self::assertSame([], $checker->check($compact));
+        self::assertSame($game->snapshot()['turn'], $roundTrip['turn']);
+        self::assertCount(count($game->snapshot()['chat']), $roundTrip['chat']);
+        self::assertCount(count($game->snapshot()['eventLog']), $roundTrip['eventLog']);
+        self::assertSame($owner->id(), $projected['turn']['activePlayerId']);
     }
 
     private function user(string $email, string $displayName, string $id): User
@@ -254,6 +339,101 @@ class CompactGameplayRuntimeTest extends TestCase
             'createdAt' => '2026-01-01T00:00:00+00:00',
             'updatedAt' => '2026-01-01T00:00:00+00:00',
         ];
+    }
+
+    /**
+     * @return array{0: array<string,mixed>, 1: User}
+     */
+    private function fourPlayerLegacySnapshot(): array
+    {
+        $players = [];
+        $viewer = $this->user('viewer@example.test', 'Viewer', 'p4');
+        $playerUsers = [
+            'p1' => $this->user('p1@example.test', 'P1', 'p1'),
+            'p2' => $this->user('p2@example.test', 'P2', 'p2'),
+            'p3' => $this->user('p3@example.test', 'P3', 'p3'),
+            'p4' => $viewer,
+        ];
+
+        foreach ($playerUsers as $playerId => $user) {
+            $zones = [
+                'library' => [],
+                'hand' => [],
+                'battlefield' => [],
+                'graveyard' => [],
+                'exile' => [],
+                'command' => [],
+            ];
+
+            for ($index = 1; $index <= 58; $index++) {
+                $zones['library'][] = $this->richCard(sprintf('%s-library-%03d', $playerId, $index), sprintf('%s Library %03d', strtoupper($playerId), $index), 'library', [
+                    'ownerId' => $playerId,
+                    'controllerId' => $playerId,
+                ]);
+            }
+            for ($index = 1; $index <= 7; $index++) {
+                $zones['hand'][] = $this->richCard(sprintf('%s-hand-%03d', $playerId, $index), sprintf('%s Hand %03d', strtoupper($playerId), $index), 'hand', [
+                    'ownerId' => $playerId,
+                    'controllerId' => $playerId,
+                ]);
+            }
+            for ($index = 1; $index <= 20; $index++) {
+                $zones['battlefield'][] = $this->richCard(sprintf('%s-battlefield-%03d', $playerId, $index), sprintf('%s Battlefield %03d', strtoupper($playerId), $index), 'battlefield', [
+                    'ownerId' => $playerId,
+                    'controllerId' => $playerId,
+                    'position' => ['x' => round((($index - 1) % 5) * 0.17 + 0.1, 4), 'y' => round((int) floor(($index - 1) / 5) * 0.14 + 0.1, 4), 'unit' => 'ratio'],
+                    'tapped' => $index % 4 === 0,
+                    'rotation' => $index % 4 === 0 ? 90 : 0,
+                    'faceDown' => $index === 6,
+                    'counters' => $index === 8 ? ['+1/+1' => 2] : [],
+                    'isToken' => $index >= 19,
+                    'isTokenCopy' => $index === 20,
+                ]);
+            }
+            for ($index = 1; $index <= 10; $index++) {
+                $zones['graveyard'][] = $this->richCard(sprintf('%s-graveyard-%03d', $playerId, $index), sprintf('%s Graveyard %03d', strtoupper($playerId), $index), 'graveyard', [
+                    'ownerId' => $playerId,
+                    'controllerId' => $playerId,
+                ]);
+            }
+            for ($index = 1; $index <= 3; $index++) {
+                $zones['exile'][] = $this->richCard(sprintf('%s-exile-%03d', $playerId, $index), sprintf('%s Exile %03d', strtoupper($playerId), $index), 'exile', [
+                    'ownerId' => $playerId,
+                    'controllerId' => $playerId,
+                ]);
+            }
+            for ($index = 1; $index <= 2; $index++) {
+                $zones['command'][] = $this->richCard(sprintf('%s-command-%03d', $playerId, $index), sprintf('%s Commander %03d', strtoupper($playerId), $index), 'command', [
+                    'ownerId' => $playerId,
+                    'controllerId' => $playerId,
+                    'isCommander' => true,
+                    'typeLine' => 'Legendary Creature - Commander',
+                ]);
+            }
+
+            $zones['hand'][0]['revealedTo'] = ['all'];
+            $zones['library'][0]['revealedTo'] = ['all'];
+
+            $players[$playerId] = $this->player($user, $zones);
+        }
+
+        return [[
+            'version' => 3,
+            'ownerId' => 'p1',
+            'gamePhase' => 'PLAYING',
+            'mulligan' => ['rule' => 'LONDON', 'firstMulliganFree' => true],
+            'players' => $players,
+            'turn' => ['activePlayerId' => 'p1', 'phase' => 'main-1', 'number' => 4],
+            'timer' => ['mode' => 'none', 'status' => 'idle', 'durationSeconds' => null, 'remainingSeconds' => null],
+            'stack' => [],
+            'arrows' => [],
+            'attachments' => [],
+            'specialEntities' => [],
+            'chat' => [['id' => 'chat-1', 'userId' => 'p1', 'displayName' => 'P1', 'message' => 'hello', 'createdAt' => '2026-01-01T00:00:00+00:00']],
+            'eventLog' => [['id' => 'log-1', 'type' => 'card.moved', 'message' => 'moved', 'playerId' => 'p1', 'createdAt' => '2026-01-01T00:00:01+00:00']],
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+            'updatedAt' => '2026-01-01T00:00:02+00:00',
+        ], $viewer];
     }
 
     /**

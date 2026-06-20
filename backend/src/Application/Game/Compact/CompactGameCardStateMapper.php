@@ -4,14 +4,33 @@ namespace App\Application\Game\Compact;
 
 final class CompactGameCardStateMapper
 {
-    public const SNAPSHOT_FORMAT = 'compact-v1';
+    public const SNAPSHOT_FORMAT = 'compact-v2';
+    private const LEGACY_COMPACT_FORMAT = 'compact-v1';
     private const FORMAT_KEY = 'runtimeFormat';
     private const CATALOG_KEY = 'cardCatalog';
+    private const STRUCTURED_KEYS = ['instances', 'zones', 'loc', 'relations', 'stack'];
 
     public function isCompactSnapshot(array $snapshot): bool
     {
-        return ($snapshot[self::FORMAT_KEY] ?? null) === self::SNAPSHOT_FORMAT
+        $format = $snapshot[self::FORMAT_KEY] ?? null;
+
+        return in_array($format, [self::SNAPSHOT_FORMAT, self::LEGACY_COMPACT_FORMAT], true)
             && is_array($snapshot[self::CATALOG_KEY] ?? null);
+    }
+
+    public function isStructuredCompactSnapshot(array $snapshot): bool
+    {
+        if (!$this->isCompactSnapshot($snapshot)) {
+            return false;
+        }
+
+        foreach (self::STRUCTURED_KEYS as $key) {
+            if (!array_key_exists($key, $snapshot)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -25,40 +44,73 @@ final class CompactGameCardStateMapper
             return $snapshot;
         }
 
+        if (!$this->isStructuredCompactSnapshot($snapshot)) {
+            return $this->hydrateLegacyCompactSnapshot($snapshot);
+        }
+
         $catalog = is_array($snapshot[self::CATALOG_KEY] ?? null) ? $snapshot[self::CATALOG_KEY] : [];
-        unset($snapshot[self::FORMAT_KEY], $snapshot[self::CATALOG_KEY]);
+        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
+        $zones = is_array($snapshot['zones'] ?? null) ? $snapshot['zones'] : [];
+        $instances = is_array($snapshot['instances'] ?? null) ? $snapshot['instances'] : [];
+        $loc = is_array($snapshot['loc'] ?? null) ? $snapshot['loc'] : [];
+        $relations = is_array($snapshot['relations'] ?? null) ? $snapshot['relations'] : [];
 
-        if (isset($snapshot['players']) && is_array($snapshot['players'])) {
-            foreach ($snapshot['players'] as $playerId => &$player) {
-                if (!is_array($player) || !is_array($player['zones'] ?? null)) {
-                    continue;
-                }
+        $legacy = $snapshot;
+        unset(
+            $legacy[self::FORMAT_KEY],
+            $legacy[self::CATALOG_KEY],
+            $legacy['gameId'],
+            $legacy['status'],
+            $legacy['instances'],
+            $legacy['zones'],
+            $legacy['loc'],
+            $legacy['visibility'],
+            $legacy['relations']
+        );
 
-                foreach ($player['zones'] as $zone => &$cards) {
-                    if (!is_array($cards)) {
-                        continue;
-                    }
-
-                    foreach ($cards as $index => $card) {
-                        if (is_array($card)) {
-                            $cards[$index] = $this->hydrateCard($card, $catalog, (string) $playerId, (string) $zone);
-                        }
-                    }
-                }
-                unset($cards);
+        $legacy['players'] = [];
+        foreach ($players as $playerId => $player) {
+            if (!is_array($player)) {
+                continue;
             }
-            unset($player);
+
+            $playerZones = [
+                'library' => [],
+                'hand' => [],
+                'battlefield' => [],
+                'graveyard' => [],
+                'exile' => [],
+                'command' => [],
+            ];
+
+            foreach ($playerZones as $zone => $_) {
+                $playerZones[$zone] = $this->hydrateZone(
+                    (string) $playerId,
+                    $zone,
+                    is_array($zones[$playerId][$zone] ?? null) ? $zones[$playerId][$zone] : [],
+                    $instances,
+                    $catalog,
+                    $loc,
+                );
+            }
+
+            $legacy['players'][$playerId] = [
+                ...$player,
+                'zones' => $playerZones,
+            ];
         }
 
-        if (isset($snapshot['stack']) && is_array($snapshot['stack'])) {
-            foreach ($snapshot['stack'] as $index => $item) {
-                if (is_array($item)) {
-                    $snapshot['stack'][$index] = $this->hydrateStackItem($item, $catalog);
-                }
-            }
-        }
+        $legacy['stack'] = $this->hydrateStructuredStack(
+            is_array($snapshot['stack'] ?? null) ? $snapshot['stack'] : [],
+            $instances,
+            $catalog,
+            $loc,
+        );
+        $legacy['attachments'] = array_values(is_array($relations['attachments'] ?? null) ? $relations['attachments'] : []);
+        $legacy['arrows'] = array_values(is_array($relations['arrows'] ?? null) ? $relations['arrows'] : []);
+        $legacy['specialEntities'] = array_values(is_array($relations['helpers'] ?? null) ? $relations['helpers'] : []);
 
-        return $snapshot;
+        return $legacy;
     }
 
     /**
@@ -66,46 +118,110 @@ final class CompactGameCardStateMapper
      *
      * @return array<string,mixed>
      */
-    public function compactSnapshot(array $snapshot): array
+    public function compactSnapshot(array $snapshot, ?string $gameId = null, ?string $status = null): array
     {
         if ($this->isCompactSnapshot($snapshot)) {
             $snapshot = $this->hydrateSnapshot($snapshot);
         }
 
         $catalog = [];
+        $instances = [];
+        $zones = [];
+        $loc = [];
+        $players = [];
 
-        if (isset($snapshot['players']) && is_array($snapshot['players'])) {
-            foreach ($snapshot['players'] as $playerId => &$player) {
-                if (!is_array($player) || !is_array($player['zones'] ?? null)) {
-                    continue;
-                }
+        foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $playerId => $player) {
+            if (!is_array($player)) {
+                continue;
+            }
 
-                foreach ($player['zones'] as $zone => &$cards) {
-                    if (!is_array($cards)) {
+            $players[$playerId] = $player;
+            unset($players[$playerId]['zones'], $players[$playerId]['zoneCounts'], $players[$playerId]['handCount']);
+
+            $zones[$playerId] = [
+                'library' => [],
+                'hand' => [],
+                'battlefield' => [],
+                'graveyard' => [],
+                'exile' => [],
+                'command' => [],
+            ];
+
+            foreach (['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'] as $zone) {
+                foreach (is_array($player['zones'][$zone] ?? null) ? $player['zones'][$zone] : [] as $index => $card) {
+                    if (!is_array($card)) {
                         continue;
                     }
 
-                    foreach ($cards as $index => $card) {
-                        if (is_array($card)) {
-                            $cards[$index] = $this->compactCard($card, (string) $playerId, (string) $zone, $catalog);
-                        }
+                    $runtime = $this->compactCard($card, (string) $playerId, $zone, $catalog);
+                    $instanceId = (string) ($runtime['instanceId'] ?? '');
+                    if ($instanceId === '') {
+                        continue;
                     }
-                }
-                unset($cards);
-            }
-            unset($player);
-        }
 
-        if (isset($snapshot['stack']) && is_array($snapshot['stack'])) {
-            foreach ($snapshot['stack'] as $index => $item) {
-                if (is_array($item)) {
-                    $snapshot['stack'][$index] = $this->compactStackItem($item, $catalog);
+                    $instances[$instanceId] = $runtime;
+                    $zones[$playerId][$zone][] = $instanceId;
+                    $loc[$instanceId] = [
+                        'playerId' => (string) $playerId,
+                        'zone' => $zone,
+                        'index' => count($zones[$playerId][$zone]) - 1,
+                    ];
                 }
             }
         }
 
-        $snapshot[self::FORMAT_KEY] = self::SNAPSHOT_FORMAT;
-        $snapshot[self::CATALOG_KEY] = $catalog;
+        $relations = [
+            'attachments' => $this->indexById(is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : []),
+            'arrows' => $this->indexById(is_array($snapshot['arrows'] ?? null) ? $snapshot['arrows'] : []),
+            'helpers' => $this->indexById(is_array($snapshot['specialEntities'] ?? null) ? $snapshot['specialEntities'] : []),
+        ];
+        $stack = $this->compactStructuredStack(
+            is_array($snapshot['stack'] ?? null) ? $snapshot['stack'] : [],
+            $instances,
+            $catalog,
+            $loc,
+        );
+
+        return (new CompactGameState(
+            $gameId ?? (is_string($snapshot['gameId'] ?? null) ? $snapshot['gameId'] : null),
+            max(1, (int) ($snapshot['version'] ?? 1)),
+            is_string($status) && trim($status) !== ''
+                ? $status
+                : (is_string($snapshot['status'] ?? null) && trim($snapshot['status']) !== '' ? $snapshot['status'] : 'active'),
+            $players,
+            is_array($snapshot['turn'] ?? null) ? $snapshot['turn'] : [],
+            $instances,
+            $zones,
+            $loc,
+            [
+                'strategy' => 'legacy_revealed_to',
+                'ready' => false,
+                'byViewer' => [],
+            ],
+            $relations,
+            $stack,
+            $catalog,
+            $this->compactExtraFields($snapshot),
+        ))->toArray();
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    public function withGameMetadata(array $snapshot, string $gameId, string $status): array
+    {
+        if (!$this->isCompactSnapshot($snapshot)) {
+            return $snapshot;
+        }
+
+        if (!$this->isStructuredCompactSnapshot($snapshot)) {
+            return $this->compactSnapshot($this->hydrateSnapshot($snapshot), $gameId, $status);
+        }
+
+        $snapshot['gameId'] = $gameId;
+        $snapshot['status'] = $status;
 
         return $snapshot;
     }
@@ -194,12 +310,177 @@ final class CompactGameCardStateMapper
     }
 
     /**
+     * @param array<string,mixed>               $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    private function hydrateLegacyCompactSnapshot(array $snapshot): array
+    {
+        $catalog = is_array($snapshot[self::CATALOG_KEY] ?? null) ? $snapshot[self::CATALOG_KEY] : [];
+        unset($snapshot[self::FORMAT_KEY], $snapshot[self::CATALOG_KEY]);
+
+        if (isset($snapshot['players']) && is_array($snapshot['players'])) {
+            foreach ($snapshot['players'] as $playerId => &$player) {
+                if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                    continue;
+                }
+
+                foreach ($player['zones'] as $zone => &$cards) {
+                    if (!is_array($cards)) {
+                        continue;
+                    }
+
+                    foreach ($cards as $index => $card) {
+                        if (is_array($card)) {
+                            $cards[$index] = $this->hydrateCard($card, $catalog, (string) $playerId, (string) $zone);
+                        }
+                    }
+                }
+                unset($cards);
+            }
+            unset($player);
+        }
+
+        if (isset($snapshot['stack']) && is_array($snapshot['stack'])) {
+            foreach ($snapshot['stack'] as $index => $item) {
+                if (is_array($item)) {
+                    $snapshot['stack'][$index] = $this->hydrateLegacyStackItem($item, $catalog);
+                }
+            }
+        }
+
+        return $snapshot;
+    }
+
+    /**
+     * @param list<string> $instanceIds
+     * @param array<string,array<string,mixed>> $instances
+     * @param array<string,array<string,mixed>> $catalog
+     * @param array<string,array{playerId:string,zone:string,index:int}> $loc
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function hydrateZone(string $playerId, string $zone, array $instanceIds, array $instances, array $catalog, array $loc): array
+    {
+        $cards = [];
+        foreach ($instanceIds as $instanceId) {
+            if (!is_string($instanceId) || !isset($instances[$instanceId]) || !is_array($instances[$instanceId])) {
+                continue;
+            }
+
+            $location = is_array($loc[$instanceId] ?? null) ? $loc[$instanceId] : [];
+            $cards[] = $this->hydrateCard(
+                $instances[$instanceId],
+                $catalog,
+                (string) ($location['playerId'] ?? $playerId),
+                (string) ($location['zone'] ?? $zone),
+            );
+        }
+
+        return $cards;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $items
+     * @param array<string,array<string,mixed>> $instances
+     * @param array<string,array<string,mixed>> $catalog
+     * @param array<string,array{playerId:string,zone:string,index:int}> $loc
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function hydrateStructuredStack(array $items, array $instances, array $catalog, array $loc): array
+    {
+        $hydrated = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            if (($item['kind'] ?? null) !== 'card') {
+                $hydrated[] = $item;
+                continue;
+            }
+
+            $instanceId = is_string($item['instanceId'] ?? null) ? $item['instanceId'] : '';
+            if ($instanceId === '' || !isset($instances[$instanceId]) || !is_array($instances[$instanceId])) {
+                $hydrated[] = $item;
+                continue;
+            }
+
+            $location = is_array($loc[$instanceId] ?? null) ? $loc[$instanceId] : [];
+            $hydrated[] = [
+                ...$item,
+                'card' => $this->hydrateCard(
+                    $instances[$instanceId],
+                    $catalog,
+                    (string) ($location['playerId'] ?? ($instances[$instanceId]['ownerId'] ?? '')),
+                    (string) ($location['zone'] ?? ($instances[$instanceId]['zone'] ?? '')),
+                ),
+            ];
+        }
+
+        return $hydrated;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $items
+     * @param array<string,array<string,mixed>> $instances
+     * @param array<string,array<string,mixed>> $catalog
+     * @param array<string,array{playerId:string,zone:string,index:int}> $loc
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function compactStructuredStack(array $items, array &$instances, array &$catalog, array &$loc): array
+    {
+        $stack = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            if (($item['kind'] ?? null) !== 'card') {
+                $stack[] = $item;
+                continue;
+            }
+
+            $card = is_array($item['card'] ?? null) ? $item['card'] : null;
+            $instanceId = is_string($item['instanceId'] ?? null) ? $item['instanceId'] : '';
+            if ($card !== null) {
+                $runtime = $this->compactCard(
+                    $card,
+                    (string) ($card['ownerId'] ?? ''),
+                    (string) ($card['zone'] ?? ''),
+                    $catalog,
+                );
+                $instanceId = (string) ($runtime['instanceId'] ?? $instanceId);
+                if ($instanceId !== '' && !isset($instances[$instanceId])) {
+                    $instances[$instanceId] = $runtime;
+                    $loc[$instanceId] = [
+                        'playerId' => (string) ($runtime['ownerId'] ?? ''),
+                        'zone' => 'stack',
+                        'index' => 0,
+                    ];
+                }
+            }
+
+            $stack[] = [
+                'id' => $item['id'] ?? null,
+                'kind' => 'card',
+                'instanceId' => $instanceId,
+                'createdAt' => $item['createdAt'] ?? null,
+            ];
+        }
+
+        return $stack;
+    }
+
+    /**
      * @param array<string,mixed>               $item
      * @param array<string,array<string,mixed>> $catalog
      *
      * @return array<string,mixed>
      */
-    private function hydrateStackItem(array $item, array $catalog): array
+    private function hydrateLegacyStackItem(array $item, array $catalog): array
     {
         if (($item['kind'] ?? null) !== 'card' || !is_array($item['card'] ?? null)) {
             return $item;
@@ -211,25 +492,43 @@ final class CompactGameCardStateMapper
     }
 
     /**
-     * @param array<string,mixed>                 $item
-     * @param array<string,array<string,mixed>>   $catalog
+     * @param list<array<string,mixed>> $items
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function indexById(array $items): array
+    {
+        $indexed = [];
+        foreach ($items as $index => $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $id = is_string($item['id'] ?? null) && trim($item['id']) !== ''
+                ? $item['id']
+                : sprintf('index-%d', $index);
+            $indexed[$id] = $item;
+        }
+
+        return $indexed;
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
      *
      * @return array<string,mixed>
      */
-    private function compactStackItem(array $item, array &$catalog): array
+    private function compactExtraFields(array $snapshot): array
     {
-        if (($item['kind'] ?? null) !== 'card' || !is_array($item['card'] ?? null)) {
-            return $item;
-        }
-
-        $card = $item['card'];
-        $item['card'] = $this->compactCard(
-            $card,
-            (string) ($card['ownerId'] ?? ''),
-            (string) ($card['zone'] ?? ''),
-            $catalog,
-        );
-
-        return $item;
+        return [
+            'ownerId' => $snapshot['ownerId'] ?? '',
+            'gamePhase' => $snapshot['gamePhase'] ?? 'PLAYING',
+            'mulligan' => is_array($snapshot['mulligan'] ?? null) ? $snapshot['mulligan'] : [],
+            'timer' => is_array($snapshot['timer'] ?? null) ? $snapshot['timer'] : [],
+            'chat' => is_array($snapshot['chat'] ?? null) ? $snapshot['chat'] : [],
+            'eventLog' => is_array($snapshot['eventLog'] ?? null) ? $snapshot['eventLog'] : [],
+            'createdAt' => $snapshot['createdAt'] ?? null,
+            'updatedAt' => $snapshot['updatedAt'] ?? null,
+        ];
     }
 }

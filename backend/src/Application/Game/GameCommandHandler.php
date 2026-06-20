@@ -265,7 +265,7 @@ class GameCommandHandler
                 ? $this->chatEventPayload($payload)
                 : ($this->pendingEventPayload ?? $payload);
             $this->commit($snapshot, $type, $log, $actor);
-            $persistedSnapshot = $this->snapshotForPersistence($snapshotBefore, $snapshot);
+            $persistedSnapshot = $this->snapshotForPersistence($game, $snapshotBefore, $snapshot);
             $game->replaceSnapshot($persistedSnapshot);
             $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
             $game->addEvent($event);
@@ -3935,12 +3935,12 @@ class GameCommandHandler
         return round(max(0, (microtime(true) - $startedAt) * 1000), 2);
     }
 
-    private function snapshotForPersistence(array $snapshotBefore, array $snapshot): array
+    private function snapshotForPersistence(Game $game, array $snapshotBefore, array $snapshot): array
     {
         if (!$this->compactRuntimeFlags->enabled() && !$this->compactStateMapper->isCompactSnapshot($snapshotBefore)) {
             return $snapshot;
         }
 
-        return $this->compactStateMapper->compactSnapshot($snapshot);
+        return $this->compactStateMapper->compactSnapshot($snapshot, $game->id(), $game->status());
     }
 }
