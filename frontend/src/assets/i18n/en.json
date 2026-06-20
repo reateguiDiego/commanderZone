@@ -771,6 +771,7 @@
       "editDeck": "Edit deck",
       "deleteDeck": "Delete deck",
       "deckSaved": "Deck saved",
+      "createEmptyDeck": "Create empty deck",
       "createFolder": "Create folder",
       "commanderEnlargedPreview": "Commander enlarged preview",
       "loadingDecks": "Loading decks...",

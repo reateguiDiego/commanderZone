@@ -3,7 +3,12 @@
   [class.is-open]="dropdownOpen()"
   [class.is-disabled]="disabled()"
 >
-  <span class="format-select-label" [class.sr-only]="labelHidden()">{{ visibleLabel() | runtimeTranslate }}</span>
+  <span class="format-select-label" [class.sr-only]="labelHidden()">
+    {{ visibleLabel() | runtimeTranslate }}
+    @if (required() && !labelHidden()) {
+      <span class="required-mark" aria-hidden="true">*</span>
+    }
+  </span>
   <input type="hidden" [name]="name()" [value]="value()" [required]="required()" />
 
   <div class="format-select-control">

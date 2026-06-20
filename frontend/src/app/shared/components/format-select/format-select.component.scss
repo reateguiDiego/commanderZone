@@ -18,6 +18,10 @@
   text-transform: uppercase;
 }
 
+.required-mark {
+  color: var(--cz-warning);
+}
+
 .format-select-control {
   position: relative;
   min-width: 0;
@@ -246,6 +250,24 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 520px) {
+  .format-select-label {
+    font-size: 0.64rem;
+  }
+
+  .format-select-trigger {
+    min-height: 2.45rem;
+    padding-inline: 0.62rem;
+    font-size: 0.76rem;
+  }
+
+  .format-select-option {
+    min-height: 2.15rem;
+    padding-inline: 0.58rem;
+    font-size: 0.74rem;
   }
 }
 

@@ -34,6 +34,8 @@ const DECK_MANA_COLOR_ORDER: readonly DeckManaColorStat['color'][] = ['W', 'U', 
 @Injectable()
 export class DeckListStore {
   readonly maxDeckNameLength = 20;
+  readonly maxFolderNameLength = 20;
+  readonly maxDeckSearchLength = 20;
   readonly colorFilterOptions: readonly DeckColorFilterOption[] = [
     { value: 'all', labelKey: 'deckBuilder.deckList.colorFilter.any' },
     { value: 'W', labelKey: 'deckBuilder.deckList.colorFilter.white' },
@@ -52,7 +54,6 @@ export class DeckListStore {
 
   readonly decks = signal<Deck[]>([]);
   readonly folders = signal<DeckFolder[]>([]);
-  readonly folderOptions = signal<DeckFolder[]>([]);
   readonly formats = signal<DeckFormat[]>([]);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
@@ -73,6 +74,7 @@ export class DeckListStore {
   readonly createdMissing = signal<string[]>([]);
   readonly createdImportMessage = signal<string | null>(null);
   readonly createSubmitting = signal(false);
+  readonly createdDeckFileLoading = signal(false);
   readonly createFormLocked = signal(false);
   readonly selectedCommanders = signal<Card[]>([]);
   readonly currentFolderId = signal<string | null>(null);
@@ -167,6 +169,7 @@ export class DeckListStore {
   newDeckFormatId = 'commander';
   newDeckFolderId = '';
   newDeckVisibility: DeckVisibility = 'private';
+  newDeckCreateEmpty = false;
   newFolderName = '';
   newFolderVisibility: DeckVisibility = 'private';
   renameFolderName = '';
@@ -188,15 +191,13 @@ export class DeckListStore {
     this.error.set(null);
 
     try {
-      const [decksResponse, foldersResponse, folderNamesResponse, formatsResponse] = await Promise.all([
+      const [decksResponse, foldersResponse, formatsResponse] = await Promise.all([
         firstValueFrom(this.decksApi.list()),
         firstValueFrom(this.deckFoldersApi.list()),
-        firstValueFrom(this.deckFoldersApi.names()),
         firstValueFrom(this.deckFormatsApi.list()),
       ]);
       this.decks.set(decksResponse.data);
       this.folders.set(foldersResponse.data);
-      this.folderOptions.set(folderNamesResponse.data);
       this.formats.set(formatsResponse.data);
       if (!this.formats().some((format) => format.id === this.newDeckFormatId) && this.formats().length > 0) {
         this.newDeckFormatId = this.formats()[0].id;
@@ -218,12 +219,14 @@ export class DeckListStore {
     this.newDeckFormatId = this.formats()[0]?.id ?? 'commander';
     this.newDeckFolderId = '';
     this.newDeckVisibility = 'private';
+    this.newDeckCreateEmpty = false;
     this.commanderQuery = '';
     this.createdDecklist = '';
     this.createdDeck.set(null);
     this.createdMissing.set([]);
     this.createdImportMessage.set(null);
     this.createSubmitting.set(false);
+    this.createdDeckFileLoading.set(false);
     this.createFormLocked.set(false);
     this.selectedCommanders.set([]);
     this.createModalOpen.set(false);
@@ -305,11 +308,13 @@ export class DeckListStore {
   }
 
   isCreateFormDisabled(): boolean {
-    return this.createSubmitting() || this.createFormLocked();
+    return this.createSubmitting() || this.createdDeckFileLoading() || this.createFormLocked();
   }
 
   isCreatePrimaryDisabled(): boolean {
-    return this.createSubmitting() || (!this.createFormLocked() && !this.isCreateFormReady());
+    return this.createSubmitting()
+      || this.createdDeckFileLoading()
+      || (!this.createFormLocked() && !this.isCreateFormReady());
   }
 
   isNewDeckNameTooLong(): boolean {
@@ -317,7 +322,42 @@ export class DeckListStore {
   }
 
   newDeckNameHelp(): string {
-    return `${this.newDeckName.trim().length}/${this.maxDeckNameLength} characters`;
+    return this.nameLengthHelp(this.newDeckName, this.maxDeckNameLength);
+  }
+
+  isEditDeckNameTooLong(): boolean {
+    return this.editDeckName.trim().length > this.maxDeckNameLength;
+  }
+
+  editDeckNameHelp(): string {
+    return this.nameLengthHelp(this.editDeckName, this.maxDeckNameLength);
+  }
+
+  isNewFolderNameTooLong(): boolean {
+    return this.newFolderName.trim().length > this.maxFolderNameLength;
+  }
+
+  newFolderNameHelp(): string {
+    return this.nameLengthHelp(this.newFolderName, this.maxFolderNameLength);
+  }
+
+  isRenameFolderNameTooLong(): boolean {
+    return this.renameFolderName.trim().length > this.maxFolderNameLength;
+  }
+
+  renameFolderNameHelp(): string {
+    return this.nameLengthHelp(this.renameFolderName, this.maxFolderNameLength);
+  }
+
+  canSaveFolderRename(): boolean {
+    const folder = this.folderTarget();
+    const name = this.renameFolderName.trim();
+    if (!folder || name === '' || name.length > this.maxFolderNameLength) {
+      return false;
+    }
+
+    return name !== folder.name.trim()
+      || this.renameFolderVisibility !== (folder.visibility ?? 'private');
   }
 
   hasCreateImportError(): boolean {
@@ -332,9 +372,35 @@ export class DeckListStore {
   }
 
   loadCreatedDeckFile(event: Event): void {
-    this.readDecklistFile(event, (content) => {
-      this.createdDecklist = content;
-    });
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.[0]) {
+      return;
+    }
+
+    this.createdDeckFileLoading.set(true);
+    this.readDecklistFile(
+      event,
+      (content) => {
+        this.createdDecklist = content;
+      },
+      () => {
+        this.createdDeckFileLoading.set(false);
+      },
+      () => {
+        this.error.set('Could not load deck file.');
+      },
+    );
+  }
+
+  setNewDeckCreateEmpty(createEmpty: boolean): void {
+    this.newDeckCreateEmpty = createEmpty;
+    if (!createEmpty) {
+      return;
+    }
+
+    this.commanderQuery = '';
+    this.createdDecklist = '';
+    this.selectedCommanders.set([]);
   }
 
   setCommanderQuery(query: string): void {
@@ -363,7 +429,7 @@ export class DeckListStore {
   }
 
   setSearchQuery(query: string): void {
-    this.searchQuery.set(query);
+    this.searchQuery.set(query.slice(0, this.maxDeckSearchLength));
   }
 
   setColorFilter(filter: DeckListColorFilter): void {
@@ -396,14 +462,13 @@ export class DeckListStore {
 
   async createFolder(): Promise<void> {
     const name = this.newFolderName.trim();
-    if (!name) {
+    if (!name || name.length > this.maxFolderNameLength) {
       return;
     }
 
     try {
       const response = await firstValueFrom(this.deckFoldersApi.create(name, this.newFolderVisibility));
       this.folders.set([response.folder, ...this.folders()]);
-      this.folderOptions.set([response.folder, ...this.folderOptions()]);
       this.closeFolderCreateModal();
     } catch {
       this.error.set('Could not create folder.');
@@ -427,14 +492,13 @@ export class DeckListStore {
   async renameFolder(): Promise<void> {
     const folder = this.folderTarget();
     const name = this.renameFolderName.trim();
-    if (!folder || !name) {
+    if (!folder || !this.canSaveFolderRename()) {
       return;
     }
 
     try {
       const response = await firstValueFrom(this.deckFoldersApi.rename(folder.id, name, this.renameFolderVisibility));
       this.folders.set(this.folders().map((candidate) => candidate.id === folder.id ? response.folder : candidate));
-      this.folderOptions.set(this.folderOptions().map((candidate) => candidate.id === folder.id ? response.folder : candidate));
       this.closeFolderRenameModal();
     } catch {
       this.error.set('Could not rename folder.');
@@ -455,7 +519,6 @@ export class DeckListStore {
     try {
       await firstValueFrom(this.deckFoldersApi.delete(folder.id));
       this.folders.set(this.folders().filter((candidate) => candidate.id !== folder.id));
-      this.folderOptions.set(this.folderOptions().filter((candidate) => candidate.id !== folder.id));
       this.decks.set(this.decks().map((deck) => deck.folderId === folder.id ? { ...deck, folderId: null } : deck));
       if (this.currentFolderId() === folder.id) {
         this.currentFolderId.set(null);
@@ -472,7 +535,9 @@ export class DeckListStore {
 
   async create(): Promise<void> {
     const name = this.newDeckName.trim();
-    const commanderScryfallIds = this.selectedCommanders().map((card) => card.scryfallId);
+    const commanderScryfallIds = this.newDeckCreateEmpty
+      ? []
+      : this.selectedCommanders().map((card) => card.scryfallId);
     if (!this.isCreateFormReady()) {
       return;
     }
@@ -494,6 +559,12 @@ export class DeckListStore {
       this.createdMissing.set([]);
       this.createdImportMessage.set(null);
       this.decks.set([deck, ...this.decks()]);
+
+      if (this.newDeckCreateEmpty) {
+        this.closeCreateModal();
+        void this.router.navigate(['/decks', deck.id]);
+        return;
+      }
 
       const imported = await this.importCreatedDeck(commanderScryfallIds);
       if (!imported) {
@@ -615,6 +686,18 @@ export class DeckListStore {
     return this.editDeckVisibility === 'public' && this.folderIsPrivate(this.editDeckFolderId);
   }
 
+  canSaveDeckEdit(): boolean {
+    const deck = this.deckEditTarget();
+    const name = this.editDeckName.trim();
+    if (!deck || name === '' || name.length > this.maxDeckNameLength) {
+      return false;
+    }
+
+    return name !== deck.name.trim()
+      || this.editDeckVisibility !== (deck.visibility ?? 'private')
+      || (this.editDeckFolderId || null) !== (deck.folderId ?? null);
+  }
+
   openDeckEditModal(deck: Deck): void {
     this.deckEditTarget.set(deck);
     this.editDeckName = deck.name;
@@ -660,7 +743,7 @@ export class DeckListStore {
   async saveDeckEdit(): Promise<void> {
     const deck = this.deckEditTarget();
     const name = this.editDeckName.trim();
-    if (!deck || !name) {
+    if (!deck || !this.canSaveDeckEdit()) {
       return;
     }
 
@@ -736,7 +819,11 @@ export class DeckListStore {
     return deckName !== ''
       && deckName.length <= this.maxDeckNameLength
       && this.newDeckFormatId.trim() !== ''
-      && this.createdDecklist.trim() !== '';
+      && (this.newDeckCreateEmpty || this.createdDecklist.trim() !== '');
+  }
+
+  private nameLengthHelp(name: string, maxLength: number): string {
+    return `${name.trim().length}/${maxLength} characters`;
   }
 
   private folderIsPrivate(folderId: string | null): boolean {
@@ -803,24 +890,19 @@ export class DeckListStore {
   }
 
   private buildManaColorStats(): readonly DeckManaColorStat[] {
-    if (this.decks().length <= 1) {
+    const deckColorIdentities = this.decks()
+      .map((deck) => this.commanderColorIdentity(deck)?.filter((color) => this.isManaColor(color)) ?? null)
+      .filter((colors): colors is DeckManaColorStat['color'][] => colors !== null && colors.length > 0);
+
+    if (deckColorIdentities.length <= 1) {
       return [];
     }
 
     const counts = new Map<DeckManaColorStat['color'], number>(DECK_MANA_COLOR_ORDER.map((color) => [color, 0]));
     let totalSymbols = 0;
 
-    for (const deck of this.decks()) {
-      const colors = this.commanderColorIdentity(deck);
-      if (!colors) {
-        continue;
-      }
-
+    for (const colors of deckColorIdentities) {
       for (const color of colors) {
-        if (!this.isManaColor(color)) {
-          continue;
-        }
-
         counts.set(color, (counts.get(color) ?? 0) + 1);
         totalSymbols += 1;
       }
@@ -834,8 +916,7 @@ export class DeckListStore {
       .map((color) => ({
         color,
         percentage: Math.round(((counts.get(color) ?? 0) / totalSymbols) * 100),
-      }))
-      .filter((stat) => stat.percentage > 0);
+      }));
   }
 
   private isManaColor(value: string): value is DeckManaColorStat['color'] {
@@ -846,7 +927,12 @@ export class DeckListStore {
     return this.searchQuery().trim().toLocaleLowerCase();
   }
 
-  private readDecklistFile(event: Event, onLoaded: (content: string) => void): void {
+  private readDecklistFile(
+    event: Event,
+    onLoaded: (content: string) => void,
+    onSettled: () => void = () => {},
+    onError: () => void = () => {},
+  ): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) {
@@ -858,8 +944,24 @@ export class DeckListStore {
       this.zone.run(() => {
         onLoaded(String(reader.result ?? ''));
         input.value = '';
+        onSettled();
       });
     };
-    reader.readAsText(file);
+    reader.onerror = () => {
+      this.zone.run(() => {
+        input.value = '';
+        onError();
+        onSettled();
+      });
+    };
+    try {
+      reader.readAsText(file);
+    } catch {
+      this.zone.run(() => {
+        input.value = '';
+        onError();
+        onSettled();
+      });
+    }
   }
 }

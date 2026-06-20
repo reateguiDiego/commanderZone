@@ -13,10 +13,6 @@ export class DeckFoldersApi {
     return this.http.get<DataResponse<DeckFolder>>(`${API_BASE_URL}/deck-folders`);
   }
 
-  names(): Observable<DataResponse<DeckFolder>> {
-    return this.http.get<DataResponse<DeckFolder>>(`${API_BASE_URL}/deck-folders/names`);
-  }
-
   create(name: string, visibility: DeckVisibility = 'private'): Observable<DeckFolderResponse> {
     return this.http.post<DeckFolderResponse>(`${API_BASE_URL}/deck-folders`, { name, visibility });
   }

@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { type Deck, type DeckVisibility } from '../../../../../core/models/deck.model';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-deck-list-card',
-  imports: [LucideAngularModule, ManaSymbolsComponent, CzButtonDirective],
+  imports: [LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, CzButtonDirective],
   templateUrl: './deck-list-card.component.html',
   styleUrl: './deck-list-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -27,6 +28,12 @@ export class DeckListCardComponent {
 
   visibilityIcon(visibility: DeckVisibility | undefined): 'globe' | 'lock' {
     return visibility === 'public' ? 'globe' : 'lock';
+  }
+
+  visibilityLabelKey(visibility: DeckVisibility | undefined): string {
+    return visibility === 'public'
+      ? 'common.visibility.visibilityChoice.public'
+      : 'common.visibility.visibilityChoice.private';
   }
 
   open(event: Event): void {

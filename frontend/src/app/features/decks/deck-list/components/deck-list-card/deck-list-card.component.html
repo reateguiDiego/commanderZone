@@ -24,9 +24,13 @@
   </div>
 
   <div class="deck-card-footer">
-    <span class="visibility-pill" [class.public]="deck().visibility === 'public'">
-      <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" />
-      {{ deck().visibility || 'private' }}
+    <span
+      class="visibility-pill"
+      [class.public]="deck().visibility === 'public'"
+      [attr.title]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
+      [attr.aria-label]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
+    >
+      <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" aria-hidden="true" />
     </span>
     @if (hasIssues()) {
       <div class="deck-card-status">

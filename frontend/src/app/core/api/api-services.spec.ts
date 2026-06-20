@@ -299,14 +299,6 @@ describe('API services', () => {
     request.flush({ data: [] });
   });
 
-  it('lists deck folder names through the lightweight endpoint', () => {
-    TestBed.inject(DeckFoldersApi).names().subscribe();
-
-    const request = http.expectOne(`${API_BASE_URL}/deck-folders/names`);
-    expect(request.request.method).toBe('GET');
-    request.flush({ data: [] });
-  });
-
   it('lists deck formats through the backend endpoint', () => {
     TestBed.inject(DeckFormatsApi).list().subscribe();
 

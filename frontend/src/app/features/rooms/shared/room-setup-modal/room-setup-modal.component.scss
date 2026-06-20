@@ -263,7 +263,7 @@
 
 :host ::ng-deep .visibility-choice__button {
   min-height: 3.05rem;
-  border-color: rgb(var(--cz-primary-rgb) / 22%);
+  border-color: rgb(var(--visibility-choice-rgb) / 22%);
   border-radius: 10px;
   padding: 0.55rem 0.7rem;
   background: rgb(var(--cz-bg-rgb) / 34%);
@@ -271,8 +271,8 @@
 }
 
 :host ::ng-deep .visibility-choice__button.is-selected {
-  border-color: rgb(var(--cz-primary-rgb) / 52%);
-  background: linear-gradient(180deg, rgb(var(--cz-primary-rgb) / 16%), rgb(var(--cz-primary-rgb) / 7%));
+  border-color: rgb(var(--visibility-choice-rgb) / 52%);
+  background: linear-gradient(180deg, rgb(var(--visibility-choice-rgb) / 16%), rgb(var(--visibility-choice-rgb) / 7%));
   color: var(--cz-text);
 }
 
@@ -286,6 +286,7 @@
 }
 
 :host ::ng-deep .visibility-choice__subtitle {
+  color: rgb(var(--cz-text-rgb) / 64%);
   font-size: 0.72rem;
 }
 

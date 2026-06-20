@@ -16,12 +16,14 @@ describe('App', () => {
   const authStore = {
     initialize: vi.fn().mockResolvedValue(undefined),
   };
+  let resolveSlowNavigation: ((value: boolean) => void) | null = null;
 
   beforeEach(async () => {
     localStorage.clear();
     document.body.classList.remove('dashboard-background');
     document.documentElement.style.removeProperty('--app-session-background');
     authStore.initialize.mockClear();
+    resolveSlowNavigation = null;
 
     await TestBed.configureTestingModule({
       imports: [App],
@@ -37,6 +39,11 @@ describe('App', () => {
           { path: 'community', component: EmptyRouteComponent },
           { path: 'dashboard', component: EmptyRouteComponent },
           { path: 'decks', component: EmptyRouteComponent },
+          {
+            path: 'slow-route',
+            component: EmptyRouteComponent,
+            canActivate: [() => new Promise<boolean>((resolve) => { resolveSlowNavigation = resolve; })],
+          },
           { path: 'table-assistant', component: EmptyRouteComponent },
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
@@ -200,6 +207,40 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
 
     loading.stop();
+  });
+
+  it('hides footer disclaimers while the global loading overlay is visible', async () => {
+    const router = TestBed.inject(Router);
+    const loading = TestBed.inject(LoadingStore);
+    const fixture = TestBed.createComponent(App);
+
+    loading.start();
+    await router.navigateByUrl('/decks');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+
+    loading.stop();
+  });
+
+  it('shows the global loader while an app route navigation is pending', async () => {
+    const router = TestBed.inject(Router);
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    await router.navigateByUrl('/');
+
+    const navigation = router.navigateByUrl('/slow-route');
+    await vi.waitFor(() => expect(resolveSlowNavigation).toBeTypeOf('function'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+
+    resolveSlowNavigation?.(true);
+    await navigation;
   });
 
   it('toggles dashboard background mode and only applies a session background on private shell routes', async () => {

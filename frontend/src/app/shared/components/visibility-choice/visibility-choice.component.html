@@ -5,6 +5,8 @@
       <button
         type="button"
         class="visibility-choice__button"
+        [class.visibility-choice__button--public]="option === 'public'"
+        [class.visibility-choice__button--private]="option === 'private'"
         [class.is-selected]="value === option"
         (click)="choose(option)"
       >

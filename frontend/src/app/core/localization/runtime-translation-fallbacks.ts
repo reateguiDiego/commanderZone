@@ -165,6 +165,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   "deckBuilder.deckList.colorFilter.label": "Color",
   "deckBuilder.deckList.colorFilter.red": "Red",
   "deckBuilder.deckList.colorFilter.white": "White",
+  "deckBuilder.deckList.createEmptyDeck": "Create empty deck",
   "deckBuilder.deckList.createFolder": "Create folder",
   "deckBuilder.deckList.deckName": "Deck name",
   "deckBuilder.deckList.decks": "Decks",

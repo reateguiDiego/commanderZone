@@ -14,6 +14,7 @@ import { Card } from '../../../core/models/card.model';
 import { type DeckListColorFilter, type DeckListSortMode, DeckListStore } from '../data-access/deck-list.store';
 import { DeckListCardComponent } from './components/deck-list-card/deck-list-card.component';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { CompactCheckboxComponent } from '../../../shared/ui/compact-checkbox/compact-checkbox.component';
 
 interface CommanderHoverPreview {
   imageUrl: string;
@@ -35,6 +36,7 @@ interface CommanderHoverPreview {
     ManaSymbolsComponent,
     DeckListCardComponent,
     CzButtonDirective,
+    CompactCheckboxComponent,
   ],
   templateUrl: './deck-list.component.html',
   styleUrl: './deck-list.component.scss',
@@ -90,6 +92,12 @@ export class DeckListComponent implements OnInit, OnDestroy {
 
   visibilityIcon(visibility: DeckVisibility | undefined): 'globe' | 'lock' {
     return visibility === 'public' ? 'globe' : 'lock';
+  }
+
+  visibilityLabelKey(visibility: DeckVisibility | undefined): string {
+    return visibility === 'public'
+      ? 'common.visibility.visibilityChoice.public'
+      : 'common.visibility.visibilityChoice.private';
   }
 
   setColorFilter(value: string): void {

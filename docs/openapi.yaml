@@ -840,23 +840,6 @@ paths:
                     $ref: '#/components/schemas/DeckFolder'
         '400':
           $ref: '#/components/responses/Error'
-  /deck-folders/names:
-    get:
-      tags: [DeckFolders]
-      summary: List authenticated user's deck folder names.
-      responses:
-        '200':
-          description: Lightweight deck folder names.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/DeckFolder'
   /deck-folders/{id}:
     patch:
       tags: [DeckFolders]

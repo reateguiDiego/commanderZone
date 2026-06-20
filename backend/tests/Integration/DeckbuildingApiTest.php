@@ -164,7 +164,7 @@ class DeckbuildingApiTest extends ApiTestCase
         $folderId = (string) $folder['id'];
         self::assertSame('public', $folder['visibility']);
 
-        $this->jsonRequest('GET', '/deck-folders/names', token: $token);
+        $this->jsonRequest('GET', '/deck-folders', token: $token);
         self::assertResponseIsSuccessful();
         self::assertSame('Commander', $this->jsonResponse()['data'][0]['name']);
 

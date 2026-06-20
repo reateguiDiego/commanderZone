@@ -11,6 +11,7 @@ import {
   Layers3,
   LayoutGrid,
   List,
+  LoaderCircle,
   Lock,
   LucideAngularModule,
   Pencil,
@@ -44,6 +45,7 @@ describe('DeckListComponent', () => {
           Layers3,
           LayoutGrid,
           List,
+          LoaderCircle,
           Pencil,
           Plus,
           Search,
@@ -83,7 +85,9 @@ describe('DeckListComponent', () => {
           provide: DeckFoldersApi,
           useValue: {
             list: vi.fn().mockReturnValue(of({ data: [] })),
-            names: vi.fn().mockReturnValue(of({ data: [] })),
+            create: vi.fn().mockReturnValue(of({ folder: savedFolder() })),
+            rename: vi.fn().mockReturnValue(of({ folder: savedFolder() })),
+            delete: vi.fn().mockReturnValue(of(undefined)),
           },
         },
         { provide: DeckFormatsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
@@ -125,6 +129,45 @@ describe('DeckListComponent', () => {
     expect(names).toEqual(['Alpha Deck', 'Charlie Folder', 'Delta Deck']);
   });
 
+  it('derives folder select options from loaded folders', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.folders.set([
+      savedFolder({ id: 'folder-1', name: 'Folder One' }),
+    ]);
+
+    expect(fixture.componentInstance.folderOptions()).toEqual([
+      { id: '', labelKey: 'deckBuilder.deckList.noFolder' },
+      { id: 'folder-1', name: 'Folder One' },
+    ]);
+  });
+
+  it('renders visibility pills as icon-only labels with tooltips', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.folders.set([
+      savedFolder({ id: 'folder-alpha', name: 'Alpha Folder', visibility: 'public' }),
+    ]);
+    fixture.componentInstance.store.decks.set([
+      savedDeck({ id: 'deck-beta', name: 'Beta Deck', folderId: null, visibility: 'private' }),
+    ]);
+    fixture.componentInstance.store.loading.set(false);
+    fixture.detectChanges();
+
+    const pills = Array.from(
+      fixture.nativeElement.querySelectorAll('.visibility-pill') as NodeListOf<HTMLElement>,
+    );
+
+    expect(pills).toHaveLength(2);
+    expect(pills.map((pill) => pill.textContent?.trim())).toEqual(['', '']);
+    expect(pills.map((pill) => pill.getAttribute('title'))).toEqual(['Public', 'Private']);
+    expect(pills.map((pill) => pill.getAttribute('aria-label'))).toEqual(['Public', 'Private']);
+  });
+
   it('saves the selected edit folder with the deck update payload', async () => {
     const decksApi = TestBed.inject(DecksApi);
     const updateDeck = vi.spyOn(decksApi, 'update').mockReturnValue(of({
@@ -154,6 +197,98 @@ describe('DeckListComponent', () => {
     });
   });
 
+  it('disables edit deck save until the form has valid changes', async () => {
+    const decksApi = TestBed.inject(DecksApi);
+    const updateDeck = vi.spyOn(decksApi, 'update');
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const deck = savedDeck({ id: 'deck-1', name: 'Original Deck', visibility: 'private', folderId: null });
+
+    fixture.componentInstance.store.openDeckEditModal(deck);
+    fixture.detectChanges();
+
+    let saveButton = fixture.nativeElement.querySelector('.modal-panel footer button:last-child') as HTMLButtonElement | null;
+    expect(fixture.componentInstance.store.canSaveDeckEdit()).toBe(false);
+    expect(saveButton?.disabled).toBe(true);
+
+    await fixture.componentInstance.store.saveDeckEdit();
+    expect(updateDeck).not.toHaveBeenCalled();
+
+    fixture.componentInstance.store.editDeckVisibility = 'public';
+    fixture.detectChanges();
+
+    saveButton = fixture.nativeElement.querySelector('.modal-panel footer button:last-child') as HTMLButtonElement | null;
+    expect(fixture.componentInstance.store.canSaveDeckEdit()).toBe(true);
+    expect(saveButton?.disabled).toBe(false);
+  });
+
+  it('does not save an edited deck name over the length limit', async () => {
+    const decksApi = TestBed.inject(DecksApi);
+    const updateDeck = vi.spyOn(decksApi, 'update');
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const deck = savedDeck({ id: 'deck-1', name: 'Original Deck' });
+
+    fixture.componentInstance.store.openDeckEditModal(deck);
+    fixture.componentInstance.store.editDeckName = 'x'.repeat(fixture.componentInstance.store.maxDeckNameLength + 1);
+    await fixture.componentInstance.store.saveDeckEdit();
+
+    expect(fixture.componentInstance.store.isEditDeckNameTooLong()).toBe(true);
+    expect(updateDeck).not.toHaveBeenCalled();
+  });
+
+  it('does not create or rename folders over the length limit', async () => {
+    const deckFoldersApi = TestBed.inject(DeckFoldersApi);
+    const createFolder = vi.spyOn(deckFoldersApi, 'create');
+    const renameFolder = vi.spyOn(deckFoldersApi, 'rename');
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const tooLongName = 'x'.repeat(fixture.componentInstance.store.maxFolderNameLength + 1);
+
+    fixture.componentInstance.store.newFolderName = tooLongName;
+    await fixture.componentInstance.store.createFolder();
+    fixture.componentInstance.store.openRenameFolderModal(savedFolder({ id: 'folder-1', name: 'Folder One' }));
+    fixture.componentInstance.store.renameFolderName = tooLongName;
+    await fixture.componentInstance.store.renameFolder();
+
+    expect(fixture.componentInstance.store.isNewFolderNameTooLong()).toBe(true);
+    expect(fixture.componentInstance.store.isRenameFolderNameTooLong()).toBe(true);
+    expect(createFolder).not.toHaveBeenCalled();
+    expect(renameFolder).not.toHaveBeenCalled();
+  });
+
+  it('disables rename folder save until the form has valid changes', async () => {
+    const deckFoldersApi = TestBed.inject(DeckFoldersApi);
+    const renameFolder = vi.spyOn(deckFoldersApi, 'rename');
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openRenameFolderModal(savedFolder({
+      id: 'folder-1',
+      name: 'Folder One',
+      visibility: 'private',
+    }));
+    fixture.detectChanges();
+
+    let saveButton = fixture.nativeElement.querySelector('.modal-panel footer button:last-child') as HTMLButtonElement | null;
+    expect(fixture.componentInstance.store.canSaveFolderRename()).toBe(false);
+    expect(saveButton?.disabled).toBe(true);
+
+    await fixture.componentInstance.store.renameFolder();
+    expect(renameFolder).not.toHaveBeenCalled();
+
+    fixture.componentInstance.store.renameFolderName = 'Folder Two';
+    fixture.detectChanges();
+
+    saveButton = fixture.nativeElement.querySelector('.modal-panel footer button:last-child') as HTMLButtonElement | null;
+    expect(fixture.componentInstance.store.canSaveFolderRename()).toBe(true);
+    expect(saveButton?.disabled).toBe(false);
+  });
+
   it('renders the edit deck folder select from loaded folders', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
@@ -163,7 +298,6 @@ describe('DeckListComponent', () => {
     fixture.componentInstance.store.folders.set([
       savedFolder({ id: 'folder-1', name: 'Folder One' }),
     ]);
-    fixture.componentInstance.store.folderOptions.set([]);
     fixture.componentInstance.store.openDeckEditModal(deck);
     fixture.detectChanges();
 
@@ -280,6 +414,16 @@ describe('DeckListComponent', () => {
     ]);
     expect(fixture.componentInstance.store.manaColorStats()).toEqual([]);
 
+    fixture.componentInstance.store.folders.set([
+      savedFolder({ id: 'folder-1', name: 'Folder One' }),
+      savedFolder({ id: 'folder-2', name: 'Folder Two' }),
+    ]);
+    fixture.componentInstance.store.decks.set([
+      savedDeck({ id: 'deck-1', commanders: [commanderCard()] }),
+      savedDeck({ id: 'deck-2', commanders: [] }),
+    ]);
+    expect(fixture.componentInstance.store.manaColorStats()).toEqual([]);
+
     fixture.componentInstance.store.decks.set([
       savedDeck({ id: 'deck-1', commanders: [commanderCard()] }),
       savedDeck({ id: 'deck-2', commanders: [secondCommanderCard()] }),
@@ -289,7 +433,9 @@ describe('DeckListComponent', () => {
       { color: 'W', percentage: 17 },
       { color: 'U', percentage: 33 },
       { color: 'B', percentage: 33 },
+      { color: 'R', percentage: 0 },
       { color: 'G', percentage: 17 },
+      { color: 'C', percentage: 0 },
     ]);
   });
 
@@ -305,6 +451,16 @@ describe('DeckListComponent', () => {
     fixture.componentInstance.store.setSearchQuery('ie');
 
     expect(fixture.componentInstance.store.visibleUnfiledDecks()).toEqual([]);
+  });
+
+  it('limits the deck search query to 20 characters', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.setSearchQuery('x'.repeat(fixture.componentInstance.store.maxDeckSearchLength + 1));
+
+    expect(fixture.componentInstance.store.searchQuery()).toHaveLength(fixture.componentInstance.store.maxDeckSearchLength);
   });
 
   it('opens the create deck flow when the route requests an import intent', () => {
@@ -389,6 +545,47 @@ describe('DeckListComponent', () => {
     expect(fixture.componentInstance.store.createSuccessMessage()).toBe(
       'This deck has been saved. It is now in your saved decks list, and you can edit it however you like. Good luck with your Commander deck!',
     );
+  });
+
+  it('hides commander and import fields when creating an empty deck', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.formats.set([
+      { id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true },
+    ]);
+    fixture.componentInstance.store.openCreateModal();
+    fixture.componentInstance.store.setNewDeckCreateEmpty(true);
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Create empty deck');
+    expect(fixture.nativeElement.querySelector('label[for="commanderSearch"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-card-autocomplete')).toBeNull();
+    expect(fixture.nativeElement.querySelector('textarea[name="createdDecklist"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('input[type="file"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-disclaimer-callout')).toBeNull();
+  });
+
+  it('creates an empty deck without importing and navigates directly to it', async () => {
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const decksApi = TestBed.inject(DecksApi);
+    const importDecklist = vi.spyOn(decksApi, 'importDecklist');
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openCreateModal();
+    fixture.componentInstance.store.newDeckName = 'Empty Deck';
+    fixture.componentInstance.store.setNewDeckCreateEmpty(true);
+    await fixture.componentInstance.store.create();
+
+    expect(importDecklist).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.createModalOpen()).toBe(false);
+    expect(fixture.componentInstance.store.createSuccessModalOpen()).toBe(false);
+    expect(navigate).toHaveBeenCalledWith(['/decks', 'saved-deck']);
   });
 
   it('sends the raw create-deck decklist and keeps both explicit selected commanders', async () => {
@@ -526,7 +723,53 @@ Creatures (1)
     fixture.componentInstance.store.loadCreatedDeckFile({ target: input } as unknown as Event);
 
     expect(fixture.componentInstance.store.createdDecklist).toBe('About\nName Imported\n1 Arcane Signet');
+    expect(fixture.componentInstance.store.createdDeckFileLoading()).toBe(false);
     expect(input.value).toBe('');
+  });
+
+  it('shows loading while a decklist file is being read', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    interface PendingFileReader {
+      result: string | ArrayBuffer | null;
+      onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null;
+      onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null;
+      readAsText(): void;
+    }
+
+    const pendingReaders: PendingFileReader[] = [];
+    class MockPendingFileReader implements PendingFileReader {
+      result: string | ArrayBuffer | null = null;
+      onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+      onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+
+      constructor() {
+        pendingReaders.push(this);
+      }
+
+      readAsText(): void {
+        this.result = '1 Arcane Signet';
+      }
+    }
+
+    vi.stubGlobal('FileReader', MockPendingFileReader);
+    const input = document.createElement('input');
+    Object.defineProperty(input, 'files', {
+      value: [new File(['deck'], 'deck.dec', { type: 'text/plain' })],
+    });
+
+    fixture.componentInstance.store.loadCreatedDeckFile({ target: input } as unknown as Event);
+
+    expect(fixture.componentInstance.store.createdDeckFileLoading()).toBe(true);
+
+    const reader = pendingReaders[0];
+    expect(reader).toBeDefined();
+    reader?.onload?.call(reader as unknown as FileReader, {} as ProgressEvent<FileReader>);
+
+    expect(fixture.componentInstance.store.createdDeckFileLoading()).toBe(false);
+    expect(fixture.componentInstance.store.createdDecklist).toBe('1 Arcane Signet');
   });
 
   it('accepts .dec files in the create-flow import input', async () => {

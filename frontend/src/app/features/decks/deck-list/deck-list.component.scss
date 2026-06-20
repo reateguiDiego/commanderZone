@@ -248,10 +248,7 @@
 }
 
 .deck-search input:focus,
-.deck-search input:focus-visible,
-.deck-search input.ng-pristine,
-.deck-search input.ng-valid,
-.deck-search input.ng-touched {
+.deck-search input:focus-visible {
   border: 0;
   outline: 0;
   box-shadow: none;
@@ -289,6 +286,8 @@
 }
 
 .deck-table-list {
+  --deck-list-card-min-height: 13rem;
+
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
   gap: clamp(0.85rem, 1.35vw, 1.15rem);
@@ -322,17 +321,15 @@
 
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: center;
   width: fit-content;
+  min-width: 2rem;
   min-height: 2rem;
-  padding: 0.35rem 0.65rem;
+  padding: 0;
   border: 1px solid rgb(var(--pill-rgb) / 38%);
   border-radius: 6px;
   background: rgb(var(--pill-rgb) / 12%);
   color: var(--cz-warning);
-  font-size: 0.78rem;
-  font-weight: 740;
-  text-transform: capitalize;
   backdrop-filter: blur(8px);
 }
 
@@ -360,7 +357,8 @@
   overflow: hidden;
   display: grid;
   align-content: space-between;
-  min-height: 13rem;
+  height: 100%;
+  min-height: var(--deck-list-card-min-height, 13rem);
   border: 1px solid rgb(var(--cz-primary-rgb) / 34%);
   border-radius: 7px;
   background:
@@ -441,10 +439,6 @@
     0 12px 26px rgb(var(--cz-bg-rgb) / 24%);
 }
 
-.folder-icon-wrap lucide-icon {
-  color: var(--cz-accent);
-}
-
 .folder-heading {
   display: flex;
   align-items: center;
@@ -497,12 +491,12 @@
 .field-hint {
   display: block;
   margin-top: 0.25rem;
-  color: rgb(var(--cz-text-rgb) / 66%);
+  color: var(--cz-warning);
   font-size: 0.75rem;
 }
 
 .field-hint.error-text {
-  color: var(--cz-secondary);
+  color: var(--cz-warning);
 }
 
 .deck-modal-form {
@@ -510,7 +504,34 @@
 }
 
 .deck-modal-form label {
-  color: rgb(var(--cz-text-rgb) / 72%);
+  color: var(--cz-text);
+}
+
+.required-mark {
+  color: var(--cz-warning);
+}
+
+.create-name-row {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: 0.75rem;
+}
+
+.create-meta-row.has-folder {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.import-decklist-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.create-empty-checkbox {
+  justify-self: start;
+  margin-top: 2rem;
 }
 
 .deck-modal-form input,
@@ -707,7 +728,7 @@
 @media (max-width: 820px) {
   .deck-toolbar {
     grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.75fr);
-    align-items: start;
+    align-items: center;
   }
 
   .deck-page-hero {
@@ -792,6 +813,8 @@
   }
 
   .deck-table-list {
+    --deck-list-card-min-height: 12.5rem;
+
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

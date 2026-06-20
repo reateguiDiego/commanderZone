@@ -78,6 +78,7 @@
             name="deckSearch"
             type="search"
             placeholder="Buscar mazos..."
+            [maxlength]="store.maxDeckSearchLength"
             [ngModel]="store.searchQuery()"
             (ngModelChange)="store.setSearchQuery($event)"
           />
@@ -133,9 +134,13 @@
                     </div>
 
                     <div class="deck-card-footer">
-                      <span class="visibility-pill" [class.public]="item.folder.visibility === 'public'">
-                        <lucide-icon [name]="visibilityIcon(item.folder.visibility)" size="13" />
-                        {{ item.folder.visibility || 'private' }}
+                      <span
+                        class="visibility-pill"
+                        [class.public]="item.folder.visibility === 'public'"
+                        [attr.title]="visibilityLabelKey(item.folder.visibility) | runtimeTranslate"
+                        [attr.aria-label]="visibilityLabelKey(item.folder.visibility) | runtimeTranslate"
+                      >
+                        <lucide-icon [name]="visibilityIcon(item.folder.visibility)" size="13" aria-hidden="true" />
                       </span>
                       <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
                         <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="suppressRowActionClick($event); store.openRenameFolderModal(item.folder)">
@@ -246,37 +251,52 @@
         </div>
       } @else {
         <fieldset class="form-stack" [disabled]="store.isCreateFormDisabled()">
-          <label>
-            {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
-            <input
-              name="name"
-              [placeholder]="'deckBuilder.deckList.newDeckName' | runtimeTranslate"
-              required
-              [maxlength]="store.maxDeckNameLength"
-              [(ngModel)]="store.newDeckName"
+          <div class="create-name-row">
+            <label>
+              <span class="field-label">
+                {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
+                <span class="required-mark" aria-hidden="true">*</span>
+              </span>
+              <input
+                name="name"
+                [placeholder]="'deckBuilder.deckList.newDeckName' | runtimeTranslate"
+                required
+                [maxlength]="store.maxDeckNameLength"
+                [(ngModel)]="store.newDeckName"
+              />
+              <small class="field-hint" [class.error-text]="store.isNewDeckNameTooLong()">
+                Maximum 20 characters. {{ store.newDeckNameHelp() }}
+              </small>
+            </label>
+
+            <app-compact-checkbox
+              class="create-empty-checkbox"
+              name="createEmptyDeck"
+              [checked]="store.newDeckCreateEmpty"
+              [label]="'deckBuilder.deckList.createEmptyDeck' | runtimeTranslate"
+              (checkedChange)="store.setNewDeckCreateEmpty($event)"
             />
-            <small class="field-hint" [class.error-text]="store.isNewDeckNameTooLong()">
-              Maximum 20 characters. {{ store.newDeckNameHelp() }}
-            </small>
-          </label>
+          </div>
 
-          <app-format-select
-            name="format"
-            [formats]="store.formats()"
-            [required]="true"
-            [value]="store.newDeckFormatId"
-            (valueChange)="store.newDeckFormatId = $event; store.onFormatChange()"
-          />
-
-          @if (store.folders().length > 0) {
+          <div class="create-meta-row" [class.has-folder]="store.folders().length > 0">
             <app-format-select
-              name="folder"
-              labelKey="deckBuilder.deckList.folder"
-              [options]="folderOptions()"
-              [value]="store.newDeckFolderId"
-              (valueChange)="setNewDeckFolder($event)"
+              name="format"
+              [formats]="store.formats()"
+              [required]="true"
+              [value]="store.newDeckFormatId"
+              (valueChange)="store.newDeckFormatId = $event; store.onFormatChange()"
             />
-          }
+
+            @if (store.folders().length > 0) {
+              <app-format-select
+                name="folder"
+                labelKey="deckBuilder.deckList.folder"
+                [options]="folderOptions()"
+                [value]="store.newDeckFolderId"
+                (valueChange)="setNewDeckFolder($event)"
+              />
+            }
+          </div>
 
           <app-visibility-choice
             [(value)]="store.newDeckVisibility"
@@ -288,7 +308,7 @@
             <p class="notice warning compact-notice">{{ 'deckBuilder.deckList.thisDeckIsPublicButItsFolder' | runtimeTranslate }}</p>
           }
 
-          @if (store.selectedFormat()?.hasCommander) {
+          @if (!store.newDeckCreateEmpty && store.selectedFormat()?.hasCommander) {
             <div class="form-stack">
               <label for="commanderSearch">{{ 'deckBuilder.deckList.commander' | runtimeTranslate }}</label>
               <div
@@ -328,8 +348,9 @@
                           >
                             <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
                           </span>
-                          <button czButton="icon"
-                            class="icon-button commander-preview-remove"
+                          <button
+                            czButton="icon"
+                            class="commander-preview-remove"
                             type="button"
                             title="Remove commander"
                             [disabled]="store.isCreateFormDisabled()"
@@ -346,25 +367,43 @@
             </div>
           }
 
-          <label>
-            {{ 'deckBuilder.deckList.importDecklist' | runtimeTranslate }}
-            <textarea
-              appPrettyScroll
-              name="createdDecklist"
-              rows="8"
-              required
-              [placeholder]="'deckBuilder.deckList.example1SolRingVoc168' | runtimeTranslate"
-              [(ngModel)]="store.createdDecklist"
-            ></textarea>
-            <p class="app-disclaimer-callout">
-              {{ importDecklistDisclaimerKey() | runtimeTranslate }}
-            </p>
-          </label>
-          <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="createdDeckFileInput.click()">
-            <lucide-icon name="file-up" size="16" />
-            {{ 'deckBuilder.deckEditor.loadFile' | runtimeTranslate }}
-          </button>
-          <input #createdDeckFileInput class="hidden-input" type="file" accept=".txt,.csv,.dek,.dec" (change)="store.loadCreatedDeckFile($event)" />
+          @if (!store.newDeckCreateEmpty) {
+            <div class="form-stack">
+              <div class="import-decklist-heading">
+                <span class="field-label">
+                  {{ 'deckBuilder.deckList.importDecklist' | runtimeTranslate }}
+                  <span class="required-mark" aria-hidden="true">*</span>
+                </span>
+                <button
+                  czButton="secondary"
+                  czButtonSize="sm"
+                  type="button"
+                  [disabled]="store.createdDeckFileLoading()"
+                  (click)="createdDeckFileInput.click()"
+                >
+                  @if (store.createdDeckFileLoading()) {
+                    <lucide-icon name="loader-circle" size="16" />
+                    {{ 'common.app.app.loading' | runtimeTranslate }}
+                  } @else {
+                    <lucide-icon name="file-up" size="16" />
+                    {{ 'deckBuilder.deckEditor.loadFile' | runtimeTranslate }}
+                  }
+                </button>
+              </div>
+              <textarea
+                appPrettyScroll
+                name="createdDecklist"
+                rows="8"
+                required
+                [placeholder]="'deckBuilder.deckList.example1SolRingVoc168' | runtimeTranslate"
+                [(ngModel)]="store.createdDecklist"
+              ></textarea>
+              <p class="app-disclaimer-callout">
+                {{ importDecklistDisclaimerKey() | runtimeTranslate }}
+              </p>
+              <input #createdDeckFileInput class="hidden-input" type="file" accept=".txt,.csv,.dek,.dec" (change)="store.loadCreatedDeckFile($event)" />
+            </div>
+          }
         </fieldset>
       }
     </form>
@@ -385,13 +424,22 @@
     [title]="'deckBuilder.deckList.createFolder' | runtimeTranslate"
     primaryLabel="Create"
     secondaryLabel="Cancel"
+    [primaryDisabled]="store.newFolderName.trim() === '' || store.isNewFolderNameTooLong()"
     (primary)="store.createFolder()"
     (secondary)="store.closeFolderCreateModal()"
   >
     <div class="form-stack deck-modal-form">
       <label>
         {{ 'deckBuilder.deckList.folderName' | runtimeTranslate }}
-        <input name="folderName" [placeholder]="'deckBuilder.deckList.jeskaiBrewsTesting' | runtimeTranslate" [(ngModel)]="store.newFolderName" />
+        <input
+          name="folderName"
+          [placeholder]="'deckBuilder.deckList.jeskaiBrewsTesting' | runtimeTranslate"
+          [maxlength]="store.maxFolderNameLength"
+          [(ngModel)]="store.newFolderName"
+        />
+        <small class="field-hint" [class.error-text]="store.isNewFolderNameTooLong()">
+          Maximum 20 characters. {{ store.newFolderNameHelp() }}
+        </small>
       </label>
       <app-visibility-choice
         [(value)]="store.newFolderVisibility"
@@ -406,13 +454,17 @@
     [title]="'deckBuilder.deckList.editDeck' | runtimeTranslate"
     primaryLabel="Save"
     secondaryLabel="Cancel"
+    [primaryDisabled]="!store.canSaveDeckEdit()"
     (primary)="store.saveDeckEdit()"
     (secondary)="store.closeDeckEditModal()"
   >
     <div class="form-stack deck-modal-form">
       <label>
         {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
-        <input name="editDeckName" [(ngModel)]="store.editDeckName" />
+        <input name="editDeckName" [maxlength]="store.maxDeckNameLength" [(ngModel)]="store.editDeckName" />
+        <small class="field-hint" [class.error-text]="store.isEditDeckNameTooLong()">
+          Maximum 20 characters. {{ store.editDeckNameHelp() }}
+        </small>
       </label>
 
       @if (store.folders().length > 0) {
@@ -442,13 +494,17 @@
     [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate"
     primaryLabel="Save"
     secondaryLabel="Cancel"
+    [primaryDisabled]="!store.canSaveFolderRename()"
     (primary)="store.renameFolder()"
     (secondary)="store.closeFolderRenameModal()"
   >
     <div class="form-stack deck-modal-form">
       <label>
         {{ 'deckBuilder.deckList.folderName' | runtimeTranslate }}
-        <input name="renameFolderName" [(ngModel)]="store.renameFolderName" />
+        <input name="renameFolderName" [maxlength]="store.maxFolderNameLength" [(ngModel)]="store.renameFolderName" />
+        <small class="field-hint" [class.error-text]="store.isRenameFolderNameTooLong()">
+          Maximum 20 characters. {{ store.renameFolderNameHelp() }}
+        </small>
       </label>
       <app-visibility-choice
         [(value)]="store.renameFolderVisibility"
