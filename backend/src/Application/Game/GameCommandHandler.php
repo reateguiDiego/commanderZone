@@ -2,7 +2,10 @@
 
 namespace App\Application\Game;
 
+use App\Application\Game\CommandV2\GameCommandV2Dispatcher;
+use App\Application\Game\CommandV2\GameCommandV2Result;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Domain\Deck\Deck;
@@ -135,6 +138,10 @@ class GameCommandHandler
      * @var array<string,mixed>|null
      */
     private ?array $lastCommandMetrics = null;
+    /**
+     * @var array{eventPayload:array<string,mixed>,operations:list<array<string,mixed>>}|null
+     */
+    private ?array $lastDirectPatchPayload = null;
 
     public function __construct(
         private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null,
@@ -144,6 +151,8 @@ class GameCommandHandler
         ?CompactGameCardStateMapper $compactStateMapper = null,
         ?GameplayCompactRuntimeFlags $compactRuntimeFlags = null,
         ?GameLibraryOps $libraryOps = null,
+        ?GameCommandV2Dispatcher $commandDispatcherV2 = null,
+        ?GameplayV2Flags $flagsV2 = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
@@ -152,6 +161,8 @@ class GameCommandHandler
         $this->compactStateMapper = $compactStateMapper ?? new CompactGameCardStateMapper();
         $this->compactRuntimeFlags = $compactRuntimeFlags ?? new GameplayCompactRuntimeFlags();
         $this->libraryOps = $libraryOps ?? new GameLibraryOps();
+        $this->commandDispatcherV2 = $commandDispatcherV2 ?? new GameCommandV2Dispatcher();
+        $this->flagsV2 = $flagsV2 ?? new GameplayV2Flags();
     }
 
     private readonly GameRandomizer $randomizer;
@@ -160,6 +171,8 @@ class GameCommandHandler
     private readonly CompactGameCardStateMapper $compactStateMapper;
     private readonly GameplayCompactRuntimeFlags $compactRuntimeFlags;
     private readonly GameLibraryOps $libraryOps;
+    private readonly GameCommandV2Dispatcher $commandDispatcherV2;
+    private readonly GameplayV2Flags $flagsV2;
 
     /**
      * @return list<string>
@@ -186,7 +199,15 @@ class GameCommandHandler
         }
 
         $this->lastCommandMetrics = null;
+        $this->lastDirectPatchPayload = null;
         $this->fullScanCount = 0;
+        if ($this->shouldUseV2Command($type)) {
+            $event = $this->applyV2($game, $type, $payload, $actor, $clientActionId);
+            if ($event instanceof GameEvent) {
+                return $event;
+            }
+        }
+
         $snapshotBefore = $game->snapshot();
         $snapshotBytesBefore = $this->metricsInspector->jsonBytes($snapshotBefore);
         $normalizeStartedAt = microtime(true);
@@ -303,6 +324,17 @@ class GameCommandHandler
         $this->lastCommandMetrics = null;
 
         return $metrics;
+    }
+
+    /**
+     * @return array{eventPayload:array<string,mixed>,operations:list<array<string,mixed>>}|null
+     */
+    public function consumeLastDirectPatchPayload(): ?array
+    {
+        $payload = $this->lastDirectPatchPayload;
+        $this->lastDirectPatchPayload = null;
+
+        return $payload;
     }
 
     public function normalizeSnapshot(array $snapshot): array
@@ -4141,6 +4173,342 @@ class GameCommandHandler
     private function elapsedMs(float $startedAt): float
     {
         return round(max(0, (microtime(true) - $startedAt) * 1000), 2);
+    }
+
+    public function v2AssertActorOwnPlayer(array $snapshot, array $payload, User $actor, string $key = 'playerId', string $message = 'You can only perform this action on your own hidden zones.'): void
+    {
+        $this->assertActorPlayer($snapshot, $payload, $actor, $key, $message);
+    }
+
+    public function v2AssertActorIsActiveTurnPlayer(array $snapshot, User $actor): void
+    {
+        $activePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? '');
+        $actorPlayerId = $this->resolveSnapshotPlayerId($snapshot, $actor->id());
+        if ($activePlayerId === '' || $actorPlayerId === null || $activePlayerId !== $actorPlayerId) {
+            throw new \InvalidArgumentException('Only the active turn player can advance the turn.');
+        }
+    }
+
+    public function v2RequiredPlayerId(array $snapshot, array $payload, string $key = 'playerId'): string
+    {
+        return $this->requiredPlayerId($snapshot, $payload, $key);
+    }
+
+    /**
+     * @return array{playerId:string,zone:string,index:int,controllerId:string}
+     */
+    public function v2RequiredCardLocation(array &$snapshot, array $payload): array
+    {
+        return $this->requiredCardLocation($snapshot, $payload);
+    }
+
+    public function v2HasPlayerDefeatedLog(array $snapshot, string $playerId): bool
+    {
+        return $this->hasPlayerDefeatedLog($snapshot, $playerId);
+    }
+
+    public function v2MarkPendingDefeatedPlayer(string $playerId, bool $preexisted = false): void
+    {
+        $this->pendingDefeatedPlayerId = $playerId;
+        $this->pendingDefeatPreexisted = $preexisted;
+    }
+
+    public function v2LifeChangeLog(int $from, int $to): string
+    {
+        return $this->lifeChangeLog($from, $to);
+    }
+
+    public function v2PlayerName(array $snapshot, string $playerId): string
+    {
+        return $this->playerName($snapshot, $playerId);
+    }
+
+    public function v2RollDice(string $kind): int|string
+    {
+        if (!array_key_exists($kind, self::DICE_ROLL_LABELS)) {
+            throw new \InvalidArgumentException('dice.rolled requires a supported kind.');
+        }
+
+        return $this->randomizer->roll($kind);
+    }
+
+    public function v2CounterScopePlayerId(array $payload): ?string
+    {
+        return $this->counterScopePlayerId($payload);
+    }
+
+    public function v2CommanderCounterOwnerId(array $snapshot, array $payload): ?string
+    {
+        return $this->commanderCounterOwnerId($snapshot, $payload);
+    }
+
+    /**
+     * @return array{0:string,1:array<string,mixed>}
+     */
+    public function v2ResolvedCommanderCounterScope(array $snapshot, string $scope): array
+    {
+        return $this->resolvedCommanderCounterScope($snapshot, $scope);
+    }
+
+    public function v2PlayerCounterLog(string $playerName, string $key, int $from, int $to): string
+    {
+        return $this->playerCounterLog($playerName, $key, $from, $to);
+    }
+
+    public function v2CommanderCastCounterLog(int $previousValue, int $value, ?string $commanderName = null): string
+    {
+        return $this->commanderCastCounterLog($previousValue, $value, $commanderName);
+    }
+
+    public function v2CardLogName(array $card): string
+    {
+        return $this->cardLogName($card);
+    }
+
+    public function v2IsSensitiveCardForDirectPatch(string $zone, array $card): bool
+    {
+        return in_array($zone, self::HIDDEN_ZONES, true) || (($card['faceDown'] ?? false) === true);
+    }
+
+    public function v2ApplyStatCounterDelta(array &$card, string $key, int $delta): void
+    {
+        $this->applyStatCounterDelta($card, $key, $delta);
+    }
+
+    /**
+     * @param array{playerId:string,zone:string,index:int,controllerId:string} $location
+     *
+     * @return array<string,mixed>|null
+     */
+    public function v2CardStatsOperation(array $location, array $card, bool $onlyChanged = true): ?array
+    {
+        $operation = [
+            'op' => 'card.stats.set',
+            'playerId' => $location['playerId'],
+            'zone' => $location['zone'],
+            'instanceId' => (string) ($card['instanceId'] ?? ''),
+        ];
+
+        foreach (['power', 'toughness', 'loyalty', 'defense', 'saga'] as $stat) {
+            if (!$onlyChanged || array_key_exists($stat, $card)) {
+                $operation[$stat] = $card[$stat] ?? null;
+            }
+        }
+
+        return count($operation) > 4 ? $operation : null;
+    }
+
+    public function v2IsTheRingLevelCounter(array $card, string $key): bool
+    {
+        return $this->isTheRingLevelCounter($card, $key);
+    }
+
+    public function v2IsDayNightCard(array $card): bool
+    {
+        return $this->isDayNightCard($card);
+    }
+
+    /**
+     * @return array{x:float,y:float,unit:string}
+     */
+    public function v2DayNightFixedPosition(): array
+    {
+        return $this->dayNightFixedPosition();
+    }
+
+    /**
+     * @return array<string,int|float|string>
+     */
+    public function v2NormalizedPosition(mixed $position): array
+    {
+        return $this->normalizedPosition($position);
+    }
+
+    public function v2PowerToughnessLog(
+        array $card,
+        array $payload,
+        mixed $previousPower,
+        mixed $previousToughness,
+        mixed $previousLoyalty,
+        mixed $previousDefense,
+        mixed $previousSaga,
+    ): string {
+        if (array_key_exists('loyalty', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload)) {
+            $previous = $this->numericStat($previousLoyalty);
+            $current = $this->numericStat($card['loyalty'] ?? null);
+            $delta = $previous !== null && $current !== null ? $current - $previous : 0;
+            $direction = $delta >= 0 ? 'increased' : 'decreased';
+            $signedDelta = $delta > 0 ? sprintf('+%d', $delta) : (string) $delta;
+
+            return sprintf(
+                '%s loyalty %s from %s to %s (%s).',
+                $this->cardLogName($card),
+                $direction,
+                $this->statLabel($previousLoyalty),
+                $this->statLabel($card['loyalty'] ?? null),
+                $signedDelta,
+            );
+        }
+
+        if (array_key_exists('defense', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload) && !array_key_exists('loyalty', $payload)) {
+            $previous = $this->numericStat($previousDefense);
+            $current = $this->numericStat($card['defense'] ?? null);
+            $delta = $previous !== null && $current !== null ? $current - $previous : 0;
+            $direction = $delta >= 0 ? 'increased' : 'decreased';
+            $signedDelta = $delta > 0 ? sprintf('+%d', $delta) : (string) $delta;
+
+            return sprintf(
+                '%s defense %s from %s to %s (%s).',
+                $this->cardLogName($card),
+                $direction,
+                $this->statLabel($previousDefense),
+                $this->statLabel($card['defense'] ?? null),
+                $signedDelta,
+            );
+        }
+
+        if (array_key_exists('saga', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload) && !array_key_exists('loyalty', $payload) && !array_key_exists('defense', $payload)) {
+            $previous = $this->numericStat($previousSaga);
+            $current = $this->numericStat($card['saga'] ?? null);
+            $delta = $previous !== null && $current !== null ? $current - $previous : 0;
+            $direction = $delta >= 0 ? 'increased' : 'decreased';
+            $signedDelta = $delta > 0 ? sprintf('+%d', $delta) : (string) $delta;
+
+            if ($delta === 0) {
+                return sprintf(
+                    '%s saga %s to %s.',
+                    $this->cardLogName($card),
+                    $direction,
+                    $this->romanStatLabel($card['saga'] ?? null),
+                );
+            }
+
+            return sprintf(
+                '%s saga %s from %s to %s (%s).',
+                $this->cardLogName($card),
+                $direction,
+                $this->romanStatLabel($previousSaga),
+                $this->romanStatLabel($card['saga'] ?? null),
+                $signedDelta,
+            );
+        }
+
+        return sprintf(
+            'Changed %s from %s/%s to %s/%s.',
+            $this->cardLogName($card),
+            $this->statLabel($previousPower),
+            $this->statLabel($previousToughness),
+            $this->statLabel($card['power'] ?? null),
+            $this->statLabel($card['toughness'] ?? null),
+        );
+    }
+
+    private function shouldUseV2Command(string $type): bool
+    {
+        return $this->flagsV2->commandEnabled() && $this->commandDispatcherV2->supports($type);
+    }
+
+    private function applyV2(Game $game, string $type, array $payload, User $actor, ?string $clientActionId = null): ?GameEvent
+    {
+        $snapshotBefore = $game->snapshot();
+        $snapshotBytesBefore = $this->metricsInspector->jsonBytes($snapshotBefore);
+        $normalizeStartedAt = microtime(true);
+        $snapshot = $this->prepareSnapshotForV2($snapshotBefore);
+        $normalizeMs = $this->elapsedMs($normalizeStartedAt);
+        $applyStartedAt = microtime(true);
+
+        try {
+            $this->pendingLogContext = [];
+            $this->pendingEventPayload = null;
+            $this->pendingDefeatedPlayerId = null;
+            $this->pendingDefeatPreexisted = false;
+            $this->assertActorCanApply($snapshot, $type, $payload, $actor);
+            $this->assertGamePhaseAllowsCommand($snapshot, $type);
+
+            $result = $this->commandDispatcherV2->apply($type, $snapshot, $payload, $actor, $this);
+            if (!$result instanceof GameCommandV2Result) {
+                return null;
+            }
+
+            $eventLogCountBefore = count($snapshot['eventLog'] ?? []);
+            $this->commit($snapshot, $type, $result->logMessage(), $actor);
+            $eventLogEntries = array_values(array_slice($snapshot['eventLog'] ?? [], $eventLogCountBefore));
+            $persistedSnapshot = $this->snapshotForPersistence($game, $snapshotBefore, $snapshot);
+            $game->replaceSnapshot($persistedSnapshot);
+            $event = new GameEvent($game, $type, $result->eventPayload(), $actor, $clientActionId);
+            $game->addEvent($event);
+            $this->lastDirectPatchPayload = [
+                'eventPayload' => $result->eventPayload(),
+                'operations' => $result->operationsWithEventLog($eventLogEntries),
+            ];
+            $this->lastCommandMetrics = $this->commandMetricsPayload(
+                $persistedSnapshot,
+                $snapshotBytesBefore,
+                $normalizeMs,
+                $this->elapsedMs($applyStartedAt),
+            );
+
+            return $event;
+        } catch (\Throwable $exception) {
+            $this->lastCommandMetrics = $this->commandMetricsPayload(
+                $snapshot,
+                $snapshotBytesBefore,
+                $normalizeMs,
+                $this->elapsedMs($applyStartedAt),
+            );
+
+            throw $exception;
+        }
+    }
+
+    private function prepareSnapshotForV2(array $snapshot): array
+    {
+        $snapshot = $this->compactStateMapper->hydrateSnapshot($snapshot);
+        $snapshot['version'] = max(1, (int) ($snapshot['version'] ?? 1));
+        $snapshot['ownerId'] = (string) ($snapshot['ownerId'] ?? '');
+        $gamePhase = $snapshot['gamePhase'] ?? self::GAME_PHASE_PLAYING;
+        $snapshot['gamePhase'] = in_array($gamePhase, [self::GAME_PHASE_MULLIGAN, self::GAME_PHASE_PLAYING], true)
+            ? (string) $gamePhase
+            : self::GAME_PHASE_PLAYING;
+        $snapshot['mulligan'] = is_array($snapshot['mulligan'] ?? null) ? $snapshot['mulligan'] : [];
+        $mulliganRule = $snapshot['mulligan']['rule'] ?? Room::DEFAULT_MULLIGAN_RULE;
+        $snapshot['mulligan']['rule'] = in_array($mulliganRule, Room::MULLIGAN_RULES, true)
+            ? (string) $mulliganRule
+            : Room::DEFAULT_MULLIGAN_RULE;
+        $snapshot['mulligan']['firstMulliganFree'] = (bool) ($snapshot['mulligan']['firstMulliganFree'] ?? false);
+        $snapshot['turn'] = is_array($snapshot['turn'] ?? null)
+            ? $snapshot['turn']
+            : ['activePlayerId' => array_key_first($snapshot['players'] ?? []) ?? '', 'phase' => 'main', 'number' => 1];
+        $snapshot['turn']['activePlayerId'] = (string) ($snapshot['turn']['activePlayerId'] ?? '');
+        $snapshot['turn']['phase'] = (string) ($snapshot['turn']['phase'] ?? 'main');
+        $snapshot['turn']['number'] = max(1, (int) ($snapshot['turn']['number'] ?? 1));
+        $snapshot['eventLog'] = is_array($snapshot['eventLog'] ?? null) ? array_values($snapshot['eventLog']) : [];
+        $snapshot['counters'] = is_array($snapshot['counters'] ?? null) ? $snapshot['counters'] : [];
+        $snapshot['updatedAt'] ??= $snapshot['createdAt'] ?? (new \DateTimeImmutable())->format(DATE_ATOM);
+        $snapshot['players'] = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
+
+        foreach ($snapshot['players'] as &$player) {
+            if (!is_array($player)) {
+                $player = [];
+            }
+
+            $playerStatus = is_string($player['status'] ?? null) ? $player['status'] : 'active';
+            $player['status'] = in_array($playerStatus, ['active', 'conceded'], true)
+                ? $playerStatus
+                : 'active';
+            $player['life'] = (int) ($player['life'] ?? 40);
+            $player['counters'] = is_array($player['counters'] ?? null) ? $player['counters'] : [];
+            $player['commanderDamage'] = is_array($player['commanderDamage'] ?? null) ? $player['commanderDamage'] : [];
+            $player['zones'] = is_array($player['zones'] ?? null) ? $player['zones'] : [];
+            foreach (self::ZONES as $zone) {
+                $player['zones'][$zone] = is_array($player['zones'][$zone] ?? null) ? array_values($player['zones'][$zone]) : [];
+            }
+        }
+        unset($player);
+
+        $this->ensureLocationIndex($snapshot);
+
+        return $snapshot;
     }
 
     private function snapshotForPersistence(Game $game, array $snapshotBefore, array $snapshot): array

@@ -441,6 +441,7 @@ final readonly class GameWebsocketCommandPatchService
             }
             $phaseTimings['apply'] = $this->elapsedMs($applyStartedAt);
             $handlerMetrics = $this->commands->consumeLastCommandMetrics() ?? [];
+            $directPatchPayload = $this->commands->consumeLastDirectPatchPayload();
             $normalizeMs = (float) ($handlerMetrics['normalize_ms'] ?? 0.0);
             $commandApplyMs = (float) ($handlerMetrics['command_apply_ms'] ?? $phaseTimings['apply']);
             $snapshotBytesAfter = (int) ($handlerMetrics['snapshot_bytes_after'] ?? $metricsInspector->jsonBytes($game->snapshot()));
@@ -454,16 +455,26 @@ final readonly class GameWebsocketCommandPatchService
             $phaseTimings['persist'] = $this->elapsedMs($persistStartedAt);
             $persistMs = $phaseTimings['persist'];
 
-            $projected = $this->projectedResult(
-                $game,
-                $previousSnapshot,
-                $game->snapshot(),
-                $event,
-                $this->eventPayload($type, $payload),
-                $phaseTimings,
-                $startedAt,
-                $responseProtocol,
-            );
+            $projected = is_array($directPatchPayload)
+                ? $this->directPatchedResult(
+                    $game,
+                    $previousSnapshot,
+                    $event,
+                    $directPatchPayload,
+                    $phaseTimings,
+                    $startedAt,
+                    $responseProtocol,
+                )
+                : $this->projectedResult(
+                    $game,
+                    $previousSnapshot,
+                    $game->snapshot(),
+                    $event,
+                    $this->eventPayload($type, $payload),
+                    $phaseTimings,
+                    $startedAt,
+                    $responseProtocol,
+                );
             $projectionMs = (float) ($projected['projection_ms'] ?? 0.0);
             $patchMs = (float) ($projected['patch_ms'] ?? 0.0);
             $patchBytes = (int) ($projected['patch_bytes'] ?? 0);
@@ -750,6 +761,67 @@ final readonly class GameWebsocketCommandPatchService
             'patch_bytes' => $patchBytes,
             'number_of_visible_cards' => $numberOfVisibleCards,
             'resync_required' => $resyncRequired,
+        ];
+    }
+
+    /**
+     * @param array{eventPayload:array<string,mixed>,operations:list<array<string,mixed>>} $directPatchPayload
+     * @param array<string,float> $phaseTimings
+     */
+    private function directPatchedResult(
+        Game $game,
+        array $previousSnapshot,
+        GameEvent $event,
+        array $directPatchPayload,
+        array $phaseTimings,
+        float $startedAt,
+        string $responseProtocol = 'legacy',
+    ): array {
+        $metricsInspector = $this->metricsInspector();
+        $messagesByUserId = [];
+        $patchStartedAt = microtime(true);
+        $baseVersion = max(1, (int) ($previousSnapshot['version'] ?? 1));
+        $version = $this->snapshotVersion($game);
+        foreach ($this->viewers($game) as $viewer) {
+            $messagesByUserId[$viewer->id()] = $this->messages->gamePatch(
+                $game->id(),
+                $baseVersion,
+                $version,
+                $directPatchPayload['operations'],
+                $event,
+                $directPatchPayload['eventPayload'],
+            );
+            if ($responseProtocol === 'v2') {
+                $messagesByUserId[$viewer->id()] = $this->translateMessagesToV2(
+                    $messagesByUserId[$viewer->id()],
+                    $game->id(),
+                    $version,
+                    $event->clientActionId(),
+                    $viewer->id(),
+                );
+            }
+        }
+        $patchMs = $this->elapsedMs($patchStartedAt);
+        $patchBytes = 0;
+        foreach ($messagesByUserId as $message) {
+            $patchBytes += $metricsInspector->patchBytesForMessages($message);
+        }
+
+        $phaseTimings['projection'] = 0.0;
+        $phaseTimings['patch'] = round($patchMs, 2);
+        $phaseTimings['total'] = $this->elapsedMs($startedAt);
+
+        return [
+            'result' => GameWebsocketCommandResult::forViewers(
+                $messagesByUserId,
+                $this->messages->resyncRequired($game->id(), $version, 'projection_unavailable', $event->clientActionId()),
+                $this->normalizeDebugProfile($phaseTimings),
+            ),
+            'projection_ms' => 0.0,
+            'patch_ms' => $phaseTimings['patch'],
+            'patch_bytes' => $patchBytes,
+            'number_of_visible_cards' => 0,
+            'resync_required' => false,
         ];
     }
 
