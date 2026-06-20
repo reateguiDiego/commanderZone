@@ -261,8 +261,14 @@ class GameDisconnectVoteService
             return;
         }
 
+        $previousActivePlayerId = is_scalar($snapshot['turn']['activePlayerId'] ?? null)
+            ? trim((string) $snapshot['turn']['activePlayerId'])
+            : '';
         $snapshot['players'][$targetPlayerId]['status'] = 'conceded';
         $snapshot['players'][$targetPlayerId]['concededAt'] = $now->format(DATE_ATOM);
+        $this->markTargetAsLeavingInRematch($snapshot, $targetPlayerId, $now);
+        GameTurnSuccession::advanceWhenActivePlayerLeaves($snapshot, $targetPlayerId, $previousActivePlayerId);
+        $this->reassignMonarchWhenPlayerLeaves($snapshot, $targetPlayerId, $previousActivePlayerId);
 
         foreach ($game->room()->orderedPlayers() as $roomPlayer) {
             if (!$roomPlayer instanceof RoomPlayer || $roomPlayer->user()->id() !== $targetPlayerId) {
@@ -272,6 +278,39 @@ class GameDisconnectVoteService
             $game->room()->removeUser($roomPlayer->user());
             break;
         }
+    }
+
+    private function markTargetAsLeavingInRematch(array &$snapshot, string $targetPlayerId, \DateTimeImmutable $now): void
+    {
+        if (!isset($snapshot['players'][$targetPlayerId])) {
+            return;
+        }
+
+        $snapshot['rematch'] = is_array($snapshot['rematch'] ?? null) ? $snapshot['rematch'] : ['votes' => []];
+        $snapshot['rematch']['votes'] = is_array($snapshot['rematch']['votes'] ?? null) ? $snapshot['rematch']['votes'] : [];
+        $snapshot['rematch']['votes'][$targetPlayerId] = [
+            'playerId' => $targetPlayerId,
+            'displayName' => $this->playerName($snapshot, $targetPlayerId),
+            'vote' => GameRematchService::VOTE_LEAVE,
+            'votedAt' => $now->format(DATE_ATOM),
+        ];
+    }
+
+    private function reassignMonarchWhenPlayerLeaves(array &$snapshot, string $leavingPlayerId, string $previousActivePlayerId): void
+    {
+        GameGlobalDesignationSuccession::reassignWhenPlayerLeaves(
+            $snapshot,
+            $leavingPlayerId,
+            $previousActivePlayerId,
+            ['monarch', 'initiative'],
+            fn (string $playerId): bool => $this->playerIsActive($snapshot, $playerId),
+        );
+    }
+
+    private function playerIsActive(array $snapshot, string $playerId): bool
+    {
+        return isset($snapshot['players'][$playerId])
+            && (($snapshot['players'][$playerId]['status'] ?? 'active') !== 'conceded');
     }
 
     /**

@@ -1,36 +1,43 @@
 <div class="user-strip">
+  <app-player-info
+    [displayName]="userLabel()"
+    [avatar]="userAvatar()"
+    [nameStyle]="userNameStyle()"
+    size="sm"
+    (avatarSelected)="openSettings('avatar')"
+    (nameSelected)="openSettings('name-style')"
+  />
+
   <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">
-    <button
-      class="friends-trigger"
-      [class.has-requests]="!friendsOpen() && pendingNotificationsCount() > 0"
+    <button czButton="icon"
+      class="icon-button friends-action"
+      [class.has-notifications]="!friendsOpen() && pendingNotificationsCount() > 0"
       type="button"
       [title]="'navigation.dashboard.dashboardHeaderControls.friends' | runtimeTranslate"
-      (click)="toggleFriends.emit($event)"
+      [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.friends' | runtimeTranslate"
+      [attr.aria-expanded]="friendsOpen()"
+      (click)="toggleFriendsDropdown($event)"
     >
+      <lucide-icon name="users" size="18" />
+      @if (!friendsOpen()) {
+        <span class="online-count-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.onlineFriends' | runtimeTranslate">
+          {{ onlineFriendsCount() }}
+        </span>
+      }
       @if (!friendsOpen() && pendingNotificationsCount() > 0) {
         <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.pendingFriendRequests' | runtimeTranslate">
-          <lucide-icon name="bell" size="12" />
           {{ pendingNotificationsCount() }}
         </span>
       }
-      <app-player-avatar class="friends-trigger-avatar" [displayName]="userLabel()" [avatar]="userAvatar()" size="sm" />
-      <app-player-name
-        [displayName]="userLabel()"
-        [nameStyle]="userNameStyle()"
-        size="sm"
-        plateSize="xs"
-        [fill]="true"
-      />
-      @if (!friendsOpen() && onlineFriendsCount() > 0) {
-        <span class="online-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.onlineFriends' | runtimeTranslate">{{ onlineFriendsCount() }}</span>
-      }
     </button>
+
     @if (friendsOpen()) {
       <app-friends-dropdown />
     }
   </div>
 
   <app-header-user-menu
+    (menuOpened)="handleUserMenuOpened()"
     (settingsSelected)="openSettings()"
     (fullscreenSelected)="toggleFullscreen()"
     (logoffSelected)="logoff()"
@@ -39,6 +46,7 @@
 
 <app-dashboard-settings-modal
   [open]="settingsOpen()"
+  [launchTarget]="settingsLaunchTarget()"
   (closeRequested)="closeSettings()"
   (accountDeleted)="logoff()"
 />

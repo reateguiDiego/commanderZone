@@ -2,10 +2,11 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { LegalLinksService } from '../../legal/legal-links.service';
 import { ANALYTICS_SERVICE } from '../analytics.service';
 import { CookieConsentService } from '../cookie-consent.service';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-cookie-consent-banner',
-  imports: [],
+  imports: [CzButtonDirective],
   templateUrl: './cookie-consent-banner.component.html',
   styleUrl: './cookie-consent-banner.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

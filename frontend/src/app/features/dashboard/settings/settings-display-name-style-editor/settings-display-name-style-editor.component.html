@@ -9,10 +9,13 @@
   </header>
 
   <section class="style-options">
-    <nav class="style-tier-tabs" [attr.aria-label]="'settings.settingsDisplayNameStyleEditor.nameStyleTiers' | runtimeTranslate">
-      <button type="button" [class.active]="activeTier() === 'basic'" (click)="switchTier('basic')">{{ 'settings.settingsDisplayNameStyleEditor.basic' | runtimeTranslate }}</button>
-      <button type="button" [class.active]="activeTier() === 'premium'" (click)="switchTier('premium')">{{ 'settings.settingsDisplayNameStyleEditor.premium' | runtimeTranslate }}</button>
-    </nav>
+    <app-tab-list
+      class="style-tier-tabs"
+      [items]="tierTabItems"
+      [activeId]="activeTier()"
+      [ariaLabel]="'settings.settingsDisplayNameStyleEditor.nameStyleTiers'"
+      (tabSelected)="switchTierFromList($event)"
+    />
 
     <div class="style-grid" [class.premium-grid]="activeTier() === 'premium'">
       @for (option of visiblePresetOptions(); track option.preset.id) {
@@ -39,7 +42,7 @@
   </section>
 
   <footer class="name-style-actions">
-    <button class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
+    <button czButton="primary" class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
       {{ saving() ? 'Saving...' : 'Save' }}
     </button>
   </footer>

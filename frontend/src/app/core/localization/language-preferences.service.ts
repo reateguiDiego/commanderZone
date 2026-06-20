@@ -2,22 +2,22 @@ import { Injectable, computed, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../api/auth.api';
 import { AuthStore } from '../auth/auth.store';
-import { normalizeLanguageCode, SupportedLanguageCode } from './language-preferences';
+import { normalizeCardLanguageCode, normalizeLanguageCode, SupportedCardLanguageCode, SupportedLanguageCode } from './language-preferences';
 
 @Injectable({ providedIn: 'root' })
 export class LanguagePreferencesService {
   private readonly authStore = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
 
-  readonly cardLanguage = computed<SupportedLanguageCode>(() =>
-    normalizeLanguageCode(this.authStore.user()?.preferences?.cardLanguage),
+  readonly cardLanguage = computed<SupportedCardLanguageCode>(() =>
+    normalizeCardLanguageCode(this.authStore.user()?.preferences?.cardLanguage),
   );
 
   readonly appLanguage = computed<SupportedLanguageCode>(() =>
     normalizeLanguageCode(this.authStore.user()?.preferences?.appLanguage),
   );
 
-  async updateCardLanguage(cardLanguage: SupportedLanguageCode): Promise<void> {
+  async updateCardLanguage(cardLanguage: SupportedCardLanguageCode): Promise<void> {
     await this.updatePreferences({ cardLanguage });
   }
 
@@ -25,7 +25,7 @@ export class LanguagePreferencesService {
     await this.updatePreferences({ appLanguage });
   }
 
-  async updatePreferences(preferences: { cardLanguage?: SupportedLanguageCode; appLanguage?: SupportedLanguageCode }): Promise<void> {
+  async updatePreferences(preferences: { cardLanguage?: SupportedCardLanguageCode; appLanguage?: SupportedLanguageCode }): Promise<void> {
     if (preferences.cardLanguage === undefined && preferences.appLanguage === undefined) {
       return;
     }

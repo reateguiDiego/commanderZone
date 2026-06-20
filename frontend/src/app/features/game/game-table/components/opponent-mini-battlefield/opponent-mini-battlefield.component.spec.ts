@@ -26,6 +26,40 @@ describe('OpponentMiniBattlefieldComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('[data-testid="mini-battlefield-card"]').length).toBe(2);
   });
 
+  it('renders mechanic cards in the top-right mini overlay without duplicating them in the normal layout', () => {
+    const monarch = { ...card('monarch-card'), name: 'The Monarch', layout: 'monarch' };
+    fixture.componentRef.setInput('cards', [card('normal-card'), monarch]);
+    fixture.componentRef.setInput('mechanicCards', [monarch]);
+    fixture.detectChanges();
+
+    const overlay = fixture.nativeElement.querySelector('[data-testid="battlefield-mechanics-overlay"]') as HTMLElement | null;
+
+    expect(overlay).not.toBeNull();
+    expect(overlay?.dataset['variant']).toBe('mini');
+    expect(fixture.componentInstance.layoutCards().map((current) => current.instanceId)).toEqual(['normal-card']);
+    expect(fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"][data-card-instance-id="normal-card"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-mechanics-mini-card"][data-card-instance-id="monarch-card"]')).not.toBeNull();
+  });
+
+  it('preserves left-opening menu intent from mini overlay mechanic cards', () => {
+    const monarch = { ...card('monarch-card'), name: 'The Monarch', layout: 'monarch' };
+    const clicked = vi.fn();
+    fixture.componentRef.setInput('cards', [monarch]);
+    fixture.componentRef.setInput('mechanicCards', [monarch]);
+    fixture.componentInstance.battlefieldCardClicked.subscribe(clicked);
+    fixture.detectChanges();
+
+    const mechanicCard = fixture.nativeElement
+      .querySelector('[data-testid="battlefield-mechanics-mini-card"][data-card-instance-id="monarch-card"]') as HTMLElement;
+    mechanicCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(clicked).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-2',
+      card: expect.objectContaining({ instanceId: 'monarch-card' }),
+      forceOpenLeft: true,
+    }));
+  });
+
   it('exposes the opponent battlefield as a motion zone', () => {
     fixture.detectChanges();
 

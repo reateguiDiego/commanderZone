@@ -1,7 +1,15 @@
 import { User } from './user.model';
-import { CardFace } from './card.model';
+import { CardFace, CardImageUris } from './card.model';
 
 export type GameZoneName = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
+export type GameSpecialEntityTemplate = 'monarch' | 'initiative' | 'citys_blessing' | 'day_night' | 'the_ring' | 'emblem' | 'dungeon';
+export type GameSpecialEntityScope = 'global' | 'player';
+export type GameCardStatValue = number | string | null;
+export type GamePowerToughnessValue = GameCardStatValue;
+export type GamePhase = 'MULLIGAN' | 'PLAYING';
+export type MulliganRule = 'LONDON' | 'VANCOUVER' | 'PARIS' | 'GENEROUS';
+export type BottomOrderMode = 'NONE' | 'PLAYER_CHOSEN_ORDER' | 'RANDOM_SERVER_SIDE';
+export type MulliganPlayerStatus = 'DECIDING' | 'SCRYING' | 'READY';
 export interface GameCardPixelPosition {
   x: number;
   y: number;
@@ -15,6 +23,11 @@ export interface GameCardRatioPosition {
 }
 
 export type GameCardPosition = GameCardPixelPosition | GameCardRatioPosition;
+
+export interface GameCardDungeonMarker {
+  x: number;
+  y: number;
+}
 
 export type GameCommandType =
   | 'game.concede'
@@ -31,6 +44,7 @@ export type GameCommandType =
   | 'cards.moved'
   | 'card.tapped'
   | 'card.position.changed'
+  | 'card.dungeon_marker.changed'
   | 'cards.position.changed'
   | 'card.face_down.changed'
   | 'card.face.changed'
@@ -58,6 +72,9 @@ export type GameCommandType =
   | 'arrow.removed'
   | 'attachment.created'
   | 'attachment.removed'
+  | 'helper.created'
+  | 'helper.updated'
+  | 'helper.removed'
   | 'disconnect.vote';
 
 export interface GameCardInstance {
@@ -70,21 +87,26 @@ export interface GameCardInstance {
   cardFaces?: CardFace[];
   hasRulings?: boolean;
   typeLine?: string | null;
+  layout?: string | null;
   manaCost?: string | null;
   oracleText?: string | null;
   colorIdentity?: string[];
-  power?: number | null;
-  toughness?: number | null;
-  loyalty?: number | null;
-  defaultPower?: number | null;
-  defaultToughness?: number | null;
-  defaultLoyalty?: number | null;
+  power?: GamePowerToughnessValue;
+  toughness?: GamePowerToughnessValue;
+  loyalty?: GameCardStatValue;
+  defense?: GameCardStatValue;
+  saga?: number | null;
+  defaultPower?: GamePowerToughnessValue;
+  defaultToughness?: GamePowerToughnessValue;
+  defaultLoyalty?: GameCardStatValue;
+  defaultDefense?: GameCardStatValue;
   tapped: boolean;
   faceDown?: boolean;
   activeFaceIndex?: number;
   hidden?: boolean;
   revealedTo?: string[];
   position?: GameCardPosition;
+  dungeonMarker?: GameCardDungeonMarker | null;
   rotation?: number;
   counters?: Record<string, number>;
   zone?: GameZoneName;
@@ -95,6 +117,28 @@ export interface GameCardInstance {
 
 export type GameZones = Record<GameZoneName, GameCardInstance[]>;
 export type GameZoneCounts = Record<GameZoneName, number>;
+
+export interface GameMulliganConfig {
+  rule: MulliganRule;
+  firstMulliganFree: boolean;
+}
+
+export interface GamePlayerMulliganState {
+  rule?: MulliganRule;
+  mulligansTaken: number;
+  effectiveMulligans: number;
+  drawCount?: number;
+  bottomSelectionCount?: number;
+  finalHandSize?: number;
+  needsBottomSelection?: boolean;
+  bottomOrderMode?: BottomOrderMode;
+  needsScryAfterKeep?: boolean;
+  canTakeAnotherMulligan?: boolean;
+  status: MulliganPlayerStatus;
+  ready: boolean;
+  handCount?: number;
+  scryCard?: GameCardInstance;
+}
 
 export interface GamePlayerState {
   user: User;
@@ -109,6 +153,8 @@ export interface GamePlayerState {
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;
+  handCount?: number;
+  mulligan?: GamePlayerMulliganState;
   commanderDamage: Record<string, number>;
   counters: Record<string, number>;
 }
@@ -177,6 +223,26 @@ export interface GameAttachment {
   createdAt: string;
 }
 
+export interface GameSpecialEntityCardRef {
+  scryfallId: string;
+  name: string;
+  imageUris?: CardImageUris;
+  cardFaces?: CardFace[];
+  typeLine?: string | null;
+  oracleText?: string | null;
+  layout?: string | null;
+}
+
+export interface GameSpecialEntity {
+  id: string;
+  template: GameSpecialEntityTemplate;
+  scope: GameSpecialEntityScope;
+  ownerPlayerId: string | null;
+  card: GameSpecialEntityCardRef | null;
+  state: Record<string, unknown>;
+  createdAt: string;
+}
+
 export type GameRematchVote = 'play_again' | 'leave';
 
 export interface GameRematchVoteState {
@@ -212,6 +278,8 @@ export interface GameDisconnectVoteState {
 export interface GameSnapshot {
   version: number;
   ownerId?: string;
+  gamePhase?: GamePhase;
+  mulligan?: GameMulliganConfig;
   players: Record<string, GamePlayerState>;
   turn: GameTurn;
   timer?: {
@@ -223,6 +291,7 @@ export interface GameSnapshot {
   stack: GameStackItem[];
   arrows: GameArrow[];
   attachments?: GameAttachment[];
+  specialEntities?: GameSpecialEntity[];
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
   rematch?: GameRematchState;

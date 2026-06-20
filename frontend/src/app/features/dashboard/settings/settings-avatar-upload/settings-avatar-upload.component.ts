@@ -4,13 +4,14 @@ import { LucideAngularModule } from 'lucide-angular';
 import { AvatarUpdatePayload } from '../../../../core/api/auth.api';
 import { appImageUrl } from '../../../../core/assets/app-image-url';
 import { UserAvatar } from '../../../../core/models/user.model';
+import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 const AVATAR_SIZE = 512;
 
 @Component({
   selector: 'app-settings-avatar-upload',
-  imports: [RuntimeTranslatePipe, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective],
   templateUrl: './settings-avatar-upload.component.html',
   styleUrl: './settings-avatar-upload.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

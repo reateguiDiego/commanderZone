@@ -48,6 +48,11 @@ export function distinctCardKey(card: Card): string {
 
 function isSearchableCardResult(card: Card): boolean {
   const typeLine = normalizeCardSearch(card.typeLine ?? '');
+  const layout = normalizeCardSearch(card.layout ?? '');
+
+  if (typeLine.includes('dungeon') || typeLine.includes('emblem') || layout === 'double_faced_token') {
+    return typeLine !== '' && typeLine !== 'other' && typeLine !== 'otros';
+  }
 
   return typeLine !== ''
     && typeLine !== 'other'

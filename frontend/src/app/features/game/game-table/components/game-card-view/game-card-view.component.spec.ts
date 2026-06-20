@@ -3,6 +3,7 @@ import { importProvidersFrom } from '@angular/core';
 import { CircleQuestionMark, Layers3, Link, LucideAngularModule, RotateCw } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS } from '../../models/card-preview.model';
+import { DEFAULT_DUNGEON_MARKER } from '../../utils/dungeon-marker';
 import { GameCardViewComponent } from './game-card-view.component';
 
 describe('GameCardViewComponent', () => {
@@ -386,6 +387,232 @@ describe('GameCardViewComponent', () => {
     expect(pointerDown).toHaveBeenCalledOnce();
   });
 
+  it('renders a default location pin for battlefield dungeon cards', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', layout: 'normal' });
+    fixture.detectChanges();
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin).not.toBeNull();
+    expect(pin?.style.left).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.x));
+    expect(pin?.style.top).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.y));
+  });
+
+  it('renders a default location pin for legacy official dungeon cards without layout metadata', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Dungeon of the Mad Mage',
+      typeLine: null,
+      layout: null,
+    });
+    fixture.detectChanges();
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin).not.toBeNull();
+    expect(pin?.style.left).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.x));
+    expect(pin?.style.top).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.y));
+  });
+
+  it('emits a clamped dungeon marker position after dragging the pin inside the card', async () => {
+    const { fixture } = await renderHandCard();
+    const changed = vi.fn();
+    fixture.componentInstance.dungeonMarkerChanged.subscribe(changed);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.2, y: 0.3 } });
+    fixture.detectChanges();
+
+    const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement;
+    vi.spyOn(visual, 'getBoundingClientRect').mockReturnValue({
+      left: 10,
+      top: 20,
+      right: 110,
+      bottom: 220,
+      width: 100,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect);
+    pin.setPointerCapture = vi.fn();
+    pin.hasPointerCapture = vi.fn(() => true);
+    pin.releasePointerCapture = vi.fn();
+
+    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 40, clientY: 80 }));
+    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: 140, clientY: -10 }));
+    pin.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 7, clientX: 140, clientY: -10 }));
+
+    fixture.detectChanges();
+
+    expect(changed).toHaveBeenCalledWith({
+      event: expect.any(PointerEvent),
+      card: fixture.componentInstance.card(),
+      marker: { x: 1, y: 0 },
+    });
+    expect(pin.style.left).toBe('100%');
+    expect(pin.style.top).toBe('0%');
+
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 1, y: 0 } });
+    fixture.detectChanges();
+
+    expect(pin.style.left).toBe('100%');
+    expect(pin.style.top).toBe('0%');
+  });
+
+  it('keeps the grabbed pin point under the pointer while dragging the dungeon marker', async () => {
+    const { fixture } = await renderHandCard();
+    const changed = vi.fn();
+    fixture.componentInstance.dungeonMarkerChanged.subscribe(changed);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.5, y: 0.5 } });
+    fixture.detectChanges();
+
+    const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement;
+    vi.spyOn(visual, 'getBoundingClientRect').mockReturnValue({
+      left: 10,
+      top: 20,
+      right: 110,
+      bottom: 220,
+      width: 100,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect);
+    pin.setPointerCapture = vi.fn();
+    pin.hasPointerCapture = vi.fn(() => true);
+    pin.releasePointerCapture = vi.fn();
+
+    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 60, clientY: 90 }));
+    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: 70, clientY: 120 }));
+    pin.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 7, clientX: 70, clientY: 120 }));
+
+    expect(changed).toHaveBeenCalledWith({
+      event: expect.any(PointerEvent),
+      card: fixture.componentInstance.card(),
+      marker: { x: 0.6, y: 0.65 },
+    });
+  });
+
+  it('keeps the dungeon marker inside the visible card bounds while dragging near the edges', async () => {
+    const { fixture } = await renderHandCard();
+    const changed = vi.fn();
+    fixture.componentInstance.dungeonMarkerChanged.subscribe(changed);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.5, y: 0.5 } });
+    fixture.detectChanges();
+
+    const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement;
+    vi.spyOn(visual, 'getBoundingClientRect').mockReturnValue({
+      left: 10,
+      top: 20,
+      right: 110,
+      bottom: 220,
+      width: 100,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect);
+    vi.spyOn(pin, 'getBoundingClientRect').mockReturnValue({
+      left: 45,
+      top: 84,
+      right: 75,
+      bottom: 120,
+      width: 30,
+      height: 36,
+      x: 45,
+      y: 84,
+      toJSON: () => ({}),
+    } as DOMRect);
+    pin.setPointerCapture = vi.fn();
+    pin.hasPointerCapture = vi.fn(() => true);
+    pin.releasePointerCapture = vi.fn();
+
+    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 60, clientY: 120 }));
+    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: -50, clientY: -50 }));
+    pin.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 7, clientX: -50, clientY: -50 }));
+
+    const marker = changed.mock.calls.at(-1)?.[0].marker;
+    expect(marker.x).toBeCloseTo(0.126);
+    expect(marker.y).toBeCloseTo(0.1548);
+  });
+
+  it('updates the hover preview marker while dragging the dungeon marker', async () => {
+    const { fixture } = await renderHandCard();
+    const previewRequested = vi.fn();
+    const previewMarkerChanged = vi.fn();
+    const previewHidden = vi.fn();
+    fixture.componentInstance.cardPreviewRequested.subscribe(previewRequested);
+    fixture.componentInstance.dungeonMarkerPreviewChanged.subscribe(previewMarkerChanged);
+    fixture.componentInstance.cardMouseLeft.subscribe(previewHidden);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.5, y: 0.5 } });
+    fixture.detectChanges();
+
+    const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector('[data-testid="game-card"]') as HTMLElement;
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement;
+    const rect = {
+      left: 10,
+      top: 20,
+      right: 110,
+      bottom: 220,
+      width: 100,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect;
+    vi.spyOn(visual, 'getBoundingClientRect').mockReturnValue(rect);
+    vi.spyOn(cardElement, 'getBoundingClientRect').mockReturnValue(rect);
+    pin.setPointerCapture = vi.fn();
+    pin.hasPointerCapture = vi.fn(() => true);
+    pin.releasePointerCapture = vi.fn();
+
+    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 60, clientY: 90 }));
+    cardElement.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true, pointerId: 7, clientX: 70, clientY: 120 }));
+    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: 70, clientY: 120 }));
+    await nextAnimationFrame();
+
+    const preview = previewRequested.mock.calls.at(-1)?.[0];
+    const markerPreview = previewMarkerChanged.mock.calls.at(-1)?.[0];
+    expect(previewHidden).not.toHaveBeenCalled();
+    expect(preview).toEqual(expect.objectContaining({
+      card: expect.objectContaining({
+        dungeonMarker: { x: 0.5, y: 0.5 },
+      }),
+      sourceRect: expect.objectContaining({
+        left: 10,
+        top: 20,
+        width: 100,
+        height: 200,
+      }),
+    }));
+    expect(previewRequested).toHaveBeenCalledOnce();
+    expect(markerPreview).toEqual(expect.objectContaining({
+      card: fixture.componentInstance.card(),
+      marker: { x: 0.6, y: 0.65 },
+    }));
+  });
+
   it('emits double click output from touch double tap', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
@@ -400,6 +627,26 @@ describe('GameCardViewComponent', () => {
       event: secondUp,
       card: fixture.componentInstance.card(),
     });
+  });
+
+  it('does not emit double click output for battlefield emblems or dungeons', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+    const doubleClicked = vi.fn();
+    fixture.componentInstance.cardDoubleClicked.subscribe(doubleClicked);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Emblem', layout: 'emblem' });
+    fixture.detectChanges();
+
+    cardElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', layout: 'dungeon' });
+    fixture.detectChanges();
+
+    cardElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+
+    expect(doubleClicked).not.toHaveBeenCalled();
   });
 
   it('does not emit touch double tap when the gesture moves like a drag', async () => {
@@ -861,6 +1108,24 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
   });
 
+  it('does not show the face toggle affordance for Undercity // The Initiative cards', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', undercityInitiativeCard());
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+  });
+
+  it('does not show the face toggle affordance for The Ring cards', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', theRingCard());
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+  });
+
   it('plays the face flip animation on stable battlefield cards', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
@@ -918,6 +1183,22 @@ describe('GameCardViewComponent', () => {
       key: 'red',
       delta: -1,
     });
+  });
+
+  it('does not emit card counter changes when counters are readonly', async () => {
+    const { fixture } = await renderHandCard();
+    const counterChanged = vi.fn();
+    fixture.componentInstance.counterChanged.subscribe(counterChanged);
+
+    fixture.componentRef.setInput('countersEditable', false);
+    fixture.componentRef.setInput('card', { ...gameCard(), counters: { red: 2 } });
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    marker.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    marker.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(counterChanged).not.toHaveBeenCalled();
   });
 
   it('keeps zero-value counters visible so they can be adjusted from the marker rail', async () => {
@@ -987,6 +1268,219 @@ describe('GameCardViewComponent', () => {
     loyaltyCounter.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, button: 2 }));
 
     expect(loyaltyChanged).not.toHaveBeenCalled();
+  });
+
+  it('renders the battle counter for battle cards', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Invasion of Zendikar',
+      typeLine: 'Battle - Siege',
+    });
+    fixture.componentRef.setInput('battleValue', 4);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.battle-counter')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.loyalty-counter')).toBeNull();
+  });
+
+  it('emits battle changes from the battle counter and closes the active preview', async () => {
+    const { fixture } = await renderHandCard();
+    const battleChanged = vi.fn();
+    const previewRequested = vi.fn();
+    fixture.componentInstance.battleChanged.subscribe(battleChanged);
+    fixture.componentInstance.cardPreviewRequested.subscribe(previewRequested);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Invasion of Zendikar',
+      typeLine: 'Battle - Siege',
+    });
+    fixture.componentRef.setInput('battleValue', 4);
+    fixture.detectChanges();
+    fixture.componentInstance.previewActive.set(true);
+
+    const battleCounter = fixture.nativeElement.querySelector('.battle-counter') as HTMLElement;
+    battleCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    fixture.detectChanges();
+
+    expect(battleChanged).toHaveBeenCalledWith({
+      event: expect.any(Event),
+      card: fixture.componentInstance.card(),
+      delta: 1,
+    });
+    expect(previewRequested).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.previewActive()).toBe(false);
+  });
+
+  it('renders the saga counter only when the active face is a saga', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods // Feral Spirit',
+      activeFaceIndex: 0,
+      cardFaces: [
+        {
+          ...cardFace('Binding the Old Gods'),
+          typeLine: 'Enchantment - Saga',
+        },
+        {
+          ...cardFace('Feral Spirit'),
+          typeLine: 'Creature - Spirit',
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.saga-counter-value')?.textContent?.trim()).toBe('I');
+    expect(fixture.nativeElement.querySelector('.battle-counter')).toBeNull();
+
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods // Feral Spirit',
+      activeFaceIndex: 1,
+      cardFaces: [
+        {
+          ...cardFace('Binding the Old Gods'),
+          typeLine: 'Enchantment - Saga',
+        },
+        {
+          ...cardFace('Feral Spirit'),
+          typeLine: 'Creature - Spirit',
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.saga-counter')).toBeNull();
+  });
+
+  it('keeps saga cards on the saga counter even if a battle value is present', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('battleValue', 6);
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods // Feral Spirit',
+      activeFaceIndex: 0,
+      cardFaces: [
+        {
+          ...cardFace('Binding the Old Gods'),
+          typeLine: 'Enchantment - Saga',
+        },
+        {
+          ...cardFace('Feral Spirit'),
+          typeLine: 'Creature - Spirit',
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.saga-counter')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.battle-counter')).toBeNull();
+  });
+
+  it('keeps saga chapter state local to battlefield and resets it when the card leaves', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods',
+      typeLine: 'Enchantment - Saga',
+    });
+    fixture.detectChanges();
+
+    const sagaCounter = fixture.nativeElement.querySelector('.saga-counter') as HTMLElement;
+    expect(sagaCounter?.textContent?.trim()).toBe('I');
+
+    sagaCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.saga-counter')?.textContent?.trim()).toBe('II');
+
+    fixture.componentRef.setInput('zone', 'graveyard');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.saga-counter')).toBeNull();
+
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.saga-counter')?.textContent?.trim()).toBe('I');
+  });
+
+  it('closes the active preview when a saga counter is clicked', async () => {
+    const { fixture } = await renderHandCard();
+    const previewRequested = vi.fn();
+    fixture.componentInstance.cardPreviewRequested.subscribe(previewRequested);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods',
+      typeLine: 'Enchantment - Saga',
+    });
+    fixture.detectChanges();
+    fixture.componentInstance.previewActive.set(true);
+
+    const sagaCounter = fixture.nativeElement.querySelector('.saga-counter') as HTMLElement;
+    sagaCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    fixture.detectChanges();
+
+    expect(previewRequested).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.previewActive()).toBe(false);
+  });
+
+  it('allows battlefield double click toggles for saga cards', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+    const doubleClicked = vi.fn();
+    fixture.componentInstance.cardDoubleClicked.subscribe(doubleClicked);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods',
+      typeLine: 'Enchantment - Saga',
+    });
+    fixture.detectChanges();
+
+    expect(cardElement.classList.contains('tapped')).toBe(false);
+
+    cardElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+
+    expect(doubleClicked).toHaveBeenCalledWith({
+      event: expect.any(MouseEvent),
+      card: expect.objectContaining({
+        instanceId: 'card-1',
+        name: 'Binding the Old Gods',
+      }),
+    });
+  });
+
+  it('rotates battle cards in the battlefield view', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Invasion of Zendikar',
+      typeLine: 'Battle - Siege',
+    });
+    fixture.detectChanges();
+
+    expect(cardElement.classList.contains('tapped')).toBe(true);
   });
 
   it('marks a power increase with the gold stat pulse', async () => {
@@ -1106,6 +1600,33 @@ function gameCard(): GameCardInstance {
   };
 }
 
+function markerPercent(value: number): string {
+  return `${value * 100}%`;
+}
+
+function undercityInitiativeCard(): GameCardInstance {
+  return {
+    ...gameCard(),
+    name: 'Undercity // The Initiative',
+    cardFaces: [
+      cardFace('Undercity'),
+      cardFace('The Initiative'),
+    ],
+  };
+}
+
+function theRingCard(): GameCardInstance {
+  return {
+    ...gameCard(),
+    name: 'The Ring // The Ring Tempts You',
+    layout: 'double_faced_token',
+    cardFaces: [
+      cardFace('The Ring'),
+      cardFace('The Ring Tempts You'),
+    ],
+  };
+}
+
 function cardFace(name: string) {
   return {
     name,
@@ -1139,6 +1660,12 @@ function statElements(fixture: ComponentFixture<GameCardViewComponent>): [HTMLEl
   expect(elements.length).toBe(2);
 
   return [elements[0]!, elements[1]!];
+}
+
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
 }
 
 function tap(target: EventTarget, init: PointerEventInit): PointerEvent {

@@ -67,6 +67,36 @@ class GameDebugHealthLiveStoreTest extends TestCase
         self::assertSame(1, $current['health']['traffic']['keepalive']['outgoing']['messages']);
     }
 
+    public function testMulliganDebugMessagesAreRedactedBeforeAggregation(): void
+    {
+        $store = new GameDebugHealthLiveStore(new GameDebugHealthAggregator());
+        $store->subscribe('game-1', static function (): void {
+        });
+
+        $store->recordIncomingMessage('game-1', [
+            'kind' => 'mulligan.keep',
+            'gameId' => 'game-1',
+            'bottomCardInstanceIds' => ['secret-card-2', 'secret-card-1'],
+        ], 96);
+        $store->recordOutboundMessage('game-1', [
+            'kind' => 'mulligan.private_state',
+            'gameId' => 'game-1',
+            'hand' => [
+                ['instanceId' => 'secret-hand-1', 'name' => 'Secret Hand Card'],
+            ],
+            'scryCard' => ['instanceId' => 'secret-library-1', 'name' => 'Secret Library Card'],
+        ], 'direct');
+
+        $encodedReport = json_encode($store->reportForGame('game-1'), JSON_THROW_ON_ERROR);
+
+        self::assertStringNotContainsString('secret-card-2', $encodedReport);
+        self::assertStringNotContainsString('secret-card-1', $encodedReport);
+        self::assertStringNotContainsString('Secret Hand Card', $encodedReport);
+        self::assertStringNotContainsString('secret-hand-1', $encodedReport);
+        self::assertStringNotContainsString('Secret Library Card', $encodedReport);
+        self::assertStringNotContainsString('secret-library-1', $encodedReport);
+    }
+
     public function testUpdatedAtTracksLastMutationInsteadOfReadTime(): void
     {
         $store = new GameDebugHealthLiveStore(new GameDebugHealthAggregator());

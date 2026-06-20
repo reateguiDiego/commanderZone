@@ -1,57 +1,29 @@
-import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, HostBinding, input, output } from '@angular/core';
+import { GameCardStatValue } from '../../../../../../core/models/game.model';
+import { StatCounterChangeEvent, StatCounterComponent } from '../stat-counter/stat-counter.component';
 
 type StatPulse = 'increase' | 'decrease' | null;
 
 @Component({
   selector: 'app-loyalty-counter',
-  imports: [RuntimeTranslatePipe],
+  imports: [StatCounterComponent],
   templateUrl: './loyalty-counter.component.html',
   styleUrl: './loyalty-counter.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoyaltyCounterComponent {
-  readonly value = input.required<number>();
+  readonly value = input.required<GameCardStatValue>();
   readonly pulse = input<StatPulse>(null);
   readonly entrySettling = input(false);
   readonly inline = input(false);
-  readonly loyaltyChanged = output<{ event: MouseEvent; delta: number }>();
+  readonly loyaltyChanged = output<StatCounterChangeEvent>();
 
   @HostBinding('class.inline-loyalty-counter')
   get inlineLoyaltyCounter(): boolean {
     return this.inline();
   }
 
-  changeLoyaltyFromPointer(event: PointerEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.button !== 0 && event.button !== 2) {
-      return;
-    }
-
-    const delta = event.button === 2 ? -1 : 1;
-    this.loyaltyChanged.emit({ event, delta });
-  }
-
-  stopPointer(event: PointerEvent): void {
-    if (event.button === 2) {
-      event.preventDefault();
-    }
-    event.stopPropagation();
-  }
-
-  stopClick(event: MouseEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  stopContextMenu(event: MouseEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  stopDoubleClick(event: MouseEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
+  onChanged(event: StatCounterChangeEvent): void {
+    this.loyaltyChanged.emit(event);
   }
 }

@@ -1,7 +1,9 @@
 <section class="dashboard-welcome" aria-labelledby="dashboard-title">
   <p class="welcome-kicker">{{ 'navigation.dashboard.dashboardHome.tuComandanteHaLlegado' | runtimeTranslate }}</p>
-  <h1 id="dashboard-title">Qué bueno verte de nuevo, {{ userName() }}.</h1>
-  <p>
-    {{ 'navigation.dashboard.dashboardHome.laMesaTeEstabaEsperandoHoyTus' | runtimeTranslate }}
-  </p>
+  <h1 id="dashboard-title">
+    <span class="welcome-title-label">{{ 'navigation.dashboard.dashboardHome.bienvenido' | runtimeTranslate }}</span>
+    <span class="welcome-title-user">{{ userName() }}</span>
+  </h1>
 </section>
+
+<app-dashboard-top-commanders />

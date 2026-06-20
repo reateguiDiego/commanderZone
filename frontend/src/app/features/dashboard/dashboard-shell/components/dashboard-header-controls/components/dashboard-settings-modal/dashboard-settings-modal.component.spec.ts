@@ -1,10 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { importProvidersFrom, signal } from '@angular/core';
-import { of } from 'rxjs';
-import { ArrowLeft, Check, LucideAngularModule, Trash2, Upload, X } from 'lucide-angular';
+import { Observable, of } from 'rxjs';
+import { ArrowLeft, Check, LucideAngularModule, Settings, Trash2, Upload, X } from 'lucide-angular';
 import { AuthApi } from '../../../../../../../core/api/auth.api';
+import { CardLanguageCoverageResponse, CardsLanguageService } from '../../../../../../../core/api/cards-language.service';
+import { ThemesService } from '../../../../../../../core/api/themes.service';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
+import { RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
+import { AppThemeId } from '../../../../../../../core/theme/app-theme';
 import { AppThemeService } from '../../../../../../../core/theme/app-theme.service';
 import { DashboardSettingsModalComponent } from './dashboard-settings-modal.component';
 
@@ -26,14 +30,33 @@ describe('DashboardSettingsModalComponent', () => {
       roles: ['ROLE_USER'],
       avatar: { type: 'initial', imageUrl: null },
       displayNameStyle: { type: 'plain', presetId: 'plain' },
-      preferences: { cardLanguage: 'en', appLanguage: 'en' },
+      preferences: { cardLanguage: 'en', appLanguage: 'en', themeId: 'sunrise' },
     }),
     loadMe: vi.fn(async () => undefined),
   };
   const languagePreferencesMock = {
-    cardLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en').asReadonly(),
-    appLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en').asReadonly(),
+    cardLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'nl' | 'ca'>('en').asReadonly(),
+    appLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'nl' | 'ca'>('en').asReadonly(),
   };
+  const runtimeLanguageSelectorMock = {
+    applyLanguage: vi.fn(),
+  };
+  const defaultCardLanguageCoverage = [
+    { code: 'en', label: 'Ingles', distinctCardNames: 100, percentageOfEnglish: 100 },
+    { code: 'es', label: 'Espanol', distinctCardNames: 73, percentageOfEnglish: 73 },
+    { code: 'fr', label: 'Frances', distinctCardNames: 76, percentageOfEnglish: 76 },
+    { code: 'zht', label: 'Chino tradicional', distinctCardNames: 42, percentageOfEnglish: 42 },
+  ] satisfies CardLanguageCoverageResponse['data'];
+  const cardsLanguageList = vi.fn<() => Observable<CardLanguageCoverageResponse>>(() =>
+    of({ selectedCardLanguage: 'en', data: defaultCardLanguageCoverage } satisfies CardLanguageCoverageResponse),
+  );
+  const cardsLanguageMock = {
+    list: cardsLanguageList,
+  } satisfies Pick<CardsLanguageService, 'list'>;
+  const themesUpdate = vi.fn((themeId: AppThemeId) => of({ themeId }));
+  const themesMock = {
+    update: themesUpdate,
+  } satisfies Pick<ThemesService, 'update'>;
 
   beforeEach(async () => {
     localStorage.clear();
@@ -42,10 +65,16 @@ describe('DashboardSettingsModalComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DashboardSettingsModalComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ArrowLeft, Check, Trash2, Upload, X })),
+        importProvidersFrom(LucideAngularModule.pick({ ArrowLeft, Check, Settings, Trash2, Upload, X })),
         { provide: AuthApi, useValue: authApiMock },
+        { provide: CardsLanguageService, useValue: cardsLanguageMock },
+        { provide: ThemesService, useValue: themesMock },
         { provide: AuthStore, useValue: authStoreMock },
         { provide: LanguagePreferencesService, useValue: languagePreferencesMock },
+        {
+          provide: RuntimeLanguageSelectorService,
+          useValue: runtimeLanguageSelectorMock satisfies Pick<RuntimeLanguageSelectorService, 'applyLanguage'>,
+        },
       ],
     }).compileComponents();
   });
@@ -62,15 +91,135 @@ describe('DashboardSettingsModalComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('General');
     expect(fixture.nativeElement.textContent).toContain('Game');
+    expect(fixture.nativeElement.textContent).toContain('Card language');
+    expect(fixture.nativeElement.textContent).toContain('App language');
+    expect(fixture.nativeElement.textContent).toContain('Change password');
+    expect(fixture.nativeElement.textContent).toContain('6/20 maximum');
+    expect(fixture.nativeElement.querySelector('.modal-title-icon')).not.toBeNull();
+
+    const generalText = fixture.nativeElement.textContent as string;
+    expect(generalText.indexOf('App language')).toBeLessThan(generalText.indexOf('Card language'));
+    expect(generalText.indexOf('Card language')).toBeLessThan(generalText.indexOf('Delete account'));
+    expect(generalText).not.toContain('Cards we cannot serve');
 
     const gameTab = Array.from(fixture.nativeElement.querySelectorAll('.settings-tabs button') as NodeListOf<HTMLButtonElement>)
       .find((button) => button.textContent?.includes('Game')) as HTMLButtonElement;
     gameTab.click();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Card language');
-    expect(fixture.nativeElement.textContent).toContain('App language');
     expect(fixture.nativeElement.textContent).toContain('Visual theme');
+    expect(fixture.nativeElement.textContent).not.toContain('Card language');
+    expect(fixture.nativeElement.textContent).not.toContain('App language');
+    expect(fixture.nativeElement.textContent).not.toContain('Change password');
+  });
+
+  it('updates the username character counter from the profile form value', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.profileForm.controls.displayName.setValue('Aaguilera210');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.userNameCharacterCount()).toBe(12);
+    expect(fixture.nativeElement.textContent).toContain('12/20 maximum');
+  });
+
+  it('loads card language coverage when settings opens', async () => {
+    cardsLanguageList.mockReturnValueOnce(of({
+      selectedCardLanguage: 'en',
+      data: [{ code: 'en', label: 'Ingles', distinctCardNames: 100, percentageOfEnglish: 100 }],
+    } satisfies CardLanguageCoverageResponse));
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(cardsLanguageList).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance.cardLanguageCoverage()).toEqual([
+      { code: 'en', label: 'Ingles', distinctCardNames: 100, percentageOfEnglish: 100 },
+    ]);
+  });
+
+  it('uses selected card language returned by the language coverage service', async () => {
+    cardsLanguageList.mockReturnValueOnce(of({
+      selectedCardLanguage: 'zht',
+      data: defaultCardLanguageCoverage,
+    } satisfies CardLanguageCoverageResponse));
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.selectedCardLanguage()).toBe('zht');
+  });
+
+  it('shows the language disclaimer only when card language is not English', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('Cards we cannot serve');
+
+    fixture.componentInstance.setCardLanguage('fr');
+    fixture.detectChanges();
+
+    const generalText = fixture.nativeElement.textContent as string;
+    expect(generalText).toContain('76% of cards are available in French.');
+    expect(generalText).toContain('Cards we cannot serve in that language will be shown in English.');
+    expect(generalText.indexOf('76% of cards')).toBeLessThan(generalText.indexOf('Delete account'));
+  });
+
+  it('fills card language options from the coverage service response only', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const cardLanguageSelect = fixture.nativeElement.querySelector('app-format-select input[name="cardLanguage"]')
+      ?.closest('app-format-select') as HTMLElement;
+    const trigger = cardLanguageSelect.querySelector('.format-select-trigger') as HTMLButtonElement;
+
+    trigger.click();
+    fixture.detectChanges();
+
+    const optionLabels = Array.from(cardLanguageSelect.querySelectorAll('.format-select-option-content span:last-child') as NodeListOf<HTMLElement>)
+      .map((element) => element.textContent?.trim() ?? '');
+
+    expect(optionLabels).toEqual(['English', 'Spanish', 'French', 'Chinese (Traditional)']);
+    expect(optionLabels).not.toContain('Dutch');
+    expect(cardLanguageSelect.textContent).toContain('English');
+    expect(cardLanguageSelect.querySelector('.format-select-option img[src*="taiwan"]')).not.toBeNull();
+  });
+
+  it('uses native hamburger language options with flags for app language', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    const appLanguageSelect = fixture.nativeElement.querySelector('app-format-select input[name="appLanguage"]')
+      ?.closest('app-format-select') as HTMLElement;
+    const trigger = appLanguageSelect.querySelector('.format-select-trigger') as HTMLButtonElement;
+
+    expect(appLanguageSelect.textContent).toContain('English');
+    expect(appLanguageSelect.querySelector('.format-select-trigger .format-select-flag')).not.toBeNull();
+
+    trigger.click();
+    fixture.detectChanges();
+
+    const optionLabels = Array.from(appLanguageSelect.querySelectorAll('.format-select-option-content span:last-child') as NodeListOf<HTMLElement>)
+      .map((element) => element.textContent?.trim() ?? '');
+    const optionFlags = appLanguageSelect.querySelectorAll('.format-select-option .format-select-flag');
+
+    expect(optionLabels).toContain('Deutsch');
+    expect(optionLabels).toContain('Nederlands');
+    expect(optionLabels).not.toContain('German');
+    expect(optionFlags.length).toBe(optionLabels.length);
   });
 
   it('renders theme presets with sunrise selected by default', () => {
@@ -111,6 +260,7 @@ describe('DashboardSettingsModalComponent', () => {
     expect(TestBed.inject(AppThemeService).themeId()).toBe('mystic-grove');
     expect(localStorage.getItem('commanderzone.theme')).toBe('mystic-grove');
     expect(document.documentElement.dataset['theme']).toBe('mystic-grove');
+    expect(themesUpdate).toHaveBeenCalledWith('mystic-grove');
     expect(authApiMock.updateMe).not.toHaveBeenCalled();
   });
 
@@ -146,6 +296,7 @@ describe('DashboardSettingsModalComponent', () => {
       .mockImplementation(() => undefined);
     fixture.componentRef.setInput('open', true);
     fixture.detectChanges();
+    await fixture.whenStable();
 
     fixture.componentInstance.setCardLanguage('es');
     fixture.componentInstance.setAppLanguage('fr');
@@ -174,7 +325,32 @@ describe('DashboardSettingsModalComponent', () => {
     expect(reloadSpy).not.toHaveBeenCalled();
   });
 
-  it('shows persisted language selections in game tab selectors', () => {
+  it('applies app language immediately without mutating card language', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.setAppLanguage('fr');
+
+    expect(fixture.componentInstance.selectedAppLanguage()).toBe('fr');
+    expect(fixture.componentInstance.selectedCardLanguage()).toBe('en');
+    expect(runtimeLanguageSelectorMock.applyLanguage).toHaveBeenCalledWith('fr');
+    expect(authApiMock.updateMe).not.toHaveBeenCalled();
+  });
+
+  it('restores the previous runtime language when cancelling unsaved app language changes', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.setAppLanguage('fr');
+    fixture.componentInstance.cancel();
+
+    expect(fixture.componentInstance.selectedAppLanguage()).toBe('en');
+    expect(runtimeLanguageSelectorMock.applyLanguage).toHaveBeenLastCalledWith('en');
+  });
+
+  it('shows persisted language selections in general tab selectors', () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
     fixture.detectChanges();
@@ -187,12 +363,10 @@ describe('DashboardSettingsModalComponent', () => {
     });
     fixture.componentInstance.selectedCardLanguage.set('fr');
     fixture.componentInstance.selectedAppLanguage.set('de');
-    fixture.componentInstance.switchTab('game');
     fixture.detectChanges();
 
-    const selects = fixture.nativeElement.querySelectorAll('.game-settings-form select') as NodeListOf<HTMLSelectElement>;
-    const cardLanguageSelect = selects.item(0);
-    const appLanguageSelect = selects.item(1);
+    const cardLanguageSelect = fixture.nativeElement.querySelector('input[name="cardLanguage"]') as HTMLInputElement;
+    const appLanguageSelect = fixture.nativeElement.querySelector('input[name="appLanguage"]') as HTMLInputElement;
 
     expect(cardLanguageSelect?.value).toBe('fr');
     expect(appLanguageSelect?.value).toBe('de');
@@ -213,6 +387,16 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.componentInstance.avatarEditorOpen()).toBe(false);
   });
 
+  it('opens directly in avatar editor from launch target', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('launchTarget', 'avatar');
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.avatarEditorOpen()).toBe(true);
+    expect(fixture.componentInstance.displayNameStyleEditorOpen()).toBe(false);
+  });
+
   it('opens name style editor and persists selected preset through the API', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
@@ -228,6 +412,16 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.componentInstance.displayNameStyleEditorOpen()).toBe(false);
   });
 
+  it('opens directly in name style editor from launch target', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('launchTarget', 'name-style');
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.displayNameStyleEditorOpen()).toBe(true);
+    expect(fixture.componentInstance.avatarEditorOpen()).toBe(false);
+  });
+
   it('asks for inline confirmation before deleting the account', () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
@@ -240,6 +434,10 @@ describe('DashboardSettingsModalComponent', () => {
 
     expect(fixture.componentInstance.deleteConfirmationOpen()).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Are you sure you want to permanently delete your account?');
+    expect(
+      Array.from(fixture.nativeElement.querySelectorAll('.danger-button') as NodeListOf<HTMLButtonElement>)
+        .some((button) => !button.classList.contains('compact') && button.textContent?.includes('Delete account')),
+    ).toBe(false);
 
     const cancelButton = fixture.nativeElement.querySelector('.keep-account-button') as HTMLButtonElement;
     expect(cancelButton.textContent).toContain('Cancel');
@@ -250,6 +448,56 @@ describe('DashboardSettingsModalComponent', () => {
 
     expect(fixture.componentInstance.deleteConfirmationOpen()).toBe(false);
     expect(authApiMock.deleteMe).not.toHaveBeenCalled();
+  });
+
+  it('closes delete confirmation when clicking outside it and restores the initial delete button', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    const deleteButton = Array.from(fixture.nativeElement.querySelectorAll('.danger-button') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Delete account')) as HTMLButtonElement;
+    deleteButton.click();
+    fixture.detectChanges();
+
+    const confirmation = fixture.nativeElement.querySelector('.delete-confirmation') as HTMLElement;
+    confirmation.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.deleteConfirmationOpen()).toBe(true);
+
+    const emailInput = fixture.nativeElement.querySelector('input[type="email"]') as HTMLInputElement;
+    emailInput.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.deleteConfirmationOpen()).toBe(false);
+    expect(
+      Array.from(fixture.nativeElement.querySelectorAll('.danger-button') as NodeListOf<HTMLButtonElement>)
+        .some((button) => !button.classList.contains('compact') && button.textContent?.includes('Delete account')),
+    ).toBe(true);
+  });
+
+  it('scrolls settings content to the bottom when delete confirmation opens', () => {
+    vi.useFakeTimers();
+
+    try {
+      const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+      fixture.componentRef.setInput('open', true);
+      fixture.detectChanges();
+
+      const settingsContent = fixture.nativeElement.querySelector('.settings-content') as HTMLElement;
+      const scrollTo = vi.fn();
+      Object.defineProperty(settingsContent, 'scrollHeight', { configurable: true, value: 840 });
+      Object.defineProperty(settingsContent, 'scrollTo', { configurable: true, value: scrollTo });
+
+      fixture.componentInstance.requestDeleteAccount();
+      fixture.detectChanges();
+      vi.runOnlyPendingTimers();
+
+      expect(scrollTo).toHaveBeenCalledWith({ top: 840, behavior: 'smooth' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opens upload mode from avatar editor header action and back returns to general settings', async () => {

@@ -4,6 +4,7 @@ namespace App\Tests\Application;
 
 use App\Application\Game\GameCardBaseStatsResolver;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameMulliganRules;
 use App\Application\Game\GameRandomizer;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
@@ -33,6 +34,38 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(2, $graveyardCard['toughness']);
         self::assertSame(2, $graveyardCard['defaultPower']);
         self::assertSame(2, $graveyardCard['defaultToughness']);
+    }
+
+    public function testKeepsPrintedPowerToughnessWhenCardEntersBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'hand' => [
+                [
+                    'instanceId' => 'card-1',
+                    'name' => 'Variable Creature',
+                    'zone' => 'hand',
+                    'power' => 'X',
+                    'toughness' => '*+1',
+                    'defaultPower' => 'X',
+                    'defaultToughness' => '*+1',
+                    'tapped' => false,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'hand',
+            'toZone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $battlefieldCard = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertSame(0, $battlefieldCard['power']);
+        self::assertSame(0, $battlefieldCard['toughness']);
+        self::assertSame('X', $battlefieldCard['defaultPower']);
+        self::assertSame('*+1', $battlefieldCard['defaultToughness']);
     }
 
     public function testUntapsCardWhenItLeavesBattlefield(): void
@@ -386,6 +419,85 @@ class GameCommandHandlerTest extends TestCase
         );
     }
 
+    public function testDayNightLegacyBattlefieldCardCannotBeMoved(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('day-night-1', 'Day // Night', 'battlefield', 0, 0, 0, 0),
+                    'layout' => 'double_faced_token',
+                    'position' => ['x' => 1, 'y' => 0, 'unit' => 'ratio'],
+                ],
+            ],
+        ]));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card not found.');
+
+        (new GameCommandHandler())->apply($game, 'card.position.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'day-night-1',
+            'position' => ['x' => 0.2, 'y' => 0.8, 'unit' => 'ratio'],
+        ], $actor);
+    }
+
+    public function testDungeonMarkerCommandClampsMarkerAndPreservesItWhenCardMoves(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('dungeon-1', 'Lost Mine of Phandelver', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Dungeon',
+                    'layout' => 'normal',
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.dungeon_marker.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'dungeon-1',
+            'position' => ['x' => 1.2, 'y' => -0.25],
+        ], $actor);
+
+        (new GameCommandHandler())->apply($game, 'card.position.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'dungeon-1',
+            'position' => ['x' => 0.1, 'y' => 0.2, 'unit' => 'ratio'],
+        ], $actor);
+
+        $dungeon = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertSame(['x' => 1.0, 'y' => 0.0], $dungeon['dungeonMarker']);
+        self::assertSame(['x' => 0.1, 'y' => 0.2, 'unit' => 'ratio'], $dungeon['position']);
+    }
+
+    public function testDungeonMarkerCommandRejectsNonDungeonCards(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Dungeon Master', 'battlefield', 2, 2, 2, 2),
+                    'typeLine' => 'Creature - Human Wizard',
+                ],
+            ],
+        ]));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Only dungeon cards can have a dungeon marker.');
+
+        (new GameCommandHandler())->apply($game, 'card.dungeon_marker.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'position' => ['x' => 0.4, 'y' => 0.6],
+        ], $actor);
+    }
+
     public function testCardsPositionCommandPersistsMultipleBattlefieldPositionsAtomically(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -603,6 +715,177 @@ class GameCommandHandlerTest extends TestCase
         self::assertTrue($token['isToken']);
         self::assertFalse($token['isTokenCopy']);
         self::assertSame('Created Goblin Token.', $game->snapshot()['eventLog'][0]['message']);
+    }
+
+    public function testCreateTokenCommandUsesExplicitBattlefieldPosition(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+
+        (new GameCommandHandler())->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'position' => ['x' => 0, 'y' => 0, 'unit' => 'ratio'],
+            'card' => [
+                'scryfallId' => 'emblem-scryfall-id',
+                'name' => 'Chandra Emblem',
+                'typeLine' => 'Emblem',
+                'layout' => 'emblem',
+                'imageUris' => ['normal' => 'https://cards.scryfall.io/emblem.jpg'],
+            ],
+        ], $actor);
+
+        $token = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertSame('Chandra Emblem', $token['name']);
+        self::assertSame('emblem', $token['layout']);
+        self::assertTrue($token['isToken']);
+        self::assertSame(['x' => 0.0, 'y' => 0.0, 'unit' => 'ratio'], $token['position']);
+    }
+
+    public function testCreateEmblemTokenLogsThatPlayerGetsTheEmblem(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+
+        (new GameCommandHandler())->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'card' => [
+                'scryfallId' => 'emblem-scryfall-id',
+                'name' => 'Chandra Emblem',
+                'typeLine' => 'Emblem',
+                'layout' => 'emblem',
+            ],
+        ], $actor);
+
+        self::assertSame(
+            sprintf('%s gets emblem Chandra Emblem.', $actor->id()),
+            $game->snapshot()['eventLog'][0]['message'],
+        );
+    }
+
+    public function testCreateDungeonTokenReplacesOnlyCurrentPlayersActiveDungeon(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('old-dungeon', 'Lost Mine of Phandelver', 'battlefield', 0, 0, 0, 0),
+                'typeLine' => 'Dungeon',
+                'layout' => 'dungeon',
+                'dungeonMarker' => ['x' => 0.8, 'y' => 0.2],
+            ]],
+        ], $opponent->id());
+        $snapshot['players'][$opponent->id()]['zones']['battlefield'] = [[
+            ...$this->card('opponent-dungeon', 'Tomb of Annihilation', 'battlefield', 0, 0, 0, 0),
+            'typeLine' => 'Dungeon',
+            'layout' => 'dungeon',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'card' => [
+                'scryfallId' => 'undercity-scryfall-id',
+                'name' => 'Undercity',
+                'typeLine' => 'Dungeon',
+                'layout' => 'dungeon',
+            ],
+        ], $actor);
+
+        $actorBattlefield = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'];
+        $opponentBattlefield = $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'];
+        self::assertCount(1, $actorBattlefield);
+        self::assertSame('Undercity', $actorBattlefield[0]['name']);
+        self::assertNotSame('old-dungeon', $actorBattlefield[0]['instanceId']);
+        self::assertSame(['x' => 0.5, 'y' => 0.5], $actorBattlefield[0]['dungeonMarker']);
+        self::assertCount(1, $opponentBattlefield);
+        self::assertSame('opponent-dungeon', $opponentBattlefield[0]['instanceId']);
+    }
+
+    public function testCreateTheRingTokenStartsAtLevelOneAndReplacesPreviousCopyForThatPlayer(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('old-ring', 'The Ring', 'battlefield', 0, 0, 0, 0),
+                'scryfallId' => '7215460e-8c06-47d0-94e5-d1832d0218af',
+                'typeLine' => 'Emblem // Card',
+                'layout' => 'double_faced_token',
+                'counters' => ['Level' => 3],
+            ]],
+        ], $opponent->id());
+        $snapshot['players'][$opponent->id()]['zones']['battlefield'] = [[
+            ...$this->card('opponent-ring', 'The Ring // The Ring Tempts You', 'battlefield', 0, 0, 0, 0),
+            'typeLine' => 'Emblem // Card',
+            'layout' => 'double_faced_token',
+            'counters' => ['Level' => 2],
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'card' => [
+                'scryfallId' => '7215460e-8c06-47d0-94e5-d1832d0218af',
+                'name' => 'The Ring // The Ring Tempts You',
+                'typeLine' => 'Emblem // Card',
+                'layout' => 'double_faced_token',
+            ],
+        ], $actor);
+
+        $actorBattlefield = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'];
+        $opponentBattlefield = $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'];
+        self::assertCount(1, $actorBattlefield);
+        self::assertSame('The Ring // The Ring Tempts You', $actorBattlefield[0]['name']);
+        self::assertSame(['Level' => 1], $actorBattlefield[0]['counters']);
+        self::assertNotSame('old-ring', $actorBattlefield[0]['instanceId']);
+        self::assertCount(1, $opponentBattlefield);
+        self::assertSame('opponent-ring', $opponentBattlefield[0]['instanceId']);
+    }
+
+    public function testTheRingLevelCounterIsClampedBetweenOneAndFour(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('the-ring', 'The Ring // The Ring Tempts You', 'battlefield', 0, 0, 0, 0),
+                'scryfallId' => '7215460e-8c06-47d0-94e5-d1832d0218af',
+                'typeLine' => 'Emblem // Card',
+                'layout' => 'double_faced_token',
+                'counters' => ['Level' => 2],
+            ]],
+        ]);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'the-ring',
+            'key' => 'Level',
+            'value' => 9,
+        ], $actor);
+
+        self::assertSame(4, $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']['Level']);
+
+        $handler->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'the-ring',
+            'key' => 'Level',
+            'value' => 0,
+        ], $actor);
+
+        self::assertSame(1, $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']['Level']);
+
+        $handler->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'the-ring',
+            'key' => 'Level',
+            'remove' => true,
+        ], $actor);
+
+        self::assertSame(['Level' => 1], $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']);
     }
 
     public function testCreateTokenCommandCreatesRequestedQuantityInSingleCommand(): void
@@ -1092,6 +1375,124 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(4, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['loyalty']);
         self::assertSame(3, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['defaultLoyalty']);
         self::assertSame('Adept loyalty increased from 3 to 4 (+1).', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testChangesBattleDefense(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Invasion of Zendikar', 'battlefield', 0, 0, 0, 0),
+                    'defense' => 5,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'defense' => 6,
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame(6, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['defense']);
+        self::assertSame('Invasion of Zendikar defense increased from 5 to 6 (+1).', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testChangesSagaChapter(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Binding the Old Gods', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Enchantment - Saga',
+                    'saga' => 1,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'saga' => 2,
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame(2, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['saga']);
+        self::assertSame('Binding the Old Gods saga increased to II.', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testSagaZeroDeltaUsesShortMessage(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Binding the Old Gods', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Enchantment - Saga',
+                    'saga' => 2,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'saga' => 2,
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame('Binding the Old Gods saga increased to II.', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testClampsBattleDefenseRange(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+
+        $highGame = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Invasion of Zendikar', 'battlefield', 0, 0, 0, 0),
+                    'defense' => 5,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($highGame, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'defense' => 120,
+        ], $actor);
+
+        $highSnapshot = $highGame->snapshot();
+        self::assertSame(99, $highSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['defense']);
+        self::assertSame('Invasion of Zendikar defense increased from 5 to 99 (+94).', $highSnapshot['eventLog'][0]['message']);
+
+        $lowGame = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Invasion of Zendikar', 'battlefield', 0, 0, 0, 0),
+                    'defense' => 5,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($lowGame, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'defense' => -5,
+        ], $actor);
+
+        $lowSnapshot = $lowGame->snapshot();
+        self::assertSame(-1, $lowSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['defense']);
+        self::assertSame('Invasion of Zendikar defense decreased from 5 to -1 (-6).', $lowSnapshot['eventLog'][0]['message']);
     }
 
     public function testClearsManualPowerToughness(): void
@@ -2063,6 +2464,110 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(3, $game->snapshot()['turn']['number']);
     }
 
+    public function testConcedeReassignsMonarchToNextActivePlayerWhenCurrentMonarchLeaves(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $next = new User('next@example.test', 'Next');
+        $snapshot = $this->snapshot($actor->id(), [], $next->id());
+        $snapshot['turn'] = [
+            'activePlayerId' => $actor->id(),
+            'phase' => 'main-1',
+            'number' => 4,
+        ];
+        $snapshot['specialEntities'] = [[
+            'id' => 'monarch-1',
+            'template' => 'monarch',
+            'scope' => 'global',
+            'ownerPlayerId' => $actor->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame($next->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
+    public function testConcedeReassignsMonarchToActivePlayerWhenCurrentMonarchLeavesDuringAnotherPlayersTurn(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $active = new User('active@example.test', 'Active');
+        $snapshot = $this->snapshot($actor->id(), [], $active->id());
+        $snapshot['turn'] = [
+            'activePlayerId' => $active->id(),
+            'phase' => 'combat',
+            'number' => 7,
+        ];
+        $snapshot['specialEntities'] = [[
+            'id' => 'monarch-1',
+            'template' => 'monarch',
+            'scope' => 'global',
+            'ownerPlayerId' => $actor->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame($active->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
+    public function testConcedeReassignsInitiativeToNextActivePlayerWhenCurrentHolderLeaves(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $next = new User('next@example.test', 'Next');
+        $snapshot = $this->snapshot($actor->id(), [], $next->id());
+        $snapshot['turn'] = [
+            'activePlayerId' => $actor->id(),
+            'phase' => 'main-1',
+            'number' => 4,
+        ];
+        $snapshot['specialEntities'] = [[
+            'id' => 'initiative-1',
+            'template' => 'initiative',
+            'scope' => 'global',
+            'ownerPlayerId' => $actor->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame($next->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
+    public function testConcedeReassignsInitiativeToActivePlayerWhenCurrentHolderLeavesDuringAnotherPlayersTurn(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $active = new User('active@example.test', 'Active');
+        $snapshot = $this->snapshot($actor->id(), [], $active->id());
+        $snapshot['turn'] = [
+            'activePlayerId' => $active->id(),
+            'phase' => 'combat',
+            'number' => 7,
+        ];
+        $snapshot['specialEntities'] = [[
+            'id' => 'initiative-1',
+            'template' => 'initiative',
+            'scope' => 'global',
+            'ownerPlayerId' => $actor->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame($active->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
     public function testMovingCardToSameZoneDoesNotCreateLogEntry(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -2555,6 +3060,128 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
     }
 
+    public function testAttachmentCannotUseGameplayCardAsEquipmentSource(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+
+        foreach ([
+            'emblem-card' => ['typeLine' => 'Emblem', 'layout' => 'emblem', 'message' => 'Emblems cannot be attached to another permanent.'],
+            'dungeon-card' => ['typeLine' => 'Dungeon', 'layout' => 'dungeon', 'message' => 'Dungeons cannot be attached to another permanent.'],
+        ] as $instanceId => $metadata) {
+            $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+                'battlefield' => [
+                    [
+                        ...$this->card($instanceId, $instanceId, 'battlefield', 0, 0, 0, 0),
+                        'typeLine' => $metadata['typeLine'],
+                        'layout' => $metadata['layout'],
+                    ],
+                    [
+                        ...$this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+                        'typeLine' => 'Creature - Bear',
+                    ],
+                ],
+            ]));
+
+            try {
+                $handler->apply($game, 'attachment.created', [
+                    'equipmentInstanceId' => $instanceId,
+                    'attachedToInstanceId' => 'target-card',
+                ], $actor);
+                self::fail('Expected gameplay attachment source to be rejected.');
+            } catch (\InvalidArgumentException $exception) {
+                self::assertSame($metadata['message'], $exception->getMessage());
+            }
+        }
+    }
+
+    public function testAttachmentCanUseTheRingAsEquipmentSource(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('the-ring-card', 'The Ring', 'battlefield', 0, 0, 0, 0),
+                    'scryfallId' => '7215460e-8c06-47d0-94e5-d1832d0218af',
+                    'typeLine' => 'Emblem // Card',
+                    'layout' => 'double_faced_token',
+                ],
+                [
+                    ...$this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+                    'typeLine' => 'Creature - Bear',
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'the-ring-card',
+            'attachedToInstanceId' => 'target-card',
+        ], $actor);
+
+        self::assertSame('the-ring-card', $game->snapshot()['attachments'][0]['equipmentInstanceId']);
+    }
+
+    public function testAttachmentCannotTargetGameplayCard(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+
+        foreach ([
+            'emblem-card' => ['typeLine' => 'Emblem', 'layout' => 'emblem', 'message' => 'Emblems cannot be attachment targets.'],
+            'dungeon-card' => ['typeLine' => 'Dungeon', 'layout' => 'dungeon', 'message' => 'Dungeons cannot be attachment targets.'],
+        ] as $instanceId => $metadata) {
+            $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+                'battlefield' => [
+                    [
+                        ...$this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                        'typeLine' => 'Artifact',
+                    ],
+                    [
+                        ...$this->card($instanceId, $instanceId, 'battlefield', 0, 0, 0, 0),
+                        'typeLine' => $metadata['typeLine'],
+                        'layout' => $metadata['layout'],
+                    ],
+                ],
+            ]));
+
+            try {
+                $handler->apply($game, 'attachment.created', [
+                    'equipmentInstanceId' => 'equipment-card',
+                    'attachedToInstanceId' => $instanceId,
+                ], $actor);
+                self::fail('Expected gameplay attachment target to be rejected.');
+            } catch (\InvalidArgumentException $exception) {
+                self::assertSame($metadata['message'], $exception->getMessage());
+            }
+        }
+    }
+
+    public function testAttachmentCannotTargetTheRing(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                    'typeLine' => 'Artifact',
+                ],
+                [
+                    ...$this->card('the-ring-card', 'The Ring // The Ring Tempts You', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Emblem // Card',
+                    'layout' => 'double_faced_token',
+                ],
+            ],
+        ]));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The Ring cannot be an attachment target.');
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'the-ring-card',
+        ], $actor);
+    }
+
     public function testAttachmentCanTargetLand(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -2815,6 +3442,252 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
     }
 
+    public function testTakeMulliganReturnsHandToLibraryShufflesAndDrawsNewHand(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 2, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler(null, new class() extends GameRandomizer {
+            public function shuffle(array $items): array
+            {
+                return array_reverse($items);
+            }
+        });
+
+        $handler->apply($game, 'mulligan.take', [], $actor);
+
+        $player = $game->snapshot()['players'][$actor->id()];
+        self::assertSame(1, $player['mulligan']['mulligansTaken']);
+        self::assertSame('DECIDING', $player['mulligan']['status']);
+        self::assertCount(7, $player['zones']['hand']);
+        self::assertCount(2, $player['zones']['library']);
+        self::assertSame('hand-2', $player['zones']['hand'][0]['instanceId']);
+    }
+
+    public function testNormalGameplayCommandsAreRejectedDuringMulligan(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => [],
+            'library' => $this->cards('library', 3, 'library'),
+        ]));
+
+        try {
+            (new GameCommandHandler())->apply($game, 'library.draw', [
+                'playerId' => $actor->id(),
+            ], $actor);
+            self::fail('Normal draw was accepted during mulligan.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertSame('Game is in mulligan phase.', $exception->getMessage());
+        }
+
+        self::assertCount(0, $game->snapshot()['players'][$actor->id()]['zones']['hand']);
+        self::assertCount(3, $game->snapshot()['players'][$actor->id()]['zones']['library']);
+        self::assertSame('MULLIGAN', $game->snapshot()['gamePhase']);
+    }
+
+    public function testLondonSecondEffectiveMulliganRequiresOneBottomCard(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+        ], Room::MULLIGAN_LONDON, true, 2));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Incorrect number of bottom cards selected.');
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+    }
+
+    public function testLondonBottomsCardsInClientOrder(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_LONDON, false, 2));
+
+        $event = (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['hand-2', 'hand-1'],
+        ], $actor);
+
+        $libraryIds = array_map(
+            static fn (array $card): string => $card['instanceId'],
+            $game->snapshot()['players'][$actor->id()]['zones']['library'],
+        );
+        self::assertSame(['library-1', 'hand-2', 'hand-1'], $libraryIds);
+        self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
+        self::assertSame(['bottomCardCount' => 2], $event->toArray()['payload']);
+    }
+
+    public function testGenerousRequiresThreeBottomCardsAtStart(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 10, 'hand'),
+        ], Room::MULLIGAN_GENEROUS));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Incorrect number of bottom cards selected.');
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+    }
+
+    public function testGenerousRandomizesBottomOrderServerSide(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 10, 'hand'),
+        ], Room::MULLIGAN_GENEROUS));
+        $handler = new GameCommandHandler(null, new class() extends GameRandomizer {
+            public function shuffle(array $items): array
+            {
+                return array_reverse($items);
+            }
+        });
+
+        $handler->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['hand-1', 'hand-2', 'hand-3'],
+        ], $actor);
+
+        $libraryIds = array_map(
+            static fn (array $card): string => $card['instanceId'],
+            $game->snapshot()['players'][$actor->id()]['zones']['library'],
+        );
+        self::assertSame(['hand-3', 'hand-2', 'hand-1'], $libraryIds);
+        self::assertNotSame(['hand-1', 'hand-2', 'hand-3'], $libraryIds);
+    }
+
+    public function testVancouverEntersScryingWhenEffectiveMulligansIsGreaterThanZero(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 6, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_VANCOUVER, false, 1));
+
+        $event = (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+
+        $mulligan = $game->snapshot()['players'][$actor->id()]['mulligan'];
+        self::assertSame('SCRYING', $mulligan['status']);
+        self::assertSame('library-1', $mulligan['scryCardInstanceId']);
+        self::assertSame('MULLIGAN', $game->snapshot()['gamePhase']);
+        self::assertSame(['bottomCardCount' => 0], $event->toArray()['payload']);
+    }
+
+    public function testVancouverScryConfirmEventDoesNotExposeScryChoice(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 6, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_VANCOUVER, false, 1, 'SCRYING'));
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['mulligan']['scryCardInstanceId'] = 'library-1';
+        $game->replaceSnapshot($snapshot);
+
+        $event = (new GameCommandHandler())->apply($game, 'mulligan.scry_confirm', [
+            'destination' => 'BOTTOM',
+        ], $actor);
+
+        self::assertSame([], $event->toArray()['payload']);
+    }
+
+    public function testVancouverDoesNotEnterScryingWhenEffectiveMulligansIsZero(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_VANCOUVER, true, 1));
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+
+        self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
+        self::assertSame('PLAYING', $game->snapshot()['gamePhase']);
+    }
+
+    public function testParisNeverEntersScrying(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 6, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_PARIS, false, 1));
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+
+        self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
+        self::assertSame('PLAYING', $game->snapshot()['gamePhase']);
+    }
+
+    public function testRejectsBottomCardThatIsNotInHand(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+        ], Room::MULLIGAN_LONDON, false, 1));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Selected bottom card is not in hand.');
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['library-1'],
+        ], $actor);
+    }
+
+    public function testRejectsIncorrectBottomSelectionCount(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+        ], Room::MULLIGAN_LONDON, false, 2));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Incorrect number of bottom cards selected.');
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['hand-1'],
+        ], $actor);
+    }
+
+    public function testRejectsBottomSelectionForVancouverAndParis(): void
+    {
+        foreach ([Room::MULLIGAN_VANCOUVER, Room::MULLIGAN_PARIS] as $rule) {
+            $actor = new User($rule.'@example.test', $rule);
+            $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+                'hand' => $this->cards('hand', 7, 'hand'),
+            ], $rule));
+
+            try {
+                (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+                    'bottomCardInstanceIds' => ['hand-1'],
+                ], $actor);
+                self::fail(sprintf('%s accepted bottom card selections.', $rule));
+            } catch (\InvalidArgumentException $exception) {
+                self::assertSame('This mulligan rule does not allow bottom card selections.', $exception->getMessage());
+            }
+        }
+    }
+
+    public function testAllReadyPlayersAdvanceGamePhaseToPlaying(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+        ], Room::MULLIGAN_LONDON, true, 0, 'DECIDING', $opponent->id(), 'READY');
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+
+        self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
+        self::assertSame('PLAYING', $game->snapshot()['gamePhase']);
+    }
+
     /**
      * @param array<string,list<array<string,mixed>>> $actorZones
      */
@@ -2838,6 +3711,46 @@ class GameCommandHandlerTest extends TestCase
             'chat' => [],
             'eventLog' => [],
             'createdAt' => '2026-01-01T00:00:00+00:00',
+        ];
+    }
+
+    /**
+     * @param array<string,list<array<string,mixed>>> $actorZones
+     */
+    private function mulliganSnapshot(
+        string $actorId,
+        array $actorZones,
+        string $rule = Room::MULLIGAN_LONDON,
+        bool $firstMulliganFree = true,
+        int $mulligansTaken = 0,
+        string $status = 'DECIDING',
+        ?string $opponentId = null,
+        string $opponentStatus = 'DECIDING',
+    ): array {
+        $snapshot = $this->snapshot($actorId, $actorZones, $opponentId);
+        $snapshot['gamePhase'] = 'MULLIGAN';
+        $snapshot['mulligan'] = [
+            'rule' => $rule,
+            'firstMulliganFree' => $firstMulliganFree,
+        ];
+        $snapshot['players'][$actorId]['mulligan'] = $this->mulliganPlayerState($rule, $firstMulliganFree, $mulligansTaken, $status);
+        if ($opponentId !== null) {
+            $snapshot['players'][$opponentId]['mulligan'] = $this->mulliganPlayerState($rule, $firstMulliganFree, 0, $opponentStatus);
+        }
+
+        return $snapshot;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function mulliganPlayerState(string $rule, bool $firstMulliganFree, int $mulligansTaken, string $status): array
+    {
+        return [
+            ...GameMulliganRules::calculateMulliganState($rule, $firstMulliganFree, $mulligansTaken),
+            'status' => $status,
+            'ready' => $status === 'READY',
+            'scryCardInstanceId' => null,
         ];
     }
 
@@ -2873,6 +3786,27 @@ class GameCommandHandlerTest extends TestCase
         ];
     }
 
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function cards(string $prefix, int $count, string $zone): array
+    {
+        $cards = [];
+        for ($index = 1; $index <= $count; ++$index) {
+            $cards[] = $this->card(
+                sprintf('%s-%d', $prefix, $index),
+                sprintf('%s %d', $prefix, $index),
+                $zone,
+                2,
+                2,
+                2,
+                2,
+            );
+        }
+
+        return $cards;
+    }
+
     private function card(
         string $instanceId,
         string $name,
@@ -2881,6 +3815,7 @@ class GameCommandHandlerTest extends TestCase
         int $toughness,
         int $basePower,
         int $baseToughness,
+        ?int $baseDefense = null,
     ): array {
         return [
             'instanceId' => $instanceId,
@@ -2890,6 +3825,7 @@ class GameCommandHandlerTest extends TestCase
             'toughness' => $toughness,
             'defaultPower' => $basePower,
             'defaultToughness' => $baseToughness,
+            'defaultDefense' => $baseDefense,
             'tapped' => false,
         ];
     }

@@ -1,9 +1,10 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Ban, Library, LucideAngularModule } from 'lucide-angular';
-import { GameCardInstance } from '../../../../../core/models/game.model';
+import { Ban, Circle, Crown, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
+import { GameCardInstance, GameSpecialEntity } from '../../../../../core/models/game.model';
 import { OpponentMiniBoardComponent } from './opponent-mini-board.component';
 import { PlayerView } from '../../game-table.store';
+import { GameTablePlayerSpecialEntitiesSummary } from '../../state/helpers/game-table-special-entities.state';
 
 describe('OpponentMiniBoardComponent', () => {
   let fixture: ComponentFixture<OpponentMiniBoardComponent>;
@@ -12,7 +13,7 @@ describe('OpponentMiniBoardComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OpponentMiniBoardComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Ban, Library })),
+        importProvidersFrom(LucideAngularModule.pick({ Ban, Circle, Crown, Flag, Library, Sparkles })),
       ],
     }).compileComponents();
 
@@ -20,12 +21,47 @@ describe('OpponentMiniBoardComponent', () => {
     fixture.componentRef.setInput('player', playerView());
     fixture.componentRef.setInput('colorAccent', () => '#d7b46a');
     fixture.componentRef.setInput('deckLabel', (player: PlayerView | null) => player?.state.user.displayName ?? '');
-    fixture.componentRef.setInput('backgroundImage', () => '/assets/images/backgrounds/back_5.png');
+    fixture.componentRef.setInput('backgroundImage', () => '/assets/images/backgrounds/sunrise/bg-5.webp');
     fixture.componentRef.setInput('battlefieldSize', { width: 900, height: 520 });
     fixture.componentRef.setInput('zoneCount', (player: PlayerView, zone: keyof PlayerView['state']['zones']) => player.state.zones[zone].length);
     fixture.componentRef.setInput('cardPosition', () => ({ x: 0, y: 0 }));
     fixture.componentRef.setInput('cardImage', () => null);
     fixture.componentRef.setInput('isPlayerDropHighlighted', () => false);
+  });
+
+  it('shows active designation pills without the legacy mechanics button', () => {
+    const monarch = helperEntity('monarch', 'user-2');
+    const emblem = helperEntity('emblem', 'user-2');
+    fixture.componentRef.setInput('specialEntitiesSummary', {
+      playerId: 'user-2',
+      monarch,
+      initiative: null,
+      citysBlessing: null,
+      ring: null,
+      dungeon: null,
+      emblems: [emblem],
+      displayEntities: [monarch, emblem],
+      hasAny: true,
+    } satisfies GameTablePlayerSpecialEntitiesSummary);
+    fixture.detectChanges();
+
+    const strip = fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]') as HTMLElement;
+
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-mechanics-button"]')).toBeNull();
+    expect(strip).not.toBeNull();
+    expect(strip.dataset['variant']).toBe('compact');
+    expect(strip.textContent).toContain('Monarch');
+    expect(strip.textContent).not.toContain('Emblem');
+    expect(strip.querySelector('[aria-label="Monarch"]')).not.toBeNull();
+    expect(strip.querySelector('[aria-label="Emblem"]')).toBeNull();
+    expect(strip.querySelector('.ms-ability-role-royal')).not.toBeNull();
+    expect(strip.querySelector('.ms-planeswalker')).toBeNull();
+  });
+
+  it('does not render the mechanics strip when no mechanics are active', () => {
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]')).toBeNull();
   });
 
   it('renders the targeting pill between player label and life', () => {
@@ -94,6 +130,16 @@ describe('OpponentMiniBoardComponent', () => {
     expect(fixture.nativeElement.querySelector('app-opponent-cards-target')).toBeNull();
   });
 
+  it('passes mechanic cards to the mini battlefield overlay', () => {
+    fixture.componentRef.setInput('mechanicCards', [cardInstance('monarch-card', 'The Monarch')]);
+    fixture.detectChanges();
+
+    const miniBattlefield = fixture.nativeElement.querySelector('app-opponent-mini-battlefield') as HTMLElement;
+
+    expect(miniBattlefield.querySelector('[data-testid="battlefield-mechanics-overlay"]')).not.toBeNull();
+    expect(miniBattlefield.querySelector('[data-testid="battlefield-mechanics-mini-card"][data-card-instance-id="monarch-card"]')).not.toBeNull();
+  });
+
   it('replaces the mini battlefield with a defeated board when opponent life is zero or lower', () => {
     fixture.componentRef.setInput('player', playerView({ life: 0 }));
     fixture.detectChanges();
@@ -102,7 +148,7 @@ describe('OpponentMiniBoardComponent', () => {
     const skull = fixture.nativeElement.querySelector('[data-testid="opponent-mini-battlefield-skull"]') as HTMLImageElement;
     expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
     expect(board).not.toBeNull();
-    expect(board.style.getPropertyValue('--opponent-defeated-background')).toContain('/assets/images/backgrounds/back_5.png');
+    expect(board.style.getPropertyValue('--opponent-defeated-background')).toContain('/assets/images/backgrounds/sunrise/bg-5.webp');
     expect(skull).not.toBeNull();
     expect(skull.getAttribute('src')).toBe('/assets/icons/gameplay/skull.png');
   });
@@ -186,5 +232,21 @@ function cardInstance(instanceId: string, name: string): GameCardInstance {
     zone: 'battlefield',
     isToken: false,
     isCommander: false,
+  };
+}
+
+function helperEntity(
+  template: GameSpecialEntity['template'],
+  ownerPlayerId: string | null,
+  state: Record<string, unknown> = {},
+): GameSpecialEntity {
+  return {
+    id: `${template}-${ownerPlayerId ?? 'global'}`,
+    template,
+    scope: ownerPlayerId ? 'player' : 'global',
+    ownerPlayerId,
+    card: null,
+    state,
+    createdAt: '2026-01-01T00:00:00.000Z',
   };
 }

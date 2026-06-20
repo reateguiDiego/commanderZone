@@ -27,10 +27,14 @@
   <div class="room-col room-col-centered">
     @if (isRoomStarted(currentRoom)) {
       <span class="status-pill status-started">{{ 'rooms.roomRow.started' | runtimeTranslate }}</span>
+    } @else if (isRoomArchived(currentRoom)) {
+      <span class="status-pill status-archived">{{ currentRoom.status }}</span>
     } @else if (isRoomWaiting(currentRoom) && isRoomFull(currentRoom)) {
       <span class="status-pill status-full">{{ 'rooms.roomRow.full' | runtimeTranslate }}</span>
     } @else if (isRoomOpen(currentRoom)) {
       <span class="status-pill status-open">{{ 'rooms.roomRow.open' | runtimeTranslate }}</span>
+    } @else if (isRoomWaiting(currentRoom)) {
+      <span class="status-pill status-waiting">{{ currentRoom.status }}</span>
     } @else {
       <span class="status-pill status-full">{{ currentRoom.status }}</span>
     }
@@ -38,29 +42,29 @@
   <div class="room-actions">
     @if (isCurrentUserInRoom(currentRoom)) {
       @if (currentRoom.gameId) {
-        <a class="secondary-button compact" [routerLink]="['/games', currentRoom.gameId]">{{ 'rooms.roomRow.open' | runtimeTranslate }}</a>
+        <a czButton="secondary" czButtonSize="sm" class="secondary-button compact" [routerLink]="['/games', currentRoom.gameId]">{{ 'rooms.roomRow.open' | runtimeTranslate }}</a>
       } @else {
-        <a class="secondary-button compact" [routerLink]="['/rooms', currentRoom.id, 'waiting']">
+        <a czButton="secondary" czButtonSize="sm" class="secondary-button compact" [routerLink]="['/rooms', currentRoom.id, 'waiting']">
           <lucide-icon name="door-open" size="15" />
           {{ 'rooms.roomRow.open' | runtimeTranslate }}
         </a>
       }
     } @else if (currentRoom.visibility === 'public' && !currentRoom.gameId) {
       <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
-        <button class="secondary-button compact" type="button" [disabled]="!canJoinRoom(currentRoom)" (click)="opened.emit(currentRoom)">
+        <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" [disabled]="!canJoinRoom(currentRoom)" (click)="opened.emit(currentRoom)">
           <lucide-icon name="door-open" size="15" />
           {{ 'rooms.roomRow.join' | runtimeTranslate }}
         </button>
       </span>
     }
     @if (canLeaveRoom(currentRoom)) {
-      <button class="danger-button compact" type="button" [disabled]="leavingRoomId() === currentRoom.id" (click)="left.emit(currentRoom)">
+      <button czButton="secondary" czButtonTone="danger" czButtonSize="sm" class="danger-button compact" type="button" [disabled]="leavingRoomId() === currentRoom.id" (click)="left.emit(currentRoom)">
         <lucide-icon name="log-out" size="15" />
         {{ leavingRoomId() === currentRoom.id ? 'Leaving' : 'Leave' }}
       </button>
     }
     @if (canDeleteRoom(currentRoom)) {
-      <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === currentRoom.id" (click)="deleted.emit(currentRoom)">
+      <button czButton="secondary" czButtonTone="danger" czButtonSize="sm" class="danger-button compact" type="button" [disabled]="deletingRoomId() === currentRoom.id" (click)="deleted.emit(currentRoom)">
         <lucide-icon name="trash-2" size="15" />
         {{ deletingRoomId() === currentRoom.id ? 'Deleting' : 'Delete' }}
       </button>

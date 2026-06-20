@@ -12,9 +12,11 @@ import {
   LucideAngularModule,
   Maximize2,
   Menu,
+  Search,
   Settings,
   TabletSmartphone,
   Trash2,
+  Users,
   X,
 } from 'lucide-angular';
 import { of } from 'rxjs';
@@ -44,9 +46,11 @@ describe('DashboardShellComponent', () => {
           LogOut,
           Maximize2,
           Menu,
+          Search,
           Settings,
           TabletSmartphone,
           Trash2,
+          Users,
           X,
         })),
         {
@@ -87,8 +91,21 @@ describe('DashboardShellComponent', () => {
     const fixture = TestBed.createComponent(DashboardShellComponent);
     fixture.detectChanges();
 
+    expect(fixture.nativeElement.querySelector('aside')).toBeNull();
     const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
-    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
+    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.webp');
+    const navIcons = Array.from(fixture.nativeElement.querySelectorAll('.nav-icon'))
+      .map((icon) => (icon as HTMLImageElement).getAttribute('src'));
+    expect(navIcons).toEqual([
+      '/assets/icons/CZ/CZ_decks_menu.webp',
+      '/assets/icons/CZ/CZ_rooms_menu.webp',
+      '/assets/icons/CZ/CZ_cards_menu.webp',
+      '/assets/icons/CZ/CZ_comunity_menu.webp',
+      '/assets/icons/CZ/CZ_table_menu.webp',
+    ]);
+    expect(fixture.nativeElement.querySelector('app-dashboard-page-context')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Cards');
+    expect(fixture.nativeElement.textContent).toContain('Community');
     expect(fixture.nativeElement.textContent).toContain('Player');
   });
 
@@ -98,7 +115,8 @@ describe('DashboardShellComponent', () => {
     fixture.detectChanges();
 
     const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
-    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
+    expect(brandLogo).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-dashboard-page-context')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Decks');
     expect(fixture.nativeElement.textContent).not.toContain('Rooms');
     expect(fixture.nativeElement.textContent).not.toContain('Player');
@@ -110,6 +128,33 @@ describe('DashboardShellComponent', () => {
     fixture.detectChanges();
 
     const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
-    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_black.png');
+    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_black.webp');
+  });
+
+  it('closes the friends dropdown on outside pointerdown', () => {
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.componentInstance.friendsOpen.set(true);
+    fixture.detectChanges();
+
+    document.body.dispatchEvent(pointerDown());
+
+    expect(fixture.componentInstance.friendsOpen()).toBe(false);
+  });
+
+  it('keeps the friends dropdown open on inside pointerdown', () => {
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.componentInstance.friendsOpen.set(true);
+    fixture.detectChanges();
+
+    const dropdown = fixture.nativeElement.querySelector('.friends-dropdown') as HTMLElement;
+    dropdown.dispatchEvent(pointerDown());
+
+    expect(fixture.componentInstance.friendsOpen()).toBe(true);
   });
 });
+
+function pointerDown(): Event {
+  return typeof PointerEvent === 'undefined'
+    ? new Event('pointerdown', { bubbles: true })
+    : new PointerEvent('pointerdown', { bubbles: true });
+}

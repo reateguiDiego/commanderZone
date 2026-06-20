@@ -31,7 +31,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 180, nullable: true)]
     private ?string $pendingEmail = null;
 
-    #[ORM\Column(type: 'string', length: 25)]
+    #[ORM\Column(type: 'string', length: 20)]
     private string $displayName;
 
     #[ORM\Column(type: 'string', length: 48)]
@@ -78,6 +78,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'string', length: 8)]
     private string $appLanguage = LanguageCatalog::DEFAULT_LANGUAGE;
+
+    #[ORM\Column(type: 'string', length: 48)]
+    private string $themeId = UserThemeCatalog::DEFAULT_THEME;
 
     public function __construct(string $email, string $displayName)
     {
@@ -289,9 +292,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->appLanguage;
     }
 
+    public function themeId(): string
+    {
+        return $this->themeId;
+    }
+
     public function updateCardLanguage(string $language): void
     {
-        if (!LanguageCatalog::isSupported($language)) {
+        if (!LanguageCatalog::isSupportedCardLanguage($language)) {
             throw new \InvalidArgumentException('Unsupported card language.');
         }
 
@@ -301,11 +309,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function updateAppLanguage(string $language): void
     {
-        if (!LanguageCatalog::isSupported($language)) {
+        if (!LanguageCatalog::isSupportedAppLanguage($language)) {
             throw new \InvalidArgumentException('Unsupported app language.');
         }
 
         $this->appLanguage = $language;
+        $this->touch();
+    }
+
+    public function updateTheme(string $themeId): void
+    {
+        if (!UserThemeCatalog::isSupported($themeId)) {
+            throw new \InvalidArgumentException('Unsupported theme.');
+        }
+
+        $this->themeId = $themeId;
         $this->touch();
     }
 
@@ -321,6 +339,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'preferences' => [
                 'cardLanguage' => $this->cardLanguage,
                 'appLanguage' => $this->appLanguage,
+                'themeId' => $this->themeId,
             ],
             'roles' => $this->getRoles(),
             'avatar' => $this->avatar(),

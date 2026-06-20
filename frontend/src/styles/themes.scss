@@ -6,20 +6,20 @@
   --cz-surface-rgb: 16 16 16;
   --cz-surface-elevated: #1f1f1f;
   --cz-surface-elevated-rgb: 31 31 31;
-  --cz-primary: #b88a1a;
-  --cz-primary-rgb: 184 138 26;
+  --cz-primary: #d2ac47;
+  --cz-primary-rgb: 210 172 71;
   --cz-secondary: #8a8a8a;
   --cz-secondary-rgb: 138 138 138;
-  --cz-accent: #d4af37;
-  --cz-accent-rgb: 212 175 55;
+  --cz-accent: #e6c76b;
+  --cz-accent-rgb: 230 199 107;
   --cz-text: #f5f5f5;
   --cz-text-rgb: 245 245 245;
   --cz-success: #4ade80;
   --cz-success-rgb: 74 222 128;
   --cz-danger: #f43f5e;
   --cz-danger-rgb: 244 63 94;
-  --cz-warning: #d4af37;
-  --cz-warning-rgb: 212 175 55;
+  --cz-warning: #d2ac47;
+  --cz-warning-rgb: 210 172 71;
   --cz-info: #38bdf8;
   --cz-info-rgb: 56 189 248;
   --cz-on-accent: var(--cz-bg);
@@ -30,6 +30,8 @@
   --line: rgb(var(--cz-primary-rgb) / 32%);
   --text: var(--cz-text);
   --muted: rgb(var(--cz-text-rgb) / 66%);
+  --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 44%);
+  --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 56%);
   --gold: var(--cz-accent);
   --green: var(--cz-success);
   --red: var(--cz-danger);
@@ -74,29 +76,64 @@
 
 :root[data-theme='candy-summoners'] {
   color-scheme: light;
-  --cz-bg: #f0e5ff;
-  --cz-bg-rgb: 240 229 255;
-  --cz-surface: #ffd5ea;
-  --cz-surface-rgb: 255 213 234;
-  --cz-surface-elevated: #ffffff;
-  --cz-surface-elevated-rgb: 255 255 255;
+  --cz-bg: #dfc5ff;
+  --cz-bg-rgb: 223 197 255;
+  --cz-surface: #e397c3;
+  --cz-surface-rgb: 227 151 195;
+  --cz-surface-elevated: #fff0fa;
+  --cz-surface-elevated-rgb: 255 240 250;
   --cz-primary: #8b5cff;
   --cz-primary-rgb: 139 92 255;
   --cz-secondary: #38cfff;
   --cz-secondary-rgb: 56 207 255;
   --cz-accent: #ff6f8f;
   --cz-accent-rgb: 255 111 143;
-  --cz-text: #120b18;
-  --cz-text-rgb: 18 11 24;
-  --cz-success: #22c98a;
-  --cz-success-rgb: 34 201 138;
-  --cz-danger: #f83f6b;
-  --cz-danger-rgb: 248 63 107;
-  --cz-warning: #ffc83d;
-  --cz-warning-rgb: 255 200 61;
-  --cz-info: #2fa8ff;
-  --cz-info-rgb: 47 168 255;
+  --cz-text: #000000;
+  --cz-text-rgb: 0 0 0;
+  --cz-success: #008a4e;
+  --cz-success-rgb: 0 138 78;
+  --cz-danger: #c1124f;
+  --cz-danger-rgb: 193 18 79;
+  --cz-warning: #9a5a00;
+  --cz-warning-rgb: 154 90 0;
+  --cz-info: #005fcc;
+  --cz-info-rgb: 0 95 204;
   --cz-on-accent: var(--cz-text);
+  --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 58%);
+  --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 68%);
+  --deck-list-card-topline-bg: linear-gradient(90deg, rgb(var(--cz-surface-elevated-rgb) / 84%), rgb(var(--cz-surface-elevated-rgb) / 34%));
+  --deck-list-commander-art-overlay:
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 26%) 0%, transparent 38%, rgb(var(--cz-bg-rgb) / 34%) 100%),
+    linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 24%) 0%, transparent 54%);
+  --deck-list-dual-commander-art-overlay: linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 24%) 0%, transparent 42%, rgb(var(--cz-bg-rgb) / 34%) 100%);
+  --deck-list-row-actions-bg: rgb(var(--cz-surface-elevated-rgb) / 64%);
+  --deck-list-row-actions-bg-hover: rgb(var(--cz-surface-elevated-rgb) / 78%);
+  --player-avatar-shadow: 0 0 0 3px rgb(48 22 62 / 82%);
+  --player-info-avatar-filter: none;
+  --player-name-text-shadow: none;
+  --cz-callout-border: rgb(var(--cz-warning-rgb) / 78%);
+  --cz-callout-bg:
+    linear-gradient(180deg, rgb(var(--cz-surface-elevated-rgb) / 88%), rgb(var(--cz-surface-elevated-rgb) / 62%)),
+    linear-gradient(135deg, rgb(var(--cz-warning-rgb) / 16%), rgb(var(--cz-surface-rgb) / 58%));
+  --cz-callout-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 52%),
+    inset 0 -1px 0 rgb(var(--cz-warning-rgb) / 18%),
+    0 14px 28px rgb(88 38 104 / 16%);
+  --cz-callout-color: var(--cz-text);
+  --cz-callout-accent: var(--cz-warning);
+  --cz-callout-overlay:
+    linear-gradient(90deg, rgb(var(--cz-warning-rgb) / 22%), transparent 34%),
+    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 4%), transparent 54%);
+  --cz-callout-icon-border: rgb(var(--cz-warning-rgb) / 88%);
+  --cz-callout-icon-bg: linear-gradient(180deg, #ffd36a, var(--cz-warning));
+  --cz-callout-icon-shadow:
+    0 0 0 3px rgb(var(--cz-warning-rgb) / 18%),
+    0 8px 18px rgb(88 38 104 / 16%);
+  --cz-callout-icon-color: var(--cz-text);
+  --cz-callout-icon-text-shadow: none;
+  --cz-callout-strong: var(--cz-text);
+  --cz-callout-link: var(--cz-info);
+  --cz-callout-link-decoration: rgb(var(--cz-info-rgb) / 58%);
   --app-bg-vignette: rgb(var(--cz-surface-rgb) / 22%);
 }
 

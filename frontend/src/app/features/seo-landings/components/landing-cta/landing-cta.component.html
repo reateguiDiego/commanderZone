@@ -5,12 +5,12 @@
   </div>
 
   <nav class="landing-cta__actions" aria-label="Landing call to action">
-    <a appSeoInternalLink class="primary-button" [href]="content().primaryLink.href" [attr.aria-label]="content().primaryLink.ariaLabel">
+    <a czButton="primary" appSeoInternalLink class="primary-button" [href]="content().primaryLink.href" [attr.aria-label]="content().primaryLink.ariaLabel">
       {{ content().primaryLink.label }}
     </a>
 
     @if (content().secondaryLink; as secondaryLink) {
-      <a appSeoInternalLink class="secondary-button" [href]="secondaryLink.href" [attr.aria-label]="secondaryLink.ariaLabel">
+      <a czButton="secondary" appSeoInternalLink class="secondary-button" [href]="secondaryLink.href" [attr.aria-label]="secondaryLink.ariaLabel">
         {{ secondaryLink.label }}
       </a>
     }

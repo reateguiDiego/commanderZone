@@ -15,6 +15,7 @@ export interface CardFace {
   power: string | null;
   toughness: string | null;
   loyalty: string | null;
+  defense?: string | null;
   colors: string[];
   imageUris: CardImageUris;
 }
@@ -29,6 +30,7 @@ export interface Card {
   power?: string | null;
   toughness?: string | null;
   loyalty?: string | null;
+  defense?: string | null;
   colors: string[];
   colorIdentity: string[];
   legalities: Record<string, string>;

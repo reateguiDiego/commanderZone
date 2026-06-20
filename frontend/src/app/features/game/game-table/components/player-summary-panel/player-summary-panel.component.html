@@ -5,6 +5,7 @@
   class="player-summary-panel"
   data-testid="player-summary-panel"
   [class.player-summary-panel-long-name]="hasLongDisplayName()"
+  [class.player-summary-panel-has-special-entities]="visibleSpecialEntities().length > 0"
   [style.--player-accent]="colorAccent()(currentPlayer)"
 >
   @if (contextLabel(); as label) {
@@ -207,6 +208,16 @@
       </section>
     </app-extra-actions-menu>
   </div>
+  @if (visibleSpecialEntities().length > 0) {
+    <app-special-entity-strip
+      class="player-summary-special-entity-strip"
+      [entities]="visibleSpecialEntities()"
+      variant="summary"
+      (previewRequested)="helperPreviewRequested.emit($event)"
+      (previewHidden)="helperPreviewHidden.emit()"
+      (entityContextRequested)="helperContextRequested.emit($event)"
+    />
+  }
   @if (returnActionLabel(); as label) {
     <button
       type="button"

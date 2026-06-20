@@ -540,7 +540,13 @@ export class GameTableCardActionsService {
       && modal.cards.some((card) => card.instanceId === instanceId);
   }
 
-  async createToken(context: GameTableCardActionContext, playerId: string, card: Card | null = null, quantity = 1): Promise<void> {
+  async createToken(
+    context: GameTableCardActionContext,
+    playerId: string,
+    card: Card | null = null,
+    quantity = 1,
+    options: { position?: GameCardPosition } = {},
+  ): Promise<void> {
     if (!context.canControlPlayer(playerId)) {
       context.setError('You can only create tokens on your own battlefield.');
       context.closeContextMenu();
@@ -550,6 +556,7 @@ export class GameTableCardActionsService {
     await context.command('card.token.created', {
       playerId,
       quantity,
+      ...(options.position ? { position: options.position } : {}),
       ...(card ? { card: this.tokenCardPayload(card) } : {}),
     });
     context.closeContextMenu();
@@ -565,6 +572,7 @@ export class GameTableCardActionsService {
       manaCost: card.manaCost,
       oracleText: card.oracleText,
       colorIdentity: card.colorIdentity,
+      layout: card.layout,
       power: card.power ?? null,
       toughness: card.toughness ?? null,
       loyalty: card.loyalty ?? null,

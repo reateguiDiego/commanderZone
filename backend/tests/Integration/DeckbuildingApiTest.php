@@ -164,7 +164,7 @@ class DeckbuildingApiTest extends ApiTestCase
         $folderId = (string) $folder['id'];
         self::assertSame('public', $folder['visibility']);
 
-        $this->jsonRequest('GET', '/deck-folders/names', token: $token);
+        $this->jsonRequest('GET', '/deck-folders', token: $token);
         self::assertResponseIsSuccessful();
         self::assertSame('Commander', $this->jsonResponse()['data'][0]['name']);
 
@@ -664,7 +664,10 @@ TXT,
         $this->jsonRequest('GET', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printings', token: $token);
         self::assertResponseIsSuccessful();
         $printings = $this->jsonResponse()['data'];
-        self::assertSame([$secondPrint->scryfallId()], array_column($printings, 'scryfallId'));
+        self::assertEqualsCanonicalizing(
+            [$secondPrint->scryfallId(), $commonLanguagePrint->scryfallId()],
+            array_column($printings, 'scryfallId'),
+        );
         self::assertNotContains($placeholderPreferredPrint->scryfallId(), array_column($printings, 'scryfallId'));
 
         $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'de'], $token);
@@ -673,9 +676,11 @@ TXT,
         $this->jsonRequest('GET', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printings', token: $token);
         self::assertResponseIsSuccessful();
         $printings = $this->jsonResponse()['data'];
-        self::assertSame([$firstPrint->scryfallId()], array_column($printings, 'scryfallId'));
+        self::assertEqualsCanonicalizing(
+            [$firstPrint->scryfallId(), $commonLanguagePrint->scryfallId()],
+            array_column($printings, 'scryfallId'),
+        );
         self::assertNotContains($thirdPrint->scryfallId(), array_column($printings, 'scryfallId'));
-        self::assertNotContains($commonLanguagePrint->scryfallId(), array_column($printings, 'scryfallId'));
         self::assertNotContains($differentCard->scryfallId(), array_column($printings, 'scryfallId'));
 
         $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printing', [
@@ -746,6 +751,11 @@ TXT,
             'collector_number' => '2',
             'lang' => 'pt',
         ]);
+        $commonLanguagePrint = $this->seedCard('00000000-0000-0000-0000-000000000213', 'Language Locked', [
+            'set' => 'three',
+            'collector_number' => '3',
+            'lang' => 'ph',
+        ]);
 
         $this->jsonRequest('POST', '/decks/quick-build', [
             'name' => 'English Prints',
@@ -765,7 +775,7 @@ TXT,
         self::assertResponseIsSuccessful();
         $printings = $this->jsonResponse()['data'];
 
-        self::assertSame([], array_column($printings, 'scryfallId'));
+        self::assertSame([$commonLanguagePrint->scryfallId()], array_column($printings, 'scryfallId'));
         self::assertNotContains($firstPrint->scryfallId(), array_column($printings, 'scryfallId'));
         self::assertNotContains($secondPrint->scryfallId(), array_column($printings, 'scryfallId'));
     }
@@ -991,7 +1001,7 @@ TXT,
 
     public function testDecklistImportInfersCommanderFromFirstBoundaryEntryInMoxfieldExports(): void
     {
-        $token = $this->registerAndLogin('import-moxfield-first@example.test', 'Import Moxfield First');
+        $token = $this->registerAndLogin('import-moxfield-first@example.test', 'Import Mox First');
         $commander = $this->seedCard('92000000-0000-0000-0000-000000000001', 'Muldrotha, the Gravetide', [
             'type_line' => 'Legendary Creature - Elemental Avatar',
             'set' => 'fdn',
@@ -1224,7 +1234,7 @@ TXT,
 
     public function testDecklistImportRemovesBothExplicitSelectedCommandersFromMainDecklist(): void
     {
-        $token = $this->registerAndLogin('dual-selected-commanders-import@example.test', 'Dual Selected Commanders');
+        $token = $this->registerAndLogin('dual-selected-commanders-import@example.test', 'Dual Commanders');
         $firstCommander = $this->seedCard('50000000-0000-0000-0000-000000000001', 'Birgi, God of Storytelling // Harnfel, Horn of Bounty', [
             'type_line' => 'Legendary Creature // Legendary Artifact',
             'oracle_text' => 'Boast abilities you activate cost {1} less to activate.',

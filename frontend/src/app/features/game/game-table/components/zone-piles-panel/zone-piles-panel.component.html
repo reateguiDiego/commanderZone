@@ -39,7 +39,7 @@
           @if (zone === 'command') {
             <img
               class="zone-pile-logo"
-              src="/assets/icons/CZ/CZ_logo_zone_header.png"
+              src="/assets/icons/CZ/CZ_logo_zone_header.webp"
               [alt]="zoneTitle()(zone)"
               draggable="false"
             />
@@ -60,6 +60,15 @@
           (mouseenter)="zone !== 'command' ? previewZoneCard($event, zone) : undefined"
           (mouseleave)="zone !== 'command' ? hideZoneCardPreview(zone) : undefined"
         >
+          @if (zone === 'library' && isMonarchOwner(currentPlayer.id)) {
+            <span
+              class="zone-monarch-badge"
+              [attr.title]="'game.zonePilesPanel.monarchBadgeTooltip' | runtimeTranslate"
+              [attr.aria-label]="'game.zonePilesPanel.monarchBadgeTooltip' | runtimeTranslate"
+            >
+              <i class="zone-monarch-icon ms ms-mechanic ms-ability-role-royal" aria-hidden="true"></i>
+            </span>
+          }
           @if (image) {
             @if (zone !== 'command') {
               @let layerImage = zoneStackLayerImage()(currentPlayer, zone);

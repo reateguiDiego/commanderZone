@@ -1,6 +1,7 @@
 import {
   GameCardInstance,
   GamePlayerState,
+  GameSpecialEntity,
   GameSnapshot,
   GameZoneCounts,
   GameZoneName,
@@ -145,6 +146,7 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         ...(operation.hidden !== undefined ? { hidden: operation.hidden } : {}),
         ...(operation.revealedTo !== undefined ? { revealedTo: [...operation.revealedTo] } : {}),
         ...(operation.counters !== undefined ? { counters: { ...operation.counters } } : {}),
+        ...(operation.dungeonMarker !== undefined ? { dungeonMarker: operation.dungeonMarker ? { ...operation.dungeonMarker } : null } : {}),
       }));
 
     case 'card.projection.set':
@@ -167,6 +169,8 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         ...(operation.power !== undefined ? { power: operation.power } : {}),
         ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
         ...(operation.loyalty !== undefined ? { loyalty: operation.loyalty } : {}),
+        ...(operation.defense !== undefined ? { defense: operation.defense } : {}),
+        ...(operation.saga !== undefined ? { saga: operation.saga } : {}),
       }));
 
     case 'cards.state.set':
@@ -195,6 +199,20 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         },
       };
 
+    case 'rematch.set':
+      return {
+        status: 'applied',
+        snapshot: {
+          ...snapshot,
+          rematch: operation.rematch
+            ? {
+                ...operation.rematch,
+                votes: { ...operation.rematch.votes },
+              }
+            : undefined,
+        },
+      };
+
     case 'chat.append':
       return { status: 'applied', snapshot: { ...snapshot, chat: [...snapshot.chat, ...operation.entries] } };
 
@@ -206,7 +224,7 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         status: 'applied',
         snapshot: {
           ...snapshot,
-          eventLog: [...snapshot.eventLog, ...operation.entries].slice(-MAX_EVENT_LOG_ENTRIES),
+          eventLog: appendUniqueEventLogEntries(snapshot.eventLog, operation.entries),
         },
       };
 
@@ -237,9 +255,59 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
     case 'attachments.set':
       return { status: 'applied', snapshot: { ...snapshot, attachments: [...operation.attachments] } };
 
+    case 'specialEntity.add':
+      return {
+        status: 'applied',
+        snapshot: {
+          ...snapshot,
+          specialEntities: [...specialEntities(snapshot), operation.entity],
+        },
+      };
+
+    case 'specialEntity.update':
+      return updateSpecialEntity(snapshot, operation.entityId, (entity) => operation.entity
+        ? { ...operation.entity }
+        : {
+            ...entity,
+            state: { ...operation.state },
+          });
+
+    case 'specialEntity.remove':
+      return removeSpecialEntity(snapshot, operation.entityId);
+
+    case 'specialEntities.set':
+      return {
+        status: 'applied',
+        snapshot: {
+          ...snapshot,
+          specialEntities: [...operation.specialEntities],
+        },
+      };
+
     default:
       return { status: 'failed', reason: 'invalid_operation' };
   }
+}
+
+function specialEntities(snapshot: GameSnapshot): GameSpecialEntity[] {
+  return [...(snapshot.specialEntities ?? [])];
+}
+
+function appendUniqueEventLogEntries(
+  existing: GameSnapshot['eventLog'],
+  incoming: GameSnapshot['eventLog'],
+): GameSnapshot['eventLog'] {
+  const seenIds = new Set<string>();
+  const entries = [...existing, ...incoming].filter((entry) => {
+    if (seenIds.has(entry.id)) {
+      return false;
+    }
+
+    seenIds.add(entry.id);
+    return true;
+  });
+
+  return entries.slice(-MAX_EVENT_LOG_ENTRIES);
 }
 
 function updatePlayer(snapshot: GameSnapshot, playerId: string, update: (player: GamePlayerState) => GamePlayerState | null): OperationResult {
@@ -273,6 +341,45 @@ function mergeZoneCounts(player: GamePlayerState, counts: Partial<Record<GameZon
   return {
     ...player.zoneCounts,
     ...counts,
+  };
+}
+
+function updateSpecialEntity(
+  snapshot: GameSnapshot,
+  entityId: string,
+  update: (entity: GameSpecialEntity) => GameSpecialEntity,
+): OperationResult {
+  const entities = snapshot.specialEntities ?? [];
+  const entityIndex = entities.findIndex((entity) => entity.id === entityId);
+  if (entityIndex < 0) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  const nextEntities = [...entities];
+  nextEntities[entityIndex] = update(nextEntities[entityIndex]!);
+
+  return {
+    status: 'applied',
+    snapshot: {
+      ...snapshot,
+      specialEntities: nextEntities,
+    },
+  };
+}
+
+function removeSpecialEntity(snapshot: GameSnapshot, entityId: string): OperationResult {
+  const entities = snapshot.specialEntities ?? [];
+  const entityIndex = entities.findIndex((entity) => entity.id === entityId);
+  if (entityIndex < 0) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    snapshot: {
+      ...snapshot,
+      specialEntities: entities.filter((entity) => entity.id !== entityId),
+    },
   };
 }
 

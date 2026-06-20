@@ -78,7 +78,26 @@
 }
 
 .page-header-context {
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
   min-width: 0;
+}
+
+.day-night-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgb(215 180 106 / 24%);
+  border-radius: 999px;
+  background: rgb(10 12 16 / 82%);
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.day-night-indicator[data-mode="night"] {
+  border-color: rgb(143 200 255 / 24%);
 }
 
 .user-strip {

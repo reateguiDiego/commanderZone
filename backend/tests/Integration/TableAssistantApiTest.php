@@ -299,6 +299,7 @@ class TableAssistantApiTest extends ApiTestCase
         ]);
         $ownerToken = $this->registerAndLogin('invite-owner@example.test', 'Invite Owner');
         $guestToken = $this->registerAndLogin('invite-guest@example.test', 'Invite Guest');
+        $guestUserId = $this->currentUserId($guestToken);
 
         $this->jsonRequest('POST', '/decks/quick-build', [
             'name' => 'Invite Guest Deck',
@@ -310,7 +311,7 @@ class TableAssistantApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $guestDeckId = (string) $this->jsonResponse()['deck']['id'];
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'invite-guest@example.test'], $ownerToken);
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $guestUserId], $ownerToken);
         $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $guestToken);
 

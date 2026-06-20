@@ -1,6 +1,7 @@
 <app-modal
   [open]="open()"
   [title]="settingsTitle()"
+  titleIcon="settings"
   [secondaryLabel]="cancelLabel()"
   [primaryLabel]="saveLabel()"
   [showSecondary]="!nestedEditorOpen()"
@@ -15,7 +16,7 @@
   (secondary)="cancel()"
   (primary)="savePreferences()"
 >
-  <div class="settings-modal-layout" [class.editor-mode]="nestedEditorOpen()">
+  <div class="settings-modal-layout" [class.editor-mode]="nestedEditorOpen()" (click)="closeDeleteConfirmationOnOutsideClick($event)">
     @if (displayNameStyleEditorOpen()) {
       @defer (when displayNameStyleEditorOpen()) {
         <app-settings-display-name-style-editor
@@ -49,88 +50,105 @@
         }
       }
     } @else {
-      <nav class="settings-tabs" [attr.aria-label]="settingsSectionsLabel()">
-        <button type="button" [class.active]="activeTab() === 'general'" (click)="switchTab('general')">{{ generalTabLabel() }}</button>
-        <button type="button" [class.active]="activeTab() === 'game'" (click)="switchTab('game')">{{ gameTabLabel() }}</button>
-      </nav>
+      <app-tab-list
+        class="settings-tabs"
+        [items]="settingsTabItems()"
+        [activeId]="activeTab()"
+        [ariaLabel]="settingsSectionsLabel()"
+        (tabSelected)="selectSettingsTab($event)"
+      />
 
-      <section class="settings-content">
+      <section #settingsContent class="settings-content">
         @if (activeTab() === 'general') {
           <form class="settings-form" [formGroup]="profileForm" (submit)="$event.preventDefault()">
             <section class="settings-avatar-summary" [attr.aria-label]="'settings.dashboardSettingsModal.playerAvatar' | runtimeTranslate">
-              <div class="settings-avatar">
-                @if (avatarImageUrl()) {
-                  <img [src]="avatarImageUrl()" [alt]="'settings.dashboardSettingsModal.playerAvatar' | runtimeTranslate" />
-                } @else {
-                  <span
-                    [style.background]="avatarInitialBackgroundColor()"
-                    [style.color]="avatarInitialTextColor()"
-                  >
-                    {{ avatarInitial() }}
-                  </span>
-                }
-              </div>
-              <div class="settings-avatar-copy">
-                <app-player-name
+              <div class="settings-profile-identity">
+                <app-player-info
+                  class="settings-player-info"
                   [displayName]="currentUserDisplayName()"
+                  [avatar]="currentUserAvatar()"
                   [nameStyle]="currentUserDisplayNameStyle()"
                   size="lg"
-                  plateSize="lg"
+                  (avatarSelected)="openAvatarEditor()"
+                  (nameSelected)="openDisplayNameStyleEditor()"
                 />
               </div>
               <div class="settings-profile-actions">
-                <button class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">{{ 'settings.dashboardSettingsModal.avatar' | runtimeTranslate }}</button>
-                <button class="secondary-button name-style-change-button" type="button" (click)="openDisplayNameStyleEditor()">{{ 'settings.dashboardSettingsModal.name' | runtimeTranslate }}</button>
+                <button czButton="secondary" class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">{{ 'settings.dashboardSettingsModal.changeAvatar' | runtimeTranslate }}</button>
+                <button czButton="secondary" class="secondary-button name-style-change-button" type="button" (click)="openDisplayNameStyleEditor()">{{ 'settings.dashboardSettingsModal.changeName' | runtimeTranslate }}</button>
               </div>
             </section>
 
-            <label>
-              {{ 'settings.dashboardSettingsModal.email' | runtimeTranslate }}
-              <input type="email" autocomplete="email" formControlName="email" />
-              <span class="field-feedback">
-                @if (emailInvalid()) {
-                  <span class="field-error">{{ 'settings.dashboardSettingsModal.introduceUnEmailValido' | runtimeTranslate }}</span>
-                }
-                @if (emailAvailabilityVisible()) {
-                  @if (emailAvailability() === 'checking') {
-                    <span class="availability muted">{{ 'settings.dashboardSettingsModal.comprobandoEmail' | runtimeTranslate }}</span>
-                  }
-                  @if (emailAvailability() === 'available') {
-                    <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'settings.dashboardSettingsModal.emailDisponible' | runtimeTranslate }}</span>
-                  }
-                  @if (emailAvailability() === 'taken') {
-                    <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.emailYaRegistrado' | runtimeTranslate }}</span>
-                  }
-                  @if (emailAvailability() === 'error') {
-                    <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.noSePudoComprobarAhora' | runtimeTranslate }}</span>
-                  }
-                }
-              </span>
-            </label>
+            <h3 class="settings-section-title">{{ 'settings.dashboardSettingsModal.accountDetails' | runtimeTranslate }}</h3>
 
-            <label>
-              {{ 'settings.dashboardSettingsModal.userName' | runtimeTranslate }}
-              <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="25" />
-              <span class="field-feedback">
-                @if (displayNameInvalid()) {
-                  <span class="field-error">{{ 'settings.dashboardSettingsModal.userNameEntre4Y25Caracteres' | runtimeTranslate }}</span>
-                }
-                @if (userNameAvailabilityVisible()) {
-                  @if (userNameAvailability() === 'checking') {
-                    <span class="availability muted">{{ 'settings.dashboardSettingsModal.comprobandoDisponibilidad' | runtimeTranslate }}</span>
+            <div class="settings-account-row">
+              <label>
+                {{ 'settings.dashboardSettingsModal.email' | runtimeTranslate }}
+                <input type="email" autocomplete="email" formControlName="email" />
+                <span class="field-feedback">
+                  @if (emailInvalid()) {
+                    <span class="field-error">{{ 'settings.dashboardSettingsModal.introduceUnEmailValido' | runtimeTranslate }}</span>
                   }
-                  @if (userNameAvailability() === 'available') {
-                    <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'settings.dashboardSettingsModal.userNameDisponible' | runtimeTranslate }}</span>
+                  @if (emailAvailabilityVisible()) {
+                    @if (emailAvailability() === 'checking') {
+                      <span class="availability muted">{{ 'settings.dashboardSettingsModal.comprobandoEmail' | runtimeTranslate }}</span>
+                    }
+                    @if (emailAvailability() === 'available') {
+                      <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'settings.dashboardSettingsModal.emailDisponible' | runtimeTranslate }}</span>
+                    }
+                    @if (emailAvailability() === 'taken') {
+                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.emailYaRegistrado' | runtimeTranslate }}</span>
+                    }
+                    @if (emailAvailability() === 'error') {
+                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.noSePudoComprobarAhora' | runtimeTranslate }}</span>
+                    }
                   }
-                  @if (userNameAvailability() === 'taken') {
-                    <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.userNameNoDisponible' | runtimeTranslate }}</span>
+                </span>
+              </label>
+
+              <label class="user-name-field">
+                <span class="field-label-row">
+                  <span>{{ 'settings.dashboardSettingsModal.userName' | runtimeTranslate }}</span>
+                  <span class="character-counter">{{ userNameCharacterCount() }}/{{ userNameMaxLength }} maximum</span>
+                </span>
+                <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="20" />
+                <span class="field-feedback">
+                  @if (displayNameInvalid()) {
+                    <span class="field-error">{{ 'settings.dashboardSettingsModal.userNameEntre4Y25Caracteres' | runtimeTranslate }}</span>
                   }
-                  @if (userNameAvailability() === 'error') {
-                    <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.noSePudoComprobarAhora' | runtimeTranslate }}</span>
+                  @if (userNameAvailabilityVisible()) {
+                    @if (userNameAvailability() === 'checking') {
+                      <span class="availability muted">{{ 'settings.dashboardSettingsModal.comprobandoDisponibilidad' | runtimeTranslate }}</span>
+                    }
+                    @if (userNameAvailability() === 'available') {
+                      <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'settings.dashboardSettingsModal.userNameDisponible' | runtimeTranslate }}</span>
+                    }
+                    @if (userNameAvailability() === 'taken') {
+                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.userNameNoDisponible' | runtimeTranslate }}</span>
+                    }
+                    @if (userNameAvailability() === 'error') {
+                      <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'settings.dashboardSettingsModal.noSePudoComprobarAhora' | runtimeTranslate }}</span>
+                    }
                   }
-                }
-              </span>
-            </label>
+                </span>
+              </label>
+
+              <div class="change-password-action">
+                <button czButton="secondary" class="change-password-button" type="button">
+                  {{ 'settings.dashboardSettingsModal.changePassword' | runtimeTranslate }}
+                </button>
+              </div>
+            </div>
+
+            <app-settings-language-preferences
+              [cardLanguageOptions]="cardLanguageSelectOptions()"
+              [appLanguageOptions]="appLanguageSelectOptions()"
+              [cardLanguageCoverage]="cardLanguageCoverage()"
+              [cardLanguage]="selectedCardLanguage()"
+              [appLanguage]="selectedAppLanguage()"
+              (cardLanguageChange)="setCardLanguage($event)"
+              (appLanguageChange)="setAppLanguage($event)"
+            />
 
             <div class="delete-account-box">
               <div class="delete-account-copy">
@@ -138,19 +156,19 @@
                 <p>{{ 'settings.dashboardSettingsModal.permanentlyDeleteYourAccountAndAllAssociated' | runtimeTranslate }}</p>
               </div>
 
-              <button class="danger-button" type="button" [disabled]="deleteInProgress() || saveInProgress()" (click)="requestDeleteAccount()">
-                <lucide-icon name="trash2" size="16" />
-                {{ 'settings.dashboardSettingsModal.deleteAccount' | runtimeTranslate }}
-              </button>
-
-              @if (deleteConfirmationOpen()) {
+              @if (!deleteConfirmationOpen()) {
+                <button czButton="primary" czButtonTone="danger" class="danger-button" type="button" [disabled]="deleteInProgress() || saveInProgress()" (click)="requestDeleteAccount($event)">
+                  <lucide-icon name="trash2" size="16" />
+                  {{ 'settings.dashboardSettingsModal.deleteAccount' | runtimeTranslate }}
+                </button>
+              } @else {
                 <div class="delete-confirmation">
                   <span>{{ 'settings.dashboardSettingsModal.areYouSureYouWantToPermanently' | runtimeTranslate }}</span>
                   <div class="delete-actions">
-                    <button type="button" class="secondary-button keep-account-button" [disabled]="deleteInProgress()" (click)="cancelDeleteAccount()">
+                    <button czButton="secondary" type="button" class="secondary-button keep-account-button" [disabled]="deleteInProgress()" (click)="cancelDeleteAccount()">
                       {{ 'settings.dashboardSettingsModal.cancel' | runtimeTranslate }}
                     </button>
-                    <button type="button" class="danger-button compact muted-danger-button" [disabled]="deleteInProgress()" (click)="deleteAccount()">
+                    <button czButton="primary" czButtonTone="danger" czButtonSize="sm" type="button" class="danger-button compact" [disabled]="deleteInProgress()" (click)="deleteAccount()">
                       {{ deleteInProgress() ? 'Deleting...' : 'Delete account' }}
                     </button>
                   </div>
@@ -160,58 +178,7 @@
           </form>
         } @else {
           <section class="settings-form game-settings-form">
-            <section class="theme-settings-panel" [attr.aria-label]="visualThemeLabel()">
-              <div class="theme-settings-copy">
-                <h3>{{ visualThemeLabel() }}</h3>
-                <p>{{ visualThemeHelp() }}</p>
-              </div>
-
-              <div class="theme-options">
-                @for (theme of themeOptions; track theme.id) {
-                  <button
-                    class="theme-option"
-                    type="button"
-                    [class.selected]="selectedThemeId() === theme.id"
-                    [attr.aria-pressed]="selectedThemeId() === theme.id"
-                    (click)="selectTheme(theme.id)"
-                  >
-                    <span class="theme-option-copy">
-                      <strong>{{ theme.label }}</strong>
-                      <small>{{ theme.description }}</small>
-                    </span>
-                    <span class="theme-swatches" aria-hidden="true">
-                      @for (color of theme.paletteColors; track $index) {
-                        <span [style.background]="color"></span>
-                      }
-                    </span>
-                  </button>
-                }
-              </div>
-            </section>
-
-            <label>
-              {{ cardLanguageLabel() }}
-              <select
-                [value]="selectedCardLanguage()"
-                (change)="setCardLanguage($any($event.target).value)"
-              >
-                @for (language of localizedLanguageOptions(); track language.code) {
-                  <option [value]="language.code" [selected]="selectedCardLanguage() === language.code">{{ language.label }}</option>
-                }
-              </select>
-            </label>
-
-            <label>
-              {{ appLanguageLabel() }}
-              <select
-                [value]="selectedAppLanguage()"
-                (change)="setAppLanguage($any($event.target).value)"
-              >
-                @for (language of localizedLanguageOptions(); track language.code) {
-                  <option [value]="language.code" [selected]="selectedAppLanguage() === language.code">{{ language.label }}</option>
-                }
-              </select>
-            </label>
+            <app-theme-settings-panel />
           </section>
         }
       </section>

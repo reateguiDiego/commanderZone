@@ -15,7 +15,7 @@ export interface PageHeaderAction {
   execute: () => void;
 }
 
-export type PageHeaderStatTone = 'neutral' | 'success' | 'private' | 'started';
+export type PageHeaderStatTone = 'neutral' | 'success' | 'warning' | 'info' | 'danger';
 
 export interface PageHeaderStat {
   id: string;
@@ -40,6 +40,9 @@ export interface PageHeaderActionFeedback {
 export interface PageHeaderState {
   title: string;
   eyebrow?: string;
+  description?: string;
+  context?: string;
+  heroRule?: boolean;
   titleWarning?: PageHeaderTitleWarning;
   actions?: readonly PageHeaderAction[];
   actionFeedback?: PageHeaderActionFeedback | null;
@@ -57,6 +60,7 @@ export class PageHeaderStore {
       ...header,
       title: this.translateText(header.title),
       eyebrow: header.eyebrow ? this.translateText(header.eyebrow) : undefined,
+      description: header.description ? this.translateText(header.description) : undefined,
       titleWarning: header.titleWarning
         ? {
             ...header.titleWarning,

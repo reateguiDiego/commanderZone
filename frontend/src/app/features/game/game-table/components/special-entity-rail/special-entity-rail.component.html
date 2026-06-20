@@ -1,0 +1,73 @@
+@if (visibleEntities().length > 0) {
+  <div class="special-entity-rail-shell">
+    <section
+      class="special-entity-rail special-entity-rail-inline"
+      [attr.data-variant]="variant()"
+      [attr.aria-label]="'game.specialHelpers.rail.title' | runtimeTranslate"
+    >
+      <ng-container [ngTemplateOutlet]="entityPills"></ng-container>
+    </section>
+
+    <div
+      class="special-entity-rail-overlay-host"
+      data-testid="special-entity-rail-overlay-host"
+    >
+      <button
+        type="button"
+        class="special-entity-rail-overlay-trigger"
+        [attr.aria-label]="'game.specialHelpers.rail.title' | runtimeTranslate"
+      >
+        <i [class]="mechanicIconClass(visibleEntities()[0])" aria-hidden="true"></i>
+        <span class="special-entity-rail-overlay-count" aria-hidden="true">
+          {{ visibleEntities().length }}
+        </span>
+      </button>
+
+      <section
+        class="special-entity-rail special-entity-rail-overlay"
+        [attr.data-variant]="variant()"
+        [attr.aria-label]="'game.specialHelpers.rail.title' | runtimeTranslate"
+      >
+        <ng-container [ngTemplateOutlet]="entityPills"></ng-container>
+      </section>
+    </div>
+  </div>
+}
+
+<ng-template #entityPills>
+    @for (entity of nonCardEntities(); track entity.id) {
+      <article
+        class="special-entity-pill"
+        [attr.aria-label]="tooltipFor(entity, labelFor(entity) | runtimeTranslate)"
+        (mouseenter)="previewRequested.emit(entity)"
+        (mouseleave)="previewHidden.emit()"
+        (contextmenu)="requestEntityContext($event, entity)"
+      >
+        <span class="special-entity-icon" aria-hidden="true">
+          <i [class]="mechanicIconClass(entity)"></i>
+        </span>
+        <span class="special-entity-pill-copy" aria-hidden="true">
+          {{ tooltipFor(entity, labelFor(entity) | runtimeTranslate) }}
+        </span>
+      </article>
+    }
+
+    @for (entity of cardEntities(); track entity.id) {
+      @if (entity.card; as card) {
+        <article
+          class="special-entity-pill special-entity-pill-card-backed"
+          [attr.aria-label]="tooltipFor(entity, cardLabel(entity))"
+          (mouseenter)="previewRequested.emit(entity)"
+          (mouseleave)="previewHidden.emit()"
+          (contextmenu)="requestEntityContext($event, entity)"
+        >
+          <span class="special-entity-icon" aria-hidden="true">
+            <i [class]="mechanicIconClass(entity)"></i>
+          </span>
+          <span class="special-entity-pill-copy" aria-hidden="true">
+            {{ tooltipFor(entity, cardLabel(entity)) }}
+          </span>
+        </article>
+      }
+    }
+</ng-template>

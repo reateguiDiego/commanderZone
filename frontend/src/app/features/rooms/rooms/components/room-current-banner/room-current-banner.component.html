@@ -39,12 +39,12 @@
   </div>
 
   <div class="current-room-actions">
-    <a class="primary-button compact" [routerLink]="primaryActionRoute()">
+    <a czButton="primary" czButtonSize="sm" class="primary-button compact" [routerLink]="primaryActionRoute()">
       <lucide-icon [name]="primaryActionIcon()" size="15" />
       {{ primaryActionLabel() }}
     </a>
     @if (canLeave()) {
-      <button class="danger-button compact" type="button" [disabled]="leavingRoomId() === currentRoom.id" (click)="leaveRequested.emit(currentRoom.id)">
+      <button czButton="secondary" czButtonTone="danger" czButtonSize="sm" class="danger-button compact" type="button" [disabled]="leavingRoomId() === currentRoom.id" (click)="leaveRequested.emit(currentRoom.id)">
         <lucide-icon name="log-out" size="15" />
         {{ leavingRoomId() === currentRoom.id ? 'Leaving' : 'Leave' }}
       </button>

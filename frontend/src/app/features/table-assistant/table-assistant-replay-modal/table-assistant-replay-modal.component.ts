@@ -23,12 +23,14 @@ import {
   TableAssistantPlayer,
   TableAssistantPlayerArrangement,
 } from '../models/table-assistant.models';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { FormatSelectComponent, type FormatSelectOption } from '../../../shared/components/format-select/format-select.component';
 
 type ArrangementModalMode = 'initial' | 'replay';
 
 @Component({
   selector: 'app-table-assistant-replay-modal',
-  imports: [RuntimeTranslatePipe, PrettyScrollDirective, ReactiveFormsModule],
+  imports: [RuntimeTranslatePipe, PrettyScrollDirective, ReactiveFormsModule, CzButtonDirective, FormatSelectComponent],
   templateUrl: './table-assistant-replay-modal.component.html',
   styleUrl: './table-assistant-replay-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -128,6 +130,42 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
 
     this.clearDuplicateSeat(playerId, seatIndex);
     this.arrangementForm.updateValueAndValidity();
+  }
+
+  setSeatPlayer(seatIndex: number, playerId: string): void {
+    this.seatControl(seatIndex).setValue(playerId || null);
+    this.seatPlayerChanged(seatIndex);
+  }
+
+  seatValue(seatIndex: number): string {
+    return this.seatControl(seatIndex).value ?? '';
+  }
+
+  seatPlayerOptions(seatIndex: number): readonly FormatSelectOption[] {
+    return [
+      { id: '', labelKey: 'tableAssistant.tableAssistantReplayModal.sinJugador' },
+      ...this.players().map((player) => ({
+        id: player.id,
+        name: player.name,
+        disabled: this.isPlayerSeatedElsewhere(player.id, seatIndex),
+      })),
+    ];
+  }
+
+  turnIndexValue(playerId: string): string {
+    const turnIndex = this.turnIndex(playerId);
+    return turnIndex === null ? '' : String(turnIndex);
+  }
+
+  turnIndexOptions(playerId: string): readonly FormatSelectOption[] {
+    return [
+      { id: '', name: '-' },
+      ...this.turnIndexes().map((turnIndex) => ({
+        id: String(turnIndex),
+        name: String(turnIndex + 1),
+        disabled: this.isTurnIndexSelectedElsewhere(turnIndex, playerId),
+      })),
+    ];
   }
 
   turnIndex(playerId: string): number | null {

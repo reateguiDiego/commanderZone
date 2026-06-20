@@ -11,7 +11,7 @@
       <div>
         <span class="eyebrow">{{ 'tableAssistant.tableAssistantReplayModal.configuracionDeMesa' | runtimeTranslate }}</span>
       </div>
-      <button
+      <button czButton="icon"
         class="icon-button"
         type="button"
         [attr.aria-label]="'tableAssistant.tableAssistantReplayModal.cerrarConfiguracionDeMesa' | runtimeTranslate"
@@ -45,50 +45,35 @@
               </span>
             </div>
 
-            <label class="seat-field">
+            <div class="seat-field">
               <span>{{ 'tableAssistant.tableAssistantReplayModal.jugador' | runtimeTranslate }}</span>
-              <select
-                [formControl]="seatControl(index)"
-                [attr.aria-label]="'Jugador sentado en mesa ' + (index + 1)"
+              <app-format-select
+                name="seatPlayer"
+                [labelHidden]="true"
+                labelKey="tableAssistant.tableAssistantReplayModal.jugador"
+                [options]="seatPlayerOptions(index)"
+                [value]="seatValue(index)"
                 (click)="$event.stopPropagation()"
-                (change)="seatPlayerChanged(index)"
-              >
-                <option [ngValue]="null">{{ 'tableAssistant.tableAssistantReplayModal.sinJugador' | runtimeTranslate }}</option>
-                @for (player of players(); track player.id) {
-                  <option
-                    [ngValue]="player.id"
-                    [disabled]="isPlayerSeatedElsewhere(player.id, index)"
-                  >
-                    {{ player.name }}
-                  </option>
-                }
-              </select>
-            </label>
+                (valueChange)="setSeatPlayer(index, $event)"
+              />
+            </div>
 
             <div class="seat-turn-slot">
               @if (playerAtSeat(index); as player) {
                 <div class="seat-turn-row">
-                  <label class="seat-field" [attr.for]="'turn-order-' + player.id">
+                  <div class="seat-field">
                     <span>{{ 'tableAssistant.tableAssistantReplayModal.orden' | runtimeTranslate }}</span>
-                    <select
-                      [id]="'turn-order-' + player.id"
+                    <app-format-select
                       class="turn-order-select"
-                      [value]="turnIndex(player.id) ?? ''"
-                      [attr.aria-label]="'Orden de turno de ' + player.name"
+                      [name]="'turnOrder-' + player.id"
+                      [labelHidden]="true"
+                      labelKey="tableAssistant.tableAssistantReplayModal.orden"
+                      [options]="turnIndexOptions(player.id)"
+                      [value]="turnIndexValue(player.id)"
                       (click)="$event.stopPropagation()"
-                      (change)="setTurnIndex(player.id, $any($event.target).value)"
-                    >
-                      <option value="">-</option>
-                      @for (turnIndex of turnIndexes(); track turnIndex) {
-                        <option
-                          [value]="turnIndex"
-                          [disabled]="isTurnIndexSelectedElsewhere(turnIndex, player.id)"
-                        >
-                          {{ turnIndex + 1 }}
-                        </option>
-                      }
-                    </select>
-                  </label>
+                      (valueChange)="setTurnIndex(player.id, $event)"
+                    />
+                  </div>
                 </div>
               } @else {
                 <p class="empty-seat">{{ 'tableAssistant.tableAssistantReplayModal.eligeUnJugadorYSuTurno' | runtimeTranslate }}</p>

@@ -88,6 +88,19 @@ describe('layoutOpponentMiniBattlefield', () => {
     expect(right.left + right.width).toBeLessThanOrEqual(300);
   });
 
+  it('uses the supplied position resolver for ratio positioned cards', () => {
+    const cards: GameCardInstance[] = [{ ...card('dungeon'), position: { x: 0.1, y: 0.2, unit: 'ratio' } }];
+    const leftLayout = layoutOpponentMiniBattlefield(cards, { width: 300, height: 180 }, {
+      getPosition: () => ({ x: 0, y: 0 }),
+    });
+    const rightLayout = layoutOpponentMiniBattlefield(cards, { width: 300, height: 180 }, {
+      getPosition: () => ({ x: 800, y: 360 }),
+    });
+
+    expect(leftLayout[0]!.left).toBeLessThan(rightLayout[0]!.left);
+    expect(leftLayout[0]!.top).toBeLessThan(rightLayout[0]!.top);
+  });
+
   it('uses a stable fallback grid for cards without positions', () => {
     const layout = layoutOpponentMiniBattlefield([card('a'), card('b'), card('c')], { width: 240, height: 170 });
 

@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../api/api.config';
 import { AuthApi } from '../api/auth.api';
 import { User } from '../models/user.model';
+import { AppThemeService } from '../theme/app-theme.service';
 import { AppBackgroundService } from '../ui/app-background.service';
 
 const LEGACY_TOKEN_KEY = 'commanderzone.jwt';
@@ -202,6 +203,7 @@ export class AuthStore {
     const normalizedUser = this.normalizeUser(user);
     this.userState.set(normalizedUser);
     this.resolvedDisplayNameState.set(normalizedUser.displayName);
+    this.injector.get(AppThemeService).applyUserTheme(normalizedUser.preferences?.themeId);
     browserLocalStorage()?.setItem(USER_KEY, JSON.stringify(normalizedUser));
   }
 

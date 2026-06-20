@@ -1,9 +1,10 @@
 @let opponent = player();
 
-<button
-  type="button"
+<section
   class="player-thumb"
   data-testid="opponent-mini-board"
+  role="button"
+  tabindex="0"
   [style.--player-accent]="colorAccent()(opponent)"
   [style.--player-identity-gradient]="identityGradient(opponent)"
   [style.--player-identity-primary]="identityPrimaryColor(opponent)"
@@ -18,6 +19,7 @@
   appGameTableLongPress
   (appGameTableLongPressed)="playerMenuOpened.emit({ event: $event, playerId: opponent.id })"
   (click)="focusPlayer.emit(opponent.id)"
+  (keydown)="focusFromKeyboard($event)"
   (dragover)="dropAllowed.emit($event)"
   (drop)="playerDropped.emit({ event: $event, playerId: opponent.id })"
   (contextmenu)="playerMenuOpened.emit({ event: $event, playerId: opponent.id })"
@@ -46,6 +48,15 @@
       <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
     </span>
   </span>
+  @if (mechanicsEntities().length > 0) {
+    <app-special-entity-strip
+      [entities]="mechanicsEntities()"
+      variant="compact"
+      (previewRequested)="helperPreviewRequested.emit($event)"
+      (previewHidden)="helperPreviewHidden.emit()"
+      (entityContextRequested)="helperContextRequested.emit($event)"
+    />
+  }
   <span class="opponent-board-stage" [class.showing-cards-target]="!isDefeated(opponent) && cardsTargetCards().length > 0">
     @if (isDefeated(opponent)) {
       <div
@@ -77,6 +88,7 @@
       <app-opponent-mini-battlefield
         [playerId]="opponent.id"
         [cards]="opponent.state.zones.battlefield"
+        [mechanicCards]="mechanicCards()"
         [attachments]="attachments()"
         [backgroundImage]="backgroundImage()(opponent)"
         [battlefieldSize]="battlefieldSize()"
@@ -105,7 +117,7 @@
           @case ('hand-fan') {
             <img
               class="opponent-zone-icon opponent-hand-icon"
-              src="/assets/icons/CZ/CZ_cards_icon.png"
+              src="/assets/icons/CZ/CZ_cards_icon.webp"
               alt=""
               aria-hidden="true"
               draggable="false"
@@ -131,4 +143,4 @@
       </span>
     }
   </span>
-</button>
+</section>

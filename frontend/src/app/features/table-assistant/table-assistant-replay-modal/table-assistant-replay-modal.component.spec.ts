@@ -19,10 +19,8 @@ describe('TableAssistantReplayModalComponent', () => {
     fixture.componentInstance.replayConfirmed.subscribe((arrangement) =>
       emittedArrangements.push(arrangement),
     );
-    fixture.componentInstance.seatControl(0).setValue('player-3');
-    fixture.componentInstance.seatPlayerChanged(0);
-    fixture.componentInstance.seatControl(2).setValue('player-1');
-    fixture.componentInstance.seatPlayerChanged(2);
+    fixture.componentInstance.setSeatPlayer(0, 'player-3');
+    fixture.componentInstance.setSeatPlayer(2, 'player-1');
     fixture.componentInstance.setTurnIndex('player-2', 0);
     fixture.componentInstance.setTurnIndex('player-1', 1);
     fixture.componentInstance.setTurnIndex('player-3', 2);
@@ -44,8 +42,7 @@ describe('TableAssistantReplayModalComponent', () => {
     expect(firstSeat.getAttribute('tabindex')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Despues va');
 
-    fixture.componentInstance.seatControl(0).setValue('player-3');
-    fixture.componentInstance.seatPlayerChanged(0);
+    fixture.componentInstance.setSeatPlayer(0, 'player-3');
     fixture.detectChanges();
     expect(fixture.componentInstance.seatControls.getRawValue()).toEqual([
       'player-3',
@@ -63,40 +60,30 @@ describe('TableAssistantReplayModalComponent', () => {
     fixture.componentInstance.setTurnIndex('player-3', 2);
     fixture.detectChanges();
 
-    const playerOneTurnSelect = fixture.nativeElement.querySelector(
-      '#turn-order-player-1',
-    ) as HTMLSelectElement;
-    const playerTwoTurnOptionInPlayerOneSelect = Array.from(playerOneTurnSelect.options).find(
-      (option) => option.value === '1',
+    const playerTwoTurnOptionInPlayerOneSelect = fixture.componentInstance.turnIndexOptions('player-1').find(
+      (option) => option.id === '1',
     );
 
     expect(playerTwoTurnOptionInPlayerOneSelect?.disabled).toBe(true);
     fixture.componentInstance.setTurnIndex('player-2', '');
     fixture.detectChanges();
 
-    const turnSelect = fixture.nativeElement.querySelector(
-      '#turn-order-player-2',
-    ) as HTMLSelectElement;
-    const blankOption = Array.from(turnSelect.options).find((option) => option.value === '');
-    const firstTurnOption = Array.from(turnSelect.options).find(
-      (option) => option.textContent?.trim() === '1',
-    );
-    const refreshedPlayerOneTurnSelect = fixture.nativeElement.querySelector(
-      '#turn-order-player-1',
-    ) as HTMLSelectElement;
-    const releasedTurnOption = Array.from(refreshedPlayerOneTurnSelect.options).find(
-      (option) => option.value === '1',
+    const playerTwoTurnOptions = fixture.componentInstance.turnIndexOptions('player-2');
+    const blankOption = playerTwoTurnOptions.find((option) => option.id === '');
+    const firstTurnOption = playerTwoTurnOptions.find((option) => option.name === '1');
+    const releasedTurnOption = fixture.componentInstance.turnIndexOptions('player-1').find(
+      (option) => option.id === '1',
     );
 
-    expect(blankOption?.textContent?.trim()).toBe('-');
+    expect(blankOption?.name).toBe('-');
     expect(firstTurnOption?.disabled).toBe(true);
     expect(releasedTurnOption?.disabled).toBe(false);
-    expect(turnSelect.classList.contains('turn-order-select')).toBe(true);
+    expect(fixture.nativeElement.querySelector('app-format-select.turn-order-select')).not.toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Turno -');
     expect(fixture.nativeElement.textContent).not.toContain('Turno 2');
     expect(fixture.nativeElement.querySelectorAll('.turn-pill-slot')).toHaveLength(3);
     expect(fixture.nativeElement.querySelectorAll('.order-actions button')).toHaveLength(0);
-    expect(fixture.nativeElement.querySelectorAll('.seat-field select')).toHaveLength(6);
+    expect(fixture.nativeElement.querySelectorAll('.seat-field app-format-select')).toHaveLength(6);
   });
 
   it('does not confirm when the arrangement is incomplete', () => {
@@ -147,16 +134,13 @@ describe('TableAssistantReplayModalComponent', () => {
     ).toBe('Turno aleatorio');
     expect(fixture.nativeElement.querySelector('.secondary-action')?.disabled).toBe(true);
 
-    fixture.componentInstance.seatControl(0).setValue('player-1');
-    fixture.componentInstance.seatPlayerChanged(0);
-    fixture.componentInstance.seatControl(1).setValue('player-2');
-    fixture.componentInstance.seatPlayerChanged(1);
-    fixture.componentInstance.seatControl(2).setValue('player-3');
-    fixture.componentInstance.seatPlayerChanged(2);
+    fixture.componentInstance.setSeatPlayer(0, 'player-1');
+    fixture.componentInstance.setSeatPlayer(1, 'player-2');
+    fixture.componentInstance.setSeatPlayer(2, 'player-3');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.secondary-action')?.disabled).toBe(false);
-    fixture.nativeElement.querySelector('.secondary-action')?.click();
+    expect(fixture.componentInstance.canRandomizeTurnOrder()).toBe(true);
+    fixture.componentInstance.randomizeTurnOrder();
     fixture.detectChanges();
 
     expect(fixture.componentInstance.turnControls.getRawValue()).toEqual([2, 0, 1]);
@@ -172,8 +156,7 @@ describe('TableAssistantReplayModalComponent', () => {
       const playerIds = players(playerCount).map((player) => player.id);
 
       playerIds.forEach((playerId, seatIndex) => {
-        fixture.componentInstance.seatControl(seatIndex).setValue(playerId);
-        fixture.componentInstance.seatPlayerChanged(seatIndex);
+        fixture.componentInstance.setSeatPlayer(seatIndex, playerId);
       });
       fixture.detectChanges();
 
@@ -182,17 +165,13 @@ describe('TableAssistantReplayModalComponent', () => {
 
       const selectedTurnIndexes = fixture.componentInstance.turnControls.getRawValue();
       const expectedTurnIndexes = Array.from({ length: playerCount }, (_, index) => index);
-      const selectedOptionValues = playerIds.map((playerId) => {
-        const select = fixture.nativeElement.querySelector(
-          `#turn-order-${playerId}`,
-        ) as HTMLSelectElement;
-        return Number.parseInt(select.value, 10);
-      });
 
       expect([...selectedTurnIndexes].sort((left, right) => Number(left) - Number(right))).toEqual(
         expectedTurnIndexes,
       );
-      expect(selectedOptionValues).toEqual(selectedTurnIndexes);
+      expect(playerIds.map((playerId) => fixture.componentInstance.turnIndexValue(playerId))).toEqual(
+        selectedTurnIndexes.map((turnIndex) => String(turnIndex)),
+      );
       expect(fixture.componentInstance.isArrangementComplete()).toBe(true);
 
       randomSpy.mockRestore();
@@ -216,17 +195,13 @@ describe('TableAssistantReplayModalComponent', () => {
 
       const selectedTurnIndexes = fixture.componentInstance.turnControls.getRawValue();
       const expectedTurnIndexes = Array.from({ length: playerCount }, (_, index) => index);
-      const selectedOptionValues = playerIds.map((playerId) => {
-        const select = fixture.nativeElement.querySelector(
-          `#turn-order-${playerId}`,
-        ) as HTMLSelectElement;
-        return Number.parseInt(select.value, 10);
-      });
 
       expect([...selectedTurnIndexes].sort((left, right) => Number(left) - Number(right))).toEqual(
         expectedTurnIndexes,
       );
-      expect(selectedOptionValues).toEqual(selectedTurnIndexes);
+      expect(playerIds.map((playerId) => fixture.componentInstance.turnIndexValue(playerId))).toEqual(
+        selectedTurnIndexes.map((turnIndex) => String(turnIndex)),
+      );
       expect(fixture.componentInstance.isArrangementComplete()).toBe(true);
 
       randomSpy.mockRestore();
@@ -260,12 +235,9 @@ describe('TableAssistantReplayModalComponent', () => {
     expect(fixture.componentInstance.turnControls.getRawValue()).toEqual([null, null, null]);
     expect(fixture.nativeElement.querySelector('.primary-action')?.disabled).toBe(true);
 
-    fixture.componentInstance.seatControl(0).setValue('player-2');
-    fixture.componentInstance.seatPlayerChanged(0);
-    fixture.componentInstance.seatControl(1).setValue('player-1');
-    fixture.componentInstance.seatPlayerChanged(1);
-    fixture.componentInstance.seatControl(2).setValue('player-3');
-    fixture.componentInstance.seatPlayerChanged(2);
+    fixture.componentInstance.setSeatPlayer(0, 'player-2');
+    fixture.componentInstance.setSeatPlayer(1, 'player-1');
+    fixture.componentInstance.setSeatPlayer(2, 'player-3');
     fixture.componentInstance.setTurnIndex('player-2', 0);
     fixture.componentInstance.setTurnIndex('player-3', 1);
     fixture.componentInstance.setTurnIndex('player-1', 2);

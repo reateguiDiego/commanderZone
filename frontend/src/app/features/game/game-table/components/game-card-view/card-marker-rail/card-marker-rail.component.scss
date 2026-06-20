@@ -116,6 +116,19 @@
   filter: brightness(1.08);
 }
 
+.readonly-counter-marker {
+  cursor: default;
+}
+
+.readonly-counter-marker:hover,
+.readonly-counter-marker:focus-visible {
+  border-color: rgb(215 180 106 / 76%);
+  box-shadow:
+    0 0.28rem 0.7rem rgb(0 0 0 / 58%),
+    0 0 0.62rem rgb(215 180 106 / 24%);
+  filter: none;
+}
+
 .color-counter-marker {
   width: 1.62rem;
   min-width: 1.62rem;

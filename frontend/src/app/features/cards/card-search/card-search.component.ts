@@ -8,10 +8,18 @@ import { CardsApi } from '../../../core/api/cards.api';
 import { Card } from '../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { bestCardImage } from '../../../shared/utils/card-image';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-card-search',
-  imports: [RuntimeTranslatePipe, FormsModule, RouterLink, LucideAngularModule, ManaSymbolsComponent],
+  imports: [
+    RuntimeTranslatePipe,
+    FormsModule,
+    RouterLink,
+    LucideAngularModule,
+    ManaSymbolsComponent,
+    CzButtonDirective,
+  ],
   templateUrl: './card-search.component.html',
   styleUrl: './card-search.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

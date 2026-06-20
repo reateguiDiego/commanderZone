@@ -1,0 +1,94 @@
+:host {
+  display: contents;
+}
+
+.battlefield-mechanics-overlay {
+  --battlefield-mechanics-card-width: 5.04rem;
+
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 84;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  width: max-content;
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.battlefield-mechanics-overlay__card {
+  flex: 0 0 auto;
+  pointer-events: auto;
+}
+
+.battlefield-mechanics-overlay__mini-card {
+  position: absolute;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgb(232 225 208 / 34%);
+  border-radius: 3px;
+  appearance: none;
+  background: rgb(4 5 4);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 10%) inset,
+    0 0.18rem 0.34rem rgb(0 0 0 / 34%);
+  pointer-events: auto;
+}
+
+.battlefield-mechanics-overlay__mini-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  filter: brightness(1.03) saturate(1.08) contrast(1.09);
+  pointer-events: none;
+  user-select: none;
+}
+
+.battlefield-mechanics-overlay__mini-card-fallback {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 0.12rem;
+  color: var(--game-text-primary);
+  font-size: 0.42rem;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.battlefield-mechanics-overlay--mini {
+  right: 0;
+  top: 0;
+  z-index: 45;
+  gap: 0;
+  max-width: 100%;
+  justify-content: flex-end;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+@media (max-width: 430px) and (min-height: 769px),
+  (max-height: 768px) and (max-width: 1180px) {
+  .battlefield-mechanics-overlay {
+    --battlefield-mechanics-card-width: 3.6rem;
+    gap: 0.18rem;
+  }
+
+  .battlefield-mechanics-overlay--mini {
+    gap: 0;
+  }
+}

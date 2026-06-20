@@ -1,5 +1,12 @@
 :host {
   display: contents;
+  --room-setup-accent: var(--cz-secondary);
+  --room-setup-accent-rgb: var(--cz-secondary-rgb);
+  --room-setup-border-rgb: var(--cz-primary-rgb);
+  --room-setup-control-bg: rgb(var(--cz-bg-rgb) / 46%);
+  --room-setup-control-muted: rgb(var(--cz-text-rgb) / 66%);
+  --room-setup-panel-bg: rgb(var(--cz-bg-rgb) / 98%);
+  --room-setup-soft-highlight: rgb(var(--cz-text-rgb) / 4%);
 }
 
 :host ::ng-deep .modal-backdrop {
@@ -11,12 +18,12 @@
 :host ::ng-deep .modal-panel {
   width: min(48rem, 100%);
   gap: 1.05rem;
-  border-color: rgb(var(--cz-primary-rgb) / 44%);
+  border-color: rgb(var(--room-setup-border-rgb) / 44%);
   border-radius: 12px;
   padding: clamp(1.25rem, 2vw, 1.65rem);
   background:
-    radial-gradient(circle at 15% 0%, rgb(var(--cz-secondary-rgb) / 10%), transparent 17rem),
-    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 98%), rgb(var(--cz-bg-rgb) / 98%));
+    radial-gradient(circle at 15% 0%, rgb(var(--room-setup-accent-rgb) / 10%), transparent 17rem),
+    linear-gradient(180deg, var(--room-setup-panel-bg), var(--room-setup-panel-bg));
   box-shadow:
     0 1.8rem 4.4rem rgb(var(--cz-bg-rgb) / 62%),
     0 0 0 1px rgb(var(--cz-text-rgb) / 5%) inset,
@@ -38,7 +45,7 @@
 }
 
 :host ::ng-deep .modal-close-button {
-  border-color: rgb(var(--cz-primary-rgb) / 48%);
+  border-color: rgb(var(--room-setup-border-rgb) / 48%);
   background: rgb(var(--cz-bg-rgb) / 72%);
   box-shadow: 0 0.7rem 1.5rem rgb(var(--cz-bg-rgb) / 32%);
 }
@@ -60,12 +67,6 @@
   min-width: 8.4rem;
   min-height: 2.75rem;
   border-radius: 8px;
-  border-color: rgb(var(--cz-primary-rgb) / 62%);
-  background: linear-gradient(180deg, rgb(var(--cz-secondary-rgb) / 94%), rgb(var(--cz-surface-rgb) / 96%));
-  color: var(--cz-text);
-  box-shadow:
-    0 0.8rem 1.7rem rgb(var(--cz-bg-rgb) / 28%),
-    inset 0 1px 0 rgb(var(--cz-text-rgb) / 18%);
 }
 
 .setup-modal-form {
@@ -83,25 +84,45 @@
   align-items: start;
 }
 
+.setup-modal-row:first-of-type {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.setup-modal-row:first-of-type > .create-fields,
+.setup-modal-row:first-of-type > app-game-setup-life-control {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
 .create-fields {
   display: block;
+  width: 100%;
   min-width: 0;
 }
 
 .room-name-field,
+.mulligan-select-field,
+.mulligan-toggle-field,
 :host ::ng-deep .format-select-field,
 :host ::ng-deep .visibility-choice,
 .modal-setup-field,
 .timer-control {
   display: grid;
   gap: 0.46rem;
+  width: 100%;
   min-width: 0;
 }
 
-.room-name-field,
-:host ::ng-deep .format-select-field,
+.setup-field-label,
+.mulligan-toggle-label,
+:host ::ng-deep .format-select-label,
 :host ::ng-deep .visibility-choice__label,
 :host ::ng-deep .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   color: var(--cz-text);
   font-size: 0.74rem;
   font-weight: 900;
@@ -109,42 +130,143 @@
   text-transform: uppercase;
 }
 
+.required-mark,
+:host ::ng-deep .required-mark {
+  color: var(--cz-warning);
+}
+
 .room-name-field input {
   min-height: 2.85rem;
   width: 100%;
-  border: 0;
-  border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 30%);
-  border-radius: 0;
-  padding: 0;
-  background: transparent;
-  box-shadow: none;
+  border: 1px solid rgb(var(--room-setup-border-rgb) / 30%);
+  border-radius: 12px;
+  padding: 0 0.85rem;
+  background:
+    linear-gradient(180deg, var(--room-setup-soft-highlight), transparent),
+    var(--room-setup-control-bg);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%),
+    0 0.6rem 1.15rem rgb(var(--cz-bg-rgb) / 13%);
   color: var(--cz-text);
 }
 
+.mulligan-toggle-field {
+  align-self: end;
+  display: grid;
+  gap: 0.46rem;
+}
+
+.mulligan-toggle-button {
+  display: flex;
+  min-height: 2.85rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgb(var(--room-setup-border-rgb) / 30%);
+  border-radius: 12px;
+  padding: 0 0.85rem;
+  background:
+    linear-gradient(180deg, var(--room-setup-soft-highlight), transparent),
+    var(--room-setup-control-bg);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%),
+    0 0.6rem 1.15rem rgb(var(--cz-bg-rgb) / 13%);
+  color: var(--cz-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mulligan-toggle-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.mulligan-toggle-button:focus-visible {
+  outline: 2px solid rgb(var(--room-setup-accent-rgb) / 76%);
+  outline-offset: 2px;
+}
+
+.mulligan-toggle-track {
+  position: relative;
+  display: block;
+  width: 3.2rem;
+  height: 1.45rem;
+  border: 1px solid rgb(var(--room-setup-border-rgb) / 36%);
+  border-radius: 999px;
+  background: rgb(var(--cz-bg-rgb) / 72%);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 7%);
+}
+
+.mulligan-toggle-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.22rem;
+  width: 0.98rem;
+  height: 0.98rem;
+  border-radius: 999px;
+  background: rgb(var(--cz-text-rgb) / 62%);
+  transform: translateY(-50%);
+  transition:
+    transform 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.mulligan-toggle-button.is-on .mulligan-toggle-thumb {
+  background: var(--room-setup-accent);
+  box-shadow: 0 0 0.7rem rgb(var(--room-setup-accent-rgb) / 54%);
+  transform: translate(1.6rem, -50%);
+}
+
+.mulligan-toggle-state {
+  color: var(--cz-text);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mulligan-description {
+  margin: 0;
+  color: rgb(var(--cz-text-rgb) / 72%);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .room-name-field input:focus {
-  border-bottom-color: rgb(var(--cz-secondary-rgb) / 74%);
-  box-shadow: 0 0.45rem 0.9rem -0.9rem rgb(var(--cz-secondary-rgb) / 70%);
+  border-color: rgb(var(--room-setup-accent-rgb) / 74%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%),
+    0 0 0 3px rgb(var(--room-setup-accent-rgb) / 16%);
 }
 
 .character-count {
   justify-self: end;
   margin-top: -0.28rem;
-  color: var(--muted);
+  color: var(--cz-warning);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0;
   text-transform: none;
 }
 
+:host ::ng-deep .modal-header-rule {
+  justify-self: start;
+  margin-inline: 0 auto;
+}
+
 :host ::ng-deep .format-select-trigger,
-:host ::ng-deep .life-editor,
+:host ::ng-deep .life-control:not(.has-presets) .life-editor,
 :host ::ng-deep .capacity-editor,
 :host ::ng-deep app-table-assistant-timer-settings .segmented-control button {
   min-height: 2.85rem;
-  border-color: rgb(var(--cz-primary-rgb) / 30%);
+  border-color: rgb(var(--room-setup-border-rgb) / 30%);
   background:
-    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 4%), transparent),
-    rgb(var(--cz-bg-rgb) / 46%);
+    linear-gradient(180deg, var(--room-setup-soft-highlight), transparent),
+    var(--room-setup-control-bg);
   box-shadow:
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%),
     0 0.6rem 1.15rem rgb(var(--cz-bg-rgb) / 13%);
@@ -156,14 +278,14 @@
 }
 
 :host ::ng-deep .format-select-menu {
-  border-color: rgb(var(--cz-primary-rgb) / 42%);
+  border-color: rgb(var(--room-setup-border-rgb) / 42%);
   background:
-    radial-gradient(circle at 15% 0%, rgb(var(--cz-primary-rgb) / 16%), transparent 9rem),
+    radial-gradient(circle at 15% 0%, rgb(var(--room-setup-border-rgb) / 16%), transparent 9rem),
     linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 98%), rgb(var(--cz-bg-rgb) / 99%));
 }
 
 :host ::ng-deep .format-select-option.is-selected {
-  background: linear-gradient(180deg, rgb(var(--cz-primary-rgb) / 20%), rgb(var(--cz-primary-rgb) / 8%));
+  background: linear-gradient(180deg, rgb(var(--room-setup-accent-rgb) / 20%), rgb(var(--room-setup-accent-rgb) / 8%));
 }
 
 :host ::ng-deep .visibility-choice__group {
@@ -173,7 +295,7 @@
 
 :host ::ng-deep .visibility-choice__button {
   min-height: 3.05rem;
-  border-color: rgb(var(--cz-primary-rgb) / 22%);
+  border-color: rgb(var(--visibility-choice-rgb) / 22%);
   border-radius: 10px;
   padding: 0.55rem 0.7rem;
   background: rgb(var(--cz-bg-rgb) / 34%);
@@ -181,9 +303,14 @@
 }
 
 :host ::ng-deep .visibility-choice__button.is-selected {
-  border-color: rgb(var(--cz-primary-rgb) / 52%);
-  background: linear-gradient(180deg, rgb(var(--cz-primary-rgb) / 16%), rgb(var(--cz-primary-rgb) / 7%));
+  border-color: rgb(var(--visibility-choice-rgb) / 52%);
+  background: linear-gradient(180deg, rgb(var(--visibility-choice-rgb) / 16%), rgb(var(--visibility-choice-rgb) / 7%));
   color: var(--cz-text);
+}
+
+.room-name-field input::placeholder {
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
 }
 
 :host ::ng-deep .visibility-choice__button:not(.is-selected) {
@@ -196,10 +323,12 @@
 }
 
 :host ::ng-deep .visibility-choice__subtitle {
+  color: rgb(var(--cz-text-rgb) / 64%);
   font-size: 0.72rem;
 }
 
-:host ::ng-deep .setup-control {
+:host ::ng-deep .setup-control:not(.life-control),
+:host ::ng-deep .life-control:not(.has-presets) {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.46rem;
@@ -211,13 +340,22 @@
   box-shadow: none;
 }
 
-:host ::ng-deep app-game-setup-life-control .setup-control,
+:host ::ng-deep app-game-setup-life-control .setup-control:not(.has-presets),
 :host ::ng-deep app-game-setup-seats-control .setup-control {
   grid-template-columns: 1fr;
   align-items: stretch;
 }
 
-:host ::ng-deep .control-copy {
+:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control,
+:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+:host ::ng-deep .setup-control:not(.has-presets) .control-copy,
+:host ::ng-deep .setup-control:not(.life-control) .control-copy {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -226,17 +364,17 @@
 }
 
 :host ::ng-deep .control-copy strong {
-  color: var(--cz-secondary);
+  color: var(--room-setup-accent);
   font-size: 1.05rem;
   line-height: 1;
 }
 
-:host ::ng-deep .life-editor,
+:host ::ng-deep .life-control:not(.has-presets) .life-editor,
 :host ::ng-deep .capacity-editor {
   width: 100%;
 }
 
-:host ::ng-deep .life-editor {
+:host ::ng-deep .life-control:not(.has-presets) .life-editor {
   min-height: 2.85rem;
 }
 
@@ -267,17 +405,17 @@
   height: 2.12rem;
 }
 
-:host ::ng-deep .life-editor button,
-:host ::ng-deep .life-value-button,
+:host ::ng-deep .life-control:not(.has-presets) .life-editor button,
+:host ::ng-deep .life-control:not(.has-presets) .life-value-button,
 :host ::ng-deep .capacity-editor button {
   min-height: 2.25rem;
 }
 
-:host ::ng-deep .life-value-button,
+:host ::ng-deep .life-control:not(.has-presets) .life-value-button,
 :host ::ng-deep .capacity-editor button.selected,
 :host ::ng-deep app-table-assistant-timer-settings .segmented-control button.active {
-  background: linear-gradient(180deg, rgb(var(--cz-primary-rgb) / 20%), rgb(var(--cz-primary-rgb) / 8%));
-  color: var(--cz-secondary);
+  background: linear-gradient(180deg, rgb(var(--room-setup-accent-rgb) / 20%), rgb(var(--room-setup-accent-rgb) / 8%));
+  color: var(--room-setup-accent);
 }
 
 :host ::ng-deep .capacity-editor {
@@ -330,5 +468,9 @@
   .setup-modal-row {
     grid-template-columns: 1fr;
     gap: 0.85rem;
+  }
+
+  .setup-modal-row:first-of-type {
+    grid-template-columns: 1fr;
   }
 }

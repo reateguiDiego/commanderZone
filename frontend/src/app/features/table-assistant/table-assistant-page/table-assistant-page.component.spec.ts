@@ -1,5 +1,7 @@
+import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { LucideAngularModule, Minus, Plus } from 'lucide-angular';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { TableAssistantPageComponent } from './table-assistant-page.component';
@@ -9,6 +11,7 @@ describe('TableAssistantPageComponent', () => {
     await TestBed.configureTestingModule({
       imports: [TableAssistantPageComponent],
       providers: [
+        importProvidersFrom(LucideAngularModule.pick({ Minus, Plus })),
         provideRouter([]),
         { provide: TableAssistantApi, useValue: { create: vi.fn() } },
       ],

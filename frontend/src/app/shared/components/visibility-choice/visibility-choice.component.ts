@@ -13,6 +13,7 @@ import { DeckVisibility } from '../../../core/models/deck.model';
 export class VisibilityChoiceComponent {
   @Input({ required: true }) value: DeckVisibility | null = null;
   @Input() label = 'Visibility';
+  @Input() required = false;
   @Input() publicSubtitle = 'Anyone can join';
   @Input() privateSubtitle = 'Invite only';
   @Output() readonly valueChange = new EventEmitter<DeckVisibility>();

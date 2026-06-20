@@ -1,4 +1,4 @@
-import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { contextMenuDisplayLabel } from '../context-menu-label';
@@ -10,6 +10,7 @@ export interface ContextSubmenuItem {
   readonly value: string;
   readonly label: string;
   readonly icon?: string;
+  readonly iconKind?: 'mana';
   readonly imageOnly?: boolean;
   readonly shortcut?: string;
   readonly danger?: boolean;
@@ -60,7 +61,7 @@ export class ContextSubmenuComponent {
 
   displayLabel(itemOrLabel: ContextSubmenuItem | string): string {
     if (typeof itemOrLabel !== 'string' && itemOrLabel.preserveCase === true) {
-      return itemOrLabel.label;
+      return runtimeTranslationFallback(itemOrLabel.label);
     }
 
     return contextMenuDisplayLabel(typeof itemOrLabel === 'string' ? itemOrLabel : itemOrLabel.label);
@@ -72,6 +73,10 @@ export class ContextSubmenuComponent {
 
   isCounterPillIcon(icon: string): boolean {
     return icon === 'counter-pill';
+  }
+
+  manaIconClass(icon: string): string {
+    return `submenu-item-mana-icon ms ms-mechanic ${icon}`;
   }
 
   isGraveyardAssetIcon(icon: string): boolean {

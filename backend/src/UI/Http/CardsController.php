@@ -4,8 +4,10 @@ namespace App\UI\Http;
 
 use App\Application\Card\CardLocalizationService;
 use App\Application\Card\CardResolver;
+use App\Application\Card\CardsLanguageService;
 use App\Domain\Card\Card;
 use App\Domain\Localization\LanguageCatalog;
+use App\Domain\User\User;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -13,6 +15,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class CardsController extends ApiController
@@ -48,6 +51,28 @@ class CardsController extends ApiController
             $filterParams['tokenLayout'] = 'token';
             $filterParams['doubleFacedTokenLayout'] = 'double_faced_token';
             $filterParams['tokenTypeLine'] = '%token%';
+        }
+
+        $gameplayKind = mb_strtolower(trim((string) $request->query->get('gameplayKind', '')));
+        if ($gameplayKind !== '') {
+            if (!in_array($gameplayKind, ['token', 'emblem', 'dungeon'], true)) {
+                return $this->fail('gameplayKind filter is invalid.');
+            }
+
+            if ($gameplayKind === 'token') {
+                $filters[] = '(c.layout IN (:gameplayTokenLayout, :gameplayDoubleFacedTokenLayout) OR LOWER(c.type_line) LIKE :gameplayTokenTypeLine)';
+                $filterParams['gameplayTokenLayout'] = 'token';
+                $filterParams['gameplayDoubleFacedTokenLayout'] = 'double_faced_token';
+                $filterParams['gameplayTokenTypeLine'] = '%token%';
+            } elseif ($gameplayKind === 'emblem') {
+                $filters[] = '(c.layout = :gameplayEmblemLayout OR LOWER(c.type_line) LIKE :gameplayEmblemTypeLine)';
+                $filterParams['gameplayEmblemLayout'] = 'emblem';
+                $filterParams['gameplayEmblemTypeLine'] = '%emblem%';
+            } else {
+                $filters[] = '(c.layout = :gameplayDungeonLayout OR LOWER(c.type_line) LIKE :gameplayDungeonTypeLine)';
+                $filterParams['gameplayDungeonLayout'] = 'dungeon';
+                $filterParams['gameplayDungeonTypeLine'] = 'dungeon%';
+            }
         }
 
         $type = mb_strtolower(trim((string) $request->query->get('type', '')));
@@ -183,6 +208,15 @@ SQL;
         }
 
         return $this->json(['card' => $localization->localizeCardPayload($matches[0]->toArray(), $requestedLanguage)]);
+    }
+
+    #[Route('/cards/languages', methods: ['GET'])]
+    public function languages(CardsLanguageService $cardsLanguage, #[CurrentUser] ?User $user): JsonResponse
+    {
+        return $this->json([
+            'selectedCardLanguage' => LanguageCatalog::normalize($user?->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE,
+            'data' => $cardsLanguage->languageCoverage(),
+        ]);
     }
 
     #[Route('/cards/{scryfallId}/image', methods: ['GET'])]
@@ -730,7 +764,7 @@ SQL,
             'colorIdentity' => $this->decodeJsonArray($row['color_identity'] ?? []),
             'legalities' => $this->decodeJsonObject($row['legalities'] ?? []),
             'imageUris' => $this->decodeJsonObject($row['image_uris'] ?? []),
-            'cardFaces' => $this->decodeJsonArray($row['card_faces'] ?? []),
+            'cardFaces' => $this->normalizeCardFaces($this->decodeJsonArray($row['card_faces'] ?? [])),
             'hasRulings' => (bool) ($row['has_rulings'] ?? false),
             'allParts' => $this->decodeJsonArray($row['all_parts'] ?? []),
             'manaValue' => is_numeric($row['mana_value'] ?? null) ? (float) $row['mana_value'] : null,
@@ -775,6 +809,51 @@ SQL,
             'ñ' => 'n',
             'ç' => 'c',
         ]);
+    }
+
+    /**
+     * @param list<mixed> $faces
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function normalizeCardFaces(array $faces): array
+    {
+        $normalized = [];
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'name' => $this->nullableString($face['name'] ?? null),
+                'manaCost' => $this->nullableString($face['manaCost'] ?? $face['mana_cost'] ?? null),
+                'typeLine' => $this->nullableString($face['typeLine'] ?? $face['type_line'] ?? null),
+                'oracleText' => $this->nullableString($face['oracleText'] ?? $face['oracle_text'] ?? null),
+                'power' => $this->nullableString($face['power'] ?? null),
+                'toughness' => $this->nullableString($face['toughness'] ?? null),
+                'loyalty' => $this->nullableString($face['loyalty'] ?? null),
+                'colors' => $this->arrayValues($face['colors'] ?? []),
+                'imageUris' => $this->arrayObject($face['imageUris'] ?? $face['image_uris'] ?? []),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function arrayValues(mixed $value): array
+    {
+        return is_array($value) ? array_values($value) : [];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function arrayObject(mixed $value): array
+    {
+        return is_array($value) ? $value : [];
     }
 
     private function accentFoldSql(string $expression): string

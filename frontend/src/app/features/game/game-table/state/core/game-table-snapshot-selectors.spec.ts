@@ -28,6 +28,395 @@ describe('GameTableSnapshotSelectors', () => {
     expect(selectors.deckLabel(playerView({ deckName: null }))).toBe('');
   });
 
+  it('uses active face values for double-faced power and toughness', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Daxos // Daxos of the Left',
+      tapped: false,
+      activeFaceIndex: 1,
+      cardFaces: [
+        {
+          name: 'Daxos',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: '3',
+          toughness: '3',
+          loyalty: null,
+          colors: [],
+          imageUris: {},
+        },
+        {
+          name: 'Daxos of the Left',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: '5',
+          toughness: '4',
+          loyalty: null,
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      power: 7,
+      toughness: 8,
+      defaultPower: 1,
+      defaultToughness: 1,
+    };
+
+    expect(selectors.shouldShowPowerToughness(card)).toBe(true);
+    expect(selectors.cardPowerValue(card)).toBe(5);
+    expect(selectors.cardToughnessValue(card)).toBe(4);
+  });
+
+  it('keeps printed non-numeric power and toughness values for the active face', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Variable Creature',
+      tapped: false,
+      activeFaceIndex: 0,
+      cardFaces: [
+        {
+          name: 'Variable Creature',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: '*',
+          toughness: 'X+2',
+          loyalty: null,
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      power: 0,
+      toughness: 0,
+      defaultPower: '*',
+      defaultToughness: 'X+2',
+    };
+
+    expect(selectors.shouldShowPowerToughness(card)).toBe(true);
+    expect(selectors.cardPowerValue(card)).toBe('*');
+    expect(selectors.cardToughnessValue(card)).toBe('X+2');
+  });
+
+  it('uses numeric gameplay values after variable power and toughness are changed', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Variable Creature',
+      tapped: false,
+      activeFaceIndex: 0,
+      cardFaces: [
+        {
+          name: 'Variable Creature',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: '*',
+          toughness: 'X+2',
+          loyalty: null,
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      power: 1,
+      toughness: -1,
+      defaultPower: '*',
+      defaultToughness: 'X+2',
+    };
+
+    expect(selectors.cardPowerValue(card)).toBe(1);
+    expect(selectors.cardToughnessValue(card)).toBe(-1);
+  });
+
+  it('does not show power and toughness when the active double-faced card has no values', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Night // Day',
+      tapped: false,
+      activeFaceIndex: 1,
+      cardFaces: [
+        {
+          name: 'Night',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: '3',
+          toughness: '3',
+          loyalty: null,
+          colors: [],
+          imageUris: {},
+        },
+        {
+          name: 'Day',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: null,
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      power: 9,
+      toughness: 9,
+      defaultPower: 1,
+      defaultToughness: 1,
+    };
+
+    expect(selectors.shouldShowPowerToughness(card)).toBe(false);
+    expect(selectors.cardPowerValue(card)).toBeNull();
+    expect(selectors.cardToughnessValue(card)).toBeNull();
+  });
+
+  it('ignores inactive double-faced 0/0 values when the active face has no power or toughness', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Dawn // Dusk',
+      tapped: false,
+      activeFaceIndex: 1,
+      cardFaces: [
+        {
+          name: 'Dawn',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: '0',
+          toughness: '0',
+          loyalty: null,
+          colors: [],
+          imageUris: {},
+        },
+        {
+          name: 'Dusk',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: null,
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      power: 9,
+      toughness: 9,
+      defaultPower: 1,
+      defaultToughness: 1,
+    };
+
+    expect(selectors.shouldShowPowerToughness(card)).toBe(false);
+    expect(selectors.cardPowerValue(card)).toBeNull();
+    expect(selectors.cardToughnessValue(card)).toBeNull();
+  });
+
+  it('returns null loyalty for active face with no value even if another face has 0', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Jace // Jace Legacy',
+      tapped: false,
+      activeFaceIndex: 1,
+      cardFaces: [
+        {
+          name: 'Jace',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: '0',
+          colors: [],
+          imageUris: {},
+        },
+        {
+          name: 'Jace Legacy',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: null,
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      loyalty: 0,
+      defaultLoyalty: 3,
+      defaultPower: null,
+      defaultToughness: null,
+    };
+
+    expect(selectors.cardLoyaltyValue(card)).toBeNull();
+  });
+
+  it('uses active face loyalty for double-faced cards', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Jace // Jace Legacy',
+      tapped: false,
+      activeFaceIndex: 1,
+      cardFaces: [
+        {
+          name: 'Jace',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: '4',
+          colors: [],
+          imageUris: {},
+        },
+        {
+          name: 'Jace Legacy',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: '8',
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      loyalty: 99,
+    };
+
+    expect(selectors.cardLoyaltyValue(card)).toBe(8);
+  });
+
+  it('keeps printed non-numeric loyalty for the active face', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Variable Walker',
+      tapped: false,
+      activeFaceIndex: 0,
+      cardFaces: [
+        {
+          name: 'Variable Walker',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: 'X',
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      loyalty: 0,
+      defaultLoyalty: 'X',
+    };
+
+    expect(selectors.cardLoyaltyValue(card)).toBe('X');
+  });
+
+  it('returns null battle defense for inactive double-faced cards when the active face has none', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Invasion of Zendikar // Awakened Skyclave',
+      tapped: false,
+      typeLine: 'Battle - Siege',
+      activeFaceIndex: 1,
+      cardFaces: [
+        {
+          name: 'Invasion of Zendikar',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: null,
+          defense: '3',
+          colors: [],
+          imageUris: {},
+        },
+        {
+          name: 'Awakened Skyclave',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: null,
+          defense: null,
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      defense: 3,
+      defaultDefense: 5,
+    };
+
+    expect(selectors.cardBattleValue(card)).toBeNull();
+  });
+
+  it('falls back to the default battle defense for single-faced battles', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Invasion of Zendikar',
+      tapped: false,
+      typeLine: 'Battle - Siege',
+      defense: null,
+      defaultDefense: 5,
+    };
+
+    expect(selectors.cardBattleValue(card)).toBe(5);
+  });
+
+  it('keeps printed non-numeric battle defense for single-faced battles', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Invasion of Variable',
+      tapped: false,
+      typeLine: 'Battle - Siege',
+      defense: 0,
+      defaultDefense: 'X',
+    };
+
+    expect(selectors.cardBattleValue(card)).toBe('X');
+  });
+
+  it('uses the current root defense for a battle face', () => {
+    const card = {
+      instanceId: 'card-1',
+      name: 'Invasion of Amonkhet // Lazotep Convert',
+      tapped: false,
+      typeLine: 'Battle - Siege',
+      activeFaceIndex: 0,
+      cardFaces: [
+        {
+          name: 'Invasion of Amonkhet',
+          manaCost: null,
+          typeLine: 'Battle - Siege',
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: null,
+          defense: '4',
+          colors: [],
+          imageUris: {},
+        },
+        {
+          name: 'Lazotep Convert',
+          manaCost: null,
+          typeLine: null,
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: null,
+          defense: '7',
+          colors: [],
+          imageUris: {},
+        },
+      ],
+      defense: 9,
+      defaultDefense: 4,
+    };
+
+    expect(selectors.cardBattleValue(card)).toBe(9);
+  });
+
   it('renders ratio battlefield positions against the current battlefield size', () => {
     const card = { instanceId: 'card-1', name: 'Bear', tapped: false, position: { x: 0.5, y: 0.5, unit: 'ratio' as const } };
 

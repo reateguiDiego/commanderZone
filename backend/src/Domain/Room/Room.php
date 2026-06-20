@@ -32,6 +32,17 @@ class Room
     public const DEFAULT_TIMER_DURATION_SECONDS = 300;
     public const MIN_TIMER_DURATION_SECONDS = 30;
     public const MAX_TIMER_DURATION_SECONDS = 1800;
+    public const MULLIGAN_LONDON = 'LONDON';
+    public const MULLIGAN_VANCOUVER = 'VANCOUVER';
+    public const MULLIGAN_PARIS = 'PARIS';
+    public const MULLIGAN_GENEROUS = 'GENEROUS';
+    public const DEFAULT_MULLIGAN_RULE = self::MULLIGAN_LONDON;
+    public const MULLIGAN_RULES = [
+        self::MULLIGAN_LONDON,
+        self::MULLIGAN_VANCOUVER,
+        self::MULLIGAN_PARIS,
+        self::MULLIGAN_GENEROUS,
+    ];
 
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
@@ -64,6 +75,12 @@ class Room
 
     #[ORM\Column(type: 'integer')]
     private int $timerDurationSeconds = self::DEFAULT_TIMER_DURATION_SECONDS;
+
+    #[ORM\Column(type: 'string', length: 20)]
+    private string $mulliganRule = self::DEFAULT_MULLIGAN_RULE;
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $firstMulliganFree = true;
 
     #[ORM\OneToMany(mappedBy: 'room', targetEntity: RoomPlayer::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $players;
@@ -142,6 +159,16 @@ class Room
         return $this->timerDurationSeconds;
     }
 
+    public function mulliganRule(): string
+    {
+        return $this->mulliganRule;
+    }
+
+    public function firstMulliganFree(): bool
+    {
+        return $this->firstMulliganFree;
+    }
+
     public function setVisibility(string $visibility): void
     {
         $this->visibility = in_array($visibility, [self::VISIBILITY_PRIVATE, self::VISIBILITY_PUBLIC], true)
@@ -196,6 +223,22 @@ class Room
             self::MIN_TIMER_DURATION_SECONDS,
             min(self::MAX_TIMER_DURATION_SECONDS, $timerDurationSeconds),
         );
+        $this->touch();
+    }
+
+    public function setMulliganRule(string $mulliganRule): void
+    {
+        if (!in_array($mulliganRule, self::MULLIGAN_RULES, true)) {
+            throw new \InvalidArgumentException('Unsupported mulligan rule.');
+        }
+
+        $this->mulliganRule = $mulliganRule;
+        $this->touch();
+    }
+
+    public function setFirstMulliganFree(bool $firstMulliganFree): void
+    {
+        $this->firstMulliganFree = $firstMulliganFree;
         $this->touch();
     }
 
@@ -382,6 +425,8 @@ class Room
             'startingLife' => $this->startingLife,
             'timerMode' => $this->timerMode,
             'timerDurationSeconds' => $this->timerDurationSeconds,
+            'mulliganRule' => $this->mulliganRule,
+            'firstMulliganFree' => $this->firstMulliganFree,
             'players' => array_map(static fn (RoomPlayer $player) => $player->toArray(), $this->orderedPlayers()),
             'waitingLog' => array_map(
                 static fn (RoomWaitingLogEntry $entry): array => $entry->toArray(),
@@ -402,6 +447,11 @@ class Room
 
         $this->waitingLogEntries->add(new RoomWaitingLogEntry($this, $trimmed, $tone));
         $this->touch();
+    }
+
+    public static function defaultFirstMulliganFreeForFormat(string $format): bool
+    {
+        return $format === self::FORMAT_COMMANDER;
     }
 
     private function touch(): void

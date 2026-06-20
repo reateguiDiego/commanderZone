@@ -1,10 +1,15 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { GameCardInstance } from '../../../../../core/models/game.model';
+import { GameCardDungeonMarker, GameCardInstance } from '../../../../../core/models/game.model';
 import { CardPreviewAttachmentInfo, CardPreviewCardStateInfo, CardPreviewSourceRect } from '../../models/card-preview.model';
 import { CardMarkerRailComponent } from '../game-card-view/card-marker-rail/card-marker-rail.component';
+import { DungeonLocationPinComponent } from '../dungeon-location-pin/dungeon-location-pin.component';
+import { BattleCounterComponent } from '../game-card-view/battle-counter/battle-counter.component';
 import { LoyaltyCounterComponent } from '../game-card-view/loyalty-counter/loyalty-counter.component';
+import { SagaCounterComponent } from '../game-card-view/saga-counter/saga-counter.component';
+import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
+import { isBattleCard } from '../../utils/gameplay-card-kind';
 
 interface BattlefieldRect {
   readonly left: number;
@@ -19,6 +24,12 @@ interface PreviewStyle {
   readonly left: number;
   readonly top: number;
   readonly width: number;
+  readonly height: number;
+}
+
+interface PreviewVisualStyle {
+  readonly width: number;
+  readonly height: number;
 }
 
 interface CollisionRect {
@@ -27,6 +38,8 @@ interface CollisionRect {
   readonly right: number;
   readonly bottom: number;
 }
+
+type CardPreviewMode = 'vertical' | 'horizontal';
 
 const PREVIEW_WIDTH = 288;
 const PREVIEW_WITH_ATTACHMENTS_WIDTH = 270;
@@ -37,7 +50,15 @@ const DETAIL_INFO_ESTIMATED_HEIGHT = 104;
 
 @Component({
   selector: 'app-card-preview-overlay',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, CardMarkerRailComponent, LoyaltyCounterComponent],
+  imports: [
+    RuntimeTranslatePipe,
+    LucideAngularModule,
+    CardMarkerRailComponent,
+    DungeonLocationPinComponent,
+    BattleCounterComponent,
+    LoyaltyCounterComponent,
+    SagaCounterComponent,
+  ],
   templateUrl: './card-preview-overlay.component.html',
   styleUrl: './card-preview-overlay.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -45,6 +66,7 @@ const DETAIL_INFO_ESTIMATED_HEIGHT = 104;
 export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
   readonly card = input.required<GameCardInstance>();
   readonly image = input.required<string | null>();
+  readonly dungeonMarkerOverride = input<GameCardDungeonMarker | null>(null);
   readonly sourceRect = input<CardPreviewSourceRect | null>(null);
   readonly avoidRect = input<CollisionRect | null>(null);
   readonly battlefieldRect = input.required<BattlefieldRect>();
@@ -56,9 +78,18 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
     return info !== null && (info.attachedTo !== null || info.attachedCards.length > 0);
   });
   readonly hasDetailInfo = computed(() => this.attachmentInfo() !== null || this.cardStateInfo() !== null);
+  readonly dungeonMarker = computed(() => this.dungeonMarkerOverride() ?? dungeonMarkerForCard(this.card()));
   readonly faceFlipAnimating = signal(false);
+  readonly battlePreviewRotated = computed(() => !this.card().faceDown && isBattleCard(this.card()));
+  readonly previewMode = computed<CardPreviewMode>(() => (this.battlePreviewRotated() ? 'horizontal' : 'vertical'));
 
   readonly previewStyle = computed(() => this.computePreviewStyle());
+  readonly previewVisualStyle = computed(() => this.computePreviewVisualStyle());
+  readonly dungeonPinSize = computed(() => {
+    const width = this.previewVisualStyle().width;
+
+    return `${Math.round(Math.max(34, Math.min(58, width * 0.19)))}px`;
+  });
 
   private previousFaceInstanceId: string | null = null;
   private previousActiveFaceIndex: number | null = null;
@@ -74,11 +105,11 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
   }
 
   private computePreviewStyle(): PreviewStyle {
+    const visualStyle = this.computePreviewVisualStyle();
     const field = this.battlefieldRect();
     const hasDetailInfo = this.hasDetailInfo();
-    const maxWidth = hasDetailInfo ? PREVIEW_WITH_ATTACHMENTS_WIDTH : PREVIEW_WIDTH;
-    const width = Math.min(maxWidth, Math.max(160, field.width - PREVIEW_MARGIN * 2));
-    const height = width * PREVIEW_ASPECT_RATIO + (hasDetailInfo ? DETAIL_INFO_ESTIMATED_HEIGHT : 0);
+    const width = visualStyle.width;
+    const height = visualStyle.height + (hasDetailInfo ? DETAIL_INFO_ESTIMATED_HEIGHT : 0);
     const defaultLeft = field.right - width - PREVIEW_MARGIN;
     const left = clamp(defaultLeft, field.left + PREVIEW_MARGIN, field.right - width - PREVIEW_MARGIN);
     const centeredTop = field.top + (field.height - height) / 2;
@@ -88,20 +119,20 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
     const obstacle = this.firstOverlappingObstacle(candidate, obstacles);
 
     if (!obstacle) {
-      return { left, top: defaultTop, width };
+      return { left, top: defaultTop, width, height };
     }
 
     for (const rect of obstacles) {
       const belowTop = rect.bottom + PREVIEW_GAP;
       if (belowTop + height <= field.bottom - PREVIEW_MARGIN && !this.overlapsAny(styleRect(left, belowTop, width, height), obstacles)) {
-        return { left, top: belowTop, width };
+        return { left, top: belowTop, width, height };
       }
     }
 
     for (const rect of obstacles) {
       const aboveTop = rect.top - height - PREVIEW_GAP;
       if (aboveTop >= field.top + PREVIEW_MARGIN && !this.overlapsAny(styleRect(left, aboveTop, width, height), obstacles)) {
-        return { left, top: aboveTop, width };
+        return { left, top: aboveTop, width, height };
       }
     }
 
@@ -110,7 +141,19 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
       left,
       top: clamp(aboveTop, field.top + PREVIEW_MARGIN, field.bottom - height - PREVIEW_MARGIN),
       width,
+      height,
     };
+  }
+
+  private computePreviewVisualStyle(): PreviewVisualStyle {
+    const field = this.battlefieldRect();
+    const maxWidth = this.hasDetailInfo() ? PREVIEW_WITH_ATTACHMENTS_WIDTH : PREVIEW_WIDTH;
+    const verticalWidth = Math.min(maxWidth, Math.max(160, field.width - PREVIEW_MARGIN * 2));
+    const verticalHeight = verticalWidth * PREVIEW_ASPECT_RATIO;
+
+    return this.previewMode() === 'horizontal'
+      ? { width: verticalHeight, height: verticalWidth }
+      : { width: verticalWidth, height: verticalHeight };
   }
 
   private firstOverlappingObstacle(

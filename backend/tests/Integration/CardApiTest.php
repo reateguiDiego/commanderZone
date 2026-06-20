@@ -39,6 +39,62 @@ class CardApiTest extends ApiTestCase
         self::assertSame($card->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
     }
 
+    public function testCardLanguagesReportDistinctNameCoverageAgainstEnglish(): void
+    {
+        $this->seedCard('00000000-0000-0000-0000-0000000000d1', 'Sol Ring', [
+            'set' => 'one',
+            'collector_number' => '1',
+            'lang' => 'en',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d2', 'Sol Ring', [
+            'set' => 'two',
+            'collector_number' => '2',
+            'lang' => 'en',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d3', 'Arcane Signet', [
+            'set' => 'three',
+            'collector_number' => '3',
+            'lang' => 'en',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d4', 'Sol Ring', [
+            'set' => 'four',
+            'collector_number' => '4',
+            'lang' => 'es',
+            'printed_name' => 'Anillo solar',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d5', 'Sol Ring', [
+            'set' => 'five',
+            'collector_number' => '5',
+            'lang' => 'ph',
+            'printed_name' => 'Sol Ring PH',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/languages');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('en', $this->jsonResponse()['selectedCardLanguage']);
+        $languages = [];
+        foreach ($this->jsonResponse()['data'] as $language) {
+            $languages[(string) $language['code']] = $language;
+        }
+
+        self::assertArrayHasKey('en', $languages);
+        self::assertArrayHasKey('es', $languages);
+        self::assertArrayNotHasKey('ph', $languages);
+        self::assertSame(2, $languages['en']['distinctCardNames']);
+        self::assertSame(1, $languages['es']['distinctCardNames']);
+        self::assertEquals(100.0, $languages['en']['percentageOfEnglish']);
+        self::assertEquals(50.0, $languages['es']['percentageOfEnglish']);
+
+        $token = $this->registerAndLogin('cards-language@example.test', 'Cards Language');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('GET', '/cards/languages', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('es', $this->jsonResponse()['selectedCardLanguage']);
+    }
+
     public function testShowsDoubleFacedCardFaces(): void
     {
         $card = $this->seedCard('00000000-0000-0000-0000-000000000003', 'Invasion of Zendikar // Awakened Skyclave', [
@@ -204,6 +260,48 @@ class CardApiTest extends ApiTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame([$token->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
+    public function testSearchCanFilterGameplayHelpersByKind(): void
+    {
+        $token = $this->seedCard('00000000-0000-0000-0000-0000000000c1', 'Goblin Token', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Goblin',
+        ]);
+        $emblem = $this->seedCard('00000000-0000-0000-0000-0000000000c2', 'Chandra Emblem', [
+            'layout' => 'emblem',
+            'type_line' => 'Emblem',
+        ]);
+        $dungeon = $this->seedCard('00000000-0000-0000-0000-0000000000c3', 'Lost Mine of Phandelver', [
+            'layout' => 'dungeon',
+            'type_line' => 'Dungeon',
+        ]);
+        $namedDungeon = $this->seedCard('00000000-0000-0000-0000-0000000000c5', 'Dungeon of the Mad Mage', [
+            'layout' => 'normal',
+            'type_line' => 'Dungeon',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000c4', 'Dungeon Master', [
+            'layout' => 'normal',
+            'type_line' => 'Legendary Creature - Human Gamer',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=token&gameplayKind=token');
+        self::assertResponseIsSuccessful();
+        self::assertSame([$token->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+
+        $this->jsonRequest('GET', '/cards/search?q=emblem&gameplayKind=emblem');
+        self::assertResponseIsSuccessful();
+        self::assertSame([$emblem->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+
+        $this->jsonRequest('GET', '/cards/search?q=phandelver&gameplayKind=dungeon');
+        self::assertResponseIsSuccessful();
+        self::assertSame([$dungeon->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+
+        $this->jsonRequest('GET', '/cards/search?q=dungeon&gameplayKind=dungeon');
+        self::assertResponseIsSuccessful();
+        $dungeonResultIds = array_column($this->jsonResponse()['data'], 'scryfallId');
+        self::assertContains($namedDungeon->scryfallId(), $dungeonResultIds);
+        self::assertNotContains('00000000-0000-0000-0000-0000000000c4', $dungeonResultIds);
     }
 
     public function testSearchColorIdentityFilterUsesSubsetSemanticsAndKeepsColorlessCards(): void

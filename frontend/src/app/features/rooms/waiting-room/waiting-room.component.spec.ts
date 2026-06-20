@@ -3,7 +3,7 @@ import { Component } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { Copy, DoorOpen, Globe, Lock, LogOut, LucideAngularModule, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X } from 'lucide-angular';
+import { Copy, DoorOpen, Globe, Lock, LogOut, LucideAngularModule, Minus, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X } from 'lucide-angular';
 import { of } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
 import { FriendsApi } from '../../../core/api/friends.api';
@@ -61,7 +61,7 @@ describe('WaitingRoomComponent', () => {
       imports: [WaitingRoomComponent],
       providers: [
         provideRouter([{ path: 'rooms', component: DummyRoomsPageComponent }]),
-        importProvidersFrom(LucideAngularModule.pick({ Copy, DoorOpen, Globe, Lock, LogOut, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X })),
+        importProvidersFrom(LucideAngularModule.pick({ Copy, DoorOpen, Globe, Lock, LogOut, Minus, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X })),
         { provide: DecksApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [deck('deck-1', 'Verdant Bloom', { valid: true })] })) } },
         { provide: FriendsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
         { provide: RoomsApi, useValue: roomsApi },
@@ -131,6 +131,7 @@ describe('WaitingRoomComponent', () => {
 
     roomsApi.update.mockClear();
     setupModal.maxPlayersChange.emit(3);
+    setupModal.mulliganRuleChange.emit('GENEROUS');
     await fixture.whenStable();
 
     expect(roomsApi.update).not.toHaveBeenCalled();
@@ -314,6 +315,26 @@ describe('WaitingRoomComponent', () => {
     expect(component.currentRoom()?.timerDurationSeconds).toBe(180);
   });
 
+  it('lets the room owner update mulligan settings', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    roomsApi.update.mockReturnValueOnce(of({ room: room({ mulliganRule: 'GENEROUS' }) }));
+
+    await component.updateRoomMulliganRule('GENEROUS');
+
+    expect(roomsApi.update).toHaveBeenCalledWith('room-1', { mulliganRule: 'GENEROUS' }, true);
+    expect(component.currentRoom()?.mulliganRule).toBe('GENEROUS');
+
+    roomsApi.update.mockReturnValueOnce(of({ room: room({ firstMulliganFree: false }) }));
+    await component.updateRoomFirstMulliganFree(false);
+
+    expect(roomsApi.update).toHaveBeenCalledWith('room-1', { firstMulliganFree: false }, true);
+    expect(component.currentRoom()?.firstMulliganFree).toBe(false);
+  });
+
   it('updates room setup from the waiting setup modal', async () => {
     const fixture = TestBed.createComponent(WaitingRoomComponent);
     fixture.detectChanges();
@@ -333,6 +354,13 @@ describe('WaitingRoomComponent', () => {
 
     expect(roomsApi.update).toHaveBeenCalledWith('room-1', { maxPlayers: 3 }, true);
     expect(component.currentRoom()?.maxPlayers).toBe(3);
+
+    roomsApi.update.mockReturnValueOnce(of({ room: room({ mulliganRule: 'VANCOUVER' }) }));
+    setupModal.mulliganRuleChange.emit('VANCOUVER');
+    await fixture.whenStable();
+
+    expect(roomsApi.update).toHaveBeenCalledWith('room-1', { mulliganRule: 'VANCOUVER' }, true);
+    expect(component.currentRoom()?.mulliganRule).toBe('VANCOUVER');
   });
 
   it('lets the room owner confirm kicking another player', async () => {
@@ -676,6 +704,8 @@ function baseRoom(): Room {
     startingLife: 40,
     timerMode: 'none',
     timerDurationSeconds: 300,
+    mulliganRule: 'LONDON',
+    firstMulliganFree: true,
     players: [
       {
         id: 'player-1',

@@ -1,12 +1,12 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { AppThemeService } from './app-theme.service';
 
-const CZ_LOGO = '/assets/icons/CZ/CZ_logo.png';
-const CZ_LOGO_BLACK = '/assets/icons/CZ/CZ_logo_black.png';
-const CZ_ZONE_HEADER_LOGO = '/assets/icons/CZ/CZ_logo_zone_header.png';
-const CZ_ZONE_HEADER_LOGO_BLACK = '/assets/icons/CZ/CZ_logo_zone_header_black.png';
-const CZ_CARDS_ICON = '/assets/icons/CZ/CZ_cards_icon.png';
-const CZ_CARDS_ICON_BLACK = '/assets/icons/CZ/CZ_cards_icon_black.png';
+const CZ_LOGO = '/assets/icons/CZ/CZ_logo.webp';
+const CZ_LOGO_BLACK = '/assets/icons/CZ/CZ_logo_black.webp';
+const CZ_ZONE_HEADER_LOGO = '/assets/icons/CZ/CZ_logo_zone_header.webp';
+const CZ_ZONE_HEADER_LOGO_BLACK = '/assets/icons/CZ/CZ_logo_zone_header_black.webp';
+const CZ_CARDS_ICON = '/assets/icons/CZ/CZ_cards_icon.webp';
+const CZ_CARDS_ICON_BLACK = '/assets/icons/CZ/CZ_cards_icon_black.webp';
 
 @Injectable({ providedIn: 'root' })
 export class AppThemeAssetsService {

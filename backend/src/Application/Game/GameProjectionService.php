@@ -41,6 +41,7 @@ class GameProjectionService
         if (!isset($snapshot['players']) || !is_array($snapshot['players'])) {
             return $snapshot;
         }
+        $isMulliganPhase = ($snapshot['gamePhase'] ?? null) === 'MULLIGAN';
 
         $visibleScryfallIds = $this->visibleSnapshotScryfallIds($snapshot, $viewerId, $viewerCanUseOwnHiddenZones);
 
@@ -61,17 +62,19 @@ class GameProjectionService
         ));
 
         foreach ($snapshot['players'] as $playerId => &$player) {
+            $rawPlayer = $player;
             $zoneCounts = [];
             if (!isset($player['zones']) || !is_array($player['zones'])) {
                 $player['zones'] = [];
             }
+            $player['playerId'] = (string) $playerId;
 
             foreach ($player['zones'] as $zone => &$cards) {
                 $zoneCounts[$zone] = count($cards);
                 $isOwnHiddenZone = $viewerCanUseOwnHiddenZones && $playerId === $viewerId;
                 if ((string) $zone === 'hand' && !$isOwnHiddenZone) {
                     $cards = $this->projectOpponentHand($cards, $viewerId, (string) $playerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
-                } elseif ((string) $zone === 'library' && !$isOwnHiddenZone) {
+                } elseif ((string) $zone === 'library' && ($isMulliganPhase || !$isOwnHiddenZone)) {
                     $cards = $this->projectOpponentLibrary(
                         $cards,
                         $viewerId,
@@ -95,8 +98,26 @@ class GameProjectionService
             }
             unset($cards);
             $player['zoneCounts'] = $zoneCounts;
+            $player['handCount'] = $zoneCounts['hand'] ?? 0;
+            if ($isMulliganPhase) {
+                $player['mulligan'] = $this->projectMulliganState(
+                    is_array($player['mulligan'] ?? null) ? $player['mulligan'] : [],
+                    is_array($rawPlayer) ? $rawPlayer : [],
+                    $viewerCanUseOwnHiddenZones && $playerId === $viewerId,
+                    $viewerId,
+                    $requestedLanguage,
+                    $localizedCardsByLanguage,
+                    $rulingsLookup,
+                );
+            }
         }
         unset($player);
+
+        $snapshot['specialEntities'] = $this->projectSpecialEntities(
+            is_array($snapshot['specialEntities'] ?? null) ? $snapshot['specialEntities'] : [],
+            $requestedLanguage,
+            $localizedCardsByLanguage,
+        );
 
         return $snapshot;
     }
@@ -132,6 +153,60 @@ class GameProjectionService
             fn (array $card): array => $this->projectCard($card, $viewerId, $ownerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup),
             $cards,
         ));
+    }
+
+    /**
+     * @param array<string,mixed> $mulligan
+     * @param array<string,mixed> $rawPlayer
+     *
+     * @return array<string,mixed>
+     */
+    private function projectMulliganState(
+        array $mulligan,
+        array $rawPlayer,
+        bool $isOwnPlayer,
+        string $viewerId,
+        ?string $requestedLanguage,
+        ?array $localizedCardsByLanguage,
+        ?array $rulingsLookup,
+    ): array {
+        $hand = is_array($rawPlayer['zones']['hand'] ?? null) ? $rawPlayer['zones']['hand'] : [];
+        $status = is_string($mulligan['status'] ?? null) ? $mulligan['status'] : 'DECIDING';
+        $projected = [
+            'handCount' => count($hand),
+            'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
+            'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
+            'status' => $status,
+            'ready' => ($mulligan['ready'] ?? false) === true || $status === 'READY',
+        ];
+
+        if (!$isOwnPlayer) {
+            return $projected;
+        }
+
+        $private = [
+            ...$projected,
+            'bottomSelectionCount' => max(0, (int) ($mulligan['bottomSelectionCount'] ?? 0)),
+            'needsBottomSelection' => ($mulligan['needsBottomSelection'] ?? false) === true,
+            'bottomOrderMode' => is_string($mulligan['bottomOrderMode'] ?? null) ? $mulligan['bottomOrderMode'] : 'NONE',
+            'needsScryAfterKeep' => ($mulligan['needsScryAfterKeep'] ?? false) === true,
+        ];
+
+        $scryCardInstanceId = is_string($mulligan['scryCardInstanceId'] ?? null) ? $mulligan['scryCardInstanceId'] : '';
+        $library = is_array($rawPlayer['zones']['library'] ?? null) ? $rawPlayer['zones']['library'] : [];
+        $topCard = $library[0] ?? null;
+        if ($status === 'SCRYING' && $scryCardInstanceId !== '' && is_array($topCard) && ($topCard['instanceId'] ?? null) === $scryCardInstanceId) {
+            $private['scryCard'] = $this->projectCard(
+                $topCard,
+                $viewerId,
+                true,
+                $requestedLanguage,
+                $localizedCardsByLanguage,
+                $rulingsLookup,
+            );
+        }
+
+        return $private;
     }
 
     /**
@@ -542,7 +617,52 @@ class GameProjectionService
             }
         }
 
+        foreach ($this->specialEntityCards($snapshot) as $card) {
+            $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+            if ($scryfallId !== '') {
+                $scryfallIds[$scryfallId] = true;
+            }
+        }
+
         return array_keys($scryfallIds);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $specialEntities
+     * @param array<string,array<string,array<string,mixed>>>|null $localizedCardsByLanguage
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function projectSpecialEntities(array $specialEntities, ?string $requestedLanguage, ?array $localizedCardsByLanguage): array
+    {
+        return array_values(array_map(function (array $entity) use ($requestedLanguage, $localizedCardsByLanguage): array {
+            if (!is_array($entity['card'] ?? null)) {
+                return $entity;
+            }
+
+            $entity['card'] = is_array($localizedCardsByLanguage)
+                ? $this->localizeCardImagesFromLookup($entity['card'], $requestedLanguage, $localizedCardsByLanguage)
+                : $this->localizeCardImagesFromService($entity['card'], $requestedLanguage);
+
+            unset($entity['card']['lang'], $entity['card']['printedName']);
+
+            return $entity;
+        }, $specialEntities));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function specialEntityCards(array $snapshot): array
+    {
+        $cards = [];
+        foreach (($snapshot['specialEntities'] ?? []) as $entity) {
+            if (is_array($entity) && is_array($entity['card'] ?? null)) {
+                $cards[] = $entity['card'];
+            }
+        }
+
+        return $cards;
     }
 
     /**

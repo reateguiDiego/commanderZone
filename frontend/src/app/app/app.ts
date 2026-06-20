@@ -1,9 +1,8 @@
 import { RuntimeTranslatePipe } from '../core/localization/runtime-translate.pipe';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Injector, PLATFORM_ID, computed, inject, signal } from '@angular/core';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter } from 'rxjs';
 import { AuthStore } from '../core/auth/auth.store';
 import { LoadingStore } from '../core/loading/loading.store';
 import { findSeoRouteByPath } from '../core/localization/seo-routes';
@@ -39,9 +38,14 @@ export class App {
   private readonly theme = inject(AppThemeService);
   readonly loading = inject(LoadingStore);
   private readonly currentPath = signal(this.normalizedPath(this.router.url));
+  private readonly navigationLoading = signal(false);
   readonly showDisclaimer = computed(() => !this.isDisclaimerHiddenPath(this.currentPath()));
   readonly showNoindexDisclaimer = computed(() => this.isNoindexFooterDisclaimerPath(this.currentPath()));
-  readonly showGlobalLoading = computed(() => this.loading.active() && !this.isSeoLandingPath(this.currentPath()));
+  readonly showGlobalLoading = computed(
+    () => (this.loading.active() || this.navigationLoading()) && !this.isSeoLandingPath(this.currentPath()),
+  );
+  readonly showFooterDisclaimer = computed(() => this.showDisclaimer() && !this.showGlobalLoading());
+  readonly showNoindexFooterDisclaimer = computed(() => this.showNoindexDisclaimer() && !this.showGlobalLoading());
 
   constructor() {
     this.theme.initialize();
@@ -53,11 +57,25 @@ export class App {
     this.routeRobots.initialize();
     this.syncRouteState(this.router.url);
     this.router.events
-      .pipe(
-        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
-        takeUntilDestroyed(),
-      )
-      .subscribe((event) => this.syncRouteState(event.urlAfterRedirects));
+      .pipe(takeUntilDestroyed())
+      .subscribe((event) => {
+        if (event instanceof NavigationStart) {
+          this.navigationLoading.set(true);
+          this.syncRouteState(event.url);
+          return;
+        }
+
+        if (event instanceof NavigationEnd) {
+          this.syncRouteState(event.urlAfterRedirects);
+          this.navigationLoading.set(false);
+          return;
+        }
+
+        if (event instanceof NavigationCancel || event instanceof NavigationError) {
+          this.navigationLoading.set(false);
+          this.syncRouteState(this.router.url);
+        }
+      });
   }
 
   private syncRouteState(url: string): void {
@@ -94,6 +112,7 @@ export class App {
 
     return [
       'cards',
+      'community',
       'dashboard',
       'decks',
       'rooms',
@@ -112,6 +131,7 @@ export class App {
     return [
       'auth',
       'cards',
+      'community',
       'dashboard',
       'decks',
       'email-verification',

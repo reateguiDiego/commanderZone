@@ -10,6 +10,7 @@ import { LanguagePreferencesService } from '../localization/language-preferences
 export interface CardSearchFilters {
   commanderLegal?: boolean;
   colorIdentity?: string[];
+  gameplayKind?: 'token' | 'emblem' | 'dungeon';
   type?: 'creature' | 'instant' | 'sorcery' | 'artifact' | 'enchantment' | 'planeswalker' | 'land';
   tokenOnly?: boolean;
 }
@@ -33,6 +34,9 @@ export class CardsApi {
     }
     if (filters.colorIdentity && filters.colorIdentity.length > 0) {
       params = params.set('colorIdentity', filters.colorIdentity.join(','));
+    }
+    if (filters.gameplayKind) {
+      params = params.set('gameplayKind', filters.gameplayKind);
     }
     if (filters.type) {
       params = params.set('type', filters.type);

@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { Building2, DoorOpen, Globe, Library, Lock, LogOut, LucideAngularModule, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X } from 'lucide-angular';
+import { Building2, DoorOpen, Globe, Library, Lock, LogOut, LucideAngularModule, Minus, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X } from 'lucide-angular';
 import { of, throwError } from 'rxjs';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
@@ -50,7 +50,7 @@ describe('RoomsComponent', () => {
       imports: [RoomsComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ Building2, DoorOpen, Globe, Library, Lock, LogOut, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X })),
+        importProvidersFrom(LucideAngularModule.pick({ Building2, DoorOpen, Globe, Library, Lock, LogOut, Minus, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X })),
         { provide: RoomsApi, useValue: roomsApi },
         { provide: DeckFormatsApi, useValue: deckFormatsApi },
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
@@ -205,6 +205,8 @@ describe('RoomsComponent', () => {
       startingLife: 45,
       timerMode: 'turn',
       timerDurationSeconds: 180,
+      mulliganRule: 'GENEROUS',
+      firstMulliganFree: false,
     });
     roomsApi.create.mockReturnValue(of({ room: createdRoom }));
     const router = TestBed.inject(Router);
@@ -225,6 +227,8 @@ describe('RoomsComponent', () => {
       startingLife: 45,
       timerMode: 'turn',
       timerDurationSeconds: 180,
+      mulliganRule: 'GENEROUS',
+      firstMulliganFree: false,
     });
 
     expect(roomsApi.create).toHaveBeenCalledWith(undefined, 'private', {
@@ -234,6 +238,8 @@ describe('RoomsComponent', () => {
       timerMode: 'turn',
       timerDurationSeconds: 180,
       format: 'commander',
+      mulliganRule: 'GENEROUS',
+      firstMulliganFree: false,
     });
     expect(fixture.componentInstance.createRoomModalOpen()).toBe(false);
     expect(router.navigateByUrl).toHaveBeenCalledWith('/rooms/room-created/waiting');
@@ -488,6 +494,8 @@ function currentRoomSummaryFixture(room: Room): CurrentRoomSummary {
     visibility: room.visibility,
     format: room.format,
     maxPlayers: room.maxPlayers,
+    mulliganRule: room.mulliganRule,
+    firstMulliganFree: room.firstMulliganFree,
     playerCount: room.players.length,
     gameId: room.gameId,
   };
@@ -516,6 +524,8 @@ function baseRoomFixture(): Room {
     startingLife: 40,
     timerMode: 'none' as const,
     timerDurationSeconds: 300,
+    mulliganRule: 'LONDON' as const,
+    firstMulliganFree: true,
     players: [],
     gameId: null,
   };

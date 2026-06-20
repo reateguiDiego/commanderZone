@@ -6,7 +6,9 @@ import {
   Biohazard,
   Bug,
   Check,
+  Circle,
   Copy,
+  Crown,
   Dices,
   Eye,
   EyeOff,
@@ -20,6 +22,7 @@ import {
   LucideAngularModule,
   Maximize2,
   Minus,
+  MoonStar,
   Pencil,
   Plus,
   Radiation,
@@ -30,6 +33,7 @@ import {
   Send,
   Skull,
   Sparkles,
+  Sun,
   Swords,
   Tickets,
   Trash,
@@ -55,7 +59,9 @@ describe('ContextMenuComponent', () => {
           Biohazard,
           Bug,
           Check,
+          Circle,
           Copy,
+          Crown,
           Dices,
           Eye,
           EyeOff,
@@ -68,6 +74,7 @@ describe('ContextMenuComponent', () => {
           LogOut,
           Maximize2,
           Minus,
+          MoonStar,
           Pencil,
           Plus,
           Radiation,
@@ -78,6 +85,7 @@ describe('ContextMenuComponent', () => {
           Send,
           Skull,
           Sparkles,
+          Sun,
           Swords,
           Tickets,
           Trash,
@@ -415,7 +423,7 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)).toEqual(['Create token', 'Tirar dado']);
+    expect(buttonLabels(fixture)).toEqual(['Create token', 'Game mechanics›', 'Tirar dado']);
     expect(menuText(fixture)).not.toContain('View');
     expect(menuText(fixture)).not.toContain('Move all');
 
@@ -429,6 +437,447 @@ describe('ContextMenuComponent', () => {
     rollButton?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'rollDice' });
+  });
+
+  it('shows battlefield game mechanics and emits monarch, initiative, day-night and card-backed helper searches', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).toContain('Add Monarch');
+    expect(menuText(fixture)).toContain('Add Initiative');
+    expect(menuText(fixture)).toContain('Add Day / Night');
+    expect(menuText(fixture)).toContain('Add The Ring');
+    expect(menuText(fixture)).toContain('Add Dungeon');
+    expect(menuText(fixture)).toContain("Add City's Blessing");
+    expect(menuText(fixture)).toContain('Add Emblem');
+    expect(fixture.componentInstance.gameMechanicsMenuItems().map((item) => item.icon)).toEqual([
+      'ms-ability-role-royal',
+      'ms-ability-d20',
+      'ms-ability-day-night',
+      'ms-ability-the-ring-tempts-you',
+      'ms-ability-dungeon',
+      'ms-ability-ascend',
+      'ms-planeswalker',
+    ]);
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.submenu-panel lucide-icon')).toHaveLength(0);
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.submenu-item-mana-icon')).toHaveLength(7);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu-item-mana-icon.ms-ability-the-ring-tempts-you')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu-item-mana-icon.ms-planeswalker')).not.toBeNull();
+
+    const monarchButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add Monarch'));
+    monarchButton?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'createMonarch' });
+
+    const initiativeButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add Initiative'));
+    initiativeButton?.click();
+
+    const dayNightButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add Day / Night'));
+    dayNightButton?.click();
+
+    const theRingButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add The Ring'));
+    theRingButton?.click();
+
+    const dungeonButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add Dungeon'));
+    dungeonButton?.click();
+
+    const citysBlessingButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes("Add City's Blessing"));
+    citysBlessingButton?.click();
+
+    const emblemButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add Emblem'));
+    emblemButton?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'createInitiative' });
+    expect(selected).toHaveBeenCalledWith({ type: 'createDayNight' });
+    expect(selected).toHaveBeenCalledWith({ type: 'createTheRing' });
+    expect(selected).toHaveBeenCalledWith({ type: 'openGameplayCardSearch', kind: 'dungeon' });
+    expect(selected).toHaveBeenCalledWith({ type: 'createCitysBlessing' });
+    expect(selected).toHaveBeenCalledWith({ type: 'openGameplayCardSearch', kind: 'emblem' });
+    expect(selected).toHaveBeenCalledTimes(7);
+  });
+
+  it('hides Add The Ring from game mechanics when the player already controls one', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    }, {
+      playerHasTheRing: (playerId) => playerId === 'user-1',
+    });
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).not.toContain('Add The Ring');
+    expect(fixture.componentInstance.gameMechanicsMenuItems().map((item) => item.value)).toEqual([
+      'monarch',
+      'initiative',
+      'day-night',
+      'dungeon',
+      'citys-blessing',
+      'emblem',
+    ]);
+  });
+
+  it('hides day-night and adjusts monarch and initiative from battlefield game mechanics when those mechanics are active', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      activeDayNight: true,
+      monarchOwnerPlayerId: 'user-2',
+      initiativeOwnerPlayerId: 'user-2',
+    });
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).toContain('Become Monarch');
+    expect(menuText(fixture)).toContain('Take Initiative');
+    expect(menuText(fixture)).not.toContain('Add Monarch');
+    expect(menuText(fixture)).not.toContain('Add Initiative');
+    expect(menuText(fixture)).not.toContain('Add Day / Night');
+  });
+
+  it('hides monarch and initiative from battlefield game mechanics when the current player already has them', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      monarchOwnerPlayerId: 'user-1',
+      initiativeOwnerPlayerId: 'user-1',
+    });
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).not.toContain('Add Monarch');
+    expect(menuText(fixture)).not.toContain('Become Monarch');
+    expect(menuText(fixture)).not.toContain('Add Initiative');
+    expect(menuText(fixture)).not.toContain('Take Initiative');
+  });
+
+  it("switches City's Blessing game mechanics entry to remove when that player already has it", () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    }, {
+      playerHasCitysBlessing: (playerId) => playerId === 'user-1',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).toContain("Remove City's Blessing");
+    expect(menuText(fixture)).not.toContain("Add City's Blessing");
+
+    const removeButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes("Remove City's Blessing"));
+    removeButton?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'removeCitysBlessing' });
+  });
+
+  it('shows only remove and give-to actions for monarch cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        instanceId: 'monarch:entity-1',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'Monarch',
+        layout: 'monarch',
+        typeLine: 'Game Mechanic - Monarch',
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+      ],
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toEqual(['Give to›', 'Remove']);
+    expect(menuText(fixture)).not.toContain('Tap');
+    expect(menuText(fixture)).not.toContain('Attach');
+    expect(menuText(fixture)).not.toContain('Move to');
+
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Remove'))
+      ?.click();
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveMonarchToPlayer');
+    fixture.detectChanges();
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Opponent'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'removeMonarch' });
+    expect(selected).toHaveBeenCalledWith({ type: 'giveMonarchToPlayer', targetPlayerId: 'user-2' });
+  });
+
+  it('lets the current monarch give monarch even when they did not create it', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        instanceId: 'monarch:entity-1',
+        ownerId: 'user-1',
+        controllerId: 'user-2',
+        name: 'Monarch',
+        layout: 'monarch',
+        typeLine: 'Game Mechanic - Monarch',
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-2', 'Opponent'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+        player('user-3', 'Third'),
+      ],
+      canControlPlayer: (playerId) => playerId === 'user-2',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toEqual(['Give to›', 'Remove']);
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveMonarchToPlayer');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).toContain('User');
+    expect(menuText(fixture)).toContain('Third');
+    expect(menuText(fixture)).not.toContain('Opponent');
+
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Third'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'giveMonarchToPlayer', targetPlayerId: 'user-3' });
+  });
+
+  it('shows only remove and give-to actions for initiative cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        instanceId: 'initiative:entity-1',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'The Initiative',
+        layout: 'initiative',
+        typeLine: 'Game Mechanic - Initiative',
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+      ],
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)[0]).toContain('Give to');
+    expect(buttonLabels(fixture)[1]).toBe('Remove');
+    expect(menuText(fixture)).not.toContain('Tap');
+    expect(menuText(fixture)).not.toContain('Attach');
+    expect(menuText(fixture)).not.toContain('Move to');
+
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Remove'))
+      ?.click();
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveInitiativeToPlayer');
+    fixture.detectChanges();
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Opponent'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'removeInitiative' });
+    expect(selected).toHaveBeenCalledWith({ type: 'giveInitiativeToPlayer', targetPlayerId: 'user-2' });
+  });
+
+  it('lets the current initiative holder give initiative even when they did not create it', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        instanceId: 'initiative:entity-1',
+        ownerId: 'user-1',
+        controllerId: 'user-2',
+        name: 'The Initiative',
+        layout: 'initiative',
+        typeLine: 'Game Mechanic - Initiative',
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-2', 'Opponent'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+        player('user-3', 'Third'),
+      ],
+      canControlPlayer: (playerId) => playerId === 'user-2',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)[0]).toContain('Give to');
+    expect(buttonLabels(fixture)[1]).toBe('Remove');
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveInitiativeToPlayer');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).toContain('User');
+    expect(menuText(fixture)).toContain('Third');
+    expect(menuText(fixture)).not.toContain('Opponent');
+
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Third'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'giveInitiativeToPlayer', targetPlayerId: 'user-3' });
+  });
+
+  it('opens forced-left mechanic card submenus to the left', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      forceOpenLeft: true,
+      card: {
+        instanceId: 'monarch:entity-1',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'Monarch',
+        layout: 'monarch',
+        typeLine: 'Game Mechanic - Monarch',
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+      ],
+    });
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.context-menu.side-left-menu')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.side-left')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.child-side-left')).not.toBeNull();
+  });
+
+  it('shows only day-night toggle and creator remove actions for day-night cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        instanceId: 'battlefield-day-night-1',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'Day // Night',
+        layout: 'double_faced_token',
+        typeLine: 'Card // Card',
+        activeFaceIndex: 0,
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(menuText(fixture)).toContain('Make night');
+    expect(menuText(fixture)).toContain('Remove');
+    expect(menuText(fixture)).not.toContain('Tap');
+    expect(menuText(fixture)).not.toContain('Attach');
+
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Make night'))
+      ?.click();
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Remove'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'setDayNightMode', mode: 'night' });
+    expect(selected).toHaveBeenCalledWith({ type: 'removeDayNight' });
+  });
+
+  it('uses the sun icon when the day-night action changes the marker to day', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        instanceId: 'battlefield-day-night-1',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'Day // Night',
+        layout: 'double_faced_token',
+        typeLine: 'Card // Card',
+        activeFaceIndex: 1,
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+    });
+
+    expect(menuText(fixture)).toContain('Make day');
+    expect(fixture.componentInstance.dayNightToggleIcon()).toBe('sun');
+  });
+
+  it('does not offer the legacy mechanics modal from the command zone menu', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'command',
+    });
+
+    const button = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Mechanics'));
+
+    expect(button).toBeUndefined();
   });
 
   it('shows the mana pool opener from the own battlefield menu only when the panel is hidden', () => {
@@ -459,7 +908,7 @@ describe('ContextMenuComponent', () => {
 
     try {
       expect(menuText(visible)).not.toContain('Show mana pool');
-      expect(buttonLabels(hidden)).toEqual(['Create token', 'Tirar dado', 'Show mana pool']);
+      expect(buttonLabels(hidden)).toEqual(['Create token', 'Game mechanics›', 'Tirar dado', 'Show mana pool']);
       expect((hidden.nativeElement as HTMLElement).querySelector('.menu-item-mana-icon .ms-r')).not.toBeNull();
       expect((hidden.nativeElement as HTMLElement).querySelector('lucide-icon[name="sparkles"]')).toBeNull();
 
@@ -471,6 +920,25 @@ describe('ContextMenuComponent', () => {
     } finally {
       random.mockRestore();
     }
+  });
+
+  it('does not offer the legacy Ring-bearer helper action for creatures', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: { ...card('creature-1'), typeLine: 'Creature - Halfling Rogue' },
+    }, {
+      canControlPlayer: () => true,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const button = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Set as ring-bearer'));
+
+    expect(button).toBeUndefined();
+    expect(selected).not.toHaveBeenCalled();
   });
 
   it('uses distinct card options for library cards and shared options for graveyard and exile cards', () => {
@@ -554,6 +1022,21 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.selectRevealTarget('user-2');
 
     expect(selected).toHaveBeenCalledWith({ type: 'revealCard', target: 'user-2' });
+  });
+
+  it('shows tap actions for saga cards on the battlefield', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        ...card('saga-1'),
+        typeLine: 'Enchantment - Saga',
+      },
+    });
+
+    expect(menuText(fixture)).toContain('Tap');
+    expect(menuText(fixture)).not.toContain('Untap');
   });
 
   it('emits hand give and play face down actions', () => {
@@ -683,6 +1166,26 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'openLibraryView', mode: 'all' });
   });
 
+  it('opens library submenus to the left in aggressive compact mode', () => {
+    const restoreMatchMedia = mockMatchMedia(true);
+    try {
+      const fixture = createContextMenuFixture({
+        kind: 'zone',
+        playerId: 'user-1',
+        zone: 'library',
+      });
+
+      fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryMoveTop');
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('.context-menu.side-left-menu')).not.toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.side-left')).not.toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.child-side-left')).not.toBeNull();
+    } finally {
+      restoreMatchMedia();
+    }
+  });
+
   it('keeps battlefield card actions and omits moving to the current zone', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
@@ -736,6 +1239,112 @@ describe('ContextMenuComponent', () => {
     expect(menuText(loose)).not.toContain('Remove stack');
   });
 
+  it('limits an emblem battlefield card menu to remove', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: emblemCard('emblem-1'),
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toEqual(['Remove']);
+    expect(menuText(fixture)).not.toContain('Attach to...');
+    expect(menuText(fixture)).not.toContain('Move to');
+    expect(menuText(fixture)).not.toContain('Counters');
+
+    menuButtons(fixture)[0]?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'moveCard', zone: 'graveyard' });
+  });
+
+  it('does not add remove stack to a stacked emblem battlefield card menu', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: emblemCard('stacked-emblem'),
+    }, {
+      isLandStacked: (_playerId, target) => target.instanceId === 'stacked-emblem',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toEqual(['Remove']);
+    expect(menuText(fixture)).not.toContain('Remove stack');
+  });
+
+  it('limits a dungeon battlefield card menu to remove without stack actions', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: dungeonCard('dungeon-1'),
+    }, {
+      isLandStacked: () => true,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toEqual(['Remove']);
+    expect(menuText(fixture)).not.toContain('Remove stack');
+    expect(menuText(fixture)).not.toContain('Attach to...');
+    expect(menuText(fixture)).not.toContain('Move to');
+    expect(menuText(fixture)).not.toContain('Counters');
+
+    menuButtons(fixture)[0]?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'moveCard', zone: 'graveyard' });
+  });
+
+  it('shows Add venture for battlefield cards with venture text', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('venture-card', 'When this enters, venture into the dungeon.'),
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toContain('Add venture');
+
+    menuButtons(fixture)
+      .find((button) => button.textContent?.includes('Add venture'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'addVenture', kind: 'venture' });
+  });
+
+  it('uses initiative action for battlefield cards that take the initiative', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('initiative-card', 'When this enters, you take the initiative. Whenever you venture into the dungeon, draw a card.'),
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    menuButtons(fixture)
+      .find((button) => button.textContent?.includes('Add venture'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'addVenture', kind: 'initiative' });
+  });
+
+  it('does not show Add venture for unrelated battlefield cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('normal-card', 'Search your library for a Dungeon Master.'),
+    });
+
+    expect(buttonLabels(fixture)).not.toContain('Add venture');
+  });
+
   it('shows attach only for valid battlefield source cards', () => {
     const nonLand = createContextMenuFixture({
       kind: 'card',
@@ -763,6 +1372,21 @@ describe('ContextMenuComponent', () => {
     expect(menuText(nonLand)).toContain('Attach to...');
     expect(menuText(land)).not.toContain('Attach to...');
     expect(menuText(attachmentTarget)).not.toContain('Attach to...');
+  });
+
+  it('lets The Ring start attachment targeting but hides face flipping and counters', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: theRingCard('the-ring'),
+    }, {
+      canAttachEquipment: (_playerId, target) => target.instanceId === 'the-ring',
+    });
+
+    expect(menuText(fixture)).toContain('Attach to...');
+    expect(menuText(fixture)).not.toContain('Counters');
+    expect(menuText(fixture)).not.toContain('Flip Card Face');
   });
 
   it('shows detach all for a battlefield card with attached cards', () => {
@@ -898,7 +1522,7 @@ describe('ContextMenuComponent', () => {
     expect(commanderText).toContain('Untap');
     expect(commanderText).toContain('Turn face up');
     const commanderMoveIcon = Array.from((tappedCommander.nativeElement as HTMLElement).querySelectorAll('img'))
-      .find((image) => image.getAttribute('src')?.includes('/assets/icons/CZ/CZ_logo_zone_header.png'));
+      .find((image) => image.getAttribute('src')?.includes('/assets/icons/CZ/CZ_logo_zone_header.webp'));
     expect(commanderMoveIcon).not.toBeUndefined();
 
     const regularCard = createContextMenuFixture({
@@ -1063,6 +1687,11 @@ interface ContextMenuFixtureOptions {
   isManaPoolHidden?: (playerId: string) => boolean;
   zoneCardCount?: (playerId: string, zone: GameZoneName) => number;
   ownedArrowCount?: number;
+  activeDayNight?: boolean;
+  monarchOwnerPlayerId?: string | null;
+  initiativeOwnerPlayerId?: string | null;
+  playerHasCitysBlessing?: (playerId: string) => boolean;
+  playerHasTheRing?: (playerId: string) => boolean;
 }
 
 function createContextMenuFixture(menu: Partial<GameContextMenu>, options: ContextMenuFixtureOptions = {}) {
@@ -1094,6 +1723,11 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   fixture.componentRef.setInput('isManaPoolHidden', options.isManaPoolHidden ?? (() => false));
   fixture.componentRef.setInput('zoneTitle', titleForZone);
   fixture.componentRef.setInput('ownedArrowCount', options.ownedArrowCount ?? 0);
+  fixture.componentRef.setInput('activeDayNight', options.activeDayNight ?? false);
+  fixture.componentRef.setInput('monarchOwnerPlayerId', options.monarchOwnerPlayerId ?? null);
+  fixture.componentRef.setInput('initiativeOwnerPlayerId', options.initiativeOwnerPlayerId ?? null);
+  fixture.componentRef.setInput('playerHasCitysBlessing', options.playerHasCitysBlessing ?? (() => false));
+  fixture.componentRef.setInput('playerHasTheRing', options.playerHasTheRing ?? (() => false));
   fixture.detectChanges();
 
   return fixture;
@@ -1139,6 +1773,30 @@ function menuButtons(fixture: ComponentFixture<ContextMenuComponent>): HTMLButto
   return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
 }
 
+function mockMatchMedia(matches: boolean): () => void {
+  const original = window.matchMedia;
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+
+  return () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: original,
+    });
+  };
+}
+
 function card(instanceId: string, oracleText = ''): GameCardInstance {
   return {
     instanceId,
@@ -1149,6 +1807,59 @@ function card(instanceId: string, oracleText = ''): GameCardInstance {
     oracleText,
     tapped: false,
     counters: {},
+  };
+}
+
+function emblemCard(instanceId: string): GameCardInstance {
+  return {
+    ...card(instanceId),
+    name: 'Emblem',
+    typeLine: 'Emblem',
+    layout: 'emblem',
+    isToken: true,
+  };
+}
+
+function dungeonCard(instanceId: string): GameCardInstance {
+  return {
+    ...card(instanceId),
+    name: 'Dungeon',
+    typeLine: 'Dungeon',
+    layout: 'dungeon',
+    isToken: true,
+  };
+}
+
+function theRingCard(instanceId: string): GameCardInstance {
+  return {
+    ...card(instanceId),
+    name: 'The Ring // The Ring Tempts You',
+    typeLine: 'Emblem // Card',
+    layout: 'double_faced_token',
+    cardFaces: [
+      {
+        name: 'The Ring',
+        manaCost: null,
+        typeLine: 'Emblem',
+        oracleText: null,
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: { normal: '/cards/the-ring.jpg' },
+      },
+      {
+        name: 'The Ring Tempts You',
+        manaCost: null,
+        typeLine: 'Card',
+        oracleText: null,
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: { normal: '/cards/the-ring-tempts-you.jpg' },
+      },
+    ],
   };
 }
 

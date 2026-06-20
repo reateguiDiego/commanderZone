@@ -2,8 +2,13 @@ import type {
   GameCardInstance,
   GameCardPosition,
   GameCommand,
+  GamePhase,
+  GameSpecialEntity,
+  GameSpecialEntityCardRef,
   GameEvent,
+  GamePlayerMulliganState,
   GameSnapshot,
+  MulliganPlayerStatus,
   GameZoneName,
 } from './game.model';
 
@@ -13,7 +18,12 @@ export type RealtimeGameCommand<TPayload extends Record<string, unknown> = Recor
     baseVersion: number;
   };
 
-export type GameplayClientMessage = GameplayCommandClientMessage | GameplayPingMessage;
+export type GameplayClientMessage =
+  | GameplayCommandClientMessage
+  | GameplayPingMessage
+  | GameplayMulliganTakeClientMessage
+  | GameplayMulliganKeepClientMessage
+  | GameplayMulliganScryConfirmClientMessage;
 
 export interface GameplayCommandClientMessage {
   kind: 'command';
@@ -29,6 +39,26 @@ export interface GameplayPingMessage {
   sentAt: string;
 }
 
+export interface GameplayMulliganTakeClientMessage {
+  kind: 'mulligan.take';
+  gameId: string;
+  messageId: string;
+}
+
+export interface GameplayMulliganKeepClientMessage {
+  kind: 'mulligan.keep';
+  gameId: string;
+  messageId: string;
+  bottomCardInstanceIds?: string[];
+}
+
+export interface GameplayMulliganScryConfirmClientMessage {
+  kind: 'mulligan.scry.confirm';
+  gameId: string;
+  messageId: string;
+  destination: 'TOP' | 'BOTTOM';
+}
+
 export type GameplayServerMessage =
   | GameplayCommandAckMessage
   | GameplayGamePatchMessage
@@ -38,7 +68,11 @@ export type GameplayServerMessage =
   | GameplayConnectionStateMessage
   | GameplayConnectionJoinedMessage
   | GameplayConnectionLeftMessage
-  | GameplayPlayerPresenceChangedMessage;
+  | GameplayPlayerPresenceChangedMessage
+  | GameplayMulliganPublicStateMessage
+  | GameplayMulliganPrivateStateMessage
+  | GameplayMulliganErrorMessage
+  | GameplayMulliganCompletedMessage;
 
 export interface GameplayGamePatchMessage {
   kind: 'game_patch';
@@ -117,6 +151,69 @@ export interface GameplayPlayerPresenceChangedMessage {
   changedAt: string;
 }
 
+export interface GameplayMulliganPublicPlayerState {
+  playerId: string;
+  displayName?: string | null;
+  avatarType?: string | null;
+  avatarPreset?: string | null;
+  avatarImageData?: string | null;
+  avatarInitialLetter?: string | null;
+  handCount: number;
+  mulligansTaken: number;
+  effectiveMulligans: number;
+  status: MulliganPlayerStatus;
+  ready: boolean;
+}
+
+export interface GameplayMulliganPublicStateMessage {
+  kind: 'mulligan.public_state';
+  gameId: string;
+  version: number;
+  gamePhase?: GamePhase | null;
+  players: GameplayMulliganPublicPlayerState[];
+  messageId?: string;
+}
+
+export interface GameplayMulliganPrivateStateMessage {
+  kind: 'mulligan.private_state';
+  gameId: string;
+  version: number;
+  playerId: string;
+  hand: GameCardInstance[];
+  mulligan: Required<Pick<
+    GamePlayerMulliganState,
+    | 'mulligansTaken'
+    | 'effectiveMulligans'
+    | 'drawCount'
+    | 'bottomSelectionCount'
+    | 'finalHandSize'
+    | 'needsBottomSelection'
+    | 'bottomOrderMode'
+    | 'needsScryAfterKeep'
+    | 'canTakeAnotherMulligan'
+    | 'status'
+    | 'ready'
+  >> & Pick<GamePlayerMulliganState, 'rule'>;
+  scryCard?: GameCardInstance;
+  messageId?: string;
+}
+
+export interface GameplayMulliganErrorMessage {
+  kind: 'mulligan.error';
+  gameId: string;
+  messageId?: string;
+  version?: number;
+  error: GameplayErrorPayload;
+}
+
+export interface GameplayMulliganCompletedMessage {
+  kind: 'mulligan.completed';
+  gameId: string;
+  version: number;
+  event?: GameEvent;
+  messageId?: string;
+}
+
 export interface GameplayConnectionPresence {
   connectionId: string;
   gameId: string;
@@ -189,6 +286,7 @@ export type GameSnapshotPatchOperation =
       hidden?: boolean;
       revealedTo?: string[];
       counters?: GameCardInstance['counters'];
+      dungeonMarker?: GameCardInstance['dungeonMarker'];
     }
   | {
       op: 'card.projection.set';
@@ -204,15 +302,17 @@ export type GameSnapshotPatchOperation =
       instanceId: string;
       counters: GameCardInstance['counters'];
     }
-  | {
-      op: 'card.stats.set';
-      playerId: string;
-      zone: GameZoneName;
-      instanceId: string;
-      power?: GameCardInstance['power'];
-      toughness?: GameCardInstance['toughness'];
-      loyalty?: GameCardInstance['loyalty'];
-    }
+    | {
+        op: 'card.stats.set';
+        playerId: string;
+        zone: GameZoneName;
+        instanceId: string;
+        power?: GameCardInstance['power'];
+        toughness?: GameCardInstance['toughness'];
+        loyalty?: GameCardInstance['loyalty'];
+        defense?: GameCardInstance['defense'];
+        saga?: GameCardInstance['saga'];
+      }
   | {
       op: 'cards.state.set';
       playerId: string;
@@ -321,6 +421,28 @@ export type GameSnapshotPatchOperation =
   | {
       op: 'attachments.set';
       attachments: NonNullable<GameSnapshot['attachments']>;
+    }
+  | {
+      op: 'rematch.set';
+      rematch: GameSnapshot['rematch'] | null;
+    }
+  | {
+      op: 'specialEntity.add';
+      entity: GameSpecialEntity;
+    }
+  | {
+      op: 'specialEntity.update';
+      entityId: string;
+      state: Record<string, unknown>;
+      entity?: GameSpecialEntity;
+    }
+  | {
+      op: 'specialEntity.remove';
+      entityId: string;
+    }
+  | {
+      op: 'specialEntities.set';
+      specialEntities: GameSpecialEntity[];
     }
   | {
       op: 'chat.append';

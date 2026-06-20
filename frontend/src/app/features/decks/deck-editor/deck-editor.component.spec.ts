@@ -1008,8 +1008,6 @@ function languageNamesForLocale(locale: 'en' | 'es'): Record<SupportedLanguageCo
       zhs: 'Chino (S)',
       pt: 'Portugues',
       ru: 'Ruso',
-      ko: 'Coreano',
-      zht: 'Chino (T)',
       nl: 'Holandes',
       ca: 'Catalan',
     }
@@ -1023,8 +1021,6 @@ function languageNamesForLocale(locale: 'en' | 'es'): Record<SupportedLanguageCo
       zhs: 'Chinese (Simplified)',
       pt: 'Portuguese',
       ru: 'Russian',
-      ko: 'Korean',
-      zht: 'Chinese (Traditional)',
       nl: 'Dutch',
       ca: 'Catalan',
     };

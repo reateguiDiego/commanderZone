@@ -1,5 +1,8 @@
 import { DOCUMENT } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
+import { ThemesService } from '../api/themes.service';
+import { AppThemeId } from './app-theme';
 import { AppThemeService } from './app-theme.service';
 
 describe('AppThemeService', () => {
@@ -7,7 +10,16 @@ describe('AppThemeService', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: ThemesService,
+          useValue: {
+            update: vi.fn((themeId: AppThemeId) => of({ themeId })),
+          } satisfies Pick<ThemesService, 'update'>,
+        },
+      ],
+    });
     documentRef = TestBed.inject(DOCUMENT);
     documentRef.documentElement.removeAttribute('data-theme');
   });
@@ -60,5 +72,28 @@ describe('AppThemeService', () => {
     expect(service.themeId()).toBe('sunrise');
     expect(localStorage.getItem('commanderzone.theme')).toBe('sunrise');
     expect(documentRef.documentElement.getAttribute('data-theme')).toBe('sunrise');
+  });
+
+  it('persists selected theme through the themes API', async () => {
+    const themes = TestBed.inject(ThemesService);
+    const service = TestBed.inject(AppThemeService);
+
+    await service.saveTheme('candy-summoners');
+
+    expect(themes.update).toHaveBeenCalledWith('candy-summoners');
+    expect(service.themeId()).toBe('candy-summoners');
+    expect(localStorage.getItem('commanderzone.theme')).toBe('candy-summoners');
+  });
+
+  it('reverts local theme when remote persistence fails', async () => {
+    const themes = TestBed.inject(ThemesService);
+    vi.mocked(themes.update).mockReturnValueOnce(throwError(() => new Error('failed')));
+    const service = TestBed.inject(AppThemeService);
+    service.selectTheme('mystic-grove');
+
+    await expect(service.saveTheme('candy-summoners')).rejects.toThrow('failed');
+
+    expect(service.themeId()).toBe('mystic-grove');
+    expect(localStorage.getItem('commanderzone.theme')).toBe('mystic-grove');
   });
 });

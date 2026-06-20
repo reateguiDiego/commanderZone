@@ -253,6 +253,10 @@ export class GameTableWebsocketTransportService implements OnDestroy {
         'connection_joined',
         'connection_left',
         'player_presence_changed',
+        'mulligan.public_state',
+        'mulligan.private_state',
+        'mulligan.error',
+        'mulligan.completed',
       ].includes(message['kind']);
   }
 

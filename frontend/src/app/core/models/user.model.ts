@@ -1,4 +1,5 @@
-import { SupportedLanguageCode } from '../localization/language-preferences';
+import { SupportedCardLanguageCode, SupportedLanguageCode } from '../localization/language-preferences';
+import { AppThemeId } from '../theme/app-theme';
 export type UserAvatarType = 'initial' | 'preset' | 'upload';
 export type UserDisplayNameStyleType = 'plain' | 'preset';
 
@@ -21,8 +22,9 @@ export interface UserDisplayNameStyle {
 }
 
 export interface UserPreferences {
-  cardLanguage: SupportedLanguageCode;
+  cardLanguage: SupportedCardLanguageCode;
   appLanguage: SupportedLanguageCode;
+  themeId: AppThemeId;
 }
 
 export interface User {

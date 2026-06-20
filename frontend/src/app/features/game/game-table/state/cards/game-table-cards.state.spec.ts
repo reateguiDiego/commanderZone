@@ -116,7 +116,56 @@ describe('GameTableCardsState', () => {
     expect(updated?.power).toBe(2);
     expect(updated?.toughness).toBe(2);
   });
+
+  it('caps The Ring level counter between one and four', () => {
+    vi.useFakeTimers();
+    core.snapshot.set(snapshot([theRingWithLevel(2)]));
+
+    state.queueCardCounter(cardCounterContext(), {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'the-ring',
+      key: 'Level',
+      value: 8,
+    });
+
+    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters?.['Level']).toBe(4);
+
+    state.queueCardCounter(cardCounterContext(), {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'the-ring',
+      key: 'Level',
+      value: 0,
+    });
+
+    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters?.['Level']).toBe(1);
+  });
+
+  it('keeps The Ring level counter at one when removal is requested', () => {
+    vi.useFakeTimers();
+    core.snapshot.set(snapshot([theRingWithLevel(2)]));
+
+    state.queueCardCounter(cardCounterContext(), {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'the-ring',
+      key: 'Level',
+      value: null,
+    });
+
+    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters).toEqual({ Level: 1 });
+  });
 });
+
+function cardCounterContext() {
+  return {
+    setSnapshot: (next: GameSnapshot | null) => TestBed.inject(GameTableCoreState).snapshot.set(next),
+    errorMessage: () => 'error',
+    refetch: vi.fn(),
+    command: vi.fn(),
+  };
+}
 
 function cardWithCounters(counters: Record<string, number>): GameCardInstance {
   return {
@@ -128,6 +177,18 @@ function cardWithCounters(counters: Record<string, number>): GameCardInstance {
     defaultPower: 2,
     defaultToughness: 2,
     counters,
+  };
+}
+
+function theRingWithLevel(level: number): GameCardInstance {
+  return {
+    instanceId: 'the-ring',
+    scryfallId: '7215460e-8c06-47d0-94e5-d1832d0218af',
+    name: 'The Ring // The Ring Tempts You',
+    typeLine: 'Emblem // Card',
+    layout: 'double_faced_token',
+    tapped: false,
+    counters: { Level: level },
   };
 }
 

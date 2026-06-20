@@ -1,5 +1,8 @@
+import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { Circle, Crown, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
+import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
+import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
 import { ZonePilesPanelComponent } from './zone-piles-panel.component';
 
 describe('ZonePilesPanelComponent', () => {
@@ -69,6 +72,20 @@ describe('ZonePilesPanelComponent', () => {
 
     expect(previewSpy).toHaveBeenCalledWith({ card: commander, playerId: 'player-1', zone: 'command', sourceRect: null });
     expect(hiddenSpy).toHaveBeenCalled();
+  });
+
+  it('shows a monarch crown centered over the library', async () => {
+    const fixture = await renderZonePilesPanel({
+      specialEntities: [
+        helperEntity('monarch', 'player-1'),
+      ],
+    });
+
+    const crown = zoneElement(fixture, 'library').querySelector('.zone-monarch-badge') as HTMLElement | null;
+
+    expect(crown).not.toBeNull();
+    expect(crown?.getAttribute('title')).toBe('You are the monarch.');
+    expect(zoneElement(fixture, 'graveyard').querySelector('.zone-monarch-badge')).toBeNull();
   });
 
   it('renders both command zone commanders with independent cast counters', async () => {
@@ -686,12 +703,23 @@ interface RenderZonePilesPanelOptions {
   commanderCards?: (player: unknown) => readonly GameCardInstance[];
   cardImage?: (card: GameCardInstance) => string | null;
   commanderCastCount?: (player: unknown, commander: GameCardInstance) => number;
+  specialEntities?: readonly GameSpecialEntity[];
   canControlPlayer?: (playerId: string) => boolean;
 }
 
 async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): Promise<ComponentFixture<ZonePilesPanelComponent>> {
   await TestBed.configureTestingModule({
     imports: [ZonePilesPanelComponent],
+    providers: [
+      importProvidersFrom(LucideAngularModule.pick({ Circle, Crown, Flag, Library, Sparkles })),
+      {
+        provide: GameTableSpecialEntitiesState,
+        useValue: {
+          globalEntity: (template: GameSpecialEntity['template']) =>
+            (options.specialEntities ?? []).find((entity) => entity.template === template) ?? null,
+        } satisfies Pick<GameTableSpecialEntitiesState, 'globalEntity'>,
+      },
+    ],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(ZonePilesPanelComponent);
@@ -759,6 +787,22 @@ function card(instanceId: string, name: string, zone: GameZoneName): GameCardIns
     name,
     zone,
     tapped: false,
+  };
+}
+
+function helperEntity(
+  template: GameSpecialEntity['template'],
+  ownerPlayerId: string | null,
+  state: Record<string, unknown> = {},
+): GameSpecialEntity {
+  return {
+    id: `${template}-${ownerPlayerId ?? 'global'}`,
+    template,
+    scope: ownerPlayerId ? 'player' : 'global',
+    ownerPlayerId,
+    card: null,
+    state,
+    createdAt: '2026-01-01T00:00:00.000Z',
   };
 }
 

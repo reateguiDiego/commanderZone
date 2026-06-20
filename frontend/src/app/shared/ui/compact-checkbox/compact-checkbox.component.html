@@ -1,0 +1,10 @@
+<label class="compact-checkbox" [title]="title()">
+  <input
+    type="checkbox"
+    [attr.name]="name()"
+    [checked]="checked()"
+    [disabled]="disabled()"
+    (change)="updateChecked($event)"
+  />
+  <span>{{ label() }}</span>
+</label>

@@ -1,8 +1,9 @@
 import { inject, Injectable } from '@angular/core';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameCardStatValue, GameCommandType, GamePowerToughnessValue, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { PendingCardCounterCommand } from '../../models/game-table-card.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTableSnapshotSelectors, PlayerView } from '../core/game-table-snapshot-selectors';
+import { isTheRingCard } from '../../utils/gameplay-card-kind';
 
 export interface GameTableCardCounterContext {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
@@ -52,12 +53,20 @@ export class GameTableCardsState {
     return this.selectors.shouldShowPowerToughness(card);
   }
 
-  cardPowerValue(card: GameCardInstance): number | null {
+  cardPowerValue(card: GameCardInstance): GamePowerToughnessValue {
     return this.selectors.cardPowerValue(card);
   }
 
-  cardToughnessValue(card: GameCardInstance): number | null {
+  cardToughnessValue(card: GameCardInstance): GamePowerToughnessValue {
     return this.selectors.cardToughnessValue(card);
+  }
+
+  cardLoyaltyValue(card: GameCardInstance): GameCardStatValue {
+    return this.selectors.cardLoyaltyValue(card);
+  }
+
+  cardBattleValue(card: GameCardInstance): GameCardStatValue {
+    return this.selectors.cardBattleValue(card);
   }
 
   countItems(count: number): number[] {
@@ -71,13 +80,18 @@ export class GameTableCardsState {
   cardCounterValue(playerId: string, zone: GameZoneName, card: GameCardInstance, key: string): number {
     const command = this.optimisticCardCounters.get(this.cardCounterCommandKey(playerId, zone, card.instanceId, key));
     if (command) {
-      return Math.max(0, Number(command.value ?? 0));
+      return this.normalizedCardCounterValue(card, key, command.value);
     }
 
-    return Math.max(0, Number(card.counters?.[key] ?? 0));
+    return this.normalizedCardCounterValue(card, key, card.counters?.[key] ?? 0);
+  }
+
+  nextCardCounterValue(card: GameCardInstance, key: string, value: number | null): number {
+    return this.normalizedCardCounterValue(card, key, value);
   }
 
   queueCardCounter(context: GameTableCardCounterContext, command: PendingCardCounterCommand): void {
+    command = this.normalizedCardCounterCommand(command);
     const key = this.cardCounterCommandKey(command.playerId, command.zone, command.instanceId, command.key);
     this.optimisticCardCounters.set(key, command);
     this.updateLocalCardCounter(context, command);
@@ -194,11 +208,23 @@ export class GameTableCardsState {
     return `${playerId}:${zone}:${instanceId}:${key}`;
   }
 
+  private normalizedCardCounterCommand(command: PendingCardCounterCommand): PendingCardCounterCommand {
+    const card = this.core.snapshot()?.players[command.playerId]?.zones[command.zone]?.find((candidate) => candidate.instanceId === command.instanceId);
+    if (!card || !this.isTheRingLevelCounter(card, command.key)) {
+      return command;
+    }
+
+    return {
+      ...command,
+      value: this.normalizedCardCounterValue(card, command.key, command.value),
+    };
+  }
+
   private applyCardCounterValue(card: GameCardInstance, key: string, value: number | null): void {
-    const nextValue = Math.max(0, Number(value ?? 0));
+    const nextValue = this.normalizedCardCounterValue(card, key, value);
     const counters = { ...(card.counters ?? {}) };
     const previousValue = Number(counters[key] ?? 0);
-    if (value === null) {
+    if (value === null && !this.isTheRingLevelCounter(card, key)) {
       delete counters[key];
     } else {
       counters[key] = nextValue;
@@ -218,5 +244,17 @@ export class GameTableCardsState {
     const toughnessBase = Number.isFinite(Number(card.toughness)) ? Number(card.toughness) : Number(card.defaultToughness ?? 0);
     card.power = powerBase + (delta * modifier);
     card.toughness = toughnessBase + (delta * modifier);
+  }
+
+  private normalizedCardCounterValue(card: GameCardInstance, key: string, value: number | null): number {
+    const numericValue = Math.max(0, Number(value ?? 0));
+
+    return this.isTheRingLevelCounter(card, key)
+      ? Math.max(1, Math.min(4, numericValue))
+      : numericValue;
+  }
+
+  private isTheRingLevelCounter(card: GameCardInstance, key: string): boolean {
+    return key.trim().toLowerCase() === 'level' && isTheRingCard(card);
   }
 }

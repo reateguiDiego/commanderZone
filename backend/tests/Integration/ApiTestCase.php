@@ -70,6 +70,75 @@ abstract class ApiTestCase extends WebTestCase
         return $decoded;
     }
 
+    protected function currentUserId(string $token): string
+    {
+        $this->jsonRequest('GET', '/me', token: $token);
+        self::assertResponseIsSuccessful();
+
+        return (string) $this->jsonResponse()['user']['id'];
+    }
+
+    /**
+     * @param list<string> $tokens
+     */
+    protected function resolveTurnOrder(string $roomId, array $tokens): void
+    {
+        for ($attempt = 0; $attempt < 20; ++$attempt) {
+            $this->jsonRequest('GET', '/rooms/'.$roomId, token: $tokens[0]);
+            self::assertResponseIsSuccessful();
+            $players = $this->jsonResponse()['room']['players'] ?? [];
+            if ($this->turnOrderResolved($players)) {
+                return;
+            }
+
+            $progress = false;
+            foreach ($tokens as $token) {
+                $this->jsonRequest('POST', '/rooms/'.$roomId.'/roll-turn', token: $token);
+                $statusCode = $this->getClient()->getResponse()->getStatusCode();
+                if ($statusCode === 200) {
+                    $progress = true;
+                    continue;
+                }
+
+                $response = $this->jsonResponse();
+                if ($statusCode === 409 && ($response['error'] ?? '') === 'Turn order has already been rolled.') {
+                    continue;
+                }
+
+                self::fail(sprintf('Unexpected turn-order response %d: %s', $statusCode, json_encode($response, JSON_THROW_ON_ERROR)));
+            }
+
+            if (!$progress) {
+                break;
+            }
+        }
+
+        self::fail('Unable to resolve turn order after repeated rerolls.');
+    }
+
+    /**
+     * @param list<array<string,mixed>> $players
+     */
+    protected function turnOrderResolved(array $players): bool
+    {
+        $sequences = [];
+        foreach ($players as $player) {
+            $turnRolls = $player['turnRolls'] ?? [];
+            if (!is_array($turnRolls) || $turnRolls === []) {
+                return false;
+            }
+
+            $sequence = implode('-', array_map(static fn (mixed $roll): string => (string) $roll, $turnRolls));
+            if (isset($sequences[$sequence])) {
+                return false;
+            }
+
+            $sequences[$sequence] = true;
+        }
+
+        return $players !== [];
+    }
+
     protected function seedCard(string $scryfallId, string $name, array $overrides = []): Card
     {
         $card = new Card($scryfallId);
@@ -106,6 +175,8 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureCardPrintTables($connection);
         $this->ensureRoomWaitingLogEntryTable($connection);
         $this->ensureDeckValidityColumn($connection);
+        $this->ensureRoomMulliganColumns($connection);
+        $this->ensureUserThemeColumn($connection);
 
         $tables = [
             'game_debug_health',
@@ -220,6 +291,46 @@ SQL,
 
         $connection->executeStatement('ALTER TABLE deck ADD COLUMN is_valid BOOLEAN NOT NULL DEFAULT false');
         $connection->executeStatement('ALTER TABLE deck ALTER COLUMN is_valid DROP DEFAULT');
+    }
+
+    private function ensureRoomMulliganColumns(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['room'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('room'),
+        );
+        if (!in_array('mulligan_rule', $columns, true)) {
+            $connection->executeStatement("ALTER TABLE room ADD COLUMN mulligan_rule VARCHAR(20) NOT NULL DEFAULT 'LONDON'");
+            $connection->executeStatement('ALTER TABLE room ALTER COLUMN mulligan_rule DROP DEFAULT');
+        }
+        if (!in_array('first_mulligan_free', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE room ADD COLUMN first_mulligan_free BOOLEAN NOT NULL DEFAULT true');
+            $connection->executeStatement('ALTER TABLE room ALTER COLUMN first_mulligan_free DROP DEFAULT');
+        }
+    }
+
+    private function ensureUserThemeColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('app_user'),
+        );
+        if (in_array('theme_id', $columns, true)) {
+            return;
+        }
+
+        $connection->executeStatement("ALTER TABLE app_user ADD COLUMN theme_id VARCHAR(48) NOT NULL DEFAULT 'sunrise'");
+        $connection->executeStatement('ALTER TABLE app_user ALTER COLUMN theme_id DROP DEFAULT');
     }
 
     private function ensureCardPrintTables(Connection $connection): void

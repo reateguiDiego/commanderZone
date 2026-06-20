@@ -10,6 +10,7 @@ import { PrettyScrollDirective } from '../../ui/pretty-scroll/pretty-scroll.dire
 import { isCommanderCandidate } from '../../utils/commander-candidate';
 import { filterDistinctCardsByQuery, sanitizeCardSearchQuery } from '../../utils/card-search';
 import { isEmblemCard, isSchemeCard, isTokenCard } from '../../utils/token-card';
+import { CzButtonDirective } from '../../ui/button/button.directive';
 
 const AUTOCOMPLETE_SEARCH_LIMIT = 40;
 
@@ -20,7 +21,14 @@ export interface CardAutocompleteSelection {
 
 @Component({
   selector: 'app-card-autocomplete',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
+  imports: [
+    RuntimeTranslatePipe,
+    FormsModule,
+    LucideAngularModule,
+    ManaSymbolsComponent,
+    PrettyScrollDirective,
+    CzButtonDirective,
+  ],
   templateUrl: './card-autocomplete.component.html',
   styleUrl: './card-autocomplete.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

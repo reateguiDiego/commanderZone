@@ -26,6 +26,7 @@ type AppShellTextKey =
   | 'settingsSections'
   | 'cardLanguage'
   | 'appLanguage'
+  | 'cardLanguageFallbackDisclaimer'
   | 'visualTheme'
   | 'visualThemeHelp';
 
@@ -52,6 +53,7 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     settingsSections: 'Settings sections',
     cardLanguage: 'Card language',
     appLanguage: 'App language',
+    cardLanguageFallbackDisclaimer: '{percentage}% of cards are available in {language}. Cards we cannot serve in that language will be shown in English.',
     visualTheme: 'Visual theme',
     visualThemeHelp: 'Stored locally in this browser.',
   },
@@ -77,12 +79,13 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     settingsSections: 'Secciones de configuracion',
     cardLanguage: 'Idioma de cartas',
     appLanguage: 'Idioma de la app',
+    cardLanguageFallbackDisclaimer: 'El {percentage}% de las cartas esta disponible en {language}. Las cartas que no podamos servir en ese idioma se mostraran en ingles.',
     visualTheme: 'Tema visual',
     visualThemeHelp: 'Se guarda localmente en este navegador.',
   },
 };
 
-const LANGUAGE_NAMES_BY_LOCALE: Record<AppShellLocale, Record<SupportedLanguageCode, string>> = {
+const LANGUAGE_NAMES_BY_LOCALE: Record<AppShellLocale, Record<string, string>> = {
   en: {
     en: 'English',
     fr: 'French',
@@ -126,11 +129,24 @@ export class AppShellI18nService {
     return APP_SHELL_TEXTS[this.locale()][key];
   }
 
-  languageName(code: SupportedLanguageCode): string {
-    return LANGUAGE_NAMES_BY_LOCALE[this.locale()][code];
+  languageName(code: string): string {
+    return LANGUAGE_NAMES_BY_LOCALE[this.locale()][code] ?? code;
+  }
+
+  cardLanguageFallbackDisclaimer(percentage: number, languageName: string): string {
+    return this.text('cardLanguageFallbackDisclaimer')
+      .replace('{percentage}', this.formatPercentage(percentage))
+      .replace('{language}', languageName);
   }
 
   private resolveLocale(language: SupportedLanguageCode): AppShellLocale {
     return normalizeLanguageCode(language) === 'es' ? 'es' : 'en';
+  }
+
+  private formatPercentage(value: number): string {
+    return new Intl.NumberFormat(this.locale(), {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    }).format(value);
   }
 }

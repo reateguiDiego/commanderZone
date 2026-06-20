@@ -13,6 +13,7 @@ final readonly class GameWebsocketMessageHandler
         'dice.rolled',
         'turn.changed',
         'card.position.changed',
+        'card.dungeon_marker.changed',
         'cards.position.changed',
         'card.tapped',
         'card.moved',
@@ -44,13 +45,18 @@ final readonly class GameWebsocketMessageHandler
         'arrow.removed',
         'attachment.created',
         'attachment.removed',
+        'helper.created',
+        'helper.updated',
+        'helper.removed',
         'game.concede',
         'game.close',
         'disconnect.vote',
     ];
 
-    public function __construct(private GameWebsocketCommandPatchService $commands)
-    {
+    public function __construct(
+        private GameWebsocketCommandPatchService $commands,
+        private ?GameWebsocketMulliganService $mulligans = null,
+    ) {
     }
 
     /**
@@ -81,6 +87,10 @@ final readonly class GameWebsocketMessageHandler
                 'messageId' => $messageId,
                 'serverTime' => (new \DateTimeImmutable())->format(DATE_ATOM),
             ];
+        }
+
+        if (is_string($kind) && $this->mulligans instanceof GameWebsocketMulliganService && $this->mulligans->supports($kind)) {
+            return $this->mulligans->handle($kind, $message, $peer, $messageId);
         }
 
         if ($kind === 'command') {

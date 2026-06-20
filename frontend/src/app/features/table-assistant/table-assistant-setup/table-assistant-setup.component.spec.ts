@@ -1,5 +1,7 @@
+import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { LucideAngularModule, Minus, Plus } from 'lucide-angular';
 import { of } from 'rxjs';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { createInitialTableAssistantRoom } from '../domain/table-assistant-state';
@@ -16,6 +18,7 @@ describe('TableAssistantSetupComponent', () => {
     await TestBed.configureTestingModule({
       imports: [TableAssistantSetupComponent],
       providers: [
+        importProvidersFrom(LucideAngularModule.pick({ Minus, Plus })),
         {
           provide: TableAssistantApi,
           useValue: { create: createApi },

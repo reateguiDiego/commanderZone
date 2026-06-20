@@ -60,6 +60,12 @@ export class GameTableAttachmentsState {
       context.closeContextMenu();
       return;
     }
+    const sourceGameplayError = this.permanentRelations.gameplayAttachmentError(menu.card, 'source');
+    if (sourceGameplayError) {
+      context.setError(sourceGameplayError);
+      context.closeContextMenu();
+      return;
+    }
     if (!this.permanentRelations.canAttachSource(context.snapshot(), menu.card)) {
       context.setError('Cards with attached permanents cannot be attached to another permanent.');
       context.closeContextMenu();
@@ -104,6 +110,11 @@ export class GameTableAttachmentsState {
     }
     if (!this.permanentRelations.canAttachSource(snapshot, sourceLocation.card)) {
       context.setError('Cards with attached permanents cannot be attached to another permanent.');
+      return true;
+    }
+    const targetGameplayError = this.permanentRelations.gameplayAttachmentError(targetLocation.card, 'target');
+    if (targetGameplayError) {
+      context.setError(targetGameplayError);
       return true;
     }
 

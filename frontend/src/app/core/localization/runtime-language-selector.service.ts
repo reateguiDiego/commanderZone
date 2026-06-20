@@ -20,9 +20,7 @@ const RUNTIME_LANGUAGE_BY_LOCALE = {
   it: 'it',
   pt: 'pt',
   ja: 'ja',
-  ko: 'ko',
   'zh-hans': 'zhs',
-  'zh-hant': 'zht',
   nl: 'nl',
   ca: 'ca',
   ru: 'ru',
@@ -74,6 +72,10 @@ export class RuntimeLanguageSelectorService {
       cardLanguage: languageCode,
       appLanguage: languageCode,
     });
+    this.applyRuntimeLocale(languageCode);
+  }
+
+  applyLanguage(languageCode: SupportedLanguageCode): void {
     this.applyRuntimeLocale(languageCode);
   }
 

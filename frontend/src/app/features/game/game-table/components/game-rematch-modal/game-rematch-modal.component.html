@@ -3,11 +3,11 @@
   [title]="winner() ? 'Victoria de leyenda' : 'Has muerto'"
   [message]="winner()
     ? 'La mesa es tuya. Has sobrevivido al caos y cerrado la partida con autoridad.'
-    : 'Quieres volver a jugar con esta room?'"
+    : 'Quieres volver a jugar con esta sala?'"
   [headerImageSrc]="logoUrl"
   headerImageAlt="Commander Zone"
   primaryLabel="Jugar otra partida"
-  secondaryLabel="Abandonar room"
+  secondaryLabel="Salir de la sala"
   [primaryDisabled]="pending() || playAgainDisabled()"
   [showCloseButton]="currentVote() !== null"
   closeLabel="Cerrar votaciones"

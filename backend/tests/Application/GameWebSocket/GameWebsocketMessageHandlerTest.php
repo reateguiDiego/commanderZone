@@ -3,6 +3,7 @@
 namespace App\Tests\Application\GameWebSocket;
 
 use App\Application\Game\WebSocket\GameWebsocketMessageHandler;
+use App\Application\Game\WebSocket\GameWebsocketMulliganService;
 use App\Application\Game\WebSocket\GameWebsocketPeer;
 use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
@@ -182,6 +183,32 @@ class GameWebsocketMessageHandlerTest extends TestCase
         self::assertSame('COMMAND_NOT_SUPPORTED_OVER_WEBSOCKET', $reply['error']['code']);
     }
 
+    public function testRoutesMulliganEventsToMulliganService(): void
+    {
+        $manager = $this->createMock(EntityManagerInterface::class);
+        $gameRepository = $this->createMock(EntityRepository::class);
+        $gameRepository->expects(self::once())->method('find')->with('game-1')->willReturn(null);
+        $userRepository = $this->createMock(EntityRepository::class);
+        $userRepository->expects(self::once())->method('find')->with('user-1')->willReturn(null);
+        $manager->method('getRepository')->willReturnMap([
+            [Game::class, $gameRepository],
+            [User::class, $userRepository],
+        ]);
+        $manager->expects(self::once())->method('clear');
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
+
+        $reply = $this->handler(mulligans: new GameWebsocketMulliganService(new GameCommandHandler(), $registry))->handle([
+            'kind' => 'mulligan.take',
+            'gameId' => 'game-1',
+            'messageId' => 'message-mulligan',
+        ], $this->peer('game-1', 'user-1'));
+
+        self::assertSame('mulligan.error', $reply['kind']);
+        self::assertSame('NOT_IN_GAME', $reply['error']['code']);
+        self::assertSame('message-mulligan', $reply['messageId']);
+    }
+
     public function testRejectsCommandWithoutClientActionId(): void
     {
         $reply = $this->handler()->handle([
@@ -246,7 +273,7 @@ class GameWebsocketMessageHandlerTest extends TestCase
         self::assertSame('UNKNOWN_MESSAGE_KIND', $reply['error']['code']);
     }
 
-    private function handler(?Game $game = null, ?User $actor = null): GameWebsocketMessageHandler
+    private function handler(?Game $game = null, ?User $actor = null, ?GameWebsocketMulliganService $mulligans = null): GameWebsocketMessageHandler
     {
         $messages = new GameWebsocketMessageFactory();
 
@@ -258,7 +285,7 @@ class GameWebsocketMessageHandlerTest extends TestCase
             new \App\Application\Game\WebSocket\GameWebsocketRoomRegistry(),
             $this->registry($game, $actor),
             new GameProjectionService(new GameCommandHandler()),
-        ));
+        ), $mulligans);
     }
 
     private function registry(?Game $game, ?User $actor): ManagerRegistry

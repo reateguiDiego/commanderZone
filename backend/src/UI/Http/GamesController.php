@@ -28,6 +28,12 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class GamesController extends ApiController
 {
+    private const MULLIGAN_COMMAND_TYPES = [
+        'mulligan.take',
+        'mulligan.keep',
+        'mulligan.scry_confirm',
+    ];
+
     #[Route('/games/{id}/snapshot', methods: ['GET'])]
     #[Route('/games/{id}/bootstrap', methods: ['GET'])]
     public function snapshot(
@@ -402,7 +408,9 @@ class GamesController extends ApiController
             return $this->fail('Could not apply game command.', 500);
         }
 
-        $publisher->publish($game, $event);
+        if (!in_array($type, self::MULLIGAN_COMMAND_TYPES, true)) {
+            $publisher->publish($game, $event);
+        }
 
         return $this->json([
             'event' => $event->toArray(),
@@ -548,6 +556,7 @@ class GamesController extends ApiController
         GameDisconnectVoteService $disconnectVotes,
         GameWebsocketRoomRegistry $rooms,
         GameEventPublisher $gamePublisher,
+        RoomEventPublisher $roomPublisher,
     ): JsonResponse {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -564,6 +573,9 @@ class GamesController extends ApiController
             return $this->fail('targetPlayerId and vote are required.');
         }
 
+        $room = $game->room();
+        $roomDeleted = false;
+        $event = null;
         try {
             $entityManager->beginTransaction();
             $entityManager->lock($game, LockMode::PESSIMISTIC_WRITE);
@@ -576,6 +588,10 @@ class GamesController extends ApiController
             );
             $event = $recorded['event'];
             $entityManager->persist($event);
+            if ($room->players()->count() === 0) {
+                $roomDeleted = true;
+                $this->removeRoomWithGame($room, $entityManager);
+            }
             $entityManager->flush();
             $entityManager->commit();
         } catch (\InvalidArgumentException $exception) {
@@ -592,7 +608,17 @@ class GamesController extends ApiController
             throw $exception;
         }
 
-        $gamePublisher->publish($game, $event);
+        if ($event instanceof GameEvent && !$roomDeleted) {
+            $gamePublisher->publish($game, $event);
+        }
+        if ($roomDeleted) {
+            $roomPublisher->publishDeleted($room->id());
+
+            return $this->json([
+                'status' => 'room_deleted',
+                'roomDeleted' => true,
+            ]);
+        }
 
         return $this->json([
             'status' => 'recorded',
@@ -661,13 +687,16 @@ class GamesController extends ApiController
             return $this->fail('Zone not found.', 404);
         }
 
-        $cards = $projection->projectZone(
-            $snapshot['players'][$playerId]['zones'][$zone],
-            $playerId,
-            $zone,
-            $user,
-            ($snapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true,
-        );
+        $cards = [];
+        if (!(($snapshot['gamePhase'] ?? null) === 'MULLIGAN' && $zone === 'library')) {
+            $cards = $projection->projectZone(
+                $snapshot['players'][$playerId]['zones'][$zone],
+                $playerId,
+                $zone,
+                $user,
+                ($snapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true,
+            );
+        }
         $type = mb_strtolower(trim((string) $request->query->get('type', '')));
         $search = mb_strtolower(trim((string) $request->query->get('search', '')));
 

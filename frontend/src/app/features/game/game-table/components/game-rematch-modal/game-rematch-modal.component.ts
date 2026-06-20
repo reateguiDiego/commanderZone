@@ -35,14 +35,14 @@ export class GameRematchModalComponent {
   readonly leaveRoom = output<void>();
   readonly closed = output<void>();
 
-  readonly logoUrl = 'assets/icons/CZ/CZ_logo.png';
+  readonly logoUrl = 'assets/icons/CZ/CZ_logo.webp';
 
   voteLabel(vote: GameRematchVote | null): string {
     switch (vote) {
       case 'play_again':
         return 'Jugar otra partida';
       case 'leave':
-        return 'Abandona room';
+        return 'Salir de la sala';
       default:
         return 'Sin votar';
     }

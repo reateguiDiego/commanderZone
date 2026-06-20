@@ -6,9 +6,10 @@
   [primaryLabel]="mode() === 'create' ? 'Create' : 'Done'"
   secondaryLabel="Cancel"
   [showPrimary]="!(mode() === 'edit' && readOnly())"
-  [showSecondary]="false"
+  [showSecondary]="mode() === 'create'"
   [primaryDisabled]="mode() === 'create' && (actionsLocked() || createRoomForm.invalid)"
-  [showCloseButton]="true"
+  [showHeaderRule]="mode() === 'create'"
+  [showCloseButton]="mode() !== 'create'"
   (close)="closed.emit()"
   (secondary)="closed.emit()"
   (primary)="confirmPrimaryAction()"
@@ -17,11 +18,14 @@
     <form class="setup-modal-form" [formGroup]="createRoomForm" (ngSubmit)="submitCreate()">
       <div class="setup-modal-row">
         <div class="create-fields">
-        <label class="room-name-field">
-          {{ 'rooms.roomSetupModal.roomName' | runtimeTranslate }}
-          <input formControlName="roomName" maxlength="30" [placeholder]="'rooms.roomSetupModal.ejLaTaberna' | runtimeTranslate" />
-          <small class="character-count">{{ roomNameLength() }}/30</small>
-        </label>
+          <label class="room-name-field">
+            <span class="setup-field-label">
+              {{ 'rooms.roomSetupModal.roomName' | runtimeTranslate }}
+              <span class="required-mark" aria-hidden="true">*</span>
+            </span>
+            <input formControlName="roomName" maxlength="30" [placeholder]="'rooms.roomSetupModal.ejLaTaberna' | runtimeTranslate" />
+            <small class="character-count">{{ roomNameLength() }}/30</small>
+          </label>
         </div>
 
         <app-game-setup-life-control
@@ -30,6 +34,7 @@
           summary=""
           [value]="createStartingLife()"
           [step]="startingLifeStep()"
+          [presets]="startingLifePresets"
           [disabled]="actionsLocked()"
           (valueChange)="createStartingLife.set($event)"
         />
@@ -37,13 +42,13 @@
 
       <div class="setup-modal-row">
         <div class="create-fields">
-        <app-format-select
-          name="roomFormat"
-          [formats]="formats()"
-          [required]="true"
-          [value]="createRoomForm.controls.format.value ?? 'commander'"
-          (valueChange)="createRoomForm.controls.format.setValue($event)"
-        />
+          <app-format-select
+            name="roomFormat"
+            [formats]="formats()"
+            [required]="true"
+            [value]="createFormat()"
+            (valueChange)="changeCreateFormat($event)"
+          />
         </div>
 
         <div class="setup-control timer-control modal-setup-field">
@@ -64,12 +69,46 @@
       </div>
 
       <div class="setup-modal-row">
+        <div class="mulligan-select-field">
+          <app-format-select
+            name="mulliganRule"
+            [label]="'rooms.roomSetupControls.mulligan' | runtimeTranslate"
+            [formats]="mulliganSelectOptions()"
+            [value]="createMulliganRule()"
+            [disabled]="actionsLocked()"
+            (valueChange)="changeCreateMulliganRule($event)"
+          />
+          <p class="mulligan-description">{{ createMulliganDescriptionKey() | runtimeTranslate }}</p>
+        </div>
+
         <div class="create-fields">
-        <app-visibility-choice
-          label="Privacy"
-          [value]="createRoomForm.controls.privacy.value"
-          (valueChange)="createRoomForm.controls.privacy.setValue($event)"
-        />
+          <app-visibility-choice
+            label="Privacy"
+            [required]="true"
+            [value]="createRoomForm.controls.privacy.value"
+            (valueChange)="createRoomForm.controls.privacy.setValue($event)"
+          />
+        </div>
+      </div>
+
+      <div class="setup-modal-row">
+        <div class="mulligan-toggle-field">
+          <span class="mulligan-toggle-label">{{ 'rooms.roomSetupControls.firstMulliganFree' | runtimeTranslate }}</span>
+          <button
+            type="button"
+            class="mulligan-toggle-button"
+            [class.is-on]="createFirstMulliganFree()"
+            [attr.aria-pressed]="createFirstMulliganFree()"
+            [disabled]="actionsLocked()"
+            (click)="changeCreateFirstMulliganFree(!createFirstMulliganFree())"
+          >
+            <span class="mulligan-toggle-track" aria-hidden="true">
+              <span class="mulligan-toggle-thumb"></span>
+            </span>
+            <span class="mulligan-toggle-state">
+              {{ (createFirstMulliganFree() ? 'rooms.roomSetupControls.firstMulliganFreeOn' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate }}
+            </span>
+          </button>
         </div>
 
         <app-game-setup-seats-control
@@ -90,16 +129,21 @@
       [startingLife]="startingLife()"
       [timerMode]="timerMode()"
       [timerDurationSeconds]="timerDurationSeconds()"
+      [mulliganRule]="mulliganRule()"
+      [firstMulliganFree]="firstMulliganFree()"
       [maxPlayersOptions]="maxPlayersOptions()"
       [startingLifeStep]="startingLifeStep()"
       [disabled]="actionsLocked()"
       [updatingCapacity]="updatingCapacity()"
       [updatingStartingLife]="updatingStartingLife()"
       [updatingTimer]="updatingTimer()"
+      [updatingMulligan]="updatingMulligan()"
       (maxPlayersChange)="maxPlayersChange.emit($event)"
       (startingLifeChange)="startingLifeChange.emit($event)"
       (timerModeChange)="timerModeChange.emit($event)"
       (timerDurationSecondsChange)="timerDurationSecondsChange.emit($event)"
+      (mulliganRuleChange)="mulliganRuleChange.emit($event)"
+      (firstMulliganFreeChange)="firstMulliganFreeChange.emit($event)"
     />
   }
 </app-modal>

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
 import { Link, LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
+import { DEFAULT_DUNGEON_MARKER } from '../../utils/dungeon-marker';
 import { CardPreviewOverlayComponent } from './card-preview-overlay.component';
 
 describe('CardPreviewOverlayComponent', () => {
@@ -97,6 +98,27 @@ describe('CardPreviewOverlayComponent', () => {
     expect(element.querySelector('.attached-to-row .attachment-preview-label-with-icon lucide-icon')).not.toBeNull();
   });
 
+  it('rotates battle previews', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Battle - Siege',
+      },
+    });
+
+    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-horizontal')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-vertical')).toBe(false);
+    expect(fixture.nativeElement.querySelector('.card-preview-visual img')?.classList.contains('battle-preview-rotated')).toBe(true);
+    expect(fixture.componentInstance.previewVisualStyle().width).toBeGreaterThan(fixture.componentInstance.previewVisualStyle().height);
+  });
+
+  it('keeps non-battle previews in vertical mode', async () => {
+    const fixture = await renderPreview();
+
+    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-vertical')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-horizontal')).toBe(false);
+  });
+
   it('plays the face flip animation when the hover preview changes card face', async () => {
     const fixture = await renderPreview();
 
@@ -128,7 +150,9 @@ describe('CardPreviewOverlayComponent', () => {
       },
       cardStateInfo: {
         powerToughness: { power: 4, toughness: 5 },
-        loyalty: 6,
+        battle: null,
+        saga: null,
+        loyalty: null,
         counters: [
           { key: '+1/+1', value: 2 },
           { key: 'charge', value: 3 },
@@ -143,17 +167,64 @@ describe('CardPreviewOverlayComponent', () => {
     expect(detailBox.textContent).not.toContain('Current P/T');
     expect(detailBox.textContent).not.toContain('Loyalty');
     expect(Array.from(detailBox.querySelectorAll('.preview-power-toughness span')).map((entry) => entry.textContent?.trim())).toEqual(['4', '5']);
-    expect(detailBox.textContent).toContain('6');
     expect(detailBox.textContent).toContain('+1/+1');
     expect(detailBox.textContent).toContain('charge');
-    expect(detailBox.querySelector('app-loyalty-counter')).not.toBeNull();
+    expect(detailBox.querySelector('app-loyalty-counter')).toBeNull();
     expect(detailBox.querySelector('app-card-marker-rail')).not.toBeNull();
+  });
+
+  it('renders battle defense in the same premium detail box', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Battle - Siege',
+        defense: 5,
+      },
+      cardStateInfo: {
+        powerToughness: null,
+        battle: 5,
+        saga: null,
+        loyalty: null,
+        counters: [],
+      },
+    });
+    const detailBox = fixture.nativeElement.querySelector('.attachment-preview') as HTMLElement;
+
+    expect(detailBox.textContent).toContain('Current');
+    expect(detailBox.textContent).toContain('5');
+    expect(detailBox.querySelector('app-battle-counter')).not.toBeNull();
+    expect(detailBox.querySelector('app-loyalty-counter')).toBeNull();
+  });
+
+  it('renders saga chapters in the same premium detail box', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Enchantment - Saga',
+        activeFaceIndex: 1,
+      },
+      cardStateInfo: {
+        powerToughness: null,
+        battle: null,
+        saga: 2,
+        loyalty: null,
+        counters: [],
+      },
+    });
+    const detailBox = fixture.nativeElement.querySelector('.attachment-preview') as HTMLElement;
+
+    expect(detailBox.textContent).toContain('Current');
+    expect(detailBox.textContent).toContain('II');
+    expect(detailBox.querySelector('app-saga-counter')).not.toBeNull();
+    expect(detailBox.querySelector('app-battle-counter')).toBeNull();
   });
 
   it('does not show the column separator when only card state details are shown', async () => {
     const fixture = await renderPreview({
       cardStateInfo: {
         powerToughness: { power: 4, toughness: 5 },
+        battle: null,
+        saga: null,
         loyalty: 6,
         counters: [],
       },
@@ -165,9 +236,62 @@ describe('CardPreviewOverlayComponent', () => {
     expect(detailBox.textContent).not.toContain('Attached');
     expect(layout.classList.contains('attachment-preview-layout-with-attachments')).toBe(false);
   });
+
+  it('renders the dungeon marker over the preview image', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Dungeon',
+        dungeonMarker: { x: 0.25, y: 0.75 },
+      },
+    });
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin).not.toBeNull();
+    expect(pin?.style.left).toBe('25%');
+    expect(pin?.style.top).toBe('75%');
+    expect(pin?.style.getPropertyValue('--cz-dungeon-pin-size')).toBe('55px');
+  });
+
+  it('uses the live dungeon marker override over the card marker', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Dungeon',
+        dungeonMarker: { x: 0.25, y: 0.75 },
+      },
+      dungeonMarkerOverride: { x: 0.6, y: 0.35 },
+    });
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin?.style.left).toBe('60%');
+    expect(pin?.style.top).toBe('35%');
+  });
+
+  it('renders the dungeon marker for legacy official dungeon cards without layout metadata', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        name: 'Dungeon of the Mad Mage',
+        typeLine: null,
+        layout: null,
+      },
+    });
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin).not.toBeNull();
+    expect(pin?.style.left).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.x));
+    expect(pin?.style.top).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.y));
+  });
 });
 
+function markerPercent(value: number): string {
+  return `${value * 100}%`;
+}
+
 async function renderPreview(options: {
+  card?: GameCardInstance;
+  dungeonMarkerOverride?: { x: number; y: number } | null;
   sourceRect?: {
     left: number;
     top: number;
@@ -188,6 +312,8 @@ async function renderPreview(options: {
   } | null;
   cardStateInfo?: {
     powerToughness: { power: number; toughness: number } | null;
+    battle: number | null;
+    saga: number | null;
     loyalty: number | null;
     counters: readonly { key: string; value: number }[];
   } | null;
@@ -198,8 +324,9 @@ async function renderPreview(options: {
   }).compileComponents();
 
   const fixture = TestBed.createComponent(CardPreviewOverlayComponent);
-  fixture.componentRef.setInput('card', gameCard());
+  fixture.componentRef.setInput('card', options.card ?? gameCard());
   fixture.componentRef.setInput('image', '/assets/card.jpg');
+  fixture.componentRef.setInput('dungeonMarkerOverride', options.dungeonMarkerOverride ?? null);
   fixture.componentRef.setInput('battlefieldRect', {
     left: 0,
     top: 0,

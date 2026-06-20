@@ -12,8 +12,10 @@ import {
 } from '@angular/core';
 import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
+import { BattlefieldMechanicsOverlayComponent } from '../battlefield-mechanics-overlay/battlefield-mechanics-overlay.component';
 import { CardPreviewEvent, CardPreviewSourceRect } from '../../models/card-preview.model';
 import { AttachmentStackView, attachmentStackViewFor, buildAttachmentStackGroups } from '../../utils/attachment-stack';
+import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
 import {
   MiniBattlefieldCardLayout,
   MiniBattlefieldSize,
@@ -22,7 +24,7 @@ import {
 
 @Component({
   selector: 'app-opponent-mini-battlefield',
-  imports: [GameCardViewComponent],
+  imports: [GameCardViewComponent, BattlefieldMechanicsOverlayComponent],
   templateUrl: './opponent-mini-battlefield.component.html',
   styleUrl: './opponent-mini-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,6 +36,7 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
 
   readonly playerId = input.required<string>();
   readonly cards = input.required<readonly GameCardInstance[]>();
+  readonly mechanicCards = input<readonly GameCardInstance[]>([]);
   readonly attachments = input<readonly GameAttachment[]>([]);
   readonly backgroundImage = input<string>('');
   readonly battlefieldSize = input<MiniBattlefieldSize>({ width: 900, height: 520 });
@@ -48,12 +51,18 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
 
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
-  readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
+  readonly battlefieldCardClicked = output<{
+    event: MouseEvent;
+    playerId: string;
+    card: GameCardInstance;
+    forceOpenLeft?: boolean;
+  }>();
 
   readonly viewportSize = signal<MiniBattlefieldSize>({ width: 240, height: 172 });
   readonly activePreviewInstanceId = signal<string | null>(null);
+  readonly layoutCards = computed(() => this.cards().filter((card) => !isBattlefieldMechanicOverlayCard(card)));
   readonly attachmentStackGroups = computed(() => buildAttachmentStackGroups(
-    this.cards(),
+    this.layoutCards(),
     this.attachments(),
     (candidate) => this.cardPosition()(candidate),
   ));
@@ -72,12 +81,20 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
     return views;
   });
   readonly cardLayouts = computed(() => {
-    const baseLayouts = layoutOpponentMiniBattlefield(this.cards(), this.viewportSize(), {
+    const baseLayouts = layoutOpponentMiniBattlefield(this.layoutCards(), this.viewportSize(), {
       boardSize: this.battlefieldSize(),
       getPosition: this.cardPosition(),
     });
 
     return this.withAttachmentStackLayouts(baseLayouts);
+  });
+  readonly mechanicMiniCardWidthPx = computed(() => {
+    const referenceLayout = this.cardLayouts()[0];
+    if (referenceLayout) {
+      return roundMiniPixel(Math.max(16, referenceLayout.width * 0.92));
+    }
+
+    return roundMiniPixel(clamp(this.viewportSize().width * 0.09, 20, 46));
   });
   readonly cardLayoutById = computed(() => new Map(this.cardLayouts().map((layout) => [layout.instanceId, layout])));
   readonly backgroundImageCss = computed(() => {
@@ -238,7 +255,7 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
     const viewportRect = viewport.getBoundingClientRect();
     const x = event.clientX - viewportRect.left;
     const y = event.clientY - viewportRect.top;
-    const cardsById = new Map(this.cards().map((card) => [card.instanceId, card]));
+    const cardsById = new Map(this.layoutCards().map((card) => [card.instanceId, card]));
     const candidates = this.cardLayouts()
       .filter((layout) => x >= layout.left && x <= layout.left + layout.width && y >= layout.top && y <= layout.top + layout.height)
       .map((layout) => ({
@@ -297,4 +314,8 @@ function miniStackViewportShift(
 
 function roundMiniPixel(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

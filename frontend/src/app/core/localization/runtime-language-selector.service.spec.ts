@@ -55,9 +55,7 @@ describe('RuntimeLanguageSelectorService', () => {
 
   it('maps runtime language codes to SEO locale codes without mixed zh slugs', () => {
     expect(toRuntimeLocale('zhs')).toBe('zh-hans');
-    expect(toRuntimeLocale('zht')).toBe('zh-hant');
     expect(toRuntimeLanguageCode('zh-hans')).toBe('zhs');
-    expect(toRuntimeLanguageCode('zh-hant')).toBe('zht');
   });
 
   it('uses native labels for every hybrid language option', () => {
@@ -69,9 +67,7 @@ describe('RuntimeLanguageSelectorService', () => {
       'Italiano',
       'Português',
       '日本語',
-      '한국어',
       '简体中文',
-      '繁體中文',
       'Nederlands',
       'Català',
       'Русский',
@@ -85,6 +81,16 @@ describe('RuntimeLanguageSelectorService', () => {
     });
 
     expect(updatePreferences).toHaveBeenCalledWith({ cardLanguage: 'fr', appLanguage: 'fr' });
+    expect(useLocale).toHaveBeenCalledWith('fr');
+  });
+
+  it('applies a runtime language without persisting preferences', () => {
+    const service = TestBed.inject(RuntimeLanguageSelectorService);
+    useLocale.mockClear();
+
+    service.applyLanguage('fr');
+
+    expect(updatePreferences).not.toHaveBeenCalled();
     expect(useLocale).toHaveBeenCalledWith('fr');
   });
 

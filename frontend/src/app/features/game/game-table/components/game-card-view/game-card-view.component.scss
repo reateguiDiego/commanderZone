@@ -146,6 +146,11 @@
     inset 0 0 1.35rem rgb(215 180 106 / 34%);
 }
 
+.monarch-card-icon {
+  color: var(--gold, var(--game-accent, #d7b46a));
+  font-size: 2.24rem;
+}
+
 .game-card.battlefield-preview-active:not(.dragging) {
   z-index: 96;
   overflow: hidden;

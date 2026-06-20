@@ -6,13 +6,14 @@ import { LandingBreadcrumbComponent } from '../landing-breadcrumb/landing-breadc
 import { LandingInternalLinksComponent } from '../landing-internal-links/landing-internal-links.component';
 import { SeoLanguageSelectorComponent } from '../seo-language-selector/seo-language-selector.component';
 import { SeoLandingContent } from '../../models/seo-landing-content.model';
-import { SeoInternalLinkDirective } from '../../directives/seo-internal-link.directive';
+import { SeoInternalLinkDirective } from '../../../../shared/directives/seo-internal-link.directive';
+import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 
 const SEO_SCROLL_CLASSES = ['app-pretty-scroll', 'seo-scroll-context'] as const;
 
 @Component({
   selector: 'app-seo-landing-layout',
-  imports: [LandingBreadcrumbComponent, LandingInternalLinksComponent, SeoInternalLinkDirective, SeoLanguageSelectorComponent],
+  imports: [LandingBreadcrumbComponent, LandingInternalLinksComponent, SeoInternalLinkDirective, SeoLanguageSelectorComponent, CzButtonDirective],
   templateUrl: './seo-landing-layout.component.html',
   styleUrl: './seo-landing-layout.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -159,7 +159,7 @@ class GameDebugHealthApiTest extends ApiTestCase
     /**
      * @param list<string> $tokens
      */
-    private function resolveTurnOrder(string $roomId, array $tokens): void
+    protected function resolveTurnOrder(string $roomId, array $tokens): void
     {
         for ($attempt = 0; $attempt < 20; ++$attempt) {
             $this->jsonRequest('GET', '/rooms/'.$roomId, token: $tokens[0]);
@@ -197,18 +197,29 @@ class GameDebugHealthApiTest extends ApiTestCase
     /**
      * @param list<array<string,mixed>> $players
      */
-    private function turnOrderResolved(array $players): bool
+    protected function turnOrderResolved(array $players): bool
     {
-        $rolls = [];
+        $sequences = [];
         foreach ($players as $player) {
-            $roll = $player['turnRoll'] ?? null;
-            if (!is_int($roll)) {
+            $turnRolls = $player['turnRolls'] ?? [];
+            if (!is_array($turnRolls) || $turnRolls === []) {
                 return false;
             }
 
-            $rolls[] = $roll;
+            $sequence = implode('-', array_map(static fn (mixed $roll): string => (string) $roll, $turnRolls));
+            if (isset($sequences[$sequence])) {
+                return false;
+            }
+
+            $sequences[$sequence] = true;
         }
 
-        return count($rolls) >= 2 && count($rolls) === count(array_unique($rolls));
+        return $players !== [];
+    }
+
+    private function rollTurnOrder(string $roomId, string $token): void
+    {
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/roll-turn', token: $token);
+        self::assertResponseIsSuccessful();
     }
 }

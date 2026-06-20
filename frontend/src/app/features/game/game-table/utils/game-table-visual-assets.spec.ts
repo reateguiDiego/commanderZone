@@ -6,7 +6,7 @@ describe('game table visual assets', () => {
   });
 
   it('falls back when a temporary playmat name is outside the known registry', () => {
-    expect(gameBackgroundImageUrl('G_99')).toBe('/assets/images/backgrounds/back_5.png');
+    expect(gameBackgroundImageUrl('G_99')).toBe('/assets/images/backgrounds/sunrise/bg-5.webp');
   });
 
   it('exposes the defeated player name spray asset for gameplay overlays', () => {

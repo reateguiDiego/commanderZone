@@ -1,0 +1,388 @@
+:host {
+  display: block;
+}
+
+.top-commanders {
+  position: relative;
+  display: grid;
+  gap: clamp(0.6rem, 1.35vw, 0.95rem);
+  max-width: min(56rem, calc(100vw - 2rem));
+  margin: 0 auto clamp(1rem, 3vw, 2rem);
+  padding: clamp(0.62rem, 1.35vw, 0.95rem);
+  overflow: hidden;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 34%);
+  border-radius: 0.78rem;
+  background:
+    radial-gradient(circle at 24% 0%, rgb(var(--cz-primary-rgb) / 16%), transparent 34%),
+    linear-gradient(135deg, rgb(var(--cz-surface-rgb) / 88%), rgb(var(--cz-bg-rgb) / 92%));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 7%),
+    0 0.7rem 1.7rem rgb(var(--cz-bg-rgb) / 30%);
+}
+
+.top-commanders::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent, rgb(var(--cz-primary-rgb) / 9%), transparent),
+    radial-gradient(circle at 82% 14%, rgb(var(--cz-accent-rgb) / 12%), transparent 28%);
+  pointer-events: none;
+}
+
+.top-commanders-header,
+.commander-grid,
+.top-commanders-note {
+  position: relative;
+  z-index: 1;
+}
+
+.top-commanders-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.top-commanders-copy {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.top-commanders-kicker,
+.top-commanders-subtitle,
+.top-commanders-note,
+.commander-details h3,
+.commander-details p {
+  margin: 0;
+}
+
+.top-commanders-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  color: var(--cz-primary);
+  font-size: clamp(0.88rem, 1.25vw, 1.08rem);
+  font-weight: 950;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 0 1rem rgb(var(--cz-primary-rgb) / 28%);
+}
+
+.top-commanders-kicker lucide-icon,
+.top-commanders-link lucide-icon {
+  flex: 0 0 auto;
+}
+
+.top-commanders-subtitle {
+  color: rgb(var(--cz-text-rgb) / 68%);
+  font-size: clamp(0.72rem, 0.95vw, 0.86rem);
+  font-weight: 650;
+}
+
+.top-commanders-link {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  padding: 0 0.7rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 42%);
+  border-radius: 0.48rem;
+  color: var(--cz-primary);
+  background: linear-gradient(180deg, rgb(var(--cz-primary-rgb) / 10%), rgb(var(--cz-bg-rgb) / 28%));
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.top-commanders-link:hover,
+.top-commanders-link:focus-visible {
+  border-color: rgb(var(--cz-primary-rgb) / 76%);
+  color: var(--cz-text);
+  background: linear-gradient(180deg, rgb(var(--cz-primary-rgb) / 20%), rgb(var(--cz-primary-rgb) / 7%));
+  transform: translateY(-1px);
+}
+
+.commander-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.48rem, 1.15vw, 0.72rem);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.commander-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 48%);
+  border-radius: 0.58rem;
+  background:
+    linear-gradient(180deg, rgb(var(--cz-surface-rgb) / 78%), rgb(var(--cz-bg-rgb) / 95%)),
+    rgb(var(--cz-bg-rgb) / 94%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%),
+    0 0.48rem 1.2rem rgb(var(--cz-bg-rgb) / 28%);
+}
+
+.commander-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 14%), transparent 28%),
+    radial-gradient(circle at 50% 0%, rgb(var(--cz-primary-rgb) / 15%), transparent 30%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.commander-card:hover::after,
+.commander-card:focus-within::after {
+  opacity: 1;
+}
+
+.commander-rank {
+  position: absolute;
+  left: 0.42rem;
+  top: 0.42rem;
+  z-index: 2;
+  display: grid;
+  width: 1.78rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 78%);
+  border-radius: 999px;
+  color: var(--cz-bg);
+  background:
+    radial-gradient(circle at 34% 24%, rgb(var(--cz-text-rgb) / 36%), transparent 34%),
+    linear-gradient(135deg, var(--cz-primary), rgb(var(--cz-accent-rgb) / 88%));
+  font-size: 0.8rem;
+  font-weight: 1000;
+  box-shadow: 0 0.65rem 1.6rem rgb(var(--cz-bg-rgb) / 56%);
+}
+
+.commander-art {
+  aspect-ratio: 1.55;
+  min-height: 5.65rem;
+  min-width: 0;
+  overflow: hidden;
+  background: rgb(var(--cz-bg-rgb) / 72%);
+}
+
+.commander-art img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  filter: saturate(1.04) contrast(1.04);
+}
+
+.commander-details {
+  display: grid;
+  gap: 0.22rem;
+  justify-items: center;
+  min-width: 0;
+  min-height: 4.65rem;
+  padding: 0.52rem 0.6rem 0.62rem;
+  text-align: center;
+}
+
+.commander-details h3 {
+  max-width: 100%;
+  min-width: 0;
+  color: var(--cz-text);
+  font-size: clamp(0.82rem, 1.05vw, 0.96rem);
+  font-weight: 950;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  text-shadow:
+    0 0.12rem 0.35rem rgb(var(--cz-bg-rgb) / 82%),
+    0 0 1.2rem rgb(var(--cz-primary-rgb) / 12%);
+}
+
+.commander-details p {
+  color: rgb(var(--cz-text-rgb) / 58%);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.mana-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.16rem;
+  padding-top: 0.1rem;
+  font-size: 0.98rem;
+}
+
+.top-commanders-note {
+  justify-self: center;
+  color: rgb(var(--cz-text-rgb) / 52%);
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .top-commanders {
+    max-width: calc(100vw - 1rem);
+    gap: 0.58rem;
+    padding: 0.58rem;
+    border-radius: 0.62rem;
+  }
+
+  .top-commanders-header {
+    align-items: stretch;
+  }
+
+  .top-commanders-link {
+    min-height: 1.85rem;
+    padding-inline: 0.62rem;
+  }
+
+  .commander-art {
+    min-height: 4.95rem;
+  }
+
+  .commander-details {
+    min-height: 4.35rem;
+    padding: 0.48rem 0.55rem 0.55rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .top-commanders-header {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .top-commanders-link {
+    justify-self: start;
+  }
+
+  .commander-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .commander-card {
+    grid-template-columns: 5rem minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .commander-art {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    min-height: 4.8rem;
+  }
+
+  .commander-details {
+    min-height: 0;
+    align-content: center;
+    justify-items: start;
+    padding: 0.42rem 0.55rem;
+    text-align: left;
+    overflow: hidden;
+  }
+
+  .commander-details h3,
+  .commander-details p {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mana-row {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .top-commanders {
+    max-width: 100%;
+    margin-inline: 0;
+    gap: 0.48rem;
+    padding: 0.5rem;
+    border-inline: 0;
+    border-radius: 0;
+  }
+
+  .top-commanders-subtitle,
+  .top-commanders-note {
+    display: none;
+  }
+
+  .top-commanders-kicker {
+    font-size: 0.82rem;
+  }
+
+  .top-commanders-link {
+    min-height: 1.75rem;
+    font-size: 0.66rem;
+  }
+
+  .commander-card {
+    grid-template-columns: 4.55rem minmax(0, 1fr);
+    border-radius: 0.52rem;
+  }
+
+  .commander-rank {
+    left: 0.32rem;
+    top: 0.32rem;
+    width: 1.48rem;
+    font-size: 0.68rem;
+  }
+
+  .commander-art {
+    min-height: 4.25rem;
+  }
+
+  .commander-details {
+    justify-items: start;
+    padding: 0.34rem 0.48rem;
+    text-align: left;
+  }
+
+  .commander-details h3 {
+    font-size: 0.78rem;
+  }
+
+  .commander-details p {
+    font-size: 0.66rem;
+  }
+
+  .mana-row {
+    justify-content: flex-start;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .top-commanders {
+    padding-inline: 0.5rem;
+  }
+
+  .commander-card {
+    grid-template-columns: 4.1rem minmax(0, 1fr);
+  }
+
+  .commander-art {
+    min-height: 3.9rem;
+  }
+
+  .mana-row {
+    font-size: 0.82rem;
+  }
+}

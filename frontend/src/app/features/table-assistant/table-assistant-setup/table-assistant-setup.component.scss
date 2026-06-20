@@ -80,8 +80,7 @@ label {
 
 .color-picker-trigger,
 .color-option,
-.ghost-button,
-.primary-button {
+.ghost-button {
   min-height: 2.75rem;
   border: 1px solid rgb(var(--cz-primary-rgb) / 20%);
   border-radius: 10px;
@@ -95,6 +94,11 @@ label {
   grid-template-columns: 2rem minmax(0, 1fr) minmax(9rem, 0.7fr);
   gap: 0.45rem;
   align-items: center;
+}
+
+.player-config-row input::placeholder {
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
 }
 
 .seat-number {
@@ -161,17 +165,6 @@ label {
   cursor: pointer;
 }
 
-.primary-button {
-  border-color: rgb(var(--cz-primary-rgb) / 76%);
-  background: linear-gradient(135deg, var(--cz-secondary), var(--cz-primary));
-  color: var(--cz-on-accent);
-  cursor: pointer;
-}
-
-.primary-button:disabled {
-  opacity: 0.72;
-}
-
 .error-message {
   color: var(--cz-text);
 }
@@ -210,8 +203,7 @@ label {
 
   .color-picker-trigger,
   .color-option,
-  .ghost-button,
-  .primary-button {
+  .ghost-button {
     min-height: 2.45rem;
     padding: 0 0.58rem;
   }

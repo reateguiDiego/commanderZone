@@ -12,10 +12,11 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameCardDungeonMarker, GameCardInstance, GameCardStatValue, GamePowerToughnessValue, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { ManaPoolPanelComponent } from '../mana-pool-panel/mana-pool-panel.component';
+import { BattlefieldMechanicsOverlayComponent } from '../battlefield-mechanics-overlay/battlefield-mechanics-overlay.component';
 import { CardPreviewEvent } from '../../models/card-preview.model';
 import { LandStackDropPreview } from '../../state/drag-drop/game-table-battlefield-drag.state';
 import { buildLandStackGroups, LandStackView, landStackOffsetX, landStackOffsetY } from '../../utils/land-stack';
@@ -28,6 +29,7 @@ import {
   MAX_BATTLEFIELD_ZOOM_PERCENT,
   MIN_BATTLEFIELD_ZOOM_PERCENT,
 } from '../../state/battlefield/game-table-battlefield-zoom.state';
+import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
 
 interface CardCounterView {
   key: string;
@@ -66,6 +68,7 @@ interface BattlefieldCardMouseEvent {
   event: MouseEvent;
   playerId: string;
   card: GameCardInstance;
+  forceOpenLeft?: boolean;
 }
 
 interface BattlefieldCardStatChangeEvent {
@@ -87,6 +90,19 @@ interface BattlefieldCardCounterDeleteRequestEvent {
   key: string;
 }
 
+interface BattlefieldDungeonMarkerChangeEvent {
+  event: PointerEvent;
+  playerId: string;
+  card: GameCardInstance;
+  marker: GameCardDungeonMarker;
+}
+
+interface BattlefieldDungeonMarkerPreviewEvent {
+  playerId: string;
+  card: GameCardInstance;
+  marker: GameCardDungeonMarker | null;
+}
+
 interface BattlefieldSizeEvent {
   width: number;
   height: number;
@@ -104,7 +120,7 @@ const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 @Component({
   selector: 'app-focused-battlefield',
-  imports: [RuntimeTranslatePipe, GameCardViewComponent, GameTableLongPressDirective, ManaPoolPanelComponent],
+  imports: [RuntimeTranslatePipe, BattlefieldMechanicsOverlayComponent, GameCardViewComponent, GameTableLongPressDirective, ManaPoolPanelComponent],
   templateUrl: './focused-battlefield.component.html',
   styleUrl: './focused-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -123,6 +139,10 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly allowArrowTargetSelection = input(false);
   readonly focusEffectsEnabled = input(true);
+  readonly mechanicCards = input<readonly GameCardInstance[]>([]);
+  readonly battlefieldCards = computed(() =>
+    this.player().state.zones.battlefield.filter((card) => !isBattlefieldMechanicOverlayCard(card)),
+  );
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
   readonly isSelected = input.required<(instanceId: string) => boolean>();
@@ -131,8 +151,10 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly isPendingBattlefieldTransfer = input.required<(card: GameCardInstance) => boolean>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
   readonly shouldShowPowerToughness = input.required<(card: GameCardInstance) => boolean>();
-  readonly cardPowerValue = input.required<(card: GameCardInstance) => number | null>();
-  readonly cardToughnessValue = input.required<(card: GameCardInstance) => number | null>();
+  readonly cardPowerValue = input.required<(card: GameCardInstance) => GamePowerToughnessValue>();
+  readonly cardToughnessValue = input.required<(card: GameCardInstance) => GamePowerToughnessValue>();
+  readonly cardBattleValue = input.required<(card: GameCardInstance) => GameCardStatValue>();
+  readonly cardLoyaltyValue = input.required<(card: GameCardInstance) => GameCardStatValue>();
   readonly firstCounter = input.required<(card: GameCardInstance) => CardCounterView | null>();
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
@@ -151,7 +173,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly landStackGroups = computed(() => buildLandStackGroups(
-    this.player().state.zones.battlefield.filter((card) => !this.isDraggingCard()(card)),
+    this.battlefieldCards().filter((card) => !this.isDraggingCard()(card)),
     (candidate) => this.cardPosition()(candidate),
   ));
   readonly battlefieldDragOver = output<DragEvent>();
@@ -163,12 +185,17 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly cardDoubleClicked = output<BattlefieldCardMouseEvent>();
   readonly cardMenuOpened = output<BattlefieldCardMouseEvent>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
+  readonly cardPreviewRequested = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
   readonly cardPowerChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardToughnessChanged = output<BattlefieldCardStatChangeEvent>();
+  readonly cardBattleChanged = output<BattlefieldCardStatChangeEvent>();
+  readonly cardSagaChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardLoyaltyChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardCounterChanged = output<BattlefieldCardCounterChangeEvent>();
   readonly cardCounterDeleteRequested = output<BattlefieldCardCounterDeleteRequestEvent>();
+  readonly dungeonMarkerChanged = output<BattlefieldDungeonMarkerChangeEvent>();
+  readonly dungeonMarkerPreviewChanged = output<BattlefieldDungeonMarkerPreviewEvent>();
   readonly manaLaneDragOver = output<DragEvent>();
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly manaPoolColorAdded = output<{ playerId: string; color: ManaPoolColor }>();
@@ -357,14 +384,14 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.cardClicked.emit({ event, playerId, card });
   }
 
-  onCardMenu(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+  onCardMenu(event: MouseEvent, playerId: string, card: GameCardInstance, forceOpenLeft = false): void {
     if (!this.isCurrentPlayer()(playerId)) {
       event.preventDefault();
       event.stopPropagation();
       return;
     }
 
-    this.cardMenuOpened.emit({ event, playerId, card });
+    this.cardMenuOpened.emit({ event, playerId, card, forceOpenLeft });
   }
 
   preventUnexpectedNativeDragStart(event: DragEvent): void {
@@ -386,19 +413,19 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     event.stopPropagation();
   }
 
-  changePower(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
+  changePower(event: Event, playerId: string, card: GameCardInstance, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
     this.cardPowerChanged.emit({ playerId, zone: 'battlefield', card, delta });
   }
 
-  changeToughness(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
+  changeToughness(event: Event, playerId: string, card: GameCardInstance, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
     this.cardToughnessChanged.emit({ playerId, zone: 'battlefield', card, delta });
   }
 
-  changeLoyalty(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
+  changeLoyalty(event: Event, playerId: string, card: GameCardInstance, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
     this.cardLoyaltyChanged.emit({ playerId, zone: 'battlefield', card, delta });

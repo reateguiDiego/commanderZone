@@ -41,7 +41,7 @@
         <h3>{{ 'deckBuilder.deckManaCurvePanel.sampleHand' | runtimeTranslate }}</h3>
         <p>{{ 'deckBuilder.deckManaCurvePanel.sevenRandomCardsFromTheMainDeck' | runtimeTranslate }}</p>
       </div>
-      <button class="secondary-button compact" type="button" (click)="store.drawOpeningHand()">
+      <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="store.drawOpeningHand()">
         <lucide-icon name="shuffle" size="15" />
         {{ 'deckBuilder.deckManaCurvePanel.drawAgain' | runtimeTranslate }}
       </button>

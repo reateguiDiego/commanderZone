@@ -1,7 +1,7 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { OpponentCardsTargetComponent } from '../opponent-cards-target/opponent-cards-target.component';
 import { OpponentCardsTargetCard } from '../../models/opponent-cards-target-card.model';
@@ -11,6 +11,8 @@ import { OpponentTargetingPill } from '../../models/opponent-targeting-pill.mode
 import { PLAYER_DEFEATED_SKULL_IMAGE } from '../../utils/game-table-visual-assets';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
+import { GameTablePlayerSpecialEntitiesSummary } from '../../state/helpers/game-table-special-entities.state';
+import { SpecialEntityStripComponent } from '../special-entity-strip/special-entity-strip.component';
 
 interface PlayerDropEvent {
   event: DragEvent;
@@ -57,7 +59,7 @@ const PLAYER_BORDER_VARIANTS = ['#f3dfaa', '#cdd7de', '#cdb8d5', '#d8b6a6', '#bc
 
 @Component({
   selector: 'app-opponent-mini-board',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, OpponentMiniBattlefieldComponent, OpponentCardsTargetComponent, GameTableLongPressDirective],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, OpponentMiniBattlefieldComponent, OpponentCardsTargetComponent, GameTableLongPressDirective, SpecialEntityStripComponent],
   templateUrl: './opponent-mini-board.component.html',
   styleUrl: './opponent-mini-board.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -90,14 +92,27 @@ export class OpponentMiniBoardComponent {
   readonly isActiveTurnPlayer = input(false);
   readonly targetingPill = input<OpponentTargetingPill | null>(null);
   readonly cardsTargetCards = input<readonly OpponentCardsTargetCard[]>([]);
+  readonly specialEntitiesSummary = input<GameTablePlayerSpecialEntitiesSummary | null>(null);
+  readonly mechanicCards = input<readonly GameCardInstance[]>([]);
 
   readonly focusPlayer = output<string>();
   readonly dropAllowed = output<DragEvent>();
   readonly playerDropped = output<PlayerDropEvent>();
   readonly playerMenuOpened = output<PlayerMenuEvent>();
+  readonly helperPreviewRequested = output<GameSpecialEntity>();
+  readonly helperPreviewHidden = output<void>();
+  readonly helperContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
-  readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
+  readonly battlefieldCardClicked = output<{
+    event: MouseEvent;
+    playerId: string;
+    card: GameCardInstance;
+    forceOpenLeft?: boolean;
+  }>();
+  readonly mechanicsEntities = computed(() =>
+    this.specialEntitiesSummary()?.displayEntities.filter((entity) => entity.template !== 'the_ring') ?? [],
+  );
 
   zoneCountTooltip(player: PlayerView, summary: OpponentZoneSummary): string {
     return `${summary.title}: ${this.zoneCount()(player, summary.zone)}`;
@@ -149,6 +164,16 @@ export class OpponentMiniBoardComponent {
     const variant = PLAYER_BORDER_VARIANTS[this.stableIndex(variantSeed, PLAYER_BORDER_VARIANTS.length)];
 
     return this.mixHexColors(base, variant, 0.28);
+  }
+
+  focusFromKeyboard(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.focusPlayer.emit(this.player().id);
   }
 
   private identityColors(player: PlayerView): ManaColor[] {

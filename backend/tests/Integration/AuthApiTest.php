@@ -25,6 +25,7 @@ class AuthApiTest extends ApiTestCase
         self::assertSame([
             'cardLanguage' => 'en',
             'appLanguage' => 'en',
+            'themeId' => 'sunrise',
         ], $this->jsonResponse()['user']['preferences']);
         self::assertArrayHasKey('createdAt', $this->jsonResponse()['user']);
         self::assertArrayHasKey('updatedAt', $this->jsonResponse()['user']);
@@ -85,7 +86,7 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertFalse($this->jsonResponse()['available']);
 
-        $this->jsonRequest('GET', '/auth/display-name-availability?displayName=abcdefghijklmnopqrstuvwxyz');
+        $this->jsonRequest('GET', '/auth/display-name-availability?displayName=abcdefghijklmnopqrstu');
         self::assertResponseIsSuccessful();
         self::assertFalse($this->jsonResponse()['available']);
 
@@ -195,7 +196,7 @@ class AuthApiTest extends ApiTestCase
 
     public function testRefreshUsesFirstCookieValueFromRawHeaderWhenDuplicateNamesArePresent(): void
     {
-        $this->registerAndLogin('refresh-duplicate-cookie@example.test', 'Refresh Duplicate Cookie');
+        $this->registerAndLogin('refresh-duplicate-cookie@example.test', 'Refresh Dup Cookie');
         $refreshCookie = $this->refreshCookieFromResponse();
         self::assertNotNull($refreshCookie);
         $validRefreshToken = (string) $refreshCookie->getValue();
@@ -623,10 +624,40 @@ class AuthApiTest extends ApiTestCase
         self::assertSame([
             'cardLanguage' => 'ja',
             'appLanguage' => 'es',
+            'themeId' => 'sunrise',
         ], $this->jsonResponse()['user']['preferences']);
 
         $this->jsonRequest('PATCH', '/me', [
             'cardLanguage' => 'zzz',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'appLanguage' => 'zht',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testThemePreferenceCanBeReadAndUpdated(): void
+    {
+        $token = $this->registerAndLogin('theme@example.test', 'Theme User');
+
+        $this->jsonRequest('GET', '/themes', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('sunrise', $this->jsonResponse()['themeId']);
+
+        $this->jsonRequest('PUT', '/themes', [
+            'themeId' => 'candy-summoners',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('candy-summoners', $this->jsonResponse()['themeId']);
+
+        $this->jsonRequest('GET', '/me', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('candy-summoners', $this->jsonResponse()['user']['preferences']['themeId']);
+
+        $this->jsonRequest('PUT', '/themes', [
+            'themeId' => 'not-real',
         ], $token);
         self::assertResponseStatusCodeSame(400);
     }
@@ -716,7 +747,7 @@ class AuthApiTest extends ApiTestCase
     public function testPasswordChangeRevokesAllRefreshSessions(): void
     {
         $password = 'Password123';
-        $this->registerAndLogin('refresh-password-change@example.test', 'Refresh Password Change', $password);
+        $this->registerAndLogin('refresh-password-change@example.test', 'Refresh Pass Change', $password);
         $cookieA = $this->refreshCookieFromResponse();
         self::assertNotNull($cookieA);
         $refreshA = (string) $cookieA->getValue();
@@ -748,7 +779,7 @@ class AuthApiTest extends ApiTestCase
     public function testPasswordResetRevokesAllRefreshSessions(): void
     {
         $password = 'Password123';
-        $this->registerAndLogin('refresh-password-reset@example.test', 'Refresh Password Reset', $password);
+        $this->registerAndLogin('refresh-password-reset@example.test', 'Refresh Pass Reset', $password);
         $cookieA = $this->refreshCookieFromResponse();
         self::assertNotNull($cookieA);
         $refreshA = (string) $cookieA->getValue();
@@ -794,18 +825,18 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testDisplayNameLengthIsLimitedTo25Chars(): void
+    public function testDisplayNameLengthIsLimitedTo20Chars(): void
     {
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'too-long-name@example.test',
-            'displayName' => 'abcdefghijklmnopqrstuvwxyz',
+            'displayName' => 'abcdefghijklmnopqrstu',
             'password' => 'Password123',
         ]);
         self::assertResponseStatusCodeSame(400);
 
         $token = $this->registerAndLogin('valid-name@example.test', 'Valid Name');
         $this->jsonRequest('PATCH', '/me', [
-            'displayName' => 'abcdefghijklmnopqrstuvwxyz',
+            'displayName' => 'abcdefghijklmnopqrstu',
         ], $token);
         self::assertResponseStatusCodeSame(400);
     }

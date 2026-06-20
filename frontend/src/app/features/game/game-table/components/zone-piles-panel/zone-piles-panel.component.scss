@@ -171,6 +171,37 @@
   background: var(--game-surface, #181b16);
 }
 
+.zone-monarch-badge {
+  position: absolute;
+  top: 0.52rem;
+  left: 50%;
+  z-index: 32;
+  display: grid;
+  width: 2.12rem;
+  height: 2.12rem;
+  place-items: center;
+  border: 1px solid rgb(255 224 141 / 36%);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 34%, rgb(255 235 181 / 34%), transparent 72%),
+    rgb(11 12 10 / 90%);
+  color: rgb(255 223 126);
+  box-shadow:
+    0 0.55rem 1rem rgb(0 0 0 / 34%),
+    0 0 0.95rem rgb(255 214 120 / 22%),
+    inset 0 1px 0 rgb(255 255 255 / 10%);
+  transform: translate(-50%, 0);
+  pointer-events: none;
+}
+
+.zone-monarch-icon {
+  display: grid;
+  place-items: center;
+  font-size: 1.48rem;
+  line-height: 1;
+  filter: drop-shadow(0 0.06rem 0.14rem rgb(0 0 0 / 58%));
+}
+
 .zone-art.card-stack {
   border-color: var(--game-line-soft, rgb(61 69 53 / 46%));
   background: transparent;
@@ -481,8 +512,8 @@
     z-index: 330;
     justify-self: end;
     width: var(--game-zone-dock-width, min(31rem, calc(100vw - 1rem)));
-    height: var(--game-zone-row-height, 10.6rem);
-    overflow: hidden;
+    min-height: var(--game-zone-row-height, 10.6rem);
+    overflow: visible;
   }
 
   .zone-stack {
@@ -503,7 +534,7 @@
     align-self: end;
     justify-self: stretch;
     width: 100%;
-    height: var(--game-zone-row-height, 6rem);
+    min-height: var(--game-zone-row-height, 6rem);
     margin-bottom: 0;
     background: rgb(4 5 4 / 74%);
   }
@@ -574,7 +605,7 @@
   (max-height: 1199px) and (min-width: 1181px) {
   .zone-dock {
     align-self: end;
-    height: var(--game-hand-panel-height, var(--game-zone-row-height, 5.45rem));
+    min-height: var(--game-hand-panel-height, var(--game-zone-row-height, 5.45rem));
     overflow: visible;
   }
 
@@ -606,7 +637,7 @@
 @media (min-height: 769px) and (max-height: 1199px),
   (max-height: 1199px) and (min-width: 1181px) {
   .zone-dock {
-    overflow: hidden;
+    overflow: visible;
   }
 
   .zone-stack {
@@ -620,7 +651,7 @@
 
 @media (max-height: 768px) and (max-width: 1180px) {
   .zone-dock {
-    height: var(--game-zone-row-height, 5.45rem);
+    min-height: var(--game-zone-row-height, 5.45rem);
     overflow: visible;
   }
 
@@ -701,9 +732,9 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: repeat(4, minmax(0, 1fr));
     width: var(--game-zone-dock-width, 4.5rem);
-    height: 100%;
+    min-height: 100%;
     padding-bottom: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .zone-stack {

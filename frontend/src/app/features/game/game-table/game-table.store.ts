@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
-import { ChatReactionType, GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
+import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GameMulliganConfig, GamePhase, GamePlayerMulliganState, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
+import { GameplayMulliganPublicPlayerState } from '../../../core/models/game-realtime.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
@@ -39,9 +40,11 @@ import { GameTableDragDropStore } from './state/drag-drop/game-table-drag-drop.s
 import { GameTableGameActionsStore } from './state/game-actions/game-table-game-actions.store';
 import { GameTableHandState } from './state/hand/game-table-hand.state';
 import { GameTableLibraryTopState } from './state/zones/game-table-library-top.state';
+import { GameTableMulliganState } from './state/mulligan/game-table-mulligan.state';
 import { GameTableOpponentTargetsState } from './state/arrows/game-table-opponent-targets.state';
 import { GameTablePlayersStore } from './state/players/game-table-players.store';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
+import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
 import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
@@ -50,6 +53,7 @@ import { GameTableWebsocketGameplayService } from './services/game-table-websock
 import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-pool.state';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { automaticTapOnlyManaSourceSuggestionWithAttachments, detectManaSourceWithAttachments } from './utils/mana-source-attachment-detector';
+import { GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
 
 export type { PlayerView } from './state/core/game-table-snapshot-selectors';
 export type { SelectedCard } from './models/game-table-card.model';
@@ -78,6 +82,8 @@ export class GameTableStore implements OnDestroy {
   private readonly session = inject(GameTableSessionService);
   private readonly websocketGameplay = inject(GameTableWebsocketGameplayService);
   private readonly selection = inject(GameTableSelectionService);
+  private readonly specialEntityActions = inject(GameTableSpecialEntityActionsService);
+  private readonly specialEntitiesState = inject(GameTableSpecialEntitiesState);
   private readonly coreState = inject(GameTableCoreState);
   private readonly arrowsState = inject(GameTableArrowsState);
   private readonly attachmentsState = inject(GameTableAttachmentsState);
@@ -91,6 +97,7 @@ export class GameTableStore implements OnDestroy {
   private readonly gameActionsStore = inject(GameTableGameActionsStore);
   private readonly handState = inject(GameTableHandState);
   private readonly libraryTopState = inject(GameTableLibraryTopState);
+  private readonly mulliganState = inject(GameTableMulliganState);
   private readonly opponentTargetsState = inject(GameTableOpponentTargetsState);
   private readonly playersStore = inject(GameTablePlayersStore);
   private readonly permanentRelations = inject(GameTablePermanentRelationService);
@@ -118,6 +125,7 @@ export class GameTableStore implements OnDestroy {
   readonly selectedCards: WritableSignal<SelectedCard[]> = this.selection.selectedCards as WritableSignal<SelectedCard[]>;
   readonly hoveredCard = this.uiState.hoveredCard;
   readonly hoveredPreview = this.uiState.hoveredPreview;
+  readonly dungeonMarkerPreviewOverride = this.uiState.dungeonMarkerPreviewOverride;
   readonly contextMenu = this.uiState.contextMenu;
   readonly zoneModal = this.zoneModalState.zoneModal;
   readonly activeFloatingTab = this.uiState.activeFloatingTab;
@@ -148,6 +156,40 @@ export class GameTableStore implements OnDestroy {
   readonly eventLog = this.chatStore.eventLog;
   readonly currentPlayer = this.playersStore.currentPlayer;
   readonly handPlayer = this.playersStore.handPlayer;
+  readonly mulliganPending = this.mulliganState.pendingAction;
+  readonly mulliganError = this.mulliganState.error;
+  readonly mulliganGamePhase = computed<GamePhase | null>(() => this.mulliganState.gamePhase() ?? this.snapshot()?.gamePhase ?? null);
+  readonly mulliganActive = computed(() => this.mulliganGamePhase() === 'MULLIGAN');
+  readonly mulliganConfig = computed<GameMulliganConfig | null>(() => this.snapshot()?.mulligan ?? null);
+  readonly mulliganPublicPlayers = computed<readonly GameplayMulliganPublicPlayerState[]>(() =>
+    this.mulliganState.publicState()?.players ?? this.mulliganPublicPlayersFromSnapshot(),
+  );
+  readonly currentMulligan = computed<GamePlayerMulliganState | null>(() => {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    if (!currentPlayerId) {
+      return null;
+    }
+
+    const privateState = this.mulliganState.privateState();
+    if (privateState?.playerId === currentPlayerId) {
+      return {
+        ...privateState.mulligan,
+        handCount: privateState.hand.length,
+        ...(privateState.scryCard ? { scryCard: privateState.scryCard } : {}),
+      };
+    }
+
+    return this.currentPlayer()?.state.mulligan ?? null;
+  });
+  readonly currentMulliganHand = computed<readonly GameCardInstance[]>(() => {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    const privateState = this.mulliganState.privateState();
+    if (privateState?.playerId === currentPlayerId) {
+      return privateState.hand;
+    }
+
+    return this.currentPlayer()?.state.zones.hand ?? [];
+  });
   readonly opponentTargetingPills = this.opponentTargetsState.opponentTargetingPills;
   readonly opponentCardsTargetCards = this.opponentTargetsState.opponentCardsTargetCards;
   readonly chatRecipients = this.chatStore.chatRecipients;
@@ -179,6 +221,7 @@ export class GameTableStore implements OnDestroy {
   private readonly hiddenManaPoolPlayerIds = signal<ReadonlySet<string>>(new Set());
   readonly manaPool = (playerId: string): ManaPool => this.manaPoolState.pool(playerId);
   readonly isManaPoolHidden = (playerId: string): boolean => this.hiddenManaPoolPlayerIds().has(playerId);
+  readonly specialEntities = this.specialEntitiesState.all;
 
   constructor() {
     this.contexts.bind({
@@ -338,12 +381,20 @@ export class GameTableStore implements OnDestroy {
     return this.cardsState.shouldShowPowerToughness(card);
   }
 
-  cardPowerValue(card: GameCardInstance): number | null {
+  cardPowerValue(card: GameCardInstance): GamePowerToughnessValue {
     return this.cardsState.cardPowerValue(card);
   }
 
-  cardToughnessValue(card: GameCardInstance): number | null {
+  cardToughnessValue(card: GameCardInstance): GamePowerToughnessValue {
     return this.cardsState.cardToughnessValue(card);
+  }
+
+  cardLoyaltyValue(card: GameCardInstance): GameCardStatValue {
+    return this.cardsState.cardLoyaltyValue(card);
+  }
+
+  cardBattleValue(card: GameCardInstance): GameCardStatValue {
+    return this.cardsState.cardBattleValue(card);
   }
 
   isHandDropTarget(playerId: string, card: GameCardInstance, placement: 'before' | 'after'): boolean {
@@ -558,6 +609,14 @@ export class GameTableStore implements OnDestroy {
     this.uiState.showCardPreview(cardOrPreview, () => Boolean(this.draggingCardInstanceId()), playerId, zone);
   }
 
+  showImmediateCardPreview(preview: CardPreviewEvent): void {
+    this.uiState.showImmediateCardPreview(preview, () => Boolean(this.draggingCardInstanceId()));
+  }
+
+  updateDungeonMarkerPreview(card: GameCardInstance, marker: GameCardDungeonMarker | null): void {
+    this.uiState.setDungeonMarkerPreviewOverride(marker === null ? null : { instanceId: card.instanceId, marker });
+  }
+
   hideCardPreview(): void {
     this.uiState.hideCardPreview();
   }
@@ -638,10 +697,19 @@ export class GameTableStore implements OnDestroy {
     return this.selection.isSelected(instanceId);
   }
 
-  openCardMenu(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
+  openCardMenu(
+    event: MouseEvent,
+    playerId: string,
+    zone: GameZoneName,
+    card: GameCardInstance,
+    options: { forceOpenLeft?: boolean } = {},
+  ): void {
     const sourceRect = this.previewSourceRect(event);
     this.clearCardPreview();
-    this.interactionActions.openCardMenu(this.contexts.interaction(), event, playerId, zone, card, { sourceRect });
+    this.interactionActions.openCardMenu(this.contexts.interaction(), event, playerId, zone, card, {
+      sourceRect,
+      forceOpenLeft: options.forceOpenLeft,
+    });
   }
 
   openZoneMenu(event: MouseEvent, playerId: string, zone: GameZoneName): void {
@@ -1326,10 +1394,30 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.tokenCopy(this.contexts.cardAction(), menu);
   }
 
-  async createToken(playerId: string, card: Card | null = null, quantity = 1): Promise<void> {
+  async createToken(playerId: string, card: Card | null = null, quantity = 1, options: { position?: GameCardPosition } = {}): Promise<void> {
     const previousBattlefieldIds = this.battlefieldInstanceIds(playerId);
-    await this.cardActions.createToken(this.contexts.cardAction(), playerId, card, quantity);
+    await this.cardActions.createToken(this.contexts.cardAction(), playerId, card, quantity, options);
     this.markNewPowerToughnessTokensSettling(playerId, previousBattlefieldIds);
+  }
+
+  async createHelper(
+    template: 'monarch' | 'initiative' | 'citys_blessing' | 'day_night' | 'emblem' | 'dungeon',
+    ownerPlayerId: string | null,
+    options: { card?: GameSpecialEntity['card']; state?: Record<string, unknown> } = {},
+  ): Promise<void> {
+    await this.specialEntityActions.createHelper(this.specialEntityActionContext(), template, ownerPlayerId, options);
+  }
+
+  async updateHelper(
+    entityId: string,
+    state: Record<string, unknown>,
+    options: { card?: GameSpecialEntity['card'] } = {},
+  ): Promise<void> {
+    await this.specialEntityActions.updateHelper(this.specialEntityActionContext(), entityId, state, options);
+  }
+
+  async removeHelper(entityId: string): Promise<void> {
+    await this.specialEntityActions.removeHelper(this.specialEntityActionContext(), entityId);
   }
 
   async setPowerToughness(menu: GameContextMenu, power: number, toughness: number): Promise<void> {
@@ -1431,6 +1519,39 @@ export class GameTableStore implements OnDestroy {
     });
   }
 
+  takeMulligan(): void {
+    const gameId = this.gameId();
+    if (!gameId || !this.mulliganState.beginAction()) {
+      return;
+    }
+
+    if (!this.websocketGameplay.sendMulliganTake(gameId)) {
+      this.mulliganState.failAction('WebSocket gameplay connection is not available.');
+    }
+  }
+
+  keepMulligan(bottomCardInstanceIds: readonly string[] = []): void {
+    const gameId = this.gameId();
+    if (!gameId || !this.mulliganState.beginAction()) {
+      return;
+    }
+
+    if (!this.websocketGameplay.sendMulliganKeep(gameId, bottomCardInstanceIds)) {
+      this.mulliganState.failAction('WebSocket gameplay connection is not available.');
+    }
+  }
+
+  confirmMulliganScry(destination: 'TOP' | 'BOTTOM'): void {
+    const gameId = this.gameId();
+    if (!gameId || !this.mulliganState.beginAction()) {
+      return;
+    }
+
+    if (!this.websocketGameplay.sendMulliganScryConfirm(gameId, destination)) {
+      this.mulliganState.failAction('WebSocket gameplay connection is not available.');
+    }
+  }
+
   async moveBattlefieldCard(playerId: string, card: GameCardInstance, event: DragEvent): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
       this.error.set('You can only move your own cards.');
@@ -1446,6 +1567,20 @@ export class GameTableStore implements OnDestroy {
       zone: 'battlefield',
       instanceId: card.instanceId,
       position,
+    });
+  }
+
+  async changeDungeonMarker(playerId: string, card: GameCardInstance, marker: GameCardDungeonMarker): Promise<void> {
+    if (!this.canControlPlayer(playerId)) {
+      this.error.set('You can only update your own dungeon marker.');
+      return;
+    }
+
+    await this.command('card.dungeon_marker.changed', {
+      playerId,
+      zone: 'battlefield',
+      instanceId: card.instanceId,
+      position: marker,
     });
   }
 
@@ -1633,6 +1768,14 @@ export class GameTableStore implements OnDestroy {
     await this.cardStats.changeToughness(this.contexts.cardStats(), playerId, zone, card, delta);
   }
 
+  async changeCardBattle(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
+    await this.cardStats.changeBattle(this.contexts.cardStats(), playerId, zone, card, delta);
+  }
+
+  async changeCardSaga(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
+    await this.cardStats.changeSaga(this.contexts.cardStats(), playerId, zone, card, delta);
+  }
+
   async changeCardLoyalty(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
     await this.cardStats.changeLoyalty(this.contexts.cardStats(), playerId, zone, card, delta);
   }
@@ -1668,6 +1811,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   private setSnapshot(snapshot: GameSnapshot | null): void {
+    this.mulliganState.syncSnapshot(snapshot);
     if (snapshot === null) {
       this.locallyConcededPlayerId = null;
       this.lastSeenActiveTurnPlayerId = null;
@@ -1707,6 +1851,23 @@ export class GameTableStore implements OnDestroy {
     }
 
     void this.openRevealedLibraryModal(revealedEntry[0]);
+  }
+
+  private mulliganPublicPlayersFromSnapshot(): GameplayMulliganPublicPlayerState[] {
+    return this.players().map((player) => {
+      const mulligan = player.state.mulligan;
+      const handCount = mulligan?.handCount ?? this.zoneCount(player, 'hand');
+
+      return {
+        playerId: player.id,
+        displayName: player.state.user.displayName,
+        handCount,
+        mulligansTaken: mulligan?.mulligansTaken ?? 0,
+        effectiveMulligans: mulligan?.effectiveMulligans ?? 0,
+        status: mulligan?.status ?? 'DECIDING',
+        ready: mulligan?.ready ?? mulligan?.status === 'READY',
+      };
+    });
   }
 
   private battlefieldInstanceIds(playerId: string): ReadonlySet<string> {
@@ -1759,6 +1920,15 @@ export class GameTableStore implements OnDestroy {
 
   private playerName(playerId: string): string {
     return this.playersStore.playerName(playerId);
+  }
+
+  private specialEntityActionContext() {
+    return {
+      snapshot: () => this.snapshot(),
+      setError: (message: string) => this.error.set(message),
+      closeContextMenu: () => this.closeContextMenu(),
+      command: (type: GameCommandType, payload: Record<string, unknown>) => this.command(type, payload),
+    };
   }
 
   private handlePendingTransferExpired(_expiration: PendingTransferExpiration): void {

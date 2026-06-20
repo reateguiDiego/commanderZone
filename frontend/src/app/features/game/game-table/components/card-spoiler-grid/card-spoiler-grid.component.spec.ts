@@ -236,6 +236,17 @@ describe('CardSpoilerGridComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
   });
+
+  it('does not show the face toggle affordance for Undercity // The Initiative spoilers', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CardSpoilerGridComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
+    }).compileComponents();
+    const fixture = createFixture([undercityInitiativeCard('card-1')]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+  });
 });
 
 function createFixture(
@@ -265,6 +276,16 @@ function doubleFacedCard(instanceId: string): GameCardInstance {
     cardFaces: [
       cardFace('Birgi, God of Storytelling'),
       cardFace('Harnfel, Horn of Bounty'),
+    ],
+  };
+}
+
+function undercityInitiativeCard(instanceId: string): GameCardInstance {
+  return {
+    ...card(instanceId, 'Undercity // The Initiative'),
+    cardFaces: [
+      cardFace('Undercity'),
+      cardFace('The Initiative'),
     ],
   };
 }

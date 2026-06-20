@@ -7,8 +7,10 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { ChatMessage, ChatReactionType, GameCardInstance, GameRematchVote, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
+import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GamePowerToughnessValue, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
+import { Card } from '../../../core/models/card.model';
+import { CardsApi } from '../../../core/api/cards.api';
 import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
@@ -54,6 +56,7 @@ import { GameTableDropFeedbackState } from './state/drag-drop/game-table-drop-fe
 import { GameTableGameActionsStore } from './state/game-actions/game-table-game-actions.store';
 import { GameTableHandState } from './state/hand/game-table-hand.state';
 import { GameTableLibraryTopState } from './state/zones/game-table-library-top.state';
+import { GameTableMulliganState } from './state/mulligan/game-table-mulligan.state';
 import { GameTablePendingTransferState } from './state/core/game-table-pending-transfer.state';
 import { GameTableArrowsState } from './state/arrows/game-table-arrows.state';
 import { GameTableAttachmentsState } from './state/attachments/game-table-attachments.state';
@@ -84,21 +87,33 @@ import { ManaCometLayerComponent } from './components/mana-comet-layer/mana-come
 import { GameTableHeaderComponent } from './components/game-table-header/game-table-header.component';
 import { GameAdBannerComponent } from './components/game-ad-banner/game-ad-banner.component';
 import { CardPreviewOverlayComponent } from './components/card-preview-overlay/card-preview-overlay.component';
+import { DungeonLocationPinComponent } from './components/dungeon-location-pin/dungeon-location-pin.component';
 import { CardMarkerRailComponent } from './components/game-card-view/card-marker-rail/card-marker-rail.component';
+import { BattleCounterComponent } from './components/game-card-view/battle-counter/battle-counter.component';
 import { LoyaltyCounterComponent } from './components/game-card-view/loyalty-counter/loyalty-counter.component';
 import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './components/power-toughness-dialog/power-toughness-dialog.component';
 import { GameArrowLayerComponent } from './components/game-arrow-layer/game-arrow-layer.component';
 import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './components/arrow-target-dialog/arrow-target-dialog.component';
 import { GameRematchModalComponent, RematchPlayerVoteView } from './components/game-rematch-modal/game-rematch-modal.component';
 import { GameDisconnectVoteModalComponent } from './components/game-disconnect-vote-modal/game-disconnect-vote-modal.component';
-import { TokenSearchModalComponent, TokenSearchSelection } from './components/token-search-modal/token-search-modal.component';
+import { MulliganOverlayComponent } from './components/mulligan-overlay/mulligan-overlay.component';
+import {
+  GameplayCardSearchKind,
+  GameplayCardSearchSelection,
+  TokenSearchModalComponent,
+} from './components/token-search-modal/token-search-modal.component';
 import { ChatRecipientSelectComponent } from './components/chat-recipient-select/chat-recipient-select.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
+import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 import { buildCardPreviewAttachmentInfo, buildCardPreviewCardStateInfo, resolveCardPreviewCard } from './utils/card-preview-attachment-info';
+import { dungeonMarkerForCard } from './utils/dungeon-marker';
+import { isDayNightCard, isDungeonCard, isEmblemCard, isGameplayCardTapLocked, isInitiativeCard, isMonarchCard, isTheRingCard } from './utils/gameplay-card-kind';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
+import { GameTablePlayerSpecialEntitiesSummary, GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
+import { VentureCardKind } from './utils/venture-card-kind';
 
 const MANA_POOL_TARGET_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 
@@ -163,6 +178,91 @@ interface LibraryCardMoveToHandRequest {
   readonly menu: GameContextMenu;
   readonly cardName: string;
 }
+
+interface GameplayCardSearchRequest {
+  readonly playerId: string;
+  readonly kind: GameplayCardSearchKind;
+}
+
+interface PendingDungeonReplacementRequest {
+  readonly playerId: string;
+  readonly card: Card;
+  readonly currentDungeonName: string;
+}
+
+interface PendingCitysBlessingRemovalRequest {
+  readonly playerId: string;
+  readonly source: 'context-menu' | 'pill';
+}
+
+const GAMEPLAY_CARD_SEARCH_BATTLEFIELD_POSITION: GameCardPosition = { x: 0, y: 0, unit: 'ratio' };
+const DAY_NIGHT_FIXED_BATTLEFIELD_POSITION: GameCardPosition = { x: 1, y: 0, unit: 'ratio' };
+const DAY_NIGHT_SEARCH_QUERY = 'Day // Night';
+const MONARCH_SEARCH_QUERY = 'The Monarch';
+const INITIATIVE_SEARCH_QUERY = 'Undercity // The Initiative';
+const CITYS_BLESSING_SEARCH_QUERY = "City's Blessing";
+const SPECIAL_MECHANIC_CARD_SEARCH_LIMIT = 16;
+const THE_RING_FALLBACK_CARD: Card = {
+  id: 'the-ring',
+  scryfallId: '7215460e-8c06-47d0-94e5-d1832d0218af',
+  name: 'The Ring // The Ring Tempts You',
+  manaCost: null,
+  typeLine: 'Emblem // Card',
+  oracleText: 'Your Ring-bearer is legendary and can\'t be blocked by creatures with greater power.\nWhenever your Ring-bearer attacks, draw a card, then discard a card.\nWhenever your Ring-bearer becomes blocked by a creature, that creature\'s controller sacrifices it at end of combat.\nWhenever your Ring-bearer deals combat damage to a player, each opponent loses 3 life.\n//\nAs the Ring tempts you, you get an emblem named The Ring if you don\'t have one. Then your emblem gains its next ability and you choose a creature you control to become or remain your Ring-bearer.',
+  colors: [],
+  colorIdentity: [],
+  legalities: {},
+  imageUris: {
+    small: 'https://cards.scryfall.io/small/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+    normal: 'https://cards.scryfall.io/normal/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+    large: 'https://cards.scryfall.io/large/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+    png: 'https://cards.scryfall.io/png/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.png?1742651318',
+    art_crop: 'https://cards.scryfall.io/art_crop/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+    border_crop: 'https://cards.scryfall.io/border_crop/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+  },
+  cardFaces: [
+    {
+      name: 'The Ring',
+      manaCost: null,
+      typeLine: 'Emblem',
+      oracleText: 'Your Ring-bearer is legendary and can\'t be blocked by creatures with greater power.\nWhenever your Ring-bearer attacks, draw a card, then discard a card.\nWhenever your Ring-bearer becomes blocked by a creature, that creature\'s controller sacrifices it at end of combat.\nWhenever your Ring-bearer deals combat damage to a player, each opponent loses 3 life.',
+      power: null,
+      toughness: null,
+      loyalty: null,
+      colors: [],
+      imageUris: {
+        small: 'https://cards.scryfall.io/small/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        normal: 'https://cards.scryfall.io/normal/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        large: 'https://cards.scryfall.io/large/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        png: 'https://cards.scryfall.io/png/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.png?1742651318',
+        art_crop: 'https://cards.scryfall.io/art_crop/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        border_crop: 'https://cards.scryfall.io/border_crop/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+      },
+    },
+    {
+      name: 'The Ring Tempts You',
+      manaCost: null,
+      typeLine: 'Card',
+      oracleText: 'As the Ring tempts you, you get an emblem named The Ring if you don\'t have one. Then your emblem gains its next ability and you choose a creature you control to become or remain your Ring-bearer.',
+      power: null,
+      toughness: null,
+      loyalty: null,
+      colors: [],
+      imageUris: {
+        small: 'https://cards.scryfall.io/small/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        normal: 'https://cards.scryfall.io/normal/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        large: 'https://cards.scryfall.io/large/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        png: 'https://cards.scryfall.io/png/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.png?1742651318',
+        art_crop: 'https://cards.scryfall.io/art_crop/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        border_crop: 'https://cards.scryfall.io/border_crop/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+      },
+    },
+  ],
+  layout: 'double_faced_token',
+  commanderLegal: false,
+  set: 'tltr',
+  collectorNumber: 'H13',
+};
 
 interface PowerToughnessActionRequest {
   readonly menu: GameContextMenu;
@@ -325,7 +425,8 @@ interface MotionSourceRect {
 
 @Component({
   selector: 'app-game-table',
-  imports: [RuntimeTranslatePipe, 
+  imports: [
+    RuntimeTranslatePipe,
     FormsModule,
     LucideAngularModule,
     AppModalComponent,
@@ -346,13 +447,16 @@ interface MotionSourceRect {
     GameTableHeaderComponent,
     GameAdBannerComponent,
     CardPreviewOverlayComponent,
+    DungeonLocationPinComponent,
     CardMarkerRailComponent,
+    BattleCounterComponent,
     LoyaltyCounterComponent,
     PowerToughnessDialogComponent,
     GameArrowLayerComponent,
     ArrowTargetDialogComponent,
     GameRematchModalComponent,
     GameDisconnectVoteModalComponent,
+    MulliganOverlayComponent,
     TokenSearchModalComponent,
     ChatRecipientSelectComponent,
     RollModalComponent,
@@ -375,6 +479,7 @@ interface MotionSourceRect {
     GameTableGameActionsStore,
     GameTableHandState,
     GameTableLibraryTopState,
+    GameTableMulliganState,
     GameTablePlayersStore,
     GameTableSnapshotCoordinatorState,
     GameTableToastState,
@@ -406,6 +511,7 @@ interface MotionSourceRect {
     GameTableManaCometService,
     GameTableRealtimeAnimationBusService,
     GameTablePermanentRelationService,
+    GameTableSpecialEntityActionsService,
     GameTableSnapshotSelectors,
     GameTableUiState,
     GameTableBattlefieldDragState,
@@ -413,6 +519,7 @@ interface MotionSourceRect {
     GameTablePendingTransferState,
     GameTableZoneModalState,
     GameTableChatLogState,
+    GameTableSpecialEntitiesState,
   ],
   templateUrl: './game-table.component.html',
   styleUrls: ['./game-table.component.scss', './game-table-chat-panel.scss', './game-table-responsive.scss'],
@@ -423,6 +530,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
+  readonly specialEntityState = inject(GameTableSpecialEntitiesState);
+  private readonly cardsApi = inject(CardsApi);
   private readonly gamesApi = inject(GamesApi);
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
@@ -467,7 +576,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return MANA_POOL_TARGET_COLORS.filter((color) => (counts[color] ?? 0) > 0);
   };
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null => this.store.cardPosition(card);
+  readonly battlefieldMechanicCardsForPlayer = (playerId: string): readonly GameCardInstance[] =>
+    [
+      ...this.specialEntityState.battlefieldMechanicCardsForPlayer(playerId),
+      ...this.battlefieldEmblemsForPlayer(playerId),
+    ];
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
+  readonly dungeonMarkerForCard = dungeonMarkerForCard;
+  readonly dungeonPinSizeForWidth = (width: number): string => `${Math.round(Math.max(28, Math.min(58, width * 0.25)))}px`;
   readonly handCardImage = (card: GameCardInstance): string | null => {
     const handPlayer = this.store.handPlayer();
     const currentPlayer = this.store.currentPlayer();
@@ -506,15 +622,21 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly tapAnimationLockedCardIds = signal<ReadonlySet<string>>(new Set<string>());
   private readonly pendingManaPoolColorCounts = signal<PendingManaPoolColorCounts>({});
   readonly canDragBattlefieldCard = (playerId: string, card: GameCardInstance): boolean =>
-    this.store.canDragBattlefieldCard(playerId, card) && !this.tapAnimationLockedCardIds().has(card.instanceId);
+    !isDayNightCard(card)
+    && !isMonarchCard(card)
+    && !isInitiativeCard(card)
+    && this.store.canDragBattlefieldCard(playerId, card)
+    && !this.tapAnimationLockedCardIds().has(card.instanceId);
   readonly isPendingBattlefieldTransfer = (card: GameCardInstance): boolean => this.store.isPendingBattlefieldTransfer(card);
   readonly shouldShowPowerToughness = (card: GameCardInstance): boolean => this.store.shouldShowPowerToughness(card);
   readonly isLandStacked = (playerId: string, card: GameCardInstance): boolean => this.store.isLandStacked(playerId, card);
   readonly isAttachedEquipment = (playerId: string, card: GameCardInstance): boolean => this.store.isAttachedEquipment(playerId, card);
   readonly isAttachmentTarget = (playerId: string, card: GameCardInstance): boolean => this.store.isAttachmentTarget(playerId, card);
   readonly canAttachEquipment = (playerId: string, card: GameCardInstance): boolean => this.store.canAttachEquipment(playerId, card);
-  readonly cardPowerValue = (card: GameCardInstance): number | null => this.store.cardPowerValue(card);
-  readonly cardToughnessValue = (card: GameCardInstance): number | null => this.store.cardToughnessValue(card);
+  readonly cardPowerValue = (card: GameCardInstance): GamePowerToughnessValue => this.store.cardPowerValue(card);
+  readonly cardToughnessValue = (card: GameCardInstance): GamePowerToughnessValue => this.store.cardToughnessValue(card);
+  readonly cardBattleValue = (card: GameCardInstance): GameCardStatValue => this.store.cardBattleValue(card);
+  readonly cardLoyaltyValue = (card: GameCardInstance): GameCardStatValue => this.store.cardLoyaltyValue(card);
   readonly firstCounter = (card: GameCardInstance): { key: string; value: number } | null => this.store.firstCounter(card);
   readonly cardCounters = (card: GameCardInstance): readonly { key: string; value: number }[] =>
     Object.entries(card.counters ?? {})
@@ -543,8 +665,20 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly rematchCountdownSeconds = signal<number | null>(null);
   readonly rematchCountdownMode = signal<RematchCountdownMode | null>(null);
   readonly tableExitAction = signal<TableExitAction | null>(null);
-  readonly tokenSearchPlayerId = signal<string | null>(null);
-  readonly tokenSearchPending = signal(false);
+  readonly gameplayCardSearchRequest = signal<GameplayCardSearchRequest | null>(null);
+  readonly gameplayCardSearchPending = signal(false);
+  readonly pendingDungeonReplacement = signal<PendingDungeonReplacementRequest | null>(null);
+  readonly dungeonReplacementPending = signal(false);
+  readonly pendingCitysBlessingRemoval = signal<PendingCitysBlessingRemovalRequest | null>(null);
+  readonly activeDayNight = computed(() => this.specialEntityState.dayNight() !== null);
+  readonly monarchOwnerPlayerId = computed(() => this.specialEntityState.globalEntity('monarch')?.ownerPlayerId ?? null);
+  readonly initiativeOwnerPlayerId = computed(() => this.specialEntityState.globalEntity('initiative')?.ownerPlayerId ?? null);
+  readonly playerHasCitysBlessing = (playerId: string): boolean =>
+    this.specialEntityState.playerEntity(playerId, 'citys_blessing') !== null;
+  readonly playerHasTheRing = (playerId: string): boolean =>
+    this.store.players()
+      .find((player) => player.id === playerId)
+      ?.state.zones.battlefield.some((card) => isTheRingCard(card)) ?? false;
   readonly rollModalOpen = signal(false);
   readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave' ? 'Leave table?' : 'Concede game?');
   readonly tableExitMessage = computed(() => this.tableExitAction() === 'leave'
@@ -594,6 +728,18 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const snapshot = this.store.snapshot();
 
     return preview ? buildCardPreviewCardStateInfo(resolveCardPreviewCard(snapshot, preview)) : null;
+  });
+
+  private battlefieldEmblemsForPlayer(playerId: string): readonly GameCardInstance[] {
+    const player = this.store.players().find((candidate) => candidate.id === playerId);
+
+    return player?.state.zones.battlefield.filter((card) => isEmblemCard(card)) ?? [];
+  }
+  readonly hoveredPreviewDungeonMarkerOverride = computed<GameCardDungeonMarker | null>(() => {
+    const preview = this.store.hoveredPreview();
+    const override = this.store.dungeonMarkerPreviewOverride();
+
+    return preview !== null && override?.instanceId === preview.card.instanceId ? override.marker : null;
   });
   readonly unreadChat = signal(false);
   readonly unreadLog = signal(false);
@@ -683,6 +829,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     return this.sortOpponentSidebarPlayers(opponents);
   });
+  readonly playerSpecialEntitiesSummary = (playerId: string): GameTablePlayerSpecialEntitiesSummary =>
+    this.specialEntityState.summaryForPlayer(playerId);
+  readonly playerSpecialEntities = (playerId: string): readonly GameSpecialEntity[] =>
+    this.specialEntityState.displayEntitiesForPlayer(playerId);
   readonly opponentsDrawerOpen = signal(false);
   readonly arrowTargetPlayers = computed(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
@@ -1197,6 +1347,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @HostListener('window:pointerup', ['$event'])
   handlePointerUp(event: PointerEvent): void {
     this.store.endFloatingDrag();
+
     if (!this.store.hasActivePointerDrag()) {
       return;
     }
@@ -1409,7 +1560,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     const animations: Array<() => void> = [];
-    const positionSelectors = new Set<string>();
 
     for (const operation of event.patch.operations) {
       switch (operation.op) {
@@ -1419,23 +1569,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         case 'cards.state.set':
           this.collectRealtimeCardsStateAnimations(event.previousSnapshot, operation, animations);
           break;
-        case 'card.position.set':
-          if (this.shouldAnimateRealtimeCardPosition(event.previousSnapshot, operation.playerId, operation.zone, operation.instanceId, operation.position)) {
-            positionSelectors.add(this.realtimeBattlefieldCardSelector(operation.instanceId));
-          }
-          break;
-        case 'cards.position.set':
-          for (const position of operation.positions) {
-            if (this.shouldAnimateRealtimeCardPosition(event.previousSnapshot, operation.playerId, operation.zone, position.instanceId, position.position)) {
-              positionSelectors.add(this.realtimeBattlefieldCardSelector(position.instanceId));
-            }
-          }
-          break;
       }
-    }
-
-    if (positionSelectors.size > 0) {
-      animations.push(this.motion.prepareCardFlip([...positionSelectors].join(',')));
     }
 
     return animations;
@@ -1481,22 +1615,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   ): boolean {
     return state.tapped !== undefined && card.tapped !== state.tapped
       || state.rotation !== undefined && card.rotation !== state.rotation;
-  }
-
-  private shouldAnimateRealtimeCardPosition(
-    snapshot: GameSnapshot,
-    playerId: string,
-    zone: GameZoneName,
-    instanceId: string,
-    nextPosition: GameCardInstance['position'],
-  ): boolean {
-    if (!this.shouldAnimateFocusedBattlefield(playerId, zone)) {
-      return false;
-    }
-
-    const card = snapshot.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId) ?? null;
-
-    return Boolean(card && JSON.stringify(card.position ?? null) !== JSON.stringify(nextPosition ?? null));
   }
 
   private playRealtimeMoveGhosts(event: GameTableRealtimePatchAnimationEvent): void {
@@ -2256,7 +2374,49 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         void this.store.revealCard(menu, action.target);
         return;
       case 'createToken':
-        this.openTokenSearchModal(menu.playerId);
+        this.openGameplayCardSearchModal(menu.playerId, 'token');
+        return;
+      case 'createMonarch':
+        void this.createMonarch(menu.playerId);
+        return;
+      case 'removeMonarch':
+        void this.removeMonarch();
+        return;
+      case 'giveMonarchToPlayer':
+        void this.createMonarch(action.targetPlayerId);
+        return;
+      case 'createInitiative':
+        void this.createInitiative(menu.playerId);
+        return;
+      case 'removeInitiative':
+        void this.removeInitiative();
+        return;
+      case 'giveInitiativeToPlayer':
+        void this.createInitiative(action.targetPlayerId);
+        return;
+      case 'createDayNight':
+        void this.createDayNightFromMenu();
+        return;
+      case 'createTheRing':
+        void this.createTheRing(menu.playerId);
+        return;
+      case 'createCitysBlessing':
+        void this.createCitysBlessing(menu.playerId);
+        return;
+      case 'removeCitysBlessing':
+        this.requestCitysBlessingRemoval(menu.playerId, 'context-menu');
+        return;
+      case 'setDayNightMode':
+        void this.setDayNightMode(action.mode);
+        return;
+      case 'removeDayNight':
+        void this.removeDayNight();
+        return;
+      case 'openGameplayCardSearch':
+        this.openGameplayCardSearchModal(menu.playerId, action.kind);
+        return;
+      case 'addVenture':
+        void this.addVentureFromMenu(menu, action.kind);
         return;
       case 'rollDice':
         this.openRollModal();
@@ -2397,6 +2557,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async handleBattlefieldCardDoubleClicked(event: BattlefieldCardDoubleClickEvent): Promise<void> {
+    if (isGameplayCardTapLocked(event.card)) {
+      return;
+    }
+
     this.store.clearCardPreview();
     this.lockTapAnimation(event.card.instanceId);
     const animateRotation = this.motion.prepareCardRotationFlip(event.card.instanceId, {
@@ -2951,27 +3115,143 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.tableExitAction.set(null);
   }
 
-  async createSelectedToken(selection: TokenSearchSelection): Promise<void> {
-    const playerId = this.tokenSearchPlayerId();
-    if (!playerId || this.tokenSearchPending()) {
+  async createSelectedGameplayCard(selection: GameplayCardSearchSelection): Promise<void> {
+    const request = this.gameplayCardSearchRequest();
+    if (!request || this.gameplayCardSearchPending() || request.kind !== selection.kind) {
       return;
     }
 
-    this.tokenSearchPending.set(true);
+    if (selection.kind === 'dungeon') {
+      const currentDungeonName = this.activeDungeonName(request.playerId);
+      if (currentDungeonName !== null) {
+        this.pendingDungeonReplacement.set({
+          playerId: request.playerId,
+          card: selection.card,
+          currentDungeonName,
+        });
+        this.gameplayCardSearchRequest.set(null);
+        return;
+      }
+    }
+
+    this.gameplayCardSearchPending.set(true);
     try {
-      await this.store.createToken(playerId, selection.card, selection.quantity);
-      this.tokenSearchPlayerId.set(null);
+      await this.createGameplayCardOnBattlefield(request.playerId, selection.card, selection.kind === 'token' ? selection.quantity : 1);
+      this.gameplayCardSearchRequest.set(null);
     } finally {
-      this.tokenSearchPending.set(false);
+      this.gameplayCardSearchPending.set(false);
     }
   }
 
-  closeTokenSearchModal(): void {
-    if (this.tokenSearchPending()) {
+  closeGameplayCardSearchModal(): void {
+    if (this.gameplayCardSearchPending()) {
       return;
     }
 
-    this.tokenSearchPlayerId.set(null);
+    this.gameplayCardSearchRequest.set(null);
+  }
+
+  async confirmDungeonReplacement(): Promise<void> {
+    const request = this.pendingDungeonReplacement();
+    if (!request || this.dungeonReplacementPending()) {
+      return;
+    }
+
+    this.dungeonReplacementPending.set(true);
+    try {
+      await this.createGameplayCardOnBattlefield(request.playerId, request.card, 1);
+      this.pendingDungeonReplacement.set(null);
+    } finally {
+      this.dungeonReplacementPending.set(false);
+    }
+  }
+
+  cancelDungeonReplacement(): void {
+    if (this.dungeonReplacementPending()) {
+      return;
+    }
+
+    this.pendingDungeonReplacement.set(null);
+  }
+
+  confirmCitysBlessingRemoval(): void {
+    const request = this.pendingCitysBlessingRemoval();
+    this.pendingCitysBlessingRemoval.set(null);
+    if (!request) {
+      return;
+    }
+
+    void this.removeCitysBlessing(request.playerId);
+  }
+
+  cancelCitysBlessingRemoval(): void {
+    this.pendingCitysBlessingRemoval.set(null);
+  }
+
+  private async createGameplayCardOnBattlefield(playerId: string, card: Card, quantity: number): Promise<void> {
+    await this.store.createToken(
+      playerId,
+      card,
+      quantity,
+      { position: GAMEPLAY_CARD_SEARCH_BATTLEFIELD_POSITION },
+    );
+  }
+
+  private async createMonarch(playerId: string): Promise<void> {
+    if (!this.store.players().some((player) => player.id === playerId)) {
+      this.store.error.set('Could not find target player for monarch.');
+      this.store.closeContextMenu();
+      return;
+    }
+
+    const card = await this.specialMechanicTokenCardRef(MONARCH_SEARCH_QUERY);
+    await this.store.createHelper('monarch', playerId, card ? { card } : {});
+  }
+
+  private async createInitiative(playerId: string): Promise<void> {
+    if (!this.store.players().some((player) => player.id === playerId)) {
+      this.store.error.set('Could not find target player for initiative.');
+      this.store.closeContextMenu();
+      return;
+    }
+
+    if (this.initiativeOwnerPlayerId() === playerId) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    const card = await this.specialMechanicTokenCardRef(INITIATIVE_SEARCH_QUERY);
+    await this.store.createHelper('initiative', playerId, card ? { card } : {});
+  }
+
+  private async createTheRing(playerId: string): Promise<void> {
+    if (!this.store.players().some((player) => player.id === playerId)) {
+      this.store.error.set('Could not find target player for The Ring.');
+      this.store.closeContextMenu();
+      return;
+    }
+
+    await this.createGameplayCardOnBattlefield(playerId, THE_RING_FALLBACK_CARD, 1);
+  }
+
+  private async removeMonarch(): Promise<void> {
+    const entity = this.store.specialEntities().find((candidate) => candidate.template === 'monarch') ?? null;
+    if (!entity) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    await this.store.removeHelper(entity.id);
+  }
+
+  private async removeInitiative(): Promise<void> {
+    const entity = this.store.specialEntities().find((candidate) => candidate.template === 'initiative') ?? null;
+    if (!entity) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    await this.store.removeHelper(entity.id);
   }
 
   openRollModal(): void {
@@ -3099,7 +3379,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.closeOpponentsDrawer();
   }
 
-  handleOpponentMiniBattlefieldCardClick(event: { event: MouseEvent; playerId: string; card: GameCardInstance }): void {
+  handleOpponentMiniBattlefieldCardClick(event: {
+    event: MouseEvent;
+    playerId: string;
+    card: GameCardInstance;
+    forceOpenLeft?: boolean;
+  }): void {
     event.event.preventDefault();
     event.event.stopPropagation();
     this.focusOpponentFromSidebar(event.playerId);
@@ -3158,9 +3443,195 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.tableExitAction.set(action);
   }
 
-  private openTokenSearchModal(playerId: string): void {
+  private openGameplayCardSearchModal(playerId: string, kind: GameplayCardSearchKind): void {
     this.store.closeContextMenu();
-    this.tokenSearchPlayerId.set(playerId);
+    this.gameplayCardSearchRequest.set({ playerId, kind });
+  }
+
+  private async createDayNightFromMenu(): Promise<void> {
+    if (this.specialEntityState.dayNight()) {
+      await this.setOrCreateDayNightMode('day');
+      return;
+    }
+
+    await this.createDayNight('day');
+  }
+
+  private async setOrCreateDayNightMode(mode: 'day' | 'night'): Promise<void> {
+    const entity = this.specialEntityState.dayNight();
+    if (!entity) {
+      await this.createDayNight(mode);
+      return;
+    }
+
+    const card = entity.card ? null : await this.dayNightCardRef();
+    await this.store.updateHelper(entity.id, {
+      ...entity.state,
+      mode,
+    }, card ? { card } : {});
+  }
+
+  private async createDayNight(mode: 'day' | 'night'): Promise<void> {
+    const card = await this.dayNightCardRef();
+    await this.store.createHelper('day_night', null, {
+      ...(card ? { card } : {}),
+      state: {
+        mode,
+        positions: this.initialDayNightPositions(),
+      },
+    });
+  }
+
+  private async setDayNightMode(mode: 'day' | 'night'): Promise<void> {
+    const entity = this.specialEntityState.dayNight();
+    if (!entity) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    await this.store.updateHelper(entity.id, {
+      ...entity.state,
+      mode,
+    });
+  }
+
+  private async removeDayNight(): Promise<void> {
+    const entity = this.specialEntityState.dayNight();
+    if (!entity) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    await this.store.removeHelper(entity.id);
+  }
+
+  private async createCitysBlessing(playerId: string): Promise<void> {
+    if (!this.store.players().some((player) => player.id === playerId)) {
+      this.store.error.set("Could not find target player for city's blessing.");
+      this.store.closeContextMenu();
+      return;
+    }
+
+    const card = await this.specialMechanicTokenCardRef(CITYS_BLESSING_SEARCH_QUERY);
+    await this.store.createHelper('citys_blessing', playerId, card ? { card } : {});
+  }
+
+  private async removeCitysBlessing(playerId: string): Promise<void> {
+    const entity = this.specialEntityState.playerEntity(playerId, 'citys_blessing');
+    if (!entity) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    await this.store.removeHelper(entity.id);
+  }
+
+  private initialDayNightPositions(): Record<string, GameCardPosition> {
+    return Object.fromEntries(
+      this.store.players().map((player) => [player.id, DAY_NIGHT_FIXED_BATTLEFIELD_POSITION]),
+    );
+  }
+
+  private async dayNightCardRef(): Promise<GameSpecialEntity['card'] | null> {
+    try {
+      const response = await firstValueFrom(this.cardsApi.search(DAY_NIGHT_SEARCH_QUERY, 1, 8, { gameplayKind: 'token' }));
+      const card = response.data.find((candidate) => candidate.name === DAY_NIGHT_SEARCH_QUERY && candidate.layout === 'double_faced_token')
+        ?? response.data.find((candidate) => candidate.name === DAY_NIGHT_SEARCH_QUERY)
+        ?? null;
+
+      return card ? this.gameplayCardRef(card) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async specialMechanicTokenCardRef(name: string): Promise<GameSpecialEntity['card'] | null> {
+    const card = await this.specialMechanicTokenCard(name);
+
+    return card ? this.gameplayCardRef(card) : null;
+  }
+
+  private async specialMechanicTokenCard(name: string, preferredLayout?: string): Promise<Card | null> {
+    try {
+      const response = await firstValueFrom(this.cardsApi.search(name, 1, SPECIAL_MECHANIC_CARD_SEARCH_LIMIT, { gameplayKind: 'token' }));
+      const normalizedName = name.toLowerCase();
+      const normalizedPreferredLayout = preferredLayout?.toLowerCase() ?? null;
+      const card = response.data.find((candidate) =>
+        candidate.name.toLowerCase() === normalizedName
+        && (normalizedPreferredLayout ? candidate.layout === normalizedPreferredLayout : candidate.layout === 'token'),
+      )
+        ?? response.data.find((candidate) => candidate.name.toLowerCase() === normalizedName)
+        ?? response.data[0]
+        ?? null;
+
+      return card;
+    } catch {
+      return null;
+    }
+  }
+
+  private async addVentureFromMenu(menu: GameContextMenu, kind: VentureCardKind): Promise<void> {
+    if (!menu.card || menu.zone !== 'battlefield' || !this.store.canControlPlayer(menu.playerId)) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    if (kind === 'initiative') {
+      await this.createInitiative(menu.playerId);
+      return;
+    }
+
+    if (!this.hasActiveDungeon(menu.playerId)) {
+      this.openGameplayCardSearchModal(menu.playerId, 'dungeon');
+      return;
+    }
+
+    this.store.closeContextMenu();
+  }
+
+  private hasActiveDungeon(playerId: string): boolean {
+    return this.activeDungeonName(playerId) !== null;
+  }
+
+  private activeDungeonName(playerId: string): string | null {
+    const player = this.store.players().find((candidate) => candidate.id === playerId);
+    const dungeon = (player?.state.zones.battlefield ?? []).find((card) => isDungeonCard(card));
+
+    return dungeon?.name ?? null;
+  }
+
+  showHelperPreview(entity: GameSpecialEntity): void {
+    const previewCard = this.specialEntityState.helperPreviewCard(entity);
+    if (!previewCard) {
+      return;
+    }
+
+    this.store.showCardPreview(previewCard, entity.ownerPlayerId ?? undefined, 'command');
+  }
+
+  handleHelperContextRequest(request: { event: MouseEvent; entity: GameSpecialEntity }): void {
+    const { entity } = request;
+    if (entity.template !== 'citys_blessing' || !entity.ownerPlayerId || !this.canControlPlayer(entity.ownerPlayerId)) {
+      return;
+    }
+
+    this.requestCitysBlessingRemoval(entity.ownerPlayerId, 'pill');
+  }
+
+  private requestCitysBlessingRemoval(playerId: string, source: PendingCitysBlessingRemovalRequest['source']): void {
+    this.pendingCitysBlessingRemoval.set({ playerId, source });
+  }
+
+  private gameplayCardRef(card: Card): NonNullable<GameSpecialEntity['card']> {
+    return {
+      scryfallId: card.scryfallId,
+      name: card.name,
+      imageUris: card.imageUris,
+      cardFaces: card.cardFaces,
+      typeLine: card.typeLine,
+      oracleText: card.oracleText,
+      layout: card.layout,
+    };
   }
 
   private async leaveTableFromContextMenu(): Promise<void> {

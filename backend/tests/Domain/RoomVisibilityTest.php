@@ -23,6 +23,10 @@ class RoomVisibilityTest extends TestCase
         self::assertSame(Room::DEFAULT_TIMER_MODE, $room->timerMode());
         self::assertSame(Room::DEFAULT_TIMER_DURATION_SECONDS, $room->timerDurationSeconds());
         self::assertSame(Room::DEFAULT_TIMER_MODE, $room->toArray()['timerMode']);
+        self::assertSame(Room::DEFAULT_MULLIGAN_RULE, $room->mulliganRule());
+        self::assertTrue($room->firstMulliganFree());
+        self::assertSame(Room::DEFAULT_MULLIGAN_RULE, $room->toArray()['mulliganRule']);
+        self::assertTrue($room->toArray()['firstMulliganFree']);
     }
 
     public function testRoomAcceptsOnlyKnownVisibilityValues(): void
@@ -101,6 +105,27 @@ class RoomVisibilityTest extends TestCase
         $room->setTimerDurationSeconds(9999);
         self::assertSame(Room::DEFAULT_TIMER_MODE, $room->timerMode());
         self::assertSame(Room::MAX_TIMER_DURATION_SECONDS, $room->timerDurationSeconds());
+    }
+
+    public function testRoomMulliganRuleIsValidated(): void
+    {
+        $room = new Room(new User('owner@example.test', 'Owner'));
+
+        $room->setMulliganRule(Room::MULLIGAN_GENEROUS);
+        $room->setFirstMulliganFree(false);
+
+        self::assertSame(Room::MULLIGAN_GENEROUS, $room->mulliganRule());
+        self::assertFalse($room->firstMulliganFree());
+        self::expectException(\InvalidArgumentException::class);
+        self::expectExceptionMessage('Unsupported mulligan rule.');
+
+        $room->setMulliganRule('FREEFORM');
+    }
+
+    public function testFirstMulliganDefaultDependsOnFormat(): void
+    {
+        self::assertTrue(Room::defaultFirstMulliganFreeForFormat(Room::FORMAT_COMMANDER));
+        self::assertFalse(Room::defaultFirstMulliganFreeForFormat('modern'));
     }
 
     public function testRoomPlayersKeepSeatOrderUntilEveryPlayerHasRolled(): void

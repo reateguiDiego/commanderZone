@@ -1,0 +1,368 @@
+:host {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.special-entity-rail-shell {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.special-entity-rail {
+  display: flex;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+  gap: 0.32rem;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.special-entity-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.special-entity-rail-overlay-host {
+  display: none;
+}
+
+.special-entity-pill {
+  border: 1px solid rgb(255 255 255 / 10%);
+  background: rgb(10 12 11 / 84%);
+  color: #f5f1ea;
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    0 0.35rem 0.75rem rgb(0 0 0 / 18%);
+}
+
+.special-entity-pill {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: 2rem;
+  min-width: 0;
+  max-width: 2rem;
+  overflow: hidden;
+  padding: 0 0.25rem;
+  transition:
+    max-width 140ms ease,
+    padding 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.special-entity-pill-card-backed {
+  cursor: pointer;
+}
+
+.special-entity-pill:hover,
+.special-entity-pill:focus-within {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(14 16 14 / 90%);
+  max-width: min(14rem, 88vw);
+  padding-right: 0.68rem;
+}
+
+.special-entity-icon {
+  display: grid;
+  width: 1.48rem;
+  height: 1.48rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 6%);
+  color: rgb(255 231 167 / 90%);
+}
+
+.special-entity-mana-icon {
+  --special-entity-mechanic-icon-gold: var(--gold, var(--game-accent, #d7b46a));
+
+  display: inline-grid;
+  width: 1.06rem;
+  height: 1.06rem;
+  place-items: center;
+  color: var(--special-entity-mechanic-icon-gold);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.special-entity-pill-copy {
+  display: block;
+  max-width: 0;
+  margin-left: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: rgb(245 241 234 / 92%);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    max-width 140ms ease,
+    margin-left 140ms ease,
+    opacity 100ms ease;
+}
+
+.special-entity-pill:hover .special-entity-pill-copy,
+.special-entity-pill:focus-within .special-entity-pill-copy {
+  max-width: 11.5rem;
+  margin-left: 0.42rem;
+  opacity: 1;
+}
+
+.special-entity-rail[data-variant="compact"] {
+  gap: 0.22rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-pill {
+  height: 1.42rem;
+  max-width: 1.42rem;
+  padding: 0 0.2rem;
+  background: rgb(6 7 6 / 72%);
+  color: rgb(232 225 208 / 82%);
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-pill:hover,
+.special-entity-rail[data-variant="compact"] .special-entity-pill:focus-within {
+  max-width: min(10.5rem, 82vw);
+  padding-right: 0.54rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-mana-icon {
+  width: 0.78rem;
+  height: 0.78rem;
+  font-size: 0.74rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-pill-copy {
+  font-size: 0.62rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-pill:hover .special-entity-pill-copy,
+.special-entity-rail[data-variant="compact"] .special-entity-pill:focus-within .special-entity-pill-copy {
+  max-width: 8.6rem;
+  margin-left: 0.3rem;
+}
+
+@media (max-height: 768px) and (max-width: 1180px) {
+  :host {
+    overflow: visible;
+  }
+
+  .special-entity-rail {
+    gap: 0.18rem;
+  }
+
+  .special-entity-pill {
+    height: 1.38rem;
+    max-width: 1.38rem;
+    padding: 0 0.16rem;
+    border-width: 1px;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 5%),
+      0 0.18rem 0.42rem rgb(0 0 0 / 18%);
+  }
+
+  .special-entity-pill:hover,
+  .special-entity-pill:focus-within {
+    max-width: min(8.2rem, 72vw);
+    padding-right: 0.42rem;
+  }
+
+  .special-entity-icon {
+    width: 0.96rem;
+    height: 0.96rem;
+  }
+
+  .special-entity-mana-icon {
+    width: 0.74rem;
+    height: 0.74rem;
+    font-size: 0.7rem;
+  }
+
+  .special-entity-pill-copy {
+    font-size: 0.58rem;
+    line-height: 1.1;
+  }
+
+  .special-entity-pill:hover .special-entity-pill-copy,
+  .special-entity-pill:focus-within .special-entity-pill-copy {
+    max-width: 7rem;
+    margin-left: 0.26rem;
+  }
+
+  .special-entity-rail[data-variant="compact"] {
+    gap: 0.08rem;
+    justify-content: flex-start;
+  }
+
+  .special-entity-rail-inline {
+    display: none;
+  }
+
+  .special-entity-rail-overlay-host {
+    position: relative;
+    z-index: 70;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+
+  .special-entity-rail-overlay-trigger {
+    position: relative;
+    display: grid;
+    width: 1.18rem;
+    height: 1.18rem;
+    flex: 0 0 auto;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgb(255 231 167 / 22%);
+    border-radius: 999px;
+    background: rgb(7 8 7 / 76%);
+    color: rgb(255 231 167 / 92%);
+    cursor: pointer;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 7%),
+      0 0.16rem 0.36rem rgb(0 0 0 / 28%);
+  }
+
+  .special-entity-rail-overlay-trigger .special-entity-mana-icon {
+    width: 0.76rem;
+    height: 0.76rem;
+    font-size: 0.7rem;
+  }
+
+  .special-entity-rail-overlay-count {
+    position: absolute;
+    right: -0.16rem;
+    bottom: -0.14rem;
+    display: grid;
+    min-width: 0.58rem;
+    height: 0.58rem;
+    place-items: center;
+    padding: 0 0.08rem;
+    border: 1px solid rgb(0 0 0 / 58%);
+    border-radius: 999px;
+    background: var(--gold, var(--game-accent, #d7b46a));
+    color: rgb(9 8 5 / 94%);
+    font-size: 0.44rem;
+    font-weight: 850;
+    line-height: 1;
+  }
+
+  .special-entity-rail-overlay {
+    position: absolute;
+    top: calc(100% + 0.24rem);
+    left: 0;
+    z-index: 72;
+    display: flex;
+    width: max-content;
+    max-width: min(16rem, 76vw);
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    padding: 0.22rem;
+    border: 1px solid rgb(255 231 167 / 18%);
+    border-radius: 0.5rem;
+    background: rgb(5 6 5 / 92%);
+    box-shadow:
+      0 0.6rem 1.2rem rgb(0 0 0 / 42%),
+      inset 0 1px 0 rgb(255 255 255 / 6%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-0.18rem) scale(0.98);
+    transform-origin: top left;
+    transition:
+      opacity 120ms ease,
+      transform 120ms ease;
+  }
+
+  .special-entity-rail-overlay-host:hover .special-entity-rail-overlay,
+  .special-entity-rail-overlay-host:focus-within .special-entity-rail-overlay {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
+
+  .special-entity-rail-overlay .special-entity-pill,
+  .special-entity-rail-overlay .special-entity-pill:hover,
+  .special-entity-rail-overlay .special-entity-pill:focus-within {
+    height: 1.16rem;
+    max-width: min(11.5rem, 70vw);
+    padding: 0 0.42rem 0 0.16rem;
+  }
+
+  .special-entity-rail-overlay .special-entity-icon {
+    width: 0.82rem;
+    height: 0.82rem;
+  }
+
+  .special-entity-rail-overlay .special-entity-mana-icon {
+    width: 0.62rem;
+    height: 0.62rem;
+    font-size: 0.58rem;
+  }
+
+  .special-entity-rail-overlay .special-entity-pill-copy,
+  .special-entity-rail-overlay .special-entity-pill:hover .special-entity-pill-copy,
+  .special-entity-rail-overlay .special-entity-pill:focus-within .special-entity-pill-copy {
+    max-width: 9.8rem;
+    margin-left: 0.22rem;
+    opacity: 1;
+    font-size: 0.58rem;
+  }
+
+  .special-entity-rail[data-variant="compact"] .special-entity-pill {
+    height: 0.7rem;
+    max-width: 0.7rem;
+    padding: 0 0.06rem;
+  }
+
+  .special-entity-rail[data-variant="compact"] .special-entity-pill:hover,
+  .special-entity-rail[data-variant="compact"] .special-entity-pill:focus-within {
+    max-width: min(5.6rem, 62vw);
+    padding-right: 0.26rem;
+  }
+
+  .special-entity-rail[data-variant="compact"] .special-entity-icon {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  .special-entity-rail[data-variant="compact"] .special-entity-mana-icon {
+    width: 0.38rem;
+    height: 0.38rem;
+    font-size: 0.36rem;
+  }
+
+  .special-entity-rail[data-variant="compact"] .special-entity-pill-copy {
+    font-size: 0.42rem;
+  }
+
+  .special-entity-rail[data-variant="compact"] .special-entity-pill:hover .special-entity-pill-copy,
+  .special-entity-rail[data-variant="compact"] .special-entity-pill:focus-within .special-entity-pill-copy {
+    max-width: 4.8rem;
+    margin-left: 0.16rem;
+  }
+}

@@ -64,6 +64,59 @@ describe('FocusedBattlefieldComponent', () => {
     }));
   });
 
+  it('renders the battle counter when the active face provides defense', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'battle-1', name: 'Invasion of Zendikar', typeLine: 'Battle - Siege', tapped: false },
+      ],
+      cardBattleValue: (card) => card.instanceId === 'battle-1' ? 4 : null,
+    });
+
+    expect(cardElement(fixture, 'battle-1').querySelector('app-battle-counter')).not.toBeNull();
+    expect(cardElement(fixture, 'battle-1').querySelector('app-loyalty-counter')).toBeNull();
+  });
+
+  it('forwards battle counter clicks with battlefield context', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'battle-1', name: 'Invasion of Zendikar', typeLine: 'Battle - Siege', tapped: false },
+      ],
+      cardBattleValue: (card) => card.instanceId === 'battle-1' ? 4 : null,
+    });
+    const changed = vi.fn();
+    fixture.componentInstance.cardBattleChanged.subscribe(changed);
+
+    const battleCounter = cardElement(fixture, 'battle-1').querySelector('.battle-counter') as HTMLElement;
+    battleCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: expect.objectContaining({ instanceId: 'battle-1' }),
+      delta: 1,
+    }));
+  });
+
+  it('forwards saga counter clicks with battlefield context', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'saga-1', name: 'Binding the Old Gods', typeLine: 'Enchantment - Saga', tapped: false },
+      ],
+    });
+    const changed = vi.fn();
+    fixture.componentInstance.cardSagaChanged.subscribe(changed);
+
+    const sagaCounter = cardElement(fixture, 'saga-1').querySelector('.saga-counter') as HTMLElement;
+    sagaCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: expect.objectContaining({ instanceId: 'saga-1' }),
+      delta: 1,
+    }));
+  });
+
   it('allows selecting an opponent card while choosing an arrow target', async () => {
     const { fixture } = await renderFocusedBattlefield({
       isCurrentPlayer: (_playerId) => false,
@@ -344,6 +397,79 @@ describe('FocusedBattlefieldComponent', () => {
 
     expect(event.defaultPrevented).toBe(true);
   });
+
+  it('renders monarch using its physical card image when provided', async () => {
+    const monarch = {
+      instanceId: 'monarch:entity-1',
+      name: 'The Monarch',
+      imageUris: { normal: '/cards/the-monarch.jpg' },
+      typeLine: 'Card',
+      layout: 'monarch',
+      tapped: false,
+    } satisfies GameCardInstance;
+    const { fixture } = await renderFocusedBattlefield({
+      mechanicCards: [monarch],
+      cardImage: (card) => card.imageUris?.['normal'] ?? null,
+    });
+
+    const image = cardElement(fixture, 'monarch:entity-1').querySelector('img') as HTMLImageElement | null;
+
+    expect(image?.getAttribute('src')).toBe('/cards/the-monarch.jpg');
+  });
+
+  it('renders initiative using its physical card image when provided', async () => {
+    const initiative = {
+      instanceId: 'initiative:entity-1',
+      name: 'The Initiative',
+      imageUris: { normal: '/cards/the-initiative.jpg' },
+      typeLine: 'Card',
+      layout: 'initiative',
+      tapped: false,
+    } satisfies GameCardInstance;
+    const { fixture } = await renderFocusedBattlefield({
+      mechanicCards: [initiative],
+      cardImage: (card) => card.imageUris?.['normal'] ?? null,
+    });
+
+    const image = cardElement(fixture, 'initiative:entity-1').querySelector('img') as HTMLImageElement | null;
+
+    expect(image?.getAttribute('src')).toBe('/cards/the-initiative.jpg');
+  });
+
+  it('renders overlay mechanic cards only once when they also exist in the battlefield zone', async () => {
+    const dayNight = {
+      instanceId: 'day-night-card',
+      name: 'Day // Night',
+      typeLine: 'Card // Card',
+      layout: 'double_faced_token',
+      tapped: false,
+      zone: 'battlefield',
+    } satisfies GameCardInstance;
+    const emblem = {
+      instanceId: 'emblem-card',
+      name: 'Chandra Emblem',
+      typeLine: 'Emblem',
+      layout: 'emblem',
+      tapped: false,
+      zone: 'battlefield',
+    } satisfies GameCardInstance;
+    const normalCard = {
+      instanceId: 'normal-card',
+      name: 'Llanowar Elves',
+      typeLine: 'Creature - Elf Druid',
+      tapped: false,
+      zone: 'battlefield',
+    } satisfies GameCardInstance;
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [dayNight, emblem, normalCard],
+      mechanicCards: [dayNight, emblem],
+    });
+
+    expect(cardElements(fixture, 'day-night-card')).toHaveLength(1);
+    expect(cardElements(fixture, 'emblem-card')).toHaveLength(1);
+    expect(cardElements(fixture, 'normal-card')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-mechanics-overlay"]')).not.toBeNull();
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
@@ -358,10 +484,13 @@ interface RenderFocusedBattlefieldOptions {
   allowArrowTargetSelection?: boolean;
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   firstCounter?: (card: GameCardInstance) => { key: string; value: number } | null;
+  cardBattleValue?: (card: GameCardInstance) => number | null;
   focusEffectsEnabled?: boolean;
   isDraggingCard?: (card: GameCardInstance) => boolean;
   canEditManaPool?: (playerId: string) => boolean;
   isManaPoolHidden?: (playerId: string) => boolean;
+  mechanicCards?: readonly GameCardInstance[];
+  cardImage?: (card: GameCardInstance) => string | null;
 }
 
 async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions = {}): Promise<{ fixture: ComponentFixture<FocusedBattlefieldComponent> }> {
@@ -377,16 +506,19 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('isCurrentPlayer', options.isCurrentPlayer ?? ((_playerId: string) => true));
   fixture.componentRef.setInput('allowArrowTargetSelection', options.allowArrowTargetSelection ?? false);
   fixture.componentRef.setInput('focusEffectsEnabled', options.focusEffectsEnabled ?? true);
+  fixture.componentRef.setInput('mechanicCards', options.mechanicCards ?? []);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('isSelected', (_instanceId: string) => false);
   fixture.componentRef.setInput('isDraggingCard', options.isDraggingCard ?? ((_card: GameCardInstance) => false));
   fixture.componentRef.setInput('canDragBattlefieldCard', (_playerId: string, _card: GameCardInstance) => true);
   fixture.componentRef.setInput('isPendingBattlefieldTransfer', (_card: GameCardInstance) => false);
-  fixture.componentRef.setInput('cardImage', (_card: GameCardInstance) => null);
+  fixture.componentRef.setInput('cardImage', options.cardImage ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('shouldShowPowerToughness', (_card: GameCardInstance) => false);
   fixture.componentRef.setInput('cardPowerValue', (_card: GameCardInstance) => 0);
   fixture.componentRef.setInput('cardToughnessValue', (_card: GameCardInstance) => 0);
+  fixture.componentRef.setInput('cardBattleValue', options.cardBattleValue ?? ((_card: GameCardInstance) => null));
+  fixture.componentRef.setInput('cardLoyaltyValue', (_card: GameCardInstance) => null);
   fixture.componentRef.setInput('firstCounter', options.firstCounter ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('alignmentGuideFor', options.alignmentGuideFor ?? ((_playerId: string) => null));
   fixture.componentRef.setInput('isManaLaneHighlighted', (_playerId: string) => false);
@@ -403,6 +535,10 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
 
 function cardElement(fixture: ComponentFixture<FocusedBattlefieldComponent>, instanceId: string): HTMLElement {
   return fixture.nativeElement.querySelector(`[data-card-instance-id="${instanceId}"]`);
+}
+
+function cardElements(fixture: ComponentFixture<FocusedBattlefieldComponent>, instanceId: string): HTMLElement[] {
+  return Array.from(fixture.nativeElement.querySelectorAll(`[data-card-instance-id="${instanceId}"]`));
 }
 
 function attachment(id: string, equipmentInstanceId: string, attachedToInstanceId: string): GameAttachment {

@@ -443,6 +443,24 @@
     padding: 0 0.24rem;
   }
 
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-summary-panel-has-special-entities .player-avatar,
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-summary-panel-has-special-entities .player-copy {
+    align-self: start;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-summary-panel-has-special-entities .player-summary-special-entity-strip {
+    position: absolute;
+    inset: 0.1rem auto auto 0.04rem;
+    z-index: 5;
+    max-width: 2rem;
+    margin: 0;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-summary-panel-has-special-entities .player-summary-special-entity-strip app-special-entity-rail {
+    width: auto;
+    max-width: max-content;
+  }
+
   .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-deck-meta,
   .game-screen .player-strip > app-player-summary-panel ::ng-deep .nameplate-image {
     display: none;

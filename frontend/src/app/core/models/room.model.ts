@@ -5,6 +5,7 @@ export type RoomStatus = 'waiting' | 'started';
 export type RoomVisibility = 'private' | 'public';
 export type RoomFormat = 'commander' | string;
 export type RoomTimerMode = 'none' | 'turn';
+export type RoomMulliganRule = 'LONDON' | 'VANCOUVER' | 'PARIS' | 'GENEROUS';
 
 export interface RoomPlayer {
   id: string;
@@ -35,6 +36,8 @@ export interface Room {
   startingLife: number;
   timerMode: RoomTimerMode;
   timerDurationSeconds: number;
+  mulliganRule: RoomMulliganRule;
+  firstMulliganFree: boolean;
   players: RoomPlayer[];
   waitingLog?: WaitingRoomLogEntry[];
   gameId: string | null;
@@ -47,6 +50,8 @@ export interface CurrentRoomSummary {
   visibility: RoomVisibility;
   format: RoomFormat;
   maxPlayers: number;
+  mulliganRule: RoomMulliganRule;
+  firstMulliganFree: boolean;
   playerCount: number;
   gameId: string | null;
 }

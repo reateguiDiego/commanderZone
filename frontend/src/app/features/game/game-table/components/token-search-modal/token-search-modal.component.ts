@@ -12,13 +12,15 @@ import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pr
 import { filterDistinctCardsByQuery, sanitizeCardSearchQuery } from '../../../../../shared/utils/card-search';
 import { GameXQuantityStepperComponent } from '../game-x-quantity-stepper/game-x-quantity-stepper.component';
 
-export interface TokenSearchSelection {
-  readonly card: Card;
-  readonly quantity: number;
-}
+export type GameplayCardSearchKind = 'token' | 'emblem' | 'dungeon';
+
+export type GameplayCardSearchSelection =
+  | { readonly kind: 'token'; readonly card: Card; readonly quantity: number }
+  | { readonly kind: 'emblem' | 'dungeon'; readonly card: Card };
 
 const MIN_TOKEN_QUANTITY = 1;
 const MAX_TOKEN_QUANTITY = 20;
+const SEARCH_DEBOUNCE_MS = 320;
 
 @Component({
   selector: 'app-token-search-modal',
@@ -39,6 +41,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   readonly error = signal<string | null>(null);
   readonly quantity = signal(MIN_TOKEN_QUANTITY);
   readonly showingSearchResults = computed(() => this.query().trim().length >= 2);
+  readonly showingDeckTokens = computed(() => this.kind === 'token' && !this.showingSearchResults());
   readonly deckTokenCards = computed(() => {
     const seen = new Set<string>();
 
@@ -55,13 +58,16 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   });
   readonly displayCards = computed(() => this.showingSearchResults()
     ? this.searchResults()
-    : this.deckTokenCards());
+    : this.kind === 'token'
+      ? this.deckTokenCards()
+      : this.searchResults());
 
   @Input() open = false;
+  @Input() kind: GameplayCardSearchKind = 'token';
   @Input() deckId: string | null = null;
   @Input() pending = false;
 
-  @Output() tokenSelected = new EventEmitter<TokenSearchSelection>();
+  @Output() cardSelected = new EventEmitter<GameplayCardSearchSelection>();
   @Output() closed = new EventEmitter<void>();
 
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -78,7 +84,11 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    if (changes['deckId'] || changes['open']) {
+    if (changes['kind']) {
+      this.resetSearch();
+    }
+
+    if (this.kind === 'token' && (changes['deckId'] || changes['open'] || changes['kind'])) {
       void this.loadDeckTokens();
     }
   }
@@ -97,26 +107,44 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
     this.clearSearchTimeout();
 
     const trimmed = query.trim();
+    const version = ++this.searchVersion;
     if (trimmed.length < 2) {
+      if (this.kind === 'token') {
+        this.searchResults.set([]);
+        this.searching.set(false);
+        this.error.set(null);
+        return;
+      }
+
+      this.error.set(null);
       this.searchResults.set([]);
       this.searching.set(false);
-      this.error.set(null);
       return;
     }
 
     this.searching.set(true);
-    const version = ++this.searchVersion;
+    this.error.set(null);
     this.searchTimeout = setTimeout(() => {
-      void this.searchTokens(trimmed, version);
-    }, 320);
+      if (this.kind === 'token') {
+        void this.searchTokens(trimmed, version);
+        return;
+      }
+
+      void this.searchGameplayCards(trimmed, version, this.kind);
+    }, SEARCH_DEBOUNCE_MS);
   }
 
-  selectToken(card: Card): void {
+  selectCard(card: Card): void {
     if (this.pending) {
       return;
     }
 
-    this.tokenSelected.emit({ card, quantity: this.quantity() });
+    if (this.kind === 'token') {
+      this.cardSelected.emit({ kind: 'token', card, quantity: this.quantity() });
+      return;
+    }
+
+    this.cardSelected.emit({ kind: this.kind, card });
   }
 
   onQuantityInput(value: string | number): void {
@@ -142,9 +170,54 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   }
 
   sourceLabel(card: Card): string | null {
+    if (this.kind !== 'token') {
+      return null;
+    }
+
     const source = this.deckTokens().find((entry) => entry.token.scryfallId === card.scryfallId)?.sourceCard.name;
 
     return source ? `from ${source}` : null;
+  }
+
+  modalTitle(): string {
+    return this.kind === 'token'
+      ? 'Create token'
+      : this.kind === 'emblem'
+        ? 'Add emblem'
+        : 'Add dungeon';
+  }
+
+  searchPlaceholder(): string {
+    return this.kind === 'token'
+      ? 'Search tokens'
+      : this.kind === 'emblem'
+        ? 'Search emblems'
+        : 'Search dungeons';
+  }
+
+  resultsLabel(): string {
+    const count = this.displayCards().length;
+    if (this.kind === 'token') {
+      return this.showingDeckTokens()
+        ? `${this.deckTokenCards().length} deck tokens`
+        : `${count} token results`;
+    }
+
+    return `${count} ${this.kind} results`;
+  }
+
+  emptyStateLabel(): string {
+    if (this.kind === 'token') {
+      return this.showingSearchResults() ? 'No tokens found.' : 'This deck has no detected tokens.';
+    }
+
+    return this.kind === 'emblem' ? 'No emblems found.' : 'No dungeons found.';
+  }
+
+  addButtonLabel(card: Card): string {
+    return this.kind === 'token'
+      ? `Create ${this.quantity()} ${card.name}`
+      : `Add ${card.name}`;
   }
 
   private async loadDeckTokens(): Promise<void> {
@@ -201,7 +274,42 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
     }
   }
 
+  private async searchGameplayCards(
+    query: string,
+    version: number,
+    kind: 'emblem' | 'dungeon',
+  ): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.cardsApi.search(query, 1, CARD_SEARCH_LIMIT, { gameplayKind: kind }));
+      if (this.isStaleGameplaySearch(version, query, kind)) {
+        return;
+      }
+
+      this.searchResults.set(filterDistinctCardsByQuery(response.data, query));
+      this.error.set(null);
+    } catch {
+      if (version === this.searchVersion) {
+        this.searchResults.set([]);
+        this.error.set(`Could not load ${kind}s.`);
+      }
+    } finally {
+      if (version === this.searchVersion) {
+        this.searching.set(false);
+      }
+    }
+  }
+
+  private isStaleGameplaySearch(version: number, query: string, kind: 'emblem' | 'dungeon'): boolean {
+    const currentQuery = this.query().trim();
+    const queryMatches = query === ''
+      ? currentQuery.length === 0
+      : query === currentQuery;
+
+    return version !== this.searchVersion || !queryMatches || this.kind !== kind;
+  }
+
   private resetSearch(): void {
+    this.searchVersion++;
     this.query.set('');
     this.searchResults.set([]);
     this.searching.set(false);

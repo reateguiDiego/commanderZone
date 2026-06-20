@@ -60,9 +60,10 @@ describe('TokenSearchModalComponent', () => {
     vi.useFakeTimers();
     try {
       const selected = vi.fn();
-      fixture.componentInstance.tokenSelected.subscribe(selected);
+      fixture.componentInstance.cardSelected.subscribe(selected);
 
       fixture.componentInstance.onQueryInput('goblin');
+      expect(cardsApi.search).not.toHaveBeenCalled();
       vi.advanceTimersByTime(320);
       await fixture.whenStable();
       fixture.detectChanges();
@@ -74,6 +75,7 @@ describe('TokenSearchModalComponent', () => {
       fixture.detectChanges();
       fixture.nativeElement.querySelector('.token-add-button')?.click();
       expect(selected).toHaveBeenCalledWith({
+        kind: 'token',
         card: expect.objectContaining({ scryfallId: 'token-2' }),
         quantity: 3,
       });
@@ -92,21 +94,117 @@ describe('TokenSearchModalComponent', () => {
     fixture.componentInstance.onQuantityInput('0');
     expect(fixture.componentInstance.quantity()).toBe(1);
   });
+
+  it('searches emblems by gameplayKind and emits selected emblem without quantity controls', async () => {
+    const selected = vi.fn();
+    cardsApi.search.mockReturnValue(of({ data: [cardFixture('emblem-1', 'Chandra Emblem', 'Emblem', 'emblem')], page: 1, limit: 500 }));
+    fixture.componentInstance.cardSelected.subscribe(selected);
+
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('kind', 'emblem');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(decksApi.tokens).not.toHaveBeenCalled();
+    expect(cardsApi.search).not.toHaveBeenCalled();
+
+    vi.useFakeTimers();
+    try {
+      fixture.componentInstance.onQueryInput('ch');
+      await vi.advanceTimersByTimeAsync(320);
+      fixture.detectChanges();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(cardsApi.search).toHaveBeenCalledWith('ch', 1, 500, { gameplayKind: 'emblem' });
+    expect(fixture.nativeElement.textContent).toContain('Chandra Emblem');
+    expect(fixture.nativeElement.querySelector('app-game-x-quantity-stepper')).toBeNull();
+
+    fixture.nativeElement.querySelector('.token-add-button')?.click();
+
+    expect(selected).toHaveBeenCalledWith({
+      kind: 'emblem',
+      card: expect.objectContaining({ scryfallId: 'emblem-1' }),
+    });
+  });
+
+  it('searches dungeons by gameplayKind after debounce without quantity controls', async () => {
+    vi.useFakeTimers();
+    try {
+      fixture.componentRef.setInput('open', true);
+      fixture.componentRef.setInput('kind', 'dungeon');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(cardsApi.search).not.toHaveBeenCalled();
+      cardsApi.search.mockReturnValueOnce(of({ data: [cardFixture('dungeon-1', 'Undercity', 'Dungeon', 'dungeon')], page: 1, limit: 500 }));
+
+      fixture.componentInstance.onQueryInput('under');
+      expect(cardsApi.search).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(320);
+      fixture.detectChanges();
+
+      expect(cardsApi.search).toHaveBeenNthCalledWith(1, 'under', 1, 500, { gameplayKind: 'dungeon' });
+      expect(fixture.nativeElement.textContent).toContain('Undercity');
+      expect(fixture.nativeElement.querySelector('app-game-x-quantity-stepper')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not search emblem or dungeon cards until the query has more than one character', async () => {
+    vi.useFakeTimers();
+    try {
+      fixture.componentRef.setInput('open', true);
+      fixture.componentRef.setInput('kind', 'dungeon');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      cardsApi.search.mockReturnValue(of({ data: [cardFixture('dungeon-search', 'Dungeon of the Mad Mage', 'Dungeon', 'dungeon')], page: 1, limit: 500 }));
+
+      fixture.componentInstance.onQueryInput('u');
+      expect(cardsApi.search).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(320);
+      expect(cardsApi.search).not.toHaveBeenCalled();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('No dungeons found.');
+
+      fixture.componentInstance.onQueryInput('du');
+      await vi.advanceTimersByTimeAsync(320);
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      expect(cardsApi.search).toHaveBeenCalledOnce();
+      expect(cardsApi.search).toHaveBeenCalledWith('du', 1, 500, { gameplayKind: 'dungeon' });
+      expect(fixture.nativeElement.textContent).toContain('Dungeon of the Mad Mage');
+
+      cardsApi.search.mockClear();
+      fixture.componentInstance.onQueryInput('');
+      await vi.advanceTimersByTimeAsync(320);
+      fixture.detectChanges();
+
+      expect(cardsApi.search).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.textContent).toContain('No dungeons found.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
-function cardFixture(scryfallId: string, name: string): Card {
+function cardFixture(scryfallId: string, name: string, typeLine = 'Token Creature', layout = 'token'): Card {
   return {
     id: scryfallId,
     scryfallId,
     name,
     manaCost: null,
-    typeLine: 'Token Creature',
+    typeLine,
     oracleText: null,
     colors: [],
     colorIdentity: ['G'],
     legalities: {},
     imageUris: { normal: `https://cards.test/${scryfallId}.jpg` },
-    layout: 'token',
+    layout,
     commanderLegal: false,
     set: 'tst',
     collectorNumber: '1',

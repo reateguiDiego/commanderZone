@@ -62,6 +62,10 @@
               [manaSymbols]="manaSymbols"
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="canControlPlayer(summaryPlayer.id)"
+              [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
+              (helperPreviewRequested)="showHelperPreview($event)"
+              (helperPreviewHidden)="store.hideCardPreview()"
+              (helperContextRequested)="handleHelperContextRequest($event)"
               (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
               (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.commanderInstanceId, $event.delta)"
               (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
@@ -296,11 +300,15 @@
                 [player]="battlefieldOwner"
                 [players]="store.players()"
                 [colorAccent]="colorAccent"
-                [deckLabel]="deckLabel"
-                [manaSymbols]="manaSymbols"
-                [playerCounterValue]="playerCounterValue"
-                [canEditCounters]="false"
-                (returnRequested)="returnToCurrentPlayerBattlefield()"
+              [deckLabel]="deckLabel"
+              [manaSymbols]="manaSymbols"
+              [playerCounterValue]="playerCounterValue"
+              [canEditCounters]="false"
+              [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
+              (helperPreviewRequested)="showHelperPreview($event)"
+              (helperPreviewHidden)="store.hideCardPreview()"
+              (helperContextRequested)="handleHelperContextRequest($event)"
+              (returnRequested)="returnToCurrentPlayerBattlefield()"
               />
             </div>
           }
@@ -317,6 +325,7 @@
             [isCurrentPlayer]="isCurrentPlayer"
             [allowArrowTargetSelection]="manualRelationTargetingActive()"
             [focusEffectsEnabled]="focusEffectsEnabled()"
+            [mechanicCards]="battlefieldMechanicCardsForPlayer(player.id)"
             [isDropZoneHighlighted]="isDropZoneHighlighted"
             [cardPosition]="cardPosition"
             [isSelected]="isSelected"
@@ -327,6 +336,8 @@
             [shouldShowPowerToughness]="shouldShowPowerToughness"
             [cardPowerValue]="cardPowerValue"
             [cardToughnessValue]="cardToughnessValue"
+            [cardBattleValue]="cardBattleValue"
+            [cardLoyaltyValue]="cardLoyaltyValue"
             [firstCounter]="firstCounter"
             [alignmentGuideFor]="alignmentGuideFor"
             [isManaLaneHighlighted]="isManaLaneHighlighted"
@@ -350,14 +361,19 @@
             (cardPointerDown)="startBattlefieldPointerDrag($event.event, $event.playerId, $event.card)"
             (cardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
             (cardDoubleClicked)="handleBattlefieldCardDoubleClicked($event)"
-            (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card)"
+            (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card, { forceOpenLeft: $event.forceOpenLeft })"
             (cardPreviewShown)="store.showCardPreview($event)"
+            (cardPreviewRequested)="store.showImmediateCardPreview($event)"
             (cardPreviewHidden)="store.hideCardPreview()"
             (cardPowerChanged)="store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardToughnessChanged)="store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)"
+            (cardBattleChanged)="store.changeCardBattle($event.playerId, $event.zone, $event.card, $event.delta)"
+            (cardSagaChanged)="store.changeCardSaga($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardLoyaltyChanged)="store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardCounterChanged)="store.changeCardCounterForCard($event.playerId, $event.zone, $event.card, $event.key, $event.delta)"
             (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
+            (dungeonMarkerChanged)="store.changeDungeonMarker($event.playerId, $event.card, $event.marker)"
+            (dungeonMarkerPreviewChanged)="store.updateDungeonMarkerPreview($event.card, $event.marker)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="handleManaLaneDrop($event)"
             (manaPoolColorAdded)="store.incrementMana($event.playerId, $event.color)"
@@ -468,8 +484,13 @@
               [isActiveTurnPlayer]="snapshot.turn.activePlayerId === player.id"
               [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
               [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
+              [specialEntitiesSummary]="playerSpecialEntitiesSummary(player.id)"
+              [mechanicCards]="battlefieldMechanicCardsForPlayer(player.id)"
               [battlefieldSize]="battlefieldLayoutSize()"
               (focusPlayer)="focusOpponentFromSidebar($event)"
+              (helperPreviewRequested)="showHelperPreview($event)"
+              (helperPreviewHidden)="store.hideCardPreview()"
+              (helperContextRequested)="handleHelperContextRequest($event)"
               (dropAllowed)="store.allowDrop($event)"
               (playerDropped)="handlePlayerDrop($event)"
               (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
@@ -572,12 +593,42 @@
       />
 
       <app-token-search-modal
-        [open]="tokenSearchPlayerId() !== null"
+        [open]="gameplayCardSearchRequest() !== null"
+        [kind]="gameplayCardSearchRequest()?.kind ?? 'token'"
         [deckId]="store.currentDeckId()"
-        [pending]="tokenSearchPending()"
-        (tokenSelected)="createSelectedToken($event)"
-        (closed)="closeTokenSearchModal()"
+        [pending]="gameplayCardSearchPending()"
+        (cardSelected)="createSelectedGameplayCard($event)"
+        (closed)="closeGameplayCardSearchModal()"
       />
+
+      @if (pendingDungeonReplacement(); as replacement) {
+        <app-modal
+          [open]="true"
+          [title]="'game.specialHelpers.dungeonReplacement.title' | runtimeTranslate"
+          [message]="'game.specialHelpers.dungeonReplacement.message' | runtimeTranslate:{ currentDungeon: replacement.currentDungeonName, nextDungeon: replacement.card.name }"
+          [primaryLabel]="'game.specialHelpers.dungeonReplacement.confirm' | runtimeTranslate"
+          [secondaryLabel]="'game.specialHelpers.dungeonReplacement.cancel' | runtimeTranslate"
+          [primaryDisabled]="dungeonReplacementPending()"
+          [lockBodyScroll]="false"
+          size="compact"
+          (primary)="confirmDungeonReplacement()"
+          (secondary)="cancelDungeonReplacement()"
+        />
+      }
+
+      @if (pendingCitysBlessingRemoval()) {
+        <app-modal
+          [open]="true"
+          [title]="'game.specialHelpers.citysBlessingRemoval.title' | runtimeTranslate"
+          [message]="'game.specialHelpers.citysBlessingRemoval.message' | runtimeTranslate"
+          [primaryLabel]="'game.specialHelpers.citysBlessingRemoval.confirm' | runtimeTranslate"
+          [secondaryLabel]="'game.specialHelpers.citysBlessingRemoval.cancel' | runtimeTranslate"
+          [lockBodyScroll]="false"
+          size="compact"
+          (primary)="confirmCitysBlessingRemoval()"
+          (secondary)="cancelCitysBlessingRemoval()"
+        />
+      }
 
       @if (rollModalOpen()) {
         <app-roll-modal
@@ -715,14 +766,23 @@
             } @else {
               <span>{{ preview.card.name }}</span>
             }
+            @let battleValue = cardBattleValue(preview.card);
+            @let loyaltyValue = cardLoyaltyValue(preview.card);
+            @if (dungeonMarkerForCard(preview.card); as marker) {
+              <app-dungeon-location-pin [marker]="marker" [size]="dungeonPinSizeForWidth(preview.width)" />
+            }
             <app-card-marker-rail [showTokenCopyMarker]="preview.card.isTokenCopy === true" [counters]="cardCounters(preview.card)" />
             @if (!preview.card.faceDown && shouldShowPowerToughness(preview.card)) {
               <span class="power-toughness-overlay" aria-hidden="true">
                 <span>{{ cardPowerValue(preview.card) }}</span>
                 <span>{{ cardToughnessValue(preview.card) }}</span>
               </span>
-            } @else if (!preview.card.faceDown && preview.card.loyalty !== null && preview.card.loyalty !== undefined) {
-              <app-loyalty-counter [value]="preview.card.loyalty" [pulse]="null" [entrySettling]="false" />
+            } @else if (!preview.card.faceDown) {
+              @if (battleValue !== null) {
+                <app-battle-counter [value]="battleValue" [pulse]="null" [entrySettling]="false" />
+              } @else if (loyaltyValue !== null) {
+                <app-loyalty-counter [value]="loyaltyValue" [pulse]="null" [entrySettling]="false" />
+              }
             }
           </div>
           @if (preview.count > 1) {
@@ -744,10 +804,28 @@
       }
     </main>
 
+    @if (store.mulliganActive()) {
+      <app-mulligan-overlay
+        [gamePhase]="store.mulliganGamePhase()"
+        [config]="store.mulliganConfig()"
+        [currentPlayerId]="store.currentPlayer()?.id ?? null"
+        [currentMulligan]="store.currentMulligan()"
+        [hand]="store.currentMulliganHand()"
+        [publicPlayers]="store.mulliganPublicPlayers()"
+        [pending]="store.mulliganPending()"
+        [error]="store.mulliganError()"
+        [cardImage]="cardImage"
+        (take)="store.takeMulligan()"
+        (keep)="store.keepMulligan($event)"
+        (scryConfirmed)="store.confirmMulliganScry($event)"
+      />
+    }
+
     @if (store.hoveredPreview(); as preview) {
       <app-card-preview-overlay
         [card]="preview.card"
         [image]="store.cardImage(preview.card)"
+        [dungeonMarkerOverride]="hoveredPreviewDungeonMarkerOverride()"
         [sourceRect]="preview.sourceRect"
         [avoidRect]="contextMenuAvoidRect()"
         [battlefieldRect]="battlefieldLayoutSize()"
@@ -789,6 +867,11 @@
         [isManaPoolHidden]="store.isManaPoolHidden"
         [zoneTitle]="zoneTitle"
         [ownedArrowCount]="ownedArrowCount(menu.playerId)"
+        [activeDayNight]="activeDayNight()"
+        [monarchOwnerPlayerId]="monarchOwnerPlayerId()"
+        [initiativeOwnerPlayerId]="initiativeOwnerPlayerId()"
+        [playerHasCitysBlessing]="playerHasCitysBlessing"
+        [playerHasTheRing]="playerHasTheRing"
         (interacted)="store.clearCardPreview()"
         (actionSelected)="handleContextMenuAction($event, menu)"
         (close)="store.closeContextMenu()"

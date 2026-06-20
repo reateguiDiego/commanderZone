@@ -1,7 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Biohazard, ChevronDown, LucideAngularModule, Minus, Plus, Radiation, Sparkles, Tickets, Zap } from 'lucide-angular';
-import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { Biohazard, ChevronDown, Circle, Crown, Flag, Library, LucideAngularModule, Minus, Plus, Radiation, Sparkles, Tickets, Zap } from 'lucide-angular';
+import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../state/core/game-table-snapshot-selectors';
 import {
   PLAYER_SUMMARY_ACTION_DEBOUNCE_MS,
@@ -13,7 +13,7 @@ describe('PlayerSummaryPanelComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PlayerSummaryPanelComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ Biohazard, ChevronDown, Minus, Plus, Radiation, Sparkles, Tickets, Zap }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ Biohazard, ChevronDown, Circle, Crown, Flag, Library, Minus, Plus, Radiation, Sparkles, Tickets, Zap }))],
     }).compileComponents();
   });
 
@@ -305,6 +305,107 @@ describe('PlayerSummaryPanelComponent', () => {
 
     expect(returnRequested).toHaveBeenCalledOnce();
   });
+
+  it('renders the mechanics strip only when there are helper entities', () => {
+    const emptyFixture = createFixture();
+
+    expect(emptyFixture.nativeElement.querySelector('[data-testid="special-entity-strip"]')).toBeNull();
+    expect(emptyFixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
+
+    const fixture = createFixture({
+      specialEntities: [
+        helperEntity('monarch', 'player-1'),
+        helperEntity('citys_blessing', 'player-1'),
+      ],
+    });
+
+    const strip = fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]') as HTMLElement;
+
+    expect(strip.dataset['variant']).toBe('summary');
+    expect(strip.textContent).toContain('Monarch');
+    expect(strip.textContent).toContain("City's blessing");
+    expect(strip.querySelector('[aria-label="Monarch"]')).not.toBeNull();
+    expect(strip.querySelector('.ms-ability-ascend')).not.toBeNull();
+    expect(strip.querySelector('.ms-ability-role-royal')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
+  });
+
+  it('forwards helper hover previews from the mechanics rail', () => {
+    const fixture = createFixture({
+      specialEntities: [
+        {
+          ...helperEntity('citys_blessing', 'player-1'),
+          card: {
+            scryfallId: 'citys-blessing-1',
+            name: "City's Blessing",
+            imageUris: { normal: 'https://cards.example/citys-blessing.jpg' },
+            cardFaces: [],
+            typeLine: 'Card',
+            oracleText: null,
+            layout: 'token',
+          },
+        },
+      ],
+    });
+    const previewRequested = vi.fn();
+    const previewHidden = vi.fn();
+    fixture.componentInstance.helperPreviewRequested.subscribe(previewRequested);
+    fixture.componentInstance.helperPreviewHidden.subscribe(previewHidden);
+
+    const helper = fixture.nativeElement.querySelector('.special-entity-pill-card-backed') as HTMLElement;
+    helper.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    helper.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+
+    expect(previewRequested).toHaveBeenCalledWith(expect.objectContaining({
+      template: 'citys_blessing',
+    }));
+    expect(previewHidden).toHaveBeenCalled();
+  });
+
+  it("forwards City's Blessing context requests from the mechanics rail", () => {
+    const fixture = createFixture({
+      specialEntities: [
+        {
+          ...helperEntity('citys_blessing', 'player-1'),
+          card: {
+            scryfallId: 'citys-blessing-1',
+            name: "City's Blessing",
+            imageUris: { normal: 'https://cards.example/citys-blessing.jpg' },
+            cardFaces: [],
+            typeLine: 'Card',
+            oracleText: null,
+            layout: 'token',
+          },
+        },
+      ],
+    });
+    const requested = vi.fn();
+    fixture.componentInstance.helperContextRequested.subscribe(requested);
+
+    const helper = fixture.nativeElement.querySelector('.special-entity-pill-card-backed') as HTMLElement;
+    helper.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+
+    expect(requested).toHaveBeenCalledWith(expect.objectContaining({
+      entity: expect.objectContaining({ template: 'citys_blessing' }),
+    }));
+  });
+
+  it('keeps the mechanics strip visible while life controls are read-only', () => {
+    const fixture = createFixture({
+      canEditCounters: false,
+      specialEntities: [
+        helperEntity('monarch', 'player-1'),
+      ],
+    });
+
+    const strip = fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]') as HTMLElement;
+
+    expect(fixture.nativeElement.querySelector('[data-testid="life-decrease"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="life-increase"]')).toBeNull();
+    expect(strip).not.toBeNull();
+    expect(strip.textContent).toContain('Monarch');
+    expect(fixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
+  });
 });
 
 function createFixture(
@@ -317,6 +418,7 @@ function createFixture(
     returnActionLabel?: string;
     commanderDamage?: Record<string, number>;
     opponentCommanders?: GameCardInstance[];
+    specialEntities?: readonly GameSpecialEntity[];
   } = {},
 ): ComponentFixture<PlayerSummaryPanelComponent> {
   const fixture = TestBed.createComponent(PlayerSummaryPanelComponent);
@@ -336,6 +438,7 @@ function createFixture(
     options.counterValues ? options.counterValues[key] ?? 0 : key === 'poison' ? 3 : 0
   ));
   fixture.componentRef.setInput('canEditCounters', options.canEditCounters ?? true);
+  fixture.componentRef.setInput('specialEntities', options.specialEntities ?? []);
   fixture.componentRef.setInput('contextLabel', options.contextLabel ?? null);
   fixture.componentRef.setInput('returnActionLabel', options.returnActionLabel ?? null);
   fixture.detectChanges();
@@ -391,5 +494,21 @@ function card(instanceId: string, name: string): GameCardInstance {
     typeLine: 'Legendary Creature',
     tapped: false,
     isCommander: true,
+  };
+}
+
+function helperEntity(
+  template: GameSpecialEntity['template'],
+  ownerPlayerId: string | null,
+  state: Record<string, unknown> = {},
+): GameSpecialEntity {
+  return {
+    id: `${template}-${ownerPlayerId ?? 'global'}`,
+    template,
+    scope: ownerPlayerId ? 'player' : 'global',
+    ownerPlayerId,
+    card: null,
+    state,
+    createdAt: '2026-01-01T00:00:00.000Z',
   };
 }

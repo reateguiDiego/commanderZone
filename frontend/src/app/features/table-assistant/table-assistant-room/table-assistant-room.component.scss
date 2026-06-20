@@ -127,12 +127,6 @@ button:disabled {
   opacity: 0.45;
 }
 
-.primary-button {
-  border-color: var(--cz-info);
-  background: var(--cz-info);
-  color: var(--cz-surface);
-}
-
 .symbol-button {
   display: inline-grid;
   place-items: center;

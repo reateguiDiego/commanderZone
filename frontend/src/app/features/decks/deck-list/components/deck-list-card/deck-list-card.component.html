@@ -1,0 +1,51 @@
+<article
+  class="deck-list-row deck-row-clickable"
+  [class.has-commander-art]="hasCommanderArt()"
+  [class.has-dual-commander-art]="hasDualCommanderArt()"
+  [style.--deck-commander-art]="commanderBackground()"
+  [style.--deck-secondary-commander-art]="secondaryCommanderBackground()"
+  role="link"
+  tabindex="0"
+  (click)="open($event)"
+  (keydown.enter)="open($event)"
+>
+  @if (hasDualCommanderArt()) {
+    <div class="deck-dual-commander-art" aria-hidden="true">
+      <div class="deck-dual-commander-art-pane deck-dual-commander-art-pane-primary"></div>
+      <div class="deck-dual-commander-art-pane deck-dual-commander-art-pane-secondary"></div>
+    </div>
+  }
+
+  <div class="deck-card-topline">
+    <strong>{{ deck().name }}</strong>
+    @if (colorIdentity(); as colors) {
+      <app-mana-symbols class="deck-commander-colors" [symbols]="colors" fallback="Colorless" size="small" />
+    }
+  </div>
+
+  <div class="deck-card-footer">
+    <span
+      class="visibility-pill"
+      [class.public]="deck().visibility === 'public'"
+      [attr.title]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
+      [attr.aria-label]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
+    >
+      <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" aria-hidden="true" />
+    </span>
+    @if (hasIssues()) {
+      <div class="deck-card-status">
+        <span class="deck-list-warning" [attr.title]="issueTooltip()" aria-label="Deck warnings">
+          <lucide-icon name="triangle-alert" size="16" />
+        </span>
+      </div>
+    }
+    <div class="deck-row-actions" (pointerdown)="handleDeckActionPointer($event)" (mousedown)="handleDeckActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+      <button czButton="icon" class="icon-button" type="button" title="Edit deck" (click)="edit($event)">
+        <lucide-icon name="pencil" size="16" />
+      </button>
+      <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" title="Delete deck" (click)="delete($event)">
+        <lucide-icon name="trash-2" size="16" />
+      </button>
+    </div>
+  </div>
+</article>

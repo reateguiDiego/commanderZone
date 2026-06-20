@@ -90,6 +90,34 @@ describe('HeaderUserMenuComponent', () => {
     expect(fixture.nativeElement.querySelector('.header-menu-panel')).toBeNull();
   });
 
+  it('emits when the menu opens', () => {
+    const fixture = TestBed.createComponent(HeaderUserMenuComponent);
+    const openedSpy = vi.fn();
+    fixture.componentInstance.menuOpened.subscribe(openedSpy);
+    fixture.detectChanges();
+
+    const trigger = fixture.nativeElement.querySelector('.icon-button') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    expect(openedSpy).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('.header-menu-panel')).toBeTruthy();
+  });
+
+  it('closes when pointerdown happens outside the menu', () => {
+    const fixture = TestBed.createComponent(HeaderUserMenuComponent);
+    fixture.detectChanges();
+
+    const trigger = fixture.nativeElement.querySelector('.icon-button') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.header-menu-panel')).toBeNull();
+  });
+
   it('emits fullscreen when selecting fullscreen option', () => {
     const fixture = TestBed.createComponent(HeaderUserMenuComponent);
     const fullscreenSpy = vi.fn();

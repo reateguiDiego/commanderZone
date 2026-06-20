@@ -95,8 +95,8 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 4
-            maxLength: 25
+            minLength: 2
+            maxLength: 20
       responses:
         '200':
           description: User name availability.
@@ -264,8 +264,8 @@ paths:
               properties:
                 displayName:
                   type: string
-                  minLength: 4
-                  maxLength: 25
+                  minLength: 2
+                  maxLength: 20
                 email:
                   type: string
                   format: email
@@ -274,7 +274,7 @@ paths:
                   enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
                 appLanguage:
                   type: string
-                  enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+                  enum: [en, fr, de, it, es, ja, zhs, pt, ru, nl, ca]
       responses:
         '200':
           description: Updated user.
@@ -298,6 +298,43 @@ paths:
       responses:
         '204':
           description: Account deleted.
+  /themes:
+    get:
+      tags: [Auth]
+      summary: Get the authenticated user's selected app theme.
+      responses:
+        '200':
+          description: Current theme preference.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemePreferenceResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+    put:
+      tags: [Auth]
+      summary: Update the authenticated user's selected app theme.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [themeId]
+              properties:
+                themeId:
+                  $ref: '#/components/schemas/AppThemeId'
+      responses:
+        '200':
+          description: Updated theme preference.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemePreferenceResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
   /me/avatar:
@@ -441,7 +478,7 @@ paths:
   /friends/search:
     get:
       tags: [Friends]
-      summary: Search users by email or display name.
+      summary: Search users by display name.
       parameters:
         - name: q
           in: query
@@ -485,7 +522,7 @@ paths:
   /friends/requests:
     post:
       tags: [Friends]
-      summary: Send a friend request by exact email or user id.
+      summary: Send a friend request by user id.
       requestBody:
         required: true
         content:
@@ -641,6 +678,12 @@ paths:
           description: When true, restricts results to token cards in the local catalog.
           schema:
             type: boolean
+        - name: gameplayKind
+          in: query
+          description: Additive gameplay helper search filter for token, emblem, or dungeon cards.
+          schema:
+            type: string
+            enum: [token, emblem, dungeon]
         - name: lang
           in: query
           description: Preferred card language. Falls back to English, then to the original printing.
@@ -666,6 +709,18 @@ paths:
                     type: integer
         '400':
           $ref: '#/components/responses/Error'
+  /cards/languages:
+    get:
+      tags: [Cards]
+      summary: List available card languages and the current card-language selection.
+      description: Returns card-language coverage relative to English. Common print languages are excluded from the selectable list.
+      responses:
+        '200':
+          description: Card language coverage and current selection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardLanguagesResponse'
   /cards/resolve:
     get:
       tags: [Cards]
@@ -834,23 +889,6 @@ paths:
                     $ref: '#/components/schemas/DeckFolder'
         '400':
           $ref: '#/components/responses/Error'
-  /deck-folders/names:
-    get:
-      tags: [DeckFolders]
-      summary: List authenticated user's deck folder names.
-      responses:
-        '200':
-          description: Lightweight deck folder names.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/DeckFolder'
   /deck-folders/{id}:
     patch:
       tags: [DeckFolders]
@@ -2652,8 +2690,8 @@ components:
           format: email
         displayName:
           type: string
-          minLength: 4
-          maxLength: 25
+          minLength: 2
+          maxLength: 20
         password:
           type: string
           minLength: 8
@@ -2910,7 +2948,7 @@ components:
           format: email
         displayName:
           type: string
-          maxLength: 25
+          maxLength: 20
         displayNameStyle:
           $ref: '#/components/schemas/UserDisplayNameStyle'
         preferences:
@@ -2929,14 +2967,51 @@ components:
           format: date-time
     UserPreferences:
       type: object
-      required: [cardLanguage, appLanguage]
+      required: [cardLanguage, appLanguage, themeId]
       properties:
         cardLanguage:
           type: string
           enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
         appLanguage:
           type: string
+          enum: [en, fr, de, it, es, ja, zhs, pt, ru, nl, ca]
+        themeId:
+          $ref: '#/components/schemas/AppThemeId'
+    AppThemeId:
+      type: string
+      enum: [sunrise, arcade-neon-clash, candy-summoners, treasure-tavern, cyber-duel-arena, mystic-grove]
+    ThemePreferenceResponse:
+      type: object
+      required: [themeId]
+      properties:
+        themeId:
+          $ref: '#/components/schemas/AppThemeId'
+    CardLanguagesResponse:
+      type: object
+      required: [selectedCardLanguage, data]
+      properties:
+        selectedCardLanguage:
+          type: string
           enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardLanguageCoverage'
+    CardLanguageCoverage:
+      type: object
+      required: [code, label, distinctCardNames, percentageOfEnglish]
+      properties:
+        code:
+          type: string
+          enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+        label:
+          type: string
+        distinctCardNames:
+          type: integer
+          minimum: 0
+        percentageOfEnglish:
+          type: number
+          format: float
     FriendUser:
       type: object
       required: [id, displayName]
@@ -2957,14 +3032,11 @@ components:
       enum: [online, in_game, offline]
     FriendSearchResult:
       type: object
-      required: [id, email, displayName]
+      required: [id, displayName]
       properties:
         id:
           type: string
           format: uuid
-        email:
-          type: string
-          format: email
         displayName:
           type: string
         displayNameStyle:
@@ -2999,10 +3071,8 @@ components:
           format: date-time
     FriendRequestCreateRequest:
       type: object
+      required: [userId]
       properties:
-        email:
-          type: string
-          format: email
         userId:
           type: string
           format: uuid
@@ -4015,6 +4085,13 @@ components:
               minimum: 30
               maximum: 1800
               default: 300
+            mulliganRule:
+              type: string
+              enum: [LONDON, VANCOUVER, PARIS, GENEROUS]
+              default: LONDON
+            firstMulliganFree:
+              type: boolean
+              description: Defaults to true for Commander rooms and false for other formats.
     UpdateRoomRequest:
       type: object
       properties:
@@ -4033,6 +4110,11 @@ components:
           type: integer
           minimum: 30
           maximum: 1800
+        mulliganRule:
+          type: string
+          enum: [LONDON, VANCOUVER, PARIS, GENEROUS]
+        firstMulliganFree:
+          type: boolean
     CreateRoomInviteRequest:
       type: object
       required: [userId]
@@ -4042,7 +4124,7 @@ components:
           format: uuid
     Room:
       type: object
-      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players, waitingLog, createdAt, updatedAt]
+      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, mulliganRule, firstMulliganFree, players, waitingLog, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -4077,6 +4159,11 @@ components:
           type: integer
           minimum: 30
           maximum: 1800
+        mulliganRule:
+          type: string
+          enum: [LONDON, VANCOUVER, PARIS, GENEROUS]
+        firstMulliganFree:
+          type: boolean
         players:
           type: array
           items:
@@ -4171,7 +4258,7 @@ components:
       enum: [owner, player, owner_player]
     CurrentRoomSummary:
       type: object
-      required: [id, name, status, visibility, format, maxPlayers, playerCount, gameId]
+      required: [id, name, status, visibility, format, maxPlayers, mulliganRule, firstMulliganFree, playerCount, gameId]
       properties:
         id:
           type: string
@@ -4191,6 +4278,11 @@ components:
           type: integer
           minimum: 2
           maximum: 6
+        mulliganRule:
+          type: string
+          enum: [LONDON, VANCOUVER, PARIS, GENEROUS]
+        firstMulliganFree:
+          type: boolean
         playerCount:
           type: integer
           minimum: 0
@@ -4261,7 +4353,7 @@ components:
           format: date-time
     GameSnapshot:
       type: object
-      required: [version, players, turn, stack, arrows, attachments, chat, eventLog, createdAt]
+      required: [version, players, turn, stack, arrows, attachments, specialEntities, chat, eventLog, createdAt]
       properties:
         version:
           type: integer
@@ -4288,6 +4380,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GameAttachment'
+        specialEntities:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameSpecialEntity'
         chat:
           type: array
           items:
@@ -4435,20 +4531,53 @@ components:
             type: string
             enum: [W, U, B, R, G]
         power:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Current power. Can be a printed non-numeric value such as X or *.
         toughness:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Current toughness. Can be a printed non-numeric value such as X or *.
         loyalty:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Current loyalty. Can be a printed non-numeric value.
+        defense:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Current battle defense. Can be a printed non-numeric value.
         defaultPower:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
           description: Printed/default power used to reset battlefield stat changes.
         defaultToughness:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
           description: Printed/default toughness used to reset battlefield stat changes.
         defaultLoyalty:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
           description: Printed/default loyalty used to reset battlefield loyalty changes.
+        defaultDefense:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Printed/default battle defense used to reset battlefield defense changes.
         tapped:
           type: boolean
         faceDown:
@@ -4759,6 +4888,55 @@ components:
         createdAt:
           type: string
           format: date-time
+    GameSpecialEntity:
+      type: object
+      required: [id, template, scope, ownerPlayerId, card, state, createdAt]
+      properties:
+        id:
+          type: string
+        template:
+          type: string
+          enum: [monarch, initiative, citys_blessing, day_night, the_ring, emblem, dungeon]
+        scope:
+          type: string
+          enum: [global, player]
+        ownerPlayerId:
+          type: [string, 'null']
+          format: uuid
+        card:
+          oneOf:
+            - $ref: '#/components/schemas/GameSpecialEntityCardRef'
+            - type: 'null'
+        state:
+          type: object
+          description: Template-specific manual helper state persisted for realtime synchronization.
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    GameSpecialEntityCardRef:
+      type: object
+      required: [scryfallId, name]
+      properties:
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        imageUris:
+          type: object
+          additionalProperties:
+            type: string
+        cardFaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFace'
+        typeLine:
+          type: [string, 'null']
+        oracleText:
+          type: [string, 'null']
+        layout:
+          type: [string, 'null']
     GameCommand:
       type: object
       required: [type, payload]
@@ -4780,6 +4958,7 @@ components:
             - cards.moved
             - card.tapped
             - card.position.changed
+            - card.dungeon_marker.changed
             - cards.position.changed
             - card.face_down.changed
             - card.face.changed
@@ -4806,6 +4985,9 @@ components:
             - arrow.removed
             - attachment.created
             - attachment.removed
+            - helper.created
+            - helper.updated
+            - helper.removed
         payload:
           type: object
           description: >
@@ -4853,7 +5035,9 @@ components:
             provided. It may include quantity from 1 to 20 to create multiple
             token instances atomically in one command. cards.position.changed
             persists multiple battlefield card positions atomically with payload shape { playerId, zone:
-            battlefield, positions: [{ instanceId, position }] }.
+            battlefield, positions: [{ instanceId, position }] }. helper.created
+            accepts { template, ownerPlayerId?, card?, state? }; helper.updated
+            accepts { entityId, state }; helper.removed accepts { entityId }.
           additionalProperties: true
         clientActionId:
           type: string

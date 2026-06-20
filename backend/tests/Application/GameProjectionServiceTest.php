@@ -100,6 +100,52 @@ class GameProjectionServiceTest extends TestCase
         self::assertArrayNotHasKey('hidden', $library[0]);
     }
 
+    public function testMulliganProjectionDoesNotExposeOwnLibraryButIncludesPrivateScryCard(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($owner->id(), $opponent->id());
+        $snapshot['gamePhase'] = 'MULLIGAN';
+        $snapshot['mulligan'] = ['rule' => 'VANCOUVER', 'firstMulliganFree' => false];
+        $snapshot['players'][$owner->id()]['zones']['library'] = [
+            [
+                ...$this->card('scry-card', 'Private Scry'),
+                'ownerId' => $owner->id(),
+                'controllerId' => $owner->id(),
+                'zone' => 'library',
+            ],
+            [
+                ...$this->card('second-card', 'Private Second'),
+                'ownerId' => $owner->id(),
+                'controllerId' => $owner->id(),
+                'zone' => 'library',
+            ],
+        ];
+        $snapshot['players'][$owner->id()]['mulligan'] = [
+            'rule' => 'VANCOUVER',
+            'mulligansTaken' => 1,
+            'effectiveMulligans' => 1,
+            'drawCount' => 6,
+            'bottomSelectionCount' => 0,
+            'finalHandSize' => 6,
+            'needsBottomSelection' => false,
+            'bottomOrderMode' => 'NONE',
+            'needsScryAfterKeep' => true,
+            'canTakeAnotherMulligan' => true,
+            'status' => 'SCRYING',
+            'ready' => false,
+            'scryCardInstanceId' => 'scry-card',
+        ];
+
+        $projected = (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($snapshot, $owner);
+        $ownerProjection = $projected['players'][$owner->id()];
+
+        self::assertSame([], $ownerProjection['zones']['library']);
+        self::assertSame(2, $ownerProjection['zoneCounts']['library']);
+        self::assertSame('SCRYING', $ownerProjection['mulligan']['status']);
+        self::assertSame('Private Scry', $ownerProjection['mulligan']['scryCard']['name']);
+    }
+
     public function testOpponentLibraryZoneProjectionShowsFullLibraryOnlyWhenCardsAreRevealedToViewer(): void
     {
         $owner = new User('owner@example.test', 'Owner');
@@ -556,6 +602,63 @@ class GameProjectionServiceTest extends TestCase
             self::assertSame('Artifact', $card['typeLine']);
             self::assertSame(sprintf('https://cards.example/sol-ring-%s.jpg', $language), $card['imageUris']['normal']);
         }
+    }
+
+    public function testProjectionLocalizesCardBackedSpecialEntitiesWithoutChangingHelperMetadata(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $viewer->updateCardLanguage('es');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['specialEntities'] = [[
+            'id' => 'emblem-1',
+            'template' => 'emblem',
+            'scope' => 'player',
+            'ownerPlayerId' => $owner->id(),
+            'card' => [
+                'scryfallId' => 'emblem-print',
+                'name' => 'Gideon Emblem',
+                'typeLine' => 'Emblem',
+                'oracleText' => 'You get an emblem.',
+                'layout' => 'emblem',
+                'imageUris' => ['normal' => 'https://cards.example/emblem-en.jpg'],
+                'cardFaces' => [[
+                    'name' => 'Gideon Emblem',
+                    'typeLine' => 'Emblem',
+                    'oracleText' => 'You get an emblem.',
+                    'imageUris' => ['normal' => 'https://cards.example/emblem-face-en.jpg'],
+                ]],
+            ],
+            'state' => [],
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+        $lookup = [
+            'es' => [
+                'emblem-print' => [
+                    'name' => 'Emblema de Gideon',
+                    'typeLine' => 'Emblema',
+                    'oracleText' => 'Obtienes un emblema.',
+                    'imageUris' => ['normal' => 'https://cards.example/emblem-es.jpg'],
+                    'cardFaces' => [[
+                        'name' => 'Emblema de Gideon',
+                        'typeLine' => 'Emblema',
+                        'oracleText' => 'Obtienes un emblema.',
+                        'imageUris' => ['normal' => 'https://cards.example/emblem-face-es.jpg'],
+                    ]],
+                ],
+            ],
+        ];
+
+        $projected = (new GameProjectionService(new GameCommandHandler()))
+            ->projectSnapshot($snapshot, $viewer, true, $lookup);
+
+        self::assertSame('Gideon Emblem', $projected['specialEntities'][0]['card']['name']);
+        self::assertSame('Emblem', $projected['specialEntities'][0]['card']['typeLine']);
+        self::assertSame('https://cards.example/emblem-es.jpg', $projected['specialEntities'][0]['card']['imageUris']['normal']);
+        self::assertSame(
+            'https://cards.example/emblem-face-es.jpg',
+            $projected['specialEntities'][0]['card']['cardFaces'][0]['imageUris']['normal'],
+        );
     }
 
     public function testProjectedSnapshotPreservesGameplayContractFieldsForUiBootstrap(): void

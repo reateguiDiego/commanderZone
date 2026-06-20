@@ -4,10 +4,11 @@ import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { DeckFormat } from '../../../../../core/models/deck.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole } from '../../../../../core/models/room.model';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-room-current-banner',
-  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, CzButtonDirective],
   templateUrl: './room-current-banner.component.html',
   styleUrl: './room-current-banner.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

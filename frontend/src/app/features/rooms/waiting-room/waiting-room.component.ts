@@ -13,7 +13,7 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { Deck } from '../../../core/models/deck.model';
 import { FriendUser } from '../../../core/models/friendship.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
-import { Room, RoomPlayer, RoomTimerMode, WaitingRoomEvent } from '../../../core/models/room.model';
+import { Room, RoomMulliganRule, RoomPlayer, RoomTimerMode, WaitingRoomEvent } from '../../../core/models/room.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
@@ -116,6 +116,7 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly updatingCapacity = signal(false);
   readonly updatingStartingLife = signal(false);
   readonly updatingTimer = signal(false);
+  readonly updatingMulligan = signal(false);
   readonly inviteModalOpen = signal(false);
   readonly deckSelectorOpen = signal(false);
   readonly copiedTarget = signal<'code' | 'link' | null>(null);
@@ -430,6 +431,24 @@ export class WaitingRoomComponent implements OnDestroy {
     await this.updateRoomTimer({ timerDurationSeconds });
   }
 
+  async updateRoomMulliganRule(mulliganRule: RoomMulliganRule): Promise<void> {
+    const room = this.currentRoom();
+    if (!room || this.roomMulliganRule(room) === mulliganRule || !this.canEditRoom(room)) {
+      return;
+    }
+
+    await this.updateRoomMulligan({ mulliganRule });
+  }
+
+  async updateRoomFirstMulliganFree(firstMulliganFree: boolean): Promise<void> {
+    const room = this.currentRoom();
+    if (!room || this.roomFirstMulliganFree(room) === firstMulliganFree || !this.canEditRoom(room)) {
+      return;
+    }
+
+    await this.updateRoomMulligan({ firstMulliganFree });
+  }
+
   toggleDeckSelector(): void {
     if (this.currentPlayerDeckLocked()) {
       return;
@@ -614,6 +633,14 @@ export class WaitingRoomComponent implements OnDestroy {
     }
 
     return 300;
+  }
+
+  roomMulliganRule(room: Room): RoomMulliganRule {
+    return this.isRoomMulliganRule(room.mulliganRule) ? room.mulliganRule : 'LONDON';
+  }
+
+  roomFirstMulliganFree(room: Room): boolean {
+    return room.firstMulliganFree === true;
   }
 
   readyPlayersCount(room: Room): number {
@@ -1110,6 +1137,24 @@ export class WaitingRoomComponent implements OnDestroy {
     }
   }
 
+  private async updateRoomMulligan(options: { mulliganRule?: RoomMulliganRule; firstMulliganFree?: boolean }): Promise<void> {
+    const room = this.currentRoom();
+    if (!room || !this.canEditRoom(room)) {
+      return;
+    }
+
+    this.error.set(null);
+    this.updatingMulligan.set(true);
+    try {
+      const response = await firstValueFrom(this.roomsApi.update(room.id, options, true));
+      this.setCurrentRoom(response.room);
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Could not update mulligan settings.'));
+    } finally {
+      this.updatingMulligan.set(false);
+    }
+  }
+
   private allPlayersRolled(room: Room): boolean {
     return room.players.length > 0 && room.players.every((player) => this.turnRollsFor(player).length > 0);
   }
@@ -1167,6 +1212,10 @@ export class WaitingRoomComponent implements OnDestroy {
     }
 
     return player.turnRoll === null ? [] : [player.turnRoll];
+  }
+
+  private isRoomMulliganRule(mulliganRule: string): mulliganRule is RoomMulliganRule {
+    return ['LONDON', 'VANCOUVER', 'PARIS', 'GENEROUS'].includes(mulliganRule);
   }
 
   private turnRollKey(player: RoomPlayer): string {

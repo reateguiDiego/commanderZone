@@ -1,0 +1,59 @@
+:host {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+:host([data-variant="compact"]) {
+  position: relative;
+  z-index: 2;
+}
+
+.special-entity-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+app-special-entity-rail {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.special-entity-strip[data-variant="summary"] {
+  align-items: center;
+  padding: 0.08rem 0 0.04rem;
+}
+
+.special-entity-strip[data-variant="compact"] {
+  align-items: center;
+}
+
+:host-context(.player-summary-panel-context) .special-entity-strip[data-variant="summary"] {
+  padding-top: 0.02rem;
+}
+
+@media (max-height: 768px) and (max-width: 1180px) {
+  :host,
+  .special-entity-strip {
+    overflow: visible;
+  }
+
+  .special-entity-strip[data-variant="summary"] {
+    padding: 0;
+  }
+
+  .special-entity-strip[data-variant="compact"] {
+    min-height: 1.08rem;
+  }
+}

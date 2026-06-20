@@ -7,11 +7,7 @@ final class LanguageCatalog
     public const DEFAULT_LANGUAGE = 'en';
     public const COMMON_PRINT_LANGUAGES = ['ph', 'qya', 'grc', 'he', 'sa', 'ar'];
 
-    /**
-     * Cards and app language options supported by the platform.
-     * Keeps the requested minimum list plus existing extras (nl, ca).
-     */
-    public const SUPPORTED_LANGUAGES = [
+    public const SUPPORTED_APP_LANGUAGES = [
         'en',
         'fr',
         'de',
@@ -21,11 +17,22 @@ final class LanguageCatalog
         'zhs',
         'pt',
         'ru',
-        'ko',
-        'zht',
         'nl',
         'ca',
     ];
+
+    public const SUPPORTED_CARD_LANGUAGES = [
+        ...self::SUPPORTED_APP_LANGUAGES,
+        'ko',
+        'zht',
+    ];
+
+    /**
+     * Cards and app language options supported by the platform.
+     *
+     * @deprecated Prefer isSupportedCardLanguage or isSupportedAppLanguage at write boundaries.
+     */
+    public const SUPPORTED_LANGUAGES = self::SUPPORTED_CARD_LANGUAGES;
 
     public static function normalize(mixed $value): ?string
     {
@@ -40,7 +47,17 @@ final class LanguageCatalog
 
     public static function isSupported(?string $value): bool
     {
-        return is_string($value) && in_array($value, self::SUPPORTED_LANGUAGES, true);
+        return self::isSupportedCardLanguage($value);
+    }
+
+    public static function isSupportedCardLanguage(?string $value): bool
+    {
+        return is_string($value) && in_array($value, self::SUPPORTED_CARD_LANGUAGES, true);
+    }
+
+    public static function isSupportedAppLanguage(?string $value): bool
+    {
+        return is_string($value) && in_array($value, self::SUPPORTED_APP_LANGUAGES, true);
     }
 
     public static function isCommonPrintLanguage(?string $value): bool

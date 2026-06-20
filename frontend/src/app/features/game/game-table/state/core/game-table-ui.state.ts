@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardDungeonMarker, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, CardPreviewSourceRect } from '../../models/card-preview.model';
 
 const CONTEXT_MENU_WIDTH = 264;
@@ -24,12 +24,18 @@ export interface GameContextMenu {
   fromFixedZoneModal?: boolean;
   kind?: 'zone' | 'card' | 'game' | 'player' | 'arrow' | 'counter' | 'manaPool';
   sourceRect?: CardPreviewSourceRect | null;
+  forceOpenLeft?: boolean;
 }
 
 export interface HoveredCardSelection {
   playerId: string;
   zone: GameZoneName;
   card: GameCardInstance;
+}
+
+export interface DungeonMarkerPreviewOverride {
+  readonly instanceId: string;
+  readonly marker: GameCardDungeonMarker;
 }
 
 type CardPreviewMode = 'hover' | 'pinned';
@@ -42,6 +48,7 @@ export class GameTableUiState {
   readonly focusedPlayerId = signal<string | null>(null);
   readonly hoveredCard = signal<GameCardInstance | null>(null);
   readonly hoveredPreview = signal<CardPreviewEvent | null>(null);
+  readonly dungeonMarkerPreviewOverride = signal<DungeonMarkerPreviewOverride | null>(null);
   readonly contextMenu = signal<GameContextMenu | null>(null);
   readonly activeFloatingTab = signal<'chat' | 'log'>('log');
   readonly floatingPanel = signal({ x: 24, y: 120 });
@@ -77,6 +84,7 @@ export class GameTableUiState {
         return;
       }
 
+      this.syncDungeonMarkerPreviewOverride(card);
       this.hoveredCard.set(card);
       this.hoveredPreview.set(preview);
       this.hoveredSelection = preview.playerId && preview.zone ? { playerId: preview.playerId, zone: preview.zone, card } : null;
@@ -108,16 +116,40 @@ export class GameTableUiState {
       return;
     }
 
+    this.syncDungeonMarkerPreviewOverride(card);
     this.hoveredCard.set(card);
     this.hoveredPreview.set(preview);
     this.hoveredSelection = preview.playerId && preview.zone ? { playerId: preview.playerId, zone: preview.zone, card } : null;
     this.cardPreviewMode = 'pinned';
   }
 
+  showImmediateCardPreview(preview: CardPreviewEvent, isDragging: () => boolean): void {
+    this.clearHoverPreviewTimer();
+    if (this.contextMenu()) {
+      return;
+    }
+
+    const card = preview.card;
+    if (card.hidden || isDragging()) {
+      return;
+    }
+
+    this.syncDungeonMarkerPreviewOverride(card);
+    this.hoveredCard.set(card);
+    this.hoveredPreview.set(preview);
+    this.hoveredSelection = preview.playerId && preview.zone ? { playerId: preview.playerId, zone: preview.zone, card } : null;
+    this.cardPreviewMode = 'hover';
+  }
+
+  setDungeonMarkerPreviewOverride(override: DungeonMarkerPreviewOverride | null): void {
+    this.dungeonMarkerPreviewOverride.set(override);
+  }
+
   clearCardPreview(): void {
     this.clearHoverPreviewTimer();
     this.hoveredCard.set(null);
     this.hoveredPreview.set(null);
+    this.dungeonMarkerPreviewOverride.set(null);
     this.hoveredSelection = null;
     this.cardPreviewMode = null;
   }
@@ -195,6 +227,13 @@ export class GameTableUiState {
     }
   }
 
+  private syncDungeonMarkerPreviewOverride(card: GameCardInstance): void {
+    const override = this.dungeonMarkerPreviewOverride();
+    if (override !== null && override.instanceId !== card.instanceId) {
+      this.dungeonMarkerPreviewOverride.set(null);
+    }
+  }
+
   private normalizePreview(
     cardOrPreview: GameCardInstance | CardPreviewEvent,
     playerId?: string,
@@ -215,7 +254,7 @@ export class GameTableUiState {
   private menuPosition(
     clientX: number,
     clientY: number,
-    target?: Pick<GameContextMenu, 'kind' | 'sourceRect'>,
+    target?: Pick<GameContextMenu, 'kind' | 'sourceRect' | 'forceOpenLeft'>,
   ): Pick<GameContextMenu, 'x' | 'y' | 'verticalOrigin'> {
     const width = target?.kind === 'counter' || target?.kind === 'arrow' ? CONTEXT_MENU_COMPACT_WIDTH : CONTEXT_MENU_WIDTH;
     const height = CONTEXT_MENU_ESTIMATED_HEIGHT;
@@ -228,7 +267,9 @@ export class GameTableUiState {
       ? Math.max(edgeGap, viewportHeight - clientY + clickGap)
       : Math.max(edgeGap, clientY + clickGap);
     const prefersLeftOfPointer = viewportWidth > 0 && viewportWidth < width * 2;
-    const preferredX = this.shouldOpenLeftOfCard(clientX, edgeOffset, width, height, openUp, target)
+    const shouldOpenLeft = target?.forceOpenLeft === true
+      || this.shouldOpenLeftOfCard(clientX, edgeOffset, width, height, openUp, target);
+    const preferredX = shouldOpenLeft
       ? (target?.sourceRect?.left ?? clientX) - width - clickGap
       : prefersLeftOfPointer
         ? clientX - width - clickGap

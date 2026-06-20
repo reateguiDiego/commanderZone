@@ -22,7 +22,7 @@
   (drop)="battlefieldDropped.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
   (contextmenu)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
 >
-  @for (card of focusedPlayer.state.zones.battlefield; track card.instanceId) {
+  @for (card of battlefieldCards(); track card.instanceId) {
     @let stackView = landStackView(card);
     @let attachmentView = attachmentStackView(card);
     @let displayPosition = displayedCardPosition(card);
@@ -53,8 +53,10 @@
       [showPowerToughness]="shouldShowPowerToughness()(card)"
       [powerValue]="cardPowerValue()(card)"
       [toughnessValue]="cardToughnessValue()(card)"
-      [loyaltyValue]="card.loyalty ?? null"
+      [battleValue]="cardBattleValue()(card)"
+      [loyaltyValue]="cardLoyaltyValue()(card)"
       [counter]="firstCounter()(card)"
+      [countersEditable]="isCurrentPlayer()(focusedPlayer.id)"
       [landStackRole]="stackView?.role ?? null"
       [landStackLayer]="stackView?.layer ?? null"
       [landStackSize]="stackView?.size ?? null"
@@ -70,12 +72,28 @@
       (cardDoubleClicked)="onCardDoubleClick($event.event, focusedPlayer.id, $event.card)"
       (cardMenuOpened)="onCardMenu($event.event, focusedPlayer.id, $event.card)"
       (cardMouseEntered)="cardPreviewShown.emit($event)"
+      (cardPreviewRequested)="cardPreviewRequested.emit($event)"
       (cardMouseLeft)="onCardPointerLeft()"
       (powerChanged)="changePower($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (toughnessChanged)="changeToughness($event.event, focusedPlayer.id, $event.card, $event.delta)"
+      (battleChanged)="cardBattleChanged.emit({ playerId: focusedPlayer.id, zone: 'battlefield', card: $event.card, delta: $event.delta })"
+      (sagaChanged)="cardSagaChanged.emit({ playerId: focusedPlayer.id, zone: 'battlefield', card: $event.card, delta: $event.delta })"
       (loyaltyChanged)="changeLoyalty($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (counterChanged)="changeCounter($event.event, focusedPlayer.id, $event.card, $event.key, $event.delta)"
       (counterDeleteRequested)="requestCounterDelete($event.event, focusedPlayer.id, $event.card, $event.key)"
+      (dungeonMarkerChanged)="dungeonMarkerChanged.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card, marker: $event.marker })"
+      (dungeonMarkerPreviewChanged)="dungeonMarkerPreviewChanged.emit({ playerId: focusedPlayer.id, card: $event.card, marker: $event.marker })"
+    />
+  }
+  @if (mechanicCards().length > 0) {
+    <app-battlefield-mechanics-overlay
+      [cards]="mechanicCards()"
+      [playerId]="focusedPlayer.id"
+      [image]="cardImage()"
+      (cardMenuOpened)="onCardMenu($event.event, focusedPlayer.id, $event.card, $event.forceOpenLeft)"
+      (cardPreviewShown)="cardPreviewShown.emit($event)"
+      (cardPreviewRequested)="cardPreviewRequested.emit($event)"
+      (cardPreviewHidden)="onCardPointerLeft()"
     />
   }
   @if (activeAlignmentGuide; as guide) {

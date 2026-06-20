@@ -73,6 +73,98 @@ describe('GameTableAttachmentsState', () => {
     expect(context.closeContextMenu).toHaveBeenCalled();
   });
 
+  it('does not start attachment targeting from an emblem', () => {
+    const context = attachmentContext();
+
+    state.startAttachmentFrom(context, {
+      kind: 'card',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: { ...card('emblem-card', 'Emblem'), layout: 'emblem' },
+      x: 0,
+      y: 0,
+    });
+
+    expect(state.pendingAttachmentSource()).toBeNull();
+    expect(context.setError).toHaveBeenCalledWith('Emblems cannot be attached to another permanent.');
+    expect(context.closeContextMenu).toHaveBeenCalled();
+  });
+
+  it('does not start attachment targeting from a dungeon', () => {
+    const context = attachmentContext();
+
+    state.startAttachmentFrom(context, {
+      kind: 'card',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: { ...card('dungeon-card', 'Dungeon'), layout: 'dungeon' },
+      x: 0,
+      y: 0,
+    });
+
+    expect(state.pendingAttachmentSource()).toBeNull();
+    expect(context.setError).toHaveBeenCalledWith('Dungeons cannot be attached to another permanent.');
+    expect(context.closeContextMenu).toHaveBeenCalled();
+  });
+
+  it('does not start attachment targeting from day night', () => {
+    const context = attachmentContext();
+
+    state.startAttachmentFrom(context, {
+      kind: 'card',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: { ...card('day-night-card', 'Card // Card'), name: 'Day // Night', layout: 'double_faced_token' },
+      x: 0,
+      y: 0,
+    });
+
+    expect(state.pendingAttachmentSource()).toBeNull();
+    expect(context.setError).toHaveBeenCalledWith('Day/Night cannot be attached to another permanent.');
+    expect(context.closeContextMenu).toHaveBeenCalled();
+  });
+
+  it('does not start attachment targeting from monarch', () => {
+    const context = attachmentContext();
+
+    state.startAttachmentFrom(context, {
+      kind: 'card',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: { ...card('monarch-card', 'Game Mechanic - Monarch'), name: 'Monarch', layout: 'monarch' },
+      x: 0,
+      y: 0,
+    });
+
+    expect(state.pendingAttachmentSource()).toBeNull();
+    expect(context.setError).toHaveBeenCalledWith('Monarch cannot be attached to another permanent.');
+    expect(context.closeContextMenu).toHaveBeenCalled();
+  });
+
+  it('allows The Ring as an attachment source', () => {
+    const context = attachmentContext();
+
+    state.startAttachmentFrom(context, {
+      kind: 'card',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: {
+        ...card('the-ring', 'Emblem // Card'),
+        name: 'The Ring',
+        layout: 'double_faced_token',
+        scryfallId: '7215460e-8c06-47d0-94e5-d1832d0218af',
+      },
+      x: 0,
+      y: 0,
+    });
+
+    expect(state.pendingAttachmentSource()).toEqual({
+      instanceId: 'the-ring',
+      cardName: 'The Ring',
+    });
+    expect(context.setError).not.toHaveBeenCalled();
+  });
+
   it('does not start attachment targeting from a permanent with attached cards', () => {
     const context = attachmentContext();
     snapshotSignal.set({
@@ -136,6 +228,86 @@ describe('GameTableAttachmentsState', () => {
       equipmentInstanceId: 'equipment-card',
       attachedToInstanceId: 'land-card',
     });
+  });
+
+  it('does not attach to an emblem target', async () => {
+    const context = attachmentContext();
+    state.pendingAttachmentSource.set({ instanceId: 'equipment-card', cardName: 'equipment-card' });
+    snapshotSignal.set({
+      ...snapshot(),
+      players: {
+        'player-1': player('player-1', [card('equipment-card'), { ...card('emblem-card', 'Emblem'), layout: 'emblem' }]),
+      },
+    });
+
+    const handled = state.handleBattlefieldCardClick(context, mouseEvent(), { ...card('emblem-card', 'Emblem'), layout: 'emblem' });
+    await Promise.resolve();
+
+    expect(handled).toBe(true);
+    expect(context.setError).toHaveBeenCalledWith('Emblems cannot be attachment targets.');
+    expect(context.command).not.toHaveBeenCalled();
+  });
+
+  it('does not attach to a dungeon target', async () => {
+    const context = attachmentContext();
+    state.pendingAttachmentSource.set({ instanceId: 'equipment-card', cardName: 'equipment-card' });
+    snapshotSignal.set({
+      ...snapshot(),
+      players: {
+        'player-1': player('player-1', [card('equipment-card'), { ...card('dungeon-card', 'Dungeon'), layout: 'dungeon' }]),
+      },
+    });
+
+    const handled = state.handleBattlefieldCardClick(context, mouseEvent(), { ...card('dungeon-card', 'Dungeon'), layout: 'dungeon' });
+    await Promise.resolve();
+
+    expect(handled).toBe(true);
+    expect(context.setError).toHaveBeenCalledWith('Dungeons cannot be attachment targets.');
+    expect(context.command).not.toHaveBeenCalled();
+  });
+
+  it('does not attach to The Ring as a target', async () => {
+    const context = attachmentContext();
+    state.pendingAttachmentSource.set({ instanceId: 'equipment-card', cardName: 'equipment-card' });
+    snapshotSignal.set({
+      ...snapshot(),
+      players: {
+        'player-1': player('player-1', [
+          card('equipment-card'),
+          { ...card('the-ring', 'Emblem // Card'), name: 'The Ring // The Ring Tempts You', layout: 'double_faced_token' },
+        ]),
+      },
+    });
+
+    const handled = state.handleBattlefieldCardClick(
+      context,
+      mouseEvent(),
+      { ...card('the-ring', 'Emblem // Card'), name: 'The Ring // The Ring Tempts You', layout: 'double_faced_token' },
+    );
+    await Promise.resolve();
+
+    expect(handled).toBe(true);
+    expect(context.setError).toHaveBeenCalledWith('The Ring cannot be an attachment target.');
+    expect(context.command).not.toHaveBeenCalled();
+  });
+
+  it('does not attach to day night as a target', async () => {
+    const context = attachmentContext();
+    const dayNight = { ...card('day-night-card', 'Card // Card'), name: 'Day // Night', layout: 'double_faced_token' };
+    state.pendingAttachmentSource.set({ instanceId: 'equipment-card', cardName: 'equipment-card' });
+    snapshotSignal.set({
+      ...snapshot(),
+      players: {
+        'player-1': player('player-1', [card('equipment-card'), dayNight]),
+      },
+    });
+
+    const handled = state.handleBattlefieldCardClick(context, mouseEvent(), dayNight);
+    await Promise.resolve();
+
+    expect(handled).toBe(true);
+    expect(context.setError).toHaveBeenCalledWith('Day/Night cannot be an attachment target.');
+    expect(context.command).not.toHaveBeenCalled();
   });
 
   it('positions equipment under the target before creating the attachment', async () => {

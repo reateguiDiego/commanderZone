@@ -23,16 +23,50 @@
   position: absolute;
   top: calc(100% + 0.55rem);
   right: 0;
-  z-index: 30;
+  z-index: 32;
   display: grid;
   gap: 0.4rem;
   width: min(15rem, 80vw);
-  border: 1px solid rgb(var(--cz-text-rgb) / 14%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 34%);
   border-radius: 10px;
   padding: 0.55rem;
-  background: linear-gradient(145deg, rgb(var(--cz-bg-rgb) / 96%), rgb(var(--cz-bg-rgb) / 94%));
-  box-shadow: 0 0.95rem 2rem rgb(var(--cz-bg-rgb) / 42%);
+  background:
+    radial-gradient(circle at 12% 0%, rgb(var(--cz-primary-rgb) / 22%), transparent 11rem),
+    radial-gradient(circle at 100% 0%, rgb(var(--cz-secondary-rgb) / 12%), transparent 9rem),
+    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 94%), rgb(var(--cz-bg-rgb) / 98%));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%),
+    0 0.95rem 2rem rgb(var(--cz-bg-rgb) / 48%),
+    0 0 1.4rem rgb(var(--cz-primary-rgb) / 10%);
   backdrop-filter: blur(14px);
+}
+
+.header-menu-dropdown.open::before,
+.header-menu-dropdown.open::after {
+  content: '';
+  position: absolute;
+  right: 0.78rem;
+  top: calc(100% - 0.18rem);
+  width: 1.24rem;
+  height: 0.78rem;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+
+.header-menu-dropdown.open::before {
+  z-index: 10;
+  background: rgb(var(--cz-primary-rgb) / 48%);
+}
+
+.header-menu-dropdown.open::after {
+  z-index: 400;
+  width: 1.06rem;
+  height: 0.67rem;
+  right: 0.87rem;
+  top: calc(100% - 0.09rem);
+  background:
+    radial-gradient(circle at 50% 0%, rgb(var(--cz-primary-rgb) / 24%), transparent 58%),
+    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 96%), rgb(var(--cz-bg-rgb) / 98%));
 }
 
 .menu-item,
@@ -56,8 +90,11 @@
 .menu-item:hover,
 .language-item:hover,
 .language-item.selected {
-  border-color: rgb(var(--cz-primary-rgb) / 32%);
-  background: rgb(var(--cz-primary-rgb) / 10%);
+  border-color: rgb(var(--cz-primary-rgb) / 46%);
+  background:
+    linear-gradient(90deg, rgb(var(--cz-primary-rgb) / 14%), rgb(var(--cz-accent-rgb) / 7%)),
+    rgb(var(--cz-surface-rgb) / 24%);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%);
 }
 
 .menu-item.with-detail {
@@ -89,16 +126,24 @@
 }
 
 .menu-item.danger {
-  color: var(--cz-secondary);
+  color: var(--cz-danger);
+}
+
+.menu-item.danger:hover,
+.menu-item.danger:focus-visible {
+  border-color: rgb(var(--cz-danger-rgb) / 42%);
+  background: rgb(var(--cz-danger-rgb) / 12%);
 }
 
 .language-list {
   display: grid;
   gap: 0.32rem;
-  border: 1px solid rgb(var(--cz-text-rgb) / 10%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 20%);
   border-radius: 8px;
   padding: 0.35rem;
-  background: rgb(var(--cz-text-rgb) / 4%);
+  background:
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 7%), transparent 58%),
+    rgb(var(--cz-bg-rgb) / 38%);
 }
 
 .language-item {

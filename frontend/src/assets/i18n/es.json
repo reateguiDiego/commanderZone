@@ -47,8 +47,16 @@
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "tuComandanteHaLlegado": "Tu comandante ha llegado",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí."
+        "tuComandanteHaLlegado": "Tus comandantes tienen sed de sangre",
+        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
+        "bienvenido": "Bienvenido"
+      },
+      "dashboardTopCommanders": {
+        "title": "Top commanders",
+        "subtitle": "Los comandantes mas jugados del formato",
+        "viewAll": "View more",
+        "communityPopularity": "Basado en partidas jugadas por la comunidad",
+        "viewMore": "View more"
       },
       "dashboardHeaderContext": {
         "pageSummary": "Page summary"
@@ -61,25 +69,47 @@
       "dashboardShell": {
         "commanderzoneDashboard": "CommanderZone dashboard",
         "primary": "Primary",
+        "cards": "Cards",
         "decks": "Decks",
         "rooms": "Rooms",
-        "asistenteDeMesa": "Asistente de Mesa"
+        "asistenteDeMesa": "Asistente de Mesa",
+        "community": "Community"
       }
     },
     "friends": {
       "friendsDropdown": {
-        "emailOrUsername": "Email or username",
-        "friends": "Friends",
-        "userSearchResults": "User search results",
-        "friendList": "Friend list",
-        "searchUsers": "Search users",
-        "sendFriendRequest": "Send friend request",
-        "cancelRequest": "Cancel request",
-        "removeFriend": "Remove friend",
-        "findUsers": "Find users",
-        "noUsersFound": "No users found.",
+        "emailOrUsername": "Usuario",
+        "acceptedStatus": "Amigos",
+        "blockedStatus": "Bloqueado",
+        "declinedStatus": "Rechazado",
+        "friends": "Amigos",
+        "friendsTitle": "Amigos",
+        "userSearchResults": "Resultados de busqueda de usuarios",
+        "friendList": "Lista de amigos",
+        "searchUsers": "Buscar usuarios",
+        "searchTab": "Buscar",
+        "searchPlayers": "Buscar jugadores...",
+        "searchHint": "Escribe al menos dos caracteres para buscar jugadores.",
+        "seats": "plazas",
+        "sendFriendRequest": "Enviar solicitud de amistad",
+        "cancelRequest": "Cancelar solicitud",
+        "removeFriend": "Eliminar amigo",
+        "findUsers": "Buscar usuarios",
+        "noUsersFound": "No se encontraron usuarios.",
+        "online": "En linea",
+        "onlineStatus": "En linea",
+        "pendingStatus": "Pendiente",
+        "inGameStatus": "En partida",
+        "joinedPlayers": "unidos",
+        "offlineStatus": "Desconectado",
+        "requests": "Solicitudes",
+        "receivedRequests": "Recibidas",
+        "sentRequests": "Enviadas",
+        "disconnected": "Desconectados",
+        "viewAllFriends": "Ver todos los amigos",
         "invitacionDeSala": "Invitacion de sala",
-        "noFriendsOrPendingRequests": "No friends or pending requests."
+        "invitations": "Invitaciones",
+        "noFriendsOrPendingRequests": "No hay amigos ni solicitudes pendientes."
       }
     }
   },
@@ -99,7 +129,7 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 4 y 25 caracteres.",
+      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
@@ -137,7 +167,7 @@
       "roomName": "Room name",
       "owner": "Owner",
       "visibility": "Visibility",
-      "publicAndPrivate": "Public and private",
+      "publicAndPrivate": "All",
       "publicOnly": "Public only",
       "privateOnly": "Private only",
       "status": "Status",
@@ -182,7 +212,17 @@
       "mazoRequerido": "Mazo requerido"
     },
     "roomSetupControls": {
-      "timer": "Timer"
+      "timer": "Timer",
+      "mulligan": "Mulligan",
+      "firstMulliganFree": "Primer mulligan es gratis",
+      "mulliganDescriptions": {
+        "london": "Londres: robas 7 cartas siempre. Al quedarte, mandas al fondo una carta por cada mulligan efectivo.",
+        "vancouver": "Vancouver: cada mulligan efectivo roba una carta menos. Si te quedas con penalizacion, haces Scry 1.",
+        "paris": "Paris: cada mulligan efectivo roba una carta menos. No hay seleccion al fondo ni scry.",
+        "generous": "Generoso: pensado para Commander. Robas hasta 10, te quedas con 7 si puedes y el servidor pone el resto al fondo en orden aleatorio."
+      },
+      "firstMulliganFreeOn": "Gratis",
+      "firstMulliganFreeOff": "Cuenta"
     },
     "roomSetupModal": {
       "ejLaTaberna": "Ej. La taberna",
@@ -310,6 +350,17 @@
         "selectAllBattlefieldCards": "Select All Battlefield Cards",
         "selectAllHandCards": "Select All Hand Cards",
         "createToken": "Create Token",
+        "gameMechanics": "Game mechanics",
+        "addMonarch": "Add Monarch",
+        "becomeMonarch": "Become Monarch",
+        "addInitiative": "Add Initiative",
+        "takeInitiative": "Take Initiative",
+        "addDayNight": "Add Day / Night",
+        "addTheRing": "Add The Ring",
+        "addDungeon": "Add Dungeon",
+        "addCitysBlessing": "Add City's Blessing",
+        "removeCitysBlessing": "Remove City's Blessing",
+        "addEmblem": "Add Emblem",
         "tirarDado": "Tirar dado",
         "showManaPool": "Show Mana Pool",
         "view": "View",
@@ -343,7 +394,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "Mecánicas",
+        "setRingBearer": "Convertir en Portador del Anillo",
+        "mechanics": "Mecánicas"
       }
     },
     "contextSubmenu": {
@@ -382,9 +436,9 @@
       "elJugadorObjetivoYaApareceOnline": "El jugador objetivo ya aparece online."
     },
     "gameRematchModal": {
-      "votacionesDeLaRoom": "Votaciones de la room",
+      "votacionesDeLaRoom": "Votaciones de la sala",
       "tuVotoActual": "Tu voto actual:",
-      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado abandonar la room."
+      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado salir de la sala."
     },
     "gameTableHeader": {
       "currentPlayer": "Current player"
@@ -533,6 +587,67 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "Mecánicas",
+        "quickActions": "Acciones rápidas",
+        "cardBacked": "Entidades con carta",
+        "searchPlaceholder": "Buscar emblemas o mazmorras",
+        "searching": "Buscando ayudas...",
+        "noResults": "No se encontraron resultados.",
+        "searchHint": "Escribe al menos 2 caracteres para buscar.",
+        "searchError": "No se pudieron cargar las entidades especiales.",
+        "playerTarget": "Jugador: {{playerName}}",
+        "currentState": "Estado actual",
+        "readonly": "Solo lectura. Puedes consultar estas mecánicas aquí, pero solo el jugador que controla esa posición puede cambiarlas.",
+        "ringLevel": "Nivel del Anillo",
+        "noRingBearer": "Sin Portador del Anillo",
+        "removeHelper": "Quitar",
+        "clearRingBearer": "Quitar Portador del Anillo",
+        "ringLevelUp": "Subir nivel",
+        "ringLevelDown": "Bajar nivel",
+        "noActiveMechanics": "No hay mecánicas activas.",
+        "notSet": "Sin definir"
+      },
+      "quick": {
+        "monarch": "Convertirse en monarca",
+        "initiative": "Tomar la iniciativa",
+        "citysBlessing": "Obtener la bendición de la ciudad",
+        "theRing": "Crear El Anillo",
+        "setDay": "Poner de día",
+        "setNight": "Poner de noche"
+      },
+      "labels": {
+        "monarch": "Monarca",
+        "initiative": "Iniciativa",
+        "citys_blessing": "Bendición de la ciudad",
+        "day_night": "Día/Noche",
+        "the_ring": "El Anillo",
+        "emblem": "Emblema",
+        "dungeon": "Mazmorra",
+        "day": "DÃ­a",
+        "night": "Noche"
+      },
+      "dungeonReplacement": {
+        "title": "Replace active dungeon?",
+        "message": "You can only have one active dungeon. Replace {{currentDungeon}} with {{nextDungeon}}?",
+        "confirm": "Replace dungeon",
+        "cancel": "Cancel"
+      },
+      "citysBlessingRemoval": {
+        "title": "Remove City's Blessing?",
+        "message": "This player will lose City's Blessing from the table. Continue?",
+        "confirm": "Remove",
+        "cancel": "Cancel"
+      },
+      "rail": {
+        "title": "Entidades especiales",
+        "ringLevel": "Nivel del Anillo"
+      }
+    },
+    "zonePilesPanel": {
+      "monarchBadgeTooltip": "Eres el monarca."
     }
   },
   "deckBuilder": {
@@ -676,13 +791,13 @@
       "editDeck": "Edit deck",
       "deleteDeck": "Delete deck",
       "deckSaved": "Deck saved",
+      "createEmptyDeck": "Crear deck vacio",
       "createFolder": "Create folder",
       "commanderEnlargedPreview": "Commander enlarged preview",
       "loadingDecks": "Loading decks...",
       "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
       "decks": "Decks",
       "noDecksInThisFolderYet": "No decks in this folder yet.",
-      "dragOutsideThisFolderPanelToRemove": "Drag outside this folder panel to remove the deck from the folder.",
       "missingCards": "Missing cards",
       "deckName": "Deck name",
       "folder": "Folder",
@@ -692,12 +807,26 @@
       "importDecklist": "Import decklist",
       "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
       "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
-      "afterCreatingAFolderDragDecksOnto": "After creating a folder, drag decks onto it to organize them. You can also drag decks out of a folder to remove them without deleting anything.",
       "folderName": "Folder name",
       "header": {
         "title": "Decks",
         "createDeck": "Create deck",
         "createFolder": "Create folder"
+      },
+      "colorFilter": {
+        "label": "Color",
+        "any": "Cualquiera",
+        "white": "Blanco",
+        "blue": "Azul",
+        "black": "Negro",
+        "red": "Rojo",
+        "green": "Verde",
+        "colorless": "Incoloro"
+      },
+      "sortMode": {
+        "label": "Orden",
+        "nameAsc": "Nombre (A-Z)",
+        "nameDesc": "Nombre (Z-A)"
       }
     }
   },
@@ -807,6 +936,9 @@
       "playerAvatar": "Player avatar",
       "avatar": "Avatar",
       "name": "Name",
+      "changeAvatar": "Change avatar",
+      "changeName": "Change name",
+      "accountDetails": "Account details",
       "email": "Email",
       "introduceUnEmailValido": "Introduce un email valido.",
       "comprobandoEmail": "Comprobando email...",
@@ -814,10 +946,11 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 4 y 25 caracteres.",
+      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
+      "changePassword": "Change password",
       "deleteAccount": "Delete account",
       "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
       "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",

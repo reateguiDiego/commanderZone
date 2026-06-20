@@ -128,6 +128,8 @@
         [items]="libraryMoveTopMenuItems()"
         [expanded]="isSubmenuExpanded('libraryMoveTop')"
         direction="up"
+        [side]="submenuSide()"
+        [childSide]="submenuSide()"
         (toggled)="toggleSubmenu($event, 'libraryMoveTop')"
         (itemSelected)="selectLibraryMoveTop($event)"
       />
@@ -137,6 +139,8 @@
         [items]="libraryRevealTopMenuItems()"
         [expanded]="isSubmenuExpanded('libraryRevealTop')"
         direction="up"
+        [side]="submenuSide()"
+        [childSide]="submenuSide()"
         (toggled)="toggleSubmenu($event, 'libraryRevealTop')"
         (itemSelected)="selectLibraryRevealTopTarget($event)"
       />
@@ -146,6 +150,8 @@
         [items]="libraryRevealMenuItems()"
         [expanded]="isSubmenuExpanded('libraryReveal')"
         direction="up"
+        [side]="submenuSide()"
+        [childSide]="submenuSide()"
         (toggled)="toggleSubmenu($event, 'libraryReveal')"
         (itemSelected)="selectLibraryRevealTarget($event)"
       />
@@ -179,6 +185,8 @@
         [items]="libraryViewMenuItems()"
         [expanded]="isSubmenuExpanded('libraryView')"
         direction="up"
+        [side]="submenuSide()"
+        [childSide]="submenuSide()"
         (toggled)="toggleSubmenu($event, 'libraryView')"
         (itemSelected)="selectLibraryView($event)"
       />
@@ -200,6 +208,17 @@
             <span>{{ displayLabel('game.contextMenu.labels.createToken') }}</span>
           </span>
         </button>
+        <app-context-submenu
+          label="game.contextMenu.labels.gameMechanics"
+          icon="crown"
+          [items]="gameMechanicsMenuItems()"
+          [expanded]="isSubmenuExpanded('gameMechanics')"
+          direction="up"
+          [side]="submenuSide()"
+          [childSide]="submenuSide()"
+          (toggled)="toggleSubmenu($event, 'gameMechanics')"
+          (itemSelected)="selectGameMechanic($event)"
+        />
         <button type="button" (click)="actionSelected.emit({ type: 'rollDice' })">
           <span class="menu-item-label">
             <lucide-icon name="dices" size="17" aria-hidden="true" />
@@ -258,13 +277,134 @@
       </button>
     }
   } @else {
-    @if (canControlPlayer()(activeMenu.playerId)) {
-      @if (showsBattlefieldCardActions()) {
+    @if (isMonarchCardMenu()) {
+      @if (canControlMonarchCard()) {
+        @if (canGiveMonarchToPlayer()) {
+          <app-context-submenu
+            label="Give to"
+            icon="gift"
+            [items]="giveMonarchToPlayerMenuItems()"
+            [expanded]="isSubmenuExpanded('giveMonarchToPlayer')"
+            direction="down"
+            [side]="submenuSide()"
+            [childSide]="submenuSide()"
+            (toggled)="toggleSubmenu($event, 'giveMonarchToPlayer')"
+            (itemSelected)="selectGiveMonarchToPlayer($event)"
+          />
+        }
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeMonarch' })">
+          <span class="menu-item-label">
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
+          </span>
+        </button>
+      }
+    } @else if (isInitiativeCardMenu()) {
+      @if (canControlInitiativeCard()) {
+        @if (canGiveInitiativeToPlayer()) {
+          <app-context-submenu
+            label="Give to"
+            icon="gift"
+            [items]="giveInitiativeToPlayerMenuItems()"
+            [expanded]="isSubmenuExpanded('giveInitiativeToPlayer')"
+            direction="down"
+            [side]="submenuSide()"
+            [childSide]="submenuSide()"
+            (toggled)="toggleSubmenu($event, 'giveInitiativeToPlayer')"
+            (itemSelected)="selectGiveInitiativeToPlayer($event)"
+          />
+        }
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeInitiative' })">
+          <span class="menu-item-label">
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
+          </span>
+        </button>
+      } @else {
+        <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">
+          <span class="menu-item-label">
+            <lucide-icon name="search" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('game.contextMenu.labels.previewCard') }}</span>
+          </span>
+        </button>
+      }
+    } @else if (isTheRingCardMenu()) {
+      @if (canControlPlayer()(activeMenu.playerId)) {
+        @if (canEquipCard()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'equipCard' })">
+            <span class="menu-item-label">
+              <lucide-icon name="link" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('game.contextMenu.labels.attachTo') }}</span>
+            </span>
+          </button>
+        }
+        @if (canUnequipCard()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'unequipCard' })">
+            <span class="menu-item-label">
+              <lucide-icon name="unlink-2" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('game.contextMenu.labels.unequip') }}</span>
+            </span>
+          </button>
+        }
+        @if (canFlipCardFace()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">
+            <span class="menu-item-label">
+              <lucide-icon name="rotate-cw" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('game.contextMenu.labels.flipCardFace') }}</span>
+            </span>
+          </button>
+        }
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'moveCard', zone: 'graveyard' })">
+          <span class="menu-item-label">
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
+          </span>
+        </button>
+      } @else {
+        <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">
+          <span class="menu-item-label">
+            <lucide-icon name="search" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('game.contextMenu.labels.previewCard') }}</span>
+          </span>
+        </button>
+      }
+    } @else if (canControlPlayer()(activeMenu.playerId)) {
+      @if (isDayNightCardMenu()) {
+        <button type="button" (click)="actionSelected.emit(dayNightToggleAction())">
+          <span class="menu-item-label">
+            <lucide-icon [name]="dayNightToggleIcon()" size="17" aria-hidden="true" />
+            <span>{{ displayLabel(dayNightToggleLabel()) }}</span>
+          </span>
+        </button>
+        @if (canRemoveDayNight()) {
+          <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeDayNight' })">
+            <span class="menu-item-label">
+              <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('Remove') }}</span>
+            </span>
+          </button>
+        }
+      } @else if (isGameplayCardMenu()) {
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'moveCard', zone: 'graveyard' })">
+          <span class="menu-item-label">
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
+          </span>
+        </button>
+      } @else if (showsBattlefieldCardActions()) {
         @if (canSelectAllActiveZoneCards()) {
           <button type="button" (click)="actionSelected.emit({ type: 'selectAllZoneCards' })">
             <span class="menu-item-label">
               <lucide-icon name="check" size="17" aria-hidden="true" />
               <span>{{ displayLabel(selectAllActiveZoneLabel()) }}</span>
+            </span>
+          </button>
+        }
+        @if (activeVentureKind(); as ventureKind) {
+          <button type="button" (click)="actionSelected.emit({ type: 'addVenture', kind: ventureKind })">
+            <span class="menu-item-label">
+              <lucide-icon name="dices" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('Add venture') }}</span>
             </span>
           </button>
         }
@@ -378,21 +518,25 @@
             </span>
             <kbd>{{ 'game.contextMenu.z' | runtimeTranslate }}</kbd>
           </button>
-          <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
-            <span class="menu-item-label">
-              <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
-              <span>{{ displayLabel(tapLabel()) }}</span>
-            </span>
-            <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
-          </button>
+          @if (canTapCardAction()) {
+            <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
+              <span class="menu-item-label">
+                <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
+                <span>{{ displayLabel(tapLabel()) }}</span>
+              </span>
+              <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
+            </button>
+          }
         } @else {
-          <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
-            <span class="menu-item-label">
-              <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
-              <span>{{ displayLabel(tapLabel()) }}</span>
-            </span>
-            <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
-          </button>
+          @if (canTapCardAction()) {
+            <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
+              <span class="menu-item-label">
+                <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
+                <span>{{ displayLabel(tapLabel()) }}</span>
+              </span>
+              <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
+            </button>
+          }
           @if (canFlipCardFace()) {
             <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">
               <span class="menu-item-label">

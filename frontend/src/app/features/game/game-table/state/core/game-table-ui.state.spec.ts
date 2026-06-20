@@ -36,6 +36,27 @@ describe('GameTableUiState', () => {
     expect(state.activeHoveredSelection()).toBeNull();
   });
 
+  it('shows an immediate hover preview and clears the live dungeon marker override with the preview', () => {
+    const state = new GameTableUiState();
+    const card = { ...gameCard(), typeLine: 'Dungeon' };
+
+    state.setDungeonMarkerPreviewOverride({ instanceId: card.instanceId, marker: { x: 0.6, y: 0.35 } });
+    state.showImmediateCardPreview({
+      card,
+      playerId: 'player-1',
+      zone: 'battlefield',
+      sourceRect: null,
+    }, () => false);
+
+    expect(state.hoveredPreview()?.card).toBe(card);
+    expect(state.dungeonMarkerPreviewOverride()).toEqual({ instanceId: card.instanceId, marker: { x: 0.6, y: 0.35 } });
+
+    state.hideCardPreview();
+
+    expect(state.hoveredPreview()).toBeNull();
+    expect(state.dungeonMarkerPreviewOverride()).toBeNull();
+  });
+
   it('does not show delayed hover previews while a context menu is open', () => {
     vi.useFakeTimers();
     const state = new GameTableUiState();
@@ -142,6 +163,33 @@ describe('GameTableUiState', () => {
 
     expect(state.contextMenu()).toEqual(expect.objectContaining({
       x: 382,
+      y: 124,
+      verticalOrigin: 'top',
+    }));
+  });
+
+  it('can force card context menus to open to the left of the source card', () => {
+    setViewport(900, 700);
+    const state = new GameTableUiState();
+
+    state.openContextMenu(pointerEvent(220, 120), {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card: gameCard(),
+      forceOpenLeft: true,
+      sourceRect: {
+        left: 420,
+        top: 90,
+        right: 530,
+        bottom: 245,
+        width: 110,
+        height: 155,
+      },
+    });
+
+    expect(state.contextMenu()).toEqual(expect.objectContaining({
+      x: 152,
       y: 124,
       verticalOrigin: 'top',
     }));
