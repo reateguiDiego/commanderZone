@@ -925,6 +925,7 @@ class GamesController extends ApiController
                 $zone,
                 $user,
                 ($snapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true,
+                playerState: is_array($snapshot['players'][$playerId] ?? null) ? $snapshot['players'][$playerId] : null,
             );
         }
         $type = mb_strtolower(trim((string) $request->query->get('type', '')));

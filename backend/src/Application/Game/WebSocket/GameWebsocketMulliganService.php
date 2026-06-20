@@ -375,7 +375,7 @@ final readonly class GameWebsocketMulliganService
         }
 
         $scryCardInstanceId = is_string($mulligan['scryCardInstanceId'] ?? null) ? $mulligan['scryCardInstanceId'] : '';
-        $topCard = $player['zones']['library'][0] ?? null;
+        $topCard = (new \App\Application\Game\GameLibraryOps())->topCard($player);
         if (($mulligan['status'] ?? null) === 'SCRYING' && $scryCardInstanceId !== '' && is_array($topCard) && ($topCard['instanceId'] ?? null) === $scryCardInstanceId) {
             $message['scryCard'] = $topCard;
         }

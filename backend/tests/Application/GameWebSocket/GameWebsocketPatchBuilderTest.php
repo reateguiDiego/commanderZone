@@ -686,7 +686,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $handlerPayload = [
             'playerId' => $actor->id(),
             'zone' => 'library',
-            'cards' => array_reverse($game->snapshot()['players'][$actor->id()]['zones']['library']),
+            'instanceIds' => ['library-2', 'library-1'],
         ];
         $eventPayload = [
             'playerId' => $actor->id(),
@@ -703,7 +703,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $handlerPayload = [
             'playerId' => $actor->id(),
             'zone' => 'library',
-            'cards' => array_reverse($game->snapshot()['players'][$actor->id()]['zones']['library']),
+            'instanceIds' => ['library-2', 'library-1'],
         ];
         $opponentMessage = $this->applyAndBuildProjectedWithEventPayload($game, $actor, 'zone.changed', $handlerPayload, $eventPayload, 'action-library-zone-reorder', $opponent);
         $encoded = json_encode($opponentMessage, JSON_THROW_ON_ERROR);

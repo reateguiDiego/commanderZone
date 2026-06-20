@@ -2,6 +2,7 @@
 
 namespace App\Application\Game\Performance;
 
+use App\Application\Game\GameLibraryOps;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -59,6 +60,7 @@ final class GameplayBaselineFixtureFactory
                 'life' => 40 - ($index - 1),
                 'playTopLibraryRevealed' => false,
                 'revealedLibraryTo' => [],
+                GameLibraryOps::VISIBILITY_EPOCH_KEY => 1,
                 'zones' => $zones,
                 'zoneCounts' => array_map('count', $zones),
                 'commanderDamage' => [],
@@ -188,7 +190,9 @@ final class GameplayBaselineFixtureFactory
         $zones['command'][] = $this->commanderInstance($key, $playerId, 2, $seat);
 
         $zones['library'][0]['revealedTo'] = ['all'];
+        $zones['library'][0][GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = 1;
         $zones['library'][1]['revealedTo'] = [$playerId];
+        $zones['library'][1][GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = 1;
         $zones['hand'][0]['revealedTo'] = ['all'];
 
         return $zones;

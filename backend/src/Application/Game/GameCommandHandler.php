@@ -143,6 +143,7 @@ class GameCommandHandler
         ?GameplayMetricsInspector $metricsInspector = null,
         ?CompactGameCardStateMapper $compactStateMapper = null,
         ?GameplayCompactRuntimeFlags $compactRuntimeFlags = null,
+        ?GameLibraryOps $libraryOps = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
@@ -150,6 +151,7 @@ class GameCommandHandler
         $this->metricsInspector = $metricsInspector ?? new GameplayMetricsInspector();
         $this->compactStateMapper = $compactStateMapper ?? new CompactGameCardStateMapper();
         $this->compactRuntimeFlags = $compactRuntimeFlags ?? new GameplayCompactRuntimeFlags();
+        $this->libraryOps = $libraryOps ?? new GameLibraryOps();
     }
 
     private readonly GameRandomizer $randomizer;
@@ -157,6 +159,7 @@ class GameCommandHandler
     private readonly GameplayMetricsInspector $metricsInspector;
     private readonly CompactGameCardStateMapper $compactStateMapper;
     private readonly GameplayCompactRuntimeFlags $compactRuntimeFlags;
+    private readonly GameLibraryOps $libraryOps;
 
     /**
      * @return list<string>
@@ -354,6 +357,7 @@ class GameCommandHandler
                 }
                 unset($card);
             }
+            $this->libraryOps->ensurePlayer($player);
             if ($player['colorIdentity'] === [] && isset($player['zones']['command'])) {
                 foreach ($player['zones']['command'] as $commander) {
                     $player['colorIdentity'] = $this->orderedColorIdentity([
@@ -586,6 +590,9 @@ class GameCommandHandler
             $normalized['dungeonMarker'] = $this->normalizedDungeonMarker($card['dungeonMarker']);
         } elseif ($this->isDungeonCard($normalized)) {
             $normalized['dungeonMarker'] = $this->defaultDungeonMarker();
+        }
+        if ($zone === 'library' && array_key_exists(GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY, $card)) {
+            $normalized[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = (int) $card[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY];
         }
 
         return $normalized;
@@ -1785,6 +1792,29 @@ class GameCommandHandler
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $zone = $this->requiredZone($payload);
+        if ($zone === 'library') {
+            if (isset($payload['cards'])) {
+                throw new \InvalidArgumentException('Library reorder must use instanceIds instead of cards.');
+            }
+            $instanceIds = $payload['instanceIds'] ?? null;
+            if (!is_array($instanceIds) || $instanceIds === []) {
+                throw new \InvalidArgumentException('instanceIds are required.');
+            }
+
+            $requestedIds = array_values(array_filter(
+                array_map(static fn (mixed $id): string => is_string($id) ? trim($id) : '', $instanceIds),
+                static fn (string $id): bool => $id !== '',
+            ));
+            $this->libraryOps->reorderTop($snapshot['players'][$playerId], $requestedIds);
+            $this->reindexZoneLocations(
+                $snapshot,
+                $playerId,
+                'library',
+                max(0, count($snapshot['players'][$playerId]['zones']['library']) - count($requestedIds)),
+            );
+
+            return 'Reordered library.';
+        }
         if (!isset($payload['cards']) || !is_array($payload['cards'])) {
             throw new \InvalidArgumentException('cards are required.');
         }
@@ -1965,7 +1995,7 @@ class GameCommandHandler
         ];
 
         if (($state['needsScryAfterKeep'] ?? false) === true) {
-            $topCard = $snapshot['players'][$playerId]['zones']['library'][0] ?? null;
+            $topCard = $this->libraryOps->topCard($snapshot['players'][$playerId]);
             if (!is_array($topCard)) {
                 $this->refreshPlayerMulliganState($snapshot, $playerId, (int) $state['mulligansTaken'], self::MULLIGAN_STATUS_READY);
 
@@ -2008,7 +2038,7 @@ class GameCommandHandler
         if ($scryCardInstanceId === '') {
             throw new \InvalidArgumentException('No scry card is pending.');
         }
-        $topCard = $snapshot['players'][$playerId]['zones']['library'][0] ?? null;
+        $topCard = $this->libraryOps->topCard($snapshot['players'][$playerId]);
         if (!is_array($topCard) || (string) ($topCard['instanceId'] ?? '') !== $scryCardInstanceId) {
             throw new \InvalidArgumentException('Pending scry card is not on top of the library.');
         }
@@ -2027,15 +2057,11 @@ class GameCommandHandler
     private function applyLibraryDraw(array &$snapshot, array $payload, int $count): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
-        $drawn = 0;
-        for ($i = 0; $i < $count; ++$i) {
-            $card = $this->takeTopLibraryCard($snapshot, $playerId);
-            if (!is_array($card)) {
-                break;
-            }
+        $drawnCards = $this->takeTopLibraryCards($snapshot, $playerId, $count);
+        foreach ($drawnCards as $card) {
             $this->putCard($snapshot, $playerId, 'hand', $card);
-            ++$drawn;
         }
+        $drawn = count($drawnCards);
 
         return sprintf('ha robado %d carta%s.', $drawn, $drawn === 1 ? '' : 's');
     }
@@ -2043,13 +2069,11 @@ class GameCommandHandler
     private function applyLibraryShuffle(array &$snapshot, array $payload): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
-        $snapshot['players'][$playerId]['zones']['library'] = $this->randomizer->shuffle($snapshot['players'][$playerId]['zones']['library']);
-        foreach ($snapshot['players'][$playerId]['zones']['library'] as &$card) {
-            $card['revealedTo'] = [];
-        }
-        unset($card);
+        $this->libraryOps->shuffle(
+            $snapshot['players'][$playerId],
+            fn (array $cards): array => $this->randomizer->shuffle($cards),
+        );
         $this->reindexZoneLocations($snapshot, $playerId, 'library');
-        $snapshot['players'][$playerId]['revealedLibraryTo'] = [];
 
         return 'ha hecho shuffle a su library.';
     }
@@ -2062,13 +2086,9 @@ class GameCommandHandler
             ? $this->requiredPlayerId($snapshot, $payload, 'targetPlayerId')
             : $playerId;
         $count = $this->positiveInt($payload['count'] ?? 1, 1, 99);
-        $moved = 0;
+        $movedCards = $this->takeTopLibraryCards($snapshot, $playerId, $count);
         $movedCardNames = [];
-        for ($i = 0; $i < $count; ++$i) {
-            $card = $this->takeTopLibraryCard($snapshot, $playerId);
-            if (!is_array($card)) {
-                break;
-            }
+        foreach ($movedCards as $card) {
             $movedCardNames[] = $this->cardLogName($card);
             $this->putCard(
                 $snapshot,
@@ -2077,8 +2097,8 @@ class GameCommandHandler
                 $card,
                 $this->moveDestinationPosition('library', $toZone, $payload),
             );
-            ++$moved;
         }
+        $moved = count($movedCards);
 
         if ($toZone === 'hand' && $targetPlayerId !== $playerId) {
             return sprintf(
@@ -2112,21 +2132,7 @@ class GameCommandHandler
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $count = $this->positiveInt($payload['count'] ?? 1, 1, 99);
         $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
-        $library =& $snapshot['players'][$playerId]['zones']['library'];
-        $revealed = 0;
-        foreach ($library as &$card) {
-            $card['revealedTo'] = [];
-        }
-        unset($card);
-
-        for ($i = 0; $i < $count; ++$i) {
-            if (!isset($library[$i])) {
-                break;
-            }
-            $library[$i]['faceDown'] = false;
-            $library[$i]['revealedTo'] = $targets;
-            ++$revealed;
-        }
+        $revealed = $this->libraryOps->revealTop($snapshot['players'][$playerId], $count, $targets);
 
         return sprintf(
             'Revealed top %d library card%s to %s.',
@@ -2140,12 +2146,7 @@ class GameCommandHandler
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
-        foreach ($snapshot['players'][$playerId]['zones']['library'] as &$card) {
-            $card['faceDown'] = false;
-            $card['revealedTo'] = $targets;
-        }
-        unset($card);
-        $snapshot['players'][$playerId]['revealedLibraryTo'] = $targets;
+        $this->libraryOps->revealAll($snapshot['players'][$playerId], $targets);
 
         return sprintf(
             'ha revelado su library a %s.',
@@ -2192,54 +2193,48 @@ class GameCommandHandler
             throw new \InvalidArgumentException('instanceIds are required.');
         }
 
-        $library =& $snapshot['players'][$playerId]['zones']['library'];
         $count = count($requestedIds);
-        if (count($library) < $count) {
+        if (count($snapshot['players'][$playerId]['zones']['library']) < $count) {
             throw new \InvalidArgumentException('Library does not contain enough cards.');
         }
-
-        $topCards = array_slice($library, 0, $count);
-        $topById = [];
-        foreach ($topCards as $card) {
-            $instanceId = (string) ($card['instanceId'] ?? '');
-            if ($instanceId !== '') {
-                $topById[$instanceId] = $card;
-            }
-        }
-
-        $currentIds = array_keys($topById);
-        $sortedCurrentIds = $currentIds;
-        $sortedRequestedIds = $requestedIds;
-        sort($sortedCurrentIds);
-        sort($sortedRequestedIds);
-        if ($sortedCurrentIds !== $sortedRequestedIds) {
-            throw new \InvalidArgumentException('Can only reorder the currently viewed top library cards.');
-        }
-
-        $reorderedTop = array_map(static fn (string $id): array => $topById[$id], $requestedIds);
-        $library = array_values([...$reorderedTop, ...array_slice($library, $count)]);
-        $this->reindexZoneLocations($snapshot, $playerId, 'library');
+        $this->libraryOps->reorderTop($snapshot['players'][$playerId], $requestedIds);
+        $this->reindexZoneLocations(
+            $snapshot,
+            $playerId,
+            'library',
+            max(0, count($snapshot['players'][$playerId]['zones']['library']) - $count),
+        );
 
         return sprintf('ha alterado el orden de sus proximos %d robos.', $count);
     }
 
     private function takeTopLibraryCard(array &$snapshot, string $playerId): ?array
     {
-        $library =& $snapshot['players'][$playerId]['zones']['library'];
-        if ($library === []) {
-            return null;
-        }
-
-        $card = array_shift($library);
+        $card = $this->libraryOps->drawOne($snapshot['players'][$playerId]);
         if (is_array($card)) {
             $instanceId = (string) ($card['instanceId'] ?? '');
             if ($instanceId !== '') {
                 unset($snapshot['loc'][$instanceId]);
             }
         }
-        $this->updateLocationAfterRemove($snapshot, $playerId, 'library', 0);
 
         return is_array($card) ? $card : null;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function takeTopLibraryCards(array &$snapshot, string $playerId, int $count): array
+    {
+        $cards = $this->libraryOps->drawMany($snapshot['players'][$playerId], $count);
+        foreach ($cards as $card) {
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            if ($instanceId !== '') {
+                unset($snapshot['loc'][$instanceId]);
+            }
+        }
+
+        return $cards;
     }
 
     private function applyStackCardAdded(array &$snapshot, array $payload): string
@@ -2729,11 +2724,21 @@ class GameCommandHandler
             throw new \InvalidArgumentException('Card not found.');
         }
 
+        if ($zone === 'library') {
+            $card = $this->libraryOps->removeAt($snapshot['players'][$playerId], $location['index']);
+            if (!is_array($card) || (string) ($card['instanceId'] ?? '') !== $instanceId) {
+                throw new \InvalidArgumentException('Card not found.');
+            }
+            unset($snapshot['loc'][$instanceId]);
+            $this->updateLocationAfterRemove($snapshot, $playerId, $zone, $location['index']);
+
+            return $card;
+        }
+
         $card = $snapshot['players'][$playerId]['zones'][$zone][$location['index']] ?? null;
         if (!is_array($card) || (string) ($card['instanceId'] ?? '') !== $instanceId) {
             throw new \InvalidArgumentException('Card not found.');
         }
-
         array_splice($snapshot['players'][$playerId]['zones'][$zone], $location['index'], 1);
         unset($snapshot['loc'][$instanceId]);
         $this->updateLocationAfterRemove($snapshot, $playerId, $zone, $location['index']);
@@ -2802,15 +2807,11 @@ class GameCommandHandler
                 $this->putCard($snapshot, $playerId, 'library', $card, 'bottom');
             }
         }
-        $snapshot['players'][$playerId]['zones']['library'] = $this->randomizer->shuffle($snapshot['players'][$playerId]['zones']['library']);
-        foreach ($snapshot['players'][$playerId]['zones']['library'] as &$card) {
-            if (is_array($card)) {
-                $card['revealedTo'] = [];
-            }
-        }
-        unset($card);
+        $this->libraryOps->shuffle(
+            $snapshot['players'][$playerId],
+            fn (array $cards): array => $this->randomizer->shuffle($cards),
+        );
         $this->reindexZoneLocations($snapshot, $playerId, 'library');
-        $snapshot['players'][$playerId]['revealedLibraryTo'] = [];
     }
 
     private function drawMulliganHand(array &$snapshot, string $playerId, int $drawCount): void
@@ -2922,13 +2923,16 @@ class GameCommandHandler
             $card['revealedTo'] = [];
         }
 
-        if ($zone === 'library' && $position === 'top') {
-            array_unshift($snapshot['players'][$playerId]['zones'][$zone], $card);
+        if ($zone === 'library') {
+            $position = $position === 'bottom' ? 'bottom' : 'top';
+            $index = $position === 'bottom'
+                ? $this->libraryOps->putOnBottom($snapshot['players'][$playerId], $card)
+                : $this->libraryOps->putOnTop($snapshot['players'][$playerId], $card);
             $instanceId = (string) ($card['instanceId'] ?? '');
             if ($instanceId !== '') {
-                $this->moveLocation($snapshot, $instanceId, null, $this->locationPayload($playerId, $zone, 0, $card));
+                $this->moveLocation($snapshot, $instanceId, null, $this->locationPayload($playerId, $zone, $index, $card));
+                $this->updateLocationAfterInsert($snapshot, $playerId, $zone, $index);
             }
-            $this->updateLocationAfterInsert($snapshot, $playerId, $zone, 0);
 
             return;
         }
@@ -3745,23 +3749,14 @@ class GameCommandHandler
             return false;
         }
 
-        $library = $snapshot['players'][$playerId]['zones']['library'] ?? [];
-        if (!is_array($library) || $library === []) {
+        $player = $snapshot['players'][$playerId] ?? null;
+        if (!is_array($player)) {
             return false;
         }
 
-        foreach ($library as $card) {
-            if (!is_array($card)) {
-                return false;
-            }
+        $targets = is_array($player['revealedLibraryTo'] ?? null) ? $player['revealedLibraryTo'] : [];
 
-            $revealedTo = $card['revealedTo'] ?? [];
-            if (!is_array($revealedTo) || (!in_array('all', $revealedTo, true) && !in_array($actor->id(), $revealedTo, true))) {
-                return false;
-            }
-        }
-
-        return true;
+        return in_array('all', $targets, true) || in_array($actor->id(), $targets, true);
     }
 
     private function counterScopePlayerId(array $payload): ?string

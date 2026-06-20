@@ -16,6 +16,7 @@ class GameProjectionService
         private readonly GameCommandHandler $normalizer,
         private readonly ?CardLocalizationService $cardLocalization = null,
         private readonly ?GameCardRulingsLookup $cardRulingsLookup = null,
+        private readonly ?GameLibraryOps $libraryOps = null,
     )
     {
     }
@@ -68,18 +69,26 @@ class GameProjectionService
                 $player['zones'] = [];
             }
             $player['playerId'] = (string) $playerId;
+            $tailTopLibrary = $this->libraryOps()->usesTailTop(is_array($rawPlayer) ? $rawPlayer : []);
 
             foreach ($player['zones'] as $zone => &$cards) {
                 $zoneCounts[$zone] = count($cards);
                 $isOwnHiddenZone = $viewerCanUseOwnHiddenZones && $playerId === $viewerId;
-                if ((string) $zone === 'hand' && !$isOwnHiddenZone) {
+                if ((string) $zone === 'library' && $isOwnHiddenZone && !$isMulliganPhase) {
+                    $cards = array_values(array_map(
+                        fn (array $card): array => $this->projectCard($card, $viewerId, true, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup),
+                        $this->libraryOps()->projectionOrderCards(is_array($rawPlayer) ? $rawPlayer : []),
+                    ));
+                } elseif ((string) $zone === 'hand' && !$isOwnHiddenZone) {
                     $cards = $this->projectOpponentHand($cards, $viewerId, (string) $playerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
                 } elseif ((string) $zone === 'library' && ($isMulliganPhase || !$isOwnHiddenZone)) {
-                    $cards = $this->projectOpponentLibrary(
+                    $cards = $this->projectOpponentLibraryZone(
                         $cards,
                         $viewerId,
                         (string) $playerId,
                         ($player['playTopLibraryRevealed'] ?? false) === true,
+                        $tailTopLibrary,
+                        is_array($rawPlayer) ? $rawPlayer : [],
                         $requestedLanguage,
                         $localizedCardsByLanguage,
                         $rulingsLookup,
@@ -123,11 +132,26 @@ class GameProjectionService
         return $snapshot;
     }
 
-    public function projectZone(array $cards, string $ownerId, string $zone, User $viewer, bool $playTopLibraryRevealed = false, ?array $localizedCardsByLanguage = null): array
+    public function projectZone(
+        array $cards,
+        string $ownerId,
+        string $zone,
+        User $viewer,
+        bool $playTopLibraryRevealed = false,
+        ?array $localizedCardsByLanguage = null,
+        ?array $playerState = null,
+    ): array
     {
         $viewerId = $viewer->id();
         $requestedLanguage = $viewer->cardLanguage();
-        $visibleScryfallIds = $this->visibleZoneScryfallIds($cards, $ownerId, $zone, $viewerId, $playTopLibraryRevealed);
+        $visibleScryfallIds = $this->visibleZoneScryfallIds(
+            $cards,
+            $ownerId,
+            $zone,
+            $viewerId,
+            $playTopLibraryRevealed,
+            is_array($playerState) ? $playerState : [],
+        );
         $rulingsLookup = $this->cardRulingsLookup instanceof GameCardRulingsLookup
             ? $this->cardRulingsLookup->hasRulingsByScryfallIds($visibleScryfallIds)
             : [];
@@ -144,7 +168,17 @@ class GameProjectionService
                 return $this->projectOpponentHand($cards, $viewerId, $ownerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
             }
             if ($zone === 'library') {
-                return $this->projectOpponentLibraryZone($cards, $viewerId, $ownerId, $playTopLibraryRevealed, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
+                return $this->projectOpponentLibraryZone(
+                    $cards,
+                    $viewerId,
+                    $ownerId,
+                    $playTopLibraryRevealed,
+                    $this->libraryOps()->usesTailTop(is_array($playerState) ? $playerState : []),
+                    is_array($playerState) ? $playerState : [],
+                    $requestedLanguage,
+                    $localizedCardsByLanguage,
+                    $rulingsLookup,
+                );
             }
 
             $cards = array_values(array_filter($cards, fn (array $card): bool => $this->isVisibleCard($card, $viewerId)));
@@ -152,7 +186,9 @@ class GameProjectionService
 
         return array_values(array_map(
             fn (array $card): array => $this->projectCard($card, $viewerId, $ownerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup),
-            $cards,
+            $zone === 'library'
+                ? $this->orderedLibraryCards($cards, $this->libraryOps()->usesTailTop(is_array($playerState) ? $playerState : []))
+                : $cards,
         ));
     }
 
@@ -194,8 +230,7 @@ class GameProjectionService
         ];
 
         $scryCardInstanceId = is_string($mulligan['scryCardInstanceId'] ?? null) ? $mulligan['scryCardInstanceId'] : '';
-        $library = is_array($rawPlayer['zones']['library'] ?? null) ? $rawPlayer['zones']['library'] : [];
-        $topCard = $library[0] ?? null;
+        $topCard = $this->libraryTopCard(is_array($rawPlayer) ? $rawPlayer : []);
         if ($status === 'SCRYING' && $scryCardInstanceId !== '' && is_array($topCard) && ($topCard['instanceId'] ?? null) === $scryCardInstanceId) {
             $private['scryCard'] = $this->projectCard(
                 $topCard,
@@ -270,6 +305,40 @@ class GameProjectionService
      *
      * @return list<array<string,mixed>>
      */
+    private function orderedLibraryCards(array $cards, bool $tailTop): array
+    {
+        $cards = $this->cardArrays($cards);
+
+        return $tailTop ? array_values(array_reverse($cards)) : $cards;
+    }
+
+    /**
+     * @param array<string,mixed> $player
+     *
+     * @return array<string,mixed>|null
+     */
+    private function libraryTopCard(array $player): ?array
+    {
+        return $this->libraryOps()->topCard($player);
+    }
+
+    /**
+     * @param array<string,mixed> $player
+     */
+    private function isVisibleLibraryCard(array $card, string $viewerId, array $player): bool
+    {
+        if (!$this->libraryOps()->usesTailTop($player)) {
+            return $this->isVisibleCard($card, $viewerId);
+        }
+
+        return $this->libraryOps()->isCardVisibleTo($player, $card, $viewerId);
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
     private function projectOpponentHand(
         array $cards,
         string $viewerId,
@@ -333,20 +402,22 @@ class GameProjectionService
         string $viewerId,
         string $ownerId,
         bool $playTopRevealed = false,
+        bool $tailTop = false,
+        array $playerState = [],
         ?string $requestedLanguage = null,
         ?array $localizedCardsByLanguage = null,
         ?array $rulingsLookup = null,
     ): array
     {
-        $cards = array_values($cards);
+        $cards = $this->orderedLibraryCards($cards, $tailTop);
         if ($cards === []) {
             return [];
         }
 
         $topCard = $cards[0];
-        if ($playTopRevealed || $this->isVisibleCard($topCard, $viewerId)) {
+        if ($playTopRevealed || $this->isVisibleLibraryCard($topCard, $viewerId, $playerState)) {
             $topCard['faceDown'] = false;
-            if ($playTopRevealed && !$this->isVisibleCard($topCard, $viewerId)) {
+            if ($playTopRevealed && !$this->isVisibleLibraryCard($topCard, $viewerId, $playerState)) {
                 $topCard['revealedTo'] = ['all'];
             }
 
@@ -371,14 +442,16 @@ class GameProjectionService
         string $viewerId,
         string $ownerId,
         bool $playTopRevealed = false,
+        bool $tailTop = false,
+        array $playerState = [],
         ?string $requestedLanguage = null,
         ?array $localizedCardsByLanguage = null,
         ?array $rulingsLookup = null,
     ): array
     {
         $visibleCards = array_values(array_filter(
-            $cards,
-            fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
+            $this->orderedLibraryCards($cards, $tailTop),
+            fn (array $card): bool => $this->isVisibleLibraryCard($card, $viewerId, $playerState),
         ));
 
         if (count($visibleCards) > 1) {
@@ -388,7 +461,7 @@ class GameProjectionService
             ));
         }
 
-        return $this->projectOpponentLibrary($cards, $viewerId, $ownerId, $playTopRevealed, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
+        return $this->projectOpponentLibrary($cards, $viewerId, $ownerId, $playTopRevealed, $tailTop, $playerState, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
     }
 
     /**
@@ -596,6 +669,7 @@ class GameProjectionService
             }
 
             $playTopLibraryRevealed = ($player['playTopLibraryRevealed'] ?? false) === true;
+            $tailTopLibrary = $this->libraryOps()->usesTailTop($player);
             foreach ($player['zones'] as $zone => $cards) {
                 if (!is_array($cards)) {
                     continue;
@@ -609,6 +683,8 @@ class GameProjectionService
                     $playerId,
                     $isOwnHiddenZone,
                     $playTopLibraryRevealed,
+                    $tailTopLibrary,
+                    $player,
                 ) as $card) {
                     $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
                     if ($scryfallId !== '') {
@@ -671,10 +747,25 @@ class GameProjectionService
      *
      * @return list<string>
      */
-    private function visibleZoneScryfallIds(array $cards, string $ownerId, string $zone, string $viewerId, bool $playTopLibraryRevealed): array
+    private function visibleZoneScryfallIds(
+        array $cards,
+        string $ownerId,
+        string $zone,
+        string $viewerId,
+        bool $playTopLibraryRevealed,
+        array $playerState = [],
+    ): array
     {
         return $this->cardsScryfallIds(
-            $this->visibleCardsForZoneProjection($cards, $ownerId, $zone, $viewerId, $playTopLibraryRevealed),
+            $this->visibleCardsForZoneProjection(
+                $cards,
+                $ownerId,
+                $zone,
+                $viewerId,
+                $playTopLibraryRevealed,
+                $this->libraryOps()->usesTailTop($playerState),
+                $playerState,
+            ),
         );
     }
 
@@ -690,6 +781,8 @@ class GameProjectionService
         string $ownerId,
         bool $isOwnHiddenZone,
         bool $playTopLibraryRevealed,
+        bool $tailTopLibrary,
+        array $playerState = [],
     ): array
     {
         if ($zone === 'hand' && !$isOwnHiddenZone) {
@@ -697,13 +790,13 @@ class GameProjectionService
         }
 
         if ($zone === 'library' && !$isOwnHiddenZone) {
-            $normalizedCards = $this->cardArrays($cards);
+            $normalizedCards = $this->orderedLibraryCards($cards, $tailTopLibrary);
             if ($normalizedCards === []) {
                 return [];
             }
 
             $topCard = $normalizedCards[0];
-            if ($playTopLibraryRevealed || $this->isVisibleCard($topCard, $viewerId)) {
+            if ($playTopLibraryRevealed || $this->isVisibleLibraryCard($topCard, $viewerId, $playerState)) {
                 return [$topCard];
             }
 
@@ -728,6 +821,8 @@ class GameProjectionService
         string $zone,
         string $viewerId,
         bool $playTopLibraryRevealed,
+        bool $tailTopLibrary = false,
+        array $playerState = [],
     ): array
     {
         if ($ownerId !== $viewerId && $this->zoneIsHidden($zone)) {
@@ -736,18 +831,21 @@ class GameProjectionService
             }
 
             if ($zone === 'library') {
-                $visibleCards = $this->visibleCards($cards, $viewerId);
+                $visibleCards = array_values(array_filter(
+                    $this->orderedLibraryCards($cards, $tailTopLibrary),
+                    fn (array $card): bool => $this->isVisibleLibraryCard($card, $viewerId, $playerState),
+                ));
                 if (count($visibleCards) > 1) {
                     return $visibleCards;
                 }
 
-                $normalizedCards = $this->cardArrays($cards);
+                $normalizedCards = $this->orderedLibraryCards($cards, $tailTopLibrary);
                 if ($normalizedCards === []) {
                     return [];
                 }
 
                 $topCard = $normalizedCards[0];
-                if ($playTopLibraryRevealed || $this->isVisibleCard($topCard, $viewerId)) {
+                if ($playTopLibraryRevealed || $this->isVisibleLibraryCard($topCard, $viewerId, $playerState)) {
                     return [$topCard];
                 }
 
@@ -829,5 +927,10 @@ class GameProjectionService
     private function requestedLanguages(?string $requestedLanguage): array
     {
         return is_string($requestedLanguage) && trim($requestedLanguage) !== '' ? [$requestedLanguage] : [];
+    }
+
+    private function libraryOps(): GameLibraryOps
+    {
+        return $this->libraryOps ?? new GameLibraryOps();
     }
 }

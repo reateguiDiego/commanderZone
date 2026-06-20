@@ -25,16 +25,19 @@ class GameSnapshotFactory
         ?GameRandomizer $randomizer = null,
         ?CompactGameCardStateMapper $compactStateMapper = null,
         ?GameplayCompactRuntimeFlags $compactRuntimeFlags = null,
+        ?GameLibraryOps $libraryOps = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
         $this->compactStateMapper = $compactStateMapper ?? new CompactGameCardStateMapper();
         $this->compactRuntimeFlags = $compactRuntimeFlags ?? new GameplayCompactRuntimeFlags();
+        $this->libraryOps = $libraryOps ?? new GameLibraryOps();
     }
 
     private readonly GameRandomizer $randomizer;
     private readonly CompactGameCardStateMapper $compactStateMapper;
     private readonly GameplayCompactRuntimeFlags $compactRuntimeFlags;
+    private readonly GameLibraryOps $libraryOps;
 
     public function fromRoom(Room $room): array
     {
@@ -57,9 +60,9 @@ class GameSnapshotFactory
                     $library[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'library');
                 }
             }
-            $library = $this->randomizer->shuffle($library);
+            $library = array_reverse($this->randomizer->shuffle($library));
             $mulliganState = GameMulliganRules::calculateMulliganState($room->mulliganRule(), $room->firstMulliganFree(), 0);
-            $openingHand = array_splice($library, 0, min($mulliganState['drawCount'], count($library)));
+            $openingHand = array_reverse(array_splice($library, -min($mulliganState['drawCount'], count($library))));
             $openingHand = array_values(array_map(
                 static fn (array $card): array => [...$card, 'zone' => 'hand'],
                 $openingHand,
@@ -86,6 +89,8 @@ class GameSnapshotFactory
                 'backgroundName' => $this->backgroundNameForDeck($deck, $colorIdentity, $usedBackgroundNames),
                 'sleevesName' => $deck?->sleevesName() ?? Deck::DEFAULT_SLEEVES_NAME,
                 'life' => $room->startingLife(),
+                GameLibraryOps::ORIENTATION_KEY => GameLibraryOps::ORIENTATION_TAIL_TOP,
+                GameLibraryOps::VISIBILITY_EPOCH_KEY => 1,
                 'zones' => [
                     'library' => $library,
                     'hand' => $openingHand,

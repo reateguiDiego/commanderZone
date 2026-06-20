@@ -5,6 +5,7 @@ namespace App\Tests\Application;
 use App\Application\Card\CardLocalizationService;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameCardRulingsLookup;
+use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameProjectionService;
 use App\Domain\User\User;
 use PHPUnit\Framework\TestCase;
@@ -60,6 +61,7 @@ class GameProjectionServiceTest extends TestCase
                 'controllerId' => $owner->id(),
                 'zone' => 'library',
                 'revealedTo' => [$target->id()],
+                GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY => 1,
             ],
             [
                 ...$this->card('second-card', 'Private Second'),
@@ -68,6 +70,7 @@ class GameProjectionServiceTest extends TestCase
                 'zone' => 'library',
             ],
         ];
+        $snapshot['players'][$owner->id()][GameLibraryOps::VISIBILITY_EPOCH_KEY] = 1;
         $projection = new GameProjectionService(new GameCommandHandler());
 
         $targetLibrary = $projection->projectSnapshot($snapshot, $target)['players'][$owner->id()]['zones']['library'];
@@ -170,6 +173,7 @@ class GameProjectionServiceTest extends TestCase
                 'zone' => 'library',
                 'faceDown' => true,
                 'revealedTo' => [$viewer->id()],
+                GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY => 1,
             ],
             [
                 ...$this->card('second-card', 'Public Second'),
@@ -178,11 +182,13 @@ class GameProjectionServiceTest extends TestCase
                 'zone' => 'library',
                 'faceDown' => true,
                 'revealedTo' => [$viewer->id()],
+                GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY => 1,
             ],
         ];
+        $playerState = [GameLibraryOps::VISIBILITY_EPOCH_KEY => 1];
 
         $library = (new GameProjectionService(new GameCommandHandler()))
-            ->projectZone($cards, $owner->id(), 'library', $viewer);
+            ->projectZone($cards, $owner->id(), 'library', $viewer, false, null, $playerState);
 
         self::assertCount(2, $library);
         self::assertSame('Public Top', $library[0]['name']);
@@ -203,6 +209,7 @@ class GameProjectionServiceTest extends TestCase
                 'controllerId' => $owner->id(),
                 'zone' => 'library',
                 'revealedTo' => [$target->id()],
+                GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY => 1,
             ],
             [
                 ...$this->card('second-card', 'Target Second'),
@@ -210,11 +217,13 @@ class GameProjectionServiceTest extends TestCase
                 'controllerId' => $owner->id(),
                 'zone' => 'library',
                 'revealedTo' => [$target->id()],
+                GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY => 1,
             ],
         ];
+        $playerState = [GameLibraryOps::VISIBILITY_EPOCH_KEY => 1];
 
         $library = (new GameProjectionService(new GameCommandHandler()))
-            ->projectZone($cards, $owner->id(), 'library', $other);
+            ->projectZone($cards, $owner->id(), 'library', $other, false, null, $playerState);
 
         self::assertCount(1, $library);
         self::assertSame('Hidden card', $library[0]['name']);

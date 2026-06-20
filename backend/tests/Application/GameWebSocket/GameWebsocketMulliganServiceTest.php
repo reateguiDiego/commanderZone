@@ -3,6 +3,7 @@
 namespace App\Tests\Application\GameWebSocket;
 
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganRules;
 use App\Application\Game\GameRandomizer;
 use App\Application\Game\WebSocket\GameWebsocketMulliganService;
@@ -83,10 +84,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertCount(6, $private['hand']);
         self::assertSame(['bottomCardCount' => 1], $completed['event']['payload']);
         self::assertArrayNotHasKey('bottomCardInstanceIds', $completed['event']['payload']);
-        self::assertSame(['library-1', 'hand-1'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['library-1', 'hand-1'], $this->libraryIds($game->snapshot(), $actor->id()));
     }
 
     public function testKeepGenerousRandomizesBottomServerSide(): void
@@ -106,10 +104,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
             'bottomCardInstanceIds' => ['hand-1', 'hand-2', 'hand-3'],
         ], $this->peer($game, $actor), 'message-generous');
 
-        self::assertSame(['hand-3', 'hand-2', 'hand-1'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['hand-3', 'hand-2', 'hand-1'], $this->libraryIds($game->snapshot(), $actor->id()));
     }
 
     public function testRepeatedKeepWhileReadyReturnsNonDestructiveError(): void
@@ -228,7 +223,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
         ], $this->peer($game, $actor), 'message-scry');
 
         self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
-        self::assertSame('library-1', $game->snapshot()['players'][$actor->id()]['zones']['library'][0]['instanceId']);
+        self::assertSame('library-1', $this->libraryIds($game->snapshot(), $actor->id())[0] ?? null);
     }
 
     public function testScryConfirmBottomMovesTopCardToBottom(): void
@@ -242,10 +237,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
         ], $this->peer($game, $actor), 'message-scry');
 
         self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
-        self::assertSame(['library-2', 'library-1'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['library-2', 'library-1'], $this->libraryIds($game->snapshot(), $actor->id()));
     }
 
     public function testSpectatorCannotSendMulliganActions(): void
@@ -548,5 +540,16 @@ class GameWebsocketMulliganServiceTest extends TestCase
         }
 
         self::fail(sprintf('Message kind "%s" was not emitted.', $kind));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function libraryIds(array $snapshot, string $playerId): array
+    {
+        return array_map(
+            static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+            (new GameLibraryOps())->projectionOrderCards($snapshot['players'][$playerId] ?? []),
+        );
     }
 }
