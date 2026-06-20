@@ -172,8 +172,8 @@ class RoomsGamesApiTest extends ApiTestCase
             'has_rulings' => false,
         ]);
 
-        $ownerToken = $this->registerAndLogin('rulings-snapshot-owner@example.test', 'Rulings Snapshot Owner');
-        $guestToken = $this->registerAndLogin('rulings-snapshot-guest@example.test', 'Rulings Snapshot Guest');
+        $ownerToken = $this->registerAndLogin('rulings-snapshot-owner@example.test', 'Rulings Owner');
+        $guestToken = $this->registerAndLogin('rulings-snapshot-guest@example.test', 'Rulings Guest');
         $deckId = $this->quickBuildDeck($ownerToken, 'Rulings Deck', [
             ['scryfallId' => $commanderId, 'quantity' => 1, 'section' => 'commander'],
             ['scryfallId' => $landId, 'quantity' => 99, 'section' => 'main'],
@@ -416,8 +416,8 @@ class RoomsGamesApiTest extends ApiTestCase
 
     public function testJoiningAnotherRoomFailsUntilUserLeavesCurrentRoom(): void
     {
-        $firstOwnerToken = $this->registerAndLogin('single-join-first-owner@example.test', 'Single Join First Owner');
-        $secondOwnerToken = $this->registerAndLogin('single-join-second-owner@example.test', 'Single Join Second Owner');
+        $firstOwnerToken = $this->registerAndLogin('single-join-first-owner@example.test', 'Join First Owner');
+        $secondOwnerToken = $this->registerAndLogin('single-join-second-owner@example.test', 'Join Second Owner');
         $playerToken = $this->registerAndLogin('single-join-player@example.test', 'Single Join Player');
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 3], $firstOwnerToken);
@@ -536,7 +536,7 @@ class RoomsGamesApiTest extends ApiTestCase
             'collector_number' => '2',
         ]);
         $ownerToken = $this->registerAndLogin('single-started-owner@example.test', 'Single Started Owner');
-        $playerToken = $this->registerAndLogin('single-started-player@example.test', 'Single Started Player');
+        $playerToken = $this->registerAndLogin('single-started-player@example.test', 'Started Player');
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Started Owner Deck', [
             ['scryfallId' => 'dddddddd-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
@@ -705,22 +705,22 @@ class RoomsGamesApiTest extends ApiTestCase
     {
         $fixture = $this->startedRematchGameFixture('wait', [
             ['owner-wait@example.test', 'Rematch Wait Winner'],
-            ['defeated-wait@example.test', 'Rematch Wait Defeated'],
+            ['defeated-wait@example.test', 'Rematch Wait Lost'],
             ['alive-wait@example.test', 'Rematch Wait Alive'],
         ]);
         $gameId = $fixture['gameId'];
         $roomId = $fixture['roomId'];
-        $defeatedPlayerId = $this->playerIdByName($fixture['snapshot'], 'Rematch Wait Defeated');
+        $defeatedPlayerId = $this->playerIdByName($fixture['snapshot'], 'Rematch Wait Lost');
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'life.changed',
             'payload' => ['playerId' => $defeatedPlayerId, 'delta' => -40],
-        ], $fixture['tokens']['Rematch Wait Defeated']);
+        ], $fixture['tokens']['Rematch Wait Lost']);
         self::assertResponseStatusCodeSame(201);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
             'vote' => 'play_again',
-        ], $fixture['tokens']['Rematch Wait Defeated']);
+        ], $fixture['tokens']['Rematch Wait Lost']);
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
         self::assertSame('waiting_for_game_end', $response['status']);
@@ -815,7 +815,7 @@ class RoomsGamesApiTest extends ApiTestCase
             for ($index = 1; $index <= $playerCount; ++$index) {
                 $players[] = [
                     sprintf('rematch-size-%d-player-%d@example.test', $playerCount, $index),
-                    sprintf('Rematch Size %d Player %d', $playerCount, $index),
+                    sprintf('Rematch %d P%d', $playerCount, $index),
                 ];
             }
 
@@ -1131,7 +1131,7 @@ class RoomsGamesApiTest extends ApiTestCase
     public function testRoomListIncludesPrivateRoomsWithMaskedHostForOutsiders(): void
     {
         $ownerToken = $this->registerAndLogin('private-list-owner@example.test', 'Private List Owner');
-        $outsiderToken = $this->registerAndLogin('private-list-outsider@example.test', 'Private List Outsider');
+        $outsiderToken = $this->registerAndLogin('private-list-outsider@example.test', 'Private Outsider');
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'name' => 'Hidden Browser Room', 'maxPlayers' => 4], $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -1386,8 +1386,8 @@ class RoomsGamesApiTest extends ApiTestCase
             'collector_number' => '2',
         ]);
 
-        $ownerToken = $this->registerAndLogin('mulligan-started-owner@example.test', 'Mulligan Started Owner');
-        $playerToken = $this->registerAndLogin('mulligan-started-player@example.test', 'Mulligan Started Player');
+        $ownerToken = $this->registerAndLogin('mulligan-started-owner@example.test', 'Mulligan Owner');
+        $playerToken = $this->registerAndLogin('mulligan-started-player@example.test', 'Mulligan Player');
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Mulligan Owner Deck', [
             ['scryfallId' => 'abacccdd-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
             ['scryfallId' => 'abacccdd-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
@@ -1584,8 +1584,8 @@ class RoomsGamesApiTest extends ApiTestCase
             'collector_number' => '2',
         ]);
 
-        $ownerToken = $this->registerAndLogin('invite-realtime-owner@example.test', 'Invite Realtime Owner');
-        $recipientToken = $this->registerAndLogin('invite-realtime-recipient@example.test', 'Invite Realtime Recipient');
+        $ownerToken = $this->registerAndLogin('invite-realtime-owner@example.test', 'Invite RT Owner');
+        $recipientToken = $this->registerAndLogin('invite-realtime-recipient@example.test', 'Invite RT Recipient');
         $recipientId = $this->currentUserId($recipientToken);
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Invite RT Owner Deck', [
@@ -1651,8 +1651,8 @@ class RoomsGamesApiTest extends ApiTestCase
             'collector_number' => '2',
         ]);
 
-        $ownerToken = $this->registerAndLogin('waiting-realtime-owner@example.test', 'Waiting Realtime Owner');
-        $guestToken = $this->registerAndLogin('waiting-realtime-guest@example.test', 'Waiting Realtime Guest');
+        $ownerToken = $this->registerAndLogin('waiting-realtime-owner@example.test', 'Waiting RT Owner');
+        $guestToken = $this->registerAndLogin('waiting-realtime-guest@example.test', 'Waiting RT Guest');
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Waiting RT Owner', [
             ['scryfallId' => 'abababab-4444-7444-8444-444444444444', 'quantity' => 1, 'section' => 'commander'],
@@ -1730,7 +1730,7 @@ class RoomsGamesApiTest extends ApiTestCase
             'collector_number' => '2',
         ]);
 
-        $ownerToken = $this->registerAndLogin('invite-permission-owner@example.test', 'Invite Permission Owner');
+        $ownerToken = $this->registerAndLogin('invite-permission-owner@example.test', 'Invite Perm Owner');
         $strangerToken = $this->registerAndLogin('invite-permission-stranger@example.test', 'Invite Perm Stranger');
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Invite Perm Owner', [
@@ -2598,8 +2598,8 @@ class RoomsGamesApiTest extends ApiTestCase
         ]);
 
         $ownerToken = $this->registerAndLogin('private-chat-owner@example.test', 'Private Chat Owner');
-        $recipientToken = $this->registerAndLogin('private-chat-recipient@example.test', 'Private Chat Recipient');
-        $spectatorToken = $this->registerAndLogin('private-chat-spectator@example.test', 'Private Chat Spectator');
+        $recipientToken = $this->registerAndLogin('private-chat-recipient@example.test', 'Chat Recipient');
+        $spectatorToken = $this->registerAndLogin('private-chat-spectator@example.test', 'Chat Spectator');
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Chat Owner Deck', [
             ['scryfallId' => 'ababcccc-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
@@ -2633,7 +2633,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
         $snapshot = $this->jsonResponse()['game']['snapshot'];
-        $recipientPlayerId = $this->playerIdByName($snapshot, 'Private Chat Recipient');
+        $recipientPlayerId = $this->playerIdByName($snapshot, 'Chat Recipient');
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'chat.message',
@@ -2646,7 +2646,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame(['private' => true], $this->jsonResponse()['event']['payload']);
         self::assertSame('secret line', $this->jsonResponse()['snapshot']['chat'][0]['message']);
         self::assertSame($recipientPlayerId, $this->jsonResponse()['snapshot']['chat'][0]['targetPlayerId']);
-        self::assertSame('Private Chat Recipient', $this->jsonResponse()['snapshot']['chat'][0]['targetDisplayName']);
+        self::assertSame('Chat Recipient', $this->jsonResponse()['snapshot']['chat'][0]['targetDisplayName']);
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $recipientToken);
         self::assertResponseIsSuccessful();

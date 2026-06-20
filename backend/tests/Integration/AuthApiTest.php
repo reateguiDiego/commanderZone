@@ -196,7 +196,7 @@ class AuthApiTest extends ApiTestCase
 
     public function testRefreshUsesFirstCookieValueFromRawHeaderWhenDuplicateNamesArePresent(): void
     {
-        $this->registerAndLogin('refresh-duplicate-cookie@example.test', 'Refresh Duplicate Cookie');
+        $this->registerAndLogin('refresh-duplicate-cookie@example.test', 'Refresh Dup Cookie');
         $refreshCookie = $this->refreshCookieFromResponse();
         self::assertNotNull($refreshCookie);
         $validRefreshToken = (string) $refreshCookie->getValue();
@@ -747,7 +747,7 @@ class AuthApiTest extends ApiTestCase
     public function testPasswordChangeRevokesAllRefreshSessions(): void
     {
         $password = 'Password123';
-        $this->registerAndLogin('refresh-password-change@example.test', 'Refresh Password Change', $password);
+        $this->registerAndLogin('refresh-password-change@example.test', 'Refresh Pass Change', $password);
         $cookieA = $this->refreshCookieFromResponse();
         self::assertNotNull($cookieA);
         $refreshA = (string) $cookieA->getValue();
@@ -779,7 +779,7 @@ class AuthApiTest extends ApiTestCase
     public function testPasswordResetRevokesAllRefreshSessions(): void
     {
         $password = 'Password123';
-        $this->registerAndLogin('refresh-password-reset@example.test', 'Refresh Password Reset', $password);
+        $this->registerAndLogin('refresh-password-reset@example.test', 'Refresh Pass Reset', $password);
         $cookieA = $this->refreshCookieFromResponse();
         self::assertNotNull($cookieA);
         $refreshA = (string) $cookieA->getValue();

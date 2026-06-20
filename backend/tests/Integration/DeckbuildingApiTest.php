@@ -1001,7 +1001,7 @@ TXT,
 
     public function testDecklistImportInfersCommanderFromFirstBoundaryEntryInMoxfieldExports(): void
     {
-        $token = $this->registerAndLogin('import-moxfield-first@example.test', 'Import Moxfield First');
+        $token = $this->registerAndLogin('import-moxfield-first@example.test', 'Import Mox First');
         $commander = $this->seedCard('92000000-0000-0000-0000-000000000001', 'Muldrotha, the Gravetide', [
             'type_line' => 'Legendary Creature - Elemental Avatar',
             'set' => 'fdn',
@@ -1234,7 +1234,7 @@ TXT,
 
     public function testDecklistImportRemovesBothExplicitSelectedCommandersFromMainDecklist(): void
     {
-        $token = $this->registerAndLogin('dual-selected-commanders-import@example.test', 'Dual Selected Commanders');
+        $token = $this->registerAndLogin('dual-selected-commanders-import@example.test', 'Dual Commanders');
         $firstCommander = $this->seedCard('50000000-0000-0000-0000-000000000001', 'Birgi, God of Storytelling // Harnfel, Horn of Bounty', [
             'type_line' => 'Legendary Creature // Legendary Artifact',
             'oracle_text' => 'Boast abilities you activate cost {1} less to activate.',
