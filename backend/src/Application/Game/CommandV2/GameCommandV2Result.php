@@ -7,12 +7,15 @@ final readonly class GameCommandV2Result
     /**
      * @param array<string,mixed>      $eventPayload
      * @param list<array<string,mixed>> $operations
+     * @param array<string,array<string,mixed>> $viewerPayloads
      */
     public function __construct(
         private ?string $logMessage,
         private array $eventPayload,
         private array $operations,
         private bool $appendEventLog = true,
+        private array $viewerPayloads = [],
+        private bool $sanitizeEventLog = false,
     ) {
     }
 
@@ -43,6 +46,19 @@ final readonly class GameCommandV2Result
     }
 
     /**
+     * @return array<string,array<string,mixed>>
+     */
+    public function viewerPayloads(): array
+    {
+        return $this->viewerPayloads;
+    }
+
+    public function sanitizeEventLog(): bool
+    {
+        return $this->sanitizeEventLog;
+    }
+
+    /**
      * @param list<array<string,mixed>> $entries
      *
      * @return list<array<string,mixed>>
@@ -60,5 +76,52 @@ final readonly class GameCommandV2Result
                 'entries' => $entries,
             ],
         ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $eventLogEntries
+     *
+     * @return array<string,mixed>
+     */
+    public function directPatchPayload(array $eventLogEntries): array
+    {
+        $payload = [
+            'eventPayload' => $this->eventPayload(),
+            'operations' => $this->operations(),
+            'appendEventLog' => $this->appendEventLog(),
+            'eventLogEntries' => $eventLogEntries,
+            'sanitizeEventLog' => $this->sanitizeEventLog(),
+        ];
+
+        if ($this->viewerPayloads() === []) {
+            return $payload;
+        }
+
+        $payload['viewerPayloads'] = [];
+        foreach ($this->viewerPayloads() as $viewerId => $viewerPayload) {
+            if (!is_string($viewerId) || trim($viewerId) === '') {
+                continue;
+            }
+
+            $payload['viewerPayloads'][$viewerId] = [
+                'eventPayload' => is_array($viewerPayload['eventPayload'] ?? null)
+                    ? $viewerPayload['eventPayload']
+                    : $this->eventPayload(),
+                'operations' => is_array($viewerPayload['operations'] ?? null)
+                    ? array_values($viewerPayload['operations'])
+                    : $this->operations(),
+                'appendEventLog' => array_key_exists('appendEventLog', $viewerPayload)
+                    ? (bool) $viewerPayload['appendEventLog']
+                    : $this->appendEventLog(),
+                'sanitizeEventLog' => array_key_exists('sanitizeEventLog', $viewerPayload)
+                    ? (bool) $viewerPayload['sanitizeEventLog']
+                    : $this->sanitizeEventLog(),
+                'eventLogEntries' => is_array($viewerPayload['eventLogEntries'] ?? null)
+                    ? array_values($viewerPayload['eventLogEntries'])
+                    : $eventLogEntries,
+            ];
+        }
+
+        return $payload;
     }
 }

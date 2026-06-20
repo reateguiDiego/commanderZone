@@ -137,6 +137,49 @@ final class GameLibraryOps
 
     /**
      * @param array<string,mixed> $player
+     * @param list<array<string,mixed>> $cards
+     */
+    public function putManyOnTop(array &$player, array $cards): void
+    {
+        $this->ensurePlayer($player);
+        foreach ($cards as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+
+            $player['zones']['library'][] = $this->attachToLibrary($card);
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $player
+     * @param list<array<string,mixed>> $cards
+     */
+    public function putManyOnBottom(array &$player, array $cards): void
+    {
+        $this->ensurePlayer($player);
+        if ($cards === []) {
+            return;
+        }
+
+        $prepared = [];
+        foreach (array_reverse($cards) as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+
+            $prepared[] = $this->attachToLibrary($card);
+        }
+
+        if ($prepared === []) {
+            return;
+        }
+
+        $player['zones']['library'] = [...$prepared, ...$player['zones']['library']];
+    }
+
+    /**
+     * @param array<string,mixed> $player
      *
      * @return array<string,mixed>|null
      */
@@ -151,6 +194,55 @@ final class GameLibraryOps
         $card = $removed[0] ?? null;
 
         return is_array($card) ? $this->detachFromLibrary($card) : null;
+    }
+
+    /**
+     * @param array<string,mixed> $player
+     * @param list<string> $instanceIds
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function extractByInstanceIds(array &$player, array $instanceIds): array
+    {
+        $this->ensurePlayer($player);
+        $requestedIds = array_values(array_filter(
+            array_map(static fn (mixed $id): string => is_string($id) ? trim($id) : '', $instanceIds),
+            static fn (string $id): bool => $id !== '',
+        ));
+        if ($requestedIds === []) {
+            return [];
+        }
+        if (count(array_unique($requestedIds)) !== count($requestedIds)) {
+            throw new \InvalidArgumentException('instanceIds must not contain duplicates.');
+        }
+
+        $requested = array_fill_keys($requestedIds, true);
+        $removedById = [];
+        $remaining = [];
+        foreach ($player['zones']['library'] as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            if ($instanceId !== '' && isset($requested[$instanceId])) {
+                $removedById[$instanceId] = $this->detachFromLibrary($card);
+                continue;
+            }
+
+            $remaining[] = $card;
+        }
+
+        if (count($removedById) !== count($requestedIds)) {
+            throw new \InvalidArgumentException('Card not found.');
+        }
+
+        $player['zones']['library'] = array_values($remaining);
+
+        return array_values(array_map(
+            static fn (string $instanceId): array => $removedById[$instanceId],
+            $requestedIds,
+        ));
     }
 
     /**

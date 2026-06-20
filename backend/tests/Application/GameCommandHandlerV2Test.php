@@ -35,12 +35,19 @@ class GameCommandHandlerV2Test extends TestCase
             randomizer: $randomizer,
             flagsV2: new GameplayV2Flags(true, false, false, false),
         );
-
         $normalizedSnapshot = $legacyHandler->normalizeSnapshot($rawSnapshot);
+        $legacyPayload = $payload;
+        if ($type === 'zone.changed' && ($payload['zone'] ?? null) === 'battlefield') {
+            $legacyPayload = [
+                'playerId' => $payload['playerId'],
+                'zone' => 'battlefield',
+                'cards' => array_reverse($normalizedSnapshot['players'][$actor->id()]['zones']['battlefield']),
+            ];
+        }
         $legacyGame = new Game(new Room($actor), $normalizedSnapshot);
         $v2Game = new Game(new Room($actor), $normalizedSnapshot);
 
-        $legacyEvent = $legacyHandler->apply($legacyGame, $type, $payload, $actor, 'legacy-action');
+        $legacyEvent = $legacyHandler->apply($legacyGame, $type, $legacyPayload, $actor, 'legacy-action');
         $v2Event = $v2Handler->apply($v2Game, $type, $payload, $actor, 'v2-action');
 
         self::assertSame(
@@ -143,7 +150,152 @@ class GameCommandHandlerV2Test extends TestCase
                 ]),
                 ['playerId' => $ownerId, 'zone' => 'battlefield', 'instanceId' => 'battlefield-1', 'position' => ['x' => 0.2, 'y' => 0.8, 'unit' => 'ratio']],
             ],
+            'card.moved' => [
+                'card.moved',
+                self::baseSnapshot($ownerId, [
+                    'hand' => [self::card('hand-1', 'Bear', 'hand')],
+                ]),
+                ['playerId' => $ownerId, 'fromZone' => 'hand', 'toZone' => 'battlefield', 'instanceId' => 'hand-1'],
+            ],
+            'cards.moved' => [
+                'cards.moved',
+                self::baseSnapshot($ownerId, [
+                    'hand' => [
+                        self::card('hand-1', 'Bear', 'hand'),
+                        self::card('hand-2', 'Wolf', 'hand'),
+                    ],
+                ]),
+                ['playerId' => $ownerId, 'fromZone' => 'hand', 'toZone' => 'graveyard', 'instanceIds' => ['hand-1', 'hand-2']],
+            ],
+            'zone.move_all' => [
+                'zone.move_all',
+                self::baseSnapshot($ownerId, [
+                    'graveyard' => [
+                        self::card('graveyard-1', 'Bear', 'graveyard'),
+                        self::card('graveyard-2', 'Wolf', 'graveyard'),
+                    ],
+                ]),
+                ['playerId' => $ownerId, 'fromZone' => 'graveyard', 'toZone' => 'exile'],
+            ],
+            'zone.changed' => [
+                'zone.changed',
+                self::baseSnapshot($ownerId, [
+                    'battlefield' => [
+                        self::card('battlefield-1', 'Bear', 'battlefield'),
+                        self::card('battlefield-2', 'Wolf', 'battlefield'),
+                    ],
+                ]),
+                ['playerId' => $ownerId, 'zone' => 'battlefield', 'instanceIds' => ['battlefield-2', 'battlefield-1']],
+            ],
+            'battlefield.untap_all' => [
+                'battlefield.untap_all',
+                self::baseSnapshot($ownerId, [
+                    'battlefield' => [[
+                        ...self::card('battlefield-1', 'Bear', 'battlefield'),
+                        'tapped' => true,
+                        'rotation' => 90,
+                    ]],
+                ]),
+                ['playerId' => $ownerId],
+            ],
+            'cards.position.changed' => [
+                'cards.position.changed',
+                self::baseSnapshot($ownerId, [
+                    'battlefield' => [
+                        self::card('battlefield-1', 'Bear', 'battlefield'),
+                        self::card('battlefield-2', 'Wolf', 'battlefield'),
+                    ],
+                ]),
+                ['playerId' => $ownerId, 'zone' => 'battlefield', 'positions' => [
+                    ['instanceId' => 'battlefield-1', 'position' => ['x' => 0.1, 'y' => 0.2, 'unit' => 'ratio']],
+                    ['instanceId' => 'battlefield-2', 'position' => ['x' => 0.3, 'y' => 0.4, 'unit' => 'ratio']],
+                ]],
+            ],
         ];
+    }
+
+    public function testZoneChangedV2RejectsDuplicateIds(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $snapshot = $handler->normalizeSnapshot(self::baseSnapshot($actor->id(), [
+            'battlefield' => [
+                self::card('battlefield-1', 'Bear', 'battlefield'),
+                self::card('battlefield-2', 'Wolf', 'battlefield'),
+            ],
+        ]));
+        $game = new Game(new Room($actor), $snapshot);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('instanceIds must not contain duplicates.');
+        $handler->apply($game, 'zone.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceIds' => ['battlefield-1', 'battlefield-1'],
+        ], $actor);
+    }
+
+    public function testCardMovedV2EvaporatesTokenAndPrunesRelations(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $snapshot = $handler->normalizeSnapshot(self::baseSnapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...self::card('token-1', 'Bear Token', 'battlefield'),
+                    'isToken' => true,
+                ],
+                self::card('battlefield-2', 'Wolf', 'battlefield'),
+            ],
+        ]));
+        $snapshot['arrows'] = [[
+            'id' => 'arrow-1',
+            'fromInstanceId' => 'token-1',
+            'toInstanceId' => 'battlefield-2',
+        ]];
+        $snapshot['attachments'] = [[
+            'id' => 'attachment-1',
+            'equipmentInstanceId' => 'token-1',
+            'attachedToInstanceId' => 'battlefield-2',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        $handler->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'token-1',
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['graveyard']);
+        self::assertSame([], $game->snapshot()['arrows']);
+        self::assertSame([], $game->snapshot()['attachments']);
+        self::assertSame(0, ($handler->consumeLastCommandMetrics()['full_scan_count'] ?? null));
+    }
+
+    public function testCardMovedV2ResetsFaceDownLeavingBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $snapshot = $handler->normalizeSnapshot(self::baseSnapshot($actor->id(), [
+            'battlefield' => [[
+                ...self::card('morph-1', 'Morph', 'battlefield'),
+                'faceDown' => true,
+                'revealedTo' => [$actor->id()],
+            ]],
+        ]));
+        $game = new Game(new Room($actor), $snapshot);
+
+        $handler->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'morph-1',
+        ], $actor);
+
+        $card = $game->snapshot()['players'][$actor->id()]['zones']['graveyard'][0];
+        self::assertFalse($card['faceDown'] ?? true);
+        self::assertSame([], $card['revealedTo'] ?? null);
     }
 
     /**

@@ -626,6 +626,10 @@ final readonly class GameWebsocketCommandPatchService
             return $payload;
         }
 
+        if ($this->commands->usesV2CommandRouting($type)) {
+            return $payload;
+        }
+
         $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
         $zone = is_string($payload['zone'] ?? null) ? $payload['zone'] : '';
         $instanceIds = $payload['instanceIds'] ?? null;
@@ -765,7 +769,7 @@ final readonly class GameWebsocketCommandPatchService
     }
 
     /**
-     * @param array{eventPayload:array<string,mixed>,operations:list<array<string,mixed>>} $directPatchPayload
+     * @param array<string,mixed> $directPatchPayload
      * @param array<string,float> $phaseTimings
      */
     private function directPatchedResult(
@@ -783,13 +787,40 @@ final readonly class GameWebsocketCommandPatchService
         $baseVersion = max(1, (int) ($previousSnapshot['version'] ?? 1));
         $version = $this->snapshotVersion($game);
         foreach ($this->viewers($game) as $viewer) {
+            $viewerPayload = is_array($directPatchPayload['viewerPayloads'][$viewer->id()] ?? null)
+                ? $directPatchPayload['viewerPayloads'][$viewer->id()]
+                : [];
+            $eventPayload = is_array($viewerPayload['eventPayload'] ?? null)
+                ? $viewerPayload['eventPayload']
+                : (is_array($directPatchPayload['eventPayload'] ?? null) ? $directPatchPayload['eventPayload'] : []);
+            $operations = is_array($viewerPayload['operations'] ?? null)
+                ? array_values($viewerPayload['operations'])
+                : (is_array($directPatchPayload['operations'] ?? null) ? array_values($directPatchPayload['operations']) : []);
+            $appendEventLog = array_key_exists('appendEventLog', $viewerPayload)
+                ? (bool) $viewerPayload['appendEventLog']
+                : (bool) ($directPatchPayload['appendEventLog'] ?? true);
+            $sanitizeEventLog = array_key_exists('sanitizeEventLog', $viewerPayload)
+                ? (bool) $viewerPayload['sanitizeEventLog']
+                : (bool) ($directPatchPayload['sanitizeEventLog'] ?? false);
+            $eventLogEntries = is_array($viewerPayload['eventLogEntries'] ?? null)
+                ? array_values($viewerPayload['eventLogEntries'])
+                : (is_array($directPatchPayload['eventLogEntries'] ?? null) ? array_values($directPatchPayload['eventLogEntries']) : []);
+            if ($sanitizeEventLog && $eventLogEntries !== []) {
+                $eventLogEntries = array_values(array_map([$this, 'sanitizePrivateCardLogEntry'], $eventLogEntries));
+            }
+            if ($appendEventLog && $eventLogEntries !== []) {
+                $operations[] = [
+                    'op' => 'eventLog.append',
+                    'entries' => $eventLogEntries,
+                ];
+            }
             $messagesByUserId[$viewer->id()] = $this->messages->gamePatch(
                 $game->id(),
                 $baseVersion,
                 $version,
-                $directPatchPayload['operations'],
+                $operations,
                 $event,
-                $directPatchPayload['eventPayload'],
+                $eventPayload,
             );
             if ($responseProtocol === 'v2') {
                 $messagesByUserId[$viewer->id()] = $this->translateMessagesToV2(
@@ -861,6 +892,19 @@ final readonly class GameWebsocketCommandPatchService
         }, $messageList);
 
         return array_is_list($messages) ? $translated : $translated[0];
+    }
+
+    /**
+     * @param array<string,mixed> $entry
+     *
+     * @return array<string,mixed>
+     */
+    private function sanitizePrivateCardLogEntry(array $entry): array
+    {
+        unset($entry['cardNames'], $entry['cardInstanceId'], $entry['cardPlayerId'], $entry['cardZone']);
+        $entry['message'] = 'Updated a hidden card.';
+
+        return $entry;
     }
 
     /**

@@ -550,6 +550,88 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame('card.state.set', $message['ops'][0]['op']);
     }
 
+    public function testV2ZoneChangedPrivateHandSanitizesOpponentWithoutProjection(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateHandCards();
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            projection: $projection,
+            handler: $handler,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'zone.changed',
+            ['playerId' => $actor->id(), 'zone' => 'hand', 'instanceIds' => ['hand-2', 'hand-1']],
+            'action-v2-hand-reorder',
+            1,
+            'message-v2-hand-reorder',
+        );
+
+        $ownerMessage = $result->messageForUserId($actor->id());
+        $opponentMessage = $result->messageForUserId($opponent->id());
+        $encoded = json_encode($opponentMessage, JSON_THROW_ON_ERROR);
+
+        self::assertSame('card.move', $ownerMessage['operations'][0]['op']);
+        self::assertNotContains('card.move', array_column($opponentMessage['operations'], 'op'));
+        self::assertStringNotContainsString('hand-1', $encoded);
+        self::assertStringNotContainsString('hand-2', $encoded);
+        self::assertStringNotContainsString('Private Hand One', $encoded);
+    }
+
+    public function testV2ZoneRandomCardSelectedSanitizesOpponentWithoutProjection(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+        $handler = new GameCommandHandler(
+            randomizer: new class() extends \App\Application\Game\GameRandomizer {
+                public function pickOne(array $items): mixed
+                {
+                    return $items[0];
+                }
+            },
+            flagsV2: new GameplayV2Flags(true, false, false, false),
+        );
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            projection: $projection,
+            handler: $handler,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'zone.random_card.selected',
+            ['playerId' => $actor->id(), 'zone' => 'library'],
+            'action-v2-random',
+            1,
+            'message-v2-random',
+        );
+
+        $message = $result->messageForUserId($opponent->id());
+        $encoded = json_encode($message, JSON_THROW_ON_ERROR);
+
+        self::assertSame('eventLog.append', $message['operations'][0]['op']);
+        self::assertArrayNotHasKey('cardInstanceId', $message['operations'][0]['entries'][0]);
+        self::assertStringNotContainsString('Private Library One', $encoded);
+        self::assertStringNotContainsString('library-1', $encoded);
+    }
+
     /**
      * @return array{Game, User}
      */
@@ -578,6 +660,80 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $game->replaceSnapshot($snapshot);
 
         return [$game, $actor];
+    }
+
+    /**
+     * @return array{Game, User, User}
+     */
+    private function gameWithPrivateHandCards(): array
+    {
+        [$game, $actor, $opponent] = $this->gameWithOpponent();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['hand'] = [
+            [
+                'instanceId' => 'hand-1',
+                'ownerId' => $actor->id(),
+                'controllerId' => $actor->id(),
+                'name' => 'Private Hand One',
+                'oracleText' => 'Private hand oracle',
+                'zone' => 'hand',
+            ],
+            [
+                'instanceId' => 'hand-2',
+                'ownerId' => $actor->id(),
+                'controllerId' => $actor->id(),
+                'name' => 'Private Hand Two',
+                'oracleText' => 'Private hand oracle two',
+                'zone' => 'hand',
+            ],
+        ];
+        $game->replaceSnapshot($snapshot);
+
+        return [$game, $actor, $opponent];
+    }
+
+    /**
+     * @return array{Game, User, User}
+     */
+    private function gameWithPrivateLibraryCards(): array
+    {
+        [$game, $actor, $opponent] = $this->gameWithOpponent();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['library'] = [
+            [
+                'instanceId' => 'library-2',
+                'ownerId' => $actor->id(),
+                'controllerId' => $actor->id(),
+                'name' => 'Private Library Two',
+                'oracleText' => 'Private oracle two',
+                'zone' => 'library',
+            ],
+            [
+                'instanceId' => 'library-1',
+                'ownerId' => $actor->id(),
+                'controllerId' => $actor->id(),
+                'name' => 'Private Library One',
+                'oracleText' => 'Private oracle',
+                'zone' => 'library',
+            ],
+        ];
+        $game->replaceSnapshot($snapshot);
+
+        return [$game, $actor, $opponent];
+    }
+
+    /**
+     * @return array{Game, User, User}
+     */
+    private function gameWithOpponent(): array
+    {
+        $actor = new User('actor@example.test', 'Actor');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $room = new Room($actor);
+        $room->addPlayer(new RoomPlayer($room, $actor));
+        $room->addPlayer(new RoomPlayer($room, $opponent));
+
+        return [new Game($room, $this->snapshot($actor, $opponent)), $actor, $opponent];
     }
 
     private function service(
@@ -656,37 +812,65 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
     /**
      * @return array<string,mixed>
      */
-    private function snapshot(User $actor): array
+    private function snapshot(User $actor, ?User $opponent = null): array
     {
+        $players = [
+            $actor->id() => [
+                'user' => $actor->toArray(),
+                'life' => 40,
+                'zones' => [
+                    'library' => [],
+                    'hand' => [],
+                    'battlefield' => [],
+                    'graveyard' => [],
+                    'exile' => [],
+                    'command' => [],
+                ],
+                'zoneCounts' => [
+                    'library' => 0,
+                    'hand' => 0,
+                    'battlefield' => 0,
+                    'graveyard' => 0,
+                    'exile' => 0,
+                    'command' => 0,
+                ],
+                'commanderDamage' => [],
+                'counters' => [],
+                'backgroundName' => 'G_3',
+                'sleevesName' => 'default',
+            ],
+        ];
+        if ($opponent instanceof User) {
+            $players[$opponent->id()] = [
+                'user' => $opponent->toArray(),
+                'life' => 40,
+                'zones' => [
+                    'library' => [],
+                    'hand' => [],
+                    'battlefield' => [],
+                    'graveyard' => [],
+                    'exile' => [],
+                    'command' => [],
+                ],
+                'zoneCounts' => [
+                    'library' => 0,
+                    'hand' => 0,
+                    'battlefield' => 0,
+                    'graveyard' => 0,
+                    'exile' => 0,
+                    'command' => 0,
+                ],
+                'commanderDamage' => [],
+                'counters' => [],
+                'backgroundName' => 'G_3',
+                'sleevesName' => 'default',
+            ];
+        }
+
         return [
             'version' => 1,
             'ownerId' => $actor->id(),
-            'players' => [
-                $actor->id() => [
-                    'user' => $actor->toArray(),
-                    'life' => 40,
-                    'zones' => [
-                        'library' => [],
-                        'hand' => [],
-                        'battlefield' => [],
-                        'graveyard' => [],
-                        'exile' => [],
-                        'command' => [],
-                    ],
-                    'zoneCounts' => [
-                        'library' => 0,
-                        'hand' => 0,
-                        'battlefield' => 0,
-                        'graveyard' => 0,
-                        'exile' => 0,
-                        'command' => 0,
-                    ],
-                    'commanderDamage' => [],
-                    'counters' => [],
-                    'backgroundName' => 'G_3',
-                    'sleevesName' => 'default',
-                ],
-            ],
+            'players' => $players,
             'turn' => ['activePlayerId' => $actor->id(), 'phase' => 'main-1', 'number' => 1],
             'timer' => ['mode' => 'none', 'status' => 'idle', 'durationSeconds' => null, 'remainingSeconds' => null],
             'stack' => [],

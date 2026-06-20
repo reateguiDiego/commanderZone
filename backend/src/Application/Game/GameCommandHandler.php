@@ -337,6 +337,11 @@ class GameCommandHandler
         return $payload;
     }
 
+    public function usesV2CommandRouting(string $type): bool
+    {
+        return $this->shouldUseV2Command($type);
+    }
+
     public function normalizeSnapshot(array $snapshot): array
     {
         $snapshot = $this->compactStateMapper->hydrateSnapshot($snapshot);
@@ -2931,28 +2936,9 @@ class GameCommandHandler
         bool $preserveBattlefieldStats = false,
     ): void
     {
-        $card = $this->normalizeCard($card, (string) ($card['ownerId'] ?? $playerId), $zone);
-        if (($card['isToken'] ?? false) && $zone !== 'battlefield') {
+        $card = $this->prepareCardForPlacement($playerId, $zone, $card, $position, $preserveBattlefieldStats);
+        if ($card === null) {
             return;
-        }
-
-        $card['controllerId'] = $this->destinationControllerId($playerId, $zone, $card);
-        $card['zone'] = $zone;
-        if ($zone !== 'battlefield' || !$preserveBattlefieldStats) {
-            $this->resetMutableStats($card);
-            $this->resetTappedState($card);
-            $card['saga'] = $zone === 'battlefield' && $this->isSagaCard($card) ? 1 : null;
-        }
-        if ($zone !== 'battlefield') {
-            $card['counters'] = [];
-        }
-        if ($zone === 'battlefield' && is_array($position)) {
-            $card['position'] = $this->normalizedPosition($position);
-        } elseif ($zone !== 'battlefield') {
-            $card['position'] = ['x' => 0, 'y' => 0];
-        }
-        if (!in_array($zone, self::HIDDEN_ZONES, true) && !($zone === 'battlefield' && ($card['faceDown'] ?? false))) {
-            $card['revealedTo'] = [];
         }
 
         if ($zone === 'library') {
@@ -2976,6 +2962,45 @@ class GameCommandHandler
             $this->moveLocation($snapshot, $instanceId, null, $this->locationPayload($playerId, $zone, $index, $card));
             $this->updateLocationAfterInsert($snapshot, $playerId, $zone, $index);
         }
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>|null
+     */
+    private function prepareCardForPlacement(
+        string $playerId,
+        string $zone,
+        array $card,
+        string|array $position = 'top',
+        bool $preserveBattlefieldStats = false,
+    ): ?array {
+        $card = $this->normalizeCard($card, (string) ($card['ownerId'] ?? $playerId), $zone);
+        if (($card['isToken'] ?? false) && $zone !== 'battlefield') {
+            return null;
+        }
+
+        $card['controllerId'] = $this->destinationControllerId($playerId, $zone, $card);
+        $card['zone'] = $zone;
+        if ($zone !== 'battlefield' || !$preserveBattlefieldStats) {
+            $this->resetMutableStats($card);
+            $this->resetTappedState($card);
+            $card['saga'] = $zone === 'battlefield' && $this->isSagaCard($card) ? 1 : null;
+        }
+        if ($zone !== 'battlefield') {
+            $card['counters'] = [];
+        }
+        if ($zone === 'battlefield' && is_array($position)) {
+            $card['position'] = $this->normalizedPosition($position);
+        } elseif ($zone !== 'battlefield') {
+            $card['position'] = ['x' => 0, 'y' => 0];
+        }
+        if (!in_array($zone, self::HIDDEN_ZONES, true) && !($zone === 'battlefield' && ($card['faceDown'] ?? false))) {
+            $card['revealedTo'] = [];
+        }
+
+        return $card;
     }
 
     private function moveDestinationPlayerId(
@@ -4403,6 +4428,704 @@ class GameCommandHandler
         );
     }
 
+    /**
+     * @return array<string,mixed>
+     */
+    public function v2MoveCommandData(array &$snapshot, array $payload, string $mode = 'single'): array
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $fromZone = $this->requiredZone($payload, 'fromZone');
+        $toZone = $this->requiredZone($payload, 'toZone');
+        $requestedTargetPlayerId = isset($payload['targetPlayerId'])
+            ? $this->requiredPlayerId($snapshot, $payload, 'targetPlayerId')
+            : $playerId;
+        $position = $payload['position'] ?? null;
+        $movesWithinLibrary = $fromZone === 'library' && $toZone === 'library' && $position === 'bottom';
+        if ($requestedTargetPlayerId === $playerId && $fromZone === $toZone && $mode === 'single' && !$movesWithinLibrary) {
+            return ['log' => '', 'eventPayload' => $payload, 'operations' => []];
+        }
+        if ($requestedTargetPlayerId === $playerId && $fromZone === $toZone && $mode !== 'single') {
+            return ['log' => '', 'eventPayload' => $payload, 'operations' => []];
+        }
+
+        $instanceIds = match ($mode) {
+            'all' => $this->v2ZoneInstanceIds($snapshot, $playerId, $fromZone),
+            'many' => $this->v2NormalizedInstanceIds($payload['instanceIds'] ?? null),
+            default => $this->v2NormalizedSingleInstanceId($payload),
+        };
+        if ($instanceIds === []) {
+            return ['log' => '', 'eventPayload' => $payload, 'operations' => []];
+        }
+
+        $cards = $this->v2ExtractCardsFromZone($snapshot, $playerId, $fromZone, $instanceIds);
+        $moves = [];
+        $movedCardNames = [];
+        foreach ($cards as $entry) {
+            $card = $entry['card'];
+            $faceDownLeavingBattlefield = $this->isFaceDownBattlefieldCardLeaving($fromZone, $toZone, $card);
+            if ($mode === 'single' && array_key_exists('faceDown', $payload)) {
+                $card['faceDown'] = (bool) $payload['faceDown'];
+                if ($card['faceDown']) {
+                    $card['revealedTo'] = [$playerId];
+                }
+            }
+            if ($faceDownLeavingBattlefield) {
+                $card['faceDown'] = false;
+                $card['revealedTo'] = [];
+            }
+            if ($fromZone === 'library' && $toZone === 'hand') {
+                $card['faceDown'] = false;
+                $card['revealedTo'] = ($payload['reveal'] ?? false) === true ? ['all'] : [];
+            }
+
+            $targetPlayerId = $this->moveDestinationPlayerId($snapshot, $playerId, $fromZone, $toZone, $card, $requestedTargetPlayerId);
+            $evaporates = $this->isEvaporatingTokenMove($card, $toZone);
+            if (!$faceDownLeavingBattlefield && !$evaporates) {
+                $movedCardNames[] = $this->cardLogName($card);
+            }
+
+            $moves[] = [
+                'instanceId' => (string) ($card['instanceId'] ?? ''),
+                'sourcePlayerId' => $playerId,
+                'sourceZone' => $fromZone,
+                'targetPlayerId' => $targetPlayerId,
+                'targetZone' => $toZone,
+                'position' => $this->moveDestinationPosition($fromZone, $toZone, $payload),
+                'preserveBattlefieldStats' => $fromZone === 'battlefield' && $toZone === 'battlefield',
+                'faceDownLeavingBattlefield' => $faceDownLeavingBattlefield,
+                'evaporates' => $evaporates,
+                'card' => $card,
+            ];
+        }
+
+        $randomOrder = $mode !== 'single'
+            && ($payload['randomOrder'] ?? false) === true
+            && $toZone === 'library'
+            && count($moves) > 1;
+        if ($randomOrder) {
+            $moves = $this->randomizer->shuffle($moves);
+        }
+
+        $this->v2InsertMoves($snapshot, $moves);
+        $removedRelationIds = $this->v2PruneBattlefieldRelationsForMovedInstances(
+            $snapshot,
+            array_values(array_map(
+                static fn (array $move): string => (string) $move['instanceId'],
+                array_values(array_filter($moves, static fn (array $move): bool => $move['sourceZone'] === 'battlefield' && ($move['targetZone'] !== 'battlefield' || $move['evaporates'] === true)))
+            )),
+        );
+
+        $touchedPlayers = [];
+        foreach ($moves as $move) {
+            $touchedPlayers[$move['sourcePlayerId']] = true;
+            $touchedPlayers[$move['targetPlayerId']] = true;
+        }
+
+        $operations = $this->v2MoveOperations($moves, false);
+        $fullOperations = $this->v2MoveOperations($moves, true);
+        $relationOperations = $this->v2RelationRemoveOperations($removedRelationIds);
+        $countOperations = $this->v2ZoneCountOperations($snapshot, array_keys($touchedPlayers));
+        $operations = [...$operations, ...$relationOperations, ...$countOperations];
+        $fullOperations = [...$fullOperations, ...$relationOperations, ...$countOperations];
+
+        $touchesHiddenZones = $this->v2MovesTouchHiddenZones($moves);
+        $viewerPayloads = [];
+        if ($touchesHiddenZones) {
+            foreach ($moves as $move) {
+                if (in_array($move['sourceZone'], self::HIDDEN_ZONES, true)) {
+                    $viewerPayloads[$move['sourcePlayerId']] = [
+                        'eventPayload' => $payload,
+                        'operations' => $fullOperations,
+                    ];
+                }
+                if (in_array($move['targetZone'], self::HIDDEN_ZONES, true)) {
+                    $viewerPayloads[$move['targetPlayerId']] = [
+                        'eventPayload' => $payload,
+                        'operations' => $fullOperations,
+                    ];
+                }
+            }
+        }
+
+        if ($mode === 'many' && count($movedCardNames) > 1 && ($toZone !== 'library' || $this->shouldRevealLibraryMoveNames($fromZone, $toZone))) {
+            $this->pendingLogContext = ['cardNames' => $movedCardNames];
+        }
+
+        return [
+            'log' => $mode === 'single'
+                ? $this->v2SingleMoveLog($snapshot, $payload, $moves[0] ?? null, $movesWithinLibrary)
+                : $this->v2BatchMoveLog($snapshot, $payload, $moves, $randomOrder, $mode),
+            'eventPayload' => $touchesHiddenZones
+                ? $this->v2SanitizedMoveEventPayload($payload, count($moves))
+                : $payload,
+            'operations' => $touchesHiddenZones ? $operations : $fullOperations,
+            'viewerPayloads' => $viewerPayloads,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function v2ZoneReorderByIdsData(array &$snapshot, array $payload): array
+    {
+        if (isset($payload['cards'])) {
+            throw new \InvalidArgumentException('zone.changed does not accept cards payload.');
+        }
+
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $zone = $this->requiredZone($payload);
+        $instanceIds = $this->v2NormalizedInstanceIds($payload['instanceIds'] ?? null);
+        if ($instanceIds === []) {
+            throw new \InvalidArgumentException('instanceIds are required.');
+        }
+
+        if ($zone === 'library') {
+            $this->libraryOps->reorderTop($snapshot['players'][$playerId], $instanceIds);
+            $this->reindexZoneLocations(
+                $snapshot,
+                $playerId,
+                'library',
+                max(0, count($snapshot['players'][$playerId]['zones']['library']) - count($instanceIds)),
+            );
+        } else {
+            $existingIds = $this->v2ZoneInstanceIds($snapshot, $playerId, $zone);
+            $sortedExisting = $existingIds;
+            $sortedRequested = $instanceIds;
+            sort($sortedExisting);
+            sort($sortedRequested);
+            if ($sortedExisting !== $sortedRequested) {
+                throw new \InvalidArgumentException('zone.changed can only reorder existing cards.');
+            }
+
+            $cardsById = [];
+            foreach ($snapshot['players'][$playerId]['zones'][$zone] as $card) {
+                if (is_array($card) && is_string($card['instanceId'] ?? null)) {
+                    $cardsById[$card['instanceId']] = $card;
+                }
+            }
+
+            $snapshot['players'][$playerId]['zones'][$zone] = array_values(array_map(
+                static fn (string $instanceId): array => $cardsById[$instanceId],
+                $instanceIds,
+            ));
+            $this->reindexZoneLocations($snapshot, $playerId, $zone);
+        }
+
+        $fullOperations = [];
+        foreach (array_values($instanceIds) as $index => $instanceId) {
+            $fullOperations[] = [
+                'op' => 'card.move',
+                'instanceId' => $instanceId,
+                'from' => ['playerId' => $playerId, 'zone' => $zone],
+                'to' => ['playerId' => $playerId, 'zone' => $zone, 'index' => $index],
+            ];
+        }
+
+        $touchesHiddenZone = in_array($zone, self::HIDDEN_ZONES, true);
+
+        return [
+            'log' => $zone === 'library' ? 'Reordered library.' : sprintf('Reordered %s.', $zone),
+            'eventPayload' => $touchesHiddenZone
+                ? ['playerId' => $playerId, 'zone' => $zone, 'count' => count($instanceIds)]
+                : ['playerId' => $playerId, 'zone' => $zone, 'instanceIds' => $instanceIds],
+            'operations' => $touchesHiddenZone ? [] : $fullOperations,
+            'viewerPayloads' => $touchesHiddenZone ? [
+                $playerId => [
+                    'eventPayload' => ['playerId' => $playerId, 'zone' => $zone, 'instanceIds' => $instanceIds],
+                    'operations' => $fullOperations,
+                ],
+            ] : [],
+        ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $entries
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function v2SanitizedEventLogEntries(array $entries): array
+    {
+        return array_values(array_map(function (array $entry): array {
+            unset($entry['cardNames'], $entry['cardInstanceId'], $entry['cardPlayerId'], $entry['cardZone']);
+            $entry['message'] = 'Updated a hidden card.';
+
+            return $entry;
+        }, $entries));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function v2ZoneRandomCardSelectedData(array &$snapshot, array $payload): array
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $zone = $this->requiredZone($payload);
+        $log = $this->applyZoneRandomCardSelected($snapshot, $payload);
+        $eventPayload = is_array($this->pendingEventPayload) ? $this->pendingEventPayload : [];
+        $hidden = in_array($zone, self::HIDDEN_ZONES, true);
+
+        return [
+            'log' => $log,
+            'eventPayload' => $hidden ? ['playerId' => $playerId, 'zone' => $zone] : $eventPayload,
+            'operations' => [],
+            'viewerPayloads' => $hidden ? [
+                $playerId => [
+                    'eventPayload' => $eventPayload,
+                    'operations' => [],
+                    'sanitizeEventLog' => false,
+                ],
+            ] : [],
+            'sanitizeEventLog' => $hidden,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function v2NormalizedSingleInstanceId(array $payload): array
+    {
+        $instanceId = trim((string) ($payload['instanceId'] ?? ''));
+        if ($instanceId === '') {
+            throw new \InvalidArgumentException('instanceId is required.');
+        }
+
+        return [$instanceId];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function v2NormalizedInstanceIds(mixed $instanceIds): array
+    {
+        if (!is_array($instanceIds) || $instanceIds === []) {
+            throw new \InvalidArgumentException('instanceIds are required.');
+        }
+
+        $normalized = [];
+        foreach ($instanceIds as $instanceId) {
+            if (!is_string($instanceId) || trim($instanceId) === '') {
+                throw new \InvalidArgumentException('instanceIds are required.');
+            }
+
+            $normalized[] = trim($instanceId);
+        }
+        if (count(array_unique($normalized)) !== count($normalized)) {
+            throw new \InvalidArgumentException('instanceIds must not contain duplicates.');
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function v2ZoneInstanceIds(array $snapshot, string $playerId, string $zone): array
+    {
+        $instanceIds = [];
+        foreach ($snapshot['players'][$playerId]['zones'][$zone] ?? [] as $card) {
+            if (is_array($card) && is_string($card['instanceId'] ?? null) && $card['instanceId'] !== '') {
+                $instanceIds[] = $card['instanceId'];
+            }
+        }
+
+        return $instanceIds;
+    }
+
+    /**
+     * @param list<string> $instanceIds
+     *
+     * @return list<array{instanceId:string,sourceIndex:int,card:array<string,mixed>}>
+     */
+    private function v2ExtractCardsFromZone(array &$snapshot, string $playerId, string $zone, array $instanceIds): array
+    {
+        $requested = array_fill_keys($instanceIds, true);
+        $locations = [];
+        foreach ($instanceIds as $instanceId) {
+            $location = $this->assertLocation($snapshot, $instanceId, $zone);
+            if ($location['playerId'] !== $playerId) {
+                throw new \InvalidArgumentException('Card not found.');
+            }
+            $locations[$instanceId] = $location;
+        }
+
+        if ($zone === 'library') {
+            $cards = $this->libraryOps->extractByInstanceIds($snapshot['players'][$playerId], $instanceIds);
+            foreach ($instanceIds as $instanceId) {
+                unset($snapshot['loc'][$instanceId]);
+            }
+            $this->reindexZoneLocations($snapshot, $playerId, 'library');
+
+            return array_values(array_map(
+                fn (array $card): array => [
+                    'instanceId' => (string) $card['instanceId'],
+                    'sourceIndex' => (int) ($locations[(string) $card['instanceId']]['index'] ?? 0),
+                    'card' => $card,
+                ],
+                $cards,
+            ));
+        }
+
+        $remaining = [];
+        $cardsById = [];
+        foreach (array_values($snapshot['players'][$playerId]['zones'][$zone] ?? []) as $index => $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            if ($instanceId !== '' && isset($requested[$instanceId])) {
+                $cardsById[$instanceId] = ['instanceId' => $instanceId, 'sourceIndex' => $index, 'card' => $card];
+                unset($snapshot['loc'][$instanceId]);
+
+                continue;
+            }
+
+            $remaining[] = $card;
+        }
+
+        if (count($cardsById) !== count($instanceIds)) {
+            throw new \InvalidArgumentException('Card not found.');
+        }
+
+        $snapshot['players'][$playerId]['zones'][$zone] = array_values($remaining);
+        $this->reindexZoneLocations($snapshot, $playerId, $zone);
+
+        return array_values(array_map(
+            static fn (string $instanceId): array => $cardsById[$instanceId],
+            $instanceIds,
+        ));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $moves
+     */
+    private function v2InsertMoves(array &$snapshot, array &$moves): void
+    {
+        $grouped = [];
+        foreach ($moves as $index => $move) {
+            if (($move['evaporates'] ?? false) === true) {
+                continue;
+            }
+
+            $groupKey = sprintf('%s:%s:%s', $move['targetPlayerId'], $move['targetZone'], ($move['position'] ?? 'top') === 'bottom' ? 'bottom' : 'top');
+            $grouped[$groupKey][] = $index;
+        }
+
+        foreach ($grouped as $groupIndexes) {
+            $firstMove = $moves[$groupIndexes[0]];
+            $targetPlayerId = (string) $firstMove['targetPlayerId'];
+            $targetZone = (string) $firstMove['targetZone'];
+            $position = $firstMove['position'] ?? 'top';
+            $preparedCards = [];
+            foreach ($groupIndexes as $moveIndex) {
+                $prepared = $this->prepareCardForPlacement(
+                    $targetPlayerId,
+                    $targetZone,
+                    $moves[$moveIndex]['card'],
+                    $moves[$moveIndex]['position'] ?? 'top',
+                    (bool) ($moves[$moveIndex]['preserveBattlefieldStats'] ?? false),
+                );
+                if ($prepared === null) {
+                    $moves[$moveIndex]['evaporates'] = true;
+                    continue;
+                }
+
+                $moves[$moveIndex]['card'] = $prepared;
+                $preparedCards[$moveIndex] = $prepared;
+            }
+
+            if ($preparedCards === []) {
+                continue;
+            }
+
+            if ($targetZone === 'library') {
+                if ($position === 'bottom') {
+                    $this->libraryOps->putManyOnBottom($snapshot['players'][$targetPlayerId], array_values($preparedCards));
+                } else {
+                    $this->libraryOps->putManyOnTop($snapshot['players'][$targetPlayerId], array_values($preparedCards));
+                }
+                $this->reindexZoneLocations($snapshot, $targetPlayerId, 'library');
+                foreach (array_keys($preparedCards) as $moveIndex) {
+                    $location = $this->assertLocation($snapshot, (string) $moves[$moveIndex]['instanceId'], 'library');
+                    $moves[$moveIndex]['targetIndex'] = $location['index'];
+                }
+
+                continue;
+            }
+
+            $startIndex = count($snapshot['players'][$targetPlayerId]['zones'][$targetZone]);
+            foreach ($preparedCards as $moveIndex => $prepared) {
+                $snapshot['players'][$targetPlayerId]['zones'][$targetZone][] = $prepared;
+                $moves[$moveIndex]['targetIndex'] = count($snapshot['players'][$targetPlayerId]['zones'][$targetZone]) - 1;
+            }
+            $this->reindexZoneLocations($snapshot, $targetPlayerId, $targetZone, $startIndex);
+        }
+    }
+
+    /**
+     * @param list<string> $instanceIds
+     *
+     * @return array{arrows:list<string>,attachments:list<string>}
+     */
+    private function v2PruneBattlefieldRelationsForMovedInstances(array &$snapshot, array $instanceIds): array
+    {
+        if ($instanceIds === []) {
+            return ['arrows' => [], 'attachments' => []];
+        }
+
+        $removedArrows = [];
+        $trackedIds = array_fill_keys($instanceIds, true);
+        $snapshot['arrows'] = array_values(array_filter(
+            $snapshot['arrows'] ?? [],
+            function (array $arrow) use (&$removedArrows, $trackedIds): bool {
+                $fromInstanceId = (string) ($arrow['fromInstanceId'] ?? '');
+                $toInstanceId = (string) ($arrow['toInstanceId'] ?? '');
+                $remove = isset($trackedIds[$fromInstanceId]) || isset($trackedIds[$toInstanceId]);
+                if ($remove && is_string($arrow['id'] ?? null) && $arrow['id'] !== '') {
+                    $removedArrows[] = $arrow['id'];
+                }
+
+                return !$remove;
+            },
+        ));
+
+        $removedAttachments = [];
+        $snapshot['attachments'] = array_values(array_filter(
+            $snapshot['attachments'] ?? [],
+            function (array $attachment) use (&$removedAttachments, $trackedIds): bool {
+                $equipmentInstanceId = (string) ($attachment['equipmentInstanceId'] ?? '');
+                $attachedToInstanceId = (string) ($attachment['attachedToInstanceId'] ?? '');
+                $remove = isset($trackedIds[$equipmentInstanceId]) || isset($trackedIds[$attachedToInstanceId]);
+                if ($remove && is_string($attachment['id'] ?? null) && $attachment['id'] !== '') {
+                    $removedAttachments[] = $attachment['id'];
+                }
+
+                return !$remove;
+            },
+        ));
+
+        return ['arrows' => $removedArrows, 'attachments' => $removedAttachments];
+    }
+
+    /**
+     * @param array{arrows:list<string>,attachments:list<string>} $removedRelationIds
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function v2RelationRemoveOperations(array $removedRelationIds): array
+    {
+        $operations = [];
+        foreach ($removedRelationIds['arrows'] as $id) {
+            $operations[] = ['op' => 'arrow.remove', 'id' => $id];
+        }
+        foreach ($removedRelationIds['attachments'] as $id) {
+            $operations[] = ['op' => 'attachment.remove', 'id' => $id];
+        }
+
+        return $operations;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $moves
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function v2MoveOperations(array $moves, bool $includeHiddenDetails): array
+    {
+        $operations = [];
+        foreach ($moves as $move) {
+            $sourceHidden = in_array($move['sourceZone'], self::HIDDEN_ZONES, true);
+            $targetHidden = in_array($move['targetZone'], self::HIDDEN_ZONES, true);
+            if (($move['evaporates'] ?? false) === true) {
+                $operations[] = [
+                    'op' => 'card.remove',
+                    'playerId' => $move['sourcePlayerId'],
+                    'zone' => $move['sourceZone'],
+                    'instanceId' => $move['instanceId'],
+                ];
+
+                continue;
+            }
+
+            if (!$includeHiddenDetails && $sourceHidden && $targetHidden) {
+                continue;
+            }
+            if (!$includeHiddenDetails && !$sourceHidden && $targetHidden) {
+                $operations[] = [
+                    'op' => 'card.remove',
+                    'playerId' => $move['sourcePlayerId'],
+                    'zone' => $move['sourceZone'],
+                    'instanceId' => $move['instanceId'],
+                ];
+
+                continue;
+            }
+
+            $operation = [
+                'op' => 'card.move',
+                'instanceId' => $move['instanceId'],
+                'from' => ['playerId' => $move['sourcePlayerId'], 'zone' => $move['sourceZone']],
+                'to' => ['playerId' => $move['targetPlayerId'], 'zone' => $move['targetZone']],
+            ];
+            if (isset($move['targetIndex'])) {
+                $operation['to']['index'] = (int) $move['targetIndex'];
+            }
+            if ($includeHiddenDetails || $sourceHidden || !$targetHidden) {
+                if ($sourceHidden || !$targetHidden || $move['targetZone'] === 'battlefield') {
+                    $operation['card'] = $move['card'];
+                }
+            }
+
+            $operations[] = $operation;
+        }
+
+        return $operations;
+    }
+
+    /**
+     * @param list<string> $playerIds
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function v2ZoneCountOperations(array $snapshot, array $playerIds): array
+    {
+        $operations = [];
+        foreach (array_values(array_unique($playerIds)) as $playerId) {
+            if (!isset($snapshot['players'][$playerId])) {
+                continue;
+            }
+
+            $counts = [];
+            foreach (self::ZONES as $zone) {
+                $counts[$zone] = count($snapshot['players'][$playerId]['zones'][$zone] ?? []);
+            }
+            $operations[] = [
+                'op' => 'zone.counts.set',
+                'playerId' => $playerId,
+                'counts' => $counts,
+            ];
+        }
+
+        return $operations;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $moves
+     */
+    private function v2MovesTouchHiddenZones(array $moves): bool
+    {
+        foreach ($moves as $move) {
+            if (in_array($move['sourceZone'], self::HIDDEN_ZONES, true) || in_array($move['targetZone'], self::HIDDEN_ZONES, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string,mixed>|null $move
+     */
+    private function v2SingleMoveLog(array $snapshot, array $payload, ?array $move, bool $movesWithinLibrary): string
+    {
+        if (!is_array($move)) {
+            return '';
+        }
+        if (($move['faceDownLeavingBattlefield'] ?? false) === true) {
+            return '';
+        }
+        if (($move['evaporates'] ?? false) === true) {
+            return sprintf('%s evaporated instead of moving to %s.', $this->cardLogName($move['card']), $move['targetZone']);
+        }
+        if ($move['sourceZone'] === 'hand' && $move['targetZone'] === 'hand' && $move['targetPlayerId'] !== $move['sourcePlayerId']) {
+            return sprintf(
+                'Moved a card from %s hand to %s hand.',
+                $this->possessivePlayerName($snapshot, $move['sourcePlayerId']),
+                $this->possessivePlayerName($snapshot, $move['targetPlayerId']),
+            );
+        }
+
+        $libraryTopViewMessage = $move['sourceZone'] === 'library'
+            ? $this->libraryTopViewMoveMessage($payload, $move['targetZone'])
+            : null;
+        if ($libraryTopViewMessage !== null) {
+            return $libraryTopViewMessage;
+        }
+        if ($move['sourceZone'] === 'library' && $move['targetZone'] === 'hand') {
+            if (($payload['reveal'] ?? false) === true) {
+                return sprintf(
+                    'ha cogido %s de su library y la ha llevado a la mano revelada.',
+                    $this->cardLogName($move['card']),
+                );
+            }
+
+            return 'ha cogido una carta mirando su library y la ha llevado a la mano.';
+        }
+        if ($movesWithinLibrary) {
+            return sprintf('Moved a card to %s.', $this->libraryDestinationLabel($payload));
+        }
+        if ($move['targetZone'] === 'library') {
+            if ($this->shouldRevealLibraryMoveNames($move['sourceZone'], $move['targetZone'])) {
+                return sprintf('Moved %s from %s to %s.', $this->cardLogName($move['card']), $move['sourceZone'], $this->libraryDestinationLabel($payload));
+            }
+
+            return sprintf('Moved a card from %s to %s.', $move['sourceZone'], $this->libraryDestinationLabel($payload));
+        }
+        if ($move['sourceZone'] === 'hand' && $move['targetZone'] === 'battlefield' && (($move['card']['faceDown'] ?? false) === true)) {
+            return 'Played a card face down.';
+        }
+
+        return sprintf('Moved %s from %s to %s.', $this->cardLogName($move['card']), $move['sourceZone'], $move['targetZone']);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $moves
+     */
+    private function v2BatchMoveLog(array $snapshot, array $payload, array $moves, bool $randomOrder, string $mode): string
+    {
+        if ($mode === 'all') {
+            $toZone = (string) ($payload['toZone'] ?? '');
+            $fromZone = (string) ($payload['fromZone'] ?? '');
+
+            return $toZone === 'library'
+                ? sprintf('Moved all cards from %s to %s.', $fromZone, $this->libraryDestinationLabel($payload))
+                : sprintf('Moved all cards from %s to %s.', $fromZone, $toZone);
+        }
+
+        $moved = count($moves);
+        $silentFaceDownMoves = count(array_filter($moves, static fn (array $move): bool => ($move['faceDownLeavingBattlefield'] ?? false) === true));
+        if ($moved > 0 && $silentFaceDownMoves === $moved) {
+            return '';
+        }
+
+        $toZone = (string) ($payload['toZone'] ?? '');
+        $fromZone = (string) ($payload['fromZone'] ?? '');
+        if ($randomOrder) {
+            return $toZone === 'library'
+                ? sprintf('Moved %d cards from %s to %s in random order.', $moved, $fromZone, $this->libraryDestinationLabel($payload))
+                : sprintf('Moved %d cards from %s to %s in random order.', $moved, $fromZone, $toZone);
+        }
+        if ($toZone === 'library') {
+            return sprintf('Moved %d cards from %s to %s.', $moved, $fromZone, $this->libraryDestinationLabel($payload));
+        }
+
+        return sprintf('Moved %d cards from %s to %s.', $moved, $fromZone, $toZone);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function v2SanitizedMoveEventPayload(array $payload, int $count): array
+    {
+        return array_filter([
+            'playerId' => $payload['playerId'] ?? null,
+            'fromZone' => $payload['fromZone'] ?? null,
+            'toZone' => $payload['toZone'] ?? null,
+            'targetPlayerId' => $payload['targetPlayerId'] ?? null,
+            'count' => $count,
+        ], static fn (mixed $value): bool => $value !== null);
+    }
+
     private function shouldUseV2Command(string $type): bool
     {
         return $this->flagsV2->commandEnabled() && $this->commandDispatcherV2->supports($type);
@@ -4437,10 +5160,7 @@ class GameCommandHandler
             $game->replaceSnapshot($persistedSnapshot);
             $event = new GameEvent($game, $type, $result->eventPayload(), $actor, $clientActionId);
             $game->addEvent($event);
-            $this->lastDirectPatchPayload = [
-                'eventPayload' => $result->eventPayload(),
-                'operations' => $result->operationsWithEventLog($eventLogEntries),
-            ];
+            $this->lastDirectPatchPayload = $result->directPatchPayload($eventLogEntries);
             $this->lastCommandMetrics = $this->commandMetricsPayload(
                 $persistedSnapshot,
                 $snapshotBytesBefore,
@@ -4503,6 +5223,7 @@ class GameCommandHandler
             foreach (self::ZONES as $zone) {
                 $player['zones'][$zone] = is_array($player['zones'][$zone] ?? null) ? array_values($player['zones'][$zone]) : [];
             }
+            $this->libraryOps->ensurePlayer($player);
         }
         unset($player);
 

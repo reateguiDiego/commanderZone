@@ -43,6 +43,34 @@ class GameLibraryOpsTest extends TestCase
         self::assertSame(['new-top', 'old-top', 'old-bottom', 'new-bottom'], $this->libraryIds($ops, $player));
     }
 
+    public function testPutManyOnTopAndBottomPreserveSequentialPlacementOrder(): void
+    {
+        $ops = new GameLibraryOps();
+        $player = $this->playerWithLibrary(['old-top', 'old-bottom']);
+
+        $ops->putManyOnTop($player, [$this->card('top-a'), $this->card('top-b')]);
+        $ops->putManyOnBottom($player, [$this->card('bottom-a'), $this->card('bottom-b')]);
+
+        self::assertSame(
+            ['top-b', 'top-a', 'old-top', 'old-bottom', 'bottom-a', 'bottom-b'],
+            $this->libraryIds($ops, $player),
+        );
+    }
+
+    public function testExtractByInstanceIdsPreservesRequestedOrderAndRemainingLibrary(): void
+    {
+        $ops = new GameLibraryOps();
+        $player = $this->playerWithLibrary(['top-card', 'second-card', 'third-card', 'bottom-card']);
+
+        $removed = $ops->extractByInstanceIds($player, ['third-card', 'top-card']);
+
+        self::assertSame(['third-card', 'top-card'], array_map(
+            static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+            $removed,
+        ));
+        self::assertSame(['second-card', 'bottom-card'], $this->libraryIds($ops, $player));
+    }
+
     public function testRevealTopUsesVisibilityEpochWithoutClearingWholeLibrary(): void
     {
         $ops = new GameLibraryOps();

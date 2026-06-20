@@ -27,6 +27,13 @@ final class GameCommandV2Dispatcher
                 new CardCounterChangedCommandV2Applier(),
                 new CardPowerToughnessChangedCommandV2Applier(),
                 new CardPositionChangedCommandV2Applier(),
+                new CardMovedCommandV2Applier(),
+                new CardsMovedCommandV2Applier(),
+                new ZoneChangedCommandV2Applier(),
+                new ZoneMoveAllCommandV2Applier(),
+                new ZoneRandomCardSelectedCommandV2Applier(),
+                new BattlefieldUntapAllCommandV2Applier(),
+                new CardsPositionChangedCommandV2Applier(),
             ]
             : array_values(array_filter(
                 iterator_to_array($appliers),
