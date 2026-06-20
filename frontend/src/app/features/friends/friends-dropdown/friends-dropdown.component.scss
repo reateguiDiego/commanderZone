@@ -16,6 +16,7 @@
 
   position: relative;
   z-index: 5000;
+  box-sizing: border-box;
   display: grid;
   grid-auto-rows: max-content;
   gap: var(--friends-menu-gap);
@@ -34,84 +35,32 @@
 }
 
 .friends-tabs {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.9rem, 4vw, 2.2rem);
-  min-width: 0;
-  border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 20%);
-}
-
-.tab-button {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  gap: 0.5rem;
-  min-height: 2.85rem;
-  min-width: max-content;
-  border: 0;
-  padding: 0 0 0.72rem;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.98rem;
-  font-weight: 760;
-  white-space: nowrap;
-}
-
-.tab-button.attention-tab {
-  gap: 0.8rem;
-}
-
-.tab-button.active {
-  color: var(--cz-accent);
-}
-
-.search-tab-button {
-  margin-left: auto;
-  justify-self: end;
-  flex: 0 0 2.4rem;
-  width: 2.4rem;
-  min-width: 2.4rem;
-  padding-right: 0;
-  padding-left: 0;
-}
-
-.tab-button.active::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 3px;
-  border-radius: 999px;
-  background: var(--cz-accent);
-  box-shadow: 0 0 12px rgb(var(--cz-accent-rgb) / 36%);
-}
-
-.tab-count {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  min-width: 1.45rem;
-  height: 1.35rem;
-  margin-left: 0.05rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  background: var(--cz-info);
-  color: var(--cz-on-accent);
-  font-size: 0.75rem;
-  font-weight: 900;
-  line-height: 1;
-  box-shadow: 0 0 0 0 rgb(var(--cz-info-rgb) / 0%);
-}
-
-.tab-count.has-alert {
-  animation: notification-info-pill-pulse 2.4s ease-in-out infinite;
-}
-
-.attention-tab.has-alert:not(.active) {
-  animation: tab-info-color-pulse 2.4s ease-in-out infinite;
+  --cz-tabs-gap: clamp(0.9rem, 4vw, 2.2rem);
+  --cz-tabs-border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 20%);
+  --cz-tabs-overflow-x: auto;
+  --cz-tabs-scrollbar-width: none;
+  --cz-tabs-scrollbar-height: 0;
+  --cz-tab-gap: 0.5rem;
+  --cz-tab-min-width: max-content;
+  --cz-tab-min-height: 2.85rem;
+  --cz-tab-padding: 0 0 0.72rem;
+  --cz-tab-color: var(--muted);
+  --cz-tab-font-size: 0.98rem;
+  --cz-tab-font-weight: 760;
+  --cz-tab-active-color: var(--cz-accent);
+  --cz-tab-active-indicator-height: 3px;
+  --cz-tab-active-indicator-color: var(--cz-accent);
+  --cz-tab-badge-bg: var(--cz-info);
+  --cz-tab-badge-color: var(--cz-on-accent);
+  --cz-tab-badge-min-width: 1.45rem;
+  --cz-tab-badge-height: 1.35rem;
+  --cz-tab-badge-padding: 0 0.35rem;
+  --cz-tab-badge-font-size: 0.75rem;
+  --cz-tab-attention-background: transparent;
+  --cz-tab-attention-box-shadow: none;
+  --cz-tab-attention-color: var(--cz-warning);
+  --cz-tab-attention-border-color: transparent;
+  --cz-tab-attention-text-shadow: none;
 }
 
 .search-panel {
@@ -234,6 +183,7 @@
 }
 
 .friend-table-row {
+  width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
@@ -255,13 +205,13 @@
 
 .invitation-card {
   position: relative;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.85rem;
   width: 100%;
   min-height: 5.6rem;
-  box-sizing: border-box;
   padding: 0.85rem 0.95rem 0.85rem 1rem;
   border: 1px solid rgb(var(--cz-info-rgb) / 28%);
   border-radius: 12px;
@@ -674,12 +624,9 @@
   }
 
   .friends-tabs {
-    gap: 0.85rem;
-  }
-
-  .tab-button {
-    min-height: 2.45rem;
-    font-size: 0.82rem;
+    --cz-tabs-gap: 0.85rem;
+    --cz-tab-min-height: 2.45rem;
+    --cz-tab-font-size: 0.82rem;
   }
 
   .search-field {
@@ -688,6 +635,34 @@
 
   .row-main .friend-player-info {
     width: min(11rem, 100%);
+  }
+
+  .friend-table-row .row-main {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 0.32rem;
+  }
+
+  .friend-table-row .row-main .friend-player-info {
+    grid-column: 1 / -1;
+  }
+
+  .friend-table-row .row-marker {
+    position: static;
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    width: 0.56rem;
+    height: 0.56rem;
+    border-width: 1px;
+  }
+
+  .friend-table-row .row-main small,
+  .friend-table-row .row-main em {
+    grid-column: 2;
+  }
+
+  .friend-table-row.search-row .row-marker {
+    display: none;
   }
 
   .row-main small,
@@ -713,32 +688,64 @@
   }
 }
 
-@media (max-width: 430px) {
+@media (max-width: 900px) {
   .friends-menu {
-    --friends-menu-width: 24rem;
-    --friends-menu-height: 28.5rem;
-    --friends-menu-padding: 0.75rem;
-    --friend-row-action-column: 4rem;
-    --friend-row-delete-column: 1.75rem;
-    --friend-row-gap: 0.42rem;
-    --friend-row-min-height: 3.1rem;
+    --friends-menu-width: 28rem;
+    --friends-menu-height: 35rem;
+    --friends-menu-padding: 0.95rem;
+    --friends-menu-gap: 0.72rem;
+    --friend-row-action-column: 4.1rem;
 
-    width: min(var(--friends-menu-width), calc(100vw - 1.5rem));
-    max-height: min(var(--friends-menu-height), calc(100dvh - 4.8rem));
+    width: min(var(--friends-menu-width), calc(100dvw - 1rem));
+    max-height: min(var(--friends-menu-height), calc(100dvh - 1rem));
   }
 
   .friends-tabs {
-    gap: 0.8rem;
+    --cz-tabs-gap: 0.9rem;
+    --cz-tab-min-height: 2.45rem;
+    --cz-tab-padding: 0 0 0.55rem;
+    --cz-tab-font-size: 0.8rem;
   }
 
-  .tab-button {
-    font-size: 0.72rem;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .row-delete-action {
+    opacity: 1;
+    pointer-events: auto;
   }
 
-  .tab-count {
-    min-width: 1.1rem;
-    height: 1.1rem;
-    font-size: 0.64rem;
+  .action-button,
+  .icon-action,
+  .row-delete-action,
+  .add-friend-action {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .friends-menu {
+    --friends-menu-padding: 0.75rem;
+    --friends-menu-gap: 0.68rem;
+    --friend-row-action-column: 4.15rem;
+    --friend-row-delete-column: 2.75rem;
+    --friend-row-gap: 0.42rem;
+    --friend-row-min-height: 3.45rem;
+
+    width: calc(100dvw - 0.75rem);
+    max-height: min(21.5rem, 48dvh);
+    border-radius: 10px;
+  }
+
+  .friends-tabs {
+    --cz-tabs-gap: 0.7rem;
+    --cz-tab-min-height: 2.35rem;
+    --cz-tab-padding: 0 0 0.5rem;
+    --cz-tab-font-size: 0.72rem;
+    --cz-tab-badge-min-width: 1.1rem;
+    --cz-tab-badge-height: 1.1rem;
+    --cz-tab-badge-font-size: 0.64rem;
   }
 
   .search-field {
@@ -757,18 +764,14 @@
     padding-left: 0.42rem;
   }
 
-  .row-delete-action {
-    width: 1.65rem;
-    height: 1.65rem;
-  }
-
   .row-main .friend-player-info {
-    width: min(9rem, 100%);
+    width: 100%;
   }
 
   .invitation-card {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
+    gap: 0.7rem;
   }
 
   .invitation-actions {
@@ -781,29 +784,6 @@
   .dropdown-notice {
     font-size: 0.66rem;
   }
-
 }
 
-@keyframes notification-info-pill-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgb(var(--cz-info-rgb) / 0%);
-  }
 
-  45% {
-    transform: scale(1.08);
-    box-shadow: 0 0 0 0.28rem rgb(var(--cz-info-rgb) / 14%);
-  }
-}
-
-@keyframes tab-info-color-pulse {
-  0%,
-  100% {
-    color: var(--muted);
-  }
-
-  45% {
-    color: var(--cz-info);
-  }
-}

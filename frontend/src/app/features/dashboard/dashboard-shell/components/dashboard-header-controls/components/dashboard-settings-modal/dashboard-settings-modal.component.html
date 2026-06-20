@@ -50,29 +50,36 @@
         }
       }
     } @else {
-      <nav class="settings-tabs" [attr.aria-label]="settingsSectionsLabel()">
-        <button type="button" [class.active]="activeTab() === 'general'" (click)="switchTab('general')">{{ generalTabLabel() }}</button>
-        <button type="button" [class.active]="activeTab() === 'game'" (click)="switchTab('game')">{{ gameTabLabel() }}</button>
-      </nav>
+      <app-tab-list
+        class="settings-tabs"
+        [items]="settingsTabItems()"
+        [activeId]="activeTab()"
+        [ariaLabel]="settingsSectionsLabel()"
+        (tabSelected)="selectSettingsTab($event)"
+      />
 
       <section #settingsContent class="settings-content">
         @if (activeTab() === 'general') {
           <form class="settings-form" [formGroup]="profileForm" (submit)="$event.preventDefault()">
             <section class="settings-avatar-summary" [attr.aria-label]="'settings.dashboardSettingsModal.playerAvatar' | runtimeTranslate">
-              <app-player-info
-                class="settings-player-info"
-                [displayName]="currentUserDisplayName()"
-                [avatar]="currentUserAvatar()"
-                [nameStyle]="currentUserDisplayNameStyle()"
-                size="lg"
-                (avatarSelected)="openAvatarEditor()"
-                (nameSelected)="openDisplayNameStyleEditor()"
-              />
+              <div class="settings-profile-identity">
+                <app-player-info
+                  class="settings-player-info"
+                  [displayName]="currentUserDisplayName()"
+                  [avatar]="currentUserAvatar()"
+                  [nameStyle]="currentUserDisplayNameStyle()"
+                  size="lg"
+                  (avatarSelected)="openAvatarEditor()"
+                  (nameSelected)="openDisplayNameStyleEditor()"
+                />
+              </div>
               <div class="settings-profile-actions">
-                <button czButton="secondary" class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">{{ 'settings.dashboardSettingsModal.avatar' | runtimeTranslate }}</button>
-                <button czButton="secondary" class="secondary-button name-style-change-button" type="button" (click)="openDisplayNameStyleEditor()">{{ 'settings.dashboardSettingsModal.name' | runtimeTranslate }}</button>
+                <button czButton="secondary" class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">{{ 'settings.dashboardSettingsModal.changeAvatar' | runtimeTranslate }}</button>
+                <button czButton="secondary" class="secondary-button name-style-change-button" type="button" (click)="openDisplayNameStyleEditor()">{{ 'settings.dashboardSettingsModal.changeName' | runtimeTranslate }}</button>
               </div>
             </section>
+
+            <h3 class="settings-section-title">{{ 'settings.dashboardSettingsModal.accountDetails' | runtimeTranslate }}</h3>
 
             <div class="settings-account-row">
               <label>
@@ -99,8 +106,11 @@
                 </span>
               </label>
 
-              <label>
-                {{ 'settings.dashboardSettingsModal.userName' | runtimeTranslate }}
+              <label class="user-name-field">
+                <span class="field-label-row">
+                  <span>{{ 'settings.dashboardSettingsModal.userName' | runtimeTranslate }}</span>
+                  <span class="character-counter">{{ userNameCharacterCount() }}/{{ userNameMaxLength }} maximum</span>
+                </span>
                 <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="20" />
                 <span class="field-feedback">
                   @if (displayNameInvalid()) {

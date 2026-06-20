@@ -23,6 +23,7 @@ import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/mode
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
 import { type FormatSelectOption } from '../../../../../../../shared/components/format-select/format-select.component';
 import { PlayerInfoComponent } from '../../../../../../../shared/ui/player-info/player-info.component';
+import { TabListComponent, type TabListItem } from '../../../../../../../shared/ui/tab-list/tab-list.component';
 import { SettingsDisplayNameStyleEditorComponent } from '../../../../../settings/settings-display-name-style-editor/settings-display-name-style-editor.component';
 import { SettingsAvatarEditorComponent } from '../../../../../settings/settings-avatar-editor/settings-avatar-editor.component';
 import { SettingsAvatarUploadComponent } from '../../../../../settings/settings-avatar-upload/settings-avatar-upload.component';
@@ -57,6 +58,7 @@ const CARD_LANGUAGE_FLAGS = new Map<string, string | undefined>(
     ReactiveFormsModule,
     LucideAngularModule,
     PlayerInfoComponent,
+    TabListComponent,
     SettingsAvatarEditorComponent,
     SettingsAvatarUploadComponent,
     SettingsDisplayNameStyleEditorComponent,
@@ -128,6 +130,10 @@ export class DashboardSettingsModalComponent {
   readonly settingsSectionsLabel = computed(() => this.i18n.text('settingsSections'));
   readonly generalTabLabel = computed(() => this.i18n.text('generalTab'));
   readonly gameTabLabel = computed(() => this.i18n.text('gameTab'));
+  readonly settingsTabItems = computed<readonly TabListItem[]>(() => [
+    { id: 'general', label: this.generalTabLabel() },
+    { id: 'game', label: this.gameTabLabel() },
+  ]);
   readonly selectedCardLanguage = signal<SupportedCardLanguageCode>('en');
   readonly selectedAppLanguage = signal<SupportedLanguageCode>('en');
   readonly cardLanguageCoverage = signal<readonly CardLanguageCoverage[]>([]);
@@ -138,6 +144,8 @@ export class DashboardSettingsModalComponent {
   });
   readonly profileFormValue = signal(this.profileForm.getRawValue());
   readonly profileFormValid = signal(this.profileForm.valid);
+  readonly userNameMaxLength = USER_NAME_MAX_LENGTH;
+  readonly userNameCharacterCount = computed(() => this.profileFormValue().displayName.length);
 
   readonly hasChanges = computed(() => {
     const baseline = this.profileBaseline();
@@ -193,6 +201,14 @@ export class DashboardSettingsModalComponent {
 
   switchTab(tab: SettingsTab): void {
     this.activeTab.set(tab);
+  }
+
+  selectSettingsTab(tab: string): void {
+    if (tab !== 'general' && tab !== 'game') {
+      return;
+    }
+
+    this.switchTab(tab);
   }
 
   cancel(): void {

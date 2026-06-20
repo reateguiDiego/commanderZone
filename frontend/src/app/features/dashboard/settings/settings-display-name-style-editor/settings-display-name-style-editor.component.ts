@@ -5,6 +5,7 @@ import { UserDisplayNameStyle } from '../../../../core/models/user.model';
 import { DEFAULT_PREMIUM_NAME_COLOR, DISPLAY_NAME_STYLE_PRESETS, DisplayNameStylePreset, displayNameStylePreset } from '../../../../core/profile/display-name-style-presets';
 import { PlayerNameComponent } from '../../../../shared/ui/player-name/player-name.component';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
+import { TabListComponent, type TabListItem } from '../../../../shared/ui/tab-list/tab-list.component';
 
 type DisplayNameStyleTierTab = 'basic' | 'premium';
 
@@ -15,7 +16,7 @@ interface DisplayNameStyleOption {
 
 @Component({
   selector: 'app-settings-display-name-style-editor',
-  imports: [RuntimeTranslatePipe, PlayerNameComponent, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, PlayerNameComponent, CzButtonDirective, TabListComponent],
   templateUrl: './settings-display-name-style-editor.component.html',
   styleUrl: './settings-display-name-style-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -28,6 +29,16 @@ export class SettingsDisplayNameStyleEditorComponent {
   readonly saveRequested = output<DisplayNameStyleUpdatePayload>();
 
   readonly activeTier = signal<DisplayNameStyleTierTab>('basic');
+  readonly tierTabItems: readonly TabListItem[] = [
+    {
+      id: 'basic',
+      label: 'settings.settingsDisplayNameStyleEditor.basic',
+    },
+    {
+      id: 'premium',
+      label: 'settings.settingsDisplayNameStyleEditor.premium',
+    },
+  ];
   readonly selectedPresetId = signal<string | null>(null);
   readonly selectedTextColor = signal(DEFAULT_PREMIUM_NAME_COLOR);
   readonly basicPresets = DISPLAY_NAME_STYLE_PRESETS.filter((preset) => preset.tier === 'basic');
@@ -68,6 +79,12 @@ export class SettingsDisplayNameStyleEditorComponent {
 
   switchTier(tier: DisplayNameStyleTierTab): void {
     this.activeTier.set(tier);
+  }
+
+  switchTierFromList(tier: string): void {
+    if (tier === 'basic' || tier === 'premium') {
+      this.switchTier(tier);
+    }
   }
 
   choosePreset(preset: DisplayNameStylePreset): void {

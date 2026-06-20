@@ -334,28 +334,21 @@ textarea::placeholder {
 }
 
 .deck-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
   margin-bottom: 1rem;
-}
-
-.deck-tabs button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 2.35rem;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface-2);
-  color: var(--muted);
-  padding: 0.55rem 0.75rem;
-}
-
-.deck-tabs button.active {
-  border-color: rgb(var(--cz-primary-rgb) / 52%);
-  background: rgb(var(--cz-primary-rgb) / 12%);
-  color: var(--text);
+  --cz-tabs-gap: 0.4rem;
+  --cz-tabs-border-bottom: 0;
+  --cz-tabs-padding: 0;
+  --cz-tab-gap: 0.45rem;
+  --cz-tab-track-size: minmax(0, 1fr);
+  --cz-tab-min-height: 2.35rem;
+  --cz-tab-border-color: var(--line);
+  --cz-tab-border-radius: 6px;
+  --cz-tab-bg: var(--surface-2);
+  --cz-tab-color: var(--muted);
+  --cz-tab-padding: 0.55rem 0.75rem;
+  --cz-tab-active-border-color: rgb(var(--cz-primary-rgb) / 52%);
+  --cz-tab-active-bg: rgb(var(--cz-primary-rgb) / 12%);
+  --cz-tab-active-color: var(--text);
 }
 
 .analysis-shell {

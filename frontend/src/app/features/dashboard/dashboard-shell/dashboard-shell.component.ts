@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
@@ -21,6 +22,8 @@ export class DashboardShellComponent implements OnDestroy {
   readonly auth = inject(AuthStore);
   readonly friends = inject(FriendsStore);
   readonly pageHeader = inject(PageHeaderStore);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly document = inject(DOCUMENT);
   private readonly mercure = inject(MercureService);
   private readonly router = inject(Router);
   readonly friendsOpen = signal(false);
@@ -30,6 +33,12 @@ export class DashboardShellComponent implements OnDestroy {
   private friendSubscription?: Subscription;
 
   constructor() {
+    const closeFriendsOnOutsidePointer = (event: PointerEvent) => this.closeFriendsOnOutsidePointer(event.target);
+    this.document.addEventListener('pointerdown', closeFriendsOnOutsidePointer, true);
+    this.destroyRef.onDestroy(() => {
+      this.document.removeEventListener('pointerdown', closeFriendsOnOutsidePointer, true);
+    });
+
     void this.friends.ensureLoaded();
     this.startRoomInviteSync();
     this.startFriendSync();
@@ -45,9 +54,7 @@ export class DashboardShellComponent implements OnDestroy {
       });
   }
 
-  @HostListener('document:click', ['$event'])
-  closeFriendsOnOutsideClick(event: MouseEvent): void {
-    const target = event.target;
+  private closeFriendsOnOutsidePointer(target: EventTarget | null): void {
     if (target instanceof Element && target.closest('.friends-dropdown')) {
       return;
     }

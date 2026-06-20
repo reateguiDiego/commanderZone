@@ -10,13 +10,14 @@ import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-sym
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { DeckCardImageCache } from '../data-access/deck-card-image-cache.service';
 import { DeckEditorStore } from '../data-access/deck-editor.store';
-import { DeckEditorViewMode } from '../models/deck-editor.models';
+import { type DeckEditorTab, DeckEditorViewMode } from '../models/deck-editor.models';
 import { DeckAnalysisPanelComponent } from './deck-analysis-panel/deck-analysis-panel.component';
 import { DeckCardMenuComponent } from './deck-card-menu/deck-card-menu.component';
 import { DeckCardSpoilerViewComponent } from './deck-card-spoiler-view/deck-card-spoiler-view.component';
 import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-view.component';
 import { runDeckFaceToggleAnimation } from './deck-face-toggle-animation';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 
 @Component({
   selector: 'app-deck-editor',
@@ -33,6 +34,7 @@ import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
     DeckCardSpoilerViewComponent,
     DeckCardTextViewComponent,
     CzButtonDirective,
+    TabListComponent,
   ],
   templateUrl: './deck-editor.component.html',
   styleUrl: './deck-editor.component.scss',
@@ -46,6 +48,21 @@ export class DeckEditorComponent implements OnDestroy {
     { value: 'text', labelKey: 'deckBuilder.deckEditor.text' },
     { value: 'spoiler', labelKey: 'deckBuilder.deckEditor.spoiler' },
   ];
+  readonly tabItems = computed<readonly TabListItem[]>(() => {
+    const items: TabListItem[] = [
+      { id: 'analysis', label: 'deckBuilder.deckEditor.analysis', icon: 'bar-chart-3' },
+      { id: 'considering', label: 'deckBuilder.deckEditor.considering', icon: 'layers-3' },
+      { id: 'validation', label: 'deckBuilder.deckEditor.validation', icon: 'shield-check' },
+    ];
+
+    if (this.store.hasMissingContent()) {
+      items.push({ id: 'missing', label: 'deckBuilder.deckEditor.missing', icon: 'search-x' });
+    }
+
+    items.push({ id: 'history', label: 'deckBuilder.deckEditor.history', icon: 'history' });
+
+    return items;
+  });
   readonly selectedViewModeLabelKey = computed(() => (
     this.viewModeOptions.find((option) => option.value === this.store.viewMode())?.labelKey
     ?? 'deckBuilder.deckEditor.text'
@@ -177,6 +194,12 @@ export class DeckEditorComponent implements OnDestroy {
     this.store.closeTransientOverlays();
   }
 
+  selectDeckTab(tab: string): void {
+    if (isDeckEditorTab(tab)) {
+      this.store.activeTab.set(tab);
+    }
+  }
+
   showCardPreview(event: MouseEvent, card: Card): void {
     this.store.resetCardFace(card);
     this.store.showCardPreview(event, card);
@@ -265,4 +288,12 @@ export class DeckEditorComponent implements OnDestroy {
       },
     };
   }
+}
+
+function isDeckEditorTab(tab: string): tab is DeckEditorTab {
+  return tab === 'analysis'
+    || tab === 'considering'
+    || tab === 'validation'
+    || tab === 'missing'
+    || tab === 'history';
 }

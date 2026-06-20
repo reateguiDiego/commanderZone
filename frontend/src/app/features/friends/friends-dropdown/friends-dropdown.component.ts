@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { PlayerInfoComponent } from '../../../shared/ui/player-info/player-info.component';
+import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 import { FriendListRow } from '../data-access/friends.store';
 import { FriendshipStatus } from '../../../core/models/friendship.model';
 import { FriendsStore } from '../data-access/friends.store';
@@ -12,7 +13,7 @@ type FriendsDropdownTab = 'friends' | 'requests' | 'invitations' | 'search';
 
 @Component({
   selector: 'app-friends-dropdown',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, PrettyScrollDirective, PlayerInfoComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, PrettyScrollDirective, PlayerInfoComponent, TabListComponent],
   templateUrl: './friends-dropdown.component.html',
   styleUrl: './friends-dropdown.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,6 +43,44 @@ export class FriendsDropdownComponent {
   readonly hasIncomingRequests = computed(() => this.incomingRequestCount() > 0);
   readonly hasSentRequests = computed(() => this.sentRequestRows().length > 0);
   readonly hasInvitations = computed(() => this.invitationCount() > 0);
+  readonly tabItems = computed<readonly TabListItem[]>(() => {
+    const items: TabListItem[] = [
+      {
+        id: 'friends',
+        label: 'navigation.friends.friendsDropdown.friends',
+      },
+    ];
+
+    if (this.hasInvitations()) {
+      items.push({
+        id: 'invitations',
+        label: 'navigation.friends.friendsDropdown.invitations',
+        badge: this.invitationCount(),
+        attention: true,
+      });
+    }
+
+    if (this.hasRequests()) {
+      items.push({
+        id: 'requests',
+        label: 'navigation.friends.friendsDropdown.requests',
+        badge: this.requestCount(),
+        attention: this.hasIncomingRequests(),
+      });
+    }
+
+    items.push({
+      id: 'search',
+      label: 'navigation.friends.friendsDropdown.searchTab',
+      icon: 'search',
+      ariaLabel: 'navigation.friends.friendsDropdown.searchTab',
+      title: 'navigation.friends.friendsDropdown.searchTab',
+      alignEnd: true,
+      labelHidden: true,
+    });
+
+    return items;
+  });
   readonly currentTab = computed<FriendsDropdownTab>(() => {
     const tab = this.activeTab();
 
@@ -73,6 +112,17 @@ export class FriendsDropdownComponent {
 
   selectTab(tab: FriendsDropdownTab): void {
     this.activeTab.set(tab);
+  }
+
+  selectTabFromList(tab: string): void {
+    switch (tab) {
+      case 'friends':
+      case 'requests':
+      case 'invitations':
+      case 'search':
+        this.selectTab(tab);
+        return;
+    }
   }
 
   toggleOnline(): void {

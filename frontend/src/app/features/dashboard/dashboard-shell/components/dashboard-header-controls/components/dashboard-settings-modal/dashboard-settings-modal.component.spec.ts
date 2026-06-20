@@ -94,6 +94,7 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Card language');
     expect(fixture.nativeElement.textContent).toContain('App language');
     expect(fixture.nativeElement.textContent).toContain('Change password');
+    expect(fixture.nativeElement.textContent).toContain('6/20 maximum');
     expect(fixture.nativeElement.querySelector('.modal-title-icon')).not.toBeNull();
 
     const generalText = fixture.nativeElement.textContent as string;
@@ -110,6 +111,18 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Card language');
     expect(fixture.nativeElement.textContent).not.toContain('App language');
     expect(fixture.nativeElement.textContent).not.toContain('Change password');
+  });
+
+  it('updates the username character counter from the profile form value', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.profileForm.controls.displayName.setValue('Aaguilera210');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.userNameCharacterCount()).toBe(12);
+    expect(fixture.nativeElement.textContent).toContain('12/20 maximum');
   });
 
   it('loads card language coverage when settings opens', async () => {

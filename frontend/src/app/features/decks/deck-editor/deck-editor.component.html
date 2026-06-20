@@ -69,30 +69,13 @@
     </section>
 
     <section class="panel">
-      <div class="deck-tabs" role="tablist" [attr.aria-label]="'deckBuilder.deckEditor.deckEditorSections' | runtimeTranslate">
-        <button type="button" [class.active]="store.visibleActiveTab() === 'analysis'" (click)="store.activeTab.set('analysis')">
-          <lucide-icon name="bar-chart-3" size="16" />
-          {{ 'deckBuilder.deckEditor.analysis' | runtimeTranslate }}
-        </button>
-        <button type="button" [class.active]="store.visibleActiveTab() === 'considering'" (click)="store.activeTab.set('considering')">
-          <lucide-icon name="layers-3" size="16" />
-          {{ 'deckBuilder.deckEditor.considering' | runtimeTranslate }}
-        </button>
-        <button type="button" [class.active]="store.visibleActiveTab() === 'validation'" (click)="store.activeTab.set('validation')">
-          <lucide-icon name="shield-check" size="16" />
-          {{ 'deckBuilder.deckEditor.validation' | runtimeTranslate }}
-        </button>
-        @if (store.hasMissingContent()) {
-          <button type="button" [class.active]="store.visibleActiveTab() === 'missing'" (click)="store.activeTab.set('missing')">
-            <lucide-icon name="search-x" size="16" />
-            {{ 'deckBuilder.deckEditor.missing' | runtimeTranslate }}
-          </button>
-        }
-        <button type="button" [class.active]="store.visibleActiveTab() === 'history'" (click)="store.activeTab.set('history')">
-          <lucide-icon name="history" size="16" />
-          {{ 'deckBuilder.deckEditor.history' | runtimeTranslate }}
-        </button>
-      </div>
+      <app-tab-list
+        class="deck-tabs"
+        [items]="tabItems()"
+        [activeId]="store.visibleActiveTab()"
+        [ariaLabel]="'deckBuilder.deckEditor.deckEditorSections'"
+        (tabSelected)="selectDeckTab($event)"
+      />
 
       @if (store.visibleActiveTab() === 'analysis') {
         <app-deck-analysis-panel />

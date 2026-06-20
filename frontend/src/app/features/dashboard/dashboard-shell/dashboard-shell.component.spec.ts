@@ -130,4 +130,31 @@ describe('DashboardShellComponent', () => {
     const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
     expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_black.webp');
   });
+
+  it('closes the friends dropdown on outside pointerdown', () => {
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.componentInstance.friendsOpen.set(true);
+    fixture.detectChanges();
+
+    document.body.dispatchEvent(pointerDown());
+
+    expect(fixture.componentInstance.friendsOpen()).toBe(false);
+  });
+
+  it('keeps the friends dropdown open on inside pointerdown', () => {
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.componentInstance.friendsOpen.set(true);
+    fixture.detectChanges();
+
+    const dropdown = fixture.nativeElement.querySelector('.friends-dropdown') as HTMLElement;
+    dropdown.dispatchEvent(pointerDown());
+
+    expect(fixture.componentInstance.friendsOpen()).toBe(true);
+  });
 });
+
+function pointerDown(): Event {
+  return typeof PointerEvent === 'undefined'
+    ? new Event('pointerdown', { bubbles: true })
+    : new PointerEvent('pointerdown', { bubbles: true });
+}

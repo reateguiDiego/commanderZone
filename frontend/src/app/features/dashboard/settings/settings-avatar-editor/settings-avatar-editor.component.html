@@ -25,10 +25,13 @@
   </section>
 
   <section class="avatar-options">
-    <nav class="avatar-tier-tabs" [attr.aria-label]="'settings.settingsAvatarEditor.avatarTiers' | runtimeTranslate">
-      <button type="button" [class.active]="activeTier() === 'basic'" (click)="switchTier('basic')">{{ 'settings.settingsAvatarEditor.basic' | runtimeTranslate }}</button>
-      <button type="button" [class.active]="activeTier() === 'premium'" (click)="switchTier('premium')">{{ 'settings.settingsAvatarEditor.premium' | runtimeTranslate }}</button>
-    </nav>
+    <app-tab-list
+      class="avatar-tier-tabs"
+      [items]="tierTabItems"
+      [activeId]="activeTier()"
+      [ariaLabel]="'settings.settingsAvatarEditor.avatarTiers'"
+      (tabSelected)="switchTierFromList($event)"
+    />
 
     @if (activeTier() === 'basic') {
       <section class="preset-tier basic-tier" [attr.aria-label]="'settings.settingsAvatarEditor.basicAvatars' | runtimeTranslate">

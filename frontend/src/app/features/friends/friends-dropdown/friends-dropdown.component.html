@@ -1,24 +1,13 @@
 <section appPrettyScroll class="friends-menu" [attr.aria-label]="'navigation.friends.friendsDropdown.friends' | runtimeTranslate">
-  <nav class="friends-tabs" role="tablist" [attr.aria-label]="'navigation.friends.friendsDropdown.friendList' | runtimeTranslate">
-    <button class="tab-button" type="button" role="tab" [class.active]="currentTab() === 'friends'" [attr.aria-selected]="currentTab() === 'friends'" (click)="selectTab('friends')">
-      {{ 'navigation.friends.friendsDropdown.friends' | runtimeTranslate }}
-    </button>
-    @if (hasInvitations()) {
-      <button class="tab-button attention-tab has-alert" type="button" role="tab" [class.active]="currentTab() === 'invitations'" [attr.aria-selected]="currentTab() === 'invitations'" (click)="selectTab('invitations')">
-        {{ 'navigation.friends.friendsDropdown.invitations' | runtimeTranslate }}
-        <span class="tab-count has-alert">{{ invitationCount() }}</span>
-      </button>
-    }
-    @if (hasRequests()) {
-      <button class="tab-button attention-tab" type="button" role="tab" [class.has-alert]="hasIncomingRequests()" [class.active]="currentTab() === 'requests'" [attr.aria-selected]="currentTab() === 'requests'" (click)="selectTab('requests')">
-        {{ 'navigation.friends.friendsDropdown.requests' | runtimeTranslate }}
-        <span class="tab-count" [class.has-alert]="hasIncomingRequests()">{{ requestCount() }}</span>
-      </button>
-    }
-    <button class="tab-button search-tab-button" type="button" role="tab" [class.active]="currentTab() === 'search'" [attr.aria-selected]="currentTab() === 'search'" [attr.aria-label]="'navigation.friends.friendsDropdown.searchTab' | runtimeTranslate" [title]="'navigation.friends.friendsDropdown.searchTab' | runtimeTranslate" (click)="selectTab('search')">
-      <lucide-icon name="search" size="18" />
-    </button>
-  </nav>
+  <app-tab-list
+    class="friends-tabs"
+    variant="underline"
+    [items]="tabItems()"
+    [activeId]="currentTab()"
+    [ariaLabel]="'navigation.friends.friendsDropdown.friendList'"
+    [iconSize]="18"
+    (tabSelected)="selectTabFromList($event)"
+  />
 
   @if (store.error()) {
     <p class="dropdown-notice error">{{ store.error() }}</p>
