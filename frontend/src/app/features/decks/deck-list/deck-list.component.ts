@@ -15,6 +15,7 @@ import { type DeckListColorFilter, type DeckListSortMode, DeckListStore } from '
 import { DeckListCardComponent } from './components/deck-list-card/deck-list-card.component';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { CompactCheckboxComponent } from '../../../shared/ui/compact-checkbox/compact-checkbox.component';
+import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.component';
 
 interface CommanderHoverPreview {
   imageUrl: string;
@@ -37,6 +38,7 @@ interface CommanderHoverPreview {
     DeckListCardComponent,
     CzButtonDirective,
     CompactCheckboxComponent,
+    HeroRuleComponent,
   ],
   templateUrl: './deck-list.component.html',
   styleUrl: './deck-list.component.scss',

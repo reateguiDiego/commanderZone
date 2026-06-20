@@ -43,7 +43,7 @@ export class RoomBrowserComponent {
     { id: 'private', labelKey: 'rooms.roomBrowser.privateOnly' },
   ];
   readonly statusFilterOptions: readonly FormatSelectOption[] = [
-    { id: 'all', labelKey: 'rooms.roomBrowser.allStatus' },
+    { id: 'all', labelKey: 'rooms.roomBrowser.publicAndPrivate' },
     { id: 'open', labelKey: 'rooms.roomBrowser.open' },
     { id: 'full', labelKey: 'rooms.roomBrowser.full' },
     { id: 'started', labelKey: 'rooms.roomBrowser.started' },

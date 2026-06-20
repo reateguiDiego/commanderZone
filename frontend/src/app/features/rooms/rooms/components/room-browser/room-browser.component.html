@@ -11,73 +11,82 @@
     />
   }
 
-  <div class="rooms-table-toolbar">
-    <label class="filter-field">
-      <span>{{ 'rooms.roomBrowser.roomName' | runtimeTranslate }}</span>
-      <input name="roomNameFilter" [placeholder]="'rooms.roomBrowser.searchRoom' | runtimeTranslate" [ngModel]="roomNameFilter()" (ngModelChange)="roomNameFilter.set($event)" />
-    </label>
-    <label class="filter-field">
-      <span>{{ 'rooms.roomBrowser.owner' | runtimeTranslate }}</span>
-      <input name="roomOwnerFilter" [placeholder]="'rooms.roomBrowser.searchOwner' | runtimeTranslate" [ngModel]="roomOwnerFilter()" (ngModelChange)="roomOwnerFilter.set($event)" />
-    </label>
-    <div class="filter-field">
-      <span>{{ 'rooms.roomBrowser.visibility' | runtimeTranslate }}</span>
-      <app-format-select
-        name="roomVisibilityFilter"
-        [labelHidden]="true"
-        labelKey="rooms.roomBrowser.visibility"
-        [options]="visibilityFilterOptions"
-        [value]="visibilityFilter()"
-        (valueChange)="setVisibilityFilter($event)"
-      />
-    </div>
-    <div class="filter-field">
-      <span>{{ 'rooms.roomBrowser.status' | runtimeTranslate }}</span>
-      <app-format-select
-        name="roomStatusFilter"
-        [labelHidden]="true"
-        labelKey="rooms.roomBrowser.status"
-        [options]="statusFilterOptions"
-        [value]="statusFilter()"
-        (valueChange)="setStatusFilter($event)"
-      />
-    </div>
-    <app-format-select
-      name="roomFormatFilter"
-      label="Format"
-      allLabel="All formats"
-      [formats]="formats()"
-      [value]="formatFilter()"
-      (valueChange)="formatFilter.set($event)"
-    />
-  </div>
+  <div class="rooms-table-layout">
+    <div class="rooms-table-content">
+      <div class="rooms-table-toolbar">
+        <label class="filter-field">
+          <span>{{ 'rooms.roomBrowser.roomName' | runtimeTranslate }}</span>
+          <input name="roomNameFilter" [placeholder]="'rooms.roomBrowser.searchRoom' | runtimeTranslate" [ngModel]="roomNameFilter()" (ngModelChange)="roomNameFilter.set($event)" />
+        </label>
+        <label class="filter-field">
+          <span>{{ 'rooms.roomBrowser.owner' | runtimeTranslate }}</span>
+          <input name="roomOwnerFilter" [placeholder]="'rooms.roomBrowser.searchOwner' | runtimeTranslate" [ngModel]="roomOwnerFilter()" (ngModelChange)="roomOwnerFilter.set($event)" />
+        </label>
+        <div class="filter-pair">
+          <div class="filter-field">
+            <span>{{ 'rooms.roomBrowser.visibility' | runtimeTranslate }}</span>
+            <app-format-select
+              name="roomVisibilityFilter"
+              [labelHidden]="true"
+              labelKey="rooms.roomBrowser.visibility"
+              [options]="visibilityFilterOptions"
+              [value]="visibilityFilter()"
+              (valueChange)="setVisibilityFilter($event)"
+            />
+          </div>
+          <div class="filter-field">
+            <span>{{ 'rooms.roomBrowser.status' | runtimeTranslate }}</span>
+            <app-format-select
+              name="roomStatusFilter"
+              [labelHidden]="true"
+              labelKey="rooms.roomBrowser.status"
+              [options]="statusFilterOptions"
+              [value]="statusFilter()"
+              (valueChange)="setStatusFilter($event)"
+            />
+          </div>
+        </div>
+        <app-format-select
+          name="roomFormatFilter"
+          label="Format"
+          allLabel="rooms.roomBrowser.publicAndPrivate"
+          [formats]="formats()"
+          [value]="formatFilter()"
+          (valueChange)="formatFilter.set($event)"
+        />
+        <div class="rooms-table-actions">
+          <ng-content select="app-room-create-panel" />
+        </div>
+      </div>
 
-  <div class="rooms-table-head">
-    <span>{{ 'rooms.roomBrowser.roomName' | runtimeTranslate }}</span>
-    <span>{{ 'rooms.roomBrowser.host' | runtimeTranslate }}</span>
-    <span>{{ 'rooms.roomBrowser.format' | runtimeTranslate }}</span>
-    <span>{{ 'rooms.roomBrowser.visibility' | runtimeTranslate }}</span>
-    <span class="centered-col">{{ 'rooms.roomBrowser.players' | runtimeTranslate }}</span>
-    <span class="centered-col">{{ 'rooms.roomBrowser.status' | runtimeTranslate }}</span>
-    <span class="rooms-actions-title">{{ 'rooms.roomBrowser.action' | runtimeTranslate }}</span>
-  </div>
+      <div class="rooms-table-head">
+        <span>{{ 'rooms.roomBrowser.roomName' | runtimeTranslate }}</span>
+        <span>{{ 'rooms.roomBrowser.host' | runtimeTranslate }}</span>
+        <span>{{ 'rooms.roomBrowser.format' | runtimeTranslate }}</span>
+        <span>{{ 'rooms.roomBrowser.visibility' | runtimeTranslate }}</span>
+        <span class="centered-col">{{ 'rooms.roomBrowser.players' | runtimeTranslate }}</span>
+        <span class="centered-col">{{ 'rooms.roomBrowser.status' | runtimeTranslate }}</span>
+        <span class="rooms-actions-title">{{ 'rooms.roomBrowser.action' | runtimeTranslate }}</span>
+      </div>
 
-  <div appPrettyScroll class="dense-list compact-list room-list">
-    @for (room of filteredRooms(); track room.id) {
-      <app-room-row
-        [room]="room"
-        [formats]="formats()"
-        [currentUserId]="currentUserId()"
-        [currentRoomId]="currentRoomId()"
-        [actionsLocked]="currentRoom() !== null"
-        [deletingRoomId]="deletingRoomId()"
-        [leavingRoomId]="leavingRoomId()"
-        (opened)="listedRoomOpened.emit($event)"
-        (left)="leaveRequested.emit($event)"
-        (deleted)="deleteRequested.emit($event)"
-      />
-    } @empty {
-      <p class="notice">{{ 'rooms.roomBrowser.noRoomsMatchTheCurrentFilters' | runtimeTranslate }}</p>
-    }
+      <div appPrettyScroll class="dense-list compact-list room-list">
+        @for (room of filteredRooms(); track room.id) {
+          <app-room-row
+            [room]="room"
+            [formats]="formats()"
+            [currentUserId]="currentUserId()"
+            [currentRoomId]="currentRoomId()"
+            [actionsLocked]="currentRoom() !== null"
+            [deletingRoomId]="deletingRoomId()"
+            [leavingRoomId]="leavingRoomId()"
+            (opened)="listedRoomOpened.emit($event)"
+            (left)="leaveRequested.emit($event)"
+            (deleted)="deleteRequested.emit($event)"
+          />
+        } @empty {
+          <p class="notice">{{ 'rooms.roomBrowser.noRoomsMatchTheCurrentFilters' | runtimeTranslate }}</p>
+        }
+      </div>
+    </div>
   </div>
 </section>

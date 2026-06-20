@@ -9,7 +9,7 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: start;
-  gap: clamp(0.85rem, 1.6vw, 1.25rem);
+  gap: var(--cz-page-hero-content-gap);
   width: 100%;
   min-height: 100%;
   margin: 0;
@@ -27,42 +27,6 @@
   display: grid;
   gap: 0.45rem;
   min-width: 0;
-}
-
-.deck-page-copy h1 {
-  margin: 0;
-  color: var(--cz-text);
-  font-size: clamp(2.4rem, 4.4vw, 4.3rem);
-  line-height: 0.95;
-}
-
-.deck-page-copy p {
-  margin: 0;
-  color: rgb(var(--cz-text-rgb) / 66%);
-  font-size: clamp(0.95rem, 1.4vw, 1.12rem);
-}
-
-.hero-rule,
-.section-rule {
-  position: relative;
-  display: block;
-  width: min(14rem, 100%);
-  height: 1px;
-  margin-top: 0.65rem;
-  background: linear-gradient(90deg, transparent, rgb(var(--cz-primary-rgb) / 54%), transparent);
-}
-
-.hero-rule::after,
-.section-rule::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0.38rem;
-  height: 0.38rem;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 78%);
-  background: rgb(var(--cz-bg-rgb) / 96%);
-  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .deck-stats {
@@ -136,7 +100,7 @@
 }
 
 .deck-stat.deck-stat--mana {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(3.2rem, 1fr));
   grid-template-areas: none;
   gap: 0.55rem 0.75rem;
   align-content: center;
@@ -756,10 +720,6 @@
     min-height: 4rem;
     padding: 0.65rem;
     text-align: left;
-  }
-
-  .deck-stat--mana {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .deck-stat strong {

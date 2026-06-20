@@ -40,6 +40,9 @@
           }
         </div>
         }
+        @if (showHeaderRule) {
+          <app-hero-rule class="modal-header-rule" />
+        }
         @if (message) {
           <p>{{ message }}</p>
         }

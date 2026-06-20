@@ -24,7 +24,7 @@
   border: 1px solid rgb(var(--cz-primary-rgb) / 20%);
   border-radius: 10px;
   padding: 0 0.75rem;
-  color: var(--text);
+  color: var(--cz-text);
   background: rgb(var(--cz-text-rgb) / 5%);
   font-weight: 850;
   cursor: pointer;
@@ -60,7 +60,7 @@
 .wheel-column {
   display: grid;
   gap: 0.35rem;
-  color: var(--muted);
+  color: rgb(var(--cz-text-rgb) / 66%);
   font-size: 0.72rem;
   font-weight: 800;
   text-align: center;
@@ -86,7 +86,7 @@
 
 .wheel-options button.selected {
   background: linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 26%), rgb(var(--cz-success-rgb) / 16%));
-  color: var(--text);
+  color: var(--cz-text);
 }
 
 .timer-wheel strong {

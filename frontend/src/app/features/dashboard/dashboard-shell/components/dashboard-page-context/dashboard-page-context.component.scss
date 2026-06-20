@@ -10,6 +10,8 @@
 }
 
 .page-header-title {
+  display: grid;
+  gap: 0.28rem;
   min-width: 0;
 }
 
@@ -21,10 +23,35 @@
 }
 
 .page-header-title h1 {
-  color: var(--text);
-  font-size: clamp(1.35rem, 2vw, 2rem);
-  line-height: 1.05;
+  color: var(--cz-text);
+  font-size: var(--cz-page-title-font-size);
+  line-height: var(--cz-page-title-line-height);
   white-space: nowrap;
+}
+
+.page-header-description {
+  max-width: 42rem;
+  margin: 0;
+  color: rgb(var(--cz-text-rgb) / 72%);
+  font-size: var(--cz-page-copy-font-size);
+  line-height: var(--cz-page-copy-line-height);
+}
+
+.page-header-context[data-page-context="rooms"] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: clamp(1.2rem, 4vw, 3rem);
+  row-gap: 0.85rem;
+}
+
+.page-header-context[data-page-context="rooms"] .page-header-title {
+  gap: 0.42rem;
+}
+
+.page-header-context[data-page-context="rooms"] .page-header-detail-row.has-stats {
+  justify-self: end;
+  justify-content: flex-end;
+  max-width: min(38rem, 48vw);
 }
 
 .page-title-warning {
@@ -141,21 +168,24 @@ button[data-action-id="invite-friends"] {
 }
 
 .header-stat {
+  --header-stat-color: rgb(var(--cz-text-rgb) / 66%);
+  --header-stat-rgb: var(--cz-primary-rgb);
+
   display: inline-flex;
   align-items: center;
   gap: 0.34rem;
   min-height: 2rem;
   padding: 0.34rem 0.5rem;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 20%);
+  border: 1px solid rgb(var(--header-stat-rgb) / 34%);
   border-radius: 7px;
-  background: rgb(var(--cz-bg-rgb) / 44%);
-  color: var(--muted);
+  background: rgb(var(--header-stat-rgb) / 12%);
+  color: var(--header-stat-color);
   font-size: 0.72rem;
   white-space: nowrap;
 }
 
 .header-stat strong {
-  color: var(--text);
+  color: var(--header-stat-color);
   font-size: 0.9rem;
   line-height: 1;
 }
@@ -165,19 +195,24 @@ button:disabled {
   opacity: 0.52;
 }
 
-.tone-success {
-  border-color: rgb(var(--cz-info-rgb) / 34%);
-  color: var(--cz-secondary);
+.header-stat.tone-success {
+  --header-stat-color: var(--cz-success);
+  --header-stat-rgb: var(--cz-success-rgb);
 }
 
-.tone-private {
-  border-color: rgb(var(--cz-primary-rgb) / 36%);
-  color: var(--cz-secondary);
+.header-stat.tone-warning {
+  --header-stat-color: var(--cz-warning);
+  --header-stat-rgb: var(--cz-warning-rgb);
 }
 
-.tone-started {
-  border-color: rgb(var(--cz-info-rgb) / 34%);
-  color: var(--cz-secondary);
+.header-stat.tone-info {
+  --header-stat-color: var(--cz-info);
+  --header-stat-rgb: var(--cz-info-rgb);
+}
+
+.header-stat.tone-danger {
+  --header-stat-color: var(--cz-danger);
+  --header-stat-rgb: var(--cz-danger-rgb);
 }
 
 @media (max-width: 720px) {
@@ -238,6 +273,18 @@ button:disabled {
     margin: -1px;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+  }
+}
+
+@media (max-width: 980px) {
+  .page-header-context[data-page-context="rooms"] {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header-context[data-page-context="rooms"] .page-header-detail-row.has-stats {
+    justify-self: stretch;
+    justify-content: flex-start;
+    max-width: none;
   }
 }
 

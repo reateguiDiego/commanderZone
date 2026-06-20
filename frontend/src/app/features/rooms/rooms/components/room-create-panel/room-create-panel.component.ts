@@ -16,6 +16,7 @@ export class RoomCreatePanelComponent {
   readonly codeJoinRequested = output<string>();
   readonly createRequested = output<void>();
   readonly roomCode = signal('');
+  readonly joinCodeInputOpen = signal(false);
 
   setRoomCode(event: Event): void {
     const input = event.target instanceof HTMLInputElement ? event.target : null;
@@ -29,6 +30,7 @@ export class RoomCreatePanelComponent {
 
     const code = this.roomCode().trim();
     if (!code) {
+      this.joinCodeInputOpen.set(true);
       return;
     }
 

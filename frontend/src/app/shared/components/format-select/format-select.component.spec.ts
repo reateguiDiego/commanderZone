@@ -89,6 +89,13 @@ describe('FormatSelectComponent', () => {
     expect(menu?.classList.contains('app-pretty-scroll')).toBe(true);
   });
 
+  it('marks the host while the dropdown is open', () => {
+    fixture.nativeElement.querySelector('.format-select-trigger').click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.classList.contains('is-open')).toBe(true);
+  });
+
   it('does not emit disabled options', () => {
     const selectedValues: string[] = [];
     fixture.componentRef.setInput('formats', []);

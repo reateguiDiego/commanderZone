@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { Building2, DoorOpen, Globe, Library, Lock, LogOut, LucideAngularModule, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X } from 'lucide-angular';
+import { Building2, DoorOpen, Globe, Library, Lock, LogOut, LucideAngularModule, Minus, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X } from 'lucide-angular';
 import { of, throwError } from 'rxjs';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
@@ -50,7 +50,7 @@ describe('RoomsComponent', () => {
       imports: [RoomsComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ Building2, DoorOpen, Globe, Library, Lock, LogOut, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X })),
+        importProvidersFrom(LucideAngularModule.pick({ Building2, DoorOpen, Globe, Library, Lock, LogOut, Minus, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X })),
         { provide: RoomsApi, useValue: roomsApi },
         { provide: DeckFormatsApi, useValue: deckFormatsApi },
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },

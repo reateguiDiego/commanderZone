@@ -1,6 +1,14 @@
 @use './styles/themes';
 @import url('../public/vendor/mana/css/mana.min.css');
 
+:root {
+  --cz-page-title-font-size: 4.3rem;
+  --cz-page-title-line-height: 0.95;
+  --cz-page-copy-font-size: 1.06rem;
+  --cz-page-copy-line-height: 1.45;
+  --cz-page-hero-content-gap: 1.15rem;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -34,7 +42,7 @@ body {
     radial-gradient(circle at 48% 42%, var(--app-bg-moss), transparent 44rem),
     linear-gradient(135deg, var(--app-bg-deep) 0%, var(--cz-surface) 38%, var(--cz-bg) 68%, var(--app-bg-base) 100%);
   background-attachment: fixed;
-  color: var(--text);
+  color: var(--cz-text);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -356,8 +364,16 @@ p {
 }
 
 h1 {
-  font-size: 1.15rem;
+  color: var(--cz-text);
+  font-size: var(--cz-page-title-font-size);
   font-weight: 750;
+  line-height: var(--cz-page-title-line-height);
+}
+
+p {
+  color: rgb(var(--cz-text-rgb) / 66%);
+  font-size: var(--cz-page-copy-font-size);
+  line-height: var(--cz-page-copy-line-height);
 }
 
 h2 {
@@ -862,9 +878,9 @@ app-dashboard-shell .page-header-title {
 }
 
 app-dashboard-shell .page-header-title h1 {
-  color: var(--text);
-  font-size: clamp(1.55rem, 2vw, 2.05rem);
-  line-height: 1.05;
+  color: var(--cz-text);
+  font-size: var(--cz-page-title-font-size);
+  line-height: var(--cz-page-title-line-height);
 }
 
 app-dashboard-shell .user-strip {
@@ -877,6 +893,11 @@ app-dashboard-shell .user-strip {
 }
 
 @media (max-width: 720px) {
+  :root {
+    --cz-page-title-font-size: 2.4rem;
+    --cz-page-copy-font-size: 0.98rem;
+  }
+
   app-dashboard-shell .page-header-context {
     width: 100%;
   }

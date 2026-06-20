@@ -1,6 +1,13 @@
 :host {
   display: block;
   min-width: 0;
+  position: relative;
+  z-index: var(--format-select-z-index, auto);
+}
+
+:host(.is-open),
+:host(.is-closing) {
+  z-index: var(--format-select-open-z-index, 100);
 }
 
 .format-select-field {
@@ -103,7 +110,7 @@
 
 .format-select-menu {
   position: absolute;
-  z-index: 50;
+  z-index: var(--format-select-menu-z-index, 50);
   top: calc(100% + 0.45rem);
   left: var(--format-select-menu-left, 0);
   right: var(--format-select-menu-right, 0);

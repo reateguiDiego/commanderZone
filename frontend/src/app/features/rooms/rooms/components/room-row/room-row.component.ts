@@ -57,6 +57,10 @@ export class RoomRowComponent {
     return status === 'waiting' || status === 'open';
   }
 
+  isRoomArchived(room: Room): boolean {
+    return String(room.status ?? '').toLowerCase() === 'archived';
+  }
+
   isRoomFull(room: Room): boolean {
     return this.roomPlayerCount(room) >= this.roomCapacity(room);
   }

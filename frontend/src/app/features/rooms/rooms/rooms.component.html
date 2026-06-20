@@ -32,14 +32,14 @@
         (currentRoomLeaveRequested)="leaveCurrentRoom($event)"
         (leaveRequested)="leaveRoom($event)"
         (deleteRequested)="requestDeleteRoom($event)"
-      />
+      >
+        <app-room-create-panel
+          [actionsLocked]="currentRoom() !== null"
+          (codeJoinRequested)="joinRoomByCode($event)"
+          (createRequested)="openCreateRoomModal()"
+        />
+      </app-room-browser>
     </div>
-
-    <app-room-create-panel
-      [actionsLocked]="currentRoom() !== null"
-      (codeJoinRequested)="joinRoomByCode($event)"
-      (createRequested)="openCreateRoomModal()"
-    />
   </div>
 
   <app-room-setup-modal

@@ -19,6 +19,10 @@ const FORMAT_SELECT_EXIT_ANIMATION_MS = 170;
   templateUrl: './format-select.component.html',
   styleUrl: './format-select.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '[class.is-open]': 'dropdownOpen()',
+    '[class.is-closing]': 'menuClosing()',
+  },
 })
 export class FormatSelectComponent {
   private readonly elementRef = inject(ElementRef<HTMLElement>);

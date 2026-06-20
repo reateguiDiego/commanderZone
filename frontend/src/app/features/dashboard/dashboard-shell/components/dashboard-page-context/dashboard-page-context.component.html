@@ -1,5 +1,5 @@
 @if (header(); as headerState) {
-  <div class="page-header-context">
+  <div class="page-header-context" [attr.data-page-context]="headerState.context ?? null">
     <div class="page-header-title">
       @if (headerState.eyebrow) {
         <span class="eyebrow">{{ headerState.eyebrow | runtimeTranslate }}</span>
@@ -17,6 +17,12 @@
           </span>
         }
       </div>
+      @if (headerState.description) {
+        <p class="page-header-description">{{ headerState.description | runtimeTranslate }}</p>
+      }
+      @if (headerState.heroRule) {
+        <app-hero-rule />
+      }
     </div>
 
     <div
@@ -30,8 +36,9 @@
             <div
               class="header-stat"
               [class.tone-success]="stat.tone === 'success'"
-              [class.tone-private]="stat.tone === 'private'"
-              [class.tone-started]="stat.tone === 'started'"
+              [class.tone-warning]="stat.tone === 'warning'"
+              [class.tone-info]="stat.tone === 'info'"
+              [class.tone-danger]="stat.tone === 'danger'"
             >
               @if (stat.icon) {
                 <lucide-icon [name]="stat.icon" size="14" />

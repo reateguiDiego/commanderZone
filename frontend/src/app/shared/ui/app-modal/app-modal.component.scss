@@ -113,6 +113,11 @@
   margin: 0;
 }
 
+.modal-header-rule {
+  justify-self: start;
+  margin-inline: 0 auto;
+}
+
 .modal-title-icon {
   flex: 0 0 auto;
   color: var(--cz-accent);
@@ -139,7 +144,7 @@
 }
 
 .modal-panel header p {
-  color: var(--muted);
+  color: rgb(var(--cz-text-rgb) / 66%);
 }
 
 .modal-panel-compact header p {

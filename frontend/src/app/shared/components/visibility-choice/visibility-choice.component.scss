@@ -8,10 +8,17 @@
 }
 
 .visibility-choice__label {
-  color: rgb(var(--cz-text-rgb) / 68%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--cz-text);
   font-size: 0.82rem;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.required-mark {
+  color: var(--cz-warning);
 }
 
 .visibility-choice__group {

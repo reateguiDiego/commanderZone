@@ -147,7 +147,7 @@
       "roomName": "Room name",
       "owner": "Owner",
       "visibility": "Visibility",
-      "publicAndPrivate": "Public and private",
+      "publicAndPrivate": "All",
       "publicOnly": "Public only",
       "privateOnly": "Private only",
       "status": "Status",

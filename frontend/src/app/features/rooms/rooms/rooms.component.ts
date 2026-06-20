@@ -651,6 +651,9 @@ export class RoomsComponent implements OnInit, OnDestroy {
   private updatePageHeader(): void {
     this.pageHeader.set({
       title: 'rooms.header.title',
+      description: 'rooms.header.description',
+      context: 'rooms',
+      heroRule: true,
       stats: [
         {
           id: 'active-rooms',
@@ -670,14 +673,14 @@ export class RoomsComponent implements OnInit, OnDestroy {
           label: 'rooms.header.privateRooms',
           value: this.privateRoomsCount(),
           icon: 'lock',
-          tone: 'private',
+          tone: 'warning',
         },
         {
           id: 'started-games',
           label: 'rooms.header.startedGames',
           value: this.startedRoomsCount(),
           icon: 'swords',
-          tone: 'started',
+          tone: 'info',
         },
       ],
     });

@@ -3,10 +3,11 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { PageHeaderState } from '../../../../../core/ui/page-header.store';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { HeroRuleComponent } from '../../../../../shared/ui/hero-rule/hero-rule.component';
 
 @Component({
   selector: 'app-dashboard-page-context',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective, HeroRuleComponent],
   templateUrl: './dashboard-page-context.component.html',
   styleUrl: './dashboard-page-context.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

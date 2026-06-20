@@ -83,6 +83,7 @@ export class RoomSetupModalComponent {
   readonly createFirstMulliganFree = signal(true);
   readonly createFirstMulliganFreeTouched = signal(false);
   readonly createFormat = signal<RoomFormat>('commander');
+  readonly startingLifePresets: readonly number[] = [20, 30, 40, 60];
   readonly mulliganOptions: readonly { value: RoomMulliganRule; label: string }[] = [
     { value: 'LONDON', label: 'Londres' },
     { value: 'VANCOUVER', label: 'Vancouver' },

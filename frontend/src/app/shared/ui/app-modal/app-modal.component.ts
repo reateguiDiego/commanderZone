@@ -3,10 +3,11 @@ import { LucideAngularModule } from 'lucide-angular';
 import { BodyScrollLockService } from '../../services/body-scroll-lock.service';
 import { PrettyScrollDirective } from '../pretty-scroll/pretty-scroll.directive';
 import { CzButtonDirective } from '../button/button.directive';
+import { HeroRuleComponent } from '../hero-rule/hero-rule.component';
 
 @Component({
   selector: 'app-modal',
-  imports: [LucideAngularModule, CzButtonDirective, PrettyScrollDirective],
+  imports: [LucideAngularModule, CzButtonDirective, PrettyScrollDirective, HeroRuleComponent],
   templateUrl: './app-modal.component.html',
   styleUrl: './app-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,6 +33,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() backLabel = 'Back';
   @Input() showHeaderAction = false;
   @Input() headerActionLabel = '';
+  @Input() showHeaderRule = false;
   @Input() showCloseButton = false;
   @Input() closeLabel = 'Close modal';
   @Input() showTertiary = false;

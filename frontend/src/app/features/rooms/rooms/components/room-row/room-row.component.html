@@ -27,10 +27,14 @@
   <div class="room-col room-col-centered">
     @if (isRoomStarted(currentRoom)) {
       <span class="status-pill status-started">{{ 'rooms.roomRow.started' | runtimeTranslate }}</span>
+    } @else if (isRoomArchived(currentRoom)) {
+      <span class="status-pill status-archived">{{ currentRoom.status }}</span>
     } @else if (isRoomWaiting(currentRoom) && isRoomFull(currentRoom)) {
       <span class="status-pill status-full">{{ 'rooms.roomRow.full' | runtimeTranslate }}</span>
     } @else if (isRoomOpen(currentRoom)) {
       <span class="status-pill status-open">{{ 'rooms.roomRow.open' | runtimeTranslate }}</span>
+    } @else if (isRoomWaiting(currentRoom)) {
+      <span class="status-pill status-waiting">{{ currentRoom.status }}</span>
     } @else {
       <span class="status-pill status-full">{{ currentRoom.status }}</span>
     }
