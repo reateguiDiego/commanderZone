@@ -96,6 +96,11 @@ label {
   align-items: center;
 }
 
+.player-config-row input::placeholder {
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
+}
+
 .seat-number {
   display: grid;
   place-items: center;

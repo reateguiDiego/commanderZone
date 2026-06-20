@@ -520,7 +520,7 @@ class AuthController extends ApiController
 
         if ($hasCardLanguageUpdate) {
             $cardLanguage = LanguageCatalog::normalize($payload['cardLanguage'] ?? null);
-            if (!LanguageCatalog::isSupported($cardLanguage)) {
+            if (!LanguageCatalog::isSupportedCardLanguage($cardLanguage)) {
                 return $this->fail('cardLanguage is invalid.');
             }
 
@@ -529,7 +529,7 @@ class AuthController extends ApiController
 
         if ($hasAppLanguageUpdate) {
             $appLanguage = LanguageCatalog::normalize($payload['appLanguage'] ?? null);
-            if (!LanguageCatalog::isSupported($appLanguage)) {
+            if (!LanguageCatalog::isSupportedAppLanguage($appLanguage)) {
                 return $this->fail('appLanguage is invalid.');
             }
 

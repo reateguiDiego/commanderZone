@@ -2,6 +2,12 @@
   display: block;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
+}
+
 .deck-search-stack {
   position: relative;
   flex: 0 0 500px;

@@ -636,6 +636,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   "settings.dashboardSettingsModal.areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
   "settings.dashboardSettingsModal.avatar": "Avatar",
   "settings.dashboardSettingsModal.cancel": "Cancel",
+  "settings.dashboardSettingsModal.changePassword": "Change password",
   "settings.dashboardSettingsModal.comprobandoDisponibilidad": "Comprobando disponibilidad...",
   "settings.dashboardSettingsModal.comprobandoEmail": "Comprobando email...",
   "settings.dashboardSettingsModal.deleteAccount": "Delete account",

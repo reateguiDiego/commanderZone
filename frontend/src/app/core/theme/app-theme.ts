@@ -74,20 +74,20 @@ export const APP_THEMES: readonly AppTheme[] = [
   {
     id: 'candy-summoners',
     label: 'Candy Summoners',
-    description: 'Soft, collectible pastel colors.',
+    description: 'Bright candy pastels with stronger contrast.',
     palette: {
-      bg: '#F0E5FF',
-      surface: '#FFD5EA',
+      bg: '#DFC5FF',
+      surface: '#E397C3',
       primary: '#8B5CFF',
       secondary: '#38CFFF',
       accent: '#FF6F8F',
-      text: '#120B18',
+      text: '#000000',
     },
     functional: {
-      success: '#22C98A',
-      danger: '#F83F6B',
-      warning: '#FFC83D',
-      info: '#2FA8FF',
+      success: '#008A4E',
+      danger: '#C1124F',
+      warning: '#9A5A00',
+      info: '#005FCC',
     },
   },
   {

@@ -276,6 +276,11 @@
   color: var(--cz-text);
 }
 
+.room-name-field input::placeholder {
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
+}
+
 :host ::ng-deep .visibility-choice__button:not(.is-selected) {
   color: rgb(var(--cz-text-rgb) / 70%);
 }

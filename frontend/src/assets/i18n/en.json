@@ -927,6 +927,7 @@
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
+      "changePassword": "Change password",
       "deleteAccount": "Delete account",
       "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
       "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",

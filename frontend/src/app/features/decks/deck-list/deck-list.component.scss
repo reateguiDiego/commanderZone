@@ -254,10 +254,6 @@
   box-shadow: none;
 }
 
-.deck-search input::placeholder {
-  color: rgb(var(--cz-text-rgb) / 44%);
-}
-
 .deck-collection-panel {
   display: grid;
   gap: 1rem;
@@ -541,9 +537,11 @@
   color: var(--cz-text);
 }
 
+.deck-search input::placeholder,
 .deck-modal-form input::placeholder,
 .deck-modal-form textarea::placeholder {
-  color: rgb(var(--cz-text-rgb) / 44%);
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
 }
 
 .deck-modal-form input:focus,

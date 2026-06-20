@@ -20,14 +20,12 @@ describe('locale config', () => {
     'it',
     'pt',
     'ja',
-    'ko',
     'zh-hans',
-    'zh-hant',
     'nl',
     'ca',
     'ru',
   ] as const satisfies readonly LocaleCode[];
-  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+  const nonSeoLocaleCodes = ['ja', 'zh-hans', 'nl', 'ca', 'ru'] as const;
 
   it('defines the supported locales in the approved order', () => {
     expect(SUPPORTED_LOCALE_CODES).toEqual(expectedLocaleCodes);
@@ -64,7 +62,6 @@ describe('locale config', () => {
   it('identifies supported locale codes', () => {
     expect(isSupportedLocale('es')).toBe(true);
     expect(isSupportedLocale('zh-hans')).toBe(true);
-    expect(isSupportedLocale('zh-hant')).toBe(true);
   });
 
   it('rejects unsupported or empty locale codes', () => {
@@ -98,6 +95,5 @@ describe('locale config', () => {
   it('returns hreflang values for supported locale codes', () => {
     expect(getLocaleHreflang('es')).toBe('es');
     expect(getLocaleHreflang('zh-hans')).toBe('zh-Hans');
-    expect(getLocaleHreflang('zh-hant')).toBe('zh-Hant');
   });
 });

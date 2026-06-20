@@ -60,6 +60,26 @@ describe('FormatSelectComponent', () => {
     expect(selectedValues).toEqual(['public']);
   });
 
+  it('renders option flags in the trigger and dropdown', () => {
+    fixture.componentRef.setInput('formats', []);
+    fixture.componentRef.setInput('options', [
+      { id: 'en', name: 'English', flagAsset: '/assets/icons/flags/uk.png' },
+      { id: 'fr', name: 'Francais', flagAsset: '/assets/icons/flags/france.png' },
+    ]);
+    fixture.componentRef.setInput('value', 'en');
+    fixture.detectChanges();
+
+    const triggerFlag = fixture.nativeElement.querySelector('.format-select-trigger .format-select-flag') as HTMLImageElement;
+    expect(triggerFlag.getAttribute('src')).toContain('uk.png');
+
+    fixture.nativeElement.querySelector('.format-select-trigger').click();
+    fixture.detectChanges();
+
+    const optionFlags = fixture.nativeElement.querySelectorAll('.format-select-option .format-select-flag') as NodeListOf<HTMLImageElement>;
+    expect(optionFlags).toHaveLength(2);
+    expect(optionFlags[1]?.getAttribute('src')).toContain('france.png');
+  });
+
   it('uses the shared visual scroll treatment for the dropdown menu', () => {
     fixture.nativeElement.querySelector('.format-select-trigger').click();
     fixture.detectChanges();

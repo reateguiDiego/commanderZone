@@ -274,7 +274,7 @@ paths:
                   enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
                 appLanguage:
                   type: string
-                  enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+                  enum: [en, fr, de, it, es, ja, zhs, pt, ru, nl, ca]
       responses:
         '200':
           description: Updated user.
@@ -298,6 +298,43 @@ paths:
       responses:
         '204':
           description: Account deleted.
+  /themes:
+    get:
+      tags: [Auth]
+      summary: Get the authenticated user's selected app theme.
+      responses:
+        '200':
+          description: Current theme preference.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemePreferenceResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+    put:
+      tags: [Auth]
+      summary: Update the authenticated user's selected app theme.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [themeId]
+              properties:
+                themeId:
+                  $ref: '#/components/schemas/AppThemeId'
+      responses:
+        '200':
+          description: Updated theme preference.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemePreferenceResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
   /me/avatar:
@@ -672,6 +709,18 @@ paths:
                     type: integer
         '400':
           $ref: '#/components/responses/Error'
+  /cards/languages:
+    get:
+      tags: [Cards]
+      summary: List available card languages and the current card-language selection.
+      description: Returns card-language coverage relative to English. Common print languages are excluded from the selectable list.
+      responses:
+        '200':
+          description: Card language coverage and current selection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardLanguagesResponse'
   /cards/resolve:
     get:
       tags: [Cards]
@@ -2918,14 +2967,51 @@ components:
           format: date-time
     UserPreferences:
       type: object
-      required: [cardLanguage, appLanguage]
+      required: [cardLanguage, appLanguage, themeId]
       properties:
         cardLanguage:
           type: string
           enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
         appLanguage:
           type: string
+          enum: [en, fr, de, it, es, ja, zhs, pt, ru, nl, ca]
+        themeId:
+          $ref: '#/components/schemas/AppThemeId'
+    AppThemeId:
+      type: string
+      enum: [sunrise, arcade-neon-clash, candy-summoners, treasure-tavern, cyber-duel-arena, mystic-grove]
+    ThemePreferenceResponse:
+      type: object
+      required: [themeId]
+      properties:
+        themeId:
+          $ref: '#/components/schemas/AppThemeId'
+    CardLanguagesResponse:
+      type: object
+      required: [selectedCardLanguage, data]
+      properties:
+        selectedCardLanguage:
+          type: string
           enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardLanguageCoverage'
+    CardLanguageCoverage:
+      type: object
+      required: [code, label, distinctCardNames, percentageOfEnglish]
+      properties:
+        code:
+          type: string
+          enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+        label:
+          type: string
+        distinctCardNames:
+          type: integer
+          minimum: 0
+        percentageOfEnglish:
+          type: number
+          format: float
     FriendUser:
       type: object
       required: [id, displayName]

@@ -1,13 +1,13 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ArrowLeft, LucideAngularModule } from 'lucide-angular';
+import { ArrowLeft, LucideAngularModule, Settings } from 'lucide-angular';
 import { AppModalComponent } from './app-modal.component';
 
 describe('AppModalComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppModalComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ ArrowLeft }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ ArrowLeft, Settings }))],
     }).compileComponents();
   });
 
@@ -30,6 +30,19 @@ describe('AppModalComponent', () => {
 
     expect(dialog.getAttribute('aria-label')).toBe('Select print version');
     expect(fixture.nativeElement.querySelector('.modal-title-row')).toBeNull();
+  });
+
+  it('renders an optional title icon before the title', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('title', 'Settings');
+    fixture.componentRef.setInput('titleIcon', 'settings');
+    fixture.detectChanges();
+
+    const titleRow = fixture.nativeElement.querySelector('.modal-title-row') as HTMLElement;
+
+    expect(titleRow.querySelector('.modal-title-icon')).not.toBeNull();
+    expect(titleRow.querySelector('h2')?.textContent?.trim()).toBe('Settings');
   });
 
   it('locks body scroll while open and restores it when closed', () => {

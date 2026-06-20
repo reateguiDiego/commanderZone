@@ -47,6 +47,11 @@
   box-shadow: none;
 }
 
+.card-autocomplete-input input::placeholder {
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
+}
+
 .card-autocomplete.is-disabled .card-autocomplete-input input {
   color: var(--muted);
   opacity: 0.78;

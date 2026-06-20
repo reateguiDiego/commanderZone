@@ -4,7 +4,7 @@ import { SEO_PRERENDER_ROUTES, toAngularServerRoutePath } from './core/localizat
 import { serverRoutes } from './app.routes.server';
 
 describe('server routes', () => {
-  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+  const nonSeoLocaleCodes = ['ja', 'zh-hans', 'nl', 'ca', 'ru'] as const;
 
   it('prerenders every localized SEO URL', () => {
     const prerenderPaths = serverRoutes

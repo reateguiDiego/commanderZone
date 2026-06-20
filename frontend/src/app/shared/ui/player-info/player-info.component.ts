@@ -31,6 +31,7 @@ export class PlayerInfoComponent {
   readonly avatar = input<UserAvatar | null | undefined>(null);
   readonly nameStyle = input<UserDisplayNameStyle | null | undefined>(null);
   readonly size = input<PlayerInfoSize>('md');
+  readonly interactive = input(true);
   readonly avatarSelected = output<MouseEvent>();
   readonly nameSelected = output<MouseEvent>();
 

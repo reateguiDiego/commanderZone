@@ -3,8 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { PlayerAvatarComponent } from '../../../shared/ui/player-avatar/player-avatar.component';
-import { PlayerNameComponent } from '../../../shared/ui/player-name/player-name.component';
+import { PlayerInfoComponent } from '../../../shared/ui/player-info/player-info.component';
 import { FriendListRow } from '../data-access/friends.store';
 import { FriendshipStatus } from '../../../core/models/friendship.model';
 import { FriendsStore } from '../data-access/friends.store';
@@ -13,7 +12,7 @@ type FriendsDropdownTab = 'friends' | 'requests' | 'invitations' | 'search';
 
 @Component({
   selector: 'app-friends-dropdown',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, PrettyScrollDirective, PlayerAvatarComponent, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, PrettyScrollDirective, PlayerInfoComponent],
   templateUrl: './friends-dropdown.component.html',
   styleUrl: './friends-dropdown.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,0 +1,28 @@
+<section class="theme-settings-panel" [attr.aria-label]="visualThemeLabel()">
+  <div class="theme-settings-copy">
+    <h3>{{ visualThemeLabel() }}</h3>
+    <p>{{ visualThemeHelp() }}</p>
+  </div>
+
+  <div class="theme-options">
+    @for (theme of themeOptions; track theme.id) {
+      <button
+        class="theme-option"
+        type="button"
+        [class.selected]="selectedThemeId() === theme.id"
+        [attr.aria-pressed]="selectedThemeId() === theme.id"
+        (click)="selectTheme(theme.id)"
+      >
+        <span class="theme-option-copy">
+          <strong>{{ theme.label }}</strong>
+          <small>{{ theme.description }}</small>
+        </span>
+        <span class="theme-swatches" aria-hidden="true">
+          @for (color of theme.paletteColors; track $index) {
+            <span [style.background]="color"></span>
+          }
+        </span>
+      </button>
+    }
+  </div>
+</section>

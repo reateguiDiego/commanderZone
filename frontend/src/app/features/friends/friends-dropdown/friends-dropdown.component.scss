@@ -9,7 +9,6 @@
   --friends-menu-height: 38rem;
   --friends-menu-padding: 1.45rem;
   --friends-menu-gap: 1.05rem;
-  --friend-row-avatar-column: 3.75rem;
   --friend-row-action-column: 4.2rem;
   --friend-row-delete-column: 2.15rem;
   --friend-row-gap: 0.8rem;
@@ -162,7 +161,8 @@
 }
 
 .search-field input::placeholder {
-  color: rgb(var(--cz-text-rgb) / 46%);
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
 }
 
 .search-field lucide-icon {
@@ -235,7 +235,7 @@
 
 .friend-table-row {
   display: grid;
-  grid-template-columns: var(--friend-row-avatar-column) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: var(--friend-row-gap);
   min-height: var(--friend-row-min-height);
@@ -246,11 +246,11 @@
 }
 
 .friend-table-row.friend-row {
-  grid-template-columns: var(--friend-row-avatar-column) minmax(0, 1fr) var(--friend-row-delete-column);
+  grid-template-columns: minmax(0, 1fr) var(--friend-row-delete-column);
 }
 
 .friend-table-row.request-row {
-  grid-template-columns: var(--friend-row-avatar-column) minmax(0, 1fr) var(--friend-row-action-column);
+  grid-template-columns: minmax(0, 1fr) var(--friend-row-action-column);
 }
 
 .invitation-card {
@@ -299,7 +299,7 @@
 }
 
 .friend-table-row.search-row {
-  grid-template-columns: var(--friend-row-avatar-column) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.9rem;
   min-height: 4.35rem;
 }
@@ -319,17 +319,15 @@
   width: calc(100% - 1.45rem);
 }
 
-.row-avatar-wrap {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-}
-
 .row-main {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: 0.08rem;
   min-width: 0;
 }
 
-.row-main app-player-name,
+.row-main .friend-player-info,
 .row-main small {
   display: block;
   overflow: hidden;
@@ -337,7 +335,7 @@
   white-space: nowrap;
 }
 
-.row-main app-player-name {
+.row-main .friend-player-info {
   width: min(13rem, 100%);
   max-width: 100%;
 }
@@ -392,8 +390,8 @@
 
 .row-marker {
   position: absolute;
-  right: 0.08rem;
-  bottom: 0.08rem;
+  top: 1.72rem;
+  left: 1.78rem;
   width: 0.72rem;
   height: 0.72rem;
   border: 2px solid rgb(var(--cz-bg-rgb) / 98%);
@@ -431,21 +429,16 @@
   box-shadow: 0 0 0 3px rgb(var(--cz-info-rgb) / 14%);
 }
 
-.invitation-avatar-wrap {
-  z-index: 1;
-  filter: drop-shadow(0 0 0.65rem rgb(var(--cz-info-rgb) / 18%));
-}
-
 .invitation-content {
   z-index: 1;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 0.24rem;
   min-width: 0;
 }
 
 .invitation-main {
+  position: relative;
   z-index: 1;
   display: grid;
   align-content: center;
@@ -466,7 +459,7 @@
   white-space: nowrap;
 }
 
-.invitation-main app-player-name {
+.invitation-main .friend-player-info {
   width: 100%;
 }
 
@@ -671,7 +664,6 @@
     --friends-menu-height: 31rem;
     --friends-menu-padding: 1rem;
     --friends-menu-gap: 0.78rem;
-    --friend-row-avatar-column: 2.85rem;
     --friend-row-action-column: 4.35rem;
     --friend-row-delete-column: 1.9rem;
     --friend-row-gap: 0.55rem;
@@ -694,7 +686,7 @@
     min-height: 3rem;
   }
 
-  .row-main app-player-name {
+  .row-main .friend-player-info {
     width: min(11rem, 100%);
   }
 
@@ -716,11 +708,7 @@
     padding: 0.78rem 0.75rem 0.78rem 0.9rem;
   }
 
-  .invitation-content {
-    gap: 0.2rem;
-  }
-
-  .invitation-main app-player-name {
+  .invitation-main .friend-player-info {
     width: 100%;
   }
 }
@@ -730,7 +718,6 @@
     --friends-menu-width: 24rem;
     --friends-menu-height: 28.5rem;
     --friends-menu-padding: 0.75rem;
-    --friend-row-avatar-column: 2.35rem;
     --friend-row-action-column: 4rem;
     --friend-row-delete-column: 1.75rem;
     --friend-row-gap: 0.42rem;
@@ -775,7 +762,7 @@
     height: 1.65rem;
   }
 
-  .row-main app-player-name {
+  .row-main .friend-player-info {
     width: min(9rem, 100%);
   }
 

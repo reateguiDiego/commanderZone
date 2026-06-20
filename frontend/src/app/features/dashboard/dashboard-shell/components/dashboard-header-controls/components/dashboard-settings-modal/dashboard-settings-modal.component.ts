@@ -1,24 +1,33 @@
 import { RuntimeTranslatePipe } from '../../../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, ViewChild, computed, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { catchError, debounceTime, distinctUntilChanged, firstValueFrom, map, of, startWith, switchMap, tap } from 'rxjs';
 import { AuthApi, AvatarUpdatePayload, DisplayNameStyleUpdatePayload } from '../../../../../../../core/api/auth.api';
-import { appImageUrl } from '../../../../../../../core/assets/app-image-url';
+import { CardLanguageCoverage, CardsLanguageService } from '../../../../../../../core/api/cards-language.service';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
 import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
-import { isSupportedLanguageCode, LANGUAGE_OPTIONS, normalizeLanguageCode, SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
+import {
+  CARD_LANGUAGE_OPTIONS,
+  isSupportedCardLanguageCode,
+  isSupportedLanguageCode,
+  normalizeCardLanguageCode,
+  normalizeLanguageCode,
+  SupportedCardLanguageCode,
+  SupportedLanguageCode,
+} from '../../../../../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
+import { HYBRID_LANGUAGE_OPTIONS, RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/models/user.model';
-import { APP_THEMES, AppTheme, AppThemeId } from '../../../../../../../core/theme/app-theme';
-import { AppThemeService } from '../../../../../../../core/theme/app-theme.service';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
-import { FormatSelectComponent, type FormatSelectOption } from '../../../../../../../shared/components/format-select/format-select.component';
-import { PlayerNameComponent } from '../../../../../../../shared/ui/player-name/player-name.component';
+import { type FormatSelectOption } from '../../../../../../../shared/components/format-select/format-select.component';
+import { PlayerInfoComponent } from '../../../../../../../shared/ui/player-info/player-info.component';
 import { SettingsDisplayNameStyleEditorComponent } from '../../../../../settings/settings-display-name-style-editor/settings-display-name-style-editor.component';
 import { SettingsAvatarEditorComponent } from '../../../../../settings/settings-avatar-editor/settings-avatar-editor.component';
 import { SettingsAvatarUploadComponent } from '../../../../../settings/settings-avatar-upload/settings-avatar-upload.component';
+import { SettingsLanguagePreferencesComponent } from '../../../../../settings/settings-language-preferences/settings-language-preferences.component';
+import { ThemeSettingsPanelComponent } from '../../../../../settings/theme-settings-panel/theme-settings-panel.component';
 import { CzButtonDirective } from '../../../../../../../shared/ui/button/button.directive';
 
 type SettingsTab = 'general' | 'game';
@@ -29,32 +38,30 @@ export type SettingsLaunchTarget = 'general' | 'avatar' | 'name-style';
 interface ProfileSnapshot {
   readonly email: string;
   readonly displayName: string;
-  readonly cardLanguage: SupportedLanguageCode;
+  readonly cardLanguage: SupportedCardLanguageCode;
   readonly appLanguage: SupportedLanguageCode;
-}
-
-interface ThemeOptionViewModel extends AppTheme {
-  readonly paletteColors: readonly string[];
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const USER_NAME_MIN_LENGTH = 2;
 const USER_NAME_MAX_LENGTH = 20;
-const DEFAULT_INITIAL_BACKGROUND_COLOR = '#edcd83';
-const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
+const CARD_LANGUAGE_FLAGS = new Map<string, string | undefined>(
+  CARD_LANGUAGE_OPTIONS.map((language) => [language.code, language.flagAsset]),
+);
 
 @Component({
   selector: 'app-dashboard-settings-modal',
   imports: [
     RuntimeTranslatePipe,
     AppModalComponent,
-    FormatSelectComponent,
     ReactiveFormsModule,
     LucideAngularModule,
-    PlayerNameComponent,
+    PlayerInfoComponent,
     SettingsAvatarEditorComponent,
     SettingsAvatarUploadComponent,
     SettingsDisplayNameStyleEditorComponent,
+    SettingsLanguagePreferencesComponent,
+    ThemeSettingsPanelComponent,
     CzButtonDirective,
   ],
   templateUrl: './dashboard-settings-modal.component.html',
@@ -62,10 +69,13 @@ const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardSettingsModalComponent {
+  @ViewChild('settingsContent') private settingsContent?: ElementRef<HTMLElement>;
+
   private readonly authStore = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
+  private readonly cardsLanguage = inject(CardsLanguageService);
   private readonly languagePreferences = inject(LanguagePreferencesService);
-  private readonly appTheme = inject(AppThemeService);
+  private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
   private readonly i18n = inject(AppShellI18nService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(NonNullableFormBuilder);
@@ -96,15 +106,18 @@ export class DashboardSettingsModalComponent {
     cardLanguage: 'en',
     appLanguage: 'en',
   });
-  readonly languageOptions = LANGUAGE_OPTIONS;
-  readonly localizedLanguageOptions = computed(() =>
-    this.languageOptions.map((language) => ({
-      ...language,
-      label: this.i18n.languageName(language.code),
+  readonly appLanguageOptions = HYBRID_LANGUAGE_OPTIONS;
+  readonly cardLanguageSelectOptions = computed<readonly FormatSelectOption[]>(() =>
+    this.cardLanguageCoverage().map((language) => ({
+      id: language.code,
+      name: this.i18n.languageName(language.code),
+      flagAsset: CARD_LANGUAGE_FLAGS.get(language.code),
     })),
   );
-  readonly languageSelectOptions = computed<readonly FormatSelectOption[]>(() =>
-    this.localizedLanguageOptions().map((language) => ({ id: language.code, name: language.label })),
+  readonly appLanguageSelectOptions = computed<readonly FormatSelectOption[]>(() =>
+    [...this.appLanguageOptions]
+      .sort((left, right) => left.label.localeCompare(right.label, this.selectedAppLanguage(), { sensitivity: 'base' }))
+      .map((language) => ({ id: language.code, name: language.label, flagAsset: language.flagAsset })),
   );
   readonly settingsTitle = computed(() => this.i18n.text('settingsTitle'));
   readonly cancelLabel = computed(() => this.i18n.text('cancel'));
@@ -115,24 +128,9 @@ export class DashboardSettingsModalComponent {
   readonly settingsSectionsLabel = computed(() => this.i18n.text('settingsSections'));
   readonly generalTabLabel = computed(() => this.i18n.text('generalTab'));
   readonly gameTabLabel = computed(() => this.i18n.text('gameTab'));
-  readonly cardLanguageLabel = computed(() => this.i18n.text('cardLanguage'));
-  readonly appLanguageLabel = computed(() => this.i18n.text('appLanguage'));
-  readonly visualThemeLabel = computed(() => this.i18n.text('visualTheme'));
-  readonly visualThemeHelp = computed(() => this.i18n.text('visualThemeHelp'));
-  readonly themeOptions: readonly ThemeOptionViewModel[] = APP_THEMES.map((theme) => ({
-    ...theme,
-    paletteColors: [
-      theme.palette.bg,
-      theme.palette.surface,
-      theme.palette.primary,
-      theme.palette.secondary,
-      theme.palette.accent,
-      theme.palette.text,
-    ],
-  }));
-  readonly selectedThemeId = this.appTheme.themeId;
-  readonly selectedCardLanguage = signal<SupportedLanguageCode>('en');
+  readonly selectedCardLanguage = signal<SupportedCardLanguageCode>('en');
   readonly selectedAppLanguage = signal<SupportedLanguageCode>('en');
+  readonly cardLanguageCoverage = signal<readonly CardLanguageCoverage[]>([]);
 
   readonly profileForm = this.formBuilder.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
@@ -172,13 +170,6 @@ export class DashboardSettingsModalComponent {
   readonly currentUserDisplayNameStyle = computed<UserDisplayNameStyle | undefined>(() => this.authStore.user()?.displayNameStyle);
   readonly currentUserAvatar = computed<UserAvatar | undefined>(() => this.authStore.user()?.avatar);
   readonly nestedEditorOpen = computed(() => this.avatarEditorOpen() || this.displayNameStyleEditorOpen());
-  readonly avatarInitial = computed(() => {
-    return this.currentUserAvatar()?.initial?.letter
-      ?? (this.currentUserDisplayName().trim().slice(0, 1).toUpperCase() || 'P');
-  });
-  readonly avatarInitialBackgroundColor = computed(() => this.currentUserAvatar()?.initial?.backgroundColor ?? DEFAULT_INITIAL_BACKGROUND_COLOR);
-  readonly avatarInitialTextColor = computed(() => this.currentUserAvatar()?.initial?.textColor ?? DEFAULT_INITIAL_TEXT_COLOR);
-  readonly avatarImageUrl = computed(() => appImageUrl(this.currentUserAvatar()?.imageUrl ?? null));
 
   constructor() {
     this.trackFormState();
@@ -210,6 +201,7 @@ export class DashboardSettingsModalComponent {
       return;
     }
 
+    this.restoreBaselineAppLanguage();
     this.closeRequested.emit();
   }
 
@@ -274,10 +266,25 @@ export class DashboardSettingsModalComponent {
     this.avatarEditorTier.set(tier);
   }
 
-  requestDeleteAccount(): void {
+  requestDeleteAccount(event?: MouseEvent): void {
+    event?.stopPropagation();
     this.statusMessage.set(null);
     this.errorMessage.set(null);
     this.deleteConfirmationOpen.set(true);
+    this.scrollSettingsContentToBottom();
+  }
+
+  closeDeleteConfirmationOnOutsideClick(event: MouseEvent): void {
+    if (!this.deleteConfirmationOpen() || this.deleteInProgress()) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest('.delete-confirmation')) {
+      return;
+    }
+
+    this.deleteConfirmationOpen.set(false);
   }
 
   cancelDeleteAccount(): void {
@@ -294,7 +301,7 @@ export class DashboardSettingsModalComponent {
       return;
     }
 
-    const payload: { email?: string; displayName?: string; cardLanguage?: SupportedLanguageCode; appLanguage?: SupportedLanguageCode } = {};
+    const payload: { email?: string; displayName?: string; cardLanguage?: SupportedCardLanguageCode; appLanguage?: SupportedLanguageCode } = {};
     const nextEmail = this.profileForm.controls.email.value.trim();
     const nextDisplayName = this.profileForm.controls.displayName.value.trim();
     const nextCardLanguage = this.selectedCardLanguage();
@@ -336,6 +343,7 @@ export class DashboardSettingsModalComponent {
       }
       this.statusMessage.set('Preferences saved.');
     } catch {
+      this.restoreBaselineAppLanguage();
       this.errorMessage.set('No se pudieron guardar los cambios.');
     } finally {
       this.saveInProgress.set(false);
@@ -420,7 +428,7 @@ export class DashboardSettingsModalComponent {
 
   private initializeForm(): void {
     const user = this.authStore.user();
-    const cardLanguage = normalizeLanguageCode(user?.preferences?.cardLanguage ?? this.languagePreferences.cardLanguage());
+    const cardLanguage = normalizeCardLanguageCode(user?.preferences?.cardLanguage ?? this.languagePreferences.cardLanguage());
     const appLanguage = normalizeLanguageCode(user?.preferences?.appLanguage ?? this.languagePreferences.appLanguage());
     const baseline = {
       email: user?.email ?? '',
@@ -439,14 +447,15 @@ export class DashboardSettingsModalComponent {
     this.profileFormValid.set(this.profileForm.valid);
     this.activeTab.set('general');
     this.resetLocalState();
+    void this.loadCardLanguageCoverage();
   }
 
   setCardLanguage(language: string): void {
-    if (!isSupportedLanguageCode(language)) {
+    if (!this.cardLanguageCoverage().some((coverage) => coverage.code === language)) {
       return;
     }
 
-    this.selectedCardLanguage.set(language);
+    this.selectedCardLanguage.set(normalizeCardLanguageCode(language));
   }
 
   setAppLanguage(language: string): void {
@@ -455,10 +464,67 @@ export class DashboardSettingsModalComponent {
     }
 
     this.selectedAppLanguage.set(language);
+    this.runtimeLanguageSelector.applyLanguage(language);
   }
 
-  selectTheme(themeId: AppThemeId): void {
-    this.appTheme.selectTheme(themeId);
+  private restoreBaselineAppLanguage(): void {
+    const baselineAppLanguage = this.profileBaseline().appLanguage;
+
+    if (this.selectedAppLanguage() === baselineAppLanguage) {
+      return;
+    }
+
+    this.selectedAppLanguage.set(baselineAppLanguage);
+    this.runtimeLanguageSelector.applyLanguage(baselineAppLanguage);
+  }
+
+  private scrollSettingsContentToBottom(): void {
+    window.setTimeout(() => {
+      const settingsContent = this.settingsContent?.nativeElement;
+
+      if (!settingsContent) {
+        return;
+      }
+
+      if (typeof settingsContent.scrollTo === 'function') {
+        settingsContent.scrollTo({
+          top: settingsContent.scrollHeight,
+          behavior: 'smooth',
+        });
+        return;
+      }
+
+      settingsContent.scrollTop = settingsContent.scrollHeight;
+    });
+  }
+
+  private async loadCardLanguageCoverage(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.cardsLanguage.list());
+      this.cardLanguageCoverage.set(response.data);
+      this.selectedCardLanguage.set(this.resolveSelectableCardLanguage(response.selectedCardLanguage, response.data));
+    } catch {
+      this.cardLanguageCoverage.set([]);
+    }
+  }
+
+  private resolveSelectableCardLanguage(
+    requestedLanguage: SupportedCardLanguageCode,
+    coverage: readonly CardLanguageCoverage[],
+  ): SupportedCardLanguageCode {
+    if (coverage.some((language) => language.code === requestedLanguage)) {
+      return requestedLanguage;
+    }
+
+    if (coverage.some((language) => language.code === 'en')) {
+      return 'en';
+    }
+
+    const firstSupportedLanguage = coverage
+      .map((language) => language.code)
+      .find((language): language is SupportedCardLanguageCode => isSupportedCardLanguageCode(language));
+
+    return firstSupportedLanguage ?? 'en';
   }
 
   private resetLocalState(): void {

@@ -12,7 +12,7 @@ import {
 } from '../models/api-responses.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
 import { UserAvatarType } from '../models/user.model';
-import { SupportedLanguageCode } from '../localization/language-preferences';
+import { SupportedCardLanguageCode, SupportedLanguageCode } from '../localization/language-preferences';
 
 export interface AuthAvailabilityResponse {
   available: boolean;
@@ -111,7 +111,7 @@ export class AuthApi {
     return this.http.get<UserResponse>(`${API_BASE_URL}/me`);
   }
 
-  updateMe(payload: { email?: string; displayName?: string; cardLanguage?: SupportedLanguageCode; appLanguage?: SupportedLanguageCode }): Observable<UserResponse> {
+  updateMe(payload: { email?: string; displayName?: string; cardLanguage?: SupportedCardLanguageCode; appLanguage?: SupportedLanguageCode }): Observable<UserResponse> {
     return this.http.patch<UserResponse>(`${API_BASE_URL}/me`, payload);
   }
 

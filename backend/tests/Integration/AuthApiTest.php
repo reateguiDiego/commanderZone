@@ -25,6 +25,7 @@ class AuthApiTest extends ApiTestCase
         self::assertSame([
             'cardLanguage' => 'en',
             'appLanguage' => 'en',
+            'themeId' => 'sunrise',
         ], $this->jsonResponse()['user']['preferences']);
         self::assertArrayHasKey('createdAt', $this->jsonResponse()['user']);
         self::assertArrayHasKey('updatedAt', $this->jsonResponse()['user']);
@@ -623,10 +624,40 @@ class AuthApiTest extends ApiTestCase
         self::assertSame([
             'cardLanguage' => 'ja',
             'appLanguage' => 'es',
+            'themeId' => 'sunrise',
         ], $this->jsonResponse()['user']['preferences']);
 
         $this->jsonRequest('PATCH', '/me', [
             'cardLanguage' => 'zzz',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'appLanguage' => 'zht',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testThemePreferenceCanBeReadAndUpdated(): void
+    {
+        $token = $this->registerAndLogin('theme@example.test', 'Theme User');
+
+        $this->jsonRequest('GET', '/themes', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('sunrise', $this->jsonResponse()['themeId']);
+
+        $this->jsonRequest('PUT', '/themes', [
+            'themeId' => 'candy-summoners',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('candy-summoners', $this->jsonResponse()['themeId']);
+
+        $this->jsonRequest('GET', '/me', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('candy-summoners', $this->jsonResponse()['user']['preferences']['themeId']);
+
+        $this->jsonRequest('PUT', '/themes', [
+            'themeId' => 'not-real',
         ], $token);
         self::assertResponseStatusCodeSame(400);
     }

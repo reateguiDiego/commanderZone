@@ -7,6 +7,7 @@ export interface FormatSelectOption {
   readonly id: string;
   readonly name?: string;
   readonly labelKey?: string;
+  readonly flagAsset?: string;
   readonly disabled?: boolean;
 }
 

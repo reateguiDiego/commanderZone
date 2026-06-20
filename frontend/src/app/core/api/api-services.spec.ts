@@ -4,6 +4,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from './api.config';
 import { AuthApi } from './auth.api';
+import { CardsLanguageService } from './cards-language.service';
 import { CardsApi } from './cards.api';
 import { DeckFormatsApi } from './deck-formats.api';
 import { DeckFoldersApi } from './deck-folders.api';
@@ -12,6 +13,7 @@ import { FriendsApi } from './friends.api';
 import { GamesApi } from './games.api';
 import { LandingApi } from './landing.api';
 import { RoomsApi } from './rooms.api';
+import { ThemesService } from './themes.service';
 import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
 import { TableAssistantApi } from '../../features/table-assistant/data-access/table-assistant.api';
 import { LanguagePreferencesService } from '../localization/language-preferences.service';
@@ -27,7 +29,7 @@ describe('API services', () => {
         {
           provide: LanguagePreferencesService,
           useValue: {
-            cardLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en').asReadonly(),
+            cardLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'nl' | 'ca'>('en').asReadonly(),
           } satisfies Pick<LanguagePreferencesService, 'cardLanguage'>,
         },
       ],
@@ -45,6 +47,32 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=500&lang=en`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], page: 1, limit: 24 });
+  });
+
+  it('loads card language coverage without triggering the global loading overlay', () => {
+    TestBed.inject(CardsLanguageService).list().subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/languages`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ selectedCardLanguage: 'en', data: [] });
+  });
+
+  it('loads and updates theme preference without triggering the global loading overlay', () => {
+    const themes = TestBed.inject(ThemesService);
+
+    themes.get().subscribe();
+    const getRequest = http.expectOne(`${API_BASE_URL}/themes`);
+    expect(getRequest.request.method).toBe('GET');
+    expect(getRequest.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    getRequest.flush({ themeId: 'sunrise' });
+
+    themes.update('candy-summoners').subscribe();
+    const putRequest = http.expectOne(`${API_BASE_URL}/themes`);
+    expect(putRequest.request.method).toBe('PUT');
+    expect(putRequest.request.body).toEqual({ themeId: 'candy-summoners' });
+    expect(putRequest.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    putRequest.flush({ themeId: 'candy-summoners' });
   });
 
   it('loads public landing preview data without triggering the global loading overlay', () => {

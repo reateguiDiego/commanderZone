@@ -705,16 +705,20 @@ label {
   gap: 0.7rem;
   margin: 0.45rem 0 0;
   padding: 0.9rem 1rem;
-  border: 1px solid rgb(var(--cz-warning-rgb) / 58%);
+  border: 1px solid var(--cz-callout-border, rgb(var(--cz-warning-rgb) / 58%));
   border-radius: 9px;
-  background:
+  background: var(
+    --cz-callout-bg,
     linear-gradient(180deg, rgb(var(--cz-text-rgb) / 8%), transparent 42%),
-    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 28%), rgb(var(--cz-surface-rgb) / 94%));
-  box-shadow:
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 28%), rgb(var(--cz-surface-rgb) / 94%))
+  );
+  box-shadow: var(
+    --cz-callout-shadow,
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 12%),
     inset 0 -1px 0 rgb(var(--cz-bg-rgb) / 30%),
-    0 16px 34px rgb(var(--cz-bg-rgb) / 30%);
-  color: var(--cz-text);
+    0 16px 34px rgb(var(--cz-bg-rgb) / 30%)
+  );
+  color: var(--cz-callout-color, var(--cz-text));
   font-size: 0.92rem;
   font-weight: 820;
   line-height: 1.42;
@@ -725,10 +729,12 @@ label {
   position: absolute;
   inset: 0;
   z-index: -1;
-  border-left: 5px solid var(--cz-warning);
-  background:
+  border-left: 5px solid var(--cz-callout-accent, var(--cz-warning));
+  background: var(
+    --cz-callout-overlay,
     linear-gradient(90deg, rgb(var(--cz-warning-rgb) / 20%), transparent 32%),
-    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 7%), transparent 54%);
+    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 7%), transparent 54%)
+  );
   pointer-events: none;
 }
 
@@ -738,29 +744,30 @@ label {
   place-items: center;
   width: 2rem;
   height: 2rem;
-  border: 1px solid rgb(var(--cz-text-rgb) / 74%);
+  border: 1px solid var(--cz-callout-icon-border, rgb(var(--cz-text-rgb) / 74%));
   border-radius: 50%;
-  background:
-    linear-gradient(180deg, var(--cz-accent), var(--cz-primary));
-  box-shadow:
+  background: var(--cz-callout-icon-bg, linear-gradient(180deg, var(--cz-accent), var(--cz-primary)));
+  box-shadow: var(
+    --cz-callout-icon-shadow,
     0 0 0 3px rgb(var(--cz-warning-rgb) / 14%),
-    0 8px 18px rgb(var(--cz-bg-rgb) / 28%);
-  color: var(--cz-on-accent);
+    0 8px 18px rgb(var(--cz-bg-rgb) / 28%)
+  );
+  color: var(--cz-callout-icon-color, var(--cz-on-accent));
   font-size: 1rem;
   font-weight: 950;
   line-height: 1;
-  text-shadow: 0 1px 0 rgb(var(--cz-text-rgb) / 36%);
+  text-shadow: var(--cz-callout-icon-text-shadow, 0 1px 0 rgb(var(--cz-text-rgb) / 36%));
 }
 
 .app-disclaimer-callout strong {
-  color: var(--cz-text);
+  color: var(--cz-callout-strong, var(--cz-text));
   font-weight: 950;
 }
 
 .app-disclaimer-callout a {
-  color: var(--cz-accent);
+  color: var(--cz-callout-link, var(--cz-accent));
   font-weight: 900;
-  text-decoration-color: rgb(var(--cz-accent-rgb) / 46%);
+  text-decoration-color: var(--cz-callout-link-decoration, rgb(var(--cz-accent-rgb) / 46%));
   text-underline-offset: 0.18rem;
 }
 

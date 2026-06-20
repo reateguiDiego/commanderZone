@@ -57,4 +57,12 @@ describe('PlayerInfoComponent', () => {
     expect(avatarSpy).toHaveBeenCalledTimes(1);
     expect(nameSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('renders non-interactive player identity without action buttons', () => {
+    fixture.componentRef.setInput('interactive', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('button.player-info-action')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('span.player-info-action').length).toBe(2);
+  });
 });

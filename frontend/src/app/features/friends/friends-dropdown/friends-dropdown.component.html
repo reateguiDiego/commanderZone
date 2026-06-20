@@ -39,17 +39,16 @@
             <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.receivedRequests' | runtimeTranslate">
               @for (row of incomingRequestRows(); track row.id) {
                 <div class="friend-table-row request-row incoming-row interactive-row">
-                  <span class="row-avatar-wrap">
-                    <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
-                    <span class="row-marker incoming-marker"></span>
-                  </span>
                   <span class="row-main">
-                    <app-player-name
+                    <app-player-info
+                      class="friend-player-info"
                       [displayName]="row.displayName"
+                      [avatar]="row.avatar"
                       [nameStyle]="row.displayNameStyle"
                       size="xs"
-                      plateSize="sm"
+                      [interactive]="false"
                     />
+                    <span class="row-marker incoming-marker"></span>
                     <small>{{ row.detail }}</small>
                   </span>
 
@@ -87,17 +86,16 @@
             <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.sentRequests' | runtimeTranslate">
               @for (row of sentRequestRows(); track row.id) {
                 <div class="friend-table-row request-row pending-row interactive-row">
-                  <span class="row-avatar-wrap">
-                    <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
-                    <span class="row-marker pending-marker"></span>
-                  </span>
                   <span class="row-main">
-                    <app-player-name
+                    <app-player-info
+                      class="friend-player-info"
                       [displayName]="row.displayName"
+                      [avatar]="row.avatar"
                       [nameStyle]="row.displayNameStyle"
                       size="xs"
-                      plateSize="sm"
+                      [interactive]="false"
                     />
+                    <span class="row-marker pending-marker"></span>
                     <small>{{ row.detail }}</small>
                   </span>
 
@@ -124,21 +122,17 @@
       @for (row of invitationRows(); track row.id) {
         <div class="invitation-card interactive-row" [class.child-row]="!!row.parentFriendId">
           <div class="invitation-content">
-            <span class="row-avatar-wrap invitation-avatar-wrap">
-              <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
-              <span class="row-marker incoming-marker"></span>
-            </span>
-
             <span class="invitation-main">
               <span class="invitation-kicker">{{ 'navigation.friends.friendsDropdown.invitacionDeSala' | runtimeTranslate }}</span>
-              <app-player-name
+              <app-player-info
+                class="friend-player-info invitation-player-info"
                 [displayName]="row.displayName"
+                [avatar]="row.avatar"
                 [nameStyle]="row.displayNameStyle"
                 size="xs"
-                plateSize="micro"
-                [fill]="true"
-                align="left"
+                [interactive]="false"
               />
+              <span class="row-marker incoming-marker"></span>
               <span class="invitation-room">
                 <span class="invitation-room-name">{{ row.roomName }}</span>
                 <span class="invitation-detail">{{ row.detail }}</span>
@@ -183,17 +177,15 @@
       @if (searchReady()) {
         @for (result of store.searchResults(); track result.id) {
           <div class="friend-table-row search-row">
-            <span class="row-avatar-wrap">
-              <app-player-avatar [displayName]="result.displayName" size="xs" />
-              <span class="row-marker search-marker"></span>
-            </span>
             <span class="row-main">
-              <app-player-name
+              <app-player-info
+                class="friend-player-info"
                 [displayName]="result.displayName"
                 [nameStyle]="result.displayNameStyle"
                 size="xs"
-                plateSize="sm"
+                [interactive]="false"
               />
+              <span class="row-marker search-marker"></span>
             </span>
 
             @if (result.friendshipStatus === null || result.friendshipStatus === 'declined') {
@@ -226,17 +218,16 @@
             <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.online' | runtimeTranslate">
               @for (row of onlineFriendsRows(); track row.id) {
                 <div class="friend-table-row friend-row interactive-row">
-                  <span class="row-avatar-wrap">
-                    <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
-                    <span class="row-marker" [class.online]="row.presence === 'online'" [class.in-game]="row.presence === 'in_game'"></span>
-                  </span>
                   <span class="row-main">
-                    <app-player-name
+                    <app-player-info
+                      class="friend-player-info"
                       [displayName]="row.displayName"
+                      [avatar]="row.avatar"
                       [nameStyle]="row.displayNameStyle"
                       size="xs"
-                      plateSize="micro"
+                      [interactive]="false"
                     />
+                    <span class="row-marker" [class.online]="row.presence === 'online'" [class.in-game]="row.presence === 'in_game'"></span>
                     <small>{{ friendStatusKey(row) | runtimeTranslate }}</small>
                   </span>
                   <button class="row-delete-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate" (click)="runPrimaryAction(row)">
@@ -266,17 +257,16 @@
             <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.disconnected' | runtimeTranslate">
               @for (row of disconnectedFriendsRows(); track row.id) {
                 <div class="friend-table-row friend-row interactive-row">
-                  <span class="row-avatar-wrap">
-                    <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
-                    <span class="row-marker"></span>
-                  </span>
                   <span class="row-main">
-                    <app-player-name
+                    <app-player-info
+                      class="friend-player-info"
                       [displayName]="row.displayName"
+                      [avatar]="row.avatar"
                       [nameStyle]="row.displayNameStyle"
                       size="xs"
-                      plateSize="micro"
+                      [interactive]="false"
                     />
+                    <span class="row-marker"></span>
                     <small>{{ friendStatusKey(row) | runtimeTranslate }}</small>
                   </span>
                   <button class="row-delete-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate" (click)="runPrimaryAction(row)">

@@ -70,6 +70,15 @@
   white-space: nowrap;
 }
 
+.format-select-flag {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgb(var(--cz-text-rgb) / 18%);
+}
+
 .format-select-option-content span {
   min-width: 0;
   overflow: hidden;

@@ -17,8 +17,14 @@
   color: inherit;
 }
 
+.player-info.size-xs {
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.12rem 0;
+}
+
 .player-info-avatar {
-  filter: drop-shadow(0 0 0.55rem rgb(var(--cz-primary-rgb) / 18%));
+  filter: var(--player-info-avatar-filter, drop-shadow(0 0 0.55rem rgb(var(--cz-primary-rgb) / 18%)));
 }
 
 .player-info-action {
@@ -30,6 +36,10 @@
   color: inherit;
   font: inherit;
   line-height: 0;
+  cursor: default;
+}
+
+.player-info-action.is-clickable {
   cursor: pointer;
 }
 

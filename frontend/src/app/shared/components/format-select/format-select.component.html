@@ -23,6 +23,9 @@
       (keydown.escape)="closeDropdown()"
     >
       <span class="format-select-trigger-content">
+        @if (selectedOption()?.flagAsset; as flagAsset) {
+          <img class="format-select-flag" [src]="flagAsset" alt="" aria-hidden="true" draggable="false" />
+        }
         <span class="format-select-trigger-label">{{ selectedLabel() | runtimeTranslate }}</span>
       </span>
       <span class="format-select-caret" aria-hidden="true"></span>
@@ -50,6 +53,9 @@
             (click)="selectValue(option)"
           >
             <span class="format-select-option-content">
+              @if (option.flagAsset) {
+                <img class="format-select-flag" [src]="option.flagAsset" alt="" aria-hidden="true" draggable="false" />
+              }
               <span>{{ optionLabel(option) | runtimeTranslate }}</span>
             </span>
             @if (value() === option.id) {

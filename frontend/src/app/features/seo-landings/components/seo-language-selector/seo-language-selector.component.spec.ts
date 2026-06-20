@@ -3,7 +3,7 @@ import { SEO_LOCALES } from '../../../../core/localization/locale-config';
 import { SeoLanguageSelectorComponent } from './seo-language-selector.component';
 
 describe('SeoLanguageSelectorComponent', () => {
-  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+  const nonSeoLocaleCodes = ['ja', 'zh-hans', 'nl', 'ca', 'ru'] as const;
   let fixture: ComponentFixture<SeoLanguageSelectorComponent>;
 
   beforeEach(async () => {
