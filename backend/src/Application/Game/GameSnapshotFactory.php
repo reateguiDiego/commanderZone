@@ -2,6 +2,8 @@
 
 namespace App\Application\Game;
 
+use App\Application\Game\Compact\CompactGameCardStateMapper;
+use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Room\Room;
@@ -19,12 +21,20 @@ class GameSnapshotFactory
         'C' => 7,
     ];
 
-    public function __construct(?GameRandomizer $randomizer = null)
+    public function __construct(
+        ?GameRandomizer $randomizer = null,
+        ?CompactGameCardStateMapper $compactStateMapper = null,
+        ?GameplayCompactRuntimeFlags $compactRuntimeFlags = null,
+    )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
+        $this->compactStateMapper = $compactStateMapper ?? new CompactGameCardStateMapper();
+        $this->compactRuntimeFlags = $compactRuntimeFlags ?? new GameplayCompactRuntimeFlags();
     }
 
     private readonly GameRandomizer $randomizer;
+    private readonly CompactGameCardStateMapper $compactStateMapper;
+    private readonly GameplayCompactRuntimeFlags $compactRuntimeFlags;
 
     public function fromRoom(Room $room): array
     {
@@ -113,7 +123,7 @@ class GameSnapshotFactory
 
         $createdAt = (new \DateTimeImmutable())->format(DATE_ATOM);
 
-        return [
+        $snapshot = [
             'version' => 1,
             'ownerId' => $room->owner()->id(),
             'gamePhase' => 'MULLIGAN',
@@ -142,6 +152,12 @@ class GameSnapshotFactory
             'createdAt' => $createdAt,
             'updatedAt' => $createdAt,
         ];
+
+        if ($this->compactRuntimeFlags->enabled()) {
+            return $this->compactStateMapper->compactSnapshot($snapshot);
+        }
+
+        return $snapshot;
     }
 
     private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone, bool $isCommander = false): array

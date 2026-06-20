@@ -11,6 +11,18 @@ parameters:
     game_websocket_public_url_default: 'ws://127.0.0.1:8081'
     game_websocket_listen: '%env(default:game_websocket_listen_default:GAME_WEBSOCKET_LISTEN)%'
     game_websocket_public_url: '%env(default:game_websocket_public_url_default:GAME_WEBSOCKET_PUBLIC_URL)%'
+    gameplay_metrics_output_default: ''
+    gameplay_metrics_output: '%env(default:gameplay_metrics_output_default:GAMEPLAY_METRICS_OUTPUT)%'
+    gameplay_compact_runtime_enabled_default: 'false'
+    gameplay_compact_runtime_enabled: '%env(bool:default:gameplay_compact_runtime_enabled_default:GAMEPLAY_COMPACT_RUNTIME_ENABLED)%'
+    gameplay_v2_command_enabled_default: 'false'
+    gameplay_v2_patch_enabled_default: 'false'
+    gameplay_v2_bootstrap_enabled_default: 'false'
+    gameplay_v2_event_enabled_default: 'false'
+    gameplay_v2_command_enabled: '%env(bool:default:gameplay_v2_command_enabled_default:GAMEPLAY_V2_COMMAND_ENABLED)%'
+    gameplay_v2_patch_enabled: '%env(bool:default:gameplay_v2_patch_enabled_default:GAMEPLAY_V2_PATCH_ENABLED)%'
+    gameplay_v2_bootstrap_enabled: '%env(bool:default:gameplay_v2_bootstrap_enabled_default:GAMEPLAY_V2_BOOTSTRAP_ENABLED)%'
+    gameplay_v2_event_enabled: '%env(bool:default:gameplay_v2_event_enabled_default:GAMEPLAY_V2_EVENT_ENABLED)%'
 
 services:
     # default configuration for services in *this* file
@@ -22,6 +34,9 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+
+    App\Application\Game\Performance\GameplayMetricsRecorderInterface:
+        alias: App\Application\Game\Performance\GameplayMetricsStore
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

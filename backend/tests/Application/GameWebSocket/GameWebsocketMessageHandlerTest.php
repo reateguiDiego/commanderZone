@@ -2,6 +2,8 @@
 
 namespace App\Tests\Application\GameWebSocket;
 
+use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\WebSocket\GameWebsocketMessageHandler;
 use App\Application\Game\WebSocket\GameWebsocketMulliganService;
 use App\Application\Game\WebSocket\GameWebsocketPeer;
@@ -82,6 +84,32 @@ class GameWebsocketMessageHandlerTest extends TestCase
         self::assertSame('action-1', $reply['clientActionId']);
         self::assertSame(2, $reply['version']);
         self::assertSame('player.life.set', $reply['operations'][0]['op']);
+    }
+
+    public function testDelegatesV2CommandsAndReturnsPatchV2WhenEnabled(): void
+    {
+        $actor = new User('actor@example.test', 'Actor');
+        $game = $this->game($actor);
+
+        $result = $this->handler($game, $actor, flagsV2: new GameplayV2Flags(true, true, false, false))->handle([
+            'kind' => 'command.v2',
+            'gameId' => $game->id(),
+            'messageId' => 'message-v2',
+            'type' => 'life.changed',
+            'payload' => ['playerId' => $actor->id(), 'delta' => -1],
+            'clientActionId' => 'action-v2',
+            'baseVersion' => 1,
+            'sentAt' => '2026-01-01T00:00:00+00:00',
+            'client' => ['platform' => 'web'],
+        ], $this->peer($game->id(), $actor->id()));
+        $reply = $result->messageForUserId($actor->id());
+
+        self::assertSame('patch.v2', $reply['kind']);
+        self::assertSame($game->id(), $reply['gameId']);
+        self::assertSame(2, $reply['version']);
+        self::assertSame('player:'.$actor->id(), $reply['visibility']);
+        self::assertSame('action-v2', $reply['ackClientActionId']);
+        self::assertSame('player.life.set', $reply['ops'][0]['op']);
     }
 
     public function testDelegatesBattlefieldPositionCommandsAndReturnsTypedPatch(): void
@@ -273,9 +301,15 @@ class GameWebsocketMessageHandlerTest extends TestCase
         self::assertSame('UNKNOWN_MESSAGE_KIND', $reply['error']['code']);
     }
 
-    private function handler(?Game $game = null, ?User $actor = null, ?GameWebsocketMulliganService $mulligans = null): GameWebsocketMessageHandler
+    private function handler(
+        ?Game $game = null,
+        ?User $actor = null,
+        ?GameWebsocketMulliganService $mulligans = null,
+        ?GameplayV2Flags $flagsV2 = null,
+    ): GameWebsocketMessageHandler
     {
         $messages = new GameWebsocketMessageFactory();
+        $contractsV2 = new GameplayV2ContractFactory();
 
         return new GameWebsocketMessageHandler(new GameWebsocketCommandPatchService(
             new GameCommandHandler(),
@@ -285,7 +319,12 @@ class GameWebsocketMessageHandlerTest extends TestCase
             new \App\Application\Game\WebSocket\GameWebsocketRoomRegistry(),
             $this->registry($game, $actor),
             new GameProjectionService(new GameCommandHandler()),
-        ), $mulligans);
+            null,
+            null,
+            null,
+            $contractsV2,
+            $flagsV2,
+        ), $mulligans, $contractsV2, $flagsV2);
     }
 
     private function registry(?Game $game, ?User $actor): ManagerRegistry

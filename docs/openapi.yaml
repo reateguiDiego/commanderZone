@@ -4997,4 +4997,118 @@ components:
         createdAt:
           type: string
           format: date-time
+    CommandEnvelopeV2:
+      type: object
+      required: [gameId, baseVersion, clientActionId, type, payload]
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        baseVersion:
+          type: integer
+          minimum: 1
+        clientActionId:
+          type: string
+        type:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        sentAt:
+          type: string
+          format: date-time
+        client:
+          type: object
+          additionalProperties: true
+    PatchEnvelopeV2:
+      type: object
+      required: [gameId, version, visibility, ops]
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        ackClientActionId:
+          type: [string, 'null']
+        visibility:
+          type: string
+          pattern: '^(public|player:[^:]+|group:[A-Za-z0-9_-]+)$'
+        ops:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatchOperationV2'
+    PatchOperationV2:
+      type: object
+      required: [op]
+      properties:
+        op:
+          type: string
+      additionalProperties: true
+    BootstrapV2:
+      type: object
+      required: [game, players, zones, instances, zoneCounts, relations, turn, staticCards]
+      properties:
+        game:
+          type: object
+          additionalProperties: true
+        players:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: true
+        zones:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: true
+        instances:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: true
+        zoneCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        relations:
+          type: object
+          additionalProperties: true
+        turn:
+          type: object
+          additionalProperties: true
+        staticCards:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: true
+        chatCursor:
+          type: [string, 'null']
+        logCursor:
+          type: [string, 'null']
+    EventPayloadV2:
+      type: object
+      required: [gameId, version, type, payload, createdAt]
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        type:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        createdBy:
+          type: [string, 'null']
+          format: uuid
+        clientActionId:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
 

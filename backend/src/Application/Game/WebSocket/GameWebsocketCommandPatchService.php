@@ -2,9 +2,14 @@
 
 namespace App\Application\Game\WebSocket;
 
+use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\Performance\GameplayMetricsInspector;
+use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
+use App\Application\Game\Performance\GameplayNullMetricsRecorder;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Localization\LanguageCatalog;
@@ -28,6 +33,10 @@ final readonly class GameWebsocketCommandPatchService
         private ManagerRegistry $managerRegistry,
         private GameProjectionService $projection,
         private ?GameWebsocketCardLocalizationResolver $cardLocalizationResolver = null,
+        private ?GameplayMetricsRecorderInterface $metricsRecorder = null,
+        private ?GameplayMetricsInspector $metricsInspector = null,
+        private ?GameplayV2ContractFactory $contractsV2 = null,
+        private ?GameplayV2Flags $flagsV2 = null,
     ) {
     }
 
@@ -44,9 +53,30 @@ final readonly class GameWebsocketCommandPatchService
         string $clientActionId,
         int $baseVersion,
         ?string $messageId = null,
+        string $responseProtocol = 'legacy',
     ): array|GameWebsocketCommandResult {
+        $metricsInspector = $this->metricsInspector();
+        $metricsRecorder = $this->metricsRecorder();
+        $startedAt = microtime(true);
+        $usageStartedAt = $metricsInspector->usageSnapshot();
+        $snapshotLoadMs = 0.0;
+        $normalizeMs = 0.0;
+        $commandApplyMs = 0.0;
+        $persistMs = 0.0;
+        $projectionMs = 0.0;
+        $patchMs = 0.0;
+        $snapshotBytesBefore = 0;
+        $snapshotBytesAfter = 0;
+        $patchBytes = 0;
+        $numberOfPlayers = 0;
+        $numberOfInstances = 0;
+        $numberOfVisibleCards = 0;
+        $resyncRequired = false;
+        $duplicate = false;
+        $status = 'rejected';
+
         if (trim($clientActionId) === '') {
-            return $this->messages->rejectedCommand(
+            $message = $this->messages->rejectedCommand(
                 $gameId,
                 $messageId,
                 $clientActionId,
@@ -54,10 +84,38 @@ final readonly class GameWebsocketCommandPatchService
                 'INVALID_COMMAND_MESSAGE',
                 'clientActionId must be a non-empty string.',
             );
+            $this->recordMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                [
+                    'transport' => 'websocket',
+                    'command.type' => $type,
+                    'gameId' => $gameId,
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => $projectionMs,
+                    'patch_build_ms' => $patchMs,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => $patchBytes,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => false,
+                    'clientActionId_duplicate' => false,
+                    'status' => $status,
+                ],
+                $usageStartedAt,
+            );
+
+            return $message;
         }
 
         if ($baseVersion < 1) {
-            return $this->messages->rejectedCommand(
+            $message = $this->messages->rejectedCommand(
                 $gameId,
                 $messageId,
                 $clientActionId,
@@ -65,18 +123,46 @@ final readonly class GameWebsocketCommandPatchService
                 'INVALID_COMMAND_MESSAGE',
                 'baseVersion must be an integer greater than or equal to 1.',
             );
+            $this->recordMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                [
+                    'transport' => 'websocket',
+                    'command.type' => $type,
+                    'gameId' => $gameId,
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => $projectionMs,
+                    'patch_build_ms' => $patchMs,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => $patchBytes,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => false,
+                    'clientActionId_duplicate' => false,
+                    'status' => $status,
+                ],
+                $usageStartedAt,
+            );
+
+            return $message;
         }
 
         $manager = $this->manager();
-        $startedAt = microtime(true);
         $phaseTimings = $this->emptyDebugPhaseTimings();
         $loadStartedAt = microtime(true);
 
         try {
             $game = $manager->getRepository(Game::class)->find($gameId);
             $actor = $manager->getRepository(User::class)->find($userId);
+            $snapshotLoadMs = $this->elapsedMs($loadStartedAt);
             if (!$game instanceof Game || !$actor instanceof User) {
-                return $this->messages->rejectedCommand(
+                $message = $this->messages->rejectedCommand(
                     $gameId,
                     $messageId,
                     $clientActionId,
@@ -84,10 +170,43 @@ final readonly class GameWebsocketCommandPatchService
                     'GAME_ACCESS_DENIED',
                     'Game access denied.',
                 );
+                $this->recordMetric(
+                    $metricsRecorder,
+                    $metricsInspector,
+                    [
+                        'transport' => 'websocket',
+                        'command.type' => $type,
+                        'gameId' => $gameId,
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => $patchMs,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => $patchBytes,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => false,
+                        'status' => $status,
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $message;
             }
 
+            $snapshotBytesBefore = $metricsInspector->jsonBytes($game->snapshot());
+            $snapshotBytesAfter = $snapshotBytesBefore;
+            $numberOfPlayers = $metricsInspector->countPlayers($game->snapshot());
+            $numberOfInstances = $metricsInspector->countInstances($game->snapshot());
+
             if (!$game->canBeControlledBy($actor)) {
-                return $this->messages->rejectedCommand(
+                $message = $this->messages->rejectedCommand(
                     $game->id(),
                     $messageId,
                     $clientActionId,
@@ -95,6 +214,34 @@ final readonly class GameWebsocketCommandPatchService
                     'GAME_ACCESS_DENIED',
                     'Game access denied.',
                 );
+                $this->recordMetric(
+                    $metricsRecorder,
+                    $metricsInspector,
+                    [
+                        'transport' => 'websocket',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => $patchMs,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => $patchBytes,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => false,
+                        'status' => $status,
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $message;
             }
 
             $manager->beginTransaction();
@@ -103,7 +250,7 @@ final readonly class GameWebsocketCommandPatchService
             if ($game->status() === Game::STATUS_FINISHED && !GameCommandHandler::isAllowedWhenFinished($type)) {
                 $manager->rollback();
 
-                return $this->messages->rejectedCommand(
+                $message = $this->messages->rejectedCommand(
                     $game->id(),
                     $messageId,
                     $clientActionId,
@@ -111,6 +258,34 @@ final readonly class GameWebsocketCommandPatchService
                     'COMMAND_REJECTED',
                     sprintf('Game is finished. Command not allowed: %s', $type),
                 );
+                $this->recordMetric(
+                    $metricsRecorder,
+                    $metricsInspector,
+                    [
+                        'transport' => 'websocket',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => $patchMs,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => $patchBytes,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => false,
+                        'status' => $status,
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $message;
             }
 
             $existingEvent = $manager->getRepository(GameEvent::class)->findOneBy([
@@ -119,16 +294,46 @@ final readonly class GameWebsocketCommandPatchService
             ]);
             if ($existingEvent instanceof GameEvent) {
                 $manager->rollback();
+                $duplicate = true;
+                $status = 'duplicate';
+                $message = $this->messages->duplicateCommand($game->id(), $messageId, $clientActionId, $currentVersion);
+                $this->recordMetric(
+                    $metricsRecorder,
+                    $metricsInspector,
+                    [
+                        'transport' => 'websocket',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => $patchMs,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => $patchBytes,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => $duplicate,
+                        'status' => $status,
+                    ],
+                    $usageStartedAt,
+                );
 
-                return $this->messages->duplicateCommand($game->id(), $messageId, $clientActionId, $currentVersion);
+                return $message;
             }
 
             if ($baseVersion !== $currentVersion) {
                 $manager->rollback();
                 $delta = max(0, $currentVersion - $baseVersion);
                 $classification = $delta === 1 ? 'concurrent_write' : 'stale_client';
-
-                return $this->messages->resyncRequiredCommand(
+                $resyncRequired = true;
+                $status = 'resync_required';
+                $message = $this->messages->resyncRequiredCommand(
                     $game->id(),
                     $messageId,
                     $clientActionId,
@@ -142,10 +347,38 @@ final readonly class GameWebsocketCommandPatchService
                         'classification' => $classification,
                     ],
                 );
+                $this->recordMetric(
+                    $metricsRecorder,
+                    $metricsInspector,
+                    [
+                        'transport' => 'websocket',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => $patchMs,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => $patchBytes,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => $resyncRequired,
+                        'clientActionId_duplicate' => $duplicate,
+                        'status' => $status,
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $message;
             }
 
             $previousSnapshot = $game->snapshot();
-            $phaseTimings['load'] = $this->elapsedMs($loadStartedAt);
+            $phaseTimings['load'] = $snapshotLoadMs;
             $applyStartedAt = microtime(true);
             try {
                 if ($type === GameDisconnectVoteService::COMMAND_TYPE) {
@@ -163,8 +396,13 @@ final readonly class GameWebsocketCommandPatchService
                 }
             } catch (\InvalidArgumentException $exception) {
                 $manager->rollback();
-
-                return $this->messages->rejectedCommand(
+                $handlerMetrics = $this->commands->consumeLastCommandMetrics() ?? [];
+                $normalizeMs = (float) ($handlerMetrics['normalize_ms'] ?? 0.0);
+                $commandApplyMs = (float) ($handlerMetrics['command_apply_ms'] ?? 0.0);
+                $snapshotBytesAfter = (int) ($handlerMetrics['snapshot_bytes_after'] ?? $snapshotBytesBefore);
+                $numberOfPlayers = (int) ($handlerMetrics['number_of_players'] ?? $numberOfPlayers);
+                $numberOfInstances = (int) ($handlerMetrics['number_of_instances'] ?? $numberOfInstances);
+                $message = $this->messages->rejectedCommand(
                     $game->id(),
                     $messageId,
                     $clientActionId,
@@ -172,16 +410,51 @@ final readonly class GameWebsocketCommandPatchService
                     'COMMAND_REJECTED',
                     $exception->getMessage(),
                 );
+                $this->recordMetric(
+                    $metricsRecorder,
+                    $metricsInspector,
+                    [
+                        'transport' => 'websocket',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => $patchMs,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => $patchBytes,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => false,
+                        'status' => $status,
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $message;
             }
             $phaseTimings['apply'] = $this->elapsedMs($applyStartedAt);
+            $handlerMetrics = $this->commands->consumeLastCommandMetrics() ?? [];
+            $normalizeMs = (float) ($handlerMetrics['normalize_ms'] ?? 0.0);
+            $commandApplyMs = (float) ($handlerMetrics['command_apply_ms'] ?? $phaseTimings['apply']);
+            $snapshotBytesAfter = (int) ($handlerMetrics['snapshot_bytes_after'] ?? $metricsInspector->jsonBytes($game->snapshot()));
+            $numberOfPlayers = (int) ($handlerMetrics['number_of_players'] ?? $numberOfPlayers);
+            $numberOfInstances = (int) ($handlerMetrics['number_of_instances'] ?? $numberOfInstances);
 
             $persistStartedAt = microtime(true);
             $manager->persist($event);
             $manager->flush();
             $manager->commit();
             $phaseTimings['persist'] = $this->elapsedMs($persistStartedAt);
+            $persistMs = $phaseTimings['persist'];
 
-            return $this->projectedResult(
+            $projected = $this->projectedResult(
                 $game,
                 $previousSnapshot,
                 $game->snapshot(),
@@ -189,13 +462,49 @@ final readonly class GameWebsocketCommandPatchService
                 $this->eventPayload($type, $payload),
                 $phaseTimings,
                 $startedAt,
+                $responseProtocol,
             );
+            $projectionMs = (float) ($projected['projection_ms'] ?? 0.0);
+            $patchMs = (float) ($projected['patch_ms'] ?? 0.0);
+            $patchBytes = (int) ($projected['patch_bytes'] ?? 0);
+            $numberOfVisibleCards = (int) ($projected['number_of_visible_cards'] ?? 0);
+            $resyncRequired = (bool) ($projected['resync_required'] ?? false);
+            $status = $resyncRequired ? 'resync_required' : 'applied';
+            $this->recordMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                [
+                    'transport' => 'websocket',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => $projectionMs,
+                    'patch_build_ms' => $patchMs,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => $patchBytes,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => $resyncRequired,
+                    'clientActionId_duplicate' => $duplicate,
+                    'status' => $status,
+                ],
+                $usageStartedAt,
+            );
+
+            return $projected['result'];
         } catch (UniqueConstraintViolationException) {
             if ($manager->getConnection()->isTransactionActive()) {
                 $manager->rollback();
             }
-
-            return $this->messages->resyncRequiredCommand(
+            $resyncRequired = true;
+            $status = 'conflict';
+            $message = $this->messages->resyncRequiredCommand(
                 $gameId,
                 $messageId,
                 $clientActionId,
@@ -203,12 +512,41 @@ final readonly class GameWebsocketCommandPatchService
                 'COMMAND_CONFLICT',
                 'Command conflict. Please resync.',
             );
+            $this->recordMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                [
+                    'transport' => 'websocket',
+                    'command.type' => $type,
+                    'gameId' => $gameId,
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => $projectionMs,
+                    'patch_build_ms' => $patchMs,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => $patchBytes,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => $resyncRequired,
+                    'clientActionId_duplicate' => $duplicate,
+                    'status' => $status,
+                ],
+                $usageStartedAt,
+            );
+
+            return $message;
         } catch (DeadlockException|LockWaitTimeoutException) {
             if ($manager->getConnection()->isTransactionActive()) {
                 $manager->rollback();
             }
-
-            return $this->messages->resyncRequiredCommand(
+            $resyncRequired = true;
+            $status = 'conflict';
+            $message = $this->messages->resyncRequiredCommand(
                 $gameId,
                 $messageId,
                 $clientActionId,
@@ -216,6 +554,34 @@ final readonly class GameWebsocketCommandPatchService
                 'COMMAND_CONFLICT',
                 'Game command conflict. Please resync.',
             );
+            $this->recordMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                [
+                    'transport' => 'websocket',
+                    'command.type' => $type,
+                    'gameId' => $gameId,
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => $projectionMs,
+                    'patch_build_ms' => $patchMs,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => $patchBytes,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => $resyncRequired,
+                    'clientActionId_duplicate' => $duplicate,
+                    'status' => $status,
+                ],
+                $usageStartedAt,
+            );
+
+            return $message;
         } catch (\Throwable $exception) {
             if ($manager->getConnection()->isTransactionActive()) {
                 $manager->rollback();
@@ -257,7 +623,8 @@ final readonly class GameWebsocketCommandPatchService
         }
 
         $cardsById = [];
-        foreach (($game->snapshot()['players'][$playerId]['zones'][$zone] ?? []) as $card) {
+        $snapshot = $this->commands->normalizeSnapshot($game->snapshot());
+        foreach (($snapshot['players'][$playerId]['zones'][$zone] ?? []) as $card) {
             if (is_array($card) && is_string($card['instanceId'] ?? null)) {
                 $cardsById[$card['instanceId']] = $card;
             }
@@ -315,8 +682,12 @@ final readonly class GameWebsocketCommandPatchService
         ?array $eventPayload,
         array $phaseTimings,
         float $startedAt,
-    ): GameWebsocketCommandResult
+        string $responseProtocol = 'legacy',
+    ): array
     {
+        $metricsInspector = $this->metricsInspector();
+        $previousSnapshot = $this->commands->normalizeSnapshot($previousSnapshot);
+        $nextSnapshot = $this->commands->normalizeSnapshot($nextSnapshot);
         $viewers = $this->viewers($game);
         $viewerCanUseOwnHiddenZonesByUserId = [];
         foreach ($viewers as $viewer) {
@@ -332,25 +703,92 @@ final readonly class GameWebsocketCommandPatchService
         $messagesByUserId = [];
         $projectionMs = $this->elapsedMs($projectionStartedAt);
         $patchMs = 0.0;
+        $patchBytes = 0;
+        $numberOfVisibleCards = 0;
+        $resyncRequired = false;
         foreach ($viewers as $viewer) {
             $viewerProjectionStartedAt = microtime(true);
             $viewerCanUseOwnHiddenZones = $viewerCanUseOwnHiddenZonesByUserId[$viewer->id()] ?? true;
             $previousProjection = $this->projection->projectSnapshot($previousSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup, $previousRulingsLookup);
             $nextProjection = $this->projection->projectSnapshot($nextSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup, $nextRulingsLookup);
+            $numberOfVisibleCards += $metricsInspector->countVisibleCards($nextProjection);
             $projectionMs += $this->elapsedMs($viewerProjectionStartedAt);
             $patchStartedAt = microtime(true);
             $messagesByUserId[$viewer->id()] = $this->patches->build($game->id(), $previousProjection, $nextProjection, $event, $eventPayload, $viewer->id());
+            if ($responseProtocol === 'v2') {
+                $messagesByUserId[$viewer->id()] = $this->translateMessagesToV2(
+                    $messagesByUserId[$viewer->id()],
+                    $game->id(),
+                    $this->snapshotVersion($game),
+                    $event->clientActionId(),
+                    $viewer->id(),
+                );
+            }
             $patchMs += $this->elapsedMs($patchStartedAt);
+            $patchBytes += $metricsInspector->patchBytesForMessages($messagesByUserId[$viewer->id()]);
+            $messageList = array_is_list($messagesByUserId[$viewer->id()])
+                ? $messagesByUserId[$viewer->id()]
+                : [$messagesByUserId[$viewer->id()]];
+            foreach ($messageList as $message) {
+                if (($message['kind'] ?? null) === 'resync_required') {
+                    $resyncRequired = true;
+                }
+            }
         }
         $phaseTimings['projection'] = round($projectionMs, 2);
         $phaseTimings['patch'] = round($patchMs, 2);
         $phaseTimings['total'] = $this->elapsedMs($startedAt);
 
-        return GameWebsocketCommandResult::forViewers(
-            $messagesByUserId,
-            $this->messages->resyncRequired($game->id(), $this->snapshotVersion($game), 'projection_unavailable', $event->clientActionId()),
-            $this->normalizeDebugProfile($phaseTimings),
-        );
+        return [
+            'result' => GameWebsocketCommandResult::forViewers(
+                $messagesByUserId,
+                $this->messages->resyncRequired($game->id(), $this->snapshotVersion($game), 'projection_unavailable', $event->clientActionId()),
+                $this->normalizeDebugProfile($phaseTimings),
+            ),
+            'projection_ms' => $phaseTimings['projection'],
+            'patch_ms' => $phaseTimings['patch'],
+            'patch_bytes' => $patchBytes,
+            'number_of_visible_cards' => $numberOfVisibleCards,
+            'resync_required' => $resyncRequired,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed>|list<array<string,mixed>> $messages
+     * @return array<string,mixed>|list<array<string,mixed>>
+     */
+    private function translateMessagesToV2(
+        array $messages,
+        string $gameId,
+        int $version,
+        ?string $ackClientActionId,
+        string $viewerId,
+    ): array {
+        if (!($this->flagsV2?->patchEnabled() ?? false) || !$this->contractsV2 instanceof GameplayV2ContractFactory) {
+            return $messages;
+        }
+
+        $messageList = array_is_list($messages) ? $messages : [$messages];
+        $translated = array_map(function (array $message) use ($gameId, $version, $ackClientActionId, $viewerId): array {
+            if (($message['kind'] ?? null) !== 'game_patch' || !is_array($message['operations'] ?? null)) {
+                return $message;
+            }
+
+            $patch = $this->contractsV2->patchForViewer(
+                $gameId,
+                $version,
+                $viewerId,
+                array_values($message['operations']),
+                $ackClientActionId,
+            );
+
+            return [
+                'kind' => 'patch.v2',
+                ...$patch->toArray(),
+            ];
+        }, $messageList);
+
+        return array_is_list($messages) ? $translated : $translated[0];
     }
 
     /**
@@ -440,5 +878,32 @@ final readonly class GameWebsocketCommandPatchService
         }
 
         return $normalized;
+    }
+
+    private function metricsRecorder(): GameplayMetricsRecorderInterface
+    {
+        return $this->metricsRecorder ?? new GameplayNullMetricsRecorder();
+    }
+
+    private function metricsInspector(): GameplayMetricsInspector
+    {
+        return $this->metricsInspector ?? new GameplayMetricsInspector();
+    }
+
+    /**
+     * @param array<string,mixed> $metric
+     * @param array<string,int>|null $usageStartedAt
+     */
+    private function recordMetric(
+        GameplayMetricsRecorderInterface $metricsRecorder,
+        GameplayMetricsInspector $metricsInspector,
+        array $metric,
+        ?array $usageStartedAt,
+    ): void {
+        $metricsRecorder->record([
+            ...$metric,
+            'memory_peak_bytes' => $metricsInspector->memoryPeakBytes(),
+            ...$metricsInspector->cpuDiffMs($usageStartedAt),
+        ]);
     }
 }

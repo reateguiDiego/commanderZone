@@ -2,6 +2,9 @@
 
 namespace App\Application\Game;
 
+use App\Application\Game\Compact\CompactGameCardStateMapper;
+use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
+use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Domain\Deck\Deck;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
@@ -127,19 +130,32 @@ class GameCommandHandler
     private ?array $pendingEventPayload = null;
     private ?string $pendingDefeatedPlayerId = null;
     private bool $pendingDefeatPreexisted = false;
+    /**
+     * @var array<string,mixed>|null
+     */
+    private ?array $lastCommandMetrics = null;
 
     public function __construct(
         private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null,
         ?GameRandomizer $randomizer = null,
         ?GameSpecialEntityCommandHandler $specialEntityCommandHandler = null,
+        ?GameplayMetricsInspector $metricsInspector = null,
+        ?CompactGameCardStateMapper $compactStateMapper = null,
+        ?GameplayCompactRuntimeFlags $compactRuntimeFlags = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
         $this->specialEntityCommandHandler = $specialEntityCommandHandler ?? new GameSpecialEntityCommandHandler();
+        $this->metricsInspector = $metricsInspector ?? new GameplayMetricsInspector();
+        $this->compactStateMapper = $compactStateMapper ?? new CompactGameCardStateMapper();
+        $this->compactRuntimeFlags = $compactRuntimeFlags ?? new GameplayCompactRuntimeFlags();
     }
 
     private readonly GameRandomizer $randomizer;
     private readonly GameSpecialEntityCommandHandler $specialEntityCommandHandler;
+    private readonly GameplayMetricsInspector $metricsInspector;
+    private readonly CompactGameCardStateMapper $compactStateMapper;
+    private readonly GameplayCompactRuntimeFlags $compactRuntimeFlags;
 
     /**
      * @return list<string>
@@ -165,91 +181,128 @@ class GameCommandHandler
             throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type));
         }
 
-        $snapshot = $this->normalizeSnapshot($game->snapshot());
-        $log = null;
-        $this->pendingLogContext = [];
-        $this->pendingEventPayload = null;
-        $this->pendingDefeatedPlayerId = null;
-        $this->pendingDefeatPreexisted = false;
-        $this->assertActorCanApply($snapshot, $type, $payload, $actor);
-        $this->assertGamePhaseAllowsCommand($snapshot, $type);
+        $this->lastCommandMetrics = null;
+        $snapshotBefore = $game->snapshot();
+        $snapshotBytesBefore = $this->metricsInspector->jsonBytes($snapshotBefore);
+        $normalizeStartedAt = microtime(true);
+        $snapshot = $this->normalizeSnapshot($snapshotBefore);
+        $normalizeMs = $this->elapsedMs($normalizeStartedAt);
+        $applyStartedAt = microtime(true);
 
-        if ($this->specialEntityCommandHandler->supports($type)) {
-            $helperResult = $this->specialEntityCommandHandler->apply($snapshot, $type, $payload, $actor);
-            if ($type === 'helper.created') {
-                $this->syncInitiativeUndercityFromHelperCreate(
-                    $snapshot,
-                    is_array($helperResult['eventPayload'] ?? null) ? $helperResult['eventPayload'] : [],
-                );
+        try {
+            $log = null;
+            $this->pendingLogContext = [];
+            $this->pendingEventPayload = null;
+            $this->pendingDefeatedPlayerId = null;
+            $this->pendingDefeatPreexisted = false;
+            $this->assertActorCanApply($snapshot, $type, $payload, $actor);
+            $this->assertGamePhaseAllowsCommand($snapshot, $type);
+
+            if ($this->specialEntityCommandHandler->supports($type)) {
+                $helperResult = $this->specialEntityCommandHandler->apply($snapshot, $type, $payload, $actor);
+                if ($type === 'helper.created') {
+                    $this->syncInitiativeUndercityFromHelperCreate(
+                        $snapshot,
+                        is_array($helperResult['eventPayload'] ?? null) ? $helperResult['eventPayload'] : [],
+                    );
+                }
+                $log = is_string($helperResult['log'] ?? null) ? $helperResult['log'] : null;
+                $this->pendingEventPayload = is_array($helperResult['eventPayload'] ?? null) ? $helperResult['eventPayload'] : null;
+            } else {
+                match ($type) {
+                    'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
+                    'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
+                    'mulligan.take' => $log = $this->applyMulliganTake($snapshot, $actor),
+                    'mulligan.keep' => $log = $this->applyMulliganKeep($snapshot, $payload, $actor),
+                    'mulligan.scry_confirm' => $log = $this->applyMulliganScryConfirm($snapshot, $payload, $actor),
+                    'chat.message' => $log = $this->applyChatMessage($snapshot, $payload, $actor),
+                    'chat.reaction.toggled' => $log = $this->applyChatReactionToggled($snapshot, $payload, $actor),
+                    'dice.rolled' => $log = $this->applyDiceRolled($payload),
+                    'life.changed' => $log = $this->applyLifeChanged($snapshot, $payload),
+                    'commander.damage.changed' => $log = $this->applyCommanderDamageChanged($snapshot, $payload),
+                    'counter.changed' => $log = $this->applyLegacyCounterChanged($snapshot, $payload),
+                    'card.counter.changed' => $log = $this->applyCardCounterChanged($snapshot, $payload),
+                    'card.power_toughness.changed' => $log = $this->applyPowerToughnessChanged($snapshot, $payload),
+                    'card.moved' => $log = $this->applyCardMoved($snapshot, $payload),
+                    'cards.moved' => $log = $this->applyCardsMoved($snapshot, $payload),
+                    'card.tapped' => $log = $this->applyCardTapped($snapshot, $payload),
+                    'card.position.changed' => $log = $this->applyCardPositionChanged($snapshot, $payload),
+                    'card.dungeon_marker.changed' => $log = $this->applyDungeonMarkerChanged($snapshot, $payload),
+                    'cards.position.changed' => $log = $this->applyCardsPositionChanged($snapshot, $payload),
+                    'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
+                    'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
+                    'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
+                    'card.token.created' => $log = $this->applyTokenCreated($snapshot, $payload),
+                    'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
+                    'card.controller.changed' => $log = $this->applyControllerChanged($snapshot, $payload),
+                    'turn.changed' => $log = $this->applyTurnChanged($snapshot, $payload),
+                    'battlefield.untap_all' => $log = $this->applyBattlefieldUntapAll($snapshot, $payload),
+                    'zone.changed' => $log = $this->applyZoneChanged($snapshot, $payload),
+                    'zone.move_all' => $log = $this->applyZoneMoveAll($snapshot, $payload),
+                    'zone.random_card.selected' => $log = $this->applyZoneRandomCardSelected($snapshot, $payload),
+                    'library.draw' => $log = $this->applyLibraryDraw($snapshot, $payload, 1),
+                    'library.draw_many' => $log = $this->applyLibraryDraw($snapshot, $payload, $this->positiveInt($payload['count'] ?? 1, 1, 99)),
+                    'library.shuffle' => $log = $this->applyLibraryShuffle($snapshot, $payload),
+                    'library.move_top' => $log = $this->applyLibraryMoveTop($snapshot, $payload),
+                    'library.reveal_top' => $log = $this->applyLibraryRevealTop($snapshot, $payload),
+                    'library.reveal' => $log = $this->applyLibraryReveal($snapshot, $payload),
+                    'library.view' => $log = $this->applyLibraryView($snapshot, $payload),
+                    'library.play_top_revealed' => $log = $this->applyLibraryPlayTopRevealed($snapshot, $payload),
+                    'library.reorder_top' => $log = $this->applyLibraryReorderTop($snapshot, $payload),
+                    'stack.card_added' => $log = $this->applyStackCardAdded($snapshot, $payload),
+                    'stack.item_removed' => $log = $this->applyStackItemRemoved($snapshot, $payload),
+                    'arrow.created' => $log = $this->applyArrowCreated($snapshot, $payload, $actor),
+                    'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload, $actor),
+                    'attachment.created' => $log = $this->applyAttachmentCreated($snapshot, $payload, $actor),
+                    'attachment.removed' => $log = $this->applyAttachmentRemoved($snapshot, $payload, $actor),
+                    default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
+                };
             }
-            $log = is_string($helperResult['log'] ?? null) ? $helperResult['log'] : null;
-            $this->pendingEventPayload = is_array($helperResult['eventPayload'] ?? null) ? $helperResult['eventPayload'] : null;
-        } else {
-            match ($type) {
-                'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
-                'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
-                'mulligan.take' => $log = $this->applyMulliganTake($snapshot, $actor),
-                'mulligan.keep' => $log = $this->applyMulliganKeep($snapshot, $payload, $actor),
-                'mulligan.scry_confirm' => $log = $this->applyMulliganScryConfirm($snapshot, $payload, $actor),
-                'chat.message' => $log = $this->applyChatMessage($snapshot, $payload, $actor),
-                'chat.reaction.toggled' => $log = $this->applyChatReactionToggled($snapshot, $payload, $actor),
-                'dice.rolled' => $log = $this->applyDiceRolled($payload),
-                'life.changed' => $log = $this->applyLifeChanged($snapshot, $payload),
-                'commander.damage.changed' => $log = $this->applyCommanderDamageChanged($snapshot, $payload),
-                'counter.changed' => $log = $this->applyLegacyCounterChanged($snapshot, $payload),
-                'card.counter.changed' => $log = $this->applyCardCounterChanged($snapshot, $payload),
-                'card.power_toughness.changed' => $log = $this->applyPowerToughnessChanged($snapshot, $payload),
-                'card.moved' => $log = $this->applyCardMoved($snapshot, $payload),
-                'cards.moved' => $log = $this->applyCardsMoved($snapshot, $payload),
-                'card.tapped' => $log = $this->applyCardTapped($snapshot, $payload),
-                'card.position.changed' => $log = $this->applyCardPositionChanged($snapshot, $payload),
-                'card.dungeon_marker.changed' => $log = $this->applyDungeonMarkerChanged($snapshot, $payload),
-                'cards.position.changed' => $log = $this->applyCardsPositionChanged($snapshot, $payload),
-                'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
-                'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
-                'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
-                'card.token.created' => $log = $this->applyTokenCreated($snapshot, $payload),
-                'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
-                'card.controller.changed' => $log = $this->applyControllerChanged($snapshot, $payload),
-                'turn.changed' => $log = $this->applyTurnChanged($snapshot, $payload),
-                'battlefield.untap_all' => $log = $this->applyBattlefieldUntapAll($snapshot, $payload),
-                'zone.changed' => $log = $this->applyZoneChanged($snapshot, $payload),
-                'zone.move_all' => $log = $this->applyZoneMoveAll($snapshot, $payload),
-                'zone.random_card.selected' => $log = $this->applyZoneRandomCardSelected($snapshot, $payload),
-                'library.draw' => $log = $this->applyLibraryDraw($snapshot, $payload, 1),
-                'library.draw_many' => $log = $this->applyLibraryDraw($snapshot, $payload, $this->positiveInt($payload['count'] ?? 1, 1, 99)),
-                'library.shuffle' => $log = $this->applyLibraryShuffle($snapshot, $payload),
-                'library.move_top' => $log = $this->applyLibraryMoveTop($snapshot, $payload),
-                'library.reveal_top' => $log = $this->applyLibraryRevealTop($snapshot, $payload),
-                'library.reveal' => $log = $this->applyLibraryReveal($snapshot, $payload),
-                'library.view' => $log = $this->applyLibraryView($snapshot, $payload),
-                'library.play_top_revealed' => $log = $this->applyLibraryPlayTopRevealed($snapshot, $payload),
-                'library.reorder_top' => $log = $this->applyLibraryReorderTop($snapshot, $payload),
-                'stack.card_added' => $log = $this->applyStackCardAdded($snapshot, $payload),
-                'stack.item_removed' => $log = $this->applyStackItemRemoved($snapshot, $payload),
-                'arrow.created' => $log = $this->applyArrowCreated($snapshot, $payload, $actor),
-                'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload, $actor),
-                'attachment.created' => $log = $this->applyAttachmentCreated($snapshot, $payload, $actor),
-                'attachment.removed' => $log = $this->applyAttachmentRemoved($snapshot, $payload, $actor),
-                default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
-            };
+
+            $this->pruneBattlefieldRelations($snapshot);
+            $snapshot = $this->specialEntityCommandHandler->normalizeSnapshot($snapshot);
+            $eventPayload = $type === 'chat.message'
+                ? $this->chatEventPayload($payload)
+                : ($this->pendingEventPayload ?? $payload);
+            $this->commit($snapshot, $type, $log, $actor);
+            $persistedSnapshot = $this->snapshotForPersistence($snapshotBefore, $snapshot);
+            $game->replaceSnapshot($persistedSnapshot);
+            $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
+            $game->addEvent($event);
+            $this->lastCommandMetrics = $this->commandMetricsPayload(
+                $persistedSnapshot,
+                $snapshotBytesBefore,
+                $normalizeMs,
+                $this->elapsedMs($applyStartedAt),
+            );
+
+            return $event;
+        } catch (\Throwable $exception) {
+            $this->lastCommandMetrics = $this->commandMetricsPayload(
+                $snapshot,
+                $snapshotBytesBefore,
+                $normalizeMs,
+                $this->elapsedMs($applyStartedAt),
+            );
+
+            throw $exception;
         }
+    }
 
-        $this->pruneBattlefieldRelations($snapshot);
-        $snapshot = $this->specialEntityCommandHandler->normalizeSnapshot($snapshot);
-        $eventPayload = $type === 'chat.message'
-            ? $this->chatEventPayload($payload)
-            : ($this->pendingEventPayload ?? $payload);
-        $this->commit($snapshot, $type, $log, $actor);
-        $game->replaceSnapshot($snapshot);
-        $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
-        $game->addEvent($event);
+    /**
+     * @return array<string,mixed>|null
+     */
+    public function consumeLastCommandMetrics(): ?array
+    {
+        $metrics = $this->lastCommandMetrics;
+        $this->lastCommandMetrics = null;
 
-        return $event;
+        return $metrics;
     }
 
     public function normalizeSnapshot(array $snapshot): array
     {
+        $snapshot = $this->compactStateMapper->hydrateSnapshot($snapshot);
         $snapshot['version'] = max(1, (int) ($snapshot['version'] ?? 1));
         $snapshot['ownerId'] = (string) ($snapshot['ownerId'] ?? '');
         $gamePhase = $snapshot['gamePhase'] ?? self::GAME_PHASE_PLAYING;
@@ -3858,5 +3911,36 @@ class GameCommandHandler
     private function isVariablePrintedStat(string $value): bool
     {
         return str_contains(strtolower($value), 'x') || str_contains($value, '*');
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    private function commandMetricsPayload(array $snapshot, int $snapshotBytesBefore, float $normalizeMs, float $commandApplyMs): array
+    {
+        return [
+            'normalize_ms' => round(max(0, $normalizeMs), 2),
+            'command_apply_ms' => round(max(0, $commandApplyMs), 2),
+            'snapshot_bytes_before' => $snapshotBytesBefore,
+            'snapshot_bytes_after' => $this->metricsInspector->jsonBytes($snapshot),
+            'number_of_players' => $this->metricsInspector->countPlayers($snapshot),
+            'number_of_instances' => $this->metricsInspector->countInstances($snapshot),
+        ];
+    }
+
+    private function elapsedMs(float $startedAt): float
+    {
+        return round(max(0, (microtime(true) - $startedAt) * 1000), 2);
+    }
+
+    private function snapshotForPersistence(array $snapshotBefore, array $snapshot): array
+    {
+        if (!$this->compactRuntimeFlags->enabled() && !$this->compactStateMapper->isCompactSnapshot($snapshotBefore)) {
+            return $snapshot;
+        }
+
+        return $this->compactStateMapper->compactSnapshot($snapshot);
     }
 }

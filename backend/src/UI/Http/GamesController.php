@@ -2,11 +2,15 @@
 
 namespace App\UI\Http;
 
+use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
+use App\Application\Game\Performance\GameplayMetricsInspector;
+use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Domain\Game\Game;
@@ -42,6 +46,9 @@ class GamesController extends ApiController
         EntityManagerInterface $entityManager,
         GameProjectionService $projection,
         GameDebugHealthLiveStore $debugHealth,
+        ?Request $request = null,
+        ?GameplayV2ContractFactory $contractsV2 = null,
+        ?GameplayV2Flags $flagsV2 = null,
     ): JsonResponse
     {
         $game = $entityManager->getRepository(Game::class)->find($id);
@@ -62,6 +69,13 @@ class GamesController extends ApiController
                 $this->elapsedMs($startedAt),
                 $this->bootstrapStageContext($game, $debugObserved),
             );
+        }
+
+        $bootstrapContractRequested = $request instanceof Request
+            && str_ends_with($request->getPathInfo(), '/bootstrap')
+            && strtolower(trim((string) $request->query->get('contract', ''))) === 'v2';
+        if ($bootstrapContractRequested && ($flagsV2?->bootstrapEnabled() ?? false) && $contractsV2 instanceof GameplayV2ContractFactory) {
+            return $this->json($contractsV2->bootstrap($game, $user, $projectedSnapshot)->toArray());
         }
 
         return $this->json([
@@ -309,15 +323,41 @@ class GamesController extends ApiController
     }
 
     #[Route('/games/{id}/commands', methods: ['POST'])]
-    public function command(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameCommandHandler $handler, GameProjectionService $projection, GameEventPublisher $publisher): JsonResponse
+    public function command(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        GameCommandHandler $handler,
+        GameProjectionService $projection,
+        GameEventPublisher $publisher,
+        GameplayMetricsRecorderInterface $metrics,
+        GameplayMetricsInspector $metricsInspector,
+    ): JsonResponse
     {
+        $startedAt = microtime(true);
+        $usageStartedAt = $metricsInspector->usageSnapshot();
+        $snapshotLoadStartedAt = microtime(true);
         $game = $entityManager->getRepository(Game::class)->find($id);
+        $snapshotLoadMs = $this->elapsedMs($snapshotLoadStartedAt);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
         }
         if (!$game->canBeControlledBy($user)) {
             return $this->fail('Game access denied.', 403);
         }
+
+        $snapshotBytesBefore = $metricsInspector->jsonBytes($game->snapshot());
+        $snapshotBytesAfter = $snapshotBytesBefore;
+        $numberOfPlayers = $metricsInspector->countPlayers($game->snapshot());
+        $numberOfInstances = $metricsInspector->countInstances($game->snapshot());
+        $numberOfVisibleCards = 0;
+        $normalizeMs = 0.0;
+        $commandApplyMs = 0.0;
+        $persistMs = 0.0;
+        $projectionMs = 0.0;
+        $duplicate = false;
+        $projectedSnapshot = null;
 
         $payload = $this->payload($request);
         $type = trim((string) ($payload['type'] ?? ''));
@@ -340,7 +380,39 @@ class GamesController extends ApiController
                 'clientActionId' => $clientActionId,
             ]);
             if ($existingEvent instanceof GameEvent) {
-                return $this->existingEventResponse($existingEvent, $game, $user, $projection);
+                $duplicate = true;
+                $projectionStartedAt = microtime(true);
+                $projectedSnapshot = $projection->project($game, $user);
+                $projectionMs = $this->elapsedMs($projectionStartedAt);
+                $numberOfVisibleCards = $metricsInspector->countVisibleCards($projectedSnapshot);
+                $this->recordGameplayMetric(
+                    $metrics,
+                    $metricsInspector,
+                    [
+                        'transport' => 'http',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => 0.0,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => 0,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => $duplicate,
+                        'status' => 'duplicate',
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $this->existingEventResponse($existingEvent, $game, $user, $projection, $projectedSnapshot);
             }
         }
 
@@ -366,13 +438,54 @@ class GamesController extends ApiController
             }
 
             $event = $handler->apply($game, $type, is_array($payload['payload'] ?? null) ? $payload['payload'] : [], $user, $clientActionId);
+            $handlerMetrics = $handler->consumeLastCommandMetrics() ?? [];
+            $normalizeMs = (float) ($handlerMetrics['normalize_ms'] ?? 0.0);
+            $commandApplyMs = (float) ($handlerMetrics['command_apply_ms'] ?? 0.0);
+            $snapshotBytesAfter = (int) ($handlerMetrics['snapshot_bytes_after'] ?? $snapshotBytesBefore);
+            $numberOfPlayers = (int) ($handlerMetrics['number_of_players'] ?? $numberOfPlayers);
+            $numberOfInstances = (int) ($handlerMetrics['number_of_instances'] ?? $numberOfInstances);
+            $persistStartedAt = microtime(true);
             $entityManager->persist($event);
             $entityManager->flush();
             $entityManager->commit();
+            $persistMs = $this->elapsedMs($persistStartedAt);
         } catch (\InvalidArgumentException $exception) {
             if ($entityManager->getConnection()->isTransactionActive()) {
                 $entityManager->rollback();
             }
+
+            $handlerMetrics = $handler->consumeLastCommandMetrics() ?? [];
+            $normalizeMs = (float) ($handlerMetrics['normalize_ms'] ?? 0.0);
+            $commandApplyMs = (float) ($handlerMetrics['command_apply_ms'] ?? 0.0);
+            $snapshotBytesAfter = (int) ($handlerMetrics['snapshot_bytes_after'] ?? $snapshotBytesBefore);
+            $numberOfPlayers = (int) ($handlerMetrics['number_of_players'] ?? $numberOfPlayers);
+            $numberOfInstances = (int) ($handlerMetrics['number_of_instances'] ?? $numberOfInstances);
+            $this->recordGameplayMetric(
+                $metrics,
+                $metricsInspector,
+                [
+                    'transport' => 'http',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => 0.0,
+                    'patch_build_ms' => 0.0,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => 0,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => false,
+                    'clientActionId_duplicate' => false,
+                    'status' => 'rejected',
+                ],
+                $usageStartedAt,
+            );
 
             return $this->fail($exception->getMessage());
         } catch (UniqueConstraintViolationException) {
@@ -386,14 +499,100 @@ class GamesController extends ApiController
                     'clientActionId' => $clientActionId,
                 ]);
             if ($existingEvent instanceof GameEvent) {
-                return $this->existingEventResponse($existingEvent, $game, $user, $projection);
+                $duplicate = true;
+                $projectionStartedAt = microtime(true);
+                $projectedSnapshot = $projection->project($game, $user);
+                $projectionMs = $this->elapsedMs($projectionStartedAt);
+                $numberOfVisibleCards = $metricsInspector->countVisibleCards($projectedSnapshot);
+                $this->recordGameplayMetric(
+                    $metrics,
+                    $metricsInspector,
+                    [
+                        'transport' => 'http',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => 0.0,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => 0,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => true,
+                        'status' => 'duplicate',
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $this->existingEventResponse($existingEvent, $game, $user, $projection, $projectedSnapshot);
             }
+
+            $this->recordGameplayMetric(
+                $metrics,
+                $metricsInspector,
+                [
+                    'transport' => 'http',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => 0.0,
+                    'patch_build_ms' => 0.0,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => 0,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => true,
+                    'clientActionId_duplicate' => false,
+                    'status' => 'conflict',
+                ],
+                $usageStartedAt,
+            );
 
             return $this->fail('Command conflict. Please retry.', 409);
         } catch (DeadlockException|LockWaitTimeoutException) {
             if ($entityManager->getConnection()->isTransactionActive()) {
                 $entityManager->rollback();
             }
+
+            $this->recordGameplayMetric(
+                $metrics,
+                $metricsInspector,
+                [
+                    'transport' => 'http',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => 0.0,
+                    'patch_build_ms' => 0.0,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => 0,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => true,
+                    'clientActionId_duplicate' => false,
+                    'status' => 'conflict',
+                ],
+                $usageStartedAt,
+            );
 
             return $this->fail('Game command conflict. Please retry.', 409);
         } catch (\Throwable $exception) {
@@ -412,9 +611,40 @@ class GamesController extends ApiController
             $publisher->publish($game, $event);
         }
 
+        $projectionStartedAt = microtime(true);
+        $projectedSnapshot = $projection->project($game, $user);
+        $projectionMs = $this->elapsedMs($projectionStartedAt);
+        $numberOfVisibleCards = $metricsInspector->countVisibleCards($projectedSnapshot);
+        $this->recordGameplayMetric(
+            $metrics,
+            $metricsInspector,
+            [
+                'transport' => 'http',
+                'command.type' => $type,
+                'gameId' => $game->id(),
+                'snapshot_load_ms' => $snapshotLoadMs,
+                'normalize_ms' => $normalizeMs,
+                'command_apply_ms' => $commandApplyMs,
+                'persist_ms' => $persistMs,
+                'projection_ms' => $projectionMs,
+                'patch_build_ms' => 0.0,
+                'total_server_ms' => $this->elapsedMs($startedAt),
+                'snapshot_bytes_before' => $snapshotBytesBefore,
+                'snapshot_bytes_after' => $snapshotBytesAfter,
+                'patch_bytes' => 0,
+                'number_of_players' => $numberOfPlayers,
+                'number_of_instances' => $numberOfInstances,
+                'number_of_visible_cards' => $numberOfVisibleCards,
+                'resync_required' => false,
+                'clientActionId_duplicate' => false,
+                'status' => 'applied',
+            ],
+            $usageStartedAt,
+        );
+
         return $this->json([
             'event' => $event->toArray(),
-            'snapshot' => $projection->project($game, $user),
+            'snapshot' => $projectedSnapshot,
             'version' => $game->snapshot()['version'] ?? null,
             'applied' => true,
         ], 201);
@@ -719,13 +949,38 @@ class GamesController extends ApiController
         ]);
     }
 
-    private function existingEventResponse(GameEvent $event, Game $game, User $user, GameProjectionService $projection): JsonResponse
+    private function existingEventResponse(
+        GameEvent $event,
+        Game $game,
+        User $user,
+        GameProjectionService $projection,
+        ?array $projectedSnapshot = null,
+    ): JsonResponse
     {
+        $projectedSnapshot ??= $projection->project($game, $user);
+
         return $this->json([
             'event' => $event->toArray(),
-            'snapshot' => $projection->project($game, $user),
+            'snapshot' => $projectedSnapshot,
             'version' => $game->snapshot()['version'] ?? null,
             'applied' => false,
+        ]);
+    }
+
+    /**
+     * @param array<string,mixed> $metric
+     * @param array<string,int>|null $usageStartedAt
+     */
+    private function recordGameplayMetric(
+        GameplayMetricsRecorderInterface $metrics,
+        GameplayMetricsInspector $metricsInspector,
+        array $metric,
+        ?array $usageStartedAt,
+    ): void {
+        $metrics->record([
+            ...$metric,
+            'memory_peak_bytes' => $metricsInspector->memoryPeakBytes(),
+            ...$metricsInspector->cpuDiffMs($usageStartedAt),
         ]);
     }
 

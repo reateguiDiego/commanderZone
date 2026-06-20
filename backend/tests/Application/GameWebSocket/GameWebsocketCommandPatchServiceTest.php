@@ -2,9 +2,15 @@
 
 namespace App\Tests\Application\GameWebSocket;
 
+use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
+use App\Application\Game\Compact\CompactGameCardStateMapper;
+use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\Performance\GameplayMetricsInspector;
+use App\Application\Game\Performance\GameplayMetricsStore;
 use App\Application\Game\WebSocket\GameWebsocketCardLocalizationResolver;
 use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
@@ -253,6 +259,43 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertStringNotContainsString('"zones"', $encoded);
     }
 
+    public function testZoneChangedStillBuildsLegacyPatchFromCompactPersistedSnapshot(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+        $game->replaceSnapshot((new CompactGameCardStateMapper())->compactSnapshot($game->snapshot()));
+        $handler = new GameCommandHandler(compactRuntimeFlags: new GameplayCompactRuntimeFlags(true));
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            handler: $handler,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'zone.changed',
+            [
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'instanceIds' => ['battlefield-2', 'battlefield-1'],
+            ],
+            'action-zone-compact',
+            1,
+            'message-zone-compact',
+        );
+        $message = $result->messageForUserId($actor->id());
+        $encoded = json_encode($message, JSON_THROW_ON_ERROR);
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame('zone.changed', $message['event']['type']);
+        self::assertSame('card.move', $message['operations'][0]['op']);
+        self::assertStringNotContainsString('"cardCatalog"', $encoded);
+        self::assertStringNotContainsString('"runtimeFormat"', $encoded);
+    }
+
     public function testNonCardCommandPassesExplicitEmptyLocalizationLookupToProjection(): void
     {
         [$game, $actor] = $this->game();
@@ -361,6 +404,79 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         ], $capturedRulingsLookups);
     }
 
+    public function testRecordsStructuredMetricsForAppliedCommand(): void
+    {
+        [$game, $actor] = $this->game();
+        $metricsStore = new GameplayMetricsStore();
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            metricsStore: $metricsStore,
+        );
+
+        $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -2],
+            'action-metrics',
+            1,
+            'message-metrics',
+        );
+
+        $records = $metricsStore->records();
+        self::assertCount(1, $records);
+        self::assertSame('websocket', $records[0]['transport']);
+        self::assertSame('life.changed', $records[0]['command.type']);
+        self::assertSame($game->id(), $records[0]['gameId']);
+        self::assertArrayHasKey('snapshot_load_ms', $records[0]);
+        self::assertArrayHasKey('normalize_ms', $records[0]);
+        self::assertArrayHasKey('command_apply_ms', $records[0]);
+        self::assertArrayHasKey('persist_ms', $records[0]);
+        self::assertArrayHasKey('projection_ms', $records[0]);
+        self::assertArrayHasKey('patch_build_ms', $records[0]);
+        self::assertArrayHasKey('snapshot_bytes_before', $records[0]);
+        self::assertArrayHasKey('snapshot_bytes_after', $records[0]);
+        self::assertArrayHasKey('patch_bytes', $records[0]);
+        self::assertArrayHasKey('memory_peak_bytes', $records[0]);
+        self::assertFalse($records[0]['resync_required']);
+        self::assertFalse($records[0]['clientActionId_duplicate']);
+    }
+
+    public function testCanTranslateSuccessfulPatchToV2Envelope(): void
+    {
+        [$game, $actor] = $this->game();
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            flagsV2: new GameplayV2Flags(false, true, false, false),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -2],
+            'action-v2',
+            1,
+            'message-v2',
+            'v2',
+        );
+        $message = $result->messageForUserId($actor->id());
+
+        self::assertSame('patch.v2', $message['kind']);
+        self::assertSame(2, $message['version']);
+        self::assertSame('player:'.$actor->id(), $message['visibility']);
+        self::assertSame('action-v2', $message['ackClientActionId']);
+        self::assertSame('player.life.set', $message['ops'][0]['op']);
+    }
+
     /**
      * @return array{Game, User}
      */
@@ -401,6 +517,9 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         bool $expectTransaction = true,
         ?GameProjectionService $projection = null,
         ?GameWebsocketCardLocalizationResolver $resolver = null,
+        ?GameplayMetricsStore $metricsStore = null,
+        ?GameplayV2Flags $flagsV2 = null,
+        ?GameCommandHandler $handler = null,
     ): GameWebsocketCommandPatchService {
         $actor ??= $game->room()->owner();
         $gameRepository = $this->createMock(EntityRepository::class);
@@ -427,26 +546,35 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $registry = $this->createMock(ManagerRegistry::class);
         $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
 
-        return $this->serviceWithRegistry($registry, $projection, $resolver);
+        return $this->serviceWithRegistry($registry, $projection, $resolver, $metricsStore, $flagsV2, $handler);
     }
 
     private function serviceWithRegistry(
         ManagerRegistry $registry,
         ?GameProjectionService $projection = null,
         ?GameWebsocketCardLocalizationResolver $resolver = null,
+        ?GameplayMetricsStore $metricsStore = null,
+        ?GameplayV2Flags $flagsV2 = null,
+        ?GameCommandHandler $handler = null,
     ): GameWebsocketCommandPatchService
     {
         $messages = new GameWebsocketMessageFactory();
+        $contractsV2 = new GameplayV2ContractFactory();
+        $handler ??= new GameCommandHandler();
 
         return new GameWebsocketCommandPatchService(
-            new GameCommandHandler(),
-            new GameDisconnectVoteService(new GameCommandHandler()),
+            $handler,
+            new GameDisconnectVoteService($handler),
             new GameWebsocketPatchBuilder($messages),
             $messages,
             new \App\Application\Game\WebSocket\GameWebsocketRoomRegistry(),
             $registry,
-            $projection ?? new GameProjectionService(new GameCommandHandler()),
+            $projection ?? new GameProjectionService($handler),
             $resolver,
+            $metricsStore,
+            new GameplayMetricsInspector(),
+            $contractsV2,
+            $flagsV2,
         );
     }
 
