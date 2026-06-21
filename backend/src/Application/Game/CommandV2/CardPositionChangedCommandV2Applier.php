@@ -25,7 +25,15 @@ final class CardPositionChangedCommandV2Applier implements GameCommandV2ApplierI
             ? $helper->v2DayNightFixedPosition()
             : $helper->v2NormalizedPosition($payload['position'] ?? null);
 
-        return new GameCommandV2Result(
+        return (new PatchEmitterV2())
+            ->emitPublic([
+                'op' => 'card.field.set',
+                'playerId' => $location['playerId'],
+                'zone' => $location['zone'],
+                'instanceId' => (string) ($card['instanceId'] ?? ''),
+                'position' => $card['position'],
+            ])
+            ->toResult(
             sprintf('Moved %s on battlefield.', $helper->v2CardLogName($card)),
             [
                 'playerId' => $location['playerId'],
@@ -33,13 +41,6 @@ final class CardPositionChangedCommandV2Applier implements GameCommandV2ApplierI
                 'instanceId' => (string) ($card['instanceId'] ?? ''),
                 'position' => $card['position'],
             ],
-            [[
-                'op' => 'card.position.set',
-                'playerId' => $location['playerId'],
-                'zone' => $location['zone'],
-                'instanceId' => (string) ($card['instanceId'] ?? ''),
-                'position' => $card['position'],
-            ]],
             false,
         );
     }

@@ -548,7 +548,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
 
         self::assertSame('patch.v2', $message['kind']);
         self::assertSame('action-v2-tap', $message['ackClientActionId']);
-        self::assertSame('card.state.set', $message['ops'][0]['op']);
+        self::assertSame('card.field.set', $message['ops'][0]['op']);
     }
 
     public function testV2ZoneChangedPrivateHandSanitizesOpponentWithoutProjection(): void
@@ -666,6 +666,132 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertStringNotContainsString('library-1', $encoded);
         self::assertStringNotContainsString('oracleText', $encoded);
         self::assertStringNotContainsString('imageUris', $encoded);
+    }
+
+    public function testV2DirectDrawKeepsCardMovePrivateAndCountsPublicWithoutProjection(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            projection: $projection,
+            handler: $handler,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'library.draw',
+            ['playerId' => $actor->id()],
+            'action-v2-draw',
+            1,
+            'message-v2-draw',
+        );
+
+        $ownerMessage = $result->messageForUserId($actor->id());
+        $opponentMessage = $result->messageForUserId($opponent->id());
+        self::assertContains('card.move', array_column($ownerMessage['operations'], 'op'));
+        self::assertNotContains('card.move', array_column($opponentMessage['operations'], 'op'));
+        self::assertContains('zone.counts.set', array_column($ownerMessage['operations'], 'op'));
+        self::assertContains('zone.counts.set', array_column($opponentMessage['operations'], 'op'));
+    }
+
+    public function testV2DirectRevealTopSendsSemanticRevealOnlyToAuthorizedViewer(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false, true));
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            projection: $projection,
+            flagsV2: new GameplayV2Flags(false, true, false, false, true),
+            handler: $handler,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'library.reveal_top',
+            ['playerId' => $actor->id(), 'count' => 1, 'to' => [$actor->id()]],
+            'action-v2-reveal',
+            1,
+            'message-v2-reveal',
+            'v2',
+        );
+
+        $ownerMessage = $result->messageForUserId($actor->id());
+        $opponentMessage = $result->messageForUserId($opponent->id());
+
+        self::assertSame('patch.v2', $ownerMessage['kind']);
+        self::assertSame('library.top.revealed', $ownerMessage['ops'][0]['op']);
+        self::assertNotContains('library.top.revealed', array_column($opponentMessage['ops'], 'op'));
+        self::assertStringNotContainsString('Private Library One', json_encode($opponentMessage, JSON_THROW_ON_ERROR));
+    }
+
+    public function testV2DirectCardsMovedUsesSemanticBatchPatchWithoutProjection(): void
+    {
+        [$game, $actor] = $this->game();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['hand'] = [
+            [
+                'instanceId' => 'hand-1',
+                'ownerId' => $actor->id(),
+                'controllerId' => $actor->id(),
+                'name' => 'Hand One',
+                'zone' => 'hand',
+            ],
+            [
+                'instanceId' => 'hand-2',
+                'ownerId' => $actor->id(),
+                'controllerId' => $actor->id(),
+                'name' => 'Hand Two',
+                'zone' => 'hand',
+            ],
+        ];
+        $game->replaceSnapshot($snapshot);
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            projection: $projection,
+            flagsV2: new GameplayV2Flags(false, true, false, false),
+            handler: $handler,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'cards.moved',
+            ['playerId' => $actor->id(), 'fromZone' => 'hand', 'toZone' => 'graveyard', 'instanceIds' => ['hand-1', 'hand-2']],
+            'action-v2-batch',
+            1,
+            'message-v2-batch',
+            'v2',
+        );
+
+        $message = $result->messageForUserId($actor->id());
+
+        self::assertSame('patch.v2', $message['kind']);
+        self::assertContains('zone.cards.batchMove', array_column($message['ops'], 'op'));
     }
 
     /**

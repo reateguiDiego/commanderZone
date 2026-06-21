@@ -5,17 +5,18 @@ namespace App\Application\Game\CommandV2;
 use App\Application\Game\GameCommandHandler;
 use App\Domain\User\User;
 
-final class CardMovedCommandV2Applier implements GameCommandV2ApplierInterface
+final class LibraryDrawCommandV2Applier implements GameCommandV2ApplierInterface
 {
     public function supports(string $type): bool
     {
-        return $type === 'card.moved';
+        return $type === 'library.draw' || $type === 'library.draw_many';
     }
 
     public function apply(array &$snapshot, array $payload, User $actor, GameCommandHandler $helper): ?GameCommandV2Result
     {
         $helper->v2AssertActorOwnPlayer($snapshot, $payload, $actor);
-        $data = $helper->v2MoveCommandData($snapshot, $payload, 'single');
+        $count = isset($payload['count']) ? max(1, (int) $payload['count']) : 1;
+        $data = $helper->v2LibraryDrawData($snapshot, $payload, $count);
 
         return new GameCommandV2Result(
             is_string($data['log'] ?? null) ? $data['log'] : null,

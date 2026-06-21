@@ -785,26 +785,18 @@ final readonly class GameWebsocketCommandPatchService
         $messagesByUserId = [];
         $patchStartedAt = microtime(true);
         $baseVersion = max(1, (int) ($previousSnapshot['version'] ?? 1));
-        $version = $this->snapshotVersion($game);
+        $version = max(1, (int) ($directPatchPayload['version'] ?? $this->snapshotVersion($game)));
+        $ackClientActionId = is_string($directPatchPayload['ackClientActionId'] ?? null)
+            ? $directPatchPayload['ackClientActionId']
+            : $event->clientActionId();
+        $currentSnapshot = $game->snapshot();
         foreach ($this->viewers($game) as $viewer) {
-            $viewerPayload = is_array($directPatchPayload['viewerPayloads'][$viewer->id()] ?? null)
-                ? $directPatchPayload['viewerPayloads'][$viewer->id()]
-                : [];
-            $eventPayload = is_array($viewerPayload['eventPayload'] ?? null)
-                ? $viewerPayload['eventPayload']
-                : (is_array($directPatchPayload['eventPayload'] ?? null) ? $directPatchPayload['eventPayload'] : []);
-            $operations = is_array($viewerPayload['operations'] ?? null)
-                ? array_values($viewerPayload['operations'])
-                : (is_array($directPatchPayload['operations'] ?? null) ? array_values($directPatchPayload['operations']) : []);
-            $appendEventLog = array_key_exists('appendEventLog', $viewerPayload)
-                ? (bool) $viewerPayload['appendEventLog']
-                : (bool) ($directPatchPayload['appendEventLog'] ?? true);
-            $sanitizeEventLog = array_key_exists('sanitizeEventLog', $viewerPayload)
-                ? (bool) $viewerPayload['sanitizeEventLog']
-                : (bool) ($directPatchPayload['sanitizeEventLog'] ?? false);
-            $eventLogEntries = is_array($viewerPayload['eventLogEntries'] ?? null)
-                ? array_values($viewerPayload['eventLogEntries'])
-                : (is_array($directPatchPayload['eventLogEntries'] ?? null) ? array_values($directPatchPayload['eventLogEntries']) : []);
+            $viewerPayload = $this->directPayloadForViewer($currentSnapshot, $viewer->id(), $directPatchPayload);
+            $eventPayload = $viewerPayload['eventPayload'];
+            $operations = $viewerPayload['operations'];
+            $appendEventLog = $viewerPayload['appendEventLog'];
+            $sanitizeEventLog = $viewerPayload['sanitizeEventLog'];
+            $eventLogEntries = $viewerPayload['eventLogEntries'];
             if ($sanitizeEventLog && $eventLogEntries !== []) {
                 $eventLogEntries = array_values(array_map([$this, 'sanitizePrivateCardLogEntry'], $eventLogEntries));
             }
@@ -814,23 +806,30 @@ final readonly class GameWebsocketCommandPatchService
                     'entries' => $eventLogEntries,
                 ];
             }
+            if ($responseProtocol === 'v2'
+                && ($this->flagsV2?->patchEnabled() ?? false)
+                && $this->contractsV2 instanceof GameplayV2ContractFactory) {
+                $messagesByUserId[$viewer->id()] = [[
+                    'kind' => 'patch.v2',
+                    ...$this->contractsV2->patchForVisibility(
+                        $game->id(),
+                        $version,
+                        sprintf('player:%s', $viewer->id()),
+                        $operations,
+                        $ackClientActionId,
+                    )->toArray(),
+                ]];
+                continue;
+            }
+
             $messagesByUserId[$viewer->id()] = $this->messages->gamePatch(
                 $game->id(),
                 $baseVersion,
                 $version,
-                $operations,
+                $this->translateSemanticOperationsToLegacy($operations),
                 $event,
                 $eventPayload,
             );
-            if ($responseProtocol === 'v2') {
-                $messagesByUserId[$viewer->id()] = $this->translateMessagesToV2(
-                    $messagesByUserId[$viewer->id()],
-                    $game->id(),
-                    $version,
-                    $event->clientActionId(),
-                    $viewer->id(),
-                );
-            }
         }
         $patchMs = $this->elapsedMs($patchStartedAt);
         $patchBytes = 0;
@@ -854,6 +853,246 @@ final readonly class GameWebsocketCommandPatchService
             'number_of_visible_cards' => 0,
             'resync_required' => false,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $directPatchPayload
+     *
+     * @return array{
+     *   eventPayload: array<string,mixed>,
+     *   operations: list<array<string,mixed>>,
+     *   appendEventLog: bool,
+     *   sanitizeEventLog: bool,
+     *   eventLogEntries: list<array<string,mixed>>
+     * }
+     */
+    private function directPayloadForViewer(array $snapshot, string $viewerId, array $directPatchPayload): array
+    {
+        $viewerMask = $this->viewerMask($snapshot, $viewerId);
+        $viewerPayload = is_array($directPatchPayload['viewerPayloads'][$viewerId] ?? null)
+            ? $directPatchPayload['viewerPayloads'][$viewerId]
+            : [];
+
+        $operations = is_array($directPatchPayload['operations'] ?? null)
+            ? array_values($directPatchPayload['operations'])
+            : [];
+        $groupPayloads = is_array($directPatchPayload['groupPayloads'] ?? null)
+            ? $directPatchPayload['groupPayloads']
+            : [];
+        foreach ($groupPayloads as $groupKey => $groupPayload) {
+            if (!is_string($groupKey) || !str_starts_with($groupKey, 'group:') || !is_array($groupPayload)) {
+                continue;
+            }
+
+            $groupMask = (int) substr($groupKey, strlen('group:'));
+            if ($groupMask <= 0 || (($groupMask & $viewerMask) === 0)) {
+                continue;
+            }
+
+            if (is_array($groupPayload['operations'] ?? null)) {
+                $operations = [...$operations, ...array_values($groupPayload['operations'])];
+            }
+        }
+
+        if (is_array($viewerPayload['operations'] ?? null)) {
+            $operations = [...$operations, ...array_values($viewerPayload['operations'])];
+        }
+
+        return [
+            'eventPayload' => is_array($viewerPayload['eventPayload'] ?? null)
+                ? $viewerPayload['eventPayload']
+                : (is_array($directPatchPayload['eventPayload'] ?? null) ? $directPatchPayload['eventPayload'] : []),
+            'operations' => $operations,
+            'appendEventLog' => array_key_exists('appendEventLog', $viewerPayload)
+                ? (bool) $viewerPayload['appendEventLog']
+                : (bool) ($directPatchPayload['appendEventLog'] ?? true),
+            'sanitizeEventLog' => array_key_exists('sanitizeEventLog', $viewerPayload)
+                ? (bool) $viewerPayload['sanitizeEventLog']
+                : (bool) ($directPatchPayload['sanitizeEventLog'] ?? false),
+            'eventLogEntries' => is_array($viewerPayload['eventLogEntries'] ?? null)
+                ? array_values($viewerPayload['eventLogEntries'])
+                : (is_array($directPatchPayload['eventLogEntries'] ?? null) ? array_values($directPatchPayload['eventLogEntries']) : []),
+        ];
+    }
+
+    private function viewerMask(array $snapshot, string $viewerId): int
+    {
+        $viewerBits = is_array($snapshot['visibility']['viewerBits'] ?? null)
+            ? $snapshot['visibility']['viewerBits']
+            : [];
+
+        return max(0, (int) ($viewerBits[$viewerId] ?? 0));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $operations
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function translateSemanticOperationsToLegacy(array $operations): array
+    {
+        $translated = [];
+        $zoneCountsByPlayer = [];
+
+        foreach ($operations as $operation) {
+            $op = is_string($operation['op'] ?? null) ? $operation['op'] : '';
+            switch ($op) {
+                case 'player.life.set':
+                case 'turn.set':
+                case 'eventLog.append':
+                case 'player.counters.set':
+                case 'game.counters.set':
+                case 'card.move':
+                case 'card.remove':
+                case 'card.state.set':
+                case 'card.position.set':
+                case 'cards.position.set':
+                case 'card.stats.set':
+                case 'card.counters.set':
+                case 'cards.state.set':
+                case 'zone.visible.set':
+                case 'arrow.remove':
+                case 'attachment.remove':
+                    $translated[] = $operation;
+                    break;
+
+                case 'dice.result':
+                    break;
+
+                case 'card.field.set':
+                    $translated = [...$translated, ...$this->legacyOperationsForCardFieldSet($operation)];
+                    break;
+
+                case 'card.counters.patch':
+                    $translated[] = [
+                        'op' => 'card.counters.set',
+                        'playerId' => (string) ($operation['playerId'] ?? ''),
+                        'zone' => (string) ($operation['zone'] ?? ''),
+                        'instanceId' => (string) ($operation['instanceId'] ?? ''),
+                        'counters' => is_array($operation['counters'] ?? null) ? $operation['counters'] : [],
+                    ];
+                    break;
+
+                case 'zone.cards.move':
+                    $translated[] = $this->legacyCardMoveOperation($operation);
+                    break;
+
+                case 'zone.cards.batchMove':
+                    foreach (array_values(array_filter($operation['moves'] ?? [], static fn (mixed $move): bool => is_array($move))) as $move) {
+                        $translated[] = $this->legacyCardMoveOperation($move);
+                    }
+                    break;
+
+                case 'zone.cards.remove':
+                    foreach (array_values(array_filter($operation['instanceIds'] ?? [], static fn (mixed $id): bool => is_string($id) && trim($id) !== '')) as $instanceId) {
+                        $translated[] = [
+                            'op' => 'card.remove',
+                            'playerId' => (string) ($operation['playerId'] ?? ''),
+                            'zone' => (string) ($operation['zone'] ?? ''),
+                            'instanceId' => $instanceId,
+                        ];
+                    }
+                    break;
+
+                case 'zone.count.set':
+                    $playerId = (string) ($operation['playerId'] ?? '');
+                    $zone = (string) ($operation['zone'] ?? '');
+                    if ($playerId !== '' && $zone !== '') {
+                        $zoneCountsByPlayer[$playerId] ??= [];
+                        $zoneCountsByPlayer[$playerId][$zone] = max(0, (int) ($operation['count'] ?? 0));
+                    }
+                    break;
+
+                case 'library.top.revealed':
+                    $translated[] = [
+                        'op' => 'zone.visible.set',
+                        'playerId' => (string) ($operation['playerId'] ?? ''),
+                        'zone' => 'library',
+                        'cards' => array_values(array_filter($operation['cards'] ?? [], static fn (mixed $card): bool => is_array($card))),
+                    ];
+                    break;
+
+                case 'relation.remove':
+                    $kind = (string) ($operation['kind'] ?? '');
+                    if ($kind === 'arrow' || $kind === 'attachment') {
+                        $translated[] = [
+                            'op' => $kind.'.remove',
+                            'id' => (string) ($operation['id'] ?? ''),
+                        ];
+                    }
+                    break;
+
+                default:
+                    $translated[] = $operation;
+                    break;
+            }
+        }
+
+        foreach ($zoneCountsByPlayer as $playerId => $counts) {
+            $translated[] = [
+                'op' => 'zone.counts.set',
+                'playerId' => $playerId,
+                'counts' => $counts,
+            ];
+        }
+
+        return $translated;
+    }
+
+    /**
+     * @param array<string,mixed> $operation
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function legacyOperationsForCardFieldSet(array $operation): array
+    {
+        $legacy = [];
+        $identity = [
+            'playerId' => (string) ($operation['playerId'] ?? ''),
+            'zone' => (string) ($operation['zone'] ?? ''),
+            'instanceId' => (string) ($operation['instanceId'] ?? ''),
+        ];
+
+        $state = array_intersect_key($operation, array_flip(['tapped', 'rotation', 'faceDown', 'hidden', 'revealedTo', 'counters', 'dungeonMarker']));
+        if ($state !== []) {
+            $legacy[] = ['op' => 'card.state.set', ...$identity, ...$state];
+        }
+
+        if (array_key_exists('position', $operation)) {
+            $legacy[] = [
+                'op' => 'card.position.set',
+                ...$identity,
+                'position' => $operation['position'],
+            ];
+        }
+
+        $stats = array_intersect_key($operation, array_flip(['power', 'toughness', 'loyalty', 'defense', 'saga']));
+        if ($stats !== []) {
+            $legacy[] = ['op' => 'card.stats.set', ...$identity, ...$stats];
+        }
+
+        return $legacy;
+    }
+
+    /**
+     * @param array<string,mixed> $move
+     *
+     * @return array<string,mixed>
+     */
+    private function legacyCardMoveOperation(array $move): array
+    {
+        $legacy = [
+            'op' => 'card.move',
+            'instanceId' => (string) ($move['instanceId'] ?? ''),
+            'from' => is_array($move['from'] ?? null) ? $move['from'] : [],
+            'to' => is_array($move['to'] ?? null) ? $move['to'] : [],
+        ];
+        if (is_array($move['card'] ?? null)) {
+            $legacy['card'] = $move['card'];
+        }
+
+        return $legacy;
     }
 
     /**

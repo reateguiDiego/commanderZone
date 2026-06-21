@@ -53,7 +53,13 @@ final class CardPowerToughnessChangedCommandV2Applier implements GameCommandV2Ap
             }
         }
 
-        return new GameCommandV2Result(
+        $emitter = new PatchEmitterV2();
+        $statsOperation = $helper->v2CardStatsOperation($location, $card, false);
+        if ($statsOperation !== null) {
+            $emitter->emitPublic($statsOperation);
+        }
+
+        return $emitter->toResult(
             $helper->v2PowerToughnessLog(
                 $card,
                 $payload,
@@ -64,9 +70,6 @@ final class CardPowerToughnessChangedCommandV2Applier implements GameCommandV2Ap
                 $previousSaga,
             ),
             $eventPayload,
-            array_filter([
-                $helper->v2CardStatsOperation($location, $card, false),
-            ]),
         );
     }
 }

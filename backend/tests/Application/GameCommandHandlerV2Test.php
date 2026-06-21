@@ -150,6 +150,16 @@ class GameCommandHandlerV2Test extends TestCase
                 ]),
                 ['playerId' => $ownerId, 'zone' => 'battlefield', 'instanceId' => 'battlefield-1', 'position' => ['x' => 0.2, 'y' => 0.8, 'unit' => 'ratio']],
             ],
+            'library.draw' => [
+                'library.draw',
+                self::baseSnapshot($ownerId, [
+                    'library' => [
+                        self::card('library-2', 'Second Draw', 'library'),
+                        self::card('library-1', 'Top Draw', 'library'),
+                    ],
+                ]),
+                ['playerId' => $ownerId],
+            ],
             'card.moved' => [
                 'card.moved',
                 self::baseSnapshot($ownerId, [

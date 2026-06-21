@@ -26,13 +26,18 @@ final class DiceRolledCommandV2Applier implements GameCommandV2ApplierInterface
                 default => throw new \InvalidArgumentException('Invalid coin result.'),
             };
 
-            return new GameCommandV2Result(
+            return (new PatchEmitterV2())
+                ->emitPublic([
+                    'op' => 'dice.result',
+                    'kind' => $kind,
+                    'value' => (string) $finalResult,
+                ])
+                ->toResult(
                 sprintf('ha tirado una moneda, ha salido %s.', $result),
                 [
                     'kind' => $kind,
                     'finalResult' => (string) $finalResult,
                 ],
-                [],
             );
         }
 
@@ -45,13 +50,18 @@ final class DiceRolledCommandV2Applier implements GameCommandV2ApplierInterface
             throw new \InvalidArgumentException('Invalid dice result.');
         }
 
-        return new GameCommandV2Result(
+        return (new PatchEmitterV2())
+            ->emitPublic([
+                'op' => 'dice.result',
+                'kind' => $kind,
+                'value' => $finalResult,
+            ])
+            ->toResult(
             sprintf('ha tirado un %s, ha salido un %d.', $kind, $finalResult),
             [
                 'kind' => $kind,
                 'finalResult' => (string) $finalResult,
             ],
-            [],
         );
     }
 }

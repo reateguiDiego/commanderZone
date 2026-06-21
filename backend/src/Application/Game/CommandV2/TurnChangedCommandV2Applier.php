@@ -56,13 +56,14 @@ final class TurnChangedCommandV2Applier implements GameCommandV2ApplierInterface
                 ? sprintf('Fase %s.', $phase)
                 : sprintf('Turno %d.', (int) ($snapshot['turn']['number'] ?? 1)));
 
-        return new GameCommandV2Result(
+        $emitter = (new PatchEmitterV2())->emitPublic([
+            'op' => 'turn.set',
+            'turn' => $snapshot['turn'],
+        ]);
+
+        return $emitter->toResult(
             $message,
             ['turn' => $snapshot['turn']],
-            [[
-                'op' => 'turn.set',
-                'turn' => $snapshot['turn'],
-            ]],
         );
     }
 }

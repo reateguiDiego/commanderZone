@@ -23,6 +23,8 @@ final class ZoneMoveAllCommandV2Applier implements GameCommandV2ApplierInterface
             is_array($data['operations'] ?? null) ? array_values($data['operations']) : [],
             true,
             is_array($data['viewerPayloads'] ?? null) ? $data['viewerPayloads'] : [],
+            false,
+            is_array($data['groupPayloads'] ?? null) ? $data['groupPayloads'] : [],
         );
     }
 }

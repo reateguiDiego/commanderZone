@@ -5,17 +5,17 @@ namespace App\Application\Game\CommandV2;
 use App\Application\Game\GameCommandHandler;
 use App\Domain\User\User;
 
-final class CardMovedCommandV2Applier implements GameCommandV2ApplierInterface
+final class LibraryRevealTopCommandV2Applier implements GameCommandV2ApplierInterface
 {
     public function supports(string $type): bool
     {
-        return $type === 'card.moved';
+        return $type === 'library.reveal_top';
     }
 
     public function apply(array &$snapshot, array $payload, User $actor, GameCommandHandler $helper): ?GameCommandV2Result
     {
         $helper->v2AssertActorOwnPlayer($snapshot, $payload, $actor);
-        $data = $helper->v2MoveCommandData($snapshot, $payload, 'single');
+        $data = $helper->v2LibraryRevealTopData($snapshot, $payload);
 
         return new GameCommandV2Result(
             is_string($data['log'] ?? null) ? $data['log'] : null,

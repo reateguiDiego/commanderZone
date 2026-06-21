@@ -50,10 +50,29 @@ final class GameplayV2ContractFactory
         array $ops,
         ?string $ackClientActionId = null,
     ): PatchEnvelopeV2 {
+        return $this->patchForVisibility(
+            $gameId,
+            $version,
+            sprintf('player:%s', $viewerId),
+            $ops,
+            $ackClientActionId,
+        );
+    }
+
+    /**
+     * @param list<array<string,mixed>> $ops
+     */
+    public function patchForVisibility(
+        string $gameId,
+        int $version,
+        string $visibility,
+        array $ops,
+        ?string $ackClientActionId = null,
+    ): PatchEnvelopeV2 {
         return PatchEnvelopeV2::fromArray([
             'gameId' => $gameId,
             'version' => $version,
-            'visibility' => sprintf('player:%s', $viewerId),
+            'visibility' => $visibility,
             'ops' => $ops,
             'ackClientActionId' => $ackClientActionId,
         ]);

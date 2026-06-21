@@ -32,17 +32,18 @@ final class LifeChangedCommandV2Applier implements GameCommandV2ApplierInterface
             $helper->v2MarkPendingDefeatedPlayer($playerId);
         }
 
-        return new GameCommandV2Result(
+        $emitter = (new PatchEmitterV2())->emitPublic([
+            'op' => 'player.life.set',
+            'playerId' => $playerId,
+            'value' => $newLife,
+        ]);
+
+        return $emitter->toResult(
             $helper->v2LifeChangeLog($oldLife, $newLife),
             [
                 'playerId' => $playerId,
                 'life' => $newLife,
             ],
-            [[
-                'op' => 'player.life.set',
-                'playerId' => $playerId,
-                'value' => $newLife,
-            ]],
         );
     }
 }

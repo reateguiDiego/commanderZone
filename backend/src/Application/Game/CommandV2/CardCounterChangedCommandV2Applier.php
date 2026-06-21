@@ -28,19 +28,21 @@ final class CardCounterChangedCommandV2Applier implements GameCommandV2ApplierIn
 
         if (($payload['remove'] ?? false) === true) {
             if (!array_key_exists($key, $card['counters'] ?? [])) {
-                return new GameCommandV2Result('', [
-                    'playerId' => $location['playerId'],
-                    'zone' => $location['zone'],
-                    'instanceId' => (string) ($card['instanceId'] ?? ''),
-                    'key' => $key,
-                    'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
-                ], [[
-                    'op' => 'card.counters.set',
-                    'playerId' => $location['playerId'],
-                    'zone' => $location['zone'],
-                    'instanceId' => (string) ($card['instanceId'] ?? ''),
-                    'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
-                ]]);
+                return (new PatchEmitterV2())
+                    ->emitPublic([
+                        'op' => 'card.counters.patch',
+                        'playerId' => $location['playerId'],
+                        'zone' => $location['zone'],
+                        'instanceId' => (string) ($card['instanceId'] ?? ''),
+                        'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
+                    ])
+                    ->toResult('', [
+                        'playerId' => $location['playerId'],
+                        'zone' => $location['zone'],
+                        'instanceId' => (string) ($card['instanceId'] ?? ''),
+                        'key' => $key,
+                        'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
+                    ]);
             }
 
             $previousValue = (int) ($card['counters'][$key] ?? 0);
@@ -69,19 +71,19 @@ final class CardCounterChangedCommandV2Applier implements GameCommandV2ApplierIn
             $message = sprintf('Set %s %s counters to %d.', $helper->v2CardLogName($card), $key, $nextValue);
         }
 
-        $operations = [[
-            'op' => 'card.counters.set',
+        $emitter = (new PatchEmitterV2())->emitPublic([
+            'op' => 'card.counters.patch',
             'playerId' => $location['playerId'],
             'zone' => $location['zone'],
             'instanceId' => (string) ($card['instanceId'] ?? ''),
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
-        ]];
+        ]);
         $statsOperation = $helper->v2CardStatsOperation($location, $card);
         if ($statsOperation !== null) {
-            $operations[] = $statsOperation;
+            $emitter->emitPublic($statsOperation);
         }
 
-        return new GameCommandV2Result(
+        return $emitter->toResult(
             $message,
             [
                 'playerId' => $location['playerId'],
@@ -90,7 +92,6 @@ final class CardCounterChangedCommandV2Applier implements GameCommandV2ApplierIn
                 'key' => $key,
                 'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
             ],
-            $operations,
         );
     }
 }

@@ -20,7 +20,16 @@ final class CardTappedCommandV2Applier implements GameCommandV2ApplierInterface
         $card['tapped'] = (bool) ($payload['tapped'] ?? !($card['tapped'] ?? false));
         $card['rotation'] = $card['tapped'] ? 90 : 0;
 
-        return new GameCommandV2Result(
+        return (new PatchEmitterV2())
+            ->emitPublic([
+                'op' => 'card.field.set',
+                'playerId' => $location['playerId'],
+                'zone' => $location['zone'],
+                'instanceId' => (string) ($card['instanceId'] ?? ''),
+                'tapped' => (bool) $card['tapped'],
+                'rotation' => (int) ($card['rotation'] ?? 0),
+            ])
+            ->toResult(
             sprintf('%s %s.', $card['tapped'] ? 'Tapped' : 'Untapped', $helper->v2CardLogName($card)),
             [
                 'playerId' => $location['playerId'],
@@ -28,13 +37,6 @@ final class CardTappedCommandV2Applier implements GameCommandV2ApplierInterface
                 'instanceId' => (string) ($card['instanceId'] ?? ''),
                 'tapped' => (bool) $card['tapped'],
             ],
-            [[
-                'op' => 'card.state.set',
-                'playerId' => $location['playerId'],
-                'zone' => $location['zone'],
-                'instanceId' => (string) ($card['instanceId'] ?? ''),
-                'tapped' => (bool) $card['tapped'],
-            ]],
         );
     }
 }

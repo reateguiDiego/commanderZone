@@ -34,6 +34,8 @@ final class GameCommandV2Dispatcher
                 new ZoneRandomCardSelectedCommandV2Applier(),
                 new BattlefieldUntapAllCommandV2Applier(),
                 new CardsPositionChangedCommandV2Applier(),
+                new LibraryDrawCommandV2Applier(),
+                new LibraryRevealTopCommandV2Applier(),
             ]
             : array_values(array_filter(
                 iterator_to_array($appliers),

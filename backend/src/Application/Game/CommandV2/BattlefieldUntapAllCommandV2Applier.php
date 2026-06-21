@@ -34,15 +34,21 @@ final class BattlefieldUntapAllCommandV2Applier implements GameCommandV2ApplierI
         }
         unset($card);
 
-        return new GameCommandV2Result(
-            $untapped === 0 ? '' : sprintf('Untapped %d battlefield card%s.', $untapped, $untapped === 1 ? '' : 's'),
-            ['playerId' => $playerId],
-            $states === [] ? [] : [[
-                'op' => 'cards.state.set',
+        $emitter = new PatchEmitterV2();
+        foreach ($states as $state) {
+            $emitter->emitPublic([
+                'op' => 'card.field.set',
                 'playerId' => $playerId,
                 'zone' => 'battlefield',
-                'cards' => $states,
-            ]],
+                'instanceId' => (string) ($state['instanceId'] ?? ''),
+                'tapped' => false,
+                'rotation' => (int) ($state['rotation'] ?? 0),
+            ]);
+        }
+
+        return $emitter->toResult(
+            $untapped === 0 ? '' : sprintf('Untapped %d battlefield card%s.', $untapped, $untapped === 1 ? '' : 's'),
+            ['playerId' => $playerId],
         );
     }
 }

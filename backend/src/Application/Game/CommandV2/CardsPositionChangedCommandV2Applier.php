@@ -48,15 +48,20 @@ final class CardsPositionChangedCommandV2Applier implements GameCommandV2Applier
             unset($card);
         }
 
-        return new GameCommandV2Result(
-            sprintf('Moved %d cards on battlefield.', count($moved)),
-            ['playerId' => $playerId, 'zone' => $zone, 'positions' => $moved],
-            [[
-                'op' => 'cards.position.set',
+        $emitter = new PatchEmitterV2();
+        foreach ($moved as $move) {
+            $emitter->emitPublic([
+                'op' => 'card.field.set',
                 'playerId' => $playerId,
                 'zone' => $zone,
-                'positions' => $moved,
-            ]],
+                'instanceId' => (string) ($move['instanceId'] ?? ''),
+                'position' => $move['position'] ?? null,
+            ]);
+        }
+
+        return $emitter->toResult(
+            sprintf('Moved %d cards on battlefield.', count($moved)),
+            ['playerId' => $playerId, 'zone' => $zone, 'positions' => $moved],
             false,
         );
     }

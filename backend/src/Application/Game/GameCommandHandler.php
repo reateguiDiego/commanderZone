@@ -4256,6 +4256,55 @@ class GameCommandHandler
         return $this->playerName($snapshot, $playerId);
     }
 
+    /**
+     * @return list<string>
+     */
+    public function v2VisibilityTargets(array $snapshot, mixed $target): array
+    {
+        return $this->visibilityTargets($snapshot, $target);
+    }
+
+    /**
+     * @param list<string> $targets
+     */
+    public function v2VisibilityTargetsMask(array $snapshot, array $targets): int
+    {
+        $viewerBits = is_array($snapshot['visibility']['viewerBits'] ?? null)
+            ? $snapshot['visibility']['viewerBits']
+            : [];
+        if ($viewerBits === []) {
+            $bit = 1;
+            foreach (array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []) as $playerId) {
+                if (!is_string($playerId)) {
+                    continue;
+                }
+
+                $viewerBits[$playerId] = $bit;
+                $bit <<= 1;
+            }
+        }
+
+        $allPlayersMask = array_reduce(
+            array_values($viewerBits),
+            static fn (int $mask, mixed $bit): int => $mask | max(0, (int) $bit),
+            0,
+        );
+        if (in_array('all', $targets, true)) {
+            return $allPlayersMask;
+        }
+
+        $mask = 0;
+        foreach ($targets as $target) {
+            if (!is_string($target)) {
+                continue;
+            }
+
+            $mask |= max(0, (int) ($viewerBits[$target] ?? 0));
+        }
+
+        return $mask;
+    }
+
     public function v2RollDice(string $kind): int|string
     {
         if (!array_key_exists($kind, self::DICE_ROLL_LABELS)) {
@@ -4316,7 +4365,7 @@ class GameCommandHandler
     public function v2CardStatsOperation(array $location, array $card, bool $onlyChanged = true): ?array
     {
         $operation = [
-            'op' => 'card.stats.set',
+            'op' => 'card.field.set',
             'playerId' => $location['playerId'],
             'zone' => $location['zone'],
             'instanceId' => (string) ($card['instanceId'] ?? ''),
@@ -4434,6 +4483,153 @@ class GameCommandHandler
             $this->statLabel($card['power'] ?? null),
             $this->statLabel($card['toughness'] ?? null),
         );
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     *
+     * @return array<string,mixed>
+     */
+    public function v2SemanticizePatchData(array $data): array
+    {
+        if (is_array($data['operations'] ?? null)) {
+            $data['operations'] = $this->v2SemanticizeOperations(array_values($data['operations']));
+        }
+
+        if (is_array($data['viewerPayloads'] ?? null)) {
+            foreach ($data['viewerPayloads'] as $viewerId => $viewerPayload) {
+                if (!is_array($viewerPayload)) {
+                    continue;
+                }
+
+                if (is_array($viewerPayload['operations'] ?? null)) {
+                    $viewerPayload['operations'] = $this->v2SemanticizeOperations(array_values($viewerPayload['operations']));
+                }
+
+                $data['viewerPayloads'][$viewerId] = $viewerPayload;
+            }
+        }
+
+        if (is_array($data['groupPayloads'] ?? null)) {
+            foreach ($data['groupPayloads'] as $groupKey => $groupPayload) {
+                if (!is_array($groupPayload)) {
+                    continue;
+                }
+
+                if (is_array($groupPayload['operations'] ?? null)) {
+                    $groupPayload['operations'] = $this->v2SemanticizeOperations(array_values($groupPayload['operations']));
+                }
+
+                $data['groupPayloads'][$groupKey] = $groupPayload;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function v2LibraryDrawData(array &$snapshot, array $payload, int $count): array
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $drawnCards = $this->takeTopLibraryCards($snapshot, $playerId, max(0, $count));
+        $moves = [];
+
+        foreach ($drawnCards as $card) {
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            $source = ['playerId' => $playerId, 'zone' => 'library'];
+            $this->putCard($snapshot, $playerId, 'hand', $card);
+            $location = $instanceId !== '' ? $this->getLocation($snapshot, $instanceId) : null;
+            $move = [
+                'instanceId' => $instanceId,
+                'from' => $source,
+                'to' => [
+                    'playerId' => $playerId,
+                    'zone' => 'hand',
+                    'index' => is_array($location) ? (int) $location['index'] : max(0, count($snapshot['players'][$playerId]['zones']['hand']) - 1),
+                ],
+                'card' => $snapshot['players'][$playerId]['zones']['hand'][array_key_last($snapshot['players'][$playerId]['zones']['hand'])] ?? $card,
+            ];
+            $moves[] = $move;
+        }
+
+        $emitter = (new CommandV2\PatchEmitterV2())
+            ->emitPublic([
+                'op' => 'zone.count.set',
+                'playerId' => $playerId,
+                'zone' => 'library',
+                'count' => count($snapshot['players'][$playerId]['zones']['library'] ?? []),
+            ])
+            ->emitPublic([
+                'op' => 'zone.count.set',
+                'playerId' => $playerId,
+                'zone' => 'hand',
+                'count' => count($snapshot['players'][$playerId]['zones']['hand'] ?? []),
+            ]);
+
+        if ($moves !== []) {
+            $emitter->emitPrivate($playerId, count($moves) === 1
+                ? ['op' => 'zone.cards.move', ...$moves[0]]
+                : ['op' => 'zone.cards.batchMove', 'moves' => $moves]);
+        }
+
+        return [
+            'log' => sprintf('ha robado %d carta%s.', count($drawnCards), count($drawnCards) === 1 ? '' : 's'),
+            'eventPayload' => [
+                'playerId' => $playerId,
+                'count' => count($drawnCards),
+            ],
+            'operations' => $emitter->publicOps(),
+            'viewerPayloads' => $emitter->viewerPayloads(),
+            'groupPayloads' => $emitter->groupPayloads(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function v2LibraryRevealTopData(array &$snapshot, array $payload): array
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $count = $this->positiveInt($payload['count'] ?? 1, 1, 99);
+        $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
+        $revealed = $this->libraryOps->revealTop($snapshot['players'][$playerId], $count, $targets);
+        $cards = array_values(array_slice($this->libraryOps->peekTop($snapshot['players'][$playerId], $revealed), 0, $revealed));
+        $operation = [
+            'op' => 'library.top.revealed',
+            'playerId' => $playerId,
+            'count' => $revealed,
+            'cards' => $cards,
+        ];
+        $emitter = new CommandV2\PatchEmitterV2();
+        if (in_array('all', $targets, true)) {
+            $emitter->emitPublic($operation);
+        } elseif (count($targets) === 1) {
+            $emitter->emitPrivate($targets[0], $operation);
+        } else {
+            $mask = $this->v2VisibilityTargetsMask($snapshot, $targets);
+            if ($mask > 0) {
+                $emitter->emitGroup($mask, $operation);
+            }
+        }
+
+        return [
+            'log' => sprintf(
+                'Revealed top %d library card%s to %s.',
+                $revealed,
+                $revealed === 1 ? '' : 's',
+                $this->visibilityTargetLabel($snapshot, $targets),
+            ),
+            'eventPayload' => [
+                'playerId' => $playerId,
+                'count' => $revealed,
+                'to' => $targets,
+            ],
+            'operations' => $emitter->publicOps(),
+            'viewerPayloads' => $emitter->viewerPayloads(),
+            'groupPayloads' => $emitter->groupPayloads(),
+        ];
     }
 
     /**
@@ -4559,7 +4755,7 @@ class GameCommandHandler
             $this->pendingLogContext = ['cardNames' => $movedCardNames];
         }
 
-        return [
+        return $this->v2SemanticizePatchData([
             'log' => $mode === 'single'
                 ? $this->v2SingleMoveLog($snapshot, $payload, $moves[0] ?? null, $movesWithinLibrary)
                 : $this->v2BatchMoveLog($snapshot, $payload, $moves, $randomOrder, $mode),
@@ -4568,7 +4764,7 @@ class GameCommandHandler
                 : $payload,
             'operations' => $touchesHiddenZones ? $operations : $fullOperations,
             'viewerPayloads' => $viewerPayloads,
-        ];
+        ]);
     }
 
     /**
@@ -4631,7 +4827,7 @@ class GameCommandHandler
 
         $touchesHiddenZone = in_array($zone, self::HIDDEN_ZONES, true);
 
-        return [
+        return $this->v2SemanticizePatchData([
             'log' => $zone === 'library' ? 'Reordered library.' : sprintf('Reordered %s.', $zone),
             'eventPayload' => $touchesHiddenZone
                 ? ['playerId' => $playerId, 'zone' => $zone, 'count' => count($instanceIds)]
@@ -4643,7 +4839,7 @@ class GameCommandHandler
                     'operations' => $fullOperations,
                 ],
             ] : [],
-        ];
+        ]);
     }
 
     /**
@@ -4659,6 +4855,180 @@ class GameCommandHandler
 
             return $entry;
         }, $entries));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $operations
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function v2SemanticizeOperations(array $operations): array
+    {
+        $semantic = [];
+        $pendingMoves = [];
+        $pendingRemovals = [];
+        $flushPending = function () use (&$semantic, &$pendingMoves, &$pendingRemovals): void {
+            if ($pendingMoves !== []) {
+                $semantic[] = count($pendingMoves) === 1
+                    ? ['op' => 'zone.cards.move', ...$pendingMoves[0]]
+                    : ['op' => 'zone.cards.batchMove', 'moves' => $pendingMoves];
+                $pendingMoves = [];
+            }
+
+            if ($pendingRemovals !== []) {
+                foreach ($pendingRemovals as $removal) {
+                    $semantic[] = $removal;
+                }
+                $pendingRemovals = [];
+            }
+        };
+
+        foreach ($operations as $operation) {
+            $op = is_string($operation['op'] ?? null) ? $operation['op'] : '';
+            switch ($op) {
+                case 'card.move':
+                    $pendingMoves[] = [
+                        'instanceId' => (string) ($operation['instanceId'] ?? ''),
+                        'from' => is_array($operation['from'] ?? null) ? $operation['from'] : [],
+                        'to' => is_array($operation['to'] ?? null) ? $operation['to'] : [],
+                        ...((isset($operation['card']) && is_array($operation['card'])) ? ['card' => $operation['card']] : []),
+                    ];
+                    break;
+
+                case 'card.remove':
+                    $key = sprintf('%s:%s', (string) ($operation['playerId'] ?? ''), (string) ($operation['zone'] ?? ''));
+                    if (!isset($pendingRemovals[$key])) {
+                        $pendingRemovals[$key] = [
+                            'op' => 'zone.cards.remove',
+                            'playerId' => (string) ($operation['playerId'] ?? ''),
+                            'zone' => (string) ($operation['zone'] ?? ''),
+                            'instanceIds' => [],
+                        ];
+                    }
+                    $pendingRemovals[$key]['instanceIds'][] = (string) ($operation['instanceId'] ?? '');
+                    break;
+
+                default:
+                    $flushPending();
+                    foreach ($this->v2SemanticizeOperation($operation) as $semanticOperation) {
+                        $semantic[] = $semanticOperation;
+                    }
+                    break;
+            }
+        }
+
+        $flushPending();
+
+        return $semantic;
+    }
+
+    /**
+     * @param array<string,mixed> $operation
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function v2SemanticizeOperation(array $operation): array
+    {
+        $op = is_string($operation['op'] ?? null) ? $operation['op'] : '';
+        return match ($op) {
+            'player.life.set',
+            'turn.set',
+            'eventLog.append',
+            'player.counters.set',
+            'game.counters.set' => [$operation],
+            'card.state.set' => [[
+                'op' => 'card.field.set',
+                'playerId' => (string) ($operation['playerId'] ?? ''),
+                'zone' => (string) ($operation['zone'] ?? ''),
+                'instanceId' => (string) ($operation['instanceId'] ?? ''),
+                ...(array_intersect_key($operation, array_flip(['tapped', 'rotation', 'faceDown', 'hidden', 'revealedTo', 'counters', 'dungeonMarker']))),
+            ]],
+            'cards.state.set' => array_values(array_map(
+                fn (array $card): array => [
+                    'op' => 'card.field.set',
+                    'playerId' => (string) ($operation['playerId'] ?? ''),
+                    'zone' => (string) ($operation['zone'] ?? ''),
+                    'instanceId' => (string) ($card['instanceId'] ?? ''),
+                    ...(array_intersect_key($card, array_flip(['tapped', 'rotation', 'faceDown', 'hidden', 'revealedTo', 'counters', 'dungeonMarker']))),
+                ],
+                array_values(array_filter($operation['cards'] ?? [], static fn (mixed $card): bool => is_array($card))),
+            )),
+            'card.position.set' => [[
+                'op' => 'card.field.set',
+                'playerId' => (string) ($operation['playerId'] ?? ''),
+                'zone' => (string) ($operation['zone'] ?? ''),
+                'instanceId' => (string) ($operation['instanceId'] ?? ''),
+                'position' => $operation['position'] ?? null,
+            ]],
+            'cards.position.set' => array_values(array_map(
+                fn (array $card): array => [
+                    'op' => 'card.field.set',
+                    'playerId' => (string) ($operation['playerId'] ?? ''),
+                    'zone' => (string) ($operation['zone'] ?? ''),
+                    'instanceId' => (string) ($card['instanceId'] ?? ''),
+                    'position' => $card['position'] ?? null,
+                ],
+                array_values(array_filter($operation['positions'] ?? [], static fn (mixed $card): bool => is_array($card))),
+            )),
+            'card.counters.set' => [[
+                'op' => 'card.counters.patch',
+                'playerId' => (string) ($operation['playerId'] ?? ''),
+                'zone' => (string) ($operation['zone'] ?? ''),
+                'instanceId' => (string) ($operation['instanceId'] ?? ''),
+                'counters' => is_array($operation['counters'] ?? null) ? $operation['counters'] : [],
+            ]],
+            'card.stats.set' => [[
+                'op' => 'card.field.set',
+                'playerId' => (string) ($operation['playerId'] ?? ''),
+                'zone' => (string) ($operation['zone'] ?? ''),
+                'instanceId' => (string) ($operation['instanceId'] ?? ''),
+                ...(array_intersect_key($operation, array_flip(['power', 'toughness', 'loyalty', 'defense', 'saga']))),
+            ]],
+            'zone.counts.set' => $this->v2ZoneCountSetOperations($operation),
+            'zone.visible.set' => [[
+                'op' => 'library.top.revealed',
+                'playerId' => (string) ($operation['playerId'] ?? ''),
+                'count' => count(is_array($operation['cards'] ?? null) ? $operation['cards'] : []),
+                'cards' => array_values(array_filter($operation['cards'] ?? [], static fn (mixed $card): bool => is_array($card))),
+            ]],
+            'arrow.remove' => [[
+                'op' => 'relation.remove',
+                'kind' => 'arrow',
+                'id' => (string) ($operation['id'] ?? ''),
+            ]],
+            'attachment.remove' => [[
+                'op' => 'relation.remove',
+                'kind' => 'attachment',
+                'id' => (string) ($operation['id'] ?? ''),
+            ]],
+            default => [$operation],
+        };
+    }
+
+    /**
+     * @param array<string,mixed> $operation
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function v2ZoneCountSetOperations(array $operation): array
+    {
+        $playerId = (string) ($operation['playerId'] ?? '');
+        $counts = is_array($operation['counts'] ?? null) ? $operation['counts'] : [];
+        $semantic = [];
+        foreach ($counts as $zone => $count) {
+            if (!is_string($zone)) {
+                continue;
+            }
+
+            $semantic[] = [
+                'op' => 'zone.count.set',
+                'playerId' => $playerId,
+                'zone' => $zone,
+                'count' => max(0, (int) $count),
+            ];
+        }
+
+        return $semantic;
     }
 
     /**
