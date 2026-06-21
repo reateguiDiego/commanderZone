@@ -26,18 +26,21 @@ class GameSnapshotFactory
         ?CompactGameCardStateMapper $compactStateMapper = null,
         ?GameplayCompactRuntimeFlags $compactRuntimeFlags = null,
         ?GameLibraryOps $libraryOps = null,
+        ?GameplayStreamsFlags $streamFlags = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
         $this->compactStateMapper = $compactStateMapper ?? new CompactGameCardStateMapper();
         $this->compactRuntimeFlags = $compactRuntimeFlags ?? new GameplayCompactRuntimeFlags();
         $this->libraryOps = $libraryOps ?? new GameLibraryOps();
+        $this->streamFlags = $streamFlags ?? new GameplayStreamsFlags();
     }
 
     private readonly GameRandomizer $randomizer;
     private readonly CompactGameCardStateMapper $compactStateMapper;
     private readonly GameplayCompactRuntimeFlags $compactRuntimeFlags;
     private readonly GameLibraryOps $libraryOps;
+    private readonly GameplayStreamsFlags $streamFlags;
 
     public function fromRoom(Room $room): array
     {
@@ -152,11 +155,14 @@ class GameSnapshotFactory
             'arrows' => [],
             'attachments' => [],
             'specialEntities' => [],
-            'chat' => [],
-            'eventLog' => [],
             'createdAt' => $createdAt,
             'updatedAt' => $createdAt,
         ];
+
+        if (!$this->streamFlags->enabled()) {
+            $snapshot['chat'] = [];
+            $snapshot['eventLog'] = [];
+        }
 
         if ($this->compactRuntimeFlags->enabled()) {
             return $this->compactStateMapper->compactSnapshot($snapshot);

@@ -1953,7 +1953,8 @@ paths:
   /games/{id}/events:
     get:
       tags: [Games]
-      summary: List persisted game events for reconnection and synchronization.
+      summary: List persisted game activity for reconnection and synchronization.
+      description: Returns legacy `game_event` records by default. When gameplay streams are enabled, it returns a merged activity stream built from `game_log_entry` and chat stream visibility for the authenticated viewer.
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: limit
@@ -1963,14 +1964,20 @@ paths:
             minimum: 1
             maximum: 500
             default: 200
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Stream cursor returned by bootstrap `chatCursor` or `logCursor` when gameplay streams are enabled.
         - name: after
           in: query
           schema:
             type: string
             format: date-time
+          description: Legacy game-event pagination cursor. Ignored when gameplay streams are enabled.
       responses:
         '200':
-          description: Ordered game events.
+          description: Ordered game activity.
           content:
             application/json:
               schema:
@@ -1980,11 +1987,91 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/GameEvent'
+                      $ref: '#/components/schemas/GameActivityEntry'
                   limit:
                     type: integer
         '400':
           $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /games/{id}/chat:
+    get:
+      tags: [Games]
+      summary: List chat messages outside the gameplay runtime snapshot.
+      description: Available only when gameplay chat streams are enabled. Visibility rules still apply: private messages are only returned to the sender and target player.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 150
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Stable message id returned as `chatCursor` by V2 bootstrap.
+      responses:
+        '200':
+          description: Ordered chat messages.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, limit]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChatMessage'
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /games/{id}/log:
+    get:
+      tags: [Games]
+      summary: List gameplay log entries outside the gameplay runtime snapshot.
+      description: Available only when gameplay log streams are enabled.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 250
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Stable log entry id returned as `logCursor` by V2 bootstrap.
+      responses:
+        '200':
+          description: Ordered gameplay log entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, limit]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameLogEntry'
+                  limit:
+                    type: integer
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -4997,6 +5084,18 @@ components:
         createdAt:
           type: string
           format: date-time
+    GameActivityEntry:
+      type: object
+      required: [id, type, createdAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: true
     CommandEnvelopeV2:
       type: object
       required: [gameId, baseVersion, clientActionId, type, payload]

@@ -142,6 +142,10 @@ class GameCommandHandler
      * @var array{eventPayload:array<string,mixed>,operations:list<array<string,mixed>>}|null
      */
     private ?array $lastDirectPatchPayload = null;
+    /**
+     * @var list<array<string,mixed>>
+     */
+    private array $pendingStreamLogEntries = [];
 
     public function __construct(
         private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null,
@@ -154,6 +158,7 @@ class GameCommandHandler
         ?GameCommandV2Dispatcher $commandDispatcherV2 = null,
         ?GameplayV2Flags $flagsV2 = null,
         ?GameVisibilityIndex $visibilityIndex = null,
+        ?GameplayStreamsFlags $streamFlags = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
@@ -165,6 +170,7 @@ class GameCommandHandler
         $this->commandDispatcherV2 = $commandDispatcherV2 ?? new GameCommandV2Dispatcher();
         $this->flagsV2 = $flagsV2 ?? new GameplayV2Flags();
         $this->visibilityIndex = $visibilityIndex ?? new GameVisibilityIndex();
+        $this->streamFlags = $streamFlags ?? new GameplayStreamsFlags();
     }
 
     private readonly GameRandomizer $randomizer;
@@ -176,6 +182,7 @@ class GameCommandHandler
     private readonly GameCommandV2Dispatcher $commandDispatcherV2;
     private readonly GameplayV2Flags $flagsV2;
     private readonly GameVisibilityIndex $visibilityIndex;
+    private readonly GameplayStreamsFlags $streamFlags;
 
     /**
      * @return list<string>
@@ -203,6 +210,7 @@ class GameCommandHandler
 
         $this->lastCommandMetrics = null;
         $this->lastDirectPatchPayload = null;
+        $this->pendingStreamLogEntries = [];
         $this->fullScanCount = 0;
         if ($this->shouldUseV2Command($type)) {
             $event = $this->applyV2($game, $type, $payload, $actor, $clientActionId);
@@ -342,6 +350,17 @@ class GameCommandHandler
         return $payload;
     }
 
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function consumePendingStreamLogEntries(): array
+    {
+        $entries = $this->pendingStreamLogEntries;
+        $this->pendingStreamLogEntries = [];
+
+        return $entries;
+    }
+
     public function usesV2CommandRouting(string $type): bool
     {
         return $this->shouldUseV2Command($type);
@@ -365,9 +384,13 @@ class GameCommandHandler
         $snapshot['stack'] ??= [];
         $snapshot['arrows'] ??= [];
         $snapshot['attachments'] ??= [];
-        $snapshot['chat'] ??= [];
-        $snapshot['chat'] = $this->normalizeChatMessages(is_array($snapshot['chat']) ? $snapshot['chat'] : []);
-        $snapshot['eventLog'] ??= [];
+        if ($this->streamsEnabled()) {
+            unset($snapshot['chat'], $snapshot['eventLog']);
+        } else {
+            $snapshot['chat'] ??= [];
+            $snapshot['chat'] = $this->normalizeChatMessages(is_array($snapshot['chat']) ? $snapshot['chat'] : []);
+            $snapshot['eventLog'] ??= [];
+        }
         $snapshot['counters'] ??= [];
         $snapshot['updatedAt'] ??= $snapshot['createdAt'] ?? (new \DateTimeImmutable())->format(DATE_ATOM);
 
@@ -2707,6 +2730,12 @@ class GameCommandHandler
         ];
         if ($context !== []) {
             $entry = [...$entry, ...$context];
+        }
+
+        if ($this->streamsEnabled()) {
+            $this->pendingStreamLogEntries[] = $entry;
+
+            return;
         }
 
         $snapshot['eventLog'][] = $entry;
@@ -5576,6 +5605,7 @@ class GameCommandHandler
             $this->pendingEventPayload = null;
             $this->pendingDefeatedPlayerId = null;
             $this->pendingDefeatPreexisted = false;
+            $this->pendingStreamLogEntries = [];
             $this->assertActorCanApply($snapshot, $type, $payload, $actor);
             $this->assertGamePhaseAllowsCommand($snapshot, $type);
 
@@ -5588,7 +5618,9 @@ class GameCommandHandler
             $this->syncVisibilityIndexAfterCommand($snapshot, $type, $payload);
             $eventLogCountBefore = count($snapshot['eventLog'] ?? []);
             $this->commit($snapshot, $type, $result->logMessage(), $actor);
-            $eventLogEntries = array_values(array_slice($snapshot['eventLog'] ?? [], $eventLogCountBefore));
+            $eventLogEntries = $this->streamsEnabled()
+                ? array_values($this->pendingStreamLogEntries)
+                : array_values(array_slice($snapshot['eventLog'] ?? [], $eventLogCountBefore));
             $eventVersion = max(1, (int) ($snapshot['version'] ?? 1));
             $eventStoreEnabled = $this->flagsV2->eventEnabled();
             $persistedSnapshot = $eventStoreEnabled
@@ -5652,7 +5684,11 @@ class GameCommandHandler
         $snapshot['turn']['activePlayerId'] = (string) ($snapshot['turn']['activePlayerId'] ?? '');
         $snapshot['turn']['phase'] = (string) ($snapshot['turn']['phase'] ?? 'main');
         $snapshot['turn']['number'] = max(1, (int) ($snapshot['turn']['number'] ?? 1));
-        $snapshot['eventLog'] = is_array($snapshot['eventLog'] ?? null) ? array_values($snapshot['eventLog']) : [];
+        if ($this->streamsEnabled()) {
+            unset($snapshot['eventLog']);
+        } else {
+            $snapshot['eventLog'] = is_array($snapshot['eventLog'] ?? null) ? array_values($snapshot['eventLog']) : [];
+        }
         $snapshot['counters'] = is_array($snapshot['counters'] ?? null) ? $snapshot['counters'] : [];
         $snapshot['updatedAt'] ??= $snapshot['createdAt'] ?? (new \DateTimeImmutable())->format(DATE_ATOM);
         $snapshot['players'] = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
@@ -5694,7 +5730,9 @@ class GameCommandHandler
     {
         $payload = $result->storedEventPayload();
         $payload['public'] = $result->eventPayload();
-        $payload['eventLogEntries'] = $eventLogEntries;
+        if (!$this->streamsEnabled()) {
+            $payload['eventLogEntries'] = $eventLogEntries;
+        }
 
         return $payload;
     }
@@ -5827,10 +5865,19 @@ class GameCommandHandler
 
     private function snapshotForPersistence(Game $game, array $snapshotBefore, array $snapshot): array
     {
+        if ($this->streamsEnabled()) {
+            unset($snapshot['chat'], $snapshot['eventLog']);
+        }
+
         if (!$this->compactRuntimeFlags->enabled() && !$this->compactStateMapper->isCompactSnapshot($snapshotBefore)) {
             return $snapshot;
         }
 
         return $this->compactStateMapper->compactSnapshot($snapshot, $game->id(), $game->status());
+    }
+
+    private function streamsEnabled(): bool
+    {
+        return $this->streamFlags->enabled();
     }
 }

@@ -20,6 +20,8 @@ class GameProjectionService
         private readonly ?GameLibraryOps $libraryOps = null,
         private readonly ?GameVisibilityIndex $visibilityIndex = null,
         private readonly ?GameplayV2Flags $flagsV2 = null,
+        private readonly ?GameActivityStreamService $activityStreams = null,
+        private readonly ?GameplayStreamsFlags $streamFlags = null,
     )
     {
     }
@@ -27,6 +29,9 @@ class GameProjectionService
     public function project(Game $game, User $viewer): array
     {
         $snapshot = $this->normalizer->normalizeSnapshot($game->snapshot());
+        if (($this->streamFlags?->enabled() ?? false) && $this->activityStreams instanceof GameActivityStreamService) {
+            $snapshot = $this->activityStreams->decorateSnapshotForViewer($game, $snapshot, $viewer);
+        }
 
         return $this->projectSnapshot($this->withCurrentPlayerUsers($game, $snapshot), $viewer, $game->room()->hasPlayer($viewer));
     }

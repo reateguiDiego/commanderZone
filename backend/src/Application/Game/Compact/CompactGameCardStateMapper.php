@@ -528,15 +528,21 @@ final class CompactGameCardStateMapper
      */
     private function compactExtraFields(array $snapshot): array
     {
-        return [
+        $extra = [
             'ownerId' => $snapshot['ownerId'] ?? '',
             'gamePhase' => $snapshot['gamePhase'] ?? 'PLAYING',
             'mulligan' => is_array($snapshot['mulligan'] ?? null) ? $snapshot['mulligan'] : [],
             'timer' => is_array($snapshot['timer'] ?? null) ? $snapshot['timer'] : [],
-            'chat' => is_array($snapshot['chat'] ?? null) ? $snapshot['chat'] : [],
-            'eventLog' => is_array($snapshot['eventLog'] ?? null) ? $snapshot['eventLog'] : [],
             'createdAt' => $snapshot['createdAt'] ?? null,
             'updatedAt' => $snapshot['updatedAt'] ?? null,
         ];
+        if (array_key_exists('chat', $snapshot)) {
+            $extra['chat'] = is_array($snapshot['chat'] ?? null) ? $snapshot['chat'] : [];
+        }
+        if (array_key_exists('eventLog', $snapshot)) {
+            $extra['eventLog'] = is_array($snapshot['eventLog'] ?? null) ? $snapshot['eventLog'] : [];
+        }
+
+        return $extra;
     }
 }

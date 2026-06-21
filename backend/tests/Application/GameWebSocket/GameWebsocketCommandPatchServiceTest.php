@@ -6,9 +6,11 @@ use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
+use App\Application\Game\GameActivityStreamService;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameEventStoreV2;
+use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameVisibilityIndex;
 use App\Application\Game\Performance\GameplayMetricsInspector;
@@ -18,6 +20,7 @@ use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
 use App\Application\Game\WebSocket\GameWebsocketPatchBuilder;
 use App\Domain\Game\Game;
+use App\Domain\Game\GameChatMessage;
 use App\Domain\Game\GameEvent;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -477,6 +480,79 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame('player:'.$actor->id(), $message['visibility']);
         self::assertSame('action-v2', $message['ackClientActionId']);
         self::assertSame('player.life.set', $message['ops'][0]['op']);
+    }
+
+    public function testStreamChatMessageUsesDirectSemanticPatchWithoutProjection(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithOpponent();
+        $snapshot = $game->snapshot();
+        unset($snapshot['chat'], $snapshot['eventLog']);
+        $game->replaceSnapshot($snapshot);
+
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+
+        $gameRepository = $this->createMock(EntityRepository::class);
+        $gameRepository->expects(self::once())->method('find')->with($game->id())->willReturn($game);
+        $userRepository = $this->createMock(EntityRepository::class);
+        $userRepository->expects(self::once())->method('find')->with($actor->id())->willReturn($actor);
+        $manager = $this->createMock(EntityManagerInterface::class);
+        $manager->method('getRepository')->willReturnMap([
+            [Game::class, $gameRepository],
+            [User::class, $userRepository],
+        ]);
+        $manager->expects(self::once())->method('beginTransaction');
+        $manager->expects(self::once())
+            ->method('persist')
+            ->with(self::isInstanceOf(GameChatMessage::class));
+        $manager->expects(self::once())->method('flush');
+        $manager->expects(self::once())->method('commit');
+        $manager->expects(self::once())->method('clear');
+
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
+
+        $messages = new GameWebsocketMessageFactory();
+        $handler = new GameCommandHandler();
+        $service = new GameWebsocketCommandPatchService(
+            $handler,
+            new GameDisconnectVoteService($handler),
+            new GameWebsocketPatchBuilder($messages),
+            $messages,
+            new \App\Application\Game\WebSocket\GameWebsocketRoomRegistry(),
+            $registry,
+            $projection,
+            null,
+            null,
+            new GameplayMetricsInspector(),
+            new GameplayV2ContractFactory(),
+            null,
+            null,
+            new GameActivityStreamService($registry, new GameplayStreamsFlags(true)),
+            new GameplayStreamsFlags(true),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'chat.message',
+            ['message' => 'hello table'],
+            'action-stream-chat',
+            1,
+            'message-stream-chat',
+        );
+
+        $ownerMessage = $result->messageForUserId($actor->id());
+        $opponentMessage = $result->messageForUserId($opponent->id());
+
+        self::assertSame('game_patch', $ownerMessage['kind']);
+        self::assertSame('chat.message.add', $ownerMessage['operations'][0]['op']);
+        self::assertSame('hello table', $ownerMessage['operations'][0]['message']['message']);
+        self::assertSame('chat.message.add', $opponentMessage['operations'][0]['op']);
+        self::assertArrayNotHasKey('chat', $game->snapshot());
+        self::assertArrayNotHasKey('eventLog', $game->snapshot());
+        self::assertSame(1, $game->snapshot()['version']);
     }
 
     public function testV2DirectCommandBypassesProjectionAndDiffForCardTapped(): void
@@ -995,6 +1071,8 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         ?GameCommandHandler $handler = null,
         ?GameWebsocketPatchBuilder $patchBuilder = null,
         ?GameEventStoreV2 $eventStoreV2 = null,
+        ?GameActivityStreamService $activityStreams = null,
+        ?GameplayStreamsFlags $streamFlags = null,
     ): GameWebsocketCommandPatchService {
         $actor ??= $game->room()->owner();
         $gameRepository = $this->createMock(EntityRepository::class);
@@ -1021,7 +1099,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $registry = $this->createMock(ManagerRegistry::class);
         $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
 
-        return $this->serviceWithRegistry($registry, $projection, $resolver, $metricsStore, $flagsV2, $handler, $patchBuilder, $eventStoreV2);
+        return $this->serviceWithRegistry($registry, $projection, $resolver, $metricsStore, $flagsV2, $handler, $patchBuilder, $eventStoreV2, $activityStreams, $streamFlags);
     }
 
     private function serviceWithRegistry(
@@ -1033,6 +1111,8 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         ?GameCommandHandler $handler = null,
         ?GameWebsocketPatchBuilder $patchBuilder = null,
         ?GameEventStoreV2 $eventStoreV2 = null,
+        ?GameActivityStreamService $activityStreams = null,
+        ?GameplayStreamsFlags $streamFlags = null,
     ): GameWebsocketCommandPatchService
     {
         $messages = new GameWebsocketMessageFactory();
@@ -1053,6 +1133,8 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             $contractsV2,
             $flagsV2,
             $eventStoreV2,
+            $activityStreams,
+            $streamFlags,
         );
     }
 

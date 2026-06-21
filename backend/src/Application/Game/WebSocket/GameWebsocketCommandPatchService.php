@@ -4,9 +4,11 @@ namespace App\Application\Game\WebSocket;
 
 use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
+use App\Application\Game\GameActivityStreamService;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameEventStoreV2;
+use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
@@ -39,6 +41,8 @@ final readonly class GameWebsocketCommandPatchService
         private ?GameplayV2ContractFactory $contractsV2 = null,
         private ?GameplayV2Flags $flagsV2 = null,
         private ?GameEventStoreV2 $eventStoreV2 = null,
+        private ?GameActivityStreamService $activityStreams = null,
+        private ?GameplayStreamsFlags $streamFlags = null,
     ) {
     }
 
@@ -76,6 +80,7 @@ final readonly class GameWebsocketCommandPatchService
         $resyncRequired = false;
         $duplicate = false;
         $status = 'rejected';
+        $previousLogEntries = [];
 
         if (trim($clientActionId) === '') {
             $message = $this->messages->rejectedCommand(
@@ -249,6 +254,30 @@ final readonly class GameWebsocketCommandPatchService
                 return $message;
             }
 
+            if ($this->streamsEnabled() && in_array($type, ['chat.message', 'chat.reaction.toggled'], true)) {
+                return $this->applyStreamChatCommand(
+                    $manager,
+                    $game,
+                    $actor,
+                    $type,
+                    $payload,
+                    $clientActionId,
+                    $baseVersion,
+                    $messageId,
+                    $responseProtocol,
+                    $phaseTimings,
+                    $startedAt,
+                    $snapshotLoadMs,
+                    $snapshotBytesBefore,
+                    $snapshotBytesAfter,
+                    $numberOfPlayers,
+                    $numberOfInstances,
+                    $metricsRecorder,
+                    $metricsInspector,
+                    $usageStartedAt,
+                );
+            }
+
             $manager->beginTransaction();
             $manager->lock($game, LockMode::PESSIMISTIC_WRITE);
             $currentVersion = $this->snapshotVersion($game);
@@ -382,6 +411,10 @@ final readonly class GameWebsocketCommandPatchService
                 return $message;
             }
 
+            if ($this->streamsEnabled() && $this->activityStreams instanceof GameActivityStreamService) {
+                $previousLogEntries = $this->activityStreams->logEntries($game);
+            }
+
             $previousSnapshot = $game->snapshot();
             $phaseTimings['load'] = $snapshotLoadMs;
             $applyStartedAt = microtime(true);
@@ -455,6 +488,16 @@ final readonly class GameWebsocketCommandPatchService
 
             $persistStartedAt = microtime(true);
             $manager->persist($event);
+            $appendedLogEntries = [];
+            if ($this->streamsEnabled() && $this->activityStreams instanceof GameActivityStreamService) {
+                $appendedLogEntries = $this->commands->consumePendingStreamLogEntries();
+                $this->activityStreams->appendLogEntries(
+                    $manager,
+                    $game,
+                    max(1, (int) ($game->snapshot()['version'] ?? 1)),
+                    $appendedLogEntries,
+                );
+            }
             if ($game instanceof Game && $this->shouldHydrateEventStore()) {
                 $this->eventStoreV2?->persistCompactSnapshotIfDue($manager, $game, $game->snapshot());
             }
@@ -482,6 +525,8 @@ final readonly class GameWebsocketCommandPatchService
                     $phaseTimings,
                     $startedAt,
                     $responseProtocol,
+                    $appendedLogEntries,
+                    $previousLogEntries,
                 );
             $projectionMs = (float) ($projected['projection_ms'] ?? 0.0);
             $patchMs = (float) ($projected['patch_ms'] ?? 0.0);
@@ -623,9 +668,299 @@ final readonly class GameWebsocketCommandPatchService
         return $manager;
     }
 
+    /**
+     * @param array<string,float> $phaseTimings
+     * @param array<string,int>|null $usageStartedAt
+     */
+    private function applyStreamChatCommand(
+        EntityManagerInterface $manager,
+        Game $game,
+        User $actor,
+        string $type,
+        array $payload,
+        string $clientActionId,
+        int $baseVersion,
+        ?string $messageId,
+        string $responseProtocol,
+        array $phaseTimings,
+        float $startedAt,
+        float $snapshotLoadMs,
+        int $snapshotBytesBefore,
+        int $snapshotBytesAfter,
+        int $numberOfPlayers,
+        int $numberOfInstances,
+        GameplayMetricsRecorderInterface $metricsRecorder,
+        GameplayMetricsInspector $metricsInspector,
+        ?array $usageStartedAt,
+    ): array|GameWebsocketCommandResult {
+        \assert($this->activityStreams instanceof GameActivityStreamService);
+
+        $currentVersion = $this->snapshotVersion($game);
+        $persistStartedAt = microtime(true);
+        $manager->beginTransaction();
+        try {
+            if ($type === 'chat.message') {
+                $message = trim((string) ($payload['message'] ?? ''));
+                if ($message === '') {
+                    throw new \InvalidArgumentException('Message is required.');
+                }
+                $targetPlayerId = $this->streamChatTargetPlayerId($game->snapshot(), $payload, $actor);
+                $targetDisplayName = $targetPlayerId !== null ? $this->playerName($game->snapshot(), $targetPlayerId) : null;
+                $record = $this->activityStreams->appendChatMessage(
+                    $manager,
+                    $game,
+                    $actor,
+                    $message,
+                    $targetPlayerId,
+                    $targetDisplayName,
+                );
+                $event = new GameEvent($game, 'chat.message', [
+                    'private' => $targetPlayerId !== null,
+                ], $actor, $clientActionId, $currentVersion);
+                $chatMessage = $record->toArray();
+                $messagesByUserId = [];
+                foreach ($this->viewers($game) as $viewer) {
+                    $ops = $this->streamChatVisibleToViewer($chatMessage, $viewer->id())
+                        ? [[
+                            'op' => 'chat.message.add',
+                            'message' => $chatMessage,
+                        ]]
+                        : [];
+                    $messagesByUserId[$viewer->id()] = $this->streamChatPatchMessage(
+                        $game,
+                        $event,
+                        $ops,
+                        $baseVersion,
+                        $currentVersion,
+                        $responseProtocol,
+                        $viewer->id(),
+                    );
+                }
+            } else {
+                $record = $this->activityStreams->toggleReaction(
+                    $manager,
+                    $game,
+                    $actor,
+                    trim((string) ($payload['messageId'] ?? '')),
+                    trim((string) ($payload['reaction'] ?? '')),
+                );
+                $event = new GameEvent($game, 'chat.reaction.toggled', [
+                    'messageId' => $record->messageId(),
+                    'reaction' => trim((string) ($payload['reaction'] ?? '')),
+                ], $actor, $clientActionId, $currentVersion);
+                $chatMessage = $record->toArray();
+                $messagesByUserId = [];
+                foreach ($this->viewers($game) as $viewer) {
+                    $ops = $this->streamChatVisibleToViewer($chatMessage, $viewer->id())
+                        ? [[
+                            'op' => 'chat.reaction.set',
+                            'messageId' => $record->messageId(),
+                            'reactions' => $chatMessage['reactions'] ?? [],
+                            'message' => $chatMessage,
+                        ]]
+                        : [];
+                    $messagesByUserId[$viewer->id()] = $this->streamChatPatchMessage(
+                        $game,
+                        $event,
+                        $ops,
+                        $baseVersion,
+                        $currentVersion,
+                        $responseProtocol,
+                        $viewer->id(),
+                    );
+                }
+            }
+
+            $manager->flush();
+            $manager->commit();
+        } catch (\InvalidArgumentException $exception) {
+            if ($manager->getConnection()->isTransactionActive()) {
+                $manager->rollback();
+            }
+            $this->recordMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                [
+                    'transport' => 'websocket',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => 0.0,
+                    'command_apply_ms' => 0.0,
+                    'persist_ms' => 0.0,
+                    'projection_ms' => 0.0,
+                    'patch_build_ms' => 0.0,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => 0,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => 0,
+                    'resync_required' => false,
+                    'clientActionId_duplicate' => false,
+                    'status' => 'rejected',
+                ],
+                $usageStartedAt,
+            );
+
+            return $this->messages->rejectedCommand(
+                $game->id(),
+                $messageId,
+                $clientActionId,
+                $currentVersion,
+                'COMMAND_REJECTED',
+                $exception->getMessage(),
+            );
+        } catch (\Throwable $exception) {
+            if ($manager->getConnection()->isTransactionActive()) {
+                $manager->rollback();
+            }
+
+            throw $exception;
+        }
+
+        $persistMs = $this->elapsedMs($persistStartedAt);
+        $phaseTimings['persist'] = $persistMs;
+        $phaseTimings['projection'] = 0.0;
+        $phaseTimings['patch'] = 0.0;
+        $phaseTimings['total'] = $this->elapsedMs($startedAt);
+        $patchBytes = 0;
+        foreach ($messagesByUserId as $messages) {
+            $patchBytes += $metricsInspector->patchBytesForMessages($messages);
+        }
+        $this->recordMetric(
+            $metricsRecorder,
+            $metricsInspector,
+            [
+                'transport' => 'websocket',
+                'command.type' => $type,
+                'gameId' => $game->id(),
+                'snapshot_load_ms' => $snapshotLoadMs,
+                'normalize_ms' => 0.0,
+                'command_apply_ms' => 0.0,
+                'persist_ms' => $persistMs,
+                'projection_ms' => 0.0,
+                'patch_build_ms' => 0.0,
+                'total_server_ms' => $this->elapsedMs($startedAt),
+                'snapshot_bytes_before' => $snapshotBytesBefore,
+                'snapshot_bytes_after' => $snapshotBytesAfter,
+                'patch_bytes' => $patchBytes,
+                'number_of_players' => $numberOfPlayers,
+                'number_of_instances' => $numberOfInstances,
+                'number_of_visible_cards' => 0,
+                'resync_required' => false,
+                'clientActionId_duplicate' => false,
+                'status' => 'applied',
+            ],
+            $usageStartedAt,
+        );
+
+        return GameWebsocketCommandResult::forViewerMessageLists(
+            $messagesByUserId,
+            [[
+                'kind' => 'command_ack',
+                'gameId' => $game->id(),
+                'clientActionId' => $clientActionId,
+                'status' => 'duplicate',
+                'version' => $currentVersion,
+            ]],
+            $this->normalizeDebugProfile($phaseTimings),
+        );
+    }
+
     private function shouldHydrateEventStore(): bool
     {
         return ($this->flagsV2?->eventEnabled() ?? false) && $this->eventStoreV2?->enabled() === true;
+    }
+
+    private function streamsEnabled(): bool
+    {
+        return ($this->streamFlags?->enabled() ?? false) && $this->activityStreams instanceof GameActivityStreamService;
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $payload
+     */
+    private function streamChatTargetPlayerId(array $snapshot, array $payload, User $actor): ?string
+    {
+        $targetPlayerId = $payload['targetPlayerId'] ?? null;
+        if ($targetPlayerId === null || $targetPlayerId === '' || $targetPlayerId === 'all') {
+            return null;
+        }
+        if (!is_string($targetPlayerId) || !isset($snapshot['players'][$targetPlayerId])) {
+            throw new \InvalidArgumentException('Chat target player not found.');
+        }
+        if ($targetPlayerId === $actor->id()) {
+            throw new \InvalidArgumentException('Private chat target must be another player.');
+        }
+
+        return $targetPlayerId;
+    }
+
+    /**
+     * @param array<string,mixed> $message
+     */
+    private function streamChatVisibleToViewer(array $message, string $viewerId): bool
+    {
+        $targetPlayerId = $message['targetPlayerId'] ?? null;
+        if (!is_string($targetPlayerId) || $targetPlayerId === '') {
+            return true;
+        }
+
+        return $targetPlayerId === $viewerId || ($message['userId'] ?? null) === $viewerId;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $ops
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function streamChatPatchMessage(
+        Game $game,
+        GameEvent $event,
+        array $ops,
+        int $baseVersion,
+        int $currentVersion,
+        string $responseProtocol,
+        string $viewerId,
+    ): array {
+        if ($responseProtocol === 'v2'
+            && ($this->flagsV2?->patchEnabled() ?? false)
+            && $this->contractsV2 instanceof GameplayV2ContractFactory) {
+            return [[
+                'kind' => 'patch.v2',
+                ...$this->contractsV2->patchForViewer(
+                    $game->id(),
+                    $currentVersion,
+                    $viewerId,
+                    $ops,
+                    $event->clientActionId(),
+                )->toArray(),
+            ]];
+        }
+
+        return [$this->messages->gamePatch(
+            $game->id(),
+            $baseVersion,
+            $currentVersion,
+            $ops,
+            $event,
+            $event->toArray()['payload'] ?? null,
+        )];
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     */
+    private function playerName(array $snapshot, string $playerId): string
+    {
+        $player = $snapshot['players'][$playerId] ?? null;
+        $user = is_array($player['user'] ?? null) ? $player['user'] : [];
+        $displayName = trim((string) ($user['displayName'] ?? ''));
+
+        return $displayName !== '' ? $displayName : $playerId;
     }
 
     /**
@@ -711,9 +1046,18 @@ final readonly class GameWebsocketCommandPatchService
         array $phaseTimings,
         float $startedAt,
         string $responseProtocol = 'legacy',
+        array $appendedLogEntries = [],
+        array $previousLogEntries = [],
     ): array
     {
         $metricsInspector = $this->metricsInspector();
+        if ($this->streamsEnabled()) {
+            $previousSnapshot['eventLog'] = $previousLogEntries;
+            $nextSnapshot['eventLog'] = array_values(array_slice([
+                ...$previousLogEntries,
+                ...$appendedLogEntries,
+            ], -250));
+        }
         $previousSnapshot = $this->commands->normalizeSnapshot($previousSnapshot);
         $nextSnapshot = $this->commands->normalizeSnapshot($nextSnapshot);
         $viewers = $this->viewers($game);

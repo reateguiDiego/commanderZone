@@ -7,6 +7,7 @@ use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganRules;
 use App\Application\Game\GameRandomizer;
+use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
@@ -15,6 +16,29 @@ use PHPUnit\Framework\TestCase;
 
 class GameCommandHandlerTest extends TestCase
 {
+    public function testStreamsFlagPersistsGameplayLogOutsideRuntimeSnapshot(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+        $handler = new GameCommandHandler(streamFlags: new GameplayStreamsFlags(true));
+
+        $handler->apply($game, 'life.changed', [
+            'playerId' => $actor->id(),
+            'delta' => -2,
+        ], $actor);
+
+        self::assertSame(38, $game->snapshot()['players'][$actor->id()]['life']);
+        self::assertArrayNotHasKey('chat', $game->snapshot());
+        self::assertArrayNotHasKey('eventLog', $game->snapshot());
+
+        $entries = $handler->consumePendingStreamLogEntries();
+        self::assertCount(1, $entries);
+        self::assertSame('life.changed', $entries[0]['type']);
+        self::assertSame('Owner', $entries[0]['displayName']);
+        self::assertSame($actor->id(), $entries[0]['actorId']);
+        self::assertSame([], $handler->consumePendingStreamLogEntries());
+    }
+
     public function testResetsModifiedPowerToughnessWhenCardLeavesBattlefield(): void
     {
         $actor = new User('owner@example.test', 'Owner');

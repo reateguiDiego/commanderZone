@@ -25,6 +25,47 @@ use Symfony\Component\HttpFoundation\Request;
 
 class GamesControllerV2Test extends TestCase
 {
+    public function testBootstrapV2IncludesChatAndLogCursors(): void
+    {
+        [$game, $viewer] = $this->game();
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::once())->method('project')->with($game, $viewer)->willReturn($this->projectedSnapshot($viewer, [
+            'chat' => [[
+                'id' => 'chat-1',
+                'userId' => $viewer->id(),
+                'displayName' => 'Viewer',
+                'message' => 'hello',
+                'createdAt' => '2026-01-01T00:00:00+00:00',
+                'reactions' => [],
+            ]],
+            'eventLog' => [[
+                'id' => 'log-1',
+                'type' => 'life.changed',
+                'message' => 'lost 2 life',
+                'actorId' => $viewer->id(),
+                'displayName' => 'Viewer',
+                'createdAt' => '2026-01-01T00:01:00+00:00',
+            ]],
+        ]));
+
+        $controller = new GamesController();
+        $controller->setContainer($this->controllerContainer());
+        $response = $controller->snapshot(
+            $game->id(),
+            $viewer,
+            $this->entityManager($game),
+            $projection,
+            $this->debugHealth(),
+            Request::create('/games/'.$game->id().'/bootstrap?contract=v2', 'GET'),
+            new GameplayV2ContractFactory(),
+            new GameplayV2Flags(false, false, true, false),
+        );
+        $payload = json_decode($response->getContent() ?: '[]', true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame('chat-1', $payload['chatCursor']);
+        self::assertSame('log-1', $payload['logCursor']);
+    }
+
     public function testBootstrapCanReturnV2ContractUnderFeatureFlag(): void
     {
         [$game, $viewer] = $this->game();
@@ -166,9 +207,9 @@ class GamesControllerV2Test extends TestCase
     /**
      * @return array<string,mixed>
      */
-    private function projectedSnapshot(User $viewer): array
+    private function projectedSnapshot(User $viewer, array $overrides = []): array
     {
-        return [
+        return array_replace_recursive([
             'version' => 2,
             'ownerId' => $viewer->id(),
             'players' => [
@@ -203,6 +244,6 @@ class GamesControllerV2Test extends TestCase
             'eventLog' => [],
             'createdAt' => '2026-01-01T00:00:00+00:00',
             'updatedAt' => '2026-01-01T00:00:00+00:00',
-        ];
+        ], $overrides);
     }
 }

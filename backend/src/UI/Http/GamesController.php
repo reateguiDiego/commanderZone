@@ -5,8 +5,10 @@ namespace App\UI\Http;
 use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameActivityStreamService;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameEventStoreV2;
+use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
@@ -340,6 +342,8 @@ class GamesController extends ApiController
         GameplayMetricsInspector $metricsInspector,
         ?GameplayV2Flags $flagsV2 = null,
         ?GameEventStoreV2 $eventStoreV2 = null,
+        ?GameActivityStreamService $activityStreams = null,
+        ?GameplayStreamsFlags $streamFlags = null,
     ): JsonResponse
     {
         $startedAt = microtime(true);
@@ -379,6 +383,20 @@ class GamesController extends ApiController
         }
         if ($game->status() === Game::STATUS_FINISHED && !GameCommandHandler::isAllowedWhenFinished($type)) {
             return $this->fail(sprintf('Game is finished. Command not allowed: %s', $type), 409);
+        }
+        if (($streamFlags?->enabled() ?? false)
+            && $activityStreams instanceof GameActivityStreamService
+            && in_array($type, ['chat.message', 'chat.reaction.toggled'], true)) {
+            return $this->streamChatCommandResponse(
+                $game,
+                $user,
+                $type,
+                is_array($payload['payload'] ?? null) ? $payload['payload'] : [],
+                $entityManager,
+                $projection,
+                $publisher,
+                $activityStreams,
+            );
         }
 
         $clientActionId = isset($payload['clientActionId']) && is_string($payload['clientActionId']) && trim($payload['clientActionId']) !== ''
@@ -456,6 +474,14 @@ class GamesController extends ApiController
             $numberOfInstances = (int) ($handlerMetrics['number_of_instances'] ?? $numberOfInstances);
             $persistStartedAt = microtime(true);
             $entityManager->persist($event);
+            if (($streamFlags?->enabled() ?? false) && $activityStreams instanceof GameActivityStreamService) {
+                $activityStreams->appendLogEntries(
+                    $entityManager,
+                    $game,
+                    max(1, (int) ($game->snapshot()['version'] ?? 1)),
+                    $handler->consumePendingStreamLogEntries(),
+                );
+            }
             if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
                 $eventStoreV2->persistCompactSnapshotIfDue($entityManager, $game, $game->snapshot());
             }
@@ -872,7 +898,7 @@ class GamesController extends ApiController
     }
 
     #[Route('/games/{id}/events', methods: ['GET'])]
-    public function events(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function events(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, ?GameActivityStreamService $activityStreams = null, ?GameplayStreamsFlags $streamFlags = null): JsonResponse
     {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -883,6 +909,14 @@ class GamesController extends ApiController
         }
 
         $limit = max(1, min(500, (int) $request->query->get('limit', 200)));
+        $cursor = trim((string) $request->query->get('cursor', ''));
+        if (($streamFlags?->enabled() ?? false) && $activityStreams instanceof GameActivityStreamService) {
+            return $this->json([
+                'data' => $activityStreams->activityEntries($game, $user, $limit, $cursor !== '' ? $cursor : null),
+                'limit' => $limit,
+            ]);
+        }
+
         $after = $request->query->get('after');
         $afterDate = null;
         if (is_string($after) && $after !== '') {
@@ -910,6 +944,64 @@ class GamesController extends ApiController
                 static fn (\App\Domain\Game\GameEvent $event) => $event->toArray(),
                 $queryBuilder->getQuery()->getResult(),
             ),
+            'limit' => $limit,
+        ]);
+    }
+
+    #[Route('/games/{id}/chat', methods: ['GET'])]
+    public function chat(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        ?GameActivityStreamService $activityStreams = null,
+        ?GameplayStreamsFlags $streamFlags = null,
+    ): JsonResponse {
+        $game = $entityManager->getRepository(Game::class)->find($id);
+        if (!$game instanceof Game) {
+            return $this->fail('Game not found.', 404);
+        }
+        if (!$game->canBeViewedBy($user)) {
+            return $this->fail('Game access denied.', 403);
+        }
+        if (!(($streamFlags?->enabled() ?? false) && $activityStreams instanceof GameActivityStreamService)) {
+            return $this->fail('Chat stream is not enabled.', 404);
+        }
+
+        $limit = max(1, min(500, (int) $request->query->get('limit', 150)));
+        $cursor = trim((string) $request->query->get('cursor', ''));
+
+        return $this->json([
+            'data' => $activityStreams->chatMessagesForViewer($game, $user, $limit, $cursor !== '' ? $cursor : null),
+            'limit' => $limit,
+        ]);
+    }
+
+    #[Route('/games/{id}/log', methods: ['GET'])]
+    public function log(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        ?GameActivityStreamService $activityStreams = null,
+        ?GameplayStreamsFlags $streamFlags = null,
+    ): JsonResponse {
+        $game = $entityManager->getRepository(Game::class)->find($id);
+        if (!$game instanceof Game) {
+            return $this->fail('Game not found.', 404);
+        }
+        if (!$game->canBeViewedBy($user)) {
+            return $this->fail('Game access denied.', 403);
+        }
+        if (!(($streamFlags?->enabled() ?? false) && $activityStreams instanceof GameActivityStreamService)) {
+            return $this->fail('Log stream is not enabled.', 404);
+        }
+
+        $limit = max(1, min(500, (int) $request->query->get('limit', 250)));
+        $cursor = trim((string) $request->query->get('cursor', ''));
+
+        return $this->json([
+            'data' => $activityStreams->logEntries($game, $limit, $cursor !== '' ? $cursor : null),
             'limit' => $limit,
         ]);
     }
@@ -982,6 +1074,112 @@ class GamesController extends ApiController
             'version' => $game->snapshot()['version'] ?? null,
             'applied' => false,
         ]);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function streamChatCommandResponse(
+        Game $game,
+        User $user,
+        string $type,
+        array $payload,
+        EntityManagerInterface $entityManager,
+        GameProjectionService $projection,
+        GameEventPublisher $publisher,
+        GameActivityStreamService $activityStreams,
+    ): JsonResponse {
+        $event = null;
+        try {
+            $entityManager->beginTransaction();
+            if ($type === 'chat.message') {
+                $message = trim((string) ($payload['message'] ?? ''));
+                if ($message === '') {
+                    throw new \InvalidArgumentException('Message is required.');
+                }
+
+                $targetPlayerId = $this->chatTargetPlayerId($game->snapshot(), $payload, $user);
+                $targetDisplayName = $targetPlayerId !== null
+                    ? $this->playerName($game->snapshot(), $targetPlayerId)
+                    : null;
+                $record = $activityStreams->appendChatMessage(
+                    $entityManager,
+                    $game,
+                    $user,
+                    $message,
+                    $targetPlayerId,
+                    $targetDisplayName,
+                );
+                $event = new GameEvent($game, 'chat.message', [
+                    'private' => $targetPlayerId !== null,
+                ], $user);
+            } else {
+                $messageId = trim((string) ($payload['messageId'] ?? ''));
+                $reaction = trim((string) ($payload['reaction'] ?? ''));
+                $record = $activityStreams->toggleReaction($entityManager, $game, $user, $messageId, $reaction);
+                $event = new GameEvent($game, 'chat.reaction.toggled', [
+                    'messageId' => $record->messageId(),
+                    'reaction' => $reaction,
+                ], $user);
+            }
+
+            $entityManager->flush();
+            $entityManager->commit();
+        } catch (\InvalidArgumentException $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            return $this->fail($exception->getMessage());
+        } catch (\Throwable $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            throw $exception;
+        }
+
+        \assert($event instanceof GameEvent);
+        $publisher->publish($game, $event);
+
+        return $this->json([
+            'event' => $event->toArray(),
+            'snapshot' => $projection->project($game, $user),
+            'version' => $game->snapshot()['version'] ?? null,
+            'applied' => true,
+        ], 201);
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $payload
+     */
+    private function chatTargetPlayerId(array $snapshot, array $payload, User $actor): ?string
+    {
+        $targetPlayerId = $payload['targetPlayerId'] ?? null;
+        if ($targetPlayerId === null || $targetPlayerId === '' || $targetPlayerId === 'all') {
+            return null;
+        }
+        if (!is_string($targetPlayerId) || !isset($snapshot['players'][$targetPlayerId])) {
+            throw new \InvalidArgumentException('Chat target player not found.');
+        }
+        if ($targetPlayerId === $actor->id()) {
+            throw new \InvalidArgumentException('Private chat target must be another player.');
+        }
+
+        return $targetPlayerId;
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     */
+    private function playerName(array $snapshot, string $playerId): string
+    {
+        $player = $snapshot['players'][$playerId] ?? null;
+        $user = is_array($player['user'] ?? null) ? $player['user'] : [];
+        $displayName = trim((string) ($user['displayName'] ?? ''));
+
+        return $displayName !== '' ? $displayName : $playerId;
     }
 
     /**
