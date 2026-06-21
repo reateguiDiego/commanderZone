@@ -3,6 +3,9 @@
 namespace App\Tests\Application;
 
 use App\Application\Game\Contract\V2\GameplayV2Flags;
+use App\Application\Game\CommandV2\GameCommandV2ApplierInterface;
+use App\Application\Game\CommandV2\GameCommandV2Dispatcher;
+use App\Application\Game\CommandV2\GameCommandV2Result;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameRandomizer;
 use App\Domain\Game\Game;
@@ -334,6 +337,110 @@ class GameCommandHandlerV2Test extends TestCase
         self::assertArrayHasKey('replay', $event->payload());
         self::assertArrayHasKey('eventLogEntries', $event->payload());
         self::assertSame('card.tapped', $event->toArray()['type']);
+    }
+
+    public function testV2CommandAllowlistControlsRouting(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $flags = new GameplayV2Flags(
+            commandEnabled: true,
+            enabled: true,
+            commandsAllowlist: 'turn.changed',
+        );
+        $handler = new GameCommandHandler(flagsV2: $flags);
+
+        self::assertFalse($handler->usesV2CommandRouting('life.changed'));
+        self::assertTrue($handler->usesV2CommandRouting('turn.changed'));
+    }
+
+    public function testShadowCompareRunsWithoutChangingLegacyResult(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(
+            commandEnabled: false,
+            enabled: true,
+            commandsAllowlist: 'life.changed',
+            shadowCompareEnabled: true,
+        ));
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot(self::baseSnapshot($actor->id(), [])));
+
+        $handler->apply($game, 'life.changed', [
+            'playerId' => $actor->id(),
+            'delta' => -3,
+        ], $actor, 'shadow-life');
+
+        $metrics = $handler->consumeLastCommandMetrics();
+        self::assertSame(37, $game->snapshot()['players'][$actor->id()]['life']);
+        self::assertTrue($metrics['shadow_compare_enabled'] ?? false);
+        self::assertFalse($metrics['shadow_diverged'] ?? true);
+        self::assertSame(0, $metrics['divergence_count'] ?? null);
+        self::assertSame(0, $metrics['fallback_count'] ?? null);
+    }
+
+    public function testShadowCompareReportsFallbackForNonAllowlistedCommand(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(
+            commandEnabled: false,
+            enabled: true,
+            commandsAllowlist: 'turn.changed',
+            shadowCompareEnabled: true,
+        ));
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot(self::baseSnapshot($actor->id(), [])));
+
+        $handler->apply($game, 'life.changed', [
+            'playerId' => $actor->id(),
+            'delta' => -1,
+        ], $actor, 'shadow-fallback');
+
+        $metrics = $handler->consumeLastCommandMetrics();
+        self::assertSame(1, $metrics['fallback_count'] ?? null);
+        self::assertSame('unsupported_or_not_allowlisted', $metrics['shadow_fallback_reason'] ?? null);
+    }
+
+    public function testShadowCompareReportsDivergenceWithoutAffectingLegacy(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $dispatcher = new GameCommandV2Dispatcher([
+            new class() implements GameCommandV2ApplierInterface {
+                public function supports(string $type): bool
+                {
+                    return $type === 'life.changed';
+                }
+
+                public function apply(array &$snapshot, array $payload, User $actor, GameCommandHandler $helper): ?GameCommandV2Result
+                {
+                    $playerId = (string) ($payload['playerId'] ?? $actor->id());
+                    $snapshot['players'][$playerId]['life'] = 1;
+
+                    return new GameCommandV2Result(
+                        'shadow divergence',
+                        ['playerId' => $playerId, 'life' => 1],
+                        [['op' => 'player.life.set', 'playerId' => $playerId, 'life' => 1]],
+                    );
+                }
+            },
+        ]);
+        $handler = new GameCommandHandler(
+            commandDispatcherV2: $dispatcher,
+            flagsV2: new GameplayV2Flags(
+                commandEnabled: false,
+                enabled: true,
+                commandsAllowlist: 'life.changed',
+                shadowCompareEnabled: true,
+            ),
+        );
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot(self::baseSnapshot($actor->id(), [])));
+
+        $handler->apply($game, 'life.changed', [
+            'playerId' => $actor->id(),
+            'delta' => -2,
+        ], $actor, 'shadow-divergence');
+
+        $metrics = $handler->consumeLastCommandMetrics();
+        self::assertSame(38, $game->snapshot()['players'][$actor->id()]['life']);
+        self::assertTrue($metrics['shadow_diverged'] ?? false);
+        self::assertSame(1, $metrics['divergence_count'] ?? null);
     }
 
     /**

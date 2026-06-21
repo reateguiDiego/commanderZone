@@ -138,6 +138,10 @@ class GameCommandHandler
      */
     private ?array $lastCommandMetrics = null;
     /**
+     * @var array<string,mixed>
+     */
+    private array $lastShadowMetrics = [];
+    /**
      * @var array{eventPayload:array<string,mixed>,operations:list<array<string,mixed>>}|null
      */
     private ?array $lastDirectPatchPayload = null;
@@ -211,6 +215,7 @@ class GameCommandHandler
         }
 
         $this->lastCommandMetrics = null;
+        $this->lastShadowMetrics = [];
         $this->lastDirectPatchPayload = null;
         $this->pendingStreamLogEntries = [];
         $this->fullScanCount = 0;
@@ -310,6 +315,7 @@ class GameCommandHandler
             $game->replaceSnapshot($persistedSnapshot);
             $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
             $game->addEvent($event);
+            $this->lastShadowMetrics = $this->shadowCompareLegacyCommand($snapshotBefore, $snapshot, $type, $payload, $actor);
             $this->lastCommandMetrics = $this->commandMetricsPayload(
                 $persistedSnapshot,
                 $snapshotBytesBefore,
@@ -4176,7 +4182,7 @@ class GameCommandHandler
             'number_of_players' => $this->metricsInspector->countPlayers($snapshot),
             'number_of_instances' => $this->metricsInspector->countInstances($snapshot),
             'full_scan_count' => $this->fullScanCount,
-        ];
+        ] + $this->lastShadowMetrics;
     }
 
     private function ensureLocationIndex(array &$snapshot): void
@@ -5714,7 +5720,142 @@ class GameCommandHandler
 
     private function shouldUseV2Command(string $type): bool
     {
-        return $this->flagsV2->commandEnabled() && $this->commandDispatcherV2->supports($type);
+        return $this->flagsV2->commandEnabled()
+            && $this->flagsV2->commandAllowed($type)
+            && $this->commandDispatcherV2->supports($type);
+    }
+
+    /**
+     * @param array<string,mixed> $snapshotBefore
+     * @param array<string,mixed> $legacySnapshotAfter
+     * @param array<string,mixed> $payload
+     *
+     * @return array<string,mixed>
+     */
+    private function shadowCompareLegacyCommand(array $snapshotBefore, array $legacySnapshotAfter, string $type, array $payload, User $actor): array
+    {
+        if (!$this->flagsV2->shadowCompareEnabled()) {
+            return $this->emptyShadowMetrics(false);
+        }
+
+        if (!$this->flagsV2->commandAllowed($type) || !$this->commandDispatcherV2->supports($type)) {
+            return [
+                ...$this->emptyShadowMetrics(true),
+                'shadow_fallback_count' => 1,
+                'fallback_count' => 1,
+                'shadow_fallback_reason' => 'unsupported_or_not_allowlisted',
+            ];
+        }
+
+        if (!$this->isSafeForShadowCompare($type, $payload)) {
+            return [
+                ...$this->emptyShadowMetrics(true),
+                'shadow_fallback_count' => 1,
+                'fallback_count' => 1,
+                'shadow_fallback_reason' => 'unsafe_for_shadow',
+            ];
+        }
+
+        $startedAt = microtime(true);
+        $pendingLogContext = $this->pendingLogContext;
+        $pendingEventPayload = $this->pendingEventPayload;
+        $pendingDefeatedPlayerId = $this->pendingDefeatedPlayerId;
+        $pendingDefeatPreexisted = $this->pendingDefeatPreexisted;
+        $pendingStreamLogEntries = $this->pendingStreamLogEntries;
+        try {
+            $shadowSnapshot = $this->prepareSnapshotForV2($snapshotBefore);
+            $shadowResult = $this->commandDispatcherV2->apply($type, $shadowSnapshot, $payload, $actor, $this);
+            if (!$shadowResult instanceof GameCommandV2Result) {
+                return [
+                    ...$this->emptyShadowMetrics(true),
+                    'shadow_fallback_count' => 1,
+                    'fallback_count' => 1,
+                    'shadow_fallback_reason' => 'no_v2_result',
+                    'shadow_compare_ms' => round($this->elapsedMs($startedAt), 2),
+                ];
+            }
+
+            $this->ensureLocationIndex($shadowSnapshot);
+            $this->syncVisibilityIndexAfterCommand($shadowSnapshot, $type, $payload);
+            $this->commit($shadowSnapshot, $type, $shadowResult->logMessage(), $actor);
+            $legacyComparable = $this->comparableShadowSnapshot($legacySnapshotAfter);
+            $shadowComparable = $this->comparableShadowSnapshot($shadowSnapshot);
+            $diverged = $legacyComparable !== $shadowComparable;
+
+            return [
+                ...$this->emptyShadowMetrics(true),
+                'shadow_compare_ms' => round($this->elapsedMs($startedAt), 2),
+                'shadow_diverged' => $diverged,
+                'shadow_divergence_count' => $diverged ? 1 : 0,
+                'divergence_count' => $diverged ? 1 : 0,
+                'shadow_patch_size_bytes' => $this->metricsInspector->jsonBytes($shadowResult->operations()),
+                'shadow_command_supported' => true,
+            ];
+        } catch (\Throwable $exception) {
+            return [
+                ...$this->emptyShadowMetrics(true),
+                'shadow_compare_ms' => round($this->elapsedMs($startedAt), 2),
+                'shadow_runtime_error_count' => 1,
+                'runtime_error_count' => 1,
+                'shadow_error' => $exception::class,
+            ];
+        } finally {
+            $this->pendingLogContext = $pendingLogContext;
+            $this->pendingEventPayload = $pendingEventPayload;
+            $this->pendingDefeatedPlayerId = $pendingDefeatedPlayerId;
+            $this->pendingDefeatPreexisted = $pendingDefeatPreexisted;
+            $this->pendingStreamLogEntries = $pendingStreamLogEntries;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function emptyShadowMetrics(bool $enabled): array
+    {
+        return [
+            'shadow_compare_enabled' => $enabled,
+            'shadow_compare_ms' => 0.0,
+            'shadow_diverged' => false,
+            'shadow_divergence_count' => 0,
+            'divergence_count' => 0,
+            'shadow_fallback_count' => 0,
+            'fallback_count' => 0,
+            'shadow_runtime_error_count' => 0,
+            'runtime_error_count' => 0,
+            'shadow_patch_size_bytes' => 0,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function isSafeForShadowCompare(string $type, array $payload): bool
+    {
+        if ($type !== 'dice.rolled') {
+            return true;
+        }
+
+        return array_key_exists('result', $payload)
+            || array_key_exists('finalResult', $payload)
+            || array_key_exists('value', $payload);
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    private function comparableShadowSnapshot(array $snapshot): array
+    {
+        unset($snapshot['updatedAt']);
+        $snapshot['eventLog'] = array_values(array_map(static function (array $entry): array {
+            unset($entry['id'], $entry['createdAt']);
+
+            return $entry;
+        }, is_array($snapshot['eventLog'] ?? null) ? $snapshot['eventLog'] : []));
+
+        return $snapshot;
     }
 
     private function applyV2(Game $game, string $type, array $payload, User $actor, ?string $clientActionId = null): ?GameEvent
