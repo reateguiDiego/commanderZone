@@ -140,6 +140,16 @@ final class GameEventReplayService
                 $this->applyLibraryReveal($snapshot, $operation, $visibility);
                 return;
 
+            case 'mulligan.player_state.set':
+                $this->applyMulliganPlayerState($snapshot, $operation);
+                return;
+
+            case 'game.phase.set':
+                if (is_string($operation['phase'] ?? null) && $operation['phase'] !== '') {
+                    $snapshot['gamePhase'] = $operation['phase'];
+                }
+                return;
+
             case 'relation.remove':
                 $kind = (string) ($operation['kind'] ?? '');
                 $id = (string) ($operation['id'] ?? '');
@@ -164,6 +174,92 @@ final class GameEventReplayService
             default:
                 return;
         }
+    }
+
+    /**
+     * @param array<string,mixed> $operation
+     */
+    private function applyMulliganPlayerState(array &$snapshot, array $operation): void
+    {
+        $playerId = (string) ($operation['playerId'] ?? '');
+        if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+
+        $handIds = $this->stringList($operation['handIds'] ?? []);
+        $libraryIds = $this->stringList($operation['libraryIds'] ?? []);
+        $cardsById = $this->cardsByInstanceId($snapshot, $playerId, ['hand', 'library']);
+        $snapshot['players'][$playerId]['zones']['hand'] = $this->orderedCardsFromIds($cardsById, $handIds, 'hand', $playerId);
+        $snapshot['players'][$playerId]['zones']['library'] = $this->orderedCardsFromIds($cardsById, $libraryIds, 'library', $playerId);
+        if (is_array($operation['mulligan'] ?? null)) {
+            $snapshot['players'][$playerId]['mulligan'] = $operation['mulligan'];
+        }
+        if (is_array($operation['playerState'] ?? null)) {
+            foreach (['libraryOrientation', GameLibraryOps::VISIBILITY_EPOCH_KEY, 'revealedLibraryTo'] as $field) {
+                if (array_key_exists($field, $operation['playerState'])) {
+                    $snapshot['players'][$playerId][$field] = $operation['playerState'][$field];
+                }
+            }
+        }
+        if (is_string($operation['gamePhase'] ?? null) && $operation['gamePhase'] !== '') {
+            $snapshot['gamePhase'] = $operation['gamePhase'];
+        }
+        $this->rebuildLoc($snapshot);
+    }
+
+    /**
+     * @param list<string> $zones
+     * @return array<string,array<string,mixed>>
+     */
+    private function cardsByInstanceId(array $snapshot, string $playerId, array $zones): array
+    {
+        $cardsById = [];
+        foreach ($zones as $zone) {
+            foreach (is_array($snapshot['players'][$playerId]['zones'][$zone] ?? null) ? $snapshot['players'][$playerId]['zones'][$zone] : [] as $card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $instanceId = (string) ($card['instanceId'] ?? '');
+                if ($instanceId !== '') {
+                    $cardsById[$instanceId] = $card;
+                }
+            }
+        }
+
+        return $cardsById;
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $cardsById
+     * @param list<string> $instanceIds
+     * @return list<array<string,mixed>>
+     */
+    private function orderedCardsFromIds(array $cardsById, array $instanceIds, string $zone, string $playerId): array
+    {
+        $cards = [];
+        foreach ($instanceIds as $instanceId) {
+            if (!isset($cardsById[$instanceId])) {
+                continue;
+            }
+            $card = $cardsById[$instanceId];
+            $card['zone'] = $zone;
+            $card['ownerId'] = (string) ($card['ownerId'] ?? $playerId);
+            $card['controllerId'] = (string) ($card['controllerId'] ?? $playerId);
+            $cards[] = $card;
+        }
+
+        return $cards;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        return array_values(array_filter(
+            is_array($value) ? $value : [],
+            static fn (mixed $item): bool => is_string($item) && trim($item) !== '',
+        ));
     }
 
     /**

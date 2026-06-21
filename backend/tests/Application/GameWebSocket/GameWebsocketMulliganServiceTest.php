@@ -199,6 +199,43 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertSame($snapshotBeforeTake, $game->snapshot());
     }
 
+    public function testDuplicateKeepMessageIdIsRejectedWithoutBottomingTwice(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, false, 1, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ]);
+        $snapshotBeforeKeep = $game->snapshot();
+        $existingEvent = new GameEvent($game, 'mulligan.keep', ['bottomCardCount' => 1], $actor, 'existing-keep');
+        $service = $this->service($game, $actor, expectPersist: false, existingEvent: $existingEvent);
+
+        $message = $service->handle('mulligan.keep', [
+            'gameId' => $game->id(),
+            'bottomCardInstanceIds' => ['hand-1'],
+        ], $this->peer($game, $actor), 'message-keep-duplicate');
+
+        self::assertSame('mulligan.error', $message['kind']);
+        self::assertSame('INVALID_MULLIGAN_STATE', $message['error']['code']);
+        self::assertSame($snapshotBeforeKeep, $game->snapshot());
+    }
+
+    public function testDuplicateScryMessageIdIsRejectedWithoutMovingTopTwice(): void
+    {
+        [$game, $actor] = $this->scryingVancouverGame();
+        $snapshotBeforeScry = $game->snapshot();
+        $existingEvent = new GameEvent($game, 'mulligan.scry_confirm', ['destination' => 'BOTTOM'], $actor, 'existing-scry');
+        $service = $this->service($game, $actor, expectPersist: false, existingEvent: $existingEvent);
+
+        $message = $service->handle('mulligan.scry.confirm', [
+            'gameId' => $game->id(),
+            'destination' => 'BOTTOM',
+        ], $this->peer($game, $actor), 'message-scry-duplicate');
+
+        self::assertSame('mulligan.error', $message['kind']);
+        self::assertSame('INVALID_MULLIGAN_STATE', $message['error']['code']);
+        self::assertSame($snapshotBeforeScry, $game->snapshot());
+    }
+
     public function testKeepWithCardFromAnotherHandFails(): void
     {
         [$game, $actor, $opponent] = $this->mulliganGame(Room::MULLIGAN_LONDON, false, 1, [

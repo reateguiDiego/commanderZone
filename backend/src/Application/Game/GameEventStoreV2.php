@@ -11,8 +11,13 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-final readonly class GameEventStoreV2
+final class GameEventStoreV2
 {
+    /**
+     * @var array<string,int|float>
+     */
+    private array $lastReplayMetrics = [];
+
     public function __construct(
         private ManagerRegistry $managerRegistry,
         private GameCommandHandler $normalizer,
@@ -77,13 +82,32 @@ final readonly class GameEventStoreV2
             $events,
             static fn (mixed $event): bool => $event instanceof GameEvent && $event->version() > $baseVersion,
         ));
+        $replayStartedAt = microtime(true);
         $snapshot = $this->replayService()->replay($snapshot, $eventsToReplay);
+        $this->lastReplayMetrics = [
+            'mulligan.replay_ms' => round(max(0, (microtime(true) - $replayStartedAt) * 1000), 2),
+            'mulligan.replay_event_count' => count(array_filter(
+                $eventsToReplay,
+                static fn (GameEvent $event): bool => str_starts_with($event->type(), 'mulligan.'),
+            )),
+        ];
         $snapshot = $this->normalizer->normalizeSnapshot($snapshot);
         if ($this->flagsV2?->visibilityEnabled() ?? false) {
             ($this->visibilityIndex ?? new GameVisibilityIndex())->rebuild($snapshot);
         }
 
         return $snapshot;
+    }
+
+    /**
+     * @return array<string,int|float>
+     */
+    public function consumeLastReplayMetrics(): array
+    {
+        $metrics = $this->lastReplayMetrics;
+        $this->lastReplayMetrics = [];
+
+        return $metrics;
     }
 
     /**

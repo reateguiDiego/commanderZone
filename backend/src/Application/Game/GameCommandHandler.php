@@ -153,6 +153,10 @@ class GameCommandHandler
      * @var array<string,int|float>
      */
     private array $mulliganMetrics = [];
+    /**
+     * @var array<string,mixed>
+     */
+    private array $pendingMulliganEventData = [];
 
     public function __construct(
         private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null,
@@ -2198,6 +2202,9 @@ class GameCommandHandler
             $this->putManyCardsOnLibraryBottom($snapshot, $playerId, $selectedCards);
             $this->recordMulliganMetric('mulligan.bottom_cards_ms', $this->elapsedMs($bottomStartedAt));
         }
+        $this->pendingMulliganEventData = [
+            'bottomCardInstanceIds' => $bottomCardInstanceIds,
+        ];
         $this->pendingEventPayload = [
             'bottomCardCount' => count($bottomCardInstanceIds),
         ];
@@ -2269,6 +2276,10 @@ class GameCommandHandler
                 $this->putManyCardsOnLibraryBottom($snapshot, $playerId, [$card]);
             }
         }
+        $this->pendingMulliganEventData = [
+            'scryDestination' => $destination,
+            'scryCardInstanceId' => $scryCardInstanceId,
+        ];
 
         $ruleEvalStartedAt = microtime(true);
         $this->refreshPlayerMulliganState($snapshot, $playerId, (int) $state['mulligansTaken'], self::MULLIGAN_STATUS_READY);
@@ -4355,6 +4366,306 @@ class GameCommandHandler
         $this->recordMulliganMetric('mulligan.full_scan_count', $this->fullScanCount);
     }
 
+    /**
+     * @return array<string,mixed>
+     */
+    private function mulliganEventStorePayload(string $gameId, string $commandType, array $snapshot, string $playerId, ?string $clientActionId): array
+    {
+        $state = $this->compactMulliganState(is_array($snapshot['players'][$playerId]['mulligan'] ?? null)
+            ? $snapshot['players'][$playerId]['mulligan']
+            : []);
+        $handIds = $this->v2ZoneInstanceIds($snapshot, $playerId, 'hand');
+        $libraryIds = $this->v2ZoneInstanceIds($snapshot, $playerId, 'library');
+        $version = max(1, (int) ($snapshot['version'] ?? 1));
+        $gamePhase = is_string($snapshot['gamePhase'] ?? null) ? $snapshot['gamePhase'] : self::GAME_PHASE_MULLIGAN;
+        $createdAt = (new \DateTimeImmutable())->format(DATE_ATOM);
+        $bottomCardIds = array_values(array_filter(
+            is_array($this->pendingMulliganEventData['bottomCardInstanceIds'] ?? null)
+                ? $this->pendingMulliganEventData['bottomCardInstanceIds']
+                : [],
+            static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
+        ));
+        $scryDestination = is_string($this->pendingMulliganEventData['scryDestination'] ?? null)
+            ? $this->pendingMulliganEventData['scryDestination']
+            : null;
+        $scryCardInstanceId = is_string($this->pendingMulliganEventData['scryCardInstanceId'] ?? null)
+            ? $this->pendingMulliganEventData['scryCardInstanceId']
+            : null;
+        $publicEvents = $this->mulliganPublicEvents($gameId, $version, $commandType, $playerId, $state, $gamePhase, count($handIds), count($libraryIds), count($bottomCardIds), $scryDestination, $clientActionId, $createdAt);
+
+        return [
+            'events' => $this->mulliganInternalEvents($gameId, $version, $commandType, $playerId, $state, $gamePhase, $handIds, $libraryIds, $bottomCardIds, $scryDestination, $scryCardInstanceId, $clientActionId, $createdAt),
+            'public' => [
+                'events' => $publicEvents,
+            ],
+            'eventLogEntries' => $this->latestEventLogEntries($snapshot),
+            'replay' => [
+                'ops' => [[
+                    'op' => 'mulligan.player_state.set',
+                    'playerId' => $playerId,
+                    'handIds' => $handIds,
+                    'libraryIds' => $libraryIds,
+                    'mulligan' => $state,
+                    'gamePhase' => $gamePhase,
+                    'playerState' => [
+                        'libraryOrientation' => $snapshot['players'][$playerId][GameLibraryOps::ORIENTATION_KEY] ?? null,
+                        GameLibraryOps::VISIBILITY_EPOCH_KEY => $snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? null,
+                        'revealedLibraryTo' => is_array($snapshot['players'][$playerId]['revealedLibraryTo'] ?? null)
+                            ? $snapshot['players'][$playerId]['revealedLibraryTo']
+                            : [],
+                    ],
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function latestEventLogEntries(array $snapshot): array
+    {
+        $eventLog = is_array($snapshot['eventLog'] ?? null) ? $snapshot['eventLog'] : [];
+        $last = end($eventLog);
+
+        return is_array($last) ? [$last] : [];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function compactMulliganState(array $state): array
+    {
+        return [
+            'rule' => is_string($state['rule'] ?? null) ? $state['rule'] : null,
+            'mulligansTaken' => max(0, (int) ($state['mulligansTaken'] ?? 0)),
+            'effectiveMulligans' => max(0, (int) ($state['effectiveMulligans'] ?? 0)),
+            'drawCount' => max(0, (int) ($state['drawCount'] ?? 0)),
+            'bottomSelectionCount' => max(0, (int) ($state['bottomSelectionCount'] ?? 0)),
+            'finalHandSize' => max(0, (int) ($state['finalHandSize'] ?? 0)),
+            'needsBottomSelection' => ($state['needsBottomSelection'] ?? false) === true,
+            'bottomOrderMode' => is_string($state['bottomOrderMode'] ?? null) ? $state['bottomOrderMode'] : 'NONE',
+            'needsScryAfterKeep' => ($state['needsScryAfterKeep'] ?? false) === true,
+            'canTakeAnotherMulligan' => ($state['canTakeAnotherMulligan'] ?? false) === true,
+            'status' => is_string($state['status'] ?? null) ? $state['status'] : self::MULLIGAN_STATUS_DECIDING,
+            'ready' => ($state['ready'] ?? false) === true || ($state['status'] ?? null) === self::MULLIGAN_STATUS_READY,
+            'scryCardInstanceId' => is_string($state['scryCardInstanceId'] ?? null) && trim($state['scryCardInstanceId']) !== ''
+                ? trim($state['scryCardInstanceId'])
+                : null,
+        ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function mulliganInternalEvents(
+        string $gameId,
+        int $version,
+        string $commandType,
+        string $playerId,
+        array $state,
+        string $gamePhase,
+        array $handIds,
+        array $libraryIds,
+        array $bottomCardIds,
+        ?string $scryDestination,
+        ?string $scryCardInstanceId,
+        ?string $clientActionId,
+        string $createdAt,
+    ): array {
+        $base = [
+            'gameId' => $gameId,
+            'version' => $version,
+            'createdBy' => $playerId,
+            'clientActionId' => $clientActionId,
+            'createdAt' => $createdAt,
+        ];
+
+        $events = [];
+        if ($commandType === 'mulligan.take') {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::PLAYER_TOOK_MULLIGAN,
+                'payload' => [
+                    'playerId' => $playerId,
+                    'mulligansTaken' => $state['mulligansTaken'],
+                    'effectiveMulligans' => $state['effectiveMulligans'],
+                ],
+            ];
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::HAND_DRAWN,
+                'payload' => [
+                    'playerId' => $playerId,
+                    'handIds' => $handIds,
+                    'libraryIds' => $libraryIds,
+                    'handSize' => count($handIds),
+                    'librarySize' => count($libraryIds),
+                ],
+            ];
+        } elseif ($commandType === 'mulligan.keep') {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::PLAYER_KEPT,
+                'payload' => [
+                    'playerId' => $playerId,
+                    'status' => $state['status'],
+                ],
+            ];
+            if ($bottomCardIds !== []) {
+                $events[] = [
+                    ...$base,
+                    'type' => GameMulliganEventTypes::CARDS_BOTTOMED,
+                    'payload' => [
+                        'playerId' => $playerId,
+                        'bottomCardInstanceIds' => $bottomCardIds,
+                        'bottomCardCount' => count($bottomCardIds),
+                    ],
+                ];
+            }
+            if (($state['status'] ?? null) === self::MULLIGAN_STATUS_SCRYING) {
+                $events[] = [
+                    ...$base,
+                    'type' => GameMulliganEventTypes::SCRY_AVAILABLE,
+                    'payload' => [
+                        'playerId' => $playerId,
+                        'scryCardInstanceId' => $state['scryCardInstanceId'],
+                    ],
+                ];
+            }
+        } elseif ($commandType === 'mulligan.scry_confirm') {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::SCRY_CONFIRMED,
+                'payload' => [
+                    'playerId' => $playerId,
+                    'destination' => $scryDestination,
+                    'scryCardInstanceId' => $scryCardInstanceId,
+                ],
+            ];
+        }
+
+        if (($state['status'] ?? null) === self::MULLIGAN_STATUS_READY) {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::PLAYER_READY,
+                'payload' => [
+                    'playerId' => $playerId,
+                ],
+            ];
+        }
+        if ($gamePhase === self::GAME_PHASE_PLAYING) {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::COMPLETED,
+                'payload' => [
+                    'playerId' => $playerId,
+                ],
+            ];
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::GAME_PHASE_CHANGED,
+                'payload' => [
+                    'phase' => self::GAME_PHASE_PLAYING,
+                ],
+            ];
+        }
+
+        return $events;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function mulliganPublicEvents(
+        string $gameId,
+        int $version,
+        string $commandType,
+        string $playerId,
+        array $state,
+        string $gamePhase,
+        int $handSize,
+        int $librarySize,
+        int $bottomCardCount,
+        ?string $scryDestination,
+        ?string $clientActionId,
+        string $createdAt,
+    ): array {
+        $base = [
+            'gameId' => $gameId,
+            'version' => $version,
+            'createdBy' => $playerId,
+            'clientActionId' => $clientActionId,
+            'createdAt' => $createdAt,
+        ];
+        $events = [];
+        if ($commandType === 'mulligan.take') {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::PLAYER_TOOK_MULLIGAN,
+                'payload' => [
+                    'playerId' => $playerId,
+                    'mulligansTaken' => $state['mulligansTaken'],
+                    'effectiveMulligans' => $state['effectiveMulligans'],
+                    'handSize' => $handSize,
+                    'librarySize' => $librarySize,
+                ],
+            ];
+        } elseif ($commandType === 'mulligan.keep') {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::PLAYER_KEPT,
+                'payload' => [
+                    'playerId' => $playerId,
+                    'status' => $state['status'],
+                    'bottomCardCount' => $bottomCardCount,
+                ],
+            ];
+            if (($state['status'] ?? null) === self::MULLIGAN_STATUS_SCRYING) {
+                $events[] = [
+                    ...$base,
+                    'type' => GameMulliganEventTypes::SCRY_AVAILABLE,
+                    'payload' => [
+                        'playerId' => $playerId,
+                    ],
+                ];
+            }
+        } elseif ($commandType === 'mulligan.scry_confirm') {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::SCRY_CONFIRMED,
+                'payload' => [
+                    'playerId' => $playerId,
+                    'destination' => $scryDestination,
+                ],
+            ];
+        }
+        if (($state['status'] ?? null) === self::MULLIGAN_STATUS_READY) {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::PLAYER_READY,
+                'payload' => [
+                    'playerId' => $playerId,
+                ],
+            ];
+        }
+        if ($gamePhase === self::GAME_PHASE_PLAYING) {
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::COMPLETED,
+                'payload' => [],
+            ];
+            $events[] = [
+                ...$base,
+                'type' => GameMulliganEventTypes::GAME_PHASE_CHANGED,
+                'payload' => [
+                    'phase' => self::GAME_PHASE_PLAYING,
+                ],
+            ];
+        }
+
+        return $events;
+    }
+
     private function reindexMulliganZoneLocations(array &$snapshot, string $playerId, string $zone, int $startIndex = 0): void
     {
         if ($zone === 'library') {
@@ -5915,18 +6226,22 @@ class GameCommandHandler
         $snapshotBefore = $game->snapshot();
         $snapshotBytesBefore = $this->metricsInspector->jsonBytes($snapshotBefore);
         $applyStartedAt = microtime(true);
-        $snapshot = $snapshotBefore;
+        $snapshot = $this->compactStateMapper->isCompactSnapshot($snapshotBefore)
+            ? $this->compactStateMapper->hydrateSnapshot($snapshotBefore)
+            : $snapshotBefore;
         $this->mulliganMetrics['mulligan.normalize_snapshot_count'] = 0;
         $this->mulliganMetrics['mulligan.optimized_route'] = 1;
 
         try {
             $this->pendingLogContext = [];
             $this->pendingEventPayload = null;
+            $this->pendingMulliganEventData = [];
             $this->pendingDefeatedPlayerId = null;
             $this->pendingDefeatPreexisted = false;
             $this->assertActorCanApply($snapshot, $type, $payload, $actor);
             $this->assertGamePhaseAllowsCommand($snapshot, $type);
             $this->ensureLocationIndex($snapshot);
+            $mulliganPlayerId = $this->mulliganActorPlayerId($snapshot, $actor);
 
             $log = match ($type) {
                 'mulligan.take' => $this->applyMulliganTake($snapshot, $actor),
@@ -5937,7 +6252,6 @@ class GameCommandHandler
 
             $this->ensureLocationIndex($snapshot);
             $this->syncVisibilityIndexAfterCommand($snapshot, $type, $payload);
-            $eventPayload = $this->pendingEventPayload ?? $payload;
             $this->commit($snapshot, $type, $log, $actor);
             $persistedSnapshot = $this->flagsV2->eventEnabled()
                 ? $this->compactStateMapper->compactSnapshot($snapshot)
@@ -5945,11 +6259,28 @@ class GameCommandHandler
             if ($this->flagsV2->eventEnabled()) {
                 $game->replaceRuntimeSnapshot($persistedSnapshot);
                 $this->mulliganMetrics['mulligan.snapshot_write_count'] = 0;
+                $this->recordMulliganMetric('mulligan.snapshot_compact_bytes', $this->metricsInspector->jsonBytes($persistedSnapshot));
             } else {
                 $game->replaceSnapshot($persistedSnapshot);
                 $this->mulliganMetrics['mulligan.snapshot_write_count'] = 1;
             }
+            $eventPayload = $this->flagsV2->eventEnabled()
+                ? $this->mulliganEventStorePayload(
+                    $game->id(),
+                    $type,
+                    $snapshot,
+                    $mulliganPlayerId,
+                    $clientActionId,
+                )
+                : ($this->pendingEventPayload ?? $payload);
+            if ($this->flagsV2->eventEnabled()) {
+                $this->recordMulliganMetric('mulligan.event_payload_bytes', $this->metricsInspector->jsonBytes($eventPayload));
+                $this->recordMulliganMetric('mulligan.public_event_payload_bytes', $this->metricsInspector->jsonBytes($eventPayload['public'] ?? []));
+            }
             $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
+            if ($this->flagsV2->eventEnabled() && is_array($eventPayload['public'] ?? null)) {
+                $event->withPublicPayload($eventPayload['public']);
+            }
             $game->addEvent($event);
             $this->lastCommandMetrics = $this->commandMetricsPayload(
                 $persistedSnapshot,
@@ -6116,6 +6447,7 @@ class GameCommandHandler
         try {
             $this->pendingLogContext = [];
             $this->pendingEventPayload = null;
+            $this->pendingMulliganEventData = [];
             $this->pendingDefeatedPlayerId = null;
             $this->pendingDefeatPreexisted = false;
             $this->pendingStreamLogEntries = [];

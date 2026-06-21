@@ -5,11 +5,15 @@ namespace App\Tests\Application;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameRandomizer;
 use App\Application\Game\GameEventReplayService;
 use App\Application\Game\GameEventStoreV2;
+use App\Application\Game\GameMulliganEventTypes;
 use App\Domain\Game\Game;
+use App\Domain\Game\GameEvent;
 use App\Domain\Game\GameSnapshotCompact;
 use App\Domain\Room\Room;
+use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
@@ -18,6 +22,22 @@ use PHPUnit\Framework\TestCase;
 
 class GameEventStoreV2Test extends TestCase
 {
+    public function testMulliganCompactEventTypesAreDeclared(): void
+    {
+        self::assertSame([
+            'mulligan.started',
+            'mulligan.player_took_mulligan',
+            'mulligan.hand_drawn',
+            'mulligan.player_kept',
+            'mulligan.cards_bottomed',
+            'mulligan.scry_available',
+            'mulligan.scry_confirmed',
+            'mulligan.player_ready',
+            'mulligan.completed',
+            'game.phase_changed',
+        ], GameMulliganEventTypes::all());
+    }
+
     public function testReplayRebuildsExactRuntimeStateFromPersistedLegacySnapshotAndEvents(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -142,6 +162,122 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(5, $record->version());
     }
 
+    public function testMulliganReplayRebuildsLondonTakeKeepAndBottomFromCompactEvents(): void
+    {
+        $actor = new User('mulligan-owner@example.test', 'Mulligan Owner');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'mulligan.take,mulligan.keep');
+        $handler = new GameCommandHandler(
+            randomizer: new class() extends GameRandomizer {
+                public function shuffle(array $items): array
+                {
+                    return array_reverse($items);
+                }
+            },
+            flagsV2: $flags,
+        );
+        $baseSnapshot = $handler->normalizeSnapshot($this->mulliganSnapshot($actor, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 10, 'library'),
+        ], Room::MULLIGAN_LONDON, false, 0));
+        $runtimeGame = new Game(new Room($actor), $baseSnapshot);
+
+        $take = $handler->apply($runtimeGame, 'mulligan.take', [], $actor, 'mulligan-take-1');
+        $handIds = $this->zoneIds($handler->normalizeSnapshot((new CompactGameCardStateMapper())->hydrateSnapshot($runtimeGame->snapshot())), $actor->id(), 'hand');
+        $keep = $handler->apply($runtimeGame, 'mulligan.keep', [
+            'bottomCardInstanceIds' => [$handIds[0]],
+        ], $actor, 'mulligan-keep-1');
+        $expected = $handler->normalizeSnapshot((new CompactGameCardStateMapper())->hydrateSnapshot($runtimeGame->snapshot()));
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), null, [$take, $keep]);
+
+        self::assertSame($this->comparableSnapshot($expected), $this->comparableSnapshot($rebuilt));
+        self::assertSame('PLAYING', $rebuilt['gamePhase']);
+        self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
+    }
+
+    public function testMulliganReplayRebuildsVancouverScryToBottom(): void
+    {
+        $actor = new User('vancouver-owner@example.test', 'Vancouver Owner');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'mulligan.keep,mulligan.scry_confirm');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->mulliganSnapshot($actor, [
+            'hand' => $this->cards('hand', 6, 'hand'),
+            'library' => $this->cards('library', 2, 'library'),
+        ], Room::MULLIGAN_VANCOUVER, false, 1));
+        $runtimeGame = new Game(new Room($actor), $baseSnapshot);
+
+        $keep = $handler->apply($runtimeGame, 'mulligan.keep', [], $actor, 'vancouver-keep-1');
+        $scry = $handler->apply($runtimeGame, 'mulligan.scry_confirm', ['destination' => 'BOTTOM'], $actor, 'vancouver-scry-1');
+        $expected = $handler->normalizeSnapshot((new CompactGameCardStateMapper())->hydrateSnapshot($runtimeGame->snapshot()));
+        $store = $this->eventStore($handler, $flags);
+
+        $rebuilt = $store->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), null, [$keep, $scry]);
+        $metrics = $store->consumeLastReplayMetrics();
+
+        self::assertSame($this->comparableSnapshot($expected), $this->comparableSnapshot($rebuilt));
+        self::assertSame(['library-2', 'library-1'], $this->libraryProjectionIds($rebuilt, $actor->id()));
+        self::assertSame(2, $metrics['mulligan.replay_event_count'] ?? null);
+        self::assertArrayHasKey('mulligan.replay_ms', $metrics);
+    }
+
+    public function testMulliganEventPayloadsAreCompactAndPublicPayloadIsSanitized(): void
+    {
+        $actor = new User('payload-owner@example.test', 'Payload Owner');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'mulligan.keep');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->mulliganSnapshot($actor, [
+            'hand' => [[
+                ...$this->card('hand-1', 'Private Spell', 'hand'),
+                'oracleText' => 'Private text',
+                'imageUris' => ['normal' => 'https://example.test/private.jpg'],
+                'cardFaces' => [['name' => 'Private Face']],
+            ]],
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_LONDON, false, 1));
+        $runtimeGame = new Game(new Room($actor), $baseSnapshot);
+
+        $event = $handler->apply($runtimeGame, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['hand-1'],
+        ], $actor, 'payload-keep-1');
+        $payloadJson = json_encode($event->payload(), JSON_THROW_ON_ERROR);
+        $publicJson = json_encode($event->toArray()['payload'], JSON_THROW_ON_ERROR);
+        $metrics = $handler->consumeLastCommandMetrics();
+
+        self::assertStringContainsString('mulligan.cards_bottomed', $payloadJson);
+        self::assertStringContainsString('hand-1', $payloadJson);
+        self::assertStringNotContainsString('oracleText', $payloadJson);
+        self::assertStringNotContainsString('imageUris', $payloadJson);
+        self::assertStringNotContainsString('cardFaces', $payloadJson);
+        self::assertStringNotContainsString('hand-1', $publicJson);
+        self::assertStringNotContainsString('Private Spell', $publicJson);
+        self::assertArrayHasKey('mulligan.event_payload_bytes', $metrics);
+        self::assertArrayHasKey('mulligan.public_event_payload_bytes', $metrics);
+        self::assertArrayHasKey('mulligan.snapshot_compact_bytes', $metrics);
+    }
+
+    public function testMulliganCompactSnapshotDoesNotContainStaticPayloadInRuntimeInstances(): void
+    {
+        $actor = new User('compact-mulligan@example.test', 'Compact Mulligan');
+        $handler = new GameCommandHandler();
+        $snapshot = $handler->normalizeSnapshot($this->mulliganSnapshot($actor, [
+            'hand' => [[
+                ...$this->card('hand-1', 'Static Heavy', 'hand'),
+                'oracleText' => 'Rules text',
+                'imageUris' => ['normal' => 'https://example.test/static-heavy.jpg'],
+                'cardFaces' => [['name' => 'Face']],
+            ]],
+        ]));
+        $compact = (new CompactGameCardStateMapper())->compactSnapshot($snapshot, 'game-mulligan-compact', Game::STATUS_ACTIVE);
+        unset($compact['cardCatalog']);
+        $encoded = json_encode($compact, JSON_THROW_ON_ERROR);
+
+        self::assertSame('MULLIGAN', $compact['gamePhase']);
+        self::assertArrayHasKey('mulligan', $compact);
+        self::assertStringNotContainsString('oracleText', $encoded);
+        self::assertStringNotContainsString('imageUris', $encoded);
+        self::assertStringNotContainsString('cardFaces', $encoded);
+    }
+
     private function eventStore(
         GameCommandHandler $handler,
         GameplayV2Flags $flags,
@@ -254,6 +390,93 @@ class GameEventStoreV2Test extends TestCase
     }
 
     /**
+     * @param array<string,list<array<string,mixed>>> $zones
+     *
+     * @return array<string,mixed>
+     */
+    private function mulliganSnapshot(User $actor, array $zones, string $rule = Room::MULLIGAN_LONDON, bool $firstMulliganFree = true, int $mulligansTaken = 0): array
+    {
+        $state = (new GameCommandHandler())->normalizeSnapshot($this->baseSnapshot($actor->id(), $zones));
+        foreach (['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'] as $zone) {
+            if (!is_array($state['players'][$actor->id()]['zones'][$zone] ?? null)) {
+                continue;
+            }
+            foreach ($state['players'][$actor->id()]['zones'][$zone] as &$card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $card['ownerId'] = $actor->id();
+                $card['controllerId'] = $actor->id();
+            }
+            unset($card);
+        }
+        $state['gamePhase'] = 'MULLIGAN';
+        $state['mulligan'] = ['rule' => $rule, 'firstMulliganFree' => $firstMulliganFree];
+        $state['players'][$actor->id()]['mulligan'] = [
+            'rule' => $rule,
+            'firstMulliganFree' => $firstMulliganFree,
+            'mulligansTaken' => $mulligansTaken,
+            'effectiveMulligans' => $firstMulliganFree ? max(0, $mulligansTaken - 1) : $mulligansTaken,
+            'drawCount' => $rule === Room::MULLIGAN_PARIS ? max(0, 7 - $mulligansTaken) : 7,
+            'bottomSelectionCount' => $rule === Room::MULLIGAN_LONDON ? ($firstMulliganFree ? max(0, $mulligansTaken - 1) : $mulligansTaken) : 0,
+            'finalHandSize' => $rule === Room::MULLIGAN_LONDON ? 7 : max(0, 7 - ($firstMulliganFree ? max(0, $mulligansTaken - 1) : $mulligansTaken)),
+            'needsBottomSelection' => $rule === Room::MULLIGAN_LONDON && ($firstMulliganFree ? max(0, $mulligansTaken - 1) : $mulligansTaken) > 0,
+            'bottomOrderMode' => $rule === Room::MULLIGAN_LONDON ? 'CLIENT' : 'NONE',
+            'needsScryAfterKeep' => $rule === Room::MULLIGAN_VANCOUVER && $mulligansTaken > 0,
+            'canTakeAnotherMulligan' => true,
+            'status' => 'DECIDING',
+            'ready' => false,
+            'scryCardInstanceId' => null,
+        ];
+
+        return $state;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function zoneIds(array $snapshot, string $playerId, string $zone): array
+    {
+        return array_values(array_map(
+            static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+            is_array($snapshot['players'][$playerId]['zones'][$zone] ?? null) ? $snapshot['players'][$playerId]['zones'][$zone] : [],
+        ));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allZoneIds(array $snapshot): array
+    {
+        $ids = [];
+        foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $player) {
+            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                continue;
+            }
+            foreach ($player['zones'] as $cards) {
+                foreach (is_array($cards) ? $cards : [] as $card) {
+                    if (is_array($card) && is_string($card['instanceId'] ?? null)) {
+                        $ids[] = $card['instanceId'];
+                    }
+                }
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function libraryProjectionIds(array $snapshot, string $playerId): array
+    {
+        return array_values(array_map(
+            static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+            (new \App\Application\Game\GameLibraryOps())->projectionOrderCards($snapshot['players'][$playerId] ?? []),
+        ));
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function card(string $instanceId, string $name, string $zone): array
@@ -276,5 +499,18 @@ class GameEventStoreV2Test extends TestCase
             'revealedTo' => [],
             'faceDown' => false,
         ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function cards(string $prefix, int $count, string $zone): array
+    {
+        $cards = [];
+        for ($index = 1; $index <= $count; ++$index) {
+            $cards[] = $this->card(sprintf('%s-%d', $prefix, $index), sprintf('%s %d', $prefix, $index), $zone);
+        }
+
+        return $cards;
     }
 }
