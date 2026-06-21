@@ -246,6 +246,7 @@ export class GameTableWebsocketTransportService implements OnDestroy {
       && [
         'command_ack',
         'game_patch',
+        'patch.v2',
         'resync_required',
         'error',
         'pong',

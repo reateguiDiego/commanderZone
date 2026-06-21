@@ -5,6 +5,7 @@ import { API_BASE_URL } from './api.config';
 import { CommandResponse, DisconnectVoteResponse, GameDebugHealthResponse, GameResponse, GameWebsocketTicketResponse, RematchVoteResponse } from '../models/api-responses.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
 import { GameCommand, GameDisconnectVoteChoice, GameRematchVote, GameZoneName, GameZoneResponse } from '../models/game.model';
+import { BootstrapV2 } from '../models/game-v2.model';
 
 @Injectable({ providedIn: 'root' })
 export class GamesApi {
@@ -12,6 +13,15 @@ export class GamesApi {
 
   snapshot(gameId: string): Observable<GameResponse> {
     return this.http.get<GameResponse>(`${API_BASE_URL}/games/${gameId}/snapshot`, { context: withoutGlobalLoading() });
+  }
+
+  bootstrapV2(gameId: string): Observable<BootstrapV2> {
+    return this.http.get<BootstrapV2>(`${API_BASE_URL}/games/${gameId}/bootstrap`, {
+      context: withoutGlobalLoading(),
+      params: {
+        contract: 'v2',
+      },
+    });
   }
 
   command(command: GameCommand, gameId: string): Observable<CommandResponse> {

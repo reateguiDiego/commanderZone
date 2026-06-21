@@ -69,6 +69,7 @@ import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.st
 import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { GameTableManaPoolState } from './state/mana/game-table-mana-pool.state';
+import { GameTableNormalizedV2Store } from './state/realtime/game-table-normalized-v2.store';
 import { GameTableStore, PlayerView, SelectedCard } from './game-table.store';
 import { playerIsActiveForTurn, playerIsDefeated } from './utils/game-player-defeat';
 import { GameLogPanelComponent } from './components/game-log-panel/game-log-panel.component';
@@ -485,6 +486,7 @@ interface MotionSourceRect {
     GameTableToastState,
     GameTableZonePilesState,
     GameTableManaPoolState,
+    GameTableNormalizedV2Store,
     GameTableCardActionsService,
     GameTableCardStatsService,
     GameTableDebouncedValueCommandsService,

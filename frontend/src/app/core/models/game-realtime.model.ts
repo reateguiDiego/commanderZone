@@ -11,6 +11,7 @@ import type {
   MulliganPlayerStatus,
   GameZoneName,
 } from './game.model';
+import type { CommandEnvelopeV2, PatchEnvelopeV2 } from './game-v2.model';
 
 export type RealtimeGameCommand<TPayload extends Record<string, unknown> = Record<string, unknown>> =
   Omit<GameCommand<TPayload>, 'clientActionId'> & {
@@ -20,6 +21,7 @@ export type RealtimeGameCommand<TPayload extends Record<string, unknown> = Recor
 
 export type GameplayClientMessage =
   | GameplayCommandClientMessage
+  | GameplayCommandV2ClientMessage
   | GameplayPingMessage
   | GameplayMulliganTakeClientMessage
   | GameplayMulliganKeepClientMessage
@@ -30,6 +32,11 @@ export interface GameplayCommandClientMessage {
   gameId: string;
   messageId: string;
   command: RealtimeGameCommand;
+}
+
+export interface GameplayCommandV2ClientMessage extends CommandEnvelopeV2 {
+  kind: 'command.v2';
+  messageId: string;
 }
 
 export interface GameplayPingMessage {
@@ -62,6 +69,7 @@ export interface GameplayMulliganScryConfirmClientMessage {
 export type GameplayServerMessage =
   | GameplayCommandAckMessage
   | GameplayGamePatchMessage
+  | GameplayPatchV2Message
   | GameplayResyncRequiredMessage
   | GameplayErrorMessage
   | GameplayPongMessage
@@ -82,6 +90,10 @@ export interface GameplayGamePatchMessage {
   operations: GameSnapshotPatchOperation[];
   event?: GameEvent;
   clientActionId?: string;
+}
+
+export interface GameplayPatchV2Message extends PatchEnvelopeV2 {
+  kind: 'patch.v2';
 }
 
 export type GameplayCommandAckStatus = 'rejected' | 'duplicate' | 'resync_required';

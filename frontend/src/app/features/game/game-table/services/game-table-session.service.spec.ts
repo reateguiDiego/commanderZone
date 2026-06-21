@@ -3,9 +3,12 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
 import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
+import { BootstrapV2 } from '../../../../core/models/game-v2.model';
 import { GameTableGameRealtimeService, GameTableRealtimeHandlers } from './game-table-game-realtime.service';
+import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
 import { GameTableSessionContext, GameTableSessionService } from './game-table-session.service';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
+import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
 
 const gameRealtime = {
   subscribe: vi.fn(),
@@ -16,6 +19,10 @@ describe('GameTableSessionService', () => {
   let service: GameTableSessionService;
   const gamesApi = {
     snapshot: vi.fn(),
+    bootstrapV2: vi.fn(),
+  };
+  const gameplayV2Flags = {
+    enabled: vi.fn(() => false),
   };
   let websocketStatus: ReturnType<typeof signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>>;
   const websocket = {
@@ -28,6 +35,9 @@ describe('GameTableSessionService', () => {
     websocketStatus = signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>('stopped');
     websocket.status = websocketStatus;
     gamesApi.snapshot.mockReset();
+    gamesApi.bootstrapV2.mockReset();
+    gameplayV2Flags.enabled.mockReset();
+    gameplayV2Flags.enabled.mockReturnValue(false);
     gameRealtime.subscribe.mockReset();
     gameRealtime.stop.mockReset();
     websocket.start.mockReset();
@@ -38,6 +48,8 @@ describe('GameTableSessionService', () => {
         { provide: GamesApi, useValue: gamesApi },
         { provide: GameTableGameRealtimeService, useValue: gameRealtime },
         { provide: GameTableWebsocketGameplayService, useValue: websocket },
+        GameTableNormalizedV2Store,
+        { provide: GameTableGameplayV2FlagsService, useValue: gameplayV2Flags },
       ],
     });
     service = TestBed.inject(GameTableSessionService);
@@ -81,6 +93,23 @@ describe('GameTableSessionService', () => {
     expect(gameRealtime.subscribe).toHaveBeenCalledWith('game-1', expect.objectContaining({
       onSnapshotInvalidated: expect.any(Function),
       onRematchCreated: expect.any(Function),
+    }));
+  });
+
+  it('loads bootstrap v2 when the frontend v2 flag is enabled', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const setSnapshot = vi.fn();
+    gamesApi.bootstrapV2.mockReturnValue(of(bootstrapV2()));
+
+    await service.load(context(snapshot(), setSnapshot));
+
+    expect(gamesApi.snapshot).not.toHaveBeenCalled();
+    expect(gamesApi.bootstrapV2).toHaveBeenCalledWith('game-1');
+    expect(setSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+      version: 6,
+      players: expect.objectContaining({
+        'player-1': expect.objectContaining({ life: 38 }),
+      }),
     }));
   });
 
@@ -223,5 +252,70 @@ function snapshot(overrides: Partial<GameSnapshot['players'][string]> = {}): Gam
     chat: [],
     eventLog: [],
     createdAt: '2026-01-01T00:00:00.000Z',
+  };
+}
+
+function bootstrapV2(): BootstrapV2 {
+  return {
+    game: {
+      id: 'game-1',
+      status: 'active',
+      version: 6,
+      viewerId: 'player-1',
+      ownerId: 'player-1',
+      gamePhase: 'PLAYING',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:01:00.000Z',
+    },
+    players: {
+      'player-1': {
+        playerId: 'player-1',
+        user: { id: 'player-1', email: 'player@test', displayName: 'Player', roles: [] },
+        displayName: 'Player',
+        life: 38,
+        status: 'active',
+        handCount: 1,
+        zoneIds: ['player-1:library', 'player-1:hand', 'player-1:battlefield', 'player-1:graveyard', 'player-1:exile', 'player-1:command'],
+        zoneCounts: { library: 98, hand: 1, battlefield: 1, graveyard: 0, exile: 0, command: 0 },
+        commanderDamage: {},
+        counters: {},
+        deckName: 'V2 Deck',
+      },
+    },
+    zones: {
+      'player-1:library': { zoneId: 'player-1:library', playerId: 'player-1', name: 'library', instanceIds: ['library-1'] },
+      'player-1:hand': { zoneId: 'player-1:hand', playerId: 'player-1', name: 'hand', instanceIds: ['hand-1'] },
+      'player-1:battlefield': { zoneId: 'player-1:battlefield', playerId: 'player-1', name: 'battlefield', instanceIds: ['battlefield-1'] },
+      'player-1:graveyard': { zoneId: 'player-1:graveyard', playerId: 'player-1', name: 'graveyard', instanceIds: [] },
+      'player-1:exile': { zoneId: 'player-1:exile', playerId: 'player-1', name: 'exile', instanceIds: [] },
+      'player-1:command': { zoneId: 'player-1:command', playerId: 'player-1', name: 'command', instanceIds: [] },
+    },
+    instances: {
+      'library-1': { instanceId: 'library-1', cardRef: 'card-1', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
+      'hand-1': { instanceId: 'hand-1', cardRef: 'card-2', zoneId: 'player-1:hand', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
+      'battlefield-1': { instanceId: 'battlefield-1', cardRef: 'card-3', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: true },
+    },
+    zoneCounts: {
+      'player-1:library': 98,
+      'player-1:hand': 1,
+      'player-1:battlefield': 1,
+      'player-1:graveyard': 0,
+      'player-1:exile': 0,
+      'player-1:command': 0,
+    },
+    relations: {
+      stack: [],
+      arrows: [],
+      attachments: [],
+      specialEntities: [],
+    },
+    turn: { activePlayerId: 'player-1', phase: 'main-1', number: 2 },
+    staticCards: {
+      'card-1': { cardRef: 'card-1', scryfallId: 's1', name: 'Top Card', imageUris: null, cardFaces: [], typeLine: 'Land', manaCost: null, colorIdentity: [] },
+      'card-2': { cardRef: 'card-2', scryfallId: 's2', name: 'Hand Card', imageUris: null, cardFaces: [], typeLine: 'Creature', manaCost: null, colorIdentity: [] },
+      'card-3': { cardRef: 'card-3', scryfallId: 's3', name: 'Board Card', imageUris: null, cardFaces: [], typeLine: 'Artifact', manaCost: null, colorIdentity: [] },
+    },
+    chatCursor: null,
+    logCursor: null,
   };
 }

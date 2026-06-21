@@ -1,11 +1,14 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
+import { BootstrapV2, PatchEnvelopeV2 } from '../../../../core/models/game-v2.model';
 import { GameplayClientMessage, GameplayServerMessage } from '../../../../core/models/game-realtime.model';
 import { GameCardInstance, GameSnapshot } from '../../../../core/models/game.model';
 import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
+import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
 import { GameTableWebsocketGameplayContext, GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
+import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
 
 describe('GameTableWebsocketGameplayService', () => {
   let service: GameTableWebsocketGameplayService;
@@ -20,6 +23,9 @@ describe('GameTableWebsocketGameplayService', () => {
   let onCommandBlockedSpy: ReturnType<typeof vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>>;
   let broadcastChannels: FakeBroadcastChannel[];
   const originalBroadcastChannel = globalThis.BroadcastChannel;
+  const gameplayV2Flags = {
+    enabled: vi.fn(() => false),
+  };
 
   beforeEach(() => {
     broadcastChannels = [];
@@ -34,6 +40,8 @@ describe('GameTableWebsocketGameplayService', () => {
     });
 
     messages = new Subject<GameplayServerMessage>();
+    gameplayV2Flags.enabled.mockReset();
+    gameplayV2Flags.enabled.mockReturnValue(false);
     status = signal('connected');
     send = vi.fn(() => true);
     snapshotState = snapshot();
@@ -49,6 +57,8 @@ describe('GameTableWebsocketGameplayService', () => {
       providers: [
         GameTableWebsocketGameplayService,
         GameTableRealtimeAnimationBusService,
+        GameTableNormalizedV2Store,
+        { provide: GameTableGameplayV2FlagsService, useValue: gameplayV2Flags },
         {
           provide: GameTableWebsocketTransportService,
           useValue: {
@@ -105,6 +115,34 @@ describe('GameTableWebsocketGameplayService', () => {
 
     expect(snapshotState.version).toBe(2);
     expect(snapshotState.players['player-1'].life).toBe(39);
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('sends command.v2 and applies patch.v2 when the frontend v2 flag is enabled', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap(bootstrapV2());
+
+    const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -2 });
+    const message = sentMessage<Extract<GameplayClientMessage, { kind: 'command.v2' }>>();
+
+    expect(message.kind).toBe('command.v2');
+    expect(message.clientActionId).toBeTruthy();
+    expect(message.baseVersion).toBe(1);
+
+    const patch: PatchEnvelopeV2 & { kind: 'patch.v2' } = {
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ackClientActionId: message.clientActionId,
+      ops: [{ op: 'player.life.set', playerId: 'player-1', value: 38 }],
+    };
+    messages.next(patch);
+    await sent;
+
+    expect(snapshotState.version).toBe(2);
+    expect(snapshotState.players['player-1'].life).toBe(38);
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
@@ -1490,10 +1528,10 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(setErrorSpy).toHaveBeenCalledWith('Wrong game');
   });
 
-  function sentMessage(): Extract<GameplayClientMessage, { kind: 'command' }> {
+  function sentMessage<TMessage extends GameplayClientMessage = Extract<GameplayClientMessage, { kind: 'command' }>>(): TMessage {
     expect(send).toHaveBeenCalled();
 
-    return send.mock.calls.at(-1)?.[0] as Extract<GameplayClientMessage, { kind: 'command' }>;
+    return send.mock.calls.at(-1)?.[0] as TMessage;
   }
 
   function context(): GameTableWebsocketGameplayContext {
@@ -1601,6 +1639,96 @@ function card(instanceId: string, overrides: Partial<GameCardInstance> = {}): Ga
     name: instanceId,
     tapped: false,
     ...overrides,
+  };
+}
+
+function bootstrapV2(): BootstrapV2 {
+  return {
+    game: {
+      id: 'game-1',
+      status: 'active',
+      version: 1,
+      viewerId: 'player-1',
+      ownerId: 'player-1',
+      gamePhase: 'PLAYING',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:01.000Z',
+    },
+    players: {
+      'player-1': {
+        playerId: 'player-1',
+        user: { id: 'player-1', email: 'player1@example.test', displayName: 'Player 1', roles: [] },
+        displayName: 'Player 1',
+        life: 40,
+        status: 'active',
+        handCount: 0,
+        zoneIds: ['player-1:library', 'player-1:hand', 'player-1:battlefield', 'player-1:graveyard', 'player-1:exile', 'player-1:command'],
+        zoneCounts: { library: 1, hand: 0, battlefield: 2, graveyard: 0, exile: 0, command: 0 },
+        commanderDamage: {},
+        counters: {},
+        deckName: 'Deck',
+      },
+      'player-2': {
+        playerId: 'player-2',
+        user: { id: 'player-2', email: 'player2@example.test', displayName: 'Player 2', roles: [] },
+        displayName: 'Player 2',
+        life: 40,
+        status: 'active',
+        handCount: 0,
+        zoneIds: ['player-2:library', 'player-2:hand', 'player-2:battlefield', 'player-2:graveyard', 'player-2:exile', 'player-2:command'],
+        zoneCounts: { library: 0, hand: 0, battlefield: 0, graveyard: 0, exile: 0, command: 0 },
+        commanderDamage: {},
+        counters: {},
+        deckName: 'Deck',
+      },
+    },
+    zones: {
+      'player-1:library': { zoneId: 'player-1:library', playerId: 'player-1', name: 'library', instanceIds: ['library-1'] },
+      'player-1:hand': { zoneId: 'player-1:hand', playerId: 'player-1', name: 'hand', instanceIds: [] },
+      'player-1:battlefield': { zoneId: 'player-1:battlefield', playerId: 'player-1', name: 'battlefield', instanceIds: ['battlefield-1', 'battlefield-2'] },
+      'player-1:graveyard': { zoneId: 'player-1:graveyard', playerId: 'player-1', name: 'graveyard', instanceIds: [] },
+      'player-1:exile': { zoneId: 'player-1:exile', playerId: 'player-1', name: 'exile', instanceIds: [] },
+      'player-1:command': { zoneId: 'player-1:command', playerId: 'player-1', name: 'command', instanceIds: [] },
+      'player-2:library': { zoneId: 'player-2:library', playerId: 'player-2', name: 'library', instanceIds: [] },
+      'player-2:hand': { zoneId: 'player-2:hand', playerId: 'player-2', name: 'hand', instanceIds: [] },
+      'player-2:battlefield': { zoneId: 'player-2:battlefield', playerId: 'player-2', name: 'battlefield', instanceIds: [] },
+      'player-2:graveyard': { zoneId: 'player-2:graveyard', playerId: 'player-2', name: 'graveyard', instanceIds: [] },
+      'player-2:exile': { zoneId: 'player-2:exile', playerId: 'player-2', name: 'exile', instanceIds: [] },
+      'player-2:command': { zoneId: 'player-2:command', playerId: 'player-2', name: 'command', instanceIds: [] },
+    },
+    instances: {
+      'library-1': { instanceId: 'library-1', cardRef: 'card-1', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
+      'battlefield-1': { instanceId: 'battlefield-1', cardRef: 'card-2', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: false, position: { x: 0.1, y: 0.2, unit: 'ratio' } },
+      'battlefield-2': { instanceId: 'battlefield-2', cardRef: 'card-3', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: false, position: { x: 0.3, y: 0.4, unit: 'ratio' } },
+    },
+    zoneCounts: {
+      'player-1:library': 1,
+      'player-1:hand': 0,
+      'player-1:battlefield': 2,
+      'player-1:graveyard': 0,
+      'player-1:exile': 0,
+      'player-1:command': 0,
+      'player-2:library': 0,
+      'player-2:hand': 0,
+      'player-2:battlefield': 0,
+      'player-2:graveyard': 0,
+      'player-2:exile': 0,
+      'player-2:command': 0,
+    },
+    relations: {
+      stack: [],
+      arrows: [],
+      attachments: [],
+      specialEntities: [],
+    },
+    turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
+    staticCards: {
+      'card-1': { cardRef: 'card-1', scryfallId: 's1', name: 'Top Card', imageUris: null, cardFaces: [], typeLine: 'Land', manaCost: null, colorIdentity: [] },
+      'card-2': { cardRef: 'card-2', scryfallId: 's2', name: 'Battlefield One', imageUris: null, cardFaces: [], typeLine: 'Creature', manaCost: null, colorIdentity: [] },
+      'card-3': { cardRef: 'card-3', scryfallId: 's3', name: 'Battlefield Two', imageUris: null, cardFaces: [], typeLine: 'Creature', manaCost: null, colorIdentity: [] },
+    },
+    chatCursor: null,
+    logCursor: null,
   };
 }
 

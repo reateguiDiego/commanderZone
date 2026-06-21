@@ -6,6 +6,7 @@ import {
   GameplayCommandAckMessage,
   GameplayErrorMessage,
   GameplayGamePatchMessage,
+  GameplayPatchV2Message,
   GameplayMulliganCompletedMessage,
   GameplayMulliganErrorMessage,
   GameplayMulliganPrivateStateMessage,
@@ -22,6 +23,8 @@ import {
   isGameDebugSnapshotMetricsMessage,
 } from '../../game-debug/game-debug-snapshot-metrics.channel';
 import { applyGameSnapshotPatch } from '../state/realtime/game-snapshot-patch-reducer';
+import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
+import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
 import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
 
@@ -196,6 +199,8 @@ const COMMAND_TIMEOUT_MS = 15_000;
 @Injectable()
 export class GameTableWebsocketGameplayService implements OnDestroy {
   private readonly transport = inject(GameTableWebsocketTransportService);
+  private readonly gameplayV2Flags = inject(GameTableGameplayV2FlagsService);
+  private readonly normalizedV2Store = inject(GameTableNormalizedV2Store);
   private readonly realtimeAnimationBus = inject(GameTableRealtimeAnimationBusService);
   private readonly commandQueue: PendingWebsocketCommand[] = [];
   private inFlightCommand: PendingWebsocketCommand | null = null;
@@ -368,6 +373,10 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         await this.handlePatch(context, message);
         return;
 
+      case 'patch.v2':
+        await this.handlePatchV2(context, message);
+        return;
+
       case 'command_ack':
         await this.handleCommandAck(context, message);
         return;
@@ -450,6 +459,29 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
     await this.requestResync(context);
     this.resolveInFlightCommand(patch.clientActionId);
+    this.drainQueue();
+  }
+
+  private async handlePatchV2(context: GameTableWebsocketGameplayContext, patch: GameplayPatchV2Message): Promise<void> {
+    const previousSnapshot = context.snapshot();
+    const previousSnapshotSize = this.snapshotSize(previousSnapshot);
+    const result = this.normalizedV2Store.applyPatch(patch);
+    if (result.status === 'applied') {
+      context.setSnapshot(result.snapshot);
+      this.publishSnapshotMetric(context.gameId(), patch, previousSnapshotSize, this.snapshotSize(result.snapshot));
+      this.resolveInFlightCommand(patch.ackClientActionId ?? undefined);
+      this.drainQueue();
+      return;
+    }
+
+    if (result.status === 'ignored') {
+      this.resolveInFlightCommand(patch.ackClientActionId ?? undefined);
+      this.drainQueue();
+      return;
+    }
+
+    await this.requestResync(context);
+    this.resolveInFlightCommand(patch.ackClientActionId ?? undefined);
     this.drainQueue();
   }
 
@@ -619,17 +651,27 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
     const clientActionId = this.randomId('action');
     const messageId = this.randomId('message');
-    const message = {
-      kind: 'command',
-      gameId,
-      messageId,
-      command: {
-        type: queued.type,
-        payload: queued.payload,
-        clientActionId,
-        baseVersion: snapshot.version,
-      },
-    } satisfies GameplayClientMessage;
+    const message = this.gameplayV2Flags.enabled()
+      ? {
+          kind: 'command.v2',
+          gameId,
+          messageId,
+          type: queued.type,
+          payload: queued.payload,
+          clientActionId,
+          baseVersion: snapshot.version,
+        } satisfies GameplayClientMessage
+      : {
+          kind: 'command',
+          gameId,
+          messageId,
+          command: {
+            type: queued.type,
+            payload: queued.payload,
+            clientActionId,
+            baseVersion: snapshot.version,
+          },
+        } satisfies GameplayClientMessage;
 
     queued.messageId = messageId;
     queued.clientActionId = clientActionId;
@@ -1163,19 +1205,21 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
   private publishSnapshotMetric(
     gameId: string,
-    patch: GameplayGamePatchMessage,
+    patch: GameplayGamePatchMessage | GameplayPatchV2Message,
     previousSize: { lines: number; characters: number } | null,
     nextSize: { lines: number; characters: number } | null,
   ): void {
     const channel = this.snapshotMetricsChannel;
-    if (!channel || !patch.clientActionId || this.observedDebugGameId !== gameId || Date.now() > this.observedDebugUntil) {
+    const clientActionId = patch.kind === 'patch.v2' ? patch.ackClientActionId : patch.clientActionId;
+    const operationCount = patch.kind === 'patch.v2' ? patch.ops.length : patch.operations.length;
+    if (!channel || !clientActionId || this.observedDebugGameId !== gameId || Date.now() > this.observedDebugUntil) {
       return;
     }
 
     channel.postMessage({
       kind: 'snapshot_metric',
       gameId,
-      clientActionId: patch.clientActionId,
+      clientActionId,
       version: patch.version,
       previousLines: previousSize?.lines ?? 0,
       nextLines: nextSize?.lines ?? 0,
@@ -1183,7 +1227,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       previousCharacters: previousSize?.characters ?? 0,
       nextCharacters: nextSize?.characters ?? 0,
       characterDelta: (nextSize?.characters ?? 0) - (previousSize?.characters ?? 0),
-      operationCount: patch.operations.length,
+      operationCount,
       measuredAt: new Date().toISOString(),
     });
   }
