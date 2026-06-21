@@ -6,14 +6,19 @@ use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\Debug\GameDebugHealthAggregator;
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
+use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\GameCommandHandler;
 use App\Domain\Game\Game;
+use App\Domain\Game\GameEvent;
+use App\Domain\Game\GameSnapshotCompact;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
 use App\UI\Http\GamesController;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
+use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -70,6 +75,49 @@ class GamesControllerV2Test extends TestCase
         self::assertArrayHasKey('game', $payload);
         self::assertArrayHasKey('snapshot', $payload['game']);
         self::assertSame(2, $payload['game']['snapshot']['version']);
+    }
+
+    public function testSnapshotHydratesRuntimeStateFromEventStoreWhenEnabled(): void
+    {
+        [$game, $viewer] = $this->game();
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::once())->method('project')->with($game, $viewer)->willReturn($this->projectedSnapshot($viewer));
+        $eventRepository = $this->createMock(EntityRepository::class);
+        $eventRepository->expects(self::once())->method('findBy')->with(['game' => $game], ['version' => 'ASC'])->willReturn([]);
+        $snapshotRepository = $this->createMock(EntityRepository::class);
+        $snapshotRepository->expects(self::once())->method('findOneBy')->with(['game' => $game], ['version' => 'DESC'])->willReturn(null);
+        $eventStoreEntityManager = $this->createMock(EntityManagerInterface::class);
+        $eventStoreEntityManager->method('getRepository')->willReturnMap([
+            [GameEvent::class, $eventRepository],
+            [GameSnapshotCompact::class, $snapshotRepository],
+        ]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::atLeastOnce())->method('getManagerForClass')->with(Game::class)->willReturn($eventStoreEntityManager);
+        $eventStore = new GameEventStoreV2(
+            $registry,
+            new GameCommandHandler(),
+            null,
+            null,
+            new GameplayV2Flags(false, false, false, true),
+        );
+
+        $controller = new GamesController();
+        $controller->setContainer($this->controllerContainer());
+        $response = $controller->snapshot(
+            $game->id(),
+            $viewer,
+            $this->entityManager($game),
+            $projection,
+            $this->debugHealth(),
+            Request::create('/games/'.$game->id().'/snapshot', 'GET'),
+            null,
+            new GameplayV2Flags(false, false, false, true),
+            $eventStore,
+        );
+        $payload = json_decode($response->getContent() ?: '[]', true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('game', $payload);
+        self::assertArrayHasKey('snapshot', $payload['game']);
     }
 
     /**

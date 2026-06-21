@@ -4583,6 +4583,27 @@ class GameCommandHandler
             'operations' => $emitter->publicOps(),
             'viewerPayloads' => $emitter->viewerPayloads(),
             'groupPayloads' => $emitter->groupPayloads(),
+            'eventStorePayload' => [
+                'replay' => [
+                    'ops' => [
+                        ...($moves === [] ? [] : [count($moves) === 1
+                            ? ['op' => 'zone.cards.move', ...$moves[0]]
+                            : ['op' => 'zone.cards.batchMove', 'moves' => $moves]]),
+                        [
+                            'op' => 'zone.count.set',
+                            'playerId' => $playerId,
+                            'zone' => 'library',
+                            'count' => count($snapshot['players'][$playerId]['zones']['library'] ?? []),
+                        ],
+                        [
+                            'op' => 'zone.count.set',
+                            'playerId' => $playerId,
+                            'zone' => 'hand',
+                            'count' => count($snapshot['players'][$playerId]['zones']['hand'] ?? []),
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -4629,6 +4650,24 @@ class GameCommandHandler
             'operations' => $emitter->publicOps(),
             'viewerPayloads' => $emitter->viewerPayloads(),
             'groupPayloads' => $emitter->groupPayloads(),
+            'eventStorePayload' => [
+                'replay' => [
+                    'entries' => in_array('all', $targets, true)
+                        ? [[
+                            'visibility' => 'public',
+                            'op' => $operation,
+                        ]]
+                        : (count($targets) === 1
+                            ? [[
+                                'visibility' => 'player:'.$targets[0],
+                                'op' => $operation,
+                            ]]
+                            : [[
+                                'visibility' => 'group:'.$this->v2VisibilityTargetsMask($snapshot, $targets),
+                                'op' => $operation,
+                            ]]),
+                ],
+            ],
         ];
     }
 
@@ -4755,7 +4794,7 @@ class GameCommandHandler
             $this->pendingLogContext = ['cardNames' => $movedCardNames];
         }
 
-        return $this->v2SemanticizePatchData([
+        $data = $this->v2SemanticizePatchData([
             'log' => $mode === 'single'
                 ? $this->v2SingleMoveLog($snapshot, $payload, $moves[0] ?? null, $movesWithinLibrary)
                 : $this->v2BatchMoveLog($snapshot, $payload, $moves, $randomOrder, $mode),
@@ -4765,6 +4804,13 @@ class GameCommandHandler
             'operations' => $touchesHiddenZones ? $operations : $fullOperations,
             'viewerPayloads' => $viewerPayloads,
         ]);
+        $data['eventStorePayload'] = [
+            'replay' => [
+                'ops' => $this->v2SemanticizeOperations($fullOperations),
+            ],
+        ];
+
+        return $data;
     }
 
     /**
@@ -4827,7 +4873,7 @@ class GameCommandHandler
 
         $touchesHiddenZone = in_array($zone, self::HIDDEN_ZONES, true);
 
-        return $this->v2SemanticizePatchData([
+        $data = $this->v2SemanticizePatchData([
             'log' => $zone === 'library' ? 'Reordered library.' : sprintf('Reordered %s.', $zone),
             'eventPayload' => $touchesHiddenZone
                 ? ['playerId' => $playerId, 'zone' => $zone, 'count' => count($instanceIds)]
@@ -4840,6 +4886,13 @@ class GameCommandHandler
                 ],
             ] : [],
         ]);
+        $data['eventStorePayload'] = [
+            'replay' => [
+                'ops' => $this->v2SemanticizeOperations($fullOperations),
+            ],
+        ];
+
+        return $data;
     }
 
     /**
@@ -5536,9 +5589,26 @@ class GameCommandHandler
             $eventLogCountBefore = count($snapshot['eventLog'] ?? []);
             $this->commit($snapshot, $type, $result->logMessage(), $actor);
             $eventLogEntries = array_values(array_slice($snapshot['eventLog'] ?? [], $eventLogCountBefore));
-            $persistedSnapshot = $this->snapshotForPersistence($game, $snapshotBefore, $snapshot);
-            $game->replaceSnapshot($persistedSnapshot);
-            $event = new GameEvent($game, $type, $result->eventPayload(), $actor, $clientActionId);
+            $eventVersion = max(1, (int) ($snapshot['version'] ?? 1));
+            $eventStoreEnabled = $this->flagsV2->eventEnabled();
+            $persistedSnapshot = $eventStoreEnabled
+                ? $snapshot
+                : $this->snapshotForPersistence($game, $snapshotBefore, $snapshot);
+            if ($eventStoreEnabled) {
+                $game->replaceRuntimeSnapshot($persistedSnapshot);
+            } else {
+                $game->replaceSnapshot($persistedSnapshot);
+            }
+            $event = (new GameEvent(
+                $game,
+                $type,
+                $eventStoreEnabled
+                    ? $this->storedEventPayloadForV2Result($result, $eventLogEntries)
+                    : $result->eventPayload(),
+                $actor,
+                $clientActionId,
+                $eventVersion,
+            ))->withPublicPayload($result->eventPayload());
             $game->addEvent($event);
             $this->lastDirectPatchPayload = $result->directPatchPayload($eventLogEntries);
             $this->lastCommandMetrics = $this->commandMetricsPayload(
@@ -5613,6 +5683,20 @@ class GameCommandHandler
         }
 
         return $snapshot;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $eventLogEntries
+     *
+     * @return array<string,mixed>
+     */
+    private function storedEventPayloadForV2Result(GameCommandV2Result $result, array $eventLogEntries): array
+    {
+        $payload = $result->storedEventPayload();
+        $payload['public'] = $result->eventPayload();
+        $payload['eventLogEntries'] = $eventLogEntries;
+
+        return $payload;
     }
 
     private function syncVisibilityIndexAfterCommand(array &$snapshot, string $type, array $payload): void

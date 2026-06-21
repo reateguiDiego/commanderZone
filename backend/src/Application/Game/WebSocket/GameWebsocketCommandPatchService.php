@@ -6,6 +6,7 @@ use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
+use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
@@ -37,6 +38,7 @@ final readonly class GameWebsocketCommandPatchService
         private ?GameplayMetricsInspector $metricsInspector = null,
         private ?GameplayV2ContractFactory $contractsV2 = null,
         private ?GameplayV2Flags $flagsV2 = null,
+        private ?GameEventStoreV2 $eventStoreV2 = null,
     ) {
     }
 
@@ -160,6 +162,9 @@ final readonly class GameWebsocketCommandPatchService
         try {
             $game = $manager->getRepository(Game::class)->find($gameId);
             $actor = $manager->getRepository(User::class)->find($userId);
+            if ($game instanceof Game && $this->shouldHydrateEventStore()) {
+                $this->eventStoreV2?->hydrateGame($game);
+            }
             $snapshotLoadMs = $this->elapsedMs($loadStartedAt);
             if (!$game instanceof Game || !$actor instanceof User) {
                 $message = $this->messages->rejectedCommand(
@@ -450,6 +455,9 @@ final readonly class GameWebsocketCommandPatchService
 
             $persistStartedAt = microtime(true);
             $manager->persist($event);
+            if ($game instanceof Game && $this->shouldHydrateEventStore()) {
+                $this->eventStoreV2?->persistCompactSnapshotIfDue($manager, $game, $game->snapshot());
+            }
             $manager->flush();
             $manager->commit();
             $phaseTimings['persist'] = $this->elapsedMs($persistStartedAt);
@@ -613,6 +621,11 @@ final readonly class GameWebsocketCommandPatchService
         }
 
         return $manager;
+    }
+
+    private function shouldHydrateEventStore(): bool
+    {
+        return ($this->flagsV2?->eventEnabled() ?? false) && $this->eventStoreV2?->enabled() === true;
     }
 
     /**

@@ -9,6 +9,7 @@ final readonly class GameCommandV2Result
      * @param list<array<string,mixed>> $operations
      * @param array<string,array<string,mixed>> $viewerPayloads
      * @param array<string,array<string,mixed>> $groupPayloads
+     * @param array<string,mixed>|null $storedEventPayload
      */
     public function __construct(
         private ?string $logMessage,
@@ -20,6 +21,7 @@ final readonly class GameCommandV2Result
         private array $groupPayloads = [],
         private ?string $ackClientActionId = null,
         private ?int $version = null,
+        private ?array $storedEventPayload = null,
     ) {
     }
 
@@ -78,6 +80,22 @@ final readonly class GameCommandV2Result
     public function version(): ?int
     {
         return $this->version;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function storedEventPayload(): array
+    {
+        if (is_array($this->storedEventPayload) && $this->storedEventPayload !== []) {
+            return $this->storedEventPayload;
+        }
+
+        return [
+            'replay' => [
+                'ops' => $this->operations(),
+            ],
+        ];
     }
 
     /**

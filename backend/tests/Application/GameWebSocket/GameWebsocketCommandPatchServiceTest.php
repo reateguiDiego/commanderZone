@@ -8,6 +8,7 @@ use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
+use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameVisibilityIndex;
 use App\Application\Game\Performance\GameplayMetricsInspector;
@@ -794,6 +795,87 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertContains('zone.cards.batchMove', array_column($message['ops'], 'op'));
     }
 
+    public function testEventStoreHydratesAndPersistsCompactSnapshotForV2Command(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+        $handlerFlags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $handlerFlags);
+        $gameRepository = $this->createMock(EntityRepository::class);
+        $gameRepository->expects(self::once())->method('find')->with($game->id())->willReturn($game);
+        $userRepository = $this->createMock(EntityRepository::class);
+        $userRepository->expects(self::once())->method('find')->with($actor->id())->willReturn($actor);
+        $eventRepository = $this->createMock(EntityRepository::class);
+        $eventRepository->expects(self::once())->method('findOneBy')->willReturn(null);
+        $eventRepository->expects(self::once())->method('findBy')->with(['game' => $game], ['version' => 'ASC'])->willReturn([]);
+        $snapshotRepository = $this->createMock(EntityRepository::class);
+        $snapshotRepository->expects(self::exactly(2))->method('findOneBy')->with(['game' => $game], ['version' => 'DESC'])->willReturn(null);
+        $persisted = [];
+        $manager = $this->createMock(EntityManagerInterface::class);
+        $manager->method('getRepository')->willReturnMap([
+            [Game::class, $gameRepository],
+            [User::class, $userRepository],
+            [GameEvent::class, $eventRepository],
+            [\App\Domain\Game\GameSnapshotCompact::class, $snapshotRepository],
+        ]);
+        $manager->expects(self::once())->method('beginTransaction');
+        $manager->expects(self::once())->method('lock')->with($game, LockMode::PESSIMISTIC_WRITE);
+        $manager->expects(self::exactly(2))
+            ->method('persist')
+            ->with(self::callback(function (mixed $entity) use (&$persisted): bool {
+                $persisted[] = $entity::class;
+
+                return $entity instanceof GameEvent || $entity instanceof \App\Domain\Game\GameSnapshotCompact;
+            }));
+        $manager->expects(self::once())->method('flush');
+        $manager->expects(self::once())->method('commit');
+        $manager->expects(self::once())->method('clear');
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->method('getManagerForClass')->with(Game::class)->willReturn($manager);
+        $eventStore = new GameEventStoreV2(
+            $registry,
+            $handler,
+            new CompactGameCardStateMapper(),
+            new \App\Application\Game\GameEventReplayService(),
+            $handlerFlags,
+            null,
+            1,
+            1,
+        );
+        $messages = new GameWebsocketMessageFactory();
+        $service = new GameWebsocketCommandPatchService(
+            $handler,
+            new GameDisconnectVoteService($handler),
+            new GameWebsocketPatchBuilder($messages),
+            $messages,
+            new \App\Application\Game\WebSocket\GameWebsocketRoomRegistry(),
+            $registry,
+            $projection,
+            null,
+            null,
+            new GameplayMetricsInspector(),
+            new GameplayV2ContractFactory(),
+            new GameplayV2Flags(false, true, false, true),
+            $eventStore,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'card.tapped',
+            ['playerId' => $actor->id(), 'zone' => 'battlefield', 'instanceId' => 'battlefield-1', 'tapped' => true],
+            'action-v2-event-store',
+            1,
+            'message-v2-event-store',
+        );
+
+        self::assertContains(GameEvent::class, $persisted);
+        self::assertContains(\App\Domain\Game\GameSnapshotCompact::class, $persisted);
+        self::assertSame('game_patch', $result->messageForUserId($actor->id())['kind']);
+    }
+
     /**
      * @return array{Game, User}
      */
@@ -912,6 +994,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         ?GameplayV2Flags $flagsV2 = null,
         ?GameCommandHandler $handler = null,
         ?GameWebsocketPatchBuilder $patchBuilder = null,
+        ?GameEventStoreV2 $eventStoreV2 = null,
     ): GameWebsocketCommandPatchService {
         $actor ??= $game->room()->owner();
         $gameRepository = $this->createMock(EntityRepository::class);
@@ -938,7 +1021,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $registry = $this->createMock(ManagerRegistry::class);
         $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
 
-        return $this->serviceWithRegistry($registry, $projection, $resolver, $metricsStore, $flagsV2, $handler, $patchBuilder);
+        return $this->serviceWithRegistry($registry, $projection, $resolver, $metricsStore, $flagsV2, $handler, $patchBuilder, $eventStoreV2);
     }
 
     private function serviceWithRegistry(
@@ -949,6 +1032,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         ?GameplayV2Flags $flagsV2 = null,
         ?GameCommandHandler $handler = null,
         ?GameWebsocketPatchBuilder $patchBuilder = null,
+        ?GameEventStoreV2 $eventStoreV2 = null,
     ): GameWebsocketCommandPatchService
     {
         $messages = new GameWebsocketMessageFactory();
@@ -968,6 +1052,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             new GameplayMetricsInspector(),
             $contractsV2,
             $flagsV2,
+            $eventStoreV2,
         );
     }
 

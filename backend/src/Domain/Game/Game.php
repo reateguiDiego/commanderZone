@@ -30,6 +30,13 @@ class Game
     #[ORM\Column(type: 'json')]
     private array $snapshot;
 
+    /**
+     * Runtime-only snapshot used by V2 event-sourced flows.
+     *
+     * @var array<string,mixed>|null
+     */
+    private ?array $runtimeSnapshot = null;
+
     #[ORM\OneToMany(mappedBy: 'game', targetEntity: GameEvent::class, cascade: ['persist'], orphanRemoval: false)]
     private Collection $events;
 
@@ -55,6 +62,11 @@ class Game
     }
 
     public function snapshot(): array
+    {
+        return $this->runtimeSnapshot ?? $this->snapshot;
+    }
+
+    public function persistedSnapshot(): array
     {
         return $this->snapshot;
     }
@@ -88,6 +100,19 @@ class Game
     public function replaceSnapshot(array $snapshot): void
     {
         $this->snapshot = $snapshot;
+        $this->runtimeSnapshot = $snapshot;
+        $this->touch();
+    }
+
+    public function replaceRuntimeSnapshot(array $snapshot): void
+    {
+        $this->runtimeSnapshot = $snapshot;
+        $this->touch();
+    }
+
+    public function clearRuntimeSnapshot(): void
+    {
+        $this->runtimeSnapshot = null;
         $this->touch();
     }
 

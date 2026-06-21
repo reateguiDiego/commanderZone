@@ -25,6 +25,9 @@ final class CardsMovedCommandV2Applier implements GameCommandV2ApplierInterface
             is_array($data['viewerPayloads'] ?? null) ? $data['viewerPayloads'] : [],
             false,
             is_array($data['groupPayloads'] ?? null) ? $data['groupPayloads'] : [],
+            null,
+            null,
+            is_array($data['eventStorePayload'] ?? null) ? $data['eventStorePayload'] : null,
         );
     }
 }

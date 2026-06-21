@@ -6,6 +6,7 @@ use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
+use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
@@ -49,6 +50,7 @@ class GamesController extends ApiController
         ?Request $request = null,
         ?GameplayV2ContractFactory $contractsV2 = null,
         ?GameplayV2Flags $flagsV2 = null,
+        ?GameEventStoreV2 $eventStoreV2 = null,
     ): JsonResponse
     {
         $game = $entityManager->getRepository(Game::class)->find($id);
@@ -57,6 +59,9 @@ class GamesController extends ApiController
         }
         if (!$game->canBeViewedBy($user)) {
             return $this->fail('Game access denied.', 403);
+        }
+        if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+            $eventStoreV2->hydrateGame($game);
         }
 
         $startedAt = microtime(true);
@@ -333,6 +338,8 @@ class GamesController extends ApiController
         GameEventPublisher $publisher,
         GameplayMetricsRecorderInterface $metrics,
         GameplayMetricsInspector $metricsInspector,
+        ?GameplayV2Flags $flagsV2 = null,
+        ?GameEventStoreV2 $eventStoreV2 = null,
     ): JsonResponse
     {
         $startedAt = microtime(true);
@@ -345,6 +352,9 @@ class GamesController extends ApiController
         }
         if (!$game->canBeControlledBy($user)) {
             return $this->fail('Game access denied.', 403);
+        }
+        if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+            $eventStoreV2->hydrateGame($game);
         }
 
         $snapshotBytesBefore = $metricsInspector->jsonBytes($game->snapshot());
@@ -446,6 +456,9 @@ class GamesController extends ApiController
             $numberOfInstances = (int) ($handlerMetrics['number_of_instances'] ?? $numberOfInstances);
             $persistStartedAt = microtime(true);
             $entityManager->persist($event);
+            if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+                $eventStoreV2->persistCompactSnapshotIfDue($entityManager, $game, $game->snapshot());
+            }
             $entityManager->flush();
             $entityManager->commit();
             $persistMs = $this->elapsedMs($persistStartedAt);
@@ -902,7 +915,7 @@ class GamesController extends ApiController
     }
 
     #[Route('/games/{id}/zones/{playerId}/{zone}', methods: ['GET'])]
-    public function zone(string $id, string $playerId, string $zone, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameProjectionService $projection, GameCommandHandler $normalizer): JsonResponse
+    public function zone(string $id, string $playerId, string $zone, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameProjectionService $projection, GameCommandHandler $normalizer, ?GameplayV2Flags $flagsV2 = null, ?GameEventStoreV2 $eventStoreV2 = null): JsonResponse
     {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -910,6 +923,9 @@ class GamesController extends ApiController
         }
         if (!$game->canBeViewedBy($user)) {
             return $this->fail('Game access denied.', 403);
+        }
+        if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+            $eventStoreV2->hydrateGame($game);
         }
 
         $snapshot = $normalizer->normalizeSnapshot($game->snapshot());

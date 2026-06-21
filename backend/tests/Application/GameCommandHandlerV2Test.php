@@ -308,6 +308,34 @@ class GameCommandHandlerV2Test extends TestCase
         self::assertSame([], $card['revealedTo'] ?? null);
     }
 
+    public function testEventStoreModeKeepsPersistedSnapshotUntouchedForV2Command(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $flags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $snapshot = $handler->normalizeSnapshot(self::baseSnapshot($actor->id(), [
+            'battlefield' => [self::card('battlefield-1', 'Bear', 'battlefield')],
+        ]));
+        $game = new Game(new Room($actor), $snapshot);
+        $persistedBefore = $game->persistedSnapshot();
+
+        $event = $handler->apply($game, 'card.tapped', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'battlefield-1',
+            'tapped' => true,
+        ], $actor, 'event-store-action');
+
+        self::assertSame($persistedBefore, $game->persistedSnapshot());
+        self::assertTrue($game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['tapped']);
+        self::assertSame(2, $game->snapshot()['version']);
+        self::assertSame(2, $event->version());
+        self::assertArrayHasKey('public', $event->payload());
+        self::assertArrayHasKey('replay', $event->payload());
+        self::assertArrayHasKey('eventLogEntries', $event->payload());
+        self::assertSame('card.tapped', $event->toArray()['type']);
+    }
+
     /**
      * @param array<string,mixed> $snapshot
      *
