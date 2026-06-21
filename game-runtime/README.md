@@ -2,7 +2,7 @@
 
 This is a minimal Go skeleton for the future active gameplay runtime.
 
-The service is intentionally not wired into Docker, Symfony, or CI yet. It exists to pin down package boundaries, V2 protocol types, actor interfaces, and persistence contracts before migrating commands.
+The service is intentionally not wired into Symfony or CI yet. It exists to pin down package boundaries, V2 protocol types, actor interfaces, and persistence contracts before migrating commands.
 
 ## Packages
 
@@ -46,6 +46,39 @@ The first actor implementation supports:
 - private owner patches for hidden card identity
 - group reveal patches for revealed library top windows
 - in-memory fake `EventStore` for version/idempotency tests
+
+## Docker Toolchain
+
+Build the local Go toolchain image from the repository root:
+
+```powershell
+docker build -f game-runtime/Dockerfile.toolchain -t commanderzone-go-toolchain:1.22 --build-arg GO_VERSION=1.22.12 .
+```
+
+Run validation without installing Go on the host:
+
+```powershell
+docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime commanderzone-go-toolchain:1.22 go test ./...
+docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime commanderzone-go-toolchain:1.22 go test -race ./...
+docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime commanderzone-go-toolchain:1.22 go test ./internal/actor ./internal/state -bench .
+```
+
+## Production Image
+
+Build the production runtime image from the repository root:
+
+```powershell
+docker compose --env-file .env.prod -f docker-compose.prod.yml build game-runtime
+```
+
+Run the production service with the rest of the production stack:
+
+```powershell
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d game-runtime
+docker compose --env-file .env.prod -f docker-compose.prod.yml ps game-runtime
+```
+
+The production image is a static Go binary on `scratch`. It exposes `/healthz` and `/readyz` on `GAME_RUNTIME_LISTEN` and uses the binary itself for Docker healthchecks.
 
 ## Expected Validation
 

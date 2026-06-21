@@ -16,9 +16,9 @@ var (
 
 type InMemoryEventStore struct {
 	mu              sync.RWMutex
-	eventsByGame     map[string][]protocol.EventPayloadV2
-	actionIDsByGame  map[string]map[string]struct{}
-	snapshotsByGame  map[string][]CompactSnapshot
+	eventsByGame    map[string][]protocol.EventPayloadV2
+	actionIDsByGame map[string]map[string]struct{}
+	snapshotsByGame map[string][]CompactSnapshot
 }
 
 func NewInMemoryEventStore() *InMemoryEventStore {

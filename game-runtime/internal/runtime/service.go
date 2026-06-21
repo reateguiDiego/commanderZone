@@ -84,14 +84,14 @@ func (s *Service) StopActor(ctx context.Context, gameID string) error {
 
 func EmptyInitialState(gameID string) state.GameState {
 	return state.GameState{
-		GameID:     gameID,
-		Version:    1,
-		Status:     "playing",
-		Players:    map[string]map[string]any{},
-		Turn:       map[string]any{},
+		GameID:    gameID,
+		Version:   1,
+		Status:    "playing",
+		Players:   map[string]map[string]any{},
+		Turn:      map[string]any{},
 		Instances: map[string]state.CardInstanceRuntime{},
-		Zones:      map[string]state.PlayerZones{},
-		Loc:        map[string]state.Location{},
+		Zones:     map[string]state.PlayerZones{},
+		Loc:       map[string]state.Location{},
 		Visibility: state.VisibilityIndex{
 			InstanceMasks:       map[string]uint64{},
 			LibraryEpochByOwner: map[string]int64{},

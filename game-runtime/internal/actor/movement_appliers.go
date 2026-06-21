@@ -210,7 +210,7 @@ func (BattlefieldUntapAllApplier) Apply(_ context.Context, game *state.GameState
 			Op: "card.field.set",
 			Data: map[string]any{
 				"instanceIds": untapped,
-				"fields":     map[string]any{"tapped": false, "rotation": 0},
+				"fields":      map[string]any{"tapped": false, "rotation": 0},
 			},
 		})
 	}

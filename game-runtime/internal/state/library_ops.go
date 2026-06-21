@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ErrEmptyLibrary       = errors.New("library is empty")
+	ErrEmptyLibrary      = errors.New("library is empty")
 	ErrInvalidWindow     = errors.New("invalid library window")
 	ErrInvalidReorderSet = errors.New("ordered top ids do not match current top window")
 	ErrMissingZone       = errors.New("missing player zone")

@@ -85,12 +85,12 @@ func libraryTestState() GameState {
 		loc[id] = Location{PlayerID: "p1", Zone: ZoneLibrary, Index: index, ControllerID: "p1"}
 	}
 	return GameState{
-		GameID:     "game-1",
-		Version:    1,
-		Players:    map[string]map[string]any{"p1": map[string]any{"life": 40}},
+		GameID:    "game-1",
+		Version:   1,
+		Players:   map[string]map[string]any{"p1": map[string]any{"life": 40}},
 		Instances: instances,
-		Zones:      map[string]PlayerZones{"p1": {Library: []string{"a", "b", "c", "d"}}},
-		Loc:        loc,
+		Zones:     map[string]PlayerZones{"p1": {Library: []string{"a", "b", "c", "d"}}},
+		Loc:       loc,
 		Visibility: VisibilityIndex{
 			InstanceMasks:       map[string]uint64{},
 			LibraryEpochByOwner: map[string]int64{"p1": 1},

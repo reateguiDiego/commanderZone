@@ -9,12 +9,12 @@ import (
 
 type CommandEnvelopeV2 struct {
 	GameID         string         `json:"gameId"`
-	BaseVersion   int64          `json:"baseVersion"`
+	BaseVersion    int64          `json:"baseVersion"`
 	ClientActionID string         `json:"clientActionId"`
-	Type          string         `json:"type"`
-	Payload       map[string]any `json:"payload"`
-	SentAt        *time.Time     `json:"sentAt,omitempty"`
-	Client        map[string]any `json:"client,omitempty"`
+	Type           string         `json:"type"`
+	Payload        map[string]any `json:"payload"`
+	SentAt         *time.Time     `json:"sentAt,omitempty"`
+	Client         map[string]any `json:"client,omitempty"`
 }
 
 func (c CommandEnvelopeV2) Validate() error {

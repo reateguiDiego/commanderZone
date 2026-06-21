@@ -1,0 +1,16 @@
+FROM commanderzone-api:latest
+
+ARG GO_VERSION=1.22.12
+ARG TARGETARCH=amd64
+
+RUN set -eux; \
+    curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" -o /tmp/go.tgz; \
+    rm -rf /usr/local/go; \
+    tar -C /usr/local -xzf /tmp/go.tgz; \
+    rm /tmp/go.tgz
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOTOOLCHAIN=local
+WORKDIR /workspace/game-runtime
+
+CMD ["go", "version"]

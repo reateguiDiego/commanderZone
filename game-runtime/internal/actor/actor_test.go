@@ -247,7 +247,7 @@ func testState() state.GameState {
 func command(gameID string, baseVersion int64, actionID string, commandType string, payload map[string]any) protocol.CommandEnvelopeV2 {
 	return protocol.CommandEnvelopeV2{
 		GameID:         gameID,
-		BaseVersion:   baseVersion,
+		BaseVersion:    baseVersion,
 		ClientActionID: actionID,
 		Type:           commandType,
 		Payload:        payload,

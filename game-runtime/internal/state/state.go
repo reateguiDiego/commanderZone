@@ -38,7 +38,7 @@ type CardInstanceRuntime struct {
 	TokenMeta     map[string]any `json:"tokenMeta,omitempty"`
 	Tapped        bool           `json:"tapped"`
 	Rotation      int            `json:"rotation"`
-	Counters      map[string]int  `json:"counters,omitempty"`
+	Counters      map[string]int `json:"counters,omitempty"`
 	MutableStats  map[string]any `json:"mutableStats,omitempty"`
 	Position      map[string]any `json:"position,omitempty"`
 	FaceDown      bool           `json:"faceDown"`
@@ -47,8 +47,8 @@ type CardInstanceRuntime struct {
 }
 
 type VisibilityIndex struct {
-	InstanceMasks       map[string]uint64         `json:"instanceMasks"`
-	LibraryEpochByOwner map[string]int64          `json:"libraryEpochByOwner"`
+	InstanceMasks       map[string]uint64          `json:"instanceMasks"`
+	LibraryEpochByOwner map[string]int64           `json:"libraryEpochByOwner"`
 	TopRevealWindows    map[string]TopRevealWindow `json:"topRevealWindows"`
 }
 
@@ -94,7 +94,7 @@ type GameState struct {
 	Status     string                         `json:"status"`
 	Players    map[string]map[string]any      `json:"players"`
 	Turn       map[string]any                 `json:"turn"`
-	Instances map[string]CardInstanceRuntime `json:"instances"`
+	Instances  map[string]CardInstanceRuntime `json:"instances"`
 	Zones      map[string]PlayerZones         `json:"zones"`
 	Loc        map[string]Location            `json:"loc"`
 	Visibility VisibilityIndex                `json:"visibility"`

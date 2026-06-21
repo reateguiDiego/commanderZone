@@ -5,7 +5,7 @@ import "testing"
 func TestCommandEnvelopeV2Validate(t *testing.T) {
 	command := CommandEnvelopeV2{
 		GameID:         "game-1",
-		BaseVersion:   1,
+		BaseVersion:    1,
 		ClientActionID: "action-1",
 		Type:           "card.tapped",
 		Payload:        map[string]any{"instanceId": "i1"},
