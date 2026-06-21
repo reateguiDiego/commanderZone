@@ -3,10 +3,12 @@
 namespace App\Tests\Application;
 
 use App\Application\Card\CardLocalizationService;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameCardRulingsLookup;
 use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\GameVisibilityIndex;
 use App\Domain\User\User;
 use PHPUnit\Framework\TestCase;
 
@@ -195,6 +197,41 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame('Public Second', $library[1]['name']);
         self::assertFalse($library[0]['faceDown']);
         self::assertFalse($library[1]['faceDown']);
+    }
+
+    public function testVisibilityIndexAndEpochHideStaleRevealedLibraryCardsAfterShuffle(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $flags = new GameplayV2Flags(false, false, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['players'][$owner->id()][GameLibraryOps::ORIENTATION_KEY] = GameLibraryOps::ORIENTATION_TAIL_TOP;
+        $snapshot['players'][$owner->id()][GameLibraryOps::VISIBILITY_EPOCH_KEY] = 2;
+        $snapshot['players'][$owner->id()]['zones']['library'] = [
+            [
+                ...$this->card('bottom-card', 'Bottom Card'),
+                'ownerId' => $owner->id(),
+                'controllerId' => $owner->id(),
+                'zone' => 'library',
+            ],
+            [
+                ...$this->card('stale-top-card', 'Stale Top Card'),
+                'ownerId' => $owner->id(),
+                'controllerId' => $owner->id(),
+                'zone' => 'library',
+                'revealedTo' => [$viewer->id()],
+                GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY => 1,
+            ],
+        ];
+        $snapshot = $handler->normalizeSnapshot($snapshot);
+
+        $projected = (new GameProjectionService($handler, null, null, null, new GameVisibilityIndex(), $flags))
+            ->projectSnapshot($snapshot, $viewer, false);
+
+        self::assertSame([], $projected['players'][$owner->id()]['zones']['library']);
+        self::assertSame([], $projected['players'][$owner->id()]['revealedLibraryTo']);
+        self::assertSame([], $snapshot['visibility']['library'][$owner->id()]['topWindowIds']);
     }
 
     public function testOpponentLibraryZoneProjectionDoesNotLeakFullRevealToOtherPlayers(): void

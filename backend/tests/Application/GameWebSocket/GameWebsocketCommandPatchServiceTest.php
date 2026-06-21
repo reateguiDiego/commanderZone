@@ -9,6 +9,7 @@ use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\GameVisibilityIndex;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsStore;
 use App\Application\Game\WebSocket\GameWebsocketCardLocalizationResolver;
@@ -630,6 +631,41 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertArrayNotHasKey('cardInstanceId', $message['operations'][0]['entries'][0]);
         self::assertStringNotContainsString('Private Library One', $encoded);
         self::assertStringNotContainsString('library-1', $encoded);
+    }
+
+    public function testLegacyRevealTopWithVisibilityIndexDoesNotLeakUnauthorizedOpponent(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $flags = new GameplayV2Flags(false, false, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $projection = new GameProjectionService($handler, null, null, null, new GameVisibilityIndex(), $flags);
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            projection: $projection,
+            handler: $handler,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'library.reveal_top',
+            ['playerId' => $actor->id(), 'count' => 1, 'to' => [$actor->id()]],
+            'action-reveal-top-private',
+            1,
+            'message-reveal-top-private',
+        );
+
+        $opponentMessage = $result->messageForUserId($opponent->id());
+        $encoded = json_encode($opponentMessage, JSON_THROW_ON_ERROR);
+
+        self::assertStringNotContainsString('Private Library One', $encoded);
+        self::assertStringNotContainsString('library-1', $encoded);
+        self::assertStringNotContainsString('oracleText', $encoded);
+        self::assertStringNotContainsString('imageUris', $encoded);
     }
 
     /**

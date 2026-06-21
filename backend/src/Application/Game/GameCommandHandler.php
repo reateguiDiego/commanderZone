@@ -153,6 +153,7 @@ class GameCommandHandler
         ?GameLibraryOps $libraryOps = null,
         ?GameCommandV2Dispatcher $commandDispatcherV2 = null,
         ?GameplayV2Flags $flagsV2 = null,
+        ?GameVisibilityIndex $visibilityIndex = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
@@ -163,6 +164,7 @@ class GameCommandHandler
         $this->libraryOps = $libraryOps ?? new GameLibraryOps();
         $this->commandDispatcherV2 = $commandDispatcherV2 ?? new GameCommandV2Dispatcher();
         $this->flagsV2 = $flagsV2 ?? new GameplayV2Flags();
+        $this->visibilityIndex = $visibilityIndex ?? new GameVisibilityIndex();
     }
 
     private readonly GameRandomizer $randomizer;
@@ -173,6 +175,7 @@ class GameCommandHandler
     private readonly GameLibraryOps $libraryOps;
     private readonly GameCommandV2Dispatcher $commandDispatcherV2;
     private readonly GameplayV2Flags $flagsV2;
+    private readonly GameVisibilityIndex $visibilityIndex;
 
     /**
      * @return list<string>
@@ -287,6 +290,8 @@ class GameCommandHandler
 
             $this->pruneBattlefieldRelations($snapshot);
             $snapshot = $this->specialEntityCommandHandler->normalizeSnapshot($snapshot);
+            $this->ensureLocationIndex($snapshot);
+            $this->syncVisibilityIndexAfterCommand($snapshot, $type, $payload);
             $eventPayload = $type === 'chat.message'
                 ? $this->chatEventPayload($payload)
                 : ($this->pendingEventPayload ?? $payload);
@@ -411,6 +416,9 @@ class GameCommandHandler
         $this->pruneBattlefieldRelations($snapshot);
         $snapshot = $this->specialEntityCommandHandler->normalizeSnapshot($snapshot);
         $this->ensureLocationIndex($snapshot);
+        if ($this->flagsV2->visibilityEnabled()) {
+            $this->visibilityIndex->rebuild($snapshot);
+        }
 
         return $snapshot;
     }
@@ -5153,6 +5161,8 @@ class GameCommandHandler
                 return null;
             }
 
+            $this->ensureLocationIndex($snapshot);
+            $this->syncVisibilityIndexAfterCommand($snapshot, $type, $payload);
             $eventLogCountBefore = count($snapshot['eventLog'] ?? []);
             $this->commit($snapshot, $type, $result->logMessage(), $actor);
             $eventLogEntries = array_values(array_slice($snapshot['eventLog'] ?? [], $eventLogCountBefore));
@@ -5228,8 +5238,137 @@ class GameCommandHandler
         unset($player);
 
         $this->ensureLocationIndex($snapshot);
+        if ($this->flagsV2->visibilityEnabled()) {
+            $this->visibilityIndex->rebuild($snapshot);
+        }
 
         return $snapshot;
+    }
+
+    private function syncVisibilityIndexAfterCommand(array &$snapshot, string $type, array $payload): void
+    {
+        if (!$this->flagsV2->visibilityEnabled()) {
+            return;
+        }
+
+        if (!$this->visibilityIndex->isReady($snapshot)) {
+            $this->visibilityIndex->rebuild($snapshot);
+
+            return;
+        }
+
+        switch ($type) {
+            case 'life.changed':
+            case 'turn.changed':
+            case 'dice.rolled':
+            case 'commander.damage.changed':
+            case 'counter.changed':
+            case 'card.counter.changed':
+            case 'card.power_toughness.changed':
+            case 'card.tapped':
+            case 'card.position.changed':
+            case 'card.dungeon_marker.changed':
+            case 'cards.position.changed':
+            case 'battlefield.untap_all':
+            case 'chat.message':
+            case 'chat.reaction.toggled':
+            case 'stack.card_added':
+            case 'stack.item_removed':
+            case 'arrow.created':
+            case 'arrow.removed':
+            case 'attachment.created':
+            case 'attachment.removed':
+            case 'helper.created':
+            case 'helper.updated':
+            case 'helper.removed':
+            case 'zone.random_card.selected':
+            case 'game.close':
+            case 'game.concede':
+                return;
+
+            case 'card.face_down.changed':
+            case 'card.face.changed':
+            case 'card.revealed':
+            case 'card.controller.changed':
+            case 'card.token.created':
+            case 'card.token_copy.created':
+            case 'zone.changed':
+            case 'library.draw':
+            case 'library.draw_many':
+            case 'library.move_top':
+            case 'library.reveal_top':
+            case 'library.reveal':
+            case 'library.view':
+            case 'library.play_top_revealed':
+            case 'library.reorder_top':
+            case 'library.shuffle':
+            case 'mulligan.take':
+            case 'mulligan.keep':
+            case 'mulligan.scry_confirm':
+                $this->visibilityIndex->syncPlayers($snapshot, $this->visibilityPlayerIdsFromPayload($snapshot, $payload));
+
+                return;
+
+            case 'card.moved':
+            case 'cards.moved':
+            case 'zone.move_all':
+                $this->visibilityIndex->syncPlayers($snapshot, $this->visibilityPlayerIdsFromMovePayload($snapshot, $payload));
+
+                return;
+
+            default:
+                $this->visibilityIndex->rebuild($snapshot);
+
+                return;
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $payload
+     *
+     * @return list<string>
+     */
+    private function visibilityPlayerIdsFromPayload(array $snapshot, array $payload): array
+    {
+        $playerIds = [];
+        foreach (['playerId', 'targetPlayerId', 'activePlayerId'] as $field) {
+            $playerId = trim((string) ($payload[$field] ?? ''));
+            if ($playerId !== '' && isset($snapshot['players'][$playerId])) {
+                $playerIds[] = $playerId;
+            }
+        }
+
+        $instanceId = trim((string) ($payload['instanceId'] ?? ''));
+        if ($instanceId !== '' && is_array($snapshot['loc'][$instanceId] ?? null)) {
+            $playerId = trim((string) ($snapshot['loc'][$instanceId]['playerId'] ?? ''));
+            if ($playerId !== '' && isset($snapshot['players'][$playerId])) {
+                $playerIds[] = $playerId;
+            }
+        }
+
+        return array_values(array_unique($playerIds));
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $payload
+     *
+     * @return list<string>
+     */
+    private function visibilityPlayerIdsFromMovePayload(array $snapshot, array $payload): array
+    {
+        $playerIds = $this->visibilityPlayerIdsFromPayload($snapshot, $payload);
+        $sourcePlayerId = trim((string) ($payload['playerId'] ?? ''));
+        if ($sourcePlayerId !== '' && isset($snapshot['players'][$sourcePlayerId])) {
+            $playerIds[] = $sourcePlayerId;
+        }
+        $targetPlayerId = trim((string) ($payload['targetPlayerId'] ?? ''));
+        if ($targetPlayerId !== '' && isset($snapshot['players'][$targetPlayerId])) {
+            $playerIds[] = $targetPlayerId;
+        }
+
+        return array_values(array_unique($playerIds));
     }
 
     private function snapshotForPersistence(Game $game, array $snapshotBefore, array $snapshot): array

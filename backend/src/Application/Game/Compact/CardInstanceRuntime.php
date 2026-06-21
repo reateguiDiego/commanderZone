@@ -29,6 +29,7 @@ final readonly class CardInstanceRuntime
         public bool $faceDown,
         public int $activeFace,
         public array $visibleTo,
+        public int $visibleToMask = 0,
         public ?array $dungeonMarker = null,
     ) {
     }
@@ -64,6 +65,7 @@ final readonly class CardInstanceRuntime
             (bool) ($card['faceDown'] ?? false),
             max(0, (int) ($card['activeFaceIndex'] ?? 0)),
             is_array($card['revealedTo'] ?? null) ? array_values($card['revealedTo']) : [],
+            max(0, (int) ($card['visibleToMask'] ?? 0)),
             is_array($card['dungeonMarker'] ?? null) ? $card['dungeonMarker'] : null,
         );
     }
@@ -90,6 +92,7 @@ final readonly class CardInstanceRuntime
             'faceDown' => $this->faceDown,
             'activeFace' => $this->activeFace,
             'visibleTo' => $this->visibleTo,
+            'visibleToMask' => $this->visibleToMask,
         ];
 
         if ($this->dungeonMarker !== null) {

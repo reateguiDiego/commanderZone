@@ -15,6 +15,8 @@ final readonly class GameplayV2Flags
         private bool $bootstrapEnabled = false,
         #[Autowire('%gameplay_v2_event_enabled%')]
         private bool $eventEnabled = false,
+        #[Autowire('%gameplay_v2_visibility_enabled%')]
+        private bool $visibilityEnabled = false,
     ) {
     }
 
@@ -36,5 +38,10 @@ final readonly class GameplayV2Flags
     public function eventEnabled(): bool
     {
         return $this->eventEnabled;
+    }
+
+    public function visibilityEnabled(): bool
+    {
+        return $this->visibilityEnabled;
     }
 }

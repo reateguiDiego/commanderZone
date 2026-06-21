@@ -67,6 +67,7 @@ final class CompactGameCardStateMapper
             $legacy['visibility'],
             $legacy['relations']
         );
+        $legacy['visibility'] = is_array($snapshot['visibility'] ?? null) ? $snapshot['visibility'] : [];
 
         $legacy['players'] = [];
         foreach ($players as $playerId => $player) {
@@ -129,6 +130,7 @@ final class CompactGameCardStateMapper
         $zones = [];
         $loc = [];
         $players = [];
+        $visibilityInstances = is_array($snapshot['visibility']['instances'] ?? null) ? $snapshot['visibility']['instances'] : [];
 
         foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $playerId => $player) {
             if (!is_array($player)) {
@@ -157,6 +159,9 @@ final class CompactGameCardStateMapper
                     $instanceId = (string) ($runtime['instanceId'] ?? '');
                     if ($instanceId === '') {
                         continue;
+                    }
+                    if (is_array($visibilityInstances[$instanceId] ?? null)) {
+                        $runtime['visibleToMask'] = max(0, (int) ($visibilityInstances[$instanceId]['mask'] ?? 0));
                     }
 
                     $instances[$instanceId] = $runtime;
@@ -193,11 +198,13 @@ final class CompactGameCardStateMapper
             $instances,
             $zones,
             $loc,
-            [
-                'strategy' => 'legacy_revealed_to',
-                'ready' => false,
-                'byViewer' => [],
-            ],
+            is_array($snapshot['visibility'] ?? null) && $snapshot['visibility'] !== []
+                ? $snapshot['visibility']
+                : [
+                    'strategy' => 'legacy_revealed_to',
+                    'ready' => false,
+                    'byViewer' => [],
+                ],
             $relations,
             $stack,
             $catalog,
@@ -287,6 +294,7 @@ final class CompactGameCardStateMapper
             'faceDown' => (bool) ($card['faceDown'] ?? false),
             'activeFaceIndex' => max(0, (int) ($card['activeFace'] ?? 0)),
             'revealedTo' => is_array($card['visibleTo'] ?? null) ? array_values($card['visibleTo']) : [],
+            'visibleToMask' => max(0, (int) ($card['visibleToMask'] ?? 0)),
             'position' => is_array($card['position'] ?? null) ? $card['position'] : ['x' => 0, 'y' => 0],
             'rotation' => max(0, (int) ($card['rotation'] ?? 0)),
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],

@@ -5,9 +5,12 @@ namespace App\Tests\Application;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Compact\CompactGameStateInvariantChecker;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameSnapshotFactory;
+use App\Application\Game\GameVisibilityIndex;
 use App\Application\Game\Performance\GameplayBaselineFixtureFactory;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
@@ -270,6 +273,68 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertCount(count($game->snapshot()['chat']), $roundTrip['chat']);
         self::assertCount(count($game->snapshot()['eventLog']), $roundTrip['eventLog']);
         self::assertSame($owner->id(), $projected['turn']['activePlayerId']);
+    }
+
+    public function testVisibilityIndexRoundTripsCompactStateAndPreservesLibraryPrivacyByViewer(): void
+    {
+        $owner = $this->user('owner@example.test', 'Owner', 'owner-id');
+        $viewer = $this->user('viewer@example.test', 'Viewer', 'viewer-id');
+        $spectator = $this->user('spectator@example.test', 'Spectator', 'spectator-id');
+        $flags = new GameplayV2Flags(false, false, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $projection = new GameProjectionService($handler, null, null, null, new GameVisibilityIndex(), $flags);
+
+        $snapshot = $this->snapshot($owner, [
+            'library' => [
+                $this->richCard('library-hidden', 'Hidden Bottom', 'library', [
+                    'ownerId' => $owner->id(),
+                    'controllerId' => $owner->id(),
+                ]),
+                [
+                    ...$this->richCard('library-visible-2', 'Visible Top Two', 'library', [
+                        'ownerId' => $owner->id(),
+                        'controllerId' => $owner->id(),
+                        'revealedTo' => [$viewer->id()],
+                    ]),
+                    GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY => 7,
+                ],
+                [
+                    ...$this->richCard('library-visible-1', 'Visible Top One', 'library', [
+                        'ownerId' => $owner->id(),
+                        'controllerId' => $owner->id(),
+                        'revealedTo' => [$viewer->id()],
+                    ]),
+                    GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY => 7,
+                ],
+            ],
+        ], $viewer);
+        $snapshot['players'][$owner->id()][GameLibraryOps::ORIENTATION_KEY] = GameLibraryOps::ORIENTATION_TAIL_TOP;
+        $snapshot['players'][$owner->id()][GameLibraryOps::VISIBILITY_EPOCH_KEY] = 7;
+
+        $normalized = $handler->normalizeSnapshot($snapshot);
+        $mapper = new CompactGameCardStateMapper();
+        $compact = $mapper->compactSnapshot($normalized, 'game-visibility', 'active');
+        $roundTrip = $mapper->hydrateSnapshot($compact);
+        $viewerProjection = $projection->projectSnapshot($roundTrip, $viewer, false);
+        $spectatorProjection = $projection->projectSnapshot($roundTrip, $spectator, false);
+
+        self::assertTrue($compact['visibility']['ready'] ?? false);
+        self::assertSame('mask-v1', $compact['visibility']['strategy'] ?? null);
+        self::assertSame($compact['visibility'], $roundTrip['visibility']);
+        self::assertArrayHasKey('player:owner-id', $compact['visibility']['groups']);
+        self::assertArrayHasKey('player:viewer-id', $compact['visibility']['groups']);
+        self::assertSame(['library-visible-1', 'library-visible-2'], $compact['visibility']['library'][$owner->id()]['topWindowIds']);
+        self::assertGreaterThan(0, $compact['instances']['library-visible-1']['visibleToMask']);
+        self::assertSame(0, $compact['instances']['library-hidden']['visibleToMask']);
+
+        self::assertSame('Visible Top One', $viewerProjection['players'][$owner->id()]['zones']['library'][0]['name']);
+        self::assertSame('Visible Top Two', $viewerProjection['players'][$owner->id()]['zones']['library'][1]['name']);
+
+        self::assertCount(1, $spectatorProjection['players'][$owner->id()]['zones']['library']);
+        self::assertSame('Hidden card', $spectatorProjection['players'][$owner->id()]['zones']['library'][0]['name']);
+        self::assertArrayNotHasKey('cardKey', $spectatorProjection['players'][$owner->id()]['zones']['library'][0]);
+        self::assertArrayNotHasKey('oracleText', $spectatorProjection['players'][$owner->id()]['zones']['library'][0]);
+        self::assertArrayNotHasKey('imageUris', $spectatorProjection['players'][$owner->id()]['zones']['library'][0]);
     }
 
     public function testInvariantCheckerDetectsLocationDivergence(): void

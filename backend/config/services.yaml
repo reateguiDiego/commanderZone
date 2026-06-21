@@ -19,10 +19,12 @@ parameters:
     gameplay_v2_patch_enabled_default: 'false'
     gameplay_v2_bootstrap_enabled_default: 'false'
     gameplay_v2_event_enabled_default: 'false'
+    gameplay_v2_visibility_enabled_default: 'false'
     gameplay_v2_command_enabled: '%env(bool:default:gameplay_v2_command_enabled_default:GAMEPLAY_V2_COMMAND_ENABLED)%'
     gameplay_v2_patch_enabled: '%env(bool:default:gameplay_v2_patch_enabled_default:GAMEPLAY_V2_PATCH_ENABLED)%'
     gameplay_v2_bootstrap_enabled: '%env(bool:default:gameplay_v2_bootstrap_enabled_default:GAMEPLAY_V2_BOOTSTRAP_ENABLED)%'
     gameplay_v2_event_enabled: '%env(bool:default:gameplay_v2_event_enabled_default:GAMEPLAY_V2_EVENT_ENABLED)%'
+    gameplay_v2_visibility_enabled: '%env(bool:default:gameplay_v2_visibility_enabled_default:GAMEPLAY_V2_VISIBILITY_ENABLED)%'
 
 services:
     # default configuration for services in *this* file
