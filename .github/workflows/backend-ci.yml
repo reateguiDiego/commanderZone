@@ -50,3 +50,6 @@ jobs:
 
       - name: Run backend tests
         run: APP_ENV=test php bin/phpunit
+
+      - name: Run gameplay performance smoke
+        run: APP_ENV=test php bin/console app:gameplay:baseline --suite=smoke --iterations=1 --fail-on-regression --output=var/perf/gameplay-smoke.json --raw-output=var/perf/gameplay-smoke.ndjson

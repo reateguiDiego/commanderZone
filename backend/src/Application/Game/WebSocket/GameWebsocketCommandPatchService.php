@@ -1710,11 +1710,15 @@ final readonly class GameWebsocketCommandPatchService
         array $metric,
         ?array $usageStartedAt,
     ): void {
+        $ioWriteBytes = max(0, (int) ($metric['snapshot_bytes_after'] ?? 0) - (int) ($metric['snapshot_bytes_before'] ?? 0));
+        $ioWriteOps = ((float) ($metric['persist_ms'] ?? 0.0)) > 0.0 ? 1 : 0;
         $metricsRecorder->record([
             'position.commands_per_drag' => in_array((string) ($metric['command.type'] ?? ''), self::VISUAL_POSITION_COMMANDS, true) ? 1 : 0,
             'actor.queue_depth' => 0,
             'coalesced_position_events' => 0,
             'dropped_ephemeral_events' => 0,
+            'io.write_bytes' => $ioWriteBytes,
+            'io.write_ops' => $ioWriteOps,
             ...$metric,
             'memory_peak_bytes' => $metricsInspector->memoryPeakBytes(),
             ...$metricsInspector->cpuDiffMs($usageStartedAt),
