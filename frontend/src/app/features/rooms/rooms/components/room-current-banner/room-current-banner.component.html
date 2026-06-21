@@ -8,7 +8,6 @@
     <div class="room-copy">
       <span class="eyebrow">{{ 'rooms.roomCurrentBanner.currentRoom' | runtimeTranslate }}</span>
       <div class="room-title-line">
-        <span class="room-state-dot" [class.is-private]="currentRoom.visibility === 'private'"></span>
         <h2>{{ currentRoom.name }}</h2>
         <span class="visibility-pill" [class.is-private]="currentRoom.visibility === 'private'">{{ currentRoom.visibility }}</span>
       </div>

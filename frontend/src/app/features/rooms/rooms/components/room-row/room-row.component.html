@@ -1,7 +1,7 @@
 ﻿@let currentRoom = room();
+@let ownerIsAnonymous = isAnonymousPrivateOwner(currentRoom);
 <div class="list-row room-row">
   <div class="room-col room-col-main">
-    <span class="room-state-dot" [class.is-private]="currentRoom.visibility === 'private'"></span>
     <span>
       <strong>{{ currentRoom.name }}</strong>
     </span>
@@ -9,8 +9,8 @@
   <div class="room-col room-owner-col">
     <app-player-name
       class="room-owner-nameplate"
-      [displayName]="currentRoom.owner.displayName"
-      [nameStyle]="currentRoom.owner.displayNameStyle"
+      [displayName]="ownerIsAnonymous ? ('rooms.roomBrowser.anonymous' | runtimeTranslate) : currentRoom.owner.displayName"
+      [nameStyle]="ownerIsAnonymous ? anonymousOwnerNameStyle : currentRoom.owner.displayNameStyle"
       size="xs"
       plateSize="xs"
     />

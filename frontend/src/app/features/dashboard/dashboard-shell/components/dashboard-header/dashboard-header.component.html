@@ -11,10 +11,12 @@
         <img class="nav-icon" src="/assets/icons/CZ/CZ_decks_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
         <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.decks' | runtimeTranslate }}</span>
       </a>
-      <a routerLink="/rooms" routerLinkActive="active">
-        <img class="nav-icon" src="/assets/icons/CZ/CZ_rooms_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
-        <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.rooms' | runtimeTranslate }}</span>
-      </a>
+      @if (device.isDesktop() && device.isDesktopLayout()) {
+        <a routerLink="/rooms" routerLinkActive="active">
+          <img class="nav-icon" src="/assets/icons/CZ/CZ_rooms_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
+          <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.rooms' | runtimeTranslate }}</span>
+        </a>
+      }
       <a routerLink="/cards" routerLinkActive="active">
         <img class="nav-icon" src="/assets/icons/CZ/CZ_cards_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
         <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.cards' | runtimeTranslate }}</span>

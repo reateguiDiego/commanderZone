@@ -25,12 +25,18 @@ import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { AppThemeService } from '../../../core/theme/app-theme.service';
+import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { DashboardShellComponent } from './dashboard-shell.component';
 
 describe('DashboardShellComponent', () => {
+  let isDesktop: ReturnType<typeof signal<boolean>>;
+  let isDesktopLayout: ReturnType<typeof signal<boolean>>;
+
   beforeEach(async () => {
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
+    isDesktop = signal(true);
+    isDesktopLayout = signal(true);
 
     await TestBed.configureTestingModule({
       imports: [DashboardShellComponent],
@@ -83,6 +89,13 @@ describe('DashboardShellComponent', () => {
             friendEvents: vi.fn().mockReturnValue(of()),
           },
         },
+        {
+          provide: DeviceProfileService,
+          useValue: {
+            isDesktop,
+            isDesktopLayout,
+          },
+        },
       ],
     }).compileComponents();
   });
@@ -107,6 +120,32 @@ describe('DashboardShellComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Cards');
     expect(fixture.nativeElement.textContent).toContain('Community');
     expect(fixture.nativeElement.textContent).toContain('Player');
+  });
+
+  it('hides Rooms navigation outside desktop device and desktop layout', () => {
+    isDesktopLayout.set(false);
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.detectChanges();
+
+    const navIcons = Array.from(fixture.nativeElement.querySelectorAll('.nav-icon'))
+      .map((icon) => (icon as HTMLImageElement).getAttribute('src'));
+    expect(navIcons).toEqual([
+      '/assets/icons/CZ/CZ_decks_menu.webp',
+      '/assets/icons/CZ/CZ_cards_menu.webp',
+      '/assets/icons/CZ/CZ_comunity_menu.webp',
+      '/assets/icons/CZ/CZ_table_menu.webp',
+    ]);
+    expect(fixture.nativeElement.textContent).not.toContain('Rooms');
+    expect(fixture.nativeElement.querySelector('.friends-dropdown')).not.toBeNull();
+  });
+
+  it('hides Friends controls outside desktop devices', () => {
+    isDesktop.set(false);
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.friends-dropdown')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.user-strip')?.classList).toContain('friends-hidden');
   });
 
   it('hides navigation and user chrome in table assistant rooms', () => {

@@ -117,6 +117,8 @@
   display: grid;
   gap: 0.18rem;
   width: var(--format-select-menu-width, auto);
+  min-width: var(--format-select-menu-min-width, 0);
+  max-width: var(--format-select-menu-max-width, none);
   max-height: 14rem;
   overflow-x: var(--format-select-menu-overflow-x, visible);
   overflow-y: auto;

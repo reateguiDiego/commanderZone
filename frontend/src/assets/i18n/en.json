@@ -148,10 +148,11 @@
       "owner": "Owner",
       "visibility": "Visibility",
       "publicAndPrivate": "All",
-      "publicOnly": "Public only",
-      "privateOnly": "Private only",
+      "publicOnly": "Public",
+      "privateOnly": "Private",
       "status": "Status",
       "allStatus": "All status",
+      "anonymous": "Anonymous",
       "open": "Open",
       "full": "Full",
       "started": "Started",
@@ -258,9 +259,11 @@
     },
     "header": {
       "title": "Rooms",
-      "activeRooms": "Active rooms",
+      "totalRooms": "Total rooms",
       "openRooms": "Open rooms",
       "privateRooms": "Private rooms",
+      "publicRooms": "Public rooms",
+      "totalPlayers": "Total players",
       "startedGames": "Started games"
     },
     "waiting": {
