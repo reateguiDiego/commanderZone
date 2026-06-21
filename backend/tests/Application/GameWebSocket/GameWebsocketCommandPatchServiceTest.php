@@ -16,6 +16,7 @@ use App\Application\Game\GameVisibilityIndex;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsStore;
 use App\Application\Game\WebSocket\GameWebsocketCardLocalizationResolver;
+use App\Application\Game\WebSocket\GameWebsocketCommandResult;
 use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
 use App\Application\Game\WebSocket\GameWebsocketPatchBuilder;
@@ -449,6 +450,60 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertArrayHasKey('memory_peak_bytes', $records[0]);
         self::assertFalse($records[0]['resync_required']);
         self::assertFalse($records[0]['clientActionId_duplicate']);
+    }
+
+    public function testVisualPositionSpamIsRateLimitedWithoutBlockingGameplayCommands(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+        $metricsStore = new GameplayMetricsStore();
+        $persistedTypes = [];
+        $service = $this->serviceAllowingRepeatedCommands($game, $actor, $metricsStore, $persistedTypes);
+        $rejected = 0;
+
+        for ($index = 0; $index < 32; ++$index) {
+            $result = $service->apply(
+                $game->id(),
+                $actor->id(),
+                'card.position.changed',
+                [
+                    'playerId' => $actor->id(),
+                    'zone' => 'battlefield',
+                    'instanceId' => 'battlefield-1',
+                    'position' => ['x' => ($index % 10) / 10, 'y' => 0.2, 'unit' => 'ratio'],
+                ],
+                'action-position-'.$index,
+                (int) ($game->snapshot()['version'] ?? 1),
+                'message-position-'.$index,
+            );
+            $message = $result instanceof GameWebsocketCommandResult ? $result->messageForUserId($actor->id()) : $result;
+            if (($message['kind'] ?? null) === 'command_ack' && ($message['error']['code'] ?? null) === 'VISUAL_COMMAND_RATE_LIMITED') {
+                ++$rejected;
+            }
+        }
+
+        $lifeResult = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -1],
+            'action-life-after-position-spam',
+            (int) ($game->snapshot()['version'] ?? 1),
+            'message-life-after-position-spam',
+        );
+        $lifeMessage = $lifeResult instanceof GameWebsocketCommandResult ? $lifeResult->messageForUserId($actor->id()) : $lifeResult;
+
+        self::assertGreaterThan(0, $rejected);
+        self::assertSame('game_patch', $lifeMessage['kind']);
+        self::assertSame(39, $game->snapshot()['players'][$actor->id()]['life']);
+        self::assertContains('life.changed', $persistedTypes);
+        $hasBackpressureMetric = false;
+        foreach ($metricsStore->records() as $record) {
+            if (($record['status'] ?? null) === 'visual_backpressure' && ($record['command.type'] ?? null) === 'card.position.changed') {
+                $hasBackpressureMetric = true;
+                break;
+            }
+        }
+        self::assertTrue($hasBackpressureMetric);
     }
 
     public function testCanTranslateSuccessfulPatchToV2Envelope(): void
@@ -1100,6 +1155,40 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
 
         return $this->serviceWithRegistry($registry, $projection, $resolver, $metricsStore, $flagsV2, $handler, $patchBuilder, $eventStoreV2, $activityStreams, $streamFlags);
+    }
+
+    /**
+     * @param list<string> $persistedTypes
+     */
+    private function serviceAllowingRepeatedCommands(
+        Game $game,
+        User $actor,
+        GameplayMetricsStore $metricsStore,
+        array &$persistedTypes,
+    ): GameWebsocketCommandPatchService {
+        $gameRepository = $this->createMock(EntityRepository::class);
+        $gameRepository->method('find')->with($game->id())->willReturn($game);
+        $userRepository = $this->createMock(EntityRepository::class);
+        $userRepository->method('find')->with($actor->id())->willReturn($actor);
+        $eventRepository = $this->createMock(EntityRepository::class);
+        $eventRepository->method('findOneBy')->willReturn(null);
+
+        $manager = $this->createMock(EntityManagerInterface::class);
+        $manager->method('getRepository')->willReturnMap([
+            [Game::class, $gameRepository],
+            [User::class, $userRepository],
+            [GameEvent::class, $eventRepository],
+        ]);
+        $manager->method('persist')->willReturnCallback(static function (object $entity) use (&$persistedTypes): void {
+            if ($entity instanceof GameEvent) {
+                $persistedTypes[] = $entity->type();
+            }
+        });
+
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->method('getManagerForClass')->with(Game::class)->willReturn($manager);
+
+        return $this->serviceWithRegistry($registry, metricsStore: $metricsStore);
     }
 
     private function serviceWithRegistry(

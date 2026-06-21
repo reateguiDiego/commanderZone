@@ -1248,6 +1248,66 @@ describe('GameTableWebsocketGameplayService', () => {
     await secondSent;
   });
 
+  it('drains gameplay commands before queued position updates', async () => {
+    const blocker = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const blockerMessage = sentMessage();
+    const position = service.sendCommand(context(), 'card.position.changed', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      position: { x: 0.2, y: 0.3, unit: 'ratio' },
+    });
+    const turn = service.sendCommand(context(), 'turn.changed', {
+      activePlayerId: 'player-2',
+      phase: 'combat',
+      number: 2,
+    });
+
+    expect(send).toHaveBeenCalledTimes(1);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: blockerMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await blocker;
+
+    expect(send).toHaveBeenCalledTimes(2);
+    const turnMessage = sentMessage();
+    expect(turnMessage.command.type).toBe('turn.changed');
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: turnMessage.command.clientActionId,
+      operations: [{ op: 'turn.set', turn: { activePlayerId: 'player-2', phase: 'combat', number: 2 } }],
+    });
+    await turn;
+
+    expect(send).toHaveBeenCalledTimes(3);
+    const positionMessage = sentMessage();
+    expect(positionMessage.command.type).toBe('card.position.changed');
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 3,
+      version: 4,
+      clientActionId: positionMessage.command.clientActionId,
+      operations: [{
+        op: 'card.position.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        position: { x: 0.2, y: 0.3, unit: 'ratio' },
+      }],
+    });
+    await position;
+  });
+
   it('dedupes identical in-flight safe commands and resolves both from a single websocket send', async () => {
     const firstSent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
     const firstMessage = sentMessage();

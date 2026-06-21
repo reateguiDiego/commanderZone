@@ -6,6 +6,11 @@ export interface BattlefieldPositionCommand {
   position: GameCardPosition;
 }
 
+export interface BattlefieldPositionBatchCommand {
+  playerId: string;
+  positions: BattlefieldPositionCommand[];
+}
+
 export interface ViewportClampedBattlefieldPosition {
   playerId: string;
   instanceId: string;

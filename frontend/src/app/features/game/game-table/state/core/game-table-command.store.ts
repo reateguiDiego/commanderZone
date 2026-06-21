@@ -34,7 +34,7 @@ export class GameTableCommandStore {
     }
 
     if (
-      type === 'card.position.changed'
+      this.isBattlefieldPositionCommand(type)
       && context.queueBattlefieldPositionCommand(gameId, payload, () => this.sendAndApplyCommand(context, gameId, type, payload))
     ) {
       return;
@@ -71,6 +71,10 @@ export class GameTableCommandStore {
 
     return type === 'cards.position.changed'
       && message === 'positions must contain at least one card position.';
+  }
+
+  private isBattlefieldPositionCommand(type: GameCommandType): boolean {
+    return type === 'card.position.changed' || type === 'cards.position.changed';
   }
 
   private async sendAndApplyCommand(

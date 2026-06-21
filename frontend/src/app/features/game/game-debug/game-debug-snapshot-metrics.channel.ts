@@ -28,6 +28,7 @@ export interface GameDebugQueueMetrics {
   kind: 'queue_metrics';
   gameId: string;
   queueDepth: number;
+  'actor.queue_depth'?: number;
   inFlight: boolean;
   enqueueTotal: number;
   drainTotal: number;
@@ -38,6 +39,9 @@ export interface GameDebugQueueMetrics {
   rejectedTotal?: number;
   circuitBlockedTotal?: number;
   queueFullTotal?: number;
+  'position.commands_per_drag'?: number;
+  dropped_ephemeral_events?: number;
+  coalesced_position_events?: number;
   enqueueRate: number;
   drainRate: number;
   measuredAt: string;

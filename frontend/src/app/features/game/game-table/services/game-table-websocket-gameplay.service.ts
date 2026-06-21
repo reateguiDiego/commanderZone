@@ -70,6 +70,9 @@ interface QueueCounters {
   rejectedTotal: number;
   circuitBlockedTotal: number;
   queueFullTotal: number;
+  coalescedPositionEvents: number;
+  droppedEphemeralEvents: number;
+  positionCommandsPerDrag: number;
 }
 
 interface QueueRates {
@@ -132,6 +135,10 @@ const COALESCED_COMMANDS = new Set<GameWebsocketCommandType>([
   'life.changed',
   'commander.damage.changed',
   'counter.changed',
+  'card.position.changed',
+  'cards.position.changed',
+]);
+const POSITION_COMMANDS = new Set<GameWebsocketCommandType>([
   'card.position.changed',
   'cards.position.changed',
 ]);
@@ -221,6 +228,9 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     rejectedTotal: 0,
     circuitBlockedTotal: 0,
     queueFullTotal: 0,
+    coalescedPositionEvents: 0,
+    droppedEphemeralEvents: 0,
+    positionCommandsPerDrag: 0,
   };
   private readonly queueRates: QueueRates = {
     enqueueTimestamps: [],
@@ -311,6 +321,9 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     }
 
     const pending = this.createPendingCommand(context, type, commandPayload);
+    if (this.isPositionCommand(type)) {
+      this.queueCounters.positionCommandsPerDrag += 1;
+    }
     if (!this.enqueueCommand(pending)) {
       const message = 'WebSocket command dropped because the local queue is full.';
       this.queueCounters.queueFullTotal += 1;
@@ -606,7 +619,11 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         }
 
         queued.payload = command.payload;
+        queued.signature = this.commandSignature(queued.type, queued.payload);
         queued.context = command.context;
+        if (this.isPositionCommand(command.type)) {
+          this.queueCounters.coalescedPositionEvents += 1;
+        }
         const previousResolve = queued.resolve;
         const previousReject = queued.reject;
         queued.resolve = () => {
@@ -634,7 +651,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       return;
     }
 
-    const queued = this.commandQueue.shift();
+    const queued = this.shiftNextCommand();
     if (!queued) {
       return;
     }
@@ -1042,6 +1059,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
   private findOldestDroppableQueueIndex(): number {
     for (let index = 0; index < this.commandQueue.length; index += 1) {
+      if (this.isPositionCommand(this.commandQueue[index].type)) {
+        return index;
+      }
+    }
+
+    for (let index = 0; index < this.commandQueue.length; index += 1) {
       if (this.commandQueue[index].coalesceKey !== null) {
         return index;
       }
@@ -1110,6 +1133,10 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       rejectedTotal: this.queueCounters.rejectedTotal,
       circuitBlockedTotal: this.queueCounters.circuitBlockedTotal,
       queueFullTotal: this.queueCounters.queueFullTotal,
+      'actor.queue_depth': this.totalQueueDepth(),
+      'position.commands_per_drag': this.queueCounters.positionCommandsPerDrag,
+      dropped_ephemeral_events: this.queueCounters.droppedEphemeralEvents,
+      coalesced_position_events: this.queueCounters.coalescedPositionEvents,
       enqueueRate: Number((this.queueRates.enqueueTimestamps.length / (QUEUE_RATE_WINDOW_MS / 1000)).toFixed(2)),
       drainRate: Number((this.queueRates.drainTimestamps.length / (QUEUE_RATE_WINDOW_MS / 1000)).toFixed(2)),
       measuredAt: new Date(now).toISOString(),
@@ -1149,6 +1176,9 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.queueCounters.rejectedTotal = 0;
     this.queueCounters.circuitBlockedTotal = 0;
     this.queueCounters.queueFullTotal = 0;
+    this.queueCounters.coalescedPositionEvents = 0;
+    this.queueCounters.droppedEphemeralEvents = 0;
+    this.queueCounters.positionCommandsPerDrag = 0;
     this.queueRates.enqueueTimestamps = [];
     this.queueRates.drainTimestamps = [];
     this.deadLetter.length = 0;
@@ -1300,5 +1330,18 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
   private inFlightCommandSignature(command: PendingWebsocketCommand): string {
     return `${command.clientActionId}|${command.messageId}|${command.signature}`;
+  }
+
+  private shiftNextCommand(): PendingWebsocketCommand | undefined {
+    const gameplayIndex = this.commandQueue.findIndex((command) => !this.isPositionCommand(command.type));
+    if (gameplayIndex >= 0) {
+      return this.commandQueue.splice(gameplayIndex, 1)[0];
+    }
+
+    return this.commandQueue.shift();
+  }
+
+  private isPositionCommand(type: GameWebsocketCommandType): boolean {
+    return POSITION_COMMANDS.has(type);
   }
 }

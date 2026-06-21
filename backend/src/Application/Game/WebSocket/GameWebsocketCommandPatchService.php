@@ -27,6 +27,15 @@ use Doctrine\Persistence\ManagerRegistry;
 
 final readonly class GameWebsocketCommandPatchService
 {
+    private const VISUAL_POSITION_COMMANDS = ['card.position.changed', 'cards.position.changed'];
+    private const VISUAL_POSITION_RATE_WINDOW_MS = 1_000;
+    private const VISUAL_POSITION_RATE_LIMIT = 24;
+
+    /**
+     * @var \ArrayObject<string,list<float>>
+     */
+    private \ArrayObject $visualCommandBackpressure;
+
     public function __construct(
         private GameCommandHandler $commands,
         private GameDisconnectVoteService $disconnectVotes,
@@ -44,6 +53,7 @@ final readonly class GameWebsocketCommandPatchService
         private ?GameActivityStreamService $activityStreams = null,
         private ?GameplayStreamsFlags $streamFlags = null,
     ) {
+        $this->visualCommandBackpressure = new \ArrayObject();
     }
 
     /**
@@ -276,6 +286,48 @@ final readonly class GameWebsocketCommandPatchService
                     $metricsInspector,
                     $usageStartedAt,
                 );
+            }
+
+            $visualBackpressure = $this->visualCommandBackpressure($game->id(), $actor->id(), $type);
+            if (($visualBackpressure['accepted'] ?? true) !== true) {
+                $message = $this->messages->rejectedCommand(
+                    $game->id(),
+                    $messageId,
+                    $clientActionId,
+                    $this->snapshotVersion($game),
+                    'VISUAL_COMMAND_RATE_LIMITED',
+                    'Position updates are temporarily rate limited.',
+                );
+                $this->recordMetric(
+                    $metricsRecorder,
+                    $metricsInspector,
+                    [
+                        'transport' => 'websocket',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => $patchMs,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => $patchBytes,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => false,
+                        'status' => 'visual_backpressure',
+                        'coalesced_position_events' => $this->coalescedPositionEvents($type, $payload),
+                        'dropped_ephemeral_events' => 0,
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $message;
             }
 
             $manager->beginTransaction();
@@ -557,6 +609,8 @@ final readonly class GameWebsocketCommandPatchService
                     'resync_required' => $resyncRequired,
                     'clientActionId_duplicate' => $duplicate,
                     'status' => $status,
+                    'coalesced_position_events' => $this->coalescedPositionEvents($type, $payload),
+                    'dropped_ephemeral_events' => 0,
                 ],
                 $usageStartedAt,
             );
@@ -1603,6 +1657,50 @@ final readonly class GameWebsocketCommandPatchService
     }
 
     /**
+     * @return array{accepted:bool}
+     */
+    private function visualCommandBackpressure(string $gameId, string $actorId, string $type): array
+    {
+        if (!in_array($type, self::VISUAL_POSITION_COMMANDS, true)) {
+            return ['accepted' => true];
+        }
+
+        $now = microtime(true) * 1000;
+        $key = $gameId.'|'.$actorId.'|'.$type;
+        $windowStart = $now - self::VISUAL_POSITION_RATE_WINDOW_MS;
+        $timestamps = $this->visualCommandBackpressure[$key] ?? [];
+        $timestamps = array_values(array_filter(
+            is_array($timestamps) ? $timestamps : [],
+            static fn (mixed $timestamp): bool => is_float($timestamp) && $timestamp >= $windowStart,
+        ));
+
+        if (count($timestamps) >= self::VISUAL_POSITION_RATE_LIMIT) {
+            $this->visualCommandBackpressure[$key] = $timestamps;
+
+            return ['accepted' => false];
+        }
+
+        $timestamps[] = $now;
+        $this->visualCommandBackpressure[$key] = $timestamps;
+
+        return ['accepted' => true];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function coalescedPositionEvents(string $type, array $payload): int
+    {
+        if ($type === 'cards.position.changed') {
+            $positions = $payload['positions'] ?? null;
+
+            return is_array($positions) ? max(0, count($positions) - 1) : 0;
+        }
+
+        return 0;
+    }
+
+    /**
      * @param array<string,mixed> $metric
      * @param array<string,int>|null $usageStartedAt
      */
@@ -1613,6 +1711,10 @@ final readonly class GameWebsocketCommandPatchService
         ?array $usageStartedAt,
     ): void {
         $metricsRecorder->record([
+            'position.commands_per_drag' => in_array((string) ($metric['command.type'] ?? ''), self::VISUAL_POSITION_COMMANDS, true) ? 1 : 0,
+            'actor.queue_depth' => 0,
+            'coalesced_position_events' => 0,
+            'dropped_ephemeral_events' => 0,
             ...$metric,
             'memory_peak_bytes' => $metricsInspector->memoryPeakBytes(),
             ...$metricsInspector->cpuDiffMs($usageStartedAt),

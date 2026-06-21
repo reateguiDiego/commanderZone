@@ -157,6 +157,37 @@ describe('GameTableBattlefieldState', () => {
     expect(persist).toHaveBeenCalledTimes(1);
   });
 
+  it('queues batch battlefield positions and keeps all optimistic ratio positions local', async () => {
+    currentSnapshot = snapshot({
+      hand: [],
+      battlefield: [
+        card('card-1', 'First', { x: 0.1, y: 0.2, unit: 'ratio' }),
+        card('card-2', 'Second', { x: 0.2, y: 0.3, unit: 'ratio' }),
+      ],
+    });
+    const persist = vi.fn(async () => undefined);
+    const payload = {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      positions: [
+        { instanceId: 'card-1', position: { x: 0.35, y: 0.45, unit: 'ratio' } },
+        { instanceId: 'card-2', position: { x: 0.55, y: 0.65, unit: 'ratio' } },
+      ],
+    };
+
+    const queued = state.tryQueueBattlefieldPositionCommand(context(), 'game-1', payload, persist);
+    const optimistic = state.applyOptimisticBattlefieldPositions(currentSnapshot);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(queued).toBe(true);
+    expect(optimistic?.players['player-1']?.zones.battlefield.map((item) => item.position)).toEqual([
+      { x: 0.35, y: 0.45, unit: 'ratio' },
+      { x: 0.55, y: 0.65, unit: 'ratio' },
+    ]);
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
+
   it('normalizes local drag pixels to ratio without carrying zoom state into the command payload', () => {
     document.body.innerHTML = `
       <section class="battlefield" data-player-id="player-1">
