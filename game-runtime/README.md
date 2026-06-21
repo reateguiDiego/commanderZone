@@ -32,7 +32,19 @@ The first actor implementation supports:
 - `card.tapped`
 - `card.counter.changed`
 - final `card.position.changed`
+- `library.draw`
+- `library.draw_many`
+- `library.reveal_top`
+- `library.reorder_top`
+- `library.shuffle`
+- `card.moved`
+- `cards.moved`
+- `zone.reorderedByIds`
+- `zone.move_all`
+- `battlefield.untap_all`
 - public semantic patch emission
+- private owner patches for hidden card identity
+- group reveal patches for revealed library top windows
 - in-memory fake `EventStore` for version/idempotency tests
 
 ## Expected Validation

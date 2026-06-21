@@ -57,6 +57,7 @@ type TopRevealWindow struct {
 	Count   int      `json:"count"`
 	Epoch   int64    `json:"epoch"`
 	To      []string `json:"to"`
+	Mask    uint64   `json:"mask"`
 }
 
 type Relations struct {

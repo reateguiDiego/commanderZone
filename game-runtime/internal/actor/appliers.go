@@ -25,6 +25,16 @@ func DefaultAppliers() []Applier {
 		CardTappedApplier{},
 		CardCounterChangedApplier{},
 		CardPositionChangedApplier{},
+		LibraryDrawApplier{},
+		LibraryDrawManyApplier{},
+		LibraryRevealTopApplier{},
+		LibraryReorderTopApplier{},
+		LibraryShuffleApplier{},
+		CardMovedApplier{},
+		CardsMovedApplier{},
+		ZoneReorderedByIDsApplier{},
+		ZoneMoveAllApplier{},
+		BattlefieldUntapAllApplier{},
 	}
 }
 
@@ -266,4 +276,89 @@ func cloneMap(values map[string]any) map[string]any {
 		clone[key] = value
 	}
 	return clone
+}
+
+func zoneField(payload map[string]any, key string) (state.Zone, error) {
+	value, err := stringField(payload, key)
+	if err != nil {
+		return "", err
+	}
+	switch state.Zone(value) {
+	case state.ZoneLibrary, state.ZoneHand, state.ZoneBattlefield, state.ZoneGraveyard, state.ZoneExile, state.ZoneCommand:
+		return state.Zone(value), nil
+	default:
+		return "", fmt.Errorf("%w: %s", ErrInvalidPayloadField, key)
+	}
+}
+
+func stringSliceField(payload map[string]any, key string) ([]string, error) {
+	raw, ok := payload[key]
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrMissingPayloadField, key)
+	}
+	switch typed := raw.(type) {
+	case []string:
+		return append([]string(nil), typed...), nil
+	case []any:
+		values := make([]string, 0, len(typed))
+		for _, item := range typed {
+			value, ok := item.(string)
+			if !ok || value == "" {
+				return nil, fmt.Errorf("%w: %s", ErrInvalidPayloadField, key)
+			}
+			values = append(values, value)
+		}
+		return values, nil
+	default:
+		return nil, fmt.Errorf("%w: %s", ErrInvalidPayloadField, key)
+	}
+}
+
+func targetPlayerID(payload map[string]any, fallback string) string {
+	if value, ok := payload["targetPlayerId"].(string); ok && value != "" {
+		return value
+	}
+	return fallback
+}
+
+func emitZoneCount(emitter *PatchEmitter, game *state.GameState, playerID string, zone state.Zone) {
+	emitter.EmitPublic(protocol.PatchOp{
+		Op: "zone.count.set",
+		Data: map[string]any{
+			"playerId": playerID,
+			"zone":     zone,
+			"count":    state.ZoneCount(game, playerID, zone),
+		},
+	})
+}
+
+func cardPatchData(game *state.GameState, viewerID string, instanceID string) map[string]any {
+	instance := game.Instances[instanceID]
+	location := game.Loc[instanceID]
+	data := map[string]any{
+		"instanceId":   instanceID,
+		"ownerId":      instance.OwnerID,
+		"controllerId": instance.ControllerID,
+		"zone":         location.Zone,
+		"playerId":     location.PlayerID,
+		"tapped":       instance.Tapped,
+		"rotation":     instance.Rotation,
+		"counters":     instance.Counters,
+		"position":     instance.Position,
+		"faceDown":     instance.FaceDown,
+	}
+	if game.CanViewerSeeCardKey(viewerID, instanceID) {
+		data["cardKey"] = instance.CardKey
+	} else {
+		data["hidden"] = true
+	}
+	return data
+}
+
+func allPlayerIDs(game *state.GameState) []string {
+	playerIDs := make([]string, 0, len(game.Players))
+	for playerID := range game.Players {
+		playerIDs = append(playerIDs, playerID)
+	}
+	return playerIDs
 }

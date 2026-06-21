@@ -219,12 +219,22 @@ func testState() state.GameState {
 				Counters:     map[string]int{},
 				Position:     map[string]any{"x": 0.1, "y": 0.1, "unit": "ratio"},
 			},
+			"l1": {InstanceID: "l1", CardKey: "library-1@1", OwnerID: "p1", ControllerID: "p1", Zone: state.ZoneLibrary},
+			"l2": {InstanceID: "l2", CardKey: "library-2@1", OwnerID: "p1", ControllerID: "p1", Zone: state.ZoneLibrary},
+			"l3": {InstanceID: "l3", CardKey: "library-3@1", OwnerID: "p1", ControllerID: "p1", Zone: state.ZoneLibrary},
+			"h1": {InstanceID: "h1", CardKey: "hand-1@1", OwnerID: "p1", ControllerID: "p1", Zone: state.ZoneHand},
+			"h2": {InstanceID: "h2", CardKey: "hand-2@1", OwnerID: "p1", ControllerID: "p1", Zone: state.ZoneHand},
 		},
 		Zones: map[string]state.PlayerZones{
-			"p1": {Battlefield: []string{"i1"}},
+			"p1": {Library: []string{"l1", "l2", "l3"}, Hand: []string{"h1", "h2"}, Battlefield: []string{"i1"}},
 		},
 		Loc: map[string]state.Location{
 			"i1": {PlayerID: "p1", Zone: state.ZoneBattlefield, Index: 0, ControllerID: "p1"},
+			"l1": {PlayerID: "p1", Zone: state.ZoneLibrary, Index: 0, ControllerID: "p1"},
+			"l2": {PlayerID: "p1", Zone: state.ZoneLibrary, Index: 1, ControllerID: "p1"},
+			"l3": {PlayerID: "p1", Zone: state.ZoneLibrary, Index: 2, ControllerID: "p1"},
+			"h1": {PlayerID: "p1", Zone: state.ZoneHand, Index: 0, ControllerID: "p1"},
+			"h2": {PlayerID: "p1", Zone: state.ZoneHand, Index: 1, ControllerID: "p1"},
 		},
 		Visibility: state.VisibilityIndex{
 			InstanceMasks:       map[string]uint64{},
