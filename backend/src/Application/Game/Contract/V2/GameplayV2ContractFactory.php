@@ -8,6 +8,9 @@ use App\Domain\User\User;
 
 final class GameplayV2ContractFactory
 {
+    private const RULES_VERSION = 'commanderzone-manual-v1';
+    private const CARD_CATALOG_VERSION = 'legacy-snapshot-v1';
+
     /**
      * @param array<string,mixed> $command
      */
@@ -96,13 +99,15 @@ final class GameplayV2ContractFactory
     /**
      * @param array<string,mixed> $projectedSnapshot
      */
-    public function bootstrap(Game $game, User $viewer, array $projectedSnapshot): BootstrapV2
+    public function bootstrap(Game $game, User $viewer, array $projectedSnapshot, array $knownStaticCatalogKeys = []): BootstrapV2
     {
         $players = [];
         $zones = [];
         $instances = [];
         $zoneCounts = [];
         $staticCards = [];
+        $requiredStaticCards = [];
+        $knownStaticCatalogKeys = $this->knownStaticCatalogKeySet($knownStaticCatalogKeys);
 
         foreach (($projectedSnapshot['players'] ?? []) as $playerId => $player) {
             if (!is_string($playerId) || !is_array($player)) {
@@ -128,8 +133,11 @@ final class GameplayV2ContractFactory
                     }
 
                     $cardRef = $this->cardRef($card, $instanceId);
-                    $staticCards[$cardRef] ??= $this->staticCard($card);
-                    $instances[$instanceId] = $this->instance($card, $instanceId, $cardRef, $zoneId);
+                    $staticCard = $this->staticCard($card);
+                    if (!$this->isHiddenPlaceholder($card)) {
+                        $requiredStaticCards[$cardRef] ??= $staticCard;
+                    }
+                    $instances[$instanceId] = $this->instance($card, $instanceId, $staticCard, $zoneId);
                     $instanceIds[] = $instanceId;
                 }
 
@@ -160,7 +168,15 @@ final class GameplayV2ContractFactory
             ];
         }
 
-        return BootstrapV2::fromArray([
+        $staticCards = $this->staticCardsForClient($requiredStaticCards, $knownStaticCatalogKeys);
+        $relations = [
+            'stack' => $this->stackRelations($projectedSnapshot['stack'] ?? [], $requiredStaticCards),
+            'arrows' => array_values(array_filter($projectedSnapshot['arrows'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+            'attachments' => array_values(array_filter($projectedSnapshot['attachments'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+            'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+        ];
+
+        $payload = [
             'game' => [
                 'id' => $game->id(),
                 'status' => $game->status(),
@@ -175,17 +191,17 @@ final class GameplayV2ContractFactory
             'zones' => $zones,
             'instances' => $instances,
             'zoneCounts' => $zoneCounts,
-            'relations' => [
-                'stack' => $this->stackRelations($projectedSnapshot['stack'] ?? [], $staticCards),
-                'arrows' => array_values(array_filter($projectedSnapshot['arrows'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
-                'attachments' => array_values(array_filter($projectedSnapshot['attachments'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
-                'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
-            ],
+            'relations' => $relations,
             'turn' => is_array($projectedSnapshot['turn'] ?? null) ? $projectedSnapshot['turn'] : [],
             'staticCards' => $staticCards,
             'chatCursor' => $this->cursorForEntries($projectedSnapshot['chat'] ?? []),
             'logCursor' => $this->cursorForEntries($projectedSnapshot['eventLog'] ?? []),
-        ]);
+            'rulesVersion' => self::RULES_VERSION,
+            'cardCatalogVersion' => self::CARD_CATALOG_VERSION,
+        ];
+        $payload['payloadBytes'] = $this->jsonBytes($payload);
+
+        return BootstrapV2::fromArray($payload);
     }
 
     /**
@@ -196,6 +212,8 @@ final class GameplayV2ContractFactory
     {
         return [
             'cardRef' => $this->cardRef($card, trim((string) ($card['instanceId'] ?? ''))),
+            'cardKey' => $this->cardRef($card, trim((string) ($card['instanceId'] ?? ''))),
+            'cardVersion' => $this->cardVersion($card),
             'scryfallId' => $card['scryfallId'] ?? null,
             'name' => $card['name'] ?? null,
             'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : null,
@@ -215,11 +233,11 @@ final class GameplayV2ContractFactory
      * @param array<string,mixed> $card
      * @return array<string,mixed>
      */
-    private function instance(array $card, string $instanceId, string $cardRef, string $zoneId): array
+    private function instance(array $card, string $instanceId, array $staticCard, string $zoneId): array
     {
         $instance = [
             'instanceId' => $instanceId,
-            'cardRef' => $cardRef,
+            'cardRef' => $staticCard['cardRef'],
             'zoneId' => $zoneId,
             'ownerId' => $card['ownerId'] ?? null,
             'controllerId' => $card['controllerId'] ?? null,
@@ -239,6 +257,10 @@ final class GameplayV2ContractFactory
             'isTokenCopy' => ($card['isTokenCopy'] ?? false) === true,
             'isCommander' => ($card['isCommander'] ?? false) === true,
         ];
+        if (!$this->isHiddenPlaceholder($card)) {
+            $instance['cardKey'] = $staticCard['cardKey'];
+            $instance['cardVersion'] = $staticCard['cardVersion'];
+        }
         if (is_array($card['tokenMeta'] ?? null) && $card['tokenMeta'] !== []) {
             $instance['tokenMeta'] = $card['tokenMeta'];
         }
@@ -268,6 +290,93 @@ final class GameplayV2ContractFactory
         }
 
         return 'instance:'.$instanceId;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function cardVersion(array $card): string
+    {
+        $tokenVersion = is_string($card['tokenMeta']['templateCardVersion'] ?? null)
+            ? trim((string) $card['tokenMeta']['templateCardVersion'])
+            : '';
+        if ($tokenVersion !== '') {
+            return $tokenVersion;
+        }
+
+        $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+        if ($scryfallId !== '') {
+            return self::CARD_CATALOG_VERSION;
+        }
+
+        return 'hidden-placeholder-v1';
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isHiddenPlaceholder(array $card): bool
+    {
+        return ($card['hidden'] ?? false) === true
+            && trim((string) ($card['scryfallId'] ?? '')) === '';
+    }
+
+    /**
+     * @param array<int|string,mixed> $knownStaticCatalogKeys
+     * @return array<string,bool>
+     */
+    private function knownStaticCatalogKeySet(array $knownStaticCatalogKeys): array
+    {
+        $known = [];
+        foreach ($knownStaticCatalogKeys as $value) {
+            if (!is_string($value)) {
+                continue;
+            }
+            $value = trim($value);
+            if ($value !== '') {
+                $known[$value] = true;
+            }
+        }
+
+        return $known;
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $requiredStaticCards
+     * @param array<string,bool> $knownStaticCatalogKeys
+     * @return array<string,array<string,mixed>>
+     */
+    private function staticCardsForClient(array $requiredStaticCards, array $knownStaticCatalogKeys): array
+    {
+        $staticCards = [];
+        foreach ($requiredStaticCards as $cardRef => $card) {
+            $catalogKey = $this->staticCatalogKey($card);
+            if (isset($knownStaticCatalogKeys[$catalogKey])) {
+                continue;
+            }
+
+            $staticCards[$cardRef] = $card;
+        }
+
+        return $staticCards;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function staticCatalogKey(array $card): string
+    {
+        return sprintf('%s@%s', (string) ($card['cardKey'] ?? $card['cardRef'] ?? ''), (string) ($card['cardVersion'] ?? self::CARD_CATALOG_VERSION));
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function jsonBytes(array $payload): int
+    {
+        $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return is_string($encoded) ? strlen($encoded) : 0;
     }
 
     /**

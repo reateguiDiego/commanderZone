@@ -12,6 +12,7 @@ import { GameTableGameRealtimeService } from './game-table-game-realtime.service
 import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
 import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
+import { GameTableStaticCardCacheV2Service } from './game-table-static-card-cache-v2.service';
 
 export interface GameTableSessionContext {
   gameId(): string;
@@ -40,6 +41,7 @@ export class GameTableSessionService {
   private readonly gameplayV2Flags = inject(GameTableGameplayV2FlagsService);
   private readonly normalizedV2Store = inject(GameTableNormalizedV2Store);
   private readonly websocket = inject(GameTableWebsocketGameplayService);
+  private readonly staticCardCacheV2 = inject(GameTableStaticCardCacheV2Service);
   private deferredRemoteSnapshot: GameSnapshot | null = null;
   readonly realtimeStatus = computed<'connecting' | 'live' | 'degraded'>(() => {
     const status = this.websocket.status();
@@ -155,8 +157,8 @@ export class GameTableSessionService {
       return;
     }
 
-    const bootstrap = await firstValueFrom(this.gamesApi.bootstrapV2(gameId));
-    const nextSnapshot = this.normalizedV2Store.applyBootstrap(bootstrap);
+    const bootstrap = await firstValueFrom(this.gamesApi.bootstrapV2(gameId, this.staticCardCacheV2.knownCatalogKeys()));
+    const nextSnapshot = this.normalizedV2Store.applyBootstrap(this.staticCardCacheV2.mergeBootstrap(bootstrap));
     const currentSnapshot = context.snapshot();
     if (!force && currentSnapshot?.version === nextSnapshot.version && !this.hasProjectionMetadataChanged(currentSnapshot, nextSnapshot)) {
       return;

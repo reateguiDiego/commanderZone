@@ -84,6 +84,9 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertNotEmpty($bootstrap->staticCards);
         self::assertSame('chat-1', $bootstrap->chatCursor);
         self::assertSame('log-1', $bootstrap->logCursor);
+        self::assertSame('commanderzone-manual-v1', $bootstrap->rulesVersion);
+        self::assertSame('legacy-snapshot-v1', $bootstrap->cardCatalogVersion);
+        self::assertIsInt($bootstrap->payloadBytes);
     }
 
     public function testBootstrapUsesSharedStaticRefForGenericTokensAndCompactStackRelations(): void
@@ -146,6 +149,131 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertSame('stack-1', $bootstrap->relations['stack'][0]['stackId'] ?? null);
         self::assertSame('battlefield-1', $bootstrap->relations['stack'][0]['sourceInstanceId'] ?? null);
         self::assertArrayNotHasKey('card', $bootstrap->relations['stack'][0]);
+    }
+
+    public function testBootstrapV2KeepsPrivateHandAndLibraryWithoutCardKeyOrStaticPayload(): void
+    {
+        [$game, $viewer] = $this->game();
+        $factory = new GameplayV2ContractFactory();
+        $opponentId = 'opponent-player';
+        $snapshot = $this->projectedSnapshot($viewer);
+        $snapshot['players'][$opponentId] = [
+            'user' => ['id' => $opponentId, 'email' => 'opponent@example.test', 'displayName' => 'Opponent', 'roles' => []],
+            'life' => 40,
+            'status' => 'active',
+            'handCount' => 2,
+            'zoneCounts' => ['hand' => 2, 'library' => 99],
+            'commanderDamage' => [],
+            'counters' => [],
+            'zones' => [
+                'hand' => [[
+                    'instanceId' => $opponentId.'-hidden-hand-0',
+                    'ownerId' => $opponentId,
+                    'controllerId' => $opponentId,
+                    'name' => 'Hidden card',
+                    'hidden' => true,
+                    'faceDown' => true,
+                    'zone' => 'hand',
+                ]],
+                'library' => [[
+                    'instanceId' => $opponentId.'-hidden-library-top',
+                    'ownerId' => $opponentId,
+                    'controllerId' => $opponentId,
+                    'name' => 'Hidden card',
+                    'hidden' => true,
+                    'faceDown' => true,
+                    'zone' => 'library',
+                ]],
+            ],
+        ];
+
+        $bootstrap = $factory->bootstrap($game, $viewer, $snapshot);
+        $handPlaceholder = $bootstrap->instances[$opponentId.'-hidden-hand-0'] ?? [];
+        $libraryPlaceholder = $bootstrap->instances[$opponentId.'-hidden-library-top'] ?? [];
+
+        self::assertArrayNotHasKey('cardKey', $handPlaceholder);
+        self::assertArrayNotHasKey('cardVersion', $handPlaceholder);
+        self::assertArrayNotHasKey('cardKey', $libraryPlaceholder);
+        self::assertArrayNotHasKey('cardVersion', $libraryPlaceholder);
+        self::assertArrayNotHasKey('instance:'.$opponentId.'-hidden-hand-0', $bootstrap->staticCards);
+        self::assertArrayNotHasKey('instance:'.$opponentId.'-hidden-library-top', $bootstrap->staticCards);
+    }
+
+    public function testBootstrapV2HydratesVisibleZonesAndRevealedTopOnly(): void
+    {
+        [$game, $viewer] = $this->game();
+        $factory = new GameplayV2ContractFactory();
+        $opponentId = 'opponent-player';
+        $snapshot = $this->projectedSnapshot($viewer);
+        $snapshot['players'][$viewer->id()]['zones']['graveyard'] = [[
+            'instanceId' => 'graveyard-1',
+            'ownerId' => $viewer->id(),
+            'controllerId' => $viewer->id(),
+            'scryfallId' => '44444444-4444-4444-4444-444444444444',
+            'name' => 'Graveyard Card',
+            'zone' => 'graveyard',
+        ]];
+        $snapshot['players'][$viewer->id()]['zones']['exile'] = [[
+            'instanceId' => 'exile-1',
+            'ownerId' => $viewer->id(),
+            'controllerId' => $viewer->id(),
+            'scryfallId' => '55555555-5555-5555-5555-555555555555',
+            'name' => 'Exile Card',
+            'zone' => 'exile',
+        ]];
+        $snapshot['players'][$opponentId] = [
+            'user' => ['id' => $opponentId, 'email' => 'opponent@example.test', 'displayName' => 'Opponent', 'roles' => []],
+            'life' => 40,
+            'status' => 'active',
+            'handCount' => 0,
+            'zoneCounts' => ['library' => 2],
+            'commanderDamage' => [],
+            'counters' => [],
+            'zones' => [
+                'library' => [
+                    [
+                        'instanceId' => 'opponent-revealed-top',
+                        'ownerId' => $opponentId,
+                        'controllerId' => $opponentId,
+                        'scryfallId' => '66666666-6666-6666-6666-666666666666',
+                        'name' => 'Revealed Top',
+                        'zone' => 'library',
+                        'revealedTo' => [$viewer->id()],
+                    ],
+                    [
+                        'instanceId' => 'opponent-hidden-library-top',
+                        'ownerId' => $opponentId,
+                        'controllerId' => $opponentId,
+                        'name' => 'Hidden card',
+                        'hidden' => true,
+                        'faceDown' => true,
+                        'zone' => 'library',
+                    ],
+                ],
+            ],
+        ];
+
+        $bootstrap = $factory->bootstrap($game, $viewer, $snapshot);
+
+        self::assertArrayHasKey('33333333-3333-3333-3333-333333333333:card', $bootstrap->staticCards);
+        self::assertArrayHasKey('44444444-4444-4444-4444-444444444444:card', $bootstrap->staticCards);
+        self::assertArrayHasKey('55555555-5555-5555-5555-555555555555:card', $bootstrap->staticCards);
+        self::assertArrayHasKey('66666666-6666-6666-6666-666666666666:card', $bootstrap->staticCards);
+        self::assertArrayNotHasKey('instance:opponent-hidden-library-top', $bootstrap->staticCards);
+    }
+
+    public function testBootstrapV2OmitsStaticCardsKnownByClientCache(): void
+    {
+        [$game, $viewer] = $this->game();
+        $factory = new GameplayV2ContractFactory();
+
+        $bootstrap = $factory->bootstrap($game, $viewer, $this->projectedSnapshot($viewer), [
+            '33333333-3333-3333-3333-333333333333:card@legacy-snapshot-v1',
+        ]);
+
+        self::assertSame('33333333-3333-3333-3333-333333333333:card', $bootstrap->instances['battlefield-1']['cardKey']);
+        self::assertArrayNotHasKey('33333333-3333-3333-3333-333333333333:card', $bootstrap->staticCards);
+        self::assertLessThan(12000, $bootstrap->payloadBytes ?? 0);
     }
 
     public function testFactoryBuildsEventPayloadV2FromCurrentEvent(): void

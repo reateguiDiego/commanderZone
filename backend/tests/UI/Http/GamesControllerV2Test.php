@@ -93,6 +93,33 @@ class GamesControllerV2Test extends TestCase
         self::assertArrayNotHasKey('snapshot', $payload['game']);
     }
 
+    public function testBootstrapV2AcceptsKnownStaticCardsForCacheFriendlyPayload(): void
+    {
+        [$game, $viewer] = $this->game();
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::once())->method('project')->with($game, $viewer)->willReturn($this->projectedSnapshot($viewer));
+
+        $controller = new GamesController();
+        $controller->setContainer($this->controllerContainer());
+        $response = $controller->snapshot(
+            $game->id(),
+            $viewer,
+            $this->entityManager($game),
+            $projection,
+            $this->debugHealth(),
+            Request::create(
+                '/games/'.$game->id().'/bootstrap?contract=v2&knownStaticCards=33333333-3333-3333-3333-333333333333:card@legacy-snapshot-v1',
+                'GET',
+            ),
+            new GameplayV2ContractFactory(),
+            new GameplayV2Flags(false, false, true, false),
+        );
+        $payload = json_decode($response->getContent() ?: '[]', true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame('33333333-3333-3333-3333-333333333333:card', $payload['instances']['battlefield-1']['cardKey']);
+        self::assertArrayNotHasKey('33333333-3333-3333-3333-333333333333:card', $payload['staticCards']);
+    }
+
     public function testBootstrapKeepsLegacyShapeWhenFlagDisabled(): void
     {
         [$game, $viewer] = $this->game();

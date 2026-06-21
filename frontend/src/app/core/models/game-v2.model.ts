@@ -92,6 +92,8 @@ export interface CardTokenMetaV2 {
 export interface BootstrapInstanceV2 {
   instanceId: string;
   cardRef: string;
+  cardKey?: string;
+  cardVersion?: string;
   zoneId: string;
   ownerId?: string | null;
   controllerId?: string | null;
@@ -116,6 +118,8 @@ export interface BootstrapInstanceV2 {
 
 export interface BootstrapStaticCardV2 {
   cardRef: string;
+  cardKey?: string;
+  cardVersion?: string;
   scryfallId?: string | null;
   name?: string | null;
   imageUris?: CardImageUris | null;
@@ -160,6 +164,9 @@ export interface BootstrapV2 {
   staticCards: Record<string, BootstrapStaticCardV2>;
   chatCursor?: string | null;
   logCursor?: string | null;
+  rulesVersion?: string;
+  cardCatalogVersion?: string;
+  payloadBytes?: number;
 }
 
 export interface LegacyCardPatchPayload {

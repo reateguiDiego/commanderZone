@@ -15,12 +15,17 @@ export class GamesApi {
     return this.http.get<GameResponse>(`${API_BASE_URL}/games/${gameId}/snapshot`, { context: withoutGlobalLoading() });
   }
 
-  bootstrapV2(gameId: string): Observable<BootstrapV2> {
+  bootstrapV2(gameId: string, knownStaticCards: string[] = []): Observable<BootstrapV2> {
+    const params: Record<string, string> = {
+      contract: 'v2',
+    };
+    if (knownStaticCards.length > 0) {
+      params['knownStaticCards'] = knownStaticCards.join(',');
+    }
+
     return this.http.get<BootstrapV2>(`${API_BASE_URL}/games/${gameId}/bootstrap`, {
       context: withoutGlobalLoading(),
-      params: {
-        contract: 'v2',
-      },
+      params,
     });
   }
 

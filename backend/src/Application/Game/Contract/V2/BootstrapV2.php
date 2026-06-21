@@ -25,6 +25,9 @@ final readonly class BootstrapV2 implements \JsonSerializable
         public array $staticCards,
         public ?string $chatCursor,
         public ?string $logCursor,
+        public string $rulesVersion = 'commanderzone-manual-v1',
+        public string $cardCatalogVersion = 'legacy-snapshot-v1',
+        public ?int $payloadBytes = null,
     ) {
     }
 
@@ -41,9 +44,16 @@ final readonly class BootstrapV2 implements \JsonSerializable
             self::validateZoneCounts(ContractV2Assert::requiredMap($data, 'zoneCounts')),
             ContractV2Assert::requiredMap($data, 'relations'),
             ContractV2Assert::requiredMap($data, 'turn'),
-            ContractV2Assert::requiredMap($data, 'staticCards'),
+            self::validateStaticCards($data),
             ContractV2Assert::optionalNonEmptyString($data, 'chatCursor'),
             ContractV2Assert::optionalNonEmptyString($data, 'logCursor'),
+            is_string($data['rulesVersion'] ?? null) && trim((string) $data['rulesVersion']) !== ''
+                ? trim((string) $data['rulesVersion'])
+                : 'commanderzone-manual-v1',
+            is_string($data['cardCatalogVersion'] ?? null) && trim((string) $data['cardCatalogVersion']) !== ''
+                ? trim((string) $data['cardCatalogVersion'])
+                : 'legacy-snapshot-v1',
+            is_int($data['payloadBytes'] ?? null) && (int) $data['payloadBytes'] >= 0 ? (int) $data['payloadBytes'] : null,
         );
     }
 
@@ -61,12 +71,17 @@ final readonly class BootstrapV2 implements \JsonSerializable
             'relations' => $this->relations,
             'turn' => $this->turn,
             'staticCards' => $this->staticCards,
+            'rulesVersion' => $this->rulesVersion,
+            'cardCatalogVersion' => $this->cardCatalogVersion,
         ];
         if ($this->chatCursor !== null) {
             $data['chatCursor'] = $this->chatCursor;
         }
         if ($this->logCursor !== null) {
             $data['logCursor'] = $this->logCursor;
+        }
+        if ($this->payloadBytes !== null) {
+            $data['payloadBytes'] = $this->payloadBytes;
         }
 
         return $data;
@@ -96,5 +111,22 @@ final readonly class BootstrapV2 implements \JsonSerializable
         }
 
         return $normalized;
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     * @return array<string,array<string,mixed>>
+     */
+    private static function validateStaticCards(array $data): array
+    {
+        $value = $data['staticCards'] ?? null;
+        if ($value === []) {
+            return [];
+        }
+        if (!is_array($value) || array_is_list($value)) {
+            throw new \InvalidArgumentException('Field "staticCards" must be an object.');
+        }
+
+        return $value;
     }
 }

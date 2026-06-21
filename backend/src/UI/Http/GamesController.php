@@ -82,7 +82,12 @@ class GamesController extends ApiController
             && str_ends_with($request->getPathInfo(), '/bootstrap')
             && strtolower(trim((string) $request->query->get('contract', ''))) === 'v2';
         if ($bootstrapContractRequested && ($flagsV2?->bootstrapEnabled() ?? false) && $contractsV2 instanceof GameplayV2ContractFactory) {
-            return $this->json($contractsV2->bootstrap($game, $user, $projectedSnapshot)->toArray());
+            return $this->json($contractsV2->bootstrap(
+                $game,
+                $user,
+                $projectedSnapshot,
+                $this->knownStaticCardsFromRequest($request),
+            )->toArray());
         }
 
         return $this->json([
@@ -91,6 +96,21 @@ class GamesController extends ApiController
                 'snapshot' => $projectedSnapshot,
             ],
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function knownStaticCardsFromRequest(Request $request): array
+    {
+        $query = $request->query->all();
+        $value = $query['knownStaticCards'] ?? '';
+        $raw = is_array($value) ? $value : (is_string($value) ? explode(',', $value) : []);
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $value): string => is_string($value) ? trim($value) : '',
+            $raw,
+        ), static fn (string $value): bool => $value !== ''));
     }
 
     #[Route('/games/{id}/websocket-ticket', methods: ['POST'])]
