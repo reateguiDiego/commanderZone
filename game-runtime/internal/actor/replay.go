@@ -1,11 +1,41 @@
 package actor
 
 import (
+	"context"
 	"fmt"
 
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
 )
+
+func ReplayEvents(initial state.GameState, events []protocol.EventPayloadV2, appliers []Applier) (state.GameState, error) {
+	recovered := initial.Clone()
+	for _, event := range events {
+		if event.Version != recovered.Version+1 {
+			return state.GameState{}, fmt.Errorf("%w: event version %d after state version %d", ErrVersionConflict, event.Version, recovered.Version)
+		}
+		if err := ReplayEventWithAppliers(&recovered, event, appliers); err != nil {
+			return state.GameState{}, err
+		}
+		recovered.Version = event.Version
+	}
+	state.RebuildLocIndexForRecoveryOnly(&recovered)
+	if err := state.ValidateInvariants(recovered); err != nil {
+		return state.GameState{}, err
+	}
+	return recovered, nil
+}
+
+func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
+	switch event.Type {
+	case "life.changed", "turn.changed", "dice.rolled", "card.tapped", "card.counter.changed", "card.position.changed":
+		return replayViaApplier(game, event, appliers)
+	case "card.moved", "cards.moved", "zone.reorderedByIds", "zone.move_all", "battlefield.untap_all":
+		return replayViaApplier(game, event, appliers)
+	default:
+		return ReplayEvent(game, event)
+	}
+}
 
 func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 	switch event.Type {
@@ -51,4 +81,22 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownCommand, event.Type)
 	}
+}
+
+func replayViaApplier(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
+	for _, applier := range appliers {
+		if applier.Type() != event.Type {
+			continue
+		}
+		command := protocol.CommandEnvelopeV2{
+			GameID:         event.GameID,
+			BaseVersion:    game.Version,
+			ClientActionID: event.ClientActionID,
+			Type:           event.Type,
+			Payload:        cloneMap(event.Payload),
+		}
+		_, err := applier.Apply(context.Background(), game, command, NewPatchEmitter())
+		return err
+	}
+	return fmt.Errorf("%w: %s", ErrUnknownCommand, event.Type)
 }

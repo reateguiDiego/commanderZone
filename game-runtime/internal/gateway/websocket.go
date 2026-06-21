@@ -231,7 +231,11 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 		return
 	}
 
-	gameActor, _ := s.runtime.LoadActor(ctx, command.GameID, runtimesvc.EmptyInitialState(command.GameID))
+	gameActor, _, err := s.runtime.LoadActorRecovered(ctx, command.GameID, runtimesvc.EmptyInitialState(command.GameID))
+	if err != nil {
+		s.sendJSON(client, ServerMessage{Type: "error", Error: err.Error(), Code: "actor_recovery_failed", AckClientActionID: command.ClientActionID})
+		return
+	}
 	commandCtx, cancel := context.WithTimeout(ctx, s.commandTimeout)
 	defer cancel()
 	result := gameActor.Submit(commandCtx, command, client.claims.UserID)
@@ -468,6 +472,9 @@ type webSocketRouter struct {
 }
 
 func (r *webSocketRouter) Route(ctx context.Context, gameID string, request actor.CommandRequest) error {
-	gameActor, _ := r.runtime.LoadActor(ctx, gameID, runtimesvc.EmptyInitialState(gameID))
+	gameActor, _, err := r.runtime.LoadActorRecovered(ctx, gameID, runtimesvc.EmptyInitialState(gameID))
+	if err != nil {
+		return err
+	}
 	return gameActor.Enqueue(request)
 }

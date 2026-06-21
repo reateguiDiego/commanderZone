@@ -51,6 +51,20 @@ func TestInMemoryEventStoreReturnsEventsAfterVersion(t *testing.T) {
 	}
 }
 
+func TestInMemoryEventStoreFindsEventByClientActionID(t *testing.T) {
+	store := NewInMemoryEventStore()
+	if err := store.AppendEvent(context.Background(), testEvent(2, "a1")); err != nil {
+		t.Fatalf("append failed: %v", err)
+	}
+	event, ok, err := store.EventByClientActionID(context.Background(), "game-1", "a1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || event.Version != 2 {
+		t.Fatalf("event = %#v ok=%v", event, ok)
+	}
+}
+
 func testEvent(version int64, actionID string) protocol.EventPayloadV2 {
 	return protocol.EventPayloadV2{
 		GameID:         "game-1",

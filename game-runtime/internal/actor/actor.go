@@ -36,22 +36,38 @@ type CommandResult struct {
 	Err     error
 }
 
+type SnapshotPolicy struct {
+	EveryEvents   int
+	EveryDuration time.Duration
+}
+
+func DefaultSnapshotPolicy() SnapshotPolicy {
+	return SnapshotPolicy{EveryEvents: 100, EveryDuration: 30 * time.Second}
+}
+
 type GameActor struct {
-	gameID        string
-	state         *state.GameState
-	store         persistence.EventStore
-	appliers      map[string]Applier
-	mailbox       chan CommandRequest
-	seenActions   map[string]CommandResult
-	startedAt     time.Time
-	lastHeartbeat time.Time
-	stop          chan struct{}
-	stopped       chan struct{}
-	stopOnce      sync.Once
-	stateMu       sync.RWMutex
+	gameID              string
+	state               *state.GameState
+	store               persistence.EventStore
+	appliers            map[string]Applier
+	mailbox             chan CommandRequest
+	seenActions         map[string]CommandResult
+	startedAt           time.Time
+	lastHeartbeat       time.Time
+	stop                chan struct{}
+	stopped             chan struct{}
+	stopOnce            sync.Once
+	stateMu             sync.RWMutex
+	snapshotPolicy      SnapshotPolicy
+	eventsSinceSnapshot int
+	lastSnapshotAt      time.Time
 }
 
 func NewGameActor(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier) *GameActor {
+	return NewGameActorWithSnapshotPolicy(gameID, initial, store, queueSize, appliers, DefaultSnapshotPolicy())
+}
+
+func NewGameActorWithSnapshotPolicy(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier, snapshotPolicy SnapshotPolicy) *GameActor {
 	byType := make(map[string]Applier, len(appliers))
 	for _, applier := range appliers {
 		byType[applier.Type()] = applier
@@ -60,16 +76,18 @@ func NewGameActor(gameID string, initial state.GameState, store persistence.Even
 		queueSize = 1
 	}
 	return &GameActor{
-		gameID:        gameID,
-		state:         &initial,
-		store:         store,
-		appliers:      byType,
-		mailbox:       make(chan CommandRequest, queueSize),
-		seenActions:   map[string]CommandResult{},
-		startedAt:     time.Now().UTC(),
-		lastHeartbeat: time.Now().UTC(),
-		stop:          make(chan struct{}),
-		stopped:       make(chan struct{}),
+		gameID:         gameID,
+		state:          &initial,
+		store:          store,
+		appliers:       byType,
+		mailbox:        make(chan CommandRequest, queueSize),
+		seenActions:    map[string]CommandResult{},
+		startedAt:      time.Now().UTC(),
+		lastHeartbeat:  time.Now().UTC(),
+		stop:           make(chan struct{}),
+		stopped:        make(chan struct{}),
+		snapshotPolicy: snapshotPolicy,
+		lastSnapshotAt: time.Now().UTC(),
 	}
 }
 
@@ -136,7 +154,7 @@ func (a *GameActor) Stop(ctx context.Context) error {
 	})
 	select {
 	case <-a.stopped:
-		return nil
+		return a.SaveCompactSnapshot(ctx)
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -174,6 +192,19 @@ func (a *GameActor) ApplyDirect(ctx context.Context, command protocol.CommandEnv
 	return a.apply(ctx, CommandRequest{Command: command, ActorID: actorID})
 }
 
+func (a *GameActor) SaveCompactSnapshot(ctx context.Context) error {
+	if a.store == nil {
+		return nil
+	}
+	a.stateMu.RLock()
+	snapshot, err := persistence.NewCompactSnapshot(a.state.Clone())
+	a.stateMu.RUnlock()
+	if err != nil {
+		return err
+	}
+	return a.store.SaveSnapshot(ctx, snapshot)
+}
+
 func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandResult {
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
@@ -184,6 +215,15 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	if existing, ok := a.seenActions[command.ClientActionID]; ok {
 		return existing
+	}
+	if a.store != nil && command.ClientActionID != "" {
+		existing, ok, err := a.store.EventByClientActionID(ctx, command.GameID, command.ClientActionID)
+		if err != nil {
+			return CommandResult{Err: err}
+		}
+		if ok {
+			return CommandResult{Event: existing}
+		}
 	}
 	if command.BaseVersion != a.state.Version {
 		return CommandResult{Err: ErrVersionConflict}
@@ -227,5 +267,35 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	a.seenActions[command.ClientActionID] = result
 	a.lastHeartbeat = time.Now().UTC()
+	a.eventsSinceSnapshot++
+	if err := a.saveSnapshotIfDueLocked(ctx); err != nil {
+		return CommandResult{Err: err}
+	}
 	return result
+}
+
+func (a *GameActor) saveSnapshotIfDueLocked(ctx context.Context) error {
+	if a.store == nil {
+		return nil
+	}
+	policy := a.snapshotPolicy
+	if policy.EveryEvents <= 0 && policy.EveryDuration <= 0 {
+		return nil
+	}
+	now := time.Now().UTC()
+	dueByEvents := policy.EveryEvents > 0 && a.eventsSinceSnapshot >= policy.EveryEvents
+	dueByTime := policy.EveryDuration > 0 && now.Sub(a.lastSnapshotAt) >= policy.EveryDuration
+	if !dueByEvents && !dueByTime {
+		return nil
+	}
+	snapshot, err := persistence.NewCompactSnapshot(a.state.Clone())
+	if err != nil {
+		return err
+	}
+	if err := a.store.SaveSnapshot(ctx, snapshot); err != nil {
+		return err
+	}
+	a.eventsSinceSnapshot = 0
+	a.lastSnapshotAt = now
+	return nil
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"commanderzone/game-runtime/internal/gateway"
+	"commanderzone/game-runtime/internal/persistence"
 	runtimesvc "commanderzone/game-runtime/internal/runtime"
 )
 
@@ -37,11 +38,12 @@ func main() {
 		_, _ = w.Write([]byte("ready"))
 	})
 
-	runtimeService := runtimesvc.NewService()
+	runtimeService, closePersistence := runtimeServiceFromEnv(logger)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = runtimeService.Shutdown(ctx)
+		_ = closePersistence()
 	}()
 
 	validator := ticketValidatorFromEnv(logger)
@@ -110,6 +112,41 @@ func ticketValidatorFromEnv(logger *slog.Logger) gateway.TicketValidator {
 		return rejectingTicketValidator{}
 	}
 	return validator
+}
+
+func runtimeServiceFromEnv(logger *slog.Logger) (*runtimesvc.Service, func() error) {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("GAME_RUNTIME_PERSISTENCE")))
+	if mode == "" {
+		mode = "memory"
+	}
+	if mode != "postgres" {
+		logger.Info("using in-memory runtime persistence", "mode", mode)
+		return runtimesvc.NewService(), func() error { return nil }
+	}
+	store, err := persistence.NewPostgresEventStore(normalizePostgresURL(os.Getenv("DATABASE_URL")))
+	if err != nil {
+		logger.Error("postgres runtime persistence configuration failed", "error", err)
+		os.Exit(1)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := store.Ping(ctx); err != nil {
+		logger.Error("postgres runtime persistence ping failed", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("using postgres runtime persistence")
+	return runtimesvc.NewServiceWithStore(store, 128, nil), store.Close
+}
+
+func normalizePostgresURL(databaseURL string) string {
+	if databaseURL == "" || strings.Contains(databaseURL, "sslmode=") {
+		return databaseURL
+	}
+	separator := "?"
+	if strings.Contains(databaseURL, "?") {
+		separator = "&"
+	}
+	return databaseURL + separator + "sslmode=disable"
 }
 
 func runHealthcheck(listen string) error {

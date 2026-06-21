@@ -97,6 +97,55 @@ func TestGameActorDuplicateClientActionIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	existing := protocol.EventPayloadV2{
+		GameID:         "game-1",
+		Version:        2,
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 39},
+		CreatedBy:      "p1",
+		ClientActionID: "a1",
+		CreatedAt:      time.Now().UTC(),
+	}
+	if err := store.AppendEvent(context.Background(), existing); err != nil {
+		t.Fatalf("append failed: %v", err)
+	}
+	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a1", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p1")
+	if result.Err != nil {
+		t.Fatalf("duplicate failed: %v", result.Err)
+	}
+	if result.Event.Version != existing.Version {
+		t.Fatalf("version got %d want %d", result.Event.Version, existing.Version)
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+}
+
+func TestGameActorSnapshotPolicySavesCompactSnapshot(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActorWithSnapshotPolicy("game-1", testState(), store, 8, DefaultAppliers(), SnapshotPolicy{EveryEvents: 2})
+	for i := 0; i < 2; i++ {
+		result := gameActor.ApplyDirect(context.Background(), command("game-1", int64(i+1), fmt.Sprintf("a%d", i), "life.changed", map[string]any{"playerId": "p1", "delta": 1}), "p1")
+		if result.Err != nil {
+			t.Fatalf("apply failed: %v", result.Err)
+		}
+	}
+	snapshot, ok, err := store.LatestSnapshot(context.Background(), "game-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || snapshot.Version != 3 {
+		t.Fatalf("snapshot = %#v ok=%v", snapshot, ok)
+	}
+}
+
 func TestGameActorRejectsOldBaseVersion(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	first := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a1", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p1")

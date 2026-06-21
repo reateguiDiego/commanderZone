@@ -63,7 +63,26 @@ func (s *InMemoryEventStore) LatestSnapshot(_ context.Context, gameID string) (C
 	if len(snapshots) == 0 {
 		return CompactSnapshot{}, false, nil
 	}
-	return snapshots[len(snapshots)-1], true, nil
+	snapshot := snapshots[len(snapshots)-1]
+	if err := VerifySnapshot(snapshot); err != nil {
+		return CompactSnapshot{}, false, err
+	}
+	return snapshot, true, nil
+}
+
+func (s *InMemoryEventStore) EventByClientActionID(_ context.Context, gameID string, clientActionID string) (protocol.EventPayloadV2, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if clientActionID == "" {
+		return protocol.EventPayloadV2{}, false, nil
+	}
+	for _, event := range s.eventsByGame[gameID] {
+		if event.ClientActionID == clientActionID {
+			return event, true, nil
+		}
+	}
+	return protocol.EventPayloadV2{}, false, nil
 }
 
 func (s *InMemoryEventStore) EventsAfter(_ context.Context, gameID string, version int64) ([]protocol.EventPayloadV2, error) {
@@ -81,9 +100,18 @@ func (s *InMemoryEventStore) EventsAfter(_ context.Context, gameID string, versi
 }
 
 func (s *InMemoryEventStore) SaveSnapshot(_ context.Context, snapshot CompactSnapshot) error {
+	if err := VerifySnapshot(snapshot); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	for index, existing := range s.snapshotsByGame[snapshot.GameID] {
+		if existing.Version == snapshot.Version {
+			s.snapshotsByGame[snapshot.GameID][index] = snapshot
+			return nil
+		}
+	}
 	s.snapshotsByGame[snapshot.GameID] = append(s.snapshotsByGame[snapshot.GameID], snapshot)
 	return nil
 }

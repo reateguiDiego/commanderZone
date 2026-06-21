@@ -45,18 +45,54 @@ func (s *Service) RegisterActor(gameID string, actor *actor.GameActor) {
 }
 
 func (s *Service) LoadActor(ctx context.Context, gameID string, initial state.GameState) (*actor.GameActor, bool) {
+	gameActor, created, _ := s.LoadActorRecovered(ctx, gameID, initial)
+	return gameActor, created
+}
+
+func (s *Service) LoadActorRecovered(ctx context.Context, gameID string, initial state.GameState) (*actor.GameActor, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if gameActor, ok := s.actors[gameID]; ok {
-		return gameActor, false
+		return gameActor, false, nil
 	}
+	recovered, err := s.recoverState(ctx, gameID, initial)
+	if err != nil {
+		return nil, false, err
+	}
+	initial = recovered
 	actorCtx, cancel := context.WithCancel(ctx)
 	gameActor := actor.NewGameActor(gameID, initial, s.store, s.queueSize, s.appliers)
 	s.actors[gameID] = gameActor
 	s.cancels[gameID] = cancel
 	gameActor.Start(actorCtx)
-	return gameActor, true
+	return gameActor, true, nil
+}
+
+func (s *Service) recoverState(ctx context.Context, gameID string, initial state.GameState) (state.GameState, error) {
+	if s.store == nil {
+		return initial, nil
+	}
+	base := initial
+	snapshot, ok, err := s.store.LatestSnapshot(ctx, gameID)
+	if err != nil {
+		return state.GameState{}, err
+	}
+	if ok {
+		base = snapshot.State
+	}
+	events, err := s.store.EventsAfter(ctx, gameID, base.Version)
+	if err != nil {
+		return state.GameState{}, err
+	}
+	if len(events) == 0 {
+		state.RebuildLocIndexForRecoveryOnly(&base)
+		if err := state.ValidateInvariants(base); err != nil {
+			return state.GameState{}, err
+		}
+		return base, nil
+	}
+	return actor.ReplayEvents(base, events, s.appliers)
 }
 
 func (s *Service) Actor(gameID string) (*actor.GameActor, bool) {

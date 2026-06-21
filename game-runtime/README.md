@@ -139,6 +139,42 @@ Server patch messages:
 
 Reconnect uses the in-memory patch buffer. If patches after `lastAppliedVersion` are unavailable, the runtime emits `resync.required`; that path is exceptional and should trigger bootstrap.
 
+## Persistence
+
+The runtime supports two persistence modes:
+
+- `GAME_RUNTIME_PERSISTENCE=memory`: local fake store for development/tests.
+- `GAME_RUNTIME_PERSISTENCE=postgres`: append-only `game_event` plus `game_snapshot_compact`.
+
+Production should use:
+
+```text
+GAME_RUNTIME_PERSISTENCE=postgres
+DATABASE_URL=postgresql://.../commanderzone?...&sslmode=disable
+```
+
+If `sslmode` is missing, the runtime appends `sslmode=disable` for Docker-internal Postgres connections.
+
+The Postgres store uses the existing backend migration tables:
+
+- `game_event(game_id, version, type, payload, created_by_id, client_action_id, created_at, updated_at)`
+- `game_snapshot_compact(game_id, version, snapshot, checksum, created_at)`
+
+Recovery loads the latest compact snapshot, verifies its SHA-256 checksum, replays events after that version, rebuilds `loc`, validates invariants, and only then accepts commands. Compact snapshots reject static card payload keys such as `imageUris`, `oracleText`, and `cardFaces`.
+
+Snapshot policy defaults:
+
+- every `100` events
+- every `30s`
+- on actor stop/shutdown
+
+Integration tests for Postgres are opt-in:
+
+```powershell
+$env:GAME_RUNTIME_TEST_DATABASE_URL="postgres://runtime_test:runtime_test@127.0.0.1:55432/runtime_test?sslmode=disable"
+docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime -e GAME_RUNTIME_TEST_DATABASE_URL=$env:GAME_RUNTIME_TEST_DATABASE_URL commanderzone-go-toolchain:1.22 go test ./internal/persistence -run Postgres -count=1 -v
+```
+
 ## Expected Validation
 
 Run when Go is installed:

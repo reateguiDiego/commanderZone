@@ -16,3 +16,17 @@ func TestNormalizeHealthcheckAddr(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizePostgresURLDisablesSSLByDefault(t *testing.T) {
+	got := normalizePostgresURL("postgres://user:pass@database:5432/app")
+	want := "postgres://user:pass@database:5432/app?sslmode=disable"
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+
+	got = normalizePostgresURL("postgres://user:pass@database:5432/app?serverVersion=16")
+	want = "postgres://user:pass@database:5432/app?serverVersion=16&sslmode=disable"
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
