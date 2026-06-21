@@ -3,6 +3,7 @@ package actor
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"commanderzone/game-runtime/internal/persistence"
@@ -14,6 +15,7 @@ var (
 	ErrQueueFull       = errors.New("game actor queue full")
 	ErrVersionConflict = errors.New("baseVersion does not match actor version")
 	ErrUnknownCommand  = errors.New("unknown command")
+	ErrActorStopped    = errors.New("game actor stopped")
 )
 
 type Applier interface {
@@ -35,12 +37,18 @@ type CommandResult struct {
 }
 
 type GameActor struct {
-	gameID      string
-	state       *state.GameState
-	store       persistence.EventStore
-	appliers    map[string]Applier
-	mailbox     chan CommandRequest
-	seenActions map[string]CommandResult
+	gameID        string
+	state         *state.GameState
+	store         persistence.EventStore
+	appliers      map[string]Applier
+	mailbox       chan CommandRequest
+	seenActions   map[string]CommandResult
+	startedAt     time.Time
+	lastHeartbeat time.Time
+	stop          chan struct{}
+	stopped       chan struct{}
+	stopOnce      sync.Once
+	stateMu       sync.RWMutex
 }
 
 func NewGameActor(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier) *GameActor {
@@ -52,17 +60,29 @@ func NewGameActor(gameID string, initial state.GameState, store persistence.Even
 		queueSize = 1
 	}
 	return &GameActor{
-		gameID:      gameID,
-		state:       &initial,
-		store:       store,
-		appliers:    byType,
-		mailbox:     make(chan CommandRequest, queueSize),
-		seenActions: map[string]CommandResult{},
+		gameID:        gameID,
+		state:         &initial,
+		store:         store,
+		appliers:      byType,
+		mailbox:       make(chan CommandRequest, queueSize),
+		seenActions:   map[string]CommandResult{},
+		startedAt:     time.Now().UTC(),
+		lastHeartbeat: time.Now().UTC(),
+		stop:          make(chan struct{}),
+		stopped:       make(chan struct{}),
 	}
 }
 
 func (a *GameActor) Enqueue(request CommandRequest) error {
 	select {
+	case <-a.stopped:
+		return ErrActorStopped
+	default:
+	}
+
+	select {
+	case <-a.stopped:
+		return ErrActorStopped
 	case a.mailbox <- request:
 		return nil
 	default:
@@ -70,15 +90,84 @@ func (a *GameActor) Enqueue(request CommandRequest) error {
 	}
 }
 
+func (a *GameActor) Submit(ctx context.Context, command protocol.CommandEnvelopeV2, actorID string) CommandResult {
+	reply := make(chan CommandResult, 1)
+	if err := a.Enqueue(CommandRequest{Command: command, ActorID: actorID, Reply: reply}); err != nil {
+		return CommandResult{Err: err}
+	}
+
+	select {
+	case result := <-reply:
+		return result
+	case <-ctx.Done():
+		return CommandResult{Err: ctx.Err()}
+	}
+}
+
+func (a *GameActor) Start(ctx context.Context) {
+	go a.Run(ctx)
+}
+
 func (a *GameActor) Run(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	defer close(a.stopped)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-a.stop:
+			return
+		case <-ticker.C:
+			a.TouchHeartbeat()
 		case request := <-a.mailbox:
-			request.Reply <- a.apply(ctx, request)
+			result := a.apply(ctx, request)
+			if request.Reply != nil {
+				request.Reply <- result
+			}
 		}
 	}
+}
+
+func (a *GameActor) Stop(ctx context.Context) error {
+	a.stopOnce.Do(func() {
+		close(a.stop)
+	})
+	select {
+	case <-a.stopped:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (a *GameActor) Heartbeat() time.Time {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.lastHeartbeat
+}
+
+func (a *GameActor) TouchHeartbeat() {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	a.lastHeartbeat = time.Now().UTC()
+}
+
+func (a *GameActor) QueueDepth() int {
+	return len(a.mailbox)
+}
+
+func (a *GameActor) Version() int64 {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.state.Version
+}
+
+func (a *GameActor) Snapshot() state.GameState {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.state.Clone()
 }
 
 func (a *GameActor) ApplyDirect(ctx context.Context, command protocol.CommandEnvelopeV2, actorID string) CommandResult {
@@ -86,6 +175,9 @@ func (a *GameActor) ApplyDirect(ctx context.Context, command protocol.CommandEnv
 }
 
 func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandResult {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+
 	command := request.Command
 	if err := command.Validate(); err != nil {
 		return CommandResult{Err: err}
@@ -103,6 +195,7 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 
 	nextVersion := a.state.Version + 1
 	emitter := NewPatchEmitter()
+	previous := a.state.Clone()
 	eventPayload, err := applier.Apply(ctx, a.state, command, emitter)
 	if err != nil {
 		return CommandResult{Err: err}
@@ -123,7 +216,7 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	if a.store != nil {
 		if err := a.store.AppendEvent(ctx, event); err != nil {
-			a.state.Version--
+			*a.state = previous
 			return CommandResult{Err: err}
 		}
 	}
@@ -133,5 +226,6 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		Patches: emitter.Envelopes(a.gameID, nextVersion, command.ClientActionID),
 	}
 	a.seenActions[command.ClientActionID] = result
+	a.lastHeartbeat = time.Now().UTC()
 	return result
 }

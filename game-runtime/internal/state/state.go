@@ -101,6 +101,31 @@ type GameState struct {
 	Stack      []StackItem                    `json:"stack"`
 }
 
+func (s GameState) Clone() GameState {
+	clone := s
+	clone.Players = map[string]map[string]any{}
+	for playerID, player := range s.Players {
+		clone.Players[playerID] = cloneAnyMap(player)
+	}
+	clone.Turn = cloneAnyMap(s.Turn)
+	clone.Instances = map[string]CardInstanceRuntime{}
+	for instanceID, instance := range s.Instances {
+		clone.Instances[instanceID] = instance.Clone()
+	}
+	clone.Zones = map[string]PlayerZones{}
+	for playerID, zones := range s.Zones {
+		clone.Zones[playerID] = zones.Clone()
+	}
+	clone.Loc = map[string]Location{}
+	for instanceID, location := range s.Loc {
+		clone.Loc[instanceID] = location
+	}
+	clone.Visibility = s.Visibility.Clone()
+	clone.Relations = s.Relations.Clone()
+	clone.Stack = append([]StackItem(nil), s.Stack...)
+	return clone
+}
+
 func (s *GameState) GetLocation(instanceID string) (Location, bool) {
 	if s == nil || s.Loc == nil {
 		return Location{}, false
@@ -118,4 +143,99 @@ func (s *GameState) AssertLocation(instanceID string, expectedZone *Zone) (Locat
 		return Location{}, false
 	}
 	return location, true
+}
+
+func (c CardInstanceRuntime) Clone() CardInstanceRuntime {
+	c.TokenMeta = cloneAnyMap(c.TokenMeta)
+	c.Counters = cloneIntMap(c.Counters)
+	c.MutableStats = cloneAnyMap(c.MutableStats)
+	c.Position = cloneAnyMap(c.Position)
+	return c
+}
+
+func (z PlayerZones) Clone() PlayerZones {
+	return PlayerZones{
+		Library:     append([]string(nil), z.Library...),
+		Hand:        append([]string(nil), z.Hand...),
+		Battlefield: append([]string(nil), z.Battlefield...),
+		Graveyard:   append([]string(nil), z.Graveyard...),
+		Exile:       append([]string(nil), z.Exile...),
+		Command:     append([]string(nil), z.Command...),
+	}
+}
+
+func (v VisibilityIndex) Clone() VisibilityIndex {
+	clone := VisibilityIndex{
+		InstanceMasks:       map[string]uint64{},
+		LibraryEpochByOwner: map[string]int64{},
+		TopRevealWindows:    map[string]TopRevealWindow{},
+	}
+	for key, value := range v.InstanceMasks {
+		clone.InstanceMasks[key] = value
+	}
+	for key, value := range v.LibraryEpochByOwner {
+		clone.LibraryEpochByOwner[key] = value
+	}
+	for key, value := range v.TopRevealWindows {
+		value.To = append([]string(nil), value.To...)
+		clone.TopRevealWindows[key] = value
+	}
+	return clone
+}
+
+func (r Relations) Clone() Relations {
+	return Relations{
+		Attachments: cloneRelationMap(r.Attachments),
+		Arrows:      cloneRelationMap(r.Arrows),
+		Helpers:     cloneRelationMap(r.Helpers),
+		Indexes: RelationIndexes{
+			BySource: cloneStringSliceMap(r.Indexes.BySource),
+			ByTarget: cloneStringSliceMap(r.Indexes.ByTarget),
+		},
+	}
+}
+
+func cloneAnyMap(values map[string]any) map[string]any {
+	if values == nil {
+		return nil
+	}
+	clone := make(map[string]any, len(values))
+	for key, value := range values {
+		clone[key] = value
+	}
+	return clone
+}
+
+func cloneIntMap(values map[string]int) map[string]int {
+	if values == nil {
+		return nil
+	}
+	clone := make(map[string]int, len(values))
+	for key, value := range values {
+		clone[key] = value
+	}
+	return clone
+}
+
+func cloneRelationMap(values map[string]Relation) map[string]Relation {
+	if values == nil {
+		return nil
+	}
+	clone := make(map[string]Relation, len(values))
+	for key, value := range values {
+		value.Meta = cloneAnyMap(value.Meta)
+		clone[key] = value
+	}
+	return clone
+}
+
+func cloneStringSliceMap(values map[string][]string) map[string][]string {
+	if values == nil {
+		return nil
+	}
+	clone := make(map[string][]string, len(values))
+	for key, value := range values {
+		clone[key] = append([]string(nil), value...)
+	}
+	return clone
 }

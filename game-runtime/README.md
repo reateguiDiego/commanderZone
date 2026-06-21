@@ -18,6 +18,23 @@ The service is intentionally not wired into Docker, Symfony, or CI yet. It exist
 
 No production WebSocket server is implemented in this skeleton. The gateway package defines the integration seam so the actual transport can be added without coupling command application to HTTP or a specific WebSocket library.
 
+The first actor implementation supports:
+
+- actor create/load by `gameId`
+- per-game bounded queue
+- single-writer loop
+- graceful shutdown
+- heartbeat
+- compact `GameState` with `loc`
+- `life.changed`
+- `turn.changed`
+- `dice.rolled`
+- `card.tapped`
+- `card.counter.changed`
+- final `card.position.changed`
+- public semantic patch emission
+- in-memory fake `EventStore` for version/idempotency tests
+
 ## Expected Validation
 
 Run when Go is installed:
@@ -25,4 +42,5 @@ Run when Go is installed:
 ```powershell
 cd game-runtime
 go test ./...
+go test -race ./...
 ```

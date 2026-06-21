@@ -5,16 +5,37 @@ import (
 	"sync"
 
 	"commanderzone/game-runtime/internal/actor"
+	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/state"
 )
 
 type Service struct {
-	mu     sync.RWMutex
-	actors map[string]*actor.GameActor
+	mu        sync.RWMutex
+	actors    map[string]*actor.GameActor
+	cancels   map[string]context.CancelFunc
+	store     persistence.EventStore
+	queueSize int
+	appliers  []actor.Applier
 }
 
 func NewService() *Service {
-	return &Service{actors: map[string]*actor.GameActor{}}
+	return NewServiceWithStore(persistence.NewInMemoryEventStore(), 128, actor.DefaultAppliers())
+}
+
+func NewServiceWithStore(store persistence.EventStore, queueSize int, appliers []actor.Applier) *Service {
+	if queueSize < 1 {
+		queueSize = 1
+	}
+	if len(appliers) == 0 {
+		appliers = actor.DefaultAppliers()
+	}
+	return &Service{
+		actors:    map[string]*actor.GameActor{},
+		cancels:   map[string]context.CancelFunc{},
+		store:     store,
+		queueSize: queueSize,
+		appliers:  appliers,
+	}
 }
 
 func (s *Service) RegisterActor(gameID string, actor *actor.GameActor) {
@@ -23,11 +44,42 @@ func (s *Service) RegisterActor(gameID string, actor *actor.GameActor) {
 	s.actors[gameID] = actor
 }
 
+func (s *Service) LoadActor(ctx context.Context, gameID string, initial state.GameState) (*actor.GameActor, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if gameActor, ok := s.actors[gameID]; ok {
+		return gameActor, false
+	}
+	actorCtx, cancel := context.WithCancel(ctx)
+	gameActor := actor.NewGameActor(gameID, initial, s.store, s.queueSize, s.appliers)
+	s.actors[gameID] = gameActor
+	s.cancels[gameID] = cancel
+	gameActor.Start(actorCtx)
+	return gameActor, true
+}
+
 func (s *Service) Actor(gameID string) (*actor.GameActor, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	gameActor, ok := s.actors[gameID]
 	return gameActor, ok
+}
+
+func (s *Service) StopActor(ctx context.Context, gameID string) error {
+	s.mu.Lock()
+	gameActor, ok := s.actors[gameID]
+	cancel := s.cancels[gameID]
+	delete(s.actors, gameID)
+	delete(s.cancels, gameID)
+	s.mu.Unlock()
+	if !ok {
+		return nil
+	}
+	if cancel != nil {
+		cancel()
+	}
+	return gameActor.Stop(ctx)
 }
 
 func EmptyInitialState(gameID string) state.GameState {
@@ -48,6 +100,18 @@ func EmptyInitialState(gameID string) state.GameState {
 	}
 }
 
-func (s *Service) Shutdown(_ context.Context) error {
+func (s *Service) Shutdown(ctx context.Context) error {
+	s.mu.RLock()
+	gameIDs := make([]string, 0, len(s.actors))
+	for gameID := range s.actors {
+		gameIDs = append(gameIDs, gameID)
+	}
+	s.mu.RUnlock()
+
+	for _, gameID := range gameIDs {
+		if err := s.StopActor(ctx, gameID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
