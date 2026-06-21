@@ -2,6 +2,11 @@
   display: block;
 }
 
+.search-bar input::placeholder {
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
+}
+
 .card-results {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));

@@ -298,7 +298,7 @@ describe('SeoLandingPageComponent', () => {
     const logo = element.querySelector('.seo-landing-layout__brand img') as HTMLImageElement;
     const authLinks = Array.from(element.querySelectorAll('.seo-landing-layout__auth a') as NodeListOf<HTMLAnchorElement>);
 
-    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
+    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.webp');
     expect(logo.getAttribute('width')).toBe('256');
     expect(logo.getAttribute('height')).toBe('124');
     expect(logo.getAttribute('decoding')).toBe('async');

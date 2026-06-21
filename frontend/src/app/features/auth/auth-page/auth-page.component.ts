@@ -10,18 +10,19 @@ import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { AUTH_PASSWORD_REGEX } from '../auth-password-policy';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 type AuthMode = 'login' | 'register';
 type EmailAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 type UserNameAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const USER_NAME_MIN_LENGTH = 4;
-const USER_NAME_MAX_LENGTH = 25;
+const USER_NAME_MIN_LENGTH = 2;
+const USER_NAME_MAX_LENGTH = 20;
 
 @Component({
   selector: 'app-auth-page',
-  imports: [RuntimeTranslatePipe, ReactiveFormsModule, LucideAngularModule, RouterLink],
+  imports: [RuntimeTranslatePipe, ReactiveFormsModule, LucideAngularModule, RouterLink, CzButtonDirective],
   templateUrl: './auth-page.component.html',
   styleUrl: './auth-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

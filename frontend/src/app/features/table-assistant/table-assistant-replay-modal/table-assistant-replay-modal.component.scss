@@ -125,7 +125,7 @@ button {
 }
 
 .seat-layout span,
-.seat-turn-row label {
+.seat-turn-row .seat-field {
   color: var(--muted);
   font-size: 0.68rem;
 }
@@ -136,23 +136,21 @@ button {
   min-width: 0;
 }
 
-.seat-field select {
-  width: 100%;
-  min-width: 0;
+:host ::ng-deep .seat-field .format-select-trigger {
   min-height: 1.8rem;
   height: 1.8rem;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 20%);
   border-radius: 8px;
   padding: 0 0.34rem;
-  background: rgb(var(--cz-bg-rgb) / 88%);
-  color: var(--text);
-  font: inherit;
   font-weight: 850;
   transition: none;
 }
 
-.seat-field select:invalid {
-  color: var(--muted);
+:host ::ng-deep .seat-field .format-select-label {
+  display: none;
+}
+
+:host ::ng-deep .seat-field .format-select-menu {
+  min-width: 10rem;
 }
 
 .seat-turn-row .seat-field {
@@ -248,7 +246,7 @@ button {
     font-size: 0.58rem;
   }
 
-  .seat-field select {
+  :host ::ng-deep .seat-field .format-select-trigger {
     min-height: 1.42rem;
     height: 1.42rem;
     padding: 0 0.22rem;

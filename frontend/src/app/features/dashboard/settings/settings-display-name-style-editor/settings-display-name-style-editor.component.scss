@@ -74,25 +74,20 @@
 }
 
 .style-tier-tabs {
-  display: flex;
-  gap: 0.45rem;
-}
-
-.style-tier-tabs button {
-  min-width: 6.6rem;
-  min-height: 2.05rem;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
-  border-radius: 999px;
-  color: var(--muted);
-  background: rgb(var(--cz-bg-rgb) / 86%);
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.style-tier-tabs button.active {
-  border-color: rgb(var(--cz-primary-rgb) / 72%);
-  color: var(--text);
-  background: rgb(var(--cz-surface-rgb) / 94%);
+  --cz-tabs-gap: 0.45rem;
+  --cz-tabs-border-bottom: 0;
+  --cz-tabs-padding: 0;
+  --cz-tab-track-size: max-content;
+  --cz-tab-min-width: 6.6rem;
+  --cz-tab-min-height: 2.05rem;
+  --cz-tab-border-color: rgb(var(--cz-primary-rgb) / 32%);
+  --cz-tab-border-radius: 999px;
+  --cz-tab-bg: rgb(var(--cz-bg-rgb) / 86%);
+  --cz-tab-color: var(--muted);
+  --cz-tab-font-weight: 800;
+  --cz-tab-active-border-color: rgb(var(--cz-primary-rgb) / 72%);
+  --cz-tab-active-bg: rgb(var(--cz-surface-rgb) / 94%);
+  --cz-tab-active-color: var(--text);
 }
 
 .style-grid {
@@ -200,21 +195,6 @@
 
 .primary-button {
   min-width: 9rem;
-  min-height: 2.25rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 72%);
-  border-radius: 10px;
-  color: var(--cz-bg);
-  background: linear-gradient(180deg, var(--cz-text), var(--cz-secondary));
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.primary-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.58;
 }
 
 @media (max-width: 720px) {

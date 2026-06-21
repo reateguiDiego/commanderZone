@@ -3,7 +3,7 @@ import { SEO_LOCALES } from '../../../../core/localization/locale-config';
 import { SeoLanguageSelectorComponent } from './seo-language-selector.component';
 
 describe('SeoLanguageSelectorComponent', () => {
-  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+  const nonSeoLocaleCodes = ['ja', 'zh-hans', 'nl', 'ca', 'ru'] as const;
   let fixture: ComponentFixture<SeoLanguageSelectorComponent>;
 
   beforeEach(async () => {
@@ -15,7 +15,7 @@ describe('SeoLanguageSelectorComponent', () => {
     fixture.componentRef.setInput('currentLocale', 'en');
     fixture.componentRef.setInput('links', [
       { locale: 'en', label: 'English', href: '/en/play-commander-online/', ariaLabel: 'English' },
-      { locale: 'es', label: 'Español', href: '/es/jugar-commander-online/', ariaLabel: 'Spanish' },
+      { locale: 'es', label: 'Espanol', href: '/es/jugar-commander-online/', ariaLabel: 'Spanish' },
       { locale: 'de', label: 'Deutsch', href: '/de/commander-online-spielen/', ariaLabel: 'German' },
     ]);
     fixture.detectChanges();
@@ -26,7 +26,7 @@ describe('SeoLanguageSelectorComponent', () => {
 
     expect(links.map((link) => link.querySelector('.seo-language-selector__option span:last-child')?.textContent?.trim())).toEqual([
       'English',
-      'Español',
+      'Espanol',
       'Deutsch',
     ]);
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
@@ -121,7 +121,7 @@ describe('SeoLanguageSelectorComponent', () => {
   it('keeps the root English home URL crawlable in the language menu', () => {
     fixture.componentRef.setInput('links', [
       { locale: 'en', label: 'English', href: '/', ariaLabel: 'English' },
-      { locale: 'es', label: 'Español', href: '/es/', ariaLabel: 'Spanish' },
+      { locale: 'es', label: 'Espanol', href: '/es/', ariaLabel: 'Spanish' },
       { locale: 'it', label: 'Italiano', href: '/it/', ariaLabel: 'Italian' },
     ]);
     fixture.detectChanges();

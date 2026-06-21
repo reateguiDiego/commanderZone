@@ -22,6 +22,7 @@ describe('CardSearchComponent', () => {
     const fixture = TestBed.createComponent(CardSearchComponent);
     fixture.detectChanges();
 
+    expect(fixture.nativeElement.textContent).toContain('¡Hello world! WIP: cards-page');
     expect(fixture.nativeElement.textContent).toContain('Search');
   });
 });

@@ -23,7 +23,7 @@
         <p class="notice success">{{ 'auth.emailVerificationPage.emailVerificadoIniciandoSesion' | runtimeTranslate }}</p>
       }
 
-      <button class="primary-button" type="button" [disabled]="!canConfirm()" (click)="confirmToken()">
+      <button czButton="primary" class="primary-button" type="button" [disabled]="!canConfirm()" (click)="confirmToken()">
         {{ verifyLoading() ? 'Verificando...' : 'Confirmar email' }}
       </button>
 
@@ -42,7 +42,7 @@
         <p class="notice success">{{ 'auth.emailVerificationPage.siElEmailExisteYNoEsta' | runtimeTranslate }}</p>
       }
 
-      <button class="secondary-button" type="button" [disabled]="!canResend()" (click)="resendVerificationEmail()">
+      <button czButton="secondary" class="secondary-button" type="button" [disabled]="!canResend()" (click)="resendVerificationEmail()">
         {{ resendLoading() ? 'Enviando...' : 'Reenviar correo de verificacion' }}
       </button>
     </form>

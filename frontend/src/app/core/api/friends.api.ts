@@ -23,10 +23,6 @@ export class FriendsApi {
     });
   }
 
-  request(email: string): Observable<FriendshipResponse> {
-    return this.http.post<FriendshipResponse>(`${API_BASE_URL}/friends/requests`, { email });
-  }
-
   requestUser(userId: string): Observable<FriendshipResponse> {
     return this.http.post<FriendshipResponse>(`${API_BASE_URL}/friends/requests`, { userId });
   }

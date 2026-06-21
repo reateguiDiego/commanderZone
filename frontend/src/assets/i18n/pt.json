@@ -47,8 +47,9 @@
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "tuComandanteHaLlegado": "Tu comandante ha llegado",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí."
+        "tuComandanteHaLlegado": "Seus comandantes t?m sede de sangue",
+        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
+        "bienvenido": "Bem-vindo"
       },
       "dashboardHeaderContext": {
         "pageSummary": "Page summary"
@@ -64,6 +65,13 @@
         "decks": "Decks",
         "rooms": "Rooms",
         "asistenteDeMesa": "Asistente de Mesa"
+      },
+      "dashboardTopCommanders": {
+        "title": "Top commanders",
+        "subtitle": "Os comandantes mais jogados do formato",
+        "viewAll": "View more",
+        "viewMore": "View more",
+        "communityPopularity": "Baseado em partidas jogadas pela comunidade"
       }
     },
     "friends": {
@@ -99,7 +107,7 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 4 y 25 caracteres.",
+      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
@@ -137,11 +145,12 @@
       "roomName": "Room name",
       "owner": "Owner",
       "visibility": "Visibility",
-      "publicAndPrivate": "Public and private",
-      "publicOnly": "Public only",
-      "privateOnly": "Private only",
+      "publicAndPrivate": "All",
+      "publicOnly": "Public",
+      "privateOnly": "Private",
       "status": "Status",
       "allStatus": "All status",
+      "anonymous": "Anonymous",
       "open": "Open",
       "full": "Full",
       "started": "Started",
@@ -248,9 +257,11 @@
     },
     "header": {
       "title": "Rooms",
-      "activeRooms": "Active rooms",
+      "totalRooms": "Total rooms",
       "openRooms": "Open rooms",
       "privateRooms": "Private rooms",
+      "publicRooms": "Public rooms",
+      "totalPlayers": "Total players",
       "startedGames": "Started games"
     },
     "waiting": {
@@ -741,7 +752,6 @@
       "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
       "decks": "Decks",
       "noDecksInThisFolderYet": "No decks in this folder yet.",
-      "dragOutsideThisFolderPanelToRemove": "Drag outside this folder panel to remove the deck from the folder.",
       "missingCards": "Missing cards",
       "deckName": "Deck name",
       "folder": "Folder",
@@ -751,12 +761,26 @@
       "importDecklist": "Import decklist",
       "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
       "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
-      "afterCreatingAFolderDragDecksOnto": "After creating a folder, drag decks onto it to organize them. You can also drag decks out of a folder to remove them without deleting anything.",
       "folderName": "Folder name",
       "header": {
         "title": "Decks",
         "createDeck": "Create deck",
         "createFolder": "Create folder"
+      },
+      "colorFilter": {
+        "label": "Cor",
+        "any": "Qualquer",
+        "white": "Branco",
+        "blue": "Azul",
+        "black": "Preto",
+        "red": "Vermelho",
+        "green": "Verde",
+        "colorless": "Incolor"
+      },
+      "sortMode": {
+        "label": "Ordenar",
+        "nameAsc": "Nome (A-Z)",
+        "nameDesc": "Nome (Z-A)"
       }
     }
   },
@@ -873,7 +897,7 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 4 y 25 caracteres.",
+      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",

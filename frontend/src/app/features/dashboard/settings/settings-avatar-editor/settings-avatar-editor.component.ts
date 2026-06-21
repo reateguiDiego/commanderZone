@@ -5,6 +5,8 @@ import { appImageUrl } from '../../../../core/assets/app-image-url';
 import { UserAvatar } from '../../../../core/models/user.model';
 import { SettingsInitialAvatarOptionComponent } from './components/settings-initial-avatar-option/settings-initial-avatar-option.component';
 import { PRESET_AVATARS, type PresetAvatar } from './preset-avatars';
+import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
+import { TabListComponent, type TabListItem } from '../../../../shared/ui/tab-list/tab-list.component';
 
 type PendingAvatarType = 'current' | 'initial' | 'preset';
 type AvatarTierTab = 'basic' | 'premium';
@@ -15,7 +17,7 @@ const INITIAL_LETTER_MAX_LENGTH = 2;
 
 @Component({
   selector: 'app-settings-avatar-editor',
-  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent],
+  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent, CzButtonDirective, TabListComponent],
   templateUrl: './settings-avatar-editor.component.html',
   styleUrl: './settings-avatar-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,6 +35,16 @@ export class SettingsAvatarEditorComponent {
   readonly basicPresetAvatars = PRESET_AVATARS.filter((avatar) => avatar.tier === 'basic');
   readonly premiumPresetAvatars = PRESET_AVATARS.filter((avatar) => avatar.tier === 'premium');
   readonly activeTier = signal<AvatarTierTab>('basic');
+  readonly tierTabItems: readonly TabListItem[] = [
+    {
+      id: 'basic',
+      label: 'settings.settingsAvatarEditor.basic',
+    },
+    {
+      id: 'premium',
+      label: 'settings.settingsAvatarEditor.premium',
+    },
+  ];
   readonly pendingType = signal<PendingAvatarType>('current');
   readonly selectedPresetUrl = signal<string | null>(null);
   readonly initialLetter = signal('');
@@ -141,6 +153,12 @@ export class SettingsAvatarEditorComponent {
   switchTier(tier: AvatarTierTab): void {
     this.activeTier.set(tier);
     this.tierChanged.emit(tier);
+  }
+
+  switchTierFromList(tier: string): void {
+    if (tier === 'basic' || tier === 'premium') {
+      this.switchTier(tier);
+    }
   }
 
   updateInitialLetter(value: string): void {

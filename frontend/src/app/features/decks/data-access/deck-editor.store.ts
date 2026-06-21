@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
-import { SUPPORTED_LANGUAGE_CODES, SupportedLanguageCode } from '../../../core/localization/language-preferences';
+import { SUPPORTED_CARD_LANGUAGE_CODES, SupportedCardLanguageCode } from '../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { MissingDeckCard } from '../../../core/models/api-responses.model';
 import { Card, CardFace } from '../../../core/models/card.model';
@@ -1450,7 +1450,7 @@ export class DeckEditorStore {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
   }
 
-  private localizedLanguageName(code: SupportedLanguageCode): string {
+  private localizedLanguageName(code: SupportedCardLanguageCode): string {
     return this.i18n.languageName(code);
   }
 
@@ -1466,13 +1466,13 @@ export class DeckEditorStore {
     return cards.filter((card) => this.printVersionLanguage(card) === 'en');
   }
 
-  private printVersionLanguage(card: Card): SupportedLanguageCode | null {
+  private printVersionLanguage(card: Card): SupportedCardLanguageCode | null {
     const language = card.lang?.trim().toLowerCase();
     return language && this.isSupportedPrintLanguage(language) ? language : null;
   }
 
-  private isSupportedPrintLanguage(language: string): language is SupportedLanguageCode {
-    return (SUPPORTED_LANGUAGE_CODES as readonly string[]).includes(language);
+  private isSupportedPrintLanguage(language: string): language is SupportedCardLanguageCode {
+    return (SUPPORTED_CARD_LANGUAGE_CODES as readonly string[]).includes(language);
   }
 
   private updatePreviewPosition(pointer: PointerPosition, card: Card, imageUrl: string | null): void {

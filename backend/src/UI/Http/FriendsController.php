@@ -23,7 +23,7 @@ class FriendsController extends ApiController
         }
 
         $users = $entityManager->getRepository(User::class)->createQueryBuilder('user')
-            ->where('LOWER(user.email) LIKE :query OR LOWER(user.displayName) LIKE :query')
+            ->where('LOWER(user.displayName) LIKE :query')
             ->andWhere('user != :viewer')
             ->setParameter('query', '%'.mb_strtolower($query).'%')
             ->setParameter('viewer', $user)
@@ -34,7 +34,6 @@ class FriendsController extends ApiController
 
         return $this->json(['data' => array_map(fn (User $match) => [
             'id' => $match->id(),
-            'email' => $match->email(),
             'displayName' => $match->displayName(),
             'displayNameStyle' => $match->displayNameStyle(),
             'friendshipStatus' => $this->friendshipStatusBetween($entityManager, $user, $match),
@@ -65,16 +64,13 @@ class FriendsController extends ApiController
     public function request(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, FriendEventPublisher $friendEventPublisher): JsonResponse
     {
         $payload = $this->payload($request);
-        $email = mb_strtolower(trim((string) ($payload['email'] ?? '')));
         $userId = trim((string) ($payload['userId'] ?? ''));
 
-        if ($email === '' && $userId === '') {
-            return $this->fail('email or userId is required.');
+        if ($userId === '') {
+            return $this->fail('userId is required.');
         }
 
-        $recipient = $userId !== ''
-            ? $entityManager->getRepository(User::class)->find($userId)
-            : $entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        $recipient = $entityManager->getRepository(User::class)->find($userId);
 
         if (!$recipient instanceof User) {
             return $this->fail('User not found.', 404);

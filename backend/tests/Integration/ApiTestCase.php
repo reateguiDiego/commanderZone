@@ -70,6 +70,14 @@ abstract class ApiTestCase extends WebTestCase
         return $decoded;
     }
 
+    protected function currentUserId(string $token): string
+    {
+        $this->jsonRequest('GET', '/me', token: $token);
+        self::assertResponseIsSuccessful();
+
+        return (string) $this->jsonResponse()['user']['id'];
+    }
+
     /**
      * @param list<string> $tokens
      */
@@ -168,6 +176,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureRoomWaitingLogEntryTable($connection);
         $this->ensureDeckValidityColumn($connection);
         $this->ensureRoomMulliganColumns($connection);
+        $this->ensureUserThemeColumn($connection);
 
         $tables = [
             'game_debug_health',
@@ -304,6 +313,25 @@ SQL,
             $connection->executeStatement('ALTER TABLE room ADD COLUMN first_mulligan_free BOOLEAN NOT NULL DEFAULT true');
             $connection->executeStatement('ALTER TABLE room ALTER COLUMN first_mulligan_free DROP DEFAULT');
         }
+    }
+
+    private function ensureUserThemeColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('app_user'),
+        );
+        if (in_array('theme_id', $columns, true)) {
+            return;
+        }
+
+        $connection->executeStatement("ALTER TABLE app_user ADD COLUMN theme_id VARCHAR(48) NOT NULL DEFAULT 'sunrise'");
+        $connection->executeStatement('ALTER TABLE app_user ALTER COLUMN theme_id DROP DEFAULT');
     }
 
     private function ensureCardPrintTables(Connection $connection): void

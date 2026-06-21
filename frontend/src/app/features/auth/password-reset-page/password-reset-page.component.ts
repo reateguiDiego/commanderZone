@@ -7,12 +7,13 @@ import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { AUTH_PASSWORD_REGEX, AUTH_PASSWORD_REQUIREMENT_MESSAGE } from '../auth-password-policy';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 @Component({
   selector: 'app-password-reset-page',
-  imports: [RuntimeTranslatePipe, ReactiveFormsModule, RouterLink, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, ReactiveFormsModule, RouterLink, LucideAngularModule, CzButtonDirective],
   templateUrl: './password-reset-page.component.html',
   styleUrl: './password-reset-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

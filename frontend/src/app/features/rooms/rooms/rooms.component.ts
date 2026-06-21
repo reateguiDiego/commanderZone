@@ -54,9 +54,14 @@ export class RoomsComponent implements OnInit, OnDestroy {
   readonly roomPendingDelete = signal<Room | null>(null);
   readonly createDeckRequiredModalOpen = signal(false);
   readonly createRoomModalOpen = signal(false);
-  readonly activeRoomsCount = computed(() => this.rooms().length);
+  readonly totalRoomsCount = computed(() => this.rooms().length);
+  readonly totalPlayersCount = computed(() => this.rooms()
+    .reduce((total, room) => total + this.roomPlayerCount(room), 0));
   readonly openTablesCount = computed(() => this.rooms()
     .filter((room) => this.isRoomOpen(room))
+    .length);
+  readonly publicRoomsCount = computed(() => this.rooms()
+    .filter((room) => room.visibility === 'public')
     .length);
   readonly privateRoomsCount = computed(() => this.rooms()
     .filter((room) => room.visibility === 'private')
@@ -651,12 +656,16 @@ export class RoomsComponent implements OnInit, OnDestroy {
   private updatePageHeader(): void {
     this.pageHeader.set({
       title: 'rooms.header.title',
+      description: 'rooms.header.description',
+      context: 'rooms',
+      heroRule: true,
       stats: [
         {
-          id: 'active-rooms',
-          label: 'rooms.header.activeRooms',
-          value: this.activeRoomsCount(),
+          id: 'total-rooms',
+          label: 'rooms.header.totalRooms',
+          value: this.totalRoomsCount(),
           icon: 'building-2',
+          tone: 'info',
         },
         {
           id: 'open-rooms',
@@ -666,18 +675,32 @@ export class RoomsComponent implements OnInit, OnDestroy {
           tone: 'success',
         },
         {
-          id: 'private-rooms',
-          label: 'rooms.header.privateRooms',
-          value: this.privateRoomsCount(),
-          icon: 'lock',
-          tone: 'private',
-        },
-        {
           id: 'started-games',
           label: 'rooms.header.startedGames',
           value: this.startedRoomsCount(),
           icon: 'swords',
-          tone: 'started',
+          tone: 'warning',
+        },
+        {
+          id: 'total-players',
+          label: 'rooms.header.totalPlayers',
+          value: this.totalPlayersCount(),
+          icon: 'users',
+          tone: 'info',
+        },
+        {
+          id: 'public-rooms',
+          label: 'rooms.header.publicRooms',
+          value: this.publicRoomsCount(),
+          icon: 'globe',
+          tone: 'success',
+        },
+        {
+          id: 'private-rooms',
+          label: 'rooms.header.privateRooms',
+          value: this.privateRoomsCount(),
+          icon: 'lock',
+          tone: 'warning',
         },
       ],
     });

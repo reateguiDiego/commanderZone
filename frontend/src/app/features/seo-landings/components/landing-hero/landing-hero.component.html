@@ -8,12 +8,12 @@
     <p class="landing-hero__subtitle">{{ content().subtitle }}</p>
 
     <nav class="landing-hero__actions" aria-label="Primary landing actions">
-      <a appSeoInternalLink class="primary-button" [href]="content().primaryLink.href" [attr.aria-label]="content().primaryLink.ariaLabel">
+      <a czButton="primary" appSeoInternalLink class="primary-button" [href]="content().primaryLink.href" [attr.aria-label]="content().primaryLink.ariaLabel">
         {{ content().primaryLink.label }}
       </a>
 
       @if (content().secondaryLink; as secondaryLink) {
-        <a appSeoInternalLink class="secondary-button" [href]="secondaryLink.href" [attr.aria-label]="secondaryLink.ariaLabel">
+        <a czButton="secondary" appSeoInternalLink class="secondary-button" [href]="secondaryLink.href" [attr.aria-label]="secondaryLink.ariaLabel">
           {{ secondaryLink.label }}
         </a>
       }

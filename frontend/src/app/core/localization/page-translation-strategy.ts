@@ -25,6 +25,7 @@ export const PAGE_TRANSLATION_STRATEGIES = {
   dashboard: 'runtime-i18n',
   cards: 'runtime-i18n',
   cardDetail: 'runtime-i18n',
+  community: 'runtime-i18n',
   rooms: 'runtime-i18n',
   waitingRoom: 'runtime-i18n',
   game: 'runtime-i18n',

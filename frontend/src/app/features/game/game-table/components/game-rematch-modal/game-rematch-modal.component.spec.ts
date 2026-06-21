@@ -26,7 +26,7 @@ describe('GameRematchModalComponent', () => {
     const logo = fixture.nativeElement.querySelector('.modal-header-image') as HTMLImageElement;
     const rows = fixture.nativeElement.querySelectorAll('.vote-row');
 
-    expect(logo.getAttribute('src')).toBe('assets/icons/CZ/CZ_logo.png');
+    expect(logo.getAttribute('src')).toBe('assets/icons/CZ/CZ_logo.webp');
     expect(rows.length).toBe(2);
     expect(fixture.nativeElement.textContent).toContain('Jugar otra partida');
     expect(fixture.nativeElement.textContent).toContain('Sin votar');

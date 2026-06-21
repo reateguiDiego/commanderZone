@@ -31,9 +31,25 @@
 
 .card-autocomplete-input input {
   border: 0;
+  outline: 0;
   background: transparent;
   box-shadow: none;
   padding-inline: 0;
+}
+
+.card-autocomplete-input input:focus,
+.card-autocomplete-input input:focus-visible,
+.card-autocomplete-input input.ng-pristine,
+.card-autocomplete-input input.ng-valid,
+.card-autocomplete-input input.ng-touched {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
+
+.card-autocomplete-input input::placeholder {
+  color: var(--cz-input-placeholder-color);
+  opacity: 1;
 }
 
 .card-autocomplete.is-disabled .card-autocomplete-input input {

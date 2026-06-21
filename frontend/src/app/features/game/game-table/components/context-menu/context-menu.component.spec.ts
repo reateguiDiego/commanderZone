@@ -1522,7 +1522,7 @@ describe('ContextMenuComponent', () => {
     expect(commanderText).toContain('Untap');
     expect(commanderText).toContain('Turn face up');
     const commanderMoveIcon = Array.from((tappedCommander.nativeElement as HTMLElement).querySelectorAll('img'))
-      .find((image) => image.getAttribute('src')?.includes('/assets/icons/CZ/CZ_logo_zone_header.png'));
+      .find((image) => image.getAttribute('src')?.includes('/assets/icons/CZ/CZ_logo_zone_header.webp'));
     expect(commanderMoveIcon).not.toBeUndefined();
 
     const regularCard = createContextMenuFixture({

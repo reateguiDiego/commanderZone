@@ -39,6 +39,62 @@ class CardApiTest extends ApiTestCase
         self::assertSame($card->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
     }
 
+    public function testCardLanguagesReportDistinctNameCoverageAgainstEnglish(): void
+    {
+        $this->seedCard('00000000-0000-0000-0000-0000000000d1', 'Sol Ring', [
+            'set' => 'one',
+            'collector_number' => '1',
+            'lang' => 'en',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d2', 'Sol Ring', [
+            'set' => 'two',
+            'collector_number' => '2',
+            'lang' => 'en',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d3', 'Arcane Signet', [
+            'set' => 'three',
+            'collector_number' => '3',
+            'lang' => 'en',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d4', 'Sol Ring', [
+            'set' => 'four',
+            'collector_number' => '4',
+            'lang' => 'es',
+            'printed_name' => 'Anillo solar',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d5', 'Sol Ring', [
+            'set' => 'five',
+            'collector_number' => '5',
+            'lang' => 'ph',
+            'printed_name' => 'Sol Ring PH',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/languages');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('en', $this->jsonResponse()['selectedCardLanguage']);
+        $languages = [];
+        foreach ($this->jsonResponse()['data'] as $language) {
+            $languages[(string) $language['code']] = $language;
+        }
+
+        self::assertArrayHasKey('en', $languages);
+        self::assertArrayHasKey('es', $languages);
+        self::assertArrayNotHasKey('ph', $languages);
+        self::assertSame(2, $languages['en']['distinctCardNames']);
+        self::assertSame(1, $languages['es']['distinctCardNames']);
+        self::assertEquals(100.0, $languages['en']['percentageOfEnglish']);
+        self::assertEquals(50.0, $languages['es']['percentageOfEnglish']);
+
+        $token = $this->registerAndLogin('cards-language@example.test', 'Cards Language');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('GET', '/cards/languages', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('es', $this->jsonResponse()['selectedCardLanguage']);
+    }
+
     public function testShowsDoubleFacedCardFaces(): void
     {
         $card = $this->seedCard('00000000-0000-0000-0000-000000000003', 'Invasion of Zendikar // Awakened Skyclave', [

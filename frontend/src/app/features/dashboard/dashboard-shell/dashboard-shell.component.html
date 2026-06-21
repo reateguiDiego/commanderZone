@@ -1,32 +1,6 @@
 <div class="app-frame" [class.room-focus]="roomFocus()">
-  <aside class="sidebar">
-    <a class="brand" routerLink="/dashboard" [attr.aria-label]="'navigation.dashboard.dashboardShell.commanderzoneDashboard' | runtimeTranslate">
-      <span class="brand-mark">
-        <img [src]="themeAssets.czLogoUrl()" alt="" aria-hidden="true" />
-      </span>
-    </a>
-
-    @if (!roomFocus()) {
-      <nav class="nav-list" [attr.aria-label]="'navigation.dashboard.dashboardShell.primary' | runtimeTranslate">
-        <a routerLink="/decks" routerLinkActive="active">
-          <lucide-icon name="layers-3" size="18" />
-          <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.decks' | runtimeTranslate }}</span>
-        </a>
-        <a routerLink="/rooms" routerLinkActive="active">
-          <lucide-icon name="door-open" size="18" />
-          <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.rooms' | runtimeTranslate }}</span>
-        </a>
-        <a routerLink="/table-assistant" routerLinkActive="active">
-          <lucide-icon name="tablet-smartphone" size="18" />
-          <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.asistenteDeMesa' | runtimeTranslate }}</span>
-        </a>
-      </nav>
-    }
-  </aside>
-
   @if (!roomFocus()) {
     <app-dashboard-header
-      [header]="pageHeader.state()"
       [userLabel]="userLabel()"
       [userAvatar]="auth.user()?.avatar"
       [userNameStyle]="auth.user()?.displayNameStyle"
@@ -34,8 +8,11 @@
       [pendingNotificationsCount]="friends.pendingNotificationsCount()"
       [onlineFriendsCount]="friends.onlineFriendsCount()"
       (toggleFriends)="toggleFriends($event)"
+      (closeFriends)="closeFriends()"
       (logout)="logout()"
     />
+
+    <app-dashboard-page-context [header]="pageHeader.state()" />
   }
 
   <main class="workspace">

@@ -1,0 +1,102 @@
+:host {
+  container-type: inline-size;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.08rem;
+  width: 100%;
+  min-width: 16.2rem;
+  min-height: 3.35rem;
+  overflow: hidden;
+  padding: 0.32rem 0.42rem 0.32rem 0.28rem;
+  color: inherit;
+}
+
+.player-info.size-xs {
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.12rem 0;
+}
+
+.player-info-avatar {
+  filter: var(--player-info-avatar-filter, drop-shadow(0 0 0.55rem rgb(var(--cz-primary-rgb) / 18%)));
+}
+
+.player-info-action {
+  display: inline-grid;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 0;
+  cursor: default;
+}
+
+.player-info-action.is-clickable {
+  cursor: pointer;
+}
+
+.player-info-avatar-action {
+  flex: 0 0 auto;
+}
+
+.player-info-name-action {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+  justify-items: stretch;
+  line-height: normal;
+}
+
+.player-info-name-action app-player-name {
+  width: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 980px) {
+  :host {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .player-info {
+    width: 100%;
+    gap: 0.06rem;
+    min-width: 0;
+    min-height: 2.8rem;
+    padding: 0.24rem 0 0.24rem 0.18rem;
+  }
+
+  .player-info-name-action {
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .player-info {
+    gap: 0.04rem;
+  }
+
+  .player-info-name-action {
+    width: 100%;
+  }
+}
+
+@container (max-width: 184.98px) {
+  .player-info {
+    padding-left: 0;
+  }
+
+  .player-info-avatar-action {
+    display: none;
+  }
+}

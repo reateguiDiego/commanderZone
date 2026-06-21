@@ -118,32 +118,10 @@
   display: none;
 }
 
-.secondary-button,
-.primary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 2.25rem;
-  border-radius: 10px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.secondary-button {
-  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
-  color: var(--text);
-  background: rgb(var(--cz-bg-rgb) / 72%);
-}
-
 .primary-button {
   min-width: 8rem;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 72%);
-  color: var(--cz-bg);
-  background: linear-gradient(180deg, var(--cz-text), var(--cz-secondary));
 }
 
-button:disabled,
 input:disabled {
   opacity: 0.58;
   cursor: not-allowed;

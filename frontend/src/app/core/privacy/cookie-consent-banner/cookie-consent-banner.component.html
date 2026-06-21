@@ -12,6 +12,9 @@
       @if (showSettings()) {
         <div class="cookie-banner__settings">
           <button
+            czButton="secondary"
+            czButtonSize="sm"
+            [czButtonActive]="analyticsEnabled()"
             type="button"
             class="secondary-button compact cookie-banner__toggle"
             [class.cookie-banner__toggle--enabled]="analyticsEnabled()"
@@ -27,19 +30,19 @@
 
     <div class="cookie-banner__actions">
       @if (showSettings()) {
-        <button type="button" class="primary-button compact" [attr.aria-label]="copy().cookieBanner.save" (click)="saveSettings()">
+        <button czButton="primary" czButtonSize="sm" type="button" class="primary-button compact" [attr.aria-label]="copy().cookieBanner.save" (click)="saveSettings()">
           {{ copy().cookieBanner.save }}
         </button>
       } @else {
-        <button type="button" class="secondary-button compact" [attr.aria-label]="copy().cookieBanner.configure" (click)="openSettings()">
+        <button czButton="secondary" czButtonSize="sm" type="button" class="secondary-button compact" [attr.aria-label]="copy().cookieBanner.configure" (click)="openSettings()">
           {{ copy().cookieBanner.configure }}
         </button>
       }
 
-      <button type="button" class="secondary-button compact" [attr.aria-label]="copy().cookieBanner.reject" (click)="rejectAll()">
+      <button czButton="secondary" czButtonSize="sm" type="button" class="secondary-button compact" [attr.aria-label]="copy().cookieBanner.reject" (click)="rejectAll()">
         {{ copy().cookieBanner.reject }}
       </button>
-      <button type="button" class="primary-button compact" [attr.aria-label]="copy().cookieBanner.accept" (click)="acceptAll()">
+      <button czButton="primary" czButtonSize="sm" type="button" class="primary-button compact" [attr.aria-label]="copy().cookieBanner.accept" (click)="acceptAll()">
         {{ copy().cookieBanner.accept }}
       </button>
     </div>

@@ -3,10 +3,7 @@
 }
 
 .rooms-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
-  gap: 1rem;
-  align-items: start;
+  margin-top: var(--cz-page-hero-content-gap);
 }
 
 .rooms-main {
@@ -15,15 +12,3 @@
   min-width: 0;
 }
 
-@media (max-width: 1220px) {
-  .rooms-shell {
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
-    gap: .85rem;
-  }
-}
-
-@media (max-width: 900px) {
-  .rooms-shell {
-    grid-template-columns: 1fr;
-  }
-}

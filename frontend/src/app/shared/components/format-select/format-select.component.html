@@ -1,5 +1,14 @@
-<label class="format-select-field" [class.is-open]="dropdownOpen()" [class.is-disabled]="disabled()">
-  <span>{{ label() }}</span>
+<div
+  class="format-select-field"
+  [class.is-open]="dropdownOpen()"
+  [class.is-disabled]="disabled()"
+>
+  <span class="format-select-label" [class.sr-only]="labelHidden()">
+    {{ visibleLabel() | runtimeTranslate }}
+    @if (required() && !labelHidden()) {
+      <span class="required-mark" aria-hidden="true">*</span>
+    }
+  </span>
   <input type="hidden" [name]="name()" [value]="value()" [required]="required()" />
 
   <div class="format-select-control">
@@ -9,25 +18,46 @@
       [disabled]="disabled()"
       aria-haspopup="listbox"
       [attr.aria-expanded]="dropdownOpen()"
+      [attr.aria-label]="labelHidden() ? (visibleLabel() | runtimeTranslate) : null"
       (click)="toggleDropdown()"
       (keydown.escape)="closeDropdown()"
     >
-      <span>{{ selectedLabel() }}</span>
+      <span class="format-select-trigger-content">
+        @if (selectedOption()?.flagAsset; as flagAsset) {
+          <img class="format-select-flag" [src]="flagAsset" alt="" aria-hidden="true" draggable="false" />
+        }
+        <span class="format-select-trigger-label">{{ selectedLabel() | runtimeTranslate }}</span>
+      </span>
       <span class="format-select-caret" aria-hidden="true"></span>
     </button>
 
-    @if (dropdownOpen()) {
-      <div class="format-select-menu" role="listbox">
-        @for (option of options(); track option.id) {
+    @if (menuVisible()) {
+      <div
+        class="format-select-menu"
+        appPrettyScroll
+        role="listbox"
+        [class.is-open]="dropdownOpen()"
+        [class.is-closing]="menuClosing()"
+        [attr.aria-label]="visibleLabel() | runtimeTranslate"
+        [attr.aria-hidden]="!dropdownOpen() ? 'true' : null"
+      >
+        @for (option of optionItems(); track option.id) {
           <button
             type="button"
             class="format-select-option"
             role="option"
             [class.is-selected]="value() === option.id"
+            [class.is-disabled]="option.disabled"
+            [disabled]="option.disabled"
             [attr.aria-selected]="value() === option.id"
-            (click)="selectValue(option.id)"
+            (click)="selectValue(option)"
           >
-            <span>{{ option.name }}</span>
+            <span class="format-select-option-content">
+              @if (option.flagAsset) {
+                <img class="format-select-flag" [src]="option.flagAsset" alt="" aria-hidden="true" draggable="false" />
+              }
+              <span>{{ optionLabel(option) | runtimeTranslate }}</span>
+            </span>
             @if (value() === option.id) {
               <span class="format-select-selected-mark" aria-hidden="true"></span>
             }
@@ -36,4 +66,4 @@
       </div>
     }
   </div>
-</label>
+</div>

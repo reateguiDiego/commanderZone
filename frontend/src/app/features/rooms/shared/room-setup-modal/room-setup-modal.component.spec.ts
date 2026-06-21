@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Globe, Lock, LucideAngularModule, X } from 'lucide-angular';
+import { Globe, Lock, LucideAngularModule, Minus, Plus, X } from 'lucide-angular';
 import { RoomSetupModalComponent } from './room-setup-modal.component';
 
 describe('RoomSetupModalComponent', () => {
@@ -10,7 +10,7 @@ describe('RoomSetupModalComponent', () => {
     await TestBed.configureTestingModule({
       imports: [RoomSetupModalComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Globe, Lock, X })),
+        importProvidersFrom(LucideAngularModule.pick({ Globe, Lock, Minus, Plus, X })),
       ],
     }).compileComponents();
 

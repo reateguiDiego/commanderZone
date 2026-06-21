@@ -10,8 +10,9 @@ class FriendsApiTest extends ApiTestCase
     {
         $aliceToken = $this->registerAndLogin('alice@example.test', 'Alice');
         $bobToken = $this->registerAndLogin('bob@example.test', 'Bobby');
+        $bobId = $this->currentUserId($bobToken);
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'bob@example.test'], $aliceToken);
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $bobId], $aliceToken);
         self::assertResponseStatusCodeSame(201);
         $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
 
@@ -19,6 +20,11 @@ class FriendsApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('Bobby', $this->jsonResponse()['data'][0]['displayName']);
         self::assertSame('pending', $this->jsonResponse()['data'][0]['friendshipStatus']);
+        self::assertArrayNotHasKey('email', $this->jsonResponse()['data'][0]);
+
+        $this->jsonRequest('GET', '/friends/search?q=bob@example.test', token: $aliceToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->jsonResponse()['data']);
 
         $this->jsonRequest('GET', '/friends/requests/incoming', token: $bobToken);
         self::assertResponseIsSuccessful();
@@ -54,8 +60,9 @@ class FriendsApiTest extends ApiTestCase
     {
         $aliceToken = $this->registerAndLogin('alice-presence@example.test', 'Alice Presence');
         $bobToken = $this->registerAndLogin('bob-presence@example.test', 'Bob Presence');
+        $bobId = $this->currentUserId($bobToken);
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'bob-presence@example.test'], $aliceToken);
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $bobId], $aliceToken);
         $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $bobToken);
         self::assertResponseIsSuccessful();
@@ -111,6 +118,7 @@ class FriendsApiTest extends ApiTestCase
         ]);
         $ownerToken = $this->registerAndLogin('owner@example.test', 'Owner');
         $guestToken = $this->registerAndLogin('guest@example.test', 'Guest');
+        $guestUserId = $this->currentUserId($guestToken);
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Invite Deck', [
             ['scryfallId' => 'bbbbbbbb-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
             ['scryfallId' => 'bbbbbbbb-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
@@ -120,7 +128,7 @@ class FriendsApiTest extends ApiTestCase
             ['scryfallId' => 'bbbbbbbb-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'guest@example.test'], $ownerToken);
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $guestUserId], $ownerToken);
         $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $guestToken);
 
@@ -160,11 +168,4 @@ class FriendsApiTest extends ApiTestCase
         return (string) $this->jsonResponse()['deck']['id'];
     }
 
-    private function currentUserId(string $token): string
-    {
-        $this->jsonRequest('GET', '/me', token: $token);
-        self::assertResponseIsSuccessful();
-
-        return (string) $this->jsonResponse()['user']['id'];
-    }
 }

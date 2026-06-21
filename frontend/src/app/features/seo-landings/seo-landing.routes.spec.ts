@@ -6,7 +6,7 @@ import {
 } from './seo-landing.routes';
 
 describe('SEO landing routes', () => {
-  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+  const nonSeoLocaleCodes = ['ja', 'zh-hans', 'nl', 'ca', 'ru'] as const;
 
   it('creates one indexable public route for every SEO landing and SEO locale', () => {
     expect(SEO_INDEXABLE_LANDING_ROUTES).toHaveLength(SEO_ROUTE_KEYS.length * SEO_LOCALE_CODES.length);

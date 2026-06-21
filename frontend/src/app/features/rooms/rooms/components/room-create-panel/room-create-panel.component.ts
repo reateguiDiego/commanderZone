@@ -1,10 +1,11 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-room-create-panel',
-  imports: [RuntimeTranslatePipe, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective],
   templateUrl: './room-create-panel.component.html',
   styleUrl: './room-create-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -15,6 +16,7 @@ export class RoomCreatePanelComponent {
   readonly codeJoinRequested = output<string>();
   readonly createRequested = output<void>();
   readonly roomCode = signal('');
+  readonly joinCodeInputOpen = signal(false);
 
   setRoomCode(event: Event): void {
     const input = event.target instanceof HTMLInputElement ? event.target : null;
@@ -28,6 +30,7 @@ export class RoomCreatePanelComponent {
 
     const code = this.roomCode().trim();
     if (!code) {
+      this.joinCodeInputOpen.set(true);
       return;
     }
 

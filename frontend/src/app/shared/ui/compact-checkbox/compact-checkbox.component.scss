@@ -1,0 +1,115 @@
+:host {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.compact-checkbox {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, auto);
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 1.2rem;
+  max-width: 100%;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.08rem 0.32rem;
+  background: rgb(var(--cz-text-rgb) / 2%);
+  color: rgb(var(--cz-text-rgb) / 72%);
+  font-size: clamp(0.5rem, 0.64vw, 0.58rem);
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    filter 160ms ease;
+}
+
+.compact-checkbox::before {
+  display: grid;
+  width: 0.7rem;
+  height: 0.7rem;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 0.22rem;
+  font-size: 0.56rem;
+  font-weight: 1000;
+  line-height: 1;
+  content: "";
+}
+
+.compact-checkbox span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-checkbox:hover {
+  border-color: rgb(var(--cz-primary-rgb) / 26%);
+  color: var(--cz-text);
+  background: rgb(var(--cz-primary-rgb) / 8%);
+}
+
+.compact-checkbox input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.compact-checkbox:has(input:focus-visible) {
+  outline: 2px solid rgb(var(--cz-accent-rgb) / 72%);
+  outline-offset: 2px;
+}
+
+.compact-checkbox:has(input:checked)::before {
+  background: var(--cz-primary);
+  color: var(--cz-bg);
+  content: "\2713";
+}
+
+.compact-checkbox:has(input:checked) {
+  border-color: rgb(var(--cz-primary-rgb) / 34%);
+  color: var(--cz-primary);
+  background: rgb(var(--cz-primary-rgb) / 12%);
+  text-shadow: 0 0 0.7rem rgb(var(--cz-primary-rgb) / 28%);
+}
+
+.compact-checkbox:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.compact-checkbox:has(input:disabled) input {
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  :host {
+    width: 100%;
+  }
+
+  .compact-checkbox {
+    justify-content: start;
+    width: 100%;
+    align-items: start;
+    padding-block: 0.22rem;
+    white-space: normal;
+  }
+
+  .compact-checkbox::before {
+    margin-top: 0.05rem;
+  }
+
+  .compact-checkbox span {
+    display: -webkit-box;
+    line-height: 1.08;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+}

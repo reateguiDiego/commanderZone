@@ -1,10 +1,13 @@
+import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { LucideAngularModule, Minus, Plus } from 'lucide-angular';
 import { GameSetupLifeControlComponent } from './game-setup-life-control.component';
 
 describe('GameSetupLifeControlComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [GameSetupLifeControlComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ Minus, Plus }))],
     }).compileComponents();
   });
 
@@ -76,5 +79,20 @@ describe('GameSetupLifeControlComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.control-copy strong')).toBeNull();
+  });
+
+  it('emits preset life values', () => {
+    const fixture = TestBed.createComponent(GameSetupLifeControlComponent);
+    const emittedValues: number[] = [];
+
+    fixture.componentRef.setInput('value', 30);
+    fixture.componentRef.setInput('presets', [20, 30, 40, 60]);
+    fixture.componentInstance.valueChange.subscribe((value) => emittedValues.push(value));
+    fixture.detectChanges();
+
+    const presetButtons = fixture.nativeElement.querySelectorAll('.life-preset-button') as NodeListOf<HTMLButtonElement>;
+    presetButtons[2]?.click();
+
+    expect(emittedValues).toEqual([40]);
   });
 });

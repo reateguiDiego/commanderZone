@@ -3,7 +3,7 @@
   width: fit-content;
   max-width: 100%;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .player-name-shell {
@@ -15,13 +15,13 @@
   place-items: center;
   max-width: 100%;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
   box-sizing: border-box;
   color: var(--name-text-color);
   font-size: var(--player-name-base-font-size);
   font-weight: 900;
   line-height: 1.16;
-  text-shadow: 0 1px 0 rgb(0 0 0 / 74%), 0 0 0.9rem rgb(0 0 0 / 78%);
+  text-shadow: var(--player-name-text-shadow, 0 1px 0 rgb(0 0 0 / 74%), 0 0 0.9rem rgb(0 0 0 / 78%));
   white-space: nowrap;
 }
 
@@ -31,6 +31,10 @@
 
 .player-name-shell.fill {
   width: 100%;
+}
+
+.player-name-shell.align-left {
+  place-items: center start;
 }
 
 .player-name-label {
@@ -43,6 +47,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.16;
+}
+
+.player-name-shell.align-left .player-name-label {
+  text-align: left;
 }
 
 .has-nameplate {

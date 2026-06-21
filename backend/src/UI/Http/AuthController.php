@@ -28,8 +28,8 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class AuthController extends ApiController
 {
-    private const MIN_DISPLAY_NAME_LENGTH = 4;
-    private const MAX_DISPLAY_NAME_LENGTH = 25;
+    private const MIN_DISPLAY_NAME_LENGTH = 2;
+    private const MAX_DISPLAY_NAME_LENGTH = 20;
     private const MAX_AVATAR_IMAGE_BYTES = 2_097_152;
     private const MAX_INITIAL_AVATAR_LETTERS = 2;
     private const DEFAULT_INITIAL_AVATAR_BACKGROUND = '#edcd83';
@@ -169,7 +169,7 @@ class AuthController extends ApiController
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !$this->passwordPolicy->isValid($password) || !$this->isDisplayNameValid($displayName)) {
             return $this->fail(sprintf(
-                'email, user name with 4-25 chars and %s',
+                'email, user name with 2-20 chars and %s',
                 mb_strtolower($this->passwordPolicy->requirementMessage('Password'))
             ));
         }
@@ -505,7 +505,7 @@ class AuthController extends ApiController
         if ($hasDisplayNameUpdate) {
             $displayName = trim((string) $payload['displayName']);
             if (!$this->isDisplayNameValid($displayName)) {
-                return $this->fail('User name must contain 4-25 chars.');
+                return $this->fail('User name must contain 2-20 chars.');
             }
 
             if (
@@ -520,7 +520,7 @@ class AuthController extends ApiController
 
         if ($hasCardLanguageUpdate) {
             $cardLanguage = LanguageCatalog::normalize($payload['cardLanguage'] ?? null);
-            if (!LanguageCatalog::isSupported($cardLanguage)) {
+            if (!LanguageCatalog::isSupportedCardLanguage($cardLanguage)) {
                 return $this->fail('cardLanguage is invalid.');
             }
 
@@ -529,7 +529,7 @@ class AuthController extends ApiController
 
         if ($hasAppLanguageUpdate) {
             $appLanguage = LanguageCatalog::normalize($payload['appLanguage'] ?? null);
-            if (!LanguageCatalog::isSupported($appLanguage)) {
+            if (!LanguageCatalog::isSupportedAppLanguage($appLanguage)) {
                 return $this->fail('appLanguage is invalid.');
             }
 

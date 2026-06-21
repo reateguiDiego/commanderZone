@@ -894,16 +894,20 @@ class DecksController extends ApiController
      */
     private function cardsInPrintVersionLanguage(array $cards, string $preferredLanguage): array
     {
+        $commonPrintCards = $this->filterCardsByPrintLanguages($cards, LanguageCatalog::commonPrintLanguages());
         $preferredCards = $this->filterCardsByPrintLanguage($cards, $preferredLanguage);
         if ($preferredCards !== []) {
-            return $preferredCards;
+            return $this->uniqueCardsByScryfallId([...$preferredCards, ...$commonPrintCards]);
         }
 
         if ($preferredLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
-            return [];
+            return $commonPrintCards;
         }
 
-        return $this->filterCardsByPrintLanguage($cards, LanguageCatalog::DEFAULT_LANGUAGE);
+        return $this->uniqueCardsByScryfallId([
+            ...$this->filterCardsByPrintLanguage($cards, LanguageCatalog::DEFAULT_LANGUAGE),
+            ...$commonPrintCards,
+        ]);
     }
 
     /**
@@ -918,6 +922,38 @@ class DecksController extends ApiController
             fn (Card $card): bool => (LanguageCatalog::normalize($card->lang()) ?? LanguageCatalog::DEFAULT_LANGUAGE) === $language
                 && $this->isPrintVersionImageAvailable($card),
         ));
+    }
+
+    /**
+     * @param list<Card> $cards
+     * @param list<string> $languages
+     *
+     * @return list<Card>
+     */
+    private function filterCardsByPrintLanguages(array $cards, array $languages): array
+    {
+        $languagesByCode = array_fill_keys($languages, true);
+
+        return array_values(array_filter(
+            $cards,
+            fn (Card $card): bool => isset($languagesByCode[LanguageCatalog::normalize($card->lang()) ?? LanguageCatalog::DEFAULT_LANGUAGE])
+                && $this->isPrintVersionImageAvailable($card),
+        ));
+    }
+
+    /**
+     * @param list<Card> $cards
+     *
+     * @return list<Card>
+     */
+    private function uniqueCardsByScryfallId(array $cards): array
+    {
+        $uniqueCards = [];
+        foreach ($cards as $card) {
+            $uniqueCards[$card->scryfallId()] ??= $card;
+        }
+
+        return array_values($uniqueCards);
     }
 
     private function isPrintVersionImageAvailable(Card $card): bool

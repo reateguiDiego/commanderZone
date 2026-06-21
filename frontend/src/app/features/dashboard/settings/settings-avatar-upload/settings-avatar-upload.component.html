@@ -31,7 +31,7 @@
           <p>{{ 'settings.settingsAvatarUpload.pngJpgWebpOrAnotherBrowserSupported' | runtimeTranslate }}</p>
         </div>
         <input #fileInput class="file-input" type="file" accept="image/*" (change)="onFileSelected($event)" />
-        <button class="secondary-button" type="button" [disabled]="saving()" (click)="openFilePicker(fileInput)">
+        <button czButton="secondary" class="secondary-button" type="button" [disabled]="saving()" (click)="openFilePicker(fileInput)">
           <lucide-icon name="upload" size="16" />
           {{ 'settings.settingsAvatarUpload.chooseImage' | runtimeTranslate }}
         </button>
@@ -63,7 +63,7 @@
   }
 
   <footer class="avatar-upload-actions">
-    <button class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
+    <button czButton="primary" class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
       {{ saving() ? 'Saving...' : 'Save' }}
     </button>
   </footer>

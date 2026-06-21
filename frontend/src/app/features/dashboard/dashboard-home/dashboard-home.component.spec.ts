@@ -1,5 +1,7 @@
-import { signal } from '@angular/core';
+import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { ChevronRight, LucideAngularModule, Trophy } from 'lucide-angular';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { DashboardHomeComponent } from './dashboard-home.component';
 
@@ -8,6 +10,8 @@ describe('DashboardHomeComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DashboardHomeComponent],
       providers: [
+        provideRouter([]),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronRight, Trophy })),
         {
           provide: AuthStore,
           useValue: {
@@ -23,7 +27,15 @@ describe('DashboardHomeComponent', () => {
     const fixture = TestBed.createComponent(DashboardHomeComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Qué bueno verte de nuevo, Aaguilera21.');
+    const element = fixture.nativeElement as HTMLElement;
+    const titleLabel = element.querySelector('.welcome-title-label');
+    const titleUser = element.querySelector('.welcome-title-user');
+
+    expect(titleLabel?.textContent?.trim()).toBe('Bienvenido');
+    expect(titleUser?.textContent?.trim()).toBe('Aaguilera21');
+    expect(element.textContent).toContain('Tus comandantes tienen sed de sangre');
+    expect(element.textContent).not.toContain('La mesa te estaba esperando');
+    expect(fixture.nativeElement.textContent).toContain('The Ur-Dragon');
     expect(fixture.nativeElement.textContent).not.toContain('Join a room');
   });
 });

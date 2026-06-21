@@ -4,8 +4,10 @@ namespace App\UI\Http;
 
 use App\Application\Card\CardLocalizationService;
 use App\Application\Card\CardResolver;
+use App\Application\Card\CardsLanguageService;
 use App\Domain\Card\Card;
 use App\Domain\Localization\LanguageCatalog;
+use App\Domain\User\User;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -13,6 +15,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class CardsController extends ApiController
@@ -205,6 +208,15 @@ SQL;
         }
 
         return $this->json(['card' => $localization->localizeCardPayload($matches[0]->toArray(), $requestedLanguage)]);
+    }
+
+    #[Route('/cards/languages', methods: ['GET'])]
+    public function languages(CardsLanguageService $cardsLanguage, #[CurrentUser] ?User $user): JsonResponse
+    {
+        return $this->json([
+            'selectedCardLanguage' => LanguageCatalog::normalize($user?->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE,
+            'data' => $cardsLanguage->languageCoverage(),
+        ]);
     }
 
     #[Route('/cards/{scryfallId}/image', methods: ['GET'])]

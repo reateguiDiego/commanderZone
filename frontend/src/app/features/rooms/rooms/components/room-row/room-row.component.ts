@@ -4,17 +4,27 @@ import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { DeckFormat } from '../../../../../core/models/deck.model';
 import { Room } from '../../../../../core/models/room.model';
+import { UserDisplayNameStyle } from '../../../../../core/models/user.model';
 import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+
+const PRIVATE_ANONYMOUS_OWNER_PLACEHOLDER = 'XXXX';
+const PRIVATE_ANONYMOUS_OWNER_NAME_STYLE: UserDisplayNameStyle = {
+  type: 'preset',
+  presetId: 'umbral-rose',
+  textColor: null,
+};
 
 @Component({
   selector: 'app-room-row',
-  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, PlayerNameComponent, CzButtonDirective],
   templateUrl: './room-row.component.html',
   styleUrl: './room-row.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RoomRowComponent {
   readonly lockedRoomTooltip = 'You are already in a room. Leave it before joining another one.';
+  readonly anonymousOwnerNameStyle = PRIVATE_ANONYMOUS_OWNER_NAME_STYLE;
 
   readonly room = input.required<Room>();
   readonly formats = input<readonly DeckFormat[]>([]);
@@ -56,6 +66,10 @@ export class RoomRowComponent {
     return status === 'waiting' || status === 'open';
   }
 
+  isRoomArchived(room: Room): boolean {
+    return String(room.status ?? '').toLowerCase() === 'archived';
+  }
+
   isRoomFull(room: Room): boolean {
     return this.roomPlayerCount(room) >= this.roomCapacity(room);
   }
@@ -78,5 +92,9 @@ export class RoomRowComponent {
 
   formatLabel(formatId: string): string {
     return this.formats().find((format) => format.id === formatId)?.name ?? formatId;
+  }
+
+  isAnonymousPrivateOwner(room: Room): boolean {
+    return room.visibility === 'private' && room.owner.displayName.trim() === PRIVATE_ANONYMOUS_OWNER_PLACEHOLDER;
   }
 }

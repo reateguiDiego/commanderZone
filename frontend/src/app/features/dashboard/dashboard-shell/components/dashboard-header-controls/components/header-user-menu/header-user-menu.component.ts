@@ -1,23 +1,28 @@
-import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, output, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
 import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
 import { RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
+import { CzButtonDirective } from '../../../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-header-user-menu',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule, CzButtonDirective],
   templateUrl: './header-user-menu.component.html',
   styleUrl: './header-user-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HeaderUserMenuComponent {
+  private readonly document = inject(DOCUMENT);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
   private readonly i18n = inject(AppShellI18nService);
   readonly settingsSelected = output<void>();
   readonly fullscreenSelected = output<void>();
   readonly logoffSelected = output<void>();
+  readonly menuOpened = output<void>();
   readonly menuOpen = signal(false);
   readonly languagePickerOpen = signal(false);
   readonly selectedLanguage = this.runtimeLanguageSelector.selectedLanguage;
@@ -46,8 +51,15 @@ export class HeaderUserMenuComponent {
   );
   readonly selectedLanguageFlagAsset = computed(() => this.selectedLanguageOption().flagAsset);
 
-  @HostListener('document:click', ['$event.target'])
-  closeOnOutsideClick(target: EventTarget | null): void {
+  constructor() {
+    const closeOnOutsidePointer = (event: PointerEvent) => this.closeOnOutsidePointer(event.target);
+    this.document.addEventListener('pointerdown', closeOnOutsidePointer, true);
+    this.destroyRef.onDestroy(() => {
+      this.document.removeEventListener('pointerdown', closeOnOutsidePointer, true);
+    });
+  }
+
+  private closeOnOutsidePointer(target: EventTarget | null): void {
     if (!(target instanceof Node)) {
       return;
     }
@@ -58,10 +70,15 @@ export class HeaderUserMenuComponent {
   }
 
   toggleMenu(): void {
-    this.menuOpen.update((open) => !open);
-    if (!this.menuOpen()) {
-      this.languagePickerOpen.set(false);
+    const nextOpen = !this.menuOpen();
+    this.menuOpen.set(nextOpen);
+
+    if (nextOpen) {
+      this.menuOpened.emit();
+      return;
     }
+
+    this.languagePickerOpen.set(false);
   }
 
   toggleLanguagePicker(): void {

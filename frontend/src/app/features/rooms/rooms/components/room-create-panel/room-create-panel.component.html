@@ -1,15 +1,21 @@
 <aside class="panel rooms-create-panel">
-  <div class="room-code-card">
-    <label>
-      {{ 'rooms.roomCreatePanel.joinByRoomCode' | runtimeTranslate }}
-      <input name="roomCode" [placeholder]="'rooms.roomCreatePanel.czAbcDef123' | runtimeTranslate" [value]="roomCode()" (input)="setRoomCode($event)" />
-    </label>
+  <div class="room-code-card" [class.has-code-input]="joinCodeInputOpen()">
     <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
-      <button class="primary-button" type="button" [disabled]="actionsLocked() || !roomCode().trim()" (click)="joinByCode()">
+      <button czButton="primary" class="primary-button room-action-button" type="button" [disabled]="actionsLocked()" (click)="joinByCode()">
         <lucide-icon name="search" size="16" />
-        {{ 'rooms.roomCreatePanel.join' | runtimeTranslate }}
+        Join with code
       </button>
     </span>
+
+    @if (joinCodeInputOpen()) {
+      <input
+        name="roomCode"
+        placeholder="Enter room code"
+        [value]="roomCode()"
+        (input)="setRoomCode($event)"
+        (keydown.enter)="joinByCode()"
+      />
+    }
   </div>
 
   <div class="rooms-create-header">
@@ -18,7 +24,7 @@
   </div>
 
   <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
-    <button class="primary-button" type="button" [disabled]="actionsLocked()" (click)="requestCreate()">
+    <button czButton="primary" class="primary-button room-action-button" type="button" [disabled]="actionsLocked()" (click)="requestCreate()">
       <lucide-icon name="plus" size="17" />
       {{ 'rooms.roomCreatePanel.createRoom' | runtimeTranslate }}
     </button>

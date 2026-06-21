@@ -10,7 +10,7 @@ import {
 } from './seo-routes';
 
 describe('SEO routes', () => {
-  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+  const nonSeoLocaleCodes = ['ja', 'zh-hans', 'nl', 'ca', 'ru'] as const;
   const approvedSeoRoutes = [
     'home',
     'playCommanderOnline',
@@ -263,9 +263,7 @@ describe('SEO routes', () => {
 
     expect(findSeoRouteByPath('/mx/play-commander-online/')).toBeUndefined();
     expect(findSeoRouteByPath('/ja/commander-online-play/')).toBeUndefined();
-    expect(findSeoRouteByPath('/ko/chinguwa-magic-online/')).toBeUndefined();
     expect(findSeoRouteByPath('/zh-hans/zaixian-commander/')).toBeUndefined();
-    expect(findSeoRouteByPath('/zh-hant/zaixian-commander/')).toBeUndefined();
     expect(findSeoRouteByPath('/nl/commander-online-spelen/')).toBeUndefined();
     expect(findSeoRouteByPath('/ca/jugar-commander-online/')).toBeUndefined();
     expect(findSeoRouteByPath('/ru/faq/')).toBeUndefined();
