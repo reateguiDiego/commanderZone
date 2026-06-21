@@ -143,6 +143,11 @@ class CompactGameplayRuntimeTest extends TestCase
             $snapshot['instances'][$battlefieldIds[1]]['cardKey'],
         );
         self::assertCount(1, $snapshot['cardCatalog']);
+        self::assertSame('battlefield-1', $snapshot['instances'][$battlefieldIds[1]]['tokenMeta']['copiedFromInstanceId'] ?? null);
+        self::assertSame(
+            $snapshot['instances'][$battlefieldIds[0]]['cardKey'],
+            $snapshot['instances'][$battlefieldIds[1]]['tokenMeta']['copiedFromCardKey'] ?? null,
+        );
         self::assertArrayNotHasKey('name', $snapshot['instances'][$battlefieldIds[0]]);
         self::assertArrayNotHasKey('imageUris', $snapshot['instances'][$battlefieldIds[0]]);
         self::assertArrayNotHasKey('oracleText', $snapshot['instances'][$battlefieldIds[1]]);
@@ -155,7 +160,10 @@ class CompactGameplayRuntimeTest extends TestCase
         ], $actor);
 
         $stackItem = $game->snapshot()['stack'][0];
+        self::assertSame($stackItem['id'], $stackItem['stackId']);
         self::assertSame('battlefield-1', $stackItem['instanceId']);
+        self::assertSame('battlefield-1', $stackItem['sourceInstanceId']);
+        self::assertSame($snapshot['instances'][$battlefieldIds[0]]['cardKey'], $stackItem['cardKey']);
         self::assertArrayNotHasKey('card', $stackItem);
     }
 
@@ -196,6 +204,14 @@ class CompactGameplayRuntimeTest extends TestCase
             $snapshot['instances'][$tokens[1]]['cardKey'],
         );
         self::assertCount(1, $snapshot['cardCatalog']);
+        self::assertSame(
+            $snapshot['instances'][$tokens[0]]['cardKey'],
+            $snapshot['instances'][$tokens[0]]['tokenMeta']['templateCardKey'] ?? null,
+        );
+        self::assertSame(
+            $snapshot['cardCatalog'][$snapshot['instances'][$tokens[0]]['cardKey']]['cardVersion'] ?? null,
+            $snapshot['instances'][$tokens[0]]['tokenMeta']['templateCardVersion'] ?? null,
+        );
         self::assertArrayNotHasKey('name', $snapshot['instances'][$tokens[0]]);
         self::assertArrayNotHasKey('imageUris', $snapshot['instances'][$tokens[0]]);
         self::assertArrayNotHasKey('oracleText', $snapshot['instances'][$tokens[1]]);
@@ -245,6 +261,10 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertArrayHasKey('attachment-1', $compact['relations']['attachments']);
         self::assertArrayHasKey('arrow-1', $compact['relations']['arrows']);
         self::assertArrayHasKey('helper-1', $compact['relations']['helpers']);
+        self::assertSame(['attachment-1'], $compact['relations']['indexes']['attachmentsByEquipment']['p1-battlefield-001'] ?? null);
+        self::assertSame(['attachment-1'], $compact['relations']['indexes']['attachmentsByTarget']['p1-battlefield-002'] ?? null);
+        self::assertSame(['arrow-1'], $compact['relations']['indexes']['arrowsBySource']['p1-battlefield-001'] ?? null);
+        self::assertSame(['arrow-1'], $compact['relations']['indexes']['arrowsByTarget']['p2-battlefield-001'] ?? null);
         self::assertSame([], $checker->check($compact));
         self::assertSame([], $checker->checkProjectionPrivacy($projected, $viewer->id()));
         self::assertCount(4, $roundTrip['players']);

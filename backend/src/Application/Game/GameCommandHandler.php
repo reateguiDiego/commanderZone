@@ -26,7 +26,6 @@ class GameCommandHandler
     private const MULLIGAN_STATUS_READY = 'READY';
     private const CHAT_REACTIONS = ['like', 'dislike', 'love', 'laugh', 'angry', 'vomit', 'cry'];
     private const MAX_CARD_COUNTER_TYPES = 5;
-    private const MAX_TOKEN_CREATE_QUANTITY = 20;
     private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
     private const POSITION_UNIT_RATIO = 'ratio';
     private const THE_RING_SCRYFALL_ID = '7215460e-8c06-47d0-94e5-d1832d0218af';
@@ -159,6 +158,7 @@ class GameCommandHandler
         ?GameplayV2Flags $flagsV2 = null,
         ?GameVisibilityIndex $visibilityIndex = null,
         ?GameplayStreamsFlags $streamFlags = null,
+        ?GameplayRuntimeLimits $runtimeLimits = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
@@ -171,6 +171,7 @@ class GameCommandHandler
         $this->flagsV2 = $flagsV2 ?? new GameplayV2Flags();
         $this->visibilityIndex = $visibilityIndex ?? new GameVisibilityIndex();
         $this->streamFlags = $streamFlags ?? new GameplayStreamsFlags();
+        $this->runtimeLimits = $runtimeLimits ?? new GameplayRuntimeLimits();
     }
 
     private readonly GameRandomizer $randomizer;
@@ -183,6 +184,7 @@ class GameCommandHandler
     private readonly GameplayV2Flags $flagsV2;
     private readonly GameVisibilityIndex $visibilityIndex;
     private readonly GameplayStreamsFlags $streamFlags;
+    private readonly GameplayRuntimeLimits $runtimeLimits;
 
     /**
      * @return list<string>
@@ -650,6 +652,9 @@ class GameCommandHandler
             'isTokenCopy' => (bool) ($card['isTokenCopy'] ?? false),
             'isCommander' => (bool) ($card['isCommander'] ?? $zone === 'command'),
         ];
+        if (is_array($card['tokenMeta'] ?? null) && $card['tokenMeta'] !== []) {
+            $normalized['tokenMeta'] = $this->normalizeTokenMeta($card['tokenMeta']);
+        }
 
         if (array_key_exists('layout', $card)) {
             $normalized['layout'] = $card['layout'];
@@ -664,6 +669,95 @@ class GameCommandHandler
         }
 
         return $normalized;
+    }
+
+    /**
+     * @param array<string,mixed> $tokenMeta
+     *
+     * @return array<string,mixed>
+     */
+    private function normalizeTokenMeta(array $tokenMeta): array
+    {
+        $normalized = [];
+        foreach ([
+            'templateCardKey',
+            'templateCardVersion',
+            'templateScryfallId',
+            'copiedFromInstanceId',
+            'copiedFromCardKey',
+        ] as $key) {
+            if (is_string($tokenMeta[$key] ?? null) && trim((string) $tokenMeta[$key]) !== '') {
+                $normalized[$key] = trim((string) $tokenMeta[$key]);
+            }
+        }
+        if (array_key_exists('isCopy', $tokenMeta)) {
+            $normalized['isCopy'] = ($tokenMeta['isCopy'] ?? false) === true;
+        }
+        if (is_array($tokenMeta['mutableOverrides'] ?? null) && $tokenMeta['mutableOverrides'] !== []) {
+            $normalized['mutableOverrides'] = $tokenMeta['mutableOverrides'];
+        }
+        if (is_array($tokenMeta['copiedValues'] ?? null) && $tokenMeta['copiedValues'] !== []) {
+            $normalized['copiedValues'] = $tokenMeta['copiedValues'];
+        }
+        if (is_array($tokenMeta['flags'] ?? null) && $tokenMeta['flags'] !== []) {
+            $normalized['flags'] = $tokenMeta['flags'];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>
+     */
+    private function tokenMutableOverrides(array $card): array
+    {
+        return array_filter([
+            'power' => $card['power'] ?? null,
+            'toughness' => $card['toughness'] ?? null,
+            'loyalty' => $card['loyalty'] ?? null,
+            'defense' => $card['defense'] ?? null,
+            'saga' => $card['saga'] ?? null,
+            'activeFaceIndex' => $card['activeFaceIndex'] ?? null,
+            'layout' => $card['layout'] ?? null,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>
+     */
+    private function tokenCopiedValues(array $card): array
+    {
+        return array_filter([
+            'name' => $card['name'] ?? null,
+            'typeLine' => $card['typeLine'] ?? null,
+            'layout' => $card['layout'] ?? null,
+            'defaultPower' => $card['defaultPower'] ?? null,
+            'defaultToughness' => $card['defaultToughness'] ?? null,
+            'defaultLoyalty' => $card['defaultLoyalty'] ?? null,
+            'defaultDefense' => $card['defaultDefense'] ?? null,
+            'activeFaceIndex' => $card['activeFaceIndex'] ?? null,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,bool>
+     */
+    private function tokenFlags(array $card): array
+    {
+        return array_filter([
+            'faceDown' => ($card['faceDown'] ?? false) === true,
+            'tapped' => ($card['tapped'] ?? false) === true,
+            'isCommander' => ($card['isCommander'] ?? false) === true,
+            'isDungeon' => $this->isDungeonCard($card),
+            'isTheRing' => $this->isTheRingCard($card),
+            'isEmblem' => $this->isEmblemCard($card),
+        ], static fn (bool $enabled): bool => $enabled);
     }
 
     /**
@@ -1639,6 +1733,13 @@ class GameCommandHandler
             'zone' => 'battlefield',
             'isToken' => true,
             'isTokenCopy' => true,
+            'tokenMeta' => [
+                'isCopy' => true,
+                'copiedFromInstanceId' => (string) ($source['instanceId'] ?? ''),
+                'copiedFromCardKey' => is_string($source['cardKey'] ?? null) ? $source['cardKey'] : null,
+                'copiedValues' => $this->tokenCopiedValues($source),
+                'flags' => $this->tokenFlags($source),
+            ],
         ], $targetPlayerId, 'battlefield');
         $copy['position'] = $this->tokenCopyPosition(
             $source['position'] ?? null,
@@ -1660,11 +1761,25 @@ class GameCommandHandler
         $isTheRing = $this->isTheRingCard($card);
         $isDungeon = $this->isDungeonCard($card);
         $isEmblem = $this->isEmblemCard($card);
-        $quantity = $isDungeon ? 1 : $this->positiveInt($payload['quantity'] ?? 1, 1, self::MAX_TOKEN_CREATE_QUANTITY);
+        $quantity = $isDungeon
+            ? 1
+            : $this->positiveInt($payload['quantity'] ?? 1, 1, $this->runtimeLimits->maxTokenCreateQuantity());
         $tokens = [];
         $position = $quantity === 1 && array_key_exists('position', $payload)
             ? $this->normalizedPosition($payload['position'])
             : null;
+        $tokenMeta = [
+            'isCopy' => false,
+            'templateCardKey' => is_string($card['cardKey'] ?? null) ? $card['cardKey'] : null,
+            'templateCardVersion' => is_string($card['cardVersion'] ?? null) ? $card['cardVersion'] : null,
+            'templateScryfallId' => is_string($card['scryfallId'] ?? null) ? $card['scryfallId'] : null,
+            'mutableOverrides' => $this->tokenMutableOverrides($card),
+            'flags' => [
+                'isDungeon' => $isDungeon,
+                'isTheRing' => $isTheRing,
+                'isEmblem' => $isEmblem,
+            ],
+        ];
 
         for ($index = 0; $index < $quantity; $index++) {
             $tokens[] = $this->normalizeCard([
@@ -1684,6 +1799,7 @@ class GameCommandHandler
                 'isToken' => true,
                 'isTokenCopy' => false,
                 'isCommander' => false,
+                'tokenMeta' => $tokenMeta,
             ], $playerId, 'battlefield');
             if ($isTheRing) {
                 $tokens[$index]['counters'] = ['Level' => 1];
@@ -2311,23 +2427,33 @@ class GameCommandHandler
         $card = $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
         $snapshot['stack'][] = [
             'id' => Uuid::v7()->toRfc4122(),
+            'stackId' => null,
             'kind' => 'card',
+            'instanceId' => (string) ($card['instanceId'] ?? ''),
+            'sourceInstanceId' => (string) ($card['instanceId'] ?? ''),
+            'cardKey' => is_string($card['cardKey'] ?? null) ? $card['cardKey'] : null,
+            'controllerId' => (string) ($card['controllerId'] ?? ''),
+            'text' => is_string($payload['text'] ?? null) ? trim((string) $payload['text']) : null,
             'card' => $card,
             'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ];
+        $lastIndex = array_key_last($snapshot['stack']);
+        if ($lastIndex !== null) {
+            $snapshot['stack'][$lastIndex]['stackId'] = $snapshot['stack'][$lastIndex]['id'];
+        }
 
         return sprintf('Added %s to stack.', $this->cardLogName($card));
     }
 
     private function applyStackItemRemoved(array &$snapshot, array $payload): string
     {
-        $id = trim((string) ($payload['id'] ?? ''));
+        $id = trim((string) ($payload['stackId'] ?? $payload['id'] ?? ''));
         if ($id === '') {
-            throw new \InvalidArgumentException('id is required.');
+            throw new \InvalidArgumentException('stackId or id is required.');
         }
         $snapshot['stack'] = array_values(array_filter(
             $snapshot['stack'],
-            static fn (array $item): bool => ($item['id'] ?? null) !== $id,
+            static fn (array $item): bool => ($item['stackId'] ?? $item['id'] ?? null) !== $id,
         ));
 
         return 'Removed item from stack.';

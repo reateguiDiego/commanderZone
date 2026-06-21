@@ -175,10 +175,18 @@ final class CompactGameCardStateMapper
             }
         }
 
+        $attachments = $this->indexById(is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : []);
+        $arrows = $this->indexById(is_array($snapshot['arrows'] ?? null) ? $snapshot['arrows'] : []);
         $relations = [
-            'attachments' => $this->indexById(is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : []),
-            'arrows' => $this->indexById(is_array($snapshot['arrows'] ?? null) ? $snapshot['arrows'] : []),
+            'attachments' => $attachments,
+            'arrows' => $arrows,
             'helpers' => $this->indexById(is_array($snapshot['specialEntities'] ?? null) ? $snapshot['specialEntities'] : []),
+            'indexes' => [
+                'attachmentsByEquipment' => $this->relationIdsByField($attachments, 'equipmentInstanceId'),
+                'attachmentsByTarget' => $this->relationIdsByField($attachments, 'attachedToInstanceId'),
+                'arrowsBySource' => $this->relationIdsByField($arrows, 'fromInstanceId'),
+                'arrowsByTarget' => $this->relationIdsByField($arrows, 'toInstanceId'),
+            ],
         ];
         $stack = $this->compactStructuredStack(
             is_array($snapshot['stack'] ?? null) ? $snapshot['stack'] : [],
@@ -247,8 +255,16 @@ final class CompactGameCardStateMapper
 
         $bundle = CardStaticBundle::fromLegacyCard($card);
         $catalog[$bundle->cardKey] = $bundle->toArray();
+        $runtime = CardInstanceRuntime::fromLegacyCard($card, $bundle->cardKey, $ownerId, $zone)->toArray();
+        if (($runtime['isToken'] ?? false) === true && is_array($runtime['tokenMeta'] ?? null)) {
+            $runtime['tokenMeta']['templateCardKey'] ??= $bundle->cardKey;
+            $runtime['tokenMeta']['templateCardVersion'] ??= $bundle->cardVersion;
+            if (($runtime['tokenMeta']['isCopy'] ?? false) === true && !isset($runtime['tokenMeta']['copiedFromCardKey'])) {
+                $runtime['tokenMeta']['copiedFromCardKey'] = $bundle->cardKey;
+            }
+        }
 
-        return CardInstanceRuntime::fromLegacyCard($card, $bundle->cardKey, $ownerId, $zone)->toArray();
+        return $runtime;
     }
 
     /**
@@ -303,6 +319,9 @@ final class CompactGameCardStateMapper
             'isTokenCopy' => (bool) ($tokenMeta['isCopy'] ?? false),
             'isCommander' => (bool) ($card['isCommander'] ?? $zone === 'command'),
         ];
+        if ($tokenMeta !== []) {
+            $hydrated['tokenMeta'] = $tokenMeta;
+        }
 
         if (is_string($layout) && trim($layout) !== '') {
             $hydrated['layout'] = $layout;
@@ -409,21 +428,30 @@ final class CompactGameCardStateMapper
                 continue;
             }
 
-            $instanceId = is_string($item['instanceId'] ?? null) ? $item['instanceId'] : '';
+            $instanceId = is_string($item['sourceInstanceId'] ?? null)
+                ? $item['sourceInstanceId']
+                : (is_string($item['instanceId'] ?? null) ? $item['instanceId'] : '');
             if ($instanceId === '' || !isset($instances[$instanceId]) || !is_array($instances[$instanceId])) {
                 $hydrated[] = $item;
                 continue;
             }
 
             $location = is_array($loc[$instanceId] ?? null) ? $loc[$instanceId] : [];
+            $card = $this->hydrateCard(
+                $instances[$instanceId],
+                $catalog,
+                (string) ($location['playerId'] ?? ($instances[$instanceId]['ownerId'] ?? '')),
+                (string) ($location['zone'] ?? ($instances[$instanceId]['zone'] ?? '')),
+            );
             $hydrated[] = [
                 ...$item,
-                'card' => $this->hydrateCard(
-                    $instances[$instanceId],
-                    $catalog,
-                    (string) ($location['playerId'] ?? ($instances[$instanceId]['ownerId'] ?? '')),
-                    (string) ($location['zone'] ?? ($instances[$instanceId]['zone'] ?? '')),
-                ),
+                'id' => $item['stackId'] ?? $item['id'] ?? null,
+                'stackId' => $item['stackId'] ?? $item['id'] ?? null,
+                'sourceInstanceId' => $instanceId,
+                'instanceId' => $instanceId,
+                'controllerId' => $item['controllerId'] ?? ($card['controllerId'] ?? null),
+                'cardKey' => $item['cardKey'] ?? ($instances[$instanceId]['cardKey'] ?? null),
+                'card' => $card,
             ];
         }
 
@@ -452,7 +480,11 @@ final class CompactGameCardStateMapper
             }
 
             $card = is_array($item['card'] ?? null) ? $item['card'] : null;
-            $instanceId = is_string($item['instanceId'] ?? null) ? $item['instanceId'] : '';
+            $instanceId = is_string($item['sourceInstanceId'] ?? null)
+                ? $item['sourceInstanceId']
+                : (is_string($item['instanceId'] ?? null) ? $item['instanceId'] : '');
+            $cardKey = is_string($item['cardKey'] ?? null) ? $item['cardKey'] : '';
+            $controllerId = is_string($item['controllerId'] ?? null) ? $item['controllerId'] : '';
             if ($card !== null) {
                 $runtime = $this->compactCard(
                     $card,
@@ -461,6 +493,8 @@ final class CompactGameCardStateMapper
                     $catalog,
                 );
                 $instanceId = (string) ($runtime['instanceId'] ?? $instanceId);
+                $cardKey = (string) ($runtime['cardKey'] ?? $cardKey);
+                $controllerId = (string) ($runtime['controllerId'] ?? $controllerId);
                 if ($instanceId !== '' && !isset($instances[$instanceId])) {
                     $instances[$instanceId] = $runtime;
                     $loc[$instanceId] = [
@@ -472,9 +506,16 @@ final class CompactGameCardStateMapper
             }
 
             $stack[] = [
+                'stackId' => $item['stackId'] ?? $item['id'] ?? null,
                 'id' => $item['id'] ?? null,
                 'kind' => 'card',
+                'sourceInstanceId' => $instanceId,
                 'instanceId' => $instanceId,
+                'cardKey' => $cardKey !== '' ? $cardKey : null,
+                'controllerId' => $controllerId !== '' ? $controllerId : null,
+                'text' => is_string($item['text'] ?? null) && trim((string) $item['text']) !== ''
+                    ? trim((string) $item['text'])
+                    : null,
                 'createdAt' => $item['createdAt'] ?? null,
             ];
         }
@@ -516,6 +557,31 @@ final class CompactGameCardStateMapper
                 ? $item['id']
                 : sprintf('index-%d', $index);
             $indexed[$id] = $item;
+        }
+
+        return $indexed;
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $relations
+     *
+     * @return array<string,list<string>>
+     */
+    private function relationIdsByField(array $relations, string $field): array
+    {
+        $indexed = [];
+        foreach ($relations as $id => $relation) {
+            if (!is_array($relation)) {
+                continue;
+            }
+
+            $instanceId = is_string($relation[$field] ?? null) ? trim((string) $relation[$field]) : '';
+            if ($instanceId === '') {
+                continue;
+            }
+
+            $indexed[$instanceId] ??= [];
+            $indexed[$instanceId][] = (string) $id;
         }
 
         return $indexed;

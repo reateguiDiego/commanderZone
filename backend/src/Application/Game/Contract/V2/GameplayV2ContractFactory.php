@@ -176,7 +176,7 @@ final class GameplayV2ContractFactory
             'instances' => $instances,
             'zoneCounts' => $zoneCounts,
             'relations' => [
-                'stack' => array_values(array_filter($projectedSnapshot['stack'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+                'stack' => $this->stackRelations($projectedSnapshot['stack'] ?? [], $staticCards),
                 'arrows' => array_values(array_filter($projectedSnapshot['arrows'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
                 'attachments' => array_values(array_filter($projectedSnapshot['attachments'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
                 'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
@@ -217,7 +217,7 @@ final class GameplayV2ContractFactory
      */
     private function instance(array $card, string $instanceId, string $cardRef, string $zoneId): array
     {
-        return [
+        $instance = [
             'instanceId' => $instanceId,
             'cardRef' => $cardRef,
             'zoneId' => $zoneId,
@@ -239,6 +239,11 @@ final class GameplayV2ContractFactory
             'isTokenCopy' => ($card['isTokenCopy'] ?? false) === true,
             'isCommander' => ($card['isCommander'] ?? false) === true,
         ];
+        if (is_array($card['tokenMeta'] ?? null) && $card['tokenMeta'] !== []) {
+            $instance['tokenMeta'] = $card['tokenMeta'];
+        }
+
+        return $instance;
     }
 
     /**
@@ -246,6 +251,13 @@ final class GameplayV2ContractFactory
      */
     private function cardRef(array $card, string $instanceId): string
     {
+        $templateCardKey = is_string($card['tokenMeta']['templateCardKey'] ?? null)
+            ? trim((string) $card['tokenMeta']['templateCardKey'])
+            : '';
+        if ($templateCardKey !== '') {
+            return $templateCardKey;
+        }
+
         $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
         if ($scryfallId !== '') {
             $suffix = (($card['isToken'] ?? false) === true || ($card['isTokenCopy'] ?? false) === true)
@@ -280,5 +292,48 @@ final class GameplayV2ContractFactory
         $createdAt = trim((string) ($last['createdAt'] ?? ''));
 
         return $createdAt !== '' ? $createdAt : null;
+    }
+
+    /**
+     * @param mixed $entries
+     * @param array<string,array<string,mixed>> $staticCards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function stackRelations(mixed $entries, array &$staticCards): array
+    {
+        if (!is_array($entries)) {
+            return [];
+        }
+
+        $stack = [];
+        foreach ($entries as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $stackId = trim((string) ($entry['stackId'] ?? $entry['id'] ?? ''));
+            $sourceInstanceId = trim((string) ($entry['sourceInstanceId'] ?? $entry['instanceId'] ?? $entry['card']['instanceId'] ?? ''));
+            $card = is_array($entry['card'] ?? null) ? $entry['card'] : null;
+            $cardRef = null;
+            if ($card !== null && $sourceInstanceId !== '') {
+                $cardRef = $this->cardRef($card, $sourceInstanceId);
+                $staticCards[$cardRef] ??= $this->staticCard($card);
+            }
+
+            $stack[] = array_filter([
+                'stackId' => $stackId !== '' ? $stackId : null,
+                'id' => $stackId !== '' ? $stackId : null,
+                'kind' => $entry['kind'] ?? 'card',
+                'sourceInstanceId' => $sourceInstanceId !== '' ? $sourceInstanceId : null,
+                'cardRef' => $cardRef,
+                'cardKey' => $cardRef,
+                'controllerId' => $entry['controllerId'] ?? ($card['controllerId'] ?? null),
+                'text' => $entry['text'] ?? null,
+                'createdAt' => $entry['createdAt'] ?? null,
+            ], static fn (mixed $value): bool => $value !== null && $value !== '');
+        }
+
+        return $stack;
     }
 }

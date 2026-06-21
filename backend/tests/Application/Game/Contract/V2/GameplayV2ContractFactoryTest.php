@@ -86,6 +86,68 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertSame('log-1', $bootstrap->logCursor);
     }
 
+    public function testBootstrapUsesSharedStaticRefForGenericTokensAndCompactStackRelations(): void
+    {
+        [$game, $viewer] = $this->game();
+        $factory = new GameplayV2ContractFactory();
+        $snapshot = $this->projectedSnapshot($viewer);
+        $snapshot['players'][$viewer->id()]['zoneCounts']['battlefield'] = 3;
+        $snapshot['players'][$viewer->id()]['zones']['battlefield'][] = [
+            'instanceId' => 'token-1',
+            'ownerId' => $viewer->id(),
+            'controllerId' => $viewer->id(),
+            'name' => 'Bear Token',
+            'typeLine' => 'Token Creature - Bear',
+            'power' => 2,
+            'toughness' => 2,
+            'defaultPower' => 2,
+            'defaultToughness' => 2,
+            'zone' => 'battlefield',
+            'isToken' => true,
+            'tokenMeta' => [
+                'templateCardKey' => 'synthetic:bear-token',
+                'templateCardVersion' => 'bear-token-v1',
+            ],
+        ];
+        $snapshot['players'][$viewer->id()]['zones']['battlefield'][] = [
+            'instanceId' => 'token-2',
+            'ownerId' => $viewer->id(),
+            'controllerId' => $viewer->id(),
+            'name' => 'Bear Token',
+            'typeLine' => 'Token Creature - Bear',
+            'power' => 2,
+            'toughness' => 2,
+            'defaultPower' => 2,
+            'defaultToughness' => 2,
+            'zone' => 'battlefield',
+            'isToken' => true,
+            'tokenMeta' => [
+                'templateCardKey' => 'synthetic:bear-token',
+                'templateCardVersion' => 'bear-token-v1',
+            ],
+        ];
+        $snapshot['stack'] = [[
+            'id' => 'stack-1',
+            'stackId' => 'stack-1',
+            'kind' => 'card',
+            'sourceInstanceId' => 'battlefield-1',
+            'controllerId' => $viewer->id(),
+            'text' => 'Custom stack text',
+            'card' => $snapshot['players'][$viewer->id()]['zones']['battlefield'][0],
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+
+        $bootstrap = $factory->bootstrap($game, $viewer, $snapshot);
+
+        self::assertSame('synthetic:bear-token', $bootstrap->instances['token-1']['cardRef'] ?? null);
+        self::assertSame('synthetic:bear-token', $bootstrap->instances['token-2']['cardRef'] ?? null);
+        self::assertArrayHasKey('synthetic:bear-token', $bootstrap->staticCards);
+        self::assertCount(4, $bootstrap->staticCards);
+        self::assertSame('stack-1', $bootstrap->relations['stack'][0]['stackId'] ?? null);
+        self::assertSame('battlefield-1', $bootstrap->relations['stack'][0]['sourceInstanceId'] ?? null);
+        self::assertArrayNotHasKey('card', $bootstrap->relations['stack'][0]);
+    }
+
     public function testFactoryBuildsEventPayloadV2FromCurrentEvent(): void
     {
         [$game, $viewer] = $this->game();

@@ -10,7 +10,12 @@ final readonly class CompactGameState
      * @param array<string,array{library:list<string>,hand:list<string>,battlefield:list<string>,graveyard:list<string>,exile:list<string>,command:list<string>}> $zones
      * @param array<string,array{playerId:string,zone:string,index:int}> $loc
      * @param array<string,mixed> $visibility
-     * @param array{attachments:array<string,array<string,mixed>>,arrows:array<string,array<string,mixed>>,helpers:array<string,array<string,mixed>>} $relations
+     * @param array{
+     *   attachments:array<string,array<string,mixed>>,
+     *   arrows:array<string,array<string,mixed>>,
+     *   helpers:array<string,array<string,mixed>>,
+     *   indexes?:array<string,array<string,list<string>>>
+     * } $relations
      * @param list<array<string,mixed>> $stack
      * @param array<string,array<string,mixed>> $cardCatalog
      * @param array<string,mixed> $extra

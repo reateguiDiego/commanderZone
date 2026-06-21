@@ -740,7 +740,34 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(1, $token['toughness']);
         self::assertTrue($token['isToken']);
         self::assertFalse($token['isTokenCopy']);
+        self::assertSame('token-scryfall-id', $token['tokenMeta']['templateScryfallId'] ?? null);
         self::assertSame('Created Goblin Token.', $game->snapshot()['eventLog'][0]['message']);
+    }
+
+    public function testStackItemRemovedAlsoAcceptsStackId(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('card-1', 'Bear', 'battlefield', 2, 2, 2, 2),
+            ],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'stack.card_added', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $stackId = $game->snapshot()['stack'][0]['stackId'] ?? null;
+        self::assertIsString($stackId);
+
+        $handler->apply($game, 'stack.item_removed', [
+            'stackId' => $stackId,
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['stack']);
     }
 
     public function testCreateTokenCommandUsesExplicitBattlefieldPosition(): void

@@ -123,6 +123,15 @@ final class CompactGameStateInvariantChecker
             }
         }
 
+        $relationIndexes = is_array($relations['indexes'] ?? null) ? $relations['indexes'] : [];
+        $issues = [
+            ...$issues,
+            ...$this->checkRelationIndex($relationIndexes['attachmentsByEquipment'] ?? null, $relations['attachments'] ?? null, 'equipmentInstanceId', 'attachmentsByEquipment'),
+            ...$this->checkRelationIndex($relationIndexes['attachmentsByTarget'] ?? null, $relations['attachments'] ?? null, 'attachedToInstanceId', 'attachmentsByTarget'),
+            ...$this->checkRelationIndex($relationIndexes['arrowsBySource'] ?? null, $relations['arrows'] ?? null, 'fromInstanceId', 'arrowsBySource'),
+            ...$this->checkRelationIndex($relationIndexes['arrowsByTarget'] ?? null, $relations['arrows'] ?? null, 'toInstanceId', 'arrowsByTarget'),
+        ];
+
         return array_values(array_unique($issues));
     }
 
@@ -164,5 +173,38 @@ final class CompactGameStateInvariantChecker
         }
 
         return array_values(array_unique($issues));
+    }
+
+    /**
+     * @param mixed $index
+     * @param mixed $relations
+     *
+     * @return list<string>
+     */
+    private function checkRelationIndex(mixed $index, mixed $relations, string $field, string $label): array
+    {
+        if (!is_array($index) || !is_array($relations)) {
+            return [];
+        }
+
+        $issues = [];
+        foreach ($index as $instanceId => $relationIds) {
+            if (!is_string($instanceId) || !is_array($relationIds)) {
+                $issues[] = sprintf('relations.indexes.%s has invalid entry.', $label);
+                continue;
+            }
+
+            foreach ($relationIds as $relationId) {
+                if (!is_string($relationId) || !isset($relations[$relationId]) || !is_array($relations[$relationId])) {
+                    $issues[] = sprintf('relations.indexes.%s.%s references missing relation %s.', $label, $instanceId, (string) $relationId);
+                    continue;
+                }
+                if ((string) ($relations[$relationId][$field] ?? '') !== $instanceId) {
+                    $issues[] = sprintf('relations.indexes.%s.%s is inconsistent for relation %s.', $label, $instanceId, $relationId);
+                }
+            }
+        }
+
+        return $issues;
     }
 }

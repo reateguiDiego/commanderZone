@@ -41,6 +41,13 @@ final readonly class CardInstanceRuntime
     {
         $isToken = ($card['isToken'] ?? false) === true;
         $isTokenCopy = ($card['isTokenCopy'] ?? false) === true;
+        $tokenMeta = is_array($card['tokenMeta'] ?? null) ? $card['tokenMeta'] : null;
+        if ($isToken) {
+            $tokenMeta ??= ['isCopy' => $isTokenCopy];
+            if (!array_key_exists('isCopy', $tokenMeta)) {
+                $tokenMeta['isCopy'] = $isTokenCopy;
+            }
+        }
 
         return new self(
             self::stringOrFallback($card['instanceId'] ?? null, ''),
@@ -50,7 +57,7 @@ final readonly class CardInstanceRuntime
             self::stringOrFallback($card['zone'] ?? null, $zone),
             ($card['isCommander'] ?? $zone === 'command') === true,
             $isToken,
-            $isToken ? ['isCopy' => $isTokenCopy] : null,
+            $isToken ? $tokenMeta : null,
             (bool) ($card['tapped'] ?? false),
             max(0, (int) ($card['rotation'] ?? 0)),
             is_array($card['counters'] ?? null) ? $card['counters'] : [],
