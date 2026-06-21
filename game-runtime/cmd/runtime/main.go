@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -11,6 +12,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"commanderzone/game-runtime/internal/gateway"
+	runtimesvc "commanderzone/game-runtime/internal/runtime"
 )
 
 func main() {
@@ -32,6 +36,16 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ready"))
 	})
+
+	runtimeService := runtimesvc.NewService()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = runtimeService.Shutdown(ctx)
+	}()
+
+	validator := ticketValidatorFromEnv(logger)
+	mux.Handle("/ws", gateway.NewWebSocketServer(validator, runtimeService))
 
 	addr := os.Getenv("GAME_RUNTIME_LISTEN")
 	if addr == "" {
@@ -76,6 +90,26 @@ func main() {
 	}
 
 	fmt.Println("stopped")
+}
+
+type rejectingTicketValidator struct{}
+
+func (rejectingTicketValidator) ValidateTicket(_ context.Context, _ string) (gateway.TicketClaims, error) {
+	return gateway.TicketClaims{}, errors.New("runtime ticket secret is not configured")
+}
+
+func ticketValidatorFromEnv(logger *slog.Logger) gateway.TicketValidator {
+	secret := os.Getenv("GAME_RUNTIME_TICKET_SECRET")
+	if strings.TrimSpace(secret) == "" {
+		logger.Warn("GAME_RUNTIME_TICKET_SECRET is not configured; websocket gateway will reject gameplay connections")
+		return rejectingTicketValidator{}
+	}
+	validator, err := gateway.NewHMACTicketValidator(secret)
+	if err != nil {
+		logger.Warn("invalid GAME_RUNTIME_TICKET_SECRET; websocket gateway will reject gameplay connections", "error", err)
+		return rejectingTicketValidator{}
+	}
+	return validator
 }
 
 func runHealthcheck(listen string) error {

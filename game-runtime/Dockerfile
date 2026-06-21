@@ -3,7 +3,7 @@ ARG GO_TOOLCHAIN_IMAGE=commanderzone-go-toolchain:1.22
 FROM ${GO_TOOLCHAIN_IMAGE} AS build
 
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
 COPY cmd ./cmd
 COPY internal ./internal
 

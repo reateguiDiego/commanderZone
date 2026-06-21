@@ -80,6 +80,65 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml ps game-runtime
 
 The production image is a static Go binary on `scratch`. It exposes `/healthz` and `/readyz` on `GAME_RUNTIME_LISTEN` and uses the binary itself for Docker healthchecks.
 
+## WebSocket Gateway
+
+The runtime exposes the gameplay gateway on `/ws`.
+
+Clients connect with:
+
+```text
+/ws?ticket=<runtime-ticket>&lastAppliedVersion=<optional-version>
+```
+
+The runtime ticket is an HMAC-SHA256 signed envelope:
+
+```text
+base64url(json-payload).base64url(hmac_sha256(base64url(json-payload), GAME_RUNTIME_TICKET_SECRET))
+```
+
+Payload fields:
+
+- `userId`
+- `playerId`
+- `gameId`
+- `roles`
+- `viewerKind`
+- `protocol`
+- `exp`
+
+`GAME_RUNTIME_TICKET_SECRET` must be shared with Symfony when the runtime is activated. If the secret is empty, `/ws` rejects gameplay connections while health endpoints remain available.
+
+Client command messages:
+
+```json
+{
+  "type": "command",
+  "command": {
+    "gameId": "game-id",
+    "baseVersion": 1,
+    "clientActionId": "uuid",
+    "type": "life.changed",
+    "payload": {}
+  }
+}
+```
+
+Server patch messages:
+
+```json
+{
+  "type": "patch",
+  "patch": {
+    "gameId": "game-id",
+    "version": 2,
+    "visibility": "public",
+    "ops": []
+  }
+}
+```
+
+Reconnect uses the in-memory patch buffer. If patches after `lastAppliedVersion` are unavailable, the runtime emits `resync.required`; that path is exceptional and should trigger bootstrap.
+
 ## Expected Validation
 
 Run when Go is installed:

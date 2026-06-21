@@ -12,6 +12,7 @@ var ErrTicketGameMismatch = errors.New("ticket gameId does not match command gam
 
 type TicketClaims struct {
 	UserID     string
+	PlayerID   string
 	GameID     string
 	Roles      []string
 	ViewerKind string
