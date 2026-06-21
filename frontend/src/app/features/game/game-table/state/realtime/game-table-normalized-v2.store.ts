@@ -5,10 +5,12 @@ import type {
   ChatReactions,
   GameArrow,
   GameAttachment,
+  GameCompactCardRef,
   GameCardDungeonMarker,
   GameCardInstance,
   GameDisconnectVoteState,
   GameLogEntry,
+  GamePlayerMulliganState,
   GamePlayerState,
   GameRematchState,
   GameSnapshot,
@@ -61,6 +63,7 @@ export interface GameTableNormalizedV2PlayerState {
   counters: Record<string, number>;
   deckName: string | null;
   concededAt?: string | null;
+  mulligan?: GamePlayerMulliganState;
 }
 
 export interface GameTableNormalizedV2RelationsState {
@@ -393,6 +396,130 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
 
     case 'chat.reaction.set':
       return setChatReactions(state, operation.messageId, operation.reactions);
+
+    case 'mulligan.status.set': {
+      const base = operation.handCount === undefined
+        ? { status: 'applied' as const, state }
+        : setMulliganHandCount(state, operation.playerId, operation.handCount);
+      if (base.status === 'failed') {
+        return base;
+      }
+
+      return updatePlayer(base.state, operation.playerId, (player) => ({
+        ...player,
+        mulligan: {
+          ...emptyMulliganState(),
+          ...player.mulligan,
+          ...(operation.effectiveMulligans !== undefined ? { effectiveMulligans: operation.effectiveMulligans } : {}),
+          status: operation.status,
+          ready: operation.ready ?? player.mulligan?.ready ?? operation.status === 'READY',
+          handCount: operation.handCount ?? player.mulligan?.handCount ?? player.handCount,
+        },
+      }));
+    }
+
+    case 'mulligan.private_state.set': {
+      let nextState = updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        mulligan: {
+          ...emptyMulliganState(),
+          ...player.mulligan,
+          ...operation.state,
+          bottomOrderMode: operation.state.bottomOrderMode as GamePlayerMulliganState['bottomOrderMode'],
+          rule: operation.state.rule as GamePlayerMulliganState['rule'],
+          handCount: operation.hand?.length ?? player.handCount,
+          ...(operation.scryCard ? { scryCard: compactRefToLegacyCard(operation.scryCard, operation.playerId, 'library') } : {}),
+        },
+      }));
+      if (nextState.status === 'failed' || !operation.hand) {
+        return nextState;
+      }
+
+      return replacePrivateMulliganHand(nextState.state, operation.playerId, operation.hand);
+    }
+
+    case 'mulligan.hand.replace_private':
+      return replacePrivateMulliganHand(state, operation.playerId, operation.hand, operation.staticCards ?? {});
+
+    case 'mulligan.hand.count.set':
+      return setMulliganHandCount(state, operation.playerId, operation.count);
+
+    case 'mulligan.bottom.required.set':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        mulligan: {
+          ...emptyMulliganState(),
+          ...player.mulligan,
+          bottomSelectionCount: operation.count,
+          needsBottomSelection: operation.count > 0,
+          bottomOrderMode: (operation.orderMode as GamePlayerMulliganState['bottomOrderMode']) ?? player.mulligan?.bottomOrderMode ?? 'NONE',
+        },
+      }));
+
+    case 'mulligan.bottom.confirmed':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        mulligan: {
+          ...emptyMulliganState(),
+          ...player.mulligan,
+          bottomSelectionCount: 0,
+          needsBottomSelection: false,
+          handCount: Math.max(0, player.handCount - operation.count),
+        },
+      }));
+
+    case 'mulligan.scry.available.set':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        mulligan: {
+          ...emptyMulliganState(),
+          ...player.mulligan,
+          needsScryAfterKeep: operation.available,
+          status: operation.available ? 'SCRYING' : player.mulligan?.status ?? 'DECIDING',
+          ...(operation.card ? { scryCard: compactRefToLegacyCard(operation.card, operation.playerId, 'library') } : {}),
+        },
+      }));
+
+    case 'mulligan.scry.confirmed':
+      return updatePlayer(state, operation.playerId, (player) => {
+        const { scryCard: _scryCard, ...mulligan } = {
+          ...emptyMulliganState(),
+          ...player.mulligan,
+          status: 'READY' as const,
+          ready: true,
+          needsScryAfterKeep: false,
+        };
+        void _scryCard;
+
+        return {
+          ...player,
+          mulligan,
+        };
+      });
+
+    case 'mulligan.completed':
+      return {
+        status: 'applied',
+        state: {
+          ...state,
+          game: {
+            ...state.game,
+            gamePhase: 'PLAYING',
+          },
+        },
+      };
+
+    case 'game.phase.set':
+      return {
+        status: 'applied',
+        state: {
+          ...state,
+          game: {
+            ...state.game,
+            gamePhase: operation.phase,
+          },
+        },
+      };
 
     case 'zone.counts.set': {
       let nextState = state;
@@ -956,6 +1083,109 @@ function appendEventLogEntries(state: GameTableNormalizedV2State, entries: GameL
   };
 }
 
+function replacePrivateMulliganHand(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  hand: readonly GameCompactCardRef[],
+  staticCards: Record<string, BootstrapStaticCardV2> = {},
+): OperationApplyResult {
+  const playerZones = state.zones[playerId];
+  const playerZoneCounts = state.zoneCounts[playerId];
+  const player = state.players[playerId];
+  if (!playerZones || !playerZoneCounts || !player) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  const nextInstances = { ...state.instances };
+  for (const card of hand) {
+    nextInstances[card.instanceId] = compactRefToBootstrapInstance(card, playerId, 'hand');
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      instances: nextInstances,
+      staticCards: {
+        ...state.staticCards,
+        ...staticCards,
+      },
+      players: {
+        ...state.players,
+        [playerId]: {
+          ...player,
+          handCount: hand.length,
+          zoneCounts: {
+            ...player.zoneCounts,
+            hand: hand.length,
+          },
+          mulligan: {
+            ...emptyMulliganState(),
+            ...player.mulligan,
+            handCount: hand.length,
+          },
+        },
+      },
+      zones: {
+        ...state.zones,
+        [playerId]: {
+          ...playerZones,
+          hand: hand.map((card) => card.instanceId),
+        },
+      },
+      zoneCounts: {
+        ...state.zoneCounts,
+        [playerId]: {
+          ...playerZoneCounts,
+          hand: hand.length,
+        },
+      },
+    },
+  };
+}
+
+function setMulliganHandCount(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  count: number,
+): OperationApplyResult {
+  const player = state.players[playerId];
+  const playerZoneCounts = state.zoneCounts[playerId];
+  if (!player || !playerZoneCounts) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      players: {
+        ...state.players,
+        [playerId]: {
+          ...player,
+          handCount: count,
+          zoneCounts: {
+            ...player.zoneCounts,
+            hand: count,
+          },
+          mulligan: {
+            ...emptyMulliganState(),
+            ...player.mulligan,
+            handCount: count,
+          },
+        },
+      },
+      zoneCounts: {
+        ...state.zoneCounts,
+        [playerId]: {
+          ...playerZoneCounts,
+          hand: count,
+        },
+      },
+    },
+  };
+}
+
 function updatePlayer(
   state: GameTableNormalizedV2State,
   playerId: string,
@@ -975,6 +1205,51 @@ function updatePlayer(
         [playerId]: update(player),
       },
     },
+  };
+}
+
+function compactRefToBootstrapInstance(
+  card: GameCompactCardRef,
+  playerId: string,
+  zone: GameZoneName,
+): BootstrapInstanceV2 {
+  const cardRef = card.cardKey?.trim() || `instance:${card.instanceId}`;
+
+  return {
+    instanceId: card.instanceId,
+    cardRef,
+    cardKey: card.cardKey ?? undefined,
+    cardVersion: card.cardVersion ?? undefined,
+    zoneId: zoneId(playerId, zone),
+    ownerId: playerId,
+    controllerId: playerId,
+    hidden: card.hidden ?? false,
+    tapped: card.tapped ?? false,
+  };
+}
+
+function compactRefToLegacyCard(
+  card: GameCompactCardRef,
+  playerId: string,
+  zone: GameZoneName,
+): GameCardInstance {
+  return {
+    instanceId: card.instanceId,
+    ownerId: playerId,
+    controllerId: playerId,
+    name: card.name?.trim() || card.cardKey?.trim() || 'Card',
+    tapped: card.tapped ?? false,
+    hidden: card.hidden ?? false,
+    zone,
+  };
+}
+
+function emptyMulliganState(): GamePlayerMulliganState {
+  return {
+    mulligansTaken: 0,
+    effectiveMulligans: 0,
+    status: 'DECIDING',
+    ready: false,
   };
 }
 
@@ -1032,6 +1307,7 @@ function hydratePlayerState(
     },
     zoneCounts,
     handCount: zoneCounts.hand ?? player.handCount,
+    mulligan: player.mulligan ? { ...player.mulligan } : undefined,
     commanderDamage: { ...player.commanderDamage },
     counters: { ...player.counters },
   };

@@ -113,6 +113,65 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-1'].zones.library[0]?.name).toBe('Forest');
     expect(snapshot.players['player-1'].zones.library[1]?.name).toBe('Card');
   });
+
+  it('applies semantic mulligan patches without full snapshot replacement', () => {
+    const initial = createGameTableNormalizedV2State({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      {
+        op: 'mulligan.private_state.set',
+        playerId: 'player-1',
+        state: {
+          rule: 'LONDON',
+          mulligansTaken: 1,
+          effectiveMulligans: 0,
+          drawCount: 7,
+          bottomSelectionCount: 0,
+          finalHandSize: 7,
+          needsBottomSelection: false,
+          bottomOrderMode: 'PLAYER_CHOSEN_ORDER',
+          needsScryAfterKeep: false,
+          canTakeAnotherMulligan: true,
+          status: 'DECIDING',
+          ready: false,
+        },
+        hand: [
+          { instanceId: 'opening-a', cardKey: 'card:bolt' },
+          { instanceId: 'opening-b', cardKey: 'card:bolt' },
+        ],
+      },
+      { op: 'mulligan.hand.count.set', playerId: 'player-2', count: 7 },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-1'].hand).toEqual(['opening-a', 'opening-b']);
+    expect(result.state.players['player-1'].mulligan?.mulligansTaken).toBe(1);
+    expect(snapshot.players['player-1'].zones.hand.map((card) => card.instanceId)).toEqual(['opening-a', 'opening-b']);
+    expect(snapshot.players['player-2'].handCount).toBe(7);
+  });
+
+  it('applies mulligan completion and phase patches by version', () => {
+    const initial = createGameTableNormalizedV2State({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+    const playing = applyPatchEnvelopeV2(initial, patch(6, [{ op: 'mulligan.completed' }]));
+    const duplicate = applyPatchEnvelopeV2(playing.state, patch(6, [{ op: 'game.phase.set', phase: 'MULLIGAN' }]));
+
+    expect(playing.status).toBe('applied');
+    expect(playing.state.game.gamePhase).toBe('PLAYING');
+    expect(duplicate.status).toBe('ignored');
+    expect(duplicate.state.game.gamePhase).toBe('PLAYING');
+  });
 });
 
 function patch(version: number, ops: PatchEnvelopeV2['ops']): PatchEnvelopeV2 {

@@ -4,6 +4,7 @@ import type {
   ChatReactions,
   GameArrow,
   GameAttachment,
+  GameCompactCardRef,
   GameCardPosition,
   GameDisconnectVoteState,
   GameLogEntry,
@@ -12,6 +13,7 @@ import type {
   GameSpecialEntity,
   GameTurn,
   GameZoneName,
+  MulliganPlayerStatus,
 } from './game.model';
 import type { User } from './user.model';
 
@@ -323,6 +325,74 @@ export type GameplayPatchV2Operation =
       op: 'chat.reaction.set';
       messageId: string;
       reactions: ChatReactions;
+    }
+  | {
+      op: 'mulligan.status.set';
+      playerId: string;
+      status: MulliganPlayerStatus;
+      ready?: boolean;
+      handCount?: number;
+      effectiveMulligans?: number;
+    }
+  | {
+      op: 'mulligan.private_state.set';
+      playerId: string;
+      state: {
+        rule?: string;
+        mulligansTaken: number;
+        effectiveMulligans: number;
+        drawCount: number;
+        bottomSelectionCount: number;
+        finalHandSize: number;
+        needsBottomSelection: boolean;
+        bottomOrderMode: string;
+        needsScryAfterKeep: boolean;
+        canTakeAnotherMulligan: boolean;
+        status: MulliganPlayerStatus;
+        ready: boolean;
+      };
+      hand?: GameCompactCardRef[];
+      scryCard?: GameCompactCardRef;
+    }
+  | {
+      op: 'mulligan.hand.replace_private';
+      playerId: string;
+      hand: GameCompactCardRef[];
+      staticCards?: Record<string, BootstrapStaticCardV2>;
+    }
+  | {
+      op: 'mulligan.hand.count.set';
+      playerId: string;
+      count: number;
+    }
+  | {
+      op: 'mulligan.bottom.required.set';
+      playerId: string;
+      count: number;
+      orderMode?: string;
+    }
+  | {
+      op: 'mulligan.bottom.confirmed';
+      playerId: string;
+      count: number;
+    }
+  | {
+      op: 'mulligan.scry.available.set';
+      playerId: string;
+      available: boolean;
+      card?: GameCompactCardRef;
+    }
+  | {
+      op: 'mulligan.scry.confirmed';
+      playerId: string;
+      destination: 'TOP' | 'BOTTOM';
+    }
+  | {
+      op: 'mulligan.completed';
+    }
+  | {
+      op: 'game.phase.set';
+      phase: string;
     }
   | {
       op: 'zone.counts.set';

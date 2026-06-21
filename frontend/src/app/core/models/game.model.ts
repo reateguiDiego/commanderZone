@@ -115,6 +115,16 @@ export interface GameCardInstance {
   isCommander?: boolean;
 }
 
+export interface GameCompactCardRef {
+  instanceId: string;
+  cardKey?: string | null;
+  cardVersion?: string | null;
+  name?: string | null;
+  hidden?: boolean;
+  tapped?: boolean;
+  zone?: GameZoneName;
+}
+
 export type GameZones = Record<GameZoneName, GameCardInstance[]>;
 export type GameZoneCounts = Record<GameZoneName, number>;
 

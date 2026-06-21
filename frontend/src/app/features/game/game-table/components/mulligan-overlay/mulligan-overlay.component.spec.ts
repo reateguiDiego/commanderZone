@@ -242,6 +242,26 @@ describe('MulliganOverlayComponent', () => {
     expect(keepSpy).toHaveBeenCalledWith(['card-1']);
   });
 
+  it('distinguishes duplicated cards by instanceId when selecting bottom cards', () => {
+    const keepSpy = vi.fn();
+    fixture.componentInstance.keep.subscribe(keepSpy);
+    fixture.componentRef.setInput('hand', [
+      card('copy-a', 'Brainstorm'),
+      card('copy-b', 'Brainstorm'),
+      card('card-3', 'Island'),
+    ]);
+    setMulligan('LONDON', { bottomSelectionCount: 2 });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.detectChanges();
+
+    selectCardWithButton('copy-a');
+    selectCardWithButton('copy-b');
+    fixture.detectChanges();
+    acceptButton().click();
+
+    expect(keepSpy).toHaveBeenCalledWith(['copy-a', 'copy-b']);
+  });
+
   it('mounts and destroys without errors when reduced motion is enabled', () => {
     vi.stubGlobal('matchMedia', matchMediaMock(true));
     setMulligan('GENEROUS', { drawCount: 10, bottomSelectionCount: 3, bottomOrderMode: 'RANDOM_SERVER_SIDE' });

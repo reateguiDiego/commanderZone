@@ -172,10 +172,13 @@ export class GameTableStore implements OnDestroy {
 
     const privateState = this.mulliganState.privateState();
     if (privateState?.playerId === currentPlayerId) {
+      const scryCard = this.mulliganState.privateScryCardFor(currentPlayerId);
+      const hand = this.mulliganState.privateHandFor(currentPlayerId);
+
       return {
         ...privateState.mulligan,
-        handCount: privateState.hand.length,
-        ...(privateState.scryCard ? { scryCard: privateState.scryCard } : {}),
+        handCount: hand?.length ?? privateState.handSize ?? privateState.hand.length,
+        ...(scryCard ? { scryCard } : {}),
       };
     }
 
@@ -185,7 +188,7 @@ export class GameTableStore implements OnDestroy {
     const currentPlayerId = this.currentPlayer()?.id ?? null;
     const privateState = this.mulliganState.privateState();
     if (privateState?.playerId === currentPlayerId) {
-      return privateState.hand;
+      return this.mulliganState.privateHandFor(currentPlayerId) ?? [];
     }
 
     return this.currentPlayer()?.state.zones.hand ?? [];
