@@ -74,7 +74,7 @@ class GamesController extends ApiController
                 $game->id(),
                 'initial_snapshot',
                 $this->elapsedMs($startedAt),
-                $this->bootstrapStageContext($game, $debugObserved),
+                $this->bootstrapStageContext($game, $debugObserved, $projectedSnapshot, $request),
             );
         }
 
@@ -255,11 +255,10 @@ class GamesController extends ApiController
      *     usingLegacyLocalizationFallback: null
      * }
      */
-    private function bootstrapStageContext(Game $game, bool $debugObserved): array
+    private function bootstrapStageContext(Game $game, bool $debugObserved, ?array $projectedSnapshot = null, ?Request $request = null): array
     {
         $context = $this->debugHealthContext($game, $debugObserved);
-
-        return [
+        $stageContext = [
             'viewerCount' => $context['viewerCount'],
             'languageCount' => $context['languageCount'],
             'uniqueCardCount' => $context['uniqueCardCount'],
@@ -267,6 +266,32 @@ class GamesController extends ApiController
             'debugObserved' => $context['debugObserved'],
             'usingLegacyLocalizationFallback' => $context['usingLegacyLocalizationFallback'],
         ];
+
+        if (is_array($projectedSnapshot) && ($projectedSnapshot['gamePhase'] ?? null) === 'MULLIGAN') {
+            $payloadBytes = $this->jsonBytes([
+                'game' => [
+                    ...$game->toArray(),
+                    'snapshot' => $projectedSnapshot,
+                ],
+            ]);
+            $isReconnectBootstrap = $request instanceof Request && str_ends_with($request->getPathInfo(), '/bootstrap');
+            $stageContext = [
+                ...$stageContext,
+                'mulligan.bootstrap_bytes' => $payloadBytes,
+                'mulligan.reconnect_bootstrap_bytes' => $isReconnectBootstrap ? $payloadBytes : 0,
+            ];
+        }
+
+        return $stageContext;
+    }
+
+    private function jsonBytes(mixed $value): int
+    {
+        try {
+            return strlen(json_encode($value, JSON_THROW_ON_ERROR));
+        } catch (\JsonException) {
+            return 0;
+        }
     }
 
     private function normalizedCardLanguage(User $user): ?string

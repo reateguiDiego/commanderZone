@@ -37,10 +37,14 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertSame(1, $private['mulligan']['mulligansTaken']);
         self::assertSame('DECIDING', $private['mulligan']['status']);
         self::assertCount(7, $private['hand']);
+        self::assertSame('player:'.$actor->id(), $private['visibility']);
+        self::assertSame('mulligan.hand.replace_private', $private['ops'][1]['op']);
 
         $public = $this->messageOfKind($messages, 'mulligan.public_state');
+        self::assertSame('public', $public['visibility']);
         self::assertSame(7, $public['players'][0]['handCount']);
         self::assertSame(1, $public['players'][0]['mulligansTaken']);
+        self::assertSame('mulligan.status.set', $public['ops'][1]['op']);
     }
 
     public function testPrivateStateIncludesCompactHandWithoutStaticPayloadAndPayloadMetrics(): void
@@ -60,15 +64,21 @@ class GameWebsocketMulliganServiceTest extends TestCase
 
         $result = $service->handle('mulligan.keep', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-compact');
         $private = $this->messageOfKind($result->messagesForUserId($actor->id()), 'mulligan.private_state');
-        $compactJson = json_encode($private['handCompact'], JSON_THROW_ON_ERROR);
+        $compactJson = json_encode($private['hand'], JSON_THROW_ON_ERROR);
 
-        self::assertSame([['instanceId' => 'hand-1', 'cardKey' => null]], $private['handCompact']);
+        self::assertSame([['instanceId' => 'hand-1', 'cardKey' => null]], $private['hand']);
+        self::assertSame(1, $private['handSize']);
+        self::assertArrayNotHasKey('handCompact', $private);
         self::assertStringNotContainsString('imageUris', $compactJson);
         self::assertStringNotContainsString('oracleText', $compactJson);
         self::assertStringNotContainsString('cardFaces', $compactJson);
         self::assertStringNotContainsString('typeLine', $compactJson);
+        self::assertStringNotContainsString('Heavy Private Card', $compactJson);
         self::assertGreaterThan(0, $result->debugProfile()['mulligan.public_payload_bytes'] ?? 0);
         self::assertGreaterThan(0, $result->debugProfile()['mulligan.private_payload_bytes'] ?? 0);
+        self::assertSame(0.0, $result->debugProfile()['mulligan.private_static_cards_count'] ?? -1.0);
+        self::assertSame(0.0, $result->debugProfile()['mulligan.public_private_leak_detected'] ?? -1.0);
+        self::assertSame(0.0, $result->debugProfile()['mulligan.resync_count'] ?? -1.0);
     }
 
     public function testPrivateStateOnlyGoesToActingPlayer(): void
@@ -303,6 +313,26 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertStringNotContainsString('Secret Spell', $encoded);
         self::assertStringNotContainsString('secret-hand-1', $encoded);
         self::assertStringNotContainsString('Private text', $encoded);
+        self::assertStringNotContainsString('cardKey', $encoded);
+        self::assertStringNotContainsString('avatarImageData', $encoded);
+    }
+
+    public function testPublicStateDoesNotSendAvatarImageDataBlob(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['user']['avatarImageData'] = str_repeat('x', 4096);
+        $game->replaceSnapshot($snapshot);
+        $service = $this->service($game, $actor, expectPersist: true);
+
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-public-avatar');
+        $public = $this->messageOfKind($result->messagesForUserId('spectator-user'), 'mulligan.public_state');
+
+        self::assertArrayNotHasKey('avatarImageData', $public['players'][0]);
+        self::assertStringNotContainsString(str_repeat('x', 64), json_encode($public, JSON_THROW_ON_ERROR));
     }
 
     public function testInitialStateForReconnectedDecidingPlayerIncludesCurrentPrivateHand(): void
@@ -320,8 +350,12 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertSame('DECIDING', $private['mulligan']['status']);
         self::assertSame(2, $private['mulligan']['mulligansTaken']);
         self::assertSame(2, $private['mulligan']['bottomSelectionCount']);
+        self::assertTrue($private['mulligan']['needsBottomSelection']);
+        self::assertSame(2, $private['ops'][2]['count']);
+        self::assertTrue($private['ops'][2]['pending']);
         self::assertSame('hand-1', $private['hand'][0]['instanceId']);
         self::assertSame('hand-7', $private['hand'][6]['instanceId']);
+        self::assertStringNotContainsString('imageUris', json_encode($private, JSON_THROW_ON_ERROR));
     }
 
     public function testInitialStateForReconnectedScryingPlayerKeepsSamePendingScryCard(): void
@@ -334,7 +368,27 @@ class GameWebsocketMulliganServiceTest extends TestCase
 
         self::assertSame('SCRYING', $private['mulligan']['status']);
         self::assertSame('library-1', $private['scryCard']['instanceId']);
+        self::assertSame('mulligan.scry.available.set', $private['ops'][3]['op']);
         self::assertSame('library-1', $game->snapshot()['players'][$actor->id()]['mulligan']['scryCardInstanceId']);
+        self::assertStringNotContainsString('library 1', json_encode($private, JSON_THROW_ON_ERROR));
+    }
+
+    public function testInitialStateForSpectatorDuringScryingDoesNotExposePendingTopCard(): void
+    {
+        [$game, $actor] = $this->scryingVancouverGame();
+        $spectator = new User('spectator-'.uniqid('', true).'@example.test', 'Spectator');
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$spectator->id()] = $this->player($spectator, []);
+        $game->replaceSnapshot($snapshot);
+        $service = $this->service($game, $spectator, expectPersist: false, expectTransaction: false);
+
+        $messages = $service->initialStateMessages($game->id(), $spectator->id());
+        $encoded = json_encode($messages, JSON_THROW_ON_ERROR);
+
+        self::assertSame(['mulligan.public_state'], array_column($messages, 'kind'));
+        self::assertStringNotContainsString('library-1', $encoded);
+        self::assertStringNotContainsString('library 1', $encoded);
+        self::assertStringNotContainsString('scryCard', $encoded);
     }
 
     public function testInitialStateForReconnectedReadyPlayerKeepsReadyStatus(): void

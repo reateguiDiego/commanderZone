@@ -315,8 +315,15 @@ final readonly class GameWebsocketMulliganService
             'kind' => 'mulligan.public_state',
             'gameId' => $gameId,
             'version' => max(1, (int) ($snapshot['version'] ?? 1)),
+            'visibility' => 'public',
             'gamePhase' => $snapshot['gamePhase'] ?? null,
             'players' => [],
+            'ops' => [
+                [
+                    'op' => 'game.phase.set',
+                    'phase' => $snapshot['gamePhase'] ?? null,
+                ],
+            ],
         ];
         if ($messageId !== null) {
             $message['messageId'] = $messageId;
@@ -328,18 +335,34 @@ final readonly class GameWebsocketMulliganService
             }
             $mulligan = is_array($player['mulligan'] ?? null) ? $player['mulligan'] : [];
             $user = is_array($player['user'] ?? null) ? $player['user'] : [];
-            $message['players'][] = [
+            $handCount = count(is_array($player['zones']['hand'] ?? null) ? $player['zones']['hand'] : []);
+            $status = is_string($mulligan['status'] ?? null) ? $mulligan['status'] : 'DECIDING';
+            $ready = ($mulligan['ready'] ?? false) === true || ($mulligan['status'] ?? null) === 'READY';
+            $effectiveMulligans = max(0, (int) ($mulligan['effectiveMulligans'] ?? 0));
+            $playerPayload = [
                 'playerId' => (string) $playerId,
                 'displayName' => $user['displayName'] ?? null,
                 'avatarType' => $user['avatarType'] ?? null,
                 'avatarPreset' => $user['avatarPreset'] ?? null,
-                'avatarImageData' => $user['avatarImageData'] ?? null,
                 'avatarInitialLetter' => $user['avatarInitialLetter'] ?? null,
-                'handCount' => count(is_array($player['zones']['hand'] ?? null) ? $player['zones']['hand'] : []),
+                'handCount' => $handCount,
                 'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
-                'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
-                'status' => is_string($mulligan['status'] ?? null) ? $mulligan['status'] : 'DECIDING',
-                'ready' => ($mulligan['ready'] ?? false) === true || ($mulligan['status'] ?? null) === 'READY',
+                'effectiveMulligans' => $effectiveMulligans,
+                'status' => $status,
+                'ready' => $ready,
+            ];
+            $message['players'][] = $playerPayload;
+            $message['ops'][] = [
+                'op' => 'mulligan.status.set',
+                'playerId' => (string) $playerId,
+                'status' => $status,
+                'ready' => $ready,
+                'effectiveMulligans' => $effectiveMulligans,
+            ];
+            $message['ops'][] = [
+                'op' => 'mulligan.hand.count.set',
+                'playerId' => (string) $playerId,
+                'handCount' => $handCount,
             ];
         }
 
@@ -356,26 +379,55 @@ final readonly class GameWebsocketMulliganService
         $player = is_array($snapshot['players'][$playerId] ?? null) ? $snapshot['players'][$playerId] : [];
         $mulligan = is_array($player['mulligan'] ?? null) ? $player['mulligan'] : [];
         $hand = is_array($player['zones']['hand'] ?? null) ? array_values($player['zones']['hand']) : [];
+        $compactHand = $this->compactHand($hand);
+        $status = is_string($mulligan['status'] ?? null) ? $mulligan['status'] : 'DECIDING';
+        $bottomSelectionCount = max(0, (int) ($mulligan['bottomSelectionCount'] ?? 0));
+        $needsBottomSelection = ($mulligan['needsBottomSelection'] ?? false) === true;
+        $needsScryAfterKeep = ($mulligan['needsScryAfterKeep'] ?? false) === true;
         $message = [
             'kind' => 'mulligan.private_state',
             'gameId' => $gameId,
             'version' => max(1, (int) ($snapshot['version'] ?? 1)),
+            'visibility' => sprintf('player:%s', $playerId),
             'playerId' => $playerId,
-            'hand' => $hand,
-            'handCompact' => $this->compactHand($hand),
+            'hand' => $compactHand,
+            'handSize' => count($compactHand),
             'mulligan' => [
                 'rule' => $mulligan['rule'] ?? null,
                 'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
                 'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
                 'drawCount' => max(0, (int) ($mulligan['drawCount'] ?? 0)),
-                'bottomSelectionCount' => max(0, (int) ($mulligan['bottomSelectionCount'] ?? 0)),
+                'bottomSelectionCount' => $bottomSelectionCount,
                 'finalHandSize' => max(0, (int) ($mulligan['finalHandSize'] ?? 0)),
-                'needsBottomSelection' => ($mulligan['needsBottomSelection'] ?? false) === true,
+                'needsBottomSelection' => $needsBottomSelection,
                 'bottomOrderMode' => is_string($mulligan['bottomOrderMode'] ?? null) ? $mulligan['bottomOrderMode'] : 'NONE',
-                'needsScryAfterKeep' => ($mulligan['needsScryAfterKeep'] ?? false) === true,
+                'needsScryAfterKeep' => $needsScryAfterKeep,
                 'canTakeAnotherMulligan' => ($mulligan['canTakeAnotherMulligan'] ?? false) === true,
-                'status' => is_string($mulligan['status'] ?? null) ? $mulligan['status'] : 'DECIDING',
+                'status' => $status,
                 'ready' => ($mulligan['ready'] ?? false) === true || ($mulligan['status'] ?? null) === 'READY',
+            ],
+            'ops' => [
+                [
+                    'op' => 'mulligan.private_state.set',
+                    'playerId' => $playerId,
+                    'status' => $status,
+                    'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
+                    'handSize' => count($compactHand),
+                    'cardsToBottom' => $bottomSelectionCount,
+                    'bottomPending' => $needsBottomSelection,
+                    'scryPending' => $status === 'SCRYING' || $needsScryAfterKeep,
+                ],
+                [
+                    'op' => 'mulligan.hand.replace_private',
+                    'playerId' => $playerId,
+                    'hand' => $compactHand,
+                ],
+                [
+                    'op' => 'mulligan.bottom.required.set',
+                    'playerId' => $playerId,
+                    'count' => $bottomSelectionCount,
+                    'pending' => $needsBottomSelection,
+                ],
             ],
         ];
         if ($messageId !== null) {
@@ -385,8 +437,12 @@ final readonly class GameWebsocketMulliganService
         $scryCardInstanceId = is_string($mulligan['scryCardInstanceId'] ?? null) ? $mulligan['scryCardInstanceId'] : '';
         $topCard = (new GameLibraryOps())->peekTop($player, 1)[0] ?? null;
         if (($mulligan['status'] ?? null) === 'SCRYING' && $scryCardInstanceId !== '' && is_array($topCard) && ($topCard['instanceId'] ?? null) === $scryCardInstanceId) {
-            $message['scryCard'] = $topCard;
-            $message['scryCardCompact'] = $this->compactCard($topCard);
+            $message['scryCard'] = $this->compactCard($topCard);
+            $message['ops'][] = [
+                'op' => 'mulligan.scry.available.set',
+                'playerId' => $playerId,
+                'card' => $message['scryCard'],
+            ];
         }
 
         return $message;
@@ -436,7 +492,29 @@ final readonly class GameWebsocketMulliganService
         return [
             'mulligan.public_payload_bytes' => (float) $inspector->patchBytesForMessages($publicMessages),
             'mulligan.private_payload_bytes' => (float) $inspector->patchBytesForMessages($actorMessages),
+            'mulligan.private_static_cards_count' => 0.0,
+            'mulligan.public_private_leak_detected' => $this->publicPrivateLeakDetected($publicMessages) ? 1.0 : 0.0,
+            'mulligan.resync_count' => 0.0,
         ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $publicMessages
+     */
+    private function publicPrivateLeakDetected(array $publicMessages): bool
+    {
+        $encoded = json_encode($publicMessages);
+        if (!is_string($encoded)) {
+            return false;
+        }
+
+        foreach (['cardKey', 'imageUris', 'oracleText', 'cardFaces', 'avatarImageData'] as $privateField) {
+            if (str_contains($encoded, $privateField)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -450,7 +528,18 @@ final readonly class GameWebsocketMulliganService
             'kind' => 'mulligan.completed',
             'gameId' => $gameId,
             'version' => max(1, (int) ($snapshot['version'] ?? 1)),
+            'visibility' => 'public',
             'event' => $event->toArray(),
+            'ops' => [
+                [
+                    'op' => 'mulligan.completed',
+                    'event' => $event->toArray(),
+                ],
+                [
+                    'op' => 'game.phase.set',
+                    'phase' => $snapshot['gamePhase'] ?? null,
+                ],
+            ],
         ];
         if ($messageId !== null) {
             $message['messageId'] = $messageId;

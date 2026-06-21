@@ -188,6 +188,120 @@ class GamesControllerV2Test extends TestCase
         self::assertArrayHasKey('snapshot', $payload['game']);
     }
 
+    public function testLegacyBootstrapDuringMulliganDoesNotExposeOpponentPrivateCards(): void
+    {
+        $owner = new User('mulligan-owner@example.test', 'Mulligan Owner');
+        $opponent = new User('mulligan-opponent@example.test', 'Mulligan Opponent');
+        $room = new Room($owner);
+        $room->addPlayer(new RoomPlayer($room, $owner));
+        $room->addPlayer(new RoomPlayer($room, $opponent));
+        $game = new Game($room, [
+            'version' => 3,
+            'ownerId' => $owner->id(),
+            'gamePhase' => 'MULLIGAN',
+            'mulligan' => ['rule' => 'LONDON', 'firstMulliganFree' => true],
+            'players' => [
+                $owner->id() => [
+                    'user' => $owner->toArray(),
+                    'life' => 40,
+                    'zones' => [
+                        'library' => [[
+                            'instanceId' => 'owner-library-top',
+                            'ownerId' => $owner->id(),
+                            'controllerId' => $owner->id(),
+                            'zone' => 'library',
+                            'name' => 'Private Library Top',
+                            'cardKey' => 'private-library@v1',
+                            'oracleText' => 'Private library oracle',
+                            'imageUris' => ['normal' => 'https://cards.example/private-library.jpg'],
+                        ]],
+                        'hand' => [[
+                            'instanceId' => 'owner-hand-1',
+                            'ownerId' => $owner->id(),
+                            'controllerId' => $owner->id(),
+                            'zone' => 'hand',
+                            'name' => 'Private Hand Card',
+                            'cardKey' => 'private-hand@v1',
+                            'oracleText' => 'Private hand oracle',
+                            'cardFaces' => [['name' => 'Private Face']],
+                            'imageUris' => ['normal' => 'https://cards.example/private-hand.jpg'],
+                        ]],
+                        'battlefield' => [],
+                        'graveyard' => [],
+                        'exile' => [],
+                        'command' => [],
+                    ],
+                    'mulligan' => [
+                        'mulligansTaken' => 1,
+                        'effectiveMulligans' => 1,
+                        'bottomSelectionCount' => 1,
+                        'needsBottomSelection' => true,
+                        'bottomOrderMode' => 'CLIENT',
+                        'status' => 'DECIDING',
+                        'ready' => false,
+                    ],
+                    'commanderDamage' => [],
+                    'counters' => [],
+                ],
+                $opponent->id() => [
+                    'user' => $opponent->toArray(),
+                    'life' => 40,
+                    'zones' => [
+                        'library' => [],
+                        'hand' => [],
+                        'battlefield' => [],
+                        'graveyard' => [],
+                        'exile' => [],
+                        'command' => [],
+                    ],
+                    'mulligan' => [
+                        'mulligansTaken' => 0,
+                        'effectiveMulligans' => 0,
+                        'status' => 'DECIDING',
+                        'ready' => false,
+                    ],
+                    'commanderDamage' => [],
+                    'counters' => [],
+                ],
+            ],
+            'turn' => ['activePlayerId' => $owner->id(), 'phase' => 'main', 'number' => 1],
+            'stack' => [],
+            'arrows' => [],
+            'attachments' => [],
+            'chat' => [],
+            'eventLog' => [],
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]);
+
+        $controller = new GamesController();
+        $controller->setContainer($this->controllerContainer());
+        $response = $controller->snapshot(
+            $game->id(),
+            $opponent,
+            $this->entityManager($game),
+            new GameProjectionService(new GameCommandHandler()),
+            $this->debugHealth(),
+            Request::create('/games/'.$game->id().'/bootstrap', 'GET'),
+        );
+        $payload = json_decode($response->getContent() ?: '[]', true, flags: JSON_THROW_ON_ERROR);
+        $ownerProjection = $payload['game']['snapshot']['players'][$owner->id()];
+        $encoded = json_encode($ownerProjection, JSON_THROW_ON_ERROR);
+
+        self::assertSame(1, $ownerProjection['zoneCounts']['hand']);
+        self::assertSame(1, $ownerProjection['zoneCounts']['library']);
+        self::assertSame('Hidden card', $ownerProjection['zones']['hand'][0]['name']);
+        self::assertStringNotContainsString('owner-hand-1', $encoded);
+        self::assertStringNotContainsString('owner-library-top', $encoded);
+        self::assertStringNotContainsString('Private Hand Card', $encoded);
+        self::assertStringNotContainsString('Private Library Top', $encoded);
+        self::assertStringNotContainsString('private-hand@v1', $encoded);
+        self::assertStringNotContainsString('private-library@v1', $encoded);
+        self::assertStringNotContainsString('Private hand oracle', $encoded);
+        self::assertStringNotContainsString('Private library oracle', $encoded);
+        self::assertStringNotContainsString('cardFaces', $encoded);
+        self::assertStringNotContainsString('imageUris', $encoded);
+    }
+
     /**
      * @return array{Game, User}
      */

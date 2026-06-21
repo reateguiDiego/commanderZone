@@ -163,6 +163,60 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame('Private Scry', $ownerProjection['mulligan']['scryCard']['name']);
     }
 
+    public function testMulliganProjectionDoesNotExposeOpponentHandLibraryBottomOrScryPayload(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($owner->id(), $opponent->id());
+        $snapshot['gamePhase'] = 'MULLIGAN';
+        $snapshot['mulligan'] = ['rule' => 'LONDON', 'firstMulliganFree' => true];
+        $snapshot['players'][$owner->id()]['zones']['hand'] = [[
+            ...$this->card('private-hand-1', 'Private Hand Card'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'hand',
+            'cardKey' => 'private-card@v1',
+            'oracleText' => 'Private oracle text',
+            'typeLine' => 'Instant',
+            'cardFaces' => [['name' => 'Private Face']],
+        ]];
+        $snapshot['players'][$owner->id()]['zones']['library'] = [[
+            ...$this->card('private-library-top', 'Private Library Top'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'library',
+            'cardKey' => 'private-library@v1',
+            'oracleText' => 'Private top text',
+        ]];
+        $snapshot['players'][$owner->id()]['mulligan'] = [
+            'rule' => 'LONDON',
+            'mulligansTaken' => 1,
+            'effectiveMulligans' => 1,
+            'bottomSelectionCount' => 1,
+            'needsBottomSelection' => true,
+            'bottomOrderMode' => 'CLIENT',
+            'status' => 'DECIDING',
+            'ready' => false,
+            'scryCardInstanceId' => 'private-library-top',
+        ];
+
+        $projected = (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($snapshot, $opponent);
+        $ownerProjection = $projected['players'][$owner->id()];
+        $encoded = json_encode($ownerProjection, JSON_THROW_ON_ERROR);
+
+        self::assertSame(1, $ownerProjection['zoneCounts']['hand']);
+        self::assertSame(1, $ownerProjection['zoneCounts']['library']);
+        self::assertSame('Hidden card', $ownerProjection['zones']['hand'][0]['name']);
+        self::assertStringNotContainsString('private-hand-1', $encoded);
+        self::assertStringNotContainsString('Private Hand Card', $encoded);
+        self::assertStringNotContainsString('private-card@v1', $encoded);
+        self::assertStringNotContainsString('Private oracle text', $encoded);
+        self::assertStringNotContainsString('cardFaces', $encoded);
+        self::assertArrayNotHasKey('scryCard', $ownerProjection['mulligan']);
+        self::assertSame(1, $ownerProjection['mulligan']['handCount']);
+        self::assertSame('DECIDING', $ownerProjection['mulligan']['status']);
+    }
+
     public function testOpponentLibraryZoneProjectionShowsFullLibraryOnlyWhenCardsAreRevealedToViewer(): void
     {
         $owner = new User('owner@example.test', 'Owner');
