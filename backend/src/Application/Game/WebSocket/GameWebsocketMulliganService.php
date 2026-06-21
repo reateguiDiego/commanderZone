@@ -3,6 +3,8 @@
 namespace App\Application\Game\WebSocket;
 
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameLibraryOps;
+use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Room\RoomPlayer;
@@ -27,6 +29,7 @@ final readonly class GameWebsocketMulliganService
     public function __construct(
         private GameCommandHandler $commands,
         private ManagerRegistry $managerRegistry,
+        private ?GameplayMetricsInspector $metricsInspector = null,
     ) {
     }
 
@@ -279,7 +282,11 @@ final readonly class GameWebsocketMulliganService
             $this->privateState($game->id(), $snapshot, $actor->id(), $messageId),
         ];
 
-        return GameWebsocketCommandResult::forViewerMessageLists($messagesByUserId, $publicMessages);
+        return GameWebsocketCommandResult::forViewerMessageLists(
+            $messagesByUserId,
+            $publicMessages,
+            $this->mulliganDebugProfile($publicMessages, $messagesByUserId[$actor->id()] ?? $publicMessages),
+        );
     }
 
     /**
@@ -355,6 +362,7 @@ final readonly class GameWebsocketMulliganService
             'version' => max(1, (int) ($snapshot['version'] ?? 1)),
             'playerId' => $playerId,
             'hand' => $hand,
+            'handCompact' => $this->compactHand($hand),
             'mulligan' => [
                 'rule' => $mulligan['rule'] ?? null,
                 'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
@@ -375,12 +383,60 @@ final readonly class GameWebsocketMulliganService
         }
 
         $scryCardInstanceId = is_string($mulligan['scryCardInstanceId'] ?? null) ? $mulligan['scryCardInstanceId'] : '';
-        $topCard = (new \App\Application\Game\GameLibraryOps())->topCard($player);
+        $topCard = (new GameLibraryOps())->peekTop($player, 1)[0] ?? null;
         if (($mulligan['status'] ?? null) === 'SCRYING' && $scryCardInstanceId !== '' && is_array($topCard) && ($topCard['instanceId'] ?? null) === $scryCardInstanceId) {
             $message['scryCard'] = $topCard;
+            $message['scryCardCompact'] = $this->compactCard($topCard);
         }
 
         return $message;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $hand
+     *
+     * @return list<array{instanceId:string,cardKey:?string}>
+     */
+    private function compactHand(array $hand): array
+    {
+        $compact = [];
+        foreach ($hand as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+            $compact[] = $this->compactCard($card);
+        }
+
+        return $compact;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array{instanceId:string,cardKey:?string}
+     */
+    private function compactCard(array $card): array
+    {
+        return [
+            'instanceId' => (string) ($card['instanceId'] ?? ''),
+            'cardKey' => is_string($card['cardKey'] ?? null) ? $card['cardKey'] : null,
+        ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $publicMessages
+     * @param list<array<string,mixed>> $actorMessages
+     *
+     * @return array<string,float>
+     */
+    private function mulliganDebugProfile(array $publicMessages, array $actorMessages): array
+    {
+        $inspector = $this->metricsInspector ?? new GameplayMetricsInspector();
+
+        return [
+            'mulligan.public_payload_bytes' => (float) $inspector->patchBytesForMessages($publicMessages),
+            'mulligan.private_payload_bytes' => (float) $inspector->patchBytesForMessages($actorMessages),
+        ];
     }
 
     /**

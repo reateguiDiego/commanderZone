@@ -9,6 +9,7 @@ use App\Application\Game\GameMulliganRules;
 use App\Application\Game\GameRandomizer;
 use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\User\User;
@@ -3515,6 +3516,51 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('hand-2', $player['zones']['hand'][0]['instanceId']);
     }
 
+    public function testMulliganTakeRecordsTransitionMetrics(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ])));
+
+        $handler->apply($game, 'mulligan.take', [], $actor);
+        $metrics = $handler->consumeLastCommandMetrics();
+
+        self::assertSame(1, $metrics['mulligan.normalize_snapshot_count'] ?? null);
+        self::assertSame(1, $metrics['mulligan.snapshot_write_count'] ?? null);
+        self::assertArrayHasKey('mulligan.take_ms', $metrics);
+        self::assertArrayHasKey('mulligan.draw_hand_ms', $metrics);
+        self::assertSame(7, $metrics['mulligan.hand_size'] ?? null);
+        self::assertSame(7, $metrics['mulligan.library_size'] ?? null);
+        self::assertSame(0, $metrics['mulligan.full_scan_count'] ?? null);
+    }
+
+    public function testOptimizedMulliganRouteDoesNotNormalizeSnapshot(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $flags = new GameplayV2Flags(
+            commandEnabled: true,
+            eventEnabled: true,
+            enabled: true,
+            commandsAllowlist: 'mulligan.take',
+        );
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ])));
+
+        $handler->apply($game, 'mulligan.take', [], $actor);
+        $metrics = $handler->consumeLastCommandMetrics();
+
+        self::assertSame(1, $metrics['mulligan.optimized_route'] ?? null);
+        self::assertSame(0, $metrics['mulligan.normalize_snapshot_count'] ?? null);
+        self::assertSame(0, $metrics['mulligan.snapshot_write_count'] ?? null);
+        self::assertSame(0, $metrics['mulligan.full_scan_count'] ?? null);
+    }
+
     public function testNormalGameplayCommandsAreRejectedDuringMulligan(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -3566,6 +3612,28 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(['library-1', 'hand-2', 'hand-1'], $libraryIds);
         self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
         self::assertSame(['bottomCardCount' => 2], $event->toArray()['payload']);
+    }
+
+    public function testLondonBottomsSixCardsInClientOrder(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_LONDON, false, 6));
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['hand-6', 'hand-5', 'hand-4', 'hand-3', 'hand-2', 'hand-1'],
+        ], $actor);
+
+        self::assertSame(
+            ['library-1', 'hand-6', 'hand-5', 'hand-4', 'hand-3', 'hand-2', 'hand-1'],
+            $this->libraryIds($game->snapshot(), $actor->id()),
+        );
+        self::assertSame(['hand-7'], array_map(
+            static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+            $game->snapshot()['players'][$actor->id()]['zones']['hand'],
+        ));
     }
 
     public function testGenerousRequiresThreeBottomCardsAtStart(): void

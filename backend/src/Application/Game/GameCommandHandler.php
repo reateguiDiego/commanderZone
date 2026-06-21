@@ -149,6 +149,10 @@ class GameCommandHandler
      * @var list<array<string,mixed>>
      */
     private array $pendingStreamLogEntries = [];
+    /**
+     * @var array<string,int|float>
+     */
+    private array $mulliganMetrics = [];
 
     public function __construct(
         private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null,
@@ -218,6 +222,7 @@ class GameCommandHandler
         $this->lastShadowMetrics = [];
         $this->lastDirectPatchPayload = null;
         $this->pendingStreamLogEntries = [];
+        $this->mulliganMetrics = [];
         $this->fullScanCount = 0;
         if ($this->shouldUseV2Command($type)) {
             $event = $this->applyV2($game, $type, $payload, $actor, $clientActionId);
@@ -225,12 +230,19 @@ class GameCommandHandler
                 return $event;
             }
         }
+        if ($this->shouldUseOptimizedMulliganCommand($type)) {
+            return $this->applyOptimizedMulligan($game, $type, $payload, $actor, $clientActionId);
+        }
 
         $snapshotBefore = $game->snapshot();
         $snapshotBytesBefore = $this->metricsInspector->jsonBytes($snapshotBefore);
         $normalizeStartedAt = microtime(true);
         $snapshot = $this->normalizeSnapshot($snapshotBefore);
         $normalizeMs = $this->elapsedMs($normalizeStartedAt);
+        if (in_array($type, self::MULLIGAN_COMMANDS, true)) {
+            // TODO(perf): replace this legacy mulligan path with a V2 route that does not normalize the whole snapshot.
+            $this->mulliganMetrics['mulligan.normalize_snapshot_count'] = 1;
+        }
         $applyStartedAt = microtime(true);
 
         try {
@@ -313,6 +325,9 @@ class GameCommandHandler
             $this->commit($snapshot, $type, $log, $actor);
             $persistedSnapshot = $this->snapshotForPersistence($game, $snapshotBefore, $snapshot);
             $game->replaceSnapshot($persistedSnapshot);
+            if (in_array($type, self::MULLIGAN_COMMANDS, true)) {
+                $this->mulliganMetrics['mulligan.snapshot_write_count'] = 1;
+            }
             $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
             $game->addEvent($event);
             $this->lastShadowMetrics = $this->shadowCompareLegacyCommand($snapshotBefore, $snapshot, $type, $payload, $actor);
@@ -2133,6 +2148,7 @@ class GameCommandHandler
 
     private function applyMulliganTake(array &$snapshot, User $actor): string
     {
+        $startedAt = microtime(true);
         $playerId = $this->mulliganActorPlayerId($snapshot, $actor);
         $this->assertMulliganStatus($snapshot, $playerId, self::MULLIGAN_STATUS_DECIDING);
         $currentState = $this->currentMulliganState($snapshot, $playerId);
@@ -2142,15 +2158,20 @@ class GameCommandHandler
 
         $this->returnHandToLibraryAndShuffle($snapshot, $playerId);
         $mulligansTaken = ((int) ($currentState['mulligansTaken'] ?? 0)) + 1;
+        $ruleEvalStartedAt = microtime(true);
         $this->refreshPlayerMulliganState($snapshot, $playerId, $mulligansTaken, self::MULLIGAN_STATUS_DECIDING);
+        $this->recordMulliganMetric('mulligan.rule_eval_ms', $this->elapsedMs($ruleEvalStartedAt));
         $nextState = $this->currentMulliganState($snapshot, $playerId);
         $this->drawMulliganHand($snapshot, $playerId, (int) $nextState['drawCount']);
+        $this->recordMulliganMetric('mulligan.take_ms', $this->elapsedMs($startedAt));
+        $this->recordMulliganSizes($snapshot, $playerId);
 
         return 'ha hecho mulligan.';
     }
 
     private function applyMulliganKeep(array &$snapshot, array $payload, User $actor): string
     {
+        $startedAt = microtime(true);
         $playerId = $this->mulliganActorPlayerId($snapshot, $actor);
         $this->assertMulliganStatus($snapshot, $playerId, self::MULLIGAN_STATUS_DECIDING);
         $state = $this->currentMulliganState($snapshot, $playerId);
@@ -2169,30 +2190,32 @@ class GameCommandHandler
         }
         if ($bottomSelectionCount > 0) {
             $this->assertCardsAreInHand($snapshot, $playerId, $bottomCardInstanceIds);
-            $selectedCards = [];
-            foreach ($bottomCardInstanceIds as $instanceId) {
-                $selectedCards[] = $this->takeCard($snapshot, $playerId, 'hand', $instanceId);
-            }
+            $bottomStartedAt = microtime(true);
+            $selectedCards = $this->takeCardsFromHandByInstanceIds($snapshot, $playerId, $bottomCardInstanceIds);
             if ($rule === Room::MULLIGAN_GENEROUS) {
                 $selectedCards = $this->randomizer->shuffle($selectedCards);
             }
-            foreach ($selectedCards as $card) {
-                $this->putCard($snapshot, $playerId, 'library', $card, 'bottom');
-            }
+            $this->putManyCardsOnLibraryBottom($snapshot, $playerId, $selectedCards);
+            $this->recordMulliganMetric('mulligan.bottom_cards_ms', $this->elapsedMs($bottomStartedAt));
         }
         $this->pendingEventPayload = [
             'bottomCardCount' => count($bottomCardInstanceIds),
         ];
 
         if (($state['needsScryAfterKeep'] ?? false) === true) {
-            $topCard = $this->libraryOps->topCard($snapshot['players'][$playerId]);
+            $topCard = $this->libraryOps->peekTop($snapshot['players'][$playerId], 1)[0] ?? null;
             if (!is_array($topCard)) {
+                $ruleEvalStartedAt = microtime(true);
                 $this->refreshPlayerMulliganState($snapshot, $playerId, (int) $state['mulligansTaken'], self::MULLIGAN_STATUS_READY);
+                $this->recordMulliganMetric('mulligan.rule_eval_ms', $this->elapsedMs($ruleEvalStartedAt));
+                $this->recordMulliganMetric('mulligan.keep_ms', $this->elapsedMs($startedAt));
+                $this->recordMulliganSizes($snapshot, $playerId);
 
                 return $this->advanceGamePhaseIfMulliganReady($snapshot)
                     ? 'Mulligan phase completed.'
                     : 'ha hecho keep.';
             }
+            $ruleEvalStartedAt = microtime(true);
             $this->refreshPlayerMulliganState(
                 $snapshot,
                 $playerId,
@@ -2200,11 +2223,18 @@ class GameCommandHandler
                 self::MULLIGAN_STATUS_SCRYING,
                 (string) ($topCard['instanceId'] ?? ''),
             );
+            $this->recordMulliganMetric('mulligan.rule_eval_ms', $this->elapsedMs($ruleEvalStartedAt));
+            $this->recordMulliganMetric('mulligan.keep_ms', $this->elapsedMs($startedAt));
+            $this->recordMulliganSizes($snapshot, $playerId);
 
             return 'ha hecho keep y debe hacer scry 1.';
         }
 
+        $ruleEvalStartedAt = microtime(true);
         $this->refreshPlayerMulliganState($snapshot, $playerId, (int) $state['mulligansTaken'], self::MULLIGAN_STATUS_READY);
+        $this->recordMulliganMetric('mulligan.rule_eval_ms', $this->elapsedMs($ruleEvalStartedAt));
+        $this->recordMulliganMetric('mulligan.keep_ms', $this->elapsedMs($startedAt));
+        $this->recordMulliganSizes($snapshot, $playerId);
 
         return $this->advanceGamePhaseIfMulliganReady($snapshot)
             ? 'Mulligan phase completed.'
@@ -2213,6 +2243,7 @@ class GameCommandHandler
 
     private function applyMulliganScryConfirm(array &$snapshot, array $payload, User $actor): string
     {
+        $startedAt = microtime(true);
         $playerId = $this->mulliganActorPlayerId($snapshot, $actor);
         $this->assertMulliganStatus($snapshot, $playerId, self::MULLIGAN_STATUS_SCRYING);
         $state = $this->currentMulliganState($snapshot, $playerId);
@@ -2228,16 +2259,22 @@ class GameCommandHandler
         if ($scryCardInstanceId === '') {
             throw new \InvalidArgumentException('No scry card is pending.');
         }
-        $topCard = $this->libraryOps->topCard($snapshot['players'][$playerId]);
+        $topCard = $this->libraryOps->peekTop($snapshot['players'][$playerId], 1)[0] ?? null;
         if (!is_array($topCard) || (string) ($topCard['instanceId'] ?? '') !== $scryCardInstanceId) {
             throw new \InvalidArgumentException('Pending scry card is not on top of the library.');
         }
         if ($destination === 'BOTTOM') {
-            $card = $this->takeCard($snapshot, $playerId, 'library', $scryCardInstanceId);
-            $this->putCard($snapshot, $playerId, 'library', $card, 'bottom');
+            $card = $this->takeTopLibraryCards($snapshot, $playerId, 1)[0] ?? null;
+            if (is_array($card)) {
+                $this->putManyCardsOnLibraryBottom($snapshot, $playerId, [$card]);
+            }
         }
 
+        $ruleEvalStartedAt = microtime(true);
         $this->refreshPlayerMulliganState($snapshot, $playerId, (int) $state['mulligansTaken'], self::MULLIGAN_STATUS_READY);
+        $this->recordMulliganMetric('mulligan.rule_eval_ms', $this->elapsedMs($ruleEvalStartedAt));
+        $this->recordMulliganMetric('mulligan.scry_confirm_ms', $this->elapsedMs($startedAt));
+        $this->recordMulliganSizes($snapshot, $playerId);
 
         return $this->advanceGamePhaseIfMulliganReady($snapshot)
             ? 'Mulligan phase completed.'
@@ -3005,30 +3042,143 @@ class GameCommandHandler
 
     private function returnHandToLibraryAndShuffle(array &$snapshot, string $playerId): void
     {
-        $hand = array_values($snapshot['players'][$playerId]['zones']['hand'] ?? []);
+        $hand = is_array($snapshot['players'][$playerId]['zones']['hand'] ?? null)
+            ? $snapshot['players'][$playerId]['zones']['hand']
+            : [];
         $snapshot['players'][$playerId]['zones']['hand'] = [];
-        $this->reindexZoneLocations($snapshot, $playerId, 'hand');
+        $this->clearLocationEntriesForCards($snapshot, $hand);
+
+        $preparedCards = [];
         foreach ($hand as $card) {
-            if (is_array($card)) {
-                $this->putCard($snapshot, $playerId, 'library', $card, 'bottom');
+            if (!is_array($card)) {
+                continue;
             }
+            $prepared = $this->prepareCardForPlacement($playerId, 'library', $card, 'bottom');
+            if (is_array($prepared)) {
+                $preparedCards[] = $prepared;
+            }
+        }
+        if ($preparedCards !== []) {
+            $this->libraryOps->putManyOnBottom($snapshot['players'][$playerId], $preparedCards);
         }
         $this->libraryOps->shuffle(
             $snapshot['players'][$playerId],
             fn (array $cards): array => $this->randomizer->shuffle($cards),
         );
-        $this->reindexZoneLocations($snapshot, $playerId, 'library');
+        $this->reindexMulliganZoneLocations($snapshot, $playerId, 'hand');
+        $this->reindexMulliganZoneLocations($snapshot, $playerId, 'library');
     }
 
     private function drawMulliganHand(array &$snapshot, string $playerId, int $drawCount): void
     {
-        for ($index = 0; $index < $drawCount; ++$index) {
-            $card = $this->takeTopLibraryCard($snapshot, $playerId);
-            if (!is_array($card)) {
-                return;
-            }
-            $this->putCard($snapshot, $playerId, 'hand', $card);
+        $startedAt = microtime(true);
+        $cards = $this->takeTopLibraryCards($snapshot, $playerId, $drawCount);
+        $this->appendCardsToHand($snapshot, $playerId, $cards);
+        $this->recordMulliganMetric('mulligan.draw_hand_ms', $this->elapsedMs($startedAt));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     */
+    private function appendCardsToHand(array &$snapshot, string $playerId, array $cards): void
+    {
+        if ($cards === []) {
+            return;
         }
+
+        $startIndex = count(is_array($snapshot['players'][$playerId]['zones']['hand'] ?? null)
+            ? $snapshot['players'][$playerId]['zones']['hand']
+            : []);
+        foreach ($cards as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+            $prepared = $this->prepareCardForPlacement($playerId, 'hand', $card);
+            if (!is_array($prepared)) {
+                continue;
+            }
+            $snapshot['players'][$playerId]['zones']['hand'][] = $prepared;
+        }
+        $this->reindexMulliganZoneLocations($snapshot, $playerId, 'hand', $startIndex);
+    }
+
+    /**
+     * @param list<string> $instanceIds
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function takeCardsFromHandByInstanceIds(array &$snapshot, string $playerId, array $instanceIds): array
+    {
+        if ($instanceIds === []) {
+            return [];
+        }
+
+        $locationsById = [];
+        foreach ($instanceIds as $instanceId) {
+            $location = $this->assertLocation($snapshot, $instanceId, 'hand');
+            if ($location['playerId'] !== $playerId) {
+                throw new \InvalidArgumentException('Selected bottom card is not in hand.');
+            }
+            $locationsById[$instanceId] = $location;
+        }
+
+        $hand = is_array($snapshot['players'][$playerId]['zones']['hand'] ?? null)
+            ? $snapshot['players'][$playerId]['zones']['hand']
+            : [];
+        $requested = array_fill_keys($instanceIds, true);
+        $selectedById = [];
+        $remaining = [];
+        foreach ($hand as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            if ($instanceId !== '' && isset($requested[$instanceId])) {
+                $selectedById[$instanceId] = $card;
+                unset($snapshot['loc'][$instanceId]);
+                continue;
+            }
+            $remaining[] = $card;
+        }
+
+        if (count($selectedById) !== count($instanceIds)) {
+            throw new \InvalidArgumentException('Selected bottom card is not in hand.');
+        }
+
+        $snapshot['players'][$playerId]['zones']['hand'] = $remaining;
+        $this->reindexMulliganZoneLocations($snapshot, $playerId, 'hand', min(array_column($locationsById, 'index') ?: [0]));
+
+        return array_values(array_map(
+            static fn (string $instanceId): array => $selectedById[$instanceId],
+            $instanceIds,
+        ));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     */
+    private function putManyCardsOnLibraryBottom(array &$snapshot, string $playerId, array $cards): void
+    {
+        if ($cards === []) {
+            return;
+        }
+
+        $preparedCards = [];
+        foreach ($cards as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+            $prepared = $this->prepareCardForPlacement($playerId, 'library', $card, 'bottom');
+            if (is_array($prepared)) {
+                $preparedCards[] = $prepared;
+            }
+        }
+        if ($preparedCards === []) {
+            return;
+        }
+
+        $this->libraryOps->putManyOnBottom($snapshot['players'][$playerId], $preparedCards);
+        $this->reindexMulliganZoneLocations($snapshot, $playerId, 'library');
     }
 
     /**
@@ -4182,7 +4332,35 @@ class GameCommandHandler
             'number_of_players' => $this->metricsInspector->countPlayers($snapshot),
             'number_of_instances' => $this->metricsInspector->countInstances($snapshot),
             'full_scan_count' => $this->fullScanCount,
-        ] + $this->lastShadowMetrics;
+        ] + $this->mulliganMetrics + $this->lastShadowMetrics;
+    }
+
+    private function recordMulliganMetric(string $key, int|float $value): void
+    {
+        $this->mulliganMetrics[$key] = is_float($value) ? round(max(0, $value), 2) : max(0, $value);
+    }
+
+    private function incrementMulliganMetric(string $key, int $delta = 1): void
+    {
+        $this->mulliganMetrics[$key] = max(0, (int) ($this->mulliganMetrics[$key] ?? 0) + $delta);
+    }
+
+    private function recordMulliganSizes(array $snapshot, string $playerId): void
+    {
+        $player = is_array($snapshot['players'][$playerId] ?? null) ? $snapshot['players'][$playerId] : [];
+        $hand = is_array($player['zones']['hand'] ?? null) ? $player['zones']['hand'] : [];
+        $library = is_array($player['zones']['library'] ?? null) ? $player['zones']['library'] : [];
+        $this->recordMulliganMetric('mulligan.hand_size', count($hand));
+        $this->recordMulliganMetric('mulligan.library_size', count($library));
+        $this->recordMulliganMetric('mulligan.full_scan_count', $this->fullScanCount);
+    }
+
+    private function reindexMulliganZoneLocations(array &$snapshot, string $playerId, string $zone, int $startIndex = 0): void
+    {
+        if ($zone === 'library') {
+            $this->incrementMulliganMetric('mulligan.library_reindex_count');
+        }
+        $this->reindexZoneLocations($snapshot, $playerId, $zone, $startIndex);
     }
 
     private function ensureLocationIndex(array &$snapshot): void
@@ -5723,6 +5901,74 @@ class GameCommandHandler
         return $this->flagsV2->commandEnabled()
             && $this->flagsV2->commandAllowed($type)
             && $this->commandDispatcherV2->supports($type);
+    }
+
+    private function shouldUseOptimizedMulliganCommand(string $type): bool
+    {
+        return in_array($type, self::MULLIGAN_COMMANDS, true)
+            && $this->flagsV2->commandEnabled()
+            && $this->flagsV2->commandAllowed($type);
+    }
+
+    private function applyOptimizedMulligan(Game $game, string $type, array $payload, User $actor, ?string $clientActionId = null): ?GameEvent
+    {
+        $snapshotBefore = $game->snapshot();
+        $snapshotBytesBefore = $this->metricsInspector->jsonBytes($snapshotBefore);
+        $applyStartedAt = microtime(true);
+        $snapshot = $snapshotBefore;
+        $this->mulliganMetrics['mulligan.normalize_snapshot_count'] = 0;
+        $this->mulliganMetrics['mulligan.optimized_route'] = 1;
+
+        try {
+            $this->pendingLogContext = [];
+            $this->pendingEventPayload = null;
+            $this->pendingDefeatedPlayerId = null;
+            $this->pendingDefeatPreexisted = false;
+            $this->assertActorCanApply($snapshot, $type, $payload, $actor);
+            $this->assertGamePhaseAllowsCommand($snapshot, $type);
+            $this->ensureLocationIndex($snapshot);
+
+            $log = match ($type) {
+                'mulligan.take' => $this->applyMulliganTake($snapshot, $actor),
+                'mulligan.keep' => $this->applyMulliganKeep($snapshot, $payload, $actor),
+                'mulligan.scry_confirm' => $this->applyMulliganScryConfirm($snapshot, $payload, $actor),
+                default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
+            };
+
+            $this->ensureLocationIndex($snapshot);
+            $this->syncVisibilityIndexAfterCommand($snapshot, $type, $payload);
+            $eventPayload = $this->pendingEventPayload ?? $payload;
+            $this->commit($snapshot, $type, $log, $actor);
+            $persistedSnapshot = $this->flagsV2->eventEnabled()
+                ? $this->compactStateMapper->compactSnapshot($snapshot)
+                : $this->snapshotForPersistence($game, $snapshotBefore, $snapshot);
+            if ($this->flagsV2->eventEnabled()) {
+                $game->replaceRuntimeSnapshot($persistedSnapshot);
+                $this->mulliganMetrics['mulligan.snapshot_write_count'] = 0;
+            } else {
+                $game->replaceSnapshot($persistedSnapshot);
+                $this->mulliganMetrics['mulligan.snapshot_write_count'] = 1;
+            }
+            $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
+            $game->addEvent($event);
+            $this->lastCommandMetrics = $this->commandMetricsPayload(
+                $persistedSnapshot,
+                $snapshotBytesBefore,
+                0.0,
+                $this->elapsedMs($applyStartedAt),
+            );
+
+            return $event;
+        } catch (\Throwable $exception) {
+            $this->lastCommandMetrics = $this->commandMetricsPayload(
+                $snapshot,
+                $snapshotBytesBefore,
+                0.0,
+                $this->elapsedMs($applyStartedAt),
+            );
+
+            throw $exception;
+        }
     }
 
     /**

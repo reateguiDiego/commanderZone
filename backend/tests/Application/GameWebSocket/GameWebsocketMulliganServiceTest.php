@@ -43,6 +43,34 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertSame(1, $public['players'][0]['mulligansTaken']);
     }
 
+    public function testPrivateStateIncludesCompactHandWithoutStaticPayloadAndPayloadMetrics(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => [[
+                ...$this->card('hand-1', 'Heavy Private Card', 'hand'),
+                'cardKey' => 'heavy-card@1',
+                'imageUris' => ['normal' => 'https://cards.example/heavy.jpg'],
+                'oracleText' => 'Private oracle text',
+                'cardFaces' => [['name' => 'Face A']],
+                'typeLine' => 'Creature - Test',
+            ]],
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $service = $this->service($game, $actor, expectPersist: true);
+
+        $result = $service->handle('mulligan.keep', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-compact');
+        $private = $this->messageOfKind($result->messagesForUserId($actor->id()), 'mulligan.private_state');
+        $compactJson = json_encode($private['handCompact'], JSON_THROW_ON_ERROR);
+
+        self::assertSame([['instanceId' => 'hand-1', 'cardKey' => null]], $private['handCompact']);
+        self::assertStringNotContainsString('imageUris', $compactJson);
+        self::assertStringNotContainsString('oracleText', $compactJson);
+        self::assertStringNotContainsString('cardFaces', $compactJson);
+        self::assertStringNotContainsString('typeLine', $compactJson);
+        self::assertGreaterThan(0, $result->debugProfile()['mulligan.public_payload_bytes'] ?? 0);
+        self::assertGreaterThan(0, $result->debugProfile()['mulligan.private_payload_bytes'] ?? 0);
+    }
+
     public function testPrivateStateOnlyGoesToActingPlayer(): void
     {
         [$game, $actor, $opponent] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
