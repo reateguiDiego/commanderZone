@@ -42,8 +42,7 @@
               }
             ],
             "styles": [
-              "src/styles.scss",
-              "src/styles/motion.scss"
+              "src/styles.scss"
             ]
           },
           "configurations": {

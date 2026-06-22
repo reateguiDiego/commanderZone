@@ -25,6 +25,7 @@ import { TableAssistantSyncService } from '../data-access/table-assistant-sync.s
 import { tableAssistantColorOption } from '../domain/table-assistant-colors';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { ExtraActionsMenuComponent } from '../../../shared/ui/extra-actions-menu/extra-actions-menu.component';
+import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { TableAssistantReplayModalComponent } from '../table-assistant-replay-modal/table-assistant-replay-modal.component';
 import { TableAssistantTableMenuComponent } from '../table-assistant-table-menu/table-assistant-table-menu.component';
 import { TableAssistantTurnControlsComponent } from '../table-assistant-turn-controls/table-assistant-turn-controls.component';
@@ -46,6 +47,7 @@ import {
     RollModalComponent,
     TableAssistantTableMenuComponent,
     TableAssistantTurnControlsComponent,
+    ManaSymbolsComponent,
   ],
   templateUrl: './table-assistant-room.component.html',
   styleUrl: './table-assistant-room.component.scss',
@@ -364,10 +366,6 @@ export class TableAssistantRoomComponent {
 
   playerManaSymbols(player: TableAssistantPlayer): readonly string[] {
     return tableAssistantColorOption(player.color).manaSymbols;
-  }
-
-  manaClass(symbol: string): string {
-    return `ms ms-${symbol}`;
   }
 
   private currentArrangement(): TableAssistantPlayerArrangement {

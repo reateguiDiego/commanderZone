@@ -1,10 +1,9 @@
-import { Component, PLATFORM_ID, signal } from '@angular/core';
+import { Component, PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
 import { AuthStore } from '../core/auth/auth.store';
 import { LoadingStore } from '../core/loading/loading.store';
-import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { App } from './app';
 
 @Component({
@@ -20,6 +19,7 @@ describe('App', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    window.history.pushState({}, '', '/');
     document.body.classList.remove('dashboard-background');
     document.documentElement.style.removeProperty('--app-session-background');
     authStore.initialize.mockClear();
@@ -48,10 +48,6 @@ describe('App', () => {
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
         ]),
-        {
-          provide: RuntimeLanguageSelectorService,
-          useValue: { selectedLanguage: signal('en') },
-        },
       ],
     }).compileComponents();
   });
@@ -78,10 +74,6 @@ describe('App', () => {
         { provide: AuthStore, useValue: authStore },
         { provide: PLATFORM_ID, useValue: 'server' },
         provideRouter([]),
-        {
-          provide: RuntimeLanguageSelectorService,
-          useValue: { selectedLanguage: signal('en') },
-        },
       ],
     }).compileComponents();
 
@@ -183,14 +175,23 @@ describe('App', () => {
     await router.navigateByUrl('/');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
 
     await router.navigateByUrl('/en/faq');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
 
     await router.navigateByUrl('/en/play-commander-online');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
 
     loading.stop();
   });
@@ -221,8 +222,20 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
 
     loading.stop();
+  });
+
+  it('shows only the global loader during initial app route loading', () => {
+    window.history.pushState({}, '', '/dashboard');
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
   });
 
   it('shows the global loader while an app route navigation is pending', async () => {
@@ -238,6 +251,7 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
 
     resolveSlowNavigation?.(true);
     await navigation;

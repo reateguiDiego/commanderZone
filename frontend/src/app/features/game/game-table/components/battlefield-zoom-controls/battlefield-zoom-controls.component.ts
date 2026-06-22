@@ -1,4 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
+import { ManaIconComponent } from '../../../../../shared/mana/mana-icon/mana-icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -60,7 +61,7 @@ const DEFAULT_ZOOM_SNAP_DISTANCE_PERCENT = 2;
 
 @Component({
   selector: 'app-battlefield-zoom-controls',
-  imports: [RuntimeTranslatePipe, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaIconComponent],
   templateUrl: './battlefield-zoom-controls.component.html',
   styleUrl: './battlefield-zoom-controls.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -78,7 +79,7 @@ export class BattlefieldZoomControlsComponent {
   readonly zoomPercentChanged = output<BattlefieldZoomPercent>();
   readonly resetZoom = output<void>();
   readonly isExpanded = signal(false);
-  readonly zoomThumbSymbolClasses = `ms ms-cost ${this.pickRandomManaSymbolClass()}`;
+  readonly zoomThumbSymbol = this.pickRandomManaSymbolClass();
   readonly currentZoomPosition = computed(() => this.sliderPosition(this.zoomPercent()));
   readonly defaultZoomPosition = computed(() => this.sliderPosition(this.defaultZoomPercent()));
   private isSliderDragging = false;

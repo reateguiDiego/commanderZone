@@ -333,11 +333,11 @@ describe('SeoLandingPageComponent', () => {
   it('uses the app button classes for hero and final CTA links', () => {
     const element: HTMLElement = fixture.nativeElement;
     const heroPrimary = element.querySelector('.landing-hero__actions a[href="/auth/login?redirect=/decks"]');
-    const heroSecondary = element.querySelector('.landing-hero__actions a.secondary-button[href="/auth/login?redirect=/decks"]');
+    const heroSecondary = element.querySelector('.landing-hero__actions a.primary-button[href="/auth/login?redirect=/decks"]');
     const ctaPrimary = element.querySelector('.landing-cta__actions a[href="/auth/login?redirect=/decks"]');
 
     expect(heroPrimary?.classList.contains('primary-button')).toBe(true);
-    expect(heroSecondary?.classList.contains('secondary-button')).toBe(true);
+    expect(heroSecondary?.classList.contains('primary-button')).toBe(true);
     expect(ctaPrimary?.classList.contains('primary-button')).toBe(true);
   });
 
