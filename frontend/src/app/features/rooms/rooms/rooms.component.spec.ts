@@ -33,6 +33,7 @@ describe('RoomsComponent', () => {
   };
 
   beforeEach(async () => {
+    vi.useRealTimers();
     roomsApi.list.mockReset().mockReturnValue(of({ data: [] }));
     roomsApi.current.mockReset().mockReturnValue(of({ room: null, player: null, turn: null, viewerRole: null }));
     roomsApi.create.mockReset();
@@ -56,6 +57,10 @@ describe('RoomsComponent', () => {
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
       ],
     }).compileComponents();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders the rooms page', () => {
