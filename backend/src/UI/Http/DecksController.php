@@ -290,7 +290,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/import', methods: ['POST'])]
-    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer, CardResolver $cardResolver, CardLocalizationService $localization): JsonResponse
+    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer, CardResolver $cardResolver, DeckValidator $validator, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -355,6 +355,8 @@ class DecksController extends ApiController
             }
         }
 
+        $validation = $validator->validate($deck);
+        $deck->markValidationResult(($validation['valid'] ?? false) === true);
         $entityManager->flush();
         $missingQuantity = array_reduce(
             $preview['missingCards'],

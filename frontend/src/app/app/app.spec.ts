@@ -35,6 +35,7 @@ describe('App', () => {
           { path: 'en/faq', component: EmptyRouteComponent },
           { path: 'en/play-commander-online', component: EmptyRouteComponent },
           { path: 'auth/login', component: EmptyRouteComponent },
+          { path: 'auth/register', component: EmptyRouteComponent },
           { path: 'cards', component: EmptyRouteComponent },
           { path: 'community', component: EmptyRouteComponent },
           { path: 'dashboard', component: EmptyRouteComponent },
@@ -107,17 +108,11 @@ describe('App', () => {
     const router = TestBed.inject(Router);
     const fixture = TestBed.createComponent(App);
 
-    await router.navigateByUrl('/auth/login');
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain('CommanderZone is unofficial Fan Content');
-
     await router.navigateByUrl('/dashboard');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain('CommanderZone is unofficial Fan Content');
 
     await router.navigateByUrl('/decks');
     fixture.detectChanges();
@@ -148,6 +143,27 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+  });
+
+  it('hides both footer disclaimers on auth entry routes', async () => {
+    const router = TestBed.inject(Router);
+    const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl('/auth/login');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+
+    await router.navigateByUrl('/auth/register');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
   });
 
   it('pushes the noindex disclaimer below the first viewport only on noindex footer routes', async () => {

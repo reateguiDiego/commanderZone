@@ -164,10 +164,22 @@ export class App {
       return false;
     }
 
+    if (this.isAuthEntryPath(path)) {
+      return false;
+    }
+
     if (firstSegment === 'table-assistant' && segments.length > 1) {
       return false;
     }
 
     return this.isNoindexAppPath(path);
+  }
+
+  private isAuthEntryPath(path: string): boolean {
+    const segments = path.split('/').filter(Boolean);
+
+    return segments.length === 2
+      && segments[0] === 'auth'
+      && ['login', 'register'].includes(segments[1]);
   }
 }

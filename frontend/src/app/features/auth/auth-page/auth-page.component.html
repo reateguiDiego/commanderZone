@@ -6,25 +6,37 @@
     </div>
 
     <div class="auth-card">
-      <div class="segmented" role="tablist" [attr.aria-label]="'auth.authPage.authMode' | runtimeTranslate">
-        <button czButton="ghost" czButtonSize="sm" type="button" [czButtonActive]="mode() === 'login'" [class.active]="mode() === 'login'" (click)="setMode('login')">{{ 'auth.authPage.login' | runtimeTranslate }}</button>
-        <button czButton="ghost" czButtonSize="sm" type="button" [czButtonActive]="mode() === 'register'" [class.active]="mode() === 'register'" (click)="setMode('register')">{{ 'auth.authPage.register' | runtimeTranslate }}</button>
-      </div>
+      <app-tab-list
+        [items]="authTabItems"
+        [activeId]="mode()"
+        [ariaLabel]="'auth.authPage.authMode'"
+        size="lg"
+        (tabSelected)="selectModeFromTab($event)"
+      />
 
       @if (mode() === 'login') {
         <form class="form-stack" [formGroup]="loginForm" (ngSubmit)="submitLogin()">
+          @if (registrationCompletedNotice()) {
+            <p class="app-disclaimer-callout" role="status" aria-live="polite">
+              <span>{{ 'auth.authPage.registrationCompletedCheckEmail' | runtimeTranslate }}</span>
+            </p>
+          }
+
           <label>
-            {{ 'auth.authPage.email' | runtimeTranslate }}
+            {{ 'auth.authPage.emailOrUserName' | runtimeTranslate }}
             <input
-              type="email"
-              autocomplete="email"
+              type="text"
+              autocomplete="username"
               [readOnly]="!loginAutocompleteReady()"
-              formControlName="email"
+              formControlName="identifier"
               (pointerdown)="enableLoginAutocomplete()"
               (focus)="enableLoginAutocomplete()"
             />
-            @if (loginEmailInvalid()) {
-              <span class="field-error">{{ 'auth.authPage.introduceUnEmailValido' | runtimeTranslate }}</span>
+            @if (loginIdentifierInvalid()) {
+              <span class="field-error">
+                <lucide-icon name="triangle-alert" size="14" />
+                {{ 'auth.authPage.introduceUnEmailOUserNameValido' | runtimeTranslate }}
+              </span>
             }
           </label>
 
@@ -51,8 +63,13 @@
           </label>
           <a class="secondary-link" routerLink="/auth/password-reset">{{ 'auth.authPage.heOlvidadoMiContrasena' | runtimeTranslate }}</a>
 
-          @if (auth.error()) {
-            <p class="notice error">{{ auth.error() }}</p>
+          @if (authErrorMessage(); as authError) {
+            <p class="notice error">{{ authError | runtimeTranslate }}</p>
+          }
+          @if (loginLockoutWarningVisible()) {
+            <p class="app-disclaimer-callout" role="alert" aria-live="polite">
+              <span>{{ 'auth.authPage.loginLockoutWarning' | runtimeTranslate: loginLockoutWarningParams() }}</span>
+            </p>
           }
 
           <button czButton="primary" czButtonSize="lg" class="primary-button" type="submit" [disabled]="!canSubmitLogin()">
@@ -66,7 +83,10 @@
             {{ 'auth.authPage.email' | runtimeTranslate }}
             <input type="email" autocomplete="email" formControlName="email" />
             @if (registerEmailInvalid()) {
-              <span class="field-error">{{ 'auth.authPage.introduceUnEmailValido' | runtimeTranslate }}</span>
+              <span class="field-error">
+                <lucide-icon name="triangle-alert" size="14" />
+                {{ 'auth.authPage.introduceUnEmailValido' | runtimeTranslate }}
+              </span>
             }
             @if (registerEmailAvailabilityVisible()) {
               @if (emailAvailability() === 'checking') {
@@ -76,38 +96,52 @@
                 <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.emailDisponible' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'taken') {
-                <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'auth.authPage.emailYaRegistrado' | runtimeTranslate }}</span>
+                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.emailYaRegistrado' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'error') {
-                <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'auth.authPage.noSePudoComprobarAhora' | runtimeTranslate }}</span>
+                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.noSePudoComprobarAhora' | runtimeTranslate }}</span>
               }
             }
           </label>
 
-          <label>
+          <label class="user-name-field">
             {{ 'auth.authPage.userName' | runtimeTranslate }}
             <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="20" />
-            @if (controlInvalid('displayName')) {
-              <span class="field-error">{{ 'auth.authPage.userNameEntre4Y25Caracteres' | runtimeTranslate }}</span>
-            }
-            @if (userNameAvailability() === 'checking') {
-              <span class="availability muted">{{ 'auth.authPage.comprobandoDisponibilidad' | runtimeTranslate }}</span>
-            }
-            @if (userNameAvailability() === 'available') {
-              <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.userNameDisponible' | runtimeTranslate }}</span>
-            }
-            @if (userNameAvailability() === 'taken') {
-              <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'auth.authPage.userNameNoDisponible' | runtimeTranslate }}</span>
-            }
-            @if (userNameAvailability() === 'error') {
-              <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'auth.authPage.noSePudoComprobarAhora' | runtimeTranslate }}</span>
-            }
+            <span class="field-feedback-row">
+              <span class="field-feedback-messages">
+                @if (controlInvalid('displayName')) {
+                  <span class="field-error">
+                    <lucide-icon name="triangle-alert" size="14" />
+                    {{ 'auth.authPage.userNameEntre2Y20Caracteres' | runtimeTranslate }}
+                  </span>
+                }
+                @if (userNameAvailability() === 'checking') {
+                  <span class="availability muted">{{ 'auth.authPage.comprobandoDisponibilidad' | runtimeTranslate }}</span>
+                }
+                @if (userNameAvailability() === 'available') {
+                  <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.userNameDisponible' | runtimeTranslate }}</span>
+                }
+                @if (userNameAvailability() === 'taken') {
+                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.userNameNoDisponible' | runtimeTranslate }}</span>
+                }
+                @if (userNameAvailability() === 'error') {
+                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.noSePudoComprobarAhora' | runtimeTranslate }}</span>
+                }
+              </span>
+              <span class="character-counter">{{ registerDisplayNameLength() }}/{{ userNameMaxLength }}</span>
+            </span>
           </label>
 
           <label>
             {{ 'auth.authPage.password' | runtimeTranslate }}
             <div class="password-field">
-              <input [type]="registerPasswordVisible() ? 'text' : 'password'" autocomplete="new-password" formControlName="password" />
+              <input
+                [type]="registerPasswordVisible() ? 'text' : 'password'"
+                autocomplete="new-password"
+                formControlName="password"
+                (focus)="showRegisterPasswordRequirements()"
+                (pointerdown)="showRegisterPasswordRequirements()"
+              />
               <button
                 type="button"
                 class="password-toggle"
@@ -117,8 +151,15 @@
                 <lucide-icon [name]="registerPasswordVisible() ? 'eye-off' : 'eye'" size="18" />
               </button>
             </div>
-            @if (controlInvalid('password')) {
-              <span class="field-error">{{ 'auth.authPage.minimo8CaracteresConMinusculaMayusculaY' | runtimeTranslate }}</span>
+            @if (registerPasswordFocused()) {
+              <ul class="password-requirements" [attr.aria-label]="'auth.authPage.passwordRequirements.label' | runtimeTranslate">
+                @for (requirement of registerPasswordRequirements(); track requirement.id) {
+                  <li [class.met]="requirement.met">
+                    <lucide-icon [name]="requirement.met ? 'check' : 'triangle-alert'" size="14" />
+                    <span>{{ requirement.labelKey | runtimeTranslate }}</span>
+                  </li>
+                }
+              </ul>
             }
           </label>
 
@@ -136,15 +177,15 @@
               </button>
             </div>
             @if (registerPasswordMismatchVisible()) {
-              <span class="field-error">{{ 'auth.authPage.lasContrasenasNoCoinciden' | runtimeTranslate }}</span>
+              <span class="field-error">
+                <lucide-icon name="triangle-alert" size="14" />
+                {{ 'auth.authPage.lasContrasenasNoCoinciden' | runtimeTranslate }}
+              </span>
             }
           </label>
 
-          @if (auth.error()) {
-            <p class="notice error">{{ auth.error() }}</p>
-          }
-          @if (registerSuccessNotice(); as registerSuccessMessage) {
-            <p class="notice success">{{ registerSuccessMessage }}</p>
+          @if (authErrorMessage(); as authError) {
+            <p class="notice error">{{ authError | runtimeTranslate }}</p>
           }
 
           <button czButton="primary" czButtonSize="lg" class="primary-button" type="submit" [disabled]="!canSubmitRegister()">

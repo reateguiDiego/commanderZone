@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 import { AuthApi } from '../api/auth.api';
@@ -49,7 +50,7 @@ describe('AuthStore backend auth', () => {
 
     await store.login('player@example.test', 'password123');
 
-    expect(authApi.login).toHaveBeenCalledWith({ email: 'player@example.test', password: 'password123' });
+    expect(authApi.login).toHaveBeenCalledWith({ identifier: 'player@example.test', password: 'password123' });
     expect(authApi.me).toHaveBeenCalled();
     expect(store.token()).toBe('jwt-token');
     expect(store.user()).toEqual(user);
@@ -123,6 +124,24 @@ describe('AuthStore backend auth', () => {
 
     expect(store.token()).toBeNull();
     expect(localStorage.getItem('commanderzone.user')).toBeNull();
+  });
+
+  it('stores login failure count from backend auth errors', async () => {
+    authApi.login.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status: 401,
+      error: { error: 'Invalid credentials.', count: 3 },
+    })));
+    const store = TestBed.inject(AuthStore);
+
+    await expect(store.login('player@example.test', 'bad-password')).rejects.toBeInstanceOf(HttpErrorResponse);
+
+    expect(store.error()).toBe('Invalid credentials.');
+    expect(store.loginFailureCount()).toBe(3);
+
+    store.clearError();
+
+    expect(store.error()).toBeNull();
+    expect(store.loginFailureCount()).toBeNull();
   });
 
   it('ignores stale /me responses from a previous token during auto-login', async () => {

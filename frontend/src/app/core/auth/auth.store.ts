@@ -18,6 +18,7 @@ export class AuthStore {
   private readonly userState = signal<User | null>(readStoredUser());
   private readonly loadingState = signal(false);
   private readonly errorState = signal<string | null>(null);
+  private readonly loginFailureCountState = signal<number | null>(null);
   private readonly resolvedDisplayNameState = signal<string | null>(readStoredDisplayName());
   private initialized = false;
   private initializeInFlight: Promise<void> | null = null;
@@ -27,6 +28,7 @@ export class AuthStore {
   readonly user = this.userState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
+  readonly loginFailureCount = this.loginFailureCountState.asReadonly();
   readonly isAuthenticated = computed(() => this.tokenState() !== null);
   readonly displayName = computed(() => this.currentDisplayName());
 
@@ -52,13 +54,14 @@ export class AuthStore {
     }
   }
 
-  async login(email: string, password: string): Promise<void> {
+  async login(identifier: string, password: string): Promise<void> {
     this.loadingState.set(true);
     this.errorState.set(null);
+    this.loginFailureCountState.set(null);
     let requestToken: string | null = null;
 
     try {
-      const response = await firstValueFrom(this.authApi.login({ email, password }));
+      const response = await firstValueFrom(this.authApi.login({ identifier, password }));
       requestToken = response.token;
       await this.establishSession(response.token);
     } catch (error) {
@@ -66,6 +69,7 @@ export class AuthStore {
         this.clearSession();
       }
       this.errorState.set(errorMessageFromResponse(error, 'Could not login.'));
+      this.loginFailureCountState.set(loginFailureCountFromResponse(error));
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -193,6 +197,7 @@ export class AuthStore {
 
   clearError(): void {
     this.errorState.set(null);
+    this.loginFailureCountState.set(null);
   }
 
   private setToken(token: string): void {
@@ -374,4 +379,17 @@ function errorMessageFromResponse(error: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+function loginFailureCountFromResponse(error: unknown): number | null {
+  if (!(error instanceof HttpErrorResponse)) {
+    return null;
+  }
+
+  const responseError = error.error as { count?: unknown } | string | null;
+  if (!responseError || typeof responseError !== 'object' || typeof responseError.count !== 'number') {
+    return null;
+  }
+
+  return Number.isInteger(responseError.count) && responseError.count >= 0 ? responseError.count : null;
 }

@@ -2,9 +2,17 @@
   class="tab-list"
   [class.variant-pill]="variant() === 'pill'"
   [class.variant-underline]="variant() === 'underline'"
+  [class.size-md]="size() === 'md'"
+  [class.size-lg]="size() === 'lg'"
   role="tablist"
   [attr.aria-label]="ariaLabel() ? (ariaLabel() | runtimeTranslate) : null"
+  [style.--cz-tab-count]="items().length"
+  [style.--cz-tab-active-index]="activeIndex()"
 >
+  @if (variant() === 'pill' && activeIndex() >= 0) {
+    <span class="tab-list-active-indicator" [style.width]="activeIndicatorWidth()" aria-hidden="true"></span>
+  }
+
   @for (item of items(); track item.id) {
     <button
       class="tab-list-button"

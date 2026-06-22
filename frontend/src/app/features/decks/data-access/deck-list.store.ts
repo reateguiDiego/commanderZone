@@ -246,6 +246,11 @@ export class DeckListStore {
     this.createSuccessDeck.set(null);
   }
 
+  async returnToDeckListFromSuccess(): Promise<void> {
+    this.closeCreateSuccessModal();
+    await this.reloadAll();
+  }
+
   openCreatedDeckFromSuccess(): void {
     const deck = this.createSuccessDeck();
     const redirectUrl = this.createSuccessRedirectUrl;

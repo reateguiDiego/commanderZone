@@ -547,6 +547,22 @@ describe('DeckListComponent', () => {
     );
   });
 
+  it('reloads the deck list when returning from the saved deck confirmation', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const reloadAll = vi.spyOn(fixture.componentInstance.store, 'reloadAll').mockResolvedValue(undefined);
+
+    fixture.componentInstance.store.createSuccessDeck.set(savedDeck());
+    fixture.componentInstance.store.createSuccessModalOpen.set(true);
+
+    await fixture.componentInstance.store.returnToDeckListFromSuccess();
+
+    expect(fixture.componentInstance.store.createSuccessModalOpen()).toBe(false);
+    expect(fixture.componentInstance.store.createSuccessDeck()).toBeNull();
+    expect(reloadAll).toHaveBeenCalledOnce();
+  });
+
   it('hides commander and import fields when creating an empty deck', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
@@ -921,6 +937,30 @@ Creatures (1)
 
     expect(component.commanderHoverPreview()).toBeNull();
     expect(component.store.selectedCommanders()).toEqual([]);
+  });
+
+  it('hides the commander preview when submitting the create modal', () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    const component = fixture.componentInstance;
+    vi.spyOn(component.store, 'submitCreateModal').mockImplementation(() => undefined);
+    component.commanderHoverPreview.set({ imageUrl: 'https://cards.test/atraxa.jpg', x: 100, y: 100 });
+
+    component.submitCreateModal();
+
+    expect(component.commanderHoverPreview()).toBeNull();
+    expect(component.store.submitCreateModal).toHaveBeenCalledOnce();
+  });
+
+  it('hides the commander preview when cancelling the create flow', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    const component = fixture.componentInstance;
+    vi.spyOn(component.store, 'cancelCreateFlow').mockResolvedValue(undefined);
+    component.commanderHoverPreview.set({ imageUrl: 'https://cards.test/atraxa.jpg', x: 100, y: 100 });
+
+    await component.cancelCreateFlow();
+
+    expect(component.commanderHoverPreview()).toBeNull();
+    expect(component.store.cancelCreateFlow).toHaveBeenCalledOnce();
   });
 
   it('replaces the create form with a single import warning when cards are missing', async () => {

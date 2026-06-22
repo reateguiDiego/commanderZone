@@ -3,6 +3,7 @@
 namespace App\Tests\Integration;
 
 use App\Domain\Card\Card;
+use App\Domain\User\User;
 use App\Tests\Support\RecordingMercureHub;
 
 class RoomsGamesApiTest extends ApiTestCase
@@ -699,6 +700,136 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertNotEmpty($roomUpdates);
         $roomPayload = json_decode($roomUpdates[array_key_last($roomUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
         self::assertSame('room.player.left', $roomPayload['type'] ?? null);
+    }
+
+    public function testDeletingAccountInStartedRoomConcedesPlayerRecordsLeaveVoteAndRemovesUser(): void
+    {
+        $this->seedCard('eeeeeeee-2222-7222-8222-222222222223', 'Commander Delete Started', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '7',
+        ]);
+        $this->seedCard('eeeeeeee-3333-7333-8333-333333333334', 'Plains Delete Started', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '61',
+        ]);
+        $ownerToken = $this->registerAndLogin('delete-started-owner@example.test', 'Delete Owner');
+        $playerToken = $this->registerAndLogin('delete-started-player@example.test', 'Delete Player');
+        $deletingUserId = $this->currentUserId($playerToken);
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Delete Owner Deck', [
+            ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222223', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333334', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerDeckId = $this->quickBuildDeck($playerToken, 'Delete Player Deck', [
+            ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222223', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333334', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
+        self::assertResponseIsSuccessful();
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $gameId = (string) $this->jsonResponse()['game']['id'];
+        $deletingPlayerId = $this->playerIdByName($this->jsonResponse()['game']['snapshot'], 'Delete Player');
+
+        RecordingMercureHub::reset();
+        $this->jsonRequest('DELETE', '/me', token: $playerToken);
+        self::assertResponseStatusCodeSame(204);
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $snapshot = $this->jsonResponse()['game']['snapshot'];
+        self::assertSame('conceded', $snapshot['players'][$deletingPlayerId]['status']);
+        self::assertNotNull($snapshot['players'][$deletingPlayerId]['concededAt']);
+        self::assertSame('leave', $snapshot['rematch']['votes'][$deletingPlayerId]['vote'] ?? null);
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->jsonResponse()['room']['players']);
+        self::assertSame(0, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM room_player WHERE user_id = ?',
+            [$deletingUserId],
+        ));
+        self::assertNull($this->entityManager->getRepository(User::class)->find($deletingUserId));
+
+        $gameUpdates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['games/'.$gameId],
+        ));
+        self::assertNotEmpty($gameUpdates);
+        $gamePayload = json_decode($gameUpdates[array_key_last($gameUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('rematch.vote', $gamePayload['event']['type'] ?? null);
+        self::assertSame('leave', $gamePayload['event']['payload']['vote'] ?? null);
+    }
+
+    public function testDeletingStartedRoomOwnerTransfersOwnershipToRemainingPlayer(): void
+    {
+        $this->seedCard('eeeeeeee-2222-7222-8222-222222222224', 'Commander Delete Owner', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '8',
+        ]);
+        $this->seedCard('eeeeeeee-3333-7333-8333-333333333335', 'Plains Delete Owner', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '62',
+        ]);
+        $ownerToken = $this->registerAndLogin('delete-owner-started@example.test', 'Delete Owner');
+        $playerToken = $this->registerAndLogin('delete-owner-player@example.test', 'Owner Player');
+        $deletingOwnerId = $this->currentUserId($ownerToken);
+        $remainingPlayerId = $this->currentUserId($playerToken);
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Owner Del Deck', [
+            ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222224', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333335', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerDeckId = $this->quickBuildDeck($playerToken, 'Player Del Deck', [
+            ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222224', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333335', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
+        self::assertResponseIsSuccessful();
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $gameId = (string) $this->jsonResponse()['game']['id'];
+        $deletingPlayerId = $this->playerIdByName($this->jsonResponse()['game']['snapshot'], 'Delete Owner');
+
+        $this->jsonRequest('DELETE', '/me', token: $ownerToken);
+        self::assertResponseStatusCodeSame(204);
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $playerToken);
+        self::assertResponseIsSuccessful();
+        $room = $this->jsonResponse()['room'];
+        self::assertSame($remainingPlayerId, $room['owner']['id']);
+        self::assertCount(1, $room['players']);
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $playerToken);
+        self::assertResponseIsSuccessful();
+        $snapshot = $this->jsonResponse()['game']['snapshot'];
+        self::assertSame('conceded', $snapshot['players'][$deletingPlayerId]['status']);
+        self::assertSame('leave', $snapshot['rematch']['votes'][$deletingPlayerId]['vote'] ?? null);
+        self::assertSame(0, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM room WHERE owner_id = ?',
+            [$deletingOwnerId],
+        ));
+        self::assertNull($this->entityManager->getRepository(User::class)->find($deletingOwnerId));
     }
 
     public function testDefeatedPlayerPlayAgainVoteWaitsUntilGameEnds(): void

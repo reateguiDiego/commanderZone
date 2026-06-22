@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { importProvidersFrom, signal } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { ArrowLeft, Check, LucideAngularModule, Settings, Trash2, Upload, X } from 'lucide-angular';
 import { AuthApi } from '../../../../../../../core/api/auth.api';
 import { CardLanguageCoverageResponse, CardsLanguageService } from '../../../../../../../core/api/cards-language.service';
@@ -19,6 +19,7 @@ describe('DashboardSettingsModalComponent', () => {
     updateMe: vi.fn(() => of({ user: { id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'] } })),
     updateAvatar: vi.fn(() => of({ user: { id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'] } })),
     updateDisplayNameStyle: vi.fn(() => of({ user: { id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'], displayNameStyle: { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' } } })),
+    requestPasswordReset: vi.fn(() => of({ accepted: true })),
     deleteMe: vi.fn(() => of(void 0)),
   };
 
@@ -323,6 +324,47 @@ describe('DashboardSettingsModalComponent', () => {
 
     expect(authApiMock.updateMe).toHaveBeenCalledWith({ appLanguage: 'fr' });
     expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('requests a password reset email for the persisted account email', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.profileForm.controls.email.setValue('unsaved@example.test');
+    await fixture.componentInstance.requestPasswordChange();
+    fixture.detectChanges();
+
+    expect(authApiMock.requestPasswordReset).toHaveBeenCalledWith('player@example.test');
+    expect(fixture.componentInstance.passwordResetRequestState()).toBe('sent');
+    const changePasswordButton = fixture.nativeElement.querySelector('.change-password-button') as HTMLButtonElement;
+    expect(changePasswordButton.textContent).toContain('Sent');
+  });
+
+  it('does not request another password reset email after one was already sent', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.requestPasswordChange();
+    await fixture.componentInstance.requestPasswordChange();
+
+    expect(authApiMock.requestPasswordReset).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance.canRequestPasswordChange()).toBe(false);
+  });
+
+  it('shows a local error when the password reset email request fails', async () => {
+    authApiMock.requestPasswordReset.mockReturnValueOnce(throwError(() => new Error('network')));
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.requestPasswordChange();
+    fixture.detectChanges();
+
+    expect(authApiMock.requestPasswordReset).toHaveBeenCalledWith('player@example.test');
+    expect(fixture.componentInstance.passwordResetRequestState()).toBe('error');
+    expect(fixture.nativeElement.textContent).toContain('Could not send the password reset email.');
   });
 
   it('applies app language immediately without mutating card language', () => {

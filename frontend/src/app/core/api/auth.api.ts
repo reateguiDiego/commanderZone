@@ -4,7 +4,6 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import {
   EmailVerificationConfirmResponse,
-  EmailVerificationRequestResponse,
   LoginResponse,
   PasswordResetConfirmResponse,
   PasswordResetRequestResponse,
@@ -41,7 +40,7 @@ export class AuthApi {
     return this.http.post<UserResponse>(`${API_BASE_URL}/auth/register`, payload);
   }
 
-  login(payload: { email: string; password: string }): Observable<LoginResponse> {
+  login(payload: { identifier: string; password: string }): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${API_BASE_URL}/auth/login`, payload, { withCredentials: true });
   }
 
@@ -58,14 +57,6 @@ export class AuthApi {
       `${API_BASE_URL}/auth/password-reset/confirm`,
       payload,
       { context: withoutGlobalLoading(), withCredentials: true },
-    );
-  }
-
-  requestEmailVerification(email: string): Observable<EmailVerificationRequestResponse> {
-    return this.http.post<EmailVerificationRequestResponse>(
-      `${API_BASE_URL}/auth/email-verification/request`,
-      { email },
-      { context: withoutGlobalLoading() },
     );
   }
 

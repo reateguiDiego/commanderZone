@@ -155,27 +155,20 @@ describe('API services', () => {
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ accepted: true });
 
-    auth.confirmPasswordReset({ email: 'player@example.test', token: 'reset-token', newPassword: 'Password456' }).subscribe();
+    auth.confirmPasswordReset({ email: 'player@example.test', token: 'reset-token', newPassword: 'Password456!' }).subscribe();
     request = http.expectOne(`${API_BASE_URL}/auth/password-reset/confirm`);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ email: 'player@example.test', token: 'reset-token', newPassword: 'Password456' });
+    expect(request.request.body).toEqual({ email: 'player@example.test', token: 'reset-token', newPassword: 'Password456!' });
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     expect(request.request.withCredentials).toBe(true);
     request.flush({ updated: true, token: 'jwt-token' });
   });
 
-  it('requests and confirms email verification without triggering the global loading overlay', () => {
+  it('confirms email verification without triggering the global loading overlay', () => {
     const auth = TestBed.inject(AuthApi);
 
-    auth.requestEmailVerification('player@example.test').subscribe();
-    let request = http.expectOne(`${API_BASE_URL}/auth/email-verification/request`);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ email: 'player@example.test' });
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
-    request.flush({ accepted: true });
-
     auth.confirmEmailVerification({ token: 'verify-token' }).subscribe();
-    request = http.expectOne(`${API_BASE_URL}/auth/email-verification/confirm`);
+    const request = http.expectOne(`${API_BASE_URL}/auth/email-verification/confirm`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ token: 'verify-token' });
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);

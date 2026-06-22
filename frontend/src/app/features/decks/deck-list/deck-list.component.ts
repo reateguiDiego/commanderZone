@@ -193,6 +193,16 @@ export class DeckListComponent implements OnInit, OnDestroy {
     this.store.removeCommander(commanderScryfallId);
   }
 
+  submitCreateModal(): void {
+    this.hideCommanderPreview();
+    this.store.submitCreateModal();
+  }
+
+  async cancelCreateFlow(): Promise<void> {
+    this.hideCommanderPreview();
+    await this.store.cancelCreateFlow();
+  }
+
   private previewPosition(target: EventTarget | null): { x: number; y: number } {
     const margin = 12;
     const previewWidth = 288;

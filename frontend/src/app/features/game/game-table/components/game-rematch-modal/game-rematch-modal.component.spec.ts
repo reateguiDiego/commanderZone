@@ -55,15 +55,18 @@ describe('GameRematchModalComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Premium finish');
   });
 
-  it('disables play again when the room can only be abandoned', () => {
+  it('hides play again when the room can only be abandoned', () => {
     fixture.componentRef.setInput('playAgainDisabled', true);
     fixture.detectChanges();
 
     const buttons = fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>;
     const playAgainButton = Array.from(buttons)
       .find((button): button is HTMLButtonElement => button.textContent?.trim() === 'Jugar otra partida');
+    const leaveButton = Array.from(buttons)
+      .find((button): button is HTMLButtonElement => button.textContent?.trim() === 'Salir de la sala');
 
-    expect(playAgainButton?.disabled).toBe(true);
+    expect(playAgainButton).toBeUndefined();
+    expect(leaveButton).toBeDefined();
     expect(fixture.nativeElement.textContent).toContain('El resto de jugadores ya ha votado salir de la sala.');
   });
 

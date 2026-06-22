@@ -233,10 +233,10 @@
     [primaryDisabled]="store.isCreatePrimaryDisabled()"
     [showSecondary]="!store.createFormLocked() && !store.createSubmitting()"
     secondaryLabel="Cancel"
-    (primary)="store.submitCreateModal()"
-    (secondary)="store.cancelCreateFlow()"
+    (primary)="submitCreateModal()"
+    (secondary)="cancelCreateFlow()"
   >
-    <form class="form-stack create-deck-form deck-modal-form" (ngSubmit)="store.submitCreateModal()">
+    <form class="form-stack create-deck-form deck-modal-form" (ngSubmit)="submitCreateModal()">
       @if (store.createFormLocked()) {
         <div class="notice create-import-result" [class.warning]="!store.hasCreateImportError()" [class.error]="store.hasCreateImportError()">
           @if (store.createdImportMessage()) {
@@ -414,9 +414,9 @@
     [title]="'deckBuilder.deckList.deckSaved' | runtimeTranslate"
     [message]="store.createSuccessMessage()"
     [primaryLabel]="store.createSuccessPrimaryLabel()"
-    secondaryLabel="Back to decks"
+    secondaryLabel="Deck list"
     (primary)="store.openCreatedDeckFromSuccess()"
-    (secondary)="store.closeCreateSuccessModal()"
+    (secondary)="store.returnToDeckListFromSuccess()"
   />
 
   <app-modal

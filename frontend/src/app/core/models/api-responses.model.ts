@@ -9,6 +9,7 @@ import { User } from './user.model';
 export interface ApiError {
   error: string;
   code?: string;
+  count?: number;
 }
 
 export interface DataResponse<T> {
@@ -33,10 +34,6 @@ export interface PasswordResetConfirmResponse {
   updated: boolean;
   token: string;
   user: User;
-}
-
-export interface EmailVerificationRequestResponse {
-  accepted: boolean;
 }
 
 export interface EmailVerificationConfirmResponse {

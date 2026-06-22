@@ -78,6 +78,43 @@ class DeckbuildingApiTest extends ApiTestCase
         $this->assertDeckValidity($deckId, true);
     }
 
+    public function testDeckImportPersistsDeckValidity(): void
+    {
+        $token = $this->registerAndLogin('deck-import-validity@example.test', 'Deck Import Validity');
+        $commander = $this->seedCard('00000000-0000-0000-0000-000000000804', 'Import Valid Commander', [
+            'type_line' => 'Legendary Creature',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000805', 'Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Import Validity'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => <<<TXT
+Deck
+1 Island
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse()['deck']['valid']);
+        $this->assertDeckValidity($deckId, false);
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'commanderScryfallId' => $commander->scryfallId(),
+            'decklist' => <<<TXT
+Deck
+1 Import Valid Commander
+99 Island
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['deck']['valid']);
+        $this->assertDeckValidity($deckId, true);
+    }
+
     public function testFoldersDecksCardsImportAndOwnership(): void
     {
         $token = $this->registerAndLogin('owner@example.test', 'Owner');

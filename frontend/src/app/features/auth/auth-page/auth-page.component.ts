@@ -11,18 +11,42 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { AUTH_PASSWORD_REGEX } from '../auth-password-policy';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 
 type AuthMode = 'login' | 'register';
 type EmailAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 type UserNameAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
+type PasswordRequirementId = 'minLength' | 'lowercase' | 'uppercase' | 'number' | 'special';
+
+interface PasswordRequirementState {
+  readonly id: PasswordRequirementId;
+  readonly labelKey: string;
+  readonly met: boolean;
+}
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const USER_NAME_MIN_LENGTH = 2;
 const USER_NAME_MAX_LENGTH = 20;
+const DISPLAY_NAME_AVAILABILITY_DEBOUNCE_MS = 900;
+const PASSWORD_REQUIREMENTS: readonly { id: PasswordRequirementId; labelKey: string }[] = [
+  { id: 'minLength', labelKey: 'auth.authPage.passwordRequirements.minLength' },
+  { id: 'lowercase', labelKey: 'auth.authPage.passwordRequirements.lowercase' },
+  { id: 'uppercase', labelKey: 'auth.authPage.passwordRequirements.uppercase' },
+  { id: 'number', labelKey: 'auth.authPage.passwordRequirements.number' },
+  { id: 'special', labelKey: 'auth.authPage.passwordRequirements.special' },
+];
+const AUTH_TAB_ITEMS: readonly TabListItem[] = [
+  { id: 'login', label: 'auth.authPage.login' },
+  { id: 'register', label: 'auth.authPage.register' },
+];
+const AUTH_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
+  'Invalid credentials.': 'auth.authPage.invalidCredentials',
+  'Too many failed login attempts. Please try again later.': 'auth.authPage.tooManyLoginAttempts',
+};
 
 @Component({
   selector: 'app-auth-page',
-  imports: [RuntimeTranslatePipe, ReactiveFormsModule, LucideAngularModule, RouterLink, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, ReactiveFormsModule, LucideAngularModule, RouterLink, CzButtonDirective, TabListComponent],
   templateUrl: './auth-page.component.html',
   styleUrl: './auth-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -40,19 +64,41 @@ export class AuthPageComponent implements AfterViewInit {
   readonly mode = signal<AuthMode>(this.route.snapshot.routeConfig?.path === 'auth/register' ? 'register' : 'login');
   readonly emailAvailability = signal<EmailAvailability>('idle');
   readonly userNameAvailability = signal<UserNameAvailability>('idle');
-  readonly loginEmailFeedbackReady = signal(false);
+  readonly loginIdentifierFeedbackReady = signal(false);
   readonly registerEmailFeedbackReady = signal(false);
   readonly loginPasswordVisible = signal(false);
   readonly loginAutocompleteReady = signal(false);
   readonly registerPasswordVisible = signal(false);
   readonly registerConfirmPasswordVisible = signal(false);
   readonly registerPasswordsMatch = signal(false);
-  readonly registerSuccessNotice = signal<string | null>(null);
+  readonly registerDisplayNameLength = signal(0);
+  readonly registerPasswordFocused = signal(false);
+  readonly registerPasswordValue = signal('');
+  readonly registrationCompletedNotice = signal(this.route.snapshot.queryParamMap.get('registered') === '1');
+  readonly userNameMaxLength = USER_NAME_MAX_LENGTH;
+  readonly authTabItems = AUTH_TAB_ITEMS;
+  readonly authErrorMessage = computed(() => localizedAuthError(this.auth.error()));
+  readonly loginLockoutWarningVisible = computed(() => {
+    const failureCount = this.auth.loginFailureCount();
+
+    return failureCount !== null && failureCount >= 3 && failureCount < 5;
+  });
+  readonly loginLockoutWarningParams = computed(() => ({
+    count: this.auth.loginFailureCount() ?? 0,
+  }));
+  readonly registerPasswordRequirements = computed<readonly PasswordRequirementState[]>(() => {
+    const password = this.registerPasswordValue();
+
+    return PASSWORD_REQUIREMENTS.map((requirement) => ({
+      ...requirement,
+      met: this.passwordRequirementMet(requirement.id, password),
+    }));
+  });
   private readonly loginFormValid = signal(false);
   private readonly registerFormValid = signal(false);
 
   readonly loginForm = this.formBuilder.group({
-    email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
+    identifier: ['', [Validators.required, Validators.minLength(USER_NAME_MIN_LENGTH)]],
     password: ['', [Validators.required]],
   });
 
@@ -75,10 +121,12 @@ export class AuthPageComponent implements AfterViewInit {
 
   constructor() {
     this.trackFormValidity();
-    this.trackEmailFeedback(this.loginForm.controls.email, this.loginEmailFeedbackReady);
+    this.trackEmailFeedback(this.loginForm.controls.identifier, this.loginIdentifierFeedbackReady);
     this.trackEmailFeedback(this.registerForm.controls.email, this.registerEmailFeedbackReady);
     this.trackRegisterEmailAvailability();
     this.trackUserNameAvailability();
+    this.trackRegisterDisplayNameLength();
+    this.trackRegisterPasswordValue();
     this.trackRegisterPasswordMatch();
   }
 
@@ -92,23 +140,32 @@ export class AuthPageComponent implements AfterViewInit {
 
   setMode(mode: AuthMode): void {
     this.mode.set(mode);
-    this.registerSuccessNotice.set(null);
     this.auth.clearError();
+  }
+
+  selectModeFromTab(tabId: string): void {
+    if (tabId === 'login' || tabId === 'register') {
+      this.setMode(tabId);
+    }
   }
 
   enableLoginAutocomplete(): void {
     this.loginAutocompleteReady.set(true);
   }
 
+  showRegisterPasswordRequirements(): void {
+    this.registerPasswordFocused.set(true);
+  }
+
   async submitLogin(): Promise<void> {
     if (!this.canSubmitLogin()) {
       this.loginForm.markAllAsTouched();
-      this.loginEmailFeedbackReady.set(true);
+      this.loginIdentifierFeedbackReady.set(true);
       return;
     }
 
-    const { email, password } = this.loginForm.getRawValue();
-    await this.authenticate(() => this.auth.login(email, password));
+    const { identifier, password } = this.loginForm.getRawValue();
+    await this.authenticate(() => this.auth.login(identifier.trim(), password));
   }
 
   async submitRegister(): Promise<void> {
@@ -121,20 +178,19 @@ export class AuthPageComponent implements AfterViewInit {
     const { email, displayName, password } = this.registerForm.getRawValue();
     try {
       await this.auth.register(email, displayName.trim(), password);
-      this.registerSuccessNotice.set('Registro completado. Revisa tu correo para verificar la cuenta.');
-      await this.router.navigate(['/email-verification'], {
-        queryParams: {
-          email: email.trim(),
-          registered: '1',
-        },
-      });
+      this.resetRegisterState();
+      this.mode.set('login');
+      this.registrationCompletedNotice.set(true);
+      await this.router.navigate(['/auth/login'], { queryParams: { registered: '1' } });
     } catch {
       return;
     }
   }
 
-  loginEmailInvalid(): boolean {
-    return this.emailInvalid(this.loginForm.controls.email, this.loginEmailFeedbackReady());
+  loginIdentifierInvalid(): boolean {
+    const control = this.loginForm.controls.identifier;
+
+    return control.invalid && this.loginIdentifierFeedbackReady() && (control.dirty || control.touched);
   }
 
   registerEmailInvalid(): boolean {
@@ -213,7 +269,7 @@ export class AuthPageComponent implements AfterViewInit {
         map((value) => value.trim()),
         distinctUntilChanged(),
         tap(() => this.userNameAvailability.set('idle')),
-        debounceTime(450),
+        debounceTime(DISPLAY_NAME_AVAILABILITY_DEBOUNCE_MS),
         switchMap((displayName) => {
           if (displayName.length < USER_NAME_MIN_LENGTH || displayName.length > USER_NAME_MAX_LENGTH) {
             return of<UserNameAvailability>('idle');
@@ -228,6 +284,55 @@ export class AuthPageComponent implements AfterViewInit {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((availability) => this.userNameAvailability.set(availability));
+  }
+
+  private trackRegisterDisplayNameLength(): void {
+    this.registerForm.controls.displayName.valueChanges
+      .pipe(
+        startWith(this.registerForm.controls.displayName.value),
+        map((displayName) => displayName.length),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((length) => this.registerDisplayNameLength.set(length));
+  }
+
+  private trackRegisterPasswordValue(): void {
+    this.registerForm.controls.password.valueChanges
+      .pipe(
+        startWith(this.registerForm.controls.password.value),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((password) => this.registerPasswordValue.set(password));
+  }
+
+  private passwordRequirementMet(requirement: PasswordRequirementId, password: string): boolean {
+    switch (requirement) {
+      case 'minLength':
+        return password.length >= 8;
+      case 'lowercase':
+        return /[a-z]/.test(password);
+      case 'uppercase':
+        return /[A-Z]/.test(password);
+      case 'number':
+        return /\d/.test(password);
+      case 'special':
+        return /[^A-Za-z0-9]/.test(password);
+    }
+  }
+
+  private resetRegisterState(): void {
+    this.registerForm.reset({
+      email: '',
+      displayName: '',
+      password: '',
+      confirmPassword: '',
+    });
+    this.emailAvailability.set('idle');
+    this.userNameAvailability.set('idle');
+    this.registerEmailFeedbackReady.set(false);
+    this.registerPasswordFocused.set(false);
+    this.registerPasswordVisible.set(false);
+    this.registerConfirmPasswordVisible.set(false);
   }
 
   private async authenticate(action: () => Promise<void>): Promise<void> {
@@ -250,7 +355,7 @@ export class AuthPageComponent implements AfterViewInit {
       return;
     }
 
-    this.loginForm.reset({ email: '', password: '' }, { emitEvent: true });
+    this.loginForm.reset({ identifier: '', password: '' }, { emitEvent: true });
   }
 
   private emailInvalid(control: FormControl<string>, feedbackReady: boolean): boolean {
@@ -264,4 +369,12 @@ export class AuthPageComponent implements AfterViewInit {
 
     return url;
   }
+}
+
+function localizedAuthError(error: string | null): string | null {
+  if (!error) {
+    return null;
+  }
+
+  return AUTH_ERROR_TRANSLATION_KEYS[error] ?? error;
 }

@@ -34,6 +34,7 @@ import { CzButtonDirective } from '../../../../../../../shared/ui/button/button.
 type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 type AvatarTierTab = 'basic' | 'premium';
+type PasswordResetRequestState = 'idle' | 'sending' | 'sent' | 'error';
 export type SettingsLaunchTarget = 'general' | 'avatar' | 'name-style';
 
 interface ProfileSnapshot {
@@ -46,6 +47,7 @@ interface ProfileSnapshot {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const USER_NAME_MIN_LENGTH = 2;
 const USER_NAME_MAX_LENGTH = 20;
+const DISPLAY_NAME_AVAILABILITY_DEBOUNCE_MS = 900;
 const CARD_LANGUAGE_FLAGS = new Map<string, string | undefined>(
   CARD_LANGUAGE_OPTIONS.map((language) => [language.code, language.flagAsset]),
 );
@@ -93,6 +95,7 @@ export class DashboardSettingsModalComponent {
   readonly userNameAvailability = signal<FieldAvailability>('idle');
   readonly saveInProgress = signal(false);
   readonly deleteInProgress = signal(false);
+  readonly passwordResetRequestState = signal<PasswordResetRequestState>('idle');
   readonly avatarSaveInProgress = signal(false);
   readonly displayNameStyleSaveInProgress = signal(false);
   readonly statusMessage = signal<string | null>(null);
@@ -146,6 +149,14 @@ export class DashboardSettingsModalComponent {
   readonly profileFormValid = signal(this.profileForm.valid);
   readonly userNameMaxLength = USER_NAME_MAX_LENGTH;
   readonly userNameCharacterCount = computed(() => this.profileFormValue().displayName.length);
+  readonly passwordResetRequestInProgress = computed(() => this.passwordResetRequestState() === 'sending');
+  readonly canRequestPasswordChange = computed(() =>
+    this.profileBaseline().email.trim() !== ''
+    && this.passwordResetRequestState() !== 'sent'
+    && !this.passwordResetRequestInProgress()
+    && !this.saveInProgress()
+    && !this.deleteInProgress(),
+  );
 
   readonly hasChanges = computed(() => {
     const baseline = this.profileBaseline();
@@ -366,6 +377,22 @@ export class DashboardSettingsModalComponent {
     }
   }
 
+  async requestPasswordChange(): Promise<void> {
+    if (!this.canRequestPasswordChange()) {
+      return;
+    }
+
+    this.passwordResetRequestState.set('sending');
+    this.errorMessage.set(null);
+
+    try {
+      const response = await firstValueFrom(this.authApi.requestPasswordReset(this.profileBaseline().email.trim()));
+      this.passwordResetRequestState.set(response.accepted ? 'sent' : 'error');
+    } catch {
+      this.passwordResetRequestState.set('error');
+    }
+  }
+
   async deleteAccount(): Promise<void> {
     this.deleteInProgress.set(true);
     this.errorMessage.set(null);
@@ -550,6 +577,7 @@ export class DashboardSettingsModalComponent {
     this.errorMessage.set(null);
     this.saveInProgress.set(false);
     this.deleteInProgress.set(false);
+    this.passwordResetRequestState.set('idle');
     this.avatarSaveInProgress.set(false);
     this.displayNameStyleSaveInProgress.set(false);
     this.avatarEditorOpen.set(false);
@@ -622,7 +650,7 @@ export class DashboardSettingsModalComponent {
         map((value) => value.trim()),
         distinctUntilChanged(),
         tap(() => this.userNameAvailability.set('idle')),
-        debounceTime(450),
+        debounceTime(DISPLAY_NAME_AVAILABILITY_DEBOUNCE_MS),
         switchMap((displayName) => {
           if (!this.open() || !this.displayNameChanged()) {
             return of<FieldAvailability>('idle');

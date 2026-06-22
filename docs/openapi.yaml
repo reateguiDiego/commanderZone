@@ -113,7 +113,7 @@ paths:
       tags: [Auth]
       security: []
       summary: Login and receive a short-lived JWT access token (verified accounts only).
-      description: Also sets an HttpOnly refresh cookie (`commanderzone.refresh`) used by `/auth/refresh`.
+      description: Accepts an email address or user name as `identifier`. Also sets an HttpOnly refresh cookie (`commanderzone.refresh`) used by `/auth/refresh`.
       requestBody:
         required: true
         content:
@@ -2249,6 +2249,10 @@ components:
       properties:
         error:
           type: string
+        count:
+          type: integer
+          minimum: 0
+          description: Present on login failures with the active failed-login attempt count.
     GameWebsocketTicketResponse:
       type: object
       required: [ticket, expiresAt, websocketUrl]
@@ -2699,11 +2703,16 @@ components:
           description: Must include at least one lowercase letter, one uppercase letter, and one number.
     LoginRequest:
       type: object
-      required: [email, password]
+      required: [identifier, password]
       properties:
+        identifier:
+          type: string
+          description: Email address or user name.
         email:
           type: string
           format: email
+          deprecated: true
+          description: Legacy email-only login field. Use `identifier` instead.
         password:
           type: string
     LoginResponse:
