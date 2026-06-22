@@ -26,6 +26,7 @@
           <div class="filter-field">
             <span>{{ 'rooms.roomBrowser.visibility' | runtimeTranslate }}</span>
             <app-format-select
+              class="visibility-filter-select"
               name="roomVisibilityFilter"
               [labelHidden]="true"
               labelKey="rooms.roomBrowser.visibility"
@@ -47,6 +48,7 @@
           </div>
         </div>
         <app-format-select
+          class="format-filter-select"
           name="roomFormatFilter"
           label="Format"
           allLabel="rooms.roomBrowser.publicAndPrivate"
@@ -57,6 +59,12 @@
         <div class="rooms-table-actions">
           <ng-content select="app-room-create-panel" />
         </div>
+        <aside class="rooms-space-disclaimer app-disclaimer-callout" role="status" aria-live="polite">
+          <span>
+            <strong>{{ 'game.gameTable.thisTableNeedsALittleMoreRoom' | runtimeTranslate }}.</strong>
+            {{ 'game.gameTable.sorryThisResolutionIsTooCrampedFor' | runtimeTranslate }}
+          </span>
+        </aside>
       </div>
 
       <div class="rooms-table-head">

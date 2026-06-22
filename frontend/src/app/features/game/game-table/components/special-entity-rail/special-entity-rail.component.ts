@@ -2,13 +2,14 @@ import { NgTemplateOutlet } from '@angular/common';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { GameSpecialEntity } from '../../../../../core/models/game.model';
+import { ManaIconComponent } from '../../../../../shared/mana/mana-icon/mana-icon.component';
 import { visibleSpecialEntityRailEntities } from '../../utils/special-entity-rail-visibility';
 
 export type SpecialEntityRailVariant = 'summary' | 'compact';
 
 @Component({
   selector: 'app-special-entity-rail',
-  imports: [NgTemplateOutlet, RuntimeTranslatePipe],
+  imports: [NgTemplateOutlet, RuntimeTranslatePipe, ManaIconComponent],
   templateUrl: './special-entity-rail.component.html',
   styleUrl: './special-entity-rail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -27,11 +28,7 @@ export class SpecialEntityRailComponent {
   readonly nonCardEntities = computed(() => this.visibleEntities().filter((entity) => !entity.card));
   readonly cardEntities = computed(() => this.visibleEntities().filter((entity) => !!entity.card));
 
-  mechanicIconClass(entity: GameSpecialEntity): string {
-    return `special-entity-mana-icon ms ms-mechanic ${this.mechanicIcon(entity)}`;
-  }
-
-  private mechanicIcon(entity: GameSpecialEntity): string {
+  mechanicIcon(entity: GameSpecialEntity): string {
     switch (entity.template) {
       case 'monarch':
         return 'ms-ability-role-royal';

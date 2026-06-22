@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, inject, input, output } from '@angu
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-assets.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../core/models/user.model';
+import { DeviceProfileService } from '../../../../../shared/services/device-profile.service';
 import { DashboardHeaderControlsComponent } from '../dashboard-header-controls/dashboard-header-controls.component';
 
 @Component({
@@ -14,6 +15,7 @@ import { DashboardHeaderControlsComponent } from '../dashboard-header-controls/d
 })
 export class DashboardHeaderComponent {
   readonly themeAssets = inject(AppThemeAssetsService);
+  readonly device = inject(DeviceProfileService);
   readonly userLabel = input('Player');
   readonly userAvatar = input<UserAvatar | null | undefined>(null);
   readonly userNameStyle = input<UserDisplayNameStyle | null | undefined>(null);

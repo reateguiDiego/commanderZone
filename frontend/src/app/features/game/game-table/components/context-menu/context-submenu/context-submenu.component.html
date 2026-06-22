@@ -38,7 +38,7 @@
             <span class="submenu-item-label">
               @if (item.icon) {
                 @if (item.iconKind === 'mana') {
-                  <i [class]="manaIconClass(item.icon)" aria-hidden="true"></i>
+                  <i class="submenu-item-mana-icon" [appManaIcon]="item.icon" manaIconKind="mechanic" aria-hidden="true"></i>
                 } @else if (isCounterPillIcon(item.icon)) {
                   <span class="submenu-item-counter-pill-icon" aria-hidden="true">{{ 'game.contextSubmenu.x' | runtimeTranslate }}</span>
                 } @else if (isGraveyardAssetIcon(item.icon)) {
@@ -72,7 +72,7 @@
                   <span class="submenu-item-label">
                     @if (child.icon) {
                       @if (child.iconKind === 'mana') {
-                        <i [class]="manaIconClass(child.icon)" aria-hidden="true"></i>
+                        <i class="submenu-item-mana-icon" [appManaIcon]="child.icon" manaIconKind="mechanic" aria-hidden="true"></i>
                       } @else if (isCounterPillIcon(child.icon)) {
                         <span class="submenu-item-counter-pill-icon" aria-hidden="true">{{ 'game.contextSubmenu.x' | runtimeTranslate }}</span>
                       } @else if (isGraveyardAssetIcon(child.icon)) {

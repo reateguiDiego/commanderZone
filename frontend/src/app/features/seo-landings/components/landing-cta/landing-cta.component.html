@@ -10,7 +10,7 @@
     </a>
 
     @if (content().secondaryLink; as secondaryLink) {
-      <a czButton="secondary" appSeoInternalLink class="secondary-button" [href]="secondaryLink.href" [attr.aria-label]="secondaryLink.ariaLabel">
+      <a czButton="primary" appSeoInternalLink class="primary-button" [href]="secondaryLink.href" [attr.aria-label]="secondaryLink.ariaLabel">
         {{ secondaryLink.label }}
       </a>
     }

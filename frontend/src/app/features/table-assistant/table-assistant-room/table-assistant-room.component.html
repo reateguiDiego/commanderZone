@@ -141,9 +141,11 @@
                       <h2 [title]="player.name">{{ displayPlayerName(player) }}</h2>
                     }
                     <span class="player-mana-symbols" aria-hidden="true">
-                      @for (symbol of playerManaSymbols(player); track symbol) {
-                        <i [class]="manaClass(symbol)"></i>
-                      }
+                      <app-mana-symbols
+                        [symbols]="playerManaSymbols(player)"
+                        size="small"
+                        [costBackground]="false"
+                      />
                     </span>
                   </div>
                   @if (isActivePlayer(player)) {

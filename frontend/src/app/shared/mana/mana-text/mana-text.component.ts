@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ManaStylesService } from '../mana-styles.service';
 import { ManaSymbolService } from '../mana-symbol.service';
 
 @Component({
@@ -9,7 +10,12 @@ import { ManaSymbolService } from '../mana-symbol.service';
 })
 export class ManaTextComponent {
   private readonly manaSymbols = inject(ManaSymbolService);
+  private readonly manaStyles = inject(ManaStylesService);
 
   readonly text = input<string | null | undefined>(null);
   readonly parts = computed(() => this.manaSymbols.parseText(this.text()));
+
+  constructor() {
+    this.manaStyles.load();
+  }
 }

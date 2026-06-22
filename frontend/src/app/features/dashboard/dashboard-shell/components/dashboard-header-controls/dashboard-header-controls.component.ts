@@ -8,6 +8,7 @@ import { FriendsDropdownComponent } from '../../../../friends/friends-dropdown/f
 import { DashboardSettingsModalComponent, SettingsLaunchTarget } from './components/dashboard-settings-modal/dashboard-settings-modal.component';
 import { HeaderUserMenuComponent } from './components/header-user-menu/header-user-menu.component';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { DeviceProfileService } from '../../../../../shared/services/device-profile.service';
 
 @Component({
   selector: 'app-dashboard-header-controls',
@@ -27,6 +28,7 @@ import { CzButtonDirective } from '../../../../../shared/ui/button/button.direct
 export class DashboardHeaderControlsComponent {
   private readonly fullscreen = inject(FullscreenService);
   private readonly headerUserMenu = viewChild(HeaderUserMenuComponent);
+  readonly device = inject(DeviceProfileService);
   readonly userLabel = input('Player');
   readonly userAvatar = input<UserAvatar | null | undefined>(null);
   readonly userNameStyle = input<UserDisplayNameStyle | null | undefined>(null);

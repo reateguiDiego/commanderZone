@@ -17,7 +17,12 @@
         class="special-entity-rail-overlay-trigger"
         [attr.aria-label]="'game.specialHelpers.rail.title' | runtimeTranslate"
       >
-        <i [class]="mechanicIconClass(visibleEntities()[0])" aria-hidden="true"></i>
+        <i
+          class="special-entity-mana-icon"
+          [appManaIcon]="mechanicIcon(visibleEntities()[0])"
+          manaIconKind="mechanic"
+          aria-hidden="true"
+        ></i>
         <span class="special-entity-rail-overlay-count" aria-hidden="true">
           {{ visibleEntities().length }}
         </span>
@@ -44,7 +49,7 @@
         (contextmenu)="requestEntityContext($event, entity)"
       >
         <span class="special-entity-icon" aria-hidden="true">
-          <i [class]="mechanicIconClass(entity)"></i>
+          <i class="special-entity-mana-icon" [appManaIcon]="mechanicIcon(entity)" manaIconKind="mechanic"></i>
         </span>
         <span class="special-entity-pill-copy" aria-hidden="true">
           {{ tooltipFor(entity, labelFor(entity) | runtimeTranslate) }}
@@ -62,7 +67,7 @@
           (contextmenu)="requestEntityContext($event, entity)"
         >
           <span class="special-entity-icon" aria-hidden="true">
-            <i [class]="mechanicIconClass(entity)"></i>
+            <i class="special-entity-mana-icon" [appManaIcon]="mechanicIcon(entity)" manaIconKind="mechanic"></i>
           </span>
           <span class="special-entity-pill-copy" aria-hidden="true">
             {{ tooltipFor(entity, cardLabel(entity)) }}

@@ -1,6 +1,7 @@
 import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { ManaIconComponent } from '../../../../../../shared/mana/mana-icon/mana-icon.component';
 import { contextMenuDisplayLabel } from '../context-menu-label';
 
 export type ContextSubmenuDirection = 'down' | 'up';
@@ -21,7 +22,7 @@ export interface ContextSubmenuItem {
 
 @Component({
   selector: 'app-context-submenu',
-  imports: [RuntimeTranslatePipe, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaIconComponent],
   templateUrl: './context-submenu.component.html',
   styleUrl: './context-submenu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -73,10 +74,6 @@ export class ContextSubmenuComponent {
 
   isCounterPillIcon(icon: string): boolean {
     return icon === 'counter-pill';
-  }
-
-  manaIconClass(icon: string): string {
-    return `submenu-item-mana-icon ms ms-mechanic ${icon}`;
   }
 
   isGraveyardAssetIcon(icon: string): boolean {

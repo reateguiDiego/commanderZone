@@ -1,7 +1,7 @@
 .rooms-create-panel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 10.5rem));
-  align-items: center;
+  align-items: end;
   justify-content: flex-end;
   gap: 0.6rem;
   min-width: 0;
@@ -37,17 +37,18 @@
 
 .room-code-card input {
   position: absolute;
-  top: calc(100% + 0.42rem);
+  top: auto;
   left: 0;
   right: 0;
+  bottom: calc(100% + 0.35rem);
   z-index: 20;
   box-sizing: border-box;
   width: 100%;
-  min-height: 2.2rem;
-  border-radius: 9px;
-  padding: 0 0.65rem;
+  min-height: 1.65rem;
+  border-radius: 7px;
+  padding: 0 0.55rem;
   background: rgb(var(--cz-bg-rgb) / 66%);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   letter-spacing: 0.03em;
 }
 
@@ -61,7 +62,7 @@
 }
 
 .room-code-card.has-code-input {
-  align-self: center;
+  align-self: end;
 }
 
 .rooms-create-header {
@@ -87,7 +88,7 @@
 }
 
 .rooms-create-panel > .action-tooltip-anchor {
-  align-self: center;
+  align-self: end;
 }
 
 .action-tooltip-anchor .primary-button {
@@ -101,15 +102,58 @@
   justify-content: center;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 1150px) {
+  .rooms-create-panel:has(.room-code-card.has-code-input) {
+    grid-template-columns: minmax(17rem, 21.6rem) minmax(0, 10.5rem);
+  }
+
+  .room-code-card.has-code-input {
+    grid-template-columns: minmax(8rem, 1fr) minmax(0, 10.5rem);
+    align-items: end;
+    gap: 0.45rem;
+    width: 100%;
+  }
+
+  .room-code-card.has-code-input .action-tooltip-anchor {
+    order: 2;
+  }
+
+  .room-code-card.has-code-input input {
+    position: static;
+    order: 1;
+    min-height: 2.2rem;
+  }
+}
+
+@media (max-width: 760px) {
   .rooms-create-panel {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-content: stretch;
+  }
+
+  .rooms-create-panel:has(.room-code-card.has-code-input) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .room-code-card {
     width: 100%;
+  }
+
+  .room-code-card.has-code-input {
+    align-self: stretch;
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .room-code-card.has-code-input .action-tooltip-anchor {
+    order: 0;
+  }
+
+  .room-code-card.has-code-input input {
+    position: static;
+    order: -1;
+    min-height: 2.2rem;
   }
 
   .action-tooltip-anchor,

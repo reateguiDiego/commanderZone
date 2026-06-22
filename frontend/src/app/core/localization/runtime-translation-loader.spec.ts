@@ -9,6 +9,7 @@ describe('RuntimeTranslationLoader', () => {
   const httpGet = vi.fn();
 
   beforeEach(() => {
+    TestBed.resetTestingModule();
     httpGet.mockReset();
   });
 

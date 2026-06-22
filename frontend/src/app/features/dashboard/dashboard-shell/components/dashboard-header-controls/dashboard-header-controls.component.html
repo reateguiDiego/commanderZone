@@ -1,4 +1,4 @@
-<div class="user-strip">
+<div class="user-strip" [class.friends-hidden]="!device.isDesktop()">
   <app-player-info
     [displayName]="userLabel()"
     [avatar]="userAvatar()"
@@ -8,33 +8,35 @@
     (nameSelected)="openSettings('name-style')"
   />
 
-  <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">
-    <button czButton="icon"
-      class="icon-button friends-action"
-      [class.has-notifications]="!friendsOpen() && pendingNotificationsCount() > 0"
-      type="button"
-      [title]="'navigation.dashboard.dashboardHeaderControls.friends' | runtimeTranslate"
-      [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.friends' | runtimeTranslate"
-      [attr.aria-expanded]="friendsOpen()"
-      (click)="toggleFriendsDropdown($event)"
-    >
-      <lucide-icon name="users" size="18" />
-      @if (!friendsOpen()) {
-        <span class="online-count-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.onlineFriends' | runtimeTranslate">
-          {{ onlineFriendsCount() }}
-        </span>
-      }
-      @if (!friendsOpen() && pendingNotificationsCount() > 0) {
-        <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.pendingFriendRequests' | runtimeTranslate">
-          {{ pendingNotificationsCount() }}
-        </span>
-      }
-    </button>
+  @if (device.isDesktop()) {
+    <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">
+      <button czButton="icon"
+        class="icon-button friends-action"
+        [class.has-notifications]="!friendsOpen() && pendingNotificationsCount() > 0"
+        type="button"
+        [title]="'navigation.dashboard.dashboardHeaderControls.friends' | runtimeTranslate"
+        [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.friends' | runtimeTranslate"
+        [attr.aria-expanded]="friendsOpen()"
+        (click)="toggleFriendsDropdown($event)"
+      >
+        <lucide-icon name="users" size="18" />
+        @if (!friendsOpen()) {
+          <span class="online-count-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.onlineFriends' | runtimeTranslate">
+            {{ onlineFriendsCount() }}
+          </span>
+        }
+        @if (!friendsOpen() && pendingNotificationsCount() > 0) {
+          <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.pendingFriendRequests' | runtimeTranslate">
+            {{ pendingNotificationsCount() }}
+          </span>
+        }
+      </button>
 
-    @if (friendsOpen()) {
-      <app-friends-dropdown />
-    }
-  </div>
+      @if (friendsOpen()) {
+        <app-friends-dropdown />
+      }
+    </div>
+  }
 
   <app-header-user-menu
     (menuOpened)="handleUserMenuOpened()"

@@ -27,6 +27,12 @@ app-player-info {
   max-width: 16.2rem;
 }
 
+.user-strip.friends-hidden app-player-info {
+  flex-basis: 18.4rem;
+  width: 18.4rem;
+  max-width: 18.4rem;
+}
+
 .friends-dropdown {
   position: relative;
   flex: 0 0 auto;
@@ -155,6 +161,18 @@ app-player-info {
     width: min(16rem, 100%);
     min-width: 0;
     max-width: min(16rem, 48vw);
+  }
+
+  .user-strip.friends-hidden {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .user-strip.friends-hidden app-player-info {
+    max-width: min(18.4rem, 62vw);
+  }
+
+  .user-strip.friends-hidden app-header-user-menu {
+    grid-column: 2;
   }
 
   .friends-dropdown {

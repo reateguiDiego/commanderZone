@@ -65,10 +65,64 @@ describe('RoomsComponent', () => {
     const header = TestBed.inject(PageHeaderStore).state();
     expect(header?.title).toBe('Rooms');
     expect(header?.stats?.map((stat) => stat.label)).toEqual([
-      'Active rooms',
+      'Total rooms',
       'Open rooms',
-      'Private rooms',
       'Started games',
+      'Total players',
+      'Public rooms',
+      'Private rooms',
+    ]);
+    expect(header?.stats?.map((stat) => stat.tone ?? 'neutral')).toEqual([
+      'info',
+      'success',
+      'warning',
+      'info',
+      'success',
+      'warning',
+    ]);
+  });
+
+  it('calculates room header stats in the requested order', async () => {
+    roomsApi.list.mockReturnValue(of({ data: [
+      roomFixture({
+        id: 'room-public-open',
+        visibility: 'public',
+        maxPlayers: 4,
+        players: [roomPlayerFixture('user-2', 'Other')],
+      }),
+      roomFixture({
+        id: 'room-public-started',
+        visibility: 'public',
+        status: 'started',
+        gameId: 'game-1',
+        players: [
+          roomPlayerFixture('user-3', 'Started A'),
+          roomPlayerFixture('user-4', 'Started B'),
+        ],
+      }),
+      roomFixture({
+        id: 'room-private-full',
+        visibility: 'private',
+        maxPlayers: 2,
+        players: [
+          roomPlayerFixture('user-5', 'Private A'),
+          roomPlayerFixture('user-6', 'Private B'),
+        ],
+      }),
+    ] }));
+
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const header = TestBed.inject(PageHeaderStore).state();
+    expect(header?.stats?.map((stat) => [stat.label, stat.value])).toEqual([
+      ['Total rooms', 3],
+      ['Open rooms', 1],
+      ['Started games', 1],
+      ['Total players', 5],
+      ['Public rooms', 2],
+      ['Private rooms', 1],
     ]);
   });
 
@@ -297,6 +351,29 @@ describe('RoomsComponent', () => {
       .map((element) => element.nativeElement.textContent.trim());
 
     expect(actions).toEqual(['', '']);
+  });
+
+  it('renders masked private room hosts as anonymous with the anonymous nameplate', async () => {
+    const room = roomFixture({
+      id: 'room-private-masked',
+      name: 'Private masked room',
+      owner: userFixture('user-2', 'XXXX'),
+      visibility: 'private',
+      players: [roomPlayerFixture('user-2', 'XXXX')],
+    });
+    roomsApi.list.mockReturnValue(of({ data: [room] }));
+
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const ownerName = fixture.debugElement.query(By.css('.room-owner-nameplate .player-name-label'));
+    const nameplate = fixture.debugElement.query(By.css('.room-owner-nameplate .nameplate-image'));
+
+    expect(ownerName.nativeElement.textContent.trim()).toBe('Anonymous');
+    expect(fixture.nativeElement.textContent).not.toContain('XXXX');
+    expect(nameplate.nativeElement.getAttribute('src')).toContain('assets/images/nameplates/umbral-rose.png');
   });
 
   it('ignores private listed rooms where the current user is not a player', async () => {

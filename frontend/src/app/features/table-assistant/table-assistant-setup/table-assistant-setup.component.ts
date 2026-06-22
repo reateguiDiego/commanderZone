@@ -24,6 +24,7 @@ import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { TableAssistantTimerMode } from '../models/table-assistant.models';
 import { TableAssistantTimerSettingsComponent } from '../table-assistant-timer-settings/table-assistant-timer-settings.component';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 
 @Component({
   selector: 'app-table-assistant-setup',
@@ -35,6 +36,7 @@ import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
     GameSetupSeatsControlComponent,
     TableAssistantTimerSettingsComponent,
     CzButtonDirective,
+    ManaSymbolsComponent,
   ],
   templateUrl: './table-assistant-setup.component.html',
   styleUrl: './table-assistant-setup.component.scss',
@@ -143,10 +145,6 @@ export class TableAssistantSetupComponent implements OnDestroy {
 
   colorGradient(colorId: string | undefined): string {
     return tableAssistantColorOption(colorId ?? this.colorOptions[0].id).gradient;
-  }
-
-  manaClass(symbol: string): string {
-    return `ms ms-${symbol}`;
   }
 
   toggleColorPicker(index: number): void {

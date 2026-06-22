@@ -11,6 +11,7 @@ import { GameTableLongPressDirective } from '../../directives/game-table-long-pr
 import { knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zone-drop';
 import { CommandersStackCard, CommandersStackComponent } from '../commanders-stack/commanders-stack.component';
 import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
+import { ManaIconComponent } from '../../../../../shared/mana/mana-icon/mana-icon.component';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -68,7 +69,13 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
 
 @Component({
   selector: 'app-zone-piles-panel',
-  imports: [RuntimeTranslatePipe, ZoneCardStackComponent, CommandersStackComponent, GameTableLongPressDirective],
+  imports: [
+    RuntimeTranslatePipe,
+    ZoneCardStackComponent,
+    CommandersStackComponent,
+    GameTableLongPressDirective,
+    ManaIconComponent,
+  ],
   templateUrl: './zone-piles-panel.component.html',
   styleUrl: './zone-piles-panel.component.scss',
   providers: [GameTablePointerDragService, GameTableZonePointerDragService],

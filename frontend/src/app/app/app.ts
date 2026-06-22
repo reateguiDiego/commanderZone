@@ -1,4 +1,3 @@
-import { RuntimeTranslatePipe } from '../core/localization/runtime-translate.pipe';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Injector, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterOutlet } from '@angular/router';
@@ -10,14 +9,13 @@ import { CookieConsentBannerComponent } from '../core/privacy/cookie-consent-ban
 import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
 import { FooterDisclaimerComponent } from '../shared/components/footer-disclaimer/footer-disclaimer.component';
 import { NoindexFooterDisclaimerComponent } from '../shared/components/noindex-footer-disclaimer/noindex-footer-disclaimer.component';
-import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { AppThemeService } from '../core/theme/app-theme.service';
 import { AppBackgroundService } from '../core/ui/app-background.service';
+import { RouteStylesService } from '../core/ui/route-styles.service';
 
 @Component({
   selector: 'app-root',
   imports: [
-    RuntimeTranslatePipe,
     CookieConsentBannerComponent,
     FooterDisclaimerComponent,
     NoindexFooterDisclaimerComponent,
@@ -30,15 +28,15 @@ import { AppBackgroundService } from '../core/ui/app-background.service';
 export class App {
   private readonly auth = inject(AuthStore);
   private readonly document = inject(DOCUMENT);
-  private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
   private readonly routeRobots = inject(RouteRobotsMetaService);
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly theme = inject(AppThemeService);
+  private readonly routeStyles = inject(RouteStylesService);
   readonly loading = inject(LoadingStore);
-  private readonly currentPath = signal(this.normalizedPath(this.router.url));
-  private readonly navigationLoading = signal(false);
+  private readonly currentPath = signal(this.initialPath());
+  private readonly navigationLoading = signal(this.shouldShowInitialNavigationLoading(this.currentPath()));
   readonly showDisclaimer = computed(() => !this.isDisclaimerHiddenPath(this.currentPath()));
   readonly showNoindexDisclaimer = computed(() => this.isNoindexFooterDisclaimerPath(this.currentPath()));
   readonly showGlobalLoading = computed(
@@ -55,7 +53,7 @@ export class App {
     }
 
     this.routeRobots.initialize();
-    this.syncRouteState(this.router.url);
+    this.syncRouteState(this.currentPath());
     this.router.events
       .pipe(takeUntilDestroyed())
       .subscribe((event) => {
@@ -81,6 +79,7 @@ export class App {
   private syncRouteState(url: string): void {
     const path = this.normalizedPath(url);
     this.currentPath.set(path);
+    this.routeStyles.applyForPath(path);
 
     if (isPlatformBrowser(this.platformId)) {
       const isDashboardShellPath = this.isDashboardShellPath(path);
@@ -96,6 +95,20 @@ export class App {
 
   private normalizedPath(url: string): string {
     return url.split(/[?#]/)[0];
+  }
+
+  private initialPath(): string {
+    if (!isPlatformBrowser(this.platformId)) {
+      return this.normalizedPath(this.router.url);
+    }
+
+    return this.normalizedPath(this.document.location.pathname);
+  }
+
+  private shouldShowInitialNavigationLoading(path: string): boolean {
+    return isPlatformBrowser(this.platformId)
+      && !this.router.navigated
+      && this.isNoindexAppPath(path);
   }
 
   private isDisclaimerHiddenPath(path: string): boolean {
