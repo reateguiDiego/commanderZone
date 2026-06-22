@@ -161,7 +161,8 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                     continue;
                 }
 
-                $isCommand = ($payload['kind'] ?? null) === 'command';
+                $payloadKind = is_string($payload['kind'] ?? null) ? $payload['kind'] : '';
+                $isCommand = $payloadKind === 'command' || $this->mulligans->supports($payloadKind);
                 $debugEnabled = $this->debugHealth->isObserved($peer->gameId);
                 $incomingCharacters = strlen($rawMessage);
                 $incomingDebug = [];
@@ -461,12 +462,15 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
     private function incomingDebugSummary(array $message, int $characters, string $userId): array
     {
         $command = is_array($message['command'] ?? null) ? $message['command'] : [];
+        $kind = is_string($message['kind'] ?? null) ? $message['kind'] : 'unknown';
 
         return [
             'userId' => $userId,
-            'kind' => is_string($message['kind'] ?? null) ? $message['kind'] : 'unknown',
-            'action' => is_string($command['type'] ?? null) ? $command['type'] : null,
-            'clientActionId' => is_string($command['clientActionId'] ?? null) ? $command['clientActionId'] : null,
+            'kind' => $kind,
+            'action' => is_string($command['type'] ?? null) ? $command['type'] : ($this->mulligans->supports($kind) ? $kind : null),
+            'clientActionId' => is_string($command['clientActionId'] ?? null)
+                ? $command['clientActionId']
+                : (is_string($message['messageId'] ?? null) ? $message['messageId'] : null),
             'baseVersion' => is_int($command['baseVersion'] ?? null) ? $command['baseVersion'] : null,
             'characters' => max(0, $characters),
         ];
@@ -485,7 +489,9 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
             'status' => is_string($message['status'] ?? null) ? $message['status'] : null,
             'version' => is_int($message['version'] ?? null) ? $message['version'] : null,
             'currentVersion' => is_int($message['currentVersion'] ?? null) ? $message['currentVersion'] : null,
-            'operationCount' => is_array($message['operations'] ?? null) ? count($message['operations']) : 0,
+            'operationCount' => is_array($message['operations'] ?? null)
+                ? count($message['operations'])
+                : (is_array($message['ops'] ?? null) ? count($message['ops']) : 0),
             'operationTypes' => $operationTypes,
             'characters' => $this->jsonCharacters($message),
             'channel' => $channel,
@@ -514,12 +520,15 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
      */
     private function operationTypes(array $message): array
     {
-        if (!is_array($message['operations'] ?? null)) {
+        $operations = is_array($message['operations'] ?? null)
+            ? $message['operations']
+            : (is_array($message['ops'] ?? null) ? $message['ops'] : null);
+        if (!is_array($operations)) {
             return [];
         }
 
         $types = [];
-        foreach ($message['operations'] as $operation) {
+        foreach ($operations as $operation) {
             if (!is_array($operation)) {
                 continue;
             }

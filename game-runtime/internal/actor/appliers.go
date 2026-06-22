@@ -35,6 +35,13 @@ func DefaultAppliers() []Applier {
 		ZoneReorderedByIDsApplier{},
 		ZoneMoveAllApplier{},
 		BattlefieldUntapAllApplier{},
+		MulliganTakeApplier{},
+		MulliganKeepApplier{},
+		MulliganCardsBottomedApplier{},
+		MulliganScryConfirmApplier{},
+		MulliganReadyApplier{},
+		MulliganCompletedApplier{},
+		GamePhaseSetApplier{},
 	}
 }
 

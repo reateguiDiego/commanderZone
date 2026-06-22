@@ -79,8 +79,7 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -106,9 +105,4 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         return (string) $this->jsonResponse()['deck']['id'];
     }
 
-    private function rollTurnOrder(string $roomId, string $token): void
-    {
-        $this->jsonRequest('POST', '/rooms/'.$roomId.'/roll-turn', token: $token);
-        self::assertResponseIsSuccessful();
-    }
 }

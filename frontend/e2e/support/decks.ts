@@ -110,6 +110,18 @@ export interface ValidCommanderDeckFromDatabaseResult {
   decklist: string;
 }
 
+export interface BasicCommanderDeckFromDatabaseResult {
+  deckId: string;
+  commander: {
+    id: string;
+    scryfallId: string;
+    name: string;
+    colorIdentity: string[];
+  };
+  cards: RandomDeckCardResult[];
+  validation: CommanderValidationPayload;
+}
+
 type SearchFilter = {
   commanderLegal?: boolean;
 };
@@ -281,6 +293,72 @@ export async function createValidCommanderDeckFromDatabase(
     cards: cardResults,
     validation,
     decklist: buildDecklist(cardResults),
+  };
+}
+
+export async function createBasicCommanderDeckFromDatabase(
+  request: APIRequestContext,
+  options: CreateValidCommanderDeckFromDatabaseOptions,
+): Promise<BasicCommanderDeckFromDatabaseResult> {
+  const commander = await findMonoWhiteCommander(request);
+  const plains = await findBasicPlains(request);
+  const quickBuildPayload = {
+    name: options.name,
+    cards: [
+      toQuickBuildInput(commander, 'commander'),
+      {
+        scryfallId: plains.scryfallId,
+        quantity: 99,
+        section: 'main' as const,
+      },
+    ],
+  };
+
+  const quickBuildResponse = await request.post(`${API_BASE_URL}/decks/quick-build`, {
+    headers: {
+      Authorization: `Bearer ${options.ownerToken}`,
+    },
+    data: quickBuildPayload,
+  });
+  await expectQuickBuildOk(quickBuildResponse, options.name);
+
+  const quickBuild = (await quickBuildResponse.json()) as QuickBuildResponse;
+  const validationResponse = await request.post(`${API_BASE_URL}/decks/${quickBuild.deck.id}/validate-commander`, {
+    headers: {
+      Authorization: `Bearer ${options.ownerToken}`,
+    },
+  });
+  expect(validationResponse.ok()).toBeTruthy();
+  const validation = normalizeCommanderValidation(
+    (await validationResponse.json()) as Record<string, unknown>,
+    quickBuild.deck.cards,
+    commander,
+  );
+  if (!validation.valid) {
+    throw new Error('createBasicCommanderDeckFromDatabase produced an invalid deck.');
+  }
+
+  const cardResults: RandomDeckCardResult[] = quickBuild.deck.cards
+    .filter((deckCard) => deckCard.section === 'commander' || deckCard.section === 'main')
+    .map((deckCard) => ({
+      id: deckCard.card.id,
+      name: deckCard.card.name,
+      quantity: deckCard.quantity,
+      role: deckCard.section === 'commander' ? 'commander' : 'mainboard',
+      setCode: deckCard.card.setCode ?? undefined,
+      collectorNumber: deckCard.card.collectorNumber ?? undefined,
+    }));
+
+  return {
+    deckId: quickBuild.deck.id,
+    commander: {
+      id: commander.id,
+      scryfallId: commander.scryfallId,
+      name: commander.name,
+      colorIdentity: commander.colorIdentity ?? [],
+    },
+    cards: cardResults,
+    validation,
   };
 }
 
@@ -479,6 +557,42 @@ async function fetchCommanderLegalCatalog(
   }
 
   return cards;
+}
+
+async function findMonoWhiteCommander(request: APIRequestContext): Promise<CardSearchItem> {
+  const response = await request.get(`${API_BASE_URL}/cards/search?q=Aang&limit=20&commanderLegal=true`);
+  expect(response.ok()).toBeTruthy();
+  const payload = (await response.json()) as CardSearchResponse;
+  const commander = (payload.data ?? []).find((card) =>
+    isCommanderCandidate(card)
+    && (card.colorIdentity ?? []).length === 1
+    && card.colorIdentity?.[0] === 'W',
+  );
+  if (!commander) {
+    throw new Error('Could not find a mono-white Commander candidate for E2E fixture.');
+  }
+
+  return commander;
+}
+
+async function findBasicPlains(request: APIRequestContext): Promise<CardSearchItem> {
+  const params = new URLSearchParams({
+    q: 'Plains',
+    limit: '10',
+    commanderLegal: 'true',
+    type: 'land',
+  });
+  const response = await request.get(`${API_BASE_URL}/cards/search?${params.toString()}`);
+  expect(response.ok()).toBeTruthy();
+  const payload = (await response.json()) as CardSearchResponse;
+  const plains = (payload.data ?? []).find((card) => (card.typeLine ?? '').toLowerCase() === 'basic land — plains')
+    ?? (payload.data ?? []).find((card) => (card.typeLine ?? '').toLowerCase().includes('basic') && card.name === 'Plains')
+    ?? (payload.data ?? []).find((card) => (card.typeLine ?? '').toLowerCase().includes('basic'));
+  if (!plains) {
+    throw new Error('Could not find Basic Land — Plains for E2E fixture.');
+  }
+
+  return plains;
 }
 
 function pickCommanderCandidateFromCatalog(cards: CardSearchItem[], random: () => number): CardSearchItem {

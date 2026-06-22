@@ -29,14 +29,15 @@ func NewCompactSnapshot(game state.GameState) (CompactSnapshot, error) {
 	if err := AssertNoStaticPayload(game); err != nil {
 		return CompactSnapshot{}, err
 	}
-	checksum, err := ChecksumState(game)
+	compactState := game.Clone()
+	checksum, err := ChecksumState(compactState)
 	if err != nil {
 		return CompactSnapshot{}, err
 	}
 	return CompactSnapshot{
 		GameID:   game.GameID,
 		Version:  game.Version,
-		State:    game.Clone(),
+		State:    compactState,
 		Checksum: checksum,
 	}, nil
 }

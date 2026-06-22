@@ -6,6 +6,10 @@ use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganRules;
 use App\Application\Game\GameRandomizer;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
+use App\Application\Game\Runtime\GameRuntimeMulliganClientInterface;
+use App\Application\Game\Runtime\GameRuntimeMulliganException;
+use App\Application\Game\Runtime\GameRuntimeMulliganResult;
 use App\Application\Game\WebSocket\GameWebsocketMulliganService;
 use App\Application\Game\WebSocket\GameWebsocketPeer;
 use App\Domain\Game\Game;
@@ -21,6 +25,85 @@ use PHPUnit\Framework\TestCase;
 
 class GameWebsocketMulliganServiceTest extends TestCase
 {
+    public function testRuntimeFlagRoutesMulliganToRuntime(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $runtime = RuntimeMulliganClientStub::success();
+        $service = $this->service(
+            $game,
+            $actor,
+            expectPersist: false,
+            expectTransaction: false,
+            flags: $this->runtimeFlags(runtime: true, shadow: false),
+            runtimeClient: $runtime,
+        );
+
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime');
+        $messages = $result->messagesForUserId($actor->id());
+
+        self::assertSame(['patch.v2'], array_column($messages, 'kind'));
+        self::assertSame('mulligan.status.set', $messages[0]['ops'][0]['op']);
+        self::assertSame($actor->id(), $messages[0]['ops'][0]['playerId']);
+        self::assertSame('mulligan.hand.replace_private', $messages[0]['ops'][1]['op']);
+        self::assertArrayNotHasKey('data', $messages[0]['ops'][0]);
+        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_route'] ?? 0.0);
+        self::assertSame(0.0, $result->debugProfile()['mulligan.runtime_fallback_count'] ?? 1.0);
+        self::assertSame(1, $runtime->calls);
+        self::assertFalse($runtime->shadowCalls[0] ?? true);
+        self::assertSame('mulligan.take', $runtime->kinds[0] ?? null);
+    }
+
+    public function testRuntimeFailureFallsBackToLegacyMulligan(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $runtime = RuntimeMulliganClientStub::failure();
+        $service = $this->service(
+            $game,
+            $actor,
+            expectPersist: true,
+            flags: $this->runtimeFlags(runtime: true, shadow: false),
+            runtimeClient: $runtime,
+        );
+
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-fallback');
+
+        self::assertSame(['mulligan.public_state', 'mulligan.private_state'], array_column($result->messagesForUserId($actor->id()), 'kind'));
+        self::assertSame(0.0, $result->debugProfile()['mulligan.runtime_route'] ?? 1.0);
+        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_fallback_count'] ?? 0.0);
+        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_error_count'] ?? 0.0);
+        self::assertSame(1, $runtime->calls);
+    }
+
+    public function testShadowModeRunsRuntimeComparisonWithoutChangingLegacyResponse(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $runtime = RuntimeMulliganClientStub::success();
+        $service = $this->service(
+            $game,
+            $actor,
+            expectPersist: true,
+            flags: $this->runtimeFlags(runtime: false, shadow: true),
+            runtimeClient: $runtime,
+        );
+
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-shadow');
+
+        self::assertSame(['mulligan.public_state', 'mulligan.private_state'], array_column($result->messagesForUserId($actor->id()), 'kind'));
+        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_shadow_executed'] ?? 0.0);
+        self::assertSame(0.0, $result->debugProfile()['mulligan.runtime_shadow_divergence'] ?? 1.0);
+        self::assertSame(1, $runtime->calls);
+        self::assertTrue($runtime->shadowCalls[0] ?? false);
+    }
+
     public function testTakeMulliganUpdatesPrivateAndPublicState(): void
     {
         [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
@@ -157,7 +240,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
             ->handle('mulligan.keep', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-keep');
         $snapshotAfterKeep = $game->snapshot();
 
-        $message = $this->service($game, $actor, expectPersist: false)
+        $message = $this->service($game, $actor, expectPersist: false, expectTransaction: false)
             ->handle('mulligan.keep', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-keep-repeat');
 
         self::assertSame('mulligan.error', $message['kind']);
@@ -172,7 +255,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
             'library' => $this->cards('library', 1, 'library'),
         ], status: 'READY');
         $snapshotBeforeTake = $game->snapshot();
-        $service = $this->service($game, $actor, expectPersist: false);
+        $service = $this->service($game, $actor, expectPersist: false, expectTransaction: false);
 
         $message = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-take-ready');
 
@@ -605,6 +688,8 @@ class GameWebsocketMulliganServiceTest extends TestCase
         bool $expectTransaction = true,
         ?GameCommandHandler $handler = null,
         ?GameEvent $existingEvent = null,
+        ?GameplayV2Flags $flags = null,
+        ?GameRuntimeMulliganClientInterface $runtimeClient = null,
     ): GameWebsocketMulliganService {
         $gameRepository = $this->createMock(EntityRepository::class);
         $gameRepository->expects(self::once())->method('find')->with($game->id())->willReturn($game);
@@ -630,7 +715,24 @@ class GameWebsocketMulliganServiceTest extends TestCase
         $registry = $this->createMock(ManagerRegistry::class);
         $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
 
-        return new GameWebsocketMulliganService($handler ?? new GameCommandHandler(), $registry);
+        return new GameWebsocketMulliganService($handler ?? new GameCommandHandler(), $registry, null, $flags, $runtimeClient);
+    }
+
+    private function runtimeFlags(bool $runtime, bool $shadow): GameplayV2Flags
+    {
+        return new GameplayV2Flags(
+            commandEnabled: false,
+            patchEnabled: false,
+            bootstrapEnabled: false,
+            eventEnabled: false,
+            visibilityEnabled: false,
+            enabled: true,
+            commandsAllowlist: 'mulligan.take,mulligan.keep,mulligan.scry.confirm',
+            runtimeServiceEnabled: $runtime,
+            semanticPatchesEnabled: true,
+            compactBootstrapEnabled: true,
+            shadowCompareEnabled: $shadow,
+        );
     }
 
     private function peer(Game $game, User $user): GameWebsocketPeer
@@ -669,6 +771,82 @@ class GameWebsocketMulliganServiceTest extends TestCase
         return array_map(
             static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
             (new GameLibraryOps())->projectionOrderCards($snapshot['players'][$playerId] ?? []),
+        );
+    }
+}
+
+final class RuntimeMulliganClientStub implements GameRuntimeMulliganClientInterface
+{
+    public int $calls = 0;
+
+    /** @var list<bool> */
+    public array $shadowCalls = [];
+
+    /** @var list<string> */
+    public array $kinds = [];
+
+    private function __construct(private readonly bool $throws)
+    {
+    }
+
+    public static function success(): self
+    {
+        return new self(false);
+    }
+
+    public static function failure(): self
+    {
+        return new self(true);
+    }
+
+    public function dispatch(
+        string $kind,
+        string $gameId,
+        string $actorId,
+        int $baseVersion,
+        string $clientActionId,
+        array $snapshot,
+        array $payload,
+        bool $shadow = false,
+    ): GameRuntimeMulliganResult {
+        ++$this->calls;
+        $this->shadowCalls[] = $shadow;
+        $this->kinds[] = $kind;
+        if ($this->throws) {
+            throw new GameRuntimeMulliganException('runtime unavailable');
+        }
+
+        return new GameRuntimeMulliganResult(
+            [
+                'gameId' => $gameId,
+                'version' => $baseVersion + 1,
+                'type' => 'mulligan.player_took',
+                'payload' => ['metrics' => ['mulligan.take_ms' => 0.25]],
+                'createdBy' => $actorId,
+                'clientActionId' => $clientActionId,
+                'createdAt' => '2026-01-01T00:00:00+00:00',
+            ],
+            [
+                [
+                    'gameId' => $gameId,
+                    'version' => $baseVersion + 1,
+                    'visibility' => 'public',
+                    'ackClientActionId' => $clientActionId,
+                    'ops' => [
+                        ['op' => 'mulligan.status.set', 'data' => ['playerId' => $actorId, 'status' => 'DECIDING', 'ready' => false, 'handCount' => 7]],
+                    ],
+                ],
+                [
+                    'gameId' => $gameId,
+                    'version' => $baseVersion + 1,
+                    'visibility' => 'player:'.$actorId,
+                    'ackClientActionId' => $clientActionId,
+                    'ops' => [
+                        ['op' => 'mulligan.hand.replace_private', 'data' => ['playerId' => $actorId, 'hand' => []]],
+                    ],
+                ],
+            ],
+            ['mulligan.take_ms' => 0.25],
         );
     }
 }

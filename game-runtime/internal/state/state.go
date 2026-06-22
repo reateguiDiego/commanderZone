@@ -11,6 +11,47 @@ const (
 	ZoneCommand     Zone = "command"
 )
 
+type GamePhase string
+
+const (
+	PhasePregame  GamePhase = "PREGAME"
+	PhaseMulligan GamePhase = "MULLIGAN"
+	PhasePlaying  GamePhase = "PLAYING"
+	PhaseFinished GamePhase = "FINISHED"
+)
+
+type MulliganPlayerStatus string
+
+const (
+	MulliganStatusDeciding  MulliganPlayerStatus = "DECIDING"
+	MulliganStatusBottoming MulliganPlayerStatus = "BOTTOMING"
+	MulliganStatusScrying   MulliganPlayerStatus = "SCRYING"
+	MulliganStatusReady     MulliganPlayerStatus = "READY"
+)
+
+type MulliganState struct {
+	Rule              string                         `json:"rule"`
+	FirstMulliganFree bool                           `json:"firstMulliganFree"`
+	PlayerStatus      map[string]MulliganPlayerState `json:"playerStatus"`
+	ReadyPlayers      map[string]bool                `json:"readyPlayers"`
+	Completed         bool                           `json:"completed"`
+	BottomOrderMode   string                         `json:"bottomOrderMode,omitempty"`
+	ScryMode          string                         `json:"scryMode,omitempty"`
+}
+
+type MulliganPlayerState struct {
+	Status             MulliganPlayerStatus `json:"status"`
+	MulliganCount      int                  `json:"mulliganCount"`
+	EffectiveMulligans int                  `json:"effectiveMulligans"`
+	CurrentHandSize    int                  `json:"currentHandSize"`
+	CardsToBottom      int                  `json:"cardsToBottom"`
+	BottomPending      bool                 `json:"bottomPending"`
+	ScryPending        bool                 `json:"scryPending"`
+	BottomOrderMode    string               `json:"bottomOrderMode,omitempty"`
+	ScryMode           string               `json:"scryMode,omitempty"`
+	ScryCardInstanceID string               `json:"scryCardInstanceId,omitempty"`
+}
+
 type Location struct {
 	PlayerID     string `json:"playerId"`
 	Zone         Zone   `json:"zone"`
@@ -92,6 +133,7 @@ type GameState struct {
 	GameID     string                         `json:"gameId"`
 	Version    int64                          `json:"version"`
 	Status     string                         `json:"status"`
+	Phase      GamePhase                      `json:"phase,omitempty"`
 	Players    map[string]map[string]any      `json:"players"`
 	Turn       map[string]any                 `json:"turn"`
 	Instances  map[string]CardInstanceRuntime `json:"instances"`
@@ -100,6 +142,7 @@ type GameState struct {
 	Visibility VisibilityIndex                `json:"visibility"`
 	Relations  Relations                      `json:"relations"`
 	Stack      []StackItem                    `json:"stack"`
+	Mulligan   MulliganState                  `json:"mulligan,omitempty"`
 }
 
 func (s GameState) Clone() GameState {
@@ -124,6 +167,7 @@ func (s GameState) Clone() GameState {
 	clone.Visibility = s.Visibility.Clone()
 	clone.Relations = s.Relations.Clone()
 	clone.Stack = append([]StackItem(nil), s.Stack...)
+	clone.Mulligan = s.Mulligan.Clone()
 	return clone
 }
 
@@ -163,6 +207,19 @@ func (z PlayerZones) Clone() PlayerZones {
 		Exile:       append([]string(nil), z.Exile...),
 		Command:     append([]string(nil), z.Command...),
 	}
+}
+
+func (m MulliganState) Clone() MulliganState {
+	clone := m
+	clone.PlayerStatus = map[string]MulliganPlayerState{}
+	for playerID, status := range m.PlayerStatus {
+		clone.PlayerStatus[playerID] = status
+	}
+	clone.ReadyPlayers = map[string]bool{}
+	for playerID, ready := range m.ReadyPlayers {
+		clone.ReadyPlayers[playerID] = ready
+	}
+	return clone
 }
 
 func (v VisibilityIndex) Clone() VisibilityIndex {

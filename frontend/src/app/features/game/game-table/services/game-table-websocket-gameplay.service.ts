@@ -38,6 +38,7 @@ export interface GameTableWebsocketGameplayContext {
   onMulliganPrivateState?(message: GameplayMulliganPrivateStateMessage): void;
   onMulliganError?(message: GameplayMulliganErrorMessage): void;
   onMulliganCompleted?(message: GameplayMulliganCompletedMessage): void;
+  onMulliganPatchV2Applied?(patch: GameplayPatchV2Message, snapshot: GameSnapshot): void;
   onCommandBlocked?(
     reason: Extract<GameDebugQueueDeadLetterReason, 'circuit_blocked' | 'queue_full'>,
     type: GameWebsocketCommandType,
@@ -481,6 +482,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     const result = this.normalizedV2Store.applyPatch(patch);
     if (result.status === 'applied') {
       context.setSnapshot(result.snapshot);
+      context.onMulliganPatchV2Applied?.(patch, result.snapshot);
       this.publishSnapshotMetric(context.gameId(), patch, previousSnapshotSize, this.snapshotSize(result.snapshot));
       this.resolveInFlightCommand(patch.ackClientActionId ?? undefined);
       this.drainQueue();

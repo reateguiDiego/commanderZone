@@ -241,11 +241,16 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		return CommandResult{Err: err}
 	}
 	a.state.Version = nextVersion
+	eventType := command.Type
+	if override, ok := eventPayload["_eventType"].(string); ok && override != "" {
+		eventType = override
+		delete(eventPayload, "_eventType")
+	}
 
 	event := protocol.EventPayloadV2{
 		GameID:         a.gameID,
 		Version:        nextVersion,
-		Type:           command.Type,
+		Type:           eventType,
 		Payload:        eventPayload,
 		CreatedBy:      request.ActorID,
 		ClientActionID: command.ClientActionID,

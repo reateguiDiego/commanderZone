@@ -32,6 +32,8 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayViaApplier(game, event, appliers)
 	case "card.moved", "cards.moved", "zone.reorderedByIds", "zone.move_all", "battlefield.untap_all":
 		return replayViaApplier(game, event, appliers)
+	case "mulligan.player_took", "mulligan.player_kept", "mulligan.cards_bottomed", "mulligan.scry_confirmed", "mulligan.player_ready", "mulligan.completed", "game.phase_changed":
+		return replayMulliganEvent(game, event)
 	default:
 		return ReplayEvent(game, event)
 	}
@@ -81,6 +83,35 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownCommand, event.Type)
 	}
+}
+
+func replayMulliganEvent(game *state.GameState, event protocol.EventPayloadV2) error {
+	if phaseValue, ok := event.Payload["phase"].(state.GamePhase); ok {
+		game.Phase = phaseValue
+		game.Status = phaseStatus(phaseValue)
+	} else if phaseString, ok := event.Payload["phase"].(string); ok && phaseString != "" {
+		game.Phase = state.GamePhase(phaseString)
+		game.Status = phaseStatus(game.Phase)
+	}
+	if event.Type == "game.phase_changed" {
+		return nil
+	}
+	if mulligan, ok := event.Payload["mulligan"].(state.MulliganState); ok {
+		game.Mulligan = mulligan.Clone()
+	}
+	playerID, hasPlayer := event.Payload["playerId"].(string)
+	if hasPlayer && playerID != "" {
+		zones := game.Zones[playerID]
+		if handIDs, err := stringSliceField(event.Payload, "handIds"); err == nil {
+			zones.Hand = handIDs
+		}
+		if libraryOrder, err := stringSliceField(event.Payload, "libraryOrder"); err == nil {
+			zones.Library = libraryOrder
+		}
+		game.Zones[playerID] = zones
+	}
+	state.RebuildLocIndexForRecoveryOnly(game)
+	return nil
 }
 
 func replayViaApplier(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {

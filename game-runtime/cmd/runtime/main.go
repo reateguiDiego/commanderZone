@@ -48,6 +48,7 @@ func main() {
 
 	validator := ticketValidatorFromEnv(logger)
 	mux.Handle("/ws", gateway.NewWebSocketServer(validator, runtimeService))
+	mux.Handle("/commands", gateway.NewCommandHTTPServer(runtimeService))
 
 	addr := os.Getenv("GAME_RUNTIME_LISTEN")
 	if addr == "" {

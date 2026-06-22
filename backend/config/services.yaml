@@ -23,6 +23,7 @@ parameters:
     gameplay_v2_event_enabled_default: 'false'
     gameplay_v2_visibility_enabled_default: 'false'
     runtime_service_enabled_default: 'false'
+    game_runtime_internal_url_default: 'http://game-runtime:8091'
     semantic_patches_enabled_default: 'false'
     compact_bootstrap_enabled_default: 'false'
     shadow_compare_enabled_default: 'false'
@@ -37,7 +38,8 @@ parameters:
     gameplay_v2_bootstrap_enabled: '%env(bool:default:gameplay_v2_bootstrap_enabled_default:GAMEPLAY_V2_BOOTSTRAP_ENABLED)%'
     gameplay_v2_event_enabled: '%env(bool:default:gameplay_v2_event_enabled_default:GAMEPLAY_V2_EVENT_ENABLED)%'
     gameplay_v2_visibility_enabled: '%env(bool:default:gameplay_v2_visibility_enabled_default:GAMEPLAY_V2_VISIBILITY_ENABLED)%'
-    runtime_service_enabled: '%env(bool:default:runtime_service_enabled_default:RUNTIME_SERVICE_ENABLED)%'
+    runtime_service_enabled: '%env(bool:default:runtime_service_enabled_default:GAME_RUNTIME_ENABLED)%'
+    game_runtime_internal_url: '%env(default:game_runtime_internal_url_default:GAME_RUNTIME_INTERNAL_URL)%'
     semantic_patches_enabled: '%env(bool:default:semantic_patches_enabled_default:SEMANTIC_PATCHES_ENABLED)%'
     compact_bootstrap_enabled: '%env(bool:default:compact_bootstrap_enabled_default:COMPACT_BOOTSTRAP_ENABLED)%'
     shadow_compare_enabled: '%env(bool:default:shadow_compare_enabled_default:SHADOW_COMPARE_ENABLED)%'
@@ -59,6 +61,9 @@ services:
 
     App\Application\Game\Performance\GameplayMetricsRecorderInterface:
         alias: App\Application\Game\Performance\GameplayMetricsStore
+
+    App\Application\Game\Runtime\GameRuntimeMulliganClientInterface:
+        alias: App\Application\Game\Runtime\GameRuntimeMulliganClient
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

@@ -4,7 +4,11 @@ namespace App\Application\Game\WebSocket;
 
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameLibraryOps;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\Performance\GameplayMetricsInspector;
+use App\Application\Game\Runtime\GameRuntimeMulliganClientInterface;
+use App\Application\Game\Runtime\GameRuntimeMulliganException;
+use App\Application\Game\Runtime\GameRuntimeMulliganResult;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Room\RoomPlayer;
@@ -30,6 +34,8 @@ final readonly class GameWebsocketMulliganService
         private GameCommandHandler $commands,
         private ManagerRegistry $managerRegistry,
         private ?GameplayMetricsInspector $metricsInspector = null,
+        private ?GameplayV2Flags $flags = null,
+        private ?GameRuntimeMulliganClientInterface $runtimeClient = null,
     ) {
     }
 
@@ -93,36 +99,48 @@ final readonly class GameWebsocketMulliganService
                 return $this->error($game->id(), 'SPECTATOR_NOT_ALLOWED', 'Spectators cannot perform mulligan actions.', $messageId);
             }
 
-            $manager->beginTransaction();
-            $manager->lock($game, LockMode::PESSIMISTIC_WRITE);
-
             $snapshot = $this->commands->normalizeSnapshot($game->snapshot());
             $playerId = $this->playerId($snapshot, $actor->id());
             if ($playerId === null) {
-                $manager->rollback();
-
                 return $this->error($game->id(), 'NOT_IN_GAME', 'Game access denied.', $messageId);
             }
             if (($snapshot['gamePhase'] ?? null) !== self::GAME_PHASE_MULLIGAN) {
-                $manager->rollback();
-
                 return $this->error($game->id(), 'GAME_NOT_IN_MULLIGAN_PHASE', 'Game is not in mulligan phase.', $messageId, $this->snapshotVersion($game));
             }
 
             $status = (string) ($snapshot['players'][$playerId]['mulligan']['status'] ?? 'DECIDING');
             if ($status === 'READY' && in_array($kind, ['mulligan.take', 'mulligan.keep'], true)) {
-                $manager->rollback();
-
                 return $this->error($game->id(), 'ALREADY_READY', 'Player is already ready.', $messageId, $this->snapshotVersion($game));
             }
             if ($kind === 'mulligan.scry.confirm' && $status === 'READY') {
-                $manager->rollback();
-
                 return $this->error($game->id(), 'ALREADY_READY', 'Player is already ready.', $messageId, $this->snapshotVersion($game));
             }
 
             $previousVersion = $this->snapshotVersion($game);
             $clientActionId = $this->clientActionId($kind, $actor, $messageId);
+
+            $runtimeFallbackDebug = [];
+            if ($this->runtimePrimaryEnabled($kind)) {
+                try {
+                    return $this->runtimeResult(
+                        $game,
+                        $actor,
+                        $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $previousVersion, $clientActionId, $snapshot, $payload),
+                        $messageId,
+                    );
+                } catch (GameRuntimeMulliganException) {
+                    $runtimeFallbackDebug = [
+                        'mulligan.runtime_route' => 0.0,
+                        'mulligan.runtime_fallback_count' => 1.0,
+                        'mulligan.runtime_error_count' => 1.0,
+                    ];
+                }
+            }
+
+            $manager->beginTransaction();
+            $manager->lock($game, LockMode::PESSIMISTIC_WRITE);
+
+            $snapshot = $this->commands->normalizeSnapshot($game->snapshot());
             $existingEvent = $manager->getRepository(GameEvent::class)->findOneBy([
                 'game' => $game,
                 'clientActionId' => $clientActionId,
@@ -140,20 +158,37 @@ final readonly class GameWebsocketMulliganService
             } catch (\InvalidArgumentException $exception) {
                 $manager->rollback();
 
-                return $this->error(
+                $error = $this->error(
                     $game->id(),
                     $this->errorCode($exception->getMessage(), $kind),
                     $exception->getMessage(),
                     $messageId,
                     $previousVersion,
                 );
+
+                if ($runtimeFallbackDebug !== []) {
+                    return GameWebsocketCommandResult::forViewerMessageLists(
+                        [$actor->id() => [$error]],
+                        [],
+                        [
+                            ...$runtimeFallbackDebug,
+                            ...$this->mulliganDebugProfile([], [$error]),
+                            'mulligan.runtime_shadow_executed' => 0.0,
+                            'mulligan.runtime_shadow_divergence' => 0.0,
+                        ],
+                    );
+                }
+
+                return $error;
             }
 
             $manager->persist($event);
             $manager->flush();
             $manager->commit();
 
-            return $this->result($game, $actor, $event, $messageId);
+            $legacyResult = $this->result($game, $actor, $event, $messageId, $runtimeFallbackDebug);
+
+            return $this->shadowCompare($kind, $game, $actor, $previousVersion, $clientActionId, $snapshot, $payload, $legacyResult);
         } catch (UniqueConstraintViolationException) {
             if ($manager->getConnection()->isTransactionActive()) {
                 $manager->rollback();
@@ -186,6 +221,32 @@ final readonly class GameWebsocketMulliganService
         }
 
         return $manager;
+    }
+
+    private function runtimePrimaryEnabled(string $kind): bool
+    {
+        return $this->runtimeClient instanceof GameRuntimeMulliganClientInterface
+            && $this->flags instanceof GameplayV2Flags
+            && $this->flags->runtimeServiceEnabled()
+            && $this->flags->commandAllowed($kind);
+    }
+
+    private function runtimeShadowEnabled(string $kind): bool
+    {
+        return $this->runtimeClient instanceof GameRuntimeMulliganClientInterface
+            && $this->flags instanceof GameplayV2Flags
+            && !$this->flags->runtimeServiceEnabled()
+            && $this->flags->shadowCompareEnabled()
+            && $this->flags->commandAllowed($kind);
+    }
+
+    private function runtimeClient(): GameRuntimeMulliganClientInterface
+    {
+        if (!$this->runtimeClient instanceof GameRuntimeMulliganClientInterface) {
+            throw new GameRuntimeMulliganException('Runtime mulligan client is not configured.');
+        }
+
+        return $this->runtimeClient;
     }
 
     private function handlerType(string $kind): string
@@ -264,7 +325,10 @@ final readonly class GameWebsocketMulliganService
         };
     }
 
-    private function result(Game $game, User $actor, GameEvent $event, ?string $messageId): GameWebsocketCommandResult
+    /**
+     * @param array<string,float> $extraDebug
+     */
+    private function result(Game $game, User $actor, GameEvent $event, ?string $messageId, array $extraDebug = []): GameWebsocketCommandResult
     {
         $snapshot = $this->commands->normalizeSnapshot($game->snapshot());
         $publicMessages = [$this->publicState($game->id(), $snapshot, $messageId)];
@@ -285,8 +349,155 @@ final readonly class GameWebsocketMulliganService
         return GameWebsocketCommandResult::forViewerMessageLists(
             $messagesByUserId,
             $publicMessages,
-            $this->mulliganDebugProfile($publicMessages, $messagesByUserId[$actor->id()] ?? $publicMessages),
+            [
+                ...$this->mulliganDebugProfile($publicMessages, $messagesByUserId[$actor->id()] ?? $publicMessages),
+                ...$extraDebug,
+            ],
         );
+    }
+
+    private function runtimeResult(Game $game, User $actor, GameRuntimeMulliganResult $runtimeResult, ?string $messageId): GameWebsocketCommandResult
+    {
+        $messagesByUserId = [];
+        foreach ($this->viewers($game) as $viewer) {
+            $messagesByUserId[$viewer->id()] = [];
+        }
+
+        $publicOps = [];
+        $privateOpsByPlayerId = [];
+        $basePatch = [];
+        foreach ($runtimeResult->patches as $patch) {
+            if (!is_array($patch)) {
+                continue;
+            }
+            $basePatch = $basePatch === [] ? $patch : $basePatch;
+            $ops = $this->flattenRuntimePatchOps($patch['ops'] ?? []);
+            $visibility = is_string($patch['visibility'] ?? null) ? $patch['visibility'] : 'public';
+            if ($visibility === 'public') {
+                array_push($publicOps, ...$ops);
+                continue;
+            }
+            if (str_starts_with($visibility, 'player:')) {
+                $playerId = substr($visibility, strlen('player:'));
+                $privateOpsByPlayerId[$playerId] ??= [];
+                array_push($privateOpsByPlayerId[$playerId], ...$ops);
+            }
+        }
+
+        $fallbackMessages = [];
+        if ($basePatch !== [] && $publicOps !== []) {
+            $fallbackMessages[] = $this->runtimePatchMessage($basePatch, 'public', $publicOps, $messageId);
+        }
+
+        foreach (array_keys($messagesByUserId) as $viewerId) {
+            $privateOps = $privateOpsByPlayerId[$viewerId] ?? [];
+            if ($privateOps !== []) {
+                $messagesByUserId[$viewerId][] = $this->runtimePatchMessage(
+                    $basePatch,
+                    sprintf('player:%s', $viewerId),
+                    [...$publicOps, ...$privateOps],
+                    $messageId,
+                );
+                continue;
+            }
+            $messagesByUserId[$viewerId] = $fallbackMessages;
+        }
+
+        $actorMessages = $messagesByUserId[$actor->id()] ?? $fallbackMessages;
+        $debug = [
+            ...$this->mulliganDebugProfile($fallbackMessages, $actorMessages),
+            ...$this->runtimeMetricFloats($runtimeResult->metrics),
+            'mulligan.runtime_route' => 1.0,
+            'mulligan.runtime_fallback_count' => 0.0,
+            'mulligan.runtime_error_count' => 0.0,
+            'mulligan.runtime_shadow_executed' => 0.0,
+            'mulligan.runtime_shadow_divergence' => 0.0,
+        ];
+
+        return GameWebsocketCommandResult::forViewerMessageLists($messagesByUserId, $fallbackMessages, $debug);
+    }
+
+    /**
+     * @param array<string,mixed>       $patch
+     * @param list<array<string,mixed>> $ops
+     *
+     * @return array<string,mixed>
+     */
+    private function runtimePatchMessage(array $patch, string $visibility, array $ops, ?string $messageId): array
+    {
+        $message = ['kind' => 'patch.v2', ...$patch, 'visibility' => $visibility, 'ops' => $ops];
+        if ($messageId !== null) {
+            $message['messageId'] = $messageId;
+        }
+
+        return $message;
+    }
+
+    /**
+     * Runtime Go serializes PatchOp as {op,data}. The browser V2 reducer consumes
+     * the semantic op shape directly, so the Symfony bridge flattens this boundary.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function flattenRuntimePatchOps(mixed $ops): array
+    {
+        if (!is_array($ops)) {
+            return [];
+        }
+
+        $flattened = [];
+        foreach ($ops as $op) {
+            if (!is_array($op) || !is_string($op['op'] ?? null)) {
+                continue;
+            }
+            $data = is_array($op['data'] ?? null) ? $op['data'] : [];
+            unset($op['data']);
+            $flattened[] = [...$op, ...$data];
+        }
+
+        return $flattened;
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $payload
+     */
+    private function shadowCompare(
+        string $kind,
+        Game $game,
+        User $actor,
+        int $baseVersion,
+        string $clientActionId,
+        array $snapshot,
+        array $payload,
+        GameWebsocketCommandResult $legacyResult,
+    ): GameWebsocketCommandResult {
+        if (!$this->runtimeShadowEnabled($kind)) {
+            return $legacyResult;
+        }
+
+        $debug = $legacyResult->debugProfile() ?? [];
+        $debug['mulligan.runtime_shadow_executed'] = 1.0;
+        try {
+            $shadow = $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $baseVersion, $clientActionId, $snapshot, $payload, true);
+            $debug['mulligan.runtime_shadow_divergence'] = $this->shadowDiverged($shadow, $baseVersion) ? 1.0 : 0.0;
+            $debug['mulligan.runtime_error_count'] = 0.0;
+        } catch (GameRuntimeMulliganException) {
+            $debug['mulligan.runtime_shadow_divergence'] = 1.0;
+            $debug['mulligan.runtime_error_count'] = 1.0;
+        }
+
+        return GameWebsocketCommandResult::forViewerMessageLists(
+            $legacyResult->messageListsByUserId(),
+            $legacyResult->fallbackMessages(),
+            $debug,
+        );
+    }
+
+    private function shadowDiverged(GameRuntimeMulliganResult $shadow, int $baseVersion): bool
+    {
+        return ($shadow->event['version'] ?? null) !== $baseVersion + 1
+            || $shadow->patches === [];
     }
 
     /**
@@ -496,6 +707,24 @@ final readonly class GameWebsocketMulliganService
             'mulligan.public_private_leak_detected' => $this->publicPrivateLeakDetected($publicMessages) ? 1.0 : 0.0,
             'mulligan.resync_count' => 0.0,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $metrics
+     *
+     * @return array<string,float>
+     */
+    private function runtimeMetricFloats(array $metrics): array
+    {
+        $out = [];
+        foreach ($metrics as $key => $value) {
+            if (!is_string($key) || !is_numeric($value)) {
+                continue;
+            }
+            $out[$key] = (float) $value;
+        }
+
+        return $out;
     }
 
     /**

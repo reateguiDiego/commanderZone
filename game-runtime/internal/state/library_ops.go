@@ -73,6 +73,31 @@ func (ops *LibraryOps) PutOnBottom(game *GameState, playerID string, instanceID 
 	return insertIntoZone(game, playerID, ZoneLibrary, instanceID, 0)
 }
 
+func (ops *LibraryOps) PutManyOnBottom(game *GameState, playerID string, instanceIDs []string) error {
+	if len(instanceIDs) == 0 {
+		return nil
+	}
+	zones, ok := game.Zones[playerID]
+	if !ok {
+		return ErrMissingZone
+	}
+	library := make([]string, 0, len(instanceIDs)+len(zones.Library))
+	library = append(library, instanceIDs...)
+	library = append(library, zones.Library...)
+	zones.Library = library
+	game.Zones[playerID] = zones
+	for _, instanceID := range instanceIDs {
+		instance, ok := game.Instances[instanceID]
+		if !ok {
+			return ErrMissingInstance
+		}
+		instance.Zone = ZoneLibrary
+		game.Instances[instanceID] = instance
+	}
+	reindexZone(game, playerID, ZoneLibrary)
+	return nil
+}
+
 func (ops *LibraryOps) PeekTop(game *GameState, playerID string, count int) ([]string, error) {
 	if count <= 0 {
 		return []string{}, nil
@@ -113,6 +138,30 @@ func (ops *LibraryOps) MoveTop(game *GameState, playerID string, count int, dest
 		game.Instances[instanceID] = instance
 	}
 	reindexAllZones(game, playerID)
+	return moved, nil
+}
+
+func (ops *LibraryOps) MoveTopToBottom(game *GameState, playerID string, count int) ([]string, error) {
+	if count <= 0 {
+		return []string{}, nil
+	}
+	zones, ok := game.Zones[playerID]
+	if !ok {
+		return nil, ErrMissingZone
+	}
+	if len(zones.Library) < count {
+		return nil, ErrInvalidWindow
+	}
+	start := len(zones.Library) - count
+	moved := append([]string(nil), zones.Library[start:]...)
+	zones.Library = zones.Library[:start]
+	reverseStrings(moved)
+	library := make([]string, 0, len(moved)+len(zones.Library))
+	library = append(library, moved...)
+	library = append(library, zones.Library...)
+	zones.Library = library
+	game.Zones[playerID] = zones
+	reindexZone(game, playerID, ZoneLibrary)
 	return moved, nil
 }
 

@@ -7,6 +7,7 @@ import {
   GameplayMulliganPrivateStateMessage,
   GameplayMulliganPublicPlayerState,
   GameplayMulliganPublicStateMessage,
+  GameplayPatchV2Message,
 } from '../../../../../core/models/game-realtime.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
 
@@ -86,6 +87,18 @@ export class GameTableMulliganState {
       version: Math.max(snapshot.version, message.version),
       gamePhase: 'PLAYING',
     } : snapshot);
+  }
+
+  handlePatchV2Applied(message: GameplayPatchV2Message, snapshot: GameSnapshot): void {
+    if (!message.ops.some((operation) => operation.op.startsWith('mulligan.') || operation.op === 'game.phase.set')) {
+      return;
+    }
+
+    this.publicState.set(null);
+    this.privateState.set(null);
+    this.pendingAction.set(false);
+    this.error.set(null);
+    this.completed.set(snapshot.gamePhase === 'PLAYING');
   }
 
   privateHandFor(playerId: string | null): readonly GameCardInstance[] | null {

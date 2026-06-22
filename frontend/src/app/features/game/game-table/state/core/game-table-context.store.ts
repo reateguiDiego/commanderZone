@@ -445,6 +445,7 @@ export class GameTableContextStore {
       onMulliganPrivateState: (message) => this.mulliganState.handlePrivateState(message),
       onMulliganError: (message) => this.mulliganState.handleError(message),
       onMulliganCompleted: (message) => this.mulliganState.handleCompleted(message),
+      onMulliganPatchV2Applied: (patch, snapshot) => this.mulliganState.handlePatchV2Applied(patch, snapshot),
       refreshViewerControlAccess: () => this.gameActionsStore.refreshViewerControlAccess(),
       navigateToRoomsWithLoadError: () => {
         void this.gameActionsStore.navigateToRoomsWithLoadError();

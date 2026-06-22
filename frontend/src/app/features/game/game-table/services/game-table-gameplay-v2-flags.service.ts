@@ -4,6 +4,16 @@ import { environment } from '../../../../../environments/environment';
 @Injectable({ providedIn: 'root' })
 export class GameTableGameplayV2FlagsService {
   enabled(): boolean {
-    return environment.gameplayV2FrontendEnabled;
+    if (environment.gameplayV2FrontendEnabled) {
+      return true;
+    }
+
+    try {
+      return typeof globalThis !== 'undefined'
+        && 'localStorage' in globalThis
+        && globalThis.localStorage.getItem('commanderzone.gameplayV2FrontendEnabled') === '1';
+    } catch {
+      return false;
+    }
   }
 }

@@ -146,6 +146,55 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
+  it('applies mulligan runtime patch.v2 from websocket without snapshot refetch', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+
+    const patch: PatchEnvelopeV2 & { kind: 'patch.v2' } = {
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ackClientActionId: 'runtime-mulligan-action',
+      ops: [
+        {
+          op: 'mulligan.status.set',
+          playerId: 'player-1',
+          status: 'DECIDING',
+          ready: false,
+          effectiveMulligans: 0,
+          handCount: 7,
+        },
+        {
+          op: 'mulligan.hand.replace_private',
+          playerId: 'player-1',
+          hand: [
+            { instanceId: 'runtime-hand-1', cardKey: 'runtime-card-a' },
+            { instanceId: 'runtime-hand-2', cardKey: 'runtime-card-b' },
+          ],
+        },
+        { op: 'mulligan.hand.count.set', playerId: 'player-2', count: 7 },
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 7 },
+      ],
+    };
+
+    messages.next(patch);
+    await Promise.resolve();
+
+    expect(snapshotState.version).toBe(2);
+    expect(snapshotState.players['player-1'].zones.hand.map((card) => card.instanceId)).toEqual(['runtime-hand-1', 'runtime-hand-2']);
+    expect(snapshotState.players['player-1'].mulligan?.status).toBe('DECIDING');
+    expect(snapshotState.players['player-2'].handCount).toBe(7);
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
   it('applies patches received from another client', async () => {
     messages.next({
       kind: 'game_patch',

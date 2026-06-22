@@ -7,6 +7,7 @@ import {
   GameplayMulliganErrorMessage,
   GameplayMulliganPrivateStateMessage,
   GameplayMulliganPublicStateMessage,
+  GameplayPatchV2Message,
 } from '../../../../core/models/game-realtime.model';
 import { GameTableGameRealtimeService } from './game-table-game-realtime.service';
 import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
@@ -29,6 +30,7 @@ export interface GameTableSessionContext {
   onMulliganPrivateState?(message: GameplayMulliganPrivateStateMessage): void;
   onMulliganError?(message: GameplayMulliganErrorMessage): void;
   onMulliganCompleted?(message: GameplayMulliganCompletedMessage): void;
+  onMulliganPatchV2Applied?(patch: GameplayPatchV2Message, snapshot: GameSnapshot): void;
   refreshViewerControlAccess?(): Promise<void>;
   navigateToRoomsWithLoadError(): void;
   navigateToWaitingRoom(roomId: string): void;
@@ -71,6 +73,7 @@ export class GameTableSessionService {
         onMulliganPrivateState: (message) => context.onMulliganPrivateState?.(message),
         onMulliganError: (message) => context.onMulliganError?.(message),
         onMulliganCompleted: (message) => context.onMulliganCompleted?.(message),
+        onMulliganPatchV2Applied: (patch, snapshot) => context.onMulliganPatchV2Applied?.(patch, snapshot),
       }, gameId);
       this.subscribeToGameRealtime(context, gameId);
     } catch {

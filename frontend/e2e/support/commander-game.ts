@@ -1,8 +1,10 @@
 import { type APIRequestContext, type APIResponse } from '@playwright/test';
 import { createRealUserSession, type RealUserSession } from './auth';
 import {
+  createBasicCommanderDeckFromDatabase,
   createRandomDeckFromDatabase,
   createValidCommanderDeckFromDatabase,
+  type BasicCommanderDeckFromDatabaseResult,
   type RandomDeckFromDatabaseResult,
   type ValidCommanderDeckFromDatabaseResult,
 } from './decks';
@@ -21,6 +23,14 @@ interface StartRoomPayload {
   };
 }
 
+interface RoomStatePayload {
+  room: {
+    players?: Array<{
+      turnRolls?: number[];
+    }>;
+  };
+}
+
 export interface CreateCommanderGameWithRandomDecksOptions {
   runId?: string;
   deckSize?: number;
@@ -31,6 +41,7 @@ export interface CreateCommanderGameWithRandomDecksOptions {
 
 export interface CommanderGamePlayerSetup {
   token: string;
+  refreshToken: string;
   user: RealUserSession['user'];
   credentials: RealUserSession['credentials'];
   deck: RandomDeckFromDatabaseResult;
@@ -61,12 +72,14 @@ export interface CommanderGameWithValidDecksResult {
   runId: string;
   playerA: {
     token: string;
+    refreshToken: string;
     user: RealUserSession['user'];
     credentials: RealUserSession['credentials'];
     deck: ValidCommanderDeckFromDatabaseResult;
   };
   playerB: {
     token: string;
+    refreshToken: string;
     user: RealUserSession['user'];
     credentials: RealUserSession['credentials'];
     deck: ValidCommanderDeckFromDatabaseResult;
@@ -74,6 +87,26 @@ export interface CommanderGameWithValidDecksResult {
   seeds: {
     playerA: string;
     playerB: string;
+  };
+}
+
+export interface CommanderGameWithBasicDecksResult {
+  gameId: string;
+  roomId: string;
+  runId: string;
+  playerA: {
+    token: string;
+    refreshToken: string;
+    user: RealUserSession['user'];
+    credentials: RealUserSession['credentials'];
+    deck: BasicCommanderDeckFromDatabaseResult;
+  };
+  playerB: {
+    token: string;
+    refreshToken: string;
+    user: RealUserSession['user'];
+    credentials: RealUserSession['credentials'];
+    deck: BasicCommanderDeckFromDatabaseResult;
   };
 }
 
@@ -108,8 +141,7 @@ export async function createCommanderGameWithRandomDecks(
 
   const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
   await joinRoom(request, playerB.token, roomId, deckB.deckId);
-  await rollTurnOrder(request, playerA.token, roomId);
-  await rollTurnOrder(request, playerB.token, roomId);
+  await resolveTurnOrder(request, roomId, [playerA.token, playerB.token]);
   const gameId = await startRoom(request, playerA.token, roomId);
 
   return {
@@ -118,12 +150,14 @@ export async function createCommanderGameWithRandomDecks(
     runId,
     playerA: {
       token: playerA.token,
+      refreshToken: playerA.refreshToken,
       user: playerA.user,
       credentials: playerA.credentials,
       deck: deckA,
     },
     playerB: {
       token: playerB.token,
+      refreshToken: playerB.refreshToken,
       user: playerB.user,
       credentials: playerB.credentials,
       deck: deckB,
@@ -163,8 +197,7 @@ export async function createCommanderGameWithValidDecks(
 
   const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
   await joinRoom(request, playerB.token, roomId, deckB.deckId);
-  await rollTurnOrder(request, playerA.token, roomId);
-  await rollTurnOrder(request, playerB.token, roomId);
+  await resolveTurnOrder(request, roomId, [playerA.token, playerB.token]);
   const gameId = await startRoom(request, playerA.token, roomId);
 
   return {
@@ -173,12 +206,14 @@ export async function createCommanderGameWithValidDecks(
     runId,
     playerA: {
       token: playerA.token,
+      refreshToken: playerA.refreshToken,
       user: playerA.user,
       credentials: playerA.credentials,
       deck: deckA,
     },
     playerB: {
       token: playerB.token,
+      refreshToken: playerB.refreshToken,
       user: playerB.user,
       credentials: playerB.credentials,
       deck: deckB,
@@ -259,6 +294,116 @@ async function rollTurnOrder(
     },
   });
   await expectApiOk(response, 'roll turn order');
+}
+
+export async function createCommanderGameWithBasicDecks(
+  request: APIRequestContext,
+  options: CreateCommanderGameWithValidDecksOptions = {},
+): Promise<CommanderGameWithBasicDecksResult> {
+  const runId = normalizeRunId(options.runId);
+  const visibility = options.roomVisibility ?? 'public';
+  const playerAPrefix = options.playerAPrefix ?? 'player-alpha';
+  const playerBPrefix = options.playerBPrefix ?? 'player-beta';
+
+  const playerA = await createRealUserSession(request, `${playerAPrefix}-${runId}`);
+  const playerB = await createRealUserSession(request, `${playerBPrefix}-${runId}`);
+
+  const deckA = await createBasicCommanderDeckFromDatabase(request, {
+    ownerToken: playerA.token,
+    name: e2eDeckName('A', runId),
+  });
+  const deckB = await createBasicCommanderDeckFromDatabase(request, {
+    ownerToken: playerB.token,
+    name: e2eDeckName('B', runId),
+  });
+
+  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
+  await joinRoom(request, playerB.token, roomId, deckB.deckId);
+  await resolveTurnOrder(request, roomId, [playerA.token, playerB.token]);
+  const gameId = await startRoom(request, playerA.token, roomId);
+
+  return {
+    gameId,
+    roomId,
+    runId,
+    playerA: {
+      token: playerA.token,
+      refreshToken: playerA.refreshToken,
+      user: playerA.user,
+      credentials: playerA.credentials,
+      deck: deckA,
+    },
+    playerB: {
+      token: playerB.token,
+      refreshToken: playerB.refreshToken,
+      user: playerB.user,
+      credentials: playerB.credentials,
+      deck: deckB,
+    },
+  };
+}
+
+async function resolveTurnOrder(request: APIRequestContext, roomId: string, tokens: readonly string[]): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const roomResponse = await request.get(`${API_BASE_URL}/rooms/${roomId}`, {
+      headers: {
+        Authorization: `Bearer ${tokens[0]}`,
+      },
+    });
+    await expectApiOk(roomResponse, 'load room turn order');
+    const payload = (await roomResponse.json()) as RoomStatePayload;
+    if (turnOrderResolved(payload.room.players ?? [])) {
+      return;
+    }
+
+    let progressed = false;
+    for (const token of tokens) {
+      const response = await request.post(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok()) {
+        progressed = true;
+        continue;
+      }
+      if (response.status() === 409) {
+        const body = await response.json().catch(() => ({})) as { error?: unknown };
+        if (body.error === 'Turn order has already been rolled.') {
+          continue;
+        }
+      }
+
+      const body = await response.text();
+      throw new Error(`Failed to resolve turn order. HTTP ${response.status()}: ${body}`);
+    }
+
+    if (!progressed) {
+      break;
+    }
+  }
+
+  throw new Error('Unable to resolve turn order after repeated rerolls.');
+}
+
+function turnOrderResolved(players: Array<{ turnRolls?: number[] }>): boolean {
+  if (players.length === 0) {
+    return false;
+  }
+
+  const sequences = new Set<string>();
+  for (const player of players) {
+    if (!Array.isArray(player.turnRolls) || player.turnRolls.length === 0) {
+      return false;
+    }
+    const sequence = player.turnRolls.join('-');
+    if (sequences.has(sequence)) {
+      return false;
+    }
+    sequences.add(sequence);
+  }
+
+  return true;
 }
 
 function normalizeRunId(runId?: string): string {
