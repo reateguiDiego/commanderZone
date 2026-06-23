@@ -46,15 +46,8 @@ export class BodyScrollLockService {
       scrollY,
     };
 
-    const scrollbarWidth = Math.max(0, (this.documentRef.defaultView?.innerWidth ?? html.clientWidth) - html.clientWidth);
-    const bodyPaddingRight = Number.parseFloat(this.documentRef.defaultView?.getComputedStyle(body).paddingRight ?? '0') || 0;
-
     html.style.overflow = 'hidden';
     body.style.overflow = 'hidden';
-
-    if (scrollbarWidth > 0) {
-      body.style.paddingRight = `${bodyPaddingRight + scrollbarWidth}px`;
-    }
   }
 
   private restoreLock(): void {

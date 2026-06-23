@@ -21,6 +21,7 @@ import { PlayerNameComponent } from '../../../shared/ui/player-name/player-name.
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { bestCardArtImage } from '../../../shared/utils/card-image';
 import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
+import { formatRoomCodeFromId } from '../shared/room-code.util';
 import { RoomSetupModalComponent } from '../shared/room-setup-modal/room-setup-modal.component';
 import { WaitingDeckOption } from './components/waiting-room-deck-selector/waiting-room-deck-selector.component';
 import { WaitingRoomLogPanelComponent } from './components/waiting-room-log-panel/waiting-room-log-panel.component';
@@ -600,8 +601,7 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   roomCode(room: Room): string {
-    const compactId = room.id.replace(/-/g, '').slice(-9).toUpperCase();
-    return `CZ-${compactId.slice(0, 3)}-${compactId.slice(3, 6)}-${compactId.slice(6, 9)}`;
+    return formatRoomCodeFromId(room.id);
   }
 
   roomCapacity(room: Room): number {

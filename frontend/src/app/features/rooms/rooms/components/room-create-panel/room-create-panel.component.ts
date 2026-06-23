@@ -1,7 +1,8 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { isValidRoomCodeInput, normalizeRoomCodeInput } from '../../../shared/room-code.util';
 
 @Component({
   selector: 'app-room-create-panel',
@@ -18,6 +19,11 @@ export class RoomCreatePanelComponent {
   readonly roomCode = signal('');
   readonly joinCodeInputOpen = signal(false);
 
+  private readonly validRoomCode = computed(() => isValidRoomCodeInput(this.roomCode()));
+
+  readonly joinCodeButtonDisabled = computed(() => this.actionsLocked() || (this.joinCodeInputOpen() && !this.validRoomCode()));
+  readonly roomCodeInvalid = computed(() => this.joinCodeInputOpen() && this.roomCode().trim().length > 0 && !this.validRoomCode());
+
   setRoomCode(event: Event): void {
     const input = event.target instanceof HTMLInputElement ? event.target : null;
     this.roomCode.set(input?.value ?? '');
@@ -28,9 +34,13 @@ export class RoomCreatePanelComponent {
       return;
     }
 
-    const code = this.roomCode().trim();
-    if (!code) {
+    if (!this.joinCodeInputOpen()) {
       this.joinCodeInputOpen.set(true);
+      return;
+    }
+
+    const code = normalizeRoomCodeInput(this.roomCode());
+    if (!code) {
       return;
     }
 

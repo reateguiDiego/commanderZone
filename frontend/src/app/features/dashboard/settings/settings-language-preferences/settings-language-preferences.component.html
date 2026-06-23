@@ -1,4 +1,40 @@
 <section class="language-preferences">
+  <div class="language-preferences-actions">
+    <button
+      czButton="secondary"
+      class="language-action-button theme-language-action"
+      type="button"
+      (click)="themeChangeRequested.emit()"
+    >
+      {{ 'settings.dashboardSettingsModal.changeTheme' | runtimeTranslate }}
+    </button>
+
+    <button
+      czButton="primary"
+      class="language-action-button premium-language-action"
+      type="button"
+      (click)="premiumRequested.emit()"
+    >
+      {{ 'settings.dashboardSettingsModal.becomePremium' | runtimeTranslate }}
+    </button>
+
+    <button
+      czButton="secondary"
+      class="language-action-button change-password-button"
+      type="button"
+      [disabled]="passwordChangeDisabled()"
+      (click)="passwordChangeRequested.emit()"
+    >
+      {{ passwordChangeLabelKey() | runtimeTranslate }}
+    </button>
+  </div>
+
+  @if (passwordChangeError()) {
+    <span class="change-password-feedback error" aria-live="polite">
+      {{ 'settings.dashboardSettingsModal.passwordResetEmailError' | runtimeTranslate }}
+    </span>
+  }
+
   <app-format-select
     name="appLanguage"
     [label]="appLanguageLabel()"

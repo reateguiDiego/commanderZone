@@ -29,6 +29,12 @@ export class AppThemeService {
     this.setTheme(nextThemeId);
   }
 
+  previewTheme(themeId: string): AppThemeId {
+    const nextThemeId = isAppThemeId(themeId) ? themeId : DEFAULT_APP_THEME_ID;
+    this.setThemeState(nextThemeId);
+    return nextThemeId;
+  }
+
   applyUserTheme(themeId: string | null | undefined): void {
     if (themeId === null || themeId === undefined) {
       return;
@@ -42,13 +48,11 @@ export class AppThemeService {
     const previousThemeId = this.themeIdState();
     const nextThemeId = isAppThemeId(themeId) ? themeId : DEFAULT_APP_THEME_ID;
 
-    this.setTheme(nextThemeId);
-
     try {
       const response = await firstValueFrom(this.injector.get(ThemesService).update(nextThemeId));
       this.setTheme(isAppThemeId(response.themeId) ? response.themeId : DEFAULT_APP_THEME_ID);
     } catch (error) {
-      this.setTheme(previousThemeId);
+      this.setThemeState(previousThemeId);
       throw error;
     }
   }
@@ -58,8 +62,12 @@ export class AppThemeService {
   }
 
   private setTheme(themeId: AppThemeId): void {
-    this.themeIdState.set(themeId);
+    this.setThemeState(themeId);
     this.writeStoredThemeId(themeId);
+  }
+
+  private setThemeState(themeId: AppThemeId): void {
+    this.themeIdState.set(themeId);
     this.applyTheme(themeId);
   }
 

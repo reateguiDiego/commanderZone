@@ -3,10 +3,11 @@ import { LegalLinksService } from '../../legal/legal-links.service';
 import { ANALYTICS_SERVICE } from '../analytics.service';
 import { CookieConsentService } from '../cookie-consent.service';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { ToggleComponent } from '../../../shared/ui/toggle/toggle.component';
 
 @Component({
   selector: 'app-cookie-consent-banner',
-  imports: [CzButtonDirective],
+  imports: [CzButtonDirective, ToggleComponent],
   templateUrl: './cookie-consent-banner.component.html',
   styleUrl: './cookie-consent-banner.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,8 +38,8 @@ export class CookieConsentBannerComponent {
     this.showSettings.set(true);
   }
 
-  toggleAnalytics(): void {
-    this.analyticsEnabled.update((enabled) => !enabled);
+  setAnalyticsEnabled(enabled: boolean): void {
+    this.analyticsEnabled.set(enabled);
   }
 
   saveSettings(): void {

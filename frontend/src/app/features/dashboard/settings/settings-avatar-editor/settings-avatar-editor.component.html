@@ -83,7 +83,10 @@
               <span class="avatar-image-frame">
                 <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
               </span>
-              <span class="premium-badge">{{ 'settings.settingsAvatarEditor.premium' | runtimeTranslate }}</span>
+              <app-premium-badge
+                class="premium-badge"
+                [label]="'settings.settingsAvatarEditor.premium' | runtimeTranslate"
+              />
             </button>
           }
         </div>
@@ -96,6 +99,10 @@
   }
 
   <footer class="avatar-editor-actions">
+    @if (canSave()) {
+      <span class="settings-save-disclaimer">{{ saveDisclaimer() }}</span>
+    }
+
     <button czButton="primary" class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
       {{ saving() ? 'Saving...' : 'Save' }}
     </button>

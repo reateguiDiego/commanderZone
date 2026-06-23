@@ -163,9 +163,23 @@
 }
 
 .modal-panel footer {
+  align-items: center;
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
+}
+
+.modal-footer-notice.settings-save-disclaimer {
+  flex: 1 1 14rem;
+  min-width: min(12rem, 100%);
+  max-width: min(28rem, 100%);
+  color: var(--cz-warning);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .modal-panel footer.split-actions {
@@ -179,5 +193,16 @@
 .modal-panel-compact footer {
   align-items: center;
   padding-top: 0.25rem;
+}
+
+@media (max-width: 620px) {
+  .modal-panel footer {
+    flex-wrap: wrap;
+  }
+
+  .modal-footer-notice.settings-save-disclaimer {
+    flex-basis: min(14rem, 100%);
+    max-width: none;
+  }
 }
 

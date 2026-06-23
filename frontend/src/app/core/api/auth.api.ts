@@ -10,7 +10,7 @@ import {
   UserResponse,
 } from '../models/api-responses.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
-import { UserAvatarType } from '../models/user.model';
+import { UserAvatarType, UserGamePreferences } from '../models/user.model';
 import { SupportedCardLanguageCode, SupportedLanguageCode } from '../localization/language-preferences';
 
 export interface AuthAvailabilityResponse {
@@ -30,6 +30,14 @@ export type AvatarUpdatePayload =
 export interface DisplayNameStyleUpdatePayload {
   presetId: string;
   textColor?: string | null;
+}
+
+export interface ProfileUpdatePayload {
+  email?: string;
+  displayName?: string;
+  cardLanguage?: SupportedCardLanguageCode;
+  appLanguage?: SupportedLanguageCode;
+  gamePreferences?: Partial<UserGamePreferences>;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -102,7 +110,7 @@ export class AuthApi {
     return this.http.get<UserResponse>(`${API_BASE_URL}/me`);
   }
 
-  updateMe(payload: { email?: string; displayName?: string; cardLanguage?: SupportedCardLanguageCode; appLanguage?: SupportedLanguageCode }): Observable<UserResponse> {
+  updateMe(payload: ProfileUpdatePayload): Observable<UserResponse> {
     return this.http.patch<UserResponse>(`${API_BASE_URL}/me`, payload);
   }
 

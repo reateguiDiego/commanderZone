@@ -105,10 +105,18 @@ describe('API services', () => {
   it('updates and deletes authenticated profile through /me endpoints', () => {
     const auth = TestBed.inject(AuthApi);
 
-    auth.updateMe({ email: 'updated@example.test', displayName: 'Updated Player' }).subscribe();
+    auth.updateMe({
+      email: 'updated@example.test',
+      displayName: 'Updated Player',
+      gamePreferences: { enableManaRow: false },
+    }).subscribe();
     let request = http.expectOne(`${API_BASE_URL}/me`);
     expect(request.request.method).toBe('PATCH');
-    expect(request.request.body).toEqual({ email: 'updated@example.test', displayName: 'Updated Player' });
+    expect(request.request.body).toEqual({
+      email: 'updated@example.test',
+      displayName: 'Updated Player',
+      gamePreferences: { enableManaRow: false },
+    });
     request.flush({ user: { id: 'user-1', email: 'updated@example.test', displayName: 'Updated Player', roles: ['ROLE_USER'] } });
 
     auth.updateAvatar({ type: 'preset', imageUrl: 'assets/images/avatars/storm-seer.png' }).subscribe();

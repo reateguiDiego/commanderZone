@@ -8,6 +8,7 @@ import { AuthApi, AvatarUpdatePayload, DisplayNameStyleUpdatePayload } from '../
 import { CardLanguageCoverage, CardsLanguageService } from '../../../../../../../core/api/cards-language.service';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
 import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
+import { AppThemeId } from '../../../../../../../core/theme/app-theme';
 import {
   CARD_LANGUAGE_OPTIONS,
   isSupportedCardLanguageCode,
@@ -19,11 +20,12 @@ import {
 } from '../../../../../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { HYBRID_LANGUAGE_OPTIONS, RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
-import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/models/user.model';
+import { UserAvatar, UserDisplayNameStyle, UserGamePreferences } from '../../../../../../../core/models/user.model';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
 import { type FormatSelectOption } from '../../../../../../../shared/components/format-select/format-select.component';
 import { PlayerInfoComponent } from '../../../../../../../shared/ui/player-info/player-info.component';
 import { TabListComponent, type TabListItem } from '../../../../../../../shared/ui/tab-list/tab-list.component';
+import { ToggleComponent } from '../../../../../../../shared/ui/toggle/toggle.component';
 import { SettingsDisplayNameStyleEditorComponent } from '../../../../../settings/settings-display-name-style-editor/settings-display-name-style-editor.component';
 import { SettingsAvatarEditorComponent } from '../../../../../settings/settings-avatar-editor/settings-avatar-editor.component';
 import { SettingsAvatarUploadComponent } from '../../../../../settings/settings-avatar-upload/settings-avatar-upload.component';
@@ -35,6 +37,7 @@ type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 type AvatarTierTab = 'basic' | 'premium';
 type PasswordResetRequestState = 'idle' | 'sending' | 'sent' | 'error';
+type GameSettingsToggleId = 'showManaHelperOnStartup' | 'enableManaRow' | 'enableStackMana' | 'gameAnimations' | 'chatNotificationSounds';
 export type SettingsLaunchTarget = 'general' | 'avatar' | 'name-style';
 
 interface ProfileSnapshot {
@@ -42,6 +45,13 @@ interface ProfileSnapshot {
   readonly displayName: string;
   readonly cardLanguage: SupportedCardLanguageCode;
   readonly appLanguage: SupportedLanguageCode;
+  readonly gamePreferences: UserGamePreferences;
+}
+
+interface GameSettingsToggleOption {
+  readonly id: GameSettingsToggleId;
+  readonly labelKey: string;
+  readonly descriptionKey: string;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -51,6 +61,40 @@ const DISPLAY_NAME_AVAILABILITY_DEBOUNCE_MS = 900;
 const CARD_LANGUAGE_FLAGS = new Map<string, string | undefined>(
   CARD_LANGUAGE_OPTIONS.map((language) => [language.code, language.flagAsset]),
 );
+const GAME_SETTINGS_TOGGLE_DEFAULTS: UserGamePreferences = {
+  showManaHelperOnStartup: false,
+  enableManaRow: true,
+  enableStackMana: false,
+  gameAnimations: true,
+  chatNotificationSounds: true,
+};
+const GAME_SETTINGS_TOGGLE_OPTIONS: readonly GameSettingsToggleOption[] = [
+  {
+    id: 'showManaHelperOnStartup',
+    labelKey: 'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.label',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.description',
+  },
+  {
+    id: 'enableManaRow',
+    labelKey: 'settings.dashboardSettingsModal.gameSettings.enableManaRow.label',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.enableManaRow.description',
+  },
+  {
+    id: 'enableStackMana',
+    labelKey: 'settings.dashboardSettingsModal.gameSettings.enableStackMana.label',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.enableStackMana.description',
+  },
+  {
+    id: 'gameAnimations',
+    labelKey: 'settings.dashboardSettingsModal.gameSettings.gameAnimations.label',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.gameAnimations.description',
+  },
+  {
+    id: 'chatNotificationSounds',
+    labelKey: 'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.label',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.chatNotificationSounds.description',
+  },
+];
 
 @Component({
   selector: 'app-dashboard-settings-modal',
@@ -61,6 +105,7 @@ const CARD_LANGUAGE_FLAGS = new Map<string, string | undefined>(
     LucideAngularModule,
     PlayerInfoComponent,
     TabListComponent,
+    ToggleComponent,
     SettingsAvatarEditorComponent,
     SettingsAvatarUploadComponent,
     SettingsDisplayNameStyleEditorComponent,
@@ -74,6 +119,7 @@ const CARD_LANGUAGE_FLAGS = new Map<string, string | undefined>(
 })
 export class DashboardSettingsModalComponent {
   @ViewChild('settingsContent') private settingsContent?: ElementRef<HTMLElement>;
+  @ViewChild(ThemeSettingsPanelComponent) private themeSettingsPanel?: ThemeSettingsPanelComponent;
 
   private readonly authStore = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
@@ -105,11 +151,13 @@ export class DashboardSettingsModalComponent {
   readonly avatarUploadOpen = signal(false);
   readonly avatarEditorTier = signal<AvatarTierTab>('basic');
   readonly displayNameStyleEditorOpen = signal(false);
+  readonly themeEditorOpen = signal(false);
   readonly profileBaseline = signal<ProfileSnapshot>({
     email: '',
     displayName: '',
     cardLanguage: 'en',
     appLanguage: 'en',
+    gamePreferences: { ...GAME_SETTINGS_TOGGLE_DEFAULTS },
   });
   readonly appLanguageOptions = HYBRID_LANGUAGE_OPTIONS;
   readonly cardLanguageSelectOptions = computed<readonly FormatSelectOption[]>(() =>
@@ -127,6 +175,7 @@ export class DashboardSettingsModalComponent {
   readonly settingsTitle = computed(() => this.i18n.text('settingsTitle'));
   readonly cancelLabel = computed(() => this.i18n.text('cancel'));
   readonly saveLabel = computed(() => this.i18n.text('save'));
+  readonly saveDisclaimer = computed(() => this.i18n.text('settingsSaveDisclaimer'));
   readonly backToSettingsLabel = computed(() => this.i18n.text('backToSettings'));
   readonly predefinedAvatarsLabel = computed(() => this.i18n.text('predefinedAvatars'));
   readonly uploadImageLabel = computed(() => this.i18n.text('uploadImage'));
@@ -140,6 +189,8 @@ export class DashboardSettingsModalComponent {
   readonly selectedCardLanguage = signal<SupportedCardLanguageCode>('en');
   readonly selectedAppLanguage = signal<SupportedLanguageCode>('en');
   readonly cardLanguageCoverage = signal<readonly CardLanguageCoverage[]>([]);
+  readonly gameSettingsToggleOptions = GAME_SETTINGS_TOGGLE_OPTIONS;
+  readonly gameSettingsToggleState = signal<UserGamePreferences>({ ...GAME_SETTINGS_TOGGLE_DEFAULTS });
 
   readonly profileForm = this.formBuilder.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
@@ -166,7 +217,8 @@ export class DashboardSettingsModalComponent {
     return email !== baseline.email.toLowerCase()
       || displayName !== baseline.displayName
       || this.selectedCardLanguage() !== baseline.cardLanguage
-      || this.selectedAppLanguage() !== baseline.appLanguage;
+      || this.selectedAppLanguage() !== baseline.appLanguage
+      || this.gameSettingsChanged();
   });
 
   readonly canSave = computed(() => {
@@ -188,7 +240,7 @@ export class DashboardSettingsModalComponent {
   readonly currentUserDisplayName = computed(() => this.authStore.user()?.displayName ?? 'Player');
   readonly currentUserDisplayNameStyle = computed<UserDisplayNameStyle | undefined>(() => this.authStore.user()?.displayNameStyle);
   readonly currentUserAvatar = computed<UserAvatar | undefined>(() => this.authStore.user()?.avatar);
-  readonly nestedEditorOpen = computed(() => this.avatarEditorOpen() || this.displayNameStyleEditorOpen());
+  readonly nestedEditorOpen = computed(() => this.avatarEditorOpen() || this.displayNameStyleEditorOpen() || this.themeEditorOpen());
 
   constructor() {
     this.trackFormState();
@@ -222,6 +274,15 @@ export class DashboardSettingsModalComponent {
     this.switchTab(tab);
   }
 
+  openThemeSettings(): void {
+    this.statusMessage.set(null);
+    this.errorMessage.set(null);
+    this.avatarEditorOpen.set(false);
+    this.avatarUploadOpen.set(false);
+    this.displayNameStyleEditorOpen.set(false);
+    this.themeEditorOpen.set(true);
+  }
+
   cancel(): void {
     if (this.nestedEditorOpen()) {
       this.closeNestedEditor();
@@ -229,6 +290,7 @@ export class DashboardSettingsModalComponent {
     }
 
     this.restoreBaselineAppLanguage();
+    this.restoreBaselineGameSettings();
     this.closeRequested.emit();
   }
 
@@ -239,6 +301,7 @@ export class DashboardSettingsModalComponent {
     this.avatarEditorTier.set('basic');
     this.avatarEditorOpen.set(true);
     this.displayNameStyleEditorOpen.set(false);
+    this.closeThemeEditor();
   }
 
   closeAvatarEditor(): void {
@@ -254,6 +317,7 @@ export class DashboardSettingsModalComponent {
     this.avatarEditorOpen.set(false);
     this.avatarUploadOpen.set(false);
     this.displayNameStyleEditorOpen.set(true);
+    this.closeThemeEditor();
   }
 
   private openLaunchTarget(target: SettingsLaunchTarget): void {
@@ -271,6 +335,7 @@ export class DashboardSettingsModalComponent {
     this.closeAvatarEditor();
     this.displayNameStyleEditorOpen.set(false);
     this.displayNameStyleSaveInProgress.set(false);
+    this.closeThemeEditor();
   }
 
   openAvatarUpload(): void {
@@ -328,7 +393,13 @@ export class DashboardSettingsModalComponent {
       return;
     }
 
-    const payload: { email?: string; displayName?: string; cardLanguage?: SupportedCardLanguageCode; appLanguage?: SupportedLanguageCode } = {};
+    const payload: {
+      email?: string;
+      displayName?: string;
+      cardLanguage?: SupportedCardLanguageCode;
+      appLanguage?: SupportedLanguageCode;
+      gamePreferences?: UserGamePreferences;
+    } = {};
     const nextEmail = this.profileForm.controls.email.value.trim();
     const nextDisplayName = this.profileForm.controls.displayName.value.trim();
     const nextCardLanguage = this.selectedCardLanguage();
@@ -346,6 +417,9 @@ export class DashboardSettingsModalComponent {
     if (nextAppLanguage !== this.profileBaseline().appLanguage) {
       payload.appLanguage = nextAppLanguage;
     }
+    if (this.gameSettingsChanged()) {
+      payload.gamePreferences = this.gameSettingsToggleState();
+    }
 
     this.saveInProgress.set(true);
     this.errorMessage.set(null);
@@ -360,6 +434,7 @@ export class DashboardSettingsModalComponent {
         displayName: nextDisplayName,
         cardLanguage: nextCardLanguage,
         appLanguage: nextAppLanguage,
+        gamePreferences: this.gameSettingsToggleState(),
       });
       this.profileForm.markAsPristine();
       this.emailAvailability.set('idle');
@@ -391,6 +466,15 @@ export class DashboardSettingsModalComponent {
     } catch {
       this.passwordResetRequestState.set('error');
     }
+  }
+
+  requestPremiumUpgrade(): void {
+    this.errorMessage.set(null);
+    this.statusMessage.set(this.i18n.text('premiumComingSoon'));
+  }
+
+  syncThemePreference(themeId: AppThemeId): void {
+    this.authStore.updateThemePreference(themeId);
   }
 
   async deleteAccount(): Promise<void> {
@@ -478,11 +562,13 @@ export class DashboardSettingsModalComponent {
       displayName: user?.displayName ?? '',
       cardLanguage,
       appLanguage,
+      gamePreferences: this.normalizeGamePreferences(user?.preferences?.game),
     } satisfies ProfileSnapshot;
 
     this.profileBaseline.set(baseline);
     this.selectedCardLanguage.set(cardLanguage);
     this.selectedAppLanguage.set(appLanguage);
+    this.gameSettingsToggleState.set(baseline.gamePreferences);
     this.profileForm.setValue({ email: baseline.email, displayName: baseline.displayName });
     this.profileForm.markAsPristine();
     this.profileForm.markAsUntouched();
@@ -510,6 +596,27 @@ export class DashboardSettingsModalComponent {
     this.runtimeLanguageSelector.applyLanguage(language);
   }
 
+  setGameSettingsToggle(toggleId: GameSettingsToggleId, enabled: boolean): void {
+    this.gameSettingsToggleState.update((current) => ({
+      ...current,
+      [toggleId]: enabled,
+    }));
+  }
+
+  private gameSettingsChanged(): boolean {
+    const baseline = this.profileBaseline().gamePreferences;
+    const current = this.gameSettingsToggleState();
+
+    return GAME_SETTINGS_TOGGLE_OPTIONS.some((option) => current[option.id] !== baseline[option.id]);
+  }
+
+  private normalizeGamePreferences(preferences: Partial<UserGamePreferences> | null | undefined): UserGamePreferences {
+    return {
+      ...GAME_SETTINGS_TOGGLE_DEFAULTS,
+      ...preferences,
+    };
+  }
+
   private restoreBaselineAppLanguage(): void {
     const baselineAppLanguage = this.profileBaseline().appLanguage;
 
@@ -519,6 +626,10 @@ export class DashboardSettingsModalComponent {
 
     this.selectedAppLanguage.set(baselineAppLanguage);
     this.runtimeLanguageSelector.applyLanguage(baselineAppLanguage);
+  }
+
+  private restoreBaselineGameSettings(): void {
+    this.gameSettingsToggleState.set(this.profileBaseline().gamePreferences);
   }
 
   private scrollSettingsContentToBottom(): void {
@@ -571,6 +682,7 @@ export class DashboardSettingsModalComponent {
   }
 
   private resetLocalState(): void {
+    this.closeThemeEditor();
     this.emailAvailability.set('idle');
     this.userNameAvailability.set('idle');
     this.statusMessage.set(null);
@@ -585,6 +697,14 @@ export class DashboardSettingsModalComponent {
     this.avatarEditorTier.set('basic');
     this.displayNameStyleEditorOpen.set(false);
     this.deleteConfirmationOpen.set(false);
+  }
+
+  private closeThemeEditor(): void {
+    if (this.themeEditorOpen()) {
+      this.themeSettingsPanel?.revertPreview();
+    }
+
+    this.themeEditorOpen.set(false);
   }
 
   private emailChanged(): boolean {

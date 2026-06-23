@@ -1,7 +1,7 @@
 <aside class="panel rooms-create-panel">
   <div class="room-code-card" [class.has-code-input]="joinCodeInputOpen()">
     <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
-      <button czButton="primary" class="primary-button room-action-button" type="button" [disabled]="actionsLocked()" (click)="joinByCode()">
+      <button czButton="primary" class="primary-button room-action-button" type="button" [disabled]="joinCodeButtonDisabled()" (click)="joinByCode()">
         <lucide-icon name="search" size="16" />
         Join with code
       </button>
@@ -11,6 +11,9 @@
       <input
         name="roomCode"
         placeholder="Enter room code"
+        autocomplete="off"
+        spellcheck="false"
+        [attr.aria-invalid]="roomCodeInvalid()"
         [value]="roomCode()"
         (input)="setRoomCode($event)"
         (keydown.enter)="joinByCode()"

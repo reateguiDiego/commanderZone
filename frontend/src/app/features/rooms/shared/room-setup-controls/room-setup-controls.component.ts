@@ -4,6 +4,7 @@ import { RoomMulliganRule, RoomTimerMode } from '../../../../core/models/room.mo
 import { FormatSelectComponent } from '../../../../shared/components/format-select/format-select.component';
 import { GameSetupLifeControlComponent } from '../../../../shared/components/game-setup-life-control/game-setup-life-control.component';
 import { GameSetupSeatsControlComponent } from '../../../../shared/components/game-setup-seats-control/game-setup-seats-control.component';
+import { ToggleComponent } from '../../../../shared/ui/toggle/toggle.component';
 import { TableAssistantTimerMode } from '../../../table-assistant/models/table-assistant.models';
 import { TableAssistantTimerSettingsComponent } from '../../../table-assistant/table-assistant-timer-settings/table-assistant-timer-settings.component';
 
@@ -14,6 +15,7 @@ import { TableAssistantTimerSettingsComponent } from '../../../table-assistant/t
     GameSetupLifeControlComponent,
     GameSetupSeatsControlComponent,
     TableAssistantTimerSettingsComponent,
+    ToggleComponent,
   ],
   templateUrl: './room-setup-controls.component.html',
   styleUrl: './room-setup-controls.component.scss',

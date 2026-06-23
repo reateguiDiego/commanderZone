@@ -26,6 +26,13 @@ class AuthApiTest extends ApiTestCase
             'cardLanguage' => 'en',
             'appLanguage' => 'en',
             'themeId' => 'sunrise',
+            'game' => [
+                'showManaHelperOnStartup' => false,
+                'enableManaRow' => true,
+                'enableStackMana' => false,
+                'gameAnimations' => true,
+                'chatNotificationSounds' => true,
+            ],
         ], $this->jsonResponse()['user']['preferences']);
         self::assertArrayHasKey('createdAt', $this->jsonResponse()['user']);
         self::assertArrayHasKey('updatedAt', $this->jsonResponse()['user']);
@@ -47,6 +54,31 @@ class AuthApiTest extends ApiTestCase
         self::assertTrue($this->jsonResponse()['emailChangeVerificationRequired']);
         $emailVerificationToken = $this->jsonResponse()['emailVerificationToken'];
         self::assertIsString($emailVerificationToken);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'gamePreferences' => [
+                'showManaHelperOnStartup' => true,
+                'enableManaRow' => false,
+                'enableStackMana' => true,
+                'gameAnimations' => false,
+                'chatNotificationSounds' => false,
+            ],
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'showManaHelperOnStartup' => true,
+            'enableManaRow' => false,
+            'enableStackMana' => true,
+            'gameAnimations' => false,
+            'chatNotificationSounds' => false,
+        ], $this->jsonResponse()['user']['preferences']['game']);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'gamePreferences' => [
+                'enableManaRow' => 'yes',
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
 
         $this->jsonRequest('POST', '/auth/email-verification/confirm', ['token' => $emailVerificationToken]);
         self::assertResponseIsSuccessful();
@@ -634,6 +666,13 @@ class AuthApiTest extends ApiTestCase
             'cardLanguage' => 'ja',
             'appLanguage' => 'es',
             'themeId' => 'sunrise',
+            'game' => [
+                'showManaHelperOnStartup' => false,
+                'enableManaRow' => true,
+                'enableStackMana' => false,
+                'gameAnimations' => true,
+                'chatNotificationSounds' => true,
+            ],
         ], $this->jsonResponse()['user']['preferences']);
 
         $this->jsonRequest('PATCH', '/me', [

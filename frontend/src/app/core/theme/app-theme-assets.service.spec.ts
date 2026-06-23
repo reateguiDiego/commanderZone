@@ -18,7 +18,7 @@ describe('AppThemeAssetsService', () => {
     documentRef.documentElement.removeAttribute('data-theme');
   });
 
-  it('uses the regular CZ assets outside Candy Summoners', () => {
+  it('uses the regular CZ assets outside light CZ-logo themes', () => {
     const assets = TestBed.inject(AppThemeAssetsService);
 
     expect(assets.czLogoUrl()).toBe('/assets/icons/CZ/CZ_logo.webp');
@@ -26,7 +26,7 @@ describe('AppThemeAssetsService', () => {
     expect(assets.czCardsIconUrl()).toBe('/assets/icons/CZ/CZ_cards_icon.webp');
   });
 
-  it('uses black CZ assets only for Candy Summoners', () => {
+  it('uses black CZ assets for Candy Summoners only', () => {
     const appTheme = TestBed.inject(AppThemeService);
     const assets = TestBed.inject(AppThemeAssetsService);
 
@@ -37,6 +37,12 @@ describe('AppThemeAssetsService', () => {
     expect(assets.czCardsIconUrl()).toBe('/assets/icons/CZ/CZ_cards_icon_black.webp');
 
     appTheme.selectTheme('sunrise');
+
+    expect(assets.czLogoUrl()).toBe('/assets/icons/CZ/CZ_logo.webp');
+    expect(assets.czZoneHeaderLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_zone_header.webp');
+    expect(assets.czCardsIconUrl()).toBe('/assets/icons/CZ/CZ_cards_icon.webp');
+
+    appTheme.selectTheme('treasure-tavern');
 
     expect(assets.czLogoUrl()).toBe('/assets/icons/CZ/CZ_logo.webp');
     expect(assets.czZoneHeaderLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_zone_header.webp');

@@ -28,7 +28,8 @@ type AppShellTextKey =
   | 'appLanguage'
   | 'cardLanguageFallbackDisclaimer'
   | 'visualTheme'
-  | 'visualThemeHelp';
+  | 'settingsSaveDisclaimer'
+  | 'premiumComingSoon';
 
 const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> = {
   en: {
@@ -55,7 +56,8 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     appLanguage: 'App language',
     cardLanguageFallbackDisclaimer: '{percentage}% of cards are available in {language}. Cards we cannot serve in that language will be shown in English.',
     visualTheme: 'Visual theme',
-    visualThemeHelp: 'Stored locally in this browser.',
+    settingsSaveDisclaimer: 'You have unsaved changes. Save to keep them.',
+    premiumComingSoon: 'Premium is coming soon.',
   },
   es: {
     menu: 'Menu',
@@ -81,7 +83,8 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     appLanguage: 'Idioma de la app',
     cardLanguageFallbackDisclaimer: 'El {percentage}% de las cartas esta disponible en {language}. Las cartas que no podamos servir en ese idioma se mostraran en ingles.',
     visualTheme: 'Tema visual',
-    visualThemeHelp: 'Se guarda localmente en este navegador.',
+    settingsSaveDisclaimer: 'Tienes cambios sin guardar. Guarda para conservarlos.',
+    premiumComingSoon: 'Premium llegara pronto.',
   },
 };
 

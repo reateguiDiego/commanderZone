@@ -82,6 +82,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 48)]
     private string $themeId = UserThemeCatalog::DEFAULT_THEME;
 
+    #[ORM\Column(type: 'boolean')]
+    private bool $showManaHelperOnStartup = false;
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $enableManaRow = true;
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $enableStackMana = false;
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $gameAnimations = true;
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $chatNotificationSounds = true;
+
     public function __construct(string $email, string $displayName)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -327,6 +342,44 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->touch();
     }
 
+    /**
+     * @param array{
+     *   showManaHelperOnStartup?: bool,
+     *   enableManaRow?: bool,
+     *   enableStackMana?: bool,
+     *   gameAnimations?: bool,
+     *   chatNotificationSounds?: bool
+     * } $preferences
+     */
+    public function updateGamePreferences(array $preferences): void
+    {
+        foreach ($preferences as $key => $value) {
+            match ($key) {
+                'showManaHelperOnStartup' => $this->showManaHelperOnStartup = $value,
+                'enableManaRow' => $this->enableManaRow = $value,
+                'enableStackMana' => $this->enableStackMana = $value,
+                'gameAnimations' => $this->gameAnimations = $value,
+                'chatNotificationSounds' => $this->chatNotificationSounds = $value,
+                default => throw new \InvalidArgumentException('Unsupported game preference.'),
+            };
+        }
+
+        if ($preferences !== []) {
+            $this->touch();
+        }
+    }
+
+    public function gamePreferences(): array
+    {
+        return [
+            'showManaHelperOnStartup' => $this->showManaHelperOnStartup,
+            'enableManaRow' => $this->enableManaRow,
+            'enableStackMana' => $this->enableStackMana,
+            'gameAnimations' => $this->gameAnimations,
+            'chatNotificationSounds' => $this->chatNotificationSounds,
+        ];
+    }
+
     public function toArray(): array
     {
         return [
@@ -340,6 +393,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 'cardLanguage' => $this->cardLanguage,
                 'appLanguage' => $this->appLanguage,
                 'themeId' => $this->themeId,
+                'game' => $this->gamePreferences(),
             ],
             'roles' => $this->getRoles(),
             'avatar' => $this->avatar(),

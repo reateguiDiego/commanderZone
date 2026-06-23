@@ -901,6 +901,7 @@
       "playerAvatar": "Player avatar",
       "avatar": "Avatar",
       "name": "Name",
+      "becomePremium": "Tornar-se premium",
       "email": "Email",
       "introduceUnEmailValido": "Introduce un email valido.",
       "comprobandoEmail": "Comprobando email...",
@@ -915,7 +916,31 @@
       "deleteAccount": "Delete account",
       "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
       "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "changeTheme": "Alterar theme",
+      "gameSettings": {
+        "title": "Gameplay preferences",
+        "showManaHelperOnStartup": {
+          "label": "Show mana helper on startup",
+          "description": "Open the mana helper when a match starts."
+        },
+        "enableManaRow": {
+          "label": "Enable mana row",
+          "description": "Show the dedicated mana row during games."
+        },
+        "enableStackMana": {
+          "label": "Enable stack mana",
+          "description": "Keep mana available while resolving stacked actions."
+        },
+        "gameAnimations": {
+          "label": "Game animations",
+          "description": "Use visual movement and feedback animations during matches."
+        },
+        "chatNotificationSounds": {
+          "label": "Chat notification sounds",
+          "description": "Play a sound when new chat notifications arrive."
+        }
+      }
     },
     "settingsInitialAvatarOption": {
       "initialAvatarCustomization": "Initial avatar customization",

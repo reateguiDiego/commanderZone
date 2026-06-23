@@ -58,6 +58,9 @@
           @if (showTertiary) {
             <button czButton="secondary" class="secondary-button" type="button" (click)="tertiary.emit()">{{ tertiaryLabel }}</button>
           }
+          @if (footerNotice) {
+            <span class="modal-footer-notice settings-save-disclaimer">{{ footerNotice }}</span>
+          }
           @if (showSecondary) {
             <button
               [czButton]="secondaryVariant"

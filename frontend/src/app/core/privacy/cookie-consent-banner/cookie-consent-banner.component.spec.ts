@@ -105,7 +105,8 @@ describe('CookieConsentBannerComponent', () => {
     configureButton?.click();
     fixture.detectChanges();
 
-    expect(element.querySelector('[aria-pressed="false"]')?.textContent?.trim()).toBe('Cookies de analítica');
+    expect(element.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('false');
+    expect(element.querySelector('[role="switch"]')?.textContent?.trim()).toBe('Cookies de analítica');
     expect(Array.from(element.querySelectorAll('.cookie-banner__actions button')).map((button) => button.textContent?.trim()))
       .toEqual(['Guardar', 'Rechazar', 'Aceptar']);
     expect(analytics.consentUpdates).toEqual([]);

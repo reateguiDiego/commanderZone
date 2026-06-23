@@ -39,6 +39,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() showTertiary = false;
   @Input() tertiaryLabel = 'Cancel';
   @Input() footerLayout: 'default' | 'split' = 'default';
+  @Input() footerNotice = '';
   @Input() lockBodyScroll = true;
   @Input() closeOnBackdrop = false;
   @Input() size: 'default' | 'compact' | 'narrow' | 'wide' = 'default';

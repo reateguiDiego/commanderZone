@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 import { AuthApi } from '../api/auth.api';
 import { User } from '../models/user.model';
+import { AppThemeService } from '../theme/app-theme.service';
 import { AuthStore } from './auth.store';
 
 describe('AuthStore backend auth', () => {
@@ -56,6 +57,37 @@ describe('AuthStore backend auth', () => {
     expect(store.user()).toEqual(user);
     expect(localStorage.getItem('commanderzone.jwt')).toBeNull();
     expect(localStorage.getItem('commanderzone.user')).toContain('player@example.test');
+  });
+
+  it('updates the cached user theme preference after a theme save', async () => {
+    const userWithPreferences: User = {
+      ...user,
+      preferences: { cardLanguage: 'en', appLanguage: 'en', themeId: 'sunrise' },
+    };
+    authApi.me.mockReturnValueOnce(of({ user: userWithPreferences }));
+    const store = TestBed.inject(AuthStore);
+
+    await store.login('player@example.test', 'password123');
+    store.updateThemePreference('mystic-grove');
+
+    expect(store.user()?.preferences?.themeId).toBe('mystic-grove');
+    expect(localStorage.getItem('commanderzone.user')).toContain('"themeId":"mystic-grove"');
+  });
+
+  it('applies the persisted account theme returned by /me', async () => {
+    const userWithPreferences: User = {
+      ...user,
+      preferences: { cardLanguage: 'en', appLanguage: 'en', themeId: 'mystic-grove' },
+    };
+    authApi.me.mockReturnValueOnce(of({ user: userWithPreferences }));
+    const store = TestBed.inject(AuthStore);
+    const appTheme = TestBed.inject(AppThemeService);
+
+    await store.login('player@example.test', 'password123');
+
+    expect(appTheme.themeId()).toBe('mystic-grove');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('mystic-grove');
+    expect(localStorage.getItem('commanderzone.user')).toContain('"themeId":"mystic-grove"');
   });
 
   it('registers with backend and does not auto-login', async () => {

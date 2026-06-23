@@ -504,7 +504,8 @@ class AuthController extends ApiController
         $hasEmailUpdate = array_key_exists('email', $payload);
         $hasCardLanguageUpdate = array_key_exists('cardLanguage', $payload);
         $hasAppLanguageUpdate = array_key_exists('appLanguage', $payload);
-        if (!$hasDisplayNameUpdate && !$hasEmailUpdate && !$hasCardLanguageUpdate && !$hasAppLanguageUpdate) {
+        $hasGamePreferencesUpdate = array_key_exists('gamePreferences', $payload);
+        if (!$hasDisplayNameUpdate && !$hasEmailUpdate && !$hasCardLanguageUpdate && !$hasAppLanguageUpdate && !$hasGamePreferencesUpdate) {
             return $this->fail('At least one profile field must be provided.');
         }
 
@@ -540,6 +541,15 @@ class AuthController extends ApiController
             }
 
             $user->updateAppLanguage((string) $appLanguage);
+        }
+
+        if ($hasGamePreferencesUpdate) {
+            $gamePreferences = $this->gamePreferencesFromPayload($payload['gamePreferences'] ?? null);
+            if ($gamePreferences === null) {
+                return $this->fail('gamePreferences is invalid.');
+            }
+
+            $user->updateGamePreferences($gamePreferences);
         }
 
         if ($hasEmailUpdate) {
@@ -579,6 +589,41 @@ class AuthController extends ApiController
         $entityManager->flush();
 
         return $this->json(['user' => $user->toArray()]);
+    }
+
+    /**
+     * @return array{
+     *   showManaHelperOnStartup?: bool,
+     *   enableManaRow?: bool,
+     *   enableStackMana?: bool,
+     *   gameAnimations?: bool,
+     *   chatNotificationSounds?: bool
+     * }|null
+     */
+    private function gamePreferencesFromPayload(mixed $payload): ?array
+    {
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        $allowedKeys = [
+            'showManaHelperOnStartup',
+            'enableManaRow',
+            'enableStackMana',
+            'gameAnimations',
+            'chatNotificationSounds',
+        ];
+        $preferences = [];
+
+        foreach ($payload as $key => $value) {
+            if (!in_array($key, $allowedKeys, true) || !is_bool($value)) {
+                return null;
+            }
+
+            $preferences[$key] = $value;
+        }
+
+        return $preferences;
     }
 
     #[Route('/me/avatar', methods: ['PATCH'])]

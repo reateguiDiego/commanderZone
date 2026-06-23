@@ -7,6 +7,7 @@
   [showSecondary]="!nestedEditorOpen()"
   [showPrimary]="!nestedEditorOpen()"
   [primaryDisabled]="!canSave()"
+  [footerNotice]="canSave() ? saveDisclaimer() : ''"
   [showBackButton]="nestedEditorOpen()"
   [backLabel]="backToSettingsLabel()"
   [showHeaderAction]="avatarEditorOpen() && (avatarUploadOpen() || avatarEditorTier() === 'premium')"
@@ -17,7 +18,11 @@
   (primary)="savePreferences()"
 >
   <div class="settings-modal-layout" [class.editor-mode]="nestedEditorOpen()" (click)="closeDeleteConfirmationOnOutsideClick($event)">
-    @if (displayNameStyleEditorOpen()) {
+    @if (themeEditorOpen()) {
+      @defer (when themeEditorOpen()) {
+        <app-theme-settings-panel (themeSaved)="syncThemePreference($event)" />
+      }
+    } @else if (displayNameStyleEditorOpen()) {
       @defer (when displayNameStyleEditorOpen()) {
         <app-settings-display-name-style-editor
           [displayName]="currentUserDisplayName()"
@@ -109,7 +114,7 @@
               <label class="user-name-field">
                 <span class="field-label-row">
                   <span>{{ 'settings.dashboardSettingsModal.userName' | runtimeTranslate }}</span>
-                  <span class="character-counter">{{ userNameCharacterCount() }}/{{ userNameMaxLength }} maximum</span>
+                  <span class="character-counter">{{ userNameCharacterCount() }}/{{ userNameMaxLength }}</span>
                 </span>
                 <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="20" />
                 <span class="field-feedback">
@@ -132,29 +137,6 @@
                   }
                 </span>
               </label>
-
-              <div class="change-password-action">
-                <button
-                  czButton="secondary"
-                  class="change-password-button"
-                  type="button"
-                  [disabled]="!canRequestPasswordChange()"
-                  (click)="requestPasswordChange()"
-                >
-                  @if (passwordResetRequestInProgress()) {
-                    {{ 'settings.dashboardSettingsModal.sendingPasswordEmail' | runtimeTranslate }}
-                  } @else if (passwordResetRequestState() === 'sent') {
-                    {{ 'settings.dashboardSettingsModal.passwordResetEmailSentShort' | runtimeTranslate }}
-                  } @else {
-                    {{ 'settings.dashboardSettingsModal.changePassword' | runtimeTranslate }}
-                  }
-                </button>
-                @if (passwordResetRequestState() === 'error') {
-                  <span class="change-password-feedback error" aria-live="polite">
-                    {{ 'settings.dashboardSettingsModal.passwordResetEmailError' | runtimeTranslate }}
-                  </span>
-                }
-              </div>
             </div>
 
             <app-settings-language-preferences
@@ -163,8 +145,15 @@
               [cardLanguageCoverage]="cardLanguageCoverage()"
               [cardLanguage]="selectedCardLanguage()"
               [appLanguage]="selectedAppLanguage()"
+              [passwordChangeDisabled]="!canRequestPasswordChange()"
+              [passwordChangeInProgress]="passwordResetRequestInProgress()"
+              [passwordChangeSent]="passwordResetRequestState() === 'sent'"
+              [passwordChangeError]="passwordResetRequestState() === 'error'"
               (cardLanguageChange)="setCardLanguage($event)"
               (appLanguageChange)="setAppLanguage($event)"
+              (themeChangeRequested)="openThemeSettings()"
+              (premiumRequested)="requestPremiumUpgrade()"
+              (passwordChangeRequested)="requestPasswordChange()"
             />
 
             <div class="delete-account-box">
@@ -194,8 +183,22 @@
             </div>
           </form>
         } @else {
-          <section class="settings-form game-settings-form">
-            <app-theme-settings-panel />
+          <section class="settings-form game-settings-form" [attr.aria-label]="'settings.dashboardSettingsModal.gameSettings.title' | runtimeTranslate">
+            <header class="game-settings-header">
+              <h3 class="settings-section-title">{{ 'settings.dashboardSettingsModal.gameSettings.title' | runtimeTranslate }}</h3>
+            </header>
+
+            <div class="game-settings-toggle-list">
+              @for (option of gameSettingsToggleOptions; track option.id) {
+                <app-toggle
+                  class="game-settings-toggle"
+                  [label]="option.labelKey | runtimeTranslate"
+                  [description]="option.descriptionKey | runtimeTranslate"
+                  [checked]="gameSettingsToggleState()[option.id]"
+                  (checkedChange)="setGameSettingsToggle(option.id, $event)"
+                />
+              }
+            </div>
           </section>
         }
       </section>

@@ -275,6 +275,8 @@ paths:
                 appLanguage:
                   type: string
                   enum: [en, fr, de, it, es, ja, zhs, pt, ru, nl, ca]
+                gamePreferences:
+                  $ref: '#/components/schemas/UserGamePreferences'
       responses:
         '200':
           description: Updated user.
@@ -2976,7 +2978,7 @@ components:
           format: date-time
     UserPreferences:
       type: object
-      required: [cardLanguage, appLanguage, themeId]
+      required: [cardLanguage, appLanguage, themeId, game]
       properties:
         cardLanguage:
           type: string
@@ -2986,6 +2988,22 @@ components:
           enum: [en, fr, de, it, es, ja, zhs, pt, ru, nl, ca]
         themeId:
           $ref: '#/components/schemas/AppThemeId'
+        game:
+          $ref: '#/components/schemas/UserGamePreferences'
+    UserGamePreferences:
+      type: object
+      required: [showManaHelperOnStartup, enableManaRow, enableStackMana, gameAnimations, chatNotificationSounds]
+      properties:
+        showManaHelperOnStartup:
+          type: boolean
+        enableManaRow:
+          type: boolean
+        enableStackMana:
+          type: boolean
+        gameAnimations:
+          type: boolean
+        chatNotificationSounds:
+          type: boolean
     AppThemeId:
       type: string
       enum: [sunrise, arcade-neon-clash, candy-summoners, treasure-tavern, cyber-duel-arena, mystic-grove]

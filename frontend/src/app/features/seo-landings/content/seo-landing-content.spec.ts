@@ -164,7 +164,7 @@ describe('SEO landing static content', () => {
         en: 'CommanderZone | Play MTG Commander Online with Your Pod',
         es: 'CommanderZone | Jugar Commander MTG online con tu grupo',
         de: 'CommanderZone | MTG Commander online mit deiner Gruppe spielen',
-        fr: 'CommanderZone | Jouer à Commander MTG en ligne avec votre groupe',
+        fr: 'CommanderZone | Jouer à Commander en ligne',
         pt: 'CommanderZone | Jogar Commander MTG online com seu grupo',
         it: 'CommanderZone | Giocare Commander MTG online con il tuo gruppo',
       },
@@ -179,7 +179,7 @@ describe('SEO landing static content', () => {
       playMagicOnlineWithFriends: {
         en: 'Play Magic Online with Friends for Commander | CommanderZone',
         es: 'Jugar Magic online con amigos en Commander | CommanderZone',
-        de: 'Magic online mit Freunden für Commander spielen | CommanderZone',
+        de: 'Magic online mit Freunden | CommanderZone',
         fr: 'Jouer à Magic en ligne avec des amis | CommanderZone',
         pt: 'Jogar Magic online com amigos no Commander | CommanderZone',
         it: 'Giocare Magic online con amici in Commander | CommanderZone',
@@ -198,7 +198,7 @@ describe('SEO landing static content', () => {
         de: 'Commander-Deck importieren und online spielen | CommanderZone',
         fr: 'Importer un deck Commander pour jouer en ligne | CommanderZone',
         pt: 'Importar um deck Commander para jogar online | CommanderZone',
-        it: 'Importare un mazzo Commander per giocare online | CommanderZone',
+        it: 'Importare mazzo Commander online | CommanderZone',
       },
       commanderDeckBuilder: {
         en: 'Commander Deck Builder for Online MTG Pods | CommanderZone',
@@ -214,7 +214,7 @@ describe('SEO landing static content', () => {
         de: 'Möglichkeiten, Commander online zu spielen | CommanderZone',
         fr: 'Façons de jouer à Commander en ligne | CommanderZone',
         pt: 'Formas de jogar Commander online com seu grupo | CommanderZone',
-        it: 'Modi per giocare Commander online con il tuo gruppo | CommanderZone',
+        it: 'Modi per giocare Commander online | CommanderZone',
       },
       howToPlayCommanderOnline: {
         en: 'How to Play Commander Online Step by Step | CommanderZone',
@@ -638,6 +638,8 @@ describe('SEO landing static content', () => {
   it('passes linguistic SEO QA for visible static content', () => {
     const placeholderPattern = /\b(?:TODO|FIXME)\b|(?:Lorem ipsum|placeholder|translation missing)|\{\{|\}\}|__/;
     const mojibakePattern = /Â|Ã|Ð|Ñ|ãƒ|ã|åœ|ì˜|í™|�/;
+    const corruptedAccentReplacementPattern =
+      /[A-Za-zÀ-ÿ]\?[A-Za-zÀ-ÿ]|\?ffnen|Schritt-f\?r|M\?glich|Fa\?ons|Gu\?a|gr\?tis|jouer \? Commander|Jouer \? Commander|l\?alternative/;
     const visibleKeyPattern = /\b[a-z][a-z0-9]*(?:\.[a-z][a-z0-9-]*){2,}\b/i;
 
     for (const { content } of getAllSeoLandingContentEntries()) {
@@ -652,6 +654,11 @@ describe('SEO landing static content', () => {
           text,
           hasMojibake: mojibakePattern.test(text),
         }).toEqual({ location: `${content.routeKey}/${content.locale}`, text, hasMojibake: false });
+        expect({
+          location: `${content.routeKey}/${content.locale}`,
+          text,
+          hasCorruptedAccentReplacement: corruptedAccentReplacementPattern.test(text),
+        }).toEqual({ location: `${content.routeKey}/${content.locale}`, text, hasCorruptedAccentReplacement: false });
         expect({
           location: `${content.routeKey}/${content.locale}`,
           text,

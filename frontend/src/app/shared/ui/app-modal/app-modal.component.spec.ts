@@ -58,6 +58,7 @@ describe('AppModalComponent', () => {
     expect(document.documentElement.style.overflow).toBe('hidden');
     expect(document.body.style.overflow).toBe('hidden');
     expect(document.body.style.position).toBe('');
+    expect(document.body.style.paddingRight).toBe('');
 
     fixture.componentRef.setInput('open', false);
     fixture.detectChanges();

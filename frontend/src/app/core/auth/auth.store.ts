@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../api/api.config';
 import { AuthApi } from '../api/auth.api';
 import { User } from '../models/user.model';
+import { AppThemeId } from '../theme/app-theme';
 import { AppThemeService } from '../theme/app-theme.service';
 import { AppBackgroundService } from '../ui/app-background.service';
 
@@ -198,6 +199,21 @@ export class AuthStore {
   clearError(): void {
     this.errorState.set(null);
     this.loginFailureCountState.set(null);
+  }
+
+  updateThemePreference(themeId: AppThemeId): void {
+    const currentUser = this.userState();
+    if (!currentUser?.preferences) {
+      return;
+    }
+
+    this.setUser({
+      ...currentUser,
+      preferences: {
+        ...currentUser.preferences,
+        themeId,
+      },
+    });
   }
 
   private setToken(token: string): void {
