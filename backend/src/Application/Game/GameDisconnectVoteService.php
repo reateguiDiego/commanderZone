@@ -35,11 +35,11 @@ class GameDisconnectVoteService
     public function openVoteIfEligible(Game $game, string $targetPlayerId, array $connectedUserIds, ?\DateTimeImmutable $now = null): ?array
     {
         $now ??= new \DateTimeImmutable();
-        $snapshot = $this->normalizer->normalizeSnapshot($game->snapshot());
-        $state = $this->normalizedDisconnectVote($snapshot);
+        $snapshot = $game->snapshot();
+        $state = $this->currentDisconnectVote($game, $snapshot);
 
         if ($this->maybeResolveOnTimeout($snapshot, $state, $connectedUserIds, $now)) {
-            $game->replaceSnapshot($snapshot);
+            $game->replaceRuntimeSnapshot($snapshot);
 
             return $this->createTechnicalEvent($game, $snapshot, 'timeout.wait', null);
         }
@@ -68,7 +68,7 @@ class GameDisconnectVoteService
             $state = $this->resolvedState($state, self::STATUS_RESOLVED_WAIT, $now);
             $snapshot['disconnectVote'] = $state;
             $this->appendSystemLog($snapshot, sprintf('No hay jugadores conectados para votar sobre %s. Se espera reconexion.', $this->playerName($snapshot, $targetPlayerId)), $now);
-            $game->replaceSnapshot($snapshot);
+            $game->replaceRuntimeSnapshot($snapshot);
 
             return $this->createTechnicalEvent($game, $snapshot, 'open.skipped_wait', null);
         }
@@ -84,7 +84,7 @@ class GameDisconnectVoteService
         ];
         $snapshot['disconnectVote'] = $state;
         $this->appendSystemLog($snapshot, sprintf('%s se ha desconectado. Se abre votacion de mesa.', $this->playerName($snapshot, $targetPlayerId)), $now);
-        $game->replaceSnapshot($snapshot);
+        $game->replaceRuntimeSnapshot($snapshot);
 
         return $this->createTechnicalEvent($game, $snapshot, 'opened', null);
     }
@@ -107,8 +107,8 @@ class GameDisconnectVoteService
         }
 
         $now ??= new \DateTimeImmutable();
-        $snapshot = $this->normalizer->normalizeSnapshot($game->snapshot());
-        $state = $this->normalizedDisconnectVote($snapshot);
+        $snapshot = $game->snapshot();
+        $state = $this->currentDisconnectVote($game, $snapshot);
         if ($this->maybeResolveOnTimeout($snapshot, $state, $connectedUserIds, $now)) {
             throw new \InvalidArgumentException('Disconnect vote already expired.');
         }
@@ -165,7 +165,7 @@ class GameDisconnectVoteService
             $state = $this->resolvedState($state, $resolution, $now);
         }
         $snapshot['disconnectVote'] = $state;
-        $game->replaceSnapshot($snapshot);
+        $game->replaceRuntimeSnapshot($snapshot);
 
         return $this->createTechnicalEvent($game, $snapshot, $resolution === null ? 'vote.recorded' : 'vote.resolved', $actor);
     }
@@ -178,13 +178,13 @@ class GameDisconnectVoteService
     public function resolveOnTimeout(Game $game, array $connectedUserIds, ?\DateTimeImmutable $now = null): ?array
     {
         $now ??= new \DateTimeImmutable();
-        $snapshot = $this->normalizer->normalizeSnapshot($game->snapshot());
-        $state = $this->normalizedDisconnectVote($snapshot);
+        $snapshot = $game->snapshot();
+        $state = $this->currentDisconnectVote($game, $snapshot);
         if (!$this->maybeResolveOnTimeout($snapshot, $state, $connectedUserIds, $now)) {
             return null;
         }
 
-        $game->replaceSnapshot($snapshot);
+        $game->replaceRuntimeSnapshot($snapshot);
 
         return $this->createTechnicalEvent($game, $snapshot, 'timeout.wait', null);
     }
@@ -195,8 +195,8 @@ class GameDisconnectVoteService
     public function cancelOnReconnect(Game $game, string $targetPlayerId, ?\DateTimeImmutable $now = null): ?array
     {
         $now ??= new \DateTimeImmutable();
-        $snapshot = $this->normalizer->normalizeSnapshot($game->snapshot());
-        $state = $this->normalizedDisconnectVote($snapshot);
+        $snapshot = $game->snapshot();
+        $state = $this->currentDisconnectVote($game, $snapshot);
         if (!$this->isOpenVote($state) || ($state['targetPlayerId'] ?? null) !== $targetPlayerId) {
             return null;
         }
@@ -208,7 +208,7 @@ class GameDisconnectVoteService
         $state['votes'] = [];
         $snapshot['disconnectVote'] = $state;
         $this->appendSystemLog($snapshot, sprintf('%s se ha reconectado. Votacion cancelada.', $this->playerName($snapshot, $targetPlayerId)), $now);
-        $game->replaceSnapshot($snapshot);
+        $game->replaceRuntimeSnapshot($snapshot);
 
         return $this->createTechnicalEvent($game, $snapshot, 'cancelled.reconnect', null);
     }
@@ -379,23 +379,82 @@ class GameDisconnectVoteService
     }
 
     /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    private function currentDisconnectVote(Game $game, array $snapshot): array
+    {
+        $latest = null;
+        foreach ($game->events() as $event) {
+            if (!$event instanceof GameEvent || $event->type() !== self::EVENT_TYPE) {
+                continue;
+            }
+            $payload = $event->payload();
+            $candidate = $payload['disconnectVote'] ?? null;
+            if (!is_array($candidate)) {
+                continue;
+            }
+            if ($latest === null || $event->version() >= (int) ($latest['version'] ?? 0)) {
+                $latest = [
+                    'version' => $event->version(),
+                    'state' => $candidate,
+                ];
+            }
+        }
+
+        if (is_array($latest)) {
+            return $this->normalizeDisconnectVoteState($latest['state']);
+        }
+
+        return $this->normalizedDisconnectVote($snapshot);
+    }
+
+    /**
+     * @param array<string,mixed> $state
+     *
+     * @return array<string,mixed>
+     */
+    private function normalizeDisconnectVoteState(array $state): array
+    {
+        return $this->normalizedDisconnectVote(['disconnectVote' => $state]);
+    }
+
+    /**
      * @return array{event: GameEvent, snapshot: array<string,mixed>}
      */
     private function createTechnicalEvent(Game $game, array &$snapshot, string $reason, ?User $actor): array
     {
         $now = new \DateTimeImmutable();
-        $snapshot['version'] = max(1, (int) ($snapshot['version'] ?? 1)) + 1;
+        $snapshot['version'] = $this->nextEventVersion($game, $snapshot);
         $snapshot['updatedAt'] = $now->format(DATE_ATOM);
-        $game->replaceSnapshot($snapshot);
+        $game->replaceRuntimeSnapshot($snapshot);
 
         $event = new GameEvent($game, self::EVENT_TYPE, [
             'reason' => $reason,
             'targetPlayerId' => $snapshot['disconnectVote']['targetPlayerId'] ?? null,
             'status' => $snapshot['disconnectVote']['status'] ?? null,
-        ], $actor);
+            'disconnectVote' => $snapshot['disconnectVote'] ?? null,
+            'snapshot_write_count' => 0,
+        ], $actor, null, (int) $snapshot['version']);
         $game->addEvent($event);
 
         return ['event' => $event, 'snapshot' => $snapshot];
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     */
+    private function nextEventVersion(Game $game, array $snapshot): int
+    {
+        $version = max(1, (int) ($snapshot['version'] ?? 1));
+        foreach ($game->events() as $event) {
+            if ($event instanceof GameEvent) {
+                $version = max($version, $event->version());
+            }
+        }
+
+        return $version + 1;
     }
 
     private function appendSystemLog(array &$snapshot, string $message, \DateTimeImmutable $now): void

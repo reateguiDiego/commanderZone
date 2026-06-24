@@ -70,6 +70,9 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeCommandHTTPError(w, http.StatusInternalServerError, "actor_recovery_failed", err.Error())
 		return
 	}
+	if request.InitialState != nil && request.Command.BaseVersion < gameActor.Version() {
+		request.Command.BaseVersion = gameActor.Version()
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), s.commandTimeout)
 	defer cancel()

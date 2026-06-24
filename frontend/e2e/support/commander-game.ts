@@ -110,6 +110,10 @@ export interface CommanderGameWithBasicDecksResult {
   };
 }
 
+interface CommanderGamePlayerToken {
+  token: string;
+}
+
 export async function createCommanderGameWithRandomDecks(
   request: APIRequestContext,
   options: CreateCommanderGameWithRandomDecksOptions = {},
@@ -242,6 +246,8 @@ async function createRoom(
       name: roomName,
       format: 'commander',
       maxPlayers: 2,
+      mulliganRule: 'LONDON',
+      firstMulliganFree: true,
     },
   });
   await expectApiOk(response, 'create room');
@@ -343,6 +349,44 @@ export async function createCommanderGameWithBasicDecks(
   };
 }
 
+export async function resolveGameToPlaying(
+  request: APIRequestContext,
+  gameId: string,
+  players: readonly CommanderGamePlayerToken[],
+): Promise<void> {
+  if (players.length === 0) {
+    throw new Error('At least one player token is required to resolve the game phase.');
+  }
+
+  const controllerToken = players[0]?.token ?? '';
+  if (controllerToken.trim() === '') {
+    throw new Error('A valid controller token is required to resolve the game phase.');
+  }
+
+  const initialPhase = await gamePhase(request, gameId, controllerToken);
+  if (initialPhase !== 'MULLIGAN') {
+    return;
+  }
+
+  for (const player of players) {
+    const response = await request.post(`${API_BASE_URL}/games/${gameId}/commands`, {
+      headers: {
+        Authorization: `Bearer ${player.token}`,
+      },
+      data: {
+        type: 'mulligan.keep',
+        payload: {},
+      },
+    });
+    await expectApiOk(response, 'resolve mulligan keep');
+  }
+
+  const finalPhase = await gamePhase(request, gameId, controllerToken);
+  if (finalPhase !== 'PLAYING') {
+    throw new Error(`Expected game ${gameId} to reach PLAYING after resolving mulligan, got ${finalPhase ?? 'null'}.`);
+  }
+}
+
 async function resolveTurnOrder(request: APIRequestContext, roomId: string, tokens: readonly string[]): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const roomResponse = await request.get(`${API_BASE_URL}/rooms/${roomId}`, {
@@ -384,6 +428,19 @@ async function resolveTurnOrder(request: APIRequestContext, roomId: string, toke
   }
 
   throw new Error('Unable to resolve turn order after repeated rerolls.');
+}
+
+async function gamePhase(request: APIRequestContext, gameId: string, token: string): Promise<string | null> {
+  const response = await request.get(`${API_BASE_URL}/games/${gameId}/snapshot`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  await expectApiOk(response, 'load game snapshot');
+  const payload = await response.json() as { game?: { snapshot?: { gamePhase?: unknown } } };
+  const gamePhase = payload.game?.snapshot?.gamePhase;
+
+  return typeof gamePhase === 'string' && gamePhase.trim() !== '' ? gamePhase : null;
 }
 
 function turnOrderResolved(players: Array<{ turnRolls?: number[] }>): boolean {

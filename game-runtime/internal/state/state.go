@@ -130,19 +130,20 @@ type StackItem struct {
 }
 
 type GameState struct {
-	GameID     string                         `json:"gameId"`
-	Version    int64                          `json:"version"`
-	Status     string                         `json:"status"`
-	Phase      GamePhase                      `json:"phase,omitempty"`
-	Players    map[string]map[string]any      `json:"players"`
-	Turn       map[string]any                 `json:"turn"`
-	Instances  map[string]CardInstanceRuntime `json:"instances"`
-	Zones      map[string]PlayerZones         `json:"zones"`
-	Loc        map[string]Location            `json:"loc"`
-	Visibility VisibilityIndex                `json:"visibility"`
-	Relations  Relations                      `json:"relations"`
-	Stack      []StackItem                    `json:"stack"`
-	Mulligan   MulliganState                  `json:"mulligan,omitempty"`
+	GameID         string                         `json:"gameId"`
+	Version        int64                          `json:"version"`
+	Status         string                         `json:"status"`
+	Phase          GamePhase                      `json:"phase,omitempty"`
+	Players        map[string]map[string]any      `json:"players"`
+	SharedCounters map[string]map[string]int      `json:"sharedCounters,omitempty"`
+	Turn           map[string]any                 `json:"turn"`
+	Instances      map[string]CardInstanceRuntime `json:"instances"`
+	Zones          map[string]PlayerZones         `json:"zones"`
+	Loc            map[string]Location            `json:"loc"`
+	Visibility     VisibilityIndex                `json:"visibility"`
+	Relations      Relations                      `json:"relations"`
+	Stack          []StackItem                    `json:"stack"`
+	Mulligan       MulliganState                  `json:"mulligan,omitempty"`
 }
 
 func (s GameState) Clone() GameState {
@@ -150,6 +151,10 @@ func (s GameState) Clone() GameState {
 	clone.Players = map[string]map[string]any{}
 	for playerID, player := range s.Players {
 		clone.Players[playerID] = cloneAnyMap(player)
+	}
+	clone.SharedCounters = map[string]map[string]int{}
+	for scope, counters := range s.SharedCounters {
+		clone.SharedCounters[scope] = cloneIntMap(counters)
 	}
 	clone.Turn = cloneAnyMap(s.Turn)
 	clone.Instances = map[string]CardInstanceRuntime{}

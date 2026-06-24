@@ -3,6 +3,7 @@
 namespace App\Tests\Application;
 
 use App\Application\Game\Runtime\GameRuntimeMulliganClient;
+use App\Application\Game\Runtime\GameRuntimeCommandClient;
 use App\Application\Game\Runtime\LegacyMulliganRuntimeStateMapper;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -40,7 +41,8 @@ final class GameRuntimeMulliganClientTest extends TestCase
                 'metrics' => ['mulligan.take_ms' => 0.2],
             ], JSON_THROW_ON_ERROR), ['http_code' => 200]);
         });
-        $client = new GameRuntimeMulliganClient($httpClient, new LegacyMulliganRuntimeStateMapper(), 'http://runtime.internal:8091');
+        $commandClient = new GameRuntimeCommandClient($httpClient, new LegacyMulliganRuntimeStateMapper(), 'http://runtime.internal:8091');
+        $client = new GameRuntimeMulliganClient($commandClient);
 
         $result = $client->dispatch(
             'mulligan.take',

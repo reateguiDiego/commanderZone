@@ -80,6 +80,50 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertSame(1, $runtime->calls);
     }
 
+    public function testPatchContractFailureFallsBackToLegacyMulligan(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $runtime = RuntimeMulliganClientStub::invalidPatch();
+        $service = $this->service(
+            $game,
+            $actor,
+            expectPersist: true,
+            flags: $this->runtimeFlags(runtime: true, shadow: false),
+            runtimeClient: $runtime,
+        );
+
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-contract-fallback');
+
+        self::assertSame(['mulligan.public_state', 'mulligan.private_state'], array_column($result->messagesForUserId($actor->id()), 'kind'));
+        self::assertSame(1.0, $result->debugProfile()['gameplay.runtime_fallback_count'] ?? 0.0);
+        self::assertSame(1.0, $result->debugProfile()['gameplay.runtime_patch_contract_error'] ?? 0.0);
+        self::assertSame(1, $runtime->calls);
+    }
+
+    public function testCommandNotAllowlistedUsesLegacyWithoutRuntimeCall(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $runtime = RuntimeMulliganClientStub::success();
+        $service = $this->service(
+            $game,
+            $actor,
+            expectPersist: true,
+            flags: $this->runtimeFlags(runtime: true, shadow: false, allowlist: 'library.draw'),
+            runtimeClient: $runtime,
+        );
+
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-not-allowlisted');
+
+        self::assertSame(['mulligan.public_state', 'mulligan.private_state'], array_column($result->messagesForUserId($actor->id()), 'kind'));
+        self::assertSame(0, $runtime->calls);
+    }
+
     public function testShadowModeRunsRuntimeComparisonWithoutChangingLegacyResponse(): void
     {
         [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
@@ -718,7 +762,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
         return new GameWebsocketMulliganService($handler ?? new GameCommandHandler(), $registry, null, $flags, $runtimeClient);
     }
 
-    private function runtimeFlags(bool $runtime, bool $shadow): GameplayV2Flags
+    private function runtimeFlags(bool $runtime, bool $shadow, string $allowlist = 'mulligan.take,mulligan.keep,mulligan.scry.confirm'): GameplayV2Flags
     {
         return new GameplayV2Flags(
             commandEnabled: false,
@@ -727,7 +771,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
             eventEnabled: false,
             visibilityEnabled: false,
             enabled: true,
-            commandsAllowlist: 'mulligan.take,mulligan.keep,mulligan.scry.confirm',
+            commandsAllowlist: $allowlist,
             runtimeServiceEnabled: $runtime,
             semanticPatchesEnabled: true,
             compactBootstrapEnabled: true,
@@ -785,7 +829,10 @@ final class RuntimeMulliganClientStub implements GameRuntimeMulliganClientInterf
     /** @var list<string> */
     public array $kinds = [];
 
-    private function __construct(private readonly bool $throws)
+    /**
+     * @param list<array<string,mixed>>|null $patches
+     */
+    private function __construct(private readonly bool $throws, private readonly ?array $patches = null)
     {
     }
 
@@ -797,6 +844,15 @@ final class RuntimeMulliganClientStub implements GameRuntimeMulliganClientInterf
     public static function failure(): self
     {
         return new self(true);
+    }
+
+    public static function invalidPatch(): self
+    {
+        return new self(false, [[
+            'gameId' => 'game-1',
+            'visibility' => 'public',
+            'ops' => [['op' => 'mulligan.status.set', 'data' => ['playerId' => 'player-1']]],
+        ]]);
     }
 
     public function dispatch(
@@ -826,7 +882,7 @@ final class RuntimeMulliganClientStub implements GameRuntimeMulliganClientInterf
                 'clientActionId' => $clientActionId,
                 'createdAt' => '2026-01-01T00:00:00+00:00',
             ],
-            [
+            $this->patches ?? [
                 [
                     'gameId' => $gameId,
                     'version' => $baseVersion + 1,

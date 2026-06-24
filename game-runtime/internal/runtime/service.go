@@ -61,7 +61,10 @@ func (s *Service) LoadActorRecovered(ctx context.Context, gameID string, initial
 		return nil, false, err
 	}
 	initial = recovered
-	actorCtx, cancel := context.WithCancel(ctx)
+	// Actor lifetime must outlive the HTTP request that created it; request
+	// contexts are only used for recovery/loading and are canceled after the
+	// response is written.
+	actorCtx, cancel := context.WithCancel(context.Background())
 	gameActor := actor.NewGameActor(gameID, initial, s.store, s.queueSize, s.appliers)
 	s.actors[gameID] = gameActor
 	s.cancels[gameID] = cancel

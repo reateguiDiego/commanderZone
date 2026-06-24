@@ -128,6 +128,14 @@ class Game
         $this->touch();
     }
 
+    /**
+     * @return Collection<int, GameEvent>
+     */
+    public function events(): Collection
+    {
+        return $this->events;
+    }
+
     public function toArray(): array
     {
         return [

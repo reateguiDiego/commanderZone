@@ -33,6 +33,8 @@ final readonly class GameWebsocketMessageHandler
         'library.view',
         'library.play_top_revealed',
         'library.reorder_top',
+        'library.put_top',
+        'library.put_bottom',
         'card.face_down.changed',
         'card.face.changed',
         'card.revealed',

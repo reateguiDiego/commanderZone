@@ -22,6 +22,8 @@ services:
       MERCURE_URL: ${MERCURE_URL:-http://mercure/.well-known/mercure}
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:-http://127.0.0.1:3000/.well-known/mercure}
       MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET:-change-this-mercure-dev-secret-with-at-least-32-chars}
+      GAME_RUNTIME_ENABLED: ${GAME_RUNTIME_ENABLED:-0}
+      GAME_RUNTIME_INTERNAL_URL: ${GAME_RUNTIME_INTERNAL_URL:-http://game-runtime:8091}
       GAME_WEBSOCKET_PUBLIC_URL: ${GAME_WEBSOCKET_PUBLIC_URL:-ws://127.0.0.1:8081}
       SCRYFALL_USER_AGENT: ${SCRYFALL_USER_AGENT:-CommanderZone/0.1 contact@example.local}
       SCRYFALL_SYNC_MEMORY_LIMIT: ${SCRYFALL_SYNC_MEMORY_LIMIT:-1024M}
@@ -35,6 +37,8 @@ services:
         condition: service_started
       mailpit:
         condition: service_started
+      game-runtime:
+        condition: service_healthy
 
   websocket:
     build:
@@ -50,16 +54,35 @@ services:
       JWT_PASSPHRASE: ${JWT_PASSPHRASE:-}
       GAME_WEBSOCKET_LISTEN: ${GAME_WEBSOCKET_LISTEN:-0.0.0.0:8081}
       GAME_WEBSOCKET_PUBLIC_URL: ${GAME_WEBSOCKET_PUBLIC_URL:-ws://127.0.0.1:8081}
+      GAME_WEBSOCKET_CONNECTION_LIMIT: ${GAME_WEBSOCKET_CONNECTION_LIMIT:-1000}
+      GAME_WEBSOCKET_CONNECTION_LIMIT_PER_IP: ${GAME_WEBSOCKET_CONNECTION_LIMIT_PER_IP:-100}
+      GAME_RUNTIME_ENABLED: ${GAME_RUNTIME_ENABLED:-0}
+      GAME_RUNTIME_INTERNAL_URL: ${GAME_RUNTIME_INTERNAL_URL:-http://game-runtime:8091}
     ports:
       - "127.0.0.1:8081:8081"
     healthcheck:
-      test: ["CMD", "php", "-r", "$$s=@fsockopen('127.0.0.1',8081); if ($$s) { fclose($$s); exit(0); } exit(1);"]
+      test: ["CMD", "php", "bin/ws-healthcheck.php"]
       interval: 10s
       timeout: 3s
       retries: 5
     depends_on:
       database:
         condition: service_healthy
+      game-runtime:
+        condition: service_healthy
+
+  game-runtime:
+    build:
+      context: ./game-runtime
+      dockerfile: Dockerfile
+      args:
+        GO_TOOLCHAIN_IMAGE: ${GO_TOOLCHAIN_IMAGE:-commanderzone-go-toolchain:1.22}
+    environment:
+      GAME_RUNTIME_LISTEN: ${GAME_RUNTIME_LISTEN:-0.0.0.0:8091}
+    ports:
+      - "127.0.0.1:${GAME_RUNTIME_PORT:-8091}:8091"
+    expose:
+      - "8091"
 
   database:
     image: postgres:16-alpine

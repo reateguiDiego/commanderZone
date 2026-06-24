@@ -21,6 +21,7 @@ final readonly class LegacyMulliganRuntimeStateMapper
             'status' => 'playing',
             'phase' => is_string($snapshot['gamePhase'] ?? null) ? $snapshot['gamePhase'] : 'MULLIGAN',
             'players' => [],
+            'sharedCounters' => $this->counterScopes($snapshot['counters'] ?? []),
             'turn' => $this->objectMap($snapshot['turn'] ?? []),
             'instances' => [],
             'zones' => [],
@@ -51,6 +52,8 @@ final readonly class LegacyMulliganRuntimeStateMapper
             $state['players'][$playerId] = [
                 'life' => $player['life'] ?? 40,
                 'user' => is_array($player['user'] ?? null) ? $player['user'] : [],
+                'counters' => $this->counterMap($player['counters'] ?? []),
+                'commanderDamage' => $this->counterMap($player['commanderDamage'] ?? []),
             ];
             $state['zones'][$playerId] = $this->playerZones($player);
 
@@ -176,11 +179,57 @@ final readonly class LegacyMulliganRuntimeStateMapper
             'tapped' => ($card['tapped'] ?? false) === true,
             'rotation' => max(0, (int) ($card['rotation'] ?? 0)),
             'counters' => $this->counterMap($card['counters'] ?? []),
-            'mutableStats' => $this->objectMap($card['mutableStats'] ?? []),
+            'mutableStats' => $this->mutableStats($card),
             'position' => $this->objectMap($card['position'] ?? []),
             'faceDown' => ($card['faceDown'] ?? false) === true,
-            'activeFace' => max(0, (int) ($card['activeFace'] ?? 0)),
+            'activeFace' => max(0, (int) ($card['activeFace'] ?? ($card['activeFaceIndex'] ?? 0))),
         ];
+    }
+
+    /**
+     * @return array<string,array<string,int>>|\stdClass
+     */
+    private function counterScopes(mixed $value): array|\stdClass
+    {
+        if (!is_array($value)) {
+            return $this->emptyObject();
+        }
+
+        $out = [];
+        foreach ($value as $scope => $counters) {
+            if (!is_string($scope) || trim($scope) === '') {
+                continue;
+            }
+            $normalized = $this->counterMap($counters);
+            if ($normalized instanceof \stdClass) {
+                $out[$scope] = [];
+                continue;
+            }
+            $out[$scope] = $normalized;
+        }
+
+        return $out !== [] ? $out : $this->emptyObject();
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>|\stdClass
+     */
+    private function mutableStats(array $card): array|\stdClass
+    {
+        $stats = is_array($card['mutableStats'] ?? null) ? $this->objectMap($card['mutableStats']) : [];
+        if ($stats instanceof \stdClass) {
+            $stats = [];
+        }
+
+        foreach (['power', 'toughness', 'loyalty', 'defense', 'saga'] as $key) {
+            if (array_key_exists($key, $card)) {
+                $stats[$key] = $card[$key];
+            }
+        }
+
+        return $stats !== [] ? $stats : $this->emptyObject();
     }
 
     /**

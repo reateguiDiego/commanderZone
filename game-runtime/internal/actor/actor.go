@@ -235,9 +235,10 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 
 	nextVersion := a.state.Version + 1
 	emitter := NewPatchEmitter()
-	previous := a.state.Clone()
+	rollback := newCommandRollback(a.state, command)
 	eventPayload, err := applier.Apply(ctx, a.state, command, emitter)
 	if err != nil {
+		rollback.Restore(a.state)
 		return CommandResult{Err: err}
 	}
 	a.state.Version = nextVersion
@@ -257,11 +258,12 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		CreatedAt:      time.Now().UTC(),
 	}
 	if err := event.Validate(); err != nil {
+		rollback.Restore(a.state)
 		return CommandResult{Err: err}
 	}
 	if a.store != nil {
 		if err := a.store.AppendEvent(ctx, event); err != nil {
-			*a.state = previous
+			rollback.Restore(a.state)
 			return CommandResult{Err: err}
 		}
 	}

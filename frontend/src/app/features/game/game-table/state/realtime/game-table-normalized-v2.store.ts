@@ -64,6 +64,7 @@ export interface GameTableNormalizedV2PlayerState {
   deckName: string | null;
   concededAt?: string | null;
   mulligan?: GamePlayerMulliganState;
+  playTopLibraryRevealed?: boolean;
 }
 
 export interface GameTableNormalizedV2RelationsState {
@@ -98,6 +99,7 @@ export interface GameTableNormalizedV2StackState {
 export interface GameTableNormalizedV2State {
   game: GameTableNormalizedV2GameState;
   players: Record<string, GameTableNormalizedV2PlayerState>;
+  sharedCounters: Record<string, Record<string, number>>;
   turn: GameTurn;
   instances: Record<string, BootstrapInstanceV2>;
   zones: Record<string, ZoneMap>;
@@ -197,6 +199,9 @@ export function createGameTableNormalizedV2State(
     players: Object.fromEntries(
       Object.entries(bootstrap.players).map(([playerId, player]) => [playerId, normalizePlayer(player)]),
     ),
+    sharedCounters: Object.fromEntries(
+      Object.entries(bootstrap.sharedCounters ?? {}).map(([scope, counters]) => [scope, { ...counters }]),
+    ),
     turn: { ...bootstrap.turn },
     instances: Object.fromEntries(
       Object.entries(bootstrap.instances).map(([instanceId, instance]) => [instanceId, normalizeInstance(instance)]),
@@ -233,6 +238,9 @@ export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State
     ownerId: state.game.ownerId ?? undefined,
     gamePhase: (state.game.gamePhase as GameSnapshot['gamePhase']) ?? undefined,
     players,
+    counters: Object.fromEntries(
+      Object.entries(state.sharedCounters).map(([scope, counters]) => [scope, { ...counters }]),
+    ),
     turn: { ...state.turn },
     stack: state.stack.order
       .map((stackId) => hydrateStackItem(state, state.stack.byId[stackId]))
@@ -254,6 +262,28 @@ export function applyPatchEnvelopeV2(
   patch: PatchEnvelopeV2,
 ): GameTableNormalizedV2ApplyInternalResult {
   if (patch.version <= state.lastAppliedVersion) {
+    if (patch.version === state.lastAppliedVersion && isSameVersionStreamPatch(patch)) {
+      let nextState = state;
+      for (const operation of patch.ops) {
+        const result = applyOperation(nextState, operation);
+        if (result.status === 'failed') {
+          return { status: 'resync_required', state, reason: result.reason };
+        }
+
+        nextState = result.state;
+      }
+
+      return {
+        status: 'applied',
+        state: {
+          ...nextState,
+          pendingOptimisticActions: patch.ackClientActionId
+            ? omitKey(nextState.pendingOptimisticActions, patch.ackClientActionId)
+            : nextState.pendingOptimisticActions,
+        },
+      };
+    }
+
     return { status: 'ignored', state, reason: 'duplicate_or_late_version' };
   }
 
@@ -286,14 +316,44 @@ export function applyPatchEnvelopeV2(
   return { status: 'applied', state: nextState };
 }
 
+function isSameVersionStreamPatch(patch: PatchEnvelopeV2): boolean {
+  return patch.ops.length > 0 && patch.ops.every((operation) =>
+    operation.op === 'chat.message.add' || operation.op === 'chat.reaction.set',
+  );
+}
+
 type OperationApplyResult =
   | { status: 'applied'; state: GameTableNormalizedV2State }
   | { status: 'failed'; reason: Exclude<GameTableNormalizedV2ApplyFailureReason, 'version_gap' | 'missing_state'> };
 
 function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPatchV2Operation): OperationApplyResult {
   switch (operation.op) {
+    case 'game.counters.set':
+      return {
+        status: 'applied',
+        state: {
+          ...state,
+          sharedCounters: {
+            ...state.sharedCounters,
+            [operation.scope]: { ...operation.counters },
+          },
+        },
+      };
+
     case 'player.life.set':
       return updatePlayer(state, operation.playerId, (player) => ({ ...player, life: operation.value }));
+
+    case 'player.counters.set':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        counters: { ...operation.counters },
+      }));
+
+    case 'player.commanderDamage.set':
+      return updatePlayer(state, operation.playerId, (player) => ({
+        ...player,
+        commanderDamage: { ...operation.commanderDamage },
+      }));
 
     case 'player.status.set':
       return updatePlayer(state, operation.playerId, (player) => ({
@@ -332,8 +392,12 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         ...(operation.rotation !== undefined ? { rotation: operation.rotation } : {}),
         ...(operation.faceDown !== undefined ? { faceDown: operation.faceDown } : {}),
         ...(operation.hidden !== undefined ? { hidden: operation.hidden } : {}),
+        ...(operation.cardKey !== undefined && operation.cardKey !== null ? { cardKey: operation.cardKey, cardRef: operation.cardKey } : {}),
+        ...(operation.controllerId !== undefined ? { controllerId: operation.controllerId } : {}),
         ...(operation.revealedTo !== undefined ? { revealedTo: [...operation.revealedTo] } : {}),
         ...(operation.counters !== undefined ? { counters: { ...operation.counters } } : {}),
+        ...(operation.dungeonMarker !== undefined ? { dungeonMarker: operation.dungeonMarker } : {}),
+        ...(operation.activeFaceIndex !== undefined ? { activeFaceIndex: operation.activeFaceIndex } : {}),
         ...(operation.position !== undefined ? { position: operation.position } : {}),
         ...(operation.power !== undefined ? { power: operation.power } : {}),
         ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
@@ -372,8 +436,38 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
     case 'zone.count.set':
       return setZoneCount(state, operation.playerId, operation.zone, operation.count);
 
+    case 'zone.reordered':
+      return reorderZoneByIds(state, operation.playerId, operation.zone, operation.instanceIds);
+
+    case 'zone.random_card.selected':
+      return { status: 'applied', state };
+
+    case 'library.count.set':
+      return setZoneCount(state, operation.playerId, 'library', operation.count);
+
     case 'library.top.revealed':
       return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+
+    case 'library.top.viewed':
+      return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+
+    case 'library.revealed.set':
+      return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+
+    case 'library.play_top_revealed.set':
+      return setPlayTopLibraryRevealed(state, operation.playerId, operation.enabled);
+
+    case 'library.top.hidden':
+      return clearKnownLibraryOrder(state, operation.playerId);
+
+    case 'library.top.reordered':
+      return reorderLibraryTop(state, operation.playerId, operation.instanceIds);
+
+    case 'library.top.moved':
+      return clearKnownLibraryOrder(state, operation.playerId);
+
+    case 'library.shuffled':
+      return clearKnownLibraryOrder(state, operation.playerId);
 
     case 'stack.add':
     case 'stack.item.add':
@@ -390,6 +484,13 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
 
     case 'relation.remove':
       return removeRelation(state, operation.kind, operation.id);
+
+    case 'helper.add':
+    case 'helper.update':
+      return upsertHelper(state, operation.entity);
+
+    case 'helper.remove':
+      return removeHelper(state, operation.id);
 
     case 'chat.message.add':
       return upsertChatMessage(state, operation.message, true);
@@ -517,6 +618,19 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
           game: {
             ...state.game,
             gamePhase: operation.phase,
+          },
+        },
+      };
+
+    case 'game.status.set':
+      return {
+        status: 'applied',
+        state: {
+          ...state,
+          game: {
+            ...state.game,
+            status: operation.status,
+            ...(operation.phase !== undefined && operation.phase !== null ? { gamePhase: operation.phase } : {}),
           },
         },
       };
@@ -725,6 +839,8 @@ function removeCardsFromZone(
   }
 
   const currentZone = playerZones[zone] ?? [];
+  const removalIds = new Set(instanceIds);
+  const knownRemovalCount = currentZone.filter((instanceId) => removalIds.has(instanceId)).length;
   const nextZone = removeIds(currentZone, instanceIds);
   const nextInstances = { ...state.instances };
   for (const instanceId of instanceIds) {
@@ -747,7 +863,7 @@ function removeCardsFromZone(
         ...state.zoneCounts,
         [playerId]: {
           ...playerZoneCounts,
-          [zone]: nextZone.length,
+          [zone]: knownRemovalCount === 0 ? playerZoneCounts[zone] : nextZone.length,
         },
       },
     },
@@ -774,11 +890,13 @@ function moveOneCard(
   }
 
   const sourceZone = fromZones[operation.from.zone] ?? [];
-  if (!sourceZone.includes(operation.instanceId)) {
+  const sourceContainsInstance = sourceZone.includes(operation.instanceId);
+  const targetZone = toZones[operation.to.zone] ?? [];
+  const targetContainsInstance = targetZone.includes(operation.instanceId);
+  if (!sourceContainsInstance && !targetContainsInstance) {
     return { status: 'failed', reason: 'target_not_found' };
   }
 
-  const targetZone = toZones[operation.to.zone] ?? [];
   const nextInstances = { ...state.instances };
   let nextStaticCards = state.staticCards;
   if (operation.card) {
@@ -802,12 +920,49 @@ function moveOneCard(
     };
   }
 
-  const nextSourceZone = sourceZone.filter((id) => id !== operation.instanceId);
+  const samePlayer = operation.from.playerId === operation.to.playerId;
+  const sameZone = samePlayer && operation.from.zone === operation.to.zone;
+  const baseTargetZone = sameZone ? sourceZone : targetZone;
+  const nextSourceZone = sourceContainsInstance
+    ? sourceZone.filter((id) => id !== operation.instanceId)
+    : sourceZone;
   const nextTargetZone = insertAt(
-    targetZone.filter((id) => id !== operation.instanceId),
+    baseTargetZone.filter((id) => id !== operation.instanceId),
     clampInsertIndex(operation.to.index, targetZone.length),
     [operation.instanceId],
   );
+  const nextPlayerZones = samePlayer
+    ? {
+        ...fromZones,
+        [operation.from.zone]: sameZone ? nextTargetZone : nextSourceZone,
+        [operation.to.zone]: nextTargetZone,
+      }
+    : {
+        ...fromZones,
+        [operation.from.zone]: nextSourceZone,
+      };
+  const nextTargetPlayerZones = samePlayer
+    ? nextPlayerZones
+    : {
+        ...toZones,
+        [operation.to.zone]: nextTargetZone,
+      };
+  const nextPlayerCounts = samePlayer
+    ? {
+        ...fromCounts,
+        [operation.from.zone]: sameZone ? nextTargetZone.length : nextSourceZone.length,
+        [operation.to.zone]: nextTargetZone.length,
+      }
+    : {
+        ...fromCounts,
+        [operation.from.zone]: nextSourceZone.length,
+      };
+  const nextTargetPlayerCounts = samePlayer
+    ? nextPlayerCounts
+    : {
+        ...toCounts,
+        [operation.to.zone]: nextTargetZone.length,
+      };
 
   return {
     status: 'applied',
@@ -817,24 +972,42 @@ function moveOneCard(
       staticCards: nextStaticCards,
       zones: {
         ...state.zones,
-        [operation.from.playerId]: {
-          ...fromZones,
-          [operation.from.zone]: nextSourceZone,
-        },
-        [operation.to.playerId]: {
-          ...toZones,
-          [operation.to.zone]: nextTargetZone,
-        },
+        [operation.from.playerId]: nextPlayerZones,
+        [operation.to.playerId]: nextTargetPlayerZones,
       },
       zoneCounts: {
         ...state.zoneCounts,
-        [operation.from.playerId]: {
-          ...fromCounts,
-          [operation.from.zone]: nextSourceZone.length,
-        },
-        [operation.to.playerId]: {
-          ...toCounts,
-          [operation.to.zone]: nextTargetZone.length,
+        [operation.from.playerId]: nextPlayerCounts,
+        [operation.to.playerId]: nextTargetPlayerCounts,
+      },
+    },
+  };
+}
+
+function reorderZoneByIds(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  zone: GameZoneName,
+  instanceIds: string[],
+): OperationApplyResult {
+  const playerZones = state.zones[playerId];
+  if (!playerZones) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+  const current = playerZones[zone] ?? [];
+  if (!sameStringSet(current, instanceIds)) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      zones: {
+        ...state.zones,
+        [playerId]: {
+          ...playerZones,
+          [zone]: [...instanceIds],
         },
       },
     },
@@ -904,6 +1077,86 @@ function revealLibraryTop(
         [playerId]: {
           ...playerZones,
           library: nextLibrary,
+        },
+      },
+    },
+  };
+}
+
+function reorderLibraryTop(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  instanceIds: string[],
+): OperationApplyResult {
+  const playerZones = state.zones[playerId];
+  if (!playerZones) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  const currentLibrary = playerZones.library ?? [];
+  const requested = instanceIds.filter((id) => currentLibrary.includes(id));
+  if (requested.length !== instanceIds.length) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      zones: {
+        ...state.zones,
+        [playerId]: {
+          ...playerZones,
+          library: [...requested, ...currentLibrary.filter((id) => !requested.includes(id))],
+        },
+      },
+    },
+  };
+}
+
+function clearKnownLibraryOrder(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+): OperationApplyResult {
+  const playerZones = state.zones[playerId];
+  if (!playerZones) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      zones: {
+        ...state.zones,
+        [playerId]: {
+          ...playerZones,
+          library: [],
+        },
+      },
+    },
+  };
+}
+
+function setPlayTopLibraryRevealed(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  enabled: boolean,
+): OperationApplyResult {
+  const player = state.players[playerId];
+  if (!player) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      players: {
+        ...state.players,
+        [playerId]: {
+          ...player,
+          playTopLibraryRevealed: enabled,
         },
       },
     },
@@ -1009,6 +1262,34 @@ function removeRelation(
         Object.values(state.relations.arrows),
         Object.values(state.relations.attachments).filter((entry) => entry.id !== id),
         Object.values(state.relations.specialEntities),
+      ),
+    },
+  };
+}
+
+function upsertHelper(state: GameTableNormalizedV2State, entity: GameSpecialEntity): OperationApplyResult {
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      relations: createRelationsState(
+        Object.values(state.relations.arrows),
+        Object.values(state.relations.attachments),
+        [...Object.values(state.relations.specialEntities).filter((entry) => entry.id !== entity.id), entity],
+      ),
+    },
+  };
+}
+
+function removeHelper(state: GameTableNormalizedV2State, id: string): OperationApplyResult {
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      relations: createRelationsState(
+        Object.values(state.relations.arrows),
+        Object.values(state.relations.attachments),
+        Object.values(state.relations.specialEntities).filter((entry) => entry.id !== id),
       ),
     },
   };
@@ -1308,6 +1589,7 @@ function hydratePlayerState(
     zoneCounts,
     handCount: zoneCounts.hand ?? player.handCount,
     mulligan: player.mulligan ? { ...player.mulligan } : undefined,
+    playTopLibraryRevealed: player.playTopLibraryRevealed,
     commanderDamage: { ...player.commanderDamage },
     counters: { ...player.counters },
   };
@@ -1348,6 +1630,7 @@ function hydrateCardInstance(
     tapped: instance.tapped ?? false,
     faceDown: instance.faceDown ?? false,
     activeFaceIndex: instance.activeFaceIndex ?? undefined,
+    dungeonMarker: instance.dungeonMarker ?? undefined,
     hidden: instance.hidden ?? false,
     revealedTo: instance.revealedTo ? [...instance.revealedTo] : undefined,
     position: instance.position ?? undefined,
@@ -1412,6 +1695,7 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
     commanderDamage: { ...player.commanderDamage },
     counters: { ...player.counters },
     deckName: player.deckName ?? null,
+    playTopLibraryRevealed: player.playTopLibraryRevealed ?? false,
   };
 }
 
@@ -1488,6 +1772,7 @@ function normalizeIncomingCard(
       defense: legacy.defense ?? null,
       saga: legacy.saga ?? null,
       activeFaceIndex: legacy.activeFaceIndex ?? null,
+      dungeonMarker: legacy.dungeonMarker ?? null,
       revealedTo: legacy.revealedTo ? [...legacy.revealedTo] : [],
       isToken: legacy.isToken ?? false,
       isTokenCopy: legacy.isTokenCopy ?? false,
@@ -1631,6 +1916,20 @@ function insertAt(items: string[], index: number, inserted: string[]): string[] 
 function removeIds(items: string[], ids: string[]): string[] {
   const removeSet = new Set(ids);
   return items.filter((item) => !removeSet.has(item));
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  const counts = new Map<string, number>();
+  for (const item of left) {
+    counts.set(item, (counts.get(item) ?? 0) + 1);
+  }
+  for (const item of right) {
+    counts.set(item, (counts.get(item) ?? 0) - 1);
+  }
+  return [...counts.values()].every((count) => count === 0);
 }
 
 function clampInsertIndex(index: number | undefined, currentLength: number): number {

@@ -77,6 +77,58 @@ func TestLibraryOpsShuffleBumpsEpochWithoutPerCardCleanup(t *testing.T) {
 	}
 }
 
+func TestLibraryOpsHotPathUpdatesLocWithoutGlobalReindex(t *testing.T) {
+	game := libraryTestState()
+	ops := NewLibraryOps()
+
+	drawn, err := ops.DrawMany(&game, "p1", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := drawn[0], "d"; got != want {
+		t.Fatalf("drawn got %s want %s", got, want)
+	}
+	if got := ops.ReindexCount(); got != 0 {
+		t.Fatalf("draw reindex count got %d want 0", got)
+	}
+	if got := ops.FullScanCount(); got != 0 {
+		t.Fatalf("draw full scan count got %d want 0", got)
+	}
+	if err := ValidateInvariants(game); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ops.ReorderTop(&game, "p1", []string{"b", "c"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := ops.ReindexCount(); got != 0 {
+		t.Fatalf("reorder reindex count got %d want 0", got)
+	}
+	if err := ValidateInvariants(game); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLibraryOpsMoveTopToPlayerZone(t *testing.T) {
+	game := libraryTestState()
+	game.Players["p2"] = map[string]any{"life": 40}
+	game.Zones["p2"] = PlayerZones{}
+
+	moved, err := NewLibraryOps().MoveTopToPlayerZone(&game, "p1", 2, "p2", ZoneHand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := join(moved), "d,c"; got != want {
+		t.Fatalf("moved got %s want %s", got, want)
+	}
+	if got, want := join(game.Zones["p2"].Hand), "d,c"; got != want {
+		t.Fatalf("target hand got %s want %s", got, want)
+	}
+	if err := ValidateInvariants(game); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func libraryTestState() GameState {
 	instances := map[string]CardInstanceRuntime{}
 	loc := map[string]Location{}

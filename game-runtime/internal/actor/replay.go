@@ -28,9 +28,15 @@ func ReplayEvents(initial state.GameState, events []protocol.EventPayloadV2, app
 
 func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
 	switch event.Type {
-	case "life.changed", "turn.changed", "dice.rolled", "card.tapped", "card.counter.changed", "card.position.changed":
+	case "life.changed", "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "card.position.changed", "cards.position.changed", "counter.changed", "commander.damage.changed", "card.power_toughness.changed":
 		return replayViaApplier(game, event, appliers)
 	case "card.moved", "cards.moved", "zone.reorderedByIds", "zone.move_all", "battlefield.untap_all":
+		return replayViaApplier(game, event, appliers)
+	case "library.reveal", "library.play_top_revealed":
+		return replayViaApplier(game, event, appliers)
+	case "card.token.created", "card.token_copy.created", "zone.random_card.selected", "card.dungeon_marker.changed", "card.face.changed":
+		return replayViaApplier(game, event, appliers)
+	case "stack.card_added", "stack.item_removed", "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
 		return replayViaApplier(game, event, appliers)
 	case "mulligan.player_took", "mulligan.player_kept", "mulligan.cards_bottomed", "mulligan.scry_confirmed", "mulligan.player_ready", "mulligan.completed", "game.phase_changed":
 		return replayMulliganEvent(game, event)
@@ -56,6 +62,8 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 			}
 		}
 		return nil
+	case "library.reveal_top", "library.view":
+		return nil
 	case "library.reorder_top":
 		playerID, err := stringField(event.Payload, "playerId")
 		if err != nil {
@@ -66,6 +74,46 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 			return err
 		}
 		return state.NewLibraryOps().ReorderTop(game, playerID, instanceIDs)
+	case "library.move_top":
+		playerID, err := stringField(event.Payload, "playerId")
+		if err != nil {
+			return err
+		}
+		instanceIDs, err := stringSliceField(event.Payload, "instanceIds")
+		if err != nil {
+			return err
+		}
+		targetPlayerID := playerID
+		if value, ok := event.Payload["targetPlayerId"].(string); ok && value != "" {
+			targetPlayerID = value
+		}
+		destinationRaw, err := stringField(event.Payload, "destination")
+		if err != nil {
+			return err
+		}
+		destination := state.Zone(destinationRaw)
+		if destination == state.ZoneLibrary {
+			_, err = state.NewLibraryOps().MoveTopToBottom(game, playerID, len(instanceIDs))
+			return err
+		}
+		_, err = state.NewLibraryOps().MoveTopToPlayerZone(game, playerID, len(instanceIDs), targetPlayerID, destination)
+		return err
+	case "library.put_top", "library.put_bottom":
+		playerID, err := stringField(event.Payload, "playerId")
+		if err != nil {
+			return err
+		}
+		instanceID, err := stringField(event.Payload, "instanceId")
+		if err != nil {
+			return err
+		}
+		if _, err := state.RemoveFromCurrentZone(game, instanceID); err != nil {
+			return err
+		}
+		if event.Type == "library.put_top" {
+			return state.NewLibraryOps().PutOnTop(game, playerID, instanceID)
+		}
+		return state.NewLibraryOps().PutOnBottom(game, playerID, instanceID)
 	case "library.shuffle":
 		playerID, err := stringField(event.Payload, "playerId")
 		if err != nil {

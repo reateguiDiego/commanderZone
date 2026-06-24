@@ -70,6 +70,7 @@ export interface BootstrapPlayerV2 {
   commanderDamage: Record<string, number>;
   counters: Record<string, number>;
   deckName?: string | null;
+  playTopLibraryRevealed?: boolean;
 }
 
 export interface BootstrapZoneV2 {
@@ -111,6 +112,7 @@ export interface BootstrapInstanceV2 {
   defense?: number | string | null;
   saga?: number | null;
   activeFaceIndex?: number | null;
+  dungeonMarker?: { x: number; y: number } | null;
   revealedTo?: string[];
   isToken?: boolean;
   isTokenCopy?: boolean;
@@ -161,6 +163,7 @@ export interface BootstrapV2 {
   zones: Record<string, BootstrapZoneV2>;
   instances: Record<string, BootstrapInstanceV2>;
   zoneCounts: Record<string, number>;
+  sharedCounters?: Record<string, Record<string, number>>;
   relations: BootstrapRelationsV2;
   turn: GameTurn;
   staticCards: Record<string, BootstrapStaticCardV2>;
@@ -200,6 +203,7 @@ export interface LegacyCardPatchPayload {
   position?: GameCardPosition | null;
   rotation?: number | null;
   counters?: Record<string, number>;
+  dungeonMarker?: { x: number; y: number } | null;
   zone?: GameZoneName;
   isToken?: boolean;
   isTokenCopy?: boolean;
@@ -229,6 +233,21 @@ export type GameplayPatchV2Operation =
       value: number;
     }
   | {
+      op: 'player.counters.set';
+      playerId: string;
+      counters: Record<string, number>;
+    }
+  | {
+      op: 'player.commanderDamage.set';
+      playerId: string;
+      commanderDamage: Record<string, number>;
+    }
+  | {
+      op: 'game.counters.set';
+      scope: string;
+      counters: Record<string, number>;
+    }
+  | {
       op: 'turn.set';
       turn: GameTurn;
     }
@@ -248,9 +267,12 @@ export type GameplayPatchV2Operation =
       rotation?: number;
       faceDown?: boolean;
       hidden?: boolean;
+      cardKey?: string | null;
+      controllerId?: string;
       revealedTo?: string[];
       counters?: Record<string, number>;
       dungeonMarker?: { x: number; y: number } | null;
+      activeFaceIndex?: number | null;
       position?: GameCardPosition | null;
       power?: GamePowerToughnessValue;
       toughness?: GamePowerToughnessValue;
@@ -293,11 +315,70 @@ export type GameplayPatchV2Operation =
       count: number;
     }
   | {
+      op: 'zone.reordered';
+      playerId: string;
+      zone: GameZoneName;
+      instanceIds: string[];
+    }
+  | {
+      op: 'zone.random_card.selected';
+      playerId: string;
+      zone: GameZoneName;
+      count?: number;
+      instanceId?: string;
+      cardKey?: string;
+    }
+  | {
+      op: 'library.count.set';
+      playerId: string;
+      count: number;
+    }
+  | {
       op: 'library.top.revealed';
       playerId: string;
       count?: number;
       cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>;
       staticCards?: Record<string, BootstrapStaticCardV2>;
+    }
+  | {
+      op: 'library.top.viewed';
+      playerId: string;
+      count?: number;
+      cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>;
+      staticCards?: Record<string, BootstrapStaticCardV2>;
+    }
+  | {
+      op: 'library.revealed.set';
+      playerId: string;
+      count?: number;
+      cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>;
+      staticCards?: Record<string, BootstrapStaticCardV2>;
+    }
+  | {
+      op: 'library.play_top_revealed.set';
+      playerId: string;
+      enabled: boolean;
+    }
+  | {
+      op: 'library.top.hidden';
+      playerId: string;
+    }
+  | {
+      op: 'library.top.reordered';
+      playerId: string;
+      instanceIds: string[];
+    }
+  | {
+      op: 'library.top.moved';
+      playerId: string;
+      count: number;
+      instanceIds: string[];
+      position: 'bottom';
+    }
+  | {
+      op: 'library.shuffled';
+      playerId: string;
+      visibilityEpoch?: number;
     }
   | {
       op: 'stack.add';
@@ -315,6 +396,18 @@ export type GameplayPatchV2Operation =
   | {
       op: 'relation.remove';
       kind: 'arrow' | 'attachment';
+      id: string;
+    }
+  | {
+      op: 'helper.add';
+      entity: GameSpecialEntity;
+    }
+  | {
+      op: 'helper.update';
+      entity: GameSpecialEntity;
+    }
+  | {
+      op: 'helper.remove';
       id: string;
     }
   | {
@@ -393,6 +486,11 @@ export type GameplayPatchV2Operation =
   | {
       op: 'game.phase.set';
       phase: string;
+    }
+  | {
+      op: 'game.status.set';
+      status: string;
+      phase?: string | null;
     }
   | {
       op: 'zone.counts.set';

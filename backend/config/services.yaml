@@ -29,7 +29,7 @@ parameters:
     shadow_compare_enabled_default: 'false'
     gameplay_v2_snapshot_every_events_default: '25'
     gameplay_v2_snapshot_every_seconds_default: '30'
-    gameplay_streams_enabled_default: 'false'
+    gameplay_streams_enabled_default: 'true'
     gameplay_max_token_create_quantity_default: '20'
     gameplay_v2_enabled: '%env(bool:default:gameplay_v2_enabled_default:GAMEPLAY_V2_ENABLED)%'
     gameplay_v2_command_enabled: '%env(bool:default:gameplay_v2_command_enabled_default:GAMEPLAY_V2_COMMAND_ENABLED)%'
@@ -64,6 +64,9 @@ services:
 
     App\Application\Game\Runtime\GameRuntimeMulliganClientInterface:
         alias: App\Application\Game\Runtime\GameRuntimeMulliganClient
+
+    App\Application\Game\Runtime\GameRuntimeCommandClientInterface:
+        alias: App\Application\Game\Runtime\GameRuntimeCommandClient
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

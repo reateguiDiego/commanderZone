@@ -2,17 +2,10 @@
 
 namespace App\Application\Game\Runtime;
 
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
-
 final readonly class GameRuntimeMulliganClient implements GameRuntimeMulliganClientInterface
 {
     public function __construct(
-        private HttpClientInterface $httpClient,
-        private LegacyMulliganRuntimeStateMapper $stateMapper,
-        #[Autowire('%game_runtime_internal_url%')]
-        private string $runtimeUrl = 'http://game-runtime:8091',
+        private GameRuntimeCommandClientInterface $commands,
     ) {
     }
 
@@ -26,43 +19,25 @@ final readonly class GameRuntimeMulliganClient implements GameRuntimeMulliganCli
         array $payload,
         bool $shadow = false,
     ): GameRuntimeMulliganResult {
-        $url = rtrim($this->runtimeUrl, '/').'/commands';
-        $runtimeGameId = $shadow ? $gameId.'-shadow' : $gameId;
-        $command = [
-            'gameId' => $runtimeGameId,
-            'baseVersion' => max(1, $baseVersion),
-            'clientActionId' => $shadow ? $clientActionId.'-shadow' : $clientActionId,
-            'type' => $kind,
-            'payload' => $this->runtimePayload($kind, $actorId, $payload),
-        ];
-
         try {
-            $response = $this->httpClient->request('POST', $url, [
-                'json' => [
-                    'actorId' => $actorId,
-                    'initialState' => $this->stateMapper->map($snapshot, $runtimeGameId),
-                    'command' => $command,
-                ],
-                'timeout' => 3,
-            ]);
-            $statusCode = $response->getStatusCode();
-            $data = $response->toArray(false);
-        } catch (ExceptionInterface $exception) {
+            $result = $this->commands->dispatch(
+                $kind,
+                $gameId,
+                $actorId,
+                $baseVersion,
+                $clientActionId,
+                $snapshot,
+                $this->runtimePayload($kind, $actorId, $payload),
+                $shadow,
+            );
+        } catch (GameRuntimeGatewayException $exception) {
             throw new GameRuntimeMulliganException('Runtime mulligan request failed: '.$exception->getMessage(), 0, $exception);
         }
 
-        if ($statusCode < 200 || $statusCode >= 300) {
-            $message = is_string($data['error'] ?? null) ? $data['error'] : 'Runtime mulligan command failed.';
-            throw new GameRuntimeMulliganException($message);
-        }
-        if (!is_array($data['event'] ?? null) || !is_array($data['patches'] ?? null)) {
-            throw new GameRuntimeMulliganException('Runtime mulligan response is malformed.');
-        }
-
         return new GameRuntimeMulliganResult(
-            $data['event'],
-            array_values(array_filter($data['patches'], static fn (mixed $patch): bool => is_array($patch))),
-            is_array($data['metrics'] ?? null) ? $data['metrics'] : [],
+            $result->event,
+            $result->patches,
+            $result->metrics,
         );
     }
 

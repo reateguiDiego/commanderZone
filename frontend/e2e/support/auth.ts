@@ -39,7 +39,9 @@ export async function createRealUserSession(request: APIRequestContext, prefix =
   const registerResponse = await request.post(`${API_BASE_URL}/auth/register`, {
     data: credentials,
   });
-  expect(registerResponse.ok()).toBeTruthy();
+  if (!registerResponse.ok()) {
+    throw new Error(`Register E2E user failed (${registerResponse.status()}): ${await registerResponse.text()}`);
+  }
   const registerPayload = (await registerResponse.json()) as {
     emailVerificationToken?: string;
   };

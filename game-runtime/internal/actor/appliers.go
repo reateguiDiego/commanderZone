@@ -23,18 +23,47 @@ func DefaultAppliers() []Applier {
 		TurnChangedApplier{},
 		DiceRolledApplier{},
 		CardTappedApplier{},
+		CardFaceDownChangedApplier{},
+		CardRevealedApplier{},
+		CardControllerChangedApplier{},
+		CardsPositionChangedApplier{},
 		CardCounterChangedApplier{},
+		CounterChangedApplier{},
+		CommanderDamageChangedApplier{},
+		CardPowerToughnessChangedApplier{},
 		CardPositionChangedApplier{},
 		LibraryDrawApplier{},
 		LibraryDrawManyApplier{},
 		LibraryRevealTopApplier{},
+		LibraryRevealApplier{},
+		LibraryPlayTopRevealedApplier{},
 		LibraryReorderTopApplier{},
+		LibraryMoveTopApplier{},
+		LibraryPutTopApplier{},
+		LibraryPutBottomApplier{},
+		LibraryViewApplier{},
 		LibraryShuffleApplier{},
+		CardTokenCreatedApplier{},
+		CardTokenCopyCreatedApplier{},
+		ZoneRandomCardSelectedApplier{},
+		CardDungeonMarkerChangedApplier{},
+		CardFaceChangedApplier{},
 		CardMovedApplier{},
 		CardsMovedApplier{},
 		ZoneReorderedByIDsApplier{},
 		ZoneMoveAllApplier{},
 		BattlefieldUntapAllApplier{},
+		StackCardAddedApplier{},
+		StackItemRemovedApplier{},
+		ArrowCreatedApplier{},
+		ArrowRemovedApplier{},
+		AttachmentCreatedApplier{},
+		AttachmentRemovedApplier{},
+		HelperCreatedApplier{},
+		HelperUpdatedApplier{},
+		HelperRemovedApplier{},
+		GameConcedeApplier{},
+		GameCloseApplier{},
 		MulliganTakeApplier{},
 		MulliganKeepApplier{},
 		MulliganCardsBottomedApplier{},
@@ -50,6 +79,7 @@ type LifeChangedApplier struct{}
 func (LifeChangedApplier) Type() string { return "life.changed" }
 
 func (LifeChangedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
 	playerID, err := stringField(command.Payload, "playerId")
 	if err != nil {
 		return nil, err
@@ -70,9 +100,9 @@ func (LifeChangedApplier) Apply(_ context.Context, game *state.GameState, comman
 	player["life"] = life
 	emitter.EmitPublic(protocol.PatchOp{
 		Op:   "player.life.set",
-		Data: map[string]any{"playerId": playerID, "life": life},
+		Data: map[string]any{"playerId": playerID, "value": life},
 	})
-	return map[string]any{"playerId": playerID, "life": life}, nil
+	return map[string]any{"playerId": playerID, "life": life, "metrics": simpleMetrics("simple.runtime_route", start, emitter)}, nil
 }
 
 type TurnChangedApplier struct{}
@@ -80,6 +110,7 @@ type TurnChangedApplier struct{}
 func (TurnChangedApplier) Type() string { return "turn.changed" }
 
 func (TurnChangedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
 	if game.Turn == nil {
 		game.Turn = map[string]any{}
 	}
@@ -93,7 +124,7 @@ func (TurnChangedApplier) Apply(_ context.Context, game *state.GameState, comman
 	}
 	turn := cloneMap(game.Turn)
 	emitter.EmitPublic(protocol.PatchOp{Op: "turn.set", Data: map[string]any{"turn": turn}})
-	return turn, nil
+	return map[string]any{"turn": turn, "metrics": simpleMetrics("simple.runtime_route", start, emitter)}, nil
 }
 
 type DiceRolledApplier struct{}
@@ -101,11 +132,13 @@ type DiceRolledApplier struct{}
 func (DiceRolledApplier) Type() string { return "dice.rolled" }
 
 func (DiceRolledApplier) Apply(_ context.Context, _ *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
 	payload := cloneMap(command.Payload)
 	if _, ok := payload["result"]; !ok {
 		payload["result"] = 1
 	}
 	emitter.EmitPublic(protocol.PatchOp{Op: "dice.result", Data: payload})
+	payload["metrics"] = simpleMetrics("simple.runtime_route", start, emitter)
 	return payload, nil
 }
 
@@ -114,6 +147,7 @@ type CardTappedApplier struct{}
 func (CardTappedApplier) Type() string { return "card.tapped" }
 
 func (CardTappedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
 	instanceID, err := stringField(command.Payload, "instanceId")
 	if err != nil {
 		return nil, err
@@ -139,12 +173,11 @@ func (CardTappedApplier) Apply(_ context.Context, game *state.GameState, command
 		"instanceId": instanceID,
 		"playerId":   location.PlayerID,
 		"zone":       location.Zone,
-		"fields": map[string]any{
-			"tapped":   instance.Tapped,
-			"rotation": instance.Rotation,
-		},
+		"tapped":     instance.Tapped,
+		"rotation":   instance.Rotation,
 	}
 	emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: patch})
+	patch["metrics"] = battlefieldMetrics(start, emitter)
 	return patch, nil
 }
 
@@ -153,6 +186,7 @@ type CardCounterChangedApplier struct{}
 func (CardCounterChangedApplier) Type() string { return "card.counter.changed" }
 
 func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
 	instanceID, err := stringField(command.Payload, "instanceId")
 	if err != nil {
 		return nil, err
@@ -189,8 +223,18 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 		"zone":       location.Zone,
 		"counter":    counter,
 		"value":      value,
+		"counters":   cloneIntMapAny(instance.Counters),
 	}
-	emitter.EmitPublic(protocol.PatchOp{Op: "card.counters.patch", Data: patch})
+	emitter.EmitPublic(protocol.PatchOp{
+		Op: "card.counters.patch",
+		Data: map[string]any{
+			"instanceId": instanceID,
+			"playerId":   location.PlayerID,
+			"zone":       location.Zone,
+			"counters":   cloneIntMapAny(instance.Counters),
+		},
+	})
+	patch["metrics"] = countersMetrics(start, emitter)
 	return patch, nil
 }
 
@@ -199,6 +243,7 @@ type CardPositionChangedApplier struct{}
 func (CardPositionChangedApplier) Type() string { return "card.position.changed" }
 
 func (CardPositionChangedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
 	instanceID, err := stringField(command.Payload, "instanceId")
 	if err != nil {
 		return nil, err
@@ -217,9 +262,10 @@ func (CardPositionChangedApplier) Apply(_ context.Context, game *state.GameState
 		"instanceId": instanceID,
 		"playerId":   location.PlayerID,
 		"zone":       location.Zone,
-		"fields":     map[string]any{"position": cloneMap(position)},
+		"position":   cloneMap(position),
 	}
 	emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: patch})
+	patch["metrics"] = battlefieldMetrics(start, emitter)
 	return patch, nil
 }
 
@@ -263,6 +309,10 @@ func intFromAny(value any) (int, bool) {
 	case int:
 		return typed, true
 	case int64:
+		return int(typed), true
+	case uint:
+		return int(typed), true
+	case uint64:
 		return int(typed), true
 	case float64:
 		return int(typed), true
@@ -354,12 +404,28 @@ func cardPatchData(game *state.GameState, viewerID string, instanceID string) ma
 		"position":     instance.Position,
 		"faceDown":     instance.FaceDown,
 	}
+	for _, key := range []string{"power", "toughness", "loyalty", "defense", "saga"} {
+		if value, ok := instance.MutableStats[key]; ok {
+			data[key] = value
+		}
+	}
 	if game.CanViewerSeeCardKey(viewerID, instanceID) {
 		data["cardKey"] = instance.CardKey
 	} else {
 		data["hidden"] = true
 	}
 	return data
+}
+
+func cloneIntMapAny(values map[string]int) map[string]any {
+	if values == nil {
+		return map[string]any{}
+	}
+	clone := make(map[string]any, len(values))
+	for key, value := range values {
+		clone[key] = value
+	}
+	return clone
 }
 
 func allPlayerIDs(game *state.GameState) []string {

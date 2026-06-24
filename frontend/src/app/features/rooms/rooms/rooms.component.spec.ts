@@ -63,6 +63,11 @@ describe('RoomsComponent', () => {
     vi.useRealTimers();
   });
 
+  async function flushInitialRoomLoad(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
   it('renders the rooms page', () => {
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
@@ -118,7 +123,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     const header = TestBed.inject(PageHeaderStore).state();
     expect(header?.stats?.map((stat) => [stat.label, stat.value])).toEqual([
@@ -180,7 +185,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     fixture.componentInstance.requestDeleteRoom(room);
     fixture.detectChanges();
@@ -209,7 +214,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Current room');
@@ -236,7 +241,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.detectChanges();
 
     const joinButton = fixture.debugElement.query(By.css('.room-list button.secondary-button'));
@@ -273,7 +278,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     fixture.componentInstance.openCreateRoomModal();
     expect(fixture.componentInstance.createRoomModalOpen()).toBe(true);
@@ -316,7 +321,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.componentInstance.currentRoom.set(currentRoomSummaryFixture(room));
 
     await fixture.componentInstance.openListedRoom(room);
@@ -348,7 +353,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.detectChanges();
 
     const actions = fixture.debugElement
@@ -370,7 +375,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.detectChanges();
 
     const ownerName = fixture.debugElement.query(By.css('.room-owner-nameplate .player-name-label'));
@@ -396,7 +401,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     await fixture.componentInstance.openListedRoom(room);
 
@@ -416,7 +421,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     await fixture.componentInstance.leaveRoom(room);
 
@@ -435,7 +440,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     fixture.componentInstance.currentRoom.set(currentRoomSummaryFixture({
       ...staleRoom,
@@ -460,7 +465,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     expect(fixture.componentInstance.currentRoom()).toBeNull();
     expect(fixture.componentInstance.currentRoomPlayer()).toBeNull();
@@ -477,7 +482,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     expect(fixture.componentInstance.currentRoom()?.id).toBe('room-current');
     expect(fixture.componentInstance.currentRoomPlayer()).toBeNull();
@@ -495,7 +500,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     fixture.componentInstance.roomId = 'typed-room';
     await fixture.componentInstance.loadRooms();
@@ -518,7 +523,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.componentInstance.currentRoom.set(currentRoomSummaryFixture(room));
 
     await fixture.componentInstance.leaveCurrentRoom(room.id);

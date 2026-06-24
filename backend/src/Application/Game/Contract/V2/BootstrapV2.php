@@ -10,6 +10,7 @@ final readonly class BootstrapV2 implements \JsonSerializable
      * @param array<string,array<string,mixed>> $zones
      * @param array<string,array<string,mixed>> $instances
      * @param array<string,int> $zoneCounts
+     * @param array<string,array<string,int>> $sharedCounters
      * @param array<string,mixed> $relations
      * @param array<string,mixed> $turn
      * @param array<string,array<string,mixed>> $staticCards
@@ -20,6 +21,7 @@ final readonly class BootstrapV2 implements \JsonSerializable
         public array $zones,
         public array $instances,
         public array $zoneCounts,
+        public array $sharedCounters,
         public array $relations,
         public array $turn,
         public array $staticCards,
@@ -42,6 +44,7 @@ final readonly class BootstrapV2 implements \JsonSerializable
             ContractV2Assert::requiredMap($data, 'zones'),
             ContractV2Assert::requiredMap($data, 'instances'),
             self::validateZoneCounts(ContractV2Assert::requiredMap($data, 'zoneCounts')),
+            self::validateSharedCounters(self::optionalSharedCountersMap($data)),
             ContractV2Assert::requiredMap($data, 'relations'),
             ContractV2Assert::requiredMap($data, 'turn'),
             self::validateStaticCards($data),
@@ -74,6 +77,9 @@ final readonly class BootstrapV2 implements \JsonSerializable
             'rulesVersion' => $this->rulesVersion,
             'cardCatalogVersion' => $this->cardCatalogVersion,
         ];
+        if ($this->sharedCounters !== []) {
+            $data['sharedCounters'] = $this->sharedCounters;
+        }
         if ($this->chatCursor !== null) {
             $data['chatCursor'] = $this->chatCursor;
         }
@@ -125,6 +131,50 @@ final readonly class BootstrapV2 implements \JsonSerializable
         }
         if (!is_array($value) || array_is_list($value)) {
             throw new \InvalidArgumentException('Field "staticCards" must be an object.');
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param array<string,mixed> $sharedCounters
+     * @return array<string,array<string,int>>
+     */
+    private static function validateSharedCounters(array $sharedCounters): array
+    {
+        $normalized = [];
+        foreach ($sharedCounters as $scope => $counters) {
+            if (!is_string($scope) || $scope === '' || !is_array($counters) || array_is_list($counters)) {
+                throw new \InvalidArgumentException('Field "sharedCounters" must be an object of counter maps.');
+            }
+
+            $normalizedCounters = [];
+            foreach ($counters as $key => $value) {
+                if (!is_string($key) || $key === '' || !is_int($value)) {
+                    throw new \InvalidArgumentException('Field "sharedCounters" must contain integer counter values.');
+                }
+
+                $normalizedCounters[$key] = $value;
+            }
+
+            $normalized[$scope] = $normalizedCounters;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     * @return array<string,mixed>
+     */
+    private static function optionalSharedCountersMap(array $data): array
+    {
+        $value = $data['sharedCounters'] ?? null;
+        if ($value === null || $value === []) {
+            return [];
+        }
+        if (!is_array($value) || array_is_list($value)) {
+            throw new \InvalidArgumentException('Field "sharedCounters" must be an object when provided.');
         }
 
         return $value;

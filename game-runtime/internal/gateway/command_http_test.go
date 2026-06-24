@@ -56,6 +56,63 @@ func TestCommandHTTPServerProcessesRuntimeMulligan(t *testing.T) {
 	}
 }
 
+func TestCommandHTTPServerUsesRecoveredActorVersionWhenInitialStateIsStale(t *testing.T) {
+	server := NewCommandHTTPServer(runtimesvc.NewService())
+	initial := runtimeMulliganState("game-stale", "player-1")
+
+	first := commandHTTP(t, server, CommandHTTPRequest{
+		ActorID:      "player-1",
+		InitialState: &initial,
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         "game-stale",
+			BaseVersion:    1,
+			ClientActionID: "take-1",
+			Type:           "mulligan.take",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+	if first.Event.Version != 2 {
+		t.Fatalf("first version got %d want 2", first.Event.Version)
+	}
+
+	second := commandHTTP(t, server, CommandHTTPRequest{
+		ActorID:      "player-1",
+		InitialState: &initial,
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         "game-stale",
+			BaseVersion:    1,
+			ClientActionID: "keep-1",
+			Type:           "mulligan.keep",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+	if second.Event.Type != "mulligan.player_kept" {
+		t.Fatalf("second event got %s want mulligan.player_kept", second.Event.Type)
+	}
+	if second.Event.Version != 3 {
+		t.Fatalf("second version got %d want 3", second.Event.Version)
+	}
+}
+
+func commandHTTP(t *testing.T, server *CommandHTTPServer, command CommandHTTPRequest) CommandHTTPResponse {
+	t.Helper()
+	body, err := json.Marshal(command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/commands", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var response CommandHTTPResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	return response
+}
+
 func runtimeMulliganState(gameID string, playerID string) state.GameState {
 	game := runtimesvc.EmptyInitialState(gameID)
 	game.Phase = state.PhaseMulligan

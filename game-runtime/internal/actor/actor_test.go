@@ -24,6 +24,9 @@ func TestGameActorAppliesSimpleCommandsInOrder(t *testing.T) {
 		command("game-1", 4, "a-tap", "card.tapped", map[string]any{"instanceId": "i1", "tapped": true}),
 		command("game-1", 5, "a-counter", "card.counter.changed", map[string]any{"instanceId": "i1", "counter": "+1/+1", "value": 2}),
 		command("game-1", 6, "a-position", "card.position.changed", map[string]any{"instanceId": "i1", "position": map[string]any{"x": 0.4, "y": 0.2, "unit": "ratio"}}),
+		command("game-1", 7, "a-player-counter", "counter.changed", map[string]any{"scope": "player:p1", "key": "poison", "value": 3}),
+		command("game-1", 8, "a-commander-damage", "commander.damage.changed", map[string]any{"targetPlayerId": "p1", "commanderInstanceId": "commander-1", "damage": 11}),
+		command("game-1", 9, "a-pt", "card.power_toughness.changed", map[string]any{"instanceId": "i1", "power": 5, "toughness": 6, "loyalty": 4}),
 	}
 
 	for _, command := range commands {
@@ -40,11 +43,17 @@ func TestGameActorAppliesSimpleCommandsInOrder(t *testing.T) {
 		if result.Patches[0].AckClientActionID != command.ClientActionID {
 			t.Fatalf("%s ack mismatch", command.Type)
 		}
+		if command.Type == "life.changed" {
+			op := result.Patches[0].Ops[0]
+			if op.Op != "player.life.set" || op.Data["value"] != 37 {
+				t.Fatalf("life patch contract mismatch: %#v", op)
+			}
+		}
 	}
 
 	snapshot := gameActor.Snapshot()
-	if snapshot.Version != 7 {
-		t.Fatalf("version got %d want 7", snapshot.Version)
+	if snapshot.Version != 10 {
+		t.Fatalf("version got %d want 10", snapshot.Version)
 	}
 	if snapshot.Players["p1"]["life"] != 37 {
 		t.Fatalf("life not updated: %#v", snapshot.Players["p1"]["life"])
@@ -61,6 +70,15 @@ func TestGameActorAppliesSimpleCommandsInOrder(t *testing.T) {
 	}
 	if instance.Position["x"] != 0.4 {
 		t.Fatalf("position not updated: %#v", instance.Position)
+	}
+	if instance.MutableStats["power"] != 5 || instance.MutableStats["toughness"] != 6 || instance.MutableStats["loyalty"] != 4 {
+		t.Fatalf("stats not updated: %#v", instance.MutableStats)
+	}
+	if snapshot.Players["p1"]["counters"].(map[string]any)["poison"] != 3 {
+		t.Fatalf("player counters not updated: %#v", snapshot.Players["p1"]["counters"])
+	}
+	if snapshot.Players["p1"]["commanderDamage"].(map[string]any)["commander-1"] != 11 {
+		t.Fatalf("commander damage not updated: %#v", snapshot.Players["p1"]["commanderDamage"])
 	}
 
 	events, err := store.EventsAfter(context.Background(), "game-1", 0)
@@ -158,6 +176,40 @@ func TestGameActorRejectsOldBaseVersion(t *testing.T) {
 	}
 }
 
+func TestGameActorRollsBackWhenApplierFailsAfterMutation(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, []Applier{mutatingFailApplier{}})
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a1", "test.mutate_fail", map[string]any{"playerId": "p1"}), "p1")
+	if result.Err == nil {
+		t.Fatal("expected applier failure")
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Version != 1 {
+		t.Fatalf("version got %d want 1", snapshot.Version)
+	}
+	if snapshot.Players["p1"]["life"] != 40 {
+		t.Fatalf("life got %#v want 40", snapshot.Players["p1"]["life"])
+	}
+}
+
+func TestGameActorRollsBackKnownCommandWhenAppendFails(t *testing.T) {
+	store := failingAppendStore{err: errors.New("append failed")}
+	gameActor := NewGameActorWithSnapshotPolicy("game-1", testState(), store, 8, DefaultAppliers(), SnapshotPolicy{})
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a1", "life.changed", map[string]any{"playerId": "p1", "life": 12}), "p1")
+	if !errors.Is(result.Err, store.err) {
+		t.Fatalf("err got %v want %v", result.Err, store.err)
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Version != 1 {
+		t.Fatalf("version got %d want 1", snapshot.Version)
+	}
+	if snapshot.Players["p1"]["life"] != 40 {
+		t.Fatalf("life got %#v want 40", snapshot.Players["p1"]["life"])
+	}
+	if len(gameActor.seenActions) != 0 {
+		t.Fatalf("failed command should not be cached: %#v", gameActor.seenActions)
+	}
+}
+
 func TestGameActorQueueBackpressure(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 1, DefaultAppliers())
 	err := gameActor.Enqueue(CommandRequest{Command: command("game-1", 1, "a1", "life.changed", map[string]any{"playerId": "p1", "life": 39})})
@@ -168,6 +220,40 @@ func TestGameActorQueueBackpressure(t *testing.T) {
 	if !errors.Is(err, ErrQueueFull) {
 		t.Fatalf("second enqueue got %v want %v", err, ErrQueueFull)
 	}
+}
+
+type mutatingFailApplier struct{}
+
+func (mutatingFailApplier) Type() string { return "test.mutate_fail" }
+
+func (mutatingFailApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, _ *PatchEmitter) (map[string]any, error) {
+	playerID := command.Payload["playerId"].(string)
+	game.Players[playerID]["life"] = 1
+	return nil, errors.New("mutating applier failed")
+}
+
+type failingAppendStore struct {
+	err error
+}
+
+func (s failingAppendStore) AppendEvent(context.Context, protocol.EventPayloadV2) error {
+	return s.err
+}
+
+func (s failingAppendStore) EventByClientActionID(context.Context, string, string) (protocol.EventPayloadV2, bool, error) {
+	return protocol.EventPayloadV2{}, false, nil
+}
+
+func (s failingAppendStore) LatestSnapshot(context.Context, string) (persistence.CompactSnapshot, bool, error) {
+	return persistence.CompactSnapshot{}, false, nil
+}
+
+func (s failingAppendStore) EventsAfter(context.Context, string, int64) ([]protocol.EventPayloadV2, error) {
+	return nil, nil
+}
+
+func (s failingAppendStore) SaveSnapshot(context.Context, persistence.CompactSnapshot) error {
+	return nil
 }
 
 func TestGameActorLoopSerializesSubmittedCommands(t *testing.T) {
@@ -239,12 +325,8 @@ func TestCardTappedPatchShape(t *testing.T) {
 	if op.Op != "card.field.set" {
 		t.Fatalf("op got %q want card.field.set", op.Op)
 	}
-	fields, ok := op.Data["fields"].(map[string]any)
-	if !ok {
-		t.Fatalf("missing fields: %#v", op.Data)
-	}
-	if fields["tapped"] != true || fields["rotation"] != 90 {
-		t.Fatalf("fields mismatch: %#v", fields)
+	if op.Data["tapped"] != true || op.Data["rotation"] != 90 {
+		t.Fatalf("fields mismatch: %#v", op.Data)
 	}
 }
 
@@ -254,10 +336,11 @@ func testState() state.GameState {
 		Version: 1,
 		Status:  "playing",
 		Players: map[string]map[string]any{
-			"p1": map[string]any{"life": 40},
-			"p2": map[string]any{"life": 40},
+			"p1": map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}},
+			"p2": map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}},
 		},
-		Turn: map[string]any{"activePlayerId": "p1", "phase": "main-1", "number": 1},
+		SharedCounters: map[string]map[string]int{},
+		Turn:           map[string]any{"activePlayerId": "p1", "phase": "main-1", "number": 1},
 		Instances: map[string]state.CardInstanceRuntime{
 			"i1": {
 				InstanceID:   "i1",

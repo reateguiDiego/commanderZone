@@ -2,6 +2,6 @@
 
 namespace App\Application\Game\Runtime;
 
-final class GameRuntimeMulliganException extends \RuntimeException
+final class GameRuntimeMulliganException extends GameRuntimeGatewayException
 {
 }

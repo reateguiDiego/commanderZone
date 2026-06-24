@@ -191,6 +191,7 @@ final class GameplayV2ContractFactory
             'zones' => $zones,
             'instances' => $instances,
             'zoneCounts' => $zoneCounts,
+            'sharedCounters' => $this->sharedCounters($projectedSnapshot['counters'] ?? []),
             'relations' => $relations,
             'turn' => is_array($projectedSnapshot['turn'] ?? null) ? $projectedSnapshot['turn'] : [],
             'staticCards' => $staticCards,
@@ -202,6 +203,34 @@ final class GameplayV2ContractFactory
         $payload['payloadBytes'] = $this->jsonBytes($payload);
 
         return BootstrapV2::fromArray($payload);
+    }
+
+    /**
+     * @return array<string,array<string,int>>
+     */
+    private function sharedCounters(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($value as $scope => $counters) {
+            if (!is_string($scope) || !is_array($counters)) {
+                continue;
+            }
+
+            $normalizedCounters = [];
+            foreach ($counters as $key => $count) {
+                if (!is_string($key)) {
+                    continue;
+                }
+                $normalizedCounters[$key] = (int) $count;
+            }
+            $normalized[$scope] = $normalizedCounters;
+        }
+
+        return $normalized;
     }
 
     /**

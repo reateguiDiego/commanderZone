@@ -427,6 +427,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
       case 'mulligan.completed':
         context.onMulliganCompleted?.(message);
+        if (this.gameplayV2Flags.enabled()) {
+          const snapshotVersion = context.snapshot()?.version ?? 0;
+          if ((message.version ?? 0) > snapshotVersion) {
+            await this.requestResync(context);
+          }
+        }
         return;
     }
   }

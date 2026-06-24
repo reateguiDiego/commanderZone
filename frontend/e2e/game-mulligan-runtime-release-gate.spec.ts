@@ -3,6 +3,7 @@ import { authStorageState } from './support/auth';
 import { createCommanderGameWithBasicDecks } from './support/commander-game';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
+const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
 
 type JsonObject = Record<string, unknown>;
 type MulliganRuntimeSetup = Awaited<ReturnType<typeof createCommanderGameWithBasicDecks>>;
@@ -14,6 +15,7 @@ test.describe('mulligan runtime release gate', () => {
 
   test.beforeAll(async ({ request }) => {
     test.setTimeout(300_000);
+    await assertGameRuntimeReady(request);
     setup = await createCommanderGameWithBasicDecks(request, {
       playerAPrefix: 'mulligan-runtime-a',
       playerBPrefix: 'mulligan-runtime-b',
@@ -299,6 +301,13 @@ async function websocketTicket(request: APIRequestContext, gameId: string, token
   }
 
   return { websocketUrl: payload.websocketUrl };
+}
+
+async function assertGameRuntimeReady(request: APIRequestContext): Promise<void> {
+  const response = await request.get(RUNTIME_READY_URL, { timeout: 5_000 });
+  if (!response.ok()) {
+    throw new Error(`Game runtime is not reachable at ${RUNTIME_READY_URL}; runtime release gates must not fall back to legacy.`);
+  }
 }
 
 async function sendRawWebSocketMessage(

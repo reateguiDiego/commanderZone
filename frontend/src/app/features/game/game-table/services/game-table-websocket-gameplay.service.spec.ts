@@ -195,6 +195,28 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
+  it('resyncs bootstrap once after legacy mulligan completion when v2 state is stale', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+        version: 1,
+      },
+    });
+
+    messages.next({
+      kind: 'mulligan.completed',
+      gameId: 'game-1',
+      version: 3,
+    });
+    await Promise.resolve();
+
+    expect(refetchSpy).toHaveBeenCalledWith(true);
+  });
+
   it('applies patches received from another client', async () => {
     messages.next({
       kind: 'game_patch',
