@@ -2,17 +2,19 @@
   display: inline-block;
   width: fit-content;
   max-width: 100%;
+  contain: layout style;
 }
 
 .compact-checkbox {
   position: relative;
   display: inline-grid;
-  grid-template-columns: auto minmax(0, auto);
+  grid-template-columns: 0.82rem minmax(0, auto);
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
   min-height: 1.2rem;
   max-width: 100%;
+  box-sizing: border-box;
   border: 1px solid transparent;
   border-radius: 999px;
   padding: 0.08rem 0.32rem;
@@ -31,8 +33,9 @@
 
 .compact-checkbox::before {
   display: grid;
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  box-sizing: border-box;
   place-items: center;
   border: 2px solid currentColor;
   border-radius: 0.22rem;
@@ -46,6 +49,7 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  transform: translateZ(0);
 }
 
 .compact-checkbox:hover {
@@ -87,6 +91,26 @@
 
 .compact-checkbox:has(input:disabled) input {
   cursor: not-allowed;
+}
+
+.compact-checkbox--multiline {
+  align-items: start;
+  justify-content: start;
+  width: 100%;
+  padding-block: 0.18rem;
+  white-space: normal;
+}
+
+.compact-checkbox--multiline::before {
+  margin-top: 0.06rem;
+}
+
+.compact-checkbox--multiline span {
+  display: -webkit-box;
+  line-height: 1.08;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 @media (max-width: 520px) {

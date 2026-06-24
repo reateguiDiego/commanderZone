@@ -1,0 +1,23 @@
+<section class="search-help" [class.is-open]="open()">
+  <button
+    type="button"
+    czButton="ghost"
+    czButtonSize="sm"
+    class="search-help__trigger"
+    [attr.aria-expanded]="open()"
+    (click)="toggle()"
+  >
+    <lucide-icon name="circle-help" size="16" aria-hidden="true" />
+    <span>{{ 'deckBuilder.cards.cardSearch.help.title' | runtimeTranslate }}</span>
+  </button>
+
+  @if (open()) {
+    <div class="search-help__body">
+      <p>{{ 'deckBuilder.cards.cardSearch.help.name' | runtimeTranslate }}</p>
+      <p>{{ 'deckBuilder.cards.cardSearch.help.text' | runtimeTranslate }}</p>
+      <p>{{ 'deckBuilder.cards.cardSearch.help.colors' | runtimeTranslate }}</p>
+      <p>{{ 'deckBuilder.cards.cardSearch.help.costs' | runtimeTranslate }}</p>
+      <p>{{ 'deckBuilder.cards.cardSearch.help.stats' | runtimeTranslate }}</p>
+    </div>
+  }
+</section>

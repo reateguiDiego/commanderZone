@@ -10,6 +10,7 @@ export class CompactCheckboxComponent {
   readonly checked = input(false);
   readonly disabled = input(false);
   readonly label = input('');
+  readonly multiline = input(false);
   readonly title = input<string | null>(null);
   readonly name = input<string | null>(null);
   readonly checkedChange = output<boolean>();

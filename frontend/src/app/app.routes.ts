@@ -86,12 +86,6 @@ export const routes: Routes = [
         data: { pageKey: 'cards' },
       },
       {
-        path: 'cards/:scryfallId',
-        loadComponent: () => import('./features/cards/card-detail/card-detail.component')
-          .then((component) => component.CardDetailComponent),
-        data: { pageKey: 'cardDetail' },
-      },
-      {
         path: 'community',
         loadComponent: () => import('./features/community/community-page/community-page.component')
           .then((component) => component.CommunityPageComponent),

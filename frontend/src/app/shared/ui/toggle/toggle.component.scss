@@ -118,6 +118,43 @@
   opacity: 0.56;
 }
 
+.toggle--compact {
+  grid-template-columns: auto;
+  gap: 0;
+  width: auto;
+  min-height: 1.55rem;
+  border-radius: 999px;
+  padding: 0;
+}
+
+.toggle--compact .toggle-copy {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.toggle--compact .toggle-switch {
+  width: 2.65rem;
+  height: 1.45rem;
+  border-width: 1px;
+}
+
+.toggle--compact .toggle-thumb {
+  left: 0.18rem;
+  width: 1rem;
+  height: 1rem;
+}
+
+.toggle--compact.is-on .toggle-thumb {
+  transform: translate(1.2rem, -50%);
+}
+
 @media (max-width: 520px) {
   .toggle {
     gap: 0.75rem;
@@ -136,5 +173,23 @@
 
   .toggle.is-on .toggle-thumb {
     transform: translate(1.43rem, -50%);
+  }
+
+  .toggle--compact {
+    min-height: 1.45rem;
+  }
+
+  .toggle--compact .toggle-switch {
+    width: 2.5rem;
+    height: 1.36rem;
+  }
+
+  .toggle--compact .toggle-thumb {
+    width: 0.92rem;
+    height: 0.92rem;
+  }
+
+  .toggle--compact.is-on .toggle-thumb {
+    transform: translate(1.14rem, -50%);
   }
 }

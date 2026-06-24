@@ -172,6 +172,7 @@ abstract class ApiTestCase extends WebTestCase
         \assert($connection instanceof Connection);
         $this->ensureCardImageStatusColumn($connection);
         $this->ensureCardHasRulingsColumn($connection);
+        $this->ensureCardCatalogSearchColumns($connection);
         $this->ensureCardPrintTables($connection);
         $this->ensureRoomWaitingLogEntryTable($connection);
         $this->ensureDeckValidityColumn($connection);
@@ -247,6 +248,25 @@ abstract class ApiTestCase extends WebTestCase
         }
 
         $connection->executeStatement('ALTER TABLE card ADD COLUMN has_rulings BOOLEAN NOT NULL DEFAULT false');
+    }
+
+    private function ensureCardCatalogSearchColumns(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('card'),
+        );
+        if (!in_array('rarity', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE card ADD COLUMN rarity VARCHAR(24) DEFAULT NULL');
+        }
+        if (!in_array('set_name', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE card ADD COLUMN set_name VARCHAR(255) DEFAULT NULL');
+        }
     }
 
     private function ensureRoomWaitingLogEntryTable(Connection $connection): void

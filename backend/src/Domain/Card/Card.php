@@ -82,6 +82,12 @@ class Card
     #[ORM\Column(type: 'string', length: 16, nullable: true)]
     private ?string $setCode = null;
 
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $setName = null;
+
+    #[ORM\Column(type: 'string', length: 24, nullable: true)]
+    private ?string $rarity = null;
+
     #[ORM\Column(type: 'string', length: 32, nullable: true)]
     private ?string $collectorNumber = null;
 
@@ -141,6 +147,8 @@ class Card
         $this->layout = $data['layout'] ?? 'normal';
         $this->commanderLegal = ($this->legalities['commander'] ?? null) === 'legal';
         $this->setCode = $data['set'] ?? null;
+        $this->setName = $this->cardString($data, 'set_name');
+        $this->rarity = $this->cardString($data, 'rarity');
         $this->collectorNumber = $data['collector_number'] ?? null;
         $this->lang = $data['lang'] ?? null;
         $this->printedName = $data['printed_name'] ?? null;
@@ -308,6 +316,16 @@ class Card
         return $this->commanderLegal;
     }
 
+    public function setName(): ?string
+    {
+        return $this->setName;
+    }
+
+    public function rarity(): ?string
+    {
+        return $this->rarity;
+    }
+
     public function legalityInFormat(string $format): ?string
     {
         $value = $this->legalities[$format] ?? null;
@@ -355,6 +373,8 @@ class Card
             'layout' => $this->layout,
             'commanderLegal' => $this->commanderLegal,
             'set' => $this->setCode,
+            'setName' => $this->setName,
+            'rarity' => $this->rarity,
             'collectorNumber' => $this->collectorNumber,
             'lang' => $this->lang,
             'printedName' => $this->printedName,

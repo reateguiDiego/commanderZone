@@ -22,7 +22,6 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'games/:id', renderMode: RenderMode.Client },
   { path: 'dashboard', renderMode: RenderMode.Client },
   { path: 'cards', renderMode: RenderMode.Client },
-  { path: 'cards/:scryfallId', renderMode: RenderMode.Client },
   { path: 'community', renderMode: RenderMode.Client },
   { path: 'decks', renderMode: RenderMode.Client },
   { path: 'decks/:id', renderMode: RenderMode.Client },

@@ -210,6 +210,15 @@ describe('API services', () => {
     request.flush({ data: [], page: 1, limit: 8 });
   });
 
+  it('requests card search options with the preferred card language', () => {
+    TestBed.inject(CardsApi).searchOptions().subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/search/options?lang=en`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ types: [], subtypes: [], sets: [], rarities: [], formats: [] });
+  });
+
   it('adds gameplayKind to card search requests without changing tokenOnly behavior', () => {
     TestBed.inject(CardsApi).search('ring', 1, 12, { gameplayKind: 'emblem' }).subscribe();
 

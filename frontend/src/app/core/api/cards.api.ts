@@ -12,10 +12,45 @@ export interface CardSearchFilters {
   colorIdentity?: string[];
   gameplayKind?: 'token' | 'emblem' | 'dungeon';
   type?: 'creature' | 'instant' | 'sorcery' | 'artifact' | 'enchantment' | 'planeswalker' | 'land';
+  types?: string[];
+  subtypes?: string[];
+  sets?: string[];
+  rarities?: Array<'mythic' | 'rare' | 'uncommon' | 'common'>;
+  colors?: Array<'W' | 'U' | 'B' | 'R' | 'G'>;
+  colorMatchMode?: 'all' | 'any' | 'exact';
+  artifact?: boolean;
+  land?: boolean;
+  multicolor?: boolean;
+  oracleTextA?: string;
+  oracleTextB?: string;
+  oracleTextMode?: 'and' | 'or';
+  manaValueMin?: number;
+  manaValueMax?: number;
+  manaCost?: string;
+  powerMin?: number;
+  powerMax?: number;
+  toughnessMin?: number;
+  toughnessMax?: number;
+  includeVariablePower?: boolean;
+  includeVariableToughness?: boolean;
+  formats?: string[];
   tokenOnly?: boolean;
 }
 
 export const CARD_SEARCH_LIMIT = 500;
+
+export interface CardSearchOption {
+  code: string;
+  name: string;
+}
+
+export interface CardSearchOptionsResponse {
+  types: CardSearchOption[];
+  subtypes: CardSearchOption[];
+  sets: CardSearchOption[];
+  rarities: CardSearchOption[];
+  formats: CardSearchOption[];
+}
 
 @Injectable({ providedIn: 'root' })
 export class CardsApi {
@@ -41,12 +76,45 @@ export class CardsApi {
     if (filters.type) {
       params = params.set('type', filters.type);
     }
+    params = this.appendArrayParam(params, 'types', filters.types);
+    params = this.appendArrayParam(params, 'subtypes', filters.subtypes);
+    params = this.appendArrayParam(params, 'sets', filters.sets);
+    params = this.appendArrayParam(params, 'rarities', filters.rarities);
+    params = this.appendArrayParam(params, 'colors', filters.colors);
+    if (filters.colorMatchMode) {
+      params = params.set('colorMatchMode', filters.colorMatchMode);
+    }
+    params = this.appendBooleanParam(params, 'artifact', filters.artifact);
+    params = this.appendBooleanParam(params, 'land', filters.land);
+    params = this.appendBooleanParam(params, 'multicolor', filters.multicolor);
+    params = this.appendStringParam(params, 'oracleTextA', filters.oracleTextA);
+    params = this.appendStringParam(params, 'oracleTextB', filters.oracleTextB);
+    if (filters.oracleTextMode) {
+      params = params.set('oracleTextMode', filters.oracleTextMode);
+    }
+    params = this.appendNumberParam(params, 'manaValueMin', filters.manaValueMin);
+    params = this.appendNumberParam(params, 'manaValueMax', filters.manaValueMax);
+    params = this.appendStringParam(params, 'manaCost', filters.manaCost);
+    params = this.appendNumberParam(params, 'powerMin', filters.powerMin);
+    params = this.appendNumberParam(params, 'powerMax', filters.powerMax);
+    params = this.appendNumberParam(params, 'toughnessMin', filters.toughnessMin);
+    params = this.appendNumberParam(params, 'toughnessMax', filters.toughnessMax);
+    params = this.appendBooleanParam(params, 'includeVariablePower', filters.includeVariablePower);
+    params = this.appendBooleanParam(params, 'includeVariableToughness', filters.includeVariableToughness);
+    params = this.appendArrayParam(params, 'formats', filters.formats);
     if (filters.tokenOnly !== undefined) {
       params = params.set('tokenOnly', String(filters.tokenOnly));
     }
 
     return this.http.get<DataResponse<Card>>(`${API_BASE_URL}/cards/search`, {
       params,
+      context: withoutGlobalLoading(),
+    });
+  }
+
+  searchOptions(): Observable<CardSearchOptionsResponse> {
+    return this.http.get<CardSearchOptionsResponse>(`${API_BASE_URL}/cards/search/options`, {
+      params: { lang: this.languagePreferences.cardLanguage() },
       context: withoutGlobalLoading(),
     });
   }
@@ -62,5 +130,23 @@ export class CardsApi {
       params: { format, mode: 'uri' },
       context: withoutGlobalLoading(),
     });
+  }
+
+  private appendArrayParam(params: HttpParams, key: string, value: readonly string[] | undefined): HttpParams {
+    return value && value.length > 0 ? params.set(key, value.join(',')) : params;
+  }
+
+  private appendStringParam(params: HttpParams, key: string, value: string | undefined): HttpParams {
+    const trimmed = value?.trim() ?? '';
+
+    return trimmed ? params.set(key, trimmed) : params;
+  }
+
+  private appendNumberParam(params: HttpParams, key: string, value: number | undefined): HttpParams {
+    return value !== undefined && Number.isFinite(value) ? params.set(key, String(value)) : params;
+  }
+
+  private appendBooleanParam(params: HttpParams, key: string, value: boolean | undefined): HttpParams {
+    return value !== undefined ? params.set(key, String(value)) : params;
   }
 }

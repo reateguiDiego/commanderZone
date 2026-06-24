@@ -1,0 +1,375 @@
+<form class="advanced-card-search" (ngSubmit)="submit()">
+  <div class="search-panel search-panel--primary" [class.search-panel--disabled]="!filterEnabled('name')">
+    <div class="filter-panel__header">
+      <div class="filter-panel__title">
+        <span class="filter-panel__kicker">01</span>
+        <h3>{{ 'deckBuilder.cards.cardSearch.form.name' | runtimeTranslate }}</h3>
+      </div>
+      <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('name')" (checkedChange)="setFilterEnabled('name', $event)" />
+    </div>
+
+    <div class="filter-panel__body">
+      <div class="filter-panel__body-inner">
+        <label class="field field--wide">
+          <span>{{ 'deckBuilder.cards.cardSearch.form.name' | runtimeTranslate }}</span>
+          <input
+            name="query"
+            type="search"
+            [disabled]="!filterEnabled('name')"
+            [placeholder]="'deckBuilder.cards.cardSearch.solRingAtraxaLightningGreaves' | runtimeTranslate"
+            [(ngModel)]="model.query"
+          />
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="search-panel search-panel--primary" [class.search-panel--disabled]="!filterEnabled('text')">
+    <div class="filter-panel__header">
+      <div class="filter-panel__title">
+        <span class="filter-panel__kicker">02</span>
+        <h3>{{ 'deckBuilder.cards.cardSearch.form.oracleText' | runtimeTranslate }}</h3>
+      </div>
+      <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('text')" (checkedChange)="setFilterEnabled('text', $event)" />
+    </div>
+
+    <div class="filter-panel__body">
+      <div class="filter-panel__body-inner">
+        <div class="text-match-toggle">
+          <app-toggle
+            [label]="textModeToggleLabel() | runtimeTranslate"
+            [description]="textModeToggleDescription() | runtimeTranslate"
+            [disabled]="!filterEnabled('text')"
+            [checked]="model.oracleTextMode === 'or'"
+            (checkedChange)="setTextModeFromToggle($event)"
+          />
+        </div>
+        <div class="text-grid">
+          <label class="field">
+            <span>{{ 'deckBuilder.cards.cardSearch.form.textA' | runtimeTranslate }}</span>
+            <textarea
+              name="oracleTextA"
+              [disabled]="!filterEnabled('text')"
+              [placeholder]="'deckBuilder.cards.cardSearch.form.textAPlaceholder' | runtimeTranslate"
+              [(ngModel)]="model.oracleTextA"
+            ></textarea>
+          </label>
+          <label class="field">
+            <span>{{ 'deckBuilder.cards.cardSearch.form.textB' | runtimeTranslate }}</span>
+            <textarea
+              name="oracleTextB"
+              [disabled]="!filterEnabled('text')"
+              [placeholder]="'deckBuilder.cards.cardSearch.form.textBPlaceholder' | runtimeTranslate"
+              [(ngModel)]="model.oracleTextB"
+            ></textarea>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="search-grid">
+    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('types')">
+      <div class="filter-panel__header">
+        <div class="filter-panel__title">
+          <span class="filter-panel__kicker">03</span>
+          <h3>{{ 'deckBuilder.cards.cardSearch.form.types' | runtimeTranslate }}</h3>
+        </div>
+        <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('types')" (checkedChange)="setFilterEnabled('types', $event)" />
+      </div>
+      <div class="filter-panel__body">
+        <div class="filter-panel__body-inner">
+          <div class="choice-columns choice-columns--types">
+            @for (option of options()?.types ?? []; track option.code) {
+              <label class="icon-choice" [class.is-selected]="selected(model.types, option.code)" [class.is-disabled]="!filterEnabled('types')">
+                <input
+                  type="checkbox"
+                  [name]="'type-' + option.code"
+                  [disabled]="!filterEnabled('types')"
+                  [checked]="selected(model.types, option.code)"
+                  (change)="toggleType(option.code, $any($event.target).checked)"
+                />
+                <i class="icon-choice__icon" [appManaIcon]="typeIcon(option.code)" manaIconKind="mechanic" aria-hidden="true"></i>
+                <span>{{ option.name }}</span>
+              </label>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('subtypes')">
+      <div class="filter-panel__header">
+        <div class="filter-panel__title">
+          <span class="filter-panel__kicker">04</span>
+          <h3>{{ 'deckBuilder.cards.cardSearch.form.subtypes' | runtimeTranslate }}</h3>
+        </div>
+        <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('subtypes')" (checkedChange)="setFilterEnabled('subtypes', $event)" />
+      </div>
+      <div class="filter-panel__body">
+        <div class="filter-panel__body-inner">
+          <label class="field field--compact">
+            <span>{{ 'deckBuilder.cards.cardSearch.form.filterOptions' | runtimeTranslate }}</span>
+            <input name="subtypeFilter" type="search" [disabled]="!filterEnabled('subtypes')" [ngModel]="subtypeFilter()" (ngModelChange)="subtypeFilter.set($event)" />
+          </label>
+          <div class="choice-columns choice-columns--scroll" appPrettyScroll>
+            @for (option of visibleSubtypeOptions(); track option.code) {
+              <app-compact-checkbox
+                [label]="option.name"
+                [disabled]="!filterEnabled('subtypes')"
+                [checked]="selected(model.subtypes, option.code)"
+                (checkedChange)="toggleSubtype(option.code, $event)"
+              />
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('sets')">
+      <div class="filter-panel__header">
+        <div class="filter-panel__title">
+          <span class="filter-panel__kicker">05</span>
+          <h3>{{ 'deckBuilder.cards.cardSearch.form.sets' | runtimeTranslate }}</h3>
+        </div>
+        <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('sets')" (checkedChange)="setFilterEnabled('sets', $event)" />
+      </div>
+      <div class="filter-panel__body">
+        <div class="filter-panel__body-inner">
+          <label class="field field--compact">
+            <span>{{ 'deckBuilder.cards.cardSearch.form.filterOptions' | runtimeTranslate }}</span>
+            <input name="setFilter" type="search" [disabled]="!filterEnabled('sets')" [ngModel]="setFilter()" (ngModelChange)="setFilter.set($event)" />
+          </label>
+          <div class="choice-columns choice-columns--scroll" appPrettyScroll>
+            @for (option of visibleSetOptions(); track option.code) {
+              <app-compact-checkbox
+                [label]="option.name"
+                [multiline]="true"
+                [disabled]="!filterEnabled('sets')"
+                [checked]="selected(model.sets, option.code)"
+                (checkedChange)="toggleSet(option.code, $event)"
+              />
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('rarities')">
+      <div class="filter-panel__header">
+        <div class="filter-panel__title">
+          <span class="filter-panel__kicker">06</span>
+          <h3>{{ 'deckBuilder.cards.cardSearch.form.rarity' | runtimeTranslate }}</h3>
+        </div>
+        <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('rarities')" (checkedChange)="setFilterEnabled('rarities', $event)" />
+      </div>
+      <div class="filter-panel__body">
+        <div class="filter-panel__body-inner">
+          <div class="rarity-choice-row">
+            @for (option of options()?.rarities ?? []; track option.code) {
+              <label
+                class="rarity-choice"
+                [class.is-selected]="selected(model.rarities, option.code)"
+                [class.is-disabled]="!filterEnabled('rarities')"
+                [class.rarity-choice--mythic]="option.code === 'mythic'"
+                [class.rarity-choice--rare]="option.code === 'rare'"
+                [class.rarity-choice--uncommon]="option.code === 'uncommon'"
+                [class.rarity-choice--common]="option.code === 'common'"
+              >
+                <input
+                  type="checkbox"
+                  [name]="'rarity-' + option.code"
+                  [disabled]="!filterEnabled('rarities')"
+                  [checked]="selected(model.rarities, option.code)"
+                  (change)="toggleRarity(option.code, $any($event.target).checked)"
+                />
+                <span>{{ option.name }}</span>
+              </label>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="search-panel search-panel--accent" [class.search-panel--disabled]="!filterEnabled('colors')">
+      <div class="filter-panel__header">
+        <div class="filter-panel__title">
+          <span class="filter-panel__kicker">07</span>
+          <h3>{{ 'deckBuilder.cards.cardSearch.form.colors' | runtimeTranslate }}</h3>
+        </div>
+        <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('colors')" (checkedChange)="setFilterEnabled('colors', $event)" />
+      </div>
+      <div class="filter-panel__body">
+        <div class="filter-panel__body-inner">
+          <div class="color-mode-tabs">
+            <span>{{ 'deckBuilder.cards.cardSearch.form.colorMode' | runtimeTranslate }}</span>
+            <app-tab-list
+              [items]="colorModeTabs"
+              [activeId]="model.colorMatchMode"
+              [ariaLabel]="'deckBuilder.cards.cardSearch.form.colorMode'"
+              variant="pill"
+              size="md"
+              [iconSize]="12"
+              (tabSelected)="selectColorMode($event)"
+            />
+          </div>
+          <div class="mana-choice-row">
+            @for (option of colorChoices; track option.code) {
+              <label class="mana-choice" [class.is-selected]="selected(model.colors, option.code)" [class.is-disabled]="!filterEnabled('colors')" [title]="option.name">
+                <input
+                  type="checkbox"
+                  [name]="'color-' + option.code"
+                  [disabled]="!filterEnabled('colors')"
+                  [checked]="selected(model.colors, option.code)"
+                  (change)="toggleColor(option.code, $any($event.target).checked)"
+                />
+                <app-mana-symbols [symbols]="[option.code]" [fallback]="option.name" />
+                <span>{{ option.name }}</span>
+              </label>
+            }
+          </div>
+          <div class="choice-columns choice-columns--compact">
+            <label class="icon-choice" [class.is-selected]="model.artifact" [class.is-disabled]="!filterEnabled('colors')">
+              <input type="checkbox" name="artifact" [disabled]="!filterEnabled('colors')" [checked]="model.artifact" (change)="model.artifact = $any($event.target).checked" />
+              <i class="icon-choice__icon" appManaIcon="artifact" manaIconKind="mechanic" aria-hidden="true"></i>
+              <span>{{ 'deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate }}</span>
+            </label>
+            <label class="icon-choice" [class.is-selected]="model.multicolor" [class.is-disabled]="!filterEnabled('colors')">
+              <input type="checkbox" name="multicolor" [disabled]="!filterEnabled('colors')" [checked]="model.multicolor" (change)="model.multicolor = $any($event.target).checked" />
+              <i class="icon-choice__icon" appManaIcon="multicolor" manaIconKind="mechanic" aria-hidden="true"></i>
+              <span>{{ 'deckBuilder.cards.cardSearch.form.multicolor' | runtimeTranslate }}</span>
+            </label>
+            <label class="icon-choice" [class.is-selected]="model.land" [class.is-disabled]="!filterEnabled('colors')">
+              <input type="checkbox" name="land" [disabled]="!filterEnabled('colors')" [checked]="model.land" (change)="model.land = $any($event.target).checked" />
+              <i class="icon-choice__icon" appManaIcon="land" manaIconKind="mechanic" aria-hidden="true"></i>
+              <span>{{ 'deckBuilder.cards.cardSearch.form.land' | runtimeTranslate }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('costs')">
+      <div class="filter-panel__header">
+        <div class="filter-panel__title">
+          <span class="filter-panel__kicker">08</span>
+          <h3>{{ 'deckBuilder.cards.cardSearch.form.costs' | runtimeTranslate }}</h3>
+        </div>
+        <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('costs')" (checkedChange)="setFilterEnabled('costs', $event)" />
+      </div>
+      <div class="filter-panel__body">
+        <div class="filter-panel__body-inner">
+          <div class="cost-row">
+            <label class="field">
+              <span>{{ 'deckBuilder.cards.cardSearch.form.manaValueMin' | runtimeTranslate }}</span>
+              <input name="manaValueMin" type="number" min="0" max="99" step="1" [disabled]="!filterEnabled('costs')" [(ngModel)]="model.manaValueMin" />
+            </label>
+            <label class="field">
+              <span>{{ 'deckBuilder.cards.cardSearch.form.manaValueMax' | runtimeTranslate }}</span>
+              <input name="manaValueMax" type="number" min="0" max="99" step="1" [disabled]="!filterEnabled('costs')" [(ngModel)]="model.manaValueMax" />
+            </label>
+            <div class="field mana-cost-field">
+              <span>{{ 'deckBuilder.cards.cardSearch.form.manaCost' | runtimeTranslate }}</span>
+              <div class="mana-cost-entry" [class.is-disabled]="!filterEnabled('costs')">
+                <div class="mana-cost-display" [class.is-empty]="!model.manaCost" aria-live="polite">
+                  <app-mana-symbols [value]="manaCostSymbolValue()" fallback="" />
+                </div>
+                <button type="button" class="mana-cost-clear" [disabled]="!filterEnabled('costs') || !model.manaCost" (click)="clearManaCost()">
+                  <lucide-icon name="x" size="14" aria-hidden="true" />
+                  <span class="sr-only">{{ 'deckBuilder.cards.cardSearch.form.clearManaCost' | runtimeTranslate }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="mana-cost-builder" [class.is-disabled]="!filterEnabled('costs')">
+            <div class="mana-cost-palette">
+              @for (symbol of manaCostSymbols; track symbol) {
+                <button type="button" [disabled]="!filterEnabled('costs')" [title]="symbol" (click)="addManaCostSymbol(symbol)">
+                  <app-mana-symbols [symbols]="[symbol]" fallback="" />
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('stats')">
+      <div class="filter-panel__header">
+        <div class="filter-panel__title">
+          <span class="filter-panel__kicker">09</span>
+          <h3>{{ 'deckBuilder.cards.cardSearch.form.powerToughness' | runtimeTranslate }}</h3>
+        </div>
+        <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('stats')" (checkedChange)="setFilterEnabled('stats', $event)" />
+      </div>
+      <div class="filter-panel__body">
+        <div class="filter-panel__body-inner">
+          <div class="range-row range-row--stats">
+            <label class="field field--icon stat-field">
+              <span><i appManaIcon="power" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.powerMin' | runtimeTranslate }}</span>
+              <input name="powerMin" type="number" max="99" step="1" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.powerMin" />
+            </label>
+            <label class="field field--icon stat-field">
+              <span><i appManaIcon="power" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.powerMax' | runtimeTranslate }}</span>
+              <input name="powerMax" type="number" max="99" step="1" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.powerMax" />
+            </label>
+            <label class="field field--icon stat-field">
+              <span><i appManaIcon="toughness" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.toughnessMin' | runtimeTranslate }}</span>
+              <input name="toughnessMin" type="number" max="99" step="1" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.toughnessMin" />
+            </label>
+            <label class="field field--icon stat-field">
+              <span><i appManaIcon="toughness" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.toughnessMax' | runtimeTranslate }}</span>
+              <input name="toughnessMax" type="number" max="99" step="1" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.toughnessMax" />
+            </label>
+          </div>
+          <label class="stat-variable-option">
+            <input
+              type="checkbox"
+              name="includeVariablePower"
+              [disabled]="!filterEnabled('stats')"
+              [checked]="model.includeVariablePower"
+              (change)="model.includeVariablePower = $any($event.target).checked"
+            />
+            <span>{{ 'deckBuilder.cards.cardSearch.form.includeVariablePower' | runtimeTranslate }}</span>
+            <small>{{ 'deckBuilder.cards.cardSearch.form.includeVariablePowerDescription' | runtimeTranslate }}</small>
+          </label>
+          <label class="stat-variable-option">
+            <input
+              type="checkbox"
+              name="includeVariableToughness"
+              [disabled]="!filterEnabled('stats')"
+              [checked]="model.includeVariableToughness"
+              (change)="model.includeVariableToughness = $any($event.target).checked"
+            />
+            <span>{{ 'deckBuilder.cards.cardSearch.form.includeVariableToughness' | runtimeTranslate }}</span>
+            <small>{{ 'deckBuilder.cards.cardSearch.form.includeVariableToughnessDescription' | runtimeTranslate }}</small>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('formats')">
+      <div class="filter-panel__header">
+        <div class="filter-panel__title">
+          <span class="filter-panel__kicker">10</span>
+          <h3>{{ 'deckBuilder.cards.cardSearch.form.formats' | runtimeTranslate }}</h3>
+        </div>
+        <app-toggle class="filter-toggle" [compact]="true" [label]="'deckBuilder.cards.cardSearch.form.enabled' | runtimeTranslate" [checked]="filterEnabled('formats')" (checkedChange)="setFilterEnabled('formats', $event)" />
+      </div>
+      <div class="filter-panel__body">
+        <div class="filter-panel__body-inner">
+          <div class="choice-columns choice-columns--compact choice-columns--scroll" appPrettyScroll>
+            @for (option of options()?.formats ?? []; track option.code) {
+              <app-compact-checkbox
+                [label]="option.name"
+                [disabled]="!filterEnabled('formats')"
+                [checked]="selected(model.formats, option.code)"
+                (checkedChange)="toggleFormat(option.code, $event)"
+              />
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</form>

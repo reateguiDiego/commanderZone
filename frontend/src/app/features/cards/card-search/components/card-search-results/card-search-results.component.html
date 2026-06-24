@@ -1,0 +1,50 @@
+@if (loading()) {
+  <p class="notice">{{ 'deckBuilder.cards.cardSearch.searchingCards' | runtimeTranslate }}</p>
+} @else if (error()) {
+  <p class="notice error">{{ error() }}</p>
+} @else if (searched() && results().length === 0) {
+  <p class="notice">{{ 'deckBuilder.cards.cardSearch.noCardsFound' | runtimeTranslate }}</p>
+}
+
+<div class="card-results" [class.card-results--spoiler]="viewMode() === 'spoiler'">
+  @for (card of results(); track card.scryfallId) {
+    <button
+      class="mtg-card-result"
+      type="button"
+      (click)="openContextMenu($event, card)"
+      (mouseenter)="showHoverPreview($event, card)"
+      (mousemove)="moveHoverPreview($event, card)"
+      (mouseleave)="hideHoverPreview()"
+    >
+      <span class="mtg-card-result__media">
+        @if (image(card); as imageUrl) {
+          <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
+        } @else {
+          <span class="card-fallback">{{ card.name }}</span>
+        }
+      </span>
+
+      @if (viewMode() === 'list') {
+        <span class="mtg-card-result__name">{{ card.name }}</span>
+      }
+    </button>
+  }
+</div>
+
+@if (hoverPreview(); as preview) {
+  <div class="card-hover-preview" [style.top.px]="preview.top" [style.left.px]="preview.left">
+    @if (preview.imageUrl) {
+      <img [src]="preview.imageUrl" [alt]="preview.card.name" />
+    } @else {
+      <div class="card-fallback tall">{{ preview.card.name }}</div>
+    }
+  </div>
+}
+
+@if (contextMenu(); as menu) {
+  <div class="card-result-context-menu" [style.top.px]="menu.top" [style.left.px]="menu.left" (click)="$event.stopPropagation()">
+    <button type="button" (click)="selectTodo($event)">
+      TODO
+    </button>
+  </div>
+}

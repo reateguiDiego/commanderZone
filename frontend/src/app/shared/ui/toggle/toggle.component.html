@@ -3,6 +3,7 @@
   class="toggle"
   role="switch"
   [class.is-on]="checked()"
+  [class.toggle--compact]="compact()"
   [attr.aria-checked]="checked()"
   [attr.aria-label]="ariaLabel() || label()"
   [disabled]="disabled()"

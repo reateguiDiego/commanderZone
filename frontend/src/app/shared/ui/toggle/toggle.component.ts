@@ -12,6 +12,7 @@ export class ToggleComponent {
   readonly label = input('');
   readonly description = input('');
   readonly ariaLabel = input<string | null>(null);
+  readonly compact = input(false);
   readonly checkedChange = output<boolean>();
 
   toggle(): void {

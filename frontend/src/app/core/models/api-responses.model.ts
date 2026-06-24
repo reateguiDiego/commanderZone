@@ -16,6 +16,8 @@ export interface DataResponse<T> {
   data: T[];
   page?: number;
   limit?: number;
+  hasMore?: boolean;
+  total?: number;
 }
 
 export interface UserResponse {

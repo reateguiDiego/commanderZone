@@ -675,6 +675,111 @@ paths:
           schema:
             type: string
             enum: [creature, instant, sorcery, artifact, enchantment, planeswalker, land]
+        - name: types
+          in: query
+          description: Comma-separated type filters. Matches any selected type.
+          schema:
+            type: string
+            example: creature,artifact
+        - name: subtypes
+          in: query
+          description: Comma-separated subtype filters. Matches any selected subtype in typeLine.
+          schema:
+            type: string
+            example: elf,druid
+        - name: sets
+          in: query
+          description: Comma-separated Scryfall set codes.
+          schema:
+            type: string
+            example: cmm,ltr
+        - name: rarities
+          in: query
+          description: Comma-separated rarities.
+          schema:
+            type: string
+            enum: [mythic, rare, uncommon, common]
+        - name: colors
+          in: query
+          description: Comma-separated printed color symbols.
+          schema:
+            type: string
+            example: W,U
+        - name: colorMatchMode
+          in: query
+          schema:
+            type: string
+            enum: [all, any, exact]
+            default: any
+        - name: artifact
+          in: query
+          schema:
+            type: boolean
+        - name: multicolor
+          in: query
+          schema:
+            type: boolean
+        - name: land
+          in: query
+          schema:
+            type: boolean
+        - name: oracleTextA
+          in: query
+          schema:
+            type: string
+        - name: oracleTextB
+          in: query
+          schema:
+            type: string
+        - name: oracleTextMode
+          in: query
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - name: manaValueMin
+          in: query
+          schema:
+            type: number
+        - name: manaValueMax
+          in: query
+          schema:
+            type: number
+        - name: manaCost
+          in: query
+          description: Exact mana cost. Inputs such as 2GG, WUBRG, and {R/W} are normalized before matching.
+          schema:
+            type: string
+        - name: powerMin
+          in: query
+          schema:
+            type: number
+        - name: powerMax
+          in: query
+          schema:
+            type: number
+        - name: includeVariablePower
+          in: query
+          schema:
+            type: boolean
+        - name: toughnessMin
+          in: query
+          schema:
+            type: number
+        - name: toughnessMax
+          in: query
+          schema:
+            type: number
+        - name: includeVariableToughness
+          in: query
+          schema:
+            type: boolean
+        - name: formats
+          in: query
+          description: Comma-separated legality formats that must be legal.
+          schema:
+            type: string
+            example: commander,modern
         - name: tokenOnly
           in: query
           description: When true, restricts results to token cards in the local catalog.
@@ -699,7 +804,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data, page, limit]
+                required: [data, page, limit, hasMore, total]
                 properties:
                   data:
                     type: array
@@ -709,8 +814,34 @@ paths:
                     type: integer
                   limit:
                     type: integer
+                  hasMore:
+                    type: boolean
+                    description: True when another page exists for the same filters.
+                  total:
+                    type: integer
+                    minimum: 0
+                    description: Total cards matching the same search filters after playable-card deduplication.
         '400':
           $ref: '#/components/responses/Error'
+  /cards/search/options:
+    get:
+      tags: [Cards]
+      security: []
+      summary: List available advanced card search options.
+      parameters:
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Preferred language tag for display labels derived from localized card print data. Option codes remain stable English filter codes.
+      responses:
+        '200':
+          description: Advanced search option lists derived from the local catalog.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardSearchOptions'
   /cards/languages:
     get:
       tags: [Cards]
@@ -3169,6 +3300,38 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CardFaceStatsEntry'
+    CardSearchOption:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+    CardSearchOptions:
+      type: object
+      required: [types, subtypes, sets, rarities, formats]
+      properties:
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
+        subtypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
+        sets:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
+        rarities:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
+        formats:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
     Card:
       type: object
       description: Card catalog and deck-builder payloads may include fully localized card text. Gameplay projections preserve card identity and gameplay metadata, and localize only imageUris/cardFaces imageUris per viewer language.
@@ -3227,6 +3390,10 @@ components:
         commanderLegal:
           type: boolean
         set:
+          type: [string, 'null']
+        setName:
+          type: [string, 'null']
+        rarity:
           type: [string, 'null']
         collectorNumber:
           type: [string, 'null']
