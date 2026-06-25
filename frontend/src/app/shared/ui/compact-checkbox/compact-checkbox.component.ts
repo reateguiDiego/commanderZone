@@ -13,6 +13,8 @@ export class CompactCheckboxComponent {
   readonly multiline = input(false);
   readonly title = input<string | null>(null);
   readonly name = input<string | null>(null);
+  readonly accentRgb = input<string | null>(null);
+  readonly swatch = input(false);
   readonly checkedChange = output<boolean>();
 
   updateChecked(event: Event): void {

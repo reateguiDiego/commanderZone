@@ -56,7 +56,6 @@ export class AuthApi {
     return this.http.post<PasswordResetRequestResponse>(
       `${API_BASE_URL}/auth/password-reset/request`,
       { email },
-      { context: withoutGlobalLoading() },
     );
   }
 
@@ -64,7 +63,7 @@ export class AuthApi {
     return this.http.post<PasswordResetConfirmResponse>(
       `${API_BASE_URL}/auth/password-reset/confirm`,
       payload,
-      { context: withoutGlobalLoading(), withCredentials: true },
+      { withCredentials: true },
     );
   }
 
@@ -72,7 +71,7 @@ export class AuthApi {
     return this.http.post<EmailVerificationConfirmResponse>(
       `${API_BASE_URL}/auth/email-verification/confirm`,
       payload,
-      { context: withoutGlobalLoading(), withCredentials: true },
+      { withCredentials: true },
     );
   }
 
@@ -95,14 +94,12 @@ export class AuthApi {
   checkEmailAvailability(email: string): Observable<AuthAvailabilityResponse> {
     return this.http.get<AuthAvailabilityResponse>(`${API_BASE_URL}/auth/email-availability`, {
       params: { email },
-      context: withoutGlobalLoading(),
     });
   }
 
   checkDisplayNameAvailability(displayName: string): Observable<AuthAvailabilityResponse> {
     return this.http.get<AuthAvailabilityResponse>(`${API_BASE_URL}/auth/display-name-availability`, {
       params: { displayName },
-      context: withoutGlobalLoading(),
     });
   }
 

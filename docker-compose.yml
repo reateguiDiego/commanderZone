@@ -24,7 +24,7 @@ services:
       MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET:-change-this-mercure-dev-secret-with-at-least-32-chars}
       GAME_WEBSOCKET_PUBLIC_URL: ${GAME_WEBSOCKET_PUBLIC_URL:-ws://127.0.0.1:8081}
       SCRYFALL_USER_AGENT: ${SCRYFALL_USER_AGENT:-CommanderZone/0.1 contact@example.local}
-      SCRYFALL_SYNC_MEMORY_LIMIT: ${SCRYFALL_SYNC_MEMORY_LIMIT:-1024M}
+      SCRYFALL_SYNC_MEMORY_LIMIT: ${SCRYFALL_SYNC_MEMORY_LIMIT:-20G}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$}
     ports:
       - "8000:80"

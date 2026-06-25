@@ -2,6 +2,9 @@
 
 namespace App\Tests\Integration;
 
+use App\Application\Card\CardSearchOptionsRebuilder;
+use App\Application\Card\CardSearchEntryRebuilder;
+
 class CardApiTest extends ApiTestCase
 {
     public function testSearchShowImageAndResolveCards(): void
@@ -332,6 +335,77 @@ class CardApiTest extends ApiTestCase
         );
     }
 
+    public function testSearchExcludesCardsWithoutAnyNonAlchemyLegalFormat(): void
+    {
+        $legal = $this->seedCard('00000000-0000-0000-0000-000000000031', 'Legality Probe Commander', [
+            'type_line' => 'Artifact',
+            'legalities' => ['commander' => 'legal', 'alchemy' => 'not_legal'],
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000032', 'Legality Probe Nowhere', [
+            'type_line' => 'Artifact',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000033', 'Legality Probe Alchemy Only', [
+            'type_line' => 'Artifact',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000034', 'A-Legality Probe Rebalanced', [
+            'type_line' => 'Artifact',
+            'legalities' => ['commander' => 'legal', 'modern' => 'legal'],
+        ]);
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+UPDATE card
+SET legalities = :legalities::json,
+    commander_legal = false
+WHERE scryfall_id = :scryfall_id
+SQL,
+            [
+                'scryfall_id' => '00000000-0000-0000-0000-000000000032',
+                'legalities' => json_encode(array_fill_keys([
+                    'standard',
+                    'future',
+                    'historic',
+                    'timeless',
+                    'gladiator',
+                    'pioneer',
+                    'modern',
+                    'legacy',
+                    'pauper',
+                    'vintage',
+                    'penny',
+                    'commander',
+                    'oathbreaker',
+                    'standardbrawl',
+                    'brawl',
+                    'competitivebrawl',
+                    'alchemy',
+                    'paupercommander',
+                    'duel',
+                    'oldschool',
+                    'premodern',
+                    'predh',
+                    'tlr',
+                ], 'not_legal'), JSON_THROW_ON_ERROR),
+            ],
+        );
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+UPDATE card
+SET legalities = :legalities::json,
+    commander_legal = false
+WHERE scryfall_id = :scryfall_id
+SQL,
+            [
+                'scryfall_id' => '00000000-0000-0000-0000-000000000033',
+                'legalities' => json_encode(['alchemy' => 'legal', 'commander' => 'not_legal', 'modern' => 'not_legal'], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->jsonRequest('GET', '/cards/search?q=legality%20probe&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$legal->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
     public function testAdvancedSearchFiltersTextSetsRarityFormatsManaAndStats(): void
     {
         $match = $this->seedCard('00000000-0000-0000-0000-0000000000a1', 'Advanced Filter Match', [
@@ -365,6 +439,57 @@ class CardApiTest extends ApiTestCase
         self::assertSame([$match->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
         self::assertSame('Advanced Set', $this->jsonResponse()['data'][0]['setName']);
         self::assertSame('rare', $this->jsonResponse()['data'][0]['rarity']);
+    }
+
+    public function testUnqueriedAdvancedSearchUsesMaterializedEntriesForFormatPaginationAndSorting(): void
+    {
+        $lowMana = $this->seedCard('00000000-0000-0000-0000-0000000000d1', 'Entry Search Low', [
+            'mana_cost' => '{1}',
+            'cmc' => 1,
+            'type_line' => 'Artifact',
+            'legalities' => ['legacy' => 'legal', 'commander' => 'legal'],
+        ]);
+        $highMana = $this->seedCard('00000000-0000-0000-0000-0000000000d2', 'Entry Search High', [
+            'mana_cost' => '{6}',
+            'cmc' => 6,
+            'type_line' => 'Artifact',
+            'legalities' => ['legacy' => 'legal', 'commander' => 'legal'],
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d3', 'Entry Search Modern Only', [
+            'mana_cost' => '{2}',
+            'cmc' => 2,
+            'type_line' => 'Artifact',
+            'legalities' => ['modern' => 'legal', 'legacy' => 'not_legal'],
+        ]);
+        static::getContainer()->get(CardSearchEntryRebuilder::class)->rebuild();
+
+        $this->jsonRequest('GET', '/cards/search?q=&page=1&limit=20&lang=en&sort=mana_value_desc&formats=legacy');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(2, $this->jsonResponse()['total']);
+        self::assertSame(
+            [$highMana->scryfallId(), $lowMana->scryfallId()],
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
+    }
+
+    public function testUnqueriedAdvancedSearchUsesMaterializedEntriesWithTypeFilters(): void
+    {
+        $artifact = $this->seedCard('00000000-0000-0000-0000-0000000000d4', 'Entry Search Artifact', [
+            'type_line' => 'Artifact',
+            'legalities' => ['legacy' => 'legal', 'commander' => 'legal'],
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000d5', 'Entry Search Creature', [
+            'type_line' => 'Creature - Elf',
+            'legalities' => ['legacy' => 'legal', 'commander' => 'legal'],
+        ]);
+        static::getContainer()->get(CardSearchEntryRebuilder::class)->rebuild();
+
+        $this->jsonRequest('GET', '/cards/search?q=&page=1&limit=20&lang=en&sort=name_asc&types=artifact');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $this->jsonResponse()['total']);
+        self::assertSame([$artifact->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
     }
 
     public function testAdvancedSearchOracleTextMatchesLocalizedRulesTextAcrossLanguages(): void
@@ -511,6 +636,57 @@ SQL,
         self::assertSame([$variable->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
     }
 
+    public function testAdvancedSearchTypeModifiersRequireBasicAndLegendaryTypeLine(): void
+    {
+        $match = $this->seedCard('00000000-0000-0000-0000-0000000000ba', 'Legendary Basic Test Land', [
+            'type_line' => 'Legendary Basic Land - Plains',
+            'mana_cost' => '',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000bb', 'Basic Test Land', [
+            'type_line' => 'Basic Land - Plains',
+            'mana_cost' => '',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000bc', 'Legendary Test Land', [
+            'type_line' => 'Legendary Land',
+            'mana_cost' => '',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?types=land&basic=true&legendary=true&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$match->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
+    public function testSearchSortsResultsByRequestedOrder(): void
+    {
+        $highMana = $this->seedCard('00000000-0000-0000-0000-0000000000bd', 'Sort Probe High', [
+            'mana_cost' => '{6}',
+            'cmc' => 6,
+            'type_line' => 'Artifact',
+        ]);
+        $lowMana = $this->seedCard('00000000-0000-0000-0000-0000000000be', 'Sort Probe Low', [
+            'mana_cost' => '{1}',
+            'cmc' => 1,
+            'type_line' => 'Artifact',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=sort%20probe&sort=mana_value_desc&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            [$highMana->scryfallId(), $lowMana->scryfallId()],
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
+
+        $this->jsonRequest('GET', '/cards/search?q=sort%20probe&sort=name_desc&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            [$lowMana->scryfallId(), $highMana->scryfallId()],
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
+    }
+
     public function testAdvancedSearchOptionsExposeCatalogValues(): void
     {
         $card = $this->seedCard('00000000-0000-0000-0000-0000000000a8', 'Options Elf', [
@@ -529,6 +705,7 @@ INSERT INTO card_print_locale (
     mana_cost,
     type_line,
     oracle_text,
+    set_name,
     image_uris,
     card_faces,
     image_status,
@@ -541,6 +718,7 @@ INSERT INTO card_print_locale (
     '{1}',
     'Criatura - Elfo Druida',
     '',
+    'Coleccion de opciones',
     '{}',
     '[]',
     NULL,
@@ -550,10 +728,12 @@ ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
     name = EXCLUDED.name,
     printed_name = EXCLUDED.printed_name,
     type_line = EXCLUDED.type_line,
+    set_name = EXCLUDED.set_name,
     updated_at = NOW()
 SQL,
             ['print_scryfall_id' => $card->scryfallId()],
         );
+        static::getContainer()->get(CardSearchOptionsRebuilder::class)->rebuild();
 
         $this->jsonRequest('GET', '/cards/search/options?lang=es');
 
@@ -566,6 +746,171 @@ SQL,
         self::assertContains('commander', array_column($response['formats'], 'code'));
         self::assertSame('Criatura', $this->optionName($response['types'], 'creature'));
         self::assertSame('Elfo', $this->optionName($response['subtypes'], 'elf'));
+        self::assertSame('Coleccion de opciones', $this->optionName($response['sets'], 'opt'));
+        self::assertSame(1, $this->optionCardCount($response['sets'], 'opt'));
+    }
+
+    public function testAdvancedSearchOptionsPreferLocalizedSubtypeNamesWhenFallbackWasSeenFirst(): void
+    {
+        $this->seedCard('00000000-0000-0000-0000-0000000000aa', 'Fallback Beast', [
+            'type_line' => 'Creature - Beast',
+            'set' => 'opt',
+            'collector_number' => '10',
+        ]);
+        $localized = $this->seedCard('00000000-0000-0000-0000-0000000000ab', 'Localized Beast', [
+            'type_line' => 'Creature - Beast',
+            'set' => 'opt',
+            'collector_number' => '11',
+        ]);
+        $sibling = $this->seedCard('00000000-0000-0000-0000-0000000000ac', 'Sibling Wizard', [
+            'type_line' => 'Creature - Wizard',
+            'set' => 'sib',
+            'collector_number' => '7',
+        ]);
+
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print (
+    scryfall_id,
+    normalized_name,
+    set_code,
+    collector_number,
+    default_name,
+    default_lang,
+    default_set_name,
+    default_mana_cost,
+    default_type_line,
+    default_oracle_text,
+    default_image_uris,
+    default_card_faces,
+    layout,
+    commander_legal,
+    updated_at
+) VALUES (
+    '00000000-0000-0000-0000-0000000000ad',
+    'sibling wizard',
+    'sib',
+    '7',
+    'Sibling Wizard',
+    'en',
+    'Sibling Set',
+    '{1}',
+    'Creature - Wizard',
+    '',
+    '{}',
+    '[]',
+    'normal',
+    true,
+    NOW()
+)
+ON CONFLICT (scryfall_id) DO NOTHING
+SQL,
+        );
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print_locale (
+    print_scryfall_id,
+    lang,
+    name,
+    printed_name,
+    mana_cost,
+    type_line,
+    oracle_text,
+    set_name,
+    image_uris,
+    card_faces,
+    image_status,
+    updated_at
+) VALUES
+    (:localized_print_scryfall_id, 'es', 'Bestia localizada', 'Bestia localizada', '{1}', 'Criatura - Bestia', '','Options Set', '{}', '[]', NULL, NOW()),
+    (:sibling_print_scryfall_id, 'es', 'Mago hermano', 'Mago hermano', '{1}', 'Criatura - Mago', '', 'Coleccion hermana', '{}', '[]', NULL, NOW())
+ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
+    name = EXCLUDED.name,
+    printed_name = EXCLUDED.printed_name,
+    type_line = EXCLUDED.type_line,
+    set_name = EXCLUDED.set_name,
+    updated_at = NOW()
+SQL,
+            [
+                'localized_print_scryfall_id' => $localized->scryfallId(),
+                'sibling_print_scryfall_id' => $sibling->scryfallId(),
+            ],
+        );
+        static::getContainer()->get(CardSearchOptionsRebuilder::class)->rebuild();
+
+        $this->jsonRequest('GET', '/cards/search/options?lang=es');
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame('Bestia', $this->optionName($response['subtypes'], 'beast'));
+        self::assertSame('Mago', $this->optionName($response['subtypes'], 'wizard'));
+    }
+
+    public function testAdvancedSearchOptionsSetCountsExcludeNonPlayableCatalogRows(): void
+    {
+        $this->seedCard('00000000-0000-0000-0000-0000000000b1', 'Playable Counted', [
+            'type_line' => 'Creature - Elf',
+            'set' => 'cnt',
+            'set_name' => 'Counted Set',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000b2', 'Ignored Token', [
+            'type_line' => 'Token Creature - Elf',
+            'layout' => 'token',
+            'set' => 'cnt',
+            'set_name' => 'Counted Set',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000b3', 'Ignored Emblem', [
+            'type_line' => 'Emblem',
+            'layout' => 'emblem',
+            'set' => 'cnt',
+            'set_name' => 'Counted Set',
+        ]);
+        static::getContainer()->get(CardSearchOptionsRebuilder::class)->rebuild();
+
+        $this->jsonRequest('GET', '/cards/search/options?lang=en');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $this->optionCardCount($this->jsonResponse()['sets'], 'cnt'));
+    }
+
+    public function testAdvancedSearchOptionsSortLabelsIgnoringAccents(): void
+    {
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_search_option (kind, code, lang, label, card_count, sort_order, updated_at) VALUES
+    ('type', 't-a', 'en', 'Abe', NULL, 0, NOW()),
+    ('type', 't-a', 'es', 'Abeja', NULL, 0, NOW()),
+    ('type', 't-accent', 'en', 'Angel', NULL, 0, NOW()),
+    ('type', 't-accent', 'es', 'Ángel', NULL, 0, NOW()),
+    ('type', 't-b', 'en', 'Bison', NULL, 0, NOW()),
+    ('type', 't-b', 'es', 'Bisonte', NULL, 0, NOW()),
+    ('subtype', 's-a', 'en', 'Arachnid', NULL, 0, NOW()),
+    ('subtype', 's-a', 'es', 'Araña', NULL, 0, NOW()),
+    ('subtype', 's-accent', 'en', 'Treefolk', NULL, 0, NOW()),
+    ('subtype', 's-accent', 'es', 'Árbol', NULL, 0, NOW()),
+    ('subtype', 's-b', 'en', 'Beast', NULL, 0, NOW()),
+    ('subtype', 's-b', 'es', 'Bestia', NULL, 0, NOW())
+SQL,
+        );
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_search_set_option (code, lang, label, card_count, updated_at) VALUES
+    ('set-a', 'en', 'A Set', 1, NOW()),
+    ('set-a', 'es', 'Amonkhet', 1, NOW()),
+    ('set-accent', 'en', 'Accent Set', 1, NOW()),
+    ('set-accent', 'es', 'Álbum Promocional', 1, NOW()),
+    ('set-b', 'en', 'B Set', 1, NOW()),
+    ('set-b', 'es', 'Bloomburrow', 1, NOW())
+SQL,
+        );
+
+        $this->jsonRequest('GET', '/cards/search/options?lang=es');
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame(['t-a', 't-accent', 't-b'], array_column($response['types'], 'code'));
+        self::assertSame(['s-a', 's-accent', 's-b'], array_column($response['subtypes'], 'code'));
+        self::assertSame(['set-accent', 'set-a', 'set-b'], array_column($response['sets'], 'code'));
     }
 
     public function testAdvancedSearchOptionsRejectInvalidLanguage(): void
@@ -585,6 +930,10 @@ SQL,
         $this->jsonRequest('GET', '/cards/search?formats=alchemy');
         self::assertResponseStatusCodeSame(400);
         self::assertSame('formats filter is invalid.', $this->jsonResponse()['error']);
+
+        $this->jsonRequest('GET', '/cards/search?sort=sideways');
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('sort filter is invalid.', $this->jsonResponse()['error']);
     }
 
     public function testSearchDeduplicatesPrintingsByNameTypeAndManaCost(): void
@@ -834,13 +1183,27 @@ SQL,
     }
 
     /**
-     * @param list<array{code:string,name:string}> $options
+     * @param list<array{code:string,name:string,cardCount?:int}> $options
      */
     private function optionName(array $options, string $code): ?string
     {
         foreach ($options as $option) {
             if (($option['code'] ?? null) === $code) {
                 return $option['name'] ?? null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<array{code:string,name:string,cardCount?:int}> $options
+     */
+    private function optionCardCount(array $options, string $code): ?int
+    {
+        foreach ($options as $option) {
+            if (($option['code'] ?? null) === $code) {
+                return isset($option['cardCount']) ? (int) $option['cardCount'] : null;
             }
         }
 

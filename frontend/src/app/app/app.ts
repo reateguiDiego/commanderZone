@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, Injector, PLATFORM_ID, computed, in
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthStore } from '../core/auth/auth.store';
+import { GlobalLoadingFeaturePolicy } from '../core/loading/global-loading-feature-policy.service';
 import { LoadingStore } from '../core/loading/loading.store';
 import { findSeoRouteByPath } from '../core/localization/seo-routes';
 import { CookieConsentBannerComponent } from '../core/privacy/cookie-consent-banner/cookie-consent-banner.component';
@@ -34,13 +35,19 @@ export class App {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly theme = inject(AppThemeService);
   private readonly routeStyles = inject(RouteStylesService);
+  private readonly globalLoadingFeaturePolicy = inject(GlobalLoadingFeaturePolicy);
   readonly loading = inject(LoadingStore);
   private readonly currentPath = signal(this.initialPath());
   private readonly navigationLoading = signal(this.shouldShowInitialNavigationLoading(this.currentPath()));
   readonly showDisclaimer = computed(() => !this.isDisclaimerHiddenPath(this.currentPath()));
   readonly showNoindexDisclaimer = computed(() => this.isNoindexFooterDisclaimerPath(this.currentPath()));
   readonly showGlobalLoading = computed(
-    () => (this.loading.active() || this.navigationLoading()) && !this.isSeoLandingPath(this.currentPath()),
+    () => this.navigationLoading()
+      || (
+        this.loading.active()
+        && !this.isSeoLandingPath(this.currentPath())
+        && !this.globalLoadingFeaturePolicy.skipsFeatureForUrl(this.currentPath())
+      ),
   );
   readonly showFooterDisclaimer = computed(() => this.showDisclaimer() && !this.showGlobalLoading());
   readonly showNoindexFooterDisclaimer = computed(() => this.showNoindexDisclaimer() && !this.showGlobalLoading());

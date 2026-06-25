@@ -22,6 +22,13 @@
   gap: 0.34rem;
 }
 
+.card-results--list-columns {
+  grid-auto-flow: column;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(10, minmax(3.72rem, auto));
+  column-gap: 0.58rem;
+}
+
 .mtg-card-result {
   position: relative;
   display: grid;
@@ -69,6 +76,7 @@
 .mtg-card-result__media {
   display: block;
   width: 3rem;
+  overflow: visible;
 }
 
 .mtg-card-result img,
@@ -82,20 +90,41 @@
   box-shadow: 0 8px 18px rgb(var(--cz-bg-rgb) / 26%);
 }
 
+.mtg-card-result .card-image--battle {
+  transform: rotate(90deg) scale(0.68);
+  transform-origin: center;
+}
+
 .mtg-card-result:hover img,
 .mtg-card-result:hover .card-fallback {
   border-color: rgb(var(--cz-primary-rgb) / 42%);
 }
 
+.card-results--menu-open .mtg-card-result:hover {
+  border-color: rgb(var(--cz-primary-rgb) / 18%);
+  background:
+    linear-gradient(180deg, rgb(var(--cz-surface-rgb) / 64%), rgb(var(--cz-bg-rgb) / 74%)),
+    var(--cz-bg);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%);
+  transform: none;
+}
+
+.card-results--menu-open .mtg-card-result:hover img,
+.card-results--menu-open .mtg-card-result:hover .card-fallback {
+  border-color: rgb(var(--cz-primary-rgb) / 18%);
+}
+
 .mtg-card-result__name {
+  display: -webkit-box;
   min-width: 0;
   overflow: hidden;
   color: var(--cz-text);
   font-size: 0.92rem;
   font-weight: 900;
   line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 
 .card-fallback {
@@ -111,8 +140,8 @@
 }
 
 .card-results--spoiler {
-  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  gap: 0.78rem;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.95rem;
 }
 
 .card-results--spoiler .mtg-card-result {
@@ -136,9 +165,13 @@
   width: 100%;
 }
 
+.card-results--spoiler .card-image--battle {
+  transform: rotate(90deg) scale(0.74);
+}
+
 .card-results--spoiler img,
 .card-results--spoiler .card-fallback {
-  border-radius: 9px;
+  border-radius: 20px;
   box-shadow:
     0 18px 36px rgb(0 0 0 / 26%),
     0 0 0 1px rgb(var(--cz-text-rgb) / 8%);
@@ -151,9 +184,9 @@
 }
 
 .card-hover-preview {
-  width: 17.5rem;
+  width: min(22.5rem, calc(100vw - 1.5rem));
   border-radius: 12px;
-  filter: drop-shadow(0 18px 30px rgb(var(--cz-bg-rgb) / 42%));
+  filter: drop-shadow(0 22px 38px rgb(var(--cz-bg-rgb) / 46%));
   pointer-events: none;
   perspective: 900px;
 }
@@ -167,11 +200,17 @@
   transform-style: preserve-3d;
 }
 
+.card-hover-preview .card-image--battle {
+  transform: rotate(90deg) scale(0.9);
+  transform-origin: center;
+}
+
 .card-hover-preview .card-fallback {
-  min-height: 24rem;
+  min-height: 31.35rem;
 }
 
 .card-result-context-menu {
+  width: min(12rem, calc(100vw - 1.5rem));
   min-width: 12rem;
   border: 1px solid rgb(var(--cz-primary-rgb) / 26%);
   border-radius: 8px;
@@ -182,6 +221,18 @@
   box-shadow:
     0 18px 42px rgb(0 0 0 / 28%),
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 7%);
+}
+
+.card-result-context-menu__title {
+  overflow: hidden;
+  border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 18%);
+  padding: 0.44rem 0.58rem 0.5rem;
+  color: var(--cz-accent);
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-result-context-menu button {
@@ -208,12 +259,24 @@
   outline: none;
 }
 
-@media (max-width: 620px) {
+@media (max-width: 921px) {
+  .card-results--list-columns {
+    grid-auto-flow: row;
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+
   .card-results--spoiler {
-    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
   }
 
   .card-hover-preview {
     display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .card-results--spoiler {
+    grid-template-columns: repeat(auto-fill, minmax(11.2rem, 1fr));
   }
 }

@@ -8,76 +8,17 @@ use Doctrine\ORM\EntityManagerInterface;
 
 final class CardSearchOptionsProvider
 {
-    /**
-     * Scryfall localized print rows in the current local catalog can keep type_line
-     * in English, so base card types need a small UI label fallback.
-     *
-     * @var array<string,array<string,string>>
-     */
-    private const LOCALIZED_TYPE_NAMES = [
-        'es' => [
-            'artifact' => 'Artefacto',
-            'battle' => 'Batalla',
-            'creature' => 'Criatura',
-            'enchantment' => 'Encantamiento',
-            'instant' => 'Instantaneo',
-            'land' => 'Tierra',
-            'planeswalker' => 'Planeswalker',
-            'sorcery' => 'Conjuro',
-        ],
-        'fr' => [
-            'artifact' => 'Artefact',
-            'battle' => 'Bataille',
-            'creature' => 'Creature',
-            'enchantment' => 'Enchantement',
-            'instant' => 'Ephémere',
-            'land' => 'Terrain',
-            'planeswalker' => 'Planeswalker',
-            'sorcery' => 'Rituel',
-        ],
-        'de' => [
-            'artifact' => 'Artefakt',
-            'battle' => 'Schlacht',
-            'creature' => 'Kreatur',
-            'enchantment' => 'Verzauberung',
-            'instant' => 'Spontanzauber',
-            'land' => 'Land',
-            'planeswalker' => 'Planeswalker',
-            'sorcery' => 'Hexerei',
-        ],
-        'it' => [
-            'artifact' => 'Artefatto',
-            'battle' => 'Battaglia',
-            'creature' => 'Creatura',
-            'enchantment' => 'Incantesimo',
-            'instant' => 'Istantaneo',
-            'land' => 'Terra',
-            'planeswalker' => 'Planeswalker',
-            'sorcery' => 'Stregoneria',
-        ],
-        'pt' => [
-            'artifact' => 'Artefato',
-            'battle' => 'Batalha',
-            'creature' => 'Criatura',
-            'enchantment' => 'Encantamento',
-            'instant' => 'Mágica Instantânea',
-            'land' => 'Terreno',
-            'planeswalker' => 'Planeswalker',
-            'sorcery' => 'Feitiço',
-        ],
-    ];
-
     public function __construct(private readonly EntityManagerInterface $entityManager)
     {
     }
 
     /**
      * @return array{
-     *   types:list<array{code:string,name:string}>,
-     *   subtypes:list<array{code:string,name:string}>,
-     *   sets:list<array{code:string,name:string}>,
-     *   rarities:list<array{code:string,name:string}>,
-     *   formats:list<array{code:string,name:string}>
+     *   types:list<array{code:string,name:string,aliases?:list<string>,cardCount?:int}>,
+     *   subtypes:list<array{code:string,name:string,aliases?:list<string>,cardCount?:int}>,
+     *   sets:list<array{code:string,name:string,aliases?:list<string>,cardCount?:int}>,
+     *   rarities:list<array{code:string,name:string,aliases?:list<string>,cardCount?:int}>,
+     *   formats:list<array{code:string,name:string,aliases?:list<string>,cardCount?:int}>
      * }
      */
     public function options(?string $language): array
@@ -85,253 +26,179 @@ final class CardSearchOptionsProvider
         $connection = $this->entityManager->getConnection();
         $requestedLanguage = LanguageCatalog::normalize($language) ?? LanguageCatalog::DEFAULT_LANGUAGE;
 
-        [$typeNames, $subtypes] = $this->typeAndSubtypeOptions($connection, $requestedLanguage);
-
         return [
-            'types' => array_map(
-                fn (string $type): array => [
-                    'code' => $type,
-                    'name' => $this->localizedTypeName($type, $requestedLanguage, $typeNames),
-                ],
-                CardSearchFilterBuilder::TYPES,
-            ),
-            'subtypes' => $this->sortedOptions($subtypes),
-            'sets' => $this->setOptions($connection),
-            'rarities' => $this->rarityOptions(),
-            'formats' => CardSearchFilterBuilder::formatOptions(),
+            'types' => $this->optionRows($connection, 'type', $requestedLanguage),
+            'subtypes' => $this->optionRows($connection, 'subtype', $requestedLanguage),
+            'sets' => $this->setRows($connection, $requestedLanguage),
+            'rarities' => $this->optionRows($connection, 'rarity', $requestedLanguage),
+            'formats' => $this->optionRows($connection, 'format', $requestedLanguage),
         ];
     }
 
     /**
-     * @param array<string,string> $catalogTypeNames
+     * @return list<array{code:string,name:string,aliases?:list<string>,cardCount?:int}>
      */
-    private function localizedTypeName(string $type, string $language, array $catalogTypeNames): string
+    private function optionRows(Connection $connection, string $kind, string $language): array
     {
-        return self::LOCALIZED_TYPE_NAMES[$language][$type]
-            ?? $catalogTypeNames[$type]
-            ?? ucfirst($type);
-    }
-
-    /**
-     * @return list<array{code:string,name:string}>
-     */
-    private function setOptions(Connection $connection): array
-    {
-        $sets = $connection->fetchAllAssociative(<<<'SQL'
-SELECT LOWER(set_code) AS code, COALESCE(MAX(set_name), UPPER(MAX(set_code))) AS name
-FROM card
-WHERE set_code IS NOT NULL AND set_code <> ''
-GROUP BY LOWER(set_code)
-ORDER BY name ASC
-SQL);
-
-        return array_map(
-            static fn (array $set): array => [
-                'code' => (string) ($set['code'] ?? ''),
-                'name' => (string) ($set['name'] ?? $set['code'] ?? ''),
-            ],
-            $sets,
-        );
-    }
-
-    /**
-     * @return list<array{code:string,name:string}>
-     */
-    private function rarityOptions(): array
-    {
-        return array_map(
-            static fn (string $rarity): array => ['code' => $rarity, 'name' => ucfirst($rarity)],
-            CardSearchFilterBuilder::RARITIES,
-        );
-    }
-
-    /**
-     * @return array{0:array<string,string>,1:array<string,string>}
-     */
-    private function typeAndSubtypeOptions(Connection $connection, string $language): array
-    {
-        $localizedTypeLineSql = $this->localizedTypeLineSql($connection, $language);
-        $params = str_contains($localizedTypeLineSql, ':optionLang') ? ['optionLang' => $language] : [];
         $rows = $connection->fetchAllAssociative(
-            <<<SQL
+            <<<'SQL'
 SELECT
-    c.type_line AS default_type_line,
-    {$localizedTypeLineSql} AS localized_type_line
-FROM card c
-WHERE c.type_line IS NOT NULL AND c.type_line <> ''
+    fallback.code,
+    COALESCE(localized.label, fallback.label) AS name,
+    COALESCE(localized.card_count, fallback.card_count) AS card_count,
+    COALESCE((
+        SELECT json_agg(DISTINCT alias.label)
+        FROM card_search_option alias
+        WHERE alias.kind = fallback.kind
+          AND alias.code = fallback.code
+          AND alias.label <> COALESCE(localized.label, fallback.label)
+    ), '[]'::json) AS aliases
+FROM card_search_option fallback
+LEFT JOIN card_search_option localized
+    ON localized.kind = fallback.kind
+   AND localized.code = fallback.code
+   AND localized.lang = :lang
+WHERE fallback.kind = :kind
+  AND fallback.lang = 'en'
+ORDER BY fallback.sort_order ASC, COALESCE(localized.label, fallback.label) ASC, fallback.code ASC
 SQL,
-            $params,
+            [
+                'kind' => $kind,
+                'lang' => $language,
+            ],
         );
 
-        $typeNames = [];
-        $subtypes = [];
-        foreach ($rows as $row) {
-            $defaultTypeLine = $this->stringValue($row['default_type_line'] ?? null);
-            if ($defaultTypeLine === null) {
-                continue;
-            }
-
-            $localizedTypeLine = $this->stringValue($row['localized_type_line'] ?? null) ?? $defaultTypeLine;
-            $this->collectTypeNames($defaultTypeLine, $localizedTypeLine, $typeNames);
-            $this->collectSubtypeNames($defaultTypeLine, $localizedTypeLine, $subtypes);
+        $options = array_values(array_filter(array_map($this->mapOption(...), $rows)));
+        if ($kind === 'type' || $kind === 'subtype') {
+            $this->sortOptionsByNormalizedName($options);
         }
 
-        return [$typeNames, $subtypes];
-    }
-
-    private function localizedTypeLineSql(Connection $connection, string $language): string
-    {
-        if ($language === LanguageCatalog::DEFAULT_LANGUAGE || !$this->printLocaleTableAvailable($connection)) {
-            return 'c.type_line';
-        }
-
-        return <<<'SQL'
-COALESCE(
-    (
-        SELECT locale.type_line
-        FROM card_print_locale locale
-        WHERE locale.print_scryfall_id = c.scryfall_id
-          AND locale.lang = :optionLang
-          AND locale.type_line IS NOT NULL
-          AND locale.type_line <> ''
-        LIMIT 1
-    ),
-    c.type_line
-)
-SQL;
-    }
-
-    private function printLocaleTableAvailable(Connection $connection): bool
-    {
-        try {
-            $table = $connection->fetchOne("SELECT to_regclass('public.card_print_locale')");
-
-            return is_string($table) && $table !== '';
-        } catch (\Throwable) {
-            return false;
-        }
+        return $options;
     }
 
     /**
-     * @param array<string,string> $typeNames
+     * @return list<array{code:string,name:string,aliases?:list<string>,cardCount?:int}>
      */
-    private function collectTypeNames(string $defaultTypeLine, string $localizedTypeLine, array &$typeNames): void
+    private function setRows(Connection $connection, string $language): array
     {
-        foreach ($this->facePairs($defaultTypeLine, $localizedTypeLine) as [$defaultFace, $localizedFace]) {
-            [$defaultBase] = $this->splitTypeLine($defaultFace);
-            [$localizedBase] = $this->splitTypeLine($localizedFace);
-            $code = mb_strtolower(trim($defaultBase));
-            if (!in_array($code, CardSearchFilterBuilder::TYPES, true) || isset($typeNames[$code])) {
-                continue;
-            }
+        $rows = $connection->fetchAllAssociative(
+            <<<'SQL'
+SELECT
+    fallback.code,
+    COALESCE(localized.label, fallback.label) AS name,
+    fallback.card_count,
+    COALESCE((
+        SELECT json_agg(DISTINCT alias.label)
+        FROM card_search_set_option alias
+        WHERE alias.code = fallback.code
+          AND alias.label <> COALESCE(localized.label, fallback.label)
+    ), '[]'::json) AS aliases
+FROM card_search_set_option fallback
+LEFT JOIN card_search_set_option localized
+    ON localized.code = fallback.code
+   AND localized.lang = :lang
+WHERE fallback.lang = 'en'
+ORDER BY COALESCE(localized.label, fallback.label) ASC, fallback.code ASC
+SQL,
+            [
+                'lang' => $language,
+            ],
+        );
 
-            $name = trim($localizedBase);
-            if ($name !== '') {
-                $typeNames[$code] = $name;
-            }
-        }
+        $options = array_values(array_filter(array_map($this->mapOption(...), $rows)));
+        $this->sortOptionsByNormalizedName($options);
+
+        return $options;
     }
 
     /**
-     * @param array<string,string> $subtypes
+     * @param array<string,mixed> $row
+     *
+     * @return array{code:string,name:string,aliases?:list<string>,cardCount?:int}|null
      */
-    private function collectSubtypeNames(string $defaultTypeLine, string $localizedTypeLine, array &$subtypes): void
+    private function mapOption(array $row): ?array
     {
-        foreach ($this->facePairs($defaultTypeLine, $localizedTypeLine) as [$defaultFace, $localizedFace]) {
-            [, $defaultSubtypeLine] = $this->splitTypeLine($defaultFace);
-            [, $localizedSubtypeLine] = $this->splitTypeLine($localizedFace);
-            if ($defaultSubtypeLine === null) {
-                continue;
-            }
-
-            $defaultSubtypes = $this->subtypeTokens($defaultSubtypeLine);
-            $localizedSubtypes = $localizedSubtypeLine !== null ? $this->subtypeTokens($localizedSubtypeLine) : [];
-            foreach ($defaultSubtypes as $index => $subtype) {
-                $code = mb_strtolower($subtype);
-                $subtypes[$code] ??= $localizedSubtypes[$index] ?? $subtype;
-            }
-        }
-    }
-
-    /**
-     * @return list<array{0:string,1:string}>
-     */
-    private function facePairs(string $defaultTypeLine, string $localizedTypeLine): array
-    {
-        $defaultFaces = preg_split('/\s+\/\/\s+/u', $defaultTypeLine) ?: [];
-        $localizedFaces = preg_split('/\s+\/\/\s+/u', $localizedTypeLine) ?: [];
-        $pairs = [];
-        foreach ($defaultFaces as $index => $defaultFace) {
-            if (!is_string($defaultFace)) {
-                continue;
-            }
-
-            $localizedFace = $localizedFaces[$index] ?? $defaultFace;
-            $pairs[] = [$defaultFace, is_string($localizedFace) ? $localizedFace : $defaultFace];
+        $code = trim((string) ($row['code'] ?? ''));
+        $name = trim((string) ($row['name'] ?? ''));
+        if ($code === '' || $name === '') {
+            return null;
         }
 
-        return $pairs;
-    }
-
-    /**
-     * @return array{0:string,1:?string}
-     */
-    private function splitTypeLine(string $typeLine): array
-    {
-        if (preg_match('/\s+(?:-|\x{2014})\s+/u', $typeLine) !== 1) {
-            return [trim($typeLine), null];
+        $option = [
+            'code' => $code,
+            'name' => $name,
+        ];
+        $aliases = $this->aliases($row['aliases'] ?? null);
+        if ($aliases !== []) {
+            $option['aliases'] = $aliases;
+        }
+        if ($row['card_count'] !== null) {
+            $option['cardCount'] = (int) $row['card_count'];
         }
 
-        $parts = preg_split('/\s+(?:-|\x{2014})\s+/u', $typeLine, 2);
-
-        return [trim((string) ($parts[0] ?? '')), trim((string) ($parts[1] ?? '')) ?: null];
+        return $option;
     }
 
     /**
      * @return list<string>
      */
-    private function subtypeTokens(string $subtypeLine): array
+    private function aliases(mixed $value): array
     {
-        $tokens = [];
-        foreach (preg_split('/\s+/', trim($subtypeLine)) ?: [] as $subtype) {
-            if (!is_string($subtype)) {
-                continue;
-            }
-
-            $cleanSubtype = trim($subtype, " \t\n\r\0\x0B,.;:?!\"'");
-            if ($cleanSubtype === '' || str_contains($cleanSubtype, '/')) {
-                continue;
-            }
-
-            $tokens[] = $cleanSubtype;
+        if (!is_string($value) || $value === '') {
+            return [];
         }
 
-        return $tokens;
+        $decoded = json_decode($value, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn (mixed $alias): string => is_scalar($alias) ? trim((string) $alias) : '', $decoded),
+            static fn (string $alias): bool => $alias !== '',
+        )));
     }
 
     /**
-     * @param array<string,string> $options
-     * @return list<array{code:string,name:string}>
+     * @param list<array{code:string,name:string,aliases?:list<string>,cardCount?:int}> $options
      */
-    private function sortedOptions(array $options): array
+    private function sortOptionsByNormalizedName(array &$options): void
     {
-        uasort($options, static fn (string $left, string $right): int => strcasecmp($left, $right));
-
-        return array_map(
-            static fn (string $code, string $name): array => ['code' => $code, 'name' => $name],
-            array_keys($options),
-            array_values($options),
-        );
+        usort($options, fn (array $left, array $right): int => [
+            $this->normalizedSortKey($left['name']),
+            $left['code'],
+        ] <=> [
+            $this->normalizedSortKey($right['name']),
+            $right['code'],
+        ]);
     }
 
-    private function stringValue(mixed $value): ?string
+    private function normalizedSortKey(string $value): string
     {
-        if (!is_scalar($value)) {
-            return null;
+        $normalized = trim($value);
+        if (class_exists(\Normalizer::class)) {
+            $decomposed = \Normalizer::normalize($normalized, \Normalizer::FORM_D);
+            if (is_string($decomposed)) {
+                $normalized = preg_replace('/\p{Mn}+/u', '', $decomposed) ?? $decomposed;
+            }
         }
 
-        $stringValue = trim((string) $value);
+        $normalized = strtr($normalized, [
+            'Á' => 'A', 'À' => 'A', 'Â' => 'A', 'Ä' => 'A', 'Ã' => 'A', 'Å' => 'A', 'Ā' => 'A',
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ä' => 'a', 'ã' => 'a', 'å' => 'a', 'ā' => 'a',
+            'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E', 'Ē' => 'E',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e', 'ē' => 'e',
+            'Í' => 'I', 'Ì' => 'I', 'Î' => 'I', 'Ï' => 'I', 'Ī' => 'I',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i', 'ī' => 'i',
+            'Ó' => 'O', 'Ò' => 'O', 'Ô' => 'O', 'Ö' => 'O', 'Õ' => 'O', 'Ø' => 'O', 'Ō' => 'O',
+            'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'ö' => 'o', 'õ' => 'o', 'ø' => 'o', 'ō' => 'o',
+            'Ú' => 'U', 'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U', 'Ū' => 'U',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u', 'ū' => 'u',
+            'Ñ' => 'N', 'ñ' => 'n', 'Ç' => 'C', 'ç' => 'c',
+            'Ý' => 'Y', 'Ÿ' => 'Y', 'ý' => 'y', 'ÿ' => 'y',
+            'Æ' => 'AE', 'æ' => 'ae', 'Œ' => 'OE', 'œ' => 'oe',
+        ]);
 
-        return $stringValue === '' ? null : $stringValue;
+        return strtolower($normalized);
     }
 }

@@ -7,12 +7,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1rem;
+  gap: var(--toggle-gap, 1rem);
   width: 100%;
-  min-height: 3.1rem;
+  min-height: var(--toggle-min-height, 3.1rem);
   border: 1px solid transparent;
-  border-radius: 12px;
-  padding: 0.68rem 0;
+  border-radius: var(--toggle-radius, 12px);
+  padding: var(--toggle-padding, 0.68rem 0);
   background: transparent;
   color: var(--cz-text);
   font: inherit;
@@ -28,14 +28,14 @@
 
 .toggle-label {
   color: var(--cz-text);
-  font-size: 0.95rem;
+  font-size: var(--toggle-label-font-size, 0.95rem);
   font-weight: 850;
   line-height: 1.18;
 }
 
 .toggle-description {
-  color: var(--cz-info);
-  font-size: 0.86rem;
+  color: var(--toggle-description-color, var(--cz-info));
+  font-size: var(--toggle-description-font-size, 0.86rem);
   font-weight: 620;
   line-height: 1.32;
 }
@@ -44,9 +44,9 @@
   position: relative;
   display: block;
   flex: 0 0 auto;
-  width: 3.6rem;
-  height: 2rem;
-  border: 2px solid rgb(var(--cz-primary-rgb) / 54%);
+  width: var(--toggle-switch-width, 3.6rem);
+  height: var(--toggle-switch-height, 2rem);
+  border: var(--toggle-switch-border-width, 2px) solid rgb(var(--cz-primary-rgb) / 54%);
   border-radius: 999px;
   background:
     linear-gradient(180deg, rgb(var(--cz-text-rgb) / 6%), rgb(var(--cz-bg-rgb) / 16%)),
@@ -63,9 +63,9 @@
 .toggle-thumb {
   position: absolute;
   top: 50%;
-  left: 0.22rem;
-  width: 1.42rem;
-  height: 1.42rem;
+  left: var(--toggle-thumb-left, 0.22rem);
+  width: var(--toggle-thumb-size, 1.42rem);
+  height: var(--toggle-thumb-size, 1.42rem);
   border-radius: 999px;
   background:
     radial-gradient(circle at 34% 28%, rgb(var(--cz-text-rgb) / 24%), transparent 33%),
@@ -110,7 +110,7 @@
   box-shadow:
     0 0 0.75rem rgb(var(--cz-accent-rgb) / 42%),
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 20%);
-  transform: translate(1.58rem, -50%);
+  transform: translate(var(--toggle-thumb-on-x, 1.58rem), -50%);
 }
 
 .toggle:disabled {
@@ -172,7 +172,7 @@
   }
 
   .toggle.is-on .toggle-thumb {
-    transform: translate(1.43rem, -50%);
+    transform: translate(var(--toggle-thumb-on-x, 1.43rem), -50%);
   }
 
   .toggle--compact {
@@ -190,6 +190,6 @@
   }
 
   .toggle--compact.is-on .toggle-thumb {
-    transform: translate(1.14rem, -50%);
+    transform: translate(var(--toggle-thumb-on-x, 1.14rem), -50%);
   }
 }

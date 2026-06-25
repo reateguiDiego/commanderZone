@@ -49,13 +49,16 @@ final class CardSearchFilterBuilder
 
     private const NUMERIC_STAT_REGEX = '^-?[0-9]+(\\.[0-9]+)?$';
 
-    public function build(Request $request): CardSearchFilterSet
+    public function build(Request $request, bool $includePlayableCatalogFilter = true, bool $includeFormatFilter = true): CardSearchFilterSet
     {
         $filters = [];
         $params = [];
         $types = [];
+        $formats = $this->formatValues($request);
 
-        $this->appendPlayableCatalogFilter($request, $filters, $params, $types);
+        if ($includePlayableCatalogFilter) {
+            $this->appendPlayableCatalogFilter($request, $formats, $filters, $params, $types);
+        }
         $this->appendBooleanFilter($request, $filters, $params);
         $this->appendGameplayFilter($request, $filters, $params);
         $this->appendTypeFilters($request, $filters, $params);
@@ -68,9 +71,11 @@ final class CardSearchFilterBuilder
         $this->appendManaFilters($request, $filters, $params);
         $this->appendStatFilter($request, $filters, $params, 'power');
         $this->appendStatFilter($request, $filters, $params, 'toughness');
-        $this->appendFormatFilter($request, $filters);
+        if ($includeFormatFilter) {
+            $this->appendFormatFilter($formats, $filters);
+        }
 
-        return new CardSearchFilterSet($filters, $params, $types);
+        return new CardSearchFilterSet($filters, $params, $types, $formats);
     }
 
     /**
@@ -100,7 +105,7 @@ final class CardSearchFilterBuilder
             $params['tokenTypeLine'] = '%token%';
         }
 
-        foreach (['artifact', 'land'] as $typeToggle) {
+        foreach (['artifact', 'land', 'basic', 'legendary'] as $typeToggle) {
             $enabled = $request->query->get($typeToggle);
             if ($enabled !== null && $enabled !== '' && filter_var($enabled, FILTER_VALIDATE_BOOLEAN)) {
                 $filters[] = sprintf('LOWER(c.type_line) LIKE :%sToggleType', $typeToggle);
@@ -114,7 +119,10 @@ final class CardSearchFilterBuilder
         }
     }
 
-    private function appendPlayableCatalogFilter(Request $request, array &$filters, array &$params, array &$types): void
+    /**
+     * @param list<string> $formats
+     */
+    private function appendPlayableCatalogFilter(Request $request, array $formats, array &$filters, array &$params, array &$types): void
     {
         $gameplayKind = trim((string) $request->query->get('gameplayKind', ''));
         $tokenOnly = filter_var($request->query->get('tokenOnly'), FILTER_VALIDATE_BOOLEAN);
@@ -122,33 +130,7 @@ final class CardSearchFilterBuilder
             return;
         }
 
-        $filters[] = <<<'SQL'
-c.type_line IS NOT NULL
-AND c.type_line <> ''
-AND LOWER(c.type_line) NOT IN (:excludedExactTypeLines)
-AND LOWER(c.type_line) !~ '(^|[[:space:]])card([[:space:]]|$)'
-AND LOWER(c.type_line) NOT LIKE :excludedTokenTypeLine
-AND LOWER(c.type_line) NOT LIKE :excludedEmblemTypeLine
-AND LOWER(c.type_line) NOT LIKE :excludedDungeonTypeLine
-AND LOWER(COALESCE(c.layout, '')) NOT IN (:excludedLayouts)
-SQL;
-        $params['excludedExactTypeLines'] = ['other', 'otros'];
-        $types['excludedExactTypeLines'] = ArrayParameterType::STRING;
-        $params['excludedTokenTypeLine'] = '%token%';
-        $params['excludedEmblemTypeLine'] = '%emblem%';
-        $params['excludedDungeonTypeLine'] = '%dungeon%';
-        $params['excludedLayouts'] = [
-            'art_series',
-            'double_faced_token',
-            'dungeon',
-            'emblem',
-            'phenomenon',
-            'planar',
-            'scheme',
-            'token',
-            'vanguard',
-        ];
-        $types['excludedLayouts'] = ArrayParameterType::STRING;
+        PlayableCardCatalogSql::append('c', $filters, $params, $types, $formats === []);
     }
 
     private function appendGameplayFilter(Request $request, array &$filters, array &$params): void
@@ -437,23 +419,37 @@ SQL;
         }
     }
 
-    private function appendFormatFilter(Request $request, array &$filters): void
+    /**
+     * @param list<string> $formats
+     */
+    private function appendFormatFilter(array $formats, array &$filters): void
     {
-        $formats = array_map(
-            static fn (string $format): string => mb_strtolower($format),
-            $this->csvValues($request->query->get('formats')),
-        );
         if ($formats === []) {
             return;
         }
 
         foreach ($formats as $format) {
+            $filters[] = sprintf("(c.legalities::jsonb ->> '%s') = 'legal'", $format);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function formatValues(Request $request): array
+    {
+        $formats = array_map(
+            static fn (string $format): string => mb_strtolower($format),
+            $this->csvValues($request->query->get('formats')),
+        );
+
+        foreach ($formats as $format) {
             if (!in_array($format, self::FORMATS, true)) {
                 throw new \InvalidArgumentException('formats filter is invalid.');
             }
-
-            $filters[] = sprintf("(c.legalities::jsonb ->> '%s') = 'legal'", $format);
         }
+
+        return array_values(array_unique($formats));
     }
 
     /**

@@ -48,6 +48,11 @@ describe('App', () => {
           { path: 'table-assistant', component: EmptyRouteComponent },
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
+          {
+            path: 'games/:id/slow',
+            component: EmptyRouteComponent,
+            canActivate: [() => new Promise<boolean>((resolve) => { resolveSlowNavigation = resolve; })],
+          },
         ]),
       ],
     }).compileComponents();
@@ -212,16 +217,30 @@ describe('App', () => {
     loading.stop();
   });
 
-  it('keeps the global loading overlay on non-SEO app routes', async () => {
+  it('keeps the global loading overlay on app routes that do not own local loading', async () => {
     const router = TestBed.inject(Router);
     const loading = TestBed.inject(LoadingStore);
     const fixture = TestBed.createComponent(App);
 
     loading.start();
-    await router.navigateByUrl('/table-assistant');
+    await router.navigateByUrl('/dashboard');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+
+    loading.stop();
+  });
+
+  it('hides the global loading overlay on features with local loading ownership', async () => {
+    const router = TestBed.inject(Router);
+    const loading = TestBed.inject(LoadingStore);
+    const fixture = TestBed.createComponent(App);
+
+    loading.start();
+    await router.navigateByUrl('/games/game-1');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
 
     loading.stop();
   });
@@ -232,7 +251,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
 
     loading.start();
-    await router.navigateByUrl('/decks');
+    await router.navigateByUrl('/dashboard');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
@@ -268,6 +287,22 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+
+    resolveSlowNavigation?.(true);
+    await navigation;
+  });
+
+  it('shows the global loader while navigating to a feature with local request loading', async () => {
+    const router = TestBed.inject(Router);
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    await router.navigateByUrl('/');
+
+    const navigation = router.navigateByUrl('/games/game-1/slow');
+    await vi.waitFor(() => expect(resolveSlowNavigation).toBeTypeOf('function'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
 
     resolveSlowNavigation?.(true);
     await navigation;

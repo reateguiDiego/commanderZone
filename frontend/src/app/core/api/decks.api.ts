@@ -2,7 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
-import { withoutGlobalLoading } from '../loading/loading-context';
 import {
   CommanderValidationResponse,
   DataResponse,
@@ -46,12 +45,10 @@ export interface DeckImportCommanderSelectionPayload {
 export class DecksApi {
   private readonly http = inject(HttpClient);
 
-  list(folderId?: string | null, skipGlobalLoading = false): Observable<DataResponse<Deck>> {
-    const context = skipGlobalLoading ? withoutGlobalLoading() : undefined;
-
+  list(folderId?: string | null, _skipGlobalLoading = false): Observable<DataResponse<Deck>> {
     return folderId === undefined
-      ? this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { context })
-      : this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { context, params: { folderId: folderId ?? 'null' } });
+      ? this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`)
+      : this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { params: { folderId: folderId ?? 'null' } });
   }
 
   create(name: string, folderId: string | null = null, visibility: DeckVisibility = 'private', format: DeckFormat['id'] = 'commander'): Observable<DeckResponse> {
@@ -143,9 +140,7 @@ export class DecksApi {
     return this.http.delete<DeckResponse>(`${API_BASE_URL}/decks/${id}/cards/${deckCardId}`);
   }
 
-  validateCommander(id: string, skipGlobalLoading = false): Observable<CommanderValidationResponse> {
-    return this.http.post<CommanderValidationResponse>(`${API_BASE_URL}/decks/${id}/validate-commander`, {}, {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  validateCommander(id: string, _skipGlobalLoading = false): Observable<CommanderValidationResponse> {
+    return this.http.post<CommanderValidationResponse>(`${API_BASE_URL}/decks/${id}/validate-commander`, {});
   }
 }

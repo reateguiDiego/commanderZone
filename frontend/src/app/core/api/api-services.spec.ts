@@ -14,7 +14,7 @@ import { GamesApi } from './games.api';
 import { LandingApi } from './landing.api';
 import { RoomsApi } from './rooms.api';
 import { ThemesService } from './themes.service';
-import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
+import { GLOBAL_LOADING_ENABLED_FEATURES, SKIP_GLOBAL_LOADING } from '../loading/loading-context';
 import { TableAssistantApi } from '../../features/table-assistant/data-access/table-assistant.api';
 import { LanguagePreferencesService } from '../localization/language-preferences.service';
 
@@ -46,50 +46,51 @@ describe('API services', () => {
 
     const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=500&lang=en`);
     expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(GLOBAL_LOADING_ENABLED_FEATURES)).toEqual(['cards']);
     request.flush({ data: [], page: 1, limit: 24 });
   });
 
-  it('loads card language coverage without triggering the global loading overlay', () => {
+  it('loads card language coverage with the default global loading policy', () => {
     TestBed.inject(CardsLanguageService).list().subscribe();
 
     const request = http.expectOne(`${API_BASE_URL}/cards/languages`);
     expect(request.request.method).toBe('GET');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ selectedCardLanguage: 'en', data: [] });
   });
 
-  it('loads and updates theme preference without triggering the global loading overlay', () => {
+  it('loads and updates theme preference with the default global loading policy', () => {
     const themes = TestBed.inject(ThemesService);
 
     themes.get().subscribe();
     const getRequest = http.expectOne(`${API_BASE_URL}/themes`);
     expect(getRequest.request.method).toBe('GET');
-    expect(getRequest.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(getRequest.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     getRequest.flush({ themeId: 'sunrise' });
 
     themes.update('candy-summoners').subscribe();
     const putRequest = http.expectOne(`${API_BASE_URL}/themes`);
     expect(putRequest.request.method).toBe('PUT');
     expect(putRequest.request.body).toEqual({ themeId: 'candy-summoners' });
-    expect(putRequest.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(putRequest.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     putRequest.flush({ themeId: 'candy-summoners' });
   });
 
-  it('loads public landing preview data without triggering the global loading overlay', () => {
+  it('loads public landing preview data with feature-owned loading policy', () => {
     TestBed.inject(LandingApi).preview().subscribe();
 
     const request = http.expectOne(`${API_BASE_URL}/landing/preview`);
     expect(request.request.method).toBe('GET');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ cardName: 'Sol Ring', displayName: 'Player' });
   });
 
-  it('loads table assistant rooms without triggering the global loading overlay', () => {
+  it('loads table assistant rooms with feature-owned loading policy', () => {
     TestBed.inject(TableAssistantApi).get('room-1').subscribe();
 
     const request = http.expectOne(`${API_BASE_URL}/table-assistant/rooms/room-1`);
     expect(request.request.method).toBe('GET');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ tableAssistantRoom: {} });
   });
 
@@ -153,33 +154,33 @@ describe('API services', () => {
     request.flush(null);
   });
 
-  it('requests and confirms password reset without triggering the global loading overlay', () => {
+  it('requests and confirms password reset with feature-owned loading policy', () => {
     const auth = TestBed.inject(AuthApi);
 
     auth.requestPasswordReset('player@example.test').subscribe();
     let request = http.expectOne(`${API_BASE_URL}/auth/password-reset/request`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ email: 'player@example.test' });
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ accepted: true });
 
     auth.confirmPasswordReset({ email: 'player@example.test', token: 'reset-token', newPassword: 'Password456!' }).subscribe();
     request = http.expectOne(`${API_BASE_URL}/auth/password-reset/confirm`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ email: 'player@example.test', token: 'reset-token', newPassword: 'Password456!' });
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     expect(request.request.withCredentials).toBe(true);
     request.flush({ updated: true, token: 'jwt-token' });
   });
 
-  it('confirms email verification without triggering the global loading overlay', () => {
+  it('confirms email verification with feature-owned loading policy', () => {
     const auth = TestBed.inject(AuthApi);
 
     auth.confirmEmailVerification({ token: 'verify-token' }).subscribe();
     const request = http.expectOne(`${API_BASE_URL}/auth/email-verification/confirm`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ token: 'verify-token' });
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     expect(request.request.withCredentials).toBe(true);
     request.flush({ verified: true, token: 'jwt-token', user: { id: 'user-1', email: 'player@example.test', roles: ['ROLE_USER'] } });
   });
@@ -203,10 +204,17 @@ describe('API services', () => {
   });
 
   it('builds filtered card search requests', () => {
-    TestBed.inject(CardsApi).search('atraxa', 1, 8, { commanderLegal: true, tokenOnly: true }).subscribe();
+    TestBed.inject(CardsApi).search('atraxa', 1, 8, {
+      commanderLegal: true,
+      tokenOnly: true,
+      basic: true,
+      legendary: true,
+      sort: 'mana_value_desc',
+    }).subscribe();
 
-    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&lang=en&commanderLegal=true&tokenOnly=true`);
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&lang=en&commanderLegal=true&sort=mana_value_desc&basic=true&legendary=true&tokenOnly=true`);
     expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(GLOBAL_LOADING_ENABLED_FEATURES)).toEqual(['cards']);
     request.flush({ data: [], page: 1, limit: 8 });
   });
 
@@ -215,7 +223,7 @@ describe('API services', () => {
 
     const request = http.expectOne(`${API_BASE_URL}/cards/search/options?lang=en`);
     expect(request.request.method).toBe('GET');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(GLOBAL_LOADING_ENABLED_FEATURES)).toEqual(['cards']);
     request.flush({ types: [], subtypes: [], sets: [], rarities: [], formats: [] });
   });
 
@@ -224,6 +232,7 @@ describe('API services', () => {
 
     const request = http.expectOne(`${API_BASE_URL}/cards/search?q=ring&page=1&limit=12&lang=en&gameplayKind=emblem`);
     expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(GLOBAL_LOADING_ENABLED_FEATURES)).toEqual(['cards']);
     request.flush({ data: [], page: 1, limit: 12 });
   });
 
@@ -232,7 +241,7 @@ describe('API services', () => {
 
     const request = http.expectOne(`${API_BASE_URL}/cards/card-1/image?format=normal&mode=uri`);
     expect(request.request.method).toBe('GET');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(GLOBAL_LOADING_ENABLED_FEATURES)).toEqual(['cards']);
     request.flush({ scryfallId: 'card-1', format: 'normal', uri: 'http://image.test/card-1.jpg' });
   });
 
@@ -351,22 +360,26 @@ describe('API services', () => {
     friends.search('bo').subscribe();
     let request = http.expectOne(`${API_BASE_URL}/friends/search?q=bo`);
     expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ data: [] });
 
     friends.requestUser('user-2').subscribe();
     request = http.expectOne(`${API_BASE_URL}/friends/requests`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ userId: 'user-2' });
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ friendship: friendshipFixture('friendship-1') });
 
     friends.incoming().subscribe();
     request = http.expectOne(`${API_BASE_URL}/friends/requests/incoming`);
     expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ data: [] });
 
     friends.outgoing().subscribe();
     request = http.expectOne(`${API_BASE_URL}/friends/requests/outgoing`);
     expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ data: [] });
 
     friends.accept('friendship-1').subscribe();
@@ -387,6 +400,7 @@ describe('API services', () => {
     friends.list().subscribe();
     request = http.expectOne(`${API_BASE_URL}/friends`);
     expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ data: [] });
 
     friends.remove('user-2').subscribe();
@@ -395,7 +409,7 @@ describe('API services', () => {
     request.flush(null);
   });
 
-  it('posts game commands with type and payload', () => {
+  it('posts game commands with feature-owned loading policy', () => {
     TestBed.inject(GamesApi)
       .command({ type: 'life.changed', payload: { playerId: 'p1', delta: -1 } }, 'game-1')
       .subscribe();
@@ -403,17 +417,17 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/games/game-1/commands`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ type: 'life.changed', payload: { playerId: 'p1', delta: -1 } });
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ event: {}, snapshot: { players: {}, turn: { activePlayerId: null, phase: 'beginning', number: 1 }, chat: [], createdAt: '' } });
   });
 
-  it('requests gameplay websocket tickets without triggering the global loading overlay', () => {
+  it('requests gameplay websocket tickets with feature-owned loading policy', () => {
     TestBed.inject(GamesApi).websocketTicket('game-1').subscribe();
 
     const request = http.expectOne(`${API_BASE_URL}/games/game-1/websocket-ticket`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({});
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({
       ticket: 'ticket-1',
       expiresAt: '2026-01-01T00:00:30+00:00',
@@ -451,40 +465,40 @@ describe('API services', () => {
     request = http.expectOne(`${API_BASE_URL}/rooms/code/CZ-ABC-DEF-123/join`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({});
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ room: roomFixture('room-1') });
 
     rooms.kickPlayer('room-1', 'player-1', true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms/room-1/players/player-1`);
     expect(request.request.method).toBe('DELETE');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ room: roomFixture('room-1') });
 
     rooms.update('room-1', { startingLife: 45 }, true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
     expect(request.request.method).toBe('PATCH');
     expect(request.request.body).toEqual({ startingLife: 45 });
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ room: roomFixture('room-1') });
 
     rooms.update('room-1', { timerMode: 'turn', timerDurationSeconds: 120 }, true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
     expect(request.request.method).toBe('PATCH');
     expect(request.request.body).toEqual({ timerMode: 'turn', timerDurationSeconds: 120 });
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ room: roomFixture('room-1') });
 
     rooms.update('room-1', { mulliganRule: 'GENEROUS', firstMulliganFree: false }, true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
     expect(request.request.method).toBe('PATCH');
     expect(request.request.body).toEqual({ mulliganRule: 'GENEROUS', firstMulliganFree: false });
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ room: roomFixture('room-1') });
 
     rooms.list('active', true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms?status=active`);
     expect(request.request.method).toBe('GET');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ data: [] });
   });
 
@@ -514,13 +528,13 @@ describe('API services', () => {
     rooms.incomingInvites(true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms/invites/incoming`);
     expect(request.request.method).toBe('GET');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ data: [] });
 
     rooms.invites('room-1', true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms/room-1/invites`);
     expect(request.request.method).toBe('GET');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ data: [] });
   });
 
@@ -535,7 +549,7 @@ describe('API services', () => {
     rooms.show('room-1', true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
     expect(request.request.method).toBe('GET');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ room: roomFixture('room-1') });
 
     rooms.acceptInvite('invite-1', 'deck-1').subscribe();
@@ -552,7 +566,7 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/rooms/room-1/join`);
 
     expect(request.request.method).toBe('POST');
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     expect(request.request.body).toEqual({ deckId: 'deck-1', randomDeckOptionCount: 4 });
     request.flush({ room: roomFixture('room-1') });
   });

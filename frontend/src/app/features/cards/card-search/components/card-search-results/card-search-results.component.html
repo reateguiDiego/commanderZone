@@ -6,7 +6,12 @@
   <p class="notice">{{ 'deckBuilder.cards.cardSearch.noCardsFound' | runtimeTranslate }}</p>
 }
 
-<div class="card-results" [class.card-results--spoiler]="viewMode() === 'spoiler'">
+<div
+  class="card-results"
+  [class.card-results--list-columns]="viewMode() === 'list' && results().length > 10"
+  [class.card-results--spoiler]="viewMode() === 'spoiler'"
+  [class.card-results--menu-open]="contextMenu()"
+>
   @for (card of results(); track card.scryfallId) {
     <button
       class="mtg-card-result"
@@ -18,9 +23,9 @@
     >
       <span class="mtg-card-result__media">
         @if (image(card); as imageUrl) {
-          <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
+          <img class="mtg-card-result__image" [class.card-image--battle]="isBattleCard(card)" [src]="imageUrl" [alt]="card.name" loading="lazy" />
         } @else {
-          <span class="card-fallback">{{ card.name }}</span>
+          <span class="card-fallback" [class.card-image--battle]="isBattleCard(card)">{{ card.name }}</span>
         }
       </span>
 
@@ -34,15 +39,16 @@
 @if (hoverPreview(); as preview) {
   <div class="card-hover-preview" [style.top.px]="preview.top" [style.left.px]="preview.left">
     @if (preview.imageUrl) {
-      <img [src]="preview.imageUrl" [alt]="preview.card.name" />
+      <img [class.card-image--battle]="isBattleCard(preview.card)" [src]="preview.imageUrl" [alt]="preview.card.name" />
     } @else {
-      <div class="card-fallback tall">{{ preview.card.name }}</div>
+      <div class="card-fallback tall" [class.card-image--battle]="isBattleCard(preview.card)">{{ preview.card.name }}</div>
     }
   </div>
 }
 
 @if (contextMenu(); as menu) {
   <div class="card-result-context-menu" [style.top.px]="menu.top" [style.left.px]="menu.left" (click)="$event.stopPropagation()">
+    <div class="card-result-context-menu__title">{{ menu.card.name }}</div>
     <button type="button" (click)="selectTodo($event)">
       TODO
     </button>

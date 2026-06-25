@@ -1,4 +1,10 @@
-<label class="compact-checkbox" [class.compact-checkbox--multiline]="multiline()" [title]="title()">
+<label
+  class="compact-checkbox"
+  [class.compact-checkbox--multiline]="multiline()"
+  [class.compact-checkbox--accent]="accentRgb()"
+  [style.--compact-checkbox-accent-rgb]="accentRgb()"
+  [title]="title()"
+>
   <input
     type="checkbox"
     [attr.name]="name()"
@@ -6,5 +12,10 @@
     [disabled]="disabled()"
     (change)="updateChecked($event)"
   />
-  <span>{{ label() }}</span>
+  <span class="compact-checkbox__box" aria-hidden="true"></span>
+  @if (swatch()) {
+    <span class="compact-checkbox__swatch" aria-hidden="true"></span>
+  }
+  <ng-content select="[compactCheckboxPrefix]" />
+  <span class="compact-checkbox__label">{{ label() }}</span>
 </label>

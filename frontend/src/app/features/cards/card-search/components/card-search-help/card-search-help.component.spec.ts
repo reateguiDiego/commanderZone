@@ -17,7 +17,7 @@ describe('CardSearchHelpComponent', () => {
     const fixture = TestBed.createComponent(CardSearchHelpComponent);
     const component = fixture.componentInstance;
 
-    component.open.set(true);
+    component.internalOpen.set(true);
     fixture.detectChanges();
 
     document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
@@ -29,11 +29,25 @@ describe('CardSearchHelpComponent', () => {
     const fixture = TestBed.createComponent(CardSearchHelpComponent);
     const component = fixture.componentInstance;
 
-    component.open.set(true);
+    component.internalOpen.set(true);
     fixture.detectChanges();
 
     fixture.nativeElement.dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
     expect(component.open()).toBe(true);
+  });
+
+  it('emits close requests when controlled externally', () => {
+    const fixture = TestBed.createComponent(CardSearchHelpComponent);
+    const component = fixture.componentInstance;
+    const openChange = vi.fn();
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('triggerVisible', false);
+    fixture.componentRef.instance.openChange.subscribe(openChange);
+    fixture.detectChanges();
+
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+
+    expect(openChange).toHaveBeenCalledWith(false);
   });
 });

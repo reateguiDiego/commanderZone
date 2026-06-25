@@ -11,7 +11,6 @@
     <div class="filter-panel__body">
       <div class="filter-panel__body-inner">
         <label class="field field--wide">
-          <span>{{ 'deckBuilder.cards.cardSearch.form.name' | runtimeTranslate }}</span>
           <input
             name="query"
             type="search"
@@ -52,6 +51,8 @@
               [disabled]="!filterEnabled('text')"
               [placeholder]="'deckBuilder.cards.cardSearch.form.textAPlaceholder' | runtimeTranslate"
               [(ngModel)]="model.oracleTextA"
+              (input)="syncTextAreaHeights($event)"
+              (mouseup)="syncTextAreaHeights($event)"
             ></textarea>
           </label>
           <label class="field">
@@ -61,6 +62,8 @@
               [disabled]="!filterEnabled('text')"
               [placeholder]="'deckBuilder.cards.cardSearch.form.textBPlaceholder' | runtimeTranslate"
               [(ngModel)]="model.oracleTextB"
+              (input)="syncTextAreaHeights($event)"
+              (mouseup)="syncTextAreaHeights($event)"
             ></textarea>
           </label>
         </div>
@@ -81,17 +84,36 @@
         <div class="filter-panel__body-inner">
           <div class="choice-columns choice-columns--types">
             @for (option of options()?.types ?? []; track option.code) {
-              <label class="icon-choice" [class.is-selected]="selected(model.types, option.code)" [class.is-disabled]="!filterEnabled('types')">
-                <input
-                  type="checkbox"
-                  [name]="'type-' + option.code"
-                  [disabled]="!filterEnabled('types')"
-                  [checked]="selected(model.types, option.code)"
-                  (change)="toggleType(option.code, $any($event.target).checked)"
-                />
+              <button
+                type="button"
+                class="icon-choice"
+                [class.is-selected]="selected(model.types, option.code)"
+                [disabled]="!filterEnabled('types')"
+                [attr.aria-pressed]="selected(model.types, option.code)"
+                [title]="option.name"
+                (click)="toggleType(option.code, !selected(model.types, option.code))"
+              >
                 <i class="icon-choice__icon" [appManaIcon]="typeIcon(option.code)" manaIconKind="mechanic" aria-hidden="true"></i>
                 <span>{{ option.name }}</span>
-              </label>
+              </button>
+            }
+          </div>
+          <div class="type-modifier-row">
+            <app-compact-checkbox
+              name="legendary"
+              [label]="'deckBuilder.cards.cardSearch.form.legendary' | runtimeTranslate"
+              [disabled]="!filterEnabled('types')"
+              [checked]="model.legendary"
+              (checkedChange)="model.legendary = $event"
+            />
+            @if (landTypeSelected()) {
+              <app-compact-checkbox
+                name="basic"
+                [label]="'deckBuilder.cards.cardSearch.form.basic' | runtimeTranslate"
+                [disabled]="!filterEnabled('types')"
+                [checked]="model.basic"
+                (checkedChange)="model.basic = $event"
+              />
             }
           </div>
         </div>
@@ -116,6 +138,7 @@
             @for (option of visibleSubtypeOptions(); track option.code) {
               <app-compact-checkbox
                 [label]="option.name"
+                [multiline]="true"
                 [disabled]="!filterEnabled('subtypes')"
                 [checked]="selected(model.subtypes, option.code)"
                 (checkedChange)="toggleSubtype(option.code, $event)"
@@ -167,24 +190,21 @@
         <div class="filter-panel__body-inner">
           <div class="rarity-choice-row">
             @for (option of options()?.rarities ?? []; track option.code) {
-              <label
+              <button
+                type="button"
                 class="rarity-choice"
                 [class.is-selected]="selected(model.rarities, option.code)"
-                [class.is-disabled]="!filterEnabled('rarities')"
                 [class.rarity-choice--mythic]="option.code === 'mythic'"
                 [class.rarity-choice--rare]="option.code === 'rare'"
                 [class.rarity-choice--uncommon]="option.code === 'uncommon'"
                 [class.rarity-choice--common]="option.code === 'common'"
+                [disabled]="!filterEnabled('rarities')"
+                [attr.aria-pressed]="selected(model.rarities, option.code)"
+                [title]="option.name"
+                (click)="toggleRarity(option.code, !selected(model.rarities, option.code))"
               >
-                <input
-                  type="checkbox"
-                  [name]="'rarity-' + option.code"
-                  [disabled]="!filterEnabled('rarities')"
-                  [checked]="selected(model.rarities, option.code)"
-                  (change)="toggleRarity(option.code, $any($event.target).checked)"
-                />
                 <span>{{ option.name }}</span>
-              </label>
+              </button>
             }
           </div>
         </div>
@@ -215,41 +235,63 @@
           </div>
           <div class="mana-choice-row">
             @for (option of colorChoices; track option.code) {
-              <label class="mana-choice" [class.is-selected]="selected(model.colors, option.code)" [class.is-disabled]="!filterEnabled('colors')" [title]="option.name">
-                <input
-                  type="checkbox"
-                  [name]="'color-' + option.code"
-                  [disabled]="!filterEnabled('colors')"
-                  [checked]="selected(model.colors, option.code)"
-                  (change)="toggleColor(option.code, $any($event.target).checked)"
-                />
+              <button
+                type="button"
+                class="mana-choice"
+                [class.is-selected]="selected(model.colors, option.code)"
+                [disabled]="!filterEnabled('colors')"
+                [attr.aria-pressed]="selected(model.colors, option.code)"
+                [title]="option.name"
+                (click)="toggleColor(option.code, !selected(model.colors, option.code))"
+              >
                 <app-mana-symbols [symbols]="[option.code]" [fallback]="option.name" />
                 <span>{{ option.name }}</span>
-              </label>
+              </button>
             }
           </div>
           <div class="choice-columns choice-columns--compact">
-            <label class="icon-choice" [class.is-selected]="model.artifact" [class.is-disabled]="!filterEnabled('colors')">
-              <input type="checkbox" name="artifact" [disabled]="!filterEnabled('colors')" [checked]="model.artifact" (change)="model.artifact = $any($event.target).checked" />
+            <button
+              type="button"
+              class="icon-choice"
+              [class.is-selected]="model.artifact"
+              [disabled]="!filterEnabled('colors')"
+              [attr.aria-pressed]="model.artifact"
+              [title]="'deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate"
+              (click)="model.artifact = !model.artifact"
+            >
               <i class="icon-choice__icon" appManaIcon="artifact" manaIconKind="mechanic" aria-hidden="true"></i>
               <span>{{ 'deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate }}</span>
-            </label>
-            <label class="icon-choice" [class.is-selected]="model.multicolor" [class.is-disabled]="!filterEnabled('colors')">
-              <input type="checkbox" name="multicolor" [disabled]="!filterEnabled('colors')" [checked]="model.multicolor" (change)="model.multicolor = $any($event.target).checked" />
+            </button>
+            <button
+              type="button"
+              class="icon-choice"
+              [class.is-selected]="model.multicolor"
+              [disabled]="!filterEnabled('colors')"
+              [attr.aria-pressed]="model.multicolor"
+              [title]="'deckBuilder.cards.cardSearch.form.multicolor' | runtimeTranslate"
+              (click)="model.multicolor = !model.multicolor"
+            >
               <i class="icon-choice__icon" appManaIcon="multicolor" manaIconKind="mechanic" aria-hidden="true"></i>
               <span>{{ 'deckBuilder.cards.cardSearch.form.multicolor' | runtimeTranslate }}</span>
-            </label>
-            <label class="icon-choice" [class.is-selected]="model.land" [class.is-disabled]="!filterEnabled('colors')">
-              <input type="checkbox" name="land" [disabled]="!filterEnabled('colors')" [checked]="model.land" (change)="model.land = $any($event.target).checked" />
+            </button>
+            <button
+              type="button"
+              class="icon-choice"
+              [class.is-selected]="model.land"
+              [disabled]="!filterEnabled('colors')"
+              [attr.aria-pressed]="model.land"
+              [title]="'deckBuilder.cards.cardSearch.form.land' | runtimeTranslate"
+              (click)="model.land = !model.land"
+            >
               <i class="icon-choice__icon" appManaIcon="land" manaIconKind="mechanic" aria-hidden="true"></i>
               <span>{{ 'deckBuilder.cards.cardSearch.form.land' | runtimeTranslate }}</span>
-            </label>
+            </button>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="search-panel" [class.search-panel--disabled]="!filterEnabled('costs')">
+    <section class="search-panel search-panel--costs" [class.search-panel--disabled]="!filterEnabled('costs')">
       <div class="filter-panel__header">
         <div class="filter-panel__title">
           <span class="filter-panel__kicker">08</span>
@@ -274,7 +316,7 @@
                 <div class="mana-cost-display" [class.is-empty]="!model.manaCost" aria-live="polite">
                   <app-mana-symbols [value]="manaCostSymbolValue()" fallback="" />
                 </div>
-                <button type="button" class="mana-cost-clear" [disabled]="!filterEnabled('costs') || !model.manaCost" (click)="clearManaCost()">
+                <button type="button" class="mana-cost-clear" [disabled]="!filterEnabled('costs') || !hasManaCostState()" (click)="clearManaCost()">
                   <lucide-icon name="x" size="14" aria-hidden="true" />
                   <span class="sr-only">{{ 'deckBuilder.cards.cardSearch.form.clearManaCost' | runtimeTranslate }}</span>
                 </button>
@@ -307,43 +349,41 @@
           <div class="range-row range-row--stats">
             <label class="field field--icon stat-field">
               <span><i appManaIcon="power" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.powerMin' | runtimeTranslate }}</span>
-              <input name="powerMin" type="number" max="99" step="1" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.powerMin" />
+              <input name="powerMin" type="number" max="99" step="1" inputmode="numeric" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.powerMin" (input)="limitStatInput($event, 'powerMin')" />
             </label>
             <label class="field field--icon stat-field">
               <span><i appManaIcon="power" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.powerMax' | runtimeTranslate }}</span>
-              <input name="powerMax" type="number" max="99" step="1" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.powerMax" />
+              <input name="powerMax" type="number" max="99" step="1" inputmode="numeric" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.powerMax" (input)="limitStatInput($event, 'powerMax')" />
             </label>
             <label class="field field--icon stat-field">
               <span><i appManaIcon="toughness" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.toughnessMin' | runtimeTranslate }}</span>
-              <input name="toughnessMin" type="number" max="99" step="1" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.toughnessMin" />
+              <input name="toughnessMin" type="number" max="99" step="1" inputmode="numeric" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.toughnessMin" (input)="limitStatInput($event, 'toughnessMin')" />
             </label>
             <label class="field field--icon stat-field">
               <span><i appManaIcon="toughness" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.toughnessMax' | runtimeTranslate }}</span>
-              <input name="toughnessMax" type="number" max="99" step="1" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.toughnessMax" />
+              <input name="toughnessMax" type="number" max="99" step="1" inputmode="numeric" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.toughnessMax" (input)="limitStatInput($event, 'toughnessMax')" />
             </label>
           </div>
-          <label class="stat-variable-option">
-            <input
-              type="checkbox"
+          <div class="stat-variable-option">
+            <app-compact-checkbox
               name="includeVariablePower"
+              [label]="'deckBuilder.cards.cardSearch.form.includeVariablePower' | runtimeTranslate"
               [disabled]="!filterEnabled('stats')"
               [checked]="model.includeVariablePower"
-              (change)="model.includeVariablePower = $any($event.target).checked"
+              (checkedChange)="model.includeVariablePower = $event"
             />
-            <span>{{ 'deckBuilder.cards.cardSearch.form.includeVariablePower' | runtimeTranslate }}</span>
             <small>{{ 'deckBuilder.cards.cardSearch.form.includeVariablePowerDescription' | runtimeTranslate }}</small>
-          </label>
-          <label class="stat-variable-option">
-            <input
-              type="checkbox"
+          </div>
+          <div class="stat-variable-option">
+            <app-compact-checkbox
               name="includeVariableToughness"
+              [label]="'deckBuilder.cards.cardSearch.form.includeVariableToughness' | runtimeTranslate"
               [disabled]="!filterEnabled('stats')"
               [checked]="model.includeVariableToughness"
-              (change)="model.includeVariableToughness = $any($event.target).checked"
+              (checkedChange)="model.includeVariableToughness = $event"
             />
-            <span>{{ 'deckBuilder.cards.cardSearch.form.includeVariableToughness' | runtimeTranslate }}</span>
             <small>{{ 'deckBuilder.cards.cardSearch.form.includeVariableToughnessDescription' | runtimeTranslate }}</small>
-          </label>
+          </div>
         </div>
       </div>
     </section>
@@ -362,6 +402,7 @@
             @for (option of options()?.formats ?? []; track option.code) {
               <app-compact-checkbox
                 [label]="option.name"
+                [multiline]="true"
                 [disabled]="!filterEnabled('formats')"
                 [checked]="selected(model.formats, option.code)"
                 (checkedChange)="toggleFormat(option.code, $event)"

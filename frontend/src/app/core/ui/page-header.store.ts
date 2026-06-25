@@ -44,6 +44,7 @@ export interface PageHeaderState {
   context?: string;
   heroRule?: boolean;
   titleWarning?: PageHeaderTitleWarning;
+  titleActions?: readonly PageHeaderAction[];
   actions?: readonly PageHeaderAction[];
   actionFeedback?: PageHeaderActionFeedback | null;
   stats?: readonly PageHeaderStat[];
@@ -68,6 +69,11 @@ export class PageHeaderStore {
             tooltip: this.translateText(header.titleWarning.tooltip),
           }
         : undefined,
+      titleActions: header.titleActions?.map((action) => ({
+        ...action,
+        label: this.translateText(action.label),
+        tooltip: action.tooltip ? this.translateText(action.tooltip) : undefined,
+      })),
       actions: header.actions?.map((action) => ({
         ...action,
         label: this.translateText(action.label),

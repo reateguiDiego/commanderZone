@@ -1,7 +1,8 @@
 <section class="page-stack">
+  <app-card-search-help class="cards-header-help-popover" [triggerVisible]="false" [open]="searchHelpOpen()" (openChange)="searchHelpOpen.set($event)" />
+
   <div class="cards-shell">
-    <aside class="cards-aside" aria-label="Card search filters">
-      <app-card-search-help />
+    <aside class="cards-aside" [class.cards-aside--expanded]="filtersExpanded()" [class.cards-aside--collapsed]="!filtersExpanded()" aria-label="Card search filters">
       <app-card-advanced-search-form
         #advancedSearchForm
         [options]="options()"
@@ -11,45 +12,93 @@
       />
 
       <div class="cards-aside-actions" aria-label="Card search actions">
-        <button type="button" czButton="primary" czButtonSize="sm" [disabled]="!advancedSearchForm.hasSearchCriteria()" (click)="advancedSearchForm.submit()">
-          <lucide-icon name="search" size="16" aria-hidden="true" />
-          <span>{{ 'deckBuilder.cards.cardSearch.search' | runtimeTranslate }}</span>
+        <button type="button" class="cards-aside-close" czButton="secondary" czButtonSize="sm" (click)="collapseFilters()">
+          <lucide-icon name="x" size="16" aria-hidden="true" />
+          <span>{{ 'deckBuilder.cards.cardSearch.close' | runtimeTranslate }}</span>
         </button>
         <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="!advancedSearchForm.hasClearableState()" (click)="advancedSearchForm.clear()">
           <lucide-icon name="rotate-ccw" size="16" aria-hidden="true" />
           <span>{{ 'deckBuilder.cards.cardSearch.clear' | runtimeTranslate }}</span>
         </button>
+        <button type="button" czButton="primary" czButtonSize="sm" [disabled]="!advancedSearchForm.hasSearchCriteria()" (click)="advancedSearchForm.submit()">
+          <lucide-icon name="search" size="16" aria-hidden="true" />
+          <span>{{ 'deckBuilder.cards.cardSearch.search' | runtimeTranslate }}</span>
+        </button>
       </div>
     </aside>
 
     <main class="cards-main">
-      @if (filterPills().length > 0) {
-        <section class="cards-filter-summary" aria-label="Applied card search filters">
-          <div class="cards-filter-summary__copy">
-            <span>Active query</span>
-            <strong>{{ totalResults() }} total cards &middot; page {{ page() }} of {{ totalPages() }}</strong>
-          </div>
-          <div class="cards-filter-pills">
-            @for (pill of filterPills(); track pill.label + pill.value) {
-              <span class="cards-filter-pill">
-                <strong>{{ pill.label }}</strong>
-                <span>{{ pill.value }}</span>
-              </span>
+      @if (!filtersExpanded()) {
+        <button type="button" class="cards-filter-toggle cards-filter-toggle--standalone" [class.cards-filter-toggle--empty]="!searched()" (click)="expandFilters()">
+          <lucide-icon name="sliders-horizontal" size="16" aria-hidden="true" />
+          <span>{{ 'deckBuilder.cards.cardSearch.advancedFilters' | runtimeTranslate }}</span>
+        </button>
+      }
+
+      @if (searched()) {
+        <section class="cards-filter-summary" [attr.aria-label]="'deckBuilder.cards.cardSearch.summary.ariaLabel' | runtimeTranslate">
+          <div class="cards-filter-summary__header">
+            @if (!filtersExpanded()) {
+              <button type="button" class="cards-filter-toggle cards-filter-toggle--summary" (click)="expandFilters()">
+                <lucide-icon name="sliders-horizontal" size="16" aria-hidden="true" />
+                <span>{{ 'deckBuilder.cards.cardSearch.advancedFilters' | runtimeTranslate }}</span>
+              </button>
             }
+
+            <div class="cards-filter-summary__copy">
+              <span>{{ 'deckBuilder.cards.cardSearch.summary.activeQuery' | runtimeTranslate }}</span>
+              <strong>
+                {{ 'deckBuilder.cards.cardSearch.summary.totalFound' | runtimeTranslate: { total: formattedTotalResults() } }}
+                @if (totalPages() > 1) {
+                  <span>{{ 'deckBuilder.cards.cardSearch.summary.pageStatus' | runtimeTranslate: { page: page(), pages: totalPages() } }}</span>
+                }
+              </strong>
+            </div>
           </div>
+          @if (filterPills().length > 0) {
+            <div class="cards-filter-pills">
+              @for (pill of filterPills(); track pill.track) {
+                <span class="cards-filter-pill">
+                  <strong>{{ pill.labelKey | runtimeTranslate }}</strong>
+                  @if (pill.manaValue) {
+                    <span class="cards-filter-pill__mana"><app-mana-symbols [value]="pill.manaValue" [fallback]="pill.value ?? pill.manaValue" /></span>
+                  } @else if (pill.manaSymbols) {
+                    <span class="cards-filter-pill__mana"><app-mana-symbols [symbols]="pill.manaSymbols" fallback="" /></span>
+                  } @else if (pill.valueKey) {
+                    <span>{{ pill.valueKey | runtimeTranslate }}</span>
+                  } @else {
+                    <span>{{ pill.value }}</span>
+                  }
+                </span>
+              }
+            </div>
+          }
         </section>
       }
 
       @if (results().length > 0) {
         <section class="cards-view-actions" aria-label="Card result presentation">
-          <app-tab-list
-            [items]="viewTabs"
-            [activeId]="advancedSearchForm.model.viewMode"
-            ariaLabel="deckBuilder.cards.cardSearch.form.presentation"
-            variant="pill"
-            size="md"
-            (tabSelected)="selectViewMode(advancedSearchForm, $event)"
-          />
+          <label class="cards-sort">
+            <app-format-select
+              class="cards-sort-select"
+              name="cardsSort"
+              [labelKey]="'deckBuilder.cards.cardSearch.sort.label'"
+              [labelHidden]="true"
+              [options]="sortOptions"
+              [value]="advancedSearchForm.model.sort"
+              (valueChange)="selectSort(advancedSearchForm, $event)"
+            />
+          </label>
+          @if (canChooseResultView()) {
+            <app-tab-list
+              [items]="viewTabs"
+              [activeId]="advancedSearchForm.model.viewMode"
+              ariaLabel="deckBuilder.cards.cardSearch.form.presentation"
+              variant="pill"
+              size="md"
+              (tabSelected)="selectViewMode(advancedSearchForm, $event)"
+            />
+          }
         </section>
       }
 
@@ -58,7 +107,7 @@
         [loading]="loading()"
         [error]="error()"
         [searched]="searched()"
-        [viewMode]="viewMode()"
+        [viewMode]="effectiveViewMode()"
       />
 
       @if (searched() && totalPages() > 1) {

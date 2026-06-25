@@ -24,6 +24,7 @@ describe('CardAdvancedSearchFormComponent', () => {
     component.model.oracleTextB = 'draw';
     component.model.oracleTextMode = 'or';
     component.model.types = ['creature'];
+    component.model.legendary = true;
     component.model.subtypes = ['phyrexian'];
     component.model.sets = ['one'];
     component.model.rarities = ['mythic'];
@@ -35,6 +36,7 @@ describe('CardAdvancedSearchFormComponent', () => {
     component.model.includeVariablePower = true;
     component.model.formats = ['commander'];
     component.model.viewMode = 'spoiler';
+    component.model.sort = 'mana_value_desc';
     component.model.enabledFilters = {
       name: true,
       text: true,
@@ -58,6 +60,7 @@ describe('CardAdvancedSearchFormComponent', () => {
         oracleTextB: 'draw',
         oracleTextMode: 'or',
         types: ['creature'],
+        legendary: true,
         subtypes: ['phyrexian'],
         sets: ['one'],
         rarities: ['mythic'],
@@ -68,8 +71,45 @@ describe('CardAdvancedSearchFormComponent', () => {
         powerMin: 4,
         includeVariablePower: true,
         formats: ['commander'],
+        sort: 'mana_value_desc',
       }),
     });
+  });
+
+  it('emits the basic type modifier only while land is selected', () => {
+    const fixture = TestBed.createComponent(CardAdvancedSearchFormComponent);
+    const component = fixture.componentInstance;
+    const submitted = vi.fn();
+    component.searchSubmitted.subscribe(submitted);
+
+    component.model.enabledFilters = {
+      ...component.model.enabledFilters,
+      types: true,
+    };
+    component.model.types = ['land'];
+    component.model.basic = true;
+
+    component.submit();
+
+    expect(submitted).toHaveBeenCalledWith(expect.objectContaining({
+      filters: expect.objectContaining({
+        types: ['land'],
+        basic: true,
+      }),
+    }));
+
+    submitted.mockClear();
+    component.toggleType('land', false);
+    component.model.legendary = true;
+    component.submit();
+
+    expect(component.model.basic).toBe(false);
+    expect(submitted).toHaveBeenCalledWith(expect.objectContaining({
+      filters: expect.objectContaining({
+        legendary: true,
+      }),
+    }));
+    expect(submitted.mock.calls[0][0].filters.basic).toBeUndefined();
   });
 
   it('does not emit search when no enabled section has criteria', () => {
@@ -167,5 +207,70 @@ describe('CardAdvancedSearchFormComponent', () => {
         toughnessMax: 99,
       }),
     }));
+  });
+
+  it('clears mana cost and mana value range together', () => {
+    const fixture = TestBed.createComponent(CardAdvancedSearchFormComponent);
+    const component = fixture.componentInstance;
+
+    component.model.manaCost = '2GG';
+    component.model.manaValueMin = 2;
+    component.model.manaValueMax = 6;
+
+    expect(component.hasManaCostState()).toBe(true);
+
+    component.clearManaCost();
+
+    expect(component.model.manaCost).toBe('');
+    expect(component.model.manaValueMin).toBeNull();
+    expect(component.model.manaValueMax).toBeNull();
+    expect(component.hasManaCostState()).toBe(false);
+  });
+
+  it('matches subtype and set filters without diacritics', () => {
+    const fixture = TestBed.createComponent(CardAdvancedSearchFormComponent);
+    const component = fixture.componentInstance;
+    fixture.componentRef.setInput('options', {
+      types: [],
+      subtypes: [
+        { code: 'angel', name: 'Ángel' },
+        { code: 'beast', name: 'Bestia' },
+      ],
+      sets: [
+        { code: 'alb', name: 'Álbum Promocional' },
+        { code: 'bro', name: 'Brothers War' },
+      ],
+      rarities: [],
+      formats: [],
+    });
+    fixture.detectChanges();
+
+    component.subtypeFilter.set('angel');
+    component.setFilter.set('album');
+
+    expect(component.visibleSubtypeOptions().map((option) => option.code)).toEqual(['angel']);
+    expect(component.visibleSetOptions().map((option) => option.code)).toEqual(['alb']);
+  });
+
+  it('limits power and toughness inputs to two numeric characters while typing', () => {
+    const fixture = TestBed.createComponent(CardAdvancedSearchFormComponent);
+    const component = fixture.componentInstance;
+    const input = document.createElement('input');
+    input.value = '123';
+
+    component.limitStatInput(new Event('input', { bubbles: true }), 'powerMin');
+    expect(component.model.powerMin).toBeNull();
+
+    input.dispatchEvent(new Event('input'));
+    component.limitStatInput({ target: input } as unknown as Event, 'powerMin');
+
+    expect(input.value).toBe('12');
+    expect(component.model.powerMin).toBe(12);
+
+    input.value = '9x8';
+    component.limitStatInput({ target: input } as unknown as Event, 'toughnessMax');
+
+    expect(input.value).toBe('98');
+    expect(component.model.toughnessMax).toBe(98);
   });
 });

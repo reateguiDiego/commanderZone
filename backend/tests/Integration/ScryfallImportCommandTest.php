@@ -2,6 +2,8 @@
 
 namespace App\Tests\Integration;
 
+use App\Application\Card\CardSearchOptionsRebuilder;
+use App\Application\Card\CardSearchEntryRebuilder;
 use App\Infrastructure\Scryfall\CardPrintBackfillCommand;
 use App\Infrastructure\Scryfall\ScryfallBulkDataClient;
 use App\Infrastructure\Scryfall\ScryfallCardMetadataBackfillCommand;
@@ -28,9 +30,13 @@ class ScryfallImportCommandTest extends ApiTestCase
         $rulingsFile = $this->writeTempJson([]);
 
         try {
+            $rebuilder = new CardSearchOptionsRebuilder($this->entityManager->getConnection());
+            $entryRebuilder = new CardSearchEntryRebuilder($this->entityManager->getConnection());
             $command = new ScryfallSyncCommand(
                 new ScryfallBulkDataClient($this->createMock(HttpClientInterface::class), 'test-agent'),
                 $this->entityManager->getConnection(),
+                $rebuilder,
+                $entryRebuilder,
                 '512M',
             );
             $tester = new CommandTester($command);
@@ -46,6 +52,9 @@ class ScryfallImportCommandTest extends ApiTestCase
             self::assertSame('Sol Ring', (string) $this->entityManager->getConnection()->fetchOne('SELECT name FROM card LIMIT 1'));
             self::assertSame('rare', (string) $this->entityManager->getConnection()->fetchOne('SELECT rarity FROM card LIMIT 1'));
             self::assertSame('Test Set', (string) $this->entityManager->getConnection()->fetchOne('SELECT set_name FROM card LIMIT 1'));
+            self::assertSame('Test Set', (string) $this->entityManager->getConnection()->fetchOne('SELECT default_set_name FROM card_print LIMIT 1'));
+            self::assertSame('Test Set', (string) $this->entityManager->getConnection()->fetchOne('SELECT set_name FROM card_print_locale LIMIT 1'));
+            self::assertGreaterThan(0, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_search_option WHERE kind = \'rarity\''));
             self::assertStringContainsString('Skipped 1 unavailable prints.', $tester->getDisplay());
         } finally {
             @unlink($cardsFile);
@@ -67,7 +76,11 @@ class ScryfallImportCommandTest extends ApiTestCase
 
         $this->entityManager->getConnection()->executeStatement('TRUNCATE card_print_locale, card_print RESTART IDENTITY CASCADE');
 
-        $command = new CardPrintBackfillCommand($this->entityManager->getConnection());
+        $command = new CardPrintBackfillCommand(
+            $this->entityManager->getConnection(),
+            new CardSearchOptionsRebuilder($this->entityManager->getConnection()),
+            new CardSearchEntryRebuilder($this->entityManager->getConnection()),
+        );
         $tester = new CommandTester($command);
         $status = $tester->execute([]);
 

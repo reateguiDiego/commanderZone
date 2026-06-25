@@ -1,6 +1,30 @@
 @if (header(); as headerState) {
   <div class="page-header-context" [attr.data-page-context]="headerState.context ?? null">
-    <div class="page-header-title">
+    <div class="page-header-title" [class.has-title-actions]="headerState.titleActions?.length">
+      @if (headerState.titleActions?.length) {
+        <div class="page-header-title-actions">
+          @for (action of headerState.titleActions; track action.id) {
+            <button
+              [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
+              czButtonSize="sm"
+              class="compact icon-only"
+              type="button"
+              [class.primary-button]="action.variant === 'primary'"
+              [class.secondary-button]="action.variant === 'secondary'"
+              [attr.data-action-id]="action.id"
+              [attr.title]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
+              [attr.aria-label]="action.label | runtimeTranslate"
+              [disabled]="action.disabled"
+              (click)="action.execute()"
+            >
+              @if (action.icon) {
+                <lucide-icon [name]="action.icon" size="16" />
+              }
+              <span class="sr-only">{{ action.label | runtimeTranslate }}</span>
+            </button>
+          }
+        </div>
+      }
       @if (headerState.eyebrow) {
         <span class="eyebrow">{{ headerState.eyebrow | runtimeTranslate }}</span>
       }

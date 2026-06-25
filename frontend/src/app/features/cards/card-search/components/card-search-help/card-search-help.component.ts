@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
@@ -16,7 +16,11 @@ export class CardSearchHelpComponent {
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly open = signal(false);
+  readonly triggerVisible = input(true);
+  readonly externalOpen = input<boolean | null>(null, { alias: 'open' });
+  readonly openChange = output<boolean>();
+  readonly internalOpen = signal(false);
+  readonly open = computed(() => this.externalOpen() ?? this.internalOpen());
 
   constructor() {
     const closeFromOutsidePointerDown = (event: Event): void => this.closeFromOutsidePointerDown(event);
@@ -28,7 +32,7 @@ export class CardSearchHelpComponent {
   }
 
   toggle(): void {
-    this.open.update((value) => !value);
+    this.setOpen(!this.open());
   }
 
   private closeFromOutsidePointerDown(event: Event): void {
@@ -41,6 +45,13 @@ export class CardSearchHelpComponent {
       return;
     }
 
-    this.open.set(false);
+    this.setOpen(false);
+  }
+
+  private setOpen(open: boolean): void {
+    if (this.externalOpen() === null) {
+      this.internalOpen.set(open);
+    }
+    this.openChange.emit(open);
   }
 }

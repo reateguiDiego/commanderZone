@@ -5,6 +5,11 @@ export type CardColor = 'W' | 'U' | 'B' | 'R' | 'G';
 export type CardRarity = 'mythic' | 'rare' | 'uncommon' | 'common';
 export type TextMatchMode = 'and' | 'or';
 export type ColorMatchMode = 'all' | 'any' | 'exact';
+export type CardSearchSort =
+  | 'name_asc'
+  | 'name_desc'
+  | 'mana_value_asc'
+  | 'mana_value_desc';
 export type CardSearchFilterKey =
   | 'name'
   | 'text'
@@ -34,6 +39,8 @@ export interface CardAdvancedSearchFormValue {
   artifact: boolean;
   multicolor: boolean;
   land: boolean;
+  basic: boolean;
+  legendary: boolean;
   manaValueMin: number | null;
   manaValueMax: number | null;
   manaCost: string;
@@ -45,6 +52,7 @@ export interface CardAdvancedSearchFormValue {
   includeVariableToughness: boolean;
   formats: string[];
   viewMode: CardSearchViewMode;
+  sort: CardSearchSort;
 }
 
 export interface CardAdvancedSearchSubmit {
@@ -124,6 +132,8 @@ export const DEFAULT_CARD_SEARCH_FORM_VALUE: CardAdvancedSearchFormValue = {
   artifact: false,
   multicolor: false,
   land: false,
+  basic: false,
+  legendary: false,
   manaValueMin: null,
   manaValueMax: null,
   manaCost: '',
@@ -135,6 +145,7 @@ export const DEFAULT_CARD_SEARCH_FORM_VALUE: CardAdvancedSearchFormValue = {
   includeVariableToughness: true,
   formats: [],
   viewMode: 'list',
+  sort: 'name_asc',
 };
 
 export function createDefaultCardSearchFormValue(): CardAdvancedSearchFormValue {

@@ -17,8 +17,24 @@ import {
   CardColor,
   CardRarity,
   CardSearchFilterKey,
+  CardSearchSort,
   createDefaultCardSearchFormValue,
 } from '../../card-search.models';
+
+const COLOR_ACCENT_RGB: Record<CardColor, string> = {
+  W: '245 238 194',
+  U: '68 164 220',
+  B: '92 84 88',
+  R: '222 86 54',
+  G: '74 158 100',
+};
+
+const RARITY_ACCENT_RGB: Record<CardRarity, string> = {
+  mythic: '237 88 22',
+  rare: '218 173 50',
+  uncommon: '174 184 195',
+  common: '13 15 18',
+};
 
 const MANA_TYPE_ICONS = new Set([
   'artifact',
@@ -30,6 +46,14 @@ const MANA_TYPE_ICONS = new Set([
   'planeswalker',
   'sorcery',
 ]);
+
+type StatRangeField = 'powerMin' | 'powerMax' | 'toughnessMin' | 'toughnessMax';
+const CARD_SEARCH_SORTS: readonly CardSearchSort[] = [
+  'name_asc',
+  'name_desc',
+  'mana_value_asc',
+  'mana_value_desc',
+];
 
 @Component({
   selector: 'app-card-advanced-search-form',
@@ -77,9 +101,12 @@ export class CardAdvancedSearchFormComponent {
       return;
     }
 
+    const filters = this.toFilters();
+    filters.sort = this.model.sort;
+
     this.searchSubmitted.emit({
       query: this.filterEnabled('name') ? this.model.query.trim() : '',
-      filters: this.toFilters(),
+      filters,
       viewMode: this.model.viewMode,
     });
   }
@@ -125,8 +152,17 @@ export class CardAdvancedSearchFormComponent {
     }
   }
 
+  selectSort(value: string): void {
+    if (CARD_SEARCH_SORTS.includes(value as CardSearchSort)) {
+      this.model.sort = value as CardSearchSort;
+    }
+  }
+
   toggleType(code: string, checked: boolean): void {
     this.model.types = this.toggleString(this.model.types, code, checked);
+    if (code === 'land' && !checked) {
+      this.model.basic = false;
+    }
   }
 
   toggleSubtype(code: string, checked: boolean): void {
@@ -157,6 +193,18 @@ export class CardAdvancedSearchFormComponent {
     return values.includes(code);
   }
 
+  landTypeSelected(): boolean {
+    return this.selected(this.model.types, 'land');
+  }
+
+  colorAccentRgb(code: string): string | null {
+    return this.isColor(code) ? COLOR_ACCENT_RGB[code] : null;
+  }
+
+  rarityAccentRgb(code: string): string | null {
+    return this.isRarity(code) ? RARITY_ACCENT_RGB[code] : null;
+  }
+
   typeIcon(code: string): string {
     const normalized = code.trim().toLowerCase();
 
@@ -183,6 +231,42 @@ export class CardAdvancedSearchFormComponent {
 
   clearManaCost(): void {
     this.model.manaCost = '';
+    this.model.manaValueMin = null;
+    this.model.manaValueMax = null;
+  }
+
+  hasManaCostState(): boolean {
+    return this.model.manaCost.trim() !== ''
+      || this.model.manaValueMin !== null
+      || this.model.manaValueMax !== null;
+  }
+
+  syncTextAreaHeights(event: Event): void {
+    const textarea = event.target;
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    const group = textarea.closest('.text-grid');
+    if (!group) {
+      return;
+    }
+
+    const height = `${textarea.offsetHeight}px`;
+    group.querySelectorAll('textarea').forEach((field) => {
+      field.style.height = height;
+    });
+  }
+
+  limitStatInput(event: Event, field: StatRangeField): void {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const normalized = input.value.replace(/\D+/g, '').slice(0, 2);
+    input.value = normalized;
+    this.model[field] = normalized === '' ? null : Number(normalized);
   }
 
   filterEnabled(key: CardSearchFilterKey): boolean {
@@ -213,6 +297,7 @@ export class CardAdvancedSearchFormComponent {
       || this.setFilter().trim() !== ''
       || this.subtypeFilter().trim() !== ''
       || this.model.viewMode !== this.defaultModel.viewMode
+      || this.model.sort !== this.defaultModel.sort
       || this.model.oracleTextMode !== this.defaultModel.oracleTextMode
       || this.model.colorMatchMode !== this.defaultModel.colorMatchMode
       || this.model.manaValueMin !== null
@@ -230,6 +315,8 @@ export class CardAdvancedSearchFormComponent {
       || this.model.artifact
       || this.model.multicolor
       || this.model.land
+      || this.model.basic
+      || this.model.legendary
       || this.model.includeVariablePower !== this.defaultModel.includeVariablePower
       || this.model.includeVariableToughness !== this.defaultModel.includeVariableToughness
       || this.filterOrder.some((key) => this.model.enabledFilters[key] !== this.defaultModel.enabledFilters[key]);
@@ -247,6 +334,8 @@ export class CardAdvancedSearchFormComponent {
 
     if (this.filterEnabled('types')) {
       this.assignList(filters, 'types', this.model.types);
+      this.assignBoolean(filters, 'basic', this.model.basic && this.landTypeSelected());
+      this.assignBoolean(filters, 'legendary', this.model.legendary);
     }
     if (this.filterEnabled('subtypes')) {
       this.assignList(filters, 'subtypes', this.model.subtypes);
@@ -293,12 +382,26 @@ export class CardAdvancedSearchFormComponent {
   }
 
   private filteredOptions(options: readonly CardSearchOption[], filter: string): readonly CardSearchOption[] {
-    const normalizedFilter = filter.trim().toLowerCase();
+    const normalizedFilter = this.normalizeSearchText(filter);
     const filtered = normalizedFilter
-      ? options.filter((option) => option.code.toLowerCase().includes(normalizedFilter) || option.name.toLowerCase().includes(normalizedFilter))
+      ? options.filter((option) => this.optionMatchesFilter(option, normalizedFilter))
       : options;
 
     return filtered;
+  }
+
+  private optionMatchesFilter(option: CardSearchOption, normalizedFilter: string): boolean {
+    return this.normalizeSearchText(option.code).includes(normalizedFilter)
+      || this.normalizeSearchText(option.name).includes(normalizedFilter)
+      || (option.aliases ?? []).some((alias) => this.normalizeSearchText(alias).includes(normalizedFilter));
+  }
+
+  private normalizeSearchText(value: string): string {
+    return value
+      .trim()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase();
   }
 
   private toggleString(values: readonly string[], code: string, checked: boolean): string[] {

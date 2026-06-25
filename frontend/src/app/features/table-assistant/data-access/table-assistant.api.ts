@@ -2,7 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../../../core/api/api.config';
-import { withoutGlobalLoading } from '../../../core/loading/loading-context';
 import { Room } from '../../../core/models/room.model';
 import {
   TableAssistantRoomState,
@@ -90,22 +89,16 @@ export class TableAssistantApi {
   }
 
   get(roomId: string): Observable<TableAssistantRoomResponse> {
-    return this.http.get<TableAssistantRoomResponse>(`${API_BASE_URL}/table-assistant/rooms/${roomId}`, {
-      context: withoutGlobalLoading(),
-    });
+    return this.http.get<TableAssistantRoomResponse>(`${API_BASE_URL}/table-assistant/rooms/${roomId}`);
   }
 
   join(roomId: string, deviceId?: string): Observable<TableAssistantRoomResponse> {
     return this.http.post<TableAssistantRoomResponse>(`${API_BASE_URL}/table-assistant/rooms/${roomId}/join`, {
       ...(deviceId ? { deviceId } : {}),
-    }, {
-      context: withoutGlobalLoading(),
     });
   }
 
   action(roomId: string, action: TableAssistantBackendAction): Observable<TableAssistantActionResponse> {
-    return this.http.post<TableAssistantActionResponse>(`${API_BASE_URL}/table-assistant/rooms/${roomId}/actions`, action, {
-      context: withoutGlobalLoading(),
-    });
+    return this.http.post<TableAssistantActionResponse>(`${API_BASE_URL}/table-assistant/rooms/${roomId}/actions`, action);
   }
 }

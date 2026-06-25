@@ -2,16 +2,17 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
-import { withoutGlobalLoading } from '../loading/loading-context';
+import { withGlobalLoadingForFeature } from '../loading/loading-context';
 import { Card } from '../models/card.model';
 import { CardImageResponse, CardResponse, DataResponse } from '../models/api-responses.model';
 import { LanguagePreferencesService } from '../localization/language-preferences.service';
 
 export interface CardSearchFilters {
+  sort?: 'name_asc' | 'name_desc' | 'mana_value_asc' | 'mana_value_desc';
   commanderLegal?: boolean;
   colorIdentity?: string[];
   gameplayKind?: 'token' | 'emblem' | 'dungeon';
-  type?: 'creature' | 'instant' | 'sorcery' | 'artifact' | 'enchantment' | 'planeswalker' | 'land';
+  type?: 'creature' | 'instant' | 'sorcery' | 'artifact' | 'enchantment' | 'planeswalker' | 'battle' | 'land';
   types?: string[];
   subtypes?: string[];
   sets?: string[];
@@ -21,6 +22,8 @@ export interface CardSearchFilters {
   artifact?: boolean;
   land?: boolean;
   multicolor?: boolean;
+  basic?: boolean;
+  legendary?: boolean;
   oracleTextA?: string;
   oracleTextB?: string;
   oracleTextMode?: 'and' | 'or';
@@ -42,6 +45,8 @@ export const CARD_SEARCH_LIMIT = 500;
 export interface CardSearchOption {
   code: string;
   name: string;
+  aliases?: string[];
+  cardCount?: number;
 }
 
 export interface CardSearchOptionsResponse {
@@ -67,6 +72,9 @@ export class CardsApi {
     if (filters.commanderLegal !== undefined) {
       params = params.set('commanderLegal', String(filters.commanderLegal));
     }
+    if (filters.sort) {
+      params = params.set('sort', filters.sort);
+    }
     if (filters.colorIdentity && filters.colorIdentity.length > 0) {
       params = params.set('colorIdentity', filters.colorIdentity.join(','));
     }
@@ -87,6 +95,8 @@ export class CardsApi {
     params = this.appendBooleanParam(params, 'artifact', filters.artifact);
     params = this.appendBooleanParam(params, 'land', filters.land);
     params = this.appendBooleanParam(params, 'multicolor', filters.multicolor);
+    params = this.appendBooleanParam(params, 'basic', filters.basic);
+    params = this.appendBooleanParam(params, 'legendary', filters.legendary);
     params = this.appendStringParam(params, 'oracleTextA', filters.oracleTextA);
     params = this.appendStringParam(params, 'oracleTextB', filters.oracleTextB);
     if (filters.oracleTextMode) {
@@ -108,14 +118,14 @@ export class CardsApi {
 
     return this.http.get<DataResponse<Card>>(`${API_BASE_URL}/cards/search`, {
       params,
-      context: withoutGlobalLoading(),
+      context: withGlobalLoadingForFeature('cards'),
     });
   }
 
   searchOptions(): Observable<CardSearchOptionsResponse> {
     return this.http.get<CardSearchOptionsResponse>(`${API_BASE_URL}/cards/search/options`, {
       params: { lang: this.languagePreferences.cardLanguage() },
-      context: withoutGlobalLoading(),
+      context: withGlobalLoadingForFeature('cards'),
     });
   }
 
@@ -128,7 +138,7 @@ export class CardsApi {
   image(scryfallId: string, format: 'small' | 'normal' | 'large' | 'png' | 'art_crop' | 'border_crop' = 'normal'): Observable<CardImageResponse> {
     return this.http.get<CardImageResponse>(`${API_BASE_URL}/cards/${scryfallId}/image`, {
       params: { format, mode: 'uri' },
-      context: withoutGlobalLoading(),
+      context: withGlobalLoadingForFeature('cards'),
     });
   }
 

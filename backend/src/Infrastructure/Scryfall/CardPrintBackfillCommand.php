@@ -2,6 +2,8 @@
 
 namespace App\Infrastructure\Scryfall;
 
+use App\Application\Card\CardSearchOptionsRebuilder;
+use App\Application\Card\CardSearchEntryRebuilder;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -13,7 +15,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'app:card-print:backfill', description: 'Backfills card_print and card_print_locale from legacy card rows.')]
 final class CardPrintBackfillCommand extends Command
 {
-    public function __construct(private readonly Connection $connection)
+    public function __construct(
+        private readonly Connection $connection,
+        private readonly CardSearchOptionsRebuilder $searchOptionsRebuilder,
+        private readonly CardSearchEntryRebuilder $searchEntryRebuilder,
+    )
     {
         parent::__construct();
     }
@@ -61,6 +67,7 @@ SELECT
     mana_cost,
     type_line,
     oracle_text,
+    set_name,
     image_uris,
     card_faces,
     image_status,
@@ -111,6 +118,16 @@ SQL,
             $processed,
             $skippedUnavailable,
         ));
+        if ($this->searchOptionTablesAvailable()) {
+            $output->writeln('Rebuilding localized card search options...');
+            $this->searchOptionsRebuilder->rebuild();
+            $output->writeln('Localized card search options rebuilt.');
+        }
+        if ($this->searchEntryTableAvailable()) {
+            $output->writeln('Rebuilding materialized card search entries...');
+            $this->searchEntryRebuilder->rebuild();
+            $output->writeln('Materialized card search entries rebuilt.');
+        }
 
         return Command::SUCCESS;
     }
@@ -129,6 +146,7 @@ INSERT INTO card_print (
     collector_number,
     default_name,
     default_lang,
+    default_set_name,
     default_mana_cost,
     default_type_line,
     default_oracle_text,
@@ -144,6 +162,7 @@ INSERT INTO card_print (
     :collector_number,
     :default_name,
     :default_lang,
+    :default_set_name,
     :default_mana_cost,
     :default_type_line,
     :default_oracle_text,
@@ -164,6 +183,10 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     default_lang = CASE
         WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_lang
         ELSE card_print.default_lang
+    END,
+    default_set_name = CASE
+        WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_set_name
+        ELSE card_print.default_set_name
     END,
     default_mana_cost = CASE
         WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_mana_cost
@@ -196,6 +219,7 @@ SQL,
                 'collector_number' => $row['collector_number'],
                 'default_name' => (string) $row['name'],
                 'default_lang' => $this->nullableString($row['lang']),
+                'default_set_name' => $this->nullableString($row['set_name']),
                 'default_mana_cost' => $row['mana_cost'],
                 'default_type_line' => $row['type_line'],
                 'default_oracle_text' => $row['oracle_text'],
@@ -230,6 +254,7 @@ INSERT INTO card_print_locale (
     mana_cost,
     type_line,
     oracle_text,
+    set_name,
     image_uris,
     card_faces,
     image_status,
@@ -242,6 +267,7 @@ INSERT INTO card_print_locale (
     :mana_cost,
     :type_line,
     :oracle_text,
+    :set_name,
     :image_uris,
     :card_faces,
     :image_status,
@@ -253,6 +279,7 @@ ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
     mana_cost = EXCLUDED.mana_cost,
     type_line = EXCLUDED.type_line,
     oracle_text = EXCLUDED.oracle_text,
+    set_name = EXCLUDED.set_name,
     image_uris = EXCLUDED.image_uris,
     card_faces = EXCLUDED.card_faces,
     image_status = EXCLUDED.image_status,
@@ -266,6 +293,7 @@ SQL,
                 'mana_cost' => $row['mana_cost'],
                 'type_line' => $row['type_line'],
                 'oracle_text' => $row['oracle_text'],
+                'set_name' => $this->nullableString($row['set_name']),
                 'image_uris' => $this->jsonString($row['image_uris']),
                 'card_faces' => $this->jsonString($row['card_faces']),
                 'image_status' => $this->nullableString($row['image_status']),
@@ -282,6 +310,24 @@ SQL,
             && $cardPrint !== ''
             && is_string($cardPrintLocale)
             && $cardPrintLocale !== '';
+    }
+
+    private function searchOptionTablesAvailable(): bool
+    {
+        $optionTable = $this->connection->fetchOne("SELECT to_regclass('public.card_search_option')");
+        $setOptionTable = $this->connection->fetchOne("SELECT to_regclass('public.card_search_set_option')");
+
+        return is_string($optionTable)
+            && $optionTable !== ''
+            && is_string($setOptionTable)
+            && $setOptionTable !== '';
+    }
+
+    private function searchEntryTableAvailable(): bool
+    {
+        $entryTable = $this->connection->fetchOne("SELECT to_regclass('public.card_search_entry')");
+
+        return is_string($entryTable) && $entryTable !== '';
     }
 
     private function nullableString(mixed $value): ?string

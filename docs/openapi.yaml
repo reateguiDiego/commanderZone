@@ -660,6 +660,13 @@ paths:
             minimum: 1
             maximum: 500
             default: 25
+        - name: sort
+          in: query
+          description: Result ordering. Relevance preserves the existing search ranking.
+          schema:
+            type: string
+            enum: [relevance, name_asc, name_desc, mana_value_asc, mana_value_desc]
+            default: relevance
         - name: commanderLegal
           in: query
           schema:
@@ -674,7 +681,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [creature, instant, sorcery, artifact, enchantment, planeswalker, land]
+            enum: [creature, instant, sorcery, artifact, enchantment, planeswalker, battle, land]
         - name: types
           in: query
           description: Comma-separated type filters. Matches any selected type.
@@ -721,6 +728,16 @@ paths:
             type: boolean
         - name: land
           in: query
+          schema:
+            type: boolean
+        - name: basic
+          in: query
+          description: Requires Basic in the type line. Intended for land searches.
+          schema:
+            type: boolean
+        - name: legendary
+          in: query
+          description: Requires Legendary in the type line.
           schema:
             type: boolean
         - name: oracleTextA
@@ -3308,6 +3325,13 @@ components:
           type: string
         name:
           type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        cardCount:
+          type: integer
+          nullable: true
     CardSearchOptions:
       type: object
       required: [types, subtypes, sets, rarities, formats]
