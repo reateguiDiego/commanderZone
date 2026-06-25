@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, input, output, signal } from '@angular/core';
 import { Card } from '../../../../../core/models/card.model';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { bestCardImage } from '../../../../../shared/utils/card-image';
+import { CardFaceImageComponent } from '../../../../../shared/components/card-face-image/card-face-image.component';
 import { CardSearchViewMode } from '../../card-search.models';
 
 interface CardContextMenuState {
@@ -27,9 +28,16 @@ const HOVER_PREVIEW_WIDTH_PX = 360;
 const HOVER_PREVIEW_HEIGHT_PX = 502;
 const HOVER_PREVIEW_DELAY_MS = 180;
 
+export type CardSearchResultAction = 'details' | 'addToDeck' | 'rulings' | 'printings';
+
+export interface CardSearchResultActionEvent {
+  readonly action: CardSearchResultAction;
+  readonly card: Card;
+}
+
 @Component({
   selector: 'app-card-search-results',
-  imports: [RuntimeTranslatePipe],
+  imports: [CardFaceImageComponent, RuntimeTranslatePipe],
   templateUrl: './card-search-results.component.html',
   styleUrl: './card-search-results.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -40,6 +48,7 @@ export class CardSearchResultsComponent implements OnDestroy {
   readonly error = input<string | null>(null);
   readonly searched = input(false);
   readonly viewMode = input<CardSearchViewMode>('list');
+  readonly actionSelected = output<CardSearchResultActionEvent>();
   readonly contextMenu = signal<CardContextMenuState | null>(null);
   readonly hoverPreview = signal<CardHoverPreviewState | null>(null);
   private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
@@ -72,7 +81,7 @@ export class CardSearchResultsComponent implements OnDestroy {
     const sourceElement = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     const sourceRect = sourceElement?.getBoundingClientRect();
     const menuWidth = 12 * rootFontSize;
-    const menuHeight = 3.5 * rootFontSize;
+    const menuHeight = 12.25 * rootFontSize;
     const sourceCenterX = sourceRect ? sourceRect.left + (sourceRect.width / 2) : event.clientX;
     const sourceCenterY = sourceRect ? sourceRect.top + (sourceRect.height / 2) : event.clientY;
     const margin = 12;
@@ -82,6 +91,14 @@ export class CardSearchResultsComponent implements OnDestroy {
       left: Math.max(margin, Math.min(sourceCenterX - (menuWidth / 2), window.innerWidth - menuWidth - margin)),
       top: Math.max(margin, Math.min(sourceCenterY - (menuHeight / 2), window.innerHeight - menuHeight - margin)),
     });
+  }
+
+  openContextMenuFromKeyboard(event: KeyboardEvent, card: Card): void {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    this.openContextMenu(event as unknown as MouseEvent, card);
   }
 
   showHoverPreview(event: MouseEvent, card: Card): void {
@@ -113,9 +130,10 @@ export class CardSearchResultsComponent implements OnDestroy {
     this.hoverPreview.set(null);
   }
 
-  selectTodo(event: MouseEvent): void {
+  selectAction(event: MouseEvent, action: CardSearchResultAction, card: Card): void {
     event.stopPropagation();
     this.contextMenu.set(null);
+    this.actionSelected.emit({ action, card });
   }
 
   @HostListener('document:pointerdown', ['$event'])

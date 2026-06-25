@@ -88,6 +88,10 @@
   max-width: calc(100vw - 2rem);
 }
 
+.modal-panel-overflow-visible {
+  overflow: visible;
+}
+
 .modal-panel header {
   display: grid;
   gap: 0.35rem;

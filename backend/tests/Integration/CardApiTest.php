@@ -98,6 +98,34 @@ class CardApiTest extends ApiTestCase
         self::assertSame('es', $this->jsonResponse()['selectedCardLanguage']);
     }
 
+    public function testCardPrintingsEndpointReturnsLocalizedPrintVersions(): void
+    {
+        $sourcePrint = $this->seedCard('00000000-0000-0000-0000-0000000000e1', 'Sol Ring', [
+            'set' => 'one',
+            'collector_number' => '1',
+            'lang' => 'en',
+        ]);
+        $localizedPrint = $this->seedCard('00000000-0000-0000-0000-0000000000e2', 'Sol Ring', [
+            'set' => 'two',
+            'collector_number' => '2',
+            'lang' => 'es',
+            'printed_name' => 'Anillo solar',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000e3', 'Arcane Signet', [
+            'set' => 'one',
+            'collector_number' => '3',
+            'lang' => 'es',
+            'printed_name' => 'Sello arcano',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/'.$sourcePrint->scryfallId().'/printings?lang=es');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($sourcePrint->scryfallId(), $this->jsonResponse()['scryfallId']);
+        self::assertSame([$localizedPrint->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+        self::assertSame('Anillo solar', $this->jsonResponse()['data'][0]['name']);
+    }
+
     public function testShowsDoubleFacedCardFaces(): void
     {
         $card = $this->seedCard('00000000-0000-0000-0000-000000000003', 'Invasion of Zendikar // Awakened Skyclave', [

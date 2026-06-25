@@ -9,6 +9,7 @@ use App\Application\Deck\DecklistExporter;
 use App\Application\Deck\DecklistParser;
 use App\Application\Deck\DecklistPreviewer;
 use App\Application\Card\CardLocalizationService;
+use App\Application\Card\CardPrintVersionProvider;
 use App\Domain\Localization\LanguageCatalog;
 use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
@@ -590,7 +591,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/cards/{deckCardId}/printings', methods: ['GET'])]
-    public function cardPrintings(string $id, string $deckCardId, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function cardPrintings(string $id, string $deckCardId, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardPrintVersionProvider $printVersions): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -606,13 +607,13 @@ class DecksController extends ApiController
             'deckCardId' => $deckCard->id(),
             'data' => array_map(
                 static fn (Card $card): array => $card->toArray(),
-                $this->printVersionCards($deckCard->card(), $entityManager, $user->cardLanguage()),
+                $printVersions->printVersionCards($deckCard->card(), $entityManager, $user->cardLanguage()),
             ),
         ]);
     }
 
     #[Route('/decks/{id}/cards/{deckCardId}/printing', methods: ['PATCH'])]
-    public function selectCardPrinting(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    public function selectCardPrinting(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, CardPrintVersionProvider $printVersions): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -634,7 +635,7 @@ class DecksController extends ApiController
         if (!$targetCard instanceof Card) {
             return $this->fail('Print version not found.', 404);
         }
-        if (!$this->isEquivalentPrintVersion($deckCard->card(), $targetCard)) {
+        if (!$printVersions->isEquivalentPrintVersion($deckCard->card(), $targetCard)) {
             return $this->fail('Selected print version does not match this card.', 422);
         }
 

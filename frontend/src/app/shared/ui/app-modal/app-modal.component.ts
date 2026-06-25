@@ -43,6 +43,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() lockBodyScroll = true;
   @Input() closeOnBackdrop = false;
   @Input() size: 'default' | 'compact' | 'narrow' | 'wide' = 'default';
+  @Input() panelOverflow: 'auto' | 'visible' = 'auto';
 
   @Output() back = new EventEmitter<void>();
   @Output() headerAction = new EventEmitter<void>();

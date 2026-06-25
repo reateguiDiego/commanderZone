@@ -135,6 +135,13 @@ export class CardsApi {
     });
   }
 
+  printings(scryfallId: string): Observable<DataResponse<Card>> {
+    return this.http.get<DataResponse<Card>>(`${API_BASE_URL}/cards/${scryfallId}/printings`, {
+      params: { lang: this.languagePreferences.cardLanguage() },
+      context: withGlobalLoadingForFeature('cards'),
+    });
+  }
+
   image(scryfallId: string, format: 'small' | 'normal' | 'large' | 'png' | 'art_crop' | 'border_crop' = 'normal'): Observable<CardImageResponse> {
     return this.http.get<CardImageResponse>(`${API_BASE_URL}/cards/${scryfallId}/image`, {
       params: { format, mode: 'uri' },

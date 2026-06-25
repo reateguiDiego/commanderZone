@@ -957,6 +957,39 @@ paths:
                     $ref: '#/components/schemas/Card'
         '404':
           $ref: '#/components/responses/Error'
+  /cards/{scryfallId}/printings:
+    get:
+      tags: [Cards]
+      security: []
+      summary: List available print editions for a card.
+      parameters:
+        - $ref: '#/components/parameters/ScryfallId'
+        - name: lang
+          in: query
+          description: Preferred card language. Falls back to English and common print languages.
+          schema:
+            type: string
+            enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+      responses:
+        '200':
+          description: Print editions for the requested card.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [scryfallId, data]
+                properties:
+                  scryfallId:
+                    type: string
+                    format: uuid
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Card'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /cards/{scryfallId}/image:
     get:
       tags: [Cards]

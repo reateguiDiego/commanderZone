@@ -1,9 +1,10 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { ChevronLeft, ChevronRight, CircleHelp, Image, List, LucideAngularModule, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-angular';
+import { ChevronLeft, ChevronRight, CircleHelp, Image, List, LucideAngularModule, RotateCcw, RotateCw, Search, SlidersHorizontal, X } from 'lucide-angular';
 import { of, Subject } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
+import { DecksApi } from '../../../core/api/decks.api';
 import { Card } from '../../../core/models/card.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
@@ -16,6 +17,7 @@ describe('CardSearchComponent', () => {
 
   const cardsApi = {
     search: vi.fn().mockReturnValue(of({ data: [] })),
+    printings: vi.fn().mockReturnValue(of({ data: [] })),
     searchOptions: vi.fn().mockReturnValue(of({
       types: [],
       subtypes: [],
@@ -29,20 +31,28 @@ describe('CardSearchComponent', () => {
       formats: [],
     })),
   };
+  const decksApi = {
+    list: vi.fn().mockReturnValue(of({ data: [] })),
+    addCard: vi.fn().mockReturnValue(of({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] } })),
+  };
 
   beforeEach(async () => {
     isDesktop = signal(true);
     isDesktopLayout = signal(true);
     hasHover = signal(true);
     cardsApi.search.mockClear();
+    cardsApi.printings.mockClear();
     cardsApi.searchOptions.mockClear();
+    decksApi.list.mockClear();
+    decksApi.addCard.mockClear();
 
     await TestBed.configureTestingModule({
       imports: [CardSearchComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ Search, CircleHelp, RotateCcw, List, Image, X, ChevronLeft, ChevronRight, SlidersHorizontal })),
+        importProvidersFrom(LucideAngularModule.pick({ Search, CircleHelp, RotateCcw, RotateCw, List, Image, X, ChevronLeft, ChevronRight, SlidersHorizontal })),
         { provide: CardsApi, useValue: cardsApi },
+        { provide: DecksApi, useValue: decksApi },
         {
           provide: DeviceProfileService,
           useValue: {
@@ -285,9 +295,66 @@ describe('CardSearchComponent', () => {
 
     expect(fixture.componentInstance.results().map((card) => card.name)).toEqual(['New Result']);
   });
+
+  it('shows add-to-deck warnings for commander color identity and format legality', async () => {
+    decksApi.list.mockReturnValue(of({
+      data: [{
+        id: 'deck-1',
+        name: 'Atraxa Deck',
+        format: 'commander',
+        folderId: null,
+        commanders: [cardFixture('commander-1', 'Atraxa', { colorIdentity: ['W', 'U', 'B', 'G'] })],
+        cards: [],
+      }],
+    }));
+    const fixture = TestBed.createComponent(CardSearchComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.openAddToDeck(cardFixture('red-card', 'Lightning Bolt', {
+      colorIdentity: ['R'],
+      commanderLegal: false,
+      legalities: { commander: 'not_legal' },
+    }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedDeckId()).toBe('');
+    expect(fixture.componentInstance.selectedDeckSection()).toBe('');
+    expect(fixture.nativeElement.querySelector('.add-to-deck-modal__card')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('app-format-select').length).toBeGreaterThanOrEqual(2);
+
+    fixture.componentInstance.selectDeck('deck-1');
+    fixture.componentInstance.selectDeckSection('main');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Lightning Bolt has color identity outside Atraxa Deck');
+    expect(fixture.nativeElement.textContent).toContain('Lightning Bolt is not legal in Commander');
+    expect(fixture.nativeElement.querySelector('.add-to-deck-modal__warnings app-mana-symbols')).not.toBeNull();
+  });
+
+  it('keeps add-to-deck quantity between one and ninety-nine', () => {
+    const fixture = TestBed.createComponent(CardSearchComponent);
+    const input = document.createElement('input');
+
+    input.value = '123';
+    fixture.componentInstance.selectDeckQuantity({ target: input } as unknown as Event);
+    expect(fixture.componentInstance.selectedDeckQuantity()).toBe(12);
+
+    input.value = '0';
+    fixture.componentInstance.selectDeckQuantity({ target: input } as unknown as Event);
+    expect(fixture.componentInstance.selectedDeckQuantity()).toBe(1);
+
+    fixture.componentInstance.decreaseDeckQuantity();
+    expect(fixture.componentInstance.selectedDeckQuantity()).toBe(1);
+
+    input.value = '99';
+    fixture.componentInstance.selectDeckQuantity({ target: input } as unknown as Event);
+    fixture.componentInstance.increaseDeckQuantity();
+    expect(fixture.componentInstance.selectedDeckQuantity()).toBe(99);
+  });
 });
 
-function cardFixture(scryfallId: string, name: string): Card {
+function cardFixture(scryfallId: string, name: string, overrides: Partial<Card> = {}): Card {
   return {
     id: scryfallId,
     scryfallId,
@@ -309,5 +376,6 @@ function cardFixture(scryfallId: string, name: string): Card {
     commanderLegal: true,
     set: 'tst',
     collectorNumber: '1',
+    ...overrides,
   };
 }

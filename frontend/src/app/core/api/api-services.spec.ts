@@ -253,6 +253,15 @@ describe('API services', () => {
     request.flush({ card: { id: 'card-1', scryfallId: 'card-1', name: 'Sol Ring' } });
   });
 
+  it('requests card print editions with the preferred language query parameter', () => {
+    TestBed.inject(CardsApi).printings('card-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/card-1/printings?lang=en`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(GLOBAL_LOADING_ENABLED_FEATURES)).toEqual(['cards']);
+    request.flush({ scryfallId: 'card-1', data: [] });
+  });
+
   it('posts deck imports with the backend payload shape', () => {
     TestBed.inject(DecksApi).importDecklist('deck-1', '1 Sol Ring').subscribe();
 

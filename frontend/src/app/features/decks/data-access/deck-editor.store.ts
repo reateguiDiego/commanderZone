@@ -17,6 +17,7 @@ import { ClientCommanderValidationService } from '../services/client-commander-v
 import { DeckAnalysisService } from '../services/deck-analysis.service';
 import { DeckImportExportService, DecklistEntry } from '../services/deck-import-export.service';
 import { bestCardFaceImage, bestCardImage } from '../../../shared/utils/card-image';
+import { cardDisplayFace, hasAlternateCardFace } from '../../../shared/utils/card-faces';
 import {
   CardMenuState,
   CardPreviewState,
@@ -818,10 +819,7 @@ export class DeckEditorStore {
   }
 
   hasAlternateFace(card: Card): boolean {
-    const faces = card.cardFaces ?? [];
-    const secondFaceImage = bestCardFaceImage(faces[1]);
-
-    return faces.length > 1 && secondFaceImage !== null && secondFaceImage.trim().length > 0;
+    return hasAlternateCardFace(card);
   }
 
   displayCardName(card: Card): string {
@@ -1545,12 +1543,7 @@ export class DeckEditorStore {
   }
 
   private displayCardFace(card: Card): CardFace | null {
-    const faces = card.cardFaces ?? [];
-    if (faces.length < 2) {
-      return null;
-    }
-
-    return faces[this.isFaceFlipped(card) ? 1 : 0] ?? null;
+    return cardDisplayFace(card, this.isFaceFlipped(card));
   }
 
   private deckFormatKey(): string {

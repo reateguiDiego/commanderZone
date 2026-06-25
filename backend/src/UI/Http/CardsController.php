@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Card\CardLocalizationService;
+use App\Application\Card\CardPrintVersionProvider;
 use App\Application\Card\CardResolver;
 use App\Application\Card\CardSearchFilterBuilder;
 use App\Application\Card\CardSearchFilterSet;
@@ -325,6 +326,32 @@ SQL;
         return $this->json([
             'selectedCardLanguage' => LanguageCatalog::normalize($user?->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE,
             'data' => $cardsLanguage->languageCoverage(),
+        ]);
+    }
+
+    #[Route('/cards/{scryfallId}/printings', methods: ['GET'])]
+    public function printings(string $scryfallId, Request $request, EntityManagerInterface $entityManager, CardLocalizationService $localization, CardPrintVersionProvider $printVersions): JsonResponse
+    {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
+        $card = $entityManager->getRepository(Card::class)->findOneBy(['scryfallId' => $scryfallId]);
+        if (!$card instanceof Card) {
+            return $this->fail('Card not found.', 404);
+        }
+
+        return $this->json([
+            'scryfallId' => $card->scryfallId(),
+            'data' => $localization->localizeCardPayloads(
+                array_map(
+                    static fn (Card $print): array => $print->toArray(),
+                    $printVersions->printVersionCards($card, $entityManager, $requestedLanguage),
+                ),
+                $requestedLanguage,
+                true,
+            ),
         ]);
     }
 

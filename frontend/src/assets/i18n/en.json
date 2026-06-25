@@ -667,6 +667,50 @@
         "advancedFilters": "Advanced filters",
         "searchingCards": "Searching cards...",
         "noCardsFound": "No cards found.",
+        "actions": {
+          "showDetails": "Show details",
+          "addToDeck": "Add to deck",
+          "showRulings": "Show rulings",
+          "viewPrintings": "View all editions"
+        },
+        "details": {
+          "close": "Close details",
+          "oracleText": "Oracle text",
+          "noOracleText": "No oracle text available.",
+          "legalFormats": "Legal formats",
+          "illegalFormats": "Illegal formats",
+          "noLegalFormats": "No legal formats in the local catalog.",
+          "noIllegalFormats": "No illegal formats in the local catalog."
+        },
+        "addToDeck": {
+          "title": "Add {{ card }} to a deck",
+          "deck": "Deck",
+          "section": "Section",
+          "quantity": "Quantity",
+          "selectDeck": "Select a deck",
+          "selectSection": "Select a section",
+          "decreaseQuantity": "Decrease quantity",
+          "increaseQuantity": "Increase quantity",
+          "sectionMain": "Main deck",
+          "sectionCommander": "Commander",
+          "sectionSideboard": "Sideboard",
+          "sectionConsidering": "Considering",
+          "confirm": "Add card",
+          "cancel": "Cancel",
+          "loadingDecks": "Loading your decks...",
+          "noDecks": "You do not have decks yet.",
+          "colorIdentityWarning": "{{ card }} has color identity outside {{ deck }}'s commander colors:",
+          "formatLegalityWarning": "{{ card }} is not legal in {{ format }}, the selected deck format.",
+          "couldNotLoadDecks": "Could not load your decks.",
+          "couldNotAdd": "Could not add this card to the selected deck."
+        },
+        "printings": {
+          "title": "Editions of {{ card }}",
+          "loading": "Loading editions...",
+          "empty": "No editions found for this card.",
+          "couldNotLoad": "Could not load card editions.",
+          "close": "Close"
+        },
         "summary": {
           "ariaLabel": "Applied card search filters",
           "activeQuery": "Active query",
@@ -771,6 +815,9 @@
           "statsTitle": "Power and toughness",
           "stats": "Power and toughness ranges compare numeric values. Enable the small variable-value checkbox when you also want cards with values such as * or 1+*."
         }
+      },
+      "cardImage": {
+        "flipFace": "Flip face"
       },
       "autocomplete": {
         "cardAutocomplete": {

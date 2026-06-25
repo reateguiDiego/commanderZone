@@ -9,6 +9,7 @@
       [class.modal-panel-compact]="size === 'compact'"
       [class.modal-panel-narrow]="size === 'narrow'"
       [class.modal-panel-wide]="size === 'wide'"
+      [class.modal-panel-overflow-visible]="panelOverflow === 'visible'"
       (click)="$event.stopPropagation()"
     >
       @if (showCloseButton) {

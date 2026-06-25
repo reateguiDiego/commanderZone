@@ -687,6 +687,50 @@
         "advancedFilters": "Filtros avanzados",
         "searchingCards": "Buscando cartas...",
         "noCardsFound": "No se han encontrado cartas.",
+        "actions": {
+          "showDetails": "Ver detalles",
+          "addToDeck": "Anadir a mazo",
+          "showRulings": "Ver reglas",
+          "viewPrintings": "Ver todas sus ediciones"
+        },
+        "details": {
+          "close": "Cerrar detalles",
+          "oracleText": "Texto Oracle",
+          "noOracleText": "No hay texto Oracle disponible.",
+          "legalFormats": "Formatos legales",
+          "illegalFormats": "Formatos no legales",
+          "noLegalFormats": "No hay formatos legales en el catalogo local.",
+          "noIllegalFormats": "No hay formatos no legales en el catalogo local."
+        },
+        "addToDeck": {
+          "title": "Anadir {{ card }} a un mazo",
+          "deck": "Mazo",
+          "section": "Seccion",
+          "quantity": "Cantidad",
+          "selectDeck": "Selecciona un mazo",
+          "selectSection": "Selecciona una seccion",
+          "decreaseQuantity": "Bajar cantidad",
+          "increaseQuantity": "Subir cantidad",
+          "sectionMain": "Mazo principal",
+          "sectionCommander": "Comandante",
+          "sectionSideboard": "Sideboard",
+          "sectionConsidering": "Considering",
+          "confirm": "Anadir carta",
+          "cancel": "Cancelar",
+          "loadingDecks": "Cargando tus mazos...",
+          "noDecks": "Todavia no tienes mazos.",
+          "colorIdentityWarning": "{{ card }} tiene identidad de color fuera de los colores del comandante de {{ deck }}:",
+          "formatLegalityWarning": "{{ card }} no es legal en {{ format }}, el formato del mazo seleccionado.",
+          "couldNotLoadDecks": "No se han podido cargar tus mazos.",
+          "couldNotAdd": "No se ha podido anadir esta carta al mazo seleccionado."
+        },
+        "printings": {
+          "title": "Ediciones de {{ card }}",
+          "loading": "Cargando ediciones...",
+          "empty": "No se han encontrado ediciones para esta carta.",
+          "couldNotLoad": "No se han podido cargar las ediciones de la carta.",
+          "close": "Cerrar"
+        },
         "summary": {
           "ariaLabel": "Filtros aplicados de busqueda de cartas",
           "activeQuery": "Busqueda activa",
@@ -791,6 +835,9 @@
           "statsTitle": "Fuerza y resistencia",
           "stats": "Los rangos de fuerza y resistencia comparan valores numericos. Activa el pequeno checkbox de valores variables si tambien quieres incluir cartas con valores como * o 1+*."
         }
+      },
+      "cardImage": {
+        "flipFace": "Girar carta"
       },
       "autocomplete": {
         "cardAutocomplete": {

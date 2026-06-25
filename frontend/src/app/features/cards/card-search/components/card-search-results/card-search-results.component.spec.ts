@@ -1,4 +1,6 @@
+import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { LucideAngularModule, RotateCw } from 'lucide-angular';
 import { Card } from '../../../../../core/models/card.model';
 import { CardSearchResultsComponent } from './card-search-results.component';
 
@@ -10,6 +12,9 @@ describe('CardSearchResultsComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [CardSearchResultsComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ RotateCw })),
+      ],
     }).compileComponents();
   });
 
@@ -24,16 +29,17 @@ describe('CardSearchResultsComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Commander Masters');
     expect(fixture.nativeElement.textContent).not.toContain('rare');
     expect(fixture.nativeElement.querySelector('a.mtg-card-result')).toBeNull();
-    expect(fixture.nativeElement.querySelector('button.mtg-card-result img')?.getAttribute('src')).toBe('/sol-ring.jpg');
+    expect(fixture.nativeElement.querySelector('button.mtg-card-result')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.mtg-card-result img')?.getAttribute('src')).toBe('/sol-ring.jpg');
   });
 
-  it('opens a placeholder context menu instead of navigating', () => {
+  it('opens an action context menu instead of navigating', () => {
     const fixture = TestBed.createComponent(CardSearchResultsComponent);
-    fixture.componentRef.setInput('results', [cardFixture()]);
+    fixture.componentRef.setInput('results', [cardFixture({ hasRulings: true })]);
     fixture.componentRef.setInput('searched', true);
     fixture.detectChanges();
 
-    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLButtonElement;
+    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLElement;
     vi.spyOn(result, 'getBoundingClientRect').mockReturnValue({
       x: 100,
       y: 200,
@@ -50,9 +56,35 @@ describe('CardSearchResultsComponent', () => {
     fixture.detectChanges();
 
     const menu = fixture.nativeElement.querySelector('.card-result-context-menu') as HTMLElement;
-    expect(menu.textContent).toContain('TODO');
+    expect(menu.textContent).toContain('Show details');
+    expect(menu.textContent).toContain('Add to deck');
+    expect(menu.textContent).toContain('Show rulings');
+    expect(menu.textContent).toContain('View all editions');
     expect(menu.style.left).toBe('34px');
-    expect(menu.style.top).toBe('212px');
+    expect(menu.style.top).toBe('142px');
+  });
+
+  it('emits the selected context menu action', () => {
+    const fixture = TestBed.createComponent(CardSearchResultsComponent);
+    const actionSpy = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(actionSpy);
+    fixture.componentRef.setInput('results', [cardFixture()]);
+    fixture.componentRef.setInput('searched', true);
+    fixture.detectChanges();
+
+    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLElement;
+    result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
+    fixture.detectChanges();
+
+    const details = fixture.nativeElement.querySelector('.card-result-context-menu button') as HTMLButtonElement;
+    details.click();
+    fixture.detectChanges();
+
+    expect(actionSpy).toHaveBeenCalledWith({
+      action: 'details',
+      card: expect.objectContaining({ name: 'Sol Ring' }),
+    });
+    expect(fixture.nativeElement.querySelector('.card-result-context-menu')).toBeNull();
   });
 
   it('toggles the context menu when clicking the same card again', () => {
@@ -61,7 +93,7 @@ describe('CardSearchResultsComponent', () => {
     fixture.componentRef.setInput('searched', true);
     fixture.detectChanges();
 
-    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLButtonElement;
+    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLElement;
     result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
     fixture.detectChanges();
 
@@ -79,7 +111,7 @@ describe('CardSearchResultsComponent', () => {
     fixture.componentRef.setInput('searched', true);
     fixture.detectChanges();
 
-    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLButtonElement;
+    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLElement;
     result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
     fixture.detectChanges();
 
@@ -105,7 +137,7 @@ describe('CardSearchResultsComponent', () => {
     fixture.componentRef.setInput('viewMode', 'list');
     fixture.detectChanges();
 
-    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLButtonElement;
+    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLElement;
     result.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 120, clientY: 80 }));
     vi.advanceTimersByTime(180);
     fixture.detectChanges();
@@ -127,7 +159,7 @@ describe('CardSearchResultsComponent', () => {
     fixture.componentRef.setInput('viewMode', 'list');
     fixture.detectChanges();
 
-    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLButtonElement;
+    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLElement;
     result.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 120, clientY: 80 }));
     fixture.detectChanges();
 
@@ -173,7 +205,7 @@ describe('CardSearchResultsComponent', () => {
     fixture.componentRef.setInput('searched', true);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.mtg-card-result__image')?.classList.contains('card-image--battle')).toBe(true);
+    expect(fixture.nativeElement.querySelector('app-card-face-image')?.classList.contains('card-face-image--battle')).toBe(true);
   });
 
   it('renders empty state after a completed search', () => {

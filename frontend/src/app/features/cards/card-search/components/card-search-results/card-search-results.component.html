@@ -13,26 +13,24 @@
   [class.card-results--menu-open]="contextMenu()"
 >
   @for (card of results(); track card.scryfallId) {
-    <button
+    <article
       class="mtg-card-result"
-      type="button"
+      role="button"
+      tabindex="0"
       (click)="openContextMenu($event, card)"
+      (keydown)="openContextMenuFromKeyboard($event, card)"
       (mouseenter)="showHoverPreview($event, card)"
       (mousemove)="moveHoverPreview($event, card)"
       (mouseleave)="hideHoverPreview()"
     >
-      <span class="mtg-card-result__media">
-        @if (image(card); as imageUrl) {
-          <img class="mtg-card-result__image" [class.card-image--battle]="isBattleCard(card)" [src]="imageUrl" [alt]="card.name" loading="lazy" />
-        } @else {
-          <span class="card-fallback" [class.card-image--battle]="isBattleCard(card)">{{ card.name }}</span>
-        }
+      <span class="mtg-card-result__media" [class.mtg-card-result__media--battle]="isBattleCard(card)">
+        <app-card-face-image [card]="card" [battle]="isBattleCard(card)" [variant]="viewMode() === 'spoiler' ? 'spoiler' : 'result'" />
       </span>
 
       @if (viewMode() === 'list') {
         <span class="mtg-card-result__name">{{ card.name }}</span>
       }
-    </button>
+    </article>
   }
 </div>
 
@@ -49,8 +47,19 @@
 @if (contextMenu(); as menu) {
   <div class="card-result-context-menu" [style.top.px]="menu.top" [style.left.px]="menu.left" (click)="$event.stopPropagation()">
     <div class="card-result-context-menu__title">{{ menu.card.name }}</div>
-    <button type="button" (click)="selectTodo($event)">
-      TODO
+    <button type="button" (click)="selectAction($event, 'details', menu.card)">
+      {{ 'deckBuilder.cards.cardSearch.actions.showDetails' | runtimeTranslate }}
+    </button>
+    <button type="button" (click)="selectAction($event, 'addToDeck', menu.card)">
+      {{ 'deckBuilder.cards.cardSearch.actions.addToDeck' | runtimeTranslate }}
+    </button>
+    @if (menu.card.hasRulings) {
+      <button type="button" (click)="selectAction($event, 'rulings', menu.card)">
+        {{ 'deckBuilder.cards.cardSearch.actions.showRulings' | runtimeTranslate }}
+      </button>
+    }
+    <button type="button" (click)="selectAction($event, 'printings', menu.card)">
+      {{ 'deckBuilder.cards.cardSearch.actions.viewPrintings' | runtimeTranslate }}
     </button>
   </div>
 }
