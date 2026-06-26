@@ -93,7 +93,7 @@ describe('AppModalComponent', () => {
     fixture.componentInstance.back.subscribe(emitted);
     fixture.detectChanges();
 
-    fixture.nativeElement.querySelector('.modal-back-button').click();
+    fixture.nativeElement.querySelector('.modal-back-button button').click();
 
     expect(emitted).toHaveBeenCalledOnce();
   });

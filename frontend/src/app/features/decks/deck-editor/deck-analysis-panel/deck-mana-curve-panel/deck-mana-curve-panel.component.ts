@@ -1,8 +1,8 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { DeckEditorStore } from '../../../data-access/deck-editor.store';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { DECK_ANALYSIS_STORE } from '../deck-analysis-store.token';
 
 @Component({
   selector: 'app-deck-mana-curve-panel',
@@ -12,5 +12,5 @@ import { CzButtonDirective } from '../../../../../shared/ui/button/button.direct
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DeckManaCurvePanelComponent {
-  readonly store = inject(DeckEditorStore);
+  readonly store = inject(DECK_ANALYSIS_STORE);
 }

@@ -1,11 +1,8 @@
 <section class="page-stack">
-  <a czButton="secondary" czButtonSize="sm" class="card-detail-back" routerLink="/cards">
-    <lucide-icon name="arrow-left" size="16" />
-    {{ 'deckBuilder.cards.cardDetail.backToSearch' | runtimeTranslate }}
-  </a>
+  <app-back-button link="/cards" />
 
   @if (loading()) {
-    <p class="notice">{{ 'deckBuilder.cards.cardDetail.loadingCard' | runtimeTranslate }}</p>
+    <app-global-loader />
   } @else if (error()) {
     <p class="notice error">{{ error() }}</p>
   } @else if (card(); as card) {

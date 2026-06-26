@@ -1,16 +1,16 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router, RouterLink, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 
 type EmailVerificationStatus = 'verifying' | 'error';
 
 @Component({
   selector: 'app-email-verification-page',
-  imports: [RuntimeTranslatePipe, RouterLink, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, BackButtonComponent],
   templateUrl: './email-verification-page.component.html',
   styleUrl: './email-verification-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

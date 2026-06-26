@@ -42,6 +42,9 @@
       "label": "Extras",
       "open": "Open extra actions",
       "menu": "Extra actions"
+    },
+    "navigation": {
+      "back": "Atras"
     }
   },
   "navigation": {
@@ -300,6 +303,13 @@
     "waiting": {
       "header": {
         "inviteFriends": "Invite friends"
+      }
+    }
+  },
+  "community": {
+    "preview": {
+      "summary": {
+        "topHundred": "Top 100 cartas"
       }
     }
   },
@@ -695,6 +705,7 @@
         },
         "details": {
           "close": "Cerrar detalles",
+          "couldNotLoad": "No se pudo cargar esta carta.",
           "oracleText": "Texto Oracle",
           "noOracleText": "No hay texto Oracle disponible.",
           "legalFormats": "Formatos legales",
@@ -702,8 +713,8 @@
           "noLegalFormats": "No hay formatos legales en el catalogo local.",
           "noIllegalFormats": "No hay formatos no legales en el catalogo local."
         },
-        "addToDeck": {
-          "title": "Anadir {{ card }} a un mazo",
+          "addToDeck": {
+            "title": "Add card",
           "deck": "Mazo",
           "section": "Seccion",
           "quantity": "Cantidad",
@@ -949,6 +960,9 @@
         "deckWarnings": "Deck warnings",
         "import": "Import",
         "export": "Export",
+        "share": "Share",
+        "shareCopied": "Enlace de community copiado",
+        "shareError": "No se pudo copiar el enlace de community.",
         "backToDecks": "Back to decks"
       }
     },
@@ -964,9 +978,12 @@
       "editDeck": "Edit deck",
       "deleteDeck": "Delete deck",
       "deckSaved": "Deck saved",
+      "createSuccessMessage": "This deck has been saved. It is now in your saved decks list, and you can edit it however you like. Good luck with your Commander deck!",
       "createEmptyDeck": "Crear deck vacio",
       "createFolder": "Create folder",
+      "continueToRooms": "Continue to rooms",
       "commanderEnlargedPreview": "Commander enlarged preview",
+      "deckListLabel": "Deck list",
       "loadingDecks": "Loading decks...",
       "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
       "decks": "Decks",
@@ -975,6 +992,7 @@
       "deckName": "Deck name",
       "folder": "Folder",
       "noFolder": "No folder",
+      "openDeck": "Open deck",
       "thisDeckIsPublicButItsFolder": "This deck is public, but its folder is private. It will not be publicly visible.",
       "commander": "Commander",
       "importDecklist": "Import decklist",

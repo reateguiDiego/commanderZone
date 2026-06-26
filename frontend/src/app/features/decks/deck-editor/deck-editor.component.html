@@ -1,20 +1,24 @@
 <section class="page-stack">
   @if (store.loading()) {
-    <p class="notice">{{ 'deckBuilder.deckEditor.loadingDeck' | runtimeTranslate }}</p>
+    <app-global-loader />
   } @else if (store.error()) {
     <p class="notice error">{{ store.error() }}</p>
   } @else if (store.deck(); as deck) {
+    @if (actionError()) {
+      <p class="notice error">{{ actionError()! | runtimeTranslate }}</p>
+    }
+
     <section class="panel deck-catalog-panel">
       <div class="deck-summary">
         <div class="deck-summary-counts">
-          <strong>{{ store.playableCardCount() }} cards</strong>
-          <span>{{ store.playableSectionCount() }} sections</span>
+          <strong>{{ 'deckBuilder.deckEditor.cardsCount' | runtimeTranslate: { count: store.playableCardCount() } }}</strong>
+          <span>{{ 'deckBuilder.deckEditor.sectionsCount' | runtimeTranslate: { count: store.playableSectionCount() } }}</span>
         </div>
         <div class="deck-summary-controls">
           <div class="deck-search-stack">
             <app-card-autocomplete
               [placeholder]="'deckBuilder.deckEditor.addCardsByName' | runtimeTranslate"
-              actionLabel="Add"
+              actionLabel="deckBuilder.deckEditor.add"
               [minQueryLength]="3"
               [showQuantity]="true"
               [clearOnSelect]="true"
@@ -96,8 +100,8 @@
                   class="deck-card-row"
                   (mouseenter)="showCardPreview($event, entry.card)"
                   (mousemove)="store.moveCardPreview($event)"
-                  (mouseleave)="hideCardPreview(entry.card)"
-                  (pointerleave)="hideCardPreview(entry.card)"
+                  (mouseleave)="hideCardPreview()"
+                  (pointerleave)="hideCardPreview()"
                   (click)="store.toggleCardMenu($event, entry)"
                   >
                     <span class="deck-card-primary">
@@ -115,7 +119,7 @@
                       }
                     </strong>
                   </span>
-                  <small class="deck-card-secondary">{{ store.displayCardTypeLine(entry.card) || 'Unknown type' }}</small>
+                  <small class="deck-card-secondary">{{ store.displayCardTypeLine(entry.card) || ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate) }}</small>
                   <span class="deck-card-cost">
                     @if (store.shouldShowManaCost(entry.card)) {
                       <app-mana-symbols [value]="entry.card.manaCost" fallback="-" />
@@ -154,7 +158,7 @@
                         <span class="deck-card-name-text" [attr.title]="entry.token.name">{{ entry.token.name }}</span>
                       </strong>
                     </span>
-                    <small class="deck-card-secondary">From {{ entry.sourceCard.name }}</small>
+                    <small class="deck-card-secondary">{{ 'deckBuilder.deckEditor.fromSourceCard' | runtimeTranslate: { name: entry.sourceCard.name } }}</small>
                     <span class="deck-card-cost">
                       @if (store.shouldShowManaCost(entry.token)) {
                         <app-mana-symbols [value]="entry.token.manaCost" fallback="-" />
@@ -185,20 +189,17 @@
 
         @if (store.validation(); as result) {
           <div class="notice" [class.ok-notice]="result.valid" [class.error]="!result.valid">
-            <strong>{{ result.valid ? 'Commander validation passed' : 'Commander validation failed' }}</strong>
-            <span>Usable in game: {{ result.valid ? 'yes' : 'no' }}</span>
+            <strong>{{ (result.valid ? 'deckBuilder.deckEditor.validationPassed' : 'deckBuilder.deckEditor.validationFailed') | runtimeTranslate }}</strong>
+            <span>{{ 'deckBuilder.deckEditor.usableInGame' | runtimeTranslate: { value: ((result.valid ? 'deckBuilder.deckEditor.yes' : 'deckBuilder.deckEditor.no') | runtimeTranslate) } }}</span>
+            <span>{{ 'deckBuilder.deckEditor.validationCounts' | runtimeTranslate: { total: result.counts.total, commander: result.counts.commander, main: result.counts.main, sideboard: result.counts.sideboard, maybeboard: result.counts.maybeboard } }}</span>
             <span>
-              Cards: {{ result.counts.total }} total
-              ({{ result.counts.commander }} commander, {{ result.counts.main }} main, {{ result.counts.sideboard }} sideboard, {{ result.counts.maybeboard }} maybeboard)
-            </span>
-            <span>
-              Commander mode: {{ result.commander.mode }}
+              {{ 'deckBuilder.deckEditor.commanderMode' | runtimeTranslate: { mode: result.commander.mode } }}
               @if (result.commander.names.length > 0) {
                 - {{ result.commander.names.join(' / ') }}
               }
             </span>
             @if (result.commander.colorIdentity.length > 0) {
-              <span>Color identity: {{ result.commander.colorIdentity.join(', ') }}</span>
+              <span>{{ 'deckBuilder.deckEditor.colorIdentity' | runtimeTranslate: { colors: result.commander.colorIdentity.join(', ') } }}</span>
             }
           </div>
 
@@ -289,7 +290,7 @@
         }
 
         @if (store.missingSearch(); as search) {
-          <h3>Search results for {{ search.name }}</h3>
+          <h3>{{ 'deckBuilder.deckEditor.searchResultsFor' | runtimeTranslate: { name: search.name } }}</h3>
           <div class="search-bar compact-search">
             <lucide-icon name="search" size="18" />
             <input name="missingSearchQuery" [placeholder]="'deckBuilder.deckEditor.searchAnotherCardName' | runtimeTranslate" [(ngModel)]="store.missingSearchQuery" />
@@ -305,8 +306,8 @@
                       <lucide-icon class="warning-mark" name="triangle-alert" size="14" [attr.title]="store.invalidCardMessage(card)" />
                     }
                   </strong>
-                  <small><app-mana-symbols [value]="card.manaCost" fallback="No cost" /></small>
-                  <small>{{ card.typeLine || 'Unknown type' }}</small>
+                  <small><app-mana-symbols [value]="card.manaCost" fallback="deckBuilder.deckEditor.noCost" /></small>
+                  <small>{{ card.typeLine || ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate) }}</small>
                 </span>
                 <div class="button-row">
                   <a czButton="text" czButtonSize="sm" class="text-button compact" [routerLink]="['/cards', card.scryfallId]">{{ 'deckBuilder.deckEditor.view' | runtimeTranslate }}</a>
@@ -358,7 +359,7 @@
             <div class="history-row">
               <span>
                 <strong>{{ entry.source }}</strong>
-                <small>{{ store.formatDate(entry.createdAt) }} - {{ entry.totalCards }} cards - {{ entry.commanders.join(', ') || 'No commander' }}</small>
+                <small>{{ store.formatDate(entry.createdAt) }} - {{ ('deckBuilder.deckEditor.historyCardsSummary' | runtimeTranslate: { count: entry.totalCards, commanders: entry.commanders.join(', ') || ('deckBuilder.deckEditor.noCommander' | runtimeTranslate) }) }}</small>
                 <small>+{{ entry.diff.added.length }} / -{{ entry.diff.removed.length }} / +/-{{ entry.diff.changed.length }}</small>
               </span>
               <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="store.restoreHistory(entry)">
@@ -374,11 +375,20 @@
     </section>
 
     @if (store.cardPreview(); as preview) {
-      <div class="card-hover-preview" [style.top.px]="preview.top" [style.left.px]="preview.left">
+      <div
+        class="card-hover-preview"
+        [class.card-hover-preview--battle]="isBattlePreviewCard(preview.card)"
+        [style.top.px]="preview.top"
+        [style.left.px]="preview.left"
+      >
         @if (preview.imageUrl) {
-            <img [src]="preview.imageUrl" [alt]="store.displayCardName(preview.card)" />
+            <img
+              [src]="preview.imageUrl"
+              [alt]="store.displayCardName(preview.card)"
+              [class.card-image--battle]="isBattlePreviewCard(preview.card)"
+            />
           } @else {
-            <div class="card-fallback tall">{{ store.displayCardName(preview.card) }}</div>
+            <div class="card-fallback tall" [class.card-fallback--battle]="isBattlePreviewCard(preview.card)">{{ store.displayCardName(preview.card) }}</div>
           }
       </div>
     }
@@ -416,8 +426,8 @@
     <app-modal
       [open]="store.importModalOpen()"
       [title]="'deckBuilder.deckEditor.importDecklist' | runtimeTranslate"
-      primaryLabel="Import"
-      secondaryLabel="Cancel"
+      primaryLabel="deckBuilder.deckEditor.header.import"
+      secondaryLabel="common.modal.cancel"
       (primary)="store.importDeck(deck.id)"
       (secondary)="store.closeImportModal()"
     >
@@ -443,7 +453,7 @@
         @if (store.lastImportStats(); as stats) {
           <div class="notice" [class.warning]="stats.missingCards > 0" [class.ok-notice]="stats.missingCards === 0">
             <strong>{{ 'deckBuilder.deckEditor.lastImport' | runtimeTranslate }}</strong>
-            <span>{{ stats.parsedCards }} parsed cards, {{ stats.importedCards }} imported, {{ stats.missingCards }} missing.</span>
+            <span>{{ 'deckBuilder.deckEditor.importSummary' | runtimeTranslate: { parsed: stats.parsedCards, imported: stats.importedCards, missing: stats.missingCards } }}</span>
           </div>
         }
 
@@ -460,7 +470,7 @@
       [open]="store.printVersionModalOpen()"
       [title]="store.hasSinglePrintVersionOption() ? '' : ('deckBuilder.deckEditor.selectPrintVersion' | runtimeTranslate)"
       [ariaLabel]="'deckBuilder.deckEditor.selectPrintVersion' | runtimeTranslate"
-      secondaryLabel="Close"
+      secondaryLabel="common.modal.close"
       [showPrimary]="false"
       size="wide"
       (secondary)="store.closePrintVersionModal()"
@@ -521,9 +531,9 @@
     <app-modal
       [open]="store.restoreModalOpen()"
       [title]="'deckBuilder.deckEditor.restoreHistory' | runtimeTranslate"
-      [message]="store.restoreTarget() ? 'Restore this snapshot?' : ''"
-      primaryLabel="Restore"
-      secondaryLabel="Cancel"
+      [message]="store.restoreTarget() ? 'deckBuilder.deckEditor.restoreSnapshotQuestion' : ''"
+      primaryLabel="deckBuilder.deckEditor.restore"
+      secondaryLabel="common.modal.cancel"
       (primary)="store.confirmRestoreHistory(deck.id)"
       (secondary)="store.restoreModalOpen.set(false)"
     />
@@ -531,9 +541,9 @@
     <app-modal
       [open]="store.clearHistoryModalOpen()"
       [title]="'deckBuilder.deckEditor.clearLocalHistory' | runtimeTranslate"
-      message="Clear local history for this deck?"
-      primaryLabel="Clear"
-      secondaryLabel="Cancel"
+      message="deckBuilder.deckEditor.clearLocalHistoryQuestion"
+      primaryLabel="deckBuilder.deckEditor.clear"
+      secondaryLabel="common.modal.cancel"
       [danger]="true"
       (primary)="store.confirmClearHistory(deck.id)"
       (secondary)="store.clearHistoryModalOpen.set(false)"

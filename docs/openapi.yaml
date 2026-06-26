@@ -1148,6 +1148,148 @@ paths:
           $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
+  /community:
+    get:
+      tags: [Community]
+      summary: Get Community home preview data.
+      parameters:
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Community home payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityHomeResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+  /community/decks:
+    get:
+      tags: [Community]
+      summary: List public valid decks for Community.
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: commander
+          in: query
+          description: Commander card id, Scryfall id, or commander name fragment.
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+        - name: colors
+          in: query
+          description: Simple commander color filter using W,U,B,R,G or C.
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public valid decks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityDeckListResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+  /community/decks/{id}:
+    get:
+      tags: [Community]
+      summary: Get a public valid deck detail for Community.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public deck detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/CommunityDeckDetail'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /community/top-commanders:
+    get:
+      tags: [Community]
+      summary: Get provisional top commanders preview data.
+      parameters:
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Optional top-level card type filter.
+          schema:
+            type: string
+            enum: [artifact, battle, creature, enchantment, instant, land, planeswalker, sorcery]
+        - name: colors
+          in: query
+          description: Optional color filter. Accepts one or more of W,U,B,R,G or C for colorless.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provisional commander leaderboard.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityPreviewCardsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+  /community/top-cards:
+    get:
+      tags: [Community]
+      summary: Get provisional top cards preview data.
+      parameters:
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Optional top-level card type filter.
+          schema:
+            type: string
+            enum: [artifact, battle, creature, enchantment, instant, land, planeswalker, sorcery]
+        - name: colors
+          in: query
+          description: Optional color filter. Accepts one or more of W,U,B,R,G or C for colorless.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provisional card leaderboard.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityPreviewCardsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
   /decks:
     get:
       tags: [Decks]
@@ -3489,6 +3631,165 @@ components:
         uri:
           type: string
           format: uri
+    CardPreview:
+      type: object
+      required: [id, scryfallId, name, cropImage, imageUris, cardFaces, colors, cardType, cardTypeIcon, timesPlayed]
+      properties:
+        id:
+          type: string
+          format: uuid
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cropImage:
+          type: [string, 'null']
+          format: uri
+        imageUris:
+          type: object
+          additionalProperties:
+            type: string
+        cardFaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFace'
+        colors:
+          type: array
+          items:
+            type: string
+        cardType:
+          type: [string, 'null']
+        cardTypeIcon:
+          type: [string, 'null']
+          enum: [artifact, battle, creature, enchantment, instant, land, planeswalker, sorcery, multiple, 'null']
+        timesPlayed:
+          type: integer
+          minimum: 500
+          maximum: 3000
+    CommunityHomeResponse:
+      type: object
+      required: [commanders, cards, decks]
+      properties:
+        commanders:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardPreview'
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardPreview'
+        decks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityDeckSummary'
+    CommunityDeckListResponse:
+      type: object
+      required: [decks]
+      properties:
+        decks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityDeckSummary'
+    CommunityPreviewCardsResponse:
+      type: object
+      required: [items, total, isPreview, message]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardPreview'
+        total:
+          type: integer
+          minimum: 0
+        isPreview:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Próximamente: estadísticas basadas en partidas reales de CommanderZone.
+    CommunityDeckOwner:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+    CommunityDeckSections:
+      type: object
+      required: [commander, main, sideboard, maybeboard]
+      properties:
+        commander:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCard'
+        main:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCard'
+        sideboard:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCard'
+        maybeboard:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCard'
+    CommunityDeckSummary:
+      type: object
+      required: [id, name, format, valid, cropImage, commanderName, colorIdentity, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        format:
+          type: string
+          enum: [commander]
+        valid:
+          type: boolean
+        cropImage:
+          type: [string, 'null']
+          format: uri
+        secondaryCropImage:
+          type: [string, 'null']
+          format: uri
+        commanderName:
+          type: [string, 'null']
+        colorIdentity:
+          type: array
+          items:
+            type: string
+        updatedAt:
+          type: string
+          format: date-time
+    CommunityDeckDetail:
+      allOf:
+        - $ref: '#/components/schemas/CommunityDeckSummary'
+        - type: object
+          required: [visibility, commanders, cards, sections, owner]
+          properties:
+            visibility:
+              $ref: '#/components/schemas/DeckVisibility'
+            backgroundName:
+              type: string
+            sleevesName:
+              type: string
+            folderId:
+              type: [string, 'null']
+              format: uuid
+            commanders:
+              type: array
+              items:
+                $ref: '#/components/schemas/Card'
+            cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckCard'
+            sections:
+              $ref: '#/components/schemas/CommunityDeckSections'
+            owner:
+              $ref: '#/components/schemas/CommunityDeckOwner'
     DeckVisibility:
       type: string
       enum: [private, public]

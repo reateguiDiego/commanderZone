@@ -1,53 +1,10 @@
-<section class="top-commanders" aria-labelledby="top-commanders-title">
-  <div class="top-commanders-header">
-    <div class="top-commanders-copy">
-      <h2 id="top-commanders-title" class="top-commanders-kicker">
-        <lucide-icon name="trophy" size="18" aria-hidden="true" />
-        {{ 'navigation.dashboard.dashboardTopCommanders.title' | runtimeTranslate }}
-      </h2>
-      <p class="top-commanders-subtitle">
-        {{ 'navigation.dashboard.dashboardTopCommanders.subtitle' | runtimeTranslate }}
-      </p>
-    </div>
-
-    <a class="top-commanders-link" routerLink="/cards">
-      {{ 'navigation.dashboard.dashboardTopCommanders.viewMore' | runtimeTranslate }}
-      <lucide-icon name="chevron-right" size="16" aria-hidden="true" />
-    </a>
-  </div>
-
-  <ol class="commander-grid" aria-label="Top 3 commanders">
-    @for (commander of commanders; track commander.name) {
-      <li class="commander-card">
-        <span class="commander-rank" [attr.aria-label]="'Rank ' + commander.rank">
-          {{ commander.rank }}
-        </span>
-
-        <div class="commander-art">
-          <img
-            [src]="commander.imageUrl"
-            [alt]="commander.name"
-            loading="lazy"
-            decoding="async"
-          />
-        </div>
-
-        <div class="commander-details">
-          <h3>{{ commander.name }}</h3>
-          <p>{{ commander.playedLabel }}</p>
-
-          <app-mana-symbols
-            class="mana-row"
-            [symbols]="commander.colors"
-            fallback="Colorless"
-            size="small"
-          />
-        </div>
-      </li>
-    }
-  </ol>
-
-  <p class="top-commanders-note">
-    {{ 'navigation.dashboard.dashboardTopCommanders.communityPopularity' | runtimeTranslate }}
-  </p>
-</section>
+<app-card-preview-section
+  [title]="'navigation.dashboard.dashboardTopCommanders.title' | runtimeTranslate"
+  [subtitle]="'navigation.dashboard.dashboardTopCommanders.subtitle' | runtimeTranslate"
+  [viewMoreLabel]="'navigation.dashboard.dashboardTopCommanders.viewMore' | runtimeTranslate"
+  [viewMoreLink]="'/community'"
+  [footerNote]="'navigation.dashboard.dashboardTopCommanders.communityPopularity' | runtimeTranslate"
+  [items]="commanders"
+  [showRank]="true"
+  ariaLabel="community.dashboardTopCommanders.ariaLabel"
+/>

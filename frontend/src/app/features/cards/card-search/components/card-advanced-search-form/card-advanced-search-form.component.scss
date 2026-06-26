@@ -525,6 +525,11 @@
   text-overflow: ellipsis;
 }
 
+.icon-choice--compact-text span {
+  font-size: 0.52rem;
+  line-height: 1.04;
+}
+
 .mana-choice span {
   display: -webkit-box;
   overflow: hidden;

@@ -67,7 +67,7 @@ export class DeckListStore {
   readonly deleteBlockedMessage = signal<string | null>(null);
   readonly createSuccessModalOpen = signal(false);
   readonly createSuccessDeck = signal<Deck | null>(null);
-  readonly createSuccessPrimaryLabel = signal('Open deck');
+  readonly createSuccessPrimaryLabel = signal('deckBuilder.deckList.openDeck');
   readonly deckEditTarget = signal<Deck | null>(null);
   readonly folderTarget = signal<DeckFolder | null>(null);
   readonly createdDeck = signal<Deck | null>(null);
@@ -163,7 +163,7 @@ export class DeckListStore {
   readonly deleteModalPrimaryLabel = computed(() => this.deleteBlockedMessage() ? 'OK' : 'Delete');
   readonly deleteModalShowsSecondary = computed(() => this.deleteBlockedMessage() === null);
   readonly deleteModalIsDanger = computed(() => this.deleteBlockedMessage() === null);
-  readonly createSuccessMessage = computed(() => 'This deck has been saved. It is now in your saved decks list, and you can edit it however you like. Good luck with your Commander deck!');
+  readonly createSuccessMessage = computed(() => 'deckBuilder.deckList.createSuccessMessage');
 
   newDeckName = '';
   newDeckFormatId = 'commander';
@@ -267,7 +267,7 @@ export class DeckListStore {
 
   configureCreateSuccessRedirect(redirectUrl: string | null): void {
     this.createSuccessRedirectUrl = redirectUrl;
-    this.createSuccessPrimaryLabel.set(redirectUrl ? 'Continue to rooms' : 'Open deck');
+    this.createSuccessPrimaryLabel.set(redirectUrl ? 'deckBuilder.deckList.continueToRooms' : 'deckBuilder.deckList.openDeck');
   }
 
   async cancelCreateFlow(): Promise<void> {

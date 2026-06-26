@@ -19,7 +19,7 @@
   <div class="deck-card-topline">
     <strong>{{ deck().name }}</strong>
     @if (colorIdentity(); as colors) {
-      <app-mana-symbols class="deck-commander-colors" [symbols]="colors" fallback="Colorless" size="small" />
+      <app-mana-symbols class="deck-commander-colors" [symbols]="colors" fallback="deckBuilder.deckList.colorFilter.colorless" size="small" />
     }
   </div>
 
@@ -36,19 +36,11 @@
     @if (hasIssues()) {
       <div class="deck-card-status">
         <app-tooltip [text]="issueTooltip()">
-          <span class="deck-list-warning" aria-label="Deck warnings">
+          <span class="deck-list-warning" [attr.aria-label]="'community.shared.deckWarnings' | runtimeTranslate">
             <lucide-icon name="triangle-alert" size="16" />
           </span>
         </app-tooltip>
       </div>
     }
-    <div class="deck-row-actions" (pointerdown)="handleDeckActionPointer($event)" (mousedown)="handleDeckActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-      <button czButton="icon" class="icon-button" type="button" title="Edit deck" (click)="edit($event)">
-        <lucide-icon name="pencil" size="16" />
-      </button>
-      <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" title="Delete deck" (click)="delete($event)">
-        <lucide-icon name="trash-2" size="16" />
-      </button>
-    </div>
   </div>
 </article>

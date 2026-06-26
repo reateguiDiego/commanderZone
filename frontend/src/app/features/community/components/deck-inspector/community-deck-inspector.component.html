@@ -1,0 +1,92 @@
+<section class="community-inspector">
+  <app-tab-list
+    class="community-inspector-tabs"
+    [items]="tabItems()"
+    [activeId]="activeTab()"
+    ariaLabel="deckBuilder.deckEditor.deckEditorSections"
+    (tabSelected)="selectTab($event)"
+  />
+
+  @if (activeTab() === 'analysis') {
+    <app-deck-analysis-panel />
+  } @else if (activeTab() === 'considering') {
+    <section class="analysis-panel">
+      <div class="analysis-panel-header">
+        <div>
+          <h3>{{ 'deckBuilder.deckEditor.consideringCards' | runtimeTranslate }}</h3>
+          <p>{{ 'deckBuilder.deckEditor.cardsParkedOutsideThePlayableDeck' | runtimeTranslate }}</p>
+        </div>
+        <strong class="analysis-list-count">{{ consideringCards().length }}</strong>
+      </div>
+
+      <div class="deck-card-list">
+        @for (entry of consideringCards(); track entry.id) {
+          <div class="deck-card-row">
+            <span class="deck-card-primary">
+              <strong class="deck-card-name">{{ entry.quantity }} - {{ entry.card.name }}</strong>
+            </span>
+            <small class="deck-card-secondary">{{ entry.card.typeLine || ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate) }}</small>
+            <span class="deck-card-cost">
+              @if (entry.card.manaCost) {
+                <app-mana-symbols [value]="entry.card.manaCost" fallback="-" />
+              }
+            </span>
+          </div>
+        } @empty {
+          <p class="notice compact-notice">{{ 'deckBuilder.deckEditor.noConsideringCards' | runtimeTranslate }}</p>
+        }
+      </div>
+    </section>
+  } @else {
+    <section class="community-inspector-stack">
+      <div class="notice" [class.ok-notice]="deck().valid" [class.warning]="!deck().valid">
+        <strong>{{ (deck().valid ? 'community.detail.readonly.validation.backendValid' : 'community.detail.readonly.validation.backendInvalid') | runtimeTranslate }}</strong>
+        <span>{{ 'community.detail.readonly.validation.commanders' | runtimeTranslate: { names: commanderNames() || ('community.detail.unknownCommander' | runtimeTranslate) } }}</span>
+      </div>
+
+      <div class="dense-list">
+        @for (issue of clientIssues(); track issue.title + issue.detail) {
+          <div class="list-row issue-row" [class.error-issue]="issue.severity === 'error'">
+            <span>
+              <strong>{{ issue.title }}</strong>
+              <small>{{ issue.detail }}</small>
+            </span>
+            <span class="metric">{{ issueSeverityKey(issue) | runtimeTranslate }}</span>
+          </div>
+        } @empty {
+          <p class="notice ok-notice">{{ 'deckBuilder.deckEditor.noFrontendDiagnosticsForTheCurrentDeck' | runtimeTranslate }}</p>
+        }
+      </div>
+    </section>
+  }
+
+  @if (store.hoverList(); as hover) {
+    <div class="analysis-hover-list" [style.top.px]="hover.top" [style.left.px]="hover.left">
+      <strong>{{ hover.title | runtimeTranslate }}</strong>
+      @if (hover.sections?.length) {
+        @for (section of hover.sections; track section.title) {
+          <section class="analysis-hover-section">
+            <h4>{{ section.title | runtimeTranslate }}</h4>
+            @if (section.items.length > 0) {
+              <ul>
+                @for (item of section.items; track item) {
+                  <li>{{ item }}</li>
+                }
+              </ul>
+            } @else {
+              <span>{{ 'deckBuilder.deckEditor.noCards' | runtimeTranslate }}</span>
+            }
+          </section>
+        }
+      } @else if (hover.items.length > 0) {
+        <ul>
+          @for (item of hover.items; track item) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+      } @else {
+        <span>{{ 'deckBuilder.deckEditor.noCards' | runtimeTranslate }}</span>
+      }
+    </div>
+  }
+</section>

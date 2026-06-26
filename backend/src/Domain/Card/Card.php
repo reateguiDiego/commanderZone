@@ -10,6 +10,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_card_scryfall_id', columns: ['scryfall_id'])]
 #[ORM\Index(name: 'idx_card_normalized_name', columns: ['normalized_name'])]
 #[ORM\Index(name: 'idx_card_print', columns: ['set_code', 'collector_number'])]
+#[ORM\Index(name: 'idx_card_commander_legal', columns: ['commander_legal'])]
 class Card
 {
     #[ORM\Id]

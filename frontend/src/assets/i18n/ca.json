@@ -42,6 +42,9 @@
       "label": "Extras",
       "open": "Open extra actions",
       "menu": "Extra actions"
+    },
+    "navigation": {
+      "back": "Enrere"
     }
   },
   "navigation": {

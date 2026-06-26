@@ -7,6 +7,7 @@ export type PageHeaderActionVariant = 'primary' | 'secondary';
 export interface PageHeaderAction {
   id: string;
   label: string;
+  isBack?: boolean;
   icon?: string;
   iconOnly?: boolean;
   tooltip?: string;

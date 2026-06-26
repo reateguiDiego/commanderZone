@@ -1,18 +1,22 @@
-@if (imageUrl(); as image) {
-  <img class="card-face-image__visual" [src]="image" [alt]="altText()" [loading]="loading()" />
-} @else {
-  <span class="card-face-image__visual card-face-image__fallback">{{ displayName() }}</span>
-}
+<div #stage class="card-face-image__stage">
+  @if (imageUrl(); as image) {
+    <img class="card-face-image__visual" [src]="image" [alt]="altText()" [loading]="loading()" />
+  } @else {
+    <span class="card-face-image__visual card-face-image__fallback">{{ displayName() }}</span>
+  }
+</div>
 
-@if (hasAlternateFace()) {
-  <button
+@if (showToggle() && hasAlternateFace()) {
+  <span
     class="card-face-image__toggle"
-    type="button"
-    [title]="'deckBuilder.cards.cardImage.flipFace' | runtimeTranslate"
-    [attr.aria-label]="'deckBuilder.cards.cardImage.flipFace' | runtimeTranslate"
-    (pointerdown)="stopPointer($event)"
-    (click)="toggleFace($event)"
+    (pointerdown)="$event.stopPropagation()"
+    (click)="$event.stopPropagation()"
+    (contextmenu)="$event.preventDefault(); $event.stopPropagation()"
   >
-    <lucide-icon name="rotate-cw" size="15" aria-hidden="true" />
-  </button>
+    <app-card-face-toggle-button
+      tone="overlay"
+      [size]="toggleSize()"
+      (pressed)="toggleFace($event)"
+    />
+  </span>
 }

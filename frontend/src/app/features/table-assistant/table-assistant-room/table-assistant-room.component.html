@@ -6,7 +6,7 @@
 
   <section class="table-room-content">
     @if (loading()) {
-      <p class="notice">{{ 'tableAssistant.tableAssistantRoom.cargandoSala' | runtimeTranslate }}</p>
+      <app-global-loader />
     } @else if (error()) {
       <p class="notice error">{{ error() }}</p>
     } @else if (room(); as tableRoom) {

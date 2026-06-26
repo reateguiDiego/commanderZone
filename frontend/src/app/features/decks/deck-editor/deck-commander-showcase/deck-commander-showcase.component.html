@@ -2,10 +2,7 @@
   @for (entry of entries(); track entry.id) {
     <article
       class="commander-card"
-      (mouseenter)="ensureFrontFace(entry.card)"
-      (mouseleave)="resetCardFaceAfterHover(entry.card)"
-      (pointerleave)="resetCardFaceAfterHover(entry.card)"
-      (click)="store.toggleCardMenu($event, entry)"
+      (click)="interactive() ? store.toggleCardMenu($event, entry) : null"
     >
       <div class="commander-card-image">
         @if (store.displayCardImageUrl(entry.card); as imageUrl) {
@@ -41,7 +38,7 @@
       </div>
     </article>
 
-    @if (store.cardMenu()?.entryId === entry.id) {
+    @if (interactive() && store.cardMenu()?.entryId === entry.id) {
       <app-deck-card-menu [entry]="entry" />
     }
   }

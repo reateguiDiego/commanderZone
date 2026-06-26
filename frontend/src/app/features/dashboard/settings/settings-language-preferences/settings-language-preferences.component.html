@@ -35,23 +35,27 @@
     </span>
   }
 
-  <app-format-select
-    name="appLanguage"
-    [label]="appLanguageLabel()"
-    [options]="appLanguageOptions()"
-    [value]="appLanguage()"
-    (valueChange)="appLanguageChange.emit($event)"
-  />
+  @if (loading()) {
+    <app-global-loader />
+  } @else {
+    <app-format-select
+      name="appLanguage"
+      [label]="appLanguageLabel()"
+      [options]="appLanguageOptions()"
+      [value]="appLanguage()"
+      (valueChange)="appLanguageChange.emit($event)"
+    />
 
-  <app-format-select
-    name="cardLanguage"
-    [label]="cardLanguageLabel()"
-    [options]="cardLanguageOptions()"
-    [value]="cardLanguage()"
-    (valueChange)="cardLanguageChange.emit($event)"
-  />
+    <app-format-select
+      name="cardLanguage"
+      [label]="cardLanguageLabel()"
+      [options]="cardLanguageOptions()"
+      [value]="cardLanguage()"
+      (valueChange)="cardLanguageChange.emit($event)"
+    />
 
-  @if (cardLanguageDisclaimer(); as disclaimer) {
-    <p class="app-disclaimer-callout">{{ disclaimer }}</p>
+    @if (cardLanguageDisclaimer(); as disclaimer) {
+      <p class="app-disclaimer-callout">{{ disclaimer }}</p>
+    }
   }
 </section>

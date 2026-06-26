@@ -16,6 +16,10 @@
   min-width: 0;
 }
 
+.page-header-title-back-button {
+  display: inline-flex;
+}
+
 .page-header-title.has-title-actions {
   padding-right: 3.3rem;
 }
@@ -139,10 +143,14 @@
 .page-header-actions-stack {
   display: grid;
   gap: 0.28rem;
+  margin-left: auto;
+  justify-items: end;
 }
 
 .page-header-actions-stack .page-header-actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 0.45rem;
 }

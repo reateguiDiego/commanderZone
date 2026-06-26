@@ -211,6 +211,10 @@ export class CardAdvancedSearchFormComponent {
     return MANA_TYPE_ICONS.has(normalized) ? normalized : 'multiple';
   }
 
+  iconChoiceNeedsCompactLabel(label: string | null | undefined): boolean {
+    return (label?.trim().length ?? 0) >= 10;
+  }
+
   manaCostSymbolValue(): string {
     const value = this.model.manaCost.trim();
     if (value === '' || value.includes('{')) {

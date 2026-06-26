@@ -5,10 +5,11 @@ import { SupportedCardLanguageCode, SupportedLanguageCode } from '../../../../co
 import { FormatSelectComponent, FormatSelectOption } from '../../../../shared/components/format-select/format-select.component';
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
+import { GlobalLoaderComponent } from '../../../../shared/ui/global-loader/global-loader.component';
 
 @Component({
   selector: 'app-settings-language-preferences',
-  imports: [FormatSelectComponent, RuntimeTranslatePipe, CzButtonDirective],
+  imports: [FormatSelectComponent, RuntimeTranslatePipe, CzButtonDirective, GlobalLoaderComponent],
   templateUrl: './settings-language-preferences.component.html',
   styleUrl: './settings-language-preferences.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -21,6 +22,7 @@ export class SettingsLanguagePreferencesComponent {
   readonly cardLanguageCoverage = input.required<readonly CardLanguageCoverage[]>();
   readonly cardLanguage = input.required<SupportedCardLanguageCode>();
   readonly appLanguage = input.required<SupportedLanguageCode>();
+  readonly loading = input(false);
   readonly passwordChangeDisabled = input(false);
   readonly passwordChangeInProgress = input(false);
   readonly passwordChangeSent = input(false);

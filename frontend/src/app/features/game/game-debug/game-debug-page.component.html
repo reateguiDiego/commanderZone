@@ -16,7 +16,7 @@
   </header>
 
   @if (loading()) {
-    <p class="debug-status">Cargando debug...</p>
+    <app-global-loader />
   }
 
   @if (error(); as errorMessage) {

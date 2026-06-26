@@ -55,6 +55,45 @@ describe('card-image utilities', () => {
     expect(imageUrl).toBe('https://cards.scryfall.io/normal/back/ajani.jpg');
   });
 
+  it('falls back to the first face image when the root image URI is blank', () => {
+    const imageUrl = bestCardImage({
+      id: 'invasion-of-zendikar',
+      scryfallId: 'battle-scryfall-id',
+      name: 'Invasion of Zendikar',
+      manaCost: '{3}{G}',
+      typeLine: 'Battle - Siege',
+      oracleText: null,
+      colors: ['G'],
+      colorIdentity: ['G'],
+      legalities: {},
+      imageUris: {
+        normal: '   ',
+      },
+      cardFaces: [
+        {
+          name: 'Invasion of Zendikar',
+          manaCost: '{3}{G}',
+          typeLine: 'Battle - Siege',
+          oracleText: null,
+          power: null,
+          toughness: null,
+          loyalty: null,
+          defense: '3',
+          colors: ['G'],
+          imageUris: {
+            normal: 'https://cards.scryfall.io/invasion-of-zendikar-front.jpg',
+          },
+        },
+      ],
+      layout: 'battle',
+      commanderLegal: true,
+      set: 'mom',
+      collectorNumber: '194',
+    } satisfies Card);
+
+    expect(imageUrl).toBe('https://cards.scryfall.io/invasion-of-zendikar-front.jpg');
+  });
+
   it('prefers art crop for background artwork', () => {
     const imageUrl = bestCardArtImage({
       id: 'commander',

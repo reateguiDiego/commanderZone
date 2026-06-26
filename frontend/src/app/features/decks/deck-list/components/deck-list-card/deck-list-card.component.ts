@@ -3,12 +3,11 @@ import { LucideAngularModule } from 'lucide-angular';
 import { type Deck, type DeckVisibility } from '../../../../../core/models/deck.model';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
-import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 
 @Component({
   selector: 'app-deck-list-card',
-  imports: [LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, CzButtonDirective, TooltipComponent],
+  imports: [LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, TooltipComponent],
   templateUrl: './deck-list-card.component.html',
   styleUrl: './deck-list-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,8 +23,6 @@ export class DeckListCardComponent {
   readonly issueTooltip = input('');
 
   readonly openDeck = output<void>();
-  readonly editDeck = output<void>();
-  readonly deleteDeck = output<void>();
 
   visibilityIcon(visibility: DeckVisibility | undefined): 'globe' | 'lock' {
     return visibility === 'public' ? 'globe' : 'lock';
@@ -38,48 +35,6 @@ export class DeckListCardComponent {
   }
 
   open(event: Event): void {
-    if (this.isDeckActionEvent(event)) {
-      event.stopPropagation();
-      return;
-    }
-
     this.openDeck.emit();
-  }
-
-  handleDeckActionPointer(event: PointerEvent): void {
-    event.stopPropagation();
-  }
-
-  handleDeckActionMouseDown(event: MouseEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  edit(event: MouseEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.blurActionTarget(event);
-    this.editDeck.emit();
-  }
-
-  delete(event: MouseEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.blurActionTarget(event);
-    this.deleteDeck.emit();
-  }
-
-  private blurActionTarget(event: Event): void {
-    const target = event.currentTarget;
-
-    if (target instanceof HTMLElement) {
-      target.blur();
-    }
-  }
-
-  private isDeckActionEvent(event: Event): boolean {
-    const target = event.target;
-
-    return target instanceof HTMLElement && target.closest('.deck-row-actions') !== null;
   }
 }

@@ -36,7 +36,7 @@
   </aside>
 
   @if (store.loading()) {
-    <p class="notice">{{ 'game.gameTable.loadingGame' | runtimeTranslate }}</p>
+    <app-global-loader />
   } @else if (store.snapshot(); as snapshot) {
     <app-game-arrow-layer
       [snapshot]="snapshot"

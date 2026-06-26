@@ -97,9 +97,11 @@ describe('DashboardSettingsModalComponent', () => {
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('renders general tab and keeps theme settings out of the game tab', () => {
+  it('renders general tab and keeps theme settings out of the game tab', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('General');
@@ -261,9 +263,11 @@ describe('DashboardSettingsModalComponent', () => {
     expect(cardLanguageSelect.querySelector('.format-select-option img[src*="taiwan"]')).not.toBeNull();
   });
 
-  it('uses native hamburger language options with flags for app language', () => {
+  it('uses native hamburger language options with flags for app language', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const appLanguageSelect = fixture.nativeElement.querySelector('app-format-select input[name="appLanguage"]')
@@ -545,9 +549,11 @@ describe('DashboardSettingsModalComponent', () => {
     expect(runtimeLanguageSelectorMock.applyLanguage).toHaveBeenLastCalledWith('en');
   });
 
-  it('shows persisted language selections in general tab selectors', () => {
+  it('shows persisted language selections in general tab selectors', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     fixture.componentInstance.profileBaseline.set({

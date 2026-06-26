@@ -1,6 +1,9 @@
 @if (header(); as headerState) {
   <div class="page-header-context" [attr.data-page-context]="headerState.context ?? null">
     <div class="page-header-title" [class.has-title-actions]="headerState.titleActions?.length">
+      @if (backAction(); as backActionValue) {
+        <app-back-button class="page-header-title-back-button" [disabled]="backActionValue.disabled ?? false" (pressed)="backActionValue.execute()" />
+      }
       @if (headerState.titleActions?.length) {
         <div class="page-header-title-actions">
           @for (action of headerState.titleActions; track action.id) {
@@ -54,7 +57,7 @@
     <div
       class="page-header-detail-row"
       [class.has-stats]="headerState.stats?.length"
-      [class.has-actions]="headerState.actions?.length"
+      [class.has-actions]="visibleActions().length"
     >
       @if (headerState.stats?.length) {
         <div class="page-header-stats" [attr.aria-label]="'navigation.dashboard.dashboardHeaderContext.pageSummary' | runtimeTranslate">
@@ -76,10 +79,10 @@
         </div>
       }
 
-      @if (headerState.actions?.length) {
+      @if (visibleActions().length) {
         <div class="page-header-actions-stack">
           <div class="page-header-actions">
-            @for (action of headerState.actions; track action.id) {
+            @for (action of visibleActions(); track action.id) {
               <app-tooltip [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null">
                 <button
                   [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"

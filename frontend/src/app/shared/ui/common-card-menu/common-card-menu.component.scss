@@ -4,7 +4,7 @@
 
 .common-card-menu {
   position: fixed;
-  z-index: 90;
+  z-index: var(--cz-common-card-menu-z-index, 6000);
   width: min(12rem, calc(100vw - 1.5rem));
   min-width: 12rem;
   border: 1px solid var(--line, rgb(var(--cz-primary-rgb) / 26%));

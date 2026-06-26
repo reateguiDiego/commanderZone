@@ -1,7 +1,7 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
-import { DeckEditorStore } from '../../../data-access/deck-editor.store';
+import { DECK_ANALYSIS_STORE } from '../deck-analysis-store.token';
 
 @Component({
   selector: 'app-deck-mana-balance-panel',
@@ -11,5 +11,5 @@ import { DeckEditorStore } from '../../../data-access/deck-editor.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DeckManaBalancePanelComponent {
-  readonly store = inject(DeckEditorStore);
+  readonly store = inject(DECK_ANALYSIS_STORE);
 }

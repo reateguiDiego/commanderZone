@@ -1,40 +1,69 @@
-import { ChangeDetectionStrategy, Component, HostBinding, computed, input, signal } from '@angular/core';
-import { LucideAngularModule } from 'lucide-angular';
-import { Card } from '../../../core/models/card.model';
-import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { cardFaceImage, hasAlternateCardFace, readableCardFaceImage } from '../../utils/card-faces';
+import { ChangeDetectionStrategy, Component, ElementRef, HostBinding, OnDestroy, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { gsap } from 'gsap';
+import { Card, CardFace } from '../../../core/models/card.model';
+import { DeviceProfileService } from '../../services/device-profile.service';
+import { CardFaceToggleButtonComponent, CardFaceToggleButtonSize } from '../card-face-toggle-button/card-face-toggle-button.component';
+import { CardFaceImageSource, cardDisplayFace, cardFaceImage, hasAlternateCardFace, readableCardFaceImage } from '../../utils/card-faces';
 
 export type CardFaceImageVariant = 'result' | 'spoiler' | 'detail' | 'printing';
 
 @Component({
   selector: 'app-card-face-image',
-  imports: [LucideAngularModule, RuntimeTranslatePipe],
+  imports: [CardFaceToggleButtonComponent],
   templateUrl: './card-face-image.component.html',
   styleUrl: './card-face-image.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CardFaceImageComponent {
-  readonly card = input.required<Card>();
+export class CardFaceImageComponent implements OnDestroy {
+  private readonly device = inject(DeviceProfileService);
+  readonly card = input.required<CardFaceImageSource | Card>();
   readonly variant = input<CardFaceImageVariant>('result');
   readonly battle = input(false);
   readonly loading = input<'lazy' | 'eager'>('lazy');
   readonly fallback = input<string | null>(null);
   readonly preferLarge = input(false);
+  readonly showToggle = input(true);
+  readonly flippedChange = output<boolean>();
 
   readonly flipped = signal(false);
   readonly hasAlternateFace = computed(() => hasAlternateCardFace(this.card()));
+  readonly visibleFace = computed<CardFace | null>(() => cardDisplayFace(this.card(), this.flipped()));
   readonly imageUrl = computed(() => this.preferLarge()
     ? readableCardFaceImage(this.card(), this.flipped())
     : cardFaceImage(this.card(), this.flipped()));
   readonly displayName = computed(() => this.fallback()?.trim() || this.card().name);
+  readonly toggleSize = computed<CardFaceToggleButtonSize>(() => {
+    switch (this.variant()) {
+      case 'detail':
+      case 'spoiler':
+        return 'lg';
+      case 'result':
+        return 'md';
+      default:
+        return 'md';
+    }
+  });
   readonly altText = computed(() => {
     const suffix = this.flipped() ? 'back face' : 'front face';
 
     return `${this.card().name} - ${suffix}`;
   });
+  private readonly stage = viewChild<ElementRef<HTMLElement>>('stage');
+  private animation: gsap.core.Tween | null = null;
+  private pendingFlipFrame: number | null = null;
+
+  ngOnDestroy(): void {
+    this.animation?.kill();
+    this.clearPendingFlipFrame();
+  }
 
   @HostBinding('class.card-face-image--battle')
   get isBattle(): boolean {
+    const visibleFaceType = this.visibleFace()?.typeLine?.trim().toLowerCase();
+    if (visibleFaceType) {
+      return visibleFaceType.startsWith('battle');
+    }
+
     return this.battle();
   }
 
@@ -58,13 +87,80 @@ export class CardFaceImageComponent {
     return this.variant() === 'printing';
   }
 
-  toggleFace(event: MouseEvent | PointerEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.flipped.update((flipped) => !flipped);
+  toggleFace(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    event?.stopImmediatePropagation?.();
+
+    if (!this.hasAlternateFace()) {
+      return;
+    }
+
+    const stage = this.stage()?.nativeElement;
+    if (!stage) {
+      this.flipped.update((flipped) => !flipped);
+      this.flippedChange.emit(this.flipped());
+      return;
+    }
+
+    this.clearPendingFlipFrame();
+    this.animation?.kill();
+    gsap.killTweensOf(stage);
+
+    if (this.shouldSkipFlipAnimation()) {
+      gsap.set(stage, { clearProps: 'transform' });
+      this.flipped.update((flipped) => !flipped);
+      this.flippedChange.emit(this.flipped());
+      this.animation = null;
+      return;
+    }
+
+    this.animation = gsap.to(stage, {
+      rotateY: 90,
+      duration: 0.16,
+      ease: 'power2.in',
+      onComplete: () => {
+        this.flipped.update((flipped) => !flipped);
+        this.flippedChange.emit(this.flipped());
+        this.runAfterNextFrame(() => {
+          gsap.set(stage, { rotateY: -90 });
+          this.animation = gsap.to(stage, {
+            rotateY: 0,
+            duration: 0.16,
+            ease: 'power2.out',
+            onComplete: () => {
+              gsap.set(stage, { clearProps: 'transform' });
+              this.animation = null;
+            },
+          });
+        });
+      },
+    });
   }
 
-  stopPointer(event: PointerEvent): void {
-    event.stopPropagation();
+  private runAfterNextFrame(callback: () => void): void {
+    const view = this.stage()?.nativeElement.ownerDocument.defaultView;
+    if (!view?.requestAnimationFrame) {
+      callback();
+      return;
+    }
+
+    this.pendingFlipFrame = view.requestAnimationFrame(() => {
+      this.pendingFlipFrame = null;
+      callback();
+    });
+  }
+
+  private clearPendingFlipFrame(): void {
+    if (this.pendingFlipFrame === null) {
+      return;
+    }
+
+    this.stage()?.nativeElement.ownerDocument.defaultView?.cancelAnimationFrame(this.pendingFlipFrame);
+    this.pendingFlipFrame = null;
+  }
+
+  private shouldSkipFlipAnimation(): boolean {
+    return !this.device.isDesktopLayout() || this.device.hasCoarsePointer() || !this.device.hasHover();
   }
 }

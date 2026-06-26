@@ -360,7 +360,7 @@ describe('DeckListComponent', () => {
     fixture.componentInstance.store.loading.set(false);
     fixture.detectChanges();
 
-    const editButton = fixture.nativeElement.querySelector('app-deck-list-card .deck-row-actions button[title="Edit deck"]') as HTMLButtonElement | null;
+    const editButton = fixture.nativeElement.querySelector('.deck-owner-card .deck-row-actions button') as HTMLButtonElement | null;
     const pointerDownAllowed = editButton?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
     const mouseDownAllowed = editButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     editButton?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
@@ -490,7 +490,7 @@ describe('DeckListComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.store.createModalOpen()).toBe(true);
-    expect(fixture.componentInstance.store.createSuccessPrimaryLabel()).toBe('Continue to rooms');
+    expect(fixture.componentInstance.store.createSuccessPrimaryLabel()).toBe('deckBuilder.deckList.continueToRooms');
   });
 
   it('continues to rooms after a deck flow started from a SEO CTA', () => {
@@ -556,9 +556,7 @@ describe('DeckListComponent', () => {
 
     expect(fixture.componentInstance.store.createModalOpen()).toBe(false);
     expect(fixture.componentInstance.store.createSuccessModalOpen()).toBe(true);
-    expect(fixture.componentInstance.store.createSuccessMessage()).toBe(
-      'This deck has been saved. It is now in your saved decks list, and you can edit it however you like. Good luck with your Commander deck!',
-    );
+    expect(fixture.componentInstance.store.createSuccessMessage()).toBe('deckBuilder.deckList.createSuccessMessage');
   });
 
   it('reloads the deck list when returning from the saved deck confirmation', async () => {

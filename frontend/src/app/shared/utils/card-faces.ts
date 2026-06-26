@@ -1,14 +1,20 @@
-import { Card, CardFace } from '../../core/models/card.model';
+import { Card, CardFace, CardImageUris } from '../../core/models/card.model';
 import { bestCardFaceImage, bestCardImage } from './card-image';
 
-export function hasAlternateCardFace(card: Card | null | undefined): boolean {
+export interface CardFaceImageSource {
+  readonly name: string;
+  readonly imageUris: CardImageUris;
+  readonly cardFaces?: CardFace[];
+}
+
+export function hasAlternateCardFace(card: CardFaceImageSource | null | undefined): boolean {
   const faces = card?.cardFaces ?? [];
   const secondFaceImage = bestCardFaceImage(faces[1]);
 
   return faces.length > 1 && secondFaceImage !== null && secondFaceImage.trim().length > 0;
 }
 
-export function cardDisplayFace(card: Card | null | undefined, flipped: boolean): CardFace | null {
+export function cardDisplayFace(card: CardFaceImageSource | null | undefined, flipped: boolean): CardFace | null {
   const faces = card?.cardFaces ?? [];
   if (faces.length < 2) {
     return null;
@@ -17,7 +23,7 @@ export function cardDisplayFace(card: Card | null | undefined, flipped: boolean)
   return faces[flipped ? 1 : 0] ?? null;
 }
 
-export function cardFaceImage(card: Card | null | undefined, flipped: boolean): string | null {
+export function cardFaceImage(card: CardFaceImageSource | null | undefined, flipped: boolean): string | null {
   if (!card) {
     return null;
   }
@@ -29,7 +35,7 @@ export function cardFaceImage(card: Card | null | undefined, flipped: boolean): 
   return bestCardFaceImage(card.cardFaces?.[1]);
 }
 
-export function readableCardFaceImage(card: Card | null | undefined, flipped: boolean): string | null {
+export function readableCardFaceImage(card: CardFaceImageSource | null | undefined, flipped: boolean): string | null {
   if (!card) {
     return null;
   }

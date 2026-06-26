@@ -1,0 +1,11 @@
+@if (hasLink()) {
+  <a czButton="secondary" czButtonSize="sm" class="back-button" [routerLink]="link()!">
+    <span class="back-button-arrow" aria-hidden="true">&#8592;</span>
+    <span>{{ 'common.navigation.back' | runtimeTranslate }}</span>
+  </a>
+} @else {
+  <button czButton="secondary" czButtonSize="sm" class="back-button" type="button" [disabled]="disabled()" (click)="handlePress()">
+    <span class="back-button-arrow" aria-hidden="true">&#8592;</span>
+    <span>{{ 'common.navigation.back' | runtimeTranslate }}</span>
+  </button>
+}

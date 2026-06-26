@@ -27,7 +27,7 @@
       </div>
     </aside>
 
-    <main class="cards-main">
+    <app-cards-main-layout>
       @if (!filtersExpanded()) {
         <button type="button" class="cards-filter-toggle cards-filter-toggle--standalone" [class.cards-filter-toggle--empty]="!searched()" (click)="expandFilters()">
           <lucide-icon name="sliders-horizontal" size="16" aria-hidden="true" />
@@ -127,193 +127,30 @@
           </button>
         </nav>
       }
-    </main>
+    </app-cards-main-layout>
   </div>
 
-  @if (detailsCard(); as card) {
-    <app-modal
-      [open]="true"
-      [title]="card.name"
-      [ariaLabel]="card.name"
-      [showCloseButton]="true"
-      [showPrimary]="false"
-      [showSecondary]="false"
-      [closeLabel]="'deckBuilder.cards.cardSearch.details.close' | runtimeTranslate"
-      size="wide"
-      (close)="closeDetails()"
-    >
-      <section class="card-detail-modal">
-        <div class="card-detail-modal__image" [class.card-detail-modal__image--battle]="isBattleCard(card)">
-          <app-card-face-image [card]="card" [battle]="isBattleCard(card)" variant="detail" loading="eager" [preferLarge]="true" />
-        </div>
+  <app-card-details-modal
+    [open]="detailsCard() !== null"
+    [card]="detailsCard()"
+    [cardName]="detailsCard()?.name ?? ''"
+    [loading]="false"
+    [errorKey]="null"
+    (closeRequested)="closeDetails()"
+  />
 
-        <div class="card-detail-modal__content">
-          <section class="card-detail-modal__section">
-            <h3>{{ 'deckBuilder.cards.cardSearch.details.oracleText' | runtimeTranslate }}</h3>
-            @if (detailCardRulesText()) {
-              <app-mana-text class="card-detail-modal__rules" [text]="detailCardRulesText()" />
-            } @else {
-              <p class="card-detail-modal__muted">{{ 'deckBuilder.cards.cardSearch.details.noOracleText' | runtimeTranslate }}</p>
-            }
-          </section>
+  <app-add-card-to-deck-modal
+    [open]="addToDeckCard() !== null"
+    [card]="addToDeckCard()"
+    (closeRequested)="closeAddToDeck()"
+  />
 
-          <section class="card-detail-modal__section">
-            <h3>{{ 'deckBuilder.cards.cardSearch.details.legalFormats' | runtimeTranslate }}</h3>
-            <div class="card-detail-modal__pills">
-              @for (format of legalFormatPills(); track format.format) {
-                <span class="legality-pill legality-pill--legal">{{ format.label }}</span>
-              } @empty {
-                <span class="card-detail-modal__muted">{{ 'deckBuilder.cards.cardSearch.details.noLegalFormats' | runtimeTranslate }}</span>
-              }
-            </div>
-          </section>
-
-          <section class="card-detail-modal__section">
-            <h3>{{ 'deckBuilder.cards.cardSearch.details.illegalFormats' | runtimeTranslate }}</h3>
-            <div class="card-detail-modal__pills">
-              @for (format of illegalFormatPills(); track format.format) {
-                <span class="legality-pill legality-pill--illegal">{{ format.label }}</span>
-              } @empty {
-                <span class="card-detail-modal__muted">{{ 'deckBuilder.cards.cardSearch.details.noIllegalFormats' | runtimeTranslate }}</span>
-              }
-            </div>
-          </section>
-        </div>
-      </section>
-    </app-modal>
-  }
-
-  @if (addToDeckCard(); as card) {
-    <app-modal
-      [open]="true"
-      [title]="'deckBuilder.cards.cardSearch.addToDeck.title' | runtimeTranslate: { card: card.name }"
-      [ariaLabel]="'deckBuilder.cards.cardSearch.addToDeck.title' | runtimeTranslate: { card: card.name }"
-      [primaryLabel]="'deckBuilder.cards.cardSearch.addToDeck.confirm' | runtimeTranslate"
-      [secondaryLabel]="'deckBuilder.cards.cardSearch.addToDeck.cancel' | runtimeTranslate"
-      [primaryDisabled]="!canAddToDeck()"
-      [footerNotice]="addToDeckErrorKey() ? (addToDeckErrorKey()! | runtimeTranslate) : ''"
-      [showCloseButton]="true"
-      [closeLabel]="'deckBuilder.cards.cardSearch.addToDeck.cancel' | runtimeTranslate"
-      size="compact"
-      panelOverflow="visible"
-      (primary)="addSelectedCardToDeck()"
-      (secondary)="closeAddToDeck()"
-      (close)="closeAddToDeck()"
-    >
-      <section class="add-to-deck-modal">
-        @if (loadingDecks()) {
-          <p class="card-modal-notice">{{ 'deckBuilder.cards.cardSearch.addToDeck.loadingDecks' | runtimeTranslate }}</p>
-        } @else if (decks().length === 0) {
-          <p class="card-modal-notice">{{ 'deckBuilder.cards.cardSearch.addToDeck.noDecks' | runtimeTranslate }}</p>
-        } @else {
-          <app-format-select
-            class="card-modal-select"
-            name="addToDeckDeck"
-            [labelKey]="'deckBuilder.cards.cardSearch.addToDeck.deck'"
-            [options]="deckSelectOptions()"
-            [value]="selectedDeckId()"
-            (valueChange)="selectDeck($event)"
-          />
-
-          <app-format-select
-            class="card-modal-select"
-            name="addToDeckSection"
-            [labelKey]="'deckBuilder.cards.cardSearch.addToDeck.section'"
-            [options]="deckSectionSelectOptions()"
-            [value]="selectedDeckSection()"
-            (valueChange)="selectDeckSection($event)"
-          />
-
-          <label class="card-modal-field card-modal-field--quantity">
-            <span>{{ 'deckBuilder.cards.cardSearch.addToDeck.quantity' | runtimeTranslate }}</span>
-            <span class="quantity-stepper">
-              <button
-                type="button"
-                class="quantity-stepper__button"
-                [attr.aria-label]="'deckBuilder.cards.cardSearch.addToDeck.decreaseQuantity' | runtimeTranslate"
-                [disabled]="selectedDeckQuantity() <= 1"
-                (click)="decreaseDeckQuantity()"
-              >
-                -
-              </button>
-              <input
-                type="text"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                maxlength="2"
-                min="1"
-                max="99"
-                [value]="selectedDeckQuantity()"
-                [attr.aria-label]="'deckBuilder.cards.cardSearch.addToDeck.quantity' | runtimeTranslate"
-                (input)="selectDeckQuantity($event)"
-              />
-              <button
-                type="button"
-                class="quantity-stepper__button"
-                [attr.aria-label]="'deckBuilder.cards.cardSearch.addToDeck.increaseQuantity' | runtimeTranslate"
-                [disabled]="selectedDeckQuantity() >= 99"
-                (click)="increaseDeckQuantity()"
-              >
-                +
-              </button>
-            </span>
-          </label>
-
-          @if (addToDeckWarnings().length > 0) {
-            <div class="add-to-deck-modal__warnings app-disclaimer-callout" role="status" aria-live="polite">
-              @for (warning of addToDeckWarnings(); track warning.labelKey) {
-                <p class="add-to-deck-modal__warning">
-                  <span>{{ warning.labelKey | runtimeTranslate: warning.params }}</span>
-                  @if (warning.colorSymbols) {
-                    <span class="add-to-deck-modal__warning-mana" aria-hidden="true">
-                      <app-mana-symbols [symbols]="warning.colorSymbols" fallback="" size="small" />
-                    </span>
-                  }
-                </p>
-              }
-            </div>
-          }
-        }
-      </section>
-    </app-modal>
-  }
-
-  @if (printingsCard(); as card) {
-    <app-modal
-      [open]="true"
-      [title]="'deckBuilder.cards.cardSearch.printings.title' | runtimeTranslate: { card: card.name }"
-      [ariaLabel]="'deckBuilder.cards.cardSearch.printings.title' | runtimeTranslate: { card: card.name }"
-      [showCloseButton]="true"
-      [showPrimary]="false"
-      [secondaryLabel]="'deckBuilder.cards.cardSearch.printings.close' | runtimeTranslate"
-      [closeLabel]="'deckBuilder.cards.cardSearch.printings.close' | runtimeTranslate"
-      size="wide"
-      (secondary)="closePrintings()"
-      (close)="closePrintings()"
-    >
-      <section class="card-printings-modal">
-        @if (loadingPrintings()) {
-          <p class="card-modal-notice">{{ 'deckBuilder.cards.cardSearch.printings.loading' | runtimeTranslate }}</p>
-        } @else if (printingsErrorKey()) {
-          <p class="card-modal-notice card-modal-notice--error">{{ printingsErrorKey()! | runtimeTranslate }}</p>
-        } @else {
-          <div class="card-printings-grid">
-            @for (printing of printings(); track printing.scryfallId) {
-              <article class="card-printing" [class.card-printing--battle]="isBattleCard(printing)">
-                <div class="card-printing__media" [class.card-printing__media--battle]="isBattleCard(printing)">
-                  <app-card-face-image [card]="printing" [battle]="isBattleCard(printing)" variant="printing" />
-                </div>
-                <div>
-                  <strong>{{ printing.setName || printing.set }}</strong>
-                  <span>{{ printing.collectorNumber }}</span>
-                </div>
-              </article>
-            } @empty {
-              <p class="card-modal-notice">{{ 'deckBuilder.cards.cardSearch.printings.empty' | runtimeTranslate }}</p>
-            }
-          </div>
-        }
-      </section>
-    </app-modal>
-  }
+  <app-card-printings-modal
+    [open]="printingsCard() !== null"
+    [cardName]="printingsCard()?.name ?? ''"
+    [printings]="printings()"
+    [loading]="loadingPrintings()"
+    [errorKey]="printingsErrorKey()"
+    (closeRequested)="closePrintings()"
+  />
 </section>

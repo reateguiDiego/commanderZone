@@ -17,6 +17,7 @@ import { Room, RoomMulliganRule, RoomPlayer, RoomTimerMode, WaitingRoomEvent } f
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { PlayerNameComponent } from '../../../shared/ui/player-name/player-name.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { bestCardArtImage } from '../../../shared/utils/card-image';
@@ -46,6 +47,7 @@ interface WaitingTurnOrderRow {
   imports: [RuntimeTranslatePipe, 
     LucideAngularModule,
     AppModalComponent,
+    GlobalLoaderComponent,
     PlayerNameComponent,
     PrettyScrollDirective,
     RoomSetupModalComponent,

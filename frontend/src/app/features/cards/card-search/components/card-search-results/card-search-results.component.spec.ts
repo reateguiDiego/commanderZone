@@ -1,7 +1,8 @@
-import { importProvidersFrom } from '@angular/core';
+import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { LucideAngularModule, RotateCw } from 'lucide-angular';
-import { Card } from '../../../../../core/models/card.model';
+import { Card, CardFace } from '../../../../../core/models/card.model';
+import { DeviceProfileService } from '../../../../../shared/services/device-profile.service';
 import { CardSearchResultsComponent } from './card-search-results.component';
 
 describe('CardSearchResultsComponent', () => {
@@ -14,6 +15,7 @@ describe('CardSearchResultsComponent', () => {
       imports: [CardSearchResultsComponent],
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ RotateCw })),
+        { provide: DeviceProfileService, useValue: { isMobile: signal(true), isDesktopLayout: signal(false), hasCoarsePointer: signal(true), hasHover: signal(false) } },
       ],
     }).compileComponents();
   });
@@ -184,6 +186,64 @@ describe('CardSearchResultsComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Sol Ring');
   });
 
+  it('keeps the flip gesture inside the toggle on mobile interaction sequences', () => {
+    const fixture = TestBed.createComponent(CardSearchResultsComponent);
+    fixture.componentRef.setInput('results', [cardFixture({
+      imageUris: {},
+      cardFaces: [
+        cardFace('Front', '/face-front.jpg'),
+        cardFace('Back', '/face-back.jpg'),
+      ],
+    })]);
+    fixture.componentRef.setInput('searched', true);
+    fixture.componentRef.setInput('viewMode', 'spoiler');
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('app-card-face-toggle-button button') as HTMLButtonElement;
+    const image = () => fixture.nativeElement.querySelector('.mtg-card-result img') as HTMLImageElement | null;
+
+    expect(image()?.getAttribute('src')).toBe('/face-front.jpg');
+
+    toggle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+    toggle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(image()?.getAttribute('src')).toBe('/face-back.jpg');
+    expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
+
+    toggle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+    toggle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(image()?.getAttribute('src')).toBe('/face-front.jpg');
+    expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
+  });
+
+  it('does not treat overlay toggle mouse clicks as result clicks', () => {
+    const fixture = TestBed.createComponent(CardSearchResultsComponent);
+    fixture.componentRef.setInput('results', [cardFixture({
+      imageUris: {},
+      cardFaces: [
+        cardFace('Front', '/face-front.jpg'),
+        cardFace('Back', '/face-back.jpg'),
+      ],
+    })]);
+    fixture.componentRef.setInput('searched', true);
+    fixture.componentRef.setInput('viewMode', 'spoiler');
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('app-card-face-toggle-button button') as HTMLButtonElement;
+    const image = () => fixture.nativeElement.querySelector('.mtg-card-result img') as HTMLImageElement | null;
+
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    expect(image()?.getAttribute('src')).toBe('/face-back.jpg');
+    expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
+  });
+
   it('switches list results to two ten-row columns after ten visible cards', () => {
     const fixture = TestBed.createComponent(CardSearchResultsComponent);
     fixture.componentRef.setInput('results', Array.from({ length: 11 }, (_, index) => cardFixture({
@@ -237,5 +297,19 @@ function cardFixture(overrides: Partial<Card> = {}): Card {
     rarity: 'rare',
     collectorNumber: '1',
     ...overrides,
+  };
+}
+
+function cardFace(name: string, imageUrl: string): CardFace {
+  return {
+    name,
+    manaCost: null,
+    typeLine: null,
+    oracleText: null,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    colors: [],
+    imageUris: { normal: imageUrl },
   };
 }

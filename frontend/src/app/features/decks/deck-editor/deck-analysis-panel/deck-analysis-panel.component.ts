@@ -1,8 +1,8 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { DeckEditorStore } from '../../data-access/deck-editor.store';
 import { DeckManaBalancePanelComponent } from './deck-mana-balance-panel/deck-mana-balance-panel.component';
 import { DeckManaCurvePanelComponent } from './deck-mana-curve-panel/deck-mana-curve-panel.component';
+import { DECK_ANALYSIS_STORE } from './deck-analysis-store.token';
 
 @Component({
   selector: 'app-deck-analysis-panel',
@@ -12,5 +12,5 @@ import { DeckManaCurvePanelComponent } from './deck-mana-curve-panel/deck-mana-c
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DeckAnalysisPanelComponent {
-  readonly store = inject(DeckEditorStore);
+  readonly store = inject(DECK_ANALYSIS_STORE);
 }

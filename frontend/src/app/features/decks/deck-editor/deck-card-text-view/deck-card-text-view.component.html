@@ -7,10 +7,14 @@
             <span class="deck-group-title">
               {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
               @if (group.id === 'commander') {
-                <app-mana-symbols class="commander-colors" [symbols]="store.deckColorIdentitySymbols()" fallback="Colorless" />
+                <app-mana-symbols
+                  class="commander-colors"
+                  [symbols]="store.deckColorIdentitySymbols()"
+                  fallback="deckBuilder.deckList.colorFilter.colorless"
+                />
               }
               @if (group.detail) {
-                <span class="group-detail">· {{ group.detail }}</span>
+                <span class="group-detail">&middot; {{ group.detail }}</span>
               }
             </span>
             <lucide-icon [name]="store.isGroupCollapsed(group.id) ? 'chevron-right' : 'chevron-down'" size="16" />
@@ -21,16 +25,16 @@
                 @if (group.id === 'commander' && group.cards.length === 0) {
                   <p class="notice warning compact-notice">{{ 'deckBuilder.deckCardTextView.noCommanderAssignedYet' | runtimeTranslate }}</p>
                 } @else if (group.id === 'commander') {
-                  <app-deck-commander-showcase [entries]="group.cards" />
+                  <app-deck-commander-showcase [entries]="group.cards" [interactive]="interactive()" />
                 } @else {
                   @for (entry of group.cards; track entry.id) {
                     <div
                       class="deck-card-row"
                       (mouseenter)="showCardPreview($event, entry.card)"
                       (mousemove)="store.moveCardPreview($event)"
-                      (mouseleave)="hideCardPreview(entry.card)"
-                      (pointerleave)="hideCardPreview(entry.card)"
-                      (click)="store.toggleCardMenu($event, entry)"
+                      (mouseleave)="hideCardPreview()"
+                      (pointerleave)="hideCardPreview()"
+                      (click)="cardClickEnabled() ? store.toggleCardMenu($event, entry) : null"
                     >
                       <span class="deck-card-primary">
                         <strong class="deck-card-name">
@@ -38,7 +42,13 @@
                             {{ entry.quantity }} - {{ store.displayCardListName(entry.card) }}
                           </span>
                           @if (store.hasAlternateFace(entry.card)) {
-                            <button class="face-toggle-button" type="button" (click)="toggleCardFace($event, entry.card)">
+                            <button
+                              class="face-toggle-button"
+                              type="button"
+                              (pointerdown)="stopFaceTogglePointer($event)"
+                              (contextmenu)="stopFaceToggleContextMenu($event)"
+                              (click)="toggleCardFace($event, entry.card)"
+                            >
                               <lucide-icon name="rotate-cw" size="13" />
                             </button>
                           }
@@ -47,14 +57,16 @@
                           }
                         </strong>
                       </span>
-                      <small class="deck-card-secondary">{{ store.displayCardTypeLine(entry.card) || 'Unknown type' }}</small>
+                      <small class="deck-card-secondary">
+                        {{ store.displayCardTypeLine(entry.card) || ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate) }}
+                      </small>
                       <span class="deck-card-cost">
                         @if (store.shouldShowManaCost(entry.card)) {
                           <app-mana-symbols [value]="store.displayCardManaCost(entry.card)" fallback="-" />
                         }
                       </span>
                     </div>
-                    @if (store.cardMenu()?.entryId === entry.id) {
+                    @if (interactive() && store.cardMenu()?.entryId === entry.id) {
                       <app-deck-card-menu [entry]="entry" />
                     }
                   }

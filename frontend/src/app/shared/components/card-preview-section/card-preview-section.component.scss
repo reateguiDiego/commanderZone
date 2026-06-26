@@ -2,6 +2,34 @@
   display: block;
 }
 
+:host(.compact) .top-commanders {
+  max-width: 100%;
+  margin: 0;
+  padding: 0.55rem;
+  gap: 0.52rem;
+}
+
+:host(.compact) .commander-grid {
+  gap: 0.5rem;
+}
+
+:host(.compact) .commander-art {
+  min-height: 4.75rem;
+}
+
+:host(.compact) .commander-details {
+  min-height: 4.1rem;
+  padding: 0.42rem 0.5rem 0.55rem;
+}
+
+:host(.compact) .commander-details h3 {
+  font-size: clamp(0.78rem, 0.95vw, 0.9rem);
+}
+
+.compact .top-commanders-link {
+  min-height: 1.85rem;
+}
+
 .top-commanders {
   position: relative;
   display: grid;
@@ -53,7 +81,8 @@
 .top-commanders-subtitle,
 .top-commanders-note,
 .commander-details h3,
-.commander-details p {
+.commander-details p,
+.commander-art-fallback strong {
   margin: 0;
 }
 
@@ -188,6 +217,16 @@
   filter: saturate(1.04) contrast(1.04);
 }
 
+.commander-art-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0.85rem;
+  color: var(--cz-text);
+  text-align: center;
+}
+
 .commander-details {
   display: grid;
   gap: 0.22rem;
@@ -196,6 +235,54 @@
   min-height: 4.65rem;
   padding: 0.52rem 0.6rem 0.62rem;
   text-align: center;
+}
+
+.commander-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.34rem;
+  min-width: 0;
+}
+
+.commander-played,
+.commander-type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  min-width: 0;
+  min-height: 1.45rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 24%);
+  border-radius: 999px;
+  padding: 0 0.5rem;
+  background: rgb(var(--cz-surface-rgb) / 58%);
+  color: var(--cz-text);
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.commander-played {
+  color: var(--cz-accent);
+}
+
+.commander-played__label {
+  color: rgb(var(--cz-text-rgb) / 62%);
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.commander-type-pill span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commander-type-pill__icon {
+  flex: 0 0 auto;
+  color: var(--cz-primary);
+  font-size: 0.88rem;
 }
 
 .commander-details h3 {
@@ -234,7 +321,7 @@
   text-align: center;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1024px) {
   .top-commanders {
     max-width: calc(100vw - 1rem);
     gap: 0.58rem;
@@ -261,7 +348,16 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 720px) {
+  :host(.compact) .top-commanders {
+    padding: 0.5rem;
+  }
+
+  :host(.small-screen-text-mode) .top-commanders {
+    gap: 0.42rem;
+    padding: 0.46rem;
+  }
+
   .top-commanders-header {
     display: grid;
     gap: 0.45rem;
@@ -296,6 +392,10 @@
     overflow: hidden;
   }
 
+  .commander-meta {
+    justify-content: flex-start;
+  }
+
   .commander-details h3,
   .commander-details p {
     width: 100%;
@@ -307,9 +407,55 @@
   .mana-row {
     justify-content: flex-start;
   }
+
+  :host(.small-screen-text-mode) .commander-card {
+    grid-template-columns: 3.6rem minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  :host(.small-screen-text-mode) .commander-art {
+    min-height: 3.4rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-details {
+    gap: 0.18rem;
+    padding: 0.32rem 0.42rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-details h3 {
+    font-size: 0.74rem;
+    line-height: 1.05;
+  }
+
+  :host(.small-screen-text-mode) .commander-meta {
+    gap: 0.24rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-played,
+  :host(.small-screen-text-mode) .commander-type-pill {
+    min-height: 1.18rem;
+    padding: 0 0.38rem;
+    font-size: 0.62rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-played__label {
+    font-size: 0.56rem;
+  }
+
+  :host(.small-screen-text-mode) .mana-row {
+    display: none;
+  }
 }
 
 @media (max-width: 520px) {
+  :host(.mobile-header-only) {
+    height: 100%;
+  }
+
+  :host(.compact) .top-commanders {
+    padding: 0.45rem 0;
+  }
+
   .top-commanders {
     max-width: 100%;
     margin-inline: 0;
@@ -367,22 +513,89 @@
     justify-content: flex-start;
     font-size: 0.9rem;
   }
-}
 
-@media (max-width: 380px) {
-  .top-commanders {
+  :host(.small-screen-text-mode) .top-commanders {
+    gap: 0.38rem;
+    padding: 0.38rem 0.4rem;
+  }
+
+  :host(.small-screen-text-mode) .top-commanders-header {
+    gap: 0.32rem;
+  }
+
+  :host(.small-screen-text-mode) .top-commanders-link {
+    min-height: 1.6rem;
     padding-inline: 0.5rem;
+    font-size: 0.62rem;
   }
 
-  .commander-card {
-    grid-template-columns: 4.1rem minmax(0, 1fr);
+  :host(.small-screen-text-mode) .commander-grid {
+    gap: 0.34rem;
   }
 
-  .commander-art {
-    min-height: 3.9rem;
+  :host(.small-screen-text-mode) .commander-card {
+    grid-template-columns: 2.85rem minmax(0, 1fr);
+    border-radius: 0.46rem;
   }
 
-  .mana-row {
-    font-size: 0.82rem;
+  :host(.small-screen-text-mode) .commander-art {
+    min-height: 2.95rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-details {
+    gap: 0.14rem;
+    padding: 0.26rem 0.38rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-details h3 {
+    font-size: 0.7rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-played,
+  :host(.small-screen-text-mode) .commander-type-pill {
+    min-height: 1.06rem;
+    gap: 0.24rem;
+    padding: 0 0.32rem;
+    font-size: 0.58rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-played__label {
+    font-size: 0.52rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-type-pill__icon {
+    font-size: 0.72rem;
+  }
+
+  :host(.small-screen-text-mode) .commander-rank {
+    width: 1.2rem;
+    left: 0.24rem;
+    top: 0.24rem;
+    font-size: 0.58rem;
+  }
+
+  :host(.mobile-header-only) .top-commanders {
+    height: 100%;
+    gap: 0.32rem;
+    padding: 0.38rem 0.4rem;
+  }
+
+  :host(.mobile-header-only) .top-commanders-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.28rem 0.45rem;
+  }
+
+  :host(.mobile-header-only) .top-commanders-copy {
+    flex: 1 0 100%;
+  }
+
+  :host(.mobile-header-only) .top-commanders-link {
+    margin-left: auto;
+  }
+
+  :host(.mobile-header-only) .commander-grid {
+    display: none;
   }
 }

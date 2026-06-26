@@ -1,11 +1,11 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, input } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { Card } from '../../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
-import { DeckEditorStore } from '../../data-access/deck-editor.store';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { runDeckFaceToggleAnimation } from '../deck-face-toggle-animation';
+import { DECK_VIEW_STORE } from '../deck-view-store.token';
 
 @Component({
   selector: 'app-deck-card-spoiler-view',
@@ -15,7 +15,9 @@ import { runDeckFaceToggleAnimation } from '../deck-face-toggle-animation';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DeckCardSpoilerViewComponent {
-  readonly store = inject(DeckEditorStore);
+  readonly interactive = input(true);
+  readonly cardClickEnabled = input(true);
+  readonly store = inject(DECK_VIEW_STORE);
 
   constructor() {
     this.store.hideCardPreview();
@@ -28,22 +30,25 @@ export class DeckCardSpoilerViewComponent {
   }
 
   stopFaceTogglePointer(event: PointerEvent): void {
+    event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation?.();
   }
 
-  ensureFrontFace(card: Card): void {
-    this.store.resetCardFace(card);
+  stopFaceToggleContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
   }
 
-  resetCardFaceAfterHover(event: Event, card: Card): void {
-    if (this.store.resetCardFace(card)) {
-      runDeckFaceToggleAnimation(event.currentTarget, 'card-image', { animateTrigger: false });
-    }
+  isBattleVisibleFace(card: Card): boolean {
+    return (this.store.displayCardTypeLine(card) ?? '').trim().toLowerCase().startsWith('battle');
   }
 
   toggleCardFace(event: MouseEvent, card: Card): void {
     event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation?.();
     this.store.toggleCardFace(event, card, { updatePreview: false });
     runDeckFaceToggleAnimation(event.currentTarget, 'card-image');
   }

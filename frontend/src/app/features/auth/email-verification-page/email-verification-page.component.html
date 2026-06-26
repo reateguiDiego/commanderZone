@@ -6,14 +6,12 @@
         <p>{{ 'auth.emailVerificationPage.waitWhileWeConfirmYourAccount' | runtimeTranslate }}</p>
       </header>
     } @else {
+      <app-back-button link="/auth/login" />
+
       <header>
         <h1>{{ 'auth.emailVerificationPage.couldNotConfirmEmail' | runtimeTranslate }}</h1>
         <p>{{ 'auth.emailVerificationPage.linkInvalidOrExpired' | runtimeTranslate }}</p>
       </header>
-
-      <a czButton="primary" class="primary-button" routerLink="/auth/login">
-        {{ 'auth.emailVerificationPage.backToLogin' | runtimeTranslate }}
-      </a>
     }
   </section>
 </main>

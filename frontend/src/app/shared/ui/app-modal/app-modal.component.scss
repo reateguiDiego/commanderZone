@@ -106,7 +106,9 @@
 .modal-title-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.65rem;
+  min-width: 0;
 }
 
 .modal-title-row.has-title-icon {
@@ -114,7 +116,9 @@
 }
 
 .modal-title-row h2 {
+  flex: 1 1 12rem;
   margin: 0;
+  min-width: 0;
 }
 
 .modal-header-rule {
@@ -134,11 +138,7 @@
 }
 
 .modal-back-button {
-  border-radius: 10px;
-}
-
-.modal-back-button:hover {
-  border-color: rgb(var(--cz-primary-rgb) / 68%);
+  flex: 0 0 auto;
 }
 
 .modal-header-action {

@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, input, output, signal } from '@angular/core';
 import { Card } from '../../../../../core/models/card.model';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { bestCardImage } from '../../../../../shared/utils/card-image';
 import { CardFaceImageComponent } from '../../../../../shared/components/card-face-image/card-face-image.component';
+import { CardFaceToggleButtonComponent } from '../../../../../shared/components/card-face-toggle-button/card-face-toggle-button.component';
+import { cardFaceImage, hasAlternateCardFace } from '../../../../../shared/utils/card-faces';
 import { CommonCardMenuAction, CommonCardMenuComponent } from '../../../../../shared/ui/common-card-menu/common-card-menu.component';
 import { CardSearchViewMode } from '../../card-search.models';
 
@@ -38,7 +39,7 @@ export interface CardSearchResultActionEvent {
 
 @Component({
   selector: 'app-card-search-results',
-  imports: [CardFaceImageComponent, RuntimeTranslatePipe, CommonCardMenuComponent],
+  imports: [CardFaceImageComponent, CardFaceToggleButtonComponent, RuntimeTranslatePipe, CommonCardMenuComponent],
   templateUrl: './card-search-results.component.html',
   styleUrl: './card-search-results.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,6 +53,7 @@ export class CardSearchResultsComponent implements OnDestroy {
   readonly actionSelected = output<CardSearchResultActionEvent>();
   readonly contextMenu = signal<CardContextMenuState | null>(null);
   readonly hoverPreview = signal<CardHoverPreviewState | null>(null);
+  readonly flippedFaces = signal<Record<string, boolean>>({});
   readonly contextMenuActions: ReadonlyArray<CommonCardMenuAction<CardSearchResultAction>> = [
     { id: 'details', label: 'deckBuilder.cards.cardSearch.actions.showDetails' },
     { id: 'addToDeck', label: 'deckBuilder.cards.cardSearch.actions.addToDeck' },
@@ -66,11 +68,22 @@ export class CardSearchResultsComponent implements OnDestroy {
   }
 
   image(card: Card): string | null {
-    return bestCardImage(card);
+    return cardFaceImage(card, this.isFaceFlipped(card));
   }
 
   isBattleCard(card: Card): boolean {
     return this.cardTypeLine(card).startsWith('battle');
+  }
+
+  hasAlternateFace(card: Card): boolean {
+    return hasAlternateCardFace(card);
+  }
+
+  handleFaceFlipped(card: Card, flipped: boolean): void {
+    this.flippedFaces.update((state) => ({
+      ...state,
+      [card.scryfallId]: flipped,
+    }));
   }
 
   openContextMenu(event: MouseEvent, card: Card): void {
@@ -236,11 +249,16 @@ export class CardSearchResultsComponent implements OnDestroy {
   }
 
   private cardTypeLine(card: Card): string {
-    const faceTypeLine = card.cardFaces?.[0]?.typeLine?.trim().toLowerCase();
+    const faceIndex = this.isFaceFlipped(card) ? 1 : 0;
+    const faceTypeLine = card.cardFaces?.[faceIndex]?.typeLine?.trim().toLowerCase();
     if (faceTypeLine) {
       return faceTypeLine;
     }
 
     return card.typeLine?.trim().toLowerCase() ?? '';
+  }
+
+  private isFaceFlipped(card: Card): boolean {
+    return this.flippedFaces()[card.scryfallId] ?? false;
   }
 }

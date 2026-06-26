@@ -7,18 +7,6 @@
   gap: 1rem;
 }
 
-.card-detail-back {
-  justify-self: start;
-  border-color: rgb(var(--cz-accent-rgb) / 44%);
-  background:
-    linear-gradient(135deg, rgb(var(--cz-surface-rgb) / 82%), rgb(var(--cz-bg-rgb) / 70%)),
-    var(--cz-bg);
-  color: var(--cz-text);
-  box-shadow:
-    0 0.75rem 1.8rem rgb(0 0 0 / 18%),
-    inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%);
-}
-
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(14rem, 23rem) minmax(0, 1fr);

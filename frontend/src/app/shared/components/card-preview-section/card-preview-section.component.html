@@ -1,0 +1,89 @@
+<section class="top-commanders" [attr.aria-labelledby]="title() + '-title'">
+  <div class="top-commanders-header">
+    <div class="top-commanders-copy">
+      <h2 [id]="title() + '-title'" class="top-commanders-kicker">
+        <lucide-icon [name]="icon()" size="18" aria-hidden="true" />
+        {{ title() | runtimeTranslate }}
+      </h2>
+      @if (subtitle()) {
+        <p class="top-commanders-subtitle">
+          {{ subtitle()! | runtimeTranslate }}
+        </p>
+      }
+    </div>
+
+    @if (viewMoreLink()) {
+      <a class="top-commanders-link" [routerLink]="viewMoreLink()!">
+        {{ viewMoreLabel() | runtimeTranslate }}
+        <lucide-icon name="chevron-right" size="16" aria-hidden="true" />
+      </a>
+    }
+  </div>
+
+  <ol class="commander-grid" [attr.aria-label]="(ariaLabel() || title()) | runtimeTranslate">
+    @for (item of items(); track item.id) {
+      <li class="commander-card">
+        @if (showRank() && item.rank) {
+          <span class="commander-rank" [attr.aria-label]="'shared.cardPreview.rank' | runtimeTranslate: { rank: item.rank }">
+            {{ item.rank }}
+          </span>
+        }
+
+        <div class="commander-art">
+          @if (item.cropImage) {
+            <img
+              [src]="item.cropImage"
+              [alt]="item.name"
+              loading="lazy"
+              decoding="async"
+            />
+          } @else {
+            <div class="commander-art-fallback">
+              <strong>{{ item.name }}</strong>
+            </div>
+          }
+        </div>
+
+        <div class="commander-details">
+          <h3>{{ item.name }}</h3>
+          @if (item.timesPlayed || item.cardType) {
+            <div class="commander-meta">
+              @if (item.timesPlayed) {
+                <span class="commander-played">
+                  <span class="commander-played__label">{{ 'community.preview.playedLabel' | runtimeTranslate }}</span>
+                  <span>{{ formatTimesPlayed(item.timesPlayed) }}</span>
+                </span>
+              }
+
+              @if (resolveTypeIcon(item); as typeIcon) {
+                <span class="commander-type-pill">
+                  <i class="commander-type-pill__icon" [appManaIcon]="typeIcon" manaIconKind="mechanic" aria-hidden="true"></i>
+                  <span>{{ displayCardType(item) }}</span>
+                </span>
+              }
+            </div>
+          }
+
+          @if (item.label && !item.timesPlayed) {
+            <p>{{ item.label | runtimeTranslate }}</p>
+          }
+
+          @if (item.colors?.length) {
+            <app-mana-symbols
+              class="mana-row"
+              [symbols]="item.colors!"
+              fallback="deckBuilder.deckList.colorFilter.colorless"
+              size="small"
+            />
+          }
+        </div>
+      </li>
+    }
+  </ol>
+
+  @if (footerNote()) {
+    <p class="top-commanders-note">
+      {{ footerNote()! | runtimeTranslate }}
+    </p>
+  }
+</section>

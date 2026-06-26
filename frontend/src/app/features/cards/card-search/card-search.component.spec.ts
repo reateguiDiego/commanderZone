@@ -1,11 +1,13 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { ChevronLeft, ChevronRight, CircleHelp, Image, List, LucideAngularModule, RotateCcw, RotateCw, Search, SlidersHorizontal, X } from 'lucide-angular';
 import { of, Subject } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { Card } from '../../../core/models/card.model';
+import { AddCardToDeckModalComponent } from '../../../shared/components/add-card-to-deck-modal/add-card-to-deck-modal.component';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { CardSearchComponent } from './card-search.component';
@@ -311,20 +313,21 @@ describe('CardSearchComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    await fixture.componentInstance.openAddToDeck(cardFixture('red-card', 'Lightning Bolt', {
+    fixture.componentInstance.openAddToDeck(cardFixture('red-card', 'Lightning Bolt', {
       colorIdentity: ['R'],
       commanderLegal: false,
       legalities: { commander: 'not_legal' },
     }));
+    await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.selectedDeckId()).toBe('');
-    expect(fixture.componentInstance.selectedDeckSection()).toBe('');
-    expect(fixture.nativeElement.querySelector('.add-to-deck-modal__card')).toBeNull();
+    const modal = fixture.debugElement.query(By.directive(AddCardToDeckModalComponent)).componentInstance as AddCardToDeckModalComponent;
+    expect(modal.selectedDeckId()).toBe('');
+    expect(modal.selectedDeckSection()).toBe('');
     expect(fixture.nativeElement.querySelectorAll('app-format-select').length).toBeGreaterThanOrEqual(2);
 
-    fixture.componentInstance.selectDeck('deck-1');
-    fixture.componentInstance.selectDeckSection('main');
+    modal.selectDeck('deck-1');
+    modal.selectDeckSection('main');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Lightning Bolt has color identity outside Atraxa Deck');
@@ -334,23 +337,26 @@ describe('CardSearchComponent', () => {
 
   it('keeps add-to-deck quantity between one and ninety-nine', () => {
     const fixture = TestBed.createComponent(CardSearchComponent);
+    fixture.componentInstance.openAddToDeck(cardFixture('test-card', 'Test Card'));
+    fixture.detectChanges();
+    const modal = fixture.debugElement.query(By.directive(AddCardToDeckModalComponent)).componentInstance as AddCardToDeckModalComponent;
     const input = document.createElement('input');
 
     input.value = '123';
-    fixture.componentInstance.selectDeckQuantity({ target: input } as unknown as Event);
-    expect(fixture.componentInstance.selectedDeckQuantity()).toBe(12);
+    modal.selectDeckQuantity({ target: input } as unknown as Event);
+    expect(modal.selectedDeckQuantity()).toBe(12);
 
     input.value = '0';
-    fixture.componentInstance.selectDeckQuantity({ target: input } as unknown as Event);
-    expect(fixture.componentInstance.selectedDeckQuantity()).toBe(1);
+    modal.selectDeckQuantity({ target: input } as unknown as Event);
+    expect(modal.selectedDeckQuantity()).toBe(1);
 
-    fixture.componentInstance.decreaseDeckQuantity();
-    expect(fixture.componentInstance.selectedDeckQuantity()).toBe(1);
+    modal.decreaseDeckQuantity();
+    expect(modal.selectedDeckQuantity()).toBe(1);
 
     input.value = '99';
-    fixture.componentInstance.selectDeckQuantity({ target: input } as unknown as Event);
-    fixture.componentInstance.increaseDeckQuantity();
-    expect(fixture.componentInstance.selectedDeckQuantity()).toBe(99);
+    modal.selectDeckQuantity({ target: input } as unknown as Event);
+    modal.increaseDeckQuantity();
+    expect(modal.selectedDeckQuantity()).toBe(99);
   });
 });
 

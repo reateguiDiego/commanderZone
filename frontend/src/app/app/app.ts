@@ -10,6 +10,7 @@ import { CookieConsentBannerComponent } from '../core/privacy/cookie-consent-ban
 import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
 import { FooterDisclaimerComponent } from '../shared/components/footer-disclaimer/footer-disclaimer.component';
 import { NoindexFooterDisclaimerComponent } from '../shared/components/noindex-footer-disclaimer/noindex-footer-disclaimer.component';
+import { GlobalLoaderComponent } from '../shared/ui/global-loader/global-loader.component';
 import { AppThemeService } from '../core/theme/app-theme.service';
 import { AppBackgroundService } from '../core/ui/app-background.service';
 import { RouteStylesService } from '../core/ui/route-styles.service';
@@ -19,6 +20,7 @@ import { RouteStylesService } from '../core/ui/route-styles.service';
   imports: [
     CookieConsentBannerComponent,
     FooterDisclaimerComponent,
+    GlobalLoaderComponent,
     NoindexFooterDisclaimerComponent,
     RouterOutlet,
   ],

@@ -1,0 +1,92 @@
+<section class="community-preview-page">
+  <header class="community-hero">
+    <app-back-button link="/community" />
+    <div class="community-hero-copy">
+      <h1>{{ heroTitleKey | runtimeTranslate }}</h1>
+      <p>{{ heroSubtitleKey | runtimeTranslate }}</p>
+      <app-hero-rule />
+    </div>
+  </header>
+
+  @if (loading()) {
+    <app-global-loader />
+  } @else if (error()) {
+    <p class="notice error">{{ error()! | runtimeTranslate }}</p>
+  } @else if (preview(); as previewData) {
+    <app-cards-main-layout>
+      <section class="community-preview-toolbar">
+        <div class="community-preview-toolbar__filters">
+          <app-format-select
+            name="communityPreviewType"
+            labelKey="deckBuilder.cards.cardSearch.form.types"
+            [options]="typeOptions"
+            [value]="selectedType()"
+            (valueChange)="selectType($event)"
+          />
+
+          <app-format-select
+            name="communityPreviewColor"
+            labelKey="deckBuilder.deckList.colorFilter.label"
+            [options]="colorOptions"
+            [value]="selectedColor()"
+            (valueChange)="selectColor($event)"
+          />
+
+          <button type="button" czButton="primary" czButtonSize="sm" class="community-preview-toolbar__search" (click)="searchPreview()">
+            {{ 'community.deckList.searchButton' | runtimeTranslate }}
+          </button>
+        </div>
+
+        @if (!spoilerOnlyView()) {
+          <app-tab-list
+            [items]="viewTabs"
+            [activeId]="viewMode()"
+            ariaLabel="deckBuilder.cards.cardSearch.form.presentation"
+            variant="pill"
+            size="md"
+            (tabSelected)="selectViewMode($event)"
+          />
+        }
+      </section>
+
+      <section class="community-preview-summary">
+        <div class="community-preview-summary__copy">
+          <span>{{ 'navigation.dashboard.dashboardTopCommanders.communityPopularity' | runtimeTranslate }}</span>
+          <strong>{{ 'community.preview.summary.topHundred' | runtimeTranslate }}</strong>
+        </div>
+      </section>
+
+      <app-card-preview-results
+        [items]="sortedItems()"
+        [viewMode]="effectiveViewMode()"
+        [contextMenuEnabled]="true"
+        [showAddToDeckAction]="true"
+        (actionSelected)="handlePreviewAction($event)"
+      />
+    </app-cards-main-layout>
+  }
+
+  <app-card-details-modal
+    [open]="detailsDialog() !== null"
+    [card]="detailsDialog()?.card ?? null"
+    [cardName]="detailsDialog()?.title ?? ''"
+    [loading]="detailsDialog()?.loading ?? false"
+    [errorKey]="detailsDialog()?.errorKey ?? null"
+    (closeRequested)="closeDetails()"
+  />
+
+  <app-add-card-to-deck-modal
+    [open]="addToDeckCard() !== null"
+    [card]="addToDeckCard()"
+    (closeRequested)="closeAddToDeck()"
+  />
+
+  <app-card-printings-modal
+    [open]="printingsDialog() !== null"
+    [cardName]="printingsDialog()?.title ?? ''"
+    [printings]="printingsDialog()?.printings ?? []"
+    [loading]="printingsDialog()?.loading ?? false"
+    [errorKey]="printingsDialog()?.errorKey ?? null"
+    (closeRequested)="closePrintings()"
+  />
+</section>

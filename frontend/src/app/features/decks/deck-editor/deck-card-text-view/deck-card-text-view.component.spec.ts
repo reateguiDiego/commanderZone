@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ChevronDown, ChevronRight, LucideAngularModule, RotateCw, TriangleAlert } from 'lucide-angular';
 import { Card } from '../../../../core/models/card.model';
 import { DeckCard } from '../../../../core/models/deck.model';
-import { DeckEditorStore } from '../../data-access/deck-editor.store';
+import { DECK_VIEW_STORE } from '../deck-view-store.token';
 import { DeckCardTextViewComponent } from './deck-card-text-view.component';
 
 describe('DeckCardTextViewComponent', () => {
@@ -12,7 +12,7 @@ describe('DeckCardTextViewComponent', () => {
       imports: [DeckCardTextViewComponent],
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
-        { provide: DeckEditorStore, useValue: store },
+        { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
 
@@ -42,7 +42,23 @@ describe('DeckCardTextViewComponent', () => {
     expect(store.toggleCardMenu).not.toHaveBeenCalled();
   });
 
-  it('hides the preview and resets double-faced cards after hover', async () => {
+  it('suppresses contextmenu interactions from the text-row face toggle', async () => {
+    const store = storeStub({ hasAlternateFace: true });
+    const fixture = await setup(store);
+    const parentContextMenuSpy = vi.fn();
+    fixture.nativeElement.addEventListener('contextmenu', parentContextMenuSpy);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.face-toggle-button') as HTMLButtonElement;
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    button.dispatchEvent(event);
+
+    expect(parentContextMenuSpy).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(true);
+    expect(store.toggleCardMenu).not.toHaveBeenCalled();
+  });
+
+  it('hides the preview without resetting double-faced cards after hover', async () => {
     const store = storeStub({ hasAlternateFace: true });
     const fixture = await setup(store);
     fixture.detectChanges();
@@ -54,7 +70,7 @@ describe('DeckCardTextViewComponent', () => {
 
     expect(cardEntry).toBeDefined();
     expect(store.hideCardPreview).toHaveBeenCalledOnce();
-    expect(store.resetCardFace).toHaveBeenCalledWith(cardEntry?.card);
+    expect(store.resetCardFace).not.toHaveBeenCalled();
   });
 });
 

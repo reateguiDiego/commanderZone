@@ -176,7 +176,6 @@ export class DashboardSettingsModalComponent {
   readonly cancelLabel = computed(() => this.i18n.text('cancel'));
   readonly saveLabel = computed(() => this.i18n.text('save'));
   readonly saveDisclaimer = computed(() => this.i18n.text('settingsSaveDisclaimer'));
-  readonly backToSettingsLabel = computed(() => this.i18n.text('backToSettings'));
   readonly predefinedAvatarsLabel = computed(() => this.i18n.text('predefinedAvatars'));
   readonly uploadImageLabel = computed(() => this.i18n.text('uploadImage'));
   readonly settingsSectionsLabel = computed(() => this.i18n.text('settingsSections'));
@@ -189,6 +188,7 @@ export class DashboardSettingsModalComponent {
   readonly selectedCardLanguage = signal<SupportedCardLanguageCode>('en');
   readonly selectedAppLanguage = signal<SupportedLanguageCode>('en');
   readonly cardLanguageCoverage = signal<readonly CardLanguageCoverage[]>([]);
+  readonly cardLanguageCoverageLoading = signal(false);
   readonly gameSettingsToggleOptions = GAME_SETTINGS_TOGGLE_OPTIONS;
   readonly gameSettingsToggleState = signal<UserGamePreferences>({ ...GAME_SETTINGS_TOGGLE_DEFAULTS });
 
@@ -653,12 +653,16 @@ export class DashboardSettingsModalComponent {
   }
 
   private async loadCardLanguageCoverage(): Promise<void> {
+    this.cardLanguageCoverageLoading.set(true);
+
     try {
       const response = await firstValueFrom(this.cardsLanguage.list());
       this.cardLanguageCoverage.set(response.data);
       this.selectedCardLanguage.set(this.resolveSelectableCardLanguage(response.selectedCardLanguage, response.data));
     } catch {
       this.cardLanguageCoverage.set([]);
+    } finally {
+      this.cardLanguageCoverageLoading.set(false);
     }
   }
 

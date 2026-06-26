@@ -92,6 +92,42 @@ export const routes: Routes = [
         data: { pageKey: 'community' },
       },
       {
+        path: 'community/decks',
+        loadComponent: () => import('./features/community/community-deck-list-page/community-deck-list-page.component')
+          .then((component) => component.CommunityDeckListPageComponent),
+        data: { pageKey: 'community' },
+      },
+      {
+        path: 'community/decks/:id',
+        loadComponent: () => import('./features/community/community-deck-detail-page/community-deck-detail-page.component')
+          .then((component) => component.CommunityDeckDetailPageComponent),
+        data: { pageKey: 'community' },
+      },
+      {
+        path: 'community/top-commanders',
+        loadComponent: () => import('./features/community/community-card-preview-page/community-card-preview-page.component')
+          .then((component) => component.CommunityCardPreviewPageComponent),
+        data: {
+          pageKey: 'community',
+          kind: 'commanders',
+          title: 'Top Commanders',
+          subtitle: 'Provisional preview based on commander-eligible cards. Real match statistics are not live yet.',
+          icon: 'trophy',
+        },
+      },
+      {
+        path: 'community/top-cards',
+        loadComponent: () => import('./features/community/community-card-preview-page/community-card-preview-page.component')
+          .then((component) => component.CommunityCardPreviewPageComponent),
+        data: {
+          pageKey: 'community',
+          kind: 'cards',
+          title: 'Top Cards',
+          subtitle: 'Preview-only list of commander-legal cards while Community statistics are still provisional.',
+          icon: 'sparkles',
+        },
+      },
+      {
         path: 'decks',
         loadComponent: () => import('./features/decks/deck-list/deck-list.component')
           .then((component) => component.DeckListComponent),

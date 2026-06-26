@@ -1,0 +1,131 @@
+:host {
+  display: block;
+}
+
+.card-details-modal__loader {
+  display: grid;
+  place-items: center;
+  min-height: 18rem;
+}
+
+.card-details-modal {
+  display: grid;
+  grid-template-columns: minmax(18rem, 28rem) minmax(0, 1fr);
+  gap: clamp(1rem, 2vw, 1.35rem);
+  align-items: start;
+  overflow-x: clip;
+}
+
+.card-details-modal__media {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+.card-details-modal__image {
+  min-width: 0;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+.card-details-modal__image--battle {
+  position: relative;
+  display: grid;
+  aspect-ratio: 680 / 488;
+  align-items: center;
+  justify-items: center;
+}
+
+.card-details-modal__image app-card-face-image {
+  width: 100%;
+}
+
+.card-details-modal__flip-action {
+  display: flex;
+  justify-content: center;
+}
+
+.card-details-modal__content {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.card-details-modal__section {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.card-details-modal__section h3 {
+  margin: 0;
+  color: var(--cz-accent);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card-details-modal__rules {
+  display: block;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 18%);
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: rgb(var(--cz-bg-rgb) / 46%);
+  color: var(--cz-text);
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.card-details-modal__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+}
+
+.legality-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0 0.58rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.legality-pill--legal {
+  border-color: rgb(var(--cz-success-rgb) / 34%);
+  background: rgb(var(--cz-success-rgb) / 12%);
+  color: var(--cz-success);
+}
+
+.legality-pill--illegal {
+  border-color: rgb(var(--cz-danger-rgb) / 26%);
+  background: rgb(var(--cz-danger-rgb) / 10%);
+  color: var(--cz-danger);
+}
+
+.card-details-modal__notice {
+  margin: 0;
+  color: var(--cz-info);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.card-details-modal__notice--error {
+  color: var(--cz-danger);
+}
+
+@media (max-width: 980px) {
+  .card-details-modal {
+    grid-template-columns: 1fr;
+  }
+
+  .card-details-modal__image {
+    justify-self: center;
+    width: min(24rem, 100%);
+  }
+}

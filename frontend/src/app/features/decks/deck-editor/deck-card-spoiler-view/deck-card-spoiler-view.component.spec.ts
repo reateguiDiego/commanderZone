@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ChevronDown, ChevronRight, LucideAngularModule, RotateCw, TriangleAlert } from 'lucide-angular';
 import { Card } from '../../../../core/models/card.model';
 import { DeckCard } from '../../../../core/models/deck.model';
-import { DeckEditorStore } from '../../data-access/deck-editor.store';
+import { DECK_VIEW_STORE } from '../deck-view-store.token';
 import { DeckCardSpoilerViewComponent } from './deck-card-spoiler-view.component';
 
 describe('DeckCardSpoilerViewComponent', () => {
@@ -13,7 +13,7 @@ describe('DeckCardSpoilerViewComponent', () => {
       imports: [DeckCardSpoilerViewComponent],
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
-        { provide: DeckEditorStore, useValue: store },
+        { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
 
@@ -30,7 +30,7 @@ describe('DeckCardSpoilerViewComponent', () => {
       imports: [DeckCardSpoilerViewComponent],
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
-        { provide: DeckEditorStore, useValue: store },
+        { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
 
@@ -47,13 +47,37 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(store.toggleCardMenu).not.toHaveBeenCalled();
   });
 
-  it('resets double-faced cards to the front face after hover', async () => {
+  it('suppresses contextmenu interactions from the spoiler face toggle', async () => {
+    const store = storeStub({ hasAlternateFace: true });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    const parentContextMenuSpy = vi.fn();
+    fixture.nativeElement.addEventListener('contextmenu', parentContextMenuSpy);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.face-toggle-button') as HTMLButtonElement;
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    button.dispatchEvent(event);
+
+    expect(parentContextMenuSpy).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(true);
+    expect(store.toggleCardMenu).not.toHaveBeenCalled();
+  });
+
+  it('does not reset double-faced cards to the front face after hover', async () => {
     const store = storeStub({ hasAlternateFace: true, resetCardFace: true });
     await TestBed.configureTestingModule({
       imports: [DeckCardSpoilerViewComponent],
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
-        { provide: DeckEditorStore, useValue: store },
+        { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
 
@@ -66,7 +90,7 @@ describe('DeckCardSpoilerViewComponent', () => {
     article.dispatchEvent(new Event('pointerleave'));
 
     expect(cardEntry).toBeDefined();
-    expect(store.resetCardFace).toHaveBeenCalledWith(cardEntry?.card);
+    expect(store.resetCardFace).not.toHaveBeenCalled();
   });
 
   it('collapses and expands spoiler sections from the section title', async () => {
@@ -75,7 +99,7 @@ describe('DeckCardSpoilerViewComponent', () => {
       imports: [DeckCardSpoilerViewComponent],
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
-        { provide: DeckEditorStore, useValue: store },
+        { provide: DECK_VIEW_STORE, useValue: store },
       ],
     }).compileComponents();
 
@@ -93,13 +117,58 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(fixture.nativeElement.querySelector('.spoiler-section-body')?.classList.contains('collapsed')).toBe(true);
   });
+
+  it('renders battle cards with the rotated spoiler treatment used in cards', async () => {
+    const store = storeStub({ cardTypeLine: 'Battle - Siege' });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    const frame = fixture.nativeElement.querySelector('.spoiler-image-frame') as HTMLElement | null;
+    const image = fixture.nativeElement.querySelector('.spoiler-image-frame img') as HTMLImageElement | null;
+
+    expect(frame?.classList.contains('spoiler-image-frame--battle')).toBe(true);
+    expect(image?.classList.contains('card-image--battle')).toBe(true);
+  });
+
+  it('stops rotating the visible card when the flipped face is no longer a battle', async () => {
+    const store = storeStub({ cardTypeLine: 'Battle - Siege' });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    store.visibleTypeLine.set('Land');
+    fixture.detectChanges();
+
+    const frame = fixture.nativeElement.querySelector('.spoiler-image-frame') as HTMLElement | null;
+    const image = fixture.nativeElement.querySelector('.spoiler-image-frame img') as HTMLImageElement | null;
+
+    expect(frame?.classList.contains('spoiler-image-frame--battle')).toBe(false);
+    expect(image?.classList.contains('card-image--battle')).toBe(false);
+  });
 });
 
-function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolean } = {}) {
-  const entry: DeckCard = { id: 'deck-card-1', quantity: 1, section: 'main', card: card() };
+function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolean; cardTypeLine?: string } = {}) {
+  const entry: DeckCard = { id: 'deck-card-1', quantity: 1, section: 'main', card: card(options.cardTypeLine) };
   const collapsedGroups = signal<Set<string>>(new Set());
+  const visibleTypeLine = signal(options.cardTypeLine ?? entry.card.typeLine);
 
   return {
+    visibleTypeLine,
     cardGroups: signal([{ id: 'creature', title: 'Criaturas', quantity: 1, cards: [entry] }]),
     cardMenu: signal(null),
     toggleGroup: vi.fn((groupId: string) => {
@@ -122,6 +191,7 @@ function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolea
     displayCardImageUrl: () => 'https://img.test/card.jpg',
     displayCardName: (value: Card) => value.name,
     displayCardListName: (value: Card) => value.name,
+    displayCardTypeLine: vi.fn((value: Card) => visibleTypeLine() ?? value.typeLine),
     displayCardManaCost: (value: Card) => value.manaCost,
     hasAlternateFace: () => options.hasAlternateFace ?? false,
     toggleCardFace: vi.fn(),
@@ -136,13 +206,13 @@ function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolea
   };
 }
 
-function card(): Card {
+function card(typeLine = 'Creature'): Card {
   return {
     id: 'card-1',
     scryfallId: 'scryfall-1',
     name: 'Esper Sentinel',
     manaCost: '{W}',
-    typeLine: 'Creature',
+    typeLine,
     oracleText: null,
     colors: ['W'],
     colorIdentity: ['W'],

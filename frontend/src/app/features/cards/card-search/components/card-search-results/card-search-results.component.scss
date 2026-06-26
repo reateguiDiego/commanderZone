@@ -32,7 +32,7 @@
 .mtg-card-result {
   position: relative;
   display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
   gap: 0.58rem;
   align-items: center;
   min-width: 0;
@@ -89,6 +89,7 @@
 
 .mtg-card-result__media app-card-face-image {
   width: 100%;
+  height: 100%;
 }
 
 .mtg-card-result:hover app-card-face-image {
@@ -118,6 +119,12 @@
   overflow-wrap: anywhere;
 }
 
+.mtg-card-result__row-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .card-results--spoiler {
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   gap: 0.55rem 0.95rem;
@@ -144,6 +151,10 @@
   width: 100%;
 }
 
+.card-results--spoiler .mtg-card-result__row-toggle {
+  display: none;
+}
+
 .card-results--spoiler .mtg-card-result__media--battle {
   aspect-ratio: 680 / 488;
 }
@@ -161,6 +172,12 @@
   perspective: 900px;
 }
 
+.card-hover-preview--battle {
+  width: min(24rem, calc(100vw - 1.5rem));
+  aspect-ratio: 680 / 488;
+  overflow: hidden;
+}
+
 .card-hover-preview img,
 .card-hover-preview .card-fallback {
   display: block;
@@ -170,13 +187,24 @@
   transform-style: preserve-3d;
 }
 
-.card-hover-preview .card-image--battle {
-  transform: rotate(90deg) scale(0.9);
+.card-hover-preview--battle .card-image--battle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: auto;
+  max-width: none;
+  height: 139.4%;
+  transform: translate(-50%, -50%) rotate(90deg);
   transform-origin: center;
 }
 
 .card-hover-preview .card-fallback {
   min-height: 31.35rem;
+}
+
+.card-hover-preview--battle .card-fallback {
+  min-height: 100%;
+  height: 100%;
 }
 
 @media (max-width: 921px) {

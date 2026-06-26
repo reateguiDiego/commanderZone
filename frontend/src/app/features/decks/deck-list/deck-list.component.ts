@@ -16,6 +16,8 @@ import { DeckListCardComponent } from './components/deck-list-card/deck-list-car
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { CompactCheckboxComponent } from '../../../shared/ui/compact-checkbox/compact-checkbox.component';
 import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.component';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
+import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
 
 interface CommanderHoverPreview {
@@ -39,7 +41,9 @@ interface CommanderHoverPreview {
     DeckListCardComponent,
     CzButtonDirective,
     CompactCheckboxComponent,
+    GlobalLoaderComponent,
     HeroRuleComponent,
+    BackButtonComponent,
     TooltipComponent,
   ],
   templateUrl: './deck-list.component.html',

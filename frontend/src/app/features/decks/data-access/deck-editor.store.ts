@@ -34,6 +34,7 @@ import {
   PrintVersionGroup,
   PointerPosition,
 } from '../models/deck-editor.models';
+import { DeckAnalysisStore } from '../deck-editor/deck-analysis-panel/deck-analysis-store.token';
 
 const CARD_TYPE_GROUPS = [
   { id: 'planeswalker', title: 'Planeswalkers', type: 'planeswalker' },
@@ -69,7 +70,7 @@ interface ToggleCardFaceOptions {
 }
 
 @Injectable()
-export class DeckEditorStore {
+export class DeckEditorStore implements DeckAnalysisStore {
   private readonly decksApi = inject(DecksApi);
   private readonly cardsApi = inject(CardsApi);
   private readonly route = inject(ActivatedRoute);
@@ -321,16 +322,7 @@ export class DeckEditorStore {
   }
 
   exportDeck(deck: Deck): void {
-    const decklist = this.importExport.toBackendDecklist(this.importExport.entriesFromDeck(deck));
-    const blob = new Blob([decklist], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${this.exportFileName(deck.name)}.txt`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    this.importExport.downloadDeck(deck);
   }
 
   toggleGroup(groupId: string): void {
@@ -721,10 +713,10 @@ export class DeckEditorStore {
     }];
   }
 
-  showHoverList(event: MouseEvent, title: string, items: string[]): void {
+  showHoverList(event: MouseEvent, title: string, items: readonly string[]): void {
     this.hoverList.set({
       title,
-      items,
+      items: [...items],
       top: Math.min(event.clientY + 16, window.innerHeight - 220),
       left: Math.min(event.clientX + 16, window.innerWidth - 280),
     });
@@ -1578,14 +1570,6 @@ export class DeckEditorStore {
     return `${entry.title}${cards}. ${entry.detail}`;
   }
 
-  private exportFileName(name: string): string {
-    return name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      || 'deck';
-  }
 }
 
 function hasType(entry: DeckCard, type: string): boolean {

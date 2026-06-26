@@ -1,0 +1,12 @@
+<button
+  class="card-face-toggle-button"
+  type="button"
+  [title]="'deckBuilder.cards.cardImage.flipFace' | runtimeTranslate"
+  [attr.aria-label]="'deckBuilder.cards.cardImage.flipFace' | runtimeTranslate"
+  (pointerdown)="onPointerDown($event)"
+  (pointerup)="onPointerUp($event)"
+  (click)="onClick($event)"
+  (contextmenu)="onContextMenu($event)"
+>
+  <lucide-icon name="rotate-cw" [size]="iconSize()" aria-hidden="true" />
+</button>

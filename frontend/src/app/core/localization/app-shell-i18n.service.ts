@@ -18,7 +18,6 @@ type AppShellTextKey =
   | 'settingsTitle'
   | 'cancel'
   | 'save'
-  | 'backToSettings'
   | 'predefinedAvatars'
   | 'uploadImage'
   | 'generalTab'
@@ -46,7 +45,6 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     settingsTitle: 'Settings',
     cancel: 'Cancel',
     save: 'Save',
-    backToSettings: 'Back to settings',
     predefinedAvatars: 'Predefined avatars',
     uploadImage: 'Upload image',
     generalTab: 'General',
@@ -73,7 +71,6 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     settingsTitle: 'Configuracion',
     cancel: 'Cancelar',
     save: 'Guardar',
-    backToSettings: 'Volver a configuracion',
     predefinedAvatars: 'Avatares predefinidos',
     uploadImage: 'Subir imagen',
     generalTab: 'General',
