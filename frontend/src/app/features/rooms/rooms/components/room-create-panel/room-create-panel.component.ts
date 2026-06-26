@@ -2,11 +2,12 @@ import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-t
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 import { isValidRoomCodeInput, normalizeRoomCodeInput } from '../../../shared/room-code.util';
 
 @Component({
   selector: 'app-room-create-panel',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective, TooltipComponent],
   templateUrl: './room-create-panel.component.html',
   styleUrl: './room-create-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

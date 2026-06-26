@@ -4,10 +4,11 @@ import { type Deck, type DeckVisibility } from '../../../../../core/models/deck.
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 
 @Component({
   selector: 'app-deck-list-card',
-  imports: [LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, CzButtonDirective],
+  imports: [LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, CzButtonDirective, TooltipComponent],
   templateUrl: './deck-list-card.component.html',
   styleUrl: './deck-list-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

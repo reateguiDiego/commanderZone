@@ -161,11 +161,25 @@ describe('DeckListComponent', () => {
     const pills = Array.from(
       fixture.nativeElement.querySelectorAll('.visibility-pill') as NodeListOf<HTMLElement>,
     );
+    const tooltipTriggers = Array.from(
+      fixture.nativeElement.querySelectorAll('app-tooltip .cz-tooltip') as NodeListOf<HTMLElement>,
+    );
+    tooltipTriggers.forEach((trigger) => {
+      trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    });
+    fixture.detectChanges();
 
     expect(pills).toHaveLength(2);
+    const tooltipTexts = Array.from(
+      fixture.nativeElement.querySelectorAll('app-tooltip .cz-tooltip__bubble') as NodeListOf<HTMLElement>,
+    )
+      .map((bubble) => bubble.textContent?.trim())
+      .filter((value): value is string => !!value);
+
     expect(pills.map((pill) => pill.textContent?.trim())).toEqual(['', '']);
-    expect(pills.map((pill) => pill.getAttribute('title'))).toEqual(['Public', 'Private']);
     expect(pills.map((pill) => pill.getAttribute('aria-label'))).toEqual(['Public', 'Private']);
+    expect(tooltipTexts).toContain('Public');
+    expect(tooltipTexts).toContain('Private');
   });
 
   it('saves the selected edit folder with the deck update payload', async () => {
@@ -889,8 +903,12 @@ Creatures (1)
     fixture.detectChanges();
 
     const shell = fixture.nativeElement.querySelector('.commander-autocomplete-shell') as HTMLElement | null;
+    const tooltipTrigger = fixture.nativeElement.querySelector('.commander-autocomplete-shell')?.closest('.cz-tooltip') as HTMLElement | null;
     expect(shell).not.toBeNull();
-    expect(shell?.title).toBe("You already have 2 commanders. You can't add more.");
+    tooltipTrigger?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    fixture.detectChanges();
+    const bubble = fixture.nativeElement.querySelector('.commander-autocomplete-shell')?.closest('app-tooltip')?.querySelector('.cz-tooltip__bubble') as HTMLElement | null;
+    expect(bubble?.textContent?.trim()).toBe("You already have 2 commanders. You can't add more.");
     expect(shell?.classList.contains('commander-autocomplete-shell-disabled')).toBe(true);
   });
 

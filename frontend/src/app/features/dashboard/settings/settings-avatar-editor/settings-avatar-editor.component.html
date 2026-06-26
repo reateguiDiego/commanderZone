@@ -50,32 +50,12 @@
         />
 
         @for (presetAvatar of basicPresetAvatars; track presetAvatar.id) {
-          <button
-            type="button"
-            class="preset-avatar"
-            [class.selected]="selectedPresetImageUrl() === presetAvatar.imageUrl"
-            [attr.aria-label]="presetAvatar.label"
-            [attr.title]="presetAvatar.label"
-            [disabled]="saving()"
-            (click)="choosePreset(presetAvatar)"
-            (dragstart)="preventAvatarDrag($event)"
-          >
-            <span class="avatar-image-frame">
-              <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
-            </span>
-          </button>
-        }
-      </section>
-    } @else {
-      <section class="preset-tier" [attr.aria-label]="'settings.settingsAvatarEditor.premiumAvatars' | runtimeTranslate">
-        <div class="preset-grid premium-grid">
-          @for (presetAvatar of premiumPresetAvatars; track presetAvatar.id) {
+          <app-tooltip [text]="presetAvatar.label">
             <button
               type="button"
-              class="preset-avatar premium-avatar"
+              class="preset-avatar"
               [class.selected]="selectedPresetImageUrl() === presetAvatar.imageUrl"
-              [attr.aria-label]="presetAvatar.label + ' premium avatar'"
-              [attr.title]="presetAvatar.label"
+              [attr.aria-label]="presetAvatar.label"
               [disabled]="saving()"
               (click)="choosePreset(presetAvatar)"
               (dragstart)="preventAvatarDrag($event)"
@@ -83,11 +63,33 @@
               <span class="avatar-image-frame">
                 <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
               </span>
-              <app-premium-badge
-                class="premium-badge"
-                [label]="'settings.settingsAvatarEditor.premium' | runtimeTranslate"
-              />
             </button>
+          </app-tooltip>
+        }
+      </section>
+    } @else {
+      <section class="preset-tier" [attr.aria-label]="'settings.settingsAvatarEditor.premiumAvatars' | runtimeTranslate">
+        <div class="preset-grid premium-grid">
+          @for (presetAvatar of premiumPresetAvatars; track presetAvatar.id) {
+            <app-tooltip [text]="presetAvatar.label">
+              <button
+                type="button"
+                class="preset-avatar premium-avatar"
+                [class.selected]="selectedPresetImageUrl() === presetAvatar.imageUrl"
+                [attr.aria-label]="presetAvatar.label + ' premium avatar'"
+                [disabled]="saving()"
+                (click)="choosePreset(presetAvatar)"
+                (dragstart)="preventAvatarDrag($event)"
+              >
+                <span class="avatar-image-frame">
+                  <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
+                </span>
+                <app-premium-badge
+                  class="premium-badge"
+                  [label]="'settings.settingsAvatarEditor.premium' | runtimeTranslate"
+                />
+              </button>
+            </app-tooltip>
           }
         </div>
       </section>

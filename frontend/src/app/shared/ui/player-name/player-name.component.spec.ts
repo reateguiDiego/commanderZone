@@ -64,6 +64,22 @@ describe('PlayerNameComponent', () => {
     expect(name.getAttribute('title')).toBe('CommanderZonePilotName25');
   });
 
+  it('can render the label through the shared tooltip mode', () => {
+    fixture.componentRef.setInput('displayName', 'Finetti');
+    fixture.componentRef.setInput('tooltipMode', 'shared');
+    fixture.detectChanges();
+
+    const trigger = fixture.nativeElement.querySelector('app-tooltip .cz-tooltip') as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    fixture.detectChanges();
+
+    const tooltip = fixture.nativeElement.querySelector('app-tooltip .cz-tooltip__bubble') as HTMLElement;
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+
+    expect(name.getAttribute('title')).toBeNull();
+    expect(tooltip.textContent?.trim()).toBe('Finetti');
+  });
+
   it('keeps medium-length display names in the medium bucket', () => {
     fixture.componentRef.setInput('displayName', 'CommanderPilot');
     fixture.detectChanges();

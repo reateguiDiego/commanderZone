@@ -2,10 +2,12 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { publicAssetUrl } from '../../../core/assets/app-image-url';
 import { UserDisplayNameStyle } from '../../../core/models/user.model';
 import { DEFAULT_PREMIUM_NAME_COLOR, displayNameStylePreset } from '../../../core/profile/display-name-style-presets';
+import { TooltipComponent } from '../tooltip/tooltip.component';
 
 type PlayerNameSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 type PlayerNamePlateSize = 'micro' | PlayerNameSize;
 type PlayerNameAlign = 'center' | 'left';
+type PlayerNameTooltipMode = 'native' | 'shared' | 'none';
 type PlayerNameLengthClass =
   | 'name-length-tiny'
   | 'name-length-short'
@@ -138,7 +140,7 @@ function plainFontSizeForLength(length: number): string {
 
 @Component({
   selector: 'app-player-name',
-  imports: [],
+  imports: [TooltipComponent],
   templateUrl: './player-name.component.html',
   styleUrl: './player-name.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -158,6 +160,7 @@ export class PlayerNameComponent {
   readonly platePadding = input<string | null>(null);
   readonly fill = input(false);
   readonly align = input<PlayerNameAlign>('center');
+  readonly tooltipMode = input<PlayerNameTooltipMode>('native');
 
   readonly preset = computed(() => displayNameStylePreset(this.nameStyle()));
   readonly label = computed(() => this.displayName().trim() || 'Player');

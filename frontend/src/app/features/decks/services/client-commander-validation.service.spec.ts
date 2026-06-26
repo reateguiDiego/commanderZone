@@ -34,6 +34,23 @@ describe('ClientCommanderValidationService', () => {
     expect(issues.some((issue) => issue.cards.includes('MDFC Card // Land'))).toBe(false);
     expect(issues.some((issue) => issue.title === 'Color identity issue' && issue.cards.includes('Counterspell'))).toBe(false);
   });
+
+  it('treats localized basic lands as singleton-safe cards', () => {
+    const deck: Deck = {
+      id: 'deck-2',
+      name: 'Localized basics',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        entry(1, 'commander', card('Commander A', 'Criatura legendaria', ['G'], 'Partner')),
+        entry(5, 'main', card('Bosque', 'Tierra basica - Bosque', ['G'], null)),
+      ],
+    };
+
+    const issues = service.validate(deck);
+
+    expect(issues.some((issue) => issue.title === 'Singleton violation')).toBe(false);
+  });
 });
 
 function entry(quantity: number, section: 'main' | 'commander', cardValue: Card) {

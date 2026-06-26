@@ -18,6 +18,7 @@ import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-
 import { runDeckFaceToggleAnimation } from './deck-face-toggle-animation';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
+import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
 
 @Component({
   selector: 'app-deck-editor',
@@ -35,6 +36,7 @@ import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/
     DeckCardTextViewComponent,
     CzButtonDirective,
     TabListComponent,
+    TooltipComponent,
   ],
   templateUrl: './deck-editor.component.html',
   styleUrl: './deck-editor.component.scss',

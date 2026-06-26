@@ -4,24 +4,25 @@
       @if (headerState.titleActions?.length) {
         <div class="page-header-title-actions">
           @for (action of headerState.titleActions; track action.id) {
-            <button
-              [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
-              czButtonSize="sm"
-              class="compact icon-only"
-              type="button"
-              [class.primary-button]="action.variant === 'primary'"
-              [class.secondary-button]="action.variant === 'secondary'"
-              [attr.data-action-id]="action.id"
-              [attr.title]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
-              [attr.aria-label]="action.label | runtimeTranslate"
-              [disabled]="action.disabled"
-              (click)="action.execute()"
-            >
-              @if (action.icon) {
-                <lucide-icon [name]="action.icon" size="16" />
-              }
-              <span class="sr-only">{{ action.label | runtimeTranslate }}</span>
-            </button>
+            <app-tooltip [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null">
+              <button
+                [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
+                czButtonSize="sm"
+                class="compact icon-only"
+                type="button"
+                [class.primary-button]="action.variant === 'primary'"
+                [class.secondary-button]="action.variant === 'secondary'"
+                [attr.data-action-id]="action.id"
+                [attr.aria-label]="action.label | runtimeTranslate"
+                [disabled]="action.disabled"
+                (click)="action.execute()"
+              >
+                @if (action.icon) {
+                  <lucide-icon [name]="action.icon" size="16" />
+                }
+                <span class="sr-only">{{ action.label | runtimeTranslate }}</span>
+              </button>
+            </app-tooltip>
           }
         </div>
       }
@@ -31,14 +32,15 @@
       <div class="page-header-title-line">
         <h1>{{ headerState.title | runtimeTranslate }}</h1>
         @if (headerState.titleWarning; as warning) {
-          <span
-            class="page-title-warning"
-            [class.tone-danger]="warning.tone === 'danger'"
-            [attr.title]="warning.tooltip | runtimeTranslate"
-            [attr.aria-label]="warning.label | runtimeTranslate"
-          >
-            <lucide-icon [name]="warning.icon" size="20" />
-          </span>
+          <app-tooltip [text]="warning.tooltip | runtimeTranslate">
+            <span
+              class="page-title-warning"
+              [class.tone-danger]="warning.tone === 'danger'"
+              [attr.aria-label]="warning.label | runtimeTranslate"
+            >
+              <lucide-icon [name]="warning.icon" size="20" />
+            </span>
+          </app-tooltip>
         }
       </div>
       @if (headerState.description) {
@@ -78,25 +80,26 @@
         <div class="page-header-actions-stack">
           <div class="page-header-actions">
             @for (action of headerState.actions; track action.id) {
-              <button
-                [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
-                czButtonSize="sm"
-                class="compact"
-                type="button"
-                [class.icon-only]="action.iconOnly"
-                [class.primary-button]="action.variant === 'primary'"
-                [class.secondary-button]="action.variant === 'secondary'"
-                [attr.data-action-id]="action.id"
-                [attr.title]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
-                [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
-                [disabled]="action.disabled"
-                (click)="action.execute()"
-              >
-                @if (action.icon) {
-                  <lucide-icon [name]="action.icon" size="16" />
-                }
-                <span [class.sr-only]="action.iconOnly">{{ action.label | runtimeTranslate }}</span>
-              </button>
+              <app-tooltip [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null">
+                <button
+                  [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
+                  czButtonSize="sm"
+                  class="compact"
+                  type="button"
+                  [class.icon-only]="action.iconOnly"
+                  [class.primary-button]="action.variant === 'primary'"
+                  [class.secondary-button]="action.variant === 'secondary'"
+                  [attr.data-action-id]="action.id"
+                  [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
+                  [disabled]="action.disabled"
+                  (click)="action.execute()"
+                >
+                  @if (action.icon) {
+                    <lucide-icon [name]="action.icon" size="16" />
+                  }
+                  <span [class.sr-only]="action.iconOnly">{{ action.label | runtimeTranslate }}</span>
+                </button>
+              </app-tooltip>
             }
           </div>
           @if (headerState.actionFeedback; as feedback) {

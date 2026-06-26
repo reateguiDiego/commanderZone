@@ -9,6 +9,7 @@ import { PRESET_AVATARS, type PresetAvatar } from './preset-avatars';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { TabListComponent, type TabListItem } from '../../../../shared/ui/tab-list/tab-list.component';
 import { PremiumBadgeComponent } from '../../../../shared/ui/premium-badge/premium-badge.component';
+import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.component';
 
 type PendingAvatarType = 'current' | 'initial' | 'preset';
 type AvatarTierTab = 'basic' | 'premium';
@@ -19,7 +20,7 @@ const INITIAL_LETTER_MAX_LENGTH = 2;
 
 @Component({
   selector: 'app-settings-avatar-editor',
-  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent, CzButtonDirective, TabListComponent, PremiumBadgeComponent],
+  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent, CzButtonDirective, TabListComponent, PremiumBadgeComponent, TooltipComponent],
   templateUrl: './settings-avatar-editor.component.html',
   styleUrl: './settings-avatar-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

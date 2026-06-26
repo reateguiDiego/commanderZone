@@ -876,6 +876,46 @@ TXT,
         self::assertArrayNotHasKey('commander', $deck);
     }
 
+    public function testDeckPayloadKeepsCanonicalTypeLinesWhenCardLanguageIsLocalized(): void
+    {
+        $token = $this->registerAndLogin('deck-type-line-canonical@example.test', 'Deck Type Line');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $arcaneSignet = $this->seedCard('41000000-0000-0000-0000-000000000001', 'Arcane Signet', [
+            'type_line' => 'Artifact',
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedLocalizedPrintLocale(
+            $arcaneSignet->scryfallId(),
+            'Arcane Signet',
+            'es',
+            'Sello arcano',
+            ['art_crop' => 'https://cards.scryfall.io/art_crop/front/arcane-signet-es.jpg'],
+            'Artefacto',
+        );
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Canonical Types',
+            'cards' => [
+                ['scryfallId' => $arcaneSignet->scryfallId(), 'quantity' => 1, 'section' => 'main'],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+
+        $deck = $this->jsonResponse()['deck'];
+        $deckId = (string) $deck['id'];
+        self::assertSame('Sello arcano', $deck['cards'][0]['card']['printedName']);
+        self::assertSame('Artifact', $deck['cards'][0]['card']['typeLine']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/sections', token: $token);
+        self::assertResponseIsSuccessful();
+        $sections = $this->jsonResponse()['sections'];
+        self::assertSame('Sello arcano', $sections['main'][0]['card']['printedName']);
+        self::assertSame('Artifact', $sections['main'][0]['card']['typeLine']);
+    }
+
     public function testDecklistImportSelectsPersistedPrintsByUserLanguage(): void
     {
         $token = $this->registerAndLogin('language-import@example.test', 'Language Import');

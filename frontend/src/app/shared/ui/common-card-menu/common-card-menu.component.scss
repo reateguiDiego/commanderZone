@@ -1,0 +1,70 @@
+:host {
+  display: contents;
+}
+
+.common-card-menu {
+  position: fixed;
+  z-index: 90;
+  width: min(12rem, calc(100vw - 1.5rem));
+  min-width: 12rem;
+  border: 1px solid var(--line, rgb(var(--cz-primary-rgb) / 26%));
+  border-radius: 8px;
+  padding: 0.28rem;
+  background:
+    linear-gradient(180deg, rgb(var(--cz-surface-rgb) / 96%), rgb(var(--cz-bg-rgb) / 94%)),
+    var(--cz-bg);
+  box-shadow:
+    0 18px 42px rgb(var(--cz-bg-rgb) / 28%),
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 7%);
+}
+
+.common-card-menu__title {
+  overflow: hidden;
+  border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 18%);
+  padding: 0.44rem 0.58rem 0.5rem;
+  color: var(--cz-accent);
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.common-card-menu button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  min-height: 2.25rem;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 0.72rem;
+  background: transparent;
+  color: var(--cz-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: left;
+}
+
+.common-card-menu button:hover:not(:disabled),
+.common-card-menu button:focus-visible:not(:disabled) {
+  background: rgb(var(--cz-accent-rgb) / 12%);
+  color: var(--cz-accent);
+  outline: none;
+}
+
+.common-card-menu button.danger {
+  color: var(--cz-danger);
+}
+
+.common-card-menu button.danger:hover:not(:disabled),
+.common-card-menu button.danger:focus-visible:not(:disabled) {
+  background: rgb(var(--cz-danger-rgb) / 12%);
+  color: var(--cz-danger);
+}
+
+.common-card-menu button:disabled {
+  cursor: default;
+  opacity: 0.56;
+}

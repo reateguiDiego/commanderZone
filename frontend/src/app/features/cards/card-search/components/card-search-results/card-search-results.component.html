@@ -45,21 +45,11 @@
 }
 
 @if (contextMenu(); as menu) {
-  <div class="card-result-context-menu" [style.top.px]="menu.top" [style.left.px]="menu.left" (click)="$event.stopPropagation()">
-    <div class="card-result-context-menu__title">{{ menu.card.name }}</div>
-    <button type="button" (click)="selectAction($event, 'details', menu.card)">
-      {{ 'deckBuilder.cards.cardSearch.actions.showDetails' | runtimeTranslate }}
-    </button>
-    <button type="button" (click)="selectAction($event, 'addToDeck', menu.card)">
-      {{ 'deckBuilder.cards.cardSearch.actions.addToDeck' | runtimeTranslate }}
-    </button>
-    @if (menu.card.hasRulings) {
-      <button type="button" (click)="selectAction($event, 'rulings', menu.card)">
-        {{ 'deckBuilder.cards.cardSearch.actions.showRulings' | runtimeTranslate }}
-      </button>
-    }
-    <button type="button" (click)="selectAction($event, 'printings', menu.card)">
-      {{ 'deckBuilder.cards.cardSearch.actions.viewPrintings' | runtimeTranslate }}
-    </button>
-  </div>
+  <app-common-card-menu
+    [title]="menu.card.name"
+    [actions]="contextActionsFor(menu.card)"
+    [top]="menu.top"
+    [left]="menu.left"
+    (actionSelected)="selectMenuAction($event, menu.card)"
+  />
 }

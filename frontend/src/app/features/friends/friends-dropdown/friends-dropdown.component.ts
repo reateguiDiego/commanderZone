@@ -8,12 +8,13 @@ import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/
 import { FriendListRow } from '../data-access/friends.store';
 import { FriendshipStatus } from '../../../core/models/friendship.model';
 import { FriendsStore } from '../data-access/friends.store';
+import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
 
 type FriendsDropdownTab = 'friends' | 'requests' | 'invitations' | 'search';
 
 @Component({
   selector: 'app-friends-dropdown',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, PrettyScrollDirective, PlayerInfoComponent, TabListComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, PrettyScrollDirective, PlayerInfoComponent, TabListComponent, TooltipComponent],
   templateUrl: './friends-dropdown.component.html',
   styleUrl: './friends-dropdown.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

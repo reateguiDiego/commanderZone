@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { TooltipComponent } from '../tooltip/tooltip.component';
 
 @Component({
   selector: 'app-compact-checkbox',
+  imports: [TooltipComponent],
   templateUrl: './compact-checkbox.component.html',
   styleUrl: './compact-checkbox.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

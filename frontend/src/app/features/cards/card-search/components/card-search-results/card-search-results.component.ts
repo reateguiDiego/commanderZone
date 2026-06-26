@@ -3,6 +3,7 @@ import { Card } from '../../../../../core/models/card.model';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { bestCardImage } from '../../../../../shared/utils/card-image';
 import { CardFaceImageComponent } from '../../../../../shared/components/card-face-image/card-face-image.component';
+import { CommonCardMenuAction, CommonCardMenuComponent } from '../../../../../shared/ui/common-card-menu/common-card-menu.component';
 import { CardSearchViewMode } from '../../card-search.models';
 
 interface CardContextMenuState {
@@ -37,7 +38,7 @@ export interface CardSearchResultActionEvent {
 
 @Component({
   selector: 'app-card-search-results',
-  imports: [CardFaceImageComponent, RuntimeTranslatePipe],
+  imports: [CardFaceImageComponent, RuntimeTranslatePipe, CommonCardMenuComponent],
   templateUrl: './card-search-results.component.html',
   styleUrl: './card-search-results.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -51,6 +52,12 @@ export class CardSearchResultsComponent implements OnDestroy {
   readonly actionSelected = output<CardSearchResultActionEvent>();
   readonly contextMenu = signal<CardContextMenuState | null>(null);
   readonly hoverPreview = signal<CardHoverPreviewState | null>(null);
+  readonly contextMenuActions: ReadonlyArray<CommonCardMenuAction<CardSearchResultAction>> = [
+    { id: 'details', label: 'deckBuilder.cards.cardSearch.actions.showDetails' },
+    { id: 'addToDeck', label: 'deckBuilder.cards.cardSearch.actions.addToDeck' },
+    { id: 'rulings', label: 'deckBuilder.cards.cardSearch.actions.showRulings' },
+    { id: 'printings', label: 'deckBuilder.cards.cardSearch.actions.viewPrintings' },
+  ];
   private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingHoverPreview: PendingCardHoverPreview | null = null;
 
@@ -130,8 +137,11 @@ export class CardSearchResultsComponent implements OnDestroy {
     this.hoverPreview.set(null);
   }
 
-  selectAction(event: MouseEvent, action: CardSearchResultAction, card: Card): void {
-    event.stopPropagation();
+  contextActionsFor(card: Card): ReadonlyArray<CommonCardMenuAction<CardSearchResultAction>> {
+    return this.contextMenuActions.filter((action) => action.id !== 'rulings' || card.hasRulings);
+  }
+
+  selectMenuAction(action: CardSearchResultAction, card: Card): void {
     this.contextMenu.set(null);
     this.actionSelected.emit({ action, card });
   }
@@ -150,7 +160,7 @@ export class CardSearchResultsComponent implements OnDestroy {
       return;
     }
 
-    if (target.closest('.card-result-context-menu') || target.closest('.mtg-card-result')) {
+    if (target.closest('app-common-card-menu') || target.closest('.mtg-card-result')) {
       return;
     }
 

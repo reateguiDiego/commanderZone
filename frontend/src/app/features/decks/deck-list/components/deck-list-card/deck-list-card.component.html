@@ -24,19 +24,22 @@
   </div>
 
   <div class="deck-card-footer">
-    <span
-      class="visibility-pill"
-      [class.public]="deck().visibility === 'public'"
-      [attr.title]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
-      [attr.aria-label]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
-    >
-      <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" aria-hidden="true" />
-    </span>
+    <app-tooltip [text]="visibilityLabelKey(deck().visibility) | runtimeTranslate">
+      <span
+        class="visibility-pill"
+        [class.public]="deck().visibility === 'public'"
+        [attr.aria-label]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
+      >
+        <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" aria-hidden="true" />
+      </span>
+    </app-tooltip>
     @if (hasIssues()) {
       <div class="deck-card-status">
-        <span class="deck-list-warning" [attr.title]="issueTooltip()" aria-label="Deck warnings">
-          <lucide-icon name="triangle-alert" size="16" />
-        </span>
+        <app-tooltip [text]="issueTooltip()">
+          <span class="deck-list-warning" aria-label="Deck warnings">
+            <lucide-icon name="triangle-alert" size="16" />
+          </span>
+        </app-tooltip>
       </div>
     }
     <div class="deck-row-actions" (pointerdown)="handleDeckActionPointer($event)" (mousedown)="handleDeckActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">

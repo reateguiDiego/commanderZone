@@ -13,6 +13,7 @@
       [nameStyle]="ownerIsAnonymous ? anonymousOwnerNameStyle : currentRoom.owner.displayNameStyle"
       size="xs"
       plateSize="xs"
+      tooltipMode="shared"
     />
   </div>
   <div class="room-col">
@@ -50,12 +51,12 @@
         </a>
       }
     } @else if (currentRoom.visibility === 'public' && !currentRoom.gameId) {
-      <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
+      <app-tooltip class="action-tooltip-anchor" [text]="actionsLocked() ? lockedRoomTooltip : null">
         <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" [disabled]="!canJoinRoom(currentRoom)" (click)="opened.emit(currentRoom)">
           <lucide-icon name="door-open" size="15" />
           {{ 'rooms.roomRow.join' | runtimeTranslate }}
         </button>
-      </span>
+      </app-tooltip>
     }
     @if (canLeaveRoom(currentRoom)) {
       <button czButton="secondary" czButtonTone="danger" czButtonSize="sm" class="danger-button compact" type="button" [disabled]="leavingRoomId() === currentRoom.id" (click)="left.emit(currentRoom)">

@@ -262,18 +262,26 @@
                   <small>{{ item.section }}{{ item.watched ? ' - saved' : '' }}</small>
                 </span>
                 <div class="button-row">
-                  <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.copyCardName' | runtimeTranslate" (click)="store.copyMissing(item.name)">
-                    <lucide-icon name="copy" size="15" />
-                  </button>
-                  <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.searchCard' | runtimeTranslate" (click)="store.searchMissing(item.name)">
-                    <lucide-icon name="search" size="15" />
-                  </button>
-                  <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.saveMissingCard' | runtimeTranslate" (click)="store.saveMissing(item.name, deck.id)">
-                    <lucide-icon name="bookmark-plus" size="15" />
-                  </button>
-                  <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.ignoreThisSession' | runtimeTranslate" (click)="store.ignoreMissing(item.name)">
-                    <lucide-icon name="eye-off" size="15" />
-                  </button>
+                  <app-tooltip [text]="'deckBuilder.deckEditor.copyCardName' | runtimeTranslate">
+                    <button czButton="icon" class="icon-button" type="button" (click)="store.copyMissing(item.name)">
+                      <lucide-icon name="copy" size="15" />
+                    </button>
+                  </app-tooltip>
+                  <app-tooltip [text]="'deckBuilder.deckEditor.searchCard' | runtimeTranslate">
+                    <button czButton="icon" class="icon-button" type="button" (click)="store.searchMissing(item.name)">
+                      <lucide-icon name="search" size="15" />
+                    </button>
+                  </app-tooltip>
+                  <app-tooltip [text]="'deckBuilder.deckEditor.saveMissingCard' | runtimeTranslate">
+                    <button czButton="icon" class="icon-button" type="button" (click)="store.saveMissing(item.name, deck.id)">
+                      <lucide-icon name="bookmark-plus" size="15" />
+                    </button>
+                  </app-tooltip>
+                  <app-tooltip [text]="'deckBuilder.deckEditor.ignoreThisSession' | runtimeTranslate">
+                    <button czButton="icon" class="icon-button" type="button" (click)="store.ignoreMissing(item.name)">
+                      <lucide-icon name="eye-off" size="15" />
+                    </button>
+                  </app-tooltip>
                 </div>
               </div>
             }
@@ -323,9 +331,11 @@
                   <strong>{{ item.name }}</strong>
                   <small>{{ store.formatDate(item.addedAt) }}</small>
                 </span>
-                <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.remove' | runtimeTranslate" (click)="store.missingStore.remove(item.name)">
-                  <lucide-icon name="x" size="15" />
-                </button>
+                <app-tooltip [text]="'deckBuilder.deckEditor.remove' | runtimeTranslate">
+                  <button czButton="icon" class="icon-button" type="button" (click)="store.missingStore.remove(item.name)">
+                    <lucide-icon name="x" size="15" />
+                  </button>
+                </app-tooltip>
               </div>
             }
           </div>
@@ -336,9 +346,11 @@
             <lucide-icon name="camera" size="17" />
             {{ 'deckBuilder.deckEditor.snapshot' | runtimeTranslate }}
           </button>
-          <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckEditor.clearLocalHistory' | runtimeTranslate" (click)="store.clearHistoryModalOpen.set(true)">
-            <lucide-icon name="trash" size="16" />
-          </button>
+          <app-tooltip [text]="'deckBuilder.deckEditor.clearLocalHistory' | runtimeTranslate">
+            <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" (click)="store.clearHistoryModalOpen.set(true)">
+              <lucide-icon name="trash" size="16" />
+            </button>
+          </app-tooltip>
         </div>
 
         <div class="dense-list">

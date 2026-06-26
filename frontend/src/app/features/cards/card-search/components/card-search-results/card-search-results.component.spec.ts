@@ -55,7 +55,7 @@ describe('CardSearchResultsComponent', () => {
     result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
     fixture.detectChanges();
 
-    const menu = fixture.nativeElement.querySelector('.card-result-context-menu') as HTMLElement;
+    const menu = fixture.nativeElement.querySelector('.common-card-menu') as HTMLElement;
     expect(menu.textContent).toContain('Show details');
     expect(menu.textContent).toContain('Add to deck');
     expect(menu.textContent).toContain('Show rulings');
@@ -76,7 +76,7 @@ describe('CardSearchResultsComponent', () => {
     result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
     fixture.detectChanges();
 
-    const details = fixture.nativeElement.querySelector('.card-result-context-menu button') as HTMLButtonElement;
+    const details = fixture.nativeElement.querySelector('.common-card-menu button') as HTMLButtonElement;
     details.click();
     fixture.detectChanges();
 
@@ -84,7 +84,7 @@ describe('CardSearchResultsComponent', () => {
       action: 'details',
       card: expect.objectContaining({ name: 'Sol Ring' }),
     });
-    expect(fixture.nativeElement.querySelector('.card-result-context-menu')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
   });
 
   it('toggles the context menu when clicking the same card again', () => {
@@ -97,12 +97,12 @@ describe('CardSearchResultsComponent', () => {
     result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.card-result-context-menu')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.common-card-menu')).not.toBeNull();
 
     result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.card-result-context-menu')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
   });
 
   it('closes the context menu when clicking outside or scrolling', () => {
@@ -115,18 +115,18 @@ describe('CardSearchResultsComponent', () => {
     result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.card-result-context-menu')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.common-card-menu')).not.toBeNull();
 
     document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.card-result-context-menu')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
 
     result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
     window.dispatchEvent(new Event('scroll'));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.card-result-context-menu')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
   });
 
   it('hides the hover preview as soon as the user clicks anywhere', () => {

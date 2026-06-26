@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Deck, DeckCard } from '../../../core/models/deck.model';
+import { resolvedDeckCardTypeLine } from '../utils/deck-card-type-line';
 
 export type ClientCommanderIssueSeverity = 'error' | 'warning';
 
@@ -118,7 +119,7 @@ export class ClientCommanderValidationService {
   }
 
   private looksLikeLegalPair(commanders: DeckCard[]): boolean {
-    const texts = commanders.map((entry) => `${entry.card.typeLine ?? ''}\n${entry.card.oracleText ?? ''}`.toLowerCase());
+    const texts = commanders.map((entry) => `${resolvedDeckCardTypeLine(entry)}\n${entry.card.oracleText ?? ''}`.toLowerCase());
     const partnerCount = texts.filter((text) => text.includes('partner')).length;
     const hasChooseBackground = texts.some((text) => text.includes('choose a background'));
     const hasBackground = texts.some((text) => text.includes('background'));
@@ -127,6 +128,8 @@ export class ClientCommanderValidationService {
   }
 
   private isBasicLand(entry: DeckCard): boolean {
-    return /basic/i.test(entry.card.typeLine ?? '') && /land/i.test(entry.card.typeLine ?? '');
+    const typeLine = resolvedDeckCardTypeLine(entry);
+
+    return /basic/i.test(typeLine) && /land/i.test(typeLine);
   }
 }
