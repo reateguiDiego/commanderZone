@@ -1,6 +1,6 @@
-ARG GO_TOOLCHAIN_IMAGE=commanderzone-go-toolchain:1.22
+ARG GO_BUILD_IMAGE=golang:1.22.12-bookworm
 
-FROM ${GO_TOOLCHAIN_IMAGE} AS build
+FROM ${GO_BUILD_IMAGE} AS build
 
 WORKDIR /src
 COPY go.mod go.sum ./

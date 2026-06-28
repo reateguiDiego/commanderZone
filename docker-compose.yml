@@ -105,7 +105,7 @@ services:
       context: ./game-runtime
       dockerfile: Dockerfile
       args:
-        GO_TOOLCHAIN_IMAGE: ${GO_TOOLCHAIN_IMAGE:-commanderzone-go-toolchain:1.22}
+        GO_BUILD_IMAGE: ${GAME_RUNTIME_GO_BUILD_IMAGE:-golang:1.22.12-bookworm}
     environment:
       GAME_RUNTIME_LISTEN: ${GAME_RUNTIME_LISTEN:-0.0.0.0:8091}
       # Use a runtime-specific DB URL so local runtime never inherits production DATABASE_URL.
