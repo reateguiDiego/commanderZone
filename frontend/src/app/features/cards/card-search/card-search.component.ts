@@ -1,9 +1,13 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { CardSearchOptionsResponse, CardsApi } from '../../../core/api/cards.api';
+import { CardLanguageCoverage, CardsLanguageService } from '../../../core/api/cards-language.service';
+import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
+import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { Card } from '../../../core/models/card.model';
+import { PageHeaderAction } from '../../../core/ui/page-header.store';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { AddCardToDeckModalComponent } from '../../../shared/components/add-card-to-deck-modal/add-card-to-deck-modal.component';
 import { CardDetailsModalComponent } from '../../../shared/components/card-details-modal/card-details-modal.component';
@@ -60,11 +64,15 @@ interface CardSearchPageCacheEntry {
 })
 export class CardSearchComponent implements OnInit, OnDestroy {
   private readonly cardsApi = inject(CardsApi);
+  private readonly cardsLanguageService = inject(CardsLanguageService);
+  private readonly i18n = inject(AppShellI18nService);
+  private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly pageHeader = inject(PageHeaderStore);
   private readonly device = inject(DeviceProfileService);
 
   readonly results = signal<Card[]>([]);
   readonly options = signal<CardSearchOptionsResponse | null>(null);
+  readonly cardLanguageCoverage = signal<readonly CardLanguageCoverage[]>([]);
   readonly loading = signal(false);
   readonly loadingOptions = signal(false);
   readonly error = signal<string | null>(null);
@@ -86,11 +94,58 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   readonly printingsErrorKey = signal<string | null>(null);
   readonly canChooseResultView = computed(() => this.device.isDesktop() && this.device.isDesktopLayout() && this.device.hasHover());
   readonly effectiveViewMode = computed<CardSearchViewMode>(() => this.canChooseResultView() ? this.viewMode() : 'spoiler');
+  readonly selectedCardLanguageCoverage = computed(() =>
+    this.cardLanguageCoverage().find((language) => language.code === this.languagePreferences.cardLanguage()) ?? null,
+  );
+  readonly cardLanguageDisclaimer = computed(() => {
+    const selectedCoverage = this.selectedCardLanguageCoverage();
+    const selectedLanguage = this.languagePreferences.cardLanguage();
+
+    if (selectedLanguage === 'en' || selectedCoverage === null) {
+      return null;
+    }
+
+    return this.i18n.cardLanguageFallbackDisclaimer(
+      selectedCoverage.percentageOfEnglish,
+      this.i18n.languageName(selectedCoverage.code),
+    );
+  });
+  readonly titleActions = computed<readonly PageHeaderAction[]>(() => {
+    const actions: PageHeaderAction[] = [];
+
+    const disclaimer = this.cardLanguageDisclaimer();
+    if (disclaimer) {
+      actions.push({
+        id: 'card-search-language-disclaimer',
+        label: this.i18n.text('cardLanguage'),
+        icon: 'info',
+        iconOnly: true,
+        tooltip: disclaimer,
+        tooltipTriggerMode: 'click',
+        tooltipPlacement: 'bottom',
+        tooltipAlign: 'end',
+        variant: 'secondary',
+        execute: () => undefined,
+      });
+    }
+
+    actions.push({
+      id: 'card-search-help',
+      label: 'deckBuilder.cards.cardSearch.help.title',
+      icon: 'circle-help',
+      iconOnly: true,
+      variant: 'secondary',
+      execute: () => this.searchHelpOpen.update((open) => !open),
+    });
+
+    return actions;
+  });
   readonly viewTabs: readonly TabListItem[] = [
     { id: 'list', label: 'deckBuilder.cards.cardSearch.view.list', icon: 'list' },
     { id: 'spoiler', label: 'deckBuilder.cards.cardSearch.view.spoiler', icon: 'image' },
   ];
   readonly sortOptions: readonly FormatSelectOption[] = [
+    { id: 'colors', labelKey: 'deckBuilder.cards.cardSearch.sort.colors' },
     { id: 'name_asc', labelKey: 'deckBuilder.cards.cardSearch.sort.nameAsc' },
     { id: 'name_desc', labelKey: 'deckBuilder.cards.cardSearch.sort.nameDesc' },
     { id: 'mana_value_desc', labelKey: 'deckBuilder.cards.cardSearch.sort.manaValueDesc' },
@@ -98,26 +153,20 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   ];
   private readonly lastSearch = signal<CardAdvancedSearchSubmit | null>(null);
   private readonly pageCache = new Map<string, CardSearchPageCacheEntry>();
-
-  ngOnInit(): void {
+  private readonly syncPageHeader = effect(() => {
+    const titleActions = this.titleActions();
     this.pageHeader.set({
       title: 'deckBuilder.cards.cardSearch.header.title',
       description: 'deckBuilder.cards.cardSearch.header.description',
       context: 'rooms',
       heroRule: true,
-      titleActions: [
-        {
-          id: 'card-search-help',
-          label: 'deckBuilder.cards.cardSearch.help.title',
-          icon: 'circle-help',
-          iconOnly: true,
-          tooltip: 'deckBuilder.cards.cardSearch.help.title',
-          variant: 'secondary',
-          execute: () => this.searchHelpOpen.update((open) => !open),
-        },
-      ],
+      titleActions,
     });
+  });
+
+  ngOnInit(): void {
     void this.loadOptions();
+    void this.loadCardLanguageCoverage();
   }
 
   ngOnDestroy(): void {
@@ -321,6 +370,15 @@ export class CardSearchComponent implements OnInit, OnDestroy {
       });
     } finally {
       this.loadingOptions.set(false);
+    }
+  }
+
+  private async loadCardLanguageCoverage(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.cardsLanguageService.list());
+      this.cardLanguageCoverage.set(response.data);
+    } catch {
+      this.cardLanguageCoverage.set([]);
     }
   }
 

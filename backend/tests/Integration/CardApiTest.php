@@ -4,6 +4,8 @@ namespace App\Tests\Integration;
 
 use App\Application\Card\CardSearchOptionsRebuilder;
 use App\Application\Card\CardSearchEntryRebuilder;
+use App\Domain\User\User;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class CardApiTest extends ApiTestCase
 {
@@ -89,7 +91,23 @@ class CardApiTest extends ApiTestCase
         self::assertEquals(100.0, $languages['en']['percentageOfEnglish']);
         self::assertEquals(50.0, $languages['es']['percentageOfEnglish']);
 
-        $token = $this->registerAndLogin('cards-language@example.test', 'Cards Language');
+        $email = sprintf('cards-language-%s@example.test', bin2hex(random_bytes(6)));
+        $password = 'Password123!';
+
+        $user = new User($email, 'Cards Language');
+        $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $user->setPassword($passwordHasher->hashPassword($user, $password));
+        $user->markEmailVerified();
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => $email,
+            'password' => $password,
+        ]);
+        self::assertResponseIsSuccessful();
+        $token = (string) $this->jsonResponse()['token'];
+
         $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
         self::assertResponseIsSuccessful();
 
@@ -715,6 +733,83 @@ SQL,
         );
     }
 
+    public function testSearchSortsAndGroupsResultsByColorsWithoutUsingMaterializedFastPath(): void
+    {
+        $colorless = $this->seedCard('00000000-0000-0000-0000-0000000000bf', 'Color Sort Colorless', [
+            'colors' => [],
+            'color_identity' => [],
+        ]);
+        $white = $this->seedCard('00000000-0000-0000-0000-0000000000c0', 'Color Sort White', [
+            'colors' => ['W'],
+            'color_identity' => ['W'],
+        ]);
+        $blue = $this->seedCard('00000000-0000-0000-0000-0000000000c1', 'Color Sort Blue', [
+            'colors' => ['U'],
+            'color_identity' => ['U'],
+        ]);
+        $azorius = $this->seedCard('00000000-0000-0000-0000-0000000000c2', 'Color Sort Azorius', [
+            'colors' => ['W', 'U'],
+            'color_identity' => ['W', 'U'],
+        ]);
+        $gruul = $this->seedCard('00000000-0000-0000-0000-0000000000c3', 'Color Sort Gruul', [
+            'colors' => ['R', 'G'],
+            'color_identity' => ['R', 'G'],
+        ]);
+        static::getContainer()->get(CardSearchEntryRebuilder::class)->rebuild();
+
+        $this->jsonRequest('GET', '/cards/search?q=&page=1&limit=20&lang=en&sort=colors');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            [
+                $colorless->scryfallId(),
+                $white->scryfallId(),
+                $blue->scryfallId(),
+                $azorius->scryfallId(),
+                $gruul->scryfallId(),
+            ],
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
+    }
+
+    public function testQuerySearchSortsAndGroupsResultsByColors(): void
+    {
+        $colorless = $this->seedCard('00000000-0000-0000-0000-0000000000c4', 'Color Query Colorless', [
+            'colors' => [],
+            'color_identity' => [],
+        ]);
+        $white = $this->seedCard('00000000-0000-0000-0000-0000000000c5', 'Color Query White', [
+            'colors' => ['W'],
+            'color_identity' => ['W'],
+        ]);
+        $blue = $this->seedCard('00000000-0000-0000-0000-0000000000c6', 'Color Query Blue', [
+            'colors' => ['U'],
+            'color_identity' => ['U'],
+        ]);
+        $azorius = $this->seedCard('00000000-0000-0000-0000-0000000000c7', 'Color Query Azorius', [
+            'colors' => ['W', 'U'],
+            'color_identity' => ['W', 'U'],
+        ]);
+        $gruul = $this->seedCard('00000000-0000-0000-0000-0000000000c8', 'Color Query Gruul', [
+            'colors' => ['R', 'G'],
+            'color_identity' => ['R', 'G'],
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=color%20query&sort=colors&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            [
+                $colorless->scryfallId(),
+                $white->scryfallId(),
+                $blue->scryfallId(),
+                $azorius->scryfallId(),
+                $gruul->scryfallId(),
+            ],
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
+    }
+
     public function testAdvancedSearchOptionsExposeCatalogValues(): void
     {
         $card = $this->seedCard('00000000-0000-0000-0000-0000000000a8', 'Options Elf', [
@@ -1180,9 +1275,9 @@ SQL,
         self::assertSame([$commonPrint->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
     }
 
-    public function testSearchReturnsNoResultsWhenNoSupportedFallbackBucketMatches(): void
+    public function testSearchFallsBackToOtherSupportedLanguagesWhenRequestedEnglishAndCommonMiss(): void
     {
-        $this->seedCard('00000000-0000-0000-0000-000000000077', 'Arcane Signet', [
+        $portuguesePrint = $this->seedCard('00000000-0000-0000-0000-000000000077', 'Arcane Signet', [
             'lang' => 'pt',
             'printed_name' => 'Sinete Arcano',
         ]);
@@ -1190,7 +1285,124 @@ SQL,
         $this->jsonRequest('GET', '/cards/search?q=arcane%20signet&lang=es&limit=5');
 
         self::assertResponseIsSuccessful();
-        self::assertSame([], $this->jsonResponse()['data']);
+        self::assertSame([$portuguesePrint->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
+    public function testSetSearchReturnsRealSetPrintingsEvenWhenMaterializedEntriesPreferOtherSets(): void
+    {
+        $g17Cards = $this->seedBasicLandCycle('g17', 'en', [
+            'set_name' => 'Gift Pack 2017',
+            'legalities' => ['modern' => 'legal', 'commander' => 'legal', 'legacy' => 'legal'],
+        ]);
+        $this->seedBasicLandCycle('lrw', 'es', [
+            'set_name' => 'Lorwyn',
+            'printed_names' => [
+                'Plains' => 'Llanura',
+                'Island' => 'Isla',
+                'Swamp' => 'Pantano',
+                'Mountain' => 'Montana',
+                'Forest' => 'Bosque',
+            ],
+            'collector_numbers' => [
+                'Plains' => '291',
+                'Island' => '295',
+                'Swamp' => '299',
+                'Mountain' => '297',
+                'Forest' => '293',
+            ],
+        ]);
+        static::getContainer()->get(CardSearchEntryRebuilder::class)->rebuild();
+
+        $this->jsonRequest('GET', '/cards/search?q=&page=1&limit=20&lang=es&sort=name_asc&sets=g17');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(5, $this->jsonResponse()['total']);
+        self::assertEqualsCanonicalizing(
+            array_map(static fn ($card): string => $card->scryfallId(), $g17Cards),
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
+    }
+
+    public function testSetSearchAppliesFormatFiltersToRealSetPrintings(): void
+    {
+        $g17Cards = $this->seedBasicLandCycle('g17', 'en', [
+            'set_name' => 'Gift Pack 2017',
+            'legalities' => ['modern' => 'legal', 'commander' => 'legal', 'legacy' => 'legal'],
+        ]);
+        static::getContainer()->get(CardSearchEntryRebuilder::class)->rebuild();
+
+        $this->jsonRequest('GET', '/cards/search?q=&page=1&limit=20&lang=es&sort=name_asc&sets=g17&formats=modern');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(5, $this->jsonResponse()['total']);
+        self::assertEqualsCanonicalizing(
+            array_map(static fn ($card): string => $card->scryfallId(), $g17Cards),
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
+    }
+
+    public function testSetSearchReturnsRealPrintingsAcrossMultipleSelectedSets(): void
+    {
+        $g17Forest = $this->seedCard('00000000-0000-0000-0000-000000000078', 'Forest', [
+            'lang' => 'en',
+            'set' => 'g17',
+            'set_name' => 'Gift Pack 2017',
+            'collector_number' => '5',
+            'type_line' => 'Basic Land - Forest',
+            'mana_cost' => '',
+            'legalities' => ['modern' => 'legal', 'commander' => 'legal', 'legacy' => 'legal'],
+        ]);
+        $abcForest = $this->seedCard('00000000-0000-0000-0000-000000000079', 'Forest', [
+            'lang' => 'en',
+            'set' => 'abc',
+            'set_name' => 'Alphabet Set',
+            'collector_number' => '19',
+            'type_line' => 'Basic Land - Forest',
+            'mana_cost' => '',
+            'legalities' => ['modern' => 'legal', 'commander' => 'legal', 'legacy' => 'legal'],
+        ]);
+        static::getContainer()->get(CardSearchEntryRebuilder::class)->rebuild();
+
+        $this->jsonRequest('GET', '/cards/search?q=&page=1&limit=20&lang=es&sort=name_asc&sets=g17,abc');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(2, $this->jsonResponse()['total']);
+        self::assertEqualsCanonicalizing(
+            [$g17Forest->scryfallId(), $abcForest->scryfallId()],
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
+    }
+
+    public function testSetSearchWithQueryDoesNotDeduplicateAcrossSelectedSets(): void
+    {
+        $g17Forest = $this->seedCard('00000000-0000-0000-0000-000000000080', 'Forest', [
+            'lang' => 'en',
+            'set' => 'g17',
+            'set_name' => 'Gift Pack 2017',
+            'collector_number' => '5',
+            'type_line' => 'Basic Land - Forest',
+            'mana_cost' => '',
+            'legalities' => ['modern' => 'legal', 'commander' => 'legal', 'legacy' => 'legal'],
+        ]);
+        $abcForest = $this->seedCard('00000000-0000-0000-0000-000000000081', 'Forest', [
+            'lang' => 'en',
+            'set' => 'abc',
+            'set_name' => 'Alphabet Set',
+            'collector_number' => '19',
+            'type_line' => 'Basic Land - Forest',
+            'mana_cost' => '',
+            'legalities' => ['modern' => 'legal', 'commander' => 'legal', 'legacy' => 'legal'],
+        ]);
+        static::getContainer()->get(CardSearchEntryRebuilder::class)->rebuild();
+
+        $this->jsonRequest('GET', '/cards/search?q=forest&page=1&limit=20&lang=es&sort=name_asc&sets=g17,abc');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(2, $this->jsonResponse()['total']);
+        self::assertEqualsCanonicalizing(
+            [$g17Forest->scryfallId(), $abcForest->scryfallId()],
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
     }
 
     public function testCardEndpointsRejectInvalidLanguageFilters(): void
@@ -1236,5 +1448,47 @@ SQL,
         }
 
         return null;
+    }
+
+    /**
+     * @param array{
+     *   set_name?: string,
+     *   legalities?: array<string,string>,
+     *   printed_names?: array<string,string>,
+     *   collector_numbers?: array<string,string>
+     * } $overrides
+     *
+     * @return list<Card>
+     */
+    private function seedBasicLandCycle(string $setCode, string $lang, array $overrides = []): array
+    {
+        $setName = $overrides['set_name'] ?? strtoupper($setCode);
+        $legalities = $overrides['legalities'] ?? ['commander' => 'legal', 'legacy' => 'legal'];
+        $printedNames = $overrides['printed_names'] ?? [];
+        $collectorNumbers = $overrides['collector_numbers'] ?? [];
+        $cards = [];
+
+        foreach ([
+            ['name' => 'Plains', 'collector' => '1', 'type_line' => 'Basic Land - Plains'],
+            ['name' => 'Island', 'collector' => '2', 'type_line' => 'Basic Land - Island'],
+            ['name' => 'Swamp', 'collector' => '3', 'type_line' => 'Basic Land - Swamp'],
+            ['name' => 'Mountain', 'collector' => '4', 'type_line' => 'Basic Land - Mountain'],
+            ['name' => 'Forest', 'collector' => '5', 'type_line' => 'Basic Land - Forest'],
+        ] as $index => $land) {
+            $cards[] = $this->seedCard(sprintf('00000000-0000-0000-0000-%012d', 820 + $index + (crc32($setCode.$lang) % 100) * 10), $land['name'], [
+                'lang' => $lang,
+                'printed_name' => $printedNames[$land['name']] ?? null,
+                'set' => $setCode,
+                'set_name' => $setName,
+                'collector_number' => $collectorNumbers[$land['name']] ?? $land['collector'],
+                'type_line' => $land['type_line'],
+                'mana_cost' => '',
+                'colors' => [],
+                'color_identity' => [],
+                'legalities' => $legalities,
+            ]);
+        }
+
+        return $cards;
     }
 }

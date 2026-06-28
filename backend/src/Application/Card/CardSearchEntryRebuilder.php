@@ -22,6 +22,7 @@ final class CardSearchEntryRebuilder
 
     private function rebuildLanguage(string $language): void
     {
+        [$languageRankSql, $languageRankParams] = $this->languageRankSql($language);
         $sql = sprintf(
             <<<'SQL'
 INSERT INTO card_search_entry (
@@ -87,26 +88,22 @@ FROM (
         ROW_NUMBER() OVER (
             PARTITION BY c.normalized_name, LOWER(COALESCE(c.type_line, '')), LOWER(COALESCE(c.mana_cost, ''))
             ORDER BY
-                CASE
-                    WHEN c.lang = :entry_lang THEN 0
-                    WHEN c.lang = :default_lang THEN 1
-                    WHEN c.lang IS NULL THEN 2
-                    ELSE 3
-                END ASC,
+                %s ASC,
                 c.scryfall_id ASC,
                 c.name ASC
         ) AS row_number
     FROM card c
     WHERE %s
-      AND (c.lang = :entry_lang OR c.lang = :default_lang OR c.lang IS NULL)
 ) ranked
 WHERE ranked.row_number = 1
 SQL,
+            $languageRankSql,
             PlayableCardCatalogSql::condition('c'),
         );
 
         $params = array_replace(
             PlayableCardCatalogSql::parameters(),
+            $languageRankParams,
             [
                 'entry_lang' => $language,
                 'default_lang' => LanguageCatalog::DEFAULT_LANGUAGE,
@@ -118,5 +115,32 @@ SQL,
             $params,
             PlayableCardCatalogSql::parameterTypes(),
         );
+    }
+
+    /**
+     * @return array{0:string,1:array<string,string>}
+     */
+    private function languageRankSql(string $language): array
+    {
+        $cases = [
+            'WHEN c.lang = :entry_lang THEN 0',
+            'WHEN c.lang = :default_lang THEN 1',
+        ];
+        $params = [];
+        $rank = 2;
+
+        foreach (LanguageCatalog::commonPrintLanguages() as $index => $commonLanguage) {
+            $paramName = sprintf('common_lang_%d', $index);
+            $cases[] = sprintf('WHEN c.lang = :%s THEN %d', $paramName, $rank);
+            $params[$paramName] = $commonLanguage;
+            ++$rank;
+        }
+
+        $cases[] = sprintf('WHEN c.lang IS NULL THEN %d', $rank + 1);
+
+        return [
+            "CASE\n                    ".implode("\n                    ", $cases).sprintf("\n                    ELSE %d\n                END", $rank),
+            $params,
+        ];
     }
 }

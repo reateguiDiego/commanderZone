@@ -746,6 +746,7 @@
         "sort": {
           "label": "Sort",
           "relevance": "Relevance",
+          "colors": "Colors",
           "nameAsc": "Name A-Z",
           "nameDesc": "Name Z-A",
           "manaValueAsc": "Mana low-high",

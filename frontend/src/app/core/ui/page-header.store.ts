@@ -3,6 +3,9 @@ import { TranslateService } from '@ngx-translate/core';
 import { runtimeTranslationFallback } from '../localization/runtime-translate.pipe';
 
 export type PageHeaderActionVariant = 'primary' | 'secondary';
+export type PageHeaderActionTooltipTriggerMode = 'hover' | 'click';
+export type PageHeaderActionTooltipPlacement = 'top' | 'bottom';
+export type PageHeaderActionTooltipAlign = 'center' | 'end';
 
 export interface PageHeaderAction {
   id: string;
@@ -11,6 +14,9 @@ export interface PageHeaderAction {
   icon?: string;
   iconOnly?: boolean;
   tooltip?: string;
+  tooltipTriggerMode?: PageHeaderActionTooltipTriggerMode;
+  tooltipPlacement?: PageHeaderActionTooltipPlacement;
+  tooltipAlign?: PageHeaderActionTooltipAlign;
   disabled?: boolean;
   variant: PageHeaderActionVariant;
   execute: () => void;

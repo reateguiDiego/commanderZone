@@ -238,6 +238,16 @@ describe('API services', () => {
     request.flush({ data: [], page: 1, limit: 8 });
   });
 
+  it('serializes the colors sort for card search requests', () => {
+    TestBed.inject(CardsApi).search('atraxa', 1, 8, {
+      sort: 'colors',
+    }).subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&lang=en&sort=colors`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [], page: 1, limit: 8 });
+  });
+
   it('requests card search options with the preferred card language', () => {
     TestBed.inject(CardsApi).searchOptions().subscribe();
 

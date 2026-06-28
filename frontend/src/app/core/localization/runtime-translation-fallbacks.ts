@@ -195,6 +195,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   "deckBuilder.cards.cardSearch.searchingCards": "Searching cards...",
   "deckBuilder.cards.cardSearch.searchLibrary": "Search library",
   "deckBuilder.cards.cardSearch.sort.label": "Sort",
+  "deckBuilder.cards.cardSearch.sort.colors": "Colors",
   "deckBuilder.cards.cardSearch.sort.manaValueAsc": "Mana low-high",
   "deckBuilder.cards.cardSearch.sort.manaValueDesc": "Mana high-low",
   "deckBuilder.cards.cardSearch.sort.nameAsc": "Name A-Z",

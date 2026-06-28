@@ -182,4 +182,5 @@ describe('DeckViewerComponent', () => {
     });
     expect(store.contextMenu()).toBeNull();
   });
+
 });

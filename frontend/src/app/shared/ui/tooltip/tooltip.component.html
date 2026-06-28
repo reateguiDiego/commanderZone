@@ -2,10 +2,11 @@
   class="cz-tooltip"
   [class.cz-tooltip--enabled]="!!text()"
   [class.cz-tooltip--stretch]="stretch()"
-  (mouseenter)="show()"
-  (mouseleave)="hide()"
-  (focusin)="show()"
+  (mouseenter)="handleMouseEnter()"
+  (mouseleave)="handleMouseLeave()"
+  (focusin)="handleFocusIn()"
   (focusout)="handleFocusOut($event)"
+  (click)="handleClick($event)"
 >
   <span #trigger class="cz-tooltip__trigger">
     <ng-content />
@@ -15,6 +16,8 @@
     <span
       class="cz-tooltip__bubble"
       [class.cz-tooltip__bubble--visible]="open()"
+      [class.cz-tooltip__bubble--bottom]="placement() === 'bottom'"
+      [class.cz-tooltip__bubble--align-end]="align() === 'end'"
       [style.left.px]="position()?.left ?? 0"
       [style.top.px]="position()?.top ?? 0"
       role="tooltip"

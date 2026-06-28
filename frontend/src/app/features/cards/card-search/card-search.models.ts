@@ -6,6 +6,7 @@ export type CardRarity = 'mythic' | 'rare' | 'uncommon' | 'common';
 export type TextMatchMode = 'and' | 'or';
 export type ColorMatchMode = 'all' | 'any' | 'exact';
 export type CardSearchSort =
+  | 'colors'
   | 'name_asc'
   | 'name_desc'
   | 'mana_value_asc'

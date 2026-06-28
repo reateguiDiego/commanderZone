@@ -766,6 +766,7 @@
         "sort": {
           "label": "Ordenar",
           "relevance": "Relevancia",
+          "colors": "Colores",
           "nameAsc": "Nombre A-Z",
           "nameDesc": "Nombre Z-A",
           "manaValueAsc": "Mana bajo-alto",

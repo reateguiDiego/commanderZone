@@ -38,8 +38,8 @@
                     >
                       <span class="deck-card-primary">
                         <strong class="deck-card-name">
-                          <span class="deck-card-name-text" [attr.title]="store.displayCardListName(entry.card)">
-                            {{ entry.quantity }} - {{ store.displayCardListName(entry.card) }}
+                          <span class="deck-card-name-text" [attr.title]="displayRowName(entry.card)">
+                            {{ entry.quantity }} - {{ displayRowName(entry.card) }}
                           </span>
                           @if (store.hasAlternateFace(entry.card)) {
                             <button
@@ -58,11 +58,11 @@
                         </strong>
                       </span>
                       <small class="deck-card-secondary">
-                        {{ store.displayCardTypeLine(entry.card) || ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate) }}
+                        {{ displayRowTypeLine(entry.card) || ('deckBuilder.deckCardTextView.unknownType' | runtimeTranslate) }}
                       </small>
                       <span class="deck-card-cost">
-                        @if (store.shouldShowManaCost(entry.card)) {
-                          <app-mana-symbols [value]="store.displayCardManaCost(entry.card)" fallback="-" />
+                        @if (shouldShowRowManaCost(entry.card)) {
+                          <app-mana-symbols [value]="displayRowManaCost(entry.card)" fallback="-" />
                         }
                       </span>
                     </div>

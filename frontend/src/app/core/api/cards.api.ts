@@ -8,7 +8,7 @@ import { CardImageResponse, CardResponse, DataResponse } from '../models/api-res
 import { LanguagePreferencesService } from '../localization/language-preferences.service';
 
 export interface CardSearchFilters {
-  sort?: 'name_asc' | 'name_desc' | 'mana_value_asc' | 'mana_value_desc';
+  sort?: 'colors' | 'name_asc' | 'name_desc' | 'mana_value_asc' | 'mana_value_desc';
   commanderLegal?: boolean;
   colorIdentity?: string[];
   gameplayKind?: 'token' | 'emblem' | 'dungeon';

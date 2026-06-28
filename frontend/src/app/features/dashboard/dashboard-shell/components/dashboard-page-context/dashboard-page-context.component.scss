@@ -32,10 +32,15 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 10px;
 }
 
 .page-header-title-actions:has(button[data-action-id="card-search-help"]) {
   right: calc(-1 * clamp(0.75rem, 1.8vw, 1.35rem));
+}
+
+.page-header-title-actions button[data-action-id="card-search-language-disclaimer"] {
+  color: var(--cz-primary);
 }
 
 .page-header-title-line {

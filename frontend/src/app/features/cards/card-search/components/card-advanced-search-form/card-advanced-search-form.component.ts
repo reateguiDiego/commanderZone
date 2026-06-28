@@ -49,6 +49,7 @@ const MANA_TYPE_ICONS = new Set([
 
 type StatRangeField = 'powerMin' | 'powerMax' | 'toughnessMin' | 'toughnessMax';
 const CARD_SEARCH_SORTS: readonly CardSearchSort[] = [
+  'colors',
   'name_asc',
   'name_desc',
   'mana_value_asc',

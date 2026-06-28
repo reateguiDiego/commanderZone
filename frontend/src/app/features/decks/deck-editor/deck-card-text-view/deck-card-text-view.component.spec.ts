@@ -57,6 +57,73 @@ describe('DeckCardTextViewComponent', () => {
     expect(store.toggleCardFace).toHaveBeenCalledWith(expect.any(MouseEvent), cardEntry?.card);
   });
 
+  it('keeps front-face text metadata when a double-faced card is flipped', async () => {
+    const store = storeStub({
+      hasAlternateFace: true,
+      entry: {
+        id: 'deck-card-mdfc',
+        quantity: 1,
+        section: 'main',
+        card: {
+          id: 'card-mdfc',
+          scryfallId: 'card-mdfc',
+          name: 'Bala Ged Recovery // Bala Ged Sanctuary',
+          manaCost: null,
+          typeLine: 'Sorcery // Land',
+          oracleText: null,
+          colors: ['G'],
+          colorIdentity: ['G'],
+          legalities: {},
+          imageUris: {},
+          layout: 'modal_dfc',
+          commanderLegal: true,
+          set: null,
+          collectorNumber: null,
+          cardFaces: [
+            {
+              name: 'Bala Ged Recovery',
+              manaCost: '{2}{G}',
+              typeLine: 'Sorcery',
+              oracleText: null,
+              power: null,
+              toughness: null,
+              loyalty: null,
+              colors: ['G'],
+              imageUris: { normal: '/cards/bala-ged-recovery.jpg' },
+            },
+            {
+              name: 'Bala Ged Sanctuary',
+              manaCost: null,
+              typeLine: 'Land',
+              oracleText: null,
+              power: null,
+              toughness: null,
+              loyalty: null,
+              colors: [],
+              imageUris: { normal: '/cards/bala-ged-sanctuary.jpg' },
+            },
+          ],
+        },
+      },
+      displayCardTypeLine: () => 'Land',
+      displayCardManaCost: () => null,
+      shouldShowManaCost: () => false,
+    });
+    const fixture = await setup(store);
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('.deck-card-row') as HTMLElement;
+    const cardEntry = store.cardColumns()[0]?.groups[0]?.cards[0];
+
+    expect(cardEntry).toBeDefined();
+
+    expect(row.textContent).toContain('Bala Ged Recovery // Bala Ged Sanctuary');
+    expect(row.textContent).toContain('Sorcery');
+    expect(row.textContent).not.toContain('Land');
+    expect(fixture.componentInstance.displayRowManaCost(cardEntry!.card)).toBe('{2}{G}');
+    expect(fixture.componentInstance.shouldShowRowManaCost(cardEntry!.card)).toBe(true);
+  });
+
   it('suppresses contextmenu interactions from the text-row face toggle', async () => {
     const store = storeStub({ hasAlternateFace: true });
     const fixture = await setup(store);
@@ -89,8 +156,14 @@ describe('DeckCardTextViewComponent', () => {
   });
 });
 
-function storeStub(options: { hasAlternateFace?: boolean } = {}) {
-  const entry: DeckCard = { id: 'deck-card-1', quantity: 1, section: 'main', card: card() };
+function storeStub(options: {
+  hasAlternateFace?: boolean;
+  entry?: DeckCard;
+  displayCardTypeLine?: (value: Card) => string | null;
+  displayCardManaCost?: (value: Card) => string | null;
+  shouldShowManaCost?: (value: Card) => boolean;
+} = {}) {
+  const entry: DeckCard = options.entry ?? { id: 'deck-card-1', quantity: 1, section: 'main', card: card() };
 
   return {
     cardColumns: signal([{ id: 'land-sideboard', groups: [{ id: 'land', title: 'Tierras', cards: [entry] }] }]),
@@ -103,14 +176,14 @@ function storeStub(options: { hasAlternateFace?: boolean } = {}) {
     toggleCardMenu: vi.fn(),
     displayCardName: (value: Card) => value.name,
     displayCardListName: (value: Card) => value.name,
-    displayCardManaCost: (value: Card) => value.manaCost,
+    displayCardManaCost: options.displayCardManaCost ?? ((value: Card) => value.manaCost),
     hasAlternateFace: () => options.hasAlternateFace ?? false,
     toggleCardFace: vi.fn(),
     resetCardFace: vi.fn(),
     isCardInvalidForDeck: () => false,
     invalidCardMessage: () => '',
-    displayCardTypeLine: (value: Card) => value.typeLine,
-    shouldShowManaCost: () => false,
+    displayCardTypeLine: options.displayCardTypeLine ?? ((value: Card) => value.typeLine),
+    shouldShowManaCost: options.shouldShowManaCost ?? (() => false),
     setCardMenuAmount: vi.fn(),
     addCardCopy: vi.fn(),
     removeCardCopy: vi.fn(),

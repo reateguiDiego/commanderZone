@@ -76,6 +76,28 @@ describe('CardAdvancedSearchFormComponent', () => {
     });
   });
 
+  it('accepts colors as a valid sort mode', () => {
+    const fixture = TestBed.createComponent(CardAdvancedSearchFormComponent);
+    const component = fixture.componentInstance;
+    const submitted = vi.fn();
+    component.searchSubmitted.subscribe(submitted);
+
+    component.model.query = 'Atraxa';
+    component.model.sort = 'colors';
+    component.model.enabledFilters = {
+      ...component.model.enabledFilters,
+      name: true,
+    };
+
+    component.submit();
+
+    expect(submitted).toHaveBeenCalledWith(expect.objectContaining({
+      filters: expect.objectContaining({
+        sort: 'colors',
+      }),
+    }));
+  });
+
   it('emits the basic type modifier only while land is selected', () => {
     const fixture = TestBed.createComponent(CardAdvancedSearchFormComponent);
     const component = fixture.componentInstance;

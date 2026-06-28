@@ -2,10 +2,12 @@ import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
-import { ChevronLeft, ChevronRight, CircleHelp, Image, List, LucideAngularModule, RotateCcw, RotateCw, Search, SlidersHorizontal, X } from 'lucide-angular';
+import { ChevronLeft, ChevronRight, CircleHelp, Image, Info, List, LucideAngularModule, RotateCcw, RotateCw, Search, SlidersHorizontal, X } from 'lucide-angular';
 import { of, Subject } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
+import { CardsLanguageService } from '../../../core/api/cards-language.service';
 import { DecksApi } from '../../../core/api/decks.api';
+import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { Card } from '../../../core/models/card.model';
 import { AddCardToDeckModalComponent } from '../../../shared/components/add-card-to-deck-modal/add-card-to-deck-modal.component';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
@@ -16,6 +18,8 @@ describe('CardSearchComponent', () => {
   let isDesktop: ReturnType<typeof signal<boolean>>;
   let isDesktopLayout: ReturnType<typeof signal<boolean>>;
   let hasHover: ReturnType<typeof signal<boolean>>;
+  let cardLanguage: ReturnType<typeof signal<'en' | 'es'>>;
+  let appLanguage: ReturnType<typeof signal<'en' | 'es'>>;
 
   const cardsApi = {
     search: vi.fn().mockReturnValue(of({ data: [] })),
@@ -33,6 +37,15 @@ describe('CardSearchComponent', () => {
       formats: [],
     })),
   };
+  const cardsLanguageService = {
+    list: vi.fn().mockReturnValue(of({
+      selectedCardLanguage: 'es',
+      data: [
+        { code: 'en', label: 'English', distinctCardNames: 100, percentageOfEnglish: 100 },
+        { code: 'es', label: 'Spanish', distinctCardNames: 73, percentageOfEnglish: 73 },
+      ],
+    })),
+  };
   const decksApi = {
     list: vi.fn().mockReturnValue(of({ data: [] })),
     addCard: vi.fn().mockReturnValue(of({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] } })),
@@ -42,9 +55,12 @@ describe('CardSearchComponent', () => {
     isDesktop = signal(true);
     isDesktopLayout = signal(true);
     hasHover = signal(true);
+    cardLanguage = signal('es');
+    appLanguage = signal('en');
     cardsApi.search.mockClear();
     cardsApi.printings.mockClear();
     cardsApi.searchOptions.mockClear();
+    cardsLanguageService.list.mockClear();
     decksApi.list.mockClear();
     decksApi.addCard.mockClear();
 
@@ -52,9 +68,17 @@ describe('CardSearchComponent', () => {
       imports: [CardSearchComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ Search, CircleHelp, RotateCcw, RotateCw, List, Image, X, ChevronLeft, ChevronRight, SlidersHorizontal })),
+        importProvidersFrom(LucideAngularModule.pick({ Search, CircleHelp, Info, RotateCcw, RotateCw, List, Image, X, ChevronLeft, ChevronRight, SlidersHorizontal })),
         { provide: CardsApi, useValue: cardsApi },
+        { provide: CardsLanguageService, useValue: cardsLanguageService },
         { provide: DecksApi, useValue: decksApi },
+        {
+          provide: LanguagePreferencesService,
+          useValue: {
+            cardLanguage,
+            appLanguage,
+          },
+        },
         {
           provide: DeviceProfileService,
           useValue: {
@@ -76,7 +100,11 @@ describe('CardSearchComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('WIP: cards-page');
     expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Cards');
     expect(TestBed.inject(PageHeaderStore).state()?.heroRule).toBe(true);
-    expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[0]?.id).toBe('card-search-help');
+    expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[0]?.id).toBe('card-search-language-disclaimer');
+    expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[0]?.tooltipTriggerMode).toBe('click');
+    expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[0]?.tooltipPlacement).toBe('bottom');
+    expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[1]?.id).toBe('card-search-help');
+    expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[1]?.tooltip).toBeUndefined();
     expect(fixture.nativeElement.querySelector('app-card-advanced-search-form')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.cards-aside app-card-advanced-search-form')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.cards-aside app-card-search-help')).toBeNull();
@@ -84,6 +112,33 @@ describe('CardSearchComponent', () => {
     expect(fixture.nativeElement.querySelector('.cards-aside .cards-aside-actions')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.cards-main app-card-search-results')).not.toBeNull();
     expect(cardsApi.searchOptions).toHaveBeenCalled();
+    expect(cardsLanguageService.list).toHaveBeenCalled();
+  });
+
+  it('adds a clickable title action disclaimer when the selected card language is not English', async () => {
+    const fixture = TestBed.createComponent(CardSearchComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const titleActions = TestBed.inject(PageHeaderStore).state()?.titleActions ?? [];
+    expect(titleActions).toHaveLength(2);
+    expect(titleActions[0]?.tooltip).toContain('73% of cards are available in Spanish');
+  });
+
+  it('omits the title action disclaimer when the selected card language is English', async () => {
+    cardLanguage.set('en');
+    cardsLanguageService.list.mockReturnValueOnce(of({
+      selectedCardLanguage: 'en',
+      data: [{ code: 'en', label: 'English', distinctCardNames: 100, percentageOfEnglish: 100 }],
+    }));
+
+    const fixture = TestBed.createComponent(CardSearchComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.map((action) => action.id)).toEqual(['card-search-help']);
   });
 
   it('opens the search guide from the page header action', async () => {

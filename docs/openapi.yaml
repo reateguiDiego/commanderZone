@@ -689,7 +689,7 @@ paths:
           description: Result ordering. Relevance preserves the existing search ranking.
           schema:
             type: string
-            enum: [relevance, name_asc, name_desc, mana_value_asc, mana_value_desc]
+            enum: [relevance, colors, name_asc, name_desc, mana_value_asc, mana_value_desc]
             default: relevance
         - name: commanderLegal
           in: query

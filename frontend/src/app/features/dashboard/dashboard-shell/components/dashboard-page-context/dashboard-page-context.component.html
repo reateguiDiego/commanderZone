@@ -7,7 +7,12 @@
       @if (headerState.titleActions?.length) {
         <div class="page-header-title-actions">
           @for (action of headerState.titleActions; track action.id) {
-            <app-tooltip [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null">
+            <app-tooltip
+              [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
+              [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
+              [placement]="action.tooltipPlacement ?? 'top'"
+              [align]="action.tooltipAlign ?? 'center'"
+            >
               <button
                 [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
                 czButtonSize="sm"
@@ -83,7 +88,12 @@
         <div class="page-header-actions-stack">
           <div class="page-header-actions">
             @for (action of visibleActions(); track action.id) {
-              <app-tooltip [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null">
+              <app-tooltip
+                [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
+                [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
+                [placement]="action.tooltipPlacement ?? 'top'"
+                [align]="action.tooltipAlign ?? 'center'"
+              >
                 <button
                   [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
                   czButtonSize="sm"

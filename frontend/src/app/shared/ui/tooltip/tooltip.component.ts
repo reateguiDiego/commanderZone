@@ -5,6 +5,10 @@ interface TooltipPosition {
   readonly top: number;
 }
 
+type TooltipTriggerMode = 'hover' | 'click';
+type TooltipPlacement = 'top' | 'bottom';
+type TooltipAlign = 'center' | 'end';
+
 @Component({
   selector: 'app-tooltip',
   templateUrl: './tooltip.component.html',
@@ -16,6 +20,9 @@ export class TooltipComponent {
 
   readonly text = input<string | null>(null);
   readonly stretch = input(false);
+  readonly triggerMode = input<TooltipTriggerMode>('hover');
+  readonly placement = input<TooltipPlacement>('top');
+  readonly align = input<TooltipAlign>('center');
   readonly open = signal(false);
   readonly position = signal<TooltipPosition | null>(null);
 
@@ -32,7 +39,48 @@ export class TooltipComponent {
     this.open.set(false);
   }
 
+  handleMouseEnter(): void {
+    if (this.triggerMode() !== 'hover') {
+      return;
+    }
+
+    this.show();
+  }
+
+  handleMouseLeave(): void {
+    if (this.triggerMode() !== 'hover') {
+      return;
+    }
+
+    this.hide();
+  }
+
+  handleFocusIn(): void {
+    if (this.triggerMode() !== 'hover') {
+      return;
+    }
+
+    this.show();
+  }
+
+  handleClick(event: MouseEvent): void {
+    if (this.triggerMode() !== 'click') {
+      return;
+    }
+
+    const triggerElement = this.trigger().nativeElement;
+    if (!triggerElement.contains(event.target as Node | null)) {
+      return;
+    }
+
+    this.show();
+  }
+
   handleFocusOut(event: FocusEvent): void {
+    if (this.triggerMode() !== 'hover') {
+      return;
+    }
+
     const nextTarget = event.relatedTarget;
     if (nextTarget instanceof Node && this.trigger().nativeElement.contains(nextTarget)) {
       return;
@@ -49,6 +97,20 @@ export class TooltipComponent {
     }
 
     this.updatePosition();
+  }
+
+  @HostListener('document:pointerdown', ['$event'])
+  handleDocumentPointerDown(event: PointerEvent): void {
+    if (!this.open() || this.triggerMode() !== 'click') {
+      return;
+    }
+
+    const triggerElement = this.trigger().nativeElement;
+    if (triggerElement.contains(event.target as Node | null)) {
+      return;
+    }
+
+    this.hide();
   }
 
   private updatePosition(): void {

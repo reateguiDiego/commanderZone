@@ -1,8 +1,9 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { Card } from '../../../../core/models/card.model';
+import { Card, CardFace } from '../../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { cardDisplayFace } from '../../../../shared/utils/card-faces';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { DeckCommanderShowcaseComponent } from '../deck-commander-showcase/deck-commander-showcase.component';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
@@ -43,5 +44,36 @@ export class DeckCardTextViewComponent {
     event.stopPropagation();
     event.stopImmediatePropagation?.();
     this.store.toggleCardFace(event, card);
+  }
+
+  displayRowName(card: Card): string {
+    return card.name;
+  }
+
+  displayRowTypeLine(card: Card): string | null {
+    const typeLine = this.frontFace(card)?.typeLine ?? card.typeLine;
+    const [front] = (typeLine ?? '').split('//').map((part) => part.trim());
+
+    return front || typeLine;
+  }
+
+  displayRowManaCost(card: Card): string | null {
+    return this.frontFace(card)?.manaCost ?? card.manaCost;
+  }
+
+  shouldShowRowManaCost(card: Card): boolean {
+    if (this.displayRowManaCost(card)) {
+      return true;
+    }
+
+    return !this.normalizedFrontTypeLine(card).includes('land');
+  }
+
+  private frontFace(card: Card): CardFace | null {
+    return cardDisplayFace(card, false);
+  }
+
+  private normalizedFrontTypeLine(card: Card): string {
+    return (this.displayRowTypeLine(card) ?? '').trim().toLowerCase();
   }
 }
