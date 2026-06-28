@@ -38,9 +38,11 @@
               <button class="color-picker-trigger" type="button" [attr.aria-expanded]="openColorPickerIndex() === playerIndex" [attr.aria-label]="'Color de jugador ' + (playerIndex + 1)" (click)="toggleColorPicker(playerIndex)">
                 <span>{{ colorLabel(playerColors()[playerIndex]) }}</span>
                 <span class="mana-symbols" aria-hidden="true">
-                  @for (symbol of colorManaSymbols(playerColors()[playerIndex]); track symbol) {
-                    <i [class]="manaClass(symbol)"></i>
-                  }
+                  <app-mana-symbols
+                    [symbols]="colorManaSymbols(playerColors()[playerIndex])"
+                    size="small"
+                    [costBackground]="false"
+                  />
                 </span>
               </button>
               @if (openColorPickerIndex() === playerIndex) {
@@ -49,9 +51,11 @@
                     <button class="color-option" type="button" role="option" [class.selected]="playerColors()[playerIndex] === color.id" [style.--option-gradient]="color.gradient" [style.--option-accent]="color.accent" [attr.aria-selected]="playerColors()[playerIndex] === color.id" (mousedown)="$event.preventDefault(); selectPlayerColor(playerIndex, color.id)" (click)="selectPlayerColor(playerIndex, color.id)">
                       <span>{{ color.label }}</span>
                       <span class="mana-symbols" aria-hidden="true">
-                        @for (symbol of color.manaSymbols; track symbol) {
-                          <i [class]="manaClass(symbol)"></i>
-                        }
+                        <app-mana-symbols
+                          [symbols]="color.manaSymbols"
+                          size="small"
+                          [costBackground]="false"
+                        />
                       </span>
                     </button>
                   }

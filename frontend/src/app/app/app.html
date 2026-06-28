@@ -1,4 +1,4 @@
-<div class="app-route-frame" [class.app-route-frame-with-noindex-disclaimer]="showNoindexDisclaimer()">
+<div class="app-route-frame" [class.app-route-frame-with-noindex-disclaimer]="showNoindexFooterDisclaimer()">
   <router-outlet />
 </div>
 
@@ -13,7 +13,7 @@
 <app-cookie-consent-banner />
 
 @if (showGlobalLoading()) {
-  <div class="global-loader" role="status" aria-live="polite" [attr.aria-label]="'common.app.app.loading' | runtimeTranslate">
+  <div class="global-loader" role="status" aria-live="polite" aria-label="Loading">
     <div class="spinner"></div>
   </div>
 }

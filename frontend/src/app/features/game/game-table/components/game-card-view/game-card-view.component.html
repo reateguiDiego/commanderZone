@@ -160,7 +160,12 @@
         <img [src]="cardImage" [alt]="currentCard.name" draggable="false" />
       } @else if (monarchCard()) {
         <span class="monarch-card-visual" aria-label="Monarch">
-          <i class="monarch-card-icon ms ms-mechanic ms-ability-role-royal" aria-hidden="true"></i>
+          <i
+            class="monarch-card-icon"
+            appManaIcon="ms-ability-role-royal"
+            manaIconKind="mechanic"
+            aria-hidden="true"
+          ></i>
           <span class="monarch-card-title">Monarch</span>
         </span>
       } @else {

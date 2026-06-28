@@ -1,0 +1,116 @@
+/* CommanderZone public SEO/legal route styles. Loaded only on indexable public routes. */
+body.cz-public-route {
+  position: relative;
+  background:
+    radial-gradient(circle at 8% 6%, rgb(var(--cz-secondary-rgb) / 16%), transparent 24rem),
+    radial-gradient(circle at 92% 14%, rgb(var(--cz-info-rgb) / 10%), transparent 30rem),
+    radial-gradient(circle at 16% 88%, rgb(var(--cz-success-rgb) / 9%), transparent 32rem),
+    linear-gradient(135deg, var(--app-bg-deep) 0%, var(--cz-surface) 42%, var(--cz-bg) 100%);
+  background-attachment: fixed;
+}
+
+body.cz-public-route::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(rgb(var(--cz-bg-rgb) / 30%), rgb(var(--cz-bg-rgb) / 42%)),
+    radial-gradient(circle at 50% 45%, transparent 0%, rgb(var(--cz-bg-rgb) / 20%) 78%);
+  pointer-events: none;
+}
+
+body.cz-public-route app-root {
+  position: relative;
+  z-index: 1;
+}
+
+body.cz-public-route h1 {
+  color: var(--cz-text);
+  font-size: var(--cz-page-title-font-size);
+  font-weight: 750;
+  line-height: var(--cz-page-title-line-height);
+}
+
+body.cz-public-route h2 {
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  line-height: 1.1;
+}
+
+body.cz-public-route h3 {
+  color: var(--gold);
+}
+
+body.cz-public-route p {
+  color: rgb(var(--cz-text-rgb) / 66%);
+  font-size: var(--cz-page-copy-font-size);
+  line-height: var(--cz-page-copy-line-height);
+}
+
+body.cz-public-route .cz-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.45rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid rgb(var(--cz-accent-rgb) / 76%);
+  border-radius: 6px;
+  background: rgb(var(--cz-surface-elevated-rgb) / 88%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 12%),
+    0 10px 24px rgb(var(--cz-bg-rgb) / 22%);
+  color: var(--cz-text);
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+body.cz-public-route .cz-button:hover {
+  transform: translateY(-1px);
+}
+
+body.cz-public-route .cz-button:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 12%),
+    0 10px 24px rgb(var(--cz-bg-rgb) / 22%),
+    0 0 0 3px rgb(var(--cz-accent-rgb) / 24%);
+}
+
+body.cz-public-route .cz-button--primary,
+body.cz-public-route .primary-button {
+  background: linear-gradient(180deg, var(--cz-accent), var(--cz-primary));
+  color: var(--cz-on-accent);
+}
+
+body.cz-public-route .cz-button--primary:hover,
+body.cz-public-route .primary-button:hover {
+  border-color: rgb(var(--cz-accent-rgb) / 92%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cz-accent) 92%, var(--cz-text) 8%), var(--cz-primary));
+}
+
+body.cz-public-route .cz-button--sm,
+body.cz-public-route .compact {
+  min-height: 2.15rem;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.86rem;
+}
+
+body.cz-public-route .brand-mark {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 55%);
+  border-radius: 6px;
+  background: linear-gradient(145deg, rgb(var(--cz-primary-rgb) / 74%), rgb(var(--cz-surface-rgb) / 94%));
+  color: var(--cz-text);
+  font-weight: 850;
+}

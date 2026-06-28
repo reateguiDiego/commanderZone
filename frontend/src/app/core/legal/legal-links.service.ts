@@ -2,8 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
-import { SeoLocaleCode, isSeoLocale } from '../localization/locale-config';
-import { RuntimeLanguageSelectorService, toRuntimeLocale } from '../localization/runtime-language-selector.service';
+import { SeoLocaleCode } from '../localization/locale-config';
 import { findSeoRouteByPath } from '../localization/seo-routes';
 import { getPublicChromeCopy } from '../localization/public-chrome-copy';
 import { findLegalRouteByPath, getLegalLinks } from './legal-routes';
@@ -11,7 +10,6 @@ import { findLegalRouteByPath, getLegalLinks } from './legal-routes';
 @Injectable({ providedIn: 'root' })
 export class LegalLinksService {
   private readonly router = inject(Router);
-  private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
   private readonly currentPath = signal(this.normalizePath(this.router.url));
 
   readonly currentLocale = computed(() => this.resolveLocale(this.currentPath()));
@@ -38,8 +36,7 @@ export class LegalLinksService {
       return seoMatch.locale;
     }
 
-    const runtimeLocale = toRuntimeLocale(this.runtimeLanguageSelector.selectedLanguage());
-    return isSeoLocale(runtimeLocale) ? runtimeLocale : 'en';
+    return 'en';
   }
 
   private normalizePath(url: string): string {
