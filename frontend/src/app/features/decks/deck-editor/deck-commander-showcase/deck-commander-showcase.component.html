@@ -2,6 +2,7 @@
   @for (entry of entries(); track entry.id) {
     <article
       class="commander-card"
+      [class.commander-card--menu-open]="store.cardMenu()?.entryId === entry.id"
       (click)="interactive() ? store.toggleCardMenu($event, entry) : null"
     >
       <div class="commander-card-image">

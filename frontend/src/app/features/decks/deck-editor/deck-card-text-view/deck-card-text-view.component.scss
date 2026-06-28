@@ -76,6 +76,10 @@
   overflow: hidden;
 }
 
+.deck-group-body:not(.collapsed) .deck-group-body-inner {
+  overflow: visible;
+}
+
 .deck-card-list {
   display: grid;
 }
