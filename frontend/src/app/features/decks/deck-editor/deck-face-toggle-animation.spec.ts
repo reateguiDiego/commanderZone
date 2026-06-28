@@ -5,7 +5,10 @@ describe('runDeckFaceToggleAnimation', () => {
   const originalMatchMedia = window.matchMedia;
 
   afterEach(() => {
-    window.matchMedia = originalMatchMedia;
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: originalMatchMedia,
+    });
     vi.restoreAllMocks();
     document.body.innerHTML = '';
   });
@@ -58,14 +61,17 @@ function appendTrigger(): HTMLElement {
 }
 
 function mockMatchMedia(matches: (query: string) => boolean): void {
-  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-    matches: matches(query),
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  }));
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string): MediaQueryList => ({
+      matches: matches(query),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
 }
