@@ -81,7 +81,18 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertArrayHasKey('battlefield-1', $bootstrap->instances);
         self::assertSame('battlefield', $bootstrap->zones[$viewer->id().':battlefield']['name']);
         self::assertSame(1, $bootstrap->zoneCounts[$viewer->id().':battlefield']);
+        self::assertSame(['U', 'R', 'G'], $bootstrap->players[$viewer->id()]['colorIdentity']);
+        self::assertSame('R_7', $bootstrap->players[$viewer->id()]['backgroundName']);
+        self::assertSame('custom-sleeves', $bootstrap->players[$viewer->id()]['sleevesName']);
         self::assertNotEmpty($bootstrap->staticCards);
+        self::assertSame('33333333-3333-3333-3333-333333333333', $bootstrap->staticCards['33333333-3333-3333-3333-333333333333:card']['printId']);
+        self::assertSame('legacy-snapshot-v1', $bootstrap->staticCards['33333333-3333-3333-3333-333333333333:card']['cardVersion']);
+        self::assertSame('en', $bootstrap->staticCards['33333333-3333-3333-3333-333333333333:card']['language']);
+        self::assertSame('public', $bootstrap->staticCards['33333333-3333-3333-3333-333333333333:card']['viewerVisibility']);
+        self::assertSame('33333333-3333-3333-3333-333333333333', $bootstrap->instances['battlefield-1']['printId']);
+        self::assertSame('en', $bootstrap->instances['battlefield-1']['language']);
+        self::assertSame('public', $bootstrap->instances['battlefield-1']['viewerVisibility']);
+        self::assertSame('private', $bootstrap->instances['hand-1']['viewerVisibility']);
         self::assertSame('chat-1', $bootstrap->chatCursor);
         self::assertSame('log-1', $bootstrap->logCursor);
         self::assertSame('commanderzone-manual-v1', $bootstrap->rulesVersion);
@@ -268,12 +279,24 @@ class GameplayV2ContractFactoryTest extends TestCase
         $factory = new GameplayV2ContractFactory();
 
         $bootstrap = $factory->bootstrap($game, $viewer, $this->projectedSnapshot($viewer), [
-            '33333333-3333-3333-3333-333333333333:card@legacy-snapshot-v1',
+            '33333333-3333-3333-3333-333333333333%3Acard|33333333-3333-3333-3333-333333333333|legacy-snapshot-v1|en|public',
         ]);
 
         self::assertSame('33333333-3333-3333-3333-333333333333:card', $bootstrap->instances['battlefield-1']['cardKey']);
         self::assertArrayNotHasKey('33333333-3333-3333-3333-333333333333:card', $bootstrap->staticCards);
         self::assertLessThan(12000, $bootstrap->payloadBytes ?? 0);
+    }
+
+    public function testBootstrapV2DoesNotTreatLegacyTwoPartCacheKeyAsValidIdentity(): void
+    {
+        [$game, $viewer] = $this->game();
+        $factory = new GameplayV2ContractFactory();
+
+        $bootstrap = $factory->bootstrap($game, $viewer, $this->projectedSnapshot($viewer), [
+            '33333333-3333-3333-3333-333333333333:card@legacy-snapshot-v1',
+        ]);
+
+        self::assertArrayHasKey('33333333-3333-3333-3333-333333333333:card', $bootstrap->staticCards);
     }
 
     public function testFactoryBuildsEventPayloadV2FromCurrentEvent(): void
@@ -305,6 +328,26 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertSame('game-1', $envelope->gameId);
         self::assertSame(8, $envelope->baseVersion);
         self::assertSame('action-legacy', $envelope->clientActionId);
+    }
+
+    public function testFactoryDefaultsMissingOrNullCommandPayloadToEmptyObject(): void
+    {
+        $factory = new GameplayV2ContractFactory();
+        $websocketEnvelope = $factory->commandFromWebsocketMessage([
+            'gameId' => 'game-1',
+            'baseVersion' => 8,
+            'clientActionId' => 'action-concede',
+            'type' => 'game.concede',
+        ]);
+        $legacyEnvelope = $factory->commandFromLegacyPayload('game-1', [
+            'baseVersion' => 8,
+            'clientActionId' => 'action-concede-legacy',
+            'type' => 'game.concede',
+            'payload' => null,
+        ]);
+
+        self::assertSame([], $websocketEnvelope->payload);
+        self::assertSame([], $legacyEnvelope->payload);
     }
 
     public function testBootstrapContractRejectsInvalidZoneCounts(): void
@@ -350,6 +393,9 @@ class GameplayV2ContractFactoryTest extends TestCase
                     'status' => 'active',
                     'handCount' => 1,
                     'deckName' => 'Deck',
+                    'colorIdentity' => ['U', 'R', 'G'],
+                    'backgroundName' => 'R_7',
+                    'sleevesName' => 'custom-sleeves',
                     'commanderDamage' => [],
                     'counters' => [],
                     'zoneCounts' => [

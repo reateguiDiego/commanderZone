@@ -2,6 +2,7 @@
 
 namespace App\Application\Game\WebSocket;
 
+use App\Application\Game\Compact\CardStaticBundle;
 use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameActivityStreamService;
@@ -425,6 +426,58 @@ final readonly class GameWebsocketCommandPatchService
 
             $runtimeCommandType = $this->runtimeCommandType($type);
             $runtimeRoute = $this->runtimeGateway?->routeFor($runtimeCommandType) ?? GameplayRuntimeRoute::LegacyOnly;
+            $runtimeLifecycleError = $runtimeRoute === GameplayRuntimeRoute::RuntimePrimary
+                ? $this->runtimeLifecycleTransitionError(
+                    $game,
+                    $runtimeCommandType,
+                    $payload,
+                    $actor,
+                    $this->runtimeLifecycleEvents($manager, $game, $runtimeCommandType),
+                )
+                : null;
+            if ($runtimeLifecycleError !== null) {
+                $manager->rollback();
+                $message = $this->messages->rejectedCommand(
+                    $game->id(),
+                    $messageId,
+                    $clientActionId,
+                    $this->lifecycleEffectiveVersion($game, $currentVersion),
+                    'INVALID_COMMAND_MESSAGE',
+                    $runtimeLifecycleError,
+                );
+                $this->recordMetric(
+                    $metricsRecorder,
+                    $metricsInspector,
+                    [
+                        'transport' => 'websocket',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => 0.0,
+                        'command_apply_ms' => 0.0,
+                        'persist_ms' => 0.0,
+                        'projection_ms' => 0.0,
+                        'patch_build_ms' => 0.0,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesBefore,
+                        'patch_bytes' => 0,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => 0,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => false,
+                        'status' => 'invalid_runtime_lifecycle_transition',
+                        'gameplay.runtime_route' => 1,
+                        'gameplay.runtime_fallback_count' => 0,
+                        'gameplay.runtime_error_count' => 0,
+                        'gameplay.runtime_patch_contract_error' => 0,
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $message;
+            }
             if ($baseVersion !== $currentVersion && $runtimeRoute !== GameplayRuntimeRoute::RuntimePrimary) {
                 $manager->rollback();
                 $delta = max(0, $currentVersion - $baseVersion);
@@ -500,11 +553,20 @@ final readonly class GameWebsocketCommandPatchService
                         ...$phaseTimings,
                         ...$runtimeMetrics,
                     ];
+                    $this->enrichRuntimePersistedEvent(
+                        $manager,
+                        $game,
+                        $clientActionId,
+                        $runtimeCommand['type'],
+                        $runtimeCommand['payload'],
+                    );
                     $runtimeProjected = $this->runtimePatchedResult(
                         $game,
                         $runtimeResult->patches,
                         $currentVersion,
                         $clientActionId,
+                        $runtimeCommand['type'],
+                        $runtimeCommand['payload'],
                         $phaseTimings,
                         $startedAt,
                     );
@@ -1601,6 +1663,8 @@ final readonly class GameWebsocketCommandPatchService
         array $patches,
         int $baseVersion,
         string $ackClientActionId,
+        string $runtimeCommandType,
+        array $runtimeCommandPayload,
         array $phaseTimings,
         float $startedAt,
     ): array {
@@ -1608,6 +1672,10 @@ final readonly class GameWebsocketCommandPatchService
         $messagesByUserId = [];
         $patchStartedAt = microtime(true);
         $snapshot = $game->snapshot();
+        $baseStaticCardsByCardKey = [
+            ...$this->staticCardsByCardKey($snapshot),
+            ...$this->runtimePayloadStaticCardsByCardKey($runtimeCommandType, $runtimeCommandPayload),
+        ];
         $version = $baseVersion + 1;
         foreach ($patches as $patch) {
             $version = max($version, (int) ($patch['version'] ?? $version));
@@ -1615,13 +1683,15 @@ final readonly class GameWebsocketCommandPatchService
 
         foreach ($this->viewers($game) as $viewer) {
             $viewerOps = [];
+            $staticCardsByCardKey = $this->localizedRuntimeStaticCardsByCardKey($snapshot, $baseStaticCardsByCardKey, $viewer);
+            $viewerLanguage = LanguageCatalog::normalize($viewer->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE;
             foreach ($patches as $patch) {
                 $visibility = is_string($patch['visibility'] ?? null) ? $patch['visibility'] : 'public';
                 if (!$this->runtimePatchVisibleToViewer($snapshot, $visibility, $viewer->id())) {
                     continue;
                 }
                 foreach (array_values(array_filter($patch['ops'] ?? [], static fn (mixed $op): bool => is_array($op))) as $op) {
-                    $viewerOps[] = $op;
+                    $viewerOps[] = $this->hydrateRuntimeStaticCards($op, $staticCardsByCardKey, $viewerLanguage);
                 }
             }
             $messagesByUserId[$viewer->id()] = [[
@@ -1659,6 +1729,648 @@ final readonly class GameWebsocketCommandPatchService
             'patch_ms' => $phaseTimings['patch'],
             'patch_bytes' => $patchBytes,
         ];
+    }
+
+    /**
+     * Runtime events are persisted by the Go actor with compact instance identity only. For token templates,
+     * Symfony still has the original command payload, so it stores a sanitized static bundle for replay/bootstrap.
+     *
+     * @param array<string,mixed> $runtimeCommandPayload
+     */
+    private function enrichRuntimePersistedEvent(
+        EntityManagerInterface $manager,
+        Game $game,
+        string $clientActionId,
+        string $runtimeCommandType,
+        array $runtimeCommandPayload,
+    ): void {
+        $staticCards = $this->runtimePayloadStaticCardsByCardKey($runtimeCommandType, $runtimeCommandPayload);
+        if ($staticCards === []) {
+            return;
+        }
+
+        $event = $manager->getRepository(GameEvent::class)->findOneBy([
+            'game' => $game,
+            'clientActionId' => $clientActionId,
+        ]);
+        if (!$event instanceof GameEvent) {
+            return;
+        }
+
+        $payload = $event->payload();
+        $payload['staticCards'] = [
+            ...(is_array($payload['staticCards'] ?? null) ? $payload['staticCards'] : []),
+            ...array_map(
+                fn (array $staticCard): array => $this->compactRuntimeStaticCard($staticCard, 'public'),
+                $staticCards,
+            ),
+        ];
+        $event->replacePayload($payload);
+        $manager->flush();
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @param list<GameEvent> $events
+     */
+    private function runtimeLifecycleTransitionError(Game $game, string $type, array $payload, User $actor, array $events): ?string
+    {
+        if ($type === 'game.concede') {
+            $playerId = is_string($payload['playerId'] ?? null) && trim($payload['playerId']) !== ''
+                ? trim($payload['playerId'])
+                : $actor->id();
+            $snapshotPlayer = $game->snapshot()['players'][$playerId] ?? null;
+            if (is_array($snapshotPlayer) && ($snapshotPlayer['status'] ?? null) === 'conceded') {
+                return 'Player already conceded.';
+            }
+            foreach ($events as $event) {
+                if (!$event instanceof GameEvent || $event->type() !== 'game.concede') {
+                    continue;
+                }
+                $eventPayload = $this->runtimeLifecycleEventPayload($event);
+                $eventPlayerId = is_string($eventPayload['playerId'] ?? null) && trim($eventPayload['playerId']) !== ''
+                    ? trim($eventPayload['playerId'])
+                    : $event->createdBy()?->id();
+                if ($eventPlayerId === $playerId) {
+                    return 'Player already conceded.';
+                }
+            }
+        }
+
+        if ($type === 'game.close') {
+            if ($game->status() === Game::STATUS_FINISHED || ($game->snapshot()['gamePhase'] ?? null) === 'FINISHED') {
+                return 'Game is already closed.';
+            }
+            foreach ($events as $event) {
+                if ($event instanceof GameEvent && $event->type() === 'game.close') {
+                    return 'Game is already closed.';
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<GameEvent>
+     */
+    private function runtimeLifecycleEvents(EntityManagerInterface $manager, Game $game, string $type): array
+    {
+        if (!in_array($type, ['game.concede', 'game.close'], true)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $manager->getRepository(GameEvent::class)->findBy([
+                'game' => $game,
+                'type' => $type,
+            ]),
+            static fn (mixed $event): bool => $event instanceof GameEvent,
+        ));
+    }
+
+    private function lifecycleEffectiveVersion(Game $game, int $snapshotVersion): int
+    {
+        $version = $snapshotVersion;
+        foreach ($game->events() as $event) {
+            if ($event instanceof GameEvent) {
+                $version = max($version, $event->version());
+            }
+        }
+
+        return $version;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runtimeLifecycleEventPayload(GameEvent $event): array
+    {
+        $payload = $event->payload();
+
+        return is_array($payload['public'] ?? null) ? $payload['public'] : $payload;
+    }
+
+    /**
+     * @param array<string,mixed>               $op
+     * @param array<string,array<string,mixed>> $staticCardsByCardKey
+     *
+     * @return array<string,mixed>
+     */
+    private function hydrateRuntimeStaticCards(array $op, array $staticCardsByCardKey, string $viewerLanguage): array
+    {
+        $opName = is_string($op['op'] ?? null) ? $op['op'] : '';
+        if (in_array($opName, ['zone.cards.add', 'library.top.revealed', 'library.top.viewed', 'library.revealed.set'], true)) {
+            $cards = array_values(array_filter($op['cards'] ?? [], static fn (mixed $card): bool => is_array($card)));
+            $viewerVisibility = $this->viewerVisibilityForZone((string) ($op['zone'] ?? 'library'));
+            $op['cards'] = $this->cardsWithRuntimeIdentity($cards, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            $staticCards = $this->staticCardsForCards($cards, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            if ($staticCards !== []) {
+                $op['staticCards'] = $staticCards;
+            }
+
+            return $op;
+        }
+
+        if ($opName === 'zone.cards.move') {
+            $viewerVisibility = $this->viewerVisibilityForZone((string) ($op['to']['zone'] ?? 'battlefield'));
+            if (is_array($op['card'] ?? null)) {
+                $op['card'] = $this->cardWithRuntimeIdentity($op['card'], $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            }
+            $staticCard = $this->staticCardForCard($op['card'] ?? null, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            if ($staticCard !== null) {
+                $op['staticCard'] = $staticCard;
+            }
+
+            return $op;
+        }
+
+        if ($opName === 'zone.cards.batchMove') {
+            $moves = array_values(array_filter($op['moves'] ?? [], static fn (mixed $move): bool => is_array($move)));
+            foreach ($moves as $index => $move) {
+                $viewerVisibility = $this->viewerVisibilityForZone((string) ($move['to']['zone'] ?? 'battlefield'));
+                if (is_array($move['card'] ?? null)) {
+                    $moves[$index]['card'] = $this->cardWithRuntimeIdentity($move['card'], $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+                }
+                $staticCard = $this->staticCardForCard($moves[$index]['card'] ?? null, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+                if ($staticCard !== null) {
+                    $moves[$index]['staticCard'] = $staticCard;
+                }
+            }
+            $op['moves'] = $moves;
+
+            return $op;
+        }
+
+        return $op;
+    }
+
+    /**
+     * @param array<string,mixed>               $snapshot
+     * @param array<string,array<string,mixed>> $staticCardsByCardKey
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function localizedRuntimeStaticCardsByCardKey(array $snapshot, array $staticCardsByCardKey, User $viewer): array
+    {
+        $language = LanguageCatalog::normalize($viewer->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE;
+        $localizedStaticCards = [];
+        foreach ($staticCardsByCardKey as $cardKey => $staticCard) {
+            $localizedStaticCards[$cardKey] = [
+                ...$staticCard,
+                'language' => $language,
+            ];
+        }
+
+        if ($language === null || !LanguageCatalog::isSupported($language) || $staticCardsByCardKey === []) {
+            return $localizedStaticCards;
+        }
+
+        if (!$this->cardLocalizationResolver instanceof GameWebsocketCardLocalizationResolver) {
+            return $localizedStaticCards;
+        }
+
+        $localizedLookup = $this->cardLocalizationResolver->buildLocalizedLookupForScryfallIds(
+            $this->runtimeStaticCardScryfallIds($staticCardsByCardKey),
+            [$language],
+        );
+        $localizedCards = is_array($localizedLookup[$language] ?? null) ? $localizedLookup[$language] : [];
+        if ($localizedCards === []) {
+            return $localizedStaticCards;
+        }
+
+        foreach ($localizedStaticCards as $cardKey => $staticCard) {
+            $scryfallId = is_string($staticCard['scryfallId'] ?? null) ? trim($staticCard['scryfallId']) : '';
+            $localized = $scryfallId !== '' && is_array($localizedCards[$scryfallId] ?? null) ? $localizedCards[$scryfallId] : null;
+            if ($localized !== null) {
+                $localizedStaticCards[$cardKey] = $this->applyLocalizedRuntimeStaticCard($staticCard, $localized);
+            }
+        }
+
+        return $localizedStaticCards;
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $staticCardsByCardKey
+     *
+     * @return list<string>
+     */
+    private function runtimeStaticCardScryfallIds(array $staticCardsByCardKey): array
+    {
+        $ids = [];
+        foreach ($staticCardsByCardKey as $staticCard) {
+            $scryfallId = is_string($staticCard['scryfallId'] ?? null) ? trim($staticCard['scryfallId']) : '';
+            if ($scryfallId !== '') {
+                $ids[$scryfallId] = true;
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * @param array<string,mixed> $staticCard
+     * @param array<string,mixed> $localized
+     *
+     * @return array<string,mixed>
+     */
+    private function applyLocalizedRuntimeStaticCard(array $staticCard, array $localized): array
+    {
+        if (is_array($localized['imageUris'] ?? null) && $localized['imageUris'] !== []) {
+            $staticCard['imageUris'] = $localized['imageUris'];
+        }
+
+        if (is_array($staticCard['cardFaces'] ?? null) && is_array($localized['cardFaces'] ?? null)) {
+            $staticCard['cardFaces'] = $this->mergeLocalizedRuntimeFaces($staticCard['cardFaces'], $localized['cardFaces']);
+        }
+
+        return $staticCard;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $sourceFaces
+     * @param list<array<string,mixed>> $localizedFaces
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function mergeLocalizedRuntimeFaces(array $sourceFaces, array $localizedFaces): array
+    {
+        return array_values(array_map(
+            static function (array $face, int $index) use ($localizedFaces): array {
+                $localizedFace = $localizedFaces[$index] ?? null;
+                if (!is_array($localizedFace) || !is_array($localizedFace['imageUris'] ?? null) || $localizedFace['imageUris'] === []) {
+                    return $face;
+                }
+
+                return [
+                    ...$face,
+                    'imageUris' => $localizedFace['imageUris'],
+                ];
+            },
+            $sourceFaces,
+            array_keys($sourceFaces),
+        ));
+    }
+
+    /**
+     * @param list<array<string,mixed>>         $cards
+     * @param array<string,array<string,mixed>> $staticCardsByCardKey
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function staticCardsForCards(array $cards, array $staticCardsByCardKey, string $viewerVisibility, string $viewerLanguage): array
+    {
+        $staticCards = [];
+        foreach ($cards as $card) {
+            $cardKey = $this->runtimeCardKey($card);
+            if ($cardKey === '') {
+                continue;
+            }
+            $staticCard = isset($staticCardsByCardKey[$cardKey])
+                ? $this->compactRuntimeStaticCard($staticCardsByCardKey[$cardKey], $viewerVisibility)
+                : $this->fallbackRuntimeStaticIdentity($cardKey, $card, $viewerVisibility, $viewerLanguage);
+            $staticCards[$this->staticCardMapKey($staticCard, $cardKey)] = $staticCard;
+        }
+
+        return $staticCards;
+    }
+
+    /**
+     * @param list<array<string,mixed>>         $cards
+     * @param array<string,array<string,mixed>> $staticCardsByCardKey
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function cardsWithRuntimeIdentity(array $cards, array $staticCardsByCardKey, string $viewerVisibility, string $viewerLanguage): array
+    {
+        return array_values(array_map(
+            fn (array $card): array => $this->cardWithRuntimeIdentity($card, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage),
+            $cards,
+        ));
+    }
+
+    /**
+     * @param array<string,mixed>               $card
+     * @param array<string,array<string,mixed>> $staticCardsByCardKey
+     *
+     * @return array<string,mixed>
+     */
+    private function cardWithRuntimeIdentity(array $card, array $staticCardsByCardKey, string $viewerVisibility, string $viewerLanguage): array
+    {
+        $cardKey = $this->runtimeCardKey($card);
+        if ($cardKey === '') {
+            return $card;
+        }
+
+        $staticCard = isset($staticCardsByCardKey[$cardKey])
+            ? $this->compactRuntimeStaticCard($staticCardsByCardKey[$cardKey], $viewerVisibility)
+            : $this->fallbackRuntimeStaticIdentity($cardKey, $card, $viewerVisibility, $viewerLanguage);
+        $canonicalCardRef = is_string($staticCard['cardRef'] ?? null) && trim($staticCard['cardRef']) !== ''
+            ? trim($staticCard['cardRef'])
+            : $cardKey;
+        $canonicalCardKey = is_string($staticCard['cardKey'] ?? null) && trim($staticCard['cardKey']) !== ''
+            ? trim($staticCard['cardKey'])
+            : $canonicalCardRef;
+
+        return [
+            ...$card,
+            'cardRef' => $canonicalCardRef,
+            'cardKey' => $canonicalCardKey,
+            'printId' => $staticCard['printId'] ?? $staticCard['scryfallId'] ?? $cardKey,
+            'cardVersion' => $staticCard['cardVersion'] ?? null,
+            'language' => $staticCard['language'] ?? LanguageCatalog::DEFAULT_LANGUAGE,
+            'viewerVisibility' => $viewerVisibility,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>
+     */
+    private function fallbackRuntimeStaticIdentity(string $cardKey, array $card, string $viewerVisibility, string $viewerLanguage): array
+    {
+        return [
+            'cardRef' => $cardKey,
+            'cardKey' => $cardKey,
+            'printId' => is_string($card['printId'] ?? null) && trim($card['printId']) !== ''
+                ? trim($card['printId'])
+                : $cardKey,
+            'cardVersion' => is_string($card['cardVersion'] ?? null) && trim($card['cardVersion']) !== ''
+                ? trim($card['cardVersion'])
+                : 'runtime-identity-v1',
+            'language' => LanguageCatalog::normalize($viewerLanguage) ?? LanguageCatalog::DEFAULT_LANGUAGE,
+            'viewerVisibility' => $viewerVisibility,
+            'scryfallId' => is_string($card['scryfallId'] ?? null) && trim($card['scryfallId']) !== ''
+                ? trim($card['scryfallId'])
+                : null,
+            'name' => is_string($card['name'] ?? null) && trim($card['name']) !== ''
+                ? trim($card['name'])
+                : null,
+        ];
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $staticCardsByCardKey
+     *
+     * @return array<string,mixed>|null
+     */
+    private function staticCardForCard(mixed $card, array $staticCardsByCardKey, string $viewerVisibility, string $viewerLanguage): ?array
+    {
+        if (!is_array($card)) {
+            return null;
+        }
+
+        $cardKey = $this->runtimeCardKey($card);
+        if ($cardKey === '') {
+            return null;
+        }
+
+        return isset($staticCardsByCardKey[$cardKey])
+            ? $this->compactRuntimeStaticCard($staticCardsByCardKey[$cardKey], $viewerVisibility)
+            : $this->fallbackRuntimeStaticIdentity($cardKey, $card, $viewerVisibility, $viewerLanguage);
+    }
+
+    /**
+     * @param array<string,mixed> $staticCard
+     *
+     * @return array<string,mixed>
+     */
+    private function compactRuntimeStaticCard(array $staticCard, string $viewerVisibility): array
+    {
+        $staticCard['viewerVisibility'] = $viewerVisibility;
+        $staticCard['printId'] = is_string($staticCard['printId'] ?? null) && trim($staticCard['printId']) !== ''
+            ? trim($staticCard['printId'])
+            : (is_string($staticCard['scryfallId'] ?? null) && trim($staticCard['scryfallId']) !== '' ? trim($staticCard['scryfallId']) : (string) ($staticCard['cardKey'] ?? $staticCard['cardRef'] ?? ''));
+        $staticCard['language'] = is_string($staticCard['language'] ?? null) && trim($staticCard['language']) !== ''
+            ? trim($staticCard['language'])
+            : LanguageCatalog::DEFAULT_LANGUAGE;
+        unset($staticCard['oracleText']);
+        if (is_array($staticCard['cardFaces'] ?? null)) {
+            $staticCard['cardFaces'] = array_values(array_map(
+                static function (mixed $face): mixed {
+                    if (is_array($face)) {
+                        unset($face['oracleText']);
+                    }
+
+                    return $face;
+                },
+                $staticCard['cardFaces'],
+            ));
+        }
+
+        return $staticCard;
+    }
+
+    /**
+     * Runtime actors intentionally emit compact instance patches. The browser still needs the renderable
+     * static bundle for newly visible cards, so the bridge rehydrates staticCards from the command payload.
+     *
+     * @param array<string,mixed> $payload
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function runtimePayloadStaticCardsByCardKey(string $type, array $payload): array
+    {
+        if ($type !== 'card.token.created') {
+            return [];
+        }
+
+        $card = is_array($payload['card'] ?? null) ? $payload['card'] : [];
+        if ($card === []) {
+            return [];
+        }
+
+        $name = is_string($card['name'] ?? null) && trim($card['name']) !== ''
+            ? trim($card['name'])
+            : (is_string($payload['name'] ?? null) && trim($payload['name']) !== '' ? trim($payload['name']) : 'Token');
+        $cardKey = $this->runtimeTokenCardKey($card, $name);
+        $staticCard = $this->bootstrapStaticCard($cardKey, [
+            ...$card,
+            'name' => $name,
+            'isToken' => true,
+            'isTokenCopy' => false,
+        ]);
+
+        $staticCards = [$cardKey => $staticCard];
+        foreach ($this->staticCardAliases($staticCard) as $alias) {
+            $staticCards[$alias] ??= $staticCard;
+        }
+
+        return $staticCards;
+    }
+
+    /**
+     * @param array<string,mixed> $staticCard
+     */
+    private function staticCardMapKey(array $staticCard, string $fallback): string
+    {
+        foreach (['cardRef', 'cardKey'] as $field) {
+            if (is_string($staticCard[$field] ?? null) && trim($staticCard[$field]) !== '') {
+                return trim($staticCard[$field]);
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function runtimeCardKey(array $card): string
+    {
+        foreach (['cardKey', 'cardRef'] as $field) {
+            if (is_string($card[$field] ?? null) && trim($card[$field]) !== '') {
+                return trim($card[$field]);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function runtimeTokenCardKey(array $card, string $name): string
+    {
+        if (is_string($card['cardKey'] ?? null) && trim($card['cardKey']) !== '') {
+            return trim($card['cardKey']);
+        }
+
+        if (is_string($card['scryfallId'] ?? null) && trim($card['scryfallId']) !== '') {
+            return trim($card['scryfallId']).':token';
+        }
+
+        $slug = strtolower(trim($name));
+        $slug = (string) preg_replace('/[^a-z0-9_-]+/', '-', $slug);
+        $slug = trim($slug, '-_');
+
+        return 'token:'.($slug !== '' ? $slug : 'token');
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function staticCardsByCardKey(array $snapshot): array
+    {
+        $catalog = is_array($snapshot['cardCatalog'] ?? null) ? $snapshot['cardCatalog'] : [];
+        $staticCards = [];
+        foreach ($catalog as $cardKey => $card) {
+            if (is_string($cardKey) && is_array($card)) {
+                $staticCard = $this->bootstrapStaticCard($cardKey, $card);
+                foreach ($this->staticCardAliases($staticCard) as $alias) {
+                    $staticCards[$alias] ??= $staticCard;
+                }
+                $staticCards[$cardKey] = $staticCard;
+            }
+        }
+
+        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
+        foreach ($players as $player) {
+            if (!is_array($player)) {
+                continue;
+            }
+            $zones = is_array($player['zones'] ?? null) ? $player['zones'] : [];
+            foreach ($zones as $cards) {
+                if (!is_array($cards)) {
+                    continue;
+                }
+                foreach ($cards as $card) {
+                    if (!is_array($card)) {
+                        continue;
+                    }
+                    $cardKey = $this->cardKeyForStaticCard($card);
+                    if ($cardKey !== '') {
+                        $staticCard = $this->bootstrapStaticCard($cardKey, $card);
+                        foreach ($this->staticCardAliases($staticCard) as $alias) {
+                            $staticCards[$alias] ??= $staticCard;
+                        }
+                        $staticCards[$cardKey] ??= $staticCard;
+                    }
+                }
+            }
+        }
+
+        return $staticCards;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>
+     */
+    private function bootstrapStaticCard(string $cardKey, array $card): array
+    {
+        $baseStats = is_array($card['baseStats'] ?? null) ? $card['baseStats'] : [];
+        $bundle = CardStaticBundle::fromLegacyCard($card);
+        $scryfallId = is_string($card['scryfallId'] ?? null) && trim($card['scryfallId']) !== '' ? trim($card['scryfallId']) : null;
+        $cardVersion = is_string($card['cardVersion'] ?? null) && trim($card['cardVersion']) !== ''
+            ? trim($card['cardVersion'])
+            : $bundle->cardVersion;
+        $providedCardKey = is_string($card['cardKey'] ?? null) && trim($card['cardKey']) !== ''
+            ? trim($card['cardKey'])
+            : $cardKey;
+        $canonicalCardKey = trim($providedCardKey) !== ''
+            ? trim($providedCardKey)
+            : ($scryfallId !== null
+            ? $scryfallId.((bool) ($card['isToken'] ?? false) ? ':token' : ':card')
+            : $cardKey);
+
+        return [
+            'cardRef' => $canonicalCardKey,
+            'cardKey' => $canonicalCardKey,
+            'printId' => $scryfallId ?? $cardKey,
+            'cardVersion' => $cardVersion,
+            'scryfallId' => $scryfallId,
+            'name' => is_string($card['name'] ?? null) ? $card['name'] : null,
+            'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : null,
+            'cardFaces' => is_array($card['cardFaces'] ?? null) ? array_values($card['cardFaces']) : [],
+            'typeLine' => is_string($card['typeLine'] ?? null) ? $card['typeLine'] : null,
+            'manaCost' => is_string($card['manaCost'] ?? null) ? $card['manaCost'] : null,
+            'colorIdentity' => is_array($card['colorIdentity'] ?? null) ? array_values($card['colorIdentity']) : [],
+            'defaultPower' => $card['defaultPower'] ?? $baseStats['power'] ?? null,
+            'defaultToughness' => $card['defaultToughness'] ?? $baseStats['toughness'] ?? null,
+            'defaultLoyalty' => $card['defaultLoyalty'] ?? $baseStats['loyalty'] ?? null,
+            'defaultDefense' => $card['defaultDefense'] ?? $baseStats['defense'] ?? null,
+            'hasRulings' => (bool) ($card['hasRulings'] ?? ($card['layoutMetadata']['hasRulings'] ?? false)),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $staticCard
+     *
+     * @return list<string>
+     */
+    private function staticCardAliases(array $staticCard): array
+    {
+        $scryfallId = is_string($staticCard['scryfallId'] ?? null) ? trim($staticCard['scryfallId']) : '';
+        if ($scryfallId === '') {
+            return [];
+        }
+
+        return [
+            $scryfallId.':card',
+            $scryfallId.':token',
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function cardKeyForStaticCard(array $card): string
+    {
+        if (is_string($card['cardKey'] ?? null) && trim($card['cardKey']) !== '') {
+            return trim($card['cardKey']);
+        }
+
+        return CardStaticBundle::fromLegacyCard($card)->cardKey;
+    }
+
+    private function viewerVisibilityForZone(string $zone): string
+    {
+        return $zone === 'hand' || $zone === 'library' ? 'private' : 'public';
     }
 
     /**

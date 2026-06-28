@@ -28,6 +28,22 @@ describe('GameTableSnapshotSelectors', () => {
     expect(selectors.deckLabel(playerView({ deckName: null }))).toBe('');
   });
 
+  it('does not invent white color identity when deck metadata is missing', () => {
+    const player = playerView({ colorIdentity: [] });
+
+    expect(selectors.colorIdentity(player)).toEqual([]);
+    expect(selectors.manaSymbols(player)).toEqual([]);
+    expect(selectors.colorAccent(player)).toBe('#ded8bf');
+  });
+
+  it('keeps multicolor commander identity from the player snapshot', () => {
+    const player = playerView({ colorIdentity: ['G', 'W', 'U', 'B'] });
+
+    expect(selectors.colorIdentity(player)).toEqual(['G', 'W', 'U', 'B']);
+    expect(selectors.manaSymbols(player)).toEqual(['G', 'W', 'U', 'B']);
+    expect(selectors.colorAccent(player)).toBe('#76c779');
+  });
+
   it('uses active face values for double-faced power and toughness', () => {
     const card = {
       instanceId: 'card-1',
@@ -689,6 +705,37 @@ describe('GameTableSnapshotSelectors', () => {
     expect(selectors.commandZoneCards(player)).toEqual([firstCommander, secondCommander]);
     expect(selectors.commanderCastCount(snapshot, player, firstCommander)).toBe(1);
     expect(selectors.commanderCastCount(snapshot, player, secondCommander)).toBe(3);
+  });
+
+  it('keeps commander cast count visible after the commander moves to battlefield', () => {
+    const battlefieldCommander = { instanceId: 'commander-1', name: 'Runtime Commander', tapped: false, isCommander: true };
+    const player = playerView({
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [battlefieldCommander],
+        graveyard: [],
+        exile: [],
+        command: [],
+      },
+    });
+    const snapshot = {
+      version: 1,
+      players: { 'player-1': player.state },
+      turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
+      counters: {
+        'commander:commander-1': { casts: 1 },
+      },
+      stack: [],
+      arrows: [],
+      chat: [],
+      eventLog: [],
+      createdAt: '',
+      updatedAt: '',
+    };
+
+    expect(selectors.commanderCards(player)).toEqual([battlefieldCommander]);
+    expect(selectors.commanderCastCount(snapshot, player, battlefieldCommander)).toBe(1);
   });
 });
 

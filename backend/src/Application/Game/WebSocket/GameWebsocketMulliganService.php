@@ -2,6 +2,7 @@
 
 namespace App\Application\Game\WebSocket;
 
+use App\Application\Game\Compact\CardStaticBundle;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameLibraryOps;
@@ -388,6 +389,7 @@ final readonly class GameWebsocketMulliganService
     private function runtimeResult(Game $game, User $actor, GameRuntimeMulliganResult $runtimeResult, ?string $messageId): GameWebsocketCommandResult
     {
         $patches = ($this->runtimePatchAdapter ?? new GameplayRuntimePatchAdapter())->normalize($runtimeResult->patches);
+        $staticCardsByCardKey = $this->staticCardsByCardKey($game->snapshot());
         $messagesByUserId = [];
         foreach ($this->viewers($game) as $viewer) {
             $messagesByUserId[$viewer->id()] = [];
@@ -400,6 +402,7 @@ final readonly class GameWebsocketMulliganService
             if (!is_array($patch)) {
                 continue;
             }
+            $patch = $this->hydratePrivateMulliganStaticCards($patch, $staticCardsByCardKey);
             $basePatch = $basePatch === [] ? $patch : $basePatch;
             $ops = is_array($patch['ops'] ?? null) ? $patch['ops'] : [];
             $visibility = is_string($patch['visibility'] ?? null) ? $patch['visibility'] : 'public';
@@ -451,6 +454,173 @@ final readonly class GameWebsocketMulliganService
         ];
 
         return GameWebsocketCommandResult::forViewerMessageLists($messagesByUserId, $fallbackMessages, $debug);
+    }
+
+    /**
+     * @param array<string,mixed>               $patch
+     * @param array<string,array<string,mixed>> $staticCardsByCardKey
+     *
+     * @return array<string,mixed>
+     */
+    private function hydratePrivateMulliganStaticCards(array $patch, array $staticCardsByCardKey): array
+    {
+        $visibility = is_string($patch['visibility'] ?? null) ? $patch['visibility'] : 'public';
+        if (!str_starts_with($visibility, 'player:') || $staticCardsByCardKey === []) {
+            return $patch;
+        }
+
+        $ops = is_array($patch['ops'] ?? null) ? $patch['ops'] : [];
+        $changed = false;
+        foreach ($ops as $index => $op) {
+            if (!is_array($op) || ($op['op'] ?? null) !== 'mulligan.hand.replace_private') {
+                continue;
+            }
+
+            $hand = is_array($op['hand'] ?? null) ? $op['hand'] : [];
+            $staticCards = [];
+            foreach ($hand as $cardIndex => $card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $cardKey = is_string($card['cardKey'] ?? null) ? trim($card['cardKey']) : '';
+                if ($cardKey !== '' && isset($staticCardsByCardKey[$cardKey])) {
+                    $staticCard = $staticCardsByCardKey[$cardKey];
+                    $staticCards[$cardKey] = $staticCard;
+                    $hand[$cardIndex] = $this->privateMulliganCardWithRuntimeIdentity($card, $staticCard, $cardKey);
+                }
+            }
+            if ($staticCards !== []) {
+                $ops[$index]['hand'] = $hand;
+                $ops[$index]['staticCards'] = $staticCards;
+                $changed = true;
+            }
+        }
+
+        if (!$changed) {
+            return $patch;
+        }
+
+        return [
+            ...$patch,
+            'ops' => $ops,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     * @param array<string,mixed> $staticCard
+     *
+     * @return array<string,mixed>
+     */
+    private function privateMulliganCardWithRuntimeIdentity(array $card, array $staticCard, string $cardKey): array
+    {
+        $canonicalCardKey = is_string($staticCard['cardKey'] ?? null) && trim($staticCard['cardKey']) !== ''
+            ? trim($staticCard['cardKey'])
+            : $cardKey;
+
+        return [
+            ...$card,
+            'cardKey' => $canonicalCardKey,
+            'printId' => $staticCard['printId'] ?? $staticCard['scryfallId'] ?? $canonicalCardKey,
+            'cardVersion' => $staticCard['cardVersion'] ?? 'legacy-snapshot-v1',
+            'language' => $staticCard['language'] ?? 'en',
+            'viewerVisibility' => 'private',
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function staticCardsByCardKey(array $snapshot): array
+    {
+        $catalog = is_array($snapshot['cardCatalog'] ?? null) ? $snapshot['cardCatalog'] : [];
+        $staticCards = [];
+        foreach ($catalog as $cardKey => $card) {
+            if (!is_string($cardKey) || !is_array($card)) {
+                continue;
+            }
+            $staticCards[$cardKey] = $this->bootstrapStaticCard($cardKey, $card);
+        }
+
+        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
+        foreach ($players as $player) {
+            if (!is_array($player)) {
+                continue;
+            }
+            $zones = is_array($player['zones'] ?? null) ? $player['zones'] : [];
+            foreach ($zones as $cards) {
+                if (!is_array($cards)) {
+                    continue;
+                }
+                foreach ($cards as $card) {
+                    if (!is_array($card)) {
+                        continue;
+                    }
+                    $cardKey = $this->cardKeyForStaticCard($card);
+                    if ($cardKey !== '') {
+                        $staticCards[$cardKey] ??= $this->bootstrapStaticCard($cardKey, $card);
+                    }
+                }
+            }
+        }
+
+        return $staticCards;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>
+     */
+    private function bootstrapStaticCard(string $cardKey, array $card): array
+    {
+        $baseStats = is_array($card['baseStats'] ?? null) ? $card['baseStats'] : [];
+        $bundle = is_string($card['cardVersion'] ?? null) && trim($card['cardVersion']) !== ''
+            ? CardStaticBundle::fromArray([
+                ...$card,
+                'cardKey' => $cardKey,
+            ])
+            : CardStaticBundle::fromLegacyCard($card);
+        $scryfallId = is_string($card['scryfallId'] ?? null) && trim($card['scryfallId']) !== ''
+            ? trim($card['scryfallId'])
+            : $bundle->scryfallId;
+
+        return [
+            'cardRef' => $cardKey,
+            'cardKey' => $cardKey,
+            'printId' => $scryfallId ?? $cardKey,
+            'cardVersion' => is_string($card['cardVersion'] ?? null) && trim($card['cardVersion']) !== ''
+                ? trim($card['cardVersion'])
+                : $bundle->cardVersion,
+            'language' => 'en',
+            'viewerVisibility' => 'private',
+            'scryfallId' => $scryfallId,
+            'name' => is_string($card['name'] ?? null) ? $card['name'] : null,
+            'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : null,
+            'cardFaces' => is_array($card['cardFaces'] ?? null) ? array_values($card['cardFaces']) : [],
+            'typeLine' => is_string($card['typeLine'] ?? null) ? $card['typeLine'] : null,
+            'manaCost' => is_string($card['manaCost'] ?? null) ? $card['manaCost'] : null,
+            'colorIdentity' => is_array($card['colorIdentity'] ?? null) ? array_values($card['colorIdentity']) : [],
+            'defaultPower' => $card['defaultPower'] ?? $baseStats['power'] ?? null,
+            'defaultToughness' => $card['defaultToughness'] ?? $baseStats['toughness'] ?? null,
+            'defaultLoyalty' => $card['defaultLoyalty'] ?? $baseStats['loyalty'] ?? null,
+            'defaultDefense' => $card['defaultDefense'] ?? $baseStats['defense'] ?? null,
+            'hasRulings' => (bool) ($card['hasRulings'] ?? ($card['layoutMetadata']['hasRulings'] ?? false)),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function cardKeyForStaticCard(array $card): string
+    {
+        if (is_string($card['cardKey'] ?? null) && trim($card['cardKey']) !== '') {
+            return trim($card['cardKey']);
+        }
+
+        return CardStaticBundle::fromLegacyCard($card)->cardKey;
     }
 
     /**
@@ -703,7 +873,7 @@ final readonly class GameWebsocketMulliganService
     {
         return [
             'instanceId' => (string) ($card['instanceId'] ?? ''),
-            'cardKey' => is_string($card['cardKey'] ?? null) ? $card['cardKey'] : null,
+            'cardKey' => null,
         ];
     }
 

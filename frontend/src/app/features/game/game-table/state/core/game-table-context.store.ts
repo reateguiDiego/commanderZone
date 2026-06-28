@@ -14,6 +14,7 @@ import { GameTablePointerDragActionContext } from '../../services/game-table-poi
 import { GameTableSessionContext, GameTableSessionService } from '../../services/game-table-session.service';
 import { GameTableTurnActionContext } from '../../services/game-table-turn-actions.service';
 import { GameTableZoneActionContext, GameTableZoneActionsService } from '../../services/game-table-zone-actions.service';
+import { GameTableGameplayV2FlagsService } from '../../services/game-table-gameplay-v2-flags.service';
 import { GameTableWebsocketGameplayService } from '../../services/game-table-websocket-gameplay.service';
 import { GameTableArrowInteractionContext } from '../arrows/game-table-arrows.state';
 import { GameTableAttachmentInteractionContext } from '../attachments/game-table-attachments.state';
@@ -68,6 +69,7 @@ export class GameTableContextStore {
   private readonly zoneActions = inject(GameTableZoneActionsService);
   private readonly zoneModalState = inject(GameTableZoneModalState);
   private readonly zonePilesState = inject(GameTableZonePilesState);
+  private readonly gameplayV2Flags = inject(GameTableGameplayV2FlagsService);
   private source: GameTableContextSource | null = null;
 
   bind(source: GameTableContextSource): void {
@@ -528,6 +530,10 @@ export class GameTableContextStore {
     targetPlayerId: string = playerId,
     instanceIds: readonly string[] = [],
   ): Promise<void> {
+    if (this.gameplayV2Flags.enabled()) {
+      return;
+    }
+
     const player = this.playersStore.players().find((candidate) => candidate.id === playerId);
     if (!player || fromZone !== 'command' || toZone !== 'battlefield' || targetPlayerId !== playerId) {
       return;

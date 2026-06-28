@@ -493,6 +493,15 @@ export type GameSnapshotPatchOperation =
       turn: GameSnapshot['turn'];
     }
   | {
+      op: 'game.phase.set';
+      phase: GamePhase;
+    }
+  | {
+      op: 'game.status.set';
+      status: string;
+      phase?: GamePhase;
+    }
+  | {
       op: 'timer.set';
       timer: GameSnapshot['timer'];
     }

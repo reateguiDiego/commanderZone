@@ -139,6 +139,10 @@ export class GameTableSessionService {
   }
 
   private refetchIfSnapshotIsBehind(context: GameTableSessionContext, event: MercureGameEvent): void {
+    if (this.gameplayV2Flags.enabled() && this.websocket.status() === 'connected') {
+      return;
+    }
+
     const currentSnapshot = context.snapshot();
     if (typeof event.version === 'number' && currentSnapshot && currentSnapshot.version >= event.version) {
       return;

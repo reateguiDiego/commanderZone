@@ -6,6 +6,10 @@ const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
 
 type JsonObject = Record<string, unknown>;
+type LifecycleSnapshot = {
+  players: Record<string, { status?: string }>;
+  rematch?: { votes?: Record<string, { vote?: string }> };
+};
 
 test.describe.configure({ mode: 'serial' });
 
@@ -74,6 +78,15 @@ test('lifecycle runtime emits patch.v2 without snapshot refetch or game_patch', 
     expect(concedePatch['kind']).toBe('patch.v2');
     expect(JSON.stringify(concedePatch)).toContain(playerB.user.id);
     expect(snapshotRefetches).toBe(refetchBaseline);
+
+    const secondConcede = await sendRuntimeCommandExpectRejected(commandPage, ticketB.websocketUrl, {
+      gameId,
+      baseVersion: concedeOutcome.version,
+      type: 'game.concede',
+      payload: { playerId: playerB.user.id },
+    });
+    expect(secondConcede['status']).toBe('rejected');
+    expect(JSON.stringify(secondConcede)).toContain('already conceded');
 
     const ticketA = await websocketTicket(request, gameId, playerA.token);
     const closeOutcome = await sendRuntimeCommandAndWait(commandPage, ticketA.websocketUrl, framesB, {
@@ -176,6 +189,89 @@ test('disconnect vote emits patch.v2 without snapshot refetch or game_patch', as
   } finally {
     await contextA.close();
     await contextB.close();
+  }
+});
+
+test('leave table concedes through runtime and navigates back to rooms', async ({ browser, request, baseURL }) => {
+  test.setTimeout(180_000);
+  if (!baseURL) {
+    throw new Error('Playwright baseURL is required.');
+  }
+  await assertGameRuntimeReady(request);
+
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const setup = await createCommanderGameWithBasicDecks(request, {
+    playerAPrefix: `lvr-a-${suffix.slice(-7)}`,
+    playerBPrefix: `lvr-b-${suffix.slice(-7)}`,
+  });
+  const { gameId, roomId, playerA, playerB } = setup;
+  await resolveGameToPlaying(request, gameId, [playerA, playerB]);
+
+  const contextA = await browser.newContext({
+    baseURL,
+    storageState: authStorageState(baseURL, playerA.user, playerA.refreshToken),
+  });
+  await enableFrontendGameplayV2(contextA);
+
+  try {
+    const debug = await openDebugObserver(contextA, request, gameId, playerA.token);
+    const pageA = await contextA.newPage();
+    const framesA = collectWebSocketFrames(pageA);
+    let snapshotRefetches = 0;
+    let leaveRoomResponseStatus: number | null = null;
+
+    pageA.on('request', (httpRequest) => {
+      const url = httpRequest.url();
+      if (httpRequest.method() === 'GET' && (url.includes(`/games/${gameId}/snapshot`) || url.includes(`/games/${gameId}/bootstrap`))) {
+        snapshotRefetches += 1;
+      }
+    });
+    pageA.on('response', (response) => {
+      if (response.url().includes(`/rooms/${roomId}/leave`)) {
+        leaveRoomResponseStatus = response.status();
+      }
+    });
+
+    await pageA.setViewportSize({ width: 740, height: 500 });
+    await pageA.goto(`/games/${gameId}`);
+    await expect(pageA.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
+    await waitForGameplayConnection(framesA);
+    const refetchBaseline = snapshotRefetches;
+
+    await pageA.getByTestId('unsupported-resolution-leave-room').click();
+    const leaveDialog = pageA.getByRole('dialog', { name: 'Leave table?' });
+    await expect(leaveDialog).toBeVisible();
+
+    const patchPromise = waitForPatchV2(framesA, (patch) => hasOp(patch, 'player.status.set') && typeof patch['ackClientActionId'] === 'string');
+    const leaveRoomPromise = pageA.waitForResponse((response) =>
+      response.url().includes(`/rooms/${roomId}/leave`),
+      { timeout: 30_000 },
+    );
+    await leaveDialog.getByRole('button', { name: 'Leave table', exact: true }).click();
+    const patch = await patchPromise;
+    const leaveRoomResponse = await leaveRoomPromise;
+
+    expect(patch['kind']).toBe('patch.v2');
+    expect(JSON.stringify(patch)).toContain(playerA.user.id);
+    expect(leaveRoomResponse.ok()).toBe(true);
+    expect(leaveRoomResponseStatus).toBe(leaveRoomResponse.status());
+    await expect(pageA).toHaveURL(/\/rooms$/, { timeout: 30_000 });
+
+    const snapshotAfterLeave = await gameSnapshot(request, gameId, playerB.token);
+    const leavingPlayer = snapshotAfterLeave.players[playerA.user.id];
+    expect(leavingPlayer?.status).toBe('conceded');
+    expect(snapshotAfterLeave.rematch?.votes?.[playerA.user.id]?.vote).toBe('leave');
+
+    expect(snapshotRefetches).toBe(refetchBaseline);
+    expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
+    expect(framesA.some((message) => message['kind'] === 'resync_required')).toBe(false);
+
+    const concedePhases = await waitForActionPhases(debug.frames, 'game.concede', 'lifecycle.runtime_route');
+    expect(concedePhases?.['lifecycle.runtime_route']).toBe(1);
+    expect(concedePhases?.['lifecycle.snapshot_write_count']).toBe(0);
+    await debug.page.close();
+  } finally {
+    await contextA.close();
   }
 });
 
@@ -292,6 +388,43 @@ async function sendRuntimeCommandAndWait(
   }
 }
 
+async function sendRuntimeCommandExpectRejected(
+  page: Page,
+  websocketUrl: string,
+  options: { gameId: string; baseVersion: number; type: string; payload: JsonObject },
+): Promise<JsonObject> {
+  const clientActionId = `lifecycle-rejected-${options.type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const socketId = await openCommandSocketAndSend(page, websocketUrl, {
+    kind: 'command.v2',
+    gameId: options.gameId,
+    messageId: clientActionId,
+    type: options.type,
+    payload: options.payload,
+    baseVersion: options.baseVersion,
+    clientActionId,
+  });
+  try {
+    await expect.poll(async () => {
+      const frames = await commandSocketFrames(page, socketId);
+      return frames.some((frame) => frame['kind'] === 'command_ack' && frame['status'] === 'rejected');
+    }, { timeout: 15_000 }).toBe(true);
+    const frames = await commandSocketFrames(page, socketId);
+    const rejected = frames.find((frame) => frame['kind'] === 'command_ack' && frame['status'] === 'rejected');
+    if (!rejected) {
+      throw new Error(`Rejected command_ack was not captured. Frames: ${JSON.stringify(frames, null, 2)}`);
+    }
+    if (frames.some((frame) => frame['kind'] === 'patch.v2')) {
+      throw new Error(`Rejected lifecycle command emitted patch.v2. Frames: ${JSON.stringify(frames, null, 2)}`);
+    }
+    return rejected;
+  } catch (error) {
+    const frames = await commandSocketFrames(page, socketId);
+    throw new Error(`${String(error)}\nRejected command socket frames:\n${JSON.stringify(frames, null, 2)}`);
+  } finally {
+    await closeCommandSocket(page, socketId);
+  }
+}
+
 function parseFrame(payload: string | Buffer): JsonObject | null {
   try {
     const parsed = JSON.parse(String(payload)) as unknown;
@@ -311,10 +444,10 @@ async function openCommandSocketAndSend(page: Page, websocketUrl: string, messag
         reject(new Error('Timed out sending raw WebSocket command.'));
       }, 15_000);
       socket.onopen = () => {
-        socket.send(JSON.stringify(payload));
-        window.clearTimeout(timeout);
         window.__czLifecycleSockets = window.__czLifecycleSockets ?? {};
         window.__czLifecycleSockets[socketId] = { socket, frames: [] };
+        socket.send(JSON.stringify(payload));
+        window.clearTimeout(timeout);
         resolve(socketId);
       };
       socket.onerror = () => {
@@ -369,6 +502,18 @@ async function gameVersion(request: APIRequestContext, gameId: string, token: st
   expect(response.ok()).toBe(true);
   const body = await response.json() as { game?: { snapshot?: { version?: number } } };
   return Number(body.game?.snapshot?.version ?? 1);
+}
+
+async function gameSnapshot(request: APIRequestContext, gameId: string, token: string): Promise<LifecycleSnapshot> {
+  const response = await request.get(`${API_BASE_URL}/games/${gameId}/snapshot`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(response.ok()).toBe(true);
+  const body = await response.json() as { game?: { snapshot?: JsonObject } };
+  if (!body.game?.snapshot) {
+    throw new Error('Snapshot response did not include game.snapshot.');
+  }
+  return body.game.snapshot as LifecycleSnapshot;
 }
 
 declare global {

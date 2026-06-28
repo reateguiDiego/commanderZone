@@ -21,6 +21,7 @@ describe('GameTableWebsocketGameplayService', () => {
   let setError: (message: string | null) => void;
   let setErrorSpy: ReturnType<typeof vi.fn<(message: string | null) => void>>;
   let onCommandBlockedSpy: ReturnType<typeof vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>>;
+  let onMulliganPatchV2AppliedSpy: ReturnType<typeof vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>>;
   let broadcastChannels: FakeBroadcastChannel[];
   const originalBroadcastChannel = globalThis.BroadcastChannel;
   const gameplayV2Flags = {
@@ -52,6 +53,7 @@ describe('GameTableWebsocketGameplayService', () => {
       setErrorSpy(message);
     };
     onCommandBlockedSpy = vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>();
+    onMulliganPatchV2AppliedSpy = vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>();
 
     TestBed.configureTestingModule({
       providers: [
@@ -146,6 +148,71 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
+  it('does not surface a late websocket error after patch.v2 already completed the action', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap(bootstrapV2());
+
+    const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -2 });
+    const message = sentMessage<Extract<GameplayClientMessage, { kind: 'command.v2' }>>();
+    messages.next({
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ackClientActionId: message.clientActionId,
+      ops: [{ op: 'player.life.set', playerId: 'player-1', value: 38 }],
+    });
+
+    await expect(sent).resolves.toBe(true);
+    messages.next({
+      kind: 'error',
+      gameId: 'game-1',
+      messageId: message.messageId,
+      clientActionId: message.clientActionId,
+      error: { code: 'LATE_RUNTIME_ERROR', message: 'Late runtime error', retryable: false },
+    });
+
+    expect(setErrorSpy).not.toHaveBeenCalled();
+    expect(snapshotState.players['player-1'].life).toBe(38);
+  });
+
+  it('ignores command-scoped websocket errors that do not belong to the active command', async () => {
+    const sent = service.sendCommand(context(), 'card.tapped', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      tapped: true,
+    });
+    const message = sentMessage();
+
+    messages.next({
+      kind: 'error',
+      gameId: 'game-1',
+      messageId: 'stale-message-id',
+      clientActionId: 'stale-client-action-id',
+      error: { code: 'STALE_RUNTIME_ERROR', message: 'Stale runtime error', retryable: false },
+    });
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: message.command.clientActionId,
+      operations: [{
+        op: 'card.state.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        tapped: true,
+      }],
+    });
+
+    await expect(sent).resolves.toBe(true);
+    expect(setErrorSpy).not.toHaveBeenCalled();
+    expect(snapshotState.players['player-1'].zones.battlefield[0]?.tapped).toBe(true);
+  });
+
   it('applies mulligan runtime patch.v2 from websocket without snapshot refetch', async () => {
     gameplayV2Flags.enabled.mockReturnValue(true);
     const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
@@ -176,9 +243,13 @@ describe('GameTableWebsocketGameplayService', () => {
           op: 'mulligan.hand.replace_private',
           playerId: 'player-1',
           hand: [
-            { instanceId: 'runtime-hand-1', cardKey: 'runtime-card-a' },
-            { instanceId: 'runtime-hand-2', cardKey: 'runtime-card-b' },
+            { instanceId: 'runtime-hand-1', cardKey: 'runtime-card-a', printId: 'runtime-print-a', cardVersion: 'runtime-v1', language: 'en', viewerVisibility: 'private' },
+            { instanceId: 'runtime-hand-2', cardKey: 'runtime-card-b', printId: 'runtime-print-b', cardVersion: 'runtime-v1', language: 'en', viewerVisibility: 'private' },
           ],
+          staticCards: {
+            'runtime-card-a': { cardRef: 'runtime-card-a', cardKey: 'runtime-card-a', printId: 'runtime-print-a', cardVersion: 'runtime-v1', language: 'en', viewerVisibility: 'private', name: 'Runtime Card A', imageUris: null, cardFaces: [] },
+            'runtime-card-b': { cardRef: 'runtime-card-b', cardKey: 'runtime-card-b', printId: 'runtime-print-b', cardVersion: 'runtime-v1', language: 'en', viewerVisibility: 'private', name: 'Runtime Card B', imageUris: null, cardFaces: [] },
+          },
         },
         { op: 'mulligan.hand.count.set', playerId: 'player-2', count: 7 },
         { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 7 },
@@ -192,7 +263,198 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(snapshotState.players['player-1'].zones.hand.map((card) => card.instanceId)).toEqual(['runtime-hand-1', 'runtime-hand-2']);
     expect(snapshotState.players['player-1'].mulligan?.status).toBe('DECIDING');
     expect(snapshotState.players['player-2'].handCount).toBe(7);
+    expect(onMulliganPatchV2AppliedSpy).toHaveBeenCalledWith(patch, expect.objectContaining({
+      version: 2,
+      gamePhase: 'MULLIGAN',
+    }));
     expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('applies runtime mulligan take patch with compact hand refs resolved through staticCards', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+
+    const patch: PatchEnvelopeV2 & { kind: 'patch.v2' } = {
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ackClientActionId: 'runtime-mulligan-action',
+      ops: [
+        {
+          op: 'mulligan.status.set',
+          playerId: 'player-1',
+          status: 'DECIDING',
+          ready: false,
+          effectiveMulligans: 0,
+        },
+        { op: 'mulligan.hand.count.set', playerId: 'player-1', count: 2 },
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 2 },
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 92 },
+        {
+          op: 'mulligan.private_state.set',
+          playerId: 'player-1',
+          state: {
+            bottomPending: false,
+            cardsToBottom: 0,
+            effectiveMulligans: 0,
+            handSize: 2,
+            scryPending: false,
+            status: 'DECIDING',
+          },
+        },
+        {
+          op: 'mulligan.hand.replace_private',
+          playerId: 'player-1',
+          hand: [
+            { instanceId: 'runtime-hand-1', cardKey: 'runtime-card-a', printId: 'runtime-print-a', cardVersion: 'runtime-v1', language: 'en', viewerVisibility: 'private' },
+            { instanceId: 'runtime-hand-2', cardKey: 'runtime-card-a', printId: 'runtime-print-a', cardVersion: 'runtime-v1', language: 'en', viewerVisibility: 'private' },
+          ],
+          staticCards: {
+            'runtime-card-a': {
+              cardRef: 'runtime-card-a',
+              cardKey: 'runtime-card-a',
+              printId: 'runtime-print-a',
+              cardVersion: 'runtime-v1',
+              language: 'en',
+              viewerVisibility: 'private',
+              name: 'Runtime Card A',
+              imageUris: null,
+              cardFaces: [],
+            },
+          },
+        },
+      ],
+    };
+
+    messages.next(patch);
+    await Promise.resolve();
+
+    expect(snapshotState.players['player-1'].zones.hand.map((card) => card.name)).toEqual(['Runtime Card A', 'Runtime Card A']);
+    expect(snapshotState.players['player-1'].handCount).toBe(2);
+    expect(snapshotState.players['player-1'].zoneCounts?.hand).toBe(2);
+    expect(onMulliganPatchV2AppliedSpy).toHaveBeenCalledWith(patch, expect.objectContaining({
+      version: 2,
+      gamePhase: 'MULLIGAN',
+    }));
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('closes local mulligan pending state for an already-applied duplicate runtime patch.v2', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+
+    const patch: PatchEnvelopeV2 & { kind: 'patch.v2' } = {
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ops: [
+        {
+          op: 'mulligan.status.set',
+          playerId: 'player-1',
+          status: 'DECIDING',
+          ready: false,
+          effectiveMulligans: 0,
+          handCount: 7,
+        },
+      ],
+    };
+
+    messages.next(patch);
+    await Promise.resolve();
+    onMulliganPatchV2AppliedSpy.mockClear();
+    messages.next(patch);
+    await Promise.resolve();
+
+    expect(onMulliganPatchV2AppliedSpy).toHaveBeenCalledWith(patch, expect.objectContaining({
+      version: 2,
+      gamePhase: 'MULLIGAN',
+    }));
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('closes local mulligan pending state after resyncing a runtime mulligan patch.v2 version gap', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+    refetchSpy.mockImplementationOnce(async () => {
+      snapshotState = {
+        ...snapshotState,
+        version: 3,
+        gamePhase: 'MULLIGAN',
+      };
+    });
+
+    const patch: PatchEnvelopeV2 & { kind: 'patch.v2' } = {
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 3,
+      visibility: 'player:player-1',
+      ops: [
+        {
+          op: 'mulligan.status.set',
+          playerId: 'player-1',
+          status: 'DECIDING',
+          ready: false,
+          effectiveMulligans: 0,
+          handCount: 7,
+        },
+      ],
+    };
+
+    messages.next(patch);
+
+    await vi.waitFor(() => {
+      expect(refetchSpy).toHaveBeenCalledWith(true);
+      expect(onMulliganPatchV2AppliedSpy).toHaveBeenCalledWith(patch, expect.objectContaining({
+        version: 3,
+        gamePhase: 'MULLIGAN',
+      }));
+    });
+  });
+
+  it('queues mulligan messages until the websocket connection is ready', () => {
+    status.set('connecting');
+    send.mockClear();
+
+    const queued = service.sendMulliganTake('game-1');
+
+    expect(queued).toBe(true);
+    expect(send).not.toHaveBeenCalled();
+
+    status.set('connected');
+    messages.next({
+      kind: 'connection_state',
+      gameId: 'game-1',
+      status: 'connected',
+      connectionId: 'conn-1',
+      serverTime: new Date(0).toISOString(),
+    });
+
+    const message = sentMessage<Extract<GameplayClientMessage, { kind: 'mulligan.take' }>>();
+    expect(message.kind).toBe('mulligan.take');
+    expect(message.gameId).toBe('game-1');
   });
 
   it('resyncs bootstrap once after legacy mulligan completion when v2 state is stale', async () => {
@@ -1675,6 +1937,7 @@ describe('GameTableWebsocketGameplayService', () => {
       refetch,
       setError,
       onCommandBlocked: (reason, type, payload) => onCommandBlockedSpy(reason, type, payload),
+      onMulliganPatchV2Applied: (patch, snapshot) => onMulliganPatchV2AppliedSpy(patch, snapshot),
     };
   }
 });
@@ -1828,9 +2091,9 @@ function bootstrapV2(): BootstrapV2 {
       'player-2:command': { zoneId: 'player-2:command', playerId: 'player-2', name: 'command', instanceIds: [] },
     },
     instances: {
-      'library-1': { instanceId: 'library-1', cardRef: 'card-1', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
-      'battlefield-1': { instanceId: 'battlefield-1', cardRef: 'card-2', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: false, position: { x: 0.1, y: 0.2, unit: 'ratio' } },
-      'battlefield-2': { instanceId: 'battlefield-2', cardRef: 'card-3', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: false, position: { x: 0.3, y: 0.4, unit: 'ratio' } },
+      'library-1': { instanceId: 'library-1', cardRef: 'card-1', cardKey: 'card-1', printId: 's1', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
+      'battlefield-1': { instanceId: 'battlefield-1', cardRef: 'card-2', cardKey: 'card-2', printId: 's2', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'public', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: false, position: { x: 0.1, y: 0.2, unit: 'ratio' } },
+      'battlefield-2': { instanceId: 'battlefield-2', cardRef: 'card-3', cardKey: 'card-3', printId: 's3', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'public', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: false, position: { x: 0.3, y: 0.4, unit: 'ratio' } },
     },
     zoneCounts: {
       'player-1:library': 1,
@@ -1854,9 +2117,9 @@ function bootstrapV2(): BootstrapV2 {
     },
     turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
     staticCards: {
-      'card-1': { cardRef: 'card-1', scryfallId: 's1', name: 'Top Card', imageUris: null, cardFaces: [], typeLine: 'Land', manaCost: null, colorIdentity: [] },
-      'card-2': { cardRef: 'card-2', scryfallId: 's2', name: 'Battlefield One', imageUris: null, cardFaces: [], typeLine: 'Creature', manaCost: null, colorIdentity: [] },
-      'card-3': { cardRef: 'card-3', scryfallId: 's3', name: 'Battlefield Two', imageUris: null, cardFaces: [], typeLine: 'Creature', manaCost: null, colorIdentity: [] },
+      'card-1': { cardRef: 'card-1', cardKey: 'card-1', printId: 's1', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'private', scryfallId: 's1', name: 'Top Card', imageUris: null, cardFaces: [], typeLine: 'Land', manaCost: null, colorIdentity: [] },
+      'card-2': { cardRef: 'card-2', cardKey: 'card-2', printId: 's2', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'public', scryfallId: 's2', name: 'Battlefield One', imageUris: null, cardFaces: [], typeLine: 'Creature', manaCost: null, colorIdentity: [] },
+      'card-3': { cardRef: 'card-3', cardKey: 'card-3', printId: 's3', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'public', scryfallId: 's3', name: 'Battlefield Two', imageUris: null, cardFaces: [], typeLine: 'Creature', manaCost: null, colorIdentity: [] },
     },
     chatCursor: null,
     logCursor: null,

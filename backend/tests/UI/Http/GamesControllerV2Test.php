@@ -98,6 +98,13 @@ class GamesControllerV2Test extends TestCase
         [$game, $viewer] = $this->game();
         $projection = $this->createMock(GameProjectionService::class);
         $projection->expects(self::once())->method('project')->with($game, $viewer)->willReturn($this->projectedSnapshot($viewer));
+        $knownStaticCatalogKey = implode('|', array_map('rawurlencode', [
+            '33333333-3333-3333-3333-333333333333:card',
+            '33333333-3333-3333-3333-333333333333',
+            'legacy-snapshot-v1',
+            'en',
+            'public',
+        ]));
 
         $controller = new GamesController();
         $controller->setContainer($this->controllerContainer());
@@ -108,7 +115,7 @@ class GamesControllerV2Test extends TestCase
             $projection,
             $this->debugHealth(),
             Request::create(
-                '/games/'.$game->id().'/bootstrap?contract=v2&knownStaticCards=33333333-3333-3333-3333-333333333333:card@legacy-snapshot-v1',
+                '/games/'.$game->id().'/bootstrap?contract=v2&knownStaticCards='.rawurlencode($knownStaticCatalogKey),
                 'GET',
             ),
             new GameplayV2ContractFactory(),

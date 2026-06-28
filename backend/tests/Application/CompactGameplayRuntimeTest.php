@@ -5,6 +5,7 @@ namespace App\Tests\Application;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Compact\CompactGameStateInvariantChecker;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
+use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameLibraryOps;
@@ -111,6 +112,27 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertArrayNotHasKey('cardKey', $hiddenLibraryTop);
         self::assertArrayNotHasKey('oracleText', $hiddenLibraryTop);
         self::assertArrayNotHasKey('imageUris', $hiddenLibraryTop);
+    }
+
+    public function testCompactRuntimeDoesNotHydrateMissingBattlefieldPositionAsOrigin(): void
+    {
+        $owner = $this->user('position-owner@example.test', 'Position Owner', 'position-owner');
+        $mapper = new CompactGameCardStateMapper();
+        $snapshot = $this->snapshot($owner, [
+            'battlefield' => [
+                $this->richCard('battlefield-no-position', 'Visible Ring', 'battlefield', [
+                    'ownerId' => $owner->id(),
+                    'controllerId' => $owner->id(),
+                ]),
+            ],
+        ]);
+        unset($snapshot['players'][$owner->id()]['zones']['battlefield'][0]['position']);
+
+        $compact = $mapper->compactSnapshot($snapshot, 'game-position-compact', Game::STATUS_ACTIVE);
+        self::assertArrayNotHasKey('position', $compact['instances']['battlefield-no-position']);
+
+        $roundTrip = $mapper->hydrateSnapshot($compact);
+        self::assertNull($roundTrip['players'][$owner->id()]['zones']['battlefield'][0]['position'] ?? null);
     }
 
     public function testCommandHandlerCompactsTokenCopiesAndStackEntriesWithoutStaticPayloadDuplication(): void
@@ -293,6 +315,58 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertCount(count($game->snapshot()['chat']), $roundTrip['chat']);
         self::assertCount(count($game->snapshot()['eventLog']), $roundTrip['eventLog']);
         self::assertSame($owner->id(), $projected['turn']['activePlayerId']);
+    }
+
+    public function testCompactHydrationPreservesCardIdentityVersionForDoubleFacedCards(): void
+    {
+        $owner = $this->user('dfc-owner@example.test', 'DFC Owner', 'dfc-owner');
+        $mapper = new CompactGameCardStateMapper();
+        $snapshot = $this->snapshot($owner, [
+            'command' => [
+                $this->richCard('dfc-commander', 'Kytheon, Hero of Akros // Gideon, Battle-Forged', 'command', [
+                    'ownerId' => $owner->id(),
+                    'controllerId' => $owner->id(),
+                    'scryfallId' => '04f9ac76-3af9-4beb-a26b-7a75b162b9bd',
+                    'layout' => 'transform',
+                    'typeLine' => 'Legendary Creature - Human Soldier // Legendary Planeswalker - Gideon',
+                    'power' => 2,
+                    'toughness' => 1,
+                    'loyalty' => 3,
+                    'defaultPower' => 2,
+                    'defaultToughness' => 1,
+                    'defaultLoyalty' => 3,
+                    'cardFaces' => [
+                        [
+                            'name' => 'Kytheon, Hero of Akros',
+                            'typeLine' => 'Legendary Creature - Human Soldier',
+                            'oracleText' => 'At end of combat, transform Kytheon.',
+                            'imageUris' => ['normal' => 'https://cards.example/kytheon.jpg'],
+                        ],
+                        [
+                            'name' => 'Gideon, Battle-Forged',
+                            'typeLine' => 'Legendary Planeswalker - Gideon',
+                            'oracleText' => '+2: Up to one target creature.',
+                            'imageUris' => ['normal' => 'https://cards.example/gideon.jpg'],
+                        ],
+                    ],
+                ]),
+            ],
+        ]);
+
+        $compact = $mapper->compactSnapshot($snapshot, 'game-dfc-identity', Game::STATUS_ACTIVE);
+        $cardKey = $compact['instances']['dfc-commander']['cardKey'] ?? null;
+        self::assertIsString($cardKey);
+        $catalogVersion = $compact['cardCatalog'][$cardKey]['cardVersion'] ?? null;
+
+        $roundTrip = $mapper->hydrateSnapshot($compact);
+        $hydrated = $roundTrip['players'][$owner->id()]['zones']['command'][0] ?? [];
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($owner), $roundTrip), $owner, $roundTrip);
+
+        self::assertSame($catalogVersion, $hydrated['cardVersion'] ?? null);
+        self::assertCount(2, $hydrated['cardFaces'] ?? []);
+        self::assertSame($catalogVersion, $bootstrap->instances['dfc-commander']['cardVersion'] ?? null);
+        self::assertSame($catalogVersion, $bootstrap->staticCards['04f9ac76-3af9-4beb-a26b-7a75b162b9bd:card']['cardVersion'] ?? null);
+        self::assertCount(2, $bootstrap->staticCards['04f9ac76-3af9-4beb-a26b-7a75b162b9bd:card']['cardFaces'] ?? []);
     }
 
     public function testVisibilityIndexRoundTripsCompactStateAndPreservesLibraryPrivacyByViewer(): void

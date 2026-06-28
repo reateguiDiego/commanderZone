@@ -37,6 +37,28 @@ final class GameWebsocketCardLocalizationResolver
             return [];
         }
 
+        return $this->buildLocalizedLookupForScryfallIdsTimed($sourceIds, $requestedLanguages, $startedAt);
+    }
+
+    /**
+     * @param list<string> $sourceIds
+     * @param list<string> $requestedLanguages
+     *
+     * @return array<string,array<string,array<string,mixed>>>
+     */
+    public function buildLocalizedLookupForScryfallIds(array $sourceIds, array $requestedLanguages): array
+    {
+        return $this->buildLocalizedLookupForScryfallIdsTimed($sourceIds, $requestedLanguages, microtime(true));
+    }
+
+    /**
+     * @param list<string> $sourceIds
+     * @param list<string> $requestedLanguages
+     *
+     * @return array<string,array<string,array<string,mixed>>>
+     */
+    private function buildLocalizedLookupForScryfallIdsTimed(array $sourceIds, array $requestedLanguages, float $startedAt): array
+    {
         $localizedLookup = $this->localizedPayloadResolver->buildLocalizedImageLookupForScryfallIds(
             $sourceIds,
             $requestedLanguages,

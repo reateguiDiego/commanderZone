@@ -110,6 +110,12 @@ export interface CommanderGameWithBasicDecksResult {
   };
 }
 
+export interface CreateCommanderGameWithBasicDecksOptions extends CreateCommanderGameWithValidDecksOptions {
+  playerALanguage?: 'en' | 'es';
+  playerBLanguage?: 'en' | 'es';
+  includePlayerAWhiteDfc?: boolean;
+}
+
 interface CommanderGamePlayerToken {
   token: string;
 }
@@ -304,7 +310,7 @@ async function rollTurnOrder(
 
 export async function createCommanderGameWithBasicDecks(
   request: APIRequestContext,
-  options: CreateCommanderGameWithValidDecksOptions = {},
+  options: CreateCommanderGameWithBasicDecksOptions = {},
 ): Promise<CommanderGameWithBasicDecksResult> {
   const runId = normalizeRunId(options.runId);
   const visibility = options.roomVisibility ?? 'public';
@@ -314,9 +320,15 @@ export async function createCommanderGameWithBasicDecks(
   const playerA = await createRealUserSession(request, `${playerAPrefix}-${runId}`);
   const playerB = await createRealUserSession(request, `${playerBPrefix}-${runId}`);
 
+  await Promise.all([
+    updateUserLanguage(request, playerA.token, options.playerALanguage),
+    updateUserLanguage(request, playerB.token, options.playerBLanguage),
+  ]);
+
   const deckA = await createBasicCommanderDeckFromDatabase(request, {
     ownerToken: playerA.token,
     name: e2eDeckName('A', runId),
+    includeWhiteDfc: options.includePlayerAWhiteDfc,
   });
   const deckB = await createBasicCommanderDeckFromDatabase(request, {
     ownerToken: playerB.token,
@@ -441,6 +453,23 @@ async function gamePhase(request: APIRequestContext, gameId: string, token: stri
   const gamePhase = payload.game?.snapshot?.gamePhase;
 
   return typeof gamePhase === 'string' && gamePhase.trim() !== '' ? gamePhase : null;
+}
+
+async function updateUserLanguage(request: APIRequestContext, token: string, language?: 'en' | 'es'): Promise<void> {
+  if (!language) {
+    return;
+  }
+
+  const response = await request.patch(`${API_BASE_URL}/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    data: {
+      cardLanguage: language,
+      appLanguage: language,
+    },
+  });
+  await expectApiOk(response, 'update user language');
 }
 
 function turnOrderResolved(players: Array<{ turnRolls?: number[] }>): boolean {

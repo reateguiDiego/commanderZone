@@ -70,6 +70,12 @@ test.describe('mulligan runtime release gate', () => {
       expect(take.kind).toBe('patch.v2');
       expect(hasOp(take, 'mulligan.hand.replace_private')).toBe(true);
       await expect(page.locator('.mulligan-card')).toHaveCount(7);
+      try {
+        await expect(page.locator('.mulligan-card', { hasText: 'Unknown Card' })).toHaveCount(0);
+      } catch (error) {
+        const patchFrames = frames.filter((frame) => frame['kind'] === 'patch.v2');
+        throw new Error(`${String(error)}\nPatch frames:\n${JSON.stringify(patchFrames, null, 2)}`);
+      }
       if (await page.getByTestId('mulligan-bottom-selection').isVisible().catch(() => false)) {
         await page.locator('.bottom-card-action').first().click();
       }

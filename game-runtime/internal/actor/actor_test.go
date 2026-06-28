@@ -220,6 +220,33 @@ func TestGameActorQueueBackpressure(t *testing.T) {
 	if !errors.Is(err, ErrQueueFull) {
 		t.Fatalf("second enqueue got %v want %v", err, ErrQueueFull)
 	}
+	metrics := gameActor.Metrics()
+	if metrics.QueueDepth != 1 || metrics.QueueCapacity != 1 {
+		t.Fatalf("queue metrics mismatch: %#v", metrics)
+	}
+	if metrics.CommandEnqueuedCount != 1 || metrics.QueueFullCount != 1 || metrics.CommandRejectedCount != 1 {
+		t.Fatalf("backpressure counters mismatch: %#v", metrics)
+	}
+}
+
+func TestGameActorMetricsTrackAppliedAndRejectedCommands(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	first := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a1", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p1")
+	if first.Err != nil {
+		t.Fatalf("first failed: %v", first.Err)
+	}
+	stale := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a2", "life.changed", map[string]any{"playerId": "p1", "life": 38}), "p1")
+	if !errors.Is(stale.Err, ErrVersionConflict) {
+		t.Fatalf("stale error got %v want %v", stale.Err, ErrVersionConflict)
+	}
+
+	metrics := gameActor.Metrics()
+	if metrics.CommandAppliedCount != 1 || metrics.CommandRejectedCount != 1 {
+		t.Fatalf("command counters mismatch: %#v", metrics)
+	}
+	if metrics.CommandLatencyMs < 0 || metrics.QueueWaitMs < 0 {
+		t.Fatalf("negative timing metrics: %#v", metrics)
+	}
 }
 
 type mutatingFailApplier struct{}

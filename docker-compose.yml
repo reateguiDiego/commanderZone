@@ -22,14 +22,28 @@ services:
       MERCURE_URL: ${MERCURE_URL:-http://mercure/.well-known/mercure}
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:-http://127.0.0.1:3000/.well-known/mercure}
       MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET:-change-this-mercure-dev-secret-with-at-least-32-chars}
-      GAME_RUNTIME_ENABLED: ${GAME_RUNTIME_ENABLED:-0}
+      GAME_DEBUG_HEALTH_ENABLED: ${GAME_DEBUG_HEALTH_ENABLED:-0}
+      GAMEPLAY_COMPACT_RUNTIME_ENABLED: ${GAMEPLAY_COMPACT_RUNTIME_ENABLED:-1}
+      GAME_RUNTIME_ENABLED: ${GAME_RUNTIME_ENABLED:-1}
       GAME_RUNTIME_INTERNAL_URL: ${GAME_RUNTIME_INTERNAL_URL:-http://game-runtime:8091}
+      GAMEPLAY_V2_ENABLED: ${GAMEPLAY_V2_ENABLED:-1}
+      GAMEPLAY_V2_COMMAND_ENABLED: ${GAMEPLAY_V2_COMMAND_ENABLED:-1}
+      GAMEPLAY_V2_COMMANDS_ALLOWLIST: ${GAMEPLAY_V2_COMMANDS_ALLOWLIST:-life.changed,turn.changed,dice.rolled,card.tapped,card.face_down.changed,card.revealed,card.controller.changed,cards.position.changed,card.counter.changed,counter.changed,commander.damage.changed,card.power_toughness.changed,card.position.changed,library.draw,library.draw_many,library.reveal_top,library.reveal,library.play_top_revealed,library.reorder_top,library.move_top,library.put_top,library.put_bottom,library.view,library.shuffle,card.token.created,card.token_copy.created,zone.random_card.selected,card.dungeon_marker.changed,card.face.changed,card.moved,cards.moved,zone.reorderedByIds,zone.move_all,battlefield.untap_all,stack.card_added,stack.item_removed,arrow.created,arrow.removed,attachment.created,attachment.removed,helper.created,helper.updated,helper.removed,game.concede,game.close,mulligan.take,mulligan.keep,mulligan.cards_bottomed,mulligan.scry.confirm,mulligan.ready,mulligan.completed,game.phase.set}
+      GAMEPLAY_V2_PATCH_ENABLED: ${GAMEPLAY_V2_PATCH_ENABLED:-1}
+      GAMEPLAY_V2_BOOTSTRAP_ENABLED: ${GAMEPLAY_V2_BOOTSTRAP_ENABLED:-1}
+      GAMEPLAY_V2_EVENT_ENABLED: ${GAMEPLAY_V2_EVENT_ENABLED:-1}
+      GAMEPLAY_V2_VISIBILITY_ENABLED: ${GAMEPLAY_V2_VISIBILITY_ENABLED:-1}
+      SEMANTIC_PATCHES_ENABLED: ${SEMANTIC_PATCHES_ENABLED:-1}
+      COMPACT_BOOTSTRAP_ENABLED: ${COMPACT_BOOTSTRAP_ENABLED:-1}
+      SHADOW_COMPARE_ENABLED: ${SHADOW_COMPARE_ENABLED:-0}
+      GAMEPLAY_STREAMS_ENABLED: ${GAMEPLAY_STREAMS_ENABLED:-1}
+      GAMEPLAY_METRICS_OUTPUT: ${GAMEPLAY_METRICS_OUTPUT:-}
       GAME_WEBSOCKET_PUBLIC_URL: ${GAME_WEBSOCKET_PUBLIC_URL:-ws://127.0.0.1:8081}
       SCRYFALL_USER_AGENT: ${SCRYFALL_USER_AGENT:-CommanderZone/0.1 contact@example.local}
       SCRYFALL_SYNC_MEMORY_LIMIT: ${SCRYFALL_SYNC_MEMORY_LIMIT:-1024M}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$}
     ports:
-      - "8000:80"
+      - "${API_PORT:-8000}:80"
     depends_on:
       database:
         condition: service_healthy
@@ -56,10 +70,24 @@ services:
       GAME_WEBSOCKET_PUBLIC_URL: ${GAME_WEBSOCKET_PUBLIC_URL:-ws://127.0.0.1:8081}
       GAME_WEBSOCKET_CONNECTION_LIMIT: ${GAME_WEBSOCKET_CONNECTION_LIMIT:-1000}
       GAME_WEBSOCKET_CONNECTION_LIMIT_PER_IP: ${GAME_WEBSOCKET_CONNECTION_LIMIT_PER_IP:-100}
-      GAME_RUNTIME_ENABLED: ${GAME_RUNTIME_ENABLED:-0}
+      GAME_DEBUG_HEALTH_ENABLED: ${GAME_DEBUG_HEALTH_ENABLED:-0}
+      GAMEPLAY_COMPACT_RUNTIME_ENABLED: ${GAMEPLAY_COMPACT_RUNTIME_ENABLED:-1}
+      GAME_RUNTIME_ENABLED: ${GAME_RUNTIME_ENABLED:-1}
       GAME_RUNTIME_INTERNAL_URL: ${GAME_RUNTIME_INTERNAL_URL:-http://game-runtime:8091}
+      GAMEPLAY_V2_ENABLED: ${GAMEPLAY_V2_ENABLED:-1}
+      GAMEPLAY_V2_COMMAND_ENABLED: ${GAMEPLAY_V2_COMMAND_ENABLED:-1}
+      GAMEPLAY_V2_COMMANDS_ALLOWLIST: ${GAMEPLAY_V2_COMMANDS_ALLOWLIST:-life.changed,turn.changed,dice.rolled,card.tapped,card.face_down.changed,card.revealed,card.controller.changed,cards.position.changed,card.counter.changed,counter.changed,commander.damage.changed,card.power_toughness.changed,card.position.changed,library.draw,library.draw_many,library.reveal_top,library.reveal,library.play_top_revealed,library.reorder_top,library.move_top,library.put_top,library.put_bottom,library.view,library.shuffle,card.token.created,card.token_copy.created,zone.random_card.selected,card.dungeon_marker.changed,card.face.changed,card.moved,cards.moved,zone.reorderedByIds,zone.move_all,battlefield.untap_all,stack.card_added,stack.item_removed,arrow.created,arrow.removed,attachment.created,attachment.removed,helper.created,helper.updated,helper.removed,game.concede,game.close,mulligan.take,mulligan.keep,mulligan.cards_bottomed,mulligan.scry.confirm,mulligan.ready,mulligan.completed,game.phase.set}
+      GAMEPLAY_V2_PATCH_ENABLED: ${GAMEPLAY_V2_PATCH_ENABLED:-1}
+      GAMEPLAY_V2_BOOTSTRAP_ENABLED: ${GAMEPLAY_V2_BOOTSTRAP_ENABLED:-1}
+      GAMEPLAY_V2_EVENT_ENABLED: ${GAMEPLAY_V2_EVENT_ENABLED:-1}
+      GAMEPLAY_V2_VISIBILITY_ENABLED: ${GAMEPLAY_V2_VISIBILITY_ENABLED:-1}
+      SEMANTIC_PATCHES_ENABLED: ${SEMANTIC_PATCHES_ENABLED:-1}
+      COMPACT_BOOTSTRAP_ENABLED: ${COMPACT_BOOTSTRAP_ENABLED:-1}
+      SHADOW_COMPARE_ENABLED: ${SHADOW_COMPARE_ENABLED:-0}
+      GAMEPLAY_STREAMS_ENABLED: ${GAMEPLAY_STREAMS_ENABLED:-1}
+      GAMEPLAY_METRICS_OUTPUT: ${GAMEPLAY_METRICS_OUTPUT:-}
     ports:
-      - "127.0.0.1:8081:8081"
+      - "127.0.0.1:${GAME_WEBSOCKET_PORT:-8081}:8081"
     healthcheck:
       test: ["CMD", "php", "bin/ws-healthcheck.php"]
       interval: 10s
@@ -79,6 +107,10 @@ services:
         GO_TOOLCHAIN_IMAGE: ${GO_TOOLCHAIN_IMAGE:-commanderzone-go-toolchain:1.22}
     environment:
       GAME_RUNTIME_LISTEN: ${GAME_RUNTIME_LISTEN:-0.0.0.0:8091}
+      # Use a runtime-specific DB URL so local runtime never inherits production DATABASE_URL.
+      GAME_RUNTIME_PERSISTENCE: ${GAME_RUNTIME_PERSISTENCE:-postgres}
+      DATABASE_URL: ${GAME_RUNTIME_DATABASE_URL:-postgresql://commanderzone:commanderzone@database:5432/commanderzone}
+      GAME_RUNTIME_TICKET_SECRET: ${GAME_RUNTIME_TICKET_SECRET:-commanderzone-dev-runtime-secret-change-me}
     ports:
       - "127.0.0.1:${GAME_RUNTIME_PORT:-8091}:8091"
     expose:

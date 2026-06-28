@@ -127,9 +127,9 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
           card: {
             name: 'Runtime Goblin',
             scryfallId: 'runtime-goblin',
-            imageUris: { normal: 'must-not-leak' },
+            imageUris: { normal: 'https://example.test/runtime-goblin.jpg' },
             oracleText: 'must-not-leak',
-            cardFaces: [{ name: 'must-not-leak' }],
+            cardFaces: [{ name: 'Runtime Goblin', imageUris: { normal: 'https://example.test/runtime-goblin-face.jpg' } }],
             power: 1,
             toughness: 1,
           },
@@ -138,6 +138,29 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       });
       nextBaseVersion = outcome.version;
       assertNoStaticPayload(outcome.patch);
+      const tokenCards = addedCards(outcome.patch);
+      expect(tokenCards).toHaveLength(2);
+      try {
+        for (const tokenCard of tokenCards) {
+          assertVisibleCardIdentity(tokenCard);
+          await expect(battlefieldCard(pageA, playerA.user.id, String(tokenCard['instanceId']))).toBeVisible({ timeout: 15_000 });
+        }
+      } catch (error) {
+        throw new Error(`${String(error)}
+
+Token patch:
+${JSON.stringify(outcome.patch, null, 2)}
+
+Player A diagnostics:
+${diagnosticsA.join('\n')}
+
+Player A cards:
+${await visibleCardDebug(pageA)}
+
+Player A body:
+${(await pageA.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
+      }
+      await expect(pageA.locator(`[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${playerA.user.id}"]`, { hasText: 'Unknown Card' })).toHaveCount(0);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
       outcome = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
@@ -149,6 +172,13 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       });
       nextBaseVersion = outcome.version;
       assertNoStaticPayload(outcome.patch);
+      const copiedCards = addedCards(outcome.patch);
+      expect(copiedCards).toHaveLength(1);
+      assertVisibleCardIdentity(copiedCards[0]!);
+      const copiedInstanceId = String(copiedCards[0]!['instanceId']);
+      await expect(battlefieldCard(pageA, playerA.user.id, copiedInstanceId)).toBeVisible({ timeout: 15_000 });
+      await expect(battlefieldCard(pageA, playerA.user.id, copiedInstanceId)).not.toHaveAttribute('data-card-name', 'Unknown Card');
+      await expect(pageA.locator(`[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${playerA.user.id}"]`, { hasText: 'Unknown Card' })).toHaveCount(0);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
       outcome = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
@@ -183,6 +213,8 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       });
       nextBaseVersion = outcome.version;
       expect(JSON.stringify(outcome.patch)).not.toContain('cardFaces');
+      await expect(battlefieldCard(pageA, playerA.user.id, battlefieldIds[0])).toBeVisible({ timeout: 15_000 });
+      await expect(battlefieldCard(pageA, playerA.user.id, battlefieldIds[0])).not.toHaveAttribute('data-card-name', 'Unknown Card');
       expect(snapshotRefetches).toBe(refetchBaseline);
 
       outcome = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
@@ -475,17 +507,66 @@ function zoneCardsAddedCount(message: JsonObject): number {
   return cards.length;
 }
 
+function addedCards(message: JsonObject): JsonObject[] {
+  const op = operation(message, 'zone.cards.add');
+  return Array.isArray(op?.['cards']) ? op['cards'] as JsonObject[] : [];
+}
+
+function assertVisibleCardIdentity(card: JsonObject): void {
+  expect(card['cardKey']).toBeTruthy();
+  expect(card['printId']).toBeTruthy();
+  expect(card['cardVersion']).toBeTruthy();
+  expect(card['language']).toBeTruthy();
+  expect(card['viewerVisibility']).toBe('public');
+}
+
 function hasCardField(message: JsonObject, instanceId: string, field: string): boolean {
   const op = operation(message, 'card.field.set');
   return op?.['instanceId'] === instanceId && op[field] !== undefined;
 }
 
+function battlefieldCard(page: Page, ownerPlayerId: string, instanceId: string) {
+  return page.locator(`[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${ownerPlayerId}"][data-card-instance-id="${instanceId}"]`);
+}
+
+async function visibleCardDebug(page: Page): Promise<string> {
+  return page.locator('[data-testid="game-card"], [data-testid="mini-battlefield-card"]').evaluateAll((elements) =>
+    JSON.stringify(elements.map((element) => ({
+      testId: element.getAttribute('data-testid'),
+      instanceId: element.getAttribute('data-card-instance-id'),
+      ownerId: element.getAttribute('data-owner-player-id') ?? element.getAttribute('data-arrow-card-player-id'),
+      zone: element.getAttribute('data-zone'),
+      name: element.getAttribute('data-card-name') ?? element.getAttribute('alt') ?? element.textContent?.trim().slice(0, 80),
+      text: element.textContent?.trim().slice(0, 80),
+    })), null, 2),
+  ).catch((error) => `Could not read cards: ${String(error)}`);
+}
+
 function assertNoStaticPayload(message: JsonObject): void {
+  const ops = Array.isArray(message['ops']) ? message['ops'] as JsonObject[] : [];
+  for (const op of ops) {
+    for (const card of cardsFromOperation(op)) {
+      const encodedCard = JSON.stringify(card);
+      expect(encodedCard).not.toContain('imageUris');
+      expect(encodedCard).not.toContain('oracleText');
+      expect(encodedCard).not.toContain('cardFaces');
+    }
+  }
   const encoded = JSON.stringify(message);
-  expect(encoded).not.toContain('imageUris');
   expect(encoded).not.toContain('oracleText');
-  expect(encoded).not.toContain('cardFaces');
   expect(encoded).not.toContain('must-not-leak');
+}
+
+function cardsFromOperation(op: JsonObject): JsonObject[] {
+  const cards = op['cards'];
+  if (Array.isArray(cards)) {
+    return cards.filter((card): card is JsonObject => card !== null && typeof card === 'object' && !Array.isArray(card));
+  }
+  const card = op['card'];
+  if (card !== null && typeof card === 'object' && !Array.isArray(card)) {
+    return [card as JsonObject];
+  }
+  return [];
 }
 
 function parseFrame(payload: string | Buffer): JsonObject | null {

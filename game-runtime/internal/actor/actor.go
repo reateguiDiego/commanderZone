@@ -24,10 +24,11 @@ type Applier interface {
 }
 
 type CommandRequest struct {
-	Command  protocol.CommandEnvelopeV2
-	ActorID  string
-	Reply    chan CommandResult
-	Deadline time.Time
+	Command    protocol.CommandEnvelopeV2
+	ActorID    string
+	Reply      chan CommandResult
+	Deadline   time.Time
+	EnqueuedAt time.Time
 }
 
 type CommandResult struct {
@@ -58,9 +59,23 @@ type GameActor struct {
 	stopped             chan struct{}
 	stopOnce            sync.Once
 	stateMu             sync.RWMutex
+	metricsMu           sync.RWMutex
+	metrics             ActorMetrics
 	snapshotPolicy      SnapshotPolicy
 	eventsSinceSnapshot int
 	lastSnapshotAt      time.Time
+}
+
+type ActorMetrics struct {
+	GameID               string  `json:"gameId"`
+	QueueDepth           int     `json:"actor.queue_depth"`
+	QueueCapacity        int     `json:"actor.queue_capacity"`
+	QueueFullCount       int64   `json:"actor.queue_full_count"`
+	CommandEnqueuedCount int64   `json:"actor.command_enqueued_count"`
+	CommandRejectedCount int64   `json:"actor.command_rejected_count"`
+	CommandAppliedCount  int64   `json:"actor.command_applied_count"`
+	CommandLatencyMs     float64 `json:"actor.command_latency_ms"`
+	QueueWaitMs          float64 `json:"actor.queue_wait_ms"`
 }
 
 func NewGameActor(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier) *GameActor {
@@ -76,34 +91,45 @@ func NewGameActorWithSnapshotPolicy(gameID string, initial state.GameState, stor
 		queueSize = 1
 	}
 	return &GameActor{
-		gameID:         gameID,
-		state:          &initial,
-		store:          store,
-		appliers:       byType,
-		mailbox:        make(chan CommandRequest, queueSize),
-		seenActions:    map[string]CommandResult{},
-		startedAt:      time.Now().UTC(),
-		lastHeartbeat:  time.Now().UTC(),
-		stop:           make(chan struct{}),
-		stopped:        make(chan struct{}),
+		gameID:        gameID,
+		state:         &initial,
+		store:         store,
+		appliers:      byType,
+		mailbox:       make(chan CommandRequest, queueSize),
+		seenActions:   map[string]CommandResult{},
+		startedAt:     time.Now().UTC(),
+		lastHeartbeat: time.Now().UTC(),
+		stop:          make(chan struct{}),
+		stopped:       make(chan struct{}),
+		metrics: ActorMetrics{
+			GameID:        gameID,
+			QueueCapacity: queueSize,
+		},
 		snapshotPolicy: snapshotPolicy,
 		lastSnapshotAt: time.Now().UTC(),
 	}
 }
 
 func (a *GameActor) Enqueue(request CommandRequest) error {
+	if request.EnqueuedAt.IsZero() {
+		request.EnqueuedAt = time.Now().UTC()
+	}
 	select {
 	case <-a.stopped:
+		a.recordRejected(0, 0)
 		return ErrActorStopped
 	default:
 	}
 
 	select {
 	case <-a.stopped:
+		a.recordRejected(0, 0)
 		return ErrActorStopped
 	case a.mailbox <- request:
+		a.recordEnqueued()
 		return nil
 	default:
+		a.recordQueueFull()
 		return ErrQueueFull
 	}
 }
@@ -176,6 +202,15 @@ func (a *GameActor) QueueDepth() int {
 	return len(a.mailbox)
 }
 
+func (a *GameActor) Metrics() ActorMetrics {
+	a.metricsMu.RLock()
+	defer a.metricsMu.RUnlock()
+	metrics := a.metrics
+	metrics.QueueDepth = len(a.mailbox)
+	metrics.QueueCapacity = cap(a.mailbox)
+	return metrics
+}
+
 func (a *GameActor) Version() int64 {
 	a.stateMu.RLock()
 	defer a.stateMu.RUnlock()
@@ -206,12 +241,17 @@ func (a *GameActor) SaveCompactSnapshot(ctx context.Context) error {
 }
 
 func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandResult {
+	startedAt := time.Now().UTC()
+	queueWait := time.Duration(0)
+	if !request.EnqueuedAt.IsZero() {
+		queueWait = startedAt.Sub(request.EnqueuedAt)
+	}
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
 
 	command := request.Command
 	if err := command.Validate(); err != nil {
-		return CommandResult{Err: err}
+		return a.rejectedResult(err, queueWait, startedAt)
 	}
 	if existing, ok := a.seenActions[command.ClientActionID]; ok {
 		return existing
@@ -219,18 +259,18 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	if a.store != nil && command.ClientActionID != "" {
 		existing, ok, err := a.store.EventByClientActionID(ctx, command.GameID, command.ClientActionID)
 		if err != nil {
-			return CommandResult{Err: err}
+			return a.rejectedResult(err, queueWait, startedAt)
 		}
 		if ok {
 			return CommandResult{Event: existing}
 		}
 	}
 	if command.BaseVersion != a.state.Version {
-		return CommandResult{Err: ErrVersionConflict}
+		return a.rejectedResult(ErrVersionConflict, queueWait, startedAt)
 	}
 	applier, ok := a.appliers[command.Type]
 	if !ok {
-		return CommandResult{Err: ErrUnknownCommand}
+		return a.rejectedResult(ErrUnknownCommand, queueWait, startedAt)
 	}
 
 	nextVersion := a.state.Version + 1
@@ -239,7 +279,7 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	eventPayload, err := applier.Apply(ctx, a.state, command, emitter)
 	if err != nil {
 		rollback.Restore(a.state)
-		return CommandResult{Err: err}
+		return a.rejectedResult(err, queueWait, startedAt)
 	}
 	a.state.Version = nextVersion
 	eventType := command.Type
@@ -259,12 +299,12 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	if err := event.Validate(); err != nil {
 		rollback.Restore(a.state)
-		return CommandResult{Err: err}
+		return a.rejectedResult(err, queueWait, startedAt)
 	}
 	if a.store != nil {
 		if err := a.store.AppendEvent(ctx, event); err != nil {
 			rollback.Restore(a.state)
-			return CommandResult{Err: err}
+			return a.rejectedResult(err, queueWait, startedAt)
 		}
 	}
 
@@ -276,9 +316,51 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	a.lastHeartbeat = time.Now().UTC()
 	a.eventsSinceSnapshot++
 	if err := a.saveSnapshotIfDueLocked(ctx); err != nil {
-		return CommandResult{Err: err}
+		return a.rejectedResult(err, queueWait, startedAt)
 	}
+	a.recordApplied(queueWait, time.Since(startedAt))
 	return result
+}
+
+func (a *GameActor) rejectedResult(err error, queueWait time.Duration, startedAt time.Time) CommandResult {
+	a.recordRejected(queueWait, time.Since(startedAt))
+	return CommandResult{Err: err}
+}
+
+func (a *GameActor) recordEnqueued() {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.CommandEnqueuedCount++
+}
+
+func (a *GameActor) recordQueueFull() {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.QueueFullCount++
+	a.metrics.CommandRejectedCount++
+}
+
+func (a *GameActor) recordRejected(queueWait time.Duration, latency time.Duration) {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.CommandRejectedCount++
+	a.metrics.QueueWaitMs = durationMs(queueWait)
+	a.metrics.CommandLatencyMs = durationMs(latency)
+}
+
+func (a *GameActor) recordApplied(queueWait time.Duration, latency time.Duration) {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.CommandAppliedCount++
+	a.metrics.QueueWaitMs = durationMs(queueWait)
+	a.metrics.CommandLatencyMs = durationMs(latency)
+}
+
+func durationMs(duration time.Duration) float64 {
+	if duration <= 0 {
+		return 0
+	}
+	return float64(duration.Microseconds()) / 1000
 }
 
 func (a *GameActor) saveSnapshotIfDueLocked(ctx context.Context) error {

@@ -94,11 +94,57 @@ export class GameTableMulliganState {
       return;
     }
 
+    const privateState = this.privateStateFromPatchV2(message, snapshot);
     this.publicState.set(null);
-    this.privateState.set(null);
+    this.privateState.set(privateState);
     this.pendingAction.set(false);
     this.error.set(null);
     this.completed.set(snapshot.gamePhase === 'PLAYING');
+  }
+
+  private privateStateFromPatchV2(
+    message: GameplayPatchV2Message,
+    snapshot: GameSnapshot,
+  ): GameplayMulliganPrivateStateMessage | null {
+    const stateOperation = message.ops.find((operation) => operation.op === 'mulligan.private_state.set');
+    const handOperation = message.ops.find((operation) => operation.op === 'mulligan.hand.replace_private');
+    if (!stateOperation && !handOperation) {
+      return null;
+    }
+
+    const playerId = stateOperation?.playerId ?? handOperation?.playerId;
+    if (!playerId) {
+      return null;
+    }
+
+    const player = snapshot.players[playerId];
+    const mulligan = player?.mulligan;
+    const hand = handOperation?.hand ?? stateOperation?.hand ?? [];
+    return {
+      kind: 'mulligan.private_state',
+      gameId: message.gameId,
+      version: message.version,
+      playerId,
+      hand,
+      handSize: hand.length || stateOperation?.state.handSize || mulligan?.handCount || player?.handCount,
+      mulligan: {
+        rule: mulligan?.rule ?? (stateOperation?.state.rule as GamePlayerMulliganState['rule'] | undefined),
+        mulligansTaken: mulligan?.mulligansTaken ?? stateOperation?.state.mulligansTaken ?? 0,
+        effectiveMulligans: mulligan?.effectiveMulligans ?? stateOperation?.state.effectiveMulligans ?? 0,
+        drawCount: mulligan?.drawCount ?? stateOperation?.state.drawCount ?? hand.length,
+        bottomSelectionCount: mulligan?.bottomSelectionCount ?? stateOperation?.state.bottomSelectionCount ?? stateOperation?.state.cardsToBottom ?? 0,
+        finalHandSize: mulligan?.finalHandSize ?? stateOperation?.state.finalHandSize ?? hand.length,
+        needsBottomSelection: mulligan?.needsBottomSelection ?? stateOperation?.state.needsBottomSelection ?? stateOperation?.state.bottomPending ?? false,
+        bottomOrderMode: mulligan?.bottomOrderMode ?? (stateOperation?.state.bottomOrderMode as GamePlayerMulliganState['bottomOrderMode'] | undefined) ?? 'NONE',
+        needsScryAfterKeep: mulligan?.needsScryAfterKeep ?? stateOperation?.state.needsScryAfterKeep ?? stateOperation?.state.scryPending ?? false,
+        canTakeAnotherMulligan: mulligan?.canTakeAnotherMulligan ?? stateOperation?.state.canTakeAnotherMulligan ?? true,
+        status: mulligan?.status ?? stateOperation?.state.status ?? 'DECIDING',
+        ready: mulligan?.ready ?? stateOperation?.state.ready ?? false,
+      },
+      ...(stateOperation?.scryCard ? { scryCard: stateOperation.scryCard } : {}),
+      ...(handOperation?.staticCards ? { staticCards: handOperation.staticCards } : {}),
+      visibility: message.visibility?.startsWith('player:') ? message.visibility as `player:${string}` : 'private',
+    };
   }
 
   privateHandFor(playerId: string | null): readonly GameCardInstance[] | null {

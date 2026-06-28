@@ -225,6 +225,31 @@ describe('MulliganOverlayComponent', () => {
     expect(acceptButton().disabled).toBe(false);
   });
 
+  it('enables keep after take when the private hand is ready and no bottom cards are required', () => {
+    setMulligan('LONDON', {
+      bottomSelectionCount: 0,
+      needsBottomSelection: false,
+      status: 'DECIDING',
+      ready: false,
+    });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.componentRef.setInput('pending', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.mulligan-card').length).toBe(3);
+    expect(fixture.nativeElement.textContent).not.toContain('Unknown Card');
+    expect(acceptButton().disabled).toBe(false);
+  });
+
+  it('keeps keep disabled while the mulligan action is still pending', () => {
+    setMulligan('LONDON', { bottomSelectionCount: 0 });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.componentRef.setInput('pending', true);
+    fixture.detectChanges();
+
+    expect(acceptButton().disabled).toBe(true);
+  });
+
   it('does not emit keep until the player accepts the selected bottom cards', () => {
     const keepSpy = vi.fn();
     fixture.componentInstance.keep.subscribe(keepSpy);

@@ -483,12 +483,26 @@ class GameCommandHandler
         $mulligansTaken = max(0, (int) ($mulligan['mulligansTaken'] ?? 0));
         $state = GameMulliganRules::calculateMulliganState($rule, $firstMulliganFree, $mulligansTaken);
         $status = $mulligan['status'] ?? self::MULLIGAN_STATUS_DECIDING;
+        $status = $status === 'BOTTOMING' ? self::MULLIGAN_STATUS_DECIDING : $status;
         $status = in_array($status, [self::MULLIGAN_STATUS_DECIDING, self::MULLIGAN_STATUS_SCRYING, self::MULLIGAN_STATUS_READY], true)
             ? $status
             : self::MULLIGAN_STATUS_DECIDING;
         $scryCardInstanceId = is_string($mulligan['scryCardInstanceId'] ?? null) && trim($mulligan['scryCardInstanceId']) !== ''
             ? trim($mulligan['scryCardInstanceId'])
             : null;
+        if ($status === self::MULLIGAN_STATUS_READY) {
+            $state['bottomSelectionCount'] = 0;
+            $state['needsBottomSelection'] = false;
+            $state['needsScryAfterKeep'] = false;
+            $state['canTakeAnotherMulligan'] = false;
+        } elseif ($status === self::MULLIGAN_STATUS_SCRYING) {
+            $state['bottomSelectionCount'] = 0;
+            $state['needsBottomSelection'] = false;
+            $state['needsScryAfterKeep'] = true;
+            $state['canTakeAnotherMulligan'] = false;
+        } elseif (array_key_exists('needsBottomSelection', $mulligan)) {
+            $state['needsBottomSelection'] = ($mulligan['needsBottomSelection'] ?? false) === true;
+        }
 
         return [
             ...$state,
@@ -679,6 +693,11 @@ class GameCommandHandler
         ];
         if (is_array($card['tokenMeta'] ?? null) && $card['tokenMeta'] !== []) {
             $normalized['tokenMeta'] = $this->normalizeTokenMeta($card['tokenMeta']);
+        }
+        foreach (['cardKey', 'cardRef', 'printId', 'cardVersion', 'language', 'viewerVisibility'] as $identityField) {
+            if (is_string($card[$identityField] ?? null) && trim((string) $card[$identityField]) !== '') {
+                $normalized[$identityField] = trim((string) $card[$identityField]);
+            }
         }
 
         if (array_key_exists('layout', $card)) {
@@ -897,6 +916,9 @@ class GameCommandHandler
         $playerId = $actor->id();
         if (!isset($snapshot['players'][$playerId])) {
             throw new \InvalidArgumentException('Actor is not a game player.');
+        }
+        if (($snapshot['players'][$playerId]['status'] ?? 'active') === 'conceded') {
+            throw new \InvalidArgumentException('Player already conceded.');
         }
         $previousActivePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? '');
 
@@ -6249,6 +6271,7 @@ class GameCommandHandler
                 'mulligan.scry_confirm' => $this->applyMulliganScryConfirm($snapshot, $payload, $actor),
                 default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
             };
+            $legacyMulliganPublicPayload = $this->pendingEventPayload;
 
             $this->ensureLocationIndex($snapshot);
             $this->syncVisibilityIndexAfterCommand($snapshot, $type, $payload);
@@ -6278,8 +6301,8 @@ class GameCommandHandler
                 $this->recordMulliganMetric('mulligan.public_event_payload_bytes', $this->metricsInspector->jsonBytes($eventPayload['public'] ?? []));
             }
             $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
-            if ($this->flagsV2->eventEnabled() && is_array($eventPayload['public'] ?? null)) {
-                $event->withPublicPayload($eventPayload['public']);
+            if ($this->flagsV2->eventEnabled()) {
+                $event->withPublicPayload($legacyMulliganPublicPayload ?? (is_array($eventPayload['public'] ?? null) ? $eventPayload['public'] : []));
             }
             $game->addEvent($event);
             $this->lastCommandMetrics = $this->commandMetricsPayload(
@@ -6458,6 +6481,9 @@ class GameCommandHandler
             if (!$result instanceof GameCommandV2Result) {
                 return null;
             }
+            $legacyMulliganPublicPayload = in_array($type, self::MULLIGAN_COMMANDS, true)
+                ? $this->pendingEventPayload
+                : null;
 
             $this->ensureLocationIndex($snapshot);
             $this->syncVisibilityIndexAfterCommand($snapshot, $type, $payload);
@@ -6485,7 +6511,11 @@ class GameCommandHandler
                 $actor,
                 $clientActionId,
                 $eventVersion,
-            ))->withPublicPayload($result->eventPayload());
+            ))->withPublicPayload(
+                $eventStoreEnabled && $legacyMulliganPublicPayload !== null
+                    ? $legacyMulliganPublicPayload
+                    : $result->eventPayload(),
+            );
             $game->addEvent($event);
             $this->lastDirectPatchPayload = $result->directPatchPayload($eventLogEntries);
             $this->lastCommandMetrics = $this->commandMetricsPayload(

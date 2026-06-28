@@ -314,6 +314,17 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.timer).toEqual({ mode: 'turn', status: 'running', durationSeconds: 120, remainingSeconds: 87 });
   });
 
+  it('applies lifecycle game status patches without a snapshot replacement', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      { op: 'game.status.set', status: 'finished', phase: 'FINISHED' },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.gamePhase).toBe('FINISHED');
+  });
+
   it('applies disconnect vote snapshot updates', () => {
     const snapshot = snapshotFixture();
 

@@ -2,6 +2,7 @@
 
 namespace App\Tests\Application\GameWebSocket;
 
+use App\Application\Game\Compact\CardStaticBundle;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganRules;
@@ -54,6 +55,67 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertSame(1, $runtime->calls);
         self::assertFalse($runtime->shadowCalls[0] ?? true);
         self::assertSame('mulligan.take', $runtime->kinds[0] ?? null);
+    }
+
+    public function testRuntimeMulliganPrivateHandPatchIncludesAuthorizedStaticCards(): void
+    {
+        $library = $this->cards('library', 7, 'library');
+        $cardKey = CardStaticBundle::fromLegacyCard($library[0])->cardKey;
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $library,
+        ]);
+        $runtime = RuntimeMulliganClientStub::successWithPatches([
+            [
+                'gameId' => $game->id(),
+                'version' => 2,
+                'visibility' => 'public',
+                'ackClientActionId' => 'client-action',
+                'ops' => [
+                    ['op' => 'mulligan.status.set', 'data' => ['playerId' => $actor->id(), 'status' => 'DECIDING', 'ready' => false]],
+                    ['op' => 'mulligan.hand.count.set', 'data' => ['playerId' => $actor->id(), 'count' => 1]],
+                ],
+            ],
+            [
+                'gameId' => $game->id(),
+                'version' => 2,
+                'visibility' => 'player:'.$actor->id(),
+                'ackClientActionId' => 'client-action',
+                'ops' => [
+                    ['op' => 'mulligan.hand.replace_private', 'data' => [
+                        'playerId' => $actor->id(),
+                        'hand' => [['instanceId' => $library[0]['instanceId'], 'cardKey' => $cardKey]],
+                    ]],
+                ],
+            ],
+        ]);
+        $service = $this->service(
+            $game,
+            $actor,
+            expectPersist: false,
+            expectTransaction: false,
+            flags: $this->runtimeFlags(runtime: true, shadow: false),
+            runtimeClient: $runtime,
+        );
+
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime');
+        $message = $result->messagesForUserId($actor->id())[0] ?? [];
+        $handOp = $this->opOfKind($message['ops'] ?? [], 'mulligan.hand.replace_private');
+
+        self::assertArrayHasKey('staticCards', $handOp);
+        self::assertArrayHasKey($cardKey, $handOp['staticCards']);
+        self::assertSame($library[0]['name'], $handOp['staticCards'][$cardKey]['name']);
+        self::assertSame($cardKey, $handOp['staticCards'][$cardKey]['cardKey']);
+        self::assertNotEmpty($handOp['staticCards'][$cardKey]['printId']);
+        self::assertNotEmpty($handOp['staticCards'][$cardKey]['cardVersion']);
+        self::assertSame('en', $handOp['staticCards'][$cardKey]['language']);
+        self::assertSame('private', $handOp['staticCards'][$cardKey]['viewerVisibility']);
+        self::assertSame($cardKey, $handOp['hand'][0]['cardKey']);
+        self::assertSame($handOp['staticCards'][$cardKey]['printId'], $handOp['hand'][0]['printId']);
+        self::assertSame($handOp['staticCards'][$cardKey]['cardVersion'], $handOp['hand'][0]['cardVersion']);
+        self::assertSame('en', $handOp['hand'][0]['language']);
+        self::assertSame('private', $handOp['hand'][0]['viewerVisibility']);
+        self::assertStringNotContainsString('staticCards', json_encode($result->fallbackMessages(), JSON_THROW_ON_ERROR));
     }
 
     public function testRuntimeFailureFallsBackToLegacyMulligan(): void
@@ -808,6 +870,22 @@ class GameWebsocketMulliganServiceTest extends TestCase
     }
 
     /**
+     * @param list<array<string,mixed>> $ops
+     *
+     * @return array<string,mixed>
+     */
+    private function opOfKind(array $ops, string $kind): array
+    {
+        foreach ($ops as $op) {
+            if (($op['op'] ?? null) === $kind) {
+                return $op;
+            }
+        }
+
+        self::fail(sprintf('Operation "%s" was not emitted.', $kind));
+    }
+
+    /**
      * @return list<string>
      */
     private function libraryIds(array $snapshot, string $playerId): array
@@ -839,6 +917,14 @@ final class RuntimeMulliganClientStub implements GameRuntimeMulliganClientInterf
     public static function success(): self
     {
         return new self(false);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $patches
+     */
+    public static function successWithPatches(array $patches): self
+    {
+        return new self(false, $patches);
     }
 
     public static function failure(): self

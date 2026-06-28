@@ -18,6 +18,11 @@ type Service struct {
 	appliers  []actor.Applier
 }
 
+type MetricsSnapshot struct {
+	Actors []actor.ActorMetrics `json:"actors"`
+	Totals actor.ActorMetrics   `json:"totals"`
+}
+
 func NewService() *Service {
 	return NewServiceWithStore(persistence.NewInMemoryEventStore(), 128, actor.DefaultAppliers())
 }
@@ -103,6 +108,39 @@ func (s *Service) Actor(gameID string) (*actor.GameActor, bool) {
 	defer s.mu.RUnlock()
 	gameActor, ok := s.actors[gameID]
 	return gameActor, ok
+}
+
+func (s *Service) MetricsSnapshot() MetricsSnapshot {
+	s.mu.RLock()
+	actors := make([]*actor.GameActor, 0, len(s.actors))
+	for _, gameActor := range s.actors {
+		actors = append(actors, gameActor)
+	}
+	s.mu.RUnlock()
+
+	snapshot := MetricsSnapshot{
+		Actors: make([]actor.ActorMetrics, 0, len(actors)),
+		Totals: actor.ActorMetrics{
+			GameID: "all",
+		},
+	}
+	for _, gameActor := range actors {
+		metrics := gameActor.Metrics()
+		snapshot.Actors = append(snapshot.Actors, metrics)
+		snapshot.Totals.QueueDepth += metrics.QueueDepth
+		snapshot.Totals.QueueCapacity += metrics.QueueCapacity
+		snapshot.Totals.QueueFullCount += metrics.QueueFullCount
+		snapshot.Totals.CommandEnqueuedCount += metrics.CommandEnqueuedCount
+		snapshot.Totals.CommandRejectedCount += metrics.CommandRejectedCount
+		snapshot.Totals.CommandAppliedCount += metrics.CommandAppliedCount
+		if metrics.CommandLatencyMs > snapshot.Totals.CommandLatencyMs {
+			snapshot.Totals.CommandLatencyMs = metrics.CommandLatencyMs
+		}
+		if metrics.QueueWaitMs > snapshot.Totals.QueueWaitMs {
+			snapshot.Totals.QueueWaitMs = metrics.QueueWaitMs
+		}
+	}
+	return snapshot
 }
 
 func (s *Service) StopActor(ctx context.Context, gameID string) error {

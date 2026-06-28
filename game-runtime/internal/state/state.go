@@ -1,5 +1,7 @@
 package state
 
+import "encoding/json"
+
 type Zone string
 
 const (
@@ -87,6 +89,33 @@ type CardInstanceRuntime struct {
 	VisibleToMask uint64         `json:"visibleToMask,omitempty"`
 }
 
+func (c *CardInstanceRuntime) UnmarshalJSON(data []byte) error {
+	type alias CardInstanceRuntime
+	aux := struct {
+		Counters json.RawMessage `json:"counters"`
+		*alias
+	}{
+		alias: (*alias)(c),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if len(aux.Counters) == 0 || string(aux.Counters) == "null" {
+		return nil
+	}
+	var counters map[string]int
+	if err := json.Unmarshal(aux.Counters, &counters); err == nil {
+		c.Counters = counters
+		return nil
+	}
+	var empty []any
+	if err := json.Unmarshal(aux.Counters, &empty); err == nil && len(empty) == 0 {
+		c.Counters = map[string]int{}
+		return nil
+	}
+	return json.Unmarshal(aux.Counters, &c.Counters)
+}
+
 type VisibilityIndex struct {
 	InstanceMasks       map[string]uint64          `json:"instanceMasks"`
 	LibraryEpochByOwner map[string]int64           `json:"libraryEpochByOwner"`
@@ -108,6 +137,35 @@ type Relations struct {
 	Indexes     RelationIndexes     `json:"indexes"`
 }
 
+func (r *Relations) UnmarshalJSON(data []byte) error {
+	aux := struct {
+		Attachments json.RawMessage `json:"attachments"`
+		Arrows      json.RawMessage `json:"arrows"`
+		Helpers     json.RawMessage `json:"helpers"`
+		Indexes     RelationIndexes `json:"indexes"`
+	}{}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(aux.Attachments, &r.Attachments); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(aux.Arrows, &r.Arrows); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(aux.Helpers, &r.Helpers); err != nil {
+		return err
+	}
+	r.Indexes = aux.Indexes
+	if r.Indexes.BySource == nil {
+		r.Indexes.BySource = map[string][]string{}
+	}
+	if r.Indexes.ByTarget == nil {
+		r.Indexes.ByTarget = map[string][]string{}
+	}
+	return nil
+}
+
 type Relation struct {
 	ID       string         `json:"id"`
 	SourceID string         `json:"sourceId,omitempty"`
@@ -120,6 +178,27 @@ type RelationIndexes struct {
 	ByTarget map[string][]string `json:"byTarget"`
 }
 
+func (r *RelationIndexes) UnmarshalJSON(data []byte) error {
+	aux := struct {
+		BySource               json.RawMessage `json:"bySource"`
+		ByTarget               json.RawMessage `json:"byTarget"`
+		ArrowsBySource         json.RawMessage `json:"arrowsBySource"`
+		ArrowsByTarget         json.RawMessage `json:"arrowsByTarget"`
+		AttachmentsByEquipment json.RawMessage `json:"attachmentsByEquipment"`
+		AttachmentsByTarget    json.RawMessage `json:"attachmentsByTarget"`
+	}{}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(firstRaw(aux.BySource, aux.ArrowsBySource, aux.AttachmentsByEquipment), &r.BySource); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(firstRaw(aux.ByTarget, aux.ArrowsByTarget, aux.AttachmentsByTarget), &r.ByTarget); err != nil {
+		return err
+	}
+	return nil
+}
+
 type StackItem struct {
 	StackID          string         `json:"stackId"`
 	SourceInstanceID string         `json:"sourceInstanceId,omitempty"`
@@ -127,6 +206,36 @@ type StackItem struct {
 	ControllerID     string         `json:"controllerId"`
 	Text             string         `json:"text,omitempty"`
 	Meta             map[string]any `json:"meta,omitempty"`
+}
+
+func decodeMapOrEmpty[T any](raw json.RawMessage, out *map[string]T) error {
+	if len(raw) == 0 || string(raw) == "null" {
+		*out = map[string]T{}
+		return nil
+	}
+	var decoded map[string]T
+	if err := json.Unmarshal(raw, &decoded); err == nil {
+		if decoded == nil {
+			decoded = map[string]T{}
+		}
+		*out = decoded
+		return nil
+	}
+	var empty []any
+	if err := json.Unmarshal(raw, &empty); err == nil && len(empty) == 0 {
+		*out = map[string]T{}
+		return nil
+	}
+	return json.Unmarshal(raw, out)
+}
+
+func firstRaw(values ...json.RawMessage) json.RawMessage {
+	for _, value := range values {
+		if len(value) > 0 {
+			return value
+		}
+	}
+	return nil
 }
 
 type GameState struct {

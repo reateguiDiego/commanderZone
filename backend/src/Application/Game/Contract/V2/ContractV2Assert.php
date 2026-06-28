@@ -53,7 +53,7 @@ final class ContractV2Assert
     public static function requiredMap(array $data, string $field): array
     {
         $value = $data[$field] ?? null;
-        if (!is_array($value) || array_is_list($value)) {
+        if (!is_array($value) || ($value !== [] && array_is_list($value))) {
             throw new \InvalidArgumentException(sprintf('Field "%s" must be an object.', $field));
         }
 
@@ -84,7 +84,7 @@ final class ContractV2Assert
         if ($value === null) {
             return null;
         }
-        if (!is_array($value) || array_is_list($value)) {
+        if (!is_array($value) || ($value !== [] && array_is_list($value))) {
             throw new \InvalidArgumentException(sprintf('Field "%s" must be an object when provided.', $field));
         }
 

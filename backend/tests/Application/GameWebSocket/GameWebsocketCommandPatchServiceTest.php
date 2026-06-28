@@ -4,6 +4,7 @@ namespace App\Tests\Application\GameWebSocket;
 
 use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
+use App\Application\Game\Compact\CardStaticBundle;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Application\Game\GameActivityStreamService;
@@ -937,6 +938,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
     public function testAllowlistedLibraryCommandRoutesToRuntimePrimaryPatchV2WithoutProjectionOrSnapshotWrite(): void
     {
         [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $runtimeCardKey = CardStaticBundle::fromLegacyCard($game->snapshot()['players'][$actor->id()]['zones']['library'][1])->cardKey;
         $projection = $this->createMock(GameProjectionService::class);
         $projection->expects(self::never())->method('projectSnapshot');
         $projection->expects(self::never())->method('rulingsLookupForViewers');
@@ -947,7 +949,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             'visibility' => 'player:'.$actor->id(),
             'ops' => [
                 ['op' => 'zone.cards.remove', 'data' => ['playerId' => $actor->id(), 'zone' => 'library', 'instanceIds' => ['library-1']]],
-                ['op' => 'zone.cards.add', 'data' => ['playerId' => $actor->id(), 'zone' => 'hand', 'cards' => [['instanceId' => 'library-1', 'cardKey' => 'private-card']]]],
+                ['op' => 'zone.cards.add', 'data' => ['playerId' => $actor->id(), 'zone' => 'hand', 'cards' => [['instanceId' => 'library-1', 'cardKey' => $runtimeCardKey]]]],
             ],
         ], [
             'gameId' => $game->id(),
@@ -985,8 +987,21 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $opponentMessage = $result->messageForUserId($opponent->id());
         self::assertSame('patch.v2', $ownerMessage['kind']);
         self::assertSame(['zone.cards.remove', 'zone.cards.add', 'zone.count.set', 'zone.count.set'], array_column($ownerMessage['ops'], 'op'));
+        self::assertArrayHasKey('staticCards', $ownerMessage['ops'][1]);
+        self::assertArrayHasKey($runtimeCardKey, $ownerMessage['ops'][1]['staticCards']);
+        self::assertSame('Private Library One', $ownerMessage['ops'][1]['staticCards'][$runtimeCardKey]['name']);
+        self::assertSame($runtimeCardKey, $ownerMessage['ops'][1]['cards'][0]['cardRef']);
+        self::assertSame($runtimeCardKey, $ownerMessage['ops'][1]['cards'][0]['cardKey']);
+        self::assertSame($ownerMessage['ops'][1]['staticCards'][$runtimeCardKey]['printId'], $ownerMessage['ops'][1]['cards'][0]['printId']);
+        self::assertSame($ownerMessage['ops'][1]['staticCards'][$runtimeCardKey]['cardVersion'], $ownerMessage['ops'][1]['cards'][0]['cardVersion']);
+        self::assertSame('en', $ownerMessage['ops'][1]['staticCards'][$runtimeCardKey]['language']);
+        self::assertSame('private', $ownerMessage['ops'][1]['staticCards'][$runtimeCardKey]['viewerVisibility']);
+        $encodedOwnerMessage = json_encode($ownerMessage, JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('oracleText', $encodedOwnerMessage);
+        self::assertArrayNotHasKey('imageUris', $ownerMessage['ops'][1]['cards'][0]);
+        self::assertArrayNotHasKey('cardFaces', $ownerMessage['ops'][1]['cards'][0]);
         self::assertSame(['zone.count.set', 'zone.count.set'], array_column($opponentMessage['ops'], 'op'));
-        self::assertStringNotContainsString('private-card', json_encode($opponentMessage, JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString($runtimeCardKey, json_encode($opponentMessage, JSON_THROW_ON_ERROR));
         self::assertSame(['library.draw'], $runtimeClient->types);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_route'] ?? 0);
         self::assertSame(0, $metricsStore->records()[0]['gameplay.runtime_fallback_count'] ?? 1);
@@ -1146,6 +1161,19 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
     public function testAllowlistedMovementCommandRoutesToRuntimePrimaryPatchV2WithoutProjectionOrSnapshotWrite(): void
     {
         [$game, $actor, $opponent] = $this->gameWithOpponent();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['battlefield'] = [[
+            'instanceId' => 'battlefield-1',
+            'ownerId' => $actor->id(),
+            'controllerId' => $actor->id(),
+            'name' => 'Battlefield One',
+            'tapped' => false,
+            'zone' => 'battlefield',
+        ]];
+        $game->replaceSnapshot($snapshot);
+        $actor->updateCardLanguage('es');
+        $opponent->updateCardLanguage('en');
+        $runtimeCardKey = CardStaticBundle::fromLegacyCard($snapshot['players'][$actor->id()]['zones']['battlefield'][0])->cardKey;
         $projection = $this->createMock(GameProjectionService::class);
         $projection->expects(self::never())->method('projectSnapshot');
         $projection->expects(self::never())->method('rulingsLookupForViewers');
@@ -1161,6 +1189,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
                         'instanceId' => 'battlefield-1',
                         'from' => ['playerId' => $actor->id(), 'zone' => 'battlefield', 'index' => 0],
                         'to' => ['playerId' => $actor->id(), 'zone' => 'graveyard', 'index' => 0],
+                        'card' => ['instanceId' => 'battlefield-1', 'cardKey' => $runtimeCardKey],
                     ]],
                 ],
             ]],
@@ -1200,8 +1229,16 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
 
         self::assertSame('patch.v2', $ownerMessage['kind']);
         self::assertSame(['zone.cards.batchMove'], array_column($ownerMessage['ops'], 'op'));
-        self::assertSame($ownerMessage['ops'], $opponentMessage['ops']);
         self::assertArrayHasKey('moves', $ownerMessage['ops'][0]);
+        self::assertSame($runtimeCardKey, $ownerMessage['ops'][0]['moves'][0]['card']['cardKey']);
+        self::assertSame($runtimeCardKey, $ownerMessage['ops'][0]['moves'][0]['card']['printId']);
+        self::assertSame($ownerMessage['ops'][0]['moves'][0]['staticCard']['cardVersion'], $ownerMessage['ops'][0]['moves'][0]['card']['cardVersion']);
+        self::assertSame('es', $ownerMessage['ops'][0]['moves'][0]['card']['language']);
+        self::assertSame('es', $ownerMessage['ops'][0]['moves'][0]['staticCard']['language']);
+        self::assertSame('public', $ownerMessage['ops'][0]['moves'][0]['card']['viewerVisibility']);
+        self::assertSame('en', $opponentMessage['ops'][0]['moves'][0]['card']['language']);
+        self::assertSame('en', $opponentMessage['ops'][0]['moves'][0]['staticCard']['language']);
+        self::assertSame($runtimeCardKey, $ownerMessage['ops'][0]['moves'][0]['staticCard']['cardKey']);
         self::assertArrayNotHasKey('cards', $ownerMessage['ops'][0]);
         self::assertSame(['card.moved'], $runtimeClient->types);
         $record = $metricsStore->records()[0] ?? [];
@@ -1210,6 +1247,188 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(0, $record['movement.full_scan_count'] ?? 1);
         self::assertSame(0, $record['movement.reindex_count'] ?? 1);
         self::assertSame(1, $record['movement.cards_moved_count'] ?? 0);
+    }
+
+    public function testRuntimePublicAddWithCardKeyIsEnrichedWithCompleteIdentity(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateHandCards();
+        $actor->updateCardLanguage('es');
+        $opponent->updateCardLanguage('en');
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['hand'][0]['scryfallId'] = '00000000-0000-7000-8000-00000000cafe';
+        $snapshot['players'][$actor->id()]['zones']['hand'][0]['cardKey'] = 'scryfall:00000000-0000-7000-8000-00000000cafe:stable-print-v1';
+        $snapshot['players'][$actor->id()]['zones']['hand'][0]['cardVersion'] = 'stable-print-v1';
+        $snapshot['players'][$actor->id()]['zones']['hand'][0]['imageUris'] = ['normal' => 'https://cards.example/private-hand-one.jpg'];
+        $snapshot['players'][$actor->id()]['zones']['hand'][0]['cardFaces'] = [
+            ['name' => 'Private Hand One', 'imageUris' => ['normal' => 'https://cards.example/private-hand-one-face.jpg']],
+        ];
+        $game->replaceSnapshot($snapshot);
+        $runtimeCardKey = $snapshot['players'][$actor->id()]['zones']['hand'][0]['cardKey'];
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [[
+                'op' => 'zone.cards.add',
+                'data' => [
+                    'playerId' => $actor->id(),
+                    'zone' => 'battlefield',
+                    'cards' => [[
+                        'instanceId' => 'hand-1',
+                        'cardKey' => $runtimeCardKey,
+                    ]],
+                ],
+            ]],
+        ]]);
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: false,
+            expectFlush: false,
+            expectClear: true,
+            projection: $projection,
+            flagsV2: $this->runtimeFlags('card.moved', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'card.moved', runtime: true, shadow: false),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'card.moved',
+            ['playerId' => $actor->id(), 'fromZone' => 'hand', 'toZone' => 'battlefield', 'instanceId' => 'hand-1'],
+            'action-runtime-public-add-identity',
+            1,
+            'message-runtime-public-add-identity',
+            'v2',
+        );
+
+        $ownerMessage = $result->messageForUserId($actor->id());
+        $ownerAdd = $ownerMessage['ops'][0];
+        self::assertSame('es', $ownerAdd['cards'][0]['language']);
+        self::assertSame('es', $ownerAdd['staticCards'][$runtimeCardKey]['language']);
+
+        $opponentMessage = $result->messageForUserId($opponent->id());
+        $add = $opponentMessage['ops'][0];
+        self::assertSame('zone.cards.add', $add['op']);
+        self::assertSame($runtimeCardKey, $add['cards'][0]['cardKey']);
+        self::assertSame($runtimeCardKey, $add['cards'][0]['cardRef']);
+        self::assertSame($runtimeCardKey, $add['staticCards'][$runtimeCardKey]['cardKey']);
+        self::assertSame($runtimeCardKey, $add['staticCards'][$runtimeCardKey]['cardRef']);
+        self::assertSame('00000000-0000-7000-8000-00000000cafe', $add['staticCards'][$runtimeCardKey]['printId']);
+        self::assertSame($add['staticCards'][$runtimeCardKey]['printId'], $add['cards'][0]['printId']);
+        self::assertSame($add['staticCards'][$runtimeCardKey]['cardVersion'], $add['cards'][0]['cardVersion']);
+        self::assertSame('en', $add['cards'][0]['language']);
+        self::assertSame('en', $add['staticCards'][$runtimeCardKey]['language']);
+        self::assertSame('public', $add['cards'][0]['viewerVisibility']);
+        self::assertArrayHasKey($runtimeCardKey, $add['staticCards']);
+        self::assertSame('https://cards.example/private-hand-one.jpg', $add['staticCards'][$runtimeCardKey]['imageUris']['normal'] ?? null);
+        self::assertSame('https://cards.example/private-hand-one-face.jpg', $add['staticCards'][$runtimeCardKey]['cardFaces'][0]['imageUris']['normal'] ?? null);
+        self::assertArrayNotHasKey('imageUris', $add['cards'][0]);
+        self::assertStringNotContainsString('oracleText', json_encode($opponentMessage, JSON_THROW_ON_ERROR));
+    }
+
+    public function testRuntimeLivePatchUsesLocalizedStaticBundleForVisibleCard(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateHandCards();
+        $actor->updateCardLanguage('es');
+        $opponent->updateCardLanguage('en');
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['hand'][0] = [
+            ...$snapshot['players'][$actor->id()]['zones']['hand'][0],
+            'scryfallId' => 'source-print',
+            'cardKey' => 'scryfall:source-print:stable-print-v1',
+            'cardVersion' => 'stable-print-v1',
+            'name' => 'Forest',
+            'imageUris' => ['normal' => 'https://cards.example/forest-en.jpg'],
+            'cardFaces' => [
+                ['name' => 'Forest', 'imageUris' => ['normal' => 'https://cards.example/forest-en-face.jpg']],
+            ],
+        ];
+        $game->replaceSnapshot($snapshot);
+        $runtimeCardKey = $snapshot['players'][$actor->id()]['zones']['hand'][0]['cardKey'];
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [[
+                'op' => 'zone.cards.add',
+                'data' => [
+                    'playerId' => $actor->id(),
+                    'zone' => 'battlefield',
+                    'cards' => [[
+                        'instanceId' => 'hand-1',
+                        'cardKey' => $runtimeCardKey,
+                    ]],
+                ],
+            ]],
+        ]]);
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: false,
+            expectFlush: false,
+            expectClear: true,
+            projection: $projection,
+            resolver: $this->localizedRuntimeResolver(),
+            flagsV2: $this->runtimeFlags('card.moved', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'card.moved', runtime: true, shadow: false),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'card.moved',
+            ['playerId' => $actor->id(), 'fromZone' => 'hand', 'toZone' => 'battlefield', 'instanceId' => 'hand-1'],
+            'action-runtime-public-add-localized-image',
+            1,
+            'message-runtime-public-add-localized-image',
+            'v2',
+        );
+
+        $ownerAdd = $result->messageForUserId($actor->id())['ops'][0];
+        $opponentAdd = $result->messageForUserId($opponent->id())['ops'][0];
+        self::assertSame('es', $ownerAdd['cards'][0]['language']);
+        self::assertSame('es', $ownerAdd['staticCards'][$runtimeCardKey]['language']);
+        self::assertSame('https://cards.example/forest-es.jpg', $ownerAdd['staticCards'][$runtimeCardKey]['imageUris']['normal'] ?? null);
+        self::assertSame('https://cards.example/forest-es-face.jpg', $ownerAdd['staticCards'][$runtimeCardKey]['cardFaces'][0]['imageUris']['normal'] ?? null);
+        self::assertSame($ownerAdd['staticCards'][$runtimeCardKey]['printId'], $ownerAdd['cards'][0]['printId']);
+        self::assertSame($ownerAdd['staticCards'][$runtimeCardKey]['cardVersion'], $ownerAdd['cards'][0]['cardVersion']);
+        self::assertSame('en', $opponentAdd['cards'][0]['language']);
+        self::assertSame('https://cards.example/forest-en.jpg', $opponentAdd['staticCards'][$runtimeCardKey]['imageUris']['normal'] ?? null);
+
+        $bootstrapSnapshot = $game->snapshot();
+        $bootstrapSnapshot['players'][$actor->id()]['zones']['hand'] = [];
+        $bootstrapSnapshot['players'][$actor->id()]['zones']['battlefield'] = [[
+            ...$snapshot['players'][$actor->id()]['zones']['hand'][0],
+            'zone' => 'battlefield',
+            'language' => 'es',
+            'imageUris' => ['normal' => 'https://cards.example/forest-es.jpg'],
+            'cardFaces' => [
+                ['name' => 'Forest', 'imageUris' => ['normal' => 'https://cards.example/forest-es-face.jpg']],
+            ],
+        ]];
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $actor, $bootstrapSnapshot)->toArray();
+        $bootstrapStatic = $bootstrap['staticCards'][$runtimeCardKey];
+        self::assertSame($bootstrapStatic['printId'], $ownerAdd['staticCards'][$runtimeCardKey]['printId']);
+        self::assertSame($bootstrapStatic['cardVersion'], $ownerAdd['staticCards'][$runtimeCardKey]['cardVersion']);
+        self::assertSame($bootstrapStatic['language'], $ownerAdd['staticCards'][$runtimeCardKey]['language']);
+        self::assertSame($bootstrapStatic['imageUris']['normal'], $ownerAdd['staticCards'][$runtimeCardKey]['imageUris']['normal']);
+        self::assertStringNotContainsString('oracleText', json_encode($ownerAdd, JSON_THROW_ON_ERROR));
+        self::assertArrayNotHasKey('imageUris', $ownerAdd['cards'][0]);
+    }
+
+    public function testRuntimeLocalizationResolverDoesNotFallBackToEnglishWhenLocalizedPrintExists(): void
+    {
+        $lookup = $this->localizedRuntimeResolver()->buildLocalizedLookupForScryfallIds(['source-print'], ['es']);
+
+        self::assertSame('https://cards.example/forest-es.jpg', $lookup['es']['source-print']['imageUris']['normal'] ?? null);
+        self::assertNotSame('https://cards.example/forest-en.jpg', $lookup['es']['source-print']['imageUris']['normal'] ?? null);
     }
 
     public function testAllowlistedMovementRuntimeErrorFallsBackToLegacy(): void
@@ -1681,6 +1900,9 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
     public function testAllowlistedGameConcedeRoutesRuntimePrimaryWithoutSnapshotWrite(): void
     {
         [$game, $actor] = $this->game();
+        $snapshot = $game->snapshot();
+        $snapshot['version'] = 3;
+        $game->replaceSnapshot($snapshot);
         $snapshotBefore = $game->snapshot();
         $metricsStore = new GameplayMetricsStore();
         $runtimeClient = new CommandPatchRuntimeClientStub([[
@@ -1728,8 +1950,54 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame('player.status.set', $message['ops'][0]['op']);
         self::assertSame($snapshotBefore, $game->snapshot());
         self::assertSame(['game.concede'], $runtimeClient->types);
+        self::assertSame($actor->id(), $runtimeClient->payloads[0]['playerId'] ?? null);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_route'] ?? 0);
         self::assertSame(0, $metricsStore->records()[0]['lifecycle.snapshot_write_count'] ?? 1);
+    }
+
+    public function testRuntimeGameConcedeRejectsAlreadyConcededPlayerFromLifecycleEvents(): void
+    {
+        [$game, $actor] = $this->game();
+        $concededEvent = new GameEvent(
+            $game,
+            'game.concede',
+            ['playerId' => $actor->id()],
+            $actor,
+            'action-runtime-concede-original',
+            2,
+        );
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([]);
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: false,
+            expectFlush: false,
+            expectClear: true,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('game.concede', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'game.concede', runtime: true, shadow: false),
+            lifecycleEvents: [$concededEvent],
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'game.concede',
+            [],
+            'action-runtime-concede-duplicate',
+            2,
+            'message-runtime-concede-duplicate',
+            'v2',
+        );
+
+        $message = is_array($result) ? $result : $result->messageForUserId($actor->id());
+        self::assertSame('command_ack', $message['kind']);
+        self::assertSame('rejected', $message['status']);
+        self::assertSame('INVALID_COMMAND_MESSAGE', $message['error']['code'] ?? null);
+        self::assertStringContainsString('already conceded', (string) ($message['error']['message'] ?? ''));
+        self::assertSame([], $runtimeClient->types);
+        self::assertSame('invalid_runtime_lifecycle_transition', $metricsStore->records()[0]['status'] ?? null);
     }
 
     public function testAllowlistedGameCloseRoutesRuntimePrimaryAndPersistsLifecycleStatusOnly(): void
@@ -2093,16 +2361,33 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             str_starts_with($commandType, 'stack.') ? 'stack.patch_bytes' : 'relations.patch_bytes' => 128,
             str_starts_with($commandType, 'stack.') ? 'stack.apply_ms' : 'relations.apply_ms' => 0.1,
         ]);
+        $runtimePersistedEvent = $commandType === 'card.token.created'
+            ? new GameEvent($game, 'card.token.created', [
+                'playerId' => $actor->id(),
+                'instanceIds' => ['runtime-token'],
+                'cardKey' => 'runtime-token:token',
+                'name' => 'Runtime Goblin',
+                'tokens' => [[
+                    'instanceId' => 'runtime-token',
+                    'ownerId' => $actor->id(),
+                    'controllerId' => $actor->id(),
+                    'name' => 'Runtime Goblin',
+                    'cardKey' => 'runtime-token:token',
+                    'isToken' => true,
+                ]],
+            ], $actor, 'action-runtime-'.$commandType, 2)
+            : null;
         $service = $this->service(
             $game,
             existingEvent: null,
             expectPersist: false,
-            expectFlush: false,
+            expectFlush: $runtimePersistedEvent instanceof GameEvent,
             expectClear: true,
             actor: $actor,
             metricsStore: $metricsStore,
             flagsV2: $this->runtimeFlags($commandType, runtime: true, shadow: false),
             runtimeGateway: $this->runtimeGateway($runtimeClient, $commandType, runtime: true, shadow: false),
+            runtimePersistedEvent: $runtimePersistedEvent,
         );
 
         $result = $service->apply(
@@ -2117,6 +2402,43 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         );
 
         self::assertSame('patch.v2', $result->messageForUserId($actor->id())['kind']);
+        if ($commandType === 'card.token.created') {
+            $add = $result->messageForUserId($actor->id())['ops'][0];
+            self::assertSame('zone.cards.add', $add['op']);
+            self::assertArrayHasKey('runtime-token:token', $add['staticCards']);
+            self::assertSame('Runtime Goblin', $add['staticCards']['runtime-token:token']['name']);
+            self::assertSame('runtime-token', $add['staticCards']['runtime-token:token']['printId']);
+            self::assertNotSame('runtime-identity-v1', $add['staticCards']['runtime-token:token']['cardVersion']);
+            self::assertSame('en', $add['staticCards']['runtime-token:token']['language']);
+            self::assertSame('public', $add['staticCards']['runtime-token:token']['viewerVisibility']);
+            self::assertSame('https://example.test/token.jpg', $add['staticCards']['runtime-token:token']['imageUris']['normal'] ?? null);
+            self::assertSame($add['staticCards']['runtime-token:token']['printId'], $add['cards'][0]['printId']);
+            self::assertSame($add['staticCards']['runtime-token:token']['cardVersion'], $add['cards'][0]['cardVersion']);
+            self::assertArrayNotHasKey('imageUris', $add['cards'][0]);
+            self::assertArrayNotHasKey('oracleText', $add['cards'][0]);
+            self::assertArrayNotHasKey('cardFaces', $add['cards'][0]);
+            self::assertStringNotContainsString('oracleText', json_encode($add, JSON_THROW_ON_ERROR));
+            self::assertSame(
+                'https://example.test/token.jpg',
+                $runtimePersistedEvent?->payload()['staticCards']['runtime-token:token']['imageUris']['normal'] ?? null,
+            );
+            self::assertStringNotContainsString('oracleText', json_encode($runtimePersistedEvent?->payload(), JSON_THROW_ON_ERROR));
+        }
+        if ($commandType === 'card.token_copy.created') {
+            $add = $result->messageForUserId($actor->id())['ops'][0];
+            self::assertSame('zone.cards.add', $add['op']);
+            self::assertArrayHasKey('runtime-token:token', $add['staticCards']);
+            self::assertSame('Runtime Token', $add['staticCards']['runtime-token:token']['name']);
+            self::assertSame('runtime-token:token', $add['staticCards']['runtime-token:token']['printId']);
+            self::assertSame('runtime-identity-v1', $add['staticCards']['runtime-token:token']['cardVersion']);
+            self::assertSame('en', $add['staticCards']['runtime-token:token']['language']);
+            self::assertSame('public', $add['staticCards']['runtime-token:token']['viewerVisibility']);
+            self::assertSame($add['staticCards']['runtime-token:token']['printId'], $add['cards'][0]['printId']);
+            self::assertSame($add['staticCards']['runtime-token:token']['cardVersion'], $add['cards'][0]['cardVersion']);
+            self::assertArrayNotHasKey('imageUris', $add['cards'][0]);
+            self::assertArrayNotHasKey('oracleText', $add['cards'][0]);
+            self::assertArrayNotHasKey('cardFaces', $add['cards'][0]);
+        }
         self::assertSame([$commandType], $runtimeClient->types);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_route'] ?? 0);
         self::assertSame(0, $metricsStore->records()[0]['gameplay.runtime_fallback_count'] ?? 1);
@@ -2273,16 +2595,33 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             'edge.runtime_route' => 1,
             'edge.patch_bytes' => 96,
         ]);
+        $runtimePersistedEvent = $commandType === 'card.token.created'
+            ? new GameEvent($game, 'card.token.created', [
+                'playerId' => $actor->id(),
+                'instanceIds' => ['runtime-token'],
+                'cardKey' => 'runtime-token:token',
+                'name' => 'Runtime Token',
+                'tokens' => [[
+                    'instanceId' => 'runtime-token',
+                    'ownerId' => $actor->id(),
+                    'controllerId' => $actor->id(),
+                    'name' => 'Runtime Token',
+                    'cardKey' => 'runtime-token:token',
+                    'isToken' => true,
+                ]],
+            ], $actor, 'action-edge-runtime-'.$commandType, 2)
+            : null;
         $service = $this->service(
             $game,
             existingEvent: null,
             expectPersist: false,
-            expectFlush: false,
+            expectFlush: $runtimePersistedEvent instanceof GameEvent,
             expectClear: true,
             actor: $actor,
             metricsStore: $metricsStore,
             flagsV2: $this->runtimeFlags($commandType, runtime: true, shadow: false),
             runtimeGateway: $this->runtimeGateway($runtimeClient, $commandType, runtime: true, shadow: false),
+            runtimePersistedEvent: $runtimePersistedEvent,
         );
 
         $result = $service->apply(
@@ -2297,6 +2636,13 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         );
 
         self::assertSame('patch.v2', $result->messageForUserId($actor->id())['kind']);
+        if ($commandType === 'card.token.created') {
+            self::assertSame(
+                'https://example.test/token.jpg',
+                $runtimePersistedEvent?->payload()['staticCards']['runtime-token:token']['imageUris']['normal'] ?? null,
+            );
+            self::assertStringNotContainsString('oracleText', json_encode($runtimePersistedEvent?->payload(), JSON_THROW_ON_ERROR));
+        }
         self::assertSame([$commandType], $runtimeClient->types);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_route'] ?? 0);
         self::assertSame(0, $metricsStore->records()[0]['gameplay.runtime_fallback_count'] ?? 1);
@@ -3308,6 +3654,109 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         return [new Game($room, $this->snapshot($actor, $opponent)), $actor, $opponent];
     }
 
+    private function localizedRuntimeResolver(): GameWebsocketCardLocalizationResolver
+    {
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->method('fetchOne')->willReturn(null);
+        $connection->method('executeQuery')->willReturnCallback(function (string $sql, array $params = []): \Doctrine\DBAL\Result {
+            $sourceRows = [[
+                'scryfall_id' => 'source-print',
+                'normalized_name' => 'forest',
+                'set_code' => 'abc',
+                'collector_number' => '1',
+                'name' => 'Forest',
+                'printed_name' => null,
+                'lang' => 'en',
+                'image_uris' => json_encode(['normal' => 'https://cards.example/forest-en.jpg'], JSON_THROW_ON_ERROR),
+                'card_faces' => json_encode([['name' => 'Forest', 'imageUris' => ['normal' => 'https://cards.example/forest-en-face.jpg']]], JSON_THROW_ON_ERROR),
+                'type_line' => 'Basic Land',
+                'mana_cost' => null,
+                'oracle_text' => null,
+                'image_status' => null,
+            ]];
+            $payloadRows = [
+                [
+                    'scryfall_id' => 'source-print',
+                    'lang' => 'en',
+                    'name' => 'Forest',
+                    'printed_name' => null,
+                    'image_uris' => json_encode(['normal' => 'https://cards.example/forest-en.jpg'], JSON_THROW_ON_ERROR),
+                    'card_faces' => json_encode([['name' => 'Forest', 'imageUris' => ['normal' => 'https://cards.example/forest-en-face.jpg']]], JSON_THROW_ON_ERROR),
+                    'type_line' => 'Basic Land',
+                    'mana_cost' => null,
+                    'oracle_text' => null,
+                ],
+                [
+                    'scryfall_id' => 'source-print-es',
+                    'lang' => 'es',
+                    'name' => 'Bosque',
+                    'printed_name' => 'Bosque',
+                    'image_uris' => json_encode(['normal' => 'https://cards.example/forest-es.jpg'], JSON_THROW_ON_ERROR),
+                    'card_faces' => json_encode([['name' => 'Bosque', 'imageUris' => ['normal' => 'https://cards.example/forest-es-face.jpg']]], JSON_THROW_ON_ERROR),
+                    'type_line' => 'Tierra basica',
+                    'mana_cost' => null,
+                    'oracle_text' => null,
+                ],
+            ];
+
+            if (str_contains($sql, 'WHERE scryfall_id IN (:ids)') && str_contains($sql, 'AND lang IN (:languages)')) {
+                $ids = array_flip(array_values(array_filter($params['ids'] ?? [], static fn (mixed $id): bool => is_string($id))));
+                $languages = array_flip(array_values(array_filter($params['languages'] ?? [], static fn (mixed $language): bool => is_string($language))));
+
+                return $this->dbalResult(array_values(array_filter(
+                    $payloadRows,
+                    static fn (array $row): bool => isset($ids[$row['scryfall_id']], $languages[$row['lang']]),
+                )));
+            }
+
+            if (str_contains($sql, 'WHERE scryfall_id IN (:ids)')) {
+                return $this->dbalResult($sourceRows);
+            }
+
+            if (str_contains($sql, 'candidate.collector_number')) {
+                $languages = array_flip(array_values(array_filter($params['languages'] ?? [], static fn (mixed $language): bool => is_string($language))));
+                $rows = [];
+                if (isset($languages['es'])) {
+                    $rows[] = [
+                        'source_scryfall_id' => 'source-print',
+                        'candidate_scryfall_id' => 'source-print-es',
+                        'lang' => 'es',
+                        'image_status' => null,
+                    ];
+                }
+                if (isset($languages['en'])) {
+                    $rows[] = [
+                        'source_scryfall_id' => 'source-print',
+                        'candidate_scryfall_id' => 'source-print',
+                        'lang' => 'en',
+                        'image_status' => null,
+                    ];
+                }
+
+                return $this->dbalResult($rows);
+            }
+
+            if (str_contains($sql, 'candidate.normalized_name = source.normalized_name')) {
+                return $this->dbalResult([]);
+            }
+
+            return $this->dbalResult([]);
+        });
+
+        return new GameWebsocketCardLocalizationResolver($connection);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $rows
+     */
+    private function dbalResult(array $rows): \Doctrine\DBAL\Result
+    {
+        $result = $this->createMock(\Doctrine\DBAL\Result::class);
+        $result->method('fetchAllAssociative')->willReturn($rows);
+
+        return $result;
+    }
+
     private function service(
         Game $game,
         ?GameEvent $existingEvent,
@@ -3329,6 +3778,9 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         ?int $expectedBeginTransactions = null,
         ?int $expectedLocks = null,
         ?int $expectedRollbacks = null,
+        ?array &$persistedEventTypes = null,
+        array $lifecycleEvents = [],
+        ?GameEvent $runtimePersistedEvent = null,
     ): GameWebsocketCommandPatchService {
         $actor ??= $game->room()->owner();
         $gameRepository = $this->createMock(EntityRepository::class);
@@ -3336,7 +3788,17 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $userRepository = $this->createMock(EntityRepository::class);
         $userRepository->expects(self::once())->method('find')->with($actor->id())->willReturn($actor);
         $eventRepository = $this->createMock(EntityRepository::class);
-        $eventRepository->expects($expectTransaction ? self::once() : self::never())->method('findOneBy')->willReturn($existingEvent);
+        $findOneCalls = $expectTransaction ? 1 : 0;
+        if ($runtimePersistedEvent instanceof GameEvent) {
+            ++$findOneCalls;
+        }
+        $findOneExpectation = $eventRepository->expects(self::exactly($findOneCalls))->method('findOneBy');
+        if ($runtimePersistedEvent instanceof GameEvent) {
+            $findOneExpectation->willReturnOnConsecutiveCalls($existingEvent, $runtimePersistedEvent);
+        } else {
+            $findOneExpectation->willReturn($existingEvent);
+        }
+        $eventRepository->method('findBy')->willReturn($lifecycleEvents);
 
         $manager = $this->createMock(EntityManagerInterface::class);
         $manager->method('getRepository')->willReturnMap([
@@ -3349,7 +3811,12 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $expectedRollbacks ??= $expectTransaction && (!$expectPersist || !$expectFlush) ? 1 : 0;
         $manager->expects(self::exactly($expectedBeginTransactions))->method('beginTransaction');
         $manager->expects(self::exactly($expectedLocks))->method('lock')->with($game, LockMode::PESSIMISTIC_WRITE);
-        $manager->expects($expectPersist ? self::once() : self::never())->method('persist')->with(self::isInstanceOf(GameEvent::class));
+        $persistExpectation = $manager->expects($expectPersist ? self::once() : self::never())->method('persist')->with(self::isInstanceOf(GameEvent::class));
+        if ($persistedEventTypes !== null) {
+            $persistExpectation->willReturnCallback(static function (GameEvent $event) use (&$persistedEventTypes): void {
+                $persistedEventTypes[] = $event->type();
+            });
+        }
         $manager->expects($expectFlush ? self::once() : self::never())->method('flush');
         $manager->expects($expectPersist && $expectFlush ? self::once() : self::never())->method('commit');
         $manager->expects(self::exactly($expectedRollbacks))->method('rollback');
@@ -3543,6 +4010,8 @@ final class CommandPatchRuntimeClientStub implements GameRuntimeCommandClientInt
     public array $types = [];
     /** @var list<int> */
     public array $baseVersions = [];
+    /** @var list<array<string,mixed>> */
+    public array $payloads = [];
 
     /**
      * @param list<array<string,mixed>> $patches
@@ -3568,6 +4037,7 @@ final class CommandPatchRuntimeClientStub implements GameRuntimeCommandClientInt
     ): GameRuntimeCommandResult {
         $this->types[] = $type;
         $this->baseVersions[] = $baseVersion;
+        $this->payloads[] = $payload;
         if ($this->fail) {
             throw new GameRuntimeGatewayException('runtime unavailable');
         }

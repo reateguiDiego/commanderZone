@@ -52,6 +52,10 @@ final readonly class GameRuntimeCommandClient implements GameRuntimeCommandClien
 
         if ($statusCode < 200 || $statusCode >= 300) {
             $message = is_string($data['error'] ?? null) ? $data['error'] : 'Runtime command failed.';
+            $code = is_string($data['code'] ?? null) ? $data['code'] : null;
+            if (in_array($statusCode, [400, 409], true) && $code === 'command_failed') {
+                throw new \InvalidArgumentException($message);
+            }
             throw new GameRuntimeGatewayException($message);
         }
         if (!is_array($data['event'] ?? null) || !is_array($data['patches'] ?? null)) {

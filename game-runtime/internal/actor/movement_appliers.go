@@ -42,6 +42,7 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 		return nil, err
 	}
 	position := insertPosition(command.Payload)
+	visualPosition := movementVisualPosition(command.Payload)
 	for _, instanceID := range instanceIDs {
 		location, ok := game.GetLocation(instanceID)
 		if !ok {
@@ -58,16 +59,23 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 		return nil, err
 	}
 
+	applyMovementBattlefieldPositions(game, moves, visualPosition)
+	commanderCastCounters := applyCommanderCastCounters(game, moves)
 	emitMovementPatches(emitter, game, moves)
+	emitCommanderCastCounterPatches(emitter, commanderCastCounters)
 	emitPrunedRelationPatches(emitter, pruneRelationsForMoves(game, moves))
 	emitTouchedZoneCounts(emitter, game, moves)
 	return map[string]any{
-		"playerId":    playerID,
-		"instanceIds": instanceIDs,
-		"toPlayerId":  toPlayerID,
-		"toZone":      string(toZone),
-		"moves":       movementEventMoves(moves),
-		"metrics":     movementMetrics(start, ops, len(moves), emitter),
+		"playerId":              playerID,
+		"fromZone":              string(moves[0].From.Zone),
+		"instanceIds":           instanceIDs,
+		"instanceId":            instanceIDs[0],
+		"toPlayerId":            toPlayerID,
+		"toZone":                string(toZone),
+		"position":              visualPosition,
+		"moves":                 movementEventMoves(game, moves),
+		"commanderCastCounters": commanderCastCounters,
+		"metrics":               movementMetrics(start, ops, len(moves), emitter),
 	}, nil
 }
 
@@ -134,10 +142,12 @@ func (ZoneMoveAllApplier) Apply(_ context.Context, game *state.GameState, comman
 	if err != nil {
 		return nil, err
 	}
+	commanderCastCounters := applyCommanderCastCounters(game, moves)
 	emitMovementPatches(emitter, game, moves)
+	emitCommanderCastCounterPatches(emitter, commanderCastCounters)
 	emitPrunedRelationPatches(emitter, pruneRelationsForMoves(game, moves))
 	emitTouchedZoneCounts(emitter, game, moves)
-	return map[string]any{"playerId": playerID, "targetPlayerId": toPlayerID, "fromZone": string(fromZone), "toZone": string(toZone), "count": len(moves), "moves": movementEventMoves(moves), "metrics": movementMetrics(start, ops, len(moves), emitter)}, nil
+	return map[string]any{"playerId": playerID, "targetPlayerId": toPlayerID, "fromZone": string(fromZone), "toZone": string(toZone), "count": len(moves), "moves": movementEventMoves(game, moves), "commanderCastCounters": commanderCastCounters, "metrics": movementMetrics(start, ops, len(moves), emitter)}, nil
 }
 
 type BattlefieldUntapAllApplier struct{}
@@ -188,6 +198,123 @@ func insertPosition(payload map[string]any) state.ZoneInsertPosition {
 	default:
 		return state.ZoneInsertAppend
 	}
+}
+
+func movementVisualPosition(payload map[string]any) map[string]any {
+	position, ok := payload["position"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return normalizedPoint(position)
+}
+
+func applyMovementBattlefieldPositions(game *state.GameState, moves []state.ZoneMove, requestedPosition map[string]any) {
+	for offset, move := range moves {
+		instance := game.Instances[move.InstanceID]
+		if move.To.Zone != state.ZoneBattlefield {
+			instance.Position = nil
+			game.Instances[move.InstanceID] = instance
+			continue
+		}
+
+		if requestedPosition != nil {
+			instance.Position = offsetBattlefieldPosition(requestedPosition, offset)
+		} else if !validBattlefieldPosition(instance.Position) {
+			instance.Position = defaultBattlefieldPosition(move.To.Index)
+		}
+		game.Instances[move.InstanceID] = instance
+	}
+}
+
+func applyCommanderCastCounters(game *state.GameState, moves []state.ZoneMove) []map[string]any {
+	applied := []map[string]any{}
+	for _, move := range moves {
+		if !isCommanderCastMove(game, move) {
+			continue
+		}
+		instance := game.Instances[move.InstanceID]
+		scope := "commander:" + move.InstanceID
+		counters := cloneIntMap(game.SharedCounters[scope])
+		counters["casts"] = counters["casts"] + 1
+		if game.SharedCounters == nil {
+			game.SharedCounters = map[string]map[string]int{}
+		}
+		game.SharedCounters[scope] = counters
+		applied = append(applied, map[string]any{
+			"scope":      scope,
+			"instanceId": move.InstanceID,
+			"playerId":   instance.OwnerID,
+			"counters":   cloneIntMapAny(counters),
+		})
+	}
+	return applied
+}
+
+func isCommanderCastMove(game *state.GameState, move state.ZoneMove) bool {
+	if move.From.Zone != state.ZoneCommand {
+		return false
+	}
+	if move.To.Zone != state.ZoneBattlefield && move.To.Zone != state.Zone("stack") {
+		return false
+	}
+	instance := game.Instances[move.InstanceID]
+	if !instance.IsCommander {
+		return false
+	}
+	ownerID := instance.OwnerID
+	if ownerID == "" {
+		ownerID = move.From.PlayerID
+	}
+	return move.From.PlayerID == ownerID && move.To.PlayerID == ownerID
+}
+
+func emitCommanderCastCounterPatches(emitter *PatchEmitter, counters []map[string]any) {
+	for _, counter := range counters {
+		scope, _ := counter["scope"].(string)
+		values, _ := counter["counters"].(map[string]any)
+		if scope == "" || values == nil {
+			continue
+		}
+		emitter.EmitPublic(protocol.PatchOp{
+			Op: "game.counters.set",
+			Data: map[string]any{
+				"scope":    scope,
+				"counters": cloneMap(values),
+			},
+		})
+	}
+}
+
+func offsetBattlefieldPosition(position map[string]any, offset int) map[string]any {
+	next := normalizedPoint(position)
+	if offset == 0 {
+		return next
+	}
+	next["x"] = clampFloat(toFloat(next["x"], 0.5)+(float64(offset)*0.035), 0.08, 0.92)
+	next["y"] = clampFloat(toFloat(next["y"], 0.5)+(float64(offset)*0.045), 0.12, 0.88)
+	return next
+}
+
+func defaultBattlefieldPosition(index int) map[string]any {
+	if index < 0 {
+		index = 0
+	}
+	column := index % 6
+	row := index / 6
+	return map[string]any{
+		"x":    clampFloat(0.16+float64(column)*0.12, 0.08, 0.92),
+		"y":    clampFloat(0.18+float64(row)*0.16, 0.12, 0.88),
+		"unit": "ratio",
+	}
+}
+
+func validBattlefieldPosition(position map[string]any) bool {
+	if position == nil {
+		return false
+	}
+	x := toFloat(position["x"], 0)
+	y := toFloat(position["y"], 0)
+	return x > 0 || y > 0
 }
 
 func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []state.ZoneMove) {
@@ -303,13 +430,14 @@ func emitTouchedZoneCounts(emitter *PatchEmitter, game *state.GameState, moves [
 	}
 }
 
-func movementEventMoves(moves []state.ZoneMove) []map[string]any {
+func movementEventMoves(game *state.GameState, moves []state.ZoneMove) []map[string]any {
 	out := make([]map[string]any, 0, len(moves))
 	for _, move := range moves {
 		out = append(out, map[string]any{
 			"instanceId": move.InstanceID,
 			"from":       map[string]any{"playerId": move.From.PlayerID, "zone": move.From.Zone, "index": move.From.Index},
 			"to":         map[string]any{"playerId": move.To.PlayerID, "zone": move.To.Zone, "index": move.To.Index},
+			"position":   cloneMap(game.Instances[move.InstanceID].Position),
 		})
 	}
 	return out

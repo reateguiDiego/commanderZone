@@ -167,6 +167,10 @@
   z-index: 12100;
 }
 
+.game-screen.has-table-exit-modal > .unsupported-resolution-lock {
+  display: none !important;
+}
+
 .orientation-lock lucide-icon,
 .unsupported-resolution-lock > lucide-icon {
   color: var(--game-accent);

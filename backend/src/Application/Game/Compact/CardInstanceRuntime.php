@@ -8,7 +8,7 @@ final readonly class CardInstanceRuntime
      * @param array<string,mixed>|null $tokenMeta
      * @param array<string,int>        $counters
      * @param array{power:int|string|null,toughness:int|string|null,loyalty:int|string|null,defense:int|string|null,saga:int|string|null} $mutableStats
-     * @param array<string,int|float|string> $position
+     * @param array<string,int|float|string>|null $position
      * @param list<string>             $visibleTo
      * @param array{x:float,y:float}|null $dungeonMarker
      */
@@ -25,7 +25,7 @@ final readonly class CardInstanceRuntime
         public int $rotation,
         public array $counters,
         public array $mutableStats,
-        public array $position,
+        public ?array $position,
         public bool $faceDown,
         public int $activeFace,
         public array $visibleTo,
@@ -68,7 +68,7 @@ final readonly class CardInstanceRuntime
                 'defense' => self::stat($card['defense'] ?? null),
                 'saga' => self::stat($card['saga'] ?? null),
             ],
-            is_array($card['position'] ?? null) ? $card['position'] : ['x' => 0, 'y' => 0],
+            is_array($card['position'] ?? null) ? $card['position'] : null,
             (bool) ($card['faceDown'] ?? false),
             max(0, (int) ($card['activeFaceIndex'] ?? 0)),
             is_array($card['revealedTo'] ?? null) ? array_values($card['revealedTo']) : [],
@@ -95,12 +95,15 @@ final readonly class CardInstanceRuntime
             'rotation' => $this->rotation,
             'counters' => $this->counters,
             'mutableStats' => $this->mutableStats,
-            'position' => $this->position,
             'faceDown' => $this->faceDown,
             'activeFace' => $this->activeFace,
             'visibleTo' => $this->visibleTo,
             'visibleToMask' => $this->visibleToMask,
         ];
+
+        if ($this->position !== null) {
+            $runtime['position'] = $this->position;
+        }
 
         if ($this->dungeonMarker !== null) {
             $runtime['dungeonMarker'] = $this->dungeonMarker;

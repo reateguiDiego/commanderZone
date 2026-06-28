@@ -2,6 +2,7 @@
 
 namespace App\Application\Game;
 
+use App\Application\Game\Compact\CardStaticBundle;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Domain\Game\Game;
@@ -64,14 +65,13 @@ final class GameEventStoreV2
         $legacyVersion = max(1, (int) ($legacySnapshot['version'] ?? 1));
         $baseSnapshot = $legacySnapshot;
         $baseVersion = $legacyVersion;
+        $compactChecksumMismatch = false;
 
         if ($latestCompactSnapshot instanceof GameSnapshotCompact) {
             $expectedChecksum = $this->checksum($latestCompactSnapshot->snapshot());
             if (!hash_equals($expectedChecksum, $latestCompactSnapshot->checksum())) {
-                throw new \RuntimeException('Compact snapshot checksum mismatch.');
-            }
-
-            if ($latestCompactSnapshot->version() >= $legacyVersion) {
+                $compactChecksumMismatch = true;
+            } elseif ($latestCompactSnapshot->version() >= $legacyVersion) {
                 $baseSnapshot = $this->hydrateCompactSnapshot($latestCompactSnapshot->snapshot(), $legacySnapshot);
                 $baseVersion = $latestCompactSnapshot->version();
             }
@@ -82,6 +82,16 @@ final class GameEventStoreV2
             $events,
             static fn (mixed $event): bool => $event instanceof GameEvent && $event->version() > $baseVersion,
         ));
+        $runtimeStaticCards = [
+            ...$this->runtimeStaticCardsFromSnapshot($snapshot),
+            ...$this->runtimeStaticCardsFromEvents($events),
+        ];
+        if ($runtimeStaticCards !== []) {
+            $snapshot['cardCatalog'] = [
+                ...(is_array($snapshot['cardCatalog'] ?? null) ? $snapshot['cardCatalog'] : []),
+                ...$runtimeStaticCards,
+            ];
+        }
         $replayStartedAt = microtime(true);
         $snapshot = $this->replayService()->replay($snapshot, $eventsToReplay);
         $this->lastReplayMetrics = [
@@ -90,6 +100,7 @@ final class GameEventStoreV2
                 $eventsToReplay,
                 static fn (GameEvent $event): bool => str_starts_with($event->type(), 'mulligan.'),
             )),
+            'gameplay.compact_snapshot_checksum_mismatch' => $compactChecksumMismatch ? 1 : 0,
         ];
         $snapshot = $this->normalizer->normalizeSnapshot($snapshot);
         if ($this->flagsV2?->visibilityEnabled() ?? false) {
@@ -204,6 +215,113 @@ final class GameEventStoreV2
     private function replayService(): GameEventReplayService
     {
         return $this->replayService ?? new GameEventReplayService();
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function runtimeStaticCardsFromSnapshot(array $snapshot): array
+    {
+        $staticCards = [];
+        foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $player) {
+            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                continue;
+            }
+            foreach ($player['zones'] as $cards) {
+                if (!is_array($cards)) {
+                    continue;
+                }
+                foreach ($cards as $card) {
+                    if (!is_array($card)) {
+                        continue;
+                    }
+                    $cardKey = $this->runtimeCardKey($card);
+                    if ($cardKey === '') {
+                        continue;
+                    }
+                    $staticCards[$cardKey] ??= $this->runtimeStaticCard($cardKey, $card);
+                }
+            }
+        }
+
+        return $staticCards;
+    }
+
+    /**
+     * @param list<GameEvent> $events
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function runtimeStaticCardsFromEvents(array $events): array
+    {
+        $staticCards = [];
+        foreach ($events as $event) {
+            if (!$event instanceof GameEvent) {
+                continue;
+            }
+            $payload = $event->payload();
+            $eventStaticCards = is_array($payload['staticCards'] ?? null) ? $payload['staticCards'] : [];
+            foreach ($eventStaticCards as $cardKey => $card) {
+                if (!is_string($cardKey) || !is_array($card) || trim($cardKey) === '') {
+                    continue;
+                }
+                $staticCards[$cardKey] = $this->runtimeStaticCard($cardKey, $card);
+            }
+        }
+
+        return $staticCards;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function runtimeCardKey(array $card): string
+    {
+        foreach (['cardKey', 'cardRef'] as $field) {
+            if (is_string($card[$field] ?? null) && trim($card[$field]) !== '') {
+                return trim($card[$field]);
+            }
+        }
+
+        $scryfallId = is_string($card['scryfallId'] ?? null) ? trim($card['scryfallId']) : '';
+        if ($scryfallId !== '') {
+            return $scryfallId.(($card['isToken'] ?? false) === true ? ':token' : ':card');
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>
+     */
+    private function runtimeStaticCard(string $cardKey, array $card): array
+    {
+        unset($card['oracleText']);
+        if (is_array($card['cardFaces'] ?? null)) {
+            $card['cardFaces'] = array_values(array_map(
+                static function (mixed $face): mixed {
+                    if (is_array($face)) {
+                        unset($face['oracleText']);
+                    }
+
+                    return $face;
+                },
+                $card['cardFaces'],
+            ));
+        }
+
+        $bundle = CardStaticBundle::fromLegacyCard([
+            ...$card,
+            'cardKey' => $cardKey,
+        ]);
+        $staticCard = $bundle->toArray();
+        $staticCard['cardKey'] = $cardKey;
+
+        return $staticCard;
     }
 
     /**

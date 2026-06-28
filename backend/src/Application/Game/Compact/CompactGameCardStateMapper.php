@@ -284,6 +284,7 @@ final class CompactGameCardStateMapper
         $mutableStats = is_array($card['mutableStats'] ?? null) ? $card['mutableStats'] : [];
         $tokenMeta = is_array($card['tokenMeta'] ?? null) ? $card['tokenMeta'] : [];
         $layout = $bundle->layoutMetadata['layout'] ?? null;
+        $preserveIdentity = $this->zoneCarriesPublicIdentity((string) ($card['zone'] ?? $zone));
 
         $hydrated = [
             'instanceId' => (string) ($card['instanceId'] ?? ''),
@@ -311,7 +312,7 @@ final class CompactGameCardStateMapper
             'activeFaceIndex' => max(0, (int) ($card['activeFace'] ?? 0)),
             'revealedTo' => is_array($card['visibleTo'] ?? null) ? array_values($card['visibleTo']) : [],
             'visibleToMask' => max(0, (int) ($card['visibleToMask'] ?? 0)),
-            'position' => is_array($card['position'] ?? null) ? $card['position'] : ['x' => 0, 'y' => 0],
+            'position' => is_array($card['position'] ?? null) ? $card['position'] : null,
             'rotation' => max(0, (int) ($card['rotation'] ?? 0)),
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
             'zone' => (string) ($card['zone'] ?? $zone),
@@ -321,6 +322,9 @@ final class CompactGameCardStateMapper
         ];
         if ($tokenMeta !== []) {
             $hydrated['tokenMeta'] = $tokenMeta;
+        }
+        if ($preserveIdentity) {
+            $hydrated['cardVersion'] = $bundle->cardVersion;
         }
 
         if (is_string($layout) && trim($layout) !== '') {
@@ -334,6 +338,11 @@ final class CompactGameCardStateMapper
         }
 
         return $hydrated;
+    }
+
+    private function zoneCarriesPublicIdentity(string $zone): bool
+    {
+        return !in_array($zone, ['hand', 'library'], true);
     }
 
     /**

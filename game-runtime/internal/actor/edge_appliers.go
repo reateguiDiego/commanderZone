@@ -98,6 +98,8 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 		"instanceIds": ids,
 		"count":       quantity,
 		"cardKey":     cardKey,
+		"name":        name,
+		"tokens":      cards,
 		"tokenMeta":   tokenMeta,
 		"metrics":     edgeMetrics("edge.token_create_ms", start, emitter),
 	}, nil
@@ -152,13 +154,14 @@ func (CardTokenCopyCreatedApplier) Apply(_ context.Context, game *state.GameStat
 	if err != nil {
 		return nil, err
 	}
+	card := tokenPatchData(copy, "Token Copy", true)
 	emitter.EmitPublic(protocol.PatchOp{
 		Op: "zone.cards.add",
 		Data: map[string]any{
 			"playerId": targetPlayerID,
 			"zone":     state.ZoneBattlefield,
 			"index":    insertIndex,
-			"cards":    []map[string]any{tokenPatchData(copy, "Token Copy", true)},
+			"cards":    []map[string]any{card},
 		},
 	})
 	emitZoneCount(emitter, game, targetPlayerID, state.ZoneBattlefield)
@@ -168,6 +171,7 @@ func (CardTokenCopyCreatedApplier) Apply(_ context.Context, game *state.GameStat
 		"instanceId":        instanceID,
 		"sourceInstanceId":  sourceID,
 		"copiedFromCardKey": source.CardKey,
+		"tokens":            []map[string]any{card},
 		"metrics":           edgeMetrics("edge.token_copy_ms", start, emitter),
 	}, nil
 }
@@ -310,6 +314,8 @@ func tokenPatchData(instance state.CardInstanceRuntime, name string, isCopy bool
 		"controllerId": instance.ControllerID,
 		"name":         name,
 		"cardKey":      instance.CardKey,
+		"printId":      instance.CardKey,
+		"cardVersion":  "runtime-identity-v1",
 		"zone":         state.ZoneBattlefield,
 		"isToken":      true,
 		"isTokenCopy":  isCopy,

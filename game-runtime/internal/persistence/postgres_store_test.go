@@ -2,7 +2,9 @@ package persistence
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"os"
 	"testing"
@@ -72,6 +74,27 @@ VALUES ($1, $2, $3, $4::json, $5, $6)
 	}
 	if _, _, err := store.LatestSnapshot(ctx, "game-1"); !errors.Is(err, ErrSnapshotChecksumMismatch) {
 		t.Fatalf("err = %v, want %v", err, ErrSnapshotChecksumMismatch)
+	}
+}
+
+func TestPostgresEventStoreAcceptsRawCompactSnapshotChecksum(t *testing.T) {
+	store := postgresStoreForTest(t)
+	ctx := context.Background()
+	payload := `{"runtimeFormat":"compact-v2","gameId":"game-1","version":2,"status":"playing","players":{},"turn":{},"instances":{},"zones":{},"loc":{},"visibility":{"instanceMasks":{},"libraryEpochByOwner":{},"topRevealWindows":{}},"relations":{"attachments":[],"arrows":[],"helpers":[],"indexes":{"attachmentsByEquipment":[],"attachmentsByTarget":[],"arrowsBySource":[],"arrowsByTarget":[]}},"stack":[]}`
+	sum := sha256.Sum256([]byte(payload))
+	_, err := store.db.ExecContext(ctx, `
+INSERT INTO game_snapshot_compact (id, game_id, version, snapshot, checksum, created_at)
+VALUES ($1, $2, $3, $4::json, $5, $6)
+`, newUUID(), "game-1", 2, payload, hex.EncodeToString(sum[:]), time.Now().UTC())
+	if err != nil {
+		t.Fatalf("insert raw checksum snapshot: %v", err)
+	}
+	loaded, ok, err := store.LatestSnapshot(ctx, "game-1")
+	if err != nil {
+		t.Fatalf("latest snapshot: %v", err)
+	}
+	if !ok || loaded.GameID != "game-1" || loaded.Version != 2 {
+		t.Fatalf("loaded = %#v ok=%v", loaded, ok)
 	}
 }
 

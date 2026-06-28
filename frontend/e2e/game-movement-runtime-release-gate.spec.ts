@@ -56,6 +56,7 @@ test.describe('movement runtime release gate', () => {
       const diagnosticsB = collectPageDiagnostics(pageB, gameId);
       const framesA = collectWebSocketFrames(pageA);
       const framesB = collectWebSocketFrames(pageB);
+      const snapshotRequests: string[] = [];
       let snapshotRefetches = 0;
 
       for (const page of [pageA, pageB]) {
@@ -63,6 +64,7 @@ test.describe('movement runtime release gate', () => {
           const url = httpRequest.url();
           if (httpRequest.method() === 'GET' && (url.includes(`/games/${gameId}/snapshot`) || url.includes(`/games/${gameId}/bootstrap`))) {
             snapshotRefetches += 1;
+            snapshotRequests.push(url);
           }
         });
       }
@@ -123,6 +125,16 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       const handToBattlefieldRival = latestPatchForAck(framesB, 'card.moved');
       expect(hasOp(handToBattlefieldOwner, 'zone.cards.move')).toBe(true);
       expect(hasOp(handToBattlefieldRival, 'zone.cards.add')).toBe(true);
+      const rivalAdd = operation(handToBattlefieldRival, 'zone.cards.add');
+      const rivalCards = Array.isArray(rivalAdd?.['cards']) ? rivalAdd['cards'] as JsonObject[] : [];
+      const rivalStaticCards = (rivalAdd?.['staticCards'] as JsonObject | undefined) ?? {};
+      const rivalMovedCard = rivalCards.find((card) => card['instanceId'] === handOne);
+      expect(rivalMovedCard?.['cardKey']).toBeTruthy();
+      expect(rivalMovedCard?.['printId']).toBeTruthy();
+      expect(rivalMovedCard?.['cardVersion']).toBeTruthy();
+      expect(rivalMovedCard?.['language']).toBeTruthy();
+      expect(rivalMovedCard?.['viewerVisibility']).toBe('public');
+      expect(rivalStaticCards[String(rivalMovedCard?.['cardKey'])]).toBeTruthy();
       expect(JSON.stringify(handToBattlefieldRival)).not.toContain(`"zone":"hand","cardKey"`);
       try {
         await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
@@ -138,10 +150,26 @@ Recent page A patches:
 ${JSON.stringify(framesA.filter((message) => message['kind'] === 'patch.v2').slice(-5), null, 2)}
 
 Recent page B patches:
-${JSON.stringify(framesB.filter((message) => message['kind'] === 'patch.v2').slice(-5), null, 2)}`);
+${JSON.stringify(framesB.filter((message) => message['kind'] === 'patch.v2').slice(-5), null, 2)}
+
+Snapshot requests:
+${snapshotRequests.join('\n')}
+
+Player A diagnostics:
+${diagnosticsA.join('\n')}
+
+Player B diagnostics:
+${diagnosticsB.join('\n')}
+
+Player A panel:
+${await panelDebug(pageA)}
+
+Player A body:
+${(await pageA.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       }
       await focusPlayer(pageB, playerA.user.displayName);
       await expect(battlefieldCard(pageB, playerA.user.id, handOne)).toBeVisible({ timeout: 15_000 });
+      await expect(pageB.locator(`[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${playerA.user.id}"]`, { hasText: 'Unknown Card' })).toHaveCount(0);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
       nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
@@ -317,6 +345,14 @@ function collectPageDiagnostics(page: Page, gameId: string): string[] {
   });
 
   return diagnostics;
+}
+
+async function panelDebug(page: Page): Promise<string> {
+  return page.getByTestId('player-panel').evaluate((panel) => JSON.stringify({
+    playerId: panel.getAttribute('data-player-id'),
+    handCount: panel.getAttribute('data-hand-count'),
+    text: panel.textContent?.slice(0, 1000) ?? '',
+  }, null, 2)).catch((error) => `Could not read panel: ${String(error)}`);
 }
 
 async function openDebugObserver(

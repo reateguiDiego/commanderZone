@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom, tap } from 'rxjs';
 import { GamesApi } from '../../../../../core/api/games.api';
@@ -18,6 +19,7 @@ export class GameTableGameActionsStore {
 
   resetViewerControlAccess(): void {
     this.core.viewerCanControlTable.set(false);
+    this.core.currentRoomId.set(null);
     this.core.currentDeckId.set(null);
   }
 
@@ -31,8 +33,10 @@ export class GameTableGameActionsStore {
     try {
       await firstValueFrom(this.roomsApi.current(true).pipe(
         tap((response) => {
-          this.core.viewerCanControlTable.set(response.room?.gameId === gameId && response.viewerRole !== null);
-          this.core.currentDeckId.set(response.room?.gameId === gameId ? response.player?.deckId ?? null : null);
+          const matchesGame = response.room?.gameId === gameId;
+          this.core.viewerCanControlTable.set(matchesGame && response.viewerRole !== null);
+          this.core.currentRoomId.set(matchesGame ? response.room?.id ?? null : null);
+          this.core.currentDeckId.set(matchesGame ? response.player?.deckId ?? null : null);
         }),
       ));
     } catch {
@@ -47,6 +51,27 @@ export class GameTableGameActionsStore {
     }
 
     await firstValueFrom(this.gamesApi.rematchVote(gameId, 'leave'));
+  }
+
+  async leaveCurrentRoom(): Promise<void> {
+    let roomId = this.core.currentRoomId();
+    if (!roomId) {
+      const current = await firstValueFrom(this.roomsApi.current(true));
+      roomId = current.room?.id ?? null;
+    }
+    if (!roomId) {
+      return;
+    }
+
+    try {
+      await firstValueFrom(this.roomsApi.leave(roomId, true));
+    } catch (error) {
+      if (!this.isStaleRoomMembershipError(error)) {
+        throw error;
+      }
+    } finally {
+      this.resetViewerControlAccess();
+    }
   }
 
   async copyGameId(): Promise<void> {
@@ -68,5 +93,34 @@ export class GameTableGameActionsStore {
 
   async navigateToWaitingRoom(roomId: string): Promise<void> {
     await this.router.navigate(['/rooms', roomId, 'waiting']);
+  }
+
+  private isStaleRoomMembershipError(error: unknown): boolean {
+    if (!(error instanceof HttpErrorResponse)) {
+      return false;
+    }
+
+    if (error.status === 404) {
+      return true;
+    }
+
+    if (error.status !== 403) {
+      return false;
+    }
+
+    return this.errorMessage(error).toLowerCase().includes('only room players can leave');
+  }
+
+  private errorMessage(error: HttpErrorResponse): string {
+    const response = error.error as { error?: unknown; detail?: unknown; message?: unknown } | null;
+    if (response && typeof response === 'object') {
+      for (const key of ['error', 'detail', 'message'] as const) {
+        if (typeof response[key] === 'string' && response[key].trim() !== '') {
+          return response[key];
+        }
+      }
+    }
+
+    return error.message ?? '';
   }
 }

@@ -24,6 +24,9 @@ func (GameConcedeApplier) Apply(_ context.Context, game *state.GameState, comman
 	if !ok {
 		return nil, fmt.Errorf("%w: playerId", ErrInvalidPayloadField)
 	}
+	if player["status"] == "conceded" {
+		return nil, fmt.Errorf("%w: player already conceded", ErrInvalidPayloadField)
+	}
 	concededAt := nowUTC().Format("2006-01-02T15:04:05Z07:00")
 	if value, ok := command.Payload["concededAt"].(string); ok && value != "" {
 		concededAt = value
@@ -40,19 +43,26 @@ func (GameConcedeApplier) Apply(_ context.Context, game *state.GameState, comman
 			"concededAt": concededAt,
 		},
 	})
+	var nextTurn map[string]any
 	if game.Turn != nil && game.Turn["activePlayerId"] == playerID {
 		if nextPlayerID := nextActivePlayerID(game, playerID); nextPlayerID != "" {
 			game.Turn["activePlayerId"] = nextPlayerID
-			emitter.EmitPublic(protocol.PatchOp{Op: "turn.set", Data: map[string]any{"turn": cloneMap(game.Turn)}})
+			nextTurn = cloneMap(game.Turn)
+			emitter.EmitPublic(protocol.PatchOp{Op: "turn.set", Data: map[string]any{"turn": nextTurn}})
 		}
 	}
 
-	return map[string]any{
+	payload := map[string]any{
 		"playerId":   playerID,
 		"status":     "conceded",
 		"concededAt": concededAt,
 		"metrics":    lifecycleMetrics(start, emitter),
-	}, nil
+	}
+	if nextTurn != nil {
+		payload["turn"] = nextTurn
+	}
+
+	return payload, nil
 }
 
 type GameCloseApplier struct{}

@@ -79,17 +79,23 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	result := gameActor.Submit(ctx, request.Command, request.ActorID)
 	if result.Err != nil {
 		status := http.StatusConflict
+		code := "command_failed"
 		if result.Err == actor.ErrUnknownCommand {
 			status = http.StatusBadRequest
 		}
-		writeCommandHTTPError(w, status, "command_failed", result.Err.Error())
+		if result.Err == actor.ErrQueueFull {
+			code = "queue_full"
+		}
+		writeCommandHTTPError(w, status, code, result.Err.Error())
 		return
 	}
 
+	metrics := metricsFromEventPayload(result.Event.Payload)
+	mergeActorMetrics(metrics, gameActor.Metrics())
 	writeCommandHTTPJSON(w, http.StatusOK, CommandHTTPResponse{
 		Event:   result.Event,
 		Patches: result.Patches,
-		Metrics: metricsFromEventPayload(result.Event.Payload),
+		Metrics: metrics,
 	})
 }
 
@@ -103,6 +109,21 @@ func metricsFromEventPayload(payload map[string]any) map[string]any {
 		out[key] = value
 	}
 	return out
+}
+
+func mergeActorMetrics(metrics map[string]any, actorMetrics actor.ActorMetrics) map[string]any {
+	if metrics == nil {
+		metrics = map[string]any{}
+	}
+	metrics["actor.queue_depth"] = actorMetrics.QueueDepth
+	metrics["actor.queue_capacity"] = actorMetrics.QueueCapacity
+	metrics["actor.queue_full_count"] = actorMetrics.QueueFullCount
+	metrics["actor.command_enqueued_count"] = actorMetrics.CommandEnqueuedCount
+	metrics["actor.command_rejected_count"] = actorMetrics.CommandRejectedCount
+	metrics["actor.command_applied_count"] = actorMetrics.CommandAppliedCount
+	metrics["actor.command_latency_ms"] = actorMetrics.CommandLatencyMs
+	metrics["actor.queue_wait_ms"] = actorMetrics.QueueWaitMs
+	return metrics
 }
 
 func writeCommandHTTPError(w http.ResponseWriter, status int, code string, message string) {

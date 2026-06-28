@@ -3,6 +3,9 @@
 namespace App\Tests\Integration;
 
 use App\Domain\Card\Card;
+use App\Domain\Game\Game;
+use App\Domain\Game\GameEvent;
+use App\Domain\User\User;
 use App\Tests\Support\RecordingMercureHub;
 
 class RoomsGamesApiTest extends ApiTestCase
@@ -691,6 +694,90 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame('rematch.vote', $gamePayload['event']['type'] ?? null);
         self::assertSame($leavingPlayerId, $gamePayload['event']['createdBy'] ?? null);
         self::assertSame('leave', $gamePayload['event']['payload']['vote'] ?? null);
+
+        $roomUpdates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['rooms/'.$roomId.'/waiting'],
+        ));
+        self::assertNotEmpty($roomUpdates);
+        $roomPayload = json_decode($roomUpdates[array_key_last($roomUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('room.player.left', $roomPayload['type'] ?? null);
+    }
+
+    public function testLeavingStartedRoomAfterRuntimeConcedeRecordsLeaveVoteWithoutDuplicatingConcede(): void
+    {
+        $this->seedCard('eeeeeeee-4444-7444-8444-444444444444', 'Commander Runtime Leave', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '7',
+        ]);
+        $this->seedCard('eeeeeeee-5555-7555-8555-555555555555', 'Plains Runtime Leave', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '70',
+        ]);
+        $ownerToken = $this->registerAndLogin('runtime-leave-owner@example.test', 'Runtime Leave Owner');
+        $playerToken = $this->registerAndLogin('runtime-leave-player@example.test', 'Runtime Leave Player');
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Rt Leave Owner', [
+            ['scryfallId' => 'eeeeeeee-4444-7444-8444-444444444444', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-5555-7555-8555-555555555555', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerDeckId = $this->quickBuildDeck($playerToken, 'Rt Leave Player', [
+            ['scryfallId' => 'eeeeeeee-4444-7444-8444-444444444444', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-5555-7555-8555-555555555555', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
+        self::assertResponseIsSuccessful();
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $gameId = (string) $this->jsonResponse()['game']['id'];
+        $leavingPlayerId = $this->playerIdByName($this->jsonResponse()['game']['snapshot'], 'Runtime Leave Player');
+
+        $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        $user = $this->entityManager->getRepository(User::class)->find($leavingPlayerId);
+        self::assertInstanceOf(Game::class, $game);
+        self::assertInstanceOf(User::class, $user);
+        $this->entityManager->persist(new GameEvent(
+            $game,
+            'game.concede',
+            ['playerId' => $leavingPlayerId, 'status' => 'conceded'],
+            $user,
+            'runtime-concede-before-leave',
+            2,
+        ));
+        $this->entityManager->flush();
+        $this->entityManager->clear();
+
+        RecordingMercureHub::reset();
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => false], $this->jsonResponse());
+
+        $events = $this->entityManager->getRepository(GameEvent::class)->findBy(['game' => $gameId]);
+        self::assertSame(['game.concede', 'rematch.vote'], array_values(array_map(static fn (GameEvent $event): string => $event->type(), $events)));
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $snapshot = $this->jsonResponse()['game']['snapshot'];
+        self::assertSame('conceded', $snapshot['players'][$leavingPlayerId]['status']);
+        self::assertSame('leave', $snapshot['rematch']['votes'][$leavingPlayerId]['vote'] ?? null);
+
+        $gameUpdates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['games/'.$gameId],
+        ));
+        self::assertNotEmpty($gameUpdates);
+        $gamePayload = json_decode($gameUpdates[array_key_last($gameUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('rematch.vote', $gamePayload['event']['type'] ?? null);
 
         $roomUpdates = array_values(array_filter(
             RecordingMercureHub::updates(),
@@ -2534,7 +2621,7 @@ class RoomsGamesApiTest extends ApiTestCase
             'type' => 'game.concede',
             'payload' => [],
         ], $playerToken);
-        self::assertResponseStatusCodeSame(201);
+        self::assertResponseStatusCodeSame(400);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'library.draw',

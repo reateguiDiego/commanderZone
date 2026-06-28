@@ -1,6 +1,7 @@
 <section
   #gameScreen
   class="game-screen"
+  [class.has-table-exit-modal]="tableExitAction() !== null"
   data-testid="game-screen"
   [style.--game-wallpaper-image]="tableBackgroundImage()"
   (click)="handleTableClick($event)"

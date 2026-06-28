@@ -744,6 +744,8 @@ class GamesController extends ApiController
         GameRematchService $rematch,
         GameEventPublisher $gamePublisher,
         RoomEventPublisher $roomPublisher,
+        ?GameplayV2Flags $flagsV2 = null,
+        ?GameEventStoreV2 $eventStoreV2 = null,
     ): JsonResponse {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -773,6 +775,9 @@ class GamesController extends ApiController
                 $roomDeleted = true;
                 $this->removeRoomWithGame($room, $entityManager);
             } else {
+                if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+                    $eventStoreV2->hydrateGame($game);
+                }
                 $recorded = $rematch->recordVote($game, $user, $vote);
                 $event = $recorded['event'];
                 $snapshot = $recorded['snapshot'];

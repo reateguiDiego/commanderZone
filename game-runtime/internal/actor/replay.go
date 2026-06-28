@@ -27,6 +27,10 @@ func ReplayEvents(initial state.GameState, events []protocol.EventPayloadV2, app
 }
 
 func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
+	if replayed, err := replayLegacyOpsEvent(game, event); replayed || err != nil {
+		return err
+	}
+
 	switch event.Type {
 	case "life.changed", "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "card.position.changed", "cards.position.changed", "counter.changed", "commander.damage.changed", "card.power_toughness.changed":
 		return replayViaApplier(game, event, appliers)
@@ -40,9 +44,130 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayViaApplier(game, event, appliers)
 	case "mulligan.player_took", "mulligan.player_kept", "mulligan.cards_bottomed", "mulligan.scry_confirmed", "mulligan.player_ready", "mulligan.completed", "game.phase_changed":
 		return replayMulliganEvent(game, event)
+	case "disconnect.vote.updated":
+		return nil
 	default:
 		return ReplayEvent(game, event)
 	}
+}
+
+func replayLegacyOpsEvent(game *state.GameState, event protocol.EventPayloadV2) (bool, error) {
+	replayPayload, ok := event.Payload["replay"].(map[string]any)
+	if !ok {
+		return false, nil
+	}
+	ops, ok := replayPayload["ops"].([]any)
+	if !ok {
+		return true, nil
+	}
+	for _, rawOp := range ops {
+		op, ok := rawOp.(map[string]any)
+		if !ok {
+			continue
+		}
+		switch op["op"] {
+		case "mulligan.player_state.set":
+			playerID, _ := op["playerId"].(string)
+			if playerID == "" {
+				continue
+			}
+			zones := game.Zones[playerID]
+			if handIDs, ok := stringSliceFromAny(op["handIds"]); ok {
+				zones.Hand = handIDs
+			}
+			if libraryIDs, ok := stringSliceFromAny(op["libraryIds"]); ok {
+				zones.Library = libraryIDs
+			}
+			game.Zones[playerID] = zones
+			if phaseString, ok := op["gamePhase"].(string); ok && phaseString != "" {
+				game.Phase = state.GamePhase(phaseString)
+				game.Status = phaseStatus(game.Phase)
+				if game.Phase == state.PhasePlaying {
+					game.Mulligan.Completed = true
+				}
+			}
+		case "zone.cards.move":
+			instanceID, _ := op["instanceId"].(string)
+			to, _ := op["to"].(map[string]any)
+			toPlayerID, _ := to["playerId"].(string)
+			toZoneRaw, _ := to["zone"].(string)
+			if instanceID == "" || toPlayerID == "" || toZoneRaw == "" {
+				continue
+			}
+			toIndex := -1
+			if index, ok := intFromAny(to["index"]); ok {
+				toIndex = index
+			}
+			if card, ok := op["card"].(map[string]any); ok {
+				mergeLegacyCardRuntimeFields(game, instanceID, card)
+			}
+			if _, err := state.MoveInstance(game, instanceID, toPlayerID, state.Zone(toZoneRaw), toIndex); err != nil {
+				return true, err
+			}
+		}
+	}
+	state.RebuildLocIndexForRecoveryOnly(game)
+	return true, nil
+}
+
+func mergeLegacyCardRuntimeFields(game *state.GameState, instanceID string, card map[string]any) {
+	if game.Instances == nil {
+		game.Instances = map[string]state.CardInstanceRuntime{}
+	}
+	instance := game.Instances[instanceID]
+	if ownerID, ok := card["ownerId"].(string); ok && ownerID != "" {
+		instance.OwnerID = ownerID
+	}
+	if controllerID, ok := card["controllerId"].(string); ok && controllerID != "" {
+		instance.ControllerID = controllerID
+	}
+	if cardKey, ok := cardKeyFromLegacyCard(card, instanceID); ok {
+		instance.CardKey = cardKey
+	}
+	if tapped, ok := card["tapped"].(bool); ok {
+		instance.Tapped = tapped
+	}
+	if faceDown, ok := card["faceDown"].(bool); ok {
+		instance.FaceDown = faceDown
+	}
+	if rotation, ok := intFromAny(card["rotation"]); ok {
+		instance.Rotation = rotation
+	}
+	if position, ok := card["position"].(map[string]any); ok {
+		instance.Position = cloneMap(position)
+	}
+	game.Instances[instanceID] = instance
+}
+
+func cardKeyFromLegacyCard(card map[string]any, instanceID string) (string, bool) {
+	if tokenMeta, ok := card["tokenMeta"].(map[string]any); ok {
+		if key, ok := tokenMeta["templateCardKey"].(string); ok && key != "" {
+			return key, true
+		}
+	}
+	if scryfallID, ok := card["scryfallId"].(string); ok && scryfallID != "" {
+		return scryfallID + ":card", true
+	}
+	if instanceID != "" {
+		return "instance:" + instanceID, true
+	}
+	return "", false
+}
+
+func stringSliceFromAny(value any) ([]string, bool) {
+	items, ok := value.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok || text == "" {
+			continue
+		}
+		out = append(out, text)
+	}
+	return out, true
 }
 
 func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {

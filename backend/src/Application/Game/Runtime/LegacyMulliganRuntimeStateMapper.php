@@ -2,6 +2,7 @@
 
 namespace App\Application\Game\Runtime;
 
+use App\Application\Game\Compact\CardStaticBundle;
 use App\Application\Game\GameLibraryOps;
 
 final readonly class LegacyMulliganRuntimeStateMapper
@@ -72,6 +73,12 @@ final readonly class LegacyMulliganRuntimeStateMapper
                         'controllerId' => is_string($card['controllerId'] ?? null) ? $card['controllerId'] : $playerId,
                     ];
                 }
+            }
+        }
+
+        foreach (['players', 'instances', 'zones', 'loc'] as $mapKey) {
+            if ($state[$mapKey] === []) {
+                $state[$mapKey] = $this->emptyObject();
             }
         }
 
@@ -170,7 +177,7 @@ final readonly class LegacyMulliganRuntimeStateMapper
 
         return [
             'instanceId' => (string) ($card['instanceId'] ?? ''),
-            'cardKey' => is_string($card['cardKey'] ?? null) ? $card['cardKey'] : '',
+            'cardKey' => $this->cardKey($card),
             'ownerId' => $ownerId,
             'controllerId' => is_string($card['controllerId'] ?? null) ? $card['controllerId'] : $playerId,
             'zone' => $zone,
@@ -184,6 +191,18 @@ final readonly class LegacyMulliganRuntimeStateMapper
             'faceDown' => ($card['faceDown'] ?? false) === true,
             'activeFace' => max(0, (int) ($card['activeFace'] ?? ($card['activeFaceIndex'] ?? 0))),
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function cardKey(array $card): string
+    {
+        if (is_string($card['cardKey'] ?? null) && trim($card['cardKey']) !== '') {
+            return trim($card['cardKey']);
+        }
+
+        return CardStaticBundle::fromLegacyCard($card)->cardKey;
     }
 
     /**

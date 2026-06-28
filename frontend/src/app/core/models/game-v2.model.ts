@@ -70,6 +70,9 @@ export interface BootstrapPlayerV2 {
   commanderDamage: Record<string, number>;
   counters: Record<string, number>;
   deckName?: string | null;
+  colorIdentity?: string[];
+  backgroundName?: string | null;
+  sleevesName?: string | null;
   playTopLibraryRevealed?: boolean;
 }
 
@@ -96,7 +99,10 @@ export interface BootstrapInstanceV2 {
   instanceId: string;
   cardRef: string;
   cardKey?: string;
+  printId?: string | null;
   cardVersion?: string;
+  language?: string | null;
+  viewerVisibility?: string | null;
   zoneId: string;
   ownerId?: string | null;
   controllerId?: string | null;
@@ -123,7 +129,10 @@ export interface BootstrapInstanceV2 {
 export interface BootstrapStaticCardV2 {
   cardRef: string;
   cardKey?: string;
+  printId?: string | null;
   cardVersion?: string;
+  language?: string | null;
+  viewerVisibility?: string | null;
   scryfallId?: string | null;
   name?: string | null;
   imageUris?: CardImageUris | null;
@@ -176,6 +185,12 @@ export interface BootstrapV2 {
 
 export interface LegacyCardPatchPayload {
   instanceId: string;
+  cardRef?: string;
+  cardKey?: string;
+  printId?: string | null;
+  cardVersion?: string;
+  language?: string | null;
+  viewerVisibility?: string | null;
   ownerId?: string;
   controllerId?: string;
   scryfallId?: string;
@@ -432,17 +447,21 @@ export type GameplayPatchV2Operation =
       playerId: string;
       state: {
         rule?: string;
-        mulligansTaken: number;
-        effectiveMulligans: number;
-        drawCount: number;
-        bottomSelectionCount: number;
-        finalHandSize: number;
-        needsBottomSelection: boolean;
-        bottomOrderMode: string;
-        needsScryAfterKeep: boolean;
-        canTakeAnotherMulligan: boolean;
-        status: MulliganPlayerStatus;
-        ready: boolean;
+        mulligansTaken?: number;
+        effectiveMulligans?: number;
+        drawCount?: number;
+        bottomSelectionCount?: number;
+        finalHandSize?: number;
+        needsBottomSelection?: boolean;
+        bottomOrderMode?: string;
+        needsScryAfterKeep?: boolean;
+        canTakeAnotherMulligan?: boolean;
+        status?: MulliganPlayerStatus;
+        ready?: boolean;
+        handSize?: number;
+        cardsToBottom?: number;
+        bottomPending?: boolean;
+        scryPending?: boolean;
       };
       hand?: GameCompactCardRef[];
       scryCard?: GameCompactCardRef;

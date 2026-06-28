@@ -11,6 +11,7 @@ interface CardSearchItem {
   id: string;
   scryfallId: string;
   name: string;
+  layout?: string | null;
   setCode?: string | null;
   collectorNumber?: string | null;
   typeLine?: string | null;
@@ -94,6 +95,7 @@ export interface CreateValidCommanderDeckFromDatabaseOptions {
   ownerToken: string;
   name: string;
   seed?: string;
+  includeWhiteDfc?: boolean;
 }
 
 export interface ValidCommanderDeckFromDatabaseResult {
@@ -300,7 +302,7 @@ export async function createBasicCommanderDeckFromDatabase(
   request: APIRequestContext,
   options: CreateValidCommanderDeckFromDatabaseOptions,
 ): Promise<BasicCommanderDeckFromDatabaseResult> {
-  const commander = await findMonoWhiteCommander(request);
+  const commander = options.includeWhiteDfc ? await findWhiteDoubleFacedCommander(request) : await findMonoWhiteCommander(request);
   const plains = await findBasicPlains(request);
   const quickBuildPayload = {
     name: options.name,
@@ -593,6 +595,28 @@ async function findBasicPlains(request: APIRequestContext): Promise<CardSearchIt
   }
 
   return plains;
+}
+
+async function findWhiteDoubleFacedCommander(request: APIRequestContext): Promise<CardSearchItem> {
+  const params = new URLSearchParams({
+    q: 'Kytheon',
+    limit: '10',
+    commanderLegal: 'true',
+  });
+  const response = await request.get(`${API_BASE_URL}/cards/search?${params.toString()}`);
+  expect(response.ok()).toBeTruthy();
+  const payload = (await response.json()) as CardSearchResponse;
+  const card = (payload.data ?? []).find((candidate) =>
+    candidate.name === 'Kytheon, Hero of Akros // Gideon, Battle-Forged'
+    && candidate.layout === 'transform'
+    && (candidate.colorIdentity ?? []).every((color) => color === 'W')
+    && isCommanderCandidate(candidate),
+  );
+  if (!card) {
+    throw new Error('Could not find a white double-faced commander for E2E identity fixture.');
+  }
+
+  return card;
 }
 
 function pickCommanderCandidateFromCatalog(cards: CardSearchItem[], random: () => number): CardSearchItem {

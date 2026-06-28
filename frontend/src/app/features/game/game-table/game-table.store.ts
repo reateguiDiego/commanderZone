@@ -1,4 +1,5 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Card } from '../../../core/models/card.model';
 import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GameMulliganConfig, GamePhase, GamePlayerMulliganState, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameplayMulliganPublicPlayerState } from '../../../core/models/game-realtime.model';
@@ -54,6 +55,8 @@ import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-p
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { automaticTapOnlyManaSourceSuggestionWithAttachments, detectManaSourceWithAttachments } from './utils/mana-source-attachment-detector';
 import { GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
+import { AuthStore } from '../../../core/auth/auth.store';
+import { pruneTransientCardUiState } from './utils/transient-card-ui';
 
 export type { PlayerView } from './state/core/game-table-snapshot-selectors';
 export type { SelectedCard } from './models/game-table-card.model';
@@ -84,6 +87,7 @@ export class GameTableStore implements OnDestroy {
   private readonly selection = inject(GameTableSelectionService);
   private readonly specialEntityActions = inject(GameTableSpecialEntityActionsService);
   private readonly specialEntitiesState = inject(GameTableSpecialEntitiesState);
+  private readonly auth = inject(AuthStore);
   private readonly coreState = inject(GameTableCoreState);
   private readonly arrowsState = inject(GameTableArrowsState);
   private readonly attachmentsState = inject(GameTableAttachmentsState);
@@ -1743,16 +1747,53 @@ export class GameTableStore implements OnDestroy {
   }
 
   async leaveTable(): Promise<void> {
-    const current = this.currentPlayer();
+    const current = this.currentPlayer() ?? this.localPlayerFromSnapshot();
     this.closeContextMenu();
     if (current && current.state.status !== 'conceded') {
-      await this.command('game.concede', {}, true);
+      try {
+        await this.command('game.concede', {}, true);
+      } catch (error) {
+        if (!this.isAlreadyConcededError(error)) {
+          throw error;
+        }
+      }
     }
 
-    if (this.viewerCanControlTable()) {
-      await this.gameActionsStore.recordLeaveRoomVote();
+    if (current || this.viewerCanControlTable()) {
+      await this.gameActionsStore.leaveCurrentRoom();
     }
     await this.gameActionsStore.navigateToRooms();
+  }
+
+  private localPlayerFromSnapshot(): PlayerView | null {
+    return this.selectors.currentPlayer(this.playersStore.players(), this.auth.user()?.id);
+  }
+
+  private isAlreadyConcededError(error: unknown): boolean {
+    const message = this.commandErrorMessage(error).toLowerCase();
+
+    return message.includes('already conceded') || message.includes('player already conceded');
+  }
+
+  private commandErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const response = error.error as { error?: unknown; detail?: unknown; message?: unknown } | null;
+      if (response && typeof response === 'object') {
+        for (const key of ['error', 'detail', 'message'] as const) {
+          if (typeof response[key] === 'string' && response[key].trim() !== '') {
+            return response[key];
+          }
+        }
+      }
+
+      return error.message ?? '';
+    }
+
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return typeof error === 'string' ? error : '';
   }
 
   async copyGameId(): Promise<void> {
@@ -1838,6 +1879,25 @@ export class GameTableStore implements OnDestroy {
     this.snapshotCoordinatorState.setSnapshot({
       openRevealedLibraryFromSnapshot: (nextSnapshot) => this.openRevealedLibraryFromSnapshot(nextSnapshot),
     }, snapshot);
+    this.pruneTransientCardUiState(snapshot);
+  }
+
+  private pruneTransientCardUiState(snapshot: GameSnapshot | null): void {
+    const result = pruneTransientCardUiState(snapshot, {
+      selectedCards: this.selectedCards(),
+      hoveredSelection: this.uiState.activeHoveredSelection(),
+      contextMenu: this.contextMenu(),
+    });
+
+    if (result.selectedCards.length !== this.selectedCards().length) {
+      this.selectedCards.set(result.selectedCards);
+    }
+    if (result.clearCardPreview) {
+      this.clearCardPreview();
+    }
+    if (result.closeContextMenu) {
+      this.closeContextMenu();
+    }
   }
 
   private openRevealedLibraryFromSnapshot(snapshot: GameSnapshot | null): void {

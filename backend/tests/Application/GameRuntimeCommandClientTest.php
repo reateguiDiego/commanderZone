@@ -83,6 +83,48 @@ final class GameRuntimeCommandClientTest extends TestCase
         self::assertSame('game-1-shadow', $captured['initialState']['gameId']);
     }
 
+    public function testDispatchSerializesEmptyRuntimeMapsAsJsonObjects(): void
+    {
+        $rawBody = '';
+        $httpClient = new MockHttpClient(function (string $method, string $url, array $options) use (&$rawBody): MockResponse {
+            $rawBody = (string) ($options['body'] ?? '');
+
+            return new MockResponse(json_encode([
+                'event' => ['gameId' => 'game-empty', 'version' => 2, 'type' => 'life.changed', 'payload' => [], 'createdBy' => 'player-1', 'clientActionId' => 'action-empty', 'createdAt' => ''],
+                'patches' => [['gameId' => 'game-empty', 'version' => 2, 'visibility' => 'public', 'ops' => [['op' => 'player.life.set', 'data' => ['playerId' => 'player-1', 'life' => 39]]]]],
+                'metrics' => [],
+            ], JSON_THROW_ON_ERROR), ['http_code' => 200]);
+        });
+
+        $client = new GameRuntimeCommandClient($httpClient, new LegacyMulliganRuntimeStateMapper(), 'http://runtime.internal:8091');
+        $client->dispatch('life.changed', 'game-empty', 'player-1', 1, 'action-empty', [
+            'version' => 1,
+            'gamePhase' => 'PLAYING',
+            'players' => [],
+            'turn' => [],
+        ], ['playerId' => 'player-1', 'life' => 39]);
+
+        self::assertStringContainsString('"players":{}', $rawBody);
+        self::assertStringContainsString('"instances":{}', $rawBody);
+        self::assertStringContainsString('"zones":{}', $rawBody);
+        self::assertStringContainsString('"loc":{}', $rawBody);
+    }
+
+    public function testRuntimeCommandFailureIsRejectedWithoutLegacyFallback(): void
+    {
+        $httpClient = new MockHttpClient(new MockResponse(json_encode([
+            'code' => 'command_failed',
+            'error' => 'invalid payload field: player already conceded',
+        ], JSON_THROW_ON_ERROR), ['http_code' => 409]));
+
+        $client = new GameRuntimeCommandClient($httpClient, new LegacyMulliganRuntimeStateMapper(), 'http://runtime.internal:8091');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('player already conceded');
+
+        $client->dispatch('game.concede', 'game-1', 'player-1', 2, 'action-2', $this->snapshot(), ['playerId' => 'player-1']);
+    }
+
     /**
      * @return array<string,mixed>
      */

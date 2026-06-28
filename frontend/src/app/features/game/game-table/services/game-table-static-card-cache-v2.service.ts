@@ -22,11 +22,12 @@ export class GameTableStaticCardCacheV2Service {
 
       const cardKey = instance.cardKey?.trim();
       const cardVersion = instance.cardVersion?.trim();
-      if (!cardKey || !cardVersion) {
+      const catalogKey = this.catalogKey(instance);
+      if (!cardKey || !cardVersion || !catalogKey) {
         continue;
       }
 
-      const cached = this.staticCardsByCatalogKey.get(`${cardKey}@${cardVersion}`);
+      const cached = this.staticCardsByCatalogKey.get(catalogKey);
       if (cached) {
         staticCards[instance.cardRef] = { ...cached, cardRef: instance.cardRef };
       }
@@ -42,7 +43,27 @@ export class GameTableStaticCardCacheV2Service {
     this.staticCardsByCatalogKey.clear();
   }
 
-  private catalogKey(card: BootstrapStaticCardV2): string {
-    return `${card.cardKey ?? card.cardRef}@${card.cardVersion ?? 'legacy-snapshot-v1'}`;
+  private catalogKey(card: {
+    cardRef?: string;
+    cardKey?: string;
+    printId?: string | null;
+    scryfallId?: string | null;
+    cardVersion?: string;
+    language?: string | null;
+    viewerVisibility?: string | null;
+  }): string {
+    const cardKey = card.cardKey?.trim() || card.cardRef?.trim() || '';
+    const printId = card.printId?.trim() || card.scryfallId?.trim() || '';
+    const cardVersion = card.cardVersion?.trim() || '';
+    const language = card.language?.trim() || '';
+    const viewerVisibility = card.viewerVisibility?.trim() || '';
+
+    if (!cardKey || !printId || !cardVersion || !language || !viewerVisibility) {
+      return '';
+    }
+
+    return [cardKey, printId, cardVersion, language, viewerVisibility]
+      .map((part) => encodeURIComponent(part))
+      .join('|');
   }
 }

@@ -57,7 +57,14 @@ export async function clickGameMenuAction(page: Page, name: string | RegExp): Pr
 }
 
 export async function drawMine(page: Page): Promise<void> {
-  await clickGameMenuAction(page, /^Draw mine/);
+  const playerId = await page.getByTestId('player-panel').getAttribute('data-player-id');
+  if (!playerId) {
+    throw new Error('Missing focused player id while drawing from library.');
+  }
+
+  const library = page.locator(`[data-testid="drop-zone"][data-player-id="${playerId}"][data-zone="library"]`);
+  await expect(library).toBeVisible();
+  await library.dblclick();
 }
 
 export async function openChat(page: Page): Promise<void> {

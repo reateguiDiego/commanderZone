@@ -6,7 +6,7 @@ export type GameSpecialEntityTemplate = 'monarch' | 'initiative' | 'citys_blessi
 export type GameSpecialEntityScope = 'global' | 'player';
 export type GameCardStatValue = number | string | null;
 export type GamePowerToughnessValue = GameCardStatValue;
-export type GamePhase = 'MULLIGAN' | 'PLAYING';
+export type GamePhase = 'MULLIGAN' | 'PLAYING' | 'FINISHED';
 export type MulliganRule = 'LONDON' | 'VANCOUVER' | 'PARIS' | 'GENEROUS';
 export type BottomOrderMode = 'NONE' | 'PLAYER_CHOSEN_ORDER' | 'RANDOM_SERVER_SIDE';
 export type MulliganPlayerStatus = 'DECIDING' | 'SCRYING' | 'READY';
@@ -118,7 +118,10 @@ export interface GameCardInstance {
 export interface GameCompactCardRef {
   instanceId: string;
   cardKey?: string | null;
+  printId?: string | null;
   cardVersion?: string | null;
+  language?: string | null;
+  viewerVisibility?: string | null;
   name?: string | null;
   hidden?: boolean;
   tapped?: boolean;

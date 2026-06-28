@@ -4,6 +4,7 @@ namespace App\Application\Game\Contract\V2;
 
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
+use App\Domain\Localization\LanguageCatalog;
 use App\Domain\User\User;
 
 final class GameplayV2ContractFactory
@@ -21,7 +22,7 @@ final class GameplayV2ContractFactory
             'baseVersion' => $command['baseVersion'] ?? null,
             'clientActionId' => $command['clientActionId'] ?? null,
             'type' => $command['type'] ?? null,
-            'payload' => $command['payload'] ?? null,
+            'payload' => array_key_exists('payload', $command) && $command['payload'] !== null ? $command['payload'] : [],
             'sentAt' => $command['sentAt'] ?? null,
             'client' => $command['client'] ?? null,
         ]);
@@ -37,7 +38,7 @@ final class GameplayV2ContractFactory
             'baseVersion' => $message['baseVersion'] ?? null,
             'clientActionId' => $message['clientActionId'] ?? null,
             'type' => $message['type'] ?? null,
-            'payload' => $message['payload'] ?? null,
+            'payload' => array_key_exists('payload', $message) && $message['payload'] !== null ? $message['payload'] : [],
             'sentAt' => $message['sentAt'] ?? null,
             'client' => $message['client'] ?? null,
         ]);
@@ -108,6 +109,8 @@ final class GameplayV2ContractFactory
         $staticCards = [];
         $requiredStaticCards = [];
         $knownStaticCatalogKeys = $this->knownStaticCatalogKeySet($knownStaticCatalogKeys);
+        $language = LanguageCatalog::normalize($viewer->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE;
+        $cardCatalog = is_array($projectedSnapshot['cardCatalog'] ?? null) ? $projectedSnapshot['cardCatalog'] : [];
 
         foreach (($projectedSnapshot['players'] ?? []) as $playerId => $player) {
             if (!is_string($playerId) || !is_array($player)) {
@@ -133,7 +136,8 @@ final class GameplayV2ContractFactory
                     }
 
                     $cardRef = $this->cardRef($card, $instanceId);
-                    $staticCard = $this->staticCard($card);
+                    $viewerVisibility = $this->viewerVisibilityForZone($zoneName);
+                    $staticCard = $this->staticCard($card, $language, $viewerVisibility, $cardCatalog);
                     if (!$this->isHiddenPlaceholder($card)) {
                         $requiredStaticCards[$cardRef] ??= $staticCard;
                     }
@@ -165,12 +169,15 @@ final class GameplayV2ContractFactory
                 'commanderDamage' => is_array($player['commanderDamage'] ?? null) ? $player['commanderDamage'] : [],
                 'counters' => is_array($player['counters'] ?? null) ? $player['counters'] : [],
                 'deckName' => is_string($player['deckName'] ?? null) ? $player['deckName'] : null,
+                'colorIdentity' => is_array($player['colorIdentity'] ?? null) ? array_values($player['colorIdentity']) : [],
+                'backgroundName' => is_string($player['backgroundName'] ?? null) ? $player['backgroundName'] : null,
+                'sleevesName' => is_string($player['sleevesName'] ?? null) ? $player['sleevesName'] : null,
             ];
         }
 
         $staticCards = $this->staticCardsForClient($requiredStaticCards, $knownStaticCatalogKeys);
         $relations = [
-            'stack' => $this->stackRelations($projectedSnapshot['stack'] ?? [], $requiredStaticCards),
+            'stack' => $this->stackRelations($projectedSnapshot['stack'] ?? [], $requiredStaticCards, $language),
             'arrows' => array_values(array_filter($projectedSnapshot['arrows'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'attachments' => array_values(array_filter($projectedSnapshot['attachments'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
@@ -237,24 +244,46 @@ final class GameplayV2ContractFactory
      * @param array<string,mixed> $card
      * @return array<string,mixed>
      */
-    private function staticCard(array $card): array
+    private function staticCard(array $card, string $language, string $viewerVisibility, array $cardCatalog = []): array
     {
+        $cardRef = $this->cardRef($card, trim((string) ($card['instanceId'] ?? '')));
+        $catalogCard = is_array($cardCatalog[$cardRef] ?? null) ? $cardCatalog[$cardRef] : [];
+        $scryfallId = $this->nonEmptyString($card['scryfallId'] ?? null)
+            ?? $this->nonEmptyString($catalogCard['scryfallId'] ?? null);
+        $printId = $this->printId($card) ?? $scryfallId ?? $cardRef;
+        $cardVersion = $this->nonEmptyString($card['cardVersion'] ?? null)
+            ?? $this->nonEmptyString($catalogCard['cardVersion'] ?? null)
+            ?? $this->cardVersion($card);
+        $imageUris = is_array($card['imageUris'] ?? null) && $card['imageUris'] !== []
+            ? $card['imageUris']
+            : (is_array($catalogCard['imageUris'] ?? null) && $catalogCard['imageUris'] !== [] ? $catalogCard['imageUris'] : null);
+        $cardFaces = is_array($card['cardFaces'] ?? null) && $card['cardFaces'] !== []
+            ? $card['cardFaces']
+            : (is_array($catalogCard['cardFaces'] ?? null) ? $catalogCard['cardFaces'] : []);
+        $baseStats = is_array($catalogCard['baseStats'] ?? null) ? $catalogCard['baseStats'] : [];
+        $layoutMetadata = is_array($catalogCard['layoutMetadata'] ?? null) ? $catalogCard['layoutMetadata'] : [];
+
         return [
-            'cardRef' => $this->cardRef($card, trim((string) ($card['instanceId'] ?? ''))),
-            'cardKey' => $this->cardRef($card, trim((string) ($card['instanceId'] ?? ''))),
-            'cardVersion' => $this->cardVersion($card),
-            'scryfallId' => $card['scryfallId'] ?? null,
-            'name' => $card['name'] ?? null,
-            'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : null,
-            'cardFaces' => is_array($card['cardFaces'] ?? null) ? $card['cardFaces'] : [],
-            'typeLine' => $card['typeLine'] ?? null,
-            'manaCost' => $card['manaCost'] ?? null,
-            'colorIdentity' => is_array($card['colorIdentity'] ?? null) ? array_values($card['colorIdentity']) : [],
-            'defaultPower' => $card['defaultPower'] ?? null,
-            'defaultToughness' => $card['defaultToughness'] ?? null,
-            'defaultLoyalty' => $card['defaultLoyalty'] ?? null,
-            'defaultDefense' => $card['defaultDefense'] ?? null,
-            'hasRulings' => ($card['hasRulings'] ?? false) === true,
+            'cardRef' => $cardRef,
+            'cardKey' => $cardRef,
+            'printId' => $printId,
+            'cardVersion' => $cardVersion,
+            'language' => $language,
+            'viewerVisibility' => $viewerVisibility,
+            'scryfallId' => $scryfallId,
+            'name' => $card['name'] ?? $catalogCard['name'] ?? null,
+            'imageUris' => $imageUris,
+            'cardFaces' => $cardFaces,
+            'typeLine' => $card['typeLine'] ?? $catalogCard['typeLine'] ?? null,
+            'manaCost' => $card['manaCost'] ?? $catalogCard['manaCost'] ?? null,
+            'colorIdentity' => is_array($card['colorIdentity'] ?? null)
+                ? array_values($card['colorIdentity'])
+                : (is_array($catalogCard['colorIdentity'] ?? null) ? array_values($catalogCard['colorIdentity']) : []),
+            'defaultPower' => $card['defaultPower'] ?? $baseStats['power'] ?? null,
+            'defaultToughness' => $card['defaultToughness'] ?? $baseStats['toughness'] ?? null,
+            'defaultLoyalty' => $card['defaultLoyalty'] ?? $baseStats['loyalty'] ?? null,
+            'defaultDefense' => $card['defaultDefense'] ?? $baseStats['defense'] ?? null,
+            'hasRulings' => ($card['hasRulings'] ?? $layoutMetadata['hasRulings'] ?? false) === true,
         ];
     }
 
@@ -288,7 +317,10 @@ final class GameplayV2ContractFactory
         ];
         if (!$this->isHiddenPlaceholder($card)) {
             $instance['cardKey'] = $staticCard['cardKey'];
+            $instance['printId'] = $staticCard['printId'];
             $instance['cardVersion'] = $staticCard['cardVersion'];
+            $instance['language'] = $staticCard['language'];
+            $instance['viewerVisibility'] = $staticCard['viewerVisibility'];
         }
         if (is_array($card['tokenMeta'] ?? null) && $card['tokenMeta'] !== []) {
             $instance['tokenMeta'] = $card['tokenMeta'];
@@ -302,6 +334,12 @@ final class GameplayV2ContractFactory
      */
     private function cardRef(array $card, string $instanceId): string
     {
+        foreach (['cardRef', 'cardKey'] as $field) {
+            if (is_string($card[$field] ?? null) && trim((string) $card[$field]) !== '') {
+                return trim((string) $card[$field]);
+            }
+        }
+
         $templateCardKey = is_string($card['tokenMeta']['templateCardKey'] ?? null)
             ? trim((string) $card['tokenMeta']['templateCardKey'])
             : '';
@@ -326,6 +364,10 @@ final class GameplayV2ContractFactory
      */
     private function cardVersion(array $card): string
     {
+        if (is_string($card['cardVersion'] ?? null) && trim((string) $card['cardVersion']) !== '') {
+            return trim((string) $card['cardVersion']);
+        }
+
         $tokenVersion = is_string($card['tokenMeta']['templateCardVersion'] ?? null)
             ? trim((string) $card['tokenMeta']['templateCardVersion'])
             : '';
@@ -339,6 +381,29 @@ final class GameplayV2ContractFactory
         }
 
         return 'hidden-placeholder-v1';
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function printId(array $card): ?string
+    {
+        if (is_string($card['printId'] ?? null) && trim((string) $card['printId']) !== '') {
+            return trim((string) $card['printId']);
+        }
+
+        $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+
+        return $scryfallId !== '' ? $scryfallId : null;
+    }
+
+    private function nonEmptyString(mixed $value): ?string
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        return trim($value);
     }
 
     /**
@@ -395,7 +460,21 @@ final class GameplayV2ContractFactory
      */
     private function staticCatalogKey(array $card): string
     {
-        return sprintf('%s@%s', (string) ($card['cardKey'] ?? $card['cardRef'] ?? ''), (string) ($card['cardVersion'] ?? self::CARD_CATALOG_VERSION));
+        return implode('|', array_map(
+            'rawurlencode',
+            [
+                (string) ($card['cardKey'] ?? $card['cardRef'] ?? ''),
+                (string) ($card['printId'] ?? $card['scryfallId'] ?? ''),
+                (string) ($card['cardVersion'] ?? self::CARD_CATALOG_VERSION),
+                (string) ($card['language'] ?? LanguageCatalog::DEFAULT_LANGUAGE),
+                (string) ($card['viewerVisibility'] ?? 'public'),
+            ],
+        ));
+    }
+
+    private function viewerVisibilityForZone(string $zoneName): string
+    {
+        return $zoneName === 'hand' || $zoneName === 'library' ? 'private' : 'public';
     }
 
     /**
@@ -438,7 +517,7 @@ final class GameplayV2ContractFactory
      *
      * @return list<array<string,mixed>>
      */
-    private function stackRelations(mixed $entries, array &$staticCards): array
+    private function stackRelations(mixed $entries, array &$staticCards, string $language): array
     {
         if (!is_array($entries)) {
             return [];
@@ -456,7 +535,7 @@ final class GameplayV2ContractFactory
             $cardRef = null;
             if ($card !== null && $sourceInstanceId !== '') {
                 $cardRef = $this->cardRef($card, $sourceInstanceId);
-                $staticCards[$cardRef] ??= $this->staticCard($card);
+                $staticCards[$cardRef] ??= $this->staticCard($card, $language, 'public');
             }
 
             $stack[] = array_filter([

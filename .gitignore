@@ -18,3 +18,4 @@
 
 /.env.prod
 /docker-compose.prod.yml
+/.tmp/

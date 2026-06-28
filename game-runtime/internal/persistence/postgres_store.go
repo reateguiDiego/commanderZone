@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -127,7 +128,13 @@ LIMIT 1
 		return CompactSnapshot{}, false, err
 	}
 	if err := VerifySnapshot(snapshot); err != nil {
-		return CompactSnapshot{}, false, err
+		sum := sha256.Sum256(payload)
+		if !strings.EqualFold(hex.EncodeToString(sum[:]), snapshot.Checksum) {
+			return CompactSnapshot{}, false, err
+		}
+		if err := AssertNoStaticPayload(snapshot.State); err != nil {
+			return CompactSnapshot{}, false, err
+		}
 	}
 	return snapshot, true, nil
 }

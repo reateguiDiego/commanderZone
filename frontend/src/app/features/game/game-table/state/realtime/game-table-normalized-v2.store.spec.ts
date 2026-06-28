@@ -14,6 +14,10 @@ describe('game table normalized v2 store', () => {
     expect(state.lastAppliedVersion).toBe(5);
     expect(state.zones['player-1'].battlefield).toEqual(['battlefield-1']);
     expect(state.staticCards['token:beast'].name).toBe('Beast');
+    expect(state.players['player-1'].colorIdentity).toEqual(['G', 'W', 'U', 'B']);
+    expect(snapshot.players['player-1'].colorIdentity).toEqual(['G', 'W', 'U', 'B']);
+    expect(snapshot.players['player-1'].backgroundName).toBe('G_4');
+    expect(snapshot.players['player-1'].sleevesName).toBe('custom-sleeves');
     expect(snapshot.players['player-1'].zones.hand[0]?.name).toBe('Lightning Bolt');
     expect(snapshot.players['player-2'].zones.hand[0]?.scryfallId).toBeUndefined();
     expect(snapshot.players['player-2'].zones.hand[0]?.name).toBe('Card');
@@ -37,6 +41,103 @@ describe('game table normalized v2 store', () => {
     expect(second.state.instances['battlefield-1'].tapped).toBe(true);
     expect(duplicate.status).toBe('ignored');
     expect(duplicate.state.players['player-1'].life).toBe(37);
+  });
+
+  it('hydrates turn state from bootstrap v2 and applies turn.changed patches', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+
+    expect(initial.turn).toEqual({ activePlayerId: 'player-1', phase: 'main-1', number: 3 });
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'turn.set',
+      turn: { activePlayerId: 'player-2', phase: 'untap', number: 4 },
+    }]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.turn).toEqual({ activePlayerId: 'player-2', phase: 'untap', number: 4 });
+    expect(snapshot.turn).toEqual({ activePlayerId: 'player-2', phase: 'untap', number: 4 });
+  });
+
+  it('keeps lifecycle game.phase.set separate from turn phase', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{ op: 'game.phase.set', phase: 'FINISHED' }]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.game.gamePhase).toBe('FINISHED');
+    expect(result.state.turn.phase).toBe('main-1');
+    expect(snapshot.gamePhase).toBe('FINISHED');
+    expect(snapshot.turn.phase).toBe('main-1');
+  });
+
+  it('does not let compact runtime staticCard hints erase double-faced card faces', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['commander-1'] = {
+      ...bootstrap.instances['commander-1'],
+      cardRef: 'card:dfc-commander',
+      cardKey: 'card:dfc-commander',
+      printId: 's-dfc-commander',
+      cardVersion: 'dfc-v1',
+      language: 'en',
+      viewerVisibility: 'public',
+    };
+    bootstrap.staticCards['card:dfc-commander'] = {
+      cardRef: 'card:dfc-commander',
+      cardKey: 'card:dfc-commander',
+      printId: 's-dfc-commander',
+      cardVersion: 'dfc-v1',
+      language: 'en',
+      viewerVisibility: 'public',
+      scryfallId: 's-dfc-commander',
+      name: 'Kytheon, Hero of Akros // Gideon, Battle-Forged',
+      imageUris: null,
+      cardFaces: [
+        { name: 'Kytheon, Hero of Akros', manaCost: '{W}', typeLine: 'Legendary Creature', oracleText: '', power: '2', toughness: '1', loyalty: null, colors: ['W'], imageUris: { normal: 'front.jpg' } },
+        { name: 'Gideon, Battle-Forged', manaCost: null, typeLine: 'Legendary Planeswalker', oracleText: '', power: null, toughness: null, loyalty: '3', colors: ['W'], imageUris: { normal: 'back.jpg' } },
+      ],
+      typeLine: 'Legendary Creature // Legendary Planeswalker',
+      manaCost: '{W}',
+      colorIdentity: ['W'],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'commander-1',
+      from: { playerId: 'player-1', zone: 'command' },
+      to: { playerId: 'player-1', zone: 'battlefield' },
+      card: {
+        instanceId: 'commander-1',
+        cardRef: 'card:dfc-commander',
+        cardKey: 'card:dfc-commander',
+        printId: 's-dfc-commander',
+        cardVersion: 'dfc-v1',
+        language: 'en',
+        viewerVisibility: 'public',
+        zoneId: 'player-1:battlefield',
+        ownerId: 'player-1',
+        controllerId: 'player-1',
+      },
+      staticCard: {
+        cardRef: 'card:dfc-commander',
+        cardKey: 'card:dfc-commander',
+        printId: 's-dfc-commander',
+        cardVersion: 'dfc-v1',
+        language: 'en',
+        viewerVisibility: 'public',
+        scryfallId: 's-dfc-commander',
+        name: 'Kytheon, Hero of Akros // Gideon, Battle-Forged',
+        imageUris: null,
+        cardFaces: [],
+      },
+    }]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    const moved = snapshot.players['player-1'].zones.battlefield.find((card) => card.instanceId === 'commander-1');
+
+    expect(result.status).toBe('applied');
+    expect(moved?.cardFaces).toHaveLength(2);
+    expect(moved?.cardFaces?.[1]?.name).toBe('Gideon, Battle-Forged');
   });
 
   it('applies battlefield field and counter patches without refetch', () => {
@@ -341,6 +442,127 @@ describe('game table normalized v2 store', () => {
     expect(initial.zones['player-1'].hand).toEqual(['hand-1']);
   });
 
+  it('preserves battlefield visual position from movement patches', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'hand-1',
+      from: { playerId: 'player-1', zone: 'hand' },
+      to: { playerId: 'player-1', zone: 'battlefield', index: 1 },
+      card: {
+        instanceId: 'hand-1',
+        cardRef: 'card:bolt',
+        cardKey: 'card:bolt',
+        printId: 's-bolt',
+        cardVersion: 'bolt-v1',
+        language: 'en',
+        viewerVisibility: 'public',
+        zoneId: 'player-1:battlefield',
+        ownerId: 'player-1',
+        controllerId: 'player-1',
+        position: { x: 0.37, y: 0.61, unit: 'ratio' },
+      },
+    }]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['hand-1'].position).toEqual({ x: 0.37, y: 0.61, unit: 'ratio' });
+    expect(snapshot.players['player-1'].zones.battlefield.find((card) => card.instanceId === 'hand-1')?.position)
+      .toEqual({ x: 0.37, y: 0.61, unit: 'ratio' });
+  });
+
+  it('clears visual position when a card leaves battlefield', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    expect(initial.instances['battlefield-1'].position).toEqual({ x: 0.2, y: 0.3, unit: 'ratio' });
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'battlefield-1',
+      from: { playerId: 'player-1', zone: 'battlefield' },
+      to: { playerId: 'player-1', zone: 'graveyard', index: 0 },
+    }]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['battlefield-1'].position).toBeNull();
+    expect(snapshot.players['player-1'].zones.graveyard[0]?.position).toBeUndefined();
+  });
+
+  it('does not overwrite an existing battlefield visual position with a compact patch that omits position', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'battlefield-1',
+      from: { playerId: 'player-1', zone: 'battlefield' },
+      to: { playerId: 'player-1', zone: 'battlefield', index: 0 },
+      card: {
+        instanceId: 'battlefield-1',
+        cardRef: 'card:sol-ring',
+        cardKey: 'card:sol-ring',
+        printId: 's-ring',
+        cardVersion: 'ring-v1',
+        language: 'en',
+        viewerVisibility: 'public',
+        zoneId: 'player-1:battlefield',
+        ownerId: 'player-1',
+        controllerId: 'player-1',
+      },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['battlefield-1'].position).toEqual({ x: 0.2, y: 0.3, unit: 'ratio' });
+  });
+
+  it('keeps batch move battlefield positions distinct when the runtime patch includes them', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.batchMove',
+      moves: [
+        {
+          instanceId: 'hand-1',
+          from: { playerId: 'player-1', zone: 'hand' },
+          to: { playerId: 'player-1', zone: 'battlefield', index: 1 },
+          card: {
+            instanceId: 'hand-1',
+            cardRef: 'card:bolt',
+            cardKey: 'card:bolt',
+            printId: 's-bolt',
+            cardVersion: 'bolt-v1',
+            language: 'en',
+            viewerVisibility: 'public',
+            zoneId: 'player-1:battlefield',
+            ownerId: 'player-1',
+            controllerId: 'player-1',
+            position: { x: 0.28, y: 0.42, unit: 'ratio' },
+          },
+        },
+        {
+          instanceId: 'library-1',
+          from: { playerId: 'player-1', zone: 'library' },
+          to: { playerId: 'player-1', zone: 'battlefield', index: 2 },
+          card: {
+            instanceId: 'library-1',
+            cardRef: 'card:forest',
+            cardKey: 'card:forest',
+            printId: 's-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'public',
+            zoneId: 'player-1:battlefield',
+            ownerId: 'player-1',
+            controllerId: 'player-1',
+            position: { x: 0.4, y: 0.42, unit: 'ratio' },
+          },
+        },
+      ],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['hand-1'].position).toEqual({ x: 0.28, y: 0.42, unit: 'ratio' });
+    expect(result.state.instances['library-1'].position).toEqual({ x: 0.4, y: 0.42, unit: 'ratio' });
+    expect(result.state.instances['hand-1'].position).not.toEqual(result.state.instances['library-1'].position);
+  });
+
   it('applies batchMove moves contract without using legacy cards field', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [{
@@ -378,6 +600,288 @@ describe('game table normalized v2 store', () => {
     expect(result.state.zoneCounts['player-2'].hand).toBe(0);
     expect(result.state.zones['player-2'].graveyard).toEqual(['opp-hand-1']);
     expect(JSON.stringify(result.state.instances['opp-hand-1'])).not.toContain('imageUris');
+  });
+
+  it('fails explicitly when a public visible card arrives without a renderable static identity', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.add',
+      playerId: 'player-2',
+      zone: 'graveyard',
+      cards: [{
+        instanceId: 'public-missing-identity',
+        cardRef: 'card:missing',
+        cardKey: 'card:missing',
+        cardVersion: 'v1',
+        zoneId: 'player-2:graveyard',
+        ownerId: 'player-2',
+        controllerId: 'player-2',
+        hidden: false,
+      }],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(() => hydrateGameSnapshotFromV2State(result.state)).toThrow(/Identity contract violation/);
+  });
+
+  it('fails explicitly when a public visible card arrives without printId', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.add',
+      playerId: 'player-2',
+      zone: 'graveyard',
+      cards: [{
+        instanceId: 'public-missing-print',
+        cardRef: 'card:forest',
+        cardKey: 'card:forest',
+        cardVersion: 'forest-v1',
+        language: 'es',
+        viewerVisibility: 'public',
+        zoneId: 'player-2:graveyard',
+        ownerId: 'player-2',
+        controllerId: 'player-2',
+        hidden: false,
+      }],
+      staticCards: {
+        'card:forest': {
+          cardRef: 'card:forest',
+          cardKey: 'card:forest',
+          printId: 's-forest',
+          cardVersion: 'forest-v1',
+          language: 'es',
+          viewerVisibility: 'public',
+          scryfallId: 's-forest',
+          name: 'Bosque',
+          imageUris: null,
+          cardFaces: [],
+          typeLine: 'Tierra basica',
+          manaCost: null,
+          colorIdentity: [],
+        },
+      },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(() => hydrateGameSnapshotFromV2State(result.state)).toThrow(/missing printId/);
+  });
+
+  it('hydrates a public visible card from the same identity contract used by runtime static hints', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.add',
+      playerId: 'player-2',
+      zone: 'graveyard',
+      cards: [{
+        instanceId: 'public-forest',
+        cardRef: 'card:forest',
+        cardKey: 'card:forest',
+        printId: 's-forest',
+        cardVersion: 'forest-v1',
+        language: 'es',
+        viewerVisibility: 'public',
+        zoneId: 'player-2:graveyard',
+        ownerId: 'player-2',
+        controllerId: 'player-2',
+        hidden: false,
+      }],
+      staticCards: {
+        'card:forest': {
+          cardRef: 'card:forest',
+          cardKey: 'card:forest',
+          printId: 's-forest',
+          cardVersion: 'forest-v1',
+          language: 'es',
+          viewerVisibility: 'public',
+          scryfallId: 's-forest',
+          name: 'Bosque',
+          imageUris: null,
+          cardFaces: [],
+          typeLine: 'Tierra basica',
+          manaCost: null,
+          colorIdentity: [],
+        },
+      },
+    }]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(snapshot.players['player-2'].zones.graveyard[0]?.name).toBe('Bosque');
+    expect(snapshot.players['player-2'].zones.graveyard[0]?.name).not.toBe('Unknown Card');
+  });
+
+  it('hydrates compact runtime cardRef payloads without zoneId from patch static hints', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'hand', instanceIds: ['hand-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        cards: [{
+          instanceId: 'hand-1',
+          cardRef: 'card:bolt',
+          cardKey: 'card:bolt',
+          printId: 's-bolt',
+          cardVersion: 'bolt-v1',
+          language: 'en',
+          viewerVisibility: 'public',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          hidden: false,
+        }],
+        staticCards: {
+          'card:bolt': {
+            cardRef: 'card:bolt',
+            cardKey: 'card:bolt',
+            printId: 's-bolt',
+            cardVersion: 'bolt-v1',
+            language: 'en',
+            viewerVisibility: 'public',
+            scryfallId: 's-bolt',
+            name: 'Lightning Bolt',
+            imageUris: null,
+            cardFaces: [],
+            typeLine: 'Instant',
+            manaCost: '{R}',
+            colorIdentity: ['R'],
+          },
+        },
+      },
+      { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 0 },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(snapshot.players['player-1'].zoneCounts?.hand).toBe(0);
+    expect(snapshot.players['player-1'].handCount).toBe(0);
+    expect(snapshot.players['player-1'].zones.battlefield.at(-1)?.name).toBe('Lightning Bolt');
+  });
+
+  it('hydrates renderable images from live runtime move static hints', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'hand-1',
+      from: { playerId: 'player-1', zone: 'hand' },
+      to: { playerId: 'player-1', zone: 'battlefield', index: 1 },
+      card: {
+        instanceId: 'hand-1',
+        cardRef: 'card:bolt',
+        cardKey: 'card:bolt',
+        printId: 's-bolt',
+        cardVersion: 'bolt-v1',
+        language: 'en',
+        viewerVisibility: 'public',
+        ownerId: 'player-1',
+        controllerId: 'player-1',
+        hidden: false,
+      },
+      staticCard: {
+        cardRef: 'card:bolt',
+        cardKey: 'card:bolt',
+        printId: 's-bolt',
+        cardVersion: 'bolt-v1',
+        language: 'en',
+        viewerVisibility: 'public',
+        scryfallId: 's-bolt',
+        name: 'Lightning Bolt',
+        imageUris: { normal: 'https://cards.test/bolt-public.jpg' },
+        cardFaces: [{
+          name: 'Lightning Bolt',
+          manaCost: '{R}',
+          typeLine: 'Instant',
+          oracleText: '',
+          power: null,
+          toughness: null,
+          loyalty: null,
+          colors: ['R'],
+          imageUris: { normal: 'https://cards.test/bolt-face.jpg' },
+        }],
+        typeLine: 'Instant',
+        manaCost: '{R}',
+        colorIdentity: ['R'],
+      },
+    }]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    const moved = snapshot.players['player-1'].zones.battlefield.find((card) => card.instanceId === 'hand-1');
+
+    expect(result.status).toBe('applied');
+    expect(moved?.name).toBe('Lightning Bolt');
+    expect(moved?.imageUris?.['normal']).toBe('https://cards.test/bolt-public.jpg');
+    expect(moved?.cardFaces?.[0]?.imageUris?.['normal']).toBe('https://cards.test/bolt-face.jpg');
+    expect(JSON.stringify(result.state.instances['hand-1'])).not.toContain('imageUris');
+    expect(JSON.stringify(result.state.instances['hand-1'])).not.toContain('cardFaces');
+  });
+
+  it('updates the renderable image from localized live patch staticCards without reload', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.staticCards['card:bolt'] = {
+      ...bootstrap.staticCards['card:bolt'],
+      language: 'en',
+      viewerVisibility: 'private',
+      imageUris: { normal: 'https://cards.test/bolt-en.jpg' },
+      cardFaces: [],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'hand', instanceIds: ['hand-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        cards: [{
+          instanceId: 'hand-1',
+          cardRef: 'card:bolt',
+          cardKey: 'card:bolt',
+          printId: 's-bolt',
+          cardVersion: 'bolt-v1',
+          language: 'es',
+          viewerVisibility: 'public',
+          zoneId: 'player-1:battlefield',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          hidden: false,
+        }],
+        staticCards: {
+          'card:bolt': {
+            cardRef: 'card:bolt',
+            cardKey: 'card:bolt',
+            printId: 's-bolt',
+            cardVersion: 'bolt-v1',
+            language: 'es',
+            viewerVisibility: 'public',
+            scryfallId: 's-bolt',
+            name: 'Relampago',
+            imageUris: { normal: 'https://cards.test/bolt-es.jpg' },
+            cardFaces: [{
+              name: 'Relampago',
+              manaCost: '{R}',
+              typeLine: 'Instantaneo',
+              oracleText: '',
+              power: null,
+              toughness: null,
+              loyalty: null,
+              colors: ['R'],
+              imageUris: { normal: 'https://cards.test/bolt-es-face.jpg' },
+            }],
+            typeLine: 'Instantaneo',
+            manaCost: '{R}',
+            colorIdentity: ['R'],
+          },
+        },
+      },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    const moved = snapshot.players['player-1'].zones.battlefield.find((card) => card.instanceId === 'hand-1');
+
+    expect(result.status).toBe('applied');
+    expect(result.state.staticCards['card:bolt'].language).toBe('es');
+    expect(result.state.staticCards['card:bolt'].viewerVisibility).toBe('public');
+    expect(result.state.staticCards['card:bolt'].imageUris?.normal).toBe('https://cards.test/bolt-es.jpg');
+    expect(result.state.staticCards['card:bolt'].imageUris?.normal).not.toBe('https://cards.test/bolt-en.jpg');
+    expect(moved?.imageUris?.['normal']).toBe('https://cards.test/bolt-es.jpg');
+    expect(moved?.cardFaces?.[0]?.imageUris?.['normal']).toBe('https://cards.test/bolt-es-face.jpg');
+    expect(JSON.stringify(result.state.instances['hand-1'])).not.toContain('imageUris');
   });
 
   it('applies combined owner move envelope after public remove and add ops', () => {
@@ -421,6 +925,52 @@ describe('game table normalized v2 store', () => {
     expect(result.state.zoneCounts['player-1'].battlefield).toBe(2);
   });
 
+  it('preserves known static identity when a compact add follows a remove', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'hand', instanceIds: ['hand-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        cards: [{
+          instanceId: 'hand-1',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          zone: 'battlefield',
+          hidden: false,
+        }],
+      },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['hand-1'].cardRef).toBe('card:bolt');
+    expect(snapshot.players['player-1'].zones.battlefield.at(-1)?.name).toBe('Lightning Bolt');
+  });
+
+  it('preserves known static identity when a compact move card omits cardKey', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'hand-1',
+      from: { playerId: 'player-1', zone: 'hand' },
+      to: { playerId: 'player-1', zone: 'battlefield', index: 1 },
+      card: {
+        instanceId: 'hand-1',
+        ownerId: 'player-1',
+        controllerId: 'player-1',
+        zone: 'battlefield',
+        hidden: false,
+      },
+    }]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['hand-1'].cardRef).toBe('card:bolt');
+    expect(snapshot.players['player-1'].zones.battlefield[1]?.name).toBe('Lightning Bolt');
+  });
+
   it('applies zone.reordered for known zones and rejects mismatched sets', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const moved = applyPatchEnvelopeV2(initial, patch(6, [{
@@ -456,6 +1006,11 @@ describe('game table normalized v2 store', () => {
         instanceId: 'library-1',
         ownerId: 'player-1',
         controllerId: 'player-1',
+        cardKey: 's-library-1:card',
+        printId: 's-library-1',
+        cardVersion: 'library-1-v1',
+        language: 'en',
+        viewerVisibility: 'private',
         scryfallId: 's-library-1',
         name: 'Forest',
         tapped: false,
@@ -478,8 +1033,8 @@ describe('game table normalized v2 store', () => {
         op: 'zone.cards.add',
         playerId: 'player-1',
         zone: 'hand',
-        cards: [{ instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', zoneId: 'player-1:hand', ownerId: 'player-1', controllerId: 'player-1' }],
-        staticCards: { 'card:forest': { cardRef: 'card:forest', name: 'Forest', imageUris: null, cardFaces: [] } },
+        cards: [{ instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:hand', ownerId: 'player-1', controllerId: 'player-1' }],
+        staticCards: { 'card:forest': { cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', name: 'Forest', imageUris: null, cardFaces: [] } },
       },
       { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 97 },
       { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 2 },
@@ -490,6 +1045,20 @@ describe('game table normalized v2 store', () => {
     expect(result.state.zones['player-1'].hand).toEqual(['hand-1', 'library-1']);
     expect(result.state.zoneCounts['player-1'].library).toBe(97);
     expect(hydrateGameSnapshotFromV2State(result.state).players['player-1'].zones.hand[1]?.name).toBe('Forest');
+  });
+
+  it('hydrates visible hand count from zone.count.set instead of stale hand array length', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 6 },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zoneCounts['player-1'].hand).toBe(6);
+    expect(snapshot.players['player-1'].zoneCounts?.hand).toBe(6);
+    expect(snapshot.players['player-1'].handCount).toBe(6);
+    expect(snapshot.players['player-1'].zones.hand).toHaveLength(1);
   });
 
   it('applies runtime rival count patches without private card data', () => {
@@ -544,8 +1113,8 @@ describe('game table normalized v2 store', () => {
     const result = applyPatchEnvelopeV2(initial, patch(6, [{
       op: 'library.top.viewed',
       playerId: 'player-1',
-      cards: [{ instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' }],
-      staticCards: { 'card:forest': { cardRef: 'card:forest', name: 'Forest', imageUris: null, cardFaces: [] } },
+      cards: [{ instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' }],
+      staticCards: { 'card:forest': { cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', name: 'Forest', imageUris: null, cardFaces: [] } },
     }]));
 
     expect(result.status).toBe('applied');
@@ -580,10 +1149,15 @@ describe('game table normalized v2 store', () => {
         zone: 'battlefield',
         cards: [{
           instanceId: 'token-runtime-1',
+          cardRef: 'runtime-token:token',
           ownerId: 'player-1',
           controllerId: 'player-1',
           name: 'Runtime Goblin',
           cardKey: 'runtime-token:token',
+          printId: 'runtime-token:token',
+          cardVersion: 'runtime-identity-v1',
+          language: 'en',
+          viewerVisibility: 'public',
           zone: 'battlefield',
           isToken: true,
           tokenMeta: {
@@ -592,6 +1166,23 @@ describe('game table normalized v2 store', () => {
             mutableOverrides: { power: 1, toughness: 1 },
           },
         }],
+        staticCards: {
+          'runtime-token:token': {
+            cardRef: 'runtime-token:token',
+            cardKey: 'runtime-token:token',
+            printId: 'runtime-token:token',
+            cardVersion: 'runtime-identity-v1',
+            language: 'en',
+            viewerVisibility: 'public',
+            scryfallId: null,
+            name: 'Runtime Goblin',
+            imageUris: { normal: 'https://cards.test/runtime-goblin.jpg' },
+            cardFaces: [],
+            typeLine: null,
+            manaCost: null,
+            colorIdentity: [],
+          },
+        },
       },
       {
         op: 'card.field.set',
@@ -613,6 +1204,11 @@ describe('game table normalized v2 store', () => {
     expect(result.state.zones['player-1'].battlefield).toContain('token-runtime-1');
     expect(result.state.instances['token-runtime-1'].isToken).toBe(true);
     expect(result.state.instances['token-runtime-1'].tokenMeta?.mutableOverrides).toEqual({ power: 1, toughness: 1 });
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    const token = snapshot.players['player-1'].zones.battlefield.find((card) => card.instanceId === 'token-runtime-1');
+    expect(token?.name).toBe('Runtime Goblin');
+    expect(token?.name).not.toBe('Unknown Card');
+    expect(token?.imageUris?.['normal']).toBe('https://cards.test/runtime-goblin.jpg');
     expect(result.state.instances['battlefield-1'].dungeonMarker).toEqual({ x: 0.2, y: 0.4 });
     expect(result.state.instances['battlefield-1'].activeFaceIndex).toBe(1);
     expect(result.state.instances['opp-hand-1'].cardKey).toBeUndefined();
@@ -627,12 +1223,12 @@ describe('game table normalized v2 store', () => {
       op: 'library.revealed.set',
       playerId: 'player-1',
       cards: [
-        { instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' },
-        { instanceId: 'library-2', cardRef: 'card:island', cardKey: 'card:island', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' },
+        { instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'public', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' },
+        { instanceId: 'library-2', cardRef: 'card:island', cardKey: 'card:island', printId: 's-island', cardVersion: 'island-v1', language: 'en', viewerVisibility: 'public', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' },
       ],
       staticCards: {
-        'card:forest': { cardRef: 'card:forest', name: 'Forest', imageUris: null, cardFaces: [] },
-        'card:island': { cardRef: 'card:island', name: 'Island', imageUris: null, cardFaces: [] },
+        'card:forest': { cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'public', name: 'Forest', imageUris: null, cardFaces: [] },
+        'card:island': { cardRef: 'card:island', cardKey: 'card:island', printId: 's-island', cardVersion: 'island-v1', language: 'en', viewerVisibility: 'public', name: 'Island', imageUris: null, cardFaces: [] },
       },
     }]));
     const playTop = applyPatchEnvelopeV2(revealed.state, patch(7, [{
@@ -681,8 +1277,8 @@ describe('game table normalized v2 store', () => {
           ready: false,
         },
         hand: [
-          { instanceId: 'opening-a', cardKey: 'card:bolt' },
-          { instanceId: 'opening-b', cardKey: 'card:bolt' },
+          { instanceId: 'opening-a', cardKey: 'card:bolt', printId: 's-bolt', cardVersion: 'bolt-v1', language: 'en', viewerVisibility: 'private' },
+          { instanceId: 'opening-b', cardKey: 'card:bolt', printId: 's-bolt', cardVersion: 'bolt-v1', language: 'en', viewerVisibility: 'private' },
         ],
       },
       { op: 'mulligan.hand.count.set', playerId: 'player-2', count: 7 },
@@ -694,6 +1290,75 @@ describe('game table normalized v2 store', () => {
     expect(result.state.players['player-1'].mulligan?.mulligansTaken).toBe(1);
     expect(snapshot.players['player-1'].zones.hand.map((card) => card.instanceId)).toEqual(['opening-a', 'opening-b']);
     expect(snapshot.players['player-2'].handCount).toBe(7);
+  });
+
+  it('maps compact runtime mulligan private state without requiring a bootstrap reload', () => {
+    const initial = createGameTableNormalizedV2State({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      {
+        op: 'mulligan.private_state.set',
+        playerId: 'player-1',
+        state: {
+          status: 'DECIDING',
+          effectiveMulligans: 1,
+          handSize: 7,
+          cardsToBottom: 1,
+          bottomPending: true,
+          scryPending: false,
+        },
+      },
+      {
+        op: 'mulligan.hand.replace_private',
+        playerId: 'player-1',
+        hand: [
+          { instanceId: 'runtime-a', cardKey: 'card:a', printId: 'print:a', cardVersion: 'v-a', language: 'en', viewerVisibility: 'private' },
+          { instanceId: 'runtime-b', cardKey: 'card:b', printId: 'print:b', cardVersion: 'v-b', language: 'en', viewerVisibility: 'private' },
+          { instanceId: 'runtime-c', cardKey: 'card:c', printId: 'print:c', cardVersion: 'v-c', language: 'en', viewerVisibility: 'private' },
+          { instanceId: 'runtime-d', cardKey: 'card:d', printId: 'print:d', cardVersion: 'v-d', language: 'en', viewerVisibility: 'private' },
+          { instanceId: 'runtime-e', cardKey: 'card:e', printId: 'print:e', cardVersion: 'v-e', language: 'en', viewerVisibility: 'private' },
+          { instanceId: 'runtime-f', cardKey: 'card:f', printId: 'print:f', cardVersion: 'v-f', language: 'en', viewerVisibility: 'private' },
+          { instanceId: 'runtime-g', cardKey: 'card:g', printId: 'print:g', cardVersion: 'v-g', language: 'en', viewerVisibility: 'private' },
+        ],
+        staticCards: Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((suffix) => [
+          `card:${suffix}`,
+          {
+            cardRef: `card:${suffix}`,
+            cardKey: `card:${suffix}`,
+            printId: `print:${suffix}`,
+            cardVersion: `v-${suffix}`,
+            language: 'en',
+            viewerVisibility: 'private',
+            name: `Card ${suffix.toUpperCase()}`,
+            imageUris: null,
+            cardFaces: [],
+          },
+        ])),
+      },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    const mulligan = snapshot.players['player-1'].mulligan;
+
+    expect(result.status).toBe('applied');
+    expect(mulligan?.effectiveMulligans).toBe(1);
+    expect(mulligan?.bottomSelectionCount).toBe(1);
+    expect(mulligan?.needsBottomSelection).toBe(true);
+    expect(mulligan?.needsScryAfterKeep).toBe(false);
+    expect(mulligan?.handCount).toBe(7);
+    expect(snapshot.players['player-1'].zones.hand.map((card) => card.instanceId)).toEqual([
+      'runtime-a',
+      'runtime-b',
+      'runtime-c',
+      'runtime-d',
+      'runtime-e',
+      'runtime-f',
+      'runtime-g',
+    ]);
   });
 
   it('applies mulligan completion and phase patches by version', () => {
@@ -748,6 +1413,9 @@ function bootstrapV2(): BootstrapV2 {
         commanderDamage: {},
         counters: {},
         deckName: 'Owner Deck',
+        colorIdentity: ['G', 'W', 'U', 'B'],
+        backgroundName: 'G_4',
+        sleevesName: 'custom-sleeves',
       },
       'player-2': {
         playerId: 'player-2',
@@ -761,6 +1429,9 @@ function bootstrapV2(): BootstrapV2 {
         commanderDamage: {},
         counters: {},
         deckName: 'Opponent Deck',
+        colorIdentity: ['U', 'R'],
+        backgroundName: 'U_2',
+        sleevesName: 'opponent-sleeves',
       },
     },
     zones: {
@@ -780,9 +1451,9 @@ function bootstrapV2(): BootstrapV2 {
     instances: {
       'library-1': { instanceId: 'library-1', cardRef: 'instance:library-1', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1', hidden: true, tapped: false },
       'library-2': { instanceId: 'library-2', cardRef: 'instance:library-2', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1', hidden: true, tapped: false },
-      'hand-1': { instanceId: 'hand-1', cardRef: 'card:bolt', zoneId: 'player-1:hand', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
-      'battlefield-1': { instanceId: 'battlefield-1', cardRef: 'card:sol-ring', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: false, position: { x: 0.2, y: 0.3, unit: 'ratio' } },
-      'commander-1': { instanceId: 'commander-1', cardRef: 'card:commander', zoneId: 'player-1:command', ownerId: 'player-1', controllerId: 'player-1', tapped: false, isCommander: true },
+      'hand-1': { instanceId: 'hand-1', cardRef: 'card:bolt', cardKey: 'card:bolt', printId: 's-bolt', cardVersion: 'bolt-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:hand', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
+      'battlefield-1': { instanceId: 'battlefield-1', cardRef: 'card:sol-ring', cardKey: 'card:sol-ring', printId: 's-ring', cardVersion: 'ring-v1', language: 'en', viewerVisibility: 'public', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: false, position: { x: 0.2, y: 0.3, unit: 'ratio' } },
+      'commander-1': { instanceId: 'commander-1', cardRef: 'card:commander', cardKey: 'card:commander', printId: 's-commander', cardVersion: 'commander-v1', language: 'en', viewerVisibility: 'public', zoneId: 'player-1:command', ownerId: 'player-1', controllerId: 'player-1', tapped: false, isCommander: true },
       'opp-library-1': { instanceId: 'opp-library-1', cardRef: 'instance:opp-library-1', zoneId: 'player-2:library', ownerId: 'player-2', controllerId: 'player-2', hidden: true, tapped: false },
       'opp-hand-1': { instanceId: 'opp-hand-1', cardRef: 'instance:opp-hand-1', zoneId: 'player-2:hand', ownerId: 'player-2', controllerId: 'player-2', hidden: true, tapped: false },
     },
@@ -808,10 +1479,10 @@ function bootstrapV2(): BootstrapV2 {
     },
     turn: { activePlayerId: 'player-1', phase: 'main-1', number: 3 },
     staticCards: {
-      'card:bolt': { cardRef: 'card:bolt', scryfallId: 's-bolt', name: 'Lightning Bolt', imageUris: null, cardFaces: [], typeLine: 'Instant', manaCost: '{R}', colorIdentity: ['R'] },
-      'card:sol-ring': { cardRef: 'card:sol-ring', scryfallId: 's-ring', name: 'Sol Ring', imageUris: null, cardFaces: [], typeLine: 'Artifact', manaCost: '{1}', colorIdentity: [] },
-      'card:commander': { cardRef: 'card:commander', scryfallId: 's-commander', name: 'Atraxa, Praetors Voice', imageUris: null, cardFaces: [], typeLine: 'Legendary Creature', manaCost: '{1}{G}{W}{U}{B}', colorIdentity: ['G', 'W', 'U', 'B'] },
-      'token:beast': { cardRef: 'token:beast', scryfallId: 's-beast', name: 'Beast', imageUris: null, cardFaces: [], typeLine: 'Token Creature', manaCost: null, colorIdentity: ['G'] },
+      'card:bolt': { cardRef: 'card:bolt', cardKey: 'card:bolt', printId: 's-bolt', cardVersion: 'bolt-v1', language: 'en', viewerVisibility: 'private', scryfallId: 's-bolt', name: 'Lightning Bolt', imageUris: null, cardFaces: [], typeLine: 'Instant', manaCost: '{R}', colorIdentity: ['R'] },
+      'card:sol-ring': { cardRef: 'card:sol-ring', cardKey: 'card:sol-ring', printId: 's-ring', cardVersion: 'ring-v1', language: 'en', viewerVisibility: 'public', scryfallId: 's-ring', name: 'Sol Ring', imageUris: null, cardFaces: [], typeLine: 'Artifact', manaCost: '{1}', colorIdentity: [] },
+      'card:commander': { cardRef: 'card:commander', cardKey: 'card:commander', printId: 's-commander', cardVersion: 'commander-v1', language: 'en', viewerVisibility: 'public', scryfallId: 's-commander', name: 'Atraxa, Praetors Voice', imageUris: null, cardFaces: [], typeLine: 'Legendary Creature', manaCost: '{1}{G}{W}{U}{B}', colorIdentity: ['G', 'W', 'U', 'B'] },
+      'token:beast': { cardRef: 'token:beast', cardKey: 'token:beast', printId: 's-beast', cardVersion: 'beast-v1', language: 'en', viewerVisibility: 'public', scryfallId: 's-beast', name: 'Beast', imageUris: null, cardFaces: [], typeLine: 'Token Creature', manaCost: null, colorIdentity: ['G'] },
     },
     chatCursor: null,
     logCursor: null,

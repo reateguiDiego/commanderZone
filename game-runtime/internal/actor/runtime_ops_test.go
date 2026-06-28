@@ -74,6 +74,36 @@ func TestGameConcedeEmitsPlayerStatusPatchWithoutSnapshotWrite(t *testing.T) {
 	if duplicate.Event.Version != result.Event.Version || gameActor.Snapshot().Version != 2 {
 		t.Fatalf("duplicate was not idempotent: duplicate=%d state=%d", duplicate.Event.Version, gameActor.Snapshot().Version)
 	}
+
+	secondConcede := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "concede-2", "game.concede", map[string]any{"playerId": "p1"}), "p1")
+	if secondConcede.Err == nil {
+		t.Fatal("second concede with a new action id should not create a lifecycle transition")
+	}
+	if gameActor.Snapshot().Version != 2 {
+		t.Fatalf("rejected second concede changed version: %d", gameActor.Snapshot().Version)
+	}
+}
+
+func TestGameConcedePayloadIncludesTurnWhenActivePlayerLeaves(t *testing.T) {
+	game := testState()
+	game.Turn = map[string]any{"activePlayerId": "p1", "phase": "main-1", "number": 3}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "concede-active", "game.concede", map[string]any{"playerId": "p1"}), "p1")
+	if result.Err != nil {
+		t.Fatalf("concede failed: %v", result.Err)
+	}
+
+	turn, ok := result.Event.Payload["turn"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing replayable turn payload: %#v", result.Event.Payload)
+	}
+	if turn["activePlayerId"] == "p1" {
+		t.Fatalf("turn did not advance away from conceded player: %#v", turn)
+	}
+	if patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "turn.set"); patch == nil {
+		t.Fatalf("missing turn.set patch: %#v", result.Patches)
+	}
 }
 
 func TestGameCloseEmitsGameStatusPatchWithoutSnapshotWrite(t *testing.T) {
@@ -410,6 +440,13 @@ func TestTokenCreateRuntimeEmitsCompactPayloadOnly(t *testing.T) {
 	if len(cards) != 2 || cards[0]["isToken"] != true || cards[0]["name"] != "Goblin" {
 		t.Fatalf("bad compact token cards: %#v", cards)
 	}
+	if cards[0]["cardKey"] != "token-scryfall:token" {
+		t.Fatalf("token patch did not carry stable compact identity: %#v", cards[0])
+	}
+	eventTokens := result.Event.Payload["tokens"].([]map[string]any)
+	if len(eventTokens) != 2 || eventTokens[0]["instanceId"] != cards[0]["instanceId"] || eventTokens[0]["cardKey"] != "token-scryfall:token" || eventTokens[0]["name"] != "Goblin" {
+		t.Fatalf("token event did not carry replayable compact identity: %#v", result.Event.Payload)
+	}
 	metrics := result.Event.Payload["metrics"].(map[string]any)
 	if metrics["edge.runtime_route"] != 1 || metrics["edge.patch_bytes"].(int) <= 0 {
 		t.Fatalf("missing edge metrics: %#v", metrics)
@@ -439,8 +476,12 @@ func TestTokenCopyRuntimeUsesCompactReference(t *testing.T) {
 	}
 	cards := patch.Data["cards"].([]map[string]any)
 	meta := cards[0]["tokenMeta"].(map[string]any)
-	if meta["copiedFromInstanceId"] != "i1" || cards[0]["isTokenCopy"] != true {
+	if meta["copiedFromInstanceId"] != "i1" || meta["copiedFromCardKey"] != "card-a@1" || cards[0]["cardKey"] != "card-a@1" || cards[0]["isTokenCopy"] != true {
 		t.Fatalf("bad token copy payload: %#v", cards[0])
+	}
+	eventTokens := result.Event.Payload["tokens"].([]map[string]any)
+	if len(eventTokens) != 1 || eventTokens[0]["instanceId"] != cards[0]["instanceId"] || eventTokens[0]["cardKey"] != "card-a@1" || eventTokens[0]["isTokenCopy"] != true {
+		t.Fatalf("token copy event did not carry replayable compact identity: %#v", result.Event.Payload)
 	}
 }
 
@@ -544,6 +585,55 @@ func TestSensitiveCommandsReplay(t *testing.T) {
 	}
 }
 
+func TestReplayLegacyMulliganKeepOps(t *testing.T) {
+	game := testState()
+	event := protocol.EventPayloadV2{
+		GameID:  "game-1",
+		Version: 2,
+		Type:    "mulligan.keep",
+		Payload: map[string]any{
+			"replay": map[string]any{
+				"ops": []any{
+					map[string]any{
+						"op":         "mulligan.player_state.set",
+						"playerId":   "p1",
+						"handIds":    []any{"p1-hand-0"},
+						"libraryIds": []any{"p1-lib-0", "p1-lib-1"},
+						"gamePhase":  "PLAYING",
+					},
+				},
+			},
+		},
+	}
+
+	if err := ReplayEventWithAppliers(&game, event, DefaultAppliers()); err != nil {
+		t.Fatalf("replay legacy mulligan keep: %v", err)
+	}
+	if game.Phase != state.PhasePlaying {
+		t.Fatalf("phase = %s, want PLAYING", game.Phase)
+	}
+	if got := game.Zones["p1"].Hand; len(got) != 1 || got[0] != "p1-hand-0" {
+		t.Fatalf("hand = %#v", got)
+	}
+	if got := game.Zones["p1"].Library; len(got) != 2 || got[0] != "p1-lib-0" || got[1] != "p1-lib-1" {
+		t.Fatalf("library = %#v", got)
+	}
+}
+
+func TestReplayIgnoresDisconnectVoteLifecycleEvents(t *testing.T) {
+	game := testState()
+	event := protocol.EventPayloadV2{
+		GameID:  "game-1",
+		Version: 2,
+		Type:    "disconnect.vote.updated",
+		Payload: map[string]any{"targetPlayerId": "p2", "vote": "kick"},
+	}
+
+	if err := ReplayEventWithAppliers(&game, event, DefaultAppliers()); err != nil {
+		t.Fatalf("disconnect vote replay should be ignored by gameplay actor: %v", err)
+	}
+}
+
 func TestCardsMovedBatchUsesLocAndUpdatesZones(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move", "cards.moved", map[string]any{
@@ -614,6 +704,216 @@ func TestCardMovedFromBattlefieldToGraveyardUsesPublicMovePatch(t *testing.T) {
 	}
 	if err := state.ValidateInvariants(gameActor.Snapshot()); err != nil {
 		t.Fatalf("invalid state after move: %v", err)
+	}
+}
+
+func TestMoveHandToBattlefieldPreservesExplicitVisualPosition(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-position", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "hand",
+		"toZone":     "battlefield",
+		"instanceId": "h1",
+		"position":   map[string]any{"x": 0.37, "y": 0.61, "unit": "ratio"},
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("move failed: %v", result.Err)
+	}
+
+	position := runtimePosition(t, gameActor.Snapshot(), "h1")
+	if position["x"] != 0.37 || position["y"] != 0.61 || position["unit"] != "ratio" {
+		t.Fatalf("position was not preserved: %#v", position)
+	}
+	patch := patchForVisibility(result.Patches, "player:p1", "zone.cards.move")
+	if patch == nil {
+		t.Fatalf("missing owner move patch: %#v", result.Patches)
+	}
+	card := patch.Data["card"].(map[string]any)
+	if got := card["position"]; fmt.Sprintf("%#v", got) != fmt.Sprintf("%#v", position) {
+		t.Fatalf("patch position got %#v want %#v", got, position)
+	}
+
+	replayed, err := ReplayEvents(testState(), []protocol.EventPayloadV2{result.Event}, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("replay failed: %v", err)
+	}
+	if replayedPosition := runtimePosition(t, replayed, "h1"); fmt.Sprintf("%#v", replayedPosition) != fmt.Sprintf("%#v", position) {
+		t.Fatalf("replayed position got %#v want %#v", replayedPosition, position)
+	}
+}
+
+func TestMoveHandToBattlefieldWithoutPositionAssignsStableNonZeroVisualPosition(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-default-position", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "hand",
+		"toZone":     "battlefield",
+		"instanceId": "h1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("move failed: %v", result.Err)
+	}
+
+	position := runtimePosition(t, gameActor.Snapshot(), "h1")
+	if !nonZeroRatioPosition(position) {
+		t.Fatalf("expected non-zero ratio position, got %#v", position)
+	}
+	patch := patchForVisibility(result.Patches, "public", "zone.cards.add")
+	if patch == nil {
+		t.Fatalf("missing public battlefield add patch: %#v", result.Patches)
+	}
+	cards := patch.Data["cards"].([]map[string]any)
+	if !nonZeroRatioPosition(cards[0]["position"].(map[string]any)) {
+		t.Fatalf("public patch did not carry valid battlefield position: %#v", cards[0])
+	}
+}
+
+func TestBatchMoveToBattlefieldAssignsDistinctVisualPositions(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-batch-position", "cards.moved", map[string]any{
+		"playerId":    "p1",
+		"fromZone":    "hand",
+		"toZone":      "battlefield",
+		"instanceIds": []string{"h1", "h2"},
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("move failed: %v", result.Err)
+	}
+
+	first := runtimePosition(t, gameActor.Snapshot(), "h1")
+	second := runtimePosition(t, gameActor.Snapshot(), "h2")
+	if !nonZeroRatioPosition(first) || !nonZeroRatioPosition(second) {
+		t.Fatalf("invalid positions: %#v %#v", first, second)
+	}
+	if first["x"] == second["x"] && first["y"] == second["y"] {
+		t.Fatalf("batch battlefield positions overlapped: %#v %#v", first, second)
+	}
+}
+
+func TestMoveAwayFromBattlefieldClearsVisualPositionAndReturnGetsNewPosition(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	toGraveyard := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-away-position", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "battlefield",
+		"toZone":     "graveyard",
+		"instanceId": "i1",
+	}), "p1")
+	if toGraveyard.Err != nil {
+		t.Fatalf("move to graveyard failed: %v", toGraveyard.Err)
+	}
+	if position := gameActor.Snapshot().Instances["i1"].Position; position != nil {
+		t.Fatalf("non-battlefield card kept visual position: %#v", position)
+	}
+
+	toBattlefield := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "return-position", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "graveyard",
+		"toZone":     "battlefield",
+		"instanceId": "i1",
+	}), "p1")
+	if toBattlefield.Err != nil {
+		t.Fatalf("return to battlefield failed: %v", toBattlefield.Err)
+	}
+	if position := runtimePosition(t, gameActor.Snapshot(), "i1"); !nonZeroRatioPosition(position) {
+		t.Fatalf("returned battlefield card did not get a valid position: %#v", position)
+	}
+}
+
+func TestCommanderMoveFromCommandToBattlefieldIncrementsCastCount(t *testing.T) {
+	gameActor := NewGameActor("game-1", testStateWithCommanderInCommand(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "cast-commander", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "command",
+		"toZone":     "battlefield",
+		"instanceId": "commander-1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("commander move failed: %v", result.Err)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if got := snapshot.SharedCounters["commander:commander-1"]["casts"]; got != 1 {
+		t.Fatalf("commander casts got %d want 1", got)
+	}
+	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "game.counters.set")
+	if patch == nil {
+		t.Fatalf("missing commander cast counter patch: %#v", result.Patches)
+	}
+	if patch.Data["scope"] != "commander:commander-1" {
+		t.Fatalf("bad commander counter scope: %#v", patch.Data)
+	}
+	counters := patch.Data["counters"].(map[string]any)
+	if counters["casts"] != 1 {
+		t.Fatalf("bad commander counter patch: %#v", patch.Data)
+	}
+}
+
+func TestCommanderCastCountIsIdempotentForRetry(t *testing.T) {
+	gameActor := NewGameActor("game-1", testStateWithCommanderInCommand(), nil, 8, DefaultAppliers())
+	cmd := command("game-1", 1, "cast-commander", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "command",
+		"toZone":     "battlefield",
+		"instanceId": "commander-1",
+	})
+
+	first := gameActor.ApplyDirect(context.Background(), cmd, "p1")
+	if first.Err != nil {
+		t.Fatalf("commander move failed: %v", first.Err)
+	}
+	retry := gameActor.ApplyDirect(context.Background(), cmd, "p1")
+	if retry.Err != nil {
+		t.Fatalf("commander retry failed: %v", retry.Err)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if got := snapshot.SharedCounters["commander:commander-1"]["casts"]; got != 1 {
+		t.Fatalf("retry duplicated commander casts: got %d want 1", got)
+	}
+	if retry.Event.Version != first.Event.Version || snapshot.Version != 2 {
+		t.Fatalf("retry was not idempotent: first=%d retry=%d state=%d", first.Event.Version, retry.Event.Version, snapshot.Version)
+	}
+}
+
+func TestCommanderCastCountReplayDoesNotDuplicate(t *testing.T) {
+	initial := testStateWithCommanderInCommand()
+	gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "cast-commander", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "command",
+		"toZone":     "battlefield",
+		"instanceId": "commander-1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("commander move failed: %v", result.Err)
+	}
+
+	replayed, err := ReplayEvents(initial, []protocol.EventPayloadV2{result.Event}, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("replay failed: %v", err)
+	}
+	if got := replayed.SharedCounters["commander:commander-1"]["casts"]; got != 1 {
+		t.Fatalf("replay duplicated commander casts: got %d want 1", got)
+	}
+}
+
+func TestMovingCommanderWithoutCastingDoesNotIncrementCastCount(t *testing.T) {
+	gameActor := NewGameActor("game-1", testStateWithCommanderInCommand(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-commander", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "command",
+		"toZone":     "graveyard",
+		"instanceId": "commander-1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("commander move failed: %v", result.Err)
+	}
+
+	if got := gameActor.Snapshot().SharedCounters["commander:commander-1"]["casts"]; got != 0 {
+		t.Fatalf("non-cast commander move changed casts: got %d want 0", got)
+	}
+	if patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "game.counters.set"); patch != nil {
+		t.Fatalf("non-cast move emitted commander counter patch: %#v", patch)
 	}
 }
 
@@ -1210,6 +1510,52 @@ func TestMovementReplayReconstructsMovedCards(t *testing.T) {
 	}
 }
 
+func TestLegacyReplayOpsMoveKeepsBattlefieldCommandsRuntimeSafe(t *testing.T) {
+	initial := testState()
+	event := protocol.EventPayloadV2{
+		GameID:  "game-1",
+		Version: 1,
+		Type:    "card.moved",
+		Payload: map[string]any{
+			"replay": map[string]any{
+				"ops": []any{
+					map[string]any{
+						"op":         "zone.cards.move",
+						"instanceId": "h1",
+						"from":       map[string]any{"playerId": "p1", "zone": "hand"},
+						"to":         map[string]any{"playerId": "p1", "zone": "battlefield", "index": 0},
+						"card": map[string]any{
+							"instanceId":   "h1",
+							"ownerId":      "p1",
+							"controllerId": "p1",
+							"scryfallId":   "plains",
+							"tapped":       false,
+							"rotation":     0,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := ReplayEventWithAppliers(&initial, event, DefaultAppliers()); err != nil {
+		t.Fatalf("legacy replay op failed: %v", err)
+	}
+	if got, want := initial.Loc["h1"].Zone, state.ZoneBattlefield; got != want {
+		t.Fatalf("location zone got %s want %s", got, want)
+	}
+	initial.Version = event.Version
+
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+	tap := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "tap", "card.tapped", map[string]any{"instanceId": "h1", "tapped": true}), "p1")
+	if tap.Err != nil {
+		t.Fatalf("tap after legacy replay op failed: %v", tap.Err)
+	}
+	if tap.Event.Payload["playerId"] != "p1" {
+		t.Fatalf("tap event playerId got %#v want p1", tap.Event.Payload["playerId"])
+	}
+}
+
 func BenchmarkLibraryDrawOne(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		game := benchmarkState(100)
@@ -1432,6 +1778,24 @@ func testStateWithTwoBattlefieldCards() state.GameState {
 	return game
 }
 
+func testStateWithCommanderInCommand() state.GameState {
+	game := testState()
+	game.Instances["commander-1"] = state.CardInstanceRuntime{
+		InstanceID:   "commander-1",
+		CardKey:      "commander-card@1",
+		OwnerID:      "p1",
+		ControllerID: "p1",
+		Zone:         state.ZoneCommand,
+		IsCommander:  true,
+	}
+	zones := game.Zones["p1"]
+	zones.Command = []string{"commander-1"}
+	game.Zones["p1"] = zones
+	game.Loc["commander-1"] = state.Location{PlayerID: "p1", Zone: state.ZoneCommand, Index: 0, ControllerID: "p1"}
+	game.SharedCounters["commander:commander-1"] = map[string]int{"casts": 0}
+	return game
+}
+
 func reverseIDs(prefix string, count int) []string {
 	ids := make([]string, 0, count)
 	for index := count - 1; index >= 0; index-- {
@@ -1449,6 +1813,22 @@ func benchmarkPositions(count int) []map[string]any {
 		})
 	}
 	return out
+}
+
+func runtimePosition(t *testing.T, game state.GameState, instanceID string) map[string]any {
+	t.Helper()
+	position := game.Instances[instanceID].Position
+	if position == nil {
+		t.Fatalf("missing position for %s", instanceID)
+	}
+	return position
+}
+
+func nonZeroRatioPosition(position map[string]any) bool {
+	if position == nil || position["unit"] != "ratio" {
+		return false
+	}
+	return toFloat(position["x"], 0) > 0 || toFloat(position["y"], 0) > 0
 }
 
 func equalStrings(a []string, b []string) bool {

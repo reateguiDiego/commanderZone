@@ -131,7 +131,7 @@ describe('GameTableSessionService', () => {
 
     expect(gamesApi.bootstrapV2).toHaveBeenNthCalledWith(1, 'game-1', []);
     expect(gamesApi.bootstrapV2).toHaveBeenNthCalledWith(2, 'game-1', expect.arrayContaining([
-      'card-3@legacy-snapshot-v1',
+      'card-3|s3|legacy-snapshot-v1|en|public',
     ]));
     expect(setSnapshot).toHaveBeenLastCalledWith(expect.objectContaining({
       players: expect.objectContaining({
@@ -178,6 +178,20 @@ describe('GameTableSessionService', () => {
 
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(2);
     expect(setSnapshot).toHaveBeenLastCalledWith(next);
+  });
+
+  it('does not let Mercure bootstrap race connected patch.v2 delivery', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    websocketStatus.set('connected');
+    const setSnapshot = vi.fn();
+    gamesApi.bootstrapV2.mockReturnValue(of(bootstrapV2()));
+
+    await service.load(context(snapshot(), setSnapshot));
+    gameRealtimeHandlers().onSnapshotInvalidated(gameEvent('card.moved', bootstrapV2().game.version + 1));
+    await Promise.resolve();
+
+    expect(gamesApi.bootstrapV2).toHaveBeenCalledTimes(1);
+    expect(setSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it('does not refetch when the current snapshot is already at the realtime event version', async () => {
@@ -324,9 +338,9 @@ function bootstrapV2(): BootstrapV2 {
       'player-1:command': { zoneId: 'player-1:command', playerId: 'player-1', name: 'command', instanceIds: [] },
     },
     instances: {
-      'library-1': { instanceId: 'library-1', cardRef: 'card-1', cardKey: 'card-1', cardVersion: 'legacy-snapshot-v1', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
-      'hand-1': { instanceId: 'hand-1', cardRef: 'card-2', cardKey: 'card-2', cardVersion: 'legacy-snapshot-v1', zoneId: 'player-1:hand', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
-      'battlefield-1': { instanceId: 'battlefield-1', cardRef: 'card-3', cardKey: 'card-3', cardVersion: 'legacy-snapshot-v1', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: true },
+      'library-1': { instanceId: 'library-1', cardRef: 'card-1', cardKey: 'card-1', printId: 's1', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
+      'hand-1': { instanceId: 'hand-1', cardRef: 'card-2', cardKey: 'card-2', printId: 's2', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:hand', ownerId: 'player-1', controllerId: 'player-1', tapped: false },
+      'battlefield-1': { instanceId: 'battlefield-1', cardRef: 'card-3', cardKey: 'card-3', printId: 's3', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'public', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-1', tapped: true },
     },
     zoneCounts: {
       'player-1:library': 98,
@@ -344,9 +358,9 @@ function bootstrapV2(): BootstrapV2 {
     },
     turn: { activePlayerId: 'player-1', phase: 'main-1', number: 2 },
     staticCards: {
-      'card-1': { cardRef: 'card-1', cardKey: 'card-1', cardVersion: 'legacy-snapshot-v1', scryfallId: 's1', name: 'Top Card', imageUris: null, cardFaces: [], typeLine: 'Land', manaCost: null, colorIdentity: [] },
-      'card-2': { cardRef: 'card-2', cardKey: 'card-2', cardVersion: 'legacy-snapshot-v1', scryfallId: 's2', name: 'Hand Card', imageUris: null, cardFaces: [], typeLine: 'Creature', manaCost: null, colorIdentity: [] },
-      'card-3': { cardRef: 'card-3', cardKey: 'card-3', cardVersion: 'legacy-snapshot-v1', scryfallId: 's3', name: 'Board Card', imageUris: null, cardFaces: [], typeLine: 'Artifact', manaCost: null, colorIdentity: [] },
+      'card-1': { cardRef: 'card-1', cardKey: 'card-1', printId: 's1', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'private', scryfallId: 's1', name: 'Top Card', imageUris: null, cardFaces: [], typeLine: 'Land', manaCost: null, colorIdentity: [] },
+      'card-2': { cardRef: 'card-2', cardKey: 'card-2', printId: 's2', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'private', scryfallId: 's2', name: 'Hand Card', imageUris: null, cardFaces: [], typeLine: 'Creature', manaCost: null, colorIdentity: [] },
+      'card-3': { cardRef: 'card-3', cardKey: 'card-3', printId: 's3', cardVersion: 'legacy-snapshot-v1', language: 'en', viewerVisibility: 'public', scryfallId: 's3', name: 'Board Card', imageUris: null, cardFaces: [], typeLine: 'Artifact', manaCost: null, colorIdentity: [] },
     },
     chatCursor: null,
     logCursor: null,
