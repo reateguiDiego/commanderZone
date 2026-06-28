@@ -3,6 +3,7 @@
 namespace App\Tests\Application;
 
 use App\Application\Game\GameSnapshotFactory;
+use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameRandomizer;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
@@ -14,6 +15,21 @@ use PHPUnit\Framework\TestCase;
 
 class GameSnapshotFactoryTest extends TestCase
 {
+    public function testOmitsChatAndEventLogFromInitialSnapshotWhenStreamsEnabled(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $this->setPrivateProperty($owner, 'id', 'owner-id');
+        $room = new Room($owner);
+        $room->addPlayer(new RoomPlayer($room, $owner, new Deck($owner, 'Deck')));
+
+        $snapshot = (new GameSnapshotFactory(
+            streamFlags: new GameplayStreamsFlags(true),
+        ))->fromRoom($room);
+
+        self::assertArrayNotHasKey('chat', $snapshot);
+        self::assertArrayNotHasKey('eventLog', $snapshot);
+    }
+
     public function testUsesFaceStatsRootLoyaltyWhenLegacyIsNull(): void
     {
         $snapshot = $this->snapshotWithCommander($this->cardWithLoyaltySources(

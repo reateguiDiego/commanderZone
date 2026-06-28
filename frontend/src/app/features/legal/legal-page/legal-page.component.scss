@@ -7,12 +7,6 @@
   color: var(--text);
 }
 
-.legal-page--contact {
-  min-height: 100dvh;
-  align-content: center;
-  padding-block: clamp(1rem, 4dvh, 3rem);
-}
-
 .legal-page__header,
 .legal-page__footer {
   display: grid;

@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Deck, DeckCard } from '../../../core/models/deck.model';
 import { LandTypeCount, ManaSymbolService } from '../../../shared/mana/mana-symbol.service';
+import { resolvedDeckCardTypeLine } from '../utils/deck-card-type-line';
 
 export interface DeckMetric {
   label: string;
@@ -70,7 +71,7 @@ export class DeckAnalysisService {
       totalManaValue: nonlandManaValues.reduce((total, value) => total + value, 0),
       colorPips,
       colorProfiles: this.colorProfiles(colorPips),
-      landTypes: this.manaSymbols.landTypeCounts(expanded.map((entry) => entry.card.typeLine)),
+      landTypes: this.manaSymbols.landTypeCounts(expanded.map((entry) => resolvedDeckCardTypeLine(entry))),
       manaCurve: this.curve(nonlands),
       lands: this.metric('Lands', expanded, (entry) => this.isLand(entry)),
       creatures: this.metric('Creatures', expanded, (entry) => this.hasType(entry, 'creature')),
@@ -197,11 +198,11 @@ export class DeckAnalysisService {
   }
 
   private isLand(entry: DeckCard): boolean {
-    return /(^|\s)land(\s|$)/i.test(entry.card.typeLine ?? '');
+    return /(^|\s)land(\s|$)/i.test(resolvedDeckCardTypeLine(entry));
   }
 
   private hasType(entry: DeckCard, type: string): boolean {
-    return new RegExp(`(^|\\s)${type}(\\s|$)`, 'i').test(entry.card.typeLine ?? '');
+    return new RegExp(`(^|\\s)${type}(\\s|$)`, 'i').test(resolvedDeckCardTypeLine(entry));
   }
 
   private isSpell(entry: DeckCard): boolean {
@@ -209,7 +210,7 @@ export class DeckAnalysisService {
   }
 
   private text(entry: DeckCard): string {
-    return `${entry.card.typeLine ?? ''}\n${entry.card.oracleText ?? ''}`.toLowerCase();
+    return `${resolvedDeckCardTypeLine(entry)}\n${entry.card.oracleText ?? ''}`.toLowerCase();
   }
 
   private isRamp(entry: DeckCard): boolean {

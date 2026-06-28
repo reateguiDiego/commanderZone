@@ -16,7 +16,9 @@ import { MissingCardsStore } from './missing-cards.store';
 import { ClientCommanderValidationService } from '../services/client-commander-validation.service';
 import { DeckAnalysisService } from '../services/deck-analysis.service';
 import { DeckImportExportService, DecklistEntry } from '../services/deck-import-export.service';
+import { normalizedCardTypeLine, resolveCardTypeLine, resolvedDeckCardTypeLine } from '../utils/deck-card-type-line';
 import { bestCardFaceImage, bestCardImage } from '../../../shared/utils/card-image';
+import { cardDisplayFace, hasAlternateCardFace } from '../../../shared/utils/card-faces';
 import {
   CardMenuState,
   CardPreviewState,
@@ -32,15 +34,16 @@ import {
   PrintVersionGroup,
   PointerPosition,
 } from '../models/deck-editor.models';
+import { DeckAnalysisStore } from '../deck-editor/deck-analysis-panel/deck-analysis-store.token';
 
 const CARD_TYPE_GROUPS = [
   { id: 'planeswalker', title: 'Planeswalkers', type: 'planeswalker' },
+  { id: 'battle', title: 'Battles', type: 'battle' },
   { id: 'creature', title: 'Criaturas', type: 'creature' },
   { id: 'instant', title: 'Instantaneos', type: 'instant' },
   { id: 'sorcery', title: 'Conjuros', type: 'sorcery' },
   { id: 'enchantment', title: 'Encantamientos', type: 'enchantment' },
   { id: 'artifact', title: 'Artefactos', type: 'artifact' },
-  { id: 'battle', title: 'Battles', type: 'battle' },
   { id: 'land', title: 'Tierras', type: 'land' },
 ] as const;
 
@@ -67,7 +70,7 @@ interface ToggleCardFaceOptions {
 }
 
 @Injectable()
-export class DeckEditorStore {
+export class DeckEditorStore implements DeckAnalysisStore {
   private readonly decksApi = inject(DecksApi);
   private readonly cardsApi = inject(CardsApi);
   private readonly route = inject(ActivatedRoute);
@@ -319,16 +322,7 @@ export class DeckEditorStore {
   }
 
   exportDeck(deck: Deck): void {
-    const decklist = this.importExport.toBackendDecklist(this.importExport.entriesFromDeck(deck));
-    const blob = new Blob([decklist], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${this.exportFileName(deck.name)}.txt`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    this.importExport.downloadDeck(deck);
   }
 
   toggleGroup(groupId: string): void {
@@ -719,10 +713,10 @@ export class DeckEditorStore {
     }];
   }
 
-  showHoverList(event: MouseEvent, title: string, items: string[]): void {
+  showHoverList(event: MouseEvent, title: string, items: readonly string[]): void {
     this.hoverList.set({
       title,
-      items,
+      items: [...items],
       top: Math.min(event.clientY + 16, window.innerHeight - 220),
       left: Math.min(event.clientX + 16, window.innerWidth - 280),
     });
@@ -751,7 +745,7 @@ export class DeckEditorStore {
       return true;
     }
 
-    return !(this.displayCardTypeLine(card)?.toLowerCase().includes('land') ?? false);
+    return !normalizedCardTypeLine(card, this.displayCardFace(card)).includes('land');
   }
 
   imageUrl(card: Card): string | null {
@@ -818,10 +812,7 @@ export class DeckEditorStore {
   }
 
   hasAlternateFace(card: Card): boolean {
-    const faces = card.cardFaces ?? [];
-    const secondFaceImage = bestCardFaceImage(faces[1]);
-
-    return faces.length > 1 && secondFaceImage !== null && secondFaceImage.trim().length > 0;
+    return hasAlternateCardFace(card);
   }
 
   displayCardName(card: Card): string {
@@ -837,7 +828,7 @@ export class DeckEditorStore {
   }
 
   displayCardTypeLine(card: Card): string | null {
-    const typeLine = card.typeLine ?? card.cardFaces?.[0]?.typeLine ?? this.displayCardFace(card)?.typeLine ?? null;
+    const typeLine = resolveCardTypeLine(card, this.displayCardFace(card));
 
     return typeLine ? primaryTypeLinePart(typeLine) : null;
   }
@@ -1338,7 +1329,7 @@ export class DeckEditorStore {
   }
 
   private isSpellEntry(entry: DeckCard): boolean {
-    const typeLine = entry.card.typeLine?.toLowerCase() ?? '';
+    const typeLine = resolvedDeckCardTypeLine(entry);
     return typeLine.includes('instant') || typeLine.includes('sorcery');
   }
 
@@ -1406,7 +1397,7 @@ export class DeckEditorStore {
 
   private manaSourceColors(entry: DeckCard, deckColors: Array<'W' | 'U' | 'B' | 'R' | 'G'>): Array<'W' | 'U' | 'B' | 'R' | 'G' | 'C'> {
     const colors = new Set<'W' | 'U' | 'B' | 'R' | 'G' | 'C'>();
-    const typeLine = entry.card.typeLine?.toLowerCase() ?? '';
+    const typeLine = resolvedDeckCardTypeLine(entry);
     const oracle = entry.card.oracleText?.toLowerCase() ?? '';
     const basicTypes: Record<'W' | 'U' | 'B' | 'R' | 'G', string> = {
       W: 'plains',
@@ -1540,17 +1531,12 @@ export class DeckEditorStore {
     return this.viewMode() === 'text' && window.innerWidth >= 768 && window.innerHeight > 640;
   }
 
-  private isFaceFlipped(card: Card): boolean {
+  isFaceFlipped(card: Card): boolean {
     return this.flippedFaces()[card.scryfallId] ?? false;
   }
 
   private displayCardFace(card: Card): CardFace | null {
-    const faces = card.cardFaces ?? [];
-    if (faces.length < 2) {
-      return null;
-    }
-
-    return faces[this.isFaceFlipped(card) ? 1 : 0] ?? null;
+    return cardDisplayFace(card, this.isFaceFlipped(card));
   }
 
   private deckFormatKey(): string {
@@ -1584,18 +1570,10 @@ export class DeckEditorStore {
     return `${entry.title}${cards}. ${entry.detail}`;
   }
 
-  private exportFileName(name: string): string {
-    return name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      || 'deck';
-  }
 }
 
 function hasType(entry: DeckCard, type: string): boolean {
-  return new RegExp(`(^|\\s)${type}(\\s|$)`, 'i').test(entry.card.typeLine ?? '');
+  return new RegExp(`(^|\\s)${type}(\\s|$)`, 'i').test(resolvedDeckCardTypeLine(entry));
 }
 
 function hasMaindeckType(entry: DeckCard, type: string): boolean {
@@ -1645,8 +1623,8 @@ function cardTypeGroupIndex(entry: DeckCard): number {
 }
 
 function cardTypeSortParts(entry: DeckCard): { primaryType: string; subtype: string } {
-  const typeLine = primaryTypeLinePart(entry.card.typeLine ?? '');
-  const [primaryType = '', ...subtypeParts] = typeLine.split(/\s+[—–-]\s+/);
+  const typeLine = primaryTypeLinePart(resolvedDeckCardTypeLine(entry));
+  const [primaryType = '', ...subtypeParts] = typeLine.split(/\s+(?:-|\u2013|\u2014)\s+/u);
 
   return {
     primaryType: normalizeSortText(primaryType),

@@ -25,6 +25,7 @@ import { TableAssistantSyncService } from '../data-access/table-assistant-sync.s
 import { tableAssistantColorOption } from '../domain/table-assistant-colors';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { ExtraActionsMenuComponent } from '../../../shared/ui/extra-actions-menu/extra-actions-menu.component';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { TableAssistantReplayModalComponent } from '../table-assistant-replay-modal/table-assistant-replay-modal.component';
 import { TableAssistantTableMenuComponent } from '../table-assistant-table-menu/table-assistant-table-menu.component';
@@ -44,6 +45,7 @@ import {
   imports: [RuntimeTranslatePipe, 
     TableAssistantReplayModalComponent,
     ExtraActionsMenuComponent,
+    GlobalLoaderComponent,
     RollModalComponent,
     TableAssistantTableMenuComponent,
     TableAssistantTurnControlsComponent,

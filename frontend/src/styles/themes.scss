@@ -76,29 +76,30 @@
 
 :root[data-theme='candy-summoners'] {
   color-scheme: light;
-  --cz-bg: #dfc5ff;
-  --cz-bg-rgb: 223 197 255;
-  --cz-surface: #e397c3;
-  --cz-surface-rgb: 227 151 195;
-  --cz-surface-elevated: #fff0fa;
-  --cz-surface-elevated-rgb: 255 240 250;
-  --cz-primary: #8b5cff;
-  --cz-primary-rgb: 139 92 255;
-  --cz-secondary: #38cfff;
-  --cz-secondary-rgb: 56 207 255;
-  --cz-accent: #ff6f8f;
-  --cz-accent-rgb: 255 111 143;
+  --cz-bg: #cbb8e8;
+  --cz-bg-rgb: 203 184 232;
+  --cz-surface: #e8a6c8;
+  --cz-surface-rgb: 232 166 200;
+  --cz-surface-elevated: #f8d7ea;
+  --cz-surface-elevated-rgb: 248 215 234;
+  --cz-primary: #5a2ea6;
+  --cz-primary-rgb: 90 46 166;
+  --cz-secondary: #006e8f;
+  --cz-secondary-rgb: 0 110 143;
+  --cz-accent: #b0185a;
+  --cz-accent-rgb: 176 24 90;
   --cz-text: #000000;
   --cz-text-rgb: 0 0 0;
-  --cz-success: #008a4e;
-  --cz-success-rgb: 0 138 78;
-  --cz-danger: #c1124f;
-  --cz-danger-rgb: 193 18 79;
-  --cz-warning: #9a5a00;
-  --cz-warning-rgb: 154 90 0;
-  --cz-info: #005fcc;
-  --cz-info-rgb: 0 95 204;
-  --cz-on-accent: var(--cz-text);
+  --cz-success: #006b4a;
+  --cz-success-rgb: 0 107 74;
+  --cz-danger: #b0003a;
+  --cz-danger-rgb: 176 0 58;
+  --cz-warning: #6f3b00;
+  --cz-warning-rgb: 111 59 0;
+  --cz-info: #0057b8;
+  --cz-info-rgb: 0 87 184;
+  --cz-on-accent: #ffffff;
+  --cz-on-accent-rgb: 255 255 255;
   --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 58%);
   --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 68%);
   --deck-list-card-topline-bg: linear-gradient(90deg, rgb(var(--cz-surface-elevated-rgb) / 84%), rgb(var(--cz-surface-elevated-rgb) / 34%));
@@ -108,7 +109,7 @@
   --deck-list-dual-commander-art-overlay: linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 24%) 0%, transparent 42%, rgb(var(--cz-bg-rgb) / 34%) 100%);
   --deck-list-row-actions-bg: rgb(var(--cz-surface-elevated-rgb) / 64%);
   --deck-list-row-actions-bg-hover: rgb(var(--cz-surface-elevated-rgb) / 78%);
-  --player-avatar-shadow: 0 0 0 3px rgb(48 22 62 / 82%);
+  --player-avatar-shadow: 0 0 0 3px rgb(46 18 74 / 86%);
   --player-info-avatar-filter: none;
   --player-name-text-shadow: none;
   --cz-callout-border: rgb(var(--cz-warning-rgb) / 78%);
@@ -118,48 +119,95 @@
   --cz-callout-shadow:
     inset 0 1px 0 rgb(255 255 255 / 52%),
     inset 0 -1px 0 rgb(var(--cz-warning-rgb) / 18%),
-    0 14px 28px rgb(88 38 104 / 16%);
+    0 14px 28px rgb(62 20 86 / 14%);
   --cz-callout-color: var(--cz-text);
   --cz-callout-accent: var(--cz-warning);
   --cz-callout-overlay:
     linear-gradient(90deg, rgb(var(--cz-warning-rgb) / 22%), transparent 34%),
     linear-gradient(180deg, rgb(var(--cz-text-rgb) / 4%), transparent 54%);
   --cz-callout-icon-border: rgb(var(--cz-warning-rgb) / 88%);
-  --cz-callout-icon-bg: linear-gradient(180deg, #ffd36a, var(--cz-warning));
+  --cz-callout-icon-bg: linear-gradient(180deg, #8a4b00, var(--cz-warning));
   --cz-callout-icon-shadow:
     0 0 0 3px rgb(var(--cz-warning-rgb) / 18%),
-    0 8px 18px rgb(88 38 104 / 16%);
-  --cz-callout-icon-color: var(--cz-text);
+    0 8px 18px rgb(62 20 86 / 14%);
+  --cz-callout-icon-color: var(--cz-on-accent);
   --cz-callout-icon-text-shadow: none;
   --cz-callout-strong: var(--cz-text);
   --cz-callout-link: var(--cz-info);
   --cz-callout-link-decoration: rgb(var(--cz-info-rgb) / 58%);
-  --app-bg-vignette: rgb(var(--cz-surface-rgb) / 22%);
+  --app-bg-vignette: rgb(var(--cz-surface-rgb) / 16%);
 }
 
 :root[data-theme='treasure-tavern'] {
-  --cz-bg: #1d130c;
-  --cz-bg-rgb: 29 19 12;
-  --cz-surface: #332015;
-  --cz-surface-rgb: 51 32 21;
-  --cz-surface-elevated: #4a2d1d;
-  --cz-surface-elevated-rgb: 74 45 29;
-  --cz-primary: #f4b63f;
-  --cz-primary-rgb: 244 182 63;
-  --cz-secondary: #9d2f3f;
-  --cz-secondary-rgb: 157 47 63;
-  --cz-accent: #27c98b;
-  --cz-accent-rgb: 39 201 139;
+  color-scheme: dark;
+  --cz-bg: #3a1f0b;
+  --cz-bg-rgb: 58 31 11;
+  --cz-surface: #5a3212;
+  --cz-surface-rgb: 90 50 18;
+  --cz-surface-elevated: #8a5018;
+  --cz-surface-elevated-rgb: 138 80 24;
+  --cz-primary: #007c89;
+  --cz-primary-rgb: 0 124 137;
+  --cz-secondary: #7a1232;
+  --cz-secondary-rgb: 122 18 50;
+  --cz-accent: #d99a2b;
+  --cz-accent-rgb: 217 154 43;
   --cz-text: #fff1d6;
   --cz-text-rgb: 255 241 214;
-  --cz-success: #38c172;
-  --cz-success-rgb: 56 193 114;
-  --cz-danger: #e54848;
-  --cz-danger-rgb: 229 72 72;
-  --cz-warning: #ffb020;
-  --cz-warning-rgb: 255 176 32;
-  --cz-info: #4ba3f2;
-  --cz-info-rgb: 75 163 242;
+  --cz-success: #005f3b;
+  --cz-success-rgb: 0 95 59;
+  --cz-danger: #e0112d;
+  --cz-danger-rgb: 224 17 45;
+  --cz-warning: #7a1232;
+  --cz-warning-rgb: 122 18 50;
+  --cz-info: #0f52ba;
+  --cz-info-rgb: 15 82 186;
+  --cz-on-accent: #fff4d1;
+  --cz-on-accent-rgb: 255 244 209;
+  --muted: rgb(var(--cz-text-rgb) / 68%);
+  --cz-input-placeholder-color: rgb(var(--cz-text-rgb) / 48%);
+  --cz-input-placeholder-strong-color: rgb(var(--cz-text-rgb) / 58%);
+  --line: rgb(var(--cz-accent-rgb) / 34%);
+  --shadow: 0 18px 60px rgb(20 10 4 / 38%);
+  --app-bg-base: var(--cz-bg);
+  --app-bg-deep: color-mix(in srgb, var(--cz-bg) 74%, var(--cz-surface) 26%);
+  --app-bg-ember: rgb(var(--cz-secondary-rgb) / 16%);
+  --app-bg-forest: rgb(var(--cz-success-rgb) / 11%);
+  --app-bg-moss: rgb(var(--cz-accent-rgb) / 10%);
+  --app-bg-river: rgb(var(--cz-primary-rgb) / 12%);
+  --app-bg-blood: rgb(var(--cz-danger-rgb) / 10%);
+  --app-bg-vignette: rgb(20 10 4 / 46%);
+  --player-avatar-shadow: 0 0 0 3px rgb(var(--cz-accent-rgb) / 38%);
+  --player-name-text-shadow: none;
+  --cz-callout-border: rgb(var(--cz-accent-rgb) / 46%);
+  --cz-callout-bg:
+    linear-gradient(180deg, rgb(var(--cz-surface-rgb) / 88%), rgb(var(--cz-bg-rgb) / 78%)),
+    linear-gradient(135deg, rgb(var(--cz-accent-rgb) / 12%), rgb(var(--cz-secondary-rgb) / 14%));
+  --cz-callout-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),
+    0 14px 28px rgb(20 10 4 / 32%);
+  --cz-callout-color: var(--cz-text);
+  --cz-callout-accent: var(--cz-accent);
+  --cz-callout-overlay:
+    linear-gradient(90deg, rgb(var(--cz-accent-rgb) / 16%), transparent 34%),
+    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 4%), transparent 54%);
+  --cz-callout-icon-border: rgb(var(--cz-accent-rgb) / 72%);
+  --cz-callout-icon-bg: linear-gradient(180deg, #f0bd55, var(--cz-surface-elevated));
+  --cz-callout-icon-shadow:
+    0 0 0 3px rgb(var(--cz-accent-rgb) / 14%),
+    0 8px 18px rgb(20 10 4 / 28%);
+  --cz-callout-icon-color: var(--cz-bg);
+  --cz-callout-icon-text-shadow: none;
+  --cz-callout-strong: var(--cz-text);
+  --cz-callout-link: var(--cz-info);
+  --cz-callout-link-decoration: rgb(var(--cz-info-rgb) / 58%);
+  --deck-list-card-topline-bg: linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 78%), rgb(var(--cz-bg-rgb) / 34%));
+  --deck-list-commander-art-overlay:
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 28%) 0%, transparent 38%, rgb(var(--cz-bg-rgb) / 38%) 100%),
+    linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 26%) 0%, transparent 54%);
+  --deck-list-dual-commander-art-overlay: linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 26%) 0%, transparent 42%, rgb(var(--cz-bg-rgb) / 38%) 100%);
+  --deck-list-row-actions-bg: rgb(var(--cz-bg-rgb) / 58%);
+  --deck-list-row-actions-bg-hover: rgb(var(--cz-bg-rgb) / 70%);
 }
 
 :root[data-theme='cyber-duel-arena'] {

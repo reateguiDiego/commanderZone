@@ -9,13 +9,64 @@
   gap: 0.85rem 1rem;
 }
 
+.language-preferences-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.language-action-button {
+  width: 100%;
+  min-height: 3.2rem;
+  border-radius: 8px;
+  padding-inline: 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1.1;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .language-preferences .app-disclaimer-callout {
   grid-column: 1 / -1;
   margin: 0;
 }
 
+.change-password-feedback {
+  grid-column: 1 / -1;
+  color: var(--cz-danger);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
 @media (max-width: 620px) {
   .language-preferences {
     grid-template-columns: 1fr;
+  }
+
+  .language-preferences-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .theme-language-action,
+  .change-password-button {
+    order: 1;
+    min-height: 3rem;
+    border-color: rgb(var(--cz-accent-rgb) / 42%);
+    border-radius: 8px;
+    padding: 0 0.9rem;
+    color: var(--cz-text);
+    font-size: 0.84rem;
+    font-weight: 850;
+  }
+
+  .premium-language-action {
+    grid-column: 1 / -1;
+    order: 2;
   }
 }

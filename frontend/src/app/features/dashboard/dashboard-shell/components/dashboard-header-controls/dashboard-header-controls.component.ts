@@ -9,6 +9,7 @@ import { DashboardSettingsModalComponent, SettingsLaunchTarget } from './compone
 import { HeaderUserMenuComponent } from './components/header-user-menu/header-user-menu.component';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { DeviceProfileService } from '../../../../../shared/services/device-profile.service';
+import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 
 @Component({
   selector: 'app-dashboard-header-controls',
@@ -20,6 +21,7 @@ import { DeviceProfileService } from '../../../../../shared/services/device-prof
     HeaderUserMenuComponent,
     DashboardSettingsModalComponent,
     CzButtonDirective,
+    TooltipComponent,
   ],
   templateUrl: './dashboard-header-controls.component.html',
   styleUrl: './dashboard-header-controls.component.scss',

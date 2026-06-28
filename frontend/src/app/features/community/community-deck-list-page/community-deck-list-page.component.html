@@ -1,0 +1,62 @@
+<section class="community-deck-list-page">
+  <header class="community-hero">
+    <app-back-button link="/community" />
+    <div class="community-hero-copy">
+      <h1>{{ 'community.deckList.title' | runtimeTranslate }}</h1>
+      <p>{{ 'community.deckList.subtitle' | runtimeTranslate }}</p>
+      <app-hero-rule />
+    </div>
+  </header>
+
+  <form class="community-filters" (ngSubmit)="applyFilters()">
+    <label class="community-filter-field">
+      <span>{{ 'community.deckList.filterName' | runtimeTranslate }}</span>
+      <input
+        name="searchQuery"
+        type="search"
+        [placeholder]="'community.deckList.filterNamePlaceholder' | runtimeTranslate"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="setSearchQuery($event)"
+      />
+    </label>
+
+    <label class="community-filter-field">
+      <span>{{ 'community.deckList.filterCommander' | runtimeTranslate }}</span>
+      <app-card-autocomplete
+        [placeholder]="'community.deckList.filterCommanderPlaceholder' | runtimeTranslate"
+        actionLabel="community.deckList.commanderSelect"
+        [filters]="{ commanderLegal: true }"
+        [commanderCandidateOnly]="true"
+        [query]="commanderQuery()"
+        (queryChange)="setCommanderQuery($event)"
+        (cardSelected)="selectCommanderFilter($event)"
+      />
+    </label>
+
+    <div class="community-filter-select">
+      <app-format-select
+        name="communityDeckFormat"
+        label="community.deckList.filterFormat"
+        [options]="formatOptions()"
+        [value]="selectedFormat()"
+        (valueChange)="setSelectedFormat($event)"
+      />
+    </div>
+
+    <div class="community-filter-actions">
+      <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="submit">
+        {{ 'community.deckList.searchButton' | runtimeTranslate }}
+      </button>
+    </div>
+  </form>
+
+  @if (loading()) {
+    <app-global-loader />
+  } @else if (error()) {
+    <p class="notice error">{{ error()! | runtimeTranslate }}</p>
+  } @else if (visibleDecks().length === 0) {
+    <p class="notice">{{ 'community.deckList.empty' | runtimeTranslate }}</p>
+  } @else {
+    <app-community-deck-grid [decks]="visibleDecks()" (deckSelected)="openDeck($event)" />
+  }
+</section>

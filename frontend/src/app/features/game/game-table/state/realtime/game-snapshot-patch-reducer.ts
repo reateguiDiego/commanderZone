@@ -182,6 +182,15 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
     case 'turn.set':
       return { status: 'applied', snapshot: { ...snapshot, turn: { ...operation.turn } } };
 
+    case 'game.phase.set':
+      return { status: 'applied', snapshot: { ...snapshot, gamePhase: operation.phase } };
+
+    case 'game.status.set':
+      return {
+        status: 'applied',
+        snapshot: operation.phase ? { ...snapshot, gamePhase: operation.phase } : snapshot,
+      };
+
     case 'timer.set':
       return { status: 'applied', snapshot: { ...snapshot, timer: operation.timer ? { ...operation.timer } : undefined } };
 

@@ -8,6 +8,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'deck_card')]
+#[ORM\Index(name: 'idx_deck_card_deck_section', columns: ['deck_id', 'section'])]
 class DeckCard
 {
     public const SECTION_MAIN = 'main';

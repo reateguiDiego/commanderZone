@@ -4,11 +4,16 @@ type CardFaceImageSource = CardFace & {
   image_uris?: CardImageUris | null;
 };
 
-export function bestCardImage(card: Card | null | undefined): string | null {
+type CardImageSource = {
+  imageUris?: CardImageUris | null;
+  cardFaces?: CardFace[] | null;
+};
+
+export function bestCardImage<T extends CardImageSource>(card: T | null | undefined): string | null {
   return bestImageUri(card?.imageUris) ?? bestCardFaceImage(card?.cardFaces?.[0]);
 }
 
-export function bestCardArtImage(card: Card | null | undefined): string | null {
+export function bestCardArtImage<T extends CardImageSource>(card: T | null | undefined): string | null {
   return bestArtImageUri(card?.imageUris) ?? bestCardFaceArtImage(card?.cardFaces?.[0]) ?? bestCardImage(card);
 }
 
@@ -25,7 +30,7 @@ function bestImageUri(imageUris: CardImageUris | null | undefined): string | nul
     return null;
   }
 
-  return imageUris.normal ?? imageUris.large ?? imageUris.small ?? imageUris.png ?? null;
+  return firstImageUri(imageUris.normal, imageUris.large, imageUris.small, imageUris.png);
 }
 
 function bestArtImageUri(imageUris: CardImageUris | null | undefined): string | null {
@@ -33,5 +38,16 @@ function bestArtImageUri(imageUris: CardImageUris | null | undefined): string | 
     return null;
   }
 
-  return imageUris.art_crop ?? imageUris.border_crop ?? imageUris.large ?? imageUris.normal ?? null;
+  return firstImageUri(imageUris.art_crop, imageUris.border_crop, imageUris.large, imageUris.normal);
+}
+
+function firstImageUri(...candidates: Array<string | null | undefined>): string | null {
+  for (const candidate of candidates) {
+    const normalized = candidate?.trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
 }

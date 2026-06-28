@@ -30,6 +30,16 @@ describe('app routes', () => {
     expect(component?.name).toMatch(/OnboardingPageComponent$/);
   });
 
+  it('registers /contact as a public runtime-i18n contact route', async () => {
+    const contactRoute = routes.find((route) => route.path === 'contact');
+    const componentLoader = contactRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
+    const component = componentLoader ? await componentLoader() : undefined;
+
+    expect(contactRoute).toBeDefined();
+    expect(contactRoute?.data?.['pageKey']).toBe('contact');
+    expect(component?.name).toMatch(/ContactPageComponent$/);
+  });
+
   it('renders a not-found page for wildcard routes instead of redirecting to home or dashboard', async () => {
     const wildcardRoute = routes.find((route) => route.path === '**');
     const componentLoader = wildcardRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
@@ -67,7 +77,7 @@ function isPageKey(value: unknown): value is PageKey {
 }
 
 function expectedRobotsFor(pageKey: PageKey): 'index, follow' | 'noindex, follow' | 'noindex, nofollow' {
-  if (pageKey === 'legal') {
+  if (pageKey === 'legal' || pageKey === 'contact') {
     return 'noindex, follow';
   }
 

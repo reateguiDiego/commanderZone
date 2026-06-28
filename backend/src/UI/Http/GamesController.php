@@ -2,11 +2,18 @@
 
 namespace App\UI\Http;
 
+use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameActivityStreamService;
 use App\Application\Game\GameDisconnectVoteService;
+use App\Application\Game\GameEventStoreV2;
+use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
+use App\Application\Game\Performance\GameplayMetricsInspector;
+use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Domain\Game\Game;
@@ -42,6 +49,10 @@ class GamesController extends ApiController
         EntityManagerInterface $entityManager,
         GameProjectionService $projection,
         GameDebugHealthLiveStore $debugHealth,
+        ?Request $request = null,
+        ?GameplayV2ContractFactory $contractsV2 = null,
+        ?GameplayV2Flags $flagsV2 = null,
+        ?GameEventStoreV2 $eventStoreV2 = null,
     ): JsonResponse
     {
         $game = $entityManager->getRepository(Game::class)->find($id);
@@ -50,6 +61,9 @@ class GamesController extends ApiController
         }
         if (!$game->canBeViewedBy($user)) {
             return $this->fail('Game access denied.', 403);
+        }
+        if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+            $eventStoreV2->hydrateGame($game);
         }
 
         $startedAt = microtime(true);
@@ -60,8 +74,20 @@ class GamesController extends ApiController
                 $game->id(),
                 'initial_snapshot',
                 $this->elapsedMs($startedAt),
-                $this->bootstrapStageContext($game, $debugObserved),
+                $this->bootstrapStageContext($game, $debugObserved, $projectedSnapshot, $request),
             );
+        }
+
+        $bootstrapContractRequested = $request instanceof Request
+            && str_ends_with($request->getPathInfo(), '/bootstrap')
+            && strtolower(trim((string) $request->query->get('contract', ''))) === 'v2';
+        if ($bootstrapContractRequested && ($flagsV2?->bootstrapEnabled() ?? false) && $contractsV2 instanceof GameplayV2ContractFactory) {
+            return $this->json($contractsV2->bootstrap(
+                $game,
+                $user,
+                $projectedSnapshot,
+                $this->knownStaticCardsFromRequest($request),
+            )->toArray());
         }
 
         return $this->json([
@@ -70,6 +96,21 @@ class GamesController extends ApiController
                 'snapshot' => $projectedSnapshot,
             ],
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function knownStaticCardsFromRequest(Request $request): array
+    {
+        $query = $request->query->all();
+        $value = $query['knownStaticCards'] ?? '';
+        $raw = is_array($value) ? $value : (is_string($value) ? explode(',', $value) : []);
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $value): string => is_string($value) ? trim($value) : '',
+            $raw,
+        ), static fn (string $value): bool => $value !== ''));
     }
 
     #[Route('/games/{id}/websocket-ticket', methods: ['POST'])]
@@ -214,11 +255,10 @@ class GamesController extends ApiController
      *     usingLegacyLocalizationFallback: null
      * }
      */
-    private function bootstrapStageContext(Game $game, bool $debugObserved): array
+    private function bootstrapStageContext(Game $game, bool $debugObserved, ?array $projectedSnapshot = null, ?Request $request = null): array
     {
         $context = $this->debugHealthContext($game, $debugObserved);
-
-        return [
+        $stageContext = [
             'viewerCount' => $context['viewerCount'],
             'languageCount' => $context['languageCount'],
             'uniqueCardCount' => $context['uniqueCardCount'],
@@ -226,6 +266,32 @@ class GamesController extends ApiController
             'debugObserved' => $context['debugObserved'],
             'usingLegacyLocalizationFallback' => $context['usingLegacyLocalizationFallback'],
         ];
+
+        if (is_array($projectedSnapshot) && ($projectedSnapshot['gamePhase'] ?? null) === 'MULLIGAN') {
+            $payloadBytes = $this->jsonBytes([
+                'game' => [
+                    ...$game->toArray(),
+                    'snapshot' => $projectedSnapshot,
+                ],
+            ]);
+            $isReconnectBootstrap = $request instanceof Request && str_ends_with($request->getPathInfo(), '/bootstrap');
+            $stageContext = [
+                ...$stageContext,
+                'mulligan.bootstrap_bytes' => $payloadBytes,
+                'mulligan.reconnect_bootstrap_bytes' => $isReconnectBootstrap ? $payloadBytes : 0,
+            ];
+        }
+
+        return $stageContext;
+    }
+
+    private function jsonBytes(mixed $value): int
+    {
+        try {
+            return strlen(json_encode($value, JSON_THROW_ON_ERROR));
+        } catch (\JsonException) {
+            return 0;
+        }
     }
 
     private function normalizedCardLanguage(User $user): ?string
@@ -309,15 +375,48 @@ class GamesController extends ApiController
     }
 
     #[Route('/games/{id}/commands', methods: ['POST'])]
-    public function command(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameCommandHandler $handler, GameProjectionService $projection, GameEventPublisher $publisher): JsonResponse
+    public function command(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        GameCommandHandler $handler,
+        GameProjectionService $projection,
+        GameEventPublisher $publisher,
+        GameplayMetricsRecorderInterface $metrics,
+        GameplayMetricsInspector $metricsInspector,
+        ?GameplayV2Flags $flagsV2 = null,
+        ?GameEventStoreV2 $eventStoreV2 = null,
+        ?GameActivityStreamService $activityStreams = null,
+        ?GameplayStreamsFlags $streamFlags = null,
+    ): JsonResponse
     {
+        $startedAt = microtime(true);
+        $usageStartedAt = $metricsInspector->usageSnapshot();
+        $snapshotLoadStartedAt = microtime(true);
         $game = $entityManager->getRepository(Game::class)->find($id);
+        $snapshotLoadMs = $this->elapsedMs($snapshotLoadStartedAt);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
         }
         if (!$game->canBeControlledBy($user)) {
             return $this->fail('Game access denied.', 403);
         }
+        if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+            $eventStoreV2->hydrateGame($game);
+        }
+
+        $snapshotBytesBefore = $metricsInspector->jsonBytes($game->snapshot());
+        $snapshotBytesAfter = $snapshotBytesBefore;
+        $numberOfPlayers = $metricsInspector->countPlayers($game->snapshot());
+        $numberOfInstances = $metricsInspector->countInstances($game->snapshot());
+        $numberOfVisibleCards = 0;
+        $normalizeMs = 0.0;
+        $commandApplyMs = 0.0;
+        $persistMs = 0.0;
+        $projectionMs = 0.0;
+        $duplicate = false;
+        $projectedSnapshot = null;
 
         $payload = $this->payload($request);
         $type = trim((string) ($payload['type'] ?? ''));
@@ -330,6 +429,20 @@ class GamesController extends ApiController
         if ($game->status() === Game::STATUS_FINISHED && !GameCommandHandler::isAllowedWhenFinished($type)) {
             return $this->fail(sprintf('Game is finished. Command not allowed: %s', $type), 409);
         }
+        if (($streamFlags?->enabled() ?? false)
+            && $activityStreams instanceof GameActivityStreamService
+            && in_array($type, ['chat.message', 'chat.reaction.toggled'], true)) {
+            return $this->streamChatCommandResponse(
+                $game,
+                $user,
+                $type,
+                is_array($payload['payload'] ?? null) ? $payload['payload'] : [],
+                $entityManager,
+                $projection,
+                $publisher,
+                $activityStreams,
+            );
+        }
 
         $clientActionId = isset($payload['clientActionId']) && is_string($payload['clientActionId']) && trim($payload['clientActionId']) !== ''
             ? trim($payload['clientActionId'])
@@ -340,7 +453,39 @@ class GamesController extends ApiController
                 'clientActionId' => $clientActionId,
             ]);
             if ($existingEvent instanceof GameEvent) {
-                return $this->existingEventResponse($existingEvent, $game, $user, $projection);
+                $duplicate = true;
+                $projectionStartedAt = microtime(true);
+                $projectedSnapshot = $projection->project($game, $user);
+                $projectionMs = $this->elapsedMs($projectionStartedAt);
+                $numberOfVisibleCards = $metricsInspector->countVisibleCards($projectedSnapshot);
+                $this->recordGameplayMetric(
+                    $metrics,
+                    $metricsInspector,
+                    [
+                        'transport' => 'http',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => 0.0,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => 0,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => $duplicate,
+                        'status' => 'duplicate',
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $this->existingEventResponse($existingEvent, $game, $user, $projection, $projectedSnapshot);
             }
         }
 
@@ -366,13 +511,65 @@ class GamesController extends ApiController
             }
 
             $event = $handler->apply($game, $type, is_array($payload['payload'] ?? null) ? $payload['payload'] : [], $user, $clientActionId);
+            $handlerMetrics = $handler->consumeLastCommandMetrics() ?? [];
+            $normalizeMs = (float) ($handlerMetrics['normalize_ms'] ?? 0.0);
+            $commandApplyMs = (float) ($handlerMetrics['command_apply_ms'] ?? 0.0);
+            $snapshotBytesAfter = (int) ($handlerMetrics['snapshot_bytes_after'] ?? $snapshotBytesBefore);
+            $numberOfPlayers = (int) ($handlerMetrics['number_of_players'] ?? $numberOfPlayers);
+            $numberOfInstances = (int) ($handlerMetrics['number_of_instances'] ?? $numberOfInstances);
+            $persistStartedAt = microtime(true);
             $entityManager->persist($event);
+            if (($streamFlags?->enabled() ?? false) && $activityStreams instanceof GameActivityStreamService) {
+                $activityStreams->appendLogEntries(
+                    $entityManager,
+                    $game,
+                    max(1, (int) ($game->snapshot()['version'] ?? 1)),
+                    $handler->consumePendingStreamLogEntries(),
+                );
+            }
+            if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+                $eventStoreV2->persistCompactSnapshotIfDue($entityManager, $game, $game->snapshot());
+            }
             $entityManager->flush();
             $entityManager->commit();
+            $persistMs = $this->elapsedMs($persistStartedAt);
         } catch (\InvalidArgumentException $exception) {
             if ($entityManager->getConnection()->isTransactionActive()) {
                 $entityManager->rollback();
             }
+
+            $handlerMetrics = $handler->consumeLastCommandMetrics() ?? [];
+            $normalizeMs = (float) ($handlerMetrics['normalize_ms'] ?? 0.0);
+            $commandApplyMs = (float) ($handlerMetrics['command_apply_ms'] ?? 0.0);
+            $snapshotBytesAfter = (int) ($handlerMetrics['snapshot_bytes_after'] ?? $snapshotBytesBefore);
+            $numberOfPlayers = (int) ($handlerMetrics['number_of_players'] ?? $numberOfPlayers);
+            $numberOfInstances = (int) ($handlerMetrics['number_of_instances'] ?? $numberOfInstances);
+            $this->recordGameplayMetric(
+                $metrics,
+                $metricsInspector,
+                [
+                    'transport' => 'http',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => 0.0,
+                    'patch_build_ms' => 0.0,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => 0,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => false,
+                    'clientActionId_duplicate' => false,
+                    'status' => 'rejected',
+                ],
+                $usageStartedAt,
+            );
 
             return $this->fail($exception->getMessage());
         } catch (UniqueConstraintViolationException) {
@@ -386,14 +583,100 @@ class GamesController extends ApiController
                     'clientActionId' => $clientActionId,
                 ]);
             if ($existingEvent instanceof GameEvent) {
-                return $this->existingEventResponse($existingEvent, $game, $user, $projection);
+                $duplicate = true;
+                $projectionStartedAt = microtime(true);
+                $projectedSnapshot = $projection->project($game, $user);
+                $projectionMs = $this->elapsedMs($projectionStartedAt);
+                $numberOfVisibleCards = $metricsInspector->countVisibleCards($projectedSnapshot);
+                $this->recordGameplayMetric(
+                    $metrics,
+                    $metricsInspector,
+                    [
+                        'transport' => 'http',
+                        'command.type' => $type,
+                        'gameId' => $game->id(),
+                        'snapshot_load_ms' => $snapshotLoadMs,
+                        'normalize_ms' => $normalizeMs,
+                        'command_apply_ms' => $commandApplyMs,
+                        'persist_ms' => $persistMs,
+                        'projection_ms' => $projectionMs,
+                        'patch_build_ms' => 0.0,
+                        'total_server_ms' => $this->elapsedMs($startedAt),
+                        'snapshot_bytes_before' => $snapshotBytesBefore,
+                        'snapshot_bytes_after' => $snapshotBytesAfter,
+                        'patch_bytes' => 0,
+                        'number_of_players' => $numberOfPlayers,
+                        'number_of_instances' => $numberOfInstances,
+                        'number_of_visible_cards' => $numberOfVisibleCards,
+                        'resync_required' => false,
+                        'clientActionId_duplicate' => true,
+                        'status' => 'duplicate',
+                    ],
+                    $usageStartedAt,
+                );
+
+                return $this->existingEventResponse($existingEvent, $game, $user, $projection, $projectedSnapshot);
             }
+
+            $this->recordGameplayMetric(
+                $metrics,
+                $metricsInspector,
+                [
+                    'transport' => 'http',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => 0.0,
+                    'patch_build_ms' => 0.0,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => 0,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => true,
+                    'clientActionId_duplicate' => false,
+                    'status' => 'conflict',
+                ],
+                $usageStartedAt,
+            );
 
             return $this->fail('Command conflict. Please retry.', 409);
         } catch (DeadlockException|LockWaitTimeoutException) {
             if ($entityManager->getConnection()->isTransactionActive()) {
                 $entityManager->rollback();
             }
+
+            $this->recordGameplayMetric(
+                $metrics,
+                $metricsInspector,
+                [
+                    'transport' => 'http',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => 0.0,
+                    'patch_build_ms' => 0.0,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => 0,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => $numberOfVisibleCards,
+                    'resync_required' => true,
+                    'clientActionId_duplicate' => false,
+                    'status' => 'conflict',
+                ],
+                $usageStartedAt,
+            );
 
             return $this->fail('Game command conflict. Please retry.', 409);
         } catch (\Throwable $exception) {
@@ -412,9 +695,40 @@ class GamesController extends ApiController
             $publisher->publish($game, $event);
         }
 
+        $projectionStartedAt = microtime(true);
+        $projectedSnapshot = $projection->project($game, $user);
+        $projectionMs = $this->elapsedMs($projectionStartedAt);
+        $numberOfVisibleCards = $metricsInspector->countVisibleCards($projectedSnapshot);
+        $this->recordGameplayMetric(
+            $metrics,
+            $metricsInspector,
+            [
+                'transport' => 'http',
+                'command.type' => $type,
+                'gameId' => $game->id(),
+                'snapshot_load_ms' => $snapshotLoadMs,
+                'normalize_ms' => $normalizeMs,
+                'command_apply_ms' => $commandApplyMs,
+                'persist_ms' => $persistMs,
+                'projection_ms' => $projectionMs,
+                'patch_build_ms' => 0.0,
+                'total_server_ms' => $this->elapsedMs($startedAt),
+                'snapshot_bytes_before' => $snapshotBytesBefore,
+                'snapshot_bytes_after' => $snapshotBytesAfter,
+                'patch_bytes' => 0,
+                'number_of_players' => $numberOfPlayers,
+                'number_of_instances' => $numberOfInstances,
+                'number_of_visible_cards' => $numberOfVisibleCards,
+                'resync_required' => false,
+                'clientActionId_duplicate' => false,
+                'status' => 'applied',
+            ],
+            $usageStartedAt,
+        );
+
         return $this->json([
             'event' => $event->toArray(),
-            'snapshot' => $projection->project($game, $user),
+            'snapshot' => $projectedSnapshot,
             'version' => $game->snapshot()['version'] ?? null,
             'applied' => true,
         ], 201);
@@ -430,6 +744,8 @@ class GamesController extends ApiController
         GameRematchService $rematch,
         GameEventPublisher $gamePublisher,
         RoomEventPublisher $roomPublisher,
+        ?GameplayV2Flags $flagsV2 = null,
+        ?GameEventStoreV2 $eventStoreV2 = null,
     ): JsonResponse {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -459,6 +775,9 @@ class GamesController extends ApiController
                 $roomDeleted = true;
                 $this->removeRoomWithGame($room, $entityManager);
             } else {
+                if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+                    $eventStoreV2->hydrateGame($game);
+                }
                 $recorded = $rematch->recordVote($game, $user, $vote);
                 $event = $recorded['event'];
                 $snapshot = $recorded['snapshot'];
@@ -629,7 +948,7 @@ class GamesController extends ApiController
     }
 
     #[Route('/games/{id}/events', methods: ['GET'])]
-    public function events(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function events(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, ?GameActivityStreamService $activityStreams = null, ?GameplayStreamsFlags $streamFlags = null): JsonResponse
     {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -640,6 +959,14 @@ class GamesController extends ApiController
         }
 
         $limit = max(1, min(500, (int) $request->query->get('limit', 200)));
+        $cursor = trim((string) $request->query->get('cursor', ''));
+        if (($streamFlags?->enabled() ?? false) && $activityStreams instanceof GameActivityStreamService) {
+            return $this->json([
+                'data' => $activityStreams->activityEntries($game, $user, $limit, $cursor !== '' ? $cursor : null),
+                'limit' => $limit,
+            ]);
+        }
+
         $after = $request->query->get('after');
         $afterDate = null;
         if (is_string($after) && $after !== '') {
@@ -671,8 +998,66 @@ class GamesController extends ApiController
         ]);
     }
 
+    #[Route('/games/{id}/chat', methods: ['GET'])]
+    public function chat(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        ?GameActivityStreamService $activityStreams = null,
+        ?GameplayStreamsFlags $streamFlags = null,
+    ): JsonResponse {
+        $game = $entityManager->getRepository(Game::class)->find($id);
+        if (!$game instanceof Game) {
+            return $this->fail('Game not found.', 404);
+        }
+        if (!$game->canBeViewedBy($user)) {
+            return $this->fail('Game access denied.', 403);
+        }
+        if (!(($streamFlags?->enabled() ?? false) && $activityStreams instanceof GameActivityStreamService)) {
+            return $this->fail('Chat stream is not enabled.', 404);
+        }
+
+        $limit = max(1, min(500, (int) $request->query->get('limit', 150)));
+        $cursor = trim((string) $request->query->get('cursor', ''));
+
+        return $this->json([
+            'data' => $activityStreams->chatMessagesForViewer($game, $user, $limit, $cursor !== '' ? $cursor : null),
+            'limit' => $limit,
+        ]);
+    }
+
+    #[Route('/games/{id}/log', methods: ['GET'])]
+    public function log(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        ?GameActivityStreamService $activityStreams = null,
+        ?GameplayStreamsFlags $streamFlags = null,
+    ): JsonResponse {
+        $game = $entityManager->getRepository(Game::class)->find($id);
+        if (!$game instanceof Game) {
+            return $this->fail('Game not found.', 404);
+        }
+        if (!$game->canBeViewedBy($user)) {
+            return $this->fail('Game access denied.', 403);
+        }
+        if (!(($streamFlags?->enabled() ?? false) && $activityStreams instanceof GameActivityStreamService)) {
+            return $this->fail('Log stream is not enabled.', 404);
+        }
+
+        $limit = max(1, min(500, (int) $request->query->get('limit', 250)));
+        $cursor = trim((string) $request->query->get('cursor', ''));
+
+        return $this->json([
+            'data' => $activityStreams->logEntries($game, $limit, $cursor !== '' ? $cursor : null),
+            'limit' => $limit,
+        ]);
+    }
+
     #[Route('/games/{id}/zones/{playerId}/{zone}', methods: ['GET'])]
-    public function zone(string $id, string $playerId, string $zone, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameProjectionService $projection, GameCommandHandler $normalizer): JsonResponse
+    public function zone(string $id, string $playerId, string $zone, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameProjectionService $projection, GameCommandHandler $normalizer, ?GameplayV2Flags $flagsV2 = null, ?GameEventStoreV2 $eventStoreV2 = null): JsonResponse
     {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -680,6 +1065,9 @@ class GamesController extends ApiController
         }
         if (!$game->canBeViewedBy($user)) {
             return $this->fail('Game access denied.', 403);
+        }
+        if (($flagsV2?->eventEnabled() ?? false) && $eventStoreV2?->enabled() === true) {
+            $eventStoreV2->hydrateGame($game);
         }
 
         $snapshot = $normalizer->normalizeSnapshot($game->snapshot());
@@ -695,6 +1083,7 @@ class GamesController extends ApiController
                 $zone,
                 $user,
                 ($snapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true,
+                playerState: is_array($snapshot['players'][$playerId] ?? null) ? $snapshot['players'][$playerId] : null,
             );
         }
         $type = mb_strtolower(trim((string) $request->query->get('type', '')));
@@ -719,13 +1108,144 @@ class GamesController extends ApiController
         ]);
     }
 
-    private function existingEventResponse(GameEvent $event, Game $game, User $user, GameProjectionService $projection): JsonResponse
+    private function existingEventResponse(
+        GameEvent $event,
+        Game $game,
+        User $user,
+        GameProjectionService $projection,
+        ?array $projectedSnapshot = null,
+    ): JsonResponse
     {
+        $projectedSnapshot ??= $projection->project($game, $user);
+
+        return $this->json([
+            'event' => $event->toArray(),
+            'snapshot' => $projectedSnapshot,
+            'version' => $game->snapshot()['version'] ?? null,
+            'applied' => false,
+        ]);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function streamChatCommandResponse(
+        Game $game,
+        User $user,
+        string $type,
+        array $payload,
+        EntityManagerInterface $entityManager,
+        GameProjectionService $projection,
+        GameEventPublisher $publisher,
+        GameActivityStreamService $activityStreams,
+    ): JsonResponse {
+        $event = null;
+        try {
+            $entityManager->beginTransaction();
+            if ($type === 'chat.message') {
+                $message = trim((string) ($payload['message'] ?? ''));
+                if ($message === '') {
+                    throw new \InvalidArgumentException('Message is required.');
+                }
+
+                $targetPlayerId = $this->chatTargetPlayerId($game->snapshot(), $payload, $user);
+                $targetDisplayName = $targetPlayerId !== null
+                    ? $this->playerName($game->snapshot(), $targetPlayerId)
+                    : null;
+                $record = $activityStreams->appendChatMessage(
+                    $entityManager,
+                    $game,
+                    $user,
+                    $message,
+                    $targetPlayerId,
+                    $targetDisplayName,
+                );
+                $event = new GameEvent($game, 'chat.message', [
+                    'private' => $targetPlayerId !== null,
+                ], $user);
+            } else {
+                $messageId = trim((string) ($payload['messageId'] ?? ''));
+                $reaction = trim((string) ($payload['reaction'] ?? ''));
+                $record = $activityStreams->toggleReaction($entityManager, $game, $user, $messageId, $reaction);
+                $event = new GameEvent($game, 'chat.reaction.toggled', [
+                    'messageId' => $record->messageId(),
+                    'reaction' => $reaction,
+                ], $user);
+            }
+
+            $entityManager->flush();
+            $entityManager->commit();
+        } catch (\InvalidArgumentException $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            return $this->fail($exception->getMessage());
+        } catch (\Throwable $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            throw $exception;
+        }
+
+        \assert($event instanceof GameEvent);
+        $publisher->publish($game, $event);
+
         return $this->json([
             'event' => $event->toArray(),
             'snapshot' => $projection->project($game, $user),
             'version' => $game->snapshot()['version'] ?? null,
-            'applied' => false,
+            'applied' => true,
+        ], 201);
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $payload
+     */
+    private function chatTargetPlayerId(array $snapshot, array $payload, User $actor): ?string
+    {
+        $targetPlayerId = $payload['targetPlayerId'] ?? null;
+        if ($targetPlayerId === null || $targetPlayerId === '' || $targetPlayerId === 'all') {
+            return null;
+        }
+        if (!is_string($targetPlayerId) || !isset($snapshot['players'][$targetPlayerId])) {
+            throw new \InvalidArgumentException('Chat target player not found.');
+        }
+        if ($targetPlayerId === $actor->id()) {
+            throw new \InvalidArgumentException('Private chat target must be another player.');
+        }
+
+        return $targetPlayerId;
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     */
+    private function playerName(array $snapshot, string $playerId): string
+    {
+        $player = $snapshot['players'][$playerId] ?? null;
+        $user = is_array($player['user'] ?? null) ? $player['user'] : [];
+        $displayName = trim((string) ($user['displayName'] ?? ''));
+
+        return $displayName !== '' ? $displayName : $playerId;
+    }
+
+    /**
+     * @param array<string,mixed> $metric
+     * @param array<string,int>|null $usageStartedAt
+     */
+    private function recordGameplayMetric(
+        GameplayMetricsRecorderInterface $metrics,
+        GameplayMetricsInspector $metricsInspector,
+        array $metric,
+        ?array $usageStartedAt,
+    ): void {
+        $metrics->record([
+            ...$metric,
+            'memory_peak_bytes' => $metricsInspector->memoryPeakBytes(),
+            ...$metricsInspector->cpuDiffMs($usageStartedAt),
         ]);
     }
 

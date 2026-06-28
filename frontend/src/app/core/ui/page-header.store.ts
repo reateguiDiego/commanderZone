@@ -1,15 +1,23 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { runtimeTranslationFallback } from '../localization/runtime-translate.pipe';
+import { UserAvatar, UserDisplayNameStyle } from '../models/user.model';
 
 export type PageHeaderActionVariant = 'primary' | 'secondary';
+export type PageHeaderActionTooltipTriggerMode = 'hover' | 'click';
+export type PageHeaderActionTooltipPlacement = 'top' | 'bottom';
+export type PageHeaderActionTooltipAlign = 'center' | 'end';
 
 export interface PageHeaderAction {
   id: string;
   label: string;
+  isBack?: boolean;
   icon?: string;
   iconOnly?: boolean;
   tooltip?: string;
+  tooltipTriggerMode?: PageHeaderActionTooltipTriggerMode;
+  tooltipPlacement?: PageHeaderActionTooltipPlacement;
+  tooltipAlign?: PageHeaderActionTooltipAlign;
   disabled?: boolean;
   variant: PageHeaderActionVariant;
   execute: () => void;
@@ -37,6 +45,12 @@ export interface PageHeaderActionFeedback {
   tone: 'success';
 }
 
+export interface PageHeaderPlayerInfo {
+  displayName: string;
+  avatar?: UserAvatar | null;
+  nameStyle?: UserDisplayNameStyle | null;
+}
+
 export interface PageHeaderState {
   title: string;
   eyebrow?: string;
@@ -44,8 +58,10 @@ export interface PageHeaderState {
   context?: string;
   heroRule?: boolean;
   titleWarning?: PageHeaderTitleWarning;
+  titleActions?: readonly PageHeaderAction[];
   actions?: readonly PageHeaderAction[];
   actionFeedback?: PageHeaderActionFeedback | null;
+  sharedBy?: PageHeaderPlayerInfo | null;
   stats?: readonly PageHeaderStat[];
 }
 
@@ -68,6 +84,11 @@ export class PageHeaderStore {
             tooltip: this.translateText(header.titleWarning.tooltip),
           }
         : undefined,
+      titleActions: header.titleActions?.map((action) => ({
+        ...action,
+        label: this.translateText(action.label),
+        tooltip: action.tooltip ? this.translateText(action.tooltip) : undefined,
+      })),
       actions: header.actions?.map((action) => ({
         ...action,
         label: this.translateText(action.label),
@@ -79,6 +100,7 @@ export class PageHeaderStore {
             message: this.translateText(header.actionFeedback.message),
           }
         : header.actionFeedback,
+      sharedBy: header.sharedBy ? { ...header.sharedBy } : header.sharedBy,
       stats: header.stats?.map((stat) => ({
         ...stat,
         label: this.translateText(stat.label),

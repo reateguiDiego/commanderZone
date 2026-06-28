@@ -42,12 +42,16 @@
                   </span>
 
                   <span class="action-pair">
-                    <button class="icon-action accept-action" type="button" [disabled]="store.loading()" title="Accept request" (click)="runPrimaryAction(row)">
-                      <lucide-icon name="check" size="15" />
-                    </button>
-                    <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Decline request" (click)="declineIncoming(row)">
-                      <lucide-icon name="x" size="15" />
-                    </button>
+                    <app-tooltip text="Accept request">
+                      <button class="icon-action accept-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
+                        <lucide-icon name="check" size="15" />
+                      </button>
+                    </app-tooltip>
+                    <app-tooltip text="Decline request">
+                      <button class="icon-action reject-action" type="button" [disabled]="store.loading()" (click)="declineIncoming(row)">
+                        <lucide-icon name="x" size="15" />
+                      </button>
+                    </app-tooltip>
                   </span>
                 </div>
               }
@@ -89,9 +93,11 @@
                   </span>
 
                   <span class="single-action">
-                    <button class="icon-action reject-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.cancelRequest' | runtimeTranslate" (click)="runPrimaryAction(row)">
-                      <lucide-icon name="x" size="15" />
-                    </button>
+                    <app-tooltip [text]="'navigation.friends.friendsDropdown.cancelRequest' | runtimeTranslate">
+                      <button class="icon-action reject-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
+                        <lucide-icon name="x" size="15" />
+                      </button>
+                    </app-tooltip>
                   </span>
                 </div>
               }
@@ -137,12 +143,16 @@
           </div>
 
           <span class="action-pair invitation-actions">
-            <button class="icon-action accept-action" type="button" [disabled]="store.loading()" title="Aceptar invitacion" (click)="runPrimaryAction(row)">
-              <lucide-icon name="check" size="15" />
-            </button>
-            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Rechazar invitacion" (click)="declineIncoming(row)">
-              <lucide-icon name="x" size="15" />
-            </button>
+            <app-tooltip text="Aceptar invitacion">
+              <button class="icon-action accept-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
+                <lucide-icon name="check" size="15" />
+              </button>
+            </app-tooltip>
+            <app-tooltip text="Rechazar invitacion">
+              <button class="icon-action reject-action" type="button" [disabled]="store.loading()" (click)="declineIncoming(row)">
+                <lucide-icon name="x" size="15" />
+              </button>
+            </app-tooltip>
           </span>
         </div>
       }
@@ -178,9 +188,11 @@
             </span>
 
             @if (result.friendshipStatus === null || result.friendshipStatus === 'declined') {
-              <button class="add-friend-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.sendFriendRequest' | runtimeTranslate" (click)="store.sendRequest(result.id)">
-                <lucide-icon name="user-plus" size="17" />
-              </button>
+              <app-tooltip [text]="'navigation.friends.friendsDropdown.sendFriendRequest' | runtimeTranslate">
+                <button class="add-friend-action" type="button" [disabled]="store.loading()" (click)="store.sendRequest(result.id)">
+                  <lucide-icon name="user-plus" size="17" />
+                </button>
+              </app-tooltip>
             } @else {
               <span class="row-status search-status">{{ friendshipStatusKey(result.friendshipStatus) | runtimeTranslate }}</span>
             }
@@ -219,9 +231,11 @@
                     <span class="row-marker" [class.online]="row.presence === 'online'" [class.in-game]="row.presence === 'in_game'"></span>
                     <small>{{ friendStatusKey(row) | runtimeTranslate }}</small>
                   </span>
-                  <button class="row-delete-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate" (click)="runPrimaryAction(row)">
-                    <lucide-icon name="trash-2" size="14" />
-                  </button>
+                  <app-tooltip [text]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate">
+                    <button class="row-delete-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
+                      <lucide-icon name="trash-2" size="14" />
+                    </button>
+                  </app-tooltip>
                 </div>
               }
             </div>
@@ -258,9 +272,11 @@
                     <span class="row-marker"></span>
                     <small>{{ friendStatusKey(row) | runtimeTranslate }}</small>
                   </span>
-                  <button class="row-delete-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate" (click)="runPrimaryAction(row)">
-                    <lucide-icon name="trash-2" size="14" />
-                  </button>
+                  <app-tooltip [text]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate">
+                    <button class="row-delete-action" type="button" [disabled]="store.loading()" (click)="runPrimaryAction(row)">
+                      <lucide-icon name="trash-2" size="14" />
+                    </button>
+                  </app-tooltip>
                 </div>
               }
             </div>

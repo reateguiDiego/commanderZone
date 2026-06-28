@@ -159,6 +159,11 @@ export class DeviceProfileService {
   }
 
   private createMediaQueries(): readonly MediaQueryList[] {
+    const view = this.documentRef.defaultView;
+    if (!view || typeof view.matchMedia !== 'function') {
+      return [];
+    }
+
     return [
       '(pointer: coarse)',
       '(pointer: fine)',
@@ -167,11 +172,16 @@ export class DeviceProfileService {
       `(max-width: ${MOBILE_LAYOUT_MAX_WIDTH}px)`,
       `(max-width: ${TABLET_LAYOUT_MAX_WIDTH}px)`,
       '(orientation: portrait)',
-    ].map((query) => this.documentRef.defaultView?.matchMedia(query)).filter((query): query is MediaQueryList => Boolean(query));
+    ].map((query) => view.matchMedia(query));
   }
 
   private matches(query: string): boolean {
-    return this.documentRef.defaultView?.matchMedia(query).matches ?? false;
+    const view = this.documentRef.defaultView;
+    if (!view || typeof view.matchMedia !== 'function') {
+      return false;
+    }
+
+    return view.matchMedia(query).matches;
   }
 
   private hasTouchCapability(): boolean {

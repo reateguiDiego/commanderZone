@@ -4,8 +4,12 @@ namespace App\Tests\Application;
 
 use App\Application\Game\GameCardBaseStatsResolver;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganRules;
 use App\Application\Game\GameRandomizer;
+use App\Application\Game\GameplayStreamsFlags;
+use App\Application\Game\GameProjectionService;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\User\User;
@@ -13,6 +17,29 @@ use PHPUnit\Framework\TestCase;
 
 class GameCommandHandlerTest extends TestCase
 {
+    public function testStreamsFlagPersistsGameplayLogOutsideRuntimeSnapshot(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+        $handler = new GameCommandHandler(streamFlags: new GameplayStreamsFlags(true));
+
+        $handler->apply($game, 'life.changed', [
+            'playerId' => $actor->id(),
+            'delta' => -2,
+        ], $actor);
+
+        self::assertSame(38, $game->snapshot()['players'][$actor->id()]['life']);
+        self::assertArrayNotHasKey('chat', $game->snapshot());
+        self::assertArrayNotHasKey('eventLog', $game->snapshot());
+
+        $entries = $handler->consumePendingStreamLogEntries();
+        self::assertCount(1, $entries);
+        self::assertSame('life.changed', $entries[0]['type']);
+        self::assertSame('Owner', $entries[0]['displayName']);
+        self::assertSame($actor->id(), $entries[0]['actorId']);
+        self::assertSame([], $handler->consumePendingStreamLogEntries());
+    }
+
     public function testResetsModifiedPowerToughnessWhenCardLeavesBattlefield(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -714,7 +741,34 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(1, $token['toughness']);
         self::assertTrue($token['isToken']);
         self::assertFalse($token['isTokenCopy']);
+        self::assertSame('token-scryfall-id', $token['tokenMeta']['templateScryfallId'] ?? null);
         self::assertSame('Created Goblin Token.', $game->snapshot()['eventLog'][0]['message']);
+    }
+
+    public function testStackItemRemovedAlsoAcceptsStackId(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('card-1', 'Bear', 'battlefield', 2, 2, 2, 2),
+            ],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'stack.card_added', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $stackId = $game->snapshot()['stack'][0]['stackId'] ?? null;
+        self::assertIsString($stackId);
+
+        $handler->apply($game, 'stack.item_removed', [
+            'stackId' => $stackId,
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['stack']);
     }
 
     public function testCreateTokenCommandUsesExplicitBattlefieldPosition(): void
@@ -1865,10 +1919,7 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         $snapshot = $game->snapshot();
-        self::assertSame(['top-card', 'second-card'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $snapshot['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['top-card', 'second-card'], $this->libraryIds($snapshot, $actor->id()));
         self::assertSame('ha mirado sus proximos 2 robos en library.', $snapshot['eventLog'][0]['message']);
     }
 
@@ -1892,10 +1943,17 @@ class GameCommandHandlerTest extends TestCase
             'to' => $opponent->id(),
         ], $actor);
 
-        $library = $game->snapshot()['players'][$actor->id()]['zones']['library'];
-        self::assertFalse($library[0]['faceDown']);
-        self::assertSame([$opponent->id()], $library[0]['revealedTo']);
-        self::assertSame([], $library[1]['revealedTo']);
+        $snapshot = $game->snapshot();
+        self::assertSame(2, $snapshot['players'][$actor->id()][GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? null);
+        self::assertSame(['top-card', 'second-card'], $this->libraryIds($snapshot, $actor->id()));
+        self::assertSame([$opponent->id()], $this->libraryTopCard($snapshot, $actor->id())['revealedTo'] ?? []);
+        self::assertSame(
+            ['top-card'],
+            array_map(
+                static fn (array $card): string => $card['instanceId'],
+                (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($snapshot, $opponent)['players'][$actor->id()]['zones']['library'],
+            ),
+        );
     }
 
     public function testRevealLibraryLetsTargetCloseByShufflingAndClearingReveal(): void
@@ -1918,11 +1976,15 @@ class GameCommandHandlerTest extends TestCase
             'to' => $opponent->id(),
         ], $actor);
 
-        $revealedLibrary = $game->snapshot()['players'][$actor->id()]['zones']['library'];
-        self::assertSame([$opponent->id()], $revealedLibrary[0]['revealedTo']);
-        self::assertSame([$opponent->id()], $revealedLibrary[1]['revealedTo']);
-        self::assertSame([$opponent->id()], $game->snapshot()['players'][$actor->id()]['revealedLibraryTo']);
-        self::assertFalse($revealedLibrary[0]['faceDown']);
+        $revealedSnapshot = $game->snapshot();
+        self::assertSame([$opponent->id()], $revealedSnapshot['players'][$actor->id()]['revealedLibraryTo']);
+        self::assertSame(
+            ['top-card', 'second-card'],
+            array_map(
+                static fn (array $card): string => $card['instanceId'],
+                (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($revealedSnapshot, $opponent)['players'][$actor->id()]['zones']['library'],
+            ),
+        );
 
         $this->expectException(\InvalidArgumentException::class);
         $handler->apply($game, 'library.shuffle', [
@@ -1953,10 +2015,12 @@ class GameCommandHandlerTest extends TestCase
             'reason' => 'revealed-library-closed',
         ], $opponent);
 
-        foreach ($game->snapshot()['players'][$actor->id()]['zones']['library'] as $card) {
-            self::assertSame([], $card['revealedTo']);
-        }
-        self::assertSame([], $game->snapshot()['players'][$actor->id()]['revealedLibraryTo']);
+        $snapshot = $game->snapshot();
+        self::assertSame([], $snapshot['players'][$actor->id()]['revealedLibraryTo']);
+        self::assertSame(
+            [],
+            (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($snapshot, $opponent)['players'][$actor->id()]['zones']['library'],
+        );
     }
 
     public function testMovingLibraryCardToHandCanHideOrRevealCardName(): void
@@ -2009,10 +2073,7 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         self::assertTrue($game->snapshot()['players'][$actor->id()]['playTopLibraryRevealed']);
-        self::assertSame(['top-card', 'second-card'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['top-card', 'second-card'], $this->libraryIds($game->snapshot(), $actor->id()));
 
         $handler->apply($game, 'library.play_top_revealed', [
             'playerId' => $actor->id(),
@@ -2040,10 +2101,7 @@ class GameCommandHandlerTest extends TestCase
             'position' => 'bottom',
         ], $actor);
 
-        self::assertSame(['bottom-card', 'top-card', 'second-card'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['bottom-card', 'top-card', 'second-card'], $this->libraryIds($game->snapshot(), $actor->id()));
         self::assertSame('Moved top 2 cards to bottom of library.', $game->snapshot()['eventLog'][0]['message']);
     }
 
@@ -2115,6 +2173,12 @@ class GameCommandHandlerTest extends TestCase
         $handler = new GameCommandHandler(null, new class() extends GameRandomizer {
             public function pickOne(array $items): mixed
             {
+                foreach ($items as $item) {
+                    if (($item['instanceId'] ?? null) === 'top-card') {
+                        return $item;
+                    }
+                }
+
                 return $items[0];
             }
         });
@@ -2125,10 +2189,7 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         $snapshot = $game->snapshot();
-        self::assertSame(['top-card', 'second-card'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $snapshot['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['top-card', 'second-card'], $this->libraryIds($snapshot, $actor->id()));
         self::assertSame('ha seleccionado al azar Hidden Tutor de library.', $snapshot['eventLog'][0]['message']);
         self::assertSame('top-card', $snapshot['eventLog'][0]['cardInstanceId']);
         self::assertSame($actor->id(), $snapshot['eventLog'][0]['cardPlayerId']);
@@ -2157,10 +2218,7 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         $snapshot = $game->snapshot();
-        self::assertSame(['second-card', 'top-card', 'third-card'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $snapshot['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['second-card', 'top-card', 'third-card'], $this->libraryIds($snapshot, $actor->id()));
         self::assertSame('ha alterado el orden de sus proximos 2 robos.', $snapshot['eventLog'][0]['message']);
     }
 
@@ -2696,10 +2754,7 @@ class GameCommandHandlerTest extends TestCase
             'position' => 'bottom',
         ], $actor);
 
-        self::assertSame(['to-top', 'library-top', 'to-bottom'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['to-top', 'library-top', 'to-bottom'], $this->libraryIds($game->snapshot(), $actor->id()));
         self::assertSame('Moved Top Return from graveyard to top of library.', $game->snapshot()['eventLog'][0]['message']);
         self::assertSame('Moved Bottom Return from graveyard to bottom of library.', $game->snapshot()['eventLog'][1]['message']);
     }
@@ -2723,10 +2778,7 @@ class GameCommandHandlerTest extends TestCase
             'position' => 'bottom',
         ], $actor);
 
-        self::assertSame(['second-card', 'bottom-card', 'top-card'], array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        ));
+        self::assertSame(['second-card', 'bottom-card', 'top-card'], $this->libraryIds($game->snapshot(), $actor->id()));
         self::assertSame('Moved a card to bottom of library.', $game->snapshot()['eventLog'][0]['message']);
         self::assertStringNotContainsString('Top Secret', $game->snapshot()['eventLog'][0]['message']);
     }
@@ -2826,10 +2878,7 @@ class GameCommandHandlerTest extends TestCase
             'randomOrder' => true,
         ], $actor);
 
-        $libraryIds = array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        );
+        $libraryIds = $this->libraryIds($game->snapshot(), $actor->id());
         self::assertEqualsCanonicalizing(['return-1', 'return-2', 'return-3'], array_slice($libraryIds, 0, 3));
         self::assertSame(['library-top', 'library-bottom'], array_slice($libraryIds, 3));
         self::assertSame(
@@ -3467,6 +3516,51 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('hand-2', $player['zones']['hand'][0]['instanceId']);
     }
 
+    public function testMulliganTakeRecordsTransitionMetrics(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ])));
+
+        $handler->apply($game, 'mulligan.take', [], $actor);
+        $metrics = $handler->consumeLastCommandMetrics();
+
+        self::assertSame(1, $metrics['mulligan.normalize_snapshot_count'] ?? null);
+        self::assertSame(1, $metrics['mulligan.snapshot_write_count'] ?? null);
+        self::assertArrayHasKey('mulligan.take_ms', $metrics);
+        self::assertArrayHasKey('mulligan.draw_hand_ms', $metrics);
+        self::assertSame(7, $metrics['mulligan.hand_size'] ?? null);
+        self::assertSame(7, $metrics['mulligan.library_size'] ?? null);
+        self::assertSame(0, $metrics['mulligan.full_scan_count'] ?? null);
+    }
+
+    public function testOptimizedMulliganRouteDoesNotNormalizeSnapshot(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $flags = new GameplayV2Flags(
+            commandEnabled: true,
+            eventEnabled: true,
+            enabled: true,
+            commandsAllowlist: 'mulligan.take',
+        );
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ])));
+
+        $handler->apply($game, 'mulligan.take', [], $actor);
+        $metrics = $handler->consumeLastCommandMetrics();
+
+        self::assertSame(1, $metrics['mulligan.optimized_route'] ?? null);
+        self::assertSame(0, $metrics['mulligan.normalize_snapshot_count'] ?? null);
+        self::assertSame(0, $metrics['mulligan.snapshot_write_count'] ?? null);
+        self::assertSame(0, $metrics['mulligan.full_scan_count'] ?? null);
+    }
+
     public function testNormalGameplayCommandsAreRejectedDuringMulligan(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -3514,13 +3608,32 @@ class GameCommandHandlerTest extends TestCase
             'bottomCardInstanceIds' => ['hand-2', 'hand-1'],
         ], $actor);
 
-        $libraryIds = array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        );
+        $libraryIds = $this->libraryIds($game->snapshot(), $actor->id());
         self::assertSame(['library-1', 'hand-2', 'hand-1'], $libraryIds);
         self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
         self::assertSame(['bottomCardCount' => 2], $event->toArray()['payload']);
+    }
+
+    public function testLondonBottomsSixCardsInClientOrder(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_LONDON, false, 6));
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['hand-6', 'hand-5', 'hand-4', 'hand-3', 'hand-2', 'hand-1'],
+        ], $actor);
+
+        self::assertSame(
+            ['library-1', 'hand-6', 'hand-5', 'hand-4', 'hand-3', 'hand-2', 'hand-1'],
+            $this->libraryIds($game->snapshot(), $actor->id()),
+        );
+        self::assertSame(['hand-7'], array_map(
+            static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+            $game->snapshot()['players'][$actor->id()]['zones']['hand'],
+        ));
     }
 
     public function testGenerousRequiresThreeBottomCardsAtStart(): void
@@ -3553,10 +3666,7 @@ class GameCommandHandlerTest extends TestCase
             'bottomCardInstanceIds' => ['hand-1', 'hand-2', 'hand-3'],
         ], $actor);
 
-        $libraryIds = array_map(
-            static fn (array $card): string => $card['instanceId'],
-            $game->snapshot()['players'][$actor->id()]['zones']['library'],
-        );
+        $libraryIds = $this->libraryIds($game->snapshot(), $actor->id());
         self::assertSame(['hand-3', 'hand-2', 'hand-1'], $libraryIds);
         self::assertNotSame(['hand-1', 'hand-2', 'hand-3'], $libraryIds);
     }
@@ -3688,6 +3798,127 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('PLAYING', $game->snapshot()['gamePhase']);
     }
 
+    public function testNormalizeSnapshotBuildsLocationIndex(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+
+        $snapshot = $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'library' => [$this->card('library-1', 'Library Card', 'library', 1, 1, 1, 1)],
+            'battlefield' => [$this->card('battlefield-1', 'Battlefield Card', 'battlefield', 2, 2, 2, 2)],
+        ]));
+
+        self::assertSame('library', $snapshot['loc']['library-1']['zone']);
+        self::assertSame(0, $snapshot['loc']['library-1']['index']);
+        self::assertSame('battlefield', $snapshot['loc']['battlefield-1']['zone']);
+        self::assertSame(0, $snapshot['loc']['battlefield-1']['index']);
+    }
+
+    public function testLocationIndexUpdatesAfterCardMove(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'graveyard' => [$this->card('card-1', 'Recovered Bear', 'graveyard', 2, 2, 2, 2)],
+        ])));
+
+        $handler->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'graveyard',
+            'toZone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        self::assertSame('battlefield', $game->snapshot()['loc']['card-1']['zone']);
+        self::assertSame(0, $game->snapshot()['loc']['card-1']['index']);
+    }
+
+    public function testLocationIndexUpdatesAfterLibraryDraw(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'library' => [
+                $this->card('top-card', 'Top Card', 'library', 1, 1, 1, 1),
+                $this->card('second-card', 'Second Card', 'library', 1, 1, 1, 1),
+            ],
+        ])));
+
+        $handler->apply($game, 'library.draw', [
+            'playerId' => $actor->id(),
+        ], $actor);
+
+        self::assertSame('hand', $game->snapshot()['loc']['top-card']['zone']);
+        self::assertSame('library', $game->snapshot()['loc']['second-card']['zone']);
+        self::assertSame(0, $game->snapshot()['loc']['second-card']['index']);
+    }
+
+    public function testLocationIndexUpdatesAfterMovingManyCards(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'graveyard' => [
+                $this->card('card-1', 'One', 'graveyard', 1, 1, 1, 1),
+                $this->card('card-2', 'Two', 'graveyard', 1, 1, 1, 1),
+                $this->card('card-3', 'Three', 'graveyard', 1, 1, 1, 1),
+            ],
+        ])));
+
+        $handler->apply($game, 'cards.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'graveyard',
+            'toZone' => 'library',
+            'instanceIds' => ['card-1', 'card-2', 'card-3'],
+            'position' => 'bottom',
+        ], $actor);
+
+        self::assertSame('library', $game->snapshot()['loc']['card-1']['zone']);
+        self::assertSame(2, $game->snapshot()['loc']['card-1']['index']);
+        self::assertSame(1, $game->snapshot()['loc']['card-2']['index']);
+        self::assertSame(0, $game->snapshot()['loc']['card-3']['index']);
+        self::assertSame(['card-1', 'card-2', 'card-3'], $this->libraryIds($game->snapshot(), $actor->id()));
+    }
+
+    public function testEvaporatingTokenMoveRemovesLocationIndexEntry(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $snapshot = $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('token-1', 'Goblin Token', 'battlefield', 1, 1, 1, 1),
+                'isToken' => true,
+            ]],
+        ]));
+        $game = new Game(new Room($actor), $snapshot);
+
+        $handler->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'token-1',
+        ], $actor);
+
+        self::assertArrayNotHasKey('token-1', $game->snapshot()['loc']);
+    }
+
+    public function testSimpleInstanceCommandDoesNotTriggerFullScanWhenLocAlreadyExists(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'battlefield' => [$this->card('card-1', 'Tap Target', 'battlefield', 2, 2, 2, 2)],
+        ])));
+
+        $handler->apply($game, 'card.tapped', [
+            'playerId' => $actor->id(),
+            'instanceId' => 'card-1',
+            'tapped' => true,
+        ], $actor);
+
+        self::assertSame(0, $handler->consumeLastCommandMetrics()['full_scan_count'] ?? null);
+    }
+
     /**
      * @param array<string,list<array<string,mixed>>> $actorZones
      */
@@ -3763,6 +3994,25 @@ class GameCommandHandlerTest extends TestCase
         }
 
         return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function libraryIds(array $snapshot, string $playerId): array
+    {
+        return array_map(
+            static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+            (new GameLibraryOps())->projectionOrderCards($snapshot['players'][$playerId] ?? []),
+        );
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function libraryTopCard(array $snapshot, string $playerId): ?array
+    {
+        return (new GameLibraryOps())->topCard($snapshot['players'][$playerId] ?? []);
     }
 
     /**

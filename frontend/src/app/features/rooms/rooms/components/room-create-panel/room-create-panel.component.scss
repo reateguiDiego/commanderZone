@@ -57,6 +57,11 @@
   opacity: 1;
 }
 
+.room-code-card input[aria-invalid='true'] {
+  border-color: var(--cz-danger);
+  box-shadow: 0 0 0 1px rgb(var(--cz-danger-rgb) / 28%);
+}
+
 .room-code-card button {
   width: 100%;
 }

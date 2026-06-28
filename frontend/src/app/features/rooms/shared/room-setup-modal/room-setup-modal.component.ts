@@ -9,6 +9,7 @@ import { GameSetupLifeControlComponent } from '../../../../shared/components/gam
 import { GameSetupSeatsControlComponent } from '../../../../shared/components/game-setup-seats-control/game-setup-seats-control.component';
 import { VisibilityChoiceComponent } from '../../../../shared/components/visibility-choice/visibility-choice.component';
 import { AppModalComponent } from '../../../../shared/ui/app-modal/app-modal.component';
+import { ToggleComponent } from '../../../../shared/ui/toggle/toggle.component';
 import { TableAssistantTimerMode } from '../../../table-assistant/models/table-assistant.models';
 import { TableAssistantTimerSettingsComponent } from '../../../table-assistant/table-assistant-timer-settings/table-assistant-timer-settings.component';
 import { RoomSetupControlsComponent } from '../room-setup-controls/room-setup-controls.component';
@@ -37,6 +38,7 @@ export type RoomSetupModalMode = 'create' | 'edit';
     ReactiveFormsModule,
     RoomSetupControlsComponent,
     TableAssistantTimerSettingsComponent,
+    ToggleComponent,
     VisibilityChoiceComponent,
   ],
   templateUrl: './room-setup-modal.component.html',
@@ -97,7 +99,7 @@ export class RoomSetupModalComponent {
   readonly createRoomForm = this.formBuilder.group({
     roomName: ['', [Validators.required, Validators.maxLength(30)]],
     format: ['commander' as RoomFormat, [Validators.required]],
-    privacy: [null as RoomVisibility | null, [Validators.required]],
+    privacy: ['public' as RoomVisibility, [Validators.required]],
   });
 
   readonly roomNameLength = signal(0);

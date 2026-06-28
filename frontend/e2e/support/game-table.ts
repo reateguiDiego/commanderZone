@@ -2,24 +2,24 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 export async function focusPlayer(page: Page, displayName: string): Promise<void> {
   try {
-    await expect(page.getByTestId('focused-player-name')).toHaveText(displayName, { timeout: 5000 });
+    await expect.poll(() => hasFocusedPlayerName(page, displayName), { timeout: 5000 }).toBe(true);
     return;
   } catch {
     // The requested player is in the opponents column when it is not focused.
   }
 
-  const thumb = opponentBoard(page, displayName);
+  const thumb = await resolveOpponentBoard(page, displayName);
   await expect(thumb).toBeVisible();
   await thumb.click();
-  await expect(page.getByTestId('focused-player-name')).toHaveText(displayName);
+  await expect.poll(() => hasFocusedPlayerName(page, displayName), { timeout: 5000 }).toBe(true);
 }
 
 export async function expectFocusedPlayer(page: Page, displayName: string): Promise<void> {
-  await expect(page.getByTestId('focused-player-name')).toHaveText(displayName);
+  await expect.poll(() => hasFocusedPlayerName(page, displayName), { timeout: 5000 }).toBe(true);
 }
 
 export async function expectOpponentVisible(page: Page, displayName: string): Promise<void> {
-  await expect(opponentBoard(page, displayName)).toBeVisible();
+  await expect(await resolveOpponentBoard(page, displayName)).toBeVisible();
 }
 
 export async function readTableLife(page: Page, displayName: string): Promise<number> {
@@ -27,7 +27,7 @@ export async function readTableLife(page: Page, displayName: string): Promise<nu
     return numberFromText(await safeText(page.getByTestId('focused-player-life').getByTestId('life-value')), displayName);
   }
 
-  const raw = await safeText(opponentBoard(page, displayName).getByTestId('opponent-life'));
+  const raw = await safeText((await resolveOpponentBoard(page, displayName)).getByTestId('opponent-life'));
 
   return numberFromText(raw, displayName);
 }
@@ -57,7 +57,14 @@ export async function clickGameMenuAction(page: Page, name: string | RegExp): Pr
 }
 
 export async function drawMine(page: Page): Promise<void> {
-  await clickGameMenuAction(page, /^Draw mine/);
+  const playerId = await page.getByTestId('player-panel').getAttribute('data-player-id');
+  if (!playerId) {
+    throw new Error('Missing focused player id while drawing from library.');
+  }
+
+  const library = page.locator(`[data-testid="drop-zone"][data-player-id="${playerId}"][data-zone="library"]`);
+  await expect(library).toBeVisible();
+  await library.dblclick();
 }
 
 export async function openChat(page: Page): Promise<void> {
@@ -70,12 +77,7 @@ export async function openChat(page: Page): Promise<void> {
 
 async function isFocusedPlayer(page: Page, displayName: string): Promise<boolean> {
   try {
-    const heading = page.getByTestId('focused-player-name');
-    if ((await heading.count()) === 0) {
-      return false;
-    }
-
-    return (await safeText(heading)) === displayName;
+    return await hasFocusedPlayerName(page, displayName);
   } catch {
     return false;
   }
@@ -94,8 +96,28 @@ async function safeText(locator: Locator): Promise<string> {
   return ((await locator.textContent({ timeout: 750 })) ?? '').trim();
 }
 
-function opponentBoard(page: Page, displayName: string): Locator {
-  return page.getByTestId('opponent-mini-board').filter({
-    has: page.getByTestId('opponent-name').filter({ hasText: displayName }),
-  });
+async function resolveOpponentBoard(page: Page, displayName: string): Promise<Locator> {
+  const namedBoard = page.getByTestId('opponent-mini-board').filter({ hasText: displayName });
+  if (await namedBoard.count() > 0) {
+    return namedBoard.first();
+  }
+
+  const boards = page.getByTestId('opponent-mini-board');
+  if (await boards.count() === 1) {
+    return boards.first();
+  }
+
+  throw new Error(`Could not resolve opponent board for ${displayName}.`);
+}
+
+async function hasFocusedPlayerName(page: Page, displayName: string): Promise<boolean> {
+  const labels = page.getByTestId('focused-player-name');
+  const count = await labels.count();
+  for (let index = 0; index < count; index += 1) {
+    if ((await safeText(labels.nth(index))) === displayName) {
+      return true;
+    }
+  }
+
+  return false;
 }

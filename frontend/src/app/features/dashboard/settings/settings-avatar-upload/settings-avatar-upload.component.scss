@@ -136,6 +136,7 @@ input:disabled {
 
 .avatar-upload-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.55rem;
   align-self: end;
@@ -146,5 +147,13 @@ input:disabled {
   .avatar-upload-body,
   .upload-card {
     grid-template-columns: 1fr;
+  }
+
+  .avatar-upload-actions {
+    flex-wrap: wrap;
+  }
+
+  .settings-save-disclaimer {
+    flex: 1 1 100%;
   }
 }

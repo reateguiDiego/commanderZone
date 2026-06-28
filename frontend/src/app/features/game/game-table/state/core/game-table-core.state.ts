@@ -14,6 +14,7 @@ export class GameTableCoreState {
   readonly gameId = signal(this.route.snapshot.paramMap.get('id') ?? '');
   readonly snapshot = signal<GameSnapshot | null>(null);
   readonly viewerCanControlTable = signal(true);
+  readonly currentRoomId = signal<string | null>(null);
   readonly currentDeckId = signal<string | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);

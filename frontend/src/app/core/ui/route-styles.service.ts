@@ -70,6 +70,7 @@ export class RouteStylesService {
       'auth',
       'cards',
       'community',
+      'contact',
       'dashboard',
       'decks',
       'email-verification',

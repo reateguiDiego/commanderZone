@@ -1,18 +1,16 @@
-import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
+import { Router, ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
+import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+type EmailVerificationStatus = 'verifying' | 'error';
 
 @Component({
   selector: 'app-email-verification-page',
-  imports: [RuntimeTranslatePipe, ReactiveFormsModule, RouterLink, LucideAngularModule, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, BackButtonComponent],
   templateUrl: './email-verification-page.component.html',
   styleUrl: './email-verification-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -20,93 +18,28 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export class EmailVerificationPageComponent {
   private readonly authApi = inject(AuthApi);
   private readonly auth = inject(AuthStore);
-  private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
-  readonly verifyLoading = signal(false);
-  readonly verifySuccess = signal(false);
-  readonly verifyError = signal<string | null>(null);
-  readonly resendLoading = signal(false);
-  readonly resendSuccess = signal(false);
-  readonly resendError = signal<string | null>(null);
-  readonly registeredNotice = signal(false);
-
-  readonly verificationForm = this.formBuilder.nonNullable.group({
-    token: ['', [Validators.required]],
-    email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
-  });
+  readonly status = signal<EmailVerificationStatus>('verifying');
 
   constructor() {
-    const registeredFromQuery = this.route.snapshot.queryParamMap.get('registered');
-    if (registeredFromQuery === '1') {
-      this.registeredNotice.set(true);
-    }
-
-    const emailFromQuery = this.route.snapshot.queryParamMap.get('email');
-    if (emailFromQuery && emailFromQuery.trim() !== '') {
-      this.verificationForm.controls.email.setValue(emailFromQuery.trim());
-    }
-
-    const tokenFromQuery = this.route.snapshot.queryParamMap.get('token');
-    if (tokenFromQuery && tokenFromQuery.trim() !== '') {
-      this.verificationForm.controls.token.setValue(tokenFromQuery.trim());
-      void this.confirmToken();
-    }
-  }
-
-  canConfirm(): boolean {
-    return this.verificationForm.controls.token.valid && !this.verifyLoading();
-  }
-
-  canResend(): boolean {
-    return this.verificationForm.controls.email.valid && !this.resendLoading();
-  }
-
-  async confirmToken(): Promise<void> {
-    if (!this.canConfirm()) {
-      this.verificationForm.controls.token.markAsTouched();
+    const token = this.route.snapshot.queryParamMap.get('token')?.trim() ?? '';
+    if (!token) {
+      this.status.set('error');
       return;
     }
 
-    this.verifyLoading.set(true);
-    this.verifyError.set(null);
-    this.verifySuccess.set(false);
+    void this.confirmToken(token);
+  }
 
+  private async confirmToken(token: string): Promise<void> {
     try {
-      const response = await firstValueFrom(this.authApi.confirmEmailVerification({
-        token: this.verificationForm.controls.token.value.trim(),
-      }));
-      this.verifySuccess.set(response.verified);
+      const response = await firstValueFrom(this.authApi.confirmEmailVerification({ token }));
       await this.auth.loginWithResolvedUser(response.token, response.user);
       await this.router.navigate(['/dashboard']);
     } catch {
-      this.verifyError.set('No se pudo verificar el email con ese token.');
-    } finally {
-      this.verifyLoading.set(false);
-    }
-  }
-
-  async resendVerificationEmail(): Promise<void> {
-    if (!this.canResend()) {
-      this.verificationForm.controls.email.markAsTouched();
-      return;
-    }
-
-    this.resendLoading.set(true);
-    this.resendError.set(null);
-    this.resendSuccess.set(false);
-
-    try {
-      const response = await firstValueFrom(
-        this.authApi.requestEmailVerification(this.verificationForm.controls.email.value.trim()),
-      );
-      this.resendSuccess.set(response.accepted);
-    } catch {
-      this.resendError.set('No se pudo reenviar el correo de verificacion.');
-    } finally {
-      this.resendLoading.set(false);
+      this.status.set('error');
     }
   }
 }
-

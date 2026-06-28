@@ -14,6 +14,7 @@ const clientServerRoutePaths = [
   ...authRoutePaths,
   'auth/password-reset',
   'email-verification',
+  'contact',
   'games/:id/debug',
   'games/:id',
   'dashboard',
@@ -524,7 +525,7 @@ function assertRobotsMeta(pageKey, strategy, expectedRobots) {
 }
 
 function robotsForPageKey(pageKey, strategy) {
-  if (pageKey === 'legal') {
+  if (pageKey === 'legal' || pageKey === 'contact') {
     return 'noindex, follow';
   }
 

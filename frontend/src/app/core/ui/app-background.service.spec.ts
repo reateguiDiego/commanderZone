@@ -50,6 +50,18 @@ describe('AppBackgroundService', () => {
     expect(document.body.classList.contains('dashboard-background')).toBe(false);
   });
 
+  it('restores the session background when dashboard mode is re-enabled', () => {
+    sessionStorage.setItem(themeSessionKey, 'sunrise');
+    sessionStorage.setItem(sessionKey, 'assets/images/backgrounds/sunrise/bg-4.webp');
+    const service = TestBed.inject(AppBackgroundService);
+    document.documentElement.style.removeProperty('--app-session-background');
+
+    service.setDashboardMode(true);
+
+    expect(document.body.classList.contains('dashboard-background')).toBe(true);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('url("/assets/images/backgrounds/sunrise/bg-4.webp")');
+  });
+
   it('can rotate the current session background without repeating the previous image in the current theme', () => {
     sessionStorage.setItem(themeSessionKey, 'sunrise');
     sessionStorage.setItem(sessionKey, 'assets/images/backgrounds/sunrise/bg-4.webp');

@@ -1,11 +1,13 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { DisplayNameStyleUpdatePayload } from '../../../../core/api/auth.api';
+import { AppShellI18nService } from '../../../../core/localization/app-shell-i18n.service';
 import { UserDisplayNameStyle } from '../../../../core/models/user.model';
 import { DEFAULT_PREMIUM_NAME_COLOR, DISPLAY_NAME_STYLE_PRESETS, DisplayNameStylePreset, displayNameStylePreset } from '../../../../core/profile/display-name-style-presets';
 import { PlayerNameComponent } from '../../../../shared/ui/player-name/player-name.component';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { TabListComponent, type TabListItem } from '../../../../shared/ui/tab-list/tab-list.component';
+import { PremiumBadgeComponent } from '../../../../shared/ui/premium-badge/premium-badge.component';
 
 type DisplayNameStyleTierTab = 'basic' | 'premium';
 
@@ -16,12 +18,14 @@ interface DisplayNameStyleOption {
 
 @Component({
   selector: 'app-settings-display-name-style-editor',
-  imports: [RuntimeTranslatePipe, PlayerNameComponent, CzButtonDirective, TabListComponent],
+  imports: [RuntimeTranslatePipe, PlayerNameComponent, CzButtonDirective, TabListComponent, PremiumBadgeComponent],
   templateUrl: './settings-display-name-style-editor.component.html',
   styleUrl: './settings-display-name-style-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsDisplayNameStyleEditorComponent {
+  private readonly i18n = inject(AppShellI18nService);
+
   readonly displayName = input('');
   readonly nameStyle = input<UserDisplayNameStyle | null | undefined>(undefined);
   readonly saving = input(false);
@@ -43,6 +47,7 @@ export class SettingsDisplayNameStyleEditorComponent {
   readonly selectedTextColor = signal(DEFAULT_PREMIUM_NAME_COLOR);
   readonly basicPresets = DISPLAY_NAME_STYLE_PRESETS.filter((preset) => preset.tier === 'basic');
   readonly premiumPresets = DISPLAY_NAME_STYLE_PRESETS.filter((preset) => preset.tier === 'premium');
+  readonly saveDisclaimer = computed(() => this.i18n.text('settingsSaveDisclaimer'));
 
   readonly currentPreset = computed(() => displayNameStylePreset(this.nameStyle()));
   readonly currentTextColor = computed(() => this.nameStyle()?.textColor ?? DEFAULT_PREMIUM_NAME_COLOR);

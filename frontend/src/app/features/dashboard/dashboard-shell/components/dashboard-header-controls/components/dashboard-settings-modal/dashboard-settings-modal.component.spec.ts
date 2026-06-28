@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { importProvidersFrom, signal } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { ArrowLeft, Check, LucideAngularModule, Settings, Trash2, Upload, X } from 'lucide-angular';
 import { AuthApi } from '../../../../../../../core/api/auth.api';
 import { CardLanguageCoverageResponse, CardsLanguageService } from '../../../../../../../core/api/cards-language.service';
@@ -19,6 +19,7 @@ describe('DashboardSettingsModalComponent', () => {
     updateMe: vi.fn(() => of({ user: { id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'] } })),
     updateAvatar: vi.fn(() => of({ user: { id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'] } })),
     updateDisplayNameStyle: vi.fn(() => of({ user: { id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'], displayNameStyle: { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' } } })),
+    requestPasswordReset: vi.fn(() => of({ accepted: true })),
     deleteMe: vi.fn(() => of(void 0)),
   };
 
@@ -30,9 +31,21 @@ describe('DashboardSettingsModalComponent', () => {
       roles: ['ROLE_USER'],
       avatar: { type: 'initial', imageUrl: null },
       displayNameStyle: { type: 'plain', presetId: 'plain' },
-      preferences: { cardLanguage: 'en', appLanguage: 'en', themeId: 'sunrise' },
+      preferences: {
+        cardLanguage: 'en',
+        appLanguage: 'en',
+        themeId: 'sunrise',
+        game: {
+          showManaHelperOnStartup: false,
+          enableManaRow: true,
+          enableStackMana: false,
+          gameAnimations: true,
+          chatNotificationSounds: true,
+        },
+      },
     }),
     loadMe: vi.fn(async () => undefined),
+    updateThemePreference: vi.fn(),
   };
   const languagePreferencesMock = {
     cardLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'nl' | 'ca'>('en').asReadonly(),
@@ -84,9 +97,11 @@ describe('DashboardSettingsModalComponent', () => {
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('renders general tab and game tab content when toggling tabs', () => {
+  it('renders general tab and keeps theme settings out of the game tab', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('General');
@@ -94,7 +109,7 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Card language');
     expect(fixture.nativeElement.textContent).toContain('App language');
     expect(fixture.nativeElement.textContent).toContain('Change password');
-    expect(fixture.nativeElement.textContent).toContain('6/20 maximum');
+    expect(fixture.nativeElement.textContent).toContain('6/20');
     expect(fixture.nativeElement.querySelector('.modal-title-icon')).not.toBeNull();
 
     const generalText = fixture.nativeElement.textContent as string;
@@ -107,10 +122,61 @@ describe('DashboardSettingsModalComponent', () => {
     gameTab.click();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Visual theme');
+    expect(fixture.nativeElement.textContent).not.toContain('Visual theme');
+    expect(fixture.nativeElement.querySelector('.theme-option')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Card language');
     expect(fixture.nativeElement.textContent).not.toContain('App language');
     expect(fixture.nativeElement.textContent).not.toContain('Change password');
+    expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
+    expect(fixture.nativeElement.textContent).toContain('Enable mana row');
+    expect(fixture.nativeElement.textContent).toContain('Enable stack mana');
+    expect(fixture.nativeElement.textContent).toContain('Game animations');
+    expect(fixture.nativeElement.textContent).toContain('Chat notification sounds');
+  });
+
+  it('saves gameplay preferences from the game tab through /me', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    const gameTab = Array.from(fixture.nativeElement.querySelectorAll('.settings-tabs button') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Game')) as HTMLButtonElement;
+    gameTab.click();
+    fixture.detectChanges();
+
+    const manaRowToggle = Array.from(fixture.nativeElement.querySelectorAll('[role="switch"]') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Enable mana row')) as HTMLButtonElement;
+    manaRowToggle.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.canSave()).toBe(true);
+
+    await fixture.componentInstance.savePreferences();
+
+    expect(authApiMock.updateMe).toHaveBeenCalledWith({
+      gamePreferences: {
+        showManaHelperOnStartup: false,
+        enableManaRow: false,
+        enableStackMana: false,
+        gameAnimations: true,
+        chatNotificationSounds: true,
+      },
+    });
+    expect(authStoreMock.loadMe).toHaveBeenCalled();
+    expect(fixture.componentInstance.canSave()).toBe(false);
+  });
+
+  it('restores unsaved gameplay preferences when cancelling settings', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.setGameSettingsToggle('enableManaRow', false);
+    expect(fixture.componentInstance.canSave()).toBe(true);
+
+    fixture.componentInstance.cancel();
+
+    expect(fixture.componentInstance.gameSettingsToggleState().enableManaRow).toBe(true);
   });
 
   it('updates the username character counter from the profile form value', () => {
@@ -122,7 +188,7 @@ describe('DashboardSettingsModalComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.userNameCharacterCount()).toBe(12);
-    expect(fixture.nativeElement.textContent).toContain('12/20 maximum');
+    expect(fixture.nativeElement.textContent).toContain('12/20');
   });
 
   it('loads card language coverage when settings opens', async () => {
@@ -197,9 +263,11 @@ describe('DashboardSettingsModalComponent', () => {
     expect(cardLanguageSelect.querySelector('.format-select-option img[src*="taiwan"]')).not.toBeNull();
   });
 
-  it('uses native hamburger language options with flags for app language', () => {
+  it('uses native hamburger language options with flags for app language', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const appLanguageSelect = fixture.nativeElement.querySelector('app-format-select input[name="appLanguage"]')
@@ -222,16 +290,21 @@ describe('DashboardSettingsModalComponent', () => {
     expect(optionFlags.length).toBe(optionLabels.length);
   });
 
-  it('renders theme presets with sunrise selected by default', () => {
+  it('renders theme presets with sunrise selected by default', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
     fixture.detectChanges();
 
-    fixture.componentInstance.switchTab('game');
+    fixture.componentInstance.openThemeSettings();
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const selectedTheme = fixture.nativeElement.querySelector('.theme-option.selected') as HTMLButtonElement;
 
+    expect(fixture.componentInstance.themeEditorOpen()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.settings-tabs')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.modal-back-button')).not.toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Sunrise');
     expect(fixture.nativeElement.textContent).toContain('Arcade Neon Clash');
     expect(selectedTheme?.textContent).toContain('Sunrise');
@@ -244,12 +317,52 @@ describe('DashboardSettingsModalComponent', () => {
     expect(TestBed.inject(AppThemeService).themeId()).toBe('sunrise');
   });
 
-  it('changes visual theme locally without calling the profile API', () => {
+  it('previews the visual theme locally and saves it only from the theme save button', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
     fixture.detectChanges();
 
-    fixture.componentInstance.switchTab('game');
+    fixture.componentInstance.openThemeSettings();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const mysticButton = Array.from(fixture.nativeElement.querySelectorAll('.theme-option') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Mystic Grove')) as HTMLButtonElement;
+    mysticButton.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(AppThemeService).themeId()).toBe('mystic-grove');
+    expect(localStorage.getItem('commanderzone.theme')).toBeNull();
+    expect(document.documentElement.dataset['theme']).toBe('mystic-grove');
+    expect(themesUpdate).not.toHaveBeenCalled();
+    expect(authApiMock.updateMe).not.toHaveBeenCalled();
+
+    const saveThemeButton = fixture.nativeElement.querySelector('.save-theme-button') as HTMLButtonElement;
+    expect(saveThemeButton.disabled).toBe(false);
+
+    saveThemeButton.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(themesUpdate).toHaveBeenCalledWith('mystic-grove');
+    expect(authStoreMock.updateThemePreference).toHaveBeenCalledWith('mystic-grove');
+    expect(localStorage.getItem('commanderzone.theme')).toBe('mystic-grove');
+    expect(authApiMock.updateMe).not.toHaveBeenCalled();
+  });
+
+  it('reverts an unsaved theme preview when leaving the theme editor', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.openThemeSettings();
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const mysticButton = Array.from(fixture.nativeElement.querySelectorAll('.theme-option') as NodeListOf<HTMLButtonElement>)
@@ -258,10 +371,47 @@ describe('DashboardSettingsModalComponent', () => {
     fixture.detectChanges();
 
     expect(TestBed.inject(AppThemeService).themeId()).toBe('mystic-grove');
-    expect(localStorage.getItem('commanderzone.theme')).toBe('mystic-grove');
-    expect(document.documentElement.dataset['theme']).toBe('mystic-grove');
-    expect(themesUpdate).toHaveBeenCalledWith('mystic-grove');
-    expect(authApiMock.updateMe).not.toHaveBeenCalled();
+
+    const backButton = fixture.nativeElement.querySelector('.modal-back-button') as HTMLButtonElement;
+    backButton.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.themeEditorOpen()).toBe(false);
+    expect(TestBed.inject(AppThemeService).themeId()).toBe('sunrise');
+    expect(document.documentElement.dataset['theme']).toBe('sunrise');
+    expect(themesUpdate).not.toHaveBeenCalled();
+  });
+
+  it('syncs saved theme preferences into the auth user cache', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+
+    fixture.componentInstance.syncThemePreference('mystic-grove');
+
+    expect(authStoreMock.updateThemePreference).toHaveBeenCalledWith('mystic-grove');
+  });
+
+  it('opens theme settings from the general action button and back returns to settings', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    const themeButton = fixture.nativeElement.querySelector('.theme-language-action') as HTMLButtonElement;
+    themeButton.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.themeEditorOpen()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Visual theme');
+    expect(fixture.nativeElement.querySelector('.settings-tabs')).toBeNull();
+
+    const backButton = fixture.nativeElement.querySelector('.modal-back-button') as HTMLButtonElement;
+    backButton.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.themeEditorOpen()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('General');
+    expect(fixture.nativeElement.textContent).toContain('Change theme');
   });
 
   it('disables save when there are no changes', () => {
@@ -274,6 +424,13 @@ describe('DashboardSettingsModalComponent', () => {
       displayName: 'Player',
       cardLanguage: 'en',
       appLanguage: 'en',
+      gamePreferences: {
+        showManaHelperOnStartup: false,
+        enableManaRow: true,
+        enableStackMana: false,
+        gameAnimations: true,
+        chatNotificationSounds: true,
+      },
     });
     fixture.componentInstance.profileForm.setValue({ email: 'player@example.test', displayName: 'Player' });
     expect(fixture.componentInstance.canSave()).toBe(false);
@@ -288,6 +445,7 @@ describe('DashboardSettingsModalComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.canSave()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('You have unsaved changes. Save to keep them.');
   });
 
   it('persists game language preferences through /me', async () => {
@@ -325,6 +483,47 @@ describe('DashboardSettingsModalComponent', () => {
     expect(reloadSpy).not.toHaveBeenCalled();
   });
 
+  it('requests a password reset email for the persisted account email', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.profileForm.controls.email.setValue('unsaved@example.test');
+    await fixture.componentInstance.requestPasswordChange();
+    fixture.detectChanges();
+
+    expect(authApiMock.requestPasswordReset).toHaveBeenCalledWith('player@example.test');
+    expect(fixture.componentInstance.passwordResetRequestState()).toBe('sent');
+    const changePasswordButton = fixture.nativeElement.querySelector('.change-password-button') as HTMLButtonElement;
+    expect(changePasswordButton.textContent).toContain('Sent');
+  });
+
+  it('does not request another password reset email after one was already sent', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.requestPasswordChange();
+    await fixture.componentInstance.requestPasswordChange();
+
+    expect(authApiMock.requestPasswordReset).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance.canRequestPasswordChange()).toBe(false);
+  });
+
+  it('shows a local error when the password reset email request fails', async () => {
+    authApiMock.requestPasswordReset.mockReturnValueOnce(throwError(() => new Error('network')));
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.requestPasswordChange();
+    fixture.detectChanges();
+
+    expect(authApiMock.requestPasswordReset).toHaveBeenCalledWith('player@example.test');
+    expect(fixture.componentInstance.passwordResetRequestState()).toBe('error');
+    expect(fixture.nativeElement.textContent).toContain('Could not send the password reset email.');
+  });
+
   it('applies app language immediately without mutating card language', () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
@@ -350,9 +549,11 @@ describe('DashboardSettingsModalComponent', () => {
     expect(runtimeLanguageSelectorMock.applyLanguage).toHaveBeenLastCalledWith('en');
   });
 
-  it('shows persisted language selections in general tab selectors', () => {
+  it('shows persisted language selections in general tab selectors', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     fixture.componentInstance.profileBaseline.set({
@@ -360,6 +561,13 @@ describe('DashboardSettingsModalComponent', () => {
       displayName: 'Player',
       cardLanguage: 'fr',
       appLanguage: 'de',
+      gamePreferences: {
+        showManaHelperOnStartup: false,
+        enableManaRow: true,
+        enableStackMana: false,
+        gameAnimations: true,
+        chatNotificationSounds: true,
+      },
     });
     fixture.componentInstance.selectedCardLanguage.set('fr');
     fixture.componentInstance.selectedAppLanguage.set('de');

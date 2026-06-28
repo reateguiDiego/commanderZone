@@ -1,0 +1,127 @@
+@if (open() && card()) {
+  <app-modal
+    [open]="true"
+    [title]="'deckBuilder.cards.cardSearch.addToDeck.title' | runtimeTranslate"
+    [ariaLabel]="'deckBuilder.cards.cardSearch.addToDeck.title' | runtimeTranslate"
+    [primaryLabel]="'deckBuilder.cards.cardSearch.addToDeck.confirm' | runtimeTranslate"
+    [secondaryLabel]="'deckBuilder.cards.cardSearch.addToDeck.cancel' | runtimeTranslate"
+    [primaryDisabled]="!canAddToDeck()"
+    [footerNotice]="errorKey() ? (errorKey()! | runtimeTranslate) : ''"
+    [showCloseButton]="true"
+    [closeLabel]="'deckBuilder.cards.cardSearch.addToDeck.cancel' | runtimeTranslate"
+    size="compact"
+    panelOverflow="visible"
+    (primary)="addSelectedCardToDeck()"
+    (secondary)="requestClose()"
+    (close)="requestClose()"
+  >
+    <section class="add-to-deck-modal">
+      @if (loadingCard() || loadingDecks()) {
+        <app-global-loader />
+      } @else if (decks().length === 0) {
+        <p class="card-modal-notice">{{ 'deckBuilder.cards.cardSearch.addToDeck.noDecks' | runtimeTranslate }}</p>
+      } @else {
+        @if (selectedDeckPreview(); as preview) {
+          <article
+            class="add-to-deck-modal__deck-preview"
+            [class.add-to-deck-modal__deck-preview--with-art]="!!preview.primaryArt"
+            [class.add-to-deck-modal__deck-preview--dual-art]="!!preview.primaryArt && !!preview.secondaryArt"
+            [style.--selected-deck-art]="deckPreviewArt(preview.primaryArt)"
+            [style.--selected-deck-secondary-art]="deckPreviewArt(preview.secondaryArt)"
+          >
+            @if (preview.primaryArt && preview.secondaryArt) {
+              <div class="add-to-deck-modal__deck-preview-split" aria-hidden="true">
+                <div class="add-to-deck-modal__deck-preview-pane add-to-deck-modal__deck-preview-pane--primary"></div>
+                <div class="add-to-deck-modal__deck-preview-pane add-to-deck-modal__deck-preview-pane--secondary"></div>
+              </div>
+            }
+
+            <div class="add-to-deck-modal__deck-preview-body">
+              <strong class="add-to-deck-modal__deck-preview-name">{{ preview.name }}</strong>
+
+              @if (preview.commanderNames.length > 0) {
+                <span class="add-to-deck-modal__deck-preview-commanders">
+                  {{ preview.commanderNames.join(' / ') }}
+                </span>
+              }
+
+              @if (preview.colorIdentity.length > 0) {
+                <span class="add-to-deck-modal__deck-preview-identity" aria-hidden="true">
+                  <app-mana-symbols [symbols]="preview.colorIdentity" fallback="" size="small" />
+                </span>
+              }
+            </div>
+          </article>
+        }
+
+        <app-format-select
+          class="card-modal-select"
+          name="addToDeckDeck"
+          [labelKey]="'deckBuilder.cards.cardSearch.addToDeck.deck'"
+          [options]="deckSelectOptions()"
+          [value]="selectedDeckId()"
+          (valueChange)="selectDeck($event)"
+        />
+
+        <app-format-select
+          class="card-modal-select"
+          name="addToDeckSection"
+          [labelKey]="'deckBuilder.cards.cardSearch.addToDeck.section'"
+          [options]="deckSectionSelectOptions()"
+          [value]="selectedDeckSection()"
+          (valueChange)="selectDeckSection($event)"
+        />
+
+        <label class="card-modal-field card-modal-field--quantity">
+          <span>{{ 'deckBuilder.cards.cardSearch.addToDeck.quantity' | runtimeTranslate }}</span>
+          <span class="quantity-stepper">
+            <button
+              type="button"
+              class="quantity-stepper__button"
+              [attr.aria-label]="'deckBuilder.cards.cardSearch.addToDeck.decreaseQuantity' | runtimeTranslate"
+              [disabled]="selectedDeckQuantity() <= 1"
+              (click)="decreaseDeckQuantity()"
+            >
+              -
+            </button>
+            <input
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="2"
+              min="1"
+              max="99"
+              [value]="selectedDeckQuantity()"
+              [attr.aria-label]="'deckBuilder.cards.cardSearch.addToDeck.quantity' | runtimeTranslate"
+              (input)="selectDeckQuantity($event)"
+            />
+            <button
+              type="button"
+              class="quantity-stepper__button"
+              [attr.aria-label]="'deckBuilder.cards.cardSearch.addToDeck.increaseQuantity' | runtimeTranslate"
+              [disabled]="selectedDeckQuantity() >= 99"
+              (click)="increaseDeckQuantity()"
+            >
+              +
+            </button>
+          </span>
+        </label>
+
+        @if (addToDeckWarnings().length > 0) {
+          <div class="add-to-deck-modal__warnings app-disclaimer-callout" role="status" aria-live="polite">
+            @for (warning of addToDeckWarnings(); track warning.labelKey) {
+              <p class="add-to-deck-modal__warning">
+                <span>{{ warning.labelKey | runtimeTranslate: warning.params }}</span>
+                @if (warning.colorSymbols) {
+                  <span class="add-to-deck-modal__warning-mana" aria-hidden="true">
+                    <app-mana-symbols [symbols]="warning.colorSymbols" fallback="" size="small" />
+                  </span>
+                }
+              </p>
+            }
+          </div>
+        }
+      }
+    </section>
+  </app-modal>
+}

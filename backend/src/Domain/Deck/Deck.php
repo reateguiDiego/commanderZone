@@ -12,6 +12,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'deck')]
+#[ORM\Index(name: 'idx_deck_visibility_valid_updated_at', columns: ['visibility', 'is_valid', 'updated_at'])]
 class Deck
 {
     public const VISIBILITY_PRIVATE = 'private';
@@ -250,6 +251,11 @@ class Deck
     public function touch(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    public function updatedAt(): \DateTimeImmutable
+    {
+        return $this->updatedAt;
     }
 
     public function toArray(bool $withCards = false): array

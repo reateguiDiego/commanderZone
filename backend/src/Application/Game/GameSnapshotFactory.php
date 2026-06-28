@@ -2,6 +2,8 @@
 
 namespace App\Application\Game;
 
+use App\Application\Game\Compact\CompactGameCardStateMapper;
+use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Room\Room;
@@ -19,12 +21,26 @@ class GameSnapshotFactory
         'C' => 7,
     ];
 
-    public function __construct(?GameRandomizer $randomizer = null)
+    public function __construct(
+        ?GameRandomizer $randomizer = null,
+        ?CompactGameCardStateMapper $compactStateMapper = null,
+        ?GameplayCompactRuntimeFlags $compactRuntimeFlags = null,
+        ?GameLibraryOps $libraryOps = null,
+        ?GameplayStreamsFlags $streamFlags = null,
+    )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
+        $this->compactStateMapper = $compactStateMapper ?? new CompactGameCardStateMapper();
+        $this->compactRuntimeFlags = $compactRuntimeFlags ?? new GameplayCompactRuntimeFlags();
+        $this->libraryOps = $libraryOps ?? new GameLibraryOps();
+        $this->streamFlags = $streamFlags ?? new GameplayStreamsFlags();
     }
 
     private readonly GameRandomizer $randomizer;
+    private readonly CompactGameCardStateMapper $compactStateMapper;
+    private readonly GameplayCompactRuntimeFlags $compactRuntimeFlags;
+    private readonly GameLibraryOps $libraryOps;
+    private readonly GameplayStreamsFlags $streamFlags;
 
     public function fromRoom(Room $room): array
     {
@@ -47,9 +63,9 @@ class GameSnapshotFactory
                     $library[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'library');
                 }
             }
-            $library = $this->randomizer->shuffle($library);
+            $library = array_reverse($this->randomizer->shuffle($library));
             $mulliganState = GameMulliganRules::calculateMulliganState($room->mulliganRule(), $room->firstMulliganFree(), 0);
-            $openingHand = array_splice($library, 0, min($mulliganState['drawCount'], count($library)));
+            $openingHand = array_reverse(array_splice($library, -min($mulliganState['drawCount'], count($library))));
             $openingHand = array_values(array_map(
                 static fn (array $card): array => [...$card, 'zone' => 'hand'],
                 $openingHand,
@@ -76,6 +92,8 @@ class GameSnapshotFactory
                 'backgroundName' => $this->backgroundNameForDeck($deck, $colorIdentity, $usedBackgroundNames),
                 'sleevesName' => $deck?->sleevesName() ?? Deck::DEFAULT_SLEEVES_NAME,
                 'life' => $room->startingLife(),
+                GameLibraryOps::ORIENTATION_KEY => GameLibraryOps::ORIENTATION_TAIL_TOP,
+                GameLibraryOps::VISIBILITY_EPOCH_KEY => 1,
                 'zones' => [
                     'library' => $library,
                     'hand' => $openingHand,
@@ -113,7 +131,7 @@ class GameSnapshotFactory
 
         $createdAt = (new \DateTimeImmutable())->format(DATE_ATOM);
 
-        return [
+        $snapshot = [
             'version' => 1,
             'ownerId' => $room->owner()->id(),
             'gamePhase' => 'MULLIGAN',
@@ -137,11 +155,20 @@ class GameSnapshotFactory
             'arrows' => [],
             'attachments' => [],
             'specialEntities' => [],
-            'chat' => [],
-            'eventLog' => [],
             'createdAt' => $createdAt,
             'updatedAt' => $createdAt,
         ];
+
+        if (!$this->streamFlags->enabled()) {
+            $snapshot['chat'] = [];
+            $snapshot['eventLog'] = [];
+        }
+
+        if ($this->compactRuntimeFlags->enabled()) {
+            return $this->compactStateMapper->compactSnapshot($snapshot);
+        }
+
+        return $snapshot;
     }
 
     private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone, bool $isCommander = false): array

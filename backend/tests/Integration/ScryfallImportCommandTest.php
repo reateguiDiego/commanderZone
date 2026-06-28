@@ -2,8 +2,11 @@
 
 namespace App\Tests\Integration;
 
+use App\Application\Card\CardSearchOptionsRebuilder;
+use App\Application\Card\CardSearchEntryRebuilder;
 use App\Infrastructure\Scryfall\CardPrintBackfillCommand;
 use App\Infrastructure\Scryfall\ScryfallBulkDataClient;
+use App\Infrastructure\Scryfall\ScryfallCardMetadataBackfillCommand;
 use App\Infrastructure\Scryfall\ScryfallSyncCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -27,9 +30,13 @@ class ScryfallImportCommandTest extends ApiTestCase
         $rulingsFile = $this->writeTempJson([]);
 
         try {
+            $rebuilder = new CardSearchOptionsRebuilder($this->entityManager->getConnection());
+            $entryRebuilder = new CardSearchEntryRebuilder($this->entityManager->getConnection());
             $command = new ScryfallSyncCommand(
                 new ScryfallBulkDataClient($this->createMock(HttpClientInterface::class), 'test-agent'),
                 $this->entityManager->getConnection(),
+                $rebuilder,
+                $entryRebuilder,
                 '512M',
             );
             $tester = new CommandTester($command);
@@ -43,6 +50,11 @@ class ScryfallImportCommandTest extends ApiTestCase
             self::assertSame('1', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_print'));
             self::assertSame('1', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_print_locale'));
             self::assertSame('Sol Ring', (string) $this->entityManager->getConnection()->fetchOne('SELECT name FROM card LIMIT 1'));
+            self::assertSame('rare', (string) $this->entityManager->getConnection()->fetchOne('SELECT rarity FROM card LIMIT 1'));
+            self::assertSame('Test Set', (string) $this->entityManager->getConnection()->fetchOne('SELECT set_name FROM card LIMIT 1'));
+            self::assertSame('Test Set', (string) $this->entityManager->getConnection()->fetchOne('SELECT default_set_name FROM card_print LIMIT 1'));
+            self::assertSame('Test Set', (string) $this->entityManager->getConnection()->fetchOne('SELECT set_name FROM card_print_locale LIMIT 1'));
+            self::assertGreaterThan(0, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_search_option WHERE kind = \'rarity\''));
             self::assertStringContainsString('Skipped 1 unavailable prints.', $tester->getDisplay());
         } finally {
             @unlink($cardsFile);
@@ -64,7 +76,11 @@ class ScryfallImportCommandTest extends ApiTestCase
 
         $this->entityManager->getConnection()->executeStatement('TRUNCATE card_print_locale, card_print RESTART IDENTITY CASCADE');
 
-        $command = new CardPrintBackfillCommand($this->entityManager->getConnection());
+        $command = new CardPrintBackfillCommand(
+            $this->entityManager->getConnection(),
+            new CardSearchOptionsRebuilder($this->entityManager->getConnection()),
+            new CardSearchEntryRebuilder($this->entityManager->getConnection()),
+        );
         $tester = new CommandTester($command);
         $status = $tester->execute([]);
 
@@ -73,6 +89,59 @@ class ScryfallImportCommandTest extends ApiTestCase
         self::assertSame('1', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_print_locale'));
         self::assertSame('Sol Ring', (string) $this->entityManager->getConnection()->fetchOne('SELECT default_name FROM card_print LIMIT 1'));
         self::assertStringContainsString('Skipped 1 unavailable prints.', $tester->getDisplay());
+    }
+
+    public function testScryfallMetadataBackfillPersistsRarityAndSetNameForExistingCards(): void
+    {
+        $this->seedCard('60000000-0000-0000-0000-000000000001', 'Sol Ring', [
+            'set_name' => null,
+            'rarity' => null,
+        ]);
+        $this->seedCard('60000000-0000-0000-0000-000000000002', 'Arcane Signet', [
+            'set_name' => null,
+            'rarity' => null,
+        ]);
+        $cardsFile = $this->writeTempJson([
+            $this->scryfallCardData('60000000-0000-0000-0000-000000000001', 'Sol Ring', [
+                'set_name' => 'Commander Legends',
+                'rarity' => 'rare',
+            ]),
+            $this->scryfallCardData('60000000-0000-0000-0000-000000000002', 'Arcane Signet', [
+                'set_name' => 'Throne of Eldraine',
+                'rarity' => 'common',
+            ]),
+        ]);
+
+        try {
+            $command = new ScryfallCardMetadataBackfillCommand(
+                new ScryfallBulkDataClient($this->createMock(HttpClientInterface::class), 'test-agent'),
+                $this->entityManager->getConnection(),
+            );
+            $tester = new CommandTester($command);
+            $status = $tester->execute([
+                '--cards-file' => $cardsFile,
+                '--only-missing' => true,
+            ]);
+
+            self::assertSame(Command::SUCCESS, $status);
+            self::assertSame(
+                'rare',
+                (string) $this->entityManager->getConnection()->fetchOne(
+                    'SELECT rarity FROM card WHERE scryfall_id = :scryfallId',
+                    ['scryfallId' => '60000000-0000-0000-0000-000000000001'],
+                ),
+            );
+            self::assertSame(
+                'Throne of Eldraine',
+                (string) $this->entityManager->getConnection()->fetchOne(
+                    'SELECT set_name FROM card WHERE scryfall_id = :scryfallId',
+                    ['scryfallId' => '60000000-0000-0000-0000-000000000002'],
+                ),
+            );
+            self::assertStringContainsString('updated 2 local rows', $tester->getDisplay());
+        } finally {
+            @unlink($cardsFile);
+        }
     }
 
     /**
@@ -111,6 +180,8 @@ class ScryfallImportCommandTest extends ApiTestCase
             'prices' => [],
             'layout' => 'normal',
             'set' => 'tst',
+            'set_name' => 'Test Set',
+            'rarity' => 'rare',
             'collector_number' => '1',
             'lang' => 'en',
         ], $overrides);

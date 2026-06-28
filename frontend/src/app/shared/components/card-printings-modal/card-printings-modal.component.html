@@ -1,0 +1,38 @@
+<app-modal
+  [open]="open()"
+  [title]="'deckBuilder.cards.cardSearch.printings.title' | runtimeTranslate: { card: cardName() }"
+  [ariaLabel]="'deckBuilder.cards.cardSearch.printings.title' | runtimeTranslate: { card: cardName() }"
+  [showCloseButton]="true"
+  [showPrimary]="false"
+  [secondaryLabel]="'deckBuilder.cards.cardSearch.printings.close' | runtimeTranslate"
+  [closeLabel]="'deckBuilder.cards.cardSearch.printings.close' | runtimeTranslate"
+  size="wide"
+  (secondary)="closeRequested.emit()"
+  (close)="closeRequested.emit()"
+>
+  <section class="card-printings-modal">
+    @if (loading()) {
+      <section class="card-printings-modal__loader">
+        <app-global-loader />
+      </section>
+    } @else if (errorKey()) {
+      <p class="card-printings-modal__notice card-printings-modal__notice--error">{{ errorKey()! | runtimeTranslate }}</p>
+    } @else {
+      <div class="card-printings-grid">
+        @for (printing of printings(); track printing.scryfallId) {
+          <article class="card-printing" [class.card-printing--battle]="isBattle(printing)">
+            <div class="card-printing__media" [class.card-printing__media--battle]="isBattle(printing)">
+              <app-card-face-image [card]="printing" [battle]="isBattle(printing)" variant="printing" />
+            </div>
+            <div>
+              <strong>{{ printing.setName || printing.set }}</strong>
+              <span>{{ printing.collectorNumber }}</span>
+            </div>
+          </article>
+        } @empty {
+          <p class="card-printings-modal__notice">{{ 'deckBuilder.cards.cardSearch.printings.empty' | runtimeTranslate }}</p>
+        }
+      </div>
+    }
+  </section>
+</app-modal>

@@ -41,6 +41,13 @@ describe('GameTableSnapshotSelectors gameplay contract', () => {
     expect(selectors.zonePreviewImage(libraryPlayer!, 'library')).toBe('/assets/images/facedown_card.jpg');
     expect(selectors.zoneStackLayerImage(libraryPlayer!, 'library')).toBe('/assets/images/facedown_card.jpg');
   });
+
+  it('derives visible hand count from zoneCounts instead of stale hand array length', () => {
+    const focused = selectors.players(gameplaySnapshot()).find((player) => player.id === 'focused-player');
+
+    expect(focused).not.toBeUndefined();
+    expect(selectors.zoneCount(focused!, 'hand')).toBe(6);
+  });
 });
 
 function gameplaySnapshot(): GameSnapshot {
@@ -59,6 +66,24 @@ function gameplaySnapshot(): GameSnapshot {
       'focused-player': player('focused-player', {
         sleevesName: 'facedown_card',
         backgroundName: 'G_3',
+        zones: {
+          library: [],
+          hand: [
+            { instanceId: 'stale-hand-card', ownerId: 'focused-player', controllerId: 'focused-player', name: 'Hand Card', tapped: false, zone: 'hand' },
+          ],
+          battlefield: [],
+          graveyard: [],
+          exile: [],
+          command: [],
+        },
+        zoneCounts: {
+          library: 0,
+          hand: 6,
+          battlefield: 0,
+          graveyard: 0,
+          exile: 0,
+          command: 0,
+        },
       }),
       'library-player': player('library-player', {
         sleevesName: 'facedown_card',

@@ -30,9 +30,10 @@ class LoginProtectionService
         return false;
     }
 
-    public function recordFailure(?string $email, ?string $ip): void
+    public function recordFailure(?string $email, ?string $ip): int
     {
         $now = new \DateTimeImmutable();
+        $failureCount = 0;
 
         foreach ($this->identifiers($email, $ip) as [$scope, $identifier]) {
             $attempt = $this->entityManager->getRepository(LoginAttempt::class)->findOneBy([
@@ -46,9 +47,31 @@ class LoginProtectionService
             }
 
             $attempt->registerFailure($now);
+            $failureCount = max($failureCount, $attempt->activeFailureCountAt($now));
         }
 
         $this->entityManager->flush();
+
+        return $failureCount;
+    }
+
+    public function failureCount(?string $email, ?string $ip): int
+    {
+        $now = new \DateTimeImmutable();
+        $failureCount = 0;
+
+        foreach ($this->identifiers($email, $ip) as [$scope, $identifier]) {
+            $attempt = $this->entityManager->getRepository(LoginAttempt::class)->findOneBy([
+                'scope' => $scope,
+                'identifier' => $identifier,
+            ]);
+
+            if ($attempt instanceof LoginAttempt) {
+                $failureCount = max($failureCount, $attempt->activeFailureCountAt($now));
+            }
+        }
+
+        return $failureCount;
     }
 
     public function resetFailures(?string $email, ?string $ip): void

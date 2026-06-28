@@ -10,9 +10,45 @@
 }
 
 .page-header-title {
+  position: relative;
   display: grid;
   gap: 0.28rem;
   min-width: 0;
+}
+
+.page-header-title-back-button {
+  display: inline-flex;
+}
+
+.page-header-navigation-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.page-header-title.has-title-actions {
+  padding-right: 3.3rem;
+}
+
+.page-header-title-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.page-header-title-actions:has(button[data-action-id="card-search-help"]) {
+  right: calc(-1 * clamp(0.75rem, 1.8vw, 1.35rem));
+}
+
+.page-header-title-actions button[data-action-id="card-search-language-disclaimer"] {
+  color: var(--cz-primary);
 }
 
 .page-header-title-line {
@@ -20,6 +56,43 @@
   align-items: center;
   gap: 0.55rem;
   min-width: 0;
+}
+
+.page-header-title-line.has-inline-meta {
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+}
+
+.page-header-title-main {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.page-header-title-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+  margin-top: 20px;
+  color: var(--cz-info);
+  font-size: 0.82rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.page-header-title-meta-label {
+  color: inherit;
+  font-weight: 700;
+}
+
+.page-header-title-player-info {
+  flex: 0 0 auto;
 }
 
 .page-header-title h1 {
@@ -48,6 +121,30 @@
   gap: 0.42rem;
 }
 
+.page-header-context[data-page-context="deck-editor"] .page-header-title {
+  gap: 0.45rem;
+}
+
+.page-header-context[data-page-context="deck-editor"] .page-header-navigation-row .page-header-detail-row {
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  margin-top: 0;
+}
+
+.page-header-context[data-page-context="deck-editor"] .page-header-title-hero {
+  width: min(14rem, 100%);
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.page-header-context[data-page-context="deck-editor"] .page-header-title-hero .hero-rule {
+  margin-top: 0.65rem;
+}
+
+.page-header-context[data-page-context="deck-editor"] {
+  padding-bottom: var(--cz-page-hero-content-gap);
+}
+
 .page-header-context[data-page-context="rooms"] .page-header-detail-row.has-stats {
   align-self: center;
   justify-self: end;
@@ -63,6 +160,26 @@
 
 .page-header-context[data-page-context="rooms"] .header-stat {
   justify-content: space-between;
+}
+
+.page-header-context[data-page-context="community-deck-detail"] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: clamp(1rem, 3vw, 2.5rem);
+  row-gap: 0.85rem;
+}
+
+.page-header-context[data-page-context="community-deck-detail"] .page-header-detail-row {
+  align-items: flex-start;
+}
+
+.page-header-context[data-page-context="community-deck-detail"] .page-header-actions-stack {
+  margin-left: 0;
+  justify-items: start;
+}
+
+.page-header-context[data-page-context="community-deck-detail"] .page-header-actions-stack .page-header-actions {
+  justify-content: flex-start;
 }
 
 .page-title-warning {
@@ -120,10 +237,14 @@
 .page-header-actions-stack {
   display: grid;
   gap: 0.28rem;
+  margin-left: auto;
+  justify-items: end;
 }
 
 .page-header-actions-stack .page-header-actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 0.45rem;
 }
@@ -189,7 +310,7 @@ button[data-action-id="invite-friends"] {
   padding: 0.34rem 0.5rem;
   border: 1px solid rgb(var(--header-stat-rgb) / 34%);
   border-radius: 7px;
-  background: rgb(var(--header-stat-rgb) / 12%);
+  background: rgb(var(--header-stat-rgb) / 18%);
   color: var(--header-stat-color);
   font-size: 0.72rem;
   white-space: nowrap;
@@ -227,7 +348,23 @@ button:disabled {
 }
 
 @media (max-width: 720px) {
+  .page-header-title.has-title-actions {
+    padding-right: 3rem;
+  }
+
   .page-header-title h1 {
+    white-space: normal;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-title-line.has-inline-meta {
+    flex-wrap: wrap;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-title-meta {
+    margin-left: 0;
+    margin-top: 0;
+    width: 100%;
+    justify-content: flex-start;
     white-space: normal;
   }
 
@@ -317,6 +454,32 @@ button:disabled {
     width: 12px;
     height: 12px;
   }
+
+  .page-header-context[data-page-context="community-deck-detail"] {
+    column-gap: 1rem;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-actions-stack {
+    width: 100%;
+  }
+
+  .page-header-context[data-page-context="deck-editor"] .page-header-title {
+    gap: 0.45rem;
+  }
+
+  .page-header-context[data-page-context="deck-editor"] .page-header-navigation-row .page-header-detail-row.has-actions {
+    display: flex;
+    justify-content: flex-end;
+    width: auto;
+  }
+
+  .page-header-context[data-page-context="deck-editor"] .page-header-navigation-row .page-header-actions-stack {
+    display: grid;
+  }
+
+  .page-header-context[data-page-context="deck-editor"] .page-header-navigation-row .page-header-actions-stack .page-header-actions {
+    display: flex;
+  }
 }
 
 @media (max-width: 760px) {
@@ -363,6 +526,31 @@ button:disabled {
 
   .page-header-context[data-page-context="rooms"] .header-stat:nth-child(6) {
     order: 6;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-title h1 {
+    white-space: normal;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-title-line.has-inline-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-title-meta {
+    margin-left: 0;
+    margin-top: 0;
+    width: 100%;
+    justify-content: flex-start;
+    white-space: normal;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-actions-stack {
+    width: 100%;
   }
 }
 

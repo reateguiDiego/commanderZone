@@ -96,6 +96,35 @@ describe('FormatSelectComponent', () => {
     expect(fixture.nativeElement.classList.contains('is-open')).toBe(true);
   });
 
+  it('does not move or mutate scrollable parents while opening the dropdown', () => {
+    const scrollParent = document.createElement('div');
+    const host = fixture.nativeElement as HTMLElement;
+    host.parentElement?.insertBefore(scrollParent, host);
+    scrollParent.appendChild(host);
+    scrollParent.style.overflowY = 'auto';
+    scrollParent.style.paddingBottom = '10px';
+    Object.defineProperty(scrollParent, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(scrollParent, 'scrollHeight', { configurable: true, value: 101 });
+    scrollParent.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      right: 240,
+      bottom: 100,
+      left: 0,
+      width: 240,
+      height: 100,
+      toJSON: () => ({}),
+    });
+
+    const trigger = fixture.nativeElement.querySelector('.format-select-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    expect(scrollParent.style.paddingBottom).toBe('10px');
+    expect(scrollParent.scrollTop).toBe(0);
+  });
+
   it('does not emit disabled options', () => {
     const selectedValues: string[] = [];
     fixture.componentRef.setInput('formats', []);

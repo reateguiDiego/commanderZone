@@ -1,0 +1,76 @@
+<section class="deck-viewer-panel">
+  <div class="deck-summary">
+    <div class="deck-summary-counts">
+      <strong>{{ 'community.deckViewer.cardsCount' | runtimeTranslate: { count: store.playableCardCount() } }}</strong>
+      <span>{{ 'community.deckViewer.sectionsCount' | runtimeTranslate: { count: store.playableSectionCount() } }}</span>
+    </div>
+
+    <div class="view-mode-select" [class.is-open]="viewModeMenuOpen()" (click)="$event.stopPropagation()">
+      <span id="community-deck-view-mode-label" class="sr-only">{{ 'community.deckViewer.viewMode.label' | runtimeTranslate }}</span>
+      <button
+        class="view-mode-trigger"
+        type="button"
+        aria-haspopup="listbox"
+        aria-labelledby="community-deck-view-mode-label community-deck-view-mode-value"
+        [attr.aria-expanded]="viewModeMenuOpen()"
+        (click)="toggleViewModeMenu($event)"
+      >
+        <span id="community-deck-view-mode-value">{{ selectedViewModeLabel() | runtimeTranslate }}</span>
+        <lucide-icon name="chevron-down" size="16" aria-hidden="true" />
+      </button>
+      @if (viewModeMenuOpen()) {
+        <div class="view-mode-menu" role="listbox" aria-labelledby="community-deck-view-mode-label">
+          @for (option of viewModeOptions; track option.value) {
+            <button
+              class="view-mode-option"
+              type="button"
+              role="option"
+              [class.is-selected]="viewMode() === option.value"
+              [attr.aria-selected]="viewMode() === option.value"
+              (click)="selectViewMode(option.value, $event)"
+            >
+              <span>{{ option.label | runtimeTranslate }}</span>
+              @if (viewMode() === option.value) {
+                <span class="view-mode-selected-mark" aria-hidden="true"></span>
+              }
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (viewMode() === 'text') {
+    <app-deck-card-text-view [interactive]="false" [cardClickEnabled]="true" />
+  } @else {
+    <app-deck-card-spoiler-view [interactive]="false" [cardClickEnabled]="true" />
+  }
+</section>
+
+@if (store.cardPreview(); as preview) {
+  <div
+    class="card-hover-preview"
+    [class.card-hover-preview--battle]="isBattlePreviewCard(preview.card)"
+    [style.top.px]="preview.top"
+    [style.left.px]="preview.left"
+  >
+    <app-card-face-image
+      [card]="preview.card"
+      [battle]="isBattlePreviewCard(preview.card)"
+      variant="detail"
+      [preferLarge]="true"
+      [showToggle]="false"
+      [controlledFlipped]="store.isFaceFlipped(preview.card)"
+    />
+  </div>
+}
+
+@if (store.contextMenu(); as menu) {
+  <app-common-card-menu
+    [title]="menu.card.name"
+    [actions]="store.contextMenuActions"
+    [top]="menu.top"
+    [left]="menu.left"
+    (actionSelected)="handleContextAction($event)"
+  />
+}

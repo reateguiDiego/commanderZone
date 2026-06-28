@@ -1,6 +1,7 @@
 import { SeoLocaleCode, isSeoLocale } from '../localization/locale-config';
+import { PUBLIC_CONTACT_EMAIL } from '../contact/contact.config';
 
-export type LegalPageKey = 'privacy' | 'cookies' | 'terms' | 'contact';
+export type LegalPageKey = 'privacy' | 'cookies' | 'terms';
 
 export interface LegalRouteMatch {
   readonly pageKey: LegalPageKey;
@@ -14,10 +15,9 @@ export interface LegalLink {
   readonly href: string;
 }
 
-// Do not ship until this inbox exists and is monitored.
-export const LEGAL_CONTACT_EMAIL = 'support@commanderzone.com';
+export const LEGAL_CONTACT_EMAIL = PUBLIC_CONTACT_EMAIL;
 
-export const LEGAL_PAGE_KEYS = ['privacy', 'cookies', 'terms', 'contact'] as const satisfies readonly LegalPageKey[];
+export const LEGAL_PAGE_KEYS = ['privacy', 'cookies', 'terms'] as const satisfies readonly LegalPageKey[];
 
 export const LEGAL_ROUTE_SLUGS = {
   privacy: {
@@ -44,14 +44,6 @@ export const LEGAL_ROUTE_SLUGS = {
     pt: 'termos',
     it: 'termini',
   },
-  contact: {
-    en: 'contact',
-    es: 'contacto',
-    de: 'kontakt',
-    fr: 'contact',
-    pt: 'contato',
-    it: 'contatto',
-  },
 } as const satisfies Record<LegalPageKey, Record<SeoLocaleCode, string>>;
 
 export const LEGAL_LINK_LABELS = {
@@ -59,37 +51,31 @@ export const LEGAL_LINK_LABELS = {
     privacy: 'Privacy Policy',
     cookies: 'Cookie Policy',
     terms: 'Terms',
-    contact: 'Contact',
   },
   es: {
     privacy: 'Privacidad',
     cookies: 'Cookies',
     terms: 'Términos',
-    contact: 'Contacto',
   },
   de: {
     privacy: 'Datenschutz',
     cookies: 'Cookies',
     terms: 'Bedingungen',
-    contact: 'Kontakt',
   },
   fr: {
     privacy: 'Confidentialité',
     cookies: 'Cookies',
     terms: 'Conditions',
-    contact: 'Contact',
   },
   pt: {
     privacy: 'Privacidade',
     cookies: 'Cookies',
     terms: 'Termos',
-    contact: 'Contato',
   },
   it: {
     privacy: 'Privacy',
     cookies: 'Cookie',
     terms: 'Termini',
-    contact: 'Contatto',
   },
 } as const satisfies Record<SeoLocaleCode, Record<LegalPageKey, string>>;
 

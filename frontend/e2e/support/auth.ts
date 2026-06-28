@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type APIResponse, type Browser, type BrowserContext } from '@playwright/test';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://localhost:8000';
+const MAILPIT_API_BASE_URL = process.env['E2E_MAILPIT_API_BASE_URL'] ?? 'http://127.0.0.1:8025';
 
 export interface E2EAuthUser {
   id: string;
@@ -38,16 +39,22 @@ export async function createRealUserSession(request: APIRequestContext, prefix =
   const registerResponse = await request.post(`${API_BASE_URL}/auth/register`, {
     data: credentials,
   });
-  expect(registerResponse.ok()).toBeTruthy();
+  if (!registerResponse.ok()) {
+    throw new Error(`Register E2E user failed (${registerResponse.status()}): ${await registerResponse.text()}`);
+  }
   const registerPayload = (await registerResponse.json()) as {
     emailVerificationToken?: string;
   };
 
   let token = '';
-  if (typeof registerPayload.emailVerificationToken === 'string' && registerPayload.emailVerificationToken.trim() !== '') {
+  const verificationToken = typeof registerPayload.emailVerificationToken === 'string' && registerPayload.emailVerificationToken.trim() !== ''
+    ? registerPayload.emailVerificationToken
+    : await readEmailVerificationToken(request, credentials.email);
+
+  if (verificationToken) {
     const verificationResponse = await request.post(`${API_BASE_URL}/auth/email-verification/confirm`, {
       data: {
-        token: registerPayload.emailVerificationToken,
+        token: verificationToken,
       },
     });
     expect(verificationResponse.ok()).toBeTruthy();
@@ -118,6 +125,14 @@ export function authStorageState(baseURL: string, user: E2EAuthUser, refreshToke
         origin: new URL(baseURL).origin,
         localStorage: [
           { name: 'commanderzone.user', value: JSON.stringify(user) },
+          {
+            name: 'commanderzone.cookieConsent',
+            value: JSON.stringify({
+              analytics: false,
+              decision: 'rejected',
+              updatedAt: new Date().toISOString(),
+            }),
+          },
         ],
       },
     ],
@@ -163,6 +178,37 @@ function uniqueCredentials(prefix: string): { email: string; password: string; d
     password: `Pass-${token}-1234`,
     displayName: `${firstName} ${lastName[0]} ${displaySuffix}`,
   };
+}
+
+async function readEmailVerificationToken(request: APIRequestContext, email: string): Promise<string | null> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const response = await request.get(`${MAILPIT_API_BASE_URL}/api/v1/messages`);
+    if (response.ok()) {
+      const payload = (await response.json()) as {
+        messages?: Array<{
+          To?: Array<{ Address?: string }>;
+          Snippet?: string;
+        }>;
+      };
+      const message = (payload.messages ?? []).find((candidate) =>
+        (candidate.To ?? []).some((recipient) => recipient.Address?.toLowerCase() === email.toLowerCase()),
+      );
+      const token = extractEmailVerificationToken(message?.Snippet ?? '');
+      if (token) {
+        return token;
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  return null;
+}
+
+function extractEmailVerificationToken(text: string): string | null {
+  const match = text.match(/[?&]token=([A-Za-z0-9_-]+)/);
+
+  return match?.[1] ?? null;
 }
 
 async function expectApiOk(response: APIResponse, action: string): Promise<void> {

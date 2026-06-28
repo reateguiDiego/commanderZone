@@ -69,6 +69,7 @@ import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.st
 import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { GameTableManaPoolState } from './state/mana/game-table-mana-pool.state';
+import { GameTableNormalizedV2Store } from './state/realtime/game-table-normalized-v2.store';
 import { GameTableStore, PlayerView, SelectedCard } from './game-table.store';
 import { playerIsActiveForTurn, playerIsDefeated } from './utils/game-player-defeat';
 import { GameLogPanelComponent } from './components/game-log-panel/game-log-panel.component';
@@ -105,6 +106,7 @@ import {
 import { ChatRecipientSelectComponent } from './components/chat-recipient-select/chat-recipient-select.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
@@ -459,6 +461,7 @@ interface MotionSourceRect {
     MulliganOverlayComponent,
     TokenSearchModalComponent,
     ChatRecipientSelectComponent,
+    GlobalLoaderComponent,
     RollModalComponent,
   ],
   providers: [
@@ -485,6 +488,7 @@ interface MotionSourceRect {
     GameTableToastState,
     GameTableZonePilesState,
     GameTableManaPoolState,
+    GameTableNormalizedV2Store,
     GameTableCardActionsService,
     GameTableCardStatsService,
     GameTableDebouncedValueCommandsService,

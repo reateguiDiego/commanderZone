@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { createCommanderGameWithBasicDecks } from './support/commander-game';
 
 test.setTimeout(180000);
 
@@ -11,7 +11,7 @@ test('two players can alternate manual turn controls and stay synchronized', asy
     throw new Error('Playwright baseURL is required.');
   }
 
-  const setup = await createCommanderGameWithValidDecks(request, {
+  const setup = await createCommanderGameWithBasicDecks(request, {
     playerAPrefix: 'turn-a',
     playerBPrefix: 'turn-b',
     roomVisibility: 'public',
@@ -34,22 +34,31 @@ test('two players can alternate manual turn controls and stay synchronized', asy
     await Promise.all([pageA.goto(`/games/${gameId}`), pageB.goto(`/games/${gameId}`)]);
     await expect(pageA.getByTestId('game-screen')).toBeVisible();
     await expect(pageB.getByTestId('game-screen')).toBeVisible();
+    await keepOpeningHand(pageA);
+    await keepOpeningHand(pageB);
+    await expect(pageA.getByTestId('mulligan-overlay')).toBeHidden();
+    await expect(pageB.getByTestId('mulligan-overlay')).toBeHidden();
 
-    await advancePhase(pageA, 4);
+    const firstActive = await activeTurnPage(pageA, pageB);
+    const firstNonActive = firstActive === pageA ? pageB : pageA;
+
+    await advancePhase(firstActive, 4);
     await expect.poll(async () => readPhase(pageA)).toBe('combat');
     await expect.poll(async () => readPhase(pageB)).toBe('combat');
 
-    await advancePhase(pageB, 3);
-    await expect.poll(async () => readActivePlayer(pageA)).toBe(playerB.user.displayName);
-    await expect.poll(async () => readActivePlayer(pageB)).toBe('Your Turn');
+    await advancePhase(firstActive, 3);
+    await expect.poll(async () => firstActive.getByTestId('pass-turn').isVisible().catch(() => false)).toBe(false);
+    await expect.poll(async () => firstNonActive.getByTestId('pass-turn').isVisible().catch(() => false)).toBe(true);
     await expect.poll(async () => readPhase(pageA)).toBe('untap');
     await expect.poll(async () => readPhase(pageB)).toBe('untap');
-    await expect.poll(async () => readTurnNumber(pageA)).toBe('Turn 2');
-    await expect.poll(async () => readTurnNumber(pageB)).toBe('Turn 2');
+    await expect.poll(async () => readTurnNumber(pageA)).toBe('Turno 1');
+    await expect.poll(async () => readTurnNumber(pageB)).toBe('Turno 1');
 
-    await advancePhase(pageB, 7);
-    await expect.poll(async () => readActivePlayer(pageA)).toBe('Your Turn');
-    await expect.poll(async () => readActivePlayer(pageB)).toBe(playerA.user.displayName);
+    await advancePhase(firstNonActive, 7);
+    await expect.poll(async () => firstActive.getByTestId('pass-turn').isVisible().catch(() => false)).toBe(true);
+    await expect.poll(async () => firstNonActive.getByTestId('pass-turn').isVisible().catch(() => false)).toBe(false);
+    await expect.poll(async () => readTurnNumber(pageA)).toBe('Turno 2');
+    await expect.poll(async () => readTurnNumber(pageB)).toBe('Turno 2');
   } finally {
     await contextA.close();
     await contextB.close();
@@ -57,7 +66,7 @@ test('two players can alternate manual turn controls and stay synchronized', asy
 });
 
 async function readActivePlayer(page: import('@playwright/test').Page): Promise<string> {
-  return (await page.getByTestId('turn-active-player').textContent())?.trim() ?? '';
+  return (await page.locator('[data-testid="player-order-card"].active .player-order-name').textContent())?.trim() ?? '';
 }
 
 async function readPhase(page: import('@playwright/test').Page): Promise<string> {
@@ -65,7 +74,7 @@ async function readPhase(page: import('@playwright/test').Page): Promise<string>
 }
 
 async function readTurnNumber(page: import('@playwright/test').Page): Promise<string> {
-  return (await page.getByTestId('turn-number').textContent())?.trim() ?? '';
+  return (await page.locator('[data-testid="player-order-card"].active .player-order-step').textContent())?.trim() ?? '';
 }
 
 async function advancePhase(page: import('@playwright/test').Page, count: number): Promise<void> {
@@ -76,4 +85,22 @@ async function advancePhase(page: import('@playwright/test').Page, count: number
     await page.getByTestId('advance-phase').click();
     await expect.poll(async () => readPhase(page)).toBe(expectedPhase);
   }
+}
+
+async function keepOpeningHand(page: import('@playwright/test').Page): Promise<void> {
+  await expect(page.getByTestId('mulligan-overlay')).toBeVisible();
+  await expect(page.getByTestId('mulligan-keep')).toBeEnabled();
+  await page.getByTestId('mulligan-keep').click();
+}
+
+async function activeTurnPage(
+  pageA: import('@playwright/test').Page,
+  pageB: import('@playwright/test').Page,
+): Promise<import('@playwright/test').Page> {
+  await expect.poll(async () =>
+    await pageA.getByTestId('pass-turn').isVisible().catch(() => false)
+      || await pageB.getByTestId('pass-turn').isVisible().catch(() => false),
+  ).toBe(true);
+
+  return await pageA.getByTestId('pass-turn').isVisible().catch(() => false) ? pageA : pageB;
 }

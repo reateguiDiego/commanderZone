@@ -2,6 +2,8 @@ export type MulliganRule = 'LONDON' | 'VANCOUVER' | 'PARIS' | 'GENEROUS';
 
 export type MulliganBottomOrderMode = 'NONE' | 'PLAYER_CHOSEN_ORDER' | 'RANDOM_SERVER_SIDE';
 
+// Server payloads are the authoritative source for mulligan decisions.
+// These helpers are kept for visual previews and defensive fallback only.
 export interface CalculateMulliganStateInput {
   readonly rule: MulliganRule;
   readonly firstMulliganFree: boolean;

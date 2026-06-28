@@ -68,6 +68,19 @@ export class DeckImportExportService {
     }));
   }
 
+  downloadDeck(deck: Deck): void {
+    const decklist = this.toBackendDecklist(this.entriesFromDeck(deck));
+    const blob = new Blob([decklist], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${this.exportFileName(deck.name)}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   private parseTextList(text: string): DecklistEntry[] {
     let section: DeckSection = 'main';
     const entries: DecklistEntry[] = [];
@@ -206,5 +219,14 @@ export class DeckImportExportService {
       : '';
 
     return `${entry.quantity} ${entry.name}${print}`;
+  }
+
+  private exportFileName(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      || 'deck';
   }
 }

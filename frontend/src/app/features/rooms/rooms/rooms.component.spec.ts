@@ -33,6 +33,7 @@ describe('RoomsComponent', () => {
   };
 
   beforeEach(async () => {
+    vi.useRealTimers();
     roomsApi.list.mockReset().mockReturnValue(of({ data: [] }));
     roomsApi.current.mockReset().mockReturnValue(of({ room: null, player: null, turn: null, viewerRole: null }));
     roomsApi.create.mockReset();
@@ -57,6 +58,15 @@ describe('RoomsComponent', () => {
       ],
     }).compileComponents();
   });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function flushInitialRoomLoad(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+  }
 
   it('renders the rooms page', () => {
     const fixture = TestBed.createComponent(RoomsComponent);
@@ -113,7 +123,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     const header = TestBed.inject(PageHeaderStore).state();
     expect(header?.stats?.map((stat) => [stat.label, stat.value])).toEqual([
@@ -175,7 +185,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     fixture.componentInstance.requestDeleteRoom(room);
     fixture.detectChanges();
@@ -204,7 +214,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Current room');
@@ -231,16 +241,23 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.detectChanges();
 
     const joinButton = fixture.debugElement.query(By.css('.room-list button.secondary-button'));
     expect(joinButton.nativeElement.disabled).toBe(true);
-    expect(fixture.debugElement.query(By.css('.room-list .action-tooltip-anchor')).nativeElement.getAttribute('title'))
+    const roomTooltipTrigger = fixture.debugElement.query(By.css('.room-list .action-tooltip-anchor .cz-tooltip'));
+    roomTooltipTrigger.nativeElement.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    fixture.detectChanges();
+    expect(fixture.debugElement.query(By.css('.room-list .action-tooltip-anchor .cz-tooltip__bubble')).nativeElement.textContent.trim())
       .toBe('You are already in a room. Leave it before joining another one.');
 
     const createPanelTooltipAnchors = fixture.debugElement.queryAll(By.css('.rooms-create-panel .action-tooltip-anchor'));
-    expect(createPanelTooltipAnchors.map((element) => element.nativeElement.getAttribute('title'))).toEqual([
+    createPanelTooltipAnchors.forEach((element) => {
+      element.query(By.css('.cz-tooltip'))?.nativeElement.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    });
+    fixture.detectChanges();
+    expect(createPanelTooltipAnchors.map((element) => element.query(By.css('.cz-tooltip__bubble'))?.nativeElement.textContent.trim())).toEqual([
       'You are already in a room. Leave it before joining another one.',
       'You are already in a room. Leave it before joining another one.',
     ]);
@@ -268,7 +285,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     fixture.componentInstance.openCreateRoomModal();
     expect(fixture.componentInstance.createRoomModalOpen()).toBe(true);
@@ -311,7 +328,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.componentInstance.currentRoom.set(currentRoomSummaryFixture(room));
 
     await fixture.componentInstance.openListedRoom(room);
@@ -343,7 +360,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.detectChanges();
 
     const actions = fixture.debugElement
@@ -365,7 +382,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.detectChanges();
 
     const ownerName = fixture.debugElement.query(By.css('.room-owner-nameplate .player-name-label'));
@@ -391,7 +408,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     await fixture.componentInstance.openListedRoom(room);
 
@@ -411,7 +428,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     await fixture.componentInstance.leaveRoom(room);
 
@@ -430,7 +447,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     fixture.componentInstance.currentRoom.set(currentRoomSummaryFixture({
       ...staleRoom,
@@ -455,7 +472,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     expect(fixture.componentInstance.currentRoom()).toBeNull();
     expect(fixture.componentInstance.currentRoomPlayer()).toBeNull();
@@ -472,7 +489,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     expect(fixture.componentInstance.currentRoom()?.id).toBe('room-current');
     expect(fixture.componentInstance.currentRoomPlayer()).toBeNull();
@@ -490,7 +507,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
 
     fixture.componentInstance.roomId = 'typed-room';
     await fixture.componentInstance.loadRooms();
@@ -513,7 +530,7 @@ describe('RoomsComponent', () => {
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await flushInitialRoomLoad();
     fixture.componentInstance.currentRoom.set(currentRoomSummaryFixture(room));
 
     await fixture.componentInstance.leaveCurrentRoom(room.id);

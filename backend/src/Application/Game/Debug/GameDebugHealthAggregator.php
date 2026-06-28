@@ -347,6 +347,13 @@ final class GameDebugHealthAggregator
             $normalized[$phase] = round(max(0, (float) ($phases[$phase] ?? 0)), 2);
         }
         $normalized['total'] = round(max(0, (float) ($phases['total'] ?? $durationMs)), 2);
+        foreach ($phases as $key => $value) {
+            if (!is_string($key) || isset($normalized[$key]) || !is_numeric($value)) {
+                continue;
+            }
+
+            $normalized[$key] = round((float) $value, 2);
+        }
 
         return $normalized;
     }
@@ -848,12 +855,15 @@ final class GameDebugHealthAggregator
      */
     private function operationTypes(array $message): array
     {
-        if (!is_array($message['operations'] ?? null)) {
+        $operations = is_array($message['operations'] ?? null)
+            ? $message['operations']
+            : (is_array($message['ops'] ?? null) ? $message['ops'] : null);
+        if (!is_array($operations)) {
             return [];
         }
 
         $types = [];
-        foreach ($message['operations'] as $operation) {
+        foreach ($operations as $operation) {
             if (is_array($operation) && is_string($operation['op'] ?? null) && trim($operation['op']) !== '') {
                 $types[$operation['op']] = true;
             }

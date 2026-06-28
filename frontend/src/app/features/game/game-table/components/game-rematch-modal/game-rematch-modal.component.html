@@ -9,6 +9,7 @@
   primaryLabel="Jugar otra partida"
   secondaryLabel="Salir de la sala"
   [primaryDisabled]="pending() || playAgainDisabled()"
+  [showPrimary]="!playAgainDisabled()"
   [showCloseButton]="currentVote() !== null"
   closeLabel="Cerrar votaciones"
   [showSecondary]="true"

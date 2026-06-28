@@ -1,0 +1,195 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--toggle-gap, 1rem);
+  width: 100%;
+  min-height: var(--toggle-min-height, 3.1rem);
+  border: 1px solid transparent;
+  border-radius: var(--toggle-radius, 12px);
+  padding: var(--toggle-padding, 0.68rem 0);
+  background: transparent;
+  color: var(--cz-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.toggle-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.toggle-label {
+  color: var(--cz-text);
+  font-size: var(--toggle-label-font-size, 0.95rem);
+  font-weight: 850;
+  line-height: 1.18;
+}
+
+.toggle-description {
+  color: var(--toggle-description-color, var(--cz-info));
+  font-size: var(--toggle-description-font-size, 0.86rem);
+  font-weight: 620;
+  line-height: 1.32;
+}
+
+.toggle-switch {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  width: var(--toggle-switch-width, 3.6rem);
+  height: var(--toggle-switch-height, 2rem);
+  border: var(--toggle-switch-border-width, 2px) solid rgb(var(--cz-primary-rgb) / 54%);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 6%), rgb(var(--cz-bg-rgb) / 16%)),
+    rgb(var(--cz-surface-rgb) / 58%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%),
+    0 0.45rem 1rem rgb(var(--cz-bg-rgb) / 22%);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 50%;
+  left: var(--toggle-thumb-left, 0.22rem);
+  width: var(--toggle-thumb-size, 1.42rem);
+  height: var(--toggle-thumb-size, 1.42rem);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 34% 28%, rgb(var(--cz-text-rgb) / 24%), transparent 33%),
+    linear-gradient(135deg, rgb(var(--cz-text-rgb) / 34%), rgb(var(--cz-text-rgb) / 60%));
+  box-shadow:
+    0 0.15rem 0.45rem rgb(var(--cz-bg-rgb) / 35%),
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 18%);
+  transform: translateY(-50%);
+  transition:
+    transform 170ms ease,
+    background 170ms ease,
+    box-shadow 170ms ease;
+}
+
+.toggle:hover .toggle-switch {
+  border-color: rgb(var(--cz-accent-rgb) / 68%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),
+    0 0.55rem 1.2rem rgb(var(--cz-primary-rgb) / 18%);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid rgb(var(--cz-accent-rgb) / 76%);
+  outline-offset: 4px;
+}
+
+.toggle.is-on .toggle-switch {
+  border-color: rgb(var(--cz-accent-rgb) / 82%);
+  background:
+    radial-gradient(circle at 78% 50%, rgb(var(--cz-accent-rgb) / 28%), transparent 48%),
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 62%), rgb(var(--cz-accent-rgb) / 54%)),
+    rgb(var(--cz-surface-rgb) / 74%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 11%),
+    0 0 0.9rem rgb(var(--cz-accent-rgb) / 24%);
+}
+
+.toggle.is-on .toggle-thumb {
+  background:
+    radial-gradient(circle at 34% 28%, rgb(var(--cz-text-rgb) / 24%), transparent 33%),
+    linear-gradient(135deg, var(--cz-accent), var(--cz-primary));
+  box-shadow:
+    0 0 0.75rem rgb(var(--cz-accent-rgb) / 42%),
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 20%);
+  transform: translate(var(--toggle-thumb-on-x, 1.58rem), -50%);
+}
+
+.toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.toggle--compact {
+  grid-template-columns: auto;
+  gap: 0;
+  width: auto;
+  min-height: 1.55rem;
+  border-radius: 999px;
+  padding: 0;
+}
+
+.toggle--compact .toggle-copy {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.toggle--compact .toggle-switch {
+  width: 2.65rem;
+  height: 1.45rem;
+  border-width: 1px;
+}
+
+.toggle--compact .toggle-thumb {
+  left: 0.18rem;
+  width: 1rem;
+  height: 1rem;
+}
+
+.toggle--compact.is-on .toggle-thumb {
+  transform: translate(1.2rem, -50%);
+}
+
+@media (max-width: 520px) {
+  .toggle {
+    gap: 0.75rem;
+    min-height: 2.9rem;
+  }
+
+  .toggle-switch {
+    width: 3.25rem;
+    height: 1.82rem;
+  }
+
+  .toggle-thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .toggle.is-on .toggle-thumb {
+    transform: translate(var(--toggle-thumb-on-x, 1.43rem), -50%);
+  }
+
+  .toggle--compact {
+    min-height: 1.45rem;
+  }
+
+  .toggle--compact .toggle-switch {
+    width: 2.5rem;
+    height: 1.36rem;
+  }
+
+  .toggle--compact .toggle-thumb {
+    width: 0.92rem;
+    height: 0.92rem;
+  }
+
+  .toggle--compact.is-on .toggle-thumb {
+    transform: translate(var(--toggle-thumb-on-x, 1.14rem), -50%);
+  }
+}

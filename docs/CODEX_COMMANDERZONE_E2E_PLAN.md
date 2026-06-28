@@ -1,30 +1,30 @@
-﻿> [!WARNING]
+> [!WARNING]
 > Documento historico (completado). No usar como plan activo.
 > Plan activo actual: docs/COMMANDERZONE_GAMEPLAY_BROWSER_MASTER_PLAN.md.
 > Este documento se conserva solo como historial de ejecucion E2E.
 
-# CommanderZone â€” Plan maestro para Codex
+# CommanderZone — Plan maestro para Codex
 
-Este documento es el plan de ejecuciÃ³n para que Codex avance en CommanderZone sin que tengas que escribir prompts largos paso a paso.
+Este documento es el plan de ejecución para que Codex avance en CommanderZone sin que tengas que escribir prompts largos paso a paso.
 
-## CÃ³mo usar este documento
+## Cómo usar este documento
 
 En Codex, usa este prompt corto:
 
 ```text
 Lee CODEX_COMMANDERZONE_E2E_PLAN.md.
-Ejecuta Ãºnicamente el siguiente paso pendiente de la secciÃ³n "Plan de ejecuciÃ³n".
+Ejecuta únicamente el siguiente paso pendiente de la sección "Plan de ejecución".
 No saltes pasos.
 No hagas cambios fuera del alcance del paso.
 Cuando termines, actualiza el checklist y el registro de progreso del propio Markdown.
-Si un comando falla, detente, explica el fallo y no continÃºes con el siguiente paso.
+Si un comando falla, detente, explica el fallo y no continúes con el siguiente paso.
 ```
 
-Regla importante: este documento no significa â€œhaz todo de golpeâ€. Significa â€œCodex tiene el mapa completo, pero solo ejecuta el siguiente paso pendienteâ€.
+Regla importante: este documento no significa “haz todo de golpe”. Significa “Codex tiene el mapa completo, pero solo ejecuta el siguiente paso pendiente”.
 
 ---
 
-## Objetivo tÃ©cnico
+## Objetivo técnico
 
 Preparar CommanderZone para pruebas E2E reales de partidas online con:
 
@@ -32,7 +32,7 @@ Preparar CommanderZone para pruebas E2E reales de partidas online con:
 - dos sesiones aisladas de navegador con Playwright;
 - dos mazos completos de 100 cartas;
 - cartas tomadas de la base de datos existente;
-- sincronizaciÃ³n real entre jugadores;
+- sincronización real entre jugadores;
 - pruebas de robar, mover cartas, chat, vida y drag/drop;
 - sin depender de Scryfall ni de red externa durante los E2E.
 
@@ -42,7 +42,7 @@ Preparar CommanderZone para pruebas E2E reales de partidas online con:
 
 1. CommanderZone es una mesa manual online de Commander.
 2. No implementar reglas completas de Magic.
-3. No implementar pila, prioridad, validaciÃ³n legal de jugadas, banlist ni reglas de construcciÃ³n de mazos salvo peticiÃ³n explÃ­cita.
+3. No implementar pila, prioridad, validación legal de jugadas, banlist ni reglas de construcción de mazos salvo petición explícita.
 4. Los E2E deben usar mazos completos, no cartas sueltas artificiales.
 5. Los mazos E2E deben usar cartas de la BDD existente.
 6. No depender de Scryfall ni red externa en E2E.
@@ -50,23 +50,23 @@ Preparar CommanderZone para pruebas E2E reales de partidas online con:
 8. Usar `expect`, web-first assertions o `expect.poll`.
 9. Para dos jugadores, usar dos `BrowserContext` aislados.
 10. No usar dummy auth para E2E real.
-11. No aÃ±adir endpoints de test activos en producciÃ³n.
+11. No añadir endpoints de test activos en producción.
 12. Cualquier cambio backend debe tener tests backend.
-13. Cualquier cambio de sincronizaciÃ³n debe tener E2E.
+13. Cualquier cambio de sincronización debe tener E2E.
 14. No tocar backend y frontend en la misma tarea salvo necesidad real.
 15. No cambiar contratos API sin actualizar `docs/openapi.yaml`.
 16. No introducir dependencias sin justificar.
-17. No aÃ±adir secrets.
+17. No añadir secrets.
 18. Codex debe reportar comandos ejecutados y resultados.
-19. Codex debe detenerse si un comando crÃ­tico falla.
+19. Codex debe detenerse si un comando crítico falla.
 
 ---
 
-## DecisiÃ³n sobre mazos aleatorios
+## Decisión sobre mazos aleatorios
 
-No queremos â€œ100 cartas aleatorias purasâ€ para tests obligatorios, porque eso vuelve los E2E no deterministas.
+No queremos “100 cartas aleatorias puras” para tests obligatorios, porque eso vuelve los E2E no deterministas.
 
-La soluciÃ³n correcta es:
+La solución correcta es:
 
 - seleccionar 100 cartas aleatorias desde BDD;
 - aceptar un `seed` opcional;
@@ -104,11 +104,11 @@ Y devolver algo equivalente a:
 }
 ```
 
-Si el dominio exige commander separado, el helper debe seleccionar un commander vÃ¡lido si existe metadata suficiente. Si no existe metadata fiable, debe elegir una carta como commander solo para test y documentarlo claramente. La app sigue siendo mesa manual; no hay que validar legalidad real de Commander.
+Si el dominio exige commander separado, el helper debe seleccionar un commander válido si existe metadata suficiente. Si no existe metadata fiable, debe elegir una carta como commander solo para test y documentarlo claramente. La app sigue siendo mesa manual; no hay que validar legalidad real de Commander.
 
 ---
 
-## Comandos de verificaciÃ³n esperados
+## Comandos de verificación esperados
 
 Ajustar si el repo usa comandos distintos.
 
@@ -138,18 +138,18 @@ docker compose up -d
 
 ---
 
-# Plan de ejecuciÃ³n
+# Plan de ejecución
 
-Codex debe ejecutar solo el primer paso pendiente. Al terminar, debe marcarlo como completado y aÃ±adir una entrada en â€œRegistro de progresoâ€.
+Codex debe ejecutar solo el primer paso pendiente. Al terminar, debe marcarlo como completado y añadir una entrada en “Registro de progreso”.
 
-## 12.1 â€” Selectores E2E para mesa, zonas, cartas y mazos
+## 12.1 — Selectores E2E para mesa, zonas, cartas y mazos
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-AÃ±ade data-testid y atributos data-* necesarios para probar partidas con mazos completos en Playwright.
+Añade data-testid y atributos data-* necesarios para probar partidas con mazos completos en Playwright.
 
 Objetivo:
 Hacer GameTable testeable sin cambiar comportamiento.
@@ -225,23 +225,23 @@ Necesito selectores para:
 Restricciones:
 - No cambies comportamiento.
 - No cambies estilos.
-- No cambies lÃ³gica de drag/drop.
+- No cambies lógica de drag/drop.
 - No cambies backend.
-- No aÃ±adas selectores innecesarios.
-- No uses texto visible como Ãºnico selector.
+- No añadas selectores innecesarios.
+- No uses texto visible como único selector.
 - Ejecuta npm run build.
 - Ejecuta npm test.
 - Ejecuta npm run e2e si ya existe.
 
 Al final informa:
 1. Ficheros modificados.
-2. Selectores aÃ±adidos.
+2. Selectores añadidos.
 3. Comandos ejecutados.
 4. Resultado de cada comando.
-5. Cualquier limitaciÃ³n.
+5. Cualquier limitación.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - Build frontend verde.
 - Tests frontend verdes.
@@ -250,21 +250,21 @@ Al final informa:
 
 ---
 
-## 12.2 â€” Analizar creaciÃ³n de mazos completos desde BDD
+## 12.2 — Analizar creación de mazos completos desde BDD
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-Analiza cÃ³mo crear mazos completos de 100 cartas usando cartas existentes de la base de datos.
+Analiza cómo crear mazos completos de 100 cartas usando cartas existentes de la base de datos.
 
 No modifiques archivos.
 
 Quiero saber:
 
-1. CÃ³mo se representa un mazo en backend.
-2. QuÃ© entidades participan:
+1. Cómo se representa un mazo en backend.
+2. Qué entidades participan:
    - User
    - Card
    - Deck
@@ -273,40 +273,40 @@ Quiero saber:
    - Game
    - GameSnapshot
    - GameEvent
-3. CÃ³mo se crea un deck actualmente.
-4. CÃ³mo se aÃ±aden cartas a un deck actualmente.
-5. CÃ³mo se selecciona un commander actualmente.
-6. CÃ³mo se asocia un deck a una room.
-7. CÃ³mo se inicia una partida desde una room.
-8. CÃ³mo se transforman los decks en zonas de partida.
-9. DÃ³nde quedan commander, library, hand, battlefield, graveyard, exile y command zone.
+3. Cómo se crea un deck actualmente.
+4. Cómo se añaden cartas a un deck actualmente.
+5. Cómo se selecciona un commander actualmente.
+6. Cómo se asocia un deck a una room.
+7. Cómo se inicia una partida desde una room.
+8. Cómo se transforman los decks en zonas de partida.
+9. Dónde quedan commander, library, hand, battlefield, graveyard, exile y command zone.
 10. Si el orden de biblioteca es aleatorio o determinista.
-11. QuÃ© campos mÃ­nimos necesita una carta para formar parte de un deck.
+11. Qué campos mínimos necesita una carta para formar parte de un deck.
 12. Si hay suficientes cartas en la BDD para crear decks de 100 cartas.
 13. Si se puede hacer usando APIs existentes.
 14. Si hace falta un servicio/helper backend.
 15. Si hace falta un helper Playwright.
 
-DiseÃ±a un helper llamado conceptualmente createRandomDeckFromDatabase que:
+Diseña un helper llamado conceptualmente createRandomDeckFromDatabase que:
 - cree un deck para un usuario;
 - seleccione 100 cartas aleatorias de la BDD;
 - permita seed opcional;
 - devuelva deckId, seed y lista de cartas elegidas;
 - no use Scryfall;
 - no use red externa;
-- no deje endpoints test activos en producciÃ³n.
+- no deje endpoints test activos en producción.
 
 Devuelve:
-1. OpciÃ³n recomendada.
-2. Ficheros que habrÃ­a que tocar.
+1. Opción recomendada.
+2. Ficheros que habría que tocar.
 3. Riesgos.
 4. Tests necesarios.
-5. Plan de implementaciÃ³n.
+5. Plan de implementación.
 
-No implementes todavÃ­a.
+No implementes todavía.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - Codex identifica entidades y APIs reales.
 - Codex explica si el helper debe ser backend, Playwright o mixto.
@@ -314,11 +314,11 @@ No implementes todavÃ­a.
 
 ---
 
-## 12.3 â€” Implementar helper createRandomDeckFromDatabase
+## 12.3 — Implementar helper createRandomDeckFromDatabase
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
 Implementa el helper createRandomDeckFromDatabase para E2E.
@@ -336,24 +336,24 @@ Requisitos funcionales:
    - seed;
    - commanderCardId si aplica;
    - lista de cardIds;
-   - lista de nombres de cartas si estÃ¡ disponible.
+   - lista de nombres de cartas si está disponible.
 6. Fallar claramente si hay menos de 100 cartas disponibles.
 7. No usar Scryfall ni red externa.
 8. No usar datos manuales.
-9. No dejar endpoints de test activos en producciÃ³n.
-10. Documentar cÃ³mo usar el helper desde E2E.
+9. No dejar endpoints de test activos en producción.
+10. Documentar cómo usar el helper desde E2E.
 
 Reglas sobre Commander:
-- Si el modelo exige commander y hay metadata suficiente, selecciona una carta vÃ¡lida como commander.
-- Si no hay metadata fiable, selecciona una carta como commander solo para test y documenta la limitaciÃ³n.
+- Si el modelo exige commander y hay metadata suficiente, selecciona una carta válida como commander.
+- Si no hay metadata fiable, selecciona una carta como commander solo para test y documenta la limitación.
 - No validar banlist, singleton, colores ni legalidad real de Commander.
 - La app sigue siendo mesa manual.
 
-Preferencia de implementaciÃ³n:
-1. Usa APIs reales existentes si permiten crear deck y aÃ±adir cartas de forma fiable.
+Preferencia de implementación:
+1. Usa APIs reales existentes si permiten crear deck y añadir cartas de forma fiable.
 2. Si las APIs no permiten seleccionar 100 cartas aleatorias de la BDD, crea un servicio/backend helper reutilizable solo para test/dev o un comando Symfony seguro.
-3. Evita endpoints HTTP de test activos en producciÃ³n.
-4. Si creas endpoint de test, debe estar cargado solo en APP_ENV=test/dev y protegido de forma explÃ­cita.
+3. Evita endpoints HTTP de test activos en producción.
+4. Si creas endpoint de test, debe estar cargado solo en APP_ENV=test/dev y protegido de forma explícita.
 
 Restricciones:
 - No cambies drag/drop.
@@ -368,29 +368,29 @@ Restricciones:
 Al final informa:
 1. Ficheros modificados.
 2. Firma del helper creado.
-3. CÃ³mo se seleccionan las 100 cartas.
-4. CÃ³mo se garantiza reproducibilidad.
-5. CÃ³mo se evita producciÃ³n peligrosa.
+3. Cómo se seleccionan las 100 cartas.
+4. Cómo se garantiza reproducibilidad.
+5. Cómo se evita producción peligrosa.
 6. Comandos ejecutados.
 7. Resultado de cada comando.
 8. Limitaciones.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - Existe helper usable por E2E.
 - Devuelve 100 cartas.
 - No usa red externa.
-- Puede reproducir selecciÃ³n mediante seed.
+- Puede reproducir selección mediante seed.
 - Falla claro si no hay suficientes cartas.
 
 ---
 
-## 12.4 â€” Crear helper createCommanderGameWithRandomDecks
+## 12.4 — Crear helper createCommanderGameWithRandomDecks
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
 Crea un helper E2E llamado conceptualmente createCommanderGameWithRandomDecks.
@@ -421,18 +421,18 @@ Restricciones:
 - No usar cartas sueltas como sustituto del mazo.
 - No implementar reglas de Magic.
 - No usar waits fijos.
-- No dejar endpoints test activos en producciÃ³n.
+- No dejar endpoints test activos en producción.
 - Ejecuta tests relevantes.
 
 Al final informa:
 1. Ficheros modificados.
-2. CÃ³mo se llama el helper.
-3. QuÃ© devuelve.
-4. CÃ³mo se reproducen los mazos.
+2. Cómo se llama el helper.
+3. Qué devuelve.
+4. Cómo se reproducen los mazos.
 5. Comandos ejecutados y resultados.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - El helper crea partida real con dos mazos completos.
 - Devuelve IDs y tokens suficientes para E2E.
@@ -440,14 +440,14 @@ Al final informa:
 
 ---
 
-## 12.5 â€” E2E: partida inicia con dos mazos completos
+## 12.5 — E2E: partida inicia con dos mazos completos
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-AÃ±ade un test E2E que verifique que una partida inicia con dos mazos completos.
+Añade un test E2E que verifique que una partida inicia con dos mazos completos.
 
 Usa createCommanderGameWithRandomDecks.
 
@@ -475,18 +475,18 @@ Restricciones:
 - No usar Scryfall.
 - No usar waits fijos.
 - Usar data-testid y data-*.
-- No probar drag/drop todavÃ­a.
+- No probar drag/drop todavía.
 - No implementar reglas de Magic.
 - Ejecuta npm run e2e.
 
 Al final informa:
 1. Test creado.
 2. Helper usado.
-3. Seeds usados o cÃ³mo reproducir.
+3. Seeds usados o cómo reproducir.
 4. Resultado.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - Test E2E verde.
 - Dos navegadores aislados entran a la misma partida.
@@ -494,14 +494,14 @@ Al final informa:
 
 ---
 
-## 12.6 â€” E2E: robar carta desde biblioteca
+## 12.6 — E2E: robar carta desde biblioteca
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-AÃ±ade un test E2E multiusuario para robar carta desde biblioteca usando una partida con mazos completos.
+Añade un test E2E multiusuario para robar carta desde biblioteca usando una partida con mazos completos.
 
 Usa createCommanderGameWithRandomDecks.
 
@@ -526,38 +526,38 @@ Restricciones:
 - Ejecuta npm run e2e.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - Test verde.
-- Confirma transiciÃ³n library â†’ hand.
-- SincronizaciÃ³n visible entre dos jugadores.
+- Confirma transición library → hand.
+- Sincronización visible entre dos jugadores.
 
 ---
 
-## 12.7 â€” E2E: mover carta de mano a battlefield con fallback manual
+## 12.7 — E2E: mover carta de mano a battlefield con fallback manual
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-AÃ±ade un test E2E multiusuario para mover una carta de mano a battlefield usando la interacciÃ³n manual mÃ¡s estable.
+Añade un test E2E multiusuario para mover una carta de mano a battlefield usando la interacción manual más estable.
 
 Usa createCommanderGameWithRandomDecks.
 
 Flujo:
 1. Crear partida con dos jugadores y dos mazos de 100 cartas desde BDD.
 2. Abrir partida en dos BrowserContext aislados.
-3. Jugador A roba una carta si la mano inicial estÃ¡ vacÃ­a.
+3. Jugador A roba una carta si la mano inicial está vacía.
 4. Identificar una carta de la mano de Jugador A mediante data-card-instance-id.
 5. Mover la carta a battlefield usando fallback manual estable:
    - doble click;
    - modal;
-   - menÃº contextual;
-   - botÃ³n Move to battlefield.
+   - menú contextual;
+   - botón Move to battlefield.
 6. Verificar que Jugador A ve la carta en battlefield.
 7. Verificar que Jugador B ve la carta en battlefield sin recargar.
-8. Verificar que la carta ya no estÃ¡ en la mano de Jugador A.
+8. Verificar que la carta ya no está en la mano de Jugador A.
 9. Verificar contadores de zonas.
 
 Restricciones:
@@ -565,30 +565,30 @@ Restricciones:
 - No usar waits fijos.
 - No usar Scryfall.
 - No implementar reglas legales de Magic.
-- No cambiar diseÃ±o salvo testabilidad mÃ­nima.
+- No cambiar diseño salvo testabilidad mínima.
 - Ejecuta npm run e2e.
 
 Al final informa:
-1. QuÃ© interacciÃ³n manual elegiste y por quÃ©.
-2. QuÃ© selectores usaste.
+1. Qué interacción manual elegiste y por qué.
+2. Qué selectores usaste.
 3. Resultado.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - Test verde.
 - Prueba `card.moved` en una partida real con mazo completo.
 
 ---
 
-## 12.8 â€” E2E: drag/drop con mazos completos
+## 12.8 — E2E: drag/drop con mazos completos
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-AÃ±ade un test E2E para drag/drop entre zonas usando una partida real con mazos completos.
+Añade un test E2E para drag/drop entre zonas usando una partida real con mazos completos.
 
 Usa createCommanderGameWithRandomDecks.
 
@@ -599,11 +599,11 @@ Flujo:
 4. Jugador A arrastra la carta a battlefield.
 5. Verificar que Jugador A ve la carta en battlefield.
 6. Verificar que Jugador B ve la carta en battlefield sin recargar.
-7. Verificar que la carta ya no estÃ¡ en la zona origen.
+7. Verificar que la carta ya no está en la zona origen.
 
 Estrategia:
 - Primero usar locator.dragTo si funciona.
-- Si falla por HTML5 drag/drop, analizar DataTransfer sintÃ©tico.
+- Si falla por HTML5 drag/drop, analizar DataTransfer sintético.
 - No usar sleeps fijos.
 
 Restricciones:
@@ -614,27 +614,27 @@ Restricciones:
 - Ejecuta npm run e2e.
 
 Al final informa:
-1. Si se usÃ³ dragTo o dispatchEvent.
+1. Si se usó dragTo o dispatchEvent.
 2. Estabilidad del test.
 3. Limitaciones en mobile/touch.
 4. Resultado.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
-- Test verde o bloqueo documentado con precisiÃ³n.
+- Test verde o bloqueo documentado con precisión.
 - No rompe el test de fallback manual.
 
 ---
 
-## 12.9 â€” E2E bÃ¡sico de robustez con 2 mazos x 100 cartas
+## 12.9 — E2E básico de robustez con 2 mazos x 100 cartas
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-AÃ±ade un test E2E bÃ¡sico de robustez para partidas con dos mazos completos.
+Añade un test E2E básico de robustez para partidas con dos mazos completos.
 
 Objetivo:
 Comprobar que 2 jugadores con 100 cartas cada uno no rompen UI ni snapshot.
@@ -647,7 +647,7 @@ Verifica:
 3. Las zonas existen.
 4. Los contadores de biblioteca/hand/command son coherentes.
 5. Abrir modal de biblioteca no rompe UI.
-6. Abrir cementerio/exilio vacÃ­os funciona.
+6. Abrir cementerio/exilio vacíos funciona.
 7. Robar varias cartas no duplica cartas.
 8. Mover una carta no duplica cartas.
 
@@ -655,26 +655,26 @@ Restricciones:
 - No hacer 100 movimientos.
 - No crear test lento innecesario.
 - No usar waits fijos.
-- No cambiar diseÃ±o.
+- No cambiar diseño.
 - Ejecuta npm run e2e.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - Test verde.
-- No hay duplicaciÃ³n bÃ¡sica de cartas.
+- No hay duplicación básica de cartas.
 - UI soporta 100 cartas por jugador.
 
 ---
 
-## 12.10 â€” Analizar refetch durante drag
+## 12.10 — Analizar refetch durante drag
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-Analiza cÃ³mo evitar inconsistencias cuando llega un refetch durante un drag activo.
+Analiza cómo evitar inconsistencias cuando llega un refetch durante un drag activo.
 
 No modifiques archivos.
 
@@ -685,46 +685,46 @@ Actualmente refetch reemplaza snapshot completo.
 Quiero que propongas opciones:
 
 1. Ignorar refetch mientras hay drag activo y aplicarlo al soltar.
-2. Guardar Ãºltimo snapshot remoto pendiente y aplicarlo despuÃ©s del drag.
+2. Guardar último snapshot remoto pendiente y aplicarlo después del drag.
 3. Cancelar drag si llega snapshot remoto.
-4. Rebasear posiciÃ³n local sobre snapshot remoto.
+4. Rebasear posición local sobre snapshot remoto.
 5. Desactivar polling durante drag.
 6. Mantener comportamiento actual y solo testear.
 
-Para cada opciÃ³n:
+Para cada opción:
 - ventajas;
 - riesgos;
 - impacto en UX;
-- impacto en sincronizaciÃ³n;
+- impacto en sincronización;
 - impacto en tests;
-- implementaciÃ³n mÃ­nima.
+- implementación mínima.
 
-Recomienda una opciÃ³n para MVP.
-No implementes todavÃ­a.
+Recomienda una opción para MVP.
+No implementes todavía.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
-- Hay decisiÃ³n tÃ©cnica clara.
-- No se implementa nada aÃºn.
+- Hay decisión técnica clara.
+- No se implementa nada aún.
 
 ---
 
-## 12.11 â€” Estabilizar refetch durante drag si hay bug real
+## 12.11 — Estabilizar refetch durante drag si hay bug real
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-Implementa una soluciÃ³n mÃ­nima para manejar refetch durante drag activo.
+Implementa una solución mínima para manejar refetch durante drag activo.
 
-Solo hazlo si los tests o el anÃ¡lisis muestran bug real.
+Solo hazlo si los tests o el análisis muestran bug real.
 
 Objetivo:
-Evitar saltos visuales o pÃ©rdida de continuidad cuando llega snapshot remoto mientras el usuario arrastra una carta.
+Evitar saltos visuales o pérdida de continuidad cuando llega snapshot remoto mientras el usuario arrastra una carta.
 
-Usa la opciÃ³n recomendada en el anÃ¡lisis previo.
+Usa la opción recomendada en el análisis previo.
 
 Restricciones:
 - No cambiar comandos backend.
@@ -733,27 +733,27 @@ Restricciones:
 - No romper polling fallback.
 - No afectar acciones que no sean drag.
 - Mantener E2E de vida, chat, robar y mover carta verdes.
-- AÃ±adir test unitario si la lÃ³gica es testeable.
+- Añadir test unitario si la lógica es testeable.
 - Ejecutar npm run build.
 - Ejecutar npm test.
 - Ejecutar npm run e2e.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - E2E existentes siguen verdes.
 - Drag no pierde continuidad ante refetch.
 
 ---
 
-## 13.1 â€” Analizar GameTableStore para refactor incremental
+## 13.1 — Analizar GameTableStore para refactor incremental
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-Analiza GameTableStore y propÃ³n un refactor incremental.
+Analiza GameTableStore y propón un refactor incremental.
 
 No modifiques archivos.
 
@@ -763,7 +763,7 @@ Divide sus responsabilidades actuales en:
 3. polling fallback;
 4. comandos backend;
 5. clientActionId/pending/error;
-6. selecciÃ³n de cartas;
+6. selección de cartas;
 7. permisos de control;
 8. pointer drag;
 9. HTML5 drag/drop;
@@ -771,48 +771,48 @@ Divide sus responsabilidades actuales en:
 11. modal de zonas;
 12. estado visual local.
 
-DespuÃ©s propÃ³n un plan mÃ¡ximo de 6 pasos.
+Después propón un plan máximo de 6 pasos.
 
 Restricciones:
-- Mantener comportamiento idÃ©ntico.
+- Mantener comportamiento idéntico.
 - No cambiar backend.
 - No romper E2E existentes.
 - No implementar nuevas features.
 - No modificar archivos.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
-- Plan de refactor por pasos pequeÃ±os.
-- No hay cambios de cÃ³digo.
+- Plan de refactor por pasos pequeños.
+- No hay cambios de código.
 
 ---
 
-## 13.2 â€” Extraer realtime/polling
+## 13.2 — Extraer realtime/polling
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-Refactoriza GameTableStore extrayendo solo la lÃ³gica de realtime y polling a un servicio separado.
+Refactoriza GameTableStore extrayendo solo la lógica de realtime y polling a un servicio separado.
 
 Objetivo:
 Reducir responsabilidades de GameTableStore sin cambiar comportamiento.
 
 Alcance:
 1. Crear GameTableRealtimeService o nombre equivalente.
-2. Mover conexiÃ³n Mercure.
+2. Mover conexión Mercure.
 3. Mover polling fallback.
 4. Mantener la misma frecuencia actual.
-5. Mantener la misma polÃ­tica de refetch completo.
-6. GameTableStore debe seguir exponiendo la misma API pÃºblica al componente.
+5. Mantener la misma política de refetch completo.
+6. GameTableStore debe seguir exponiendo la misma API pública al componente.
 7. No tocar comandos.
-8. No tocar selecciÃ³n.
+8. No tocar selección.
 9. No tocar drag/drop.
 
 Restricciones:
-- Comportamiento idÃ©ntico.
+- Comportamiento idéntico.
 - No cambiar backend.
 - No cambiar HTML salvo que sea imprescindible.
 - Ejecutar npm run build.
@@ -820,38 +820,38 @@ Restricciones:
 - Ejecutar npm run e2e.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
-- Store mÃ¡s pequeÃ±o.
+- Store más pequeño.
 - Realtime y polling aislados.
 - Tests verdes.
 
 ---
 
-## 13.3 â€” Extraer comandos
+## 13.3 — Extraer comandos
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-Refactoriza GameTableStore extrayendo solo la lÃ³gica de comandos backend.
+Refactoriza GameTableStore extrayendo solo la lógica de comandos backend.
 
 Objetivo:
-Centralizar envÃ­o de comandos sin cambiar comportamiento.
+Centralizar envío de comandos sin cambiar comportamiento.
 
 Alcance:
 1. Crear GameTableCommandService o nombre equivalente.
-2. Mover construcciÃ³n/envÃ­o de comandos.
+2. Mover construcción/envío de comandos.
 3. Mantener clientActionId.
 4. Mantener pending/error con comportamiento equivalente.
 5. Mantener llamadas a GamesApi.command.
 6. No tocar realtime/polling.
 7. No tocar drag/drop.
-8. No tocar selecciÃ³n.
+8. No tocar selección.
 
 Restricciones:
-- Comportamiento idÃ©ntico.
+- Comportamiento idéntico.
 - No cambiar API backend.
 - No cambiar tests E2E.
 - Ejecutar npm run build.
@@ -859,57 +859,57 @@ Restricciones:
 - Ejecutar npm run e2e.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
-- EnvÃ­o de comandos aislado.
+- Envío de comandos aislado.
 - E2E de vida, chat, robar y mover siguen verdes.
 
 ---
 
-## 13.4 â€” Extraer selecciÃ³n y permisos
+## 13.4 — Extraer selección y permisos
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-Refactoriza GameTableStore extrayendo solo selecciÃ³n de cartas y permisos de control.
+Refactoriza GameTableStore extrayendo solo selección de cartas y permisos de control.
 
 Objetivo:
-Separar estado de selecciÃ³n/control del resto del store.
+Separar estado de selección/control del resto del store.
 
 Alcance:
 1. Crear GameTableSelectionService o nombre equivalente.
 2. Mover selectedCards o estado equivalente.
-3. Mover helpers relacionados con selecciÃ³n.
-4. Mover permisos de control de carta si estÃ¡n directamente relacionados.
-5. Mantener la API pÃºblica del store lo mÃ¡s estable posible.
-6. No tocar drag/drop todavÃ­a.
+3. Mover helpers relacionados con selección.
+4. Mover permisos de control de carta si están directamente relacionados.
+5. Mantener la API pública del store lo más estable posible.
+6. No tocar drag/drop todavía.
 
 Restricciones:
 - No cambiar comportamiento.
 - No cambiar backend.
-- No cambiar template salvo ajustes mÃ­nimos.
+- No cambiar template salvo ajustes mínimos.
 - Ejecutar npm run build.
 - Ejecutar npm test.
 - Ejecutar npm run e2e.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
-- SelecciÃ³n/control aislado.
+- Selección/control aislado.
 - E2E verdes.
 
 ---
 
-## 13.5 â€” Extraer drag/drop
+## 13.5 — Extraer drag/drop
 
 Estado: [x] Completado
 
-### Prompt de ejecuciÃ³n
+### Prompt de ejecución
 
 ```text
-Refactoriza GameTableStore extrayendo la lÃ³gica de drag/drop a un servicio separado.
+Refactoriza GameTableStore extrayendo la lógica de drag/drop a un servicio separado.
 
 Objetivo:
 Aislar pointer drag y HTML5 drag/drop para reducir complejidad.
@@ -924,16 +924,16 @@ Alcance:
 7. Mantener E2E de movimiento y drag verdes.
 
 Restricciones:
-- No rediseÃ±ar UI.
+- No rediseñar UI.
 - No cambiar backend.
 - No implementar reglas de Magic.
-- No romper mobile/touch mÃ¡s de lo que ya estÃ©.
+- No romper mobile/touch más de lo que ya esté.
 - Ejecutar npm run build.
 - Ejecutar npm test.
 - Ejecutar npm run e2e.
 ```
 
-### Criterio de aceptaciÃ³n
+### Criterio de aceptación
 
 - Drag/drop aislado.
 - Fallback manual sigue funcionando.
@@ -943,12 +943,12 @@ Restricciones:
 
 # Registro de progreso
 
-Codex debe aÃ±adir aquÃ­ una entrada despuÃ©s de cada paso completado.
+Codex debe añadir aquí una entrada después de cada paso completado.
 
 Formato:
 
 ```md
-## YYYY-MM-DD â€” Paso X.Y
+## YYYY-MM-DD — Paso X.Y
 
 Estado: completado / bloqueado
 
@@ -963,12 +963,12 @@ Notas:
 ```
 
 
-## 2026-05-05 â€” Paso 12.1
+## 2026-05-05 — Paso 12.1
 
 Estado: completado
 
 Cambios:
-- `frontend/src/app/features/game/game-table/game-table.component.html`: aÃ±adidos/ajustados `data-testid` y `data-*` para mesa, panel de jugador, vida, zonas, contadores, cartas, commander, acciones principales y chat.
+- `frontend/src/app/features/game/game-table/game-table.component.html`: añadidos/ajustados `data-testid` y `data-*` para mesa, panel de jugador, vida, zonas, contadores, cartas, commander, acciones principales y chat.
 - Sin cambios funcionales, sin cambios de estilos y sin cambios de backend.
 
 Comandos:
@@ -978,14 +978,14 @@ Comandos:
 
 Notas:
 - `commander-card` aparece cuando hay carta visible en la zona `command`.
-- `move-card-to-battlefield` se expone en la acciÃ³n del modal de zona para mover la carta seleccionada.
+- `move-card-to-battlefield` se expone en la acción del modal de zona para mover la carta seleccionada.
 
-## 2026-05-05 â€” Paso 12.2
+## 2026-05-05 — Paso 12.2
 
 Estado: completado
 
 Cambios:
-- AnÃ¡lisis tÃ©cnico del flujo real de mazos/rooms/games sin modificar cÃ³digo de aplicaciÃ³n.
+- Análisis técnico del flujo real de mazos/rooms/games sin modificar código de aplicación.
 - Actualizado checklist del paso 12.2 en este plan.
 
 Comandos:
@@ -995,15 +995,15 @@ Comandos:
 - `docker compose exec database psql ... WHERE commander_legal = true` -> OK (103921)
 
 Notas:
-- El endpoint actual de bÃºsqueda de cartas no ofrece aleatoriedad ni total de resultados, lo que condiciona la estrategia de helper reproducible.
-- Recomendado helper backend en entorno test/dev (no expuesto en producciÃ³n) para selecciÃ³n seeded fiable de 100 cartas.
+- El endpoint actual de búsqueda de cartas no ofrece aleatoriedad ni total de resultados, lo que condiciona la estrategia de helper reproducible.
+- Recomendado helper backend en entorno test/dev (no expuesto en producción) para selección seeded fiable de 100 cartas.
 
-## 2026-05-05 â€” Paso 12.3
+## 2026-05-05 — Paso 12.3
 
 Estado: completado
 
 Cambios:
-- `frontend/e2e/support/decks.ts`: implementado helper `createRandomDeckFromDatabase` con seed reproducible, selecciÃ³n de cartas desde BDD vÃ­a API local y creaciÃ³n de deck real por `/decks/quick-build`.
+- `frontend/e2e/support/decks.ts`: implementado helper `createRandomDeckFromDatabase` con seed reproducible, selección de cartas desde BDD vía API local y creación de deck real por `/decks/quick-build`.
 - `frontend/README.md`: documentado uso del helper y limitaciones.
 - `docs/CODEX_COMMANDERZONE_E2E_PLAN.md`: checklist actualizado para 12.3.
 
@@ -1013,10 +1013,10 @@ Comandos:
 - `cd frontend && npm run e2e` -> OK (5/5)
 
 Notas:
-- No se aÃ±adieron endpoints de test ni cambios backend; el helper usa Ãºnicamente APIs reales existentes.
+- No se añadieron endpoints de test ni cambios backend; el helper usa únicamente APIs reales existentes.
 - Si no hay cartas con `commanderLegal=true` en metadata local, se usa fallback a cualquier carta como commander para setup de test manual.
 
-## 2026-05-05 â€” Paso 12.4
+## 2026-05-05 — Paso 12.4
 
 Estado: completado
 
@@ -1031,9 +1031,9 @@ Comandos:
 
 Notas:
 - El helper reutiliza `createRandomDeckFromDatabase` y mantiene seeds reproducibles por jugador (`<runId>-deck-a`, `<runId>-deck-b`).
-- No se aÃ±adieron endpoints de test ni cambios de backend.
+- No se añadieron endpoints de test ni cambios de backend.
 
-## 2026-05-05 â€” Paso 12.5
+## 2026-05-05 — Paso 12.5
 
 Estado: completado
 
@@ -1045,65 +1045,65 @@ Cambios:
 Comandos:
 - `cd frontend && npm run build` -> OK (warnings de budget existentes)
 - `cd frontend && npm test` -> OK
-- `cd frontend && npm run e2e` -> FAIL (timeout 30s en test nuevo durante preparaciÃ³n de mazos)
+- `cd frontend && npm run e2e` -> FAIL (timeout 30s en test nuevo durante preparación de mazos)
 - `cd frontend && npm run e2e` -> OK (6/6 tras aumentar timeout del test)
 
 Notas:
-- Se mantuvo el enfoque de mesa manual online, sin reglas automÃ¡ticas de Magic.
+- Se mantuvo el enfoque de mesa manual online, sin reglas automáticas de Magic.
 - No se tocaron backend, endpoints ni GameTableStore.
 
-## 2026-05-05 â€” Paso 12.6
+## 2026-05-05 — Paso 12.6
 
 Estado: completado
 
 Cambios:
 - `frontend/e2e/game-draw-library.multiplayer.spec.ts`: nuevo test E2E multiusuario para robar carta desde biblioteca usando `createCommanderGameWithRandomDecks`.
-- El test valida transiciÃ³n `library -> hand` en Jugador A y sincronizaciÃ³n de contadores en Jugador B sin recargar.
+- El test valida transición `library -> hand` en Jugador A y sincronización de contadores en Jugador B sin recargar.
 - `docs/CODEX_COMMANDERZONE_E2E_PLAN.md`: checklist 12.6 marcado como completado.
 
 Comandos:
 - `cd frontend && npm run build` -> OK (warnings de budget existentes)
 - `cd frontend && npm test` -> OK
 - `cd frontend && npm run e2e` -> FAIL (timeout del test nuevo con setup pesado)
-- `cd frontend && npm run e2e` -> FAIL (persistÃ­a timeout tras ampliar timeout global)
+- `cd frontend && npm run e2e` -> FAIL (persistía timeout tras ampliar timeout global)
 - `cd frontend && npm run e2e` -> OK (7/7 tras ajustar aserciones a contadores del sidebar + Draw mine)
 
 Notas:
-- No se usaron waits fijos; se usÃ³ `expect.poll` para sincronizaciÃ³n Mercure/polling.
-- No se tocÃ³ backend ni se aÃ±adieron endpoints de test.
+- No se usaron waits fijos; se usó `expect.poll` para sincronización Mercure/polling.
+- No se tocó backend ni se añadieron endpoints de test.
 
-## 2026-05-05 â€” Paso 12.7
+## 2026-05-05 — Paso 12.7
 
 Estado: completado
 
 Cambios:
 - `frontend/e2e/game-move-hand-battlefield.multiplayer.spec.ts`: nuevo test E2E multiusuario para mover carta de mano a battlefield usando fallback manual (doble click).
-- Verifica sincronizaciÃ³n en ambos contextos y ausencia de la carta en mano tras moverla.
+- Verifica sincronización en ambos contextos y ausencia de la carta en mano tras moverla.
 - `docs/CODEX_COMMANDERZONE_E2E_PLAN.md`: checklist 12.7 marcado como completado.
 
 Comandos:
-- `cd frontend && npm run e2e` -> FAIL (timeout; test leÃ­a contadores inexistentes en `hand`/`battlefield`)
+- `cd frontend && npm run e2e` -> FAIL (timeout; test leía contadores inexistentes en `hand`/`battlefield`)
 - `cd frontend && npm run e2e` -> OK (8/8 tras corregir aserciones a sidebar + recuento real de battlefield)
 
 Notas:
-- No se usÃ³ drag/drop en este test, solo interacciÃ³n manual estable.
+- No se usó drag/drop en este test, solo interacción manual estable.
 - Sin cambios backend ni waits fijos.
 
-## 2026-05-05 â€” Paso 12.8
+## 2026-05-05 — Paso 12.8
 
 Estado: completado
 
 Cambios:
-- `frontend/e2e/game-drag-drop.multiplayer.spec.ts`: nuevo test E2E drag/drop con mazos completos, dos contextos aislados y verificaciÃ³n en ambos jugadores.
-- Estrategia implementada: primero `locator.dragTo`; fallback a `DataTransfer` sintÃ©tico (`dragstart/dragover/drop/dragend`) si falla.
+- `frontend/e2e/game-drag-drop.multiplayer.spec.ts`: nuevo test E2E drag/drop con mazos completos, dos contextos aislados y verificación en ambos jugadores.
+- Estrategia implementada: primero `locator.dragTo`; fallback a `DataTransfer` sintético (`dragstart/dragover/drop/dragend`) si falla.
 - `docs/CODEX_COMMANDERZONE_E2E_PLAN.md`: checklist 12.8 marcado como completado.
 
 Comandos:
 - `cd frontend && npm run e2e` -> OK (9/9)
 
 Notas:
-- Sin waits fijos; sincronizaciÃ³n mediante `expect.poll`.
-- No se tocÃ³ backend ni arquitectura de drag/drop.
+- Sin waits fijos; sincronización mediante `expect.poll`.
+- No se tocó backend ni arquitectura de drag/drop.
 
 
 ## 2026-05-05 - Paso 12.9
@@ -1223,7 +1223,7 @@ Comandos:
 - cd frontend && npm run e2e -> OK (10/10 tras estabilizacion)
 
 Notas:
-- No se toco backend ni contratos API.
+- No se tocó backend ni contratos API.
 - Frecuencia y comportamiento de polling/refetch se mantienen.
 
 
@@ -1284,6 +1284,6 @@ Comandos:
 - cd frontend && npm run e2e -> OK (10/10)
 
 Notas:
-- No se toco backend ni contratos API.
-- No se modifico diseño UI ni se eliminaron fallbacks manuales.
+- No se tocó backend ni contratos API.
+- No se modificó diseño UI ni se eliminaron fallbacks manuales.
 

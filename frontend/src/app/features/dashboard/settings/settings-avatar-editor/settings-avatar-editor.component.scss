@@ -23,23 +23,6 @@
   font-size: 0.8rem;
 }
 
-.avatar-tier-tabs {
-  --cz-tabs-gap: 0.45rem;
-  --cz-tabs-border-bottom: 0;
-  --cz-tabs-padding: 0;
-  --cz-tab-track-size: max-content;
-  --cz-tab-min-width: 7rem;
-  --cz-tab-min-height: 2.15rem;
-  --cz-tab-border-color: rgb(var(--cz-primary-rgb) / 32%);
-  --cz-tab-border-radius: 999px;
-  --cz-tab-bg: rgb(var(--cz-bg-rgb) / 86%);
-  --cz-tab-color: var(--muted);
-  --cz-tab-font-weight: 800;
-  --cz-tab-active-border-color: rgb(var(--cz-primary-rgb) / 72%);
-  --cz-tab-active-bg: rgb(var(--cz-surface-rgb) / 94%);
-  --cz-tab-active-color: var(--text);
-}
-
 .avatar-preview-panel {
   display: flex;
   align-items: center;
@@ -236,18 +219,9 @@
 }
 
 .premium-badge {
-  position: absolute;
-  right: -0.16rem;
-  bottom: -0.08rem;
-  padding: 0.12rem 0.28rem;
-  border: 1px solid rgb(var(--cz-secondary-rgb) / 52%);
-  border-radius: 999px;
-  color: var(--cz-bg);
-  background: linear-gradient(180deg, var(--cz-text), var(--cz-secondary));
-  font-size: 0.48rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  --cz-premium-badge-position: absolute;
+  --cz-premium-badge-right: -0.16rem;
+  --cz-premium-badge-bottom: -0.08rem;
 }
 
 .primary-button {
@@ -263,10 +237,21 @@
 
 .avatar-editor-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.55rem;
   align-self: end;
   padding-top: 0.5rem;
+}
+
+@media (max-width: 720px) {
+  .avatar-editor-actions {
+    flex-wrap: wrap;
+  }
+
+  .settings-save-disclaimer {
+    flex: 1 1 100%;
+  }
 }
 
 @media (max-width: 720px) {

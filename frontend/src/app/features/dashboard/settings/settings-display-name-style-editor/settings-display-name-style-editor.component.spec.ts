@@ -46,6 +46,18 @@ describe('SettingsDisplayNameStyleEditorComponent', () => {
     expect(blueOption?.style.textColor).toBe('#f8f0d0');
   });
 
+  it('does not render tooltips inside the editor cards or preview', () => {
+    fixture.componentInstance.choosePreset(fixture.componentInstance.basicPresets[0]!);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-tooltip')).toBeNull();
+
+    const playerNames = fixture.nativeElement.querySelectorAll('.player-name-shell') as NodeListOf<HTMLElement>;
+    for (const playerName of playerNames) {
+      expect(playerName.getAttribute('title')).toBeNull();
+    }
+  });
+
   it('saves the plain name style with the selected text color', () => {
     const saved = vi.fn();
     fixture.componentInstance.saveRequested.subscribe(saved);

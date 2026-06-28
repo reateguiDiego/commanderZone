@@ -9,6 +9,7 @@ use App\Application\Deck\DecklistExporter;
 use App\Application\Deck\DecklistParser;
 use App\Application\Deck\DecklistPreviewer;
 use App\Application\Card\CardLocalizationService;
+use App\Application\Card\CardPrintVersionProvider;
 use App\Domain\Localization\LanguageCatalog;
 use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
@@ -290,7 +291,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/import', methods: ['POST'])]
-    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer, CardResolver $cardResolver, CardLocalizationService $localization): JsonResponse
+    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer, CardResolver $cardResolver, DeckValidator $validator, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -355,6 +356,8 @@ class DecksController extends ApiController
             }
         }
 
+        $validation = $validator->validate($deck);
+        $deck->markValidationResult(($validation['valid'] ?? false) === true);
         $entityManager->flush();
         $missingQuantity = array_reduce(
             $preview['missingCards'],
@@ -588,7 +591,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/cards/{deckCardId}/printings', methods: ['GET'])]
-    public function cardPrintings(string $id, string $deckCardId, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function cardPrintings(string $id, string $deckCardId, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardPrintVersionProvider $printVersions): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -604,13 +607,13 @@ class DecksController extends ApiController
             'deckCardId' => $deckCard->id(),
             'data' => array_map(
                 static fn (Card $card): array => $card->toArray(),
-                $this->printVersionCards($deckCard->card(), $entityManager, $user->cardLanguage()),
+                $printVersions->printVersionCards($deckCard->card(), $entityManager, $user->cardLanguage()),
             ),
         ]);
     }
 
     #[Route('/decks/{id}/cards/{deckCardId}/printing', methods: ['PATCH'])]
-    public function selectCardPrinting(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    public function selectCardPrinting(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, CardPrintVersionProvider $printVersions): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -632,7 +635,7 @@ class DecksController extends ApiController
         if (!$targetCard instanceof Card) {
             return $this->fail('Print version not found.', 404);
         }
-        if (!$this->isEquivalentPrintVersion($deckCard->card(), $targetCard)) {
+        if (!$printVersions->isEquivalentPrintVersion($deckCard->card(), $targetCard)) {
             return $this->fail('Selected print version does not match this card.', 422);
         }
 
@@ -1142,7 +1145,7 @@ class DecksController extends ApiController
         }
 
         if ($payloads !== []) {
-            $localizedPayloads = $localization->localizeCardPayloads($payloads, $user->cardLanguage(), true);
+            $localizedPayloads = $this->localizeDeckCardPayloads($payloads, $user, $localization);
             foreach ($targets as $offset => $target) {
                 $localizedPayload = $localizedPayloads[$offset] ?? null;
                 if (!is_array($localizedPayload)) {
@@ -1189,7 +1192,7 @@ class DecksController extends ApiController
             return $line;
         }
 
-        $line['card'] = $localization->localizeCardPayload($line['card'], $user->cardLanguage(), true);
+        $line['card'] = $this->localizeDeckCardPayload($line['card'], $user, $localization);
 
         return $line;
     }
@@ -1246,7 +1249,7 @@ class DecksController extends ApiController
         }
 
         if ($payloads !== []) {
-            $localizedPayloads = $localization->localizeCardPayloads($payloads, $user->cardLanguage(), true);
+            $localizedPayloads = $this->localizeDeckCardPayloads($payloads, $user, $localization);
             foreach ($indexes as $offset => $index) {
                 if (is_array($localizedPayloads[$offset] ?? null) && is_array($tokens[$index] ?? null)) {
                     $tokens[$index]['token'] = $localizedPayloads[$offset];
@@ -1276,7 +1279,7 @@ class DecksController extends ApiController
         }
 
         if ($payloads !== []) {
-            $localizedPayloads = $localization->localizeCardPayloads($payloads, $user->cardLanguage(), true);
+            $localizedPayloads = $this->localizeDeckCardPayloads($payloads, $user, $localization);
             foreach ($indexes as $offset => $index) {
                 if (is_array($localizedPayloads[$offset] ?? null) && is_array($lines[$index] ?? null)) {
                     $lines[$index]['card'] = $localizedPayloads[$offset];
@@ -1285,5 +1288,115 @@ class DecksController extends ApiController
         }
 
         return array_values($lines);
+    }
+
+    /**
+     * Keep deck card type lines canonical so frontend grouping logic remains language-agnostic.
+     *
+     * @param array<string,mixed> $payload
+     *
+     * @return array<string,mixed>
+     */
+    private function localizeDeckCardPayload(array $payload, User $user, CardLocalizationService $localization): array
+    {
+        return $this->localizeDeckCardPayloads([$payload], $user, $localization)[0] ?? $payload;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $payloads
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function localizeDeckCardPayloads(array $payloads, User $user, CardLocalizationService $localization): array
+    {
+        if ($payloads === []) {
+            return [];
+        }
+
+        $localizedPayloads = $localization->localizeCardPayloads($payloads, $user->cardLanguage(), true);
+        $canonicalTypeLinesByScryfallId = $this->canonicalDeckTypeLinesByScryfallId($payloads, $localization);
+
+        return array_values(array_map(
+            fn (array $payload, int $index): array => $this->preserveCanonicalDeckTypeLines(
+                $payload,
+                is_array($localizedPayloads[$index] ?? null) ? $localizedPayloads[$index] : $payload,
+                $canonicalTypeLinesByScryfallId,
+            ),
+            $payloads,
+            array_keys($payloads),
+        ));
+    }
+
+    /**
+     * @param array<string,mixed> $sourcePayload
+     * @param array<string,mixed> $localizedPayload
+     * @param array<string,array<string,mixed>> $canonicalTypeLinesByScryfallId
+     *
+     * @return array<string,mixed>
+     */
+    private function preserveCanonicalDeckTypeLines(
+        array $sourcePayload,
+        array $localizedPayload,
+        array $canonicalTypeLinesByScryfallId = [],
+    ): array
+    {
+        $scryfallId = trim((string) ($sourcePayload['scryfallId'] ?? ''));
+        $canonicalPayload = $scryfallId !== '' ? ($canonicalTypeLinesByScryfallId[$scryfallId] ?? null) : null;
+
+        if (is_array($canonicalPayload) && array_key_exists('typeLine', $canonicalPayload)) {
+            $localizedPayload['typeLine'] = $canonicalPayload['typeLine'];
+        } elseif (array_key_exists('typeLine', $sourcePayload)) {
+            $localizedPayload['typeLine'] = $sourcePayload['typeLine'];
+        }
+
+        $canonicalFaces = is_array($canonicalPayload['cardFaces'] ?? null) ? $canonicalPayload['cardFaces'] : null;
+        $sourceFaces = is_array($sourcePayload['cardFaces'] ?? null) ? $sourcePayload['cardFaces'] : null;
+        if ((!is_array($canonicalFaces) && !is_array($sourceFaces)) || !is_array($localizedPayload['cardFaces'] ?? null)) {
+            return $localizedPayload;
+        }
+
+        foreach ($localizedPayload['cardFaces'] as $index => $localizedFace) {
+            $canonicalFace = $canonicalFaces[$index] ?? null;
+            $sourceFace = $sourceFaces[$index] ?? null;
+            if (
+                !is_array($localizedFace)
+                || (
+                    !is_array($canonicalFace)
+                    && (!is_array($sourceFace) || !array_key_exists('typeLine', $sourceFace))
+                )
+            ) {
+                continue;
+            }
+
+            if (is_array($canonicalFace) && array_key_exists('typeLine', $canonicalFace)) {
+                $localizedPayload['cardFaces'][$index]['typeLine'] = $canonicalFace['typeLine'];
+                continue;
+            }
+
+            $localizedPayload['cardFaces'][$index]['typeLine'] = $sourceFace['typeLine'];
+        }
+
+        return $localizedPayload;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $payloads
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function canonicalDeckTypeLinesByScryfallId(array $payloads, CardLocalizationService $localization): array
+    {
+        $scryfallIds = array_values(array_unique(array_filter(
+            array_map(
+                static fn (array $payload): string => trim((string) ($payload['scryfallId'] ?? '')),
+                $payloads,
+            ),
+            static fn (string $scryfallId): bool => $scryfallId !== '',
+        )));
+        if ($scryfallIds === []) {
+            return [];
+        }
+
+        return $localization->localizedPayloadLookupForScryfallIds($scryfallIds, [LanguageCatalog::DEFAULT_LANGUAGE])[LanguageCatalog::DEFAULT_LANGUAGE] ?? [];
     }
 }

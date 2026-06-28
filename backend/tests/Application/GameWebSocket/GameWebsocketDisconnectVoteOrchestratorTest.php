@@ -76,24 +76,17 @@ class GameWebsocketDisconnectVoteOrchestratorTest extends TestCase
         self::assertNull($result);
     }
 
-    public function testProjectedDisconnectVoteUsesExplicitEmptyLocalizationLookupWhenResolverFindsNoCardDelta(): void
+    public function testProjectedDisconnectVoteUsesPatchV2WithoutProjectionDiff(): void
     {
         [$game, $owner] = $this->game();
         $owner->updateCardLanguage('es');
-        $capturedLookups = [];
         $projection = $this->getMockBuilder(GameProjectionService::class)
             ->setConstructorArgs([new GameCommandHandler()])
             ->onlyMethods(['projectSnapshot'])
             ->getMock();
         $projection
-            ->expects(self::exactly(2))
-            ->method('projectSnapshot')
-            ->willReturnCallback(function (array $snapshot, User $viewer, bool $viewerCanUseOwnHiddenZones, ?array $localizedLookup = null) use (&$capturedLookups): array {
-                self::assertTrue($viewerCanUseOwnHiddenZones);
-                $capturedLookups[] = $localizedLookup;
-
-                return $snapshot;
-            });
+            ->expects(self::never())
+            ->method('projectSnapshot');
 
         $connection = $this->createMock(Connection::class);
         $connection->expects(self::never())->method('executeQuery');
@@ -123,7 +116,10 @@ class GameWebsocketDisconnectVoteOrchestratorTest extends TestCase
         );
 
         self::assertInstanceOf(\App\Application\Game\WebSocket\GameWebsocketCommandResult::class, $result);
-        self::assertSame([[], []], $capturedLookups);
+        $message = $result->messageForUserId($owner->id());
+        self::assertSame('patch.v2', $message['kind']);
+        self::assertSame('disconnect.vote.set', $message['ops'][0]['op']);
+        self::assertSame(0, $message['metrics']['disconnect.snapshot_write_count']);
     }
 
     private function invokeMutateGame(

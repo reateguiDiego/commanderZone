@@ -1,4 +1,5 @@
-import { importProvidersFrom, signal } from '@angular/core';
+import { Component, importProvidersFrom, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
 import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
@@ -77,7 +78,7 @@ import {
   X,
   Zap,
 } from 'lucide-angular';
-import { EMPTY, Subject, of } from 'rxjs';
+import { EMPTY, Subject, of, throwError } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { GamesApi } from '../../../core/api/games.api';
@@ -94,6 +95,13 @@ import { GameTableMotionService } from './services/game-table-motion.service';
 import { GameTableNotificationSoundService } from './services/game-table-notification-sound.service';
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
+import { GameTableGameplayV2FlagsService } from './services/game-table-gameplay-v2-flags.service';
+
+@Component({
+  standalone: true,
+  template: '',
+})
+class TestRouteStubComponent {}
 
 describe('GameTableComponent', () => {
   const gameplayWebsocketCommand = vi.fn();
@@ -123,6 +131,9 @@ describe('GameTableComponent', () => {
   };
   const websocketMessages = new Subject<unknown>();
   const websocketStatus = signal('connected');
+  const gameplayV2Flags = {
+    enabled: vi.fn(),
+  };
   const websocketTransport = {
     status: websocketStatus,
     messages$: websocketMessages.asObservable(),
@@ -243,6 +254,7 @@ describe('GameTableComponent', () => {
 
     routeParams['id'] = '';
     gamesApi.snapshot.mockReset();
+    gameplayV2Flags.enabled.mockReset().mockReturnValue(false);
     gameplayWebsocketCommand.mockReset();
     websocketStatus.set('connected');
     websocketTransport.connect.mockClear();
@@ -291,6 +303,7 @@ describe('GameTableComponent', () => {
         { provide: RoomsApi, useValue: roomsApi },
         { provide: AuthStore, useValue: authStore },
         { provide: MercureService, useValue: mercureService },
+        { provide: GameTableGameplayV2FlagsService, useValue: gameplayV2Flags },
         importProvidersFrom(LucideAngularModule.pick({
           ArrowLeft,
           Ban,
@@ -364,7 +377,10 @@ describe('GameTableComponent', () => {
           X,
           Zap,
         })),
-        provideRouter([]),
+        provideRouter([
+          { path: 'rooms', component: TestRouteStubComponent },
+          { path: 'rooms/:roomId/waiting', component: TestRouteStubComponent },
+        ]),
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: { get: (key: string) => convertToParamMap(routeParams).get(key) } } },
@@ -1848,8 +1864,68 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.store.leaveTable();
 
     expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
-    expect(gamesApi.rematchVote).toHaveBeenCalledWith('game-1', 'leave');
-    expect(roomsApi.leave).not.toHaveBeenCalled();
+    expect(gamesApi.rematchVote).not.toHaveBeenCalled();
+    expect(roomsApi.leave).toHaveBeenCalledWith('room-1', true);
+    expect(navigate).toHaveBeenCalledWith(['/rooms']);
+  });
+
+  it('leaves the current room when the local player exists even if viewer control access is stale', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    roomsApi.current.mockReturnValueOnce(of({
+        room: { id: 'room-1', name: 'Room', status: 'started', visibility: 'public', format: 'commander', maxPlayers: 4, playerCount: 2, gameId: 'game-1' },
+        player: null,
+        turn: null,
+        viewerRole: null,
+      }))
+      .mockReturnValue(of({ room: null, player: null, turn: null, viewerRole: null }));
+    const activeSnapshot = snapshotWithStatus('active');
+    const concededSnapshot = snapshotWithStatus('conceded');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: activeSnapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-1', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: concededSnapshot,
+    }));
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.viewerCanControlTable()).toBe(false));
+
+    await fixture.componentInstance.store.leaveTable();
+
+    expect(gamesApi.rematchVote).not.toHaveBeenCalled();
+    expect(roomsApi.leave).toHaveBeenCalledWith('room-1', true);
+    expect(roomsApi.current).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(['/rooms']);
+  });
+
+  it('navigates to rooms when leave room is already reflected by the server', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const activeSnapshot = snapshotWithStatus('active');
+    const concededSnapshot = snapshotWithStatus('conceded');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: activeSnapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-1', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: concededSnapshot,
+    }));
+    roomsApi.leave.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status: 403,
+      error: { error: 'Only room players can leave the room.' },
+    })));
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.store.leaveTable();
+
+    expect(roomsApi.leave).toHaveBeenCalledWith('room-1', true);
     expect(navigate).toHaveBeenCalledWith(['/rooms']);
   });
 
@@ -6394,13 +6470,13 @@ describe('GameTableChatLogState', () => {
     const state = new GameTableChatLogState();
     const snapshot = snapshotWithStatus('active');
     snapshot.eventLog = [
-      gameLogEntry('event-1', 'card.moved', 'Moved SmÃ©agol, Helpful Guide from battlefield to command.'),
-      gameLogEntry('event-2', 'card.moved', 'Moved SmÃ©agol, Helpful Guide from command to battlefield.'),
+      gameLogEntry('event-1', 'card.moved', 'Moved Sm\u00e9agol, Helpful Guide from battlefield to command.'),
+      gameLogEntry('event-2', 'card.moved', 'Moved Sm\u00e9agol, Helpful Guide from command to battlefield.'),
       gameLogEntry('event-3', 'counter.changed', 'Set commander:user-1 counter casts to 2.'),
     ];
 
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
-      'Moved SmÃ©agol, Helpful Guide from battlefield to command. Commander cast count increased from 1 to 2.',
+      'Moved Sm\u00e9agol, Helpful Guide from battlefield to command. Commander cast count increased from 1 to 2.',
     ]);
   });
 

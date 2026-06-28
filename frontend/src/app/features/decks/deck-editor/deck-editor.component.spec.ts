@@ -337,12 +337,12 @@ Deck
 
     expect(sideboardCards).toEqual([
       'Jace, the Mind Sculptor',
+      'Invasion of Zendikar',
       'Birds of Paradise',
       'Swan Song',
       'Cultivate',
       'Rhystic Study',
       'Sol Ring',
-      'Invasion of Zendikar',
       'Temple Garden',
       'Mystery Booster Card',
     ]);
@@ -502,6 +502,56 @@ Deck
     expect(fixture.componentInstance.store.displayCardTypeLine(deckCardEntry!.card)).toBe('Sorcery');
     fixture.componentInstance.store.toggleCardFace(new MouseEvent('click'), deckCardEntry!.card, { updatePreview: false });
     expect(fixture.componentInstance.store.displayCardTypeLine(deckCardEntry!.card)).toBe('Sorcery');
+  });
+
+  it('groups cards by the resolved front type line when the root type line is missing', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Resolved type line deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('main-artifact-face', 'main', {
+          ...card('Arcane Signet', ''),
+          typeLine: null,
+          cardFaces: [
+            cardFace('Arcane Signet', '/cards/arcane-signet.jpg', 'Artifact'),
+          ],
+        }),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    const groups = fixture.componentInstance.store.cardGroups();
+
+    expect(groups.map((group) => group.id)).toContain('artifact');
+    expect(groups.map((group) => group.id)).not.toContain('other');
+    expect(groups.find((group) => group.id === 'artifact')?.cards[0]?.card.name).toBe('Arcane Signet');
+  });
+
+  it('groups localized type lines into the canonical deck sections', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Localized type line deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('artifact-es', 'main', card('Arcane Signet', 'Artefacto')),
+        deckCard('land-es', 'main', card('Bosque nevado', 'Tierra basica - Bosque')),
+        deckCard('walker-es', 'main', card('Jace, escultor mental', 'Caminante de planos - Jace')),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    const groups = fixture.componentInstance.store.cardGroups();
+
+    expect(groups.find((group) => group.id === 'artifact')?.cards.map((entry) => entry.card.name)).toContain('Arcane Signet');
+    expect(groups.find((group) => group.id === 'land')?.cards.map((entry) => entry.card.name)).toContain('Bosque nevado');
+    expect(groups.find((group) => group.id === 'planeswalker')?.cards.map((entry) => entry.card.name)).toContain('Jace, escultor mental');
   });
 
   it('shows land quantity including modal double-faced lands assigned to other groups', async () => {
@@ -913,6 +963,63 @@ Deck
 
     expect(autocomplete.filters).toEqual({});
   });
+
+  it('renders battle hover previews with the rotated cards treatment', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard());
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    const battleCard = {
+      ...card('Invasion of Zendikar', 'Battle - Siege'),
+      imageUris: { normal: 'https://cards.test/invasion-of-zendikar.jpg' },
+    };
+
+    fixture.componentInstance.store.deck.set(buildDeckWithSingleCard());
+    fixture.componentInstance.store.loading.set(false);
+    fixture.componentInstance.store.cardPreview.set({
+      card: battleCard,
+      imageUrl: 'https://cards.test/invasion-of-zendikar.jpg',
+      top: 24,
+      left: 32,
+    });
+    fixture.detectChanges();
+
+    const previewImage = fixture.nativeElement.querySelector('.card-hover-preview img') as HTMLImageElement | null;
+
+    expect(previewImage).not.toBeNull();
+    expect(previewImage?.classList.contains('card-image--battle')).toBe(true);
+  });
+
+  it('removes the battle hover rotation when the flipped visible face is not a battle', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard());
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    const doubleFacedBattle = {
+      ...card('Invasion of Zendikar // Awakened Skyclave', 'Battle - Siege', 'transform'),
+      imageUris: { normal: 'https://cards.test/invasion-of-zendikar.jpg' },
+      cardFaces: [
+        cardFace('Invasion of Zendikar', 'https://cards.test/invasion-of-zendikar.jpg', 'Battle - Siege'),
+        cardFace('Awakened Skyclave', 'https://cards.test/awakened-skyclave.jpg', 'Land'),
+      ],
+    };
+
+    fixture.componentInstance.store.deck.set({
+      ...buildDeckWithSingleCard(),
+      cards: [deckCard('main-card', 'main', doubleFacedBattle)],
+    });
+    fixture.componentInstance.store.loading.set(false);
+    fixture.componentInstance.store.cardPreview.set({
+      card: doubleFacedBattle,
+      imageUrl: 'https://cards.test/awakened-skyclave.jpg',
+      top: 24,
+      left: 32,
+    });
+    fixture.componentInstance.store.toggleCardFace(new MouseEvent('click'), doubleFacedBattle, { updatePreview: false });
+    fixture.detectChanges();
+
+    const previewRoot = fixture.nativeElement.querySelector('.card-hover-preview') as HTMLElement | null;
+    const previewImage = fixture.nativeElement.querySelector('.card-hover-preview img') as HTMLImageElement | null;
+
+    expect(previewRoot?.classList.contains('card-hover-preview--battle')).toBe(false);
+    expect(previewImage?.classList.contains('card-image--battle')).toBe(false);
+  });
 });
 
 function deckCard(id: string, section: DeckSection, card: Card, quantity = 1): DeckCard {
@@ -971,11 +1078,11 @@ function card(name: string, typeLine: string, layout = 'normal', colorIdentity: 
   };
 }
 
-function cardFace(name: string, imageUri: string | null = `/cards/${name}.jpg`): CardFace {
+function cardFace(name: string, imageUri: string | null = `/cards/${name}.jpg`, typeLine: string | null = null): CardFace {
   return {
     name,
     manaCost: null,
-    typeLine: null,
+    typeLine,
     oracleText: null,
     power: null,
     toughness: null,

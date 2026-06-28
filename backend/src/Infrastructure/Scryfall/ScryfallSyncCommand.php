@@ -2,6 +2,8 @@
 
 namespace App\Infrastructure\Scryfall;
 
+use App\Application\Card\CardSearchOptionsRebuilder;
+use App\Application\Card\CardSearchEntryRebuilder;
 use App\Domain\Card\Card;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
@@ -25,6 +27,8 @@ class ScryfallSyncCommand extends Command
     public function __construct(
         private readonly ScryfallBulkDataClient $bulkDataClient,
         private readonly Connection $connection,
+        private readonly CardSearchOptionsRebuilder $searchOptionsRebuilder,
+        private readonly CardSearchEntryRebuilder $searchEntryRebuilder,
         #[Autowire('%env(default::SCRYFALL_SYNC_MEMORY_LIMIT)%')]
         private readonly string $defaultMemoryLimit = '512M',
     ) {
@@ -112,6 +116,16 @@ class ScryfallSyncCommand extends Command
             $skipped,
             $skippedUnavailable,
         ));
+        if ($this->searchOptionTablesAvailable()) {
+            $output->writeln('Rebuilding localized card search options...');
+            $this->searchOptionsRebuilder->rebuild();
+            $output->writeln('Localized card search options rebuilt.');
+        }
+        if ($this->searchEntryTableAvailable()) {
+            $output->writeln('Rebuilding materialized card search entries...');
+            $this->searchEntryRebuilder->rebuild();
+            $output->writeln('Materialized card search entries rebuilt.');
+        }
 
         return Command::SUCCESS;
     }
@@ -184,6 +198,8 @@ INSERT INTO card (
     layout,
     commander_legal,
     set_code,
+    set_name,
+    rarity,
     collector_number,
     lang,
     printed_name,
@@ -215,6 +231,8 @@ INSERT INTO card (
     :layout,
     :commander_legal,
     :set_code,
+    :set_name,
+    :rarity,
     :collector_number,
     :lang,
     :printed_name,
@@ -245,6 +263,8 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     layout = EXCLUDED.layout,
     commander_legal = EXCLUDED.commander_legal,
     set_code = EXCLUDED.set_code,
+    set_name = EXCLUDED.set_name,
+    rarity = EXCLUDED.rarity,
     collector_number = EXCLUDED.collector_number,
     lang = EXCLUDED.lang,
     printed_name = EXCLUDED.printed_name,
@@ -277,6 +297,8 @@ SQL,
                 'layout' => $data['layout'] ?? 'normal',
                 'commander_legal' => ($legalities['commander'] ?? null) === 'legal',
                 'set_code' => $data['set'] ?? null,
+                'set_name' => $this->cardString($data, 'set_name'),
+                'rarity' => $this->cardString($data, 'rarity'),
                 'collector_number' => $data['collector_number'] ?? null,
                 'lang' => $data['lang'] ?? null,
                 'printed_name' => $data['printed_name'] ?? null,
@@ -311,6 +333,7 @@ INSERT INTO card_print (
     collector_number,
     default_name,
     default_lang,
+    default_set_name,
     default_mana_cost,
     default_type_line,
     default_oracle_text,
@@ -326,6 +349,7 @@ INSERT INTO card_print (
     :collector_number,
     :default_name,
     :default_lang,
+    :default_set_name,
     :default_mana_cost,
     :default_type_line,
     :default_oracle_text,
@@ -346,6 +370,10 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     default_lang = CASE
         WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_lang
         ELSE card_print.default_lang
+    END,
+    default_set_name = CASE
+        WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_set_name
+        ELSE card_print.default_set_name
     END,
     default_mana_cost = CASE
         WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_mana_cost
@@ -378,6 +406,7 @@ SQL,
                 'collector_number' => $data['collector_number'] ?? null,
                 'default_name' => $name,
                 'default_lang' => $lang,
+                'default_set_name' => $this->cardString($data, 'set_name'),
                 'default_mana_cost' => $this->cardString($data, 'mana_cost'),
                 'default_type_line' => $this->cardString($data, 'type_line'),
                 'default_oracle_text' => $this->oracleText($data),
@@ -409,6 +438,7 @@ INSERT INTO card_print_locale (
     mana_cost,
     type_line,
     oracle_text,
+    set_name,
     image_uris,
     card_faces,
     image_status,
@@ -421,6 +451,7 @@ INSERT INTO card_print_locale (
     :mana_cost,
     :type_line,
     :oracle_text,
+    :set_name,
     :image_uris,
     :card_faces,
     :image_status,
@@ -432,6 +463,7 @@ ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
     mana_cost = EXCLUDED.mana_cost,
     type_line = EXCLUDED.type_line,
     oracle_text = EXCLUDED.oracle_text,
+    set_name = EXCLUDED.set_name,
     image_uris = EXCLUDED.image_uris,
     card_faces = EXCLUDED.card_faces,
     image_status = EXCLUDED.image_status,
@@ -443,8 +475,9 @@ SQL,
                 'name' => $name,
                 'printed_name' => $printedName,
                 'mana_cost' => $this->cardString($data, 'mana_cost'),
-                'type_line' => $this->cardString($data, 'type_line'),
+                'type_line' => $this->localizedCardString($data, 'printed_type_line', 'type_line'),
                 'oracle_text' => $this->oracleText($data),
+                'set_name' => $this->cardString($data, 'set_name'),
                 'image_uris' => $imageUris,
                 'card_faces' => $cardFaces,
                 'image_status' => isset($data['image_status']) && is_scalar($data['image_status']) && (string) $data['image_status'] !== ''
@@ -474,6 +507,13 @@ SQL,
         $value = $data[$key] ?? $this->firstFaceValue($data, $key);
 
         return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
+    }
+
+    private function localizedCardString(array $data, string $printedKey, string $fallbackKey): ?string
+    {
+        $printedValue = $this->cardString($data, $printedKey);
+
+        return $printedValue ?? $this->cardString($data, $fallbackKey);
     }
 
     private function faceStats(array $data): array
@@ -598,6 +638,24 @@ SQL,
             && $cardPrintLocale !== '';
 
         return $this->printTablesAvailable;
+    }
+
+    private function searchOptionTablesAvailable(): bool
+    {
+        $optionTable = $this->connection->fetchOne("SELECT to_regclass('public.card_search_option')");
+        $setOptionTable = $this->connection->fetchOne("SELECT to_regclass('public.card_search_set_option')");
+
+        return is_string($optionTable)
+            && $optionTable !== ''
+            && is_string($setOptionTable)
+            && $setOptionTable !== '';
+    }
+
+    private function searchEntryTableAvailable(): bool
+    {
+        $entryTable = $this->connection->fetchOne("SELECT to_regclass('public.card_search_entry')");
+
+        return is_string($entryTable) && $entryTable !== '';
     }
 
     private function isImageStatusUnavailable(mixed $value): bool

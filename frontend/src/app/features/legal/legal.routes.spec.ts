@@ -11,9 +11,8 @@ describe('legal routes', () => {
     expect(paths).toContain('/cookie-policy/');
     expect(paths).toContain('/es/politica-privacidad/');
     expect(paths).toContain('/de/datenschutzerklaerung/');
-    expect(paths).toContain('/fr/contact/');
     expect(paths).toContain('/pt/termos/');
-    expect(paths).toContain('/it/contatto/');
+    expect(paths).toContain('/it/termini/');
   });
 
   it('keeps route data explicit for metadata and robots handling', () => {

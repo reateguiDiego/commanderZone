@@ -92,6 +92,14 @@ final readonly class GameWebsocketCommandResult
     }
 
     /**
+     * @return list<array<string,mixed>>
+     */
+    public function fallbackMessages(): array
+    {
+        return $this->messageList($this->fallbackMessage);
+    }
+
+    /**
      * @return array<string,float>|null
      */
     public function debugProfile(): ?array
@@ -106,6 +114,10 @@ final readonly class GameWebsocketCommandResult
      */
     private function messageList(array $messages): array
     {
+        if ($messages === []) {
+            return [];
+        }
+
         if (array_is_list($messages) && $messages !== []) {
             $allMessages = true;
             foreach ($messages as $message) {

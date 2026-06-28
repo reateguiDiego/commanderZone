@@ -59,17 +59,18 @@
       </div>
 
       <div class="deck-filters" [class.search-open]="searchPanelOpen()">
-        <button
-          czButton="icon"
-          class="icon-button deck-search-toggle"
-          type="button"
-          title="Buscar mazos"
-          aria-label="Buscar mazos"
-          [attr.aria-expanded]="searchPanelOpen()"
-          (click)="toggleSearchPanel(deckSearchInput)"
-        >
-          <lucide-icon name="search" size="18" />
-        </button>
+        <app-tooltip text="Buscar mazos">
+          <button
+            czButton="icon"
+            class="icon-button deck-search-toggle"
+            type="button"
+            aria-label="Buscar mazos"
+            [attr.aria-expanded]="searchPanelOpen()"
+            (click)="toggleSearchPanel(deckSearchInput)"
+          >
+            <lucide-icon name="search" size="18" />
+          </button>
+        </app-tooltip>
 
         <label class="deck-search">
           <lucide-icon name="search" size="18" />
@@ -109,7 +110,7 @@
     </div>
 
     @if (store.loading()) {
-      <p class="notice">{{ 'deckBuilder.deckList.loadingDecks' | runtimeTranslate }}</p>
+      <app-global-loader />
     } @else if (store.error()) {
       <p class="notice error">{{ store.error() }}</p>
     } @else if (store.decks().length === 0 && store.folders().length === 0) {
@@ -134,39 +135,56 @@
                     </div>
 
                     <div class="deck-card-footer">
-                      <span
-                        class="visibility-pill"
-                        [class.public]="item.folder.visibility === 'public'"
-                        [attr.title]="visibilityLabelKey(item.folder.visibility) | runtimeTranslate"
-                        [attr.aria-label]="visibilityLabelKey(item.folder.visibility) | runtimeTranslate"
-                      >
-                        <lucide-icon [name]="visibilityIcon(item.folder.visibility)" size="13" aria-hidden="true" />
-                      </span>
+                      <app-tooltip [text]="visibilityLabelKey(item.folder.visibility) | runtimeTranslate">
+                        <span
+                          class="visibility-pill"
+                          [class.public]="item.folder.visibility === 'public'"
+                          [attr.aria-label]="visibilityLabelKey(item.folder.visibility) | runtimeTranslate"
+                        >
+                          <lucide-icon [name]="visibilityIcon(item.folder.visibility)" size="13" aria-hidden="true" />
+                        </span>
+                      </app-tooltip>
                       <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-                        <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="suppressRowActionClick($event); store.openRenameFolderModal(item.folder)">
-                          <lucide-icon name="pencil" size="15" />
-                        </button>
-                        <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="suppressRowActionClick($event); store.deleteFolder(item.folder)">
-                          <lucide-icon name="trash-2" size="15" />
-                        </button>
+                        <app-tooltip [text]="'deckBuilder.deckList.renameFolder' | runtimeTranslate">
+                          <button czButton="icon" class="icon-button" type="button" (click)="suppressRowActionClick($event); store.openRenameFolderModal(item.folder)">
+                            <lucide-icon name="pencil" size="15" />
+                          </button>
+                        </app-tooltip>
+                        <app-tooltip [text]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate">
+                          <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" (click)="suppressRowActionClick($event); store.deleteFolder(item.folder)">
+                            <lucide-icon name="trash-2" size="15" />
+                          </button>
+                        </app-tooltip>
                       </div>
                     </div>
                   </article>
                 }
                 @case ('deck') {
-                  <app-deck-list-card
-                    [deck]="item.deck"
-                    [commanderBackground]="store.deckCommanderBackground(item.deck)"
-                    [secondaryCommanderBackground]="store.deckSecondaryCommanderBackground(item.deck)"
-                    [colorIdentity]="store.commanderColorIdentity(item.deck)"
-                    [hasCommanderArt]="store.deckCommanderImage(item.deck) !== null"
-                    [hasDualCommanderArt]="store.hasDualCommanderArt(item.deck)"
-                    [hasIssues]="store.deckHasIssues(item.deck)"
-                    [issueTooltip]="store.deckIssueTooltip(item.deck)"
-                    (openDeck)="store.openDeck(item.deck.id)"
-                    (editDeck)="store.openDeckEditModal(item.deck)"
-                    (deleteDeck)="store.deleteDeck(item.deck)"
-                  />
+                  <article class="deck-owner-card">
+                    <app-deck-list-card
+                      [deck]="item.deck"
+                      [commanderBackground]="store.deckCommanderBackground(item.deck)"
+                      [secondaryCommanderBackground]="store.deckSecondaryCommanderBackground(item.deck)"
+                      [colorIdentity]="store.commanderColorIdentity(item.deck)"
+                      [hasCommanderArt]="store.deckCommanderImage(item.deck) !== null"
+                      [hasDualCommanderArt]="store.hasDualCommanderArt(item.deck)"
+                      [hasIssues]="store.deckHasIssues(item.deck)"
+                      [issueTooltip]="store.deckIssueTooltip(item.deck)"
+                      (openDeck)="store.openDeck(item.deck.id)"
+                    />
+                    <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+                      <app-tooltip [text]="'deckBuilder.deckList.editDeck' | runtimeTranslate">
+                        <button czButton="icon" class="icon-button" type="button" (click)="suppressRowActionClick($event); store.openDeckEditModal(item.deck)">
+                          <lucide-icon name="pencil" size="16" />
+                        </button>
+                      </app-tooltip>
+                      <app-tooltip [text]="'deckBuilder.deckList.deleteDeck' | runtimeTranslate">
+                        <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" (click)="suppressRowActionClick($event); store.deleteDeck(item.deck)">
+                          <lucide-icon name="trash-2" size="16" />
+                        </button>
+                      </app-tooltip>
+                    </div>
+                  </article>
                 }
               }
             }
@@ -178,10 +196,7 @@
     } @else if (store.currentFolder(); as currentFolder) {
       <section class="deck-collection-panel">
           <div class="folder-collection-header">
-            <button czButton="text" czButtonSize="sm" class="text-button compact" type="button" (click)="store.leaveFolder()">
-              <lucide-icon name="arrow-left" size="16" />
-              {{ 'deckBuilder.deckList.decks' | runtimeTranslate }}
-            </button>
+            <app-back-button (pressed)="store.leaveFolder()" />
             <div class="folder-heading">
               <div class="folder-icon-wrap">
                 <lucide-icon name="folder" size="20" />
@@ -191,12 +206,16 @@
                 </div>
               </div>
               <div class="button-row">
-                <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(currentFolder)">
-                  <lucide-icon name="pencil" size="16" />
-                </button>
-                <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(currentFolder)">
-                  <lucide-icon name="trash-2" size="16" />
-                </button>
+                <app-tooltip [text]="'deckBuilder.deckList.renameFolder' | runtimeTranslate">
+                  <button czButton="icon" class="icon-button" type="button" (click)="store.openRenameFolderModal(currentFolder)">
+                    <lucide-icon name="pencil" size="16" />
+                  </button>
+                </app-tooltip>
+                <app-tooltip [text]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate">
+                  <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" (click)="store.deleteFolder(currentFolder)">
+                    <lucide-icon name="trash-2" size="16" />
+                  </button>
+                </app-tooltip>
               </div>
             </div>
           </div>
@@ -204,19 +223,31 @@
           @if (store.hasVisibleActiveDecks()) {
             <div class="deck-table-list">
               @for (deck of store.visibleCurrentFolderDecks(); track deck.id) {
-                <app-deck-list-card
-                  [deck]="deck"
-                  [commanderBackground]="store.deckCommanderBackground(deck)"
-                  [secondaryCommanderBackground]="store.deckSecondaryCommanderBackground(deck)"
-                  [colorIdentity]="store.commanderColorIdentity(deck)"
-                  [hasCommanderArt]="store.deckCommanderImage(deck) !== null"
-                  [hasDualCommanderArt]="store.hasDualCommanderArt(deck)"
-                  [hasIssues]="store.deckHasIssues(deck)"
-                  [issueTooltip]="store.deckIssueTooltip(deck)"
-                  (openDeck)="store.openDeck(deck.id)"
-                  (editDeck)="store.openDeckEditModal(deck)"
-                  (deleteDeck)="store.deleteDeck(deck)"
-                />
+                <article class="deck-owner-card">
+                  <app-deck-list-card
+                    [deck]="deck"
+                    [commanderBackground]="store.deckCommanderBackground(deck)"
+                    [secondaryCommanderBackground]="store.deckSecondaryCommanderBackground(deck)"
+                    [colorIdentity]="store.commanderColorIdentity(deck)"
+                    [hasCommanderArt]="store.deckCommanderImage(deck) !== null"
+                    [hasDualCommanderArt]="store.hasDualCommanderArt(deck)"
+                    [hasIssues]="store.deckHasIssues(deck)"
+                    [issueTooltip]="store.deckIssueTooltip(deck)"
+                    (openDeck)="store.openDeck(deck.id)"
+                  />
+                  <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+                    <app-tooltip [text]="'deckBuilder.deckList.editDeck' | runtimeTranslate">
+                      <button czButton="icon" class="icon-button" type="button" (click)="suppressRowActionClick($event); store.openDeckEditModal(deck)">
+                        <lucide-icon name="pencil" size="16" />
+                      </button>
+                    </app-tooltip>
+                    <app-tooltip [text]="'deckBuilder.deckList.deleteDeck' | runtimeTranslate">
+                      <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" (click)="suppressRowActionClick($event); store.deleteDeck(deck)">
+                        <lucide-icon name="trash-2" size="16" />
+                      </button>
+                    </app-tooltip>
+                  </div>
+                </article>
               }
             </div>
           } @else {
@@ -233,10 +264,10 @@
     [primaryDisabled]="store.isCreatePrimaryDisabled()"
     [showSecondary]="!store.createFormLocked() && !store.createSubmitting()"
     secondaryLabel="Cancel"
-    (primary)="store.submitCreateModal()"
-    (secondary)="store.cancelCreateFlow()"
+    (primary)="submitCreateModal()"
+    (secondary)="cancelCreateFlow()"
   >
-    <form class="form-stack create-deck-form deck-modal-form" (ngSubmit)="store.submitCreateModal()">
+    <form class="form-stack create-deck-form deck-modal-form" (ngSubmit)="submitCreateModal()">
       @if (store.createFormLocked()) {
         <div class="notice create-import-result" [class.warning]="!store.hasCreateImportError()" [class.error]="store.hasCreateImportError()">
           @if (store.createdImportMessage()) {
@@ -311,23 +342,27 @@
           @if (!store.newDeckCreateEmpty && store.selectedFormat()?.hasCommander) {
             <div class="form-stack">
               <label for="commanderSearch">{{ 'deckBuilder.deckList.commander' | runtimeTranslate }}</label>
-              <div
-                class="commander-autocomplete-shell"
-                [class.commander-autocomplete-shell-disabled]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander()"
-                [attr.title]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander() ? ('deckBuilder.deckList.commanderSelectionLimitReached' | runtimeTranslate) : null"
+              <app-tooltip
+                [text]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander() ? ('deckBuilder.deckList.commanderSelectionLimitReached' | runtimeTranslate) : null"
+                [stretch]="true"
               >
-                <app-card-autocomplete
-                  [placeholder]="'deckBuilder.deckList.searchCommanderByName' | runtimeTranslate"
-                  actionLabel="Select"
-                  [disabled]="store.isCreateFormDisabled() || !store.canSelectAnotherCommander()"
-                  [filters]="{ commanderLegal: true }"
-                  [commanderCandidateOnly]="true"
-                  [clearOnSelect]="true"
-                  [query]="store.commanderQuery"
-                  (queryChange)="store.setCommanderQuery($event)"
-                  (cardSelected)="store.selectCommander($event.card)"
-                />
-              </div>
+                <div
+                  class="commander-autocomplete-shell"
+                  [class.commander-autocomplete-shell-disabled]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander()"
+                >
+                  <app-card-autocomplete
+                    [placeholder]="'deckBuilder.deckList.searchCommanderByName' | runtimeTranslate"
+                    actionLabel="Select"
+                    [disabled]="store.isCreateFormDisabled() || !store.canSelectAnotherCommander()"
+                    [filters]="{ commanderLegal: true }"
+                    [commanderCandidateOnly]="true"
+                    [clearOnSelect]="true"
+                    [query]="store.commanderQuery"
+                    (queryChange)="store.setCommanderQuery($event)"
+                    (cardSelected)="store.selectCommander($event.card)"
+                  />
+                </div>
+              </app-tooltip>
 
               @if (store.selectedCommanders().length > 0) {
                 <div class="selected-commanders-row">
@@ -348,16 +383,17 @@
                           >
                             <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
                           </span>
-                          <button
-                            czButton="icon"
-                            class="commander-preview-remove"
-                            type="button"
-                            title="Remove commander"
-                            [disabled]="store.isCreateFormDisabled()"
-                            (click)="removeCommander(commander.scryfallId)"
-                          >
-                            <lucide-icon name="x" size="10" />
-                          </button>
+                          <app-tooltip text="Remove commander">
+                            <button
+                              czButton="icon"
+                              class="commander-preview-remove"
+                              type="button"
+                              [disabled]="store.isCreateFormDisabled()"
+                              (click)="removeCommander(commander.scryfallId)"
+                            >
+                              <lucide-icon name="x" size="10" />
+                            </button>
+                          </app-tooltip>
                         </div>
                       }
                     </article>
@@ -382,7 +418,6 @@
                   (click)="createdDeckFileInput.click()"
                 >
                   @if (store.createdDeckFileLoading()) {
-                    <lucide-icon name="loader-circle" size="16" />
                     {{ 'common.app.app.loading' | runtimeTranslate }}
                   } @else {
                     <lucide-icon name="file-up" size="16" />
@@ -414,9 +449,9 @@
     [title]="'deckBuilder.deckList.deckSaved' | runtimeTranslate"
     [message]="store.createSuccessMessage()"
     [primaryLabel]="store.createSuccessPrimaryLabel()"
-    secondaryLabel="Back to decks"
+    secondaryLabel="deckBuilder.deckList.deckListLabel"
     (primary)="store.openCreatedDeckFromSuccess()"
-    (secondary)="store.closeCreateSuccessModal()"
+    (secondary)="store.returnToDeckListFromSuccess()"
   />
 
   <app-modal

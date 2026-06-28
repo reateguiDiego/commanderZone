@@ -225,6 +225,31 @@ describe('MulliganOverlayComponent', () => {
     expect(acceptButton().disabled).toBe(false);
   });
 
+  it('enables keep after take when the private hand is ready and no bottom cards are required', () => {
+    setMulligan('LONDON', {
+      bottomSelectionCount: 0,
+      needsBottomSelection: false,
+      status: 'DECIDING',
+      ready: false,
+    });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.componentRef.setInput('pending', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.mulligan-card').length).toBe(3);
+    expect(fixture.nativeElement.textContent).not.toContain('Unknown Card');
+    expect(acceptButton().disabled).toBe(false);
+  });
+
+  it('keeps keep disabled while the mulligan action is still pending', () => {
+    setMulligan('LONDON', { bottomSelectionCount: 0 });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.componentRef.setInput('pending', true);
+    fixture.detectChanges();
+
+    expect(acceptButton().disabled).toBe(true);
+  });
+
   it('does not emit keep until the player accepts the selected bottom cards', () => {
     const keepSpy = vi.fn();
     fixture.componentInstance.keep.subscribe(keepSpy);
@@ -240,6 +265,26 @@ describe('MulliganOverlayComponent', () => {
     acceptButton().click();
 
     expect(keepSpy).toHaveBeenCalledWith(['card-1']);
+  });
+
+  it('distinguishes duplicated cards by instanceId when selecting bottom cards', () => {
+    const keepSpy = vi.fn();
+    fixture.componentInstance.keep.subscribe(keepSpy);
+    fixture.componentRef.setInput('hand', [
+      card('copy-a', 'Brainstorm'),
+      card('copy-b', 'Brainstorm'),
+      card('card-3', 'Island'),
+    ]);
+    setMulligan('LONDON', { bottomSelectionCount: 2 });
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.detectChanges();
+
+    selectCardWithButton('copy-a');
+    selectCardWithButton('copy-b');
+    fixture.detectChanges();
+    acceptButton().click();
+
+    expect(keepSpy).toHaveBeenCalledWith(['copy-a', 'copy-b']);
   });
 
   it('mounts and destroys without errors when reduced motion is enabled', () => {

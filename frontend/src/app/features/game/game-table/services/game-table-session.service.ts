@@ -7,9 +7,13 @@ import {
   GameplayMulliganErrorMessage,
   GameplayMulliganPrivateStateMessage,
   GameplayMulliganPublicStateMessage,
+  GameplayPatchV2Message,
 } from '../../../../core/models/game-realtime.model';
 import { GameTableGameRealtimeService } from './game-table-game-realtime.service';
+import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
+import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
+import { GameTableStaticCardCacheV2Service } from './game-table-static-card-cache-v2.service';
 
 export interface GameTableSessionContext {
   gameId(): string;
@@ -26,6 +30,7 @@ export interface GameTableSessionContext {
   onMulliganPrivateState?(message: GameplayMulliganPrivateStateMessage): void;
   onMulliganError?(message: GameplayMulliganErrorMessage): void;
   onMulliganCompleted?(message: GameplayMulliganCompletedMessage): void;
+  onMulliganPatchV2Applied?(patch: GameplayPatchV2Message, snapshot: GameSnapshot): void;
   refreshViewerControlAccess?(): Promise<void>;
   navigateToRoomsWithLoadError(): void;
   navigateToWaitingRoom(roomId: string): void;
@@ -35,7 +40,10 @@ export interface GameTableSessionContext {
 export class GameTableSessionService {
   private readonly gamesApi = inject(GamesApi);
   private readonly gameRealtime = inject(GameTableGameRealtimeService);
+  private readonly gameplayV2Flags = inject(GameTableGameplayV2FlagsService);
+  private readonly normalizedV2Store = inject(GameTableNormalizedV2Store);
   private readonly websocket = inject(GameTableWebsocketGameplayService);
+  private readonly staticCardCacheV2 = inject(GameTableStaticCardCacheV2Service);
   private deferredRemoteSnapshot: GameSnapshot | null = null;
   readonly realtimeStatus = computed<'connecting' | 'live' | 'degraded'>(() => {
     const status = this.websocket.status();
@@ -65,6 +73,7 @@ export class GameTableSessionService {
         onMulliganPrivateState: (message) => context.onMulliganPrivateState?.(message),
         onMulliganError: (message) => context.onMulliganError?.(message),
         onMulliganCompleted: (message) => context.onMulliganCompleted?.(message),
+        onMulliganPatchV2Applied: (patch, snapshot) => context.onMulliganPatchV2Applied?.(patch, snapshot),
       }, gameId);
       this.subscribeToGameRealtime(context, gameId);
     } catch {
@@ -78,6 +87,11 @@ export class GameTableSessionService {
   }
 
   async refetch(context: GameTableSessionContext, force = false): Promise<void> {
+    if (this.gameplayV2Flags.enabled()) {
+      await this.refetchV2(context, force);
+      return;
+    }
+
     const gameId = context.gameId();
     if (!gameId) {
       return;
@@ -125,6 +139,10 @@ export class GameTableSessionService {
   }
 
   private refetchIfSnapshotIsBehind(context: GameTableSessionContext, event: MercureGameEvent): void {
+    if (this.gameplayV2Flags.enabled() && this.websocket.status() === 'connected') {
+      return;
+    }
+
     const currentSnapshot = context.snapshot();
     if (typeof event.version === 'number' && currentSnapshot && currentSnapshot.version >= event.version) {
       return;
@@ -138,6 +156,26 @@ export class GameTableSessionService {
     if (!context.focusedPlayerId()) {
       context.setFocusedPlayerId(context.ownPlayerId(nextSnapshot) ?? nextSnapshot.turn.activePlayerId ?? Object.keys(nextSnapshot.players)[0] ?? null);
     }
+  }
+
+  private async refetchV2(context: GameTableSessionContext, force = false): Promise<void> {
+    const gameId = context.gameId();
+    if (!gameId) {
+      return;
+    }
+
+    const bootstrap = await firstValueFrom(this.gamesApi.bootstrapV2(gameId, this.staticCardCacheV2.knownCatalogKeys()));
+    const nextSnapshot = this.normalizedV2Store.applyBootstrap(this.staticCardCacheV2.mergeBootstrap(bootstrap));
+    const currentSnapshot = context.snapshot();
+    if (!force && currentSnapshot?.version === nextSnapshot.version && !this.hasProjectionMetadataChanged(currentSnapshot, nextSnapshot)) {
+      return;
+    }
+    if (!force && context.hasActivePointerDrag()) {
+      this.deferredRemoteSnapshot = nextSnapshot;
+      return;
+    }
+
+    this.applySnapshot(context, nextSnapshot);
   }
 
   private hasProjectionMetadataChanged(current: GameSnapshot, next: GameSnapshot): boolean {

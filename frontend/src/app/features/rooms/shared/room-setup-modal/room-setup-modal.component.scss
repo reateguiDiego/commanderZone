@@ -89,11 +89,16 @@
   align-items: start;
 }
 
-.setup-modal-row:first-of-type > .create-fields,
-.setup-modal-row:first-of-type > app-game-setup-life-control {
+.setup-modal-row:first-of-type > .create-fields {
   width: 100%;
   min-width: 0;
   max-width: none;
+}
+
+.setup-modal-row:first-of-type > app-game-setup-life-control {
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
 }
 
 .create-fields {
@@ -116,7 +121,6 @@
 }
 
 .setup-field-label,
-.mulligan-toggle-label,
 :host ::ng-deep .format-select-label,
 :host ::ng-deep .visibility-choice__label,
 :host ::ng-deep .eyebrow {
@@ -156,79 +160,9 @@
   gap: 0.46rem;
 }
 
-.mulligan-toggle-button {
-  display: flex;
-  min-height: 2.85rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border: 1px solid rgb(var(--room-setup-border-rgb) / 30%);
-  border-radius: 12px;
-  padding: 0 0.85rem;
-  background:
-    linear-gradient(180deg, var(--room-setup-soft-highlight), transparent),
-    var(--room-setup-control-bg);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%),
-    0 0.6rem 1.15rem rgb(var(--cz-bg-rgb) / 13%);
-  color: var(--cz-text);
-  font: inherit;
-  cursor: pointer;
-}
-
-.mulligan-toggle-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.58;
-}
-
-.mulligan-toggle-button:focus-visible {
-  outline: 2px solid rgb(var(--room-setup-accent-rgb) / 76%);
-  outline-offset: 2px;
-}
-
-.mulligan-toggle-track {
-  position: relative;
-  display: block;
-  width: 3.2rem;
-  height: 1.45rem;
-  border: 1px solid rgb(var(--room-setup-border-rgb) / 36%);
-  border-radius: 999px;
-  background: rgb(var(--cz-bg-rgb) / 72%);
-  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 7%);
-}
-
-.mulligan-toggle-thumb {
-  position: absolute;
-  top: 50%;
-  left: 0.22rem;
-  width: 0.98rem;
-  height: 0.98rem;
-  border-radius: 999px;
-  background: rgb(var(--cz-text-rgb) / 62%);
-  transform: translateY(-50%);
-  transition:
-    transform 150ms ease,
-    background 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.mulligan-toggle-button.is-on .mulligan-toggle-thumb {
-  background: var(--room-setup-accent);
-  box-shadow: 0 0 0.7rem rgb(var(--room-setup-accent-rgb) / 54%);
-  transform: translate(1.6rem, -50%);
-}
-
-.mulligan-toggle-state {
-  color: var(--cz-text);
-  font-size: 0.86rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
 .mulligan-description {
   margin: 0;
-  color: rgb(var(--cz-text-rgb) / 72%);
+  color: var(--cz-info);
   font-size: 0.76rem;
   font-weight: 650;
   line-height: 1.35;
@@ -354,6 +288,46 @@
   box-sizing: border-box;
 }
 
+:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.46rem;
+  min-height: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .control-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  min-height: 1rem;
+  text-align: left;
+}
+
+:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .eyebrow {
+  color: var(--cz-text);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .life-editor {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  min-height: 2.5rem;
+}
+
+:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .life-step-button,
+:host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets .life-value-button {
+  width: 100%;
+  min-width: 0;
+}
+
 :host ::ng-deep .setup-control:not(.has-presets) .control-copy,
 :host ::ng-deep .setup-control:not(.life-control) .control-copy {
   display: flex;
@@ -380,10 +354,10 @@
 
 :host ::ng-deep .modal-panel-compact app-game-setup-life-control .life-editor {
   display: grid;
-  grid-template-columns: 2.1rem minmax(3.55rem, 4.35rem) 2.1rem;
+  grid-template-columns: 1.95rem minmax(3.25rem, 3.95rem) 1.95rem;
   justify-content: center;
   justify-self: center;
-  width: min(10.6rem, 100%);
+  width: min(9.4rem, 100%);
   min-height: 2.55rem;
   gap: 0.24rem;
 }
@@ -472,5 +446,12 @@
 
   .setup-modal-row:first-of-type {
     grid-template-columns: 1fr;
+  }
+
+  .setup-modal-row:first-of-type > app-game-setup-life-control,
+  :host ::ng-deep .setup-modal-row:first-of-type app-game-setup-life-control .setup-control.has-presets {
+    justify-self: stretch;
+    width: 100%;
+    max-width: none;
   }
 }

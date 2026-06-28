@@ -59,9 +59,19 @@ describe('PlayerNameComponent', () => {
 
     const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
     expect(name.classList.contains('name-length-ultra')).toBe(true);
-    expect(name.style.getPropertyValue('--player-name-auto-font-size')).toBe('0.44rem');
-    expect(name.style.getPropertyValue('--player-name-plain-font-size')).toBe('0.72rem');
-    expect(name.getAttribute('title')).toBe('CommanderZonePilotName25');
+    expect(name.style.getPropertyValue('--player-name-auto-font-size')).toBe('0.7rem');
+    expect(name.style.getPropertyValue('--player-name-plain-font-size')).toBe('1.02rem');
+    expect(name.getAttribute('title')).toBeNull();
+  });
+
+  it('does not render tooltips even when a tooltip mode is provided', () => {
+    fixture.componentRef.setInput('displayName', 'Finetti');
+    fixture.componentRef.setInput('tooltipMode', 'shared');
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+    expect(fixture.nativeElement.querySelector('app-tooltip')).toBeNull();
+    expect(name.getAttribute('title')).toBeNull();
   });
 
   it('keeps medium-length display names in the medium bucket', () => {
@@ -82,6 +92,6 @@ describe('PlayerNameComponent', () => {
     expect(name.classList.contains('plate-size-xs')).toBe(true);
     expect(name.style.getPropertyValue('--player-name-plate-width')).toBe('10.4rem');
     expect(name.style.getPropertyValue('--player-name-plate-height')).toBe('2.6rem');
-    expect(name.style.getPropertyValue('--player-name-auto-font-size')).toBe('0.82rem');
+    expect(name.style.getPropertyValue('--player-name-auto-font-size')).toBe('1.02rem');
   });
 });

@@ -10,7 +10,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_login_attempt_scope_identifier', columns: ['scope', 'identifier'])]
 class LoginAttempt
 {
-    private const FAILURE_WINDOW_SECONDS = 3600;
+    private const FAILURE_WINDOW_SECONDS = 900;
     private const MAX_FAILURES_PER_WINDOW = 5;
 
     #[ORM\Id]
@@ -46,6 +46,16 @@ class LoginAttempt
     public function isLockedAt(\DateTimeImmutable $now): bool
     {
         return $this->lockoutUntil !== null && $this->lockoutUntil > $now;
+    }
+
+    public function activeFailureCountAt(\DateTimeImmutable $now): int
+    {
+        $windowStart = $now->modify(sprintf('-%d seconds', self::FAILURE_WINDOW_SECONDS));
+        if ($this->lastFailedAt === null || $this->lastFailedAt <= $windowStart) {
+            return 0;
+        }
+
+        return $this->failureCount;
     }
 
     public function registerFailure(\DateTimeImmutable $now): void

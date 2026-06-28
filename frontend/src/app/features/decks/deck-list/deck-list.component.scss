@@ -258,6 +258,11 @@
   gap: clamp(0.85rem, 1.35vw, 1.15rem);
 }
 
+.deck-owner-card {
+  position: relative;
+  min-width: 0;
+}
+
 .deck-row-clickable {
   cursor: pointer;
   touch-action: manipulation;
@@ -305,15 +310,32 @@
 }
 
 .deck-row-actions {
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.85rem;
+  z-index: 3;
   padding: 0.24rem;
   border: 1px solid rgb(var(--cz-text-rgb) / 9%);
   border-radius: 7px;
   background: rgb(var(--cz-bg-rgb) / 48%);
   backdrop-filter: blur(8px);
+  opacity: 0.88;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    opacity 160ms ease;
 }
 
 .deck-row-actions button {
   -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deck-owner-card:hover .deck-row-actions {
+    border-color: rgb(var(--cz-primary-rgb) / 24%);
+    background: rgb(var(--cz-bg-rgb) / 62%);
+    opacity: 1;
+  }
 }
 
 .folder-list-row {

@@ -161,7 +161,10 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                     continue;
                 }
 
-                $isCommand = ($payload['kind'] ?? null) === 'command';
+                $payloadKind = is_string($payload['kind'] ?? null) ? $payload['kind'] : '';
+                $isCommand = $payloadKind === 'command'
+                    || $payloadKind === 'command.v2'
+                    || $this->mulligans->supports($payloadKind);
                 $debugEnabled = $this->debugHealth->isObserved($peer->gameId);
                 $incomingCharacters = strlen($rawMessage);
                 $incomingDebug = [];
@@ -179,7 +182,9 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                     $failedCommand = is_array($payload['command'] ?? null) ? $payload['command'] : [];
                     $this->safeRecordIncomingValidationError($peer->gameId, 'UNHANDLED_WEBSOCKET_ERROR', $exception->getMessage(), [
                         'kind' => is_string($payload['kind'] ?? null) ? $payload['kind'] : 'unknown',
-                        'action' => is_string($failedCommand['type'] ?? null) ? $failedCommand['type'] : null,
+                        'action' => is_string($failedCommand['type'] ?? null)
+                            ? $failedCommand['type']
+                            : (is_string($payload['type'] ?? null) ? $payload['type'] : null),
                         'characters' => $incomingCharacters,
                     ]);
 
@@ -323,11 +328,19 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
     private function scheduleDisconnectVoteOpenAfterGrace(string $gameId, string $targetUserId): void
     {
         EventLoop::delay((float) self::DISCONNECT_VOTE_GRACE_SECONDS, function () use ($gameId, $targetUserId): void {
-            if (!$this->rooms->isUserOfflineBeyondGrace($gameId, $targetUserId, self::DISCONNECT_VOTE_GRACE_SECONDS)) {
-                return;
-            }
+            try {
+                if (!$this->rooms->isUserOfflineBeyondGrace($gameId, $targetUserId, self::DISCONNECT_VOTE_GRACE_SECONDS)) {
+                    return;
+                }
 
-            $this->publishDisconnectVotePatch($gameId, $targetUserId, 'offline');
+                $this->publishDisconnectVotePatch($gameId, $targetUserId, 'offline');
+            } catch (\Throwable $exception) {
+                $this->logger->warning('Could not publish delayed disconnect vote patch.', [
+                    'exception' => $exception,
+                    'gameId' => $gameId,
+                    'targetUserId' => $targetUserId,
+                ]);
+            }
         });
     }
 
@@ -461,13 +474,28 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
     private function incomingDebugSummary(array $message, int $characters, string $userId): array
     {
         $command = is_array($message['command'] ?? null) ? $message['command'] : [];
+        $kind = is_string($message['kind'] ?? null) ? $message['kind'] : 'unknown';
+        $isCommandV2 = $kind === 'command.v2';
+        $action = is_string($command['type'] ?? null)
+            ? $command['type']
+            : ($isCommandV2 && is_string($message['type'] ?? null)
+                ? $message['type']
+                : ($this->mulligans->supports($kind) ? $kind : null));
+        $clientActionId = is_string($command['clientActionId'] ?? null)
+            ? $command['clientActionId']
+            : ($isCommandV2 && is_string($message['clientActionId'] ?? null)
+                ? $message['clientActionId']
+                : (is_string($message['messageId'] ?? null) ? $message['messageId'] : null));
+        $baseVersion = is_int($command['baseVersion'] ?? null)
+            ? $command['baseVersion']
+            : ($isCommandV2 && is_int($message['baseVersion'] ?? null) ? $message['baseVersion'] : null);
 
         return [
             'userId' => $userId,
-            'kind' => is_string($message['kind'] ?? null) ? $message['kind'] : 'unknown',
-            'action' => is_string($command['type'] ?? null) ? $command['type'] : null,
-            'clientActionId' => is_string($command['clientActionId'] ?? null) ? $command['clientActionId'] : null,
-            'baseVersion' => is_int($command['baseVersion'] ?? null) ? $command['baseVersion'] : null,
+            'kind' => $kind,
+            'action' => $action,
+            'clientActionId' => $clientActionId,
+            'baseVersion' => $baseVersion,
             'characters' => max(0, $characters),
         ];
     }
@@ -485,7 +513,9 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
             'status' => is_string($message['status'] ?? null) ? $message['status'] : null,
             'version' => is_int($message['version'] ?? null) ? $message['version'] : null,
             'currentVersion' => is_int($message['currentVersion'] ?? null) ? $message['currentVersion'] : null,
-            'operationCount' => is_array($message['operations'] ?? null) ? count($message['operations']) : 0,
+            'operationCount' => is_array($message['operations'] ?? null)
+                ? count($message['operations'])
+                : (is_array($message['ops'] ?? null) ? count($message['ops']) : 0),
             'operationTypes' => $operationTypes,
             'characters' => $this->jsonCharacters($message),
             'channel' => $channel,
@@ -514,12 +544,15 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
      */
     private function operationTypes(array $message): array
     {
-        if (!is_array($message['operations'] ?? null)) {
+        $operations = is_array($message['operations'] ?? null)
+            ? $message['operations']
+            : (is_array($message['ops'] ?? null) ? $message['ops'] : null);
+        if (!is_array($operations)) {
             return [];
         }
 
         $types = [];
-        foreach ($message['operations'] as $operation) {
+        foreach ($operations as $operation) {
             if (!is_array($operation)) {
                 continue;
             }

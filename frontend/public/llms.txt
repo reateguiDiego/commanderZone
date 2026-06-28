@@ -7,22 +7,34 @@ This file is provided for AI crawler readability. It is not a Google ranking sig
 
 ## Public SEO pages
 
-- Home: https://www.commanderzone.com/es/
-- Play Commander online: https://www.commanderzone.com/es/jugar-commander-online/
-- Play Magic online with friends: https://www.commanderzone.com/es/jugar-magic-online-amigos/
-- Create a Commander room: https://www.commanderzone.com/es/crear-sala-commander/
-- Import a Commander deck: https://www.commanderzone.com/es/importar-mazo-commander-mtg/
-- Commander deck builder: https://www.commanderzone.com/es/deck-builder-commander-mtg/
-- Magic and Commander table assistant: https://www.commanderzone.com/es/asistente-mesa-commander/
-- Ways to play Commander online: https://www.commanderzone.com/es/formas-jugar-commander-online/
-- How to play Commander online: https://www.commanderzone.com/es/como-jugar-commander-online/
-- FAQ: https://www.commanderzone.com/es/faq/
+- [Home](https://www.commanderzone.com/)
+- [Spanish home](https://www.commanderzone.com/es/)
+- [Play Commander online](https://www.commanderzone.com/en/play-commander-online/)
+- [Jugar Commander online](https://www.commanderzone.com/es/jugar-commander-online/)
+- [Play Magic online with friends](https://www.commanderzone.com/en/play-magic-online-with-friends/)
+- [Jugar Magic online con amigos](https://www.commanderzone.com/es/jugar-magic-online-con-amigos/)
+- [Create a Commander room](https://www.commanderzone.com/en/create-commander-room/)
+- [Crear sala Commander](https://www.commanderzone.com/es/crear-sala-commander/)
+- [Import a Commander deck](https://www.commanderzone.com/en/import-commander-deck/)
+- [Importar mazo Commander](https://www.commanderzone.com/es/importar-mazo-commander/)
+- [Commander deck builder](https://www.commanderzone.com/en/commander-deck-builder/)
+- [Deck builder Commander](https://www.commanderzone.com/es/deck-builder-commander/)
+- [Commander life counter](https://www.commanderzone.com/en/commander-life-counter/)
+- [Contador de vidas Commander](https://www.commanderzone.com/es/contador-vidas-commander/)
+- [Ways to play Commander online](https://www.commanderzone.com/en/ways-to-play-commander-online/)
+- [Formas de jugar Commander online](https://www.commanderzone.com/es/formas-jugar-commander-online/)
+- [How to play Commander online](https://www.commanderzone.com/en/how-to-play-commander-online/)
+- [Como jugar Commander online](https://www.commanderzone.com/es/como-jugar-commander-online/)
+- [SpellTable alternative](https://www.commanderzone.com/en/spelltable-alternative/)
+- [Alternativa a SpellTable](https://www.commanderzone.com/es/alternativa-spelltable/)
+- [FAQ](https://www.commanderzone.com/en/faq/)
+- [FAQ en espanol](https://www.commanderzone.com/es/faq/)
 
 ## Localized URLs
 
 CommanderZone publishes localized public SEO pages in 6 SEO locales.
 Use the sitemap index for the complete localized URL set:
-https://www.commanderzone.com/sitemap-index.xml
+[Sitemap index](https://www.commanderzone.com/sitemap-index.xml)
 
 ## Scope
 

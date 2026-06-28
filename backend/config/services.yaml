@@ -9,8 +9,46 @@
 parameters:
     game_websocket_listen_default: '0.0.0.0:8081'
     game_websocket_public_url_default: 'ws://127.0.0.1:8081'
+    contact_inbox_address_default: 'info.dev.sunrise@gmail.com'
     game_websocket_listen: '%env(default:game_websocket_listen_default:GAME_WEBSOCKET_LISTEN)%'
     game_websocket_public_url: '%env(default:game_websocket_public_url_default:GAME_WEBSOCKET_PUBLIC_URL)%'
+    gameplay_metrics_output_default: ''
+    gameplay_metrics_output: '%env(default:gameplay_metrics_output_default:GAMEPLAY_METRICS_OUTPUT)%'
+    gameplay_compact_runtime_enabled_default: 'false'
+    gameplay_compact_runtime_enabled: '%env(bool:default:gameplay_compact_runtime_enabled_default:GAMEPLAY_COMPACT_RUNTIME_ENABLED)%'
+    gameplay_v2_enabled_default: 'false'
+    gameplay_v2_command_enabled_default: 'false'
+    gameplay_v2_commands_allowlist_default: ''
+    gameplay_v2_patch_enabled_default: 'false'
+    gameplay_v2_bootstrap_enabled_default: 'false'
+    gameplay_v2_event_enabled_default: 'false'
+    gameplay_v2_visibility_enabled_default: 'false'
+    runtime_service_enabled_default: 'false'
+    game_runtime_internal_url_default: 'http://game-runtime:8091'
+    semantic_patches_enabled_default: 'false'
+    compact_bootstrap_enabled_default: 'false'
+    shadow_compare_enabled_default: 'false'
+    gameplay_v2_snapshot_every_events_default: '25'
+    gameplay_v2_snapshot_every_seconds_default: '30'
+    gameplay_streams_enabled_default: 'true'
+    gameplay_max_token_create_quantity_default: '20'
+    gameplay_v2_enabled: '%env(bool:default:gameplay_v2_enabled_default:GAMEPLAY_V2_ENABLED)%'
+    gameplay_v2_command_enabled: '%env(bool:default:gameplay_v2_command_enabled_default:GAMEPLAY_V2_COMMAND_ENABLED)%'
+    gameplay_v2_commands_allowlist: '%env(default:gameplay_v2_commands_allowlist_default:GAMEPLAY_V2_COMMANDS_ALLOWLIST)%'
+    gameplay_v2_patch_enabled: '%env(bool:default:gameplay_v2_patch_enabled_default:GAMEPLAY_V2_PATCH_ENABLED)%'
+    gameplay_v2_bootstrap_enabled: '%env(bool:default:gameplay_v2_bootstrap_enabled_default:GAMEPLAY_V2_BOOTSTRAP_ENABLED)%'
+    gameplay_v2_event_enabled: '%env(bool:default:gameplay_v2_event_enabled_default:GAMEPLAY_V2_EVENT_ENABLED)%'
+    gameplay_v2_visibility_enabled: '%env(bool:default:gameplay_v2_visibility_enabled_default:GAMEPLAY_V2_VISIBILITY_ENABLED)%'
+    runtime_service_enabled: '%env(bool:default:runtime_service_enabled_default:GAME_RUNTIME_ENABLED)%'
+    game_runtime_internal_url: '%env(default:game_runtime_internal_url_default:GAME_RUNTIME_INTERNAL_URL)%'
+    semantic_patches_enabled: '%env(bool:default:semantic_patches_enabled_default:SEMANTIC_PATCHES_ENABLED)%'
+    compact_bootstrap_enabled: '%env(bool:default:compact_bootstrap_enabled_default:COMPACT_BOOTSTRAP_ENABLED)%'
+    shadow_compare_enabled: '%env(bool:default:shadow_compare_enabled_default:SHADOW_COMPARE_ENABLED)%'
+    gameplay_v2_snapshot_every_events: '%env(int:default:gameplay_v2_snapshot_every_events_default:GAMEPLAY_V2_SNAPSHOT_EVERY_EVENTS)%'
+    gameplay_v2_snapshot_every_seconds: '%env(int:default:gameplay_v2_snapshot_every_seconds_default:GAMEPLAY_V2_SNAPSHOT_EVERY_SECONDS)%'
+    gameplay_streams_enabled: '%env(bool:default:gameplay_streams_enabled_default:GAMEPLAY_STREAMS_ENABLED)%'
+    gameplay_max_token_create_quantity: '%env(int:default:gameplay_max_token_create_quantity_default:GAMEPLAY_MAX_TOKEN_CREATE_QUANTITY)%'
+    contact_inbox_address: '%env(default:contact_inbox_address_default:CONTACT_INBOX_ADDRESS)%'
 
 services:
     # default configuration for services in *this* file
@@ -22,6 +60,15 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+
+    App\Application\Game\Performance\GameplayMetricsRecorderInterface:
+        alias: App\Application\Game\Performance\GameplayMetricsStore
+
+    App\Application\Game\Runtime\GameRuntimeMulliganClientInterface:
+        alias: App\Application\Game\Runtime\GameRuntimeMulliganClient
+
+    App\Application\Game\Runtime\GameRuntimeCommandClientInterface:
+        alias: App\Application\Game\Runtime\GameRuntimeCommandClient
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

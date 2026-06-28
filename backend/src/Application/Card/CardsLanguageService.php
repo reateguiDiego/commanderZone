@@ -5,9 +5,13 @@ namespace App\Application\Card;
 use App\Domain\Localization\LanguageCatalog;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 final readonly class CardsLanguageService
 {
+    private const COVERAGE_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
     private const LANGUAGE_LABELS = [
         'en' => 'Ingles',
         'fr' => 'Frances',
@@ -24,7 +28,12 @@ final readonly class CardsLanguageService
         'ca' => 'Catalan',
     ];
 
-    public function __construct(private Connection $connection)
+    public function __construct(
+        private Connection $connection,
+        private CacheInterface $cache,
+        #[Autowire('%kernel.environment%')]
+        private string $environment,
+    )
     {
     }
 
@@ -32,6 +41,25 @@ final readonly class CardsLanguageService
      * @return list<array{code:string,label:string,distinctCardNames:int,percentageOfEnglish:float}>
      */
     public function languageCoverage(): array
+    {
+        if ($this->environment === 'test') {
+            return $this->resolveLanguageCoverage();
+        }
+
+        return $this->cache->get(
+            'cards.languages.coverage.'.$this->coverageCacheSignature(),
+            function (ItemInterface $item): array {
+                $item->expiresAfter(self::COVERAGE_CACHE_TTL_SECONDS);
+
+                return $this->resolveLanguageCoverage();
+            },
+        );
+    }
+
+    /**
+     * @return list<array{code:string,label:string,distinctCardNames:int,percentageOfEnglish:float}>
+     */
+    private function resolveLanguageCoverage(): array
     {
         $rows = $this->connection->executeQuery(
             <<<'SQL'
@@ -54,6 +82,29 @@ SQL,
             fn (array $row): array => $this->coverageRow($row, $englishCount),
             $rows,
         );
+    }
+
+    private function coverageCacheSignature(): string
+    {
+        $row = $this->connection->executeQuery(
+            <<<'SQL'
+SELECT
+    COUNT(*) AS total_rows,
+    COALESCE(MAX(updated_at), TIMESTAMP '1970-01-01 00:00:00') AS last_updated_at
+FROM card_print_locale
+WHERE lang IS NOT NULL
+  AND lang NOT IN (:commonPrintLanguages)
+SQL,
+            ['commonPrintLanguages' => LanguageCatalog::commonPrintLanguages()],
+            ['commonPrintLanguages' => ArrayParameterType::STRING],
+        )->fetchAssociative();
+
+        $signaturePayload = [
+            'rows' => (int) ($row['total_rows'] ?? 0),
+            'updatedAt' => (string) ($row['last_updated_at'] ?? '1970-01-01 00:00:00'),
+        ];
+
+        return hash('xxh128', json_encode($signaturePayload, JSON_THROW_ON_ERROR));
     }
 
     /**

@@ -78,6 +78,43 @@ class DeckbuildingApiTest extends ApiTestCase
         $this->assertDeckValidity($deckId, true);
     }
 
+    public function testDeckImportPersistsDeckValidity(): void
+    {
+        $token = $this->registerAndLogin('deck-import-validity@example.test', 'Deck Import Validity');
+        $commander = $this->seedCard('00000000-0000-0000-0000-000000000804', 'Import Valid Commander', [
+            'type_line' => 'Legendary Creature',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000805', 'Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Import Validity'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => <<<TXT
+Deck
+1 Island
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse()['deck']['valid']);
+        $this->assertDeckValidity($deckId, false);
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'commanderScryfallId' => $commander->scryfallId(),
+            'decklist' => <<<TXT
+Deck
+1 Import Valid Commander
+99 Island
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['deck']['valid']);
+        $this->assertDeckValidity($deckId, true);
+    }
+
     public function testFoldersDecksCardsImportAndOwnership(): void
     {
         $token = $this->registerAndLogin('owner@example.test', 'Owner');
@@ -837,6 +874,46 @@ TXT,
         self::assertSame('https://cards.scryfall.io/art_crop/front/first-partner-es.jpg', $deck['commanders'][0]['imageUris']['art_crop'] ?? null);
         self::assertSame('https://cards.scryfall.io/art_crop/front/second-partner-es.jpg', $deck['commanders'][1]['imageUris']['art_crop'] ?? null);
         self::assertArrayNotHasKey('commander', $deck);
+    }
+
+    public function testDeckPayloadKeepsCanonicalTypeLinesWhenCardLanguageIsLocalized(): void
+    {
+        $token = $this->registerAndLogin('deck-type-line-canonical@example.test', 'Deck Type Line');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $arcaneSignet = $this->seedCard('41000000-0000-0000-0000-000000000001', 'Arcane Signet', [
+            'type_line' => 'Artifact',
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedLocalizedPrintLocale(
+            $arcaneSignet->scryfallId(),
+            'Arcane Signet',
+            'es',
+            'Sello arcano',
+            ['art_crop' => 'https://cards.scryfall.io/art_crop/front/arcane-signet-es.jpg'],
+            'Artefacto',
+        );
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Canonical Types',
+            'cards' => [
+                ['scryfallId' => $arcaneSignet->scryfallId(), 'quantity' => 1, 'section' => 'main'],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+
+        $deck = $this->jsonResponse()['deck'];
+        $deckId = (string) $deck['id'];
+        self::assertSame('Sello arcano', $deck['cards'][0]['card']['printedName']);
+        self::assertSame('Artifact', $deck['cards'][0]['card']['typeLine']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/sections', token: $token);
+        self::assertResponseIsSuccessful();
+        $sections = $this->jsonResponse()['sections'];
+        self::assertSame('Sello arcano', $sections['main'][0]['card']['printedName']);
+        self::assertSame('Artifact', $sections['main'][0]['card']['typeLine']);
     }
 
     public function testDecklistImportSelectsPersistedPrintsByUserLanguage(): void

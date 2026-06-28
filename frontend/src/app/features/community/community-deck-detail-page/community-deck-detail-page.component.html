@@ -1,0 +1,65 @@
+<section class="community-deck-detail-page">
+  @if (loading()) {
+    <app-global-loader />
+  } @else if (error()) {
+    <p class="notice error">{{ error()! | runtimeTranslate }}</p>
+  } @else if (deck(); as deckDetail) {
+    <section class="community-detail-summary">
+      <app-hero-rule />
+    </section>
+
+    @if (actionError()) {
+      <p class="notice error">{{ actionError()! | runtimeTranslate }}</p>
+    }
+
+    <div class="community-detail-viewer">
+      <app-deck-viewer [deck]="deckDetail" (cardActionSelected)="handleCardAction($event)" />
+    </div>
+
+    <app-community-deck-inspector [deck]="deckDetail" />
+
+    <app-modal
+      [open]="saveConfirmationModalOpen()"
+      title="community.detail.saveConfirmation.title"
+      primaryLabel="community.detail.saveConfirmation.confirm"
+      secondaryLabel="community.detail.saveConfirmation.cancel"
+      (primary)="confirmSaveDeck()"
+      (secondary)="closeSaveConfirmation()"
+      (close)="closeSaveConfirmation()"
+    />
+
+    <app-modal
+      [open]="saveSuccessModalOpen()"
+      title="deckBuilder.deckList.deckSaved"
+      message="deckBuilder.deckList.createSuccessMessage"
+      primaryLabel="deckBuilder.deckList.openDeck"
+      secondaryLabel="deckBuilder.deckList.deckListLabel"
+      (primary)="openCreatedDeckFromSuccess()"
+      (secondary)="returnToDeckListFromSuccess()"
+    />
+  }
+
+  <app-card-details-modal
+    [open]="detailsDialog() !== null"
+    [card]="detailsDialog()?.card ?? null"
+    [cardName]="detailsDialog()?.title ?? ''"
+    [loading]="detailsDialog()?.loading ?? false"
+    [errorKey]="detailsDialog()?.errorKey ?? null"
+    (closeRequested)="closeDetails()"
+  />
+
+  <app-add-card-to-deck-modal
+    [open]="addToDeckCard() !== null"
+    [card]="addToDeckCard()"
+    (closeRequested)="closeAddToDeck()"
+  />
+
+  <app-card-printings-modal
+    [open]="printingsDialog() !== null"
+    [cardName]="printingsDialog()?.title ?? ''"
+    [printings]="printingsDialog()?.printings ?? []"
+    [loading]="printingsDialog()?.loading ?? false"
+    [errorKey]="printingsDialog()?.errorKey ?? null"
+    (closeRequested)="closePrintings()"
+  />
+</section>

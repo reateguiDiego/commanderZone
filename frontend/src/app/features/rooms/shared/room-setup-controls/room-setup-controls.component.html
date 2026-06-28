@@ -47,22 +47,13 @@
     </div>
 
     <div class="mulligan-toggle-field">
-      <span class="mulligan-toggle-label">{{ 'rooms.roomSetupControls.firstMulliganFree' | runtimeTranslate }}</span>
-      <button
-        type="button"
-        class="mulligan-toggle-button"
-        [class.is-on]="firstMulliganFree()"
-        [attr.aria-pressed]="firstMulliganFree()"
+      <app-toggle
+        [label]="'rooms.roomSetupControls.firstMulliganFree' | runtimeTranslate"
+        [description]="(firstMulliganFree() ? 'rooms.roomSetupControls.firstMulliganFreeOn' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
+        [checked]="firstMulliganFree()"
         [disabled]="disabled() || updatingMulligan()"
-        (click)="firstMulliganFreeChange.emit(!firstMulliganFree())"
-      >
-        <span class="mulligan-toggle-track" aria-hidden="true">
-          <span class="mulligan-toggle-thumb"></span>
-        </span>
-        <span class="mulligan-toggle-state">
-          {{ (firstMulliganFree() ? 'rooms.roomSetupControls.firstMulliganFreeOn' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate }}
-        </span>
-      </button>
+        (checkedChange)="firstMulliganFreeChange.emit($event)"
+      />
     </div>
   </div>
 </div>

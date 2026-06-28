@@ -138,20 +138,73 @@ final readonly class GameWebsocketDisconnectVoteOrchestrator
         array $nextSnapshot,
         \App\Domain\Game\GameEvent $event,
     ): GameWebsocketCommandResult {
+        unset($previousSnapshot);
         $viewers = $this->viewers($game);
-        $localizedLookup = $this->localizedLookup($previousSnapshot, $nextSnapshot, $viewers);
         $messagesByUserId = [];
+        $message = $this->disconnectVotePatch($game->id(), $nextSnapshot, $event);
         foreach ($viewers as $viewer) {
-            $viewerCanUseOwnHiddenZones = $game->room()->hasPlayer($viewer);
-            $previousProjection = $this->projection->projectSnapshot($previousSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup);
-            $nextProjection = $this->projection->projectSnapshot($nextSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup);
-            $messagesByUserId[$viewer->id()] = $this->patches->build($game->id(), $previousProjection, $nextProjection, $event, null, $viewer->id());
+            $messagesByUserId[$viewer->id()] = $message;
         }
 
         return GameWebsocketCommandResult::forViewers(
             $messagesByUserId,
-            $this->messages->resyncRequired($game->id(), max(1, (int) ($nextSnapshot['version'] ?? 1)), 'projection_unavailable', $event->clientActionId()),
+            $message,
+            [
+                'disconnect.vote_route' => 1.0,
+                'disconnect.snapshot_write_count' => 0.0,
+                'disconnect.patch_bytes' => (float) strlen(json_encode($message, JSON_THROW_ON_ERROR)),
+            ],
         );
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    private function disconnectVotePatch(string $gameId, array $snapshot, \App\Domain\Game\GameEvent $event): array
+    {
+        $version = max(1, (int) ($snapshot['version'] ?? $event->version()));
+        $disconnectVote = is_array($snapshot['disconnectVote'] ?? null) ? $snapshot['disconnectVote'] : null;
+        $ops = [[
+            'op' => 'disconnect.vote.set',
+            'disconnectVote' => $disconnectVote,
+        ]];
+
+        $payload = $event->payload();
+        if (($payload['status'] ?? null) === GameDisconnectVoteService::STATUS_RESOLVED_EXPEL && is_string($payload['targetPlayerId'] ?? null)) {
+            $targetPlayerId = $payload['targetPlayerId'];
+            $player = is_array($snapshot['players'][$targetPlayerId] ?? null) ? $snapshot['players'][$targetPlayerId] : [];
+            $ops[] = [
+                'op' => 'player.status.set',
+                'playerId' => $targetPlayerId,
+                'status' => 'conceded',
+                'concededAt' => is_string($player['concededAt'] ?? null) ? $player['concededAt'] : null,
+            ];
+            if (is_array($snapshot['turn'] ?? null)) {
+                $ops[] = [
+                    'op' => 'turn.set',
+                    'turn' => $snapshot['turn'],
+                ];
+            }
+        }
+
+        $message = [
+            'kind' => 'patch.v2',
+            'gameId' => $gameId,
+            'version' => $version,
+            'visibility' => 'public',
+            'ops' => $ops,
+            'metrics' => [
+                'disconnect.vote_route' => 1,
+                'disconnect.snapshot_write_count' => 0,
+                'disconnect.patch_bytes' => 0,
+            ],
+            'event' => $event->toArray(),
+        ];
+        $message['metrics']['disconnect.patch_bytes'] = strlen(json_encode($message, JSON_THROW_ON_ERROR));
+
+        return $message;
     }
 
     /**

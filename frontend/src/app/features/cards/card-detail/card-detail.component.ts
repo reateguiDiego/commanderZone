@@ -1,24 +1,23 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
+import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { Card } from '../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { ManaTextComponent } from '../../../shared/mana/mana-text/mana-text.component';
 import { bestCardImage } from '../../../shared/utils/card-image';
-import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 
 @Component({
   selector: 'app-card-detail',
   imports: [
     RuntimeTranslatePipe,
-    RouterLink,
-    LucideAngularModule,
     ManaSymbolsComponent,
     ManaTextComponent,
-    CzButtonDirective,
+    BackButtonComponent,
+    GlobalLoaderComponent,
   ],
   templateUrl: './card-detail.component.html',
   styleUrl: './card-detail.component.scss',

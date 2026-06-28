@@ -1,11 +1,13 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { GameCardInstance, GamePhase, GamePlayerMulliganState, GameSnapshot } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameCompactCardRef, GamePhase, GamePlayerMulliganState, GameSnapshot } from '../../../../../core/models/game.model';
 import {
   GameplayMulliganCompletedMessage,
   GameplayMulliganErrorMessage,
+  GameplayMulliganPrivateCard,
   GameplayMulliganPrivateStateMessage,
   GameplayMulliganPublicPlayerState,
   GameplayMulliganPublicStateMessage,
+  GameplayPatchV2Message,
 } from '../../../../../core/models/game-realtime.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
 
@@ -54,16 +56,18 @@ export class GameTableMulliganState {
   }
 
   handlePublicState(message: GameplayMulliganPublicStateMessage): void {
-    if (!samePublicState(this.publicState(), message)) {
-      this.publicState.set(message);
+    const compactMessage = compactPublicStateMessage(message);
+    if (!samePublicState(this.publicState(), compactMessage)) {
+      this.publicState.set(compactMessage);
     }
-    this.completed.set(message.gamePhase === 'PLAYING');
-    this.core.snapshot.update((snapshot) => snapshot ? this.mergePublicState(snapshot, message) : snapshot);
+    this.completed.set(compactMessage.gamePhase === 'PLAYING');
+    this.core.snapshot.update((snapshot) => snapshot ? this.mergePublicState(snapshot, compactMessage) : snapshot);
   }
 
   handlePrivateState(message: GameplayMulliganPrivateStateMessage): void {
-    if (!samePrivateState(this.privateState(), message)) {
-      this.privateState.set(message);
+    const compactMessage = compactPrivateStateMessage(message);
+    if (!samePrivateState(this.privateState(), compactMessage)) {
+      this.privateState.set(compactMessage);
     }
     this.pendingAction.set(false);
     this.error.set(null);
@@ -83,6 +87,84 @@ export class GameTableMulliganState {
       version: Math.max(snapshot.version, message.version),
       gamePhase: 'PLAYING',
     } : snapshot);
+  }
+
+  handlePatchV2Applied(message: GameplayPatchV2Message, snapshot: GameSnapshot): void {
+    if (!message.ops.some((operation) => operation.op.startsWith('mulligan.') || operation.op === 'game.phase.set')) {
+      return;
+    }
+
+    const privateState = this.privateStateFromPatchV2(message, snapshot);
+    this.publicState.set(null);
+    this.privateState.set(privateState);
+    this.pendingAction.set(false);
+    this.error.set(null);
+    this.completed.set(snapshot.gamePhase === 'PLAYING');
+  }
+
+  private privateStateFromPatchV2(
+    message: GameplayPatchV2Message,
+    snapshot: GameSnapshot,
+  ): GameplayMulliganPrivateStateMessage | null {
+    const stateOperation = message.ops.find((operation) => operation.op === 'mulligan.private_state.set');
+    const handOperation = message.ops.find((operation) => operation.op === 'mulligan.hand.replace_private');
+    if (!stateOperation && !handOperation) {
+      return null;
+    }
+
+    const playerId = stateOperation?.playerId ?? handOperation?.playerId;
+    if (!playerId) {
+      return null;
+    }
+
+    const player = snapshot.players[playerId];
+    const mulligan = player?.mulligan;
+    const hand = handOperation?.hand ?? stateOperation?.hand ?? [];
+    return {
+      kind: 'mulligan.private_state',
+      gameId: message.gameId,
+      version: message.version,
+      playerId,
+      hand,
+      handSize: hand.length || stateOperation?.state.handSize || mulligan?.handCount || player?.handCount,
+      mulligan: {
+        rule: mulligan?.rule ?? (stateOperation?.state.rule as GamePlayerMulliganState['rule'] | undefined),
+        mulligansTaken: mulligan?.mulligansTaken ?? stateOperation?.state.mulligansTaken ?? 0,
+        effectiveMulligans: mulligan?.effectiveMulligans ?? stateOperation?.state.effectiveMulligans ?? 0,
+        drawCount: mulligan?.drawCount ?? stateOperation?.state.drawCount ?? hand.length,
+        bottomSelectionCount: mulligan?.bottomSelectionCount ?? stateOperation?.state.bottomSelectionCount ?? stateOperation?.state.cardsToBottom ?? 0,
+        finalHandSize: mulligan?.finalHandSize ?? stateOperation?.state.finalHandSize ?? hand.length,
+        needsBottomSelection: mulligan?.needsBottomSelection ?? stateOperation?.state.needsBottomSelection ?? stateOperation?.state.bottomPending ?? false,
+        bottomOrderMode: mulligan?.bottomOrderMode ?? (stateOperation?.state.bottomOrderMode as GamePlayerMulliganState['bottomOrderMode'] | undefined) ?? 'NONE',
+        needsScryAfterKeep: mulligan?.needsScryAfterKeep ?? stateOperation?.state.needsScryAfterKeep ?? stateOperation?.state.scryPending ?? false,
+        canTakeAnotherMulligan: mulligan?.canTakeAnotherMulligan ?? stateOperation?.state.canTakeAnotherMulligan ?? true,
+        status: mulligan?.status ?? stateOperation?.state.status ?? 'DECIDING',
+        ready: mulligan?.ready ?? stateOperation?.state.ready ?? false,
+      },
+      ...(stateOperation?.scryCard ? { scryCard: stateOperation.scryCard } : {}),
+      ...(handOperation?.staticCards ? { staticCards: handOperation.staticCards } : {}),
+      visibility: message.visibility?.startsWith('player:') ? message.visibility as `player:${string}` : 'private',
+    };
+  }
+
+  privateHandFor(playerId: string | null): readonly GameCardInstance[] | null {
+    const privateState = this.privateState();
+    if (!playerId || privateState?.playerId !== playerId) {
+      return null;
+    }
+
+    const currentHand = this.core.snapshot()?.players[playerId]?.zones.hand ?? [];
+    return resolveMulliganHand(privateState.hand, currentHand, playerId);
+  }
+
+  privateScryCardFor(playerId: string | null): GameCardInstance | null {
+    const privateState = this.privateState();
+    if (!playerId || privateState?.playerId !== playerId || !privateState.scryCard) {
+      return null;
+    }
+
+    const currentHand = this.core.snapshot()?.players[playerId]?.zones.hand ?? [];
+    return resolveMulliganCard(privateState.scryCard, currentHand, playerId, 'library');
   }
 
   private mergePublicState(snapshot: GameSnapshot, message: GameplayMulliganPublicStateMessage): GameSnapshot {
@@ -135,7 +217,7 @@ export class GameTableMulliganState {
       return snapshot;
     }
 
-    const hand = message.hand.map((card) => ({ ...card, zone: 'hand' as const }));
+    const hand = resolveMulliganHand(message.hand, currentPlayer.zones.hand, message.playerId);
     const zones = {
       ...currentPlayer.zones,
       hand,
@@ -149,7 +231,7 @@ export class GameTableMulliganState {
       ...currentMulligan,
       ...message.mulligan,
       handCount: hand.length,
-      ...(message.scryCard ? { scryCard: message.scryCard } : {}),
+      ...(message.scryCard ? { scryCard: resolveMulliganCard(message.scryCard, currentPlayer.zones.library, message.playerId, 'library') } : {}),
     };
     const nextVersion = Math.max(snapshot.version, message.version);
     const playerChanged = currentPlayer.handCount !== hand.length
@@ -234,9 +316,9 @@ function samePrivateState(
 
   return current.version === next.version
     && current.playerId === next.playerId
-    && sameCardInstances(current.hand, next.hand)
+    && sameCompactCards(current.hand, next.hand)
     && sameMulliganState(current.mulligan, next.mulligan)
-    && sameOptionalCardInstance(current.scryCard, next.scryCard);
+    && sameOptionalCompactCard(current.scryCard, next.scryCard);
 }
 
 function sameMulliganState(
@@ -260,7 +342,7 @@ function sameMulliganState(
     && current.status === next.status
     && current.ready === next.ready
     && current.handCount === next.handCount
-    && sameOptionalCardInstance(current.scryCard, next.scryCard);
+    && sameOptionalCardInstanceByIdentity(current.scryCard, next.scryCard);
 }
 
 function sameCardInstanceIds(
@@ -274,22 +356,37 @@ function sameCardInstanceIds(
   return current.every((card, index) => card.instanceId === next[index].instanceId);
 }
 
-function sameCardInstances(
-  current: readonly GameCardInstance[],
-  next: readonly GameCardInstance[],
+function sameCompactCards(
+  current: readonly GameplayMulliganPrivateCard[],
+  next: readonly GameplayMulliganPrivateCard[],
 ): boolean {
-  if (!sameCardInstanceIds(current, next)) {
+  if (current.length !== next.length) {
     return false;
   }
 
-  return current.every((card, index) => stableCardString(card) === stableCardString(next[index]));
+  return current.every((card, index) => sameCompactCard(card, next[index]));
 }
 
-function stableCardString(card: GameCardInstance): string {
-  return JSON.stringify(card);
+function sameOptionalCompactCard(
+  current: GameplayMulliganPrivateCard | undefined,
+  next: GameplayMulliganPrivateCard | undefined,
+): boolean {
+  if (!current || !next) {
+    return current === next;
+  }
+
+  return sameCompactCard(current, next);
 }
 
-function sameOptionalCardInstance(
+function sameCompactCard(current: GameplayMulliganPrivateCard, next: GameplayMulliganPrivateCard): boolean {
+  return current.instanceId === next.instanceId
+    && cardKeyOf(current) === cardKeyOf(next)
+    && cardVersionOf(current) === cardVersionOf(next)
+    && current.hidden === next.hidden
+    && current.tapped === next.tapped;
+}
+
+function sameOptionalCardInstanceByIdentity(
   current: GameCardInstance | undefined,
   next: GameCardInstance | undefined,
 ): boolean {
@@ -298,5 +395,89 @@ function sameOptionalCardInstance(
   }
 
   return current.instanceId === next.instanceId
-    && stableCardString(current) === stableCardString(next);
+    && current.name === next.name
+    && current.scryfallId === next.scryfallId
+    && current.hidden === next.hidden
+    && current.tapped === next.tapped
+    && current.zone === next.zone;
+}
+
+function compactPublicStateMessage(message: GameplayMulliganPublicStateMessage): GameplayMulliganPublicStateMessage {
+  return {
+    ...message,
+    players: message.players.map((player) => ({
+      ...player,
+      avatarImageData: undefined,
+    })),
+  };
+}
+
+function compactPrivateStateMessage(message: GameplayMulliganPrivateStateMessage): GameplayMulliganPrivateStateMessage {
+  return {
+    ...message,
+    hand: message.hand.map(compactMulliganCard),
+    ...(message.scryCard ? { scryCard: compactMulliganCard(message.scryCard) } : {}),
+  };
+}
+
+function compactMulliganCard(card: GameplayMulliganPrivateCard): GameCompactCardRef {
+  return {
+    instanceId: card.instanceId,
+    ...(cardKeyOf(card) ? { cardKey: cardKeyOf(card) } : {}),
+    ...(cardVersionOf(card) ? { cardVersion: cardVersionOf(card) } : {}),
+    ...(card.hidden !== undefined ? { hidden: card.hidden } : {}),
+    ...(card.tapped !== undefined ? { tapped: card.tapped } : {}),
+    ...(card.zone !== undefined ? { zone: card.zone } : {}),
+  };
+}
+
+function resolveMulliganHand(
+  cards: readonly GameplayMulliganPrivateCard[],
+  currentHand: readonly GameCardInstance[],
+  playerId: string,
+): GameCardInstance[] {
+  return cards.map((card) => resolveMulliganCard(card, currentHand, playerId, 'hand'));
+}
+
+function resolveMulliganCard(
+  card: GameplayMulliganPrivateCard,
+  currentCards: readonly GameCardInstance[],
+  playerId: string,
+  zone: GameCardInstance['zone'],
+): GameCardInstance {
+  if (isFullCardInstance(card)) {
+    return { ...card, zone };
+  }
+
+  const current = currentCards.find((candidate) => candidate.instanceId === card.instanceId);
+  if (current) {
+    return { ...current, zone };
+  }
+
+  return {
+    instanceId: card.instanceId,
+    ownerId: playerId,
+    controllerId: playerId,
+    name: card.name?.trim() || card.cardKey?.trim() || 'Card',
+    tapped: card.tapped ?? false,
+    hidden: card.hidden ?? false,
+    zone,
+  };
+}
+
+function isFullCardInstance(card: GameplayMulliganPrivateCard): card is GameCardInstance {
+  return typeof (card as GameCardInstance).name === 'string'
+    && typeof (card as GameCardInstance).tapped === 'boolean';
+}
+
+function cardKeyOf(card: GameplayMulliganPrivateCard): string | null {
+  return typeof (card as GameCompactCardRef).cardKey === 'string'
+    ? ((card as GameCompactCardRef).cardKey ?? null)
+    : null;
+}
+
+function cardVersionOf(card: GameplayMulliganPrivateCard): string | null {
+  return typeof (card as GameCompactCardRef).cardVersion === 'string'
+    ? ((card as GameCompactCardRef).cardVersion ?? null)
+    : null;
 }

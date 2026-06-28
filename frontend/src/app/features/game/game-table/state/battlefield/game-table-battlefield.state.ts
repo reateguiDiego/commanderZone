@@ -8,7 +8,7 @@ import {
   ratioBattlefieldPosition,
   sameBattlefieldPosition,
 } from '../../utils/battlefield-position';
-import { BattlefieldPositionCommand, ViewportClampedBattlefieldPosition } from '../../models/game-table-battlefield.model';
+import { BattlefieldPositionBatchCommand, BattlefieldPositionCommand, ViewportClampedBattlefieldPosition } from '../../models/game-table-battlefield.model';
 import {
   GameTableBattlefieldDragContext,
   GameTableBattlefieldDragCoordinatorService,
@@ -224,15 +224,17 @@ export class GameTableBattlefieldState {
     payload: Record<string, unknown>,
     persist: () => Promise<void>,
   ): boolean {
-    const positionCommand = this.battlefieldPositionCommand(payload);
-    if (!positionCommand) {
+    const positionBatch = this.battlefieldPositionBatchCommand(payload);
+    if (!positionBatch) {
       return false;
     }
 
-    this.optimisticBattlefieldPositions.set(this.battlefieldPositionKey(positionCommand), positionCommand);
+    for (const positionCommand of positionBatch.positions) {
+      this.optimisticBattlefieldPositions.set(this.battlefieldPositionKey(positionCommand), positionCommand);
+    }
     this.battlefieldPositionQueue = this.battlefieldPositionQueue
       .catch(() => undefined)
-      .then(() => this.persistBattlefieldPositionCommand(context, positionCommand, persist));
+      .then(() => this.persistBattlefieldPositionCommand(context, positionBatch, persist));
 
     return true;
   }
@@ -381,15 +383,21 @@ export class GameTableBattlefieldState {
 
   private async persistBattlefieldPositionCommand(
     context: GameTableBattlefieldContext,
-    positionCommand: BattlefieldPositionCommand,
+    positionBatch: BattlefieldPositionBatchCommand,
     persist: () => Promise<void>,
   ): Promise<void> {
     try {
       await persist();
-      this.clearOptimisticBattlefieldPosition(positionCommand);
+      this.clearOptimisticBattlefieldPositions(positionBatch);
     } catch (error) {
-      this.clearOptimisticBattlefieldPosition(positionCommand);
+      this.clearOptimisticBattlefieldPositions(positionBatch);
       context.setError(context.errorMessage(error));
+    }
+  }
+
+  private clearOptimisticBattlefieldPositions(positionBatch: BattlefieldPositionBatchCommand): void {
+    for (const positionCommand of positionBatch.positions) {
+      this.clearOptimisticBattlefieldPosition(positionCommand);
     }
   }
 
@@ -411,6 +419,33 @@ export class GameTableBattlefieldState {
     }
 
     return { playerId, instanceId, position };
+  }
+
+  private battlefieldPositionBatchCommand(payload: Record<string, unknown>): BattlefieldPositionBatchCommand | null {
+    const single = this.battlefieldPositionCommand(payload);
+    if (single) {
+      return { playerId: single.playerId, positions: [single] };
+    }
+
+    const playerId = this.stringPayload(payload, 'playerId');
+    const zone = this.zonePayload(payload, 'zone');
+    const positions = payload['positions'];
+    if (!playerId || zone !== 'battlefield' || !Array.isArray(positions) || positions.length === 0) {
+      return null;
+    }
+
+    const normalized = positions
+      .map((entry) => this.battlefieldPositionCommand({
+        playerId,
+        zone,
+        ...(entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : {}),
+      }))
+      .filter((entry): entry is BattlefieldPositionCommand => entry !== null);
+    if (normalized.length !== positions.length) {
+      return null;
+    }
+
+    return { playerId, positions: normalized };
   }
 
   private positionPayload(value: unknown): GameCardPosition | null {

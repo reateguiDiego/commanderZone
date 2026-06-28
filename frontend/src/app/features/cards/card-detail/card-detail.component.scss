@@ -2,6 +2,11 @@
   display: block;
 }
 
+.page-stack {
+  display: grid;
+  gap: 1rem;
+}
+
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(14rem, 23rem) minmax(0, 1fr);

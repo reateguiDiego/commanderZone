@@ -19,16 +19,36 @@ class AuthThrottleService
             return false;
         }
 
-        $entry = $this->entityManager->getRepository(AuthRequestThrottle::class)->findOneBy([
-            'scope' => trim($scope),
-            'identifier' => $normalizedIdentifier,
-        ]);
+        $entry = $this->findEntry(trim($scope), $normalizedIdentifier);
 
         if (!$entry instanceof AuthRequestThrottle) {
             return false;
         }
 
         return $entry->exceedsLimit(new \DateTimeImmutable(), $windowSeconds, $maxHits);
+    }
+
+    /**
+     * @return array{limited: bool, retryAfterSeconds: int}
+     */
+    public function limitStatus(string $scope, string $identifier, int $maxHits, int $windowSeconds): array
+    {
+        $normalizedIdentifier = trim($identifier);
+        if ($normalizedIdentifier === '') {
+            return ['limited' => false, 'retryAfterSeconds' => 0];
+        }
+
+        $entry = $this->findEntry(trim($scope), $normalizedIdentifier);
+        if (!$entry instanceof AuthRequestThrottle) {
+            return ['limited' => false, 'retryAfterSeconds' => 0];
+        }
+
+        $now = new \DateTimeImmutable();
+
+        return [
+            'limited' => $entry->exceedsLimit($now, $windowSeconds, $maxHits),
+            'retryAfterSeconds' => $entry->remainingWindowSeconds($now, $windowSeconds),
+        ];
     }
 
     public function consume(string $scope, string $identifier, int $windowSeconds): void
@@ -40,10 +60,7 @@ class AuthThrottleService
 
         $normalizedScope = trim($scope);
         $now = new \DateTimeImmutable();
-        $entry = $this->entityManager->getRepository(AuthRequestThrottle::class)->findOneBy([
-            'scope' => $normalizedScope,
-            'identifier' => $normalizedIdentifier,
-        ]);
+        $entry = $this->findEntry($normalizedScope, $normalizedIdentifier);
 
         if (!$entry instanceof AuthRequestThrottle) {
             $entry = new AuthRequestThrottle($normalizedScope, $normalizedIdentifier, $now);
@@ -52,5 +69,13 @@ class AuthThrottleService
 
         $entry->consume($now, $windowSeconds);
         $this->entityManager->flush();
+    }
+
+    private function findEntry(string $scope, string $identifier): ?AuthRequestThrottle
+    {
+        return $this->entityManager->getRepository(AuthRequestThrottle::class)->findOneBy([
+            'scope' => $scope,
+            'identifier' => $identifier,
+        ]);
     }
 }

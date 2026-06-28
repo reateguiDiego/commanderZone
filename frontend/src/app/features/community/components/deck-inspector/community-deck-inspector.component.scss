@@ -1,0 +1,421 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.community-inspector,
+.community-inspector-stack,
+.analysis-side-column,
+.analysis-list-grid,
+.deck-card-list,
+.dense-list,
+.mana-balance-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.community-inspector {
+  min-width: 0;
+}
+
+.community-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.community-metric-card,
+.analysis-panel,
+.list-row,
+.issue-row,
+.deck-card-row,
+.mana-balance-row {
+  border: 1px solid rgb(var(--cz-primary-rgb) / 18%);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgb(var(--cz-surface-rgb) / 72%), rgb(var(--cz-bg-rgb) / 68%));
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%);
+}
+
+.community-metric-card,
+.analysis-panel {
+  padding: 0.95rem 1rem;
+}
+
+.community-metric-card {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.community-metric-card span,
+.analysis-panel-header p,
+.analysis-footnote,
+.deck-card-secondary,
+.mana-balance-metrics,
+.mana-balance-notes,
+.mana-summary small {
+  color: var(--muted);
+}
+
+.community-metric-card span,
+.mana-summary small {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.community-metric-card strong {
+  font-size: clamp(1.1rem, 2vw, 1.55rem);
+}
+
+.analysis-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.95fr);
+  gap: 0.75rem;
+}
+
+.analysis-panel {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.analysis-panel h3,
+.analysis-footnote {
+  margin: 0;
+}
+
+.analysis-panel-header {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.analysis-panel-header h3,
+.analysis-panel-header p,
+.deck-card-name,
+.mana-summary strong {
+  margin: 0;
+}
+
+.analysis-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  margin-right: 0.35rem;
+}
+
+.permanent-dot {
+  background: linear-gradient(180deg, var(--cz-primary), var(--cz-surface));
+}
+
+.spell-dot {
+  background: linear-gradient(180deg, var(--cz-info), var(--cz-surface));
+}
+
+.curve-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(2rem, 1fr));
+  gap: 0.65rem;
+  min-width: 0;
+  min-height: 18rem;
+  align-items: end;
+  padding: 0.55rem 0.45rem 0.25rem;
+  border: 1px solid rgb(var(--cz-text-rgb) / 6%);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 4%), transparent),
+    repeating-linear-gradient(
+      0deg,
+      rgb(var(--cz-text-rgb) / 4%) 0,
+      rgb(var(--cz-text-rgb) / 4%) 1px,
+      transparent 1px,
+      transparent 25%
+    );
+}
+
+.curve-bar {
+  display: grid;
+  grid-template-rows: auto 14.5rem auto;
+  gap: 0.42rem;
+  align-items: end;
+  min-width: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.curve-bar > span,
+.curve-bar > small {
+  justify-self: center;
+  min-width: 1.8rem;
+  border-radius: 999px;
+  background: rgb(var(--cz-bg-rgb) / 18%);
+  padding: 0.1rem 0.35rem;
+}
+
+.curve-stack {
+  position: relative;
+  justify-self: center;
+  width: 72%;
+  height: 100%;
+  padding: 0.18rem;
+  border: 1px solid rgb(var(--cz-text-rgb) / 7%);
+  border-radius: 3px;
+  background: rgb(var(--cz-bg-rgb) / 34%);
+  box-shadow: inset 0 10px 22px rgb(var(--cz-bg-rgb) / 18%);
+}
+
+.curve-fill {
+  position: absolute;
+  right: 0.18rem;
+  bottom: 0.18rem;
+  left: 0.18rem;
+  min-height: 0.42rem;
+  border-radius: 2px;
+  background:
+    linear-gradient(
+      to top,
+      var(--cz-primary) 0 var(--permanent-share),
+      var(--cz-info) var(--permanent-share) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 22%),
+    0 6px 14px rgb(var(--cz-bg-rgb) / 18%);
+}
+
+.analysis-hover-list {
+  position: fixed;
+  z-index: 90;
+  max-width: min(20rem, calc(100vw - 1.5rem));
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 30%);
+  border-radius: 8px;
+  background: rgb(var(--cz-bg-rgb) / 97%);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+
+.analysis-hover-list ul {
+  margin: 0.45rem 0 0;
+  padding-left: 1rem;
+}
+
+.analysis-hover-section {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.65rem;
+}
+
+.analysis-hover-section h4 {
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.analysis-hover-section ul {
+  margin-top: 0;
+}
+
+.analysis-list-row,
+.list-row,
+.issue-row,
+.deck-card-row,
+.mana-balance-row {
+  display: grid;
+  gap: 0.4rem 0.75rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+}
+
+.analysis-list-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.hoverable-analysis-row:hover {
+  border-color: rgb(var(--cz-primary-rgb) / 25%);
+  background: rgb(var(--cz-primary-rgb) / 7%);
+}
+
+.deck-card-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
+}
+
+.deck-card-primary,
+.deck-card-secondary,
+.deck-card-cost,
+.list-row span,
+.issue-row span,
+.mana-balance-label,
+.mana-balance-bars {
+  min-width: 0;
+}
+
+.list-row,
+.issue-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.list-row small,
+.issue-row small {
+  display: block;
+  margin-top: 0.15rem;
+  overflow-wrap: anywhere;
+}
+
+.issue-row.error-issue {
+  border-color: rgb(var(--cz-danger-rgb) / 32%);
+}
+
+.metric {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mana-balance-panel {
+  gap: 0.85rem;
+}
+
+.mana-summary {
+  display: grid;
+  justify-items: end;
+  gap: 0.08rem;
+}
+
+.mana-balance-row {
+  grid-template-columns: minmax(0, 9rem) minmax(6.5rem, auto) minmax(8rem, 1fr) minmax(0, 10rem);
+}
+
+.mana-balance-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.mana-balance-label strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mana-balance-metrics,
+.mana-balance-notes {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.73rem;
+}
+
+.mana-balance-bars {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.mana-balance-bar {
+  height: 0.48rem;
+  border-radius: 999px;
+  background: rgb(var(--cz-text-rgb) / 8%);
+  overflow: hidden;
+}
+
+.mana-balance-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.source-bar span {
+  background: linear-gradient(90deg, var(--cz-primary), var(--cz-info));
+}
+
+.demand-bar span {
+  background: linear-gradient(90deg, rgb(var(--cz-text-rgb) / 55%), rgb(var(--cz-text-rgb) / 22%));
+}
+
+.mana-balance-notes {
+  justify-content: flex-end;
+}
+
+@media (max-width: 1024px) {
+  .community-metric-grid,
+  .analysis-shell {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysis-shell > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .mana-balance-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .mana-balance-bars,
+  .mana-balance-notes {
+    grid-column: 1 / -1;
+  }
+
+  .mana-balance-notes {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .community-metric-grid,
+  .analysis-shell,
+  .mana-balance-row,
+  .deck-card-row,
+  .list-row,
+  .issue-row {
+    grid-template-columns: 1fr;
+  }
+
+  .curve-grid {
+    overflow-x: auto;
+    padding-bottom: 0.45rem;
+  }
+
+  .curve-bar {
+    min-width: 2.25rem;
+  }
+
+  .mana-summary {
+    justify-items: start;
+  }
+}
+
+@media (max-width: 520px) {
+  .community-inspector,
+  .community-inspector-stack,
+  .analysis-side-column,
+  .analysis-list-grid,
+  .deck-card-list,
+  .dense-list,
+  .mana-balance-grid {
+    gap: 0.65rem;
+  }
+
+  .community-metric-card,
+  .analysis-panel {
+    padding: 0.85rem 0.9rem;
+  }
+}

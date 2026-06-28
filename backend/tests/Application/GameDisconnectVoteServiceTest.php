@@ -18,6 +18,7 @@ class GameDisconnectVoteServiceTest extends TestCase
         [$game, $owner, $target, $voter] = $this->gameWithThreePlayers();
         $service = new GameDisconnectVoteService(new GameCommandHandler());
         $now = new \DateTimeImmutable('2026-01-01T00:00:00+00:00');
+        $persistedBefore = $game->persistedSnapshot();
 
         $recorded = $service->openVoteIfEligible($game, $target->id(), [$owner->id(), $voter->id()], $now);
 
@@ -26,12 +27,15 @@ class GameDisconnectVoteServiceTest extends TestCase
         self::assertSame(GameDisconnectVoteService::STATUS_OPEN, $recorded['snapshot']['disconnectVote']['status']);
         self::assertSame($target->id(), $recorded['snapshot']['disconnectVote']['targetPlayerId']);
         self::assertSame('2026-01-01T00:01:00+00:00', $recorded['snapshot']['disconnectVote']['deadlineAt']);
+        self::assertSame($persistedBefore, $game->persistedSnapshot());
+        self::assertSame(0, $recorded['event']->payload()['snapshot_write_count']);
     }
 
     public function testRecordVoteExpelsTargetOnSimpleMajority(): void
     {
         [$game, $owner, $target, $voter] = $this->gameWithThreePlayers();
         $service = new GameDisconnectVoteService(new GameCommandHandler());
+        $persistedBefore = $game->persistedSnapshot();
         $openAt = new \DateTimeImmutable('2026-01-01T00:00:00+00:00');
         $service->openVoteIfEligible($game, $target->id(), [$owner->id(), $voter->id()], $openAt);
 
@@ -56,6 +60,8 @@ class GameDisconnectVoteServiceTest extends TestCase
         self::assertSame('conceded', $recorded['snapshot']['players'][$target->id()]['status']);
         self::assertSame(GameRematchService::VOTE_LEAVE, $recorded['snapshot']['rematch']['votes'][$target->id()]['vote']);
         self::assertFalse($game->room()->hasPlayer($target));
+        self::assertSame($persistedBefore, $game->persistedSnapshot());
+        self::assertSame(0, $recorded['event']->payload()['snapshot_write_count']);
     }
 
     public function testRecordVoteExpelsTargetAndAdvancesTurnWhenTargetWasActivePlayer(): void

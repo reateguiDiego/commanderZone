@@ -39,7 +39,7 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .deck-row-clickable:hover:not(:has(.deck-row-actions:hover)) {
+  .deck-row-clickable:hover {
     border-color: rgb(var(--cz-primary-rgb) / 64%);
     box-shadow:
       inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),
@@ -174,15 +174,15 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .deck-list-row.has-commander-art:not(:focus-within):hover:not(:has(.deck-row-actions:hover)) .deck-card-topline {
+  .deck-list-row.has-commander-art:not(:focus-within):hover .deck-card-topline {
     opacity: 0;
     transform: translateY(-0.45rem) scale(0.98);
     filter: blur(2px);
     pointer-events: none;
   }
 
-  .deck-list-row.has-commander-art:not(:focus-within):hover:not(:has(.deck-row-actions:hover))::after,
-  .deck-list-row.has-commander-art:not(:focus-within):hover:not(:has(.deck-row-actions:hover)) .deck-dual-commander-art-pane::after {
+  .deck-list-row.has-commander-art:not(:focus-within):hover::after,
+  .deck-list-row.has-commander-art:not(:focus-within):hover .deck-dual-commander-art-pane::after {
     opacity: 0.96;
     transform: scale(1.035);
   }
@@ -244,34 +244,6 @@
   transform: translate(-50%, -50%);
 }
 
-.deck-row-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.24rem;
-  border: 1px solid rgb(var(--cz-text-rgb) / 9%);
-  border-radius: 7px;
-  background: var(--deck-list-row-actions-bg, rgb(var(--cz-bg-rgb) / 48%));
-  backdrop-filter: blur(8px);
-  opacity: 0.88;
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    opacity 160ms ease;
-}
-
-.deck-row-actions button {
-  -webkit-tap-highlight-color: transparent;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .deck-list-row:hover .deck-row-actions {
-    border-color: rgb(var(--cz-primary-rgb) / 24%);
-    background: var(--deck-list-row-actions-bg-hover, rgb(var(--cz-bg-rgb) / 62%));
-    opacity: 1;
-  }
-}
-
 .deck-list-warning {
   position: relative;
   display: inline-grid;
@@ -326,9 +298,5 @@
 
   .deck-card-status {
     justify-content: center;
-  }
-
-  .deck-row-actions {
-    margin-left: auto;
   }
 }

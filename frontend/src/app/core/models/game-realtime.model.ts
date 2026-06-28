@@ -1,5 +1,6 @@
 import type {
   GameCardInstance,
+  GameCompactCardRef,
   GameCardPosition,
   GameCommand,
   GamePhase,
@@ -11,6 +12,7 @@ import type {
   MulliganPlayerStatus,
   GameZoneName,
 } from './game.model';
+import type { CommandEnvelopeV2, PatchEnvelopeV2 } from './game-v2.model';
 
 export type RealtimeGameCommand<TPayload extends Record<string, unknown> = Record<string, unknown>> =
   Omit<GameCommand<TPayload>, 'clientActionId'> & {
@@ -20,6 +22,7 @@ export type RealtimeGameCommand<TPayload extends Record<string, unknown> = Recor
 
 export type GameplayClientMessage =
   | GameplayCommandClientMessage
+  | GameplayCommandV2ClientMessage
   | GameplayPingMessage
   | GameplayMulliganTakeClientMessage
   | GameplayMulliganKeepClientMessage
@@ -30,6 +33,11 @@ export interface GameplayCommandClientMessage {
   gameId: string;
   messageId: string;
   command: RealtimeGameCommand;
+}
+
+export interface GameplayCommandV2ClientMessage extends CommandEnvelopeV2 {
+  kind: 'command.v2';
+  messageId: string;
 }
 
 export interface GameplayPingMessage {
@@ -62,6 +70,7 @@ export interface GameplayMulliganScryConfirmClientMessage {
 export type GameplayServerMessage =
   | GameplayCommandAckMessage
   | GameplayGamePatchMessage
+  | GameplayPatchV2Message
   | GameplayResyncRequiredMessage
   | GameplayErrorMessage
   | GameplayPongMessage
@@ -82,6 +91,10 @@ export interface GameplayGamePatchMessage {
   operations: GameSnapshotPatchOperation[];
   event?: GameEvent;
   clientActionId?: string;
+}
+
+export interface GameplayPatchV2Message extends PatchEnvelopeV2 {
+  kind: 'patch.v2';
 }
 
 export type GameplayCommandAckStatus = 'rejected' | 'duplicate' | 'resync_required';
@@ -179,7 +192,8 @@ export interface GameplayMulliganPrivateStateMessage {
   gameId: string;
   version: number;
   playerId: string;
-  hand: GameCardInstance[];
+  hand: GameplayMulliganPrivateCard[];
+  handSize?: number;
   mulligan: Required<Pick<
     GamePlayerMulliganState,
     | 'mulligansTaken'
@@ -194,9 +208,27 @@ export interface GameplayMulliganPrivateStateMessage {
     | 'status'
     | 'ready'
   >> & Pick<GamePlayerMulliganState, 'rule'>;
-  scryCard?: GameCardInstance;
+  scryCard?: GameplayMulliganPrivateCard;
+  visibility?: 'private' | `player:${string}`;
+  staticCards?: Record<string, unknown>;
+  ops?: GameplayMulliganSemanticOperation[];
   messageId?: string;
 }
+
+export type GameplayMulliganPrivateCard = GameCompactCardRef | GameCardInstance;
+
+export type GameplayMulliganSemanticOperation =
+  | { op: 'mulligan.status.set'; playerId: string; status: MulliganPlayerStatus; ready?: boolean; handCount?: number; effectiveMulligans?: number }
+  | { op: 'mulligan.player.choice.set'; playerId: string; choice: 'take' | 'keep' | 'scry_top' | 'scry_bottom'; effectiveMulligans?: number }
+  | { op: 'mulligan.private_state.set'; playerId: string; state: GameplayMulliganPrivateStateMessage['mulligan']; hand?: GameplayMulliganPrivateCard[]; scryCard?: GameplayMulliganPrivateCard }
+  | { op: 'mulligan.hand.replace_private'; playerId: string; hand: GameplayMulliganPrivateCard[]; staticCards?: Record<string, unknown> }
+  | { op: 'mulligan.hand.count.set'; playerId: string; count: number }
+  | { op: 'mulligan.bottom.required.set'; playerId: string; count: number; orderMode?: GamePlayerMulliganState['bottomOrderMode'] }
+  | { op: 'mulligan.bottom.confirmed'; playerId: string; count: number }
+  | { op: 'mulligan.scry.available.set'; playerId: string; available: boolean; card?: GameplayMulliganPrivateCard }
+  | { op: 'mulligan.scry.confirmed'; playerId: string; destination: 'TOP' | 'BOTTOM' }
+  | { op: 'mulligan.completed' }
+  | { op: 'game.phase.set'; phase: GamePhase };
 
 export interface GameplayMulliganErrorMessage {
   kind: 'mulligan.error';
@@ -459,6 +491,15 @@ export type GameSnapshotPatchOperation =
   | {
       op: 'turn.set';
       turn: GameSnapshot['turn'];
+    }
+  | {
+      op: 'game.phase.set';
+      phase: GamePhase;
+    }
+  | {
+      op: 'game.status.set';
+      status: string;
+      phase?: GamePhase;
     }
   | {
       op: 'timer.set';

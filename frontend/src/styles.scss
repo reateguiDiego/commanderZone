@@ -147,6 +147,42 @@ button {
   font-size: 0.86rem;
 }
 
+.settings-save-disclaimer {
+  max-width: min(28rem, 46vw);
+  color: var(--cz-warning);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.app-disclaimer-callout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.34rem;
+  align-items: center;
+  margin: 0;
+  border: 1px solid rgb(var(--cz-warning-rgb) / 24%);
+  border-radius: 8px;
+  padding: 0.62rem 0.72rem;
+  background:
+    linear-gradient(180deg, rgb(var(--cz-warning-rgb) / 10%), rgb(var(--cz-bg-rgb) / 38%)),
+    rgb(var(--cz-bg-rgb) / 46%);
+  color: var(--cz-warning);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.app-disclaimer-callout p,
+.app-disclaimer-callout span {
+  margin: 0;
+}
+
 .cz-button--lg {
   min-height: 3rem;
   border-radius: 12px;
@@ -164,5 +200,10 @@ p {
   :root {
     --cz-page-title-font-size: 2.4rem;
     --cz-page-copy-font-size: 0.98rem;
+  }
+
+  .settings-save-disclaimer {
+    max-width: none;
+    text-align: left;
   }
 }

@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "app": {
       "app": {
@@ -12,14 +12,14 @@
         "wizards": "Wizards",
         "portionsOfTheMaterialsUsedAreProperty": ". Portions of the materials used are property of",
         "wizardsOfTheCoast": "Wizards of the Coast",
-        "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
-        "magicTheGathering": "Magic: The Gathering®",
-        "mtg": "MTG®",
+        "wizardsOfTheCoastLlc": "\u00a9Wizards of the Coast LLC",
+        "magicTheGathering": "Magic: The Gathering\u00ae",
+        "mtg": "MTG\u00ae",
         "andAllAssociatedLogosCardImagesAnd": ", and all associated logos, card images, and intellectual property are trademarks and/or copyrights of",
         "llcASubsidiaryOf": "LLC, a subsidiary of",
         "hasbroInc": "Hasbro, Inc",
         "inTheUnitedStatesAndOtherCountries": "., in the United States and other countries.",
-        "text19932025WizardsOfTheCoastLlc": "© 1993-2025 Wizards of the Coast LLC",
+        "text19932025WizardsOfTheCoastLlc": "\u00a9 1993-2025 Wizards of the Coast LLC",
         "allRightsReserved": ". All rights reserved.",
         "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone may display or reference certain",
         "intellectualPropertyUnderTheGuidelinesSetForth": "intellectual property under the guidelines set forth in",
@@ -42,13 +42,16 @@
       "label": "Extras",
       "open": "Open extra actions",
       "menu": "Extra actions"
+    },
+    "navigation": {
+      "back": "Atras"
     }
   },
   "navigation": {
     "dashboard": {
       "dashboardHome": {
         "tuComandanteHaLlegado": "Tus comandantes tienen sed de sangre",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
+        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aqu\u00ed.",
         "bienvenido": "Bienvenido"
       },
       "dashboardTopCommanders": {
@@ -121,7 +124,12 @@
       "login": "Login",
       "register": "Register",
       "email": "Email",
+      "emailOrUserName": "Email o nombre de usuario",
       "introduceUnEmailValido": "Introduce un email valido.",
+      "introduceUnEmailOUserNameValido": "Introduce un email o nombre de usuario valido.",
+      "invalidCredentials": "Email, nombre de usuario o password incorrectos.",
+      "tooManyLoginAttempts": "Demasiados intentos de login fallidos. Intentalo de nuevo mas tarde.",
+      "loginLockoutWarning": "Intento de login fallido {{ count }}/5. Si fallas 5 intentos, el login se bloqueara durante 15 minutos.",
       "password": "Password",
       "heOlvidadoMiContrasena": "He olvidado mi contrasena",
       "comprobandoEmail": "Comprobando email...",
@@ -129,23 +137,29 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
+      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
-      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula y numero.",
+      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula, numero y caracter especial.",
+      "passwordRequirements": {
+        "label": "Password requirements",
+        "minLength": "Minimo 8 caracteres",
+        "lowercase": "Minimo 1 letra minuscula",
+        "uppercase": "Minimo 1 letra mayuscula",
+        "number": "Minimo 1 numero",
+        "special": "Minimo 1 caracter especial"
+      },
       "confirmarPassword": "Confirmar password",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden."
+      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
+      "registrationCompletedCheckEmail": "Registro completado. Revisa tu correo y confirma tu cuenta."
     },
     "emailVerificationPage": {
-      "verificarEmail": "Verificar email",
-      "usaElTokenRecibidoParaActivarTu": "Usa el token recibido para activar tu cuenta.",
-      "registroCompletadoRevisaTuCorreoYConfirma": "Registro completado. Revisa tu correo y confirma tu cuenta.",
-      "tokenDeVerificacion": "Token de verificacion",
-      "emailVerificadoIniciandoSesion": "Email verificado. Iniciando sesion...",
-      "reenviarVerificacionEmail": "Reenviar verificacion (email)",
-      "siElEmailExisteYNoEsta": "Si el email existe y no esta verificado, se envio un nuevo correo.",
-      "volverAlLogin": "Volver al login"
+      "confirmingEmail": "Confirmando email",
+      "waitWhileWeConfirmYourAccount": "Espera mientras confirmamos tu cuenta.",
+      "couldNotConfirmEmail": "No se pudo confirmar el email",
+      "linkInvalidOrExpired": "El enlace de verificacion no es valido o ha caducado.",
+      "backToLogin": "Volver al login"
     },
     "passwordResetPage": {
       "recuperarContrasena": "Recuperar contrasena",
@@ -292,6 +306,20 @@
       }
     }
   },
+  "community": {
+    "preview": {
+      "summary": {
+        "topHundred": "Top 100 cartas"
+      }
+    },
+    "detail": {
+      "saveConfirmation": {
+        "title": "¿Quieres guardar este deck en tu lista de decks?",
+        "confirm": "Confirmar",
+        "cancel": "Cancelar"
+      }
+    }
+  },
   "game": {
     "arrowTargetDialog": {
       "selectArrowTargetPlayer": "Select arrow target player",
@@ -398,9 +426,9 @@
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
         "removeAllCounters": "Remove All Counters",
-        "createHelper": "Mecánicas",
+        "createHelper": "Mec\u00e1nicas",
         "setRingBearer": "Convertir en Portador del Anillo",
-        "mechanics": "Mecánicas"
+        "mechanics": "Mec\u00e1nicas"
       }
     },
     "contextSubmenu": {
@@ -593,8 +621,8 @@
     },
     "specialHelpers": {
       "modal": {
-        "title": "Mecánicas",
-        "quickActions": "Acciones rápidas",
+        "title": "Mec\u00e1nicas",
+        "quickActions": "Acciones r\u00e1pidas",
         "cardBacked": "Entidades con carta",
         "searchPlaceholder": "Buscar emblemas o mazmorras",
         "searching": "Buscando ayudas...",
@@ -603,33 +631,33 @@
         "searchError": "No se pudieron cargar las entidades especiales.",
         "playerTarget": "Jugador: {{playerName}}",
         "currentState": "Estado actual",
-        "readonly": "Solo lectura. Puedes consultar estas mecánicas aquí, pero solo el jugador que controla esa posición puede cambiarlas.",
+        "readonly": "Solo lectura. Puedes consultar estas mec\u00e1nicas aqu\u00ed, pero solo el jugador que controla esa posici\u00f3n puede cambiarlas.",
         "ringLevel": "Nivel del Anillo",
         "noRingBearer": "Sin Portador del Anillo",
         "removeHelper": "Quitar",
         "clearRingBearer": "Quitar Portador del Anillo",
         "ringLevelUp": "Subir nivel",
         "ringLevelDown": "Bajar nivel",
-        "noActiveMechanics": "No hay mecánicas activas.",
+        "noActiveMechanics": "No hay mec\u00e1nicas activas.",
         "notSet": "Sin definir"
       },
       "quick": {
         "monarch": "Convertirse en monarca",
         "initiative": "Tomar la iniciativa",
-        "citysBlessing": "Obtener la bendición de la ciudad",
+        "citysBlessing": "Obtener la bendici\u00f3n de la ciudad",
         "theRing": "Crear El Anillo",
-        "setDay": "Poner de día",
+        "setDay": "Poner de d\u00eda",
         "setNight": "Poner de noche"
       },
       "labels": {
         "monarch": "Monarca",
         "initiative": "Iniciativa",
-        "citys_blessing": "Bendición de la ciudad",
-        "day_night": "Día/Noche",
+        "citys_blessing": "Bendici\u00f3n de la ciudad",
+        "day_night": "D\u00eda/Noche",
         "the_ring": "El Anillo",
         "emblem": "Emblema",
         "dungeon": "Mazmorra",
-        "day": "DÃ­a",
+        "day": "D\u00eda",
         "night": "Noche"
       },
       "dungeonReplacement": {
@@ -664,10 +692,171 @@
       "cardSearch": {
         "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
         "cards": "Cards",
+        "advancedSearch": "Buscador avanzado de cartas",
+        "header": {
+          "title": "Cartas",
+          "description": "Encuentra el carton perfecto antes de que la mesa empiece a hacer politica."
+        },
         "searchLibrary": "Search library",
-        "search": "Search",
-        "searchingCards": "Searching cards...",
-        "noCardsFound": "No cards found."
+        "search": "Buscar",
+        "clear": "Limpiar",
+        "close": "Cerrar",
+        "advancedFilters": "Filtros avanzados",
+        "searchingCards": "Buscando cartas...",
+        "noCardsFound": "No se han encontrado cartas.",
+        "actions": {
+          "showDetails": "Ver detalles",
+          "addToDeck": "Anadir a mazo",
+          "showRulings": "Ver reglas",
+          "viewPrintings": "Ver todas sus ediciones"
+        },
+        "details": {
+          "close": "Cerrar detalles",
+          "couldNotLoad": "No se pudo cargar esta carta.",
+          "oracleText": "Texto Oracle",
+          "noOracleText": "No hay texto Oracle disponible.",
+          "legalFormats": "Formatos legales",
+          "illegalFormats": "Formatos no legales",
+          "noLegalFormats": "No hay formatos legales en el catalogo local.",
+          "noIllegalFormats": "No hay formatos no legales en el catalogo local."
+        },
+        "addToDeck": {
+          "title": "Add card",
+          "deck": "Mazo",
+          "section": "Seccion",
+          "quantity": "Cantidad",
+          "selectDeck": "Selecciona un mazo",
+          "selectSection": "Selecciona una seccion",
+          "decreaseQuantity": "Bajar cantidad",
+          "increaseQuantity": "Subir cantidad",
+          "sectionMain": "Mazo principal",
+          "sectionCommander": "Comandante",
+          "sectionSideboard": "Sideboard",
+          "sectionConsidering": "Considering",
+          "confirm": "Anadir carta",
+          "cancel": "Cancelar",
+          "loadingDecks": "Cargando tus mazos...",
+          "noDecks": "Todavia no tienes mazos.",
+          "colorIdentityWarning": "{{ card }} tiene identidad de color fuera de los colores del comandante de {{ deck }}:",
+          "formatLegalityWarning": "{{ card }} no es legal en {{ format }}, el formato del mazo seleccionado.",
+          "couldNotLoadDecks": "No se han podido cargar tus mazos.",
+          "couldNotAdd": "No se ha podido anadir esta carta al mazo seleccionado."
+        },
+        "printings": {
+          "title": "Ediciones de {{ card }}",
+          "loading": "Cargando ediciones...",
+          "empty": "No se han encontrado ediciones para esta carta.",
+          "couldNotLoad": "No se han podido cargar las ediciones de la carta.",
+          "close": "Cerrar"
+        },
+        "summary": {
+          "ariaLabel": "Filtros aplicados de busqueda de cartas",
+          "activeQuery": "Busqueda activa",
+          "totalFound": "{{ total }} cartas encontradas",
+          "pageStatus": "Pagina {{ page }} de {{ pages }}",
+          "filters": {
+            "name": "Nombre",
+            "rules": "Texto",
+            "types": "Tipos",
+            "subtypes": "Subtipos",
+            "sets": "Ampliaciones",
+            "rarity": "Rareza",
+            "colors": "Colores",
+            "cardKind": "Clase",
+            "manaValue": "Valor de mana",
+            "manaCost": "Coste de mana",
+            "power": "Fuerza",
+            "toughness": "Resistencia",
+            "formats": "Formatos"
+          }
+        },
+        "sort": {
+          "label": "Ordenar",
+          "relevance": "Relevancia",
+          "colors": "Colores",
+          "nameAsc": "Nombre A-Z",
+          "nameDesc": "Nombre Z-A",
+          "manaValueAsc": "Mana bajo-alto",
+          "manaValueDesc": "Mana alto-bajo",
+          "setAsc": "Ampliacion A-Z",
+          "setDesc": "Ampliacion Z-A",
+          "rarityAsc": "Rareza mitica primero",
+          "rarityDesc": "Rareza comun primero"
+        },
+        "view": {
+          "list": "Listado",
+          "spoiler": "Spoiler"
+        },
+        "form": {
+          "name": "Nombre",
+          "textA": "Texto de reglas",
+          "textB": "Segundo texto",
+          "textMode": "Coincidencia de texto",
+          "textModeAll": "Todos los textos",
+          "textModeAllDescription": "Las dos cajas deben aparecer en el texto de reglas.",
+          "textModeAny": "Cualquier texto",
+          "textModeAnyDescription": "Cualquiera de las dos cajas puede coincidir con el texto de reglas.",
+          "types": "Tipos",
+          "subtypes": "Subtipos",
+          "sets": "Ampliaciones",
+          "rarity": "Rareza",
+          "colors": "Colores",
+          "colorMode": "Coincidencia de color",
+          "colorModeAny": "Cualquiera",
+          "colorModeAll": "Todos",
+          "colorModeExact": "Exacto",
+          "clearManaCost": "Limpiar coste de mana",
+          "basic": "Basica",
+          "legendary": "Legendaria",
+          "artifact": "Artefacto",
+          "multicolor": "Multicolor",
+          "land": "Tierra",
+          "costs": "Costes",
+          "manaValueMin": "Mana min",
+          "manaValueMax": "Mana max",
+          "manaCost": "Coste de mana",
+          "powerToughness": "Fuerza y resistencia",
+          "powerMin": "Fuerza min",
+          "powerMax": "Fuerza max",
+          "toughnessMin": "Resistencia min",
+          "toughnessMax": "Resistencia max",
+          "includeVariablePower": "Incluir fuerza *",
+          "includeVariablePowerDescription": "Incluye tambien cartas cuya fuerza no es un numero fijo, como * o 1+*.",
+          "includeVariableToughness": "Incluir resistencia *",
+          "includeVariableToughnessDescription": "Incluye tambien cartas cuya resistencia no es un numero fijo, como * o 1+*.",
+          "formats": "Formatos",
+          "filterOptions": "Filtrar opciones",
+          "presentation": "Presentacion",
+          "loadingOptions": "Cargando filtros...",
+          "enabled": "Activo",
+          "activeFilters": "filtros activos",
+          "precisionConsole": "Consola de precision",
+          "composeSearch": "Compone la busqueda exacta",
+          "oracleText": "Texto de la carta",
+          "textAPlaceholder": "Robar una carta, destruir objetivo, siempre que lances...",
+          "textBPlaceholder": "Segundo termino de reglas opcional"
+        },
+        "help": {
+          "title": "Guia de busqueda",
+          "heading": "Guia de uso para este buscador avanzado",
+          "nameTitle": "Nombre",
+          "name": "Permite buscar una carta por nombre completo o parcial. CommanderZone consulta nombres canonicos, nombres impresos/localizados y flavor names cuando existen en el catalogo local, asi que el nombre en castellano y el nombre en ingles pueden encontrar la misma carta.",
+          "textTitle": "Texto",
+          "text": "Usa una o dos cajas para buscar texto de reglas. El selector de coincidencia decide si deben aparecer ambos textos en la carta o si basta con cualquiera de ellos. La busqueda revisa texto de reglas y caras de cartas.",
+          "subtypesTitle": "Subtipo",
+          "subtypes": "El subtipo funciona independientemente del tipo elegido. Puedes combinarlo con cualquier otra seccion para buscar elfos, trasgos, dragones, equipos, auras y otros subtipos.",
+          "rarityTitle": "Rareza",
+          "rarity": "Permite activar varias rarezas a la vez. Los colores de las pills son una ayuda visual; el filtro real usa la rareza guardada en el catalogo.",
+          "colorsTitle": "Color",
+          "colors": "La coincidencia de color define el criterio: cartas con cualquier color seleccionado, con todos los colores seleccionados o exactamente con esos colores. Artefacto, multicolor y tierra son accesos rapidos adicionales.",
+          "costsTitle": "Costes",
+          "costs": "El valor de mana usa el catalogo normalizado de CommanderZone, donde X cuenta como 0. El coste de mana exacto se construye con simbolos, asi que el usuario no necesita escribir codigos de color.",
+          "statsTitle": "Fuerza y resistencia",
+          "stats": "Los rangos de fuerza y resistencia comparan valores numericos. Activa el pequeno checkbox de valores variables si tambien quieres incluir cartas con valores como * o 1+*."
+        }
+      },
+      "cardImage": {
+        "flipFace": "Girar carta"
       },
       "autocomplete": {
         "cardAutocomplete": {
@@ -779,6 +968,9 @@
         "deckWarnings": "Deck warnings",
         "import": "Import",
         "export": "Export",
+        "share": "Share",
+        "shareCopied": "Enlace de community copiado",
+        "shareError": "No se pudo copiar el enlace de community.",
         "backToDecks": "Back to decks"
       }
     },
@@ -794,9 +986,12 @@
       "editDeck": "Edit deck",
       "deleteDeck": "Delete deck",
       "deckSaved": "Deck saved",
+      "createSuccessMessage": "This deck has been saved. It is now in your saved decks list, and you can edit it however you like. Good luck with your Commander deck!",
       "createEmptyDeck": "Crear deck vacio",
       "createFolder": "Create folder",
+      "continueToRooms": "Continue to rooms",
       "commanderEnlargedPreview": "Commander enlarged preview",
+      "deckListLabel": "Deck list",
       "loadingDecks": "Loading decks...",
       "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
       "decks": "Decks",
@@ -805,6 +1000,7 @@
       "deckName": "Deck name",
       "folder": "Folder",
       "noFolder": "No folder",
+      "openDeck": "Open deck",
       "thisDeckIsPublicButItsFolder": "This deck is public, but its folder is private. It will not be publicly visible.",
       "commander": "Commander",
       "importDecklist": "Import decklist",
@@ -836,19 +1032,19 @@
   "tableAssistant": {
     "tableAssistantPage": {
       "asistenteDeMesa": "Asistente de Mesa",
-      "resumenRapido": "Resumen rápido",
+      "resumenRapido": "Resumen r\u00e1pido",
       "beneficios": "Beneficios",
       "mesaManualDeCommander": "Mesa manual de Commander",
-      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida física.",
-      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y daño de comandante sin automatizar reglas de Magic.",
-      "setupRapido": "Setup rápido",
+      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida f\u00edsica.",
+      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y da\u00f1o de comandante sin automatizar reglas de Magic.",
+      "setupRapido": "Setup r\u00e1pido",
       "text4JugadoresPorDefecto": "4 jugadores por defecto",
       "text40VidasIniciales": "40 vidas iniciales",
-      "danoDeComandanteActivo": "Daño de comandante activo"
+      "danoDeComandanteActivo": "Da\u00f1o de comandante activo"
     },
     "tableAssistantReplayModal": {
-      "configuracionDeMesa": "Configuración de mesa",
-      "cerrarConfiguracionDeMesa": "Cerrar configuración de mesa",
+      "configuracionDeMesa": "Configuraci\u00f3n de mesa",
+      "cerrarConfiguracionDeMesa": "Cerrar configuraci\u00f3n de mesa",
       "posicionesDeMesa": "Posiciones de mesa",
       "jugador": "Jugador",
       "sinJugador": "Sin jugador",
@@ -862,8 +1058,8 @@
       "copiarEnlaceDeSala": "Copiar enlace de sala",
       "trackersGlobales": "Trackers globales",
       "jugadores": "Jugadores",
-      "danoDeComandante": "Daño de comandante",
-      "cerrarDanoDeComandante": "Cerrar daño de comandante",
+      "danoDeComandante": "Da\u00f1o de comandante",
+      "cerrarDanoDeComandante": "Cerrar da\u00f1o de comandante",
       "vidaDeJugador": "Vida de jugador",
       "trackersDeJugador": "Trackers de jugador",
       "skullKo": "skull-ko",
@@ -871,7 +1067,7 @@
       "cargandoSala": "Cargando sala...",
       "codigoDeSala": "Codigo de sala",
       "letal": "Letal",
-      "danoDeComandante1": "Daño de comandante",
+      "danoDeComandante1": "Da\u00f1o de comandante",
       "verYEditar": "Ver y editar",
       "asignadoAJugadorConectado": "Asignado a jugador conectado"
     },
@@ -882,7 +1078,7 @@
       "jugadoresVidasYTemporizadorLoDemasSe": "Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.",
       "jugadores": "Jugadores",
       "reglasDeMesa": "Reglas de mesa",
-      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Daño de comandante siempre activo. Temporizador opcional."
+      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Da\u00f1o de comandante siempre activo. Temporizador opcional."
     },
     "tableAssistantTableMenu": {
       "opcionesDePartidaDeCommanderzone": "Opciones de partida de CommanderZone",
@@ -916,15 +1112,15 @@
       "benefits": {
         "lifeAndCommander": {
           "title": "Vidas y comandante",
-          "description": "Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo."
+          "description": "Controla vidas y da\u00f1o de comandante sin convertir la partida en una hoja de c\u00e1lculo."
         },
         "simpleTurns": {
           "title": "Turnos simples",
-          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas."
+          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas autom\u00e1ticas."
         },
         "sharedTable": {
           "title": "Mesa compartida",
-          "description": "Pensado para un único móvil o tablet en el centro de la mesa."
+          "description": "Pensado para un \u00fanico m\u00f3vil o tablet en el centro de la mesa."
         }
       },
       "header": {
@@ -940,7 +1136,8 @@
       "avatar": "Avatar",
       "name": "Name",
       "changeAvatar": "Change avatar",
-      "changeName": "Change name",
+      "becomePremium": "Hacerte premium",
+      "changeName": "Cambiar nameplate",
       "accountDetails": "Account details",
       "email": "Email",
       "introduceUnEmailValido": "Introduce un email valido.",
@@ -949,15 +1146,43 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
+      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
       "changePassword": "Change password",
+      "sendingPasswordEmail": "Enviando email...",
+      "passwordResetEmailSentShort": "Enviado",
+      "passwordResetEmailSent": "Email para cambiar la contrasena enviado.",
+      "passwordResetEmailError": "No se pudo enviar el email para cambiar la contrasena.",
       "deleteAccount": "Delete account",
       "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
       "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "changeTheme": "Cambiar theme",
+      "gameSettings": {
+        "title": "Gameplay preferences",
+        "showManaHelperOnStartup": {
+          "label": "Show mana helper on startup",
+          "description": "Open the mana helper when a match starts."
+        },
+        "enableManaRow": {
+          "label": "Enable mana row",
+          "description": "Show the dedicated mana row during games."
+        },
+        "enableStackMana": {
+          "label": "Enable stack mana",
+          "description": "Keep mana available while resolving stacked actions."
+        },
+        "gameAnimations": {
+          "label": "Game animations",
+          "description": "Use visual movement and feedback animations during matches."
+        },
+        "chatNotificationSounds": {
+          "label": "Chat notification sounds",
+          "description": "Play a sound when new chat notifications arrive."
+        }
+      }
     },
     "settingsInitialAvatarOption": {
       "initialAvatarCustomization": "Initial avatar customization",
@@ -1024,5 +1249,44 @@
     }
   },
   "toasts": {},
-  "emptyStates": {}
+  "emptyStates": {},
+  "contactPage": {
+    "meta": {
+      "title": "Contacto | CommanderZone",
+      "description": "Contacta con CommanderZone para soporte, bugs, derechos o consultas generales."
+    },
+      "hero": {
+        "title": "Contacta con nosotros",
+        "description": "Env\u00edanos un mensaje y lo revisaremos lo antes posible."
+      },
+      "nav": {
+        "loggedOutCta": "Volver al dashboard",
+        "anonymousCta": "Volver al inicio"
+      },
+      "copy": {
+      "supportTitle": "Soporte y derechos",
+        "supportBody": "Usa este formulario para soporte, bugs, privacidad, incidencias de derechos o cualquier duda, idea o curiosidad que quieras compartir con nosotros. Si te resulta m\u00e1s c\u00f3modo, tambi\u00e9n podemos seguir por email en {{ email }}.",
+      "includeTitle": "Qu\u00e9 incluir",
+      "includeBody": "Explica el problema con claridad e incluye cualquier contexto \u00fatil de p\u00e1gina, sala, deck o captura. No env\u00edes secretos ni datos de pago."
+    },
+    "form": {
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Tu nombre",
+      "nameError": "Introduce tu nombre.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "tu@email.com",
+      "emailError": "Introduce un email v\u00e1lido.",
+      "subjectLabel": "Asunto",
+      "subjectPlaceholder": "\u00bfEn qu\u00e9 podemos ayudarte?",
+      "subjectError": "Introduce un asunto.",
+      "messageLabel": "Mensaje",
+      "messagePlaceholder": "Escribe aqu\u00ed tu mensaje.",
+      "messageError": "Introduce un mensaje.",
+        "submit": "Enviar mensaje",
+        "submitting": "Enviando...",
+        "submitSuccess": "Tu mensaje se ha enviado.",
+        "submitRateLimitError": "Has alcanzado el l\u00edmite de mensajes de contacto. Espera unos {{ retryAfterMinutes }} minuto(s) antes de volver a intentarlo. Si es urgente, escr\u00edbenos directamente a {{ email }}.",
+        "submitError": "No hemos podido enviar tu mensaje. Escr\u00edbenos directamente a {{ email }} o cont\u00e1ctanos por otro canal."
+      }
+  }
 }

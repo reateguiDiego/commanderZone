@@ -2,6 +2,9 @@
 
 namespace App\Application\Game\WebSocket;
 
+use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
+use App\Application\Game\Contract\V2\GameplayV2Flags;
+
 final readonly class GameWebsocketMessageHandler
 {
     private const WEBSOCKET_COMMANDS = [
@@ -30,6 +33,8 @@ final readonly class GameWebsocketMessageHandler
         'library.view',
         'library.play_top_revealed',
         'library.reorder_top',
+        'library.put_top',
+        'library.put_bottom',
         'card.face_down.changed',
         'card.face.changed',
         'card.revealed',
@@ -56,6 +61,8 @@ final readonly class GameWebsocketMessageHandler
     public function __construct(
         private GameWebsocketCommandPatchService $commands,
         private ?GameWebsocketMulliganService $mulligans = null,
+        private ?GameplayV2ContractFactory $contractsV2 = null,
+        private ?GameplayV2Flags $flagsV2 = null,
     ) {
     }
 
@@ -147,6 +154,52 @@ final readonly class GameWebsocketMessageHandler
                 $clientActionId,
                 $baseVersion,
                 $messageId,
+            );
+        }
+
+        if ($kind === 'command.v2') {
+            if (!($this->flagsV2?->commandEnabled() ?? false) || !$this->contractsV2 instanceof GameplayV2ContractFactory) {
+                return $this->error($peer, 'UNSUPPORTED_PROTOCOL_VERSION', 'Gameplay V2 commands are not enabled.', $messageId);
+            }
+            if ($messageId === null) {
+                return $this->error($peer, 'INVALID_COMMAND_MESSAGE', 'Command messageId is required.');
+            }
+
+            try {
+                $command = $this->contractsV2->commandFromWebsocketMessage($message);
+            } catch (\InvalidArgumentException $exception) {
+                return $this->error($peer, 'INVALID_COMMAND_MESSAGE', $exception->getMessage(), $messageId);
+            }
+
+            if ($command->gameId !== $peer->gameId) {
+                return $this->error($peer, 'GAME_ID_MISMATCH', 'Message gameId does not match the connected game.', $messageId);
+            }
+
+            if (!in_array($command->type, self::WEBSOCKET_COMMANDS, true)) {
+                return [
+                    'kind' => 'command_ack',
+                    'gameId' => $peer->gameId,
+                    'messageId' => $messageId,
+                    'clientActionId' => $command->clientActionId,
+                    'status' => 'rejected',
+                    'version' => $command->baseVersion,
+                    'error' => [
+                        'code' => 'COMMAND_NOT_SUPPORTED_OVER_WEBSOCKET',
+                        'message' => 'This game command is not migrated to WebSocket yet.',
+                        'retryable' => false,
+                    ],
+                ];
+            }
+
+            return $this->commands->apply(
+                $peer->gameId,
+                $peer->userId,
+                $command->type,
+                $command->payload,
+                $command->clientActionId,
+                $command->baseVersion,
+                $messageId,
+                'v2',
             );
         }
 

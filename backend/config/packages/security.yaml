@@ -37,9 +37,13 @@ security:
         - { path: ^/auth/password-reset/confirm$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/email-verification/request$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/email-verification/confirm$, roles: PUBLIC_ACCESS }
+        - { path: ^/healthz$, roles: PUBLIC_ACCESS }
+        - { path: ^/readyz$, roles: PUBLIC_ACCESS }
+        - { path: ^/contact$, roles: PUBLIC_ACCESS }
         - { path: ^/landing/preview$, roles: PUBLIC_ACCESS }
         - { path: ^/users/[^/]+/avatar$, roles: PUBLIC_ACCESS }
         - { path: ^/cards, roles: PUBLIC_ACCESS }
+        - { path: ^/community, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: ROLE_USER }
 
 when@test:

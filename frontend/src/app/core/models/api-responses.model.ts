@@ -1,4 +1,5 @@
 import { Card } from './card.model';
+import { CommunityDeckDetail, CommunityHome, CommunityPreviewCards } from './community.model';
 import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
 import { Game, GameDisconnectVoteChoice, GameEvent, GameRematchVote, GameSnapshot } from './game.model';
 import { Friendship } from './friendship.model';
@@ -9,12 +10,16 @@ import { User } from './user.model';
 export interface ApiError {
   error: string;
   code?: string;
+  count?: number;
+  retryAfterSeconds?: number;
 }
 
 export interface DataResponse<T> {
   data: T[];
   page?: number;
   limit?: number;
+  hasMore?: boolean;
+  total?: number;
 }
 
 export interface UserResponse {
@@ -29,14 +34,14 @@ export interface PasswordResetRequestResponse {
   accepted: boolean;
 }
 
+export interface ContactResponse {
+  accepted: boolean;
+}
+
 export interface PasswordResetConfirmResponse {
   updated: boolean;
   token: string;
   user: User;
-}
-
-export interface EmailVerificationRequestResponse {
-  accepted: boolean;
 }
 
 export interface EmailVerificationConfirmResponse {
@@ -62,6 +67,18 @@ export interface DeckResponse {
 export interface DeckFolderResponse {
   folder: DeckFolder;
 }
+
+export type CommunityHomeResponse = CommunityHome;
+
+export interface CommunityDeckListResponse {
+  decks: import('./community.model').CommunityDeckSummary[];
+}
+
+export interface CommunityDeckDetailResponse {
+  deck: CommunityDeckDetail;
+}
+
+export type CommunityPreviewCardsResponse = CommunityPreviewCards;
 
 export interface FriendshipResponse {
   friendship: Friendship;

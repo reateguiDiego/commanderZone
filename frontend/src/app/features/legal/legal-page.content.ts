@@ -130,14 +130,6 @@ export const LEGAL_PAGE_CONTENT = {
     pt: termsPage('pt', 'Termos de uso | CommanderZone', 'Termos de uso'),
     it: termsPage('it', 'Termini di utilizzo | CommanderZone', 'Termini di utilizzo'),
   },
-  contact: {
-    en: contactPage('en', 'Contact | CommanderZone', 'Contact'),
-    es: contactPage('es', 'Contacto | CommanderZone', 'Contacto'),
-    de: contactPage('de', 'Kontakt | CommanderZone', 'Kontakt'),
-    fr: contactPage('fr', 'Contact | CommanderZone', 'Contact'),
-    pt: contactPage('pt', 'Contato | CommanderZone', 'Contato'),
-    it: contactPage('it', 'Contatto | CommanderZone', 'Contatto'),
-  },
 } as const satisfies Record<LegalPageKey, Record<SeoLocaleCode, LegalPageContent>>;
 
 export function getLegalPageContent(pageKey: LegalPageKey, locale: SeoLocaleCode): LegalPageContent {
@@ -295,59 +287,6 @@ function termsPage(locale: SeoLocaleCode, title: string, h1: string): LegalPageC
   } as const satisfies Record<SeoLocaleCode, readonly LegalSectionContent[]>;
 
   return legalPage('terms', locale, title, h1, descriptions[locale], copy[locale]);
-}
-
-function contactPage(locale: SeoLocaleCode, title: string, h1: string): LegalPageContent {
-  const descriptions = {
-    en: 'Contact CommanderZone for privacy, support, copyright, abuse and bug reports.',
-    es: 'Contacta con CommanderZone por privacidad, soporte, copyright, abuso y reportes de bugs.',
-    de: 'Kontaktiere CommanderZone für Datenschutz, Support, Urheberrecht, Missbrauch und Fehlerberichte.',
-    fr: 'Contacter CommanderZone pour la confidentialité, le support, le copyright, les abus et les bugs.',
-    pt: 'Entre em contato com o CommanderZone sobre privacidade, suporte, copyright, abuso e bugs.',
-    it: 'Contatta CommanderZone per privacy, supporto, copyright, abusi e segnalazioni di bug.',
-  } as const satisfies Record<SeoLocaleCode, string>;
-  const rightsHolderText = {
-    en: 'If you are a rights holder and believe content on CommanderZone violates your rights, contact us and we will review it.',
-    es: 'Si eres titular de derechos y crees que algún contenido de CommanderZone vulnera tus derechos, contáctanos y lo revisaremos.',
-    de: 'Wenn du Rechteinhaber bist und glaubst, dass Inhalte auf CommanderZone deine Rechte verletzen, kontaktiere uns und wir prüfen es.',
-    fr: 'Si vous êtes titulaire de droits et pensez qu’un contenu sur CommanderZone porte atteinte à vos droits, contactez-nous et nous l’examinerons.',
-    pt: 'Se você é titular de direitos e acredita que algum conteúdo no CommanderZone viola seus direitos, entre em contato e iremos analisar.',
-    it: 'Se sei titolare di diritti e ritieni che contenuti su CommanderZone violino i tuoi diritti, contattaci e li esamineremo.',
-  } as const satisfies Record<SeoLocaleCode, string>;
-  const copy = {
-    en: [
-      section('Support contact', `Use ${LEGAL_CONTACT_EMAIL} for privacy requests, copyright or IP concerns, bug reports, abuse reports and general support.`),
-      section('Rights holders', rightsHolderText.en),
-      section('What to include', 'Include the relevant URL, a clear description of the issue and a way to reply. Do not send secrets or payment information.'),
-    ],
-    es: [
-      section('Contacto de soporte', `Usa ${LEGAL_CONTACT_EMAIL} para privacidad, copyright o propiedad intelectual, bugs, abuso y soporte general.`),
-      section('Titulares de derechos', rightsHolderText.es),
-      section('Qué incluir', 'Incluye la URL relevante, una descripción clara del problema y una forma de respuesta. No envíes secretos ni datos de pago.'),
-    ],
-    de: [
-      section('Support-Kontakt', `Nutze ${LEGAL_CONTACT_EMAIL} für Datenschutzanfragen, Urheberrechts- oder IP-Themen, Fehlerberichte, Missbrauchsmeldungen und allgemeinen Support.`),
-      section('Rechteinhaber', rightsHolderText.de),
-      section('Was du angeben solltest', 'Gib die relevante URL, eine klare Beschreibung des Problems und eine Antwortmöglichkeit an. Sende keine Geheimnisse oder Zahlungsdaten.'),
-    ],
-    fr: [
-      section('Contact support', `Utilisez ${LEGAL_CONTACT_EMAIL} pour la confidentialité, le copyright ou la propriété intellectuelle, les bugs, les abus et le support général.`),
-      section('Titulaires de droits', rightsHolderText.fr),
-      section('À inclure', 'Indiquez l’URL concernée, une description claire du problème et un moyen de répondre. N’envoyez pas de secrets ni de données de paiement.'),
-    ],
-    pt: [
-      section('Contato de suporte', `Use ${LEGAL_CONTACT_EMAIL} para privacidade, copyright ou propriedade intelectual, bugs, abuso e suporte geral.`),
-      section('Titulares de direitos', rightsHolderText.pt),
-      section('O que incluir', 'Inclua a URL relevante, uma descrição clara do problema e uma forma de resposta. Não envie segredos nem dados de pagamento.'),
-    ],
-    it: [
-      section('Contatto supporto', `Usa ${LEGAL_CONTACT_EMAIL} per privacy, copyright o proprietà intellettuale, bug, abusi e supporto generale.`),
-      section('Titolari di diritti', rightsHolderText.it),
-      section('Cosa includere', 'Includi l’URL rilevante, una descrizione chiara del problema e un modo per rispondere. Non inviare segreti o dati di pagamento.'),
-    ],
-  } as const satisfies Record<SeoLocaleCode, readonly LegalSectionContent[]>;
-
-  return legalPage('contact', locale, title, h1, descriptions[locale], copy[locale]);
 }
 
 function section(heading: string, ...body: readonly string[]): LegalSectionContent {

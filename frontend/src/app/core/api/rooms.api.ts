@@ -5,7 +5,6 @@ import { API_BASE_URL } from './api.config';
 import { CurrentRoomResponse, DataResponse, LeaveRoomResponse, RoomInviteResponse, RoomResponse, StartGameResponse } from '../models/api-responses.model';
 import { RoomInvite } from '../models/room-invite.model';
 import { Room, RoomFormat, RoomMulliganRule, RoomTimerMode, RoomVisibility } from '../models/room.model';
-import { withoutGlobalLoading } from '../loading/loading-context';
 
 export interface JoinRoomOptions {
   readonly randomDeckOptionCount?: number;
@@ -15,23 +14,18 @@ export interface JoinRoomOptions {
 export class RoomsApi {
   private readonly http = inject(HttpClient);
 
-  list(status: 'active' | 'all' = 'active', skipGlobalLoading = false): Observable<DataResponse<Room>> {
+  list(status: 'active' | 'all' = 'active', _skipGlobalLoading = false): Observable<DataResponse<Room>> {
     return this.http.get<DataResponse<Room>>(`${API_BASE_URL}/rooms`, {
       params: { status },
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
     });
   }
 
-  show(roomId: string, skipGlobalLoading = false): Observable<RoomResponse> {
-    return this.http.get<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`, {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  show(roomId: string, _skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.get<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`);
   }
 
-  current(skipGlobalLoading = false): Observable<CurrentRoomResponse> {
-    return this.http.get<CurrentRoomResponse>(`${API_BASE_URL}/rooms/current`, {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  current(_skipGlobalLoading = false): Observable<CurrentRoomResponse> {
+    return this.http.get<CurrentRoomResponse>(`${API_BASE_URL}/rooms/current`);
   }
 
   create(
@@ -62,16 +56,12 @@ export class RoomsApi {
     });
   }
 
-  join(roomId: string, deckId?: string, skipGlobalLoading = false, options?: JoinRoomOptions): Observable<RoomResponse> {
-    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/join`, this.joinPayload(deckId, options), {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  join(roomId: string, deckId?: string, _skipGlobalLoading = false, options?: JoinRoomOptions): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/join`, this.joinPayload(deckId, options));
   }
 
-  joinByCode(code: string, deckId?: string, skipGlobalLoading = false): Observable<RoomResponse> {
-    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/code/${encodeURIComponent(code)}/join`, this.deckPayload(deckId), {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  joinByCode(code: string, deckId?: string, _skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/code/${encodeURIComponent(code)}/join`, this.deckPayload(deckId));
   }
 
   update(
@@ -84,29 +74,21 @@ export class RoomsApi {
       mulliganRule?: RoomMulliganRule;
       firstMulliganFree?: boolean;
     },
-    skipGlobalLoading = false,
+    _skipGlobalLoading = false,
   ): Observable<RoomResponse> {
-    return this.http.patch<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`, options, {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+    return this.http.patch<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`, options);
   }
 
-  rollTurn(roomId: string, skipGlobalLoading = false): Observable<RoomResponse> {
-    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {}, {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  rollTurn(roomId: string, _skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {});
   }
 
-  leave(roomId: string, skipGlobalLoading = false): Observable<LeaveRoomResponse> {
-    return this.http.post<LeaveRoomResponse>(`${API_BASE_URL}/rooms/${roomId}/leave`, {}, {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  leave(roomId: string, _skipGlobalLoading = false): Observable<LeaveRoomResponse> {
+    return this.http.post<LeaveRoomResponse>(`${API_BASE_URL}/rooms/${roomId}/leave`, {});
   }
 
-  kickPlayer(roomId: string, playerId: string, skipGlobalLoading = false): Observable<RoomResponse> {
-    return this.http.delete<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/players/${playerId}`, {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  kickPlayer(roomId: string, playerId: string, _skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.delete<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/players/${playerId}`);
   }
 
   delete(roomId: string): Observable<void> {
@@ -117,16 +99,12 @@ export class RoomsApi {
     return this.http.post<StartGameResponse>(`${API_BASE_URL}/rooms/${roomId}/start`, {});
   }
 
-  incomingInvites(skipGlobalLoading = false): Observable<DataResponse<RoomInvite>> {
-    return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/invites/incoming`, {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  incomingInvites(_skipGlobalLoading = false): Observable<DataResponse<RoomInvite>> {
+    return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/invites/incoming`);
   }
 
-  invites(roomId: string, skipGlobalLoading = false): Observable<DataResponse<RoomInvite>> {
-    return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/${roomId}/invites`, {
-      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
-    });
+  invites(roomId: string, _skipGlobalLoading = false): Observable<DataResponse<RoomInvite>> {
+    return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/${roomId}/invites`);
   }
 
   invite(roomId: string, userId: string): Observable<RoomInviteResponse> {

@@ -17,7 +17,12 @@ import { DeckCardSpoilerViewComponent } from './deck-card-spoiler-view/deck-card
 import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-view.component';
 import { runDeckFaceToggleAnimation } from './deck-face-toggle-animation';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
+import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
+import { CardFaceImageComponent } from '../../../shared/components/card-face-image/card-face-image.component';
+import { DECK_VIEW_STORE } from './deck-view-store.token';
+import { DECK_ANALYSIS_STORE } from './deck-analysis-panel/deck-analysis-store.token';
 
 @Component({
   selector: 'app-deck-editor',
@@ -34,15 +39,25 @@ import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/
     DeckCardSpoilerViewComponent,
     DeckCardTextViewComponent,
     CzButtonDirective,
+    GlobalLoaderComponent,
     TabListComponent,
+    TooltipComponent,
+    CardFaceImageComponent,
   ],
   templateUrl: './deck-editor.component.html',
   styleUrl: './deck-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [DeckCardImageCache, DeckEditorStore],
+  providers: [
+    DeckCardImageCache,
+    DeckEditorStore,
+    { provide: DECK_VIEW_STORE, useExisting: DeckEditorStore },
+    { provide: DECK_ANALYSIS_STORE, useExisting: DeckEditorStore },
+  ],
 })
 export class DeckEditorComponent implements OnDestroy {
   readonly store = inject(DeckEditorStore);
+  readonly actionError = signal<string | null>(null);
+  readonly shareCopied = signal(false);
   readonly viewModeMenuOpen = signal(false);
   readonly viewModeOptions: ReadonlyArray<{ value: DeckEditorViewMode; labelKey: string }> = [
     { value: 'text', labelKey: 'deckBuilder.deckEditor.text' },
@@ -88,6 +103,7 @@ export class DeckEditorComponent implements OnDestroy {
     }
   };
   private readonly zoomMonitorId: ReturnType<typeof setInterval>;
+  private copiedShareHandle?: number;
   private zoomSignature = this.currentZoomSignature();
 
   constructor() {
@@ -99,16 +115,21 @@ export class DeckEditorComponent implements OnDestroy {
     this.zoomMonitorId = window.setInterval(() => this.closeOverlaysAfterZoomChange(), 150);
     effect(() => {
       const deck = this.store.deck();
+      const shareCopied = this.shareCopied();
       if (!deck) {
-        this.pageHeader.set({
-          title: 'deckBuilder.deckEditor.header.title',
-          actions: [this.backToDecksAction()],
-        });
-        return;
+      this.pageHeader.set({
+        context: 'deck-editor',
+        title: 'deckBuilder.deckEditor.header.title',
+        heroRule: true,
+        actions: [this.backToDecksAction()],
+      });
+      return;
       }
 
       this.pageHeader.set({
+        context: 'deck-editor',
         title: deck.name,
+        heroRule: true,
         titleWarning: this.store.hasDeckIssues()
           ? {
             icon: 'triangle-alert',
@@ -137,7 +158,26 @@ export class DeckEditorComponent implements OnDestroy {
             variant: 'secondary',
             execute: () => this.store.exportDeck(deck),
           },
+          ...(deck.visibility === 'public'
+            ? [{
+              id: 'share-deck',
+              label: 'deckBuilder.deckEditor.header.share',
+              icon: 'link',
+              iconOnly: true,
+              tooltip: 'deckBuilder.deckEditor.header.share',
+              variant: 'secondary' as const,
+              execute: () => {
+                void this.copyCommunityDeckLink(deck.id);
+              },
+            }]
+            : []),
         ],
+        actionFeedback: shareCopied
+          ? {
+            message: 'deckBuilder.deckEditor.header.shareCopied',
+            tone: 'success',
+          }
+          : null,
       });
     });
   }
@@ -201,13 +241,15 @@ export class DeckEditorComponent implements OnDestroy {
   }
 
   showCardPreview(event: MouseEvent, card: Card): void {
-    this.store.resetCardFace(card);
     this.store.showCardPreview(event, card);
   }
 
-  hideCardPreview(card: Card): void {
+  hideCardPreview(): void {
     this.store.hideCardPreview();
-    this.store.resetCardFace(card);
+  }
+
+  isBattlePreviewCard(card: Card): boolean {
+    return (this.store.displayCardTypeLine(card) ?? '').trim().toLowerCase().startsWith('battle');
   }
 
   toggleCardFace(event: MouseEvent, card: Card): void {
@@ -218,6 +260,9 @@ export class DeckEditorComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.copiedShareHandle !== undefined) {
+      window.clearTimeout(this.copiedShareHandle);
+    }
     this.visualViewport?.removeEventListener('resize', this.closeOverlaysOnViewportChange);
     this.visualViewport?.removeEventListener('scroll', this.closeOverlaysOnViewportChange);
     document.removeEventListener('wheel', this.closeOverlaysOnDocumentWheel, { capture: true });
@@ -280,13 +325,30 @@ export class DeckEditorComponent implements OnDestroy {
   private backToDecksAction() {
     return {
       id: 'back-to-decks',
-      label: 'deckBuilder.deckEditor.header.backToDecks',
-      icon: 'arrow-left',
+      label: 'common.navigation.back',
+      isBack: true,
       variant: 'secondary' as const,
       execute: () => {
         void this.router.navigate(['/decks']);
       },
     };
+  }
+
+  private async copyCommunityDeckLink(deckId: string): Promise<void> {
+    try {
+      this.actionError.set(null);
+      await navigator.clipboard.writeText(`${window.location.origin}/community/decks/${deckId}`);
+      this.shareCopied.set(true);
+      if (this.copiedShareHandle !== undefined) {
+        window.clearTimeout(this.copiedShareHandle);
+      }
+      this.copiedShareHandle = window.setTimeout(() => {
+        this.copiedShareHandle = undefined;
+        this.shareCopied.set(false);
+      }, 5000);
+    } catch {
+      this.actionError.set('deckBuilder.deckEditor.header.shareError');
+    }
   }
 }
 

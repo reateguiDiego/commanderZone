@@ -386,7 +386,7 @@ export class GameTableSnapshotSelectors {
   }
 
   colorIdentity(player: PlayerView | null): string[] {
-    return player?.state.colorIdentity?.length ? player.state.colorIdentity : ['W'];
+    return player?.state.colorIdentity?.length ? player.state.colorIdentity : [];
   }
 
   colorAccent(player: PlayerView | null): string {
@@ -398,7 +398,7 @@ export class GameTableSnapshotSelectors {
       G: '#76c779',
     };
 
-    return colorMap[this.colorIdentity(player)[0] ?? 'W'] ?? '#f8f3df';
+    return colorMap[this.colorIdentity(player)[0] ?? ''] ?? '#ded8bf';
   }
 
   manaSymbols(player: PlayerView | null): string[] {

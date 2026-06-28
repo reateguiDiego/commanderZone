@@ -1,8 +1,10 @@
 import { type APIRequestContext, type APIResponse } from '@playwright/test';
 import { createRealUserSession, type RealUserSession } from './auth';
 import {
+  createBasicCommanderDeckFromDatabase,
   createRandomDeckFromDatabase,
   createValidCommanderDeckFromDatabase,
+  type BasicCommanderDeckFromDatabaseResult,
   type RandomDeckFromDatabaseResult,
   type ValidCommanderDeckFromDatabaseResult,
 } from './decks';
@@ -21,6 +23,14 @@ interface StartRoomPayload {
   };
 }
 
+interface RoomStatePayload {
+  room: {
+    players?: Array<{
+      turnRolls?: number[];
+    }>;
+  };
+}
+
 export interface CreateCommanderGameWithRandomDecksOptions {
   runId?: string;
   deckSize?: number;
@@ -31,6 +41,7 @@ export interface CreateCommanderGameWithRandomDecksOptions {
 
 export interface CommanderGamePlayerSetup {
   token: string;
+  refreshToken: string;
   user: RealUserSession['user'];
   credentials: RealUserSession['credentials'];
   deck: RandomDeckFromDatabaseResult;
@@ -61,12 +72,14 @@ export interface CommanderGameWithValidDecksResult {
   runId: string;
   playerA: {
     token: string;
+    refreshToken: string;
     user: RealUserSession['user'];
     credentials: RealUserSession['credentials'];
     deck: ValidCommanderDeckFromDatabaseResult;
   };
   playerB: {
     token: string;
+    refreshToken: string;
     user: RealUserSession['user'];
     credentials: RealUserSession['credentials'];
     deck: ValidCommanderDeckFromDatabaseResult;
@@ -75,6 +88,36 @@ export interface CommanderGameWithValidDecksResult {
     playerA: string;
     playerB: string;
   };
+}
+
+export interface CommanderGameWithBasicDecksResult {
+  gameId: string;
+  roomId: string;
+  runId: string;
+  playerA: {
+    token: string;
+    refreshToken: string;
+    user: RealUserSession['user'];
+    credentials: RealUserSession['credentials'];
+    deck: BasicCommanderDeckFromDatabaseResult;
+  };
+  playerB: {
+    token: string;
+    refreshToken: string;
+    user: RealUserSession['user'];
+    credentials: RealUserSession['credentials'];
+    deck: BasicCommanderDeckFromDatabaseResult;
+  };
+}
+
+export interface CreateCommanderGameWithBasicDecksOptions extends CreateCommanderGameWithValidDecksOptions {
+  playerALanguage?: 'en' | 'es';
+  playerBLanguage?: 'en' | 'es';
+  includePlayerAWhiteDfc?: boolean;
+}
+
+interface CommanderGamePlayerToken {
+  token: string;
 }
 
 export async function createCommanderGameWithRandomDecks(
@@ -108,8 +151,7 @@ export async function createCommanderGameWithRandomDecks(
 
   const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
   await joinRoom(request, playerB.token, roomId, deckB.deckId);
-  await rollTurnOrder(request, playerA.token, roomId);
-  await rollTurnOrder(request, playerB.token, roomId);
+  await resolveTurnOrder(request, roomId, [playerA.token, playerB.token]);
   const gameId = await startRoom(request, playerA.token, roomId);
 
   return {
@@ -118,12 +160,14 @@ export async function createCommanderGameWithRandomDecks(
     runId,
     playerA: {
       token: playerA.token,
+      refreshToken: playerA.refreshToken,
       user: playerA.user,
       credentials: playerA.credentials,
       deck: deckA,
     },
     playerB: {
       token: playerB.token,
+      refreshToken: playerB.refreshToken,
       user: playerB.user,
       credentials: playerB.credentials,
       deck: deckB,
@@ -163,8 +207,7 @@ export async function createCommanderGameWithValidDecks(
 
   const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
   await joinRoom(request, playerB.token, roomId, deckB.deckId);
-  await rollTurnOrder(request, playerA.token, roomId);
-  await rollTurnOrder(request, playerB.token, roomId);
+  await resolveTurnOrder(request, roomId, [playerA.token, playerB.token]);
   const gameId = await startRoom(request, playerA.token, roomId);
 
   return {
@@ -173,12 +216,14 @@ export async function createCommanderGameWithValidDecks(
     runId,
     playerA: {
       token: playerA.token,
+      refreshToken: playerA.refreshToken,
       user: playerA.user,
       credentials: playerA.credentials,
       deck: deckA,
     },
     playerB: {
       token: playerB.token,
+      refreshToken: playerB.refreshToken,
       user: playerB.user,
       credentials: playerB.credentials,
       deck: deckB,
@@ -207,6 +252,8 @@ async function createRoom(
       name: roomName,
       format: 'commander',
       maxPlayers: 2,
+      mulliganRule: 'LONDON',
+      firstMulliganFree: true,
     },
   });
   await expectApiOk(response, 'create room');
@@ -259,6 +306,190 @@ async function rollTurnOrder(
     },
   });
   await expectApiOk(response, 'roll turn order');
+}
+
+export async function createCommanderGameWithBasicDecks(
+  request: APIRequestContext,
+  options: CreateCommanderGameWithBasicDecksOptions = {},
+): Promise<CommanderGameWithBasicDecksResult> {
+  const runId = normalizeRunId(options.runId);
+  const visibility = options.roomVisibility ?? 'public';
+  const playerAPrefix = options.playerAPrefix ?? 'player-alpha';
+  const playerBPrefix = options.playerBPrefix ?? 'player-beta';
+
+  const playerA = await createRealUserSession(request, `${playerAPrefix}-${runId}`);
+  const playerB = await createRealUserSession(request, `${playerBPrefix}-${runId}`);
+
+  await Promise.all([
+    updateUserLanguage(request, playerA.token, options.playerALanguage),
+    updateUserLanguage(request, playerB.token, options.playerBLanguage),
+  ]);
+
+  const deckA = await createBasicCommanderDeckFromDatabase(request, {
+    ownerToken: playerA.token,
+    name: e2eDeckName('A', runId),
+    includeWhiteDfc: options.includePlayerAWhiteDfc,
+  });
+  const deckB = await createBasicCommanderDeckFromDatabase(request, {
+    ownerToken: playerB.token,
+    name: e2eDeckName('B', runId),
+  });
+
+  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
+  await joinRoom(request, playerB.token, roomId, deckB.deckId);
+  await resolveTurnOrder(request, roomId, [playerA.token, playerB.token]);
+  const gameId = await startRoom(request, playerA.token, roomId);
+
+  return {
+    gameId,
+    roomId,
+    runId,
+    playerA: {
+      token: playerA.token,
+      refreshToken: playerA.refreshToken,
+      user: playerA.user,
+      credentials: playerA.credentials,
+      deck: deckA,
+    },
+    playerB: {
+      token: playerB.token,
+      refreshToken: playerB.refreshToken,
+      user: playerB.user,
+      credentials: playerB.credentials,
+      deck: deckB,
+    },
+  };
+}
+
+export async function resolveGameToPlaying(
+  request: APIRequestContext,
+  gameId: string,
+  players: readonly CommanderGamePlayerToken[],
+): Promise<void> {
+  if (players.length === 0) {
+    throw new Error('At least one player token is required to resolve the game phase.');
+  }
+
+  const controllerToken = players[0]?.token ?? '';
+  if (controllerToken.trim() === '') {
+    throw new Error('A valid controller token is required to resolve the game phase.');
+  }
+
+  const initialPhase = await gamePhase(request, gameId, controllerToken);
+  if (initialPhase !== 'MULLIGAN') {
+    return;
+  }
+
+  for (const player of players) {
+    const response = await request.post(`${API_BASE_URL}/games/${gameId}/commands`, {
+      headers: {
+        Authorization: `Bearer ${player.token}`,
+      },
+      data: {
+        type: 'mulligan.keep',
+        payload: {},
+      },
+    });
+    await expectApiOk(response, 'resolve mulligan keep');
+  }
+
+  const finalPhase = await gamePhase(request, gameId, controllerToken);
+  if (finalPhase !== 'PLAYING') {
+    throw new Error(`Expected game ${gameId} to reach PLAYING after resolving mulligan, got ${finalPhase ?? 'null'}.`);
+  }
+}
+
+async function resolveTurnOrder(request: APIRequestContext, roomId: string, tokens: readonly string[]): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const roomResponse = await request.get(`${API_BASE_URL}/rooms/${roomId}`, {
+      headers: {
+        Authorization: `Bearer ${tokens[0]}`,
+      },
+    });
+    await expectApiOk(roomResponse, 'load room turn order');
+    const payload = (await roomResponse.json()) as RoomStatePayload;
+    if (turnOrderResolved(payload.room.players ?? [])) {
+      return;
+    }
+
+    let progressed = false;
+    for (const token of tokens) {
+      const response = await request.post(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok()) {
+        progressed = true;
+        continue;
+      }
+      if (response.status() === 409) {
+        const body = await response.json().catch(() => ({})) as { error?: unknown };
+        if (body.error === 'Turn order has already been rolled.') {
+          continue;
+        }
+      }
+
+      const body = await response.text();
+      throw new Error(`Failed to resolve turn order. HTTP ${response.status()}: ${body}`);
+    }
+
+    if (!progressed) {
+      break;
+    }
+  }
+
+  throw new Error('Unable to resolve turn order after repeated rerolls.');
+}
+
+async function gamePhase(request: APIRequestContext, gameId: string, token: string): Promise<string | null> {
+  const response = await request.get(`${API_BASE_URL}/games/${gameId}/snapshot`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  await expectApiOk(response, 'load game snapshot');
+  const payload = await response.json() as { game?: { snapshot?: { gamePhase?: unknown } } };
+  const gamePhase = payload.game?.snapshot?.gamePhase;
+
+  return typeof gamePhase === 'string' && gamePhase.trim() !== '' ? gamePhase : null;
+}
+
+async function updateUserLanguage(request: APIRequestContext, token: string, language?: 'en' | 'es'): Promise<void> {
+  if (!language) {
+    return;
+  }
+
+  const response = await request.patch(`${API_BASE_URL}/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    data: {
+      cardLanguage: language,
+      appLanguage: language,
+    },
+  });
+  await expectApiOk(response, 'update user language');
+}
+
+function turnOrderResolved(players: Array<{ turnRolls?: number[] }>): boolean {
+  if (players.length === 0) {
+    return false;
+  }
+
+  const sequences = new Set<string>();
+  for (const player of players) {
+    if (!Array.isArray(player.turnRolls) || player.turnRolls.length === 0) {
+      return false;
+    }
+    const sequence = player.turnRolls.join('-');
+    if (sequences.has(sequence)) {
+      return false;
+    }
+    sequences.add(sequence);
+  }
+
+  return true;
 }
 
 function normalizeRunId(runId?: string): string {

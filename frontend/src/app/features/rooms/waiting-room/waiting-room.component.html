@@ -207,8 +207,8 @@
         </div>
       }
     </app-modal>
-  } @else {
-    <p class="notice">{{ 'rooms.waitingRoom.loadingRoomState' | runtimeTranslate }}</p>
+  } @else if (!error()) {
+    <app-global-loader />
   }
 
   <app-modal

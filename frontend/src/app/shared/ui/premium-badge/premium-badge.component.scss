@@ -1,0 +1,38 @@
+:host {
+  position: var(--cz-premium-badge-position, static);
+  inset-block-start: var(--cz-premium-badge-top, auto);
+  inset-inline-end: var(--cz-premium-badge-right, auto);
+  inset-block-end: var(--cz-premium-badge-bottom, auto);
+  inset-inline-start: var(--cz-premium-badge-left, auto);
+  z-index: var(--cz-premium-badge-z-index, 2);
+  display: inline-grid;
+  place-items: center;
+  max-width: 100%;
+  pointer-events: none;
+}
+
+.premium-badge-label {
+  display: inline-grid;
+  place-items: center;
+  min-height: var(--cz-premium-badge-min-height, 1rem);
+  padding: var(--cz-premium-badge-padding, 0.12rem 0.32rem);
+  border: 1px solid var(--cz-premium-badge-border-color, rgb(var(--cz-primary-rgb) / 58%));
+  border-radius: var(--cz-premium-badge-radius, 999px);
+  background: var(
+    --cz-premium-badge-bg,
+    linear-gradient(135deg, var(--cz-primary), var(--cz-accent))
+  );
+  color: var(--cz-premium-badge-color, var(--cz-bg));
+  box-shadow: var(
+    --cz-premium-badge-shadow,
+    0 0 0 2px rgb(var(--cz-bg-rgb) / 68%),
+    0 0.45rem 1rem rgb(var(--cz-primary-rgb) / 24%),
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 18%)
+  );
+  font-size: var(--cz-premium-badge-font-size, 0.48rem);
+  font-weight: 900;
+  letter-spacing: var(--cz-premium-badge-letter-spacing, 0.04em);
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

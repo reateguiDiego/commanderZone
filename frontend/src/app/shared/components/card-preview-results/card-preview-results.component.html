@@ -1,0 +1,120 @@
+@if (items().length === 0) {
+  <p class="notice">{{ emptyLabel() | runtimeTranslate }}</p>
+} @else {
+  <div class="card-preview-results" [class.card-preview-results--list]="viewMode() === 'list'" [class.card-preview-results--spoiler]="viewMode() === 'spoiler'">
+    @for (item of items(); track trackByItem($index, item)) {
+      <article
+        class="card-preview-result"
+        [class.card-preview-result--list]="viewMode() === 'list'"
+        [class.card-preview-result--spoiler]="viewMode() === 'spoiler'"
+        [class.card-preview-result--interactive]="contextMenuEnabled()"
+        [attr.role]="contextMenuEnabled() ? 'button' : null"
+        [attr.tabindex]="contextMenuEnabled() ? 0 : null"
+        [attr.aria-haspopup]="contextMenuEnabled() ? 'menu' : null"
+        [attr.aria-label]="contextMenuEnabled() ? item.name : null"
+        (click)="contextMenuEnabled() ? openContextMenu($event, item) : null"
+        (keydown)="contextMenuEnabled() ? openContextMenuFromKeyboard($event, item) : null"
+        (mouseenter)="showHoverPreview($event, item)"
+        (mousemove)="updateHoverSpotlight($event)"
+        (mousemove)="moveHoverPreview($event, item)"
+        (mouseleave)="clearHoverSpotlight($event)"
+        (mouseleave)="hideHoverPreview()"
+      >
+        @if (contextMenuEnabled()) {
+          <span class="card-preview-result__eye-indicator" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M1.5 12s3.8-6 10.5-6 10.5 6 10.5 6-3.8 6-10.5 6S1.5 12 1.5 12Z" />
+              <circle cx="12" cy="12" r="3.25" />
+            </svg>
+          </span>
+        }
+
+        <div class="card-preview-result__media" [class.card-preview-result__media--battle]="isBattle(item)">
+          <app-card-face-image
+            #faceImage
+            [card]="faceSource(item)"
+            [battle]="isBattle(item)"
+            [variant]="viewMode() === 'spoiler' ? 'spoiler' : 'result'"
+            [showToggle]="viewMode() !== 'list'"
+            (flippedChange)="handleFaceFlipped(item, $event)"
+          />
+        </div>
+
+        <div class="card-preview-result__body">
+          @if (item.rank) {
+            <span class="card-preview-result__rank">#{{ item.rank }}</span>
+          }
+          <strong>{{ item.name }}</strong>
+          @if (item.timesPlayed || item.cardType) {
+            <div class="card-preview-result__meta">
+              @if (item.timesPlayed) {
+                <span class="card-preview-result__played">
+                  <span class="card-preview-result__played-label">{{ 'community.preview.playedLabel' | runtimeTranslate }}</span>
+                  <span>{{ formatTimesPlayed(item.timesPlayed) }}</span>
+                </span>
+              }
+
+              @if (resolveTypeIcon(item); as typeIcon) {
+                <span class="card-preview-result__type-pill">
+                  <i class="card-preview-result__type-icon" [appManaIcon]="typeIcon" manaIconKind="mechanic" aria-hidden="true"></i>
+                  <span>{{ item.cardType }}</span>
+                </span>
+              }
+            </div>
+          }
+          @if (viewMode() === 'list' && (item.colors?.length ?? 0) > 0) {
+            <span class="card-preview-result__colors">
+              <app-mana-symbols [symbols]="item.colors ?? []" fallback="" size="small" />
+            </span>
+          }
+          @if (item.label && !item.timesPlayed) {
+            <span class="card-preview-result__label">{{ item.label }}</span>
+          }
+        </div>
+
+        @if (viewMode() === 'list' && hasAlternateFace(item)) {
+          <span
+            class="card-preview-result__row-toggle"
+            (pointerdown)="$event.stopPropagation()"
+            (pointerup)="$event.stopPropagation()"
+            (mousedown)="$event.stopPropagation()"
+            (mouseup)="$event.stopPropagation()"
+            (touchstart)="$event.stopPropagation()"
+            (touchend)="$event.stopPropagation()"
+            (click)="$event.stopPropagation()"
+          >
+            <app-card-face-toggle-button tone="inline" size="sm" (pressed)="faceImage.toggleFace($event)" />
+          </span>
+        }
+      </article>
+    }
+  </div>
+
+  @if (hoverPreview(); as preview) {
+    <div
+      class="card-hover-preview"
+      [class.card-hover-preview--battle]="isBattle(preview.item)"
+      [style.top.px]="preview.top"
+      [style.left.px]="preview.left"
+    >
+      <app-card-face-image
+        [card]="faceSource(preview.item)"
+        [battle]="isBattle(preview.item)"
+        variant="detail"
+        [preferLarge]="true"
+        [showToggle]="false"
+        [controlledFlipped]="hoverPreviewFlipped(preview.item)"
+      />
+    </div>
+  }
+
+  @if (contextMenu(); as menu) {
+    <app-common-card-menu
+      [title]="menu.item.name"
+      [actions]="actionsFor(menu.item)"
+      [top]="menu.top"
+      [left]="menu.left"
+      (actionSelected)="selectMenuAction($event, menu.item)"
+    />
+  }
+}

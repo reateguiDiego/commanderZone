@@ -116,6 +116,32 @@ describe('GameTableCommandStore', () => {
     expect(send).not.toHaveBeenCalled();
     expect(core.pending()).toBe(false);
   });
+
+  it('queues batch battlefield position commands without global pending state', async () => {
+    isMigratedCommand.mockReturnValue(true);
+    websocketSendCommand.mockResolvedValue(true);
+    const payload = {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      positions: [
+        { instanceId: 'card-1', position: { x: 0.25, y: 0.5, unit: 'ratio' } },
+        { instanceId: 'card-2', position: { x: 0.5, y: 0.75, unit: 'ratio' } },
+      ],
+    };
+    const persisted: Promise<void>[] = [];
+    const queueBattlefieldPositionCommand = vi.fn((_gameId: string, _payload: Record<string, unknown>, persist: () => Promise<void>) => {
+      persisted.push(persist());
+      return true;
+    });
+
+    await store.command(commandContext('Action failed.', queueBattlefieldPositionCommand), 'cards.position.changed', payload);
+    await persisted[0]!;
+
+    expect(queueBattlefieldPositionCommand).toHaveBeenCalledWith('game-1', payload, expect.any(Function));
+    expect(websocketSendCommand).toHaveBeenCalledWith(expect.any(Object), 'cards.position.changed', payload);
+    expect(send).not.toHaveBeenCalled();
+    expect(core.pending()).toBe(false);
+  });
 });
 
 function commandContext(

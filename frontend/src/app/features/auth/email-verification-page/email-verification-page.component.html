@@ -1,53 +1,17 @@
 <main class="email-verification-screen">
   <section class="email-verification-card">
-    <header>
-      <h1>{{ 'auth.emailVerificationPage.verificarEmail' | runtimeTranslate }}</h1>
-      <p>{{ 'auth.emailVerificationPage.usaElTokenRecibidoParaActivarTu' | runtimeTranslate }}</p>
-    </header>
+    @if (status() === 'verifying') {
+      <header>
+        <h1>{{ 'auth.emailVerificationPage.confirmingEmail' | runtimeTranslate }}</h1>
+        <p>{{ 'auth.emailVerificationPage.waitWhileWeConfirmYourAccount' | runtimeTranslate }}</p>
+      </header>
+    } @else {
+      <app-back-button link="/auth/login" />
 
-    <form class="form-stack" [formGroup]="verificationForm">
-      @if (registeredNotice()) {
-        <p class="notice success">{{ 'auth.emailVerificationPage.registroCompletadoRevisaTuCorreoYConfirma' | runtimeTranslate }}</p>
-      }
-
-      <label>
-        {{ 'auth.emailVerificationPage.tokenDeVerificacion' | runtimeTranslate }}
-        <input type="text" autocomplete="one-time-code" formControlName="token" />
-      </label>
-
-      @if (verifyError(); as verifyErrorMessage) {
-        <p class="notice error">{{ verifyErrorMessage }}</p>
-      }
-
-      @if (verifySuccess()) {
-        <p class="notice success">{{ 'auth.emailVerificationPage.emailVerificadoIniciandoSesion' | runtimeTranslate }}</p>
-      }
-
-      <button czButton="primary" class="primary-button" type="button" [disabled]="!canConfirm()" (click)="confirmToken()">
-        {{ verifyLoading() ? 'Verificando...' : 'Confirmar email' }}
-      </button>
-
-      <hr />
-
-      <label>
-        {{ 'auth.emailVerificationPage.reenviarVerificacionEmail' | runtimeTranslate }}
-        <input type="email" autocomplete="email" formControlName="email" />
-      </label>
-
-      @if (resendError(); as resendErrorMessage) {
-        <p class="notice error">{{ resendErrorMessage }}</p>
-      }
-
-      @if (resendSuccess()) {
-        <p class="notice success">{{ 'auth.emailVerificationPage.siElEmailExisteYNoEsta' | runtimeTranslate }}</p>
-      }
-
-      <button czButton="secondary" class="secondary-button" type="button" [disabled]="!canResend()" (click)="resendVerificationEmail()">
-        {{ resendLoading() ? 'Enviando...' : 'Reenviar correo de verificacion' }}
-      </button>
-    </form>
-
-    <a class="back-link" routerLink="/auth/login">{{ 'auth.emailVerificationPage.volverAlLogin' | runtimeTranslate }}</a>
+      <header>
+        <h1>{{ 'auth.emailVerificationPage.couldNotConfirmEmail' | runtimeTranslate }}</h1>
+        <p>{{ 'auth.emailVerificationPage.linkInvalidOrExpired' | runtimeTranslate }}</p>
+      </header>
+    }
   </section>
 </main>
-
