@@ -41,7 +41,6 @@ describe('CookieConsentBannerComponent', () => {
               { pageKey: 'privacy', label: 'Privacidad', href: '/es/politica-privacidad/' },
               { pageKey: 'cookies', label: 'Cookies', href: '/es/politica-cookies/' },
               { pageKey: 'terms', label: 'Términos', href: '/es/terminos/' },
-              { pageKey: 'contact', label: 'Contacto', href: '/es/contacto/' },
             ]),
           },
         },

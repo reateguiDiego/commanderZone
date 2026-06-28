@@ -4,6 +4,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from './api.config';
 import { AuthApi } from './auth.api';
+import { ContactApi } from './contact.api';
 import { CardsLanguageService } from './cards-language.service';
 import { CardsApi } from './cards.api';
 import { DeckFormatsApi } from './deck-formats.api';
@@ -83,6 +84,25 @@ describe('API services', () => {
     expect(request.request.method).toBe('GET');
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ cardName: 'Sol Ring', displayName: 'Player' });
+  });
+
+  it('posts contact requests through the public contact endpoint', () => {
+    TestBed.inject(ContactApi).send({
+      name: 'Player One',
+      email: 'player@example.test',
+      subject: 'Bug report',
+      message: 'Something went wrong.',
+    }).subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/contact`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      name: 'Player One',
+      email: 'player@example.test',
+      subject: 'Bug report',
+      message: 'Something went wrong.',
+    });
+    request.flush({ accepted: true });
   });
 
   it('loads table assistant rooms with feature-owned loading policy', () => {

@@ -36,7 +36,6 @@ describe('FooterDisclaimerComponent', () => {
       '/pt/politica-privacidade/',
       '/pt/politica-cookies/',
       '/pt/termos/',
-      '/pt/contato/',
     ]);
   });
 });

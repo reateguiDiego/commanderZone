@@ -14,6 +14,7 @@ const legalServerRoutes: ServerRoute[] = LEGAL_PRERENDER_ROUTES.map((path): Serv
 export const serverRoutes: ServerRoute[] = [
   ...seoServerRoutes,
   ...legalServerRoutes,
+  { path: 'contact', renderMode: RenderMode.Client },
   { path: 'auth/login', renderMode: RenderMode.Client },
   { path: 'auth/register', renderMode: RenderMode.Client },
   { path: 'auth/password-reset', renderMode: RenderMode.Client },

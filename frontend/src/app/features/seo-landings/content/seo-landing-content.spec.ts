@@ -543,7 +543,6 @@ describe('SEO landing static content', () => {
       'Datenschutz',
       'Cookies',
       'Bedingungen',
-      'Kontakt',
     ]);
     expect(footerLabels).not.toContain('Frequently asked questions');
     expect(footerLabels).not.toContain('Privacy Policy');

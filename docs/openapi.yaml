@@ -158,6 +158,30 @@ paths:
       responses:
         '204':
           description: Session revoked and refresh cookie cleared.
+  /contact:
+    post:
+      tags: [Contact]
+      security: []
+      summary: Send a public contact request to the CommanderZone inbox.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactRequest'
+      responses:
+        '202':
+          description: Contact request accepted for delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /auth/password-reset/request:
     post:
       tags: [Auth]
@@ -3055,6 +3079,28 @@ components:
           type: string
           format: email
     PasswordResetRequestAcceptedResponse:
+      type: object
+      required: [accepted]
+      properties:
+        accepted:
+          type: boolean
+    ContactRequest:
+      type: object
+      required: [name, email, subject, message]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        subject:
+          type: string
+          maxLength: 160
+        message:
+          type: string
+          maxLength: 5000
+    ContactResponse:
       type: object
       required: [accepted]
       properties:

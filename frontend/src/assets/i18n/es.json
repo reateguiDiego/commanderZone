@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "app": {
       "app": {
@@ -12,14 +12,14 @@
         "wizards": "Wizards",
         "portionsOfTheMaterialsUsedAreProperty": ". Portions of the materials used are property of",
         "wizardsOfTheCoast": "Wizards of the Coast",
-        "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
-        "magicTheGathering": "Magic: The Gathering®",
-        "mtg": "MTG®",
+        "wizardsOfTheCoastLlc": "\u00a9Wizards of the Coast LLC",
+        "magicTheGathering": "Magic: The Gathering\u00ae",
+        "mtg": "MTG\u00ae",
         "andAllAssociatedLogosCardImagesAnd": ", and all associated logos, card images, and intellectual property are trademarks and/or copyrights of",
         "llcASubsidiaryOf": "LLC, a subsidiary of",
         "hasbroInc": "Hasbro, Inc",
         "inTheUnitedStatesAndOtherCountries": "., in the United States and other countries.",
-        "text19932025WizardsOfTheCoastLlc": "© 1993-2025 Wizards of the Coast LLC",
+        "text19932025WizardsOfTheCoastLlc": "\u00a9 1993-2025 Wizards of the Coast LLC",
         "allRightsReserved": ". All rights reserved.",
         "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone may display or reference certain",
         "intellectualPropertyUnderTheGuidelinesSetForth": "intellectual property under the guidelines set forth in",
@@ -51,7 +51,7 @@
     "dashboard": {
       "dashboardHome": {
         "tuComandanteHaLlegado": "Tus comandantes tienen sed de sangre",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
+        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aqu\u00ed.",
         "bienvenido": "Bienvenido"
       },
       "dashboardTopCommanders": {
@@ -419,9 +419,9 @@
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
         "removeAllCounters": "Remove All Counters",
-        "createHelper": "Mecánicas",
+        "createHelper": "Mec\u00e1nicas",
         "setRingBearer": "Convertir en Portador del Anillo",
-        "mechanics": "Mecánicas"
+        "mechanics": "Mec\u00e1nicas"
       }
     },
     "contextSubmenu": {
@@ -614,8 +614,8 @@
     },
     "specialHelpers": {
       "modal": {
-        "title": "Mecánicas",
-        "quickActions": "Acciones rápidas",
+        "title": "Mec\u00e1nicas",
+        "quickActions": "Acciones r\u00e1pidas",
         "cardBacked": "Entidades con carta",
         "searchPlaceholder": "Buscar emblemas o mazmorras",
         "searching": "Buscando ayudas...",
@@ -624,33 +624,33 @@
         "searchError": "No se pudieron cargar las entidades especiales.",
         "playerTarget": "Jugador: {{playerName}}",
         "currentState": "Estado actual",
-        "readonly": "Solo lectura. Puedes consultar estas mecánicas aquí, pero solo el jugador que controla esa posición puede cambiarlas.",
+        "readonly": "Solo lectura. Puedes consultar estas mec\u00e1nicas aqu\u00ed, pero solo el jugador que controla esa posici\u00f3n puede cambiarlas.",
         "ringLevel": "Nivel del Anillo",
         "noRingBearer": "Sin Portador del Anillo",
         "removeHelper": "Quitar",
         "clearRingBearer": "Quitar Portador del Anillo",
         "ringLevelUp": "Subir nivel",
         "ringLevelDown": "Bajar nivel",
-        "noActiveMechanics": "No hay mecánicas activas.",
+        "noActiveMechanics": "No hay mec\u00e1nicas activas.",
         "notSet": "Sin definir"
       },
       "quick": {
         "monarch": "Convertirse en monarca",
         "initiative": "Tomar la iniciativa",
-        "citysBlessing": "Obtener la bendición de la ciudad",
+        "citysBlessing": "Obtener la bendici\u00f3n de la ciudad",
         "theRing": "Crear El Anillo",
-        "setDay": "Poner de día",
+        "setDay": "Poner de d\u00eda",
         "setNight": "Poner de noche"
       },
       "labels": {
         "monarch": "Monarca",
         "initiative": "Iniciativa",
-        "citys_blessing": "Bendición de la ciudad",
-        "day_night": "Día/Noche",
+        "citys_blessing": "Bendici\u00f3n de la ciudad",
+        "day_night": "D\u00eda/Noche",
         "the_ring": "El Anillo",
         "emblem": "Emblema",
         "dungeon": "Mazmorra",
-        "day": "DÃ­a",
+        "day": "D\u00eda",
         "night": "Noche"
       },
       "dungeonReplacement": {
@@ -684,13 +684,13 @@
       },
       "cardSearch": {
         "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
-          "cards": "Cards",
-          "advancedSearch": "Buscador avanzado de cartas",
-          "header": {
-            "title": "Cartas",
-            "description": "Encuentra el carton perfecto antes de que la mesa empiece a hacer politica."
-          },
-          "searchLibrary": "Search library",
+        "cards": "Cards",
+        "advancedSearch": "Buscador avanzado de cartas",
+        "header": {
+          "title": "Cartas",
+          "description": "Encuentra el carton perfecto antes de que la mesa empiece a hacer politica."
+        },
+        "searchLibrary": "Search library",
         "search": "Buscar",
         "clear": "Limpiar",
         "close": "Cerrar",
@@ -713,8 +713,8 @@
           "noLegalFormats": "No hay formatos legales en el catalogo local.",
           "noIllegalFormats": "No hay formatos no legales en el catalogo local."
         },
-          "addToDeck": {
-            "title": "Add card",
+        "addToDeck": {
+          "title": "Add card",
           "deck": "Mazo",
           "section": "Seccion",
           "quantity": "Cantidad",
@@ -792,15 +792,15 @@
           "subtypes": "Subtipos",
           "sets": "Ampliaciones",
           "rarity": "Rareza",
-            "colors": "Colores",
-            "colorMode": "Coincidencia de color",
-            "colorModeAny": "Cualquiera",
-            "colorModeAll": "Todos",
-            "colorModeExact": "Exacto",
-            "clearManaCost": "Limpiar coste de mana",
-            "basic": "Basica",
-            "legendary": "Legendaria",
-            "artifact": "Artefacto",
+          "colors": "Colores",
+          "colorMode": "Coincidencia de color",
+          "colorModeAny": "Cualquiera",
+          "colorModeAll": "Todos",
+          "colorModeExact": "Exacto",
+          "clearManaCost": "Limpiar coste de mana",
+          "basic": "Basica",
+          "legendary": "Legendaria",
+          "artifact": "Artefacto",
           "multicolor": "Multicolor",
           "land": "Tierra",
           "costs": "Costes",
@@ -824,10 +824,10 @@
           "activeFilters": "filtros activos",
           "precisionConsole": "Consola de precision",
           "composeSearch": "Compone la busqueda exacta",
-            "oracleText": "Texto de la carta",
-            "textAPlaceholder": "Robar una carta, destruir objetivo, siempre que lances...",
-            "textBPlaceholder": "Segundo termino de reglas opcional"
-          },
+          "oracleText": "Texto de la carta",
+          "textAPlaceholder": "Robar una carta, destruir objetivo, siempre que lances...",
+          "textBPlaceholder": "Segundo termino de reglas opcional"
+        },
         "help": {
           "title": "Guia de busqueda",
           "heading": "Guia de uso para este buscador avanzado",
@@ -1024,19 +1024,19 @@
   "tableAssistant": {
     "tableAssistantPage": {
       "asistenteDeMesa": "Asistente de Mesa",
-      "resumenRapido": "Resumen rápido",
+      "resumenRapido": "Resumen r\u00e1pido",
       "beneficios": "Beneficios",
       "mesaManualDeCommander": "Mesa manual de Commander",
-      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida física.",
-      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y daño de comandante sin automatizar reglas de Magic.",
-      "setupRapido": "Setup rápido",
+      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida f\u00edsica.",
+      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y da\u00f1o de comandante sin automatizar reglas de Magic.",
+      "setupRapido": "Setup r\u00e1pido",
       "text4JugadoresPorDefecto": "4 jugadores por defecto",
       "text40VidasIniciales": "40 vidas iniciales",
-      "danoDeComandanteActivo": "Daño de comandante activo"
+      "danoDeComandanteActivo": "Da\u00f1o de comandante activo"
     },
     "tableAssistantReplayModal": {
-      "configuracionDeMesa": "Configuración de mesa",
-      "cerrarConfiguracionDeMesa": "Cerrar configuración de mesa",
+      "configuracionDeMesa": "Configuraci\u00f3n de mesa",
+      "cerrarConfiguracionDeMesa": "Cerrar configuraci\u00f3n de mesa",
       "posicionesDeMesa": "Posiciones de mesa",
       "jugador": "Jugador",
       "sinJugador": "Sin jugador",
@@ -1050,8 +1050,8 @@
       "copiarEnlaceDeSala": "Copiar enlace de sala",
       "trackersGlobales": "Trackers globales",
       "jugadores": "Jugadores",
-      "danoDeComandante": "Daño de comandante",
-      "cerrarDanoDeComandante": "Cerrar daño de comandante",
+      "danoDeComandante": "Da\u00f1o de comandante",
+      "cerrarDanoDeComandante": "Cerrar da\u00f1o de comandante",
       "vidaDeJugador": "Vida de jugador",
       "trackersDeJugador": "Trackers de jugador",
       "skullKo": "skull-ko",
@@ -1059,7 +1059,7 @@
       "cargandoSala": "Cargando sala...",
       "codigoDeSala": "Codigo de sala",
       "letal": "Letal",
-      "danoDeComandante1": "Daño de comandante",
+      "danoDeComandante1": "Da\u00f1o de comandante",
       "verYEditar": "Ver y editar",
       "asignadoAJugadorConectado": "Asignado a jugador conectado"
     },
@@ -1070,7 +1070,7 @@
       "jugadoresVidasYTemporizadorLoDemasSe": "Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.",
       "jugadores": "Jugadores",
       "reglasDeMesa": "Reglas de mesa",
-      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Daño de comandante siempre activo. Temporizador opcional."
+      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Da\u00f1o de comandante siempre activo. Temporizador opcional."
     },
     "tableAssistantTableMenu": {
       "opcionesDePartidaDeCommanderzone": "Opciones de partida de CommanderZone",
@@ -1104,15 +1104,15 @@
       "benefits": {
         "lifeAndCommander": {
           "title": "Vidas y comandante",
-          "description": "Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo."
+          "description": "Controla vidas y da\u00f1o de comandante sin convertir la partida en una hoja de c\u00e1lculo."
         },
         "simpleTurns": {
           "title": "Turnos simples",
-          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas."
+          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas autom\u00e1ticas."
         },
         "sharedTable": {
           "title": "Mesa compartida",
-          "description": "Pensado para un único móvil o tablet en el centro de la mesa."
+          "description": "Pensado para un \u00fanico m\u00f3vil o tablet en el centro de la mesa."
         }
       },
       "header": {
@@ -1241,5 +1241,44 @@
     }
   },
   "toasts": {},
-  "emptyStates": {}
+  "emptyStates": {},
+  "contactPage": {
+    "meta": {
+      "title": "Contacto | CommanderZone",
+      "description": "Contacta con CommanderZone para soporte, bugs, derechos o consultas generales."
+    },
+      "hero": {
+        "title": "Contacta con nosotros",
+        "description": "Env\u00edanos un mensaje y lo revisaremos lo antes posible."
+      },
+      "nav": {
+        "loggedOutCta": "Volver al dashboard",
+        "anonymousCta": "Volver al inicio"
+      },
+      "copy": {
+      "supportTitle": "Soporte y derechos",
+        "supportBody": "Usa este formulario para soporte, bugs, privacidad, incidencias de derechos o cualquier duda, idea o curiosidad que quieras compartir con nosotros. Si te resulta m\u00e1s c\u00f3modo, tambi\u00e9n podemos seguir por email en {{ email }}.",
+      "includeTitle": "Qu\u00e9 incluir",
+      "includeBody": "Explica el problema con claridad e incluye cualquier contexto \u00fatil de p\u00e1gina, sala, deck o captura. No env\u00edes secretos ni datos de pago."
+    },
+    "form": {
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Tu nombre",
+      "nameError": "Introduce tu nombre.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "tu@email.com",
+      "emailError": "Introduce un email v\u00e1lido.",
+      "subjectLabel": "Asunto",
+      "subjectPlaceholder": "\u00bfEn qu\u00e9 podemos ayudarte?",
+      "subjectError": "Introduce un asunto.",
+      "messageLabel": "Mensaje",
+      "messagePlaceholder": "Escribe aqu\u00ed tu mensaje.",
+      "messageError": "Introduce un mensaje.",
+        "submit": "Enviar mensaje",
+        "submitting": "Enviando...",
+        "submitSuccess": "Tu mensaje se ha enviado.",
+        "submitRateLimitError": "Has alcanzado el l\u00edmite de mensajes de contacto. Espera unos {{ retryAfterMinutes }} minuto(s) antes de volver a intentarlo. Si es urgente, escr\u00edbenos directamente a {{ email }}.",
+        "submitError": "No hemos podido enviar tu mensaje. Escr\u00edbenos directamente a {{ email }} o cont\u00e1ctanos por otro canal."
+      }
+  }
 }

@@ -7,6 +7,12 @@ export const routes: Routes = [
   ...SEO_LANDING_ROUTES,
   ...LEGAL_ROUTES,
   {
+    path: 'contact',
+    loadComponent: () => import('./features/contact/contact-page/contact-page.component')
+      .then((component) => component.ContactPageComponent),
+    data: { pageKey: 'contact' },
+  },
+  {
     path: 'welcome',
     loadComponent: () => import('./features/onboarding/onboarding-page/onboarding-page.component')
       .then((component) => component.OnboardingPageComponent),

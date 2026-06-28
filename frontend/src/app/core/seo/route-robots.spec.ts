@@ -17,7 +17,7 @@ describe('route robots rules', () => {
   it('maps private runtime-i18n pages to noindex, nofollow', () => {
     expect(getStrategyRobotsMeta('runtime-i18n')).toBe('noindex, nofollow');
 
-    for (const pageKey of pageKeysForStrategy('runtime-i18n').filter((pageKey) => pageKey !== 'legal')) {
+    for (const pageKey of pageKeysForStrategy('runtime-i18n').filter((pageKey) => !['legal', 'contact'].includes(pageKey))) {
       expect(getPageRobotsMeta(pageKey)).toBe('noindex, nofollow');
       expect(isSeoIndexablePage(pageKey)).toBe(false);
     }
@@ -40,6 +40,11 @@ describe('route robots rules', () => {
   it('uses noindex, follow for public legal pages', () => {
     expect(getPageRobotsMeta('legal')).toBe('noindex, follow');
     expect(isSeoIndexablePage('legal')).toBe(false);
+  });
+
+  it('uses noindex, follow for the public contact page', () => {
+    expect(getPageRobotsMeta('contact')).toBe('noindex, follow');
+    expect(isSeoIndexablePage('contact')).toBe(false);
   });
 });
 

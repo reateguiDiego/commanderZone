@@ -30,7 +30,6 @@ export class LegalPageComponent {
   readonly pageKey = computed(() => this.routeData()['legalPageKey'] as LegalPageKey);
   readonly locale = computed(() => this.routeData()['locale'] as SeoLocaleCode);
   readonly content = computed(() => getLegalPageContent(this.pageKey(), this.locale()));
-  readonly isContactPage = computed(() => this.pageKey() === 'contact');
   readonly publicChrome = computed(() => getPublicChromeCopy(this.locale()));
   readonly homeHref = computed(() => (this.locale() === 'en' ? '/' : `/${this.locale()}/`));
   readonly legalLinks = computed(() => getLegalLinks(this.locale()));

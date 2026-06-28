@@ -17,4 +17,5 @@
 *.log
 
 /.env.prod
+/.env
 /docker-compose.prod.yml

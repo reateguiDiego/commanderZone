@@ -1010,5 +1010,39 @@
     }
   },
   "toasts": {},
-  "emptyStates": {}
+  "emptyStates": {},
+  "contactPage": {
+    "meta": {
+      "title": "Contact CommanderZone",
+      "description": "Contact CommanderZone for support, bug reports, rights issues, or general questions."
+    },
+    "hero": {
+      "title": "Contact CommanderZone",
+      "description": "Send us a message and we will review it as soon as possible."
+    },
+    "copy": {
+      "supportTitle": "Support and rights",
+      "supportBody": "Use this form for support, bug reports, privacy requests, or rights-related issues. If needed, we can also continue by email at {{ email }}.",
+      "includeTitle": "What to include",
+      "includeBody": "Explain the issue clearly and include any useful page, room, deck, or screenshot context. Do not send secrets or payment details."
+    },
+    "form": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Your name",
+      "nameError": "Enter your name.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "emailError": "Enter a valid email.",
+      "subjectLabel": "Subject",
+      "subjectPlaceholder": "How can we help?",
+      "subjectError": "Enter a subject.",
+      "messageLabel": "Message",
+      "messagePlaceholder": "Write your message here.",
+      "messageError": "Enter a message.",
+      "submit": "Send message",
+      "submitting": "Sending...",
+      "submitSuccess": "Your message has been sent.",
+      "submitError": "We could not send your message. Write to {{ email }} directly or contact us through another channel."
+    }
+  }
 }

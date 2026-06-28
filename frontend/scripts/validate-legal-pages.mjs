@@ -8,27 +8,21 @@ const legalPages = [
   { locale: 'en', path: '/privacy-policy/', h1: 'Privacy Policy' },
   { locale: 'en', path: '/cookie-policy/', h1: 'Cookie Policy' },
   { locale: 'en', path: '/terms/', h1: 'Terms of Use' },
-  { locale: 'en', path: '/contact/', h1: 'Contact' },
   { locale: 'es', path: '/es/politica-privacidad/', h1: 'Política de privacidad' },
   { locale: 'es', path: '/es/politica-cookies/', h1: 'Política de cookies' },
   { locale: 'es', path: '/es/terminos/', h1: 'Términos de uso' },
-  { locale: 'es', path: '/es/contacto/', h1: 'Contacto' },
   { locale: 'de', path: '/de/datenschutzerklaerung/', h1: 'Datenschutzerklärung' },
   { locale: 'de', path: '/de/cookie-richtlinie/', h1: 'Cookie-Richtlinie' },
   { locale: 'de', path: '/de/nutzungsbedingungen/', h1: 'Nutzungsbedingungen' },
-  { locale: 'de', path: '/de/kontakt/', h1: 'Kontakt' },
   { locale: 'fr', path: '/fr/politique-confidentialite/', h1: 'Politique de confidentialité' },
   { locale: 'fr', path: '/fr/politique-cookies/', h1: 'Politique relative aux cookies' },
   { locale: 'fr', path: '/fr/conditions-utilisation/', h1: 'Conditions d’utilisation' },
-  { locale: 'fr', path: '/fr/contact/', h1: 'Contact' },
   { locale: 'pt', path: '/pt/politica-privacidade/', h1: 'Política de privacidade' },
   { locale: 'pt', path: '/pt/politica-cookies/', h1: 'Política de cookies' },
   { locale: 'pt', path: '/pt/termos/', h1: 'Termos de uso' },
-  { locale: 'pt', path: '/pt/contato/', h1: 'Contato' },
   { locale: 'it', path: '/it/privacy-policy/', h1: 'Informativa sulla privacy' },
   { locale: 'it', path: '/it/cookie-policy/', h1: 'Cookie policy' },
   { locale: 'it', path: '/it/termini/', h1: 'Termini di utilizzo' },
-  { locale: 'it', path: '/it/contatto/', h1: 'Contatto' },
 ];
 const errors = [];
 
@@ -79,12 +73,8 @@ function validateSourceContracts() {
     fail('Legal feature routes must render LegalPageComponent.');
   }
 
-  if (!legalRoutes.includes("LEGAL_CONTACT_EMAIL = 'support@commanderzone.com'")) {
-    fail('Legal contact email must be centralized as LEGAL_CONTACT_EMAIL.');
-  }
-
-  if (!legalRoutes.includes('Do not ship until this inbox exists and is monitored.')) {
-    fail('LEGAL_CONTACT_EMAIL must keep the required inbox monitoring comment.');
+  if (!legalRoutes.includes('LEGAL_CONTACT_EMAIL = PUBLIC_CONTACT_EMAIL')) {
+    fail('Legal contact email must reuse the shared public contact config.');
   }
 }
 

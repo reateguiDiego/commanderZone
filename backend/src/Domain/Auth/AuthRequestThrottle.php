@@ -60,6 +60,14 @@ class AuthRequestThrottle
         return $this->hits >= $maxHits;
     }
 
+    public function remainingWindowSeconds(\DateTimeImmutable $now, int $windowSeconds): int
+    {
+        $windowEnd = $this->windowStartedAt->modify(sprintf('+%d seconds', $windowSeconds));
+        $remaining = $windowEnd->getTimestamp() - $now->getTimestamp();
+
+        return max(0, $remaining);
+    }
+
     private function touch(): void
     {
         $this->updatedAt = new \DateTimeImmutable();

@@ -151,6 +151,7 @@ export class App {
     }
 
     return [
+      'contact',
       'auth',
       'cards',
       'community',

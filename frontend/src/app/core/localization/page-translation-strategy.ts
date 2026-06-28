@@ -21,6 +21,7 @@ export const PAGE_TRANSLATION_STRATEGIES = {
   register: 'runtime-i18n',
   passwordReset: 'runtime-i18n',
   emailVerification: 'runtime-i18n',
+  contact: 'runtime-i18n',
   app: 'runtime-i18n',
   dashboard: 'runtime-i18n',
   cards: 'runtime-i18n',

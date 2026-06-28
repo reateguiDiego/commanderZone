@@ -9,8 +9,10 @@
 parameters:
     game_websocket_listen_default: '0.0.0.0:8081'
     game_websocket_public_url_default: 'ws://127.0.0.1:8081'
+    contact_inbox_address_default: 'info.dev.sunrise@gmail.com'
     game_websocket_listen: '%env(default:game_websocket_listen_default:GAME_WEBSOCKET_LISTEN)%'
     game_websocket_public_url: '%env(default:game_websocket_public_url_default:GAME_WEBSOCKET_PUBLIC_URL)%'
+    contact_inbox_address: '%env(default:contact_inbox_address_default:CONTACT_INBOX_ADDRESS)%'
 
 services:
     # default configuration for services in *this* file

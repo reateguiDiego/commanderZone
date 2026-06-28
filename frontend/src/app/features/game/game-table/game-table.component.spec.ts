@@ -6394,13 +6394,13 @@ describe('GameTableChatLogState', () => {
     const state = new GameTableChatLogState();
     const snapshot = snapshotWithStatus('active');
     snapshot.eventLog = [
-      gameLogEntry('event-1', 'card.moved', 'Moved SmÃ©agol, Helpful Guide from battlefield to command.'),
-      gameLogEntry('event-2', 'card.moved', 'Moved SmÃ©agol, Helpful Guide from command to battlefield.'),
+      gameLogEntry('event-1', 'card.moved', 'Moved Sm\u00e9agol, Helpful Guide from battlefield to command.'),
+      gameLogEntry('event-2', 'card.moved', 'Moved Sm\u00e9agol, Helpful Guide from command to battlefield.'),
       gameLogEntry('event-3', 'counter.changed', 'Set commander:user-1 counter casts to 2.'),
     ];
 
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
-      'Moved SmÃ©agol, Helpful Guide from battlefield to command. Commander cast count increased from 1 to 2.',
+      'Moved Sm\u00e9agol, Helpful Guide from battlefield to command. Commander cast count increased from 1 to 2.',
     ]);
   });
 

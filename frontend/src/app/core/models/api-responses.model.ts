@@ -11,6 +11,7 @@ export interface ApiError {
   error: string;
   code?: string;
   count?: number;
+  retryAfterSeconds?: number;
 }
 
 export interface DataResponse<T> {
@@ -30,6 +31,10 @@ export interface LoginResponse {
 }
 
 export interface PasswordResetRequestResponse {
+  accepted: boolean;
+}
+
+export interface ContactResponse {
   accepted: boolean;
 }
 

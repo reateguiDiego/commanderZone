@@ -16,7 +16,7 @@ describe('public chrome copy', () => {
       expect(copy.authActions.login.length).toBeGreaterThan(0);
       expect(copy.authActions.register.length).toBeGreaterThan(0);
       expect(copy.footer.links.map((link) => link.href).every((href) => href.startsWith('/'))).toBe(true);
-      expect(copy.footer.links).toHaveLength(7);
+      expect(copy.footer.links).toHaveLength(6);
     }
   });
 

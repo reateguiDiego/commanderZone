@@ -1,0 +1,109 @@
+<main class="contact-page">
+  <nav class="contact-topbar" aria-label="Contact page actions">
+    <a czButton="primary" czButtonSize="sm" [routerLink]="exitHref()">
+      {{ exitLabelKey() | runtimeTranslate }}
+    </a>
+  </nav>
+  <section class="contact-shell">
+    <section class="contact-intro">
+      <header class="contact-header">
+        <img class="contact-logo" src="/assets/icons/CZ/CZ_logo.webp" alt="CommanderZone" width="256" height="124" decoding="async" />
+        <h1>{{ 'contactPage.hero.title' | runtimeTranslate }}</h1>
+        <p>{{ 'contactPage.hero.description' | runtimeTranslate }}</p>
+      </header>
+
+      <section class="contact-copy">
+        <div class="contact-copy-block">
+          <h2>{{ 'contactPage.copy.supportTitle' | runtimeTranslate }}</h2>
+          <p>{{ 'contactPage.copy.supportBody' | runtimeTranslate:{ email: inboxAddress } }}</p>
+        </div>
+        <div class="contact-copy-block">
+          <h2>{{ 'contactPage.copy.includeTitle' | runtimeTranslate }}</h2>
+          <p>{{ 'contactPage.copy.includeBody' | runtimeTranslate }}</p>
+        </div>
+      </section>
+    </section>
+
+    <section class="contact-form-panel">
+      <form class="contact-form" [formGroup]="contactForm" novalidate (ngSubmit)="submit()">
+        <label>
+          {{ 'contactPage.form.nameLabel' | runtimeTranslate }}
+        <input
+          type="text"
+          formControlName="name"
+          autocomplete="name"
+          [placeholder]="'contactPage.form.namePlaceholder' | runtimeTranslate"
+        />
+        <div class="field-meta">
+          @if (fieldInvalid('name')) {
+            <span class="field-error">{{ 'contactPage.form.nameError' | runtimeTranslate }}</span>
+          } @else {
+            <span></span>
+          }
+          <span class="field-limit">{{ fieldLength('name') }}/{{ fieldLimit('name') }}</span>
+        </div>
+      </label>
+
+        <label>
+          {{ 'contactPage.form.emailLabel' | runtimeTranslate }}
+        <input
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+          [placeholder]="'contactPage.form.emailPlaceholder' | runtimeTranslate"
+        />
+        @if (fieldInvalid('email')) {
+          <span class="field-error">{{ 'contactPage.form.emailError' | runtimeTranslate }}</span>
+        }
+      </label>
+
+        <label>
+          {{ 'contactPage.form.subjectLabel' | runtimeTranslate }}
+        <input
+          type="text"
+          formControlName="subject"
+          autocomplete="off"
+          [placeholder]="'contactPage.form.subjectPlaceholder' | runtimeTranslate"
+        />
+        <div class="field-meta">
+          @if (fieldInvalid('subject')) {
+            <span class="field-error">{{ 'contactPage.form.subjectError' | runtimeTranslate }}</span>
+          } @else {
+            <span></span>
+          }
+          <span class="field-limit">{{ fieldLength('subject') }}/{{ fieldLimit('subject') }}</span>
+        </div>
+      </label>
+
+        <label>
+          {{ 'contactPage.form.messageLabel' | runtimeTranslate }}
+        <textarea
+          formControlName="message"
+          rows="7"
+          [placeholder]="'contactPage.form.messagePlaceholder' | runtimeTranslate"
+        ></textarea>
+        <div class="field-meta">
+          @if (fieldInvalid('message')) {
+            <span class="field-error">{{ 'contactPage.form.messageError' | runtimeTranslate }}</span>
+          } @else {
+            <span></span>
+          }
+          <span class="field-limit">{{ fieldLength('message') }}/{{ fieldLimit('message') }}</span>
+        </div>
+      </label>
+
+        @if (errorMessage(); as errorMessage) {
+          <p class="notice error">{{ errorMessage }}</p>
+        }
+
+        @if (submitted()) {
+          <p class="notice success">{{ 'contactPage.form.submitSuccess' | runtimeTranslate }}</p>
+        }
+
+        <button czButton="primary" class="primary-button" type="submit" [disabled]="!canSubmit()">
+          {{ (submitting() ? 'contactPage.form.submitting' : 'contactPage.form.submit') | runtimeTranslate }}
+        </button>
+      </form>
+    </section>
+  </section>
+</main>

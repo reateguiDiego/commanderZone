@@ -1010,5 +1010,39 @@
     }
   },
   "toasts": {},
-  "emptyStates": {}
+  "emptyStates": {},
+  "contactPage": {
+    "meta": {
+      "title": "Contacte | CommanderZone",
+      "description": "Contacta amb CommanderZone per suport, errors, drets o consultes generals."
+    },
+    "hero": {
+      "title": "Contacte",
+      "description": "Envia'ns un missatge i el revisarem tan aviat com sigui possible."
+    },
+    "copy": {
+      "supportTitle": "Suport i drets",
+      "supportBody": "Fes servir aquest formulari per a suport, errors, privacitat o incid\u00e8ncies de drets. Si cal, tamb\u00e9 podem continuar per correu a {{ email }}.",
+      "includeTitle": "Qu\u00e8 incloure",
+      "includeBody": "Explica el problema amb claredat i afegeix qualsevol context \u00fatil de p\u00e0gina, sala, deck o captura. No envi\u00efs secrets ni dades de pagament."
+    },
+    "form": {
+      "nameLabel": "Nom",
+      "namePlaceholder": "El teu nom",
+      "nameError": "Introdueix el teu nom.",
+      "emailLabel": "Correu",
+      "emailPlaceholder": "tu@email.com",
+      "emailError": "Introdueix un correu v\u00e0lid.",
+      "subjectLabel": "Assumpte",
+      "subjectPlaceholder": "En qu\u00e8 et podem ajudar?",
+      "subjectError": "Introdueix un assumpte.",
+      "messageLabel": "Missatge",
+      "messagePlaceholder": "Escriu aqu\u00ed el teu missatge.",
+      "messageError": "Introdueix un missatge.",
+      "submit": "Enviar missatge",
+      "submitting": "Enviant...",
+      "submitSuccess": "El teu missatge s'ha enviat.",
+      "submitError": "No hem pogut enviar el teu missatge. Escriu-nos directament a {{ email }} o contacta'ns per un altre canal."
+    }
+  }
 }
