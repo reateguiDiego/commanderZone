@@ -3,36 +3,60 @@
 
   <div class="analysis-side-column">
     <section class="analysis-panel">
-      <h3>{{ 'deckBuilder.deckAnalysisPanel.typeBreakdown' | runtimeTranslate }}</h3>
-      <div class="analysis-list-grid">
-        @for (metric of store.visibleTypeMetrics(); track metric.label) {
-          <div
-            class="analysis-list-row hoverable-analysis-row"
-            (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
-            (mousemove)="store.moveHoverList($event)"
-            (mouseleave)="store.hideHoverList()"
-          >
-            <span class="analysis-list-label">{{ metric.label }}</span>
-            <strong class="analysis-list-count">{{ metric.count }}</strong>
+      <button
+        class="analysis-section-toggle"
+        type="button"
+        [attr.aria-expanded]="!isPanelCollapsed('type-breakdown')"
+        (click)="togglePanel('type-breakdown')"
+      >
+        <span class="analysis-section-title">{{ 'deckBuilder.deckAnalysisPanel.typeBreakdown' | runtimeTranslate }}</span>
+        <lucide-icon [name]="isPanelCollapsed('type-breakdown') ? 'chevron-right' : 'chevron-down'" size="16" />
+      </button>
+      <div class="analysis-panel-body" [class.collapsed]="isPanelCollapsed('type-breakdown')">
+        <div class="analysis-panel-body-inner">
+          <div class="analysis-list-grid">
+            @for (metric of store.visibleTypeMetrics(); track metric.label) {
+              <div
+                class="analysis-list-row hoverable-analysis-row"
+                (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
+                (mousemove)="store.moveHoverList($event)"
+                (mouseleave)="store.hideHoverList()"
+              >
+                <span class="analysis-list-label">{{ metric.label }}</span>
+                <strong class="analysis-list-count">{{ metric.count }}</strong>
+              </div>
+            }
           </div>
-        }
+        </div>
       </div>
     </section>
 
     <section class="analysis-panel">
-      <h3>{{ 'deckBuilder.deckAnalysisPanel.utilityCounts' | runtimeTranslate }}</h3>
-      <div class="analysis-list-grid">
-        @for (metric of store.visibleUtilityMetrics(); track metric.label) {
-          <div
-            class="analysis-list-row hoverable-analysis-row"
-            (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
-            (mousemove)="store.moveHoverList($event)"
-            (mouseleave)="store.hideHoverList()"
-          >
-            <span class="analysis-list-label">{{ metric.label }}</span>
-            <strong class="analysis-list-count">{{ metric.count }}</strong>
+      <button
+        class="analysis-section-toggle"
+        type="button"
+        [attr.aria-expanded]="!isPanelCollapsed('utility-counts')"
+        (click)="togglePanel('utility-counts')"
+      >
+        <span class="analysis-section-title">{{ 'deckBuilder.deckAnalysisPanel.utilityCounts' | runtimeTranslate }}</span>
+        <lucide-icon [name]="isPanelCollapsed('utility-counts') ? 'chevron-right' : 'chevron-down'" size="16" />
+      </button>
+      <div class="analysis-panel-body" [class.collapsed]="isPanelCollapsed('utility-counts')">
+        <div class="analysis-panel-body-inner">
+          <div class="analysis-list-grid">
+            @for (metric of store.visibleUtilityMetrics(); track metric.label) {
+              <div
+                class="analysis-list-row hoverable-analysis-row"
+                (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
+                (mousemove)="store.moveHoverList($event)"
+                (mouseleave)="store.hideHoverList()"
+              >
+                <span class="analysis-list-label">{{ metric.label }}</span>
+                <strong class="analysis-list-count">{{ metric.count }}</strong>
+              </div>
+            }
           </div>
-        }
+        </div>
       </div>
     </section>
   </div>

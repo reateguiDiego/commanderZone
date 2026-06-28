@@ -1,7 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { BarChart3, History, Layers3, LucideAngularModule, SearchX, ShieldCheck, Shuffle } from 'lucide-angular';
+import { BarChart3, ChevronDown, History, Layers3, LucideAngularModule, SearchX, ShieldCheck, Shuffle } from 'lucide-angular';
 import { Card } from '../../../../core/models/card.model';
 import { CommunityDeckDetail } from '../../../../core/models/community.model';
 import { DeckCard, DeckSection } from '../../../../core/models/deck.model';
@@ -16,7 +16,7 @@ describe('CommunityDeckInspectorComponent', () => {
       imports: [CommunityDeckInspectorComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ BarChart3, History, Layers3, SearchX, ShieldCheck, Shuffle })),
+        importProvidersFrom(LucideAngularModule.pick({ BarChart3, ChevronDown, History, Layers3, SearchX, ShieldCheck, Shuffle })),
         CommunityDeckViewerStore,
         { provide: DECK_VIEW_STORE, useExisting: CommunityDeckViewerStore },
         { provide: DECK_ANALYSIS_STORE, useExisting: CommunityDeckViewerStore },

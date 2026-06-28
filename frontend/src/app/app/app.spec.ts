@@ -38,6 +38,7 @@ describe('App', () => {
           { path: 'auth/register', component: EmptyRouteComponent },
           { path: 'cards', component: EmptyRouteComponent },
           { path: 'community', component: EmptyRouteComponent },
+          { path: 'contact', component: EmptyRouteComponent },
           { path: 'dashboard', component: EmptyRouteComponent },
           { path: 'decks', component: EmptyRouteComponent },
           {
@@ -313,6 +314,15 @@ describe('App', () => {
     TestBed.createComponent(App);
 
     await router.navigateByUrl('/');
+    expect(document.body.classList.contains('dashboard-background')).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
+
+    await router.navigateByUrl('/dashboard');
+    expect(document.body.classList.contains('dashboard-background')).toBe(true);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background'))
+      .toMatch(/^url\("\/assets\/images\/backgrounds\/sunrise\/bg-\d+\.webp"\)$/);
+
+    await router.navigateByUrl('/contact');
     expect(document.body.classList.contains('dashboard-background')).toBe(false);
     expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
 

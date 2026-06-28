@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { DECK_ANALYSIS_STORE } from '../deck-analysis-store.token';
@@ -13,4 +13,9 @@ import { DECK_ANALYSIS_STORE } from '../deck-analysis-store.token';
 })
 export class DeckManaCurvePanelComponent {
   readonly store = inject(DECK_ANALYSIS_STORE);
+  readonly curveCollapsed = signal(false);
+
+  toggleCurve(): void {
+    this.curveCollapsed.update((collapsed) => !collapsed);
+  }
 }
