@@ -4,7 +4,12 @@
   [title]="'deckBuilder.cards.cardImage.flipFace' | runtimeTranslate"
   [attr.aria-label]="'deckBuilder.cards.cardImage.flipFace' | runtimeTranslate"
   (pointerdown)="onPointerDown($event)"
+  (mousedown)="onMouseDown($event)"
+  (touchstart)="onTouchStart($event)"
   (pointerup)="onPointerUp($event)"
+  (mouseup)="onMouseUp($event)"
+  (touchend)="onTouchEnd($event)"
+  (pointercancel)="onPointerCancel($event)"
   (click)="onClick($event)"
   (contextmenu)="onContextMenu($event)"
 >

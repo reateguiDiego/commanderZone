@@ -146,33 +146,19 @@
   position: fixed;
   z-index: 90;
   width: 17.5rem;
-  border-radius: 12px;
   pointer-events: none;
   filter: drop-shadow(0 18px 30px rgb(var(--cz-bg-rgb) / 42%));
-  perspective: 900px;
 }
 
 .card-hover-preview--battle {
   width: 24.4rem;
   aspect-ratio: 680 / 488;
-  overflow: hidden;
 }
 
-.card-hover-preview img {
+.card-hover-preview app-card-face-image {
   display: block;
   width: 100%;
-  border-radius: inherit;
-}
-
-.card-hover-preview--battle .card-image--battle {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: auto;
-  max-width: none;
-  height: 139.4%;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transform-origin: center;
+  height: 100%;
 }
 
 .card-hover-preview--battle .card-fallback {
@@ -180,7 +166,7 @@
   height: 100%;
 }
 
-.card-hover-preview img,
+.card-hover-preview app-card-face-image,
 .card-hover-preview .card-fallback {
   backface-visibility: hidden;
   transform-style: preserve-3d;

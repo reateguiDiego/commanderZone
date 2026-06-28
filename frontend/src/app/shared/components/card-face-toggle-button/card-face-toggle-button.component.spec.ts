@@ -66,6 +66,21 @@ describe('CardFaceToggleButtonComponent', () => {
     expect(pressedSpy.mock.calls[0]?.[0]).toBeInstanceOf(PointerEvent);
   });
 
+  it('emits from touchend when the browser dispatches touch events directly', () => {
+    const fixture = TestBed.createComponent(CardFaceToggleButtonComponent);
+    const pressedSpy = vi.fn();
+    fixture.componentInstance.pressed.subscribe(pressedSpy);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    button.dispatchEvent(new Event('touchstart', { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new Event('touchend', { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(pressedSpy).toHaveBeenCalledTimes(1);
+    expect(pressedSpy.mock.calls[0]?.[0].type).toBe('touchend');
+  });
+
   it('allows a later click after the touch dedupe window', () => {
     vi.useFakeTimers();
 

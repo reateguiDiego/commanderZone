@@ -5,7 +5,6 @@ import { Card } from '../../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { DeckCommanderShowcaseComponent } from '../deck-commander-showcase/deck-commander-showcase.component';
-import { runDeckFaceToggleAnimation } from '../deck-face-toggle-animation';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
 
 @Component({
@@ -28,8 +27,7 @@ export class DeckCardTextViewComponent {
     this.store.hideCardPreview();
   }
 
-  stopFaceTogglePointer(event: PointerEvent): void {
-    event.preventDefault();
+  stopFaceTogglePointer(event: Event): void {
     event.stopPropagation();
     event.stopImmediatePropagation?.();
   }
@@ -45,6 +43,5 @@ export class DeckCardTextViewComponent {
     event.stopPropagation();
     event.stopImmediatePropagation?.();
     this.store.toggleCardFace(event, card);
-    runDeckFaceToggleAnimation(event.currentTarget, 'text-preview');
   }
 }

@@ -283,36 +283,19 @@
   position: fixed;
   z-index: 90;
   width: min(22.5rem, calc(100vw - 1.5rem));
-  border-radius: 12px;
   filter: drop-shadow(0 22px 38px rgb(var(--cz-bg-rgb) / 46%));
   pointer-events: none;
-  perspective: 900px;
 }
 
 .card-hover-preview--battle {
   width: min(24rem, calc(100vw - 1.5rem));
   aspect-ratio: 680 / 488;
-  overflow: hidden;
 }
 
-.card-hover-preview img,
-.card-hover-preview .card-fallback {
+.card-hover-preview app-card-face-image {
   display: block;
   width: 100%;
-  border-radius: inherit;
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
-}
-
-.card-hover-preview--battle .card-image--battle {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: auto;
-  max-width: none;
-  height: 139.4%;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transform-origin: center;
+  height: 100%;
 }
 
 .card-hover-preview .card-fallback {

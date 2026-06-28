@@ -381,15 +381,14 @@
         [style.top.px]="preview.top"
         [style.left.px]="preview.left"
       >
-        @if (preview.imageUrl) {
-            <img
-              [src]="preview.imageUrl"
-              [alt]="store.displayCardName(preview.card)"
-              [class.card-image--battle]="isBattlePreviewCard(preview.card)"
-            />
-          } @else {
-            <div class="card-fallback tall" [class.card-fallback--battle]="isBattlePreviewCard(preview.card)">{{ store.displayCardName(preview.card) }}</div>
-          }
+        <app-card-face-image
+          [card]="preview.card"
+          [battle]="isBattlePreviewCard(preview.card)"
+          variant="detail"
+          [preferLarge]="true"
+          [showToggle]="false"
+          [controlledFlipped]="store.isFaceFlipped(preview.card)"
+        />
       </div>
     }
 

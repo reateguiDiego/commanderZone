@@ -1531,7 +1531,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
     return this.viewMode() === 'text' && window.innerWidth >= 768 && window.innerHeight > 640;
   }
 
-  private isFaceFlipped(card: Card): boolean {
+  isFaceFlipped(card: Card): boolean {
     return this.flippedFaces()[card.scryfallId] ?? false;
   }
 

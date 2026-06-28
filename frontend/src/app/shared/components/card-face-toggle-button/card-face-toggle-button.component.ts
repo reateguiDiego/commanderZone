@@ -21,9 +21,10 @@ export type CardFaceToggleButtonSize = 'sm' | 'md' | 'lg';
 })
 export class CardFaceToggleButtonComponent {
   private static readonly TOUCH_CLICK_DEDUPE_MS = 450;
+  private static readonly TOUCH_EVENT_DEDUPE_MS = 32;
   readonly tone = input<CardFaceToggleButtonTone>('overlay');
   readonly size = input<CardFaceToggleButtonSize>('md');
-  readonly pressed = output<MouseEvent | PointerEvent>();
+  readonly pressed = output<MouseEvent | PointerEvent | TouchEvent>();
   private lastTouchActivationAt = 0;
   readonly iconSize = computed(() => {
     switch (this.size()) {
@@ -37,11 +38,16 @@ export class CardFaceToggleButtonComponent {
   });
 
   onPointerDown(event: PointerEvent): void {
-    event.stopPropagation();
-    event.stopImmediatePropagation?.();
+    this.stopPropagationOnly(event);
+  }
+
+  onMouseDown(event: MouseEvent): void {
+    this.stopPropagationOnly(event);
   }
 
   onPointerUp(event: PointerEvent): void {
+    this.stopPropagationOnly(event);
+
     if (event.pointerType === 'mouse') {
       return;
     }
@@ -49,6 +55,28 @@ export class CardFaceToggleButtonComponent {
     this.stopEvent(event);
     this.lastTouchActivationAt = Date.now();
     this.pressed.emit(event);
+  }
+
+  onMouseUp(event: MouseEvent): void {
+    this.stopPropagationOnly(event);
+  }
+
+  onTouchStart(event: TouchEvent): void {
+    this.stopPropagationOnly(event);
+  }
+
+  onTouchEnd(event: TouchEvent): void {
+    this.stopEvent(event);
+    if (Date.now() - this.lastTouchActivationAt < CardFaceToggleButtonComponent.TOUCH_EVENT_DEDUPE_MS) {
+      return;
+    }
+
+    this.lastTouchActivationAt = Date.now();
+    this.pressed.emit(event);
+  }
+
+  onPointerCancel(event: PointerEvent): void {
+    this.stopEvent(event);
   }
 
   onClick(event: MouseEvent): void {
@@ -66,6 +94,11 @@ export class CardFaceToggleButtonComponent {
 
   private stopEvent(event: Event): void {
     event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+  }
+
+  private stopPropagationOnly(event: Event): void {
     event.stopPropagation();
     event.stopImmediatePropagation?.();
   }

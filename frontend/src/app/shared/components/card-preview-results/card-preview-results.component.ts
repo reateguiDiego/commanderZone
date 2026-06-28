@@ -162,6 +162,10 @@ export class CardPreviewResultsComponent implements OnDestroy {
     return cardPreviewFaceSource(item);
   }
 
+  hoverPreviewFlipped(item: CardPreviewItem): boolean {
+    return this.isFaceFlipped(item);
+  }
+
   isBattle(item: CardPreviewItem): boolean {
     return this.itemTypeLine(item).startsWith('battle');
   }

@@ -10,12 +10,13 @@ import { DeckCardTextViewComponent } from '../../../decks/deck-editor/deck-card-
 import { CommunityDeckCardAction, CommunityDeckCardActionEvent, CommunityDeckViewerStore } from './community-deck-viewer.store';
 import { CommonCardMenuComponent } from '../../../../shared/ui/common-card-menu/common-card-menu.component';
 import { DeviceProfileService } from '../../../../shared/services/device-profile.service';
+import { CardFaceImageComponent } from '../../../../shared/components/card-face-image/card-face-image.component';
 
 const COMMUNITY_DECK_VIEWER_SESSION_KEY = 'community.deckViewer.viewMode';
 
 @Component({
   selector: 'app-deck-viewer',
-  imports: [LucideAngularModule, RuntimeTranslatePipe, DeckCardTextViewComponent, DeckCardSpoilerViewComponent, CommonCardMenuComponent],
+  imports: [LucideAngularModule, RuntimeTranslatePipe, DeckCardTextViewComponent, DeckCardSpoilerViewComponent, CommonCardMenuComponent, CardFaceImageComponent],
   templateUrl: './deck-viewer.component.html',
   styleUrl: './deck-viewer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -86,6 +86,10 @@ export class CardSearchResultsComponent implements OnDestroy {
     }));
   }
 
+  hoverPreviewFlipped(card: Card): boolean {
+    return this.isFaceFlipped(card);
+  }
+
   openContextMenu(event: MouseEvent, card: Card): void {
     event.preventDefault();
     event.stopPropagation();

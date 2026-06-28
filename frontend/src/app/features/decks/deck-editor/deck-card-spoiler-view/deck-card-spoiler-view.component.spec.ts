@@ -47,6 +47,29 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(store.toggleCardMenu).not.toHaveBeenCalled();
   });
 
+  it('still flips after the button pointerdown isolation runs first', async () => {
+    const store = storeStub({ hasAlternateFace: true });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.face-toggle-button') as HTMLButtonElement;
+    const cardEntry = store.cardGroups()[0]?.cards[0];
+
+    button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(cardEntry).toBeDefined();
+    expect(store.toggleCardFace).toHaveBeenCalledWith(expect.any(MouseEvent), cardEntry?.card, { updatePreview: false });
+  });
+
   it('suppresses contextmenu interactions from the spoiler face toggle', async () => {
     const store = storeStub({ hasAlternateFace: true });
     await TestBed.configureTestingModule({

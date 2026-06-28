@@ -42,6 +42,21 @@ describe('DeckCardTextViewComponent', () => {
     expect(store.toggleCardMenu).not.toHaveBeenCalled();
   });
 
+  it('still flips after the button pointerdown isolation runs first', async () => {
+    const store = storeStub({ hasAlternateFace: true });
+    const fixture = await setup(store);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.face-toggle-button') as HTMLButtonElement;
+    const cardEntry = store.cardColumns()[0]?.groups[0]?.cards[0];
+
+    button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(cardEntry).toBeDefined();
+    expect(store.toggleCardFace).toHaveBeenCalledWith(expect.any(MouseEvent), cardEntry?.card);
+  });
+
   it('suppresses contextmenu interactions from the text-row face toggle', async () => {
     const store = storeStub({ hasAlternateFace: true });
     const fixture = await setup(store);

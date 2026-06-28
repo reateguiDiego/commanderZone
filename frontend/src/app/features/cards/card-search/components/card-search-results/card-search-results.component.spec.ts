@@ -237,6 +237,12 @@ describe('CardSearchResultsComponent', () => {
     const toggle = fixture.nativeElement.querySelector('app-card-face-toggle-button button') as HTMLButtonElement;
     const image = () => fixture.nativeElement.querySelector('.mtg-card-result img') as HTMLImageElement | null;
 
+    toggle.dispatchEvent(new Event('touchstart', { bubbles: true, cancelable: true }));
+    toggle.dispatchEvent(new Event('touchend', { bubbles: true, cancelable: true }));
+    toggle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+    toggle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    toggle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }));
+    toggle.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     fixture.detectChanges();
 

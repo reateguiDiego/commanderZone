@@ -29,8 +29,7 @@ export class DeckCardSpoilerViewComponent {
     });
   }
 
-  stopFaceTogglePointer(event: PointerEvent): void {
-    event.preventDefault();
+  stopFaceTogglePointer(event: Event): void {
     event.stopPropagation();
     event.stopImmediatePropagation?.();
   }

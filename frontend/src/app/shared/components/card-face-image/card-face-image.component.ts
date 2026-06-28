@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, HostBinding, OnDestroy, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, HostBinding, OnDestroy, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { gsap } from 'gsap';
 import { Card, CardFace } from '../../../core/models/card.model';
 import { DeviceProfileService } from '../../services/device-profile.service';
@@ -23,6 +23,7 @@ export class CardFaceImageComponent implements OnDestroy {
   readonly fallback = input<string | null>(null);
   readonly preferLarge = input(false);
   readonly showToggle = input(true);
+  readonly controlledFlipped = input<boolean | null>(null);
   readonly flippedChange = output<boolean>();
 
   readonly flipped = signal(false);
@@ -51,6 +52,29 @@ export class CardFaceImageComponent implements OnDestroy {
   private readonly stage = viewChild<ElementRef<HTMLElement>>('stage');
   private animation: gsap.core.Tween | null = null;
   private pendingFlipFrame: number | null = null;
+  private lastControlledFlip: boolean | null = null;
+  private readonly syncControlledFlip = effect(() => {
+    const controlledFlipped = this.controlledFlipped();
+    const nextFlipped = this.hasAlternateFace() ? (controlledFlipped ?? false) : false;
+
+    if (controlledFlipped === null) {
+      this.lastControlledFlip = null;
+      return;
+    }
+
+    if (this.lastControlledFlip === null) {
+      this.lastControlledFlip = nextFlipped;
+      this.setFaceFlipped(nextFlipped, { animate: false, emit: false });
+      return;
+    }
+
+    if (this.lastControlledFlip === nextFlipped) {
+      return;
+    }
+
+    this.lastControlledFlip = nextFlipped;
+    this.setFaceFlipped(nextFlipped, { animate: true, emit: false });
+  }, { allowSignalWrites: true });
 
   ngOnDestroy(): void {
     this.animation?.kill();
@@ -96,10 +120,20 @@ export class CardFaceImageComponent implements OnDestroy {
       return;
     }
 
+    this.setFaceFlipped(!this.flipped(), { animate: true, emit: true });
+  }
+
+  private setFaceFlipped(nextFlipped: boolean, options: { animate: boolean; emit: boolean }): void {
+    if (this.flipped() === nextFlipped) {
+      return;
+    }
+
     const stage = this.stage()?.nativeElement;
     if (!stage) {
-      this.flipped.update((flipped) => !flipped);
-      this.flippedChange.emit(this.flipped());
+      this.flipped.set(nextFlipped);
+      if (options.emit) {
+        this.flippedChange.emit(this.flipped());
+      }
       return;
     }
 
@@ -107,10 +141,12 @@ export class CardFaceImageComponent implements OnDestroy {
     this.animation?.kill();
     gsap.killTweensOf(stage);
 
-    if (this.shouldSkipFlipAnimation()) {
+    if (!options.animate || this.shouldSkipFlipAnimation()) {
       gsap.set(stage, { clearProps: 'transform' });
-      this.flipped.update((flipped) => !flipped);
-      this.flippedChange.emit(this.flipped());
+      this.flipped.set(nextFlipped);
+      if (options.emit) {
+        this.flippedChange.emit(this.flipped());
+      }
       this.animation = null;
       return;
     }
@@ -120,8 +156,10 @@ export class CardFaceImageComponent implements OnDestroy {
       duration: 0.16,
       ease: 'power2.in',
       onComplete: () => {
-        this.flipped.update((flipped) => !flipped);
-        this.flippedChange.emit(this.flipped());
+        this.flipped.set(nextFlipped);
+        if (options.emit) {
+          this.flippedChange.emit(this.flipped());
+        }
         this.runAfterNextFrame(() => {
           gsap.set(stage, { rotateY: -90 });
           this.animation = gsap.to(stage, {

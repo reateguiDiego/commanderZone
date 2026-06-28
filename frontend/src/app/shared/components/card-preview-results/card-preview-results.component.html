@@ -73,7 +73,16 @@
         </div>
 
         @if (viewMode() === 'list' && hasAlternateFace(item)) {
-          <span class="card-preview-result__row-toggle" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+          <span
+            class="card-preview-result__row-toggle"
+            (pointerdown)="$event.stopPropagation()"
+            (pointerup)="$event.stopPropagation()"
+            (mousedown)="$event.stopPropagation()"
+            (mouseup)="$event.stopPropagation()"
+            (touchstart)="$event.stopPropagation()"
+            (touchend)="$event.stopPropagation()"
+            (click)="$event.stopPropagation()"
+          >
             <app-card-face-toggle-button tone="inline" size="sm" (pressed)="faceImage.toggleFace($event)" />
           </span>
         }
@@ -88,11 +97,14 @@
       [style.top.px]="preview.top"
       [style.left.px]="preview.left"
     >
-      @if (preview.imageUrl) {
-        <img [class.card-image--battle]="isBattle(preview.item)" [src]="preview.imageUrl" [alt]="preview.item.name" />
-      } @else {
-        <div class="card-fallback tall" [class.card-image--battle]="isBattle(preview.item)">{{ preview.item.name }}</div>
-      }
+      <app-card-face-image
+        [card]="faceSource(preview.item)"
+        [battle]="isBattle(preview.item)"
+        variant="detail"
+        [preferLarge]="true"
+        [showToggle]="false"
+        [controlledFlipped]="hoverPreviewFlipped(preview.item)"
+      />
     </div>
   }
 

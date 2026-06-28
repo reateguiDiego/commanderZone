@@ -20,6 +20,7 @@ import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
+import { CardFaceImageComponent } from '../../../shared/components/card-face-image/card-face-image.component';
 import { DECK_VIEW_STORE } from './deck-view-store.token';
 import { DECK_ANALYSIS_STORE } from './deck-analysis-panel/deck-analysis-store.token';
 
@@ -41,6 +42,7 @@ import { DECK_ANALYSIS_STORE } from './deck-analysis-panel/deck-analysis-store.t
     GlobalLoaderComponent,
     TabListComponent,
     TooltipComponent,
+    CardFaceImageComponent,
   ],
   templateUrl: './deck-editor.component.html',
   styleUrl: './deck-editor.component.scss',

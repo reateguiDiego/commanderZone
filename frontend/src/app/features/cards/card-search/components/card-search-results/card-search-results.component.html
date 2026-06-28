@@ -38,7 +38,16 @@
         <span class="mtg-card-result__name">{{ card.name }}</span>
 
         @if (hasAlternateFace(card)) {
-          <span class="mtg-card-result__row-toggle" (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+          <span
+            class="mtg-card-result__row-toggle"
+            (pointerdown)="$event.stopPropagation()"
+            (pointerup)="$event.stopPropagation()"
+            (mousedown)="$event.stopPropagation()"
+            (mouseup)="$event.stopPropagation()"
+            (touchstart)="$event.stopPropagation()"
+            (touchend)="$event.stopPropagation()"
+            (click)="$event.stopPropagation()"
+          >
             <app-card-face-toggle-button tone="inline" size="sm" (pressed)="faceImage.toggleFace($event)" />
           </span>
         }
@@ -54,11 +63,14 @@
     [style.top.px]="preview.top"
     [style.left.px]="preview.left"
   >
-    @if (preview.imageUrl) {
-      <img [class.card-image--battle]="isBattleCard(preview.card)" [src]="preview.imageUrl" [alt]="preview.card.name" />
-    } @else {
-      <div class="card-fallback tall" [class.card-image--battle]="isBattleCard(preview.card)">{{ preview.card.name }}</div>
-    }
+    <app-card-face-image
+      [card]="preview.card"
+      [battle]="isBattleCard(preview.card)"
+      variant="detail"
+      [preferLarge]="true"
+      [showToggle]="false"
+      [controlledFlipped]="hoverPreviewFlipped(preview.card)"
+    />
   </div>
 }
 

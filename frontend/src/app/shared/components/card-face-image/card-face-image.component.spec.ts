@@ -117,6 +117,23 @@ describe('CardFaceImageComponent', () => {
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/large.jpg');
   });
 
+  it('syncs the visible face from the controlled input for hover previews', () => {
+    const fixture = createComponent(cardFixture({
+      imageUris: {},
+      cardFaces: [
+        cardFace('Front', '/face-front.jpg'),
+        cardFace('Back', '/face-back.jpg'),
+      ],
+    }));
+    fixture.detectChanges();
+
+    mockGsapFlipAnimation();
+    fixture.componentRef.setInput('controlledFlipped', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('/face-back.jpg');
+  });
+
   it('skips GSAP and flips instantly on mobile devices', () => {
     isMobile.set(true);
     isDesktopLayout.set(false);

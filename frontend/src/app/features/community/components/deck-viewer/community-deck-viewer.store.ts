@@ -398,7 +398,7 @@ export class CommunityDeckViewerStore implements DeckViewStore, DeckAnalysisStor
     };
   }
 
-  private isFaceFlipped(card: Card): boolean {
+  isFaceFlipped(card: Card): boolean {
     return this.flippedFaces()[card.scryfallId] ?? false;
   }
 

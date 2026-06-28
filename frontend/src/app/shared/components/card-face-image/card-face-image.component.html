@@ -10,6 +10,11 @@
   <span
     class="card-face-image__toggle"
     (pointerdown)="$event.stopPropagation()"
+    (pointerup)="$event.stopPropagation()"
+    (mousedown)="$event.stopPropagation()"
+    (mouseup)="$event.stopPropagation()"
+    (touchstart)="$event.stopPropagation()"
+    (touchend)="$event.stopPropagation()"
     (click)="$event.stopPropagation()"
     (contextmenu)="$event.preventDefault(); $event.stopPropagation()"
   >
