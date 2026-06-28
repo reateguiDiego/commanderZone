@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
+import { withoutGlobalLoading } from '../loading/loading-context';
 import { CommandResponse, DisconnectVoteResponse, GameDebugHealthResponse, GameResponse, GameWebsocketTicketResponse, RematchVoteResponse } from '../models/api-responses.model';
 import { GameCommand, GameDisconnectVoteChoice, GameRematchVote, GameZoneName, GameZoneResponse } from '../models/game.model';
 import { BootstrapV2 } from '../models/game-v2.model';

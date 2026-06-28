@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, HostBinding, OnDestroy, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, HostBinding, OnDestroy, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { gsap } from 'gsap';
 import { Card, CardFace } from '../../../core/models/card.model';
 import { DeviceProfileService } from '../../services/device-profile.service';
@@ -64,7 +64,7 @@ export class CardFaceImageComponent implements OnDestroy {
 
     if (this.lastControlledFlip === null) {
       this.lastControlledFlip = nextFlipped;
-      this.setFaceFlipped(nextFlipped, { animate: false, emit: false });
+    untracked(() => this.setFaceFlipped(nextFlipped, { animate: false, emit: false }));
       return;
     }
 
@@ -73,7 +73,7 @@ export class CardFaceImageComponent implements OnDestroy {
     }
 
     this.lastControlledFlip = nextFlipped;
-    this.setFaceFlipped(nextFlipped, { animate: true, emit: false });
+    untracked(() => this.setFaceFlipped(nextFlipped, { animate: true, emit: false }));
   }, { allowSignalWrites: true });
 
   ngOnDestroy(): void {
