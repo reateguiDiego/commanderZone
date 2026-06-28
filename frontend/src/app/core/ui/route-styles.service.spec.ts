@@ -41,6 +41,15 @@ describe('RouteStylesService', () => {
     expect(documentRef.body.classList.contains('cz-public-route')).toBe(false);
   });
 
+  it('loads private route styles for /contact', () => {
+    service.applyForPath('/contact');
+
+    expect(privateStylesheet()).not.toBeNull();
+    expect(publicStylesheet()).toBeNull();
+    expect(documentRef.body.classList.contains('cz-private-route')).toBe(true);
+    expect(documentRef.body.classList.contains('cz-public-route')).toBe(false);
+  });
+
   it('removes route styles for unclassified pages', () => {
     service.applyForPath('/dashboard');
     service.applyForPath('/unknown');

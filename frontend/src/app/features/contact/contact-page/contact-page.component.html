@@ -7,7 +7,7 @@
   <section class="contact-shell">
     <section class="contact-intro">
       <header class="contact-header">
-        <img class="contact-logo" src="/assets/icons/CZ/CZ_logo.webp" alt="CommanderZone" width="256" height="124" decoding="async" />
+        <img class="contact-logo" [src]="logoUrl()" alt="CommanderZone" width="256" height="124" decoding="async" />
         <h1>{{ 'contactPage.hero.title' | runtimeTranslate }}</h1>
         <p>{{ 'contactPage.hero.description' | runtimeTranslate }}</p>
       </header>
@@ -32,6 +32,7 @@
           type="text"
           formControlName="name"
           autocomplete="name"
+          [readonly]="fieldReadOnly('name')"
           [placeholder]="'contactPage.form.namePlaceholder' | runtimeTranslate"
         />
         <div class="field-meta">
@@ -50,6 +51,7 @@
           type="email"
           formControlName="email"
           autocomplete="email"
+          [readonly]="fieldReadOnly('email')"
           [placeholder]="'contactPage.form.emailPlaceholder' | runtimeTranslate"
         />
         @if (fieldInvalid('email')) {

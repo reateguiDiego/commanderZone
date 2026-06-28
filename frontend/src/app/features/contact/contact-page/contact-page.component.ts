@@ -14,6 +14,7 @@ import { LocaleCode, SUPPORTED_LOCALE_CODES } from '../../../core/localization/l
 import { SeoService } from '../../../core/seo/seo.service';
 import { PUBLIC_CONTACT_EMAIL, PUBLIC_CONTACT_PATH } from '../../../core/contact/contact.config';
 import { ApiError } from '../../../core/models/api-responses.model';
+import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -50,6 +51,7 @@ export class ContactPageComponent {
   private readonly meta = inject(Meta);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly seo = inject(SeoService);
+  private readonly themeAssets = inject(AppThemeAssetsService);
   private readonly title = inject(Title);
   private readonly translation = inject(TranslationService);
 
@@ -58,6 +60,7 @@ export class ContactPageComponent {
   readonly errorMessage = signal<string | null>(null);
   readonly activeLocale = signal<LocaleCode>(FALLBACK_LOCALE);
   readonly inboxAddress = PUBLIC_CONTACT_EMAIL;
+  readonly logoUrl = this.themeAssets.czLogoUrl;
   readonly exitHref = () => this.auth.isAuthenticated() ? '/dashboard' : '/';
   readonly exitLabelKey = () => this.auth.isAuthenticated() ? 'contactPage.nav.loggedOutCta' : 'contactPage.nav.anonymousCta';
 
@@ -74,6 +77,10 @@ export class ContactPageComponent {
       void firstValueFrom(this.translation.useLocale(locale))
         .then(() => this.applyMetadata())
         .catch(() => this.applyMetadata());
+    });
+
+    effect(() => {
+      this.syncAuthenticatedFields();
     });
 
     this.activeLocale.set(this.detectBrowserLocale());
@@ -93,12 +100,7 @@ export class ContactPageComponent {
       const payload = this.contactForm.getRawValue();
       const response = await firstValueFrom(this.contactApi.send(payload));
       this.submitted.set(response.accepted);
-      this.contactForm.reset({
-        name: '',
-        email: '',
-        subject: '',
-        message: '',
-      });
+      this.resetForm();
     } catch (error: unknown) {
       this.errorMessage.set(this.resolveSubmitError(error));
     } finally {
@@ -121,6 +123,10 @@ export class ContactPageComponent {
 
   canSubmit(): boolean {
     return this.contactForm.valid && !this.submitting();
+  }
+
+  fieldReadOnly(field: 'name' | 'email'): boolean {
+    return this.auth.isAuthenticated();
   }
 
   private detectBrowserLocale(): LocaleCode {
@@ -162,6 +168,44 @@ export class ContactPageComponent {
 
   private clearMetadata(): void {
     this.document.head.querySelectorAll(CONTACT_PAGE_SELECTOR).forEach((element) => element.remove());
+  }
+
+  private syncAuthenticatedFields(): void {
+    const { name, email } = this.contactForm.controls;
+
+    if (!this.auth.isAuthenticated()) {
+      if (name.pristine) {
+        name.setValue('', { emitEvent: false });
+      }
+
+      if (email.pristine) {
+        email.setValue('', { emitEvent: false });
+      }
+
+      return;
+    }
+
+    const nextName = (this.auth.displayName() ?? '').trim();
+    const nextEmail = (this.auth.user()?.email ?? '').trim();
+
+    if (name.value !== nextName) {
+      name.setValue(nextName, { emitEvent: false });
+    }
+
+    if (email.value !== nextEmail) {
+      email.setValue(nextEmail, { emitEvent: false });
+    }
+  }
+
+  private resetForm(): void {
+    this.contactForm.reset({
+      name: this.auth.isAuthenticated() ? (this.auth.displayName() ?? '').trim() : '',
+      email: this.auth.isAuthenticated() ? (this.auth.user()?.email ?? '').trim() : '',
+      subject: '',
+      message: '',
+    });
+
+    this.syncAuthenticatedFields();
   }
 
   private resolveSubmitError(error: unknown): string {

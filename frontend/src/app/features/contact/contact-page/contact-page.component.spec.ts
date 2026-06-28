@@ -6,6 +6,8 @@ import { of, throwError } from 'rxjs';
 import { ContactApi } from '../../../core/api/contact.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { TranslationService } from '../../../core/localization/translation.service';
+import { User } from '../../../core/models/user.model';
+import { AppThemeService } from '../../../core/theme/app-theme.service';
 import { ContactPageComponent } from './contact-page.component';
 
 describe('ContactPageComponent', () => {
@@ -19,6 +21,19 @@ describe('ContactPageComponent', () => {
   };
   let auth: {
     isAuthenticated: ReturnType<typeof vi.fn>;
+    user: ReturnType<typeof vi.fn>;
+    displayName: ReturnType<typeof vi.fn>;
+  };
+  const authenticatedUser: User = {
+    id: 'user-1',
+    email: 'alice@example.com',
+    displayName: 'Alice',
+    roles: ['ROLE_USER'],
+    preferences: {
+      cardLanguage: 'en',
+      appLanguage: 'en',
+      themeId: 'sunrise',
+    },
   };
 
   beforeEach(async () => {
@@ -41,6 +56,8 @@ describe('ContactPageComponent', () => {
     };
     auth = {
       isAuthenticated: vi.fn().mockReturnValue(false),
+      user: vi.fn().mockReturnValue(null),
+      displayName: vi.fn().mockReturnValue(null),
     };
 
     await TestBed.configureTestingModule({
@@ -69,14 +86,62 @@ describe('ContactPageComponent', () => {
     expect(exitLink?.getAttribute('href')).toBe('/');
   });
 
+  it('keeps name and email empty and editable without login', () => {
+    const nameInput = fixture.nativeElement.querySelector('input[formControlName="name"]') as HTMLInputElement | null;
+    const emailInput = fixture.nativeElement.querySelector('input[formControlName="email"]') as HTMLInputElement | null;
+
+    expect(nameInput?.value).toBe('');
+    expect(emailInput?.value).toBe('');
+    expect(fixture.componentInstance.contactForm.controls.name.disabled).toBe(false);
+    expect(fixture.componentInstance.contactForm.controls.email.disabled).toBe(false);
+    expect(nameInput?.readOnly).toBe(false);
+    expect(emailInput?.readOnly).toBe(false);
+  });
+
+  it('uses the default CZ logo when no alternate theme asset is needed', () => {
+    const logo = fixture.nativeElement.querySelector('.contact-logo') as HTMLImageElement | null;
+
+    expect(logo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.webp');
+  });
+
+  it('uses the theme-specific CZ logo asset when the selected theme requires it', () => {
+    TestBed.inject(AppThemeService).selectTheme('candy-summoners');
+    fixture = TestBed.createComponent(ContactPageComponent);
+    fixture.detectChanges();
+
+    const logo = fixture.nativeElement.querySelector('.contact-logo') as HTMLImageElement | null;
+
+    expect(logo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_black.webp');
+  });
+
   it('links the top-right exit button to dashboard when there is login', () => {
     auth.isAuthenticated.mockReturnValue(true);
+    auth.user.mockReturnValue(authenticatedUser);
+    auth.displayName.mockReturnValue('Alice');
     fixture = TestBed.createComponent(ContactPageComponent);
     fixture.detectChanges();
 
     const exitLink = fixture.nativeElement.querySelector('.contact-topbar a') as HTMLAnchorElement | null;
 
     expect(exitLink?.getAttribute('href')).toBe('/dashboard');
+  });
+
+  it('prefills name and email from the authenticated user in read-only mode', () => {
+    auth.isAuthenticated.mockReturnValue(true);
+    auth.user.mockReturnValue(authenticatedUser);
+    auth.displayName.mockReturnValue('Alice');
+    fixture = TestBed.createComponent(ContactPageComponent);
+    fixture.detectChanges();
+
+    const nameInput = fixture.nativeElement.querySelector('input[formControlName="name"]') as HTMLInputElement | null;
+    const emailInput = fixture.nativeElement.querySelector('input[formControlName="email"]') as HTMLInputElement | null;
+
+    expect(nameInput?.value).toBe('Alice');
+    expect(emailInput?.value).toBe('alice@example.com');
+    expect(fixture.componentInstance.contactForm.controls.name.disabled).toBe(false);
+    expect(fixture.componentInstance.contactForm.controls.email.disabled).toBe(false);
+    expect(nameInput?.readOnly).toBe(true);
+    expect(emailInput?.readOnly).toBe(true);
   });
 
   it('submits the form when valid', async () => {
@@ -99,6 +164,40 @@ describe('ContactPageComponent', () => {
       message: 'Need support',
     });
     expect(fixture.componentInstance.submitted()).toBe(true);
+  });
+
+  it('preserves authenticated readonly fields after a successful submit', async () => {
+    auth.isAuthenticated.mockReturnValue(true);
+    auth.user.mockReturnValue(authenticatedUser);
+    auth.displayName.mockReturnValue('Alice');
+    fixture = TestBed.createComponent(ContactPageComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.contactForm.controls.subject.setValue('Help');
+    fixture.componentInstance.contactForm.controls.message.setValue('Need support');
+    fixture.componentInstance.contactForm.updateValueAndValidity();
+
+    await fixture.componentInstance.submit();
+    fixture.detectChanges();
+
+    const payload = contactApi.send.mock.calls[0]?.[0] as Record<string, string>;
+    const nameInput = fixture.nativeElement.querySelector('input[formControlName="name"]') as HTMLInputElement | null;
+    const emailInput = fixture.nativeElement.querySelector('input[formControlName="email"]') as HTMLInputElement | null;
+
+    expect(payload).toEqual({
+      name: 'Alice',
+      email: 'alice@example.com',
+      subject: 'Help',
+      message: 'Need support',
+    });
+    expect(nameInput?.value).toBe('Alice');
+    expect(emailInput?.value).toBe('alice@example.com');
+    expect(fixture.componentInstance.contactForm.controls.subject.value).toBe('');
+    expect(fixture.componentInstance.contactForm.controls.message.value).toBe('');
+    expect(fixture.componentInstance.contactForm.controls.name.disabled).toBe(false);
+    expect(fixture.componentInstance.contactForm.controls.email.disabled).toBe(false);
+    expect(nameInput?.readOnly).toBe(true);
+    expect(emailInput?.readOnly).toBe(true);
   });
 
   it('shows live field limits for bounded contact fields', () => {
