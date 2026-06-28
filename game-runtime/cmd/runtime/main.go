@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -141,14 +142,38 @@ func runtimeServiceFromEnv(logger *slog.Logger) (*runtimesvc.Service, func() err
 }
 
 func normalizePostgresURL(databaseURL string) string {
-	if databaseURL == "" || strings.Contains(databaseURL, "sslmode=") {
+	databaseURL = strings.TrimSpace(databaseURL)
+	if databaseURL == "" {
 		return databaseURL
 	}
+	databaseURL = removeDoctrinePostgresURLParams(databaseURL)
+	if strings.Contains(databaseURL, "sslmode=") {
+		return databaseURL
+	}
+
 	separator := "?"
 	if strings.Contains(databaseURL, "?") {
 		separator = "&"
 	}
 	return databaseURL + separator + "sslmode=disable"
+}
+
+func removeDoctrinePostgresURLParams(databaseURL string) string {
+	parsed, err := url.Parse(databaseURL)
+	if err != nil || (parsed.Scheme != "postgres" && parsed.Scheme != "postgresql") {
+		return databaseURL
+	}
+
+	query := parsed.Query()
+	for key := range query {
+		switch strings.ToLower(key) {
+		case "serverversion", "charset":
+			query.Del(key)
+		}
+	}
+	parsed.RawQuery = query.Encode()
+
+	return parsed.String()
 }
 
 func runHealthcheck(listen string) error {
