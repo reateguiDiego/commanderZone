@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { runtimeTranslationFallback } from '../localization/runtime-translate.pipe';
+import { UserAvatar, UserDisplayNameStyle } from '../models/user.model';
 
 export type PageHeaderActionVariant = 'primary' | 'secondary';
 export type PageHeaderActionTooltipTriggerMode = 'hover' | 'click';
@@ -44,6 +45,12 @@ export interface PageHeaderActionFeedback {
   tone: 'success';
 }
 
+export interface PageHeaderPlayerInfo {
+  displayName: string;
+  avatar?: UserAvatar | null;
+  nameStyle?: UserDisplayNameStyle | null;
+}
+
 export interface PageHeaderState {
   title: string;
   eyebrow?: string;
@@ -54,6 +61,7 @@ export interface PageHeaderState {
   titleActions?: readonly PageHeaderAction[];
   actions?: readonly PageHeaderAction[];
   actionFeedback?: PageHeaderActionFeedback | null;
+  sharedBy?: PageHeaderPlayerInfo | null;
   stats?: readonly PageHeaderStat[];
 }
 
@@ -92,6 +100,7 @@ export class PageHeaderStore {
             message: this.translateText(header.actionFeedback.message),
           }
         : header.actionFeedback,
+      sharedBy: header.sharedBy ? { ...header.sharedBy } : header.sharedBy,
       stats: header.stats?.map((stat) => ({
         ...stat,
         label: this.translateText(stat.label),

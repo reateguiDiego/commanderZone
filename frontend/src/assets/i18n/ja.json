@@ -284,6 +284,15 @@
       }
     }
   },
+  "community": {
+    "detail": {
+      "saveConfirmation": {
+        "title": "このデッキをデッキ一覧に保存しますか？",
+        "confirm": "確認",
+        "cancel": "キャンセル"
+      }
+    }
+  },
   "game": {
     "arrowTargetDialog": {
       "selectArrowTargetPlayer": "Select arrow target player",

@@ -30,6 +30,7 @@
                   @for (entry of group.cards; track entry.id) {
                     <div
                       class="deck-card-row"
+                      [class.deck-card-row--menu-open]="isRowMenuOpen(entry.id)"
                       (mouseenter)="showCardPreview($event, entry.card)"
                       (mousemove)="store.moveCardPreview($event)"
                       (mouseleave)="hideCardPreview()"

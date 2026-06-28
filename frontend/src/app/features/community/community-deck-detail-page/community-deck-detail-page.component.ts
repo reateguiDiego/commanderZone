@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
@@ -76,20 +76,12 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   readonly actionError = signal<string | null>(null);
   readonly saving = signal(false);
   readonly shareCopied = signal(false);
+  readonly saveConfirmationModalOpen = signal(false);
   readonly saveSuccessModalOpen = signal(false);
   readonly savedDeckId = signal<string | null>(null);
   readonly addToDeckCard = signal<Card | null>(null);
   readonly detailsDialog = signal<CardDetailsDialogState | null>(null);
   readonly printingsDialog = signal<CardPrintingsDialogState | null>(null);
-  readonly playableCards = computed(() => (
-    (this.deck()?.cards ?? [])
-      .filter((entry) => entry.section === 'commander' || entry.section === 'main')
-      .reduce((total, entry) => total + entry.quantity, 0)
-  ));
-  readonly visibilityLabel = computed(() => this.deck()?.visibility === 'private'
-    ? 'community.visibility.private'
-    : 'community.visibility.public');
-
   constructor() {
     effect(() => {
       const deck = this.deck();
@@ -99,7 +91,13 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
       }
 
       this.pageHeader.set({
+        context: 'community-deck-detail',
         title: deck?.name ?? 'community.detail.headerTitle',
+        sharedBy: deck
+          ? {
+            displayName: deck.owner.displayName,
+          }
+          : null,
         actions: [
           this.backToCommunityDecksAction(),
           ...(deck
@@ -112,7 +110,7 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
                 disabled: saving,
                 variant: 'primary' as const,
                 execute: () => {
-                  void this.saveDeck();
+                  this.openSaveConfirmation();
                 },
               },
               {
@@ -197,6 +195,24 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
     }
 
     this.importExport.downloadDeck(deck);
+  }
+
+  openSaveConfirmation(): void {
+    if (!this.deck() || this.saving()) {
+      return;
+    }
+
+    this.actionError.set(null);
+    this.saveConfirmationModalOpen.set(true);
+  }
+
+  closeSaveConfirmation(): void {
+    this.saveConfirmationModalOpen.set(false);
+  }
+
+  async confirmSaveDeck(): Promise<void> {
+    this.closeSaveConfirmation();
+    await this.saveDeck();
   }
 
   async saveDeck(): Promise<void> {

@@ -284,6 +284,15 @@
       }
     }
   },
+  "community": {
+    "detail": {
+      "saveConfirmation": {
+        "title": "Vuoi salvare questo deck nella tua lista di deck?",
+        "confirm": "Conferma",
+        "cancel": "Annulla"
+      }
+    }
+  },
   "game": {
     "arrowTargetDialog": {
       "selectArrowTargetPlayer": "Select arrow target player",

@@ -284,6 +284,15 @@
       }
     }
   },
+  "community": {
+    "detail": {
+      "saveConfirmation": {
+        "title": "要将这个套牌保存到你的套牌列表中吗？",
+        "confirm": "确认",
+        "cancel": "取消"
+      }
+    }
+  },
   "game": {
     "arrowTargetDialog": {
       "selectArrowTargetPlayer": "Select arrow target player",

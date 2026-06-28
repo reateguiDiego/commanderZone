@@ -90,7 +90,13 @@
   cursor: pointer;
   padding: 0.3rem 0.1rem;
   border-bottom: 1px solid rgb(var(--cz-text-rgb) / 7%);
+  border-radius: 0.5rem;
   background: transparent;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
 .deck-card-primary,
@@ -238,6 +244,45 @@
 .face-toggle-button:focus-visible {
   outline: 2px solid rgb(var(--cz-secondary-rgb) / 72%);
   outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deck-card-row:hover,
+  .deck-card-row--menu-open {
+    background: linear-gradient(
+      90deg,
+      rgb(var(--cz-primary-rgb) / 9%),
+      rgb(var(--cz-surface-rgb) / 4%)
+    );
+    border-bottom-color: rgb(var(--cz-secondary-rgb) / 22%);
+    box-shadow:
+      inset 0 0 0 1px rgb(var(--cz-primary-rgb) / 14%),
+      0 0.25rem 0.9rem rgb(var(--cz-bg-rgb) / 10%);
+    transform: translateY(-1px);
+  }
+
+  .deck-card-row:hover .deck-card-name-text,
+  .deck-card-row--menu-open .deck-card-name-text {
+    color: var(--text);
+  }
+
+  .deck-card-row:hover .deck-card-secondary,
+  .deck-card-row--menu-open .deck-card-secondary {
+    color: rgb(var(--cz-text-rgb) / 72%);
+  }
+}
+
+.deck-card-row--menu-open,
+.deck-card-row:focus-within {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--cz-primary-rgb) / 7%),
+    rgb(var(--cz-surface-rgb) / 3%)
+  );
+  border-bottom-color: rgb(var(--cz-secondary-rgb) / 22%);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--cz-primary-rgb) / 14%),
+    0 0.25rem 0.9rem rgb(var(--cz-bg-rgb) / 10%);
 }
 
 @media (max-width: 1400px) {

@@ -28,6 +28,10 @@ export class DeckCardTextViewComponent {
     this.store.hideCardPreview();
   }
 
+  isRowMenuOpen(entryId: string): boolean {
+    return this.store.cardMenu()?.entryId === entryId;
+  }
+
   stopFaceTogglePointer(event: Event): void {
     event.stopPropagation();
     event.stopImmediatePropagation?.();

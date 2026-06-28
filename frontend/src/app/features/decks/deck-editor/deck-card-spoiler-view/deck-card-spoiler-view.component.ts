@@ -44,6 +44,10 @@ export class DeckCardSpoilerViewComponent {
     return (this.store.displayCardTypeLine(card) ?? '').trim().toLowerCase().startsWith('battle');
   }
 
+  isRowMenuOpen(entryId: string): boolean {
+    return this.store.cardMenu()?.entryId === entryId;
+  }
+
   toggleCardFace(event: MouseEvent, card: Card): void {
     event.preventDefault();
     event.stopPropagation();

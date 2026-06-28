@@ -64,4 +64,74 @@ describe('DashboardPageContextComponent', () => {
     expect(bubble).not.toBeNull();
     expect(bubble?.textContent).toContain('73% of cards are available in Spanish.');
   });
+
+  it('renders the community deck detail actions stack instead of stats', () => {
+    const fixture = TestBed.createComponent(DashboardPageContextComponent);
+    fixture.componentRef.setInput('header', {
+      title: 'Readonly Deck',
+      context: 'community-deck-detail',
+      sharedBy: {
+        displayName: 'Alber',
+      },
+      actions: [
+        {
+          id: 'save-deck',
+          label: 'Save deck',
+          variant: 'primary',
+          execute: () => undefined,
+        },
+      ],
+      stats: [
+        {
+          id: 'commander',
+          label: 'Commander',
+          value: 'Atraxa, Grand Unifier',
+        },
+      ],
+      actionFeedback: {
+        message: 'Saved',
+        tone: 'success',
+      },
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.page-header-stats')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.page-header-title-meta-label')?.textContent).toContain('Compartido por');
+    expect(fixture.nativeElement.querySelector('app-player-info')?.textContent).toContain('Alber');
+    expect(fixture.nativeElement.querySelector('.page-header-actions-stack')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.page-header-action-feedback')?.textContent).toContain('Saved');
+  });
+
+  it('renders deck editor actions on the back button row', () => {
+    const fixture = TestBed.createComponent(DashboardPageContextComponent);
+    fixture.componentRef.setInput('header', {
+      title: 'Deck editor',
+      context: 'deck-editor',
+      actions: [
+        {
+          id: 'back-to-decks',
+          label: 'Back',
+          isBack: true,
+          variant: 'secondary',
+          execute: () => undefined,
+        },
+        {
+          id: 'save-deck',
+          label: 'Save deck',
+          variant: 'primary',
+          execute: () => undefined,
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const navigationRow = fixture.nativeElement.querySelector('.page-header-navigation-row') as HTMLElement | null;
+    const actionsRow = navigationRow?.querySelector('.page-header-detail-row.has-actions') as HTMLElement | null;
+    const backButton = navigationRow?.querySelector('.page-header-title-back-button') as HTMLElement | null;
+
+    expect(navigationRow).not.toBeNull();
+    expect(backButton).not.toBeNull();
+    expect(actionsRow?.querySelector('.page-header-actions-stack')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.page-header-actions-stack').length).toBe(1);
+  });
 });

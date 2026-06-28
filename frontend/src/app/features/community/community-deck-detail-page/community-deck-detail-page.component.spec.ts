@@ -43,6 +43,13 @@ describe('CommunityDeckDetailPageComponent', () => {
       dispatchEvent: vi.fn(),
     })));
 
+    const decksApi = {
+      quickBuild: vi.fn().mockReturnValue(of({
+        deck: { id: 'saved-deck', name: 'Readonly Deck', format: 'commander', folderId: null, cards: [] },
+        missing: [],
+      })),
+    };
+
     await TestBed.configureTestingModule({
       imports: [CommunityDeckDetailPageComponent],
       providers: [
@@ -125,12 +132,7 @@ describe('CommunityDeckDetailPageComponent', () => {
         },
         {
           provide: DecksApi,
-          useValue: {
-            quickBuild: vi.fn().mockReturnValue(of({
-              deck: { id: 'saved-deck', name: 'Readonly Deck', format: 'commander', folderId: null, cards: [] },
-              missing: [],
-            })),
-          },
+          useValue: decksApi,
         },
         {
           provide: CardsApi,
@@ -177,13 +179,15 @@ describe('CommunityDeckDetailPageComponent', () => {
 
     const header = TestBed.inject(PageHeaderStore).state();
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('Compartido por Alber');
     expect(text).toContain('Analysis');
     expect(text).toContain('Considering');
     expect(text).toContain('Validation');
     expect(text).not.toContain('History');
     expect(text).not.toContain('Missing');
     expect(header?.title).toBe('Readonly Deck');
+    expect(header?.context).toBe('community-deck-detail');
+    expect(header?.sharedBy?.displayName).toBe('Alber');
+    expect(header?.stats).toBeUndefined();
     expect(header?.actions?.map((action) => action.id)).toEqual([
       'back-to-community-decks',
       'save-deck',
@@ -191,6 +195,18 @@ describe('CommunityDeckDetailPageComponent', () => {
       'share-deck',
     ]);
     expect(fixture.nativeElement.querySelector('app-deck-card-menu')).toBeNull();
+
+    const saveAction = header?.actions?.find((action) => action.id === 'save-deck');
+    expect(saveAction).toBeDefined();
+    saveAction?.execute();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Do you want to save this deck to your deck list?');
+    expect(decksApi.quickBuild).not.toHaveBeenCalled();
+
+    const confirmButton = fixture.nativeElement.querySelector('app-modal .modal-panel button.primary-button') as HTMLButtonElement;
+    confirmButton.click();
+    await vi.waitFor(() => expect(decksApi.quickBuild).toHaveBeenCalledOnce());
   });
 
   it('opens the shared details modal for community deck card actions', async () => {

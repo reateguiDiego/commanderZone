@@ -1,8 +1,9 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ChevronDown, ChevronRight, LucideAngularModule, RotateCw, TriangleAlert } from 'lucide-angular';
+import { ChevronDown, ChevronRight, LucideAngularModule, Minus, RotateCw, TriangleAlert } from 'lucide-angular';
 import { Card } from '../../../../core/models/card.model';
 import { DeckCard } from '../../../../core/models/deck.model';
+import { DeckEditorStore } from '../../data-access/deck-editor.store';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
 import { DeckCardTextViewComponent } from './deck-card-text-view.component';
 
@@ -11,8 +12,9 @@ describe('DeckCardTextViewComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardTextViewComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, Minus, RotateCw, TriangleAlert })),
         { provide: DECK_VIEW_STORE, useValue: store },
+        { provide: DeckEditorStore, useValue: store },
       ],
     }).compileComponents();
 
@@ -140,6 +142,21 @@ describe('DeckCardTextViewComponent', () => {
     expect(store.toggleCardMenu).not.toHaveBeenCalled();
   });
 
+  it('keeps the row highlighted while its contextual menu is open', async () => {
+    const store = storeStub({ cardMenuEntryId: 'deck-card-1' });
+    const fixture = await setup(store);
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('.deck-card-row') as HTMLElement | null;
+
+    expect(row?.classList.contains('deck-card-row--menu-open')).toBe(true);
+
+    store.cardMenu.set(null);
+    fixture.detectChanges();
+
+    expect(row?.classList.contains('deck-card-row--menu-open')).toBe(false);
+  });
+
   it('hides the preview without resetting double-faced cards after hover', async () => {
     const store = storeStub({ hasAlternateFace: true });
     const fixture = await setup(store);
@@ -159,6 +176,7 @@ describe('DeckCardTextViewComponent', () => {
 function storeStub(options: {
   hasAlternateFace?: boolean;
   entry?: DeckCard;
+  cardMenuEntryId?: string | null;
   displayCardTypeLine?: (value: Card) => string | null;
   displayCardManaCost?: (value: Card) => string | null;
   shouldShowManaCost?: (value: Card) => boolean;
@@ -167,7 +185,7 @@ function storeStub(options: {
 
   return {
     cardColumns: signal([{ id: 'land-sideboard', groups: [{ id: 'land', title: 'Tierras', cards: [entry] }] }]),
-    cardMenu: signal(null),
+    cardMenu: signal(options.cardMenuEntryId ? { entryId: options.cardMenuEntryId, top: 0, left: 0, amount: 1, showImagePreview: false } : null),
     isGroupCollapsed: () => false,
     toggleGroup: vi.fn(),
     showCardPreview: vi.fn(),

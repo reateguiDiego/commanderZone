@@ -284,6 +284,15 @@
       }
     }
   },
+  "community": {
+    "detail": {
+      "saveConfirmation": {
+        "title": "Вы хотите сохранить эту колоду в свой список колод?",
+        "confirm": "Подтвердить",
+        "cancel": "Отмена"
+      }
+    }
+  },
   "game": {
     "arrowTargetDialog": {
       "selectArrowTargetPlayer": "Select arrow target player",

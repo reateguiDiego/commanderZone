@@ -1,6 +1,6 @@
 <div class="spoiler-sections">
   @for (group of store.cardGroups(); track group.id) {
-    <section class="spoiler-section">
+    <section class="spoiler-section" [class.spoiler-section--full]="group.cards.length > 3">
       <button class="spoiler-section-toggle" type="button" [attr.aria-expanded]="!store.isGroupCollapsed(group.id)" (click)="store.toggleGroup(group.id)">
         <span class="spoiler-section-title">
           {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
@@ -28,6 +28,7 @@
                 <article
                   class="spoiler-card"
                   [class.spoiler-card--battle]="isBattleVisibleFace(entry.card)"
+                  [class.spoiler-card--menu-open]="isRowMenuOpen(entry.id)"
                   (click)="cardClickEnabled() ? store.toggleCardMenu($event, entry) : null"
                 >
                   <div class="spoiler-image-frame" [class.spoiler-image-frame--battle]="isBattleVisibleFace(entry.card)">

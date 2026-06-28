@@ -29,6 +29,8 @@ describe('CardPreviewSectionComponent', () => {
         cropImage: 'https://cards.scryfall.io/art_crop/front/atraxa.jpg',
         rank: 1,
         label: 'Featured',
+        cardType: 'Legendary Creature // Background',
+        cardTypeIcon: 'creature',
         colors: ['W', 'U', 'B', 'G'],
       },
     ]);
@@ -43,6 +45,7 @@ describe('CardPreviewSectionComponent', () => {
     expect(element.textContent).toContain('Preview only');
     expect(element.querySelectorAll('.commander-card')).toHaveLength(1);
     expect(element.querySelector('.commander-art img')?.getAttribute('src')).toContain('art_crop');
+    expect(element.querySelector('.commander-type-pill span:last-child')?.textContent?.trim()).toBe('Legendary Creature');
   });
 
   it('adds the mobile text-mode host class only when requested', () => {

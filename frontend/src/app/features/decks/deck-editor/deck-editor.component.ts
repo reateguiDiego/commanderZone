@@ -117,15 +117,19 @@ export class DeckEditorComponent implements OnDestroy {
       const deck = this.store.deck();
       const shareCopied = this.shareCopied();
       if (!deck) {
-        this.pageHeader.set({
-          title: 'deckBuilder.deckEditor.header.title',
-          actions: [this.backToDecksAction()],
-        });
-        return;
+      this.pageHeader.set({
+        context: 'deck-editor',
+        title: 'deckBuilder.deckEditor.header.title',
+        heroRule: true,
+        actions: [this.backToDecksAction()],
+      });
+      return;
       }
 
       this.pageHeader.set({
+        context: 'deck-editor',
         title: deck.name,
+        heroRule: true,
         titleWarning: this.store.hasDeckIssues()
           ? {
             icon: 'triangle-alert',

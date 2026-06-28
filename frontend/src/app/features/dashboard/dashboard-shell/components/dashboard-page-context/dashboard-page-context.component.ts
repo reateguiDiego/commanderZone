@@ -5,11 +5,12 @@ import { PageHeaderAction, PageHeaderState } from '../../../../../core/ui/page-h
 import { BackButtonComponent } from '../../../../../shared/ui/back-button/back-button.component';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { HeroRuleComponent } from '../../../../../shared/ui/hero-rule/hero-rule.component';
+import { PlayerInfoComponent } from '../../../../../shared/ui/player-info/player-info.component';
 import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 
 @Component({
   selector: 'app-dashboard-page-context',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, BackButtonComponent, CzButtonDirective, HeroRuleComponent, TooltipComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, BackButtonComponent, CzButtonDirective, HeroRuleComponent, PlayerInfoComponent, TooltipComponent],
   templateUrl: './dashboard-page-context.component.html',
   styleUrl: './dashboard-page-context.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

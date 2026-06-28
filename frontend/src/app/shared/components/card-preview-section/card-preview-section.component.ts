@@ -45,8 +45,19 @@ export class CardPreviewSectionComponent {
   }
 
   displayCardType(item: CardPreviewItem): string | null {
-    return this.typeDisplayMode() === 'primary'
+    const typeLabel = this.typeDisplayMode() === 'primary'
       ? primaryCardPreviewTypeLabel(item)
       : (item.cardType?.trim() || null);
+
+    return this.trimCardTypeSubtype(typeLabel);
+  }
+
+  private trimCardTypeSubtype(value: string | null): string | null {
+    const typeLabel = value?.trim() ?? '';
+    if (typeLabel === '') {
+      return null;
+    }
+
+    return typeLabel.split('//')[0]?.trim() || typeLabel;
   }
 }

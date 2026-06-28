@@ -1,7 +1,53 @@
 @if (header(); as headerState) {
   <div class="page-header-context" [attr.data-page-context]="headerState.context ?? null">
     <div class="page-header-title" [class.has-title-actions]="headerState.titleActions?.length">
-      @if (backAction(); as backActionValue) {
+      @if (headerState.context === 'deck-editor' && (backAction() || visibleActions().length)) {
+        <div class="page-header-navigation-row">
+          @if (backAction(); as backActionValue) {
+            <app-back-button class="page-header-title-back-button" [disabled]="backActionValue.disabled ?? false" (pressed)="backActionValue.execute()" />
+          }
+          <div class="page-header-detail-row" [class.has-actions]="visibleActions().length">
+            @if (visibleActions().length) {
+              <div class="page-header-actions-stack">
+                <div class="page-header-actions">
+                  @for (action of visibleActions(); track action.id) {
+                    <app-tooltip
+                      [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
+                      [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
+                      [placement]="action.tooltipPlacement ?? 'top'"
+                      [align]="action.tooltipAlign ?? 'center'"
+                    >
+                      <button
+                        [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
+                        czButtonSize="sm"
+                        class="compact"
+                        type="button"
+                        [class.icon-only]="action.iconOnly"
+                        [class.primary-button]="action.variant === 'primary'"
+                        [class.secondary-button]="action.variant === 'secondary'"
+                        [attr.data-action-id]="action.id"
+                        [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
+                        [disabled]="action.disabled"
+                        (click)="action.execute()"
+                      >
+                        @if (action.icon) {
+                          <lucide-icon [name]="action.icon" size="16" />
+                        }
+                        <span [class.sr-only]="action.iconOnly">{{ action.label | runtimeTranslate }}</span>
+                      </button>
+                    </app-tooltip>
+                  }
+                </div>
+                @if (headerState.actionFeedback; as feedback) {
+                  <span class="page-header-action-feedback" [class.tone-success]="feedback.tone === 'success'">
+                    {{ feedback.message | runtimeTranslate }}
+                  </span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      } @else if (backAction(); as backActionValue) {
         <app-back-button class="page-header-title-back-button" [disabled]="backActionValue.disabled ?? false" (pressed)="backActionValue.execute()" />
       }
       @if (headerState.titleActions?.length) {
@@ -37,91 +83,152 @@
       @if (headerState.eyebrow) {
         <span class="eyebrow">{{ headerState.eyebrow | runtimeTranslate }}</span>
       }
-      <div class="page-header-title-line">
-        <h1>{{ headerState.title | runtimeTranslate }}</h1>
-        @if (headerState.titleWarning; as warning) {
-          <app-tooltip [text]="warning.tooltip | runtimeTranslate">
-            <span
-              class="page-title-warning"
-              [class.tone-danger]="warning.tone === 'danger'"
-              [attr.aria-label]="warning.label | runtimeTranslate"
-            >
-              <lucide-icon [name]="warning.icon" size="20" />
-            </span>
-          </app-tooltip>
+      <div class="page-header-title-line" [class.has-inline-meta]="headerState.context === 'community-deck-detail' && headerState.sharedBy">
+        <div class="page-header-title-main">
+          <h1>{{ headerState.title | runtimeTranslate }}</h1>
+          @if (headerState.titleWarning; as warning) {
+            <app-tooltip [text]="warning.tooltip | runtimeTranslate">
+              <span
+                class="page-title-warning"
+                [class.tone-danger]="warning.tone === 'danger'"
+                [attr.aria-label]="warning.label | runtimeTranslate"
+              >
+                <lucide-icon [name]="warning.icon" size="20" />
+              </span>
+            </app-tooltip>
+          }
+        </div>
+        @if (headerState.context === 'community-deck-detail' && headerState.sharedBy; as sharedBy) {
+          <div class="page-header-title-meta">
+            <span class="page-header-title-meta-label">{{ 'community.detail.readonly.historyOwner' | runtimeTranslate }}</span>
+            <app-player-info
+              class="page-header-title-player-info"
+              [displayName]="sharedBy.displayName"
+              [avatar]="sharedBy.avatar ?? null"
+              [nameStyle]="sharedBy.nameStyle ?? null"
+              size="sm"
+              [interactive]="false"
+            />
+          </div>
         }
       </div>
+      @if (headerState.context === 'deck-editor') {
+        @if (headerState.heroRule) {
+          <app-hero-rule class="page-header-title-hero" />
+        }
+      }
       @if (headerState.description) {
         <p class="page-header-description">{{ headerState.description | runtimeTranslate }}</p>
       }
-      @if (headerState.heroRule) {
+      @if (headerState.heroRule && headerState.context !== 'deck-editor') {
         <app-hero-rule />
       }
     </div>
 
-    <div
-      class="page-header-detail-row"
-      [class.has-stats]="headerState.stats?.length"
-      [class.has-actions]="visibleActions().length"
-    >
-      @if (headerState.stats?.length) {
-        <div class="page-header-stats" [attr.aria-label]="'navigation.dashboard.dashboardHeaderContext.pageSummary' | runtimeTranslate">
-          @for (stat of headerState.stats; track stat.id) {
-            <div
-              class="header-stat"
-              [class.tone-success]="stat.tone === 'success'"
-              [class.tone-warning]="stat.tone === 'warning'"
-              [class.tone-info]="stat.tone === 'info'"
-              [class.tone-danger]="stat.tone === 'danger'"
-            >
-              @if (stat.icon) {
-                <lucide-icon [name]="stat.icon" size="14" />
+    @if (headerState.context !== 'deck-editor') {
+      <div
+        class="page-header-detail-row"
+        [class.has-stats]="headerState.context !== 'community-deck-detail' && headerState.stats?.length"
+        [class.has-actions]="visibleActions().length"
+      >
+        @if (headerState.context === 'community-deck-detail') {
+          @if (visibleActions().length) {
+            <div class="page-header-actions-stack">
+              <div class="page-header-actions">
+                @for (action of visibleActions(); track action.id) {
+                  <app-tooltip
+                    [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
+                    [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
+                    [placement]="action.tooltipPlacement ?? 'top'"
+                    [align]="action.tooltipAlign ?? 'center'"
+                  >
+                    <button
+                      [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
+                      czButtonSize="sm"
+                      class="compact"
+                      type="button"
+                      [class.icon-only]="action.iconOnly"
+                      [class.primary-button]="action.variant === 'primary'"
+                      [class.secondary-button]="action.variant === 'secondary'"
+                      [attr.data-action-id]="action.id"
+                      [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
+                      [disabled]="action.disabled"
+                      (click)="action.execute()"
+                    >
+                      @if (action.icon) {
+                        <lucide-icon [name]="action.icon" size="16" />
+                      }
+                      <span [class.sr-only]="action.iconOnly">{{ action.label | runtimeTranslate }}</span>
+                    </button>
+                  </app-tooltip>
+                }
+              </div>
+              @if (headerState.actionFeedback; as feedback) {
+                <span class="page-header-action-feedback" [class.tone-success]="feedback.tone === 'success'">
+                  {{ feedback.message | runtimeTranslate }}
+                </span>
               }
-              <span>{{ stat.label | runtimeTranslate }}</span>
-              <strong>{{ stat.value }}</strong>
             </div>
           }
-        </div>
-      }
-
-      @if (visibleActions().length) {
-        <div class="page-header-actions-stack">
-          <div class="page-header-actions">
-            @for (action of visibleActions(); track action.id) {
-              <app-tooltip
-                [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
-                [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
-                [placement]="action.tooltipPlacement ?? 'top'"
-                [align]="action.tooltipAlign ?? 'center'"
+        } @else if (headerState.stats?.length) {
+          <div class="page-header-stats" [attr.aria-label]="'navigation.dashboard.dashboardHeaderContext.pageSummary' | runtimeTranslate">
+            @for (stat of headerState.stats; track stat.id) {
+              <div
+                class="header-stat"
+                [class.tone-success]="stat.tone === 'success'"
+                [class.tone-warning]="stat.tone === 'warning'"
+                [class.tone-info]="stat.tone === 'info'"
+                [class.tone-danger]="stat.tone === 'danger'"
               >
-                <button
-                  [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
-                  czButtonSize="sm"
-                  class="compact"
-                  type="button"
-                  [class.icon-only]="action.iconOnly"
-                  [class.primary-button]="action.variant === 'primary'"
-                  [class.secondary-button]="action.variant === 'secondary'"
-                  [attr.data-action-id]="action.id"
-                  [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
-                  [disabled]="action.disabled"
-                  (click)="action.execute()"
-                >
-                  @if (action.icon) {
-                    <lucide-icon [name]="action.icon" size="16" />
-                  }
-                  <span [class.sr-only]="action.iconOnly">{{ action.label | runtimeTranslate }}</span>
-                </button>
-              </app-tooltip>
+                @if (stat.icon) {
+                  <lucide-icon [name]="stat.icon" size="14" />
+                }
+                <span>{{ stat.label | runtimeTranslate }}</span>
+                <strong>{{ stat.value }}</strong>
+              </div>
             }
           </div>
-          @if (headerState.actionFeedback; as feedback) {
-            <span class="page-header-action-feedback" [class.tone-success]="feedback.tone === 'success'">
-              {{ feedback.message | runtimeTranslate }}
-            </span>
-          }
-        </div>
-      }
-    </div>
+        }
+
+        @if (headerState.context !== 'community-deck-detail' && visibleActions().length) {
+          <div class="page-header-actions-stack">
+            <div class="page-header-actions">
+              @for (action of visibleActions(); track action.id) {
+                <app-tooltip
+                  [text]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
+                  [triggerMode]="action.tooltipTriggerMode ?? 'hover'"
+                  [placement]="action.tooltipPlacement ?? 'top'"
+                  [align]="action.tooltipAlign ?? 'center'"
+                >
+                  <button
+                    [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
+                    czButtonSize="sm"
+                    class="compact"
+                    type="button"
+                    [class.icon-only]="action.iconOnly"
+                    [class.primary-button]="action.variant === 'primary'"
+                    [class.secondary-button]="action.variant === 'secondary'"
+                    [attr.data-action-id]="action.id"
+                    [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
+                    [disabled]="action.disabled"
+                    (click)="action.execute()"
+                  >
+                    @if (action.icon) {
+                      <lucide-icon [name]="action.icon" size="16" />
+                    }
+                    <span [class.sr-only]="action.iconOnly">{{ action.label | runtimeTranslate }}</span>
+                  </button>
+                </app-tooltip>
+              }
+            </div>
+            @if (headerState.actionFeedback; as feedback) {
+              <span class="page-header-action-feedback" [class.tone-success]="feedback.tone === 'success'">
+                {{ feedback.message | runtimeTranslate }}
+              </span>
+            }
+          </div>
+        }
+      </div>
+    }
   </div>
 }

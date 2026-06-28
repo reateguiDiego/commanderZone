@@ -5,7 +5,6 @@
     <p class="notice error">{{ error()! | runtimeTranslate }}</p>
   } @else if (deck(); as deckDetail) {
     <section class="community-detail-summary">
-      <p>{{ 'community.detail.sharedBy' | runtimeTranslate: { owner: deckDetail.owner.displayName, cards: playableCards() } }}</p>
       <app-hero-rule />
     </section>
 
@@ -13,28 +12,21 @@
       <p class="notice error">{{ actionError()! | runtimeTranslate }}</p>
     }
 
-    <section class="community-detail-shell">
-      <div class="community-detail-meta">
-        <article class="community-meta-card">
-          <span class="community-meta-label">{{ 'community.detail.commanderLabel' | runtimeTranslate }}</span>
-          <strong>{{ deckDetail.commanderName || ('community.detail.unknownCommander' | runtimeTranslate) }}</strong>
-        </article>
-        <article class="community-meta-card">
-          <span class="community-meta-label">{{ 'community.detail.visibilityLabel' | runtimeTranslate }}</span>
-          <strong>{{ visibilityLabel() | runtimeTranslate }}</strong>
-        </article>
-        <article class="community-meta-card">
-          <span class="community-meta-label">{{ 'community.detail.formatLabel' | runtimeTranslate }}</span>
-          <strong>{{ deckDetail.format }}</strong>
-        </article>
-      </div>
+    <div class="community-detail-viewer">
+      <app-deck-viewer [deck]="deckDetail" (cardActionSelected)="handleCardAction($event)" />
+    </div>
 
-      <div class="community-detail-viewer">
-        <app-deck-viewer [deck]="deckDetail" (cardActionSelected)="handleCardAction($event)" />
-      </div>
+    <app-community-deck-inspector [deck]="deckDetail" />
 
-      <app-community-deck-inspector [deck]="deckDetail" />
-    </section>
+    <app-modal
+      [open]="saveConfirmationModalOpen()"
+      title="community.detail.saveConfirmation.title"
+      primaryLabel="community.detail.saveConfirmation.confirm"
+      secondaryLabel="community.detail.saveConfirmation.cancel"
+      (primary)="confirmSaveDeck()"
+      (secondary)="closeSaveConfirmation()"
+      (close)="closeSaveConfirmation()"
+    />
 
     <app-modal
       [open]="saveSuccessModalOpen()"

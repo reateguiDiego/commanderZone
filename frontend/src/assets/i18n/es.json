@@ -311,6 +311,13 @@
       "summary": {
         "topHundred": "Top 100 cartas"
       }
+    },
+    "detail": {
+      "saveConfirmation": {
+        "title": "¿Quieres guardar este deck en tu lista de decks?",
+        "confirm": "Confirmar",
+        "cancel": "Cancelar"
+      }
     }
   },
   "game": {

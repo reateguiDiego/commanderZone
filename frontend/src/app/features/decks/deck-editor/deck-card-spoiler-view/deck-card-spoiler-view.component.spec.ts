@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ChevronDown, ChevronRight, LucideAngularModule, RotateCw, TriangleAlert } from 'lucide-angular';
 import { Card } from '../../../../core/models/card.model';
 import { DeckCard } from '../../../../core/models/deck.model';
+import { CardMenuState } from '../../models/deck-editor.models';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
 import { DeckCardSpoilerViewComponent } from './deck-card-spoiler-view.component';
 
@@ -45,6 +46,36 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(cardEntry).toBeDefined();
     expect(store.toggleCardFace).toHaveBeenCalledWith(expect.any(MouseEvent), cardEntry?.card, { updatePreview: false });
     expect(store.toggleCardMenu).not.toHaveBeenCalled();
+  });
+
+  it('keeps spoiler cards highlighted while their contextual menu is open', async () => {
+    const store = storeStub();
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.componentRef.setInput('interactive', false);
+    store.cardMenu.set({
+      entryId: 'deck-card-1',
+      top: 0,
+      left: 0,
+      amount: 1,
+      showImagePreview: false,
+    });
+    fixture.detectChanges();
+
+    const article = fixture.nativeElement.querySelector('.spoiler-card') as HTMLElement | null;
+    expect(article?.classList.contains('spoiler-card--menu-open')).toBe(true);
+
+    store.cardMenu.set(null);
+    fixture.detectChanges();
+
+    expect(article?.classList.contains('spoiler-card--menu-open')).toBe(false);
   });
 
   it('still flips after the button pointerdown isolation runs first', async () => {
@@ -161,6 +192,24 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(image?.classList.contains('card-image--battle')).toBe(true);
   });
 
+  it('spans spoiler sections across the full row when they contain more than three cards', async () => {
+    const store = storeStub({ groupCards: 4 });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    const section = fixture.nativeElement.querySelector('.spoiler-section') as HTMLElement | null;
+
+    expect(section?.classList.contains('spoiler-section--full')).toBe(true);
+  });
+
   it('stops rotating the visible card when the flipped face is no longer a battle', async () => {
     const store = storeStub({ cardTypeLine: 'Battle - Siege' });
     await TestBed.configureTestingModule({
@@ -185,15 +234,20 @@ describe('DeckCardSpoilerViewComponent', () => {
   });
 });
 
-function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolean; cardTypeLine?: string } = {}) {
-  const entry: DeckCard = { id: 'deck-card-1', quantity: 1, section: 'main', card: card(options.cardTypeLine) };
+function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolean; cardTypeLine?: string; groupCards?: number } = {}) {
+  const entries = Array.from({ length: options.groupCards ?? 1 }, (_, index) => ({
+    id: `deck-card-${index + 1}`,
+    quantity: 1,
+    section: 'main',
+    card: card(options.cardTypeLine, index + 1),
+  })) satisfies DeckCard[];
   const collapsedGroups = signal<Set<string>>(new Set());
-  const visibleTypeLine = signal(options.cardTypeLine ?? entry.card.typeLine);
+  const visibleTypeLine = signal(options.cardTypeLine ?? entries[0].card.typeLine);
 
   return {
     visibleTypeLine,
-    cardGroups: signal([{ id: 'creature', title: 'Criaturas', quantity: 1, cards: [entry] }]),
-    cardMenu: signal(null),
+    cardGroups: signal([{ id: 'creature', title: 'Criaturas', quantity: entries.length, cards: entries }]),
+    cardMenu: signal<CardMenuState | null>(null),
     toggleGroup: vi.fn((groupId: string) => {
       const next = new Set(collapsedGroups());
       if (next.has(groupId)) {
@@ -229,11 +283,11 @@ function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolea
   };
 }
 
-function card(typeLine = 'Creature'): Card {
+function card(typeLine = 'Creature', index = 1): Card {
   return {
-    id: 'card-1',
-    scryfallId: 'scryfall-1',
-    name: 'Esper Sentinel',
+    id: `card-${index}`,
+    scryfallId: `scryfall-${index}`,
+    name: index === 1 ? 'Esper Sentinel' : `Esper Sentinel ${index}`,
     manaCost: '{W}',
     typeLine,
     oracleText: null,
