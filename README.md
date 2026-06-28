@@ -77,6 +77,34 @@ php -d memory_limit=1536M bin/console app:scryfall:sync --env=prod --no-debug --
 
 Use `--skip-existing` to resume after a failed import without rewriting cards already stored in PostgreSQL. The command still has to scan the Scryfall JSON from the beginning, but existing `scryfall_id` rows are skipped and the database is not reset.
 
+## Card catalog maintenance
+
+Do not use `doctrine:schema:update` for the card catalog. Some catalog/search tables are DBAL-managed and intentionally not ORM entities, so schema update can propose destructive drops. Use migrations plus explicit catalog maintenance commands instead.
+
+Read-only status:
+
+```bash
+cd backend
+php bin/console app:card-catalog:maintain --mode=check
+```
+
+Local Docker refresh after pulling model/catalog changes:
+
+```bash
+docker compose up -d --build
+docker compose exec api php bin/console doctrine:migrations:migrate --no-interaction
+docker compose exec api php bin/console app:card-catalog:maintain --mode=refresh-existing --apply --memory-limit=20G
+```
+
+Production-safe refresh preserves users, decks, rooms, and game history:
+
+```bash
+php bin/console doctrine:migrations:migrate --env=prod --no-debug --no-interaction
+php bin/console app:card-catalog:maintain --env=prod --no-debug --mode=refresh-existing --apply --memory-limit=1536M
+```
+
+`--mode=reset` is destructive and intended only after an external DB backup and a maintenance window. It requires `--apply --allow-destructive --confirm=RESET-CARD-CATALOG`.
+
 On Windows with the local Scoop PHP install, the CLI memory limit can also be checked with:
 
 ```bash
