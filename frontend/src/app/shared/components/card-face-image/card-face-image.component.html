@@ -1,6 +1,6 @@
 <div #stage class="card-face-image__stage">
   @if (imageUrl(); as image) {
-    <img class="card-face-image__visual" [src]="image" [alt]="altText()" [loading]="loading()" />
+    <img class="card-face-image__visual" [class.card-image--battle]="isBattle" [src]="image" [alt]="altText()" [loading]="loading()" />
   } @else {
     <span class="card-face-image__visual card-face-image__fallback">{{ displayName() }}</span>
   }

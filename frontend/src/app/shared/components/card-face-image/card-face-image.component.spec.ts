@@ -197,7 +197,7 @@ function createComponent(card: Card): ComponentFixture<CardFaceImageComponent> {
 
 function mockGsapFlipAnimation(): void {
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
-    callback(0);
+    queueMicrotask(() => callback(0));
     return 1;
   });
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
