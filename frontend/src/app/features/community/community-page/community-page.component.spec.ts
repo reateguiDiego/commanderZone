@@ -9,6 +9,8 @@ import { LanguagePreferencesService } from '../../../core/localization/language-
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { CommunityPageComponent } from './community-page.component';
 
+const formatTimesPlayed = (value: number): string => new Intl.NumberFormat().format(Math.trunc(value));
+
 describe('CommunityPageComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -72,7 +74,7 @@ describe('CommunityPageComponent', () => {
     expect(element.textContent).toContain('Las cartas mas jugados');
     expect(element.textContent).toContain('Basado en partidas jugadas por la comunidad');
     expect(element.textContent).toContain('Buscar decks');
-    expect(element.textContent).toContain('3000');
+    expect(element.textContent).toContain(formatTimesPlayed(3000));
     expect(element.textContent).toContain('Legendary Creature');
     expect(element.querySelectorAll('.commander-card')).toHaveLength(6);
     expect(element.querySelectorAll('app-deck-list-card')).toHaveLength(6);

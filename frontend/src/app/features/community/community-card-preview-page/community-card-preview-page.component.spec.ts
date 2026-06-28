@@ -10,6 +10,8 @@ import { LanguagePreferencesService } from '../../../core/localization/language-
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { CommunityCardPreviewPageComponent } from './community-card-preview-page.component';
 
+const formatTimesPlayed = (value: number): string => new Intl.NumberFormat().format(Math.trunc(value));
+
 describe('CommunityCardPreviewPageComponent', () => {
   it('calls the top commanders service, renders the preview data and reuses the cache', async () => {
     const cardsApi = {
@@ -51,7 +53,7 @@ describe('CommunityCardPreviewPageComponent', () => {
     expect(api.topCommanders).toHaveBeenCalledTimes(1);
     expect(api.topCommanders).toHaveBeenCalledWith({ type: '', colors: '', lang: 'es' });
     expect(fixture.nativeElement.textContent).toContain('Atraxa, Grand Unifier');
-    expect(fixture.nativeElement.textContent).toContain('2900');
+    expect(fixture.nativeElement.textContent).toContain(formatTimesPlayed(2900));
     expect(fixture.nativeElement.textContent).toContain('Legendary Creature - Dragon Avatar');
     expect(
       Array.from(fixture.nativeElement.querySelectorAll('.card-preview-result strong') as NodeListOf<HTMLElement>).map((node) => node.textContent?.trim()),
@@ -104,7 +106,7 @@ describe('CommunityCardPreviewPageComponent', () => {
     expect(api.topCards).toHaveBeenCalledTimes(1);
     expect(api.topCards).toHaveBeenCalledWith({ type: '', colors: '', lang: 'es' });
     expect(fixture.nativeElement.textContent).toContain('Cyclonic Rift');
-    expect(fixture.nativeElement.textContent).toContain('3000');
+    expect(fixture.nativeElement.textContent).toContain(formatTimesPlayed(3000));
     expect(
       Array.from(fixture.nativeElement.querySelectorAll('.card-preview-result strong') as NodeListOf<HTMLElement>).map((node) => node.textContent?.trim()),
     ).toEqual(['Sol Ring', 'Cyclonic Rift']);
