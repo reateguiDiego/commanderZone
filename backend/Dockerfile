@@ -15,7 +15,19 @@ RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/commanderzone-memory.in
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 
 COPY composer.json composer.lock symfony.lock ./
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+# GitHub codeload can intermittently reject Docker build downloads over HTTP/2.
+RUN set -eux; \
+	export COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_IPRESOLVE=4 COMPOSER_MAX_PARALLEL_HTTP=1; \
+	for attempt in 1 2 3; do \
+		if composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts; then \
+			break; \
+		fi; \
+		if [ "$attempt" = "3" ]; then \
+			exit 1; \
+		fi; \
+		composer clear-cache --no-interaction || true; \
+		sleep $((attempt * 5)); \
+	done
 
 COPY . .
 COPY Caddyfile /etc/frankenphp/Caddyfile
