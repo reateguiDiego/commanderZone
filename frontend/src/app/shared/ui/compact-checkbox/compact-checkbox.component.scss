@@ -45,19 +45,39 @@
   box-sizing: border-box;
   overflow: hidden;
   place-items: center;
-  border: 2px solid currentColor;
-  border-radius: 0.22rem;
-  font-size: 0.56rem;
-  font-weight: 1000;
-  line-height: 1;
+  border: 1.5px solid currentColor;
+  border-radius: 0.24rem;
+  background: rgb(var(--cz-text-rgb) / 4%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 12%),
+    0 0 0 1px rgb(0 0 0 / 3%);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+  color: var(--cz-bg);
+  font-size: 0;
+  line-height: 0;
 }
 
 .compact-checkbox__box::before {
+  content: '';
   display: block;
-  width: 100%;
-  height: 100%;
-  text-align: center;
-  line-height: 0.72rem;
+  width: 0.36rem;
+  height: 0.22rem;
+  border-right: 0;
+  border-top: 0;
+  border-left: 0.16rem solid transparent;
+  border-bottom: 0.16rem solid transparent;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: rotate(-45deg) scale(0.9);
+  transform-origin: center;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    border-color 120ms ease;
 }
 
 .compact-checkbox__swatch {
@@ -108,12 +128,25 @@
 }
 
 .compact-checkbox:has(input:checked) .compact-checkbox__box {
-  background: rgb(var(--compact-checkbox-accent-rgb));
+  border-color: rgb(var(--compact-checkbox-accent-rgb) / 92%);
+  background: linear-gradient(
+    180deg,
+    rgb(var(--compact-checkbox-accent-rgb) / 98%) 0%,
+    rgb(var(--compact-checkbox-accent-rgb) / 84%) 100%
+  );
   color: var(--cz-bg);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 20%),
+    inset 0 -1px 0 rgb(0 0 0 / 12%),
+    0 0 0 1px rgb(var(--compact-checkbox-accent-rgb) / 10%),
+    0 0 0.5rem rgb(var(--compact-checkbox-accent-rgb) / 24%);
 }
 
 .compact-checkbox:has(input:checked) .compact-checkbox__box::before {
-  content: "\2713";
+  opacity: 1;
+  border-left-color: currentColor;
+  border-bottom-color: currentColor;
+  transform: rotate(-45deg) scale(1.08);
 }
 
 .compact-checkbox:has(input:checked) {

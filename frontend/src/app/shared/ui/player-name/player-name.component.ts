@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { publicAssetUrl } from '../../../core/assets/app-image-url';
 import { UserDisplayNameStyle } from '../../../core/models/user.model';
 import { DEFAULT_PREMIUM_NAME_COLOR, displayNameStylePreset } from '../../../core/profile/display-name-style-presets';
-import { TooltipComponent } from '../tooltip/tooltip.component';
 
 type PlayerNameSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 type PlayerNamePlateSize = 'micro' | PlayerNameSize;
@@ -91,59 +90,54 @@ function lengthClass(length: number): PlayerNameLengthClass {
 }
 
 function fontSizeForLength(length: number): string {
-  if (length >= 23) {
-    return '0.44rem';
-  }
-
   if (length >= 19) {
-    return '0.5rem';
+    return '0.7rem';
   }
 
   if (length >= 15) {
-    return '0.58rem';
+    return '0.78rem';
   }
 
   if (length >= 11) {
-    return '0.68rem';
+    return '0.88rem';
   }
 
   if (length >= 7) {
-    return '0.82rem';
+    return '1.02rem';
   }
 
-  return '0.92rem';
+  return '1.12rem';
 }
 
 function plainFontSizeForLength(length: number): string {
-  if (length >= 23) {
-    return '0.72rem';
-  }
-
   if (length >= 19) {
-    return '0.82rem';
+    return '1.02rem';
   }
 
   if (length >= 15) {
-    return '0.96rem';
+    return '1.16rem';
   }
 
   if (length >= 11) {
-    return '1.12rem';
+    return '1.32rem';
   }
 
   if (length >= 7) {
-    return '1.28rem';
+    return '1.48rem';
   }
 
-  return '1.56rem';
+  return '1.76rem';
 }
 
 @Component({
   selector: 'app-player-name',
-  imports: [TooltipComponent],
   templateUrl: './player-name.component.html',
   styleUrl: './player-name.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '[class.has-nameplate]': 'hasNameplate()',
+    '[class.fill]': 'fill()',
+  },
 })
 export class PlayerNameComponent {
   readonly displayName = input('Player');
@@ -160,7 +154,7 @@ export class PlayerNameComponent {
   readonly platePadding = input<string | null>(null);
   readonly fill = input(false);
   readonly align = input<PlayerNameAlign>('center');
-  readonly tooltipMode = input<PlayerNameTooltipMode>('native');
+  readonly tooltipMode = input<PlayerNameTooltipMode>('none');
 
   readonly preset = computed(() => displayNameStylePreset(this.nameStyle()));
   readonly label = computed(() => this.displayName().trim() || 'Player');

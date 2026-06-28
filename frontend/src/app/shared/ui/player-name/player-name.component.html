@@ -1,40 +1,17 @@
-@if (tooltipMode() === 'shared') {
-  <app-tooltip [text]="label()">
-    <span
-      [class]="classValue()"
-      [class.premium]="premium()"
-      [class.has-nameplate]="hasNameplate()"
-      [style.--name-text-color]="textColor()"
-      [style.--player-name-plate-width]="plateWidthValue()"
-      [style.--player-name-plate-height]="plateHeightValue()"
-      [style.--player-name-label-width]="plateLabelWidthValue()"
-      [style.--player-name-plate-padding]="platePaddingValue()"
-      [style.--player-name-auto-font-size]="nameplateFontSize()"
-      [style.--player-name-plain-font-size]="plainFontSize()"
-    >
-      @if (nameplateUrl()) {
-        <img class="nameplate-image" [src]="nameplateUrl()" alt="" aria-hidden="true" draggable="false" />
-      }
-      <span class="player-name-label">{{ label() }}</span>
-    </span>
-  </app-tooltip>
-} @else {
-  <span
-    [class]="classValue()"
-    [class.premium]="premium()"
-    [class.has-nameplate]="hasNameplate()"
-    [style.--name-text-color]="textColor()"
-    [style.--player-name-plate-width]="plateWidthValue()"
-    [style.--player-name-plate-height]="plateHeightValue()"
-    [style.--player-name-label-width]="plateLabelWidthValue()"
-    [style.--player-name-plate-padding]="platePaddingValue()"
-    [style.--player-name-auto-font-size]="nameplateFontSize()"
-    [style.--player-name-plain-font-size]="plainFontSize()"
-    [attr.title]="tooltipMode() === 'native' ? label() : null"
-  >
-    @if (nameplateUrl()) {
-      <img class="nameplate-image" [src]="nameplateUrl()" alt="" aria-hidden="true" draggable="false" />
-    }
-    <span class="player-name-label">{{ label() }}</span>
-  </span>
-}
+<span
+  [class]="classValue()"
+  [class.premium]="premium()"
+  [class.has-nameplate]="hasNameplate()"
+  [style.--name-text-color]="textColor()"
+  [style.--player-name-plate-width]="plateWidthValue()"
+  [style.--player-name-plate-height]="plateHeightValue()"
+  [style.--player-name-label-width]="plateLabelWidthValue()"
+  [style.--player-name-plate-padding]="platePaddingValue()"
+  [style.--player-name-auto-font-size]="nameplateFontSize()"
+  [style.--player-name-plain-font-size]="plainFontSize()"
+>
+  @if (nameplateUrl()) {
+    <img class="nameplate-image" [src]="nameplateUrl()" alt="" aria-hidden="true" draggable="false" />
+  }
+  <span class="player-name-label">{{ label() }}</span>
+</span>

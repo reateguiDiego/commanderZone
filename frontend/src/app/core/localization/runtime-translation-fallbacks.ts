@@ -814,7 +814,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   "settings.dashboardSettingsModal.changeAvatar": "Change avatar",
   "settings.dashboardSettingsModal.becomePremium": "Become premium",
   "settings.dashboardSettingsModal.changeTheme": "Change theme",
-  "settings.dashboardSettingsModal.changeName": "Change name",
+  "settings.dashboardSettingsModal.changeName": "Change nameplate",
   "settings.dashboardSettingsModal.changePassword": "Change password",
   "settings.dashboardSettingsModal.gameSettings.title": "Gameplay preferences",
   "settings.dashboardSettingsModal.gameSettings.showManaHelperOnStartup.label": "Show mana helper on startup",

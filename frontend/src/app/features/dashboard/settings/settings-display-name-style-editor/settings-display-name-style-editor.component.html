@@ -1,7 +1,7 @@
 <section class="name-style-editor">
   <header class="name-style-preview" [attr.aria-label]="'settings.settingsDisplayNameStyleEditor.nameStylePreview' | runtimeTranslate">
     <span>{{ 'settings.settingsDisplayNameStyleEditor.currentSelection' | runtimeTranslate }}</span>
-    <app-player-name [displayName]="displayName()" [nameStyle]="previewStyle()" size="lg" plateSize="lg" tooltipMode="shared" />
+    <app-player-name [displayName]="displayName()" [nameStyle]="previewStyle()" size="lg" plateSize="lg" />
     <label class="name-color-picker">
       {{ 'settings.settingsDisplayNameStyleEditor.textColor' | runtimeTranslate }}
       <input type="color" [value]="previewTextColor()" [disabled]="saving()" (input)="updateTextColor($any($event.target).value)" />
@@ -32,7 +32,6 @@
             [nameStyle]="option.style"
             size="md"
             plateSize="md"
-            tooltipMode="shared"
           />
           @if (option.preset.tier === 'premium') {
             <app-premium-badge
