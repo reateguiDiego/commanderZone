@@ -88,6 +88,10 @@
   max-width: calc(100vw - 2rem);
 }
 
+.modal-panel-overflow-visible {
+  overflow: visible;
+}
+
 .modal-panel header {
   display: grid;
   gap: 0.35rem;
@@ -102,7 +106,9 @@
 .modal-title-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.65rem;
+  min-width: 0;
 }
 
 .modal-title-row.has-title-icon {
@@ -110,7 +116,9 @@
 }
 
 .modal-title-row h2 {
+  flex: 1 1 12rem;
   margin: 0;
+  min-width: 0;
 }
 
 .modal-header-rule {
@@ -130,11 +138,7 @@
 }
 
 .modal-back-button {
-  border-radius: 10px;
-}
-
-.modal-back-button:hover {
-  border-color: rgb(var(--cz-primary-rgb) / 68%);
+  flex: 0 0 auto;
 }
 
 .modal-header-action {
@@ -163,9 +167,23 @@
 }
 
 .modal-panel footer {
+  align-items: center;
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
+}
+
+.modal-footer-notice.settings-save-disclaimer {
+  flex: 1 1 14rem;
+  min-width: min(12rem, 100%);
+  max-width: min(28rem, 100%);
+  color: var(--cz-warning);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .modal-panel footer.split-actions {
@@ -179,5 +197,16 @@
 .modal-panel-compact footer {
   align-items: center;
   padding-top: 0.25rem;
+}
+
+@media (max-width: 620px) {
+  .modal-panel footer {
+    flex-wrap: wrap;
+  }
+
+  .modal-footer-notice.settings-save-disclaimer {
+    flex-basis: min(14rem, 100%);
+    max-width: none;
+  }
 }
 

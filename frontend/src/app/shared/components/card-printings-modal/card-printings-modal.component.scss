@@ -1,0 +1,75 @@
+:host {
+  display: block;
+}
+
+.card-printings-modal__loader {
+  display: grid;
+  place-items: center;
+  min-height: 18rem;
+}
+
+.card-printings-modal__notice {
+  margin: 0;
+  color: var(--cz-info);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.card-printings-modal__notice--error {
+  color: var(--cz-danger);
+}
+
+.card-printings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.55rem 0.9rem;
+}
+
+.card-printing {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.card-printing__media {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  width: 100%;
+}
+
+.card-printing__media--battle {
+  position: relative;
+  aspect-ratio: 680 / 488;
+  overflow: visible;
+}
+
+.card-printing__media app-card-face-image {
+  width: 100%;
+}
+
+.card-printing div {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.card-printing strong,
+.card-printing span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-printing strong {
+  color: var(--cz-text);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.card-printing span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}

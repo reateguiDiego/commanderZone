@@ -29,7 +29,7 @@ describe('server routes', () => {
       .map((route) => route.path);
     const legalPrerenderPaths = LEGAL_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path));
 
-    expect(LEGAL_PRERENDER_ROUTES).toHaveLength(24);
+    expect(LEGAL_PRERENDER_ROUTES).toHaveLength(18);
     expect(prerenderPaths).toEqual(expect.arrayContaining(legalPrerenderPaths));
     expect(prerenderPaths.filter((path) => legalPrerenderPaths.includes(path)).length).toBe(LEGAL_PRERENDER_ROUTES.length);
     expect(SEO_PRERENDER_ROUTES).not.toContain('/privacy-policy/');
@@ -42,9 +42,9 @@ describe('server routes', () => {
       .map((route) => route.path);
 
     expect(SEO_PRERENDER_ROUTES).toHaveLength(90);
-    expect(LEGAL_PRERENDER_ROUTES).toHaveLength(24);
+    expect(LEGAL_PRERENDER_ROUTES).toHaveLength(18);
     expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length);
-    expect(prerenderPaths).toHaveLength(114);
+    expect(prerenderPaths).toHaveLength(108);
     expect(prerenderPaths).not.toContain('en');
     expect(prerenderPaths).not.toContain('auth/login');
     expect(prerenderPaths).not.toContain('auth/register');
@@ -61,12 +61,16 @@ describe('server routes', () => {
       'auth/register',
       'auth/password-reset',
       'email-verification',
+      'contact',
       'games/:id/debug',
       'games/:id',
       'dashboard',
       'cards',
-      'cards/:scryfallId',
       'community',
+      'community/decks',
+      'community/decks/:id',
+      'community/top-commanders',
+      'community/top-cards',
       'decks',
       'decks/:id',
       'rooms',

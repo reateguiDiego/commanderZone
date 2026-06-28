@@ -47,6 +47,27 @@ describe('DeckAnalysisService', () => {
     expect(analysis.creatures.cards).toHaveLength(0);
     expect(analysis.instants.cards).toContain('Swords to Plowshares');
   });
+
+  it('normalizes localized type lines before grouping lands and spell metrics', () => {
+    const deck: Deck = {
+      id: 'deck-2',
+      name: 'Localized Deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        entry(2, 'main', card('Bosque', 'Tierra basica - Bosque', null, null)),
+        entry(1, 'main', card('Sello arcano', 'Artefacto', '{2}', '{T}: Agrega {C}.')),
+        entry(1, 'main', card('Cultivar', 'Conjuro', '{2}{G}', 'Busca en tu biblioteca una carta de tierra basica.')),
+      ],
+    };
+
+    const analysis = service.analyze(deck);
+
+    expect(analysis.landCount).toBe(2);
+    expect(analysis.landTypes.find((land) => land.label === 'Forest')?.count).toBe(2);
+    expect(analysis.artifacts.cards).toContain('Sello arcano');
+    expect(analysis.sorceries.cards).toContain('Cultivar');
+  });
 });
 
 function entry(quantity: number, section: 'main' | 'commander', cardValue: Card) {

@@ -1,0 +1,30 @@
+<span
+  class="cz-tooltip"
+  [class.cz-tooltip--enabled]="!!text()"
+  [class.cz-tooltip--stretch]="stretch()"
+  (mouseenter)="handleMouseEnter()"
+  (mouseleave)="handleMouseLeave()"
+  (focusin)="handleFocusIn()"
+  (focusout)="handleFocusOut($event)"
+  (click)="handleClick($event)"
+>
+  <span #trigger class="cz-tooltip__trigger">
+    <ng-content />
+  </span>
+
+  @if (text() && open()) {
+    <span
+      #bubble
+      class="cz-tooltip__bubble"
+      [class.cz-tooltip__bubble--visible]="open()"
+      [class.cz-tooltip__bubble--bottom]="effectivePlacement() === 'bottom'"
+      [class.cz-tooltip__bubble--align-start]="effectiveAlign() === 'start'"
+      [class.cz-tooltip__bubble--align-end]="effectiveAlign() === 'end'"
+      [style.left.px]="position()?.left ?? 0"
+      [style.top.px]="position()?.top ?? 0"
+      role="tooltip"
+    >
+      {{ text() }}
+    </span>
+  }
+</span>

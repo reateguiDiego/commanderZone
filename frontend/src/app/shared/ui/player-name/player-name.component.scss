@@ -6,6 +6,15 @@
   overflow: hidden;
 }
 
+:host(.has-nameplate),
+:host(.fill) {
+  width: 100%;
+}
+
+:host(.has-nameplate) {
+  display: block;
+}
+
 .player-name-shell {
   --name-text-color: #f8f0d0;
   --player-name-base-font-size: 1.56rem;
@@ -49,15 +58,15 @@
   line-height: 1.16;
 }
 
-.player-name-shell.align-left .player-name-label {
+.player-name-shell.align-left:not(.has-nameplate) .player-name-label {
   text-align: left;
 }
 
 .has-nameplate {
-  width: var(--player-name-plate-width, 17.2rem);
+  width: 100%;
   height: var(--player-name-plate-height, 4.3rem);
   padding: var(--player-name-plate-padding, 0.5rem 2rem);
-  justify-self: center;
+  justify-self: stretch;
   font-size: var(--player-name-auto-font-size, 0.82rem);
 }
 

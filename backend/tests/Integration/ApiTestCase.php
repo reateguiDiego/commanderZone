@@ -5,6 +5,7 @@ namespace App\Tests\Integration;
 use App\Domain\Card\Card;
 use App\Tests\Support\RecordingMercureHub;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -23,7 +24,7 @@ abstract class ApiTestCase extends WebTestCase
         RecordingMercureHub::reset();
     }
 
-    protected function registerAndLogin(string $email = 'player@example.test', string $displayName = 'Player', string $password = 'Password123'): string
+    protected function registerAndLogin(string $email = 'player@example.test', string $displayName = 'Player', string $password = 'Password123!'): string
     {
         $this->jsonRequest('POST', '/auth/register', [
             'email' => $email,
@@ -172,7 +173,9 @@ abstract class ApiTestCase extends WebTestCase
         \assert($connection instanceof Connection);
         $this->ensureCardImageStatusColumn($connection);
         $this->ensureCardHasRulingsColumn($connection);
+        $this->ensureCardCatalogSearchColumns($connection);
         $this->ensureCardPrintTables($connection);
+        $this->ensureCardSearchOptionTables($connection);
         $this->ensureRoomWaitingLogEntryTable($connection);
         $this->ensureDeckValidityColumn($connection);
         $this->ensureRoomMulliganColumns($connection);
@@ -197,6 +200,9 @@ abstract class ApiTestCase extends WebTestCase
             'deck_card',
             'deck',
             'deck_folder',
+            'card_search_entry',
+            'card_search_option',
+            'card_search_set_option',
             'card_print_locale',
             'card_print',
             'card',
@@ -248,6 +254,25 @@ abstract class ApiTestCase extends WebTestCase
         }
 
         $connection->executeStatement('ALTER TABLE card ADD COLUMN has_rulings BOOLEAN NOT NULL DEFAULT false');
+    }
+
+    private function ensureCardCatalogSearchColumns(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('card'),
+        );
+        if (!in_array('rarity', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE card ADD COLUMN rarity VARCHAR(24) DEFAULT NULL');
+        }
+        if (!in_array('set_name', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE card ADD COLUMN set_name VARCHAR(255) DEFAULT NULL');
+        }
     }
 
     private function ensureRoomWaitingLogEntryTable(Connection $connection): void
@@ -362,12 +387,11 @@ SQL,
             $connection->executeStatement('CREATE INDEX idx_card_print_set_collector ON card_print (set_code, collector_number)');
         }
 
-        if ($schemaManager->tablesExist(['card_print_locale'])) {
-            return;
-        }
+        $this->ensureColumn($connection, 'card_print', 'default_set_name', 'ALTER TABLE card_print ADD COLUMN default_set_name VARCHAR(255) DEFAULT NULL');
 
-        $connection->executeStatement(
-            <<<'SQL'
+        if (!$schemaManager->tablesExist(['card_print_locale'])) {
+            $connection->executeStatement(
+                <<<'SQL'
 CREATE TABLE card_print_locale (
     print_scryfall_id VARCHAR(36) NOT NULL,
     lang VARCHAR(8) NOT NULL,
@@ -376,6 +400,7 @@ CREATE TABLE card_print_locale (
     mana_cost VARCHAR(255) DEFAULT NULL,
     type_line TEXT DEFAULT NULL,
     oracle_text TEXT DEFAULT NULL,
+    set_name VARCHAR(255) DEFAULT NULL,
     image_uris JSON NOT NULL,
     card_faces JSON NOT NULL,
     image_status VARCHAR(32) DEFAULT NULL,
@@ -383,11 +408,103 @@ CREATE TABLE card_print_locale (
     PRIMARY KEY (print_scryfall_id, lang)
 )
 SQL,
+            );
+            $connection->executeStatement('CREATE INDEX idx_card_print_locale_lang ON card_print_locale (lang)');
+            $connection->executeStatement(
+                'ALTER TABLE card_print_locale ADD CONSTRAINT fk_card_print_locale_print FOREIGN KEY (print_scryfall_id) REFERENCES card_print (scryfall_id) ON DELETE CASCADE',
+            );
+
+            return;
+        }
+
+        $this->ensureColumn($connection, 'card_print_locale', 'set_name', 'ALTER TABLE card_print_locale ADD COLUMN set_name VARCHAR(255) DEFAULT NULL');
+    }
+
+    private function ensureCardSearchOptionTables(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card_search_option'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE card_search_option (
+    kind VARCHAR(24) NOT NULL,
+    code VARCHAR(120) NOT NULL,
+    lang VARCHAR(8) NOT NULL,
+    label VARCHAR(255) NOT NULL,
+    card_count INT DEFAULT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY (kind, code, lang)
+)
+SQL,
+            );
+            $connection->executeStatement('CREATE INDEX idx_card_search_option_lang_kind_label ON card_search_option (lang, kind, label)');
+            $connection->executeStatement('CREATE INDEX idx_card_search_option_kind_code ON card_search_option (kind, code)');
+        }
+
+        if (!$schemaManager->tablesExist(['card_search_set_option'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE card_search_set_option (
+    code VARCHAR(16) NOT NULL,
+    lang VARCHAR(8) NOT NULL,
+    label VARCHAR(255) NOT NULL,
+    card_count INT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY (code, lang)
+)
+SQL,
+            );
+            $connection->executeStatement('CREATE INDEX idx_card_search_set_option_lang_label ON card_search_set_option (lang, label)');
+        }
+
+        if (!$schemaManager->tablesExist(['card_search_entry'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE card_search_entry (
+    lang VARCHAR(8) NOT NULL,
+    dedupe_key VARCHAR(32) NOT NULL,
+    card_id VARCHAR(36) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    sort_name VARCHAR(255) NOT NULL,
+    normalized_name VARCHAR(255) NOT NULL,
+    mana_value DOUBLE PRECISION DEFAULT NULL,
+    rarity VARCHAR(24) DEFAULT NULL,
+    set_code VARCHAR(16) DEFAULT NULL,
+    set_name VARCHAR(255) DEFAULT NULL,
+    legal_standard BOOLEAN NOT NULL DEFAULT false,
+    legal_pioneer BOOLEAN NOT NULL DEFAULT false,
+    legal_modern BOOLEAN NOT NULL DEFAULT false,
+    legal_legacy BOOLEAN NOT NULL DEFAULT false,
+    legal_vintage BOOLEAN NOT NULL DEFAULT false,
+    legal_commander BOOLEAN NOT NULL DEFAULT false,
+    legal_brawl BOOLEAN NOT NULL DEFAULT false,
+    legal_pauper BOOLEAN NOT NULL DEFAULT false,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY (lang, dedupe_key)
+)
+SQL,
+            );
+            $connection->executeStatement('CREATE INDEX idx_card_search_entry_card ON card_search_entry (card_id)');
+            $connection->executeStatement('CREATE INDEX idx_card_search_entry_lang_name ON card_search_entry (lang, sort_name, card_id)');
+            $connection->executeStatement('CREATE INDEX idx_card_search_entry_lang_mana ON card_search_entry (lang, mana_value, sort_name, card_id)');
+        }
+    }
+
+    private function ensureColumn(Connection $connection, string $table, string $column, string $sql): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist([$table])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $schemaColumn): string => $schemaColumn->getName(),
+            $schemaManager->listTableColumns($table),
         );
-        $connection->executeStatement('CREATE INDEX idx_card_print_locale_lang ON card_print_locale (lang)');
-        $connection->executeStatement(
-            'ALTER TABLE card_print_locale ADD CONSTRAINT fk_card_print_locale_print FOREIGN KEY (print_scryfall_id) REFERENCES card_print (scryfall_id) ON DELETE CASCADE',
-        );
+        if (!in_array($column, $columns, true)) {
+            $connection->executeStatement($sql);
+        }
     }
 
     private function syncSeededCardPrintTables(Card $card): void
@@ -407,6 +524,7 @@ INSERT INTO card_print (
     collector_number,
     default_name,
     default_lang,
+    default_set_name,
     default_mana_cost,
     default_type_line,
     default_oracle_text,
@@ -422,6 +540,7 @@ INSERT INTO card_print (
     :collector_number,
     :default_name,
     :default_lang,
+    :default_set_name,
     :default_mana_cost,
     :default_type_line,
     :default_oracle_text,
@@ -437,6 +556,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     collector_number = EXCLUDED.collector_number,
     default_name = EXCLUDED.default_name,
     default_lang = EXCLUDED.default_lang,
+    default_set_name = EXCLUDED.default_set_name,
     default_mana_cost = EXCLUDED.default_mana_cost,
     default_type_line = EXCLUDED.default_type_line,
     default_oracle_text = EXCLUDED.default_oracle_text,
@@ -453,6 +573,7 @@ SQL,
                 'collector_number' => $card->collectorNumber(),
                 'default_name' => $card->name(),
                 'default_lang' => $card->lang() ?? 'en',
+                'default_set_name' => $card->setName(),
                 'default_mana_cost' => $card->manaCost(),
                 'default_type_line' => $card->typeLine(),
                 'default_oracle_text' => $card->oracleText(),
@@ -460,6 +581,9 @@ SQL,
                 'default_card_faces' => json_encode($card->cardFaces(), JSON_THROW_ON_ERROR),
                 'layout' => $card->layout(),
                 'commander_legal' => $card->isCommanderLegal(),
+            ],
+            [
+                'commander_legal' => ParameterType::BOOLEAN,
             ],
         );
 
@@ -478,6 +602,7 @@ INSERT INTO card_print_locale (
     mana_cost,
     type_line,
     oracle_text,
+    set_name,
     image_uris,
     card_faces,
     image_status,
@@ -490,6 +615,7 @@ INSERT INTO card_print_locale (
     :mana_cost,
     :type_line,
     :oracle_text,
+    :set_name,
     :image_uris,
     :card_faces,
     :image_status,
@@ -501,6 +627,7 @@ ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
     mana_cost = EXCLUDED.mana_cost,
     type_line = EXCLUDED.type_line,
     oracle_text = EXCLUDED.oracle_text,
+    set_name = EXCLUDED.set_name,
     image_uris = EXCLUDED.image_uris,
     card_faces = EXCLUDED.card_faces,
     image_status = EXCLUDED.image_status,
@@ -514,6 +641,7 @@ SQL,
                 'mana_cost' => $card->manaCost(),
                 'type_line' => $card->typeLine(),
                 'oracle_text' => $card->oracleText(),
+                'set_name' => $card->setName(),
                 'image_uris' => json_encode($card->imageUris(), JSON_THROW_ON_ERROR),
                 'card_faces' => json_encode($card->cardFaces(), JSON_THROW_ON_ERROR),
                 'image_status' => $card->imageStatus(),

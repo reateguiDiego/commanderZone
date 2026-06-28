@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { getLegalPath } from '../../../core/legal/legal-routes';
+import { PUBLIC_CONTACT_PATH } from '../../../core/contact/contact.config';
 
 @Component({
   selector: 'app-noindex-footer-disclaimer',
@@ -11,5 +11,5 @@ import { getLegalPath } from '../../../core/legal/legal-routes';
 })
 export class NoindexFooterDisclaimerComponent {
   readonly currentYear = new Date().getFullYear();
-  readonly contactPath = getLegalPath('contact', 'en');
+  readonly contactPath = PUBLIC_CONTACT_PATH;
 }

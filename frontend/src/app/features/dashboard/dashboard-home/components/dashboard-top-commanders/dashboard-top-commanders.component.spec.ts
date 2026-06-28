@@ -34,4 +34,13 @@ describe('DashboardTopCommandersComponent', () => {
     expect(manaSymbols.length).toBe(3);
     expect(images[0]?.src).toContain('cards.scryfall.io/art_crop');
   });
+
+  it('links the view more action to the community page', () => {
+    const fixture = TestBed.createComponent(DashboardTopCommandersComponent);
+    fixture.detectChanges();
+
+    const link = fixture.nativeElement.querySelector('.top-commanders-link') as HTMLAnchorElement | null;
+
+    expect(link?.getAttribute('href')).toBe('/community');
+  });
 });

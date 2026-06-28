@@ -42,6 +42,9 @@
       "label": "Extras",
       "open": "Open extra actions",
       "menu": "Extra actions"
+    },
+    "navigation": {
+      "back": "Back"
     }
   },
   "navigation": {
@@ -101,7 +104,12 @@
       "login": "Login",
       "register": "Register",
       "email": "Email",
+      "emailOrUserName": "Email or username",
       "introduceUnEmailValido": "Introduce un email valido.",
+      "introduceUnEmailOUserNameValido": "Enter a valid email or username.",
+      "invalidCredentials": "Invalid email, username, or password.",
+      "tooManyLoginAttempts": "Too many failed login attempts. Please try again later.",
+      "loginLockoutWarning": "Failed login attempt {{ count }}/5. If you fail 5 times, login will be blocked for 15 minutes.",
       "password": "Password",
       "heOlvidadoMiContrasena": "He olvidado mi contrasena",
       "comprobandoEmail": "Comprobando email...",
@@ -109,23 +117,29 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
+      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
-      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula y numero.",
+      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula, numero y caracter especial.",
+      "passwordRequirements": {
+        "label": "Password requirements",
+        "minLength": "Minimo 8 caracteres",
+        "lowercase": "Minimo 1 letra minuscula",
+        "uppercase": "Minimo 1 letra mayuscula",
+        "number": "Minimo 1 numero",
+        "special": "Minimo 1 caracter especial"
+      },
       "confirmarPassword": "Confirmar password",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden."
+      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
+      "registrationCompletedCheckEmail": "Registration complete. Check your email and confirm your account."
     },
     "emailVerificationPage": {
-      "verificarEmail": "Verificar email",
-      "usaElTokenRecibidoParaActivarTu": "Usa el token recibido para activar tu cuenta.",
-      "registroCompletadoRevisaTuCorreoYConfirma": "Registro completado. Revisa tu correo y confirma tu cuenta.",
-      "tokenDeVerificacion": "Token de verificacion",
-      "emailVerificadoIniciandoSesion": "Email verificado. Iniciando sesion...",
-      "reenviarVerificacionEmail": "Reenviar verificacion (email)",
-      "siElEmailExisteYNoEsta": "Si el email existe y no esta verificado, se envio un nuevo correo.",
-      "volverAlLogin": "Volver al login"
+      "confirmingEmail": "Confirming email",
+      "waitWhileWeConfirmYourAccount": "Wait while we confirm your account.",
+      "couldNotConfirmEmail": "Could not confirm your email",
+      "linkInvalidOrExpired": "The verification link is invalid or has expired.",
+      "backToLogin": "Back to login"
     },
     "passwordResetPage": {
       "recuperarContrasena": "Recuperar contrasena",
@@ -269,6 +283,20 @@
     "waiting": {
       "header": {
         "inviteFriends": "Invite friends"
+      }
+    }
+  },
+  "community": {
+    "preview": {
+      "summary": {
+        "topHundred": "Top 100 cards"
+      }
+    },
+    "detail": {
+      "saveConfirmation": {
+        "title": "Do you want to save this deck to your deck list?",
+        "confirm": "Confirm",
+        "cancel": "Cancel"
       }
     }
   },
@@ -644,10 +672,171 @@
       "cardSearch": {
         "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
         "cards": "Cards",
+        "advancedSearch": "Advanced card search",
+        "header": {
+          "title": "Cards",
+          "description": "Find the perfect piece of cardboard before the table starts politics."
+        },
         "searchLibrary": "Search library",
         "search": "Search",
+        "clear": "Clear",
+        "close": "Close",
+        "advancedFilters": "Advanced filters",
         "searchingCards": "Searching cards...",
-        "noCardsFound": "No cards found."
+        "noCardsFound": "No cards found.",
+        "actions": {
+          "showDetails": "Show details",
+          "addToDeck": "Add to deck",
+          "showRulings": "Show rulings",
+          "viewPrintings": "View all editions"
+        },
+        "details": {
+          "close": "Close details",
+          "couldNotLoad": "Could not load this card.",
+          "oracleText": "Oracle text",
+          "noOracleText": "No oracle text available.",
+          "legalFormats": "Legal formats",
+          "illegalFormats": "Illegal formats",
+          "noLegalFormats": "No legal formats in the local catalog.",
+          "noIllegalFormats": "No illegal formats in the local catalog."
+        },
+        "addToDeck": {
+          "title": "Add card",
+          "deck": "Deck",
+          "section": "Section",
+          "quantity": "Quantity",
+          "selectDeck": "Select a deck",
+          "selectSection": "Select a section",
+          "decreaseQuantity": "Decrease quantity",
+          "increaseQuantity": "Increase quantity",
+          "sectionMain": "Main deck",
+          "sectionCommander": "Commander",
+          "sectionSideboard": "Sideboard",
+          "sectionConsidering": "Considering",
+          "confirm": "Add card",
+          "cancel": "Cancel",
+          "loadingDecks": "Loading your decks...",
+          "noDecks": "You do not have decks yet.",
+          "colorIdentityWarning": "{{ card }} has color identity outside {{ deck }}'s commander colors:",
+          "formatLegalityWarning": "{{ card }} is not legal in {{ format }}, the selected deck format.",
+          "couldNotLoadDecks": "Could not load your decks.",
+          "couldNotAdd": "Could not add this card to the selected deck."
+        },
+        "printings": {
+          "title": "Editions of {{ card }}",
+          "loading": "Loading editions...",
+          "empty": "No editions found for this card.",
+          "couldNotLoad": "Could not load card editions.",
+          "close": "Close"
+        },
+        "summary": {
+          "ariaLabel": "Applied card search filters",
+          "activeQuery": "Active query",
+          "totalFound": "{{ total }} cards found",
+          "pageStatus": "Page {{ page }} of {{ pages }}",
+          "filters": {
+            "name": "Name",
+            "rules": "Rules",
+            "types": "Types",
+            "subtypes": "Subtypes",
+            "sets": "Sets",
+            "rarity": "Rarity",
+            "colors": "Colors",
+            "cardKind": "Kind",
+            "manaValue": "Mana value",
+            "manaCost": "Mana cost",
+            "power": "Power",
+            "toughness": "Toughness",
+            "formats": "Formats"
+          }
+        },
+        "sort": {
+          "label": "Sort",
+          "relevance": "Relevance",
+          "colors": "Colors",
+          "nameAsc": "Name A-Z",
+          "nameDesc": "Name Z-A",
+          "manaValueAsc": "Mana low-high",
+          "manaValueDesc": "Mana high-low",
+          "setAsc": "Set A-Z",
+          "setDesc": "Set Z-A",
+          "rarityAsc": "Rarity mythic-first",
+          "rarityDesc": "Rarity common-first"
+        },
+        "view": {
+          "list": "List",
+          "spoiler": "Spoiler"
+        },
+        "form": {
+          "name": "Name",
+          "textA": "Rules text",
+          "textB": "Second text",
+          "textMode": "Text match",
+          "textModeAll": "All text terms",
+          "textModeAllDescription": "Both boxes must appear in the card rules text.",
+          "textModeAny": "Any text term",
+          "textModeAnyDescription": "Either box can match the card rules text.",
+          "types": "Types",
+          "subtypes": "Subtypes",
+          "sets": "Sets",
+          "rarity": "Rarity",
+          "colors": "Colors",
+          "colorMode": "Color match",
+          "colorModeAny": "Any",
+          "colorModeAll": "All",
+          "colorModeExact": "Exact",
+          "clearManaCost": "Clear mana cost",
+          "basic": "Basic",
+          "legendary": "Legendary",
+          "artifact": "Artifact",
+          "multicolor": "Multicolor",
+          "land": "Land",
+          "costs": "Costs",
+          "manaValueMin": "Mana min",
+          "manaValueMax": "Mana max",
+          "manaCost": "Mana cost",
+          "powerToughness": "Power and toughness",
+          "powerMin": "Power min",
+          "powerMax": "Power max",
+          "toughnessMin": "Toughness min",
+          "toughnessMax": "Toughness max",
+          "includeVariablePower": "Include * power",
+          "includeVariablePowerDescription": "Also include cards whose power is not a fixed number, such as * or 1+*.",
+          "includeVariableToughness": "Include * toughness",
+          "includeVariableToughnessDescription": "Also include cards whose toughness is not a fixed number, such as * or 1+*.",
+          "formats": "Formats",
+          "filterOptions": "Filter options",
+          "presentation": "Presentation",
+          "loadingOptions": "Loading filters...",
+          "enabled": "Active",
+          "activeFilters": "active filters",
+          "precisionConsole": "Precision console",
+          "composeSearch": "Build the exact card query",
+          "oracleText": "Card rules text",
+          "textAPlaceholder": "Draw a card, destroy target, whenever you cast...",
+          "textBPlaceholder": "Optional second rule term"
+        },
+        "help": {
+          "title": "Search guide",
+          "heading": "Advanced search guide",
+          "nameTitle": "Name",
+          "name": "Search by full or partial card name. CommanderZone checks canonical names, printed/localized names and flavor names when the local catalog has them, so localized and English names can find the same card.",
+          "textTitle": "Card text",
+          "text": "Use one or two rule-text terms. The match toggle decides whether both boxes must appear on the card or whether either box is enough. Text is checked across oracle text and card faces.",
+          "subtypesTitle": "Subtype",
+          "subtypes": "Subtype works independently from type. You can combine it with any other section to find things like Elf, Goblin, Dragon, Equipment or Aura.",
+          "rarityTitle": "Rarity",
+          "rarity": "You can select several rarities at once. The colored pills are only a visual aid; the search still uses the catalog rarity.",
+          "colorsTitle": "Color",
+          "colors": "Color match controls how selected printed colors behave: any selected color, all selected colors, or exactly that color set. Artifact, multicolor and land are additional shortcuts.",
+          "costsTitle": "Costs",
+          "costs": "Mana value uses CommanderZone's normalized card catalog, where X counts as 0. Exact mana cost is built with the symbol picker, so you do not need to type color codes.",
+          "statsTitle": "Power and toughness",
+          "stats": "Power and toughness ranges compare numeric values. Enable the small variable-value checkbox when you also want cards with values such as * or 1+*."
+        }
+      },
+      "cardImage": {
+        "flipFace": "Flip face"
       },
       "autocomplete": {
         "cardAutocomplete": {
@@ -759,6 +948,9 @@
         "deckWarnings": "Deck warnings",
         "import": "Import",
         "export": "Export",
+        "share": "Share",
+        "shareCopied": "Community link copied",
+        "shareError": "Could not copy the community link.",
         "backToDecks": "Back to decks"
       }
     },
@@ -774,9 +966,12 @@
       "editDeck": "Edit deck",
       "deleteDeck": "Delete deck",
       "deckSaved": "Deck saved",
+      "createSuccessMessage": "This deck has been saved. It is now in your saved decks list, and you can edit it however you like. Good luck with your Commander deck!",
       "createEmptyDeck": "Create empty deck",
       "createFolder": "Create folder",
+      "continueToRooms": "Continue to rooms",
       "commanderEnlargedPreview": "Commander enlarged preview",
+      "deckListLabel": "Deck list",
       "loadingDecks": "Loading decks...",
       "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
       "decks": "Decks",
@@ -785,6 +980,7 @@
       "deckName": "Deck name",
       "folder": "Folder",
       "noFolder": "No folder",
+      "openDeck": "Open deck",
       "thisDeckIsPublicButItsFolder": "This deck is public, but its folder is private. It will not be publicly visible.",
       "commander": "Commander",
       "importDecklist": "Import decklist",
@@ -920,7 +1116,8 @@
       "avatar": "Avatar",
       "name": "Name",
       "changeAvatar": "Change avatar",
-      "changeName": "Change name",
+      "becomePremium": "Become premium",
+      "changeName": "Change nameplate",
       "accountDetails": "Account details",
       "email": "Email",
       "introduceUnEmailValido": "Introduce un email valido.",
@@ -929,15 +1126,43 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
+      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
       "changePassword": "Change password",
+      "sendingPasswordEmail": "Sending email...",
+      "passwordResetEmailSentShort": "Sent",
+      "passwordResetEmailSent": "Password reset email sent.",
+      "passwordResetEmailError": "Could not send the password reset email.",
       "deleteAccount": "Delete account",
       "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
       "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "changeTheme": "Change theme",
+      "gameSettings": {
+        "title": "Gameplay preferences",
+        "showManaHelperOnStartup": {
+          "label": "Show mana helper on startup",
+          "description": "Open the mana helper when a match starts."
+        },
+        "enableManaRow": {
+          "label": "Enable mana row",
+          "description": "Show the dedicated mana row during games."
+        },
+        "enableStackMana": {
+          "label": "Enable stack mana",
+          "description": "Keep mana available while resolving stacked actions."
+        },
+        "gameAnimations": {
+          "label": "Game animations",
+          "description": "Use visual movement and feedback animations during matches."
+        },
+        "chatNotificationSounds": {
+          "label": "Chat notification sounds",
+          "description": "Play a sound when new chat notifications arrive."
+        }
+      }
     },
     "settingsInitialAvatarOption": {
       "initialAvatarCustomization": "Initial avatar customization",
@@ -1004,5 +1229,44 @@
     }
   },
   "toasts": {},
-  "emptyStates": {}
+  "emptyStates": {},
+  "contactPage": {
+    "meta": {
+      "title": "Contact us",
+      "description": "Contact CommanderZone for support, bug reports, rights issues, or general questions."
+    },
+      "hero": {
+        "title": "Contact us",
+        "description": "Send us a message and we will review it as soon as possible."
+      },
+      "nav": {
+        "loggedOutCta": "Back to dashboard",
+        "anonymousCta": "Back home"
+      },
+      "copy": {
+      "supportTitle": "Support and rights",
+        "supportBody": "Use this form for support, bug reports, privacy requests, rights-related issues, or any question, idea, or curiosity you would like to share with us. If that is easier for you, we can also continue by email at {{ email }}.",
+      "includeTitle": "What to include",
+      "includeBody": "Explain the issue clearly and include any useful page, room, deck, or screenshot context. Do not send secrets or payment details."
+    },
+    "form": {
+      "nameLabel": "Name",
+      "namePlaceholder": "Your name",
+      "nameError": "Enter your name.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "emailError": "Enter a valid email.",
+      "subjectLabel": "Subject",
+      "subjectPlaceholder": "How can we help?",
+      "subjectError": "Enter a subject.",
+      "messageLabel": "Message",
+      "messagePlaceholder": "Write your message here.",
+      "messageError": "Enter a message.",
+        "submit": "Send message",
+        "submitting": "Sending...",
+        "submitSuccess": "Your message has been sent.",
+        "submitRateLimitError": "You have reached the contact limit. Please wait about {{ retryAfterMinutes }} minute(s) before trying again. If it is urgent, write to {{ email }} directly.",
+        "submitError": "We could not send your message. Write to {{ email }} directly or contact us through another channel."
+      }
+  }
 }

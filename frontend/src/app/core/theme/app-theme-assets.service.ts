@@ -1,4 +1,5 @@
 import { Injectable, computed, inject } from '@angular/core';
+import { AppThemeId } from './app-theme';
 import { AppThemeService } from './app-theme.service';
 
 const CZ_LOGO = '/assets/icons/CZ/CZ_logo.webp';
@@ -7,11 +8,12 @@ const CZ_ZONE_HEADER_LOGO = '/assets/icons/CZ/CZ_logo_zone_header.webp';
 const CZ_ZONE_HEADER_LOGO_BLACK = '/assets/icons/CZ/CZ_logo_zone_header_black.webp';
 const CZ_CARDS_ICON = '/assets/icons/CZ/CZ_cards_icon.webp';
 const CZ_CARDS_ICON_BLACK = '/assets/icons/CZ/CZ_cards_icon_black.webp';
+const BLACK_CZ_ASSET_THEMES: readonly AppThemeId[] = ['candy-summoners'];
 
 @Injectable({ providedIn: 'root' })
 export class AppThemeAssetsService {
   private readonly appTheme = inject(AppThemeService);
-  private readonly usesBlackCzAssets = computed(() => this.appTheme.themeId() === 'candy-summoners');
+  private readonly usesBlackCzAssets = computed(() => BLACK_CZ_ASSET_THEMES.includes(this.appTheme.themeId()));
 
   readonly czLogoUrl = computed(() => (this.usesBlackCzAssets() ? CZ_LOGO_BLACK : CZ_LOGO));
   readonly czZoneHeaderLogoUrl = computed(() =>

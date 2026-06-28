@@ -30,6 +30,7 @@ describe('page translation strategy manifest', () => {
     'register',
     'passwordReset',
     'emailVerification',
+    'contact',
     'app',
     'dashboard',
     'cards',

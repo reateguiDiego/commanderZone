@@ -1,8 +1,9 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { AvatarUpdatePayload } from '../../../../core/api/auth.api';
 import { appImageUrl } from '../../../../core/assets/app-image-url';
+import { AppShellI18nService } from '../../../../core/localization/app-shell-i18n.service';
 import { UserAvatar } from '../../../../core/models/user.model';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 
@@ -17,6 +18,8 @@ const AVATAR_SIZE = 512;
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsAvatarUploadComponent {
+  private readonly i18n = inject(AppShellI18nService);
+
   readonly displayName = input('');
   readonly avatar = input<UserAvatar | undefined>(undefined);
   readonly saving = input(false);
@@ -36,6 +39,7 @@ export class SettingsAvatarUploadComponent {
   readonly previewImageOffsetX = computed(() => `${(100 - this.zoom() * 100) * (this.cropX() / 100)}%`);
   readonly previewImageOffsetY = computed(() => `${(100 - this.zoom() * 100) * (this.cropY() / 100)}%`);
   readonly canSave = computed(() => !this.saving() && this.uploadedImageUrl() !== null);
+  readonly saveDisclaimer = computed(() => this.i18n.text('settingsSaveDisclaimer'));
 
   openFilePicker(fileInput: HTMLInputElement): void {
     fileInput.click();

@@ -9,6 +9,7 @@ import {
   GameDebugPlayerContext,
   GameDebugTrafficBucket,
 } from '../../../core/models/api-responses.model';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import type { GameDebugDeadLetterEvent, GameDebugSnapshotMetric } from './game-debug-snapshot-metrics.channel';
 import { GameDebugSnapshotMetricsService } from './game-debug-snapshot-metrics.service';
 import { GameDebugWebsocketService } from './game-debug-websocket.service';
@@ -23,6 +24,7 @@ interface GameDebugActionSort {
 
 @Component({
   selector: 'app-game-debug-page',
+  imports: [GlobalLoaderComponent],
   templateUrl: './game-debug-page.component.html',
   styleUrl: './game-debug-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

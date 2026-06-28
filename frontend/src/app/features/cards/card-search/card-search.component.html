@@ -1,40 +1,156 @@
 <section class="page-stack">
-  <p>¡Hello world! WIP: cards-page</p>
+  <app-card-search-help class="cards-header-help-popover" [triggerVisible]="false" [open]="searchHelpOpen()" (openChange)="searchHelpOpen.set($event)" />
 
-  <div class="tool-header">
-    <div>
-      <span class="eyebrow">{{ 'deckBuilder.cards.cardSearch.cards' | runtimeTranslate }}</span>
-      <h2>{{ 'deckBuilder.cards.cardSearch.searchLibrary' | runtimeTranslate }}</h2>
-    </div>
-    <form class="search-bar" (ngSubmit)="search()">
-      <lucide-icon name="search" size="18" />
-      <input name="query" [placeholder]="'deckBuilder.cards.cardSearch.solRingAtraxaLightningGreaves' | runtimeTranslate" [(ngModel)]="query" />
-      <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="submit">{{ 'deckBuilder.cards.cardSearch.search' | runtimeTranslate }}</button>
-    </form>
+  <div class="cards-shell">
+    <aside class="cards-aside" [class.cards-aside--expanded]="filtersExpanded()" [class.cards-aside--collapsed]="!filtersExpanded()" aria-label="Card search filters">
+      <app-card-advanced-search-form
+        #advancedSearchForm
+        [options]="options()"
+        [loadingOptions]="loadingOptions()"
+        (searchSubmitted)="search($event)"
+        (cleared)="clear()"
+      />
+
+      <div class="cards-aside-actions" aria-label="Card search actions">
+        <button type="button" class="cards-aside-close" czButton="secondary" czButtonSize="sm" (click)="collapseFilters()">
+          <lucide-icon name="x" size="16" aria-hidden="true" />
+          <span>{{ 'deckBuilder.cards.cardSearch.close' | runtimeTranslate }}</span>
+        </button>
+        <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="!advancedSearchForm.hasClearableState()" (click)="advancedSearchForm.clear()">
+          <lucide-icon name="rotate-ccw" size="16" aria-hidden="true" />
+          <span>{{ 'deckBuilder.cards.cardSearch.clear' | runtimeTranslate }}</span>
+        </button>
+        <button type="button" czButton="primary" czButtonSize="sm" [disabled]="!advancedSearchForm.hasSearchCriteria()" (click)="advancedSearchForm.submit()">
+          <lucide-icon name="search" size="16" aria-hidden="true" />
+          <span>{{ 'deckBuilder.cards.cardSearch.search' | runtimeTranslate }}</span>
+        </button>
+      </div>
+    </aside>
+
+    <app-cards-main-layout>
+      @if (!filtersExpanded()) {
+        <button type="button" class="cards-filter-toggle cards-filter-toggle--standalone" [class.cards-filter-toggle--empty]="!searched()" (click)="expandFilters()">
+          <lucide-icon name="sliders-horizontal" size="16" aria-hidden="true" />
+          <span>{{ 'deckBuilder.cards.cardSearch.advancedFilters' | runtimeTranslate }}</span>
+        </button>
+      }
+
+      @if (searched()) {
+        <section class="cards-filter-summary" [attr.aria-label]="'deckBuilder.cards.cardSearch.summary.ariaLabel' | runtimeTranslate">
+          <div class="cards-filter-summary__header">
+            @if (!filtersExpanded()) {
+              <button type="button" class="cards-filter-toggle cards-filter-toggle--summary" (click)="expandFilters()">
+                <lucide-icon name="sliders-horizontal" size="16" aria-hidden="true" />
+                <span>{{ 'deckBuilder.cards.cardSearch.advancedFilters' | runtimeTranslate }}</span>
+              </button>
+            }
+
+            <div class="cards-filter-summary__copy">
+              <span>{{ 'deckBuilder.cards.cardSearch.summary.activeQuery' | runtimeTranslate }}</span>
+              <strong>
+                {{ 'deckBuilder.cards.cardSearch.summary.totalFound' | runtimeTranslate: { total: formattedTotalResults() } }}
+                @if (totalPages() > 1) {
+                  <span>{{ 'deckBuilder.cards.cardSearch.summary.pageStatus' | runtimeTranslate: { page: page(), pages: totalPages() } }}</span>
+                }
+              </strong>
+            </div>
+          </div>
+          @if (filterPills().length > 0) {
+            <div class="cards-filter-pills">
+              @for (pill of filterPills(); track pill.track) {
+                <span class="cards-filter-pill">
+                  <strong>{{ pill.labelKey | runtimeTranslate }}</strong>
+                  @if (pill.manaValue) {
+                    <span class="cards-filter-pill__mana"><app-mana-symbols [value]="pill.manaValue" [fallback]="pill.value ?? pill.manaValue" /></span>
+                  } @else if (pill.manaSymbols) {
+                    <span class="cards-filter-pill__mana"><app-mana-symbols [symbols]="pill.manaSymbols" fallback="" /></span>
+                  } @else if (pill.valueKey) {
+                    <span>{{ pill.valueKey | runtimeTranslate }}</span>
+                  } @else {
+                    <span>{{ pill.value }}</span>
+                  }
+                </span>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      @if (results().length > 0) {
+        <section class="cards-view-actions" aria-label="Card result presentation">
+          <label class="cards-sort">
+            <app-format-select
+              class="cards-sort-select"
+              name="cardsSort"
+              [labelKey]="'deckBuilder.cards.cardSearch.sort.label'"
+              [labelHidden]="true"
+              [options]="sortOptions"
+              [value]="advancedSearchForm.model.sort"
+              (valueChange)="selectSort(advancedSearchForm, $event)"
+            />
+          </label>
+          @if (canChooseResultView()) {
+            <app-tab-list
+              [items]="viewTabs"
+              [activeId]="advancedSearchForm.model.viewMode"
+              ariaLabel="deckBuilder.cards.cardSearch.form.presentation"
+              variant="pill"
+              size="md"
+              (tabSelected)="selectViewMode(advancedSearchForm, $event)"
+            />
+          }
+        </section>
+      }
+
+      <app-card-search-results
+        [results]="results()"
+        [loading]="loading()"
+        [error]="error()"
+        [searched]="searched()"
+        [viewMode]="effectiveViewMode()"
+        (actionSelected)="handleResultAction($event)"
+      />
+
+      @if (searched() && totalPages() > 1) {
+        <nav class="cards-pagination" aria-label="Card search pagination">
+          <button type="button" class="cards-page-button" [disabled]="page() <= 1 || loading()" (click)="previousPage()">
+            <lucide-icon name="chevron-left" size="16" aria-hidden="true" />
+            <span>Previous</span>
+          </button>
+          <span class="cards-page-status">
+            <strong>{{ page() }}</strong>
+            <span>/ {{ totalPages() }}</span>
+          </span>
+          <button type="button" class="cards-page-button" [disabled]="!hasMore() || loading()" (click)="nextPage()">
+            <span>Next</span>
+            <lucide-icon name="chevron-right" size="16" aria-hidden="true" />
+          </button>
+        </nav>
+      }
+    </app-cards-main-layout>
   </div>
 
-  @if (loading()) {
-    <p class="notice">{{ 'deckBuilder.cards.cardSearch.searchingCards' | runtimeTranslate }}</p>
-  } @else if (error()) {
-    <p class="notice error">{{ error() }}</p>
-  } @else if (searched() && results().length === 0) {
-    <p class="notice">{{ 'deckBuilder.cards.cardSearch.noCardsFound' | runtimeTranslate }}</p>
-  }
+  <app-card-details-modal
+    [open]="detailsCard() !== null"
+    [card]="detailsCard()"
+    [cardName]="detailsCard()?.name ?? ''"
+    [loading]="false"
+    [errorKey]="null"
+    (closeRequested)="closeDetails()"
+  />
 
-  <div class="card-results">
-    @for (card of results(); track card.scryfallId) {
-      <a class="mtg-card-result" [routerLink]="['/cards', card.scryfallId]">
-        @if (image(card); as imageUrl) {
-          <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
-        } @else {
-          <div class="card-fallback">{{ card.name }}</div>
-        }
-        <span>
-          <strong>{{ card.name }}</strong>
-          <small><app-mana-symbols [value]="card.manaCost" fallback="No cost" /></small>
-          <small>{{ card.typeLine || 'Unknown type' }}</small>
-        </span>
-      </a>
-    }
-  </div>
+  <app-add-card-to-deck-modal
+    [open]="addToDeckCard() !== null"
+    [card]="addToDeckCard()"
+    (closeRequested)="closeAddToDeck()"
+  />
+
+  <app-card-printings-modal
+    [open]="printingsCard() !== null"
+    [cardName]="printingsCard()?.name ?? ''"
+    [printings]="printings()"
+    [loading]="loadingPrintings()"
+    [errorKey]="printingsErrorKey()"
+    (closeRequested)="closePrintings()"
+  />
 </section>

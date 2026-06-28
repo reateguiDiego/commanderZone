@@ -11,6 +11,7 @@ services:
       MAILER_FROM_ADDRESS: ${MAILER_FROM_ADDRESS:-no-reply@commanderzone.com}
       MAILER_FROM_NAME: ${MAILER_FROM_NAME:-CommanderZone}
       AUTH_PUBLIC_APP_URL: ${AUTH_PUBLIC_APP_URL:-http://localhost:4200}
+      CONTACT_INBOX_ADDRESS: ${CONTACT_INBOX_ADDRESS:-info.dev.sunrise@gmail.com}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-dev-secret-with-at-least-32-chars}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-change-this-jwt-dev-secret-with-at-least-32-chars}
       JWT_PASSPHRASE: ${JWT_PASSPHRASE:-}
@@ -40,7 +41,7 @@ services:
       GAMEPLAY_METRICS_OUTPUT: ${GAMEPLAY_METRICS_OUTPUT:-}
       GAME_WEBSOCKET_PUBLIC_URL: ${GAME_WEBSOCKET_PUBLIC_URL:-ws://127.0.0.1:8081}
       SCRYFALL_USER_AGENT: ${SCRYFALL_USER_AGENT:-CommanderZone/0.1 contact@example.local}
-      SCRYFALL_SYNC_MEMORY_LIMIT: ${SCRYFALL_SYNC_MEMORY_LIMIT:-1024M}
+      SCRYFALL_SYNC_MEMORY_LIMIT: ${SCRYFALL_SYNC_MEMORY_LIMIT:-20G}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$}
     ports:
       - "${API_PORT:-8000}:80"

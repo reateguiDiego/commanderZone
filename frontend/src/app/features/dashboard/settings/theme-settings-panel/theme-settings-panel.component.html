@@ -1,18 +1,49 @@
 <section class="theme-settings-panel" [attr.aria-label]="visualThemeLabel()">
-  <div class="theme-settings-copy">
+  <header class="theme-editor-header">
     <h3>{{ visualThemeLabel() }}</h3>
-    <p>{{ visualThemeHelp() }}</p>
-  </div>
+  </header>
+
+  <section
+    class="theme-preview-panel"
+    [style.--theme-bg]="currentThemeOption().palette.bg"
+    [style.--theme-surface]="currentThemeOption().palette.surface"
+    [style.--theme-primary]="currentThemeOption().palette.primary"
+    [style.--theme-secondary]="currentThemeOption().palette.secondary"
+    [style.--theme-accent]="currentThemeOption().palette.accent"
+    [style.--theme-text]="currentThemeOption().palette.text"
+  >
+    <div class="theme-preview-copy">
+      <strong>{{ currentThemeOption().label }}</strong>
+      <small>{{ currentThemeOption().description }}</small>
+    </div>
+
+    <span class="theme-preview-swatches" aria-hidden="true">
+      @for (color of currentThemeOption().paletteColors; track $index) {
+        <span [style.background]="color"></span>
+      }
+    </span>
+  </section>
 
   <div class="theme-options">
     @for (theme of themeOptions; track theme.id) {
       <button
         class="theme-option"
         type="button"
+        [style.--theme-bg]="theme.palette.bg"
+        [style.--theme-surface]="theme.palette.surface"
+        [style.--theme-primary]="theme.palette.primary"
+        [style.--theme-secondary]="theme.palette.secondary"
+        [style.--theme-accent]="theme.palette.accent"
+        [style.--theme-text]="theme.palette.text"
         [class.selected]="selectedThemeId() === theme.id"
         [attr.aria-pressed]="selectedThemeId() === theme.id"
-        (click)="selectTheme(theme.id)"
+        [disabled]="saving()"
+        (click)="previewTheme(theme.id)"
       >
+        @if (theme.premium) {
+          <app-premium-badge class="theme-premium-badge" />
+        }
+
         <span class="theme-option-copy">
           <strong>{{ theme.label }}</strong>
           <small>{{ theme.description }}</small>
@@ -25,4 +56,20 @@
       </button>
     }
   </div>
+
+  <footer class="theme-actions">
+    @if (hasChanges()) {
+      <span class="settings-save-disclaimer">{{ saveDisclaimer() }}</span>
+    }
+
+    <button
+      czButton="primary"
+      class="save-theme-button"
+      type="button"
+      [disabled]="!hasChanges() || saving()"
+      (click)="saveTheme()"
+    >
+      {{ saving() ? 'Saving...' : saveLabel() }}
+    </button>
+  </footer>
 </section>

@@ -1,0 +1,85 @@
+@if (loading()) {
+  <p class="notice">{{ 'deckBuilder.cards.cardSearch.searchingCards' | runtimeTranslate }}</p>
+} @else if (error()) {
+  <p class="notice error">{{ error() }}</p>
+} @else if (searched() && results().length === 0) {
+  <p class="notice">{{ 'deckBuilder.cards.cardSearch.noCardsFound' | runtimeTranslate }}</p>
+}
+
+<div
+  class="card-results"
+  [class.card-results--list-columns]="viewMode() === 'list' && results().length > 10"
+  [class.card-results--spoiler]="viewMode() === 'spoiler'"
+  [class.card-results--menu-open]="contextMenu()"
+>
+  @for (card of results(); track card.scryfallId) {
+    <article
+      class="mtg-card-result"
+      role="button"
+      tabindex="0"
+      (click)="openContextMenu($event, card)"
+      (keydown)="openContextMenuFromKeyboard($event, card)"
+      (mouseenter)="showHoverPreview($event, card)"
+      (mousemove)="moveHoverPreview($event, card)"
+      (mouseleave)="hideHoverPreview()"
+    >
+      <span class="mtg-card-result__media" [class.mtg-card-result__media--battle]="isBattleCard(card)">
+        <app-card-face-image
+          #faceImage
+          [card]="card"
+          [battle]="isBattleCard(card)"
+          [variant]="viewMode() === 'spoiler' ? 'spoiler' : 'result'"
+          [showToggle]="viewMode() !== 'list'"
+          (flippedChange)="handleFaceFlipped(card, $event)"
+        />
+      </span>
+
+      @if (viewMode() === 'list') {
+        <span class="mtg-card-result__name">{{ card.name }}</span>
+
+        @if (hasAlternateFace(card)) {
+          <span
+            class="mtg-card-result__row-toggle"
+            (pointerdown)="$event.stopPropagation()"
+            (pointerup)="$event.stopPropagation()"
+            (mousedown)="$event.stopPropagation()"
+            (mouseup)="$event.stopPropagation()"
+            (touchstart)="$event.stopPropagation()"
+            (touchend)="$event.stopPropagation()"
+            (click)="$event.stopPropagation()"
+          >
+            <app-card-face-toggle-button tone="inline" size="sm" (pressed)="faceImage.toggleFace($event)" />
+          </span>
+        }
+      }
+    </article>
+  }
+</div>
+
+@if (hoverPreview(); as preview) {
+  <div
+    class="card-hover-preview"
+    [class.card-hover-preview--battle]="isBattleCard(preview.card)"
+    [style.top.px]="preview.top"
+    [style.left.px]="preview.left"
+  >
+    <app-card-face-image
+      [card]="preview.card"
+      [battle]="isBattleCard(preview.card)"
+      variant="detail"
+      [preferLarge]="true"
+      [showToggle]="false"
+      [controlledFlipped]="hoverPreviewFlipped(preview.card)"
+    />
+  </div>
+}
+
+@if (contextMenu(); as menu) {
+  <app-common-card-menu
+    [title]="menu.card.name"
+    [actions]="contextActionsFor(menu.card)"
+    [top]="menu.top"
+    [left]="menu.left"
+    (actionSelected)="selectMenuAction($event, menu.card)"
+  />
+}

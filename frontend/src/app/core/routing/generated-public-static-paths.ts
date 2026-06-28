@@ -108,10 +108,4 @@ export const PUBLIC_STATIC_PATHS = new Set<string>([
   "/fr/conditions-utilisation",
   "/pt/termos",
   "/it/termini",
-  "/contact",
-  "/es/contacto",
-  "/de/kontakt",
-  "/fr/contact",
-  "/pt/contato",
-  "/it/contatto",
 ]);

@@ -170,6 +170,15 @@ describe('DashboardShellComponent', () => {
     expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_black.webp');
   });
 
+  it('uses the regular CZ logo in Treasure Tavern', () => {
+    TestBed.inject(AppThemeService).selectTheme('treasure-tavern');
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.detectChanges();
+
+    const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
+    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.webp');
+  });
+
   it('closes the friends dropdown on outside pointerdown', () => {
     const fixture = TestBed.createComponent(DashboardShellComponent);
     fixture.componentInstance.friendsOpen.set(true);

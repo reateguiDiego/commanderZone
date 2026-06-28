@@ -1,0 +1,74 @@
+<app-modal
+  [open]="open()"
+  [title]="card()?.name || cardName()"
+  [ariaLabel]="card()?.name || cardName()"
+  [showCloseButton]="true"
+  [showPrimary]="false"
+  [showSecondary]="false"
+  [closeLabel]="'deckBuilder.cards.cardSearch.details.close' | runtimeTranslate"
+  size="wide"
+  (close)="closeRequested.emit()"
+>
+  @if (loading()) {
+    <section class="card-details-modal__loader">
+      <app-global-loader />
+    </section>
+  } @else if (errorKey()) {
+    <p class="card-details-modal__notice card-details-modal__notice--error">{{ errorKey()! | runtimeTranslate }}</p>
+  } @else if (card(); as currentCard) {
+    <section class="card-details-modal">
+      <div class="card-details-modal__media">
+        <div class="card-details-modal__image" [class.card-details-modal__image--battle]="isBattle(currentCard)">
+          <app-card-face-image
+            #faceImage
+            [card]="currentCard"
+            [battle]="isBattle(currentCard)"
+            variant="detail"
+            loading="eager"
+            [preferLarge]="true"
+            [showToggle]="false"
+          />
+        </div>
+
+        @if (hasAlternateFace()) {
+          <div class="card-details-modal__flip-action">
+            <app-card-face-toggle-button tone="inline" size="lg" (pressed)="faceImage.toggleFace($event)" />
+          </div>
+        }
+      </div>
+
+      <div class="card-details-modal__content">
+        <section class="card-details-modal__section">
+          <h3>{{ 'deckBuilder.cards.cardSearch.details.oracleText' | runtimeTranslate }}</h3>
+          @if (rulesText()) {
+            <app-mana-text class="card-details-modal__rules" [text]="rulesText()" />
+          } @else {
+            <p class="card-details-modal__notice">{{ 'deckBuilder.cards.cardSearch.details.noOracleText' | runtimeTranslate }}</p>
+          }
+        </section>
+
+        <section class="card-details-modal__section">
+          <h3>{{ 'deckBuilder.cards.cardSearch.details.legalFormats' | runtimeTranslate }}</h3>
+          <div class="card-details-modal__pills">
+            @for (format of legalFormatPills(); track format.format) {
+              <span class="legality-pill legality-pill--legal">{{ format.label }}</span>
+            } @empty {
+              <span class="card-details-modal__notice">{{ 'deckBuilder.cards.cardSearch.details.noLegalFormats' | runtimeTranslate }}</span>
+            }
+          </div>
+        </section>
+
+        <section class="card-details-modal__section">
+          <h3>{{ 'deckBuilder.cards.cardSearch.details.illegalFormats' | runtimeTranslate }}</h3>
+          <div class="card-details-modal__pills">
+            @for (format of illegalFormatPills(); track format.format) {
+              <span class="legality-pill legality-pill--illegal">{{ format.label }}</span>
+            } @empty {
+              <span class="card-details-modal__notice">{{ 'deckBuilder.cards.cardSearch.details.noIllegalFormats' | runtimeTranslate }}</span>
+            }
+          </div>
+        </section>
+      </div>
+    </section>
+  }
+</app-modal>

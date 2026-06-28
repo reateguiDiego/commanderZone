@@ -1,0 +1,49 @@
+<section class="search-help" [class.is-open]="open()" [class.search-help--floating]="!triggerVisible()">
+  @if (triggerVisible()) {
+    <button
+      type="button"
+      czButton="ghost"
+      czButtonSize="sm"
+      class="search-help__trigger"
+      [attr.aria-expanded]="open()"
+      (click)="toggle()"
+    >
+      <lucide-icon name="circle-help" size="16" aria-hidden="true" />
+      <span>{{ 'deckBuilder.cards.cardSearch.help.title' | runtimeTranslate }}</span>
+    </button>
+  }
+
+  @if (open()) {
+    <div class="search-help__body">
+      <h2>{{ 'deckBuilder.cards.cardSearch.help.heading' | runtimeTranslate }}</h2>
+      <section>
+        <h3>{{ 'deckBuilder.cards.cardSearch.help.nameTitle' | runtimeTranslate }}</h3>
+        <p>{{ 'deckBuilder.cards.cardSearch.help.name' | runtimeTranslate }}</p>
+      </section>
+      <section>
+        <h3>{{ 'deckBuilder.cards.cardSearch.help.textTitle' | runtimeTranslate }}</h3>
+        <p>{{ 'deckBuilder.cards.cardSearch.help.text' | runtimeTranslate }}</p>
+      </section>
+      <section>
+        <h3>{{ 'deckBuilder.cards.cardSearch.help.subtypesTitle' | runtimeTranslate }}</h3>
+        <p>{{ 'deckBuilder.cards.cardSearch.help.subtypes' | runtimeTranslate }}</p>
+      </section>
+      <section>
+        <h3>{{ 'deckBuilder.cards.cardSearch.help.rarityTitle' | runtimeTranslate }}</h3>
+        <p>{{ 'deckBuilder.cards.cardSearch.help.rarity' | runtimeTranslate }}</p>
+      </section>
+      <section>
+        <h3>{{ 'deckBuilder.cards.cardSearch.help.colorsTitle' | runtimeTranslate }}</h3>
+        <p>{{ 'deckBuilder.cards.cardSearch.help.colors' | runtimeTranslate }}</p>
+      </section>
+      <section>
+        <h3>{{ 'deckBuilder.cards.cardSearch.help.costsTitle' | runtimeTranslate }}</h3>
+        <p>{{ 'deckBuilder.cards.cardSearch.help.costs' | runtimeTranslate }}</p>
+      </section>
+      <section>
+        <h3>{{ 'deckBuilder.cards.cardSearch.help.statsTitle' | runtimeTranslate }}</h3>
+        <p>{{ 'deckBuilder.cards.cardSearch.help.stats' | runtimeTranslate }}</p>
+      </section>
+    </div>
+  }
+</section>

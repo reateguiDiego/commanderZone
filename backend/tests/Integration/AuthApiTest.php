@@ -26,6 +26,13 @@ class AuthApiTest extends ApiTestCase
             'cardLanguage' => 'en',
             'appLanguage' => 'en',
             'themeId' => 'sunrise',
+            'game' => [
+                'showManaHelperOnStartup' => false,
+                'enableManaRow' => true,
+                'enableStackMana' => false,
+                'gameAnimations' => true,
+                'chatNotificationSounds' => true,
+            ],
         ], $this->jsonResponse()['user']['preferences']);
         self::assertArrayHasKey('createdAt', $this->jsonResponse()['user']);
         self::assertArrayHasKey('updatedAt', $this->jsonResponse()['user']);
@@ -48,6 +55,31 @@ class AuthApiTest extends ApiTestCase
         $emailVerificationToken = $this->jsonResponse()['emailVerificationToken'];
         self::assertIsString($emailVerificationToken);
 
+        $this->jsonRequest('PATCH', '/me', [
+            'gamePreferences' => [
+                'showManaHelperOnStartup' => true,
+                'enableManaRow' => false,
+                'enableStackMana' => true,
+                'gameAnimations' => false,
+                'chatNotificationSounds' => false,
+            ],
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'showManaHelperOnStartup' => true,
+            'enableManaRow' => false,
+            'enableStackMana' => true,
+            'gameAnimations' => false,
+            'chatNotificationSounds' => false,
+        ], $this->jsonResponse()['user']['preferences']['game']);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'gamePreferences' => [
+                'enableManaRow' => 'yes',
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+
         $this->jsonRequest('POST', '/auth/email-verification/confirm', ['token' => $emailVerificationToken]);
         self::assertResponseIsSuccessful();
         self::assertSame('renamed-player@example.test', $this->jsonResponse()['user']['email']);
@@ -56,19 +88,26 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('PATCH', '/me/password', [
             'currentPassword' => 'bad-password',
-            'newPassword' => 'Password456',
+            'newPassword' => 'Password456!',
         ], $token);
         self::assertResponseStatusCodeSame(403);
 
         $this->jsonRequest('PATCH', '/me/password', [
-            'currentPassword' => 'Password123',
-            'newPassword' => 'Password456',
+            'currentPassword' => 'Password123!',
+            'newPassword' => 'Password456!',
         ], $token);
         self::assertResponseIsSuccessful();
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => 'renamed-player@example.test',
-            'password' => 'Password456',
+            'password' => 'Password456!',
+        ]);
+        self::assertResponseIsSuccessful();
+        self::assertArrayHasKey('token', $this->jsonResponse());
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'identifier' => 'renamed player',
+            'password' => 'Password456!',
         ]);
         self::assertResponseIsSuccessful();
         self::assertArrayHasKey('token', $this->jsonResponse());
@@ -93,7 +132,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'duplicate-name@example.test',
             'displayName' => 'Unique Player',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(409);
     }
@@ -125,7 +164,7 @@ class AuthApiTest extends ApiTestCase
     public function testLoginIssuesJwtWith15MinuteTtl(): void
     {
         $email = sprintf('jwt-ttl-%s@example.test', bin2hex(random_bytes(6)));
-        $password = 'Password123';
+        $password = 'Password123!';
 
         $user = new User($email, 'Jwt Ttl User');
         $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
@@ -244,7 +283,7 @@ class AuthApiTest extends ApiTestCase
 
     public function testPasswordResetRequestAndConfirmFlow(): void
     {
-        $this->registerAndLogin('reset@example.test', 'Reset User', 'Password123');
+        $this->registerAndLogin('reset@example.test', 'Reset User', 'Password123!');
 
         $this->jsonRequest('POST', '/auth/password-reset/request', [
             'email' => 'reset@example.test',
@@ -259,14 +298,14 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
             'email' => 'reset@example.test',
             'token' => '',
-            'newPassword' => 'Password456',
+            'newPassword' => 'Password456!',
         ]);
         self::assertResponseStatusCodeSame(400);
 
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
             'email' => 'reset@example.test',
             'token' => $passwordResetToken,
-            'newPassword' => 'Password456',
+            'newPassword' => 'Password456!',
         ]);
         self::assertResponseIsSuccessful();
         self::assertNotNull($this->refreshCookieFromResponse());
@@ -283,13 +322,13 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => 'reset@example.test',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(401);
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => 'reset@example.test',
-            'password' => 'Password456',
+            'password' => 'Password456!',
         ]);
         self::assertResponseIsSuccessful();
         self::assertArrayHasKey('token', $this->jsonResponse());
@@ -297,7 +336,7 @@ class AuthApiTest extends ApiTestCase
 
     public function testPasswordResetTokenCannotBeReused(): void
     {
-        $this->registerAndLogin('reset-reuse@example.test', 'Reset Reuse', 'Password123');
+        $this->registerAndLogin('reset-reuse@example.test', 'Reset Reuse', 'Password123!');
 
         $this->jsonRequest('POST', '/auth/password-reset/request', ['email' => 'reset-reuse@example.test']);
         self::assertResponseStatusCodeSame(202);
@@ -307,21 +346,21 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
             'email' => 'reset-reuse@example.test',
             'token' => $passwordResetToken,
-            'newPassword' => 'Password456',
+            'newPassword' => 'Password456!',
         ]);
         self::assertResponseIsSuccessful();
 
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
             'email' => 'reset-reuse@example.test',
             'token' => $passwordResetToken,
-            'newPassword' => 'Password789',
+            'newPassword' => 'Password789!',
         ]);
         self::assertResponseStatusCodeSame(400);
     }
 
     public function testPasswordResetRejectsExpiredToken(): void
     {
-        $this->registerAndLogin('reset-expired@example.test', 'Reset Expired', 'Password123');
+        $this->registerAndLogin('reset-expired@example.test', 'Reset Expired', 'Password123!');
 
         $this->jsonRequest('POST', '/auth/password-reset/request', ['email' => 'reset-expired@example.test']);
         self::assertResponseStatusCodeSame(202);
@@ -337,14 +376,14 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
             'email' => 'reset-expired@example.test',
             'token' => $passwordResetToken,
-            'newPassword' => 'Password456',
+            'newPassword' => 'Password456!',
         ]);
         self::assertResponseStatusCodeSame(400);
     }
 
     public function testPasswordResetRejectsEmailMismatchForToken(): void
     {
-        $this->registerAndLogin('reset-mismatch@example.test', 'Reset Mismatch', 'Password123');
+        $this->registerAndLogin('reset-mismatch@example.test', 'Reset Mismatch', 'Password123!');
 
         $this->jsonRequest('POST', '/auth/password-reset/request', ['email' => 'reset-mismatch@example.test']);
         self::assertResponseStatusCodeSame(202);
@@ -354,7 +393,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
             'email' => 'another-user@example.test',
             'token' => $passwordResetToken,
-            'newPassword' => 'Password456',
+            'newPassword' => 'Password456!',
         ]);
         self::assertResponseStatusCodeSame(400);
     }
@@ -364,7 +403,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'verify-me@example.test',
             'displayName' => 'Verify User',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(201);
         $firstToken = $this->jsonResponse()['emailVerificationToken'];
@@ -388,14 +427,14 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => 'verify-me@example.test',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseIsSuccessful();
     }
 
     public function testLoginIsLockedAfterRepeatedFailures(): void
     {
-        $this->registerAndLogin('lockout@example.test', 'Lockout User', 'Password123');
+        $this->registerAndLogin('lockout@example.test', 'Lockout User', 'Password123!');
 
         for ($i = 0; $i < 5; $i++) {
             $this->jsonRequest('POST', '/auth/login', [
@@ -403,13 +442,15 @@ class AuthApiTest extends ApiTestCase
                 'password' => 'wrong-password',
             ]);
             self::assertResponseStatusCodeSame(401);
+            self::assertSame($i + 1, $this->jsonResponse()['count']);
         }
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => 'lockout@example.test',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(429);
+        self::assertSame(5, $this->jsonResponse()['count']);
 
         $this->entityManager->getConnection()->executeStatement(
             "UPDATE login_attempt SET lockout_until = NOW() - INTERVAL '1 second', last_failed_at = NOW() - INTERVAL '2 hour' WHERE (scope = 'email' AND identifier = :email) OR (scope = 'ip' AND identifier = :ip)",
@@ -421,7 +462,7 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => 'lockout@example.test',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseIsSuccessful();
     }
@@ -431,7 +472,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'pending-verify@example.test',
             'displayName' => 'Pending Verify',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(201);
         $verificationToken = $this->jsonResponse()['emailVerificationToken'] ?? null;
@@ -439,7 +480,7 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => 'pending-verify@example.test',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(403);
 
@@ -448,7 +489,7 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => 'pending-verify@example.test',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseIsSuccessful();
     }
@@ -458,7 +499,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'verify-autologin@example.test',
             'displayName' => 'Verify AutoLogin',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(201);
         $verificationToken = $this->jsonResponse()['emailVerificationToken'] ?? null;
@@ -480,19 +521,19 @@ class AuthApiTest extends ApiTestCase
         self::assertTrue($this->jsonResponse()['user']['emailVerified']);
     }
 
-    public function testPasswordPolicyRequiresLowerUpperAndNumber(): void
+    public function testPasswordPolicyRequiresLowerUpperNumberAndSpecialCharacter(): void
     {
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'weak-register@example.test',
             'displayName' => 'Weak Register',
-            'password' => 'password123',
+            'password' => 'Password123',
         ]);
         self::assertResponseStatusCodeSame(400);
 
-        $token = $this->registerAndLogin('strong-policy@example.test', 'Strong Policy', 'Password123');
+        $token = $this->registerAndLogin('strong-policy@example.test', 'Strong Policy', 'Password123!');
         $this->jsonRequest('PATCH', '/me/password', [
-            'currentPassword' => 'Password123',
-            'newPassword' => 'password456',
+            'currentPassword' => 'Password123!',
+            'newPassword' => 'Password456',
         ], $token);
         self::assertResponseStatusCodeSame(400);
 
@@ -504,7 +545,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
             'email' => 'strong-policy@example.test',
             'token' => $passwordResetToken,
-            'newPassword' => 'password456',
+            'newPassword' => 'Password456',
         ]);
         self::assertResponseStatusCodeSame(400);
     }
@@ -525,7 +566,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'mail-fail-register@example.test',
             'displayName' => 'Mail Fails Register',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(201);
         self::assertTrue($this->jsonResponse()['verificationRequired']);
@@ -535,7 +576,7 @@ class AuthApiTest extends ApiTestCase
     {
         $user = new User('mail-fail-reset@example.test', 'Mail Fails Reset');
         $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
-        $user->setPassword($passwordHasher->hashPassword($user, 'Password123'));
+        $user->setPassword($passwordHasher->hashPassword($user, 'Password123!'));
         $user->markEmailVerified();
         $this->entityManager->persist($user);
         $this->entityManager->flush();
@@ -625,6 +666,13 @@ class AuthApiTest extends ApiTestCase
             'cardLanguage' => 'ja',
             'appLanguage' => 'es',
             'themeId' => 'sunrise',
+            'game' => [
+                'showManaHelperOnStartup' => false,
+                'enableManaRow' => true,
+                'enableStackMana' => false,
+                'gameAnimations' => true,
+                'chatNotificationSounds' => true,
+            ],
         ], $this->jsonResponse()['user']['preferences']);
 
         $this->jsonRequest('PATCH', '/me', [
@@ -725,28 +773,28 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testDeleteAccountAnonymizesIdentityAndBlocksOldLogin(): void
+    public function testDeleteAccountRemovesUserAndBlocksOldLogin(): void
     {
-        $token = $this->registerAndLogin('delete-me@example.test', 'Delete Me', 'Password123');
+        $token = $this->registerAndLogin('delete-me@example.test', 'Delete Me', 'Password123!');
+        $userId = $this->currentUserId($token);
 
         $this->jsonRequest('DELETE', '/me', token: $token);
         self::assertResponseStatusCodeSame(204);
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => 'delete-me@example.test',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(401);
 
         $this->jsonRequest('GET', '/me', token: $token);
-        self::assertResponseIsSuccessful();
-        self::assertStringStartsWith('Deleted-', $this->jsonResponse()['user']['displayName']);
-        self::assertStringStartsWith('deleted+', $this->jsonResponse()['user']['email']);
+        self::assertResponseStatusCodeSame(401);
+        self::assertNull($this->entityManager->getRepository(User::class)->find($userId));
     }
 
     public function testPasswordChangeRevokesAllRefreshSessions(): void
     {
-        $password = 'Password123';
+        $password = 'Password123!';
         $this->registerAndLogin('refresh-password-change@example.test', 'Refresh Pass Change', $password);
         $cookieA = $this->refreshCookieFromResponse();
         self::assertNotNull($cookieA);
@@ -766,7 +814,7 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('PATCH', '/me/password', [
             'currentPassword' => $password,
-            'newPassword' => 'Password456',
+            'newPassword' => 'Password456!',
         ], $secondLoginToken);
         self::assertResponseIsSuccessful();
 
@@ -778,7 +826,7 @@ class AuthApiTest extends ApiTestCase
 
     public function testPasswordResetRevokesAllRefreshSessions(): void
     {
-        $password = 'Password123';
+        $password = 'Password123!';
         $this->registerAndLogin('refresh-password-reset@example.test', 'Refresh Pass Reset', $password);
         $cookieA = $this->refreshCookieFromResponse();
         self::assertNotNull($cookieA);
@@ -801,7 +849,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
             'email' => 'refresh-password-reset@example.test',
             'token' => $passwordResetToken,
-            'newPassword' => 'Password456',
+            'newPassword' => 'Password456!',
         ]);
         self::assertResponseIsSuccessful();
 
@@ -830,7 +878,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'too-long-name@example.test',
             'displayName' => 'abcdefghijklmnopqrstu',
-            'password' => 'Password123',
+            'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(400);
 

@@ -34,7 +34,10 @@
             plateSize="md"
           />
           @if (option.preset.tier === 'premium') {
-            <span class="premium-badge">{{ 'settings.settingsDisplayNameStyleEditor.premium' | runtimeTranslate }}</span>
+            <app-premium-badge
+              class="premium-badge"
+              [label]="'settings.settingsDisplayNameStyleEditor.premium' | runtimeTranslate"
+            />
           }
         </button>
       }
@@ -42,6 +45,10 @@
   </section>
 
   <footer class="name-style-actions">
+    @if (canSave()) {
+      <span class="settings-save-disclaimer">{{ saveDisclaimer() }}</span>
+    }
+
     <button czButton="primary" class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
       {{ saving() ? 'Saving...' : 'Save' }}
     </button>

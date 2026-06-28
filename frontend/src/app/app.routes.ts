@@ -7,6 +7,12 @@ export const routes: Routes = [
   ...SEO_LANDING_ROUTES,
   ...LEGAL_ROUTES,
   {
+    path: 'contact',
+    loadComponent: () => import('./features/contact/contact-page/contact-page.component')
+      .then((component) => component.ContactPageComponent),
+    data: { pageKey: 'contact' },
+  },
+  {
     path: 'welcome',
     loadComponent: () => import('./features/onboarding/onboarding-page/onboarding-page.component')
       .then((component) => component.OnboardingPageComponent),
@@ -86,16 +92,46 @@ export const routes: Routes = [
         data: { pageKey: 'cards' },
       },
       {
-        path: 'cards/:scryfallId',
-        loadComponent: () => import('./features/cards/card-detail/card-detail.component')
-          .then((component) => component.CardDetailComponent),
-        data: { pageKey: 'cardDetail' },
-      },
-      {
         path: 'community',
         loadComponent: () => import('./features/community/community-page/community-page.component')
           .then((component) => component.CommunityPageComponent),
         data: { pageKey: 'community' },
+      },
+      {
+        path: 'community/decks',
+        loadComponent: () => import('./features/community/community-deck-list-page/community-deck-list-page.component')
+          .then((component) => component.CommunityDeckListPageComponent),
+        data: { pageKey: 'community' },
+      },
+      {
+        path: 'community/decks/:id',
+        loadComponent: () => import('./features/community/community-deck-detail-page/community-deck-detail-page.component')
+          .then((component) => component.CommunityDeckDetailPageComponent),
+        data: { pageKey: 'community' },
+      },
+      {
+        path: 'community/top-commanders',
+        loadComponent: () => import('./features/community/community-card-preview-page/community-card-preview-page.component')
+          .then((component) => component.CommunityCardPreviewPageComponent),
+        data: {
+          pageKey: 'community',
+          kind: 'commanders',
+          title: 'Top Commanders',
+          subtitle: 'Provisional preview based on commander-eligible cards. Real match statistics are not live yet.',
+          icon: 'trophy',
+        },
+      },
+      {
+        path: 'community/top-cards',
+        loadComponent: () => import('./features/community/community-card-preview-page/community-card-preview-page.component')
+          .then((component) => component.CommunityCardPreviewPageComponent),
+        data: {
+          pageKey: 'community',
+          kind: 'cards',
+          title: 'Top Cards',
+          subtitle: 'Preview-only list of commander-legal cards while Community statistics are still provisional.',
+          icon: 'sparkles',
+        },
       },
       {
         path: 'decks',

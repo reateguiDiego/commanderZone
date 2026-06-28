@@ -6,7 +6,7 @@
   grid-template-rows: auto 1fr auto;
   gap: 1rem;
   width: min(900px, calc(100vw - 2rem));
-  height: min(780px, calc(100dvh - 2rem));
+  height: min(840px, calc(100dvh - 2rem));
   overflow: hidden;
   padding: 1.35rem;
   border-color: rgb(var(--cz-accent-rgb) / 42%);
@@ -53,7 +53,8 @@
 
 .settings-modal-layout.editor-mode app-settings-avatar-editor,
 .settings-modal-layout.editor-mode app-settings-avatar-upload,
-.settings-modal-layout.editor-mode app-settings-display-name-style-editor {
+.settings-modal-layout.editor-mode app-settings-display-name-style-editor,
+.settings-modal-layout.editor-mode app-theme-settings-panel {
   display: block;
   height: 100%;
   min-height: 0;
@@ -172,7 +173,7 @@
 
 .settings-account-row {
   display: grid;
-  grid-template-columns: minmax(0, 50fr) minmax(0, 35fr) minmax(5.2rem, 15fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 0.85rem 1rem;
   min-width: 0;
@@ -180,6 +181,48 @@
 
 .game-settings-form {
   grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.game-settings-header,
+.game-settings-toggle-list {
+  grid-column: 1 / -1;
+}
+
+.game-settings-header {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.game-settings-header .settings-section-title {
+  margin: 0;
+}
+
+.game-settings-header p {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.42;
+}
+
+.game-settings-toggle-list {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid rgb(var(--cz-accent-rgb) / 24%);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 8% 0%, rgb(var(--cz-accent-rgb) / 12%), transparent 15rem),
+    rgb(var(--cz-bg-rgb) / 42%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%),
+    0 1rem 2rem rgb(0 0 0 / 10%);
+}
+
+.game-settings-toggle + .game-settings-toggle {
+  border-top: 1px solid rgb(var(--cz-accent-rgb) / 14%);
 }
 
 label {
@@ -231,27 +274,6 @@ input:focus {
   box-shadow: 0 0 0 3px rgb(var(--cz-accent-rgb) / 14%);
 }
 
-.change-password-action {
-  display: grid;
-  align-content: end;
-  min-width: 0;
-  padding-top: calc(0.92rem * 1.2 + 0.45rem);
-}
-
-.change-password-button {
-  width: 100%;
-  min-height: 3.2rem;
-  border-color: rgb(var(--cz-accent-rgb) / 40%);
-  border-radius: 8px;
-  padding: 0 0.38rem;
-  font-size: 0.62rem;
-  letter-spacing: 0;
-  white-space: normal;
-  line-height: 1.05;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-
 :host ::ng-deep app-settings-language-preferences .format-select-label {
   color: var(--cz-text);
   font-size: 0.92rem;
@@ -289,9 +311,12 @@ input:focus {
   align-items: center;
 }
 
-.field-error,
-.availability.taken {
+.field-error {
   color: var(--cz-danger);
+}
+
+.availability.taken {
+  color: var(--cz-warning);
 }
 
 .availability.available {
@@ -382,7 +407,7 @@ input:focus {
 @media (max-width: 820px) {
   :host ::ng-deep .modal-panel {
     width: min(760px, calc(100vw - 1rem));
-    height: min(780px, calc(100dvh - 1rem));
+    height: min(840px, calc(100dvh - 1rem));
     padding: 1rem;
   }
 
@@ -398,13 +423,6 @@ input:focus {
 
   .settings-account-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .change-password-action {
-    grid-column: 1 / -1;
-    justify-self: end;
-    width: min(12rem, 100%);
-    padding-top: 0;
   }
 
   .delete-account-box {
@@ -427,11 +445,6 @@ input:focus {
 
   .settings-account-row {
     grid-template-columns: 1fr;
-  }
-
-  .change-password-action {
-    min-height: 0;
-    width: 100%;
   }
 
   .avatar-change-button,

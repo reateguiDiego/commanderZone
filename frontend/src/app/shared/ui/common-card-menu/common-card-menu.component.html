@@ -1,0 +1,26 @@
+<div class="common-card-menu" [style.top.px]="top()" [style.left.px]="left()" (click)="$event.stopPropagation()">
+  @if (title()) {
+    <div class="common-card-menu__title">
+      @if (translateTitle()) {
+        {{ title()! | runtimeTranslate }}
+      } @else {
+        {{ title() }}
+      }
+    </div>
+  }
+
+  @for (action of actions(); track action.id) {
+    <button
+      type="button"
+      [disabled]="action.disabled"
+      [class.danger]="action.danger"
+      (click)="handleAction($event, action.id)"
+    >
+      @if (action.translateLabel !== false) {
+        {{ action.label | runtimeTranslate }}
+      } @else {
+        {{ action.label }}
+      }
+    </button>
+  }
+</div>

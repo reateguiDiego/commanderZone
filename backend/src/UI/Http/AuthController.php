@@ -12,10 +12,13 @@ use App\Application\Auth\RefreshSessionCookieManager;
 use App\Application\Auth\RefreshSessionReplayDetected;
 use App\Application\Auth\RefreshSessionService;
 use App\Application\Auth\SecurityAuditLogger;
+use App\Application\User\UserAccountDeletionService;
 use App\Domain\Auth\EmailVerificationToken;
 use App\Domain\Localization\LanguageCatalog;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\FriendEventPublisher;
+use App\Infrastructure\Realtime\GameEventPublisher;
+use App\Infrastructure\Realtime\RoomEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -206,39 +209,42 @@ class AuthController extends ApiController
     public function login(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
         $payload = $this->payload($request);
-        $email = mb_strtolower(trim((string) ($payload['email'] ?? '')));
+        $identifier = trim((string) ($payload['identifier'] ?? $payload['email'] ?? ''));
+        $normalizedIdentifier = mb_strtolower($identifier);
         $password = (string) ($payload['password'] ?? '');
         $clientIp = $request->getClientIp();
 
-        if ($this->loginProtectionService->isLocked($email, $clientIp)) {
-            $this->securityAuditLogger->log('auth.login.locked', $email, null, $clientIp);
+        if ($this->loginProtectionService->isLocked($normalizedIdentifier, $clientIp)) {
+            $this->securityAuditLogger->log('auth.login.locked', $normalizedIdentifier, null, $clientIp);
 
-            return $this->fail('Too many failed login attempts. Please try again later.', 429);
+            return $this->fail('Too many failed login attempts. Please try again later.', 429, [
+                'count' => $this->loginProtectionService->failureCount($normalizedIdentifier, $clientIp),
+            ]);
         }
 
-        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || $password === '') {
-            $this->loginProtectionService->recordFailure($email, $clientIp);
-            $this->securityAuditLogger->log('auth.login.failed', $email, null, $clientIp, ['reason' => 'invalid_payload']);
+        if ($identifier === '' || $password === '') {
+            $failureCount = $this->loginProtectionService->recordFailure($normalizedIdentifier, $clientIp);
+            $this->securityAuditLogger->log('auth.login.failed', $normalizedIdentifier, null, $clientIp, ['reason' => 'invalid_payload']);
 
-            return $this->fail('Invalid credentials.', 401);
+            return $this->fail('Invalid credentials.', 401, ['count' => $failureCount]);
         }
 
-        $user = $entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        $user = $this->userByLoginIdentifier($entityManager, $identifier);
         if (!$user instanceof User || !$passwordHasher->isPasswordValid($user, $password)) {
-            $this->loginProtectionService->recordFailure($email, $clientIp);
-            $this->securityAuditLogger->log('auth.login.failed', $email, $user?->id(), $clientIp, ['reason' => 'invalid_credentials']);
+            $failureCount = $this->loginProtectionService->recordFailure($normalizedIdentifier, $clientIp);
+            $this->securityAuditLogger->log('auth.login.failed', $normalizedIdentifier, $user?->id(), $clientIp, ['reason' => 'invalid_credentials']);
 
-            return $this->fail('Invalid credentials.', 401);
+            return $this->fail('Invalid credentials.', 401, ['count' => $failureCount]);
         }
 
         if (!$user->isEmailVerified()) {
-            $this->securityAuditLogger->log('auth.login.failed', $email, $user->id(), $clientIp, ['reason' => 'email_not_verified']);
+            $this->securityAuditLogger->log('auth.login.failed', $normalizedIdentifier, $user->id(), $clientIp, ['reason' => 'email_not_verified']);
 
             return $this->fail('Email verification is required before login.', 403);
         }
 
-        $this->loginProtectionService->resetFailures($email, $clientIp);
-        $this->securityAuditLogger->log('auth.login.succeeded', $email, $user->id(), $clientIp);
+        $this->loginProtectionService->resetFailures($normalizedIdentifier, $clientIp);
+        $this->securityAuditLogger->log('auth.login.succeeded', $normalizedIdentifier, $user->id(), $clientIp);
 
         return $this->jsonWithSessionCookie(
             $request,
@@ -498,7 +504,8 @@ class AuthController extends ApiController
         $hasEmailUpdate = array_key_exists('email', $payload);
         $hasCardLanguageUpdate = array_key_exists('cardLanguage', $payload);
         $hasAppLanguageUpdate = array_key_exists('appLanguage', $payload);
-        if (!$hasDisplayNameUpdate && !$hasEmailUpdate && !$hasCardLanguageUpdate && !$hasAppLanguageUpdate) {
+        $hasGamePreferencesUpdate = array_key_exists('gamePreferences', $payload);
+        if (!$hasDisplayNameUpdate && !$hasEmailUpdate && !$hasCardLanguageUpdate && !$hasAppLanguageUpdate && !$hasGamePreferencesUpdate) {
             return $this->fail('At least one profile field must be provided.');
         }
 
@@ -534,6 +541,15 @@ class AuthController extends ApiController
             }
 
             $user->updateAppLanguage((string) $appLanguage);
+        }
+
+        if ($hasGamePreferencesUpdate) {
+            $gamePreferences = $this->gamePreferencesFromPayload($payload['gamePreferences'] ?? null);
+            if ($gamePreferences === null) {
+                return $this->fail('gamePreferences is invalid.');
+            }
+
+            $user->updateGamePreferences($gamePreferences);
         }
 
         if ($hasEmailUpdate) {
@@ -573,6 +589,41 @@ class AuthController extends ApiController
         $entityManager->flush();
 
         return $this->json(['user' => $user->toArray()]);
+    }
+
+    /**
+     * @return array{
+     *   showManaHelperOnStartup?: bool,
+     *   enableManaRow?: bool,
+     *   enableStackMana?: bool,
+     *   gameAnimations?: bool,
+     *   chatNotificationSounds?: bool
+     * }|null
+     */
+    private function gamePreferencesFromPayload(mixed $payload): ?array
+    {
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        $allowedKeys = [
+            'showManaHelperOnStartup',
+            'enableManaRow',
+            'enableStackMana',
+            'gameAnimations',
+            'chatNotificationSounds',
+        ];
+        $preferences = [];
+
+        foreach ($payload as $key => $value) {
+            if (!in_array($key, $allowedKeys, true) || !is_bool($value)) {
+                return null;
+            }
+
+            $preferences[$key] = $value;
+        }
+
+        return $preferences;
     }
 
     #[Route('/me/avatar', methods: ['PATCH'])]
@@ -658,19 +709,24 @@ class AuthController extends ApiController
     public function deleteMe(
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher
+        UserAccountDeletionService $accountDeletion,
+        RoomEventPublisher $roomEventPublisher,
+        GameEventPublisher $gameEventPublisher,
     ): JsonResponse {
-        $user->rename(sprintf('Deleted-%s', mb_substr($user->id(), 0, 8)));
-        $user->changeEmail(sprintf('deleted+%s@commanderzone.local', $user->id()));
-        $user->clearPendingEmail();
-        $user->markEmailVerified();
-        $user->setPassword($passwordHasher->hashPassword($user, sprintf('deleted-password-%s', $user->id())));
-        $user->markOffline();
-        $user->useInitialAvatar();
-        $user->resetDisplayNameStyle();
-
         $this->refreshSessionService->revokeAllActiveSessionsForUser($user);
-        $entityManager->flush();
+        $result = $accountDeletion->delete($user, $entityManager);
+
+        foreach ($result->gameEvents as $entry) {
+            $gameEventPublisher->publish($entry['game'], $entry['event']);
+        }
+
+        foreach ($result->changedRooms as $room) {
+            $roomEventPublisher->publish($room, 'room.player.left');
+        }
+
+        foreach ($result->deletedRoomIds as $roomId) {
+            $roomEventPublisher->publishDeleted($roomId);
+        }
 
         return $this->json(null, 204);
     }
@@ -747,6 +803,39 @@ class AuthController extends ApiController
         }
 
         return $queryBuilder->getQuery()->getOneOrNullResult() !== null;
+    }
+
+    private function userByLoginIdentifier(EntityManagerInterface $entityManager, string $identifier): ?User
+    {
+        $normalizedIdentifier = mb_strtolower(trim($identifier));
+        if ($normalizedIdentifier === '') {
+            return null;
+        }
+
+        if (str_contains($normalizedIdentifier, '@')) {
+            $user = $this->userByCaseInsensitiveField($entityManager, 'email', $normalizedIdentifier);
+            if ($user instanceof User) {
+                return $user;
+            }
+        }
+
+        return $this->userByCaseInsensitiveField($entityManager, 'displayName', $normalizedIdentifier);
+    }
+
+    private function userByCaseInsensitiveField(EntityManagerInterface $entityManager, string $field, string $value): ?User
+    {
+        if (!in_array($field, ['email', 'displayName'], true)) {
+            throw new \InvalidArgumentException('Unsupported login field.');
+        }
+
+        $user = $entityManager->getRepository(User::class)->createQueryBuilder('user')
+            ->where(sprintf('LOWER(user.%s) = :identifier', $field))
+            ->setParameter('identifier', $value)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $user instanceof User ? $user : null;
     }
 
     private function displayNameExists(EntityManagerInterface $entityManager, string $displayName, ?User $ignoredUser = null): bool

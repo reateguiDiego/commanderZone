@@ -30,7 +30,7 @@ export const SEO_LANDING_METADATA_COPY = {
       'Bereite dein Commander-Deck vor, öffne CommanderZone im Browser und spiele an einem manuellen Tisch mit Räumen, Lebenspunkten und Commander-Schaden.',
     ),
     fr: metadata(
-      'CommanderZone | Jouer à Commander MTG en ligne avec votre groupe',
+      'CommanderZone | Jouer à Commander en ligne',
       'Jouez à Commander MTG en ligne avec votre groupe depuis le navigateur. Préparez des decks, créez des salles et utilisez une table manuelle.',
       'Jouer à Commander en ligne avec votre groupe',
       'Préparez votre deck Commander, ouvrez CommanderZone dans le navigateur et jouez sur une table manuelle avec salles, points de vie et blessures de commandant.',
@@ -100,7 +100,7 @@ export const SEO_LANDING_METADATA_COPY = {
       'Prepara un mazo Commander, crea una sala en el navegador y da a tus amigos una mesa manual para partidas multijugador claras.',
     ),
     de: metadata(
-      'Magic online mit Freunden für Commander spielen | CommanderZone',
+      'Magic online mit Freunden | CommanderZone',
       'Spiele Magic online mit Freunden für Commander-Runden. Nutze einen manuellen Browser-Tisch für Räume, Decks und Commander-Schaden.',
       'Magic online mit Freunden für Commander spielen',
       'Bereite ein Commander-Deck vor, erstelle einen Browser-Raum und gib deiner Gruppe einen manuellen Tisch für klare Multiplayer-Partien.',
@@ -194,7 +194,7 @@ export const SEO_LANDING_METADATA_COPY = {
       'Cole sua decklist, salve o deck Commander e leve-o para salas no navegador com uma mesa manual para seu grupo.',
     ),
     it: metadata(
-      'Importare un mazzo Commander per giocare online | CommanderZone',
+      'Importare mazzo Commander online | CommanderZone',
       'Importa un mazzo Commander da una decklist, controllalo nel browser e usalo nelle stanze con il tuo gruppo su un tavolo manuale.',
       'Importare un mazzo Commander per giocare online',
       'Incolla la decklist, salva il mazzo Commander e portalo nelle stanze del browser con un tavolo manuale.',
@@ -308,7 +308,7 @@ export const SEO_LANDING_METADATA_COPY = {
       'Compare webcam, mesas manuais no navegador e salas digitais para seu grupo Commander escolher o setup certo.',
     ),
     it: metadata(
-      'Modi per giocare Commander online con il tuo gruppo | CommanderZone',
+      'Modi per giocare Commander online | CommanderZone',
       'Confronta modi per giocare Commander online: webcam, tavolo manuale nel browser, stanze, mazzi e punti vita.',
       'Modi per giocare Commander online con il tuo gruppo',
       'Confronta webcam, tavoli manuali nel browser e stanze digitali per scegliere il setup Commander adatto al gruppo.',
@@ -360,7 +360,7 @@ export const SEO_LANDING_METADATA_COPY = {
       'SpellTable fits webcam paper Magic. CommanderZone gives your pod a manual browser table connected to decks, rooms, life totals and commander damage.',
     ),
     es: metadata(
-      'Alternativa a SpellTable para jugar Commander online | CommanderZone',
+      'Alternativa a SpellTable para Commander | CommanderZone',
       '¿Buscas una alternativa a SpellTable para Commander? Usa una mesa digital manual en navegador con salas, mazos, vidas y daño de comandante.',
       'Una alternativa a SpellTable para pods digitales de Commander',
       'SpellTable encaja con Magic físico por webcam. CommanderZone da a tu grupo una mesa manual en navegador con mazos, salas, vidas y daño de comandante.',
@@ -372,13 +372,13 @@ export const SEO_LANDING_METADATA_COPY = {
       'SpellTable passt zu Paper Magic per Webcam. CommanderZone gibt deiner Runde einen manuellen Browser-Tisch mit Decks, Räumen und Commander-Schaden.',
     ),
     fr: metadata(
-      'Alternative à SpellTable pour Commander en ligne | CommanderZone',
+      'Alternative à SpellTable pour Commander | CommanderZone',
       'Vous cherchez une alternative à SpellTable pour Commander ? Utilisez une table numérique manuelle dans le navigateur avec salles et decks.',
       'Une alternative à SpellTable pour les groupes Commander numériques',
       'SpellTable convient à Magic papier par webcam. CommanderZone offre une table manuelle dans le navigateur avec decks, salles et blessures de commandant.',
     ),
     pt: metadata(
-      'Alternativa ao SpellTable para Commander online | CommanderZone',
+      'Alternativa ao SpellTable para Commander | CommanderZone',
       'Procurando uma alternativa ao SpellTable para Commander? Use uma mesa digital manual no navegador com salas, decks, vida e dano de comandante.',
       'Uma alternativa ao SpellTable para grupos digitais de Commander',
       'SpellTable funciona para Magic físico por webcam. CommanderZone dá ao grupo uma mesa manual no navegador com decks, salas, vida e dano de comandante.',
@@ -486,7 +486,7 @@ export const SEO_LANDING_METADATA_COPY = {
       'EDH ist der Community-Name, den viele Spieler weiterhin für Commander verwenden. Erstelle einen Browser-Raum und nutze einen manuellen Tisch.',
     ),
     fr: metadata(
-      'Jouer à EDH en ligne avec votre groupe Commander | CommanderZone',
+      'Jouer à EDH en ligne | CommanderZone',
       'Jouez à EDH en ligne avec votre groupe Commander. EDH est le nom communautaire de Commander; utilisez une table manuelle.',
       'Jouer à EDH en ligne sur une table Commander manuelle',
       'EDH est le nom communautaire que de nombreux joueurs utilisent encore pour Commander. Créez une salle dans le navigateur et jouez sur table manuelle.',
@@ -512,31 +512,31 @@ export const SEO_LANDING_METADATA_COPY = {
       'CommanderZone is a manual simulator and digital table for Commander pods, focused on table state, life totals and commander damage.',
     ),
     es: metadata(
-      'Simulador Commander MTG para partidas online manuales | CommanderZone',
+      'Simulador Commander MTG manual | CommanderZone',
       'Usa un simulador Commander MTG manual para pods online. Controla estado de mesa, vidas y daño de comandante en una mesa digital.',
       'Un simulador Commander MTG manual para pods online',
       'CommanderZone es un simulador manual y mesa digital para pods Commander, centrado en estado de mesa, vidas y daño de comandante.',
     ),
     de: metadata(
-      'MTG Commander Simulator für manuelle Online-Runden | CommanderZone',
+      'MTG Commander Simulator manuell | CommanderZone',
       'Nutze einen manuellen MTG Commander Simulator für Online-Runden. Verfolge Tischstatus, Lebenspunkte und Commander-Schaden im Browser.',
       'Ein manueller MTG Commander Simulator für Online-Runden',
       'CommanderZone ist ein manueller Simulator und digitaler Tisch für Commander-Runden, fokussiert auf Tischstatus, Lebenspunkte und Commander-Schaden.',
     ),
     fr: metadata(
-      'Simulateur Commander MTG pour parties en ligne manuelles | CommanderZone',
+      'Simulateur Commander MTG manuel | CommanderZone',
       'Utilisez un simulateur Commander MTG manuel pour groupes en ligne. Suivez état de table, points de vie et blessures de commandant.',
       'Un simulateur Commander MTG manuel pour groupes en ligne',
       'CommanderZone est un simulateur manuel et une table numérique pour groupes Commander, centré sur état de table, points de vie et blessures de commandant.',
     ),
     pt: metadata(
-      'Simulador Commander MTG para partidas online manuais | CommanderZone',
+      'Simulador Commander MTG manual | CommanderZone',
       'Use um simulador Commander MTG manual para grupos online. Acompanhe estado da mesa, vida e dano de comandante em uma mesa digital.',
       'Um simulador Commander MTG manual para grupos online',
       'CommanderZone é um simulador manual e mesa digital para grupos Commander, focado em estado da mesa, vida e dano de comandante.',
     ),
     it: metadata(
-      'Simulatore Commander MTG per partite online manuali | CommanderZone',
+      'Simulatore Commander MTG manuale | CommanderZone',
       'Usa un simulatore Commander MTG manuale per pod online. Segui stato del tavolo, punti vita e danno da comandante in un tavolo digitale.',
       'Un simulatore Commander MTG manuale per pod online',
       'CommanderZone è un simulatore manuale e tavolo digitale per pod Commander, focalizzato su stato del tavolo, punti vita e danno da comandante.',

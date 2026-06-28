@@ -21,10 +21,19 @@ export interface UserDisplayNameStyle {
   textColor?: string | null;
 }
 
+export interface UserGamePreferences {
+  showManaHelperOnStartup: boolean;
+  enableManaRow: boolean;
+  enableStackMana: boolean;
+  gameAnimations: boolean;
+  chatNotificationSounds: boolean;
+}
+
 export interface UserPreferences {
   cardLanguage: SupportedCardLanguageCode;
   appLanguage: SupportedLanguageCode;
   themeId: AppThemeId;
+  game?: UserGamePreferences;
 }
 
 export interface User {

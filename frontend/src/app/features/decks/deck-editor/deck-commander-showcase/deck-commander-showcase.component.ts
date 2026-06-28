@@ -4,9 +4,9 @@ import { LucideAngularModule } from 'lucide-angular';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { Card } from '../../../../core/models/card.model';
 import { DeckCard } from '../../../../core/models/deck.model';
-import { DeckEditorStore } from '../../data-access/deck-editor.store';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { runDeckFaceToggleAnimation } from '../deck-face-toggle-animation';
+import { DECK_VIEW_STORE } from '../deck-view-store.token';
 
 @Component({
   selector: 'app-deck-commander-showcase',
@@ -17,7 +17,8 @@ import { runDeckFaceToggleAnimation } from '../deck-face-toggle-animation';
 })
 export class DeckCommanderShowcaseComponent {
   readonly entries = input<readonly DeckCard[]>([]);
-  readonly store = inject(DeckEditorStore);
+  readonly interactive = input(true);
+  readonly store = inject(DECK_VIEW_STORE);
 
   constructor() {
     effect(() => {
@@ -27,14 +28,6 @@ export class DeckCommanderShowcaseComponent {
 
   stopFaceTogglePointer(event: PointerEvent): void {
     event.stopPropagation();
-  }
-
-  ensureFrontFace(card: Card): void {
-    this.store.resetCardFace(card);
-  }
-
-  resetCardFaceAfterHover(card: Card): void {
-    this.store.resetCardFace(card);
   }
 
   toggleCardFace(event: MouseEvent, card: Card): void {

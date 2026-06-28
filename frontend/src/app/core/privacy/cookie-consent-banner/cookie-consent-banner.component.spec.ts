@@ -41,7 +41,6 @@ describe('CookieConsentBannerComponent', () => {
               { pageKey: 'privacy', label: 'Privacidad', href: '/es/politica-privacidad/' },
               { pageKey: 'cookies', label: 'Cookies', href: '/es/politica-cookies/' },
               { pageKey: 'terms', label: 'Términos', href: '/es/terminos/' },
-              { pageKey: 'contact', label: 'Contacto', href: '/es/contacto/' },
             ]),
           },
         },
@@ -105,7 +104,8 @@ describe('CookieConsentBannerComponent', () => {
     configureButton?.click();
     fixture.detectChanges();
 
-    expect(element.querySelector('[aria-pressed="false"]')?.textContent?.trim()).toBe('Cookies de analítica');
+    expect(element.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('false');
+    expect(element.querySelector('[role="switch"]')?.textContent?.trim()).toBe('Cookies de analítica');
     expect(Array.from(element.querySelectorAll('.cookie-banner__actions button')).map((button) => button.textContent?.trim()))
       .toEqual(['Guardar', 'Rechazar', 'Aceptar']);
     expect(analytics.consentUpdates).toEqual([]);

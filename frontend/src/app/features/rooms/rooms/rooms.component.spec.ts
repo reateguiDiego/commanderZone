@@ -246,11 +246,18 @@ describe('RoomsComponent', () => {
 
     const joinButton = fixture.debugElement.query(By.css('.room-list button.secondary-button'));
     expect(joinButton.nativeElement.disabled).toBe(true);
-    expect(fixture.debugElement.query(By.css('.room-list .action-tooltip-anchor')).nativeElement.getAttribute('title'))
+    const roomTooltipTrigger = fixture.debugElement.query(By.css('.room-list .action-tooltip-anchor .cz-tooltip'));
+    roomTooltipTrigger.nativeElement.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    fixture.detectChanges();
+    expect(fixture.debugElement.query(By.css('.room-list .action-tooltip-anchor .cz-tooltip__bubble')).nativeElement.textContent.trim())
       .toBe('You are already in a room. Leave it before joining another one.');
 
     const createPanelTooltipAnchors = fixture.debugElement.queryAll(By.css('.rooms-create-panel .action-tooltip-anchor'));
-    expect(createPanelTooltipAnchors.map((element) => element.nativeElement.getAttribute('title'))).toEqual([
+    createPanelTooltipAnchors.forEach((element) => {
+      element.query(By.css('.cz-tooltip'))?.nativeElement.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    });
+    fixture.detectChanges();
+    expect(createPanelTooltipAnchors.map((element) => element.query(By.css('.cz-tooltip__bubble'))?.nativeElement.textContent.trim())).toEqual([
       'You are already in a room. Leave it before joining another one.',
       'You are already in a room. Leave it before joining another one.',
     ]);

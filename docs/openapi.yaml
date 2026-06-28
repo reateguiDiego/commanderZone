@@ -113,7 +113,7 @@ paths:
       tags: [Auth]
       security: []
       summary: Login and receive a short-lived JWT access token (verified accounts only).
-      description: Also sets an HttpOnly refresh cookie (`commanderzone.refresh`) used by `/auth/refresh`.
+      description: Accepts an email address or user name as `identifier`. Also sets an HttpOnly refresh cookie (`commanderzone.refresh`) used by `/auth/refresh`.
       requestBody:
         required: true
         content:
@@ -158,6 +158,30 @@ paths:
       responses:
         '204':
           description: Session revoked and refresh cookie cleared.
+  /contact:
+    post:
+      tags: [Contact]
+      security: []
+      summary: Send a public contact request to the CommanderZone inbox.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactRequest'
+      responses:
+        '202':
+          description: Contact request accepted for delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /auth/password-reset/request:
     post:
       tags: [Auth]
@@ -275,6 +299,8 @@ paths:
                 appLanguage:
                   type: string
                   enum: [en, fr, de, it, es, ja, zhs, pt, ru, nl, ca]
+                gamePreferences:
+                  $ref: '#/components/schemas/UserGamePreferences'
       responses:
         '200':
           description: Updated user.
@@ -658,6 +684,13 @@ paths:
             minimum: 1
             maximum: 500
             default: 25
+        - name: sort
+          in: query
+          description: Result ordering. Relevance preserves the existing search ranking.
+          schema:
+            type: string
+            enum: [relevance, colors, name_asc, name_desc, mana_value_asc, mana_value_desc]
+            default: relevance
         - name: commanderLegal
           in: query
           schema:
@@ -672,7 +705,122 @@ paths:
           in: query
           schema:
             type: string
-            enum: [creature, instant, sorcery, artifact, enchantment, planeswalker, land]
+            enum: [creature, instant, sorcery, artifact, enchantment, planeswalker, battle, land]
+        - name: types
+          in: query
+          description: Comma-separated type filters. Matches any selected type.
+          schema:
+            type: string
+            example: creature,artifact
+        - name: subtypes
+          in: query
+          description: Comma-separated subtype filters. Matches any selected subtype in typeLine.
+          schema:
+            type: string
+            example: elf,druid
+        - name: sets
+          in: query
+          description: Comma-separated Scryfall set codes.
+          schema:
+            type: string
+            example: cmm,ltr
+        - name: rarities
+          in: query
+          description: Comma-separated rarities.
+          schema:
+            type: string
+            enum: [mythic, rare, uncommon, common]
+        - name: colors
+          in: query
+          description: Comma-separated printed color symbols.
+          schema:
+            type: string
+            example: W,U
+        - name: colorMatchMode
+          in: query
+          schema:
+            type: string
+            enum: [all, any, exact]
+            default: any
+        - name: artifact
+          in: query
+          schema:
+            type: boolean
+        - name: multicolor
+          in: query
+          schema:
+            type: boolean
+        - name: land
+          in: query
+          schema:
+            type: boolean
+        - name: basic
+          in: query
+          description: Requires Basic in the type line. Intended for land searches.
+          schema:
+            type: boolean
+        - name: legendary
+          in: query
+          description: Requires Legendary in the type line.
+          schema:
+            type: boolean
+        - name: oracleTextA
+          in: query
+          schema:
+            type: string
+        - name: oracleTextB
+          in: query
+          schema:
+            type: string
+        - name: oracleTextMode
+          in: query
+          schema:
+            type: string
+            enum: [and, or]
+            default: and
+        - name: manaValueMin
+          in: query
+          schema:
+            type: number
+        - name: manaValueMax
+          in: query
+          schema:
+            type: number
+        - name: manaCost
+          in: query
+          description: Exact mana cost. Inputs such as 2GG, WUBRG, and {R/W} are normalized before matching.
+          schema:
+            type: string
+        - name: powerMin
+          in: query
+          schema:
+            type: number
+        - name: powerMax
+          in: query
+          schema:
+            type: number
+        - name: includeVariablePower
+          in: query
+          schema:
+            type: boolean
+        - name: toughnessMin
+          in: query
+          schema:
+            type: number
+        - name: toughnessMax
+          in: query
+          schema:
+            type: number
+        - name: includeVariableToughness
+          in: query
+          schema:
+            type: boolean
+        - name: formats
+          in: query
+          description: Comma-separated legality formats that must be legal.
+          schema:
+            type: string
+            example: commander,modern
         - name: tokenOnly
           in: query
           description: When true, restricts results to token cards in the local catalog.
@@ -697,7 +845,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data, page, limit]
+                required: [data, page, limit, hasMore, total]
                 properties:
                   data:
                     type: array
@@ -707,8 +855,34 @@ paths:
                     type: integer
                   limit:
                     type: integer
+                  hasMore:
+                    type: boolean
+                    description: True when another page exists for the same filters.
+                  total:
+                    type: integer
+                    minimum: 0
+                    description: Total cards matching the same search filters after playable-card deduplication.
         '400':
           $ref: '#/components/responses/Error'
+  /cards/search/options:
+    get:
+      tags: [Cards]
+      security: []
+      summary: List available advanced card search options.
+      parameters:
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Preferred language tag for display labels derived from localized card print data. Option codes remain stable English filter codes.
+      responses:
+        '200':
+          description: Advanced search option lists derived from the local catalog.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardSearchOptions'
   /cards/languages:
     get:
       tags: [Cards]
@@ -805,6 +979,39 @@ paths:
                 properties:
                   card:
                     $ref: '#/components/schemas/Card'
+        '404':
+          $ref: '#/components/responses/Error'
+  /cards/{scryfallId}/printings:
+    get:
+      tags: [Cards]
+      security: []
+      summary: List available print editions for a card.
+      parameters:
+        - $ref: '#/components/parameters/ScryfallId'
+        - name: lang
+          in: query
+          description: Preferred card language. Falls back to English and common print languages.
+          schema:
+            type: string
+            enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+      responses:
+        '200':
+          description: Print editions for the requested card.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [scryfallId, data]
+                properties:
+                  scryfallId:
+                    type: string
+                    format: uuid
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Card'
+        '400':
+          $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
   /cards/{scryfallId}/image:
@@ -964,6 +1171,148 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '401':
+          $ref: '#/components/responses/Error'
+  /community:
+    get:
+      tags: [Community]
+      summary: Get Community home preview data.
+      parameters:
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Community home payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityHomeResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+  /community/decks:
+    get:
+      tags: [Community]
+      summary: List public valid decks for Community.
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: commander
+          in: query
+          description: Commander card id, Scryfall id, or commander name fragment.
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+        - name: colors
+          in: query
+          description: Simple commander color filter using W,U,B,R,G or C.
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public valid decks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityDeckListResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+  /community/decks/{id}:
+    get:
+      tags: [Community]
+      summary: Get a public valid deck detail for Community.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public deck detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/CommunityDeckDetail'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /community/top-commanders:
+    get:
+      tags: [Community]
+      summary: Get provisional top commanders preview data.
+      parameters:
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Optional top-level card type filter.
+          schema:
+            type: string
+            enum: [artifact, battle, creature, enchantment, instant, land, planeswalker, sorcery]
+        - name: colors
+          in: query
+          description: Optional color filter. Accepts one or more of W,U,B,R,G or C for colorless.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provisional commander leaderboard.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityPreviewCardsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+  /community/top-cards:
+    get:
+      tags: [Community]
+      summary: Get provisional top cards preview data.
+      parameters:
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Optional top-level card type filter.
+          schema:
+            type: string
+            enum: [artifact, battle, creature, enchantment, instant, land, planeswalker, sorcery]
+        - name: colors
+          in: query
+          description: Optional color filter. Accepts one or more of W,U,B,R,G or C for colorless.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provisional card leaderboard.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityPreviewCardsResponse'
+        '400':
           $ref: '#/components/responses/Error'
   /decks:
     get:
@@ -2336,6 +2685,10 @@ components:
       properties:
         error:
           type: string
+        count:
+          type: integer
+          minimum: 0
+          description: Present on login failures with the active failed-login attempt count.
     GameWebsocketTicketResponse:
       type: object
       required: [ticket, expiresAt, websocketUrl]
@@ -2786,11 +3139,16 @@ components:
           description: Must include at least one lowercase letter, one uppercase letter, and one number.
     LoginRequest:
       type: object
-      required: [email, password]
+      required: [identifier, password]
       properties:
+        identifier:
+          type: string
+          description: Email address or user name.
         email:
           type: string
           format: email
+          deprecated: true
+          description: Legacy email-only login field. Use `identifier` instead.
         password:
           type: string
     LoginResponse:
@@ -2808,6 +3166,28 @@ components:
           type: string
           format: email
     PasswordResetRequestAcceptedResponse:
+      type: object
+      required: [accepted]
+      properties:
+        accepted:
+          type: boolean
+    ContactRequest:
+      type: object
+      required: [name, email, subject, message]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        subject:
+          type: string
+          maxLength: 160
+        message:
+          type: string
+          maxLength: 5000
+    ContactResponse:
       type: object
       required: [accepted]
       properties:
@@ -3054,7 +3434,7 @@ components:
           format: date-time
     UserPreferences:
       type: object
-      required: [cardLanguage, appLanguage, themeId]
+      required: [cardLanguage, appLanguage, themeId, game]
       properties:
         cardLanguage:
           type: string
@@ -3064,6 +3444,22 @@ components:
           enum: [en, fr, de, it, es, ja, zhs, pt, ru, nl, ca]
         themeId:
           $ref: '#/components/schemas/AppThemeId'
+        game:
+          $ref: '#/components/schemas/UserGamePreferences'
+    UserGamePreferences:
+      type: object
+      required: [showManaHelperOnStartup, enableManaRow, enableStackMana, gameAnimations, chatNotificationSounds]
+      properties:
+        showManaHelperOnStartup:
+          type: boolean
+        enableManaRow:
+          type: boolean
+        enableStackMana:
+          type: boolean
+        gameAnimations:
+          type: boolean
+        chatNotificationSounds:
+          type: boolean
     AppThemeId:
       type: string
       enum: [sunrise, arcade-neon-clash, candy-summoners, treasure-tavern, cyber-duel-arena, mystic-grove]
@@ -3229,6 +3625,45 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CardFaceStatsEntry'
+    CardSearchOption:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        cardCount:
+          type: integer
+          nullable: true
+    CardSearchOptions:
+      type: object
+      required: [types, subtypes, sets, rarities, formats]
+      properties:
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
+        subtypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
+        sets:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
+        rarities:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
+        formats:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSearchOption'
     Card:
       type: object
       description: Card catalog and deck-builder payloads may include fully localized card text. Gameplay projections preserve card identity and gameplay metadata, and localize only imageUris/cardFaces imageUris per viewer language.
@@ -3288,6 +3723,10 @@ components:
           type: boolean
         set:
           type: [string, 'null']
+        setName:
+          type: [string, 'null']
+        rarity:
+          type: [string, 'null']
         collectorNumber:
           type: [string, 'null']
         lang:
@@ -3325,6 +3764,165 @@ components:
         uri:
           type: string
           format: uri
+    CardPreview:
+      type: object
+      required: [id, scryfallId, name, cropImage, imageUris, cardFaces, colors, cardType, cardTypeIcon, timesPlayed]
+      properties:
+        id:
+          type: string
+          format: uuid
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cropImage:
+          type: [string, 'null']
+          format: uri
+        imageUris:
+          type: object
+          additionalProperties:
+            type: string
+        cardFaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFace'
+        colors:
+          type: array
+          items:
+            type: string
+        cardType:
+          type: [string, 'null']
+        cardTypeIcon:
+          type: [string, 'null']
+          enum: [artifact, battle, creature, enchantment, instant, land, planeswalker, sorcery, multiple, 'null']
+        timesPlayed:
+          type: integer
+          minimum: 500
+          maximum: 3000
+    CommunityHomeResponse:
+      type: object
+      required: [commanders, cards, decks]
+      properties:
+        commanders:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardPreview'
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardPreview'
+        decks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityDeckSummary'
+    CommunityDeckListResponse:
+      type: object
+      required: [decks]
+      properties:
+        decks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityDeckSummary'
+    CommunityPreviewCardsResponse:
+      type: object
+      required: [items, total, isPreview, message]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardPreview'
+        total:
+          type: integer
+          minimum: 0
+        isPreview:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Próximamente: estadísticas basadas en partidas reales de CommanderZone.
+    CommunityDeckOwner:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+    CommunityDeckSections:
+      type: object
+      required: [commander, main, sideboard, maybeboard]
+      properties:
+        commander:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCard'
+        main:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCard'
+        sideboard:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCard'
+        maybeboard:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCard'
+    CommunityDeckSummary:
+      type: object
+      required: [id, name, format, valid, cropImage, commanderName, colorIdentity, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        format:
+          type: string
+          enum: [commander]
+        valid:
+          type: boolean
+        cropImage:
+          type: [string, 'null']
+          format: uri
+        secondaryCropImage:
+          type: [string, 'null']
+          format: uri
+        commanderName:
+          type: [string, 'null']
+        colorIdentity:
+          type: array
+          items:
+            type: string
+        updatedAt:
+          type: string
+          format: date-time
+    CommunityDeckDetail:
+      allOf:
+        - $ref: '#/components/schemas/CommunityDeckSummary'
+        - type: object
+          required: [visibility, commanders, cards, sections, owner]
+          properties:
+            visibility:
+              $ref: '#/components/schemas/DeckVisibility'
+            backgroundName:
+              type: string
+            sleevesName:
+              type: string
+            folderId:
+              type: [string, 'null']
+              format: uuid
+            commanders:
+              type: array
+              items:
+                $ref: '#/components/schemas/Card'
+            cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckCard'
+            sections:
+              $ref: '#/components/schemas/CommunityDeckSections'
+            owner:
+              $ref: '#/components/schemas/CommunityDeckOwner'
     DeckVisibility:
       type: string
       enum: [private, public]

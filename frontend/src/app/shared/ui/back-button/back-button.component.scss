@@ -1,0 +1,54 @@
+:host {
+  --back-button-border-color: rgb(var(--cz-primary-rgb) / 34%);
+  --back-button-hover-border-color: rgb(var(--cz-primary-rgb) / 54%);
+  --back-button-text-color: var(--cz-text);
+  --back-button-surface-top: rgb(var(--cz-surface-rgb) / 82%);
+  --back-button-surface-bottom: rgb(var(--cz-bg-rgb) / 70%);
+  --back-button-shadow:
+    0 0.75rem 1.8rem rgb(var(--cz-bg-rgb) / 14%),
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%);
+  --back-button-focus-ring: 0 0 0 3px rgb(var(--cz-primary-rgb) / 18%);
+  --back-button-width: fit-content;
+  --back-button-justify-self: start;
+  --back-button-align-self: start;
+
+  display: inline-flex;
+  align-self: var(--back-button-align-self);
+  justify-self: var(--back-button-justify-self);
+  max-width: 100%;
+  width: var(--back-button-width);
+}
+
+.back-button {
+  justify-content: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  border-color: var(--back-button-border-color);
+  background:
+    linear-gradient(135deg, var(--back-button-surface-top), var(--back-button-surface-bottom)),
+    var(--cz-bg);
+  color: var(--back-button-text-color);
+  box-shadow: var(--back-button-shadow);
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.back-button:hover:not(:disabled) {
+  border-color: var(--back-button-hover-border-color);
+}
+
+.back-button:focus-visible {
+  outline: none;
+  box-shadow: var(--back-button-shadow), var(--back-button-focus-ring);
+}
+
+.back-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.back-button-arrow {
+  font-size: 1rem;
+  line-height: 1;
+}

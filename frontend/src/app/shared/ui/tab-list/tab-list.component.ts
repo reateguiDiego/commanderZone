@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 
@@ -16,6 +16,7 @@ export interface TabListItem {
 }
 
 export type TabListVariant = 'pill' | 'underline';
+export type TabListSize = 'md' | 'lg';
 
 @Component({
   selector: 'app-tab-list',
@@ -29,7 +30,10 @@ export class TabListComponent {
   readonly activeId = input.required<string>();
   readonly ariaLabel = input('');
   readonly variant = input<TabListVariant>('pill');
+  readonly size = input<TabListSize>('md');
   readonly iconSize = input(16);
+  readonly activeIndex = computed(() => this.items().findIndex((item) => item.id === this.activeId()));
+  readonly activeIndicatorWidth = computed(() => `${100 / Math.max(this.items().length, 1)}%`);
   readonly tabSelected = output<string>();
 
   selectTab(item: TabListItem): void {

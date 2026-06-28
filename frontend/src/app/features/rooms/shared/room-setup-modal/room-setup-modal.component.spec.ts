@@ -30,6 +30,10 @@ describe('RoomSetupModalComponent', () => {
     expect(fixture.componentInstance.createFirstMulliganFree()).toBe(true);
   });
 
+  it('defaults new rooms to public privacy', () => {
+    expect(fixture.componentInstance.createRoomForm.controls.privacy.value).toBe('public');
+  });
+
   it('defaults non-Commander rooms to no free first mulligan', () => {
     fixture.componentInstance.changeCreateFormat('standard');
 
@@ -45,14 +49,14 @@ describe('RoomSetupModalComponent', () => {
   });
 
   it('toggles the free first mulligan from the setup button', () => {
-    const button = fixture.nativeElement.querySelector('.mulligan-toggle-button') as HTMLButtonElement;
+    const button = fixture.nativeElement.querySelector('[role="switch"]') as HTMLButtonElement;
 
-    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(button.getAttribute('aria-checked')).toBe('true');
 
     button.click();
     fixture.detectChanges();
 
     expect(fixture.componentInstance.createFirstMulliganFree()).toBe(false);
-    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(button.getAttribute('aria-checked')).toBe('false');
   });
 });

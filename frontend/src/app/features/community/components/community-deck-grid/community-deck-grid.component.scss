@@ -1,0 +1,30 @@
+:host {
+  display: block;
+}
+
+.community-deck-grid {
+  --deck-list-card-min-height: 13rem;
+
+  display: grid;
+  justify-content: center;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 18rem));
+  gap: clamp(0.85rem, 1.35vw, 1.15rem);
+}
+
+@media (max-width: 1024px) {
+  .community-deck-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 17rem));
+  }
+}
+
+@media (max-width: 720px) {
+  .community-deck-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .community-deck-grid {
+    gap: 0.8rem;
+  }
+}

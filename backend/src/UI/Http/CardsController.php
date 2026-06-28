@@ -3,13 +3,20 @@
 namespace App\UI\Http;
 
 use App\Application\Card\CardLocalizationService;
+use App\Application\Card\CardPrintVersionProvider;
 use App\Application\Card\CardResolver;
+use App\Application\Card\CardSearchFilterBuilder;
+use App\Application\Card\CardSearchFilterSet;
+use App\Application\Card\CardSearchOptionsProvider;
 use App\Application\Card\CardsLanguageService;
 use App\Domain\Card\Card;
 use App\Domain\Localization\LanguageCatalog;
 use App\Domain\User\User;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,9 +29,26 @@ class CardsController extends ApiController
 {
     private const IMAGE_FORMATS = ['small', 'normal', 'large', 'png', 'art_crop', 'border_crop'];
     private const IMAGE_MODES = ['uri', 'redirect', 'binary'];
+    private const SEARCH_PAGE_CACHE_TTL_SECONDS = 300;
+    private const SEARCH_SORTS = [
+        'relevance',
+        'colors',
+        'name_asc',
+        'name_desc',
+        'mana_value_asc',
+        'mana_value_desc',
+    ];
 
     #[Route('/cards/search', methods: ['GET'])]
-    public function search(Request $request, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    public function search(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        CardLocalizationService $localization,
+        CardSearchFilterBuilder $filterBuilder,
+        CacheInterface $cache,
+        #[Autowire('%kernel.environment%')]
+        string $environment,
+    ): JsonResponse
     {
         $requestedLanguage = $this->requestedLanguage($request);
         if ($requestedLanguage === false) {
@@ -34,105 +58,163 @@ class CardsController extends ApiController
         $query = Card::normalizeName((string) $request->query->get('q', ''));
         $page = max(1, (int) $request->query->get('page', 1));
         $limit = min(500, max(1, (int) $request->query->get('limit', 25)));
-
-        $filters = [];
-        $filterParams = [];
-        $filterTypes = [];
-
-        $commanderLegal = $request->query->get('commanderLegal');
-        if ($commanderLegal !== null && $commanderLegal !== '') {
-            $filters[] = 'c.commander_legal = :commanderLegal';
-            $filterParams['commanderLegal'] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN);
+        $lookupLimit = $limit + 1;
+        $sort = mb_strtolower(trim((string) $request->query->get('sort', 'relevance')));
+        if (!in_array($sort, self::SEARCH_SORTS, true)) {
+            return $this->fail('sort filter is invalid.');
         }
 
-        $tokenOnly = $request->query->get('tokenOnly');
-        if ($tokenOnly !== null && $tokenOnly !== '' && filter_var($tokenOnly, FILTER_VALIDATE_BOOLEAN)) {
-            $filters[] = '(c.layout IN (:tokenLayout, :doubleFacedTokenLayout) OR LOWER(c.type_line) LIKE :tokenTypeLine)';
-            $filterParams['tokenLayout'] = 'token';
-            $filterParams['doubleFacedTokenLayout'] = 'double_faced_token';
-            $filterParams['tokenTypeLine'] = '%token%';
+        try {
+            $filterSet = $filterBuilder->build($request);
+            $searchEntryFilterSet = $query === ''
+                ? $filterBuilder->build($request, false, false)
+                : null;
+        } catch (\InvalidArgumentException $exception) {
+            return $this->fail($exception->getMessage());
         }
 
-        $gameplayKind = mb_strtolower(trim((string) $request->query->get('gameplayKind', '')));
-        if ($gameplayKind !== '') {
-            if (!in_array($gameplayKind, ['token', 'emblem', 'dungeon'], true)) {
-                return $this->fail('gameplayKind filter is invalid.');
-            }
+        $resolveSearchPage = fn (): array => $this->resolveSearchPage(
+            $entityManager,
+            $requestedLanguage,
+            $query,
+            $page,
+            $limit,
+            $lookupLimit,
+            $sort,
+            $filterSet,
+            $searchEntryFilterSet,
+            $request,
+        );
+        $pageResult = $environment === 'test'
+            ? $resolveSearchPage()
+            : $cache->get(
+                $this->searchPageCacheKey($request),
+                function (ItemInterface $item) use ($resolveSearchPage): array {
+                    $item->expiresAfter(self::SEARCH_PAGE_CACHE_TTL_SECONDS);
 
-            if ($gameplayKind === 'token') {
-                $filters[] = '(c.layout IN (:gameplayTokenLayout, :gameplayDoubleFacedTokenLayout) OR LOWER(c.type_line) LIKE :gameplayTokenTypeLine)';
-                $filterParams['gameplayTokenLayout'] = 'token';
-                $filterParams['gameplayDoubleFacedTokenLayout'] = 'double_faced_token';
-                $filterParams['gameplayTokenTypeLine'] = '%token%';
-            } elseif ($gameplayKind === 'emblem') {
-                $filters[] = '(c.layout = :gameplayEmblemLayout OR LOWER(c.type_line) LIKE :gameplayEmblemTypeLine)';
-                $filterParams['gameplayEmblemLayout'] = 'emblem';
-                $filterParams['gameplayEmblemTypeLine'] = '%emblem%';
-            } else {
-                $filters[] = '(c.layout = :gameplayDungeonLayout OR LOWER(c.type_line) LIKE :gameplayDungeonTypeLine)';
-                $filterParams['gameplayDungeonLayout'] = 'dungeon';
-                $filterParams['gameplayDungeonTypeLine'] = 'dungeon%';
-            }
+                    return $resolveSearchPage();
+                },
+            );
+        $ids = $pageResult['ids'];
+        $total = $pageResult['total'];
+
+        if ($ids === []) {
+            return $this->json(['data' => [], 'page' => $page, 'limit' => $limit, 'hasMore' => false, 'total' => $total]);
         }
 
-        $type = mb_strtolower(trim((string) $request->query->get('type', '')));
-        if ($type !== '') {
-            $allowedTypes = ['creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker', 'land'];
-            if (!in_array($type, $allowedTypes, true)) {
-                return $this->fail('type filter is invalid.');
-            }
+        $hasMore = count($ids) > $limit;
+        $ids = array_slice($ids, 0, $limit);
 
-            $filters[] = 'LOWER(c.type_line) LIKE :type';
-            $filterParams['type'] = '%'.$type.'%';
-        }
+        $cards = $this->fetchSearchPayloadsByIds($entityManager, $ids);
+        $cards = $localization->localizeCardPayloads($cards, $requestedLanguage, true);
 
-        $colorIdentity = trim((string) $request->query->get('colorIdentity', ''));
-        if ($colorIdentity !== '') {
-            $allowedColors = [];
-            foreach (array_filter(array_map('trim', explode(',', strtoupper($colorIdentity)))) as $color) {
-                if (!in_array($color, ['W', 'U', 'B', 'R', 'G'], true)) {
-                    return $this->fail('colorIdentity filter is invalid.');
-                }
+        return $this->json(['data' => $cards, 'page' => $page, 'limit' => $limit, 'hasMore' => $hasMore, 'total' => $total]);
+    }
 
-                $allowedColors[$color] = $color;
-            }
-
-            $filters[] = <<<'SQL'
-NOT EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements_text(c.color_identity::jsonb) AS card_color(color)
-    WHERE card_color.color NOT IN (:allowedColorIdentity)
-)
-SQL;
-            $filterParams['allowedColorIdentity'] = array_values($allowedColors);
-            $filterTypes['allowedColorIdentity'] = ArrayParameterType::STRING;
-        }
+    /**
+     * @return array{ids:list<string>,total:int}
+     */
+    private function resolveSearchPage(
+        EntityManagerInterface $entityManager,
+        ?string $requestedLanguage,
+        string $query,
+        int $page,
+        int $limit,
+        int $lookupLimit,
+        string $sort,
+        CardSearchFilterSet $filterSet,
+        ?CardSearchFilterSet $searchEntryFilterSet,
+        Request $request,
+    ): array {
+        $searchRequestsSetPrintings = $this->searchRequestsSetPrintings($request);
+        $searchRequestsColorSort = $this->searchRequestsColorSort($sort);
 
         if ($query !== '') {
+            if ($searchRequestsSetPrintings) {
+                return $this->resolveSetPrintingPage(
+                    $entityManager,
+                    $requestedLanguage,
+                    $query,
+                    $page,
+                    $limit,
+                    $lookupLimit,
+                    $sort,
+                    $filterSet,
+                );
+            }
+
             $searchPatterns = $this->searchPatterns($query);
             $buckets = $requestedLanguage === null ? ['all'] : $this->searchBuckets($requestedLanguage);
             $ids = [];
+            $total = 0;
 
             foreach ($buckets as $bucket) {
+                [$countSql, $countParams, $countTypes] = $this->buildBucketedSearchCountSql(
+                    $entityManager,
+                    $bucket,
+                    $requestedLanguage,
+                    $filterSet->filters,
+                    $filterSet->params,
+                    $filterSet->types,
+                    $searchPatterns,
+                );
+                $bucketTotal = (int) $entityManager->getConnection()->fetchOne($countSql, $countParams, $countTypes);
+                if ($bucketTotal === 0) {
+                    continue;
+                }
+
                 [$sql, $params, $types] = $this->buildBucketedSearchSql(
                     $entityManager,
                     $bucket,
                     $requestedLanguage,
-                    $filters,
-                    $filterParams,
-                    $filterTypes,
+                    $filterSet->filters,
+                    $filterSet->params,
+                    $filterSet->types,
                     $searchPatterns,
+                    $lookupLimit,
                     $limit,
                     $page,
+                    $sort,
                 );
+                $total = $bucketTotal;
                 $ids = $entityManager->getConnection()->fetchFirstColumn($sql, $params, $types);
-                if ($ids !== []) {
-                    break;
-                }
+                break;
             }
         } else {
-            $where = $filters;
-            $params = $filterParams;
+            if (
+                !$searchRequestsSetPrintings
+                && !$searchRequestsColorSort
+                && $requestedLanguage !== null
+                && $searchEntryFilterSet instanceof CardSearchFilterSet
+                && !$this->searchRequestsGameplayCatalog($request)
+                && $this->cardSearchEntryAvailable($entityManager, $requestedLanguage)
+            ) {
+                return $this->resolveSearchEntryPage(
+                    $entityManager,
+                    $requestedLanguage,
+                    $page,
+                    $limit,
+                    $lookupLimit,
+                    $sort,
+                    $searchEntryFilterSet,
+                );
+            }
+
+            if ($searchRequestsSetPrintings) {
+                return $this->resolveSetPrintingPage(
+                    $entityManager,
+                    $requestedLanguage,
+                    $query,
+                    $page,
+                    $limit,
+                    $lookupLimit,
+                    $sort,
+                    $filterSet,
+                );
+            }
+
+            $where = $filterSet->filters;
+            $params = $filterSet->params;
             $searchRankSql = '0';
             $languageRankSql = $this->searchLanguageRankSql($requestedLanguage, $params);
             $languageScope = $this->searchLanguageScopeSql($requestedLanguage, $params);
@@ -141,19 +223,36 @@ SQL;
             }
 
             $sql = <<<'SQL'
-SELECT id
+SELECT id, total_count
 FROM (
+    SELECT
+        id,
+        name,
+        mana_value,
+        set_name,
+        rarity,
+        rarity_rank,
+        search_rank,
+        language_rank,
+        color_count,
+        has_white,
+        has_blue,
+        has_black,
+        has_red,
+        has_green,
+        COUNT(*) OVER() AS total_count
+    FROM (
     SELECT DISTINCT ON (
         c.normalized_name,
         COALESCE(LOWER(c.type_line), ''),
         COALESCE(LOWER(c.mana_cost), '')
     ) c.id, c.name,
 SQL;
-        $sql .= " {$searchRankSql} AS search_rank, {$languageRankSql} AS language_rank FROM card c";
-        if ($where !== []) {
-            $sql .= ' WHERE '.implode(' AND ', $where);
-        }
-        $sql .= <<<'SQL'
+            $sql .= " c.mana_value, c.set_name, c.rarity, {$this->rarityRankSql('c.rarity')} AS rarity_rank, {$searchRankSql} AS search_rank, {$languageRankSql} AS language_rank, {$this->colorCountSql('c')} AS color_count, {$this->colorPresenceSql('c', 'W')} AS has_white, {$this->colorPresenceSql('c', 'U')} AS has_blue, {$this->colorPresenceSql('c', 'B')} AS has_black, {$this->colorPresenceSql('c', 'R')} AS has_red, {$this->colorPresenceSql('c', 'G')} AS has_green FROM card c";
+            if ($where !== []) {
+                $sql .= ' WHERE '.implode(' AND ', $where);
+            }
+            $sql .= <<<'SQL'
     ORDER BY
         c.normalized_name ASC,
         COALESCE(LOWER(c.type_line), '') ASC,
@@ -162,20 +261,178 @@ SQL;
         language_rank ASC,
         c.scryfall_id ASC,
         c.name ASC
-) AS distinct_cards
-ORDER BY search_rank ASC, language_rank ASC, name ASC
+    ) AS distinct_cards
+) AS counted_cards
 SQL;
-            $sql .= sprintf(' LIMIT %d OFFSET %d', $limit, ($page - 1) * $limit);
-            $ids = $entityManager->getConnection()->fetchFirstColumn($sql, $params);
-        }
-        if ($ids === []) {
-            return $this->json(['data' => [], 'page' => $page, 'limit' => $limit]);
+            $sql .= "\nORDER BY ".$this->searchSortOrderSql($sort)."\n";
+            $sql .= sprintf(' LIMIT %d OFFSET %d', $lookupLimit, ($page - 1) * $limit);
+            $rows = $entityManager->getConnection()->fetchAllAssociative($sql, $params, $filterSet->types);
+            $ids = array_map(static fn (array $row): string => (string) $row['id'], $rows);
+            $total = $rows !== [] ? (int) $rows[0]['total_count'] : 0;
         }
 
-        $cards = $this->fetchSearchPayloadsByIds($entityManager, $ids);
-        $cards = $localization->localizeCardPayloads($cards, $requestedLanguage, true);
+        return [
+            'ids' => array_values(array_map('strval', $ids)),
+            'total' => $total,
+        ];
+    }
 
-        return $this->json(['data' => $cards, 'page' => $page, 'limit' => $limit]);
+    private function resolveSearchEntryPage(
+        EntityManagerInterface $entityManager,
+        string $requestedLanguage,
+        int $page,
+        int $limit,
+        int $lookupLimit,
+        string $sort,
+        CardSearchFilterSet $filterSet,
+    ): array {
+        $where = ['e.lang = :searchEntryLang'];
+        $params = array_replace($filterSet->params, ['searchEntryLang' => $requestedLanguage]);
+        $types = $filterSet->types;
+
+        foreach ($filterSet->formats as $format) {
+            $where[] = sprintf('e.legal_%s = true', $format);
+        }
+        foreach ($filterSet->filters as $filter) {
+            $where[] = $filter;
+        }
+
+        $sql = 'SELECT e.card_id AS id, COUNT(*) OVER() AS total_count FROM card_search_entry e';
+        if ($filterSet->filters !== []) {
+            $sql .= ' INNER JOIN card c ON c.id = e.card_id';
+        }
+        if ($where !== []) {
+            $sql .= ' WHERE '.implode(' AND ', $where);
+        }
+        $sql .= "\nORDER BY ".$this->searchEntrySortOrderSql($sort)."\n";
+        $sql .= sprintf(' LIMIT %d OFFSET %d', $lookupLimit, ($page - 1) * $limit);
+
+        $rows = $entityManager->getConnection()->fetchAllAssociative($sql, $params, $types);
+
+        return [
+            'ids' => array_values(array_map(static fn (array $row): string => (string) $row['id'], $rows)),
+            'total' => $rows !== [] ? (int) $rows[0]['total_count'] : 0,
+        ];
+    }
+
+    private function resolveSetPrintingPage(
+        EntityManagerInterface $entityManager,
+        ?string $requestedLanguage,
+        string $query,
+        int $page,
+        int $limit,
+        int $lookupLimit,
+        string $sort,
+        CardSearchFilterSet $filterSet,
+    ): array {
+        $where = $filterSet->filters;
+        $params = $filterSet->params;
+        $types = $filterSet->types;
+        $searchRankSql = '0';
+
+        if ($query !== '') {
+            $searchPatterns = $this->searchPatterns($query);
+            $params['queryExactFolded'] = $searchPatterns['exact'];
+            $params['queryPrefixFolded'] = $searchPatterns['prefix'];
+            if (is_string($searchPatterns['contains'])) {
+                $params['queryContainsFolded'] = $searchPatterns['contains'];
+            }
+
+            $where[] = $this->indexedSearchCandidateSql(
+                $entityManager,
+                'all',
+                $requestedLanguage,
+                (bool) $searchPatterns['useContains'],
+                $params,
+                $types,
+            );
+            $searchRankSql = $this->indexedSearchRankSql(
+                $entityManager,
+                'all',
+                $requestedLanguage,
+                $params,
+                $types,
+            );
+        }
+
+        $languageRankSql = $this->setPrintingLanguageRankSql($requestedLanguage, $params);
+        $printingPartitionSql = "LOWER(c.set_code), COALESCE(c.collector_number, c.scryfall_id)";
+
+        $countSql = <<<'SQL'
+SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT ON (
+SQL;
+        $countSql .= $printingPartitionSql;
+        $countSql .= <<<'SQL'
+    ) c.id, c.scryfall_id, c.name,
+SQL;
+        $countSql .= " {$searchRankSql} AS search_rank, {$languageRankSql} AS language_rank FROM card c";
+        if ($where !== []) {
+            $countSql .= ' WHERE '.implode(' AND ', $where);
+        }
+        $countSql .= "\nORDER BY {$printingPartitionSql}, search_rank ASC, language_rank ASC, c.scryfall_id ASC, c.name ASC\n";
+        $countSql .= ') AS distinct_printings';
+
+        $total = (int) $entityManager->getConnection()->fetchOne($countSql, $params, $types);
+        if ($total === 0) {
+            return ['ids' => [], 'total' => 0];
+        }
+
+        $sql = <<<'SQL'
+SELECT id, total_count
+FROM (
+    SELECT
+        id,
+        name,
+        mana_value,
+        set_name,
+        rarity,
+        rarity_rank,
+        search_rank,
+        language_rank,
+        color_count,
+        has_white,
+        has_blue,
+        has_black,
+        has_red,
+        has_green,
+        COUNT(*) OVER() AS total_count
+    FROM (
+    SELECT DISTINCT ON (
+SQL;
+        $sql .= $printingPartitionSql;
+        $sql .= <<<'SQL'
+    ) c.id, c.name,
+SQL;
+        $sql .= " c.mana_value, c.set_name, c.rarity, {$this->rarityRankSql('c.rarity')} AS rarity_rank, {$searchRankSql} AS search_rank, {$languageRankSql} AS language_rank, {$this->colorCountSql('c')} AS color_count, {$this->colorPresenceSql('c', 'W')} AS has_white, {$this->colorPresenceSql('c', 'U')} AS has_blue, {$this->colorPresenceSql('c', 'B')} AS has_black, {$this->colorPresenceSql('c', 'R')} AS has_red, {$this->colorPresenceSql('c', 'G')} AS has_green FROM card c";
+        if ($where !== []) {
+            $sql .= ' WHERE '.implode(' AND ', $where);
+        }
+        $sql .= "\n    ORDER BY {$printingPartitionSql}, search_rank ASC, language_rank ASC, c.scryfall_id ASC, c.name ASC\n";
+        $sql .= <<<'SQL'
+    ) AS distinct_printings
+) AS counted_printings
+SQL;
+        $sql .= "\nORDER BY ".$this->searchSortOrderSql($sort)."\n";
+        $sql .= sprintf(' LIMIT %d OFFSET %d', $lookupLimit, ($page - 1) * $limit);
+        $rows = $entityManager->getConnection()->fetchAllAssociative($sql, $params, $types);
+
+        return [
+            'ids' => array_values(array_map(static fn (array $row): string => (string) $row['id'], $rows)),
+            'total' => $rows !== [] ? (int) $rows[0]['total_count'] : 0,
+        ];
+    }
+
+    #[Route('/cards/search/options', methods: ['GET'])]
+    public function searchOptions(Request $request, CardSearchOptionsProvider $optionsProvider): JsonResponse
+    {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
+        return $this->json($optionsProvider->options($requestedLanguage));
     }
 
     #[Route('/cards/resolve', methods: ['GET'])]
@@ -216,6 +473,32 @@ SQL;
         return $this->json([
             'selectedCardLanguage' => LanguageCatalog::normalize($user?->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE,
             'data' => $cardsLanguage->languageCoverage(),
+        ]);
+    }
+
+    #[Route('/cards/{scryfallId}/printings', methods: ['GET'])]
+    public function printings(string $scryfallId, Request $request, EntityManagerInterface $entityManager, CardLocalizationService $localization, CardPrintVersionProvider $printVersions): JsonResponse
+    {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
+        $card = $entityManager->getRepository(Card::class)->findOneBy(['scryfallId' => $scryfallId]);
+        if (!$card instanceof Card) {
+            return $this->fail('Card not found.', 404);
+        }
+
+        return $this->json([
+            'scryfallId' => $card->scryfallId(),
+            'data' => $localization->localizeCardPayloads(
+                array_map(
+                    static fn (Card $print): array => $print->toArray(),
+                    $printVersions->printVersionCards($card, $entityManager, $requestedLanguage),
+                ),
+                $requestedLanguage,
+                true,
+            ),
         ]);
     }
 
@@ -295,6 +578,27 @@ SQL;
         return is_string($host) && (str_ends_with($host, '.scryfall.io') || $host === 'scryfall.io');
     }
 
+    private function searchPageCacheKey(Request $request): string
+    {
+        $params = $request->query->all();
+        $this->sortCacheKeyParams($params);
+
+        return 'cards.search.page.v5.'.hash('xxh128', json_encode($params) ?: '');
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     */
+    private function sortCacheKeyParams(array &$params): void
+    {
+        ksort($params);
+        foreach ($params as &$value) {
+            if (is_array($value)) {
+                $this->sortCacheKeyParams($value);
+            }
+        }
+    }
+
     private function requestedLanguage(Request $request): string|false|null
     {
         if (!$request->query->has('lang')) {
@@ -347,10 +651,10 @@ SQL;
     private function searchBuckets(string $requestedLanguage): array
     {
         if ($requestedLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
-            return ['english', 'common'];
+            return ['english', 'common', 'all'];
         }
 
-        return ['requested', 'english', 'common'];
+        return ['requested', 'english', 'common', 'all'];
     }
 
     /**
@@ -370,7 +674,9 @@ SQL;
         array $baseTypes,
         array $patterns,
         int $limit,
+        int $offsetLimit,
         int $page,
+        string $sort,
     ): array {
         $params = $baseParams;
         $types = $baseTypes;
@@ -400,6 +706,72 @@ FROM (
         COALESCE(LOWER(c.mana_cost), '')
     ) c.id, c.name,
 SQL;
+        $sql .= " c.mana_value, c.set_name, c.rarity, {$this->rarityRankSql('c.rarity')} AS rarity_rank, {$searchRankSql} AS search_rank, {$languageRankSql} AS language_rank, {$this->colorCountSql('c')} AS color_count, {$this->colorPresenceSql('c', 'W')} AS has_white, {$this->colorPresenceSql('c', 'U')} AS has_blue, {$this->colorPresenceSql('c', 'B')} AS has_black, {$this->colorPresenceSql('c', 'R')} AS has_red, {$this->colorPresenceSql('c', 'G')} AS has_green FROM card c";
+        if ($where !== []) {
+            $sql .= ' WHERE '.implode(' AND ', $where);
+        }
+        $sql .= <<<'SQL'
+    ORDER BY
+        c.normalized_name ASC,
+        COALESCE(LOWER(c.type_line), '') ASC,
+        COALESCE(LOWER(c.mana_cost), '') ASC,
+        search_rank ASC,
+        language_rank ASC,
+        c.scryfall_id ASC,
+        c.name ASC
+SQL;
+        $sql .= ') AS distinct_cards';
+        $sql .= "\nORDER BY ".$this->searchSortOrderSql($sort)."\n";
+        $sql .= sprintf(' LIMIT %d OFFSET %d', $limit, ($page - 1) * $offsetLimit);
+
+        return [$sql, $params, $types];
+    }
+
+    /**
+     * @param list<string> $filters
+     * @param array<string,mixed> $baseParams
+     * @param array<string,mixed> $baseTypes
+     * @param array{exact:string,prefix:string,contains:?string,useContains:bool} $patterns
+     *
+     * @return array{0:string,1:array<string,mixed>,2:array<string,mixed>}
+     */
+    private function buildBucketedSearchCountSql(
+        EntityManagerInterface $entityManager,
+        string $bucket,
+        ?string $requestedLanguage,
+        array $filters,
+        array $baseParams,
+        array $baseTypes,
+        array $patterns,
+    ): array {
+        $params = $baseParams;
+        $types = $baseTypes;
+        $where = $filters;
+
+        $params['queryExactFolded'] = $patterns['exact'];
+        $params['queryPrefixFolded'] = $patterns['prefix'];
+        if (is_string($patterns['contains'])) {
+            $params['queryContainsFolded'] = $patterns['contains'];
+        }
+
+        $languageScope = $this->searchBucketScopeSql($bucket, $requestedLanguage, $params, $types);
+        if ($languageScope !== null) {
+            $where[] = $languageScope;
+        }
+
+        $where[] = $this->indexedSearchCandidateSql($entityManager, $bucket, $requestedLanguage, (bool) $patterns['useContains'], $params, $types);
+        $searchRankSql = $this->indexedSearchRankSql($entityManager, $bucket, $requestedLanguage, $params, $types);
+        $languageRankSql = $this->searchBucketRankSql($bucket, $requestedLanguage, $params, $types);
+
+        $sql = <<<'SQL'
+SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT ON (
+        c.normalized_name,
+        COALESCE(LOWER(c.type_line), ''),
+        COALESCE(LOWER(c.mana_cost), '')
+    ) c.id,
+SQL;
         $sql .= " {$searchRankSql} AS search_rank, {$languageRankSql} AS language_rank FROM card c";
         if ($where !== []) {
             $sql .= ' WHERE '.implode(' AND ', $where);
@@ -414,9 +786,7 @@ SQL;
         c.scryfall_id ASC,
         c.name ASC
 ) AS distinct_cards
-ORDER BY search_rank ASC, language_rank ASC, name ASC
 SQL;
-        $sql .= sprintf(' LIMIT %d OFFSET %d', $limit, ($page - 1) * $limit);
 
         return [$sql, $params, $types];
     }
@@ -506,6 +876,16 @@ SQL, $alias),
                 $patternParam,
             );
         }
+        if ($this->printLocaleTablesAvailable($entityManager)) {
+            $candidateQueries[] = sprintf(
+                'SELECT c_search.id FROM card c_search INNER JOIN card_print_locale locale_any ON locale_any.print_scryfall_id = c_search.scryfall_id WHERE %s(%s LIKE %s OR %s LIKE %s)',
+                $scopePrefix,
+                $this->foldedSearchSql("COALESCE(locale_any.name, '')"),
+                $patternParam,
+                $this->foldedSearchSql("COALESCE(locale_any.printed_name, '')"),
+                $patternParam,
+            );
+        }
 
         return 'c.id IN (SELECT matched.id FROM ('.implode(' UNION ', $candidateQueries).') AS matched)';
     }
@@ -541,6 +921,18 @@ SQL, $alias),
                 $this->localizedBucketScopeSql($entityManager, $bucket, $requestedLanguage, $params, $types, 'locale_prefix'),
                 $this->foldedSearchSql("COALESCE(locale_prefix.name, '')"),
                 $this->foldedSearchSql("COALESCE(locale_prefix.printed_name, '')"),
+            );
+        }
+        if ($this->printLocaleTablesAvailable($entityManager)) {
+            $exactSearchConditions[] = sprintf(
+                'c.scryfall_id IN (SELECT locale_any_exact.print_scryfall_id FROM card_print_locale locale_any_exact WHERE %s = :queryExactFolded OR %s = :queryExactFolded)',
+                $this->foldedSearchSql("COALESCE(locale_any_exact.name, '')"),
+                $this->foldedSearchSql("COALESCE(locale_any_exact.printed_name, '')"),
+            );
+            $prefixSearchConditions[] = sprintf(
+                'c.scryfall_id IN (SELECT locale_any_prefix.print_scryfall_id FROM card_print_locale locale_any_prefix WHERE %s LIKE :queryPrefixFolded OR %s LIKE :queryPrefixFolded)',
+                $this->foldedSearchSql("COALESCE(locale_any_prefix.name, '')"),
+                $this->foldedSearchSql("COALESCE(locale_any_prefix.printed_name, '')"),
             );
         }
 
@@ -673,6 +1065,114 @@ END
 SQL, $alias);
     }
 
+    private function setPrintingLanguageRankSql(?string $requestedLanguage, array &$params, string $alias = 'c'): string
+    {
+        $cases = [];
+        $nextRank = 0;
+
+        if ($requestedLanguage !== null) {
+            $params['setPrintingRequestedLang'] = $requestedLanguage;
+            $cases[] = sprintf('WHEN %s.lang = :setPrintingRequestedLang THEN %d', $alias, $nextRank++);
+        }
+
+        $params['setPrintingDefaultLang'] = LanguageCatalog::DEFAULT_LANGUAGE;
+        if ($requestedLanguage !== LanguageCatalog::DEFAULT_LANGUAGE) {
+            $cases[] = sprintf('WHEN %s.lang = :setPrintingDefaultLang THEN %d', $alias, $nextRank++);
+        } elseif ($requestedLanguage === null) {
+            $cases[] = sprintf('WHEN %s.lang = :setPrintingDefaultLang THEN %d', $alias, $nextRank++);
+        }
+
+        foreach (LanguageCatalog::commonPrintLanguages() as $language) {
+            $cases[] = sprintf("WHEN %s.lang = '%s' THEN %d", $alias, $language, $nextRank++);
+        }
+
+        $cases[] = sprintf('WHEN %s.lang IS NOT NULL THEN %d', $alias, $nextRank++);
+        $cases[] = sprintf('WHEN %s.lang IS NULL THEN %d', $alias, $nextRank);
+
+        return "CASE\n    ".implode("\n    ", $cases)."\nEND";
+    }
+
+    private function cardSearchEntryAvailable(EntityManagerInterface $entityManager, string $language): bool
+    {
+        try {
+            $connection = $entityManager->getConnection();
+            $entryTable = $connection->fetchOne("SELECT to_regclass('public.card_search_entry')");
+            if (!is_string($entryTable) || $entryTable === '') {
+                return false;
+            }
+
+            return (bool) $connection->fetchOne(
+                'SELECT EXISTS (SELECT 1 FROM card_search_entry WHERE lang = :lang LIMIT 1)',
+                ['lang' => $language],
+            );
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function searchRequestsGameplayCatalog(Request $request): bool
+    {
+        $gameplayKind = trim((string) $request->query->get('gameplayKind', ''));
+        $tokenOnly = filter_var($request->query->get('tokenOnly'), FILTER_VALIDATE_BOOLEAN);
+
+        return $gameplayKind !== '' || $tokenOnly;
+    }
+
+    private function searchRequestsSetPrintings(Request $request): bool
+    {
+        return trim((string) $request->query->get('sets', '')) !== '';
+    }
+
+    private function searchRequestsColorSort(string $sort): bool
+    {
+        return $sort === 'colors';
+    }
+
+    private function searchSortOrderSql(string $sort): string
+    {
+        return match ($sort) {
+            'colors' => 'color_count ASC, has_white DESC, has_blue DESC, has_black DESC, has_red DESC, has_green DESC, name ASC',
+            'name_asc' => 'name ASC',
+            'name_desc' => 'name DESC',
+            'mana_value_asc' => 'mana_value ASC NULLS LAST, name ASC',
+            'mana_value_desc' => 'mana_value DESC NULLS LAST, name ASC',
+            default => 'search_rank ASC, language_rank ASC, name ASC',
+        };
+    }
+
+    private function searchEntrySortOrderSql(string $sort): string
+    {
+        return match ($sort) {
+            'name_asc' => 'e.sort_name ASC, e.name ASC',
+            'name_desc' => 'e.sort_name DESC, e.name DESC',
+            'mana_value_asc' => 'e.mana_value ASC NULLS LAST, e.sort_name ASC, e.name ASC',
+            'mana_value_desc' => 'e.mana_value DESC NULLS LAST, e.sort_name ASC, e.name ASC',
+            default => 'search_rank ASC, language_rank ASC, e.sort_name ASC, e.name ASC',
+        };
+    }
+
+    private function rarityRankSql(string $expression): string
+    {
+        return sprintf(
+            "CASE LOWER(COALESCE(%s, '')) WHEN 'mythic' THEN 0 WHEN 'rare' THEN 1 WHEN 'uncommon' THEN 2 WHEN 'common' THEN 3 ELSE 9 END",
+            $expression,
+        );
+    }
+
+    private function colorCountSql(string $alias): string
+    {
+        return sprintf("jsonb_array_length(COALESCE(%s.colors::jsonb, '[]'::jsonb))", $alias);
+    }
+
+    private function colorPresenceSql(string $alias, string $color): string
+    {
+        return sprintf(
+            "CASE WHEN COALESCE(%s.colors::jsonb, '[]'::jsonb) @> '[\"%s\"]'::jsonb THEN 1 ELSE 0 END",
+            $alias,
+            $color,
+        );
+    }
+
     /**
      * @param list<string> $ids
      *
@@ -710,6 +1210,8 @@ SELECT
     layout,
     commander_legal,
     set_code,
+    set_name,
+    rarity,
     collector_number,
     lang,
     printed_name,
@@ -773,6 +1275,8 @@ SQL,
             'layout' => $this->nullableString($row['layout'] ?? null) ?? 'normal',
             'commanderLegal' => (bool) ($row['commander_legal'] ?? false),
             'set' => $this->nullableString($row['set_code'] ?? null),
+            'setName' => $this->nullableString($row['set_name'] ?? null),
+            'rarity' => $this->nullableString($row['rarity'] ?? null),
             'collectorNumber' => $this->nullableString($row['collector_number'] ?? null),
             'lang' => $this->nullableString($row['lang'] ?? null),
             'printedName' => $printedName,

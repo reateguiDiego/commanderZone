@@ -1,0 +1,31 @@
+:host {
+  display: contents;
+}
+
+.global-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 13050;
+  display: grid;
+  place-items: center;
+  min-width: 100vw;
+  min-height: 100dvh;
+  background: rgb(var(--cz-bg-rgb) / 42%);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
+.spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid rgb(var(--cz-text-rgb) / 22%);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

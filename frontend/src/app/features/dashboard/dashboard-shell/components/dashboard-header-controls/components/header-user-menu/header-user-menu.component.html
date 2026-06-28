@@ -1,14 +1,15 @@
 <div class="header-menu-dropdown" [class.open]="menuOpen()">
-  <button czButton="icon"
-    class="icon-button"
-    type="button"
-    [title]="menuLabel()"
-    [attr.aria-label]="headerMenuLabel()"
-    [attr.aria-expanded]="menuOpen()"
-    (click)="toggleMenu()"
-  >
-    <lucide-icon name="menu" size="18" />
-  </button>
+  <app-tooltip [text]="menuLabel()">
+    <button czButton="icon"
+      class="icon-button"
+      type="button"
+      [attr.aria-label]="headerMenuLabel()"
+      [attr.aria-expanded]="menuOpen()"
+      (click)="toggleMenu()"
+    >
+      <lucide-icon name="menu" size="18" />
+    </button>
+  </app-tooltip>
 
   @if (menuOpen()) {
     <section class="header-menu-panel" role="menu" [attr.aria-label]="userMenuLabel()">

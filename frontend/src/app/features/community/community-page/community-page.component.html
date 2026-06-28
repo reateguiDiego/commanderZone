@@ -1,3 +1,66 @@
 <section class="community-page">
-  <p>¡Hello world! WIP: community-page</p>
+  <header class="community-hero">
+    <div class="community-hero-copy">
+      <h1>{{ 'community.home.title' | runtimeTranslate }}</h1>
+      <p>{{ 'community.home.subtitle' | runtimeTranslate }}</p>
+      <app-hero-rule />
+    </div>
+  </header>
+
+  @if (loading()) {
+    <app-global-loader />
+  } @else if (error()) {
+    <p class="notice error">{{ error()! | runtimeTranslate }}</p>
+  } @else if (home()) {
+    <section class="community-preview-grid">
+      <app-card-preview-section
+        [title]="commandersTitleKey()"
+        viewMoreLabel="community.home.viewMore"
+        [viewMoreLink]="'/community/top-commanders'"
+        footerNote="navigation.dashboard.dashboardTopCommanders.communityPopularity"
+        ariaLabel="community.home.commandersAriaLabel"
+        [items]="featuredCommanders()"
+        icon="trophy"
+        [compact]="true"
+        [smallScreenTextMode]="true"
+        [mobileHeaderOnly]="true"
+        typeDisplayMode="primary"
+      />
+
+      <app-card-preview-section
+        [title]="cardsTitleKey()"
+        viewMoreLabel="community.home.viewMore"
+        [viewMoreLink]="'/community/top-cards'"
+        footerNote="navigation.dashboard.dashboardTopCommanders.communityPopularity"
+        ariaLabel="community.home.cardsAriaLabel"
+        [items]="featuredCards()"
+        icon="sparkles"
+        [compact]="true"
+        [smallScreenTextMode]="true"
+        [mobileHeaderOnly]="true"
+        typeDisplayMode="primary"
+      />
+    </section>
+
+    <section class="community-section">
+      <div class="community-section-header">
+        <div>
+          <h2>{{ 'community.home.decksSection.title' | runtimeTranslate }}</h2>
+        </div>
+        <a
+          czButton="primary"
+          czButtonSize="sm"
+          class="primary-button compact"
+          routerLink="/community/decks"
+        >
+          {{ 'community.home.decksButton' | runtimeTranslate }}
+        </a>
+      </div>
+      @if (featuredDecks().length > 0) {
+        <app-community-deck-grid [decks]="featuredDecks()" (deckSelected)="openDeck($event)" />
+      } @else {
+        <p class="notice">{{ 'community.home.decksEmpty' | runtimeTranslate }}</p>
+      }
+    </section>
+  }
 </section>

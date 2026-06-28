@@ -64,8 +64,8 @@ describe('PasswordResetPageComponent', () => {
     const component = fixture.componentInstance;
     component.resetForm.setValue({
       email: 'player@example.test',
-      newPassword: 'Password456',
-      confirmPassword: 'Password456',
+      newPassword: 'Password456!',
+      confirmPassword: 'Password456!',
     });
 
     await component.submitReset();
@@ -73,9 +73,9 @@ describe('PasswordResetPageComponent', () => {
     expect(authApi.confirmPasswordReset).toHaveBeenCalledWith({
       email: 'player@example.test',
       token: 'reset-token',
-      newPassword: 'Password456',
+      newPassword: 'Password456!',
     });
-    expect(authStore.login).toHaveBeenCalledWith('player@example.test', 'Password456');
+    expect(authStore.login).toHaveBeenCalledWith('player@example.test', 'Password456!');
     expect(component.resetSuccess()).toBe(true);
   });
 
@@ -84,8 +84,8 @@ describe('PasswordResetPageComponent', () => {
     const component = fixture.componentInstance;
     component.resetForm.setValue({
       email: 'player@example.test',
-      newPassword: 'Password456',
-      confirmPassword: 'Password456',
+      newPassword: 'Password456!',
+      confirmPassword: 'Password456!',
     });
 
     await component.submitReset();

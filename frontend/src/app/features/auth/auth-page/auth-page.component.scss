@@ -66,43 +66,12 @@
   gap: 1rem;
   align-content: start;
   padding: clamp(0.9rem, 2.4vw, 1.25rem);
-  border: 1px solid rgb(var(--cz-accent-rgb) / 24%);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 84%), rgb(var(--cz-bg-rgb) / 72%));
-  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%), 0 18px 44px rgb(var(--cz-bg-rgb) / 28%);
-  backdrop-filter: blur(12px);
 }
 
 .form-stack {
   display: grid;
   align-content: start;
   gap: 0.9rem;
-}
-
-.segmented {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  padding: 0.25rem;
-  border: 1px solid rgb(var(--cz-accent-rgb) / 22%);
-  border-radius: 999px;
-  background: rgb(var(--cz-bg-rgb) / 72%);
-}
-
-.segmented button {
-  min-height: 2.75rem;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font-weight: 800;
-  cursor: pointer;
-  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
-}
-
-.segmented button.active {
-  background: linear-gradient(135deg, rgb(var(--cz-secondary-rgb) / 100%), rgb(var(--cz-accent-rgb) / 100%));
-  color: var(--cz-text);
-  box-shadow: 0 8px 22px rgb(var(--cz-secondary-rgb) / 25%);
 }
 
 label {
@@ -175,13 +144,63 @@ input:focus {
   text-transform: none;
 }
 
-.field-error,
-.availability.taken {
+.field-feedback-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 1rem;
+}
+
+.field-feedback-messages {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.character-counter {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1rem;
+  text-transform: none;
+}
+
+.password-requirements {
+  display: grid;
+  gap: 0.28rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.password-requirements li {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-height: 1rem;
+  color: var(--cz-warning);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.password-requirements li.met {
+  color: var(--cz-success, #42c878);
+}
+
+.field-error {
   color: var(--cz-primary);
 }
 
+.availability.taken {
+  color: var(--cz-warning);
+}
+
 .availability.available {
-  color: var(--cz-primary);
+  color: var(--cz-success);
 }
 
 .availability.muted {
@@ -208,6 +227,10 @@ input:focus {
 }
 
 @media (max-width: 720px) {
+  .auth-screen {
+    padding-block: 0;
+  }
+
   .auth-panel {
     grid-template-columns: 1fr;
     border-radius: 22px;

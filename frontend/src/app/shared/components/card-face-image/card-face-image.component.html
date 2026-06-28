@@ -1,0 +1,27 @@
+<div #stage class="card-face-image__stage">
+  @if (imageUrl(); as image) {
+    <img class="card-face-image__visual" [src]="image" [alt]="altText()" [loading]="loading()" />
+  } @else {
+    <span class="card-face-image__visual card-face-image__fallback">{{ displayName() }}</span>
+  }
+</div>
+
+@if (showToggle() && hasAlternateFace()) {
+  <span
+    class="card-face-image__toggle"
+    (pointerdown)="$event.stopPropagation()"
+    (pointerup)="$event.stopPropagation()"
+    (mousedown)="$event.stopPropagation()"
+    (mouseup)="$event.stopPropagation()"
+    (touchstart)="$event.stopPropagation()"
+    (touchend)="$event.stopPropagation()"
+    (click)="$event.stopPropagation()"
+    (contextmenu)="$event.preventDefault(); $event.stopPropagation()"
+  >
+    <app-card-face-toggle-button
+      tone="overlay"
+      [size]="toggleSize()"
+      (pressed)="toggleFace($event)"
+    />
+  </span>
+}

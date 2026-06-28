@@ -1,0 +1,112 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.community-preview-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.community-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.community-preview-toolbar__filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.community-preview-toolbar__filters app-format-select {
+  min-width: min(12rem, 100%);
+  --format-select-menu-width: max-content;
+  --format-select-menu-min-width: 16rem;
+  --format-select-menu-max-width: min(24rem, calc(100vw - 2rem));
+  --format-select-menu-overflow-x: hidden;
+  --format-select-option-white-space: normal;
+}
+
+.community-preview-toolbar__search {
+  align-self: end;
+  min-height: 2.75rem;
+}
+
+.community-hero-copy {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.community-hero {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.community-preview-summary {
+  border: 1px solid rgb(var(--cz-primary-rgb) / 22%);
+  border-radius: 8px;
+  padding: 0.75rem 0.85rem;
+  background:
+    linear-gradient(135deg, rgb(var(--cz-surface-rgb) / 72%), rgb(var(--cz-bg-rgb) / 66%)),
+    var(--cz-bg);
+  box-shadow:
+    0 14px 34px rgb(0 0 0 / 12%),
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%);
+}
+
+.community-preview-summary__copy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.community-preview-summary__copy span {
+  color: var(--cz-accent);
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.community-preview-summary__copy strong {
+  color: var(--cz-info);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.community-hero-copy h1,
+.community-hero-copy p {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .community-preview-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .community-preview-toolbar__filters {
+    grid-template-columns: 1fr;
+  }
+
+  .community-preview-summary__copy {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .community-preview-toolbar__filters app-format-select {
+    --format-select-menu-min-width: min(16rem, calc(100vw - 2rem));
+    --format-select-menu-max-width: calc(100vw - 2rem);
+  }
+
+  .community-preview-toolbar__search {
+    min-height: 2.45rem;
+  }
+}

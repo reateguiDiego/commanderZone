@@ -3,12 +3,14 @@ import { ChangeDetectionStrategy, Component, Injector, PLATFORM_ID, computed, in
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthStore } from '../core/auth/auth.store';
+import { GlobalLoadingFeaturePolicy } from '../core/loading/global-loading-feature-policy.service';
 import { LoadingStore } from '../core/loading/loading.store';
 import { findSeoRouteByPath } from '../core/localization/seo-routes';
 import { CookieConsentBannerComponent } from '../core/privacy/cookie-consent-banner/cookie-consent-banner.component';
 import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
 import { FooterDisclaimerComponent } from '../shared/components/footer-disclaimer/footer-disclaimer.component';
 import { NoindexFooterDisclaimerComponent } from '../shared/components/noindex-footer-disclaimer/noindex-footer-disclaimer.component';
+import { GlobalLoaderComponent } from '../shared/ui/global-loader/global-loader.component';
 import { AppThemeService } from '../core/theme/app-theme.service';
 import { AppBackgroundService } from '../core/ui/app-background.service';
 import { RouteStylesService } from '../core/ui/route-styles.service';
@@ -18,6 +20,7 @@ import { RouteStylesService } from '../core/ui/route-styles.service';
   imports: [
     CookieConsentBannerComponent,
     FooterDisclaimerComponent,
+    GlobalLoaderComponent,
     NoindexFooterDisclaimerComponent,
     RouterOutlet,
   ],
@@ -34,13 +37,19 @@ export class App {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly theme = inject(AppThemeService);
   private readonly routeStyles = inject(RouteStylesService);
+  private readonly globalLoadingFeaturePolicy = inject(GlobalLoadingFeaturePolicy);
   readonly loading = inject(LoadingStore);
   private readonly currentPath = signal(this.initialPath());
   private readonly navigationLoading = signal(this.shouldShowInitialNavigationLoading(this.currentPath()));
   readonly showDisclaimer = computed(() => !this.isDisclaimerHiddenPath(this.currentPath()));
   readonly showNoindexDisclaimer = computed(() => this.isNoindexFooterDisclaimerPath(this.currentPath()));
   readonly showGlobalLoading = computed(
-    () => (this.loading.active() || this.navigationLoading()) && !this.isSeoLandingPath(this.currentPath()),
+    () => this.navigationLoading()
+      || (
+        this.loading.active()
+        && !this.isSeoLandingPath(this.currentPath())
+        && !this.globalLoadingFeaturePolicy.skipsFeatureForUrl(this.currentPath())
+      ),
   );
   readonly showFooterDisclaimer = computed(() => this.showDisclaimer() && !this.showGlobalLoading());
   readonly showNoindexFooterDisclaimer = computed(() => this.showNoindexDisclaimer() && !this.showGlobalLoading());
@@ -142,6 +151,7 @@ export class App {
     }
 
     return [
+      'contact',
       'auth',
       'cards',
       'community',
@@ -164,10 +174,22 @@ export class App {
       return false;
     }
 
+    if (this.isAuthEntryPath(path)) {
+      return false;
+    }
+
     if (firstSegment === 'table-assistant' && segments.length > 1) {
       return false;
     }
 
     return this.isNoindexAppPath(path);
+  }
+
+  private isAuthEntryPath(path: string): boolean {
+    const segments = path.split('/').filter(Boolean);
+
+    return segments.length === 2
+      && segments[0] === 'auth'
+      && ['login', 'register'].includes(segments[1]);
   }
 }

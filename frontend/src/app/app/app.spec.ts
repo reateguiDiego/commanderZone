@@ -35,8 +35,10 @@ describe('App', () => {
           { path: 'en/faq', component: EmptyRouteComponent },
           { path: 'en/play-commander-online', component: EmptyRouteComponent },
           { path: 'auth/login', component: EmptyRouteComponent },
+          { path: 'auth/register', component: EmptyRouteComponent },
           { path: 'cards', component: EmptyRouteComponent },
           { path: 'community', component: EmptyRouteComponent },
+          { path: 'contact', component: EmptyRouteComponent },
           { path: 'dashboard', component: EmptyRouteComponent },
           { path: 'decks', component: EmptyRouteComponent },
           {
@@ -47,6 +49,11 @@ describe('App', () => {
           { path: 'table-assistant', component: EmptyRouteComponent },
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
+          {
+            path: 'games/:id/slow',
+            component: EmptyRouteComponent,
+            canActivate: [() => new Promise<boolean>((resolve) => { resolveSlowNavigation = resolve; })],
+          },
         ]),
       ],
     }).compileComponents();
@@ -107,17 +114,11 @@ describe('App', () => {
     const router = TestBed.inject(Router);
     const fixture = TestBed.createComponent(App);
 
-    await router.navigateByUrl('/auth/login');
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain('CommanderZone is unofficial Fan Content');
-
     await router.navigateByUrl('/dashboard');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain('CommanderZone is unofficial Fan Content');
 
     await router.navigateByUrl('/decks');
     fixture.detectChanges();
@@ -148,6 +149,27 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+  });
+
+  it('hides both footer disclaimers on auth entry routes', async () => {
+    const router = TestBed.inject(Router);
+    const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl('/auth/login');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+
+    await router.navigateByUrl('/auth/register');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
   });
 
   it('pushes the noindex disclaimer below the first viewport only on noindex footer routes', async () => {
@@ -196,16 +218,30 @@ describe('App', () => {
     loading.stop();
   });
 
-  it('keeps the global loading overlay on non-SEO app routes', async () => {
+  it('keeps the global loading overlay on app routes that do not own local loading', async () => {
     const router = TestBed.inject(Router);
     const loading = TestBed.inject(LoadingStore);
     const fixture = TestBed.createComponent(App);
 
     loading.start();
-    await router.navigateByUrl('/table-assistant');
+    await router.navigateByUrl('/dashboard');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+
+    loading.stop();
+  });
+
+  it('hides the global loading overlay on features with local loading ownership', async () => {
+    const router = TestBed.inject(Router);
+    const loading = TestBed.inject(LoadingStore);
+    const fixture = TestBed.createComponent(App);
+
+    loading.start();
+    await router.navigateByUrl('/games/game-1');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
 
     loading.stop();
   });
@@ -216,7 +252,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
 
     loading.start();
-    await router.navigateByUrl('/decks');
+    await router.navigateByUrl('/dashboard');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
@@ -257,11 +293,36 @@ describe('App', () => {
     await navigation;
   });
 
+  it('shows the global loader while navigating to a feature with local request loading', async () => {
+    const router = TestBed.inject(Router);
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    await router.navigateByUrl('/');
+
+    const navigation = router.navigateByUrl('/games/game-1/slow');
+    await vi.waitFor(() => expect(resolveSlowNavigation).toBeTypeOf('function'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+
+    resolveSlowNavigation?.(true);
+    await navigation;
+  });
+
   it('toggles dashboard background mode and only applies a session background on private shell routes', async () => {
     const router = TestBed.inject(Router);
     TestBed.createComponent(App);
 
     await router.navigateByUrl('/');
+    expect(document.body.classList.contains('dashboard-background')).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
+
+    await router.navigateByUrl('/dashboard');
+    expect(document.body.classList.contains('dashboard-background')).toBe(true);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background'))
+      .toMatch(/^url\("\/assets\/images\/backgrounds\/sunrise\/bg-\d+\.webp"\)$/);
+
+    await router.navigateByUrl('/contact');
     expect(document.body.classList.contains('dashboard-background')).toBe(false);
     expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
 

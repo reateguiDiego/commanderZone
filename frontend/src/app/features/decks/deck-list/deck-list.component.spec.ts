@@ -161,11 +161,25 @@ describe('DeckListComponent', () => {
     const pills = Array.from(
       fixture.nativeElement.querySelectorAll('.visibility-pill') as NodeListOf<HTMLElement>,
     );
+    const tooltipTriggers = Array.from(
+      fixture.nativeElement.querySelectorAll('app-tooltip .cz-tooltip') as NodeListOf<HTMLElement>,
+    );
+    tooltipTriggers.forEach((trigger) => {
+      trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    });
+    fixture.detectChanges();
 
     expect(pills).toHaveLength(2);
+    const tooltipTexts = Array.from(
+      fixture.nativeElement.querySelectorAll('app-tooltip .cz-tooltip__bubble') as NodeListOf<HTMLElement>,
+    )
+      .map((bubble) => bubble.textContent?.trim())
+      .filter((value): value is string => !!value);
+
     expect(pills.map((pill) => pill.textContent?.trim())).toEqual(['', '']);
-    expect(pills.map((pill) => pill.getAttribute('title'))).toEqual(['Public', 'Private']);
     expect(pills.map((pill) => pill.getAttribute('aria-label'))).toEqual(['Public', 'Private']);
+    expect(tooltipTexts).toContain('Public');
+    expect(tooltipTexts).toContain('Private');
   });
 
   it('saves the selected edit folder with the deck update payload', async () => {
@@ -346,7 +360,7 @@ describe('DeckListComponent', () => {
     fixture.componentInstance.store.loading.set(false);
     fixture.detectChanges();
 
-    const editButton = fixture.nativeElement.querySelector('app-deck-list-card .deck-row-actions button[title="Edit deck"]') as HTMLButtonElement | null;
+    const editButton = fixture.nativeElement.querySelector('.deck-owner-card .deck-row-actions button') as HTMLButtonElement | null;
     const pointerDownAllowed = editButton?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
     const mouseDownAllowed = editButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     editButton?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
@@ -476,7 +490,7 @@ describe('DeckListComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.store.createModalOpen()).toBe(true);
-    expect(fixture.componentInstance.store.createSuccessPrimaryLabel()).toBe('Continue to rooms');
+    expect(fixture.componentInstance.store.createSuccessPrimaryLabel()).toBe('deckBuilder.deckList.continueToRooms');
   });
 
   it('continues to rooms after a deck flow started from a SEO CTA', () => {
@@ -542,9 +556,23 @@ describe('DeckListComponent', () => {
 
     expect(fixture.componentInstance.store.createModalOpen()).toBe(false);
     expect(fixture.componentInstance.store.createSuccessModalOpen()).toBe(true);
-    expect(fixture.componentInstance.store.createSuccessMessage()).toBe(
-      'This deck has been saved. It is now in your saved decks list, and you can edit it however you like. Good luck with your Commander deck!',
-    );
+    expect(fixture.componentInstance.store.createSuccessMessage()).toBe('deckBuilder.deckList.createSuccessMessage');
+  });
+
+  it('reloads the deck list when returning from the saved deck confirmation', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const reloadAll = vi.spyOn(fixture.componentInstance.store, 'reloadAll').mockResolvedValue(undefined);
+
+    fixture.componentInstance.store.createSuccessDeck.set(savedDeck());
+    fixture.componentInstance.store.createSuccessModalOpen.set(true);
+
+    await fixture.componentInstance.store.returnToDeckListFromSuccess();
+
+    expect(fixture.componentInstance.store.createSuccessModalOpen()).toBe(false);
+    expect(fixture.componentInstance.store.createSuccessDeck()).toBeNull();
+    expect(reloadAll).toHaveBeenCalledOnce();
   });
 
   it('hides commander and import fields when creating an empty deck', async () => {
@@ -873,8 +901,12 @@ Creatures (1)
     fixture.detectChanges();
 
     const shell = fixture.nativeElement.querySelector('.commander-autocomplete-shell') as HTMLElement | null;
+    const tooltipTrigger = fixture.nativeElement.querySelector('.commander-autocomplete-shell')?.closest('.cz-tooltip') as HTMLElement | null;
     expect(shell).not.toBeNull();
-    expect(shell?.title).toBe("You already have 2 commanders. You can't add more.");
+    tooltipTrigger?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    fixture.detectChanges();
+    const bubble = fixture.nativeElement.querySelector('.commander-autocomplete-shell')?.closest('app-tooltip')?.querySelector('.cz-tooltip__bubble') as HTMLElement | null;
+    expect(bubble?.textContent?.trim()).toBe("You already have 2 commanders. You can't add more.");
     expect(shell?.classList.contains('commander-autocomplete-shell-disabled')).toBe(true);
   });
 
@@ -921,6 +953,30 @@ Creatures (1)
 
     expect(component.commanderHoverPreview()).toBeNull();
     expect(component.store.selectedCommanders()).toEqual([]);
+  });
+
+  it('hides the commander preview when submitting the create modal', () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    const component = fixture.componentInstance;
+    vi.spyOn(component.store, 'submitCreateModal').mockImplementation(() => undefined);
+    component.commanderHoverPreview.set({ imageUrl: 'https://cards.test/atraxa.jpg', x: 100, y: 100 });
+
+    component.submitCreateModal();
+
+    expect(component.commanderHoverPreview()).toBeNull();
+    expect(component.store.submitCreateModal).toHaveBeenCalledOnce();
+  });
+
+  it('hides the commander preview when cancelling the create flow', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    const component = fixture.componentInstance;
+    vi.spyOn(component.store, 'cancelCreateFlow').mockResolvedValue(undefined);
+    component.commanderHoverPreview.set({ imageUrl: 'https://cards.test/atraxa.jpg', x: 100, y: 100 });
+
+    await component.cancelCreateFlow();
+
+    expect(component.commanderHoverPreview()).toBeNull();
+    expect(component.store.cancelCreateFlow).toHaveBeenCalledOnce();
   });
 
   it('replaces the create form with a single import warning when cards are missing', async () => {

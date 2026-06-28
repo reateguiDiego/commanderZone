@@ -7,7 +7,7 @@ import {
 export type RobotsMetaContent = 'index, follow' | 'noindex, follow' | 'noindex, nofollow';
 
 export function getPageRobotsMeta(pageKey: PageKey): RobotsMetaContent {
-  if (pageKey === 'legal') {
+  if (pageKey === 'legal' || pageKey === 'contact') {
     return 'noindex, follow';
   }
 

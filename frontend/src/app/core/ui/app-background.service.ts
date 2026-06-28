@@ -35,6 +35,9 @@ export class AppBackgroundService {
     }
 
     this.document.body.classList.toggle('dashboard-background', enabled);
+    if (enabled) {
+      this.applyBackground();
+    }
   }
 
   useNewSessionBackground(): void {

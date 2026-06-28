@@ -1,6 +1,7 @@
 import { gsap } from 'gsap';
 
 export type DeckFaceToggleAnimationSurface = 'card-image' | 'text-preview';
+const DECK_DESKTOP_LAYOUT_MAX_WIDTH = 1180;
 
 interface DeckFaceToggleAnimationOptions {
   readonly animateTrigger?: boolean;
@@ -11,7 +12,7 @@ export function runDeckFaceToggleAnimation(
   surface: DeckFaceToggleAnimationSurface,
   options: DeckFaceToggleAnimationOptions = {},
 ): void {
-  if (shouldReduceMotion()) {
+  if (shouldSkipDeckFaceAnimation()) {
     return;
   }
 
@@ -119,7 +120,19 @@ function htmlElement(source: EventTarget | null): HTMLElement | null {
 }
 
 function shouldReduceMotion(): boolean {
+  return matchesMedia('(prefers-reduced-motion: reduce)');
+}
+
+function shouldSkipDeckFaceAnimation(): boolean {
+  return shouldReduceMotion()
+    || matchesMedia(`(max-width: ${DECK_DESKTOP_LAYOUT_MAX_WIDTH}px)`)
+    || matchesMedia('(pointer: coarse)')
+    || matchesMedia('(any-pointer: coarse)')
+    || matchesMedia('(hover: none)');
+}
+
+function matchesMedia(query: string): boolean {
   return typeof window !== 'undefined'
     && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    && window.matchMedia(query).matches;
 }

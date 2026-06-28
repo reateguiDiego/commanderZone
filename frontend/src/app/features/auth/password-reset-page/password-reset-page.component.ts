@@ -1,19 +1,20 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { AUTH_PASSWORD_REGEX, AUTH_PASSWORD_REQUIREMENT_MESSAGE } from '../auth-password-policy';
+import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 @Component({
   selector: 'app-password-reset-page',
-  imports: [RuntimeTranslatePipe, ReactiveFormsModule, RouterLink, LucideAngularModule, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, ReactiveFormsModule, LucideAngularModule, CzButtonDirective, BackButtonComponent],
   templateUrl: './password-reset-page.component.html',
   styleUrl: './password-reset-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,21 +1,61 @@
 <section class="language-preferences">
-  <app-format-select
-    name="appLanguage"
-    [label]="appLanguageLabel()"
-    [options]="appLanguageOptions()"
-    [value]="appLanguage()"
-    (valueChange)="appLanguageChange.emit($event)"
-  />
+  <div class="language-preferences-actions">
+    <button
+      czButton="secondary"
+      class="language-action-button theme-language-action"
+      type="button"
+      (click)="themeChangeRequested.emit()"
+    >
+      {{ 'settings.dashboardSettingsModal.changeTheme' | runtimeTranslate }}
+    </button>
 
-  <app-format-select
-    name="cardLanguage"
-    [label]="cardLanguageLabel()"
-    [options]="cardLanguageOptions()"
-    [value]="cardLanguage()"
-    (valueChange)="cardLanguageChange.emit($event)"
-  />
+    <button
+      czButton="primary"
+      class="language-action-button premium-language-action"
+      type="button"
+      (click)="premiumRequested.emit()"
+    >
+      {{ 'settings.dashboardSettingsModal.becomePremium' | runtimeTranslate }}
+    </button>
 
-  @if (cardLanguageDisclaimer(); as disclaimer) {
-    <p class="app-disclaimer-callout">{{ disclaimer }}</p>
+    <button
+      czButton="secondary"
+      class="language-action-button change-password-button"
+      type="button"
+      [disabled]="passwordChangeDisabled()"
+      (click)="passwordChangeRequested.emit()"
+    >
+      {{ passwordChangeLabelKey() | runtimeTranslate }}
+    </button>
+  </div>
+
+  @if (passwordChangeError()) {
+    <span class="change-password-feedback error" aria-live="polite">
+      {{ 'settings.dashboardSettingsModal.passwordResetEmailError' | runtimeTranslate }}
+    </span>
+  }
+
+  @if (loading()) {
+    <app-global-loader />
+  } @else {
+    <app-format-select
+      name="appLanguage"
+      [label]="appLanguageLabel()"
+      [options]="appLanguageOptions()"
+      [value]="appLanguage()"
+      (valueChange)="appLanguageChange.emit($event)"
+    />
+
+    <app-format-select
+      name="cardLanguage"
+      [label]="cardLanguageLabel()"
+      [options]="cardLanguageOptions()"
+      [value]="cardLanguage()"
+      (valueChange)="cardLanguageChange.emit($event)"
+    />
+
+    @if (cardLanguageDisclaimer(); as disclaimer) {
+      <p class="app-disclaimer-callout">{{ disclaimer }}</p>
+    }
   }
 </section>

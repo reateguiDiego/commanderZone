@@ -74,6 +74,16 @@ describe('AppThemeService', () => {
     expect(documentRef.documentElement.getAttribute('data-theme')).toBe('sunrise');
   });
 
+  it('previews themes without persisting them locally', () => {
+    const service = TestBed.inject(AppThemeService);
+
+    service.previewTheme('mystic-grove');
+
+    expect(service.themeId()).toBe('mystic-grove');
+    expect(localStorage.getItem('commanderzone.theme')).toBeNull();
+    expect(documentRef.documentElement.getAttribute('data-theme')).toBe('mystic-grove');
+  });
+
   it('persists selected theme through the themes API', async () => {
     const themes = TestBed.inject(ThemesService);
     const service = TestBed.inject(AppThemeService);

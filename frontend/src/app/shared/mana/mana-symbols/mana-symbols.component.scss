@@ -1,3 +1,41 @@
+$simple-mana-cost-symbols:
+  '.ms-0',
+  '.ms-1',
+  '.ms-2',
+  '.ms-3',
+  '.ms-4',
+  '.ms-5',
+  '.ms-6',
+  '.ms-7',
+  '.ms-8',
+  '.ms-9',
+  '.ms-10',
+  '.ms-11',
+  '.ms-12',
+  '.ms-13',
+  '.ms-14',
+  '.ms-15',
+  '.ms-16',
+  '.ms-17',
+  '.ms-18',
+  '.ms-19',
+  '.ms-20',
+  '.ms-w',
+  '.ms-u',
+  '.ms-b',
+  '.ms-r',
+  '.ms-g',
+  '.ms-c',
+  '.ms-x',
+  '.ms-y',
+  '.ms-z',
+  '.ms-e',
+  '.ms-s',
+  '.ms-p',
+  '.ms-chaos',
+  '.ms-tap',
+  '.ms-untap';
+
 .mana-symbols {
   display: inline-flex;
   align-items: center;
@@ -7,8 +45,50 @@
 }
 
 .mana-symbols .ms {
+  --mana-symbol-optical-x: 0;
+  --mana-symbol-optical-y: 0;
+
   margin-inline: 0.05rem;
   font-size: 1.08em;
+}
+
+.mana-symbols .ms-cost:is(#{$simple-mana-cost-symbols}) {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3em;
+  height: 1.3em;
+  line-height: 1;
+}
+
+.mana-symbols .ms-cost:is(#{$simple-mana-cost-symbols})::before {
+  display: block;
+  line-height: 1;
+}
+
+.mana-symbols .ms-cost:is(#{$simple-mana-cost-symbols})::before {
+  transform: translate(var(--mana-symbol-optical-x), var(--mana-symbol-optical-y));
+}
+
+.mana-symbols .ms-w {
+  --mana-symbol-optical-x: -0.015em;
+  --mana-symbol-optical-y: 0.01em;
+}
+
+.mana-symbols .ms-u {
+  --mana-symbol-optical-y: -0.025em;
+}
+
+.mana-symbols .ms-b {
+  --mana-symbol-optical-y: 0.015em;
+}
+
+.mana-symbols .ms-r {
+  --mana-symbol-optical-x: -0.01em;
+}
+
+.mana-symbols .ms-g {
+  --mana-symbol-optical-x: -0.02em;
+  --mana-symbol-optical-y: 0.005em;
 }
 
 .mana-symbols.size-small {

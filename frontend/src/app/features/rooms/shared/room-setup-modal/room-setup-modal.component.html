@@ -93,22 +93,13 @@
 
       <div class="setup-modal-row">
         <div class="mulligan-toggle-field">
-          <span class="mulligan-toggle-label">{{ 'rooms.roomSetupControls.firstMulliganFree' | runtimeTranslate }}</span>
-          <button
-            type="button"
-            class="mulligan-toggle-button"
-            [class.is-on]="createFirstMulliganFree()"
-            [attr.aria-pressed]="createFirstMulliganFree()"
+          <app-toggle
+            [label]="'rooms.roomSetupControls.firstMulliganFree' | runtimeTranslate"
+            [description]="(createFirstMulliganFree() ? 'rooms.roomSetupControls.firstMulliganFreeOn' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate"
+            [checked]="createFirstMulliganFree()"
             [disabled]="actionsLocked()"
-            (click)="changeCreateFirstMulliganFree(!createFirstMulliganFree())"
-          >
-            <span class="mulligan-toggle-track" aria-hidden="true">
-              <span class="mulligan-toggle-thumb"></span>
-            </span>
-            <span class="mulligan-toggle-state">
-              {{ (createFirstMulliganFree() ? 'rooms.roomSetupControls.firstMulliganFreeOn' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate }}
-            </span>
-          </button>
+            (checkedChange)="changeCreateFirstMulliganFree($event)"
+          />
         </div>
 
         <app-game-setup-seats-control

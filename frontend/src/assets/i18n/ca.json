@@ -42,6 +42,9 @@
       "label": "Extras",
       "open": "Open extra actions",
       "menu": "Extra actions"
+    },
+    "navigation": {
+      "back": "Enrere"
     }
   },
   "navigation": {
@@ -99,7 +102,12 @@
       "login": "Login",
       "register": "Register",
       "email": "Email",
+      "emailOrUserName": "Email o nom d'usuari",
       "introduceUnEmailValido": "Introduce un email valido.",
+      "introduceUnEmailOUserNameValido": "Introdueix un email o un nom d'usuari valid.",
+      "invalidCredentials": "Email, nom d'usuari o password incorrectes.",
+      "tooManyLoginAttempts": "Massa intents de login fallits. Torna-ho a provar mes tard.",
+      "loginLockoutWarning": "Intent de login fallit {{ count }}/5. Si falles 5 intents, el login es bloquejara durant 15 minuts.",
       "password": "Password",
       "heOlvidadoMiContrasena": "He olvidado mi contrasena",
       "comprobandoEmail": "Comprobando email...",
@@ -107,23 +115,29 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
+      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
-      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula y numero.",
+      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula, numero y caracter especial.",
+      "passwordRequirements": {
+        "label": "Password requirements",
+        "minLength": "Minimo 8 caracteres",
+        "lowercase": "Minimo 1 letra minuscula",
+        "uppercase": "Minimo 1 letra mayuscula",
+        "number": "Minimo 1 numero",
+        "special": "Minimo 1 caracter especial"
+      },
       "confirmarPassword": "Confirmar password",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden."
+      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
+      "registrationCompletedCheckEmail": "Registre completat. Revisa el correu i confirma el teu compte."
     },
     "emailVerificationPage": {
-      "verificarEmail": "Verificar email",
-      "usaElTokenRecibidoParaActivarTu": "Usa el token recibido para activar tu cuenta.",
-      "registroCompletadoRevisaTuCorreoYConfirma": "Registro completado. Revisa tu correo y confirma tu cuenta.",
-      "tokenDeVerificacion": "Token de verificacion",
-      "emailVerificadoIniciandoSesion": "Email verificado. Iniciando sesion...",
-      "reenviarVerificacionEmail": "Reenviar verificacion (email)",
-      "siElEmailExisteYNoEsta": "Si el email existe y no esta verificado, se envio un nuevo correo.",
-      "volverAlLogin": "Volver al login"
+      "confirmingEmail": "Confirmant email",
+      "waitWhileWeConfirmYourAccount": "Espera mentre confirmem el teu compte.",
+      "couldNotConfirmEmail": "No s ha pogut confirmar l email",
+      "linkInvalidOrExpired": "L enllac de verificacio no es valid o ha caducat.",
+      "backToLogin": "Torna al login"
     },
     "passwordResetPage": {
       "recuperarContrasena": "Recuperar contrasena",
@@ -267,6 +281,15 @@
     "waiting": {
       "header": {
         "inviteFriends": "Invite friends"
+      }
+    }
+  },
+  "community": {
+    "detail": {
+      "saveConfirmation": {
+        "title": "Vols guardar aquest deck a la teva llista de decks?",
+        "confirm": "Confirma",
+        "cancel": "Cancel·la"
       }
     }
   },
@@ -890,6 +913,7 @@
       "playerAvatar": "Player avatar",
       "avatar": "Avatar",
       "name": "Name",
+      "becomePremium": "Fer-te premium",
       "email": "Email",
       "introduceUnEmailValido": "Introduce un email valido.",
       "comprobandoEmail": "Comprobando email...",
@@ -897,14 +921,38 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
+      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
       "deleteAccount": "Delete account",
       "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
       "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "changeTheme": "Canviar theme",
+      "gameSettings": {
+        "title": "Gameplay preferences",
+        "showManaHelperOnStartup": {
+          "label": "Show mana helper on startup",
+          "description": "Open the mana helper when a match starts."
+        },
+        "enableManaRow": {
+          "label": "Enable mana row",
+          "description": "Show the dedicated mana row during games."
+        },
+        "enableStackMana": {
+          "label": "Enable stack mana",
+          "description": "Keep mana available while resolving stacked actions."
+        },
+        "gameAnimations": {
+          "label": "Game animations",
+          "description": "Use visual movement and feedback animations during matches."
+        },
+        "chatNotificationSounds": {
+          "label": "Chat notification sounds",
+          "description": "Play a sound when new chat notifications arrive."
+        }
+      }
     },
     "settingsInitialAvatarOption": {
       "initialAvatarCustomization": "Initial avatar customization",
@@ -971,5 +1019,39 @@
     }
   },
   "toasts": {},
-  "emptyStates": {}
+  "emptyStates": {},
+  "contactPage": {
+    "meta": {
+      "title": "Contacte | CommanderZone",
+      "description": "Contacta amb CommanderZone per suport, errors, drets o consultes generals."
+    },
+    "hero": {
+      "title": "Contacte",
+      "description": "Envia'ns un missatge i el revisarem tan aviat com sigui possible."
+    },
+    "copy": {
+      "supportTitle": "Suport i drets",
+      "supportBody": "Fes servir aquest formulari per a suport, errors, privacitat o incid\u00e8ncies de drets. Si cal, tamb\u00e9 podem continuar per correu a {{ email }}.",
+      "includeTitle": "Qu\u00e8 incloure",
+      "includeBody": "Explica el problema amb claredat i afegeix qualsevol context \u00fatil de p\u00e0gina, sala, deck o captura. No envi\u00efs secrets ni dades de pagament."
+    },
+    "form": {
+      "nameLabel": "Nom",
+      "namePlaceholder": "El teu nom",
+      "nameError": "Introdueix el teu nom.",
+      "emailLabel": "Correu",
+      "emailPlaceholder": "tu@email.com",
+      "emailError": "Introdueix un correu v\u00e0lid.",
+      "subjectLabel": "Assumpte",
+      "subjectPlaceholder": "En qu\u00e8 et podem ajudar?",
+      "subjectError": "Introdueix un assumpte.",
+      "messageLabel": "Missatge",
+      "messagePlaceholder": "Escriu aqu\u00ed el teu missatge.",
+      "messageError": "Introdueix un missatge.",
+      "submit": "Enviar missatge",
+      "submitting": "Enviant...",
+      "submitSuccess": "El teu missatge s'ha enviat.",
+      "submitError": "No hem pogut enviar el teu missatge. Escriu-nos directament a {{ email }} o contacta'ns per un altre canal."
+    }
+  }
 }

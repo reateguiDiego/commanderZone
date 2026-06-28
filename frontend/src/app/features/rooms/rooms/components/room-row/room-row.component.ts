@@ -7,6 +7,7 @@ import { Room } from '../../../../../core/models/room.model';
 import { UserDisplayNameStyle } from '../../../../../core/models/user.model';
 import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 
 const PRIVATE_ANONYMOUS_OWNER_PLACEHOLDER = 'XXXX';
 const PRIVATE_ANONYMOUS_OWNER_NAME_STYLE: UserDisplayNameStyle = {
@@ -17,7 +18,7 @@ const PRIVATE_ANONYMOUS_OWNER_NAME_STYLE: UserDisplayNameStyle = {
 
 @Component({
   selector: 'app-room-row',
-  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, PlayerNameComponent, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, PlayerNameComponent, CzButtonDirective, TooltipComponent],
   templateUrl: './room-row.component.html',
   styleUrl: './room-row.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -47,7 +47,6 @@ describe('LegalPageComponent', () => {
       'Privacidad',
       'Cookies',
       'Términos',
-      'Contacto',
     ]);
     expect(element.textContent).not.toContain('Play Commander online with your pod');
   });
@@ -70,16 +69,4 @@ describe('LegalPageComponent', () => {
     expect(document.head.querySelector('script[type="application/ld+json"]')).toBeNull();
   });
 
-  it('uses the centered layout variant for the contact page only', async () => {
-    TestBed.resetTestingModule();
-    await configureLegalPageTest({ legalPageKey: 'contact', locale: 'en' });
-
-    const fixture = TestBed.createComponent(LegalPageComponent);
-    fixture.detectChanges();
-
-    const element = fixture.nativeElement as HTMLElement;
-
-    expect(element.querySelector('.legal-page')?.classList.contains('legal-page--contact')).toBe(true);
-    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Contact');
-  });
 });

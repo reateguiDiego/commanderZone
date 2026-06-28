@@ -72,6 +72,14 @@ describe('RouteRobotsMetaService', () => {
     expect(routeRobotsMeta()?.getAttribute('content')).toBe('noindex, follow');
   });
 
+  it('sets noindex, follow for the public contact route', () => {
+    setCurrentPageKey('contact');
+
+    service.initialize();
+
+    expect(routeRobotsMeta()?.getAttribute('content')).toBe('noindex, follow');
+  });
+
   it('clears route-level robots meta for SEO-static routes', () => {
     service.initialize();
     expect(routeRobotsMeta()).toBeTruthy();

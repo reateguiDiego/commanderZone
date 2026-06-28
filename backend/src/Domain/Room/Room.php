@@ -367,6 +367,20 @@ class Room
         }
     }
 
+    public function transferOwnership(User $owner): void
+    {
+        if (!$this->hasPlayer($owner)) {
+            throw new \InvalidArgumentException('The room owner must be one of the room players.');
+        }
+
+        if ($this->owner->id() === $owner->id()) {
+            return;
+        }
+
+        $this->owner = $owner;
+        $this->touch();
+    }
+
     /**
      * @param list<string> $playerUserIds
      */

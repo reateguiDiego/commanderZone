@@ -106,6 +106,7 @@ import {
 import { ChatRecipientSelectComponent } from './components/chat-recipient-select/chat-recipient-select.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
@@ -460,6 +461,7 @@ interface MotionSourceRect {
     MulliganOverlayComponent,
     TokenSearchModalComponent,
     ChatRecipientSelectComponent,
+    GlobalLoaderComponent,
     RollModalComponent,
   ],
   providers: [

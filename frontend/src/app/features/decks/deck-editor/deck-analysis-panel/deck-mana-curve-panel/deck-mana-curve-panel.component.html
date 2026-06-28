@@ -1,7 +1,15 @@
 <section class="analysis-panel">
   <div class="analysis-panel-header">
     <div>
-      <h3>{{ 'deckBuilder.deckManaCurvePanel.manaCurve' | runtimeTranslate }}</h3>
+      <button
+        class="analysis-section-toggle"
+        type="button"
+        [attr.aria-expanded]="!curveCollapsed()"
+        (click)="toggleCurve()"
+      >
+        <span class="analysis-section-title">{{ 'deckBuilder.deckManaCurvePanel.manaCurve' | runtimeTranslate }}</span>
+        <lucide-icon [name]="curveCollapsed() ? 'chevron-right' : 'chevron-down'" size="16" />
+      </button>
       <p>{{ 'deckBuilder.deckManaCurvePanel.mainDeckByManaValue' | runtimeTranslate }}</p>
     </div>
     <div class="analysis-legend">
@@ -10,60 +18,64 @@
     </div>
   </div>
 
-  <div class="curve-grid compact-curve analysis-curve-large">
-    @for (bucket of store.analysis().manaCurve; track bucket.manaValue) {
-      <div class="curve-bar stacked-bar">
-        <span>{{ store.curveManaValueLabel(bucket.manaValue) }}</span>
-        <div
-          class="curve-stack"
-          (mouseenter)="store.showCurveHoverList($event, bucket.manaValue)"
-          (mousemove)="store.moveHoverList($event)"
-          (mouseleave)="store.hideHoverList()"
-        >
-          @if (bucket.total > 0) {
+  <div class="analysis-panel-body" [class.collapsed]="curveCollapsed()">
+    <div class="analysis-panel-body-inner">
+      <div class="curve-grid compact-curve analysis-curve-large">
+        @for (bucket of store.analysis().manaCurve; track bucket.manaValue) {
+          <div class="curve-bar stacked-bar">
+            <span>{{ store.curveManaValueLabel(bucket.manaValue) }}</span>
             <div
-              class="curve-fill"
-              [style.height.%]="store.curveTotalHeight(bucket.total)"
-              [style.--permanent-share]="store.curvePermanentShare(bucket.permanents, bucket.total)"
-            ></div>
+              class="curve-stack"
+              (mouseenter)="store.showCurveHoverList($event, bucket.manaValue)"
+              (mousemove)="store.moveHoverList($event)"
+              (mouseleave)="store.hideHoverList()"
+            >
+              @if (bucket.total > 0) {
+                <div
+                  class="curve-fill"
+                  [style.height.%]="store.curveTotalHeight(bucket.total)"
+                  [style.--permanent-share]="store.curvePermanentShare(bucket.permanents, bucket.total)"
+                ></div>
+              }
+            </div>
+            <small>{{ bucket.total }}</small>
+          </div>
+        }
+      </div>
+
+      <p class="analysis-footnote">Coste medio sin tierras: {{ store.analysis().averageManaValue }}</p>
+
+      <section class="opening-hand-panel">
+        <div class="analysis-panel-header compact-analysis-header">
+          <div>
+            <h3>{{ 'deckBuilder.deckManaCurvePanel.sampleHand' | runtimeTranslate }}</h3>
+            <p>{{ 'deckBuilder.deckManaCurvePanel.sevenRandomCardsFromTheMainDeck' | runtimeTranslate }}</p>
+          </div>
+          <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="store.drawOpeningHand()">
+            <lucide-icon name="shuffle" size="15" />
+            {{ 'deckBuilder.deckManaCurvePanel.drawAgain' | runtimeTranslate }}
+          </button>
+        </div>
+        <div class="opening-hand-list">
+          @for (card of store.openingHand(); track card.id) {
+            <button
+              class="opening-hand-card"
+              type="button"
+              (mouseenter)="store.showCardPreview($event, card.card)"
+              (mousemove)="store.moveCardPreview($event)"
+              (mouseleave)="store.hideCardPreview()"
+            >
+              @if (store.imageUrl(card.card); as imageUrl) {
+                <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
+              } @else {
+                <span class="card-fallback mini">{{ card.name }}</span>
+              }
+            </button>
+          } @empty {
+            <p class="notice compact-notice">{{ 'deckBuilder.deckManaCurvePanel.noCardsAvailable' | runtimeTranslate }}</p>
           }
         </div>
-        <small>{{ bucket.total }}</small>
-      </div>
-    }
+      </section>
+    </div>
   </div>
-
-  <p class="analysis-footnote">Coste medio sin tierras: {{ store.analysis().averageManaValue }}</p>
-
-  <section class="opening-hand-panel">
-    <div class="analysis-panel-header compact-analysis-header">
-      <div>
-        <h3>{{ 'deckBuilder.deckManaCurvePanel.sampleHand' | runtimeTranslate }}</h3>
-        <p>{{ 'deckBuilder.deckManaCurvePanel.sevenRandomCardsFromTheMainDeck' | runtimeTranslate }}</p>
-      </div>
-      <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="store.drawOpeningHand()">
-        <lucide-icon name="shuffle" size="15" />
-        {{ 'deckBuilder.deckManaCurvePanel.drawAgain' | runtimeTranslate }}
-      </button>
-    </div>
-    <div class="opening-hand-list">
-      @for (card of store.openingHand(); track card.id) {
-        <button
-          class="opening-hand-card"
-          type="button"
-          (mouseenter)="store.showCardPreview($event, card.card)"
-          (mousemove)="store.moveCardPreview($event)"
-          (mouseleave)="store.hideCardPreview()"
-        >
-          @if (store.imageUrl(card.card); as imageUrl) {
-            <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
-          } @else {
-            <span class="card-fallback mini">{{ card.name }}</span>
-          }
-        </button>
-      } @empty {
-        <p class="notice compact-notice">{{ 'deckBuilder.deckManaCurvePanel.noCardsAvailable' | runtimeTranslate }}</p>
-      }
-    </div>
-  </section>
 </section>

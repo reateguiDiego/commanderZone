@@ -1,12 +1,15 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { AvatarUpdatePayload } from '../../../../core/api/auth.api';
 import { appImageUrl } from '../../../../core/assets/app-image-url';
+import { AppShellI18nService } from '../../../../core/localization/app-shell-i18n.service';
 import { UserAvatar } from '../../../../core/models/user.model';
 import { SettingsInitialAvatarOptionComponent } from './components/settings-initial-avatar-option/settings-initial-avatar-option.component';
 import { PRESET_AVATARS, type PresetAvatar } from './preset-avatars';
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { TabListComponent, type TabListItem } from '../../../../shared/ui/tab-list/tab-list.component';
+import { PremiumBadgeComponent } from '../../../../shared/ui/premium-badge/premium-badge.component';
+import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.component';
 
 type PendingAvatarType = 'current' | 'initial' | 'preset';
 type AvatarTierTab = 'basic' | 'premium';
@@ -17,12 +20,14 @@ const INITIAL_LETTER_MAX_LENGTH = 2;
 
 @Component({
   selector: 'app-settings-avatar-editor',
-  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent, CzButtonDirective, TabListComponent],
+  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent, CzButtonDirective, TabListComponent, PremiumBadgeComponent, TooltipComponent],
   templateUrl: './settings-avatar-editor.component.html',
   styleUrl: './settings-avatar-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsAvatarEditorComponent {
+  private readonly i18n = inject(AppShellI18nService);
+
   readonly displayName = input('');
   readonly avatar = input<UserAvatar | undefined>(undefined);
   readonly saving = input(false);
@@ -52,6 +57,7 @@ export class SettingsAvatarEditorComponent {
   readonly initialTextColor = signal(DEFAULT_INITIAL_TEXT_COLOR);
   readonly initialControlsOpen = signal(false);
   readonly errorMessage = signal<string | null>(null);
+  readonly saveDisclaimer = computed(() => this.i18n.text('settingsSaveDisclaimer'));
 
   readonly initial = computed(() => this.displayName().trim().slice(0, 1).toUpperCase() || 'P');
   readonly selectedPresetImageUrl = computed(() => {

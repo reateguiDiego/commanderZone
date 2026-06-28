@@ -11,19 +11,12 @@
 
       @if (showSettings()) {
         <div class="cookie-banner__settings">
-          <button
-            czButton="secondary"
-            czButtonSize="sm"
-            [czButtonActive]="analyticsEnabled()"
-            type="button"
-            class="secondary-button compact cookie-banner__toggle"
-            [class.cookie-banner__toggle--enabled]="analyticsEnabled()"
-            [attr.aria-pressed]="analyticsEnabled()"
-            [attr.aria-label]="copy().cookieBanner.analyticsCookies"
-            (click)="toggleAnalytics()"
-          >
-            {{ copy().cookieBanner.analyticsCookies }}
-          </button>
+          <app-toggle
+            class="cookie-banner__toggle"
+            [label]="copy().cookieBanner.analyticsCookies"
+            [checked]="analyticsEnabled()"
+            (checkedChange)="setAnalyticsEnabled($event)"
+          />
         </div>
       }
     </div>

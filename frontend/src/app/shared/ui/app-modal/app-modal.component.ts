@@ -1,13 +1,15 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { BodyScrollLockService } from '../../services/body-scroll-lock.service';
 import { PrettyScrollDirective } from '../pretty-scroll/pretty-scroll.directive';
 import { CzButtonDirective } from '../button/button.directive';
+import { BackButtonComponent } from '../back-button/back-button.component';
 import { HeroRuleComponent } from '../hero-rule/hero-rule.component';
 
 @Component({
   selector: 'app-modal',
-  imports: [LucideAngularModule, CzButtonDirective, PrettyScrollDirective, HeroRuleComponent],
+  imports: [LucideAngularModule, RuntimeTranslatePipe, CzButtonDirective, PrettyScrollDirective, HeroRuleComponent, BackButtonComponent],
   templateUrl: './app-modal.component.html',
   styleUrl: './app-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,7 +32,6 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() primaryDisabled = false;
   @Input() secondaryVariant: 'primary' | 'secondary' = 'secondary';
   @Input() showBackButton = false;
-  @Input() backLabel = 'Back';
   @Input() showHeaderAction = false;
   @Input() headerActionLabel = '';
   @Input() showHeaderRule = false;
@@ -39,9 +40,11 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() showTertiary = false;
   @Input() tertiaryLabel = 'Cancel';
   @Input() footerLayout: 'default' | 'split' = 'default';
+  @Input() footerNotice = '';
   @Input() lockBodyScroll = true;
   @Input() closeOnBackdrop = false;
   @Input() size: 'default' | 'compact' | 'narrow' | 'wide' = 'default';
+  @Input() panelOverflow: 'auto' | 'visible' = 'auto';
 
   @Output() back = new EventEmitter<void>();
   @Output() headerAction = new EventEmitter<void>();
