@@ -8,6 +8,7 @@ use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Game\GameSnapshotCompact;
+use App\Domain\User\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -52,6 +53,33 @@ final class GameEventStoreV2
         $game->replaceRuntimeSnapshot($snapshot);
 
         return $snapshot;
+    }
+
+    public function initializeStartedGame(EntityManagerInterface $entityManager, Game $game, User $actor): ?GameEvent
+    {
+        if (!$this->enabled()) {
+            return null;
+        }
+
+        $snapshot = $game->snapshot();
+        $version = max(1, (int) ($snapshot['version'] ?? 1));
+        $event = new GameEvent(
+            $game,
+            'game.started',
+            [
+                'status' => $game->status(),
+                'phase' => is_string($snapshot['gamePhase'] ?? null) ? $snapshot['gamePhase'] : null,
+                'snapshotVersion' => $version,
+            ],
+            $actor,
+            'game-started-'.$game->id(),
+            $version,
+        );
+        $game->addEvent($event);
+        $entityManager->persist($event);
+        $this->persistCompactSnapshotIfDue($entityManager, $game, $snapshot);
+
+        return $event;
     }
 
     /**

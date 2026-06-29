@@ -27,6 +27,8 @@ services:
       GAMEPLAY_COMPACT_RUNTIME_ENABLED: ${GAMEPLAY_COMPACT_RUNTIME_ENABLED:-1}
       GAME_RUNTIME_ENABLED: ${GAME_RUNTIME_ENABLED:-1}
       GAME_RUNTIME_INTERNAL_URL: ${GAME_RUNTIME_INTERNAL_URL:-http://game-runtime:8091}
+      GAME_RUNTIME_WEBSOCKET_PUBLIC_URL: ${GAME_RUNTIME_WEBSOCKET_PUBLIC_URL:-ws://127.0.0.1:8091/ws}
+      GAME_RUNTIME_TICKET_SECRET: ${GAME_RUNTIME_TICKET_SECRET:-commanderzone-dev-runtime-secret-change-me}
       GAMEPLAY_V2_ENABLED: ${GAMEPLAY_V2_ENABLED:-1}
       GAMEPLAY_V2_COMMAND_ENABLED: ${GAMEPLAY_V2_COMMAND_ENABLED:-1}
       GAMEPLAY_V2_COMMANDS_ALLOWLIST: ${GAMEPLAY_V2_COMMANDS_ALLOWLIST:-life.changed,turn.changed,dice.rolled,card.tapped,card.face_down.changed,card.revealed,card.controller.changed,cards.position.changed,card.counter.changed,counter.changed,commander.damage.changed,card.power_toughness.changed,card.position.changed,library.draw,library.draw_many,library.reveal_top,library.reveal,library.play_top_revealed,library.reorder_top,library.move_top,library.put_top,library.put_bottom,library.view,library.shuffle,card.token.created,card.token_copy.created,zone.random_card.selected,card.dungeon_marker.changed,card.face.changed,card.moved,cards.moved,zone.reorderedByIds,zone.move_all,battlefield.untap_all,stack.card_added,stack.item_removed,arrow.created,arrow.removed,attachment.created,attachment.removed,helper.created,helper.updated,helper.removed,game.concede,game.close,mulligan.take,mulligan.keep,mulligan.cards_bottomed,mulligan.scry.confirm,mulligan.ready,mulligan.completed,game.phase.set}
@@ -75,6 +77,7 @@ services:
       GAMEPLAY_COMPACT_RUNTIME_ENABLED: ${GAMEPLAY_COMPACT_RUNTIME_ENABLED:-1}
       GAME_RUNTIME_ENABLED: ${GAME_RUNTIME_ENABLED:-1}
       GAME_RUNTIME_INTERNAL_URL: ${GAME_RUNTIME_INTERNAL_URL:-http://game-runtime:8091}
+      GAME_RUNTIME_TICKET_SECRET: ${GAME_RUNTIME_TICKET_SECRET:-commanderzone-dev-runtime-secret-change-me}
       GAMEPLAY_V2_ENABLED: ${GAMEPLAY_V2_ENABLED:-1}
       GAMEPLAY_V2_COMMAND_ENABLED: ${GAMEPLAY_V2_COMMAND_ENABLED:-1}
       GAMEPLAY_V2_COMMANDS_ALLOWLIST: ${GAMEPLAY_V2_COMMANDS_ALLOWLIST:-life.changed,turn.changed,dice.rolled,card.tapped,card.face_down.changed,card.revealed,card.controller.changed,cards.position.changed,card.counter.changed,counter.changed,commander.damage.changed,card.power_toughness.changed,card.position.changed,library.draw,library.draw_many,library.reveal_top,library.reveal,library.play_top_revealed,library.reorder_top,library.move_top,library.put_top,library.put_bottom,library.view,library.shuffle,card.token.created,card.token_copy.created,zone.random_card.selected,card.dungeon_marker.changed,card.face.changed,card.moved,cards.moved,zone.reorderedByIds,zone.move_all,battlefield.untap_all,stack.card_added,stack.item_removed,arrow.created,arrow.removed,attachment.created,attachment.removed,helper.created,helper.updated,helper.removed,game.concede,game.close,mulligan.take,mulligan.keep,mulligan.cards_bottomed,mulligan.scry.confirm,mulligan.ready,mulligan.completed,game.phase.set}

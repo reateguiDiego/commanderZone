@@ -190,6 +190,52 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(5, $record->version());
     }
 
+    public function testInitializeStartedGamePersistsStartedEventAndInitialCompactSnapshot(): void
+    {
+        $actor = new User('start-owner@example.test', 'Start Owner');
+        $flags = new GameplayV2Flags(false, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $runtimeSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => [$this->card('library-1', 'Top Draw', 'library')],
+        ]));
+        $game = new Game(new Room($actor), $runtimeSnapshot);
+
+        $snapshotRepository = $this->createMock(EntityRepository::class);
+        $snapshotRepository->expects(self::once())->method('findOneBy')->with(['game' => $game], ['version' => 'DESC'])->willReturn(null);
+        $persisted = [];
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('getRepository')->with(GameSnapshotCompact::class)->willReturn($snapshotRepository);
+        $entityManager->expects(self::exactly(2))
+            ->method('persist')
+            ->willReturnCallback(static function (mixed $entity) use (&$persisted): void {
+                $persisted[] = $entity;
+            });
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($entityManager);
+        $store = new GameEventStoreV2(
+            $registry,
+            $handler,
+            new CompactGameCardStateMapper(),
+            new GameEventReplayService(),
+            $flags,
+            null,
+            1,
+            1,
+        );
+
+        $event = $store->initializeStartedGame($entityManager, $game, $actor);
+
+        self::assertInstanceOf(GameEvent::class, $event);
+        self::assertSame('game.started', $event->type());
+        self::assertSame(1, $event->version());
+        self::assertSame('game-started-'.$game->id(), $event->clientActionId());
+        self::assertArrayNotHasKey('snapshot', $event->payload());
+        self::assertArrayNotHasKey('players', $event->payload());
+        self::assertArrayNotHasKey('zones', $event->payload());
+        self::assertContains(GameEvent::class, array_map(static fn (object $entity): string => $entity::class, $persisted));
+        self::assertContains(GameSnapshotCompact::class, array_map(static fn (object $entity): string => $entity::class, $persisted));
+    }
+
     public function testMulliganReplayRebuildsLondonTakeKeepAndBottomFromCompactEvents(): void
     {
         $actor = new User('mulligan-owner@example.test', 'Mulligan Owner');

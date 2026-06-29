@@ -2295,7 +2295,7 @@ paths:
     post:
       tags: [Games]
       summary: Issue a short-lived gameplay WebSocket ticket.
-      description: The ticket is scoped to the game and current authenticated user and is used to open the gameplay WebSocket connection.
+      description: The ticket is scoped to the game and current authenticated user and opens the Go runtime gameplay WebSocket route (`runtime_ws`). PHP websocket routes are not returned for gameplay.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -2691,18 +2691,46 @@ components:
           description: Present on login failures with the active failed-login attempt count.
     GameWebsocketTicketResponse:
       type: object
-      required: [ticket, expiresAt, websocketUrl]
+      required: [ticket, expiresAt, websocketUrl, route, claims]
       properties:
         ticket:
           type: string
-          description: Signed short-lived ticket scoped to one game and user.
+          description: HMAC-signed short-lived runtime ticket scoped to one game and user.
         expiresAt:
           type: string
           format: date-time
         websocketUrl:
           type: string
           format: uri
-          example: ws://127.0.0.1:8081/games/01966d5f-0000-7000-8000-000000000000?ticket=...
+          example: ws://127.0.0.1:8091/ws?ticket=...
+        route:
+          type: string
+          enum: [runtime_ws]
+          description: Active gameplay websocket route. Legacy/PHP routes must not be returned by this endpoint.
+        claims:
+          type: object
+          required: [gameId, userId, playerId, role, permissions, expiry]
+          properties:
+            gameId:
+              type: string
+              format: uuid
+            userId:
+              type: string
+              format: uuid
+            playerId:
+              type: string
+              format: uuid
+            role:
+              type: string
+              enum: [player, viewer]
+            permissions:
+              type: array
+              items:
+                type: string
+                enum: [view, command]
+            expiry:
+              type: integer
+              description: Unix timestamp matching the signed ticket `exp` claim.
     GameDebugHealthResponse:
       type: object
       required: [gameId, enabled, context, health, generatedAt, updatedAt]

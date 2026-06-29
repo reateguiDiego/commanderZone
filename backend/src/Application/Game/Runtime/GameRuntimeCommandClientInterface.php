@@ -5,7 +5,7 @@ namespace App\Application\Game\Runtime;
 interface GameRuntimeCommandClientInterface
 {
     /**
-     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $snapshot Legacy caller context; normal runtime commands must not serialize it.
      * @param array<string,mixed> $payload Runtime-ready command payload.
      */
     public function dispatch(

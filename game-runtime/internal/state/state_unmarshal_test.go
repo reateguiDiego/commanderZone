@@ -70,3 +70,31 @@ func TestRelationsAcceptsLegacyEmptyArrayMaps(t *testing.T) {
 		t.Fatalf("expected relation indexes to be initialized, got %#v", relations.Indexes)
 	}
 }
+
+func TestGameStateAcceptsLegacyGamePhaseAndNormalizesRecoveryMaps(t *testing.T) {
+	payload := []byte(`{
+		"gameId": "game-1",
+		"version": 1,
+		"status": "active",
+		"gamePhase": "MULLIGAN",
+		"players": {},
+		"turn": {},
+		"instances": {},
+		"zones": {},
+		"loc": {},
+		"visibility": {},
+		"relations": {}
+	}`)
+
+	var game GameState
+	if err := json.Unmarshal(payload, &game); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	NormalizeForRecovery("game-1", &game)
+	if game.Phase != PhaseMulligan {
+		t.Fatalf("phase got %q want %q", game.Phase, PhaseMulligan)
+	}
+	if game.Visibility.InstanceMasks == nil || game.Relations.Attachments == nil || game.Mulligan.PlayerStatus == nil {
+		t.Fatalf("expected recovery maps to be initialized: %#v", game)
+	}
+}

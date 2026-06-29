@@ -5,6 +5,7 @@ namespace App\Tests\Application;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\Runtime\GameRuntimeCommandClientInterface;
 use App\Application\Game\Runtime\GameRuntimeCommandResult;
+use App\Application\Game\Runtime\GameplayCommandCatalog;
 use App\Application\Game\Runtime\GameplayRuntimeRoute;
 use App\Application\Game\Runtime\GameplayRuntimeRouter;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -24,6 +25,21 @@ final class GameplayRuntimeRouterTest extends TestCase
         $router = new GameplayRuntimeRouter($this->flags(runtime: true, shadow: false, allowlist: 'mulligan.take'), new RuntimeCommandClientStub());
 
         self::assertSame(GameplayRuntimeRoute::LegacyOnly, $router->routeFor('library.draw'));
+    }
+
+    #[DataProvider('legacyAliases')]
+    public function testLegacyAliasesRouteThroughCanonicalAllowlist(string $alias, string $canonical): void
+    {
+        $router = new GameplayRuntimeRouter($this->flags(runtime: true, shadow: false, allowlist: $canonical), new RuntimeCommandClientStub());
+
+        self::assertSame(GameplayRuntimeRoute::RuntimePrimary, $router->routeFor($alias));
+    }
+
+    public function testAliasInAllowlistDoesNotSilentlyEnableRuntimeRoute(): void
+    {
+        $router = new GameplayRuntimeRouter($this->flags(runtime: true, shadow: false, allowlist: 'zone.changed'), new RuntimeCommandClientStub());
+
+        self::assertSame(GameplayRuntimeRoute::LegacyOnly, $router->routeFor('zone.changed'));
     }
 
     public function testEmptyAllowlistStaysLegacyOnlyEvenWhenRuntimeEnabled(): void
@@ -66,6 +82,16 @@ final class GameplayRuntimeRouterTest extends TestCase
         yield 'controller changed' => ['card.controller.changed'];
         yield 'library reveal' => ['library.reveal'];
         yield 'play top revealed' => ['library.play_top_revealed'];
+    }
+
+    /**
+     * @return iterable<string,array{string,string}>
+     */
+    public static function legacyAliases(): iterable
+    {
+        foreach (GameplayCommandCatalog::aliases() as $alias => $canonical) {
+            yield $alias => [$alias, $canonical];
+        }
     }
 
     private function flags(bool $runtime, bool $shadow, string $allowlist): GameplayV2Flags

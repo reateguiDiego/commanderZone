@@ -36,11 +36,24 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         self::assertIsString($ownerResponse['ticket']);
         self::assertNotSame('', $ownerResponse['ticket']);
         self::assertIsString($ownerResponse['expiresAt']);
-        self::assertStringStartsWith('ws://127.0.0.1:8081/games/'.$fixture['gameId'].'?ticket=', (string) $ownerResponse['websocketUrl']);
+        self::assertSame('runtime_ws', $ownerResponse['route']);
+        self::assertStringStartsWith('ws://127.0.0.1:8091/ws?ticket=', (string) $ownerResponse['websocketUrl']);
+        self::assertSame($fixture['gameId'], $ownerResponse['claims']['gameId']);
+        self::assertSame('player', $ownerResponse['claims']['role']);
+        self::assertSame(['view', 'command'], $ownerResponse['claims']['permissions']);
+        $runtimeSecret = static::getContainer()->getParameter('game_runtime_ticket_secret');
+        self::assertIsString($runtimeSecret);
+        self::assertTrue($this->ticketSignatureMatches($ownerResponse['ticket'], $runtimeSecret));
+        $appSecret = static::getContainer()->getParameter('kernel.secret');
+        if (is_string($appSecret) && $appSecret !== $runtimeSecret) {
+            self::assertFalse($this->ticketSignatureMatches($ownerResponse['ticket'], $appSecret));
+        }
 
         $this->jsonRequest('POST', '/games/'.$fixture['gameId'].'/websocket-ticket', token: $fixture['playerToken']);
         self::assertResponseIsSuccessful();
-        self::assertIsString($this->jsonResponse()['ticket']);
+        $playerResponse = $this->jsonResponse();
+        self::assertIsString($playerResponse['ticket']);
+        self::assertSame('runtime_ws', $playerResponse['route']);
     }
 
     /**
@@ -103,6 +116,14 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
 
         return (string) $this->jsonResponse()['deck']['id'];
+    }
+
+    private function ticketSignatureMatches(string $ticket, string $secret): bool
+    {
+        [$payload, $signature] = explode('.', $ticket, 2);
+        $expected = rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, $secret, true)), '+/', '-_'), '=');
+
+        return hash_equals($expected, $signature);
     }
 
 }

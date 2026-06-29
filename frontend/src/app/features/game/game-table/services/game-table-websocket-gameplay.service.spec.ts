@@ -23,6 +23,10 @@ describe('GameTableWebsocketGameplayService', () => {
   let onCommandBlockedSpy: ReturnType<typeof vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>>;
   let onMulliganPatchV2AppliedSpy: ReturnType<typeof vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>>;
   let broadcastChannels: FakeBroadcastChannel[];
+  let consoleDebugSpy: ReturnType<typeof vi.spyOn>;
+  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   const originalBroadcastChannel = globalThis.BroadcastChannel;
   const gameplayV2Flags = {
     enabled: vi.fn(() => false),
@@ -54,6 +58,10 @@ describe('GameTableWebsocketGameplayService', () => {
     };
     onCommandBlockedSpy = vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>();
     onMulliganPatchV2AppliedSpy = vi.fn<(patch: PatchEnvelopeV2 & { kind: 'patch.v2' }, snapshot: GameSnapshot) => void>();
+    consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     TestBed.configureTestingModule({
       providers: [
@@ -80,6 +88,10 @@ describe('GameTableWebsocketGameplayService', () => {
 
   afterEach(() => {
     service.stop();
+    consoleDebugSpy.mockRestore();
+    consoleInfoSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
     Object.defineProperty(globalThis, 'BroadcastChannel', {
       configurable: true,
       writable: true,
@@ -87,13 +99,31 @@ describe('GameTableWebsocketGameplayService', () => {
     });
   });
 
-  it('starts transport with a lastSeenVersion provider based on the current snapshot', () => {
+  it('starts transport with a lastAppliedVersion provider based on the current snapshot', () => {
     const transport = TestBed.inject(GameTableWebsocketTransportService) as unknown as { connect: ReturnType<typeof vi.fn> };
-    const options = transport.connect.mock.calls.at(-1)?.[1] as { lastSeenVersion: () => number | null };
+    const options = transport.connect.mock.calls.at(-1)?.[1] as { lastAppliedVersion: () => number | null };
 
-    expect(options.lastSeenVersion()).toBe(1);
+    expect(options.lastAppliedVersion()).toBe(1);
     snapshotState = { ...snapshotState, version: 7 };
-    expect(options.lastSeenVersion()).toBe(7);
+    expect(options.lastAppliedVersion()).toBe(7);
+  });
+
+  it('uses normalized v2 lastAppliedVersion for runtime websocket reconnects when initialized', () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap(bootstrapV2());
+    const transport = TestBed.inject(GameTableWebsocketTransportService) as unknown as { connect: ReturnType<typeof vi.fn> };
+    const options = transport.connect.mock.calls.at(-1)?.[1] as { lastAppliedVersion: () => number | null };
+
+    expect(options.lastAppliedVersion()).toBe(1);
+    normalizedStore.applyPatch({
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ops: [{ op: 'player.life.set', playerId: 'player-1', value: 38 }],
+    });
+
+    expect(options.lastAppliedVersion()).toBe(2);
   });
 
   it('sends migrated commands with clientActionId and baseVersion, then applies the success patch without snapshot refetch', async () => {
@@ -146,6 +176,46 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(snapshotState.version).toBe(2);
     expect(snapshotState.players['player-1'].life).toBe(38);
     expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not loop refetches when patch.v2 arrives before bootstrap v2 is initialized', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const patch: PatchEnvelopeV2 & { kind: 'patch.v2' } = {
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ops: [{ op: 'player.life.set', playerId: 'player-1', value: 38 }],
+    };
+
+    messages.next(patch);
+    await vi.waitFor(() => expect(refetchSpy).toHaveBeenCalledTimes(1));
+    messages.next(patch);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(refetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('limits repeated patch.v2 version gaps to one controlled refetch per version window', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap(bootstrapV2());
+    const patch: PatchEnvelopeV2 & { kind: 'patch.v2' } = {
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 3,
+      visibility: 'player:player-1',
+      ops: [{ op: 'player.life.set', playerId: 'player-1', value: 38 }],
+    };
+
+    messages.next(patch);
+    await vi.waitFor(() => expect(refetchSpy).toHaveBeenCalledTimes(1));
+    messages.next(patch);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(refetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it('does not surface a late websocket error after patch.v2 already completed the action', async () => {
@@ -385,6 +455,38 @@ describe('GameTableWebsocketGameplayService', () => {
       version: 2,
       gamePhase: 'MULLIGAN',
     }));
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not force a snapshot after mulligan.completed when patch.v2 already advanced the store', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+
+    const patch: PatchEnvelopeV2 & { kind: 'patch.v2' } = {
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ops: [{ op: 'mulligan.completed' }],
+    };
+
+    messages.next(patch);
+    await Promise.resolve();
+    messages.next({
+      kind: 'mulligan.completed',
+      gameId: 'game-1',
+      version: 2,
+    });
+    await Promise.resolve();
+
+    expect(snapshotState.version).toBe(2);
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
@@ -710,6 +812,39 @@ describe('GameTableWebsocketGameplayService', () => {
     });
     expect(Number(latest?.['enqueueRate'])).toBeGreaterThanOrEqual(0);
     expect(Number(latest?.['drainRate'])).toBeGreaterThanOrEqual(0);
+  });
+
+  it('publishes gameplay refetch and patch counters while debug observes the game', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap(bootstrapV2());
+    const channel = broadcastChannels[0];
+    channel.emit({
+      kind: 'debug_observe',
+      gameId: 'game-1',
+      observedAt: '2026-05-24T10:00:00.000Z',
+    });
+
+    messages.next({
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 3,
+      visibility: 'player:player-1',
+      ops: [{ op: 'player.life.set', playerId: 'player-1', value: 38 }],
+    });
+    await vi.waitFor(() => expect(refetchSpy).toHaveBeenCalledTimes(1));
+
+    const latest = channel.sentMessages
+      .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'queue_metrics')
+      .at(-1);
+    expect(latest).toMatchObject({
+      kind: 'queue_metrics',
+      gameId: 'game-1',
+      'gameplay.refetch.count': 1,
+      'gameplay.patch_v2.apply.resync_required': 1,
+      'gameplay.patch_v2.apply.version_gap': 1,
+    });
+    expect(latest?.['gameplay.refetch.reason']).toEqual({ version_gap: 1 });
   });
 
   it('applies queue depth cap by dropping only coalescible commands', async () => {
@@ -1388,6 +1523,27 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('blocks repeated refetches for the same resync reason and version inside the guard window', async () => {
+    messages.next({
+      kind: 'resync_required',
+      gameId: 'game-1',
+      currentVersion: 2,
+      reason: 'version_gap',
+    });
+    await vi.waitFor(() => expect(refetchSpy).toHaveBeenCalledTimes(1));
+
+    messages.next({
+      kind: 'resync_required',
+      gameId: 'game-1',
+      currentVersion: 2,
+      reason: 'version_gap',
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(refetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects pending commands when command_ack is rejected', async () => {
     const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
     const message = sentMessage();
@@ -1405,7 +1561,24 @@ describe('GameTableWebsocketGameplayService', () => {
     await expect(sent).rejects.toThrow('Denied');
   });
 
-  it('uses resync for duplicate and resync_required command_ack states', async () => {
+  it('uses one resync for stale duplicate command_ack states', async () => {
+    const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const message = sentMessage();
+
+    messages.next({
+      kind: 'command_ack',
+      gameId: 'game-1',
+      messageId: message.messageId,
+      clientActionId: message.command.clientActionId,
+      status: 'duplicate',
+      version: 2,
+    });
+    await sent;
+
+    expect(refetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not resync duplicate command_ack when the client is already synchronized', async () => {
     const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
     const message = sentMessage();
 
@@ -1419,7 +1592,7 @@ describe('GameTableWebsocketGameplayService', () => {
     });
     await sent;
 
-    expect(refetchSpy).toHaveBeenCalledTimes(1);
+    expect(refetchSpy).not.toHaveBeenCalled();
   });
 
   it('ignores late rejected ack for a previous command and keeps the current in-flight command', async () => {

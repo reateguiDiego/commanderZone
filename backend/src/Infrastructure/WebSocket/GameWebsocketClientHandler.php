@@ -70,6 +70,9 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
             displayName: $context->displayName,
             connectedAt: new \DateTimeImmutable(),
             send: fn (array $message): null => $this->sendJson($client, $message),
+            playerId: $context->playerId,
+            permissions: $context->permissions,
+            viewerMask: $context->viewerMask,
         );
 
         $this->rooms->join($peer);

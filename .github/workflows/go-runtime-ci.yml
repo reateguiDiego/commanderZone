@@ -1,0 +1,15 @@
+name: Validate Go Runtime
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: go-runtime-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime:
+    uses: ./.github/workflows/go-runtime-ci-reusable.yml
+

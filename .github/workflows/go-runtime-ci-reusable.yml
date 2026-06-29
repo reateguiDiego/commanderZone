@@ -1,0 +1,45 @@
+name: Go Runtime CI Reusable
+
+on:
+  workflow_call:
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: game-runtime
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: game-runtime/go.mod
+          cache-dependency-path: game-runtime/go.sum
+
+      - name: Run Go tests
+        run: go test ./...
+
+      - name: Run Go race tests
+        run: go test -race ./...
+
+      - name: Run Go vet
+        run: go vet ./...
+
+      - name: Run runtime benchmark smoke with benchmem
+        run: go test -run '^$' -bench 'BenchmarkRuntimeGameplaySmoke|BenchmarkApplyOnlyRuntimeCommands4Players100' -benchtime=1x -benchmem ./internal/perf ./internal/actor
+
+      - name: Run reproducible runtime benchmark gates
+        run: go run ./cmd/runtime-bench -games=10 -iterations=1 -transport=actor -fail-on-gate -output=runtime-bench-smoke.json
+
+      - name: Upload runtime benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-benchmark-smoke
+          path: game-runtime/runtime-bench-smoke.json
+          if-no-files-found: ignore

@@ -31,12 +31,42 @@ final readonly class GameWebsocketConnectionAuthorizer
             return new GameWebsocketConnectionContext(
                 gameId: $game->id(),
                 userId: $user->id(),
+                playerId: $validatedTicket->playerId,
+                permissions: $validatedTicket->permissions,
                 displayName: $user->displayName(),
                 currentVersion: max(1, (int) ($game->snapshot()['version'] ?? 1)),
+                viewerMask: $this->viewerMask($game->snapshot(), $validatedTicket->playerId),
             );
         } finally {
             $manager->clear();
         }
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     */
+    private function viewerMask(array $snapshot, string $playerId): int
+    {
+        $viewerBits = is_array($snapshot['visibility']['viewerBits'] ?? null)
+            ? $snapshot['visibility']['viewerBits']
+            : [];
+        if (isset($viewerBits[$playerId])) {
+            return max(0, (int) $viewerBits[$playerId]);
+        }
+
+        $bit = 1;
+        foreach (array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []) as $snapshotPlayerId) {
+            if (!is_string($snapshotPlayerId)) {
+                continue;
+            }
+            if ($snapshotPlayerId === $playerId) {
+                return $bit;
+            }
+
+            $bit <<= 1;
+        }
+
+        return 0;
     }
 
     private function manager(): ObjectManager

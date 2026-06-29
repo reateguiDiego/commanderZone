@@ -146,6 +146,42 @@ func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
 	}
 }
 
+func TestGameActorSeenActionCacheIsBoundedAndStoreKeepsIdempotency(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
+
+	total := maxSeenActionCache + 5
+	for i := 0; i < total; i++ {
+		actionID := fmt.Sprintf("bounded-%03d", i)
+		result := gameActor.ApplyDirect(
+			context.Background(),
+			command("game-1", int64(i+1), actionID, "life.changed", map[string]any{"playerId": "p1", "life": 40 - i}),
+			"p1",
+		)
+		if result.Err != nil {
+			t.Fatalf("apply %d failed: %v", i, result.Err)
+		}
+	}
+	if got := len(gameActor.seenActions); got != maxSeenActionCache {
+		t.Fatalf("seen action cache got %d want %d", got, maxSeenActionCache)
+	}
+	if _, ok := gameActor.seenActions["bounded-000"]; ok {
+		t.Fatal("oldest action was not evicted from actor seen cache")
+	}
+
+	duplicate := gameActor.ApplyDirect(
+		context.Background(),
+		command("game-1", 1, "bounded-000", "life.changed", map[string]any{"playerId": "p1", "life": 40}),
+		"p1",
+	)
+	if duplicate.Err != nil {
+		t.Fatalf("duplicate after cache eviction failed: %v", duplicate.Err)
+	}
+	if duplicate.Event.Version != 2 {
+		t.Fatalf("duplicate event version got %d want 2", duplicate.Event.Version)
+	}
+}
+
 func TestGameActorSnapshotPolicySavesCompactSnapshot(t *testing.T) {
 	store := persistence.NewInMemoryEventStore()
 	gameActor := NewGameActorWithSnapshotPolicy("game-1", testState(), store, 8, DefaultAppliers(), SnapshotPolicy{EveryEvents: 2})

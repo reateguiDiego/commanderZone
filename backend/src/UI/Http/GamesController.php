@@ -120,8 +120,8 @@ class GamesController extends ApiController
         EntityManagerInterface $entityManager,
         GameWebsocketTicketManager $tickets,
         GameDebugHealthLiveStore $debugHealth,
-        #[Autowire('%game_websocket_public_url%')]
-        string $websocketPublicUrl,
+        #[Autowire('%game_runtime_websocket_public_url%')]
+        string $runtimeWebsocketPublicUrl,
     ): JsonResponse {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -132,7 +132,16 @@ class GamesController extends ApiController
         }
 
         $startedAt = microtime(true);
-        $ticket = $tickets->issue($game->id(), $user->id());
+        $canControl = $game->canBeControlledBy($user);
+        $role = $canControl ? 'player' : 'viewer';
+        $permissions = $canControl ? ['view', 'command'] : ['view'];
+        $ticket = $tickets->issue(
+            $game->id(),
+            $user->id(),
+            playerId: $user->id(),
+            role: $role,
+            permissions: $permissions,
+        );
         $debugObserved = $debugHealth->isObserved($game->id());
         if ($debugObserved) {
             $debugHealth->recordBootstrapStage(
@@ -146,8 +155,25 @@ class GamesController extends ApiController
         return $this->json([
             'ticket' => $ticket->ticket,
             'expiresAt' => $ticket->expiresAt->format(DATE_ATOM),
-            'websocketUrl' => rtrim($websocketPublicUrl, '/').'/games/'.$game->id().'?ticket='.rawurlencode($ticket->ticket),
+            'websocketUrl' => $this->websocketUrlWithTicket($runtimeWebsocketPublicUrl, $ticket->ticket),
+            'route' => 'runtime_ws',
+            'claims' => [
+                'gameId' => $ticket->gameId,
+                'userId' => $ticket->userId,
+                'playerId' => $ticket->playerId,
+                'role' => $ticket->role,
+                'permissions' => $ticket->permissions,
+                'expiry' => $ticket->expiresAt->getTimestamp(),
+            ],
         ]);
+    }
+
+    private function websocketUrlWithTicket(string $websocketPublicUrl, string $ticket): string
+    {
+        $baseUrl = rtrim($websocketPublicUrl, '/');
+        $separator = str_contains($baseUrl, '?') ? '&' : '?';
+
+        return $baseUrl.$separator.'ticket='.rawurlencode($ticket);
     }
 
     #[Route('/games/{id}/debug/health', methods: ['GET'])]

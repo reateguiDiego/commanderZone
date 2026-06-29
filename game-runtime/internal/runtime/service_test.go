@@ -12,7 +12,11 @@ import (
 )
 
 func TestServiceLoadActorIsIdempotentByGameID(t *testing.T) {
-	service := NewService()
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, EmptyInitialState("game-1")); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	service := NewServiceWithStore(store, 8, nil)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
@@ -21,22 +25,30 @@ func TestServiceLoadActorIsIdempotentByGameID(t *testing.T) {
 		}
 	}()
 
-	first, created := service.LoadActor(context.Background(), "game-1", EmptyInitialState("game-1"))
+	first, created := service.LoadActor(context.Background(), "game-1")
 	if !created {
 		t.Fatal("expected first load to create actor")
 	}
-	second, created := service.LoadActor(context.Background(), "game-1", EmptyInitialState("game-1"))
+	second, created := service.LoadActor(context.Background(), "game-1")
 	if created {
 		t.Fatal("expected second load to reuse actor")
 	}
 	if first != second {
 		t.Fatal("expected same actor for same gameId")
 	}
+	metrics := service.RuntimeMetrics()
+	if metrics.ActorCacheMissCount != 1 || metrics.ActorCacheHitCount != 1 || metrics.ActorLoadFromSnapshotCount != 1 {
+		t.Fatalf("runtime metrics mismatch: %#v", metrics)
+	}
 }
 
 func TestServiceShutdownStopsActors(t *testing.T) {
-	service := NewService()
-	gameActor, _ := service.LoadActor(context.Background(), "game-1", EmptyInitialState("game-1"))
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, EmptyInitialState("game-1")); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	service := NewServiceWithStore(store, 8, nil)
+	gameActor, _ := service.LoadActor(context.Background(), "game-1")
 	before := gameActor.Heartbeat()
 	gameActor.TouchHeartbeat()
 	if !gameActor.Heartbeat().After(before) && !gameActor.Heartbeat().Equal(before) {
@@ -80,15 +92,22 @@ func TestServiceRecoversFromCompactSnapshotAndEvents(t *testing.T) {
 	if err := store.AppendEvent(context.Background(), second); err != nil {
 		t.Fatalf("append second: %v", err)
 	}
+	if err := saveRuntimeSnapshot(t, store, initial); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
 
 	service := NewServiceWithStore(store, 8, nil)
-	gameActor, _, err := service.LoadActorRecovered(context.Background(), "game-1", initial)
+	gameActor, _, err := service.LoadActorRecovered(context.Background(), "game-1", nil)
 	if err != nil {
 		t.Fatalf("recover: %v", err)
 	}
 	snapshot := gameActor.Snapshot()
 	if snapshot.Version != 3 || snapshot.Players["p1"]["life"] != 38 || snapshot.Turn["activePlayerId"] != "p2" {
 		t.Fatalf("snapshot = %#v", snapshot)
+	}
+	metrics := service.RuntimeMetrics()
+	if metrics.ActorLoadFromSnapshotCount != 1 || metrics.ActorLoadFromEventsCount != 1 || metrics.ActorCacheMissCount != 1 {
+		t.Fatalf("runtime metrics mismatch: %#v", metrics)
 	}
 }
 
@@ -100,8 +119,15 @@ func TestServiceRecoveryFailsOnCorruptSnapshotChecksum(t *testing.T) {
 	snapshot.Checksum = "corrupt"
 
 	service := NewServiceWithStore(corruptSnapshotStore{snapshot: snapshot}, 8, nil)
-	if _, _, err := service.LoadActorRecovered(context.Background(), "game-1", runtimeTestState("game-1")); !errors.Is(err, persistence.ErrSnapshotChecksumMismatch) {
+	if _, _, err := service.LoadActorRecovered(context.Background(), "game-1", nil); !errors.Is(err, persistence.ErrSnapshotChecksumMismatch) {
 		t.Fatalf("err = %v, want %v", err, persistence.ErrSnapshotChecksumMismatch)
+	}
+}
+
+func TestServiceRecoveryWithoutSnapshotOrMigrationInitialStateFails(t *testing.T) {
+	service := NewServiceWithStore(persistence.NewInMemoryEventStore(), 8, nil)
+	if _, _, err := service.LoadActorRecovered(context.Background(), "missing-game", nil); !errors.Is(err, ErrActorStateNotFound) {
+		t.Fatalf("err = %v, want %v", err, ErrActorStateNotFound)
 	}
 }
 
@@ -135,4 +161,13 @@ func runtimeTestState(gameID string) state.GameState {
 	gameState.Players["p2"] = map[string]any{"life": 40}
 	gameState.Turn = map[string]any{"activePlayerId": "p1"}
 	return gameState
+}
+
+func saveRuntimeSnapshot(t *testing.T, store *persistence.InMemoryEventStore, game state.GameState) error {
+	t.Helper()
+	snapshot, err := persistence.NewCompactSnapshot(game)
+	if err != nil {
+		return err
+	}
+	return store.SaveSnapshot(context.Background(), snapshot)
 }

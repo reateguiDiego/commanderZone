@@ -1,8 +1,8 @@
 # CommanderZone Game Runtime
 
-This is a minimal Go skeleton for the future active gameplay runtime.
+This is the Go gameplay runtime for active CommanderZone gameplay transport.
 
-The service is intentionally not wired into Symfony or CI yet. It exists to pin down package boundaries, V2 protocol types, actor interfaces, and persistence contracts before migrating commands.
+The service exposes the runtime WebSocket, HTTP command endpoint, metrics, V2 protocol types, actor interfaces, and persistence contracts used while commands are migrated out of legacy PHP paths.
 
 ## Packages
 
@@ -108,18 +108,17 @@ Payload fields:
 
 `GAME_RUNTIME_TICKET_SECRET` must be shared with Symfony when the runtime is activated. If the secret is empty, `/ws` rejects gameplay connections while health endpoints remain available.
 
-Client command messages:
+Client command messages use `kind` as the active contract. `type: "command"` is accepted only by the explicit compatibility adapter for older clients.
 
 ```json
 {
-  "type": "command",
-  "command": {
-    "gameId": "game-id",
-    "baseVersion": 1,
-    "clientActionId": "uuid",
-    "type": "life.changed",
-    "payload": {}
-  }
+  "kind": "command.v2",
+  "messageId": "uuid",
+  "gameId": "game-id",
+  "baseVersion": 1,
+  "clientActionId": "uuid",
+  "type": "life.changed",
+  "payload": {}
 }
 ```
 
@@ -127,17 +126,15 @@ Server patch messages:
 
 ```json
 {
-  "type": "patch",
-  "patch": {
-    "gameId": "game-id",
-    "version": 2,
-    "visibility": "public",
-    "ops": []
-  }
+  "kind": "patch.v2",
+  "gameId": "game-id",
+  "version": 2,
+  "visibility": "public",
+  "ops": []
 }
 ```
 
-Reconnect uses the in-memory patch buffer. If patches after `lastAppliedVersion` are unavailable, the runtime emits `resync.required`; that path is exceptional and should trigger bootstrap.
+Reconnect uses the in-memory patch buffer. If patches after `lastAppliedVersion` are unavailable, the runtime emits `resync_required`; that path is exceptional and should trigger bootstrap.
 
 ## Persistence
 

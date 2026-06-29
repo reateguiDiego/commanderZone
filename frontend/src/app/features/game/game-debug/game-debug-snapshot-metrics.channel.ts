@@ -42,6 +42,14 @@ export interface GameDebugQueueMetrics {
   'position.commands_per_drag'?: number;
   dropped_ephemeral_events?: number;
   coalesced_position_events?: number;
+  'gameplay.refetch.count'?: number;
+  'gameplay.refetch.reason'?: Record<string, number>;
+  'gameplay.patch_v2.apply.ok'?: number;
+  'gameplay.patch_v2.apply.resync_required'?: number;
+  'gameplay.patch_v2.apply.version_gap'?: number;
+  'gameplay.patch_v2.apply.missing_state'?: number;
+  'gameplay.patch_legacy.apply.fail'?: number;
+  'gameplay.command_ack.duplicate_resync'?: number;
   enqueueRate: number;
   drainRate: number;
   measuredAt: string;
@@ -57,6 +65,26 @@ export interface GameDebugDeadLetterEvent {
   details: string | null;
 }
 
+export interface GameDebugGameplayEvent {
+  kind: 'gameplay_debug_event';
+  gameId: string;
+  source: string;
+  reason: string | null;
+  playerId: string | null;
+  localSnapshotVersion: number | null;
+  normalizedV2LastAppliedVersion: number | null;
+  incomingMessageKind: string | null;
+  incomingMessageType: string | null;
+  incomingPatchVersion: number | null;
+  ops: string[];
+  clientActionId: string | null;
+  commandType: string | null;
+  currentVersion: number | null;
+  result: string | null;
+  blocked: boolean;
+  measuredAt: string;
+}
+
 export type GameDebugSnapshotMetricsMessage =
   | {
       kind: 'debug_observe';
@@ -69,7 +97,8 @@ export type GameDebugSnapshotMetricsMessage =
     }
   | GameDebugSnapshotMetric
   | GameDebugQueueMetrics
-  | GameDebugDeadLetterEvent;
+  | GameDebugDeadLetterEvent
+  | GameDebugGameplayEvent;
 
 export function createGameDebugSnapshotMetricsChannel(): BroadcastChannel | null {
   if (typeof BroadcastChannel === 'undefined') {
@@ -90,5 +119,6 @@ export function isGameDebugSnapshotMetricsMessage(value: unknown): value is Game
     || kind === 'debug_unobserve'
     || kind === 'snapshot_metric'
     || kind === 'queue_metrics'
-    || kind === 'dead_letter_event';
+    || kind === 'dead_letter_event'
+    || kind === 'gameplay_debug_event';
 }

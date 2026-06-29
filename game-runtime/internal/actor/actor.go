@@ -18,6 +18,8 @@ var (
 	ErrActorStopped    = errors.New("game actor stopped")
 )
 
+const maxSeenActionCache = 512
+
 type Applier interface {
 	Type() string
 	Apply(ctx context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error)
@@ -53,6 +55,7 @@ type GameActor struct {
 	appliers            map[string]Applier
 	mailbox             chan CommandRequest
 	seenActions         map[string]CommandResult
+	seenActionOrder     []string
 	startedAt           time.Time
 	lastHeartbeat       time.Time
 	stop                chan struct{}
@@ -67,15 +70,19 @@ type GameActor struct {
 }
 
 type ActorMetrics struct {
-	GameID               string  `json:"gameId"`
-	QueueDepth           int     `json:"actor.queue_depth"`
-	QueueCapacity        int     `json:"actor.queue_capacity"`
-	QueueFullCount       int64   `json:"actor.queue_full_count"`
-	CommandEnqueuedCount int64   `json:"actor.command_enqueued_count"`
-	CommandRejectedCount int64   `json:"actor.command_rejected_count"`
-	CommandAppliedCount  int64   `json:"actor.command_applied_count"`
-	CommandLatencyMs     float64 `json:"actor.command_latency_ms"`
-	QueueWaitMs          float64 `json:"actor.queue_wait_ms"`
+	GameID                string  `json:"gameId"`
+	QueueDepth            int     `json:"actor.queue_depth"`
+	QueueCapacity         int     `json:"actor.queue_capacity"`
+	QueueFullCount        int64   `json:"actor.queue_full_count"`
+	CommandEnqueuedCount  int64   `json:"actor.command_enqueued_count"`
+	CommandRejectedCount  int64   `json:"actor.command_rejected_count"`
+	CommandAppliedCount   int64   `json:"actor.command_applied_count"`
+	CommandLatencyMs      float64 `json:"actor.command_latency_ms"`
+	QueueWaitMs           float64 `json:"actor.queue_wait_ms"`
+	RuntimeCoveragePct    float64 `json:"command.runtime_coverage_percent"`
+	AliasTranslationCount int64   `json:"command.alias_translation_count"`
+	UnsupportedCount      int64   `json:"command.unsupported_count"`
+	LegacyFallbackCount   int64   `json:"command.legacy_fallback_count"`
 }
 
 func NewGameActor(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier) *GameActor {
@@ -91,19 +98,21 @@ func NewGameActorWithSnapshotPolicy(gameID string, initial state.GameState, stor
 		queueSize = 1
 	}
 	return &GameActor{
-		gameID:        gameID,
-		state:         &initial,
-		store:         store,
-		appliers:      byType,
-		mailbox:       make(chan CommandRequest, queueSize),
-		seenActions:   map[string]CommandResult{},
-		startedAt:     time.Now().UTC(),
-		lastHeartbeat: time.Now().UTC(),
-		stop:          make(chan struct{}),
-		stopped:       make(chan struct{}),
+		gameID:          gameID,
+		state:           &initial,
+		store:           store,
+		appliers:        byType,
+		mailbox:         make(chan CommandRequest, queueSize),
+		seenActions:     map[string]CommandResult{},
+		seenActionOrder: make([]string, 0, maxSeenActionCache),
+		startedAt:       time.Now().UTC(),
+		lastHeartbeat:   time.Now().UTC(),
+		stop:            make(chan struct{}),
+		stopped:         make(chan struct{}),
 		metrics: ActorMetrics{
-			GameID:        gameID,
-			QueueCapacity: queueSize,
+			GameID:             gameID,
+			QueueCapacity:      queueSize,
+			RuntimeCoveragePct: CommandRuntimeCoveragePercent(appliers, FinalGameplayCommandTypes()),
 		},
 		snapshotPolicy: snapshotPolicy,
 		lastSnapshotAt: time.Now().UTC(),
@@ -253,6 +262,12 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	if err := command.Validate(); err != nil {
 		return a.rejectedResult(err, queueWait, startedAt)
 	}
+	aliasTranslated := false
+	if canonicalType, translated := CanonicalCommandType(command.Type); translated {
+		command.Type = canonicalType
+		aliasTranslated = true
+		a.recordAliasTranslation()
+	}
 	if existing, ok := a.seenActions[command.ClientActionID]; ok {
 		return existing
 	}
@@ -270,6 +285,7 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	applier, ok := a.appliers[command.Type]
 	if !ok {
+		a.recordUnsupported()
 		return a.rejectedResult(ErrUnknownCommand, queueWait, startedAt)
 	}
 
@@ -280,6 +296,17 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	if err != nil {
 		rollback.Restore(a.state)
 		return a.rejectedResult(err, queueWait, startedAt)
+	}
+	if eventPayload == nil {
+		eventPayload = map[string]any{}
+	}
+	addCommandMetric(eventPayload, "command.runtime_coverage_percent", a.commandRuntimeCoveragePercent())
+	addCommandMetric(eventPayload, "command.unsupported_count", 0)
+	addCommandMetric(eventPayload, "command.legacy_fallback_count", 0)
+	if aliasTranslated {
+		addCommandMetric(eventPayload, "command.alias_translation_count", 1)
+	} else {
+		addCommandMetric(eventPayload, "command.alias_translation_count", 0)
 	}
 	a.state.Version = nextVersion
 	eventType := command.Type
@@ -312,7 +339,7 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		Event:   event,
 		Patches: emitter.Envelopes(a.gameID, nextVersion, command.ClientActionID),
 	}
-	a.seenActions[command.ClientActionID] = result
+	a.rememberSeenAction(command.ClientActionID, result)
 	a.lastHeartbeat = time.Now().UTC()
 	a.eventsSinceSnapshot++
 	if err := a.saveSnapshotIfDueLocked(ctx); err != nil {
@@ -320,6 +347,21 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	a.recordApplied(queueWait, time.Since(startedAt))
 	return result
+}
+
+func (a *GameActor) rememberSeenAction(clientActionID string, result CommandResult) {
+	if clientActionID == "" {
+		return
+	}
+	if _, exists := a.seenActions[clientActionID]; !exists {
+		a.seenActionOrder = append(a.seenActionOrder, clientActionID)
+	}
+	a.seenActions[clientActionID] = result
+	for len(a.seenActionOrder) > maxSeenActionCache {
+		oldest := a.seenActionOrder[0]
+		a.seenActionOrder = a.seenActionOrder[1:]
+		delete(a.seenActions, oldest)
+	}
 }
 
 func (a *GameActor) rejectedResult(err error, queueWait time.Duration, startedAt time.Time) CommandResult {
@@ -356,11 +398,38 @@ func (a *GameActor) recordApplied(queueWait time.Duration, latency time.Duration
 	a.metrics.CommandLatencyMs = durationMs(latency)
 }
 
+func (a *GameActor) recordAliasTranslation() {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.AliasTranslationCount++
+}
+
+func (a *GameActor) recordUnsupported() {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.UnsupportedCount++
+}
+
+func (a *GameActor) commandRuntimeCoveragePercent() float64 {
+	a.metricsMu.RLock()
+	defer a.metricsMu.RUnlock()
+	return a.metrics.RuntimeCoveragePct
+}
+
 func durationMs(duration time.Duration) float64 {
 	if duration <= 0 {
 		return 0
 	}
 	return float64(duration.Microseconds()) / 1000
+}
+
+func addCommandMetric(payload map[string]any, key string, value any) {
+	metrics, ok := payload["metrics"].(map[string]any)
+	if !ok || metrics == nil {
+		metrics = map[string]any{}
+		payload["metrics"] = metrics
+	}
+	metrics[key] = value
 }
 
 func (a *GameActor) saveSnapshotIfDueLocked(ctx context.Context) error {

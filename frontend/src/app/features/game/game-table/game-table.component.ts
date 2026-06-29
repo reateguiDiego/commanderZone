@@ -4222,7 +4222,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.showRematchToast(response.message ?? 'Tu voto se ha guardado. Espera a que termine la partida.');
       }
 
-      await this.store.refetch(true);
+      await this.store.refetch(true, 'rematch.vote_waiting_for_game_end');
     } catch (error) {
       this.showRematchToast(this.rematchErrorMessage(error));
     } finally {

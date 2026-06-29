@@ -18,7 +18,6 @@ use App\Application\Game\Runtime\GameRuntimeCommandClient;
 use App\Application\Game\Runtime\GameplayRuntimeGateway;
 use App\Application\Game\Runtime\GameplayRuntimePatchAdapter;
 use App\Application\Game\Runtime\GameplayRuntimeRouter;
-use App\Application\Game\Runtime\LegacyMulliganRuntimeStateMapper;
 use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
 use App\Application\Game\WebSocket\GameWebsocketPatchBuilder;
@@ -216,7 +215,6 @@ final class GameplayRuntimeLegacyComparisonBenchmark
             );
             $runtimeClient = new GameRuntimeCommandClient(
                 HttpClient::create(),
-                new LegacyMulliganRuntimeStateMapper(),
                 $this->runtimeUrl,
             );
             $runtimeGateway = new GameplayRuntimeGateway(

@@ -133,6 +133,9 @@ final class GameEventReplayService
     private function applyRuntimeGameplayEvent(array &$snapshot, GameEvent $event, array $payload): bool
     {
         switch ($event->type()) {
+            case 'game.started':
+                return true;
+
             case 'library.draw':
             case 'library.draw_many':
                 $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';

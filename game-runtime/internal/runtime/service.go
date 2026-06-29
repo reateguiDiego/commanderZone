@@ -2,12 +2,15 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"commanderzone/game-runtime/internal/actor"
 	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/state"
 )
+
+var ErrActorStateNotFound = errors.New("runtime actor state not found")
 
 type Service struct {
 	mu        sync.RWMutex
@@ -16,11 +19,25 @@ type Service struct {
 	store     persistence.EventStore
 	queueSize int
 	appliers  []actor.Applier
+
+	metricsMu sync.RWMutex
+	metrics   RuntimeMetrics
 }
 
 type MetricsSnapshot struct {
-	Actors []actor.ActorMetrics `json:"actors"`
-	Totals actor.ActorMetrics   `json:"totals"`
+	Actors  []actor.ActorMetrics `json:"actors"`
+	Totals  actor.ActorMetrics   `json:"totals"`
+	Runtime RuntimeMetrics       `json:"runtime"`
+}
+
+type RuntimeMetrics struct {
+	InitialStatePerCommandCount int64   `json:"runtime.initial_state_per_command_count"`
+	ActorLoadFromSnapshotCount  int64   `json:"runtime.actor_load_from_snapshot_count"`
+	ActorLoadFromEventsCount    int64   `json:"runtime.actor_load_from_events_count"`
+	ActorCacheHitCount          int64   `json:"runtime.actor_cache_hit_count"`
+	ActorCacheMissCount         int64   `json:"runtime.actor_cache_miss_count"`
+	CommandRuntimeCoveragePct   float64 `json:"command.runtime_coverage_percent"`
+	CommandLegacyFallbackCount  int64   `json:"command.legacy_fallback_count"`
 }
 
 func NewService() *Service {
@@ -49,49 +66,76 @@ func (s *Service) RegisterActor(gameID string, actor *actor.GameActor) {
 	s.actors[gameID] = actor
 }
 
-func (s *Service) LoadActor(ctx context.Context, gameID string, initial state.GameState) (*actor.GameActor, bool) {
-	gameActor, created, _ := s.LoadActorRecovered(ctx, gameID, initial)
+func (s *Service) LoadActor(ctx context.Context, gameID string) (*actor.GameActor, bool) {
+	gameActor, created, _ := s.LoadActorRecovered(ctx, gameID, nil)
 	return gameActor, created
 }
 
-func (s *Service) LoadActorRecovered(ctx context.Context, gameID string, initial state.GameState) (*actor.GameActor, bool, error) {
+func (s *Service) LoadActorFromInitialState(ctx context.Context, gameID string, initial state.GameState) (*actor.GameActor, bool, error) {
+	return s.LoadActorRecovered(ctx, gameID, &initial)
+}
+
+func (s *Service) LoadActorRecovered(ctx context.Context, gameID string, initial *state.GameState) (*actor.GameActor, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if gameActor, ok := s.actors[gameID]; ok {
+		s.recordActorCacheHit()
 		return gameActor, false, nil
 	}
+	s.recordActorCacheMiss()
 	recovered, err := s.recoverState(ctx, gameID, initial)
 	if err != nil {
 		return nil, false, err
 	}
-	initial = recovered
 	// Actor lifetime must outlive the HTTP request that created it; request
 	// contexts are only used for recovery/loading and are canceled after the
 	// response is written.
 	actorCtx, cancel := context.WithCancel(context.Background())
-	gameActor := actor.NewGameActor(gameID, initial, s.store, s.queueSize, s.appliers)
+	gameActor := actor.NewGameActor(gameID, recovered, s.store, s.queueSize, s.appliers)
 	s.actors[gameID] = gameActor
 	s.cancels[gameID] = cancel
 	gameActor.Start(actorCtx)
 	return gameActor, true, nil
 }
 
-func (s *Service) recoverState(ctx context.Context, gameID string, initial state.GameState) (state.GameState, error) {
+func (s *Service) recoverState(ctx context.Context, gameID string, initial *state.GameState) (state.GameState, error) {
 	if s.store == nil {
-		return initial, nil
+		if initial == nil {
+			return state.GameState{}, ErrActorStateNotFound
+		}
+		base := initial.Clone()
+		state.NormalizeForRecovery(gameID, &base)
+		state.RebuildLocIndexForRecoveryOnly(&base)
+		if err := state.ValidateInvariants(base); err != nil {
+			return state.GameState{}, err
+		}
+		return base, nil
 	}
-	base := initial
+	var base state.GameState
+	hasBase := false
 	snapshot, ok, err := s.store.LatestSnapshot(ctx, gameID)
 	if err != nil {
 		return state.GameState{}, err
 	}
 	if ok {
 		base = snapshot.State
+		hasBase = true
+		s.recordActorLoadFromSnapshot()
+	} else if initial != nil {
+		base = initial.Clone()
+		hasBase = true
 	}
+	if !hasBase {
+		return state.GameState{}, ErrActorStateNotFound
+	}
+	state.NormalizeForRecovery(gameID, &base)
 	events, err := s.store.EventsAfter(ctx, gameID, base.Version)
 	if err != nil {
 		return state.GameState{}, err
+	}
+	if len(events) > 0 {
+		s.recordActorLoadFromEvents()
 	}
 	if len(events) == 0 {
 		state.RebuildLocIndexForRecoveryOnly(&base)
@@ -123,6 +167,7 @@ func (s *Service) MetricsSnapshot() MetricsSnapshot {
 		Totals: actor.ActorMetrics{
 			GameID: "all",
 		},
+		Runtime: s.RuntimeMetrics(),
 	}
 	for _, gameActor := range actors {
 		metrics := gameActor.Metrics()
@@ -139,8 +184,53 @@ func (s *Service) MetricsSnapshot() MetricsSnapshot {
 		if metrics.QueueWaitMs > snapshot.Totals.QueueWaitMs {
 			snapshot.Totals.QueueWaitMs = metrics.QueueWaitMs
 		}
+		if metrics.RuntimeCoveragePct > snapshot.Totals.RuntimeCoveragePct {
+			snapshot.Totals.RuntimeCoveragePct = metrics.RuntimeCoveragePct
+		}
+		snapshot.Totals.AliasTranslationCount += metrics.AliasTranslationCount
+		snapshot.Totals.UnsupportedCount += metrics.UnsupportedCount
+		snapshot.Totals.LegacyFallbackCount += metrics.LegacyFallbackCount
 	}
 	return snapshot
+}
+
+func (s *Service) RecordInitialStatePerCommand() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.InitialStatePerCommandCount++
+}
+
+func (s *Service) RuntimeMetrics() RuntimeMetrics {
+	s.metricsMu.RLock()
+	defer s.metricsMu.RUnlock()
+	metrics := s.metrics
+	metrics.CommandRuntimeCoveragePct = actor.CommandRuntimeCoveragePercent(s.appliers, actor.FinalGameplayCommandTypes())
+	metrics.CommandLegacyFallbackCount = 0
+	return metrics
+}
+
+func (s *Service) recordActorLoadFromSnapshot() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.ActorLoadFromSnapshotCount++
+}
+
+func (s *Service) recordActorLoadFromEvents() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.ActorLoadFromEventsCount++
+}
+
+func (s *Service) recordActorCacheHit() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.ActorCacheHitCount++
+}
+
+func (s *Service) recordActorCacheMiss() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.ActorCacheMissCount++
 }
 
 func (s *Service) StopActor(ctx context.Context, gameID string) error {

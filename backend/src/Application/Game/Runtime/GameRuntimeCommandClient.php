@@ -10,7 +10,6 @@ final readonly class GameRuntimeCommandClient implements GameRuntimeCommandClien
 {
     public function __construct(
         private HttpClientInterface $httpClient,
-        private LegacyMulliganRuntimeStateMapper $stateMapper,
         #[Autowire('%game_runtime_internal_url%')]
         private string $runtimeUrl = 'http://game-runtime:8091',
     ) {
@@ -26,6 +25,8 @@ final readonly class GameRuntimeCommandClient implements GameRuntimeCommandClien
         array $payload,
         bool $shadow = false,
     ): GameRuntimeCommandResult {
+        unset($snapshot);
+
         $runtimeGameId = $shadow ? $gameId.'-shadow' : $gameId;
         $runtimeClientActionId = $shadow ? $clientActionId.'-shadow' : $clientActionId;
 
@@ -33,7 +34,6 @@ final readonly class GameRuntimeCommandClient implements GameRuntimeCommandClien
             $response = $this->httpClient->request('POST', rtrim($this->runtimeUrl, '/').'/commands', [
                 'json' => [
                     'actorId' => $actorId,
-                    'initialState' => $this->stateMapper->map($snapshot, $runtimeGameId),
                     'command' => [
                         'gameId' => $runtimeGameId,
                         'baseVersion' => max(1, $baseVersion),

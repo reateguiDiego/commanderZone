@@ -10,6 +10,11 @@ import (
 
 func ReplayEvents(initial state.GameState, events []protocol.EventPayloadV2, appliers []Applier) (state.GameState, error) {
 	recovered := initial.Clone()
+	recoveryGameID := recovered.GameID
+	if recoveryGameID == "" && len(events) > 0 {
+		recoveryGameID = events[0].GameID
+	}
+	state.NormalizeForRecovery(recoveryGameID, &recovered)
 	for _, event := range events {
 		if event.Version != recovered.Version+1 {
 			return state.GameState{}, fmt.Errorf("%w: event version %d after state version %d", ErrVersionConflict, event.Version, recovered.Version)
@@ -32,6 +37,8 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 	}
 
 	switch event.Type {
+	case "game.started":
+		return nil
 	case "life.changed", "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "card.position.changed", "cards.position.changed", "counter.changed", "commander.damage.changed", "card.power_toughness.changed":
 		return replayViaApplier(game, event, appliers)
 	case "card.moved", "cards.moved", "zone.reorderedByIds", "zone.move_all", "battlefield.untap_all":

@@ -10,17 +10,19 @@ import (
 	"testing"
 
 	"commanderzone/game-runtime/internal/actor"
+	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	runtimesvc "commanderzone/game-runtime/internal/runtime"
 	"commanderzone/game-runtime/internal/state"
 )
 
 func TestCommandHTTPServerProcessesRuntimeMulligan(t *testing.T) {
-	server := NewCommandHTTPServer(runtimesvc.NewService())
 	initial := runtimeMulliganState("game-1", "player-1")
+	store := persistence.NewInMemoryEventStore()
+	saveHTTPRuntimeSnapshot(t, store, initial)
+	server := NewCommandHTTPServer(runtimesvc.NewServiceWithStore(store, 8, actor.DefaultAppliers()))
 	body, err := json.Marshal(CommandHTTPRequest{
-		ActorID:      "player-1",
-		InitialState: &initial,
+		ActorID: "player-1",
 		Command: protocol.CommandEnvelopeV2{
 			GameID:         "game-1",
 			BaseVersion:    1,
@@ -59,13 +61,19 @@ func TestCommandHTTPServerProcessesRuntimeMulligan(t *testing.T) {
 	if response.Metrics["actor.queue_capacity"] == nil || response.Metrics["actor.command_applied_count"] == nil {
 		t.Fatalf("expected actor metrics in command response: %#v", response.Metrics)
 	}
+	if response.Metrics["runtime.initial_state_per_command_count"] != float64(0) {
+		t.Fatalf("expected no initialState metric in final command path: %#v", response.Metrics)
+	}
+	if response.Metrics["runtime.actor_load_from_snapshot_count"] != float64(1) {
+		t.Fatalf("expected snapshot actor load metric: %#v", response.Metrics)
+	}
 }
 
-func TestCommandHTTPServerUsesRecoveredActorVersionWhenInitialStateIsStale(t *testing.T) {
-	server := NewCommandHTTPServer(runtimesvc.NewService())
+func TestCommandHTTPServerRejectsInitialStateInFinalMode(t *testing.T) {
+	server := NewCommandHTTPServer(runtimesvc.NewServiceWithStore(persistence.NewInMemoryEventStore(), 8, actor.DefaultAppliers()))
 	initial := runtimeMulliganState("game-stale", "player-1")
 
-	first := commandHTTP(t, server, CommandHTTPRequest{
+	body, err := json.Marshal(CommandHTTPRequest{
 		ActorID:      "player-1",
 		InitialState: &initial,
 		Command: protocol.CommandEnvelopeV2{
@@ -76,26 +84,121 @@ func TestCommandHTTPServerUsesRecoveredActorVersionWhenInitialStateIsStale(t *te
 			Payload:        map[string]any{"playerId": "player-1"},
 		},
 	})
-	if first.Event.Version != 2 {
-		t.Fatalf("first version got %d want 2", first.Event.Version)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	second := commandHTTP(t, server, CommandHTTPRequest{
+	request := httptest.NewRequest(http.MethodPost, "/commands", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var response CommandHTTPResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != "initial_state_rejected" {
+		t.Fatalf("code got %q want initial_state_rejected; body=%s", response.Code, recorder.Body.String())
+	}
+	if metrics := server.runtime.RuntimeMetrics(); metrics.InitialStatePerCommandCount != 1 {
+		t.Fatalf("initialState metric got %#v want count 1", metrics)
+	}
+}
+
+func TestCommandHTTPServerAllowsInitialStateOnlyWhenExplicitlyEnabled(t *testing.T) {
+	server := NewCommandHTTPServerAllowingInitialState(runtimesvc.NewServiceWithStore(persistence.NewInMemoryEventStore(), 8, actor.DefaultAppliers()))
+	initial := runtimeMulliganState("game-migration", "player-1")
+
+	response := commandHTTP(t, server, CommandHTTPRequest{
 		ActorID:      "player-1",
 		InitialState: &initial,
 		Command: protocol.CommandEnvelopeV2{
-			GameID:         "game-stale",
+			GameID:         "game-migration",
 			BaseVersion:    1,
+			ClientActionID: "take-1",
+			Type:           "mulligan.take",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+	if response.Event.Type != "mulligan.player_took" {
+		t.Fatalf("event got %s want mulligan.player_took", response.Event.Type)
+	}
+	if response.Metrics["runtime.initial_state_per_command_count"] != float64(1) {
+		t.Fatalf("expected migration initialState metric: %#v", response.Metrics)
+	}
+}
+
+func TestCommandHTTPServerActorCacheHitAfterSnapshotRecovery(t *testing.T) {
+	initial := runtimeMulliganState("game-cache", "player-1")
+	store := persistence.NewInMemoryEventStore()
+	saveHTTPRuntimeSnapshot(t, store, initial)
+	server := NewCommandHTTPServer(runtimesvc.NewServiceWithStore(store, 8, actor.DefaultAppliers()))
+
+	first := commandHTTP(t, server, CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         "game-cache",
+			BaseVersion:    1,
+			ClientActionID: "take-1",
+			Type:           "mulligan.take",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+	second := commandHTTP(t, server, CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         "game-cache",
+			BaseVersion:    first.Event.Version,
 			ClientActionID: "keep-1",
 			Type:           "mulligan.keep",
 			Payload:        map[string]any{"playerId": "player-1"},
 		},
 	})
-	if second.Event.Type != "mulligan.player_kept" {
-		t.Fatalf("second event got %s want mulligan.player_kept", second.Event.Type)
+
+	if second.Metrics["runtime.actor_cache_hit_count"] != float64(1) {
+		t.Fatalf("expected one actor cache hit: %#v", second.Metrics)
 	}
-	if second.Event.Version != 3 {
-		t.Fatalf("second version got %d want 3", second.Event.Version)
+	if second.Metrics["runtime.actor_cache_miss_count"] != float64(1) {
+		t.Fatalf("expected one actor cache miss: %#v", second.Metrics)
+	}
+}
+
+func TestCommandHTTPServerActorCacheMissLoadsSnapshotAndEvents(t *testing.T) {
+	initial := runtimeMulliganState("game-replay", "player-1")
+	store := persistence.NewInMemoryEventStore()
+	saveHTTPRuntimeSnapshot(t, store, initial)
+	take := actor.NewGameActor("game-replay", initial, store, 8, actor.DefaultAppliers()).ApplyDirect(context.Background(), protocol.CommandEnvelopeV2{
+		GameID:         "game-replay",
+		BaseVersion:    1,
+		ClientActionID: "seed-take",
+		Type:           "mulligan.take",
+		Payload:        map[string]any{"playerId": "player-1"},
+	}, "player-1")
+	if take.Err != nil {
+		t.Fatalf("seed take failed: %v", take.Err)
+	}
+	server := NewCommandHTTPServer(runtimesvc.NewServiceWithStore(store, 8, actor.DefaultAppliers()))
+
+	response := commandHTTP(t, server, CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         "game-replay",
+			BaseVersion:    2,
+			ClientActionID: "keep-1",
+			Type:           "mulligan.keep",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+
+	if response.Event.Version != 3 {
+		t.Fatalf("event version got %d want 3", response.Event.Version)
+	}
+	if response.Metrics["runtime.actor_load_from_snapshot_count"] != float64(1) ||
+		response.Metrics["runtime.actor_load_from_events_count"] != float64(1) ||
+		response.Metrics["runtime.actor_cache_miss_count"] != float64(1) {
+		t.Fatalf("expected snapshot+event recovery metrics: %#v", response.Metrics)
 	}
 }
 
@@ -145,6 +248,46 @@ func TestCommandHTTPServerReturnsQueueFullCode(t *testing.T) {
 	}
 }
 
+func TestCommandHTTPServerReturnsUnknownCommandCodeAndMetric(t *testing.T) {
+	runtimeService := runtimesvc.NewService()
+	gameActor, _, err := runtimeService.LoadActorFromInitialState(context.Background(), "game-unknown", runtimeMulliganState("game-unknown", "player-1"))
+	if err != nil {
+		t.Fatalf("load actor: %v", err)
+	}
+	server := NewCommandHTTPServer(runtimeService)
+
+	body, err := json.Marshal(CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         "game-unknown",
+			BaseVersion:    1,
+			ClientActionID: "unknown-1",
+			Type:           "not.supported",
+			Payload:        map[string]any{},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/commands", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var response CommandHTTPResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != "unknown_command" {
+		t.Fatalf("code got %q want unknown_command; body=%s", response.Code, recorder.Body.String())
+	}
+	if gameActor.Metrics().UnsupportedCount != 1 {
+		t.Fatalf("command.unsupported_count got %d want 1", gameActor.Metrics().UnsupportedCount)
+	}
+}
+
 func TestMetricsHTTPServerExposesActorQueueMetrics(t *testing.T) {
 	runtimeService := runtimesvc.NewServiceWithStore(nil, 8, actor.DefaultAppliers())
 	gameActor := actor.NewGameActor("game-metrics", runtimeMulliganState("game-metrics", "player-1"), nil, 8, actor.DefaultAppliers())
@@ -168,8 +311,9 @@ func TestMetricsHTTPServerExposesActorQueueMetrics(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
 	}
 	var response struct {
-		Actors []actor.ActorMetrics `json:"actors"`
-		Totals actor.ActorMetrics   `json:"totals"`
+		Actors  []actor.ActorMetrics      `json:"actors"`
+		Totals  actor.ActorMetrics        `json:"totals"`
+		Runtime runtimesvc.RuntimeMetrics `json:"runtime"`
 	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
@@ -179,6 +323,12 @@ func TestMetricsHTTPServerExposesActorQueueMetrics(t *testing.T) {
 	}
 	if response.Actors[0].CommandAppliedCount != 1 || response.Totals.CommandAppliedCount != 1 {
 		t.Fatalf("unexpected metrics response: %#v", response)
+	}
+	if response.Runtime.InitialStatePerCommandCount != 0 {
+		t.Fatalf("initialState metric got %d want 0", response.Runtime.InitialStatePerCommandCount)
+	}
+	if response.Runtime.CommandRuntimeCoveragePct != 100 {
+		t.Fatalf("command.runtime_coverage_percent got %v want 100", response.Runtime.CommandRuntimeCoveragePct)
 	}
 }
 
@@ -247,4 +397,15 @@ func runtimeMulliganState(gameID string, playerID string) state.GameState {
 		ScryMode:        "NONE",
 	}
 	return game
+}
+
+func saveHTTPRuntimeSnapshot(t *testing.T, store *persistence.InMemoryEventStore, game state.GameState) {
+	t.Helper()
+	snapshot, err := persistence.NewCompactSnapshot(game)
+	if err != nil {
+		t.Fatalf("compact snapshot: %v", err)
+	}
+	if err := store.SaveSnapshot(context.Background(), snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
 }

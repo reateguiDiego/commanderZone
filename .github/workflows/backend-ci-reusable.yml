@@ -46,6 +46,17 @@ jobs:
       - name: Run migrations (test)
         run: APP_ENV=test php bin/console doctrine:migrations:migrate --no-interaction
 
+      - name: Run gameplay realtime/runtime focused tests
+        run: >-
+          APP_ENV=test php bin/phpunit
+          tests/UI/Http/GamesControllerV2Test.php
+          tests/Application/GameEventStoreV2Test.php
+          tests/Application/GameCommandHandlerV2Test.php
+          tests/Application/GameplayRuntimeRouterTest.php
+          tests/Application/GameRuntimeCommandClientTest.php
+          tests/Application/GameRuntimeMulliganClientTest.php
+          tests/Application/GameWebSocket
+
       - name: Run backend tests
         run: APP_ENV=test php bin/phpunit
 

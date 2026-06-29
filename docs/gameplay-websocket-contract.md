@@ -10,8 +10,19 @@ La conexion usa ticket corto, no el JWT principal en el query string.
 
 1. El cliente pide `POST /games/{id}/websocket-ticket` con la autenticacion HTTP actual.
 2. El backend valida `Game::canBeViewedBy($user)`.
-3. El backend devuelve `{ ticket, expiresAt, websocketUrl }`.
-4. El cliente abre `websocketUrl`, por defecto `ws://127.0.0.1:8081/games/{id}?ticket=...` en desarrollo.
+3. El backend devuelve `{ ticket, expiresAt, websocketUrl, route, claims }`.
+4. `route` debe ser `runtime_ws` para gameplay activo. `php_gateway_ws` y `legacy_ws` solo pueden usarse con flags de emergencia explicitos fuera del flujo normal.
+5. El cliente abre `websocketUrl`, por defecto `ws://127.0.0.1:8091/ws?ticket=...` en desarrollo.
+
+Claims firmados del ticket runtime:
+
+- `gameId`
+- `userId`
+- `playerId`
+- `role`
+- `permissions`
+- `exp`
+- `protocol: "v2"`
 
 Si el ticket falta, expira, no pertenece al `gameId`, o el usuario ya no tiene acceso, el servidor cierra con codigo `1008`.
 
@@ -102,6 +113,8 @@ interface GameplayGamePatchMessage {
 
 `ping` y `pong` solo miden vida/latencia de conexion; no cambian estado de partida. `pong.gameId` siempre es el `gameId` autenticado en la conexion.
 
+El runtime Go acepta `type` solo como adaptador explicito de entrada para clientes antiguos. Los mensajes servidor -> cliente deben emitirse con `kind`; no se permite emitir `type` como contrato principal.
+
 Los mensajes `connection_state`, `connection_joined` y `connection_left` son presencia tecnica de socket. No son estado de jugador ni gameplay.
 
 ## Patches Tipados
@@ -171,6 +184,7 @@ Si una accion nueva no encaja, se anade una operacion de dominio nueva en vez de
 - Solo se aplica si `patch.baseVersion === snapshot.version` y `patch.version === snapshot.version + 1`.
 - No se permiten saltos de version por ahora. Batches/replay se disenaran explicitamente si hacen falta.
 - El resync usa el mismo snapshot/bootstrap completo y proyectado que el flujo actual.
+- Reconnect al runtime usa `lastAppliedVersion`. `lastSeenVersion` queda reservado al WebSocket PHP legacy y no debe enviarse en `runtime_ws`.
 
 ## Privacidad
 

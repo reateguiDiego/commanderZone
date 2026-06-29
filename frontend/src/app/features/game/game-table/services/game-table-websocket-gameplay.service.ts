@@ -18,6 +18,7 @@ import {
 import {
   createGameDebugSnapshotMetricsChannel,
   GameDebugDeadLetterEvent,
+  GameDebugGameplayEvent,
   GameDebugQueueDeadLetterReason,
   GameDebugQueueMetrics,
   isGameDebugSnapshotMetricsMessage,
@@ -79,6 +80,29 @@ interface QueueCounters {
 interface QueueRates {
   enqueueTimestamps: number[];
   drainTimestamps: number[];
+}
+
+interface GameplayDebugCounters {
+  refetchCount: number;
+  refetchByReason: Record<string, number>;
+  patchV2ApplyOk: number;
+  patchV2ApplyResyncRequired: number;
+  patchV2ApplyVersionGap: number;
+  patchV2ApplyMissingState: number;
+  patchLegacyApplyFail: number;
+  commandAckDuplicateResync: number;
+}
+
+interface GameplayDebugDetails {
+  source: string;
+  reason?: string | null;
+  message?: GameplayServerMessage;
+  patch?: GameplayGamePatchMessage | GameplayPatchV2Message;
+  ack?: GameplayCommandAckMessage;
+  command?: PendingWebsocketCommand | null;
+  currentVersion?: number | null;
+  result?: string | null;
+  blocked?: boolean;
 }
 
 export type GameWebsocketCommandType = GameCommandType | 'disconnect.vote';
@@ -205,6 +229,7 @@ const ERROR_THROTTLE_MS = 2_000;
 const DEAD_LETTER_DEDUP_WINDOW_MS = 1_000;
 const COMMAND_TIMEOUT_MS = 15_000;
 const MULLIGAN_QUEUE_LIMIT = 8;
+const REFETCH_GUARD_WINDOW_MS = 3_000;
 
 @Injectable()
 export class GameTableWebsocketGameplayService implements OnDestroy {
@@ -240,6 +265,17 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     enqueueTimestamps: [],
     drainTimestamps: [],
   };
+  private readonly gameplayDebugCounters: GameplayDebugCounters = {
+    refetchCount: 0,
+    refetchByReason: {},
+    patchV2ApplyOk: 0,
+    patchV2ApplyResyncRequired: 0,
+    patchV2ApplyVersionGap: 0,
+    patchV2ApplyMissingState: 0,
+    patchLegacyApplyFail: 0,
+    commandAckDuplicateResync: 0,
+  };
+  private readonly refetchGuardBySignature = new Map<string, number>();
   private readonly deadLetter: GameDebugDeadLetterEvent[] = [];
   private readonly deadLetterDedupeBySignature = new Map<string, number>();
   private readonly completedCommandIds: string[] = [];
@@ -269,7 +305,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       void this.handleMessage(message);
     });
     void this.transport.connect(gameId, {
-      lastSeenVersion: () => context.snapshot()?.version ?? null,
+      lastAppliedVersion: () => this.lastAppliedVersion(context),
     }).catch(() => {
       this.connected.set(false);
     });
@@ -281,6 +317,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.context = null;
     this.resyncPromise = null;
     this.queuedResyncPromise = null;
+    this.refetchGuardBySignature.clear();
     this.completedCommandIds.length = 0;
     this.completedCommandIdSet.clear();
     this.closeSnapshotMetricsChannel();
@@ -383,9 +420,21 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       return;
     }
 
+    this.logGameplayDebug('debug', context, {
+      source: 'message.received',
+      message,
+      reason: this.incomingMessageType(message),
+    });
+
     switch (message.kind) {
       case 'connection_state':
         this.connected.set(message.status === 'connected');
+        this.logGameplayDebug('info', context, {
+          source: 'reconnect',
+          message,
+          reason: message.status,
+          result: 'connected',
+        });
         if (message.status === 'connected') {
           this.drainMulliganQueue();
           this.drainQueue();
@@ -437,9 +486,25 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       case 'mulligan.completed':
         context.onMulliganCompleted?.(message);
         if (this.gameplayV2Flags.enabled()) {
-          const snapshotVersion = context.snapshot()?.version ?? 0;
-          if ((message.version ?? 0) > snapshotVersion) {
-            await this.requestResync(context);
+          const synchronizedVersion = Math.max(
+            context.snapshot()?.version ?? 0,
+            this.normalizedV2Store.state()?.lastAppliedVersion ?? 0,
+          );
+          if ((message.version ?? 0) > synchronizedVersion) {
+            await this.requestResync(context, {
+              source: 'mulligan.completed',
+              reason: 'client_behind',
+              message,
+              currentVersion: message.version,
+            });
+          } else {
+            this.logGameplayDebug('debug', context, {
+              source: 'mulligan.completed',
+              reason: 'already_synchronized',
+              message,
+              currentVersion: message.version,
+              result: 'no_refetch',
+            });
           }
         }
         return;
@@ -479,7 +544,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   private async handlePatch(context: GameTableWebsocketGameplayContext, patch: GameplayGamePatchMessage): Promise<void> {
     const snapshot = context.snapshot();
     if (!snapshot) {
-      await this.requestResync(context);
+      await this.requestResync(context, {
+        source: 'handlePatch',
+        reason: 'missing_state',
+        patch,
+        currentVersion: patch.version,
+      });
       this.resolveInFlightCommand(patch.clientActionId);
       this.drainQueue();
       return;
@@ -497,30 +567,76 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       });
       context.setSnapshot(result.snapshot);
       this.publishSnapshotMetric(context.gameId(), patch, previousSnapshotSize, this.snapshotSize(result.snapshot));
+      this.logGameplayDebug('debug', context, {
+        source: 'handlePatch',
+        reason: 'applied',
+        patch,
+        currentVersion: patch.version,
+        result: 'applied',
+      });
       this.resolveInFlightCommand(patch.clientActionId);
       this.drainQueue();
       return;
     }
 
     if (result.status === 'ignored') {
+      this.logGameplayDebug('debug', context, {
+        source: 'handlePatch',
+        reason: result.reason,
+        patch,
+        currentVersion: patch.version,
+        result: 'ignored',
+      });
       this.resolveInFlightCommand(patch.clientActionId);
       this.drainQueue();
       return;
     }
 
-    await this.requestResync(context);
+    this.gameplayDebugCounters.patchLegacyApplyFail += 1;
+    await this.requestResync(context, {
+      source: 'handlePatch',
+      reason: result.reason,
+      patch,
+      currentVersion: patch.version,
+    });
     this.resolveInFlightCommand(patch.clientActionId);
     this.drainQueue();
   }
 
   private async handlePatchV2(context: GameTableWebsocketGameplayContext, patch: GameplayPatchV2Message): Promise<void> {
+    if (!this.gameplayV2Flags.enabled()) {
+      this.logGameplayDebug('warn', context, {
+        source: 'handlePatchV2',
+        reason: 'frontend_v2_disabled',
+        patch,
+        currentVersion: patch.version,
+        result: 'ignored',
+      });
+      return;
+    }
+
     const previousSnapshot = context.snapshot();
     const previousSnapshotSize = this.snapshotSize(previousSnapshot);
+    this.logGameplayDebug('debug', context, {
+      source: 'handlePatchV2',
+      reason: this.patchV2VersionRelation(patch.version),
+      patch,
+      currentVersion: patch.version,
+      result: 'received',
+    });
     const result = this.normalizedV2Store.applyPatch(patch);
     if (result.status === 'applied') {
+      this.gameplayDebugCounters.patchV2ApplyOk += 1;
       context.onMulliganPatchV2Applied?.(patch, result.snapshot);
       context.setSnapshot(result.snapshot);
       this.publishSnapshotMetric(context.gameId(), patch, previousSnapshotSize, this.snapshotSize(result.snapshot));
+      this.logGameplayDebug('debug', context, {
+        source: 'handlePatchV2',
+        reason: 'applied',
+        patch,
+        currentVersion: patch.version,
+        result: 'applied',
+      });
       this.resolveInFlightCommand(patch.ackClientActionId ?? undefined);
       this.drainQueue();
       return;
@@ -531,12 +647,31 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       if (snapshot) {
         context.onMulliganPatchV2Applied?.(patch, snapshot);
       }
+      this.logGameplayDebug('debug', context, {
+        source: 'handlePatchV2',
+        reason: result.reason,
+        patch,
+        currentVersion: patch.version,
+        result: 'ignored',
+      });
       this.resolveInFlightCommand(patch.ackClientActionId ?? undefined);
       this.drainQueue();
       return;
     }
 
-    await this.requestResync(context);
+    this.gameplayDebugCounters.patchV2ApplyResyncRequired += 1;
+    if (result.reason === 'version_gap') {
+      this.gameplayDebugCounters.patchV2ApplyVersionGap += 1;
+    }
+    if (result.reason === 'missing_state') {
+      this.gameplayDebugCounters.patchV2ApplyMissingState += 1;
+    }
+    await this.requestResync(context, {
+      source: 'handlePatchV2',
+      reason: result.reason,
+      patch,
+      currentVersion: patch.version,
+    });
     const snapshot = context.snapshot();
     if (snapshot) {
       context.onMulliganPatchV2Applied?.(patch, snapshot);
@@ -580,7 +715,23 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
     if (ack.status === 'duplicate') {
       this.resolveInFlightCommand(ack.clientActionId, ack.messageId);
-      await this.requestResync(context);
+      if (this.isClientSynchronizedAt(context, ack.version)) {
+        this.logGameplayDebug('debug', context, {
+          source: 'command_ack duplicate',
+          reason: 'already_synchronized',
+          ack,
+          currentVersion: ack.version,
+          result: 'no_refetch',
+        });
+      } else {
+        this.gameplayDebugCounters.commandAckDuplicateResync += 1;
+        await this.requestResync(context, {
+          source: 'command_ack duplicate',
+          reason: 'duplicate_ack',
+          ack,
+          currentVersion: ack.version,
+        });
+      }
       this.drainQueue();
       return;
     }
@@ -590,7 +741,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
   private async handleResyncRequired(context: GameTableWebsocketGameplayContext, message: GameplayResyncRequiredMessage): Promise<void> {
     this.resolveInFlightCommand(message.clientActionId);
-    await this.requestResync(context);
+    await this.requestResync(context, {
+      source: 'resync_required',
+      reason: message.reason,
+      message,
+      currentVersion: message.currentVersion,
+    });
     this.drainQueue();
   }
 
@@ -617,18 +773,41 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.drainQueue();
   }
 
-  private requestResync(context: GameTableWebsocketGameplayContext): Promise<void> {
+  private requestResync(context: GameTableWebsocketGameplayContext, details: GameplayDebugDetails): Promise<void> {
+    const refetchSignature = this.refetchGuardSignature(context, details);
     if (this.resyncPromise) {
+      this.logGameplayDebug('debug', context, {
+        ...details,
+        result: 'coalesced_active_refetch',
+      });
       return this.resyncPromise;
     }
     if (this.queuedResyncPromise) {
+      this.logGameplayDebug('debug', context, {
+        ...details,
+        result: 'coalesced_queued_refetch',
+      });
       return this.queuedResyncPromise;
+    }
+    if (!this.allowRefetch(refetchSignature)) {
+      this.logGameplayDebug('warn', context, {
+        ...details,
+        blocked: true,
+        result: 'blocked_repeated_refetch',
+      });
+      this.publishQueueMetrics(context.gameId());
+      return Promise.resolve();
     }
 
     this.queuedResyncPromise = Promise.resolve().then(() => {
       this.queuedResyncPromise = null;
       this.queueCounters.resyncTotal += 1;
+      this.recordRefetchStarted(context, details);
       this.publishQueueMetrics(context.gameId());
+      this.logGameplayDebug('warn', context, {
+        ...details,
+        result: 'refetch_started',
+      });
       this.resyncPromise ??= context.refetch(true).finally(() => {
         this.resyncPromise = null;
         this.drainQueue();
@@ -752,6 +931,13 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     queued.messageId = messageId;
     queued.clientActionId = clientActionId;
     queued.timeoutId = window.setTimeout(() => {
+      this.logGameplayDebug('warn', queued.context, {
+        source: 'timeout',
+        reason: 'command_timeout',
+        command: queued,
+        currentVersion: queued.context.snapshot()?.version ?? null,
+        result: 'rejected',
+      });
       this.rejectInFlightCommand(new Error('WebSocket command timed out.'), clientActionId, messageId, 'timeout');
       this.drainQueue();
     }, COMMAND_TIMEOUT_MS);
@@ -819,7 +1005,10 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       if (ack) {
         this.recordLateAckIgnored(context.gameId());
       } else {
-        await this.requestResync(context);
+        await this.requestResync(context, {
+          source: 'resync_required',
+          reason: 'missing_in_flight',
+        });
       }
       this.drainQueue();
       return;
@@ -834,7 +1023,22 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
     const fastRetry = this.canRetryWithoutResync(context, ack?.error?.conflict);
     if (!fastRetry) {
-      await this.requestResync(context);
+      await this.requestResync(context, {
+        source: 'command_ack resync_required',
+        reason: ack?.error?.code ?? 'resync_required',
+        ack,
+        command: inFlight,
+        currentVersion: ack?.error?.conflict?.currentVersion ?? ack?.version ?? null,
+      });
+    } else {
+      this.logGameplayDebug('debug', context, {
+        source: 'command_ack resync_required',
+        reason: 'concurrent_write_already_current',
+        ack,
+        command: inFlight,
+        currentVersion: ack?.error?.conflict?.currentVersion ?? ack?.version ?? null,
+        result: 'no_refetch',
+      });
     }
 
     if (!inFlight.retryable || inFlight.retryCount >= MAX_RETRY_COUNT) {
@@ -1044,6 +1248,80 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.publishQueueMetrics(gameId);
   }
 
+  private isClientSynchronizedAt(context: GameTableWebsocketGameplayContext, version: number | null | undefined): boolean {
+    if (typeof version !== 'number' || !Number.isFinite(version)) {
+      return false;
+    }
+
+    const snapshotVersion = context.snapshot()?.version ?? 0;
+    if (!this.gameplayV2Flags.enabled()) {
+      return snapshotVersion >= version;
+    }
+
+    const normalizedVersion = this.normalizedV2Store.state()?.lastAppliedVersion ?? 0;
+    return snapshotVersion >= version && normalizedVersion >= version;
+  }
+
+  private lastAppliedVersion(context: GameTableWebsocketGameplayContext): number | null {
+    const normalizedVersion = this.normalizedV2Store.state()?.lastAppliedVersion;
+    if (this.gameplayV2Flags.enabled() && typeof normalizedVersion === 'number' && normalizedVersion >= 1) {
+      return normalizedVersion;
+    }
+
+    return context.snapshot()?.version ?? null;
+  }
+
+  private patchV2VersionRelation(patchVersion: number): string {
+    const lastAppliedVersion = this.normalizedV2Store.state()?.lastAppliedVersion;
+    if (typeof lastAppliedVersion !== 'number') {
+      return 'missing_state';
+    }
+    if (patchVersion === lastAppliedVersion + 1) {
+      return 'next_version';
+    }
+    if (patchVersion <= lastAppliedVersion) {
+      return 'duplicate_or_late_version';
+    }
+
+    return 'version_gap';
+  }
+
+  private refetchGuardSignature(context: GameTableWebsocketGameplayContext, details: GameplayDebugDetails): string {
+    const gameId = context.gameId();
+    const reason = details.reason ?? details.source;
+    const version = this.debugCurrentVersion(context, details) ?? context.snapshot()?.version ?? 0;
+
+    return `${gameId}|${reason}|${version}`;
+  }
+
+  private allowRefetch(signature: string): boolean {
+    const now = Date.now();
+    for (const [key, timestamp] of this.refetchGuardBySignature.entries()) {
+      if (now - timestamp > REFETCH_GUARD_WINDOW_MS) {
+        this.refetchGuardBySignature.delete(key);
+      }
+    }
+
+    const previous = this.refetchGuardBySignature.get(signature);
+    if (previous !== undefined && now - previous <= REFETCH_GUARD_WINDOW_MS) {
+      return false;
+    }
+
+    this.refetchGuardBySignature.set(signature, now);
+    return true;
+  }
+
+  private recordRefetchStarted(context: GameTableWebsocketGameplayContext, details: GameplayDebugDetails): void {
+    const reason = details.reason ?? details.source;
+    this.gameplayDebugCounters.refetchCount += 1;
+    this.gameplayDebugCounters.refetchByReason[reason] = (this.gameplayDebugCounters.refetchByReason[reason] ?? 0) + 1;
+    this.logGameplayDebug('debug', context, {
+      ...details,
+      reason,
+      result: 'counter_incremented',
+    });
+  }
+
   private isResyncing(): boolean {
     return this.resyncPromise !== null || this.queuedResyncPromise !== null;
   }
@@ -1225,12 +1503,143 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       'position.commands_per_drag': this.queueCounters.positionCommandsPerDrag,
       dropped_ephemeral_events: this.queueCounters.droppedEphemeralEvents,
       coalesced_position_events: this.queueCounters.coalescedPositionEvents,
+      'gameplay.refetch.count': this.gameplayDebugCounters.refetchCount,
+      'gameplay.refetch.reason': { ...this.gameplayDebugCounters.refetchByReason },
+      'gameplay.patch_v2.apply.ok': this.gameplayDebugCounters.patchV2ApplyOk,
+      'gameplay.patch_v2.apply.resync_required': this.gameplayDebugCounters.patchV2ApplyResyncRequired,
+      'gameplay.patch_v2.apply.version_gap': this.gameplayDebugCounters.patchV2ApplyVersionGap,
+      'gameplay.patch_v2.apply.missing_state': this.gameplayDebugCounters.patchV2ApplyMissingState,
+      'gameplay.patch_legacy.apply.fail': this.gameplayDebugCounters.patchLegacyApplyFail,
+      'gameplay.command_ack.duplicate_resync': this.gameplayDebugCounters.commandAckDuplicateResync,
       enqueueRate: Number((this.queueRates.enqueueTimestamps.length / (QUEUE_RATE_WINDOW_MS / 1000)).toFixed(2)),
       drainRate: Number((this.queueRates.drainTimestamps.length / (QUEUE_RATE_WINDOW_MS / 1000)).toFixed(2)),
       measuredAt: new Date(now).toISOString(),
     };
 
     channel.postMessage(message);
+  }
+
+  private logGameplayDebug(
+    level: 'debug' | 'info' | 'warn' | 'error',
+    context: GameTableWebsocketGameplayContext,
+    details: GameplayDebugDetails,
+  ): void {
+    const event = this.gameplayDebugEvent(context, details);
+    const logger = level === 'error'
+      ? console.error
+      : level === 'warn'
+        ? console.warn
+        : level === 'info'
+          ? console.info
+          : console.debug;
+    logger.call(console, '[CommanderZone gameplay realtime]', event);
+
+    const channel = this.snapshotMetricsChannel;
+    if (channel && this.shouldPublishDebugForGame(event.gameId)) {
+      channel.postMessage(event);
+    }
+  }
+
+  private gameplayDebugEvent(context: GameTableWebsocketGameplayContext, details: GameplayDebugDetails): GameDebugGameplayEvent {
+    const patch = details.patch;
+    const message = details.message;
+    const ack = details.ack;
+    const currentVersion = this.debugCurrentVersion(context, details);
+
+    return {
+      kind: 'gameplay_debug_event',
+      gameId: context.gameId(),
+      source: details.source,
+      reason: details.reason ?? null,
+      playerId: this.debugPlayerId(),
+      localSnapshotVersion: context.snapshot()?.version ?? null,
+      normalizedV2LastAppliedVersion: this.normalizedV2Store.state()?.lastAppliedVersion ?? null,
+      incomingMessageKind: message?.kind ?? patch?.kind ?? ack?.kind ?? null,
+      incomingMessageType: message ? this.incomingMessageType(message) : (patch ? this.incomingPatchType(patch) : (ack ? ack.status : null)),
+      incomingPatchVersion: patch?.version ?? null,
+      ops: patch ? this.patchOperationNames(patch) : [],
+      clientActionId: this.debugClientActionId(details),
+      commandType: details.command?.type ?? this.inFlightCommand?.type ?? null,
+      currentVersion,
+      result: details.result ?? null,
+      blocked: details.blocked === true,
+      measuredAt: new Date().toISOString(),
+    };
+  }
+
+  private debugPlayerId(): string | null {
+    return this.normalizedV2Store.state()?.game.viewerId ?? null;
+  }
+
+  private debugClientActionId(details: GameplayDebugDetails): string | null {
+    if (details.patch?.kind === 'patch.v2') {
+      return details.patch.ackClientActionId ?? null;
+    }
+    if (details.patch?.kind === 'game_patch') {
+      return details.patch.clientActionId ?? null;
+    }
+
+    return details.ack?.clientActionId
+      ?? (details.message && 'clientActionId' in details.message && typeof details.message.clientActionId === 'string' ? details.message.clientActionId : null)
+      ?? details.command?.clientActionId
+      ?? null;
+  }
+
+  private debugCurrentVersion(context: GameTableWebsocketGameplayContext, details: GameplayDebugDetails): number | null {
+    if (typeof details.currentVersion === 'number') {
+      return details.currentVersion;
+    }
+    if (details.message?.kind === 'resync_required') {
+      return details.message.currentVersion;
+    }
+    if (details.message?.kind === 'mulligan.completed') {
+      return details.message.version;
+    }
+    if (details.ack?.error?.conflict?.currentVersion) {
+      return details.ack.error.conflict.currentVersion;
+    }
+    if (details.ack?.version) {
+      return details.ack.version;
+    }
+    if (details.patch?.version) {
+      return details.patch.version;
+    }
+
+    return context.snapshot()?.version ?? this.normalizedV2Store.state()?.lastAppliedVersion ?? null;
+  }
+
+  private incomingMessageType(message: GameplayServerMessage): string | null {
+    if (message.kind === 'game_patch') {
+      return message.event?.type ?? 'game_patch';
+    }
+    if (message.kind === 'patch.v2') {
+      return this.incomingPatchType(message);
+    }
+    if (message.kind === 'command_ack') {
+      return message.status;
+    }
+    if (message.kind === 'resync_required') {
+      return message.reason;
+    }
+    if (message.kind === 'error') {
+      return message.error.code;
+    }
+
+    return message.kind;
+  }
+
+  private incomingPatchType(patch: GameplayGamePatchMessage | GameplayPatchV2Message): string | null {
+    if (patch.kind === 'patch.v2') {
+      return patch.ops.map((operation) => operation.op).join(',') || 'patch.v2';
+    }
+
+    return patch.event?.type ?? (patch.operations.map((operation) => operation.op).join(',') || 'game_patch');
+  }
+
+  private patchOperationNames(patch: GameplayGamePatchMessage | GameplayPatchV2Message): string[] {
+    return patch.kind === 'patch.v2'
+      ? patch.ops.map((operation) => operation.op)
+      : patch.operations.map((operation) => operation.op);
   }
 
   private shouldPublishDebugForGame(gameId: string): boolean {
@@ -1269,6 +1678,15 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.queueCounters.positionCommandsPerDrag = 0;
     this.queueRates.enqueueTimestamps = [];
     this.queueRates.drainTimestamps = [];
+    this.gameplayDebugCounters.refetchCount = 0;
+    this.gameplayDebugCounters.refetchByReason = {};
+    this.gameplayDebugCounters.patchV2ApplyOk = 0;
+    this.gameplayDebugCounters.patchV2ApplyResyncRequired = 0;
+    this.gameplayDebugCounters.patchV2ApplyVersionGap = 0;
+    this.gameplayDebugCounters.patchV2ApplyMissingState = 0;
+    this.gameplayDebugCounters.patchLegacyApplyFail = 0;
+    this.gameplayDebugCounters.commandAckDuplicateResync = 0;
+    this.refetchGuardBySignature.clear();
     this.deadLetter.length = 0;
     this.deadLetterDedupeBySignature.clear();
     this.rejectedBySignature.clear();

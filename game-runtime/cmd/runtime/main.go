@@ -49,7 +49,12 @@ func main() {
 
 	validator := ticketValidatorFromEnv(logger)
 	mux.Handle("/ws", gateway.NewWebSocketServer(validator, runtimeService))
-	mux.Handle("/commands", gateway.NewCommandHTTPServer(runtimeService))
+	commandServer := gateway.NewCommandHTTPServer(runtimeService)
+	if envBool(os.Getenv("GAME_RUNTIME_ALLOW_INITIAL_STATE_COMMANDS")) {
+		logger.Warn("GAME_RUNTIME_ALLOW_INITIAL_STATE_COMMANDS is enabled; /commands accepts legacy initialState migration payloads")
+		commandServer = gateway.NewCommandHTTPServerAllowingInitialState(runtimeService)
+	}
+	mux.Handle("/commands", commandServer)
 	mux.Handle("/metrics", gateway.NewMetricsHTTPServer(runtimeService))
 
 	addr := os.Getenv("GAME_RUNTIME_LISTEN")
@@ -174,6 +179,15 @@ func removeDoctrinePostgresURLParams(databaseURL string) string {
 	parsed.RawQuery = query.Encode()
 
 	return parsed.String()
+}
+
+func envBool(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func runHealthcheck(listen string) error {

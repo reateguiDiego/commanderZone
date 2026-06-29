@@ -16,7 +16,8 @@ final readonly class GameplayRuntimeRouter
 
     public function routeFor(string $commandType): GameplayRuntimeRoute
     {
-        if (isset(self::RUNTIME_DENYLIST[$commandType])) {
+        $canonicalType = GameplayCommandCatalog::canonicalType($commandType);
+        if (isset(self::RUNTIME_DENYLIST[$canonicalType])) {
             return GameplayRuntimeRoute::LegacyOnly;
         }
         if (!$this->runtimeClient instanceof GameRuntimeCommandClientInterface || !$this->flags instanceof GameplayV2Flags) {
@@ -25,7 +26,7 @@ final readonly class GameplayRuntimeRouter
         if ($this->flags->commandsAllowlist() === []) {
             return GameplayRuntimeRoute::LegacyOnly;
         }
-        if (!$this->flags->commandAllowed($commandType)) {
+        if (!$this->flags->commandAllowed($canonicalType)) {
             return GameplayRuntimeRoute::LegacyOnly;
         }
         if ($this->flags->runtimeServiceEnabled()) {
