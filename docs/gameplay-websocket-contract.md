@@ -20,7 +20,7 @@ Claims firmados del ticket runtime:
 - `userId`
 - `playerId`
 - `role`
-- `permissions`
+- `permissions` (`view`, `command`; `game.close` solo para el owner autorizado)
 - `exp`
 - `protocol: "v2"`
 

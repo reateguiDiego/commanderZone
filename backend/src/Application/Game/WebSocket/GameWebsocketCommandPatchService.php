@@ -707,6 +707,7 @@ final readonly class GameWebsocketCommandPatchService
                             $numberOfPlayers,
                             $numberOfInstances,
                             true,
+                            $this->elapsedMs($startedAt),
                         );
 
                         return $this->runtimeFailureMessage($game->id(), $messageId, $clientActionId, $currentVersion, true);
@@ -724,6 +725,7 @@ final readonly class GameWebsocketCommandPatchService
                         $numberOfPlayers,
                         $numberOfInstances,
                         true,
+                        $this->elapsedMs($startedAt),
                     );
                 } catch (GameRuntimeGatewayException) {
                     if ($baseVersion !== $currentVersion) {
@@ -748,6 +750,7 @@ final readonly class GameWebsocketCommandPatchService
                             $numberOfPlayers,
                             $numberOfInstances,
                             false,
+                            $this->elapsedMs($startedAt),
                         );
 
                         return $this->runtimeFailureMessage($game->id(), $messageId, $clientActionId, $currentVersion, false);
@@ -765,6 +768,7 @@ final readonly class GameWebsocketCommandPatchService
                         $numberOfPlayers,
                         $numberOfInstances,
                         false,
+                        $this->elapsedMs($startedAt),
                     );
                 }
             } elseif ($runtimeRoute === GameplayRuntimeRoute::Shadow) {
@@ -1112,7 +1116,7 @@ final readonly class GameWebsocketCommandPatchService
         }
 
         $playerId = trim((string) $ticketPlayerId);
-        $permissionError = $this->runtimeFinalPermissionError($gameId, $userId, $playerId, $ticketPermissions);
+        $permissionError = $this->runtimeFinalPermissionError($type, $gameId, $userId, $playerId, $ticketPermissions);
         if ($permissionError !== null) {
             $this->recordRuntimeFinalMetric(
                 $metricsRecorder,
@@ -1235,13 +1239,16 @@ final readonly class GameWebsocketCommandPatchService
     /**
      * @param list<string> $ticketPermissions
      */
-    private function runtimeFinalPermissionError(string $gameId, string $userId, string $playerId, array $ticketPermissions): ?string
+    private function runtimeFinalPermissionError(string $type, string $gameId, string $userId, string $playerId, array $ticketPermissions): ?string
     {
         if (trim($gameId) === '' || trim($userId) === '' || $playerId === '') {
             return 'Runtime command ticket claims are incomplete.';
         }
         if (!in_array('command', $ticketPermissions, true)) {
             return 'Runtime command permission is required.';
+        }
+        if ($type === 'game.close' && !in_array('game.close', $ticketPermissions, true)) {
+            return 'Only the room owner can close the game.';
         }
 
         return null;
@@ -1433,6 +1440,7 @@ final readonly class GameWebsocketCommandPatchService
                 0,
                 0,
                 $patchContractError,
+                $this->elapsedMs($startedAt),
             );
 
             return null;
@@ -1989,6 +1997,7 @@ final readonly class GameWebsocketCommandPatchService
         int $numberOfPlayers,
         int $numberOfInstances,
         bool $patchContractError,
+        float $totalServerMs = 0.0,
     ): void {
         $this->logger?->error('Emergency legacy gameplay fallback metric recorded.', [
             'gameId' => $gameId,
@@ -2009,7 +2018,7 @@ final readonly class GameWebsocketCommandPatchService
                 'persist_ms' => 0.0,
                 'projection_ms' => 0.0,
                 'patch_build_ms' => 0.0,
-                'total_server_ms' => 0.0,
+                'total_server_ms' => $totalServerMs,
                 'snapshot_bytes_before' => $snapshotBytesBefore,
                 'snapshot_bytes_after' => $snapshotBytesBefore,
                 'patch_bytes' => 0,
@@ -3409,7 +3418,12 @@ final readonly class GameWebsocketCommandPatchService
 
     private function elapsedMs(float $startedAt): float
     {
-        return round(max(0, (microtime(true) - $startedAt) * 1000), 2);
+        $elapsed = max(0, (microtime(true) - $startedAt) * 1000);
+        if ($elapsed > 0.0 && $elapsed < 0.01) {
+            return 0.01;
+        }
+
+        return round($elapsed, 2);
     }
 
     /**

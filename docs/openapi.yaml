@@ -2727,7 +2727,7 @@ components:
               type: array
               items:
                 type: string
-                enum: [view, command]
+                enum: [view, command, game.close]
             expiry:
               type: integer
               description: Unix timestamp matching the signed ticket `exp` claim.

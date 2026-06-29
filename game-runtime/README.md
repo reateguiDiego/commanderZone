@@ -103,6 +103,7 @@ Payload fields:
 - `gameId`
 - `roles`
 - `viewerKind`
+- `permissions`
 - `protocol`
 - `exp`
 

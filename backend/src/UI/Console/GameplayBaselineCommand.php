@@ -3,6 +3,7 @@
 namespace App\UI\Console;
 
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
+use App\Application\Game\Compact\CompactGameCardStateMapper;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\Performance\GameplayBaselineFixture;
@@ -10,7 +11,10 @@ use App\Application\Game\Performance\GameplayBaselineFixtureFactory;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsStore;
 use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
+use App\Application\Game\WebSocket\GameWebsocketPeer;
+use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Domain\Game\Game;
+use App\Domain\Game\GameSnapshotCompact;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\GameEventPublisher;
 use App\UI\Http\GamesController;
@@ -74,6 +78,23 @@ final class GameplayBaselineCommand extends Command
         'position_commands_per_drag_max' => ['label' => 'position.commands_per_drag max', 'operator' => '<=', 'limit' => 1.0, 'severity' => 'critical'],
         'full_scan_count_max' => ['label' => 'full_scan_count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'advisory'],
         'snapshot_full_write_count_max' => ['label' => 'snapshot full write count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_failure_count_max' => ['label' => 'runtime failure count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_fallback_count_max' => ['label' => 'runtime fallback count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'zero_total_server_count_max' => ['label' => 'zero total_server_ms count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_hot_path_counter_missing_count_max' => ['label' => 'runtime hot-path missing counter count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_legacy_hot_path_counter_count_max' => ['label' => 'runtime legacy hot-path counter count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+    ];
+    private const RUNTIME_FAILURE_STATUSES = [
+        'runtime_failed',
+        'runtime_patch_contract_failed',
+    ];
+    private const RUNTIME_HOT_PATH_COUNTERS = [
+        'runtime.snapshot_load_count',
+        'runtime.snapshot_write_count',
+        'runtime.db_lock_count',
+        'runtime.legacy_handler_count',
+        'runtime.previous_next_projection_count',
+        'runtime.emergency_fallback_count',
     ];
 
     public function __construct(
@@ -87,6 +108,8 @@ final class GameplayBaselineCommand extends Command
         private readonly GameCommandHandler $commandHandler,
         private readonly GameEventPublisher $publisher,
         private readonly GameWebsocketCommandPatchService $websocketCommands,
+        private readonly CompactGameCardStateMapper $compactStateMapper,
+        private readonly GameWebsocketRoomRegistry $roomRegistry,
     ) {
         parent::__construct();
     }
@@ -452,6 +475,9 @@ final class GameplayBaselineCommand extends Command
             'ws-conflict-a',
             $baseVersion,
             'conflict-a',
+            'v2',
+            $fixture->playerId('p1'),
+            ['view', 'command'],
         );
         $this->websocketCommands->apply(
             $fixture->game()->id(),
@@ -461,6 +487,9 @@ final class GameplayBaselineCommand extends Command
             'ws-conflict-b',
             $baseVersion,
             'conflict-b',
+            'v2',
+            $fixture->playerId('p2'),
+            ['view', 'command'],
         );
     }
 
@@ -474,6 +503,9 @@ final class GameplayBaselineCommand extends Command
             $clientActionId,
             $this->currentVersion($fixture->game()->id()),
             $clientActionId,
+            'v2',
+            $actor->id(),
+            ['view', 'command'],
         );
     }
 
@@ -521,6 +553,8 @@ final class GameplayBaselineCommand extends Command
         $this->entityManager->persist($fixture->game()->room());
         $this->entityManager->persist($fixture->game());
         $this->entityManager->flush();
+        $this->persistRuntimeBaselineSnapshot($fixture->game());
+        $this->registerRuntimePeers($fixture);
 
         return $fixture;
     }
@@ -528,8 +562,48 @@ final class GameplayBaselineCommand extends Command
     private function currentVersion(string $gameId): int
     {
         $game = $this->entityManager->getRepository(Game::class)->find($gameId);
+        $connection = $this->entityManager->getConnection();
+        $eventVersion = (int) ($connection->fetchOne('SELECT COALESCE(MAX(version), 0) FROM game_event WHERE game_id = ?', [$gameId]) ?: 0);
+        $compactSnapshotVersion = (int) ($connection->fetchOne('SELECT COALESCE(MAX(version), 0) FROM game_snapshot_compact WHERE game_id = ?', [$gameId]) ?: 0);
 
-        return $game instanceof Game ? max(1, (int) ($game->snapshot()['version'] ?? 1)) : 1;
+        return max(
+            1,
+            $game instanceof Game ? (int) ($game->snapshot()['version'] ?? 1) : 1,
+            $eventVersion,
+            $compactSnapshotVersion,
+        );
+    }
+
+    private function persistRuntimeBaselineSnapshot(Game $game): void
+    {
+        $compactSnapshot = $this->compactStateMapper->compactSnapshot($game->snapshot(), $game->id(), $game->status());
+        unset($compactSnapshot['cardCatalog']);
+        $this->entityManager->persist(new GameSnapshotCompact(
+            $game,
+            max(1, (int) ($compactSnapshot['version'] ?? 1)),
+            $compactSnapshot,
+            hash('sha256', json_encode($compactSnapshot, JSON_THROW_ON_ERROR)),
+        ));
+        $this->entityManager->flush();
+    }
+
+    private function registerRuntimePeers(GameplayBaselineFixture $fixture): void
+    {
+        foreach (['p1', 'p2', 'p3', 'p4'] as $key) {
+            $user = $fixture->user($key);
+            $this->roomRegistry->join(new GameWebsocketPeer(
+                sprintf('baseline-%s-%s', $fixture->game()->id(), $user->id()),
+                $fixture->game()->id(),
+                $user->id(),
+                $user->displayName(),
+                new \DateTimeImmutable(),
+                static function (array $message): void {
+                    unset($message);
+                },
+                $fixture->playerId($key),
+                ['view', 'command'],
+            ));
+        }
     }
 
     private function jsonRequest(array $payload): Request
@@ -553,6 +627,11 @@ final class GameplayBaselineCommand extends Command
             'command_count' => count($metrics),
             'resync_count' => count(array_filter($metrics, static fn (array $metric): bool => (bool) ($metric['resync_required'] ?? false))),
             'duplicate_count' => count(array_filter($metrics, static fn (array $metric): bool => (bool) ($metric['clientActionId_duplicate'] ?? false))),
+            'runtime_failure_count' => $this->runtimeFailureCount($metrics),
+            'runtime_fallback_count' => $this->runtimeFallbackCount($metrics),
+            'zero_total_server_count' => $this->zeroTotalServerCount($metrics),
+            'runtime_hot_path_counter_missing_count' => $this->runtimeHotPathCounterMissingCount($metrics),
+            'runtime_legacy_hot_path_counter_count' => $this->runtimeLegacyHotPathCounterCount($metrics),
             'avg_total_server_ms' => $this->average($metrics, 'total_server_ms'),
             'p95_total_server_ms' => $this->percentile($metrics, 'total_server_ms', 95),
             'p95_command_apply_ms' => $this->percentile($metrics, 'command_apply_ms', 95),
@@ -708,6 +787,89 @@ final class GameplayBaselineCommand extends Command
     }
 
     /**
+     * @param list<array<string,mixed>> $metrics
+     */
+    private function runtimeFailureCount(array $metrics): int
+    {
+        return count(array_filter(
+            $metrics,
+            static fn (array $metric): bool => in_array((string) ($metric['status'] ?? ''), self::RUNTIME_FAILURE_STATUSES, true)
+                || (float) ($metric['gameplay.runtime_error_count'] ?? 0) > 0.0,
+        ));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $metrics
+     */
+    private function runtimeFallbackCount(array $metrics): int
+    {
+        return (int) array_sum(array_map(
+            static fn (array $metric): int => max(
+                (int) ((float) ($metric['gameplay.runtime_fallback_count'] ?? 0)),
+                (int) ((float) ($metric['command.legacy_fallback_count'] ?? 0)),
+                (string) ($metric['status'] ?? '') === 'runtime_fallback' ? 1 : 0,
+            ),
+            $metrics,
+        ));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $metrics
+     */
+    private function zeroTotalServerCount(array $metrics): int
+    {
+        return count(array_filter(
+            $metrics,
+            static fn (array $metric): bool => (float) ($metric['total_server_ms'] ?? 0.0) <= 0.0,
+        ));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $metrics
+     */
+    private function runtimeHotPathCounterMissingCount(array $metrics): int
+    {
+        $missing = 0;
+        foreach ($this->runtimeRouteMetrics($metrics) as $metric) {
+            foreach (self::RUNTIME_HOT_PATH_COUNTERS as $counter) {
+                if (!array_key_exists($counter, $metric)) {
+                    $missing++;
+                }
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $metrics
+     */
+    private function runtimeLegacyHotPathCounterCount(array $metrics): int
+    {
+        $count = 0;
+        foreach ($this->runtimeRouteMetrics($metrics) as $metric) {
+            foreach (self::RUNTIME_HOT_PATH_COUNTERS as $counter) {
+                $count += (int) max(0.0, (float) ($metric[$counter] ?? 0));
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $metrics
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function runtimeRouteMetrics(array $metrics): array
+    {
+        return array_values(array_filter(
+            $metrics,
+            static fn (array $metric): bool => (float) ($metric['gameplay.runtime_route'] ?? 0.0) > 0.0,
+        ));
+    }
+
+    /**
      * @param list<array<string,mixed>> $scenarioReports
      *
      * @return array{status:string,failures:list<array<string,mixed>>,checks:array<string,array<string,mixed>>}
@@ -741,6 +903,19 @@ final class GameplayBaselineCommand extends Command
             'position_commands_per_drag_max' => $this->gateCheck('position_commands_per_drag_max', $this->maxValue($finalDragMetrics, 'position.commands_per_drag'), count($finalDragMetrics) > 0),
             'full_scan_count_max' => $this->gateCheck('full_scan_count_max', $this->maxValue($allCommandMetrics, 'full_scan_count'), count($allCommandMetrics) > 0),
             'snapshot_full_write_count_max' => $this->gateCheck('snapshot_full_write_count_max', $this->maxValue($allCommandMetrics, 'snapshot_full_write_count'), count($allCommandMetrics) > 0),
+            'runtime_failure_count_max' => $this->gateCheck('runtime_failure_count_max', (float) $this->runtimeFailureCount($allCommandMetrics), count($allCommandMetrics) > 0),
+            'runtime_fallback_count_max' => $this->gateCheck('runtime_fallback_count_max', (float) $this->runtimeFallbackCount($allCommandMetrics), count($allCommandMetrics) > 0),
+            'zero_total_server_count_max' => $this->gateCheck('zero_total_server_count_max', (float) $this->zeroTotalServerCount($allCommandMetrics), count($allCommandMetrics) > 0),
+            'runtime_hot_path_counter_missing_count_max' => $this->gateCheck(
+                'runtime_hot_path_counter_missing_count_max',
+                (float) $this->runtimeHotPathCounterMissingCount($allCommandMetrics),
+                count($this->runtimeRouteMetrics($allCommandMetrics)) > 0,
+            ),
+            'runtime_legacy_hot_path_counter_count_max' => $this->gateCheck(
+                'runtime_legacy_hot_path_counter_count_max',
+                (float) $this->runtimeLegacyHotPathCounterCount($allCommandMetrics),
+                count($this->runtimeRouteMetrics($allCommandMetrics)) > 0,
+            ),
         ];
         $failures = array_values(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) === 'fail'));
 

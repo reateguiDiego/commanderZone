@@ -2281,6 +2281,54 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(0, $metricsStore->records()[0]['lifecycle.snapshot_write_count'] ?? 1);
     }
 
+    public function testRuntimeFinalGameCloseRequiresSignedClosePermission(): void
+    {
+        [$game, $actor] = $this->game();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [[
+                'op' => 'game.status.set',
+                'data' => [
+                    'status' => 'finished',
+                    'phase' => 'FINISHED',
+                ],
+            ]],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $service = $this->serviceWithRegistry(
+            $registry,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('game.close', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'game.close', runtime: true, shadow: false),
+        );
+
+        $message = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'game.close',
+            [],
+            'action-runtime-close-denied',
+            1,
+            'message-runtime-close-denied',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertIsArray($message);
+        self::assertSame('command_ack', $message['kind']);
+        self::assertSame('rejected', $message['status']);
+        self::assertSame('GAME_ACCESS_DENIED', $message['error']['code'] ?? null);
+        self::assertSame('Only the room owner can close the game.', $message['error']['message'] ?? null);
+        self::assertSame(Game::STATUS_ACTIVE, $game->status());
+        self::assertSame([], $runtimeClient->types);
+        self::assertSame('runtime_permission_denied', $metricsStore->records()[0]['status'] ?? null);
+    }
+
     public function testAllowlistedCardTappedRuntimeErrorFallsBackToLegacy(): void
     {
         [$game, $actor] = $this->gameWithBattlefieldCards();

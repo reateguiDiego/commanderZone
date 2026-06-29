@@ -251,6 +251,10 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 		s.sendJSON(client, commandRejectedMessage(command, "PERMISSION_DENIED", "runtime ticket does not allow gameplay commands", false))
 		return
 	}
+	if command.Type == "game.close" && !hasPermission(client.claims, "game.close") {
+		s.sendJSON(client, commandRejectedMessage(command, "PERMISSION_DENIED", "runtime ticket does not allow closing this game", false))
+		return
+	}
 	if isEphemeralPosition(command) {
 		s.incMetric(func(metrics *GatewayMetrics) {
 			metrics.DroppedEphemeralEvents++
@@ -431,12 +435,16 @@ func (s *WebSocketServer) commandFromMessage(claims TicketClaims, message Client
 		}
 		return command, true, nil
 	case "command.v2":
+		payload := message.Payload
+		if payload == nil {
+			payload = map[string]any{}
+		}
 		command := protocol.CommandEnvelopeV2{
 			GameID:         message.GameID,
 			BaseVersion:    message.BaseVersion,
 			ClientActionID: message.ClientActionID,
 			Type:           message.Type,
-			Payload:        message.Payload,
+			Payload:        payload,
 			Client:         message.Client,
 		}
 		if strings.TrimSpace(command.GameID) == "" {

@@ -135,6 +135,9 @@ class GamesController extends ApiController
         $canControl = $game->canBeControlledBy($user);
         $role = $canControl ? 'player' : 'viewer';
         $permissions = $canControl ? ['view', 'command'] : ['view'];
+        if ($canControl && $game->room()->owner()->id() === $user->id()) {
+            $permissions[] = 'game.close';
+        }
         $ticket = $tickets->issue(
             $game->id(),
             $user->id(),

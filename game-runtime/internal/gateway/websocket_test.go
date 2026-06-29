@@ -2,7 +2,9 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -115,6 +117,73 @@ func TestWebSocketRejectsCommandsWithoutCommandPermission(t *testing.T) {
 	message := readUntil(t, conn, "command_ack")
 	if message.Status != "rejected" || message.Error == nil || message.Error.Code != "PERMISSION_DENIED" {
 		t.Fatalf("message = %#v, want permission denied command_ack", message)
+	}
+}
+
+func TestWebSocketOwnerCanCloseGameWithClosePermission(t *testing.T) {
+	server, runtimeService := testWebSocketServer(t, "game-1", 128, 256)
+	defer server.Close()
+
+	conn := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID:      "p1",
+		PlayerID:    "p1",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view", "command", "game.close"},
+		Protocol:    "v2",
+	})
+	defer conn.Close()
+
+	writeCommand(t, conn, command("game-1", 1, "owner-close", "game.close", map[string]any{}, nil))
+	message := readUntil(t, conn, "patch.v2")
+	if message.Version != 2 || message.AckClientActionID != "owner-close" {
+		t.Fatalf("message = %#v, want owner close patch", message)
+	}
+	if len(message.Ops) == 0 || message.Ops[0]["op"] != "game.status.set" || message.Ops[0]["status"] != "finished" {
+		t.Fatalf("ops = %#v, want game.status.set finished", message.Ops)
+	}
+	gameActor, ok := runtimeService.Actor("game-1")
+	if !ok {
+		t.Fatalf("actor missing")
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Status != "finished" || snapshot.Phase != state.PhaseFinished {
+		t.Fatalf("snapshot status = %s phase = %s, want finished", snapshot.Status, snapshot.Phase)
+	}
+}
+
+func TestWebSocketPlayerCannotCloseGameWithoutClosePermission(t *testing.T) {
+	server, runtimeService, handler := testWebSocketServerWithStateAndHandler(t, "game-1", testInitialState("game-1"), 128, 256)
+	defer server.Close()
+
+	conn := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID:      "p2",
+		PlayerID:    "p2",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	defer conn.Close()
+
+	writeCommand(t, conn, command("game-1", 1, "player-close", "game.close", map[string]any{}, nil))
+	message := readUntil(t, conn, "command_ack")
+	if message.Status != "rejected" || message.Error == nil || message.Error.Code != "PERMISSION_DENIED" {
+		t.Fatalf("message = %#v, want rejected permission denied command_ack", message)
+	}
+	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 1 {
+		t.Fatalf("rejected close changed actor version")
+	}
+	gameActor, ok := runtimeService.Actor("game-1")
+	if !ok {
+		t.Fatalf("actor missing")
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Status != "playing" || snapshot.Phase == state.PhaseFinished {
+		t.Fatalf("rejected close mutated state: status=%s phase=%s", snapshot.Status, snapshot.Phase)
+	}
+	if _, err := handler.history("game-1").Since(1); !errors.Is(err, ErrPatchHistoryGap) {
+		t.Fatalf("rejected close emitted patch history, err=%v", err)
 	}
 }
 
@@ -234,6 +303,12 @@ func testWebSocketServer(t *testing.T, gameID string, queueSize int, historyLimi
 
 func testWebSocketServerWithState(t *testing.T, gameID string, initial state.GameState, queueSize int, historyLimit int) (*httptest.Server, *runtimesvc.Service) {
 	t.Helper()
+	server, runtimeService, _ := testWebSocketServerWithStateAndHandler(t, gameID, initial, queueSize, historyLimit)
+	return server, runtimeService
+}
+
+func testWebSocketServerWithStateAndHandler(t *testing.T, gameID string, initial state.GameState, queueSize int, historyLimit int) (*httptest.Server, *runtimesvc.Service, *WebSocketServer) {
+	t.Helper()
 	runtimeService := runtimesvc.NewService()
 	if _, _, err := runtimeService.LoadActorFromInitialState(context.Background(), gameID, initial); err != nil {
 		t.Fatalf("load actor: %v", err)
@@ -243,7 +318,7 @@ func testWebSocketServerWithState(t *testing.T, gameID string, initial state.Gam
 		t.Fatalf("validator: %v", err)
 	}
 	handler := NewWebSocketServer(validator, runtimeService, WithConnectionQueueSize(queueSize), WithPatchHistoryLimit(historyLimit))
-	return httptest.NewServer(handler), runtimeService
+	return httptest.NewServer(handler), runtimeService, handler
 }
 
 func dialRuntime(t *testing.T, serverURL string, gameID string, lastAppliedVersion int64, roles []string) *websocket.Conn {
@@ -294,21 +369,31 @@ func writeCommand(t *testing.T, conn *websocket.Conn, command protocol.CommandEn
 func readUntil(t *testing.T, conn *websocket.Conn, messageType string) ServerMessage {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		if err := conn.SetReadDeadline(time.Now().Add(250 * time.Millisecond)); err != nil {
-			t.Fatalf("set deadline: %v", err)
-		}
+	if err := conn.SetReadDeadline(deadline); err != nil {
+		t.Fatalf("set deadline: %v", err)
+	}
+	seen := []string{}
+	var last ServerMessage
+	for {
 		var message ServerMessage
 		err := conn.ReadJSON(&message)
 		if err != nil {
-			continue
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				lastError := "<nil>"
+				if last.Error != nil {
+					lastError = fmt.Sprintf("%+v", *last.Error)
+				}
+				t.Fatalf("timed out waiting for message type %q; seen=%v last=%#v lastError=%s", messageType, seen, last, lastError)
+			}
+			t.Fatalf("read websocket message: %v", err)
+			return ServerMessage{}
 		}
 		if message.Kind == messageType {
 			return message
 		}
+		seen = append(seen, message.Kind)
+		last = message
 	}
-	t.Fatalf("timed out waiting for message type %q", messageType)
-	return ServerMessage{}
 }
 
 func command(gameID string, baseVersion int64, actionID string, commandType string, payload map[string]any, client map[string]any) protocol.CommandEnvelopeV2 {
