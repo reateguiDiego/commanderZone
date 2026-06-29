@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, input, signal, viewChild } from '@angular/core';
+import { tooltipTextColorForBackground } from './tooltip-contrast';
 
 interface TooltipPosition {
   readonly left: number;
@@ -33,16 +34,19 @@ export class TooltipComponent {
   readonly position = signal<TooltipPosition | null>(null);
   readonly effectivePlacement = signal<TooltipPlacement>('top');
   readonly effectiveAlign = signal<TooltipAlign>('center');
+  readonly textColor = signal('var(--cz-text)');
 
   show(): void {
     if (!this.text()) {
       return;
     }
 
+    this.updateTextColor();
     this.updatePosition();
     this.open.set(true);
     setTimeout(() => {
       if (this.open()) {
+        this.updateTextColor();
         this.updatePosition();
       }
     });
@@ -226,6 +230,19 @@ export class TooltipComponent {
       left: center - width / 2,
       right: center + width / 2,
     };
+  }
+
+  private updateTextColor(): void {
+    const style = getComputedStyle(this.trigger().nativeElement);
+    const rootStyle = getComputedStyle(document.documentElement);
+    const secondaryRgb = this.cssVariableValue(style, rootStyle, '--cz-secondary-rgb');
+    const secondary = this.cssVariableValue(style, rootStyle, '--cz-secondary');
+
+    this.textColor.set(tooltipTextColorForBackground(secondaryRgb, secondary) ?? 'var(--cz-text)');
+  }
+
+  private cssVariableValue(style: CSSStyleDeclaration, fallbackStyle: CSSStyleDeclaration, propertyName: string): string {
+    return style.getPropertyValue(propertyName).trim() || fallbackStyle.getPropertyValue(propertyName).trim();
   }
 
   private viewportWidth(): number {

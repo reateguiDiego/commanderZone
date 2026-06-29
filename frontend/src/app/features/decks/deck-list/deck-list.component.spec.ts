@@ -144,7 +144,7 @@ describe('DeckListComponent', () => {
     ]);
   });
 
-  it('renders visibility pills as icon-only labels with tooltips', async () => {
+  it('renders visibility pills with text labels and tooltips', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -176,7 +176,7 @@ describe('DeckListComponent', () => {
       .map((bubble) => bubble.textContent?.trim())
       .filter((value): value is string => !!value);
 
-    expect(pills.map((pill) => pill.textContent?.trim())).toEqual(['', '']);
+    expect(pills.map((pill) => pill.textContent?.trim())).toEqual(['PUBLIC', 'PRIVATE']);
     expect(pills.map((pill) => pill.getAttribute('aria-label'))).toEqual(['Public', 'Private']);
     expect(tooltipTexts).toContain('Public');
     expect(tooltipTexts).toContain('Private');
@@ -596,6 +596,108 @@ describe('DeckListComponent', () => {
     expect(fixture.nativeElement.querySelector('.app-disclaimer-callout')).toBeNull();
   });
 
+  it('renders the create deck name counter as a compact right-aligned field hint', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openCreateModal();
+    fixture.componentInstance.store.formats.set([
+      { id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true },
+    ]);
+    fixture.componentInstance.store.newDeckFormatId = 'commander';
+    fixture.detectChanges();
+
+    const hint = fixture.nativeElement.querySelector('.create-deck-name-count-hint') as HTMLElement | null;
+    expect(hint?.textContent?.trim()).toBe('0/20');
+    expect(hint?.textContent).not.toContain('Maximum 20 characters');
+    expect(hint?.textContent).not.toContain('characters');
+
+    const nameInput = fixture.nativeElement.querySelector('input[name="name"]') as HTMLInputElement;
+    nameInput.value = 'Atraxa';
+    nameInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const updatedHint = fixture.nativeElement.querySelector('.create-deck-name-count-hint') as HTMLElement | null;
+    expect(updatedHint?.textContent?.trim()).toBe('6/20');
+  });
+
+  it('renders the cosmetics action below the create deck visibility control', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.formats.set([
+      { id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true },
+    ]);
+    fixture.componentInstance.store.newDeckFormatId = 'commander';
+    fixture.componentInstance.store.openCreateModal();
+    fixture.detectChanges();
+
+    const visibilityChoice = fixture.nativeElement.querySelector('app-visibility-choice') as HTMLElement | null;
+    const cosmeticsRow = fixture.nativeElement.querySelector('.create-cosmetics-row') as HTMLElement | null;
+    const playmatImage = cosmeticsRow?.querySelector('.create-cosmetics-preview-image--playmat') as HTMLImageElement | null;
+    const sleeveImage = cosmeticsRow?.querySelector('.create-cosmetics-preview-image--sleeve') as HTMLImageElement | null;
+    const previewButtons = Array.from(
+      cosmeticsRow?.querySelectorAll('.create-cosmetics-preview') ?? [],
+    ) as HTMLButtonElement[];
+
+    expect(visibilityChoice).not.toBeNull();
+    expect(cosmeticsRow).not.toBeNull();
+    expect(visibilityChoice?.compareDocumentPosition(cosmeticsRow!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(previewButtons).toHaveLength(2);
+    expect(previewButtons[0].getAttribute('aria-label')).toBe('Edit Playmat');
+    expect(previewButtons[1].getAttribute('aria-label')).toBe('Edit Sleeve');
+    expect(previewButtons[0].querySelector('.create-cosmetics-edit-icon')).not.toBeNull();
+    expect(previewButtons[1].querySelector('.create-cosmetics-edit-icon')).not.toBeNull();
+    expect(cosmeticsRow?.textContent).toContain('Playmat');
+    expect(cosmeticsRow?.textContent).toContain('Sleeve');
+    expect(playmatImage?.getAttribute('src')).toBe('/assets/images/play-mat/G_1.png');
+    expect(sleeveImage?.getAttribute('src')).toBe('/assets/images/sleeves/facedown_card.jpg');
+    expect(playmatImage?.getAttribute('alt')).toBe('Playmat');
+    expect(sleeveImage?.getAttribute('alt')).toBe('Sleeve');
+
+    previewButtons[0].click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedCosmeticPreview()).toBe('playmat');
+  });
+
+  it('uses the shared create-modal label style for deck name, commander and import decklist', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.formats.set([
+      { id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true },
+    ]);
+    fixture.componentInstance.store.newDeckFormatId = 'commander';
+    fixture.componentInstance.store.openCreateModal();
+    fixture.detectChanges();
+
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('.deck-modal-form .field-label') as NodeListOf<HTMLElement>,
+    ).map((label) => label.textContent?.trim().replace(/\s+/g, ' '));
+
+    expect(labels).toContain('Deck name *');
+    expect(labels).toContain('Commander');
+    expect(labels).toContain('Import decklist *');
+  });
+
+  it('does not render the cosmetics action when the create flow is locked', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openCreateModal();
+    fixture.componentInstance.store.createFormLocked.set(true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.create-cosmetics-row')).toBeNull();
+  });
+
   it('creates an empty deck without importing and navigates directly to it', async () => {
     const router = TestBed.inject(Router);
     const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -887,7 +989,7 @@ Creatures (1)
     }
   });
 
-  it('shows a tooltip when commander search is disabled because two commanders are already selected', async () => {
+  it('does not render a tooltip when commander search is disabled because two commanders are already selected', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -901,12 +1003,11 @@ Creatures (1)
     fixture.detectChanges();
 
     const shell = fixture.nativeElement.querySelector('.commander-autocomplete-shell') as HTMLElement | null;
-    const tooltipTrigger = fixture.nativeElement.querySelector('.commander-autocomplete-shell')?.closest('.cz-tooltip') as HTMLElement | null;
+    const tooltip = fixture.nativeElement.querySelector('.commander-autocomplete-shell')?.closest('app-tooltip') as HTMLElement | null;
     expect(shell).not.toBeNull();
-    tooltipTrigger?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-    fixture.detectChanges();
-    const bubble = fixture.nativeElement.querySelector('.commander-autocomplete-shell')?.closest('app-tooltip')?.querySelector('.cz-tooltip__bubble') as HTMLElement | null;
-    expect(bubble?.textContent?.trim()).toBe("You already have 2 commanders. You can't add more.");
+    expect(tooltip).toBeNull();
+    expect(fixture.nativeElement.querySelector('.commander-count-hint')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain("You already have 2 commanders. You can't add more.");
     expect(shell?.classList.contains('commander-autocomplete-shell-disabled')).toBe(true);
   });
 

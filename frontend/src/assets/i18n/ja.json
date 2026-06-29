@@ -785,6 +785,10 @@
       "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
       "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
       "folderName": "Folder name",
+      "playmat": "Playmat",
+      "sleeve": "Sleeve",
+      "editPlaymat": "Edit Playmat",
+      "editSleeve": "Edit Sleeve",
       "header": {
         "title": "Decks",
         "createDeck": "Create deck",

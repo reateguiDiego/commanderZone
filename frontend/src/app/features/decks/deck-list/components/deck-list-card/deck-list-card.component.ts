@@ -34,6 +34,10 @@ export class DeckListCardComponent {
       : 'common.visibility.visibilityChoice.private';
   }
 
+  visibilityPillText(visibility: DeckVisibility | undefined): Uppercase<DeckVisibility> {
+    return visibility === 'public' ? 'PUBLIC' : 'PRIVATE';
+  }
+
   open(event: Event): void {
     this.openDeck.emit();
   }

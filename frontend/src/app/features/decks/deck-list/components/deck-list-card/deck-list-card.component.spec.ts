@@ -29,6 +29,7 @@ describe('DeckListCardComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect(element.textContent).toContain('Public Deck');
+    expect(element.querySelector('.visibility-pill')?.textContent?.trim()).toBe('PUBLIC');
     expect(element.querySelector('.deck-row-actions')).toBeNull();
     expect(element.querySelector('button')).toBeNull();
   });

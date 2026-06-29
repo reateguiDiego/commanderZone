@@ -26,6 +26,8 @@ interface CommanderHoverPreview {
   y: number;
 }
 
+type CosmeticPreviewKind = 'playmat' | 'sleeve';
+
 @Component({
   selector: 'app-deck-list',
   imports: [
@@ -54,7 +56,9 @@ interface CommanderHoverPreview {
 export class DeckListComponent implements OnInit, OnDestroy {
   readonly store = inject(DeckListStore);
   private readonly route = inject(ActivatedRoute);
+  readonly maxSelectedCommanders = 2;
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
+  readonly selectedCosmeticPreview = signal<CosmeticPreviewKind | null>(null);
   readonly searchPanelOpen = signal(false);
   readonly colorFilterOptions = computed<readonly FormatSelectOption[]>(() =>
     this.store.colorFilterOptions.map((option) => ({ id: option.value, labelKey: option.labelKey })),
@@ -68,7 +72,7 @@ export class DeckListComponent implements OnInit, OnDestroy {
     ...this.store.folders().map((folder) => ({ id: folder.id, name: folder.name })),
   ]);
   readonly importDecklistDisclaimerKey = computed(() => (
-    this.store.selectedCommanders().length === 2
+    this.store.selectedCommanders().length === this.maxSelectedCommanders
       ? 'deckBuilder.deckList.ifYouIncludeYourCommandersInThe'
       : 'deckBuilder.deckList.ifYouIncludeYourCommanderInThe'
   ));
@@ -106,6 +110,18 @@ export class DeckListComponent implements OnInit, OnDestroy {
     return visibility === 'public'
       ? 'common.visibility.visibilityChoice.public'
       : 'common.visibility.visibilityChoice.private';
+  }
+
+  visibilityPillText(visibility: DeckVisibility | undefined): Uppercase<DeckVisibility> {
+    return visibility === 'public' ? 'PUBLIC' : 'PRIVATE';
+  }
+
+  createDeckNameCountHint(): string {
+    return `${this.store.newDeckName.trim().length}/${this.store.maxDeckNameLength}`;
+  }
+
+  selectCosmeticPreview(kind: CosmeticPreviewKind): void {
+    this.selectedCosmeticPreview.set(kind);
   }
 
   setColorFilter(value: string): void {

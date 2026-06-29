@@ -33,6 +33,11 @@ describe('TooltipComponent', () => {
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 240 });
   });
 
+  afterEach(() => {
+    document.documentElement.style.removeProperty('--cz-secondary');
+    document.documentElement.style.removeProperty('--cz-secondary-rgb');
+  });
+
   it('opens below when the preferred top placement would be clipped', async () => {
     const fixture = TestBed.createComponent(TooltipHostComponent);
 
@@ -78,6 +83,30 @@ describe('TooltipComponent', () => {
     });
 
     expect(bubble(fixture).classList).toContain('cz-tooltip__bubble--align-start');
+  });
+
+  it('uses dark text on light tooltip backgrounds', async () => {
+    document.documentElement.style.setProperty('--cz-secondary-rgb', '157 255 63');
+    const fixture = TestBed.createComponent(TooltipHostComponent);
+
+    await openTooltip(fixture, {
+      triggerRect: rect({ top: 80, bottom: 104, left: 140, right: 180, width: 40, height: 24 }),
+      bubbleRect: rect({ width: 160, height: 48 }),
+    });
+
+    expect(getComputedStyle(bubble(fixture)).color).toBe('rgb(0, 0, 0)');
+  });
+
+  it('uses light text on dark tooltip backgrounds', async () => {
+    document.documentElement.style.setProperty('--cz-secondary-rgb', '122 18 50');
+    const fixture = TestBed.createComponent(TooltipHostComponent);
+
+    await openTooltip(fixture, {
+      triggerRect: rect({ top: 80, bottom: 104, left: 140, right: 180, width: 40, height: 24 }),
+      bubbleRect: rect({ width: 160, height: 48 }),
+    });
+
+    expect(getComputedStyle(bubble(fixture)).color).toBe('rgb(255, 255, 255)');
   });
 });
 

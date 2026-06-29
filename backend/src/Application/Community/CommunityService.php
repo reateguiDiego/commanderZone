@@ -3,6 +3,7 @@
 namespace App\Application\Community;
 
 use App\Application\Card\CardLocalizationService;
+use App\Application\Card\CommanderCandidateSql;
 use App\Application\Deck\DeckFormatCatalog;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
@@ -55,7 +56,7 @@ final class CommunityService
             function () use ($requestedLanguage): array {
                 return [
                     'commanders' => $this->randomCardPreviews(
-                        $this->commanderCandidateWhereSql('card'),
+                        CommanderCandidateSql::condition('card'),
                         self::HOME_COMMANDERS_LIMIT,
                         $requestedLanguage,
                     ),
@@ -139,7 +140,7 @@ final class CommunityService
             self::TOP_CACHE_TTL_SECONDS,
             function () use ($normalizedFilters, $requestedLanguage): array {
                 $preview = $this->topPreviewCards(
-                    $this->commanderCandidateWhereSql('card'),
+                    CommanderCandidateSql::condition('card'),
                     $normalizedFilters,
                     self::TOP_PREVIEW_LIMIT,
                     $requestedLanguage,
@@ -451,14 +452,6 @@ SQL,
         }
 
         return $summaries;
-    }
-
-    private function commanderCandidateWhereSql(string $alias): string
-    {
-        return sprintf(
-            "%1\$s.commander_legal = true AND ((LOWER(COALESCE(%1\$s.type_line, '')) LIKE '%%legendary%%' AND LOWER(COALESCE(%1\$s.type_line, '')) LIKE '%%creature%%') OR LOWER(COALESCE(%1\$s.oracle_text, '')) LIKE '%%can be your commander%%')",
-            $alias,
-        );
     }
 
     /**

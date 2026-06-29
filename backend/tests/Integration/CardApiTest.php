@@ -44,6 +44,63 @@ class CardApiTest extends ApiTestCase
         self::assertSame($card->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
     }
 
+    public function testCommanderCandidateSearchUsesCanonicalCardTextBeforeLocalization(): void
+    {
+        $commander = $this->seedCard('00000000-0000-0000-0000-000000000101', 'Atraxa, Grand Unifier', [
+            'type_line' => 'Legendary Creature - Phyrexian Angel',
+            'oracle_text' => 'Flying, vigilance, deathtouch, lifelink.',
+            'lang' => 'en',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000102', "Atraxa's Fall", [
+            'type_line' => 'Sorcery',
+            'oracle_text' => 'Destroy target artifact, battle, enchantment, or creature with flying.',
+            'lang' => 'en',
+        ]);
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print_locale (
+    print_scryfall_id,
+    lang,
+    name,
+    printed_name,
+    mana_cost,
+    type_line,
+    oracle_text,
+    image_uris,
+    card_faces,
+    image_status,
+    updated_at
+) VALUES (
+    :print_scryfall_id,
+    'es',
+    'Atraxa, gran unificadora',
+    'Atraxa, gran unificadora',
+    '{1}',
+    'Criatura legendaria - Angel pirexiano',
+    'Vuela, vigilancia, toque mortal, vinculo vital.',
+    '{}',
+    '[]',
+    NULL,
+    NOW()
+)
+ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
+    name = EXCLUDED.name,
+    printed_name = EXCLUDED.printed_name,
+    type_line = EXCLUDED.type_line,
+    oracle_text = EXCLUDED.oracle_text,
+    updated_at = NOW()
+SQL,
+            ['print_scryfall_id' => $commander->scryfallId()],
+        );
+
+        $this->jsonRequest('GET', '/cards/search?q=atraxa&lang=es&limit=10&commanderCandidate=true');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$commander->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+        self::assertSame('Atraxa, gran unificadora', $this->jsonResponse()['data'][0]['name']);
+        self::assertSame('Criatura legendaria - Angel pirexiano', $this->jsonResponse()['data'][0]['typeLine']);
+    }
+
     public function testCardLanguagesReportDistinctNameCoverageAgainstEnglish(): void
     {
         $this->seedCard('00000000-0000-0000-0000-0000000000d1', 'Sol Ring', [

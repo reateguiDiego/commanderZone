@@ -97,6 +97,11 @@ final class CardSearchFilterBuilder
             $params['commanderLegal'] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN);
         }
 
+        $commanderCandidate = $request->query->get('commanderCandidate');
+        if ($commanderCandidate !== null && $commanderCandidate !== '' && filter_var($commanderCandidate, FILTER_VALIDATE_BOOLEAN)) {
+            $filters[] = CommanderCandidateSql::condition('c');
+        }
+
         $tokenOnly = $request->query->get('tokenOnly');
         if ($tokenOnly !== null && $tokenOnly !== '' && filter_var($tokenOnly, FILTER_VALIDATE_BOOLEAN)) {
             $filters[] = '(c.layout IN (:tokenLayout, :doubleFacedTokenLayout) OR LOWER(c.type_line) LIKE :tokenTypeLine)';

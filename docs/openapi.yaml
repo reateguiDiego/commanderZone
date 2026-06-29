@@ -695,6 +695,11 @@ paths:
           in: query
           schema:
             type: boolean
+        - name: commanderCandidate
+          in: query
+          description: Restricts results to cards that can be selected as a Commander deck commander, evaluated from canonical card text before localization.
+          schema:
+            type: boolean
         - name: colorIdentity
           in: query
           description: Comma-separated color identity symbols.

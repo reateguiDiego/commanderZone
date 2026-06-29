@@ -142,6 +142,7 @@
                           [attr.aria-label]="visibilityLabelKey(item.folder.visibility) | runtimeTranslate"
                         >
                           <lucide-icon [name]="visibilityIcon(item.folder.visibility)" size="13" aria-hidden="true" />
+                          <span class="visibility-pill-label">{{ visibilityPillText(item.folder.visibility) }}</span>
                         </span>
                       </app-tooltip>
                       <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
@@ -295,8 +296,8 @@
                 [maxlength]="store.maxDeckNameLength"
                 [(ngModel)]="store.newDeckName"
               />
-              <small class="field-hint" [class.error-text]="store.isNewDeckNameTooLong()">
-                Maximum 20 characters. {{ store.newDeckNameHelp() }}
+              <small class="field-hint create-deck-name-count-hint" [class.error-text]="store.isNewDeckNameTooLong()">
+                {{ createDeckNameCountHint() }}
               </small>
             </label>
 
@@ -339,30 +340,73 @@
             <p class="notice warning compact-notice">{{ 'deckBuilder.deckList.thisDeckIsPublicButItsFolder' | runtimeTranslate }}</p>
           }
 
+          <div class="create-cosmetics-row">
+            <div class="create-cosmetics-previews" aria-label="Deck visual previews">
+              <app-tooltip [text]="'deckBuilder.deckList.editPlaymat' | runtimeTranslate" [stretch]="true">
+                <button
+                  class="create-cosmetics-preview"
+                  type="button"
+                  [attr.aria-label]="'deckBuilder.deckList.editPlaymat' | runtimeTranslate"
+                  (click)="selectCosmeticPreview('playmat')"
+                >
+                  <span class="field-label create-cosmetics-preview-label">
+                    {{ 'deckBuilder.deckList.playmat' | runtimeTranslate }}
+                    <lucide-icon class="create-cosmetics-edit-icon" name="pencil" size="13" aria-hidden="true" />
+                  </span>
+                  <img
+                    class="create-cosmetics-preview-image create-cosmetics-preview-image--playmat"
+                    src="/assets/images/play-mat/G_1.png"
+                    [alt]="'deckBuilder.deckList.playmat' | runtimeTranslate"
+                    width="196"
+                    height="110"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </button>
+              </app-tooltip>
+              <app-tooltip [text]="'deckBuilder.deckList.editSleeve' | runtimeTranslate" [stretch]="true">
+                <button
+                  class="create-cosmetics-preview"
+                  type="button"
+                  [attr.aria-label]="'deckBuilder.deckList.editSleeve' | runtimeTranslate"
+                  (click)="selectCosmeticPreview('sleeve')"
+                >
+                  <span class="field-label create-cosmetics-preview-label">
+                    {{ 'deckBuilder.deckList.sleeve' | runtimeTranslate }}
+                    <lucide-icon class="create-cosmetics-edit-icon" name="pencil" size="13" aria-hidden="true" />
+                  </span>
+                  <img
+                    class="create-cosmetics-preview-image create-cosmetics-preview-image--sleeve"
+                    src="/assets/images/sleeves/facedown_card.jpg"
+                    [alt]="'deckBuilder.deckList.sleeve' | runtimeTranslate"
+                    width="78"
+                    height="110"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </button>
+              </app-tooltip>
+            </div>
+          </div>
+
           @if (!store.newDeckCreateEmpty && store.selectedFormat()?.hasCommander) {
             <div class="form-stack">
-              <label for="commanderSearch">{{ 'deckBuilder.deckList.commander' | runtimeTranslate }}</label>
-              <app-tooltip
-                [text]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander() ? ('deckBuilder.deckList.commanderSelectionLimitReached' | runtimeTranslate) : null"
-                [stretch]="true"
+              <label class="field-label" for="commanderSearch">{{ 'deckBuilder.deckList.commander' | runtimeTranslate }}</label>
+              <div
+                class="commander-autocomplete-shell"
+                [class.commander-autocomplete-shell-disabled]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander()"
               >
-                <div
-                  class="commander-autocomplete-shell"
-                  [class.commander-autocomplete-shell-disabled]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander()"
-                >
-                  <app-card-autocomplete
-                    [placeholder]="'deckBuilder.deckList.searchCommanderByName' | runtimeTranslate"
-                    actionLabel="Select"
-                    [disabled]="store.isCreateFormDisabled() || !store.canSelectAnotherCommander()"
-                    [filters]="{ commanderLegal: true }"
-                    [commanderCandidateOnly]="true"
-                    [clearOnSelect]="true"
-                    [query]="store.commanderQuery"
-                    (queryChange)="store.setCommanderQuery($event)"
-                    (cardSelected)="store.selectCommander($event.card)"
-                  />
-                </div>
-              </app-tooltip>
+                <app-card-autocomplete
+                  [placeholder]="'deckBuilder.deckList.searchCommanderByName' | runtimeTranslate"
+                  actionLabel="Select"
+                  [disabled]="store.isCreateFormDisabled() || !store.canSelectAnotherCommander()"
+                  [filters]="{ commanderCandidate: true }"
+                  [clearOnSelect]="true"
+                  [query]="store.commanderQuery"
+                  (queryChange)="store.setCommanderQuery($event)"
+                  (cardSelected)="store.selectCommander($event.card)"
+                />
+              </div>
 
               @if (store.selectedCommanders().length > 0) {
                 <div class="selected-commanders-row">
@@ -383,7 +427,7 @@
                           >
                             <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
                           </span>
-                          <app-tooltip text="Remove commander">
+                          <app-tooltip class="commander-preview-remove-tooltip" text="Remove commander">
                             <button
                               czButton="icon"
                               class="commander-preview-remove"
