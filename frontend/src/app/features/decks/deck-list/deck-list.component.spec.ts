@@ -693,6 +693,12 @@ describe('DeckListComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('.modal-panel').length).toBe(panelsBefore);
     expect(nextSleeve).toBeDefined();
 
+    const initialActionButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-sleeve-spoiler-actions button') as NodeListOf<HTMLButtonElement>,
+    );
+    expect(initialActionButtons.map((button) => button.textContent?.trim())).toEqual(['Save']);
+    expect(initialActionButtons[0].disabled).toBe(true);
+
     Array.from(sleeveButtons)
       .find((button) => button.querySelector('img')?.getAttribute('src') === nextSleeve?.path)
       ?.click();
@@ -708,6 +714,7 @@ describe('DeckListComponent', () => {
     expect(selectedButton?.classList.contains('is-selected')).toBe(true);
     expect(fixture.nativeElement.querySelector('.modal-back-button app-back-button, app-back-button.modal-back-button')).not.toBeNull();
     expect(actionButtons.map((button) => button.textContent?.trim())).toEqual(['Save']);
+    expect(actionButtons[0].disabled).toBe(false);
 
     actionButtons[0].click();
     fixture.detectChanges();

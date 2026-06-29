@@ -1,5 +1,4 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, computed, input, output, signal, viewChild } from '@angular/core';
-import { FormatSelectComponent, type FormatSelectOption } from '../../../../../shared/components/format-select/format-select.component';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 
@@ -7,7 +6,6 @@ const SLEEVE_BASE_PATH = '/assets/images/sleeves/';
 const DEFAULT_SLEEVE_FILE = 'facedown_card.jpg';
 
 type SleeveColor = 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
-type SleeveColorFilter = 'all' | SleeveColor;
 type SleeveCategory = 'default' | 'mono' | 'colorless' | 'combination';
 
 interface SleeveDefinition {
@@ -32,16 +30,6 @@ interface PendingSleeveHoverPreview {
 const HOVER_PREVIEW_WIDTH_PX = 360;
 const HOVER_PREVIEW_HEIGHT_PX = 502;
 const HOVER_PREVIEW_DELAY_MS = 180;
-
-const SLEEVE_COLOR_FILTER_OPTIONS: readonly FormatSelectOption[] = [
-  { id: 'all', name: 'All colors' },
-  { id: 'W', name: 'White' },
-  { id: 'U', name: 'Blue' },
-  { id: 'B', name: 'Black' },
-  { id: 'R', name: 'Red' },
-  { id: 'G', name: 'Green' },
-  { id: 'C', name: 'Colorless' },
-];
 
 const MONO_COLOR_SLEEVE_FILES: Readonly<Record<Exclude<SleeveColor, 'C'>, readonly string[]>> = {
   W: ['w_0.webp', 'w_1.webp', 'w_2.webp', 'w_3.webp', 'w_4.webp', 'w_5.webp', 'w_6.webp', 'w_7.webp', 'w_8.webp', 'w_9.webp', 'w_10.webp', 'w_11.webp'],
@@ -145,35 +133,22 @@ export const SLEEVE_OPTIONS: readonly SleeveOption[] = SLEEVE_DEFINITIONS.map((d
 
 @Component({
   selector: 'app-create-sleeve-spoiler',
-  imports: [CzButtonDirective, FormatSelectComponent, PrettyScrollDirective],
+  imports: [CzButtonDirective, PrettyScrollDirective],
   templateUrl: './create-sleeve-spoiler.component.html',
   styleUrl: './create-sleeve-spoiler.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CreateSleeveSpoilerComponent implements AfterViewInit, OnDestroy {
   readonly selectedSleevePath = input.required<string>();
+  readonly initialSleevePath = input.required<string>();
   readonly sleeveSelected = output<string>();
   readonly save = output<void>();
   readonly sleeveGrid = viewChild<ElementRef<HTMLElement>>('sleeveGrid');
-  readonly colorFilterOptions = SLEEVE_COLOR_FILTER_OPTIONS;
-  readonly colorFilter = signal<SleeveColorFilter>('all');
   readonly hoverPreview = signal<SleeveHoverPreview | null>(null);
-  readonly sleeves = computed(() => {
-    const colorFilter = this.colorFilter();
-
-    return colorFilter === 'all'
-      ? SLEEVE_OPTIONS
-      : SLEEVE_OPTIONS.filter((sleeve) => sleeve.colors.includes(colorFilter));
-  });
+  readonly sleeves = SLEEVE_OPTIONS;
+  readonly canSave = computed(() => this.selectedSleevePath() !== this.initialSleevePath());
   private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingHoverPreview: PendingSleeveHoverPreview | null = null;
-
-  setColorFilter(value: string): void {
-    if (isSleeveColorFilter(value)) {
-      this.colorFilter.set(value);
-      this.scrollSleeveGridToTop();
-    }
-  }
 
   ngAfterViewInit(): void {
     this.scrollSleeveGridToTop();
@@ -189,6 +164,10 @@ export class CreateSleeveSpoilerComponent implements AfterViewInit, OnDestroy {
   }
 
   saveSelection(): void {
+    if (!this.canSave()) {
+      return;
+    }
+
     this.save.emit();
   }
 
@@ -292,10 +271,6 @@ function combinationSleeve(fileName: string, colors: readonly SleeveColor[], com
     category: 'combination',
     combinationName,
   };
-}
-
-function isSleeveColorFilter(value: string): value is SleeveColorFilter {
-  return ['all', 'W', 'U', 'B', 'R', 'G', 'C'].includes(value);
 }
 
 function labelFromFileName(fileName: string): string {

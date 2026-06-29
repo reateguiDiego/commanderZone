@@ -274,6 +274,7 @@
     @if (sleeveEditorOpen()) {
       <app-create-sleeve-spoiler
         [selectedSleevePath]="draftSleevePath()"
+        [initialSleevePath]="selectedSleevePath()"
         (sleeveSelected)="selectDraftSleeve($event)"
         (save)="saveSleeveSelection()"
       />

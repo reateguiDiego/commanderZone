@@ -9,19 +9,11 @@
 
 .create-sleeve-spoiler {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 0.7rem;
   min-width: 0;
   height: min(56.5rem, calc(100dvh - 9rem));
   padding: 0.65rem;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 24%);
-  border-radius: 8px;
-  background: rgb(var(--cz-bg-rgb) / 42%);
-  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%);
-}
-
-.create-sleeve-spoiler-toolbar {
-  width: min(14rem, 100%);
 }
 
 .create-sleeve-spoiler-actions {

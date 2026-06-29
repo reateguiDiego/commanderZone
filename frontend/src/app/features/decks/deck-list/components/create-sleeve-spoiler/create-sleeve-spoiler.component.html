@@ -1,16 +1,6 @@
 <section class="create-sleeve-spoiler" aria-label="Sleeve options">
-  <div class="create-sleeve-spoiler-toolbar">
-    <app-format-select
-      name="sleeveColorFilter"
-      label="Color"
-      [options]="colorFilterOptions"
-      [value]="colorFilter()"
-      (valueChange)="setColorFilter($event)"
-    />
-  </div>
-
   <div #sleeveGrid class="create-sleeve-spoiler-grid" appPrettyScroll>
-    @for (sleeve of sleeves(); track sleeve.path) {
+    @for (sleeve of sleeves; track sleeve.path) {
       <button
         class="create-sleeve-option"
         type="button"
@@ -44,7 +34,7 @@
   </div>
 
   <footer class="create-sleeve-spoiler-actions">
-    <button czButton="primary" type="button" (click)="saveSelection()">Save</button>
+    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">Save</button>
   </footer>
 </section>
 

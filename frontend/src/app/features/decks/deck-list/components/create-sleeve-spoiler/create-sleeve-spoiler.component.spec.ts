@@ -11,6 +11,7 @@ describe('CreateSleeveSpoilerComponent', () => {
   it('renders every configured sleeve with lazy async images', () => {
     const fixture = TestBed.createComponent(CreateSleeveSpoilerComponent);
     fixture.componentRef.setInput('selectedSleevePath', DEFAULT_SLEEVE_PATH);
+    fixture.componentRef.setInput('initialSleevePath', DEFAULT_SLEEVE_PATH);
     fixture.detectChanges();
 
     const images = fixture.nativeElement.querySelectorAll('.create-sleeve-option-image') as NodeListOf<HTMLImageElement>;
@@ -34,30 +35,13 @@ describe('CreateSleeveSpoilerComponent', () => {
     expect(SLEEVE_OPTIONS[13].fileName).toBe('u_0.webp');
   });
 
-  it('filters mono and combination sleeves by Magic color', () => {
-    const fixture = TestBed.createComponent(CreateSleeveSpoilerComponent);
-    fixture.componentRef.setInput('selectedSleevePath', DEFAULT_SLEEVE_PATH);
-    fixture.detectChanges();
-
-    fixture.componentInstance.setColorFilter('W');
-    fixture.detectChanges();
-
-    const imageSources = Array.from(
-      fixture.nativeElement.querySelectorAll('.create-sleeve-option-image') as NodeListOf<HTMLImageElement>,
-    ).map((image) => image.getAttribute('src'));
-
-    expect(imageSources).toContain('/assets/images/sleeves/w_0.webp');
-    expect(imageSources).toContain('/assets/images/sleeves/azorius_1.webp');
-    expect(imageSources).toContain('/assets/images/sleeves/penta_1.webp');
-    expect(imageSources).not.toContain('/assets/images/sleeves/u_0.webp');
-  });
-
   it('marks the selected sleeve and emits when another sleeve is selected', () => {
     const fixture = TestBed.createComponent(CreateSleeveSpoilerComponent);
     const selected = SLEEVE_OPTIONS[1];
     const next = SLEEVE_OPTIONS[2];
     const emitted: string[] = [];
     fixture.componentRef.setInput('selectedSleevePath', selected.path);
+    fixture.componentRef.setInput('initialSleevePath', selected.path);
     fixture.componentInstance.sleeveSelected.subscribe((path) => emitted.push(path));
     fixture.detectChanges();
 
@@ -76,6 +60,7 @@ describe('CreateSleeveSpoilerComponent', () => {
     try {
       const fixture = TestBed.createComponent(CreateSleeveSpoilerComponent);
       fixture.componentRef.setInput('selectedSleevePath', DEFAULT_SLEEVE_PATH);
+      fixture.componentRef.setInput('initialSleevePath', DEFAULT_SLEEVE_PATH);
       fixture.detectChanges();
 
       const option = fixture.nativeElement.querySelector('.create-sleeve-option') as HTMLButtonElement;
@@ -99,6 +84,7 @@ describe('CreateSleeveSpoilerComponent', () => {
     try {
       const fixture = TestBed.createComponent(CreateSleeveSpoilerComponent);
       fixture.componentRef.setInput('selectedSleevePath', DEFAULT_SLEEVE_PATH);
+      fixture.componentRef.setInput('initialSleevePath', DEFAULT_SLEEVE_PATH);
       fixture.detectChanges();
 
       const option = fixture.nativeElement.querySelector('.create-sleeve-option') as HTMLButtonElement;
@@ -120,10 +106,28 @@ describe('CreateSleeveSpoilerComponent', () => {
     }
   });
 
-  it('emits save from the footer action', () => {
+  it('keeps save disabled while the selected sleeve matches the initial sleeve', () => {
     const fixture = TestBed.createComponent(CreateSleeveSpoilerComponent);
     const saveEvents: void[] = [];
     fixture.componentRef.setInput('selectedSleevePath', DEFAULT_SLEEVE_PATH);
+    fixture.componentRef.setInput('initialSleevePath', DEFAULT_SLEEVE_PATH);
+    fixture.componentInstance.save.subscribe(() => saveEvents.push(undefined));
+    fixture.detectChanges();
+
+    const saveButton = fixture.nativeElement.querySelector('.create-sleeve-spoiler-actions button') as HTMLButtonElement;
+
+    expect(saveButton.disabled).toBe(true);
+
+    fixture.componentInstance.saveSelection();
+
+    expect(saveEvents.length).toBe(0);
+  });
+
+  it('enables save and emits from the footer action when the selected sleeve changed', () => {
+    const fixture = TestBed.createComponent(CreateSleeveSpoilerComponent);
+    const saveEvents: void[] = [];
+    fixture.componentRef.setInput('selectedSleevePath', SLEEVE_OPTIONS[1].path);
+    fixture.componentRef.setInput('initialSleevePath', DEFAULT_SLEEVE_PATH);
     fixture.componentInstance.save.subscribe(() => saveEvents.push(undefined));
     fixture.detectChanges();
 
@@ -132,6 +136,7 @@ describe('CreateSleeveSpoilerComponent', () => {
     );
 
     expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Save']);
+    expect(buttons[0].disabled).toBe(false);
 
     buttons[0].click();
 
