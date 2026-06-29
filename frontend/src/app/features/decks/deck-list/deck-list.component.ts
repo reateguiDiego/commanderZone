@@ -19,6 +19,7 @@ import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.compon
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
+import { CreatePlaymatSpoilerComponent, DEFAULT_PLAYMAT_PATH } from './components/create-playmat-spoiler/create-playmat-spoiler.component';
 import { CreateSleeveSpoilerComponent, DEFAULT_SLEEVE_PATH } from './components/create-sleeve-spoiler/create-sleeve-spoiler.component';
 
 interface CommanderHoverPreview {
@@ -26,6 +27,8 @@ interface CommanderHoverPreview {
   x: number;
   y: number;
 }
+
+type CreateCosmeticEditor = 'playmat' | 'sleeve' | null;
 
 @Component({
   selector: 'app-deck-list',
@@ -46,6 +49,7 @@ interface CommanderHoverPreview {
     HeroRuleComponent,
     BackButtonComponent,
     TooltipComponent,
+    CreatePlaymatSpoilerComponent,
     CreateSleeveSpoilerComponent,
   ],
   templateUrl: './deck-list.component.html',
@@ -58,13 +62,24 @@ export class DeckListComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   readonly maxSelectedCommanders = 2;
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
-  readonly sleeveEditorOpen = signal(false);
+  readonly activeCosmeticEditor = signal<CreateCosmeticEditor>(null);
+  readonly playmatEditorOpen = computed(() => this.activeCosmeticEditor() === 'playmat');
+  readonly sleeveEditorOpen = computed(() => this.activeCosmeticEditor() === 'sleeve');
+  readonly selectedPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
+  readonly draftPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
   readonly selectedSleevePath = signal(DEFAULT_SLEEVE_PATH);
   readonly draftSleevePath = signal(DEFAULT_SLEEVE_PATH);
   readonly searchPanelOpen = signal(false);
-  readonly createModalTitle = computed(() => (
-    this.sleeveEditorOpen() ? 'deckBuilder.deckList.sleeve' : this.store.createModalTitle()
-  ));
+  readonly createModalTitle = computed(() => {
+    switch (this.activeCosmeticEditor()) {
+      case 'playmat':
+        return 'deckBuilder.deckList.playmat';
+      case 'sleeve':
+        return 'deckBuilder.deckList.sleeve';
+      default:
+        return this.store.createModalTitle();
+    }
+  });
   readonly colorFilterOptions = computed<readonly FormatSelectOption[]>(() =>
     this.store.colorFilterOptions.map((option) => ({ id: option.value, labelKey: option.labelKey })),
   );
@@ -125,18 +140,29 @@ export class DeckListComponent implements OnInit, OnDestroy {
     return `${this.store.newDeckName.trim().length}/${this.store.maxDeckNameLength}`;
   }
 
-  selectPlaymatPreview(): void {
-    this.closeSleeveEditor();
+  openPlaymatEditor(): void {
+    this.draftPlaymatPath.set(this.selectedPlaymatPath());
+    this.activeCosmeticEditor.set('playmat');
   }
 
   openSleeveEditor(): void {
     this.draftSleevePath.set(this.selectedSleevePath());
-    this.sleeveEditorOpen.set(true);
+    this.activeCosmeticEditor.set('sleeve');
   }
 
-  closeSleeveEditor(): void {
+  closeCosmeticEditor(): void {
+    this.draftPlaymatPath.set(this.selectedPlaymatPath());
     this.draftSleevePath.set(this.selectedSleevePath());
-    this.sleeveEditorOpen.set(false);
+    this.activeCosmeticEditor.set(null);
+  }
+
+  selectDraftPlaymat(path: string): void {
+    this.draftPlaymatPath.set(path);
+  }
+
+  savePlaymatSelection(): void {
+    this.selectedPlaymatPath.set(this.draftPlaymatPath());
+    this.activeCosmeticEditor.set(null);
   }
 
   selectDraftSleeve(path: string): void {
@@ -145,7 +171,7 @@ export class DeckListComponent implements OnInit, OnDestroy {
 
   saveSleeveSelection(): void {
     this.selectedSleevePath.set(this.draftSleevePath());
-    this.sleeveEditorOpen.set(false);
+    this.activeCosmeticEditor.set(null);
   }
 
   setColorFilter(value: string): void {
@@ -241,13 +267,13 @@ export class DeckListComponent implements OnInit, OnDestroy {
 
   submitCreateModal(): void {
     this.hideCommanderPreview();
-    this.sleeveEditorOpen.set(false);
+    this.activeCosmeticEditor.set(null);
     this.store.submitCreateModal();
   }
 
   async cancelCreateFlow(): Promise<void> {
     this.hideCommanderPreview();
-    this.closeSleeveEditor();
+    this.closeCosmeticEditor();
     await this.store.cancelCreateFlow();
   }
 

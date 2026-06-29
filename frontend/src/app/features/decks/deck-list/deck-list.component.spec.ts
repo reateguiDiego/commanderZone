@@ -30,6 +30,7 @@ import { DecksApi } from '../../../core/api/decks.api';
 import { Card } from '../../../core/models/card.model';
 import { Deck, DeckFolder } from '../../../core/models/deck.model';
 import { DeckListComponent } from './deck-list.component';
+import { PLAYMAT_OPTIONS } from './components/create-playmat-spoiler/create-playmat-spoiler.component';
 import { SLEEVE_OPTIONS } from './components/create-sleeve-spoiler/create-sleeve-spoiler.component';
 
 describe('DeckListComponent', () => {
@@ -655,12 +656,13 @@ describe('DeckListComponent', () => {
     expect(previewButtons[1].querySelector('.create-cosmetics-edit-icon')).not.toBeNull();
     expect(cosmeticsRow?.textContent).toContain('Playmat');
     expect(cosmeticsRow?.textContent).toContain('Sleeve');
-    expect(playmatImage?.getAttribute('src')).toBe('/assets/images/play-mat/G_1.png');
+    expect(playmatImage?.getAttribute('src')).toBe('/assets/images/playmat/free_0.webp');
     expect(sleeveImage?.getAttribute('src')).toBe('/assets/images/sleeves/facedown_card.jpg');
     expect(playmatImage?.getAttribute('alt')).toBe('Playmat');
     expect(sleeveImage?.getAttribute('alt')).toBe('Sleeve');
 
     expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-create-playmat-spoiler')).toBeNull();
   });
 
   it('replaces the create form with the sleeve selector and saves the selected sleeve locally', async () => {
@@ -762,7 +764,7 @@ describe('DeckListComponent', () => {
     expect(sleevePreview?.getAttribute('src')).toBe('/assets/images/sleeves/facedown_card.jpg');
   });
 
-  it('does not open the sleeve selector from the playmat action', async () => {
+  it('replaces the create form with the playmat selector and saves the selected playmat locally', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -781,8 +783,47 @@ describe('DeckListComponent', () => {
     previewButtons[0].click();
     fixture.detectChanges();
 
+    const spoiler = fixture.nativeElement.querySelector('app-create-playmat-spoiler') as HTMLElement | null;
+    const playmatButtons = spoiler?.querySelectorAll('.create-playmat-option') as NodeListOf<HTMLButtonElement>;
+    const freePlaymats = PLAYMAT_OPTIONS.filter((playmat) => !playmat.premium);
+    const nextPlaymat = freePlaymats.find((playmat) => playmat.path !== '/assets/images/playmat/free_0.webp');
+
+    expect(spoiler).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.create-deck-form')).toBeNull();
+    expect(playmatButtons.length).toBe(freePlaymats.length);
+    expect(nextPlaymat).toBeDefined();
+    expect(fixture.nativeElement.querySelector('.create-playmat-tier-tabs')).not.toBeNull();
+
+    const initialActionButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-playmat-spoiler-actions button') as NodeListOf<HTMLButtonElement>,
+    );
+    expect(initialActionButtons.map((button) => button.textContent?.trim())).toEqual(['Save']);
+    expect(initialActionButtons[0].disabled).toBe(true);
+
+    Array.from(playmatButtons)
+      .find((button) => button.querySelector('img')?.getAttribute('src') === nextPlaymat?.path)
+      ?.click();
+    fixture.detectChanges();
+
+    const selectedButton = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-playmat-option') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.querySelector('img')?.getAttribute('src') === nextPlaymat?.path);
+    const actionButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-playmat-spoiler-actions button') as NodeListOf<HTMLButtonElement>,
+    );
+
+    expect(selectedButton?.classList.contains('is-selected')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.modal-back-button app-back-button, app-back-button.modal-back-button')).not.toBeNull();
+    expect(actionButtons[0].disabled).toBe(false);
+
+    actionButtons[0].click();
+    fixture.detectChanges();
+
+    const savedPlaymatPreview = fixture.nativeElement.querySelector('.create-cosmetics-preview-image--playmat') as HTMLImageElement | null;
+    expect(fixture.nativeElement.querySelector('app-create-playmat-spoiler')).toBeNull();
     expect(fixture.nativeElement.querySelector('.create-deck-form')).not.toBeNull();
+    expect(savedPlaymatPreview?.getAttribute('src')).toBe(nextPlaymat?.path);
   });
 
   it('uses the shared create-modal label style for deck name, commander and import decklist', async () => {
@@ -817,6 +858,7 @@ describe('DeckListComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.create-cosmetics-row')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-create-playmat-spoiler')).toBeNull();
   });
 
   it('creates an empty deck without importing and navigates directly to it', async () => {

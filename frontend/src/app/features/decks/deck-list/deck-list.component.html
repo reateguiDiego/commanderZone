@@ -263,15 +263,22 @@
     [title]="createModalTitle()"
     [primaryLabel]="store.createPrimaryLabel()"
     [primaryDisabled]="store.isCreatePrimaryDisabled()"
-    [showPrimary]="!sleeveEditorOpen()"
-    [showSecondary]="!sleeveEditorOpen() && !store.createFormLocked() && !store.createSubmitting()"
-    [showBackButton]="sleeveEditorOpen()"
+    [showPrimary]="activeCosmeticEditor() === null"
+    [showSecondary]="activeCosmeticEditor() === null && !store.createFormLocked() && !store.createSubmitting()"
+    [showBackButton]="activeCosmeticEditor() !== null"
     secondaryLabel="Cancel"
-    (back)="closeSleeveEditor()"
+    (back)="closeCosmeticEditor()"
     (primary)="submitCreateModal()"
     (secondary)="cancelCreateFlow()"
   >
-    @if (sleeveEditorOpen()) {
+    @if (playmatEditorOpen()) {
+      <app-create-playmat-spoiler
+        [selectedPlaymatPath]="draftPlaymatPath()"
+        [initialPlaymatPath]="selectedPlaymatPath()"
+        (playmatSelected)="selectDraftPlaymat($event)"
+        (save)="savePlaymatSelection()"
+      />
+    } @else if (sleeveEditorOpen()) {
       <app-create-sleeve-spoiler
         [selectedSleevePath]="draftSleevePath()"
         [initialSleevePath]="selectedSleevePath()"
@@ -358,7 +365,7 @@
                   class="create-cosmetics-preview"
                   type="button"
                   [attr.aria-label]="'deckBuilder.deckList.editPlaymat' | runtimeTranslate"
-                  (click)="selectPlaymatPreview()"
+                  (click)="openPlaymatEditor()"
                 >
                   <span class="field-label create-cosmetics-preview-label">
                     {{ 'deckBuilder.deckList.playmat' | runtimeTranslate }}
@@ -366,7 +373,7 @@
                   </span>
                   <img
                     class="create-cosmetics-preview-image create-cosmetics-preview-image--playmat"
-                    src="/assets/images/play-mat/G_1.png"
+                    [src]="selectedPlaymatPath()"
                     [alt]="'deckBuilder.deckList.playmat' | runtimeTranslate"
                     width="196"
                     height="110"

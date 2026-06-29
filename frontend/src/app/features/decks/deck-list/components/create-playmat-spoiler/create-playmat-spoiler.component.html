@@ -1,0 +1,66 @@
+<section class="create-playmat-spoiler" aria-label="Playmat options">
+  <app-tab-list
+    class="create-playmat-tier-tabs"
+    [items]="tierTabItems"
+    [activeId]="activeTier()"
+    ariaLabel="Playmat tiers"
+    (tabSelected)="switchTierFromList($event)"
+  />
+
+  <div #playmatGrid class="create-playmat-spoiler-grid" appPrettyScroll>
+    @for (playmat of playmats(); track playmat.path) {
+      <button
+        class="create-playmat-option"
+        type="button"
+        [class.is-selected]="playmat.path === selectedPlaymatPath()"
+        [attr.aria-label]="'Select playmat ' + playmat.label"
+        [attr.aria-pressed]="playmat.path === selectedPlaymatPath()"
+        (mouseenter)="showHoverPreview($event, playmat)"
+        (mousemove)="moveHoverPreview($event, playmat)"
+        (mouseleave)="hideHoverPreview()"
+        (click)="selectPlaymat(playmat.path)"
+      >
+        <img
+          class="create-playmat-option-image"
+          [src]="playmat.path"
+          [alt]="playmat.label"
+          width="196"
+          height="110"
+          loading="lazy"
+          decoding="async"
+        />
+        <span class="create-playmat-option-pills">
+          @if (playmat.combinationLabel) {
+            <span class="create-playmat-option-pill create-playmat-option-pill--combination">
+              {{ playmat.combinationLabel }}
+            </span>
+          }
+          @if (playmat.premium) {
+            <span class="create-playmat-option-pill create-playmat-option-pill--premium">Premium</span>
+          }
+        </span>
+      </button>
+    }
+  </div>
+
+  <footer class="create-playmat-spoiler-actions">
+    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">Save</button>
+  </footer>
+</section>
+
+@if (hoverPreview(); as preview) {
+  <div
+    class="create-playmat-hover-preview"
+    [style.left.px]="preview.left"
+    [style.top.px]="preview.top"
+    aria-hidden="true"
+  >
+    <img
+      [src]="preview.playmat.path"
+      [alt]="preview.playmat.label"
+      width="520"
+      height="292"
+      decoding="async"
+    />
+  </div>
+}
