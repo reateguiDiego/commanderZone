@@ -260,15 +260,25 @@
 
   <app-modal
     [open]="store.createModalOpen()"
-    [title]="store.createModalTitle()"
+    [title]="createModalTitle()"
     [primaryLabel]="store.createPrimaryLabel()"
     [primaryDisabled]="store.isCreatePrimaryDisabled()"
-    [showSecondary]="!store.createFormLocked() && !store.createSubmitting()"
+    [showPrimary]="!sleeveEditorOpen()"
+    [showSecondary]="!sleeveEditorOpen() && !store.createFormLocked() && !store.createSubmitting()"
+    [showBackButton]="sleeveEditorOpen()"
     secondaryLabel="Cancel"
+    (back)="closeSleeveEditor()"
     (primary)="submitCreateModal()"
     (secondary)="cancelCreateFlow()"
   >
-    <form class="form-stack create-deck-form deck-modal-form" (ngSubmit)="submitCreateModal()">
+    @if (sleeveEditorOpen()) {
+      <app-create-sleeve-spoiler
+        [selectedSleevePath]="draftSleevePath()"
+        (sleeveSelected)="selectDraftSleeve($event)"
+        (save)="saveSleeveSelection()"
+      />
+    } @else {
+      <form class="form-stack create-deck-form deck-modal-form" (ngSubmit)="submitCreateModal()">
       @if (store.createFormLocked()) {
         <div class="notice create-import-result" [class.warning]="!store.hasCreateImportError()" [class.error]="store.hasCreateImportError()">
           @if (store.createdImportMessage()) {
@@ -347,7 +357,7 @@
                   class="create-cosmetics-preview"
                   type="button"
                   [attr.aria-label]="'deckBuilder.deckList.editPlaymat' | runtimeTranslate"
-                  (click)="selectCosmeticPreview('playmat')"
+                  (click)="selectPlaymatPreview()"
                 >
                   <span class="field-label create-cosmetics-preview-label">
                     {{ 'deckBuilder.deckList.playmat' | runtimeTranslate }}
@@ -369,7 +379,7 @@
                   class="create-cosmetics-preview"
                   type="button"
                   [attr.aria-label]="'deckBuilder.deckList.editSleeve' | runtimeTranslate"
-                  (click)="selectCosmeticPreview('sleeve')"
+                  (click)="openSleeveEditor()"
                 >
                   <span class="field-label create-cosmetics-preview-label">
                     {{ 'deckBuilder.deckList.sleeve' | runtimeTranslate }}
@@ -377,7 +387,7 @@
                   </span>
                   <img
                     class="create-cosmetics-preview-image create-cosmetics-preview-image--sleeve"
-                    src="/assets/images/sleeves/facedown_card.jpg"
+                    [src]="selectedSleevePath()"
                     [alt]="'deckBuilder.deckList.sleeve' | runtimeTranslate"
                     width="78"
                     height="110"
@@ -485,7 +495,8 @@
           }
         </fieldset>
       }
-    </form>
+      </form>
+    }
   </app-modal>
 
   <app-modal

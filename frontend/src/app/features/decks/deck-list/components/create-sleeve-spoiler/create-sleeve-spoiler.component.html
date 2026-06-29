@@ -1,0 +1,66 @@
+<section class="create-sleeve-spoiler" aria-label="Sleeve options">
+  <div class="create-sleeve-spoiler-toolbar">
+    <app-format-select
+      name="sleeveColorFilter"
+      label="Color"
+      [options]="colorFilterOptions"
+      [value]="colorFilter()"
+      (valueChange)="setColorFilter($event)"
+    />
+  </div>
+
+  <div #sleeveGrid class="create-sleeve-spoiler-grid" appPrettyScroll>
+    @for (sleeve of sleeves(); track sleeve.path) {
+      <button
+        class="create-sleeve-option"
+        type="button"
+        [class.is-selected]="sleeve.path === selectedSleevePath()"
+        [attr.aria-label]="'Select sleeve ' + sleeve.label"
+        [attr.aria-pressed]="sleeve.path === selectedSleevePath()"
+        (mouseenter)="showHoverPreview($event, sleeve)"
+        (mousemove)="moveHoverPreview($event, sleeve)"
+        (mouseleave)="hideHoverPreview()"
+        (click)="selectSleeve(sleeve.path)"
+      >
+        <img
+          class="create-sleeve-option-image"
+          [src]="sleeve.path"
+          [alt]="sleeve.label"
+          width="78"
+          height="110"
+          loading="lazy"
+          decoding="async"
+        />
+        @if (sleeve.premium) {
+          <span class="create-sleeve-option-pill">Premium</span>
+        }
+        @if (sleeve.combinationName) {
+          <span class="create-sleeve-option-pill create-sleeve-option-pill--combination">
+            {{ sleeve.combinationName }}
+          </span>
+        }
+      </button>
+    }
+  </div>
+
+  <footer class="create-sleeve-spoiler-actions">
+    <button czButton="primary" type="button" (click)="saveSelection()">Save</button>
+  </footer>
+</section>
+
+@if (hoverPreview(); as preview) {
+  <div
+    class="create-sleeve-hover-preview"
+    [style.left.px]="preview.left"
+    [style.top.px]="preview.top"
+    aria-hidden="true"
+  >
+    <img
+      [src]="preview.sleeve.path"
+      [alt]="preview.sleeve.label"
+      width="360"
+      height="502"
+      decoding="async"
+    />
+  </div>
+}

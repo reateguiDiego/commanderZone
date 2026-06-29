@@ -30,6 +30,7 @@ import { DecksApi } from '../../../core/api/decks.api';
 import { Card } from '../../../core/models/card.model';
 import { Deck, DeckFolder } from '../../../core/models/deck.model';
 import { DeckListComponent } from './deck-list.component';
+import { SLEEVE_OPTIONS } from './components/create-sleeve-spoiler/create-sleeve-spoiler.component';
 
 describe('DeckListComponent', () => {
   beforeEach(async () => {
@@ -659,10 +660,122 @@ describe('DeckListComponent', () => {
     expect(playmatImage?.getAttribute('alt')).toBe('Playmat');
     expect(sleeveImage?.getAttribute('alt')).toBe('Sleeve');
 
+    expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).toBeNull();
+  });
+
+  it('replaces the create form with the sleeve selector and saves the selected sleeve locally', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.formats.set([
+      { id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true },
+    ]);
+    fixture.componentInstance.store.newDeckFormatId = 'commander';
+    fixture.componentInstance.store.openCreateModal();
+    fixture.detectChanges();
+
+    const panelsBefore = fixture.nativeElement.querySelectorAll('.modal-panel').length;
+    const previewButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-cosmetics-preview') as NodeListOf<HTMLButtonElement>,
+    );
+
+    previewButtons[1].click();
+    fixture.detectChanges();
+
+    const spoiler = fixture.nativeElement.querySelector('app-create-sleeve-spoiler') as HTMLElement | null;
+    const sleeveButtons = spoiler?.querySelectorAll('.create-sleeve-option') as NodeListOf<HTMLButtonElement>;
+    const nextSleeve = SLEEVE_OPTIONS.find((sleeve) => sleeve.path !== '/assets/images/sleeves/facedown_card.jpg');
+
+    expect(spoiler).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.create-deck-form')).toBeNull();
+    expect(sleeveButtons.length).toBe(SLEEVE_OPTIONS.length);
+    expect(fixture.nativeElement.querySelectorAll('.modal-panel').length).toBe(panelsBefore);
+    expect(nextSleeve).toBeDefined();
+
+    Array.from(sleeveButtons)
+      .find((button) => button.querySelector('img')?.getAttribute('src') === nextSleeve?.path)
+      ?.click();
+    fixture.detectChanges();
+
+    const selectedButton = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-sleeve-option') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.querySelector('img')?.getAttribute('src') === nextSleeve?.path);
+    const actionButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-sleeve-spoiler-actions button') as NodeListOf<HTMLButtonElement>,
+    );
+
+    expect(selectedButton?.classList.contains('is-selected')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.modal-back-button app-back-button, app-back-button.modal-back-button')).not.toBeNull();
+    expect(actionButtons.map((button) => button.textContent?.trim())).toEqual(['Save']);
+
+    actionButtons[0].click();
+    fixture.detectChanges();
+
+    const savedSleevePreview = fixture.nativeElement.querySelector('.create-cosmetics-preview-image--sleeve') as HTMLImageElement | null;
+    expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.create-deck-form')).not.toBeNull();
+    expect(savedSleevePreview?.getAttribute('src')).toBe(nextSleeve?.path);
+  });
+
+  it('returns from the sleeve selector without applying draft changes when using Back', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.formats.set([
+      { id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true },
+    ]);
+    fixture.componentInstance.store.newDeckFormatId = 'commander';
+    fixture.componentInstance.store.openCreateModal();
+    fixture.detectChanges();
+
+    const previewButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-cosmetics-preview') as NodeListOf<HTMLButtonElement>,
+    );
+    const nextSleeve = SLEEVE_OPTIONS.find((sleeve) => sleeve.path !== '/assets/images/sleeves/facedown_card.jpg');
+
+    previewButtons[1].click();
+    fixture.detectChanges();
+
+    Array.from(
+      fixture.nativeElement.querySelectorAll('.create-sleeve-option') as NodeListOf<HTMLButtonElement>,
+    )
+      .find((button) => button.querySelector('img')?.getAttribute('src') === nextSleeve?.path)
+      ?.click();
+    fixture.detectChanges();
+
+    const backButton = fixture.nativeElement.querySelector('.modal-back-button button') as HTMLButtonElement | null;
+
+    backButton?.click();
+    fixture.detectChanges();
+
+    const sleevePreview = fixture.nativeElement.querySelector('.create-cosmetics-preview-image--sleeve') as HTMLImageElement | null;
+    expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).toBeNull();
+    expect(sleevePreview?.getAttribute('src')).toBe('/assets/images/sleeves/facedown_card.jpg');
+  });
+
+  it('does not open the sleeve selector from the playmat action', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.formats.set([
+      { id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true },
+    ]);
+    fixture.componentInstance.store.newDeckFormatId = 'commander';
+    fixture.componentInstance.store.openCreateModal();
+    fixture.detectChanges();
+
+    const previewButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.create-cosmetics-preview') as NodeListOf<HTMLButtonElement>,
+    );
+
     previewButtons[0].click();
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.selectedCosmeticPreview()).toBe('playmat');
+    expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.create-deck-form')).not.toBeNull();
   });
 
   it('uses the shared create-modal label style for deck name, commander and import decklist', async () => {
@@ -696,6 +809,7 @@ describe('DeckListComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.create-cosmetics-row')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-create-sleeve-spoiler')).toBeNull();
   });
 
   it('creates an empty deck without importing and navigates directly to it', async () => {

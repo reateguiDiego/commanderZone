@@ -19,14 +19,13 @@ import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.compon
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
+import { CreateSleeveSpoilerComponent, DEFAULT_SLEEVE_PATH } from './components/create-sleeve-spoiler/create-sleeve-spoiler.component';
 
 interface CommanderHoverPreview {
   imageUrl: string;
   x: number;
   y: number;
 }
-
-type CosmeticPreviewKind = 'playmat' | 'sleeve';
 
 @Component({
   selector: 'app-deck-list',
@@ -47,6 +46,7 @@ type CosmeticPreviewKind = 'playmat' | 'sleeve';
     HeroRuleComponent,
     BackButtonComponent,
     TooltipComponent,
+    CreateSleeveSpoilerComponent,
   ],
   templateUrl: './deck-list.component.html',
   styleUrl: './deck-list.component.scss',
@@ -58,8 +58,13 @@ export class DeckListComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   readonly maxSelectedCommanders = 2;
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
-  readonly selectedCosmeticPreview = signal<CosmeticPreviewKind | null>(null);
+  readonly sleeveEditorOpen = signal(false);
+  readonly selectedSleevePath = signal(DEFAULT_SLEEVE_PATH);
+  readonly draftSleevePath = signal(DEFAULT_SLEEVE_PATH);
   readonly searchPanelOpen = signal(false);
+  readonly createModalTitle = computed(() => (
+    this.sleeveEditorOpen() ? 'deckBuilder.deckList.sleeve' : this.store.createModalTitle()
+  ));
   readonly colorFilterOptions = computed<readonly FormatSelectOption[]>(() =>
     this.store.colorFilterOptions.map((option) => ({ id: option.value, labelKey: option.labelKey })),
   );
@@ -120,8 +125,27 @@ export class DeckListComponent implements OnInit, OnDestroy {
     return `${this.store.newDeckName.trim().length}/${this.store.maxDeckNameLength}`;
   }
 
-  selectCosmeticPreview(kind: CosmeticPreviewKind): void {
-    this.selectedCosmeticPreview.set(kind);
+  selectPlaymatPreview(): void {
+    this.closeSleeveEditor();
+  }
+
+  openSleeveEditor(): void {
+    this.draftSleevePath.set(this.selectedSleevePath());
+    this.sleeveEditorOpen.set(true);
+  }
+
+  closeSleeveEditor(): void {
+    this.draftSleevePath.set(this.selectedSleevePath());
+    this.sleeveEditorOpen.set(false);
+  }
+
+  selectDraftSleeve(path: string): void {
+    this.draftSleevePath.set(path);
+  }
+
+  saveSleeveSelection(): void {
+    this.selectedSleevePath.set(this.draftSleevePath());
+    this.sleeveEditorOpen.set(false);
   }
 
   setColorFilter(value: string): void {
@@ -217,11 +241,13 @@ export class DeckListComponent implements OnInit, OnDestroy {
 
   submitCreateModal(): void {
     this.hideCommanderPreview();
+    this.sleeveEditorOpen.set(false);
     this.store.submitCreateModal();
   }
 
   async cancelCreateFlow(): Promise<void> {
     this.hideCommanderPreview();
+    this.closeSleeveEditor();
     await this.store.cancelCreateFlow();
   }
 
