@@ -28,6 +28,17 @@ func eventWithoutRuntimePatchReceipt(event protocol.EventPayloadV2) protocol.Eve
 	return event
 }
 
+func RuntimePatchReceiptFromEvent(event protocol.EventPayloadV2) ([]protocol.PatchEnvelopeV2, bool, error) {
+	patches, ok, err := runtimePatchReceiptFromEvent(event)
+	if err != nil || !ok {
+		return patches, ok, err
+	}
+	if err := validatePatchEnvelopes(patches); err != nil {
+		return nil, true, err
+	}
+	return patches, true, nil
+}
+
 func runtimePatchReceiptFromEvent(event protocol.EventPayloadV2) ([]protocol.PatchEnvelopeV2, bool, error) {
 	raw, ok := event.Payload[runtimePatchReceiptKey]
 	if !ok {

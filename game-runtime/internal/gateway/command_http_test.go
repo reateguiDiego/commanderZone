@@ -402,7 +402,11 @@ func TestMetricsHTTPServerExposesActorQueueMetrics(t *testing.T) {
 		t.Fatalf("apply failed: %v", result.Err)
 	}
 	runtimeService.RegisterActor("game-metrics", gameActor)
-	server := NewMetricsHTTPServer(runtimeService)
+	server := NewMetricsHTTPServer(runtimeService, staticGatewayMetrics{metrics: GatewayMetrics{
+		PatchReplayMemoryCount:  2,
+		PatchReplayDurableCount: 1,
+		PatchReplayResyncCount:  3,
+	}})
 
 	request := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	recorder := httptest.NewRecorder()
@@ -414,6 +418,7 @@ func TestMetricsHTTPServerExposesActorQueueMetrics(t *testing.T) {
 		Actors  []actor.ActorMetrics      `json:"actors"`
 		Totals  actor.ActorMetrics        `json:"totals"`
 		Runtime runtimesvc.RuntimeMetrics `json:"runtime"`
+		Gateway *GatewayMetrics           `json:"gateway"`
 	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
@@ -430,6 +435,20 @@ func TestMetricsHTTPServerExposesActorQueueMetrics(t *testing.T) {
 	if response.Runtime.CommandRuntimeCoveragePct != 100 {
 		t.Fatalf("command.runtime_coverage_percent got %v want 100", response.Runtime.CommandRuntimeCoveragePct)
 	}
+	if response.Gateway == nil ||
+		response.Gateway.PatchReplayMemoryCount != 2 ||
+		response.Gateway.PatchReplayDurableCount != 1 ||
+		response.Gateway.PatchReplayResyncCount != 3 {
+		t.Fatalf("gateway replay metrics missing from response: %#v", response.Gateway)
+	}
+}
+
+type staticGatewayMetrics struct {
+	metrics GatewayMetrics
+}
+
+func (s staticGatewayMetrics) Metrics() GatewayMetrics {
+	return s.metrics
 }
 
 func commandHTTP(t *testing.T, server *CommandHTTPServer, command CommandHTTPRequest) CommandHTTPResponse {

@@ -7,6 +7,7 @@ import (
 
 	"commanderzone/game-runtime/internal/actor"
 	"commanderzone/game-runtime/internal/persistence"
+	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
 )
 
@@ -154,6 +155,13 @@ func (s *Service) Actor(gameID string) (*actor.GameActor, bool) {
 	defer s.mu.RUnlock()
 	gameActor, ok := s.actors[gameID]
 	return gameActor, ok
+}
+
+func (s *Service) EventsAfter(ctx context.Context, gameID string, version int64) ([]protocol.EventPayloadV2, error) {
+	if s.store == nil {
+		return nil, ErrActorStateNotFound
+	}
+	return s.store.EventsAfter(ctx, gameID, version)
 }
 
 func (s *Service) MetricsSnapshot() MetricsSnapshot {

@@ -9,10 +9,24 @@ import (
 
 type MetricsHTTPServer struct {
 	runtime *runtimesvc.Service
+	gateway GatewayMetricsProvider
 }
 
-func NewMetricsHTTPServer(runtime *runtimesvc.Service) *MetricsHTTPServer {
-	return &MetricsHTTPServer{runtime: runtime}
+type GatewayMetricsProvider interface {
+	Metrics() GatewayMetrics
+}
+
+type MetricsResponse struct {
+	runtimesvc.MetricsSnapshot
+	Gateway *GatewayMetrics `json:"gateway,omitempty"`
+}
+
+func NewMetricsHTTPServer(runtime *runtimesvc.Service, gateway ...GatewayMetricsProvider) *MetricsHTTPServer {
+	server := &MetricsHTTPServer{runtime: runtime}
+	if len(gateway) > 0 {
+		server.gateway = gateway[0]
+	}
+	return server
 }
 
 func (s *MetricsHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -21,5 +35,14 @@ func (s *MetricsHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(s.runtime.MetricsSnapshot())
+	snapshot := s.runtime.MetricsSnapshot()
+	if s.gateway == nil {
+		_ = json.NewEncoder(w).Encode(snapshot)
+		return
+	}
+	gatewayMetrics := s.gateway.Metrics()
+	_ = json.NewEncoder(w).Encode(MetricsResponse{
+		MetricsSnapshot: snapshot,
+		Gateway:         &gatewayMetrics,
+	})
 }

@@ -321,7 +321,7 @@ func TestWebSocketEphemeralDragSpamDoesNotBlockGameplayCommand(t *testing.T) {
 }
 
 func TestWebSocketReconnectReplaysPatchesWithoutGap(t *testing.T) {
-	server, _ := testWebSocketServer(t, "game-1", 128, 256)
+	server, _, handler := testWebSocketServerWithStateAndHandler(t, "game-1", testInitialState("game-1"), 128, 256)
 	defer server.Close()
 
 	conn := dialRuntime(t, server.URL, "game-1", 0, nil)
@@ -334,6 +334,10 @@ func TestWebSocketReconnectReplaysPatchesWithoutGap(t *testing.T) {
 	message := readUntil(t, reconnected, "patch.v2")
 	if message.Version != 2 {
 		t.Fatalf("replayed patch = %#v, want version 2", message)
+	}
+	metrics := handler.Metrics()
+	if metrics.PatchReplayMemoryCount != 1 || metrics.PatchReplayDurableCount != 0 || metrics.PatchReplayResyncCount != 0 {
+		t.Fatalf("gateway replay metrics = %#v, want memory replay only", metrics)
 	}
 }
 
@@ -399,7 +403,7 @@ func TestWebSocketPrivateOnlyPatchSendsPublicVersionCarrier(t *testing.T) {
 }
 
 func TestWebSocketReconnectRequestsResyncOnGap(t *testing.T) {
-	server, _ := testWebSocketServer(t, "game-1", 128, 1)
+	server, _, handler := testWebSocketServerWithStateAndHandler(t, "game-1", testInitialState("game-1"), 128, 1)
 	defer server.Close()
 
 	conn := dialRuntime(t, server.URL, "game-1", 0, nil)
@@ -412,8 +416,54 @@ func TestWebSocketReconnectRequestsResyncOnGap(t *testing.T) {
 	reconnected := dialRuntime(t, server.URL, "game-1", 1, nil)
 	defer reconnected.Close()
 	message := readUntil(t, reconnected, "resync_required")
-	if message.Reason != "version_gap" {
-		t.Fatalf("message = %#v, want resync", message)
+	if message.Reason != "retention_exceeded" {
+		t.Fatalf("message = %#v, want retention resync", message)
+	}
+	metrics := handler.Metrics()
+	if metrics.PatchReplayMemoryCount != 0 || metrics.PatchReplayDurableCount != 0 || metrics.PatchReplayResyncCount != 1 || metrics.ReconnectsRequiringSync != 1 {
+		t.Fatalf("gateway replay metrics = %#v, want one explicit resync", metrics)
+	}
+}
+
+func TestPatchHistoryRetentionKeepsAllEnvelopesForRetainedVersion(t *testing.T) {
+	history := &patchHistory{limit: 1}
+	history.Append([]protocol.PatchEnvelopeV2{
+		{
+			GameID:     "game-1",
+			Version:    2,
+			Visibility: protocol.PlayerVisibility("p1"),
+			Ops:        []protocol.PatchOp{{Op: "card.field.set", Data: map[string]any{"instanceId": "h1"}}},
+		},
+		{
+			GameID:     "game-1",
+			Version:    2,
+			Visibility: protocol.VisibilityPublic,
+			Ops:        []protocol.PatchOp{{Op: "version.advance"}},
+		},
+	})
+	patches, err := history.Since(1)
+	if err != nil {
+		t.Fatalf("history since version 1 failed: %v", err)
+	}
+	if len(patches) != 2 {
+		t.Fatalf("patches got %d want both private and public envelopes", len(patches))
+	}
+
+	history.Append([]protocol.PatchEnvelopeV2{{
+		GameID:     "game-1",
+		Version:    3,
+		Visibility: protocol.VisibilityPublic,
+		Ops:        []protocol.PatchOp{{Op: "player.life.set", Data: map[string]any{"playerId": "p1", "value": 39}}},
+	}})
+	if _, err := history.Since(1); !errors.Is(err, ErrPatchHistoryGap) {
+		t.Fatalf("history since evicted version err = %v, want gap", err)
+	}
+	patches, err = history.Since(2)
+	if err != nil {
+		t.Fatalf("history since version 2 failed: %v", err)
+	}
+	if len(patches) != 1 || patches[0].Version != 3 {
+		t.Fatalf("patches = %#v, want retained version 3 only", patches)
 	}
 }
 
@@ -552,8 +602,139 @@ func TestWebSocketReconnectReplaysPatchHistoryWithoutSnapshotReloadAfterActorEvi
 		t.Fatalf("reconnect reloaded actor unexpectedly: before=%#v after=%#v", before, after)
 	}
 	gatewayMetrics := handler.Metrics()
-	if gatewayMetrics.ReconnectsWithoutGap != 1 || gatewayMetrics.ReconnectsRequiringSync != 0 {
+	if gatewayMetrics.ReconnectsWithoutGap != 1 ||
+		gatewayMetrics.ReconnectsRequiringSync != 0 ||
+		gatewayMetrics.PatchReplayMemoryCount != 1 ||
+		gatewayMetrics.PatchReplayDurableCount != 0 ||
+		gatewayMetrics.PatchReplayResyncCount != 0 {
 		t.Fatalf("gateway metrics = %#v, want reconnect without gap", gatewayMetrics)
+	}
+}
+
+func TestWebSocketReconnectAfterRuntimeRestartReplaysDurableReceiptHistory(t *testing.T) {
+	gameID := "game-durable-replay"
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState(gameID))
+	server, runtimeService, _ := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+
+	conn := dialRuntime(t, server.URL, gameID, 0, nil)
+	writeCommand(t, conn, command(gameID, 1, "durable-life", "life.changed", map[string]any{"playerId": "p1", "life": 35}, nil))
+	first := readUntil(t, conn, "patch.v2")
+	if first.Version != 2 || first.AckClientActionID != "durable-life" {
+		t.Fatalf("first patch = %#v, want version 2 durable-life", first)
+	}
+	_ = conn.Close()
+	shutdownRuntimeService(t, runtimeService)
+	server.Close()
+
+	restartedServer, restartedRuntime, handler := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+	defer restartedServer.Close()
+	defer shutdownRuntimeService(t, restartedRuntime)
+
+	reconnected := dialRuntime(t, restartedServer.URL, gameID, 1, nil)
+	defer reconnected.Close()
+	replayed := readUntil(t, reconnected, "patch.v2")
+	if replayed.Version != 2 || replayed.AckClientActionID != "durable-life" {
+		t.Fatalf("durable replayed patch = %#v, want persisted version 2 patch", replayed)
+	}
+	metrics := handler.Metrics()
+	if metrics.PatchReplayMemoryCount != 0 || metrics.PatchReplayDurableCount != 1 || metrics.PatchReplayResyncCount != 0 || metrics.ReconnectsWithoutGap != 1 {
+		t.Fatalf("gateway replay metrics = %#v, want durable replay only", metrics)
+	}
+	if runtimeMetrics := restartedRuntime.RuntimeMetrics(); runtimeMetrics.ActorCacheMissCount != 0 || runtimeMetrics.ActorLoadFromSnapshotCount != 0 {
+		t.Fatalf("durable replay should not recover actor: %#v", runtimeMetrics)
+	}
+}
+
+func TestWebSocketReconnectDurableLegacyEventMissingReceiptRequestsResync(t *testing.T) {
+	gameID := "game-durable-legacy"
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState(gameID))
+	if err := store.AppendEvent(context.Background(), protocol.EventPayloadV2{
+		GameID:         gameID,
+		Version:        2,
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 36},
+		CreatedBy:      "p1",
+		ClientActionID: "legacy-no-receipt",
+		CreatedAt:      time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("append legacy event: %v", err)
+	}
+	server, runtimeService, handler := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+	defer server.Close()
+	defer shutdownRuntimeService(t, runtimeService)
+
+	conn := dialRuntime(t, server.URL, gameID, 1, nil)
+	defer conn.Close()
+	message := readUntil(t, conn, "resync_required")
+	if message.Reason != "patch_receipt_missing" || message.CurrentVersion != 2 {
+		t.Fatalf("message = %#v, want explicit receipt-missing resync at version 2", message)
+	}
+	metrics := handler.Metrics()
+	if metrics.PatchReplayMemoryCount != 0 || metrics.PatchReplayDurableCount != 0 || metrics.PatchReplayResyncCount != 1 || metrics.ReconnectsRequiringSync != 1 {
+		t.Fatalf("gateway replay metrics = %#v, want explicit durable receipt resync", metrics)
+	}
+	if _, ok := runtimeService.Actor(gameID); ok {
+		t.Fatal("reconnect resync should not recover actor for legacy receipt miss")
+	}
+}
+
+func TestWebSocketDurableReconnectFiltersPrivatePatchForNonOwner(t *testing.T) {
+	gameID := "game-durable-private"
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testReorderState(gameID))
+	server, runtimeService, _ := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+
+	owner := dialRuntimeWithClaims(t, server.URL, gameID, 0, TicketClaims{
+		UserID:      "p1",
+		PlayerID:    "p1",
+		GameID:      gameID,
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	writeCommand(t, owner, command(gameID, 1, "durable-face", "card.face.changed", map[string]any{
+		"instanceId": "h1",
+		"faceIndex":  1,
+	}, nil))
+	privatePatch := readPatchWithoutResync(t, owner)
+	publicCarrier := readPatchWithoutResync(t, owner)
+	if privatePatch.Visibility != protocol.PlayerVisibility("p1") || publicCarrier.Visibility != protocol.VisibilityPublic {
+		t.Fatalf("initial patches = %#v / %#v, want private patch plus public carrier", privatePatch, publicCarrier)
+	}
+	_ = owner.Close()
+	shutdownRuntimeService(t, runtimeService)
+	server.Close()
+
+	restartedServer, restartedRuntime, handler := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+	defer restartedServer.Close()
+	defer shutdownRuntimeService(t, restartedRuntime)
+	nonOwner := dialRuntimeWithClaims(t, restartedServer.URL, gameID, 1, TicketClaims{
+		UserID:      "p2",
+		PlayerID:    "p2",
+		GameID:      gameID,
+		Role:        "player",
+		Permissions: []string{"view"},
+		Protocol:    "v2",
+	})
+	defer nonOwner.Close()
+
+	replayed := readUntil(t, nonOwner, "patch.v2")
+	if replayed.Version != 2 || replayed.Visibility != protocol.VisibilityPublic {
+		t.Fatalf("durable replayed patch = %#v, want public carrier only", replayed)
+	}
+	if len(replayed.Ops) != 1 || replayed.Ops[0]["op"] != "version.advance" {
+		t.Fatalf("durable replay carrier ops = %#v, want version.advance only", replayed.Ops)
+	}
+	for _, key := range []string{"instanceId", "cardKey", "playerId", "zone"} {
+		if _, leaked := replayed.Ops[0][key]; leaked {
+			t.Fatalf("durable replay carrier leaked %s: %#v", key, replayed.Ops[0])
+		}
+	}
+	metrics := handler.Metrics()
+	if metrics.PatchReplayDurableCount != 1 || metrics.PatchReplayResyncCount != 0 {
+		t.Fatalf("gateway replay metrics = %#v, want durable replay without resync", metrics)
 	}
 }
 
@@ -690,6 +871,15 @@ func testWebSocketServerWithStoreAndHandler(t *testing.T, store persistence.Even
 	}
 	handler := NewWebSocketServer(validator, runtimeService, WithConnectionQueueSize(queueSize), WithPatchHistoryLimit(historyLimit))
 	return httptest.NewServer(handler), runtimeService, handler
+}
+
+func shutdownRuntimeService(t *testing.T, runtimeService *runtimesvc.Service) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := runtimeService.Shutdown(ctx); err != nil {
+		t.Fatalf("shutdown runtime service: %v", err)
+	}
 }
 
 func dialRuntime(t *testing.T, serverURL string, gameID string, lastAppliedVersion int64, roles []string) *websocket.Conn {

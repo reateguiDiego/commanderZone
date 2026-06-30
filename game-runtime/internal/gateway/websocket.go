@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,9 +26,11 @@ const (
 )
 
 var (
-	ErrConnectionQueueFull = errors.New("websocket connection queue full")
-	ErrPatchHistoryGap     = errors.New("patch history gap")
-	ErrRateLimited         = errors.New("command rate limited")
+	ErrConnectionQueueFull          = errors.New("websocket connection queue full")
+	ErrPatchHistoryGap              = errors.New("patch history gap")
+	ErrPatchReplayRetentionExceeded = errors.New("patch replay retention exceeded")
+	ErrPatchReplayReceiptMismatch   = errors.New("patch replay receipt does not match event")
+	ErrRateLimited                  = errors.New("command rate limited")
 )
 
 type ClientMessage struct {
@@ -95,6 +98,9 @@ type GatewayMetrics struct {
 	ConnectionBackpressure  int64
 	ReconnectsWithoutGap    int64
 	ReconnectsRequiringSync int64
+	PatchReplayMemoryCount  int64
+	PatchReplayDurableCount int64
+	PatchReplayResyncCount  int64
 	GameplayWSRoute         map[string]int64 `json:"gameplay.ws.route,omitempty"`
 }
 
@@ -187,7 +193,7 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	lastApplied := parseLastAppliedVersion(r)
-	s.replayOrRequestResync(client, lastApplied)
+	s.replayOrRequestResync(r.Context(), client, lastApplied)
 
 	go client.writeLoop()
 	client.readLoop()
@@ -215,39 +221,120 @@ func (s *WebSocketServer) unregister(client *wsClient) {
 	_ = client.conn.Close()
 }
 
-func (s *WebSocketServer) replayOrRequestResync(client *wsClient, lastAppliedVersion int64) {
+func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsClient, lastAppliedVersion int64) {
 	if lastAppliedVersion <= 0 {
 		return
 	}
+	gameID := client.claims.GameID
+	currentVersion := int64(0)
 	gameActor, ok := s.runtime.Actor(client.claims.GameID)
-	if !ok {
-		patches, err := s.history(client.claims.GameID).Since(lastAppliedVersion)
-		if err != nil {
-			s.sendJSON(client, resyncRequiredMessage(client.claims.GameID, 0, "version_gap"))
-			s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsRequiringSync++ })
+	if ok {
+		currentVersion = gameActor.Version()
+		if lastAppliedVersion >= currentVersion {
+			s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsWithoutGap++ })
+			slog.Debug("runtime websocket reconnect already current", "gameId", gameID, "lastAppliedVersion", lastAppliedVersion, "currentVersion", currentVersion)
 			return
 		}
-		for _, patch := range patches {
-			s.sendPatchIfVisible(client, patch)
+	}
+
+	if patches, err := s.history(gameID).Since(lastAppliedVersion); err == nil {
+		s.sendReplayPatches(client, patches)
+		s.incMetric(func(metrics *GatewayMetrics) {
+			metrics.ReconnectsWithoutGap++
+			metrics.PatchReplayMemoryCount++
+		})
+		slog.Debug("runtime websocket reconnect replayed patches", "gameId", gameID, "source", "memory", "lastAppliedVersion", lastAppliedVersion, "patches", len(patches))
+		return
+	}
+
+	patches, durableCurrentVersion, err := s.durablePatchesSince(ctx, gameID, lastAppliedVersion)
+	if durableCurrentVersion > currentVersion {
+		currentVersion = durableCurrentVersion
+	}
+	if err != nil {
+		reason := replayResyncReason(err)
+		s.sendJSON(client, resyncRequiredMessage(gameID, currentVersion, reason))
+		s.incMetric(func(metrics *GatewayMetrics) {
+			metrics.ReconnectsRequiringSync++
+			metrics.PatchReplayResyncCount++
+		})
+		slog.Warn("runtime websocket reconnect requires resync", "gameId", gameID, "lastAppliedVersion", lastAppliedVersion, "currentVersion", currentVersion, "reason", reason, "error", err)
+		return
+	}
+	if len(patches) == 0 {
+		if currentVersion > 0 && lastAppliedVersion < currentVersion {
+			s.sendJSON(client, resyncRequiredMessage(gameID, currentVersion, "version_gap"))
+			s.incMetric(func(metrics *GatewayMetrics) {
+				metrics.ReconnectsRequiringSync++
+				metrics.PatchReplayResyncCount++
+			})
+			slog.Warn("runtime websocket reconnect requires resync", "gameId", gameID, "lastAppliedVersion", lastAppliedVersion, "currentVersion", currentVersion, "reason", "version_gap")
+			return
 		}
 		s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsWithoutGap++ })
+		slog.Debug("runtime websocket reconnect found no missing patches", "gameId", gameID, "lastAppliedVersion", lastAppliedVersion)
 		return
 	}
-	currentVersion := gameActor.Version()
-	if lastAppliedVersion >= currentVersion {
-		s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsWithoutGap++ })
-		return
-	}
-	patches, err := s.history(client.claims.GameID).Since(lastAppliedVersion)
-	if err != nil {
-		s.sendJSON(client, resyncRequiredMessage(client.claims.GameID, currentVersion, "version_gap"))
-		s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsRequiringSync++ })
-		return
-	}
+	s.sendReplayPatches(client, patches)
+	s.incMetric(func(metrics *GatewayMetrics) {
+		metrics.ReconnectsWithoutGap++
+		metrics.PatchReplayDurableCount++
+	})
+	slog.Debug("runtime websocket reconnect replayed patches", "gameId", gameID, "source", "durable", "lastAppliedVersion", lastAppliedVersion, "currentVersion", currentVersion, "patches", len(patches))
+}
+
+func (s *WebSocketServer) sendReplayPatches(client *wsClient, patches []protocol.PatchEnvelopeV2) {
 	for _, patch := range patches {
 		s.sendPatchIfVisible(client, patch)
 	}
-	s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsWithoutGap++ })
+}
+
+func (s *WebSocketServer) durablePatchesSince(ctx context.Context, gameID string, lastAppliedVersion int64) ([]protocol.PatchEnvelopeV2, int64, error) {
+	events, err := s.runtime.EventsAfter(ctx, gameID, lastAppliedVersion)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(events) == 0 {
+		return nil, lastAppliedVersion, nil
+	}
+	currentVersion := events[len(events)-1].Version
+	if s.patchHistoryLimit > 0 && len(events) > s.patchHistoryLimit {
+		return nil, currentVersion, ErrPatchReplayRetentionExceeded
+	}
+
+	expectedVersion := lastAppliedVersion + 1
+	patches := make([]protocol.PatchEnvelopeV2, 0, len(events))
+	for _, event := range events {
+		if event.Version != expectedVersion {
+			return nil, event.Version, ErrPatchHistoryGap
+		}
+		receiptPatches, ok, err := actor.RuntimePatchReceiptFromEvent(event)
+		if err != nil {
+			return nil, event.Version, err
+		}
+		if !ok {
+			return nil, event.Version, actor.ErrRuntimePatchReceiptMissing
+		}
+		for _, patch := range receiptPatches {
+			if patch.GameID != event.GameID || patch.Version != event.Version {
+				return nil, event.Version, ErrPatchReplayReceiptMismatch
+			}
+		}
+		patches = append(patches, receiptPatches...)
+		expectedVersion++
+	}
+	return patches, currentVersion, nil
+}
+
+func replayResyncReason(err error) string {
+	switch {
+	case errors.Is(err, ErrPatchReplayRetentionExceeded):
+		return "retention_exceeded"
+	case errors.Is(err, actor.ErrRuntimePatchReceiptMissing):
+		return "patch_receipt_missing"
+	default:
+		return "version_gap"
+	}
 }
 
 func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, command protocol.CommandEnvelopeV2) {
@@ -624,9 +711,7 @@ func (h *patchHistory) Append(patches []protocol.PatchEnvelopeV2) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.patches = append(h.patches, patches...)
-	if h.limit > 0 && len(h.patches) > h.limit {
-		h.patches = h.patches[len(h.patches)-h.limit:]
-	}
+	h.trimLocked()
 }
 
 func (h *patchHistory) Since(version int64) ([]protocol.PatchEnvelopeV2, error) {
@@ -641,10 +726,61 @@ func (h *patchHistory) Since(version int64) ([]protocol.PatchEnvelopeV2, error) 
 	if len(out) == 0 {
 		return nil, ErrPatchHistoryGap
 	}
-	if out[0].Version != version+1 {
+	if !patchesAreContiguousSince(out, version) {
 		return nil, ErrPatchHistoryGap
 	}
 	return out, nil
+}
+
+func (h *patchHistory) trimLocked() {
+	if h.limit <= 0 {
+		return
+	}
+	seen := map[int64]struct{}{}
+	cutoffVersion := int64(0)
+	for i := len(h.patches) - 1; i >= 0; i-- {
+		version := h.patches[i].Version
+		if _, ok := seen[version]; ok {
+			continue
+		}
+		seen[version] = struct{}{}
+		if len(seen) == h.limit {
+			cutoffVersion = version
+			break
+		}
+	}
+	if len(seen) < h.limit || cutoffVersion == 0 {
+		return
+	}
+	index := 0
+	for index < len(h.patches) && h.patches[index].Version < cutoffVersion {
+		index++
+	}
+	if index > 0 {
+		h.patches = h.patches[index:]
+	}
+}
+
+func patchesAreContiguousSince(patches []protocol.PatchEnvelopeV2, version int64) bool {
+	expected := version + 1
+	current := int64(0)
+	for _, patch := range patches {
+		if current == 0 {
+			if patch.Version != expected {
+				return false
+			}
+			current = patch.Version
+			continue
+		}
+		if patch.Version == current {
+			continue
+		}
+		if patch.Version != current+1 {
+			return false
+		}
+		current = patch.Version
+	}
+	return current != 0
 }
 
 type commandRateLimiter struct {

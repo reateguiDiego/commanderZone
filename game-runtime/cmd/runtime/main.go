@@ -48,14 +48,15 @@ func main() {
 	}()
 
 	validator := ticketValidatorFromEnv(logger)
-	mux.Handle("/ws", gateway.NewWebSocketServer(validator, runtimeService))
+	webSocketServer := gateway.NewWebSocketServer(validator, runtimeService)
+	mux.Handle("/ws", webSocketServer)
 	commandServer := gateway.NewCommandHTTPServer(runtimeService)
 	if envBool(os.Getenv("GAME_RUNTIME_ALLOW_INITIAL_STATE_COMMANDS")) {
 		logger.Warn("GAME_RUNTIME_ALLOW_INITIAL_STATE_COMMANDS is enabled; /commands accepts legacy initialState migration payloads")
 		commandServer = gateway.NewCommandHTTPServerAllowingInitialState(runtimeService)
 	}
 	mux.Handle("/commands", commandServer)
-	mux.Handle("/metrics", gateway.NewMetricsHTTPServer(runtimeService))
+	mux.Handle("/metrics", gateway.NewMetricsHTTPServer(runtimeService, webSocketServer))
 
 	addr := os.Getenv("GAME_RUNTIME_LISTEN")
 	if addr == "" {

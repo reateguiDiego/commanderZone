@@ -142,7 +142,14 @@ Server patch messages:
 }
 ```
 
-Reconnect uses the in-memory patch buffer. If patches after `lastAppliedVersion` are unavailable, the runtime emits `resync_required`; that path is exceptional and should trigger bootstrap.
+Reconnect patch replay policy:
+
+- The WebSocket gateway first replays from the in-memory per-game patch buffer.
+- The buffer keeps the latest `256` versions by default, retaining all patch envelopes for a version together.
+- If memory history misses but recent persisted `game_event` rows contain `_runtimePatchReceipt`, the gateway rebuilds replay from those durable receipts without loading a snapshot or actor.
+- Replay always applies patch `visibility` filtering per viewer; unauthorized private patches are skipped and private-only commands still rely on their public `version.advance` carrier.
+- If the requested gap exceeds the configured replay window, the event stream is not contiguous, or any legacy event lacks `_runtimePatchReceipt`, the gateway emits explicit `resync_required`.
+- Gateway replay metrics distinguish source: `PatchReplayMemoryCount`, `PatchReplayDurableCount`, and `PatchReplayResyncCount`.
 
 ## Persistence
 
