@@ -312,6 +312,99 @@ func TestLibraryViewIsPrivateAndDoesNotMutateLibrary(t *testing.T) {
 	}
 }
 
+func TestLibraryShuffleUsesCompactSeededPayloadAndPublicInvalidation(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-before-shuffle", "library.reveal_top", map[string]any{
+		"playerId":      "p1",
+		"count":         2,
+		"visibleToMask": 3,
+	}), "p1")
+	if reveal.Err != nil {
+		t.Fatalf("reveal failed: %v", reveal.Err)
+	}
+
+	shuffle := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "shuffle-compact", "library.shuffle", map[string]any{"playerId": "p1"}), "p1")
+	if shuffle.Err != nil {
+		t.Fatalf("shuffle failed: %v", shuffle.Err)
+	}
+	if _, leaked := shuffle.Event.Payload["libraryOrder"]; leaked {
+		t.Fatalf("shuffle event must not persist full library order: %#v", shuffle.Event.Payload)
+	}
+	seed, ok := shuffle.Event.Payload["shuffleSeed"].(int)
+	if !ok || seed < 0 {
+		t.Fatalf("missing compact shuffle seed: %#v", shuffle.Event.Payload)
+	}
+	if got := shuffle.Event.Payload["shuffleAlgorithm"]; got != state.DeterministicShuffleAlgorithm {
+		t.Fatalf("shuffle algorithm got %#v want %s", got, state.DeterministicShuffleAlgorithm)
+	}
+	metrics := shuffle.Event.Payload["metrics"].(map[string]any)
+	if _, ok := metrics["library.shuffle_ms"]; !ok {
+		t.Fatalf("missing shuffle metrics: %#v", metrics)
+	}
+	if patchForVisibility(shuffle.Patches, protocol.PlayerVisibility("p1"), "library.shuffled") != nil {
+		t.Fatalf("shuffle invalidation should be public and compact, got private patch: %#v", shuffle.Patches)
+	}
+	public := patchForVisibility(shuffle.Patches, protocol.VisibilityPublic, "library.shuffled")
+	if public == nil || public.Data["visibilityEpoch"] == nil {
+		t.Fatalf("missing public shuffle invalidation: %#v", shuffle.Patches)
+	}
+	if encoded := fmt.Sprintf("%#v", shuffle.Patches); contains(encoded, "cardKey") || contains(encoded, "library-") {
+		t.Fatalf("shuffle patch leaked card identity/order: %s", encoded)
+	}
+
+	replayed := testState()
+	if err := ReplayEvent(&replayed, reveal.Event); err != nil {
+		t.Fatalf("replay reveal failed: %v", err)
+	}
+	if err := ReplayEvent(&replayed, shuffle.Event); err != nil {
+		t.Fatalf("replay shuffle failed: %v", err)
+	}
+	if !equalStrings(replayed.Zones["p1"].Library, gameActor.Snapshot().Zones["p1"].Library) {
+		t.Fatalf("seeded replay order mismatch replayed=%#v current=%#v", replayed.Zones["p1"].Library, gameActor.Snapshot().Zones["p1"].Library)
+	}
+}
+
+func TestLibraryCommandsAreIdempotentForRetry(t *testing.T) {
+	tests := []struct {
+		name        string
+		commandType string
+		payload     map[string]any
+	}{
+		{name: "draw", commandType: "library.draw", payload: map[string]any{"playerId": "p1"}},
+		{name: "move-top-bottom", commandType: "library.move_top", payload: map[string]any{"playerId": "p1", "toZone": "library", "position": "bottom", "count": 1}},
+		{name: "reorder-top", commandType: "library.reorder_top", payload: map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}},
+		{name: "shuffle", commandType: "library.shuffle", payload: map[string]any{"playerId": "p1"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+			cmd := command("game-1", 1, "library-retry-"+tt.name, tt.commandType, tt.payload)
+			first := gameActor.ApplyDirect(context.Background(), cmd, "p1")
+			if first.Err != nil {
+				t.Fatalf("first apply failed: %v", first.Err)
+			}
+			afterFirst := gameActor.Snapshot()
+
+			retry := gameActor.ApplyDirect(context.Background(), cmd, "p1")
+			if retry.Err != nil {
+				t.Fatalf("retry failed: %v", retry.Err)
+			}
+			afterRetry := gameActor.Snapshot()
+
+			if retry.Event.Version != first.Event.Version || afterRetry.Version != afterFirst.Version {
+				t.Fatalf("retry was not idempotent: first=%d retry=%d state=%d", first.Event.Version, retry.Event.Version, afterRetry.Version)
+			}
+			if !equalStrings(afterRetry.Zones["p1"].Library, afterFirst.Zones["p1"].Library) {
+				t.Fatalf("retry changed library: first=%#v retry=%#v", afterFirst.Zones["p1"].Library, afterRetry.Zones["p1"].Library)
+			}
+			if !equalStrings(afterRetry.Zones["p1"].Hand, afterFirst.Zones["p1"].Hand) {
+				t.Fatalf("retry changed hand: first=%#v retry=%#v", afterFirst.Zones["p1"].Hand, afterRetry.Zones["p1"].Hand)
+			}
+		})
+	}
+}
+
 func TestFaceDownPatchDoesNotExposeCardKey(t *testing.T) {
 	game := testState()
 	instance := game.Instances["i1"]

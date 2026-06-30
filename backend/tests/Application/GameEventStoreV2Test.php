@@ -408,6 +408,52 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
     }
 
+    public function testReplayRebuildsRuntimeGoShuffleFromCompactSeed(): void
+    {
+        $actor = new User('runtime-go-shuffle@example.test', 'Runtime Go Shuffle');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'library.shuffle');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => $this->cards('library', 4, 'library'),
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $shuffle = new GameEvent($game, 'library.shuffle', [
+            'playerId' => $actor->id(),
+            'shuffleSeed' => 123,
+            'shuffleAlgorithm' => 'cz.lcg32.fisher-yates.v1',
+            'visibilityEpoch' => 2,
+        ], $actor, 'runtime-shuffle-seed', 2);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$shuffle]);
+
+        self::assertSame(2, $rebuilt['version']);
+        self::assertSame(['library-3', 'library-1', 'library-4', 'library-2'], $this->zoneIds($rebuilt, $actor->id(), 'library'));
+        self::assertSame(['library-2', 'library-4', 'library-1', 'library-3'], $this->libraryProjectionIds($rebuilt, $actor->id()));
+        self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
+    }
+
+    public function testReplayRejectsUnsupportedRuntimeGoShuffleAlgorithm(): void
+    {
+        $actor = new User('runtime-go-shuffle-unsupported@example.test', 'Runtime Go Shuffle Unsupported');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'library.shuffle');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => $this->cards('library', 4, 'library'),
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $shuffle = new GameEvent($game, 'library.shuffle', [
+            'playerId' => $actor->id(),
+            'shuffleSeed' => 123,
+            'shuffleAlgorithm' => 'unknown.shuffle.v1',
+            'visibilityEpoch' => 2,
+        ], $actor, 'runtime-shuffle-unsupported', 2);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Unsupported runtime shuffle algorithm');
+
+        (new GameEventReplayService())->replay($baseSnapshot, [$shuffle]);
+    }
+
     public function testReplayRebuildsRuntimeGoCommanderCastCountersForReconnect(): void
     {
         $actor = new User('runtime-go-commander@example.test', 'Runtime Go Commander');

@@ -251,6 +251,16 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 		if err != nil {
 			return err
 		}
+		if seed, ok := intField(event.Payload, "shuffleSeed"); ok {
+			algorithm, _ := event.Payload["shuffleAlgorithm"].(string)
+			if algorithm != "" && algorithm != state.DeterministicShuffleAlgorithm {
+				return fmt.Errorf("%w: shuffleAlgorithm", ErrInvalidPayloadField)
+			}
+			if seed < 0 || int64(seed) > int64(^uint32(0)) {
+				return fmt.Errorf("%w: shuffleSeed", ErrInvalidPayloadField)
+			}
+			return state.NewLibraryOps().ShuffleWithSeed(game, playerID, uint32(seed))
+		}
 		libraryOrder, err := stringSliceField(event.Payload, "libraryOrder")
 		if err != nil {
 			return err

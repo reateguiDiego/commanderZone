@@ -6,6 +6,8 @@ use App\Domain\Game\GameEvent;
 
 final class GameEventReplayService
 {
+    private const DETERMINISTIC_SHUFFLE_ALGORITHM = 'cz.lcg32.fisher-yates.v1';
+
     public function __construct(
         private readonly ?GameLibraryOps $libraryOps = null,
     ) {
@@ -164,6 +166,20 @@ final class GameEventReplayService
 
             case 'library.shuffle':
                 $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
+                $shuffleSeed = $this->uint32Value($payload['shuffleSeed'] ?? null);
+                $shuffleAlgorithm = is_string($payload['shuffleAlgorithm'] ?? null) ? $payload['shuffleAlgorithm'] : '';
+                if ($playerId !== '' && $shuffleSeed !== null && isset($snapshot['players'][$playerId])) {
+                    if ($shuffleAlgorithm !== '' && $shuffleAlgorithm !== self::DETERMINISTIC_SHUFFLE_ALGORITHM) {
+                        throw new \RuntimeException(sprintf('Unsupported runtime shuffle algorithm "%s".', $shuffleAlgorithm));
+                    }
+                    $this->libraryOps()->shuffle(
+                        $snapshot['players'][$playerId],
+                        fn (array $cards): array => $this->shuffleCardsWithSeed($cards, $shuffleSeed),
+                    );
+                    $this->rebuildLoc($snapshot);
+
+                    return true;
+                }
                 $libraryOrder = $this->stringList($payload['libraryOrder'] ?? []);
                 if ($playerId !== '' && $libraryOrder !== [] && isset($snapshot['players'][$playerId])) {
                     $cardsById = $this->cardsByInstanceId($snapshot, $playerId, ['library']);
@@ -877,7 +893,7 @@ final class GameEventReplayService
             return;
         }
 
-        $libraryOps = $this->libraryOps ?? new GameLibraryOps();
+        $libraryOps = $this->libraryOps();
         $targets = $this->targetsFromVisibility($snapshot, $visibility);
         $libraryOps->clearReveals($snapshot['players'][$playerId]);
         $epoch = (int) ($snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1);
@@ -931,6 +947,47 @@ final class GameEventReplayService
         }
 
         return $targets;
+    }
+
+    private function libraryOps(): GameLibraryOps
+    {
+        return $this->libraryOps ?? new GameLibraryOps();
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function shuffleCardsWithSeed(array $cards, int $seed): array
+    {
+        $random = $seed === 0 ? 0x6d2b79f5 : $seed;
+        for ($index = count($cards) - 1; $index > 0; --$index) {
+            $random = (int) ((1664525 * $random + 1013904223) % 4294967296);
+            $swap = $random % ($index + 1);
+            [$cards[$index], $cards[$swap]] = [$cards[$swap], $cards[$index]];
+        }
+
+        return array_values($cards);
+    }
+
+    private function uint32Value(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value >= 0 && $value <= 4294967295 ? $value : null;
+        }
+        if (is_float($value) && floor($value) === $value) {
+            $intValue = (int) $value;
+
+            return $intValue >= 0 && $intValue <= 4294967295 ? $intValue : null;
+        }
+        if (is_string($value) && preg_match('/^\d+$/', $value) === 1) {
+            $intValue = (int) $value;
+
+            return $intValue >= 0 && $intValue <= 4294967295 ? $intValue : null;
+        }
+
+        return null;
     }
 
     /**
