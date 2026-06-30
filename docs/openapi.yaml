@@ -5829,6 +5829,7 @@ components:
             $ref: '#/components/schemas/PatchOperationV2'
     PatchOperationV2:
       type: object
+      description: Semantic runtime patch operation. `version.advance` is a public no-op carrier used to advance viewer versions when a command only has private or group-visible changes.
       required: [op]
       properties:
         op:

@@ -433,6 +433,7 @@ function isSameVersionVisibilityMergePatch(patch: PatchEnvelopeV2): boolean {
 
 function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operation): boolean {
   switch (operation.op) {
+    case 'version.advance':
     case 'zone.cards.add':
     case 'zone.cards.remove':
     case 'zone.cards.move':
@@ -465,6 +466,9 @@ type OperationApplyResult =
 
 function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPatchV2Operation): OperationApplyResult {
   switch (operation.op) {
+    case 'version.advance':
+      return { status: 'applied', state };
+
     case 'game.counters.set':
       return {
         status: 'applied',

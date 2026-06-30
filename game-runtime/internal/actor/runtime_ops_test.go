@@ -373,6 +373,38 @@ func TestLibraryReorderTopEmitsPrivateOrderAndPublicCount(t *testing.T) {
 	}
 }
 
+func TestPrivateOnlyRuntimePatchAddsPublicVersionCarrier(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "face-private", "card.face.changed", map[string]any{
+		"playerId":        "p1",
+		"instanceId":      "h1",
+		"activeFaceIndex": 1,
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("face change failed: %v", result.Err)
+	}
+	privatePatch := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "card.field.set")
+	if privatePatch == nil {
+		t.Fatalf("missing owner private patch: %#v", result.Patches)
+	}
+	publicCarrier := patchForVisibility(result.Patches, protocol.VisibilityPublic, versionAdvancePatchOp)
+	if publicCarrier == nil {
+		t.Fatalf("missing public version carrier for private-only patch: %#v", result.Patches)
+	}
+	if len(publicCarrier.Data) != 0 {
+		t.Fatalf("version carrier should not carry private data: %#v", publicCarrier.Data)
+	}
+	encoded := fmt.Sprintf("%#v", publicCarrier)
+	for _, leaked := range []string{"h1", "hand-1@1", "cardKey", "instanceId"} {
+		if contains(encoded, leaked) {
+			t.Fatalf("version carrier leaked %s: %s", leaked, encoded)
+		}
+	}
+	if result.Patches[len(result.Patches)-1].Visibility != protocol.VisibilityPublic {
+		t.Fatalf("public carrier should be emitted after private patches for same-version merge safety: %#v", result.Patches)
+	}
+}
+
 func TestLibraryShuffleUsesCompactSeededPayloadAndPublicInvalidation(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-before-shuffle", "library.reveal_top", map[string]any{

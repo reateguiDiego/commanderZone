@@ -194,6 +194,7 @@ func (s *Service) MetricsSnapshot() MetricsSnapshot {
 		snapshot.Totals.LegacyFallbackCount += metrics.LegacyFallbackCount
 		snapshot.Totals.DuplicateActionCount += metrics.DuplicateActionCount
 		snapshot.Totals.VersionConflictCount += metrics.VersionConflictCount
+		snapshot.Totals.SnapshotPostAppendFailureCount += metrics.SnapshotPostAppendFailureCount
 	}
 	return snapshot
 }

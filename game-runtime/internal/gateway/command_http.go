@@ -142,6 +142,7 @@ func mergeActorMetrics(metrics map[string]any, actorMetrics actor.ActorMetrics) 
 	metrics["command.legacy_fallback_count"] = actorMetrics.LegacyFallbackCount
 	metrics["actor.duplicate_action_count"] = actorMetrics.DuplicateActionCount
 	metrics["actor.version_conflict_count"] = actorMetrics.VersionConflictCount
+	metrics["actor.snapshot_post_append_failure_count"] = actorMetrics.SnapshotPostAppendFailureCount
 	return metrics
 }
 

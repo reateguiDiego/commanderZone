@@ -243,6 +243,9 @@ export interface GameplayZoneCardsMoveV2 {
 
 export type GameplayPatchV2Operation =
   | {
+      op: 'version.advance';
+    }
+  | {
       op: 'player.life.set';
       playerId: string;
       value: number;

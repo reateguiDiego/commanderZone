@@ -3,6 +3,7 @@ package actor
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -71,21 +72,22 @@ type GameActor struct {
 }
 
 type ActorMetrics struct {
-	GameID                string  `json:"gameId"`
-	QueueDepth            int     `json:"actor.queue_depth"`
-	QueueCapacity         int     `json:"actor.queue_capacity"`
-	QueueFullCount        int64   `json:"actor.queue_full_count"`
-	CommandEnqueuedCount  int64   `json:"actor.command_enqueued_count"`
-	CommandRejectedCount  int64   `json:"actor.command_rejected_count"`
-	CommandAppliedCount   int64   `json:"actor.command_applied_count"`
-	CommandLatencyMs      float64 `json:"actor.command_latency_ms"`
-	QueueWaitMs           float64 `json:"actor.queue_wait_ms"`
-	RuntimeCoveragePct    float64 `json:"command.runtime_coverage_percent"`
-	AliasTranslationCount int64   `json:"command.alias_translation_count"`
-	UnsupportedCount      int64   `json:"command.unsupported_count"`
-	LegacyFallbackCount   int64   `json:"command.legacy_fallback_count"`
-	DuplicateActionCount  int64   `json:"actor.duplicate_action_count"`
-	VersionConflictCount  int64   `json:"actor.version_conflict_count"`
+	GameID                         string  `json:"gameId"`
+	QueueDepth                     int     `json:"actor.queue_depth"`
+	QueueCapacity                  int     `json:"actor.queue_capacity"`
+	QueueFullCount                 int64   `json:"actor.queue_full_count"`
+	CommandEnqueuedCount           int64   `json:"actor.command_enqueued_count"`
+	CommandRejectedCount           int64   `json:"actor.command_rejected_count"`
+	CommandAppliedCount            int64   `json:"actor.command_applied_count"`
+	CommandLatencyMs               float64 `json:"actor.command_latency_ms"`
+	QueueWaitMs                    float64 `json:"actor.queue_wait_ms"`
+	RuntimeCoveragePct             float64 `json:"command.runtime_coverage_percent"`
+	AliasTranslationCount          int64   `json:"command.alias_translation_count"`
+	UnsupportedCount               int64   `json:"command.unsupported_count"`
+	LegacyFallbackCount            int64   `json:"command.legacy_fallback_count"`
+	DuplicateActionCount           int64   `json:"actor.duplicate_action_count"`
+	VersionConflictCount           int64   `json:"actor.version_conflict_count"`
+	SnapshotPostAppendFailureCount int64   `json:"actor.snapshot_post_append_failure_count"`
 }
 
 func NewGameActor(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier) *GameActor {
@@ -287,8 +289,13 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 			if !eventCreatedByMatches(existing, request.ActorID) {
 				return a.rejectedResult(ErrActorPermission, queueWait, startedAt)
 			}
+			result, err := a.resultFromStoredEvent(existing)
+			if err != nil {
+				return a.rejectedResult(err, queueWait, startedAt)
+			}
+			a.rememberSeenAction(command.ClientActionID, result)
 			a.recordDuplicateAction(queueWait, time.Since(startedAt))
-			return CommandResult{Event: existing}
+			return result
 		}
 	}
 	if err := a.permissionErrorLocked(command, request.ActorID); err != nil {
@@ -342,8 +349,13 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		rollback.Restore(a.state)
 		return a.rejectedResult(err, queueWait, startedAt)
 	}
+	patches := emitter.Envelopes(a.gameID, nextVersion, command.ClientActionID)
+	if err := validatePatchEnvelopes(patches); err != nil {
+		rollback.Restore(a.state)
+		return a.rejectedResult(err, queueWait, startedAt)
+	}
 	if a.store != nil {
-		if err := a.store.AppendEvent(ctx, event); err != nil {
+		if err := a.store.AppendEvent(ctx, eventWithRuntimePatchReceipt(event, patches)); err != nil {
 			rollback.Restore(a.state)
 			return a.rejectedResult(err, queueWait, startedAt)
 		}
@@ -351,16 +363,32 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 
 	result := CommandResult{
 		Event:   event,
-		Patches: emitter.Envelopes(a.gameID, nextVersion, command.ClientActionID),
+		Patches: patches,
 	}
 	a.rememberSeenAction(command.ClientActionID, result)
 	a.lastHeartbeat = time.Now().UTC()
 	a.eventsSinceSnapshot++
 	if err := a.saveSnapshotIfDueLocked(ctx); err != nil {
-		return a.rejectedResult(err, queueWait, startedAt)
+		a.recordSnapshotPostAppendFailure()
+		slog.Warn("runtime compact snapshot save failed after event append", "gameId", a.gameID, "version", event.Version, "clientActionId", command.ClientActionID, "error", err)
 	}
 	a.recordApplied(queueWait, time.Since(startedAt))
 	return result
+}
+
+func (a *GameActor) resultFromStoredEvent(event protocol.EventPayloadV2) (CommandResult, error) {
+	patches, ok, err := runtimePatchReceiptFromEvent(event)
+	if err != nil {
+		return CommandResult{}, err
+	}
+	cleanEvent := eventWithoutRuntimePatchReceipt(event)
+	if !ok {
+		return CommandResult{Event: cleanEvent}, nil
+	}
+	if err := validatePatchEnvelopes(patches); err != nil {
+		return CommandResult{}, err
+	}
+	return CommandResult{Event: cleanEvent, Patches: patches}, nil
 }
 
 func (a *GameActor) rememberSeenAction(clientActionID string, result CommandResult) {
@@ -438,6 +466,12 @@ func (a *GameActor) recordVersionConflict() {
 	a.metrics.VersionConflictCount++
 }
 
+func (a *GameActor) recordSnapshotPostAppendFailure() {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.SnapshotPostAppendFailureCount++
+}
+
 func (a *GameActor) commandRuntimeCoveragePercent() float64 {
 	a.metricsMu.RLock()
 	defer a.metricsMu.RUnlock()
@@ -458,6 +492,15 @@ func addCommandMetric(payload map[string]any, key string, value any) {
 		payload["metrics"] = metrics
 	}
 	metrics[key] = value
+}
+
+func validatePatchEnvelopes(patches []protocol.PatchEnvelopeV2) error {
+	for _, patch := range patches {
+		if err := patch.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *GameActor) saveSnapshotIfDueLocked(ctx context.Context) error {

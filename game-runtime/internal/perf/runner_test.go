@@ -132,6 +132,31 @@ func TestEvaluateGateAdvisoryFailureDoesNotFailCriticalStatus(t *testing.T) {
 	}
 }
 
+func TestEvaluateGateSnapshotPostAppendFailureIsAdvisory(t *testing.T) {
+	report := Report{
+		Scales: []ScaleReport{{
+			Commands: 1,
+			Runtime: RuntimeSummary{
+				SnapshotPostAppendFailureCount: 1,
+			},
+			PerCommand: []CommandSummary{{
+				Type:  "life.changed",
+				Count: 1,
+			}},
+		}},
+	}
+	gate := EvaluateGate(report, DefaultConfig())
+	if gate.Status != "pass" {
+		t.Fatalf("gate status = %s, want pass for advisory-only snapshot failure", gate.Status)
+	}
+	if len(gate.CriticalFailures) != 0 {
+		t.Fatalf("critical failures = %#v, want none", gate.CriticalFailures)
+	}
+	if len(gate.AdvisoryFailures) != 1 || gate.AdvisoryFailures[0].Key != "snapshot_post_append_failure" {
+		t.Fatalf("advisory failures = %#v, want snapshot_post_append_failure only", gate.AdvisoryFailures)
+	}
+}
+
 func BenchmarkRuntimeGameplaySmoke(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		report, err := Run(context.Background(), Config{

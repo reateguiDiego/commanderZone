@@ -77,15 +77,16 @@ type StoreSummary struct {
 }
 
 type RuntimeSummary struct {
-	InitialStatePerCommandCount int64   `json:"initialStatePerCommandCount"`
-	LegacyFallbackCount         int64   `json:"legacyFallbackCount"`
-	UnsupportedCommandCount     int64   `json:"unsupportedCommandCount"`
-	PatchEventContractInvalid   int64   `json:"patchEventContractInvalidCount"`
-	AliasTranslationCount       int64   `json:"aliasTranslationCount"`
-	RuntimeCoveragePercent      float64 `json:"runtimeCoveragePercent"`
-	ActorCacheHitCount          int64   `json:"actorCacheHitCount"`
-	ActorCacheMissCount         int64   `json:"actorCacheMissCount"`
-	QueueFullCount              int64   `json:"queueFullCount"`
+	InitialStatePerCommandCount    int64   `json:"initialStatePerCommandCount"`
+	LegacyFallbackCount            int64   `json:"legacyFallbackCount"`
+	UnsupportedCommandCount        int64   `json:"unsupportedCommandCount"`
+	PatchEventContractInvalid      int64   `json:"patchEventContractInvalidCount"`
+	SnapshotPostAppendFailureCount int64   `json:"snapshotPostAppendFailureCount"`
+	AliasTranslationCount          int64   `json:"aliasTranslationCount"`
+	RuntimeCoveragePercent         float64 `json:"runtimeCoveragePercent"`
+	ActorCacheHitCount             int64   `json:"actorCacheHitCount"`
+	ActorCacheMissCount            int64   `json:"actorCacheMissCount"`
+	QueueFullCount                 int64   `json:"queueFullCount"`
 }
 
 type PayloadSummary struct {
@@ -238,6 +239,7 @@ func EvaluateGate(report Report, config Config) GateReport {
 	var initialStateCount float64
 	var unsupportedCount float64
 	var contractInvalidCount float64
+	var snapshotPostAppendFailures float64
 	var simplePatchMax float64
 	var commandErrors float64
 	for _, scale := range report.Scales {
@@ -250,6 +252,7 @@ func EvaluateGate(report Report, config Config) GateReport {
 		initialStateCount += float64(scale.Runtime.InitialStatePerCommandCount)
 		unsupportedCount += float64(scale.Runtime.UnsupportedCommandCount)
 		contractInvalidCount += float64(countContractInvalids(scale.PerCommand))
+		snapshotPostAppendFailures += float64(scale.Runtime.SnapshotPostAppendFailureCount)
 		if value := float64(scale.Payload.SimplePatchBytesMax); value > simplePatchMax {
 			simplePatchMax = value
 		}
@@ -274,6 +277,7 @@ func EvaluateGate(report Report, config Config) GateReport {
 	add("previous_next_projection_runtime_path", 0, 0, "<=", "critical")
 	add("resync_rate", resyncRate, config.ResyncRateLimit, "<", "critical")
 	add("simple_patch_bytes_max", simplePatchMax, float64(config.SimplePatchBytesLimit), "<=", "advisory")
+	add("snapshot_post_append_failure", snapshotPostAppendFailures, 0, "<=", "advisory")
 	failures := []GateCheck{}
 	criticalFailures := []GateCheck{}
 	advisoryFailures := []GateCheck{}
@@ -530,15 +534,16 @@ func (a *scaleAccumulator) report(
 		allocs = float64(memAfter.Mallocs-memBefore.Mallocs) / float64(commandCount)
 	}
 	runtimeSummary := RuntimeSummary{
-		InitialStatePerCommandCount: metrics.Runtime.InitialStatePerCommandCount,
-		LegacyFallbackCount:         metrics.Runtime.CommandLegacyFallbackCount + metrics.Totals.LegacyFallbackCount,
-		UnsupportedCommandCount:     metrics.Totals.UnsupportedCount,
-		PatchEventContractInvalid:   int64(countContractInvalids(perCommand)),
-		AliasTranslationCount:       metrics.Totals.AliasTranslationCount,
-		RuntimeCoveragePercent:      metrics.Runtime.CommandRuntimeCoveragePct,
-		ActorCacheHitCount:          metrics.Runtime.ActorCacheHitCount,
-		ActorCacheMissCount:         metrics.Runtime.ActorCacheMissCount,
-		QueueFullCount:              metrics.Totals.QueueFullCount,
+		InitialStatePerCommandCount:    metrics.Runtime.InitialStatePerCommandCount,
+		LegacyFallbackCount:            metrics.Runtime.CommandLegacyFallbackCount + metrics.Totals.LegacyFallbackCount,
+		UnsupportedCommandCount:        metrics.Totals.UnsupportedCount,
+		PatchEventContractInvalid:      int64(countContractInvalids(perCommand)),
+		SnapshotPostAppendFailureCount: metrics.Totals.SnapshotPostAppendFailureCount,
+		AliasTranslationCount:          metrics.Totals.AliasTranslationCount,
+		RuntimeCoveragePercent:         metrics.Runtime.CommandRuntimeCoveragePct,
+		ActorCacheHitCount:             metrics.Runtime.ActorCacheHitCount,
+		ActorCacheMissCount:            metrics.Runtime.ActorCacheMissCount,
+		QueueFullCount:                 metrics.Totals.QueueFullCount,
 	}
 	return ScaleReport{
 		Games:             gameCount,

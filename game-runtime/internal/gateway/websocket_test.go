@@ -337,6 +337,67 @@ func TestWebSocketReconnectReplaysPatchesWithoutGap(t *testing.T) {
 	}
 }
 
+func TestWebSocketPrivateOnlyPatchSendsPublicVersionCarrier(t *testing.T) {
+	server, _ := testWebSocketServerWithState(t, "game-1", testReorderState("game-1"), 128, 256)
+	defer server.Close()
+
+	owner := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID:      "p1",
+		PlayerID:    "p1",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	defer owner.Close()
+	nonOwner := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID:      "p2",
+		PlayerID:    "p2",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	defer nonOwner.Close()
+
+	writeCommand(t, owner, command("game-1", 1, "face-private", "card.face.changed", map[string]any{
+		"playerId":        "p1",
+		"instanceId":      "h1",
+		"activeFaceIndex": 1,
+	}, nil))
+	ownerPatch := readUntil(t, owner, "patch.v2")
+	if ownerPatch.Visibility != protocol.PlayerVisibility("p1") || len(ownerPatch.Ops) == 0 || ownerPatch.Ops[0]["op"] != "card.field.set" {
+		t.Fatalf("owner patch = %#v, want private card.field.set", ownerPatch)
+	}
+	carrier := readUntil(t, nonOwner, "patch.v2")
+	if carrier.Version != 2 || carrier.Visibility != protocol.VisibilityPublic {
+		t.Fatalf("carrier = %#v, want public version 2", carrier)
+	}
+	if len(carrier.Ops) != 1 || carrier.Ops[0]["op"] != "version.advance" {
+		t.Fatalf("carrier ops = %#v, want version.advance only", carrier.Ops)
+	}
+	for _, key := range []string{"instanceId", "cardKey", "playerId", "zone"} {
+		if _, leaked := carrier.Ops[0][key]; leaked {
+			t.Fatalf("carrier leaked %s: %#v", key, carrier.Ops[0])
+		}
+	}
+
+	_ = nonOwner.Close()
+	reconnected := dialRuntimeWithClaims(t, server.URL, "game-1", 1, TicketClaims{
+		UserID:      "p2",
+		PlayerID:    "p2",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view"},
+		Protocol:    "v2",
+	})
+	defer reconnected.Close()
+	replayed := readUntil(t, reconnected, "patch.v2")
+	if replayed.Version != 2 || len(replayed.Ops) != 1 || replayed.Ops[0]["op"] != "version.advance" {
+		t.Fatalf("replayed carrier = %#v, want version.advance without resync", replayed)
+	}
+}
+
 func TestWebSocketReconnectRequestsResyncOnGap(t *testing.T) {
 	server, _ := testWebSocketServer(t, "game-1", 128, 1)
 	defer server.Close()

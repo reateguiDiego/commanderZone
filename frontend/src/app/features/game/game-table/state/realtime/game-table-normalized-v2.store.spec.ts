@@ -43,6 +43,32 @@ describe('game table normalized v2 store', () => {
     expect(duplicate.state.players['player-1'].life).toBe(37);
   });
 
+  it('applies version carrier patches as no-op version advances', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'public',
+      ops: [{ op: 'version.advance' }],
+      ackClientActionId: 'private-action',
+    });
+
+    expect(result.status).toBe('applied');
+    expect(result.state.lastAppliedVersion).toBe(6);
+    expect(result.state.players['player-1'].life).toBe(40);
+    expect(result.state.zones['player-1'].hand).toEqual(['hand-1']);
+
+    const duplicateCarrier = applyPatchEnvelopeV2(result.state, {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'public',
+      ops: [{ op: 'version.advance' }],
+      ackClientActionId: 'private-action',
+    });
+    expect(duplicateCarrier.status).toBe('applied');
+    expect(duplicateCarrier.state.lastAppliedVersion).toBe(6);
+  });
+
   it('hydrates turn state from bootstrap v2 and applies turn.changed patches', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
 

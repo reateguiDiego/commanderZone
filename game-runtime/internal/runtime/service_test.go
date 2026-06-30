@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -158,6 +159,91 @@ func TestServiceRestartRecoversFromSavedCompactSnapshotWithoutInitialState(t *te
 	}
 }
 
+func TestServiceRetryPostRestartReconstructsPatchesAfterSnapshotFailure(t *testing.T) {
+	gameID := "game-retry"
+	store := persistence.NewInMemoryEventStore()
+	initial := runtimePrivateState(gameID)
+	if err := saveRuntimeSnapshot(t, store, initial); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	failingStore := snapshotFailRuntimeStore{
+		EventStore: store,
+		err:        errors.New("snapshot failed"),
+	}
+	firstActor := actor.NewGameActorWithSnapshotPolicy(gameID, initial, failingStore, 8, actor.DefaultAppliers(), actor.SnapshotPolicy{EveryEvents: 1})
+	command := protocol.CommandEnvelopeV2{
+		GameID:         gameID,
+		BaseVersion:    1,
+		ClientActionID: "face-private-retry",
+		Type:           "card.face.changed",
+		Payload: map[string]any{
+			"instanceId": "h1",
+			"faceIndex":  1,
+		},
+	}
+	first := firstActor.ApplyDirect(context.Background(), command, "p1")
+	if first.Err != nil {
+		t.Fatalf("first command failed: %v", first.Err)
+	}
+	if firstActor.Metrics().SnapshotPostAppendFailureCount != 1 {
+		t.Fatalf("snapshot failure metric = %#v, want one post-append failure", firstActor.Metrics())
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+
+	restarted := NewServiceWithStore(store, 8, actor.DefaultAppliers())
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := restarted.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown failed: %v", err)
+		}
+	}()
+	recoveredActor, created, err := restarted.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil {
+		t.Fatalf("restart recovery failed: %v", err)
+	}
+	if !created {
+		t.Fatal("expected cache miss to create recovered actor")
+	}
+
+	retryCtx, cancelRetry := context.WithTimeout(context.Background(), time.Second)
+	defer cancelRetry()
+	retry := recoveredActor.Submit(retryCtx, command, "p1")
+	if retry.Err != nil {
+		t.Fatalf("retry failed: %v", retry.Err)
+	}
+	if retry.Event.Version != first.Event.Version {
+		t.Fatalf("retry version got %d want %d", retry.Event.Version, first.Event.Version)
+	}
+	if !reflect.DeepEqual(retry.Patches, first.Patches) {
+		t.Fatalf("retry patches mismatch:\nretry=%#v\nfirst=%#v", retry.Patches, first.Patches)
+	}
+	if len(retry.Patches) != 2 || retry.Patches[1].Visibility != protocol.VisibilityPublic || retry.Patches[1].Ops[0].Op != "version.advance" {
+		t.Fatalf("retry did not preserve private patch plus public carrier: %#v", retry.Patches)
+	}
+	events, err = store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("retry appended duplicate events: got %d want 1", len(events))
+	}
+	actorMetrics := recoveredActor.Metrics()
+	if actorMetrics.DuplicateActionCount != 1 || actorMetrics.CommandAppliedCount != 0 || actorMetrics.LegacyFallbackCount != 0 {
+		t.Fatalf("retry actor metrics mismatch: %#v", actorMetrics)
+	}
+	runtimeMetrics := restarted.RuntimeMetrics()
+	if runtimeMetrics.ActorCacheMissCount != 1 || runtimeMetrics.ActorLoadFromSnapshotCount != 1 || runtimeMetrics.ActorLoadFromEventsCount != 1 || runtimeMetrics.ActorRecoveredEventCount != 1 || runtimeMetrics.CommandLegacyFallbackCount != 0 {
+		t.Fatalf("restart runtime metrics mismatch: %#v", runtimeMetrics)
+	}
+}
+
 func TestServiceRecoveryRejectsVersionGapAfterCompactSnapshot(t *testing.T) {
 	store := persistence.NewInMemoryEventStore()
 	if err := saveRuntimeSnapshot(t, store, runtimeTestState("game-1")); err != nil {
@@ -258,11 +344,34 @@ func (s corruptSnapshotStore) SaveSnapshot(context.Context, persistence.CompactS
 	return nil
 }
 
+type snapshotFailRuntimeStore struct {
+	persistence.EventStore
+	err error
+}
+
+func (s snapshotFailRuntimeStore) SaveSnapshot(context.Context, persistence.CompactSnapshot) error {
+	return s.err
+}
+
 func runtimeTestState(gameID string) state.GameState {
 	gameState := EmptyInitialState(gameID)
 	gameState.Players["p1"] = map[string]any{"life": 40}
 	gameState.Players["p2"] = map[string]any{"life": 40}
 	gameState.Turn = map[string]any{"activePlayerId": "p1"}
+	return gameState
+}
+
+func runtimePrivateState(gameID string) state.GameState {
+	gameState := runtimeTestState(gameID)
+	gameState.Instances["h1"] = state.CardInstanceRuntime{
+		InstanceID:   "h1",
+		CardKey:      "hand-1@1",
+		OwnerID:      "p1",
+		ControllerID: "p1",
+		Zone:         state.ZoneHand,
+	}
+	gameState.Zones["p1"] = state.PlayerZones{Hand: []string{"h1"}}
+	gameState.Loc["h1"] = state.Location{PlayerID: "p1", Zone: state.ZoneHand, Index: 0, ControllerID: "p1"}
 	return gameState
 }
 
