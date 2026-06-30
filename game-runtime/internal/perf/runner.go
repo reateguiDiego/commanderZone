@@ -80,6 +80,7 @@ type RuntimeSummary struct {
 	InitialStatePerCommandCount int64   `json:"initialStatePerCommandCount"`
 	LegacyFallbackCount         int64   `json:"legacyFallbackCount"`
 	UnsupportedCommandCount     int64   `json:"unsupportedCommandCount"`
+	PatchEventContractInvalid   int64   `json:"patchEventContractInvalidCount"`
 	AliasTranslationCount       int64   `json:"aliasTranslationCount"`
 	RuntimeCoveragePercent      float64 `json:"runtimeCoveragePercent"`
 	ActorCacheHitCount          int64   `json:"actorCacheHitCount"`
@@ -113,14 +114,15 @@ type ResourceSummary struct {
 }
 
 type CommandSummary struct {
-	Type          string            `json:"type"`
-	Count         int               `json:"count"`
-	Latency       PercentileSummary `json:"latencyMs"`
-	PatchBytes    PercentileSummary `json:"patchBytes"`
-	ResyncCount   int               `json:"resyncCount"`
-	RefetchCount  int               `json:"refetchCount"`
-	FallbackCount int64             `json:"fallbackCount"`
-	ErrorCount    int               `json:"errorCount"`
+	Type                 string            `json:"type"`
+	Count                int               `json:"count"`
+	Latency              PercentileSummary `json:"latencyMs"`
+	PatchBytes           PercentileSummary `json:"patchBytes"`
+	ResyncCount          int               `json:"resyncCount"`
+	RefetchCount         int               `json:"refetchCount"`
+	FallbackCount        int64             `json:"fallbackCount"`
+	ContractInvalidCount int               `json:"contractInvalidCount"`
+	ErrorCount           int               `json:"errorCount"`
 }
 
 type ScenarioSummary struct {
@@ -144,27 +146,32 @@ type InstrumentationSummary struct {
 }
 
 type GateReport struct {
-	Status   string      `json:"status"`
-	Checks   []GateCheck `json:"checks"`
-	Failures []GateCheck `json:"failures"`
+	Status           string      `json:"status"`
+	Checks           []GateCheck `json:"checks"`
+	Failures         []GateCheck `json:"failures"`
+	CriticalFailures []GateCheck `json:"criticalFailures"`
+	AdvisoryFailures []GateCheck `json:"advisoryFailures"`
 }
 
 type GateCheck struct {
 	Key      string  `json:"key"`
+	Severity string  `json:"severity"`
 	Actual   float64 `json:"actual"`
 	Limit    float64 `json:"limit"`
 	Operator string  `json:"operator"`
+	Measured bool    `json:"measured"`
 	Status   string  `json:"status"`
 }
 
 type sample struct {
-	commandType string
-	latencyMs   float64
-	patchBytes  int
-	resync      bool
-	refetch     bool
-	fallback    int64
-	err         string
+	commandType     string
+	latencyMs       float64
+	patchBytes      int
+	resync          bool
+	refetch         bool
+	fallback        int64
+	contractInvalid bool
+	err             string
 }
 
 type scaleAccumulator struct {
@@ -208,24 +215,29 @@ func Run(ctx context.Context, config Config) (Report, error) {
 func EvaluateGate(report Report, config Config) GateReport {
 	config = normalizeConfig(config)
 	checks := []GateCheck{}
-	add := func(key string, actual float64, limit float64, operator string) {
+	add := func(key string, actual float64, limit float64, operator string, severity string) {
 		passed := actual <= limit
-		if operator == "<" {
+		switch operator {
+		case "<":
 			passed = actual < limit
+		case ">":
+			passed = actual > limit
 		}
 		status := "pass"
 		if !passed {
 			status = "fail"
 		}
-		checks = append(checks, GateCheck{Key: key, Actual: round4(actual), Limit: limit, Operator: operator, Status: status})
+		checks = append(checks, GateCheck{Key: key, Severity: severity, Actual: round4(actual), Limit: limit, Operator: operator, Measured: true, Status: status})
 	}
 	var commandCount float64
 	var resyncCount float64
 	var refetchCount float64
 	var fallbackCount float64
+	var snapshotLoads float64
 	var snapshotWrites float64
 	var initialStateCount float64
 	var unsupportedCount float64
+	var contractInvalidCount float64
 	var simplePatchMax float64
 	var commandErrors float64
 	for _, scale := range report.Scales {
@@ -233,9 +245,11 @@ func EvaluateGate(report Report, config Config) GateReport {
 		resyncCount += float64(countResyncs(scale.PerCommand))
 		refetchCount += float64(countRefetches(scale.PerCommand))
 		fallbackCount += float64(scale.Runtime.LegacyFallbackCount)
+		snapshotLoads += float64(scale.Store.LatestSnapshotReads)
 		snapshotWrites += float64(scale.Store.SnapshotWrites)
 		initialStateCount += float64(scale.Runtime.InitialStatePerCommandCount)
 		unsupportedCount += float64(scale.Runtime.UnsupportedCommandCount)
+		contractInvalidCount += float64(countContractInvalids(scale.PerCommand))
 		if value := float64(scale.Payload.SimplePatchBytesMax); value > simplePatchMax {
 			simplePatchMax = value
 		}
@@ -247,27 +261,37 @@ func EvaluateGate(report Report, config Config) GateReport {
 	if commandCount > 0 {
 		resyncRate = resyncCount / commandCount
 	}
-	add("refetch_per_normal_command", refetchCount, 0, "<=")
-	add("legacy_fallback_final_mode", fallbackCount, 0, "<=")
-	add("snapshot_write_runtime_path", snapshotWrites, 0, "<=")
-	add("initial_state_per_command", initialStateCount, 0, "<=")
-	add("unsupported_runtime_command", unsupportedCount, 0, "<=")
-	add("benchmark_command_errors", commandErrors, 0, "<=")
-	add("db_lock_runtime_path", 0, 0, "<=")
-	add("previous_next_projection_runtime_path", 0, 0, "<=")
-	add("resync_rate", resyncRate, config.ResyncRateLimit, "<")
-	add("simple_patch_bytes_max", simplePatchMax, float64(config.SimplePatchBytesLimit), "<=")
+	add("runtime_route_command_count", commandCount, 0, ">", "critical")
+	add("refetch_per_normal_command", refetchCount, 0, "<=", "critical")
+	add("legacy_fallback_final_mode", fallbackCount, 0, "<=", "critical")
+	add("snapshot_load_runtime_path", snapshotLoads, 0, "<=", "critical")
+	add("snapshot_write_runtime_path", snapshotWrites, 0, "<=", "critical")
+	add("initial_state_per_command", initialStateCount, 0, "<=", "critical")
+	add("unsupported_runtime_command", unsupportedCount, 0, "<=", "critical")
+	add("patch_event_contract_invalid", contractInvalidCount, 0, "<=", "critical")
+	add("benchmark_command_errors", commandErrors, 0, "<=", "critical")
+	add("db_lock_runtime_path", 0, 0, "<=", "critical")
+	add("previous_next_projection_runtime_path", 0, 0, "<=", "critical")
+	add("resync_rate", resyncRate, config.ResyncRateLimit, "<", "critical")
+	add("simple_patch_bytes_max", simplePatchMax, float64(config.SimplePatchBytesLimit), "<=", "advisory")
 	failures := []GateCheck{}
+	criticalFailures := []GateCheck{}
+	advisoryFailures := []GateCheck{}
 	for _, check := range checks {
 		if check.Status == "fail" {
 			failures = append(failures, check)
+			if check.Severity == "critical" {
+				criticalFailures = append(criticalFailures, check)
+			} else {
+				advisoryFailures = append(advisoryFailures, check)
+			}
 		}
 	}
 	status := "pass"
-	if len(failures) > 0 {
+	if len(criticalFailures) > 0 {
 		status = "fail"
 	}
-	return GateReport{Status: status, Checks: checks, Failures: failures}
+	return GateReport{Status: status, Checks: checks, Failures: failures, CriticalFailures: criticalFailures, AdvisoryFailures: advisoryFailures}
 }
 
 func runScale(ctx context.Context, config Config, gameCount int) (ScaleReport, error) {
@@ -292,6 +316,7 @@ func runScale(ctx context.Context, config Config, gameCount int) (ScaleReport, e
 		}
 		acc.addBootstrapBytes(jsonSize(actor.BootstrapV2ForViewer(initial, "p1")))
 	}
+	store.resetHotPathReadCounters()
 
 	transport := strings.ToLower(config.Transport)
 	connectionsOpened := 0
@@ -339,12 +364,17 @@ func runScale(ctx context.Context, config Config, gameCount int) (ScaleReport, e
 							acc.addError(spec.commandType, result.Err.Error())
 							return
 						}
+						contractInvalid := false
+						if err := validatePatchEventContract(result.Event, result.Patches); err != nil {
+							contractInvalid = true
+							acc.addError(spec.commandType, "contract_invalid: "+err.Error())
+						}
 						patchBytes := jsonSize(result.Patches)
 						fallback := int64(0)
 						if metrics, ok := result.Event.Payload["metrics"].(map[string]any); ok {
 							fallback = int64FromAny(metrics["command.legacy_fallback_count"])
 						}
-						acc.addSample(sample{commandType: spec.commandType, latencyMs: latencyMs, patchBytes: patchBytes, fallback: fallback})
+						acc.addSample(sample{commandType: spec.commandType, latencyMs: latencyMs, patchBytes: patchBytes, fallback: fallback, contractInvalid: contractInvalid})
 					}()
 				}
 				wg.Wait()
@@ -460,6 +490,7 @@ func (a *scaleAccumulator) report(
 		resyncCount := 0
 		refetchCount := 0
 		errorCount := 0
+		contractInvalidCount := 0
 		fallbackCount := int64(0)
 		for _, value := range commandSamples {
 			commandLatencies = append(commandLatencies, value.latencyMs)
@@ -473,17 +504,21 @@ func (a *scaleAccumulator) report(
 			if value.err != "" {
 				errorCount++
 			}
+			if value.contractInvalid {
+				contractInvalidCount++
+			}
 			fallbackCount += value.fallback
 		}
 		perCommand = append(perCommand, CommandSummary{
-			Type:          commandType,
-			Count:         len(commandSamples),
-			Latency:       summarize(commandLatencies),
-			PatchBytes:    summarize(commandPatchBytes),
-			ResyncCount:   resyncCount,
-			RefetchCount:  refetchCount,
-			FallbackCount: fallbackCount,
-			ErrorCount:    errorCount,
+			Type:                 commandType,
+			Count:                len(commandSamples),
+			Latency:              summarize(commandLatencies),
+			PatchBytes:           summarize(commandPatchBytes),
+			ResyncCount:          resyncCount,
+			RefetchCount:         refetchCount,
+			FallbackCount:        fallbackCount,
+			ContractInvalidCount: contractInvalidCount,
+			ErrorCount:           errorCount,
 		})
 	}
 	sort.Slice(perCommand, func(i, j int) bool { return perCommand[i].Type < perCommand[j].Type })
@@ -498,6 +533,7 @@ func (a *scaleAccumulator) report(
 		InitialStatePerCommandCount: metrics.Runtime.InitialStatePerCommandCount,
 		LegacyFallbackCount:         metrics.Runtime.CommandLegacyFallbackCount + metrics.Totals.LegacyFallbackCount,
 		UnsupportedCommandCount:     metrics.Totals.UnsupportedCount,
+		PatchEventContractInvalid:   int64(countContractInvalids(perCommand)),
 		AliasTranslationCount:       metrics.Totals.AliasTranslationCount,
 		RuntimeCoveragePercent:      metrics.Runtime.CommandRuntimeCoveragePct,
 		ActorCacheHitCount:          metrics.Runtime.ActorCacheHitCount,
@@ -622,6 +658,26 @@ func countRefetches(commands []CommandSummary) int {
 	return total
 }
 
+func countContractInvalids(commands []CommandSummary) int {
+	total := 0
+	for _, command := range commands {
+		total += command.ContractInvalidCount
+	}
+	return total
+}
+
+func validatePatchEventContract(event protocol.EventPayloadV2, patches []protocol.PatchEnvelopeV2) error {
+	if err := event.Validate(); err != nil {
+		return fmt.Errorf("event: %w", err)
+	}
+	for index, patch := range patches {
+		if err := patch.Validate(); err != nil {
+			return fmt.Errorf("patch[%d]: %w", index, err)
+		}
+	}
+	return nil
+}
+
 func int64FromAny(value any) int64 {
 	switch typed := value.(type) {
 	case int:
@@ -711,4 +767,9 @@ func (s *instrumentedStore) summary() StoreSummary {
 		LatestSnapshotReads: s.latestSnapshotReads.Load(),
 		EventsAfterReads:    s.eventsAfterReads.Load(),
 	}
+}
+
+func (s *instrumentedStore) resetHotPathReadCounters() {
+	s.latestSnapshotReads.Store(0)
+	s.eventsAfterReads.Store(0)
 }

@@ -65,7 +65,10 @@ docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime commanderzone-
 docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime commanderzone-go-toolchain:1.22 go run ./cmd/runtime-bench -games=10 -iterations=1 -transport=actor -fail-on-gate -output=runtime-bench-smoke.json
 ```
 
-These are the Go runtime checks that CI requires before merge. See `docs/ci-required-checks.md` for the repository-level PR and main-release gates.
+These are the Go runtime checks that CI requires before merge. `runtime-bench`
+separates critical failures from advisory latency/payload targets; `-fail-on-gate`
+exits non-zero only for critical failures. See `docs/ci-required-checks.md` for
+the repository-level PR and main-release gates.
 
 ## Production Image
 

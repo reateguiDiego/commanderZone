@@ -23,10 +23,10 @@ func main() {
 	flag.IntVar(&config.Iterations, "iterations", 1, "Full scenario iterations per scale.")
 	flag.StringVar(&config.Transport, "transport", "actor", "Benchmark transport: actor or websocket.")
 	flag.IntVar(&config.QueueSize, "queue-size", 256, "Actor mailbox queue size.")
-	flag.IntVar(&config.SimplePatchBytesLimit, "simple-patch-bytes-limit", perf.DefaultSimplePatchBytesLimit, "Gate for simple command patch bytes.")
-	flag.Float64Var(&config.ResyncRateLimit, "resync-rate-limit", perf.DefaultResyncRateLimit, "Gate for resync rate.")
+	flag.IntVar(&config.SimplePatchBytesLimit, "simple-patch-bytes-limit", perf.DefaultSimplePatchBytesLimit, "Advisory target for simple command patch bytes.")
+	flag.Float64Var(&config.ResyncRateLimit, "resync-rate-limit", perf.DefaultResyncRateLimit, "Critical gate for resync rate.")
 	flag.StringVar(&outputPath, "output", "", "Optional JSON report path.")
-	flag.BoolVar(&failOnGate, "fail-on-gate", false, "Exit non-zero when benchmark gates fail.")
+	flag.BoolVar(&failOnGate, "fail-on-gate", false, "Exit non-zero when critical benchmark gates fail.")
 	flag.Parse()
 
 	games, err := parseGameCounts(gamesFlag)

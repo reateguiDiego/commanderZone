@@ -23,6 +23,11 @@ go test -run '^$' -bench 'BenchmarkRuntimeGameplaySmoke|BenchmarkApplyOnlyRuntim
 go run ./cmd/runtime-bench -games=10 -iterations=1 -transport=actor -fail-on-gate -output=runtime-bench-smoke.json
 ```
 
+`runtime-bench` writes `gate.criticalFailures` and `gate.advisoryFailures`.
+With `-fail-on-gate`, CI fails only for critical runtime-final regressions.
+Latency and payload targets remain advisory unless a future change explicitly
+promotes them.
+
 The same reusable workflow also uploads `go-runtime-ci-logs` with test, vet, benchmark, and gate output.
 
 ## Pushes To Main
@@ -43,3 +48,14 @@ docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime commanderzone-
 docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime commanderzone-go-toolchain:1.22 go test -run '^$' -bench 'BenchmarkRuntimeGameplaySmoke|BenchmarkApplyOnlyRuntimeCommands4Players100' -benchtime=1x -benchmem ./internal/perf ./internal/actor
 docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime commanderzone-go-toolchain:1.22 go run ./cmd/runtime-bench -games=10 -iterations=1 -transport=actor -fail-on-gate -output=runtime-bench-smoke.json
 ```
+
+For a Docker smoke that requires the real Go runtime route through Symfony:
+
+```powershell
+.\scripts\run-runtime-final-smoke.ps1
+```
+
+That script runs `app:gameplay:baseline --suite=smoke --iterations=1 --fail-on-regression --require-runtime-route`
+inside Docker and fails if runtime route records are absent, runtime/fallback
+counters are non-zero, required runtime counters are missing, or hot-path
+legacy counters are non-zero.

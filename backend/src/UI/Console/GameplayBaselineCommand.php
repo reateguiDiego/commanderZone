@@ -82,7 +82,16 @@ final class GameplayBaselineCommand extends Command
         'runtime_fallback_count_max' => ['label' => 'runtime fallback count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
         'runtime_route_records_min' => ['label' => 'runtime route records min', 'operator' => '>', 'limit' => 0.0, 'severity' => 'critical'],
         'zero_total_server_count_max' => ['label' => 'zero total_server_ms count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
-        'runtime_hot_path_counter_missing_count_max' => ['label' => 'runtime hot-path missing counter count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_initial_state_per_command_count_max' => ['label' => 'runtime initialState per command count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_unsupported_command_count_max' => ['label' => 'runtime unsupported command count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_patch_contract_error_count_max' => ['label' => 'runtime patch/event contract error count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_hot_path_counter_missing_count_max' => ['label' => 'runtime required counter missing count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_snapshot_load_count_max' => ['label' => 'runtime snapshot load hot-path count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_snapshot_write_count_max' => ['label' => 'runtime snapshot write hot-path count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_db_lock_count_max' => ['label' => 'runtime DB lock hot-path count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_legacy_handler_count_max' => ['label' => 'runtime legacy handler hot-path count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_previous_next_projection_count_max' => ['label' => 'runtime previous/next projection hot-path count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_emergency_fallback_count_max' => ['label' => 'runtime emergency fallback hot-path count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
         'runtime_legacy_hot_path_counter_count_max' => ['label' => 'runtime legacy hot-path counter count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
     ];
     private const RUNTIME_FAILURE_STATUSES = [
@@ -90,6 +99,20 @@ final class GameplayBaselineCommand extends Command
         'runtime_patch_contract_failed',
     ];
     private const RUNTIME_HOT_PATH_COUNTERS = [
+        'runtime.snapshot_load_count',
+        'runtime.snapshot_write_count',
+        'runtime.db_lock_count',
+        'runtime.legacy_handler_count',
+        'runtime.previous_next_projection_count',
+        'runtime.emergency_fallback_count',
+    ];
+    private const RUNTIME_REQUIRED_COUNTERS = [
+        'gameplay.runtime_fallback_count',
+        'gameplay.runtime_error_count',
+        'gameplay.runtime_patch_contract_error',
+        'command.legacy_fallback_count',
+        'runtime.initial_state_per_command_count',
+        'command.unsupported_count',
         'runtime.snapshot_load_count',
         'runtime.snapshot_write_count',
         'runtime.db_lock_count',
@@ -633,7 +656,16 @@ final class GameplayBaselineCommand extends Command
             'runtime_failure_count' => $this->runtimeFailureCount($metrics),
             'runtime_fallback_count' => $this->runtimeFallbackCount($metrics),
             'zero_total_server_count' => $this->zeroTotalServerCount($metrics),
+            'runtime_initial_state_per_command_count' => $this->runtimeCounterCount($metrics, 'runtime.initial_state_per_command_count'),
+            'runtime_unsupported_command_count' => $this->runtimeCounterCount($metrics, 'command.unsupported_count'),
+            'runtime_patch_contract_error_count' => $this->runtimePatchContractErrorCount($metrics),
             'runtime_hot_path_counter_missing_count' => $this->runtimeHotPathCounterMissingCount($metrics),
+            'runtime_snapshot_load_count' => $this->runtimeCounterCount($metrics, 'runtime.snapshot_load_count', runtimeRouteOnly: true),
+            'runtime_snapshot_write_count' => $this->runtimeCounterCount($metrics, 'runtime.snapshot_write_count', runtimeRouteOnly: true),
+            'runtime_db_lock_count' => $this->runtimeCounterCount($metrics, 'runtime.db_lock_count', runtimeRouteOnly: true),
+            'runtime_legacy_handler_count' => $this->runtimeCounterCount($metrics, 'runtime.legacy_handler_count', runtimeRouteOnly: true),
+            'runtime_previous_next_projection_count' => $this->runtimeCounterCount($metrics, 'runtime.previous_next_projection_count', runtimeRouteOnly: true),
+            'runtime_emergency_fallback_count' => $this->runtimeCounterCount($metrics, 'runtime.emergency_fallback_count', runtimeRouteOnly: true),
             'runtime_legacy_hot_path_counter_count' => $this->runtimeLegacyHotPathCounterCount($metrics),
             'avg_total_server_ms' => $this->average($metrics, 'total_server_ms'),
             'p95_total_server_ms' => $this->percentile($metrics, 'total_server_ms', 95),
@@ -804,6 +836,20 @@ final class GameplayBaselineCommand extends Command
     /**
      * @param list<array<string,mixed>> $metrics
      */
+    private function runtimePatchContractErrorCount(array $metrics): int
+    {
+        return (int) array_sum(array_map(
+            static fn (array $metric): int => max(
+                (int) ((float) ($metric['gameplay.runtime_patch_contract_error'] ?? 0)),
+                (string) ($metric['status'] ?? '') === 'runtime_patch_contract_failed' ? 1 : 0,
+            ),
+            $metrics,
+        ));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $metrics
+     */
     private function runtimeFallbackCount(array $metrics): int
     {
         return (int) array_sum(array_map(
@@ -813,6 +859,19 @@ final class GameplayBaselineCommand extends Command
                 (string) ($metric['status'] ?? '') === 'runtime_fallback' ? 1 : 0,
             ),
             $metrics,
+        ));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $metrics
+     */
+    private function runtimeCounterCount(array $metrics, string $counter, bool $runtimeRouteOnly = false): int
+    {
+        $source = $runtimeRouteOnly ? $this->runtimeRouteMetrics($metrics) : $metrics;
+
+        return (int) array_sum(array_map(
+            static fn (array $metric): int => (int) max(0.0, (float) ($metric[$counter] ?? 0)),
+            $source,
         ));
     }
 
@@ -834,7 +893,7 @@ final class GameplayBaselineCommand extends Command
     {
         $missing = 0;
         foreach ($this->runtimeRouteMetrics($metrics) as $metric) {
-            foreach (self::RUNTIME_HOT_PATH_COUNTERS as $counter) {
+            foreach (self::RUNTIME_REQUIRED_COUNTERS as $counter) {
                 if (!array_key_exists($counter, $metric)) {
                     $missing++;
                 }
@@ -875,7 +934,7 @@ final class GameplayBaselineCommand extends Command
     /**
      * @param list<array<string,mixed>> $scenarioReports
      *
-     * @return array{status:string,failures:list<array<string,mixed>>,checks:array<string,array<string,mixed>>}
+     * @return array{status:string,failures:list<array<string,mixed>>,criticalFailures:list<array<string,mixed>>,advisoryFailures:list<array<string,mixed>>,checks:array<string,array<string,mixed>>}
      */
     private function evaluatePerformanceGate(array $scenarioReports, bool $requireRuntimeRoute = false): array
     {
@@ -911,9 +970,54 @@ final class GameplayBaselineCommand extends Command
             'runtime_fallback_count_max' => $this->gateCheck('runtime_fallback_count_max', (float) $this->runtimeFallbackCount($allCommandMetrics), count($allCommandMetrics) > 0),
             'runtime_route_records_min' => $this->gateCheck('runtime_route_records_min', (float) count($runtimeRouteMetrics), $requireRuntimeRoute && count($allCommandMetrics) > 0),
             'zero_total_server_count_max' => $this->gateCheck('zero_total_server_count_max', (float) $this->zeroTotalServerCount($allCommandMetrics), count($allCommandMetrics) > 0),
+            'runtime_initial_state_per_command_count_max' => $this->gateCheck(
+                'runtime_initial_state_per_command_count_max',
+                (float) $this->runtimeCounterCount($allCommandMetrics, 'runtime.initial_state_per_command_count'),
+                count($allCommandMetrics) > 0,
+            ),
+            'runtime_unsupported_command_count_max' => $this->gateCheck(
+                'runtime_unsupported_command_count_max',
+                (float) $this->runtimeCounterCount($allCommandMetrics, 'command.unsupported_count'),
+                count($allCommandMetrics) > 0,
+            ),
+            'runtime_patch_contract_error_count_max' => $this->gateCheck(
+                'runtime_patch_contract_error_count_max',
+                (float) $this->runtimePatchContractErrorCount($allCommandMetrics),
+                count($allCommandMetrics) > 0,
+            ),
             'runtime_hot_path_counter_missing_count_max' => $this->gateCheck(
                 'runtime_hot_path_counter_missing_count_max',
                 (float) $this->runtimeHotPathCounterMissingCount($allCommandMetrics),
+                count($runtimeRouteMetrics) > 0,
+            ),
+            'runtime_snapshot_load_count_max' => $this->gateCheck(
+                'runtime_snapshot_load_count_max',
+                (float) $this->runtimeCounterCount($allCommandMetrics, 'runtime.snapshot_load_count', runtimeRouteOnly: true),
+                count($runtimeRouteMetrics) > 0,
+            ),
+            'runtime_snapshot_write_count_max' => $this->gateCheck(
+                'runtime_snapshot_write_count_max',
+                (float) $this->runtimeCounterCount($allCommandMetrics, 'runtime.snapshot_write_count', runtimeRouteOnly: true),
+                count($runtimeRouteMetrics) > 0,
+            ),
+            'runtime_db_lock_count_max' => $this->gateCheck(
+                'runtime_db_lock_count_max',
+                (float) $this->runtimeCounterCount($allCommandMetrics, 'runtime.db_lock_count', runtimeRouteOnly: true),
+                count($runtimeRouteMetrics) > 0,
+            ),
+            'runtime_legacy_handler_count_max' => $this->gateCheck(
+                'runtime_legacy_handler_count_max',
+                (float) $this->runtimeCounterCount($allCommandMetrics, 'runtime.legacy_handler_count', runtimeRouteOnly: true),
+                count($runtimeRouteMetrics) > 0,
+            ),
+            'runtime_previous_next_projection_count_max' => $this->gateCheck(
+                'runtime_previous_next_projection_count_max',
+                (float) $this->runtimeCounterCount($allCommandMetrics, 'runtime.previous_next_projection_count', runtimeRouteOnly: true),
+                count($runtimeRouteMetrics) > 0,
+            ),
+            'runtime_emergency_fallback_count_max' => $this->gateCheck(
+                'runtime_emergency_fallback_count_max',
+                (float) $this->runtimeCounterCount($allCommandMetrics, 'runtime.emergency_fallback_count', runtimeRouteOnly: true),
                 count($runtimeRouteMetrics) > 0,
             ),
             'runtime_legacy_hot_path_counter_count_max' => $this->gateCheck(
@@ -923,10 +1027,14 @@ final class GameplayBaselineCommand extends Command
             ),
         ];
         $failures = array_values(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) === 'fail'));
+        $criticalFailures = array_values(array_filter($failures, static fn (array $check): bool => ($check['severity'] ?? null) === 'critical'));
+        $advisoryFailures = array_values(array_filter($failures, static fn (array $check): bool => ($check['severity'] ?? null) === 'advisory'));
 
         return [
-            'status' => $failures === [] ? 'pass' : 'fail',
+            'status' => $criticalFailures === [] ? 'pass' : 'fail',
             'failures' => $failures,
+            'criticalFailures' => $criticalFailures,
+            'advisoryFailures' => $advisoryFailures,
             'checks' => $checks,
         ];
     }

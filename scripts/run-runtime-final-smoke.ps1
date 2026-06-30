@@ -12,6 +12,19 @@ $hotPathCounters = @(
     "runtime.previous_next_projection_count",
     "runtime.emergency_fallback_count"
 )
+$criticalRuntimeCounters = @(
+    "gameplay.runtime_fallback_count",
+    "gameplay.runtime_error_count",
+    "gameplay.runtime_patch_contract_error",
+    "command.legacy_fallback_count",
+    "runtime.initial_state_per_command_count",
+    "command.unsupported_count"
+) + $hotPathCounters
+$criticalZeroCounters = @(
+    "gameplay.runtime_patch_contract_error",
+    "runtime.initial_state_per_command_count",
+    "command.unsupported_count"
+) + $hotPathCounters
 
 function MetricNumber($metric, [string] $key) {
     $property = $metric.PSObject.Properties[$key]
@@ -80,12 +93,14 @@ try {
             $violations += "runtime/legacy fallback metric: $($metric | ConvertTo-Json -Compress -Depth 32)"
         }
 
-        foreach ($counter in $hotPathCounters) {
+        foreach ($counter in $criticalRuntimeCounters) {
             $property = $metric.PSObject.Properties[$counter]
             if ($null -eq $property) {
                 $violations += "missing $counter metric: $($metric | ConvertTo-Json -Compress -Depth 32)"
-                continue
             }
+        }
+
+        foreach ($counter in $criticalZeroCounters) {
             if ((MetricNumber $metric $counter) -ne 0.0) {
                 $violations += "$counter is non-zero: $($metric | ConvertTo-Json -Compress -Depth 32)"
             }

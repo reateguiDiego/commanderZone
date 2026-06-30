@@ -33,6 +33,9 @@ func TestRunSmokeBenchmarkProducesMetricsAndPassesGates(t *testing.T) {
 	if scale.Store.SnapshotWrites != 0 {
 		t.Fatalf("snapshot writes = %d, want 0 in runtime command path", scale.Store.SnapshotWrites)
 	}
+	if scale.Store.LatestSnapshotReads != 0 {
+		t.Fatalf("snapshot reads = %d, want 0 in runtime command path", scale.Store.LatestSnapshotReads)
+	}
 	if scale.Runtime.InitialStatePerCommandCount != 0 {
 		t.Fatalf("initialState per command = %d, want 0", scale.Runtime.InitialStatePerCommandCount)
 	}
@@ -52,20 +55,23 @@ func TestEvaluateGateFailsOnRuntimePathRegressions(t *testing.T) {
 		Scales: []ScaleReport{{
 			Commands: 1,
 			Store: StoreSummary{
-				SnapshotWrites: 1,
+				LatestSnapshotReads: 1,
+				SnapshotWrites:      1,
 			},
 			Runtime: RuntimeSummary{
 				InitialStatePerCommandCount: 1,
 				LegacyFallbackCount:         1,
+				UnsupportedCommandCount:     1,
 			},
 			Payload: PayloadSummary{
 				SimplePatchBytesMax: DefaultSimplePatchBytesLimit + 1,
 			},
 			PerCommand: []CommandSummary{{
-				Type:         "life.changed",
-				Count:        1,
-				ResyncCount:  1,
-				RefetchCount: 1,
+				Type:                 "life.changed",
+				Count:                1,
+				ResyncCount:          1,
+				RefetchCount:         1,
+				ContractInvalidCount: 1,
 			}},
 			CommandErrors: map[string]int{"life.changed: failed": 1},
 		}},
@@ -81,15 +87,48 @@ func TestEvaluateGateFailsOnRuntimePathRegressions(t *testing.T) {
 	for _, key := range []string{
 		"refetch_per_normal_command",
 		"legacy_fallback_final_mode",
+		"snapshot_load_runtime_path",
 		"snapshot_write_runtime_path",
 		"initial_state_per_command",
+		"unsupported_runtime_command",
+		"patch_event_contract_invalid",
 		"benchmark_command_errors",
 		"resync_rate",
-		"simple_patch_bytes_max",
 	} {
 		if !failed[key] {
 			t.Fatalf("missing failed gate %q in %#v", key, gate.Failures)
 		}
+	}
+	if len(gate.CriticalFailures) == 0 {
+		t.Fatalf("critical failures were not classified: %#v", gate)
+	}
+	if len(gate.AdvisoryFailures) != 1 || gate.AdvisoryFailures[0].Key != "simple_patch_bytes_max" {
+		t.Fatalf("advisory failures = %#v, want simple_patch_bytes_max only", gate.AdvisoryFailures)
+	}
+}
+
+func TestEvaluateGateAdvisoryFailureDoesNotFailCriticalStatus(t *testing.T) {
+	report := Report{
+		Scales: []ScaleReport{{
+			Commands: 1,
+			Payload: PayloadSummary{
+				SimplePatchBytesMax: DefaultSimplePatchBytesLimit + 1,
+			},
+			PerCommand: []CommandSummary{{
+				Type:  "life.changed",
+				Count: 1,
+			}},
+		}},
+	}
+	gate := EvaluateGate(report, DefaultConfig())
+	if gate.Status != "pass" {
+		t.Fatalf("gate status = %s, want pass for advisory-only failure", gate.Status)
+	}
+	if len(gate.CriticalFailures) != 0 {
+		t.Fatalf("critical failures = %#v, want none", gate.CriticalFailures)
+	}
+	if len(gate.AdvisoryFailures) != 1 || gate.AdvisoryFailures[0].Key != "simple_patch_bytes_max" {
+		t.Fatalf("advisory failures = %#v, want simple_patch_bytes_max", gate.AdvisoryFailures)
 	}
 }
 

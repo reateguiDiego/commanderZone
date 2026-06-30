@@ -126,7 +126,12 @@ func runWebSocketScale(ctx context.Context, config Config, runtimeService *runti
 						return
 					}
 					resync := frame.Kind == "resync_required" || frame.Status == "resync_required"
-					acc.addSample(sample{commandType: spec.commandType, latencyMs: latencyMs, patchBytes: jsonSize(frame), resync: resync})
+					contractInvalid := false
+					if err := validateServerPatchContract(frame); err != nil {
+						contractInvalid = true
+						acc.addError(spec.commandType, "contract_invalid: "+err.Error())
+					}
+					acc.addSample(sample{commandType: spec.commandType, latencyMs: latencyMs, patchBytes: jsonSize(frame), resync: resync, contractInvalid: contractInvalid})
 				}()
 			}
 			wg.Wait()
@@ -272,4 +277,29 @@ func totalWebSocketBytes(connectionsByGame map[string][]*wsBenchConn) int64 {
 		}
 	}
 	return total
+}
+
+func validateServerPatchContract(frame gateway.ServerMessage) error {
+	if frame.Kind != "patch.v2" {
+		return nil
+	}
+	if strings.TrimSpace(frame.GameID) == "" {
+		return fmt.Errorf("gameId is required")
+	}
+	if frame.Version < 1 {
+		return fmt.Errorf("version must be >= 1")
+	}
+	if err := frame.Visibility.Validate(); err != nil {
+		return err
+	}
+	if len(frame.Ops) == 0 {
+		return fmt.Errorf("ops must not be empty")
+	}
+	for index, op := range frame.Ops {
+		value, ok := op["op"].(string)
+		if !ok || strings.TrimSpace(value) == "" {
+			return fmt.Errorf("ops[%d].op is required", index)
+		}
+	}
+	return nil
 }

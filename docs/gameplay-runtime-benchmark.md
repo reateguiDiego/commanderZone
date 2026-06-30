@@ -65,21 +65,34 @@ Comandos cubiertos:
 
 ## Gates
 
-El benchmark falla con `-fail-on-gate` si:
+`runtime-bench` siempre escribe un JSON con `gate.checks`, `gate.failures`,
+`gate.criticalFailures` y `gate.advisoryFailures`.
 
-- refetch por comando normal > 0.
-- legacy fallback > 0.
-- snapshot write en runtime path > 0.
-- `initialState` por comando > 0.
-- comando runtime unsupported > 0.
-- DB lock runtime path > 0.
-- previous/next projection runtime path > 0.
-- resync rate >= límite.
-- patch simple > límite.
+Con `-fail-on-gate`, el proceso sale con codigo `1` solo si existe al menos un
+fallo critico. Los fallos advisory quedan en el JSON/log, pero no bloquean.
 
-## Límites actuales
+Checks criticos:
+
+- runtime route con comandos reales: `runtime_route_command_count > 0`.
+- refetch por comando normal = 0.
+- legacy fallback = 0.
+- snapshot load/write en runtime command path = 0.
+- `initialState` por comando = 0.
+- comando runtime unsupported = 0.
+- patch/event contract invalid = 0.
+- errores de benchmark/comando = 0.
+- DB lock runtime path = 0.
+- previous/next projection runtime path = 0.
+- resync rate < limite configurado.
+
+Checks advisory:
+
+- patch simple max <= `-simple-patch-bytes-limit`.
+
+## Limites actuales
 
 - `actor` es el modo determinista para CI smoke.
 - `websocket` usa servidor Go `httptest` y conexiones reales con tickets HMAC, no navegador Angular.
 - DB writes/latency se miden sobre el `EventStore` usado por el runner. El smoke usa store en memoria instrumentado.
+- Las lecturas de snapshot usadas para preparar fixtures se reinician antes de ejecutar comandos; `snapshot_load_runtime_path` mide solo el hot path de comandos.
 - Refetch es un concepto frontend; el runner Go reporta `refetchCount=0` y marca `refetchCountMeasured=false`.
