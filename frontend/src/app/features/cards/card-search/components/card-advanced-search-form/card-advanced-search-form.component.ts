@@ -9,6 +9,7 @@ import { TabListComponent, TabListItem } from '../../../../../shared/ui/tab-list
 import { CompactCheckboxComponent } from '../../../../../shared/ui/compact-checkbox/compact-checkbox.component';
 import { ToggleComponent } from '../../../../../shared/ui/toggle/toggle.component';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { TextFitDirective } from '../../../../../shared/ui/text-fit/text-fit.directive';
 import {
   CARD_COLOR_CHOICES,
   CARD_MANA_COST_SYMBOLS,
@@ -68,6 +69,7 @@ const CARD_SEARCH_SORTS: readonly CardSearchSort[] = [
     CompactCheckboxComponent,
     ToggleComponent,
     PrettyScrollDirective,
+    TextFitDirective,
   ],
   templateUrl: './card-advanced-search-form.component.html',
   styleUrl: './card-advanced-search-form.component.scss',
@@ -214,6 +216,12 @@ export class CardAdvancedSearchFormComponent {
 
   iconChoiceNeedsCompactLabel(label: string | null | undefined): boolean {
     return (label?.trim().length ?? 0) >= 10;
+  }
+
+  iconChoiceLabelFontSize(label: string | null | undefined): string {
+    const baseSize = this.iconChoiceNeedsCompactLabel(label) ? '0.48rem' : '1em';
+
+    return `calc(${baseSize} * var(--cz-text-fit-scale, 1))`;
   }
 
   manaCostSymbolValue(): string {

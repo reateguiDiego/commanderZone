@@ -13,9 +13,9 @@ describe('PlayersOrderComponent', () => {
     expect(cards[0]?.dataset['playerId']).toBe('player-2');
     expect(cards[1]?.dataset['playerId']).toBe('player-3');
     expect(cards[2]?.dataset['playerId']).toBe('player-1');
-    expect(cards[0]?.textContent).toContain('Turno 7');
-    expect(cards[1]?.textContent).toContain('En 1');
-    expect(cards[2]?.textContent).toContain('En 2');
+    expect(cards[0]?.textContent).toContain('Turn 7');
+    expect(cards[1]?.textContent).toContain('In 1');
+    expect(cards[2]?.textContent).toContain('In 2');
   });
 
   it('marks the active and current player cards separately', async () => {

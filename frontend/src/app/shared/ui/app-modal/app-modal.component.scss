@@ -119,6 +119,10 @@
   flex: 1 1 12rem;
   margin: 0;
   min-width: 0;
+  overflow: hidden;
+  font-size: calc(var(--modal-title-font-size, 1em) * var(--cz-text-fit-scale, 1));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modal-header-rule {
@@ -133,7 +137,7 @@
 }
 
 .modal-panel-compact .modal-title-row h2 {
-  font-size: clamp(1.55rem, 4.8vw, 2.15rem);
+  --modal-title-font-size: clamp(1.55rem, 4.8vw, 2.15rem);
   line-height: 0.95;
 }
 

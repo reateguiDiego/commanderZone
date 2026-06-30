@@ -1,5 +1,7 @@
-import { Pipe, PipeTransform, inject } from '@angular/core';
+import { ChangeDetectorRef, DestroyRef, Pipe, PipeTransform, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateService as NgxTranslateService } from '@ngx-translate/core';
+import { merge } from 'rxjs';
 import { RUNTIME_TRANSLATION_FALLBACKS } from './runtime-translation-fallbacks';
 
 @Pipe({
@@ -9,6 +11,22 @@ import { RUNTIME_TRANSLATION_FALLBACKS } from './runtime-translation-fallbacks';
 })
 export class RuntimeTranslatePipe implements PipeTransform {
   private readonly translate = inject(NgxTranslateService, { optional: true });
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor() {
+    if (!this.translate) {
+      return;
+    }
+
+    merge(
+      this.translate.onLangChange,
+      this.translate.onTranslationChange,
+      this.translate.onFallbackLangChange,
+    )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.changeDetectorRef.markForCheck());
+  }
 
   transform(key: string, params?: Record<string, unknown>): string {
     if (!this.translate) {

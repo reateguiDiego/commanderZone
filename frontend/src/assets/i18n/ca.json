@@ -2,797 +2,1259 @@
   "common": {
     "app": {
       "app": {
-        "loading": "Loading"
-      }
+        "loading": "Carregant"
+      },
+      "brand": "CommanderZone"
     },
     "footerDisclaimer": {
       "footerDisclaimer": {
-        "disclaimer": "Disclaimer",
-        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by",
+        "disclaimer": "Avís legal",
+        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone és contingut de fan no oficial permès sota la Fan Content Policy. No aprovat ni avalat per",
         "wizards": "Wizards",
-        "portionsOfTheMaterialsUsedAreProperty": ". Portions of the materials used are property of",
+        "portionsOfTheMaterialsUsedAreProperty": ". Parts dels materials utilitzats són propietat de",
         "wizardsOfTheCoast": "Wizards of the Coast",
         "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
         "magicTheGathering": "Magic: The Gathering®",
         "mtg": "MTG®",
-        "andAllAssociatedLogosCardImagesAnd": ", and all associated logos, card images, and intellectual property are trademarks and/or copyrights of",
-        "llcASubsidiaryOf": "LLC, a subsidiary of",
+        "llcASubsidiaryOf": "LLC, una filial de",
         "hasbroInc": "Hasbro, Inc",
-        "inTheUnitedStatesAndOtherCountries": "., in the United States and other countries.",
-        "text19932025WizardsOfTheCoastLlc": "© 1993-2025 Wizards of the Coast LLC",
-        "allRightsReserved": ". All rights reserved.",
-        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone may display or reference certain",
-        "intellectualPropertyUnderTheGuidelinesSetForth": "intellectual property under the guidelines set forth in",
-        "wizardsFanContentPolicy": "Wizards' Fan Content Policy",
-        "thisSiteDoesNotSellProductsHost": ". This site does not sell products, host tournaments, or offer any ranked or competitive services. All features are provided free of charge and are intended solely for non-commercial, educational, and entertainment use by the",
+        "inTheUnitedStatesAndOtherCountries": "., als Estats Units i en altres països.",
+        "allRightsReserved": ". Tots els drets reservats.",
+        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone pot mostrar o fer referència a certa",
+        "intellectualPropertyUnderTheGuidelinesSetForth": "propietat intel·lectual sota les directrius establertes a",
+        "wizardsFanContentPolicy": "Fan Content Policy de Wizards",
+        "thisSiteDoesNotSellProductsHost": ". Aquest lloc no ven productes, no allotja tornejos ni ofereix cap servei classificat o competitiu. Totes les funcions es proporcionen gratuïtament i només tenen finalitats no comercials, educatives i d'entreteniment per a la",
         "magicTheGathering1": "Magic: The Gathering",
-        "community": "community.",
-        "forMoreInformationOn": "For more information on",
-        "andTheirIntellectualPropertyPoliciesPleaseVisit": "and their intellectual property policies, please visit:",
-        "ifYouAreTheRightsHolderAnd": "If you are the rights holder and believe any content on this website violates your rights, please contact us directly to resolve the matter. Contact us, view our Help &amp; FAQ, or check our Press Kit."
+        "community": "comunitat.",
+        "forMoreInformationOn": "Per obtenir més informació sobre",
+        "andTheirIntellectualPropertyPoliciesPleaseVisit": "i les seves polítiques de propietat intel·lectual, visiteu:",
+        "ifYouAreTheRightsHolderAnd": "Si ets el titular dels drets i creus que algun contingut d'aquest lloc web vulnera els teus drets, contacta directament amb nosaltres per resoldre-ho.",
+        "copyrightYears": "© 1993-{{ currentYear }} Wizards of the Coast LLC",
+        "viewHelpOrPressKit": "consulta la nostra ajuda i preguntes freqüents, o el nostre Press Kit.",
+        "trademarkedLogosImagesAndIpNotice": ", i tots els logotips, imatges de cartes i propietat intel·lectual associats són marques comercials o drets d'autor de",
+        "staticWizardsCopyrightYears": "© 1993-2025 Wizards of the Coast LLC"
       }
     },
     "visibility": {
       "visibilityChoice": {
-        "public": "Public",
-        "private": "Private"
+        "public": "Públic",
+        "private": "Privat",
+        "label": "Visibilitat",
+        "privacy": "Privadesa",
+        "privateOnlyYouSubtitle": "Només tu ho pots veure",
+        "privateSubtitle": "Només amb invitació",
+        "publicPlayersSubtitle": "Visible per a altres jugadors",
+        "publicProfileSubtitle": "Visible al perfil públic",
+        "publicSubtitle": "Qualsevol s'hi pot unir"
+      },
+      "visibilityPill": {
+        "public": "Públic",
+        "private": "Privat"
       }
     },
     "extraActions": {
-      "label": "Extras",
-      "open": "Open extra actions",
-      "menu": "Extra actions"
+      "label": "Extres",
+      "open": "Obrir accions addicionals",
+      "menu": "Accions addicionals"
     },
     "navigation": {
       "back": "Enrere"
+    },
+    "actions": {
+      "accept": "Accepta",
+      "confirm": "Confirma",
+      "create": "Crea",
+      "delete": "Suprimeix",
+      "done": "Fet",
+      "invite": "Convida",
+      "roll": "Tira",
+      "save": "Desa",
+      "select": "Selecciona",
+      "sending": "Enviant...",
+      "understood": "Entès",
+      "working": "Treballant...",
+      "showPassword": "Mostra la contrasenya",
+      "hidePassword": "Amaga la contrasenya",
+      "previous": "Anterior",
+      "next": "Següent",
+      "moveUp": "Mou amunt",
+      "moveDown": "Mou avall",
+      "remove": "Elimina",
+      "newGame": "Nova partida"
+    },
+    "modal": {
+      "cancel": "Cancel·la",
+      "cannotBeUndone": "Aquesta acció no es pot desfer.",
+      "close": "Tanca"
     }
   },
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "tuComandanteHaLlegado": "Els teus comandants tenen set de sang",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
-        "bienvenido": "Benvingut"
-      },
-      "dashboardHeaderContext": {
-        "pageSummary": "Page summary"
-      },
-      "dashboardHeaderControls": {
-        "pendingFriendRequests": "Pending friend requests",
-        "onlineFriends": "Online friends",
-        "friends": "Friends"
-      },
-      "dashboardShell": {
-        "commanderzoneDashboard": "CommanderZone dashboard",
-        "primary": "Primary",
-        "decks": "Decks",
-        "rooms": "Rooms",
-        "asistenteDeMesa": "Asistente de Mesa"
+        "commandersArrivalHeadline": "Els teus comandants tenen set de sang",
+        "welcome": "Benvingut"
       },
       "dashboardTopCommanders": {
-        "title": "Top commanders",
-        "subtitle": "Els comandants mes jugats del format",
-        "viewAll": "View more",
-        "viewMore": "View more",
-        "communityPopularity": "Basat en partides jugades per la comunitat"
+        "title": "Comandants més jugats",
+        "subtitle": "Els comandants més jugats del format",
+        "communityPopularity": "Basat en jocs jugats per la comunitat",
+        "viewMore": "Veure més"
+      },
+      "dashboardHeaderContext": {
+        "pageSummary": "Resum de la pàgina"
+      },
+      "dashboardHeaderControls": {
+        "pendingFriendRequests": "Sol·licituds d'amistat pendents",
+        "onlineFriends": "Amics en línia",
+        "friends": "Amics"
+      },
+      "dashboardShell": {
+        "commanderzoneDashboard": "CommanderZone quadre de comandament",
+        "primary": "Primària",
+        "cards": "Cartes",
+        "decks": "Baralles",
+        "rooms": "Sales",
+        "community": "Comunitat",
+        "tableAssistant": "Assistent de taula"
       }
     },
     "friends": {
       "friendsDropdown": {
-        "emailOrUsername": "Email or username",
-        "friends": "Friends",
-        "userSearchResults": "User search results",
-        "friendList": "Friend list",
-        "searchUsers": "Search users",
-        "sendFriendRequest": "Send friend request",
-        "cancelRequest": "Cancel request",
-        "removeFriend": "Remove friend",
-        "findUsers": "Find users",
-        "noUsersFound": "No users found.",
-        "invitacionDeSala": "Invitacion de sala",
-        "noFriendsOrPendingRequests": "No friends or pending requests."
+        "friends": "Amics",
+        "userSearchResults": "Resultats de la cerca d'usuari",
+        "friendList": "Llista d'amics",
+        "sendFriendRequest": "Enviar una sol·licitud d'amistat",
+        "cancelRequest": "Cancel·lar la sol·licitud",
+        "removeFriend": "Eliminar amic",
+        "findUsers": "Trobar usuaris",
+        "noUsersFound": "No s'han trobat usuaris.",
+        "acceptedStatus": "Amics",
+        "blockedStatus": "Bloquejat",
+        "declinedStatus": "Declinat",
+        "invitations": "Invitacions",
+        "inGameStatus": "En joc",
+        "joinedPlayers": "unit",
+        "offlineStatus": "Fora de línia",
+        "online": "En línia",
+        "onlineStatus": "En línia",
+        "pendingStatus": "Pendent",
+        "searchHint": "Escriviu almenys dos caràcters per cercar jugadors.",
+        "searchPlayers": "Cerca jugadors...",
+        "searchTab": "Cerca",
+        "seats": "seients",
+        "requests": "Peticions",
+        "receivedRequests": "Rebut",
+        "sentRequests": "Enviat",
+        "disconnected": "Desconnectat",
+        "roomInvite": "Invitació de sala"
       }
     }
   },
   "auth": {
     "authPage": {
-      "authMode": "Auth mode",
+      "authMode": "Mode d'autenticació",
       "commanderzone": "CommanderZone",
-      "accedeATusMazosSalasYMesa": "Accede a tus mazos, salas y mesa manual de Commander.",
-      "login": "Login",
-      "register": "Register",
-      "email": "Email",
-      "emailOrUserName": "Email o nom d'usuari",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "introduceUnEmailOUserNameValido": "Introdueix un email o un nom d'usuari valid.",
-      "invalidCredentials": "Email, nom d'usuari o password incorrectes.",
-      "tooManyLoginAttempts": "Massa intents de login fallits. Torna-ho a provar mes tard.",
-      "loginLockoutWarning": "Intent de login fallit {{ count }}/5. Si falles 5 intents, el login es bloquejara durant 15 minuts.",
-      "password": "Password",
-      "heOlvidadoMiContrasena": "He olvidado mi contrasena",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula, numero y caracter especial.",
+      "login": "Inicia sessió",
+      "register": "Registra't",
+      "email": "Correu electrònic",
+      "emailOrUserName": "Correu electrònic o nom d'usuari",
+      "invalidCredentials": "Correu electrònic, nom d'usuari o contrasenya no vàlids.",
+      "tooManyLoginAttempts": "Massa intents fallits d'inici de sessió. si us plau, torna-ho a provar més tard.",
+      "loginLockoutWarning": "Intent d'inici de sessió fallit {{ count }}/5. si falla 5 vegades, l'inici de sessió es bloquejarà durant 15 minuts.",
+      "password": "Contrasenya",
+      "userName": "Nom d'usuari",
       "passwordRequirements": {
-        "label": "Password requirements",
-        "minLength": "Minimo 8 caracteres",
-        "lowercase": "Minimo 1 letra minuscula",
-        "uppercase": "Minimo 1 letra mayuscula",
-        "number": "Minimo 1 numero",
-        "special": "Minimo 1 caracter especial"
+        "label": "Requisits de contrasenya",
+        "minLength": "Mínim 8 caràcters",
+        "lowercase": "Almenys 1 lletra minúscula",
+        "uppercase": "Almenys 1 lletra majúscula",
+        "number": "Almenys 1 número",
+        "special": "Almenys 1 caràcter especial"
       },
-      "confirmarPassword": "Confirmar password",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "registrationCompletedCheckEmail": "Registre completat. Revisa el correu i confirma el teu compte."
+      "registrationCompletedCheckEmail": "Registre completat. Comprova el teu correu electrònic i confirma el compte.",
+      "createAccount": "Crea un compte",
+      "accessDecksRoomsAndTable": "Accedeix a les teves baralles, sales i taules manuals.",
+      "enterValidEmail": "Introduïu un correu electrònic vàlid.",
+      "enterValidEmailOrUsername": "Introduïu un correu electrònic o un nom d'usuari vàlid.",
+      "forgotPassword": "He oblidat la meva contrasenya",
+      "checkingEmail": "Comprovant el correu electrònic...",
+      "checkingAvailability": "Comprovant disponibilitat...",
+      "passwordPolicySummary": "Mínim 8 caràcters amb minúscules, majúscules, números i caràcters especials.",
+      "confirmPassword": "Confirma la contrasenya",
+      "passwordsDoNotMatch": "Les contrasenyes no coincideixen.",
+      "emailAvailable": "Correu electrònic disponible",
+      "emailAlreadyRegistered": "Correu electrònic ja registrat",
+      "couldNotCheckNow": "No s'ha pogut comprovar ara mateix",
+      "usernameLengthRequirement": "El nom d'usuari ha de tenir entre 2 i 20 caràcters.",
+      "usernameAvailable": "Nom d'usuari disponible",
+      "usernameUnavailable": "Nom d'usuari no disponible"
     },
     "emailVerificationPage": {
-      "confirmingEmail": "Confirmant email",
+      "confirmingEmail": "Correu electrònic de confirmació",
       "waitWhileWeConfirmYourAccount": "Espera mentre confirmem el teu compte.",
-      "couldNotConfirmEmail": "No s ha pogut confirmar l email",
-      "linkInvalidOrExpired": "L enllac de verificacio no es valid o ha caducat.",
-      "backToLogin": "Torna al login"
+      "couldNotConfirmEmail": "No s'ha pogut confirmar el teu correu electrònic.",
+      "invalidOrExpiredLink": "L'enllaç de verificació no és vàlid o ha caducat."
     },
     "passwordResetPage": {
-      "recuperarContrasena": "Recuperar contrasena",
-      "solicitaElCorreoDeRecuperacionParaRecibir": "Solicita el correo de recuperacion para recibir un enlace seguro.",
-      "defineTuNuevaContrasenaConElEnlace": "Define tu nueva contrasena con el enlace seguro que recibiste por email.",
-      "email": "Email",
-      "siElEmailExisteSeEnvioUn": "Si el email existe, se envio un correo con el token de recuperacion.",
-      "nuevaContrasena": "Nueva contrasena",
-      "confirmarContrasena": "Confirmar contrasena",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "contrasenaActualizadaIniciandoSesion": "Contrasena actualizada. Iniciando sesion...",
-      "volverAlLogin": "Volver al login"
+      "email": "Correu electrònic",
+      "requestError": "No s'ha pogut sol·licitar el correu electrònic de recuperació.",
+      "invalidOrExpiredLink": "L'enllaç de recuperació no és vàlid o ha caducat.",
+      "updateError": "No s'ha pogut actualitzar la contrasenya amb aquest token.",
+      "sending": "Enviant...",
+      "sendRecoveryEmail": "Enviar correu electrònic de recuperació",
+      "updating": "Actualitzant...",
+      "updatePassword": "Actualitzar la contrasenya",
+      "resetPassword": "Restablir la contrasenya",
+      "requestRecoveryEmailDescription": "Sol·liciteu el correu electrònic de recuperació per rebre un enllaç segur.",
+      "setNewPasswordDescription": "Defineix la nova contrasenya amb l'enllaç segur que has rebut per correu electrònic.",
+      "newPassword": "Nova contrasenya",
+      "confirmPassword": "Confirma la contrasenya",
+      "passwordsDoNotMatch": "Les contrasenyes no coincideixen.",
+      "passwordUpdatedSigningIn": "Contrasenya actualitzada. iniciant sessió...",
+      "recoveryEmailSentIfAccountExists": "Si el correu electrònic existeix, s'ha enviat un correu electrònic de recuperació de la contrasenya."
     }
   },
   "rooms": {
     "roomBrowser": {
-      "searchRoom": "Search room",
-      "searchOwner": "Search owner",
-      "roomName": "Room name",
-      "owner": "Owner",
-      "visibility": "Visibility",
-      "publicAndPrivate": "All",
-      "publicOnly": "Public",
-      "privateOnly": "Private",
-      "status": "Status",
-      "allStatus": "All status",
-      "anonymous": "Anonymous",
-      "open": "Open",
-      "full": "Full",
-      "started": "Started",
-      "host": "Host",
+      "searchRoom": "Cerca sala",
+      "searchOwner": "Cerca amfitrió",
+      "roomName": "Nom de la sala",
+      "owner": "Amfitrió",
+      "visibility": "Visibilitat",
+      "publicAndPrivate": "Tots",
+      "publicOnly": "Públic",
+      "privateOnly": "Privat",
+      "status": "Estat",
+      "anonymous": "Anònim",
+      "open": "Oberta",
+      "full": "Plena",
+      "started": "Començada",
+      "host": "Amfitrió",
       "format": "Format",
-      "players": "Players",
-      "action": "Action",
-      "noRoomsMatchTheCurrentFilters": "No rooms match the current filters."
+      "players": "Jugadors",
+      "action": "Acció",
+      "noRoomsMatchTheCurrentFilters": "Cap sala coincideix amb els filtres actuals."
     },
     "roomCreatePanel": {
-      "czAbcDef123": "CZ-ABC-DEF-123",
-      "joinByRoomCode": "Join by room code",
-      "join": "Join",
-      "createANewRoom": "Create a new room",
-      "roomSetup": "Room setup",
-      "createRoom": "Create room"
+      "join": "Uneix-te",
+      "createANewRoom": "Crea una sala nova",
+      "roomSetup": "Configuració de la sala",
+      "createRoom": "Crea una sala",
+      "alreadyInRoomTooltip": "Ja ets en una sala. Surt-ne abans d'unir-te a una altra.",
+      "enterRoomCode": "Introdueix el codi de la sala",
+      "joinWithCode": "Uneix-te amb codi"
     },
     "roomCurrentBanner": {
-      "currentRoomDetails": "Current room details",
-      "currentRoom": "Current room",
-      "yourDeck": "Your deck",
-      "turn": "Turn"
+      "currentRoomDetails": "Detalls de la sala actual",
+      "currentRoom": "Sala actual",
+      "yourDeck": "La teva baralla",
+      "turn": "Torn"
     },
     "roomInvitesPanel": {
-      "invites": "Invites",
-      "pendingRoomInvites": "Pending room invites",
-      "accept": "Accept",
-      "decline": "Decline"
+      "invites": "Invitacions",
+      "pendingRoomInvites": "Invitacions de sala pendents",
+      "accept": "Accepta",
+      "decline": "Rebutja"
     },
     "roomRow": {
-      "started": "Started",
-      "full": "Full",
-      "open": "Open",
-      "join": "Join"
+      "started": "Començada",
+      "full": "Plena",
+      "open": "Oberta",
+      "join": "Uneix-te"
     },
     "rooms": {
-      "borrarSala": "Borrar sala",
-      "mazoRequerido": "Mazo requerido"
+      "validDeckRequiredToCreate": "Necessites una baralla vàlida per crear una sala.",
+      "deleteRoom": "Suprimeix la sala",
+      "deckRequired": "Cal una baralla"
     },
     "roomSetupControls": {
-      "timer": "Timer",
+      "timer": "Temporitzador",
       "mulligan": "Mulligan",
-      "firstMulliganFree": "El primer mulligan es gratis",
+      "firstMulliganFree": "El primer mulligan és gratuït",
       "mulliganDescriptions": {
-        "london": "Londres: robes 7 cartes sempre. Quan et quedes, poses al fons una carta per cada mulligan efectiu.",
-        "vancouver": "Vancouver: cada mulligan efectiu roba una carta menys. Si et quedes amb penalitzacio, fas Scry 1.",
-        "paris": "Paris: cada mulligan efectiu roba una carta menys. No hi ha seleccio al fons ni scry.",
-        "generous": "Generos: pensat per a Commander. Robes fins a 10, et quedes amb 7 si pots i el servidor posa la resta al fons en ordre aleatori."
+        "london": "Roba 7 cartes cada vegada. Quan et quedis la mà, posa una carta al fons de la biblioteca per cada mulligan efectiu.",
+        "vancouver": "Cada mulligan efectiu roba una carta menys. Si et quedes la mà després d'un mulligan efectiu, fes scry 1.",
+        "paris": "Cada mulligan efectiu roba una carta menys. No poses cartes al fons de la biblioteca ni fas scry.",
+        "generous": "Regla pensada per a Commander: roba fins a 10 cartes, queda't 7 cartes quan sigui possible i posa la resta al fons de la biblioteca en ordre aleatori."
       },
-      "firstMulliganFreeOn": "Gratis",
-      "firstMulliganFreeOff": "Compta"
+      "firstMulliganFreeOn": "Gratuït",
+      "firstMulliganFreeOff": "Compta",
+      "mulliganRules": {
+        "generous": "Generous",
+        "london": "London",
+        "paris": "Paris",
+        "vancouver": "Vancouver"
+      },
+      "noTimer": "Sense temporitzador"
     },
     "roomSetupModal": {
-      "ejLaTaberna": "Ej. La taberna",
-      "roomName": "Room name",
-      "timer": "Timer"
+      "roomName": "Nom de la sala",
+      "timer": "Temporitzador",
+      "createRoom": "Crea una sala",
+      "editRoomConfigurationBeforeStarting": "Ajusta la configuració de la sala abans de començar.",
+      "exampleRoomName": "P. ex. La Taverna"
     },
     "waitingRoomDeckSelector": {
-      "deckSelection": "Deck selection",
-      "invalidDeck": "Invalid deck",
-      "rollDice": "Roll dice",
-      "selectADeck": "Select a deck",
-      "randomDeck": "Random deck",
-      "chooseOne": "Choose one",
-      "checking": "Checking"
+      "deckSelection": "Selecció de baralla",
+      "invalidDeck": "Baralla no vàlida",
+      "rollDice": "Tira el dau",
+      "selectADeck": "Selecciona una baralla",
+      "randomDeck": "Baralla aleatòria",
+      "chooseOne": "Tria una opció",
+      "checking": "Comprovant"
     },
     "waitingRoomLogPanel": {
-      "activity": "Activity",
-      "roomEventsWillAppearHere": "Room events will appear here."
+      "activity": "Activitat",
+      "roomEventsWillAppearHere": "Els esdeveniments de la sala apareixeran aquí."
     },
     "waitingRoomPlayerCard": {
-      "kickPlayer": "Kick player",
-      "d20RollResult": "D20 roll result",
-      "waitingForPlayer": "Waiting for player",
-      "host": "Host",
-      "turnOrder": "Turn order",
-      "d20Roll": "D20 roll",
-      "openSlot": "Open slot"
+      "kickPlayer": "Expulsa el jugador",
+      "d20RollResult": "Resultat de la tirada de D20",
+      "waitingForPlayer": "Esperant el jugador",
+      "host": "Amfitrió",
+      "turnOrder": "Ordre de torn",
+      "d20Roll": "Tirada de D20",
+      "openSlot": "Seient lliure"
     },
     "waitingRoom": {
-      "leaveRoom": "Leave room",
-      "deleteRoom": "Delete room",
-      "inviteFriends": "Invite friends",
-      "kickPlayer": "Kick player",
-      "invalidDeck": "Invalid deck",
-      "setup": "Setup",
-      "chooseYourDeckAndGetReadyBefore": "Choose your deck and get ready before starting.",
-      "start": "Start",
-      "afterRollingYourDeckSelectionWillBe": "After rolling, your deck selection will be locked and cannot be changed.",
-      "noAcceptedFriendsYet": "No accepted friends yet.",
-      "inRoom": "In room",
-      "invited": "Invited",
-      "loadingRoomState": "Loading room state..."
+      "leaveRoom": "Surt de la sala",
+      "deleteRoom": "Suprimeix la sala",
+      "inviteFriends": "Convida amics",
+      "kickPlayer": "Expulsa el jugador",
+      "invalidDeck": "Baralla no vàlida",
+      "setup": "Configuració",
+      "chooseYourDeckAndGetReadyBefore": "Tria la teva baralla i prepara't abans de començar.",
+      "start": "Comença",
+      "afterRollingYourDeckSelectionWillBe": "Després de tirar el dau, la teva selecció de baralla quedarà bloquejada i no es podrà canviar.",
+      "noAcceptedFriendsYet": "Encara no hi ha amics acceptats.",
+      "inRoom": "A la sala",
+      "invited": "Convidat",
+      "allPlayersReady": "Tots els jugadors estan preparats",
+      "chooseAcceptedFriendsToInvite": "Tria els amics acceptats per convidar-los a aquesta sala.",
+      "invalidDeckSelectionMessage": "No podeu seleccionar {{ deckName }} perquè té errors de validació de baralla Commander.",
+      "kickPlayerConfirmation": "Vols expulsar {{ playerName }} de la sala?",
+      "leaveRoomConfirmation": "Abandonarà aquesta sala i tornarà a la llista d'sales.",
+      "playersCount": "Jugadors ({{ current }}/{{ max }})",
+      "rollSetsTurnOrder": "Aquesta tirada estableix el teu ordre de torn.",
+      "thisDeck": "aquesta baralla",
+      "thisPlayer": "aquest jugador",
+      "tieBreakRoll": "Tirada de desempat",
+      "tieBreakRollMessage": "Has empatat amb {{ playerNames }}. Torna a tirar per desfer l'empat.",
+      "waitingForDecksAndRolls": "Esperant baralles i tirades"
     },
     "setup": {
       "gameSetupLifeControl": {
-        "startingLife": "Starting life",
-        "decreaseStartingLife": "Decrease starting life",
-        "increaseStartingLife": "Increase starting life"
+        "startingLife": "Total de vida inicial",
+        "decreaseStartingLife": "Reduir el total de vida inicial",
+        "increaseStartingLife": "Augmentar el total de vida inicial",
+        "lifeUnit": "vida",
+        "startingLifePresets": "Preajustaments del total de vida inicial",
+        "startingTotal": "Total inicial",
+        "totalLife": "Total de vida"
       },
       "gameSetupSeatsControl": {
-        "tableSize": "Table size"
+        "tableSize": "Mida de la taula",
+        "seats": "Seients",
+        "setTableSizeToPlayers": "Estableix la mida de la taula a {{ count }} jugadors"
       }
     },
     "header": {
-      "title": "Rooms",
-      "totalRooms": "Total rooms",
-      "openRooms": "Open rooms",
-      "privateRooms": "Private rooms",
-      "publicRooms": "Public rooms",
-      "totalPlayers": "Total players",
-      "startedGames": "Started games"
+      "title": "Sales",
+      "totalRooms": "Sales totals",
+      "openRooms": "Sales obertes",
+      "privateRooms": "Sales privades",
+      "publicRooms": "Sales públiques",
+      "totalPlayers": "Jugadors totals",
+      "startedGames": "Partides començades",
+      "description": "Navega pels lobbies actius i uneix-te a un partit a l'instant."
     },
     "waiting": {
       "header": {
-        "inviteFriends": "Invite friends"
+        "inviteFriends": "Convida amics"
       }
     }
   },
   "community": {
+    "preview": {
+      "summary": {
+        "topHundred": "Les 100 millors cartes"
+      },
+      "error": "No s'ha pogut carregar la vista prèvia de la comunitat.",
+      "empty": "Encara no hi ha cartes disponibles.",
+      "playedLabel": "Jugat",
+      "filters": {
+        "allTypes": "Tots els tipus",
+        "type": {
+          "artifact": "Artefacte",
+          "battle": "Batalla",
+          "creature": "Criatura",
+          "enchantment": "Encantament",
+          "instant": "Instantani",
+          "land": "Terra",
+          "planeswalker": "Planeswalker",
+          "sorcery": "Conjur"
+        }
+      }
+    },
     "detail": {
       "saveConfirmation": {
-        "title": "Vols guardar aquest deck a la teva llista de decks?",
+        "title": "Vols desar aquesta baralla a la teva llista de baralles?",
         "confirm": "Confirma",
         "cancel": "Cancel·la"
+      },
+      "error": "No s'ha pogut carregar la baralla de la comunitat.",
+      "headerTitle": "Baralla de la comunitat",
+      "missingId": "Falta l'identificador de la baralla de la comunitat.",
+      "save": "Desa",
+      "saveError": "No s'ha pogut desar aquesta baralla a la teva llista de baralles.",
+      "shareError": "No s'ha pogut copiar l'enllaç de la baralla de la comunitat.",
+      "unknownCommander": "Comandant desconegut",
+      "readonly": {
+        "validation": {
+          "backendValid": "Aquesta baralla està marcada com a vàlida a la comunitat.",
+          "backendInvalid": "Aquesta baralla té avisos o problemes a la comunitat.",
+          "commanders": "Zona de comandament: {{ names }}",
+          "error": "Error",
+          "warning": "Advertència"
+        },
+        "historyOwner": "Compartit per"
       }
+    },
+    "dashboardTopCommanders": {
+      "ariaLabel": "3 millors comandants",
+      "theUrDragonPlayed": "47.928 jocs",
+      "edgarMarkovPlayed": "47.211 jocs",
+      "atraxaPlayed": "43.917 jocs"
+    },
+    "home": {
+      "title": "Baralles de la comunitat",
+      "subtitle": "Descobreix taules públiques creades per altres jugadors.",
+      "error": "No s'ha pogut carregar la comunitat.",
+      "decksSection": {
+        "title": "Baralles per descobrir"
+      },
+      "decksButton": "Cerca baralles",
+      "decksEmpty": "Encara no hi ha baralles públiques disponibles.",
+      "commandersTitle": "Els comandants més jugats",
+      "mobileCommandersTitle": "Comandants més jugats",
+      "commandersAriaLabel": "Per inspiració",
+      "cardsTitle": "Cartes més jugades",
+      "mobileCardsTitle": "Cartes més jugades",
+      "cardsSubtitle": "Basat en jocs jugats per la comunitat",
+      "cardsAriaLabel": "Cartes per explorar",
+      "viewMore": "Veure més"
+    },
+    "deckList": {
+      "title": "Cerca baralles",
+      "subtitle": "Explorar les baralles públiques de la comunitat.",
+      "filterName": "Cerca pel nom",
+      "filterNamePlaceholder": "Cerca baralles...",
+      "filterCommander": "Commander",
+      "filterCommanderPlaceholder": "Cerca comandant...",
+      "commanderSelect": "Selecciona",
+      "filterFormat": "Format",
+      "allFormats": "Tots els formats",
+      "searchButton": "Cerca",
+      "empty": "Encara no hi ha baralles públiques disponibles.",
+      "error": "No s'han pogut carregar les baralles públiques."
+    },
+    "deckViewer": {
+      "cardsCount": "{{ count }} cartes",
+      "sectionsCount": "{{ count }} seccions",
+      "viewMode": {
+        "label": "Mode de visualització",
+        "text": "Text",
+        "spoiler": "Spoiler"
+      },
+      "invalidCard": "Aquesta carta no és vàlida a {{ format }}.",
+      "groups": {
+        "commander": "Commander",
+        "planeswalker": "Planeswalkers",
+        "battle": "Batalles",
+        "creature": "Criatures",
+        "instant": "Instantanis",
+        "sorcery": "Bruixeries",
+        "enchantment": "Encantaments",
+        "artifact": "Artefactes",
+        "land": "Terres",
+        "sideboard": "Banqueta",
+        "other": "Altres",
+        "includingMdfc": "{{ count }} inclòs MDFC"
+      }
+    },
+    "shared": {
+      "deckWarnings": "Avisos de la baralla"
     }
   },
   "game": {
     "arrowTargetDialog": {
-      "selectArrowTargetPlayer": "Select arrow target player",
-      "drawArrow": "Draw arrow",
-      "chooseTargetBoard": "Choose target board",
-      "theSelectedBattlefieldOpensBehindThisPanel": "The selected battlefield opens behind this panel before you pick a card.",
-      "targetPlayer": "Target player",
-      "multipleTargets": "Multiple targets?",
-      "drawSeveralArrowsFromThisCard": "Draw several arrows from this card",
-      "targets": "Targets",
-      "cancel": "Cancel",
-      "selectTarget": "Select target"
+      "selectArrowTargetPlayer": "Selecciona el jugador objectiu de la fletxa",
+      "drawArrow": "Dibuixa una fletxa",
+      "chooseTargetBoard": "Triar el tauler de destinació",
+      "theSelectedBattlefieldOpensBehindThisPanel": "El camp de batalla seleccionat s'obre darrere d'aquest panell abans de triar una carta.",
+      "targetPlayer": "Jugador objectiu",
+      "multipleTargets": "Múltiples objectius?",
+      "drawSeveralArrowsFromThisCard": "Dibuixa diverses fletxes des d'aquesta carta",
+      "targets": "Objectius",
+      "cancel": "Cancel·la",
+      "selectTarget": "Seleccionar l'objectiu"
     },
     "battlefieldZoomControls": {
-      "openBattlefieldZoomControls": "Open battlefield zoom controls",
-      "battlefieldZoom": "Battlefield zoom",
-      "resetBattlefieldZoom": "Reset battlefield zoom",
-      "resetZoom": "Reset zoom"
+      "openBattlefieldZoomControls": "Obre els controls de zoom del camp de batalla",
+      "battlefieldZoom": "Zoom del camp de batalla",
+      "resetBattlefieldZoom": "Restablir el zoom del camp de batalla",
+      "resetZoom": "Restablir el zoom"
     },
     "cardPreviewOverlay": {
-      "cardPreviewDetails": "Card preview details",
-      "powerAndToughness": "Power and toughness",
-      "attachedTo": "Attached to",
-      "attached": "Attached",
-      "current": "Current",
-      "counters": "Counters"
+      "cardPreviewDetails": "Detalls de la vista prèvia de la carta",
+      "powerAndToughness": "Potència i duresa",
+      "attachedTo": "Annexa a",
+      "attached": "Adjunt",
+      "current": "Actual",
+      "counters": "Comptadors"
     },
     "cardSpoilerGrid": {
-      "lookAtOtherFace": "Look at other face",
-      "loadingCards": "Loading cards"
+      "lookAtOtherFace": "Mira una altra cara",
+      "loadingCards": "Carregant cartes"
     },
     "chatRecipientSelect": {
-      "chatRecipient": "Chat recipient"
+      "chatRecipient": "Destinatari del xat"
     },
     "contextMenu": {
-      "d": "D",
-      "s": "S",
-      "xX": "X/X",
-      "z": "Z",
-      "t": "T",
       "labels": {
-        "refreshSnapshot": "Refresh Snapshot",
-        "focusMyBoard": "Focus My Board",
-        "abrirDebug": "Abrir debug",
-        "concede": "Concede",
-        "leaveTable": "Leave Table",
-        "deleteArrow": "Delete Arrow",
-        "deleteArrows": "Delete Arrows",
-        "deleteCounter": "Delete Counter",
-        "resetManaPool": "Reset Mana Pool",
-        "focusPlayer": "Focus Player",
-        "life1": "Life +1",
-        "viewExile": "View Exile",
-        "viewGraveyard": "View Graveyard",
-        "drawCard": "Draw Card",
-        "drawXCards": "Draw X Cards",
-        "shuffle": "Shuffle",
-        "selectRandomCard": "Select Random Card",
-        "selectAllBattlefieldCards": "Select All Battlefield Cards",
-        "selectAllHandCards": "Select All Hand Cards",
-        "createToken": "Create Token",
-        "tirarDado": "Tirar dado",
-        "showManaPool": "Show Mana Pool",
-        "view": "View",
-        "drawArrow": "Draw Arrow",
-        "addMana": "Add Mana",
-        "attachTo": "Attach to...",
-        "unequip": "Unequip",
-        "detachAllAttached": "Detach all attached",
-        "makeATokenCopy": "Make A Token Copy",
-        "removeStack": "Remove stack",
-        "flipCardFace": "Flip Card Face",
-        "playFaceDown": "Play Face Down",
-        "previewCard": "Preview Card",
-        "moveTop": "Move Top",
-        "revealTopCard": "Reveal Top Card",
-        "revealLibrary": "Reveal Library",
-        "moveAllTo": "Move All To",
-        "counters": "Counters",
-        "giveToPlayer": "Give To Player",
-        "moveTo": "Move To",
-        "giveTo": "Give To",
-        "reveal": "Reveal",
-        "todos": "Todos",
-        "viewAllLibrary": "View all library",
-        "viewXTopCards": "View X top cards",
-        "bottomOfLibrary": "Bottom of Library",
-        "battlefield": "Battlefield",
-        "hand": "Hand",
-        "xToBottomOfLibrary": "X to bottom of library",
-        "xToGraveyard": "X to graveyard",
-        "xToExile": "X to exile",
-        "xToHandPlayer": "X to hand player",
-        "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters",
-        "createHelper": "Mecàniques",
-        "setRingBearer": "Assignar com a Portador de l'Anell",
-        "mechanics": "Mecàniques"
-      }
+        "refreshSnapshot": "Actualitza la instantània",
+        "focusMyBoard": "Enfoca el meu tauler",
+        "concede": "Concedir",
+        "leaveTable": "Deixar taula",
+        "deleteArrow": "Fletxa suprimir",
+        "deleteArrows": "Esborrar les fletxes",
+        "deleteCounter": "Esborra el comptador",
+        "resetManaPool": "Buida la reserva de manà",
+        "focusPlayer": "Jugador de focus",
+        "life1": "Vida +1",
+        "viewExile": "Veure l'exili",
+        "viewGraveyard": "Veure el cementiri",
+        "drawCard": "Robar una carta",
+        "drawXCards": "Robar X cartes",
+        "shuffle": "Barreja",
+        "selectRandomCard": "Seleccionar una carta aleatòria",
+        "selectAllBattlefieldCards": "Selecciona totes les cartes al camp de batalla",
+        "selectAllHandCards": "Selecciona totes les cartes de la mà",
+        "createToken": "Crea una fitxa",
+        "gameMechanics": "Mecànica del joc",
+        "addMonarch": "Afegir el monarca",
+        "becomeMonarch": "Convertir-se en el monarca",
+        "addInitiative": "Afegir la iniciativa",
+        "takeInitiative": "Prendre la iniciativa",
+        "addDayNight": "Afegir dia/nit",
+        "addTheRing": "Afegir l'anell",
+        "addDungeon": "Afegir masmorra",
+        "addCitysBlessing": "Obtenir la benedicció de la ciutat",
+        "removeCitysBlessing": "Treure la benedicció de la ciutat",
+        "addEmblem": "Afegir emblema",
+        "showManaPool": "Mostra la reserva de manà",
+        "view": "Vista",
+        "drawArrow": "Dibuixa una fletxa",
+        "addMana": "Afegeix manà",
+        "attachTo": "Adjuntar a...",
+        "unequip": "Desequipar",
+        "detachAllAttached": "Separar-ho tot adjunt",
+        "makeATokenCopy": "Crea una fitxa que sigui una còpia",
+        "removeStack": "Treure de la pila",
+        "flipCardFace": "Capgirar la cara de la carta",
+        "playFaceDown": "Jugar boca avall",
+        "previewCard": "Carta de vista prèvia",
+        "moveTop": "Moure cap amunt",
+        "revealTopCard": "Revela la carta superior",
+        "revealLibrary": "Revela la biblioteca",
+        "moveAllTo": "Mou-ho tot a",
+        "counters": "Comptadors",
+        "giveToPlayer": "Donar al jugador",
+        "moveTo": "Moure a",
+        "giveTo": "Donar a",
+        "reveal": "Revelar",
+        "viewAllLibrary": "Veure la biblioteca",
+        "viewXTopCards": "Mira les X cartes superiors",
+        "bottomOfLibrary": "Fons de la biblioteca",
+        "battlefield": "Camp de batalla",
+        "hand": "Mà",
+        "xToBottomOfLibrary": "Posa X cartes al fons de la biblioteca",
+        "xToGraveyard": "Posa X cartes al cementiri",
+        "xToExile": "Posa X cartes a l'exili",
+        "xToHandPlayer": "Posa X cartes a la mà d'un jugador",
+        "xToBattlefieldPlayer": "Posa X cartes al camp de batalla sota el control d'un jugador",
+        "removeAllCounters": "Eliminar tots els comptadors",
+        "createHelper": "Mecànica",
+        "setRingBearer": "Establert com a portador d'anell",
+        "mechanics": "Mecànica",
+        "openDebug": "Depuració oberta",
+        "rollDice": "Tira el dau",
+        "all": "Tots"
+      },
+      "drawShortcut": "D",
+      "shuffleShortcut": "S",
+      "tapShortcut": "T",
+      "faceDownShortcut": "Z",
+      "powerToughnessShortcut": "X/X"
     },
     "contextSubmenu": {
       "x": "X"
     },
     "focusedBattlefield": {
-      "manaRow": "Mana row"
+      "manaRow": "Fila de mana"
     },
     "gameAdBanner": {
-      "advertisingBanner": "Advertising banner"
+      "advertisingBanner": "Banner publicitari"
     },
     "gameArrowLayer": {
-      "battlefieldArrows": "Battlefield arrows"
+      "battlefieldArrows": "Fletxes del camp de batalla"
     },
     "cardMarkerRail": {
-      "estaCartaEsUnTokenCopy": "Esta carta es un token copy",
-      "openOracleRulingsOnScryfall": "Open Oracle rulings on Scryfall"
+      "openOracleRulingsOnScryfall": "Obre els rulings d'Oracle a Scryfall",
+      "tokenCopyLabel": "Aquesta fitxa és una còpia"
     },
     "gameCardView": {
-      "lookAtOtherFace": "Look at other face",
-      "powerAndToughness": "Power and toughness",
-      "powerLeftClickAddsRightClickRemoves": "Power. Left click adds, right click removes.",
-      "toughnessLeftClickAddsRightClickRemoves": "Toughness. Left click adds, right click removes.",
-      "attach": "Attach",
-      "stack": "Stack"
+      "lookAtOtherFace": "Mira una altra cara",
+      "powerAndToughness": "Potència i duresa",
+      "powerLeftClickAddsRightClickRemoves": "Poder. el clic esquerre afegeix, el clic dret s'elimina.",
+      "toughnessLeftClickAddsRightClickRemoves": "Duresa. el clic esquerre afegeix, el clic dret s'elimina.",
+      "battleCounter": "Batalla",
+      "battleCounterTooltip": "Batalla. el clic esquerre afegeix, el clic dret s'elimina.",
+      "sagaCounter": "Saga",
+      "sagaCounterTooltip": "Saga. el clic esquerre afegeix, el clic dret s'elimina.",
+      "attach": "Adjuntar",
+      "stack": "Pila"
     },
     "loyaltyCounter": {
-      "loyalty": "Loyalty",
-      "loyaltyLeftClickAddsRightClickRemoves": "Loyalty. Left click adds, right click removes."
+      "loyalty": "Lleialtat",
+      "loyaltyLeftClickAddsRightClickRemoves": "Lleialtat. el clic esquerre afegeix, el clic dret s'elimina."
     },
     "gameDisconnectVoteModal": {
-      "votosDeDesconexion": "Votos de desconexion",
-      "jugadorDesconectado": "Jugador desconectado",
-      "tuVoto": "Tu voto:",
-      "tiempoRestante": "Tiempo restante:",
-      "elJugadorObjetivoYaApareceOnline": "El jugador objetivo ya aparece online."
+      "disconnectVotes": "Desconnectar els vots",
+      "expel": "Expulsar",
+      "genericDisconnectedMessage": "Un jugador s'ha desconnectat. votar si s'espera a la seva reconnexió o si els expulsa de la taula.",
+      "noVote": "Cap vot",
+      "playerDisconnectedMessage": "{{ playerName }} s'ha desconnectat. votar si s'espera a la seva reconnexió o si els expulsa de la taula.",
+      "wait": "Espera",
+      "playerDisconnected": "Jugador desconnectat",
+      "yourVote": "El teu vot:",
+      "timeRemaining": "Temps restant:",
+      "targetPlayerBackOnline": "El jugador objectiu torna a estar en línia."
     },
     "gameRematchModal": {
-      "votacionesDeLaRoom": "Votaciones de la sala",
-      "tuVotoActual": "Tu voto actual:",
-      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado salir de la sala."
+      "roomVotes": "Vots de sala",
+      "closeVotes": "Tanca les votacions",
+      "defeatedMessage": "Vols tornar a jugar amb aquesta sala?",
+      "extraTime": "Temps extra",
+      "legendaryVictory": "Victòria llegendària",
+      "leaveRoom": "Surt de la sala",
+      "lifeTotal": "{{ life }} punts de vida",
+      "noVote": "Cap vot",
+      "playAgain": "Jugar de nou",
+      "playersHaveSecondsToVote": "{{ playerNames }} tenen {{ seconds }} s per votar.",
+      "playersMissingExtra": "{{ playerNames }} encara han de votar. Tenen {{ seconds }} s addicionals per votar.",
+      "timeLimit": "Límit de temps",
+      "winnerMessage": "La taula és teva. vas sobreviure al caos i vas tancar el joc amb autoritat.",
+      "youDied": "Vas morir",
+      "youHaveSecondsToVote": "Tens {{ seconds }} s per votar.",
+      "yourVoteMissingExtra": "Falta el teu vot. Tens {{ seconds }} s addicionals per votar.",
+      "currentVote": "El teu vot actual:",
+      "otherPlayersAlreadyVoted": "La resta de jugadors ja han votat per sortir de la sala."
     },
     "gameTableHeader": {
-      "currentPlayer": "Current player"
+      "currentPlayer": "Jugador actual"
     },
     "gameXQuantityStepper": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "Ajustar el valor",
+      "increaseValue": "Augmentar el valor",
+      "decreaseValue": "Disminuir el valor"
     },
     "manaActionDialog": {
-      "manaProductionParts": "Mana production parts",
-      "fixedMana": "Fixed mana",
-      "manaToAdd": "Mana to add",
-      "manaAmount": "Mana amount",
-      "cancel": "Cancel"
+      "manaProductionParts": "Parts de producció de manà",
+      "fixedMana": "Manà fix",
+      "manaToAdd": "Manà per afegir",
+      "manaAmount": "Quantitat de manà",
+      "cancel": "Cancel·la"
     },
     "manaPoolPanel": {
-      "manaPool": "Mana pool",
-      "hideManaPool": "Hide mana pool"
+      "manaPool": "Reserva de manà",
+      "hideManaPool": "Amaga la reserva de manà"
     },
     "numberActionDialog": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "Ajustar el valor",
+      "increaseValue": "Augmentar el valor",
+      "decreaseValue": "Disminuir el valor"
     },
     "opponentMiniBoard": {
-      "opponentZoneCounts": "Opponent zone counts",
-      "playerDefeated": "Player defeated",
-      "deckPending": "Deck pending",
-      "turno": "Turno"
+      "opponentZoneCounts": "La zona rival compta",
+      "playerDefeated": "Jugador derrotat",
+      "deckPending": "Baralla pendent",
+      "turn": "Torn"
     },
     "playerSummaryPanel": {
-      "lifeControls": "Life controls",
-      "lifeTotal": "Life total",
-      "playerCounters": "Player counters",
-      "commanderDamage": "Commander damage",
-      "otherCounters": "Other counters",
-      "extras": "Extras",
-      "openExtraPlayerCounters": "Open extra player counters",
-      "extraPlayerCounters": "Extra player counters"
+      "lifeControls": "Controls de la vida",
+      "lifeTotal": "Total de vida",
+      "playerCounters": "Comptadors de jugadors",
+      "commanderDamage": "Dany de comandant",
+      "otherCounters": "Altres comptadors",
+      "extras": "Extres",
+      "openExtraPlayerCounters": "Obrir comptadors de jugadors addicionals",
+      "extraPlayerCounters": "Comptadors de jugadors addicionals"
     },
     "powerToughnessDialog": {
-      "setPowerAndToughness": "Set power and toughness",
-      "powerToughness": "Power / Toughness",
-      "power": "Power",
-      "toughness": "Toughness",
-      "cancel": "Cancel",
-      "apply": "Apply"
+      "setPowerAndToughness": "Defineix força i resistència",
+      "powerToughness": "Força / resistència",
+      "power": "Força",
+      "toughness": "Resistència",
+      "cancel": "Cancel·la",
+      "apply": "Aplicar"
     },
     "tokenSearchModal": {
-      "searchTokens": "Search tokens",
-      "tokenCreationControls": "Token creation controls",
-      "createToken": "Create token",
-      "loadingDeckTokens": "Loading deck tokens...",
-      "searchingTokens": "Searching tokens..."
+      "tokenCreationControls": "Controls de creació de fitxes",
+      "loadingDeckTokens": "Carregant fitxes de la baralla...",
+      "searchingTokens": "Cercant fitxes..."
     },
     "playersOrder": {
-      "ordenDeTurno": "Orden de turno"
+      "currentTurnLabel": "Gira {{ turnNumber }}",
+      "upcomingTurnLabel": "En {{ count }}",
+      "currentTurnTitle": "{{ name }} té el torn",
+      "upcomingTurnTitle": "{{ name }} és a {{ count }} torn(s) de distància",
+      "turnOrder": "Ordre de torn"
     },
     "turnPhasePanel": {
-      "turnPhases": "Turn phases",
-      "focusTheActiveTurnPlayer": "Focus the active turn player",
-      "pasarTurno": "Pasar turno",
-      "focusTurn": "Focus turn"
+      "turnPhases": "Fases de torn",
+      "focusTheActiveTurnPlayer": "Centrar el jugador de torn actiu",
+      "focusTurn": "Gir de focus",
+      "passTurn": "Passar torn"
     },
     "zoneModal": {
-      "searchByName": "Search by name",
-      "closeZone": "Close zone",
-      "readOnlyLibraryReview": "Read-only library review",
-      "type": "Type",
-      "allTypes": "All types",
-      "creatures": "Creatures",
-      "instants": "Instants",
-      "sorceries": "Sorceries",
-      "artifacts": "Artifacts",
-      "enchantments": "Enchantments",
+      "searchByName": "Cerca pel nom",
+      "closeZone": "Zona tancada",
+      "readOnlyLibraryReview": "Revisió de la biblioteca només de lectura",
+      "type": "Tipus",
+      "allTypes": "Tots els tipus",
+      "creatures": "Criatures",
+      "instants": "Instantanis",
+      "sorceries": "Bruixeries",
+      "artifacts": "Artefactes",
+      "enchantments": "Encantaments",
       "planeswalkers": "Planeswalkers",
-      "lands": "Lands",
-      "search": "Search"
+      "lands": "Terres",
+      "search": "Cerca"
     },
     "gameTable": {
-      "message": "Message",
-      "closeGame": "Close game?",
-      "moverCartaAOtroBattlefield": "Mover carta a otro battlefield",
-      "giveCard": "Give card?",
-      "moveToHand": "Move to hand?",
-      "devolverABiblioteca": "Devolver a biblioteca",
-      "moveAllToLibrary": "Move all to library",
-      "rotateYourDevice": "Rotate your device",
-      "gamesCanOnlyBePlayedInLandscape": "Games can only be played in landscape on mobile and tablet.",
-      "thisTableNeedsALittleMoreRoom": "This table needs a little more room",
-      "sorryThisResolutionIsTooCrampedFor": "Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.",
-      "useCtrl0InYourBrowserTo": "Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.",
-      "leaveRoom": "Leave room",
-      "loadingGame": "Loading game...",
-      "gameLog": "Game Log",
-      "chat": "Chat",
-      "noGameActionsYet": "No game actions yet.",
-      "noChatMessagesYet": "No chat messages yet.",
-      "reactedBy": "Reacted by",
-      "votaciones": "Votaciones",
-      "opponents": "Opponents",
-      "randomOrder": "Random order",
-      "shuffleOnlyTheseCardsBeforePlacingThem": "Shuffle only these cards before placing them.",
-      "gameLogUnreadActions": "Game Log, unread actions",
-      "chatUnreadMessages": "Chat, unread messages"
+      "message": "Missatge",
+      "closeGame": "Tancar la partida?",
+      "giveCard": "Donar la carta?",
+      "moveToHand": "Posar a la mà?",
+      "moveAllToLibrary": "Posar-ho tot a la biblioteca",
+      "rotateYourDevice": "Gira el teu dispositiu",
+      "gamesCanOnlyBePlayedInLandscape": "Els jocs només es poden jugar en paisatge al mòbil i a la tauleta.",
+      "thisTableNeedsALittleMoreRoom": "Aquesta taula necessita una mica més d'espai",
+      "sorryThisResolutionIsTooCrampedFor": "Ho sento, aquesta resolució és massa limitada per a un joc Commander. ajusteu el zoom del navegador o utilitzeu una finestra més gran.",
+      "useCtrl0InYourBrowserTo": "Fes servir Ctrl+0 al navegador per restablir el zoom al 100% i després actualitza o redimensiona aquesta finestra.",
+      "leaveRoom": "Surt de la sala",
+      "gameLog": "Registre del joc",
+      "chat": "Xat",
+      "noGameActionsYet": "Encara no hi ha cap acció de joc.",
+      "noChatMessagesYet": "Encara no hi ha missatges de xat.",
+      "reactedBy": "Reaccionat per",
+      "votes": "Vots",
+      "opponents": "Oponents",
+      "randomOrder": "Ordre aleatori",
+      "shuffleOnlyTheseCardsBeforePlacingThem": "Barreja només aquestes cartes abans de col·locar-les.",
+      "gameLogUnreadActions": "Registre del joc, accions no llegides",
+      "chatUnreadMessages": "Xat, missatges no llegits",
+      "moveCardToAnotherBattlefield": "Posa la carta en un altre camp de batalla",
+      "putIntoLibrary": "Posar a la biblioteca"
     },
     "reactions": {
-      "like": "Like",
-      "dislike": "Dislike",
-      "love": "Love",
-      "laugh": "Laugh",
-      "angry": "Very angry",
-      "vomit": "Vomit",
-      "cry": "Cry"
+      "like": "Com",
+      "dislike": "Desagradar",
+      "love": "Amor",
+      "laugh": "Riure",
+      "angry": "Molt enfadat",
+      "vomit": "Vomitar",
+      "cry": "Plorar"
     },
     "numberAction": {
       "drawCards": {
-        "title": "Draw cards",
-        "description": "Choose how many cards to draw from your library.",
-        "confirm": "Draw"
+        "title": "Robar cartes",
+        "description": "Tria quantes cartes vols robar de la teva biblioteca.",
+        "confirm": "Roba"
       },
       "moveTopCards": {
-        "title": "Move top cards",
-        "description": "Choose how many top library cards to move.",
-        "confirm": "Move"
+        "title": "Moure cartes superiors",
+        "description": "Tria quantes cartes de la part superior de la biblioteca vols posar en una altra zona.",
+        "confirm": "Moure's"
       },
       "viewTopCards": {
-        "title": "View top cards",
-        "description": "Choose how many top library cards to view.",
-        "confirm": "View"
+        "title": "Mirar cartes superiors",
+        "description": "Tria quantes cartes de la part superior de la biblioteca vols mirar.",
+        "confirm": "Vista"
       }
     },
     "playerCounters": {
-      "poison": "Poison",
-      "energy": "Energy",
-      "experience": "Experience",
+      "poison": "Verí",
+      "energy": "Energia",
+      "experience": "Experiència",
       "rad": "Rad",
-      "tickets": "Tickets"
+      "tickets": "Bitllets"
     },
     "zones": {
-      "hand": "Hand",
-      "library": "Library",
-      "graveyard": "Graveyard",
-      "exile": "Exile"
+      "hand": "Mà",
+      "library": "Biblioteca",
+      "graveyard": "Cementiri",
+      "exile": "Exili"
     },
     "chat": {
-      "allPlayers": "Todos"
+      "allPlayers": "Tots els jugadors"
     },
     "specialHelpers": {
       "modal": {
-        "title": "Mecàniques",
+        "title": "Mecànica",
         "quickActions": "Accions ràpides",
-        "cardBacked": "Entitats amb carta",
+        "cardBacked": "Ajudants amb carta",
         "searchPlaceholder": "Cerca emblemes o masmorres",
-        "searching": "Cercant ajudes...",
+        "searching": "Buscant ajudants...",
         "noResults": "No s'han trobat resultats.",
-        "searchHint": "Escriu almenys 2 caràcters per cercar.",
-        "searchError": "No s'han pogut carregar les entitats especials.",
+        "searchHint": "Escriviu almenys 2 caràcters per cercar.",
+        "searchError": "No s'han pogut carregar els ajudants especials.",
         "playerTarget": "Jugador: {{playerName}}",
         "currentState": "Estat actual",
-        "readonly": "Només lectura. Pots consultar aquestes mecàniques aquí, però només el jugador que controla aquesta posició les pot canviar.",
-        "ringLevel": "Nivell de l'Anell",
-        "noRingBearer": "Sense Portador de l'Anell",
-        "removeHelper": "Eliminar",
-        "clearRingBearer": "Treure Portador de l'Anell",
-        "ringLevelUp": "Pujar nivell",
-        "ringLevelDown": "Baixar nivell",
-        "noActiveMechanics": "No hi ha mecàniques actives.",
-        "notSet": "Sense definir"
+        "readonly": "Només de lectura. aquí pots inspeccionar la mecànica, però només el jugador que controla pot canviar-la.",
+        "ringLevel": "Nivell de l'anell",
+        "noRingBearer": "No s'ha assignat cap portador d'anell",
+        "removeHelper": "Elimina",
+        "clearRingBearer": "Elimina el portador de l'Anell",
+        "ringLevelUp": "Nivell +1",
+        "ringLevelDown": "Nivell -1",
+        "noActiveMechanics": "Sense mecànica activa.",
+        "notSet": "No establert"
       },
       "quick": {
         "monarch": "Convertir-se en monarca",
         "initiative": "Prendre la iniciativa",
         "citysBlessing": "Obtenir la benedicció de la ciutat",
-        "theRing": "Crear l'Anell",
-        "setDay": "Posar de dia",
-        "setNight": "Posar de nit"
+        "theRing": "Crear l'anell",
+        "setDay": "Dia fixat",
+        "setNight": "Posar la nit"
       },
       "labels": {
         "monarch": "Monarca",
         "initiative": "Iniciativa",
-        "citys_blessing": "Benedicció de la ciutat",
-        "day_night": "Dia/Nit",
-        "the_ring": "L'Anell",
+        "theRing": "L'anell",
         "emblem": "Emblema",
-        "dungeon": "Masmorra",
+        "dungeon": "Calabós",
         "day": "Dia",
-        "night": "Nit"
+        "night": "Nit",
+        "citysBlessing": "La benedicció de la ciutat",
+        "dayNight": "Dia/nit"
+      },
+      "dungeonReplacement": {
+        "title": "Substituir la masmorra activa?",
+        "message": "Només pots tenir una masmorra activa. Vols substituir {{currentDungeon}} per {{nextDungeon}}?",
+        "confirm": "Substituir la masmorra",
+        "cancel": "Cancel·la"
+      },
+      "citysBlessingRemoval": {
+        "title": "Eliminar la benedicció de la ciutat?",
+        "message": "Aquest jugador perdrà la benedicció de la ciutat. Vols continuar?",
+        "confirm": "Elimina",
+        "cancel": "Cancel·la"
       },
       "rail": {
         "title": "Entitats especials",
-        "ringLevel": "Nivell de l'Anell"
+        "ringLevel": "Nivell de l'anell"
+      }
+    },
+    "zonePilesPanel": {
+      "monarchBadgeTooltip": "Tu ets el monarca."
+    },
+    "mulliganOverlay": {
+      "title": "Mulligan",
+      "metaAriaLabel": "Estat del mulligan",
+      "firstMulliganFree": "El primer mulligan és gratuït",
+      "mulligansTaken": "Mulligans: {{ count }}",
+      "effectiveMulligans": "Efectius: {{ count }}",
+      "scryTitle": "Scry 1",
+      "scryDescription": "Tria què vols fer amb la carta superior de la teva biblioteca.",
+      "waitingForPlayers": "Esperant els altres jugadors...",
+      "currentHand": "Mà actual",
+      "emptyHand": "Sense cartes a la mà.",
+      "selectedCount": "{{ selected }} / {{ total }} seleccionades",
+      "bottomSelectionHelp": "Escriptori: clic dret per posar una carta al fons. Mòbil/tauleta: fes servir el botó de posar al fons.",
+      "otherPlayersStatus": "Estat d'altres jugadors",
+      "players": "Jugadors",
+      "noOtherPlayers": "Cap altre jugador.",
+      "rules": {
+        "london": "London",
+        "vancouver": "Vancouver",
+        "paris": "Paris",
+        "generous": "Generous"
+      },
+      "status": {
+        "deciding": "decidint",
+        "scrying": "plorant",
+        "ready": "llest"
+      },
+      "actions": {
+        "keepOnTop": "Mantenir a dalt",
+        "putOnBottom": "Posar al fons",
+        "removeFromBottom": "Treure del fons"
+      },
+      "description": {
+        "londonNoBottom": "Roba 7. No cal posar cap carta al fons.",
+        "londonChooseBottom": "Roba 7. Tria {{ count }} carta(es) per posar al fons.",
+        "londonBottomOrder": "L'ordre escollit serà l'ordre de la part inferior.",
+        "drawCards": "Roba {{ count }} carta(s).",
+        "vancouverScry": "Després fes scry 1.",
+        "generousNoBottom": "Roba {{ count }} carta(es). No cal posar cap carta al fons.",
+        "generousChooseBottom": "Roba {{ drawCount }} carta(es). Tria {{ bottomCount }} per posar-les al fons en ordre aleatori.",
+        "generousRandomOrder": "L'ordre final serà aleatori."
       }
     }
   },
   "deckBuilder": {
     "cards": {
       "cardDetail": {
-        "backToSearch": "Back to search",
-        "loadingCard": "Loading card...",
-        "colorIdentity": "Color identity:",
+        "colorIdentity": "Identitat de color:",
         "commander": "Commander:"
       },
       "cardSearch": {
         "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
-        "cards": "Cards",
-        "searchLibrary": "Search library",
-        "search": "Search",
-        "searchingCards": "Searching cards...",
-        "noCardsFound": "No cards found."
+        "header": {
+          "title": "Cartes",
+          "description": "Troba la carta perfecta abans que comenci la política de taula."
+        },
+        "search": "Cerca",
+        "clear": "Neteja",
+        "close": "Tanca",
+        "advancedFilters": "Filtres avançats",
+        "searchingCards": "Buscant cartes...",
+        "noCardsFound": "No s'han trobat cartes.",
+        "actions": {
+          "showDetails": "Mostra detalls",
+          "addToDeck": "Afegir a la baralla",
+          "showRulings": "Mostra aclariments",
+          "viewPrintings": "Mostra totes les impressions"
+        },
+        "details": {
+          "close": "Tanca els detalls",
+          "couldNotLoad": "No s'ha pogut carregar aquesta carta.",
+          "oracleText": "Text oracle",
+          "noOracleText": "No hi ha cap text d'oracle disponible.",
+          "legalFormats": "Formats legals",
+          "illegalFormats": "Formats il·legals",
+          "noLegalFormats": "No hi ha formats legals al catàleg local.",
+          "noIllegalFormats": "No hi ha formats il·legals al catàleg local."
+        },
+        "addToDeck": {
+          "title": "Afegir carta",
+          "deck": "Baralla",
+          "section": "Secció",
+          "quantity": "Quantitat",
+          "selectDeck": "Selecciona una baralla",
+          "selectSection": "Seleccionar una secció",
+          "decreaseQuantity": "Disminuir la quantitat",
+          "increaseQuantity": "Augmentar la quantitat",
+          "sectionMain": "Baralla principal",
+          "sectionCommander": "Commander",
+          "sectionSideboard": "Banqueta",
+          "sectionConsidering": "En consideració",
+          "confirm": "Afegir carta",
+          "cancel": "Cancel·la",
+          "noDecks": "Encara no tens baralles.",
+          "colorIdentityWarning": "{{ card }} té una identitat de color fora dels colors de comandant de {{ deck }}:",
+          "formatLegalityWarning": "{{ card }} no és legal en {{ format }}, el format de baralla seleccionat.",
+          "couldNotLoadDecks": "No s'han pogut carregar les teves baralles.",
+          "couldNotAdd": "No s'ha pogut afegir aquesta carta a la baralla seleccionada."
+        },
+        "printings": {
+          "title": "Impressions de {{ card }}",
+          "empty": "No s'han trobat impressions per a aquesta carta.",
+          "couldNotLoad": "No s'han pogut carregar les impressions de la carta.",
+          "close": "Tanca"
+        },
+        "summary": {
+          "ariaLabel": "Filtres de cerca de cartes aplicats",
+          "activeQuery": "Consulta activa",
+          "totalFound": "{{ total }} cartes trobades",
+          "pageStatus": "Pàgina {{ page }} de {{ pages }}",
+          "filters": {
+            "name": "Nom",
+            "rules": "Regles",
+            "types": "Tipus",
+            "subtypes": "Subtipus",
+            "sets": "Conjunts",
+            "rarity": "Raresa",
+            "colors": "Colors",
+            "cardKind": "Tipus",
+            "manaValue": "Valor de manà",
+            "manaCost": "Cost de manà",
+            "power": "Força",
+            "toughness": "Resistència",
+            "formats": "Formats"
+          }
+        },
+        "sort": {
+          "label": "Ordenar",
+          "colors": "Colors",
+          "nameAsc": "Nom a-z",
+          "nameDesc": "Nom z-a",
+          "manaValueAsc": "Valor de manà baix-alt",
+          "manaValueDesc": "Valor de manà alt-baix"
+        },
+        "view": {
+          "list": "Llista",
+          "spoiler": "Spoiler"
+        },
+        "form": {
+          "name": "Nom",
+          "textA": "Text de regles",
+          "textB": "Segon text",
+          "textMode": "Coincidència de text",
+          "textModeAll": "Tots els termes del text",
+          "textModeAllDescription": "Ambdues caselles han d'aparèixer al text de les regles de la carta.",
+          "textModeAny": "Qualsevol terme del text",
+          "textModeAnyDescription": "Qualsevol casella pot coincidir amb el text de les regles de la carta.",
+          "types": "Tipus",
+          "subtypes": "Subtipus",
+          "sets": "Conjunts",
+          "rarity": "Raresa",
+          "colors": "Colors",
+          "colorMode": "Coincidència de colors",
+          "colorModeAny": "Qualsevol",
+          "colorModeAll": "Tots",
+          "colorModeExact": "Exacte",
+          "clearManaCost": "Esborra el cost de manà",
+          "basic": "Bàsic",
+          "legendary": "Llegendari",
+          "artifact": "Artefacte",
+          "multicolor": "Multicolor",
+          "land": "Terra",
+          "costs": "Costos",
+          "manaValueMin": "Valor de manà mín.",
+          "manaValueMax": "Valor de manà màx.",
+          "manaCost": "Cost de manà",
+          "powerToughness": "Força i resistència",
+          "powerMin": "Força mín.",
+          "powerMax": "Força màx.",
+          "toughnessMin": "Resistència mín.",
+          "toughnessMax": "Resistència màx.",
+          "includeVariablePower": "Inclou força *",
+          "includeVariablePowerDescription": "També inclou cartes amb força no fixa, com ara * o 1+*.",
+          "includeVariableToughness": "Inclou resistència *",
+          "includeVariableToughnessDescription": "També inclou cartes amb resistència no fixa, com ara * o 1+*.",
+          "formats": "Formats",
+          "filterOptions": "Opcions de filtre",
+          "presentation": "Presentació",
+          "loadingOptions": "S'estan carregant els filtres...",
+          "enabled": "Actiu",
+          "activeFilters": "filtres actius",
+          "precisionConsole": "Consola de precisió",
+          "composeSearch": "Crear la consulta exacta de la carta",
+          "oracleText": "Text de les regles de la carta",
+          "textAPlaceholder": "Roba una carta, destrueix l'objectiu, sempre que llancis...",
+          "textBPlaceholder": "Segon terme opcional de la regla",
+          "removeManaSymbol": "Elimina l'últim símbol de mana"
+        },
+        "help": {
+          "title": "Guia de cerca",
+          "heading": "Guia de cerca avançada",
+          "nameTitle": "Nom",
+          "name": "Cerca pel nom complet o parcial de la carta. CommanderZone comprova els noms canònics, els noms impresos/localitzats i els noms de sabors quan el catàleg local els té, de manera que els noms localitzats i en anglès poden trobar la mateixa carta.",
+          "textTitle": "Text de la carta",
+          "text": "Fes servir un o dos termes de text de regles. El selector de coincidència decideix si tots dos camps han d'aparèixer a la carta o si n'hi ha prou amb un. El text es comprova al text Oracle i a les cares de les cartes.",
+          "subtypesTitle": "Subtipus",
+          "subtypes": "El subtipus funciona independentment del tipus. Pots combinar-lo amb qualsevol altra secció per trobar coses com Elf, Goblin, Drac, Equipament o Aura.",
+          "rarityTitle": "Raresa",
+          "rarity": "Podeu seleccionar diverses rareses alhora. les píndoles de colors són només una ajuda visual; la cerca encara utilitza la raresa del catàleg.",
+          "colorsTitle": "Color",
+          "colors": "La coincidència de colors controla com es comporten els colors impresos seleccionats: qualsevol color seleccionat, tots els colors seleccionats o exactament aquest conjunt de colors. artefacte, multicolor i terra són dreceres addicionals.",
+          "costsTitle": "Costos",
+          "costs": "El valor de manà utilitza el catàleg de cartes normalitzat de CommanderZone, on X compta com a 0. El cost de manà exacte es construeix amb el selector de símbols, de manera que no cal que escriguis codis de color.",
+          "statsTitle": "Força i resistència",
+          "stats": "Els intervals de força i resistència comparen valors numèrics. Activa la casella de valor variable si també vols cartes amb valors com * o 1+*."
+        },
+        "actionsAriaLabel": "Accions de cerca de cartes",
+        "filtersAriaLabel": "Filtres de cerca de cartes"
+      },
+      "cardImage": {
+        "flipFace": "Capgirar la cara"
       },
       "autocomplete": {
         "cardAutocomplete": {
-          "searchingCards": "Searching cards..."
+          "searchingCards": "Buscant cartes..."
         }
       }
     },
     "deckAnalysisPanel": {
-      "typeBreakdown": "Type breakdown",
-      "utilityCounts": "Utility counts"
+      "typeBreakdown": "Desglossament de tipus",
+      "utilityCounts": "Compta d'utilitats"
     },
     "deckManaBalancePanel": {
-      "manaBalance": "Mana balance",
-      "coloredSourceShareVersusColorDemand": "Colored source share versus color demand.",
-      "sources": "sources",
-      "sourceMix": "Source mix"
+      "manaBalance": "Equilibri de mana",
+      "coloredSourceShareVersusColorDemand": "Quota d'origen de color versus demanda de color.",
+      "sources": "fonts",
+      "sourceMix": "Barreja de fonts"
     },
     "deckManaCurvePanel": {
-      "manaCurve": "Mana curve",
-      "mainDeckByManaValue": "Main deck by mana value.",
+      "manaCurve": "Corba de mana",
+      "mainDeckByManaValue": "Baralla principal per valor de manà.",
       "permanents": "Permanents",
-      "spells": "Spells",
-      "sampleHand": "Sample hand",
-      "sevenRandomCardsFromTheMainDeck": "Seven random cards from the main deck.",
-      "drawAgain": "Draw again",
-      "noCardsAvailable": "No cards available."
+      "spells": "Encanteris",
+      "sampleHand": "Mostra de mà",
+      "sevenRandomCardsFromTheMainDeck": "Set cartes aleatòries de la baralla principal.",
+      "drawAgain": "Roba de nou",
+      "noCardsAvailable": "No hi ha cartes disponibles."
     },
     "deckCardMenu": {
-      "copyQuantityControls": "Copy quantity controls",
-      "selectedCardPreview": "Selected card preview",
-      "quantityToAddOrRemove": "Quantity to add or remove",
-      "editingCard": "Editing card",
-      "quantity": "Quantity",
-      "add": "Add",
-      "remove": "Remove",
-      "selectPrintVersion": "Select print version",
-      "moveToMain": "Move to main",
-      "moveToCommander": "Move to commander",
-      "moveToSideboard": "Move to sideboard",
-      "moveToConsidering": "Move to considering"
+      "copyQuantityControls": "Controls de quantitat de còpia",
+      "selectedCardPreview": "Vista prèvia de la carta seleccionada",
+      "quantityToAddOrRemove": "Quantitat per afegir o eliminar",
+      "editingCard": "Carta d'edició",
+      "quantity": "Quantitat",
+      "add": "Afegir",
+      "remove": "Elimina",
+      "selectPrintVersion": "Selecciona la versió impresa",
+      "moveToMain": "Passar a principal",
+      "moveToCommander": "Passar al comandant",
+      "moveToSideboard": "Moure a la banqueta",
+      "moveToConsidering": "Passar a considerar"
     },
     "deckCardSpoilerView": {
-      "flipFace": "Flip face",
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "flipFace": "Capgirar la cara",
+      "noCommanderAssignedYet": "Encara no hi ha cap comandant assignat."
     },
     "deckCardTextView": {
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "noCommanderAssignedYet": "Encara no hi ha cap comandant assignat.",
+      "unknownType": "Tipus desconegut"
     },
     "deckCommanderShowcase": {
-      "flipFace": "Flip face"
+      "flipFace": "Capgirar la cara"
     },
     "deckEditor": {
-      "addCardsByName": "Add cards by name",
-      "searchAnotherCardName": "Search another card name",
-      "text1SolRingVoc168101": "1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141",
-      "deckEditorSections": "Deck editor sections",
-      "copyCardName": "Copy card name",
-      "searchCard": "Search card",
-      "saveMissingCard": "Save missing card",
-      "ignoreThisSession": "Ignore this session",
-      "remove": "Remove",
-      "clearLocalHistory": "Clear local history",
-      "importDecklist": "Import decklist",
-      "selectPrintVersion": "Select print version",
-      "restoreHistory": "Restore history",
-      "loadingDeck": "Loading deck...",
-      "view": "View",
+      "addCardsByName": "Afegir cartes pel nom",
+      "searchAnotherCardName": "Cerqueu un altre nom de carta",
+      "deckEditorSections": "Seccions de l'editor de baralles",
+      "copyCardName": "Copia el nom de la carta",
+      "searchCard": "Carta de cerca",
+      "saveMissingCard": "Desa la carta que falta",
+      "ignoreThisSession": "Ignora aquesta sessió",
+      "remove": "Elimina",
+      "clearLocalHistory": "Esborra l'historial local",
+      "importDecklist": "Importar llista de baralles",
+      "selectPrintVersion": "Selecciona la versió impresa",
+      "restoreHistory": "Restaurar la història",
+      "view": "Vista",
       "text": "Text",
       "spoiler": "Spoiler",
-      "analysis": "Analysis",
-      "considering": "Considering",
-      "validation": "Validation",
-      "missing": "Missing",
-      "history": "History",
-      "consideringCards": "Considering cards",
-      "cardsParkedOutsideThePlayableDeck": "Cards parked outside the playable deck.",
-      "noConsideringCards": "No considering cards.",
-      "derivedTokens": "Derived tokens",
-      "resolvedFromCardsCurrentlyInTheDeck": "Resolved from cards currently in the deck.",
-      "noResolvedTokensForThisDeck": "No resolved tokens for this deck.",
-      "unresolvedTokens": "Unresolved tokens",
-      "validateWithBackend": "Validate with backend",
+      "analysis": "Anàlisi",
+      "considering": "En consideració",
+      "validation": "Validació",
+      "missing": "Desaparegut",
+      "history": "Història",
+      "consideringCards": "Cartes en consideració",
+      "cardsParkedOutsideThePlayableDeck": "Cartes aparcades fora de la baralla jugable.",
+      "noConsideringCards": "Sense tenir en compte les cartes.",
+      "derivedTokens": "Fitxes derivades",
+      "resolvedFromCardsCurrentlyInTheDeck": "Resolt a partir de les cartes que hi ha actualment a la baralla.",
+      "noResolvedTokensForThisDeck": "No hi ha fitxes resoltes per a aquesta baralla.",
+      "unresolvedTokens": "Fitxes no resoltes",
+      "validateWithBackend": "Valida amb el backend",
       "errors": "Errors",
-      "warnings": "Warnings",
-      "noFrontendDiagnosticsForTheCurrentDeck": "No frontend diagnostics for the current deck.",
-      "search": "Search",
-      "add": "Add",
-      "noCardSearchResults": "No card search results.",
-      "futureCollection": "Future collection",
-      "snapshot": "Snapshot",
-      "restore": "Restore",
-      "noLocalHistoryForThisDeckYet": "No local history for this deck yet.",
-      "noCards": "No cards",
-      "deckName": "Deck name",
-      "saveName": "Save name",
-      "plainTextDecklist": "Plain text decklist",
-      "loadFile": "Load file",
-      "lastImport": "Last import",
-      "missingCardsFromLatestImport": "Missing cards from latest import",
-      "chooseTheExactPrintingFor": "Choose the exact printing for",
-      "quantityAndSectionWillStayUnchanged": ". Quantity and section will stay unchanged.",
-      "loadingPrintVersions": "Loading print versions...",
-      "onlyOnePrintVersion": "Only one print version",
-      "thisCardOnlyHasOnePrintVersion": "This card only has one print version available in the database.",
-      "noPrintVersionsFoundForThisCard": "No print versions found for this card.",
-      "current": "Current",
+      "warnings": "Avisos",
+      "noFrontendDiagnosticsForTheCurrentDeck": "No hi ha diagnòstics de frontend per a la baralla actual.",
+      "search": "Cerca",
+      "add": "Afegir",
+      "noCardSearchResults": "Cap resultat de cerca de cartes.",
+      "futureCollection": "Futura col·lecció",
+      "snapshot": "Instantània",
+      "restore": "Restaurar",
+      "noLocalHistoryForThisDeckYet": "Encara no hi ha història local per a aquesta baralla.",
+      "noCards": "Sense cartes",
+      "deckName": "Nom de la baralla",
+      "saveName": "Desar el nom",
+      "plainTextDecklist": "Llista de baralles de text senzill",
+      "loadFile": "Carrega el fitxer",
+      "lastImport": "Darrera importació",
+      "missingCardsFromLatestImport": "Falten cartes de la darrera importació",
+      "chooseTheExactPrintingFor": "Triar la impressió exacta per",
+      "quantityAndSectionWillStayUnchanged": "La quantitat i la secció es mantindran sense canvis.",
+      "loadingPrintVersions": "S'estan carregant les versions impreses...",
+      "onlyOnePrintVersion": "Només una versió impresa",
+      "thisCardOnlyHasOnePrintVersion": "Aquesta carta només té una versió impresa disponible a la base de dades.",
+      "noPrintVersionsFoundForThisCard": "No s'ha trobat cap versió impresa per a aquesta carta.",
+      "current": "Actual",
       "header": {
-        "title": "Deck editor",
-        "deckWarnings": "Deck warnings",
-        "import": "Import",
-        "export": "Export",
-        "backToDecks": "Back to decks"
-      }
+        "title": "Editor de baralla",
+        "deckWarnings": "Avisos de la baralla",
+        "import": "Importar",
+        "export": "Exportar",
+        "share": "Compartir",
+        "shareCopied": "S'ha copiat l'enllaç de la comunitat",
+        "shareError": "No s'ha pogut copiar l'enllaç de la comunitat."
+      },
+      "cardsCount": "{{ count }} cartes",
+      "clear": "Neteja",
+      "clearLocalHistoryQuestion": "Esborrar l'historial local d'aquesta baralla?",
+      "colorIdentity": "Identitat de color: {{ colors }}",
+      "commanderMode": "Mode Commander: {{ mode }}",
+      "fromSourceCard": "De {{ name }}",
+      "historyCardsSummary": "{{ count }} cartes - {{ commanders }}",
+      "importSummary": "{{ parsed }} cartes analitzades, {{ imported }} importades, {{ missing }} falten.",
+      "noCommander": "Cap comandant",
+      "noCost": "Sense cost",
+      "no": "no",
+      "restoreSnapshotQuestion": "Vols restaurar aquesta instantània?",
+      "searchResultsFor": "Resultats de la cerca per a {{ name }}",
+      "sectionsCount": "{{ count }} seccions",
+      "usableInGame": "Utilitzable en partida: {{ value }}",
+      "validationCounts": "Cartes: {{ total }} total ({{ commander }} comandant, {{ main }} principal, {{ sideboard }} banqueta, {{ maybeboard }} en consideració)",
+      "validationFailed": "Commander La validació ha fallat",
+      "validationPassed": "Commander validació superada",
+      "yes": "sí",
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141"
     },
     "deckList": {
-      "newDeckName": "New deck name",
-      "searchCommanderByName": "Search commander by name",
-      "commanderSelectionLimitReached": "You already have 2 commanders. You can't add more.",
-      "example1SolRingVoc168": "Example: 1 Sol Ring (VOC) 168",
+      "newDeckName": "Nou nom de la baralla",
+      "searchCommanderByName": "Cerca el comandant pel nom",
+      "example1SolRingVoc168": "Exemple: 1 Sol Ring (VOC) 168",
       "jeskaiBrewsTesting": "Jeskai, Brews, Testing...",
-      "deckWarnings": "Deck warnings",
-      "renameFolder": "Rename folder",
-      "deleteFolder": "Delete folder",
-      "editDeck": "Edit deck",
-      "deleteDeck": "Delete deck",
-      "deckSaved": "Deck saved",
-      "createFolder": "Create folder",
-      "commanderEnlargedPreview": "Commander enlarged preview",
-      "loadingDecks": "Loading decks...",
-      "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
-      "decks": "Decks",
-      "noDecksInThisFolderYet": "No decks in this folder yet.",
-      "missingCards": "Missing cards",
-      "deckName": "Deck name",
-      "folder": "Folder",
-      "noFolder": "No folder",
-      "thisDeckIsPublicButItsFolder": "This deck is public, but its folder is private. It will not be publicly visible.",
+      "renameFolder": "Canviar el nom de la carpeta",
+      "deleteFolder": "Esborra la carpeta",
+      "editDeck": "Editar la baralla",
+      "deleteDeck": "Esborra la baralla",
+      "deckSaved": "Baralla guardada",
+      "createSuccessMessage": "Aquesta baralla s'ha desat. Ara és a la teva llista de baralles desades i la pots editar quan vulguis. Molta sort amb la teva baralla Commander!",
+      "createEmptyDeck": "Crear una baralla buida",
+      "createFolder": "Crear una carpeta",
+      "continueToRooms": "Continuar cap a les sales",
+      "commanderEnlargedPreview": "Commander vista prèvia ampliada",
+      "deckListLabel": "Llista de baralla",
+      "yourDeckListFeelsALittleEmpty": "La teva llista de baralles se sent una mica buida. entra i comença a construir!",
+      "noDecksInThisFolderYet": "Encara no hi ha cap baralla en aquesta carpeta.",
+      "missingCards": "Falten cartes",
+      "deckName": "Nom de la baralla",
+      "folder": "Carpeta",
+      "noFolder": "Cap carpeta",
+      "openDeck": "Baralla oberta",
+      "thisDeckIsPublicButItsFolder": "Aquesta baralla és pública, però la seva carpeta és privada. no serà visible públicament.",
       "commander": "Commander",
-      "importDecklist": "Import decklist",
-      "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
-      "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
-      "folderName": "Folder name",
-      "playmat": "Playmat",
-      "sleeve": "Sleeve",
-      "editPlaymat": "Edit Playmat",
-      "editSleeve": "Edit Sleeve",
+      "importDecklist": "Importar llista de baralles",
+      "ifYouIncludeYourCommanderInThe": "Si inclous el teu comandant a la llista importada, no passa res. L'eliminarem per tu.",
+      "ifYouIncludeYourCommandersInThe": "Si inclous els teus comandants a la llista importada, no passa res. Els retirarem per tu.",
+      "folderName": "Nom de la carpeta",
+      "playmat": "Tapet de joc",
+      "sleeve": "Funda",
+      "editPlaymat": "Editar tapet de joc",
+      "editSleeve": "Editar la funda",
       "header": {
-        "title": "Decks",
-        "createDeck": "Create deck",
-        "createFolder": "Create folder"
+        "title": "Baralles",
+        "createDeck": "Crear baralla",
+        "createFolder": "Crear una carpeta",
+        "description": "Organitza, construeix i domina les teves baralles."
       },
       "colorFilter": {
         "label": "Color",
@@ -805,194 +1267,240 @@
         "colorless": "Incolor"
       },
       "sortMode": {
-        "label": "Ordre",
-        "nameAsc": "Nom (A-Z)",
-        "nameDesc": "Nom (Z-A)"
+        "label": "Ordenar",
+        "nameAsc": "Nom (a-z)",
+        "nameDesc": "Nom (z-a)"
+      },
+      "cosmetics": {
+        "free": "Gratuït",
+        "playmatOptions": "Opcions de tapet de joc",
+        "playmatTiers": "Nivells de tapet de joc",
+        "premium": "Premium",
+        "selectPlaymat": "Selecciona el tapet de joc {{ name }}",
+        "selectSleeve": "Selecciona la funda {{ name }}",
+        "sleeveOptions": "Opcions de funda"
+      },
+      "filters": {
+        "actionsAndFilters": "Accions de baralla i filtres"
+      },
+      "maximumCharacters": "Màxim {{ count }} caràcters.",
+      "noDecksMatchFilters": "Cap baralla coincideix amb els filtres actuals.",
+      "removeCommander": "Eliminar el comandant",
+      "searchDecks": "Cerca baralles",
+      "searchDecksPlaceholder": "Cerca baralles...",
+      "stats": {
+        "colorDistribution": "Distribució del color",
+        "private": "Privat",
+        "public": "Públic",
+        "summary": "Resum de la baralla",
+        "total": "Total"
       }
     }
   },
   "tableAssistant": {
     "tableAssistantPage": {
-      "asistenteDeMesa": "Asistente de Mesa",
-      "resumenRapido": "Resumen rápido",
-      "beneficios": "Beneficios",
-      "mesaManualDeCommander": "Mesa manual de Commander",
-      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida física.",
-      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y daño de comandante sin automatizar reglas de Magic.",
-      "setupRapido": "Setup rápido",
-      "text4JugadoresPorDefecto": "4 jugadores por defecto",
-      "text40VidasIniciales": "40 vidas iniciales",
-      "danoDeComandanteActivo": "Daño de comandante activo"
+      "title": "Assistent de taula",
+      "benefits": "Beneficis",
+      "manualCommanderTable": "Taula manual de Commander",
+      "physicalGameTrackingDescription": "Tot el que necessites per fer el seguiment d'una partida física.",
+      "setupDescription": "Configura jugadors, total de vida inicial i temporitzador. CommanderZone gestiona els totals de vida, els torns i el dany de comandant sense automatitzar les regles de Magic.",
+      "quickSetup": "Configuració ràpida",
+      "defaultFourPlayers": "4 jugadors per defecte",
+      "defaultFortyLife": "40 punts de vida",
+      "commanderDamageEnabled": "Dany de comandant activat",
+      "quickSummary": "Resum ràpid"
     },
     "tableAssistantReplayModal": {
-      "configuracionDeMesa": "Configuración de mesa",
-      "cerrarConfiguracionDeMesa": "Cerrar configuración de mesa",
-      "posicionesDeMesa": "Posiciones de mesa",
-      "jugador": "Jugador",
-      "sinJugador": "Sin jugador",
-      "orden": "Orden",
-      "eligeUnJugadorYSuTurno": "Elige un jugador y su turno.",
-      "turnoAleatorio": "Turno aleatorio"
+      "seatLabel": "Seient {{ count }}",
+      "turnLabel": "Torn {{ count }}",
+      "startGame": "Començar el joc",
+      "tableSetup": "Configuració de la taula",
+      "closeTableSetup": "Tanca la configuració de la taula",
+      "tablePositions": "Posicions de taula",
+      "player": "Jugador",
+      "noPlayer": "Cap jugador",
+      "order": "Ordre",
+      "choosePlayerAndTurn": "Triar un jugador i el seu torn.",
+      "randomTurn": "Gir aleatori"
     },
     "tableAssistantRoom": {
-      "giraElDispositivo": "Gira el dispositivo",
-      "informacionDeSala": "Informacion de sala",
-      "copiarEnlaceDeSala": "Copiar enlace de sala",
-      "trackersGlobales": "Trackers globales",
-      "jugadores": "Jugadores",
-      "danoDeComandante": "Daño de comandante",
-      "cerrarDanoDeComandante": "Cerrar daño de comandante",
-      "vidaDeJugador": "Vida de jugador",
-      "trackersDeJugador": "Trackers de jugador",
-      "skullKo": "skull-ko",
-      "laSalaEstaOptimizadaParaMovilEn": "La sala esta optimizada para movil en horizontal.",
-      "cargandoSala": "Cargando sala...",
-      "codigoDeSala": "Codigo de sala",
-      "letal": "Letal",
-      "danoDeComandante1": "Daño de comandante",
-      "verYEditar": "Ver y editar",
-      "asignadoAJugadorConectado": "Asignado a jugador conectado"
+      "rotateDevice": "Gira el teu dispositiu",
+      "roomInformation": "Informació de la sala",
+      "copyRoomLink": "Copia l'enllaç de la sala",
+      "globalTrackers": "Rastrejadors globals",
+      "players": "Jugadors",
+      "commanderDamage": "Dany de comandant",
+      "closeCommanderDamage": "Tanca el dany de comandant",
+      "playerLife": "Vida del jugador",
+      "playerTrackers": "Rastrejadors de jugadors",
+      "knockoutIconLabel": "crani-ko",
+      "landscapeOptimizedNotice": "La sala està optimitzada per al mode horitzontal al mòbil.",
+      "roomCode": "Codi de la sala",
+      "lethal": "Letal",
+      "commanderDamageSummary": "Dany de comandant",
+      "assignedToConnectedPlayer": "Assignat al jugador connectat",
+      "viewAndEdit": "Mostra i edita"
     },
     "tableAssistantSetup": {
-      "configurarAsistenteDeMesa": "Configurar Asistente de Mesa",
-      "nuevaPartida": "Nueva partida",
-      "configuraLaMesa": "Configura la mesa",
-      "jugadoresVidasYTemporizadorLoDemasSe": "Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.",
-      "jugadores": "Jugadores",
-      "reglasDeMesa": "Reglas de mesa",
-      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Daño de comandante siempre activo. Temporizador opcional."
+      "createRoom": "Crea una sala",
+      "createRoomError": "No s'ha pogut crear la sala de l'assistent de taula.",
+      "creatingRoom": "Creant...",
+      "initialLife": "Total de vida inicial",
+      "initialTotal": "Total inicial",
+      "needPlayersAndNames": "Necessites almenys 2 jugadors i tots els noms completats.",
+      "playerColorAria": "Jugador {{ index }} color",
+      "playerColorsAria": "Jugador {{ index }} colors",
+      "playerNameAria": "Nom del jugador {{ index }}",
+      "playerNamePlaceholder": "Jugador {{ index }}",
+      "players": "Jugadors",
+      "configureTableAssistant": "Configurar l'assistent de taula",
+      "newGame": "Nova partida",
+      "configureTable": "Configurar la taula",
+      "setupDescription": "Jugadors, vida i temporitzador. Tota la resta s'ajusta durant la partida.",
+      "tableRules": "Regles de la taula",
+      "commanderDamageAndTimerNote": "El dany de comandant sempre està activat. El temporitzador és opcional."
     },
     "tableAssistantTableMenu": {
-      "opcionesDePartidaDeCommanderzone": "Opciones de partida de CommanderZone",
-      "opcionesDePartida": "Opciones de partida",
       "cz": "CZ",
-      "nuevaPartida": "Nueva partida",
-      "tirarDado": "Tirar dado",
-      "pantallaCompleta": "Pantalla completa",
-      "salirAlDashboard": "Salir al dashboard",
-      "seguirJugando": "Seguir jugando"
+      "commanderZoneGameOptions": "CommanderZone opcions de joc",
+      "gameOptions": "Opcions de joc",
+      "newGame": "Nova partida",
+      "rollDice": "Tira el dau",
+      "fullScreen": "Pantalla completa",
+      "exitToDashboard": "Sortida al quadre de comandament",
+      "keepPlaying": "Segueix jugant"
     },
     "tableAssistantTimerSettings": {
-      "temporizador": "Temporizador",
-      "duracionPorTurno": "Duracion por turno",
       "min": "Min",
-      "seg": "Seg"
+      "timer": "Temporitzador",
+      "turnDuration": "Durada del torn",
+      "seconds": "Seg",
+      "timerModes": {
+        "turn": "Per torn",
+        "phase": "Per fase"
+      }
     },
     "tableAssistantTurnControls": {
-      "turnoActivo": "Turno activo",
-      "pausarTemporizador": "Pausar temporizador",
-      "reanudarTemporizador": "Reanudar temporizador",
-      "iniciarTemporizador": "Iniciar temporizador",
-      "pasarAlSiguienteTurno": "Pasar al siguiente turno",
-      "pausar": "Pausar",
-      "reanudar": "Reanudar",
-      "iniciar": "Iniciar",
-      "turno": "Turno",
-      "siguiente": "Siguiente"
+      "activeTurn": "Torn actiu",
+      "pauseTimer": "Temporitzador de pausa",
+      "resumeTimer": "Reprendre el temporitzador",
+      "startTimer": "Iniciar el temporitzador",
+      "passToNextTurn": "Passar al següent torn",
+      "pause": "Pausa",
+      "resume": "Currículum",
+      "start": "Comença",
+      "turn": "Torn",
+      "next": "Següent"
     },
     "page": {
       "benefits": {
         "lifeAndCommander": {
-          "title": "Vidas y comandante",
-          "description": "Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo."
+          "title": "Vida i comandant",
+          "description": "Fes el seguiment de la vida i del dany de comandant sense convertir la partida en un full de càlcul."
         },
         "simpleTurns": {
-          "title": "Turnos simples",
-          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas."
+          "title": "Girs senzills",
+          "description": "Marca el jugador actiu i utilitza un cronòmetre si la taula vol ritme, sense regles automàtiques."
         },
         "sharedTable": {
-          "title": "Mesa compartida",
-          "description": "Pensado para un único móvil o tablet en el centro de la mesa."
+          "title": "Taula compartida",
+          "description": "Dissenyat per a un telèfon o tauleta al centre de la taula."
         }
       },
       "header": {
-        "title": "Asistente de Mesa",
-        "startGame": "Empezar partida"
+        "title": "Assistent de taula",
+        "startGame": "Començar el joc"
       }
     }
   },
   "profile": {},
   "settings": {
     "dashboardSettingsModal": {
-      "playerAvatar": "Player avatar",
-      "avatar": "Avatar",
-      "name": "Name",
-      "becomePremium": "Fer-te premium",
-      "email": "Email",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "deleteAccount": "Delete account",
-      "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
-      "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel",
-      "changeTheme": "Canviar theme",
+      "playerAvatar": "Avatar del jugador",
+      "changeAvatar": "Canviar d'avatar",
+      "becomePremium": "Convertir-se en premium",
+      "changeName": "Canviar la placa",
+      "accountDetails": "Detalls del compte",
+      "email": "Correu electrònic",
+      "userName": "Nom d'usuari",
+      "changePassword": "Canviar la contrasenya",
+      "sendingPasswordEmail": "Enviant correu electrònic...",
+      "passwordResetEmailSentShort": "Enviat",
+      "passwordResetEmailSent": "Correu electrònic de restabliment de la contrasenya enviat.",
+      "passwordResetEmailError": "No s'ha pogut enviar el correu electrònic de restabliment de la contrasenya.",
+      "deleteAccount": "Suprimir el compte",
+      "areYouSureYouWantToPermanently": "Segur que vols suprimir permanentment el teu compte?",
+      "cancel": "Cancel·la",
+      "changeTheme": "Canviar de tema",
       "gameSettings": {
-        "title": "Gameplay preferences",
+        "title": "Preferències de joc",
         "showManaHelperOnStartup": {
-          "label": "Show mana helper on startup",
-          "description": "Open the mana helper when a match starts."
+          "label": "Mostra l'ajudant de mana a l'inici",
+          "description": "Obre l'ajudant de mana quan comença un partit."
         },
         "enableManaRow": {
-          "label": "Enable mana row",
-          "description": "Show the dedicated mana row during games."
-        },
-        "enableStackMana": {
-          "label": "Enable stack mana",
-          "description": "Keep mana available while resolving stacked actions."
+          "label": "Activa la fila de mana",
+          "description": "Mostra la fila de mana dedicada durant els jocs."
         },
         "gameAnimations": {
-          "label": "Game animations",
-          "description": "Use visual movement and feedback animations during matches."
+          "label": "Animacions del joc",
+          "description": "Utilitzar moviments visuals i animacions de retroalimentació durant els partits."
         },
         "chatNotificationSounds": {
-          "label": "Chat notification sounds",
-          "description": "Play a sound when new chat notifications arrive."
+          "label": "Sona la notificació del xat",
+          "description": "Reprodueix un so quan arribin noves notificacions de xat."
+        },
+        "preserveManaPool": {
+          "label": "Conserva la reserva de manà",
+          "description": "Mantén el manà a la reserva de manà mentre resols accions apilades."
         }
-      }
+      },
+      "enterValidEmail": "Introduïu un correu electrònic vàlid.",
+      "checkingEmail": "Comprovant el correu electrònic...",
+      "checkingAvailability": "Comprovant disponibilitat...",
+      "couldNotCheckNow": "No s'ha pogut comprovar ara mateix",
+      "usernameLengthRequirement": "El nom d'usuari ha de tenir entre 2 i 20 caràcters.",
+      "usernameAvailable": "Nom d'usuari disponible",
+      "usernameUnavailable": "Nom d'usuari no disponible",
+      "emailAvailable": "Correu electrònic disponible",
+      "emailAlreadyRegistered": "Correu electrònic ja registrat",
+      "deleteAccountWarning": "Suprimeix permanentment el teu compte i totes les dades associades, incloses les baralles i les preferències. Aquesta acció no es pot desfer."
     },
     "settingsInitialAvatarOption": {
-      "initialAvatarCustomization": "Initial avatar customization",
-      "mainColor": "Main color",
-      "secondaryColor": "Secondary color",
-      "letters": "Letters"
+      "initialAvatarCustomization": "Personalització inicial de l'avatar",
+      "mainColor": "Color principal",
+      "secondaryColor": "Color secundari",
+      "letters": "Lletres"
     },
     "settingsAvatarEditor": {
-      "avatarPreview": "Avatar preview",
-      "avatarTiers": "Avatar tiers",
-      "basicAvatars": "Basic avatars",
-      "premiumAvatars": "Premium avatars",
-      "chooseAvatar": "Choose avatar",
-      "currentSelection": "Current selection",
-      "basic": "Basic",
+      "avatarPreview": "Vista prèvia de l'avatar",
+      "avatarTiers": "Nivells d'avatar",
+      "basicAvatars": "Avatars bàsics",
+      "premiumAvatars": "Avatars premium",
+      "chooseAvatar": "Tria l'avatar",
+      "currentSelection": "Selecció actual",
+      "basic": "Bàsic",
       "premium": "Premium"
     },
     "settingsAvatarUpload": {
-      "uploadedAvatarPreview": "Uploaded avatar preview",
-      "avatarPreview": "Avatar preview",
-      "uploadImage": "Upload image",
-      "chooseYourOwnImageAndFrameIt": "Choose your own image and frame it inside the avatar circle.",
-      "imageFile": "Image file",
-      "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP or another browser-supported image. Maximum 2MB.",
-      "chooseImage": "Choose image",
-      "avatarImagesMustBeNonOffensiveNon": "Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.",
-      "horizontal": "Horizontal",
+      "uploadedAvatarPreview": "Vista prèvia de l'avatar carregat",
+      "avatarPreview": "Vista prèvia de l'avatar",
+      "uploadImage": "Puja la imatge",
+      "chooseYourOwnImageAndFrameIt": "Tria la teva pròpia imatge i emmarca-la dins del cercle de l'avatar.",
+      "imageFile": "Fitxer d'imatge",
+      "pngJpgWebpOrAnotherBrowserSupported": "Png, jpg, webp o una altra imatge compatible amb el navegador. màxim 2mb.",
+      "chooseImage": "Triar la imatge",
+      "avatarImagesMustBeNonOffensiveNon": "Les imatges d'avatar han de ser no ofensives, no sexuals i adequades per a la comunitat CommanderZone.",
+      "horizontal": "Horitzontal",
       "vertical": "Vertical",
       "zoom": "Zoom"
     },
     "settingsDisplayNameStyleEditor": {
-      "nameStylePreview": "Name style preview",
-      "nameStyleTiers": "Name style tiers",
-      "currentSelection": "Current selection",
-      "textColor": "Text color",
-      "basic": "Basic",
+      "nameStylePreview": "Vista prèvia de l'estil del nom",
+      "nameStyleTiers": "Nivells d'estil de nom",
+      "currentSelection": "Selecció actual",
+      "textColor": "Color del text",
+      "basic": "Bàsic",
       "premium": "Premium"
     }
   },
@@ -1001,24 +1509,24 @@
   "modals": {
     "roll": {
       "rollModal": {
-        "tirarDado": "Tirar dado",
-        "cerrarTirada": "Cerrar tirada",
-        "tipoDeTirada": "Tipo de tirada",
-        "text": "?",
-        "cerrar": "Cerrar",
-        "volverATirar": "Volver a tirar",
-        "tirar": "Tirar"
+        "text": "Resultat",
+        "rollDice": "Tira el dau",
+        "closeRoll": "Rodó tancat",
+        "rollType": "Tipus de tirada",
+        "close": "Tanca",
+        "rollAgain": "Torna a tirar",
+        "roll": "Tira"
       },
       "options": {
         "coin": "Moneda",
-        "d4": "Dado de 4 caras",
-        "d6": "Dado de 6 caras",
-        "d10": "Dado de 10 caras",
-        "d20": "Dado de 20 caras"
+        "d4": "matriu de 4 cares",
+        "d6": "matriu de 6 cares",
+        "d10": "Dau de 10 cares",
+        "d20": "Dau de 20 cares"
       },
       "results": {
         "heads": "Cara",
-        "tails": "Cruz"
+        "tails": "Creu"
       }
     }
   },
@@ -1026,36 +1534,99 @@
   "emptyStates": {},
   "contactPage": {
     "meta": {
-      "title": "Contacte | CommanderZone",
-      "description": "Contacta amb CommanderZone per suport, errors, drets o consultes generals."
+      "title": "Contacteu amb nosaltres",
+      "description": "Poseu-vos en contacte amb CommanderZone per obtenir assistència, informes d'errors, problemes de drets o preguntes generals."
     },
     "hero": {
-      "title": "Contacte",
-      "description": "Envia'ns un missatge i el revisarem tan aviat com sigui possible."
+      "title": "Contacteu amb nosaltres",
+      "description": "Envia'ns un missatge i el revisarem el més aviat possible."
+    },
+    "nav": {
+      "loggedOutCta": "Tornar al quadre de comandament",
+      "anonymousCta": "De tornada a casa",
+      "actionsAriaLabel": "Accions de la pàgina de contacte"
     },
     "copy": {
       "supportTitle": "Suport i drets",
-      "supportBody": "Fes servir aquest formulari per a suport, errors, privacitat o incid\u00e8ncies de drets. Si cal, tamb\u00e9 podem continuar per correu a {{ email }}.",
-      "includeTitle": "Qu\u00e8 incloure",
-      "includeBody": "Explica el problema amb claredat i afegeix qualsevol context \u00fatil de p\u00e0gina, sala, deck o captura. No envi\u00efs secrets ni dades de pagament."
+      "supportBody": "Utilitzeu aquest formulari per obtenir suport, informes d'errors, sol·licituds de privadesa, problemes relacionats amb els drets o qualsevol pregunta, idea o curiositat que vulgueu compartir amb nosaltres. Si us resulta més fàcil, també podem continuar per correu electrònic a {{ email }}.",
+      "includeTitle": "Què incloure",
+      "includeBody": "Explica el problema amb claredat i inclou qualsevol context útil de pàgina, sala, baralla o captura de pantalla. No enviïs secrets ni dades de pagament."
     },
     "form": {
       "nameLabel": "Nom",
       "namePlaceholder": "El teu nom",
       "nameError": "Introdueix el teu nom.",
-      "emailLabel": "Correu",
-      "emailPlaceholder": "tu@email.com",
-      "emailError": "Introdueix un correu v\u00e0lid.",
-      "subjectLabel": "Assumpte",
-      "subjectPlaceholder": "En qu\u00e8 et podem ajudar?",
-      "subjectError": "Introdueix un assumpte.",
+      "emailLabel": "Correu electrònic",
+      "emailPlaceholder": "tu@exemple.com",
+      "emailError": "Introduïu un correu electrònic vàlid.",
+      "subjectLabel": "Subjecte",
+      "subjectPlaceholder": "Com podem ajudar?",
+      "subjectError": "Introduir un tema.",
       "messageLabel": "Missatge",
-      "messagePlaceholder": "Escriu aqu\u00ed el teu missatge.",
-      "messageError": "Introdueix un missatge.",
+      "messagePlaceholder": "Escriu el teu missatge aquí.",
+      "messageError": "Introduïu un missatge.",
       "submit": "Enviar missatge",
       "submitting": "Enviant...",
-      "submitSuccess": "El teu missatge s'ha enviat.",
-      "submitError": "No hem pogut enviar el teu missatge. Escriu-nos directament a {{ email }} o contacta'ns per un altre canal."
+      "submitSuccess": "El teu missatge ha estat enviat.",
+      "submitRateLimitError": "Has arribat al límit de contactes. Si us plau, espera uns {{ retryAfterMinutes }} minut(s) abans de tornar-ho a provar. Si és urgent, escriu directament a {{ email }}.",
+      "submitError": "No hem pogut enviar el teu missatge. Escriu directament a {{ email }} o contacta amb nosaltres per un altre canal."
+    }
+  },
+  "onboarding": {
+    "accountActions": "Accions del compte",
+    "demoRoom": {
+      "description": "Aquesta és una ruta de sala simulada per al flux d'embarcament. substituïu-lo per l'experiència real de la sala quan el multijugador està connectat.",
+      "eyebrow": "Sala de demostració",
+      "goToLogin": "Aneu a iniciar sessió"
+    },
+    "hero": {
+      "description": "Construeix la sala, comparteix l'enllaç, tria baralles i juga amb una taula feta per a pods Commander reals.",
+      "eyebrow": "Taula manual",
+      "title": "Juga Commander en línia en segons"
+    },
+    "highlights": {
+      "ariaLabel": "Aspectes destacats del producte",
+      "deckValidation": "Validació de baralles Commander",
+      "manualTable": "Taula manual, sense regles el soroll del motor",
+      "privateRooms": "Sales privades i invitacions"
+    },
+    "preview": {
+      "ariaLabel": "CommanderZone vista prèvia de la taula",
+      "flow": "Sala d'espera, selecció de baralles i flux de taula en un sol lloc.",
+      "guest": "Convidat",
+      "oneLink": "Un enllaç",
+      "ready": "Llest"
+    },
+    "steps": {
+      "import": {
+        "description": "Enganxa la teva llista i importa-la.",
+        "title": "Importar llista de baralles"
+      },
+      "play": {
+        "description": "Obre la sala i comença el joc.",
+        "title": "Jugar"
+      },
+      "room": {
+        "description": "Generar una sala per a la taula.",
+        "title": "Crea una sala"
+      },
+      "share": {
+        "description": "Copia l'enllaç de la sala i envia'l.",
+        "title": "Compartir enllaç"
+      }
+    }
+  },
+  "shared": {
+    "cardPreview": {
+      "rank": "Rang {{ rank }}",
+      "viewMore": "Veure més"
+    }
+  },
+  "cards": {
+    "cardSearch": {
+      "pagination": {
+        "label": "Paginació de cerca de cartes"
+      }
     }
   }
 }

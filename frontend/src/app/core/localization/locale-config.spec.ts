@@ -48,6 +48,7 @@ describe('locale config', () => {
       expect(locale.hreflang).toBeTruthy();
       expect(locale.label).toBeTruthy();
       expect(locale.nativeLabel).toBeTruthy();
+      expect(locale.nativeLabel).not.toMatch(/Ã|Â|Ð|Ñ|æ|ç®|ä¸/);
     }
   });
 

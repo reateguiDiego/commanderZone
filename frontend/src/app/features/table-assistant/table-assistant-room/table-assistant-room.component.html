@@ -1,7 +1,7 @@
 <main class="table-room-page">
-  <section class="orientation-lock" [attr.aria-label]="'tableAssistant.tableAssistantRoom.giraElDispositivo' | runtimeTranslate">
-    <strong>{{ 'tableAssistant.tableAssistantRoom.giraElDispositivo' | runtimeTranslate }}</strong>
-    <span>{{ 'tableAssistant.tableAssistantRoom.laSalaEstaOptimizadaParaMovilEn' | runtimeTranslate }}</span>
+  <section class="orientation-lock" [attr.aria-label]="'tableAssistant.tableAssistantRoom.rotateDevice' | runtimeTranslate">
+    <strong>{{ 'tableAssistant.tableAssistantRoom.rotateDevice' | runtimeTranslate }}</strong>
+    <span>{{ 'tableAssistant.tableAssistantRoom.landscapeOptimizedNotice' | runtimeTranslate }}</span>
   </section>
 
   <section class="table-room-content">
@@ -11,12 +11,12 @@
       <p class="notice error">{{ error() }}</p>
     } @else if (room(); as tableRoom) {
       @if (shouldShowRoomSharing()) {
-        <section class="room-meta-strip" [attr.aria-label]="'tableAssistant.tableAssistantRoom.informacionDeSala' | runtimeTranslate">
+        <section class="room-meta-strip" [attr.aria-label]="'tableAssistant.tableAssistantRoom.roomInformation' | runtimeTranslate">
           <div>
-            <span class="eyebrow">{{ 'tableAssistant.tableAssistantRoom.codigoDeSala' | runtimeTranslate }}</span>
+            <span class="eyebrow">{{ 'tableAssistant.tableAssistantRoom.roomCode' | runtimeTranslate }}</span>
             <strong>{{ tableRoom.state.sharing.code }}</strong>
           </div>
-          <button type="button" [attr.aria-label]="'tableAssistant.tableAssistantRoom.copiarEnlaceDeSala' | runtimeTranslate" (click)="copyInviteLink()">
+          <button type="button" [attr.aria-label]="'tableAssistant.tableAssistantRoom.copyRoomLink' | runtimeTranslate" (click)="copyInviteLink()">
             {{ copied() ? 'Copiado' : 'Copiar enlace' }}
           </button>
           <div
@@ -30,7 +30,7 @@
       }
 
       @if (globalTrackerIds().length > 0) {
-        <section class="global-trackers" [attr.aria-label]="'tableAssistant.tableAssistantRoom.trackersGlobales' | runtimeTranslate">
+        <section class="global-trackers" [attr.aria-label]="'tableAssistant.tableAssistantRoom.globalTrackers' | runtimeTranslate">
           @for (trackerId of globalTrackerIds(); track trackerId) {
             <article>
               <span>{{ trackerLabel(trackerId) }}</span>
@@ -59,7 +59,7 @@
       <section
         class="players-grid"
         [style.--seat-column-count]="seatColumnCount()"
-        [attr.aria-label]="'tableAssistant.tableAssistantRoom.jugadores' | runtimeTranslate"
+        [attr.aria-label]="'tableAssistant.tableAssistantRoom.players' | runtimeTranslate"
       >
         @for (player of seatedPlayers(); track player.id) {
           <article
@@ -78,18 +78,18 @@
             <div class="player-content">
               @if (isPlayerOut(player)) {
                 <div class="elimination-overlay" aria-hidden="true">
-                  <img class="skull-image" src="/assets/icons/gameplay/skull.png" [alt]="'tableAssistant.tableAssistantRoom.skullKo' | runtimeTranslate" />
+                  <img class="skull-image" src="/assets/icons/gameplay/skull.png" [alt]="'tableAssistant.tableAssistantRoom.knockoutIconLabel' | runtimeTranslate" />
                 </div>
               }
 
               @if (isCommanderDamageOpen(player)) {
-                <section class="commander-damage-board" [attr.aria-label]="'tableAssistant.tableAssistantRoom.danoDeComandante' | runtimeTranslate">
+                <section class="commander-damage-board" [attr.aria-label]="'tableAssistant.tableAssistantRoom.commanderDamage' | runtimeTranslate">
                   <header>
-                    <strong>{{ 'tableAssistant.tableAssistantRoom.danoDeComandante' | runtimeTranslate }}</strong>
+                    <strong>{{ 'tableAssistant.tableAssistantRoom.commanderDamage' | runtimeTranslate }}</strong>
                     <button
                       class="symbol-button compact-symbol"
                       type="button"
-                      [attr.aria-label]="'tableAssistant.tableAssistantRoom.cerrarDanoDeComandante' | runtimeTranslate"
+                      [attr.aria-label]="'tableAssistant.tableAssistantRoom.closeCommanderDamage' | runtimeTranslate"
                       (click)="closeCommanderDamage()"
                     >
                       &#10005;
@@ -101,7 +101,7 @@
                         <span [title]="source.name">{{ displayPlayerName(source) }}</span>
                         <strong>{{ commanderDamage(player.id, source.id) }}</strong>
                         @if (isCommanderDamageLethal(player.id, source.id)) {
-                          <small>{{ 'tableAssistant.tableAssistantRoom.letal' | runtimeTranslate }}</small>
+                          <small>{{ 'tableAssistant.tableAssistantRoom.lethal' | runtimeTranslate }}</small>
                         }
                         <button
                           type="button"
@@ -174,14 +174,14 @@
                       [showText]="true"
                     >
                       <button type="button" role="menuitem" (click)="openCommanderDamage(player)">
-                        <span>{{ 'tableAssistant.tableAssistantRoom.danoDeComandante1' | runtimeTranslate }}</span>
-                        <small>{{ 'tableAssistant.tableAssistantRoom.verYEditar' | runtimeTranslate }}</small>
+                        <span>{{ 'tableAssistant.tableAssistantRoom.commanderDamageSummary' | runtimeTranslate }}</span>
+                        <small>{{ 'tableAssistant.tableAssistantRoom.viewAndEdit' | runtimeTranslate }}</small>
                       </button>
                     </app-extra-actions-menu>
                   }
                 </header>
 
-                <div class="life-row" [attr.aria-label]="'tableAssistant.tableAssistantRoom.vidaDeJugador' | runtimeTranslate">
+                <div class="life-row" [attr.aria-label]="'tableAssistant.tableAssistantRoom.playerLife' | runtimeTranslate">
                   <button
                     type="button"
                     [disabled]="!canEdit(player)"
@@ -202,11 +202,11 @@
                 </div>
 
                 @if (player.assignedUserId) {
-                  <p class="assignment">{{ 'tableAssistant.tableAssistantRoom.asignadoAJugadorConectado' | runtimeTranslate }}</p>
+                  <p class="assignment">{{ 'tableAssistant.tableAssistantRoom.assignedToConnectedPlayer' | runtimeTranslate }}</p>
                 }
 
                 @if (playerTrackerIds().length > 0) {
-                  <section class="player-trackers" [attr.aria-label]="'tableAssistant.tableAssistantRoom.trackersDeJugador' | runtimeTranslate">
+                  <section class="player-trackers" [attr.aria-label]="'tableAssistant.tableAssistantRoom.playerTrackers' | runtimeTranslate">
                     @for (trackerId of playerTrackerIds(); track trackerId) {
                       <div>
                         <span>{{ trackerLabel(trackerId) }}</span>

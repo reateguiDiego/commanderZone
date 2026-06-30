@@ -132,8 +132,10 @@ export class DeckListComponent implements OnInit, OnDestroy {
       : 'common.visibility.visibilityChoice.private';
   }
 
-  visibilityPillText(visibility: DeckVisibility | undefined): Uppercase<DeckVisibility> {
-    return visibility === 'public' ? 'PUBLIC' : 'PRIVATE';
+  visibilityPillLabelKey(visibility: DeckVisibility | undefined): string {
+    return visibility === 'public'
+      ? 'common.visibility.visibilityPill.public'
+      : 'common.visibility.visibilityPill.private';
   }
 
   createDeckNameCountHint(): string {

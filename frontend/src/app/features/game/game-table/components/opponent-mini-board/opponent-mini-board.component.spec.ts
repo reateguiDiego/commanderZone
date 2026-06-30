@@ -89,7 +89,7 @@ describe('OpponentMiniBoardComponent', () => {
     const turnPill = fixture.nativeElement.querySelector('[data-testid="opponent-turn-pill"]') as HTMLElement;
 
     expect(thumb.classList.contains('active-turn-player')).toBe(true);
-    expect(turnPill.textContent?.trim()).toBe('Turno');
+    expect(turnPill.textContent?.trim()).toBe('Turn');
     expect(fixture.nativeElement.querySelector('[data-testid="opponent-life"]')?.textContent.trim()).toBe('39');
   });
 

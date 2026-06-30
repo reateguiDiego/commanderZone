@@ -190,7 +190,7 @@ describe('RoomsComponent', () => {
     fixture.componentInstance.requestDeleteRoom(room);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Borrar sala');
+    expect(fixture.nativeElement.textContent).toContain('Delete room');
 
     await fixture.componentInstance.confirmDeleteRoom();
 

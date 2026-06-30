@@ -3,15 +3,15 @@
     <div class="mulligan-shell">
       <header class="mulligan-header">
         <div>
-          <p class="mulligan-kicker">{{ ruleLabel() }}</p>
-          <h1>Mulligan</h1>
+          <p class="mulligan-kicker">{{ ruleLabelKey() | runtimeTranslate }}</p>
+          <h1>{{ 'game.mulliganOverlay.title' | runtimeTranslate }}</h1>
         </div>
-        <div class="mulligan-meta" aria-label="Estado de mulligan">
+        <div class="mulligan-meta" [attr.aria-label]="'game.mulliganOverlay.metaAriaLabel' | runtimeTranslate">
           @if (config()?.firstMulliganFree) {
-            <span class="mulligan-free">Primer mulligan es gratis</span>
+            <span class="mulligan-free">{{ 'game.mulliganOverlay.firstMulliganFree' | runtimeTranslate }}</span>
           }
-          <span>Mulligans: {{ currentMulligan()?.mulligansTaken ?? 0 }}</span>
-          <span>Efectivos: {{ currentMulligan()?.effectiveMulligans ?? 0 }}</span>
+          <span>{{ 'game.mulliganOverlay.mulligansTaken' | runtimeTranslate: { count: currentMulligan()?.mulligansTaken ?? 0 } }}</span>
+          <span>{{ 'game.mulliganOverlay.effectiveMulligans' | runtimeTranslate: { count: currentMulligan()?.effectiveMulligans ?? 0 } }}</span>
         </div>
       </header>
 
@@ -20,8 +20,8 @@
           @if (status() === 'SCRYING') {
             <section class="scry-panel" data-testid="mulligan-scry-panel">
               <div class="mulligan-copy">
-                <h2>Scry 1</h2>
-                <p>Elige que hacer con la carta superior de tu biblioteca.</p>
+                <h2>{{ 'game.mulliganOverlay.scryTitle' | runtimeTranslate }}</h2>
+                <p>{{ 'game.mulliganOverlay.scryDescription' | runtimeTranslate }}</p>
               </div>
               @if (scryCard(); as card) {
                 <div class="scry-card">
@@ -40,23 +40,23 @@
                 </div>
               }
               <div class="mulligan-actions">
-                <button type="button" class="secondary-button" [disabled]="pending()" (click)="confirmScry('TOP')">Dejar arriba</button>
-                <button type="button" class="primary-button" [disabled]="pending()" (click)="confirmScry('BOTTOM')">Mandar abajo</button>
+                <button type="button" class="secondary-button" [disabled]="pending()" (click)="confirmScry('TOP')">{{ 'game.mulliganOverlay.actions.keepOnTop' | runtimeTranslate }}</button>
+                <button type="button" class="primary-button" [disabled]="pending()" (click)="confirmScry('BOTTOM')">{{ 'game.mulliganOverlay.actions.putOnBottom' | runtimeTranslate }}</button>
               </div>
             </section>
           } @else if (status() === 'READY') {
             <section class="waiting-panel" data-testid="mulligan-ready-panel">
               <lucide-icon name="check-circle-2" size="34" aria-hidden="true" />
-              <h2>Esperando a los demás jugadores...</h2>
+              <h2>{{ 'game.mulliganOverlay.waitingForPlayers' | runtimeTranslate }}</h2>
             </section>
           } @else {
             <section class="mulligan-copy" data-testid="mulligan-rule-copy">
-              @for (line of ruleDescription(); track line) {
-                <p>{{ line }}</p>
+              @for (line of ruleDescription(); track line.key) {
+                <p>{{ line.key | runtimeTranslate: line.params }}</p>
               }
             </section>
 
-            <section class="mulligan-hand" aria-label="Mano actual">
+            <section class="mulligan-hand" [attr.aria-label]="'game.mulliganOverlay.currentHand' | runtimeTranslate">
               @for (card of hand(); track card.instanceId) {
                 <div
                   class="mulligan-card"
@@ -85,25 +85,25 @@
                       (pointerdown)="$event.stopPropagation()"
                       (click)="toggleBottomSelectionFromButton($event, card)"
                     >
-                      {{ bottomCardActionLabel(card) }}
+                      {{ bottomCardActionLabelKey(card) | runtimeTranslate }}
                     </button>
                   }
                 </div>
               } @empty {
-                <p class="empty-hand">No hay cartas en mano.</p>
+                <p class="empty-hand">{{ 'game.mulliganOverlay.emptyHand' | runtimeTranslate }}</p>
               }
             </section>
 
             @if (bottomSelectionCount() > 0) {
               <section class="bottom-selection" data-testid="mulligan-bottom-selection">
                 <header>
-                  <strong>{{ selectedCountLabel() }}</strong>
+                  <strong>{{ 'game.mulliganOverlay.selectedCount' | runtimeTranslate: selectedCountParams() }}</strong>
                   @if (rule() === 'GENEROUS') {
-                    <span>El orden final será aleatorio.</span>
+                    <span>{{ 'game.mulliganOverlay.description.generousRandomOrder' | runtimeTranslate }}</span>
                   }
                 </header>
                 <p class="bottom-selection-help">
-                  Desktop: Click derecho para mandar al fondo. Mobile/tablet: usa el botón Mandar al fondo.
+                  {{ 'game.mulliganOverlay.bottomSelectionHelp' | runtimeTranslate }}
                 </p>
                 <div class="bottom-pills">
                   @for (card of selectedBottomCards(); track card.instanceId; let index = $index) {
@@ -113,14 +113,14 @@
                       }
                       <span>{{ card.name }}</span>
                       @if (rule() === 'LONDON') {
-                        <button type="button" aria-label="Subir" [disabled]="index === 0 || pending()" (click)="moveBottomCard(index, -1)">
+                        <button type="button" [attr.aria-label]="'common.actions.moveUp' | runtimeTranslate" [disabled]="index === 0 || pending()" (click)="moveBottomCard(index, -1)">
                           <lucide-icon name="chevron-up" size="15" aria-hidden="true" />
                         </button>
-                        <button type="button" aria-label="Bajar" [disabled]="index === selectedBottomCards().length - 1 || pending()" (click)="moveBottomCard(index, 1)">
+                        <button type="button" [attr.aria-label]="'common.actions.moveDown' | runtimeTranslate" [disabled]="index === selectedBottomCards().length - 1 || pending()" (click)="moveBottomCard(index, 1)">
                           <lucide-icon name="chevron-down" size="15" aria-hidden="true" />
                         </button>
                       }
-                      <button type="button" aria-label="Quitar" [disabled]="pending()" (click)="removeBottomCard(card.instanceId)">
+                      <button type="button" [attr.aria-label]="'common.actions.remove' | runtimeTranslate" [disabled]="pending()" (click)="removeBottomCard(card.instanceId)">
                         <lucide-icon name="x" size="15" aria-hidden="true" />
                       </button>
                     </article>
@@ -137,7 +137,7 @@
                 [disabled]="pending() || currentMulligan()?.canTakeAnotherMulligan === false"
                 (click)="takeMulligan()"
               >
-                Mulligan
+                {{ 'game.mulliganOverlay.title' | runtimeTranslate }}
               </button>
               <button
                 type="button"
@@ -146,7 +146,7 @@
                 [disabled]="acceptDisabled()"
                 (click)="acceptMulligan()"
               >
-                Aceptar
+                {{ 'common.actions.accept' | runtimeTranslate }}
               </button>
             </div>
           }
@@ -156,15 +156,15 @@
           }
         </main>
 
-        <aside class="mulligan-players" aria-label="Estado de otros jugadores">
-          <h2>Jugadores</h2>
+        <aside class="mulligan-players" [attr.aria-label]="'game.mulliganOverlay.otherPlayersStatus' | runtimeTranslate">
+          <h2>{{ 'game.mulliganOverlay.players' | runtimeTranslate }}</h2>
           @for (player of otherPlayers(); track player.playerId) {
             <article class="mulligan-player-row" [attr.data-status]="player.status">
               <span>{{ player.displayName || player.playerId }}</span>
-              <strong>{{ statusLabel(player.status) }}</strong>
+              <strong>{{ statusLabelKey(player.status) | runtimeTranslate }}</strong>
             </article>
           } @empty {
-            <p class="empty-players">Sin otros jugadores.</p>
+            <p class="empty-players">{{ 'game.mulliganOverlay.noOtherPlayers' | runtimeTranslate }}</p>
           }
         </aside>
       </div>

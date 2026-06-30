@@ -20,7 +20,7 @@ describe('CreatePlaymatSpoilerComponent', () => {
     const freePlaymats = PLAYMAT_OPTIONS.filter((playmat) => !playmat.premium);
     const tabs = Array.from(fixture.nativeElement.querySelectorAll('.create-playmat-tier-tabs [role="tab"]') as NodeListOf<HTMLButtonElement>);
 
-    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual(['Gratis', 'Premium']);
+    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual(['Free', 'Premium']);
     expect(tabs[0].getAttribute('aria-selected')).toBe('true');
     expect(images.length).toBe(freePlaymats.length);
     expect(PLAYMAT_OPTIONS[0].path).toBe(DEFAULT_PLAYMAT_PATH);

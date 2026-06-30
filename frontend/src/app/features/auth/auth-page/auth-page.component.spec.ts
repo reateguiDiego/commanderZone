@@ -291,17 +291,17 @@ describe('AuthPageComponent', () => {
     const component = fixture.componentInstance;
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).not.toContain('Minimo 8 caracteres');
+    expect(fixture.nativeElement.textContent).not.toContain('Minimum 8 characters');
 
     const passwordInput = fixture.nativeElement.querySelector('input[formControlName="password"]') as HTMLInputElement;
     passwordInput.dispatchEvent(new FocusEvent('focus'));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Minimo 8 caracteres');
-    expect(fixture.nativeElement.textContent).toContain('Minimo 1 letra minuscula');
-    expect(fixture.nativeElement.textContent).toContain('Minimo 1 letra mayuscula');
-    expect(fixture.nativeElement.textContent).toContain('Minimo 1 numero');
-    expect(fixture.nativeElement.textContent).toContain('Minimo 1 caracter especial');
+    expect(fixture.nativeElement.textContent).toContain('Minimum 8 characters');
+    expect(fixture.nativeElement.textContent).toContain('At least 1 lowercase letter');
+    expect(fixture.nativeElement.textContent).toContain('At least 1 uppercase letter');
+    expect(fixture.nativeElement.textContent).toContain('At least 1 number');
+    expect(fixture.nativeElement.textContent).toContain('At least 1 special character');
     expect(fixture.nativeElement.querySelectorAll('.password-requirements li.met')).toHaveLength(0);
 
     component.registerForm.controls.password.setValue('password');

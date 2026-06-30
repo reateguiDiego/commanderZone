@@ -1,16 +1,16 @@
 <aside class="panel rooms-create-panel">
   <div class="room-code-card" [class.has-code-input]="joinCodeInputOpen()">
-    <app-tooltip class="action-tooltip-anchor" [text]="actionsLocked() ? lockedRoomTooltip : null" [stretch]="true">
+    <app-tooltip class="action-tooltip-anchor" [text]="actionsLocked() ? (lockedRoomTooltip | runtimeTranslate) : null" [stretch]="true">
       <button czButton="primary" class="primary-button room-action-button" type="button" [disabled]="joinCodeButtonDisabled()" (click)="joinByCode()">
         <lucide-icon name="search" size="16" />
-        Join with code
+        {{ 'rooms.roomCreatePanel.joinWithCode' | runtimeTranslate }}
       </button>
     </app-tooltip>
 
     @if (joinCodeInputOpen()) {
       <input
         name="roomCode"
-        placeholder="Enter room code"
+        [placeholder]="'rooms.roomCreatePanel.enterRoomCode' | runtimeTranslate"
         autocomplete="off"
         spellcheck="false"
         [attr.aria-invalid]="roomCodeInvalid()"
@@ -26,7 +26,7 @@
     <h3>{{ 'rooms.roomCreatePanel.roomSetup' | runtimeTranslate }}</h3>
   </div>
 
-  <app-tooltip class="action-tooltip-anchor" [text]="actionsLocked() ? lockedRoomTooltip : null" [stretch]="true">
+  <app-tooltip class="action-tooltip-anchor" [text]="actionsLocked() ? (lockedRoomTooltip | runtimeTranslate) : null" [stretch]="true">
     <button czButton="primary" class="primary-button room-action-button" type="button" [disabled]="actionsLocked()" (click)="requestCreate()">
       <lucide-icon name="plus" size="17" />
       {{ 'rooms.roomCreatePanel.createRoom' | runtimeTranslate }}

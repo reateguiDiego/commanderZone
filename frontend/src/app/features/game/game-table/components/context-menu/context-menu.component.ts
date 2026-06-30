@@ -166,7 +166,7 @@ export class ContextMenuComponent {
   readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveToMenuItems());
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
   readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
-    { value: 'all', label: 'game.contextMenu.labels.todos', icon: 'users' },
+    { value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' },
     ...this.sortedItems(this.players().map((player) => ({
       value: player.id,
       label: this.playerLabel(player),
@@ -900,7 +900,7 @@ export class ContextMenuComponent {
 
   private buildVisibilityTargetMenuItems(): readonly ContextSubmenuItem[] {
     return [
-      { value: 'all', label: 'game.contextMenu.labels.todos', icon: 'users' },
+      { value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' },
       ...this.sortedItems(this.players().map((player) => ({
         value: player.id,
         label: this.playerLabel(player),

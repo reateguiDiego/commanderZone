@@ -1,11 +1,11 @@
 <main class="demo-room-page">
   <section class="panel demo-room-panel">
     <app-back-button link="/" />
-    <span class="eyebrow">Demo room</span>
+    <span class="eyebrow">{{ 'onboarding.demoRoom.eyebrow' | runtimeTranslate }}</span>
     <h1>{{ roomId() }}</h1>
-    <p>This is a mock room route for the onboarding flow. Replace it with the real room experience when multiplayer is wired.</p>
+    <p>{{ 'onboarding.demoRoom.description' | runtimeTranslate }}</p>
     <div class="button-row wrap-row">
-      <a czButton="secondary" class="secondary-button" routerLink="/auth/login">Go to login</a>
+      <a czButton="secondary" class="secondary-button" routerLink="/auth/login">{{ 'onboarding.demoRoom.goToLogin' | runtimeTranslate }}</a>
     </div>
   </section>
 </main>

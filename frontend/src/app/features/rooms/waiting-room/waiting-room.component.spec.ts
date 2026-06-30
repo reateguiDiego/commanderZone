@@ -217,7 +217,7 @@ describe('WaitingRoomComponent', () => {
 
     expect(component.invalidDeckSelection()?.name).toBe('Broken Deck');
     expect(roomsApi.join).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain('No puedes seleccionar Broken Deck');
+    expect(fixture.nativeElement.textContent).toContain('You cannot select Broken Deck');
 
     component.closeInvalidDeckModal();
     expect(component.invalidDeckSelection()).toBeNull();
@@ -536,7 +536,8 @@ describe('WaitingRoomComponent', () => {
 
     expect(component.currentPlayerCanRoll()).toBe(true);
     expect(component.rollModalOpen()).toBe(true);
-    expect(component.rollModalMessage()).toContain('Has empatado con Guest 2.');
+    expect(component.rollModalMessage()).toBe('rooms.waitingRoom.tieBreakRollMessage');
+    expect(component.rollModalMessageParams()).toEqual({ playerNames: 'Guest 2' });
   });
 
   it('keeps turn labels hidden until every player has rolled', async () => {

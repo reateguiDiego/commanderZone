@@ -2620,7 +2620,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.recordRollResult({
       kind: 'd20',
-      label: 'Dado de 20 caras',
+      label: '20-sided die',
       iterationCount: 4,
       finalResult: '17',
     });

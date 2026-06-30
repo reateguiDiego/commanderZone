@@ -11,7 +11,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 export class GameSetupSeatsControlComponent {
   readonly value = input(4);
   readonly minimumValue = input(2);
-  readonly label = input('Seats');
+  readonly label = input('rooms.setup.gameSetupSeatsControl.seats');
   readonly disabled = input(false);
   readonly options = input<readonly number[]>([2, 3, 4, 5, 6]);
 

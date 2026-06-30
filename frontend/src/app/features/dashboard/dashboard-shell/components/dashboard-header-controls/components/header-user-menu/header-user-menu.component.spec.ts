@@ -160,7 +160,7 @@ describe('HeaderUserMenuComponent', () => {
       fixture.nativeElement.querySelectorAll('.language-item') as NodeListOf<HTMLButtonElement>,
     );
     const frenchButton = languageItems
-      .find((button) => button.textContent?.includes('Français')) as HTMLButtonElement;
+      .find((button) => button.textContent?.includes('French')) as HTMLButtonElement;
     frenchButton.click();
     fixture.detectChanges();
     await Promise.resolve();
@@ -192,11 +192,11 @@ describe('HeaderUserMenuComponent', () => {
       fixture.nativeElement.querySelectorAll('.language-item .language-option span:last-child') as NodeListOf<HTMLElement>,
     ).map((element) => element.textContent?.trim() ?? '');
 
-    const sorted = [...labels].sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
+    const sorted = [...labels].sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' }));
     expect(labels).toEqual(sorted);
   });
 
-  it('includes dutch and catalan native options in language picker', () => {
+  it('includes translated dutch and catalan options in language picker', () => {
     const fixture = TestBed.createComponent(HeaderUserMenuComponent);
     fixture.detectChanges();
 
@@ -217,8 +217,9 @@ describe('HeaderUserMenuComponent', () => {
     );
     const labels = languageItems.map((button) => button.textContent ?? '');
 
-    expect(labels.some((text) => text.includes('Nederlands'))).toBe(true);
-    expect(labels.some((text) => text.includes('Català'))).toBe(true);
+    expect(labels.some((text) => text.includes('Dutch'))).toBe(true);
+    expect(labels.some((text) => text.includes('Catalan'))).toBe(true);
+    expect(labels.some((text) => text.includes('Nederlands'))).toBe(false);
   });
 
   it('links to the public FAQ from the internal app menu', () => {

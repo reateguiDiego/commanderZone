@@ -4,17 +4,17 @@
     class="replay-modal"
     role="dialog"
     aria-modal="true"
-    [attr.aria-label]="'tableAssistant.tableAssistantReplayModal.configuracionDeMesa' | runtimeTranslate"
+    [attr.aria-label]="'tableAssistant.tableAssistantReplayModal.tableSetup' | runtimeTranslate"
     (click)="$event.stopPropagation()"
   >
     <header>
       <div>
-        <span class="eyebrow">{{ 'tableAssistant.tableAssistantReplayModal.configuracionDeMesa' | runtimeTranslate }}</span>
+        <span class="eyebrow">{{ 'tableAssistant.tableAssistantReplayModal.tableSetup' | runtimeTranslate }}</span>
       </div>
       <button czButton="icon"
         class="icon-button"
         type="button"
-        [attr.aria-label]="'tableAssistant.tableAssistantReplayModal.cerrarConfiguracionDeMesa' | runtimeTranslate"
+        [attr.aria-label]="'tableAssistant.tableAssistantReplayModal.closeTableSetup' | runtimeTranslate"
         (click)="close()"
       >
         &#10005;
@@ -25,7 +25,7 @@
       <section
         class="seat-layout"
         [style.--seat-column-count]="seatColumnCount()"
-        [attr.aria-label]="'tableAssistant.tableAssistantReplayModal.posicionesDeMesa' | runtimeTranslate"
+        [attr.aria-label]="'tableAssistant.tableAssistantReplayModal.tablePositions' | runtimeTranslate"
       >
         @for (seatIndex of seatPositions(); track seatIndex; let index = $index) {
           <article
@@ -35,22 +35,22 @@
             [style.--seat-column]="seatColumn(index)"
           >
             <div class="seat-card-header">
-              <span>Mesa {{ index + 1 }}</span>
+              <span>{{ 'tableAssistant.tableAssistantReplayModal.seatLabel' | runtimeTranslate: { count: index + 1 } }}</span>
               <span class="turn-pill-slot" aria-hidden="true">
                 @if (playerAtSeat(index); as player) {
                   @if (turnPosition(player.id); as position) {
-                    <strong>Turno {{ position }}</strong>
+                    <strong>{{ 'tableAssistant.tableAssistantReplayModal.turnLabel' | runtimeTranslate: { count: position } }}</strong>
                   }
                 }
               </span>
             </div>
 
             <div class="seat-field">
-              <span>{{ 'tableAssistant.tableAssistantReplayModal.jugador' | runtimeTranslate }}</span>
+              <span>{{ 'tableAssistant.tableAssistantReplayModal.player' | runtimeTranslate }}</span>
               <app-format-select
                 name="seatPlayer"
                 [labelHidden]="true"
-                labelKey="tableAssistant.tableAssistantReplayModal.jugador"
+                labelKey="tableAssistant.tableAssistantReplayModal.player"
                 [options]="seatPlayerOptions(index)"
                 [value]="seatValue(index)"
                 (click)="$event.stopPropagation()"
@@ -62,12 +62,12 @@
               @if (playerAtSeat(index); as player) {
                 <div class="seat-turn-row">
                   <div class="seat-field">
-                    <span>{{ 'tableAssistant.tableAssistantReplayModal.orden' | runtimeTranslate }}</span>
+                    <span>{{ 'tableAssistant.tableAssistantReplayModal.order' | runtimeTranslate }}</span>
                     <app-format-select
                       class="turn-order-select"
                       [name]="'turnOrder-' + player.id"
                       [labelHidden]="true"
-                      labelKey="tableAssistant.tableAssistantReplayModal.orden"
+                      labelKey="tableAssistant.tableAssistantReplayModal.order"
                       [options]="turnIndexOptions(player.id)"
                       [value]="turnIndexValue(player.id)"
                       (click)="$event.stopPropagation()"
@@ -76,7 +76,7 @@
                   </div>
                 </div>
               } @else {
-                <p class="empty-seat">{{ 'tableAssistant.tableAssistantReplayModal.eligeUnJugadorYSuTurno' | runtimeTranslate }}</p>
+                <p class="empty-seat">{{ 'tableAssistant.tableAssistantReplayModal.choosePlayerAndTurn' | runtimeTranslate }}</p>
               }
             </div>
           </article>
@@ -90,10 +90,10 @@
           [disabled]="!canRandomizeTurnOrder()"
           (click)="randomizeTurnOrder()"
         >
-          {{ 'tableAssistant.tableAssistantReplayModal.turnoAleatorio' | runtimeTranslate }}
+          {{ 'tableAssistant.tableAssistantReplayModal.randomTurn' | runtimeTranslate }}
         </button>
         <button class="primary-action" type="submit" [disabled]="!isArrangementComplete()">
-          {{ confirmLabel() }}
+          {{ confirmLabelKey() | runtimeTranslate }}
         </button>
       </footer>
     </form>

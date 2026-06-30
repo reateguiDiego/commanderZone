@@ -1,4 +1,5 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, computed, input, output, signal, viewChild } from '@angular/core';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { TabListComponent, type TabListItem } from '../../../../../shared/ui/tab-list/tab-list.component';
@@ -198,7 +199,7 @@ export const PLAYMAT_OPTIONS: readonly PlaymatOption[] = PLAYMAT_FILES.map((file
 
 @Component({
   selector: 'app-create-playmat-spoiler',
-  imports: [CzButtonDirective, PrettyScrollDirective, TabListComponent],
+  imports: [CzButtonDirective, PrettyScrollDirective, RuntimeTranslatePipe, TabListComponent],
   templateUrl: './create-playmat-spoiler.component.html',
   styleUrl: './create-playmat-spoiler.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -211,8 +212,8 @@ export class CreatePlaymatSpoilerComponent implements AfterViewInit, OnDestroy {
   readonly playmatGrid = viewChild<ElementRef<HTMLElement>>('playmatGrid');
   readonly activeTier = signal<PlaymatTierTab>('free');
   readonly tierTabItems: readonly TabListItem[] = [
-    { id: 'free', label: 'Gratis' },
-    { id: 'premium', label: 'Premium' },
+    { id: 'free', label: 'deckBuilder.deckList.cosmetics.free' },
+    { id: 'premium', label: 'deckBuilder.deckList.cosmetics.premium' },
   ];
   readonly hoverPreview = signal<PlaymatHoverPreview | null>(null);
   readonly playmats = computed(() => {

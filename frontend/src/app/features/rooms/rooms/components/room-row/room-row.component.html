@@ -20,24 +20,26 @@
     <strong>{{ formatLabel(currentRoom.format) }}</strong>
   </div>
   <div class="room-col">
-    <span class="visibility-pill" [class.is-private]="currentRoom.visibility === 'private'">{{ currentRoom.visibility }}</span>
+    <span class="visibility-pill" czTextFit czTextFitMinScale="0.78" [class.is-private]="currentRoom.visibility === 'private'">
+      {{ visibilityPillLabelKey(currentRoom.visibility) | runtimeTranslate }}
+    </span>
   </div>
   <div class="room-col room-col-centered">
     <strong>{{ roomPlayerCount(currentRoom) }} / {{ roomCapacity(currentRoom) }}</strong>
   </div>
   <div class="room-col room-col-centered">
     @if (isRoomStarted(currentRoom)) {
-      <span class="status-pill status-started">{{ 'rooms.roomRow.started' | runtimeTranslate }}</span>
+      <span class="status-pill status-started" czTextFit czTextFitMinScale="0.78">{{ 'rooms.roomRow.started' | runtimeTranslate }}</span>
     } @else if (isRoomArchived(currentRoom)) {
-      <span class="status-pill status-archived">{{ currentRoom.status }}</span>
+      <span class="status-pill status-archived" czTextFit czTextFitMinScale="0.78">{{ currentRoom.status }}</span>
     } @else if (isRoomWaiting(currentRoom) && isRoomFull(currentRoom)) {
-      <span class="status-pill status-full">{{ 'rooms.roomRow.full' | runtimeTranslate }}</span>
+      <span class="status-pill status-full" czTextFit czTextFitMinScale="0.78">{{ 'rooms.roomRow.full' | runtimeTranslate }}</span>
     } @else if (isRoomOpen(currentRoom)) {
-      <span class="status-pill status-open">{{ 'rooms.roomRow.open' | runtimeTranslate }}</span>
+      <span class="status-pill status-open" czTextFit czTextFitMinScale="0.78">{{ 'rooms.roomRow.open' | runtimeTranslate }}</span>
     } @else if (isRoomWaiting(currentRoom)) {
-      <span class="status-pill status-waiting">{{ currentRoom.status }}</span>
+      <span class="status-pill status-waiting" czTextFit czTextFitMinScale="0.78">{{ currentRoom.status }}</span>
     } @else {
-      <span class="status-pill status-full">{{ currentRoom.status }}</span>
+      <span class="status-pill status-full" czTextFit czTextFitMinScale="0.78">{{ currentRoom.status }}</span>
     }
   </div>
   <div class="room-actions">

@@ -55,10 +55,10 @@ describe('DashboardSettingsModalComponent', () => {
     applyLanguage: vi.fn(),
   };
   const defaultCardLanguageCoverage = [
-    { code: 'en', label: 'Ingles', distinctCardNames: 100, percentageOfEnglish: 100 },
-    { code: 'es', label: 'Espanol', distinctCardNames: 73, percentageOfEnglish: 73 },
-    { code: 'fr', label: 'Frances', distinctCardNames: 76, percentageOfEnglish: 76 },
-    { code: 'zht', label: 'Chino tradicional', distinctCardNames: 42, percentageOfEnglish: 42 },
+    { code: 'en', label: 'English', distinctCardNames: 100, percentageOfEnglish: 100 },
+    { code: 'es', label: 'Español', distinctCardNames: 73, percentageOfEnglish: 73 },
+    { code: 'fr', label: 'Français', distinctCardNames: 76, percentageOfEnglish: 76 },
+    { code: 'zht', label: '繁體中文', distinctCardNames: 42, percentageOfEnglish: 42 },
   ] satisfies CardLanguageCoverageResponse['data'];
   const cardsLanguageList = vi.fn<() => Observable<CardLanguageCoverageResponse>>(() =>
     of({ selectedCardLanguage: 'en', data: defaultCardLanguageCoverage } satisfies CardLanguageCoverageResponse),
@@ -129,7 +129,7 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Change password');
     expect(fixture.nativeElement.textContent).toContain('Show mana helper on startup');
     expect(fixture.nativeElement.textContent).toContain('Enable mana row');
-    expect(fixture.nativeElement.textContent).toContain('Enable stack mana');
+    expect(fixture.nativeElement.textContent).toContain('Preserve mana pool');
     expect(fixture.nativeElement.textContent).toContain('Game animations');
     expect(fixture.nativeElement.textContent).toContain('Chat notification sounds');
   });
@@ -194,7 +194,7 @@ describe('DashboardSettingsModalComponent', () => {
   it('loads card language coverage when settings opens', async () => {
     cardsLanguageList.mockReturnValueOnce(of({
       selectedCardLanguage: 'en',
-      data: [{ code: 'en', label: 'Ingles', distinctCardNames: 100, percentageOfEnglish: 100 }],
+      data: [{ code: 'en', label: 'English', distinctCardNames: 100, percentageOfEnglish: 100 }],
     } satisfies CardLanguageCoverageResponse));
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
 
@@ -204,7 +204,7 @@ describe('DashboardSettingsModalComponent', () => {
 
     expect(cardsLanguageList).toHaveBeenCalledTimes(1);
     expect(fixture.componentInstance.cardLanguageCoverage()).toEqual([
-      { code: 'en', label: 'Ingles', distinctCardNames: 100, percentageOfEnglish: 100 },
+      { code: 'en', label: 'English', distinctCardNames: 100, percentageOfEnglish: 100 },
     ]);
   });
 
@@ -257,13 +257,13 @@ describe('DashboardSettingsModalComponent', () => {
     const optionLabels = Array.from(cardLanguageSelect.querySelectorAll('.format-select-option-content span:last-child') as NodeListOf<HTMLElement>)
       .map((element) => element.textContent?.trim() ?? '');
 
-    expect(optionLabels).toEqual(['English', 'Spanish', 'French', 'Chinese (Traditional)']);
+    expect(optionLabels).toEqual(['English', 'Spanish', 'French', 'Traditional Chinese']);
     expect(optionLabels).not.toContain('Dutch');
     expect(cardLanguageSelect.textContent).toContain('English');
     expect(cardLanguageSelect.querySelector('.format-select-option img[src*="taiwan"]')).not.toBeNull();
   });
 
-  it('uses native hamburger language options with flags for app language', async () => {
+  it('uses translated language options with flags for app language', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
     fixture.detectChanges();
@@ -284,9 +284,9 @@ describe('DashboardSettingsModalComponent', () => {
       .map((element) => element.textContent?.trim() ?? '');
     const optionFlags = appLanguageSelect.querySelectorAll('.format-select-option .format-select-flag');
 
-    expect(optionLabels).toContain('Deutsch');
-    expect(optionLabels).toContain('Nederlands');
-    expect(optionLabels).not.toContain('German');
+    expect(optionLabels).toContain('German');
+    expect(optionLabels).toContain('Dutch');
+    expect(optionLabels).not.toContain('Deutsch');
     expect(optionFlags.length).toBe(optionLabels.length);
   });
 

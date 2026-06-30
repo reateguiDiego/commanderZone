@@ -6,7 +6,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { AUTH_PASSWORD_REGEX, AUTH_PASSWORD_REQUIREMENT_MESSAGE } from '../auth-password-policy';
+import { AUTH_PASSWORD_REGEX } from '../auth-password-policy';
 import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
@@ -35,7 +35,6 @@ export class PasswordResetPageComponent {
   readonly newPasswordVisible = signal(false);
   readonly confirmPasswordVisible = signal(false);
   readonly resetToken = signal<string | null>(null);
-  readonly passwordRequirementMessage = AUTH_PASSWORD_REQUIREMENT_MESSAGE;
 
   readonly resetForm = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
@@ -81,7 +80,7 @@ export class PasswordResetPageComponent {
       const response = await firstValueFrom(this.authApi.requestPasswordReset(this.resetForm.controls.email.value.trim()));
       this.requestSuccess.set(response.accepted);
     } catch {
-      this.requestError.set('No se pudo solicitar el correo de recuperacion.');
+      this.requestError.set('auth.passwordResetPage.requestError');
     } finally {
       this.requestLoading.set(false);
     }
@@ -93,10 +92,10 @@ export class PasswordResetPageComponent {
       this.resetForm.controls.newPassword.markAsTouched();
       this.resetForm.controls.confirmPassword.markAsTouched();
       if (!this.resetToken()) {
-        this.resetError.set('El enlace de recuperacion no es valido o ha caducado.');
+        this.resetError.set('auth.passwordResetPage.invalidOrExpiredLink');
       }
       if (!this.passwordsMatch()) {
-        this.resetError.set('Las contrasenas no coinciden.');
+        this.resetError.set('auth.passwordResetPage.passwordsDoNotMatch');
       }
       return;
     }
@@ -119,7 +118,7 @@ export class PasswordResetPageComponent {
       await this.router.navigate(['/dashboard']).catch(() => false);
     } catch {
       this.resetSuccess.set(false);
-      this.resetError.set('No se pudo actualizar la contrasena con ese token.');
+      this.resetError.set('auth.passwordResetPage.updateError');
     } finally {
       this.resetLoading.set(false);
     }

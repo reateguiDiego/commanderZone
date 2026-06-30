@@ -2,606 +2,835 @@
   "common": {
     "app": {
       "app": {
-        "loading": "Loading"
-      }
+        "loading": "Загрузка"
+      },
+      "brand": "CommanderZone"
     },
     "footerDisclaimer": {
       "footerDisclaimer": {
-        "disclaimer": "Disclaimer",
-        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by",
+        "disclaimer": "Отказ от ответственности",
+        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone — неофициальный фан-контент, разрешенный Fan Content Policy. Не одобрен и не поддерживается",
         "wizards": "Wizards",
-        "portionsOfTheMaterialsUsedAreProperty": ". Portions of the materials used are property of",
+        "portionsOfTheMaterialsUsedAreProperty": ". Часть использованных материалов является собственностью",
         "wizardsOfTheCoast": "Wizards of the Coast",
         "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
         "magicTheGathering": "Magic: The Gathering®",
         "mtg": "MTG®",
-        "andAllAssociatedLogosCardImagesAnd": ", and all associated logos, card images, and intellectual property are trademarks and/or copyrights of",
-        "llcASubsidiaryOf": "LLC, a subsidiary of",
+        "llcASubsidiaryOf": "LLC, дочерняя компания",
         "hasbroInc": "Hasbro, Inc",
-        "inTheUnitedStatesAndOtherCountries": "., in the United States and other countries.",
-        "text19932025WizardsOfTheCoastLlc": "© 1993-2025 Wizards of the Coast LLC",
-        "allRightsReserved": ". All rights reserved.",
-        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone may display or reference certain",
-        "intellectualPropertyUnderTheGuidelinesSetForth": "intellectual property under the guidelines set forth in",
+        "inTheUnitedStatesAndOtherCountries": "., в США и других странах.",
+        "allRightsReserved": ". Все права защищены.",
+        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone может отображать или ссылаться на определенные",
+        "intellectualPropertyUnderTheGuidelinesSetForth": "интеллектуальной собственности в соответствии с руководящими принципами, изложенными в",
         "wizardsFanContentPolicy": "Wizards' Fan Content Policy",
-        "thisSiteDoesNotSellProductsHost": ". This site does not sell products, host tournaments, or offer any ranked or competitive services. All features are provided free of charge and are intended solely for non-commercial, educational, and entertainment use by the",
+        "thisSiteDoesNotSellProductsHost": ". Этот сайт не продает продукты, не проводит турниры и не предлагает рейтинговые или соревновательные услуги. Все функции предоставляются бесплатно и предназначены исключительно для некоммерческого, образовательного и развлекательного использования сообществом",
         "magicTheGathering1": "Magic: The Gathering",
-        "community": "community.",
-        "forMoreInformationOn": "For more information on",
-        "andTheirIntellectualPropertyPoliciesPleaseVisit": "and their intellectual property policies, please visit:",
-        "ifYouAreTheRightsHolderAnd": "If you are the rights holder and believe any content on this website violates your rights, please contact us directly to resolve the matter. Contact us, view our Help &amp; FAQ, or check our Press Kit."
+        "community": "сообщество.",
+        "forMoreInformationOn": "Для получения дополнительной информации о",
+        "andTheirIntellectualPropertyPoliciesPleaseVisit": "и их политику в области интеллектуальной собственности, пожалуйста, посетите:",
+        "ifYouAreTheRightsHolderAnd": "Если вы являетесь правообладателем и считаете, что какой-либо контент на этом веб-сайте нарушает ваши права, свяжитесь с нами напрямую, чтобы решить этот вопрос.",
+        "copyrightYears": "© 1993-{{ currentYear }} Wizards of the Coast LLC",
+        "viewHelpOrPressKit": "см. Help & FAQ или Press Kit.",
+        "trademarkedLogosImagesAndIpNotice": ", а также все связанные логотипы, изображения карт и интеллектуальная собственность являются товарными знаками и/или объектами авторского права",
+        "staticWizardsCopyrightYears": "© 1993-2025 Wizards of the Coast LLC"
       }
     },
     "visibility": {
       "visibilityChoice": {
-        "public": "Public",
-        "private": "Private"
+        "public": "Публичный",
+        "private": "Приватный",
+        "label": "Видимость",
+        "privacy": "Конфиденциальность",
+        "privateOnlyYouSubtitle": "Только вы можете это видеть",
+        "privateSubtitle": "Только по приглашению",
+        "publicPlayersSubtitle": "Виден другим игрокам",
+        "publicProfileSubtitle": "Видно в общедоступном профиле",
+        "publicSubtitle": "Присоединиться может любой игрок"
+      },
+      "visibilityPill": {
+        "public": "Публично",
+        "private": "Приватно"
       }
     },
     "extraActions": {
       "label": "Extras",
-      "open": "Open extra actions",
-      "menu": "Extra actions"
+      "open": "Открыть дополнительные действия",
+      "menu": "Дополнительные действия"
     },
     "navigation": {
       "back": "Назад"
+    },
+    "actions": {
+      "accept": "Принять",
+      "confirm": "Подтвердить",
+      "create": "Создать",
+      "delete": "Удалить",
+      "done": "Готово",
+      "invite": "Пригласить",
+      "roll": "Бросить",
+      "save": "Сохранять",
+      "select": "Выбрать",
+      "sending": "Отправка...",
+      "understood": "Понял",
+      "working": "Обработка...",
+      "showPassword": "Показать пароль",
+      "hidePassword": "Скрыть пароль",
+      "previous": "Предыдущий",
+      "next": "Следующий",
+      "moveUp": "Вверх",
+      "moveDown": "Вниз",
+      "remove": "Удалить",
+      "newGame": "Новая партия"
+    },
+    "modal": {
+      "cancel": "Отмена",
+      "cannotBeUndone": "Это действие невозможно отменить.",
+      "close": "Закрыть"
     }
   },
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "tuComandanteHaLlegado": "???? ????????? ?????? ?????",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
-        "bienvenido": "????? ??????????"
-      },
-      "dashboardHeaderContext": {
-        "pageSummary": "Page summary"
-      },
-      "dashboardHeaderControls": {
-        "pendingFriendRequests": "Pending friend requests",
-        "onlineFriends": "Online friends",
-        "friends": "Friends"
-      },
-      "dashboardShell": {
-        "commanderzoneDashboard": "CommanderZone dashboard",
-        "primary": "Primary",
-        "decks": "Decks",
-        "rooms": "Rooms",
-        "asistenteDeMesa": "Asistente de Mesa"
+        "commandersArrivalHeadline": "Ваши командиры жаждут крови",
+        "welcome": "Добро пожаловать"
       },
       "dashboardTopCommanders": {
-        "title": "Top commanders",
-        "subtitle": "????? ???????? ????????? ???????",
-        "viewAll": "View more",
-        "viewMore": "View more",
-        "communityPopularity": "?? ?????? ??? ??????????"
+        "title": "Лучшие командиры",
+        "subtitle": "Самые популярные командиры формата",
+        "communityPopularity": "На основе партий, сыгранных сообществом",
+        "viewMore": "Посмотреть больше"
+      },
+      "dashboardHeaderContext": {
+        "pageSummary": "Краткое описание страницы"
+      },
+      "dashboardHeaderControls": {
+        "pendingFriendRequests": "Ожидаемые запросы на добавление в друзья",
+        "onlineFriends": "Друзья онлайн",
+        "friends": "Друзья"
+      },
+      "dashboardShell": {
+        "commanderzoneDashboard": "Панель CommanderZone",
+        "primary": "Основное",
+        "cards": "Карты",
+        "decks": "Колоды",
+        "rooms": "Комнаты",
+        "community": "Сообщество",
+        "tableAssistant": "Помощник стола"
       }
     },
     "friends": {
       "friendsDropdown": {
-        "emailOrUsername": "Email or username",
-        "friends": "Friends",
-        "userSearchResults": "User search results",
-        "friendList": "Friend list",
-        "searchUsers": "Search users",
-        "sendFriendRequest": "Send friend request",
-        "cancelRequest": "Cancel request",
-        "removeFriend": "Remove friend",
-        "findUsers": "Find users",
-        "noUsersFound": "No users found.",
-        "invitacionDeSala": "Invitacion de sala",
-        "noFriendsOrPendingRequests": "No friends or pending requests."
+        "friends": "Друзья",
+        "userSearchResults": "Результаты поиска пользователей",
+        "friendList": "Список друзей",
+        "sendFriendRequest": "Отправить запрос на добавление в друзья",
+        "cancelRequest": "Отменить запрос",
+        "removeFriend": "Удалить друга",
+        "findUsers": "Найти пользователей",
+        "noUsersFound": "Пользователи не найдены.",
+        "acceptedStatus": "Друзья",
+        "blockedStatus": "Заблокировано",
+        "declinedStatus": "Отклоненный",
+        "invitations": "Приглашения",
+        "inGameStatus": "В игре",
+        "joinedPlayers": "присоединился",
+        "offlineStatus": "Оффлайн",
+        "online": "Онлайн",
+        "onlineStatus": "Онлайн",
+        "pendingStatus": "В ожидании",
+        "searchHint": "Введите не менее двух символов для поиска игроков.",
+        "searchPlayers": "Поиск игроков...",
+        "searchTab": "Поиск",
+        "seats": "сиденья",
+        "requests": "Запросы",
+        "receivedRequests": "Полученный",
+        "sentRequests": "Отправил",
+        "disconnected": "Отключено",
+        "roomInvite": "Приглашение в комнату"
       }
     }
   },
   "auth": {
     "authPage": {
-      "authMode": "Auth mode",
+      "authMode": "Режим аутентификации",
       "commanderzone": "CommanderZone",
-      "accedeATusMazosSalasYMesa": "Accede a tus mazos, salas y mesa manual de Commander.",
-      "login": "Login",
-      "register": "Register",
-      "email": "Email",
-      "emailOrUserName": "Email или имя пользователя",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "introduceUnEmailOUserNameValido": "Введите корректный email или имя пользователя.",
-      "invalidCredentials": "Неверный email, имя пользователя или пароль.",
-      "tooManyLoginAttempts": "Слишком много неудачных попыток входа. Повторите попытку позже.",
-      "loginLockoutWarning": "Неудачная попытка входа {{ count }}/5. После 5 ошибок вход будет заблокирован на 15 минут.",
-      "password": "Password",
-      "heOlvidadoMiContrasena": "He olvidado mi contrasena",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula, numero y caracter especial.",
+      "login": "Авторизоваться",
+      "register": "Зарегистрироваться",
+      "email": "Электронная почта",
+      "emailOrUserName": "Электронная почта или имя пользователя",
+      "invalidCredentials": "Неверный адрес электронной почты, имя пользователя или пароль.",
+      "tooManyLoginAttempts": "Слишком много неудачных попыток входа в систему. Пожалуйста, повторите попытку позже.",
+      "loginLockoutWarning": "Неудачная попытка входа в систему {{ count }}/5. Если вы не справитесь 5 раз, вход будет заблокирован на 15 минут.",
+      "password": "Пароль",
+      "userName": "Имя пользователя",
       "passwordRequirements": {
-        "label": "Password requirements",
-        "minLength": "Minimo 8 caracteres",
-        "lowercase": "Minimo 1 letra minuscula",
-        "uppercase": "Minimo 1 letra mayuscula",
-        "number": "Minimo 1 numero",
-        "special": "Minimo 1 caracter especial"
+        "label": "Требования к паролю",
+        "minLength": "Минимум 8 символов",
+        "lowercase": "Хотя бы 1 строчная буква",
+        "uppercase": "Хотя бы 1 заглавная буква",
+        "number": "Хотя бы 1 комната",
+        "special": "Минимум 1 специальный символ"
       },
-      "confirmarPassword": "Confirmar password",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "registrationCompletedCheckEmail": "Registration complete. Check your email and confirm your account."
+      "registrationCompletedCheckEmail": "Регистрация завершена. Проверьте свою электронную почту и подтвердите свой аккаунт.",
+      "createAccount": "Зарегистрироваться",
+      "accessDecksRoomsAndTable": "Получите доступ к своим колодам, комнатам и ручному столу Commander.",
+      "enterValidEmail": "Введите действительный адрес электронной почты.",
+      "enterValidEmailOrUsername": "Введите действительный адрес электронной почты или имя пользователя.",
+      "forgotPassword": "Я забыл свой пароль",
+      "checkingEmail": "Проверка электронной почты...",
+      "checkingAvailability": "Проверяем наличие...",
+      "passwordPolicySummary": "Минимум 8 символов: строчные, прописные, цифры и специальные символы.",
+      "confirmPassword": "Подтвердите пароль",
+      "passwordsDoNotMatch": "Пароли не совпадают.",
+      "emailAvailable": "Электронная почта доступна",
+      "emailAlreadyRegistered": "Электронная почта уже зарегистрирована",
+      "couldNotCheckNow": "Не удалось проверить сейчас",
+      "usernameLengthRequirement": "Имя пользователя должно содержать от 2 до 20 символов.",
+      "usernameAvailable": "Доступно имя пользователя",
+      "usernameUnavailable": "Имя пользователя недоступно"
     },
     "emailVerificationPage": {
-      "confirmingEmail": "Confirming email",
-      "waitWhileWeConfirmYourAccount": "Wait while we confirm your account.",
-      "couldNotConfirmEmail": "Could not confirm your email",
-      "linkInvalidOrExpired": "The verification link is invalid or has expired.",
-      "backToLogin": "Back to login"
+      "confirmingEmail": "Подтверждение электронной почты",
+      "waitWhileWeConfirmYourAccount": "Подождите, пока мы подтвердим вашу учетную запись.",
+      "couldNotConfirmEmail": "Не удалось подтвердить адрес электронной почты",
+      "invalidOrExpiredLink": "Ссылка для подтверждения недействительна или срок ее действия истек."
     },
     "passwordResetPage": {
-      "recuperarContrasena": "Recuperar contrasena",
-      "solicitaElCorreoDeRecuperacionParaRecibir": "Solicita el correo de recuperacion para recibir un enlace seguro.",
-      "defineTuNuevaContrasenaConElEnlace": "Define tu nueva contrasena con el enlace seguro que recibiste por email.",
-      "email": "Email",
-      "siElEmailExisteSeEnvioUn": "Si el email existe, se envio un correo con el token de recuperacion.",
-      "nuevaContrasena": "Nueva contrasena",
-      "confirmarContrasena": "Confirmar contrasena",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "contrasenaActualizadaIniciandoSesion": "Contrasena actualizada. Iniciando sesion...",
-      "volverAlLogin": "Volver al login"
+      "email": "Электронная почта",
+      "requestError": "Не удалось запросить резервный адрес электронной почты.",
+      "invalidOrExpiredLink": "Ссылка для восстановления недействительна или срок ее действия истек.",
+      "updateError": "Не удалось обновить пароль с помощью этого токена.",
+      "sending": "Отправка...",
+      "sendRecoveryEmail": "Отправить письмо для восстановления",
+      "updating": "Обновление...",
+      "updatePassword": "Обновить пароль",
+      "resetPassword": "Сбросить пароль",
+      "requestRecoveryEmailDescription": "Запросите письмо для восстановления, чтобы получить безопасную ссылку.",
+      "setNewPasswordDescription": "Установите новый пароль с помощью безопасной ссылки, которую вы получили по электронной почте.",
+      "newPassword": "Новый пароль",
+      "confirmPassword": "Подтвердите пароль",
+      "passwordsDoNotMatch": "Пароли не совпадают.",
+      "passwordUpdatedSigningIn": "Пароль обновлен. Вход в систему...",
+      "recoveryEmailSentIfAccountExists": "Если адрес электронной почты существует, значит, ему было отправлено письмо для восстановления пароля."
     }
   },
   "rooms": {
     "roomBrowser": {
-      "searchRoom": "Search room",
-      "searchOwner": "Search owner",
-      "roomName": "Room name",
-      "owner": "Owner",
-      "visibility": "Visibility",
-      "publicAndPrivate": "All",
-      "publicOnly": "Public",
-      "privateOnly": "Private",
-      "status": "Status",
-      "allStatus": "All status",
-      "anonymous": "Anonymous",
-      "open": "Open",
-      "full": "Full",
-      "started": "Started",
-      "host": "Host",
-      "format": "Format",
-      "players": "Players",
-      "action": "Action",
-      "noRoomsMatchTheCurrentFilters": "No rooms match the current filters."
+      "searchRoom": "Поиск комнаты",
+      "searchOwner": "Поиск хоста",
+      "roomName": "Название комнаты",
+      "owner": "Хост",
+      "visibility": "Видимость",
+      "publicAndPrivate": "Все",
+      "publicOnly": "Публичный",
+      "privateOnly": "Приватный",
+      "status": "Статус",
+      "anonymous": "Анонимный",
+      "open": "Открыта",
+      "full": "Заполнена",
+      "started": "Началась",
+      "host": "Хост",
+      "format": "Формат",
+      "players": "Игроки",
+      "action": "Действие",
+      "noRoomsMatchTheCurrentFilters": "Ни одна комната не соответствует текущим фильтрам."
     },
     "roomCreatePanel": {
-      "czAbcDef123": "CZ-ABC-DEF-123",
-      "joinByRoomCode": "Join by room code",
-      "join": "Join",
-      "createANewRoom": "Create a new room",
-      "roomSetup": "Room setup",
-      "createRoom": "Create room"
+      "join": "Войти",
+      "createANewRoom": "Создать новую комнату",
+      "roomSetup": "Настройка комнаты",
+      "createRoom": "Создать комнату",
+      "alreadyInRoomTooltip": "Вы уже в комнате. Покиньте ее, прежде чем присоединиться к другой.",
+      "enterRoomCode": "Введите код комнаты",
+      "joinWithCode": "Войти по коду"
     },
     "roomCurrentBanner": {
-      "currentRoomDetails": "Current room details",
-      "currentRoom": "Current room",
-      "yourDeck": "Your deck",
-      "turn": "Turn"
+      "currentRoomDetails": "Детали текущей комнаты",
+      "currentRoom": "Текущая комната",
+      "yourDeck": "Ваша колода",
+      "turn": "Ход"
     },
     "roomInvitesPanel": {
-      "invites": "Invites",
-      "pendingRoomInvites": "Pending room invites",
-      "accept": "Accept",
-      "decline": "Decline"
+      "invites": "Приглашения",
+      "pendingRoomInvites": "Ожидаемые приглашения в комнату",
+      "accept": "Принять",
+      "decline": "Отклонить"
     },
     "roomRow": {
-      "started": "Started",
-      "full": "Full",
-      "open": "Open",
-      "join": "Join"
+      "started": "Началась",
+      "full": "Заполнена",
+      "open": "Открыта",
+      "join": "Войти"
     },
     "rooms": {
-      "borrarSala": "Borrar sala",
-      "mazoRequerido": "Mazo requerido"
+      "validDeckRequiredToCreate": "Чтобы создать комнату, нужна легальная колода.",
+      "deleteRoom": "Удалить комнату",
+      "deckRequired": "Нужна колода"
     },
     "roomSetupControls": {
-      "timer": "Timer",
+      "timer": "Таймер",
       "mulligan": "Mulligan",
-      "firstMulliganFree": "First mulligan is free",
+      "firstMulliganFree": "Первый маллиган бесплатный",
       "mulliganDescriptions": {
-        "london": "Draw 7 cards every time. When you keep, put one card on the bottom for each effective mulligan.",
-        "vancouver": "Each effective mulligan draws one fewer card. If you keep after an effective mulligan, you scry 1.",
-        "paris": "Each effective mulligan draws one fewer card. There is no bottom selection and no scry.",
-        "generous": "Commander-friendly rule: draw up to 10 cards, keep 7 when possible, and the server bottoms the rest in random order."
+        "london": "Каждый раз возьмите 7 карт. Когда оставляете руку, положите на низ библиотеки по одной карте за каждый учитываемый маллиган.",
+        "vancouver": "Каждый учитываемый маллиган берет на одну карту меньше. Если вы оставляете руку после учитываемого маллигана, сделайте предсказание 1.",
+        "paris": "Каждый учитываемый маллиган берет на одну карту меньше. Вы не кладете карты на низ библиотеки и не делаете предсказание.",
+        "generous": "Дружелюбное правило для Commander: возьмите до 10 карт, по возможности оставьте 7, а остальные положите на низ библиотеки в случайном порядке."
       },
-      "firstMulliganFreeOn": "Free",
-      "firstMulliganFreeOff": "Counts"
+      "firstMulliganFreeOn": "Бесплатно",
+      "firstMulliganFreeOff": "Учитывается",
+      "mulliganRules": {
+        "generous": "Щадящий",
+        "london": "London",
+        "paris": "Paris",
+        "vancouver": "Vancouver"
+      },
+      "noTimer": "Без таймера"
     },
     "roomSetupModal": {
-      "ejLaTaberna": "Ej. La taberna",
-      "roomName": "Room name",
-      "timer": "Timer"
+      "roomName": "Название комнаты",
+      "timer": "Таймер",
+      "createRoom": "Создать комнату",
+      "editRoomConfigurationBeforeStarting": "Настройте комнату перед стартом.",
+      "exampleRoomName": "Например. Таверна"
     },
     "waitingRoomDeckSelector": {
-      "deckSelection": "Deck selection",
-      "invalidDeck": "Invalid deck",
-      "rollDice": "Roll dice",
-      "selectADeck": "Select a deck",
-      "randomDeck": "Random deck",
-      "chooseOne": "Choose one",
-      "checking": "Checking"
+      "deckSelection": "Выбор колоды",
+      "invalidDeck": "Неверная колода",
+      "rollDice": "Бросить кубик",
+      "selectADeck": "Выберите колоду",
+      "randomDeck": "Случайная колода",
+      "chooseOne": "Выберите один",
+      "checking": "Проверка"
     },
     "waitingRoomLogPanel": {
-      "activity": "Activity",
-      "roomEventsWillAppearHere": "Room events will appear here."
+      "activity": "Активность",
+      "roomEventsWillAppearHere": "Здесь будут появляться события комнаты."
     },
     "waitingRoomPlayerCard": {
-      "kickPlayer": "Kick player",
-      "d20RollResult": "D20 roll result",
-      "waitingForPlayer": "Waiting for player",
-      "host": "Host",
-      "turnOrder": "Turn order",
-      "d20Roll": "D20 roll",
-      "openSlot": "Open slot"
+      "kickPlayer": "Выгнать игрока",
+      "d20RollResult": "Результат броска D20",
+      "waitingForPlayer": "Ожидание игрока",
+      "host": "Хост",
+      "turnOrder": "Порядок ходов",
+      "d20Roll": "Бросок D20",
+      "openSlot": "Открыть слот"
     },
     "waitingRoom": {
-      "leaveRoom": "Leave room",
-      "deleteRoom": "Delete room",
-      "inviteFriends": "Invite friends",
-      "kickPlayer": "Kick player",
-      "invalidDeck": "Invalid deck",
-      "setup": "Setup",
-      "chooseYourDeckAndGetReadyBefore": "Choose your deck and get ready before starting.",
-      "start": "Start",
-      "afterRollingYourDeckSelectionWillBe": "After rolling, your deck selection will be locked and cannot be changed.",
-      "noAcceptedFriendsYet": "No accepted friends yet.",
-      "inRoom": "In room",
-      "invited": "Invited",
-      "loadingRoomState": "Loading room state..."
+      "leaveRoom": "Покинуть комнату",
+      "deleteRoom": "Удалить комнату",
+      "inviteFriends": "Пригласить друзей",
+      "kickPlayer": "Выгнать игрока",
+      "invalidDeck": "Нелегальная колода",
+      "setup": "Настройка",
+      "chooseYourDeckAndGetReadyBefore": "Выберите колоду и подготовьтесь перед началом.",
+      "start": "Начать",
+      "afterRollingYourDeckSelectionWillBe": "После броска выбор колоды будет заблокирован и не может быть изменен.",
+      "noAcceptedFriendsYet": "Принятых друзей пока нет.",
+      "inRoom": "В комнате",
+      "invited": "Приглашен",
+      "allPlayersReady": "Все игроки готовы",
+      "chooseAcceptedFriendsToInvite": "Выберите одобренных друзей, которых можно пригласить в эту комнату.",
+      "invalidDeckSelectionMessage": "Нельзя выбрать {{ deckName }}, потому что в этой колоде есть ошибки валидации Commander.",
+      "kickPlayerConfirmation": "Хотите выгнать {{ playerName }} из комнаты?",
+      "leaveRoomConfirmation": "Вы покинете эту комнату и вернетесь к списку комнат.",
+      "playersCount": "Игроки ({{ current }}/{{ max }})",
+      "rollSetsTurnOrder": "Этот бросок определяет ваш порядок хода.",
+      "thisDeck": "эта колода",
+      "thisPlayer": "этот игрок",
+      "tieBreakRoll": "Тай-брейк",
+      "tieBreakRollMessage": "У вас ничья с {{ playerNames }}. Бросьте еще раз, чтобы определить победителя.",
+      "waitingForDecksAndRolls": "Ожидание колод и бросков"
     },
     "setup": {
       "gameSetupLifeControl": {
-        "startingLife": "Starting life",
-        "decreaseStartingLife": "Decrease starting life",
-        "increaseStartingLife": "Increase starting life"
+        "startingLife": "Начальное количество жизней",
+        "decreaseStartingLife": "Уменьшить начальное количество жизней",
+        "increaseStartingLife": "Увеличение начального количества жизней",
+        "lifeUnit": "жизнь",
+        "startingLifePresets": "Шаблоны начального количества жизней",
+        "startingTotal": "Начальное значение",
+        "totalLife": "Всего жизней"
       },
       "gameSetupSeatsControl": {
-        "tableSize": "Table size"
+        "tableSize": "Размер стола",
+        "seats": "Сиденья",
+        "setTableSizeToPlayers": "Установить размер стола для игроков {{ count }}"
       }
     },
     "header": {
-      "title": "Rooms",
-      "totalRooms": "Total rooms",
-      "openRooms": "Open rooms",
-      "privateRooms": "Private rooms",
-      "publicRooms": "Public rooms",
-      "totalPlayers": "Total players",
-      "startedGames": "Started games"
+      "title": "Комнаты",
+      "totalRooms": "Всего комнат",
+      "openRooms": "Открытые комнаты",
+      "privateRooms": "Приватные комнаты",
+      "publicRooms": "Публичные комнаты",
+      "totalPlayers": "Всего игроков",
+      "startedGames": "Начатые партии",
+      "description": "Просматривайте активные лобби и сразу присоединяйтесь к партии."
     },
     "waiting": {
       "header": {
-        "inviteFriends": "Invite friends"
+        "inviteFriends": "Пригласить друзей"
       }
     }
   },
   "community": {
+    "preview": {
+      "summary": {
+        "topHundred": "100 лучших карт"
+      },
+      "error": "Не удалось загрузить предварительный просмотр сообщества.",
+      "empty": "Пока нет доступных карт.",
+      "playedLabel": "Играл",
+      "filters": {
+        "allTypes": "Все типы",
+        "type": {
+          "artifact": "Артефакт",
+          "battle": "Битва",
+          "creature": "Существо",
+          "enchantment": "Чары",
+          "instant": "Мгновенное заклинание",
+          "land": "Земля",
+          "planeswalker": "Planeswalker",
+          "sorcery": "Волшебство"
+        }
+      }
+    },
     "detail": {
       "saveConfirmation": {
-        "title": "Вы хотите сохранить эту колоду в свой список колод?",
-        "confirm": "Подтвердить",
+        "title": "Хотите сохранить эту колоду в свой список колод?",
+        "confirm": "Подтверждать",
         "cancel": "Отмена"
+      },
+      "error": "Не удалось загрузить колоду сообщества.",
+      "headerTitle": "Колода сообщества",
+      "missingId": "Отсутствует идентификатор колоды сообщества.",
+      "save": "Сохранять",
+      "saveError": "Не удалось сохранить эту колоду в свой список колод.",
+      "shareError": "Не удалось скопировать ссылку на колоду сообщества.",
+      "unknownCommander": "Неизвестный командир",
+      "readonly": {
+        "validation": {
+          "backendValid": "Эта колода отмечена как легальная в сообществе.",
+          "backendInvalid": "В этой колоде есть предупреждения или проблемы в сообществе.",
+          "commanders": "Зона командования: {{ names }}",
+          "error": "Ошибка",
+          "warning": "Предупреждение"
+        },
+        "historyOwner": "Поделились"
       }
+    },
+    "dashboardTopCommanders": {
+      "ariaLabel": "Топ-3 командира",
+      "theUrDragonPlayed": "47 928 игр",
+      "edgarMarkovPlayed": "47 211 игр",
+      "atraxaPlayed": "43 917 игр"
+    },
+    "home": {
+      "title": "Колоды сообщества",
+      "subtitle": "Откройте для себя общедоступные колоды, созданные другими игроками.",
+      "error": "Не удалось загрузить сообщество.",
+      "decksSection": {
+        "title": "Колоды для просмотра"
+      },
+      "decksButton": "Искать колоды",
+      "decksEmpty": "Общественных колод пока нет.",
+      "commandersTitle": "Самые популярные командиры",
+      "mobileCommandersTitle": "Высшие командиры",
+      "commandersAriaLabel": "Командиры для вдохновения",
+      "cardsTitle": "Самые популярные карты",
+      "mobileCardsTitle": "Лучшие карты",
+      "cardsSubtitle": "На основе партий, сыгранных сообществом",
+      "cardsAriaLabel": "Карты для изучения",
+      "viewMore": "Посмотреть больше"
+    },
+    "deckList": {
+      "title": "Искать колоды",
+      "subtitle": "Исследуйте общедоступные колоды сообщества.",
+      "filterName": "Поиск по имени",
+      "filterNamePlaceholder": "Искать колоды...",
+      "filterCommander": "Командир",
+      "filterCommanderPlaceholder": "Искать командира...",
+      "commanderSelect": "Выбрать",
+      "filterFormat": "Формат",
+      "allFormats": "Все форматы",
+      "searchButton": "Поиск",
+      "empty": "Общественных колод пока нет.",
+      "error": "Не удалось загрузить общедоступные колоды."
+    },
+    "deckViewer": {
+      "cardsCount": "Карты {{ count }}",
+      "sectionsCount": "Разделы {{ count }}",
+      "viewMode": {
+        "label": "Режим просмотра",
+        "text": "Текст",
+        "spoiler": "Спойлер"
+      },
+      "invalidCard": "Эта карта нелегальна в формате {{ format }}.",
+      "groups": {
+        "commander": "Командир",
+        "planeswalker": "Planeswalkers",
+        "battle": "Битвы",
+        "creature": "Существа",
+        "instant": "Мгновенные заклинания",
+        "sorcery": "Волшебства",
+        "enchantment": "Чары",
+        "artifact": "Артефакты",
+        "land": "Земли",
+        "sideboard": "Сайдборд",
+        "other": "Другой",
+        "includingMdfc": "{{ count }}, включая MDFC"
+      }
+    },
+    "shared": {
+      "deckWarnings": "Предупреждения колоды"
     }
   },
   "game": {
     "arrowTargetDialog": {
-      "selectArrowTargetPlayer": "Select arrow target player",
-      "drawArrow": "Draw arrow",
-      "chooseTargetBoard": "Choose target board",
-      "theSelectedBattlefieldOpensBehindThisPanel": "The selected battlefield opens behind this panel before you pick a card.",
-      "targetPlayer": "Target player",
-      "multipleTargets": "Multiple targets?",
-      "drawSeveralArrowsFromThisCard": "Draw several arrows from this card",
-      "targets": "Targets",
-      "cancel": "Cancel",
-      "selectTarget": "Select target"
+      "selectArrowTargetPlayer": "Выберите целевого игрока со стрелкой",
+      "drawArrow": "Нарисовать стрелку",
+      "chooseTargetBoard": "Выберите целевое поле битвы",
+      "theSelectedBattlefieldOpensBehindThisPanel": "Выбранное поле битвы открывается за этой панелью перед тем, как вы выберете карту.",
+      "targetPlayer": "Целевой игрок",
+      "multipleTargets": "Несколько целей?",
+      "drawSeveralArrowsFromThisCard": "Нарисуйте несколько стрелок с этой карты.",
+      "targets": "Цели",
+      "cancel": "Отмена",
+      "selectTarget": "Выберите цель"
     },
     "battlefieldZoomControls": {
-      "openBattlefieldZoomControls": "Open battlefield zoom controls",
-      "battlefieldZoom": "Battlefield zoom",
-      "resetBattlefieldZoom": "Reset battlefield zoom",
-      "resetZoom": "Reset zoom"
+      "openBattlefieldZoomControls": "Открыть элементы управления масштабированием поля боя",
+      "battlefieldZoom": "Масштаб поля боя",
+      "resetBattlefieldZoom": "Сбросить масштаб поля боя",
+      "resetZoom": "Сбросить масштаб"
     },
     "cardPreviewOverlay": {
-      "cardPreviewDetails": "Card preview details",
-      "powerAndToughness": "Power and toughness",
-      "attachedTo": "Attached to",
-      "attached": "Attached",
-      "current": "Current",
-      "counters": "Counters"
+      "cardPreviewDetails": "Детали предпросмотра карты",
+      "powerAndToughness": "сила/выносливость",
+      "attachedTo": "Прикреплен к",
+      "attached": "Прикреплено",
+      "current": "Текущий",
+      "counters": "Жетоны"
     },
     "cardSpoilerGrid": {
-      "lookAtOtherFace": "Look at other face",
-      "loadingCards": "Loading cards"
+      "lookAtOtherFace": "Посмотреть другую сторону",
+      "loadingCards": "Загрузка карт"
     },
     "chatRecipientSelect": {
-      "chatRecipient": "Chat recipient"
+      "chatRecipient": "Получатель чата"
     },
     "contextMenu": {
-      "d": "D",
-      "s": "S",
-      "xX": "X/X",
-      "z": "Z",
-      "t": "T",
       "labels": {
-        "refreshSnapshot": "Refresh Snapshot",
-        "focusMyBoard": "Focus My Board",
-        "abrirDebug": "Abrir debug",
-        "concede": "Concede",
-        "leaveTable": "Leave Table",
-        "deleteArrow": "Delete Arrow",
-        "deleteArrows": "Delete Arrows",
-        "deleteCounter": "Delete Counter",
-        "resetManaPool": "Reset Mana Pool",
-        "focusPlayer": "Focus Player",
-        "life1": "Life +1",
-        "viewExile": "View Exile",
-        "viewGraveyard": "View Graveyard",
-        "drawCard": "Draw Card",
-        "drawXCards": "Draw X Cards",
-        "shuffle": "Shuffle",
-        "selectRandomCard": "Select Random Card",
-        "selectAllBattlefieldCards": "Select All Battlefield Cards",
-        "selectAllHandCards": "Select All Hand Cards",
-        "createToken": "Create Token",
-        "tirarDado": "Tirar dado",
-        "showManaPool": "Show Mana Pool",
-        "view": "View",
-        "drawArrow": "Draw Arrow",
-        "addMana": "Add Mana",
-        "attachTo": "Attach to...",
-        "unequip": "Unequip",
-        "detachAllAttached": "Detach all attached",
-        "makeATokenCopy": "Make A Token Copy",
-        "removeStack": "Remove stack",
-        "flipCardFace": "Flip Card Face",
-        "playFaceDown": "Play Face Down",
-        "previewCard": "Preview Card",
-        "moveTop": "Move Top",
-        "revealTopCard": "Reveal Top Card",
-        "revealLibrary": "Reveal Library",
-        "moveAllTo": "Move All To",
-        "counters": "Counters",
-        "giveToPlayer": "Give To Player",
-        "moveTo": "Move To",
-        "giveTo": "Give To",
-        "reveal": "Reveal",
-        "todos": "Todos",
-        "viewAllLibrary": "View all library",
-        "viewXTopCards": "View X top cards",
-        "bottomOfLibrary": "Bottom of Library",
-        "battlefield": "Battlefield",
-        "hand": "Hand",
-        "xToBottomOfLibrary": "X to bottom of library",
-        "xToGraveyard": "X to graveyard",
-        "xToExile": "X to exile",
-        "xToHandPlayer": "X to hand player",
-        "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters",
-        "createHelper": "Механики",
-        "setRingBearer": "Назначить носителем Кольца",
-        "mechanics": "Механики"
-      }
+        "refreshSnapshot": "Обновить снимок",
+        "focusMyBoard": "Фокус на моем поле битвы",
+        "concede": "Сдаться",
+        "leaveTable": "Покинуть стол",
+        "deleteArrow": "Удалить стрелку",
+        "deleteArrows": "Удалить стрелки",
+        "deleteCounter": "Удалить жетон",
+        "resetManaPool": "Очистить запас маны",
+        "focusPlayer": "Фокус на игроке",
+        "life1": "Жизнь +1",
+        "viewExile": "Посмотреть изгнание",
+        "viewGraveyard": "Посмотреть кладбище",
+        "drawCard": "Взять карту",
+        "drawXCards": "Взять X карт",
+        "shuffle": "Перетасовать",
+        "selectRandomCard": "Выбрать случайную карту",
+        "selectAllBattlefieldCards": "Выбрать все карты на поле битвы",
+        "selectAllHandCards": "Выбрать все карты в руке",
+        "createToken": "Создать фишку",
+        "gameMechanics": "Игровая механика",
+        "addMonarch": "Добавить монарха",
+        "becomeMonarch": "Стать монархом",
+        "addInitiative": "Добавить инициативу",
+        "takeInitiative": "Получить инициативу",
+        "addDayNight": "Добавить день/ночь",
+        "addTheRing": "Добавить Кольцо",
+        "addDungeon": "Добавить подземелье",
+        "addCitysBlessing": "Добавить благословение города",
+        "removeCitysBlessing": "Убрать благословение города",
+        "addEmblem": "Добавить эмблему",
+        "showManaPool": "Показать запас маны",
+        "view": "Вид",
+        "drawArrow": "Нарисовать стрелку",
+        "addMana": "Добавить ману",
+        "attachTo": "Прикрепить к...",
+        "unequip": "Снять экипировку",
+        "detachAllAttached": "Отсоединить все прикрепленное",
+        "makeATokenCopy": "Создать фишку-копию",
+        "removeStack": "Удалить из стека",
+        "flipCardFace": "Перевернуть сторону карты",
+        "playFaceDown": "Положить рубашкой вверх",
+        "previewCard": "Предварительный просмотр карты",
+        "moveTop": "Переместить вверх",
+        "revealTopCard": "Показать верхнюю карту",
+        "revealLibrary": "Открыть библиотеку",
+        "moveAllTo": "Переместить все в",
+        "counters": "Жетоны",
+        "giveToPlayer": "Отдать игроку",
+        "moveTo": "Переместить в",
+        "giveTo": "Отдать",
+        "reveal": "Показать",
+        "viewAllLibrary": "Посмотреть библиотеку",
+        "viewXTopCards": "Посмотреть X верхних карт",
+        "bottomOfLibrary": "Низ библиотеки",
+        "battlefield": "Поле битвы",
+        "hand": "Рука",
+        "xToBottomOfLibrary": "Положить X карт на низ библиотеки",
+        "xToGraveyard": "Положить X карт на кладбище",
+        "xToExile": "Изгнать X карт",
+        "xToHandPlayer": "Положить X карт в руку игрока",
+        "xToBattlefieldPlayer": "Положить X карт на поле битвы под контроль игрока",
+        "removeAllCounters": "Удалить все жетоны",
+        "createHelper": "Механика",
+        "setRingBearer": "Назначить Носителем Кольца",
+        "mechanics": "Механика",
+        "openDebug": "Открыть отладку",
+        "rollDice": "Бросить кубики",
+        "all": "Все"
+      },
+      "drawShortcut": "D",
+      "shuffleShortcut": "S",
+      "tapShortcut": "T",
+      "faceDownShortcut": "Z",
+      "powerToughnessShortcut": "X/X"
     },
     "contextSubmenu": {
       "x": "X"
     },
     "focusedBattlefield": {
-      "manaRow": "Mana row"
+      "manaRow": "Мана ряд"
     },
     "gameAdBanner": {
-      "advertisingBanner": "Advertising banner"
+      "advertisingBanner": "Рекламный баннер"
     },
     "gameArrowLayer": {
-      "battlefieldArrows": "Battlefield arrows"
+      "battlefieldArrows": "Стрелы поля боя"
     },
     "cardMarkerRail": {
-      "estaCartaEsUnTokenCopy": "Esta carta es un token copy",
-      "openOracleRulingsOnScryfall": "Open Oracle rulings on Scryfall"
+      "openOracleRulingsOnScryfall": "Открыть разъяснения Oracle в Scryfall",
+      "tokenCopyLabel": "Эта фишка является копией"
     },
     "gameCardView": {
-      "lookAtOtherFace": "Look at other face",
-      "powerAndToughness": "Power and toughness",
-      "powerLeftClickAddsRightClickRemoves": "Power. Left click adds, right click removes.",
-      "toughnessLeftClickAddsRightClickRemoves": "Toughness. Left click adds, right click removes.",
-      "attach": "Attach",
-      "stack": "Stack"
+      "lookAtOtherFace": "Посмотреть другую сторону",
+      "powerAndToughness": "Сила и выносливость",
+      "powerLeftClickAddsRightClickRemoves": "Сила. Левый клик добавляет, правый убирает.",
+      "toughnessLeftClickAddsRightClickRemoves": "Выносливость. Левый клик добавляет, правый убирает.",
+      "battleCounter": "Битва",
+      "battleCounterTooltip": "Битва. Левый клик добавляет, правый убирает.",
+      "sagaCounter": "Saga",
+      "sagaCounterTooltip": "Сага. Левый клик добавляет, правый убирает.",
+      "attach": "Прикреплять",
+      "stack": "Стек"
     },
     "loyaltyCounter": {
-      "loyalty": "Loyalty",
-      "loyaltyLeftClickAddsRightClickRemoves": "Loyalty. Left click adds, right click removes."
+      "loyalty": "Верность",
+      "loyaltyLeftClickAddsRightClickRemoves": "Верность. Левый клик добавляет, правый убирает."
     },
     "gameDisconnectVoteModal": {
-      "votosDeDesconexion": "Votos de desconexion",
-      "jugadorDesconectado": "Jugador desconectado",
-      "tuVoto": "Tu voto:",
-      "tiempoRestante": "Tiempo restante:",
-      "elJugadorObjetivoYaApareceOnline": "El jugador objetivo ya aparece online."
+      "disconnectVotes": "Голоса при отключении",
+      "expel": "Выгнать",
+      "genericDisconnectedMessage": "Игрок отключился. Проголосуйте, ждать ли переподключения или удалить его со стола.",
+      "noVote": "Нет голоса",
+      "playerDisconnectedMessage": "{{ playerName }} отключился. Проголосуйте, ждать ли переподключения или удалить его со стола.",
+      "wait": "Ждать",
+      "playerDisconnected": "Игрок отключен",
+      "yourVote": "Ваш голос:",
+      "timeRemaining": "Оставшееся время:",
+      "targetPlayerBackOnline": "Целевой игрок снова в сети."
     },
     "gameRematchModal": {
-      "votacionesDeLaRoom": "Votaciones de la sala",
-      "tuVotoActual": "Tu voto actual:",
-      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado salir de la sala."
+      "roomVotes": "Голоса комнаты",
+      "closeVotes": "Закрыть голосование",
+      "defeatedMessage": "Хотите сыграть еще раз в этой комнате?",
+      "extraTime": "Дополнительное время",
+      "legendaryVictory": "Легендарная победа",
+      "leaveRoom": "Покинуть комнату",
+      "lifeTotal": "{{ life }} жизней",
+      "noVote": "Нет голосования",
+      "playAgain": "Сыграть снова",
+      "playersHaveSecondsToVote": "{{ playerNames }} должны проголосовать за {{ seconds }} с.",
+      "playersMissingExtra": "{{ playerNames }} еще должны проголосовать. Осталось еще {{ seconds }} с.",
+      "timeLimit": "Ограничение по времени",
+      "winnerMessage": "Стол ваш. Вы пережили хаос и уверенно завершили партию.",
+      "youDied": "Вы выбыли",
+      "youHaveSecondsToVote": "У вас есть {{ seconds }} с, чтобы проголосовать.",
+      "yourVoteMissingExtra": "Ваш голос отсутствует. У вас есть еще {{ seconds }} с.",
+      "currentVote": "Ваш текущий голос:",
+      "otherPlayersAlreadyVoted": "Остальные игроки уже проголосовали за выход из комнаты."
     },
     "gameTableHeader": {
-      "currentPlayer": "Current player"
+      "currentPlayer": "Текущий игрок"
     },
     "gameXQuantityStepper": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "Изменить значение",
+      "increaseValue": "Увеличить значение",
+      "decreaseValue": "Уменьшить значение"
     },
     "manaActionDialog": {
-      "manaProductionParts": "Mana production parts",
-      "fixedMana": "Fixed mana",
-      "manaToAdd": "Mana to add",
-      "manaAmount": "Mana amount",
-      "cancel": "Cancel"
+      "manaProductionParts": "Части производства маны",
+      "fixedMana": "Фиксированная мана",
+      "manaToAdd": "Мана для добавления",
+      "manaAmount": "Количество маны",
+      "cancel": "Отмена"
     },
     "manaPoolPanel": {
-      "manaPool": "Mana pool",
-      "hideManaPool": "Hide mana pool"
+      "manaPool": "Запас маны",
+      "hideManaPool": "Скрыть запас маны"
     },
     "numberActionDialog": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "Изменить значение",
+      "increaseValue": "Увеличить значение",
+      "decreaseValue": "Уменьшить значение"
     },
     "opponentMiniBoard": {
-      "opponentZoneCounts": "Opponent zone counts",
-      "playerDefeated": "Player defeated",
-      "deckPending": "Deck pending",
-      "turno": "Turno"
+      "opponentZoneCounts": "Количество карт в зонах оппонента",
+      "playerDefeated": "Игрок побеждён",
+      "deckPending": "Колода на рассмотрении",
+      "turn": "Ход"
     },
     "playerSummaryPanel": {
-      "lifeControls": "Life controls",
-      "lifeTotal": "Life total",
-      "playerCounters": "Player counters",
-      "commanderDamage": "Commander damage",
-      "otherCounters": "Other counters",
+      "lifeControls": "Контроль жизней",
+      "lifeTotal": "Всего жизней",
+      "playerCounters": "Жетоны игрока",
+      "commanderDamage": "Командирский урон",
+      "otherCounters": "Другие жетоны",
       "extras": "Extras",
-      "openExtraPlayerCounters": "Open extra player counters",
-      "extraPlayerCounters": "Extra player counters"
+      "openExtraPlayerCounters": "Открыть дополнительные жетоны игрока",
+      "extraPlayerCounters": "Дополнительные жетоны игроков"
     },
     "powerToughnessDialog": {
-      "setPowerAndToughness": "Set power and toughness",
-      "powerToughness": "Power / Toughness",
-      "power": "Power",
-      "toughness": "Toughness",
-      "cancel": "Cancel",
-      "apply": "Apply"
+      "setPowerAndToughness": "Задать силу/выносливость",
+      "powerToughness": "Сила / Выносливость",
+      "power": "Сила",
+      "toughness": "Выносливость",
+      "cancel": "Отмена",
+      "apply": "Применять"
     },
     "tokenSearchModal": {
-      "searchTokens": "Search tokens",
-      "tokenCreationControls": "Token creation controls",
-      "createToken": "Create token",
-      "loadingDeckTokens": "Loading deck tokens...",
-      "searchingTokens": "Searching tokens..."
+      "tokenCreationControls": "Управление созданием фишек",
+      "loadingDeckTokens": "Загрузка фишек колоды...",
+      "searchingTokens": "Поиск фишек..."
     },
     "playersOrder": {
-      "ordenDeTurno": "Orden de turno"
+      "currentTurnLabel": "Ход {{ turnNumber }}",
+      "upcomingTurnLabel": "Через {{ count }} ход(а)",
+      "currentTurnTitle": "Сейчас ход {{ name }}",
+      "upcomingTurnTitle": "{{ name }} будет ходить через {{ count }} ход(а)",
+      "turnOrder": "Порядок ходов"
     },
     "turnPhasePanel": {
-      "turnPhases": "Turn phases",
-      "focusTheActiveTurnPlayer": "Focus the active turn player",
-      "pasarTurno": "Pasar turno",
-      "focusTurn": "Focus turn"
+      "turnPhases": "Фазы хода",
+      "focusTheActiveTurnPlayer": "Сфокусируйте активного игрока хода",
+      "focusTurn": "Фокус на ходе",
+      "passTurn": "Передать ход"
     },
     "zoneModal": {
-      "searchByName": "Search by name",
-      "closeZone": "Close zone",
-      "readOnlyLibraryReview": "Read-only library review",
-      "type": "Type",
-      "allTypes": "All types",
-      "creatures": "Creatures",
-      "instants": "Instants",
-      "sorceries": "Sorceries",
-      "artifacts": "Artifacts",
-      "enchantments": "Enchantments",
+      "searchByName": "Поиск по имени",
+      "closeZone": "Закрыть зону",
+      "readOnlyLibraryReview": "Просмотр библиотеки только для чтения",
+      "type": "Тип",
+      "allTypes": "Все типы",
+      "creatures": "Существа",
+      "instants": "Мгновенные заклинания",
+      "sorceries": "Волшебства",
+      "artifacts": "Артефакты",
+      "enchantments": "Чары",
       "planeswalkers": "Planeswalkers",
-      "lands": "Lands",
-      "search": "Search"
+      "lands": "Земли",
+      "search": "Поиск"
     },
     "gameTable": {
-      "message": "Message",
-      "closeGame": "Close game?",
-      "moverCartaAOtroBattlefield": "Mover carta a otro battlefield",
-      "giveCard": "Give card?",
-      "moveToHand": "Move to hand?",
-      "devolverABiblioteca": "Devolver a biblioteca",
-      "moveAllToLibrary": "Move all to library",
-      "rotateYourDevice": "Rotate your device",
-      "gamesCanOnlyBePlayedInLandscape": "Games can only be played in landscape on mobile and tablet.",
-      "thisTableNeedsALittleMoreRoom": "This table needs a little more room",
-      "sorryThisResolutionIsTooCrampedFor": "Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.",
-      "useCtrl0InYourBrowserTo": "Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.",
-      "leaveRoom": "Leave room",
-      "loadingGame": "Loading game...",
-      "gameLog": "Game Log",
-      "chat": "Chat",
-      "noGameActionsYet": "No game actions yet.",
-      "noChatMessagesYet": "No chat messages yet.",
-      "reactedBy": "Reacted by",
-      "votaciones": "Votaciones",
-      "opponents": "Opponents",
-      "randomOrder": "Random order",
-      "shuffleOnlyTheseCardsBeforePlacingThem": "Shuffle only these cards before placing them.",
-      "gameLogUnreadActions": "Game Log, unread actions",
-      "chatUnreadMessages": "Chat, unread messages"
+      "message": "Сообщение",
+      "closeGame": "Закрыть партию?",
+      "giveCard": "Передать карту?",
+      "moveToHand": "Переместить в руку?",
+      "moveAllToLibrary": "Положить все в библиотеку",
+      "rotateYourDevice": "Поверните устройство",
+      "gamesCanOnlyBePlayedInLandscape": "На телефонах и планшетах партии доступны только в альбомной ориентации.",
+      "thisTableNeedsALittleMoreRoom": "Этому столу нужно немного больше места",
+      "sorryThisResolutionIsTooCrampedFor": "Извините, это разрешение слишком тесно для игры Commander. Пожалуйста, отрегулируйте масштаб браузера или используйте окно большего размера.",
+      "useCtrl0InYourBrowserTo": "Используйте Ctrl+0 в своем браузере, чтобы сбросить масштаб до 100 %, затем обновите или измените размер этого окна.",
+      "leaveRoom": "Покинуть комнату",
+      "gameLog": "Журнал партии",
+      "chat": "Чат",
+      "noGameActionsYet": "Действий в партии пока нет.",
+      "noChatMessagesYet": "Сообщений в чате пока нет.",
+      "reactedBy": "Отреагировал",
+      "votes": "Голоса",
+      "opponents": "Оппоненты",
+      "randomOrder": "Случайный порядок",
+      "shuffleOnlyTheseCardsBeforePlacingThem": "Перед тем, как положить их, перетасуйте только эти карты.",
+      "gameLogUnreadActions": "Журнал партии, непрочитанные действия",
+      "chatUnreadMessages": "Чат, непрочитанные сообщения",
+      "moveCardToAnotherBattlefield": "Переместить карту на другое поле битвы",
+      "putIntoLibrary": "Положить в библиотеку"
     },
     "reactions": {
-      "like": "Like",
-      "dislike": "Dislike",
-      "love": "Love",
-      "laugh": "Laugh",
-      "angry": "Very angry",
-      "vomit": "Vomit",
-      "cry": "Cry"
+      "like": "Нравится",
+      "dislike": "Не нравится",
+      "love": "Любовь",
+      "laugh": "Смех",
+      "angry": "Очень злой",
+      "vomit": "Рвота",
+      "cry": "Плакать"
     },
     "numberAction": {
       "drawCards": {
-        "title": "Draw cards",
-        "description": "Choose how many cards to draw from your library.",
-        "confirm": "Draw"
+        "title": "Взять карты",
+        "description": "Выберите, сколько карт взять из библиотеки.",
+        "confirm": "Взять"
       },
       "moveTopCards": {
-        "title": "Move top cards",
-        "description": "Choose how many top library cards to move.",
-        "confirm": "Move"
+        "title": "Переместить верхние карты",
+        "description": "Выберите, сколько верхних карт библиотеки переместить в другую зону.",
+        "confirm": "Переместить"
       },
       "viewTopCards": {
-        "title": "View top cards",
-        "description": "Choose how many top library cards to view.",
-        "confirm": "View"
+        "title": "Посмотреть верхние карты",
+        "description": "Выберите, сколько верхних карт библиотеки посмотреть.",
+        "confirm": "Посмотреть"
       }
     },
     "playerCounters": {
-      "poison": "Poison",
-      "energy": "Energy",
-      "experience": "Experience",
+      "poison": "Яд",
+      "energy": "Энергия",
+      "experience": "Опыт",
       "rad": "Rad",
-      "tickets": "Tickets"
+      "tickets": "Билеты"
     },
     "zones": {
-      "hand": "Hand",
-      "library": "Library",
-      "graveyard": "Graveyard",
-      "exile": "Exile"
+      "hand": "Рука",
+      "library": "Библиотека",
+      "graveyard": "Кладбище",
+      "exile": "Изгнание"
     },
     "chat": {
-      "allPlayers": "Todos"
+      "allPlayers": "Все игроки"
     },
     "specialHelpers": {
       "modal": {
-        "title": "Механики",
+        "title": "Механика",
         "quickActions": "Быстрые действия",
-        "cardBacked": "Сущности-карты",
-        "searchPlaceholder": "Искать эмблемы или подземелья",
-        "searching": "Поиск сущностей...",
-        "noResults": "Ничего не найдено.",
-        "searchHint": "Введите минимум 2 символа для поиска.",
-        "searchError": "Не удалось загрузить специальные сущности.",
+        "cardBacked": "Помощники на базе карт",
+        "searchPlaceholder": "Поиск эмблем или подземелий",
+        "searching": "Ищем помощников...",
+        "noResults": "Результаты не найдены.",
+        "searchHint": "Введите не менее 2 символов для поиска.",
+        "searchError": "Не удалось загрузить специальные помощники.",
         "playerTarget": "Игрок: {{playerName}}",
         "currentState": "Текущее состояние",
-        "readonly": "Только чтение. Здесь можно просматривать эти механики, но изменять их может только управляющий игрок.",
+        "readonly": "Только для чтения. Здесь вы можете проверить механику, но изменить ее может только управляющий игрок.",
         "ringLevel": "Уровень Кольца",
         "noRingBearer": "Носитель Кольца не назначен",
         "removeHelper": "Удалить",
-        "clearRingBearer": "Убрать Носителя Кольца",
+        "clearRingBearer": "Очистить Носителя Кольца",
         "ringLevelUp": "Уровень +1",
         "ringLevelDown": "Уровень -1",
-        "noActiveMechanics": "Нет активных механик.",
-        "notSet": "Не задано"
+        "noActiveMechanics": "Никакой активной механики.",
+        "notSet": "Не установлено"
       },
       "quick": {
         "monarch": "Стать монархом",
@@ -614,386 +843,665 @@
       "labels": {
         "monarch": "Монарх",
         "initiative": "Инициатива",
-        "citys_blessing": "Благословение города",
-        "day_night": "День/Ночь",
-        "the_ring": "Кольцо",
+        "theRing": "Кольцо",
         "emblem": "Эмблема",
         "dungeon": "Подземелье",
         "day": "День",
-        "night": "Ночь"
+        "night": "Ночь",
+        "citysBlessing": "Благословение города",
+        "dayNight": "День/Ночь"
+      },
+      "dungeonReplacement": {
+        "title": "Заменить активное подземелье?",
+        "message": "У вас может быть только одно активное подземелье. Заменить {{currentDungeon}} на {{nextDungeon}}?",
+        "confirm": "Заменить подземелье",
+        "cancel": "Отмена"
+      },
+      "citysBlessingRemoval": {
+        "title": "Лишить благословения города?",
+        "message": "Этот игрок потеряет благословение города со стола. Продолжать?",
+        "confirm": "Удалить",
+        "cancel": "Отмена"
       },
       "rail": {
-        "title": "Специальные сущности",
+        "title": "Специальные объекты",
         "ringLevel": "Уровень Кольца"
+      }
+    },
+    "zonePilesPanel": {
+      "monarchBadgeTooltip": "Вы монарх."
+    },
+    "mulliganOverlay": {
+      "title": "Маллиган",
+      "metaAriaLabel": "Статус Маллигана",
+      "firstMulliganFree": "Первый маллиган бесплатный",
+      "mulligansTaken": "Маллиганы: {{ count }}",
+      "effectiveMulligans": "Учитываемые: {{ count }}",
+      "scryTitle": "Предсказание 1",
+      "scryDescription": "Выберите, что сделать с верхней картой библиотеки.",
+      "waitingForPlayers": "Ждем остальных игроков...",
+      "currentHand": "Текущая рука",
+      "emptyHand": "В руке нет карт.",
+      "selectedCount": "{{ selected }} / {{ total }} выбрано",
+      "bottomSelectionHelp": "Компьютер: щелкните правой кнопкой, чтобы положить карту на низ. Телефон/планшет: используйте кнопку «Положить на низ».",
+      "otherPlayersStatus": "Статус других игроков",
+      "players": "Игроки",
+      "noOtherPlayers": "Других игроков нет.",
+      "rules": {
+        "london": "London",
+        "vancouver": "Vancouver",
+        "paris": "Paris",
+        "generous": "Щадящий"
+      },
+      "status": {
+        "deciding": "выбирает",
+        "scrying": "делает предсказание",
+        "ready": "готов"
+      },
+      "actions": {
+        "keepOnTop": "Оставить сверху",
+        "putOnBottom": "Положить на низ",
+        "removeFromBottom": "Удалить снизу"
+      },
+      "description": {
+        "londonNoBottom": "Возьмите 7. Вам не нужно класть карты на низ библиотеки.",
+        "londonChooseBottom": "Возьмите 7. Выберите {{ count }} карт(ы), чтобы положить на низ библиотеки.",
+        "londonBottomOrder": "Выбранный порядок будет порядком внизу.",
+        "drawCards": "Возьмите {{ count }} карт(ы).",
+        "vancouverScry": "Затем выполните предсказание 1.",
+        "generousNoBottom": "Возьмите {{ count }} карт(ы). Вам не нужно класть карты на низ библиотеки.",
+        "generousChooseBottom": "Возьмите {{ drawCount }} карт(ы). Выберите {{ bottomCount }}, чтобы положить на низ библиотеки в случайном порядке.",
+        "generousRandomOrder": "Окончательный порядок будет случайным."
       }
     }
   },
   "deckBuilder": {
     "cards": {
       "cardDetail": {
-        "backToSearch": "Back to search",
-        "loadingCard": "Loading card...",
-        "colorIdentity": "Color identity:",
-        "commander": "Commander:"
+        "colorIdentity": "Цветовая идентичность:",
+        "commander": "Командир:"
       },
       "cardSearch": {
         "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
-        "cards": "Cards",
-        "searchLibrary": "Search library",
-        "search": "Search",
-        "searchingCards": "Searching cards...",
-        "noCardsFound": "No cards found."
+        "header": {
+          "title": "Карты",
+          "description": "Найдите идеальную карту, прежде чем начнется политика за столом."
+        },
+        "search": "Поиск",
+        "clear": "Очистить",
+        "close": "Закрыть",
+        "advancedFilters": "Расширенные фильтры",
+        "searchingCards": "Ищем карты...",
+        "noCardsFound": "Карты не найдены.",
+        "actions": {
+          "showDetails": "Показать детали",
+          "addToDeck": "Добавить в колоду",
+          "showRulings": "Показать разъяснения Oracle",
+          "viewPrintings": "Посмотреть все издания"
+        },
+        "details": {
+          "close": "Закрыть детали",
+          "couldNotLoad": "Не удалось загрузить эту карту.",
+          "oracleText": "Текст Oracle",
+          "noOracleText": "Текст Oracle отсутствует.",
+          "legalFormats": "Легальные форматы",
+          "illegalFormats": "Нелегальные форматы",
+          "noLegalFormats": "В локальном каталоге нет легальных форматов.",
+          "noIllegalFormats": "Никаких нелегальных форматов в локальном каталоге."
+        },
+        "addToDeck": {
+          "title": "Добавить карту",
+          "deck": "Deck",
+          "section": "Раздел",
+          "quantity": "Количество",
+          "selectDeck": "Выберите колоду",
+          "selectSection": "Выберите раздел",
+          "decreaseQuantity": "Уменьшить количество",
+          "increaseQuantity": "Увеличить количество",
+          "sectionMain": "Основная колода",
+          "sectionCommander": "Командир",
+          "sectionSideboard": "Сайдборд",
+          "sectionConsidering": "На рассмотрении",
+          "confirm": "Добавить карту",
+          "cancel": "Отмена",
+          "noDecks": "У вас еще нет колод.",
+          "colorIdentityWarning": "Цветовая идентичность {{ card }} выходит за цвета командира колоды {{ deck }}:",
+          "formatLegalityWarning": "{{ card }} недопустим в {{ format }}, выбранном формате колоды.",
+          "couldNotLoadDecks": "Не удалось загрузить колоды.",
+          "couldNotAdd": "Не удалось добавить эту карту в выбранную колоду."
+        },
+        "printings": {
+          "title": "Издания {{ card }}",
+          "empty": "Для этой карты не найдено изданий.",
+          "couldNotLoad": "Не удалось загрузить издания карты.",
+          "close": "Закрыть"
+        },
+        "summary": {
+          "ariaLabel": "Применены фильтры поиска карт",
+          "activeQuery": "Активный запрос",
+          "totalFound": "Найдены карты {{ total }}",
+          "pageStatus": "Страница {{ page }} из {{ pages }}",
+          "filters": {
+            "name": "Имя",
+            "rules": "Правила",
+            "types": "Типы",
+            "subtypes": "Подтипы",
+            "sets": "Наборы",
+            "rarity": "Редкость",
+            "colors": "Цвета",
+            "cardKind": "Тип карты",
+            "manaValue": "Мановая стоимость",
+            "manaCost": "Мановая цена",
+            "power": "Сила",
+            "toughness": "Выносливость",
+            "formats": "Форматы"
+          }
+        },
+        "sort": {
+          "label": "Сортировать",
+          "colors": "Цвета",
+          "nameAsc": "Имя от А до Я",
+          "nameDesc": "Имя (Я-А)",
+          "manaValueAsc": "Мана: от низкой к высокой",
+          "manaValueDesc": "Мана: от высокой к низкой"
+        },
+        "view": {
+          "list": "Список",
+          "spoiler": "Спойлеры"
+        },
+        "form": {
+          "name": "Имя",
+          "textA": "Текст правил",
+          "textB": "Второй текст",
+          "textMode": "Текстовое совпадение",
+          "textModeAll": "Все текстовые термины",
+          "textModeAllDescription": "Оба поля должны присутствовать в тексте правил карты.",
+          "textModeAny": "Любой текстовый термин",
+          "textModeAnyDescription": "Любое поле может соответствовать тексту правил карты.",
+          "types": "Типы",
+          "subtypes": "Подтипы",
+          "sets": "Наборы",
+          "rarity": "Редкость",
+          "colors": "Цвета",
+          "colorMode": "Цветовое соответствие",
+          "colorModeAny": "Любой",
+          "colorModeAll": "Все",
+          "colorModeExact": "Точный",
+          "clearManaCost": "Очистить мановую цену",
+          "basic": "Базовый",
+          "legendary": "Легендарный",
+          "artifact": "Артефакт",
+          "multicolor": "Многоцветный",
+          "land": "Земля",
+          "costs": "Стоимость",
+          "manaValueMin": "Мин. мановая стоимость",
+          "manaValueMax": "Макс. мановая стоимость",
+          "manaCost": "Мановая цена",
+          "powerToughness": "сила/выносливость",
+          "powerMin": "Мин. сила",
+          "powerMax": "Макс. сила",
+          "toughnessMin": "Мин. выносливость",
+          "toughnessMax": "Макс. выносливость",
+          "includeVariablePower": "Включать силу *",
+          "includeVariablePowerDescription": "Также включать карты, сила которых не является фиксированным числом, например * или 1+*.",
+          "includeVariableToughness": "Включать выносливость *",
+          "includeVariableToughnessDescription": "Также включать карты, выносливость которых не является фиксированным числом, например * или 1+*.",
+          "formats": "Форматы",
+          "filterOptions": "Параметры фильтра",
+          "presentation": "Презентация",
+          "loadingOptions": "Загрузка фильтров...",
+          "enabled": "Активный",
+          "activeFilters": "активные фильтры",
+          "precisionConsole": "Точная настройка",
+          "composeSearch": "Собрать точный запрос карты",
+          "oracleText": "Текст Oracle карты",
+          "textAPlaceholder": "Возьмите карту, уничтожьте цель, когда бы вы ни разыграли...",
+          "textBPlaceholder": "Необязательный второй термин правил",
+          "removeManaSymbol": "Удалить последний символ маны"
+        },
+        "help": {
+          "title": "Руководство по поиску",
+          "heading": "Руководство по расширенному поиску",
+          "nameTitle": "Имя",
+          "name": "Ищите по полному или частичному имени карты. CommanderZone проверяет канонические имена, напечатанные/локализованные имена и flavor names, если они есть в локальном каталоге.",
+          "textTitle": "Текст карты",
+          "text": "Используйте один или два термина из текста правил. Переключатель определяет, должны ли оба поля встречаться в тексте карты или достаточно одного.",
+          "subtypesTitle": "Подтип",
+          "subtypes": "Подтип работает независимо от типа. Вы можете объединить его с любым другим разделом, чтобы найти такие вещи, как Эльф, Гоблин, Дракон, Снаряжение или Аура.",
+          "rarityTitle": "Редкость",
+          "rarity": "Можно выбрать несколько редкостей сразу. Цветные метки служат только визуальной подсказкой; поиск все равно использует редкость из каталога.",
+          "colorsTitle": "Цвет",
+          "colors": "Сопоставление цветов управляет поведением выбранных напечатанных цветов: любого выбранного цвета, всех выбранных цветов или именно этого набора цветов. Артефакт, многоцветность и земля — дополнительные ярлыки.",
+          "costsTitle": "Затраты",
+          "costs": "Мановая стоимость использует нормализованный каталог карт CommanderZone, где X считается 0. Точная мановая цена собирается через выбор символов, поэтому цветовые коды вводить не нужно.",
+          "statsTitle": "Сила/выносливость",
+          "stats": "Диапазоны силы и выносливости сравнивают числовые значения. Включите переменные значения, если нужны карты со значениями вроде * или 1+*."
+        },
+        "actionsAriaLabel": "Действия по поиску карты",
+        "filtersAriaLabel": "Фильтры поиска карт"
+      },
+      "cardImage": {
+        "flipFace": "Перевернуть сторону"
       },
       "autocomplete": {
         "cardAutocomplete": {
-          "searchingCards": "Searching cards..."
+          "searchingCards": "Ищем карты..."
         }
       }
     },
     "deckAnalysisPanel": {
-      "typeBreakdown": "Type breakdown",
-      "utilityCounts": "Utility counts"
+      "typeBreakdown": "Разбивка по типам",
+      "utilityCounts": "Служебные показатели"
     },
     "deckManaBalancePanel": {
-      "manaBalance": "Mana balance",
-      "coloredSourceShareVersusColorDemand": "Colored source share versus color demand.",
-      "sources": "sources",
-      "sourceMix": "Source mix"
+      "manaBalance": "Баланс маны",
+      "coloredSourceShareVersusColorDemand": "Доля цветных источников относительно потребности в цветах.",
+      "sources": "источники",
+      "sourceMix": "Состав источников"
     },
     "deckManaCurvePanel": {
-      "manaCurve": "Mana curve",
-      "mainDeckByManaValue": "Main deck by mana value.",
-      "permanents": "Permanents",
-      "spells": "Spells",
-      "sampleHand": "Sample hand",
-      "sevenRandomCardsFromTheMainDeck": "Seven random cards from the main deck.",
-      "drawAgain": "Draw again",
-      "noCardsAvailable": "No cards available."
+      "manaCurve": "Кривая маны",
+      "mainDeckByManaValue": "Основная колода по мановой стоимости.",
+      "permanents": "Перманенты",
+      "spells": "Заклинания",
+      "sampleHand": "Тестовая рука",
+      "sevenRandomCardsFromTheMainDeck": "Семь случайных карт из основной колоды.",
+      "drawAgain": "Взять заново",
+      "noCardsAvailable": "Нет доступных карт."
     },
     "deckCardMenu": {
-      "copyQuantityControls": "Copy quantity controls",
-      "selectedCardPreview": "Selected card preview",
-      "quantityToAddOrRemove": "Quantity to add or remove",
-      "editingCard": "Editing card",
-      "quantity": "Quantity",
-      "add": "Add",
-      "remove": "Remove",
-      "selectPrintVersion": "Select print version",
-      "moveToMain": "Move to main",
-      "moveToCommander": "Move to commander",
-      "moveToSideboard": "Move to sideboard",
-      "moveToConsidering": "Move to considering"
+      "copyQuantityControls": "Скопировать управление количеством",
+      "selectedCardPreview": "Предварительный просмотр выбранной карты",
+      "quantityToAddOrRemove": "Количество для добавления или удаления",
+      "editingCard": "Редактирование карты",
+      "quantity": "Количество",
+      "add": "Добавить",
+      "remove": "Удалить",
+      "selectPrintVersion": "Выберите печатную версию",
+      "moveToMain": "Переместить в основную колоду",
+      "moveToCommander": "Переместить в командиры",
+      "moveToSideboard": "Переместить в сайдборд",
+      "moveToConsidering": "Переместить в рассмотрение"
     },
     "deckCardSpoilerView": {
-      "flipFace": "Flip face",
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "flipFace": "Перевернуть сторону",
+      "noCommanderAssignedYet": "Командир еще не назначен."
     },
     "deckCardTextView": {
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "noCommanderAssignedYet": "Командир еще не назначен.",
+      "unknownType": "Неизвестный тип"
     },
     "deckCommanderShowcase": {
-      "flipFace": "Flip face"
+      "flipFace": "Перевернуть сторону"
     },
     "deckEditor": {
-      "addCardsByName": "Add cards by name",
-      "searchAnotherCardName": "Search another card name",
-      "text1SolRingVoc168101": "1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141",
-      "deckEditorSections": "Deck editor sections",
-      "copyCardName": "Copy card name",
-      "searchCard": "Search card",
-      "saveMissingCard": "Save missing card",
-      "ignoreThisSession": "Ignore this session",
-      "remove": "Remove",
-      "clearLocalHistory": "Clear local history",
-      "importDecklist": "Import decklist",
-      "selectPrintVersion": "Select print version",
-      "restoreHistory": "Restore history",
-      "loadingDeck": "Loading deck...",
-      "view": "View",
-      "text": "Text",
-      "spoiler": "Spoiler",
-      "analysis": "Analysis",
-      "considering": "Considering",
-      "validation": "Validation",
-      "missing": "Missing",
-      "history": "History",
-      "consideringCards": "Considering cards",
-      "cardsParkedOutsideThePlayableDeck": "Cards parked outside the playable deck.",
-      "noConsideringCards": "No considering cards.",
-      "derivedTokens": "Derived tokens",
-      "resolvedFromCardsCurrentlyInTheDeck": "Resolved from cards currently in the deck.",
-      "noResolvedTokensForThisDeck": "No resolved tokens for this deck.",
-      "unresolvedTokens": "Unresolved tokens",
-      "validateWithBackend": "Validate with backend",
-      "errors": "Errors",
-      "warnings": "Warnings",
-      "noFrontendDiagnosticsForTheCurrentDeck": "No frontend diagnostics for the current deck.",
-      "search": "Search",
-      "add": "Add",
-      "noCardSearchResults": "No card search results.",
-      "futureCollection": "Future collection",
-      "snapshot": "Snapshot",
-      "restore": "Restore",
-      "noLocalHistoryForThisDeckYet": "No local history for this deck yet.",
-      "noCards": "No cards",
-      "deckName": "Deck name",
-      "saveName": "Save name",
-      "plainTextDecklist": "Plain text decklist",
-      "loadFile": "Load file",
-      "lastImport": "Last import",
-      "missingCardsFromLatestImport": "Missing cards from latest import",
-      "chooseTheExactPrintingFor": "Choose the exact printing for",
-      "quantityAndSectionWillStayUnchanged": ". Quantity and section will stay unchanged.",
-      "loadingPrintVersions": "Loading print versions...",
-      "onlyOnePrintVersion": "Only one print version",
-      "thisCardOnlyHasOnePrintVersion": "This card only has one print version available in the database.",
-      "noPrintVersionsFoundForThisCard": "No print versions found for this card.",
-      "current": "Current",
+      "addCardsByName": "Добавить карты по имени",
+      "searchAnotherCardName": "Найти другое имя карты",
+      "deckEditorSections": "Разделы редактора колод",
+      "copyCardName": "Копировать имя карты",
+      "searchCard": "Найти карту",
+      "saveMissingCard": "Сохранить отсутствующую карту",
+      "ignoreThisSession": "Игнорировать этот сеанс",
+      "remove": "Удалить",
+      "clearLocalHistory": "Очистить локальную историю",
+      "importDecklist": "Импортировать деклист",
+      "selectPrintVersion": "Выберите печатную версию",
+      "restoreHistory": "Восстановить историю",
+      "view": "Просмотр",
+      "text": "Текст",
+      "spoiler": "Спойлер",
+      "analysis": "Анализ",
+      "considering": "На рассмотрении",
+      "validation": "Валидация",
+      "missing": "Отсутствующие",
+      "history": "История",
+      "consideringCards": "Карты на рассмотрении",
+      "cardsParkedOutsideThePlayableDeck": "Карты, отложенные вне игровой колоды.",
+      "noConsideringCards": "Нет карт на рассмотрении.",
+      "derivedTokens": "Производные фишки",
+      "resolvedFromCardsCurrentlyInTheDeck": "Определено по картам, которые сейчас находятся в колоде.",
+      "noResolvedTokensForThisDeck": "Для этой колоды нет определенных фишек.",
+      "unresolvedTokens": "Неразрешенные фишки",
+      "validateWithBackend": "Проверить на сервере",
+      "errors": "Ошибки",
+      "warnings": "Предупреждения",
+      "noFrontendDiagnosticsForTheCurrentDeck": "Нет диагностики интерфейса для текущей колоды.",
+      "search": "Поиск",
+      "add": "Добавить",
+      "noCardSearchResults": "Нет результатов поиска карт.",
+      "futureCollection": "Будущая коллекция",
+      "snapshot": "Снимок",
+      "restore": "Восстановить",
+      "noLocalHistoryForThisDeckYet": "Локальной истории этой колоды пока нет.",
+      "noCards": "Нет карт",
+      "deckName": "Название колоды",
+      "saveName": "Сохранить имя",
+      "plainTextDecklist": "Деклист обычным текстом",
+      "loadFile": "Загрузить файл",
+      "lastImport": "Последний импорт",
+      "missingCardsFromLatestImport": "Отсутствуют карты из последнего импорта",
+      "chooseTheExactPrintingFor": "Выберите точную печать для",
+      "quantityAndSectionWillStayUnchanged": "Количество и раздел останутся неизменными.",
+      "loadingPrintVersions": "Загрузка печатных версий...",
+      "onlyOnePrintVersion": "Только одна печатная версия",
+      "thisCardOnlyHasOnePrintVersion": "Для этой карты в базе доступна только одна печатная версия.",
+      "noPrintVersionsFoundForThisCard": "Печатные версии этой карты не найдены.",
+      "current": "Текущий",
       "header": {
-        "title": "Deck editor",
-        "deckWarnings": "Deck warnings",
-        "import": "Import",
-        "export": "Export",
-        "backToDecks": "Back to decks"
-      }
+        "title": "Редактор колод",
+        "deckWarnings": "Предупреждения колоды",
+        "import": "Импорт",
+        "export": "Экспорт",
+        "share": "Поделиться",
+        "shareCopied": "Ссылка на сообщество скопирована.",
+        "shareError": "Не удалось скопировать ссылку сообщества."
+      },
+      "cardsCount": "Карты {{ count }}",
+      "clear": "Очистить",
+      "clearLocalHistoryQuestion": "Очистить локальную историю этой колоды?",
+      "colorIdentity": "Цветовая идентичность: {{ colors }}",
+      "commanderMode": "Режим командира: {{ mode }}",
+      "fromSourceCard": "От {{ name }}",
+      "historyCardsSummary": "Карты {{ count }} — {{ commanders }}",
+      "importSummary": "Карт разобрано: {{ parsed }}, импортировано: {{ imported }}, отсутствует: {{ missing }}.",
+      "noCommander": "Нет командира",
+      "noCost": "Без стоимости",
+      "no": "нет",
+      "restoreSnapshotQuestion": "Восстановить этот снимок?",
+      "searchResultsFor": "Результаты поиска для {{ name }}",
+      "sectionsCount": "Разделы {{ count }}",
+      "usableInGame": "Можно использовать в партии: {{ value }}",
+      "validationCounts": "Карт всего: {{ total }} ({{ commander }} командир, {{ main }} основная колода, {{ sideboard }} сайдборд, {{ maybeboard }} на рассмотрении)",
+      "validationFailed": "Валидация Commander не пройдена",
+      "validationPassed": "Валидация Commander пройдена",
+      "yes": "да",
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141"
     },
     "deckList": {
-      "newDeckName": "New deck name",
-      "searchCommanderByName": "Search commander by name",
-      "commanderSelectionLimitReached": "You already have 2 commanders. You can't add more.",
-      "example1SolRingVoc168": "Example: 1 Sol Ring (VOC) 168",
-      "jeskaiBrewsTesting": "Jeskai, Brews, Testing...",
-      "deckWarnings": "Deck warnings",
-      "renameFolder": "Rename folder",
-      "deleteFolder": "Delete folder",
-      "editDeck": "Edit deck",
-      "deleteDeck": "Delete deck",
-      "deckSaved": "Deck saved",
-      "createFolder": "Create folder",
-      "commanderEnlargedPreview": "Commander enlarged preview",
-      "loadingDecks": "Loading decks...",
-      "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
-      "decks": "Decks",
-      "noDecksInThisFolderYet": "No decks in this folder yet.",
-      "missingCards": "Missing cards",
-      "deckName": "Deck name",
-      "folder": "Folder",
-      "noFolder": "No folder",
-      "thisDeckIsPublicButItsFolder": "This deck is public, but its folder is private. It will not be publicly visible.",
-      "commander": "Commander",
-      "importDecklist": "Import decklist",
-      "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
-      "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
-      "folderName": "Folder name",
-      "playmat": "Playmat",
-      "sleeve": "Sleeve",
-      "editPlaymat": "Edit Playmat",
-      "editSleeve": "Edit Sleeve",
+      "newDeckName": "Новое название колоды",
+      "searchCommanderByName": "Искать командира по имени",
+      "example1SolRingVoc168": "Пример: 1 Sol Ring (VOC) 168",
+      "jeskaiBrewsTesting": "Jeskai, brew, тесты...",
+      "renameFolder": "Переименовать папку",
+      "deleteFolder": "Удалить папку",
+      "editDeck": "Редактировать колоду",
+      "deleteDeck": "Удалить колоду",
+      "deckSaved": "Колода сохранена",
+      "createSuccessMessage": "Эта колода сохранена. Теперь она находится в вашем списке сохраненных колод, и вы можете редактировать ее как хотите. Удачи с вашей колодой Commander!",
+      "createEmptyDeck": "Создать пустую колоду",
+      "createFolder": "Создать папку",
+      "continueToRooms": "Перейти к комнатам",
+      "commanderEnlargedPreview": "Увеличенный предварительный просмотр «Командира»",
+      "deckListLabel": "Список колод",
+      "yourDeckListFeelsALittleEmpty": "Ваш список колод пока пустоват. Заходите и начинайте собирать!",
+      "noDecksInThisFolderYet": "В этой папке пока нет колод.",
+      "missingCards": "Отсутствующие карты",
+      "deckName": "Название колоды",
+      "folder": "Папка",
+      "noFolder": "Нет папки",
+      "openDeck": "Открыть колоду",
+      "thisDeckIsPublicButItsFolder": "Эта колода публичная, но ее папка приватная. Она не будет видна публично.",
+      "commander": "Командир",
+      "importDecklist": "Импортировать деклист",
+      "ifYouIncludeYourCommanderInThe": "Если вы включите своего командира в список импортируемых колод, не волнуйтесь; мы удалим его для вас.",
+      "ifYouIncludeYourCommandersInThe": "Если вы включите своих командиров в список импортируемых колод, не волнуйтесь; мы удалим их для вас.",
+      "folderName": "Имя папки",
+      "playmat": "игровой коврик",
+      "sleeve": "Рукав",
+      "editPlaymat": "Редактировать игровой коврик",
+      "editSleeve": "Редактировать рукав",
       "header": {
-        "title": "Decks",
-        "createDeck": "Create deck",
-        "createFolder": "Create folder"
+        "title": "Колоды",
+        "createDeck": "Создать колоду",
+        "createFolder": "Создать папку",
+        "description": "Организуйте, собирайте и улучшайте свои колоды."
       },
       "colorFilter": {
-        "label": "????",
-        "any": "?????",
-        "white": "?????",
-        "blue": "?????",
-        "black": "??????",
-        "red": "???????",
-        "green": "???????",
-        "colorless": "??????????"
+        "label": "Цвет",
+        "any": "Любой",
+        "white": "Белый",
+        "blue": "Синий",
+        "black": "Черный",
+        "red": "Красный",
+        "green": "Зеленый",
+        "colorless": "Бесцветный"
       },
       "sortMode": {
-        "label": "??????????",
-        "nameAsc": "???????? (A-Z)",
-        "nameDesc": "???????? (Z-A)"
+        "label": "Сортировать",
+        "nameAsc": "Имя (А-Я)",
+        "nameDesc": "Имя (Я-А)"
+      },
+      "cosmetics": {
+        "free": "Бесплатно",
+        "playmatOptions": "Варианты игрового коврика",
+        "playmatTiers": "Уровни игрового коврика",
+        "premium": "Премиум",
+        "selectPlaymat": "Выберите игровой коврик {{ name }}",
+        "selectSleeve": "Выберите протектор {{ name }}",
+        "sleeveOptions": "Варианты протекторов"
+      },
+      "filters": {
+        "actionsAndFilters": "Действия и фильтры колоды"
+      },
+      "maximumCharacters": "Максимальное количество символов {{ count }}.",
+      "noDecksMatchFilters": "Ни одна колода не соответствует текущим фильтрам.",
+      "removeCommander": "Удалить командира",
+      "searchDecks": "Искать колоды",
+      "searchDecksPlaceholder": "Искать колоды...",
+      "stats": {
+        "colorDistribution": "Распределение цвета",
+        "private": "Приватный",
+        "public": "Публичный",
+        "summary": "Сводка колоды",
+        "total": "Всего"
       }
     }
   },
   "tableAssistant": {
     "tableAssistantPage": {
-      "asistenteDeMesa": "Asistente de Mesa",
-      "resumenRapido": "Resumen rápido",
-      "beneficios": "Beneficios",
-      "mesaManualDeCommander": "Mesa manual de Commander",
-      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida física.",
-      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y daño de comandante sin automatizar reglas de Magic.",
-      "setupRapido": "Setup rápido",
-      "text4JugadoresPorDefecto": "4 jugadores por defecto",
-      "text40VidasIniciales": "40 vidas iniciales",
-      "danoDeComandanteActivo": "Daño de comandante activo"
+      "title": "Помощник стола",
+      "benefits": "Преимущества",
+      "manualCommanderTable": "Ручной стол Commander",
+      "physicalGameTrackingDescription": "Все, что нужно для отслеживания физической партии.",
+      "setupDescription": "Настройте игроков, начальное количество жизней и таймер. CommanderZone отслеживает жизни, ходы и командирский урон, не автоматизируя правила Magic.",
+      "quickSetup": "Быстрая настройка",
+      "defaultFourPlayers": "4 игрока по умолчанию",
+      "defaultFortyLife": "40 жизней",
+      "commanderDamageEnabled": "Командирский урон включен",
+      "quickSummary": "Краткое резюме"
     },
     "tableAssistantReplayModal": {
-      "configuracionDeMesa": "Configuración de mesa",
-      "cerrarConfiguracionDeMesa": "Cerrar configuración de mesa",
-      "posicionesDeMesa": "Posiciones de mesa",
-      "jugador": "Jugador",
-      "sinJugador": "Sin jugador",
-      "orden": "Orden",
-      "eligeUnJugadorYSuTurno": "Elige un jugador y su turno.",
-      "turnoAleatorio": "Turno aleatorio"
+      "seatLabel": "Место {{ count }}",
+      "turnLabel": "Ход {{ count }}",
+      "startGame": "Начать партию",
+      "tableSetup": "Настройка стола",
+      "closeTableSetup": "Закрыть настройку стола",
+      "tablePositions": "Позиции за столом",
+      "player": "Игрок",
+      "noPlayer": "Нет игрока",
+      "order": "Порядок",
+      "choosePlayerAndTurn": "Выберите игрока и его ход.",
+      "randomTurn": "Случайный ход"
     },
     "tableAssistantRoom": {
-      "giraElDispositivo": "Gira el dispositivo",
-      "informacionDeSala": "Informacion de sala",
-      "copiarEnlaceDeSala": "Copiar enlace de sala",
-      "trackersGlobales": "Trackers globales",
-      "jugadores": "Jugadores",
-      "danoDeComandante": "Daño de comandante",
-      "cerrarDanoDeComandante": "Cerrar daño de comandante",
-      "vidaDeJugador": "Vida de jugador",
-      "trackersDeJugador": "Trackers de jugador",
-      "skullKo": "skull-ko",
-      "laSalaEstaOptimizadaParaMovilEn": "La sala esta optimizada para movil en horizontal.",
-      "cargandoSala": "Cargando sala...",
-      "codigoDeSala": "Codigo de sala",
-      "letal": "Letal",
-      "danoDeComandante1": "Daño de comandante",
-      "verYEditar": "Ver y editar",
-      "asignadoAJugadorConectado": "Asignado a jugador conectado"
+      "rotateDevice": "Поверните устройство",
+      "roomInformation": "Информация о комнате",
+      "copyRoomLink": "Копировать ссылку на комнату",
+      "globalTrackers": "Общие счетчики",
+      "players": "Игроки",
+      "commanderDamage": "Командирский урон",
+      "closeCommanderDamage": "Закрыть командирский урон",
+      "playerLife": "Жизни игрока",
+      "playerTrackers": "Счетчики игрока",
+      "knockoutIconLabel": "нокаут",
+      "landscapeOptimizedNotice": "Комната оптимизирована для альбомной ориентации на мобильном устройстве.",
+      "roomCode": "Код комнаты",
+      "lethal": "Смертельный",
+      "commanderDamageSummary": "Командирский урон",
+      "assignedToConnectedPlayer": "Назначено подключенному игроку",
+      "viewAndEdit": "Просмотр и редактирование"
     },
     "tableAssistantSetup": {
-      "configurarAsistenteDeMesa": "Configurar Asistente de Mesa",
-      "nuevaPartida": "Nueva partida",
-      "configuraLaMesa": "Configura la mesa",
-      "jugadoresVidasYTemporizadorLoDemasSe": "Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.",
-      "jugadores": "Jugadores",
-      "reglasDeMesa": "Reglas de mesa",
-      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Daño de comandante siempre activo. Temporizador opcional."
+      "createRoom": "Создать комнату",
+      "createRoomError": "Не удалось создать комнату Table Assistant.",
+      "creatingRoom": "Создание...",
+      "initialLife": "Начальное количество жизней",
+      "initialTotal": "Начальное значение",
+      "needPlayersAndNames": "Вам нужно как минимум 2 игрока и каждое имя указано.",
+      "playerColorAria": "Цвет игрока {{ index }}",
+      "playerColorsAria": "Цвета игрока {{ index }}",
+      "playerNameAria": "Имя игрока {{ index }}",
+      "playerNamePlaceholder": "Игрок {{ index }}",
+      "players": "Игроки",
+      "configureTableAssistant": "Настроить помощник стола",
+      "newGame": "Новая партия",
+      "configureTable": "Настроить стол",
+      "setupDescription": "Игроки, жизни и таймер. Все остальное настраивается во время партии.",
+      "tableRules": "Правила стола",
+      "commanderDamageAndTimerNote": "Командирский урон всегда включен. Таймер необязателен."
     },
     "tableAssistantTableMenu": {
-      "opcionesDePartidaDeCommanderzone": "Opciones de partida de CommanderZone",
-      "opcionesDePartida": "Opciones de partida",
       "cz": "CZ",
-      "nuevaPartida": "Nueva partida",
-      "tirarDado": "Tirar dado",
-      "pantallaCompleta": "Pantalla completa",
-      "salirAlDashboard": "Salir al dashboard",
-      "seguirJugando": "Seguir jugando"
+      "commanderZoneGameOptions": "Параметры партии CommanderZone",
+      "gameOptions": "Параметры партии",
+      "newGame": "Новая партия",
+      "rollDice": "Бросить кубик",
+      "fullScreen": "Полноэкранный",
+      "exitToDashboard": "Выйти на панель",
+      "keepPlaying": "Продолжить играть"
     },
     "tableAssistantTimerSettings": {
-      "temporizador": "Temporizador",
-      "duracionPorTurno": "Duracion por turno",
-      "min": "Min",
-      "seg": "Seg"
+      "min": "Мин",
+      "timer": "Таймер",
+      "turnDuration": "Продолжительность хода",
+      "seconds": "сек.",
+      "timerModes": {
+        "turn": "За ход",
+        "phase": "За фазу"
+      }
     },
     "tableAssistantTurnControls": {
-      "turnoActivo": "Turno activo",
-      "pausarTemporizador": "Pausar temporizador",
-      "reanudarTemporizador": "Reanudar temporizador",
-      "iniciarTemporizador": "Iniciar temporizador",
-      "pasarAlSiguienteTurno": "Pasar al siguiente turno",
-      "pausar": "Pausar",
-      "reanudar": "Reanudar",
-      "iniciar": "Iniciar",
-      "turno": "Turno",
-      "siguiente": "Siguiente"
+      "activeTurn": "Активный ход",
+      "pauseTimer": "Поставить таймер на паузу",
+      "resumeTimer": "Возобновить таймер",
+      "startTimer": "Запустить таймер",
+      "passToNextTurn": "Передать следующий ход",
+      "pause": "Пауза",
+      "resume": "Продолжить",
+      "start": "Начать",
+      "turn": "Ход",
+      "next": "Следующий"
     },
     "page": {
       "benefits": {
         "lifeAndCommander": {
-          "title": "Vidas y comandante",
-          "description": "Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo."
+          "title": "Жизни и командир",
+          "description": "Отслеживайте жизни и командирский урон, не превращая партию в таблицу."
         },
         "simpleTurns": {
-          "title": "Turnos simples",
-          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas."
+          "title": "Простые ходы",
+          "description": "Отметьте активного игрока и используйте таймер, если стол требует скорости, без автоматических правил."
         },
         "sharedTable": {
-          "title": "Mesa compartida",
-          "description": "Pensado para un único móvil o tablet en el centro de la mesa."
+          "title": "Общий стол",
+          "description": "Предназначен для одного телефона или планшета в центре стола."
         }
       },
       "header": {
-        "title": "Asistente de Mesa",
-        "startGame": "Empezar partida"
+        "title": "Помощник стола",
+        "startGame": "Начать партию"
       }
     }
   },
   "profile": {},
   "settings": {
     "dashboardSettingsModal": {
-      "playerAvatar": "Player avatar",
-      "avatar": "Avatar",
-      "name": "Name",
-      "becomePremium": "Become premium",
-      "email": "Email",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "deleteAccount": "Delete account",
-      "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
-      "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel",
-      "changeTheme": "Change theme",
+      "playerAvatar": "Аватар игрока",
+      "changeAvatar": "Сменить аватар",
+      "becomePremium": "Стать премиум",
+      "changeName": "Изменить отображаемое имя",
+      "accountDetails": "Детали аккаунта",
+      "email": "Электронная почта",
+      "userName": "Имя пользователя",
+      "changePassword": "Изменить пароль",
+      "sendingPasswordEmail": "Отправка электронной почты...",
+      "passwordResetEmailSentShort": "Отправил",
+      "passwordResetEmailSent": "Письмо для сброса пароля отправлено.",
+      "passwordResetEmailError": "Не удалось отправить электронное письмо для сброса пароля.",
+      "deleteAccount": "Удалить аккаунт",
+      "areYouSureYouWantToPermanently": "Вы уверены, что хотите навсегда удалить свою учетную запись?",
+      "cancel": "Отмена",
+      "changeTheme": "Изменить тему",
       "gameSettings": {
-        "title": "Gameplay preferences",
+        "title": "Настройки игрового процесса",
         "showManaHelperOnStartup": {
-          "label": "Show mana helper on startup",
-          "description": "Open the mana helper when a match starts."
+          "label": "Показывать помощник по мане при запуске",
+          "description": "Откройте помощник по мане, когда начинается матч."
         },
         "enableManaRow": {
-          "label": "Enable mana row",
-          "description": "Show the dedicated mana row during games."
-        },
-        "enableStackMana": {
-          "label": "Enable stack mana",
-          "description": "Keep mana available while resolving stacked actions."
+          "label": "Включить строку маны",
+          "description": "Покажите выделенный ряд маны во время игр."
         },
         "gameAnimations": {
-          "label": "Game animations",
-          "description": "Use visual movement and feedback animations during matches."
+          "label": "Игровые анимации",
+          "description": "Используйте визуальную анимацию движений и обратной связи во время матчей."
         },
         "chatNotificationSounds": {
-          "label": "Chat notification sounds",
-          "description": "Play a sound when new chat notifications arrive."
+          "label": "Звуки уведомлений в чате",
+          "description": "Воспроизведение звука при поступлении новых уведомлений чата."
+        },
+        "preserveManaPool": {
+          "label": "Сохранение запаса маны",
+          "description": "Сохраняйте ману в своем запасе маны, выполняя сложенные действия."
         }
-      }
+      },
+      "enterValidEmail": "Введите действительный адрес электронной почты.",
+      "checkingEmail": "Проверка электронной почты...",
+      "checkingAvailability": "Проверяем наличие...",
+      "couldNotCheckNow": "Не удалось проверить сейчас",
+      "usernameLengthRequirement": "Имя пользователя должно содержать от 2 до 20 символов.",
+      "usernameAvailable": "Доступно имя пользователя",
+      "usernameUnavailable": "Имя пользователя недоступно",
+      "emailAvailable": "Электронная почта доступна",
+      "emailAlreadyRegistered": "Электронная почта уже зарегистрирована",
+      "deleteAccountWarning": "Безвозвратно удалите свою учетную запись и все связанные с ней данные, включая колоды и настройки. Это действие невозможно отменить."
     },
     "settingsInitialAvatarOption": {
-      "initialAvatarCustomization": "Initial avatar customization",
-      "mainColor": "Main color",
-      "secondaryColor": "Secondary color",
-      "letters": "Letters"
+      "initialAvatarCustomization": "Первоначальная настройка аватара",
+      "mainColor": "Основной цвет",
+      "secondaryColor": "Вторичный цвет",
+      "letters": "Буквы"
     },
     "settingsAvatarEditor": {
-      "avatarPreview": "Avatar preview",
-      "avatarTiers": "Avatar tiers",
-      "basicAvatars": "Basic avatars",
-      "premiumAvatars": "Premium avatars",
-      "chooseAvatar": "Choose avatar",
-      "currentSelection": "Current selection",
-      "basic": "Basic",
-      "premium": "Premium"
+      "avatarPreview": "Предварительный просмотр аватара",
+      "avatarTiers": "Уровни аватара",
+      "basicAvatars": "Базовые аватары",
+      "premiumAvatars": "Премиум аватары",
+      "chooseAvatar": "Выбрать аватар",
+      "currentSelection": "Текущий выбор",
+      "basic": "Базовый",
+      "premium": "Премиум"
     },
     "settingsAvatarUpload": {
-      "uploadedAvatarPreview": "Uploaded avatar preview",
-      "avatarPreview": "Avatar preview",
-      "uploadImage": "Upload image",
-      "chooseYourOwnImageAndFrameIt": "Choose your own image and frame it inside the avatar circle.",
-      "imageFile": "Image file",
-      "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP or another browser-supported image. Maximum 2MB.",
-      "chooseImage": "Choose image",
-      "avatarImagesMustBeNonOffensiveNon": "Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.",
-      "horizontal": "Horizontal",
-      "vertical": "Vertical",
+      "uploadedAvatarPreview": "Предварительный просмотр загруженного аватара",
+      "avatarPreview": "Предварительный просмотр аватара",
+      "uploadImage": "Загрузить изображение",
+      "chooseYourOwnImageAndFrameIt": "Выберите свое собственное изображение и поместите его в круг аватара.",
+      "imageFile": "Файл изображения",
+      "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP или другое изображение, поддерживаемое браузером. Максимум 2 МБ.",
+      "chooseImage": "Выбрать изображение",
+      "avatarImagesMustBeNonOffensiveNon": "Изображения аватаров не должны быть оскорбительными, несексуальными и подходящими для сообщества CommanderZone.",
+      "horizontal": "Горизонтальный",
+      "vertical": "Вертикальный",
       "zoom": "Zoom"
     },
     "settingsDisplayNameStyleEditor": {
-      "nameStylePreview": "Name style preview",
-      "nameStyleTiers": "Name style tiers",
-      "currentSelection": "Current selection",
-      "textColor": "Text color",
-      "basic": "Basic",
-      "premium": "Premium"
+      "nameStylePreview": "Предварительный просмотр стиля имени",
+      "nameStyleTiers": "Уровни стилей названий",
+      "currentSelection": "Текущий выбор",
+      "textColor": "Цвет текста",
+      "basic": "Базовый",
+      "premium": "Премиум"
     }
   },
   "forms": {},
@@ -1001,24 +1509,24 @@
   "modals": {
     "roll": {
       "rollModal": {
-        "tirarDado": "Tirar dado",
-        "cerrarTirada": "Cerrar tirada",
-        "tipoDeTirada": "Tipo de tirada",
-        "text": "?",
-        "cerrar": "Cerrar",
-        "volverATirar": "Volver a tirar",
-        "tirar": "Tirar"
+        "text": "Результат",
+        "rollDice": "Бросить кости",
+        "closeRoll": "Закрыть бросок",
+        "rollType": "Тип броска",
+        "close": "Закрыть",
+        "rollAgain": "Бросить еще раз",
+        "roll": "Бросок"
       },
       "options": {
-        "coin": "Moneda",
-        "d4": "Dado de 4 caras",
-        "d6": "Dado de 6 caras",
-        "d10": "Dado de 10 caras",
-        "d20": "Dado de 20 caras"
+        "coin": "Монета",
+        "d4": "четырехгранный кубик",
+        "d6": "6-гранный кубик",
+        "d10": "10-гранный кубик",
+        "d20": "20-гранный кубик"
       },
       "results": {
-        "heads": "Cara",
-        "tails": "Cruz"
+        "heads": "Орел",
+        "tails": "Решка"
       }
     }
   },
@@ -1026,36 +1534,99 @@
   "emptyStates": {},
   "contactPage": {
     "meta": {
-      "title": "Contact CommanderZone",
-      "description": "Contact CommanderZone for support, bug reports, rights issues, or general questions."
+      "title": "Связаться с нами",
+      "description": "Свяжитесь с CommanderZone для получения поддержки, отчетов об ошибках, проблем с правами или общих вопросов."
     },
     "hero": {
-      "title": "Contact CommanderZone",
-      "description": "Send us a message and we will review it as soon as possible."
+      "title": "Связаться с нами",
+      "description": "Отправьте нам сообщение, и мы рассмотрим его как можно скорее."
+    },
+    "nav": {
+      "loggedOutCta": "Вернуться к панели управления",
+      "anonymousCta": "Вернуться домой",
+      "actionsAriaLabel": "Действия на странице контактов"
     },
     "copy": {
-      "supportTitle": "Support and rights",
-      "supportBody": "Use this form for support, bug reports, privacy requests, or rights-related issues. If needed, we can also continue by email at {{ email }}.",
-      "includeTitle": "What to include",
-      "includeBody": "Explain the issue clearly and include any useful page, room, deck, or screenshot context. Do not send secrets or payment details."
+      "supportTitle": "Поддержка и права",
+      "supportBody": "Используйте эту форму для поддержки, сообщений об ошибках, запросов на конфиденциальность, вопросов, связанных с правами, а также для любых вопросов, идей или любопытства, которыми вы хотели бы поделиться с нами. Если вам так проще, мы также можем продолжить по электронной почте {{ email }}.",
+      "includeTitle": "Что включить",
+      "includeBody": "Четко объясните проблему и включите любой полезный контекст страницы, комнаты, колоды или скриншота. Не отправляйте секреты или платежные реквизиты."
     },
     "form": {
-      "nameLabel": "Name",
-      "namePlaceholder": "Your name",
-      "nameError": "Enter your name.",
-      "emailLabel": "Email",
+      "nameLabel": "Имя",
+      "namePlaceholder": "Ваше имя",
+      "nameError": "Введите свое имя.",
+      "emailLabel": "Электронная почта",
       "emailPlaceholder": "you@example.com",
-      "emailError": "Enter a valid email.",
-      "subjectLabel": "Subject",
-      "subjectPlaceholder": "How can we help?",
-      "subjectError": "Enter a subject.",
-      "messageLabel": "Message",
-      "messagePlaceholder": "Write your message here.",
-      "messageError": "Enter a message.",
-      "submit": "Send message",
-      "submitting": "Sending...",
-      "submitSuccess": "Your message has been sent.",
-      "submitError": "We could not send your message. Write to {{ email }} directly or contact us through another channel."
+      "emailError": "Введите действительный адрес электронной почты.",
+      "subjectLabel": "Предмет",
+      "subjectPlaceholder": "Как мы можем помочь?",
+      "subjectError": "Введите тему.",
+      "messageLabel": "Сообщение",
+      "messagePlaceholder": "Напишите свое сообщение здесь.",
+      "messageError": "Введите сообщение.",
+      "submit": "Отправить сообщение",
+      "submitting": "Отправка...",
+      "submitSuccess": "Ваше сообщение отправлено.",
+      "submitRateLimitError": "Вы достигли лимита контактов. Пожалуйста, подождите около {{ retryAfterMinutes }} минут, прежде чем повторить попытку. Если это срочно, напишите напрямую {{ email }}.",
+      "submitError": "Мы не смогли отправить ваше сообщение. Напишите {{ email }} напрямую или свяжитесь с нами по другому каналу."
+    }
+  },
+  "onboarding": {
+    "accountActions": "Действия с аккаунтом",
+    "demoRoom": {
+      "description": "Это макет комнаты для процесса адаптации. Замените его реальным опытом в комнате, когда многопользовательский режим подключен.",
+      "eyebrow": "Демо-комната",
+      "goToLogin": "Перейти к входу"
+    },
+    "hero": {
+      "description": "Создайте комнату, поделитесь ссылкой, выберите колоды и играйте за столом, созданным для настоящего Commander.",
+      "eyebrow": "Ручной стол Commander",
+      "title": "Играйте в Commander онлайн за считанные секунды"
+    },
+    "highlights": {
+      "ariaLabel": "Основные характеристики продукта",
+      "deckValidation": "Валидация колоды Commander прежде всего",
+      "manualTable": "Ручной стол без автоматического движка правил",
+      "privateRooms": "Приватные комнаты и приглашения"
+    },
+    "preview": {
+      "ariaLabel": "Предпросмотр стола CommanderZone",
+      "flow": "Зал ожидания, выбор колоды и стол собраны в одном месте.",
+      "guest": "Гость",
+      "oneLink": "Одна ссылка",
+      "ready": "Готов"
+    },
+    "steps": {
+      "import": {
+        "description": "Вставьте свой список и импортируйте его.",
+        "title": "Импортировать деклист"
+      },
+      "play": {
+        "description": "Откройте комнату и начните игру.",
+        "title": "Играть"
+      },
+      "room": {
+        "description": "Создайте комнату для стола.",
+        "title": "Создать комнату"
+      },
+      "share": {
+        "description": "Скопируйте ссылку на комнату и отправьте ее.",
+        "title": "Поделиться ссылкой"
+      }
+    }
+  },
+  "shared": {
+    "cardPreview": {
+      "rank": "Ранг {{ rank }}",
+      "viewMore": "Посмотреть больше"
+    }
+  },
+  "cards": {
+    "cardSearch": {
+      "pagination": {
+        "label": "Пагинация поиска карт"
+      }
     }
   }
 }

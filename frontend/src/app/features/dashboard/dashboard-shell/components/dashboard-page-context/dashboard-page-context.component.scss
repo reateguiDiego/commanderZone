@@ -96,9 +96,13 @@
 }
 
 .page-header-title h1 {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   color: var(--cz-text);
-  font-size: var(--cz-page-title-font-size);
+  font-size: calc(var(--cz-page-title-font-size) * var(--cz-text-fit-scale, 1));
   line-height: var(--cz-page-title-line-height);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -313,6 +317,16 @@ button[data-action-id="invite-friends"] {
   background: rgb(var(--header-stat-rgb) / 18%);
   color: var(--header-stat-color);
   font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.header-stat-label {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: calc(1em * var(--cz-text-fit-scale, 1));
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

@@ -7,6 +7,11 @@ import { TableAssistantTimerMode } from '../models/table-assistant.models';
 const MIN_TIMER_DURATION_SECONDS = 30;
 const MAX_TIMER_DURATION_SECONDS = 30 * 60;
 const MAX_TIMER_DURATION_MINUTES = MAX_TIMER_DURATION_SECONDS / 60;
+const TIMER_MODE_LABEL_KEYS: Record<TableAssistantTimerMode, string> = {
+  none: 'rooms.roomSetupControls.noTimer',
+  turn: 'tableAssistant.tableAssistantTimerSettings.timerModes.turn',
+  phase: 'tableAssistant.tableAssistantTimerSettings.timerModes.phase',
+};
 
 @Component({
   selector: 'app-table-assistant-timer-settings',
@@ -33,6 +38,10 @@ export class TableAssistantTimerSettingsComponent {
   readonly durationPickerOpen = signal(false);
   readonly timerMinuteOptions = Array.from({ length: MAX_TIMER_DURATION_MINUTES + 1 }, (_, index) => index);
   readonly timerSecondOptions = [0, 15, 30, 45];
+  readonly visibleTimerModes = computed(() => this.timerModes().map((mode) => ({
+    mode,
+    labelKey: TIMER_MODE_LABEL_KEYS[mode],
+  })));
   readonly timerDurationMinutes = computed(() => Math.floor(this.timerDurationSeconds() / 60));
   readonly timerDurationRemainderSeconds = computed(() => this.timerDurationSeconds() % 60);
   readonly timerDurationLabel = computed(

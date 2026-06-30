@@ -49,7 +49,7 @@ describe('TableAssistantReplayModalComponent', () => {
       'player-2',
       null,
     ]);
-    expect(fixture.nativeElement.textContent).toContain('Configuraci');
+    expect(fixture.nativeElement.textContent).toContain('Table setup');
   });
 
   it('shows blank turn as dash and disables turn numbers selected by other players', () => {
@@ -79,8 +79,8 @@ describe('TableAssistantReplayModalComponent', () => {
     expect(firstTurnOption?.disabled).toBe(true);
     expect(releasedTurnOption?.disabled).toBe(false);
     expect(fixture.nativeElement.querySelector('app-format-select.turn-order-select')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).not.toContain('Turno -');
-    expect(fixture.nativeElement.textContent).not.toContain('Turno 2');
+    expect(fixture.nativeElement.textContent).not.toContain('Turn -');
+    expect(fixture.nativeElement.textContent).not.toContain('Turn 2');
     expect(fixture.nativeElement.querySelectorAll('.turn-pill-slot')).toHaveLength(3);
     expect(fixture.nativeElement.querySelectorAll('.order-actions button')).toHaveLength(0);
     expect(fixture.nativeElement.querySelectorAll('.seat-field app-format-select')).toHaveLength(6);
@@ -108,7 +108,7 @@ describe('TableAssistantReplayModalComponent', () => {
     fixture.componentInstance.closed.subscribe(closed);
     fixture.nativeElement.querySelector('.modal-backdrop')?.click();
 
-    expect(fixture.nativeElement.textContent).toContain('Configuración de mesa');
+    expect(fixture.nativeElement.textContent).toContain('Table setup');
     expect(cancelled).not.toHaveBeenCalled();
     expect(closed).not.toHaveBeenCalled();
   });
@@ -131,7 +131,7 @@ describe('TableAssistantReplayModalComponent', () => {
       fixture.nativeElement
         .querySelector('.secondary-action')
         ?.textContent.trim(),
-    ).toBe('Turno aleatorio');
+    ).toBe('Random turn');
     expect(fixture.nativeElement.querySelector('.secondary-action')?.disabled).toBe(true);
 
     fixture.componentInstance.setSeatPlayer(0, 'player-1');
@@ -217,9 +217,9 @@ describe('TableAssistantReplayModalComponent', () => {
       'player-3',
     ]);
     expect(fixture.componentInstance.turnControls.getRawValue()).toEqual([null, null, null]);
-    expect(fixture.nativeElement.textContent).not.toContain('Turno 1');
-    expect(fixture.nativeElement.textContent).not.toContain('Turno 2');
-    expect(fixture.nativeElement.textContent).not.toContain('Turno 3');
+    expect(fixture.nativeElement.textContent).not.toContain('Turn 1');
+    expect(fixture.nativeElement.textContent).not.toContain('Turn 2');
+    expect(fixture.nativeElement.textContent).not.toContain('Turn 3');
     expect(fixture.nativeElement.querySelector('.primary-action')?.disabled).toBe(true);
   });
 

@@ -38,6 +38,7 @@ const runtimeNamespaces = [
   'modals',
   'toasts',
   'emptyStates',
+  'onboarding',
 ];
 
 const runtimePageComponents = [

@@ -80,7 +80,7 @@
   margin: 0;
   overflow: hidden;
   color: var(--cz-text);
-  font-size: clamp(1.08rem, 1.65vw, 1.55rem);
+  font-size: calc(clamp(1.08rem, 1.65vw, 1.55rem) * var(--cz-text-fit-scale, 1));
   line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -95,8 +95,11 @@
   border-radius: 999px;
   background: rgb(var(--cz-success-rgb) / .12);
   color: var(--cz-success);
-  font-size: .7rem;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: calc(.7rem * var(--cz-text-fit-scale, 1));
   font-weight: 900;
+  text-overflow: ellipsis;
   text-transform: capitalize;
   white-space: nowrap;
 }
@@ -122,8 +125,11 @@
   border-radius: 999px;
   background: rgb(var(--cz-bg-rgb) / .48);
   color: var(--cz-text);
-  font-size: .7rem;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: calc(.7rem * var(--cz-text-fit-scale, 1));
   font-weight: 800;
+  text-overflow: ellipsis;
   text-transform: capitalize;
   white-space: nowrap;
 }
@@ -177,11 +183,16 @@
 
 .deck-copy span,
 .turn-summary span {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   color: var(--cz-text);
-  font-size: .68rem;
+  font-size: calc(.68rem * var(--cz-text-fit-scale, 1));
   font-weight: 900;
   letter-spacing: .08em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .deck-copy strong,

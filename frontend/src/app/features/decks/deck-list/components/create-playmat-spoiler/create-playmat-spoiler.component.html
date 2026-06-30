@@ -1,9 +1,9 @@
-<section class="create-playmat-spoiler" aria-label="Playmat options">
+<section class="create-playmat-spoiler" [attr.aria-label]="'deckBuilder.deckList.cosmetics.playmatOptions' | runtimeTranslate">
   <app-tab-list
     class="create-playmat-tier-tabs"
     [items]="tierTabItems"
     [activeId]="activeTier()"
-    ariaLabel="Playmat tiers"
+    ariaLabel="deckBuilder.deckList.cosmetics.playmatTiers"
     (tabSelected)="switchTierFromList($event)"
   />
 
@@ -13,7 +13,7 @@
         class="create-playmat-option"
         type="button"
         [class.is-selected]="playmat.path === selectedPlaymatPath()"
-        [attr.aria-label]="'Select playmat ' + playmat.label"
+        [attr.aria-label]="'deckBuilder.deckList.cosmetics.selectPlaymat' | runtimeTranslate: { name: playmat.label }"
         [attr.aria-pressed]="playmat.path === selectedPlaymatPath()"
         (mouseenter)="showHoverPreview($event, playmat)"
         (mousemove)="moveHoverPreview($event, playmat)"
@@ -36,7 +36,7 @@
             </span>
           }
           @if (playmat.premium) {
-            <span class="create-playmat-option-pill create-playmat-option-pill--premium">Premium</span>
+            <span class="create-playmat-option-pill create-playmat-option-pill--premium">{{ 'deckBuilder.deckList.cosmetics.premium' | runtimeTranslate }}</span>
           }
         </span>
       </button>
@@ -44,7 +44,7 @@
   </div>
 
   <footer class="create-playmat-spoiler-actions">
-    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">Save</button>
+    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">{{ 'common.actions.save' | runtimeTranslate }}</button>
   </footer>
 </section>
 

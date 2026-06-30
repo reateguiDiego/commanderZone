@@ -31,7 +31,7 @@
         [attr.aria-label]="visibilityLabelKey(deck().visibility) | runtimeTranslate"
       >
         <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" aria-hidden="true" />
-        <span class="visibility-pill-label">{{ visibilityPillText(deck().visibility) }}</span>
+        <span class="visibility-pill-label">{{ visibilityPillLabelKey(deck().visibility) | runtimeTranslate }}</span>
       </span>
     </app-tooltip>
     @if (hasIssues()) {

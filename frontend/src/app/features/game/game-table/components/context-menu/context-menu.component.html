@@ -27,7 +27,7 @@
     <button type="button" (click)="actionSelected.emit({ type: 'openDebug' })">
       <span class="menu-item-label">
         <lucide-icon name="bug" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('game.contextMenu.labels.abrirDebug') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.openDebug') }}</span>
       </span>
     </button>
     @if (isCurrentPlayerActive()) {
@@ -114,7 +114,7 @@
           <span>{{ displayLabel('game.contextMenu.labels.drawCard') }}</span>
         </span>
         &nbsp;
-        <kbd>{{ 'game.contextMenu.d' | runtimeTranslate }}</kbd>
+        <kbd>{{ 'game.contextMenu.drawShortcut' | runtimeTranslate }}</kbd>
       </button>
       <button type="button" (click)="actionSelected.emit({ type: 'drawPrompt' })">
         <span class="menu-item-label">
@@ -167,7 +167,7 @@
           <span>{{ displayLabel('game.contextMenu.labels.shuffle') }}</span>
         </span>
         &nbsp;
-        <kbd>{{ 'game.contextMenu.s' | runtimeTranslate }}</kbd>
+        <kbd>{{ 'game.contextMenu.shuffleShortcut' | runtimeTranslate }}</kbd>
       </button>
     }
     @if (canSelectRandomFromActiveZone()) {
@@ -222,7 +222,7 @@
         <button type="button" (click)="actionSelected.emit({ type: 'rollDice' })">
           <span class="menu-item-label">
             <lucide-icon name="dices" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('game.contextMenu.labels.tirarDado') }}</span>
+            <span>{{ displayLabel('game.contextMenu.labels.rollDice') }}</span>
           </span>
         </button>
         @if (canShowManaPool()) {
@@ -497,7 +497,7 @@
         @if (canAddPowerToughness() || canRemovePowerToughness()) {
           <button type="button" (click)="actionSelected.emit(powerToughnessAction())">
             <span class="menu-item-label">
-              <span class="menu-item-pt-icon" aria-hidden="true">{{ 'game.contextMenu.xX' | runtimeTranslate }}</span>
+              <span class="menu-item-pt-icon" aria-hidden="true">{{ 'game.contextMenu.powerToughnessShortcut' | runtimeTranslate }}</span>
               <span>{{ displayLabel(powerToughnessLabel()) }}</span>
             </span>
           </button>
@@ -516,7 +516,7 @@
               <lucide-icon name="eye-off" size="17" aria-hidden="true" />
               <span>{{ displayLabel(faceDownLabel()) }}</span>
             </span>
-            <kbd>{{ 'game.contextMenu.z' | runtimeTranslate }}</kbd>
+            <kbd>{{ 'game.contextMenu.faceDownShortcut' | runtimeTranslate }}</kbd>
           </button>
           @if (canTapCardAction()) {
             <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
@@ -524,7 +524,7 @@
                 <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
                 <span>{{ displayLabel(tapLabel()) }}</span>
               </span>
-              <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
+              <kbd>{{ 'game.contextMenu.tapShortcut' | runtimeTranslate }}</kbd>
             </button>
           }
         } @else {
@@ -534,7 +534,7 @@
                 <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
                 <span>{{ displayLabel(tapLabel()) }}</span>
               </span>
-              <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
+              <kbd>{{ 'game.contextMenu.tapShortcut' | runtimeTranslate }}</kbd>
             </button>
           }
           @if (canFlipCardFace()) {
@@ -550,7 +550,7 @@
               <lucide-icon name="eye-off" size="17" aria-hidden="true" />
               <span>{{ displayLabel(faceDownLabel()) }}</span>
             </span>
-            <kbd>{{ 'game.contextMenu.z' | runtimeTranslate }}</kbd>
+            <kbd>{{ 'game.contextMenu.faceDownShortcut' | runtimeTranslate }}</kbd>
           </button>
         }
       } @else {

@@ -2,8 +2,8 @@ import { contextMenuDisplayLabel } from './context-menu-label';
 
 describe('contextMenuDisplayLabel', () => {
   it('uses sentence case without title-casing every word and keeps standalone X uppercase', () => {
-    expect(contextMenuDisplayLabel('MAKE A TOKEN COPY')).toBe('Make a token copy');
-    expect(contextMenuDisplayLabel('View X top cards')).toBe('View X top cards');
-    expect(contextMenuDisplayLabel('X to bottom of library')).toBe('X to bottom of library');
+    expect(contextMenuDisplayLabel("CREATE A TOKEN THAT'S A COPY")).toBe("Create a token that's a copy");
+    expect(contextMenuDisplayLabel('Look at Top X Cards')).toBe('Look at top X cards');
+    expect(contextMenuDisplayLabel('Put X on Bottom of Library')).toBe('Put X on bottom of library');
   });
 });

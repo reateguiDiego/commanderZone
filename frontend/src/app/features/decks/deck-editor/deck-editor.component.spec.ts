@@ -808,7 +808,7 @@ Deck
     const groups = store.printVersionGroups();
 
     expect(store.visiblePrintVersionOptions().map((card) => card.scryfallId)).toEqual(['sol-ring-es-1', 'sol-ring-es-2']);
-    expect(groups.map((group) => group.title)).toEqual(['Espanol']);
+    expect(groups.map((group) => group.title)).toEqual(['Español']);
     expect(groups[0]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-es-1', 'sol-ring-es-2']);
     expect(groups.flatMap((group) => group.cards.map((card) => card.scryfallId))).not.toContain('sol-ring-pt-1');
     expect(groups.flatMap((group) => group.cards.map((card) => card.scryfallId))).not.toContain('sol-ring-en-1');
@@ -887,7 +887,7 @@ Deck
       printCard('sol-ring-en-2', 'en', 'two', '2'),
     ]);
 
-    expect(store.printVersionGroups().map((group) => group.title)).toEqual(['Ingles']);
+    expect(store.printVersionGroups().map((group) => group.title)).toEqual(['Inglés']);
   });
 
   it('does not render selectable print-version cards when the effective language has one version', async () => {
@@ -1106,17 +1106,17 @@ function printCard(scryfallId: string, lang: string, setCode: string, collectorN
 function languageNamesForLocale(locale: 'en' | 'es'): Record<SupportedLanguageCode, string> {
   return locale === 'es'
     ? {
-      en: 'Ingles',
-      fr: 'Frances',
-      de: 'Aleman',
+      en: 'Inglés',
+      fr: 'Francés',
+      de: 'Alemán',
       it: 'Italiano',
-      es: 'Espanol',
-      ja: 'Japones',
-      zhs: 'Chino (S)',
-      pt: 'Portugues',
+      es: 'Español',
+      ja: 'Japonés',
+      zhs: 'Chino simplificado',
+      pt: 'Portugués',
       ru: 'Ruso',
-      nl: 'Holandes',
-      ca: 'Catalan',
+      nl: 'Neerlandés',
+      ca: 'Catalán',
     }
     : {
       en: 'English',

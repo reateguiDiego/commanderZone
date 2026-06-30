@@ -47,7 +47,16 @@ export class SpecialEntityRailComponent {
   }
 
   labelFor(entity: GameSpecialEntity): string {
-    return `game.specialHelpers.labels.${entity.template}`;
+    switch (entity.template) {
+      case 'citys_blessing':
+        return 'game.specialHelpers.labels.citysBlessing';
+      case 'day_night':
+        return 'game.specialHelpers.labels.dayNight';
+      case 'the_ring':
+        return 'game.specialHelpers.labels.theRing';
+      default:
+        return `game.specialHelpers.labels.${entity.template}`;
+    }
   }
 
   cardLabel(entity: GameSpecialEntity): string {

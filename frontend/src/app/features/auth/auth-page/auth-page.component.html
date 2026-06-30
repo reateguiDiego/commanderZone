@@ -2,7 +2,7 @@
   <section class="auth-panel">
     <div class="auth-copy">
       <img class="auth-logo" [src]="themeAssets.czLogoUrl()" [alt]="'auth.authPage.commanderzone' | runtimeTranslate" />
-      <p>{{ 'auth.authPage.accedeATusMazosSalasYMesa' | runtimeTranslate }}</p>
+      <p>{{ 'auth.authPage.accessDecksRoomsAndTable' | runtimeTranslate }}</p>
     </div>
 
     <div class="auth-card">
@@ -35,7 +35,7 @@
             @if (loginIdentifierInvalid()) {
               <span class="field-error">
                 <lucide-icon name="triangle-alert" size="14" />
-                {{ 'auth.authPage.introduceUnEmailOUserNameValido' | runtimeTranslate }}
+                {{ 'auth.authPage.enterValidEmailOrUsername' | runtimeTranslate }}
               </span>
             }
           </label>
@@ -54,14 +54,14 @@
               <button
                 type="button"
                 class="password-toggle"
-                [attr.aria-label]="loginPasswordVisible() ? 'Ocultar contrasena' : 'Mostrar contrasena'"
+                [attr.aria-label]="(loginPasswordVisible() ? 'common.actions.hidePassword' : 'common.actions.showPassword') | runtimeTranslate"
                 (click)="loginPasswordVisible.set(!loginPasswordVisible())"
               >
                 <lucide-icon [name]="loginPasswordVisible() ? 'eye-off' : 'eye'" size="18" />
               </button>
             </div>
           </label>
-          <a class="secondary-link" routerLink="/auth/password-reset">{{ 'auth.authPage.heOlvidadoMiContrasena' | runtimeTranslate }}</a>
+          <a class="secondary-link" routerLink="/auth/password-reset">{{ 'auth.authPage.forgotPassword' | runtimeTranslate }}</a>
 
           @if (authErrorMessage(); as authError) {
             <p class="notice error">{{ authError | runtimeTranslate }}</p>
@@ -74,7 +74,7 @@
 
           <button czButton="primary" czButtonSize="lg" class="primary-button" type="submit" [disabled]="!canSubmitLogin()">
             <lucide-icon name="log-in" size="18" />
-            {{ auth.loading() ? 'Working...' : 'Login' }}
+            {{ (auth.loading() ? 'common.actions.working' : 'auth.authPage.login') | runtimeTranslate }}
           </button>
         </form>
       } @else {
@@ -85,21 +85,21 @@
             @if (registerEmailInvalid()) {
               <span class="field-error">
                 <lucide-icon name="triangle-alert" size="14" />
-                {{ 'auth.authPage.introduceUnEmailValido' | runtimeTranslate }}
+                {{ 'auth.authPage.enterValidEmail' | runtimeTranslate }}
               </span>
             }
             @if (registerEmailAvailabilityVisible()) {
               @if (emailAvailability() === 'checking') {
-                <span class="availability muted">{{ 'auth.authPage.comprobandoEmail' | runtimeTranslate }}</span>
+                <span class="availability muted">{{ 'auth.authPage.checkingEmail' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'available') {
-                <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.emailDisponible' | runtimeTranslate }}</span>
+                <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.emailAvailable' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'taken') {
-                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.emailYaRegistrado' | runtimeTranslate }}</span>
+                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.emailAlreadyRegistered' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'error') {
-                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.noSePudoComprobarAhora' | runtimeTranslate }}</span>
+                <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.couldNotCheckNow' | runtimeTranslate }}</span>
               }
             }
           </label>
@@ -112,20 +112,20 @@
                 @if (controlInvalid('displayName')) {
                   <span class="field-error">
                     <lucide-icon name="triangle-alert" size="14" />
-                    {{ 'auth.authPage.userNameEntre2Y20Caracteres' | runtimeTranslate }}
+                    {{ 'auth.authPage.usernameLengthRequirement' | runtimeTranslate }}
                   </span>
                 }
                 @if (userNameAvailability() === 'checking') {
-                  <span class="availability muted">{{ 'auth.authPage.comprobandoDisponibilidad' | runtimeTranslate }}</span>
+                  <span class="availability muted">{{ 'auth.authPage.checkingAvailability' | runtimeTranslate }}</span>
                 }
                 @if (userNameAvailability() === 'available') {
-                  <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.userNameDisponible' | runtimeTranslate }}</span>
+                  <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.usernameAvailable' | runtimeTranslate }}</span>
                 }
                 @if (userNameAvailability() === 'taken') {
-                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.userNameNoDisponible' | runtimeTranslate }}</span>
+                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.usernameUnavailable' | runtimeTranslate }}</span>
                 }
                 @if (userNameAvailability() === 'error') {
-                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.noSePudoComprobarAhora' | runtimeTranslate }}</span>
+                  <span class="availability taken"><lucide-icon name="triangle-alert" size="14" /> {{ 'auth.authPage.couldNotCheckNow' | runtimeTranslate }}</span>
                 }
               </span>
               <span class="character-counter">{{ registerDisplayNameLength() }}/{{ userNameMaxLength }}</span>
@@ -145,7 +145,7 @@
               <button
                 type="button"
                 class="password-toggle"
-                [attr.aria-label]="registerPasswordVisible() ? 'Ocultar contrasena' : 'Mostrar contrasena'"
+                [attr.aria-label]="(registerPasswordVisible() ? 'common.actions.hidePassword' : 'common.actions.showPassword') | runtimeTranslate"
                 (click)="registerPasswordVisible.set(!registerPasswordVisible())"
               >
                 <lucide-icon [name]="registerPasswordVisible() ? 'eye-off' : 'eye'" size="18" />
@@ -164,13 +164,13 @@
           </label>
 
           <label>
-            {{ 'auth.authPage.confirmarPassword' | runtimeTranslate }}
+            {{ 'auth.authPage.confirmPassword' | runtimeTranslate }}
             <div class="password-field">
               <input [type]="registerConfirmPasswordVisible() ? 'text' : 'password'" autocomplete="new-password" formControlName="confirmPassword" />
               <button
                 type="button"
                 class="password-toggle"
-                [attr.aria-label]="registerConfirmPasswordVisible() ? 'Ocultar contrasena' : 'Mostrar contrasena'"
+                [attr.aria-label]="(registerConfirmPasswordVisible() ? 'common.actions.hidePassword' : 'common.actions.showPassword') | runtimeTranslate"
                 (click)="registerConfirmPasswordVisible.set(!registerConfirmPasswordVisible())"
               >
                 <lucide-icon [name]="registerConfirmPasswordVisible() ? 'eye-off' : 'eye'" size="18" />
@@ -179,7 +179,7 @@
             @if (registerPasswordMismatchVisible()) {
               <span class="field-error">
                 <lucide-icon name="triangle-alert" size="14" />
-                {{ 'auth.authPage.lasContrasenasNoCoinciden' | runtimeTranslate }}
+                {{ 'auth.authPage.passwordsDoNotMatch' | runtimeTranslate }}
               </span>
             }
           </label>
@@ -190,7 +190,7 @@
 
           <button czButton="primary" czButtonSize="lg" class="primary-button" type="submit" [disabled]="!canSubmitRegister()">
             <lucide-icon name="user-plus" size="18" />
-            {{ auth.loading() ? 'Working...' : 'Create account' }}
+            {{ (auth.loading() ? 'common.actions.working' : 'auth.authPage.createAccount') | runtimeTranslate }}
           </button>
         </form>
       }

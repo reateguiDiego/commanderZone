@@ -1,5 +1,5 @@
 <main class="contact-page">
-  <nav class="contact-topbar" aria-label="Contact page actions">
+  <nav class="contact-topbar" [attr.aria-label]="'contactPage.nav.actionsAriaLabel' | runtimeTranslate">
     <a czButton="primary" czButtonSize="sm" [routerLink]="exitHref()">
       {{ exitLabelKey() | runtimeTranslate }}
     </a>

@@ -1,4 +1,5 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, computed, input, output, signal, viewChild } from '@angular/core';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 
@@ -133,7 +134,7 @@ export const SLEEVE_OPTIONS: readonly SleeveOption[] = SLEEVE_DEFINITIONS.map((d
 
 @Component({
   selector: 'app-create-sleeve-spoiler',
-  imports: [CzButtonDirective, PrettyScrollDirective],
+  imports: [CzButtonDirective, PrettyScrollDirective, RuntimeTranslatePipe],
   templateUrl: './create-sleeve-spoiler.component.html',
   styleUrl: './create-sleeve-spoiler.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

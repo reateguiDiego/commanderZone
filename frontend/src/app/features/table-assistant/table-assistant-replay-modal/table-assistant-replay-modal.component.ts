@@ -47,8 +47,10 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
   readonly seatPositions = computed(() => this.players().map((_, index) => index));
   readonly seatColumnCount = computed(() => Math.max(1, Math.ceil(this.players().length / 2)));
   readonly turnIndexes = computed(() => this.players().map((_, index) => index));
-  readonly confirmLabel = computed(() =>
-    this.mode() === 'initial' ? 'Empezar partida' : 'Nueva partida',
+  readonly confirmLabelKey = computed(() =>
+    this.mode() === 'initial'
+      ? 'tableAssistant.tableAssistantReplayModal.startGame'
+      : 'common.actions.newGame',
   );
   private formInitialized = false;
   readonly arrangementForm = new FormGroup(
@@ -143,7 +145,7 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
 
   seatPlayerOptions(seatIndex: number): readonly FormatSelectOption[] {
     return [
-      { id: '', labelKey: 'tableAssistant.tableAssistantReplayModal.sinJugador' },
+      { id: '', labelKey: 'tableAssistant.tableAssistantReplayModal.noPlayer' },
       ...this.players().map((player) => ({
         id: player.id,
         name: player.name,

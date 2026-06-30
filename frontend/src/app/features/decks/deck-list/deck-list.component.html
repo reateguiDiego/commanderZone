@@ -1,37 +1,37 @@
 <section class="deck-list-page">
   <header class="deck-page-hero">
     <div class="deck-page-copy">
-      <h1>Decks</h1>
-      <p>Organiza, construye y domina con tus mazos.</p>
+      <h1>{{ 'deckBuilder.deckList.header.title' | runtimeTranslate }}</h1>
+      <p>{{ 'deckBuilder.deckList.header.description' | runtimeTranslate }}</p>
       <app-hero-rule />
     </div>
 
-    <div class="deck-stats" aria-label="Resumen de mazos">
+    <div class="deck-stats" [attr.aria-label]="'deckBuilder.deckList.stats.summary' | runtimeTranslate">
       <article class="deck-stat deck-stat--summary">
         <div class="deck-stat-summary-item">
           <div class="deck-stat-summary-metric">
             <lucide-icon name="layers-3" size="18" />
             <strong>{{ store.totalDeckCount() }}</strong>
           </div>
-          <span>Total</span>
+          <span>{{ 'deckBuilder.deckList.stats.total' | runtimeTranslate }}</span>
         </div>
         <div class="deck-stat-summary-item">
           <div class="deck-stat-summary-metric">
             <lucide-icon name="globe" size="18" />
             <strong>{{ store.publicDeckCount() }}</strong>
           </div>
-          <span>Públicos</span>
+          <span>{{ 'deckBuilder.deckList.stats.public' | runtimeTranslate }}</span>
         </div>
         <div class="deck-stat-summary-item">
           <div class="deck-stat-summary-metric">
             <lucide-icon name="lock" size="18" />
             <strong>{{ store.privateDeckCount() }}</strong>
           </div>
-          <span>Privados</span>
+          <span>{{ 'deckBuilder.deckList.stats.private' | runtimeTranslate }}</span>
         </div>
       </article>
       @if (store.manaColorStats().length > 0) {
-        <article class="deck-stat deck-stat--mana" aria-label="Distribución de colores">
+        <article class="deck-stat deck-stat--mana" [attr.aria-label]="'deckBuilder.deckList.stats.colorDistribution' | runtimeTranslate">
           @for (stat of store.manaColorStats(); track stat.color) {
             <div class="deck-stat-mana-item">
               <app-mana-symbols [symbols]="[stat.color]" size="small" />
@@ -44,27 +44,27 @@
   </header>
 
   <section class="deck-workbench">
-    <div class="deck-toolbar" aria-label="Acciones y filtros de mazos">
+    <div class="deck-toolbar" [attr.aria-label]="'deckBuilder.deckList.filters.actionsAndFilters' | runtimeTranslate">
       <div class="deck-primary-actions" [class.folder-context]="store.currentFolder() !== null">
         <button czButton="primary" czButtonSize="sm" class="primary-button compact deck-action-button" type="button" (click)="store.openCreateModal()">
           <lucide-icon name="plus" size="18" />
-          Crear mazo
+          {{ 'deckBuilder.deckList.header.createDeck' | runtimeTranslate }}
         </button>
         @if (!store.currentFolder()) {
           <button czButton="secondary" czButtonSize="sm" class="secondary-button compact deck-action-button" type="button" (click)="store.openFolderCreateModal()">
             <lucide-icon name="folder-plus" size="18" />
-            Crear carpeta
+            {{ 'deckBuilder.deckList.header.createFolder' | runtimeTranslate }}
           </button>
         }
       </div>
 
       <div class="deck-filters" [class.search-open]="searchPanelOpen()">
-        <app-tooltip text="Buscar mazos">
+        <app-tooltip [text]="'deckBuilder.deckList.searchDecks' | runtimeTranslate">
           <button
             czButton="icon"
             class="icon-button deck-search-toggle"
             type="button"
-            aria-label="Buscar mazos"
+            [attr.aria-label]="'deckBuilder.deckList.searchDecks' | runtimeTranslate"
             [attr.aria-expanded]="searchPanelOpen()"
             (click)="toggleSearchPanel(deckSearchInput)"
           >
@@ -78,7 +78,7 @@
             #deckSearchInput
             name="deckSearch"
             type="search"
-            placeholder="Buscar mazos..."
+            [placeholder]="'deckBuilder.deckList.searchDecksPlaceholder' | runtimeTranslate"
             [maxlength]="store.maxDeckSearchLength"
             [ngModel]="store.searchQuery()"
             (ngModelChange)="store.setSearchQuery($event)"
@@ -142,7 +142,7 @@
                           [attr.aria-label]="visibilityLabelKey(item.folder.visibility) | runtimeTranslate"
                         >
                           <lucide-icon [name]="visibilityIcon(item.folder.visibility)" size="13" aria-hidden="true" />
-                          <span class="visibility-pill-label">{{ visibilityPillText(item.folder.visibility) }}</span>
+                          <span class="visibility-pill-label">{{ visibilityPillLabelKey(item.folder.visibility) | runtimeTranslate }}</span>
                         </span>
                       </app-tooltip>
                       <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
@@ -191,7 +191,7 @@
             }
           </div>
         } @else {
-          <p class="notice">No hay mazos que coincidan con los filtros.</p>
+          <p class="notice">{{ 'deckBuilder.deckList.noDecksMatchFilters' | runtimeTranslate }}</p>
         }
       </section>
     } @else if (store.currentFolder(); as currentFolder) {
@@ -266,7 +266,7 @@
     [showPrimary]="activeCosmeticEditor() === null"
     [showSecondary]="activeCosmeticEditor() === null && !store.createFormLocked() && !store.createSubmitting()"
     [showBackButton]="activeCosmeticEditor() !== null"
-    secondaryLabel="Cancel"
+    secondaryLabel="common.modal.cancel"
     (back)="closeCosmeticEditor()"
     (primary)="submitCreateModal()"
     (secondary)="cancelCreateFlow()"
@@ -350,8 +350,8 @@
 
           <app-visibility-choice
             [(value)]="store.newDeckVisibility"
-            publicSubtitle="Visible in public profile"
-            privateSubtitle="Only you can see it"
+            publicSubtitle="common.visibility.visibilityChoice.publicProfileSubtitle"
+            privateSubtitle="common.visibility.visibilityChoice.privateOnlyYouSubtitle"
           />
 
           @if (store.shouldWarnNewDeckPublicInPrivateFolder()) {
@@ -416,7 +416,7 @@
               >
                 <app-card-autocomplete
                   [placeholder]="'deckBuilder.deckList.searchCommanderByName' | runtimeTranslate"
-                  actionLabel="Select"
+                  actionLabel="common.actions.select"
                   [disabled]="store.isCreateFormDisabled() || !store.canSelectAnotherCommander()"
                   [filters]="{ commanderCandidate: true }"
                   [clearOnSelect]="true"
@@ -445,7 +445,7 @@
                           >
                             <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
                           </span>
-                          <app-tooltip class="commander-preview-remove-tooltip" text="Remove commander">
+                          <app-tooltip class="commander-preview-remove-tooltip" [text]="'deckBuilder.deckList.removeCommander' | runtimeTranslate">
                             <button
                               czButton="icon"
                               class="commander-preview-remove"
@@ -520,8 +520,8 @@
   <app-modal
     [open]="store.folderCreateModalOpen()"
     [title]="'deckBuilder.deckList.createFolder' | runtimeTranslate"
-    primaryLabel="Create"
-    secondaryLabel="Cancel"
+    primaryLabel="common.actions.create"
+    secondaryLabel="common.modal.cancel"
     [primaryDisabled]="store.newFolderName.trim() === '' || store.isNewFolderNameTooLong()"
     (primary)="store.createFolder()"
     (secondary)="store.closeFolderCreateModal()"
@@ -536,13 +536,13 @@
           [(ngModel)]="store.newFolderName"
         />
         <small class="field-hint" [class.error-text]="store.isNewFolderNameTooLong()">
-          Maximum 20 characters. {{ store.newFolderNameHelp() }}
+          {{ 'deckBuilder.deckList.maximumCharacters' | runtimeTranslate: { count: store.maxFolderNameLength } }} {{ store.newFolderNameHelp() }}
         </small>
       </label>
       <app-visibility-choice
         [(value)]="store.newFolderVisibility"
-        publicSubtitle="Visible to other players"
-        privateSubtitle="Only you can see it"
+        publicSubtitle="common.visibility.visibilityChoice.publicPlayersSubtitle"
+        privateSubtitle="common.visibility.visibilityChoice.privateOnlyYouSubtitle"
       />
     </div>
   </app-modal>
@@ -550,8 +550,8 @@
   <app-modal
     [open]="store.deckEditModalOpen()"
     [title]="'deckBuilder.deckList.editDeck' | runtimeTranslate"
-    primaryLabel="Save"
-    secondaryLabel="Cancel"
+    primaryLabel="common.actions.save"
+    secondaryLabel="common.modal.cancel"
     [primaryDisabled]="!store.canSaveDeckEdit()"
     (primary)="store.saveDeckEdit()"
     (secondary)="store.closeDeckEditModal()"
@@ -561,7 +561,7 @@
         {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
         <input name="editDeckName" [maxlength]="store.maxDeckNameLength" [(ngModel)]="store.editDeckName" />
         <small class="field-hint" [class.error-text]="store.isEditDeckNameTooLong()">
-          Maximum 20 characters. {{ store.editDeckNameHelp() }}
+          {{ 'deckBuilder.deckList.maximumCharacters' | runtimeTranslate: { count: store.maxDeckNameLength } }} {{ store.editDeckNameHelp() }}
         </small>
       </label>
 
@@ -577,8 +577,8 @@
 
       <app-visibility-choice
         [(value)]="store.editDeckVisibility"
-        publicSubtitle="Visible in public profile"
-        privateSubtitle="Only you can see it"
+        publicSubtitle="common.visibility.visibilityChoice.publicProfileSubtitle"
+        privateSubtitle="common.visibility.visibilityChoice.privateOnlyYouSubtitle"
       />
 
       @if (store.shouldWarnEditDeckPublicInPrivateFolder()) {
@@ -590,8 +590,8 @@
   <app-modal
     [open]="store.folderRenameModalOpen()"
     [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate"
-    primaryLabel="Save"
-    secondaryLabel="Cancel"
+    primaryLabel="common.actions.save"
+    secondaryLabel="common.modal.cancel"
     [primaryDisabled]="!store.canSaveFolderRename()"
     (primary)="store.renameFolder()"
     (secondary)="store.closeFolderRenameModal()"
@@ -601,13 +601,13 @@
         {{ 'deckBuilder.deckList.folderName' | runtimeTranslate }}
         <input name="renameFolderName" [maxlength]="store.maxFolderNameLength" [(ngModel)]="store.renameFolderName" />
         <small class="field-hint" [class.error-text]="store.isRenameFolderNameTooLong()">
-          Maximum 20 characters. {{ store.renameFolderNameHelp() }}
+          {{ 'deckBuilder.deckList.maximumCharacters' | runtimeTranslate: { count: store.maxFolderNameLength } }} {{ store.renameFolderNameHelp() }}
         </small>
       </label>
       <app-visibility-choice
         [(value)]="store.renameFolderVisibility"
-        publicSubtitle="Visible to other players"
-        privateSubtitle="Only you can see it"
+        publicSubtitle="common.visibility.visibilityChoice.publicPlayersSubtitle"
+        privateSubtitle="common.visibility.visibilityChoice.privateOnlyYouSubtitle"
       />
     </div>
   </app-modal>
@@ -615,8 +615,8 @@
   <app-modal
     [open]="store.folderDeleteModalOpen()"
     [title]="store.folderDeleteModalTitle()"
-    primaryLabel="Delete"
-    secondaryLabel="Cancel"
+    primaryLabel="common.actions.delete"
+    secondaryLabel="common.modal.cancel"
     size="narrow"
     [danger]="true"
     (primary)="store.confirmDeleteFolder()"
@@ -628,7 +628,7 @@
     [title]="store.deleteModalTitle()"
     [message]="store.deleteModalMessage()"
     [primaryLabel]="store.deleteModalPrimaryLabel()"
-    secondaryLabel="Cancel"
+    secondaryLabel="common.modal.cancel"
     size="narrow"
     [danger]="store.deleteModalIsDanger()"
     [showSecondary]="store.deleteModalShowsSecondary()"

@@ -8,12 +8,14 @@
     <div class="room-copy">
       <span class="eyebrow">{{ 'rooms.roomCurrentBanner.currentRoom' | runtimeTranslate }}</span>
       <div class="room-title-line">
-        <h2>{{ currentRoom.name }}</h2>
-        <span class="visibility-pill" [class.is-private]="currentRoom.visibility === 'private'">{{ currentRoom.visibility }}</span>
+        <h2 czTextFit czTextFitMinScale="0.78">{{ currentRoom.name }}</h2>
+        <span class="visibility-pill" czTextFit czTextFitMinScale="0.78" [class.is-private]="currentRoom.visibility === 'private'">
+          {{ visibilityPillLabelKey(currentRoom.visibility) | runtimeTranslate }}
+        </span>
       </div>
       <div class="room-chips" [attr.aria-label]="'rooms.roomCurrentBanner.currentRoomDetails' | runtimeTranslate">
-        <span class="room-chip">{{ formatName() }}</span>
-        <span class="room-chip">{{ playerCountLabel() }} players</span>
+        <span class="room-chip" czTextFit czTextFitMinScale="0.78">{{ formatName() }}</span>
+        <span class="room-chip" czTextFit czTextFitMinScale="0.78">{{ playerCountLabel() }} players</span>
       </div>
     </div>
 
@@ -26,13 +28,13 @@
         }
       </div>
       <div class="deck-copy">
-        <span>{{ 'rooms.roomCurrentBanner.yourDeck' | runtimeTranslate }}</span>
+        <span czTextFit czTextFitMinScale="0.78">{{ 'rooms.roomCurrentBanner.yourDeck' | runtimeTranslate }}</span>
         <strong>{{ playerDeckName() }}</strong>
       </div>
     </div>
 
     <div class="turn-summary">
-      <span>{{ 'rooms.roomCurrentBanner.turn' | runtimeTranslate }}</span>
+      <span czTextFit czTextFitMinScale="0.78">{{ 'rooms.roomCurrentBanner.turn' | runtimeTranslate }}</span>
       <strong>{{ turnLabel() }}</strong>
     </div>
   </div>

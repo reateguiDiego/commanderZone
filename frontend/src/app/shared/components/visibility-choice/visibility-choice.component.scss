@@ -23,7 +23,7 @@
 
 .visibility-choice__group {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.25rem), 1fr));
   gap: 0.45rem;
 }
 
@@ -69,12 +69,25 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
   color: var(--visibility-choice-color);
   font-weight: 750;
+}
+
+.visibility-choice__main span {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: calc(1em * var(--cz-text-fit-scale, 1));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .visibility-choice__subtitle {
   color: rgb(var(--cz-text-rgb) / 64%);
   font-size: 0.75rem;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }

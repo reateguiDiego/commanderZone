@@ -178,7 +178,7 @@ describe('DeckListComponent', () => {
       .map((bubble) => bubble.textContent?.trim())
       .filter((value): value is string => !!value);
 
-    expect(pills.map((pill) => pill.textContent?.trim())).toEqual(['PUBLIC', 'PRIVATE']);
+    expect(pills.map((pill) => pill.textContent?.trim())).toEqual(['Public', 'Private']);
     expect(pills.map((pill) => pill.getAttribute('aria-label'))).toEqual(['Public', 'Private']);
     expect(tooltipTexts).toContain('Public');
     expect(tooltipTexts).toContain('Private');
@@ -415,8 +415,8 @@ describe('DeckListComponent', () => {
     const actionsText = (fixture.nativeElement.querySelector('.deck-primary-actions') as HTMLElement).textContent ?? '';
     fixture.componentInstance.store.openCreateModal();
 
-    expect(actionsText).toContain('Crear mazo');
-    expect(actionsText).not.toContain('Crear carpeta');
+    expect(actionsText).toContain('Create deck');
+    expect(actionsText).not.toContain('Create folder');
     expect(fixture.componentInstance.store.newDeckFolderId).toBe('folder-1');
   });
 

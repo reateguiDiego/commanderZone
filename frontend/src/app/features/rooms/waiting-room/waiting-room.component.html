@@ -10,7 +10,7 @@
           <div class="players-panel-header">
             <div class="players-panel-heading">
               <div class="players-title-row">
-                <h3>Players ({{ room.players.length }}/{{ roomCapacity(room) }})</h3>
+                <h3>{{ 'rooms.waitingRoom.playersCount' | runtimeTranslate: { current: room.players.length, max: roomCapacity(room) } }}</h3>
                 <div class="players-panel-tools">
                   @if (canViewRoomConfiguration(room)) {
                     <button class="primary-button compact setup-button" type="button" (click)="openSetupModal(room)">
@@ -114,7 +114,7 @@
           @if (isRoomOwner(room)) {
             <div class="start-game-row">
               <span class="start-status-pill" [class.is-ready]="canStartRoom(room)">
-                {{ canStartRoom(room) ? 'All players ready' : 'Waiting for decks and rolls' }}
+                {{ (canStartRoom(room) ? 'rooms.waitingRoom.allPlayersReady' : 'rooms.waitingRoom.waitingForDecksAndRolls') | runtimeTranslate }}
               </span>
               <button class="primary-button start-button" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
                 <lucide-icon name="play" size="18" />
@@ -157,8 +157,9 @@
       [open]="rollModalOpen()"
       [title]="rollModalTitle()"
       [message]="rollModalMessage()"
-      primaryLabel="Roll"
-      secondaryLabel="Cancel"
+      [messageParams]="rollModalMessageParams()"
+      primaryLabel="common.actions.roll"
+      secondaryLabel="common.modal.cancel"
       (primary)="rollTurnOrder()"
       (secondary)="closeRollModal()"
     >
@@ -173,8 +174,8 @@
     <app-modal
       [open]="inviteModalOpen()"
       [title]="'rooms.waitingRoom.inviteFriends' | runtimeTranslate"
-      message="Choose accepted friends to invite to this room."
-      secondaryLabel="Close"
+      message="rooms.waitingRoom.chooseAcceptedFriendsToInvite"
+      secondaryLabel="common.modal.close"
       [showPrimary]="false"
       (secondary)="closeInviteModal()"
     >
@@ -191,7 +192,7 @@
                   size="md"
                   plateSize="sm"
                 />
-                <small>{{ friend.presence || 'offline' }}</small>
+                <small>{{ friend.presence || ('navigation.friends.friendsDropdown.offlineStatus' | runtimeTranslate) }}</small>
               </span>
               @if (isFriendInCurrentRoom(friend.id)) {
                 <span class="metric">{{ 'rooms.waitingRoom.inRoom' | runtimeTranslate }}</span>
@@ -199,7 +200,7 @@
                 <span class="metric">{{ 'rooms.waitingRoom.invited' | runtimeTranslate }}</span>
               } @else {
                 <button class="secondary-button compact" type="button" [disabled]="!canInviteFriend(room, friend.id)" (click)="inviteFriend(friend.id)">
-                  {{ isInviting(friend.id) ? 'Sending' : 'Invite' }}
+                  {{ (isInviting(friend.id) ? 'common.actions.sending' : 'common.actions.invite') | runtimeTranslate }}
                 </button>
               }
             </div>
@@ -214,9 +215,9 @@
   <app-modal
     [open]="roomPendingLeave() !== null"
     [title]="'rooms.waitingRoom.leaveRoom' | runtimeTranslate"
-    message="You will leave this room and return to the rooms list."
-    primaryLabel="Leave room"
-    secondaryLabel="Cancel"
+    message="rooms.waitingRoom.leaveRoomConfirmation"
+    primaryLabel="rooms.waitingRoom.leaveRoom"
+    secondaryLabel="common.modal.cancel"
     [danger]="true"
     (primary)="confirmLeaveRoom()"
     (secondary)="cancelLeaveRoom()"
@@ -229,9 +230,9 @@
   <app-modal
     [open]="roomPendingDelete() !== null"
     [title]="'rooms.waitingRoom.deleteRoom' | runtimeTranslate"
-    message="This action cannot be undone."
-    primaryLabel="Delete room"
-    secondaryLabel="Cancel"
+    message="common.modal.cannotBeUndone"
+    primaryLabel="rooms.waitingRoom.deleteRoom"
+    secondaryLabel="common.modal.cancel"
     [danger]="true"
     (primary)="confirmDeleteRoom()"
     (secondary)="cancelDeleteRoom()"
@@ -244,9 +245,10 @@
   <app-modal
     [open]="playerPendingKick() !== null"
     [title]="'rooms.waitingRoom.kickPlayer' | runtimeTranslate"
-    [message]="'Quieres expulsar a ' + (playerPendingKick()?.user?.displayName ?? 'este jugador') + ' de la sala?'"
-    primaryLabel="Confirmar"
-    secondaryLabel="Cancelar"
+    message="rooms.waitingRoom.kickPlayerConfirmation"
+    [messageParams]="kickPlayerMessageParams()"
+    primaryLabel="common.actions.confirm"
+    secondaryLabel="common.modal.cancel"
     [danger]="true"
     (primary)="confirmKickPlayer()"
     (secondary)="cancelKickPlayer()"
@@ -255,8 +257,9 @@
   <app-modal
     [open]="invalidDeckSelection() !== null"
     [title]="'rooms.waitingRoom.invalidDeck' | runtimeTranslate"
-    [message]="'No puedes seleccionar ' + (invalidDeckSelection()?.name ?? 'este mazo') + ' porque tiene errores de Commander.'"
-    primaryLabel="Aceptar"
+    message="rooms.waitingRoom.invalidDeckSelectionMessage"
+    [messageParams]="invalidDeckMessageParams()"
+    primaryLabel="common.actions.accept"
     [showSecondary]="false"
     [danger]="true"
     (primary)="closeInvalidDeckModal()"

@@ -86,15 +86,15 @@ export class RoomSetupModalComponent {
   readonly createFirstMulliganFreeTouched = signal(false);
   readonly createFormat = signal<RoomFormat>('commander');
   readonly startingLifePresets: readonly number[] = [20, 30, 40, 60];
-  readonly mulliganOptions: readonly { value: RoomMulliganRule; label: string }[] = [
-    { value: 'LONDON', label: 'Londres' },
-    { value: 'VANCOUVER', label: 'Vancouver' },
-    { value: 'PARIS', label: 'Par\u00eds' },
-    { value: 'GENEROUS', label: 'Generoso' },
+  readonly mulliganOptions: readonly { value: RoomMulliganRule; labelKey: string }[] = [
+    { value: 'LONDON', labelKey: 'rooms.roomSetupControls.mulliganRules.london' },
+    { value: 'VANCOUVER', labelKey: 'rooms.roomSetupControls.mulliganRules.vancouver' },
+    { value: 'PARIS', labelKey: 'rooms.roomSetupControls.mulliganRules.paris' },
+    { value: 'GENEROUS', labelKey: 'rooms.roomSetupControls.mulliganRules.generous' },
   ];
   readonly mulliganSelectOptions = computed(() => this.mulliganOptions.map((option) => ({
     id: option.value,
-    name: option.label,
+    labelKey: option.labelKey,
   })));
   readonly createRoomForm = this.formBuilder.group({
     roomName: ['', [Validators.required, Validators.maxLength(30)]],
@@ -105,17 +105,17 @@ export class RoomSetupModalComponent {
   readonly roomNameLength = signal(0);
   readonly title = computed(() => {
     if (this.mode() === 'create') {
-      return 'Create room';
+      return 'rooms.roomSetupModal.createRoom';
     }
 
-    return 'Setup';
+    return 'rooms.waitingRoom.setup';
   });
   readonly message = computed(() => this.mode() === 'create'
     ? ''
-    : this.readOnly() ? '' : 'Retoca la configuracion de la sala antes de empezar.');
+    : this.readOnly() ? '' : 'rooms.roomSetupModal.editRoomConfigurationBeforeStarting');
   readonly createTimerSummary = computed(() => {
     if (this.createTimerMode() === 'none') {
-      return 'No timer';
+      return 'rooms.roomSetupControls.noTimer';
     }
 
     const minutes = Math.floor(this.createTimerDurationSeconds() / 60);

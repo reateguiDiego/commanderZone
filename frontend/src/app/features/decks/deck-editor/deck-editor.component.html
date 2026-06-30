@@ -441,7 +441,7 @@
         </button>
         <label>
           {{ 'deckBuilder.deckEditor.plainTextDecklist' | runtimeTranslate }}
-          <textarea name="decklist" rows="14" [placeholder]="'deckBuilder.deckEditor.text1SolRingVoc168101' | runtimeTranslate" [(ngModel)]="store.decklist"></textarea>
+          <textarea name="decklist" rows="14" [placeholder]="'deckBuilder.deckEditor.decklistTextareaExample' | runtimeTranslate" [(ngModel)]="store.decklist"></textarea>
         </label>
         <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="fileInput.click()">
           <lucide-icon name="file-up" size="16" />
@@ -478,7 +478,7 @@
         <div class="print-version-modal">
           @if (!store.hasSinglePrintVersionOption()) {
             <p class="print-version-intro">
-              {{ 'deckBuilder.deckEditor.chooseTheExactPrintingFor' | runtimeTranslate }} <strong>{{ entry.card.name }}</strong>{{ 'deckBuilder.deckEditor.quantityAndSectionWillStayUnchanged' | runtimeTranslate }}
+              {{ 'deckBuilder.deckEditor.chooseTheExactPrintingFor' | runtimeTranslate }} <strong>{{ entry.card.name }}</strong> {{ 'deckBuilder.deckEditor.quantityAndSectionWillStayUnchanged' | runtimeTranslate }}
             </p>
           }
 

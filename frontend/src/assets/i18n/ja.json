@@ -2,1060 +2,1626 @@
   "common": {
     "app": {
       "app": {
-        "loading": "Loading"
-      }
+        "loading": "読み込み中"
+      },
+      "brand": "CommanderZone"
     },
     "footerDisclaimer": {
       "footerDisclaimer": {
-        "disclaimer": "Disclaimer",
-        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by",
+        "disclaimer": "免責事項",
+        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone は Fan Content Policy に基づいて許可された非公式ファンコンテンツです。以下による承認または推奨を受けていません",
         "wizards": "Wizards",
-        "portionsOfTheMaterialsUsedAreProperty": ". Portions of the materials used are property of",
+        "portionsOfTheMaterialsUsedAreProperty": "。使用されている素材の一部は以下に帰属します",
         "wizardsOfTheCoast": "Wizards of the Coast",
         "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
         "magicTheGathering": "Magic: The Gathering®",
         "mtg": "MTG®",
-        "andAllAssociatedLogosCardImagesAnd": ", and all associated logos, card images, and intellectual property are trademarks and/or copyrights of",
-        "llcASubsidiaryOf": "LLC, a subsidiary of",
+        "llcASubsidiaryOf": "LLC は以下の子会社です",
         "hasbroInc": "Hasbro, Inc",
-        "inTheUnitedStatesAndOtherCountries": "., in the United States and other countries.",
-        "text19932025WizardsOfTheCoastLlc": "© 1993-2025 Wizards of the Coast LLC",
-        "allRightsReserved": ". All rights reserved.",
-        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone may display or reference certain",
-        "intellectualPropertyUnderTheGuidelinesSetForth": "intellectual property under the guidelines set forth in",
+        "inTheUnitedStatesAndOtherCountries": "、米国およびその他の国において。",
+        "allRightsReserved": "。無断転載を禁じます。",
+        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone は一部の",
+        "intellectualPropertyUnderTheGuidelinesSetForth": "知的財産を以下に定められたガイドラインに従って表示または参照する場合があります",
         "wizardsFanContentPolicy": "Wizards' Fan Content Policy",
-        "thisSiteDoesNotSellProductsHost": ". This site does not sell products, host tournaments, or offer any ranked or competitive services. All features are provided free of charge and are intended solely for non-commercial, educational, and entertainment use by the",
+        "thisSiteDoesNotSellProductsHost": "。このサイトは製品の販売、トーナメントの主催、ランキングまたは競技サービスの提供を行いません。すべての機能は無料で提供され、非営利、教育、娯楽目的でのみ",
         "magicTheGathering1": "Magic: The Gathering",
-        "community": "community.",
-        "forMoreInformationOn": "For more information on",
-        "andTheirIntellectualPropertyPoliciesPleaseVisit": "and their intellectual property policies, please visit:",
-        "ifYouAreTheRightsHolderAnd": "If you are the rights holder and believe any content on this website violates your rights, please contact us directly to resolve the matter. Contact us, view our Help &amp; FAQ, or check our Press Kit."
+        "community": "コミュニティ向けに提供されています。",
+        "forMoreInformationOn": "詳細については、",
+        "andTheirIntellectualPropertyPoliciesPleaseVisit": "およびその知的財産ポリシーについては、以下をご覧ください:",
+        "ifYouAreTheRightsHolderAnd": "権利者であり、この Web サイト上のコンテンツが権利を侵害していると考える場合は、解決のため直接お問い合わせください。",
+        "copyrightYears": "© 1993-{{ currentYear }} Wizards of the Coast LLC",
+        "viewHelpOrPressKit": "Help & FAQ を参照するか、Press Kit を確認してください。",
+        "trademarkedLogosImagesAndIpNotice": "、関連するすべてのロゴ、カード画像、知的財産は以下の商標および/または著作物です",
+        "staticWizardsCopyrightYears": "© 1993-2025 Wizards of the Coast LLC"
       }
     },
     "visibility": {
       "visibilityChoice": {
-        "public": "Public",
-        "private": "Private"
+        "public": "公開",
+        "private": "プライベート",
+        "label": "公開設定",
+        "privacy": "プライバシー",
+        "privateOnlyYouSubtitle": "自分だけが閲覧できます",
+        "privateSubtitle": "招待のみ",
+        "publicPlayersSubtitle": "他のプレイヤーに表示されます",
+        "publicProfileSubtitle": "公開プロフィールに表示されます",
+        "publicSubtitle": "誰でも参加できます"
+      },
+      "visibilityPill": {
+        "public": "公開",
+        "private": "非公開"
       }
     },
     "extraActions": {
-      "label": "Extras",
-      "open": "Open extra actions",
-      "menu": "Extra actions"
+      "label": "追加",
+      "open": "追加のアクションを開く",
+      "menu": "追加のアクション"
     },
     "navigation": {
       "back": "戻る"
+    },
+    "actions": {
+      "accept": "承認",
+      "confirm": "確認",
+      "create": "作成",
+      "delete": "削除",
+      "done": "完了",
+      "invite": "招待",
+      "roll": "振る",
+      "save": "保存",
+      "select": "選択",
+      "sending": "送信中...",
+      "understood": "了解",
+      "working": "処理中...",
+      "showPassword": "パスワードを表示",
+      "hidePassword": "パスワードを隠す",
+      "previous": "前へ",
+      "next": "次へ",
+      "moveUp": "上に移動",
+      "moveDown": "下に移動",
+      "remove": "削除",
+      "newGame": "新しい試合"
+    },
+    "modal": {
+      "cancel": "キャンセル",
+      "cannotBeUndone": "この操作は元に戻すことができません。",
+      "close": "閉じる"
     }
   },
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "tuComandanteHaLlegado": "?????????????????",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
-        "bienvenido": "????"
-      },
-      "dashboardHeaderContext": {
-        "pageSummary": "Page summary"
-      },
-      "dashboardHeaderControls": {
-        "pendingFriendRequests": "Pending friend requests",
-        "onlineFriends": "Online friends",
-        "friends": "Friends"
-      },
-      "dashboardShell": {
-        "commanderzoneDashboard": "CommanderZone dashboard",
-        "primary": "Primary",
-        "decks": "Decks",
-        "rooms": "Rooms",
-        "asistenteDeMesa": "Asistente de Mesa"
+        "commandersArrivalHeadline": "あなたの統率者たちは血に飢えています",
+        "welcome": "ようこそ"
       },
       "dashboardTopCommanders": {
-        "title": "Top commanders",
-        "subtitle": "????????????????????",
-        "viewAll": "View more",
-        "viewMore": "View more",
-        "communityPopularity": "????????????????"
+        "title": "人気の統率者",
+        "subtitle": "このフォーマットで最も使われている統率者",
+        "communityPopularity": "コミュニティの試合データに基づく",
+        "viewMore": "もっと見る"
+      },
+      "dashboardHeaderContext": {
+        "pageSummary": "ページ概要"
+      },
+      "dashboardHeaderControls": {
+        "pendingFriendRequests": "保留中の友達リクエスト",
+        "onlineFriends": "オンライン友達",
+        "friends": "友達"
+      },
+      "dashboardShell": {
+        "commanderzoneDashboard": "CommanderZone ダッシュボード",
+        "primary": "プライマリー",
+        "cards": "カード",
+        "decks": "デッキ",
+        "rooms": "ルーム",
+        "community": "コミュニティ",
+        "tableAssistant": "テーブルアシスタント"
       }
     },
     "friends": {
       "friendsDropdown": {
-        "emailOrUsername": "Email or username",
-        "friends": "Friends",
-        "userSearchResults": "User search results",
-        "friendList": "Friend list",
-        "searchUsers": "Search users",
-        "sendFriendRequest": "Send friend request",
-        "cancelRequest": "Cancel request",
-        "removeFriend": "Remove friend",
-        "findUsers": "Find users",
-        "noUsersFound": "No users found.",
-        "invitacionDeSala": "Invitacion de sala",
-        "noFriendsOrPendingRequests": "No friends or pending requests."
+        "friends": "友達",
+        "userSearchResults": "ユーザーの検索結果",
+        "friendList": "友達リスト",
+        "sendFriendRequest": "友達リクエストを送る",
+        "cancelRequest": "リクエストのキャンセル",
+        "removeFriend": "友達を削除する",
+        "findUsers": "ユーザーを探す",
+        "noUsersFound": "ユーザーが見つかりませんでした。",
+        "acceptedStatus": "友達",
+        "blockedStatus": "ブロックされました",
+        "declinedStatus": "拒否されました",
+        "invitations": "招待状",
+        "inGameStatus": "ゲーム内",
+        "joinedPlayers": "参加済み",
+        "offlineStatus": "オフライン",
+        "online": "オンライン",
+        "onlineStatus": "オンライン",
+        "pendingStatus": "保留中",
+        "searchHint": "プレイヤーを検索するには 2 文字以上入力してください。",
+        "searchPlayers": "プレイヤーを検索...",
+        "searchTab": "検索",
+        "seats": "席",
+        "requests": "リクエスト",
+        "receivedRequests": "受け取りました",
+        "sentRequests": "送信済み",
+        "disconnected": "切断されました",
+        "roomInvite": "ルームへの招待"
       }
     }
   },
   "auth": {
     "authPage": {
-      "authMode": "Auth mode",
+      "authMode": "認証モード",
       "commanderzone": "CommanderZone",
-      "accedeATusMazosSalasYMesa": "Accede a tus mazos, salas y mesa manual de Commander.",
-      "login": "Login",
-      "register": "Register",
-      "email": "Email",
-      "emailOrUserName": "メールまたはユーザー名",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "introduceUnEmailOUserNameValido": "有効なメールまたはユーザー名を入力してください。",
-      "invalidCredentials": "メール、ユーザー名、またはパスワードが正しくありません。",
-      "tooManyLoginAttempts": "ログイン失敗が多すぎます。しばらくしてからもう一度お試しください。",
-      "loginLockoutWarning": "ログイン失敗 {{ count }}/5。5回失敗すると、ログインは15分間ブロックされます。",
-      "password": "Password",
-      "heOlvidadoMiContrasena": "He olvidado mi contrasena",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula, numero y caracter especial.",
+      "login": "ログイン",
+      "register": "登録",
+      "email": "電子メール",
+      "emailOrUserName": "メールアドレスまたはユーザー名",
+      "invalidCredentials": "電子メール、ユーザー名、またはパスワードが無効です。",
+      "tooManyLoginAttempts": "失敗したログイン試行が多すぎます。後でもう一度試してください。",
+      "loginLockoutWarning": "ログイン試行 {{ count }}/5 に失敗しました。 5回失敗すると15分間ログインがブロックされます。",
+      "password": "パスワード",
+      "userName": "ユーザー名",
       "passwordRequirements": {
-        "label": "Password requirements",
-        "minLength": "Minimo 8 caracteres",
-        "lowercase": "Minimo 1 letra minuscula",
-        "uppercase": "Minimo 1 letra mayuscula",
-        "number": "Minimo 1 numero",
-        "special": "Minimo 1 caracter especial"
+        "label": "パスワードの要件",
+        "minLength": "最低 8 文字",
+        "lowercase": "少なくとも 1 つの小文字",
+        "uppercase": "少なくとも 1 つの大文字",
+        "number": "少なくとも 1 つの数字",
+        "special": "少なくとも 1 つの特殊文字"
       },
-      "confirmarPassword": "Confirmar password",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "registrationCompletedCheckEmail": "Registration complete. Check your email and confirm your account."
+      "registrationCompletedCheckEmail": "登録が完了しました。メールをチェックしてアカウントを確認してください。",
+      "createAccount": "アカウントを作成する",
+      "accessDecksRoomsAndTable": "デッキ、ルーム、手動の統率者テーブルにアクセスします。",
+      "enterValidEmail": "有効な電子メールを入力してください。",
+      "enterValidEmailOrUsername": "有効な電子メールまたはユーザー名を入力してください。",
+      "forgotPassword": "パスワードを忘れた場合",
+      "checkingEmail": "メールをチェックしています...",
+      "checkingAvailability": "空き状況を確認中...",
+      "passwordPolicySummary": "小文字、大文字、数字、特殊文字を含む 8 文字以上。",
+      "confirmPassword": "パスワードの確認",
+      "passwordsDoNotMatch": "パスワードが一致しません。",
+      "emailAvailable": "電子メールが利用可能",
+      "emailAlreadyRegistered": "メールアドレスはすでに登録されています",
+      "couldNotCheckNow": "現在確認できませんでした",
+      "usernameLengthRequirement": "ユーザー名は 2 ～ 20 文字にする必要があります。",
+      "usernameAvailable": "利用可能なユーザー名",
+      "usernameUnavailable": "ユーザー名が利用できません"
     },
     "emailVerificationPage": {
-      "confirmingEmail": "Confirming email",
-      "waitWhileWeConfirmYourAccount": "Wait while we confirm your account.",
-      "couldNotConfirmEmail": "Could not confirm your email",
-      "linkInvalidOrExpired": "The verification link is invalid or has expired.",
-      "backToLogin": "Back to login"
+      "confirmingEmail": "メール確認中",
+      "waitWhileWeConfirmYourAccount": "アカウントを確認するまでお待ちください。",
+      "couldNotConfirmEmail": "メールを確認できませんでした",
+      "invalidOrExpiredLink": "検証リンクが無効であるか、有効期限が切れています。"
     },
     "passwordResetPage": {
-      "recuperarContrasena": "Recuperar contrasena",
-      "solicitaElCorreoDeRecuperacionParaRecibir": "Solicita el correo de recuperacion para recibir un enlace seguro.",
-      "defineTuNuevaContrasenaConElEnlace": "Define tu nueva contrasena con el enlace seguro que recibiste por email.",
-      "email": "Email",
-      "siElEmailExisteSeEnvioUn": "Si el email existe, se envio un correo con el token de recuperacion.",
-      "nuevaContrasena": "Nueva contrasena",
-      "confirmarContrasena": "Confirmar contrasena",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "contrasenaActualizadaIniciandoSesion": "Contrasena actualizada. Iniciando sesion...",
-      "volverAlLogin": "Volver al login"
+      "email": "電子メール",
+      "requestError": "復旧メールをリクエストできませんでした。",
+      "invalidOrExpiredLink": "回復リンクが無効であるか、有効期限が切れています。",
+      "updateError": "そのトークンを使用してパスワードを更新できませんでした。",
+      "sending": "送信中...",
+      "sendRecoveryEmail": "復旧メールを送信",
+      "updating": "更新中...",
+      "updatePassword": "パスワードを更新する",
+      "resetPassword": "パスワードをリセットする",
+      "requestRecoveryEmailDescription": "安全なリンクを受け取るため、復旧メールをリクエストしてください。",
+      "setNewPasswordDescription": "電子メールで受け取った安全なリンクを使用して新しいパスワードを設定します。",
+      "newPassword": "新しいパスワード",
+      "confirmPassword": "パスワードの確認",
+      "passwordsDoNotMatch": "パスワードが一致しません。",
+      "passwordUpdatedSigningIn": "パスワードが更新されました。サインイン中...",
+      "recoveryEmailSentIfAccountExists": "メールアドレスが存在する場合、パスワード復旧メールが送信されます。"
     }
   },
   "rooms": {
     "roomBrowser": {
-      "searchRoom": "Search room",
-      "searchOwner": "Search owner",
-      "roomName": "Room name",
-      "owner": "Owner",
-      "visibility": "Visibility",
-      "publicAndPrivate": "All",
-      "publicOnly": "Public",
-      "privateOnly": "Private",
-      "status": "Status",
-      "allStatus": "All status",
-      "anonymous": "Anonymous",
-      "open": "Open",
-      "full": "Full",
-      "started": "Started",
-      "host": "Host",
-      "format": "Format",
-      "players": "Players",
-      "action": "Action",
-      "noRoomsMatchTheCurrentFilters": "No rooms match the current filters."
+      "searchRoom": "ルームを検索",
+      "searchOwner": "ホストの検索",
+      "roomName": "ルーム名",
+      "owner": "ホスト",
+      "visibility": "可視性",
+      "publicAndPrivate": "すべて",
+      "publicOnly": "公開のみ",
+      "privateOnly": "プライベートのみ",
+      "status": "ステータス",
+      "anonymous": "匿名",
+      "open": "募集中",
+      "full": "満員",
+      "started": "開始済み",
+      "host": "ホスト",
+      "format": "フォーマット",
+      "players": "プレイヤー",
+      "action": "アクション",
+      "noRoomsMatchTheCurrentFilters": "現在のフィルターに一致するルームはありません。"
     },
     "roomCreatePanel": {
-      "czAbcDef123": "CZ-ABC-DEF-123",
-      "joinByRoomCode": "Join by room code",
-      "join": "Join",
-      "createANewRoom": "Create a new room",
-      "roomSetup": "Room setup",
-      "createRoom": "Create room"
+      "join": "参加",
+      "createANewRoom": "新しいルームを作成する",
+      "roomSetup": "ルーム設定",
+      "createRoom": "ルームを作成する",
+      "alreadyInRoomTooltip": "すでにルームに参加しています。別のルームに参加する前に退出してください。",
+      "enterRoomCode": "ルームコードを入力してください",
+      "joinWithCode": "コードで参加する"
     },
     "roomCurrentBanner": {
-      "currentRoomDetails": "Current room details",
-      "currentRoom": "Current room",
-      "yourDeck": "Your deck",
-      "turn": "Turn"
+      "currentRoomDetails": "現在のルーム詳細",
+      "currentRoom": "現在のルーム",
+      "yourDeck": "あなたのデッキ",
+      "turn": "ターン"
     },
     "roomInvitesPanel": {
-      "invites": "Invites",
-      "pendingRoomInvites": "Pending room invites",
-      "accept": "Accept",
-      "decline": "Decline"
+      "invites": "招待",
+      "pendingRoomInvites": "保留中のルームへの招待",
+      "accept": "承認",
+      "decline": "辞退"
     },
     "roomRow": {
-      "started": "Started",
-      "full": "Full",
-      "open": "Open",
-      "join": "Join"
+      "started": "開始済み",
+      "full": "フル",
+      "open": "募集中",
+      "join": "参加"
     },
     "rooms": {
-      "borrarSala": "Borrar sala",
-      "mazoRequerido": "Mazo requerido"
+      "validDeckRequiredToCreate": "ルームを作成するには有効なデッキが必要です。",
+      "deleteRoom": "ルームを削除する",
+      "deckRequired": "デッキが必要です"
     },
     "roomSetupControls": {
-      "timer": "Timer",
-      "mulligan": "Mulligan",
-      "firstMulliganFree": "First mulligan is free",
+      "timer": "タイマー",
+      "mulligan": "マリガン",
+      "firstMulliganFree": "最初のマリガンは無料です",
       "mulliganDescriptions": {
-        "london": "Draw 7 cards every time. When you keep, put one card on the bottom for each effective mulligan.",
-        "vancouver": "Each effective mulligan draws one fewer card. If you keep after an effective mulligan, you scry 1.",
-        "paris": "Each effective mulligan draws one fewer card. There is no bottom selection and no scry.",
-        "generous": "Commander-friendly rule: draw up to 10 cards, keep 7 when possible, and the server bottoms the rest in random order."
+        "london": "毎回7枚引きます。キープするとき、有効なマリガン1回につきカード1枚をライブラリーの一番下に置きます。",
+        "vancouver": "有効なマリガン1回につき引くカードが1枚少なくなります。有効なマリガン後にキープした場合、占術1を行います。",
+        "paris": "有効なマリガン1回につき引くカードが1枚少なくなります。カードをライブラリーの一番下に置くことも、占術を行うこともありません。",
+        "generous": "統率者向けの寛容ルール: 最大10枚引き、可能なら7枚をキープし、残りを無作為な順番でライブラリーの一番下に置きます。"
       },
-      "firstMulliganFreeOn": "Free",
-      "firstMulliganFreeOff": "Counts"
+      "firstMulliganFreeOn": "無料",
+      "firstMulliganFreeOff": "カウント",
+      "mulliganRules": {
+        "generous": "寛容",
+        "london": "London",
+        "paris": "Paris",
+        "vancouver": "Vancouver"
+      },
+      "noTimer": "タイマーなし"
     },
     "roomSetupModal": {
-      "ejLaTaberna": "Ej. La taberna",
-      "roomName": "Room name",
-      "timer": "Timer"
+      "roomName": "ルーム名",
+      "timer": "タイマー",
+      "createRoom": "ルームを作成する",
+      "editRoomConfigurationBeforeStarting": "開始する前にルームの構成を調整してください。",
+      "exampleRoomName": "例：ザ・タバーン"
     },
     "waitingRoomDeckSelector": {
-      "deckSelection": "Deck selection",
-      "invalidDeck": "Invalid deck",
-      "rollDice": "Roll dice",
-      "selectADeck": "Select a deck",
-      "randomDeck": "Random deck",
-      "chooseOne": "Choose one",
-      "checking": "Checking"
+      "deckSelection": "デッキ選択",
+      "invalidDeck": "無効なデッキ",
+      "rollDice": "ダイスを振る",
+      "selectADeck": "デッキを選択してください",
+      "randomDeck": "ランダムデッキ",
+      "chooseOne": "1 つ選択してください",
+      "checking": "チェック中"
     },
     "waitingRoomLogPanel": {
-      "activity": "Activity",
-      "roomEventsWillAppearHere": "Room events will appear here."
+      "activity": "アクティビティ",
+      "roomEventsWillAppearHere": "ここにルームイベントが表示されます。"
     },
     "waitingRoomPlayerCard": {
-      "kickPlayer": "Kick player",
-      "d20RollResult": "D20 roll result",
-      "waitingForPlayer": "Waiting for player",
-      "host": "Host",
-      "turnOrder": "Turn order",
-      "d20Roll": "D20 roll",
-      "openSlot": "Open slot"
+      "kickPlayer": "プレイヤーを追放",
+      "d20RollResult": "D20ロール結果",
+      "waitingForPlayer": "プレイヤーを待っています",
+      "host": "ホスト",
+      "turnOrder": "ターン順序",
+      "d20Roll": "D20ロール",
+      "openSlot": "オープンスロット"
     },
     "waitingRoom": {
-      "leaveRoom": "Leave room",
-      "deleteRoom": "Delete room",
-      "inviteFriends": "Invite friends",
-      "kickPlayer": "Kick player",
-      "invalidDeck": "Invalid deck",
-      "setup": "Setup",
-      "chooseYourDeckAndGetReadyBefore": "Choose your deck and get ready before starting.",
-      "start": "Start",
-      "afterRollingYourDeckSelectionWillBe": "After rolling, your deck selection will be locked and cannot be changed.",
-      "noAcceptedFriendsYet": "No accepted friends yet.",
-      "inRoom": "In room",
-      "invited": "Invited",
-      "loadingRoomState": "Loading room state..."
+      "leaveRoom": "ルームを出る",
+      "deleteRoom": "ルームを削除する",
+      "inviteFriends": "友達を招待する",
+      "kickPlayer": "プレイヤーを追放",
+      "invalidDeck": "無効なデッキ",
+      "setup": "セットアップ",
+      "chooseYourDeckAndGetReadyBefore": "デッキを選択し、開始する前に準備を整えてください。",
+      "start": "開始",
+      "afterRollingYourDeckSelectionWillBe": "ダイスを振った後、デッキ選択はロックされ変更できなくなります。",
+      "noAcceptedFriendsYet": "まだ承認された友達がいません。",
+      "inRoom": "ルームの中",
+      "invited": "招待されました",
+      "allPlayersReady": "全プレイヤー準備完了",
+      "chooseAcceptedFriendsToInvite": "このルームに招待する承認済みの友達を選択してください。",
+      "invalidDeckSelectionMessage": "{{ deckName }} には統率者デッキ検証エラーがあるため選択できません。",
+      "kickPlayerConfirmation": "{{ playerName }} をルームから追い出しますか?",
+      "leaveRoomConfirmation": "このルームを退出し、ルーム一覧に戻ります。",
+      "playersCount": "プレイヤー ({{ current }}/{{ max }})",
+      "rollSetsTurnOrder": "このロールでターン順が決まります。",
+      "thisDeck": "このデッキ",
+      "thisPlayer": "このプレイヤー",
+      "tieBreakRoll": "タイブレークロール",
+      "tieBreakRollMessage": "{{ playerNames }} と同点です。もう一度振ってタイを解消してください。",
+      "waitingForDecksAndRolls": "デッキとロールを待っています"
     },
     "setup": {
       "gameSetupLifeControl": {
-        "startingLife": "Starting life",
-        "decreaseStartingLife": "Decrease starting life",
-        "increaseStartingLife": "Increase starting life"
+        "startingLife": "開始時ライフ総量",
+        "decreaseStartingLife": "開始時ライフ総量を減らす",
+        "increaseStartingLife": "開始時ライフ総量を増やす",
+        "lifeUnit": "ライフ",
+        "startingLifePresets": "開始時ライフ総量プリセット",
+        "startingTotal": "開始合計",
+        "totalLife": "ライフ総量"
       },
       "gameSetupSeatsControl": {
-        "tableSize": "Table size"
+        "tableSize": "テーブルサイズ",
+        "seats": "席",
+        "setTableSizeToPlayers": "テーブル人数を {{ count }} 人に設定"
       }
     },
     "header": {
-      "title": "Rooms",
-      "totalRooms": "Total rooms",
-      "openRooms": "Open rooms",
-      "privateRooms": "Private rooms",
-      "publicRooms": "Public rooms",
-      "totalPlayers": "Total players",
-      "startedGames": "Started games"
+      "title": "ルーム",
+      "totalRooms": "総ルーム数",
+      "openRooms": "オープンルーム",
+      "privateRooms": "個室",
+      "publicRooms": "パブリックルーム",
+      "totalPlayers": "総プレイヤー数",
+      "startedGames": "開始済みの試合",
+      "description": "アクティブなロビーを探して、すぐに試合へ参加できます。"
     },
     "waiting": {
       "header": {
-        "inviteFriends": "Invite friends"
+        "inviteFriends": "友達を招待する"
       }
     }
   },
   "community": {
+    "preview": {
+      "summary": {
+        "topHundred": "上位 100 枚のカード"
+      },
+      "error": "コミュニティ プレビューを読み込めませんでした。",
+      "empty": "まだ利用可能なカードはありません。",
+      "playedLabel": "遊んだ",
+      "filters": {
+        "allTypes": "全種類",
+        "type": {
+          "artifact": "アーティファクト",
+          "battle": "バトル",
+          "creature": "クリーチャー",
+          "enchantment": "エンチャント",
+          "instant": "インスタント",
+          "land": "土地",
+          "planeswalker": "プレインズウォーカー",
+          "sorcery": "ソーサリー"
+        }
+      }
+    },
     "detail": {
       "saveConfirmation": {
-        "title": "このデッキをデッキ一覧に保存しますか？",
-        "confirm": "確認",
+        "title": "このデッキをデッキリストに保存しますか?",
+        "confirm": "確認する",
         "cancel": "キャンセル"
+      },
+      "error": "コミュニティデッキを読み込めませんでした。",
+      "headerTitle": "コミュニティデッキ",
+      "missingId": "コミュニティデッキIDがありません。",
+      "save": "保存",
+      "saveError": "このデッキをデッキリストに保存できませんでした。",
+      "shareError": "コミュニティデッキのリンクをコピーできませんでした。",
+      "unknownCommander": "不明な統率者",
+      "readonly": {
+        "validation": {
+          "backendValid": "このデッキはコミュニティで有効としてマークされています。",
+          "backendInvalid": "このデッキにはコミュニティで警告または問題があります。",
+          "commanders": "統率領域: {{ names }}",
+          "error": "エラー",
+          "warning": "警告"
+        },
+        "historyOwner": "共有者"
       }
+    },
+    "dashboardTopCommanders": {
+      "ariaLabel": "トップ3の統率者",
+      "theUrDragonPlayed": "47,928 ゲーム",
+      "edgarMarkovPlayed": "47,211 ゲーム",
+      "atraxaPlayed": "43,917 ゲーム"
+    },
+    "home": {
+      "title": "コミュニティデッキ",
+      "subtitle": "他のプレイヤーが作成した公開デッキを発見してください。",
+      "error": "コミュニティを読み込めませんでした。",
+      "decksSection": {
+        "title": "発見するデッキ"
+      },
+      "decksButton": "検索デッキ",
+      "decksEmpty": "まだ利用可能なパブリックデッキはありません。",
+      "commandersTitle": "最もプレイされた統率者",
+      "mobileCommandersTitle": "人気の統率者",
+      "commandersAriaLabel": "参考用の統率者",
+      "cardsTitle": "最もプレイされたカード",
+      "mobileCardsTitle": "トップカード",
+      "cardsSubtitle": "コミュニティによってプレイされたゲームに基づく",
+      "cardsAriaLabel": "探索するカード",
+      "viewMore": "もっと見る"
+    },
+    "deckList": {
+      "title": "検索デッキ",
+      "subtitle": "コミュニティの公開デッキを探索してください。",
+      "filterName": "名前で検索",
+      "filterNamePlaceholder": "デッキを検索...",
+      "filterCommander": "統率者",
+      "filterCommanderPlaceholder": "統率者を検索...",
+      "commanderSelect": "選択",
+      "filterFormat": "フォーマット",
+      "allFormats": "すべてのフォーマット",
+      "searchButton": "検索",
+      "empty": "まだ利用可能なパブリックデッキはありません。",
+      "error": "パブリックデッキを読み込めませんでした。"
+    },
+    "deckViewer": {
+      "cardsCount": "{{ count }} カード",
+      "sectionsCount": "{{ count }} セクション",
+      "viewMode": {
+        "label": "ビューモード",
+        "text": "テキスト",
+        "spoiler": "スポイラー"
+      },
+      "invalidCard": "このカードは {{ format }} では無効です。",
+      "groups": {
+        "commander": "統率者",
+        "planeswalker": "プレインズウォーカー",
+        "battle": "戦闘",
+        "creature": "生き物",
+        "instant": "インスタント",
+        "sorcery": "魔術",
+        "enchantment": "エンチャント",
+        "artifact": "アーティファクト",
+        "land": "土地",
+        "sideboard": "サイドボード",
+        "other": "その他",
+        "includingMdfc": "{{ count }} (MDFC を含む)"
+      }
+    },
+    "shared": {
+      "deckWarnings": "デッキの警告"
     }
   },
   "game": {
     "arrowTargetDialog": {
-      "selectArrowTargetPlayer": "Select arrow target player",
-      "drawArrow": "Draw arrow",
-      "chooseTargetBoard": "Choose target board",
-      "theSelectedBattlefieldOpensBehindThisPanel": "The selected battlefield opens behind this panel before you pick a card.",
-      "targetPlayer": "Target player",
-      "multipleTargets": "Multiple targets?",
-      "drawSeveralArrowsFromThisCard": "Draw several arrows from this card",
-      "targets": "Targets",
-      "cancel": "Cancel",
-      "selectTarget": "Select target"
+      "selectArrowTargetPlayer": "矢印ターゲットのプレイヤーを選択してください",
+      "drawArrow": "矢印を描く",
+      "chooseTargetBoard": "ターゲットボードを選択してください",
+      "theSelectedBattlefieldOpensBehindThisPanel": "カードを選択する前に、選択した戦場がこのパネルの後ろに開きます。",
+      "targetPlayer": "対象プレイヤー",
+      "multipleTargets": "ターゲットは複数ですか?",
+      "drawSeveralArrowsFromThisCard": "このカードから矢を数本引く",
+      "targets": "ターゲット",
+      "cancel": "キャンセル",
+      "selectTarget": "ターゲットの選択"
     },
     "battlefieldZoomControls": {
-      "openBattlefieldZoomControls": "Open battlefield zoom controls",
-      "battlefieldZoom": "Battlefield zoom",
-      "resetBattlefieldZoom": "Reset battlefield zoom",
-      "resetZoom": "Reset zoom"
+      "openBattlefieldZoomControls": "戦場ズームコントロールを開く",
+      "battlefieldZoom": "戦場ズーム",
+      "resetBattlefieldZoom": "戦場のズームをリセットする",
+      "resetZoom": "ズームをリセットする"
     },
     "cardPreviewOverlay": {
-      "cardPreviewDetails": "Card preview details",
-      "powerAndToughness": "Power and toughness",
-      "attachedTo": "Attached to",
-      "attached": "Attached",
-      "current": "Current",
-      "counters": "Counters"
+      "cardPreviewDetails": "カードプレビューの詳細",
+      "powerAndToughness": "パワー/タフネス",
+      "attachedTo": "に付属",
+      "attached": "付属",
+      "current": "現在",
+      "counters": "カウンター"
     },
     "cardSpoilerGrid": {
-      "lookAtOtherFace": "Look at other face",
-      "loadingCards": "Loading cards"
+      "lookAtOtherFace": "他の顔を見てください",
+      "loadingCards": "カードを読み込みする"
     },
     "chatRecipientSelect": {
-      "chatRecipient": "Chat recipient"
+      "chatRecipient": "チャット受信者"
     },
     "contextMenu": {
-      "d": "D",
-      "s": "S",
-      "xX": "X/X",
-      "z": "Z",
-      "t": "T",
       "labels": {
-        "refreshSnapshot": "Refresh Snapshot",
-        "focusMyBoard": "Focus My Board",
-        "abrirDebug": "Abrir debug",
-        "concede": "Concede",
-        "leaveTable": "Leave Table",
-        "deleteArrow": "Delete Arrow",
-        "deleteArrows": "Delete Arrows",
-        "deleteCounter": "Delete Counter",
-        "resetManaPool": "Reset Mana Pool",
-        "focusPlayer": "Focus Player",
-        "life1": "Life +1",
-        "viewExile": "View Exile",
-        "viewGraveyard": "View Graveyard",
-        "drawCard": "Draw Card",
-        "drawXCards": "Draw X Cards",
-        "shuffle": "Shuffle",
-        "selectRandomCard": "Select Random Card",
-        "selectAllBattlefieldCards": "Select All Battlefield Cards",
-        "selectAllHandCards": "Select All Hand Cards",
-        "createToken": "Create Token",
-        "tirarDado": "Tirar dado",
-        "showManaPool": "Show Mana Pool",
-        "view": "View",
-        "drawArrow": "Draw Arrow",
-        "addMana": "Add Mana",
-        "attachTo": "Attach to...",
-        "unequip": "Unequip",
-        "detachAllAttached": "Detach all attached",
-        "makeATokenCopy": "Make A Token Copy",
-        "removeStack": "Remove stack",
-        "flipCardFace": "Flip Card Face",
-        "playFaceDown": "Play Face Down",
-        "previewCard": "Preview Card",
-        "moveTop": "Move Top",
-        "revealTopCard": "Reveal Top Card",
-        "revealLibrary": "Reveal Library",
-        "moveAllTo": "Move All To",
-        "counters": "Counters",
-        "giveToPlayer": "Give To Player",
-        "moveTo": "Move To",
-        "giveTo": "Give To",
-        "reveal": "Reveal",
-        "todos": "Todos",
-        "viewAllLibrary": "View all library",
-        "viewXTopCards": "View X top cards",
-        "bottomOfLibrary": "Bottom of Library",
-        "battlefield": "Battlefield",
-        "hand": "Hand",
-        "xToBottomOfLibrary": "X to bottom of library",
-        "xToGraveyard": "X to graveyard",
-        "xToExile": "X to exile",
-        "xToHandPlayer": "X to hand player",
-        "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters",
-        "createHelper": "メカニクス",
-        "setRingBearer": "指輪所持者に設定",
-        "mechanics": "メカニクス"
-      }
+        "refreshSnapshot": "スナップショットを更新する",
+        "focusMyBoard": "自分の盤面にフォーカス",
+        "concede": "投了",
+        "leaveTable": "席を立つ",
+        "deleteArrow": "矢印を削除",
+        "deleteArrows": "矢印の削除",
+        "deleteCounter": "カウンターを削除",
+        "resetManaPool": "マナ・プールを空にする",
+        "focusPlayer": "注目プレイヤー",
+        "life1": "ライフ+1",
+        "viewExile": "追放を表示",
+        "viewGraveyard": "墓地を表示",
+        "drawCard": "カードを引く",
+        "drawXCards": "X枚のカードを引く",
+        "shuffle": "シャッフル",
+        "selectRandomCard": "ランダムなカードを選択",
+        "selectAllBattlefieldCards": "戦場にあるカードをすべて選択する",
+        "selectAllHandCards": "手札のカードをすべて選択",
+        "createToken": "トークンを作成",
+        "gameMechanics": "ゲームのメカニズム",
+        "addMonarch": "統治者を追加",
+        "becomeMonarch": "統治者になる",
+        "addInitiative": "イニシアチブを追加する",
+        "takeInitiative": "イニシアチブを得る",
+        "addDayNight": "昼/夜を追加",
+        "addTheRing": "指輪を追加",
+        "addDungeon": "ダンジョンを追加",
+        "addCitysBlessing": "都市の承認を得る",
+        "removeCitysBlessing": "都市の承認を取り除く",
+        "addEmblem": "エンブレムを追加する",
+        "showManaPool": "マナ・プールを表示",
+        "view": "表示",
+        "drawArrow": "矢印を描く",
+        "addMana": "マナを追加する",
+        "attachTo": "添付先...",
+        "unequip": "装備を外す",
+        "detachAllAttached": "ついているカードをすべて外す",
+        "makeATokenCopy": "コピー・トークンを作成",
+        "removeStack": "スタックから削除",
+        "flipCardFace": "カードの面を反転",
+        "playFaceDown": "裏向きでプレイする",
+        "previewCard": "カードをプレビュー",
+        "moveTop": "上に移動",
+        "revealTopCard": "一番上のカードを公開",
+        "revealLibrary": "ライブラリーを公開",
+        "moveAllTo": "すべて移動",
+        "counters": "カウンター",
+        "giveToPlayer": "プレイヤーに渡す",
+        "moveTo": "移動先",
+        "giveTo": "渡す",
+        "reveal": "公開",
+        "viewAllLibrary": "ライブラリーを表示",
+        "viewXTopCards": "一番上からX枚を見る",
+        "bottomOfLibrary": "ライブラリーの一番下",
+        "battlefield": "戦場",
+        "hand": "手札",
+        "xToBottomOfLibrary": "X枚をライブラリーの一番下に置く",
+        "xToGraveyard": "X枚を墓地に置く",
+        "xToExile": "X枚を追放する",
+        "xToHandPlayer": "X枚をプレイヤーの手札に加える",
+        "xToBattlefieldPlayer": "X枚をプレイヤーのコントロール下で戦場に出す",
+        "removeAllCounters": "すべてのカウンターを削除する",
+        "createHelper": "メカニズム",
+        "setRingBearer": "指輪所持者として設定",
+        "mechanics": "メカニズム",
+        "openDebug": "デバッグを開く",
+        "rollDice": "ダイスを振る",
+        "all": "すべて"
+      },
+      "drawShortcut": "D",
+      "shuffleShortcut": "S",
+      "tapShortcut": "T",
+      "faceDownShortcut": "Z",
+      "powerToughnessShortcut": "X/X"
     },
     "contextSubmenu": {
-      "x": "X"
+      "x": "×"
     },
     "focusedBattlefield": {
-      "manaRow": "Mana row"
+      "manaRow": "マナ列"
     },
     "gameAdBanner": {
-      "advertisingBanner": "Advertising banner"
+      "advertisingBanner": "広告バナー"
     },
     "gameArrowLayer": {
-      "battlefieldArrows": "Battlefield arrows"
+      "battlefieldArrows": "戦場の矢"
     },
     "cardMarkerRail": {
-      "estaCartaEsUnTokenCopy": "Esta carta es un token copy",
-      "openOracleRulingsOnScryfall": "Open Oracle rulings on Scryfall"
+      "openOracleRulingsOnScryfall": "Scryfallでオラクル裁定を開く",
+      "tokenCopyLabel": "このトークンはコピーです"
     },
     "gameCardView": {
-      "lookAtOtherFace": "Look at other face",
-      "powerAndToughness": "Power and toughness",
-      "powerLeftClickAddsRightClickRemoves": "Power. Left click adds, right click removes.",
-      "toughnessLeftClickAddsRightClickRemoves": "Toughness. Left click adds, right click removes.",
-      "attach": "Attach",
-      "stack": "Stack"
+      "lookAtOtherFace": "もう一方の面を見る",
+      "powerAndToughness": "パワー/タフネス",
+      "powerLeftClickAddsRightClickRemoves": "パワー。左クリックで追加、右クリックで削除。",
+      "toughnessLeftClickAddsRightClickRemoves": "タフネス。左クリックで追加、右クリックで削除。",
+      "battleCounter": "バトル",
+      "battleCounterTooltip": "戦い。左クリックで追加、右クリックで削除。",
+      "sagaCounter": "英雄譚",
+      "sagaCounterTooltip": "英雄譚。左クリックで追加、右クリックで削除。",
+      "attach": "添付する",
+      "stack": "スタック"
     },
     "loyaltyCounter": {
-      "loyalty": "Loyalty",
-      "loyaltyLeftClickAddsRightClickRemoves": "Loyalty. Left click adds, right click removes."
+      "loyalty": "忠誠心",
+      "loyaltyLeftClickAddsRightClickRemoves": "忠誠心。左クリックで追加、右クリックで削除。"
     },
     "gameDisconnectVoteModal": {
-      "votosDeDesconexion": "Votos de desconexion",
-      "jugadorDesconectado": "Jugador desconectado",
-      "tuVoto": "Tu voto:",
-      "tiempoRestante": "Tiempo restante:",
-      "elJugadorObjetivoYaApareceOnline": "El jugador objetivo ya aparece online."
+      "disconnectVotes": "切断投票",
+      "expel": "追い出す",
+      "genericDisconnectedMessage": "プレイヤーが切断しました。再接続を待つか、テーブルから追放するか投票してください。",
+      "noVote": "投票なし",
+      "playerDisconnectedMessage": "{{ playerName }} が切断しました。再接続を待つか、テーブルから追放するか投票してください。",
+      "wait": "待つ",
+      "playerDisconnected": "プレイヤーが切断されました",
+      "yourVote": "あなたの投票:",
+      "timeRemaining": "残り時間:",
+      "targetPlayerBackOnline": "対象のプレイヤーがオンラインに戻りました。"
     },
     "gameRematchModal": {
-      "votacionesDeLaRoom": "Votaciones de la sala",
-      "tuVotoActual": "Tu voto actual:",
-      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado salir de la sala."
+      "roomVotes": "ルームの投票",
+      "closeVotes": "投票を締め切る",
+      "defeatedMessage": "このルームでまた遊びたいですか？",
+      "extraTime": "延長戦",
+      "legendaryVictory": "伝説の勝利",
+      "leaveRoom": "ルームを出る",
+      "lifeTotal": "{{ life }} ライフ",
+      "noVote": "投票なし",
+      "playAgain": "もう一度プレイ",
+      "playersHaveSecondsToVote": "{{ playerNames }} は {{ seconds }}秒以内に投票できます。",
+      "playersMissingExtra": "{{ playerNames }} はまだ投票していません。追加で {{ seconds }}秒あります。",
+      "timeLimit": "制限時間",
+      "winnerMessage": "テーブルはあなたのものです。あなたは混乱を乗り切り、権威を持ってゲームを終了しました。",
+      "youDied": "あなたは死んだ",
+      "youHaveSecondsToVote": "{{ seconds }}秒以内に投票できます。",
+      "yourVoteMissingExtra": "あなたの投票がまだありません。追加で {{ seconds }}秒あります。",
+      "currentVote": "現在の投票:",
+      "otherPlayersAlreadyVoted": "残りのプレイヤーはすでにルームを離れることに投票しています。"
     },
     "gameTableHeader": {
-      "currentPlayer": "Current player"
+      "currentPlayer": "現在のプレイヤー"
     },
     "gameXQuantityStepper": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "値を調整する",
+      "increaseValue": "値を増やす",
+      "decreaseValue": "値を減らす"
     },
     "manaActionDialog": {
-      "manaProductionParts": "Mana production parts",
-      "fixedMana": "Fixed mana",
-      "manaToAdd": "Mana to add",
-      "manaAmount": "Mana amount",
-      "cancel": "Cancel"
+      "manaProductionParts": "マナ生産パーツ",
+      "fixedMana": "固定マナ",
+      "manaToAdd": "追加するマナ",
+      "manaAmount": "マナ量",
+      "cancel": "キャンセル"
     },
     "manaPoolPanel": {
-      "manaPool": "Mana pool",
-      "hideManaPool": "Hide mana pool"
+      "manaPool": "マナ・プール",
+      "hideManaPool": "マナ・プールを隠す"
     },
     "numberActionDialog": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "値を調整する",
+      "increaseValue": "値を増やす",
+      "decreaseValue": "値を減らす"
     },
     "opponentMiniBoard": {
-      "opponentZoneCounts": "Opponent zone counts",
-      "playerDefeated": "Player defeated",
-      "deckPending": "Deck pending",
-      "turno": "Turno"
+      "opponentZoneCounts": "対戦相手のゾーンカウント",
+      "playerDefeated": "プレイヤーの敗北",
+      "deckPending": "デッキ保留中",
+      "turn": "ターン"
     },
     "playerSummaryPanel": {
-      "lifeControls": "Life controls",
-      "lifeTotal": "Life total",
-      "playerCounters": "Player counters",
-      "commanderDamage": "Commander damage",
-      "otherCounters": "Other counters",
-      "extras": "Extras",
-      "openExtraPlayerCounters": "Open extra player counters",
-      "extraPlayerCounters": "Extra player counters"
+      "lifeControls": "ライフコントロール",
+      "lifeTotal": "ライフ総量",
+      "playerCounters": "プレイヤーカウンター",
+      "commanderDamage": "統率者ダメージ",
+      "otherCounters": "その他のカウンター",
+      "extras": "エクストラ",
+      "openExtraPlayerCounters": "追加のプレイヤーカウンターを開く",
+      "extraPlayerCounters": "追加プレイヤーカウンター"
     },
     "powerToughnessDialog": {
-      "setPowerAndToughness": "Set power and toughness",
-      "powerToughness": "Power / Toughness",
-      "power": "Power",
-      "toughness": "Toughness",
-      "cancel": "Cancel",
-      "apply": "Apply"
+      "setPowerAndToughness": "パワー/タフネスを設定する",
+      "powerToughness": "パワー/タフネス",
+      "power": "パワー",
+      "toughness": "タフネス",
+      "cancel": "キャンセル",
+      "apply": "適用"
     },
     "tokenSearchModal": {
-      "searchTokens": "Search tokens",
-      "tokenCreationControls": "Token creation controls",
-      "createToken": "Create token",
-      "loadingDeckTokens": "Loading deck tokens...",
-      "searchingTokens": "Searching tokens..."
+      "tokenCreationControls": "トークン作成の制御",
+      "loadingDeckTokens": "デッキトークンを読み込み中...",
+      "searchingTokens": "トークンを検索しています..."
     },
     "playersOrder": {
-      "ordenDeTurno": "Orden de turno"
+      "currentTurnLabel": "ターン {{ turnNumber }}",
+      "upcomingTurnLabel": "{{ count }}内",
+      "currentTurnTitle": "{{ name }} のターンです",
+      "upcomingTurnTitle": "{{ name }} まであと {{ count }} ターン",
+      "turnOrder": "ターン順"
     },
     "turnPhasePanel": {
-      "turnPhases": "Turn phases",
-      "focusTheActiveTurnPlayer": "Focus the active turn player",
-      "pasarTurno": "Pasar turno",
-      "focusTurn": "Focus turn"
+      "turnPhases": "ターンフェイズ",
+      "focusTheActiveTurnPlayer": "アクティブなターンプレイヤーに焦点を当てる",
+      "focusTurn": "ターンにフォーカス",
+      "passTurn": "ターンを渡す"
     },
     "zoneModal": {
-      "searchByName": "Search by name",
-      "closeZone": "Close zone",
-      "readOnlyLibraryReview": "Read-only library review",
-      "type": "Type",
-      "allTypes": "All types",
-      "creatures": "Creatures",
-      "instants": "Instants",
-      "sorceries": "Sorceries",
-      "artifacts": "Artifacts",
-      "enchantments": "Enchantments",
-      "planeswalkers": "Planeswalkers",
-      "lands": "Lands",
-      "search": "Search"
+      "searchByName": "名前で検索",
+      "closeZone": "クローズゾーン",
+      "readOnlyLibraryReview": "ライブラリー確認（読み取り専用）",
+      "type": "タイプ",
+      "allTypes": "全種類",
+      "creatures": "クリーチャー",
+      "instants": "インスタント",
+      "sorceries": "ソーサリー",
+      "artifacts": "アーティファクト",
+      "enchantments": "エンチャント",
+      "planeswalkers": "プレインズウォーカー",
+      "lands": "土地",
+      "search": "検索"
     },
     "gameTable": {
-      "message": "Message",
-      "closeGame": "Close game?",
-      "moverCartaAOtroBattlefield": "Mover carta a otro battlefield",
-      "giveCard": "Give card?",
-      "moveToHand": "Move to hand?",
-      "devolverABiblioteca": "Devolver a biblioteca",
-      "moveAllToLibrary": "Move all to library",
-      "rotateYourDevice": "Rotate your device",
-      "gamesCanOnlyBePlayedInLandscape": "Games can only be played in landscape on mobile and tablet.",
-      "thisTableNeedsALittleMoreRoom": "This table needs a little more room",
-      "sorryThisResolutionIsTooCrampedFor": "Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.",
-      "useCtrl0InYourBrowserTo": "Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.",
-      "leaveRoom": "Leave room",
-      "loadingGame": "Loading game...",
-      "gameLog": "Game Log",
-      "chat": "Chat",
-      "noGameActionsYet": "No game actions yet.",
-      "noChatMessagesYet": "No chat messages yet.",
-      "reactedBy": "Reacted by",
-      "votaciones": "Votaciones",
-      "opponents": "Opponents",
-      "randomOrder": "Random order",
-      "shuffleOnlyTheseCardsBeforePlacingThem": "Shuffle only these cards before placing them.",
-      "gameLogUnreadActions": "Game Log, unread actions",
-      "chatUnreadMessages": "Chat, unread messages"
+      "message": "メッセージ",
+      "closeGame": "接戦？",
+      "giveCard": "カードを渡しますか？",
+      "moveToHand": "手札に入れますか？",
+      "moveAllToLibrary": "すべてライブラリーに置く",
+      "rotateYourDevice": "デバイスを回転させます",
+      "gamesCanOnlyBePlayedInLandscape": "ゲームは、モバイルおよびタブレットでは横向きでのみプレイできます。",
+      "thisTableNeedsALittleMoreRoom": "このテーブルにはもう少しスペースが必要です",
+      "sorryThisResolutionIsTooCrampedFor": "申し訳ありませんが、この解像度は統率者戦ゲームとしては狭すぎます。ブラウザのズームを調整するか、より大きなウィンドウを使用してください。",
+      "useCtrl0InYourBrowserTo": "ブラウザで Ctrl+0 を使用してズームを 100% にリセットし、このウィンドウを更新またはサイズ変更します。",
+      "leaveRoom": "ルームを出る",
+      "gameLog": "ゲームログ",
+      "chat": "チャット",
+      "noGameActionsYet": "ゲームアクションはまだありません。",
+      "noChatMessagesYet": "まだチャット メッセージはありません。",
+      "reactedBy": "反応したのは",
+      "votes": "投票",
+      "opponents": "対戦対戦相手",
+      "randomOrder": "ランダムな順序",
+      "shuffleOnlyTheseCardsBeforePlacingThem": "これらのカードのみをシャッフルしてから配置してください。",
+      "gameLogUnreadActions": "ゲームログ、未読アクション",
+      "chatUnreadMessages": "チャット、未読メッセージ",
+      "moveCardToAnotherBattlefield": "カードを別の戦場に移動する",
+      "putIntoLibrary": "ライブラリーに置く"
     },
     "reactions": {
-      "like": "Like",
-      "dislike": "Dislike",
-      "love": "Love",
-      "laugh": "Laugh",
-      "angry": "Very angry",
-      "vomit": "Vomit",
-      "cry": "Cry"
+      "like": "いいね",
+      "dislike": "嫌い",
+      "love": "愛",
+      "laugh": "笑う",
+      "angry": "とても怒っている",
+      "vomit": "嘔吐物",
+      "cry": "泣く"
     },
     "numberAction": {
       "drawCards": {
-        "title": "Draw cards",
-        "description": "Choose how many cards to draw from your library.",
-        "confirm": "Draw"
+        "title": "カードを引く",
+        "description": "ライブラリーから何枚引くかを選択します。",
+        "confirm": "描く"
       },
       "moveTopCards": {
-        "title": "Move top cards",
-        "description": "Choose how many top library cards to move.",
-        "confirm": "Move"
+        "title": "一番上のカードを移動する",
+        "description": "ライブラリーの一番上から何枚を別の領域に置くかを選択します。",
+        "confirm": "移動"
       },
       "viewTopCards": {
-        "title": "View top cards",
-        "description": "Choose how many top library cards to view.",
-        "confirm": "View"
+        "title": "トップカードを見る",
+        "description": "ライブラリーの一番上から何枚見るかを選択します。",
+        "confirm": "見る"
       }
     },
     "playerCounters": {
-      "poison": "Poison",
-      "energy": "Energy",
-      "experience": "Experience",
-      "rad": "Rad",
-      "tickets": "Tickets"
+      "poison": "毒",
+      "energy": "エネルギー",
+      "experience": "経験",
+      "rad": "ラッド",
+      "tickets": "チケット"
     },
     "zones": {
-      "hand": "Hand",
-      "library": "Library",
-      "graveyard": "Graveyard",
-      "exile": "Exile"
+      "hand": "手札",
+      "library": "ライブラリー",
+      "graveyard": "墓地",
+      "exile": "追放"
     },
     "chat": {
-      "allPlayers": "Todos"
+      "allPlayers": "すべてのプレイヤー"
     },
     "specialHelpers": {
       "modal": {
-        "title": "メカニクス",
-        "quickActions": "クイック操作",
-        "cardBacked": "カード付きエンティティ",
-        "searchPlaceholder": "紋章またはダンジョンを検索",
-        "searching": "補助を検索中...",
-        "noResults": "結果が見つかりません。",
-        "searchHint": "検索するには2文字以上入力してください。",
-        "searchError": "特殊補助を読み込めませんでした。",
+        "title": "力学",
+        "quickActions": "クイックアクション",
+        "cardBacked": "カード付きヘルパー",
+        "searchPlaceholder": "エンブレムやダンジョンを検索する",
+        "searching": "ヘルパーを検索しています...",
+        "noResults": "結果が見つかりませんでした。",
+        "searchHint": "検索するには少なくとも 2 文字を入力してください。",
+        "searchError": "特別なヘルパーを読み込めませんでした。",
         "playerTarget": "プレイヤー: {{playerName}}",
         "currentState": "現在の状態",
-        "readonly": "読み取り専用です。ここでメカニクスを確認できますが、変更できるのはそのプレイヤーだけです。",
-        "ringLevel": "指輪レベル",
-        "noRingBearer": "指輪所持者は未設定です",
+        "readonly": "読み取り専用。ここでメカニクスを検査できますが、メカニクスを変更できるのはコントロールしているプレイヤーだけです。",
+        "ringLevel": "指輪のレベル",
+        "noRingBearer": "指輪所持者が割り当てられていません",
         "removeHelper": "削除",
         "clearRingBearer": "指輪所持者を解除",
-        "ringLevelUp": "レベル +1",
-        "ringLevelDown": "レベル -1",
-        "noActiveMechanics": "有効なメカニクスはありません。",
+        "ringLevelUp": "レベル+1",
+        "ringLevelDown": "レベル-1",
+        "noActiveMechanics": "アクティブなメカニックはありません。",
         "notSet": "未設定"
       },
       "quick": {
-        "monarch": "君主になる",
+        "monarch": "統治者になる",
         "initiative": "イニシアチブを得る",
         "citysBlessing": "都市の承認を得る",
         "theRing": "指輪を作成",
-        "setDay": "昼に設定",
-        "setNight": "夜に設定"
+        "setDay": "設定日",
+        "setNight": "セットナイト"
       },
       "labels": {
-        "monarch": "君主",
+        "monarch": "統治者",
         "initiative": "イニシアチブ",
-        "citys_blessing": "都市の承認",
-        "day_night": "昼/夜",
-        "the_ring": "指輪",
-        "emblem": "紋章",
+        "theRing": "指輪",
+        "emblem": "エンブレム",
         "dungeon": "ダンジョン",
-        "day": "昼",
-        "night": "夜"
+        "day": "日",
+        "night": "夜",
+        "citysBlessing": "都市の承認",
+        "dayNight": "昼/夜"
+      },
+      "dungeonReplacement": {
+        "title": "アクティブなダンジョンを置き換えますか?",
+        "message": "アクティブなダンジョンは 1 つだけです。 {{currentDungeon}} を {{nextDungeon}} に置き換えますか?",
+        "confirm": "ダンジョンを入れ替える",
+        "cancel": "キャンセル"
+      },
+      "citysBlessingRemoval": {
+        "title": "都市の承認を削除しますか?",
+        "message": "このプレイヤーはテーブルから都市の承認を失います。続行しますか？",
+        "confirm": "削除",
+        "cancel": "キャンセル"
       },
       "rail": {
-        "title": "特殊エンティティ",
-        "ringLevel": "指輪レベル"
+        "title": "特別な存在",
+        "ringLevel": "リングレベル"
+      }
+    },
+    "zonePilesPanel": {
+      "monarchBadgeTooltip": "あなたは統治者です。"
+    },
+    "mulliganOverlay": {
+      "title": "マリガン",
+      "metaAriaLabel": "マリガンステータス",
+      "firstMulliganFree": "最初のマリガンは無料です",
+      "mulligansTaken": "マリガン: {{ count }}",
+      "effectiveMulligans": "有効: {{ count }}",
+      "scryTitle": "占術1",
+      "scryDescription": "ライブラリーの一番上のカードをどうするか選択します。",
+      "waitingForPlayers": "他のプレイヤーを待っています...",
+      "currentHand": "現在の手札",
+      "emptyHand": "手札にカードがありません。",
+      "selectedCount": "{{ selected }} / {{ total }} が選択されました",
+      "bottomSelectionHelp": "デスクトップ: 右クリックしてカードを下部に置きます。モバイル/タブレット: [下部に置く] ボタンを使用します。",
+      "otherPlayersStatus": "他のプレイヤーのステータス",
+      "players": "プレイヤー",
+      "noOtherPlayers": "他のプレイヤーはいません。",
+      "rules": {
+        "london": "London",
+        "vancouver": "Vancouver",
+        "paris": "Paris",
+        "generous": "寛大な"
+      },
+      "status": {
+        "deciding": "決める",
+        "scrying": "占術",
+        "ready": "準備完了"
+      },
+      "actions": {
+        "keepOnTop": "トップを維持する",
+        "putOnBottom": "底に置きます",
+        "removeFromBottom": "下から外す"
+      },
+      "description": {
+        "londonNoBottom": "7枚引きます。カードを一番下に置く必要はありません。",
+        "londonChooseBottom": "7枚引きます。一番下に置く {{ count }} 枚のカードを選びます。",
+        "londonBottomOrder": "選択した順番は一番下の順番となります。",
+        "drawCards": "{{ count }} 枚引きます。",
+        "vancouverScry": "次に占術1を行います。",
+        "generousNoBottom": "{{ count }} 枚引きます。一番下に置くカードはありません。",
+        "generousChooseBottom": "{{ drawCount }} 枚引きます。{{ bottomCount }} 枚を選び、無作為な順番で一番下に置きます。",
+        "generousRandomOrder": "最終的な順番はランダムとなります。"
       }
     }
   },
   "deckBuilder": {
     "cards": {
       "cardDetail": {
-        "backToSearch": "Back to search",
-        "loadingCard": "Loading card...",
-        "colorIdentity": "Color identity:",
-        "commander": "Commander:"
+        "colorIdentity": "固有色:",
+        "commander": "統率者:"
       },
       "cardSearch": {
-        "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
-        "cards": "Cards",
-        "searchLibrary": "Search library",
-        "search": "Search",
-        "searchingCards": "Searching cards...",
-        "noCardsFound": "No cards found."
+        "solRingAtraxaLightningGreaves": "Sol Ring、Atraxa、Lightning Greaves...",
+        "header": {
+          "title": "カード",
+          "description": "テーブルポリティクスが始まる前に、完璧なカードを見つけてください。"
+        },
+        "search": "検索",
+        "clear": "クリア",
+        "close": "閉じる",
+        "advancedFilters": "高度なフィルター",
+        "searchingCards": "カードを検索中...",
+        "noCardsFound": "カードが見つかりませんでした。",
+        "actions": {
+          "showDetails": "詳細を表示",
+          "addToDeck": "デッキに追加",
+          "showRulings": "オラクル裁定を表示",
+          "viewPrintings": "すべての印刷を表示"
+        },
+        "details": {
+          "close": "詳細を閉じる",
+          "couldNotLoad": "このカードを読み込みできませんでした。",
+          "oracleText": "Oracle テキスト",
+          "noOracleText": "利用可能なオラクルテキストはありません。",
+          "legalFormats": "使用可能なフォーマット",
+          "illegalFormats": "使用不可のフォーマット",
+          "noLegalFormats": "ローカルカタログに使用可能なフォーマットはありません。",
+          "noIllegalFormats": "ローカルカタログに使用不可のフォーマットはありません。"
+        },
+        "addToDeck": {
+          "title": "カードを追加",
+          "deck": "デッキ",
+          "section": "セクション",
+          "quantity": "数量",
+          "selectDeck": "デッキを選択してください",
+          "selectSection": "セクションを選択してください",
+          "decreaseQuantity": "数量を減らす",
+          "increaseQuantity": "数量を増やす",
+          "sectionMain": "メインデッキ",
+          "sectionCommander": "統率者",
+          "sectionSideboard": "サイドボード",
+          "sectionConsidering": "検討中",
+          "confirm": "カードを追加",
+          "cancel": "キャンセル",
+          "noDecks": "まだデッキを持っていません。",
+          "colorIdentityWarning": "{{ card }} の固有色は {{ deck }} の統率者の固有色外です:",
+          "formatLegalityWarning": "{{ card }} は、選択したデッキのフォーマットである {{ format }} では使用できません。",
+          "couldNotLoadDecks": "デッキを読み込めませんでした。",
+          "couldNotAdd": "このカードを選択したデッキに追加できませんでした。"
+        },
+        "printings": {
+          "title": "{{ card }} の印刷",
+          "empty": "このカードの印刷は見つかりませんでした。",
+          "couldNotLoad": "カード印刷を読み込めませんでした。",
+          "close": "閉じる"
+        },
+        "summary": {
+          "ariaLabel": "適用されたカード検索フィルター",
+          "activeQuery": "アクティブなクエリ",
+          "totalFound": "{{ total }} カードが見つかりました",
+          "pageStatus": "ページ {{ page }} / {{ pages }}",
+          "filters": {
+            "name": "名前",
+            "rules": "ルール",
+            "types": "タイプ",
+            "subtypes": "サブタイプ",
+            "sets": "セット",
+            "rarity": "レアリティ",
+            "colors": "色",
+            "cardKind": "カード種別",
+            "manaValue": "マナ総量",
+            "manaCost": "マナ・コスト",
+            "power": "パワー",
+            "toughness": "タフネス",
+            "formats": "フォーマット"
+          }
+        },
+        "sort": {
+          "label": "並べ替え",
+          "colors": "色",
+          "nameAsc": "名前 A ～ Z",
+          "nameDesc": "名前 Z-A",
+          "manaValueAsc": "マナ低～高",
+          "manaValueDesc": "マナ 高→低"
+        },
+        "view": {
+          "list": "リスト",
+          "spoiler": "スポイラー"
+        },
+        "form": {
+          "name": "名前",
+          "textA": "ルールテキスト",
+          "textB": "2番目のテキスト",
+          "textMode": "テキスト一致",
+          "textModeAll": "すべてのテキスト用語",
+          "textModeAllDescription": "両方のボックスがカード ルールのテキストに表示されなければなりません。",
+          "textModeAny": "任意のテキスト用語",
+          "textModeAnyDescription": "どちらのボックスもカード ルールのテキストと一致します。",
+          "types": "タイプ",
+          "subtypes": "サブタイプ",
+          "sets": "セット",
+          "rarity": "レアリティ",
+          "colors": "色",
+          "colorMode": "カラーマッチ",
+          "colorModeAny": "どれでも",
+          "colorModeAll": "すべて",
+          "colorModeExact": "正確な",
+          "clearManaCost": "マナ・コストをクリアする",
+          "basic": "基本",
+          "legendary": "伝説の",
+          "artifact": "アーティファクト",
+          "multicolor": "マルチカラー",
+          "land": "土地",
+          "costs": "コスト",
+          "manaValueMin": "マナ最小",
+          "manaValueMax": "マナ最大",
+          "manaCost": "マナ・コスト",
+          "powerToughness": "パワー/タフネス",
+          "powerMin": "パワー最小",
+          "powerMax": "パワー最大",
+          "toughnessMin": "タフネス最小",
+          "toughnessMax": "タフネス最大",
+          "includeVariablePower": "* パワーを含む",
+          "includeVariablePowerDescription": "* や 1+* など、パワーが固定数ではないカードも含まれます。",
+          "includeVariableToughness": "*タフネスを含む",
+          "includeVariableToughnessDescription": "* や 1+* など、タフネスが固定値ではないカードも含まれます。",
+          "formats": "フォーマット",
+          "filterOptions": "フィルターオプション",
+          "presentation": "表示形式",
+          "loadingOptions": "フィルターを読み込んでいます...",
+          "enabled": "アクティブ",
+          "activeFilters": "アクティブフィルター",
+          "precisionConsole": "精密コンソール",
+          "composeSearch": "正確なカードクエリを作成する",
+          "oracleText": "カードルールテキスト",
+          "textAPlaceholder": "カードを1枚引く、対象を破壊する、あなたが唱えるたび...",
+          "textBPlaceholder": "オプションの 2 番目のルール用語",
+          "removeManaSymbol": "最後のマナシンボルを削除します"
+        },
+        "help": {
+          "title": "検索ガイド",
+          "heading": "高度な検索ガイド",
+          "nameTitle": "名前",
+          "name": "カード名の完全一致または部分一致で検索します。CommanderZone は標準名、印刷名/ローカライズ名、ローカルカタログにあるフレイバー名を確認するため、日本語名と英語名のどちらでも同じカードを見つけられます。",
+          "textTitle": "カードテキスト",
+          "text": "ルールテキストの用語を1つまたは2つ使用します。一致条件の切り替えで、両方の入力がカードに含まれる必要があるか、どちらか一方で十分かを決めます。テキストはオラクルテキストとカードの各面で確認されます。",
+          "subtypesTitle": "サブタイプ",
+          "subtypes": "サブタイプはタイプとは独立して機能します。他のセクションと組み合わせて、エルフ、ゴブリン、ドラゴン、装備、オーラなどを見つけることができます。",
+          "rarityTitle": "レアリティ",
+          "rarity": "複数のレアリティを同時に選択できます。色付きのラベルは視覚的な補助のみで、検索ではカタログ上のレアリティを使用します。",
+          "colorsTitle": "色",
+          "colors": "色の一致条件は、選択した色について、いずれかの色、すべての色、または完全一致のどれで検索するかを制御します。アーティファクト、多色、土地は追加のショートカットです。",
+          "costsTitle": "コスト",
+          "costs": "マナ総量は CommanderZone の正規化されたカードカタログを使用し、X は 0 として数えます。正確なマナ・コストはシンボルピッカーで作成できるため、色コードを入力する必要はありません。",
+          "statsTitle": "パワー/タフネス",
+          "stats": "パワー/タフネスの範囲は数値を比較します。 * や 1+* などの値を持つカードも必要な場合は、小さな変数値チェックボックスを有効にします。"
+        },
+        "actionsAriaLabel": "カード検索アクション",
+        "filtersAriaLabel": "カード検索フィルター"
+      },
+      "cardImage": {
+        "flipFace": "面を反転"
       },
       "autocomplete": {
         "cardAutocomplete": {
-          "searchingCards": "Searching cards..."
+          "searchingCards": "カードを検索中..."
         }
       }
     },
     "deckAnalysisPanel": {
-      "typeBreakdown": "Type breakdown",
-      "utilityCounts": "Utility counts"
+      "typeBreakdown": "タイプの内訳",
+      "utilityCounts": "ユーティリティカウント"
     },
     "deckManaBalancePanel": {
-      "manaBalance": "Mana balance",
-      "coloredSourceShareVersusColorDemand": "Colored source share versus color demand.",
-      "sources": "sources",
-      "sourceMix": "Source mix"
+      "manaBalance": "マナバランス",
+      "coloredSourceShareVersusColorDemand": "カラーソースのシェアとカラー需要。",
+      "sources": "ソース",
+      "sourceMix": "ソースミックス"
     },
     "deckManaCurvePanel": {
-      "manaCurve": "Mana curve",
-      "mainDeckByManaValue": "Main deck by mana value.",
-      "permanents": "Permanents",
-      "spells": "Spells",
-      "sampleHand": "Sample hand",
-      "sevenRandomCardsFromTheMainDeck": "Seven random cards from the main deck.",
-      "drawAgain": "Draw again",
-      "noCardsAvailable": "No cards available."
+      "manaCurve": "マナカーブ",
+      "mainDeckByManaValue": "マナ総量別のメインデッキ。",
+      "permanents": "パーマネント",
+      "spells": "呪文",
+      "sampleHand": "サンプルハンド",
+      "sevenRandomCardsFromTheMainDeck": "メインデッキからランダムに選ばれた7枚のカード。",
+      "drawAgain": "もう一度引く",
+      "noCardsAvailable": "利用できるカードはありません。"
     },
     "deckCardMenu": {
-      "copyQuantityControls": "Copy quantity controls",
-      "selectedCardPreview": "Selected card preview",
-      "quantityToAddOrRemove": "Quantity to add or remove",
-      "editingCard": "Editing card",
-      "quantity": "Quantity",
-      "add": "Add",
-      "remove": "Remove",
-      "selectPrintVersion": "Select print version",
-      "moveToMain": "Move to main",
-      "moveToCommander": "Move to commander",
-      "moveToSideboard": "Move to sideboard",
-      "moveToConsidering": "Move to considering"
+      "copyQuantityControls": "コピー数量制御",
+      "selectedCardPreview": "選択したカードのプレビュー",
+      "quantityToAddOrRemove": "追加または削除する数量",
+      "editingCard": "カードを編集中",
+      "quantity": "数量",
+      "add": "追加",
+      "remove": "削除",
+      "selectPrintVersion": "印刷版を選択してください",
+      "moveToMain": "メインに移動",
+      "moveToCommander": "統率者へ移動",
+      "moveToSideboard": "サイドボードに移動",
+      "moveToConsidering": "検討中へ移動"
     },
     "deckCardSpoilerView": {
-      "flipFace": "Flip face",
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "flipFace": "面を反転",
+      "noCommanderAssignedYet": "統率者がまだ割り当てられていません。"
     },
     "deckCardTextView": {
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "noCommanderAssignedYet": "統率者がまだ割り当てられていません。",
+      "unknownType": "不明なタイプ"
     },
     "deckCommanderShowcase": {
-      "flipFace": "Flip face"
+      "flipFace": "面を反転"
     },
     "deckEditor": {
-      "addCardsByName": "Add cards by name",
-      "searchAnotherCardName": "Search another card name",
-      "text1SolRingVoc168101": "1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141",
-      "deckEditorSections": "Deck editor sections",
-      "copyCardName": "Copy card name",
-      "searchCard": "Search card",
-      "saveMissingCard": "Save missing card",
-      "ignoreThisSession": "Ignore this session",
-      "remove": "Remove",
-      "clearLocalHistory": "Clear local history",
-      "importDecklist": "Import decklist",
-      "selectPrintVersion": "Select print version",
-      "restoreHistory": "Restore history",
-      "loadingDeck": "Loading deck...",
-      "view": "View",
-      "text": "Text",
-      "spoiler": "Spoiler",
-      "analysis": "Analysis",
-      "considering": "Considering",
-      "validation": "Validation",
-      "missing": "Missing",
-      "history": "History",
-      "consideringCards": "Considering cards",
-      "cardsParkedOutsideThePlayableDeck": "Cards parked outside the playable deck.",
-      "noConsideringCards": "No considering cards.",
-      "derivedTokens": "Derived tokens",
-      "resolvedFromCardsCurrentlyInTheDeck": "Resolved from cards currently in the deck.",
-      "noResolvedTokensForThisDeck": "No resolved tokens for this deck.",
-      "unresolvedTokens": "Unresolved tokens",
-      "validateWithBackend": "Validate with backend",
-      "errors": "Errors",
-      "warnings": "Warnings",
-      "noFrontendDiagnosticsForTheCurrentDeck": "No frontend diagnostics for the current deck.",
-      "search": "Search",
-      "add": "Add",
-      "noCardSearchResults": "No card search results.",
-      "futureCollection": "Future collection",
-      "snapshot": "Snapshot",
-      "restore": "Restore",
-      "noLocalHistoryForThisDeckYet": "No local history for this deck yet.",
-      "noCards": "No cards",
-      "deckName": "Deck name",
-      "saveName": "Save name",
-      "plainTextDecklist": "Plain text decklist",
-      "loadFile": "Load file",
-      "lastImport": "Last import",
-      "missingCardsFromLatestImport": "Missing cards from latest import",
-      "chooseTheExactPrintingFor": "Choose the exact printing for",
-      "quantityAndSectionWillStayUnchanged": ". Quantity and section will stay unchanged.",
-      "loadingPrintVersions": "Loading print versions...",
-      "onlyOnePrintVersion": "Only one print version",
-      "thisCardOnlyHasOnePrintVersion": "This card only has one print version available in the database.",
-      "noPrintVersionsFoundForThisCard": "No print versions found for this card.",
-      "current": "Current",
+      "addCardsByName": "カードを名前で追加する",
+      "searchAnotherCardName": "別のカード名を検索する",
+      "deckEditorSections": "デッキエディターのセクション",
+      "copyCardName": "カード名をコピーする",
+      "searchCard": "カードを検索",
+      "saveMissingCard": "不足カードを保存",
+      "ignoreThisSession": "このセッションを無視する",
+      "remove": "削除",
+      "clearLocalHistory": "ローカル履歴をクリア",
+      "importDecklist": "デッキリストをインポートする",
+      "selectPrintVersion": "印刷版を選択してください",
+      "restoreHistory": "履歴の復元",
+      "view": "表示",
+      "text": "テキスト",
+      "spoiler": "スポイラー",
+      "analysis": "分析",
+      "considering": "検討中",
+      "validation": "検証",
+      "missing": "不足",
+      "history": "歴史",
+      "consideringCards": "カードを検討中",
+      "cardsParkedOutsideThePlayableDeck": "プレイ可能なデッキの外に置かれたカード。",
+      "noConsideringCards": "カードを検討する必要はありません。",
+      "derivedTokens": "派生トークン",
+      "resolvedFromCardsCurrentlyInTheDeck": "現在デッキに入っているカードから解決されます。",
+      "noResolvedTokensForThisDeck": "このデッキには解決済みトークンがありません。",
+      "unresolvedTokens": "未解決のトークン",
+      "validateWithBackend": "サーバーで検証する",
+      "errors": "エラー",
+      "warnings": "警告",
+      "noFrontendDiagnosticsForTheCurrentDeck": "現在のデッキにはインターフェイス診断がありません。",
+      "search": "検索",
+      "add": "追加",
+      "noCardSearchResults": "カード検索結果がありません。",
+      "futureCollection": "今後のコレクション",
+      "snapshot": "スナップショット",
+      "restore": "復元",
+      "noLocalHistoryForThisDeckYet": "このデッキのローカル履歴はまだありません。",
+      "noCards": "カードなし",
+      "deckName": "デッキ名",
+      "saveName": "名前を保存",
+      "plainTextDecklist": "プレーンテキストのデッキリスト",
+      "loadFile": "ファイルをロードする",
+      "lastImport": "最後のインポート",
+      "missingCardsFromLatestImport": "最新のインポートでカードが欠落している",
+      "chooseTheExactPrintingFor": "正確な印刷を選択",
+      "quantityAndSectionWillStayUnchanged": "数量とセクションは変更されません。",
+      "loadingPrintVersions": "印刷版を読み込み中...",
+      "onlyOnePrintVersion": "印刷版は 1 つだけ",
+      "thisCardOnlyHasOnePrintVersion": "このカードには、データベースで利用できる印刷バージョンが 1 つだけあります。",
+      "noPrintVersionsFoundForThisCard": "このカードの印刷版は見つかりません。",
+      "current": "現在",
       "header": {
-        "title": "Deck editor",
-        "deckWarnings": "Deck warnings",
-        "import": "Import",
-        "export": "Export",
-        "backToDecks": "Back to decks"
-      }
+        "title": "デッキエディター",
+        "deckWarnings": "デッキの警告",
+        "import": "インポート",
+        "export": "エクスポート",
+        "share": "シェアする",
+        "shareCopied": "コミュニティリンクがコピーされました",
+        "shareError": "コミュニティ リンクをコピーできませんでした。"
+      },
+      "cardsCount": "{{ count }} カード",
+      "clear": "クリア",
+      "clearLocalHistoryQuestion": "このデッキのローカル履歴をクリアしますか?",
+      "colorIdentity": "固有色: {{ colors }}",
+      "commanderMode": "統率者モード: {{ mode }}",
+      "fromSourceCard": "{{ name }} より",
+      "historyCardsSummary": "{{ count }} カード - {{ commanders }}",
+      "importSummary": "{{ parsed }} 枚を解析、{{ imported }} 枚をインポート、{{ missing }} 枚が見つかりませんでした。",
+      "noCommander": "統率者なし",
+      "noCost": "コストなし",
+      "no": "いいえ",
+      "restoreSnapshotQuestion": "このスナップショットを復元しますか?",
+      "searchResultsFor": "{{ name }} の検索結果",
+      "sectionsCount": "{{ count }} セクション",
+      "usableInGame": "ゲーム内で使用可能：{{ value }}",
+      "validationCounts": "カード: 合計 {{ total }} 枚 (統率者 {{ commander }}、メイン {{ main }}、サイドボード {{ sideboard }}、検討中 {{ maybeboard }})",
+      "validationFailed": "統率者デッキの検証に失敗しました",
+      "validationPassed": "統率者デッキの検証に合格しました",
+      "yes": "はい",
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 鏡割りの寓話/キキジキの反射(NEO) 141"
     },
     "deckList": {
-      "newDeckName": "New deck name",
-      "searchCommanderByName": "Search commander by name",
-      "commanderSelectionLimitReached": "You already have 2 commanders. You can't add more.",
-      "example1SolRingVoc168": "Example: 1 Sol Ring (VOC) 168",
-      "jeskaiBrewsTesting": "Jeskai, Brews, Testing...",
-      "deckWarnings": "Deck warnings",
-      "renameFolder": "Rename folder",
-      "deleteFolder": "Delete folder",
-      "editDeck": "Edit deck",
-      "deleteDeck": "Delete deck",
-      "deckSaved": "Deck saved",
-      "createFolder": "Create folder",
-      "commanderEnlargedPreview": "Commander enlarged preview",
-      "loadingDecks": "Loading decks...",
-      "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
-      "decks": "Decks",
-      "noDecksInThisFolderYet": "No decks in this folder yet.",
-      "missingCards": "Missing cards",
-      "deckName": "Deck name",
-      "folder": "Folder",
-      "noFolder": "No folder",
-      "thisDeckIsPublicButItsFolder": "This deck is public, but its folder is private. It will not be publicly visible.",
-      "commander": "Commander",
-      "importDecklist": "Import decklist",
-      "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
-      "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
-      "folderName": "Folder name",
-      "playmat": "Playmat",
-      "sleeve": "Sleeve",
-      "editPlaymat": "Edit Playmat",
-      "editSleeve": "Edit Sleeve",
+      "newDeckName": "新しいデッキ名",
+      "searchCommanderByName": "統率者名で検索",
+      "example1SolRingVoc168": "例: 1 Sol Ring (VOC) 168",
+      "jeskaiBrewsTesting": "ジェスカイ、ビール、テスト中...",
+      "renameFolder": "フォルダーーーの名前を変更する",
+      "deleteFolder": "フォルダーーの削除",
+      "editDeck": "デッキを編集する",
+      "deleteDeck": "デッキの削除",
+      "deckSaved": "デッキが保存されました",
+      "createSuccessMessage": "このデッキは保存されました。保存済みデッキ一覧に追加されたので、自由に編集できます。統率者デッキ構築を楽しんでください！",
+      "createEmptyDeck": "空のデッキを作成する",
+      "createFolder": "フォルダーーーの作成",
+      "continueToRooms": "ルームに進む",
+      "commanderEnlargedPreview": "統率者の拡大プレビュー",
+      "deckListLabel": "デッキリスト",
+      "yourDeckListFeelsALittleEmpty": "デッキリストが少し空っぽになった気がします。飛び込んで構築を始めましょう！",
+      "noDecksInThisFolderYet": "このフォルダーーにはまだデッキがありません。",
+      "missingCards": "不足しているカード",
+      "deckName": "デッキ名",
+      "folder": "フォルダーーー",
+      "noFolder": "フォルダーーがありません",
+      "openDeck": "デッキを開く",
+      "thisDeckIsPublicButItsFolder": "このデッキは公開されていますが、フォルダーーーは非公開です。公に公開されることはありません。",
+      "commander": "統率者",
+      "importDecklist": "デッキリストをインポートする",
+      "ifYouIncludeYourCommanderInThe": "インポートするデッキリストに統率者が含まれていても問題ありません。こちらで取り除きます。",
+      "ifYouIncludeYourCommandersInThe": "インポートするデッキリストに統率者たちが含まれていても問題ありません。こちらで取り除きます。",
+      "folderName": "フォルダーー名",
+      "playmat": "プレイマット",
+      "sleeve": "スリーブ",
+      "editPlaymat": "プレイマットの編集",
+      "editSleeve": "スリーブの編集",
       "header": {
-        "title": "Decks",
-        "createDeck": "Create deck",
-        "createFolder": "Create folder"
+        "title": "デッキ",
+        "createDeck": "デッキを作成する",
+        "createFolder": "フォルダーーーの作成",
+        "description": "デッキを編成、構築、マスターしましょう。"
       },
       "colorFilter": {
-        "label": "?",
-        "any": "??",
-        "white": "?",
-        "blue": "?",
-        "black": "?",
-        "red": "?",
-        "green": "?",
-        "colorless": "??"
+        "label": "色",
+        "any": "どれでも",
+        "white": "白",
+        "blue": "青",
+        "black": "黒",
+        "red": "赤",
+        "green": "緑",
+        "colorless": "無色"
       },
       "sortMode": {
-        "label": "????",
-        "nameAsc": "?? (A-Z)",
-        "nameDesc": "?? (Z-A)"
+        "label": "並べ替え",
+        "nameAsc": "名前 (A ～ Z)",
+        "nameDesc": "名前 (Z-A)"
+      },
+      "cosmetics": {
+        "free": "無料",
+        "playmatOptions": "プレイマットのオプション",
+        "playmatTiers": "プレイマットのティア",
+        "premium": "プレミアム",
+        "selectPlaymat": "プレイマット {{ name }} を選択",
+        "selectSleeve": "スリーブ {{ name }} を選択",
+        "sleeveOptions": "スリーブのオプション"
+      },
+      "filters": {
+        "actionsAndFilters": "デッキのアクションとフィルター"
+      },
+      "maximumCharacters": "最大 {{ count }} 文字。",
+      "noDecksMatchFilters": "現在のフィルターに一致するデッキはありません。",
+      "removeCommander": "統率者を削除",
+      "searchDecks": "検索デッキ",
+      "searchDecksPlaceholder": "デッキを検索...",
+      "stats": {
+        "colorDistribution": "色の分布",
+        "private": "プライベート",
+        "public": "公開",
+        "summary": "デッキ概要",
+        "total": "合計"
       }
     }
   },
   "tableAssistant": {
     "tableAssistantPage": {
-      "asistenteDeMesa": "Asistente de Mesa",
-      "resumenRapido": "Resumen rápido",
-      "beneficios": "Beneficios",
-      "mesaManualDeCommander": "Mesa manual de Commander",
-      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida física.",
-      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y daño de comandante sin automatizar reglas de Magic.",
-      "setupRapido": "Setup rápido",
-      "text4JugadoresPorDefecto": "4 jugadores por defecto",
-      "text40VidasIniciales": "40 vidas iniciales",
-      "danoDeComandanteActivo": "Daño de comandante activo"
+      "title": "テーブルアシスタント",
+      "benefits": "利点",
+      "manualCommanderTable": "手動の統率者テーブル",
+      "physicalGameTrackingDescription": "紙の試合を記録するために必要なものが揃っています。",
+      "setupDescription": "プレイヤー、開始ライフ総量、タイマーを設定します。CommanderZone は Magic のルールを自動化せず、ライフ総量、ターン、統率者ダメージを管理します。",
+      "quickSetup": "クイックセットアップ",
+      "defaultFourPlayers": "デフォルトでは4人のプレイヤー",
+      "defaultFortyLife": "40ライフ",
+      "commanderDamageEnabled": "統率者ダメージ有効化",
+      "quickSummary": "簡単な概要"
     },
     "tableAssistantReplayModal": {
-      "configuracionDeMesa": "Configuración de mesa",
-      "cerrarConfiguracionDeMesa": "Cerrar configuración de mesa",
-      "posicionesDeMesa": "Posiciones de mesa",
-      "jugador": "Jugador",
-      "sinJugador": "Sin jugador",
-      "orden": "Orden",
-      "eligeUnJugadorYSuTurno": "Elige un jugador y su turno.",
-      "turnoAleatorio": "Turno aleatorio"
+      "seatLabel": "シート {{ count }}",
+      "turnLabel": "ターン {{ count }}",
+      "startGame": "試合を開始",
+      "tableSetup": "テーブルのセットアップ",
+      "closeTableSetup": "テーブル設定を閉じる",
+      "tablePositions": "テーブルの位置",
+      "player": "プレイヤー",
+      "noPlayer": "プレイヤーがいません",
+      "order": "順番",
+      "choosePlayerAndTurn": "プレイヤーとそのターンを選択します。",
+      "randomTurn": "ランダムターン"
     },
     "tableAssistantRoom": {
-      "giraElDispositivo": "Gira el dispositivo",
-      "informacionDeSala": "Informacion de sala",
-      "copiarEnlaceDeSala": "Copiar enlace de sala",
-      "trackersGlobales": "Trackers globales",
-      "jugadores": "Jugadores",
-      "danoDeComandante": "Daño de comandante",
-      "cerrarDanoDeComandante": "Cerrar daño de comandante",
-      "vidaDeJugador": "Vida de jugador",
-      "trackersDeJugador": "Trackers de jugador",
-      "skullKo": "skull-ko",
-      "laSalaEstaOptimizadaParaMovilEn": "La sala esta optimizada para movil en horizontal.",
-      "cargandoSala": "Cargando sala...",
-      "codigoDeSala": "Codigo de sala",
-      "letal": "Letal",
-      "danoDeComandante1": "Daño de comandante",
-      "verYEditar": "Ver y editar",
-      "asignadoAJugadorConectado": "Asignado a jugador conectado"
+      "rotateDevice": "デバイスを回転させます",
+      "roomInformation": "ルーム情報",
+      "copyRoomLink": "ルームリンクをコピーする",
+      "globalTrackers": "グローバルトラッカー",
+      "players": "プレイヤー",
+      "commanderDamage": "統率者ダメージ",
+      "closeCommanderDamage": "統率者ダメージを閉じる",
+      "playerLife": "プレイヤーのライフ",
+      "playerTrackers": "プレイヤートラッカー",
+      "knockoutIconLabel": "ノックアウト",
+      "landscapeOptimizedNotice": "ルームはモバイルの横向きモードに最適化されています。",
+      "roomCode": "ルームコード",
+      "lethal": "致命的",
+      "commanderDamageSummary": "統率者ダメージ",
+      "assignedToConnectedPlayer": "接続中のプレイヤーに割り当て済み",
+      "viewAndEdit": "表示と編集"
     },
     "tableAssistantSetup": {
-      "configurarAsistenteDeMesa": "Configurar Asistente de Mesa",
-      "nuevaPartida": "Nueva partida",
-      "configuraLaMesa": "Configura la mesa",
-      "jugadoresVidasYTemporizadorLoDemasSe": "Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.",
-      "jugadores": "Jugadores",
-      "reglasDeMesa": "Reglas de mesa",
-      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Daño de comandante siempre activo. Temporizador opcional."
+      "createRoom": "ルームを作成する",
+      "createRoomError": "テーブルアシスタントのルームを作成できませんでした。",
+      "creatingRoom": "作成中...",
+      "initialLife": "初期ライフ合計",
+      "initialTotal": "開始合計",
+      "needPlayersAndNames": "少なくとも 2 人のプレイヤーがいて、すべての名前が完了している必要があります。",
+      "playerColorAria": "プレイヤー {{ index }} カラー",
+      "playerColorsAria": "プレイヤー {{ index }} の色",
+      "playerNameAria": "プレイヤー {{ index }} 名",
+      "playerNamePlaceholder": "プレイヤー {{ index }}",
+      "players": "プレイヤー",
+      "configureTableAssistant": "テーブルアシスタントを設定",
+      "newGame": "新しい試合",
+      "configureTable": "テーブルを構成する",
+      "setupDescription": "プレイヤー、ライフ、タイマー。それ以外はすべてゲーム中に調整されます。",
+      "tableRules": "テーブルルール",
+      "commanderDamageAndTimerNote": "統率者ダメージは常に有効です。タイマーは任意です。"
     },
     "tableAssistantTableMenu": {
-      "opcionesDePartidaDeCommanderzone": "Opciones de partida de CommanderZone",
-      "opcionesDePartida": "Opciones de partida",
       "cz": "CZ",
-      "nuevaPartida": "Nueva partida",
-      "tirarDado": "Tirar dado",
-      "pantallaCompleta": "Pantalla completa",
-      "salirAlDashboard": "Salir al dashboard",
-      "seguirJugando": "Seguir jugando"
+      "commanderZoneGameOptions": "CommanderZone ゲームオプション",
+      "gameOptions": "ゲームオプション",
+      "newGame": "新しい試合",
+      "rollDice": "ダイスを振る",
+      "fullScreen": "全画面表示",
+      "exitToDashboard": "ダッシュボードに戻る",
+      "keepPlaying": "プレイを続ける"
     },
     "tableAssistantTimerSettings": {
-      "temporizador": "Temporizador",
-      "duracionPorTurno": "Duracion por turno",
-      "min": "Min",
-      "seg": "Seg"
+      "min": "分",
+      "timer": "タイマー",
+      "turnDuration": "ターン持続時間",
+      "seconds": "秒",
+      "timerModes": {
+        "turn": "ターンごと",
+        "phase": "フェーズごと"
+      }
     },
     "tableAssistantTurnControls": {
-      "turnoActivo": "Turno activo",
-      "pausarTemporizador": "Pausar temporizador",
-      "reanudarTemporizador": "Reanudar temporizador",
-      "iniciarTemporizador": "Iniciar temporizador",
-      "pasarAlSiguienteTurno": "Pasar al siguiente turno",
-      "pausar": "Pausar",
-      "reanudar": "Reanudar",
-      "iniciar": "Iniciar",
-      "turno": "Turno",
-      "siguiente": "Siguiente"
+      "activeTurn": "アクティブなターン",
+      "pauseTimer": "一時停止タイマー",
+      "resumeTimer": "タイマーを再開",
+      "startTimer": "タイマーを開始",
+      "passToNextTurn": "次のターンにパスする",
+      "pause": "一時停止",
+      "resume": "再開",
+      "start": "スタート",
+      "turn": "ターン",
+      "next": "次へ"
     },
     "page": {
       "benefits": {
         "lifeAndCommander": {
-          "title": "Vidas y comandante",
-          "description": "Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo."
+          "title": "ライフと統率者",
+          "description": "試合をスプレッドシートにせず、ライフと統率者ダメージを記録します。"
         },
         "simpleTurns": {
-          "title": "Turnos simples",
-          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas."
+          "title": "シンプルなターン",
+          "description": "アクティブプレイヤーを示し、テーブルがテンポを必要とする場合は自動ルールなしでタイマーを使います。"
         },
         "sharedTable": {
-          "title": "Mesa compartida",
-          "description": "Pensado para un único móvil o tablet en el centro de la mesa."
+          "title": "共有テーブル",
+          "description": "テーブルの中央に1台の携帯電話またはタブレットを置くように設計されています。"
         }
       },
       "header": {
-        "title": "Asistente de Mesa",
-        "startGame": "Empezar partida"
+        "title": "テーブルアシスタント",
+        "startGame": "試合を開始"
       }
     }
   },
-  "profile": {},
   "settings": {
     "dashboardSettingsModal": {
-      "playerAvatar": "Player avatar",
-      "avatar": "Avatar",
-      "name": "Name",
-      "becomePremium": "Become premium",
-      "email": "Email",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "deleteAccount": "Delete account",
-      "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
-      "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel",
-      "changeTheme": "Change theme",
+      "playerAvatar": "プレイヤーのアバター",
+      "changeAvatar": "アバターの変更",
+      "becomePremium": "プレミアムになる",
+      "changeName": "銘板の変更",
+      "accountDetails": "アカウントの詳細",
+      "email": "電子メール",
+      "userName": "ユーザー名",
+      "changePassword": "パスワードを変更する",
+      "sendingPasswordEmail": "メールを送信中...",
+      "passwordResetEmailSentShort": "送信済み",
+      "passwordResetEmailSent": "パスワードリセットメールを送信しました。",
+      "passwordResetEmailError": "パスワードリセットメールを送信できませんでした。",
+      "deleteAccount": "アカウントを削除する",
+      "areYouSureYouWantToPermanently": "アカウントを完全に削除してもよろしいですか?",
+      "cancel": "キャンセル",
+      "changeTheme": "テーマの変更",
       "gameSettings": {
-        "title": "Gameplay preferences",
+        "title": "ゲームプレイの設定",
         "showManaHelperOnStartup": {
-          "label": "Show mana helper on startup",
-          "description": "Open the mana helper when a match starts."
+          "label": "起動時にマナヘルパーを表示",
+          "description": "試合が始まったらマナヘルパーを開きます。"
         },
         "enableManaRow": {
-          "label": "Enable mana row",
-          "description": "Show the dedicated mana row during games."
-        },
-        "enableStackMana": {
-          "label": "Enable stack mana",
-          "description": "Keep mana available while resolving stacked actions."
+          "label": "マナ列を有効にする",
+          "description": "ゲーム中に専用のマナ列を表示します。"
         },
         "gameAnimations": {
-          "label": "Game animations",
-          "description": "Use visual movement and feedback animations during matches."
+          "label": "ゲームアニメーション",
+          "description": "試合中に視覚的な動きとフィードバックのアニメーションを使用します。"
         },
         "chatNotificationSounds": {
-          "label": "Chat notification sounds",
-          "description": "Play a sound when new chat notifications arrive."
+          "label": "チャット通知音",
+          "description": "新しいチャット通知が到着したときに音を鳴らします。"
+        },
+        "preserveManaPool": {
+          "label": "マナ・プールを温存する",
+          "description": "スタックされたアクションを解決する間、マナをマナ・プールに保持してください。"
         }
-      }
+      },
+      "enterValidEmail": "有効な電子メールを入力してください。",
+      "checkingEmail": "メールをチェックしています...",
+      "checkingAvailability": "空き状況を確認中...",
+      "couldNotCheckNow": "現在確認できませんでした",
+      "usernameLengthRequirement": "ユーザー名は 2 ～ 20 文字にする必要があります。",
+      "usernameAvailable": "利用可能なユーザー名",
+      "usernameUnavailable": "ユーザー名が利用できません",
+      "emailAvailable": "電子メールが利用可能",
+      "emailAlreadyRegistered": "メールアドレスはすでに登録されています",
+      "deleteAccountWarning": "アカウントと、デッキや設定を含むすべての関連データを完全に削除します。この操作は元に戻すことができません。"
     },
     "settingsInitialAvatarOption": {
-      "initialAvatarCustomization": "Initial avatar customization",
-      "mainColor": "Main color",
-      "secondaryColor": "Secondary color",
-      "letters": "Letters"
+      "initialAvatarCustomization": "アバターの初期カスタマイズ",
+      "mainColor": "メインカラー",
+      "secondaryColor": "二次色",
+      "letters": "文字"
     },
     "settingsAvatarEditor": {
-      "avatarPreview": "Avatar preview",
-      "avatarTiers": "Avatar tiers",
-      "basicAvatars": "Basic avatars",
-      "premiumAvatars": "Premium avatars",
-      "chooseAvatar": "Choose avatar",
-      "currentSelection": "Current selection",
-      "basic": "Basic",
-      "premium": "Premium"
+      "avatarPreview": "アバターのプレビュー",
+      "avatarTiers": "アバターの階層",
+      "basicAvatars": "基本アバター",
+      "premiumAvatars": "プレミアムアバター",
+      "chooseAvatar": "アバターを選択",
+      "currentSelection": "現在の選択内容",
+      "basic": "基本",
+      "premium": "プレミアム"
     },
     "settingsAvatarUpload": {
-      "uploadedAvatarPreview": "Uploaded avatar preview",
-      "avatarPreview": "Avatar preview",
-      "uploadImage": "Upload image",
-      "chooseYourOwnImageAndFrameIt": "Choose your own image and frame it inside the avatar circle.",
-      "imageFile": "Image file",
-      "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP or another browser-supported image. Maximum 2MB.",
-      "chooseImage": "Choose image",
-      "avatarImagesMustBeNonOffensiveNon": "Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.",
-      "horizontal": "Horizontal",
-      "vertical": "Vertical",
-      "zoom": "Zoom"
+      "uploadedAvatarPreview": "アップロードされたアバターのプレビュー",
+      "avatarPreview": "アバターのプレビュー",
+      "uploadImage": "画像をアップロードする",
+      "chooseYourOwnImageAndFrameIt": "独自の画像を選択し、アバターのサークル内にフレームを入れます。",
+      "imageFile": "画像ファイル",
+      "pngJpgWebpOrAnotherBrowserSupported": "PNG、JPG、WEBP、またはブラウザーでサポートされている別の画像。最大2MB。",
+      "chooseImage": "画像を選択してください",
+      "avatarImagesMustBeNonOffensiveNon": "アバター画像は、攻撃的でなく、性的でなく、CommanderZone コミュニティに適切なものでなければなりません。",
+      "horizontal": "水平",
+      "vertical": "垂直",
+      "zoom": "ズーム"
     },
     "settingsDisplayNameStyleEditor": {
-      "nameStylePreview": "Name style preview",
-      "nameStyleTiers": "Name style tiers",
-      "currentSelection": "Current selection",
-      "textColor": "Text color",
-      "basic": "Basic",
-      "premium": "Premium"
+      "nameStylePreview": "名前スタイルのプレビュー",
+      "nameStyleTiers": "名前スタイル層",
+      "currentSelection": "現在の選択内容",
+      "textColor": "文字の色",
+      "basic": "基本",
+      "premium": "プレミアム"
     }
   },
-  "forms": {},
-  "errors": {},
   "modals": {
     "roll": {
       "rollModal": {
-        "tirarDado": "Tirar dado",
-        "cerrarTirada": "Cerrar tirada",
-        "tipoDeTirada": "Tipo de tirada",
-        "text": "?",
-        "cerrar": "Cerrar",
-        "volverATirar": "Volver a tirar",
-        "tirar": "Tirar"
+        "text": "結果",
+        "rollDice": "ダイスを振る",
+        "closeRoll": "ロールを閉じる",
+        "rollType": "ロール種別",
+        "close": "閉じる",
+        "rollAgain": "もう一度振る",
+        "roll": "振る"
       },
       "options": {
-        "coin": "Moneda",
-        "d4": "Dado de 4 caras",
-        "d6": "Dado de 6 caras",
-        "d10": "Dado de 10 caras",
-        "d20": "Dado de 20 caras"
+        "coin": "コイン",
+        "d4": "4面ダイス",
+        "d6": "6面ダイス",
+        "d10": "10面ダイス",
+        "d20": "20面ダイス"
       },
       "results": {
-        "heads": "Cara",
-        "tails": "Cruz"
+        "heads": "表",
+        "tails": "裏"
       }
     }
   },
-  "toasts": {},
-  "emptyStates": {},
   "contactPage": {
     "meta": {
-      "title": "Contact CommanderZone",
-      "description": "Contact CommanderZone for support, bug reports, rights issues, or general questions."
+      "title": "お問い合わせ",
+      "description": "サポート、バグレポート、権利問題、または一般的な質問については、CommanderZone にお問い合わせください。"
     },
     "hero": {
-      "title": "Contact CommanderZone",
-      "description": "Send us a message and we will review it as soon as possible."
+      "title": "お問い合わせ",
+      "description": "メッセージをお送りください。できるだけ早く確認させていただきます。"
+    },
+    "nav": {
+      "loggedOutCta": "ダッシュボードに戻る",
+      "anonymousCta": "ホームに戻る",
+      "actionsAriaLabel": "お問い合わせページのアクション"
     },
     "copy": {
-      "supportTitle": "Support and rights",
-      "supportBody": "Use this form for support, bug reports, privacy requests, or rights-related issues. If needed, we can also continue by email at {{ email }}.",
-      "includeTitle": "What to include",
-      "includeBody": "Explain the issue clearly and include any useful page, room, deck, or screenshot context. Do not send secrets or payment details."
+      "supportTitle": "サポートと権利",
+      "supportBody": "サポート、バグ報告、プライバシーリクエスト、権利に関する問題、その他の質問やアイデアがあれば、このフォームを使用してください。必要であれば {{ email }} 宛てにメールで続けることもできます。",
+      "includeTitle": "何を含めるか",
+      "includeBody": "問題を明確に説明し、関連するページ、ルーム、デッキ、スクリーンショットなどの参考情報を含めてください。秘密情報や支払い情報は送信しないでください。"
     },
     "form": {
-      "nameLabel": "Name",
-      "namePlaceholder": "Your name",
-      "nameError": "Enter your name.",
-      "emailLabel": "Email",
+      "nameLabel": "名前",
+      "namePlaceholder": "あなたの名前",
+      "nameError": "あなたの名前を入力してください。",
+      "emailLabel": "メール",
       "emailPlaceholder": "you@example.com",
-      "emailError": "Enter a valid email.",
-      "subjectLabel": "Subject",
-      "subjectPlaceholder": "How can we help?",
-      "subjectError": "Enter a subject.",
-      "messageLabel": "Message",
-      "messagePlaceholder": "Write your message here.",
-      "messageError": "Enter a message.",
-      "submit": "Send message",
-      "submitting": "Sending...",
-      "submitSuccess": "Your message has been sent.",
-      "submitError": "We could not send your message. Write to {{ email }} directly or contact us through another channel."
+      "emailError": "有効なメールアドレスを入力してください。",
+      "subjectLabel": "件名",
+      "subjectPlaceholder": "ご用件を入力してください",
+      "subjectError": "件名を入力してください。",
+      "messageLabel": "メッセージ",
+      "messagePlaceholder": "ここにメッセージを書いてください。",
+      "messageError": "メッセージを入力してください。",
+      "submit": "メッセージを送信",
+      "submitting": "送信中...",
+      "submitSuccess": "メッセージは送信されました。",
+      "submitRateLimitError": "お問い合わせの上限に達しました。再試行する前に約 {{ retryAfterMinutes }} 分お待ちください。緊急の場合は {{ email }} へ直接ご連絡ください。",
+      "submitError": "メッセージを送信できませんでした。{{ email }} へ直接ご連絡いただくか、別の方法でお問い合わせください。"
+    }
+  },
+  "onboarding": {
+    "accountActions": "アカウントのアクション",
+    "demoRoom": {
+      "description": "これはオンボーディング用のデモルームです。マルチプレイヤー接続が有効な場合は、実際のルーム体験に置き換わります。",
+      "eyebrow": "デモルーム",
+      "goToLogin": "ログインに移動"
+    },
+    "hero": {
+      "description": "ルームを作成し、リンクを共有し、デッキを選び、本物の統率者ポッド向けに作られたテーブルでプレイします。",
+      "eyebrow": "手動の統率者テーブル",
+      "title": "数秒でオンライン統率者戦を始める"
+    },
+    "highlights": {
+      "ariaLabel": "製品のハイライト",
+      "deckValidation": "統率者戦向けデッキ検証",
+      "manualTable": "手動テーブル、ルールエンジンなし",
+      "privateRooms": "プライベートルームと招待"
+    },
+    "preview": {
+      "ariaLabel": "CommanderZone テーブルのプレビュー",
+      "flow": "待合室、デッキ選択、テーブルの流れを1か所で。",
+      "guest": "ゲスト",
+      "oneLink": "リンクが 1 つ",
+      "ready": "準備完了"
+    },
+    "steps": {
+      "import": {
+        "description": "リストを貼り付けてインポートします。",
+        "title": "デッキリストをインポートする"
+      },
+      "play": {
+        "description": "ルームを開いて試合を開始します。",
+        "title": "プレイ"
+      },
+      "room": {
+        "description": "テーブル用のルームを生成します。",
+        "title": "ルームを作成"
+      },
+      "share": {
+        "description": "ルームリンクをコピーして送信します。",
+        "title": "リンクを共有する"
+      }
+    }
+  },
+  "shared": {
+    "cardPreview": {
+      "rank": "ランク {{ rank }}",
+      "viewMore": "もっと見る"
+    }
+  },
+  "cards": {
+    "cardSearch": {
+      "pagination": {
+        "label": "カード検索ページネーション"
+      }
     }
   }
 }

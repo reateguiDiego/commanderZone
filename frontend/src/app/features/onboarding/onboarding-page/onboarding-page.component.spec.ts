@@ -34,7 +34,7 @@ describe('OnboardingPageComponent', () => {
     const links = Array.from(fixture.nativeElement.querySelectorAll('a')) as HTMLAnchorElement[];
 
     expect(links.some((link) => link.textContent?.trim() === 'Login' && link.getAttribute('href') === '/auth/login')).toBe(true);
-    expect(links.some((link) => link.textContent?.trim() === 'Sign up' && link.getAttribute('href') === '/auth/register')).toBe(true);
+    expect(links.some((link) => link.textContent?.trim() === 'Register' && link.getAttribute('href') === '/auth/register')).toBe(true);
   });
 
   it('does not allow importing an empty decklist', () => {

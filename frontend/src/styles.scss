@@ -93,6 +93,24 @@ button {
   cursor: pointer;
 }
 
+.cz-button {
+  min-width: 0;
+  max-width: 100%;
+  font-size: calc(var(--cz-button-font-size, 1em) * var(--cz-text-fit-scale, 1));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-button.cz-text-fit--overflowing {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.cz-button lucide-icon {
+  flex: 0 0 auto;
+}
+
 .primary-button,
 .cz-button--primary {
   display: inline-flex;
@@ -140,11 +158,16 @@ button {
   transform: none;
 }
 
-.primary-button.compact,
-.cz-button--primary.cz-button--sm {
+.primary-button.compact {
   min-height: 2.15rem;
   padding: 0.45rem 0.75rem;
   font-size: 0.86rem;
+}
+
+.cz-button--primary.cz-button--sm {
+  min-height: 2.15rem;
+  padding: 0.45rem 0.75rem;
+  --cz-button-font-size: 0.86rem;
 }
 
 .settings-save-disclaimer {
@@ -187,6 +210,7 @@ button {
   min-height: 3rem;
   border-radius: 12px;
   padding: 0.78rem 1.1rem;
+  --cz-button-font-size: 1rem;
 }
 
 h1,

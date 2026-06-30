@@ -18,7 +18,7 @@ describe('BackButtonComponent', () => {
     const anchor = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
 
     expect(anchor).not.toBeNull();
-    expect(anchor.textContent?.replace(/\s+/g, ' ').trim()).toContain('Atras');
+    expect(anchor.textContent?.replace(/\s+/g, ' ').trim()).toContain('Back');
   });
 
   it('emits pressed when used as an action button', () => {

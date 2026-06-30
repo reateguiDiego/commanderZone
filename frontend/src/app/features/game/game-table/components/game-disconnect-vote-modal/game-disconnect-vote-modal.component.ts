@@ -25,14 +25,26 @@ export class GameDisconnectVoteModalComponent {
   readonly voteExpel = output<void>();
   readonly closed = output<void>();
 
+  disconnectMessageKey(): string {
+    return this.targetPlayerName()
+      ? 'game.gameDisconnectVoteModal.playerDisconnectedMessage'
+      : 'game.gameDisconnectVoteModal.genericDisconnectedMessage';
+  }
+
+  disconnectMessageParams(): Record<string, unknown> | undefined {
+    const playerName = this.targetPlayerName();
+
+    return playerName ? { playerName } : undefined;
+  }
+
   voteLabel(vote: GameDisconnectVoteChoice | null): string {
     if (vote === 'wait') {
-      return 'Esperar';
+      return 'game.gameDisconnectVoteModal.wait';
     }
     if (vote === 'expel') {
-      return 'Expulsar';
+      return 'game.gameDisconnectVoteModal.expel';
     }
 
-    return 'Sin voto';
+    return 'game.gameDisconnectVoteModal.noVote';
   }
 }

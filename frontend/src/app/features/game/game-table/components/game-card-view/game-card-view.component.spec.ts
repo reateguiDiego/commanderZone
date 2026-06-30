@@ -770,7 +770,7 @@ describe('GameCardViewComponent', () => {
 
     const badge = fixture.nativeElement.querySelector('.token-copy-marker') as HTMLElement | null;
     expect(badge).not.toBeNull();
-    expect(badge?.getAttribute('title')).toBe('Esta carta es un token copy');
+    expect(badge?.getAttribute('title')).toBe('This token is a copy');
   });
 
   it('does not mark regular tokens as token copies', async () => {

@@ -1,11 +1,11 @@
-<section class="create-sleeve-spoiler" aria-label="Sleeve options">
+<section class="create-sleeve-spoiler" [attr.aria-label]="'deckBuilder.deckList.cosmetics.sleeveOptions' | runtimeTranslate">
   <div #sleeveGrid class="create-sleeve-spoiler-grid" appPrettyScroll>
     @for (sleeve of sleeves; track sleeve.path) {
       <button
         class="create-sleeve-option"
         type="button"
         [class.is-selected]="sleeve.path === selectedSleevePath()"
-        [attr.aria-label]="'Select sleeve ' + sleeve.label"
+        [attr.aria-label]="'deckBuilder.deckList.cosmetics.selectSleeve' | runtimeTranslate: { name: sleeve.label }"
         [attr.aria-pressed]="sleeve.path === selectedSleevePath()"
         (mouseenter)="showHoverPreview($event, sleeve)"
         (mousemove)="moveHoverPreview($event, sleeve)"
@@ -22,7 +22,7 @@
           decoding="async"
         />
         @if (sleeve.premium) {
-          <span class="create-sleeve-option-pill">Premium</span>
+          <span class="create-sleeve-option-pill">{{ 'deckBuilder.deckList.cosmetics.premium' | runtimeTranslate }}</span>
         }
         @if (sleeve.combinationName) {
           <span class="create-sleeve-option-pill create-sleeve-option-pill--combination">
@@ -34,7 +34,7 @@
   </div>
 
   <footer class="create-sleeve-spoiler-actions">
-    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">Save</button>
+    <button czButton="primary" type="button" [disabled]="!canSave()" (click)="saveSelection()">{{ 'common.actions.save' | runtimeTranslate }}</button>
   </footer>
 </section>
 

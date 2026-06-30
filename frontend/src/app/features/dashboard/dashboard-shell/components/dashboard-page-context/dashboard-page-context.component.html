@@ -85,7 +85,7 @@
       }
       <div class="page-header-title-line" [class.has-inline-meta]="headerState.context === 'community-deck-detail' && headerState.sharedBy">
         <div class="page-header-title-main">
-          <h1>{{ headerState.title | runtimeTranslate }}</h1>
+          <h1 czTextFit czTextFitMinScale="0.72">{{ headerState.title | runtimeTranslate }}</h1>
           @if (headerState.titleWarning; as warning) {
             <app-tooltip [text]="warning.tooltip | runtimeTranslate">
               <span
@@ -183,7 +183,7 @@
                 @if (stat.icon) {
                   <lucide-icon [name]="stat.icon" size="14" />
                 }
-                <span>{{ stat.label | runtimeTranslate }}</span>
+                <span class="header-stat-label" czTextFit czTextFitMinScale="0.72">{{ stat.label | runtimeTranslate }}</span>
                 <strong>{{ stat.value }}</strong>
               </div>
             }

@@ -1,6 +1,6 @@
 <div class="visibility-choice">
   <p class="visibility-choice__label">
-    {{ label }}
+    {{ label | runtimeTranslate }}
     @if (required) {
       <span class="required-mark" aria-hidden="true">*</span>
     }
@@ -18,13 +18,13 @@
         <span class="visibility-choice__main">
           @if (option === 'public') {
             <lucide-icon name="globe" size="14" />
-            <span>{{ 'common.visibility.visibilityChoice.public' | runtimeTranslate }}</span>
+            <span czTextFit czTextFitMinScale="0.78">{{ 'common.visibility.visibilityChoice.public' | runtimeTranslate }}</span>
           } @else {
             <lucide-icon name="lock" size="14" />
-            <span>{{ 'common.visibility.visibilityChoice.private' | runtimeTranslate }}</span>
+            <span czTextFit czTextFitMinScale="0.78">{{ 'common.visibility.visibilityChoice.private' | runtimeTranslate }}</span>
           }
         </span>
-        <small class="visibility-choice__subtitle">{{ subtitle(option) }}</small>
+        <small class="visibility-choice__subtitle">{{ subtitle(option) | runtimeTranslate }}</small>
       </button>
     }
   </div>

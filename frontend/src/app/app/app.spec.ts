@@ -4,6 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
 import { AuthStore } from '../core/auth/auth.store';
 import { LoadingStore } from '../core/loading/loading.store';
+import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { App } from './app';
 
 @Component({
@@ -30,6 +31,7 @@ describe('App', () => {
       providers: [
         provideHttpClient(),
         { provide: AuthStore, useValue: authStore },
+        { provide: RuntimeLanguageSelectorService, useValue: {} },
         provideRouter([
           { path: '', pathMatch: 'full', component: EmptyRouteComponent },
           { path: 'en/faq', component: EmptyRouteComponent },
@@ -79,6 +81,7 @@ describe('App', () => {
       providers: [
         provideHttpClient(),
         { provide: AuthStore, useValue: authStore },
+        { provide: RuntimeLanguageSelectorService, useValue: {} },
         { provide: PLATFORM_ID, useValue: 'server' },
         provideRouter([]),
       ],

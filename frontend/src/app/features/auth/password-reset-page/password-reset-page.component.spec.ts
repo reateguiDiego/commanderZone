@@ -90,7 +90,7 @@ describe('PasswordResetPageComponent', () => {
 
     await component.submitReset();
 
-    expect(component.resetError()).toContain('No se pudo actualizar');
+    expect(component.resetError()).toBe('auth.passwordResetPage.updateError');
     expect(component.resetSuccess()).toBe(false);
   });
 

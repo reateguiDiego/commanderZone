@@ -3,6 +3,7 @@
 }
 
 .page-stack {
+  --cards-aside-expanded-width: calc(26rem + 15px);
   --cards-edge-pull: clamp(0.55rem, 1vw, 0.75rem);
 
   display: block;
@@ -13,7 +14,7 @@
 
 .cards-shell {
   display: grid;
-  grid-template-columns: minmax(22rem, 26rem) minmax(0, 1fr);
+  grid-template-columns: minmax(22rem, var(--cards-aside-expanded-width)) minmax(0, 1fr);
   gap: clamp(0.85rem, 1.6vw, 1.25rem);
   align-items: start;
   margin-top: var(--cz-page-hero-content-gap);
@@ -35,6 +36,11 @@
   padding-right: 0.18rem;
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--cz-accent-rgb) / 48%) transparent;
+}
+
+.cards-aside > * {
+  width: 100%;
+  min-width: 0;
 }
 
 .cards-aside > app-card-advanced-search-form {
