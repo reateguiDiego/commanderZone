@@ -255,6 +255,10 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 		s.sendJSON(client, commandRejectedMessage(command, "PERMISSION_DENIED", "runtime ticket does not allow closing this game", false))
 		return
 	}
+	if isInternalOnlyWebSocketCommand(command.Type) {
+		s.sendJSON(client, commandRejectedMessage(command, "PERMISSION_DENIED", "runtime command is internal-only over websocket", false))
+		return
+	}
 	if isEphemeralPosition(command) {
 		s.incMetric(func(metrics *GatewayMetrics) {
 			metrics.DroppedEphemeralEvents++
@@ -288,7 +292,7 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 	}
 	commandCtx, cancel := context.WithTimeout(ctx, s.commandTimeout)
 	defer cancel()
-	result := gameActor.Submit(commandCtx, command, client.claims.UserID)
+	result := gameActor.Submit(commandCtx, command, client.claims.PlayerID)
 	if result.Err != nil {
 		if errors.Is(result.Err, actor.ErrVersionConflict) {
 			s.sendJSON(client, commandResyncRequiredMessage(command, gameActor.Version(), "BASE_VERSION_MISMATCH", result.Err.Error(), true))
@@ -683,6 +687,15 @@ func canReceive(claims TicketClaims, visibility protocol.Visibility) bool {
 		return hasRole(claims, value) || hasRole(claims, "admin")
 	}
 	return false
+}
+
+func isInternalOnlyWebSocketCommand(commandType string) bool {
+	switch commandType {
+	case "game.phase.set", "mulligan.completed":
+		return true
+	default:
+		return false
+	}
 }
 
 func hasRole(claims TicketClaims, role string) bool {

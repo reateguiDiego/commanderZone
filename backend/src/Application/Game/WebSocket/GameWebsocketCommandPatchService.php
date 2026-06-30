@@ -38,6 +38,49 @@ final readonly class GameWebsocketCommandPatchService
     private const VISUAL_POSITION_COMMANDS = ['card.position.changed', 'cards.position.changed'];
     private const VISUAL_POSITION_RATE_WINDOW_MS = 1_000;
     private const VISUAL_POSITION_RATE_LIMIT = 24;
+    private const RUNTIME_OWN_PLAYER_PAYLOAD_KEYS = [
+        'life.changed' => 'playerId',
+        'library.draw' => 'playerId',
+        'library.draw_many' => 'playerId',
+        'library.reveal_top' => 'playerId',
+        'library.reveal' => 'playerId',
+        'library.play_top_revealed' => 'playerId',
+        'library.reorder_top' => 'playerId',
+        'library.move_top' => 'playerId',
+        'library.put_top' => 'playerId',
+        'library.put_bottom' => 'playerId',
+        'library.view' => 'playerId',
+        'library.shuffle' => 'playerId',
+        'zone.reorderedByIds' => 'playerId',
+        'zone.move_all' => 'playerId',
+        'zone.random_card.selected' => 'playerId',
+        'battlefield.untap_all' => 'playerId',
+        'card.token.created' => 'playerId',
+        'card.moved' => 'playerId',
+        'cards.moved' => 'playerId',
+        'card.tapped' => 'playerId',
+        'card.position.changed' => 'playerId',
+        'cards.position.changed' => 'playerId',
+        'card.dungeon_marker.changed' => 'playerId',
+        'card.face_down.changed' => 'playerId',
+        'card.face.changed' => 'playerId',
+        'card.revealed' => 'playerId',
+        'card.controller.changed' => 'playerId',
+        'card.power_toughness.changed' => 'playerId',
+        'card.counter.changed' => 'playerId',
+        'stack.card_added' => 'playerId',
+        'arrow.created' => 'ownerId',
+        'attachment.created' => 'ownerId',
+        'helper.created' => 'ownerPlayerId',
+        'mulligan.take' => 'playerId',
+        'mulligan.keep' => 'playerId',
+        'mulligan.cards_bottomed' => 'playerId',
+        'mulligan.scry.confirm' => 'playerId',
+        'mulligan.ready' => 'playerId',
+    ];
+    private const RUNTIME_OWN_TARGET_PAYLOAD_KEYS = [
+        'commander.damage.changed' => 'targetPlayerId',
+    ];
 
     /**
      * @var \ArrayObject<string,list<float>>
@@ -1896,6 +1939,7 @@ final readonly class GameWebsocketCommandPatchService
         if (!is_string($runtimePayload['playerId'] ?? null) || trim((string) $runtimePayload['playerId']) === '') {
             $runtimePayload['playerId'] = $defaultPlayerId;
         }
+        $this->assertRuntimeActorScopedPayload($type, $runtimePayload, $defaultPlayerId);
         if (in_array($type, ['library.reveal_top', 'library.reveal', 'card.revealed'], true) && !isset($runtimePayload['viewers']) && isset($runtimePayload['to'])) {
             $runtimePayload['viewers'] = $runtimePayload['to'];
         }
@@ -1925,17 +1969,52 @@ final readonly class GameWebsocketCommandPatchService
                 ],
             ];
         }
-        if ($type === 'game.concede') {
-            $playerId = is_string($runtimePayload['playerId'] ?? null) ? trim($runtimePayload['playerId']) : '';
-            if ($playerId !== $defaultPlayerId) {
-                throw new \InvalidArgumentException('Players can only concede themselves.');
-            }
-        }
-
         return [
             'type' => $this->runtimeCommandType($type),
             'payload' => $runtimePayload,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function assertRuntimeActorScopedPayload(string $type, array $payload, string $defaultPlayerId): void
+    {
+        $canonicalType = $this->runtimeCommandType($type);
+        if ($canonicalType === 'game.close') {
+            return;
+        }
+        if ($canonicalType === 'game.concede') {
+            $this->assertRuntimeActorPayloadField($payload, 'playerId', $defaultPlayerId, 'Players can only concede themselves.');
+
+            return;
+        }
+        if ($canonicalType === 'library.shuffle' && ($payload['reason'] ?? null) === 'revealed-library-closed') {
+            return;
+        }
+        if (isset(self::RUNTIME_OWN_PLAYER_PAYLOAD_KEYS[$canonicalType])) {
+            $this->assertRuntimeActorPayloadField($payload, self::RUNTIME_OWN_PLAYER_PAYLOAD_KEYS[$canonicalType], $defaultPlayerId);
+        }
+        if (isset(self::RUNTIME_OWN_TARGET_PAYLOAD_KEYS[$canonicalType])) {
+            $this->assertRuntimeActorPayloadField($payload, self::RUNTIME_OWN_TARGET_PAYLOAD_KEYS[$canonicalType], $defaultPlayerId);
+        }
+        if ($canonicalType === 'counter.changed') {
+            $scope = is_string($payload['scope'] ?? null) ? trim($payload['scope']) : '';
+            if (str_starts_with($scope, 'player:') && substr($scope, 7) !== $defaultPlayerId) {
+                throw new \InvalidArgumentException('Runtime command player scope does not match the signed player.');
+            }
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function assertRuntimeActorPayloadField(array $payload, string $key, string $defaultPlayerId, string $message = 'Runtime command player scope does not match the signed player.'): void
+    {
+        $value = is_string($payload[$key] ?? null) ? trim($payload[$key]) : '';
+        if ($value !== '' && $value !== $defaultPlayerId) {
+            throw new \InvalidArgumentException($message);
+        }
     }
 
     /**

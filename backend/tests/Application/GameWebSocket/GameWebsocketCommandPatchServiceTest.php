@@ -2333,6 +2333,48 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame('invalid_runtime_payload', $metricsStore->records()[0]['status'] ?? null);
     }
 
+    public function testRuntimeFinalPlayerScopedCommandRequiresTicketPlayer(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $service = $this->serviceWithRegistry(
+            $registry,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('life.changed', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'life.changed', runtime: true, shadow: false),
+            rooms: $this->runtimeRoomsFor($game),
+        );
+
+        $message = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $opponent->id(), 'life' => 1],
+            'action-runtime-life-other-denied',
+            1,
+            'message-runtime-life-other-denied',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertIsArray($message);
+        self::assertSame('command_ack', $message['kind']);
+        self::assertSame('rejected', $message['status']);
+        self::assertSame('INVALID_COMMAND_MESSAGE', $message['error']['code'] ?? null);
+        self::assertSame('Runtime command player scope does not match the signed player.', $message['error']['message'] ?? null);
+        self::assertSame([], $runtimeClient->types);
+        self::assertSame('invalid_runtime_payload', $metricsStore->records()[0]['status'] ?? null);
+    }
+
     public function testRuntimeFinalGameCloseRequiresSignedClosePermission(): void
     {
         [$game, $actor] = $this->game();

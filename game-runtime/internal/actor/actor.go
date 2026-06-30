@@ -272,6 +272,9 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		a.recordAliasTranslation()
 	}
 	if existing, ok := a.seenActions[command.ClientActionID]; ok {
+		if !eventCreatedByMatches(existing.Event, request.ActorID) {
+			return a.rejectedResult(ErrActorPermission, queueWait, startedAt)
+		}
 		a.recordDuplicateAction(queueWait, time.Since(startedAt))
 		return existing
 	}
@@ -281,9 +284,15 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 			return a.rejectedResult(err, queueWait, startedAt)
 		}
 		if ok {
+			if !eventCreatedByMatches(existing, request.ActorID) {
+				return a.rejectedResult(ErrActorPermission, queueWait, startedAt)
+			}
 			a.recordDuplicateAction(queueWait, time.Since(startedAt))
 			return CommandResult{Event: existing}
 		}
+	}
+	if err := a.permissionErrorLocked(command, request.ActorID); err != nil {
+		return a.rejectedResult(err, queueWait, startedAt)
 	}
 	if command.BaseVersion != a.state.Version {
 		a.recordVersionConflict()
@@ -294,13 +303,6 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		a.recordUnsupported()
 		return a.rejectedResult(ErrUnknownCommand, queueWait, startedAt)
 	}
-	if command.Type == "game.concede" {
-		playerID, _ := command.Payload["playerId"].(string)
-		if playerID == "" || playerID != request.ActorID {
-			return a.rejectedResult(ErrActorPermission, queueWait, startedAt)
-		}
-	}
-
 	nextVersion := a.state.Version + 1
 	emitter := NewPatchEmitter()
 	rollback := newCommandRollback(a.state, command)

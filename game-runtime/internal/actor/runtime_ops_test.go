@@ -99,6 +99,50 @@ func TestGameConcedeRejectsActorMismatch(t *testing.T) {
 	}
 }
 
+func TestPlayerScopedRuntimeCommandsRejectActorMismatch(t *testing.T) {
+	tests := []struct {
+		name        string
+		commandType string
+		payload     map[string]any
+		actorID     string
+	}{
+		{name: "life", commandType: "life.changed", payload: map[string]any{"playerId": "p2", "life": 10}, actorID: "p1"},
+		{name: "commander damage", commandType: "commander.damage.changed", payload: map[string]any{"targetPlayerId": "p2", "commanderInstanceId": "commander-1", "damage": 5}, actorID: "p1"},
+		{name: "library view", commandType: "library.view", payload: map[string]any{"playerId": "p2", "count": 1}, actorID: "p1"},
+		{name: "card without player payload", commandType: "card.tapped", payload: map[string]any{"instanceId": "i1", "tapped": true}, actorID: "p2"},
+		{name: "player counter", commandType: "counter.changed", payload: map[string]any{"scope": "player:p2", "key": "poison", "value": 1}, actorID: "p1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+			result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "permission-"+tt.name, tt.commandType, tt.payload), tt.actorID)
+			if !errors.Is(result.Err, ErrActorPermission) {
+				t.Fatalf("err = %v, want %v", result.Err, ErrActorPermission)
+			}
+			if gameActor.Snapshot().Version != 1 {
+				t.Fatalf("rejected command changed version: %d", gameActor.Snapshot().Version)
+			}
+		})
+	}
+}
+
+func TestRuntimeDuplicateActionFromDifferentActorIsRejected(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	first := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "shared-action", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p1")
+	if first.Err != nil {
+		t.Fatalf("first failed: %v", first.Err)
+	}
+
+	duplicate := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "shared-action", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p2")
+	if !errors.Is(duplicate.Err, ErrActorPermission) {
+		t.Fatalf("duplicate err = %v, want %v", duplicate.Err, ErrActorPermission)
+	}
+	if gameActor.Snapshot().Version != 2 {
+		t.Fatalf("rejected cross-actor duplicate changed version: %d", gameActor.Snapshot().Version)
+	}
+}
+
 func TestGameConcedePayloadIncludesTurnWhenActivePlayerLeaves(t *testing.T) {
 	game := testState()
 	game.Turn = map[string]any{"activePlayerId": "p1", "phase": "main-1", "number": 3}

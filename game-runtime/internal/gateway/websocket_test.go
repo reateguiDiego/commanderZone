@@ -187,6 +187,47 @@ func TestWebSocketPlayerCannotCloseGameWithoutClosePermission(t *testing.T) {
 	}
 }
 
+func TestWebSocketRejectsPlayerScopedCommandForDifferentSignedPlayer(t *testing.T) {
+	server, runtimeService := testWebSocketServer(t, "game-1", 128, 256)
+	defer server.Close()
+
+	conn := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID:      "user-p1",
+		PlayerID:    "p1",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	defer conn.Close()
+
+	writeCommand(t, conn, command("game-1", 1, "life-other", "life.changed", map[string]any{"playerId": "p2", "life": 1}, nil))
+	message := readUntil(t, conn, "command_ack")
+	if message.Status != "rejected" || message.Error == nil || message.Error.Code != "COMMAND_FAILED" {
+		t.Fatalf("message = %#v, want rejected command failure", message)
+	}
+	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 1 {
+		t.Fatalf("rejected player-scoped command changed actor version")
+	}
+}
+
+func TestWebSocketRejectsInternalOnlyLifecycleCommand(t *testing.T) {
+	server, runtimeService := testWebSocketServer(t, "game-1", 128, 256)
+	defer server.Close()
+
+	conn := dialRuntime(t, server.URL, "game-1", 0, nil)
+	defer conn.Close()
+
+	writeCommand(t, conn, command("game-1", 1, "phase-direct", "game.phase.set", map[string]any{"phase": "FINISHED"}, nil))
+	message := readUntil(t, conn, "command_ack")
+	if message.Status != "rejected" || message.Error == nil || message.Error.Code != "PERMISSION_DENIED" {
+		t.Fatalf("message = %#v, want permission denied", message)
+	}
+	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 1 {
+		t.Fatalf("rejected internal-only command changed actor version")
+	}
+}
+
 func TestWebSocketRejectsInvalidTicket(t *testing.T) {
 	server, _ := testWebSocketServer(t, "game-1", 128, 256)
 	defer server.Close()
