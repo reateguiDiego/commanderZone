@@ -13,6 +13,64 @@ var explicitNonRuntimeCommandTypes = map[string]string{
 	"disconnect.vote":       "disconnect vote orchestration is handled outside the gameplay actor",
 }
 
+var clientInvocableRuntimeCommandTypes = map[string]string{
+	"life.changed":                 "runtime websocket gameplay command",
+	"turn.changed":                 "runtime websocket gameplay command",
+	"dice.rolled":                  "runtime websocket gameplay command",
+	"card.tapped":                  "runtime websocket gameplay command",
+	"card.face_down.changed":       "runtime websocket gameplay command",
+	"card.revealed":                "runtime websocket gameplay command",
+	"card.controller.changed":      "runtime websocket gameplay command",
+	"cards.position.changed":       "runtime websocket gameplay command",
+	"card.counter.changed":         "runtime websocket gameplay command",
+	"counter.changed":              "runtime websocket gameplay command",
+	"commander.damage.changed":     "runtime websocket gameplay command",
+	"card.power_toughness.changed": "runtime websocket gameplay command",
+	"card.position.changed":        "runtime websocket gameplay command",
+	"library.draw":                 "runtime websocket gameplay command",
+	"library.draw_many":            "runtime websocket gameplay command",
+	"library.reveal_top":           "runtime websocket gameplay command",
+	"library.reveal":               "runtime websocket gameplay command",
+	"library.play_top_revealed":    "runtime websocket gameplay command",
+	"library.reorder_top":          "runtime websocket gameplay command",
+	"library.move_top":             "runtime websocket gameplay command",
+	"library.put_top":              "runtime websocket gameplay command",
+	"library.put_bottom":           "runtime websocket gameplay command",
+	"library.view":                 "runtime websocket gameplay command",
+	"library.shuffle":              "runtime websocket gameplay command",
+	"card.token.created":           "runtime websocket gameplay command",
+	"card.token_copy.created":      "runtime websocket gameplay command",
+	"zone.random_card.selected":    "runtime websocket gameplay command",
+	"card.dungeon_marker.changed":  "runtime websocket gameplay command",
+	"card.face.changed":            "runtime websocket gameplay command",
+	"card.moved":                   "runtime websocket gameplay command",
+	"cards.moved":                  "runtime websocket gameplay command",
+	"zone.reorderedByIds":          "runtime websocket gameplay command",
+	"zone.move_all":                "runtime websocket gameplay command",
+	"battlefield.untap_all":        "runtime websocket gameplay command",
+	"stack.card_added":             "runtime websocket gameplay command",
+	"stack.item_removed":           "runtime websocket gameplay command",
+	"arrow.created":                "runtime websocket gameplay command",
+	"arrow.removed":                "runtime websocket gameplay command",
+	"attachment.created":           "runtime websocket gameplay command",
+	"attachment.removed":           "runtime websocket gameplay command",
+	"helper.created":               "runtime websocket gameplay command",
+	"helper.updated":               "runtime websocket gameplay command",
+	"helper.removed":               "runtime websocket gameplay command",
+	"game.concede":                 "runtime websocket gameplay command",
+	"game.close":                   "runtime websocket gameplay command",
+	"mulligan.take":                "runtime websocket mulligan command",
+	"mulligan.keep":                "runtime websocket mulligan command",
+	"mulligan.scry.confirm":        "runtime websocket mulligan command",
+}
+
+var internalOnlyCommandTypes = map[string]string{
+	"game.phase.set":          "lifecycle phase patches are emitted by runtime internals",
+	"mulligan.cards_bottomed": "bottoming is submitted through mulligan.keep with selected cards",
+	"mulligan.ready":          "ready state is derived by runtime mulligan flow",
+	"mulligan.completed":      "completion is derived by runtime mulligan flow",
+}
+
 func CanonicalCommandType(commandType string) (string, bool) {
 	if canonical, ok := commandAliases[commandType]; ok {
 		return canonical, true
@@ -23,6 +81,12 @@ func CanonicalCommandType(commandType string) (string, bool) {
 func IsExplicitNonRuntimeCommandType(commandType string) bool {
 	canonical, _ := CanonicalCommandType(commandType)
 	_, ok := explicitNonRuntimeCommandTypes[canonical]
+	return ok
+}
+
+func IsInternalOnlyCommandType(commandType string) bool {
+	canonical, _ := CanonicalCommandType(commandType)
+	_, ok := internalOnlyCommandTypes[canonical]
 	return ok
 }
 
@@ -111,6 +175,24 @@ func FinalGameplayCommandTypes() []string {
 		"mulligan.completed",
 		"game.phase.set",
 	}
+}
+
+func ClientInvocableRuntimeCommandTypes() []string {
+	out := make([]string, 0, len(clientInvocableRuntimeCommandTypes))
+	for commandType := range clientInvocableRuntimeCommandTypes {
+		out = append(out, commandType)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func InternalOnlyCommandTypes() []string {
+	out := make([]string, 0, len(internalOnlyCommandTypes))
+	for commandType := range internalOnlyCommandTypes {
+		out = append(out, commandType)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func UnsupportedCommandTypes(appliers []Applier, commandTypes []string) []string {

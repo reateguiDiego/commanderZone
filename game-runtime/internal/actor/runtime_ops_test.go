@@ -502,6 +502,9 @@ func TestTokenCreateRuntimeEmitsCompactPayloadOnly(t *testing.T) {
 	if cards[0]["cardKey"] != "token-scryfall:token" {
 		t.Fatalf("token patch did not carry stable compact identity: %#v", cards[0])
 	}
+	if cards[0]["language"] != "en" || cards[0]["viewerVisibility"] != "public" {
+		t.Fatalf("token patch did not carry renderable identity fields: %#v", cards[0])
+	}
 	eventTokens := result.Event.Payload["tokens"].([]map[string]any)
 	if len(eventTokens) != 2 || eventTokens[0]["instanceId"] != cards[0]["instanceId"] || eventTokens[0]["cardKey"] != "token-scryfall:token" || eventTokens[0]["name"] != "Goblin" {
 		t.Fatalf("token event did not carry replayable compact identity: %#v", result.Event.Payload)

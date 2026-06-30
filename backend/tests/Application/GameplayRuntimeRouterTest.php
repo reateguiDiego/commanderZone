@@ -63,6 +63,23 @@ final class GameplayRuntimeRouterTest extends TestCase
         self::assertSame(GameplayRuntimeRoute::LegacyOnly, $router->routeFor('library.draw'));
     }
 
+    public function testRuntimeCatalogClassifiesEveryFinalCommandExactlyOnce(): void
+    {
+        $final = GameplayCommandCatalog::finalRuntimeCommands();
+        $client = GameplayCommandCatalog::clientRuntimeCommands();
+        $internal = GameplayCommandCatalog::internalRuntimeCommands();
+
+        self::assertSame([], array_values(array_intersect($client, $internal)), 'Commands cannot be both client runtime and internal runtime.');
+
+        $classified = array_values(array_unique([...$client, ...$internal]));
+        sort($final);
+        sort($classified);
+
+        self::assertSame($final, $classified);
+        self::assertTrue(GameplayCommandCatalog::internalRuntimeCommand('mulligan.completed'));
+        self::assertFalse(GameplayCommandCatalog::internalRuntimeCommand('mulligan.keep'));
+    }
+
     #[DataProvider('runtimeSensitiveCommands')]
     public function testMigratedSensitiveCommandsRouteToRuntimeWhenAllowlisted(string $commandType): void
     {

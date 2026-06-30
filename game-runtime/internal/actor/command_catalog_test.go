@@ -45,6 +45,56 @@ func TestEnvAndDockerAllowlistsMatchFinalGameplayCommandCatalog(t *testing.T) {
 	}
 }
 
+func TestBackendAndGoFinalRuntimeCatalogsMatch(t *testing.T) {
+	root := repoRoot(t)
+	backendCatalog := filepath.Join(root, "backend/src/Application/Game/Runtime/GameplayCommandCatalog.php")
+	expectedCommands := sorted(FinalGameplayCommandTypes())
+	gotCommands := sorted(phpStringListConst(t, backendCatalog, "FINAL_RUNTIME_COMMANDS"))
+	if !stringSlicesEqual(gotCommands, expectedCommands) {
+		t.Fatalf("backend GameplayCommandCatalog mismatch\nmissing: %v\nextra: %v", missing(expectedCommands, gotCommands), missing(gotCommands, expectedCommands))
+	}
+
+	expectedAliases := CommandAliasMap()
+	gotAliases := phpStringMapConst(t, backendCatalog, "ALIASES")
+	if !stringMapsEqual(gotAliases, expectedAliases) {
+		t.Fatalf("backend aliases mismatch\nexpected: %v\ngot: %v", expectedAliases, gotAliases)
+	}
+
+	expectedClientCommands := sorted(ClientInvocableRuntimeCommandTypes())
+	gotClientCommands := sorted(phpStringListConst(t, backendCatalog, "CLIENT_RUNTIME_COMMANDS"))
+	if !stringSlicesEqual(gotClientCommands, expectedClientCommands) {
+		t.Fatalf("backend client runtime command classification mismatch\nmissing: %v\nextra: %v", missing(expectedClientCommands, gotClientCommands), missing(gotClientCommands, expectedClientCommands))
+	}
+
+	expectedInternalCommands := sorted(InternalOnlyCommandTypes())
+	gotInternalCommands := sorted(phpStringListConst(t, backendCatalog, "INTERNAL_RUNTIME_COMMANDS"))
+	if !stringSlicesEqual(gotInternalCommands, expectedInternalCommands) {
+		t.Fatalf("backend internal runtime command classification mismatch\nmissing: %v\nextra: %v", missing(expectedInternalCommands, gotInternalCommands), missing(gotInternalCommands, expectedInternalCommands))
+	}
+}
+
+func TestFinalRuntimeCommandCatalogIsExplicitlyClassified(t *testing.T) {
+	final := stringSet(FinalGameplayCommandTypes())
+	clientInvocable := stringSet(ClientInvocableRuntimeCommandTypes())
+	internalOnly := stringSet(InternalOnlyCommandTypes())
+
+	overlap := intersection(clientInvocable, internalOnly)
+	if len(overlap) > 0 {
+		t.Fatalf("commands classified as both client-invocable and internal-only: %v", overlap)
+	}
+
+	classified := map[string]bool{}
+	for commandType := range clientInvocable {
+		classified[commandType] = true
+	}
+	for commandType := range internalOnly {
+		classified[commandType] = true
+	}
+	if got := sortedSet(classified); !stringSlicesEqual(got, sortedSet(final)) {
+		t.Fatalf("final runtime commands must be classified exactly once\nmissing classification: %v\nunknown classification: %v", missing(sortedSet(final), got), missing(got, sortedSet(final)))
+	}
+}
+
 func TestFrontendEmittedCommandsAreRuntimeSupportedOrExplicitlyDisabled(t *testing.T) {
 	root := repoRoot(t)
 	commandTypes := map[string]bool{}
@@ -67,6 +117,46 @@ func TestFrontendEmittedCommandsAreRuntimeSupportedOrExplicitlyDisabled(t *testi
 	sort.Strings(unsupported)
 	if len(unsupported) > 0 {
 		t.Fatalf("frontend command types not covered by Go runtime or explicit disable list: %v", unsupported)
+	}
+}
+
+func TestFrontendRuntimePrimaryUICommandsAreWebSocketRouted(t *testing.T) {
+	root := repoRoot(t)
+	uiCommandTypes := canonicalSet(frontendGameCommandTypes(t, filepath.Join(root, "frontend/src/app/core/models/game.model.ts")))
+	websocketCommandTypes := canonicalSet(frontendWebSocketCommandTypes(t, filepath.Join(root, "frontend/src/app/features/game/game-table/services/game-table-websocket-gameplay.service.ts")))
+	clientInvocable := stringSet(ClientInvocableRuntimeCommandTypes())
+	internalOnly := stringSet(InternalOnlyCommandTypes())
+
+	missingFromWebSocket := []string{}
+	for commandType := range uiCommandTypes {
+		if IsExplicitNonRuntimeCommandType(commandType) {
+			continue
+		}
+		if internalOnly[commandType] {
+			t.Fatalf("frontend UI command %q is classified as internal-only runtime", commandType)
+		}
+		if !clientInvocable[commandType] {
+			t.Fatalf("frontend UI command %q is not classified as client-invocable runtime or explicit non-runtime", commandType)
+		}
+		if !websocketCommandTypes[commandType] {
+			missingFromWebSocket = append(missingFromWebSocket, commandType)
+		}
+	}
+	sort.Strings(missingFromWebSocket)
+	if len(missingFromWebSocket) > 0 {
+		t.Fatalf("frontend UI runtime-primary commands missing from WEBSOCKET_COMMANDS: %v", missingFromWebSocket)
+	}
+
+	for commandType := range websocketCommandTypes {
+		if IsExplicitNonRuntimeCommandType(commandType) {
+			continue
+		}
+		if internalOnly[commandType] {
+			t.Fatalf("frontend WEBSOCKET_COMMANDS exposes internal-only runtime command %q", commandType)
+		}
+		if !clientInvocable[commandType] {
+			t.Fatalf("frontend WEBSOCKET_COMMANDS contains unclassified runtime command %q", commandType)
+		}
 	}
 }
 
@@ -171,6 +261,44 @@ func frontendGameCommandTypes(t *testing.T, path string) []string {
 	return quotedStrings(content[start : start+end])
 }
 
+func phpStringListConst(t *testing.T, path string, constName string) []string {
+	t.Helper()
+	block := phpConstBlock(t, path, constName)
+	return quotedStrings(block)
+}
+
+func phpStringMapConst(t *testing.T, path string, constName string) map[string]string {
+	t.Helper()
+	values := quotedStrings(phpConstBlock(t, path, constName))
+	if len(values)%2 != 0 {
+		t.Fatalf("%s has odd string count for map const %s", path, constName)
+	}
+	out := map[string]string{}
+	for index := 0; index < len(values); index += 2 {
+		out[values[index]] = values[index+1]
+	}
+	return out
+}
+
+func phpConstBlock(t *testing.T, path string, constName string) string {
+	t.Helper()
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(contentBytes)
+	needle := "private const " + constName + " = ["
+	start := strings.Index(content, needle)
+	if start < 0 {
+		t.Fatalf("%s missing const %s", path, constName)
+	}
+	end := strings.Index(content[start:], "];")
+	if end < 0 {
+		t.Fatalf("%s has unterminated const %s", path, constName)
+	}
+	return content[start : start+end]
+}
+
 func frontendWebSocketCommandTypes(t *testing.T, path string) []string {
 	t.Helper()
 	contentBytes, err := os.ReadFile(path)
@@ -235,12 +363,33 @@ func sorted(items []string) []string {
 	return out
 }
 
+func sortedSet(items map[string]bool) []string {
+	out := make([]string, 0, len(items))
+	for item := range items {
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
+}
+
 func stringSlicesEqual(left []string, right []string) bool {
 	if len(left) != len(right) {
 		return false
 	}
 	for index := range left {
 		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func stringMapsEqual(left map[string]string, right map[string]string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, value := range left {
+		if right[key] != value {
 			return false
 		}
 	}
@@ -258,6 +407,34 @@ func missing(expected []string, actual []string) []string {
 			out = append(out, item)
 		}
 	}
+	return out
+}
+
+func stringSet(items []string) map[string]bool {
+	out := map[string]bool{}
+	for _, item := range items {
+		out[item] = true
+	}
+	return out
+}
+
+func canonicalSet(items []string) map[string]bool {
+	out := map[string]bool{}
+	for _, item := range items {
+		canonical, _ := CanonicalCommandType(item)
+		out[canonical] = true
+	}
+	return out
+}
+
+func intersection(left map[string]bool, right map[string]bool) []string {
+	out := []string{}
+	for item := range left {
+		if right[item] {
+			out = append(out, item)
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 

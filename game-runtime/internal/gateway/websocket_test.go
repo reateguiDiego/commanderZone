@@ -212,20 +212,32 @@ func TestWebSocketRejectsPlayerScopedCommandForDifferentSignedPlayer(t *testing.
 	}
 }
 
-func TestWebSocketRejectsInternalOnlyLifecycleCommand(t *testing.T) {
+func TestWebSocketRejectsInternalOnlyRuntimeCommands(t *testing.T) {
 	server, runtimeService := testWebSocketServer(t, "game-1", 128, 256)
 	defer server.Close()
 
 	conn := dialRuntime(t, server.URL, "game-1", 0, nil)
 	defer conn.Close()
 
-	writeCommand(t, conn, command("game-1", 1, "phase-direct", "game.phase.set", map[string]any{"phase": "FINISHED"}, nil))
-	message := readUntil(t, conn, "command_ack")
-	if message.Status != "rejected" || message.Error == nil || message.Error.Code != "PERMISSION_DENIED" {
-		t.Fatalf("message = %#v, want permission denied", message)
+	cases := []struct {
+		name        string
+		commandType string
+		payload     map[string]any
+	}{
+		{name: "phase", commandType: "game.phase.set", payload: map[string]any{"phase": "FINISHED"}},
+		{name: "bottomed", commandType: "mulligan.cards_bottomed", payload: map[string]any{"playerId": "p1", "bottomCardIds": []string{"h1"}}},
+		{name: "ready", commandType: "mulligan.ready", payload: map[string]any{"playerId": "p1"}},
+		{name: "completed", commandType: "mulligan.completed", payload: map[string]any{}},
 	}
-	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 1 {
-		t.Fatalf("rejected internal-only command changed actor version")
+	for _, tt := range cases {
+		writeCommand(t, conn, command("game-1", 1, "internal-"+tt.name, tt.commandType, tt.payload, nil))
+		message := readUntil(t, conn, "command_ack")
+		if message.Status != "rejected" || message.Error == nil || message.Error.Code != "PERMISSION_DENIED" {
+			t.Fatalf("%s message = %#v, want permission denied", tt.commandType, message)
+		}
+		if runtimeServiceActorVersion(t, runtimeService, "game-1") != 1 {
+			t.Fatalf("rejected internal-only command %s changed actor version", tt.commandType)
+		}
 	}
 }
 

@@ -309,19 +309,21 @@ func mapField(payload map[string]any, key string) map[string]any {
 
 func tokenPatchData(instance state.CardInstanceRuntime, name string, isCopy bool) map[string]any {
 	data := map[string]any{
-		"instanceId":   instance.InstanceID,
-		"ownerId":      instance.OwnerID,
-		"controllerId": instance.ControllerID,
-		"name":         name,
-		"cardKey":      instance.CardKey,
-		"printId":      instance.CardKey,
-		"cardVersion":  "runtime-identity-v1",
-		"zone":         state.ZoneBattlefield,
-		"isToken":      true,
-		"isTokenCopy":  isCopy,
-		"tokenMeta":    cloneMap(instance.TokenMeta),
-		"position":     cloneMap(instance.Position),
-		"counters":     cloneIntMap(instance.Counters),
+		"instanceId":       instance.InstanceID,
+		"ownerId":          instance.OwnerID,
+		"controllerId":     instance.ControllerID,
+		"name":             name,
+		"cardKey":          instance.CardKey,
+		"printId":          instance.CardKey,
+		"cardVersion":      "runtime-identity-v1",
+		"language":         "en",
+		"viewerVisibility": "public",
+		"zone":             state.ZoneBattlefield,
+		"isToken":          true,
+		"isTokenCopy":      isCopy,
+		"tokenMeta":        cloneMap(instance.TokenMeta),
+		"position":         cloneMap(instance.Position),
+		"counters":         cloneIntMap(instance.Counters),
 	}
 	for key, value := range instance.MutableStats {
 		data[key] = value

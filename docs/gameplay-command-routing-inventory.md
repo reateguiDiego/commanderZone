@@ -9,6 +9,7 @@ Evidence sources:
 - PHP WebSocket allowlist: `backend/src/Application/Game/WebSocket/GameWebsocketMessageHandler.php`.
 - PHP runtime alias catalog: `backend/src/Application/Game/Runtime/GameplayCommandCatalog.php`.
 - Go runtime appliers/catalog: `game-runtime/internal/actor/appliers.go` and `game-runtime/internal/actor/command_catalog.go`.
+- E2E routing helpers/gate: `frontend/e2e/support/runtime-websocket.ts`, `frontend/e2e/support/commander-game.ts`, `frontend/e2e/game-runtime-routing-helper.spec.ts`, `frontend/e2e/game-runtime-routing-static.spec.ts`.
 - Contract tests: `game-runtime/internal/actor/command_catalog_test.go`, `game-runtime/internal/actor/runtime_ops_test.go`, `game-runtime/internal/gateway/command_http_test.go`, `game-runtime/internal/gateway/websocket_test.go`, `backend/tests/Application/GameplayRuntimeRouterTest.php`, `backend/tests/Application/GameWebSocket/GameWebsocketCommandPatchServiceTest.php`.
 
 Legend:
@@ -41,11 +42,15 @@ Current fallback policy:
 ## Audit 4 Alignment And Permission Notes
 
 Catalog alignment:
-- PHP `GameplayCommandCatalog::finalRuntimeCommands()` and Go `actor.FinalGameplayCommandTypes()` both contain 52 canonical runtime-primary commands.
+- PHP `GameplayCommandCatalog::finalRuntimeCommands()` and Go `actor.FinalGameplayCommandTypes()` both contain 52 canonical final runtime commands.
+- PHP `GameplayCommandCatalog::clientRuntimeCommands()` and Go `actor.ClientInvocableRuntimeCommandTypes()` both classify 48 runtime-primary commands as directly client-invocable over runtime WS.
+- PHP `GameplayCommandCatalog::internalRuntimeCommands()` and Go `actor.InternalOnlyCommandTypes()` both classify 4 runtime commands as internal-only: `mulligan.cards_bottomed`, `mulligan.ready`, `mulligan.completed`, `game.phase.set`.
 - Alias maps match in PHP and Go: `zone.changed -> zone.reorderedByIds`, `mulligan.scry_confirm -> mulligan.scry.confirm`.
 - Frontend `GameCommandType` and WebSocket migrated command sets are covered by Go runtime appliers or the explicit non-runtime list (`chat.message`, `chat.reaction.toggled`, `disconnect.vote`).
-- Runtime-only commands remain intentionally absent from the public frontend union where they are produced by runtime services or protocol adapters: `library.put_top`, `library.put_bottom`, `mulligan.cards_bottomed`, `mulligan.ready`, `mulligan.completed`, `game.phase.set`.
-- Go runtime WS rejects direct client use of internal-only lifecycle commands `game.phase.set` and `mulligan.completed`; they remain available to internal runtime/replay paths.
+- `library.put_top` and `library.put_bottom` are client-invocable runtime WS commands used by release gates, but they are not currently emitted by the Angular UI command union.
+- Internal-only commands remain intentionally absent from the public frontend union because they are produced by runtime services or protocol adapters: `mulligan.cards_bottomed`, `mulligan.ready`, `mulligan.completed`, `game.phase.set`.
+- Go runtime WS rejects direct client use of internal-only commands `mulligan.cards_bottomed`, `mulligan.ready`, `mulligan.completed`, and `game.phase.set`; they remain available to internal runtime/replay paths.
+- Shared E2E helpers resolve mulligan/playing through runtime WS (`mulligan.keep`) and the static E2E gate rejects new `request.post(.../games/.../commands)` gameplay shortcuts.
 
 Runtime-primary permission policy:
 - `game.close`: requires signed `game.close` permission in PHP final path and Go runtime WS. Legacy/PHP compatible paths still validate room ownership.
@@ -76,8 +81,8 @@ Runtime-primary permission policy:
 | library.play_top_revealed | - | YES | YES | YES | YES | catalog, existing sensitive tests | YES | applier replay path | OK |
 | library.reorder_top | - | YES | YES | YES | YES | catalog, existing library tests | YES | existing replay tests | OK |
 | library.move_top | - | YES | YES | YES | YES | catalog, existing library tests | YES | existing replay tests | OK |
-| library.put_top | - | NO | PHP WS allowlist only | YES | YES | catalog, existing runtime ops tests | YES | existing replay path | OK runtime-only |
-| library.put_bottom | - | NO | PHP WS allowlist only | YES | YES | catalog, existing runtime ops tests | YES | existing replay path | OK runtime-only |
+| library.put_top | - | NO UI emit; YES E2E raw runtime WS | PHP WS allowlist only | YES | YES | catalog, existing runtime ops tests, edge E2E | YES | existing replay path | OK client runtime WS, not UI-emitted |
+| library.put_bottom | - | NO UI emit; YES E2E raw runtime WS | PHP WS allowlist only | YES | YES | catalog, existing runtime ops tests, edge E2E | YES | existing replay path | OK client runtime WS, not UI-emitted |
 | library.view | - | YES | YES | YES | YES | catalog, existing library tests | YES | existing replay tests | OK |
 | library.shuffle | - | YES | YES | YES | YES | catalog, existing library tests | YES | existing replay tests | OK |
 | card.token.created | - | YES | YES | YES | YES | catalog | N/A | applier replay path | OK |
@@ -103,11 +108,11 @@ Runtime-primary permission policy:
 | game.close | - | YES | YES | YES | YES | catalog | N/A | applier replay path | OK |
 | mulligan.take | - | YES special message | YES | YES | YES | catalog, existing mulligan tests | YES | existing mulligan replay tests | OK |
 | mulligan.keep | - | YES special message | YES | YES | YES | catalog, existing mulligan tests | YES | existing mulligan replay tests | OK |
-| mulligan.cards_bottomed | - | NO | NO legacy normal command | YES | YES | catalog, existing mulligan tests | YES | existing mulligan replay tests | OK runtime-only |
+| mulligan.cards_bottomed | - | NO | NO legacy normal command | Internal/replay only; direct WS rejected | YES | catalog, existing mulligan tests, Go WS reject test | YES | existing mulligan replay tests | OK internal-only |
 | mulligan.scry.confirm | mulligan.scry_confirm | YES special message | ADAPTER | YES | YES | catalog, PHP router, existing mulligan tests | YES | existing mulligan replay tests | OK with explicit alias |
-| mulligan.ready | - | NO | NO legacy normal command | YES | YES | catalog | YES | NO VERIFICABLE | OK runtime-only |
-| mulligan.completed | - | NO | NO legacy normal command | YES | YES | catalog, existing mulligan tests | YES | existing mulligan replay tests | OK runtime-only |
-| game.phase.set | - | NO | NO legacy normal command | YES | YES | catalog, existing normalized store tests | N/A | existing mulligan replay tests | OK runtime-only |
+| mulligan.ready | - | NO | NO legacy normal command | Internal/replay only; direct WS rejected | YES | catalog, Go WS reject test | YES | NO VERIFICABLE | OK internal-only |
+| mulligan.completed | - | NO | NO legacy normal command | Internal/replay only; direct WS rejected | YES | catalog, existing mulligan tests, Go WS reject test | YES | existing mulligan replay tests | OK internal-only |
+| game.phase.set | - | NO | NO legacy normal command | Internal/replay only; direct WS rejected | YES | catalog, existing normalized store tests, Go WS reject test | N/A | existing mulligan replay tests | OK internal-only |
 | chat.message | - | YES | YES stream path | Explicitly disabled | NO actor patch | frontend catalog test | N/A | N/A | Explicitly disabled |
 | chat.reaction.toggled | - | YES | YES stream path | Explicitly disabled | NO actor patch | frontend catalog test | N/A | N/A | Explicitly disabled |
 | disconnect.vote | - | YES | YES service path | Explicitly disabled | NO actor patch | frontend catalog test | N/A | runtime replay ignored | Explicitly disabled |

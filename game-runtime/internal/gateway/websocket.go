@@ -698,12 +698,7 @@ func canReceive(claims TicketClaims, visibility protocol.Visibility) bool {
 }
 
 func isInternalOnlyWebSocketCommand(commandType string) bool {
-	switch commandType {
-	case "game.phase.set", "mulligan.completed":
-		return true
-	default:
-		return false
-	}
+	return actor.IsInternalOnlyCommandType(commandType)
 }
 
 func hasRole(claims TicketClaims, role string) bool {
