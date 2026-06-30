@@ -82,6 +82,10 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	gameActor, _, err := s.runtime.LoadActorRecovered(r.Context(), request.Command.GameID, initial)
 	if err != nil {
+		if errors.Is(err, runtimesvc.ErrOwnershipNotHeld) {
+			writeCommandHTTPError(w, http.StatusConflict, "ownership_not_held", err.Error())
+			return
+		}
 		writeCommandHTTPError(w, http.StatusInternalServerError, "actor_recovery_failed", err.Error())
 		return
 	}
@@ -101,6 +105,9 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(result.Err, actor.ErrRuntimePatchReceiptMissing) {
 			code = "patch_receipt_missing"
+		}
+		if errors.Is(result.Err, runtimesvc.ErrOwnershipNotHeld) {
+			code = "ownership_not_held"
 		}
 		writeCommandHTTPError(w, status, code, result.Err.Error())
 		return
@@ -165,6 +172,15 @@ func mergeRuntimeMetrics(metrics map[string]any, runtimeMetrics runtimesvc.Runti
 	metrics["runtime.actor_recovered_event_count"] = runtimeMetrics.ActorRecoveredEventCount
 	metrics["runtime.actor_cache_hit_count"] = runtimeMetrics.ActorCacheHitCount
 	metrics["runtime.actor_cache_miss_count"] = runtimeMetrics.ActorCacheMissCount
+	metrics["runtime.instance_id"] = runtimeMetrics.RuntimeInstanceID
+	metrics["runtime.ownership_mode"] = runtimeMetrics.RuntimeOwnershipMode
+	metrics["runtime.ownership_acquire_count"] = runtimeMetrics.OwnershipAcquireCount
+	metrics["runtime.ownership_renew_count"] = runtimeMetrics.OwnershipRenewCount
+	metrics["runtime.ownership_reject_count"] = runtimeMetrics.OwnershipRejectCount
+	metrics["runtime.ownership_release_count"] = runtimeMetrics.OwnershipReleaseCount
+	metrics["runtime.ownership_lost_count"] = runtimeMetrics.OwnershipLostCount
+	metrics["runtime.ownership_stolen_count"] = runtimeMetrics.OwnershipStolenCount
+	metrics["runtime.ownership_expired_count"] = runtimeMetrics.OwnershipExpiredCount
 	metrics["command.runtime_coverage_percent"] = runtimeMetrics.CommandRuntimeCoveragePct
 	metrics["command.legacy_fallback_count"] = runtimeMetrics.CommandLegacyFallbackCount
 	return metrics

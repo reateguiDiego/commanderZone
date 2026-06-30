@@ -124,19 +124,43 @@ func ticketValidatorFromEnv(logger *slog.Logger) gateway.TicketValidator {
 }
 
 func runtimeServiceFromEnv(logger *slog.Logger) (*runtimesvc.Service, func() error) {
+	instanceID := strings.TrimSpace(os.Getenv("GAME_RUNTIME_INSTANCE_ID"))
+	if instanceID == "" {
+		instanceID = runtimesvc.DefaultRuntimeInstanceID()
+	}
+	ownershipMode := strings.ToLower(strings.TrimSpace(os.Getenv("GAME_RUNTIME_OWNERSHIP_MODE")))
+	if ownershipMode == "" {
+		ownershipMode = "single-node"
+	}
+	if ownershipMode != "single-node" && ownershipMode != "postgres-lease" {
+		logger.Error("unsupported game runtime ownership mode; refusing to start without fencing", "mode", ownershipMode, "instanceId", instanceID)
+		os.Exit(1)
+	}
 	mode := strings.ToLower(strings.TrimSpace(os.Getenv("GAME_RUNTIME_PERSISTENCE")))
 	if mode == "" {
 		mode = "memory"
 	}
 	if mode != "postgres" {
+		if ownershipMode == "postgres-lease" {
+			logger.Error("postgres lease ownership requires GAME_RUNTIME_PERSISTENCE=postgres", "mode", mode, "instanceId", instanceID)
+			os.Exit(1)
+		}
 		logger.Info("using in-memory runtime persistence", "mode", mode)
-		return runtimesvc.NewService(), func() error { return nil }
+		serviceOptions := []runtimesvc.ServiceOption{
+			runtimesvc.WithInstanceID(instanceID),
+			runtimesvc.WithOwnershipManager(runtimesvc.NewSingleNodeOwnershipManager()),
+			runtimesvc.WithLogger(logger),
+		}
+		logger.Info("game runtime ownership policy", "mode", ownershipMode, "instanceId", instanceID)
+		return runtimesvc.NewServiceWithStoreAndOptions(persistence.NewInMemoryEventStore(), 128, nil, serviceOptions...), func() error { return nil }
 	}
-	store, err := persistence.NewPostgresEventStore(normalizePostgresURL(os.Getenv("DATABASE_URL")))
+	databaseURL := normalizePostgresURL(os.Getenv("DATABASE_URL"))
+	store, err := persistence.NewPostgresEventStore(databaseURL)
 	if err != nil {
 		logger.Error("postgres runtime persistence configuration failed", "error", err)
 		os.Exit(1)
 	}
+	closePersistence := func() error { return store.Close() }
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := store.Ping(ctx); err != nil {
@@ -144,7 +168,64 @@ func runtimeServiceFromEnv(logger *slog.Logger) (*runtimesvc.Service, func() err
 		os.Exit(1)
 	}
 	logger.Info("using postgres runtime persistence")
-	return runtimesvc.NewServiceWithStore(store, 128, nil), store.Close
+
+	ownership := runtimesvc.OwnershipManager(runtimesvc.NewSingleNodeOwnershipManager())
+	renewBefore := 5 * time.Second
+	if ownershipMode == "postgres-lease" {
+		leaseTTL := envDuration(os.Getenv("GAME_RUNTIME_OWNERSHIP_LEASE_TTL"), 15*time.Second)
+		renewBefore = envDuration(os.Getenv("GAME_RUNTIME_OWNERSHIP_RENEW_BEFORE"), defaultRenewBefore(leaseTTL))
+		manager, err := runtimesvc.NewPostgresOwnershipManager(databaseURL, leaseTTL)
+		if err != nil {
+			logger.Error("postgres runtime ownership configuration failed", "error", err)
+			os.Exit(1)
+		}
+		closeStore := closePersistence
+		closePersistence = func() error {
+			storeErr := closeStore()
+			managerErr := manager.Close()
+			if storeErr != nil {
+				return storeErr
+			}
+			return managerErr
+		}
+		if err := manager.Ping(ctx); err != nil {
+			logger.Error("postgres runtime ownership ping failed", "error", err)
+			os.Exit(1)
+		}
+		if err := manager.CheckSchema(ctx); err != nil {
+			logger.Error("postgres runtime ownership schema check failed", "error", err)
+			os.Exit(1)
+		}
+		ownership = manager
+		logger.Info("using postgres runtime ownership lease", "ttl", leaseTTL.String(), "renewBefore", renewBefore.String())
+	}
+	serviceOptions := []runtimesvc.ServiceOption{
+		runtimesvc.WithInstanceID(instanceID),
+		runtimesvc.WithOwnershipManager(ownership),
+		runtimesvc.WithOwnershipRenewBefore(renewBefore),
+		runtimesvc.WithLogger(logger),
+	}
+	logger.Info("game runtime ownership policy", "mode", ownershipMode, "instanceId", instanceID)
+	return runtimesvc.NewServiceWithStoreAndOptions(store, 128, nil, serviceOptions...), closePersistence
+}
+
+func envDuration(value string, fallback time.Duration) time.Duration {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	duration, err := time.ParseDuration(value)
+	if err != nil || duration <= 0 {
+		return fallback
+	}
+	return duration
+}
+
+func defaultRenewBefore(ttl time.Duration) time.Duration {
+	if ttl <= 2*time.Second {
+		return ttl / 2
+	}
+	return ttl / 3
 }
 
 func normalizePostgresURL(databaseURL string) string {

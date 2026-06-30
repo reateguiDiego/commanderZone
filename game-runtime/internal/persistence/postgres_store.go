@@ -97,6 +97,69 @@ VALUES ($1, $2, $3, $4, $5::json, $6, $7, $8, $8)
 	return nil
 }
 
+func (s *PostgresEventStore) AppendEventWithFence(ctx context.Context, event protocol.EventPayloadV2, fence FencingToken) error {
+	if err := event.Validate(); err != nil {
+		return err
+	}
+	if !fence.Required {
+		return s.AppendEvent(ctx, event)
+	}
+	if strings.TrimSpace(fence.GameID) == "" ||
+		strings.TrimSpace(fence.OwnerInstanceID) == "" ||
+		fence.Token == 0 ||
+		fence.GameID != event.GameID {
+		return ErrOwnershipNotHeld
+	}
+
+	start := time.Now()
+	payload, err := json.Marshal(event.Payload)
+	if err != nil {
+		return err
+	}
+	createdBy := sql.NullString{}
+	if event.CreatedBy != "" {
+		createdBy = sql.NullString{String: event.CreatedBy, Valid: true}
+	}
+	clientActionID := sql.NullString{}
+	if event.ClientActionID != "" {
+		clientActionID = sql.NullString{String: event.ClientActionID, Valid: true}
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	result, err := tx.ExecContext(ctx, `
+INSERT INTO game_event (id, game_id, created_by_id, type, payload, version, client_action_id, created_at, updated_at)
+SELECT $1::varchar, $2::varchar, $3::varchar, $4::varchar, $5::json, $6::int, $7::varchar, $8::timestamp, $8::timestamp
+WHERE EXISTS (
+	SELECT 1
+	FROM game_runtime_lease
+	WHERE game_id = $2
+	  AND owner_instance_id = $9
+	  AND fencing_token = $10
+	  AND expires_at > $11
+)
+`, newUUID(), event.GameID, createdBy, event.Type, string(payload), event.Version, clientActionID, event.CreatedAt, fence.OwnerInstanceID, int64(fence.Token), time.Now().UTC())
+	if err != nil {
+		return mapPostgresConstraintError(err, event.GameID, event.Version, event.ClientActionID)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows != 1 {
+		return ErrOwnershipNotHeld
+	}
+	if err := tx.Commit(); err != nil {
+		return mapPostgresConstraintError(err, event.GameID, event.Version, event.ClientActionID)
+	}
+	s.recordAppendDuration(time.Since(start))
+	return nil
+}
+
 func (s *PostgresEventStore) EventByClientActionID(ctx context.Context, gameID string, clientActionID string) (protocol.EventPayloadV2, bool, error) {
 	if clientActionID == "" {
 		return protocol.EventPayloadV2{}, false, nil

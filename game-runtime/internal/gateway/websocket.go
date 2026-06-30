@@ -382,6 +382,10 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 
 	gameActor, _, err := s.runtime.LoadActorRecovered(ctx, command.GameID, nil)
 	if err != nil {
+		if errors.Is(err, runtimesvc.ErrOwnershipNotHeld) {
+			s.sendJSON(client, commandRejectedMessage(command, "OWNERSHIP_NOT_HELD", err.Error(), false))
+			return
+		}
 		s.sendJSON(client, commandRejectedMessage(command, "ACTOR_RECOVERY_FAILED", err.Error(), true))
 		return
 	}
@@ -395,6 +399,10 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 		}
 		if errors.Is(result.Err, actor.ErrRuntimePatchReceiptMissing) {
 			s.sendJSON(client, commandResyncRequiredMessage(command, gameActor.Version(), "PATCH_RECEIPT_MISSING", result.Err.Error(), false))
+			return
+		}
+		if errors.Is(result.Err, runtimesvc.ErrOwnershipNotHeld) {
+			s.sendJSON(client, commandRejectedMessage(command, "OWNERSHIP_NOT_HELD", result.Err.Error(), false))
 			return
 		}
 		s.sendJSON(client, commandRejectedMessage(command, "COMMAND_FAILED", result.Err.Error(), false))

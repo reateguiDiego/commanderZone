@@ -203,6 +203,73 @@ func TestCommandHTTPServerDuplicateActionReturnsExistingEventAndMetric(t *testin
 	}
 }
 
+func TestCommandHTTPServerRejectsCommandWhenOwnershipNotHeld(t *testing.T) {
+	gameID := "game-http-owned"
+	initial := runtimeMulliganState(gameID, "player-1")
+	store := persistence.NewInMemoryEventStore()
+	saveHTTPRuntimeSnapshot(t, store, initial)
+	ownership := runtimesvc.NewInMemoryOwnershipManager("test-shared-in-memory", 0)
+	firstRuntime := runtimesvc.NewServiceWithStoreAndOptions(store, 8, actor.DefaultAppliers(), runtimesvc.WithInstanceID("node-a"), runtimesvc.WithOwnershipManager(ownership))
+	secondRuntime := runtimesvc.NewServiceWithStoreAndOptions(store, 8, actor.DefaultAppliers(), runtimesvc.WithInstanceID("node-b"), runtimesvc.WithOwnershipManager(ownership))
+	defer shutdownHTTPRuntime(t, firstRuntime)
+	defer shutdownHTTPRuntime(t, secondRuntime)
+	firstServer := NewCommandHTTPServer(firstRuntime)
+	secondServer := NewCommandHTTPServer(secondRuntime)
+
+	first := commandHTTP(t, firstServer, CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         gameID,
+			BaseVersion:    1,
+			ClientActionID: "take-owned",
+			Type:           "mulligan.take",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+	if first.Event.Version != 2 {
+		t.Fatalf("first event version got %d want 2", first.Event.Version)
+	}
+
+	body, err := json.Marshal(CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         gameID,
+			BaseVersion:    first.Event.Version,
+			ClientActionID: "keep-wrong-node",
+			Type:           "mulligan.keep",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/commands", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	secondServer.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var response CommandHTTPResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != "ownership_not_held" {
+		t.Fatalf("code got %q want ownership_not_held; body=%s", response.Code, recorder.Body.String())
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+	metrics := secondRuntime.RuntimeMetrics()
+	if metrics.OwnershipRejectCount != 1 || metrics.CommandLegacyFallbackCount != 0 {
+		t.Fatalf("second runtime metrics mismatch: %#v", metrics)
+	}
+}
+
 func TestCommandHTTPServerDuplicateLegacyEventMissingReceiptReturnsExplicitError(t *testing.T) {
 	initial := runtimeMulliganState("game-legacy-receipt", "player-1")
 	store := persistence.NewInMemoryEventStore()
@@ -435,6 +502,9 @@ func TestMetricsHTTPServerExposesActorQueueMetrics(t *testing.T) {
 	if response.Runtime.CommandRuntimeCoveragePct != 100 {
 		t.Fatalf("command.runtime_coverage_percent got %v want 100", response.Runtime.CommandRuntimeCoveragePct)
 	}
+	if response.Runtime.RuntimeOwnershipMode == "" || response.Runtime.OwnershipAcquireCount != 1 {
+		t.Fatalf("ownership metrics missing from response: %#v", response.Runtime)
+	}
 	if response.Gateway == nil ||
 		response.Gateway.PatchReplayMemoryCount != 2 ||
 		response.Gateway.PatchReplayDurableCount != 1 ||
@@ -526,5 +596,14 @@ func saveHTTPRuntimeSnapshot(t *testing.T, store *persistence.InMemoryEventStore
 	}
 	if err := store.SaveSnapshot(context.Background(), snapshot); err != nil {
 		t.Fatalf("save snapshot: %v", err)
+	}
+}
+
+func shutdownHTTPRuntime(t *testing.T, runtimeService *runtimesvc.Service) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := runtimeService.Shutdown(ctx); err != nil {
+		t.Fatalf("shutdown failed: %v", err)
 	}
 }

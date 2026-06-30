@@ -111,6 +111,7 @@ services:
         GO_BUILD_IMAGE: ${GAME_RUNTIME_GO_BUILD_IMAGE:-golang:1.22.12-bookworm}
     environment:
       GAME_RUNTIME_LISTEN: ${GAME_RUNTIME_LISTEN:-0.0.0.0:8091}
+      GAME_RUNTIME_OWNERSHIP_MODE: ${GAME_RUNTIME_OWNERSHIP_MODE:-single-node}
       # Use a runtime-specific DB URL so local runtime never inherits production DATABASE_URL.
       GAME_RUNTIME_PERSISTENCE: ${GAME_RUNTIME_PERSISTENCE:-postgres}
       DATABASE_URL: ${GAME_RUNTIME_DATABASE_URL:-postgresql://commanderzone:commanderzone@database:5432/commanderzone}

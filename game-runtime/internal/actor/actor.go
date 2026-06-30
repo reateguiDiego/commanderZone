@@ -70,6 +70,7 @@ type GameActor struct {
 	snapshotPolicy      SnapshotPolicy
 	eventsSinceSnapshot int
 	lastSnapshotAt      time.Time
+	commandGuard        func(context.Context) (persistence.FencingToken, error)
 }
 
 type ActorMetrics struct {
@@ -98,6 +99,12 @@ type ActorMetrics struct {
 
 func NewGameActor(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier) *GameActor {
 	return NewGameActorWithSnapshotPolicy(gameID, initial, store, queueSize, appliers, DefaultSnapshotPolicy())
+}
+
+func NewGameActorWithCommandGuard(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier, guard func(context.Context) (persistence.FencingToken, error)) *GameActor {
+	gameActor := NewGameActor(gameID, initial, store, queueSize, appliers)
+	gameActor.commandGuard = guard
+	return gameActor
 }
 
 func NewGameActorWithSnapshotPolicy(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier, snapshotPolicy SnapshotPolicy) *GameActor {
@@ -272,6 +279,14 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	if !request.EnqueuedAt.IsZero() {
 		queueWait = startedAt.Sub(request.EnqueuedAt)
 	}
+	var fence persistence.FencingToken
+	if a.commandGuard != nil {
+		var err error
+		fence, err = a.commandGuard(ctx)
+		if err != nil {
+			return a.rejectedResult(err, queueWait, startedAt)
+		}
+	}
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
 
@@ -365,7 +380,27 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		return a.rejectedResult(err, queueWait, startedAt)
 	}
 	if a.store != nil {
-		if err := a.store.AppendEvent(ctx, eventWithRuntimePatchReceipt(event, patches)); err != nil {
+		appendEvent := eventWithRuntimePatchReceipt(event, patches)
+		if a.commandGuard != nil {
+			var err error
+			fence, err = a.commandGuard(ctx)
+			if err != nil {
+				rollback.Restore(a.state)
+				return a.rejectedResult(err, queueWait, startedAt)
+			}
+		}
+		var err error
+		if fence.Required {
+			fencedStore, ok := a.store.(persistence.FencedEventStore)
+			if !ok {
+				err = persistence.ErrOwnershipNotHeld
+			} else {
+				err = fencedStore.AppendEventWithFence(ctx, appendEvent, fence)
+			}
+		} else {
+			err = a.store.AppendEvent(ctx, appendEvent)
+		}
+		if err != nil {
 			rollback.Restore(a.state)
 			if isRecoverableDuplicateAppend(err) && command.ClientActionID != "" {
 				result, ok, lookupErr := a.storedDuplicateResult(ctx, command, request.ActorID)

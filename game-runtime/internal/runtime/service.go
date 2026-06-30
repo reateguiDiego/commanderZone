@@ -3,7 +3,10 @@ package runtime
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"sync"
+	"time"
 
 	"commanderzone/game-runtime/internal/actor"
 	"commanderzone/game-runtime/internal/persistence"
@@ -17,9 +20,15 @@ type Service struct {
 	mu        sync.RWMutex
 	actors    map[string]*actor.GameActor
 	cancels   map[string]context.CancelFunc
+	leases    map[string]OwnershipLease
 	store     persistence.EventStore
 	queueSize int
 	appliers  []actor.Applier
+
+	instanceID  string
+	ownership   OwnershipManager
+	logger      *slog.Logger
+	renewBefore time.Duration
 
 	metricsMu sync.RWMutex
 	metrics   RuntimeMetrics
@@ -40,6 +49,49 @@ type RuntimeMetrics struct {
 	ActorCacheMissCount         int64   `json:"runtime.actor_cache_miss_count"`
 	CommandRuntimeCoveragePct   float64 `json:"command.runtime_coverage_percent"`
 	CommandLegacyFallbackCount  int64   `json:"command.legacy_fallback_count"`
+	RuntimeInstanceID           string  `json:"runtime.instance_id,omitempty"`
+	RuntimeOwnershipMode        string  `json:"runtime.ownership_mode,omitempty"`
+	OwnershipAcquireCount       int64   `json:"runtime.ownership_acquire_count"`
+	OwnershipRenewCount         int64   `json:"runtime.ownership_renew_count"`
+	OwnershipRejectCount        int64   `json:"runtime.ownership_reject_count"`
+	OwnershipReleaseCount       int64   `json:"runtime.ownership_release_count"`
+	OwnershipLostCount          int64   `json:"runtime.ownership_lost_count"`
+	OwnershipStolenCount        int64   `json:"runtime.ownership_stolen_count"`
+	OwnershipExpiredCount       int64   `json:"runtime.ownership_expired_count"`
+}
+
+type ServiceOption func(*Service)
+
+func WithInstanceID(instanceID string) ServiceOption {
+	return func(s *Service) {
+		if instanceID != "" {
+			s.instanceID = instanceID
+		}
+	}
+}
+
+func WithOwnershipManager(ownership OwnershipManager) ServiceOption {
+	return func(s *Service) {
+		if ownership != nil {
+			s.ownership = ownership
+		}
+	}
+}
+
+func WithLogger(logger *slog.Logger) ServiceOption {
+	return func(s *Service) {
+		if logger != nil {
+			s.logger = logger
+		}
+	}
+}
+
+func WithOwnershipRenewBefore(duration time.Duration) ServiceOption {
+	return func(s *Service) {
+		if duration > 0 {
+			s.renewBefore = duration
+		}
+	}
 }
 
 func NewService() *Service {
@@ -47,24 +99,52 @@ func NewService() *Service {
 }
 
 func NewServiceWithStore(store persistence.EventStore, queueSize int, appliers []actor.Applier) *Service {
+	return NewServiceWithStoreAndOptions(store, queueSize, appliers)
+}
+
+func NewServiceWithStoreAndOptions(store persistence.EventStore, queueSize int, appliers []actor.Applier, opts ...ServiceOption) *Service {
 	if queueSize < 1 {
 		queueSize = 1
 	}
 	if len(appliers) == 0 {
 		appliers = actor.DefaultAppliers()
 	}
-	return &Service{
-		actors:    map[string]*actor.GameActor{},
-		cancels:   map[string]context.CancelFunc{},
-		store:     store,
-		queueSize: queueSize,
-		appliers:  appliers,
+	service := &Service{
+		actors:      map[string]*actor.GameActor{},
+		cancels:     map[string]context.CancelFunc{},
+		leases:      map[string]OwnershipLease{},
+		store:       store,
+		queueSize:   queueSize,
+		appliers:    appliers,
+		instanceID:  DefaultRuntimeInstanceID(),
+		ownership:   NewSingleNodeOwnershipManager(),
+		logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+		renewBefore: 5 * time.Second,
 	}
+	for _, opt := range opts {
+		opt(service)
+	}
+	if service.instanceID == "" {
+		service.instanceID = DefaultRuntimeInstanceID()
+	}
+	if service.ownership == nil {
+		service.ownership = NewSingleNodeOwnershipManager()
+	}
+	if service.logger == nil {
+		service.logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	if service.renewBefore <= 0 {
+		service.renewBefore = 5 * time.Second
+	}
+	return service
 }
 
 func (s *Service) RegisterActor(gameID string, actor *actor.GameActor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.acquireOwnershipLocked(context.Background(), gameID); err != nil {
+		return
+	}
 	s.actors[gameID] = actor
 }
 
@@ -82,23 +162,41 @@ func (s *Service) LoadActorRecovered(ctx context.Context, gameID string, initial
 	defer s.mu.Unlock()
 
 	if gameActor, ok := s.actors[gameID]; ok {
+		if err := s.ensureOwnershipLocked(ctx, gameID); err != nil {
+			return nil, false, err
+		}
 		s.recordActorCacheHit()
 		return gameActor, false, nil
 	}
 	s.recordActorCacheMiss()
+	if err := s.acquireOwnershipLocked(ctx, gameID); err != nil {
+		return nil, false, err
+	}
 	recovered, err := s.recoverState(ctx, gameID, initial)
 	if err != nil {
+		s.releaseOwnershipLocked(context.Background(), gameID)
 		return nil, false, err
 	}
 	// Actor lifetime must outlive the HTTP request that created it; request
 	// contexts are only used for recovery/loading and are canceled after the
 	// response is written.
 	actorCtx, cancel := context.WithCancel(context.Background())
-	gameActor := actor.NewGameActor(gameID, recovered, s.store, s.queueSize, s.appliers)
+	gameActor := actor.NewGameActorWithCommandGuard(gameID, recovered, s.store, s.queueSize, s.appliers, s.commandOwnershipGuard(gameID))
 	s.actors[gameID] = gameActor
 	s.cancels[gameID] = cancel
 	gameActor.Start(actorCtx)
 	return gameActor, true, nil
+}
+
+func (s *Service) InstanceID() string {
+	return s.instanceID
+}
+
+func (s *Service) OwnershipMode() string {
+	if s.ownership == nil {
+		return ""
+	}
+	return s.ownership.Mode()
 }
 
 func (s *Service) recoverState(ctx context.Context, gameID string, initial *state.GameState) (state.GameState, error) {
@@ -224,6 +322,8 @@ func (s *Service) RuntimeMetrics() RuntimeMetrics {
 	metrics := s.metrics
 	metrics.CommandRuntimeCoveragePct = actor.CommandRuntimeCoveragePercent(s.appliers, actor.FinalGameplayCommandTypes())
 	metrics.CommandLegacyFallbackCount = 0
+	metrics.RuntimeInstanceID = s.instanceID
+	metrics.RuntimeOwnershipMode = s.OwnershipMode()
 	return metrics
 }
 
@@ -261,16 +361,22 @@ func (s *Service) StopActor(ctx context.Context, gameID string) error {
 	s.mu.Lock()
 	gameActor, ok := s.actors[gameID]
 	cancel := s.cancels[gameID]
+	lease := s.leases[gameID]
 	delete(s.actors, gameID)
 	delete(s.cancels, gameID)
 	s.mu.Unlock()
 	if !ok {
+		s.releaseOwnership(ctx, gameID, lease)
 		return nil
 	}
 	if cancel != nil {
 		cancel()
 	}
-	return gameActor.Stop(ctx)
+	if err := gameActor.Stop(ctx); err != nil {
+		return err
+	}
+	s.releaseOwnership(ctx, gameID, lease)
+	return nil
 }
 
 func EmptyInitialState(gameID string) state.GameState {
@@ -305,4 +411,181 @@ func (s *Service) Shutdown(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (s *Service) acquireOwnershipLocked(ctx context.Context, gameID string) error {
+	result, err := s.ownership.Acquire(ctx, gameID, s.instanceID)
+	if err != nil {
+		s.recordOwnershipRejected()
+		s.logger.Warn("runtime ownership acquire rejected", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "error", err)
+		return err
+	}
+	s.leases[gameID] = result.Lease
+	s.recordOwnershipAcquired()
+	if result.Stolen {
+		s.recordOwnershipStolen()
+	}
+	if result.Renewed {
+		s.recordOwnershipRenewed()
+	}
+	if result.Expired {
+		s.recordOwnershipExpired()
+	}
+	s.logger.Info("runtime ownership acquired", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "token", result.Lease.Token, "reacquired", result.Reacquired, "stolen", result.Stolen, "expired", result.Expired)
+	return nil
+}
+
+func (s *Service) ensureOwnershipLocked(ctx context.Context, gameID string) error {
+	lease, ok := s.leases[gameID]
+	if !ok {
+		err := errors.New("runtime actor has no ownership lease")
+		wrapped := errors.Join(ErrOwnershipNotHeld, err)
+		s.recordOwnershipRejected()
+		s.recordOwnershipLost()
+		s.logger.Warn("runtime ownership missing for registered actor", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "error", err)
+		return wrapped
+	}
+	if err := s.ownership.EnsureHeld(ctx, lease); err != nil {
+		s.recordOwnershipRejected()
+		if errors.Is(err, ErrOwnershipNotHeld) {
+			s.recordOwnershipLost()
+		}
+		s.logger.Warn("runtime ownership not held", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "token", lease.Token, "error", err)
+		return err
+	}
+	return nil
+}
+
+func (s *Service) commandOwnershipGuard(gameID string) func(context.Context) (persistence.FencingToken, error) {
+	return func(ctx context.Context) (persistence.FencingToken, error) {
+		s.mu.RLock()
+		lease, ok := s.leases[gameID]
+		s.mu.RUnlock()
+		if !ok {
+			err := errors.Join(ErrOwnershipNotHeld, errors.New("runtime actor has no ownership lease"))
+			s.recordOwnershipRejected()
+			s.recordOwnershipLost()
+			s.logger.Warn("runtime ownership missing before command", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "error", err)
+			return persistence.FencingToken{}, err
+		}
+		if err := s.ownership.EnsureHeld(ctx, lease); err != nil {
+			s.recordOwnershipRejected()
+			if errors.Is(err, ErrOwnershipNotHeld) {
+				s.recordOwnershipLost()
+			}
+			s.logger.Warn("runtime ownership not held before command", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "token", lease.Token, "error", err)
+			return persistence.FencingToken{}, err
+		}
+		if s.shouldRenewLease(lease) {
+			renewed, err := s.ownership.Renew(ctx, lease)
+			if err != nil {
+				s.recordOwnershipRejected()
+				if errors.Is(err, ErrOwnershipNotHeld) {
+					s.recordOwnershipLost()
+				}
+				s.logger.Warn("runtime ownership renew failed before command", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "token", lease.Token, "error", err)
+				return persistence.FencingToken{}, err
+			}
+			s.mu.Lock()
+			if current, ok := s.leases[gameID]; ok && current.Token == lease.Token {
+				s.leases[gameID] = renewed
+				lease = renewed
+			}
+			s.mu.Unlock()
+			s.recordOwnershipRenewed()
+			s.logger.Debug("runtime ownership renewed before command", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "token", lease.Token, "expiresAt", lease.ExpiresAt)
+		}
+		return persistence.FencingToken{
+			GameID:          lease.GameID,
+			OwnerInstanceID: lease.OwnerID,
+			Token:           lease.Token,
+			Required:        s.OwnershipMode() == "postgres-lease",
+		}, nil
+	}
+}
+
+func (s *Service) shouldRenewLease(lease OwnershipLease) bool {
+	if lease.ExpiresAt.IsZero() {
+		return false
+	}
+	return time.Until(lease.ExpiresAt) <= s.renewBefore
+}
+
+func (s *Service) releaseOwnershipLocked(ctx context.Context, gameID string) {
+	lease := s.leases[gameID]
+	delete(s.leases, gameID)
+	if lease.GameID == "" {
+		return
+	}
+	if err := s.ownership.Release(ctx, lease); err != nil {
+		if errors.Is(err, ErrOwnershipNotHeld) {
+			s.recordOwnershipLost()
+		}
+		s.logger.Warn("runtime ownership release failed", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "token", lease.Token, "error", err)
+		return
+	}
+	s.recordOwnershipReleased()
+	s.logger.Info("runtime ownership released", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "token", lease.Token)
+}
+
+func (s *Service) releaseOwnership(ctx context.Context, gameID string, lease OwnershipLease) {
+	if lease.GameID == "" {
+		return
+	}
+	if err := s.ownership.Release(ctx, lease); err != nil {
+		if errors.Is(err, ErrOwnershipNotHeld) {
+			s.recordOwnershipLost()
+		}
+		s.logger.Warn("runtime ownership release failed", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "token", lease.Token, "error", err)
+	} else {
+		s.recordOwnershipReleased()
+		s.logger.Info("runtime ownership released", "gameId", gameID, "instanceId", s.instanceID, "mode", s.OwnershipMode(), "token", lease.Token)
+	}
+	s.mu.Lock()
+	if current, ok := s.leases[gameID]; ok && current.Token == lease.Token {
+		delete(s.leases, gameID)
+	}
+	s.mu.Unlock()
+}
+
+func (s *Service) recordOwnershipAcquired() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.OwnershipAcquireCount++
+}
+
+func (s *Service) recordOwnershipRejected() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.OwnershipRejectCount++
+}
+
+func (s *Service) recordOwnershipRenewed() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.OwnershipRenewCount++
+}
+
+func (s *Service) recordOwnershipReleased() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.OwnershipReleaseCount++
+}
+
+func (s *Service) recordOwnershipLost() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.OwnershipLostCount++
+}
+
+func (s *Service) recordOwnershipStolen() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.OwnershipStolenCount++
+}
+
+func (s *Service) recordOwnershipExpired() {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.OwnershipExpiredCount++
 }

@@ -12,11 +12,11 @@ The service exposes the runtime WebSocket, HTTP command endpoint, metrics, V2 pr
 - `internal/actor`: single-writer game actor, applier interface, patch emitter.
 - `internal/persistence`: append-only event and compact snapshot store interfaces.
 - `internal/gateway`: runtime ticket validation and command routing interfaces.
-- `internal/runtime`: actor registry/service orchestration.
+- `internal/runtime`: actor registry/service orchestration and ownership guardrails.
 
 ## Current Scope
 
-No production WebSocket server is implemented in this skeleton. The gateway package defines the integration seam so the actual transport can be added without coupling command application to HTTP or a specific WebSocket library.
+The runtime exposes `/ws`, `/commands`, `/metrics`, `/healthz`, and `/readyz` for the migrated gameplay hot path. It remains a manual Commander table runtime, not a complete Magic rules engine.
 
 The first actor implementation supports:
 
@@ -46,6 +46,7 @@ The first actor implementation supports:
 - private owner patches for hidden card identity
 - group reveal patches for revealed library top windows
 - in-memory fake `EventStore` for version/idempotency tests
+- explicit single-node runtime ownership mode
 
 ## Docker Toolchain
 
@@ -151,6 +152,42 @@ Reconnect patch replay policy:
 - If the requested gap exceeds the configured replay window, the event stream is not contiguous, or any legacy event lacks `_runtimePatchReceipt`, the gateway emits explicit `resync_required`.
 - Gateway replay metrics distinguish source: `PatchReplayMemoryCount`, `PatchReplayDurableCount`, and `PatchReplayResyncCount`.
 
+## Ownership and Fencing
+
+The runtime supports two explicit ownership modes:
+
+Supported configuration:
+
+```text
+GAME_RUNTIME_OWNERSHIP_MODE=single-node|postgres-lease
+GAME_RUNTIME_INSTANCE_ID=<optional-stable-runtime-process-id>
+GAME_RUNTIME_OWNERSHIP_LEASE_TTL=15s
+GAME_RUNTIME_OWNERSHIP_RENEW_BEFORE=5s
+```
+
+If `GAME_RUNTIME_OWNERSHIP_MODE` is unset, the runtime uses `single-node`. Any unsupported value fails startup.
+
+`single-node` is for local development, tests, or a controlled deployment with exactly one runtime process:
+
+- one runtime process owns active gameplay writes for a `gameId`;
+- `runtime.Service` acquires an in-memory owner token before actor recovery or creation;
+- `/commands` and `/ws` reject commands with `OWNERSHIP_NOT_HELD` / `ownership_not_held` when the process cannot prove it owns the actor;
+- every actor command checks the owner token again before applying state or appending an event, so a stale in-process actor cannot continue after its token is invalidated.
+
+`postgres-lease` is the minimum production-ready ownership mode for more than one possible runtime process:
+
+- requires `GAME_RUNTIME_PERSISTENCE=postgres`;
+- requires the `game_runtime_lease` table from the backend migration;
+- acquires a lease per `gameId` when no lease exists or the previous lease expired;
+- rejects a second owner while the current lease is valid;
+- renews active leases before command processing when they approach expiry;
+- validates the owner instance and `fencing_token` before applying commands;
+- validates the same token again in the Postgres event append statement, so a stale owner cannot append `game_event` rows with an old token.
+
+Metrics expose ownership acquire, renew, reject, release, lost, stolen, and expired counts under `runtime.ownership_*`.
+
+Postgres unique indexes on `(game_id, version)` and `(game_id, client_action_id)` still protect duplicate appends and durable idempotency. The lease table is the ownership policy; unique event constraints alone are not sufficient.
+
 ## Persistence
 
 The runtime supports two persistence modes:
@@ -171,6 +208,7 @@ The Postgres store uses the existing backend migration tables:
 
 - `game_event(game_id, version, type, payload, created_by_id, client_action_id, created_at, updated_at)`
 - `game_snapshot_compact(game_id, version, snapshot, checksum, created_at)`
+- `game_runtime_lease(game_id, owner_instance_id, fencing_token, expires_at, updated_at)` when `GAME_RUNTIME_OWNERSHIP_MODE=postgres-lease`
 
 Recovery loads the latest compact snapshot, verifies its SHA-256 checksum, replays events after that version, rebuilds `loc`, validates invariants, and only then accepts commands. Compact snapshots reject static card payload keys such as `imageUris`, `oracleText`, and `cardFaces`.
 
