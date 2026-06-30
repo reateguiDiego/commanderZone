@@ -788,6 +788,28 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame('room.player.left', $roomPayload['type'] ?? null);
     }
 
+    public function testStartedRoomCanBeLeftSequentiallyByBothPlayersFromRooms(): void
+    {
+        $fixture = $this->startedRematchGameFixture('SeqLeave', [
+            ['sequential-leave-owner@example.test', 'Seq Leave Owner'],
+            ['sequential-leave-player@example.test', 'Seq Leave Player'],
+        ]);
+        $roomId = $fixture['roomId'];
+        $ownerToken = $fixture['tokens']['Seq Leave Owner'];
+        $playerToken = $fixture['tokens']['Seq Leave Player'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => false], $this->jsonResponse());
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => true], $this->jsonResponse());
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function testDeletingAccountInStartedRoomConcedesPlayerRecordsLeaveVoteAndRemovesUser(): void
     {
         $this->seedCard('eeeeeeee-2222-7222-8222-222222222223', 'Commander Delete Started', [

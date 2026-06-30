@@ -3,6 +3,7 @@ import type { BootstrapV2, PatchEnvelopeV2 } from '../../../../../core/models/ga
 import {
   applyPatchEnvelopeV2,
   createGameTableNormalizedV2State,
+  GameTableNormalizedV2Store,
   hydrateGameSnapshotFromV2State,
 } from './game-table-normalized-v2.store';
 
@@ -1513,6 +1514,30 @@ describe('game table normalized v2 store', () => {
       'runtime-f',
       'runtime-g',
     ]);
+  });
+
+  it('requests resync instead of throwing when runtime mulligan hand lacks static identity', () => {
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+
+    const result = store.applyPatch(patch(6, [
+      {
+        op: 'mulligan.hand.replace_private',
+        playerId: 'player-1',
+        hand: [
+          { instanceId: 'runtime-missing-static', cardKey: 'scryfall:missing:identity' },
+        ],
+      },
+    ]));
+
+    expect(result).toMatchObject({ status: 'resync_required', reason: 'invalid_operation' });
+    expect(store.state()?.lastAppliedVersion).toBe(5);
   });
 
   it('applies mulligan completion and phase patches by version', () => {

@@ -156,10 +156,17 @@ export class GameTableNormalizedV2Store {
       return { ...result, snapshot: null };
     }
 
+    let snapshot: GameSnapshot;
+    try {
+      snapshot = hydrateGameSnapshotFromV2State(result.state);
+    } catch {
+      return { status: 'resync_required', state: currentState, snapshot: null, reason: 'invalid_operation' };
+    }
+
     this.state.set(result.state);
     return {
       ...result,
-      snapshot: hydrateGameSnapshotFromV2State(result.state),
+      snapshot,
     };
   }
 }
@@ -1556,8 +1563,13 @@ function replacePrivateMulliganHand(
   }
 
   const nextInstances = { ...state.instances };
+  const nextStaticCards = {
+    ...state.staticCards,
+    ...staticCards,
+  };
   for (const card of hand) {
-    nextInstances[card.instanceId] = compactRefToBootstrapInstance(card, playerId, 'hand');
+    const instance = compactRefToBootstrapInstance(card, playerId, 'hand');
+    nextInstances[card.instanceId] = completeInstanceIdentity(instance, nextStaticCards[instance.cardRef]);
   }
 
   return {
@@ -1565,10 +1577,7 @@ function replacePrivateMulliganHand(
     state: {
       ...state,
       instances: nextInstances,
-      staticCards: {
-        ...state.staticCards,
-        ...staticCards,
-      },
+      staticCards: nextStaticCards,
       players: {
         ...state.players,
         [playerId]: {

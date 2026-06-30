@@ -1727,7 +1727,7 @@ export class GameTableStore implements OnDestroy {
     this.locallyConcededPlayerId = current.id;
     this.websocketGameplay.prepareForLocalConcede();
     try {
-      await this.command('game.concede', {}, true);
+      await this.command('game.concede', { playerId: current.id }, true);
     } catch (error) {
       this.locallyConcededPlayerId = null;
       throw error;
@@ -1752,7 +1752,7 @@ export class GameTableStore implements OnDestroy {
     this.closeContextMenu();
     if (current && current.state.status !== 'conceded') {
       try {
-        await this.command('game.concede', {}, true);
+        await this.command('game.concede', { playerId: current.id }, true);
       } catch (error) {
         if (!this.isAlreadyConcededError(error)) {
           throw error;

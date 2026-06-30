@@ -1780,7 +1780,7 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.pending.set(true);
     await fixture.componentInstance.store.concedeGame();
 
-    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: { playerId: 'user-1' } }), 'game-1');
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
 
@@ -1808,7 +1808,7 @@ describe('GameTableComponent', () => {
     expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1);
     expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ type: 'game.concede', payload: {} }),
+      expect.objectContaining({ type: 'game.concede', payload: { playerId: 'user-1' } }),
       'game-1',
     );
   });
@@ -1839,7 +1839,7 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.confirmTableExitAction();
     await fixture.whenStable();
 
-    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: { playerId: 'user-1' } }), 'game-1');
     expect(gamesApi.rematchVote).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
@@ -1864,7 +1864,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.store.leaveTable();
 
-    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: { playerId: 'user-1' } }), 'game-1');
     expect(gamesApi.rematchVote).not.toHaveBeenCalled();
     expect(roomsApi.leave).toHaveBeenCalledWith('room-1', true);
     expect(navigate).toHaveBeenCalledWith(['/rooms']);
