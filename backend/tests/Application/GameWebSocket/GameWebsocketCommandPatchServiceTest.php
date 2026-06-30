@@ -1059,7 +1059,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame('patch.v2', $result->messageForUserId($actor->id())['kind']);
         self::assertSame('patch.v2', $result->messageForUserId($opponent->id())['kind']);
         self::assertSame(['life.total.set'], array_column($result->messageForUserId($actor->id())['ops'], 'op'));
-        self::assertSame([[]], $runtimeClient->snapshots);
+        self::assertSame(['life.changed'], $runtimeClient->types);
 
         $record = $metricsStore->records()[0] ?? [];
         self::assertSame('runtime_applied', $record['status'] ?? null);
@@ -4455,9 +4455,6 @@ final class CommandPatchRuntimeClientStub implements GameRuntimeCommandClientInt
     public array $baseVersions = [];
     /** @var list<array<string,mixed>> */
     public array $payloads = [];
-    /** @var list<array<string,mixed>> */
-    public array $snapshots = [];
-
     /**
      * @param list<array<string,mixed>> $patches
      * @param array<string,mixed>       $metrics
@@ -4476,14 +4473,12 @@ final class CommandPatchRuntimeClientStub implements GameRuntimeCommandClientInt
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow = false,
     ): GameRuntimeCommandResult {
         $this->types[] = $type;
         $this->baseVersions[] = $baseVersion;
         $this->payloads[] = $payload;
-        $this->snapshots[] = $snapshot;
         if ($this->fail) {
             throw new GameRuntimeGatewayException('runtime unavailable');
         }

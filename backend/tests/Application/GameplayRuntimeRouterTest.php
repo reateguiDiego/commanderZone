@@ -120,7 +120,6 @@ final class RuntimeCommandClientStub implements GameRuntimeCommandClientInterfac
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow = false,
     ): GameRuntimeCommandResult {

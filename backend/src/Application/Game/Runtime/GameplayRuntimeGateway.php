@@ -16,7 +16,6 @@ final readonly class GameplayRuntimeGateway
     }
 
     /**
-     * @param array<string,mixed> $snapshot
      * @param array<string,mixed> $payload Runtime-ready command payload.
      */
     public function dispatchPrimary(
@@ -25,18 +24,16 @@ final readonly class GameplayRuntimeGateway
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
     ): GameRuntimeCommandResult {
         if ($this->routeFor($type) !== GameplayRuntimeRoute::RuntimePrimary) {
             throw new GameRuntimeGatewayException(sprintf('Runtime primary is not enabled for command "%s".', $type));
         }
 
-        return $this->dispatch($type, $gameId, $actorId, $baseVersion, $clientActionId, $snapshot, $payload, false);
+        return $this->dispatch($type, $gameId, $actorId, $baseVersion, $clientActionId, $payload, false);
     }
 
     /**
-     * @param array<string,mixed> $snapshot
      * @param array<string,mixed> $payload Runtime-ready command payload.
      */
     public function dispatchShadow(
@@ -45,18 +42,16 @@ final readonly class GameplayRuntimeGateway
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
     ): GameRuntimeCommandResult {
         if ($this->routeFor($type) !== GameplayRuntimeRoute::Shadow) {
             throw new GameRuntimeGatewayException(sprintf('Runtime shadow is not enabled for command "%s".', $type));
         }
 
-        return $this->dispatch($type, $gameId, $actorId, $baseVersion, $clientActionId, $snapshot, $payload, true);
+        return $this->dispatch($type, $gameId, $actorId, $baseVersion, $clientActionId, $payload, true);
     }
 
     /**
-     * @param array<string,mixed> $snapshot
      * @param array<string,mixed> $payload
      */
     private function dispatch(
@@ -65,11 +60,10 @@ final readonly class GameplayRuntimeGateway
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow,
     ): GameRuntimeCommandResult {
-        $result = $this->router->runtimeClient()->dispatch($type, $gameId, $actorId, $baseVersion, $clientActionId, $snapshot, $payload, $shadow);
+        $result = $this->router->runtimeClient()->dispatch($type, $gameId, $actorId, $baseVersion, $clientActionId, $payload, $shadow);
 
         return new GameRuntimeCommandResult(
             $result->event,

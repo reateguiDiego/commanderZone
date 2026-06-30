@@ -221,7 +221,6 @@ class GamesControllerV2Test extends TestCase
                     string $actorId,
                     int $baseVersion,
                     string $clientActionId,
-                    array $snapshot,
                     array $payload,
                     bool $shadow = false,
                 ): GameRuntimeCommandResult {

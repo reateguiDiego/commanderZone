@@ -137,7 +137,7 @@ final readonly class GameWebsocketMulliganService
                     return $this->runtimeResult(
                         $game,
                         $actor,
-                        $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $previousVersion, $clientActionId, $snapshot, $payload),
+                        $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $previousVersion, $clientActionId, $payload),
                         $messageId,
                     );
                 } catch (GameRuntimeGatewayException $exception) {
@@ -205,7 +205,7 @@ final readonly class GameWebsocketMulliganService
 
             $legacyResult = $this->result($game, $actor, $event, $messageId, $runtimeFallbackDebug);
 
-            return $this->shadowCompare($kind, $game, $actor, $previousVersion, $clientActionId, $snapshot, $payload, $legacyResult);
+            return $this->shadowCompare($kind, $game, $actor, $previousVersion, $clientActionId, $payload, $legacyResult);
         } catch (UniqueConstraintViolationException) {
             if ($manager->getConnection()->isTransactionActive()) {
                 $manager->rollback();
@@ -640,7 +640,6 @@ final readonly class GameWebsocketMulliganService
     }
 
     /**
-     * @param array<string,mixed> $snapshot
      * @param array<string,mixed> $payload
      */
     private function shadowCompare(
@@ -649,7 +648,6 @@ final readonly class GameWebsocketMulliganService
         User $actor,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         GameWebsocketCommandResult $legacyResult,
     ): GameWebsocketCommandResult {
@@ -661,7 +659,7 @@ final readonly class GameWebsocketMulliganService
         $debug['gameplay.runtime_shadow_executed'] = 1.0;
         $debug['mulligan.runtime_shadow_executed'] = 1.0;
         try {
-            $shadow = $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $baseVersion, $clientActionId, $snapshot, $payload, true);
+            $shadow = $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $baseVersion, $clientActionId, $payload, true);
             $diverged = $this->shadowDiverged($shadow, $baseVersion) ? 1.0 : 0.0;
             $debug['gameplay.runtime_shadow_divergence'] = $diverged;
             $debug['mulligan.runtime_shadow_divergence'] = $diverged;

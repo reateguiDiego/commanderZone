@@ -616,7 +616,6 @@ final readonly class GameWebsocketCommandPatchService
                         $actor->id(),
                         $baseVersion,
                         $clientActionId,
-                        $game->snapshot(),
                         $runtimeCommand['payload'],
                     );
                     $runtimeMetrics = $this->numericRuntimeMetrics($runtimeResult->metrics);
@@ -824,7 +823,6 @@ final readonly class GameWebsocketCommandPatchService
                         $actor->id(),
                         $currentVersion,
                         $clientActionId,
-                        $game->snapshot(),
                         $runtimeCommand['payload'],
                     );
                     $runtimeShadowExecuted = $runtimeShadowResult !== null;
@@ -1193,7 +1191,6 @@ final readonly class GameWebsocketCommandPatchService
                 $playerId,
                 $baseVersion,
                 $clientActionId,
-                [],
                 $runtimeCommand['payload'],
             );
             $runtimeMetrics = $this->numericRuntimeMetrics($runtimeResult->metrics);

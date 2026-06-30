@@ -49,7 +49,6 @@ final class GameRuntimeMulliganClientTest extends TestCase
             'player-1',
             1,
             'action-1',
-            $this->snapshot(),
             [],
         );
 
@@ -62,38 +61,5 @@ final class GameRuntimeMulliganClientTest extends TestCase
         self::assertArrayNotHasKey('initialState', $captured['body']);
         self::assertSame('mulligan.player_took', $result->event['type']);
         self::assertSame(0.2, $result->metrics['mulligan.take_ms']);
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function snapshot(): array
-    {
-        return [
-            'version' => 1,
-            'gamePhase' => 'MULLIGAN',
-            'mulligan' => ['rule' => 'LONDON', 'firstMulliganFree' => true],
-            'players' => [
-                'player-1' => [
-                    'user' => ['id' => 'player-1', 'displayName' => 'Player 1'],
-                    'life' => 40,
-                    'zones' => [
-                        'library' => [
-                            ['instanceId' => 'library-1', 'cardKey' => 'card-a'],
-                            ['instanceId' => 'library-2', 'cardKey' => 'card-b'],
-                        ],
-                        'hand' => [
-                            ['instanceId' => 'hand-1', 'cardKey' => 'card-c'],
-                        ],
-                        'battlefield' => [],
-                        'graveyard' => [],
-                        'exile' => [],
-                        'command' => [],
-                    ],
-                    'mulligan' => ['status' => 'DECIDING', 'effectiveMulligans' => 0],
-                ],
-            ],
-            'turn' => [],
-        ];
     }
 }

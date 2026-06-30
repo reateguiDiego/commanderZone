@@ -21,12 +21,9 @@ final readonly class GameRuntimeCommandClient implements GameRuntimeCommandClien
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow = false,
     ): GameRuntimeCommandResult {
-        unset($snapshot);
-
         $runtimeGameId = $shadow ? $gameId.'-shadow' : $gameId;
         $runtimeClientActionId = $shadow ? $clientActionId.'-shadow' : $clientActionId;
 

@@ -5,7 +5,6 @@ namespace App\Application\Game\Runtime;
 interface GameRuntimeMulliganClientInterface
 {
     /**
-     * @param array<string,mixed> $snapshot
      * @param array<string,mixed> $payload
      */
     public function dispatch(
@@ -14,7 +13,6 @@ interface GameRuntimeMulliganClientInterface
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow = false,
     ): GameRuntimeMulliganResult;
