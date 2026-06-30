@@ -1,11 +1,18 @@
 import { expect, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithBasicDecks, resolveGameToPlaying } from './support/commander-game';
+import { createCommanderGameWithBasicDecks } from './support/commander-game';
 import { focusPlayer } from './support/game-table';
 
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
 
 type JsonObject = Record<string, unknown>;
+
+interface NetworkAudit {
+  snapshotReloads: number;
+  commandFallbacks: number;
+  socketUrls: string[];
+  ticketRoutes: string[];
+}
 
 test.setTimeout(180_000);
 
@@ -19,7 +26,6 @@ test('runtime websocket patches do not refetch on normal commands and resync onl
     playerAPrefix: 'audit-a',
     playerBPrefix: 'audit-b',
   });
-  await resolveGameToPlaying(request, setup.gameId, [setup.playerA, setup.playerB]);
 
   const { gameId, playerA, playerB } = setup;
   const contextA = await browser.newContext({
@@ -53,6 +59,11 @@ test('runtime websocket patches do not refetch on normal commands and resync onl
         waitForGameplayConnection(framesB, 1),
       ]);
       await Promise.all([
+        expect.poll(() => networkA.ticketRoutes.includes('runtime_ws'), { timeout: 10_000 }).toBe(true),
+        expect.poll(() => networkB.ticketRoutes.includes('runtime_ws'), { timeout: 10_000 }).toBe(true),
+      ]);
+      await resolveMulliganToPlayingInBrowser(pageA, pageB, framesA, framesB);
+      await Promise.all([
         focusPlayer(pageA, playerA.user.displayName),
         focusPlayer(pageB, playerA.user.displayName),
       ]);
@@ -62,6 +73,7 @@ test('runtime websocket patches do not refetch on normal commands and resync onl
     const baselineReloads = networkA.snapshotReloads + networkB.snapshotReloads;
     const baselineFallbackCommands = networkA.commandFallbacks + networkB.commandFallbacks;
     const baselineRefetchStartedB = await realtimeLogCount(pageB, { result: 'refetch_started' });
+    const baselineSnapshotReloadB = await realtimeLogCount(pageB, { source: 'snapshot_reload' });
     const baselineFallbackLogB = await realtimeLogCount(pageB, { source: 'fallback HTTP' });
     const firstPatchStartA = framesA.length;
     const firstPatchStartB = framesB.length;
@@ -83,31 +95,84 @@ test('runtime websocket patches do not refetch on normal commands and resync onl
     expectRuntimeOnly(framesA, firstPatchStartA);
     expectRuntimeOnly(framesB, firstPatchStartB);
     expect(await realtimeLogCount(pageB, { result: 'refetch_started' })).toBe(baselineRefetchStartedB);
+    expect(await realtimeLogCount(pageB, { source: 'snapshot_reload' })).toBe(baselineSnapshotReloadB);
     expect(await realtimeLogCount(pageB, { source: 'fallback HTTP' })).toBe(baselineFallbackLogB);
 
     const reconnectBaselineReloads = networkA.snapshotReloads + networkB.snapshotReloads;
-    await test.step('reconnect with lastAppliedVersion and no refetch', async () => {
+    const reconnectBaselineRefetchStartedB = await realtimeLogCount(pageB, { result: 'refetch_started' });
+    const reconnectBaselineSnapshotReloadB = await realtimeLogCount(pageB, { source: 'snapshot_reload' });
+    const reconnectBaselineFallbackCommands = networkA.commandFallbacks + networkB.commandFallbacks;
+    await test.step('reconnect with current lastAppliedVersion and no refetch', async () => {
+      const reconnectFrameStartB = framesB.length;
       await closeLatestRuntimeSocket(pageB);
       await waitForGameplayConnection(framesB, 2);
       await expect.poll(() => latestSocketLastAppliedVersion(networkB), { timeout: 10_000 })
         .toBe(Number(firstPatchA['version']));
       expect(networkA.snapshotReloads + networkB.snapshotReloads).toBe(reconnectBaselineReloads);
+      expect(networkA.commandFallbacks + networkB.commandFallbacks).toBe(reconnectBaselineFallbackCommands);
+      expect(framesB.slice(reconnectFrameStartB).some((message) => message['kind'] === 'resync_required')).toBe(false);
       await expect.poll(() => hasRealtimeLog(pageB, { source: 'reconnect', result: 'reconnected' }), { timeout: 10_000 }).toBe(true);
+      await expect.poll(() => hasRealtimeLog(pageB, {
+        source: 'reconnect',
+        reason: 'socket_reconnect',
+        result: 'ticket_received',
+        route: 'runtime_ws',
+        lastAppliedVersion: Number(firstPatchA['version']),
+      }), { timeout: 10_000 }).toBe(true);
+      expect(await realtimeLogCount(pageB, { result: 'refetch_started' })).toBe(reconnectBaselineRefetchStartedB);
+      expect(await realtimeLogCount(pageB, { source: 'snapshot_reload' })).toBe(reconnectBaselineSnapshotReloadB);
     });
 
-    const droppedPatchA = await test.step('drop one runtime patch in the observed browser', async () => {
+    const historyReplayPatchA = await test.step('replay missed patch from runtime history on reconnect without resync', async () => {
       dropNextRuntimePatch(patchDrop);
       const droppedPatchStartA = framesA.length;
+      const reconnectFrameStartB = framesB.length;
+      const missedVersionBeforeReconnect = latestSocketLastAppliedVersion(networkB);
+      const replayBaselineReloads = networkA.snapshotReloads + networkB.snapshotReloads;
+      const replayBaselineFallbackCommands = networkA.commandFallbacks + networkB.commandFallbacks;
+      const replayBaselineRefetchStartedB = await realtimeLogCount(pageB, { result: 'refetch_started' });
+      const replayBaselineSnapshotReloadB = await realtimeLogCount(pageB, { source: 'snapshot_reload' });
       await removeLife(pageA, playerA.user.displayName);
       const patch = await waitForPatchV2After(framesA, droppedPatchStartA, (candidate) => hasOp(candidate, 'player.life.set'));
+      await expect.poll(() => patchDrop.dropped, { timeout: 10_000 }).toBe(1);
+      expect(Number(patch['version'])).toBeGreaterThan(Number(missedVersionBeforeReconnect));
+
+      await closeLatestRuntimeSocket(pageB);
+      await waitForGameplayConnection(framesB, 3);
+      await expect.poll(() => latestSocketLastAppliedVersion(networkB), { timeout: 10_000 })
+        .toBe(Number(missedVersionBeforeReconnect));
+      const replayedPatch = await waitForPatchV2After(
+        framesB,
+        reconnectFrameStartB,
+        (candidate) => Number(candidate['version']) === Number(patch['version']) && hasOp(candidate, 'player.life.set'),
+      );
+      expect(Number(replayedPatch['version'])).toBe(Number(patch['version']));
+      await expect.poll(() => hasRealtimeLog(pageB, {
+        source: 'handlePatchV2',
+        result: 'applied',
+        incomingPatchVersion: Number(patch['version']),
+      }), { timeout: 10_000 }).toBe(true);
+      expect(framesB.slice(reconnectFrameStartB).some((message) => message['kind'] === 'resync_required')).toBe(false);
+      expect(networkA.snapshotReloads + networkB.snapshotReloads).toBe(replayBaselineReloads);
+      expect(networkA.commandFallbacks + networkB.commandFallbacks).toBe(replayBaselineFallbackCommands);
+      expect(await realtimeLogCount(pageB, { result: 'refetch_started' })).toBe(replayBaselineRefetchStartedB);
+      expect(await realtimeLogCount(pageB, { source: 'snapshot_reload' })).toBe(replayBaselineSnapshotReloadB);
+      return patch;
+    });
+
+    const missingGapPatchA = await test.step('drop one runtime patch without reconnect to create a real version gap', async () => {
+      dropNextRuntimePatch(patchDrop);
+      const missingPatchStartA = framesA.length;
+      await removeLife(pageA, playerA.user.displayName);
+      const patch = await waitForPatchV2After(framesA, missingPatchStartA, (candidate) => hasOp(candidate, 'player.life.set'));
       await expect.poll(() => patchDrop.dropped, { timeout: 10_000 }).toBe(1);
       return patch;
     });
 
     const resyncBaselineReloads = networkA.snapshotReloads + networkB.snapshotReloads;
-    const gapPatchStartA = framesA.length;
-    const gapPatchStartB = framesB.length;
     const gapPatchA = await test.step('require resync after a real version gap', async () => {
+      const gapPatchStartA = framesA.length;
+      const gapPatchStartB = framesB.length;
       await removeLife(pageA, playerA.user.displayName);
       const patch = await waitForPatchV2After(framesA, gapPatchStartA, (candidate) => hasOp(candidate, 'player.life.set'));
       await waitForPatchV2After(framesB, gapPatchStartB, (candidate) => Number(candidate['version']) === Number(patch['version']));
@@ -123,7 +188,9 @@ test('runtime websocket patches do not refetch on normal commands and resync onl
       return patch;
     });
 
-    expect(Number(gapPatchA['version'])).toBeGreaterThan(Number(droppedPatchA['version']));
+    expect(Number(missingGapPatchA['version'])).toBeGreaterThan(Number(historyReplayPatchA['version']));
+    expect(Number(gapPatchA['version'])).toBeGreaterThan(Number(missingGapPatchA['version']));
+    expect(Number(gapPatchA['version'])).toBeGreaterThan(Number(historyReplayPatchA['version']));
     expect(networkA.commandFallbacks + networkB.commandFallbacks).toBe(baselineFallbackCommands);
   } finally {
     await contextA.close().catch(() => undefined);
@@ -143,6 +210,36 @@ async function removeLife(page: Page, displayName: string): Promise<void> {
   const button = page.getByRole('button', { name: new RegExp(`^Remove 1 life from ${escapedName}`) });
   await expect(button).toBeVisible({ timeout: 10_000 });
   await button.click();
+}
+
+async function resolveMulliganToPlayingInBrowser(
+  pageA: Page,
+  pageB: Page,
+  framesA: JsonObject[],
+  framesB: JsonObject[],
+): Promise<void> {
+  await Promise.all([
+    expect(pageA.getByTestId('mulligan-overlay')).toBeVisible({ timeout: 30_000 }),
+    expect(pageB.getByTestId('mulligan-overlay')).toBeVisible({ timeout: 30_000 }),
+    expect(pageA.getByTestId('mulligan-keep')).toBeEnabled({ timeout: 30_000 }),
+    expect(pageB.getByTestId('mulligan-keep')).toBeEnabled({ timeout: 30_000 }),
+  ]);
+
+  const startA = framesA.length;
+  const startB = framesB.length;
+  await pageA.getByTestId('mulligan-keep').click();
+  await Promise.all([
+    waitForPatchV2After(framesA, startA, (candidate) => hasOp(candidate, 'mulligan.status.set')),
+    expect(pageA.getByTestId('mulligan-ready-panel')).toBeVisible({ timeout: 30_000 }),
+  ]);
+
+  await expect(pageB.getByTestId('mulligan-keep')).toBeEnabled({ timeout: 30_000 });
+  await pageB.getByTestId('mulligan-keep').click();
+  await Promise.all([
+    waitForPatchV2After(framesB, startB, (candidate) => hasOp(candidate, 'mulligan.status.set')),
+    expect(pageA.getByTestId('mulligan-overlay')).toBeHidden({ timeout: 30_000 }),
+    expect(pageB.getByTestId('mulligan-overlay')).toBeHidden({ timeout: 30_000 }),
+  ]);
 }
 
 async function addRealtimeAuditInstrumentation(context: BrowserContext): Promise<void> {
@@ -201,6 +298,9 @@ async function routeRuntimePatchDrop(context: BrowserContext): Promise<RuntimePa
   const control: RuntimePatchDropControl = { remaining: 0, dropped: 0 };
   await context.routeWebSocket((url) => url.pathname.endsWith('/ws'), (ws) => {
     const server = ws.connectToServer();
+    ws.onMessage((message) => {
+      server.send(message);
+    });
     server.onMessage((message) => {
       if (control.remaining > 0 && isPatchV2Message(message)) {
         control.remaining -= 1;
@@ -215,8 +315,8 @@ async function routeRuntimePatchDrop(context: BrowserContext): Promise<RuntimePa
   return control;
 }
 
-function collectNetworkAudit(page: Page, gameId: string): { snapshotReloads: number; commandFallbacks: number; socketUrls: string[] } {
-  const audit = { snapshotReloads: 0, commandFallbacks: 0, socketUrls: [] as string[] };
+function collectNetworkAudit(page: Page, gameId: string): NetworkAudit {
+  const audit: NetworkAudit = { snapshotReloads: 0, commandFallbacks: 0, socketUrls: [], ticketRoutes: [] };
   page.on('request', (request) => {
     const url = request.url();
     if (request.method() === 'GET' && (url.includes(`/games/${gameId}/snapshot`) || url.includes(`/games/${gameId}/bootstrap`))) {
@@ -225,6 +325,21 @@ function collectNetworkAudit(page: Page, gameId: string): { snapshotReloads: num
     if (request.method() === 'POST' && url.includes(`/games/${gameId}/commands`)) {
       audit.commandFallbacks += 1;
     }
+  });
+  page.on('response', (response) => {
+    const request = response.request();
+    if (request.method() !== 'POST' || !response.url().includes(`/games/${gameId}/websocket-ticket`)) {
+      return;
+    }
+
+    void response.json().then((payload: unknown) => {
+      if (payload !== null && typeof payload === 'object' && !Array.isArray(payload)) {
+        const route = (payload as JsonObject)['route'];
+        if (typeof route === 'string') {
+          audit.ticketRoutes.push(route);
+        }
+      }
+    }).catch(() => undefined);
   });
   page.on('websocket', (socket) => {
     audit.socketUrls.push(socket.url());
@@ -280,7 +395,7 @@ function dropNextRuntimePatch(control: RuntimePatchDropControl): void {
   control.dropped = 0;
 }
 
-function latestSocketLastAppliedVersion(audit: { socketUrls: string[] }): number | null {
+function latestSocketLastAppliedVersion(audit: NetworkAudit): number | null {
   for (const url of [...audit.socketUrls].reverse()) {
     try {
       const value = Number(new URL(url).searchParams.get('lastAppliedVersion'));

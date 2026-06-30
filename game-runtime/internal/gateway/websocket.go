@@ -221,8 +221,16 @@ func (s *WebSocketServer) replayOrRequestResync(client *wsClient, lastAppliedVer
 	}
 	gameActor, ok := s.runtime.Actor(client.claims.GameID)
 	if !ok {
-		s.sendJSON(client, resyncRequiredMessage(client.claims.GameID, 0, "version_gap"))
-		s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsRequiringSync++ })
+		patches, err := s.history(client.claims.GameID).Since(lastAppliedVersion)
+		if err != nil {
+			s.sendJSON(client, resyncRequiredMessage(client.claims.GameID, 0, "version_gap"))
+			s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsRequiringSync++ })
+			return
+		}
+		for _, patch := range patches {
+			s.sendPatchIfVisible(client, patch)
+		}
+		s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsWithoutGap++ })
 		return
 	}
 	currentVersion := gameActor.Version()

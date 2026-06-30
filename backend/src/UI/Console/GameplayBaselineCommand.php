@@ -80,6 +80,7 @@ final class GameplayBaselineCommand extends Command
         'snapshot_full_write_count_max' => ['label' => 'snapshot full write count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
         'runtime_failure_count_max' => ['label' => 'runtime failure count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
         'runtime_fallback_count_max' => ['label' => 'runtime fallback count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
+        'runtime_route_records_min' => ['label' => 'runtime route records min', 'operator' => '>', 'limit' => 0.0, 'severity' => 'critical'],
         'zero_total_server_count_max' => ['label' => 'zero total_server_ms count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
         'runtime_hot_path_counter_missing_count_max' => ['label' => 'runtime hot-path missing counter count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
         'runtime_legacy_hot_path_counter_count_max' => ['label' => 'runtime legacy hot-path counter count max', 'operator' => '<=', 'limit' => 0.0, 'severity' => 'critical'],
@@ -125,6 +126,7 @@ final class GameplayBaselineCommand extends Command
             ->addOption('compare-to', null, InputOption::VALUE_REQUIRED, 'Optional previous JSON report path for before/after comparison.')
             ->addOption('fail-on-regression', null, InputOption::VALUE_NONE, 'Exit non-zero when critical performance gates fail.')
             ->addOption('strict-targets', null, InputOption::VALUE_NONE, 'Include advisory latency/payload targets in fail-on-regression.')
+            ->addOption('require-runtime-route', null, InputOption::VALUE_NONE, 'Require at least one gameplay.runtime_route sample in the command metrics.')
             ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Console format: table or json.', 'table');
     }
 
@@ -138,6 +140,7 @@ final class GameplayBaselineCommand extends Command
         $rawOutputPath = is_string($input->getOption('raw-output')) ? trim((string) $input->getOption('raw-output')) : '';
         $compareToPath = is_string($input->getOption('compare-to')) ? trim((string) $input->getOption('compare-to')) : '';
         $strictTargets = (bool) $input->getOption('strict-targets');
+        $requireRuntimeRoute = (bool) $input->getOption('require-runtime-route');
 
         $this->metricsStore->reset();
         $this->metricsStore->configureOutput($rawOutputPath !== '' ? $rawOutputPath : null, truncate: true);
@@ -147,7 +150,7 @@ final class GameplayBaselineCommand extends Command
             $scenarioReports[] = $this->runScenario($scenarioName, $scenarioConfig, $iterations);
         }
 
-        $gate = $this->evaluatePerformanceGate($scenarioReports);
+        $gate = $this->evaluatePerformanceGate($scenarioReports, $requireRuntimeRoute);
         $comparison = $compareToPath !== '' ? $this->compareReports($compareToPath, $scenarioReports) : null;
         $report = [
             'generatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
@@ -874,7 +877,7 @@ final class GameplayBaselineCommand extends Command
      *
      * @return array{status:string,failures:list<array<string,mixed>>,checks:array<string,array<string,mixed>>}
      */
-    private function evaluatePerformanceGate(array $scenarioReports): array
+    private function evaluatePerformanceGate(array $scenarioReports, bool $requireRuntimeRoute = false): array
     {
         $allCommandMetrics = [];
         $finalDragMetrics = [];
@@ -893,6 +896,7 @@ final class GameplayBaselineCommand extends Command
             $allCommandMetrics,
             static fn (array $metric): bool => in_array((string) ($metric['command.type'] ?? ''), self::SIMPLE_COMMAND_TYPES, true),
         ));
+        $runtimeRouteMetrics = $this->runtimeRouteMetrics($allCommandMetrics);
 
         $checks = [
             'simple_command_apply_p95_ms' => $this->gateCheck('simple_command_apply_p95_ms', $this->percentile($simpleMetrics, 'command_apply_ms', 95), count($simpleMetrics) > 0),
@@ -905,16 +909,17 @@ final class GameplayBaselineCommand extends Command
             'snapshot_full_write_count_max' => $this->gateCheck('snapshot_full_write_count_max', $this->maxValue($allCommandMetrics, 'snapshot_full_write_count'), count($allCommandMetrics) > 0),
             'runtime_failure_count_max' => $this->gateCheck('runtime_failure_count_max', (float) $this->runtimeFailureCount($allCommandMetrics), count($allCommandMetrics) > 0),
             'runtime_fallback_count_max' => $this->gateCheck('runtime_fallback_count_max', (float) $this->runtimeFallbackCount($allCommandMetrics), count($allCommandMetrics) > 0),
+            'runtime_route_records_min' => $this->gateCheck('runtime_route_records_min', (float) count($runtimeRouteMetrics), $requireRuntimeRoute && count($allCommandMetrics) > 0),
             'zero_total_server_count_max' => $this->gateCheck('zero_total_server_count_max', (float) $this->zeroTotalServerCount($allCommandMetrics), count($allCommandMetrics) > 0),
             'runtime_hot_path_counter_missing_count_max' => $this->gateCheck(
                 'runtime_hot_path_counter_missing_count_max',
                 (float) $this->runtimeHotPathCounterMissingCount($allCommandMetrics),
-                count($this->runtimeRouteMetrics($allCommandMetrics)) > 0,
+                count($runtimeRouteMetrics) > 0,
             ),
             'runtime_legacy_hot_path_counter_count_max' => $this->gateCheck(
                 'runtime_legacy_hot_path_counter_count_max',
                 (float) $this->runtimeLegacyHotPathCounterCount($allCommandMetrics),
-                count($this->runtimeRouteMetrics($allCommandMetrics)) > 0,
+                count($runtimeRouteMetrics) > 0,
             ),
         ];
         $failures = array_values(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) === 'fail'));
@@ -936,6 +941,7 @@ final class GameplayBaselineCommand extends Command
         $operator = (string) $target['operator'];
         $passed = !$measured || match ($operator) {
             '<=' => $actual <= $limit,
+            '>' => $actual > $limit,
             default => $actual < $limit,
         };
 

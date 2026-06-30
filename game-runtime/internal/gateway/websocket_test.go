@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	runtimesvc "commanderzone/game-runtime/internal/runtime"
 	"commanderzone/game-runtime/internal/state"
@@ -315,6 +316,103 @@ func TestWebSocketReconnectRequestsResyncOnGap(t *testing.T) {
 	}
 }
 
+func TestWebSocketFirstCommandRecoversActorFromCompactSnapshotWithoutInitialState(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState("game-final"))
+	server, runtimeService, _ := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+	defer server.Close()
+
+	conn := dialRuntime(t, server.URL, "game-final", 0, nil)
+	defer conn.Close()
+
+	writeCommand(t, conn, command("game-final", 1, "final-life", "life.changed", map[string]any{"playerId": "p1", "life": 37}, nil))
+	message := readUntil(t, conn, "patch.v2")
+	if message.Version != 2 || message.AckClientActionID != "final-life" {
+		t.Fatalf("message = %#v, want recovered runtime patch v2", message)
+	}
+
+	metrics := runtimeService.RuntimeMetrics()
+	if metrics.InitialStatePerCommandCount != 0 {
+		t.Fatalf("initial state count got %d want 0", metrics.InitialStatePerCommandCount)
+	}
+	if metrics.ActorCacheMissCount != 1 || metrics.ActorLoadFromSnapshotCount != 1 {
+		t.Fatalf("runtime metrics = %#v, want one cache miss and one compact snapshot load", metrics)
+	}
+}
+
+func TestWebSocketCacheMissRecoversCompactSnapshotAndEventLog(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState("game-replay"))
+	if err := store.AppendEvent(context.Background(), protocol.EventPayloadV2{
+		GameID:         "game-replay",
+		Version:        2,
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 36},
+		CreatedBy:      "p1",
+		ClientActionID: "seed-life",
+		CreatedAt:      time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("append seed event: %v", err)
+	}
+	server, runtimeService, _ := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+	defer server.Close()
+
+	conn := dialRuntime(t, server.URL, "game-replay", 0, nil)
+	defer conn.Close()
+
+	writeCommand(t, conn, command("game-replay", 2, "replayed-turn", "turn.changed", map[string]any{"activePlayerId": "p2"}, nil))
+	message := readUntil(t, conn, "patch.v2")
+	if message.Version != 3 {
+		t.Fatalf("message = %#v, want version 3 after event replay", message)
+	}
+	gameActor, ok := runtimeService.Actor("game-replay")
+	if !ok {
+		t.Fatal("actor missing after recovery")
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Players["p1"]["life"] != 36 || snapshot.Turn["activePlayerId"] != "p2" {
+		t.Fatalf("snapshot = %#v, want event log and command applied", snapshot)
+	}
+	metrics := runtimeService.RuntimeMetrics()
+	if metrics.ActorLoadFromSnapshotCount != 1 || metrics.ActorLoadFromEventsCount != 1 || metrics.ActorRecoveredEventCount != 1 {
+		t.Fatalf("runtime metrics = %#v, want compact snapshot plus one recovered event", metrics)
+	}
+}
+
+func TestWebSocketReconnectReplaysPatchHistoryWithoutSnapshotReloadAfterActorEviction(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState("game-history"))
+	server, runtimeService, handler := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+	defer server.Close()
+
+	conn := dialRuntime(t, server.URL, "game-history", 0, nil)
+	writeCommand(t, conn, command("game-history", 1, "history-life", "life.changed", map[string]any{"playerId": "p1", "life": 35}, nil))
+	readUntil(t, conn, "patch.v2")
+	_ = conn.Close()
+
+	before := runtimeService.RuntimeMetrics()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := runtimeService.StopActor(ctx, "game-history"); err != nil {
+		t.Fatalf("stop actor: %v", err)
+	}
+
+	reconnected := dialRuntime(t, server.URL, "game-history", 1, nil)
+	defer reconnected.Close()
+	message := readUntil(t, reconnected, "patch.v2")
+	if message.Version != 2 || message.AckClientActionID != "history-life" {
+		t.Fatalf("replayed patch = %#v, want history patch without actor reload", message)
+	}
+	after := runtimeService.RuntimeMetrics()
+	if after.ActorLoadFromSnapshotCount != before.ActorLoadFromSnapshotCount || after.ActorCacheMissCount != before.ActorCacheMissCount {
+		t.Fatalf("reconnect reloaded actor unexpectedly: before=%#v after=%#v", before, after)
+	}
+	gatewayMetrics := handler.Metrics()
+	if gatewayMetrics.ReconnectsWithoutGap != 1 || gatewayMetrics.ReconnectsRequiringSync != 0 {
+		t.Fatalf("gateway metrics = %#v, want reconnect without gap", gatewayMetrics)
+	}
+}
+
 func TestRuntimeServiceKeepsSingleActorPerGameID(t *testing.T) {
 	server, runtimeService := testWebSocketServer(t, "game-1", 128, 256)
 	defer server.Close()
@@ -354,6 +452,17 @@ func testWebSocketServerWithStateAndHandler(t *testing.T, gameID string, initial
 	if _, _, err := runtimeService.LoadActorFromInitialState(context.Background(), gameID, initial); err != nil {
 		t.Fatalf("load actor: %v", err)
 	}
+	validator, err := NewHMACTicketValidator(testTicketSecret)
+	if err != nil {
+		t.Fatalf("validator: %v", err)
+	}
+	handler := NewWebSocketServer(validator, runtimeService, WithConnectionQueueSize(queueSize), WithPatchHistoryLimit(historyLimit))
+	return httptest.NewServer(handler), runtimeService, handler
+}
+
+func testWebSocketServerWithStoreAndHandler(t *testing.T, store persistence.EventStore, queueSize int, historyLimit int) (*httptest.Server, *runtimesvc.Service, *WebSocketServer) {
+	t.Helper()
+	runtimeService := runtimesvc.NewServiceWithStore(store, queueSize, nil)
 	validator, err := NewHMACTicketValidator(testTicketSecret)
 	if err != nil {
 		t.Fatalf("validator: %v", err)
@@ -456,6 +565,17 @@ func testInitialState(gameID string) state.GameState {
 	gameState.Players["p1"] = map[string]any{"life": 40}
 	gameState.Players["p2"] = map[string]any{"life": 40}
 	return gameState
+}
+
+func saveGatewayRuntimeSnapshot(t *testing.T, store persistence.EventStore, gameState state.GameState) {
+	t.Helper()
+	snapshot, err := persistence.NewCompactSnapshot(gameState)
+	if err != nil {
+		t.Fatalf("compact snapshot: %v", err)
+	}
+	if err := store.SaveSnapshot(context.Background(), snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
 }
 
 func testReorderState(gameID string) state.GameState {

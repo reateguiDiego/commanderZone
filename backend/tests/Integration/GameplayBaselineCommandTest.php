@@ -46,6 +46,7 @@ class GameplayBaselineCommandTest extends ApiTestCase
             foreach ([
                 'runtime_failure_count_max',
                 'runtime_fallback_count_max',
+                'runtime_route_records_min',
                 'zero_total_server_count_max',
                 'runtime_hot_path_counter_missing_count_max',
                 'runtime_legacy_hot_path_counter_count_max',
@@ -127,5 +128,28 @@ class GameplayBaselineCommandTest extends ApiTestCase
         self::assertContains('zero_total_server_count_max', $failed);
         self::assertContains('runtime_hot_path_counter_missing_count_max', $failed);
         self::assertContains('runtime_legacy_hot_path_counter_count_max', $failed);
+    }
+
+    public function testPerformanceGateFailsWhenRuntimeRouteIsNotMeasured(): void
+    {
+        $command = static::getContainer()->get(GameplayBaselineCommand::class);
+        $method = new \ReflectionMethod($command, 'evaluatePerformanceGate');
+        $method->setAccessible(true);
+
+        $gate = $method->invoke($command, [[
+            'commandMetrics' => [[
+                'command.type' => 'card.tapped',
+                'status' => 'applied',
+                'total_server_ms' => 1.0,
+                'gameplay.runtime_route' => 0,
+                'gameplay.runtime_error_count' => 0,
+                'gameplay.runtime_fallback_count' => 0,
+                'command.legacy_fallback_count' => 0,
+            ]],
+        ]], true);
+
+        self::assertSame('fail', $gate['status']);
+        self::assertSame('fail', $gate['checks']['runtime_route_records_min']['status']);
+        self::assertSame(0.0, $gate['checks']['runtime_route_records_min']['actual']);
     }
 }
