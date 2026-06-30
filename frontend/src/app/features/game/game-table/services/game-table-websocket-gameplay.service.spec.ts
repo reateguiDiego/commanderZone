@@ -559,6 +559,34 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(message.gameId).toBe('game-1');
   });
 
+  it('logs initial websocket connection and later reconnect as separate sync phases', () => {
+    messages.next({
+      kind: 'connection_state',
+      gameId: 'game-1',
+      status: 'connected',
+      connectionId: 'conn-1',
+      serverTime: new Date(0).toISOString(),
+    });
+    messages.next({
+      kind: 'connection_state',
+      gameId: 'game-1',
+      status: 'connected',
+      connectionId: 'conn-2',
+      serverTime: new Date(1).toISOString(),
+    });
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith('[CommanderZone gameplay realtime]', expect.objectContaining({
+      source: 'bootstrap',
+      reason: 'connection_state',
+      result: 'live',
+    }));
+    expect(consoleInfoSpy).toHaveBeenCalledWith('[CommanderZone gameplay realtime]', expect.objectContaining({
+      source: 'reconnect',
+      reason: 'connection_state',
+      result: 'reconnected',
+    }));
+  });
+
   it('resyncs bootstrap once after legacy mulligan completion when v2 state is stale', async () => {
     gameplayV2Flags.enabled.mockReturnValue(true);
     const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
@@ -845,6 +873,7 @@ describe('GameTableWebsocketGameplayService', () => {
       'gameplay.patch_v2.apply.version_gap': 1,
     });
     expect(latest?.['gameplay.refetch.reason']).toEqual({ version_gap: 1 });
+    expect(latest?.['gameplay.refetch.source']).toEqual({ handlePatchV2: 1 });
   });
 
   it('applies queue depth cap by dropping only coalescible commands', async () => {

@@ -18,6 +18,25 @@ Legend:
 - `N/A`: not privacy-sensitive.
 - `NO VERIFICABLE`: no dedicated test was found or added in this scope.
 
+## Execution Routes And Fallbacks
+
+| Route | Entrypoint | Runtime final | Legacy handler | Snapshot load | DB lock | Automatic fallback | Enablement / flag | Notes |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| Runtime WebSocket final hot path | Go `game-runtime` `/ws` `command.v2` | YES | NO | NO | NO | NO | Runtime ticket from Symfony, `GAME_RUNTIME_ENABLED`, `GAMEPLAY_V2_COMMANDS_ALLOWLIST`, frontend gameplay v2 | Normal migrated gameplay commands execute in the runtime actor and emit `patch.v2`. Reconnect replay uses `lastAppliedVersion`; resync is exceptional. |
+| Runtime HTTP internal command path | Go `game-runtime` `/commands` | YES | NO | NO | NO | NO | Internal Symfony client, `GAME_RUNTIME_ENABLED`; `GAME_RUNTIME_ALLOW_INITIAL_STATE_COMMANDS` only enables rejected legacy migration payloads for controlled tests/migration | Direct runtime command endpoint for Symfony/runtime tests and internal dispatch. It rejects `initialState` unless the explicit env flag is enabled. |
+| PHP WebSocket runtime-final path | `GameWebsocketCommandPatchService::runtimeFinalPathResult()` | YES | NO | NO | NO | NO | `GAME_RUNTIME_ENABLED`, `GAMEPLAY_V2_COMMANDS_ALLOWLIST`, V2 patch protocol, signed WS ticket with `command` permission | Used after runtime WS ticket auth. It requires ticket claims and never falls back to legacy, even if `GAMEPLAY_EMERGENCY_LEGACY_FALLBACK` is enabled. `game.close` additionally requires signed `game.close`. |
+| PHP WebSocket legacy-compatible path | `GameWebsocketCommandPatchService::apply()` after Doctrine lookup | Optional primary/shadow | YES when legacy/shadow/fallback | YES | YES | Only when `GAMEPLAY_EMERGENCY_LEGACY_FALLBACK=true` and no version divergence | `GAME_RUNTIME_ENABLED`, `SHADOW_COMPARE_ENABLED`, `GAMEPLAY_V2_COMMANDS_ALLOWLIST`, `GAMEPLAY_EMERGENCY_LEGACY_FALLBACK` | Retained for legacy clients, shadow compare, chat stream commands, disconnect vote service path, and explicit emergency fallback. Fallback metrics include `gameplay.runtime_fallback_reason` (`runtime_gateway_error` or `runtime_patch_contract_error`). |
+| Legacy HTTP command endpoint | `POST /games/{id}/commands` | NO | YES for legacy-only commands | YES | YES | NO | Always registered; runtime-primary commands are rejected when `GameplayRuntimeRouter` returns `RuntimePrimary` | This endpoint is no longer an automatic fallback for migrated runtime-primary commands. It records `http_runtime_primary_rejected` with `gameplay.legacy_route_reject_reason=runtime_primary_requires_websocket`. |
+| Chat stream path | WebSocket/HTTP `chat.message`, `chat.reaction.toggled` | NO | NO normal game snapshot command when streams enabled | YES for access context | Transaction, no gameplay snapshot write | NO | `GAMEPLAY_STREAMS_ENABLED` | Explicitly outside the gameplay actor; stored in activity streams and projected as chat/log patches. |
+| Disconnect vote path | WebSocket/HTTP `disconnect.vote` plus disconnect orchestrator | NO | Dedicated `GameDisconnectVoteService` | YES | YES | NO | Explicit non-runtime command | Destructive effect is constrained by open vote rules; it is not a runtime fallback. |
+| Rematch vote path | `POST /games/{id}/rematch-vote` | NO | Dedicated `GameRematchService` | YES | YES | NO | Always registered | Control-plane flow after/near game end; may return room to waiting when rematch is ready. |
+| Concede/close lifecycle runtime path | `game.concede`, `game.close` | YES when allowlisted | Legacy only outside runtime-primary or emergency PHP path | Runtime-final: NO; PHP compatible path: YES | Runtime-final: NO; PHP compatible path: YES | Runtime-final: NO; PHP compatible path: explicit emergency only | `GAME_RUNTIME_ENABLED`, `GAMEPLAY_V2_COMMANDS_ALLOWLIST` | `game.concede` requires the signed `command` permission and runtime actor validation for self-concede. `game.close` requires signed `game.close` permission in the final path and owner validation in legacy/PHP paths. |
+
+Current fallback policy:
+- Migrated commands routed through runtime-final WebSocket must fail closed on runtime/patch-contract errors; they cannot silently execute `GameCommandHandler`.
+- Legacy HTTP `/games/{id}/commands` must reject runtime-primary command types instead of acting as a hidden frontend fallback.
+- The only remaining automatic legacy fallback is the explicit PHP WebSocket emergency path behind `GAMEPLAY_EMERGENCY_LEGACY_FALLBACK=true`; it records `runtime_fallback`, `gameplay.runtime_fallback_count=1`, `command.legacy_fallback_count=1`, and `gameplay.runtime_fallback_reason`.
+
 | Command type | Alias | Frontend emits | PHP accepts | Go accepts | Patch V2 exists | Tests | Privacy tests | Replay tests | Status |
 |---|---:|---:|---:|---:|---:|---|---|---|---|
 | life.changed | - | YES | YES | YES | YES | catalog, gateway | N/A | applier replay path | OK |

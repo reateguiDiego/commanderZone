@@ -274,7 +274,7 @@ export class GameTableStore implements OnDestroy {
     }
     await Promise.all([
       this.gameActionsStore.refreshViewerControlAccess(),
-      this.session.refetch(this.contexts.session(), force),
+      this.session.refetch(this.contexts.session(), force, source),
     ]);
   }
 

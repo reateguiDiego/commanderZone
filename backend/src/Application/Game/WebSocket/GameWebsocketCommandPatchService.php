@@ -1420,37 +1420,14 @@ final readonly class GameWebsocketCommandPatchService
         GameplayMetricsInspector $metricsInspector,
         bool &$emergencyFallback,
     ): array|GameWebsocketCommandResult|null {
-        if ($this->emergencyLegacyFallbackEnabled) {
-            $emergencyFallback = true;
-            $this->logger?->error('Emergency legacy gameplay fallback activated.', [
-                'gameId' => $gameId,
-                'command.type' => $type,
-                'clientActionId' => $clientActionId,
-                'exception' => $exception,
-                'alert' => 'runtime_emergency_legacy_fallback',
-            ]);
-            $this->recordRuntimeFallbackMetric(
-                $metricsRecorder,
-                $metricsInspector,
-                $usageStartedAt,
-                $type,
-                $gameId,
-                0.0,
-                0,
-                0,
-                0,
-                $patchContractError,
-                $this->elapsedMs($startedAt),
-            );
-
-            return null;
-        }
+        $emergencyFallback = false;
 
         $this->logger?->error('Runtime gameplay command failed without emergency fallback.', [
             'gameId' => $gameId,
             'command.type' => $type,
             'clientActionId' => $clientActionId,
             'exception' => $exception,
+            'reason' => 'runtime_final_path_disallows_legacy_fallback',
             'alert' => 'runtime_command_failed_no_legacy_fallback',
         ]);
         $this->recordRuntimeFailureMetric(
@@ -1948,6 +1925,12 @@ final readonly class GameWebsocketCommandPatchService
                 ],
             ];
         }
+        if ($type === 'game.concede') {
+            $playerId = is_string($runtimePayload['playerId'] ?? null) ? trim($runtimePayload['playerId']) : '';
+            if ($playerId !== $defaultPlayerId) {
+                throw new \InvalidArgumentException('Players can only concede themselves.');
+            }
+        }
 
         return [
             'type' => $this->runtimeCommandType($type),
@@ -2003,6 +1986,7 @@ final readonly class GameWebsocketCommandPatchService
             'gameId' => $gameId,
             'command.type' => $type,
             'alert' => 'runtime_emergency_legacy_fallback',
+            'reason' => $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error',
             'patchContractError' => $patchContractError,
         ]);
         $this->recordMetric(
@@ -2028,6 +2012,7 @@ final readonly class GameWebsocketCommandPatchService
                 'resync_required' => false,
                 'clientActionId_duplicate' => false,
                 'status' => 'runtime_fallback',
+                'gameplay.runtime_fallback_reason' => $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error',
                 'gameplay.runtime_route' => 1,
                 'gameplay.runtime_fallback_count' => 1,
                 'gameplay.runtime_error_count' => $patchContractError ? 0 : 1,

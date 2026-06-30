@@ -361,8 +361,6 @@ paths:
           $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
   /me/avatar:
     patch:
       tags: [Auth]
@@ -2383,7 +2381,7 @@ paths:
     get:
       tags: [Games]
       summary: List chat messages outside the gameplay runtime snapshot.
-      description: Available only when gameplay chat streams are enabled. Visibility rules still apply: private messages are only returned to the sender and target player.
+      description: "Available only when gameplay chat streams are enabled. Visibility rules still apply: private messages are only returned to the sender and target player."
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: limit
@@ -2569,7 +2567,7 @@ paths:
     post:
       tags: [Games]
       summary: Apply a manual game command and publish a Mercure event.
-      description: Unknown command types are rejected. Finished games only accept explicitly allowed command types.
+      description: Unknown command types are rejected. Finished games only accept explicitly allowed command types. Commands routed to runtime-primary are rejected here and must be sent over the runtime WebSocket command path.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -3868,7 +3866,7 @@ components:
           enum: [true]
         message:
           type: string
-          example: Próximamente: estadísticas basadas en partidas reales de CommanderZone.
+          example: "Próximamente: estadísticas basadas en partidas reales de CommanderZone."
     CommunityDeckOwner:
       type: object
       required: [displayName]

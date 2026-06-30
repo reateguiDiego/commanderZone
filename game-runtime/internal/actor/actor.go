@@ -16,6 +16,7 @@ var (
 	ErrVersionConflict = errors.New("baseVersion does not match actor version")
 	ErrUnknownCommand  = errors.New("unknown command")
 	ErrActorStopped    = errors.New("game actor stopped")
+	ErrActorPermission = errors.New("actor is not allowed to perform command")
 )
 
 const maxSeenActionCache = 512
@@ -287,6 +288,12 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	if !ok {
 		a.recordUnsupported()
 		return a.rejectedResult(ErrUnknownCommand, queueWait, startedAt)
+	}
+	if command.Type == "game.concede" {
+		playerID, _ := command.Payload["playerId"].(string)
+		if playerID == "" || playerID != request.ActorID {
+			return a.rejectedResult(ErrActorPermission, queueWait, startedAt)
+		}
 	}
 
 	nextVersion := a.state.Version + 1

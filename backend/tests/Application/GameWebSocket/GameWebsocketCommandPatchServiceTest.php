@@ -1194,19 +1194,22 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(0, $record['runtime.db_lock_count'] ?? 1);
     }
 
-    public function testRuntimeFinalEmergencyFallbackUsesLegacyOnlyWhenFlagIsExplicit(): void
+    public function testRuntimeFinalEmergencyFlagStillRejectsWithoutLegacyFallback(): void
     {
         [$game, $actor] = $this->gameWithPrivateLibraryCards();
         $metricsStore = new GameplayMetricsStore();
         $runtimeClient = new CommandPatchRuntimeClientStub([], [], fail: true);
-        $service = $this->service(
-            $game,
-            existingEvent: null,
-            expectPersist: true,
-            expectFlush: true,
-            expectClear: true,
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $registry->expects(self::never())->method('getManager');
+        $handler = $this->createMock(GameCommandHandler::class);
+        $handler->expects(self::never())->method('apply');
+        $handler->expects(self::never())->method('normalizeSnapshot');
+        $service = $this->serviceWithRegistry(
+            $registry,
             metricsStore: $metricsStore,
             flagsV2: $this->runtimeFlags('life.changed', runtime: true, shadow: false),
+            handler: $handler,
             runtimeGateway: $this->runtimeGateway($runtimeClient, 'life.changed', runtime: true, shadow: false),
             emergencyLegacyFallbackEnabled: true,
             rooms: $this->runtimeRoomsFor($game),
@@ -1225,11 +1228,16 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             ticketPermissions: ['view', 'command'],
         );
 
-        self::assertContains($result->messageForUserId($actor->id())['kind'], ['game_patch', 'patch.v2', 'resync_required']);
-        $fallbackRecord = $metricsStore->records()[0] ?? [];
-        self::assertSame('runtime_fallback', $fallbackRecord['status'] ?? null);
-        self::assertSame(1, $fallbackRecord['runtime.emergency_fallback_count'] ?? 0);
-        self::assertSame(1, $fallbackRecord['runtime.legacy_handler_count'] ?? 0);
+        self::assertIsArray($result);
+        self::assertSame('command_ack', $result['kind'] ?? null);
+        self::assertSame('rejected', $result['status'] ?? null);
+        self::assertSame('RUNTIME_UNAVAILABLE', $result['error']['code'] ?? null);
+        $record = $metricsStore->records()[0] ?? [];
+        self::assertSame('runtime_failed', $record['status'] ?? null);
+        self::assertSame(0, $record['gameplay.runtime_fallback_count'] ?? 1);
+        self::assertSame(0, $record['command.legacy_fallback_count'] ?? 1);
+        self::assertSame(0, $record['runtime.emergency_fallback_count'] ?? 1);
+        self::assertSame(0, $record['runtime.legacy_handler_count'] ?? 1);
     }
 
     public function testAllowlistedRuntimePrimaryAcceptsRuntimeVersionAheadOfLegacySnapshot(): void
@@ -1302,6 +1310,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertContains($result->messageForUserId($actor->id())['kind'], ['game_patch', 'resync_required']);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_fallback_count'] ?? 0);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_error_count'] ?? 0);
+        self::assertSame('runtime_gateway_error', $metricsStore->records()[0]['gameplay.runtime_fallback_reason'] ?? null);
     }
 
     public function testAllowlistedLibraryPatchContractErrorFallsBackToLegacy(): void
@@ -1340,6 +1349,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
 
         self::assertContains($result->messageForUserId($actor->id())['kind'], ['game_patch', 'resync_required']);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_patch_contract_error'] ?? 0);
+        self::assertSame('runtime_patch_contract_error', $metricsStore->records()[0]['gameplay.runtime_fallback_reason'] ?? null);
     }
 
     public function testAllowlistedLibraryShadowModeExecutesRuntimeAndKeepsLegacyResponse(): void
@@ -2279,6 +2289,48 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(['game.close'], $runtimeClient->types);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_route'] ?? 0);
         self::assertSame(0, $metricsStore->records()[0]['lifecycle.snapshot_write_count'] ?? 1);
+    }
+
+    public function testRuntimeFinalGameConcedeRequiresTicketPlayer(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $service = $this->serviceWithRegistry(
+            $registry,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('game.concede', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'game.concede', runtime: true, shadow: false),
+            rooms: $this->runtimeRoomsFor($game),
+        );
+
+        $message = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'game.concede',
+            ['playerId' => $opponent->id()],
+            'action-runtime-concede-other-denied',
+            1,
+            'message-runtime-concede-other-denied',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertIsArray($message);
+        self::assertSame('command_ack', $message['kind']);
+        self::assertSame('rejected', $message['status']);
+        self::assertSame('INVALID_COMMAND_MESSAGE', $message['error']['code'] ?? null);
+        self::assertSame('Players can only concede themselves.', $message['error']['message'] ?? null);
+        self::assertSame([], $runtimeClient->types);
+        self::assertSame('invalid_runtime_payload', $metricsStore->records()[0]['status'] ?? null);
     }
 
     public function testRuntimeFinalGameCloseRequiresSignedClosePermission(): void

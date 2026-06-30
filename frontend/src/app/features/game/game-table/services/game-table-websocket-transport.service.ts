@@ -80,12 +80,16 @@ export class GameTableWebsocketTransportService implements OnDestroy {
     try {
       const ticket = await firstValueFrom(this.gamesApi.websocketTicket(gameId));
       this.activeRoute = this.requireRuntimeRoute(ticket.route);
-      websocketUrl = this.withLastAppliedVersion(ticket.websocketUrl);
+      const lastAppliedVersion = this.lastAppliedVersion();
+      websocketUrl = this.withLastAppliedVersion(ticket.websocketUrl, lastAppliedVersion);
       this.logTransportDebug('info', {
         source: this.reconnectAttempts > 0 ? 'reconnect' : 'connect',
+        reason: this.reconnectAttempts > 0 ? 'socket_reconnect' : 'initial_connect',
+        result: 'ticket_received',
         gameId,
         route: this.activeRoute,
         'gameplay.ws.route': this.activeRoute,
+        lastAppliedVersion,
         websocketUrl: this.sanitizedUrl(websocketUrl),
       });
     } catch (error) {
@@ -193,8 +197,7 @@ export class GameTableWebsocketTransportService implements OnDestroy {
     this.reconnectTimer = null;
   }
 
-  private withLastAppliedVersion(websocketUrl: string): string {
-    const lastAppliedVersion = this.lastAppliedVersion();
+  private withLastAppliedVersion(websocketUrl: string, lastAppliedVersion: number | null): string {
     if (lastAppliedVersion === null) {
       return websocketUrl;
     }

@@ -85,6 +85,7 @@ interface QueueRates {
 interface GameplayDebugCounters {
   refetchCount: number;
   refetchByReason: Record<string, number>;
+  refetchBySource: Record<string, number>;
   patchV2ApplyOk: number;
   patchV2ApplyResyncRequired: number;
   patchV2ApplyVersionGap: number;
@@ -268,6 +269,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   private readonly gameplayDebugCounters: GameplayDebugCounters = {
     refetchCount: 0,
     refetchByReason: {},
+    refetchBySource: {},
     patchV2ApplyOk: 0,
     patchV2ApplyResyncRequired: 0,
     patchV2ApplyVersionGap: 0,
@@ -284,6 +286,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   private readonly blockedSignatures = new Map<string, number>();
   private readonly throttledErrors = new Map<string, number>();
   private readonly concedeSuppressedTurnChangeSignatures = new Set<string>();
+  private connectionStateMessages = 0;
 
   readonly status = this.transport.status;
   readonly connected = signal(false);
@@ -428,12 +431,14 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
     switch (message.kind) {
       case 'connection_state':
+        const connectionSource = this.connectionStateMessages === 0 ? 'bootstrap' : 'reconnect';
+        this.connectionStateMessages += 1;
         this.connected.set(message.status === 'connected');
         this.logGameplayDebug('info', context, {
-          source: 'reconnect',
+          source: connectionSource,
           message,
-          reason: message.status,
-          result: 'connected',
+          reason: 'connection_state',
+          result: connectionSource === 'bootstrap' ? 'live' : 'reconnected',
         });
         if (message.status === 'connected') {
           this.drainMulliganQueue();
@@ -1313,8 +1318,10 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
   private recordRefetchStarted(context: GameTableWebsocketGameplayContext, details: GameplayDebugDetails): void {
     const reason = details.reason ?? details.source;
+    const source = details.source;
     this.gameplayDebugCounters.refetchCount += 1;
     this.gameplayDebugCounters.refetchByReason[reason] = (this.gameplayDebugCounters.refetchByReason[reason] ?? 0) + 1;
+    this.gameplayDebugCounters.refetchBySource[source] = (this.gameplayDebugCounters.refetchBySource[source] ?? 0) + 1;
     this.logGameplayDebug('debug', context, {
       ...details,
       reason,
@@ -1505,6 +1512,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       coalesced_position_events: this.queueCounters.coalescedPositionEvents,
       'gameplay.refetch.count': this.gameplayDebugCounters.refetchCount,
       'gameplay.refetch.reason': { ...this.gameplayDebugCounters.refetchByReason },
+      'gameplay.refetch.source': { ...this.gameplayDebugCounters.refetchBySource },
       'gameplay.patch_v2.apply.ok': this.gameplayDebugCounters.patchV2ApplyOk,
       'gameplay.patch_v2.apply.resync_required': this.gameplayDebugCounters.patchV2ApplyResyncRequired,
       'gameplay.patch_v2.apply.version_gap': this.gameplayDebugCounters.patchV2ApplyVersionGap,
@@ -1680,6 +1688,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.queueRates.drainTimestamps = [];
     this.gameplayDebugCounters.refetchCount = 0;
     this.gameplayDebugCounters.refetchByReason = {};
+    this.gameplayDebugCounters.refetchBySource = {};
     this.gameplayDebugCounters.patchV2ApplyOk = 0;
     this.gameplayDebugCounters.patchV2ApplyResyncRequired = 0;
     this.gameplayDebugCounters.patchV2ApplyVersionGap = 0;
@@ -1693,6 +1702,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.blockedSignatures.clear();
     this.throttledErrors.clear();
     this.concedeSuppressedTurnChangeSignatures.clear();
+    this.connectionStateMessages = 0;
   }
 
   private deadLetterSignature(event: GameDebugDeadLetterEvent): string {

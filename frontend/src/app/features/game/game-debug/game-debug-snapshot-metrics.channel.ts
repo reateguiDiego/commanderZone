@@ -44,6 +44,7 @@ export interface GameDebugQueueMetrics {
   coalesced_position_events?: number;
   'gameplay.refetch.count'?: number;
   'gameplay.refetch.reason'?: Record<string, number>;
+  'gameplay.refetch.source'?: Record<string, number>;
   'gameplay.patch_v2.apply.ok'?: number;
   'gameplay.patch_v2.apply.resync_required'?: number;
   'gameplay.patch_v2.apply.version_gap'?: number;

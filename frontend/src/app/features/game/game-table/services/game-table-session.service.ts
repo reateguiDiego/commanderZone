@@ -61,13 +61,13 @@ export class GameTableSessionService {
     }
 
     try {
-      await this.refetch(context, true);
+      await this.refetch(context, true, 'initial_load');
       shouldRefreshViewerControlAccess = true;
       this.websocket.start({
         gameId: () => context.gameId(),
         snapshot: () => context.snapshot(),
         setSnapshot: (snapshot) => context.setSnapshot(snapshot),
-        refetch: (force) => this.refetch(context, force),
+        refetch: (force) => this.refetch(context, force, 'websocket.request_resync'),
         setError: (message) => context.setError(message),
         onMulliganPublicState: (message) => context.onMulliganPublicState?.(message),
         onMulliganPrivateState: (message) => context.onMulliganPrivateState?.(message),
@@ -86,9 +86,9 @@ export class GameTableSessionService {
     }
   }
 
-  async refetch(context: GameTableSessionContext, force = false): Promise<void> {
+  async refetch(context: GameTableSessionContext, force = false, source = force ? 'forced_refetch' : 'passive_refetch'): Promise<void> {
     if (this.gameplayV2Flags.enabled()) {
-      await this.refetchV2(context, force);
+      await this.refetchV2(context, force, source);
       return;
     }
 
@@ -101,14 +101,32 @@ export class GameTableSessionService {
     const nextSnapshot = response.game.snapshot;
     const currentSnapshot = context.snapshot();
     if (!force && currentSnapshot?.version === nextSnapshot.version && !this.hasProjectionMetadataChanged(currentSnapshot, nextSnapshot)) {
+      this.logSessionDebug('info', context, {
+        source: 'snapshot_reload',
+        reason: source,
+        result: 'unchanged',
+        currentVersion: nextSnapshot.version,
+      });
       return;
     }
     if (!force && context.hasActivePointerDrag()) {
       this.deferredRemoteSnapshot = nextSnapshot;
+      this.logSessionDebug('info', context, {
+        source: 'snapshot_reload',
+        reason: source,
+        result: 'deferred_pointer_drag',
+        currentVersion: nextSnapshot.version,
+      });
       return;
     }
 
     this.applySnapshot(context, nextSnapshot);
+    this.logSessionDebug('info', context, {
+      source: 'snapshot_reload',
+      reason: source,
+      result: 'applied',
+      currentVersion: nextSnapshot.version,
+    });
   }
 
   applyDeferredRemoteSnapshot(context: GameTableSessionContext): void {
@@ -148,7 +166,7 @@ export class GameTableSessionService {
       return;
     }
 
-    void this.refetch(context, false);
+    void this.refetch(context, false, 'mercure.snapshot_invalidated');
   }
 
   private applySnapshot(context: GameTableSessionContext, nextSnapshot: GameSnapshot): void {
@@ -158,7 +176,7 @@ export class GameTableSessionService {
     }
   }
 
-  private async refetchV2(context: GameTableSessionContext, force = false): Promise<void> {
+  private async refetchV2(context: GameTableSessionContext, force = false, source = force ? 'forced_refetch' : 'passive_refetch'): Promise<void> {
     const gameId = context.gameId();
     if (!gameId) {
       return;
@@ -168,14 +186,32 @@ export class GameTableSessionService {
     const nextSnapshot = this.normalizedV2Store.applyBootstrap(this.staticCardCacheV2.mergeBootstrap(bootstrap));
     const currentSnapshot = context.snapshot();
     if (!force && currentSnapshot?.version === nextSnapshot.version && !this.hasProjectionMetadataChanged(currentSnapshot, nextSnapshot)) {
+      this.logSessionDebug('info', context, {
+        source: 'bootstrap',
+        reason: source,
+        result: 'unchanged',
+        currentVersion: nextSnapshot.version,
+      });
       return;
     }
     if (!force && context.hasActivePointerDrag()) {
       this.deferredRemoteSnapshot = nextSnapshot;
+      this.logSessionDebug('info', context, {
+        source: 'bootstrap',
+        reason: source,
+        result: 'deferred_pointer_drag',
+        currentVersion: nextSnapshot.version,
+      });
       return;
     }
 
     this.applySnapshot(context, nextSnapshot);
+    this.logSessionDebug('info', context, {
+      source: 'bootstrap',
+      reason: source,
+      result: 'applied',
+      currentVersion: nextSnapshot.version,
+    });
   }
 
   private hasProjectionMetadataChanged(current: GameSnapshot, next: GameSnapshot): boolean {
@@ -188,5 +224,24 @@ export class GameTableSessionService {
     }
 
     return false;
+  }
+
+  private logSessionDebug(
+    level: 'debug' | 'info' | 'warn',
+    context: GameTableSessionContext,
+    payload: {
+      source: 'bootstrap' | 'snapshot_reload';
+      reason: string;
+      result: 'applied' | 'unchanged' | 'deferred_pointer_drag';
+      currentVersion: number | null;
+    },
+  ): void {
+    const logger = level === 'warn' ? console.warn : level === 'info' ? console.info : console.debug;
+    logger.call(console, '[CommanderZone gameplay sync]', {
+      ...payload,
+      gameId: context.gameId(),
+      localSnapshotVersion: context.snapshot()?.version ?? null,
+      measuredAt: new Date().toISOString(),
+    });
   }
 }

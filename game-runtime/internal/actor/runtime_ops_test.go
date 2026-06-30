@@ -2,6 +2,7 @@ package actor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -81,6 +82,20 @@ func TestGameConcedeEmitsPlayerStatusPatchWithoutSnapshotWrite(t *testing.T) {
 	}
 	if gameActor.Snapshot().Version != 2 {
 		t.Fatalf("rejected second concede changed version: %d", gameActor.Snapshot().Version)
+	}
+}
+
+func TestGameConcedeRejectsActorMismatch(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "concede-other", "game.concede", map[string]any{"playerId": "p2"}), "p1")
+	if !errors.Is(result.Err, ErrActorPermission) {
+		t.Fatalf("expected actor permission error, got %v", result.Err)
+	}
+	if gameActor.Snapshot().Version != 1 {
+		t.Fatalf("rejected concede changed version: %d", gameActor.Snapshot().Version)
+	}
+	if gameActor.Snapshot().Players["p2"]["status"] == "conceded" {
+		t.Fatalf("actor mismatch conceded another player: %#v", gameActor.Snapshot().Players["p2"])
 	}
 }
 

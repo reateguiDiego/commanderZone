@@ -14,6 +14,8 @@ use App\Application\Game\GameRematchService;
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
+use App\Application\Game\Runtime\GameplayRuntimeRoute;
+use App\Application\Game\Runtime\GameplayRuntimeRouter;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Domain\Game\Game;
@@ -418,6 +420,7 @@ class GamesController extends ApiController
         ?GameEventStoreV2 $eventStoreV2 = null,
         ?GameActivityStreamService $activityStreams = null,
         ?GameplayStreamsFlags $streamFlags = null,
+        ?GameplayRuntimeRouter $runtimeRouter = null,
     ): JsonResponse
     {
         $startedAt = microtime(true);
@@ -454,6 +457,40 @@ class GamesController extends ApiController
         }
         if (!GameCommandHandler::isSupportedCommand($type)) {
             return $this->fail(sprintf('Unknown game command: %s', $type));
+        }
+        if (($runtimeRouter?->routeFor($type) ?? GameplayRuntimeRoute::LegacyOnly) === GameplayRuntimeRoute::RuntimePrimary) {
+            $this->recordGameplayMetric(
+                $metrics,
+                $metricsInspector,
+                [
+                    'transport' => 'http',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => $projectionMs,
+                    'patch_build_ms' => 0.0,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => 0,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => 0,
+                    'resync_required' => false,
+                    'clientActionId_duplicate' => false,
+                    'status' => 'http_runtime_primary_rejected',
+                    'gameplay.runtime_route' => 1,
+                    'gameplay.runtime_fallback_count' => 0,
+                    'command.legacy_fallback_count' => 0,
+                    'gameplay.legacy_route_reject_reason' => 'runtime_primary_requires_websocket',
+                ],
+                $usageStartedAt,
+            );
+
+            return $this->fail('This gameplay command is routed to the runtime WebSocket and cannot be applied through the legacy HTTP command endpoint.', 409);
         }
         if ($game->status() === Game::STATUS_FINISHED && !GameCommandHandler::isAllowedWhenFinished($type)) {
             return $this->fail(sprintf('Game is finished. Command not allowed: %s', $type), 409);

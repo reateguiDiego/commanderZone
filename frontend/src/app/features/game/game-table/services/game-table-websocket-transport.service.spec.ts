@@ -108,9 +108,12 @@ describe('GameTableWebsocketTransportService', () => {
     expect(gamesApi.snapshot).not.toHaveBeenCalled();
     expect(console.info).toHaveBeenCalledWith('[CommanderZone gameplay transport]', expect.objectContaining({
       source: 'connect',
+      reason: 'initial_connect',
+      result: 'ticket_received',
       gameId: 'game-1',
       route: 'runtime_ws',
       'gameplay.ws.route': 'runtime_ws',
+      lastAppliedVersion: null,
       websocketUrl: 'ws://127.0.0.1:8091/ws',
     }));
   });
@@ -202,6 +205,13 @@ describe('GameTableWebsocketTransportService', () => {
       expect(sockets).toHaveLength(2);
       expect(sockets[1].url).toBe('ws://127.0.0.1:8091/ws?ticket=ticket-2&lastAppliedVersion=8');
       expect(service.status()).toBe('connecting');
+      expect(console.info).toHaveBeenCalledWith('[CommanderZone gameplay transport]', expect.objectContaining({
+        source: 'reconnect',
+        reason: 'socket_reconnect',
+        result: 'ticket_received',
+        lastAppliedVersion: 8,
+        websocketUrl: 'ws://127.0.0.1:8091/ws?lastAppliedVersion=8',
+      }));
     } finally {
       vi.useRealTimers();
     }

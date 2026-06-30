@@ -9,6 +9,11 @@ use App\Application\Game\Debug\GameDebugHealthLiveStore;
 use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\Performance\GameplayMetricsInspector;
+use App\Application\Game\Performance\GameplayMetricsStore;
+use App\Application\Game\Runtime\GameRuntimeCommandClientInterface;
+use App\Application\Game\Runtime\GameRuntimeCommandResult;
+use App\Application\Game\Runtime\GameplayRuntimeRouter;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Game\GameSnapshotCompact;
@@ -19,6 +24,7 @@ use App\UI\Http\GamesController;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use App\Infrastructure\Realtime\GameEventPublisher;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -195,6 +201,62 @@ class GamesControllerV2Test extends TestCase
         self::assertArrayHasKey('snapshot', $payload['game']);
     }
 
+    public function testLegacyHttpCommandEndpointRejectsRuntimePrimaryCommands(): void
+    {
+        [$game, $viewer] = $this->game();
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('project');
+        $projection->expects(self::never())->method('projectSnapshot');
+        $metrics = new GameplayMetricsStore();
+        $runtimeRouter = new GameplayRuntimeRouter(
+            new GameplayV2Flags(
+                enabled: true,
+                commandsAllowlist: 'life.changed',
+                runtimeServiceEnabled: true,
+            ),
+            new class implements GameRuntimeCommandClientInterface {
+                public function dispatch(
+                    string $type,
+                    string $gameId,
+                    string $actorId,
+                    int $baseVersion,
+                    string $clientActionId,
+                    array $snapshot,
+                    array $payload,
+                    bool $shadow = false,
+                ): GameRuntimeCommandResult {
+                    throw new \RuntimeException('HTTP legacy endpoint must not dispatch runtime commands in this test.');
+                }
+            },
+        );
+
+        $controller = new GamesController();
+        $controller->setContainer($this->controllerContainer());
+        $response = $controller->command(
+            $game->id(),
+            Request::create('/games/'.$game->id().'/commands', 'POST', [], [], [], [], json_encode([
+                'type' => 'life.changed',
+                'clientActionId' => 'http-runtime-primary',
+                'payload' => ['playerId' => $viewer->id(), 'delta' => -1],
+            ], JSON_THROW_ON_ERROR)),
+            $viewer,
+            $this->entityManager($game),
+            new GameCommandHandler(),
+            $projection,
+            $this->createStub(GameEventPublisher::class),
+            $metrics,
+            new GameplayMetricsInspector(),
+            runtimeRouter: $runtimeRouter,
+        );
+        $payload = json_decode($response->getContent() ?: '[]', true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('This gameplay command is routed to the runtime WebSocket and cannot be applied through the legacy HTTP command endpoint.', $payload['error'] ?? null);
+        self::assertSame('http_runtime_primary_rejected', $metrics->records()[0]['status'] ?? null);
+        self::assertSame('runtime_primary_requires_websocket', $metrics->records()[0]['gameplay.legacy_route_reject_reason'] ?? null);
+        self::assertSame(0, $metrics->records()[0]['command.legacy_fallback_count'] ?? 1);
+    }
+
     public function testLegacyBootstrapDuringMulliganDoesNotExposeOpponentPrivateCards(): void
     {
         $owner = new User('mulligan-owner@example.test', 'Mulligan Owner');
@@ -327,7 +389,7 @@ class GamesControllerV2Test extends TestCase
         $repository->expects(self::once())->method('find')->with($game->id())->willReturn($game);
 
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $entityManager->method('getRepository')->with(Game::class)->willReturn($repository);
+        $entityManager->expects(self::once())->method('getRepository')->with(Game::class)->willReturn($repository);
 
         return $entityManager;
     }
