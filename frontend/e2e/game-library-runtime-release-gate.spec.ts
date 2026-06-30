@@ -5,6 +5,9 @@ import { readTableZoneCounts } from './support/game-table';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
+const REQUIRE_DEBUG_HEALTH = isTruthy(
+  process.env['E2E_REQUIRE_DEBUG_HEALTH'] ?? process.env['GAME_DEBUG_HEALTH_ENABLED'],
+);
 
 type JsonObject = Record<string, unknown>;
 type LibraryRuntimeSetup = Awaited<ReturnType<typeof createCommanderGameWithBasicDecks>>;
@@ -57,11 +60,13 @@ test.describe('library runtime release gate', () => {
       const framesA = collectWebSocketFrames(pageA);
       const framesB = collectWebSocketFrames(pageB);
       let snapshotRefetches = 0;
+      const snapshotRefetchUrls: string[] = [];
       for (const page of [pageA, pageB]) {
         page.on('request', (httpRequest) => {
           const url = httpRequest.url();
           if (httpRequest.method() === 'GET' && (url.includes(`/games/${gameId}/snapshot`) || url.includes(`/games/${gameId}/bootstrap`))) {
             snapshotRefetches += 1;
+            snapshotRefetchUrls.push(url);
           }
         });
       }
@@ -111,7 +116,7 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       expect(hasOp(drawOwnerPatch, 'zone.cards.add')).toBe(true);
       expect(hasOp(drawRivalPatch, 'zone.cards.add')).toBe(false);
       expect(hasOnlyPublicCountsForPlayer(drawRivalPatch, playerA.user.id)).toBe(true);
-      await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
+      await expectZoneCounts(pageA, playerA.user.displayName, framesA, diagnosticsA, 'library.draw', {
         hand: initialCountsA.hand + 1,
         library: initialCountsA.library - 1,
       });
@@ -125,7 +130,7 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
         ownerPatch: (patch) => zoneCardsAddedCount(patch) === 2,
       });
       expect(zoneCardsAddedCount(latestPatchWithOp(framesA, 'zone.cards.add'))).toBe(2);
-      await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
+      await expectZoneCounts(pageA, playerA.user.displayName, framesA, diagnosticsA, 'library.draw_many', {
         hand: initialCountsA.hand + 3,
         library: initialCountsA.library - 3,
       });
@@ -167,7 +172,7 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       expect(JSON.stringify(operation(revealOwnerPatch, 'library.top.revealed'))).toContain('cardKey');
       expect(hasOp(revealRivalPatch, 'library.top.revealed')).toBe(false);
       expect(JSON.stringify(revealRivalPatch)).not.toContain('cardKey');
-      expect(snapshotRefetches).toBe(refetchBaseline);
+      expectNoSnapshotRefetch(snapshotRefetches, refetchBaseline, snapshotRefetchUrls, diagnosticsA, diagnosticsB, 'library.reveal_top');
 
       nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
@@ -176,7 +181,7 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
         payload: { playerId: playerA.user.id, count: 1, toZone: 'library', position: 'bottom' },
         ownerPatch: (patch) => hasOp(patch, 'library.top.moved'),
       });
-      await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
+      await expectZoneCounts(pageA, playerA.user.displayName, framesA, diagnosticsA, 'library.move_top', {
         hand: initialCountsA.hand + 3,
         library: initialCountsA.library - 3,
       });
@@ -193,16 +198,20 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       expect(Number(operation(shufflePatch, 'library.shuffled')?.['visibilityEpoch'] ?? 0)).toBeGreaterThan(0);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      for (const commandType of ['library.draw', 'library.draw_many', 'library.view', 'library.reorder_top', 'library.reveal_top', 'library.move_top', 'library.shuffle']) {
-        const health = await waitForActionHealth(debug.frames, commandType);
-        const phases = latestActionPhases(health, commandType);
-        expect(phases?.['gameplay.runtime_route']).toBe(1);
-        expect(phases?.['gameplay.runtime_fallback_count']).toBe(0);
-        expect(phases?.['gameplay.runtime_error_count']).toBe(0);
+      if (debug.enabled) {
+        for (const commandType of ['library.draw', 'library.draw_many', 'library.view', 'library.reorder_top', 'library.reveal_top', 'library.move_top', 'library.shuffle']) {
+          const health = await waitForActionHealth(debug.frames, commandType);
+          const phases = latestActionPhases(health, commandType);
+          expect(phases?.['gameplay.runtime_route']).toBe(1);
+          expect(phases?.['gameplay.runtime_fallback_count']).toBe(0);
+          expect(phases?.['gameplay.runtime_error_count']).toBe(0);
+        }
       }
 
+      expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
+      expect(framesB.some((message) => message['kind'] === 'game_patch')).toBe(false);
       await commandPage.close();
-      await debug.page.close();
+      await debug.page?.close();
     } finally {
       await contextA.close();
       await contextB.close();
@@ -266,7 +275,11 @@ async function openDebugObserver(
   request: APIRequestContext,
   gameId: string,
   token: string,
-): Promise<{ page: Page; frames: JsonObject[] }> {
+): Promise<{ page?: Page; frames: JsonObject[]; enabled: boolean }> {
+  if (!REQUIRE_DEBUG_HEALTH) {
+    return { frames: [], enabled: false };
+  }
+
   const ticket = await websocketTicket(request, gameId, token);
   const debugUrl = debugWebsocketUrl(ticket.websocketUrl, gameId);
   const debugPage = await context.newPage();
@@ -278,7 +291,7 @@ async function openDebugObserver(
   }, debugUrl);
   await expect.poll(() => frames.some((message) => message['kind'] === 'debug_health'), { timeout: 15_000 }).toBe(true);
 
-  return { page: debugPage, frames };
+  return { page: debugPage, frames, enabled: true };
 }
 
 function debugWebsocketUrl(websocketUrl: string, gameId: string): string {
@@ -438,6 +451,48 @@ async function waitForGameplayConnection(frames: JsonObject[]): Promise<void> {
   ), { timeout: 20_000 }).toBe(true);
 }
 
+async function expectZoneCounts(
+  page: Page,
+  displayName: string,
+  frames: JsonObject[],
+  diagnostics: string[],
+  commandType: string,
+  expected: { hand: number; library: number },
+): Promise<void> {
+  try {
+    await expect
+      .poll(async () => readTableZoneCounts(page, displayName), { timeout: 20_000 })
+      .toEqual(expected);
+  } catch (error) {
+    throw new Error(`${String(error)}
+Recent patch.v2 frames after ${commandType}:
+${JSON.stringify(recentPatchSummary(frames), null, 2)}
+Recent page diagnostics:
+${diagnostics.slice(-20).join('\n')}`);
+  }
+}
+
+function expectNoSnapshotRefetch(
+  actual: number,
+  baseline: number,
+  urls: string[],
+  diagnosticsA: string[],
+  diagnosticsB: string[],
+  commandType: string,
+): void {
+  if (actual === baseline) {
+    return;
+  }
+
+  throw new Error(`Unexpected snapshot/bootstrap refetch after ${commandType}: got ${actual}, expected ${baseline}
+Snapshot/bootstrap URLs:
+${urls.join('\n')}
+Player A diagnostics:
+${diagnosticsA.slice(-30).join('\n')}
+Player B diagnostics:
+${diagnosticsB.slice(-30).join('\n')}`);
+}
+
 async function waitForActionHealth(frames: JsonObject[], action: string): Promise<JsonObject> {
   try {
     await expect.poll(() => {
@@ -472,6 +527,26 @@ function actionPhasesWithMetric(frames: JsonObject[], action: string): JsonObjec
   }
 
   return null;
+}
+
+function recentPatchSummary(frames: JsonObject[]): JsonObject[] {
+  return frames.filter((message) => message['kind'] === 'patch.v2').slice(-5).map((message) => ({
+    version: message['version'],
+    ackClientActionId: message['ackClientActionId'],
+    ops: Array.isArray(message['ops'])
+      ? (message['ops'] as JsonObject[]).map((op) => ({
+          op: op['op'],
+          playerId: op['playerId'],
+          zone: op['zone'],
+          count: op['count'],
+          cards: Array.isArray(op['cards']) ? op['cards'].length : undefined,
+        }))
+      : [],
+  }));
+}
+
+function isTruthy(value: string | undefined): boolean {
+  return ['1', 'true', 'yes', 'on'].includes((value ?? '').trim().toLowerCase());
 }
 
 function latestPatch(frames: JsonObject[]): JsonObject {

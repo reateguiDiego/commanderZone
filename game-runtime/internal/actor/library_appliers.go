@@ -89,11 +89,10 @@ func (LibraryRevealTopApplier) Apply(_ context.Context, game *state.GameState, c
 	if err != nil {
 		return nil, err
 	}
-	mask := uint64(1)
-	if value, ok := intField(command.Payload, "visibleToMask"); ok && value > 0 {
-		mask = uint64(value)
+	viewers, mask := revealTargets(command.Payload)
+	if mask == 0 {
+		mask = 1
 	}
-	viewers, _ := stringSliceField(command.Payload, "viewers")
 	window := game.RevealTopWindow(playerID, count, viewers, mask)
 	cards := make([]map[string]any, 0, len(top))
 	for _, instanceID := range top {
@@ -155,6 +154,7 @@ func (LibraryReorderTopApplier) Apply(_ context.Context, game *state.GameState, 
 			"instanceIds": orderedTopIDs,
 		},
 	})
+	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	return map[string]any{"playerId": playerID, "instanceIds": orderedTopIDs, "metrics": libraryMetrics(command.Type, start, ops)}, nil
 }
 
@@ -269,6 +269,7 @@ func (LibraryViewApplier) Apply(_ context.Context, game *state.GameState, comman
 			"cards":    cards,
 		},
 	})
+	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	return map[string]any{"playerId": playerID, "count": len(cards), "instanceIds": top, "metrics": libraryMetrics(command.Type, start, ops)}, nil
 }
 

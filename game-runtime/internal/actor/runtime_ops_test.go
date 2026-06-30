@@ -210,6 +210,22 @@ func TestRevealTopEmitsGroupPatchWithCardKey(t *testing.T) {
 	}
 }
 
+func TestRevealTopAcceptsToAliasForPrivateViewerPatch(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-to", "library.reveal_top", map[string]any{"playerId": "p1", "count": 1, "to": []any{"p1"}}), "p1")
+	if result.Err != nil {
+		t.Fatalf("reveal failed: %v", result.Err)
+	}
+	patch := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "library.top.revealed")
+	if patch == nil {
+		t.Fatalf("missing private reveal patch: %#v", result.Patches)
+	}
+	cards := patch.Data["cards"].([]map[string]any)
+	if len(cards) != 1 || cards[0]["cardKey"] == nil {
+		t.Fatalf("bad reveal cards: %#v", cards)
+	}
+}
+
 func TestLibraryDrawManyMetricsAndPatchRemoveThenAdd(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "draw-7", "library.draw_many", map[string]any{"playerId": "p1", "count": 2}), "p1")
@@ -307,8 +323,53 @@ func TestLibraryViewIsPrivateAndDoesNotMutateLibrary(t *testing.T) {
 	if got := joinStrings(gameActor.Snapshot().Zones["p1"].Library); got != joinStrings(before) {
 		t.Fatalf("library mutated: %s", got)
 	}
-	if len(result.Patches) != 1 || result.Patches[0].Visibility != "player:p1" || result.Patches[0].Ops[0].Op != "library.top.viewed" {
-		t.Fatalf("view patch should be private: %#v", result.Patches)
+	privatePatch := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "library.top.viewed")
+	if privatePatch == nil {
+		t.Fatalf("view patch should include private top cards: %#v", result.Patches)
+	}
+	publicCount := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.count.set")
+	if publicCount == nil {
+		t.Fatalf("view patch should include public count to advance non-owner viewers: %#v", result.Patches)
+	}
+	if publicCount.Data["playerId"] != "p1" || publicCount.Data["zone"] != state.ZoneLibrary || publicCount.Data["count"] != 3 {
+		t.Fatalf("bad public count patch: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["cards"]; leaked {
+		t.Fatalf("public view count leaked cards: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["instanceIds"]; leaked {
+		t.Fatalf("public view count leaked instance ids: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["cardKey"]; leaked {
+		t.Fatalf("public view count leaked cardKey: %#v", publicCount.Data)
+	}
+}
+
+func TestLibraryReorderTopEmitsPrivateOrderAndPublicCount(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reorder", "library.reorder_top", map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}), "p1")
+	if result.Err != nil {
+		t.Fatalf("reorder failed: %v", result.Err)
+	}
+	privatePatch := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "library.top.reordered")
+	if privatePatch == nil {
+		t.Fatalf("reorder patch should include private order: %#v", result.Patches)
+	}
+	publicCount := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.count.set")
+	if publicCount == nil {
+		t.Fatalf("reorder patch should include public count to advance non-owner viewers: %#v", result.Patches)
+	}
+	if publicCount.Data["playerId"] != "p1" || publicCount.Data["zone"] != state.ZoneLibrary || publicCount.Data["count"] != 3 {
+		t.Fatalf("bad public count patch: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["instanceIds"]; leaked {
+		t.Fatalf("public reorder count leaked library order: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["cards"]; leaked {
+		t.Fatalf("public reorder count leaked cards: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["cardKey"]; leaked {
+		t.Fatalf("public reorder count leaked cardKey: %#v", publicCount.Data)
 	}
 }
 

@@ -348,6 +348,71 @@ describe('game table normalized v2 store', () => {
     expect(gameplayDuplicate.state.players['player-1'].life).toBe(40);
   });
 
+  it('merges same-version runtime library visibility patches without losing public counts', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const privateDrawPatch: PatchEnvelopeV2 = {
+      ...patch(6, [
+        { op: 'zone.cards.remove', playerId: 'player-1', zone: 'library', instanceIds: ['library-1'] },
+        {
+          op: 'zone.cards.add',
+          playerId: 'player-1',
+          zone: 'hand',
+          cards: [{
+            instanceId: 'library-1',
+            cardRef: 'card:forest',
+            cardKey: 'card:forest',
+            printId: 's-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            zoneId: 'player-1:hand',
+            ownerId: 'player-1',
+            controllerId: 'player-1',
+          }],
+          staticCards: {
+            'card:forest': {
+              cardRef: 'card:forest',
+              cardKey: 'card:forest',
+              printId: 's-forest',
+              cardVersion: 'forest-v1',
+              language: 'en',
+              viewerVisibility: 'private',
+              name: 'Forest',
+              imageUris: null,
+              cardFaces: [],
+            },
+          },
+        },
+      ]),
+      ackClientActionId: 'library-draw-split',
+    };
+    const publicCountPatch: PatchEnvelopeV2 = {
+      ...patch(6, [
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 97 },
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 2 },
+      ]),
+      visibility: 'public',
+      ackClientActionId: 'library-draw-split',
+    };
+
+    const privateFirst = applyPatchEnvelopeV2(initial, privateDrawPatch);
+    const countsAfterPrivate = applyPatchEnvelopeV2(privateFirst.state, publicCountPatch);
+    const publicFirst = applyPatchEnvelopeV2(initial, publicCountPatch);
+    const privateAfterCounts = applyPatchEnvelopeV2(publicFirst.state, privateDrawPatch);
+
+    for (const result of [countsAfterPrivate, privateAfterCounts]) {
+      const snapshot = hydrateGameSnapshotFromV2State(result.state);
+      expect(result.status).toBe('applied');
+      expect(result.state.lastAppliedVersion).toBe(6);
+      expect(result.state.zones['player-1'].hand).toEqual(['hand-1', 'library-1']);
+      expect(result.state.zones['player-1'].library).toEqual(['library-2']);
+      expect(snapshot.players['player-1'].zoneCounts?.library).toBe(97);
+      expect(snapshot.players['player-1'].zoneCounts?.hand).toBe(2);
+      expect(snapshot.players['player-1'].handCount).toBe(2);
+      expect(snapshot.players['player-1'].zones.hand[1]?.name).toBe('Forest');
+    }
+  });
+
   it('applies lifecycle status and disconnect vote patches without snapshot refetch', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [
@@ -1045,6 +1110,69 @@ describe('game table normalized v2 store', () => {
     expect(result.state.zones['player-1'].hand).toEqual(['hand-1', 'library-1']);
     expect(result.state.zoneCounts['player-1'].library).toBe(97);
     expect(hydrateGameSnapshotFromV2State(result.state).players['player-1'].zones.hand[1]?.name).toBe('Forest');
+  });
+
+  it('preserves bootstrap identity for compact runtime draw cards without static payload', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['library-1'] = {
+      ...bootstrap.instances['library-1'],
+      cardRef: 'card:forest',
+      cardKey: undefined,
+      printId: undefined,
+      cardVersion: undefined,
+      language: undefined,
+      viewerVisibility: undefined,
+    };
+    bootstrap.staticCards['card:forest'] = {
+      cardRef: 'card:forest',
+      cardKey: 'card:forest',
+      printId: 's-forest',
+      cardVersion: 'forest-v1',
+      language: 'en',
+      viewerVisibility: 'private',
+      name: 'Forest',
+      imageUris: null,
+      cardFaces: [],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'library', instanceIds: ['library-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [{ instanceId: 'library-1', cardKey: 'card:forest', ownerId: 'player-1', controllerId: 'player-1' }],
+      },
+      { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 97 },
+      { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 2 },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['library-1'].language).toBe('en');
+    expect(snapshot.players['player-1'].zones.hand[1]?.name).toBe('Forest');
+    expect(snapshot.players['player-1'].handCount).toBe(2);
+  });
+
+  it('synthesizes minimal private identity for compact runtime draw cards without cached static data', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'library', instanceIds: ['library-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [{ instanceId: 'library-1', cardKey: 'card:runtime-private', ownerId: 'player-1', controllerId: 'player-1' }],
+      },
+      { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 97 },
+      { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 2 },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['library-1'].language).toBe('en');
+    expect(snapshot.players['player-1'].zones.hand[1]?.name).toBe('Card');
+    expect(snapshot.players['player-1'].handCount).toBe(2);
   });
 
   it('hydrates visible hand count from zone.count.set instead of stale hand array length', () => {

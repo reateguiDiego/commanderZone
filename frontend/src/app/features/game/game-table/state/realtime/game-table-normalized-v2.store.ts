@@ -265,26 +265,11 @@ export function applyPatchEnvelopeV2(
   patch: PatchEnvelopeV2,
 ): GameTableNormalizedV2ApplyInternalResult {
   if (patch.version <= state.lastAppliedVersion) {
-    if (patch.version === state.lastAppliedVersion && isSameVersionStreamPatch(patch)) {
-      let nextState = state;
-      for (const operation of patch.ops) {
-        const result = applyOperation(nextState, operation);
-        if (result.status === 'failed') {
-          return { status: 'resync_required', state, reason: result.reason };
-        }
-
-        nextState = result.state;
-      }
-
-      return {
-        status: 'applied',
-        state: {
-          ...nextState,
-          pendingOptimisticActions: patch.ackClientActionId
-            ? omitKey(nextState.pendingOptimisticActions, patch.ackClientActionId)
-            : nextState.pendingOptimisticActions,
-        },
-      };
+    if (
+      patch.version === state.lastAppliedVersion
+      && (isSameVersionStreamPatch(patch) || isSameVersionVisibilityMergePatch(patch))
+    ) {
+      return applySameVersionPatch(state, patch);
     }
 
     return { status: 'ignored', state, reason: 'duplicate_or_late_version' };
@@ -319,10 +304,159 @@ export function applyPatchEnvelopeV2(
   return { status: 'applied', state: nextState };
 }
 
+function applySameVersionPatch(
+  state: GameTableNormalizedV2State,
+  patch: PatchEnvelopeV2,
+): GameTableNormalizedV2ApplyInternalResult {
+  let nextState = state;
+  for (const operation of patch.ops) {
+    const result = applySameVersionOperation(nextState, operation);
+    if (result.status === 'failed') {
+      return { status: 'resync_required', state, reason: result.reason };
+    }
+
+    nextState = result.state;
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...nextState,
+      pendingOptimisticActions: patch.ackClientActionId
+        ? omitKey(nextState.pendingOptimisticActions, patch.ackClientActionId)
+        : nextState.pendingOptimisticActions,
+    },
+  };
+}
+
+function applySameVersionOperation(
+  state: GameTableNormalizedV2State,
+  operation: GameplayPatchV2Operation,
+): OperationApplyResult {
+  switch (operation.op) {
+    case 'zone.cards.add':
+    case 'zone.cards.remove':
+      return applyOperationPreservingZoneCounts(state, operation, [{ playerId: operation.playerId, zone: operation.zone }]);
+    case 'zone.cards.move':
+      return applyOperationPreservingZoneCounts(state, operation, [
+        { playerId: operation.from.playerId, zone: operation.from.zone },
+        { playerId: operation.to.playerId, zone: operation.to.zone },
+      ]);
+    case 'zone.cards.batchMove':
+      return applyOperationPreservingZoneCounts(
+        state,
+        operation,
+        operation.moves.flatMap((move) => [
+          { playerId: move.from.playerId, zone: move.from.zone },
+          { playerId: move.to.playerId, zone: move.to.zone },
+        ]),
+      );
+    default:
+      return applyOperation(state, operation);
+  }
+}
+
+function applyOperationPreservingZoneCounts(
+  state: GameTableNormalizedV2State,
+  operation: GameplayPatchV2Operation,
+  targets: Array<{ playerId: string; zone: GameZoneName }>,
+): OperationApplyResult {
+  const preservedCounts = zoneCountsForTargets(state, targets);
+  const result = applyOperation(state, operation);
+  if (result.status === 'failed') {
+    return result;
+  }
+
+  return {
+    status: 'applied',
+    state: restoreZoneCountsForTargets(result.state, preservedCounts),
+  };
+}
+
+function zoneCountsForTargets(
+  state: GameTableNormalizedV2State,
+  targets: Array<{ playerId: string; zone: GameZoneName }>,
+): Array<{ playerId: string; zone: GameZoneName; count: number }> {
+  const seen = new Set<string>();
+  const counts: Array<{ playerId: string; zone: GameZoneName; count: number }> = [];
+  for (const target of targets) {
+    const key = `${target.playerId}:${target.zone}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    const count = state.zoneCounts[target.playerId]?.[target.zone];
+    if (typeof count === 'number') {
+      counts.push({ ...target, count });
+    }
+  }
+
+  return counts;
+}
+
+function restoreZoneCountsForTargets(
+  state: GameTableNormalizedV2State,
+  counts: Array<{ playerId: string; zone: GameZoneName; count: number }>,
+): GameTableNormalizedV2State {
+  let nextZoneCounts = state.zoneCounts;
+  for (const item of counts) {
+    const playerZoneCounts = nextZoneCounts[item.playerId];
+    if (!playerZoneCounts) {
+      continue;
+    }
+
+    nextZoneCounts = {
+      ...nextZoneCounts,
+      [item.playerId]: {
+        ...playerZoneCounts,
+        [item.zone]: item.count,
+      },
+    };
+  }
+
+  return nextZoneCounts === state.zoneCounts ? state : { ...state, zoneCounts: nextZoneCounts };
+}
+
 function isSameVersionStreamPatch(patch: PatchEnvelopeV2): boolean {
   return patch.ops.length > 0 && patch.ops.every((operation) =>
     operation.op === 'chat.message.add' || operation.op === 'chat.reaction.set',
   );
+}
+
+function isSameVersionVisibilityMergePatch(patch: PatchEnvelopeV2): boolean {
+  return typeof patch.ackClientActionId === 'string'
+    && patch.ackClientActionId.trim() !== ''
+    && patch.ops.length > 0
+    && patch.ops.every(isSameVersionVisibilityMergeOperation);
+}
+
+function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operation): boolean {
+  switch (operation.op) {
+    case 'zone.cards.add':
+    case 'zone.cards.remove':
+    case 'zone.cards.move':
+    case 'zone.cards.batchMove':
+    case 'zone.count.set':
+    case 'library.count.set':
+    case 'library.top.revealed':
+    case 'library.top.viewed':
+    case 'library.revealed.set':
+    case 'library.play_top_revealed.set':
+    case 'library.top.hidden':
+    case 'library.top.reordered':
+    case 'library.top.moved':
+    case 'library.shuffled':
+    case 'mulligan.status.set':
+    case 'mulligan.private_state.set':
+    case 'mulligan.hand.replace_private':
+    case 'mulligan.hand.count.set':
+    case 'mulligan.bottom.required.set':
+    case 'mulligan.scry.available.set':
+      return true;
+    default:
+      return false;
+  }
 }
 
 type OperationApplyResult =
@@ -794,7 +928,7 @@ function addCardsToZone(
   for (const card of cards) {
     const normalized = normalizeIncomingCard(card, playerId, zone, staticCards ?? {});
     const existing = nextInstances[normalized.instance.instanceId];
-    nextInstances[normalized.instance.instanceId] = {
+    const nextInstance = {
       ...normalized.instance,
       position: battlefieldPositionForZone(zone, normalized.instance.position, existing?.position),
       ...(existing && shouldPreserveExistingStaticIdentity(normalized.instance, normalized.staticCard, existing)
@@ -814,6 +948,10 @@ function addCardsToZone(
         normalized.staticCard,
       );
     }
+    nextInstances[normalized.instance.instanceId] = completeInstanceIdentity(
+      nextInstance,
+      nextStaticCards[nextInstance.cardRef],
+    );
     insertedIds.push(normalized.instance.instanceId);
   }
 
@@ -914,7 +1052,7 @@ function moveOneCard(
   if (operation.card) {
     const existing = nextInstances[operation.instanceId];
     const normalized = normalizeIncomingCard(operation.card, operation.to.playerId, operation.to.zone, operation.staticCard ? { [operation.staticCard.cardRef]: operation.staticCard } : {});
-    nextInstances[operation.instanceId] = {
+    let nextInstance: BootstrapInstanceV2 = {
       ...normalized.instance,
       position: battlefieldPositionForZone(operation.to.zone, normalized.instance.position, existing?.position),
       ...(existing && shouldPreserveExistingStaticIdentity(normalized.instance, normalized.staticCard, existing)
@@ -936,6 +1074,8 @@ function moveOneCard(
         normalized.staticCard,
       );
     }
+    nextInstance = completeInstanceIdentity(nextInstance, nextStaticCards[nextInstance.cardRef]);
+    nextInstances[operation.instanceId] = nextInstance;
   } else {
     const existing = nextInstances[operation.instanceId];
     if (!existing) {
@@ -1086,13 +1226,16 @@ function revealLibraryTop(
 
   for (const card of cards) {
     const normalized = normalizeIncomingCard(card, playerId, 'library', staticCards);
-    nextInstances[normalized.instance.instanceId] = normalized.instance;
     if (normalized.staticCard) {
       nextStaticCards[normalized.staticCard.cardRef] = mergeStaticCard(
         nextStaticCards[normalized.staticCard.cardRef],
         normalized.staticCard,
       );
     }
+    nextInstances[normalized.instance.instanceId] = completeInstanceIdentity(
+      normalized.instance,
+      nextStaticCards[normalized.instance.cardRef],
+    );
     topIds.push(normalized.instance.instanceId);
   }
 
@@ -1533,7 +1676,7 @@ function compactRefToBootstrapInstance(
     cardKey: card.cardKey ?? undefined,
     printId: card.printId ?? undefined,
     cardVersion: card.cardVersion ?? undefined,
-    language: card.language ?? null,
+    language: card.language ?? fallbackLanguageForZone(zone),
     viewerVisibility: card.viewerVisibility ?? viewerVisibilityForZone(zone),
     zoneId: zoneId(playerId, zone),
     ownerId: playerId,
@@ -1822,6 +1965,28 @@ function normalizeInstance(instance: BootstrapInstanceV2): BootstrapInstanceV2 {
   };
 }
 
+function completeInstanceIdentity(
+  instance: BootstrapInstanceV2,
+  staticCard: BootstrapStaticCardV2 | undefined,
+): BootstrapInstanceV2 {
+  if (!staticCard) {
+    return instance;
+  }
+  const zone = zoneNameFromZoneId(instance.zoneId);
+  if (zone !== 'hand' && zone !== 'library') {
+    return instance;
+  }
+
+  return {
+    ...instance,
+    cardKey: nonEmptyString(instance.cardKey) ? instance.cardKey : staticCard.cardKey,
+    printId: nonEmptyString(instance.printId) ? instance.printId : staticCard.printId,
+    cardVersion: nonEmptyString(instance.cardVersion) ? instance.cardVersion : staticCard.cardVersion,
+    language: nonEmptyString(instance.language) ? instance.language : staticCard.language,
+    viewerVisibility: nonEmptyString(instance.viewerVisibility) ? instance.viewerVisibility : staticCard.viewerVisibility,
+  };
+}
+
 function battlefieldPositionForZone(
   zone: GameZoneName,
   incoming: BootstrapInstanceV2['position'],
@@ -1847,6 +2012,20 @@ function mergeStaticCard(
   existing: BootstrapStaticCardV2 | undefined,
   incoming: BootstrapStaticCardV2,
 ): BootstrapStaticCardV2 {
+  if (existing && !hasRenderableStaticContent(incoming) && isStaticIdentityCompatible(existing, incoming)) {
+    return existing;
+  }
+
+  if (existing && !hasCompleteStaticIdentity(incoming) && isStaticIdentityCompatible(existing, incoming)) {
+    return {
+      ...existing,
+      imageUris: incoming.imageUris ?? existing.imageUris,
+      cardFaces: incoming.cardFaces && incoming.cardFaces.length > 0
+        ? incoming.cardFaces
+        : existing.cardFaces,
+    };
+  }
+
   if (!existing || !sameStaticIdentity(existing, incoming)) {
     return incoming;
   }
@@ -1867,6 +2046,32 @@ function sameStaticIdentity(left: BootstrapStaticCardV2, right: BootstrapStaticC
     && left.cardVersion === right.cardVersion
     && left.language === right.language
     && left.viewerVisibility === right.viewerVisibility;
+}
+
+function hasCompleteStaticIdentity(card: BootstrapStaticCardV2): boolean {
+  return [
+    card.cardKey,
+    card.printId,
+    card.cardVersion,
+    card.language,
+    card.viewerVisibility,
+  ].every(nonEmptyString);
+}
+
+function hasRenderableStaticContent(card: BootstrapStaticCardV2): boolean {
+  const name = card.name?.trim() ?? '';
+  return (name !== '' && name !== 'Card')
+    || Boolean(card.imageUris && Object.keys(card.imageUris).length > 0)
+    || Boolean(card.cardFaces && card.cardFaces.length > 0);
+}
+
+function isStaticIdentityCompatible(existing: BootstrapStaticCardV2, incoming: BootstrapStaticCardV2): boolean {
+  const incomingKeys = [incoming.cardRef, incoming.cardKey].filter(nonEmptyString);
+  const existingKeys = [existing.cardRef, existing.cardKey].filter(nonEmptyString);
+
+  return incomingKeys.length === 0
+    || existingKeys.length === 0
+    || incomingKeys.some((key) => existingKeys.includes(key));
 }
 
 function normalizeIncomingCard(
@@ -1892,6 +2097,7 @@ function normalizeIncomingCard(
 
   const legacy = card as LegacyCardPatchPayload;
   const inferredCardRef = inferCardRefFromLegacyCard(legacy);
+  const fallbackLanguage = fallbackLanguageForZone(zone);
   const staticCard = (legacy.hidden && !legacy.scryfallId && !legacy.name)
     ? null
     : {
@@ -1899,10 +2105,10 @@ function normalizeIncomingCard(
         cardKey: legacy.cardKey ?? inferredCardRef,
         printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? inferredCardRef,
         cardVersion: legacy.cardVersion ?? 'legacy-snapshot-v1',
-        language: legacy.language ?? null,
+        language: legacy.language ?? fallbackLanguage,
         viewerVisibility: legacy.viewerVisibility ?? viewerVisibilityForZone(zone),
         scryfallId: legacy.scryfallId ?? null,
-        name: legacy.name ?? (legacy.hidden ? 'Card' : null),
+        name: legacy.name ?? fallbackStaticNameForZone(zone, legacy.hidden ?? false),
         imageUris: normalizeImageUris(legacy.imageUris),
         cardFaces: legacy.cardFaces ? structuredClone(legacy.cardFaces) : [],
         typeLine: legacy.typeLine ?? null,
@@ -1922,7 +2128,7 @@ function normalizeIncomingCard(
       cardKey: legacy.cardKey ?? undefined,
       printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? inferredCardRef,
       cardVersion: legacy.cardVersion ?? 'legacy-snapshot-v1',
-      language: legacy.language ?? null,
+      language: legacy.language ?? fallbackLanguage,
       viewerVisibility: legacy.viewerVisibility ?? viewerVisibilityForZone(zone),
       zoneId: zoneId(playerId, zone),
       ownerId: legacy.ownerId ?? playerId,
@@ -1955,14 +2161,79 @@ function shouldPreserveExistingStaticIdentity(
   incomingStaticCard: BootstrapStaticCardV2 | null,
   existing: BootstrapInstanceV2,
 ): boolean {
-  if (incomingStaticCard !== null && !isSyntheticUnknownStaticCard(incomingStaticCard, incoming.instanceId)) {
+  if (hasRenderableIdentity(incoming, incomingStaticCard)) {
+    if (incomingStaticCard !== null && !isSyntheticUnknownStaticCard(incomingStaticCard, incoming.instanceId)) {
+      return false;
+    }
+    const incomingHasExplicitCardKey = typeof incoming.cardKey === 'string' && incoming.cardKey.trim().length > 0;
+    if (incomingHasExplicitCardKey) {
+      return false;
+    }
+  }
+
+  if (!isIncomingIdentityCompatibleWithExisting(incoming, incomingStaticCard, existing)) {
     return false;
   }
-  const incomingHasExplicitCardKey = typeof incoming.cardKey === 'string' && incoming.cardKey.trim().length > 0;
-  if (incomingHasExplicitCardKey) {
-    return false;
-  }
+
   return typeof existing.cardRef === 'string' && existing.cardRef.trim().length > 0;
+}
+
+function hasRenderableIdentity(
+  instance: BootstrapInstanceV2,
+  staticCard: BootstrapStaticCardV2 | null,
+): boolean {
+  if (!staticCard) {
+    return false;
+  }
+
+  const instanceIdentity = [
+    instance.cardKey,
+    instance.printId,
+    instance.cardVersion,
+    instance.language,
+    instance.viewerVisibility,
+  ];
+  const staticIdentity = [
+    staticCard.cardKey,
+    staticCard.printId,
+    staticCard.cardVersion,
+    staticCard.language,
+    staticCard.viewerVisibility,
+  ];
+
+  return [...instanceIdentity, ...staticIdentity].every((value) =>
+    typeof value === 'string' && value.trim() !== '',
+  );
+}
+
+function isIncomingIdentityCompatibleWithExisting(
+  incoming: BootstrapInstanceV2,
+  incomingStaticCard: BootstrapStaticCardV2 | null,
+  existing: BootstrapInstanceV2,
+): boolean {
+  const incomingKeys = [
+    incoming.cardRef,
+    incoming.cardKey,
+    incomingStaticCard?.cardRef,
+    incomingStaticCard?.cardKey,
+  ].filter(nonEmptyString);
+  const existingKeys = [
+    existing.cardRef,
+    existing.cardKey,
+  ].filter(nonEmptyString);
+  const hasExplicitIncomingKey = incomingKeys.some((key) => key !== `instance:${incoming.instanceId}`);
+
+  if (incoming.instanceId === existing.instanceId && !hasExplicitIncomingKey) {
+    return true;
+  }
+
+  return incomingKeys.length === 0
+    || existingKeys.length === 0
+    || incomingKeys.some((key) => existingKeys.includes(key));
+}
+
+function nonEmptyString(value: string | null | undefined): value is string {
+  return typeof value === 'string' && value.trim() !== '';
 }
 
 function isSyntheticUnknownStaticCard(staticCard: BootstrapStaticCardV2, instanceId: string): boolean {
@@ -2130,6 +2401,14 @@ function inferCardRefFromLegacyCard(card: LegacyCardPatchPayload): string {
 
 function viewerVisibilityForZone(zone: GameZoneName): string {
   return zone === 'hand' || zone === 'library' ? 'private' : 'public';
+}
+
+function fallbackLanguageForZone(zone: GameZoneName): string | null {
+  return zone === 'hand' || zone === 'library' ? 'en' : null;
+}
+
+function fallbackStaticNameForZone(zone: GameZoneName, hidden: boolean): string | null {
+  return hidden || zone === 'hand' || zone === 'library' ? 'Card' : null;
 }
 
 function normalizeImageUris(imageUris: Record<string, string> | undefined): CardImageUris | undefined {

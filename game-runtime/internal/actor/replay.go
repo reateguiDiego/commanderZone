@@ -2,6 +2,7 @@ package actor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"commanderzone/game-runtime/internal/protocol"
@@ -286,22 +287,127 @@ func replayMulliganEvent(game *state.GameState, event protocol.EventPayloadV2) e
 	if event.Type == "game.phase_changed" {
 		return nil
 	}
-	if mulligan, ok := event.Payload["mulligan"].(state.MulliganState); ok {
-		game.Mulligan = mulligan.Clone()
-	}
 	playerID, hasPlayer := event.Payload["playerId"].(string)
 	if hasPlayer && playerID != "" {
-		zones := game.Zones[playerID]
-		if handIDs, err := stringSliceField(event.Payload, "handIds"); err == nil {
-			zones.Hand = handIDs
+		if replayed, err := replayLegacyMulliganZoneSnapshot(game, event, playerID); replayed || err != nil {
+			if err != nil {
+				return err
+			}
+		} else {
+			if err := replayCompactMulliganOperation(game, event, playerID); err != nil {
+				return err
+			}
 		}
-		if libraryOrder, err := stringSliceField(event.Payload, "libraryOrder"); err == nil {
-			zones.Library = libraryOrder
-		}
-		game.Zones[playerID] = zones
+	}
+	if mulligan, ok := mulliganStateFromAny(event.Payload["mulligan"]); ok {
+		game.Mulligan = mulligan.Clone()
 	}
 	state.RebuildLocIndexForRecoveryOnly(game)
 	return nil
+}
+
+func replayLegacyMulliganZoneSnapshot(game *state.GameState, event protocol.EventPayloadV2, playerID string) (bool, error) {
+	zones := game.Zones[playerID]
+	replayed := false
+	if handIDs, err := stringSliceField(event.Payload, "handIds"); err == nil {
+		zones.Hand = handIDs
+		replayed = true
+	}
+	if libraryOrder, err := stringSliceField(event.Payload, "libraryOrder"); err == nil {
+		zones.Library = libraryOrder
+		replayed = true
+	}
+	if replayed {
+		game.Zones[playerID] = zones
+	}
+	return replayed, nil
+}
+
+func replayCompactMulliganOperation(game *state.GameState, event protocol.EventPayloadV2, playerID string) error {
+	switch event.Type {
+	case "mulligan.player_took":
+		seed, ok := intField(event.Payload, "shuffleSeed")
+		if !ok {
+			return nil
+		}
+		algorithm, _ := event.Payload["shuffleAlgorithm"].(string)
+		if algorithm != "" && algorithm != state.DeterministicShuffleAlgorithm {
+			return fmt.Errorf("%w: shuffleAlgorithm", ErrInvalidPayloadField)
+		}
+		if seed < 0 || int64(seed) > int64(^uint32(0)) {
+			return fmt.Errorf("%w: shuffleSeed", ErrInvalidPayloadField)
+		}
+		drawCount, ok := intField(event.Payload, "drawCount")
+		if !ok || drawCount < 0 {
+			return fmt.Errorf("%w: drawCount", ErrInvalidPayloadField)
+		}
+		handIDs := append([]string(nil), game.Zones[playerID].Hand...)
+		if err := moveHandToLibraryAndShuffle(game, playerID, handIDs, uint32(seed)); err != nil {
+			return err
+		}
+		_, err := state.NewLibraryOps().DrawMany(game, playerID, drawCount)
+		return err
+	case "mulligan.player_kept", "mulligan.cards_bottomed":
+		bottomedIDs, err := stringSliceField(event.Payload, "bottomedIds")
+		if err != nil || len(bottomedIDs) == 0 {
+			return nil
+		}
+		return replayMulliganBottomed(game, playerID, bottomedIDs)
+	case "mulligan.scry_confirmed":
+		choice, _ := event.Payload["choice"].(string)
+		if choice != "bottom" {
+			return nil
+		}
+		movedIDs, err := stringSliceField(event.Payload, "movedIds")
+		if err != nil || len(movedIDs) == 0 {
+			if topID, _ := event.Payload["topId"].(string); topID != "" {
+				movedIDs = []string{topID}
+			}
+		}
+		if len(movedIDs) == 0 {
+			return nil
+		}
+		moved, err := state.NewLibraryOps().MoveTopToBottom(game, playerID, len(movedIDs))
+		if err != nil {
+			return err
+		}
+		for index, instanceID := range movedIDs {
+			if index >= len(moved) || moved[index] != instanceID {
+				return fmt.Errorf("%w: movedIds", ErrInvalidPayloadField)
+			}
+		}
+		return nil
+	default:
+		return nil
+	}
+}
+
+func replayMulliganBottomed(game *state.GameState, playerID string, bottomedIDs []string) error {
+	for _, instanceID := range bottomedIDs {
+		if _, err := state.RemoveFromCurrentZone(game, instanceID); err != nil {
+			return err
+		}
+	}
+	return state.NewLibraryOps().PutManyOnBottom(game, playerID, bottomedIDs)
+}
+
+func mulliganStateFromAny(value any) (state.MulliganState, bool) {
+	switch typed := value.(type) {
+	case state.MulliganState:
+		return typed.Clone(), true
+	case map[string]any:
+		payload, err := json.Marshal(typed)
+		if err != nil {
+			return state.MulliganState{}, false
+		}
+		var mulligan state.MulliganState
+		if err := json.Unmarshal(payload, &mulligan); err != nil {
+			return state.MulliganState{}, false
+		}
+		return mulligan.Clone(), true
+	default:
+		return state.MulliganState{}, false
+	}
 }
 
 func replayViaApplier(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
