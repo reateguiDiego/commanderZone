@@ -178,6 +178,21 @@ Integration tests for Postgres are opt-in:
 ```powershell
 $env:GAME_RUNTIME_TEST_DATABASE_URL="postgres://runtime_test:runtime_test@127.0.0.1:55432/runtime_test?sslmode=disable"
 docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime -e GAME_RUNTIME_TEST_DATABASE_URL=$env:GAME_RUNTIME_TEST_DATABASE_URL commanderzone-go-toolchain:1.22 go test ./internal/persistence -run Postgres -count=1 -v
+docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime -e GAME_RUNTIME_TEST_DATABASE_URL=$env:GAME_RUNTIME_TEST_DATABASE_URL commanderzone-go-toolchain:1.22 go test ./internal/actor -run PostgresActor -count=1 -v
+```
+
+Run the Postgres packages separately when sharing one DSN; each package resets the runtime test tables.
+
+With the repository Docker Compose Postgres, the local DSN is:
+
+```powershell
+docker compose up -d database
+docker compose exec -T database psql -U commanderzone -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'commanderzone_runtime_test' AND pid <> pg_backend_pid();"
+docker compose exec -T database psql -U commanderzone -d postgres -c "DROP DATABASE IF EXISTS commanderzone_runtime_test;"
+docker compose exec -T database psql -U commanderzone -d postgres -c "CREATE DATABASE commanderzone_runtime_test OWNER commanderzone;"
+$env:GAME_RUNTIME_TEST_DATABASE_URL="postgresql://commanderzone:commanderzone@host.docker.internal:5433/commanderzone_runtime_test?sslmode=disable"
+docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime -e GAME_RUNTIME_TEST_DATABASE_URL=$env:GAME_RUNTIME_TEST_DATABASE_URL golang:1.22.12-bookworm go test ./internal/actor -run PostgresActor -count=1 -v
+docker run --rm -v "${PWD}:/workspace" -w /workspace/game-runtime -e GAME_RUNTIME_TEST_DATABASE_URL=$env:GAME_RUNTIME_TEST_DATABASE_URL golang:1.22.12-bookworm go test ./internal/persistence -run Postgres -count=1 -v
 ```
 
 ## Expected Validation

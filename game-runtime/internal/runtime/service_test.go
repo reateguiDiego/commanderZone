@@ -235,7 +235,12 @@ func TestServiceRetryPostRestartReconstructsPatchesAfterSnapshotFailure(t *testi
 		t.Fatalf("retry appended duplicate events: got %d want 1", len(events))
 	}
 	actorMetrics := recoveredActor.Metrics()
-	if actorMetrics.DuplicateActionCount != 1 || actorMetrics.CommandAppliedCount != 0 || actorMetrics.LegacyFallbackCount != 0 {
+	if actorMetrics.DuplicateActionCount != 1 ||
+		actorMetrics.DuplicateDurableCount != 1 ||
+		actorMetrics.DuplicateMemoryCount != 0 ||
+		actorMetrics.DuplicateReceiptMissingCount != 0 ||
+		actorMetrics.CommandAppliedCount != 0 ||
+		actorMetrics.LegacyFallbackCount != 0 {
 		t.Fatalf("retry actor metrics mismatch: %#v", actorMetrics)
 	}
 	runtimeMetrics := restarted.RuntimeMetrics()

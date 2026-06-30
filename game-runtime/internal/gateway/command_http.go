@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -98,6 +99,9 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if result.Err == actor.ErrQueueFull {
 			code = "queue_full"
 		}
+		if errors.Is(result.Err, actor.ErrRuntimePatchReceiptMissing) {
+			code = "patch_receipt_missing"
+		}
 		writeCommandHTTPError(w, status, code, result.Err.Error())
 		return
 	}
@@ -141,8 +145,13 @@ func mergeActorMetrics(metrics map[string]any, actorMetrics actor.ActorMetrics) 
 	metrics["command.unsupported_count"] = actorMetrics.UnsupportedCount
 	metrics["command.legacy_fallback_count"] = actorMetrics.LegacyFallbackCount
 	metrics["actor.duplicate_action_count"] = actorMetrics.DuplicateActionCount
+	metrics["actor.duplicate_memory_count"] = actorMetrics.DuplicateMemoryCount
+	metrics["actor.duplicate_durable_count"] = actorMetrics.DuplicateDurableCount
+	metrics["actor.duplicate_receipt_missing_count"] = actorMetrics.DuplicateReceiptMissingCount
 	metrics["actor.version_conflict_count"] = actorMetrics.VersionConflictCount
 	metrics["actor.snapshot_post_append_failure_count"] = actorMetrics.SnapshotPostAppendFailureCount
+	metrics["actor.seen_action_cache_size"] = actorMetrics.SeenActionCacheSize
+	metrics["actor.seen_action_cache_capacity"] = actorMetrics.SeenActionCacheCapacity
 	return metrics
 }
 

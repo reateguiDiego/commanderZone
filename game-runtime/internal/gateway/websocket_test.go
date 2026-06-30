@@ -480,6 +480,49 @@ func TestWebSocketCacheMissRecoversCompactSnapshotAndEventLog(t *testing.T) {
 	}
 }
 
+func TestWebSocketDuplicateLegacyEventMissingReceiptRequestsExplicitResync(t *testing.T) {
+	gameID := "game-ws-legacy-receipt"
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testInitialState(gameID))
+	if err := store.AppendEvent(context.Background(), protocol.EventPayloadV2{
+		GameID:         gameID,
+		Version:        2,
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 36},
+		CreatedBy:      "p1",
+		ClientActionID: "legacy-life",
+		CreatedAt:      time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("append legacy event: %v", err)
+	}
+	server, runtimeService, _ := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+	defer server.Close()
+
+	conn := dialRuntime(t, server.URL, gameID, 0, nil)
+	defer conn.Close()
+
+	writeCommand(t, conn, command(gameID, 1, "legacy-life", "life.changed", map[string]any{"playerId": "p1", "life": 36}, nil))
+	message := readUntil(t, conn, "command_ack")
+	if message.Status != "resync_required" || message.Error == nil || message.Error.Code != "PATCH_RECEIPT_MISSING" {
+		t.Fatalf("message = %#v, want explicit receipt-missing resync", message)
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+	gameActor, ok := runtimeService.Actor(gameID)
+	if !ok {
+		t.Fatal("actor missing")
+	}
+	metrics := gameActor.Metrics()
+	if metrics.DuplicateDurableCount != 1 || metrics.DuplicateReceiptMissingCount != 1 || metrics.CommandRejectedCount != 1 || metrics.CommandAppliedCount != 0 {
+		t.Fatalf("receipt-missing metrics mismatch: %#v", metrics)
+	}
+}
+
 func TestWebSocketReconnectReplaysPatchHistoryWithoutSnapshotReloadAfterActorEviction(t *testing.T) {
 	store := persistence.NewInMemoryEventStore()
 	saveGatewayRuntimeSnapshot(t, store, testInitialState("game-history"))
@@ -511,6 +554,83 @@ func TestWebSocketReconnectReplaysPatchHistoryWithoutSnapshotReloadAfterActorEvi
 	gatewayMetrics := handler.Metrics()
 	if gatewayMetrics.ReconnectsWithoutGap != 1 || gatewayMetrics.ReconnectsRequiringSync != 0 {
 		t.Fatalf("gateway metrics = %#v, want reconnect without gap", gatewayMetrics)
+	}
+}
+
+func TestWebSocketRetryAfterActorEvictionRebuildsPatchReceiptWithoutDuplicateEvent(t *testing.T) {
+	gameID := "game-ws-retry"
+	store := persistence.NewInMemoryEventStore()
+	saveGatewayRuntimeSnapshot(t, store, testReorderState(gameID))
+	server, runtimeService, _ := testWebSocketServerWithStoreAndHandler(t, store, 128, 256)
+	defer server.Close()
+
+	conn := dialRuntimeWithClaims(t, server.URL, gameID, 0, TicketClaims{
+		UserID:      "p1",
+		PlayerID:    "p1",
+		GameID:      gameID,
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	defer conn.Close()
+
+	command := command(gameID, 1, "ws-retry-face", "card.face.changed", map[string]any{
+		"playerId":   "p1",
+		"instanceId": "h1",
+		"faceIndex":  1,
+	}, nil)
+	writeCommand(t, conn, command)
+	firstPrivate := readPatchWithoutResync(t, conn)
+	firstCarrier := readPatchWithoutResync(t, conn)
+	if firstPrivate.Version != 2 || firstPrivate.AckClientActionID != command.ClientActionID || firstPrivate.Visibility != protocol.PlayerVisibility("p1") {
+		t.Fatalf("first private patch = %#v, want private version 2 ack", firstPrivate)
+	}
+	if firstCarrier.Version != 2 || firstCarrier.Visibility != protocol.VisibilityPublic || len(firstCarrier.Ops) != 1 || firstCarrier.Ops[0]["op"] != "version.advance" {
+		t.Fatalf("first carrier = %#v, want public version.advance carrier", firstCarrier)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := runtimeService.StopActor(ctx, gameID); err != nil {
+		t.Fatalf("stop actor: %v", err)
+	}
+
+	writeCommand(t, conn, command)
+	retryPrivate := readPatchWithoutResync(t, conn)
+	retryCarrier := readPatchWithoutResync(t, conn)
+	if retryPrivate.Version != firstPrivate.Version ||
+		retryPrivate.AckClientActionID != command.ClientActionID ||
+		retryPrivate.Visibility != firstPrivate.Visibility ||
+		fmt.Sprint(retryPrivate.Ops) != fmt.Sprint(firstPrivate.Ops) {
+		t.Fatalf("retry private patch mismatch:\nretry=%#v\nfirst=%#v", retryPrivate, firstPrivate)
+	}
+	if retryCarrier.Version != firstCarrier.Version ||
+		retryCarrier.AckClientActionID != command.ClientActionID ||
+		retryCarrier.Visibility != firstCarrier.Visibility ||
+		fmt.Sprint(retryCarrier.Ops) != fmt.Sprint(firstCarrier.Ops) {
+		t.Fatalf("retry carrier patch mismatch:\nretry=%#v\nfirst=%#v", retryCarrier, firstCarrier)
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Version != 2 || events[0].ClientActionID != command.ClientActionID {
+		t.Fatalf("events = %#v, want one original event only", events)
+	}
+	gameActor, ok := runtimeService.Actor(gameID)
+	if !ok {
+		t.Fatal("actor missing after retry recovery")
+	}
+	metrics := gameActor.Metrics()
+	if metrics.DuplicateDurableCount != 1 ||
+		metrics.DuplicateMemoryCount != 0 ||
+		metrics.DuplicateReceiptMissingCount != 0 ||
+		metrics.CommandAppliedCount != 0 ||
+		metrics.LegacyFallbackCount != 0 {
+		t.Fatalf("retry actor metrics mismatch: %#v", metrics)
+	}
+	if runtimeService.RuntimeMetrics().CommandLegacyFallbackCount != 0 {
+		t.Fatalf("runtime legacy fallback metric is nonzero: %#v", runtimeService.RuntimeMetrics())
 	}
 }
 
@@ -644,6 +764,38 @@ func readUntil(t *testing.T, conn *websocket.Conn, messageType string) ServerMes
 		}
 		seen = append(seen, message.Kind)
 		last = message
+	}
+}
+
+func readPatchWithoutResync(t *testing.T, conn *websocket.Conn) ServerMessage {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	if err := conn.SetReadDeadline(deadline); err != nil {
+		t.Fatalf("set deadline: %v", err)
+	}
+	seen := []string{}
+	for {
+		var message ServerMessage
+		err := conn.ReadJSON(&message)
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				t.Fatalf("timed out waiting for patch.v2 without resync; seen=%v", seen)
+			}
+			t.Fatalf("read websocket message: %v", err)
+		}
+		switch message.Kind {
+		case "patch.v2":
+			return message
+		case "resync_required":
+			t.Fatalf("unexpected resync_required while waiting for patch: %#v", message)
+		case "command_ack":
+			if message.Status == "resync_required" || message.Status == "rejected" {
+				t.Fatalf("unexpected command_ack while waiting for patch: %#v", message)
+			}
+		case "error":
+			t.Fatalf("unexpected websocket error while waiting for patch: %#v", message)
+		}
+		seen = append(seen, message.Kind)
 	}
 }
 

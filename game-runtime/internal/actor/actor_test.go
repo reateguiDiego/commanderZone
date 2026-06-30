@@ -115,12 +115,12 @@ func TestGameActorDuplicateClientActionIsIdempotent(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("events got %d want 1", len(events))
 	}
-	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.CommandAppliedCount != 1 {
+	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.DuplicateMemoryCount != 1 || metrics.DuplicateDurableCount != 0 || metrics.CommandAppliedCount != 1 {
 		t.Fatalf("duplicate metrics mismatch: %#v", metrics)
 	}
 }
 
-func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
+func TestGameActorDuplicateClientActionWithLegacyEventMissingReceiptFailsExplicitly(t *testing.T) {
 	store := persistence.NewInMemoryEventStore()
 	existing := protocol.EventPayloadV2{
 		GameID:         "game-1",
@@ -136,14 +136,11 @@ func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
 	}
 	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a1", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p1")
-	if result.Err != nil {
-		t.Fatalf("duplicate failed: %v", result.Err)
-	}
-	if result.Event.Version != existing.Version {
-		t.Fatalf("version got %d want %d", result.Event.Version, existing.Version)
+	if !errors.Is(result.Err, ErrRuntimePatchReceiptMissing) {
+		t.Fatalf("duplicate err got %v want %v", result.Err, ErrRuntimePatchReceiptMissing)
 	}
 	if len(result.Patches) != 0 {
-		t.Fatalf("legacy stored event without patch receipt should not invent patches: %#v", result.Patches)
+		t.Fatalf("legacy stored event without patch receipt should not return patches: %#v", result.Patches)
 	}
 	events, err := store.EventsAfter(context.Background(), "game-1", 0)
 	if err != nil {
@@ -152,7 +149,12 @@ func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("events got %d want 1", len(events))
 	}
-	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.CommandAppliedCount != 0 {
+	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 ||
+		metrics.DuplicateDurableCount != 1 ||
+		metrics.DuplicateReceiptMissingCount != 1 ||
+		metrics.DuplicateMemoryCount != 0 ||
+		metrics.CommandAppliedCount != 0 ||
+		metrics.CommandRejectedCount != 1 {
 		t.Fatalf("duplicate metrics mismatch: %#v", metrics)
 	}
 }
@@ -210,7 +212,11 @@ func TestGameActorDuplicateClientActionAfterCacheMissReconstructsStoredPatches(t
 	if len(events) != 1 {
 		t.Fatalf("events got %d want 1", len(events))
 	}
-	if metrics := recovered.Metrics(); metrics.DuplicateActionCount != 1 || metrics.CommandAppliedCount != 0 {
+	if metrics := recovered.Metrics(); metrics.DuplicateActionCount != 1 ||
+		metrics.DuplicateDurableCount != 1 ||
+		metrics.DuplicateMemoryCount != 0 ||
+		metrics.DuplicateReceiptMissingCount != 0 ||
+		metrics.CommandAppliedCount != 0 {
 		t.Fatalf("duplicate metrics mismatch after cache miss: %#v", metrics)
 	}
 }
@@ -310,7 +316,7 @@ func TestGameActorRetryAfterTimeoutDoesNotDuplicateEvent(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("events got %d want 1", len(events))
 	}
-	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.CommandAppliedCount != 1 {
+	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.DuplicateMemoryCount != 1 || metrics.DuplicateDurableCount != 0 || metrics.CommandAppliedCount != 1 {
 		t.Fatalf("retry metrics mismatch: %#v", metrics)
 	}
 }
@@ -334,6 +340,9 @@ func TestGameActorSeenActionCacheIsBoundedAndStoreKeepsIdempotency(t *testing.T)
 	if got := len(gameActor.seenActions); got != maxSeenActionCache {
 		t.Fatalf("seen action cache got %d want %d", got, maxSeenActionCache)
 	}
+	if metrics := gameActor.Metrics(); metrics.SeenActionCacheSize != maxSeenActionCache || metrics.SeenActionCacheCapacity != maxSeenActionCache {
+		t.Fatalf("seen action cache metrics mismatch: %#v", metrics)
+	}
 	if _, ok := gameActor.seenActions["bounded-000"]; ok {
 		t.Fatal("oldest action was not evicted from actor seen cache")
 	}
@@ -348,6 +357,9 @@ func TestGameActorSeenActionCacheIsBoundedAndStoreKeepsIdempotency(t *testing.T)
 	}
 	if duplicate.Event.Version != 2 {
 		t.Fatalf("duplicate event version got %d want 2", duplicate.Event.Version)
+	}
+	if metrics := gameActor.Metrics(); metrics.DuplicateDurableCount != 1 || metrics.DuplicateReceiptMissingCount != 0 {
+		t.Fatalf("duplicate after cache eviction did not use durable idempotency: %#v", metrics)
 	}
 }
 

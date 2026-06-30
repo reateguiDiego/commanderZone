@@ -193,8 +193,13 @@ func (s *Service) MetricsSnapshot() MetricsSnapshot {
 		snapshot.Totals.UnsupportedCount += metrics.UnsupportedCount
 		snapshot.Totals.LegacyFallbackCount += metrics.LegacyFallbackCount
 		snapshot.Totals.DuplicateActionCount += metrics.DuplicateActionCount
+		snapshot.Totals.DuplicateMemoryCount += metrics.DuplicateMemoryCount
+		snapshot.Totals.DuplicateDurableCount += metrics.DuplicateDurableCount
+		snapshot.Totals.DuplicateReceiptMissingCount += metrics.DuplicateReceiptMissingCount
 		snapshot.Totals.VersionConflictCount += metrics.VersionConflictCount
 		snapshot.Totals.SnapshotPostAppendFailureCount += metrics.SnapshotPostAppendFailureCount
+		snapshot.Totals.SeenActionCacheSize += metrics.SeenActionCacheSize
+		snapshot.Totals.SeenActionCacheCapacity += metrics.SeenActionCacheCapacity
 	}
 	return snapshot
 }

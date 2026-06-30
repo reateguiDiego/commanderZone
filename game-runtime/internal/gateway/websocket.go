@@ -306,6 +306,10 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 			s.sendJSON(client, commandResyncRequiredMessage(command, gameActor.Version(), "BASE_VERSION_MISMATCH", result.Err.Error(), true))
 			return
 		}
+		if errors.Is(result.Err, actor.ErrRuntimePatchReceiptMissing) {
+			s.sendJSON(client, commandResyncRequiredMessage(command, gameActor.Version(), "PATCH_RECEIPT_MISSING", result.Err.Error(), false))
+			return
+		}
 		s.sendJSON(client, commandRejectedMessage(command, "COMMAND_FAILED", result.Err.Error(), false))
 		return
 	}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"commanderzone/game-runtime/internal/actor"
 	"commanderzone/game-runtime/internal/persistence"
@@ -187,10 +188,74 @@ func TestCommandHTTPServerDuplicateActionReturnsExistingEventAndMetric(t *testin
 	if duplicate.Event.Version != first.Event.Version {
 		t.Fatalf("duplicate event version got %d want %d", duplicate.Event.Version, first.Event.Version)
 	}
-	if duplicate.Metrics["actor.duplicate_action_count"] != float64(1) || duplicate.Metrics["actor.command_applied_count"] != float64(1) {
+	if duplicate.Metrics["actor.duplicate_action_count"] != float64(1) ||
+		duplicate.Metrics["actor.duplicate_memory_count"] != float64(1) ||
+		duplicate.Metrics["actor.duplicate_durable_count"] != float64(0) ||
+		duplicate.Metrics["actor.command_applied_count"] != float64(1) {
 		t.Fatalf("expected duplicate action metrics: %#v", duplicate.Metrics)
 	}
 	events, err := store.EventsAfter(context.Background(), "game-duplicate", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+}
+
+func TestCommandHTTPServerDuplicateLegacyEventMissingReceiptReturnsExplicitError(t *testing.T) {
+	initial := runtimeMulliganState("game-legacy-receipt", "player-1")
+	store := persistence.NewInMemoryEventStore()
+	saveHTTPRuntimeSnapshot(t, store, initial)
+	if err := store.AppendEvent(context.Background(), protocol.EventPayloadV2{
+		GameID:         "game-legacy-receipt",
+		Version:        2,
+		Type:           "mulligan.player_took",
+		Payload:        map[string]any{"playerId": "player-1"},
+		CreatedBy:      "player-1",
+		ClientActionID: "take-legacy",
+		CreatedAt:      time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("append legacy event: %v", err)
+	}
+	server := NewCommandHTTPServer(runtimesvc.NewServiceWithStore(store, 8, actor.DefaultAppliers()))
+
+	body, err := json.Marshal(CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         "game-legacy-receipt",
+			BaseVersion:    1,
+			ClientActionID: "take-legacy",
+			Type:           "mulligan.take",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/commands", bytes.NewReader(body))
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var response CommandHTTPResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != "patch_receipt_missing" {
+		t.Fatalf("code got %q want patch_receipt_missing; body=%s", response.Code, recorder.Body.String())
+	}
+	gameActor, ok := server.runtime.Actor("game-legacy-receipt")
+	if !ok {
+		t.Fatal("actor missing after duplicate lookup")
+	}
+	metrics := gameActor.Metrics()
+	if metrics.DuplicateDurableCount != 1 || metrics.DuplicateReceiptMissingCount != 1 || metrics.CommandRejectedCount != 1 || metrics.CommandAppliedCount != 0 {
+		t.Fatalf("receipt-missing metrics mismatch: %#v", metrics)
+	}
+	events, err := store.EventsAfter(context.Background(), "game-legacy-receipt", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

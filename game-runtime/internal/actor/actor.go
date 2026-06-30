@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	ErrQueueFull       = errors.New("game actor queue full")
-	ErrVersionConflict = errors.New("baseVersion does not match actor version")
-	ErrUnknownCommand  = errors.New("unknown command")
-	ErrActorStopped    = errors.New("game actor stopped")
-	ErrActorPermission = errors.New("actor is not allowed to perform command")
+	ErrQueueFull                  = errors.New("game actor queue full")
+	ErrVersionConflict            = errors.New("baseVersion does not match actor version")
+	ErrUnknownCommand             = errors.New("unknown command")
+	ErrActorStopped               = errors.New("game actor stopped")
+	ErrActorPermission            = errors.New("actor is not allowed to perform command")
+	ErrRuntimePatchReceiptMissing = errors.New("runtime patch receipt missing for duplicate command")
 )
 
 const maxSeenActionCache = 512
@@ -86,8 +87,13 @@ type ActorMetrics struct {
 	UnsupportedCount               int64   `json:"command.unsupported_count"`
 	LegacyFallbackCount            int64   `json:"command.legacy_fallback_count"`
 	DuplicateActionCount           int64   `json:"actor.duplicate_action_count"`
+	DuplicateMemoryCount           int64   `json:"actor.duplicate_memory_count"`
+	DuplicateDurableCount          int64   `json:"actor.duplicate_durable_count"`
+	DuplicateReceiptMissingCount   int64   `json:"actor.duplicate_receipt_missing_count"`
 	VersionConflictCount           int64   `json:"actor.version_conflict_count"`
 	SnapshotPostAppendFailureCount int64   `json:"actor.snapshot_post_append_failure_count"`
+	SeenActionCacheSize            int     `json:"actor.seen_action_cache_size"`
+	SeenActionCacheCapacity        int     `json:"actor.seen_action_cache_capacity"`
 }
 
 func NewGameActor(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier) *GameActor {
@@ -217,11 +223,17 @@ func (a *GameActor) QueueDepth() int {
 }
 
 func (a *GameActor) Metrics() ActorMetrics {
+	a.stateMu.RLock()
+	seenActionCacheSize := len(a.seenActions)
+	a.stateMu.RUnlock()
+
 	a.metricsMu.RLock()
 	defer a.metricsMu.RUnlock()
 	metrics := a.metrics
 	metrics.QueueDepth = len(a.mailbox)
 	metrics.QueueCapacity = cap(a.mailbox)
+	metrics.SeenActionCacheSize = seenActionCacheSize
+	metrics.SeenActionCacheCapacity = maxSeenActionCache
 	return metrics
 }
 
@@ -277,24 +289,22 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		if !eventCreatedByMatches(existing.Event, request.ActorID) {
 			return a.rejectedResult(ErrActorPermission, queueWait, startedAt)
 		}
-		a.recordDuplicateAction(queueWait, time.Since(startedAt))
+		a.recordDuplicateMemoryAction(queueWait, time.Since(startedAt))
+		slog.Debug("runtime duplicate command served from actor memory", "gameId", a.gameID, "version", existing.Event.Version, "clientActionId", command.ClientActionID)
 		return existing
 	}
 	if a.store != nil && command.ClientActionID != "" {
-		existing, ok, err := a.store.EventByClientActionID(ctx, command.GameID, command.ClientActionID)
+		result, ok, err := a.storedDuplicateResult(ctx, command, request.ActorID)
 		if err != nil {
-			return a.rejectedResult(err, queueWait, startedAt)
-		}
-		if ok {
-			if !eventCreatedByMatches(existing, request.ActorID) {
-				return a.rejectedResult(ErrActorPermission, queueWait, startedAt)
-			}
-			result, err := a.resultFromStoredEvent(existing)
-			if err != nil {
+			if errors.Is(err, ErrActorPermission) {
 				return a.rejectedResult(err, queueWait, startedAt)
 			}
-			a.rememberSeenAction(command.ClientActionID, result)
-			a.recordDuplicateAction(queueWait, time.Since(startedAt))
+			a.recordDuplicateDurableAction(queueWait, time.Since(startedAt))
+			return a.duplicateDurableErrorResult(err, command.ClientActionID, queueWait, startedAt)
+		}
+		if ok {
+			a.recordDuplicateDurableAction(queueWait, time.Since(startedAt))
+			slog.Debug("runtime duplicate command served from durable event store", "gameId", a.gameID, "version", result.Event.Version, "clientActionId", command.ClientActionID)
 			return result
 		}
 	}
@@ -357,6 +367,21 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	if a.store != nil {
 		if err := a.store.AppendEvent(ctx, eventWithRuntimePatchReceipt(event, patches)); err != nil {
 			rollback.Restore(a.state)
+			if isRecoverableDuplicateAppend(err) && command.ClientActionID != "" {
+				result, ok, lookupErr := a.storedDuplicateResult(ctx, command, request.ActorID)
+				if lookupErr != nil {
+					if errors.Is(lookupErr, ErrActorPermission) {
+						return a.rejectedResult(lookupErr, queueWait, startedAt)
+					}
+					a.recordDuplicateDurableAction(queueWait, time.Since(startedAt))
+					return a.duplicateDurableErrorResult(lookupErr, command.ClientActionID, queueWait, startedAt)
+				}
+				if ok {
+					a.recordDuplicateDurableAction(queueWait, time.Since(startedAt))
+					slog.Debug("runtime duplicate command recovered after durable append conflict", "gameId", a.gameID, "version", result.Event.Version, "clientActionId", command.ClientActionID)
+					return result
+				}
+			}
 			return a.rejectedResult(err, queueWait, startedAt)
 		}
 	}
@@ -383,12 +408,40 @@ func (a *GameActor) resultFromStoredEvent(event protocol.EventPayloadV2) (Comman
 	}
 	cleanEvent := eventWithoutRuntimePatchReceipt(event)
 	if !ok {
-		return CommandResult{Event: cleanEvent}, nil
+		return CommandResult{}, ErrRuntimePatchReceiptMissing
 	}
 	if err := validatePatchEnvelopes(patches); err != nil {
 		return CommandResult{}, err
 	}
 	return CommandResult{Event: cleanEvent, Patches: patches}, nil
+}
+
+func (a *GameActor) storedDuplicateResult(ctx context.Context, command protocol.CommandEnvelopeV2, actorID string) (CommandResult, bool, error) {
+	existing, ok, err := a.store.EventByClientActionID(ctx, command.GameID, command.ClientActionID)
+	if err != nil || !ok {
+		return CommandResult{}, ok, err
+	}
+	if !eventCreatedByMatches(existing, actorID) {
+		return CommandResult{}, true, ErrActorPermission
+	}
+	result, err := a.resultFromStoredEvent(existing)
+	if err != nil {
+		return CommandResult{}, true, err
+	}
+	a.rememberSeenAction(command.ClientActionID, result)
+	return result, true, nil
+}
+
+func (a *GameActor) duplicateDurableErrorResult(err error, clientActionID string, queueWait time.Duration, startedAt time.Time) CommandResult {
+	if errors.Is(err, ErrRuntimePatchReceiptMissing) {
+		a.recordDuplicateReceiptMissing()
+		slog.Warn("runtime duplicate command missing patch receipt", "gameId", a.gameID, "clientActionId", clientActionID, "error", err)
+	}
+	return a.rejectedResult(err, queueWait, startedAt)
+}
+
+func isRecoverableDuplicateAppend(err error) bool {
+	return errors.Is(err, persistence.ErrDuplicateClientActionID) || errors.Is(err, persistence.ErrDuplicateVersion)
 }
 
 func (a *GameActor) rememberSeenAction(clientActionID string, result CommandResult) {
@@ -452,12 +505,28 @@ func (a *GameActor) recordUnsupported() {
 	a.metrics.UnsupportedCount++
 }
 
-func (a *GameActor) recordDuplicateAction(queueWait time.Duration, latency time.Duration) {
+func (a *GameActor) recordDuplicateMemoryAction(queueWait time.Duration, latency time.Duration) {
 	a.metricsMu.Lock()
 	defer a.metricsMu.Unlock()
 	a.metrics.DuplicateActionCount++
+	a.metrics.DuplicateMemoryCount++
 	a.metrics.QueueWaitMs = durationMs(queueWait)
 	a.metrics.CommandLatencyMs = durationMs(latency)
+}
+
+func (a *GameActor) recordDuplicateDurableAction(queueWait time.Duration, latency time.Duration) {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.DuplicateActionCount++
+	a.metrics.DuplicateDurableCount++
+	a.metrics.QueueWaitMs = durationMs(queueWait)
+	a.metrics.CommandLatencyMs = durationMs(latency)
+}
+
+func (a *GameActor) recordDuplicateReceiptMissing() {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.DuplicateReceiptMissingCount++
 }
 
 func (a *GameActor) recordVersionConflict() {
