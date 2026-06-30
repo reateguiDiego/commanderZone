@@ -18,6 +18,8 @@ use App\Application\Game\Runtime\GameplayRuntimeRoute;
 use App\Application\Game\Runtime\GameplayRuntimeRouter;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
+use App\Application\Game\WebSocket\GameRuntimeWebsocketConfigurationException;
+use App\Application\Game\WebSocket\GameRuntimeWebsocketUrlFactory;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Room\Room;
@@ -29,7 +31,6 @@ use Doctrine\DBAL\Exception\LockWaitTimeoutException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -122,8 +123,7 @@ class GamesController extends ApiController
         EntityManagerInterface $entityManager,
         GameWebsocketTicketManager $tickets,
         GameDebugHealthLiveStore $debugHealth,
-        #[Autowire('%game_runtime_websocket_public_url%')]
-        string $runtimeWebsocketPublicUrl,
+        GameRuntimeWebsocketUrlFactory $runtimeWebsocketUrls,
     ): JsonResponse {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -157,10 +157,16 @@ class GamesController extends ApiController
             );
         }
 
+        try {
+            $websocketUrl = $runtimeWebsocketUrls->urlWithTicket($ticket->ticket);
+        } catch (GameRuntimeWebsocketConfigurationException $exception) {
+            return $this->fail($exception->getMessage(), 503);
+        }
+
         return $this->json([
             'ticket' => $ticket->ticket,
             'expiresAt' => $ticket->expiresAt->format(DATE_ATOM),
-            'websocketUrl' => $this->websocketUrlWithTicket($runtimeWebsocketPublicUrl, $ticket->ticket),
+            'websocketUrl' => $websocketUrl,
             'route' => 'runtime_ws',
             'claims' => [
                 'gameId' => $ticket->gameId,
@@ -171,14 +177,6 @@ class GamesController extends ApiController
                 'expiry' => $ticket->expiresAt->getTimestamp(),
             ],
         ]);
-    }
-
-    private function websocketUrlWithTicket(string $websocketPublicUrl, string $ticket): string
-    {
-        $baseUrl = rtrim($websocketPublicUrl, '/');
-        $separator = str_contains($baseUrl, '?') ? '&' : '?';
-
-        return $baseUrl.$separator.'ticket='.rawurlencode($ticket);
     }
 
     #[Route('/games/{id}/debug/health', methods: ['GET'])]

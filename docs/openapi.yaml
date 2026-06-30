@@ -2293,7 +2293,7 @@ paths:
     post:
       tags: [Games]
       summary: Issue a short-lived gameplay WebSocket ticket.
-      description: The ticket is scoped to the game and current authenticated user and opens the Go runtime gameplay WebSocket route (`runtime_ws`). PHP websocket routes are not returned for gameplay.
+      description: The ticket is scoped to the game and current authenticated user and opens the Go runtime gameplay WebSocket route (`runtime_ws`). PHP websocket routes are not returned for gameplay. In prod, `GAME_RUNTIME_WEBSOCKET_PUBLIC_URL` must be configured as the public `wss://` runtime `/ws` endpoint.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -2700,6 +2700,7 @@ components:
         websocketUrl:
           type: string
           format: uri
+          description: Public Go runtime websocket URL with the short-lived ticket appended. The localhost example is dev/test only.
           example: ws://127.0.0.1:8091/ws?ticket=...
         route:
           type: string

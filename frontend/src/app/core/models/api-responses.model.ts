@@ -156,7 +156,7 @@ export interface GameWebsocketTicketResponse {
   ticket: string;
   expiresAt: string;
   websocketUrl: string;
-  route: 'runtime_ws' | 'php_gateway_ws' | 'legacy_ws';
+  route: 'runtime_ws';
   claims?: {
     gameId: string;
     userId: string;

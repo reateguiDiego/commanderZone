@@ -64,4 +64,4 @@ jobs:
 
       - name: Print backend logs on failure
         if: failure()
-        run: docker compose logs --tail=200 api websocket database mercure
+        run: docker compose logs --tail=200 api websocket game-runtime database mercure

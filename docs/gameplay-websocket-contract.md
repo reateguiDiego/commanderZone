@@ -12,7 +12,14 @@ La conexion usa ticket corto, no el JWT principal en el query string.
 2. El backend valida `Game::canBeViewedBy($user)`.
 3. El backend devuelve `{ ticket, expiresAt, websocketUrl, route, claims }`.
 4. `route` debe ser `runtime_ws` para gameplay activo. `php_gateway_ws` y `legacy_ws` solo pueden usarse con flags de emergencia explicitos fuera del flujo normal.
-5. El cliente abre `websocketUrl`, por defecto `ws://127.0.0.1:8091/ws?ticket=...` en desarrollo.
+5. El cliente abre `websocketUrl`, por defecto `ws://127.0.0.1:8091/ws?ticket=...` solo en desarrollo/test.
+
+## Configuracion
+
+- `GAME_RUNTIME_WEBSOCKET_PUBLIC_URL` define la URL publica que recibira el navegador para el Go runtime `/ws`.
+- En desarrollo/test puede omitirse y usar el default local `ws://127.0.0.1:8091/ws`.
+- En `APP_ENV=prod` con `GAME_RUNTIME_ENABLED=1`, debe configurarse como una URL publica `wss://...`; el backend rechaza el ticket con error explicito si queda vacia, usa el default local o apunta a `localhost`/loopback.
+- El fallback PHP WebSocket no es automatico para gameplay runtime. `php_gateway_ws` y `legacy_ws` no son rutas validas del endpoint de ticket normal.
 
 Claims firmados del ticket runtime:
 

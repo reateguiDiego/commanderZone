@@ -38,6 +38,7 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         self::assertIsString($ownerResponse['expiresAt']);
         self::assertSame('runtime_ws', $ownerResponse['route']);
         self::assertStringStartsWith('ws://127.0.0.1:8091/ws?ticket=', (string) $ownerResponse['websocketUrl']);
+        self::assertStringNotContainsString(':8081', (string) $ownerResponse['websocketUrl']);
         self::assertSame($fixture['gameId'], $ownerResponse['claims']['gameId']);
         self::assertSame('player', $ownerResponse['claims']['role']);
         self::assertSame(['view', 'command', 'game.close'], $ownerResponse['claims']['permissions']);

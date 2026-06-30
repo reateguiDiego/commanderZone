@@ -118,15 +118,15 @@ describe('GameTableWebsocketTransportService', () => {
     }));
   });
 
-  it('rejects disabled legacy websocket routes instead of falling back silently', async () => {
+  it.each(['php_gateway_ws', 'legacy_ws'] as const)('rejects disabled %s routes instead of falling back silently', async (route) => {
     gamesApi.websocketTicket.mockReturnValueOnce(of({
       ticket: 'ticket-legacy',
       expiresAt: '2026-01-01T00:00:30+00:00',
       websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-legacy',
-      route: 'legacy_ws',
+      route,
     }));
 
-    await expect(service.connect('game-1')).rejects.toThrow('legacy_ws');
+    await expect(service.connect('game-1')).rejects.toThrow(route);
 
     expect(sockets).toHaveLength(0);
     expect(service.status()).toBe('error');
