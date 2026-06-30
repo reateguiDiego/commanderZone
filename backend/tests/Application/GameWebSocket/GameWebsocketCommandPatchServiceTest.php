@@ -1074,6 +1074,66 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(0.0, $record['projection_ms'] ?? -1.0);
     }
 
+    public function testRuntimePrimaryLegacyWebsocketCommandRejectsBeforeDoctrineLockHandlerAndFallback(): void
+    {
+        [$game, $actor] = $this->game();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $registry->expects(self::never())->method('getManager');
+        $handler = $this->createMock(GameCommandHandler::class);
+        $handler->expects(self::never())->method('apply');
+        $handler->expects(self::never())->method('normalizeSnapshot');
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+
+        $service = $this->serviceWithRegistry(
+            $registry,
+            projection: $projection,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('life.changed', runtime: true, shadow: false),
+            handler: $handler,
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'life.changed', runtime: true, shadow: false),
+            rooms: $this->runtimeRoomsFor($game),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -1],
+            'action-runtime-primary-legacy-ws',
+            1,
+            'message-runtime-primary-legacy-ws',
+        );
+
+        self::assertIsArray($result);
+        self::assertSame('command_ack', $result['kind'] ?? null);
+        self::assertSame('rejected', $result['status'] ?? null);
+        self::assertSame('RUNTIME_PRIMARY_REQUIRES_FINAL_WEBSOCKET', $result['error']['code'] ?? null);
+        self::assertSame([], $runtimeClient->types);
+
+        $record = $metricsStore->records()[0] ?? [];
+        self::assertSame('runtime_primary_requires_final_websocket', $record['status'] ?? null);
+        self::assertSame('runtime_primary_requires_final_websocket', $record['gameplay.legacy_route_reject_reason'] ?? null);
+        self::assertSame(1, $record['gameplay.runtime_route'] ?? 0);
+        self::assertSame(0, $record['gameplay.runtime_fallback_count'] ?? 1);
+        self::assertSame(0, $record['command.legacy_fallback_count'] ?? 1);
+        self::assertSame(0, $record['runtime.snapshot_load_count'] ?? 1);
+        self::assertSame(0, $record['runtime.snapshot_write_count'] ?? 1);
+        self::assertSame(0, $record['runtime.db_lock_count'] ?? 1);
+        self::assertSame(0, $record['runtime.legacy_handler_count'] ?? 1);
+        self::assertSame(0, $record['runtime.previous_next_projection_count'] ?? 1);
+        self::assertSame(0, $record['runtime.emergency_fallback_count'] ?? 1);
+    }
+
     public function testRuntimeFinalGroupVisibilityUsesViewerMaskWithoutProjectionOrDuplicateEnvelope(): void
     {
         [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
@@ -1930,6 +1990,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             'action-runtime-zone-reorder-invalid',
             1,
             'message-runtime-zone-reorder-invalid',
+            'v2',
         );
 
         self::assertSame('command_ack', $message['kind']);
@@ -2717,6 +2778,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             'action-sensitive-runtime-'.$commandType,
             1,
             'message-sensitive-runtime-'.$commandType,
+            'v2',
         );
 
         self::assertSame('patch.v2', $result->messageForUserId($actor->id())['kind']);

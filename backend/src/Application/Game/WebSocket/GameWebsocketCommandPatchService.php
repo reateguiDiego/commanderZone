@@ -255,6 +255,30 @@ final readonly class GameWebsocketCommandPatchService
             return $runtimeFinalResult;
         }
 
+        $runtimeCommandType = $this->runtimeCommandType($type);
+        $runtimeRoute = $this->runtimeGateway?->routeFor($runtimeCommandType) ?? GameplayRuntimeRoute::LegacyOnly;
+        if ($runtimeRoute === GameplayRuntimeRoute::RuntimePrimary
+            && $responseProtocol !== 'v2'
+            && !$this->emergencyLegacyFallbackEnabled) {
+            $this->recordRuntimePrimaryRequiresFinalPathMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                $usageStartedAt,
+                $type,
+                $gameId,
+                $this->elapsedMs($startedAt),
+            );
+
+            return $this->messages->rejectedCommand(
+                $gameId,
+                $messageId,
+                $clientActionId,
+                $baseVersion,
+                'RUNTIME_PRIMARY_REQUIRES_FINAL_WEBSOCKET',
+                'Runtime-primary gameplay commands must use the final WebSocket V2 command path.',
+            );
+        }
+
         $manager = $this->manager();
         $phaseTimings = $this->emptyDebugPhaseTimings();
         $loadStartedAt = microtime(true);
@@ -498,8 +522,6 @@ final readonly class GameWebsocketCommandPatchService
                 return $message;
             }
 
-            $runtimeCommandType = $this->runtimeCommandType($type);
-            $runtimeRoute = $this->runtimeGateway?->routeFor($runtimeCommandType) ?? GameplayRuntimeRoute::LegacyOnly;
             if ($runtimeFinalEmergencyFallback) {
                 $runtimeRoute = GameplayRuntimeRoute::LegacyOnly;
             }
@@ -1149,10 +1171,7 @@ final readonly class GameWebsocketCommandPatchService
         if (($this->runtimeGateway?->routeFor($runtimeCommandType) ?? GameplayRuntimeRoute::LegacyOnly) !== GameplayRuntimeRoute::RuntimePrimary) {
             return null;
         }
-        if ($responseProtocol !== 'v2' || !($this->flagsV2?->patchEnabled() ?? false)) {
-            return null;
-        }
-        if ($ticketPlayerId === null && $ticketPermissions === []) {
+        if (!$this->runtimeFinalPathEligible($responseProtocol, $ticketPlayerId, $ticketPermissions)) {
             return null;
         }
 
@@ -1393,6 +1412,16 @@ final readonly class GameWebsocketCommandPatchService
     }
 
     /**
+     * @param list<string> $ticketPermissions
+     */
+    private function runtimeFinalPathEligible(string $responseProtocol, ?string $ticketPlayerId, array $ticketPermissions): bool
+    {
+        return $responseProtocol === 'v2'
+            && ($this->flagsV2?->patchEnabled() ?? false)
+            && ($ticketPlayerId !== null || $ticketPermissions !== []);
+    }
+
+    /**
      * @param array<string,int>|null $usageStartedAt
      * @param array<string,int|float> $runtimeMetrics
      */
@@ -1437,6 +1466,52 @@ final readonly class GameWebsocketCommandPatchService
                 'gameplay.runtime_patch_contract_error' => 0,
                 'command.legacy_fallback_count' => 0,
                 ...$runtimeMetrics,
+                ...$this->runtimeHotPathCounters(),
+            ],
+            $usageStartedAt,
+        );
+    }
+
+    /**
+     * @param array<string,int>|null $usageStartedAt
+     */
+    private function recordRuntimePrimaryRequiresFinalPathMetric(
+        GameplayMetricsRecorderInterface $metricsRecorder,
+        GameplayMetricsInspector $metricsInspector,
+        ?array $usageStartedAt,
+        string $type,
+        string $gameId,
+        float $totalServerMs,
+    ): void {
+        $this->recordMetric(
+            $metricsRecorder,
+            $metricsInspector,
+            [
+                'transport' => 'websocket',
+                'command.type' => $type,
+                'gameId' => $gameId,
+                'snapshot_load_ms' => 0.0,
+                'normalize_ms' => 0.0,
+                'command_apply_ms' => 0.0,
+                'persist_ms' => 0.0,
+                'projection_ms' => 0.0,
+                'patch_build_ms' => 0.0,
+                'total_server_ms' => $totalServerMs,
+                'snapshot_bytes_before' => 0,
+                'snapshot_bytes_after' => 0,
+                'patch_bytes' => 0,
+                'number_of_players' => 0,
+                'number_of_instances' => 0,
+                'number_of_visible_cards' => 0,
+                'resync_required' => false,
+                'clientActionId_duplicate' => false,
+                'status' => 'runtime_primary_requires_final_websocket',
+                'gameplay.runtime_route' => 1,
+                'gameplay.runtime_fallback_count' => 0,
+                'gameplay.runtime_error_count' => 0,
+                'gameplay.runtime_patch_contract_error' => 0,
+                'command.legacy_fallback_count' => 0,
+                'gameplay.legacy_route_reject_reason' => 'runtime_primary_requires_final_websocket',
                 ...$this->runtimeHotPathCounters(),
             ],
             $usageStartedAt,
