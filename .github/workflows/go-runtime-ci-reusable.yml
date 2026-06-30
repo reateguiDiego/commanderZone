@@ -11,6 +11,9 @@ jobs:
       run:
         working-directory: game-runtime
 
+    env:
+      GOTOOLCHAIN: local
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,28 +21,74 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: game-runtime/go.mod
+          go-version: "1.22.12"
+          cache: true
           cache-dependency-path: game-runtime/go.sum
 
+      - name: Print Go toolchain diagnostics
+        run: |
+          go version
+          go env GOMOD GOTOOLCHAIN GOVERSION GOOS GOARCH GOPATH GOCACHE GOMODCACHE
+
       - name: Run Go tests
-        run: go test ./...
+        shell: bash
+        run: |
+          set -o pipefail
+          go test ./... 2>&1 | tee go-test.log
 
       - name: Run Go race tests
-        run: go test -race ./...
+        shell: bash
+        run: |
+          set -o pipefail
+          go test -race ./... 2>&1 | tee go-test-race.log
 
       - name: Run Go vet
-        run: go vet ./...
+        shell: bash
+        run: |
+          set -o pipefail
+          go vet ./... 2>&1 | tee go-vet.log
 
       - name: Run runtime benchmark smoke with benchmem
-        run: go test -run '^$' -bench 'BenchmarkRuntimeGameplaySmoke|BenchmarkApplyOnlyRuntimeCommands4Players100' -benchtime=1x -benchmem ./internal/perf ./internal/actor
+        shell: bash
+        run: |
+          set -o pipefail
+          go test -run '^$' -bench 'BenchmarkRuntimeGameplaySmoke|BenchmarkApplyOnlyRuntimeCommands4Players100' -benchtime=1x -benchmem ./internal/perf ./internal/actor 2>&1 | tee go-bench-smoke.log
 
       - name: Run reproducible runtime benchmark gates
-        run: go run ./cmd/runtime-bench -games=10 -iterations=1 -transport=actor -fail-on-gate -output=runtime-bench-smoke.json
+        shell: bash
+        run: |
+          set -o pipefail
+          go run ./cmd/runtime-bench -games=10 -iterations=1 -transport=actor -fail-on-gate -output=runtime-bench-smoke.json 2>&1 | tee runtime-bench-gates.log
 
-      - name: Upload runtime benchmark report
+      - name: Print failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          set +e
+          echo "Go version:"
+          go version
+          echo "Go environment:"
+          go env
+          for file in go-test.log go-test-race.log go-vet.log go-bench-smoke.log runtime-bench-gates.log; do
+            if [ -f "$file" ]; then
+              echo "::group::$file"
+              tail -n 200 "$file"
+              echo "::endgroup::"
+            fi
+          done
+          if [ -f runtime-bench-smoke.json ]; then
+            echo "::group::runtime-bench-smoke.json"
+            cat runtime-bench-smoke.json
+            echo "::endgroup::"
+          fi
+
+      - name: Upload Go runtime CI logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: runtime-benchmark-smoke
-          path: game-runtime/runtime-bench-smoke.json
+          name: go-runtime-ci-logs
+          path: |
+            game-runtime/go-*.log
+            game-runtime/runtime-bench-*.log
+            game-runtime/runtime-bench-smoke.json
           if-no-files-found: ignore

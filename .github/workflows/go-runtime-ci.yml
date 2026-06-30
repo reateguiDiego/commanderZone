@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 concurrency:
   group: go-runtime-ci-${{ github.event.pull_request.number || github.ref }}
@@ -11,5 +15,5 @@ concurrency:
 
 jobs:
   runtime:
+    name: go-runtime
     uses: ./.github/workflows/go-runtime-ci-reusable.yml
-
