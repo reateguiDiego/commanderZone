@@ -7,6 +7,7 @@ final readonly class GameWebsocketCommandResult
     /**
      * @param array<string,array<string,mixed>|list<array<string,mixed>>> $messagesByUserId
      * @param array<string,mixed>|list<array<string,mixed>>               $fallbackMessage
+     * @param array<string,mixed>|null                                    $debugProfile
      */
     private function __construct(
         private array $messagesByUserId,
@@ -100,7 +101,7 @@ final readonly class GameWebsocketCommandResult
     }
 
     /**
-     * @return array<string,float>|null
+     * @return array<string,mixed>|null
      */
     public function debugProfile(): ?array
     {

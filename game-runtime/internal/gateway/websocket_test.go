@@ -212,6 +212,34 @@ func TestWebSocketRejectsPlayerScopedCommandForDifferentSignedPlayer(t *testing.
 	}
 }
 
+func TestWebSocketRejectsUnsupportedCommandWithoutLegacyFallback(t *testing.T) {
+	server, runtimeService := testWebSocketServer(t, "game-1", 128, 256)
+	defer server.Close()
+
+	conn := dialRuntime(t, server.URL, "game-1", 0, nil)
+	defer conn.Close()
+
+	writeCommand(t, conn, command("game-1", 1, "unsupported-1", "legacy.only.command", map[string]any{}, nil))
+	message := readUntil(t, conn, "command_ack")
+	if message.Status != "rejected" || message.Error == nil || message.Error.Code != "COMMAND_FAILED" {
+		t.Fatalf("message = %#v, want rejected command failure", message)
+	}
+	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 1 {
+		t.Fatalf("rejected unsupported command changed actor version")
+	}
+	gameActor, ok := runtimeService.Actor("game-1")
+	if !ok {
+		t.Fatalf("actor missing")
+	}
+	metrics := gameActor.Metrics()
+	if metrics.LegacyFallbackCount != 0 {
+		t.Fatalf("legacy fallback count got %d want 0", metrics.LegacyFallbackCount)
+	}
+	if metrics.UnsupportedCount != 1 {
+		t.Fatalf("unsupported count got %d want 1", metrics.UnsupportedCount)
+	}
+}
+
 func TestWebSocketRejectsInternalOnlyRuntimeCommands(t *testing.T) {
 	server, runtimeService := testWebSocketServer(t, "game-1", 128, 256)
 	defer server.Close()
