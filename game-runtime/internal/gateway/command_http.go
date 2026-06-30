@@ -140,6 +140,8 @@ func mergeActorMetrics(metrics map[string]any, actorMetrics actor.ActorMetrics) 
 	metrics["command.alias_translation_count"] = actorMetrics.AliasTranslationCount
 	metrics["command.unsupported_count"] = actorMetrics.UnsupportedCount
 	metrics["command.legacy_fallback_count"] = actorMetrics.LegacyFallbackCount
+	metrics["actor.duplicate_action_count"] = actorMetrics.DuplicateActionCount
+	metrics["actor.version_conflict_count"] = actorMetrics.VersionConflictCount
 	return metrics
 }
 
@@ -150,6 +152,7 @@ func mergeRuntimeMetrics(metrics map[string]any, runtimeMetrics runtimesvc.Runti
 	metrics["runtime.initial_state_per_command_count"] = runtimeMetrics.InitialStatePerCommandCount
 	metrics["runtime.actor_load_from_snapshot_count"] = runtimeMetrics.ActorLoadFromSnapshotCount
 	metrics["runtime.actor_load_from_events_count"] = runtimeMetrics.ActorLoadFromEventsCount
+	metrics["runtime.actor_recovered_event_count"] = runtimeMetrics.ActorRecoveredEventCount
 	metrics["runtime.actor_cache_hit_count"] = runtimeMetrics.ActorCacheHitCount
 	metrics["runtime.actor_cache_miss_count"] = runtimeMetrics.ActorCacheMissCount
 	metrics["command.runtime_coverage_percent"] = runtimeMetrics.CommandRuntimeCoveragePct

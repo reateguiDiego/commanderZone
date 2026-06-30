@@ -165,6 +165,40 @@ func TestCommandHTTPServerActorCacheHitAfterSnapshotRecovery(t *testing.T) {
 	}
 }
 
+func TestCommandHTTPServerDuplicateActionReturnsExistingEventAndMetric(t *testing.T) {
+	initial := runtimeMulliganState("game-duplicate", "player-1")
+	store := persistence.NewInMemoryEventStore()
+	saveHTTPRuntimeSnapshot(t, store, initial)
+	server := NewCommandHTTPServer(runtimesvc.NewServiceWithStore(store, 8, actor.DefaultAppliers()))
+
+	request := CommandHTTPRequest{
+		ActorID: "player-1",
+		Command: protocol.CommandEnvelopeV2{
+			GameID:         "game-duplicate",
+			BaseVersion:    1,
+			ClientActionID: "take-1",
+			Type:           "mulligan.take",
+			Payload:        map[string]any{"playerId": "player-1"},
+		},
+	}
+	first := commandHTTP(t, server, request)
+	duplicate := commandHTTP(t, server, request)
+
+	if duplicate.Event.Version != first.Event.Version {
+		t.Fatalf("duplicate event version got %d want %d", duplicate.Event.Version, first.Event.Version)
+	}
+	if duplicate.Metrics["actor.duplicate_action_count"] != float64(1) || duplicate.Metrics["actor.command_applied_count"] != float64(1) {
+		t.Fatalf("expected duplicate action metrics: %#v", duplicate.Metrics)
+	}
+	events, err := store.EventsAfter(context.Background(), "game-duplicate", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+}
+
 func TestCommandHTTPServerActorCacheMissLoadsSnapshotAndEvents(t *testing.T) {
 	initial := runtimeMulliganState("game-replay", "player-1")
 	store := persistence.NewInMemoryEventStore()
@@ -197,6 +231,7 @@ func TestCommandHTTPServerActorCacheMissLoadsSnapshotAndEvents(t *testing.T) {
 	}
 	if response.Metrics["runtime.actor_load_from_snapshot_count"] != float64(1) ||
 		response.Metrics["runtime.actor_load_from_events_count"] != float64(1) ||
+		response.Metrics["runtime.actor_recovered_event_count"] != float64(1) ||
 		response.Metrics["runtime.actor_cache_miss_count"] != float64(1) {
 		t.Fatalf("expected snapshot+event recovery metrics: %#v", response.Metrics)
 	}

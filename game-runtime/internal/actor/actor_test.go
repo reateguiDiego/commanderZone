@@ -113,6 +113,9 @@ func TestGameActorDuplicateClientActionIsIdempotent(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("events got %d want 1", len(events))
 	}
+	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.CommandAppliedCount != 1 {
+		t.Fatalf("duplicate metrics mismatch: %#v", metrics)
+	}
 }
 
 func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
@@ -143,6 +146,54 @@ func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
 	}
 	if len(events) != 1 {
 		t.Fatalf("events got %d want 1", len(events))
+	}
+	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.CommandAppliedCount != 0 {
+		t.Fatalf("duplicate metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestGameActorRetryAfterTimeoutDoesNotDuplicateEvent(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
+	cmd := command("game-1", 1, "timeout-a1", "life.changed", map[string]any{"playerId": "p1", "life": 35})
+
+	expired, cancelExpired := context.WithCancel(context.Background())
+	cancelExpired()
+	timedOut := gameActor.Submit(expired, cmd, "p1")
+	if !errors.Is(timedOut.Err, context.Canceled) {
+		t.Fatalf("initial submit err got %v want context canceled", timedOut.Err)
+	}
+
+	runCtx, cancelRun := context.WithCancel(context.Background())
+	gameActor.Start(runCtx)
+	defer func() {
+		cancelRun()
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+		defer stopCancel()
+		if err := gameActor.Stop(stopCtx); err != nil {
+			t.Fatalf("stop failed: %v", err)
+		}
+	}()
+	waitForEventCount(t, store, "game-1", 1)
+
+	retryCtx, cancelRetry := context.WithTimeout(context.Background(), time.Second)
+	defer cancelRetry()
+	retry := gameActor.Submit(retryCtx, cmd, "p1")
+	if retry.Err != nil {
+		t.Fatalf("retry failed: %v", retry.Err)
+	}
+	if retry.Event.Version != 2 {
+		t.Fatalf("retry event version got %d want 2", retry.Event.Version)
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.CommandAppliedCount != 1 {
+		t.Fatalf("retry metrics mismatch: %#v", metrics)
 	}
 }
 
@@ -209,6 +260,10 @@ func TestGameActorRejectsOldBaseVersion(t *testing.T) {
 	stale := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a2", "life.changed", map[string]any{"playerId": "p1", "life": 38}), "p1")
 	if !errors.Is(stale.Err, ErrVersionConflict) {
 		t.Fatalf("stale error got %v want %v", stale.Err, ErrVersionConflict)
+	}
+	metrics := gameActor.Metrics()
+	if metrics.VersionConflictCount != 1 || metrics.CommandRejectedCount != 1 {
+		t.Fatalf("version conflict metrics mismatch: %#v", metrics)
 	}
 }
 
@@ -391,6 +446,26 @@ func TestCardTappedPatchShape(t *testing.T) {
 	if op.Data["tapped"] != true || op.Data["rotation"] != 90 {
 		t.Fatalf("fields mismatch: %#v", op.Data)
 	}
+}
+
+func waitForEventCount(t *testing.T, store persistence.EventStore, gameID string, count int) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		events, err := store.EventsAfter(context.Background(), gameID, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(events) == count {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Fatalf("events got %d want %d", len(events), count)
 }
 
 func testState() state.GameState {

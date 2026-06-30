@@ -34,6 +34,7 @@ type RuntimeMetrics struct {
 	InitialStatePerCommandCount int64   `json:"runtime.initial_state_per_command_count"`
 	ActorLoadFromSnapshotCount  int64   `json:"runtime.actor_load_from_snapshot_count"`
 	ActorLoadFromEventsCount    int64   `json:"runtime.actor_load_from_events_count"`
+	ActorRecoveredEventCount    int64   `json:"runtime.actor_recovered_event_count"`
 	ActorCacheHitCount          int64   `json:"runtime.actor_cache_hit_count"`
 	ActorCacheMissCount         int64   `json:"runtime.actor_cache_miss_count"`
 	CommandRuntimeCoveragePct   float64 `json:"command.runtime_coverage_percent"`
@@ -136,6 +137,7 @@ func (s *Service) recoverState(ctx context.Context, gameID string, initial *stat
 	}
 	if len(events) > 0 {
 		s.recordActorLoadFromEvents()
+		s.recordRecoveredEvents(len(events))
 	}
 	if len(events) == 0 {
 		state.RebuildLocIndexForRecoveryOnly(&base)
@@ -190,6 +192,8 @@ func (s *Service) MetricsSnapshot() MetricsSnapshot {
 		snapshot.Totals.AliasTranslationCount += metrics.AliasTranslationCount
 		snapshot.Totals.UnsupportedCount += metrics.UnsupportedCount
 		snapshot.Totals.LegacyFallbackCount += metrics.LegacyFallbackCount
+		snapshot.Totals.DuplicateActionCount += metrics.DuplicateActionCount
+		snapshot.Totals.VersionConflictCount += metrics.VersionConflictCount
 	}
 	return snapshot
 }
@@ -219,6 +223,12 @@ func (s *Service) recordActorLoadFromEvents() {
 	s.metricsMu.Lock()
 	defer s.metricsMu.Unlock()
 	s.metrics.ActorLoadFromEventsCount++
+}
+
+func (s *Service) recordRecoveredEvents(count int) {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.metrics.ActorRecoveredEventCount += int64(count)
 }
 
 func (s *Service) recordActorCacheHit() {

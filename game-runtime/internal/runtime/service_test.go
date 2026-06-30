@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"commanderzone/game-runtime/internal/actor"
 	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
@@ -106,8 +107,110 @@ func TestServiceRecoversFromCompactSnapshotAndEvents(t *testing.T) {
 		t.Fatalf("snapshot = %#v", snapshot)
 	}
 	metrics := service.RuntimeMetrics()
-	if metrics.ActorLoadFromSnapshotCount != 1 || metrics.ActorLoadFromEventsCount != 1 || metrics.ActorCacheMissCount != 1 {
+	if metrics.ActorLoadFromSnapshotCount != 1 || metrics.ActorLoadFromEventsCount != 1 || metrics.ActorRecoveredEventCount != 2 || metrics.ActorCacheMissCount != 1 {
 		t.Fatalf("runtime metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestServiceRestartRecoversFromSavedCompactSnapshotWithoutInitialState(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	initial := runtimeTestState("game-1")
+	if err := saveRuntimeSnapshot(t, store, initial); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	firstService := NewServiceWithStore(store, 8, nil)
+	gameActor, _, err := firstService.LoadActorRecovered(context.Background(), "game-1", nil)
+	if err != nil {
+		t.Fatalf("initial recover: %v", err)
+	}
+	result := gameActor.ApplyDirect(context.Background(), protocol.CommandEnvelopeV2{
+		GameID:         "game-1",
+		BaseVersion:    1,
+		ClientActionID: "life-1",
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 37},
+	}, "p1")
+	if result.Err != nil {
+		t.Fatalf("apply failed: %v", result.Err)
+	}
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), time.Second)
+	defer cancelShutdown()
+	if err := firstService.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("shutdown failed: %v", err)
+	}
+
+	restarted := NewServiceWithStore(store, 8, nil)
+	recoveredActor, created, err := restarted.LoadActorRecovered(context.Background(), "game-1", nil)
+	if err != nil {
+		t.Fatalf("restart recover: %v", err)
+	}
+	if !created {
+		t.Fatal("expected restart recovery to create a fresh actor")
+	}
+	recovered := recoveredActor.Snapshot()
+	if recovered.Version != 2 || recovered.Players["p1"]["life"] != 37 {
+		t.Fatalf("recovered snapshot = %#v", recovered)
+	}
+	metrics := restarted.RuntimeMetrics()
+	if metrics.ActorCacheMissCount != 1 || metrics.ActorLoadFromSnapshotCount != 1 || metrics.ActorRecoveredEventCount != 0 {
+		t.Fatalf("restart metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestServiceRecoveryRejectsVersionGapAfterCompactSnapshot(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState("game-1")); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	gap := protocol.EventPayloadV2{
+		GameID:         "game-1",
+		Version:        3,
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 36},
+		CreatedBy:      "p1",
+		ClientActionID: "gap-3",
+		CreatedAt:      time.Now().UTC(),
+	}
+	if err := store.AppendEvent(context.Background(), gap); err != nil {
+		t.Fatalf("append gap event: %v", err)
+	}
+
+	service := NewServiceWithStore(store, 8, nil)
+	if _, _, err := service.LoadActorRecovered(context.Background(), "game-1", nil); !errors.Is(err, actor.ErrVersionConflict) {
+		t.Fatalf("err = %v, want %v", err, actor.ErrVersionConflict)
+	}
+	if _, ok := service.Actor("game-1"); ok {
+		t.Fatal("actor should not be registered after failed recovery")
+	}
+	metrics := service.RuntimeMetrics()
+	if metrics.ActorLoadFromSnapshotCount != 1 || metrics.ActorLoadFromEventsCount != 1 || metrics.ActorRecoveredEventCount != 1 {
+		t.Fatalf("gap recovery metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestServiceRecoveryWithoutCompactSnapshotIgnoresEventsAsInvalidFinalState(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	event := protocol.EventPayloadV2{
+		GameID:         "game-1",
+		Version:        2,
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 39},
+		CreatedBy:      "p1",
+		ClientActionID: "event-only",
+		CreatedAt:      time.Now().UTC(),
+	}
+	if err := store.AppendEvent(context.Background(), event); err != nil {
+		t.Fatalf("append event: %v", err)
+	}
+
+	service := NewServiceWithStore(store, 8, nil)
+	if _, _, err := service.LoadActorRecovered(context.Background(), "game-1", nil); !errors.Is(err, ErrActorStateNotFound) {
+		t.Fatalf("err = %v, want %v", err, ErrActorStateNotFound)
+	}
+	metrics := service.RuntimeMetrics()
+	if metrics.ActorCacheMissCount != 1 || metrics.ActorLoadFromSnapshotCount != 0 || metrics.ActorLoadFromEventsCount != 0 || metrics.ActorRecoveredEventCount != 0 {
+		t.Fatalf("event-only metrics mismatch: %#v", metrics)
 	}
 }
 

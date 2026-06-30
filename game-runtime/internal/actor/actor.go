@@ -84,6 +84,8 @@ type ActorMetrics struct {
 	AliasTranslationCount int64   `json:"command.alias_translation_count"`
 	UnsupportedCount      int64   `json:"command.unsupported_count"`
 	LegacyFallbackCount   int64   `json:"command.legacy_fallback_count"`
+	DuplicateActionCount  int64   `json:"actor.duplicate_action_count"`
+	VersionConflictCount  int64   `json:"actor.version_conflict_count"`
 }
 
 func NewGameActor(gameID string, initial state.GameState, store persistence.EventStore, queueSize int, appliers []Applier) *GameActor {
@@ -270,6 +272,7 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		a.recordAliasTranslation()
 	}
 	if existing, ok := a.seenActions[command.ClientActionID]; ok {
+		a.recordDuplicateAction(queueWait, time.Since(startedAt))
 		return existing
 	}
 	if a.store != nil && command.ClientActionID != "" {
@@ -278,10 +281,12 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 			return a.rejectedResult(err, queueWait, startedAt)
 		}
 		if ok {
+			a.recordDuplicateAction(queueWait, time.Since(startedAt))
 			return CommandResult{Event: existing}
 		}
 	}
 	if command.BaseVersion != a.state.Version {
+		a.recordVersionConflict()
 		return a.rejectedResult(ErrVersionConflict, queueWait, startedAt)
 	}
 	applier, ok := a.appliers[command.Type]
@@ -415,6 +420,20 @@ func (a *GameActor) recordUnsupported() {
 	a.metricsMu.Lock()
 	defer a.metricsMu.Unlock()
 	a.metrics.UnsupportedCount++
+}
+
+func (a *GameActor) recordDuplicateAction(queueWait time.Duration, latency time.Duration) {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.DuplicateActionCount++
+	a.metrics.QueueWaitMs = durationMs(queueWait)
+	a.metrics.CommandLatencyMs = durationMs(latency)
+}
+
+func (a *GameActor) recordVersionConflict() {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	a.metrics.VersionConflictCount++
 }
 
 func (a *GameActor) commandRuntimeCoveragePercent() float64 {
