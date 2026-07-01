@@ -240,6 +240,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
       this.missingSourceEntries.set([]);
       this.drawOpeningHand(response.deck);
       this.refreshHistory(response.deck.id);
+      void this.refreshTokens(response.deck.id);
       void this.refreshBackendValidation(response.deck.id);
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 404) {

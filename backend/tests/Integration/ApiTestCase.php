@@ -163,6 +163,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->entityManager->persist($card);
         $this->entityManager->flush();
         $this->syncSeededCardPrintTables($card);
+        $this->syncSeededCardTokenRelations($card);
 
         return $card;
     }
@@ -175,6 +176,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureCardHasRulingsColumn($connection);
         $this->ensureCardCatalogSearchColumns($connection);
         $this->ensureCardPrintTables($connection);
+        $this->ensureCardTokenRelationTable($connection);
         $this->ensureCardSearchOptionTables($connection);
         $this->ensureRoomWaitingLogEntryTable($connection);
         $this->ensureDeckValidityColumn($connection);
@@ -203,6 +205,7 @@ abstract class ApiTestCase extends WebTestCase
             'card_search_entry',
             'card_search_option',
             'card_search_set_option',
+            'card_token_relation',
             'card_print_locale',
             'card_print',
             'card',
@@ -272,6 +275,10 @@ abstract class ApiTestCase extends WebTestCase
         }
         if (!in_array('set_name', $columns, true)) {
             $connection->executeStatement('ALTER TABLE card ADD COLUMN set_name VARCHAR(255) DEFAULT NULL');
+        }
+        if (!in_array('oracle_id', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE card ADD COLUMN oracle_id VARCHAR(36) DEFAULT NULL');
+            $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_oracle_id ON card (oracle_id)');
         }
     }
 
@@ -367,6 +374,7 @@ SQL,
                 <<<'SQL'
 CREATE TABLE card_print (
     scryfall_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    oracle_id VARCHAR(36) DEFAULT NULL,
     normalized_name VARCHAR(255) NOT NULL,
     set_code VARCHAR(16) DEFAULT NULL,
     collector_number VARCHAR(32) DEFAULT NULL,
@@ -388,6 +396,8 @@ SQL,
         }
 
         $this->ensureColumn($connection, 'card_print', 'default_set_name', 'ALTER TABLE card_print ADD COLUMN default_set_name VARCHAR(255) DEFAULT NULL');
+        $this->ensureColumn($connection, 'card_print', 'oracle_id', 'ALTER TABLE card_print ADD COLUMN oracle_id VARCHAR(36) DEFAULT NULL');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_print_oracle_id ON card_print (oracle_id)');
 
         if (!$schemaManager->tablesExist(['card_print_locale'])) {
             $connection->executeStatement(
@@ -491,6 +501,46 @@ SQL,
         }
     }
 
+    private function ensureCardTokenRelationTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card'])) {
+            return;
+        }
+
+        if (!$schemaManager->tablesExist(['card_token_relation'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE card_token_relation (
+    source_scryfall_id VARCHAR(36) NOT NULL,
+    source_oracle_id VARCHAR(36) DEFAULT NULL,
+    token_scryfall_id VARCHAR(36) NOT NULL,
+    token_name VARCHAR(255) NOT NULL,
+    token_uri TEXT DEFAULT NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY (source_scryfall_id, token_scryfall_id)
+)
+SQL,
+            );
+            $connection->executeStatement('CREATE INDEX idx_card_token_relation_source_oracle ON card_token_relation (source_oracle_id)');
+            $connection->executeStatement('CREATE INDEX idx_card_token_relation_source_scryfall ON card_token_relation (source_scryfall_id)');
+            $connection->executeStatement('CREATE INDEX idx_card_token_relation_token_scryfall ON card_token_relation (token_scryfall_id)');
+            $connection->executeStatement(
+                'ALTER TABLE card_token_relation ADD CONSTRAINT fk_card_token_relation_source FOREIGN KEY (source_scryfall_id) REFERENCES card (scryfall_id) ON DELETE CASCADE',
+            );
+
+            return;
+        }
+
+        $this->ensureColumn($connection, 'card_token_relation', 'source_oracle_id', 'ALTER TABLE card_token_relation ADD COLUMN source_oracle_id VARCHAR(36) DEFAULT NULL');
+        $this->ensureColumn($connection, 'card_token_relation', 'token_name', "ALTER TABLE card_token_relation ADD COLUMN token_name VARCHAR(255) NOT NULL DEFAULT 'Unknown token'");
+        $this->ensureColumn($connection, 'card_token_relation', 'token_uri', 'ALTER TABLE card_token_relation ADD COLUMN token_uri TEXT DEFAULT NULL');
+        $this->ensureColumn($connection, 'card_token_relation', 'updated_at', 'ALTER TABLE card_token_relation ADD COLUMN updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT NOW()');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_token_relation_source_oracle ON card_token_relation (source_oracle_id)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_token_relation_source_scryfall ON card_token_relation (source_scryfall_id)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_token_relation_token_scryfall ON card_token_relation (token_scryfall_id)');
+    }
+
     private function ensureColumn(Connection $connection, string $table, string $column, string $sql): void
     {
         $schemaManager = $connection->createSchemaManager();
@@ -519,6 +569,7 @@ SQL,
             <<<'SQL'
 INSERT INTO card_print (
     scryfall_id,
+    oracle_id,
     normalized_name,
     set_code,
     collector_number,
@@ -535,6 +586,7 @@ INSERT INTO card_print (
     updated_at
 ) VALUES (
     :scryfall_id,
+    :oracle_id,
     :normalized_name,
     :set_code,
     :collector_number,
@@ -551,6 +603,7 @@ INSERT INTO card_print (
     NOW()
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
+    oracle_id = EXCLUDED.oracle_id,
     normalized_name = EXCLUDED.normalized_name,
     set_code = EXCLUDED.set_code,
     collector_number = EXCLUDED.collector_number,
@@ -568,6 +621,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
 SQL,
             [
                 'scryfall_id' => $card->scryfallId(),
+                'oracle_id' => $card->oracleId(),
                 'normalized_name' => Card::normalizeName($card->name()),
                 'set_code' => $card->setCode(),
                 'collector_number' => $card->collectorNumber(),
@@ -647,5 +701,67 @@ SQL,
                 'image_status' => $card->imageStatus(),
             ],
         );
+    }
+
+    private function syncSeededCardTokenRelations(Card $card): void
+    {
+        $connection = $this->entityManager->getConnection();
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card_token_relation'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            'DELETE FROM card_token_relation WHERE source_scryfall_id = :source_scryfall_id',
+            ['source_scryfall_id' => $card->scryfallId()],
+        );
+
+        $seen = [];
+        foreach ($card->allParts() as $part) {
+            if (!is_array($part) || ($part['component'] ?? null) !== 'token') {
+                continue;
+            }
+
+            $tokenScryfallId = trim((string) ($part['id'] ?? ''));
+            if ($tokenScryfallId === '' || isset($seen[$tokenScryfallId])) {
+                continue;
+            }
+            $seen[$tokenScryfallId] = true;
+
+            $tokenName = trim((string) ($part['name'] ?? ''));
+            $connection->executeStatement(
+                <<<'SQL'
+INSERT INTO card_token_relation (
+    source_scryfall_id,
+    source_oracle_id,
+    token_scryfall_id,
+    token_name,
+    token_uri,
+    updated_at
+) VALUES (
+    :source_scryfall_id,
+    :source_oracle_id,
+    :token_scryfall_id,
+    :token_name,
+    :token_uri,
+    NOW()
+)
+ON CONFLICT (source_scryfall_id, token_scryfall_id) DO UPDATE SET
+    source_oracle_id = EXCLUDED.source_oracle_id,
+    token_name = EXCLUDED.token_name,
+    token_uri = EXCLUDED.token_uri,
+    updated_at = NOW()
+SQL,
+                [
+                    'source_scryfall_id' => $card->scryfallId(),
+                    'source_oracle_id' => $card->oracleId(),
+                    'token_scryfall_id' => $tokenScryfallId,
+                    'token_name' => $tokenName !== '' ? $tokenName : 'Unknown token',
+                    'token_uri' => isset($part['uri']) && is_scalar($part['uri']) && trim((string) $part['uri']) !== ''
+                        ? trim((string) $part['uri'])
+                        : null,
+                ],
+            );
+        }
     }
 }

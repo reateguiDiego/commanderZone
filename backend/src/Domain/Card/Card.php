@@ -11,6 +11,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_card_normalized_name', columns: ['normalized_name'])]
 #[ORM\Index(name: 'idx_card_print', columns: ['set_code', 'collector_number'])]
 #[ORM\Index(name: 'idx_card_commander_legal', columns: ['commander_legal'])]
+#[ORM\Index(name: 'idx_card_oracle_id', columns: ['oracle_id'])]
 class Card
 {
     #[ORM\Id]
@@ -19,6 +20,9 @@ class Card
 
     #[ORM\Column(type: 'string', length: 36)]
     private string $scryfallId;
+
+    #[ORM\Column(type: 'string', length: 36, nullable: true)]
+    private ?string $oracleId = null;
 
     #[ORM\Column(type: 'string', length: 255)]
     private string $name;
@@ -128,6 +132,7 @@ class Card
     public function updateFromScryfall(array $data): void
     {
         $this->name = (string) ($data['name'] ?? $this->name);
+        $this->oracleId = $this->cardString($data, 'oracle_id');
         $this->normalizedName = self::normalizeName($this->name);
         $this->manaCost = $this->cardString($data, 'mana_cost');
         $this->typeLine = $this->cardString($data, 'type_line');
@@ -171,6 +176,11 @@ class Card
     public function scryfallId(): string
     {
         return $this->scryfallId;
+    }
+
+    public function oracleId(): ?string
+    {
+        return $this->oracleId;
     }
 
     public function name(): string
@@ -353,6 +363,7 @@ class Card
         return [
             'id' => $this->id,
             'scryfallId' => $this->scryfallId,
+            'oracleId' => $this->oracleId,
             'name' => $this->displayName(),
             'manaCost' => $this->manaCost,
             'typeLine' => $this->typeLine,

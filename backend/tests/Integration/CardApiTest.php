@@ -368,6 +368,65 @@ SQL,
         self::assertSame([$token->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
     }
 
+    public function testTokenSearchWithQueryLooksAcrossAllLanguages(): void
+    {
+        $spanishToken = $this->seedCard('00000000-0000-0000-0000-0000000000d1', 'Spanish Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'es',
+            'printed_name' => 'Ficha de prueba espanola',
+        ]);
+        $englishToken = $this->seedCard('00000000-0000-0000-0000-0000000000d2', 'English Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'en',
+        ]);
+        $portugueseToken = $this->seedCard('00000000-0000-0000-0000-0000000000d3', 'Portuguese Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'pt',
+            'printed_name' => 'Ficha de teste portuguesa',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=token&lang=es&tokenOnly=true&limit=20');
+
+        self::assertResponseIsSuccessful();
+        $resultIds = array_column($this->jsonResponse()['data'], 'scryfallId');
+        self::assertContains($spanishToken->scryfallId(), $resultIds);
+        self::assertContains($englishToken->scryfallId(), $resultIds);
+        self::assertContains($portugueseToken->scryfallId(), $resultIds);
+    }
+
+    public function testTokenSearchFallsBackToEnglishPayloadWhenMatchExistsOnlyInAnotherLanguage(): void
+    {
+        $this->seedCard('00000000-0000-0000-0000-0000000000d4', 'Shared Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'en',
+            'set' => 'tok',
+            'collector_number' => '1',
+            'image_uris' => ['normal' => 'https://cards.scryfall.io/shared-token-en.jpg'],
+        ]);
+        $portugueseToken = $this->seedCard('00000000-0000-0000-0000-0000000000d5', 'Shared Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'pt',
+            'printed_name' => 'Ficha compartilhada',
+            'set' => 'tok',
+            'collector_number' => '2',
+            'image_uris' => ['normal' => 'https://cards.scryfall.io/shared-token-pt.jpg'],
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=ficha%20compartilhada&lang=es&tokenOnly=true&limit=5');
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame($portugueseToken->scryfallId(), $response['data'][0]['scryfallId']);
+        self::assertSame('Shared Token Probe', $response['data'][0]['name']);
+        self::assertSame('en', $response['data'][0]['lang']);
+        self::assertSame('https://cards.scryfall.io/shared-token-en.jpg', $response['data'][0]['imageUris']['normal'] ?? null);
+    }
+
     public function testSearchCanFilterGameplayHelpersByKind(): void
     {
         $token = $this->seedCard('00000000-0000-0000-0000-0000000000c1', 'Goblin Token', [

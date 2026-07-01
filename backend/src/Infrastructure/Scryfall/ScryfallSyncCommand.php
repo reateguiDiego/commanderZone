@@ -23,6 +23,7 @@ class ScryfallSyncCommand extends Command
      */
     private const SUPPORTED_BULK_TYPES = ['default_cards', 'all_cards'];
     private ?bool $printTablesAvailable = null;
+    private ?bool $tokenRelationTableAvailable = null;
 
     public function __construct(
         private readonly ScryfallBulkDataClient $bulkDataClient,
@@ -94,6 +95,7 @@ class ScryfallSyncCommand extends Command
             }
 
             $this->upsertCard($cardData, $this->hasRulings($cardData, $oracleIdsWithRulings));
+            $this->replaceCardTokenRelations($cardData);
             if ($this->printTablesAvailable()) {
                 $this->upsertCardPrintAndLocale($cardData);
             }
@@ -177,6 +179,7 @@ class ScryfallSyncCommand extends Command
 INSERT INTO card (
     id,
     scryfall_id,
+    oracle_id,
     name,
     normalized_name,
     mana_cost,
@@ -210,6 +213,7 @@ INSERT INTO card (
 ) VALUES (
     :id,
     :scryfall_id,
+    :oracle_id,
     :name,
     :normalized_name,
     :mana_cost,
@@ -242,6 +246,7 @@ INSERT INTO card (
     NOW()
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
+    oracle_id = EXCLUDED.oracle_id,
     name = EXCLUDED.name,
     normalized_name = EXCLUDED.normalized_name,
     mana_cost = EXCLUDED.mana_cost,
@@ -276,6 +281,7 @@ SQL,
             [
                 'id' => Uuid::v7()->toRfc4122(),
                 'scryfall_id' => (string) $data['id'],
+                'oracle_id' => $this->oracleId($data),
                 'name' => $name,
                 'normalized_name' => Card::normalizeName($name),
                 'mana_cost' => $this->cardString($data, 'mana_cost'),
@@ -328,6 +334,7 @@ SQL,
             <<<'SQL'
 INSERT INTO card_print (
     scryfall_id,
+    oracle_id,
     normalized_name,
     set_code,
     collector_number,
@@ -344,6 +351,7 @@ INSERT INTO card_print (
     updated_at
 ) VALUES (
     :scryfall_id,
+    :oracle_id,
     :normalized_name,
     :set_code,
     :collector_number,
@@ -360,6 +368,7 @@ INSERT INTO card_print (
     NOW()
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
+    oracle_id = EXCLUDED.oracle_id,
     normalized_name = EXCLUDED.normalized_name,
     set_code = EXCLUDED.set_code,
     collector_number = EXCLUDED.collector_number,
@@ -401,6 +410,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
 SQL,
             [
                 'scryfall_id' => (string) $data['id'],
+                'oracle_id' => $this->oracleId($data),
                 'normalized_name' => $normalizedName,
                 'set_code' => $data['set'] ?? null,
                 'collector_number' => $data['collector_number'] ?? null,
@@ -485,6 +495,84 @@ SQL,
                     : null,
             ],
         );
+    }
+
+    private function replaceCardTokenRelations(array $data): void
+    {
+        if (!$this->tokenRelationTableAvailable()) {
+            return;
+        }
+
+        $sourceScryfallId = trim((string) ($data['id'] ?? ''));
+        if ($sourceScryfallId === '') {
+            return;
+        }
+
+        $this->connection->executeStatement(
+            'DELETE FROM card_token_relation WHERE source_scryfall_id = :source_scryfall_id',
+            ['source_scryfall_id' => $sourceScryfallId],
+        );
+
+        $sourceOracleId = $this->oracleId($data);
+        $seen = [];
+        foreach ($this->tokenParts($data) as $part) {
+            $tokenScryfallId = trim((string) ($part['id'] ?? ''));
+            if ($tokenScryfallId === '' || isset($seen[$tokenScryfallId])) {
+                continue;
+            }
+            $seen[$tokenScryfallId] = true;
+
+            $tokenName = trim((string) ($part['name'] ?? ''));
+            $this->connection->executeStatement(
+                <<<'SQL'
+INSERT INTO card_token_relation (
+    source_scryfall_id,
+    source_oracle_id,
+    token_scryfall_id,
+    token_name,
+    token_uri,
+    updated_at
+) VALUES (
+    :source_scryfall_id,
+    :source_oracle_id,
+    :token_scryfall_id,
+    :token_name,
+    :token_uri,
+    NOW()
+)
+ON CONFLICT (source_scryfall_id, token_scryfall_id) DO UPDATE SET
+    source_oracle_id = EXCLUDED.source_oracle_id,
+    token_name = EXCLUDED.token_name,
+    token_uri = EXCLUDED.token_uri,
+    updated_at = NOW()
+SQL,
+                [
+                    'source_scryfall_id' => $sourceScryfallId,
+                    'source_oracle_id' => $sourceOracleId,
+                    'token_scryfall_id' => $tokenScryfallId,
+                    'token_name' => $tokenName !== '' ? $tokenName : 'Unknown token',
+                    'token_uri' => isset($part['uri']) && is_scalar($part['uri']) && trim((string) $part['uri']) !== ''
+                        ? trim((string) $part['uri'])
+                        : null,
+                ],
+            );
+        }
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function tokenParts(array $data): array
+    {
+        $parts = $data['all_parts'] ?? [];
+        if (!is_array($parts)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $parts,
+            static fn (mixed $part): bool => is_array($part) && ($part['component'] ?? null) === 'token',
+        ));
     }
 
     private function json(array $value): string
@@ -601,6 +689,17 @@ SQL,
         return $texts === [] ? null : implode("\n//\n", $texts);
     }
 
+    private function oracleId(array $data): ?string
+    {
+        if (!isset($data['oracle_id']) || !is_scalar($data['oracle_id'])) {
+            return null;
+        }
+
+        $oracleId = trim((string) $data['oracle_id']);
+
+        return $oracleId !== '' ? $oracleId : null;
+    }
+
     /**
      * @return array<string, true>
      */
@@ -638,6 +737,19 @@ SQL,
             && $cardPrintLocale !== '';
 
         return $this->printTablesAvailable;
+    }
+
+    private function tokenRelationTableAvailable(): bool
+    {
+        if ($this->tokenRelationTableAvailable !== null) {
+            return $this->tokenRelationTableAvailable;
+        }
+
+        $table = $this->connection->fetchOne("SELECT to_regclass('public.card_token_relation')");
+
+        $this->tokenRelationTableAvailable = is_string($table) && $table !== '';
+
+        return $this->tokenRelationTableAvailable;
     }
 
     private function searchOptionTablesAvailable(): bool

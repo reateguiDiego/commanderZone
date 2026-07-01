@@ -153,13 +153,13 @@ describe('DeckEditorComponent', () => {
     expect(navigateSpy).toHaveBeenCalledWith('/404', { replaceUrl: true });
   });
 
-  it('does not request deck tokens during the initial deck load', async () => {
+  it('requests deck tokens during the initial deck load', async () => {
     const { decksApi } = await setup({ id: 'deck-1' }, buildDeckWithSingleCard());
     const fixture = TestBed.createComponent(DeckEditorComponent);
 
     await fixture.componentInstance.store.load();
 
-    expect(decksApi.tokens).not.toHaveBeenCalled();
+    expect(decksApi.tokens).toHaveBeenCalledWith('deck-1');
   });
 
   it('sends the raw decklist text to the backend import endpoint', async () => {
