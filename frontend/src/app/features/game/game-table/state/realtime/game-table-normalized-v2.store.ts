@@ -466,6 +466,8 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'mulligan.hand.count.set':
     case 'mulligan.bottom.required.set':
     case 'mulligan.scry.available.set':
+    case 'mulligan.completed':
+    case 'game.phase.set':
       return true;
     default:
       return false;
@@ -2006,10 +2008,6 @@ function completeInstanceIdentity(
   if (!staticCard) {
     return instance;
   }
-  const zone = zoneNameFromZoneId(instance.zoneId);
-  if (zone !== 'hand' && zone !== 'library') {
-    return instance;
-  }
 
   return {
     ...instance,
@@ -2171,7 +2169,7 @@ function normalizeIncomingCard(
       instanceId: legacy.instanceId,
       cardRef,
       cardKey: legacy.cardKey ?? undefined,
-      printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? (staticCard ? undefined : cardRef),
+      printId: legacy.printId ?? legacy.scryfallId ?? (staticCard ? undefined : legacy.cardKey ?? cardRef),
       cardVersion: legacy.cardVersion ?? (staticCard ? undefined : 'legacy-snapshot-v1'),
       language: legacy.language ?? (staticCard ? undefined : fallbackLanguage),
       viewerVisibility: legacy.viewerVisibility ?? (staticCard ? undefined : viewerVisibilityForZone(zone)),
@@ -2264,7 +2262,7 @@ function staticCardForIncomingKeys(
   operationStaticCards: Record<string, BootstrapStaticCardV2>,
   cachedStaticCards: Record<string, BootstrapStaticCardV2>,
 ): BootstrapStaticCardV2 | null {
-  const lookupKeys = [...new Set(keys.filter(nonEmptyString))];
+  const lookupKeys = staticLookupKeys(keys);
   if (lookupKeys.length === 0) {
     return null;
   }
@@ -2278,7 +2276,7 @@ function staticCardForIncomingKeys(
     }
 
     for (const card of Object.values(source)) {
-      const candidateKeys = [card.cardRef, card.cardKey, card.scryfallId, card.printId].filter(nonEmptyString);
+      const candidateKeys = staticLookupKeys([card.cardRef, card.cardKey, card.scryfallId, card.printId]);
       if (lookupKeys.some((key) => candidateKeys.includes(key))) {
         return normalizeStaticCard(card);
       }
@@ -2286,6 +2284,56 @@ function staticCardForIncomingKeys(
   }
 
   return null;
+}
+
+function staticLookupKeys(keys: Array<string | null | undefined>): string[] {
+  const lookupKeys = new Set<string>();
+  for (const key of keys) {
+    if (!nonEmptyString(key)) {
+      continue;
+    }
+
+    for (const alias of staticLookupAliases(key)) {
+      lookupKeys.add(alias);
+    }
+  }
+
+  return [...lookupKeys];
+}
+
+function staticLookupAliases(key: string): string[] {
+  const trimmed = key.trim();
+  const aliases = new Set<string>([trimmed]);
+  const runtimeScryfallId = scryfallIdFromRuntimeCardKey(trimmed);
+  if (runtimeScryfallId) {
+    aliases.add(runtimeScryfallId);
+    aliases.add(`${runtimeScryfallId}:card`);
+    aliases.add(`${runtimeScryfallId}:token`);
+  }
+
+  const suffixedScryfallId = scryfallIdFromStaticRef(trimmed);
+  if (suffixedScryfallId) {
+    aliases.add(suffixedScryfallId);
+  }
+
+  return [...aliases];
+}
+
+function scryfallIdFromRuntimeCardKey(key: string): string | null {
+  const parts = key.split(':');
+  if (parts.length < 3 || parts[0] !== 'scryfall') {
+    return null;
+  }
+
+  const scryfallId = parts[1]?.trim() ?? '';
+  return scryfallId === '' ? null : scryfallId;
+}
+
+function scryfallIdFromStaticRef(key: string): string | null {
+  const match = /^(.+):(card|token)$/.exec(key);
+  const scryfallId = match?.[1]?.trim() ?? '';
+
+  return scryfallId === '' ? null : scryfallId;
 }
 
 function hasRenderableLegacyPayload(card: LegacyCardPatchPayload): boolean {

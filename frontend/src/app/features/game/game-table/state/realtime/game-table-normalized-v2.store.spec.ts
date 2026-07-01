@@ -738,7 +738,6 @@ describe('game table normalized v2 store', () => {
         'card:forest': {
           cardRef: 'card:forest',
           cardKey: 'card:forest',
-          printId: 's-forest',
           cardVersion: 'forest-v1',
           language: 'es',
           viewerVisibility: 'public',
@@ -755,6 +754,117 @@ describe('game table normalized v2 store', () => {
 
     expect(result.status).toBe('applied');
     expect(() => hydrateGameSnapshotFromV2State(result.state)).toThrow(/missing printId/);
+  });
+
+  it('applies observer private-hand to battlefield adds from compact runtime cards with static hints', () => {
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap(bootstrapV2());
+
+    const result = store.applyPatch(patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-2', zone: 'hand', instanceIds: ['opp-hand-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-2',
+        zone: 'battlefield',
+        cards: [{
+          instanceId: 'opp-hand-1',
+          cardRef: 'card:forest',
+          cardKey: 'card:forest',
+          zoneId: 'player-2:battlefield',
+          ownerId: 'player-2',
+          controllerId: 'player-2',
+          hidden: false,
+        }],
+        staticCards: {
+          'card:forest': {
+            cardRef: 'card:forest',
+            cardKey: 'card:forest',
+            printId: 's-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'public',
+            scryfallId: 's-forest',
+            name: 'Forest',
+            imageUris: { normal: 'https://cards.test/forest.jpg' },
+            cardFaces: [],
+            typeLine: 'Basic Land - Forest',
+            manaCost: null,
+            colorIdentity: ['G'],
+          },
+        },
+      },
+      { op: 'zone.count.set', playerId: 'player-2', zone: 'hand', count: 0 },
+      { op: 'zone.count.set', playerId: 'player-2', zone: 'battlefield', count: 1 },
+    ]));
+
+    expect(result.status).toBe('applied');
+    if (result.status !== 'applied') {
+      throw new Error(`expected patch to apply, got ${result.status}`);
+    }
+
+    expect(result.snapshot.players['player-2'].zones.battlefield[0]?.name).toBe('Forest');
+    expect(result.snapshot.players['player-2'].zones.battlefield[0]?.imageUris?.['normal']).toBe('https://cards.test/forest.jpg');
+    expect(store.state()?.instances['opp-hand-1']).toMatchObject({
+      cardRef: 'card:forest',
+      cardKey: 'card:forest',
+      printId: 's-forest',
+      cardVersion: 'forest-v1',
+      language: 'en',
+      viewerVisibility: 'public',
+    });
+    expect(store.state()?.lastAppliedVersion).toBe(6);
+  });
+
+  it('applies observer private-hand to battlefield adds from compact runtime cards with cached static aliases', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.staticCards['0007fa33-ccc3-4e33-8d83-909c5c8d408c:card'] = {
+      cardRef: '0007fa33-ccc3-4e33-8d83-909c5c8d408c:card',
+      cardKey: '0007fa33-ccc3-4e33-8d83-909c5c8d408c:card',
+      printId: '0007fa33-ccc3-4e33-8d83-909c5c8d408c',
+      cardVersion: 'legacy-snapshot-v1',
+      language: 'en',
+      viewerVisibility: 'public',
+      scryfallId: '0007fa33-ccc3-4e33-8d83-909c5c8d408c',
+      name: 'Plains',
+      imageUris: { normal: 'https://cards.test/plains.jpg' },
+      cardFaces: [],
+      typeLine: 'Basic Land - Plains',
+      manaCost: null,
+      colorIdentity: ['W'],
+    };
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap(bootstrap);
+
+    const result = store.applyPatch(patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-2', zone: 'hand', instanceIds: ['opp-hand-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-2',
+        zone: 'battlefield',
+        cards: [{
+          instanceId: 'opp-hand-1',
+          cardKey: 'scryfall:0007fa33-ccc3-4e33-8d83-909c5c8d408c:315a4486f3f6b25f',
+          ownerId: 'player-2',
+          controllerId: 'player-2',
+          hidden: false,
+        }],
+      },
+      { op: 'zone.count.set', playerId: 'player-2', zone: 'hand', count: 0 },
+      { op: 'zone.count.set', playerId: 'player-2', zone: 'battlefield', count: 1 },
+    ]));
+
+    expect(result.status).toBe('applied');
+    if (result.status !== 'applied') {
+      throw new Error(`expected patch to apply, got ${result.status}`);
+    }
+
+    expect(result.snapshot.players['player-2'].zones.battlefield[0]?.name).toBe('Plains');
+    expect(result.snapshot.players['player-2'].zones.battlefield[0]?.imageUris?.['normal']).toBe('https://cards.test/plains.jpg');
+    expect(store.state()?.instances['opp-hand-1']).toMatchObject({
+      cardRef: '0007fa33-ccc3-4e33-8d83-909c5c8d408c:card',
+      printId: '0007fa33-ccc3-4e33-8d83-909c5c8d408c',
+      cardVersion: 'legacy-snapshot-v1',
+    });
   });
 
   it('hydrates a public visible card from the same identity contract used by runtime static hints', () => {
@@ -1183,6 +1293,44 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-1'].zones.hand[1]?.name).toBe('Forest');
     expect(snapshot.players['player-1'].zones.hand[1]?.imageUris?.['normal']).toBe('https://cards.test/forest.jpg');
     expect(snapshot.players['player-1'].handCount).toBe(2);
+  });
+
+  it('applies compact runtime visible adds when cached static matches the runtime scryfall id', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.staticCards['0007fa33-ccc3-4e33-8d83-909c5c8d408c:card'] = {
+      cardRef: '0007fa33-ccc3-4e33-8d83-909c5c8d408c:card',
+      cardKey: '0007fa33-ccc3-4e33-8d83-909c5c8d408c:card',
+      printId: '0007fa33-ccc3-4e33-8d83-909c5c8d408c',
+      cardVersion: 'legacy-snapshot-v1',
+      language: 'en',
+      viewerVisibility: 'public',
+      scryfallId: '0007fa33-ccc3-4e33-8d83-909c5c8d408c',
+      name: 'Plains',
+      imageUris: { normal: 'https://cards.test/plains.jpg' },
+      cardFaces: [],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        cards: [{
+          instanceId: 'runtime-plains',
+          cardKey: 'scryfall:0007fa33-ccc3-4e33-8d83-909c5c8d408c:315a4486f3f6b25f',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+      },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    const card = snapshot.players['player-1'].zones.battlefield.find((entry) => entry.instanceId === 'runtime-plains');
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['runtime-plains'].cardRef).toBe('0007fa33-ccc3-4e33-8d83-909c5c8d408c:card');
+    expect(result.state.instances['runtime-plains'].printId).toBe('0007fa33-ccc3-4e33-8d83-909c5c8d408c');
+    expect(card?.name).toBe('Plains');
+    expect(card?.imageUris?.['normal']).toBe('https://cards.test/plains.jpg');
   });
 
   it('does not replace a real bootstrap static card with a compact placeholder hint', () => {
@@ -1668,6 +1816,58 @@ describe('game table normalized v2 store', () => {
     expect(playing.state.game.gamePhase).toBe('PLAYING');
     expect(duplicate.status).toBe('ignored');
     expect(duplicate.state.game.gamePhase).toBe('PLAYING');
+  });
+
+  it('applies same-version mulligan completion after a private owner patch from the same command', () => {
+    const initial = createGameTableNormalizedV2State({
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    });
+    const privatePatch = applyPatchEnvelopeV2(initial, {
+      ...patch(6, [
+        {
+          op: 'mulligan.private_state.set',
+          playerId: 'player-1',
+          state: {
+            status: 'READY',
+            ready: true,
+            effectiveMulligans: 0,
+            handSize: 7,
+            cardsToBottom: 0,
+            bottomPending: false,
+            scryPending: false,
+          },
+        },
+        {
+          op: 'mulligan.hand.replace_private',
+          playerId: 'player-1',
+          hand: [
+            { instanceId: 'runtime-a', cardKey: 'card:bolt' },
+            { instanceId: 'runtime-b', cardKey: 'card:bolt' },
+          ],
+        },
+      ]),
+      ackClientActionId: 'keep-final-player',
+    });
+    const publicCompletion = applyPatchEnvelopeV2(privatePatch.state, {
+      ...patch(6, [
+        { op: 'mulligan.completed' },
+        { op: 'game.phase.set', phase: 'PLAYING' },
+      ]),
+      visibility: 'public',
+      ackClientActionId: 'keep-final-player',
+    });
+
+    expect(privatePatch.status).toBe('applied');
+    expect(privatePatch.state.lastAppliedVersion).toBe(6);
+    expect(privatePatch.state.game.gamePhase).toBe('MULLIGAN');
+    expect(publicCompletion.status).toBe('applied');
+    expect(publicCompletion.state.lastAppliedVersion).toBe(6);
+    expect(publicCompletion.state.game.gamePhase).toBe('PLAYING');
+    expect(hydrateGameSnapshotFromV2State(publicCompletion.state).gamePhase).toBe('PLAYING');
   });
 });
 

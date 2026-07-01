@@ -226,7 +226,6 @@ async function resolveMulliganToPlayingInBrowser(
   ]);
 
   const startA = framesA.length;
-  const startB = framesB.length;
   await pageA.getByTestId('mulligan-keep').click();
   await Promise.all([
     waitForPatchV2After(framesA, startA, (candidate) => hasOp(candidate, 'mulligan.status.set')),
@@ -234,9 +233,11 @@ async function resolveMulliganToPlayingInBrowser(
   ]);
 
   await expect(pageB.getByTestId('mulligan-keep')).toBeEnabled({ timeout: 30_000 });
+  const startB = framesB.length;
   await pageB.getByTestId('mulligan-keep').click();
   await Promise.all([
     waitForPatchV2After(framesB, startB, (candidate) => hasOp(candidate, 'mulligan.status.set')),
+    waitForPatchV2After(framesB, startB, (candidate) => hasOp(candidate, 'mulligan.completed') || hasOp(candidate, 'game.phase.set')),
     expect(pageA.getByTestId('mulligan-overlay')).toBeHidden({ timeout: 30_000 }),
     expect(pageB.getByTestId('mulligan-overlay')).toBeHidden({ timeout: 30_000 }),
   ]);

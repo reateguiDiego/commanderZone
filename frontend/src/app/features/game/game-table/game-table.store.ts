@@ -839,7 +839,7 @@ export class GameTableStore implements OnDestroy {
     return this.chatStore.selectedChatTargetPlayerId();
   }
 
-  async changeLife(playerId: string, delta: number): Promise<void> {
+  async changeLife(playerId: string, delta: number, options: { debounce?: boolean } = {}): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
       this.error.set('You can only change your own life total.');
       return;
@@ -854,6 +854,8 @@ export class GameTableStore implements OnDestroy {
     this.debouncedValueCommands.queueLife(this.contexts.debouncedValueCommand(), {
       playerId,
       life: nextLife,
+    }, {
+      flushDelayMs: options.debounce === false ? 0 : undefined,
     });
   }
 

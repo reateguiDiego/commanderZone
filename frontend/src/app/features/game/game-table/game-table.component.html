@@ -67,7 +67,7 @@
               (helperPreviewRequested)="showHelperPreview($event)"
               (helperPreviewHidden)="store.hideCardPreview()"
               (helperContextRequested)="handleHelperContextRequest($event)"
-              (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
+              (lifeChanged)="store.changeLife($event.playerId, $event.delta, { debounce: false })"
               (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.commanderInstanceId, $event.delta)"
               (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
             />
