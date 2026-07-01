@@ -152,7 +152,7 @@ test.describe('product correctness identity runtime gate', () => {
       nextBaseVersion = outcome.version;
       assertNoStaticPayload(outcome.patch);
       const token = addedCards(outcome.patch)[0]!;
-      assertVisibleCardIdentity(token, 'public', 'es');
+      assertVisibleCardIdentity(token, 'public');
       const tokenId = String(token['instanceId']);
       await expect(gameCard(pageA, playerA.user.id, tokenId, 'battlefield')).toBeVisible({ timeout: 15_000 });
       ownerTokenLiveImageSrc = await expectCardImageSrc(pageA, playerA.user.id, tokenId, 'battlefield');
@@ -169,7 +169,7 @@ test.describe('product correctness identity runtime gate', () => {
       nextBaseVersion = outcome.version;
       assertNoStaticPayload(outcome.patch);
       const tokenCopy = addedCards(outcome.patch)[0]!;
-      assertVisibleCardIdentity(tokenCopy, 'public', 'es');
+      assertVisibleCardIdentity(tokenCopy, 'public');
       const tokenCopyId = String(tokenCopy['instanceId']);
       await expect(gameCard(pageA, playerA.user.id, tokenCopyId, 'battlefield')).toBeVisible({ timeout: 15_000 });
       ownerTokenCopyLiveImageSrc = await expectCardImageSrc(pageA, playerA.user.id, tokenCopyId, 'battlefield');

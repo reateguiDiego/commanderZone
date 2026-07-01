@@ -1643,6 +1643,50 @@ describe('game table normalized v2 store', () => {
     expect(JSON.stringify(result.state.instances['token-runtime-1'])).not.toContain('cardFaces');
   });
 
+  it('hydrates runtime token copies from the cached source static card', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.staticCards['card:sol-ring'] = {
+      ...bootstrap.staticCards['card:sol-ring'],
+      imageUris: { normal: 'https://cards.test/sol-ring.jpg' },
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.add',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      cards: [{
+        instanceId: 'token-copy-runtime-1',
+        ownerId: 'player-1',
+        controllerId: 'player-1',
+        name: 'Token Copy',
+        cardKey: 'card:sol-ring',
+        printId: 'card:sol-ring',
+        cardVersion: 'runtime-identity-v1',
+        language: 'en',
+        viewerVisibility: 'public',
+        zone: 'battlefield',
+        isToken: true,
+        isTokenCopy: true,
+        tokenMeta: {
+          isCopy: true,
+          copiedFromInstanceId: 'battlefield-1',
+          copiedFromCardKey: 'card:sol-ring',
+        },
+      }],
+    }]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    const tokenCopy = snapshot.players['player-1'].zones.battlefield.find((card) =>
+      card.instanceId === 'token-copy-runtime-1');
+
+    expect(result.status).toBe('applied');
+    expect(result.state.staticCards['card:sol-ring'].name).toBe('Sol Ring');
+    expect(result.state.instances['token-copy-runtime-1'].cardRef).toBe('card:sol-ring');
+    expect(tokenCopy?.name).toBe('Sol Ring');
+    expect(tokenCopy?.imageUris?.['normal']).toBe('https://cards.test/sol-ring.jpg');
+    expect(tokenCopy?.isToken).toBe(true);
+    expect(tokenCopy?.isTokenCopy).toBe(true);
+  });
+
   it('applies full library reveal and play-top patches without static payload duplication', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const revealed = applyPatchEnvelopeV2(initial, patch(6, [{

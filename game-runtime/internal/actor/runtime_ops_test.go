@@ -678,8 +678,8 @@ func TestTokenCreateRuntimeEmitsCompactPayloadOnly(t *testing.T) {
 		t.Fatalf("missing token add patch: %#v", result.Patches)
 	}
 	encoded := fmt.Sprintf("%#v", result.Patches)
-	if contains(encoded, "imageUris") || contains(encoded, "oracleText") || contains(encoded, "cardFaces") {
-		t.Fatalf("static payload leaked in token patch: %s", encoded)
+	if contains(encoded, "oracleText") {
+		t.Fatalf("rules payload leaked in token patch: %s", encoded)
 	}
 	cards := patch.Data["cards"].([]map[string]any)
 	if len(cards) != 2 || cards[0]["isToken"] != true || cards[0]["name"] != "Goblin" {
@@ -688,16 +688,63 @@ func TestTokenCreateRuntimeEmitsCompactPayloadOnly(t *testing.T) {
 	if cards[0]["cardKey"] != "token-scryfall:token" {
 		t.Fatalf("token patch did not carry stable compact identity: %#v", cards[0])
 	}
+	if cards[0]["printId"] != "token-scryfall" {
+		t.Fatalf("token patch did not carry real print identity: %#v", cards[0])
+	}
 	if cards[0]["language"] != "en" || cards[0]["viewerVisibility"] != "public" {
 		t.Fatalf("token patch did not carry renderable identity fields: %#v", cards[0])
+	}
+	staticCards := patch.Data["staticCards"].(map[string]map[string]any)
+	staticCard := staticCards["token-scryfall:token"]
+	if staticCard["name"] != "Goblin" || staticCard["printId"] != "token-scryfall" || staticCard["viewerVisibility"] != "public" {
+		t.Fatalf("token patch did not carry renderable static card: %#v", staticCard)
+	}
+	imageUris := staticCard["imageUris"].(map[string]string)
+	if imageUris["normal"] != "https://example.test/token.jpg" {
+		t.Fatalf("token static card did not carry image: %#v", staticCard)
+	}
+	if _, leaked := staticCard["oracleText"]; leaked {
+		t.Fatalf("token static card leaked oracle text: %#v", staticCard)
 	}
 	eventTokens := result.Event.Payload["tokens"].([]map[string]any)
 	if len(eventTokens) != 2 || eventTokens[0]["instanceId"] != cards[0]["instanceId"] || eventTokens[0]["cardKey"] != "token-scryfall:token" || eventTokens[0]["name"] != "Goblin" {
 		t.Fatalf("token event did not carry replayable compact identity: %#v", result.Event.Payload)
 	}
+	eventStaticCards := result.Event.Payload["staticCards"].(map[string]map[string]any)
+	if eventStaticCards["token-scryfall:token"]["name"] != "Goblin" {
+		t.Fatalf("token event did not carry replayable static identity: %#v", result.Event.Payload)
+	}
+	if contains(fmt.Sprintf("%#v", result.Event.Payload), "oracleText") {
+		t.Fatalf("token event leaked rules payload: %#v", result.Event.Payload)
+	}
 	metrics := result.Event.Payload["metrics"].(map[string]any)
 	if metrics["edge.runtime_route"] != 1 || metrics["edge.patch_bytes"].(int) <= 0 {
 		t.Fatalf("missing edge metrics: %#v", metrics)
+	}
+}
+
+func TestTokenCreateRuntimeBuildsSyntheticRenderableStaticCard(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "token-create-synthetic", "card.token.created", map[string]any{
+		"playerId": "p1",
+		"quantity": 1,
+		"name":     "Clue",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("token create failed: %v", result.Err)
+	}
+	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+	if patch == nil {
+		t.Fatalf("missing token add patch: %#v", result.Patches)
+	}
+	staticCards := patch.Data["staticCards"].(map[string]map[string]any)
+	staticCard := staticCards["token:clue"]
+	if staticCard["name"] != "Clue" || staticCard["name"] == "Card" || staticCard["printId"] != "token:clue" {
+		t.Fatalf("synthetic token static card is not renderable: %#v", staticCard)
+	}
+	cards := patch.Data["cards"].([]map[string]any)
+	if cards[0]["cardKey"] != "token:clue" || cards[0]["printId"] != "token:clue" {
+		t.Fatalf("synthetic token card identity mismatch: %#v", cards[0])
 	}
 }
 
@@ -730,6 +777,32 @@ func TestTokenCopyRuntimeUsesCompactReference(t *testing.T) {
 	eventTokens := result.Event.Payload["tokens"].([]map[string]any)
 	if len(eventTokens) != 1 || eventTokens[0]["instanceId"] != cards[0]["instanceId"] || eventTokens[0]["cardKey"] != "card-a@1" || eventTokens[0]["isTokenCopy"] != true {
 		t.Fatalf("token copy event did not carry replayable compact identity: %#v", result.Event.Payload)
+	}
+}
+
+func TestTokenCopyRuntimeDoesNotLeakPrivateSourceIdentity(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "token-copy-private", "card.token_copy.created", map[string]any{
+		"instanceId":     "h1",
+		"targetPlayerId": "p1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("token copy failed: %v", result.Err)
+	}
+	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+	if patch == nil {
+		t.Fatalf("missing token copy patch: %#v", result.Patches)
+	}
+	cards := patch.Data["cards"].([]map[string]any)
+	meta := cards[0]["tokenMeta"].(map[string]any)
+	if contains(fmt.Sprintf("%#v %#v", result.Patches, result.Event.Payload), "hand-1@1") {
+		t.Fatalf("private source identity leaked through token copy: patches=%#v event=%#v", result.Patches, result.Event.Payload)
+	}
+	if cards[0]["cardKey"] == "hand-1@1" || meta["copiedFromCardKey"] != nil || result.Event.Payload["copiedFromCardKey"] != nil {
+		t.Fatalf("private token copy retained source identity: card=%#v event=%#v", cards[0], result.Event.Payload)
+	}
+	if cards[0]["name"] != "Token Copy" || cards[0]["viewerVisibility"] != "public" {
+		t.Fatalf("private token copy did not carry generic public identity: %#v", cards[0])
 	}
 }
 

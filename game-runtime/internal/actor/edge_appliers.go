@@ -41,6 +41,7 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 		name = "Token"
 	}
 	cardKey := runtimeTokenCardKey(card, name)
+	staticCards := tokenStaticCards(cardKey, name, card)
 	tokenMeta := map[string]any{
 		"isCopy":              false,
 		"templateCardKey":     compactOptionalString(card["cardKey"]),
@@ -83,14 +84,18 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 	for _, instanceID := range ids {
 		cards = append(cards, tokenPatchData(game.Instances[instanceID], name, false))
 	}
+	data := map[string]any{
+		"playerId": playerID,
+		"zone":     state.ZoneBattlefield,
+		"index":    insertIndex,
+		"cards":    cards,
+	}
+	if len(staticCards) > 0 {
+		data["staticCards"] = staticCards
+	}
 	emitter.EmitPublic(protocol.PatchOp{
-		Op: "zone.cards.add",
-		Data: map[string]any{
-			"playerId": playerID,
-			"zone":     state.ZoneBattlefield,
-			"index":    insertIndex,
-			"cards":    cards,
-		},
+		Op:   "zone.cards.add",
+		Data: data,
 	})
 	emitZoneCount(emitter, game, playerID, state.ZoneBattlefield)
 	return map[string]any{
@@ -101,6 +106,7 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 		"name":        name,
 		"tokens":      cards,
 		"tokenMeta":   tokenMeta,
+		"staticCards": staticCards,
 		"metrics":     edgeMetrics("edge.token_create_ms", start, emitter),
 	}, nil
 }
@@ -124,19 +130,26 @@ func (CardTokenCopyCreatedApplier) Apply(_ context.Context, game *state.GameStat
 		return nil, fmt.Errorf("%w: targetPlayerId", ErrInvalidPayloadField)
 	}
 	instanceID := deterministicRuntimeID("token-copy", command.ClientActionID, 0)
+	sourcePublic := tokenCopySourcePublic(source, sourceLocation)
+	cardKey := source.CardKey
+	if !sourcePublic {
+		cardKey = "token-copy:" + sanitizeID(instanceID)
+	}
 	tokenMeta := map[string]any{
 		"isCopy":               true,
 		"copiedFromInstanceId": sourceID,
-		"copiedFromCardKey":    source.CardKey,
 		"copiedValues": map[string]any{
 			"power":     source.MutableStats["power"],
 			"toughness": source.MutableStats["toughness"],
 			"loyalty":   source.MutableStats["loyalty"],
 		},
 	}
+	if sourcePublic {
+		tokenMeta["copiedFromCardKey"] = source.CardKey
+	}
 	copy := state.CardInstanceRuntime{
 		InstanceID:    instanceID,
-		CardKey:       source.CardKey,
+		CardKey:       cardKey,
 		OwnerID:       targetPlayerID,
 		ControllerID:  targetPlayerID,
 		Zone:          state.ZoneBattlefield,
@@ -165,15 +178,18 @@ func (CardTokenCopyCreatedApplier) Apply(_ context.Context, game *state.GameStat
 		},
 	})
 	emitZoneCount(emitter, game, targetPlayerID, state.ZoneBattlefield)
-	return map[string]any{
-		"playerId":          sourceLocation.PlayerID,
-		"targetPlayerId":    targetPlayerID,
-		"instanceId":        instanceID,
-		"sourceInstanceId":  sourceID,
-		"copiedFromCardKey": source.CardKey,
-		"tokens":            []map[string]any{card},
-		"metrics":           edgeMetrics("edge.token_copy_ms", start, emitter),
-	}, nil
+	payload := map[string]any{
+		"playerId":         sourceLocation.PlayerID,
+		"targetPlayerId":   targetPlayerID,
+		"instanceId":       instanceID,
+		"sourceInstanceId": sourceID,
+		"tokens":           []map[string]any{card},
+		"metrics":          edgeMetrics("edge.token_copy_ms", start, emitter),
+	}
+	if sourcePublic {
+		payload["copiedFromCardKey"] = source.CardKey
+	}
+	return payload, nil
 }
 
 type ZoneRandomCardSelectedApplier struct{}
@@ -308,13 +324,19 @@ func mapField(payload map[string]any, key string) map[string]any {
 }
 
 func tokenPatchData(instance state.CardInstanceRuntime, name string, isCopy bool) map[string]any {
+	printID := instance.CardKey
+	if !isCopy {
+		if templateScryfallID := compactOptionalString(instance.TokenMeta["templateScryfallId"]); templateScryfallID != "" {
+			printID = templateScryfallID
+		}
+	}
 	data := map[string]any{
 		"instanceId":       instance.InstanceID,
 		"ownerId":          instance.OwnerID,
 		"controllerId":     instance.ControllerID,
 		"name":             name,
 		"cardKey":          instance.CardKey,
-		"printId":          instance.CardKey,
+		"printId":          printID,
 		"cardVersion":      "runtime-identity-v1",
 		"language":         "en",
 		"viewerVisibility": "public",
@@ -329,6 +351,139 @@ func tokenPatchData(instance state.CardInstanceRuntime, name string, isCopy bool
 		data[key] = value
 	}
 	return data
+}
+
+func tokenStaticCards(cardKey string, name string, card map[string]any) map[string]map[string]any {
+	staticCard := map[string]any{
+		"cardRef":          cardKey,
+		"cardKey":          cardKey,
+		"printId":          tokenPrintID(cardKey, card),
+		"cardVersion":      "runtime-identity-v1",
+		"language":         "en",
+		"viewerVisibility": "public",
+		"scryfallId":       nil,
+		"name":             name,
+		"imageUris":        nil,
+		"cardFaces":        []map[string]any{},
+		"typeLine":         nil,
+		"manaCost":         nil,
+		"colorIdentity":    []string{},
+		"defaultPower":     compactStat(card["power"], fallbackTokenStat(card, "power", 1)),
+		"defaultToughness": compactStat(card["toughness"], fallbackTokenStat(card, "toughness", 1)),
+		"defaultLoyalty":   compactStat(card["loyalty"], nil),
+		"defaultDefense":   nil,
+		"hasRulings":       false,
+	}
+	if scryfallID := compactOptionalString(card["scryfallId"]); scryfallID != "" {
+		staticCard["scryfallId"] = scryfallID
+	}
+	if cardVersion := compactOptionalString(card["cardVersion"]); cardVersion != "" {
+		staticCard["cardVersion"] = cardVersion
+	}
+	if language := compactOptionalString(card["language"]); language != "" {
+		staticCard["language"] = language
+	}
+	if imageUris := sanitizedStringMap(card["imageUris"]); len(imageUris) > 0 {
+		staticCard["imageUris"] = imageUris
+	}
+	if faces := sanitizedCardFaces(card["cardFaces"]); len(faces) > 0 {
+		staticCard["cardFaces"] = faces
+	}
+	if typeLine := compactOptionalString(card["typeLine"]); typeLine != "" {
+		staticCard["typeLine"] = typeLine
+	}
+	if manaCost := compactOptionalString(card["manaCost"]); manaCost != "" {
+		staticCard["manaCost"] = manaCost
+	}
+	if colorIdentity := sanitizedStringSlice(card["colorIdentity"]); len(colorIdentity) > 0 {
+		staticCard["colorIdentity"] = colorIdentity
+	}
+	if defense := compactStat(card["defense"], nil); defense != nil {
+		staticCard["defaultDefense"] = defense
+	}
+	if hasRulings, ok := card["hasRulings"].(bool); ok {
+		staticCard["hasRulings"] = hasRulings
+	}
+
+	return map[string]map[string]any{cardKey: staticCard}
+}
+
+func tokenPrintID(cardKey string, card map[string]any) string {
+	if printID := compactOptionalString(card["printId"]); printID != "" {
+		return printID
+	}
+	if scryfallID := compactOptionalString(card["scryfallId"]); scryfallID != "" {
+		return scryfallID
+	}
+	return cardKey
+}
+
+func tokenCopySourcePublic(source state.CardInstanceRuntime, location state.Location) bool {
+	return !privateZone(location.Zone) && !source.FaceDown
+}
+
+func sanitizedStringMap(value any) map[string]string {
+	raw, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := map[string]string{}
+	for key, item := range raw {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		text := compactOptionalString(item)
+		if text == "" {
+			continue
+		}
+		out[key] = text
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func sanitizedCardFaces(value any) []map[string]any {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		face, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		sanitized := map[string]any{}
+		for _, key := range []string{"name", "manaCost", "typeLine", "power", "toughness", "loyalty", "defense"} {
+			if text := compactOptionalString(face[key]); text != "" {
+				sanitized[key] = text
+			}
+		}
+		if imageUris := sanitizedStringMap(face["imageUris"]); len(imageUris) > 0 {
+			sanitized["imageUris"] = imageUris
+		}
+		if len(sanitized) > 0 {
+			out = append(out, sanitized)
+		}
+	}
+	return out
+}
+
+func sanitizedStringSlice(value any) []string {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		text := compactOptionalString(item)
+		if text != "" {
+			out = append(out, text)
+		}
+	}
+	return out
 }
 
 func deterministicRuntimeID(prefix string, actionID string, index int) string {

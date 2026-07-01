@@ -58,6 +58,67 @@ func TestWebSocketAcceptsLegacyTypeCommandThroughExplicitAdapter(t *testing.T) {
 	}
 }
 
+func TestWebSocketTokenCreatePatchCarriesRenderableStaticCards(t *testing.T) {
+	server, _ := testWebSocketServer(t, "game-1", 128, 256)
+	defer server.Close()
+
+	owner := dialRuntime(t, server.URL, "game-1", 0, nil)
+	defer owner.Close()
+	rival := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID:      "p2",
+		PlayerID:    "p2",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view"},
+		Protocol:    "v2",
+	})
+	defer rival.Close()
+
+	writeCommand(t, owner, command("game-1", 1, "ws-token-static", "card.token.created", map[string]any{
+		"playerId": "p1",
+		"quantity": 1,
+		"card": map[string]any{
+			"scryfallId": "token-scryfall",
+			"name":       "Goblin",
+			"imageUris":  map[string]any{"normal": "https://example.test/token.jpg"},
+			"oracleText": "rules text must not be broadcast",
+			"cardFaces":  []any{map[string]any{"name": "Goblin", "imageUris": map[string]any{"normal": "https://example.test/token-face.jpg"}, "oracleText": "face rules"}},
+		},
+	}, nil))
+
+	ownerPatch := readPatchWithoutResync(t, owner)
+	rivalPatch := readPatchWithoutResync(t, rival)
+	for label, message := range map[string]ServerMessage{"owner": ownerPatch, "rival": rivalPatch} {
+		if message.Version != 2 || message.AckClientActionID != "ws-token-static" {
+			t.Fatalf("%s patch = %#v, want token create ack", label, message)
+		}
+		addOp := map[string]any(nil)
+		for _, op := range message.Ops {
+			if op["op"] == "zone.cards.add" {
+				addOp = op
+				break
+			}
+		}
+		if addOp == nil {
+			t.Fatalf("%s ops = %#v, want zone.cards.add", label, message.Ops)
+		}
+		cards := addOp["cards"].([]any)
+		card := cards[0].(map[string]any)
+		if card["cardKey"] != "token-scryfall:token" || card["printId"] != "token-scryfall" || card["viewerVisibility"] != "public" {
+			t.Fatalf("%s token card identity = %#v", label, card)
+		}
+		staticCards := addOp["staticCards"].(map[string]any)
+		staticCard := staticCards["token-scryfall:token"].(map[string]any)
+		imageUris := staticCard["imageUris"].(map[string]any)
+		if staticCard["name"] != "Goblin" || staticCard["printId"] != "token-scryfall" || imageUris["normal"] != "https://example.test/token.jpg" {
+			t.Fatalf("%s static card = %#v, want renderable token identity", label, staticCard)
+		}
+		if strings.Contains(fmt.Sprint(message.Ops), "oracleText") {
+			t.Fatalf("%s patch leaked oracle text: %#v", label, message.Ops)
+		}
+	}
+}
+
 func TestWebSocketTranslatesZoneChangedAliasToCanonicalRuntimeCommand(t *testing.T) {
 	server, runtimeService := testWebSocketServerWithState(t, "game-1", testReorderState("game-1"), 128, 256)
 	defer server.Close()
