@@ -85,8 +85,8 @@ test('P52 full browser lifecycle release gate: runtime actions, UI concede, sequ
     await Promise.all([
       gotoAuthenticatedRoute(pageA, `/games/${gameId}`, playerA.credentials),
       gotoAuthenticatedRoute(pageB, `/games/${gameId}`, playerB.credentials),
-      gotoAuthenticatedRoute(debugPage, `/games/${gameId}/debug`, playerA.credentials),
     ]);
+    await gotoAuthenticatedRoute(debugPage, `/games/${gameId}/debug`, playerA.credentials);
     await Promise.all([
       expect(pageA.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),
       expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),

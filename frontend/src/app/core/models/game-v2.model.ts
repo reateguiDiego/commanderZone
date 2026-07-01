@@ -468,6 +468,7 @@ export type GameplayPatchV2Operation =
       };
       hand?: GameCompactCardRef[];
       scryCard?: GameCompactCardRef;
+      staticCards?: Record<string, BootstrapStaticCardV2>;
     }
   | {
       op: 'mulligan.hand.replace_private';

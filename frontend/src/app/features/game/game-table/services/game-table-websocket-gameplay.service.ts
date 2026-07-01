@@ -27,6 +27,7 @@ import { applyGameSnapshotPatch } from '../state/realtime/game-snapshot-patch-re
 import { GameTableNormalizedV2Store } from '../state/realtime/game-table-normalized-v2.store';
 import { GameTableGameplayV2FlagsService } from './game-table-gameplay-v2-flags.service';
 import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
+import { GameTableStaticCardResolverV2Service } from './game-table-static-card-resolver-v2.service';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
 
 export interface GameTableWebsocketGameplayContext {
@@ -238,6 +239,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   private readonly gameplayV2Flags = inject(GameTableGameplayV2FlagsService);
   private readonly normalizedV2Store = inject(GameTableNormalizedV2Store);
   private readonly realtimeAnimationBus = inject(GameTableRealtimeAnimationBusService);
+  private readonly staticCardResolver = inject(GameTableStaticCardResolverV2Service);
   private readonly commandQueue: PendingWebsocketCommand[] = [];
   private readonly mulliganQueue: GameplayClientMessage[] = [];
   private inFlightCommand: PendingWebsocketCommand | null = null;
@@ -245,6 +247,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   private context: GameTableWebsocketGameplayContext | null = null;
   private resyncPromise: Promise<void> | null = null;
   private queuedResyncPromise: Promise<void> | null = null;
+  private patchV2Chain: Promise<void> = Promise.resolve();
   private snapshotMetricsChannel: BroadcastChannel | null = null;
   private observedDebugGameId: string | null = null;
   private observedDebugUntil = 0;
@@ -320,6 +323,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.context = null;
     this.resyncPromise = null;
     this.queuedResyncPromise = null;
+    this.patchV2Chain = Promise.resolve();
     this.refetchGuardBySignature.clear();
     this.completedCommandIds.length = 0;
     this.completedCommandIdSet.clear();
@@ -451,7 +455,10 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         return;
 
       case 'patch.v2':
-        await this.handlePatchV2(context, message);
+        this.patchV2Chain = this.patchV2Chain
+          .catch(() => undefined)
+          .then(() => this.handlePatchV2(context, message));
+        await this.patchV2Chain;
         return;
 
       case 'command_ack':
@@ -629,20 +636,21 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       currentVersion: patch.version,
       result: 'received',
     });
-    const result = this.normalizedV2Store.applyPatch(patch);
+    const hydratedPatch = await this.staticCardResolver.hydratePatch(patch, this.normalizedV2Store.state());
+    const result = this.normalizedV2Store.applyPatch(hydratedPatch);
     if (result.status === 'applied') {
       this.gameplayDebugCounters.patchV2ApplyOk += 1;
-      context.onMulliganPatchV2Applied?.(patch, result.snapshot);
+      context.onMulliganPatchV2Applied?.(hydratedPatch, result.snapshot);
       context.setSnapshot(result.snapshot);
-      this.publishSnapshotMetric(context.gameId(), patch, previousSnapshotSize, this.snapshotSize(result.snapshot));
+      this.publishSnapshotMetric(context.gameId(), hydratedPatch, previousSnapshotSize, this.snapshotSize(result.snapshot));
       this.logGameplayDebug('debug', context, {
         source: 'handlePatchV2',
         reason: 'applied',
-        patch,
-        currentVersion: patch.version,
+        patch: hydratedPatch,
+        currentVersion: hydratedPatch.version,
         result: 'applied',
       });
-      this.resolveInFlightCommand(patch.ackClientActionId ?? undefined);
+      this.resolveInFlightCommand(hydratedPatch.ackClientActionId ?? undefined);
       this.drainQueue();
       return;
     }
@@ -650,16 +658,16 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     if (result.status === 'ignored') {
       const snapshot = context.snapshot() ?? result.snapshot;
       if (snapshot) {
-        context.onMulliganPatchV2Applied?.(patch, snapshot);
+        context.onMulliganPatchV2Applied?.(hydratedPatch, snapshot);
       }
       this.logGameplayDebug('debug', context, {
         source: 'handlePatchV2',
         reason: result.reason,
-        patch,
-        currentVersion: patch.version,
+        patch: hydratedPatch,
+        currentVersion: hydratedPatch.version,
         result: 'ignored',
       });
-      this.resolveInFlightCommand(patch.ackClientActionId ?? undefined);
+      this.resolveInFlightCommand(hydratedPatch.ackClientActionId ?? undefined);
       this.drainQueue();
       return;
     }
@@ -674,14 +682,14 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     await this.requestResync(context, {
       source: 'handlePatchV2',
       reason: result.reason,
-      patch,
-      currentVersion: patch.version,
+      patch: hydratedPatch,
+      currentVersion: hydratedPatch.version,
     });
     const snapshot = context.snapshot();
     if (snapshot) {
-      context.onMulliganPatchV2Applied?.(patch, snapshot);
+      context.onMulliganPatchV2Applied?.(hydratedPatch, snapshot);
     }
-    this.resolveInFlightCommand(patch.ackClientActionId ?? undefined);
+    this.resolveInFlightCommand(hydratedPatch.ackClientActionId ?? undefined);
     this.drainQueue();
   }
 

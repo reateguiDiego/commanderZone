@@ -1,6 +1,8 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Subject } from 'rxjs';
+import { of, Subject } from 'rxjs';
+import { CardsApi } from '../../../../core/api/cards.api';
+import type { Card } from '../../../../core/models/card.model';
 import { BootstrapV2, PatchEnvelopeV2 } from '../../../../core/models/game-v2.model';
 import { GameplayClientMessage, GameplayServerMessage } from '../../../../core/models/game-realtime.model';
 import { GameCardInstance, GameSnapshot } from '../../../../core/models/game.model';
@@ -31,6 +33,9 @@ describe('GameTableWebsocketGameplayService', () => {
   const gameplayV2Flags = {
     enabled: vi.fn(() => false),
   };
+  const cardsApi = {
+    getSilently: vi.fn(),
+  };
 
   beforeEach(() => {
     broadcastChannels = [];
@@ -45,6 +50,7 @@ describe('GameTableWebsocketGameplayService', () => {
     });
 
     messages = new Subject<GameplayServerMessage>();
+    cardsApi.getSilently.mockReset();
     gameplayV2Flags.enabled.mockReset();
     gameplayV2Flags.enabled.mockReturnValue(false);
     status = signal('connected');
@@ -68,6 +74,7 @@ describe('GameTableWebsocketGameplayService', () => {
         GameTableWebsocketGameplayService,
         GameTableRealtimeAnimationBusService,
         GameTableNormalizedV2Store,
+        { provide: CardsApi, useValue: cardsApi },
         { provide: GameTableGameplayV2FlagsService, useValue: gameplayV2Flags },
         {
           provide: GameTableWebsocketTransportService,
@@ -175,6 +182,51 @@ describe('GameTableWebsocketGameplayService', () => {
 
     expect(snapshotState.version).toBe(2);
     expect(snapshotState.players['player-1'].life).toBe(38);
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('resolves visible private runtime card cache misses without snapshot refetch', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    cardsApi.getSilently.mockReturnValue(of({ card: catalogCard('runtime-print-forest', 'Runtime Forest') }));
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    normalizedStore.applyBootstrap(bootstrapV2());
+
+    messages.next({
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ops: [
+        { op: 'zone.cards.remove', playerId: 'player-1', zone: 'library', instanceIds: ['library-1'] },
+        {
+          op: 'zone.cards.add',
+          playerId: 'player-1',
+          zone: 'hand',
+          cards: [{
+            instanceId: 'library-1',
+            cardKey: 'runtime-card-forest',
+            printId: 'runtime-print-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            ownerId: 'player-1',
+            controllerId: 'player-1',
+          }],
+        },
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 0 },
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 1 },
+      ],
+    });
+
+    await vi.waitFor(() => expect(snapshotState.version).toBe(2));
+
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('runtime-print-forest');
+    expect(snapshotState.players['player-1'].zones.hand[0]).toMatchObject({
+      instanceId: 'library-1',
+      scryfallId: 'runtime-print-forest',
+      name: 'Runtime Forest',
+      imageUris: { normal: 'https://cards.test/runtime-print-forest.jpg' },
+    });
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
@@ -327,7 +379,7 @@ describe('GameTableWebsocketGameplayService', () => {
     };
 
     messages.next(patch);
-    await Promise.resolve();
+    await vi.waitFor(() => expect(snapshotState.version).toBe(2));
 
     expect(snapshotState.version).toBe(2);
     expect(snapshotState.players['player-1'].zones.hand.map((card) => card.instanceId)).toEqual(['runtime-hand-1', 'runtime-hand-2']);
@@ -405,7 +457,7 @@ describe('GameTableWebsocketGameplayService', () => {
     };
 
     messages.next(patch);
-    await Promise.resolve();
+    await vi.waitFor(() => expect(snapshotState.players['player-1'].zones.hand.map((card) => card.name)).toEqual(['Runtime Card A', 'Runtime Card A']));
 
     expect(snapshotState.players['player-1'].zones.hand.map((card) => card.name)).toEqual(['Runtime Card A', 'Runtime Card A']);
     expect(snapshotState.players['player-1'].handCount).toBe(2);
@@ -446,10 +498,10 @@ describe('GameTableWebsocketGameplayService', () => {
     };
 
     messages.next(patch);
-    await Promise.resolve();
+    await vi.waitFor(() => expect(onMulliganPatchV2AppliedSpy).toHaveBeenCalled());
     onMulliganPatchV2AppliedSpy.mockClear();
     messages.next(patch);
-    await Promise.resolve();
+    await vi.waitFor(() => expect(onMulliganPatchV2AppliedSpy).toHaveBeenCalled());
 
     expect(onMulliganPatchV2AppliedSpy).toHaveBeenCalledWith(patch, expect.objectContaining({
       version: 2,
@@ -478,7 +530,7 @@ describe('GameTableWebsocketGameplayService', () => {
     };
 
     messages.next(patch);
-    await Promise.resolve();
+    await vi.waitFor(() => expect(snapshotState.version).toBe(2));
     messages.next({
       kind: 'mulligan.completed',
       gameId: 'game-1',
@@ -2325,6 +2377,28 @@ function bootstrapV2(): BootstrapV2 {
     },
     chatCursor: null,
     logCursor: null,
+  };
+}
+
+function catalogCard(scryfallId: string, name: string): Card {
+  return {
+    id: scryfallId,
+    scryfallId,
+    name,
+    manaCost: null,
+    typeLine: 'Basic Land - Forest',
+    oracleText: null,
+    colors: [],
+    colorIdentity: ['G'],
+    legalities: {},
+    imageUris: { normal: `https://cards.test/${scryfallId}.jpg` },
+    cardFaces: [],
+    hasRulings: false,
+    layout: 'normal',
+    commanderLegal: true,
+    set: 'tst',
+    collectorNumber: '1',
+    lang: 'en',
   };
 }
 

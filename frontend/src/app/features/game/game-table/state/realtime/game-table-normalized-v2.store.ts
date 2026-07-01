@@ -164,7 +164,8 @@ export class GameTableNormalizedV2Store {
     let snapshot: GameSnapshot;
     try {
       snapshot = hydrateGameSnapshotFromV2State(result.state);
-    } catch {
+    } catch (error) {
+      console.warn('[CommanderZone normalized v2] snapshot hydration failed after patch.v2', error);
       return { status: 'resync_required', state: currentState, snapshot: null, reason: 'invalid_operation' };
     }
 
@@ -688,7 +689,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         return nextState;
       }
 
-      return replacePrivateMulliganHand(nextState.state, operation.playerId, operation.hand);
+      return replacePrivateMulliganHand(nextState.state, operation.playerId, operation.hand, operation.staticCards ?? {});
     }
 
     case 'mulligan.hand.replace_private':

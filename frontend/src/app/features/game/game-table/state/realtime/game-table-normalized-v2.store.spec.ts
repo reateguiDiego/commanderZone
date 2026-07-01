@@ -1370,7 +1370,66 @@ describe('game table normalized v2 store', () => {
     expect(result.status).toBe('applied');
     expect(result.state.staticCards['card:forest'].name).toBe('Forest');
     expect(result.state.staticCards['card:forest'].imageUris?.normal).toBe('https://cards.test/forest.jpg');
-    expect(snapshot.players['player-1'].zones.hand[1]?.name).toBe('Forest');
+    expect(snapshot.players['player-1'].zones.hand.find((card) => card.instanceId === 'library-1')?.name).toBe('Forest');
+  });
+
+  it('does not replace a resolved runtime static card with a compact Card placeholder hint', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const resolved = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'library', instanceIds: ['library-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [{
+          instanceId: 'library-1',
+          cardKey: 'runtime-card-forest',
+          printId: 'runtime-print-forest',
+          cardVersion: 'forest-v1',
+          language: 'en',
+          viewerVisibility: 'private',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+        }],
+        staticCards: {
+          'runtime-card-forest': {
+            cardRef: 'runtime-card-forest',
+            cardKey: 'runtime-card-forest',
+            printId: 'runtime-print-forest',
+            cardVersion: 'forest-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            scryfallId: 'runtime-print-forest',
+            name: 'Forest',
+            imageUris: { normal: 'https://cards.test/runtime-forest.jpg' },
+            cardFaces: [],
+          },
+        },
+      },
+    ]));
+    const placeholder = applyPatchEnvelopeV2(resolved.state, patch(7, [
+      {
+        op: 'zone.cards.move',
+        instanceId: 'library-1',
+        from: { playerId: 'player-1', zone: 'hand' },
+        to: { playerId: 'player-1', zone: 'hand', index: 0 },
+        card: {
+          instanceId: 'library-1',
+          cardKey: 'runtime-card-forest',
+          printId: 'runtime-print-forest',
+          cardVersion: 'forest-v1',
+          language: 'en',
+          viewerVisibility: 'private',
+          name: 'Card',
+        },
+      },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(placeholder.state);
+
+    expect(placeholder.status).toBe('applied');
+    expect(placeholder.state.staticCards['runtime-card-forest'].name).toBe('Forest');
+    expect(placeholder.state.staticCards['runtime-card-forest'].imageUris?.normal).toBe('https://cards.test/runtime-forest.jpg');
+    expect(snapshot.players['player-1'].zones.hand.find((card) => card.instanceId === 'library-1')?.name).toBe('Forest');
   });
 
   it('requests resync for visible compact runtime draw cards without cached static data', () => {
