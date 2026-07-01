@@ -35,6 +35,7 @@ npm run build:local
 npm run build:prod
 npm test
 npm run e2e
+npm run e2e:runtime-release
 npm run e2e:headed
 npm run e2e:ui
 ```
@@ -56,6 +57,22 @@ Example backend preparation:
 cd ../backend
 APP_ENV=test php bin/console doctrine:migrations:migrate --no-interaction
 ```
+
+### Runtime Release Gate
+
+Run the critical gameplay browser release gate serially in Chromium:
+
+```bash
+npm run e2e:runtime-release
+```
+
+This executes:
+
+- `game-library-runtime-release-gate.spec.ts`
+- `game-turn-controls-runtime-gate.spec.ts`
+- `game-debug-runtime-final-observability.spec.ts`
+- `game-runtime-ux-latency-gauntlet.spec.ts`
+- `full-browser-lifecycle-release-gate.spec.ts`
 
 ### Random Deck Helper for E2E
 

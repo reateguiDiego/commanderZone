@@ -28,6 +28,7 @@
     "test": "ng test",
     "test:gameplay-ci": "ng test --watch=false --include src/app/features/game/game-table/state/realtime/game-table-normalized-v2.store.spec.ts --include src/app/features/game/game-table/state/realtime/game-snapshot-patch-reducer.spec.ts --include src/app/features/game/game-table/services/game-table-websocket-gameplay.service.spec.ts --include src/app/features/game/game-table/services/game-table-websocket-transport.service.spec.ts --include src/app/features/game/game-table/services/game-table-game-realtime.service.spec.ts --include src/app/features/game/game-table/state/core/game-table-command.store.spec.ts --include src/app/core/privacy/analytics.service.spec.ts",
     "e2e": "playwright test",
+    "e2e:runtime-release": "playwright test --project=chromium --workers=1 e2e/game-library-runtime-release-gate.spec.ts e2e/game-turn-controls-runtime-gate.spec.ts e2e/game-debug-runtime-final-observability.spec.ts e2e/game-runtime-ux-latency-gauntlet.spec.ts e2e/full-browser-lifecycle-release-gate.spec.ts",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui"
   },
