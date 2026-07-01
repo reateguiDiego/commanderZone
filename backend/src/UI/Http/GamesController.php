@@ -14,8 +14,12 @@ use App\Application\Game\GameRematchService;
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
+use App\Application\Game\Runtime\GameplayRuntimeRoute;
+use App\Application\Game\Runtime\GameplayRuntimeRouter;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
+use App\Application\Game\WebSocket\GameRuntimeWebsocketConfigurationException;
+use App\Application\Game\WebSocket\GameRuntimeWebsocketUrlFactory;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Room\Room;
@@ -27,7 +31,6 @@ use Doctrine\DBAL\Exception\LockWaitTimeoutException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -120,8 +123,7 @@ class GamesController extends ApiController
         EntityManagerInterface $entityManager,
         GameWebsocketTicketManager $tickets,
         GameDebugHealthLiveStore $debugHealth,
-        #[Autowire('%game_websocket_public_url%')]
-        string $websocketPublicUrl,
+        GameRuntimeWebsocketUrlFactory $runtimeWebsocketUrls,
     ): JsonResponse {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -132,7 +134,19 @@ class GamesController extends ApiController
         }
 
         $startedAt = microtime(true);
-        $ticket = $tickets->issue($game->id(), $user->id());
+        $canControl = $game->canBeControlledBy($user);
+        $role = $canControl ? 'player' : 'viewer';
+        $permissions = $canControl ? ['view', 'command'] : ['view'];
+        if ($canControl && $game->room()->owner()->id() === $user->id()) {
+            $permissions[] = 'game.close';
+        }
+        $ticket = $tickets->issue(
+            $game->id(),
+            $user->id(),
+            playerId: $user->id(),
+            role: $role,
+            permissions: $permissions,
+        );
         $debugObserved = $debugHealth->isObserved($game->id());
         if ($debugObserved) {
             $debugHealth->recordBootstrapStage(
@@ -143,10 +157,25 @@ class GamesController extends ApiController
             );
         }
 
+        try {
+            $websocketUrl = $runtimeWebsocketUrls->urlWithTicket($ticket->ticket);
+        } catch (GameRuntimeWebsocketConfigurationException $exception) {
+            return $this->fail($exception->getMessage(), 503);
+        }
+
         return $this->json([
             'ticket' => $ticket->ticket,
             'expiresAt' => $ticket->expiresAt->format(DATE_ATOM),
-            'websocketUrl' => rtrim($websocketPublicUrl, '/').'/games/'.$game->id().'?ticket='.rawurlencode($ticket->ticket),
+            'websocketUrl' => $websocketUrl,
+            'route' => 'runtime_ws',
+            'claims' => [
+                'gameId' => $ticket->gameId,
+                'userId' => $ticket->userId,
+                'playerId' => $ticket->playerId,
+                'role' => $ticket->role,
+                'permissions' => $ticket->permissions,
+                'expiry' => $ticket->expiresAt->getTimestamp(),
+            ],
         ]);
     }
 
@@ -389,6 +418,7 @@ class GamesController extends ApiController
         ?GameEventStoreV2 $eventStoreV2 = null,
         ?GameActivityStreamService $activityStreams = null,
         ?GameplayStreamsFlags $streamFlags = null,
+        ?GameplayRuntimeRouter $runtimeRouter = null,
     ): JsonResponse
     {
         $startedAt = microtime(true);
@@ -425,6 +455,40 @@ class GamesController extends ApiController
         }
         if (!GameCommandHandler::isSupportedCommand($type)) {
             return $this->fail(sprintf('Unknown game command: %s', $type));
+        }
+        if (($runtimeRouter?->routeFor($type) ?? GameplayRuntimeRoute::LegacyOnly) === GameplayRuntimeRoute::RuntimePrimary) {
+            $this->recordGameplayMetric(
+                $metrics,
+                $metricsInspector,
+                [
+                    'transport' => 'http',
+                    'command.type' => $type,
+                    'gameId' => $game->id(),
+                    'snapshot_load_ms' => $snapshotLoadMs,
+                    'normalize_ms' => $normalizeMs,
+                    'command_apply_ms' => $commandApplyMs,
+                    'persist_ms' => $persistMs,
+                    'projection_ms' => $projectionMs,
+                    'patch_build_ms' => 0.0,
+                    'total_server_ms' => $this->elapsedMs($startedAt),
+                    'snapshot_bytes_before' => $snapshotBytesBefore,
+                    'snapshot_bytes_after' => $snapshotBytesAfter,
+                    'patch_bytes' => 0,
+                    'number_of_players' => $numberOfPlayers,
+                    'number_of_instances' => $numberOfInstances,
+                    'number_of_visible_cards' => 0,
+                    'resync_required' => false,
+                    'clientActionId_duplicate' => false,
+                    'status' => 'http_runtime_primary_rejected',
+                    'gameplay.runtime_route' => 1,
+                    'gameplay.runtime_fallback_count' => 0,
+                    'command.legacy_fallback_count' => 0,
+                    'gameplay.legacy_route_reject_reason' => 'runtime_primary_requires_websocket',
+                ],
+                $usageStartedAt,
+            );
+
+            return $this->fail('This gameplay command is routed to the runtime WebSocket and cannot be applied through the legacy HTTP command endpoint.', 409);
         }
         if ($game->status() === Game::STATUS_FINISHED && !GameCommandHandler::isAllowedWhenFinished($type)) {
             return $this->fail(sprintf('Game is finished. Command not allowed: %s', $type), 409);

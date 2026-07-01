@@ -5,6 +5,7 @@ namespace App\Tests\Application;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\Runtime\GameRuntimeCommandClientInterface;
 use App\Application\Game\Runtime\GameRuntimeCommandResult;
+use App\Application\Game\Runtime\GameplayCommandCatalog;
 use App\Application\Game\Runtime\GameplayRuntimeRoute;
 use App\Application\Game\Runtime\GameplayRuntimeRouter;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -24,6 +25,21 @@ final class GameplayRuntimeRouterTest extends TestCase
         $router = new GameplayRuntimeRouter($this->flags(runtime: true, shadow: false, allowlist: 'mulligan.take'), new RuntimeCommandClientStub());
 
         self::assertSame(GameplayRuntimeRoute::LegacyOnly, $router->routeFor('library.draw'));
+    }
+
+    #[DataProvider('legacyAliases')]
+    public function testLegacyAliasesRouteThroughCanonicalAllowlist(string $alias, string $canonical): void
+    {
+        $router = new GameplayRuntimeRouter($this->flags(runtime: true, shadow: false, allowlist: $canonical), new RuntimeCommandClientStub());
+
+        self::assertSame(GameplayRuntimeRoute::RuntimePrimary, $router->routeFor($alias));
+    }
+
+    public function testAliasInAllowlistDoesNotSilentlyEnableRuntimeRoute(): void
+    {
+        $router = new GameplayRuntimeRouter($this->flags(runtime: true, shadow: false, allowlist: 'zone.changed'), new RuntimeCommandClientStub());
+
+        self::assertSame(GameplayRuntimeRoute::LegacyOnly, $router->routeFor('zone.changed'));
     }
 
     public function testEmptyAllowlistStaysLegacyOnlyEvenWhenRuntimeEnabled(): void
@@ -47,6 +63,23 @@ final class GameplayRuntimeRouterTest extends TestCase
         self::assertSame(GameplayRuntimeRoute::LegacyOnly, $router->routeFor('library.draw'));
     }
 
+    public function testRuntimeCatalogClassifiesEveryFinalCommandExactlyOnce(): void
+    {
+        $final = GameplayCommandCatalog::finalRuntimeCommands();
+        $client = GameplayCommandCatalog::clientRuntimeCommands();
+        $internal = GameplayCommandCatalog::internalRuntimeCommands();
+
+        self::assertSame([], array_values(array_intersect($client, $internal)), 'Commands cannot be both client runtime and internal runtime.');
+
+        $classified = array_values(array_unique([...$client, ...$internal]));
+        sort($final);
+        sort($classified);
+
+        self::assertSame($final, $classified);
+        self::assertTrue(GameplayCommandCatalog::internalRuntimeCommand('mulligan.completed'));
+        self::assertFalse(GameplayCommandCatalog::internalRuntimeCommand('mulligan.keep'));
+    }
+
     #[DataProvider('runtimeSensitiveCommands')]
     public function testMigratedSensitiveCommandsRouteToRuntimeWhenAllowlisted(string $commandType): void
     {
@@ -66,6 +99,16 @@ final class GameplayRuntimeRouterTest extends TestCase
         yield 'controller changed' => ['card.controller.changed'];
         yield 'library reveal' => ['library.reveal'];
         yield 'play top revealed' => ['library.play_top_revealed'];
+    }
+
+    /**
+     * @return iterable<string,array{string,string}>
+     */
+    public static function legacyAliases(): iterable
+    {
+        foreach (GameplayCommandCatalog::aliases() as $alias => $canonical) {
+            yield $alias => [$alias, $canonical];
+        }
     }
 
     private function flags(bool $runtime, bool $shadow, string $allowlist): GameplayV2Flags
@@ -94,7 +137,6 @@ final class RuntimeCommandClientStub implements GameRuntimeCommandClientInterfac
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow = false,
     ): GameRuntimeCommandResult {

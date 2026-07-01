@@ -2,6 +2,7 @@ package actor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -84,6 +85,64 @@ func TestGameConcedeEmitsPlayerStatusPatchWithoutSnapshotWrite(t *testing.T) {
 	}
 }
 
+func TestGameConcedeRejectsActorMismatch(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "concede-other", "game.concede", map[string]any{"playerId": "p2"}), "p1")
+	if !errors.Is(result.Err, ErrActorPermission) {
+		t.Fatalf("expected actor permission error, got %v", result.Err)
+	}
+	if gameActor.Snapshot().Version != 1 {
+		t.Fatalf("rejected concede changed version: %d", gameActor.Snapshot().Version)
+	}
+	if gameActor.Snapshot().Players["p2"]["status"] == "conceded" {
+		t.Fatalf("actor mismatch conceded another player: %#v", gameActor.Snapshot().Players["p2"])
+	}
+}
+
+func TestPlayerScopedRuntimeCommandsRejectActorMismatch(t *testing.T) {
+	tests := []struct {
+		name        string
+		commandType string
+		payload     map[string]any
+		actorID     string
+	}{
+		{name: "life", commandType: "life.changed", payload: map[string]any{"playerId": "p2", "life": 10}, actorID: "p1"},
+		{name: "commander damage", commandType: "commander.damage.changed", payload: map[string]any{"targetPlayerId": "p2", "commanderInstanceId": "commander-1", "damage": 5}, actorID: "p1"},
+		{name: "library view", commandType: "library.view", payload: map[string]any{"playerId": "p2", "count": 1}, actorID: "p1"},
+		{name: "card without player payload", commandType: "card.tapped", payload: map[string]any{"instanceId": "i1", "tapped": true}, actorID: "p2"},
+		{name: "player counter", commandType: "counter.changed", payload: map[string]any{"scope": "player:p2", "key": "poison", "value": 1}, actorID: "p1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+			result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "permission-"+tt.name, tt.commandType, tt.payload), tt.actorID)
+			if !errors.Is(result.Err, ErrActorPermission) {
+				t.Fatalf("err = %v, want %v", result.Err, ErrActorPermission)
+			}
+			if gameActor.Snapshot().Version != 1 {
+				t.Fatalf("rejected command changed version: %d", gameActor.Snapshot().Version)
+			}
+		})
+	}
+}
+
+func TestRuntimeDuplicateActionFromDifferentActorIsRejected(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	first := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "shared-action", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p1")
+	if first.Err != nil {
+		t.Fatalf("first failed: %v", first.Err)
+	}
+
+	duplicate := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "shared-action", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p2")
+	if !errors.Is(duplicate.Err, ErrActorPermission) {
+		t.Fatalf("duplicate err = %v, want %v", duplicate.Err, ErrActorPermission)
+	}
+	if gameActor.Snapshot().Version != 2 {
+		t.Fatalf("rejected cross-actor duplicate changed version: %d", gameActor.Snapshot().Version)
+	}
+}
+
 func TestGameConcedePayloadIncludesTurnWhenActivePlayerLeaves(t *testing.T) {
 	game := testState()
 	game.Turn = map[string]any{"activePlayerId": "p1", "phase": "main-1", "number": 3}
@@ -148,6 +207,22 @@ func TestRevealTopEmitsGroupPatchWithCardKey(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("missing group reveal patch")
+	}
+}
+
+func TestRevealTopAcceptsToAliasForPrivateViewerPatch(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-to", "library.reveal_top", map[string]any{"playerId": "p1", "count": 1, "to": []any{"p1"}}), "p1")
+	if result.Err != nil {
+		t.Fatalf("reveal failed: %v", result.Err)
+	}
+	patch := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "library.top.revealed")
+	if patch == nil {
+		t.Fatalf("missing private reveal patch: %#v", result.Patches)
+	}
+	cards := patch.Data["cards"].([]map[string]any)
+	if len(cards) != 1 || cards[0]["cardKey"] == nil {
+		t.Fatalf("bad reveal cards: %#v", cards)
 	}
 }
 
@@ -248,8 +323,178 @@ func TestLibraryViewIsPrivateAndDoesNotMutateLibrary(t *testing.T) {
 	if got := joinStrings(gameActor.Snapshot().Zones["p1"].Library); got != joinStrings(before) {
 		t.Fatalf("library mutated: %s", got)
 	}
-	if len(result.Patches) != 1 || result.Patches[0].Visibility != "player:p1" || result.Patches[0].Ops[0].Op != "library.top.viewed" {
-		t.Fatalf("view patch should be private: %#v", result.Patches)
+	privatePatch := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "library.top.viewed")
+	if privatePatch == nil {
+		t.Fatalf("view patch should include private top cards: %#v", result.Patches)
+	}
+	publicCount := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.count.set")
+	if publicCount == nil {
+		t.Fatalf("view patch should include public count to advance non-owner viewers: %#v", result.Patches)
+	}
+	if publicCount.Data["playerId"] != "p1" || publicCount.Data["zone"] != state.ZoneLibrary || publicCount.Data["count"] != 3 {
+		t.Fatalf("bad public count patch: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["cards"]; leaked {
+		t.Fatalf("public view count leaked cards: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["instanceIds"]; leaked {
+		t.Fatalf("public view count leaked instance ids: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["cardKey"]; leaked {
+		t.Fatalf("public view count leaked cardKey: %#v", publicCount.Data)
+	}
+}
+
+func TestLibraryReorderTopEmitsPrivateOrderAndPublicCount(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reorder", "library.reorder_top", map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}), "p1")
+	if result.Err != nil {
+		t.Fatalf("reorder failed: %v", result.Err)
+	}
+	privatePatch := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "library.top.reordered")
+	if privatePatch == nil {
+		t.Fatalf("reorder patch should include private order: %#v", result.Patches)
+	}
+	publicCount := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.count.set")
+	if publicCount == nil {
+		t.Fatalf("reorder patch should include public count to advance non-owner viewers: %#v", result.Patches)
+	}
+	if publicCount.Data["playerId"] != "p1" || publicCount.Data["zone"] != state.ZoneLibrary || publicCount.Data["count"] != 3 {
+		t.Fatalf("bad public count patch: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["instanceIds"]; leaked {
+		t.Fatalf("public reorder count leaked library order: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["cards"]; leaked {
+		t.Fatalf("public reorder count leaked cards: %#v", publicCount.Data)
+	}
+	if _, leaked := publicCount.Data["cardKey"]; leaked {
+		t.Fatalf("public reorder count leaked cardKey: %#v", publicCount.Data)
+	}
+}
+
+func TestPrivateOnlyRuntimePatchAddsPublicVersionCarrier(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "face-private", "card.face.changed", map[string]any{
+		"playerId":        "p1",
+		"instanceId":      "h1",
+		"activeFaceIndex": 1,
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("face change failed: %v", result.Err)
+	}
+	privatePatch := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "card.field.set")
+	if privatePatch == nil {
+		t.Fatalf("missing owner private patch: %#v", result.Patches)
+	}
+	publicCarrier := patchForVisibility(result.Patches, protocol.VisibilityPublic, versionAdvancePatchOp)
+	if publicCarrier == nil {
+		t.Fatalf("missing public version carrier for private-only patch: %#v", result.Patches)
+	}
+	if len(publicCarrier.Data) != 0 {
+		t.Fatalf("version carrier should not carry private data: %#v", publicCarrier.Data)
+	}
+	encoded := fmt.Sprintf("%#v", publicCarrier)
+	for _, leaked := range []string{"h1", "hand-1@1", "cardKey", "instanceId"} {
+		if contains(encoded, leaked) {
+			t.Fatalf("version carrier leaked %s: %s", leaked, encoded)
+		}
+	}
+	if result.Patches[len(result.Patches)-1].Visibility != protocol.VisibilityPublic {
+		t.Fatalf("public carrier should be emitted after private patches for same-version merge safety: %#v", result.Patches)
+	}
+}
+
+func TestLibraryShuffleUsesCompactSeededPayloadAndPublicInvalidation(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-before-shuffle", "library.reveal_top", map[string]any{
+		"playerId":      "p1",
+		"count":         2,
+		"visibleToMask": 3,
+	}), "p1")
+	if reveal.Err != nil {
+		t.Fatalf("reveal failed: %v", reveal.Err)
+	}
+
+	shuffle := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "shuffle-compact", "library.shuffle", map[string]any{"playerId": "p1"}), "p1")
+	if shuffle.Err != nil {
+		t.Fatalf("shuffle failed: %v", shuffle.Err)
+	}
+	if _, leaked := shuffle.Event.Payload["libraryOrder"]; leaked {
+		t.Fatalf("shuffle event must not persist full library order: %#v", shuffle.Event.Payload)
+	}
+	seed, ok := shuffle.Event.Payload["shuffleSeed"].(int)
+	if !ok || seed < 0 {
+		t.Fatalf("missing compact shuffle seed: %#v", shuffle.Event.Payload)
+	}
+	if got := shuffle.Event.Payload["shuffleAlgorithm"]; got != state.DeterministicShuffleAlgorithm {
+		t.Fatalf("shuffle algorithm got %#v want %s", got, state.DeterministicShuffleAlgorithm)
+	}
+	metrics := shuffle.Event.Payload["metrics"].(map[string]any)
+	if _, ok := metrics["library.shuffle_ms"]; !ok {
+		t.Fatalf("missing shuffle metrics: %#v", metrics)
+	}
+	if patchForVisibility(shuffle.Patches, protocol.PlayerVisibility("p1"), "library.shuffled") != nil {
+		t.Fatalf("shuffle invalidation should be public and compact, got private patch: %#v", shuffle.Patches)
+	}
+	public := patchForVisibility(shuffle.Patches, protocol.VisibilityPublic, "library.shuffled")
+	if public == nil || public.Data["visibilityEpoch"] == nil {
+		t.Fatalf("missing public shuffle invalidation: %#v", shuffle.Patches)
+	}
+	if encoded := fmt.Sprintf("%#v", shuffle.Patches); contains(encoded, "cardKey") || contains(encoded, "library-") {
+		t.Fatalf("shuffle patch leaked card identity/order: %s", encoded)
+	}
+
+	replayed := testState()
+	if err := ReplayEvent(&replayed, reveal.Event); err != nil {
+		t.Fatalf("replay reveal failed: %v", err)
+	}
+	if err := ReplayEvent(&replayed, shuffle.Event); err != nil {
+		t.Fatalf("replay shuffle failed: %v", err)
+	}
+	if !equalStrings(replayed.Zones["p1"].Library, gameActor.Snapshot().Zones["p1"].Library) {
+		t.Fatalf("seeded replay order mismatch replayed=%#v current=%#v", replayed.Zones["p1"].Library, gameActor.Snapshot().Zones["p1"].Library)
+	}
+}
+
+func TestLibraryCommandsAreIdempotentForRetry(t *testing.T) {
+	tests := []struct {
+		name        string
+		commandType string
+		payload     map[string]any
+	}{
+		{name: "draw", commandType: "library.draw", payload: map[string]any{"playerId": "p1"}},
+		{name: "move-top-bottom", commandType: "library.move_top", payload: map[string]any{"playerId": "p1", "toZone": "library", "position": "bottom", "count": 1}},
+		{name: "reorder-top", commandType: "library.reorder_top", payload: map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}},
+		{name: "shuffle", commandType: "library.shuffle", payload: map[string]any{"playerId": "p1"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+			cmd := command("game-1", 1, "library-retry-"+tt.name, tt.commandType, tt.payload)
+			first := gameActor.ApplyDirect(context.Background(), cmd, "p1")
+			if first.Err != nil {
+				t.Fatalf("first apply failed: %v", first.Err)
+			}
+			afterFirst := gameActor.Snapshot()
+
+			retry := gameActor.ApplyDirect(context.Background(), cmd, "p1")
+			if retry.Err != nil {
+				t.Fatalf("retry failed: %v", retry.Err)
+			}
+			afterRetry := gameActor.Snapshot()
+
+			if retry.Event.Version != first.Event.Version || afterRetry.Version != afterFirst.Version {
+				t.Fatalf("retry was not idempotent: first=%d retry=%d state=%d", first.Event.Version, retry.Event.Version, afterRetry.Version)
+			}
+			if !equalStrings(afterRetry.Zones["p1"].Library, afterFirst.Zones["p1"].Library) {
+				t.Fatalf("retry changed library: first=%#v retry=%#v", afterFirst.Zones["p1"].Library, afterRetry.Zones["p1"].Library)
+			}
+			if !equalStrings(afterRetry.Zones["p1"].Hand, afterFirst.Zones["p1"].Hand) {
+				t.Fatalf("retry changed hand: first=%#v retry=%#v", afterFirst.Zones["p1"].Hand, afterRetry.Zones["p1"].Hand)
+			}
+		})
 	}
 }
 
@@ -433,8 +678,8 @@ func TestTokenCreateRuntimeEmitsCompactPayloadOnly(t *testing.T) {
 		t.Fatalf("missing token add patch: %#v", result.Patches)
 	}
 	encoded := fmt.Sprintf("%#v", result.Patches)
-	if contains(encoded, "imageUris") || contains(encoded, "oracleText") || contains(encoded, "cardFaces") {
-		t.Fatalf("static payload leaked in token patch: %s", encoded)
+	if contains(encoded, "oracleText") {
+		t.Fatalf("rules payload leaked in token patch: %s", encoded)
 	}
 	cards := patch.Data["cards"].([]map[string]any)
 	if len(cards) != 2 || cards[0]["isToken"] != true || cards[0]["name"] != "Goblin" {
@@ -443,13 +688,63 @@ func TestTokenCreateRuntimeEmitsCompactPayloadOnly(t *testing.T) {
 	if cards[0]["cardKey"] != "token-scryfall:token" {
 		t.Fatalf("token patch did not carry stable compact identity: %#v", cards[0])
 	}
+	if cards[0]["printId"] != "token-scryfall" {
+		t.Fatalf("token patch did not carry real print identity: %#v", cards[0])
+	}
+	if cards[0]["language"] != "en" || cards[0]["viewerVisibility"] != "public" {
+		t.Fatalf("token patch did not carry renderable identity fields: %#v", cards[0])
+	}
+	staticCards := patch.Data["staticCards"].(map[string]map[string]any)
+	staticCard := staticCards["token-scryfall:token"]
+	if staticCard["name"] != "Goblin" || staticCard["printId"] != "token-scryfall" || staticCard["viewerVisibility"] != "public" {
+		t.Fatalf("token patch did not carry renderable static card: %#v", staticCard)
+	}
+	imageUris := staticCard["imageUris"].(map[string]string)
+	if imageUris["normal"] != "https://example.test/token.jpg" {
+		t.Fatalf("token static card did not carry image: %#v", staticCard)
+	}
+	if _, leaked := staticCard["oracleText"]; leaked {
+		t.Fatalf("token static card leaked oracle text: %#v", staticCard)
+	}
 	eventTokens := result.Event.Payload["tokens"].([]map[string]any)
 	if len(eventTokens) != 2 || eventTokens[0]["instanceId"] != cards[0]["instanceId"] || eventTokens[0]["cardKey"] != "token-scryfall:token" || eventTokens[0]["name"] != "Goblin" {
 		t.Fatalf("token event did not carry replayable compact identity: %#v", result.Event.Payload)
 	}
+	eventStaticCards := result.Event.Payload["staticCards"].(map[string]map[string]any)
+	if eventStaticCards["token-scryfall:token"]["name"] != "Goblin" {
+		t.Fatalf("token event did not carry replayable static identity: %#v", result.Event.Payload)
+	}
+	if contains(fmt.Sprintf("%#v", result.Event.Payload), "oracleText") {
+		t.Fatalf("token event leaked rules payload: %#v", result.Event.Payload)
+	}
 	metrics := result.Event.Payload["metrics"].(map[string]any)
 	if metrics["edge.runtime_route"] != 1 || metrics["edge.patch_bytes"].(int) <= 0 {
 		t.Fatalf("missing edge metrics: %#v", metrics)
+	}
+}
+
+func TestTokenCreateRuntimeBuildsSyntheticRenderableStaticCard(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "token-create-synthetic", "card.token.created", map[string]any{
+		"playerId": "p1",
+		"quantity": 1,
+		"name":     "Clue",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("token create failed: %v", result.Err)
+	}
+	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+	if patch == nil {
+		t.Fatalf("missing token add patch: %#v", result.Patches)
+	}
+	staticCards := patch.Data["staticCards"].(map[string]map[string]any)
+	staticCard := staticCards["token:clue"]
+	if staticCard["name"] != "Clue" || staticCard["name"] == "Card" || staticCard["printId"] != "token:clue" {
+		t.Fatalf("synthetic token static card is not renderable: %#v", staticCard)
+	}
+	cards := patch.Data["cards"].([]map[string]any)
+	if cards[0]["cardKey"] != "token:clue" || cards[0]["printId"] != "token:clue" {
+		t.Fatalf("synthetic token card identity mismatch: %#v", cards[0])
 	}
 }
 
@@ -482,6 +777,32 @@ func TestTokenCopyRuntimeUsesCompactReference(t *testing.T) {
 	eventTokens := result.Event.Payload["tokens"].([]map[string]any)
 	if len(eventTokens) != 1 || eventTokens[0]["instanceId"] != cards[0]["instanceId"] || eventTokens[0]["cardKey"] != "card-a@1" || eventTokens[0]["isTokenCopy"] != true {
 		t.Fatalf("token copy event did not carry replayable compact identity: %#v", result.Event.Payload)
+	}
+}
+
+func TestTokenCopyRuntimeDoesNotLeakPrivateSourceIdentity(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "token-copy-private", "card.token_copy.created", map[string]any{
+		"instanceId":     "h1",
+		"targetPlayerId": "p1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("token copy failed: %v", result.Err)
+	}
+	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+	if patch == nil {
+		t.Fatalf("missing token copy patch: %#v", result.Patches)
+	}
+	cards := patch.Data["cards"].([]map[string]any)
+	meta := cards[0]["tokenMeta"].(map[string]any)
+	if contains(fmt.Sprintf("%#v %#v", result.Patches, result.Event.Payload), "hand-1@1") {
+		t.Fatalf("private source identity leaked through token copy: patches=%#v event=%#v", result.Patches, result.Event.Payload)
+	}
+	if cards[0]["cardKey"] == "hand-1@1" || meta["copiedFromCardKey"] != nil || result.Event.Payload["copiedFromCardKey"] != nil {
+		t.Fatalf("private token copy retained source identity: card=%#v event=%#v", cards[0], result.Event.Payload)
+	}
+	if cards[0]["name"] != "Token Copy" || cards[0]["viewerVisibility"] != "public" {
+		t.Fatalf("private token copy did not carry generic public identity: %#v", cards[0])
 	}
 }
 

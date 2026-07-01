@@ -249,22 +249,80 @@ final class CompactGameCardStateMapper
      */
     private function compactCard(array $card, string $ownerId, string $zone, array &$catalog): array
     {
-        if (isset($card['cardKey']) && is_string($card['cardKey']) && trim($card['cardKey']) !== '') {
+        $providedCardKey = $this->cardIdentityKey($card);
+        if ($providedCardKey !== null && !$this->cardCarriesStaticPayload($card)) {
             return $card;
         }
 
         $bundle = CardStaticBundle::fromLegacyCard($card);
-        $catalog[$bundle->cardKey] = $bundle->toArray();
-        $runtime = CardInstanceRuntime::fromLegacyCard($card, $bundle->cardKey, $ownerId, $zone)->toArray();
+        $cardKey = $providedCardKey ?? $bundle->cardKey;
+        $catalog[$cardKey] = $this->catalogCard($bundle, $card, $cardKey);
+        $runtime = CardInstanceRuntime::fromLegacyCard($card, $cardKey, $ownerId, $zone)->toArray();
         if (($runtime['isToken'] ?? false) === true && is_array($runtime['tokenMeta'] ?? null)) {
-            $runtime['tokenMeta']['templateCardKey'] ??= $bundle->cardKey;
-            $runtime['tokenMeta']['templateCardVersion'] ??= $bundle->cardVersion;
+            $runtime['tokenMeta']['templateCardKey'] ??= $cardKey;
+            $runtime['tokenMeta']['templateCardVersion'] ??= $catalog[$cardKey]['cardVersion'] ?? $bundle->cardVersion;
             if (($runtime['tokenMeta']['isCopy'] ?? false) === true && !isset($runtime['tokenMeta']['copiedFromCardKey'])) {
-                $runtime['tokenMeta']['copiedFromCardKey'] = $bundle->cardKey;
+                $runtime['tokenMeta']['copiedFromCardKey'] = $cardKey;
             }
         }
 
         return $runtime;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function cardIdentityKey(array $card): ?string
+    {
+        foreach (['cardKey', 'cardRef'] as $field) {
+            if (is_string($card[$field] ?? null) && trim((string) $card[$field]) !== '') {
+                return trim((string) $card[$field]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function cardCarriesStaticPayload(array $card): bool
+    {
+        foreach (['scryfallId', 'name', 'typeLine', 'manaCost', 'oracleText', 'layout'] as $field) {
+            if (is_string($card[$field] ?? null) && trim((string) $card[$field]) !== '') {
+                return true;
+            }
+        }
+
+        foreach (['imageUris', 'cardFaces', 'colorIdentity'] as $field) {
+            if (is_array($card[$field] ?? null) && $card[$field] !== []) {
+                return true;
+            }
+        }
+
+        foreach (['defaultPower', 'defaultToughness', 'defaultLoyalty', 'defaultDefense', 'hasRulings'] as $field) {
+            if (array_key_exists($field, $card)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>
+     */
+    private function catalogCard(CardStaticBundle $bundle, array $card, string $cardKey): array
+    {
+        $catalogCard = $bundle->toArray();
+        $catalogCard['cardKey'] = $cardKey;
+        if (is_string($card['cardVersion'] ?? null) && trim((string) $card['cardVersion']) !== '') {
+            $catalogCard['cardVersion'] = trim((string) $card['cardVersion']);
+        }
+
+        return $catalogCard;
     }
 
     /**

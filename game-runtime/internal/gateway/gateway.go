@@ -11,12 +11,14 @@ import (
 var ErrTicketGameMismatch = errors.New("ticket gameId does not match command gameId")
 
 type TicketClaims struct {
-	UserID     string
-	PlayerID   string
-	GameID     string
-	Roles      []string
-	ViewerKind string
-	Protocol   string
+	UserID      string
+	PlayerID    string
+	GameID      string
+	Role        string
+	Permissions []string
+	Roles       []string
+	ViewerKind  string
+	Protocol    string
 }
 
 type TicketValidator interface {

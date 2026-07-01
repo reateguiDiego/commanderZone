@@ -255,6 +255,83 @@ type GameState struct {
 	Mulligan       MulliganState                  `json:"mulligan,omitempty"`
 }
 
+func (s *GameState) UnmarshalJSON(data []byte) error {
+	type alias GameState
+	aux := struct {
+		GamePhase GamePhase `json:"gamePhase"`
+		*alias
+	}{
+		alias: (*alias)(s),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if s.Phase == "" && aux.GamePhase != "" {
+		s.Phase = aux.GamePhase
+	}
+	return nil
+}
+
+func NormalizeForRecovery(gameID string, game *GameState) {
+	if game.GameID == "" {
+		game.GameID = gameID
+	}
+	if game.Status == "" {
+		game.Status = "playing"
+	}
+	if game.Players == nil {
+		game.Players = map[string]map[string]any{}
+	}
+	if game.SharedCounters == nil {
+		game.SharedCounters = map[string]map[string]int{}
+	}
+	if game.Turn == nil {
+		game.Turn = map[string]any{}
+	}
+	if game.Instances == nil {
+		game.Instances = map[string]CardInstanceRuntime{}
+	}
+	if game.Zones == nil {
+		game.Zones = map[string]PlayerZones{}
+	}
+	if game.Loc == nil {
+		game.Loc = map[string]Location{}
+	}
+	if game.Visibility.InstanceMasks == nil {
+		game.Visibility.InstanceMasks = map[string]uint64{}
+	}
+	if game.Visibility.LibraryEpochByOwner == nil {
+		game.Visibility.LibraryEpochByOwner = map[string]int64{}
+	}
+	if game.Visibility.TopRevealWindows == nil {
+		game.Visibility.TopRevealWindows = map[string]TopRevealWindow{}
+	}
+	if game.Relations.Attachments == nil {
+		game.Relations.Attachments = map[string]Relation{}
+	}
+	if game.Relations.Arrows == nil {
+		game.Relations.Arrows = map[string]Relation{}
+	}
+	if game.Relations.Helpers == nil {
+		game.Relations.Helpers = map[string]Relation{}
+	}
+	if game.Relations.Indexes.BySource == nil {
+		game.Relations.Indexes.BySource = map[string][]string{}
+	}
+	if game.Relations.Indexes.ByTarget == nil {
+		game.Relations.Indexes.ByTarget = map[string][]string{}
+	}
+	if game.Stack == nil {
+		game.Stack = []StackItem{}
+	}
+	if game.Mulligan.PlayerStatus == nil {
+		game.Mulligan.PlayerStatus = map[string]MulliganPlayerState{}
+	}
+	if game.Mulligan.ReadyPlayers == nil {
+		game.Mulligan.ReadyPlayers = map[string]bool{}
+	}
+}
+
 func (s GameState) Clone() GameState {
 	clone := s
 	clone.Players = map[string]map[string]any{}

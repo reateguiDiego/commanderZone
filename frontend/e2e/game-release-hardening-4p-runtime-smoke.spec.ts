@@ -1,9 +1,21 @@
-import { expect, test, type APIRequestContext, type APIResponse, type BrowserContext, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type APIResponse,
+  type BrowserContext,
+  type Page,
+} from '@playwright/test';
 import { authStorageState, createRealUserSession, type RealUserSession } from './support/auth';
-import { createBasicCommanderDeckFromDatabase, type BasicCommanderDeckFromDatabaseResult } from './support/decks';
+import { resolveGameToPlaying } from './support/commander-game';
+import {
+  createBasicCommanderDeckFromDatabase,
+  type BasicCommanderDeckFromDatabaseResult,
+} from './support/decks';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
-const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
+const RUNTIME_READY_URL =
+  process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
 
 type JsonObject = Record<string, unknown>;
 
@@ -14,7 +26,11 @@ interface ReleasePlayer {
   readonly deck: BasicCommanderDeckFromDatabaseResult;
 }
 
-test('release hardening 4-player runtime smoke converges without legacy patches or resync', async ({ browser, request, baseURL }) => {
+test('release hardening 4-player runtime smoke converges without legacy patches or resync', async ({
+  browser,
+  request,
+  baseURL,
+}) => {
   test.setTimeout(360_000);
   if (!baseURL) {
     throw new Error('Playwright baseURL is required.');
@@ -42,7 +58,9 @@ test('release hardening 4-player runtime smoke converges without legacy patches 
     }
 
     await Promise.all(pages.map((page) => page.goto(`/games/${players.gameId}`)));
-    await Promise.all(pages.map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })));
+    await Promise.all(
+      pages.map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })),
+    );
     await Promise.all(frameSets.map((frames) => waitForGameplayConnection(frames)));
 
     let nextBaseVersion = await gameVersion(request, players.gameId, players.players[0]!.token);
@@ -50,13 +68,18 @@ test('release hardening 4-player runtime smoke converges without legacy patches 
 
     for (const player of players.players) {
       const ticket = await websocketTicket(request, players.gameId, player.token);
-      const outcome = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, frameSets[0]!, {
-        gameId: players.gameId,
-        baseVersion: nextBaseVersion,
-        type: 'library.draw',
-        payload: { playerId: player.user.id },
-        ownerPatch: (patch) => hasOp(patch, 'zone.cards.add'),
-      });
+      const outcome = await sendRuntimeCommandAndWait(
+        commandPage,
+        ticket.websocketUrl,
+        frameSets[0]!,
+        {
+          gameId: players.gameId,
+          baseVersion: nextBaseVersion,
+          type: 'library.draw',
+          payload: { playerId: player.user.id },
+          ownerPatch: (patch) => hasOp(patch, 'zone.cards.add'),
+        },
+      );
       nextBaseVersion = outcome.version;
     }
 
@@ -67,29 +90,44 @@ test('release hardening 4-player runtime smoke converges without legacy patches 
     }
 
     const playerATicket = await websocketTicket(request, players.gameId, players.players[0]!.token);
-    const moveOutcome = await sendRuntimeCommandAndWait(commandPage, playerATicket.websocketUrl, frameSets[0]!, {
-      gameId: players.gameId,
-      baseVersion: nextBaseVersion,
-      type: 'card.moved',
-      payload: {
-        playerId: players.players[0]!.user.id,
-        fromZone: 'hand',
-        toZone: 'battlefield',
-        instanceId: publicMoveId,
-        position: { x: 0.42, y: 0.44, unit: 'ratio' },
+    const moveOutcome = await sendRuntimeCommandAndWait(
+      commandPage,
+      playerATicket.websocketUrl,
+      frameSets[0]!,
+      {
+        gameId: players.gameId,
+        baseVersion: nextBaseVersion,
+        type: 'card.moved',
+        payload: {
+          playerId: players.players[0]!.user.id,
+          fromZone: 'hand',
+          toZone: 'battlefield',
+          instanceId: publicMoveId,
+          position: { x: 0.42, y: 0.44, unit: 'ratio' },
+        },
+        ownerPatch: (patch) => hasOp(patch, 'zone.cards.move'),
       },
-      ownerPatch: (patch) => hasOp(patch, 'zone.cards.move'),
-    });
+    );
     nextBaseVersion = moveOutcome.version;
 
     for (const page of pages) {
       await expect(cardByInstanceId(page, publicMoveId)).toBeVisible({ timeout: 20_000 });
-      await expect(page.locator('[data-testid="game-card"][data-zone="battlefield"]', { hasText: 'Unknown Card' })).toHaveCount(0);
+      await expect(
+        page.locator('[data-testid="game-card"][data-zone="battlefield"]', {
+          hasText: 'Unknown Card',
+        }),
+      ).toHaveCount(0);
     }
 
     for (const [index, frames] of frameSets.entries()) {
-      expect(frames.some((message) => message['kind'] === 'game_patch'), `viewer ${index + 1} received game_patch`).toBe(false);
-      expect(frames.some((message) => message['kind'] === 'resync_required'), `viewer ${index + 1} received resync_required`).toBe(false);
+      expect(
+        frames.some((message) => message['kind'] === 'game_patch'),
+        `viewer ${index + 1} received game_patch`,
+      ).toBe(false);
+      expect(
+        frames.some((message) => message['kind'] === 'resync_required'),
+        `viewer ${index + 1} received resync_required`,
+      ).toBe(false);
     }
     expect(nextBaseVersion).toBeGreaterThan(1);
   } finally {
@@ -120,7 +158,11 @@ async function createFourPlayerGame(
   for (const player of players.slice(1)) {
     await joinRoom(request, player.token, roomId, player.deck.deckId);
   }
-  await resolveTurnOrder(request, roomId, players.map((player) => player.token));
+  await resolveTurnOrder(
+    request,
+    roomId,
+    players.map((player) => player.token),
+  );
   const gameId = await startRoom(request, players[0]!.token, roomId);
 
   return { gameId, roomId, players };
@@ -146,7 +188,7 @@ async function createRoom(
     },
   });
   await expectApiOk(response, 'create release room');
-  const payload = await response.json() as { room?: { id?: string } };
+  const payload = (await response.json()) as { room?: { id?: string } };
   const roomId = payload.room?.id;
   if (!roomId) {
     throw new Error('Room creation did not return room.id.');
@@ -154,7 +196,12 @@ async function createRoom(
   return roomId;
 }
 
-async function joinRoom(request: APIRequestContext, token: string, roomId: string, deckId: string): Promise<void> {
+async function joinRoom(
+  request: APIRequestContext,
+  token: string,
+  roomId: string,
+  deckId: string,
+): Promise<void> {
   const response = await request.post(`${API_BASE_URL}/rooms/${roomId}/join`, {
     headers: { Authorization: `Bearer ${token}` },
     data: { deckId },
@@ -162,13 +209,19 @@ async function joinRoom(request: APIRequestContext, token: string, roomId: strin
   await expectApiOk(response, 'join release room');
 }
 
-async function resolveTurnOrder(request: APIRequestContext, roomId: string, tokens: readonly string[]): Promise<void> {
+async function resolveTurnOrder(
+  request: APIRequestContext,
+  roomId: string,
+  tokens: readonly string[],
+): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const roomResponse = await request.get(`${API_BASE_URL}/rooms/${roomId}`, {
       headers: { Authorization: `Bearer ${tokens[0]}` },
     });
     await expectApiOk(roomResponse, 'load release room turn order');
-    const payload = await roomResponse.json() as { room?: { players?: Array<{ turnRolls?: number[] }> } };
+    const payload = (await roomResponse.json()) as {
+      room?: { players?: Array<{ turnRolls?: number[] }> };
+    };
     if (turnOrderResolved(payload.room?.players ?? [])) {
       return;
     }
@@ -185,30 +238,21 @@ async function resolveTurnOrder(request: APIRequestContext, roomId: string, toke
   throw new Error('Unable to resolve release room turn order.');
 }
 
-async function startRoom(request: APIRequestContext, token: string, roomId: string): Promise<string> {
+async function startRoom(
+  request: APIRequestContext,
+  token: string,
+  roomId: string,
+): Promise<string> {
   const response = await request.post(`${API_BASE_URL}/rooms/${roomId}/start`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   await expectApiOk(response, 'start release room');
-  const payload = await response.json() as { game?: { id?: string } };
+  const payload = (await response.json()) as { game?: { id?: string } };
   const gameId = payload.game?.id;
   if (!gameId) {
     throw new Error('Room start did not return game.id.');
   }
   return gameId;
-}
-
-async function resolveGameToPlaying(request: APIRequestContext, gameId: string, players: readonly ReleasePlayer[]): Promise<void> {
-  for (const player of players) {
-    const response = await request.post(`${API_BASE_URL}/games/${gameId}/commands`, {
-      headers: { Authorization: `Bearer ${player.token}` },
-      data: { type: 'mulligan.keep', payload: {} },
-    });
-    await expectApiOk(response, 'release mulligan keep');
-  }
-  await expect.poll(async () => (await gameSnapshot(request, gameId, players[0]!.token))['gamePhase'], {
-    timeout: 20_000,
-  }).toBe('PLAYING');
 }
 
 function turnOrderResolved(players: Array<{ turnRolls?: number[] }>): boolean {
@@ -232,7 +276,9 @@ function turnOrderResolved(players: Array<{ turnRolls?: number[] }>): boolean {
 async function assertGameRuntimeReady(request: APIRequestContext): Promise<void> {
   const response = await request.get(RUNTIME_READY_URL, { timeout: 5_000 });
   if (!response.ok()) {
-    throw new Error(`Game runtime is not reachable at ${RUNTIME_READY_URL}; runtime release gates must not fall back to legacy.`);
+    throw new Error(
+      `Game runtime is not reachable at ${RUNTIME_READY_URL}; runtime release gates must not fall back to legacy.`,
+    );
   }
 }
 
@@ -242,14 +288,24 @@ async function enableFrontendGameplayV2(context: BrowserContext): Promise<void> 
   });
 }
 
-async function gameSnapshot(request: APIRequestContext, gameId: string, token: string): Promise<JsonObject> {
-  const response = await request.get(`${API_BASE_URL}/games/${gameId}/snapshot`, { headers: { Authorization: `Bearer ${token}` } });
+async function gameSnapshot(
+  request: APIRequestContext,
+  gameId: string,
+  token: string,
+): Promise<JsonObject> {
+  const response = await request.get(`${API_BASE_URL}/games/${gameId}/snapshot`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   await expectApiOk(response, 'load release game snapshot');
-  const payload = await response.json() as { game?: { snapshot?: JsonObject } };
+  const payload = (await response.json()) as { game?: { snapshot?: JsonObject } };
   return (payload.game?.snapshot ?? {}) as JsonObject;
 }
 
-async function gameVersion(request: APIRequestContext, gameId: string, token: string): Promise<number> {
+async function gameVersion(
+  request: APIRequestContext,
+  gameId: string,
+  token: string,
+): Promise<number> {
   const snapshot = await gameSnapshot(request, gameId, token);
   return Math.max(1, Number(snapshot['version'] ?? 1));
 }
@@ -258,15 +314,21 @@ function zoneInstanceIds(snapshot: JsonObject, playerId: string, zone: string): 
   const players = snapshot['players'] as Record<string, JsonObject> | undefined;
   const player = players?.[playerId];
   const zones = player?.['zones'] as Record<string, JsonObject[]> | undefined;
-  return (zones?.[zone] ?? []).map((card) => String(card['instanceId'] ?? '')).filter((id) => id !== '');
+  return (zones?.[zone] ?? [])
+    .map((card) => String(card['instanceId'] ?? ''))
+    .filter((id) => id !== '');
 }
 
-async function websocketTicket(request: APIRequestContext, gameId: string, token: string): Promise<{ websocketUrl: string }> {
+async function websocketTicket(
+  request: APIRequestContext,
+  gameId: string,
+  token: string,
+): Promise<{ websocketUrl: string }> {
   const response = await request.post(`${API_BASE_URL}/games/${gameId}/websocket-ticket`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   await expectApiOk(response, 'create release websocket ticket');
-  const payload = await response.json() as { websocketUrl?: string };
+  const payload = (await response.json()) as { websocketUrl?: string };
   if (!payload.websocketUrl) {
     throw new Error('WebSocket ticket response did not include websocketUrl.');
   }
@@ -299,26 +361,28 @@ async function sendRuntimeCommandAndWait(
   },
 ): Promise<{ version: number; patch: JsonObject }> {
   const clientActionId = `release-${options.type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const patchPromise = waitForPatchV2(frames, (patch) =>
-    patch['ackClientActionId'] === clientActionId && options.ownerPatch(patch),
+  const patchPromise = waitForPatchV2(
+    frames,
+    (patch) => patch['ackClientActionId'] === clientActionId && options.ownerPatch(patch),
   );
   await page.evaluate(
-    ({ url, payload }) => new Promise<void>((resolve, reject) => {
-      const socket = new WebSocket(url);
-      const timeout = window.setTimeout(() => {
-        socket.close();
-        reject(new Error('Timed out sending raw WebSocket command.'));
-      }, 15_000);
-      socket.onopen = () => {
-        socket.send(JSON.stringify(payload));
-        window.clearTimeout(timeout);
-        resolve();
-      };
-      socket.onerror = () => {
-        window.clearTimeout(timeout);
-        reject(new Error('Raw WebSocket connection failed.'));
-      };
-    }),
+    ({ url, payload }) =>
+      new Promise<void>((resolve, reject) => {
+        const socket = new WebSocket(url);
+        const timeout = window.setTimeout(() => {
+          socket.close();
+          reject(new Error('Timed out sending raw WebSocket command.'));
+        }, 15_000);
+        socket.onopen = () => {
+          socket.send(JSON.stringify(payload));
+          window.clearTimeout(timeout);
+          resolve();
+        };
+        socket.onerror = () => {
+          window.clearTimeout(timeout);
+          reject(new Error('Raw WebSocket connection failed.'));
+        };
+      }),
     {
       url: websocketUrl,
       payload: {
@@ -335,29 +399,49 @@ async function sendRuntimeCommandAndWait(
     },
   );
   const patch = await patchPromise;
-  return { version: Math.max(options.baseVersion + 1, Number(patch['version'] ?? options.baseVersion + 1)), patch };
+  return {
+    version: Math.max(options.baseVersion + 1, Number(patch['version'] ?? options.baseVersion + 1)),
+    patch,
+  };
 }
 
-function waitForPatchV2(frames: JsonObject[], predicate: (message: JsonObject) => boolean): Promise<JsonObject> {
-  return expect.poll(() => frames.find((message) => message['kind'] === 'patch.v2' && predicate(message)) ?? null, {
-    timeout: 20_000,
-  }).not.toBeNull().then(() => {
-    const patch = frames.find((message) => message['kind'] === 'patch.v2' && predicate(message));
-    if (!patch) {
-      throw new Error(`patch.v2 frame was not captured. Recent patches: ${JSON.stringify(frames.filter((message) => message['kind'] === 'patch.v2').slice(-5), null, 2)}`);
-    }
-    return patch;
-  });
+function waitForPatchV2(
+  frames: JsonObject[],
+  predicate: (message: JsonObject) => boolean,
+): Promise<JsonObject> {
+  return expect
+    .poll(
+      () => frames.find((message) => message['kind'] === 'patch.v2' && predicate(message)) ?? null,
+      {
+        timeout: 20_000,
+      },
+    )
+    .not.toBeNull()
+    .then(() => {
+      const patch = frames.find((message) => message['kind'] === 'patch.v2' && predicate(message));
+      if (!patch) {
+        throw new Error(
+          `patch.v2 frame was not captured. Recent patches: ${JSON.stringify(frames.filter((message) => message['kind'] === 'patch.v2').slice(-5), null, 2)}`,
+        );
+      }
+      return patch;
+    });
 }
 
 async function waitForGameplayConnection(frames: JsonObject[]): Promise<void> {
-  await expect.poll(() => frames.some((message) =>
-    message['kind'] === 'connection_state' && message['status'] === 'connected',
-  ), { timeout: 20_000 }).toBe(true);
+  await expect
+    .poll(
+      () =>
+        frames.some(
+          (message) => message['kind'] === 'connection_state' && message['status'] === 'connected',
+        ),
+      { timeout: 20_000 },
+    )
+    .toBe(true);
 }
 
 function hasOp(message: JsonObject, op: string): boolean {
-  const ops = Array.isArray(message['ops']) ? message['ops'] as JsonObject[] : [];
+  const ops = Array.isArray(message['ops']) ? (message['ops'] as JsonObject[]) : [];
   return ops.some((item) => item['op'] === op);
 }
 
@@ -369,7 +453,9 @@ function parseFrame(payload: string | Buffer): JsonObject | null {
   try {
     const text = typeof payload === 'string' ? payload : payload.toString('utf8');
     const parsed = JSON.parse(text) as unknown;
-    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as JsonObject : null;
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as JsonObject)
+      : null;
   } catch {
     return null;
   }

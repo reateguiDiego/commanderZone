@@ -788,6 +788,35 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame('room.player.left', $roomPayload['type'] ?? null);
     }
 
+    public function testStartedRoomCanBeLeftSequentiallyByBothPlayersFromRooms(): void
+    {
+        $fixture = $this->startedRematchGameFixture('SeqLeave', [
+            ['sequential-leave-owner@example.test', 'Seq Leave Owner'],
+            ['sequential-leave-player@example.test', 'Seq Leave Player'],
+        ], completeMulligan: false);
+        $roomId = $fixture['roomId'];
+        $ownerToken = $fixture['tokens']['Seq Leave Owner'];
+        $playerToken = $fixture['tokens']['Seq Leave Player'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => false], $this->jsonResponse());
+
+        $this->jsonRequest('GET', '/rooms/current', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame($roomId, $this->jsonResponse()['room']['id'] ?? null);
+
+        $this->jsonRequest('GET', '/rooms', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => true], $this->jsonResponse());
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function testDeletingAccountInStartedRoomConcedesPlayerRecordsLeaveVoteAndRemovesUser(): void
     {
         $this->seedCard('eeeeeeee-2222-7222-8222-222222222223', 'Commander Delete Started', [
@@ -3022,7 +3051,7 @@ SQL,
      *
      * @return array{roomId: string, gameId: string, snapshot: array<string,mixed>, tokens: array<string,string>}
      */
-    private function startedRematchGameFixture(string $slug, array $players): array
+    private function startedRematchGameFixture(string $slug, array $players, bool $completeMulligan = true): array
     {
         $commanderScryfallId = sprintf('ffffffff-0000-7000-8000-%012d', abs(crc32($slug)));
         $landScryfallId = sprintf('eeeeeeee-1111-7111-8111-%012d', abs(crc32($slug.' land')));
@@ -3070,7 +3099,10 @@ SQL,
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $tokens[$ownerName]);
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
-        $snapshot = $this->completeMulliganPhase($gameId, array_values($tokens));
+        $snapshot = $this->jsonResponse()['game']['snapshot'];
+        if ($completeMulligan) {
+            $snapshot = $this->completeMulliganPhase($gameId, array_values($tokens));
+        }
 
         return [
             'roomId' => $roomId,

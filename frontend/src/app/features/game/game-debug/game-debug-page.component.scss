@@ -128,6 +128,7 @@
 .debug-error-list article {
   display: grid;
   gap: 0.25rem;
+  min-width: 0;
   padding: 0.75rem;
   border: 1px solid rgb(var(--cz-text-rgb) / 12%);
   border-radius: 8px;
@@ -149,7 +150,9 @@
 .debug-summary-grid small,
 .debug-player-list small,
 .debug-error-list small {
+  min-width: 0;
   color: rgb(var(--cz-text-rgb) / 62%);
+  overflow-wrap: anywhere;
 }
 
 .debug-player-metrics {

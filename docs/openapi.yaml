@@ -361,8 +361,6 @@ paths:
           $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
   /me/avatar:
     patch:
       tags: [Auth]
@@ -2295,7 +2293,7 @@ paths:
     post:
       tags: [Games]
       summary: Issue a short-lived gameplay WebSocket ticket.
-      description: The ticket is scoped to the game and current authenticated user and is used to open the gameplay WebSocket connection.
+      description: The ticket is scoped to the game and current authenticated user and opens the Go runtime gameplay WebSocket route (`runtime_ws`). PHP websocket routes are not returned for gameplay. In prod, `GAME_RUNTIME_WEBSOCKET_PUBLIC_URL` must be configured as the public `wss://` runtime `/ws` endpoint.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -2383,7 +2381,7 @@ paths:
     get:
       tags: [Games]
       summary: List chat messages outside the gameplay runtime snapshot.
-      description: Available only when gameplay chat streams are enabled. Visibility rules still apply: private messages are only returned to the sender and target player.
+      description: "Available only when gameplay chat streams are enabled. Visibility rules still apply: private messages are only returned to the sender and target player."
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: limit
@@ -2569,7 +2567,7 @@ paths:
     post:
       tags: [Games]
       summary: Apply a manual game command and publish a Mercure event.
-      description: Unknown command types are rejected. Finished games only accept explicitly allowed command types.
+      description: Unknown command types are rejected. Finished games only accept explicitly allowed command types. Commands routed to runtime-primary are rejected here and must be sent over the runtime WebSocket command path.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -2691,18 +2689,47 @@ components:
           description: Present on login failures with the active failed-login attempt count.
     GameWebsocketTicketResponse:
       type: object
-      required: [ticket, expiresAt, websocketUrl]
+      required: [ticket, expiresAt, websocketUrl, route, claims]
       properties:
         ticket:
           type: string
-          description: Signed short-lived ticket scoped to one game and user.
+          description: HMAC-signed short-lived runtime ticket scoped to one game and user.
         expiresAt:
           type: string
           format: date-time
         websocketUrl:
           type: string
           format: uri
-          example: ws://127.0.0.1:8081/games/01966d5f-0000-7000-8000-000000000000?ticket=...
+          description: Public Go runtime websocket URL with the short-lived ticket appended. The localhost example is dev/test only.
+          example: ws://127.0.0.1:8091/ws?ticket=...
+        route:
+          type: string
+          enum: [runtime_ws]
+          description: Active gameplay websocket route. Legacy/PHP routes must not be returned by this endpoint.
+        claims:
+          type: object
+          required: [gameId, userId, playerId, role, permissions, expiry]
+          properties:
+            gameId:
+              type: string
+              format: uuid
+            userId:
+              type: string
+              format: uuid
+            playerId:
+              type: string
+              format: uuid
+            role:
+              type: string
+              enum: [player, viewer]
+            permissions:
+              type: array
+              items:
+                type: string
+                enum: [view, command, game.close]
+            expiry:
+              type: integer
+              description: Unix timestamp matching the signed ticket `exp` claim.
     GameDebugHealthResponse:
       type: object
       required: [gameId, enabled, context, health, generatedAt, updatedAt]
@@ -3840,7 +3867,7 @@ components:
           enum: [true]
         message:
           type: string
-          example: Próximamente: estadísticas basadas en partidas reales de CommanderZone.
+          example: "Próximamente: estadísticas basadas en partidas reales de CommanderZone."
     CommunityDeckOwner:
       type: object
       required: [displayName]
@@ -5802,6 +5829,7 @@ components:
             $ref: '#/components/schemas/PatchOperationV2'
     PatchOperationV2:
       type: object
+      description: Semantic runtime patch operation. `version.advance` is a public no-op carrier used to advance viewer versions when a command only has private or group-visible changes.
       required: [op]
       properties:
         op:

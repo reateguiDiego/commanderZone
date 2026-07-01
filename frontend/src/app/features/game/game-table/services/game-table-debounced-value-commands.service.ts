@@ -21,6 +21,10 @@ interface PendingCounterCommand {
   value: number;
 }
 
+interface QueueValueCommandOptions {
+  flushDelayMs?: number;
+}
+
 export interface GameTableDebouncedValueCommandContext {
   gameId: () => string;
   pending: () => boolean;
@@ -65,10 +69,18 @@ export class GameTableDebouncedValueCommandsService {
     return fallbackValue;
   }
 
-  queueLife(context: GameTableDebouncedValueCommandContext, command: PendingLifeCommand): void {
+  queueLife(context: GameTableDebouncedValueCommandContext, command: PendingLifeCommand, options: QueueValueCommandOptions = {}): void {
     this.optimisticLifeCommands.set(command.playerId, command);
     this.updateLocalLife(context, command);
-    this.scheduleFlush(this.lifeTimerKey(command.playerId), this.flushDelayMs, () => this.flushLife(context, command.playerId));
+    const timerKey = this.lifeTimerKey(command.playerId);
+    const flushDelayMs = options.flushDelayMs ?? this.flushDelayMs;
+    if (flushDelayMs <= 0) {
+      this.clearFlushTimer(timerKey);
+      void this.flushLife(context, command.playerId);
+      return;
+    }
+
+    this.scheduleFlush(timerKey, flushDelayMs, () => this.flushLife(context, command.playerId));
   }
 
   queueCommanderDamage(context: GameTableDebouncedValueCommandContext, command: PendingCommanderDamageCommand): void {
@@ -326,16 +338,21 @@ export class GameTableDebouncedValueCommandsService {
   }
 
   private scheduleFlush(key: string, delayMs: number, flush: () => Promise<void>): void {
-    const existingTimer = this.flushTimers.get(key);
-    if (existingTimer !== undefined) {
-      window.clearTimeout(existingTimer);
-    }
+    this.clearFlushTimer(key);
 
     const timer = window.setTimeout(() => {
       this.flushTimers.delete(key);
       void flush();
     }, delayMs);
     this.flushTimers.set(key, timer);
+  }
+
+  private clearFlushTimer(key: string): void {
+    const existingTimer = this.flushTimers.get(key);
+    if (existingTimer !== undefined) {
+      window.clearTimeout(existingTimer);
+      this.flushTimers.delete(key);
+    }
   }
 
   private lifeTimerKey(playerId: string): string {

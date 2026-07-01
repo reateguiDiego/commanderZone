@@ -545,6 +545,7 @@ class RoomsController extends ApiController
         DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         CardLocalizationService $localization,
+        ?GameEventStoreV2 $eventStoreV2 = null,
     ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
@@ -625,6 +626,7 @@ class RoomsController extends ApiController
         }
         $room->start($game);
         $entityManager->persist($game);
+        $eventStoreV2?->initializeStartedGame($entityManager, $game, $user);
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.started');
 

@@ -6,6 +6,8 @@ use App\Domain\Game\GameEvent;
 
 final class GameEventReplayService
 {
+    private const DETERMINISTIC_SHUFFLE_ALGORITHM = 'cz.lcg32.fisher-yates.v1';
+
     public function __construct(
         private readonly ?GameLibraryOps $libraryOps = null,
     ) {
@@ -100,6 +102,14 @@ final class GameEventReplayService
             $snapshot['gamePhase'] = $payload['phase'];
         }
 
+        $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
+        if ($playerId !== '' && isset($snapshot['players'][$playerId])) {
+            if (!$this->applyLegacyRuntimeMulliganZoneSnapshot($snapshot, $playerId, $payload)) {
+                $this->applyCompactRuntimeMulliganOperation($snapshot, $event->type(), $playerId, $payload);
+            }
+            $this->rebuildLoc($snapshot);
+        }
+
         $mulligan = is_array($payload['mulligan'] ?? null) ? $payload['mulligan'] : [];
         if ($mulligan !== []) {
             $snapshot['mulligan'] = [
@@ -110,21 +120,101 @@ final class GameEventReplayService
             $this->applyRuntimeMulliganPlayerStates($snapshot, $mulligan);
         }
 
-        $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
-        if ($playerId !== '' && isset($snapshot['players'][$playerId])) {
-            $cardsById = $this->cardsByInstanceId($snapshot, $playerId, ['hand', 'library']);
-            $handIds = $this->stringList($payload['handIds'] ?? []);
-            if ($handIds !== []) {
-                $snapshot['players'][$playerId]['zones']['hand'] = $this->orderedCardsFromIds($cardsById, $handIds, 'hand', $playerId);
-            }
-            $libraryIds = $this->stringList($payload['libraryOrder'] ?? []);
-            if ($libraryIds !== []) {
-                $snapshot['players'][$playerId]['zones']['library'] = $this->orderedCardsFromIds($cardsById, $libraryIds, 'library', $playerId);
-            }
-            $this->rebuildLoc($snapshot);
+        return true;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyLegacyRuntimeMulliganZoneSnapshot(array &$snapshot, string $playerId, array $payload): bool
+    {
+        $cardsById = $this->cardsByInstanceId($snapshot, $playerId, ['hand', 'library']);
+        $replayed = false;
+        $handIds = $this->stringList($payload['handIds'] ?? []);
+        if ($handIds !== []) {
+            $snapshot['players'][$playerId]['zones']['hand'] = $this->orderedCardsFromIds($cardsById, $handIds, 'hand', $playerId);
+            $replayed = true;
+        }
+        $libraryIds = $this->stringList($payload['libraryOrder'] ?? []);
+        if ($libraryIds !== []) {
+            $snapshot['players'][$playerId]['zones']['library'] = $this->orderedCardsFromIds($cardsById, $libraryIds, 'library', $playerId);
+            $replayed = true;
         }
 
-        return true;
+        return $replayed;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyCompactRuntimeMulliganOperation(array &$snapshot, string $eventType, string $playerId, array $payload): void
+    {
+        switch ($eventType) {
+            case 'mulligan.player_took':
+                $shuffleSeed = $this->uint32Value($payload['shuffleSeed'] ?? null);
+                if ($shuffleSeed === null) {
+                    return;
+                }
+                $shuffleAlgorithm = is_string($payload['shuffleAlgorithm'] ?? null) ? $payload['shuffleAlgorithm'] : '';
+                if ($shuffleAlgorithm !== '' && $shuffleAlgorithm !== self::DETERMINISTIC_SHUFFLE_ALGORITHM) {
+                    throw new \RuntimeException(sprintf('Unsupported runtime mulligan shuffle algorithm "%s".', $shuffleAlgorithm));
+                }
+                $drawCount = max(0, (int) ($payload['drawCount'] ?? 0));
+                $hand = array_values(array_filter(
+                    is_array($snapshot['players'][$playerId]['zones']['hand'] ?? null) ? $snapshot['players'][$playerId]['zones']['hand'] : [],
+                    static fn (mixed $card): bool => is_array($card),
+                ));
+                $snapshot['players'][$playerId]['zones']['hand'] = [];
+                $this->putRuntimeCardsOnLibraryBottom($snapshot['players'][$playerId], $playerId, $hand);
+                $this->libraryOps()->shuffle(
+                    $snapshot['players'][$playerId],
+                    fn (array $cards): array => $this->shuffleCardsWithSeed($cards, $shuffleSeed),
+                );
+                $drawn = $this->libraryOps()->drawMany($snapshot['players'][$playerId], $drawCount);
+                $this->appendRuntimeCardsToZone($snapshot['players'][$playerId], $playerId, 'hand', $drawn);
+
+                return;
+
+            case 'mulligan.player_kept':
+            case 'mulligan.cards_bottomed':
+                $bottomedIds = $this->stringList($payload['bottomedIds'] ?? []);
+                if ($bottomedIds === []) {
+                    return;
+                }
+                $bottomed = [];
+                foreach ($bottomedIds as $instanceId) {
+                    $card = $this->removeCard($snapshot, $playerId, 'hand', $instanceId);
+                    if (!is_array($card)) {
+                        throw new \RuntimeException(sprintf('Could not replay runtime mulligan bottom for card "%s".', $instanceId));
+                    }
+                    $bottomed[] = $card;
+                }
+                $this->putRuntimeCardsOnLibraryBottom($snapshot['players'][$playerId], $playerId, $bottomed);
+
+                return;
+
+            case 'mulligan.scry_confirmed':
+                $choice = is_string($payload['choice'] ?? null) ? $payload['choice'] : '';
+                if ($choice !== 'bottom') {
+                    return;
+                }
+                $movedIds = $this->stringList($payload['movedIds'] ?? []);
+                if ($movedIds === [] && is_string($payload['topId'] ?? null) && $payload['topId'] !== '') {
+                    $movedIds = [$payload['topId']];
+                }
+                foreach ($movedIds as $expectedId) {
+                    $card = $this->libraryOps()->drawOne($snapshot['players'][$playerId]);
+                    if (!is_array($card) || (string) ($card['instanceId'] ?? '') !== $expectedId) {
+                        throw new \RuntimeException(sprintf('Could not replay runtime mulligan scry bottom for card "%s".', $expectedId));
+                    }
+                    $this->putRuntimeCardsOnLibraryBottom($snapshot['players'][$playerId], $playerId, [$card]);
+                }
+
+                return;
+
+            default:
+                return;
+        }
     }
 
     /**
@@ -133,6 +223,9 @@ final class GameEventReplayService
     private function applyRuntimeGameplayEvent(array &$snapshot, GameEvent $event, array $payload): bool
     {
         switch ($event->type()) {
+            case 'game.started':
+                return true;
+
             case 'library.draw':
             case 'library.draw_many':
                 $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
@@ -161,6 +254,20 @@ final class GameEventReplayService
 
             case 'library.shuffle':
                 $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
+                $shuffleSeed = $this->uint32Value($payload['shuffleSeed'] ?? null);
+                $shuffleAlgorithm = is_string($payload['shuffleAlgorithm'] ?? null) ? $payload['shuffleAlgorithm'] : '';
+                if ($playerId !== '' && $shuffleSeed !== null && isset($snapshot['players'][$playerId])) {
+                    if ($shuffleAlgorithm !== '' && $shuffleAlgorithm !== self::DETERMINISTIC_SHUFFLE_ALGORITHM) {
+                        throw new \RuntimeException(sprintf('Unsupported runtime shuffle algorithm "%s".', $shuffleAlgorithm));
+                    }
+                    $this->libraryOps()->shuffle(
+                        $snapshot['players'][$playerId],
+                        fn (array $cards): array => $this->shuffleCardsWithSeed($cards, $shuffleSeed),
+                    );
+                    $this->rebuildLoc($snapshot);
+
+                    return true;
+                }
                 $libraryOrder = $this->stringList($payload['libraryOrder'] ?? []);
                 if ($playerId !== '' && $libraryOrder !== [] && isset($snapshot['players'][$playerId])) {
                     $cardsById = $this->cardsByInstanceId($snapshot, $playerId, ['library']);
@@ -874,7 +981,7 @@ final class GameEventReplayService
             return;
         }
 
-        $libraryOps = $this->libraryOps ?? new GameLibraryOps();
+        $libraryOps = $this->libraryOps();
         $targets = $this->targetsFromVisibility($snapshot, $visibility);
         $libraryOps->clearReveals($snapshot['players'][$playerId]);
         $epoch = (int) ($snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1);
@@ -928,6 +1035,95 @@ final class GameEventReplayService
         }
 
         return $targets;
+    }
+
+    private function libraryOps(): GameLibraryOps
+    {
+        return $this->libraryOps ?? new GameLibraryOps();
+    }
+
+    /**
+     * @param array<string,mixed>       $player
+     * @param list<array<string,mixed>> $cards
+     */
+    private function putRuntimeCardsOnLibraryBottom(array &$player, string $playerId, array $cards): void
+    {
+        if ($cards === []) {
+            return;
+        }
+        $this->libraryOps()->ensurePlayer($player);
+        $prepared = [];
+        foreach ($cards as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+            $card['zone'] = 'library';
+            $card['ownerId'] = (string) ($card['ownerId'] ?? $playerId);
+            $card['controllerId'] = (string) ($card['controllerId'] ?? $playerId);
+            unset($card['position']);
+            $prepared[] = $card;
+        }
+        if ($prepared === []) {
+            return;
+        }
+        $player['zones']['library'] = [...$prepared, ...$player['zones']['library']];
+    }
+
+    /**
+     * @param array<string,mixed>       $player
+     * @param list<array<string,mixed>> $cards
+     */
+    private function appendRuntimeCardsToZone(array &$player, string $playerId, string $zone, array $cards): void
+    {
+        $player['zones'][$zone] = is_array($player['zones'][$zone] ?? null) ? array_values($player['zones'][$zone]) : [];
+        foreach ($cards as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+            $card['zone'] = $zone;
+            $card['ownerId'] = (string) ($card['ownerId'] ?? $playerId);
+            $card['controllerId'] = (string) ($card['controllerId'] ?? $playerId);
+            if ($zone !== 'battlefield') {
+                unset($card['position']);
+            }
+            $player['zones'][$zone][] = $card;
+        }
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function shuffleCardsWithSeed(array $cards, int $seed): array
+    {
+        $random = $seed === 0 ? 0x6d2b79f5 : $seed;
+        for ($index = count($cards) - 1; $index > 0; --$index) {
+            $random = (int) ((1664525 * $random + 1013904223) % 4294967296);
+            $swap = $random % ($index + 1);
+            [$cards[$index], $cards[$swap]] = [$cards[$swap], $cards[$index]];
+        }
+
+        return array_values($cards);
+    }
+
+    private function uint32Value(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value >= 0 && $value <= 4294967295 ? $value : null;
+        }
+        if (is_float($value) && floor($value) === $value) {
+            $intValue = (int) $value;
+
+            return $intValue >= 0 && $intValue <= 4294967295 ? $intValue : null;
+        }
+        if (is_string($value) && preg_match('/^\d+$/', $value) === 1) {
+            $intValue = (int) $value;
+
+            return $intValue >= 0 && $intValue <= 4294967295 ? $intValue : null;
+        }
+
+        return null;
     }
 
     /**

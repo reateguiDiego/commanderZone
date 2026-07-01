@@ -8,6 +8,7 @@ import {
   type RandomDeckFromDatabaseResult,
   type ValidCommanderDeckFromDatabaseResult,
 } from './decks';
+import { sendRuntimeMulliganKeep } from './runtime-websocket';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 
@@ -149,7 +150,13 @@ export async function createCommanderGameWithRandomDecks(
     seed: seedB,
   });
 
-  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
+  const roomId = await createRoom(
+    request,
+    playerA.token,
+    deckA.deckId,
+    visibility,
+    funRoomName(runId),
+  );
   await joinRoom(request, playerB.token, roomId, deckB.deckId);
   await resolveTurnOrder(request, roomId, [playerA.token, playerB.token]);
   const gameId = await startRoom(request, playerA.token, roomId);
@@ -205,7 +212,13 @@ export async function createCommanderGameWithValidDecks(
     seed: seedB,
   });
 
-  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
+  const roomId = await createRoom(
+    request,
+    playerA.token,
+    deckA.deckId,
+    visibility,
+    funRoomName(runId),
+  );
   await joinRoom(request, playerB.token, roomId, deckB.deckId);
   await resolveTurnOrder(request, roomId, [playerA.token, playerB.token]);
   const gameId = await startRoom(request, playerA.token, roomId);
@@ -335,7 +348,13 @@ export async function createCommanderGameWithBasicDecks(
     name: e2eDeckName('B', runId),
   });
 
-  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
+  const roomId = await createRoom(
+    request,
+    playerA.token,
+    deckA.deckId,
+    visibility,
+    funRoomName(runId),
+  );
   await joinRoom(request, playerB.token, roomId, deckB.deckId);
   await resolveTurnOrder(request, roomId, [playerA.token, playerB.token]);
   const gameId = await startRoom(request, playerA.token, roomId);
@@ -375,31 +394,34 @@ export async function resolveGameToPlaying(
     throw new Error('A valid controller token is required to resolve the game phase.');
   }
 
-  const initialPhase = await gamePhase(request, gameId, controllerToken);
-  if (initialPhase !== 'MULLIGAN') {
+  const initialPhase = await gamePhaseState(request, gameId, controllerToken);
+  if (initialPhase.phase !== 'MULLIGAN') {
     return;
   }
 
+  let baseVersion = initialPhase.version;
   for (const player of players) {
-    const response = await request.post(`${API_BASE_URL}/games/${gameId}/commands`, {
-      headers: {
-        Authorization: `Bearer ${player.token}`,
-      },
-      data: {
-        type: 'mulligan.keep',
-        payload: {},
-      },
+    const result = await sendRuntimeMulliganKeep(request, {
+      gameId,
+      token: player.token,
+      baseVersion,
     });
-    await expectApiOk(response, 'resolve mulligan keep');
+    baseVersion = result.version;
   }
 
-  const finalPhase = await gamePhase(request, gameId, controllerToken);
-  if (finalPhase !== 'PLAYING') {
-    throw new Error(`Expected game ${gameId} to reach PLAYING after resolving mulligan, got ${finalPhase ?? 'null'}.`);
+  const finalPhase = await gamePhaseState(request, gameId, controllerToken);
+  if (finalPhase.phase !== 'PLAYING') {
+    throw new Error(
+      `Expected game ${gameId} to reach PLAYING after resolving mulligan, got ${finalPhase.phase ?? 'null'}.`,
+    );
   }
 }
 
-async function resolveTurnOrder(request: APIRequestContext, roomId: string, tokens: readonly string[]): Promise<void> {
+async function resolveTurnOrder(
+  request: APIRequestContext,
+  roomId: string,
+  tokens: readonly string[],
+): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const roomResponse = await request.get(`${API_BASE_URL}/rooms/${roomId}`, {
       headers: {
@@ -424,7 +446,7 @@ async function resolveTurnOrder(request: APIRequestContext, roomId: string, toke
         continue;
       }
       if (response.status() === 409) {
-        const body = await response.json().catch(() => ({})) as { error?: unknown };
+        const body = (await response.json().catch(() => ({}))) as { error?: unknown };
         if (body.error === 'Turn order has already been rolled.') {
           continue;
         }
@@ -442,20 +464,34 @@ async function resolveTurnOrder(request: APIRequestContext, roomId: string, toke
   throw new Error('Unable to resolve turn order after repeated rerolls.');
 }
 
-async function gamePhase(request: APIRequestContext, gameId: string, token: string): Promise<string | null> {
+async function gamePhaseState(
+  request: APIRequestContext,
+  gameId: string,
+  token: string,
+): Promise<{ phase: string | null; version: number }> {
   const response = await request.get(`${API_BASE_URL}/games/${gameId}/snapshot`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
   await expectApiOk(response, 'load game snapshot');
-  const payload = await response.json() as { game?: { snapshot?: { gamePhase?: unknown } } };
-  const gamePhase = payload.game?.snapshot?.gamePhase;
+  const payload = (await response.json()) as {
+    game?: { snapshot?: { gamePhase?: unknown; version?: unknown } };
+  };
+  const snapshot = payload.game?.snapshot;
+  const gamePhase = snapshot?.gamePhase;
 
-  return typeof gamePhase === 'string' && gamePhase.trim() !== '' ? gamePhase : null;
+  return {
+    phase: typeof gamePhase === 'string' && gamePhase.trim() !== '' ? gamePhase : null,
+    version: Math.max(1, Number(snapshot?.version ?? 1)),
+  };
 }
 
-async function updateUserLanguage(request: APIRequestContext, token: string, language?: 'en' | 'es'): Promise<void> {
+async function updateUserLanguage(
+  request: APIRequestContext,
+  token: string,
+  language?: 'en' | 'es',
+): Promise<void> {
   if (!language) {
     return;
   }
@@ -516,10 +552,20 @@ async function expectApiOk(response: APIResponse, action: string): Promise<void>
 }
 
 function funRoomName(seed: string): string {
-  const names = ['Taberna del Mana', 'Trono del Comandante', 'Bahia de las Reliquias', 'Arena del Dragon', 'Santuario del Bosque'];
-  const index = Math.abs(seed.split('').reduce((total, char) => total + char.charCodeAt(0), 0)) % names.length;
+  const names = [
+    'Taberna del Mana',
+    'Trono del Comandante',
+    'Bahia de las Reliquias',
+    'Arena del Dragon',
+    'Santuario del Bosque',
+  ];
+  const index =
+    Math.abs(seed.split('').reduce((total, char) => total + char.charCodeAt(0), 0)) % names.length;
   const name = names[index] ?? 'Mesa Commander';
-  const shortSeed = seed.replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
+  const shortSeed = seed
+    .replace(/[^a-z0-9]/gi, '')
+    .slice(-4)
+    .toUpperCase();
 
   return `${name} ${shortSeed}`.trim();
 }

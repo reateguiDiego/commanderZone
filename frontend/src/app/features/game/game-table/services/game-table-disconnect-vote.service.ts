@@ -187,7 +187,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
       );
       if (!sent) {
         await firstValueFrom(this.gamesApi.disconnectVote(gameId, targetPlayerId, choice));
-        await this.store.refetch(true);
+        await this.store.refetch(true, 'disconnect_vote.http_fallback');
       }
     } catch (error) {
       this.error.set(this.errorMessage(error));

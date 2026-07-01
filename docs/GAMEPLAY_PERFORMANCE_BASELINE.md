@@ -102,18 +102,35 @@ php bin/console app:gameplay:baseline --iterations=1 --scenario=http_draw_1 --sc
 
 ## Gates
 
-The report includes `performanceTargets` and `gate.checks` for:
+The report includes `performanceTargets`, `gate.checks`, `gate.failures`,
+`gate.criticalFailures`, and `gate.advisoryFailures`.
+
+Critical gates:
+
+- `resync.rate` < 0.5%.
+- `position.commands_per_drag` max <= 1 for the final drag batch scenario.
+- `snapshot_full_write_count` max <= 0 when the metric is emitted by V2 paths.
+- runtime failure count = 0, including `runtime_failed`.
+- runtime fallback count = 0, including `gameplay.runtime_fallback_count`.
+- legacy fallback count = 0, including `command.legacy_fallback_count`.
+- runtime route records > 0 when `--require-runtime-route` is passed.
+- zero `total_server_ms` samples = 0.
+- required runtime counters must be present for runtime-routed samples.
+- `runtime.initial_state_per_command_count` = 0.
+- `command.unsupported_count` = 0.
+- `gameplay.runtime_patch_contract_error` = 0.
+- runtime hot-path counters = 0 for snapshot load/write, DB lock, legacy handler, emergency fallback, and previous/next projection.
+
+Advisory targets:
 
 - `command.apply_ms` simple p95 < 2 ms.
 - `command.total_server_ms` simple p95 < 15 ms.
 - `patch.bytes` simple max < 1 KB.
-- `resync.rate` < 0.5%.
 - `event.append_ms` p95 < 8 ms, currently measured from `event_append_ms` when present and `persist_ms` as fallback.
-- `position.commands_per_drag` max <= 1 for the final drag batch scenario.
 - `full_scan_count` max <= 0, currently advisory until all smoke commands are migrated to V2.
-- `snapshot_full_write_count` max <= 0 when the metric is emitted by V2 paths.
 
-`--fail-on-regression` fails critical gates. `--strict-targets` also fails advisory latency/payload targets.
+`--fail-on-regression` returns a non-zero exit code only for critical failures.
+`--strict-targets` also fails advisory latency/payload targets.
 
 ## Report shape
 

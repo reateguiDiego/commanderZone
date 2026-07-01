@@ -27,6 +27,8 @@ use App\Application\Game\WebSocket\GameWebsocketCommandResult;
 use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
 use App\Application\Game\WebSocket\GameWebsocketPatchBuilder;
+use App\Application\Game\WebSocket\GameWebsocketPeer;
+use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameChatMessage;
 use App\Domain\Game\GameEvent;
@@ -1009,6 +1011,295 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(0, $metricsStore->records()[0]['library.reindex_count'] ?? 1);
     }
 
+    public function testRuntimeFinalPathBypassesDoctrineSnapshotLockHandlerAndProjection(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [
+                ['op' => 'life.total.set', 'data' => ['playerId' => $actor->id(), 'life' => 39]],
+            ],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $registry->expects(self::never())->method('getManager');
+        $handler = $this->createMock(GameCommandHandler::class);
+        $handler->expects(self::never())->method('apply');
+        $handler->expects(self::never())->method('normalizeSnapshot');
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+
+        $service = $this->serviceWithRegistry(
+            $registry,
+            projection: $projection,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('life.changed', runtime: true, shadow: false),
+            handler: $handler,
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'life.changed', runtime: true, shadow: false),
+            rooms: $this->runtimeRoomsFor($game),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -1],
+            'action-runtime-final-life',
+            1,
+            'message-runtime-final-life',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertSame('patch.v2', $result->messageForUserId($actor->id())['kind']);
+        self::assertSame('patch.v2', $result->messageForUserId($opponent->id())['kind']);
+        self::assertSame(['life.total.set'], array_column($result->messageForUserId($actor->id())['ops'], 'op'));
+        self::assertSame(['life.changed'], $runtimeClient->types);
+
+        $record = $metricsStore->records()[0] ?? [];
+        self::assertSame('runtime_applied', $record['status'] ?? null);
+        self::assertSame(1, $record['gameplay.runtime_route'] ?? 0);
+        self::assertSame(0, $record['runtime.snapshot_load_count'] ?? 1);
+        self::assertSame(0, $record['runtime.snapshot_write_count'] ?? 1);
+        self::assertSame(0, $record['runtime.db_lock_count'] ?? 1);
+        self::assertSame(0, $record['runtime.legacy_handler_count'] ?? 1);
+        self::assertSame(0, $record['runtime.previous_next_projection_count'] ?? 1);
+        self::assertSame(0, $record['runtime.emergency_fallback_count'] ?? 1);
+        self::assertSame(0.0, $record['snapshot_load_ms'] ?? -1.0);
+        self::assertSame(0.0, $record['projection_ms'] ?? -1.0);
+    }
+
+    public function testRuntimePrimaryLegacyWebsocketCommandRejectsBeforeDoctrineLockHandlerAndFallback(): void
+    {
+        [$game, $actor] = $this->game();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $registry->expects(self::never())->method('getManager');
+        $handler = $this->createMock(GameCommandHandler::class);
+        $handler->expects(self::never())->method('apply');
+        $handler->expects(self::never())->method('normalizeSnapshot');
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+
+        $service = $this->serviceWithRegistry(
+            $registry,
+            projection: $projection,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('life.changed', runtime: true, shadow: false),
+            handler: $handler,
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'life.changed', runtime: true, shadow: false),
+            rooms: $this->runtimeRoomsFor($game),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -1],
+            'action-runtime-primary-legacy-ws',
+            1,
+            'message-runtime-primary-legacy-ws',
+        );
+
+        self::assertIsArray($result);
+        self::assertSame('command_ack', $result['kind'] ?? null);
+        self::assertSame('rejected', $result['status'] ?? null);
+        self::assertSame('RUNTIME_PRIMARY_REQUIRES_FINAL_WEBSOCKET', $result['error']['code'] ?? null);
+        self::assertSame([], $runtimeClient->types);
+
+        $record = $metricsStore->records()[0] ?? [];
+        self::assertSame('runtime_primary_requires_final_websocket', $record['status'] ?? null);
+        self::assertSame('runtime_primary_requires_final_websocket', $record['gameplay.legacy_route_reject_reason'] ?? null);
+        self::assertSame(1, $record['gameplay.runtime_route'] ?? 0);
+        self::assertSame(0, $record['gameplay.runtime_fallback_count'] ?? 1);
+        self::assertSame(0, $record['command.legacy_fallback_count'] ?? 1);
+        self::assertSame(0, $record['runtime.snapshot_load_count'] ?? 1);
+        self::assertSame(0, $record['runtime.snapshot_write_count'] ?? 1);
+        self::assertSame(0, $record['runtime.db_lock_count'] ?? 1);
+        self::assertSame(0, $record['runtime.legacy_handler_count'] ?? 1);
+        self::assertSame(0, $record['runtime.previous_next_projection_count'] ?? 1);
+        self::assertSame(0, $record['runtime.emergency_fallback_count'] ?? 1);
+    }
+
+    public function testRuntimeFinalGroupVisibilityUsesViewerMaskWithoutProjectionOrDuplicateEnvelope(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $spectator = new User('spectator@example.test', 'Spectator');
+        $metricsStore = new GameplayMetricsStore();
+        $actorMask = $this->viewerMaskForGame($game, $actor->id());
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [
+                ['op' => 'turn.set', 'data' => ['turn' => ['activePlayerId' => $actor->id(), 'phase' => 'main-1', 'number' => 1]]],
+            ],
+        ], [
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'group:'.$actorMask,
+            'ops' => [
+                ['op' => 'library.top.revealed', 'data' => ['playerId' => $actor->id(), 'cards' => [['instanceId' => 'library-2', 'cardRef' => 'private-top-card']]]],
+            ],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $registry->expects(self::never())->method('getManager');
+        $handler = $this->createMock(GameCommandHandler::class);
+        $handler->expects(self::never())->method('apply');
+        $handler->expects(self::never())->method('normalizeSnapshot');
+        $projection = $this->createMock(GameProjectionService::class);
+        $projection->expects(self::never())->method('projectSnapshot');
+        $projection->expects(self::never())->method('rulingsLookupForViewers');
+
+        $service = $this->serviceWithRegistry(
+            $registry,
+            projection: $projection,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('library.reveal_top', runtime: true, shadow: false),
+            handler: $handler,
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'library.reveal_top', runtime: true, shadow: false),
+            rooms: $this->runtimeRoomsFor($game, [$spectator]),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'library.reveal_top',
+            ['playerId' => $actor->id(), 'count' => 1, 'to' => [$actor->id()]],
+            'action-runtime-final-group',
+            1,
+            'message-runtime-final-group',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertCount(1, $result->messagesForUserId($actor->id()));
+        self::assertCount(1, $result->messagesForUserId($opponent->id()));
+        self::assertCount(1, $result->messagesForUserId($spectator->id()));
+
+        $ownerMessage = $result->messageForUserId($actor->id());
+        $opponentMessage = $result->messageForUserId($opponent->id());
+        $spectatorMessage = $result->messageForUserId($spectator->id());
+
+        self::assertSame(2, $ownerMessage['version']);
+        self::assertSame(['turn.set', 'library.top.revealed'], array_column($ownerMessage['ops'], 'op'));
+        self::assertSame(['turn.set'], array_column($opponentMessage['ops'], 'op'));
+        self::assertSame(['turn.set'], array_column($spectatorMessage['ops'], 'op'));
+        self::assertStringNotContainsString('private-top-card', json_encode($opponentMessage, JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('private-top-card', json_encode($spectatorMessage, JSON_THROW_ON_ERROR));
+
+        $record = $metricsStore->records()[0] ?? [];
+        self::assertSame('runtime_applied', $record['status'] ?? null);
+        self::assertSame(0, $record['runtime.previous_next_projection_count'] ?? 1);
+        self::assertSame(0, $record['runtime.legacy_handler_count'] ?? 1);
+        self::assertSame(0, $record['runtime.db_lock_count'] ?? 1);
+    }
+
+    public function testRuntimeFinalFailureWithoutEmergencyFlagRejectsWithoutLegacyFallback(): void
+    {
+        [$game, $actor] = $this->gameWithPrivateLibraryCards();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([], [], fail: true);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $registry->expects(self::never())->method('getManager');
+        $handler = $this->createMock(GameCommandHandler::class);
+        $handler->expects(self::never())->method('apply');
+        $handler->expects(self::never())->method('normalizeSnapshot');
+
+        $service = $this->serviceWithRegistry(
+            $registry,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('life.changed', runtime: true, shadow: false),
+            handler: $handler,
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'life.changed', runtime: true, shadow: false),
+            rooms: $this->runtimeRoomsFor($game),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -1],
+            'action-runtime-final-fails',
+            1,
+            'message-runtime-final-fails',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertSame('command_ack', $result['kind'] ?? null);
+        self::assertSame('rejected', $result['status'] ?? null);
+        self::assertSame('RUNTIME_UNAVAILABLE', $result['error']['code'] ?? null);
+        $record = $metricsStore->records()[0] ?? [];
+        self::assertSame('runtime_failed', $record['status'] ?? null);
+        self::assertSame(0, $record['runtime.emergency_fallback_count'] ?? 1);
+        self::assertSame(0, $record['runtime.legacy_handler_count'] ?? 1);
+        self::assertSame(0, $record['runtime.db_lock_count'] ?? 1);
+    }
+
+    public function testRuntimeFinalEmergencyFlagStillRejectsWithoutLegacyFallback(): void
+    {
+        [$game, $actor] = $this->gameWithPrivateLibraryCards();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([], [], fail: true);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $registry->expects(self::never())->method('getManager');
+        $handler = $this->createMock(GameCommandHandler::class);
+        $handler->expects(self::never())->method('apply');
+        $handler->expects(self::never())->method('normalizeSnapshot');
+        $service = $this->serviceWithRegistry(
+            $registry,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('life.changed', runtime: true, shadow: false),
+            handler: $handler,
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'life.changed', runtime: true, shadow: false),
+            emergencyLegacyFallbackEnabled: true,
+            rooms: $this->runtimeRoomsFor($game),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -1],
+            'action-runtime-final-emergency',
+            1,
+            'message-runtime-final-emergency',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertIsArray($result);
+        self::assertSame('command_ack', $result['kind'] ?? null);
+        self::assertSame('rejected', $result['status'] ?? null);
+        self::assertSame('RUNTIME_UNAVAILABLE', $result['error']['code'] ?? null);
+        $record = $metricsStore->records()[0] ?? [];
+        self::assertSame('runtime_failed', $record['status'] ?? null);
+        self::assertSame(0, $record['gameplay.runtime_fallback_count'] ?? 1);
+        self::assertSame(0, $record['command.legacy_fallback_count'] ?? 1);
+        self::assertSame(0, $record['runtime.emergency_fallback_count'] ?? 1);
+        self::assertSame(0, $record['runtime.legacy_handler_count'] ?? 1);
+    }
+
     public function testAllowlistedRuntimePrimaryAcceptsRuntimeVersionAheadOfLegacySnapshot(): void
     {
         [$game, $actor] = $this->gameWithPrivateLibraryCards();
@@ -1063,6 +1354,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -1078,6 +1370,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertContains($result->messageForUserId($actor->id())['kind'], ['game_patch', 'resync_required']);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_fallback_count'] ?? 0);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_error_count'] ?? 0);
+        self::assertSame('runtime_gateway_error', $metricsStore->records()[0]['gameplay.runtime_fallback_reason'] ?? null);
     }
 
     public function testAllowlistedLibraryPatchContractErrorFallsBackToLegacy(): void
@@ -1101,6 +1394,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -1115,6 +1409,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
 
         self::assertContains($result->messageForUserId($actor->id())['kind'], ['game_patch', 'resync_required']);
         self::assertSame(1, $metricsStore->records()[0]['gameplay.runtime_patch_contract_error'] ?? 0);
+        self::assertSame('runtime_patch_contract_error', $metricsStore->records()[0]['gameplay.runtime_fallback_reason'] ?? null);
     }
 
     public function testAllowlistedLibraryShadowModeExecutesRuntimeAndKeepsLegacyResponse(): void
@@ -1448,6 +1743,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -1694,6 +1990,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             'action-runtime-zone-reorder-invalid',
             1,
             'message-runtime-zone-reorder-invalid',
+            'v2',
         );
 
         self::assertSame('command_ack', $message['kind']);
@@ -1773,6 +2070,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -2054,6 +2352,138 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(0, $metricsStore->records()[0]['lifecycle.snapshot_write_count'] ?? 1);
     }
 
+    public function testRuntimeFinalGameConcedeRequiresTicketPlayer(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $service = $this->serviceWithRegistry(
+            $registry,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('game.concede', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'game.concede', runtime: true, shadow: false),
+            rooms: $this->runtimeRoomsFor($game),
+        );
+
+        $message = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'game.concede',
+            ['playerId' => $opponent->id()],
+            'action-runtime-concede-other-denied',
+            1,
+            'message-runtime-concede-other-denied',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertIsArray($message);
+        self::assertSame('command_ack', $message['kind']);
+        self::assertSame('rejected', $message['status']);
+        self::assertSame('INVALID_COMMAND_MESSAGE', $message['error']['code'] ?? null);
+        self::assertSame('Players can only concede themselves.', $message['error']['message'] ?? null);
+        self::assertSame([], $runtimeClient->types);
+        self::assertSame('invalid_runtime_payload', $metricsStore->records()[0]['status'] ?? null);
+    }
+
+    public function testRuntimeFinalPlayerScopedCommandRequiresTicketPlayer(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateLibraryCards();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $service = $this->serviceWithRegistry(
+            $registry,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('life.changed', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'life.changed', runtime: true, shadow: false),
+            rooms: $this->runtimeRoomsFor($game),
+        );
+
+        $message = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $opponent->id(), 'life' => 1],
+            'action-runtime-life-other-denied',
+            1,
+            'message-runtime-life-other-denied',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertIsArray($message);
+        self::assertSame('command_ack', $message['kind']);
+        self::assertSame('rejected', $message['status']);
+        self::assertSame('INVALID_COMMAND_MESSAGE', $message['error']['code'] ?? null);
+        self::assertSame('Runtime command player scope does not match the signed player.', $message['error']['message'] ?? null);
+        self::assertSame([], $runtimeClient->types);
+        self::assertSame('invalid_runtime_payload', $metricsStore->records()[0]['status'] ?? null);
+    }
+
+    public function testRuntimeFinalGameCloseRequiresSignedClosePermission(): void
+    {
+        [$game, $actor] = $this->game();
+        $metricsStore = new GameplayMetricsStore();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [[
+                'op' => 'game.status.set',
+                'data' => [
+                    'status' => 'finished',
+                    'phase' => 'FINISHED',
+                ],
+            ]],
+        ]]);
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::never())->method('getManagerForClass');
+        $service = $this->serviceWithRegistry(
+            $registry,
+            metricsStore: $metricsStore,
+            flagsV2: $this->runtimeFlags('game.close', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'game.close', runtime: true, shadow: false),
+        );
+
+        $message = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'game.close',
+            [],
+            'action-runtime-close-denied',
+            1,
+            'message-runtime-close-denied',
+            'v2',
+            ticketPlayerId: $actor->id(),
+            ticketPermissions: ['view', 'command'],
+        );
+
+        self::assertIsArray($message);
+        self::assertSame('command_ack', $message['kind']);
+        self::assertSame('rejected', $message['status']);
+        self::assertSame('GAME_ACCESS_DENIED', $message['error']['code'] ?? null);
+        self::assertSame('Only the room owner can close the game.', $message['error']['message'] ?? null);
+        self::assertSame(Game::STATUS_ACTIVE, $game->status());
+        self::assertSame([], $runtimeClient->types);
+        self::assertSame('runtime_permission_denied', $metricsStore->records()[0]['status'] ?? null);
+    }
+
     public function testAllowlistedCardTappedRuntimeErrorFallsBackToLegacy(): void
     {
         [$game, $actor] = $this->gameWithBattlefieldCards();
@@ -2071,6 +2501,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -2204,6 +2635,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -2246,6 +2678,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -2345,6 +2778,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             'action-sensitive-runtime-'.$commandType,
             1,
             'message-sensitive-runtime-'.$commandType,
+            'v2',
         );
 
         self::assertSame('patch.v2', $result->messageForUserId($actor->id())['kind']);
@@ -2492,6 +2926,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -2534,6 +2969,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -2667,6 +3103,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -2709,6 +3146,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             expectedBeginTransactions: 2,
             expectedLocks: 2,
             expectedRollbacks: 1,
+            emergencyLegacyFallbackEnabled: true,
         );
 
         $result = $service->apply(
@@ -3781,6 +4219,8 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         ?array &$persistedEventTypes = null,
         array $lifecycleEvents = [],
         ?GameEvent $runtimePersistedEvent = null,
+        bool $emergencyLegacyFallbackEnabled = false,
+        ?GameWebsocketRoomRegistry $rooms = null,
     ): GameWebsocketCommandPatchService {
         $actor ??= $game->room()->owner();
         $gameRepository = $this->createMock(EntityRepository::class);
@@ -3825,7 +4265,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $registry = $this->createMock(ManagerRegistry::class);
         $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
 
-        return $this->serviceWithRegistry($registry, $projection, $resolver, $metricsStore, $flagsV2, $handler, $patchBuilder, $eventStoreV2, $activityStreams, $streamFlags, $runtimeGateway);
+        return $this->serviceWithRegistry($registry, $projection, $resolver, $metricsStore, $flagsV2, $handler, $patchBuilder, $eventStoreV2, $activityStreams, $streamFlags, $runtimeGateway, $emergencyLegacyFallbackEnabled, $rooms);
     }
 
     /**
@@ -3874,6 +4314,8 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         ?GameActivityStreamService $activityStreams = null,
         ?GameplayStreamsFlags $streamFlags = null,
         ?GameplayRuntimeGateway $runtimeGateway = null,
+        bool $emergencyLegacyFallbackEnabled = false,
+        ?GameWebsocketRoomRegistry $rooms = null,
     ): GameWebsocketCommandPatchService
     {
         $messages = new GameWebsocketMessageFactory();
@@ -3885,7 +4327,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             new GameDisconnectVoteService($handler),
             $patchBuilder ?? new GameWebsocketPatchBuilder($messages),
             $messages,
-            new \App\Application\Game\WebSocket\GameWebsocketRoomRegistry(),
+            $rooms ?? new GameWebsocketRoomRegistry(),
             $registry,
             $projection ?? new GameProjectionService($handler),
             $resolver,
@@ -3897,7 +4339,70 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             $activityStreams,
             $streamFlags,
             $runtimeGateway,
+            $emergencyLegacyFallbackEnabled,
         );
+    }
+
+    /**
+     * @param list<User> $extraViewers
+     */
+    private function runtimeRoomsFor(Game $game, array $extraViewers = []): GameWebsocketRoomRegistry
+    {
+        $rooms = new GameWebsocketRoomRegistry();
+        $seen = [];
+        $join = function (User $user) use ($rooms, $game, &$seen): void {
+            if (isset($seen[$user->id()])) {
+                return;
+            }
+            $seen[$user->id()] = true;
+            $rooms->join(new GameWebsocketPeer(
+                connectionId: 'conn-'.$user->id(),
+                gameId: $game->id(),
+                userId: $user->id(),
+                displayName: $user->displayName(),
+                connectedAt: new \DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+                send: static fn (array $message): null => null,
+                playerId: $user->id(),
+                permissions: ['view', 'command'],
+                viewerMask: $this->viewerMaskForGame($game, $user->id()),
+            ));
+        };
+
+        $join($game->room()->owner());
+        foreach ($game->room()->orderedPlayers() as $roomPlayer) {
+            if ($roomPlayer instanceof RoomPlayer) {
+                $join($roomPlayer->user());
+            }
+        }
+        foreach ($extraViewers as $viewer) {
+            $join($viewer);
+        }
+
+        return $rooms;
+    }
+
+    private function viewerMaskForGame(Game $game, string $playerId): int
+    {
+        $snapshot = $game->snapshot();
+        $viewerBits = is_array($snapshot['visibility']['viewerBits'] ?? null)
+            ? $snapshot['visibility']['viewerBits']
+            : [];
+        if (isset($viewerBits[$playerId])) {
+            return max(0, (int) $viewerBits[$playerId]);
+        }
+
+        $bit = 1;
+        foreach (array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []) as $snapshotPlayerId) {
+            if (!is_string($snapshotPlayerId)) {
+                continue;
+            }
+            if ($snapshotPlayerId === $playerId) {
+                return $bit;
+            }
+            $bit <<= 1;
+        }
+
+        return 0;
     }
 
     private function runtimeFlags(string $allowlist, bool $runtime, bool $shadow): GameplayV2Flags
@@ -4012,7 +4517,6 @@ final class CommandPatchRuntimeClientStub implements GameRuntimeCommandClientInt
     public array $baseVersions = [];
     /** @var list<array<string,mixed>> */
     public array $payloads = [];
-
     /**
      * @param list<array<string,mixed>> $patches
      * @param array<string,mixed>       $metrics
@@ -4031,7 +4535,6 @@ final class CommandPatchRuntimeClientStub implements GameRuntimeCommandClientInt
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow = false,
     ): GameRuntimeCommandResult {

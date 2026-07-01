@@ -46,11 +46,12 @@ func (MulliganTakeApplier) Apply(_ context.Context, game *state.GameState, comma
 	player = calculateMulliganPlayer(game.Mulligan, player.MulliganCount, state.MulliganStatusDeciding)
 
 	handBefore := append([]string(nil), game.Zones[playerID].Hand...)
-	if err := moveHandToLibraryAndShuffle(game, playerID, handBefore); err != nil {
+	shuffleSeed := libraryShuffleSeed()
+	if err := moveHandToLibraryAndShuffle(game, playerID, handBefore, shuffleSeed); err != nil {
 		return nil, err
 	}
-	drawn, err := state.NewLibraryOps().DrawMany(game, playerID, playerDrawCount(game.Mulligan, player.MulliganCount))
-	if err != nil {
+	drawCount := playerDrawCount(game.Mulligan, player.MulliganCount)
+	if _, err := state.NewLibraryOps().DrawMany(game, playerID, drawCount); err != nil {
 		return nil, err
 	}
 	player.CurrentHandSize = len(game.Zones[playerID].Hand)
@@ -63,9 +64,10 @@ func (MulliganTakeApplier) Apply(_ context.Context, game *state.GameState, comma
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 
 	return mulliganEventPayload("mulligan.player_took", game, playerID, map[string]any{
-		"returnedIds": handBefore,
-		"drawnIds":    drawn,
-		"metrics":     mulliganMetrics("mulligan.take_ms", start),
+		"drawCount":        drawCount,
+		"shuffleSeed":      int(shuffleSeed),
+		"shuffleAlgorithm": state.DeterministicShuffleAlgorithm,
+		"metrics":          mulliganMetrics("mulligan.take_ms", start),
 	}), nil
 }
 
@@ -418,7 +420,7 @@ func normalizeMulliganRule(rule string) string {
 	}
 }
 
-func moveHandToLibraryAndShuffle(game *state.GameState, playerID string, handIDs []string) error {
+func moveHandToLibraryAndShuffle(game *state.GameState, playerID string, handIDs []string, seed uint32) error {
 	for _, instanceID := range handIDs {
 		if _, err := state.RemoveFromCurrentZone(game, instanceID); err != nil {
 			return err
@@ -427,7 +429,7 @@ func moveHandToLibraryAndShuffle(game *state.GameState, playerID string, handIDs
 	if err := state.NewLibraryOps().PutManyOnBottom(game, playerID, handIDs); err != nil {
 		return err
 	}
-	return state.NewLibraryOps().Shuffle(game, playerID)
+	return state.NewLibraryOps().ShuffleWithSeed(game, playerID, seed)
 }
 
 func bottomSelectedCards(game *state.GameState, playerID string, selected []string, required int) error {
@@ -537,12 +539,10 @@ func compactCard(game *state.GameState, instanceID string, includeCardKey bool) 
 
 func mulliganEventPayload(eventType string, game *state.GameState, playerID string, extra map[string]any) map[string]any {
 	payload := map[string]any{
-		"_eventType":   eventType,
-		"playerId":     playerID,
-		"phase":        game.Phase,
-		"mulligan":     game.Mulligan,
-		"handIds":      append([]string(nil), game.Zones[playerID].Hand...),
-		"libraryOrder": append([]string(nil), game.Zones[playerID].Library...),
+		"_eventType": eventType,
+		"playerId":   playerID,
+		"phase":      game.Phase,
+		"mulligan":   game.Mulligan.Clone(),
 	}
 	for key, value := range extra {
 		payload[key] = value

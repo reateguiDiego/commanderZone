@@ -154,6 +154,8 @@ final readonly class GameWebsocketMessageHandler
                 $clientActionId,
                 $baseVersion,
                 $messageId,
+                ticketPlayerId: $peer->effectivePlayerId(),
+                ticketPermissions: $peer->permissions,
             );
         }
 
@@ -200,6 +202,8 @@ final readonly class GameWebsocketMessageHandler
                 $command->baseVersion,
                 $messageId,
                 'v2',
+                ticketPlayerId: $peer->effectivePlayerId(),
+                ticketPermissions: $peer->permissions,
             );
         }
 

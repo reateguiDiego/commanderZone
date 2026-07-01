@@ -2,8 +2,10 @@ package actor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -113,9 +115,12 @@ func TestGameActorDuplicateClientActionIsIdempotent(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("events got %d want 1", len(events))
 	}
+	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.DuplicateMemoryCount != 1 || metrics.DuplicateDurableCount != 0 || metrics.CommandAppliedCount != 1 {
+		t.Fatalf("duplicate metrics mismatch: %#v", metrics)
+	}
 }
 
-func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
+func TestGameActorDuplicateClientActionWithLegacyEventMissingReceiptFailsExplicitly(t *testing.T) {
 	store := persistence.NewInMemoryEventStore()
 	existing := protocol.EventPayloadV2{
 		GameID:         "game-1",
@@ -131,11 +136,11 @@ func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
 	}
 	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a1", "life.changed", map[string]any{"playerId": "p1", "life": 39}), "p1")
-	if result.Err != nil {
-		t.Fatalf("duplicate failed: %v", result.Err)
+	if !errors.Is(result.Err, ErrRuntimePatchReceiptMissing) {
+		t.Fatalf("duplicate err got %v want %v", result.Err, ErrRuntimePatchReceiptMissing)
 	}
-	if result.Event.Version != existing.Version {
-		t.Fatalf("version got %d want %d", result.Event.Version, existing.Version)
+	if len(result.Patches) != 0 {
+		t.Fatalf("legacy stored event without patch receipt should not return patches: %#v", result.Patches)
 	}
 	events, err := store.EventsAfter(context.Background(), "game-1", 0)
 	if err != nil {
@@ -143,6 +148,218 @@ func TestGameActorDuplicateClientActionAfterRecoveryUsesStore(t *testing.T) {
 	}
 	if len(events) != 1 {
 		t.Fatalf("events got %d want 1", len(events))
+	}
+	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 ||
+		metrics.DuplicateDurableCount != 1 ||
+		metrics.DuplicateReceiptMissingCount != 1 ||
+		metrics.DuplicateMemoryCount != 0 ||
+		metrics.CommandAppliedCount != 0 ||
+		metrics.CommandRejectedCount != 1 {
+		t.Fatalf("duplicate metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestGameActorDuplicateClientActionAfterCacheMissReconstructsStoredPatches(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	original := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
+	cmd := command("game-1", 1, "face-private-retry", "card.face.changed", map[string]any{
+		"instanceId": "h1",
+		"faceIndex":  1,
+	})
+
+	first := original.ApplyDirect(context.Background(), cmd, "p1")
+	if first.Err != nil {
+		t.Fatalf("first failed: %v", first.Err)
+	}
+	if len(first.Patches) != 2 {
+		t.Fatalf("first patches got %d want private patch and public carrier: %#v", len(first.Patches), first.Patches)
+	}
+	if _, leaked := first.Event.Payload[runtimePatchReceiptKey]; leaked {
+		t.Fatalf("runtime patch receipt leaked into returned event: %#v", first.Event.Payload)
+	}
+	stored, ok, err := store.EventByClientActionID(context.Background(), "game-1", cmd.ClientActionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("stored event not found by clientActionId")
+	}
+	if _, persisted := stored.Payload[runtimePatchReceiptKey]; !persisted {
+		t.Fatalf("stored event missing runtime patch receipt: %#v", stored.Payload)
+	}
+
+	recovered := NewGameActor("game-1", original.Snapshot(), store, 8, DefaultAppliers())
+	retry := recovered.ApplyDirect(context.Background(), cmd, "p1")
+	if retry.Err != nil {
+		t.Fatalf("retry failed: %v", retry.Err)
+	}
+	if retry.Event.Version != first.Event.Version {
+		t.Fatalf("retry version got %d want %d", retry.Event.Version, first.Event.Version)
+	}
+	if _, leaked := retry.Event.Payload[runtimePatchReceiptKey]; leaked {
+		t.Fatalf("runtime patch receipt leaked into retry event: %#v", retry.Event.Payload)
+	}
+	if !reflect.DeepEqual(retry.Patches, first.Patches) {
+		t.Fatalf("retry patches mismatch:\nretry=%#v\nfirst=%#v", retry.Patches, first.Patches)
+	}
+	if publicCarrier := patchForVisibility(retry.Patches, protocol.VisibilityPublic, versionAdvancePatchOp); publicCarrier == nil {
+		t.Fatalf("retry did not preserve public version carrier: %#v", retry.Patches)
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+	if metrics := recovered.Metrics(); metrics.DuplicateActionCount != 1 ||
+		metrics.DuplicateDurableCount != 1 ||
+		metrics.DuplicateMemoryCount != 0 ||
+		metrics.DuplicateReceiptMissingCount != 0 ||
+		metrics.CommandAppliedCount != 0 {
+		t.Fatalf("duplicate metrics mismatch after cache miss: %#v", metrics)
+	}
+}
+
+func TestRuntimePatchReceiptRoundTripsThroughJSONPayload(t *testing.T) {
+	event := protocol.EventPayloadV2{
+		GameID:         "game-1",
+		Version:        2,
+		Type:           "card.face.changed",
+		Payload:        map[string]any{"instanceId": "h1"},
+		CreatedBy:      "p1",
+		ClientActionID: "face-json",
+		CreatedAt:      time.Now().UTC(),
+	}
+	patches := []protocol.PatchEnvelopeV2{
+		{
+			GameID:            "game-1",
+			Version:           2,
+			Visibility:        protocol.PlayerVisibility("p1"),
+			AckClientActionID: "face-json",
+			Ops: []protocol.PatchOp{{
+				Op:   "card.field.set",
+				Data: map[string]any{"instanceId": "h1", "activeFaceIndex": 1},
+			}},
+		},
+		{
+			GameID:            "game-1",
+			Version:           2,
+			Visibility:        protocol.VisibilityPublic,
+			AckClientActionID: "face-json",
+			Ops:               []protocol.PatchOp{{Op: versionAdvancePatchOp}},
+		},
+	}
+	stored := eventWithRuntimePatchReceipt(event, patches)
+	encoded, err := json.Marshal(stored.Payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	stored.Payload = decoded
+
+	restored, ok, err := runtimePatchReceiptFromEvent(stored)
+	if err != nil {
+		t.Fatalf("restore receipt: %v", err)
+	}
+	if !ok {
+		t.Fatal("receipt missing after JSON round-trip")
+	}
+	if err := validatePatchEnvelopes(restored); err != nil {
+		t.Fatalf("restored patches invalid: %v", err)
+	}
+	if len(restored) != 2 || restored[0].Visibility != protocol.PlayerVisibility("p1") || restored[1].Ops[0].Op != versionAdvancePatchOp {
+		t.Fatalf("restored patches mismatch: %#v", restored)
+	}
+}
+
+func TestGameActorRetryAfterTimeoutDoesNotDuplicateEvent(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
+	cmd := command("game-1", 1, "timeout-a1", "life.changed", map[string]any{"playerId": "p1", "life": 35})
+
+	expired, cancelExpired := context.WithCancel(context.Background())
+	cancelExpired()
+	timedOut := gameActor.Submit(expired, cmd, "p1")
+	if !errors.Is(timedOut.Err, context.Canceled) {
+		t.Fatalf("initial submit err got %v want context canceled", timedOut.Err)
+	}
+
+	runCtx, cancelRun := context.WithCancel(context.Background())
+	gameActor.Start(runCtx)
+	defer func() {
+		cancelRun()
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+		defer stopCancel()
+		if err := gameActor.Stop(stopCtx); err != nil {
+			t.Fatalf("stop failed: %v", err)
+		}
+	}()
+	waitForEventCount(t, store, "game-1", 1)
+
+	retryCtx, cancelRetry := context.WithTimeout(context.Background(), time.Second)
+	defer cancelRetry()
+	retry := gameActor.Submit(retryCtx, cmd, "p1")
+	if retry.Err != nil {
+		t.Fatalf("retry failed: %v", retry.Err)
+	}
+	if retry.Event.Version != 2 {
+		t.Fatalf("retry event version got %d want 2", retry.Event.Version)
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+	if metrics := gameActor.Metrics(); metrics.DuplicateActionCount != 1 || metrics.DuplicateMemoryCount != 1 || metrics.DuplicateDurableCount != 0 || metrics.CommandAppliedCount != 1 {
+		t.Fatalf("retry metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestGameActorSeenActionCacheIsBoundedAndStoreKeepsIdempotency(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
+
+	total := maxSeenActionCache + 5
+	for i := 0; i < total; i++ {
+		actionID := fmt.Sprintf("bounded-%03d", i)
+		result := gameActor.ApplyDirect(
+			context.Background(),
+			command("game-1", int64(i+1), actionID, "life.changed", map[string]any{"playerId": "p1", "life": 40 - i}),
+			"p1",
+		)
+		if result.Err != nil {
+			t.Fatalf("apply %d failed: %v", i, result.Err)
+		}
+	}
+	if got := len(gameActor.seenActions); got != maxSeenActionCache {
+		t.Fatalf("seen action cache got %d want %d", got, maxSeenActionCache)
+	}
+	if metrics := gameActor.Metrics(); metrics.SeenActionCacheSize != maxSeenActionCache || metrics.SeenActionCacheCapacity != maxSeenActionCache {
+		t.Fatalf("seen action cache metrics mismatch: %#v", metrics)
+	}
+	if _, ok := gameActor.seenActions["bounded-000"]; ok {
+		t.Fatal("oldest action was not evicted from actor seen cache")
+	}
+
+	duplicate := gameActor.ApplyDirect(
+		context.Background(),
+		command("game-1", 1, "bounded-000", "life.changed", map[string]any{"playerId": "p1", "life": 40}),
+		"p1",
+	)
+	if duplicate.Err != nil {
+		t.Fatalf("duplicate after cache eviction failed: %v", duplicate.Err)
+	}
+	if duplicate.Event.Version != 2 {
+		t.Fatalf("duplicate event version got %d want 2", duplicate.Event.Version)
+	}
+	if metrics := gameActor.Metrics(); metrics.DuplicateDurableCount != 1 || metrics.DuplicateReceiptMissingCount != 0 {
+		t.Fatalf("duplicate after cache eviction did not use durable idempotency: %#v", metrics)
 	}
 }
 
@@ -173,6 +390,10 @@ func TestGameActorRejectsOldBaseVersion(t *testing.T) {
 	stale := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "a2", "life.changed", map[string]any{"playerId": "p1", "life": 38}), "p1")
 	if !errors.Is(stale.Err, ErrVersionConflict) {
 		t.Fatalf("stale error got %v want %v", stale.Err, ErrVersionConflict)
+	}
+	metrics := gameActor.Metrics()
+	if metrics.VersionConflictCount != 1 || metrics.CommandRejectedCount != 1 {
+		t.Fatalf("version conflict metrics mismatch: %#v", metrics)
 	}
 }
 
@@ -207,6 +428,64 @@ func TestGameActorRollsBackKnownCommandWhenAppendFails(t *testing.T) {
 	}
 	if len(gameActor.seenActions) != 0 {
 		t.Fatalf("failed command should not be cached: %#v", gameActor.seenActions)
+	}
+	if len(result.Patches) != 0 {
+		t.Fatalf("failed append should not return patches: %#v", result.Patches)
+	}
+}
+
+func TestGameActorRejectsInvalidPatchContractBeforeAppend(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActorWithSnapshotPolicy("game-1", testState(), store, 8, []Applier{invalidPatchApplier{}}, SnapshotPolicy{})
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "bad-patch", "test.invalid_patch", map[string]any{"playerId": "p1"}), "p1")
+	if result.Err == nil {
+		t.Fatal("expected invalid patch contract failure")
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Version != 1 {
+		t.Fatalf("version got %d want 1", snapshot.Version)
+	}
+	if snapshot.Players["p1"]["life"] != 40 {
+		t.Fatalf("life got %#v want 40", snapshot.Players["p1"]["life"])
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("invalid patch contract appended events: %#v", events)
+	}
+	if len(result.Patches) != 0 {
+		t.Fatalf("invalid patch contract returned patches: %#v", result.Patches)
+	}
+}
+
+func TestGameActorSnapshotFailureAfterAppendDoesNotRejectPersistedCommand(t *testing.T) {
+	store := snapshotFailStore{
+		EventStore: persistence.NewInMemoryEventStore(),
+		err:        errors.New("snapshot failed"),
+	}
+	gameActor := NewGameActorWithSnapshotPolicy("game-1", testState(), store, 8, DefaultAppliers(), SnapshotPolicy{EveryEvents: 1})
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "snapshot-fail", "life.changed", map[string]any{"playerId": "p1", "life": 12}), "p1")
+	if result.Err != nil {
+		t.Fatalf("command should succeed after event append even when periodic snapshot fails: %v", result.Err)
+	}
+	if result.Event.Version != 2 || len(result.Patches) == 0 {
+		t.Fatalf("missing success event/patches after append: event=%#v patches=%#v", result.Event, result.Patches)
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Version != 2 || snapshot.Players["p1"]["life"] != 12 {
+		t.Fatalf("state not advanced after appended command: version=%d player=%#v", snapshot.Version, snapshot.Players["p1"])
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+	if metrics := gameActor.Metrics(); metrics.SnapshotPostAppendFailureCount != 1 {
+		t.Fatalf("snapshot post-append failure metric got %#v want count 1", metrics)
 	}
 }
 
@@ -259,6 +538,17 @@ func (mutatingFailApplier) Apply(_ context.Context, game *state.GameState, comma
 	return nil, errors.New("mutating applier failed")
 }
 
+type invalidPatchApplier struct{}
+
+func (invalidPatchApplier) Type() string { return "test.invalid_patch" }
+
+func (invalidPatchApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	playerID := command.Payload["playerId"].(string)
+	game.Players[playerID]["life"] = 1
+	emitter.EmitPublic(protocol.PatchOp{})
+	return map[string]any{"playerId": playerID}, nil
+}
+
 type failingAppendStore struct {
 	err error
 }
@@ -281,6 +571,15 @@ func (s failingAppendStore) EventsAfter(context.Context, string, int64) ([]proto
 
 func (s failingAppendStore) SaveSnapshot(context.Context, persistence.CompactSnapshot) error {
 	return nil
+}
+
+type snapshotFailStore struct {
+	persistence.EventStore
+	err error
+}
+
+func (s snapshotFailStore) SaveSnapshot(context.Context, persistence.CompactSnapshot) error {
+	return s.err
 }
 
 func TestGameActorLoopSerializesSubmittedCommands(t *testing.T) {
@@ -355,6 +654,26 @@ func TestCardTappedPatchShape(t *testing.T) {
 	if op.Data["tapped"] != true || op.Data["rotation"] != 90 {
 		t.Fatalf("fields mismatch: %#v", op.Data)
 	}
+}
+
+func waitForEventCount(t *testing.T, store persistence.EventStore, gameID string, count int) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		events, err := store.EventsAfter(context.Background(), gameID, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(events) == count {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Fatalf("events got %d want %d", len(events), count)
 }
 
 func testState() state.GameState {

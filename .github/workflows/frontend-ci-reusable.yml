@@ -31,5 +31,8 @@ jobs:
       - name: Skip SEO asset validation
         run: echo "SEO asset validation is temporarily disabled until final SEO images are ready."
 
+      - name: Run gameplay realtime/store focused tests
+        run: npm run test:gameplay-ci
+
       - name: Run frontend tests
         run: npm test -- --watch=false

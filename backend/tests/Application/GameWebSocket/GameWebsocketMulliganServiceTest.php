@@ -118,7 +118,41 @@ class GameWebsocketMulliganServiceTest extends TestCase
         self::assertStringNotContainsString('staticCards', json_encode($result->fallbackMessages(), JSON_THROW_ON_ERROR));
     }
 
-    public function testRuntimeFailureFallsBackToLegacyMulligan(): void
+    public function testRuntimeFailureWithoutEmergencyFlagRejectsWithoutLegacyMulligan(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $runtime = RuntimeMulliganClientStub::failure();
+        $handler = $this->getMockBuilder(GameCommandHandler::class)->onlyMethods(['apply'])->getMock();
+        $handler->expects(self::never())->method('apply');
+        $service = $this->service(
+            $game,
+            $actor,
+            expectPersist: false,
+            expectTransaction: false,
+            handler: $handler,
+            flags: $this->runtimeFlags(runtime: true, shadow: false),
+            runtimeClient: $runtime,
+        );
+
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-fail-closed');
+
+        $messages = $result->messagesForUserId($actor->id());
+        self::assertSame(['mulligan.error'], array_column($messages, 'kind'));
+        self::assertSame('RUNTIME_UNAVAILABLE', $messages[0]['error']['code'] ?? null);
+        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_route'] ?? 0.0);
+        self::assertSame(0.0, $result->debugProfile()['mulligan.runtime_fallback_count'] ?? 1.0);
+        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_error_count'] ?? 0.0);
+        self::assertSame(0.0, $result->debugProfile()['gameplay.runtime_fallback_count'] ?? 1.0);
+        self::assertSame(0.0, $result->debugProfile()['command.legacy_fallback_count'] ?? 1.0);
+        self::assertSame(0.0, $result->debugProfile()['runtime.emergency_fallback_count'] ?? 1.0);
+        self::assertSame(0.0, $result->debugProfile()['runtime.legacy_handler_count'] ?? 1.0);
+        self::assertSame(1, $runtime->calls);
+    }
+
+    public function testRuntimeFailureWithEmergencyFlagFallsBackToLegacyMulligan(): void
     {
         [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
             'hand' => $this->cards('hand', 7, 'hand'),
@@ -131,37 +165,101 @@ class GameWebsocketMulliganServiceTest extends TestCase
             expectPersist: true,
             flags: $this->runtimeFlags(runtime: true, shadow: false),
             runtimeClient: $runtime,
+            emergencyLegacyFallbackEnabled: true,
         );
 
-        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-fallback');
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-emergency-fallback');
 
         self::assertSame(['mulligan.public_state', 'mulligan.private_state'], array_column($result->messagesForUserId($actor->id()), 'kind'));
-        self::assertSame(0.0, $result->debugProfile()['mulligan.runtime_route'] ?? 1.0);
+        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_route'] ?? 0.0);
         self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_fallback_count'] ?? 0.0);
         self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_error_count'] ?? 0.0);
+        self::assertSame(1.0, $result->debugProfile()['gameplay.runtime_fallback_count'] ?? 0.0);
+        self::assertSame('runtime_gateway_error', $result->debugProfile()['gameplay.runtime_fallback_reason'] ?? null);
+        self::assertSame(1.0, $result->debugProfile()['command.legacy_fallback_count'] ?? 0.0);
+        self::assertSame(1.0, $result->debugProfile()['runtime.emergency_fallback_count'] ?? 0.0);
+        self::assertSame(1.0, $result->debugProfile()['runtime.legacy_handler_count'] ?? 0.0);
         self::assertSame(1, $runtime->calls);
     }
 
-    public function testPatchContractFailureFallsBackToLegacyMulligan(): void
+    public function testPatchContractFailureWithoutEmergencyFlagRejectsWithoutLegacyMulligan(): void
     {
         [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
             'hand' => $this->cards('hand', 7, 'hand'),
             'library' => $this->cards('library', 7, 'library'),
         ]);
         $runtime = RuntimeMulliganClientStub::invalidPatch();
+        $handler = $this->getMockBuilder(GameCommandHandler::class)->onlyMethods(['apply'])->getMock();
+        $handler->expects(self::never())->method('apply');
         $service = $this->service(
             $game,
             $actor,
-            expectPersist: true,
+            expectPersist: false,
+            expectTransaction: false,
+            handler: $handler,
             flags: $this->runtimeFlags(runtime: true, shadow: false),
             runtimeClient: $runtime,
         );
 
-        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-contract-fallback');
+        $result = $service->handle('mulligan.take', ['gameId' => $game->id()], $this->peer($game, $actor), 'message-runtime-contract-fail-closed');
 
-        self::assertSame(['mulligan.public_state', 'mulligan.private_state'], array_column($result->messagesForUserId($actor->id()), 'kind'));
-        self::assertSame(1.0, $result->debugProfile()['gameplay.runtime_fallback_count'] ?? 0.0);
+        $messages = $result->messagesForUserId($actor->id());
+        self::assertSame(['mulligan.error'], array_column($messages, 'kind'));
+        self::assertSame('RUNTIME_PATCH_CONTRACT_ERROR', $messages[0]['error']['code'] ?? null);
+        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_route'] ?? 0.0);
+        self::assertSame(0.0, $result->debugProfile()['mulligan.runtime_fallback_count'] ?? 1.0);
+        self::assertSame(0.0, $result->debugProfile()['gameplay.runtime_fallback_count'] ?? 1.0);
         self::assertSame(1.0, $result->debugProfile()['gameplay.runtime_patch_contract_error'] ?? 0.0);
+        self::assertSame(0.0, $result->debugProfile()['command.legacy_fallback_count'] ?? 1.0);
+        self::assertSame(0.0, $result->debugProfile()['runtime.emergency_fallback_count'] ?? 1.0);
+        self::assertSame(1, $runtime->calls);
+    }
+
+    public function testRuntimeValidationErrorRejectsWithoutLegacyMulligan(): void
+    {
+        [$game, $actor] = $this->mulliganGame(Room::MULLIGAN_LONDON, true, 0, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $runtime = new class implements GameRuntimeMulliganClientInterface {
+            public int $calls = 0;
+
+            public function dispatch(
+                string $kind,
+                string $gameId,
+                string $actorId,
+                int $baseVersion,
+                string $clientActionId,
+                array $payload,
+                bool $shadow = false,
+            ): GameRuntimeMulliganResult {
+                unset($kind, $gameId, $actorId, $baseVersion, $clientActionId, $payload, $shadow);
+                ++$this->calls;
+
+                throw new \InvalidArgumentException('Only Vancouver mulligan allows scry choices.');
+            }
+        };
+        $handler = $this->getMockBuilder(GameCommandHandler::class)->onlyMethods(['apply'])->getMock();
+        $handler->expects(self::never())->method('apply');
+        $service = $this->service(
+            $game,
+            $actor,
+            expectPersist: false,
+            expectTransaction: false,
+            handler: $handler,
+            flags: $this->runtimeFlags(runtime: true, shadow: false),
+            runtimeClient: $runtime,
+        );
+
+        $result = $service->handle('mulligan.scry.confirm', ['gameId' => $game->id(), 'destination' => 'TOP'], $this->peer($game, $actor), 'message-runtime-validation');
+
+        $messages = $result->messagesForUserId($actor->id());
+        self::assertSame(['mulligan.error'], array_column($messages, 'kind'));
+        self::assertSame('SCRY_NOT_ALLOWED', $messages[0]['error']['code'] ?? null);
+        self::assertSame(1.0, $result->debugProfile()['mulligan.runtime_route'] ?? 0.0);
+        self::assertSame(0.0, $result->debugProfile()['mulligan.runtime_fallback_count'] ?? 1.0);
+        self::assertSame(0.0, $result->debugProfile()['command.legacy_fallback_count'] ?? 1.0);
+        self::assertSame(0.0, $result->debugProfile()['runtime.legacy_handler_count'] ?? 1.0);
         self::assertSame(1, $runtime->calls);
     }
 
@@ -796,6 +894,7 @@ class GameWebsocketMulliganServiceTest extends TestCase
         ?GameEvent $existingEvent = null,
         ?GameplayV2Flags $flags = null,
         ?GameRuntimeMulliganClientInterface $runtimeClient = null,
+        bool $emergencyLegacyFallbackEnabled = false,
     ): GameWebsocketMulliganService {
         $gameRepository = $this->createMock(EntityRepository::class);
         $gameRepository->expects(self::once())->method('find')->with($game->id())->willReturn($game);
@@ -821,7 +920,14 @@ class GameWebsocketMulliganServiceTest extends TestCase
         $registry = $this->createMock(ManagerRegistry::class);
         $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
 
-        return new GameWebsocketMulliganService($handler ?? new GameCommandHandler(), $registry, null, $flags, $runtimeClient);
+        return new GameWebsocketMulliganService(
+            $handler ?? new GameCommandHandler(),
+            $registry,
+            null,
+            $flags,
+            $runtimeClient,
+            emergencyLegacyFallbackEnabled: $emergencyLegacyFallbackEnabled,
+        );
     }
 
     private function runtimeFlags(bool $runtime, bool $shadow, string $allowlist = 'mulligan.take,mulligan.keep,mulligan.scry.confirm'): GameplayV2Flags
@@ -947,7 +1053,6 @@ final class RuntimeMulliganClientStub implements GameRuntimeMulliganClientInterf
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow = false,
     ): GameRuntimeMulliganResult {

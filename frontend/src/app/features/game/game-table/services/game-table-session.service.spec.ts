@@ -30,8 +30,10 @@ describe('GameTableSessionService', () => {
     start: vi.fn(),
     stop: vi.fn(),
   };
+  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     websocketStatus = signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>('stopped');
     websocket.status = websocketStatus;
     gamesApi.snapshot.mockReset();
@@ -53,6 +55,10 @@ describe('GameTableSessionService', () => {
       ],
     });
     service = TestBed.inject(GameTableSessionService);
+  });
+
+  afterEach(() => {
+    consoleInfoSpy.mockRestore();
   });
 
   it('applies same-version snapshots when projected deck names changed', async () => {
@@ -110,6 +116,30 @@ describe('GameTableSessionService', () => {
       players: expect.objectContaining({
         'player-1': expect.objectContaining({ life: 38 }),
       }),
+    }));
+    expect(consoleInfoSpy).toHaveBeenCalledWith('[CommanderZone gameplay sync]', expect.objectContaining({
+      source: 'bootstrap',
+      reason: 'initial_load',
+      result: 'applied',
+      currentVersion: 6,
+    }));
+  });
+
+  it('labels websocket-requested bootstrap refetch separately from initial load', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    const setSnapshot = vi.fn();
+    gamesApi.bootstrapV2.mockReturnValue(of({
+      ...bootstrapV2(),
+      game: { ...bootstrapV2().game, version: 7 },
+    }));
+
+    await service.refetch(context(snapshot(), setSnapshot), true, 'websocket.request_resync');
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith('[CommanderZone gameplay sync]', expect.objectContaining({
+      source: 'bootstrap',
+      reason: 'websocket.request_resync',
+      result: 'applied',
+      currentVersion: 7,
     }));
   });
 

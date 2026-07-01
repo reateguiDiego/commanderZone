@@ -1,6 +1,6 @@
 import { expect, type APIRequestContext, type APIResponse, type Browser, type BrowserContext } from '@playwright/test';
 
-const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://localhost:8000';
+const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const MAILPIT_API_BASE_URL = process.env['E2E_MAILPIT_API_BASE_URL'] ?? 'http://127.0.0.1:8025';
 
 export interface E2EAuthUser {

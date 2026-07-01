@@ -20,6 +20,8 @@ type LibraryOps struct {
 	reindexCount  int
 }
 
+const DeterministicShuffleAlgorithm = "cz.lcg32.fisher-yates.v1"
+
 func NewLibraryOps() *LibraryOps {
 	return &LibraryOps{rand: rand.New(rand.NewSource(time.Now().UnixNano()))}
 }
@@ -264,6 +266,19 @@ func (ops *LibraryOps) Shuffle(game *GameState, playerID string) error {
 	ops.rand.Shuffle(len(zones.Library), func(i, j int) {
 		zones.Library[i], zones.Library[j] = zones.Library[j], zones.Library[i]
 	})
+	return finishLibraryShuffle(game, playerID, zones)
+}
+
+func (ops *LibraryOps) ShuffleWithSeed(game *GameState, playerID string, seed uint32) error {
+	zones, ok := game.Zones[playerID]
+	if !ok {
+		return ErrMissingZone
+	}
+	shuffleStringsWithSeed(zones.Library, seed)
+	return finishLibraryShuffle(game, playerID, zones)
+}
+
+func finishLibraryShuffle(game *GameState, playerID string, zones PlayerZones) error {
 	game.Zones[playerID] = zones
 	game.EnsureVisibility()
 	game.Visibility.LibraryEpochByOwner[playerID]++
@@ -486,4 +501,28 @@ func sameStringSet(a []string, b []string) bool {
 		}
 	}
 	return true
+}
+
+func shuffleStringsWithSeed(values []string, seed uint32) {
+	random := newDeterministicShuffle(seed)
+	for index := len(values) - 1; index > 0; index-- {
+		swap := int(random.next() % uint32(index+1))
+		values[index], values[swap] = values[swap], values[index]
+	}
+}
+
+type deterministicShuffle struct {
+	state uint32
+}
+
+func newDeterministicShuffle(seed uint32) deterministicShuffle {
+	if seed == 0 {
+		seed = 0x6d2b79f5
+	}
+	return deterministicShuffle{state: seed}
+}
+
+func (s *deterministicShuffle) next() uint32 {
+	s.state = s.state*1664525 + 1013904223
+	return s.state
 }

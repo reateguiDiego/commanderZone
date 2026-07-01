@@ -128,6 +128,11 @@ type GameTableNormalizedV2ApplyInternalResult =
   | { status: 'ignored'; state: GameTableNormalizedV2State; reason: 'duplicate_or_late_version' }
   | { status: 'resync_required'; state: GameTableNormalizedV2State; reason: GameTableNormalizedV2ApplyFailureReason };
 
+interface NormalizeIncomingCardContext {
+  instances: Record<string, BootstrapInstanceV2>;
+  staticCards: Record<string, BootstrapStaticCardV2>;
+}
+
 const ZONE_NAMES: readonly GameZoneName[] = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
 
 @Injectable()
@@ -156,10 +161,18 @@ export class GameTableNormalizedV2Store {
       return { ...result, snapshot: null };
     }
 
+    let snapshot: GameSnapshot;
+    try {
+      snapshot = hydrateGameSnapshotFromV2State(result.state);
+    } catch (error) {
+      console.warn('[CommanderZone normalized v2] snapshot hydration failed after patch.v2', error);
+      return { status: 'resync_required', state: currentState, snapshot: null, reason: 'invalid_operation' };
+    }
+
     this.state.set(result.state);
     return {
       ...result,
-      snapshot: hydrateGameSnapshotFromV2State(result.state),
+      snapshot,
     };
   }
 }
@@ -265,26 +278,11 @@ export function applyPatchEnvelopeV2(
   patch: PatchEnvelopeV2,
 ): GameTableNormalizedV2ApplyInternalResult {
   if (patch.version <= state.lastAppliedVersion) {
-    if (patch.version === state.lastAppliedVersion && isSameVersionStreamPatch(patch)) {
-      let nextState = state;
-      for (const operation of patch.ops) {
-        const result = applyOperation(nextState, operation);
-        if (result.status === 'failed') {
-          return { status: 'resync_required', state, reason: result.reason };
-        }
-
-        nextState = result.state;
-      }
-
-      return {
-        status: 'applied',
-        state: {
-          ...nextState,
-          pendingOptimisticActions: patch.ackClientActionId
-            ? omitKey(nextState.pendingOptimisticActions, patch.ackClientActionId)
-            : nextState.pendingOptimisticActions,
-        },
-      };
+    if (
+      patch.version === state.lastAppliedVersion
+      && (isSameVersionStreamPatch(patch) || isSameVersionVisibilityMergePatch(patch))
+    ) {
+      return applySameVersionPatch(state, patch);
     }
 
     return { status: 'ignored', state, reason: 'duplicate_or_late_version' };
@@ -319,10 +317,162 @@ export function applyPatchEnvelopeV2(
   return { status: 'applied', state: nextState };
 }
 
+function applySameVersionPatch(
+  state: GameTableNormalizedV2State,
+  patch: PatchEnvelopeV2,
+): GameTableNormalizedV2ApplyInternalResult {
+  let nextState = state;
+  for (const operation of patch.ops) {
+    const result = applySameVersionOperation(nextState, operation);
+    if (result.status === 'failed') {
+      return { status: 'resync_required', state, reason: result.reason };
+    }
+
+    nextState = result.state;
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...nextState,
+      pendingOptimisticActions: patch.ackClientActionId
+        ? omitKey(nextState.pendingOptimisticActions, patch.ackClientActionId)
+        : nextState.pendingOptimisticActions,
+    },
+  };
+}
+
+function applySameVersionOperation(
+  state: GameTableNormalizedV2State,
+  operation: GameplayPatchV2Operation,
+): OperationApplyResult {
+  switch (operation.op) {
+    case 'zone.cards.add':
+    case 'zone.cards.remove':
+      return applyOperationPreservingZoneCounts(state, operation, [{ playerId: operation.playerId, zone: operation.zone }]);
+    case 'zone.cards.move':
+      return applyOperationPreservingZoneCounts(state, operation, [
+        { playerId: operation.from.playerId, zone: operation.from.zone },
+        { playerId: operation.to.playerId, zone: operation.to.zone },
+      ]);
+    case 'zone.cards.batchMove':
+      return applyOperationPreservingZoneCounts(
+        state,
+        operation,
+        operation.moves.flatMap((move) => [
+          { playerId: move.from.playerId, zone: move.from.zone },
+          { playerId: move.to.playerId, zone: move.to.zone },
+        ]),
+      );
+    default:
+      return applyOperation(state, operation);
+  }
+}
+
+function applyOperationPreservingZoneCounts(
+  state: GameTableNormalizedV2State,
+  operation: GameplayPatchV2Operation,
+  targets: Array<{ playerId: string; zone: GameZoneName }>,
+): OperationApplyResult {
+  const preservedCounts = zoneCountsForTargets(state, targets);
+  const result = applyOperation(state, operation);
+  if (result.status === 'failed') {
+    return result;
+  }
+
+  return {
+    status: 'applied',
+    state: restoreZoneCountsForTargets(result.state, preservedCounts),
+  };
+}
+
+function zoneCountsForTargets(
+  state: GameTableNormalizedV2State,
+  targets: Array<{ playerId: string; zone: GameZoneName }>,
+): Array<{ playerId: string; zone: GameZoneName; count: number }> {
+  const seen = new Set<string>();
+  const counts: Array<{ playerId: string; zone: GameZoneName; count: number }> = [];
+  for (const target of targets) {
+    const key = `${target.playerId}:${target.zone}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    const count = state.zoneCounts[target.playerId]?.[target.zone];
+    if (typeof count === 'number') {
+      counts.push({ ...target, count });
+    }
+  }
+
+  return counts;
+}
+
+function restoreZoneCountsForTargets(
+  state: GameTableNormalizedV2State,
+  counts: Array<{ playerId: string; zone: GameZoneName; count: number }>,
+): GameTableNormalizedV2State {
+  let nextZoneCounts = state.zoneCounts;
+  for (const item of counts) {
+    const playerZoneCounts = nextZoneCounts[item.playerId];
+    if (!playerZoneCounts) {
+      continue;
+    }
+
+    nextZoneCounts = {
+      ...nextZoneCounts,
+      [item.playerId]: {
+        ...playerZoneCounts,
+        [item.zone]: item.count,
+      },
+    };
+  }
+
+  return nextZoneCounts === state.zoneCounts ? state : { ...state, zoneCounts: nextZoneCounts };
+}
+
 function isSameVersionStreamPatch(patch: PatchEnvelopeV2): boolean {
   return patch.ops.length > 0 && patch.ops.every((operation) =>
     operation.op === 'chat.message.add' || operation.op === 'chat.reaction.set',
   );
+}
+
+function isSameVersionVisibilityMergePatch(patch: PatchEnvelopeV2): boolean {
+  return typeof patch.ackClientActionId === 'string'
+    && patch.ackClientActionId.trim() !== ''
+    && patch.ops.length > 0
+    && patch.ops.every(isSameVersionVisibilityMergeOperation);
+}
+
+function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operation): boolean {
+  switch (operation.op) {
+    case 'version.advance':
+    case 'zone.cards.add':
+    case 'zone.cards.remove':
+    case 'zone.cards.move':
+    case 'zone.cards.batchMove':
+    case 'zone.count.set':
+    case 'library.count.set':
+    case 'library.top.revealed':
+    case 'library.top.viewed':
+    case 'library.revealed.set':
+    case 'library.play_top_revealed.set':
+    case 'library.top.hidden':
+    case 'library.top.reordered':
+    case 'library.top.moved':
+    case 'library.shuffled':
+    case 'mulligan.status.set':
+    case 'mulligan.private_state.set':
+    case 'mulligan.hand.replace_private':
+    case 'mulligan.hand.count.set':
+    case 'mulligan.bottom.required.set':
+    case 'mulligan.scry.available.set':
+    case 'mulligan.completed':
+    case 'game.phase.set':
+      return true;
+    default:
+      return false;
+  }
 }
 
 type OperationApplyResult =
@@ -331,6 +481,9 @@ type OperationApplyResult =
 
 function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPatchV2Operation): OperationApplyResult {
   switch (operation.op) {
+    case 'version.advance':
+      return { status: 'applied', state };
+
     case 'game.counters.set':
       return {
         status: 'applied',
@@ -536,7 +689,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         return nextState;
       }
 
-      return replacePrivateMulliganHand(nextState.state, operation.playerId, operation.hand);
+      return replacePrivateMulliganHand(nextState.state, operation.playerId, operation.hand, operation.staticCards ?? {});
     }
 
     case 'mulligan.hand.replace_private':
@@ -792,9 +945,12 @@ function addCardsToZone(
   const nextStaticCards = { ...state.staticCards };
   const insertedIds: string[] = [];
   for (const card of cards) {
-    const normalized = normalizeIncomingCard(card, playerId, zone, staticCards ?? {});
+    const normalized = normalizeIncomingCard(card, playerId, zone, staticCards ?? {}, {
+      instances: nextInstances,
+      staticCards: nextStaticCards,
+    });
     const existing = nextInstances[normalized.instance.instanceId];
-    nextInstances[normalized.instance.instanceId] = {
+    const nextInstance = {
       ...normalized.instance,
       position: battlefieldPositionForZone(zone, normalized.instance.position, existing?.position),
       ...(existing && shouldPreserveExistingStaticIdentity(normalized.instance, normalized.staticCard, existing)
@@ -814,6 +970,10 @@ function addCardsToZone(
         normalized.staticCard,
       );
     }
+    nextInstances[normalized.instance.instanceId] = completeInstanceIdentity(
+      nextInstance,
+      nextStaticCards[nextInstance.cardRef],
+    );
     insertedIds.push(normalized.instance.instanceId);
   }
 
@@ -913,8 +1073,17 @@ function moveOneCard(
   let nextStaticCards = state.staticCards;
   if (operation.card) {
     const existing = nextInstances[operation.instanceId];
-    const normalized = normalizeIncomingCard(operation.card, operation.to.playerId, operation.to.zone, operation.staticCard ? { [operation.staticCard.cardRef]: operation.staticCard } : {});
-    nextInstances[operation.instanceId] = {
+    const normalized = normalizeIncomingCard(
+      operation.card,
+      operation.to.playerId,
+      operation.to.zone,
+      operation.staticCard ? { [operation.staticCard.cardRef]: operation.staticCard } : {},
+      {
+        instances: nextInstances,
+        staticCards: nextStaticCards,
+      },
+    );
+    let nextInstance: BootstrapInstanceV2 = {
       ...normalized.instance,
       position: battlefieldPositionForZone(operation.to.zone, normalized.instance.position, existing?.position),
       ...(existing && shouldPreserveExistingStaticIdentity(normalized.instance, normalized.staticCard, existing)
@@ -936,6 +1105,8 @@ function moveOneCard(
         normalized.staticCard,
       );
     }
+    nextInstance = completeInstanceIdentity(nextInstance, nextStaticCards[nextInstance.cardRef]);
+    nextInstances[operation.instanceId] = nextInstance;
   } else {
     const existing = nextInstances[operation.instanceId];
     if (!existing) {
@@ -1085,14 +1256,20 @@ function revealLibraryTop(
   const topIds: string[] = [];
 
   for (const card of cards) {
-    const normalized = normalizeIncomingCard(card, playerId, 'library', staticCards);
-    nextInstances[normalized.instance.instanceId] = normalized.instance;
+    const normalized = normalizeIncomingCard(card, playerId, 'library', staticCards, {
+      instances: nextInstances,
+      staticCards: nextStaticCards,
+    });
     if (normalized.staticCard) {
       nextStaticCards[normalized.staticCard.cardRef] = mergeStaticCard(
         nextStaticCards[normalized.staticCard.cardRef],
         normalized.staticCard,
       );
     }
+    nextInstances[normalized.instance.instanceId] = completeInstanceIdentity(
+      normalized.instance,
+      nextStaticCards[normalized.instance.cardRef],
+    );
     topIds.push(normalized.instance.instanceId);
   }
 
@@ -1409,8 +1586,22 @@ function replacePrivateMulliganHand(
   }
 
   const nextInstances = { ...state.instances };
+  const nextStaticCards = { ...state.staticCards };
   for (const card of hand) {
-    nextInstances[card.instanceId] = compactRefToBootstrapInstance(card, playerId, 'hand');
+    const normalized = normalizeIncomingCard(compactRefToLegacyPatchPayload(card), playerId, 'hand', staticCards, {
+      instances: nextInstances,
+      staticCards: nextStaticCards,
+    });
+    if (normalized.staticCard) {
+      nextStaticCards[normalized.staticCard.cardRef] = mergeStaticCard(
+        nextStaticCards[normalized.staticCard.cardRef],
+        normalized.staticCard,
+      );
+    }
+    nextInstances[card.instanceId] = completeInstanceIdentity(
+      normalized.instance,
+      nextStaticCards[normalized.instance.cardRef],
+    );
   }
 
   return {
@@ -1418,10 +1609,7 @@ function replacePrivateMulliganHand(
     state: {
       ...state,
       instances: nextInstances,
-      staticCards: {
-        ...state.staticCards,
-        ...staticCards,
-      },
+      staticCards: nextStaticCards,
       players: {
         ...state.players,
         [playerId]: {
@@ -1520,26 +1708,18 @@ function updatePlayer(
   };
 }
 
-function compactRefToBootstrapInstance(
-  card: GameCompactCardRef,
-  playerId: string,
-  zone: GameZoneName,
-): BootstrapInstanceV2 {
-  const cardRef = card.cardKey?.trim() || `instance:${card.instanceId}`;
-
+function compactRefToLegacyPatchPayload(card: GameCompactCardRef): LegacyCardPatchPayload {
   return {
     instanceId: card.instanceId,
-    cardRef,
-    cardKey: card.cardKey ?? undefined,
-    printId: card.printId ?? undefined,
-    cardVersion: card.cardVersion ?? undefined,
-    language: card.language ?? null,
-    viewerVisibility: card.viewerVisibility ?? viewerVisibilityForZone(zone),
-    zoneId: zoneId(playerId, zone),
-    ownerId: playerId,
-    controllerId: playerId,
-    hidden: card.hidden ?? false,
-    tapped: card.tapped ?? false,
+    cardKey: nonEmptyString(card.cardKey) ? card.cardKey : undefined,
+    printId: nonEmptyString(card.printId) ? card.printId : undefined,
+    cardVersion: nonEmptyString(card.cardVersion) ? card.cardVersion : undefined,
+    language: nonEmptyString(card.language) ? card.language : undefined,
+    viewerVisibility: nonEmptyString(card.viewerVisibility) ? card.viewerVisibility : undefined,
+    name: nonEmptyString(card.name) ? card.name : undefined,
+    hidden: card.hidden,
+    tapped: card.tapped,
+    zone: card.zone,
   };
 }
 
@@ -1822,6 +2002,24 @@ function normalizeInstance(instance: BootstrapInstanceV2): BootstrapInstanceV2 {
   };
 }
 
+function completeInstanceIdentity(
+  instance: BootstrapInstanceV2,
+  staticCard: BootstrapStaticCardV2 | undefined,
+): BootstrapInstanceV2 {
+  if (!staticCard) {
+    return instance;
+  }
+
+  return {
+    ...instance,
+    cardKey: nonEmptyString(instance.cardKey) ? instance.cardKey : staticCard.cardKey,
+    printId: nonEmptyString(instance.printId) ? instance.printId : staticCard.printId,
+    cardVersion: nonEmptyString(instance.cardVersion) ? instance.cardVersion : staticCard.cardVersion,
+    language: nonEmptyString(instance.language) ? instance.language : staticCard.language,
+    viewerVisibility: nonEmptyString(instance.viewerVisibility) ? instance.viewerVisibility : staticCard.viewerVisibility,
+  };
+}
+
 function battlefieldPositionForZone(
   zone: GameZoneName,
   incoming: BootstrapInstanceV2['position'],
@@ -1847,6 +2045,20 @@ function mergeStaticCard(
   existing: BootstrapStaticCardV2 | undefined,
   incoming: BootstrapStaticCardV2,
 ): BootstrapStaticCardV2 {
+  if (existing && !hasRenderableStaticContent(incoming) && isStaticIdentityCompatible(existing, incoming)) {
+    return existing;
+  }
+
+  if (existing && !hasCompleteStaticIdentity(incoming) && isStaticIdentityCompatible(existing, incoming)) {
+    return {
+      ...existing,
+      imageUris: incoming.imageUris ?? existing.imageUris,
+      cardFaces: incoming.cardFaces && incoming.cardFaces.length > 0
+        ? incoming.cardFaces
+        : existing.cardFaces,
+    };
+  }
+
   if (!existing || !sameStaticIdentity(existing, incoming)) {
     return incoming;
   }
@@ -1869,40 +2081,78 @@ function sameStaticIdentity(left: BootstrapStaticCardV2, right: BootstrapStaticC
     && left.viewerVisibility === right.viewerVisibility;
 }
 
+function hasCompleteStaticIdentity(card: BootstrapStaticCardV2): boolean {
+  return [
+    card.cardKey,
+    card.printId,
+    card.cardVersion,
+    card.language,
+    card.viewerVisibility,
+  ].every(nonEmptyString);
+}
+
+function hasRenderableStaticContent(card: BootstrapStaticCardV2): boolean {
+  const name = card.name?.trim() ?? '';
+  return (name !== '' && name !== 'Card')
+    || Boolean(card.imageUris && Object.keys(card.imageUris).length > 0)
+    || Boolean(card.cardFaces && card.cardFaces.length > 0);
+}
+
+function isStaticIdentityCompatible(existing: BootstrapStaticCardV2, incoming: BootstrapStaticCardV2): boolean {
+  const incomingKeys = [incoming.cardRef, incoming.cardKey].filter(nonEmptyString);
+  const existingKeys = [existing.cardRef, existing.cardKey].filter(nonEmptyString);
+
+  return incomingKeys.length === 0
+    || existingKeys.length === 0
+    || incomingKeys.some((key) => existingKeys.includes(key));
+}
+
 function normalizeIncomingCard(
   card: BootstrapInstanceV2 | LegacyCardPatchPayload,
   playerId: string,
   zone: GameZoneName,
   staticCards: Record<string, BootstrapStaticCardV2>,
+  context: NormalizeIncomingCardContext,
 ): { instance: BootstrapInstanceV2; staticCard: BootstrapStaticCardV2 | null } {
   if ('cardRef' in card && typeof card.cardRef === 'string') {
     const compact = {
       ...card,
       zoneId: 'zoneId' in card && typeof card.zoneId === 'string' ? card.zoneId : zoneId(playerId, zone),
     } as BootstrapInstanceV2;
+    const staticCard = staticCardForIncomingKeys(
+      [compact.cardRef, compact.cardKey],
+      staticCards,
+      context.staticCards,
+    );
+    const instance = {
+      ...normalizeInstance(compact),
+      zoneId: zoneId(playerId, zone),
+      ...(staticCard ? { cardRef: staticCard.cardRef } : {}),
+    };
 
     return {
-      instance: {
-        ...normalizeInstance(compact),
-        zoneId: zoneId(playerId, zone),
-      },
-      staticCard: staticCards[card.cardRef] ? normalizeStaticCard(staticCards[card.cardRef]!) : null,
+      instance,
+      staticCard,
     };
   }
 
   const legacy = card as LegacyCardPatchPayload;
   const inferredCardRef = inferCardRefFromLegacyCard(legacy);
-  const staticCard = (legacy.hidden && !legacy.scryfallId && !legacy.name)
-    ? null
+  const fallbackLanguage = fallbackLanguageForZone(zone);
+  const existing = context.instances[legacy.instanceId];
+  const cachedStaticCard = staticCardForLegacyPatch(legacy, existing, staticCards, context.staticCards);
+  const cardRef = cachedStaticCard?.cardRef ?? inferredCardRef;
+  const staticCard = cachedStaticCard
+    ?? (!hasRenderableLegacyPayload(legacy) ? null
     : {
-        cardRef: inferredCardRef,
-        cardKey: legacy.cardKey ?? inferredCardRef,
-        printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? inferredCardRef,
+        cardRef,
+        cardKey: legacy.cardKey ?? cardRef,
+        printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? cardRef,
         cardVersion: legacy.cardVersion ?? 'legacy-snapshot-v1',
-        language: legacy.language ?? null,
+        language: legacy.language ?? fallbackLanguage,
         viewerVisibility: legacy.viewerVisibility ?? viewerVisibilityForZone(zone),
         scryfallId: legacy.scryfallId ?? null,
-        name: legacy.name ?? (legacy.hidden ? 'Card' : null),
+        name: legacy.name ?? fallbackStaticNameForZone(zone, legacy.hidden ?? false),
         imageUris: normalizeImageUris(legacy.imageUris),
         cardFaces: legacy.cardFaces ? structuredClone(legacy.cardFaces) : [],
         typeLine: legacy.typeLine ?? null,
@@ -1913,17 +2163,17 @@ function normalizeIncomingCard(
         defaultLoyalty: legacy.defaultLoyalty ?? null,
         defaultDefense: legacy.defaultDefense ?? null,
         hasRulings: legacy.hasRulings ?? false,
-      } satisfies BootstrapStaticCardV2;
+      } satisfies BootstrapStaticCardV2);
 
   return {
     instance: {
       instanceId: legacy.instanceId,
-      cardRef: inferredCardRef,
+      cardRef,
       cardKey: legacy.cardKey ?? undefined,
-      printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? inferredCardRef,
-      cardVersion: legacy.cardVersion ?? 'legacy-snapshot-v1',
-      language: legacy.language ?? null,
-      viewerVisibility: legacy.viewerVisibility ?? viewerVisibilityForZone(zone),
+      printId: legacy.printId ?? legacy.scryfallId ?? (staticCard ? undefined : legacy.cardKey ?? cardRef),
+      cardVersion: legacy.cardVersion ?? (staticCard ? undefined : 'legacy-snapshot-v1'),
+      language: legacy.language ?? (staticCard ? undefined : fallbackLanguage),
+      viewerVisibility: legacy.viewerVisibility ?? (staticCard ? undefined : viewerVisibilityForZone(zone)),
       zoneId: zoneId(playerId, zone),
       ownerId: legacy.ownerId ?? playerId,
       controllerId: legacy.controllerId ?? playerId,
@@ -1950,19 +2200,228 @@ function normalizeIncomingCard(
   };
 }
 
+function staticCardForLegacyPatch(
+  legacy: LegacyCardPatchPayload,
+  existing: BootstrapInstanceV2 | undefined,
+  operationStaticCards: Record<string, BootstrapStaticCardV2>,
+  cachedStaticCards: Record<string, BootstrapStaticCardV2>,
+): BootstrapStaticCardV2 | null {
+  const direct = staticCardForIncomingKeys(
+    [legacy.cardRef, legacy.cardKey, legacy.scryfallId],
+    operationStaticCards,
+    cachedStaticCards,
+  );
+  if (direct) {
+    return direct;
+  }
+
+  if (!existing) {
+    return null;
+  }
+
+  const existingStaticCard = staticCardForIncomingKeys(
+    [existing.cardRef, existing.cardKey],
+    operationStaticCards,
+    cachedStaticCards,
+  );
+  if (!existingStaticCard) {
+    return null;
+  }
+
+  if (canReuseExistingInstanceStaticCard(legacy, existing, existingStaticCard)) {
+    return existingStaticCard;
+  }
+
+  const incomingKeys = [legacy.cardRef, legacy.cardKey].filter(nonEmptyString);
+  if (incomingKeys.length === 0) {
+    return existingStaticCard;
+  }
+
+  const existingKeys = [
+    existing.cardRef,
+    existing.cardKey,
+    existingStaticCard.cardRef,
+    existingStaticCard.cardKey,
+  ].filter(nonEmptyString);
+
+  return incomingKeys.some((key) => existingKeys.includes(key)) ? existingStaticCard : null;
+}
+
+function canReuseExistingInstanceStaticCard(
+  legacy: LegacyCardPatchPayload,
+  existing: BootstrapInstanceV2,
+  existingStaticCard: BootstrapStaticCardV2,
+): boolean {
+  const existingZone = zoneNameFromZoneId(existing.zoneId);
+  return legacy.instanceId === existing.instanceId
+    && (existingZone === 'library' || existingZone === 'hand')
+    && hasRenderableStaticContent(existingStaticCard);
+}
+
+function staticCardForIncomingKeys(
+  keys: Array<string | null | undefined>,
+  operationStaticCards: Record<string, BootstrapStaticCardV2>,
+  cachedStaticCards: Record<string, BootstrapStaticCardV2>,
+): BootstrapStaticCardV2 | null {
+  const lookupKeys = staticLookupKeys(keys);
+  if (lookupKeys.length === 0) {
+    return null;
+  }
+
+  for (const source of [operationStaticCards, cachedStaticCards]) {
+    for (const key of lookupKeys) {
+      const card = source[key];
+      if (card) {
+        return normalizeStaticCard(card);
+      }
+    }
+
+    for (const card of Object.values(source)) {
+      const candidateKeys = staticLookupKeys([card.cardRef, card.cardKey, card.scryfallId, card.printId]);
+      if (lookupKeys.some((key) => candidateKeys.includes(key))) {
+        return normalizeStaticCard(card);
+      }
+    }
+  }
+
+  return null;
+}
+
+function staticLookupKeys(keys: Array<string | null | undefined>): string[] {
+  const lookupKeys = new Set<string>();
+  for (const key of keys) {
+    if (!nonEmptyString(key)) {
+      continue;
+    }
+
+    for (const alias of staticLookupAliases(key)) {
+      lookupKeys.add(alias);
+    }
+  }
+
+  return [...lookupKeys];
+}
+
+function staticLookupAliases(key: string): string[] {
+  const trimmed = key.trim();
+  const aliases = new Set<string>([trimmed]);
+  const runtimeScryfallId = scryfallIdFromRuntimeCardKey(trimmed);
+  if (runtimeScryfallId) {
+    aliases.add(runtimeScryfallId);
+    aliases.add(`${runtimeScryfallId}:card`);
+    aliases.add(`${runtimeScryfallId}:token`);
+  }
+
+  const suffixedScryfallId = scryfallIdFromStaticRef(trimmed);
+  if (suffixedScryfallId) {
+    aliases.add(suffixedScryfallId);
+  }
+
+  return [...aliases];
+}
+
+function scryfallIdFromRuntimeCardKey(key: string): string | null {
+  const parts = key.split(':');
+  if (parts.length < 3 || parts[0] !== 'scryfall') {
+    return null;
+  }
+
+  const scryfallId = parts[1]?.trim() ?? '';
+  return scryfallId === '' ? null : scryfallId;
+}
+
+function scryfallIdFromStaticRef(key: string): string | null {
+  const match = /^(.+):(card|token)$/.exec(key);
+  const scryfallId = match?.[1]?.trim() ?? '';
+
+  return scryfallId === '' ? null : scryfallId;
+}
+
+function hasRenderableLegacyPayload(card: LegacyCardPatchPayload): boolean {
+  const name = card.name?.trim() ?? '';
+  return (name !== '' && name !== 'Card' && name !== 'Unknown Card')
+    || Boolean(card.imageUris && Object.keys(card.imageUris).length > 0)
+    || Boolean(card.cardFaces && card.cardFaces.length > 0);
+}
+
 function shouldPreserveExistingStaticIdentity(
   incoming: BootstrapInstanceV2,
   incomingStaticCard: BootstrapStaticCardV2 | null,
   existing: BootstrapInstanceV2,
 ): boolean {
-  if (incomingStaticCard !== null && !isSyntheticUnknownStaticCard(incomingStaticCard, incoming.instanceId)) {
+  if (hasRenderableIdentity(incoming, incomingStaticCard)) {
+    if (incomingStaticCard !== null && !isSyntheticUnknownStaticCard(incomingStaticCard, incoming.instanceId)) {
+      return false;
+    }
+    const incomingHasExplicitCardKey = typeof incoming.cardKey === 'string' && incoming.cardKey.trim().length > 0;
+    if (incomingHasExplicitCardKey) {
+      return false;
+    }
+  }
+
+  if (!isIncomingIdentityCompatibleWithExisting(incoming, incomingStaticCard, existing)) {
     return false;
   }
-  const incomingHasExplicitCardKey = typeof incoming.cardKey === 'string' && incoming.cardKey.trim().length > 0;
-  if (incomingHasExplicitCardKey) {
-    return false;
-  }
+
   return typeof existing.cardRef === 'string' && existing.cardRef.trim().length > 0;
+}
+
+function hasRenderableIdentity(
+  instance: BootstrapInstanceV2,
+  staticCard: BootstrapStaticCardV2 | null,
+): boolean {
+  if (!staticCard) {
+    return false;
+  }
+
+  const instanceIdentity = [
+    instance.cardKey,
+    instance.printId,
+    instance.cardVersion,
+    instance.language,
+    instance.viewerVisibility,
+  ];
+  const staticIdentity = [
+    staticCard.cardKey,
+    staticCard.printId,
+    staticCard.cardVersion,
+    staticCard.language,
+    staticCard.viewerVisibility,
+  ];
+
+  return [...instanceIdentity, ...staticIdentity].every((value) =>
+    typeof value === 'string' && value.trim() !== '',
+  ) && hasRenderableStaticContent(staticCard);
+}
+
+function isIncomingIdentityCompatibleWithExisting(
+  incoming: BootstrapInstanceV2,
+  incomingStaticCard: BootstrapStaticCardV2 | null,
+  existing: BootstrapInstanceV2,
+): boolean {
+  const incomingKeys = [
+    incoming.cardRef,
+    incoming.cardKey,
+    incomingStaticCard?.cardRef,
+    incomingStaticCard?.cardKey,
+  ].filter(nonEmptyString);
+  const existingKeys = [
+    existing.cardRef,
+    existing.cardKey,
+  ].filter(nonEmptyString);
+  const hasExplicitIncomingKey = incomingKeys.some((key) => key !== `instance:${incoming.instanceId}`);
+
+  if (incoming.instanceId === existing.instanceId && !hasExplicitIncomingKey) {
+    return true;
+  }
+
+  return incomingKeys.length === 0
+    || existingKeys.length === 0
+    || incomingKeys.some((key) => existingKeys.includes(key));
+}
+
+function nonEmptyString(value: string | null | undefined): value is string {
+  return typeof value === 'string' && value.trim() !== '';
 }
 
 function isSyntheticUnknownStaticCard(staticCard: BootstrapStaticCardV2, instanceId: string): boolean {
@@ -2016,9 +2475,8 @@ function assertRenderableIdentity(
     throw new Error(`Identity contract violation: static card ${staticCard.cardRef} is missing ${missingStaticField[0]}.`);
   }
 
-  const name = staticCard.name?.trim() ?? '';
-  if (name === '' || name === 'Unknown Card') {
-    throw new Error(`Identity contract violation: visible card ${instanceId} has no renderable name for ${instance.cardRef}.`);
+  if (!hasRenderableStaticContent(staticCard)) {
+    throw new Error(`Identity contract violation: visible card ${instanceId} has no renderable static card for ${instance.cardRef}.`);
   }
 }
 
@@ -2130,6 +2588,14 @@ function inferCardRefFromLegacyCard(card: LegacyCardPatchPayload): string {
 
 function viewerVisibilityForZone(zone: GameZoneName): string {
   return zone === 'hand' || zone === 'library' ? 'private' : 'public';
+}
+
+function fallbackLanguageForZone(zone: GameZoneName): string | null {
+  return zone === 'hand' || zone === 'library' ? 'en' : null;
+}
+
+function fallbackStaticNameForZone(zone: GameZoneName, hidden: boolean): string | null {
+  return hidden || zone === 'hand' || zone === 'library' ? 'Card' : null;
 }
 
 function normalizeImageUris(imageUris: Record<string, string> | undefined): CardImageUris | undefined {

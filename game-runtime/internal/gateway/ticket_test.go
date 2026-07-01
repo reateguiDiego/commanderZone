@@ -13,7 +13,13 @@ func TestHMACTicketValidatorAcceptsSignedTicket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validator: %v", err)
 	}
-	ticket, err := SignTicket(testTicketSecret, TicketClaims{UserID: "u1", PlayerID: "p1", GameID: "game-1"}, time.Minute)
+	ticket, err := SignTicket(testTicketSecret, TicketClaims{
+		UserID:      "u1",
+		PlayerID:    "p1",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+	}, time.Minute)
 	if err != nil {
 		t.Fatalf("sign: %v", err)
 	}
@@ -23,6 +29,9 @@ func TestHMACTicketValidatorAcceptsSignedTicket(t *testing.T) {
 	}
 	if claims.UserID != "u1" || claims.PlayerID != "p1" || claims.GameID != "game-1" {
 		t.Fatalf("claims = %#v", claims)
+	}
+	if claims.Role != "player" || len(claims.Permissions) != 2 || claims.Permissions[1] != "command" {
+		t.Fatalf("runtime claims = %#v", claims)
 	}
 }
 

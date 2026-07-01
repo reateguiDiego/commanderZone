@@ -15,7 +15,6 @@ final readonly class GameRuntimeMulliganClient implements GameRuntimeMulliganCli
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow = false,
     ): GameRuntimeMulliganResult {
@@ -26,7 +25,6 @@ final readonly class GameRuntimeMulliganClient implements GameRuntimeMulliganCli
                 $actorId,
                 $baseVersion,
                 $clientActionId,
-                $snapshot,
                 $this->runtimePayload($kind, $actorId, $payload),
                 $shadow,
             );

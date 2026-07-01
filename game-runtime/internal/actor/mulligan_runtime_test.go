@@ -41,8 +41,23 @@ func TestRuntimeLondonMulliganCompletesWithoutStaticPayload(t *testing.T) {
 	if snapshot.Zones["p1"].Library[0] != bottomID {
 		t.Fatalf("bottom card not placed at library bottom")
 	}
+	assertNoMulliganZoneSnapshot(t, take.Event.Payload)
+	assertNoMulliganZoneSnapshot(t, keep.Event.Payload)
+	if take.Event.Payload["shuffleAlgorithm"] != state.DeterministicShuffleAlgorithm {
+		t.Fatalf("take shuffle algorithm got %#v want %s", take.Event.Payload["shuffleAlgorithm"], state.DeterministicShuffleAlgorithm)
+	}
+	if _, ok := take.Event.Payload["shuffleSeed"].(int); !ok {
+		t.Fatalf("take event missing compact shuffle seed: %#v", take.Event.Payload)
+	}
+	if take.Event.Payload["drawCount"] != 7 {
+		t.Fatalf("take drawCount got %#v want 7", take.Event.Payload["drawCount"])
+	}
+	if got := keep.Event.Payload["bottomedIds"]; !equalStringAnySlice(got, []string{bottomID}) {
+		t.Fatalf("keep bottomedIds got %#v want %s", got, bottomID)
+	}
 	assertNoStaticPayload(t, take.Event.Payload)
 	assertNoPrivateLeakToPublic(t, take.Patches, bottomID)
+	assertNoPrivateLeakToPublic(t, keep.Patches, bottomID)
 }
 
 func TestRuntimeVancouverMulliganScryBottom(t *testing.T) {
@@ -134,14 +149,64 @@ func TestRuntimeMulliganRejectsForeignBottomAndDuplicateAction(t *testing.T) {
 	}
 }
 
+func TestRuntimeMulliganRetryDoesNotDuplicateBottomKeepOrShuffle(t *testing.T) {
+	initial := mulliganGame("game-retry", []string{"p1"}, 100)
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActor("game-retry", initial, store, 8, DefaultAppliers())
+	take := command("game-retry", 1, "take-1", "mulligan.take", map[string]any{"playerId": "p1"})
+	firstTake := gameActor.ApplyDirect(context.Background(), take, "p1")
+	if firstTake.Err != nil {
+		t.Fatalf("take failed: %v", firstTake.Err)
+	}
+	afterTake := gameActor.Snapshot()
+	retryTake := gameActor.ApplyDirect(context.Background(), take, "p1")
+	if retryTake.Err != nil {
+		t.Fatalf("retry take failed: %v", retryTake.Err)
+	}
+	if retryTake.Event.Version != firstTake.Event.Version || !equalStrings(gameActor.Snapshot().Zones["p1"].Library, afterTake.Zones["p1"].Library) {
+		t.Fatalf("retry take mutated shuffle/library")
+	}
+
+	bottomID := afterTake.Zones["p1"].Hand[0]
+	keep := command("game-retry", 2, "keep-1", "mulligan.keep", map[string]any{"playerId": "p1", "bottomCardIds": []string{bottomID}})
+	firstKeep := gameActor.ApplyDirect(context.Background(), keep, "p1")
+	if firstKeep.Err != nil {
+		t.Fatalf("keep failed: %v", firstKeep.Err)
+	}
+	afterKeep := gameActor.Snapshot()
+	retryKeep := gameActor.ApplyDirect(context.Background(), keep, "p1")
+	if retryKeep.Err != nil {
+		t.Fatalf("retry keep failed: %v", retryKeep.Err)
+	}
+	if retryKeep.Event.Version != firstKeep.Event.Version {
+		t.Fatalf("retry keep version got %d want %d", retryKeep.Event.Version, firstKeep.Event.Version)
+	}
+	if !equalStrings(gameActor.Snapshot().Zones["p1"].Hand, afterKeep.Zones["p1"].Hand) || !equalStrings(gameActor.Snapshot().Zones["p1"].Library, afterKeep.Zones["p1"].Library) {
+		t.Fatalf("retry keep mutated hand/library")
+	}
+	events, err := store.EventsAfter(context.Background(), "game-retry", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("events got %d want 2", len(events))
+	}
+}
+
 func TestRuntimeMulliganReplayAndBootstrapPrivacy(t *testing.T) {
 	initial := mulliganGame("game-r", []string{"p1", "p2"}, 100)
+	replayInitial := initial.Clone()
 	store := persistence.NewInMemoryEventStore()
 	gameActor := NewGameActor("game-r", initial, store, 8, DefaultAppliers())
 
 	result := gameActor.ApplyDirect(context.Background(), command("game-r", 1, "take-1", "mulligan.take", map[string]any{"playerId": "p1"}), "p1")
 	if result.Err != nil {
 		t.Fatalf("take failed: %v", result.Err)
+	}
+	bottomID := gameActor.Snapshot().Zones["p1"].Hand[0]
+	keep := gameActor.ApplyDirect(context.Background(), command("game-r", 2, "keep-1", "mulligan.keep", map[string]any{"playerId": "p1", "bottomCardIds": []string{bottomID}}), "p1")
+	if keep.Err != nil {
+		t.Fatalf("keep failed: %v", keep.Err)
 	}
 	ownerBootstrap := BootstrapV2ForViewer(gameActor.Snapshot(), "p1")
 	opponentBootstrap := BootstrapV2ForViewer(gameActor.Snapshot(), "p2")
@@ -158,7 +223,7 @@ func TestRuntimeMulliganReplayAndBootstrapPrivacy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	replayed, err := ReplayEvents(initial, events, DefaultAppliers())
+	replayed, err := ReplayEvents(replayInitial, events, DefaultAppliers())
 	if err != nil {
 		t.Fatalf("replay failed: %v", err)
 	}
@@ -167,7 +232,7 @@ func TestRuntimeMulliganReplayAndBootstrapPrivacy(t *testing.T) {
 		t.Fatalf("replayed hand got %d want %d", got, want)
 	}
 	if !equalStrings(replayed.Zones["p1"].Library, current.Zones["p1"].Library) {
-		t.Fatalf("library order mismatch")
+		t.Fatalf("library order mismatch replay=%#v current=%#v", replayed.Zones["p1"].Library, current.Zones["p1"].Library)
 	}
 }
 
@@ -265,6 +330,23 @@ func assertNoPrivateLeakToPublic(t *testing.T, patches []protocol.PatchEnvelopeV
 			t.Fatalf("public patch leaked cardKey: %s", encoded)
 		}
 	}
+}
+
+func assertNoMulliganZoneSnapshot(t *testing.T, payload map[string]any) {
+	t.Helper()
+	for _, key := range []string{"libraryOrder", "handIds", "returnedIds", "drawnIds"} {
+		if _, ok := payload[key]; ok {
+			t.Fatalf("mulligan event persisted %s: %#v", key, payload)
+		}
+	}
+}
+
+func equalStringAnySlice(value any, want []string) bool {
+	values, ok := value.([]string)
+	if !ok {
+		return false
+	}
+	return equalStrings(values, want)
 }
 
 func containsString(haystack string, needle string) bool {

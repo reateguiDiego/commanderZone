@@ -26,6 +26,8 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final readonly class GameWebsocketMulliganService
 {
@@ -46,6 +48,9 @@ final readonly class GameWebsocketMulliganService
         private ?GameplayRuntimeRouter $runtimeRouter = null,
         private ?GameplayRuntimePatchAdapter $runtimePatchAdapter = null,
         private ?GameEventStoreV2 $eventStoreV2 = null,
+        #[Autowire('%gameplay_emergency_legacy_fallback_enabled%')]
+        private bool $emergencyLegacyFallbackEnabled = false,
+        private ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -137,19 +142,35 @@ final readonly class GameWebsocketMulliganService
                     return $this->runtimeResult(
                         $game,
                         $actor,
-                        $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $previousVersion, $clientActionId, $snapshot, $payload),
+                        $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $previousVersion, $clientActionId, $payload),
                         $messageId,
                     );
+                } catch (\InvalidArgumentException $exception) {
+                    return $this->runtimeRejectedResult($game, $actor, $kind, $messageId, $previousVersion, $exception->getMessage());
                 } catch (GameRuntimeGatewayException $exception) {
-                    $runtimeFallbackDebug = [
-                        'gameplay.runtime_route' => 0.0,
-                        'gameplay.runtime_fallback_count' => 1.0,
-                        'gameplay.runtime_error_count' => 1.0,
-                        'gameplay.runtime_patch_contract_error' => $exception instanceof GameplayRuntimePatchContractException ? 1.0 : 0.0,
-                        'mulligan.runtime_route' => 0.0,
-                        'mulligan.runtime_fallback_count' => 1.0,
-                        'mulligan.runtime_error_count' => 1.0,
-                    ];
+                    $patchContractError = $this->isRuntimePatchContractError($exception);
+                    if (!$this->emergencyLegacyFallbackEnabled) {
+                        $this->logger?->error('Runtime mulligan command failed without emergency fallback.', [
+                            'gameId' => $game->id(),
+                            'command.type' => $kind,
+                            'messageId' => $messageId,
+                            'exception' => $exception,
+                            'reason' => 'runtime_mulligan_disallows_legacy_fallback',
+                            'alert' => 'runtime_command_failed_no_legacy_fallback',
+                        ]);
+
+                        return $this->runtimeFailureResult($game, $actor, $kind, $messageId, $previousVersion, $patchContractError);
+                    }
+
+                    $runtimeFallbackDebug = $this->runtimeFailureDebugProfile($patchContractError, true);
+                    $this->logger?->error('Emergency legacy mulligan fallback metric recorded.', [
+                        'gameId' => $game->id(),
+                        'command.type' => $kind,
+                        'messageId' => $messageId,
+                        'alert' => 'runtime_emergency_legacy_fallback',
+                        'reason' => $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error',
+                        'patchContractError' => $patchContractError,
+                    ]);
                 }
             }
 
@@ -205,7 +226,7 @@ final readonly class GameWebsocketMulliganService
 
             $legacyResult = $this->result($game, $actor, $event, $messageId, $runtimeFallbackDebug);
 
-            return $this->shadowCompare($kind, $game, $actor, $previousVersion, $clientActionId, $snapshot, $payload, $legacyResult);
+            return $this->shadowCompare($kind, $game, $actor, $previousVersion, $clientActionId, $payload, $legacyResult);
         } catch (UniqueConstraintViolationException) {
             if ($manager->getConnection()->isTransactionActive()) {
                 $manager->rollback();
@@ -277,6 +298,101 @@ final readonly class GameWebsocketMulliganService
         }
 
         return $this->runtimeClient;
+    }
+
+    private function runtimeRejectedResult(
+        Game $game,
+        User $actor,
+        string $kind,
+        ?string $messageId,
+        int $version,
+        string $message,
+    ): GameWebsocketCommandResult {
+        $error = $this->error(
+            $game->id(),
+            $this->errorCode($message, $kind),
+            $message,
+            $messageId,
+            $version,
+        );
+
+        return GameWebsocketCommandResult::forViewerMessageLists(
+            [$actor->id() => [$error]],
+            [],
+            $this->runtimeRejectedDebugProfile(),
+        );
+    }
+
+    private function isRuntimePatchContractError(GameRuntimeGatewayException $exception): bool
+    {
+        return $exception instanceof GameplayRuntimePatchContractException
+            || $exception->getPrevious() instanceof GameplayRuntimePatchContractException;
+    }
+
+    private function runtimeFailureResult(
+        Game $game,
+        User $actor,
+        string $kind,
+        ?string $messageId,
+        int $version,
+        bool $patchContractError,
+    ): GameWebsocketCommandResult {
+        $error = $this->error(
+            $game->id(),
+            $patchContractError ? 'RUNTIME_PATCH_CONTRACT_ERROR' : 'RUNTIME_UNAVAILABLE',
+            $patchContractError
+                ? 'Runtime patch contract failed. Legacy fallback is disabled.'
+                : 'Runtime mulligan command failed. Legacy fallback is disabled.',
+            $messageId,
+            $version,
+        );
+
+        return GameWebsocketCommandResult::forViewerMessageLists(
+            [$actor->id() => [$error]],
+            [],
+            $this->runtimeFailureDebugProfile($patchContractError, false),
+        );
+    }
+
+    /**
+     * @return array<string,float|string>
+     */
+    private function runtimeFailureDebugProfile(bool $patchContractError, bool $fallback): array
+    {
+        $reason = $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error';
+
+        return [
+            'gameplay.runtime_route' => 1.0,
+            'gameplay.runtime_fallback_count' => $fallback ? 1.0 : 0.0,
+            'gameplay.runtime_error_count' => $patchContractError ? 0.0 : 1.0,
+            'gameplay.runtime_patch_contract_error' => $patchContractError ? 1.0 : 0.0,
+            'gameplay.runtime_fallback_reason' => $fallback ? $reason : '',
+            'command.legacy_fallback_count' => $fallback ? 1.0 : 0.0,
+            'mulligan.runtime_route' => 1.0,
+            'mulligan.runtime_fallback_count' => $fallback ? 1.0 : 0.0,
+            'mulligan.runtime_error_count' => $patchContractError ? 0.0 : 1.0,
+            'runtime.legacy_handler_count' => $fallback ? 1.0 : 0.0,
+            'runtime.emergency_fallback_count' => $fallback ? 1.0 : 0.0,
+        ];
+    }
+
+    /**
+     * @return array<string,float>
+     */
+    private function runtimeRejectedDebugProfile(): array
+    {
+        return [
+            'gameplay.runtime_route' => 1.0,
+            'gameplay.runtime_fallback_count' => 0.0,
+            'gameplay.runtime_error_count' => 0.0,
+            'gameplay.runtime_patch_contract_error' => 0.0,
+            'command.legacy_fallback_count' => 0.0,
+            'mulligan.runtime_route' => 1.0,
+            'mulligan.runtime_fallback_count' => 0.0,
+            'mulligan.runtime_error_count' => 0.0,
+            'runtime.legacy_handler_count' => 0.0,
+            'runtime.emergency_fallback_count' => 0.0,
+        ];
     }
 
     private function handlerType(string $kind): string
@@ -356,7 +472,7 @@ final readonly class GameWebsocketMulliganService
     }
 
     /**
-     * @param array<string,float> $extraDebug
+     * @param array<string,mixed> $extraDebug
      */
     private function result(Game $game, User $actor, GameEvent $event, ?string $messageId, array $extraDebug = []): GameWebsocketCommandResult
     {
@@ -640,7 +756,6 @@ final readonly class GameWebsocketMulliganService
     }
 
     /**
-     * @param array<string,mixed> $snapshot
      * @param array<string,mixed> $payload
      */
     private function shadowCompare(
@@ -649,7 +764,6 @@ final readonly class GameWebsocketMulliganService
         User $actor,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         GameWebsocketCommandResult $legacyResult,
     ): GameWebsocketCommandResult {
@@ -661,7 +775,7 @@ final readonly class GameWebsocketMulliganService
         $debug['gameplay.runtime_shadow_executed'] = 1.0;
         $debug['mulligan.runtime_shadow_executed'] = 1.0;
         try {
-            $shadow = $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $baseVersion, $clientActionId, $snapshot, $payload, true);
+            $shadow = $this->runtimeClient()->dispatch($kind, $game->id(), $actor->id(), $baseVersion, $clientActionId, $payload, true);
             $diverged = $this->shadowDiverged($shadow, $baseVersion) ? 1.0 : 0.0;
             $debug['gameplay.runtime_shadow_divergence'] = $diverged;
             $debug['mulligan.runtime_shadow_divergence'] = $diverged;

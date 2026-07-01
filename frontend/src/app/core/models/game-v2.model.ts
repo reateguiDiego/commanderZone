@@ -243,6 +243,9 @@ export interface GameplayZoneCardsMoveV2 {
 
 export type GameplayPatchV2Operation =
   | {
+      op: 'version.advance';
+    }
+  | {
       op: 'player.life.set';
       playerId: string;
       value: number;
@@ -465,6 +468,7 @@ export type GameplayPatchV2Operation =
       };
       hand?: GameCompactCardRef[];
       scryCard?: GameCompactCardRef;
+      staticCards?: Record<string, BootstrapStaticCardV2>;
     }
   | {
       op: 'mulligan.hand.replace_private';

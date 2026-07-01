@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
-import { withGlobalLoadingForFeature } from '../loading/loading-context';
+import { withGlobalLoadingForFeature, withoutGlobalLoading } from '../loading/loading-context';
 import { Card } from '../models/card.model';
 import { CardImageResponse, CardResponse, DataResponse } from '../models/api-responses.model';
 import { LanguagePreferencesService } from '../localization/language-preferences.service';
@@ -132,6 +132,13 @@ export class CardsApi {
   get(scryfallId: string): Observable<CardResponse> {
     return this.http.get<CardResponse>(`${API_BASE_URL}/cards/${scryfallId}`, {
       params: { lang: this.languagePreferences.cardLanguage() },
+    });
+  }
+
+  getSilently(scryfallId: string): Observable<CardResponse> {
+    return this.http.get<CardResponse>(`${API_BASE_URL}/cards/${scryfallId}`, {
+      params: { lang: this.languagePreferences.cardLanguage() },
+      context: withoutGlobalLoading(),
     });
   }
 

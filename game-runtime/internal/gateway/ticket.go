@@ -23,13 +23,15 @@ type HMACTicketValidator struct {
 }
 
 type ticketPayload struct {
-	UserID     string   `json:"userId"`
-	PlayerID   string   `json:"playerId,omitempty"`
-	GameID     string   `json:"gameId"`
-	Roles      []string `json:"roles,omitempty"`
-	ViewerKind string   `json:"viewerKind,omitempty"`
-	Protocol   string   `json:"protocol,omitempty"`
-	ExpiresAt  int64    `json:"exp"`
+	UserID      string   `json:"userId"`
+	PlayerID    string   `json:"playerId,omitempty"`
+	GameID      string   `json:"gameId"`
+	Role        string   `json:"role,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
+	Roles       []string `json:"roles,omitempty"`
+	ViewerKind  string   `json:"viewerKind,omitempty"`
+	Protocol    string   `json:"protocol,omitempty"`
+	ExpiresAt   int64    `json:"exp"`
 }
 
 func NewHMACTicketValidator(secret string) (*HMACTicketValidator, error) {
@@ -68,24 +70,28 @@ func (v *HMACTicketValidator) ValidateTicket(_ context.Context, ticket string) (
 		return TicketClaims{}, ErrExpiredTicket
 	}
 	return TicketClaims{
-		UserID:     payload.UserID,
-		PlayerID:   payload.PlayerID,
-		GameID:     payload.GameID,
-		Roles:      payload.Roles,
-		ViewerKind: payload.ViewerKind,
-		Protocol:   payload.Protocol,
+		UserID:      payload.UserID,
+		PlayerID:    payload.PlayerID,
+		GameID:      payload.GameID,
+		Role:        payload.Role,
+		Permissions: payload.Permissions,
+		Roles:       payload.Roles,
+		ViewerKind:  payload.ViewerKind,
+		Protocol:    payload.Protocol,
 	}, nil
 }
 
 func SignTicket(secret string, claims TicketClaims, ttl time.Duration) (string, error) {
 	payload := ticketPayload{
-		UserID:     claims.UserID,
-		PlayerID:   claims.PlayerID,
-		GameID:     claims.GameID,
-		Roles:      claims.Roles,
-		ViewerKind: claims.ViewerKind,
-		Protocol:   claims.Protocol,
-		ExpiresAt:  time.Now().Add(ttl).Unix(),
+		UserID:      claims.UserID,
+		PlayerID:    claims.PlayerID,
+		GameID:      claims.GameID,
+		Role:        claims.Role,
+		Permissions: claims.Permissions,
+		Roles:       claims.Roles,
+		ViewerKind:  claims.ViewerKind,
+		Protocol:    claims.Protocol,
+		ExpiresAt:   time.Now().Add(ttl).Unix(),
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
