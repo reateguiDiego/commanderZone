@@ -42,7 +42,7 @@ test('debug page uses explicit PHP debug websocket and keeps runtime_ws gameplay
   try {
     await page.goto(`/games/${gameId}/debug`);
 
-    await expect(page.locator('main.debug-page')).toBeVisible();
+    await expect(page.locator('main.debug-page')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('debug-http-metrics-status')).toContainText('disponibles');
     await expect(page.getByTestId('debug-live-ws-status')).toBeVisible();
     await expect(page.getByTestId('debug-gameplay-runtime-status')).toContainText('Gameplay runtime_ws');

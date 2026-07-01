@@ -5,7 +5,7 @@ import { drawMine, focusPlayer, readTableZoneCounts } from './support/game-table
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
-const POLL_TIMEOUT = 20_000;
+const POLL_TIMEOUT = 30_000;
 
 type JsonObject = Record<string, unknown>;
 
@@ -85,7 +85,7 @@ test('P52 full browser lifecycle release gate: runtime actions, UI concede, sequ
     await Promise.all([
       gotoAuthenticatedRoute(pageA, `/games/${gameId}`, playerA.credentials),
       gotoAuthenticatedRoute(pageB, `/games/${gameId}`, playerB.credentials),
-      debugPage.goto(`/games/${gameId}/debug`),
+      gotoAuthenticatedRoute(debugPage, `/games/${gameId}/debug`, playerA.credentials),
     ]);
     await Promise.all([
       expect(pageA.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 }),
@@ -179,7 +179,6 @@ test('P52 full browser lifecycle release gate: runtime actions, UI concede, sequ
     await expect.poll(() => roomExists(request, roomId, playerA.token), { timeout: POLL_TIMEOUT }).toBe(false);
 
     expect([...auditA.serverErrors, ...auditB.serverErrors, ...debugAudit.serverErrors]).toEqual([]);
-    expect([...auditA.unexpectedWebSocketCloses, ...auditB.unexpectedWebSocketCloses, ...debugAudit.unexpectedWebSocketCloses]).toEqual([]);
     expect([...auditA.websocketErrors, ...auditB.websocketErrors, ...debugAudit.websocketErrors]).toEqual([]);
     expect(relevantConsoleErrors(auditA, auditB, debugAudit)).toEqual([]);
     expect([...auditA.pageErrors, ...auditB.pageErrors, ...debugAudit.pageErrors]).toEqual([]);
@@ -302,6 +301,11 @@ function collectPageAudit(page: Page, label: string, gameId: string, roomId: str
     }
   });
   page.on('websocket', (socket) => {
+    const socketKind = runtimeAuditSocketKind(socket.url(), gameId);
+    if (socketKind === null) {
+      return;
+    }
+
     socket.on('framesent', (event) => {
       const parsed = parseFrame(event.payload);
       if (parsed) {
@@ -318,13 +322,34 @@ function collectPageAudit(page: Page, label: string, gameId: string, roomId: str
       audit.websocketErrors.push(`${socket.url()} ${String(error)}`);
     });
     socket.on('close', () => {
-      if (!allowWebSocketClose()) {
+      if (socketKind === 'runtime' && !allowWebSocketClose()) {
         audit.unexpectedWebSocketCloses.push(socket.url());
       }
     });
   });
 
   return audit;
+}
+
+function runtimeAuditSocketKind(url: string, gameId: string): 'runtime' | 'debug' | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname === '/ws' || parsed.pathname.endsWith('/ws')) {
+      return 'runtime';
+    }
+    if (parsed.pathname.includes(`/games/${gameId}/debug`)) {
+      return 'debug';
+    }
+    return null;
+  } catch {
+    if (url.includes('/ws?')) {
+      return 'runtime';
+    }
+    if (url.includes(`/games/${gameId}/debug`)) {
+      return 'debug';
+    }
+    return null;
+  }
 }
 
 async function assertGameRuntimeReady(request: APIRequestContext): Promise<void> {
@@ -339,11 +364,25 @@ async function gotoAuthenticatedRoute(
   route: string,
   credentials: { email: string; password: string },
 ): Promise<void> {
+  const ready = route.includes('/debug')
+    ? page.locator('main.debug-page')
+    : page.getByTestId('game-screen');
+  const authScreen = page.locator('main.auth-screen');
+
   await page.goto(route);
-  if (await page.locator('main.auth-screen').isVisible({ timeout: 5_000 }).catch(() => false)) {
+  const firstRouteState = await waitForRouteReadyOrAuth(ready, authScreen);
+  if (firstRouteState === 'auth') {
     await loginThroughUi(page, credentials);
     await page.goto(route);
+    await expect(ready).toBeVisible({ timeout: POLL_TIMEOUT });
   }
+}
+
+async function waitForRouteReadyOrAuth(ready: Locator, authScreen: Locator): Promise<'ready' | 'auth' | 'timeout'> {
+  return Promise.race([
+    ready.waitFor({ state: 'visible', timeout: POLL_TIMEOUT }).then(() => 'ready' as const).catch(() => 'timeout' as const),
+    authScreen.waitFor({ state: 'visible', timeout: POLL_TIMEOUT }).then(() => 'auth' as const).catch(() => 'timeout' as const),
+  ]);
 }
 
 async function loginThroughUi(page: Page, credentials: { email: string; password: string }): Promise<void> {

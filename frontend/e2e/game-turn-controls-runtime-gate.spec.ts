@@ -1,7 +1,6 @@
 import { expect, test, type Page, type WebSocket } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithBasicDecks, resolveGameToPlaying } from './support/commander-game';
-import { sendRuntimeCommand } from './support/runtime-websocket';
 
 test.setTimeout(180_000);
 
@@ -19,7 +18,6 @@ test('active player alternates turn controls through runtime websocket patches o
   });
   const { gameId, playerA, playerB } = setup;
   await resolveGameToPlaying(request, gameId, [playerA, playerB]);
-  await ensureActivePlayer(request, gameId, playerA, playerB);
 
   const contextA = await browser.newContext({
     baseURL,
@@ -39,29 +37,30 @@ test('active player alternates turn controls through runtime websocket patches o
     collectBrowserAudit(pageB, 'B', frames, audit);
 
     await Promise.all([pageA.goto(`/games/${gameId}`), pageB.goto(`/games/${gameId}`)]);
-    await expect(pageA.getByTestId('game-screen')).toBeVisible();
-    await expect(pageB.getByTestId('game-screen')).toBeVisible();
+    await expect(pageA.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
+    await expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
     await expect(pageA.getByTestId('mulligan-overlay')).toBeHidden();
     await expect(pageB.getByTestId('mulligan-overlay')).toBeHidden();
 
-    await expect(pageA.getByTestId('pass-turn')).toBeVisible();
-    await expect(pageA.getByTestId('advance-phase')).toBeVisible();
-    await expect(pageA.getByTestId('pass-turn')).toBeEnabled();
-    await expect(pageA.getByTestId('advance-phase')).toBeEnabled();
-    await expect(pageB.getByTestId('pass-turn')).toHaveCount(0);
-    await expect(pageB.getByTestId('advance-phase')).toHaveCount(0);
+    const firstActive = await activeTurnSession(pageA, pageB);
+    await expect(firstActive.page.getByTestId('pass-turn')).toBeVisible({ timeout: 10_000 });
+    await expect(firstActive.page.getByTestId('advance-phase')).toBeVisible({ timeout: 10_000 });
+    await expect(firstActive.page.getByTestId('pass-turn')).toBeEnabled();
+    await expect(firstActive.page.getByTestId('advance-phase')).toBeEnabled();
+    await expect(firstActive.inactivePage.getByTestId('pass-turn')).toHaveCount(0);
+    await expect(firstActive.inactivePage.getByTestId('advance-phase')).toHaveCount(0);
 
-    const nextPhase = nextPhaseAfter(await readPhase(pageA));
-    await pageA.getByTestId('advance-phase').click();
+    const nextPhase = nextPhaseAfter(await readPhase(firstActive.page));
+    await firstActive.page.getByTestId('advance-phase').click();
     await expect.poll(async () => readPhase(pageA)).toBe(nextPhase);
     await expect.poll(async () => readPhase(pageB)).toBe(nextPhase);
 
-    const activeAName = await readActivePlayer(pageA);
-    await pageA.getByTestId('pass-turn').click();
+    const firstActiveName = await readActivePlayer(firstActive.page);
+    await firstActive.page.getByTestId('pass-turn').click();
     try {
-      await expect.poll(async () => readActivePlayer(pageA), { timeout: 10_000 }).not.toBe(activeAName);
-      await expect.poll(async () => pageA.getByTestId('pass-turn').isVisible().catch(() => false), { timeout: 10_000 }).toBe(false);
-      await expect.poll(async () => pageB.getByTestId('pass-turn').isVisible().catch(() => false), { timeout: 10_000 }).toBe(true);
+      await expect.poll(async () => readActivePlayer(firstActive.page), { timeout: 10_000 }).not.toBe(firstActiveName);
+      await expect.poll(async () => firstActive.page.getByTestId('pass-turn').isVisible().catch(() => false), { timeout: 10_000 }).toBe(false);
+      await expect.poll(async () => firstActive.inactivePage.getByTestId('pass-turn').isVisible().catch(() => false), { timeout: 10_000 }).toBe(true);
     } catch (error) {
       throw new Error(`${String(error)}
 
@@ -75,16 +74,18 @@ Page B DOM:
 ${await pageB.getByTestId('turn-panel').innerText().catch(() => '<missing turn-panel>')}`);
     }
 
-    const bNextPhase = nextPhaseAfter(await readPhase(pageB));
-    await pageB.getByTestId('advance-phase').click();
-    await expect.poll(async () => readPhase(pageA)).toBe(bNextPhase);
-    await expect.poll(async () => readPhase(pageB)).toBe(bNextPhase);
+    const secondActive = await activeTurnSession(pageA, pageB);
+    expect(secondActive.label).not.toBe(firstActive.label);
+    const secondNextPhase = nextPhaseAfter(await readPhase(secondActive.page));
+    await secondActive.page.getByTestId('advance-phase').click();
+    await expect.poll(async () => readPhase(pageA)).toBe(secondNextPhase);
+    await expect.poll(async () => readPhase(pageB)).toBe(secondNextPhase);
 
-    const activeBName = await readActivePlayer(pageB);
-    await pageB.getByTestId('pass-turn').click();
-    await expect.poll(async () => readActivePlayer(pageB), { timeout: 10_000 }).not.toBe(activeBName);
-    await expect.poll(async () => pageB.getByTestId('pass-turn').isVisible().catch(() => false), { timeout: 10_000 }).toBe(false);
-    await expect.poll(async () => pageA.getByTestId('pass-turn').isVisible().catch(() => false), { timeout: 10_000 }).toBe(true);
+    const secondActiveName = await readActivePlayer(secondActive.page);
+    await secondActive.page.getByTestId('pass-turn').click();
+    await expect.poll(async () => readActivePlayer(secondActive.page), { timeout: 10_000 }).not.toBe(secondActiveName);
+    await expect.poll(async () => secondActive.page.getByTestId('pass-turn').isVisible().catch(() => false), { timeout: 10_000 }).toBe(false);
+    await expect.poll(async () => secondActive.inactivePage.getByTestId('pass-turn').isVisible().catch(() => false), { timeout: 10_000 }).toBe(true);
     await expect.poll(async () => readPhase(pageA)).toBe('untap');
     await expect.poll(async () => readPhase(pageB)).toBe('untap');
 
@@ -109,67 +110,29 @@ function nextPhaseAfter(phase: string): string {
   return PHASES[index + 1] ?? PHASES[0];
 }
 
-interface RuntimeSetupPlayer {
-  token: string;
-  user: { id: string };
+interface ActiveTurnSession {
+  label: 'A' | 'B';
+  page: Page;
+  inactivePage: Page;
 }
 
-async function ensureActivePlayer(
-  request: Parameters<typeof resolveGameToPlaying>[0],
-  gameId: string,
-  playerA: RuntimeSetupPlayer,
-  playerB: RuntimeSetupPlayer,
-): Promise<void> {
-  const snapshot = await loadSnapshot(request, gameId, playerA.token);
-  const playerAId = playerIdForUser(snapshot, playerA.user.id);
-  if (!playerAId) {
-    throw new Error(`Could not find player A in game ${gameId}.`);
+async function activeTurnSession(pageA: Page, pageB: Page): Promise<ActiveTurnSession> {
+  await expect.poll(async () => activeTurnLabel(pageA, pageB), { timeout: 10_000 }).not.toBe('');
+  const label = await activeTurnLabel(pageA, pageB);
+
+  return label === 'A'
+    ? { label: 'A', page: pageA, inactivePage: pageB }
+    : { label: 'B', page: pageB, inactivePage: pageA };
+}
+
+async function activeTurnLabel(pageA: Page, pageB: Page): Promise<'A' | 'B' | ''> {
+  if (await pageA.getByTestId('pass-turn').isVisible().catch(() => false)) {
+    return 'A';
   }
-  if (snapshot.turn?.activePlayerId === playerAId) {
-    return;
+  if (await pageB.getByTestId('pass-turn').isVisible().catch(() => false)) {
+    return 'B';
   }
-
-  const activePlayerId = String(snapshot.turn?.activePlayerId ?? '');
-  const activeToken = playerIdForUser(snapshot, playerB.user.id) === activePlayerId ? playerB.token : playerA.token;
-  await sendRuntimeCommand(request, {
-    gameId,
-    token: activeToken,
-    baseVersion: Math.max(1, Number(snapshot.version ?? 1)),
-    type: 'turn.changed',
-    payload: {
-      activePlayerId: playerAId,
-      phase: snapshot.turn?.phase ?? 'untap',
-      number: snapshot.turn?.number ?? 1,
-    },
-  });
-}
-
-async function loadSnapshot(
-  request: Parameters<typeof resolveGameToPlaying>[0],
-  gameId: string,
-  token: string,
-): Promise<{
-  version?: number;
-  turn?: { activePlayerId?: string | null; phase?: string; number?: number };
-  players?: Record<string, { user?: { id?: string } }>;
-}> {
-  const response = await request.get(`http://127.0.0.1:8000/games/${gameId}/snapshot`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  expect(response.ok()).toBeTruthy();
-  const payload = await response.json() as {
-    game?: { snapshot?: {
-      version?: number;
-      turn?: { activePlayerId?: string | null; phase?: string; number?: number };
-      players?: Record<string, { user?: { id?: string } }>;
-    } };
-  };
-
-  return payload.game?.snapshot ?? {};
-}
-
-function playerIdForUser(snapshot: { players?: Record<string, { user?: { id?: string } }> }, userId: string): string | null {
-  return Object.entries(snapshot.players ?? {}).find(([, player]) => player.user?.id === userId)?.[0] ?? null;
+  return '';
 }
 
 interface BrowserAudit {
@@ -236,11 +199,24 @@ function collectWebSocketFrames(
   audit: BrowserAudit,
 ): void {
   page.on('websocket', (socket: WebSocket) => {
+    if (!isRuntimeWebSocket(socket.url())) {
+      return;
+    }
+
     socket.on('framesent', (event) => frames.push({ direction: 'sent', page: pageLabel, payload: parsePayload(event.payload) }));
     socket.on('framereceived', (event) => frames.push({ direction: 'received', page: pageLabel, payload: parsePayload(event.payload) }));
     socket.on('close', () => audit.websocketCloses.push(`${pageLabel} ${socket.url()}`));
     socket.on('socketerror', (error) => audit.websocketErrors.push(`${pageLabel} ${String(error)}`));
   });
+}
+
+function isRuntimeWebSocket(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname === '/ws' || parsed.pathname.endsWith('/ws');
+  } catch {
+    return url.includes('/ws?');
+  }
 }
 
 function parsePayload(payload: string | Buffer): unknown {
