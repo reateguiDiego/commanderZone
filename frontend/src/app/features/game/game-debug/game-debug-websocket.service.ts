@@ -1,9 +1,11 @@
 import { Injectable, OnDestroy, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../core/api/games.api';
+import { GAME_DEBUG_WEBSOCKET_BASE_URL } from '../../../core/api/api.config';
 import { GameDebugHealthResponse } from '../../../core/models/api-responses.model';
+import { buildGameDebugWebsocketUrl } from './game-debug-websocket-url';
 
-export type GameDebugWebsocketStatus = 'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error';
+export type GameDebugWebsocketStatus = 'stopped' | 'connecting' | 'connected' | 'disconnected' | 'unavailable' | 'error';
 
 type GameDebugHealthPatch = Omit<GameDebugHealthResponse, 'context'>;
 
@@ -43,6 +45,7 @@ export class GameDebugWebsocketService implements OnDestroy {
   private onError: ((message: string) => void) | null = null;
 
   readonly status = signal<GameDebugWebsocketStatus>('stopped');
+  readonly displayUrl = signal<string | null>(null);
 
   ngOnDestroy(): void {
     this.disconnect();
@@ -65,6 +68,7 @@ export class GameDebugWebsocketService implements OnDestroy {
     this.onError = null;
     this.clearReconnectTimer();
     this.stopPing();
+    this.displayUrl.set(null);
 
     const socket = this.socket;
     this.socket = null;
@@ -80,10 +84,20 @@ export class GameDebugWebsocketService implements OnDestroy {
 
     let websocketUrl: string;
     try {
-      websocketUrl = this.debugWebsocketUrl((await firstValueFrom(this.gamesApi.websocketTicket(gameId))).websocketUrl, gameId);
+      const ticket = await firstValueFrom(this.gamesApi.websocketTicket(gameId));
+      const url = buildGameDebugWebsocketUrl(GAME_DEBUG_WEBSOCKET_BASE_URL, gameId, ticket.ticket);
+      if (!url) {
+        this.status.set('unavailable');
+        this.displayUrl.set(null);
+        this.emitError('Debug live WS no esta configurado. Las metricas HTTP siguen disponibles.');
+        return;
+      }
+
+      websocketUrl = url.fullUrl;
+      this.displayUrl.set(url.displayUrl);
     } catch (error) {
       this.status.set('error');
-      this.emitError('No se pudo crear el ticket WebSocket de debug.');
+      this.emitError('No se pudo crear el ticket WebSocket de debug. Las metricas HTTP siguen disponibles.');
       throw error;
     }
 
@@ -96,7 +110,7 @@ export class GameDebugWebsocketService implements OnDestroy {
       socket = new WebSocket(websocketUrl);
     } catch (error) {
       this.status.set('error');
-      this.emitError('No se pudo abrir el WebSocket de debug.');
+      this.emitError('No se pudo abrir el WebSocket de debug. Revisa GAME_WEBSOCKET_PUBLIC_URL o el proxy ws-game.');
       throw error;
     }
 
@@ -115,7 +129,7 @@ export class GameDebugWebsocketService implements OnDestroy {
     socket.onerror = () => {
       if (this.socket === socket) {
         this.status.set('error');
-        this.emitError('Error en el WebSocket de debug.');
+        this.emitError('Error en el WebSocket de debug. Revisa GAME_WEBSOCKET_PUBLIC_URL o el proxy ws-game.');
       }
     };
     socket.onclose = () => {
@@ -210,16 +224,6 @@ export class GameDebugWebsocketService implements OnDestroy {
     } else if (parsed.kind === 'debug_error') {
       this.emitError(parsed.error.message);
     }
-  }
-
-  private debugWebsocketUrl(websocketUrl: string, gameId: string): string {
-    const url = new URL(websocketUrl);
-    const basePath = url.pathname.replace(/\/games\/[^/]+\/?$/, '');
-    const nextPath = `${basePath}/games/${encodeURIComponent(gameId)}/debug`;
-    url.pathname = nextPath.replace(/\/{2,}/g, '/');
-    url.searchParams.delete('lastSeenVersion');
-
-    return url.toString();
   }
 
   private emitError(message: string): void {
