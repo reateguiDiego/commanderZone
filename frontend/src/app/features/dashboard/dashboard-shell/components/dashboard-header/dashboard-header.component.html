@@ -7,6 +7,15 @@
     </a>
 
     <nav class="nav-list" [attr.aria-label]="'navigation.dashboard.dashboardShell.primary' | runtimeTranslate">
+      @if (canAccessAdmin()) {
+        <app-tooltip [text]="'navigation.dashboard.dashboardShell.admin' | runtimeTranslate">
+          <a class="admin-nav-link" routerLink="/admin" routerLinkActive="active" [attr.aria-label]="'navigation.dashboard.dashboardShell.admin' | runtimeTranslate">
+            <span class="nav-lucide-icon" aria-hidden="true">
+              <lucide-icon name="shield-check" size="28" />
+            </span>
+          </a>
+        </app-tooltip>
+      }
       <a routerLink="/decks" routerLinkActive="active">
         <img class="nav-icon" src="/assets/icons/CZ/CZ_decks_menu.webp" width="48" height="48" alt="" aria-hidden="true" />
         <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.decks' | runtimeTranslate }}</span>
@@ -37,10 +46,15 @@
     [userAvatar]="userAvatar()"
     [userNameStyle]="userNameStyle()"
     [friendsOpen]="friendsOpen()"
+    [messagesOpen]="messagesOpen()"
     [pendingNotificationsCount]="pendingNotificationsCount()"
     [onlineFriendsCount]="onlineFriendsCount()"
+    [messagesCount]="messagesCount()"
+    [unreadMessagesCount]="unreadMessagesCount()"
     (toggleFriends)="toggleFriends.emit($event)"
+    (toggleMessages)="toggleMessages.emit($event)"
     (closeFriends)="closeFriends.emit()"
+    (closeMessages)="closeMessages.emit()"
     (logout)="logout.emit()"
   />
 </header>

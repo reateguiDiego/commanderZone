@@ -67,6 +67,7 @@ export class RouteStylesService {
     const firstSegment = path.split('/').filter(Boolean)[0];
 
     return [
+      'admin',
       'auth',
       'cards',
       'community',

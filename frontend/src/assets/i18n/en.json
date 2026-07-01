@@ -106,7 +106,9 @@
       "dashboardHeaderControls": {
         "pendingFriendRequests": "Pending friend requests",
         "onlineFriends": "Online friends",
-        "friends": "Friends"
+        "friends": "Friends",
+        "messages": "Messages",
+        "unreadMessages": "Unread messages"
       },
       "dashboardShell": {
         "commanderzoneDashboard": "CommanderZone dashboard",
@@ -115,7 +117,8 @@
         "decks": "Decks",
         "rooms": "Rooms",
         "community": "Community",
-        "tableAssistant": "Table Assistant"
+        "tableAssistant": "Table Assistant",
+        "admin": "Admin"
       }
     },
     "friends": {
@@ -147,6 +150,20 @@
         "sentRequests": "Sent",
         "disconnected": "Disconnected",
         "roomInvite": "Room invite"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "Messages",
+        "inbox": "Inbox",
+        "loadingMessages": "Loading messages...",
+        "noMessagesYet": "No messages yet.",
+        "receivedMessages": "Received messages",
+        "sentBy": "Sent by:",
+        "unread": "Unread",
+        "read": "Read",
+        "couldNotLoadMessages": "Could not load messages.",
+        "couldNotMarkMessageRead": "Could not mark the message as read."
       }
     }
   },

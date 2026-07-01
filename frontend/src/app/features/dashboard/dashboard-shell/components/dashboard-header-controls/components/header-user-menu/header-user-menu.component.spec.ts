@@ -1,5 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { Check, ChevronRight, CircleQuestionMark, LogOut, LucideAngularModule, Maximize2, Menu, Settings } from 'lucide-angular';
 import { SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
@@ -47,6 +48,7 @@ describe('HeaderUserMenuComponent', () => {
     await TestBed.configureTestingModule({
       imports: [HeaderUserMenuComponent],
       providers: [
+        provideRouter([]),
         importProvidersFrom(LucideAngularModule.pick({ Check, ChevronRight, CircleQuestionMark, LogOut, Maximize2, Menu, Settings })),
         {
           provide: LanguagePreferencesService,
@@ -138,6 +140,18 @@ describe('HeaderUserMenuComponent', () => {
 
     expect(fullscreenSpy).toHaveBeenCalledTimes(1);
     expect(fixture.nativeElement.querySelector('.header-menu-panel')).toBeNull();
+  });
+
+  it('does not render the admin option in the user menu', () => {
+    const fixture = TestBed.createComponent(HeaderUserMenuComponent);
+    fixture.detectChanges();
+
+    const trigger = fixture.nativeElement.querySelector('.icon-button') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('Admin');
+    expect(fixture.nativeElement.querySelector('a.menu-item[href="/admin"]')).toBeNull();
   });
 
   it('updates selected language from the language picker', async () => {

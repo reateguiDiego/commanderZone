@@ -21,6 +21,7 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'email-verification', renderMode: RenderMode.Client },
   { path: 'games/:id/debug', renderMode: RenderMode.Client },
   { path: 'games/:id', renderMode: RenderMode.Client },
+  { path: 'admin', renderMode: RenderMode.Client },
   { path: 'dashboard', renderMode: RenderMode.Client },
   { path: 'cards', renderMode: RenderMode.Client },
   { path: 'community', renderMode: RenderMode.Client },

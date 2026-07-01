@@ -25,8 +25,10 @@ class FriendsController extends ApiController
         $users = $entityManager->getRepository(User::class)->createQueryBuilder('user')
             ->where('LOWER(user.displayName) LIKE :query')
             ->andWhere('user != :viewer')
+            ->andWhere('LOWER(user.displayName) != :reservedDisplayName')
             ->setParameter('query', '%'.mb_strtolower($query).'%')
             ->setParameter('viewer', $user)
+            ->setParameter('reservedDisplayName', 'commanderzone')
             ->orderBy('user.displayName', 'ASC')
             ->setMaxResults(8)
             ->getQuery()
@@ -73,6 +75,10 @@ class FriendsController extends ApiController
         $recipient = $entityManager->getRepository(User::class)->find($userId);
 
         if (!$recipient instanceof User) {
+            return $this->fail('User not found.', 404);
+        }
+
+        if ($this->isCommanderZoneAccount($recipient)) {
             return $this->fail('User not found.', 404);
         }
 
@@ -226,5 +232,10 @@ class FriendsController extends ApiController
     private function friendshipStatusBetween(EntityManagerInterface $entityManager, User $first, User $second): ?string
     {
         return $this->findBetween($entityManager, $first, $second)?->status();
+    }
+
+    private function isCommanderZoneAccount(User $user): bool
+    {
+        return trim($user->displayName()) === 'CommanderZone';
     }
 }

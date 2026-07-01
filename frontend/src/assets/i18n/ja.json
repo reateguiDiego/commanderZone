@@ -106,7 +106,9 @@
       "dashboardHeaderControls": {
         "pendingFriendRequests": "保留中の友達リクエスト",
         "onlineFriends": "オンライン友達",
-        "friends": "友達"
+        "friends": "友達",
+        "messages": "メッセージ",
+        "unreadMessages": "未読メッセージ"
       },
       "dashboardShell": {
         "commanderzoneDashboard": "CommanderZone ダッシュボード",
@@ -115,7 +117,8 @@
         "decks": "デッキ",
         "rooms": "ルーム",
         "community": "コミュニティ",
-        "tableAssistant": "テーブルアシスタント"
+        "tableAssistant": "テーブルアシスタント",
+        "admin": "Admin"
       }
     },
     "friends": {
@@ -147,6 +150,20 @@
         "sentRequests": "送信済み",
         "disconnected": "切断されました",
         "roomInvite": "ルームへの招待"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "メッセージ",
+        "inbox": "受信箱",
+        "loadingMessages": "メッセージを読み込み中...",
+        "noMessagesYet": "まだメッセージはありません。",
+        "receivedMessages": "受信メッセージ",
+        "sentBy": "送信者：",
+        "unread": "未読",
+        "read": "既読",
+        "couldNotLoadMessages": "メッセージを読み込めませんでした。",
+        "couldNotMarkMessageRead": "メッセージを既読にできませんでした。"
       }
     }
   },

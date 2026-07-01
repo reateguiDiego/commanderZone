@@ -5,10 +5,16 @@
       [userAvatar]="auth.user()?.avatar"
       [userNameStyle]="auth.user()?.displayNameStyle"
       [friendsOpen]="friendsOpen()"
+      [messagesOpen]="messagesOpen()"
       [pendingNotificationsCount]="friends.pendingNotificationsCount()"
       [onlineFriendsCount]="friends.onlineFriendsCount()"
+      [messagesCount]="messages.messages().length"
+      [unreadMessagesCount]="messages.unreadCount()"
+      [canAccessAdmin]="canAccessAdmin()"
       (toggleFriends)="toggleFriends($event)"
+      (toggleMessages)="toggleMessages($event)"
       (closeFriends)="closeFriends()"
+      (closeMessages)="closeMessages()"
       (logout)="logout()"
     />
 

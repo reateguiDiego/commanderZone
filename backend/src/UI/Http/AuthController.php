@@ -15,6 +15,7 @@ use App\Application\Auth\SecurityAuditLogger;
 use App\Application\User\UserAccountDeletionService;
 use App\Domain\Auth\EmailVerificationToken;
 use App\Domain\Localization\LanguageCatalog;
+use App\Domain\User\Role;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\FriendEventPublisher;
 use App\Infrastructure\Realtime\GameEventPublisher;
@@ -187,6 +188,7 @@ class AuthController extends ApiController
 
         $user = new User($email, $displayName);
         $user->setPassword($passwordHasher->hashPassword($user, $password));
+        $user->grantRole($this->requiredRole($entityManager, Role::USER));
         $entityManager->persist($user);
         $entityManager->flush();
 
@@ -960,6 +962,16 @@ class AuthController extends ApiController
         }
 
         return $response;
+    }
+
+    private function requiredRole(EntityManagerInterface $entityManager, string $roleCode): Role
+    {
+        $role = $entityManager->getRepository(Role::class)->find($roleCode);
+        if (!$role instanceof Role) {
+            throw new \RuntimeException(sprintf('Required role "%s" is not configured.', $roleCode));
+        }
+
+        return $role;
     }
 
     private function refreshTokenFromRequest(Request $request): string

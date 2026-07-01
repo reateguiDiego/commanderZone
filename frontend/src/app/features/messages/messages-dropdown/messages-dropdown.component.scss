@@ -1,0 +1,294 @@
+:host {
+  display: block;
+}
+
+.messages-menu {
+  --messages-menu-height: min(34rem, calc(100dvh - 6rem));
+
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(42rem, calc(100vw - 1.2rem));
+  height: var(--messages-menu-height);
+  max-height: var(--messages-menu-height);
+  overflow: hidden;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 10% 0%, rgb(var(--cz-primary-rgb) / 16%), transparent 35%),
+    rgb(var(--cz-surface-rgb) / 96%);
+  box-shadow: 0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 42%);
+  color: var(--cz-text);
+}
+
+.messages-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 16%);
+}
+
+.messages-header p,
+.messages-header h2 {
+  margin: 0;
+}
+
+.messages-header p {
+  color: rgb(var(--cz-text-rgb) / 58%);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.messages-header h2 {
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+
+.messages-count,
+.message-status {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.messages-count {
+  min-width: 1.55rem;
+  height: 1.55rem;
+  padding: 0 0.4rem;
+  background: var(--cz-info);
+  color: var(--cz-on-accent);
+  font-size: 0.78rem;
+}
+
+.messages-body {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.messages-layout {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(13rem, 0.78fr) minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.messages-list {
+  display: grid;
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid rgb(var(--cz-primary-rgb) / 14%);
+}
+
+.message-row {
+  position: relative;
+  display: grid;
+  gap: 0.22rem;
+  border: 0;
+  border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 10%);
+  padding: 0.75rem 0.85rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.message-row:hover,
+.message-row.is-selected {
+  background: rgb(var(--cz-primary-rgb) / 10%);
+}
+
+.message-row.is-unread {
+  border-bottom-color: rgb(var(--cz-danger-rgb) / 40%);
+  background:
+    linear-gradient(90deg, rgb(var(--cz-danger-rgb) / 24%), rgb(var(--cz-danger-rgb) / 8%) 58%, transparent),
+    rgb(var(--cz-danger-rgb) / 8%);
+  box-shadow:
+    inset 0.22rem 0 0 var(--cz-danger),
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%),
+    0 0.7rem 1.4rem rgb(var(--cz-danger-rgb) / 12%);
+}
+
+.message-row.is-unread:hover,
+.message-row.is-unread.is-selected {
+  background:
+    linear-gradient(90deg, rgb(var(--cz-danger-rgb) / 32%), rgb(var(--cz-danger-rgb) / 13%) 62%, transparent),
+    rgb(var(--cz-danger-rgb) / 12%);
+}
+
+.message-row.is-unread .message-row-title,
+.message-row.is-unread .message-row-status {
+  color: var(--cz-text);
+  text-shadow:
+    0 0 0.65rem rgb(var(--cz-danger-rgb) / 58%),
+    0 0 1.15rem rgb(var(--cz-danger-rgb) / 32%);
+}
+
+.message-row-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: start;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.message-row-title {
+  overflow: hidden;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-row-sender {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.message-row-sender-label,
+.message-row-meta {
+  overflow: hidden;
+  color: rgb(var(--cz-text-rgb) / 58%);
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-row-sender-label {
+  color: rgb(var(--cz-text-rgb) / 68%);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.message-row.is-unread .message-row-sender-label {
+  color: var(--cz-danger);
+}
+
+.message-sender-info,
+.message-detail-sender {
+  min-width: 0;
+}
+
+.message-sender-info {
+  max-width: 100%;
+}
+
+.message-detail-sender {
+  width: min(100%, 18rem);
+}
+
+.message-detail-sender-row {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.message-detail-sender-row > span {
+  color: rgb(var(--cz-text-rgb) / 62%);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.message-detail {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.message-detail header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.message-detail h3 {
+  margin: 0;
+}
+
+.message-detail h3 {
+  font-size: 1.25rem;
+  line-height: 1.15;
+}
+
+.message-detail header p {
+  color: rgb(var(--cz-text-rgb) / 62%);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.message-status {
+  justify-self: start;
+  border: 1px solid rgb(var(--cz-success-rgb) / 38%);
+  padding: 0.18rem 0.55rem;
+  background: rgb(var(--cz-success-rgb) / 11%);
+  color: var(--cz-success);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+}
+
+.message-status.is-unread {
+  border-color: rgb(var(--cz-danger-rgb) / 42%);
+  background: rgb(var(--cz-danger-rgb) / 13%);
+  color: var(--cz-danger);
+}
+
+.message-row-status {
+  margin-top: 0.02rem;
+  padding: 0.16rem 0.46rem;
+  font-size: 0.58rem;
+  line-height: 1;
+}
+
+.message-row-status.is-unread {
+  border-color: rgb(var(--cz-danger-rgb) / 64%);
+  background:
+    radial-gradient(circle at 35% 0%, rgb(var(--cz-text-rgb) / 14%), transparent 72%),
+    rgb(var(--cz-danger-rgb) / 22%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 12%),
+    0 0 0.8rem rgb(var(--cz-danger-rgb) / 28%);
+}
+
+.messages-notice {
+  margin: 0;
+  padding: 1rem;
+  color: rgb(var(--cz-text-rgb) / 68%);
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.messages-notice.error {
+  color: var(--cz-danger);
+}
+
+@media (max-width: 720px) {
+  .messages-menu {
+    --messages-menu-height: min(38rem, calc(100dvh - 1rem));
+  }
+
+  .messages-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(8rem, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .messages-list {
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 14%);
+  }
+}

@@ -135,6 +135,7 @@ export class App {
     const firstSegment = segments[0];
 
     return [
+      'admin',
       'cards',
       'community',
       'dashboard',
@@ -153,6 +154,7 @@ export class App {
     }
 
     return [
+      'admin',
       'contact',
       'auth',
       'cards',
@@ -173,6 +175,10 @@ export class App {
     const firstSegment = segments[0];
 
     if (!firstSegment || firstSegment === 'games') {
+      return false;
+    }
+
+    if (firstSegment === 'admin') {
       return false;
     }
 

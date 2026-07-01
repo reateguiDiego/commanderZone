@@ -1,0 +1,74 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.message-body-content {
+  display: grid;
+  gap: 0.72rem;
+  color: rgb(var(--cz-text-rgb) / 82%);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+h4,
+p,
+ul,
+figure {
+  margin: 0;
+}
+
+h4 {
+  color: var(--cz-primary);
+  font-size: 0.98rem;
+  font-weight: 950;
+  line-height: 1.2;
+}
+
+ul {
+  display: grid;
+  gap: 0.32rem;
+  padding-left: 1.15rem;
+}
+
+li::marker {
+  color: var(--cz-primary);
+}
+
+a {
+  color: var(--cz-primary);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+figure {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: center;
+}
+
+img {
+  display: block;
+  width: min(100%, 20rem);
+  max-height: 13rem;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+figcaption {
+  color: rgb(var(--cz-text-rgb) / 58%);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  border: 0;
+  margin: 0.15rem 0;
+  background: rgb(var(--cz-primary-rgb) / 28%);
+}

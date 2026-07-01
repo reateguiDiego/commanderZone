@@ -4,7 +4,9 @@ namespace App\Tests\Integration;
 
 use App\Application\Auth\AuthMailer;
 use App\Application\Auth\AuthTokenService;
+use App\Domain\User\Role;
 use App\Domain\User\User;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -34,8 +36,16 @@ class AuthApiTest extends ApiTestCase
                 'chatNotificationSounds' => true,
             ],
         ], $this->jsonResponse()['user']['preferences']);
+        self::assertSame(['ROLE_USER'], $this->jsonResponse()['user']['roles']);
+        self::assertSame('none', $this->jsonResponse()['user']['premiumTier']);
         self::assertArrayHasKey('createdAt', $this->jsonResponse()['user']);
         self::assertArrayHasKey('updatedAt', $this->jsonResponse()['user']);
+
+        $roles = $this->entityManager->getConnection()->fetchFirstColumn(
+            'SELECT role_code FROM app_user_role WHERE user_id = :userId ORDER BY role_code',
+            ['userId' => $this->jsonResponse()['user']['id']]
+        );
+        self::assertSame([Role::USER], $roles);
 
         $this->jsonRequest('PATCH', '/me', ['displayName' => 'Taken Name'], $token);
         self::assertResponseStatusCodeSame(409);
@@ -135,6 +145,26 @@ class AuthApiTest extends ApiTestCase
             'password' => 'Password123!',
         ]);
         self::assertResponseStatusCodeSame(409);
+    }
+
+    public function testDatabaseAllowsOnlyOneOwnerRole(): void
+    {
+        $firstToken = $this->registerAndLogin('owner-one@example.test', 'Owner One');
+        $secondToken = $this->registerAndLogin('owner-two@example.test', 'Owner Two');
+        $firstUserId = $this->currentUserId($firstToken);
+        $secondUserId = $this->currentUserId($secondToken);
+
+        $connection = $this->entityManager->getConnection();
+        $connection->executeStatement(
+            'INSERT INTO app_user_role (user_id, role_code) VALUES (:userId, :roleCode)',
+            ['userId' => $firstUserId, 'roleCode' => Role::OWNER]
+        );
+
+        $this->expectException(UniqueConstraintViolationException::class);
+        $connection->executeStatement(
+            'INSERT INTO app_user_role (user_id, role_code) VALUES (:userId, :roleCode)',
+            ['userId' => $secondUserId, 'roleCode' => Role::OWNER]
+        );
     }
 
     public function testEmailAvailability(): void

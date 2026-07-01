@@ -7,6 +7,7 @@ type AppShellTextKey =
   | 'headerMenu'
   | 'userMenu'
   | 'settings'
+  | 'admin'
   | 'fullscreen'
   | 'language'
   | 'languageOptions'
@@ -34,6 +35,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'Header menu',
     userMenu: 'User menu',
     settings: 'Settings',
+    admin: 'Admin',
     fullscreen: 'Fullscreen',
     language: 'Language',
     languageOptions: 'Language options',
@@ -60,6 +62,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'Menú superior',
     userMenu: 'Menú de usuario',
     settings: 'Configuración',
+    admin: 'Admin',
     fullscreen: 'Pantalla completa',
     language: 'Idioma',
     languageOptions: 'Opciones de idioma',
@@ -86,6 +89,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'Kopfzeilenmenü',
     userMenu: 'Benutzermenü',
     settings: 'Einstellungen',
+    admin: 'Admin',
     fullscreen: 'Vollbild',
     language: 'Sprache',
     languageOptions: 'Sprachoptionen',
@@ -112,6 +116,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'Menu d’en-tête',
     userMenu: 'Menu utilisateur',
     settings: 'Paramètres',
+    admin: 'Admin',
     fullscreen: 'Plein écran',
     language: 'Langue',
     languageOptions: 'Options de langue',
@@ -138,6 +143,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'Menu intestazione',
     userMenu: 'Menu utente',
     settings: 'Impostazioni',
+    admin: 'Admin',
     fullscreen: 'Schermo intero',
     language: 'Lingua',
     languageOptions: 'Opzioni lingua',
@@ -164,6 +170,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'Menu do cabeçalho',
     userMenu: 'Menu do usuário',
     settings: 'Configurações',
+    admin: 'Admin',
     fullscreen: 'Tela cheia',
     language: 'Idioma',
     languageOptions: 'Opções de idioma',
@@ -190,6 +197,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'ヘッダーメニュー',
     userMenu: 'ユーザーメニュー',
     settings: '設定',
+    admin: 'Admin',
     fullscreen: '全画面',
     language: '言語',
     languageOptions: '言語オプション',
@@ -216,6 +224,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: '页眉菜单',
     userMenu: '用户菜单',
     settings: '设置',
+    admin: 'Admin',
     fullscreen: '全屏',
     language: '语言',
     languageOptions: '语言选项',
@@ -242,6 +251,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'Headermenu',
     userMenu: 'Gebruikersmenu',
     settings: 'Instellingen',
+    admin: 'Admin',
     fullscreen: 'Volledig scherm',
     language: 'Taal',
     languageOptions: 'Taalopties',
@@ -268,6 +278,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'Menú superior',
     userMenu: 'Menú d’usuari',
     settings: 'Configuració',
+    admin: 'Admin',
     fullscreen: 'Pantalla completa',
     language: 'Idioma',
     languageOptions: 'Opcions d’idioma',
@@ -294,6 +305,7 @@ const APP_SHELL_TEXTS = {
     headerMenu: 'Меню заголовка',
     userMenu: 'Меню пользователя',
     settings: 'Настройки',
+    admin: 'Admin',
     fullscreen: 'Полный экран',
     language: 'Язык',
     languageOptions: 'Настройки языка',

@@ -106,7 +106,9 @@
       "dashboardHeaderControls": {
         "pendingFriendRequests": "Ожидаемые запросы на добавление в друзья",
         "onlineFriends": "Друзья онлайн",
-        "friends": "Друзья"
+        "friends": "Друзья",
+        "messages": "Сообщения",
+        "unreadMessages": "Непрочитанные сообщения"
       },
       "dashboardShell": {
         "commanderzoneDashboard": "Панель CommanderZone",
@@ -115,7 +117,8 @@
         "decks": "Колоды",
         "rooms": "Комнаты",
         "community": "Сообщество",
-        "tableAssistant": "Помощник стола"
+        "tableAssistant": "Помощник стола",
+        "admin": "Admin"
       }
     },
     "friends": {
@@ -147,6 +150,20 @@
         "sentRequests": "Отправил",
         "disconnected": "Отключено",
         "roomInvite": "Приглашение в комнату"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "Сообщения",
+        "inbox": "Входящие",
+        "loadingMessages": "Загрузка сообщений...",
+        "noMessagesYet": "Сообщений пока нет.",
+        "receivedMessages": "Входящие сообщения",
+        "sentBy": "Отправитель:",
+        "unread": "Непрочитано",
+        "read": "Прочитано",
+        "couldNotLoadMessages": "Не удалось загрузить сообщения.",
+        "couldNotMarkMessageRead": "Не удалось отметить сообщение как прочитанное."
       }
     }
   },

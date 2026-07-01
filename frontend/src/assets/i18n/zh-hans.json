@@ -106,7 +106,9 @@
       "dashboardHeaderControls": {
         "pendingFriendRequests": "待处理的好友请求",
         "onlineFriends": "在线好友",
-        "friends": "好友"
+        "friends": "好友",
+        "messages": "消息",
+        "unreadMessages": "未读消息"
       },
       "dashboardShell": {
         "commanderzoneDashboard": "CommanderZone 面板",
@@ -115,7 +117,8 @@
         "decks": "套牌",
         "rooms": "房间",
         "community": "社区",
-        "tableAssistant": "桌面助手"
+        "tableAssistant": "桌面助手",
+        "admin": "Admin"
       }
     },
     "friends": {
@@ -147,6 +150,20 @@
         "sentRequests": "发送",
         "disconnected": "已断开连接",
         "roomInvite": "房间邀请"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "消息",
+        "inbox": "收件箱",
+        "loadingMessages": "正在加载消息...",
+        "noMessagesYet": "暂无消息。",
+        "receivedMessages": "收到的消息",
+        "sentBy": "发送者：",
+        "unread": "未读",
+        "read": "已读",
+        "couldNotLoadMessages": "无法加载消息。",
+        "couldNotMarkMessageRead": "无法将消息标记为已读。"
       }
     }
   },

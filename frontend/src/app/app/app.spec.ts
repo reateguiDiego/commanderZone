@@ -38,6 +38,7 @@ describe('App', () => {
           { path: 'en/play-commander-online', component: EmptyRouteComponent },
           { path: 'auth/login', component: EmptyRouteComponent },
           { path: 'auth/register', component: EmptyRouteComponent },
+          { path: 'admin', component: EmptyRouteComponent },
           { path: 'cards', component: EmptyRouteComponent },
           { path: 'community', component: EmptyRouteComponent },
           { path: 'contact', component: EmptyRouteComponent },
@@ -122,6 +123,11 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain('CommanderZone is unofficial Fan Content');
+
+    await router.navigateByUrl('/admin');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
 
     await router.navigateByUrl('/decks');
     fixture.detectChanges();

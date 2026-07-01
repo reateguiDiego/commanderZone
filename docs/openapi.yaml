@@ -9,14 +9,178 @@ servers:
 security:
   - bearerAuth: []
 tags:
+  - name: Admin
   - name: Auth
   - name: Friends
+  - name: Messages
   - name: Cards
   - name: DeckFolders
   - name: Decks
   - name: Rooms
   - name: Games
 paths:
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: List users for the admin panel.
+      responses:
+        '200':
+          description: Admin users list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminUser'
+        '403':
+          $ref: '#/components/responses/Error'
+  /admin/users/{id}:
+    patch:
+      tags: [Admin]
+      summary: Update a user's authorization role or premium tier.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserUpdateRequest'
+      responses:
+        '200':
+          description: Updated admin user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [Admin]
+      summary: Delete a user from the admin panel.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: User deleted.
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /admin/users/{id}/sessions/revoke:
+    post:
+      tags: [Admin]
+      summary: Revoke all active refresh sessions for a user.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Sessions revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /admin/users/{id}/rooms/leave:
+    post:
+      tags: [Admin]
+      summary: Remove a user from every active room they own or joined.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User removed from rooms.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /admin/messages:
+    post:
+      tags: [Admin]
+      summary: Send an admin message to one user or every user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminMessageSendRequest'
+      responses:
+        '201':
+          description: Message accepted for delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMessageSendResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /admin/reports:
+    get:
+      tags: [Admin]
+      summary: List user reports for the admin panel.
+      responses:
+        '200':
+          description: Admin reports list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportsResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+  /messages:
+    get:
+      tags: [Messages]
+      summary: List messages received by the authenticated user.
+      responses:
+        '200':
+          description: Received messages.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagesResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+  /messages/{id}/read:
+    post:
+      tags: [Messages]
+      summary: Mark one received message as read.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Updated message.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /landing/preview:
     get:
       tags: [Landing]
@@ -2669,6 +2833,13 @@ components:
       schema:
         type: string
         format: uuid
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ScryfallId:
       name: scryfallId
       in: path
@@ -3405,7 +3576,7 @@ components:
           pattern: '^#[0-9a-fA-F]{6}$'
     User:
       type: object
-      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, preferences, roles, avatar, createdAt, updatedAt]
+      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, preferences, roles, premiumTier, avatar, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -3429,6 +3600,9 @@ components:
           type: array
           items:
             type: string
+        premiumTier:
+          type: string
+          enum: [none, tier1, tier2, tier3]
         avatar:
           $ref: '#/components/schemas/UserAvatar'
         createdAt:
@@ -3437,6 +3611,173 @@ components:
         updatedAt:
           type: string
           format: date-time
+    AdminUser:
+      type: object
+      required: [id, displayName, email, roles, authorizationRole, premiumTier, lastConnectedAt, presenceStatus, isOnline, activeRoomsCount, activeSessionsCount, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          maxLength: 20
+        email:
+          type: string
+          format: email
+        roles:
+          type: array
+          items:
+            type: string
+        authorizationRole:
+          type: string
+          enum: [ROLE_USER, ROLE_ADMIN, ROLE_OWNER]
+        premiumTier:
+          type: string
+          enum: [none, tier1, tier2, tier3]
+        lastConnectedAt:
+          type: [string, 'null']
+          format: date-time
+        presenceStatus:
+          type: string
+          enum: [online, in_game, offline]
+        isOnline:
+          type: boolean
+        activeRoomsCount:
+          type: integer
+          minimum: 0
+        activeSessionsCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+    AdminUserResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: '#/components/schemas/AdminUser'
+    AdminUserUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        authorizationRole:
+          type: string
+          enum: [ROLE_USER, ROLE_ADMIN, ROLE_OWNER]
+        premiumTier:
+          type: string
+          enum: [none, tier1, tier2, tier3]
+    AdminMessageSendRequest:
+      type: object
+      required: [recipientId, subject, body]
+      properties:
+        recipientId:
+          type: string
+          description: Use `all` to send to every user, otherwise a user UUID.
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 30
+        body:
+          type: string
+          minLength: 1
+          maxLength: 200000
+    AdminMessageSendResponse:
+      type: object
+      required: [sent]
+      properties:
+        sent:
+          type: integer
+          minimum: 0
+    MessageSender:
+      type: object
+      required: [id, displayName, displayNameStyle, avatar]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        displayNameStyle:
+          $ref: '#/components/schemas/UserDisplayNameStyle'
+        avatar:
+          $ref: '#/components/schemas/UserAvatar'
+    UserMessage:
+      type: object
+      required: [id, sender, subject, body, createdAt, readAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender:
+          $ref: '#/components/schemas/MessageSender'
+        subject:
+          type: string
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: [string, 'null']
+          format: date-time
+    MessagesResponse:
+      type: object
+      required: [data, unreadCount]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserMessage'
+        unreadCount:
+          type: integer
+          minimum: 0
+    MessageResponse:
+      type: object
+      required: [message, unreadCount]
+      properties:
+        message:
+          $ref: '#/components/schemas/UserMessage'
+        unreadCount:
+          type: integer
+          minimum: 0
+    AdminReportUser:
+      type: object
+      required: [id, displayName, email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+    AdminUserReport:
+      type: object
+      required: [id, reporter, reportedUser, reason, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        reporter:
+          $ref: '#/components/schemas/AdminReportUser'
+        reportedUser:
+          $ref: '#/components/schemas/AdminReportUser'
+        reason:
+          type: string
+          maxLength: 255
+        createdAt:
+          type: string
+          format: date-time
+    AdminReportsResponse:
+      type: object
+      required: [reports]
+      properties:
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUserReport'
     UserPreferences:
       type: object
       required: [cardLanguage, appLanguage, themeId, game]

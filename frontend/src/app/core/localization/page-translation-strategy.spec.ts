@@ -33,6 +33,7 @@ describe('page translation strategy manifest', () => {
     'contact',
     'app',
     'dashboard',
+    'admin',
     'cards',
     'cardDetail',
     'community',

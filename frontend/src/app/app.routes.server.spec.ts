@@ -64,6 +64,7 @@ describe('server routes', () => {
       'contact',
       'games/:id/debug',
       'games/:id',
+      'admin',
       'dashboard',
       'cards',
       'community',

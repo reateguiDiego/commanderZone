@@ -106,7 +106,9 @@
       "dashboardHeaderControls": {
         "pendingFriendRequests": "Solicitações de amizade pendentes",
         "onlineFriends": "Amigos on-line",
-        "friends": "Amigos"
+        "friends": "Amigos",
+        "messages": "Mensagens",
+        "unreadMessages": "Mensagens não lidas"
       },
       "dashboardShell": {
         "commanderzoneDashboard": "Painel CommanderZone",
@@ -115,7 +117,8 @@
         "decks": "Decks",
         "rooms": "Salas",
         "community": "Comunidade",
-        "tableAssistant": "Assistente de mesa"
+        "tableAssistant": "Assistente de mesa",
+        "admin": "Admin"
       }
     },
     "friends": {
@@ -147,6 +150,20 @@
         "sentRequests": "Enviado",
         "disconnected": "Desconectado",
         "roomInvite": "Convite para sala"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "Mensagens",
+        "inbox": "Caixa de entrada",
+        "loadingMessages": "Carregando mensagens...",
+        "noMessagesYet": "Ainda não há mensagens.",
+        "receivedMessages": "Mensagens recebidas",
+        "sentBy": "Enviado por:",
+        "unread": "Não lida",
+        "read": "Lida",
+        "couldNotLoadMessages": "Não foi possível carregar as mensagens.",
+        "couldNotMarkMessageRead": "Não foi possível marcar a mensagem como lida."
       }
     }
   },

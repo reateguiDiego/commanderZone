@@ -106,7 +106,9 @@
       "dashboardHeaderControls": {
         "pendingFriendRequests": "Vriendschapsverzoeken in behandeling",
         "onlineFriends": "Onlinevrienden",
-        "friends": "Vrienden"
+        "friends": "Vrienden",
+        "messages": "Berichten",
+        "unreadMessages": "Ongelezen berichten"
       },
       "dashboardShell": {
         "commanderzoneDashboard": "CommanderZone-dashboard",
@@ -115,7 +117,8 @@
         "decks": "Decks",
         "rooms": "Kamers",
         "community": "Gemeenschap",
-        "tableAssistant": "Tafelassistent"
+        "tableAssistant": "Tafelassistent",
+        "admin": "Admin"
       }
     },
     "friends": {
@@ -147,6 +150,20 @@
         "sentRequests": "Verzonden",
         "disconnected": "Verbinding verbroken",
         "roomInvite": "Kamer uitnodigen"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "Berichten",
+        "inbox": "Postvak IN",
+        "loadingMessages": "Berichten laden...",
+        "noMessagesYet": "Nog geen berichten.",
+        "receivedMessages": "Ontvangen berichten",
+        "sentBy": "Verzonden door:",
+        "unread": "Ongelezen",
+        "read": "Gelezen",
+        "couldNotLoadMessages": "Berichten konden niet worden geladen.",
+        "couldNotMarkMessageRead": "Het bericht kon niet als gelezen worden gemarkeerd."
       }
     }
   },

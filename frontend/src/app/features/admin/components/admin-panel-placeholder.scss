@@ -1,0 +1,17 @@
+:host {
+  display: block;
+}
+
+.admin-panel-placeholder {
+  display: grid;
+  gap: 0.6rem;
+}
+
+h2 {
+  margin: 0;
+  color: var(--cz-text);
+  font-size: clamp(2.5rem, 7vw, 5.25rem);
+  font-weight: 1000;
+  line-height: 0.92;
+  overflow-wrap: anywhere;
+}

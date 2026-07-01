@@ -3,6 +3,8 @@
 namespace App\Domain\User;
 
 use App\Domain\Localization\LanguageCatalog;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -14,6 +16,11 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_user_display_name', columns: ['display_name'])]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    public const PREMIUM_TIER_NONE = 'none';
+    public const PREMIUM_TIER_1 = 'tier1';
+    public const PREMIUM_TIER_2 = 'tier2';
+    public const PREMIUM_TIER_3 = 'tier3';
+
     private const DEFAULT_INITIAL_BACKGROUND_COLOR = '#edcd83';
     private const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
     private const DEFAULT_DISPLAY_NAME_STYLE_PRESET = 'plain';
@@ -43,8 +50,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string')]
     private string $password;
 
-    #[ORM\Column(type: 'json')]
-    private array $roles = ['ROLE_USER'];
+    #[ORM\ManyToMany(targetEntity: Role::class)]
+    #[ORM\JoinTable(name: 'app_user_role')]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    #[ORM\InverseJoinColumn(name: 'role_code', referencedColumnName: 'code', nullable: false, onDelete: 'CASCADE')]
+    private Collection $roles;
+
+    #[ORM\Column(type: 'string', length: 16)]
+    private string $premiumTier = self::PREMIUM_TIER_NONE;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
@@ -104,6 +117,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->displayName = trim($displayName);
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = $this->createdAt;
+        $this->roles = new ArrayCollection();
     }
 
     public function id(): string
@@ -200,7 +214,45 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getRoles(): array
     {
-        return array_values(array_unique([...$this->roles, 'ROLE_USER']));
+        $roles = [Role::USER];
+        foreach ($this->roles as $role) {
+            if ($role instanceof Role) {
+                $roles[] = $role->code();
+            }
+        }
+
+        return array_values(array_unique($roles));
+    }
+
+    public function grantRole(Role $role): void
+    {
+        foreach ($this->roles as $currentRole) {
+            if ($currentRole instanceof Role && $currentRole->code() === $role->code()) {
+                return;
+            }
+        }
+
+        $this->roles->add($role);
+        $this->touch();
+    }
+
+    public function revokeRole(string $roleCode): void
+    {
+        foreach ($this->roles as $role) {
+            if (!$role instanceof Role || $role->code() !== $roleCode) {
+                continue;
+            }
+
+            $this->roles->removeElement($role);
+            $this->touch();
+
+            return;
+        }
+    }
+
+    public function hasRole(string $roleCode): bool
+    {
+        return in_array($roleCode, $this->getRoles(), true);
     }
 
     public function eraseCredentials(): void
@@ -215,6 +267,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function lastSeenAt(): ?\DateTimeImmutable
     {
         return $this->lastSeenAt;
+    }
+
+    public function createdAt(): \DateTimeImmutable
+    {
+        return $this->createdAt;
     }
 
     public function markSeen(?\DateTimeImmutable $seenAt = null): void
@@ -312,6 +369,43 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->themeId;
     }
 
+    public function premiumTier(): string
+    {
+        return $this->premiumTier;
+    }
+
+    public function updatePremiumTier(string $premiumTier): void
+    {
+        if (!self::isSupportedPremiumTier($premiumTier)) {
+            throw new \InvalidArgumentException('Unsupported premium tier.');
+        }
+
+        if ($this->premiumTier === $premiumTier) {
+            return;
+        }
+
+        $this->premiumTier = $premiumTier;
+        $this->touch();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function supportedPremiumTiers(): array
+    {
+        return [
+            self::PREMIUM_TIER_NONE,
+            self::PREMIUM_TIER_1,
+            self::PREMIUM_TIER_2,
+            self::PREMIUM_TIER_3,
+        ];
+    }
+
+    public static function isSupportedPremiumTier(string $premiumTier): bool
+    {
+        return in_array($premiumTier, self::supportedPremiumTiers(), true);
+    }
+
     public function updateCardLanguage(string $language): void
     {
         if (!LanguageCatalog::isSupportedCardLanguage($language)) {
@@ -396,6 +490,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 'game' => $this->gamePreferences(),
             ],
             'roles' => $this->getRoles(),
+            'premiumTier' => $this->premiumTier,
             'avatar' => $this->avatar(),
             'createdAt' => $this->createdAt->format(DATE_ATOM),
             'updatedAt' => $this->updatedAt->format(DATE_ATOM),

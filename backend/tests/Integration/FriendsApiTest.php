@@ -104,6 +104,20 @@ class FriendsApiTest extends ApiTestCase
         self::assertSame([], $this->jsonResponse()['data']);
     }
 
+    public function testCommanderZoneAccountIsHiddenFromFriendSearchAndRequests(): void
+    {
+        $aliceToken = $this->registerAndLogin('alice-reserved-friend@example.test', 'Alice Reserved Friend');
+        $commanderZoneToken = $this->registerAndLogin('commanderzone-friend@example.test', 'CommanderZone');
+        $commanderZoneId = $this->currentUserId($commanderZoneToken);
+
+        $this->jsonRequest('GET', '/friends/search?q=CommanderZone', token: $aliceToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->jsonResponse()['data']);
+
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $commanderZoneId], $aliceToken);
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function testAcceptedFriendsCanBeInvitedToWaitingRooms(): void
     {
         $this->seedCard('bbbbbbbb-0000-7000-8000-000000000001', 'Commander Invite', [

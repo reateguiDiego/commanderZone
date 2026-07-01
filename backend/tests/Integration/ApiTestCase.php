@@ -182,6 +182,10 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureDeckValidityColumn($connection);
         $this->ensureRoomMulliganColumns($connection);
         $this->ensureUserThemeColumn($connection);
+        $this->ensureUserRoleTables($connection);
+        $this->ensureUserPremiumTierColumn($connection);
+        $this->ensureUserMessageTable($connection);
+        $this->ensureUserReportTable($connection);
 
         $tables = [
             'game_debug_health',
@@ -190,6 +194,8 @@ abstract class ApiTestCase extends WebTestCase
             'refresh_session',
             'email_verification_token',
             'password_reset_token',
+            'user_message',
+            'user_report',
             'table_assistant_room',
             'room_invite',
             'friendship',
@@ -202,6 +208,7 @@ abstract class ApiTestCase extends WebTestCase
             'deck_card',
             'deck',
             'deck_folder',
+            'app_user_role',
             'card_search_entry',
             'card_search_option',
             'card_search_set_option',
@@ -221,6 +228,7 @@ abstract class ApiTestCase extends WebTestCase
         }
 
         $connection->executeStatement('TRUNCATE '.implode(', ', $existingTables).' RESTART IDENTITY CASCADE');
+        $this->seedBaseRoles($connection);
     }
 
     private function ensureCardImageStatusColumn(Connection $connection): void
@@ -364,6 +372,171 @@ SQL,
 
         $connection->executeStatement("ALTER TABLE app_user ADD COLUMN theme_id VARCHAR(48) NOT NULL DEFAULT 'sunrise'");
         $connection->executeStatement('ALTER TABLE app_user ALTER COLUMN theme_id DROP DEFAULT');
+    }
+
+    private function ensureUserRoleTables(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        if (!$schemaManager->tablesExist(['app_role'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE app_role (
+    code VARCHAR(32) NOT NULL,
+    label VARCHAR(80) NOT NULL,
+    PRIMARY KEY(code)
+)
+SQL,
+            );
+        }
+
+        if (!$schemaManager->tablesExist(['app_user_role'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE app_user_role (
+    user_id VARCHAR(36) NOT NULL,
+    role_code VARCHAR(32) NOT NULL,
+    PRIMARY KEY(user_id, role_code)
+)
+SQL,
+            );
+            $connection->executeStatement('CREATE INDEX IDX_APP_USER_ROLE_USER ON app_user_role (user_id)');
+            $connection->executeStatement('CREATE INDEX IDX_APP_USER_ROLE_ROLE ON app_user_role (role_code)');
+            $connection->executeStatement('ALTER TABLE app_user_role ADD CONSTRAINT FK_APP_USER_ROLE_USER FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
+            $connection->executeStatement('ALTER TABLE app_user_role ADD CONSTRAINT FK_APP_USER_ROLE_ROLE FOREIGN KEY (role_code) REFERENCES app_role (code) ON DELETE CASCADE');
+        }
+
+        $connection->executeStatement("CREATE UNIQUE INDEX IF NOT EXISTS uniq_single_owner ON app_user_role (role_code) WHERE role_code = 'ROLE_OWNER'");
+        $this->seedBaseRoles($connection);
+        $this->migrateLegacyUserRolesColumn($connection);
+    }
+
+    private function ensureUserPremiumTierColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('app_user'),
+        );
+        if (!in_array('premium_tier', $columns, true)) {
+            $connection->executeStatement("ALTER TABLE app_user ADD COLUMN premium_tier VARCHAR(16) NOT NULL DEFAULT 'none'");
+        }
+    }
+
+    private function ensureUserMessageTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if ($schemaManager->tablesExist(['user_message']) || !$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE user_message (
+    id VARCHAR(36) NOT NULL,
+    sender_id VARCHAR(36) NOT NULL,
+    recipient_id VARCHAR(36) NOT NULL,
+    subject VARCHAR(120) NOT NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    read_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
+    PRIMARY KEY(id)
+)
+SQL,
+        );
+        $connection->executeStatement('CREATE INDEX idx_user_message_recipient_created ON user_message (recipient_id, created_at)');
+        $connection->executeStatement('CREATE INDEX idx_user_message_recipient_read ON user_message (recipient_id, read_at)');
+        $connection->executeStatement('CREATE INDEX IDX_USER_MESSAGE_SENDER ON user_message (sender_id)');
+        $connection->executeStatement('ALTER TABLE user_message ADD CONSTRAINT FK_USER_MESSAGE_SENDER FOREIGN KEY (sender_id) REFERENCES app_user (id) ON DELETE CASCADE');
+        $connection->executeStatement('ALTER TABLE user_message ADD CONSTRAINT FK_USER_MESSAGE_RECIPIENT FOREIGN KEY (recipient_id) REFERENCES app_user (id) ON DELETE CASCADE');
+    }
+
+    private function ensureUserReportTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if ($schemaManager->tablesExist(['user_report']) || !$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE user_report (
+    id VARCHAR(36) NOT NULL,
+    reporter_id VARCHAR(36) NOT NULL,
+    reported_user_id VARCHAR(36) NOT NULL,
+    reason VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY(id)
+)
+SQL,
+        );
+        $connection->executeStatement('CREATE INDEX idx_user_report_created ON user_report (created_at)');
+        $connection->executeStatement('CREATE INDEX idx_user_report_reported_user ON user_report (reported_user_id)');
+        $connection->executeStatement('CREATE INDEX IDX_USER_REPORT_REPORTER ON user_report (reporter_id)');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT FK_USER_REPORT_REPORTER FOREIGN KEY (reporter_id) REFERENCES app_user (id) ON DELETE CASCADE');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT FK_USER_REPORT_REPORTED_USER FOREIGN KEY (reported_user_id) REFERENCES app_user (id) ON DELETE CASCADE');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT chk_user_report_distinct_users CHECK (reporter_id <> reported_user_id)');
+    }
+
+    private function seedBaseRoles(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_role'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+INSERT INTO app_role (code, label) VALUES
+    ('ROLE_USER', 'User'),
+    ('ROLE_ADMIN', 'Admin'),
+    ('ROLE_OWNER', 'Owner')
+ON CONFLICT (code) DO UPDATE SET label = EXCLUDED.label
+SQL,
+        );
+    }
+
+    private function migrateLegacyUserRolesColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user', 'app_user_role'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('app_user'),
+        );
+        if (!in_array('roles', $columns, true)) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+INSERT INTO app_user_role (user_id, role_code)
+SELECT DISTINCT app_user.id, role.value
+FROM app_user
+CROSS JOIN LATERAL json_array_elements_text(app_user.roles) AS role(value)
+JOIN app_role ON app_role.code = role.value
+ON CONFLICT DO NOTHING
+SQL,
+        );
+        $connection->executeStatement(
+            <<<'SQL'
+INSERT INTO app_user_role (user_id, role_code)
+SELECT id, 'ROLE_USER'
+FROM app_user
+ON CONFLICT DO NOTHING
+SQL,
+        );
+        $connection->executeStatement('ALTER TABLE app_user DROP COLUMN roles');
     }
 
     private function ensureCardPrintTables(Connection $connection): void

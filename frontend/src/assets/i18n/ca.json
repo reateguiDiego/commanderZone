@@ -106,7 +106,9 @@
       "dashboardHeaderControls": {
         "pendingFriendRequests": "Sol·licituds d'amistat pendents",
         "onlineFriends": "Amics en línia",
-        "friends": "Amics"
+        "friends": "Amics",
+        "messages": "Missatges",
+        "unreadMessages": "Missatges sense llegir"
       },
       "dashboardShell": {
         "commanderzoneDashboard": "CommanderZone quadre de comandament",
@@ -115,7 +117,8 @@
         "decks": "Baralles",
         "rooms": "Sales",
         "community": "Comunitat",
-        "tableAssistant": "Assistent de taula"
+        "tableAssistant": "Assistent de taula",
+        "admin": "Admin"
       }
     },
     "friends": {
@@ -147,6 +150,20 @@
         "sentRequests": "Enviat",
         "disconnected": "Desconnectat",
         "roomInvite": "Invitació de sala"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "Missatges",
+        "inbox": "Safata d’entrada",
+        "loadingMessages": "Carregant missatges...",
+        "noMessagesYet": "Encara no tens missatges.",
+        "receivedMessages": "Missatges rebuts",
+        "sentBy": "Enviat per:",
+        "unread": "Sense llegir",
+        "read": "Llegit",
+        "couldNotLoadMessages": "No s’han pogut carregar els missatges.",
+        "couldNotMarkMessageRead": "No s’ha pogut marcar el missatge com a llegit."
       }
     }
   },

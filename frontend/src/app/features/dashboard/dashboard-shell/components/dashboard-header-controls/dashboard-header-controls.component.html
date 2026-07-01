@@ -39,6 +39,31 @@
     </div>
   }
 
+  @if (messagesCount() > 0) {
+    <div class="messages-dropdown" [class.open]="messagesOpen()" (click)="$event.stopPropagation()">
+      <app-tooltip [text]="'navigation.dashboard.dashboardHeaderControls.messages' | runtimeTranslate">
+        <button
+          czButton="icon"
+          class="icon-button messages-action"
+          [class.has-notifications]="!messagesOpen() && unreadMessagesCount() > 0"
+          type="button"
+          [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.messages' | runtimeTranslate"
+          [attr.aria-expanded]="messagesOpen()"
+          (click)="toggleMessagesDropdown($event)"
+        >
+          <lucide-icon name="message-square" size="18" />
+          @if (!messagesOpen() && unreadMessagesCount() > 0) {
+            <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.unreadMessages' | runtimeTranslate">{{ unreadMessagesCount() }}</span>
+          }
+        </button>
+      </app-tooltip>
+
+      @if (messagesOpen()) {
+        <app-messages-dropdown />
+      }
+    </div>
+  }
+
   <app-header-user-menu
     (menuOpened)="handleUserMenuOpened()"
     (settingsSelected)="openSettings()"

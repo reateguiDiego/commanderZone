@@ -106,7 +106,9 @@
       "dashboardHeaderControls": {
         "pendingFriendRequests": "Ausstehende Freundschaftsanfragen",
         "onlineFriends": "Online-Freunde",
-        "friends": "Freunde"
+        "friends": "Freunde",
+        "messages": "Nachrichten",
+        "unreadMessages": "Ungelesene Nachrichten"
       },
       "dashboardShell": {
         "commanderzoneDashboard": "CommanderZone-Dashboard",
@@ -115,7 +117,8 @@
         "decks": "Decks",
         "rooms": "Räume",
         "community": "Community",
-        "tableAssistant": "Tischassistent"
+        "tableAssistant": "Tischassistent",
+        "admin": "Admin"
       }
     },
     "friends": {
@@ -147,6 +150,20 @@
         "sentRequests": "Gesendet",
         "disconnected": "Nicht verbunden",
         "roomInvite": "Raumeinladung"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "Nachrichten",
+        "inbox": "Posteingang",
+        "loadingMessages": "Nachrichten werden geladen...",
+        "noMessagesYet": "Noch keine Nachrichten.",
+        "receivedMessages": "Empfangene Nachrichten",
+        "sentBy": "Gesendet von:",
+        "unread": "Ungelesen",
+        "read": "Gelesen",
+        "couldNotLoadMessages": "Nachrichten konnten nicht geladen werden.",
+        "couldNotMarkMessageRead": "Die Nachricht konnte nicht als gelesen markiert werden."
       }
     }
   },

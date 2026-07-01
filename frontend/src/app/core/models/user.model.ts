@@ -42,6 +42,7 @@ export interface User {
   displayName: string;
   displayNameStyle?: UserDisplayNameStyle;
   roles: string[];
+  premiumTier?: 'none' | 'tier1' | 'tier2' | 'tier3';
   avatar?: UserAvatar;
   preferences?: UserPreferences;
 }

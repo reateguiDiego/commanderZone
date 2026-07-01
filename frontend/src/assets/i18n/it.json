@@ -106,7 +106,9 @@
       "dashboardHeaderControls": {
         "pendingFriendRequests": "Richieste di amicizia in sospeso",
         "onlineFriends": "Amici in linea",
-        "friends": "Amici"
+        "friends": "Amici",
+        "messages": "Messaggi",
+        "unreadMessages": "Messaggi non letti"
       },
       "dashboardShell": {
         "commanderzoneDashboard": "Dashboard CommanderZone",
@@ -115,7 +117,8 @@
         "decks": "Mazzi",
         "rooms": "Sale",
         "community": "Comunità",
-        "tableAssistant": "Assistente da tavolo"
+        "tableAssistant": "Assistente da tavolo",
+        "admin": "Admin"
       }
     },
     "friends": {
@@ -147,6 +150,20 @@
         "sentRequests": "Inviato",
         "disconnected": "Disconnesso",
         "roomInvite": "Invito alla sala"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "Messaggi",
+        "inbox": "Posta in arrivo",
+        "loadingMessages": "Caricamento messaggi...",
+        "noMessagesYet": "Nessun messaggio al momento.",
+        "receivedMessages": "Messaggi ricevuti",
+        "sentBy": "Inviato da:",
+        "unread": "Non letto",
+        "read": "Letto",
+        "couldNotLoadMessages": "Impossibile caricare i messaggi.",
+        "couldNotMarkMessageRead": "Impossibile contrassegnare il messaggio come letto."
       }
     }
   },
