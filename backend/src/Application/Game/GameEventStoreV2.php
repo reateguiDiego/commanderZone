@@ -45,11 +45,15 @@ final class GameEventStoreV2
             return $game->snapshot();
         }
 
+        $manager = $this->manager();
+        $managedGame = $this->managedGameReference($manager, $game);
+        $latestCompactSnapshot = $this->latestCompactSnapshot($managedGame, $manager);
         $snapshot = $this->rebuildSnapshot(
             $game,
-            $this->latestCompactSnapshot($game),
-            $this->eventsForGame($game),
+            $latestCompactSnapshot,
+            $this->eventsForGame($managedGame, $manager),
         );
+        $this->detachReadOnlyCompactSnapshot($manager, $latestCompactSnapshot);
         $game->replaceRuntimeSnapshot($snapshot);
 
         return $snapshot;
@@ -158,15 +162,18 @@ final class GameEventStoreV2
             return null;
         }
 
-        $latestSnapshot = $this->latestCompactSnapshot($game);
-        if (!$this->shouldPersistCompactSnapshot($latestSnapshot, $game, $runtimeSnapshot)) {
+        $managedGame = $this->managedGameReference($entityManager, $game);
+        $latestSnapshot = $this->latestCompactSnapshot($managedGame, $entityManager);
+        $shouldPersist = $this->shouldPersistCompactSnapshot($latestSnapshot, $managedGame, $runtimeSnapshot);
+        $this->detachReadOnlyCompactSnapshot($entityManager, $latestSnapshot);
+        if (!$shouldPersist) {
             return null;
         }
 
-        $compactSnapshot = $this->compactStateMapper()->compactSnapshot($runtimeSnapshot, $game->id(), $game->status());
+        $compactSnapshot = $this->compactStateMapper()->compactSnapshot($runtimeSnapshot, $managedGame->id(), $managedGame->status());
         unset($compactSnapshot['cardCatalog']);
         $record = new GameSnapshotCompact(
-            $game,
+            $managedGame,
             max(1, (int) ($runtimeSnapshot['version'] ?? 1)),
             $compactSnapshot,
             $this->checksum($compactSnapshot),
@@ -198,6 +205,37 @@ final class GameEventStoreV2
         return $latestSnapshot->createdAt()->getTimestamp() <= (time() - max(1, $this->snapshotEverySeconds));
     }
 
+    private function managedGameReference(EntityManagerInterface $entityManager, Game $game): Game
+    {
+        try {
+            if ($entityManager->contains($game)) {
+                return $game;
+            }
+        } catch (\Throwable) {
+            return $game;
+        }
+
+        try {
+            $reference = $entityManager->getReference(Game::class, $game->id());
+        } catch (\Throwable) {
+            return $game;
+        }
+
+        return $reference instanceof Game ? $reference : $game;
+    }
+
+    private function detachReadOnlyCompactSnapshot(EntityManagerInterface $entityManager, ?GameSnapshotCompact $snapshot): void
+    {
+        if (!$snapshot instanceof GameSnapshotCompact) {
+            return;
+        }
+
+        try {
+            $entityManager->detach($snapshot);
+        } catch (\Throwable) {
+        }
+    }
+
     /**
      * @param array<string,mixed> $snapshot
      */
@@ -209,18 +247,18 @@ final class GameEventStoreV2
     /**
      * @return list<GameEvent>
      */
-    private function eventsForGame(Game $game): array
+    private function eventsForGame(Game $game, ?EntityManagerInterface $entityManager = null): array
     {
-        $manager = $this->manager();
+        $manager = $entityManager ?? $this->manager();
         $repository = $manager->getRepository(GameEvent::class);
         $events = $repository->findBy(['game' => $game], ['version' => 'ASC']);
 
         return array_values(array_filter($events, static fn (mixed $event): bool => $event instanceof GameEvent));
     }
 
-    private function latestCompactSnapshot(Game $game): ?GameSnapshotCompact
+    private function latestCompactSnapshot(Game $game, ?EntityManagerInterface $entityManager = null): ?GameSnapshotCompact
     {
-        $manager = $this->manager();
+        $manager = $entityManager ?? $this->manager();
         $snapshot = $manager->getRepository(GameSnapshotCompact::class)->findOneBy(['game' => $game], ['version' => 'DESC']);
 
         return $snapshot instanceof GameSnapshotCompact ? $snapshot : null;

@@ -172,7 +172,6 @@ class GameEventStoreV2Test extends TestCase
                 return true;
             }));
         $registry = $this->createMock(ManagerRegistry::class);
-        $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($entityManager);
         $store = new GameEventStoreV2(
             $registry,
             $handler,
@@ -188,6 +187,89 @@ class GameEventStoreV2Test extends TestCase
 
         self::assertInstanceOf(GameSnapshotCompact::class, $record);
         self::assertSame(5, $record->version());
+    }
+
+    public function testPersistCompactSnapshotUsesManagedGameReferenceForDetachedGame(): void
+    {
+        $actor = new User('detached-owner@example.test', 'Detached Owner');
+        $flags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $runtimeSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), []));
+        $runtimeSnapshot['version'] = 3;
+
+        $detachedGame = new Game(new Room($actor), $runtimeSnapshot);
+        $managedGame = new Game(new Room($actor), $runtimeSnapshot);
+        $snapshotRepository = $this->createMock(EntityRepository::class);
+        $snapshotRepository->expects(self::once())->method('findOneBy')->with(['game' => $managedGame], ['version' => 'DESC'])->willReturn(null);
+
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('getRepository')->with(GameSnapshotCompact::class)->willReturn($snapshotRepository);
+        $entityManager->expects(self::once())->method('contains')->with($detachedGame)->willReturn(false);
+        $entityManager->expects(self::once())->method('getReference')->with(Game::class, $detachedGame->id())->willReturn($managedGame);
+        $entityManager->expects(self::once())
+            ->method('persist')
+            ->with(self::callback(static function (mixed $record) use ($managedGame): bool {
+                return $record instanceof GameSnapshotCompact && $record->game() === $managedGame;
+            }));
+
+        $registry = $this->createMock(ManagerRegistry::class);
+        $store = new GameEventStoreV2(
+            $registry,
+            $handler,
+            new CompactGameCardStateMapper(),
+            new GameEventReplayService(),
+            $flags,
+            null,
+            1,
+            1,
+        );
+
+        $record = $store->persistCompactSnapshotIfDue($entityManager, $detachedGame, $runtimeSnapshot);
+
+        self::assertInstanceOf(GameSnapshotCompact::class, $record);
+        self::assertSame($managedGame, $record->game());
+    }
+
+    public function testHydrateGameDetachesReadOnlyCompactSnapshotAfterReplay(): void
+    {
+        $actor = new User('hydrate-detach-owner@example.test', 'Hydrate Detach Owner');
+        $flags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $snapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => [$this->card('library-1', 'Top Draw', 'library')],
+        ]));
+        $snapshot['version'] = 2;
+        $game = new Game(new Room($actor), $snapshot);
+        $compactSnapshot = (new CompactGameCardStateMapper())->compactSnapshot($snapshot, $game->id(), $game->status());
+        $compactRecord = new GameSnapshotCompact($game, 2, $compactSnapshot, hash('sha256', json_encode($compactSnapshot, JSON_THROW_ON_ERROR)));
+
+        $snapshotRepository = $this->createMock(EntityRepository::class);
+        $snapshotRepository->expects(self::once())->method('findOneBy')->with(['game' => $game], ['version' => 'DESC'])->willReturn($compactRecord);
+        $eventRepository = $this->createMock(EntityRepository::class);
+        $eventRepository->expects(self::once())->method('findBy')->with(['game' => $game], ['version' => 'ASC'])->willReturn([]);
+
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects(self::once())->method('contains')->with($game)->willReturn(true);
+        $entityManager->method('getRepository')->willReturnMap([
+            [GameSnapshotCompact::class, $snapshotRepository],
+            [GameEvent::class, $eventRepository],
+        ]);
+        $entityManager->expects(self::once())->method('detach')->with($compactRecord);
+
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($entityManager);
+        $store = new GameEventStoreV2(
+            $registry,
+            $handler,
+            new CompactGameCardStateMapper(),
+            new GameEventReplayService(),
+            $flags,
+        );
+
+        $hydrated = $store->hydrateGame($game);
+
+        self::assertSame(2, $hydrated['version']);
+        self::assertSame($hydrated, $game->snapshot());
     }
 
     public function testInitializeStartedGamePersistsStartedEventAndInitialCompactSnapshot(): void
@@ -211,7 +293,6 @@ class GameEventStoreV2Test extends TestCase
                 $persisted[] = $entity;
             });
         $registry = $this->createMock(ManagerRegistry::class);
-        $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($entityManager);
         $store = new GameEventStoreV2(
             $registry,
             $handler,
