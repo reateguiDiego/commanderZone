@@ -4,7 +4,6 @@ namespace App\Tests\Application;
 
 use App\Application\Game\Runtime\GameRuntimeMulliganClient;
 use App\Application\Game\Runtime\GameRuntimeCommandClient;
-use App\Application\Game\Runtime\LegacyMulliganRuntimeStateMapper;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -41,7 +40,7 @@ final class GameRuntimeMulliganClientTest extends TestCase
                 'metrics' => ['mulligan.take_ms' => 0.2],
             ], JSON_THROW_ON_ERROR), ['http_code' => 200]);
         });
-        $commandClient = new GameRuntimeCommandClient($httpClient, new LegacyMulliganRuntimeStateMapper(), 'http://runtime.internal:8091');
+        $commandClient = new GameRuntimeCommandClient($httpClient, 'http://runtime.internal:8091');
         $client = new GameRuntimeMulliganClient($commandClient);
 
         $result = $client->dispatch(
@@ -50,7 +49,6 @@ final class GameRuntimeMulliganClientTest extends TestCase
             'player-1',
             1,
             'action-1',
-            $this->snapshot(),
             [],
         );
 
@@ -60,42 +58,8 @@ final class GameRuntimeMulliganClientTest extends TestCase
         self::assertSame('game-1', $captured['body']['command']['gameId']);
         self::assertSame('mulligan.take', $captured['body']['command']['type']);
         self::assertSame('player-1', $captured['body']['command']['payload']['playerId']);
-        self::assertSame('MULLIGAN', $captured['body']['initialState']['phase']);
-        self::assertSame(['library-2', 'library-1'], $captured['body']['initialState']['zones']['player-1']['library']);
+        self::assertArrayNotHasKey('initialState', $captured['body']);
         self::assertSame('mulligan.player_took', $result->event['type']);
         self::assertSame(0.2, $result->metrics['mulligan.take_ms']);
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function snapshot(): array
-    {
-        return [
-            'version' => 1,
-            'gamePhase' => 'MULLIGAN',
-            'mulligan' => ['rule' => 'LONDON', 'firstMulliganFree' => true],
-            'players' => [
-                'player-1' => [
-                    'user' => ['id' => 'player-1', 'displayName' => 'Player 1'],
-                    'life' => 40,
-                    'zones' => [
-                        'library' => [
-                            ['instanceId' => 'library-1', 'cardKey' => 'card-a'],
-                            ['instanceId' => 'library-2', 'cardKey' => 'card-b'],
-                        ],
-                        'hand' => [
-                            ['instanceId' => 'hand-1', 'cardKey' => 'card-c'],
-                        ],
-                        'battlefield' => [],
-                        'graveyard' => [],
-                        'exile' => [],
-                        'command' => [],
-                    ],
-                    'mulligan' => ['status' => 'DECIDING', 'effectiveMulligans' => 0],
-                ],
-            ],
-            'turn' => [],
-        ];
     }
 }

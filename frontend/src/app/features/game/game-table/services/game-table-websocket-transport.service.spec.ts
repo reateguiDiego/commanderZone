@@ -58,13 +58,17 @@ describe('GameTableWebsocketTransportService', () => {
   };
 
   beforeEach(() => {
+    vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     sockets = [];
     gamesApi.snapshot.mockReset();
     gamesApi.websocketTicket.mockReset();
     gamesApi.websocketTicket.mockReturnValue(of({
       ticket: 'ticket-1',
       expiresAt: '2026-01-01T00:00:30+00:00',
-      websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-1',
+      websocketUrl: 'ws://127.0.0.1:8091/ws?ticket=ticket-1',
+      route: 'runtime_ws',
     }));
     const WebSocketMock = vi.fn(function webSocketMock(url: string) {
       const socket = new MockWebSocket(url);
@@ -91,6 +95,7 @@ describe('GameTableWebsocketTransportService', () => {
 
   afterEach(() => {
     service.ngOnDestroy();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -99,39 +104,114 @@ describe('GameTableWebsocketTransportService', () => {
 
     expect(gamesApi.websocketTicket).toHaveBeenCalledWith('game-1');
     expect(sockets).toHaveLength(1);
-    expect(sockets[0].url).toBe('ws://127.0.0.1:8081/games/game-1?ticket=ticket-1');
+    expect(sockets[0].url).toBe('ws://127.0.0.1:8091/ws?ticket=ticket-1');
     expect(gamesApi.snapshot).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith('[CommanderZone gameplay transport]', expect.objectContaining({
+      source: 'connect',
+      reason: 'initial_connect',
+      result: 'ticket_received',
+      gameId: 'game-1',
+      route: 'runtime_ws',
+      'gameplay.ws.route': 'runtime_ws',
+      lastAppliedVersion: null,
+      websocketUrl: 'ws://127.0.0.1:8091/ws',
+    }));
   });
 
-  it('adds lastSeenVersion and reconnects remote closes with the latest version', async () => {
+  it.each(['php_gateway_ws', 'legacy_ws'] as const)('rejects disabled %s routes instead of falling back silently', async (route) => {
+    gamesApi.websocketTicket.mockReturnValueOnce(of({
+      ticket: 'ticket-legacy',
+      expiresAt: '2026-01-01T00:00:30+00:00',
+      websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-legacy',
+      route,
+    }));
+
+    await expect(service.connect('game-1')).rejects.toThrow(route);
+
+    expect(sockets).toHaveLength(0);
+    expect(service.status()).toBe('error');
+  });
+
+  it('logs incoming websocket message format without exposing the ticket', async () => {
+    await service.connect('game-1');
+    sockets[0].emitMessage({
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ops: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+
+    expect(console.debug).toHaveBeenCalledWith('[CommanderZone gameplay transport]', expect.objectContaining({
+      source: 'message.received',
+      gameId: 'game-1',
+      route: 'runtime_ws',
+      'gameplay.ws.route': 'runtime_ws',
+      kind: 'patch.v2',
+      type: 'player.life.set',
+      patchV2: true,
+      gamePatch: false,
+      resyncRequired: false,
+    }));
+    expect(JSON.stringify((console.info as unknown as { mock: { calls: unknown[][] } }).mock.calls)).not.toContain('ticket-1');
+  });
+
+  it('adapts legacy runtime type patch messages into explicit kind patch.v2 messages', async () => {
+    const messages = receivedMessages(service);
+
+    await service.connect('game-1');
+    sockets[0].emitMessage({
+      type: 'patch',
+      patch: {
+        gameId: 'game-1',
+        version: 2,
+        visibility: 'player:player-1',
+        ops: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+      },
+    });
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0].kind).toBe('patch.v2');
+  });
+
+  it('adds lastAppliedVersion and reconnects remote closes with the latest version', async () => {
     vi.useFakeTimers();
     try {
-      let lastSeenVersion = 4;
+      let lastAppliedVersion = 4;
       gamesApi.websocketTicket
         .mockReturnValueOnce(of({
           ticket: 'ticket-1',
           expiresAt: '2026-01-01T00:00:30+00:00',
-          websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-1',
+          websocketUrl: 'ws://127.0.0.1:8091/ws?ticket=ticket-1',
+          route: 'runtime_ws',
         }))
         .mockReturnValueOnce(of({
           ticket: 'ticket-2',
           expiresAt: '2026-01-01T00:00:30+00:00',
-          websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-2',
+          websocketUrl: 'ws://127.0.0.1:8091/ws?ticket=ticket-2',
+          route: 'runtime_ws',
         }));
 
-      await service.connect('game-1', { lastSeenVersion: () => lastSeenVersion });
-      expect(sockets[0].url).toBe('ws://127.0.0.1:8081/games/game-1?ticket=ticket-1&lastSeenVersion=4');
+      await service.connect('game-1', { lastAppliedVersion: () => lastAppliedVersion });
+      expect(sockets[0].url).toBe('ws://127.0.0.1:8091/ws?ticket=ticket-1&lastAppliedVersion=4');
       sockets[0].open();
 
-      lastSeenVersion = 8;
+      lastAppliedVersion = 8;
       sockets[0].remoteClose();
       expect(service.status()).toBe('disconnected');
 
       await vi.advanceTimersByTimeAsync(250);
 
       expect(sockets).toHaveLength(2);
-      expect(sockets[1].url).toBe('ws://127.0.0.1:8081/games/game-1?ticket=ticket-2&lastSeenVersion=8');
+      expect(sockets[1].url).toBe('ws://127.0.0.1:8091/ws?ticket=ticket-2&lastAppliedVersion=8');
       expect(service.status()).toBe('connecting');
+      expect(console.info).toHaveBeenCalledWith('[CommanderZone gameplay transport]', expect.objectContaining({
+        source: 'reconnect',
+        reason: 'socket_reconnect',
+        result: 'ticket_received',
+        lastAppliedVersion: 8,
+        websocketUrl: 'ws://127.0.0.1:8091/ws?lastAppliedVersion=8',
+      }));
     } finally {
       vi.useRealTimers();
     }
@@ -144,12 +224,14 @@ describe('GameTableWebsocketTransportService', () => {
         .mockReturnValueOnce(of({
           ticket: 'ticket-1',
           expiresAt: '2026-01-01T00:00:30+00:00',
-          websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-1',
+          websocketUrl: 'ws://127.0.0.1:8091/ws?ticket=ticket-1',
+          route: 'runtime_ws',
         }))
         .mockReturnValueOnce(of({
           ticket: 'ticket-2',
           expiresAt: '2026-01-01T00:00:30+00:00',
-          websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-2',
+          websocketUrl: 'ws://127.0.0.1:8091/ws?ticket=ticket-2',
+          route: 'runtime_ws',
         }));
 
       await service.connect('game-1');
@@ -163,7 +245,7 @@ describe('GameTableWebsocketTransportService', () => {
       await vi.advanceTimersByTimeAsync(250);
 
       expect(sockets).toHaveLength(2);
-      expect(sockets[1].url).toBe('ws://127.0.0.1:8081/games/game-1?ticket=ticket-2');
+      expect(sockets[1].url).toBe('ws://127.0.0.1:8091/ws?ticket=ticket-2');
       expect(service.status()).toBe('connecting');
     } finally {
       vi.useRealTimers();
@@ -194,11 +276,12 @@ describe('GameTableWebsocketTransportService', () => {
     await expect(service.connect('game-1')).rejects.toThrow('ticket failed');
     expect(service.status()).toBe('error');
 
-    gamesApi.websocketTicket.mockReturnValueOnce(of({
-      ticket: 'ticket-2',
-      expiresAt: '2026-01-01T00:00:30+00:00',
-      websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-2',
-    }));
+      gamesApi.websocketTicket.mockReturnValueOnce(of({
+        ticket: 'ticket-2',
+        expiresAt: '2026-01-01T00:00:30+00:00',
+        websocketUrl: 'ws://127.0.0.1:8091/ws?ticket=ticket-2',
+        route: 'runtime_ws',
+      }));
     await service.connect('game-1');
     sockets[0].fail();
     expect(service.status()).toBe('disconnected');
@@ -211,12 +294,14 @@ describe('GameTableWebsocketTransportService', () => {
         .mockReturnValueOnce(of({
           ticket: 'ticket-1',
           expiresAt: '2026-01-01T00:00:30+00:00',
-          websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-1',
+          websocketUrl: 'ws://127.0.0.1:8091/ws?ticket=ticket-1',
+          route: 'runtime_ws',
         }))
         .mockReturnValueOnce(of({
           ticket: 'ticket-2',
           expiresAt: '2026-01-01T00:00:30+00:00',
-          websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-2',
+          websocketUrl: 'ws://127.0.0.1:8091/ws?ticket=ticket-2',
+          route: 'runtime_ws',
         }));
 
       await service.connect('game-1');
@@ -226,7 +311,7 @@ describe('GameTableWebsocketTransportService', () => {
       await vi.advanceTimersByTimeAsync(250);
 
       expect(sockets).toHaveLength(2);
-      expect(sockets[1].url).toBe('ws://127.0.0.1:8081/games/game-1?ticket=ticket-2');
+      expect(sockets[1].url).toBe('ws://127.0.0.1:8091/ws?ticket=ticket-2');
       expect(service.status()).toBe('connecting');
     } finally {
       vi.useRealTimers();

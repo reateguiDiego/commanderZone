@@ -7,7 +7,7 @@
     </div>
     <div class="debug-actions">
       <span class="debug-connection-status" [class.is-connected]="debugWebsocket.status() === 'connected'">
-        Debug WS: {{ debugWebsocket.status() }}
+        Debug live WS: {{ debugLiveStatusLabel() }}
       </span>
       <button type="button" [disabled]="loading()" (click)="openDebug()">
         Reiniciar
@@ -31,6 +31,21 @@
     }
 
     <section class="debug-summary-grid">
+      <article data-testid="debug-http-metrics-status">
+        <span>Metricas HTTP</span>
+        <strong>{{ httpMetricsStatus() }}</strong>
+        <small>GET /games/{{ gameId }}/debug/health</small>
+      </article>
+      <article data-testid="debug-live-ws-status">
+        <span>Debug live WS PHP</span>
+        <strong>{{ debugLiveStatusLabel() }}</strong>
+        <small>{{ debugWebsocket.displayUrl() ?? 'sin endpoint configurado' }}</small>
+      </article>
+      <article data-testid="debug-gameplay-runtime-status">
+        <span>Gameplay runtime_ws</span>
+        <strong>{{ gameplayRuntimeObservationStatus() }}</strong>
+        <small>observacion local via BroadcastChannel, sin usar refetch de comandos</small>
+      </article>
       <article>
         <span>Acciones</span>
         <strong>{{ currentReport.health.actions.total }}</strong>

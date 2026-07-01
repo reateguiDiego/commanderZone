@@ -61,7 +61,7 @@
       </app-tooltip>
     }
     @if (canLeaveRoom(currentRoom)) {
-      <button czButton="secondary" czButtonTone="danger" czButtonSize="sm" class="danger-button compact" type="button" [disabled]="leavingRoomId() === currentRoom.id" (click)="left.emit(currentRoom)">
+      <button czButton="secondary" czButtonTone="danger" czButtonSize="sm" class="danger-button compact" type="button" data-testid="room-row-leave" [disabled]="leavingRoomId() === currentRoom.id" (click)="left.emit(currentRoom)">
         <lucide-icon name="log-out" size="15" />
         {{ leavingRoomId() === currentRoom.id ? 'Leaving' : 'Leave' }}
       </button>

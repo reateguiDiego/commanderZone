@@ -15,6 +15,7 @@ use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
 use App\Application\Game\Performance\GameplayNullMetricsRecorder;
 use App\Application\Game\Runtime\GameRuntimeGatewayException;
+use App\Application\Game\Runtime\GameplayCommandCatalog;
 use App\Application\Game\Runtime\GameplayRuntimeGateway;
 use App\Application\Game\Runtime\GameplayRuntimePatchContractException;
 use App\Application\Game\Runtime\GameplayRuntimeRoute;
@@ -29,12 +30,57 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final readonly class GameWebsocketCommandPatchService
 {
     private const VISUAL_POSITION_COMMANDS = ['card.position.changed', 'cards.position.changed'];
     private const VISUAL_POSITION_RATE_WINDOW_MS = 1_000;
     private const VISUAL_POSITION_RATE_LIMIT = 24;
+    private const RUNTIME_OWN_PLAYER_PAYLOAD_KEYS = [
+        'life.changed' => 'playerId',
+        'library.draw' => 'playerId',
+        'library.draw_many' => 'playerId',
+        'library.reveal_top' => 'playerId',
+        'library.reveal' => 'playerId',
+        'library.play_top_revealed' => 'playerId',
+        'library.reorder_top' => 'playerId',
+        'library.move_top' => 'playerId',
+        'library.put_top' => 'playerId',
+        'library.put_bottom' => 'playerId',
+        'library.view' => 'playerId',
+        'library.shuffle' => 'playerId',
+        'zone.reorderedByIds' => 'playerId',
+        'zone.move_all' => 'playerId',
+        'zone.random_card.selected' => 'playerId',
+        'battlefield.untap_all' => 'playerId',
+        'card.token.created' => 'playerId',
+        'card.moved' => 'playerId',
+        'cards.moved' => 'playerId',
+        'card.tapped' => 'playerId',
+        'card.position.changed' => 'playerId',
+        'cards.position.changed' => 'playerId',
+        'card.dungeon_marker.changed' => 'playerId',
+        'card.face_down.changed' => 'playerId',
+        'card.face.changed' => 'playerId',
+        'card.revealed' => 'playerId',
+        'card.controller.changed' => 'playerId',
+        'card.power_toughness.changed' => 'playerId',
+        'card.counter.changed' => 'playerId',
+        'stack.card_added' => 'playerId',
+        'arrow.created' => 'ownerId',
+        'attachment.created' => 'ownerId',
+        'helper.created' => 'ownerPlayerId',
+        'mulligan.take' => 'playerId',
+        'mulligan.keep' => 'playerId',
+        'mulligan.cards_bottomed' => 'playerId',
+        'mulligan.scry.confirm' => 'playerId',
+        'mulligan.ready' => 'playerId',
+    ];
+    private const RUNTIME_OWN_TARGET_PAYLOAD_KEYS = [
+        'commander.damage.changed' => 'targetPlayerId',
+    ];
 
     /**
      * @var \ArrayObject<string,list<float>>
@@ -58,12 +104,16 @@ final readonly class GameWebsocketCommandPatchService
         private ?GameActivityStreamService $activityStreams = null,
         private ?GameplayStreamsFlags $streamFlags = null,
         private ?GameplayRuntimeGateway $runtimeGateway = null,
+        #[Autowire('%gameplay_emergency_legacy_fallback_enabled%')]
+        private bool $emergencyLegacyFallbackEnabled = false,
+        private ?LoggerInterface $logger = null,
     ) {
         $this->visualCommandBackpressure = new \ArrayObject();
     }
 
     /**
      * @param array<string,mixed> $payload
+     * @param list<string>        $ticketPermissions
      *
      * @return array<string,mixed>|GameWebsocketCommandResult
      */
@@ -76,6 +126,8 @@ final readonly class GameWebsocketCommandPatchService
         int $baseVersion,
         ?string $messageId = null,
         string $responseProtocol = 'legacy',
+        ?string $ticketPlayerId = null,
+        array $ticketPermissions = [],
     ): array|GameWebsocketCommandResult {
         $metricsInspector = $this->metricsInspector();
         $metricsRecorder = $this->metricsRecorder();
@@ -179,6 +231,52 @@ final readonly class GameWebsocketCommandPatchService
             );
 
             return $message;
+        }
+
+        $runtimeFinalEmergencyFallback = false;
+        $runtimeFinalResult = $this->runtimeFinalPathResult(
+            $gameId,
+            $userId,
+            $type,
+            $payload,
+            $clientActionId,
+            $baseVersion,
+            $messageId,
+            $responseProtocol,
+            $ticketPlayerId,
+            $ticketPermissions,
+            $startedAt,
+            $usageStartedAt,
+            $metricsRecorder,
+            $metricsInspector,
+            $runtimeFinalEmergencyFallback,
+        );
+        if ($runtimeFinalResult !== null) {
+            return $runtimeFinalResult;
+        }
+
+        $runtimeCommandType = $this->runtimeCommandType($type);
+        $runtimeRoute = $this->runtimeGateway?->routeFor($runtimeCommandType) ?? GameplayRuntimeRoute::LegacyOnly;
+        if ($runtimeRoute === GameplayRuntimeRoute::RuntimePrimary
+            && $responseProtocol !== 'v2'
+            && !$this->emergencyLegacyFallbackEnabled) {
+            $this->recordRuntimePrimaryRequiresFinalPathMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                $usageStartedAt,
+                $type,
+                $gameId,
+                $this->elapsedMs($startedAt),
+            );
+
+            return $this->messages->rejectedCommand(
+                $gameId,
+                $messageId,
+                $clientActionId,
+                $baseVersion,
+                'RUNTIME_PRIMARY_REQUIRES_FINAL_WEBSOCKET',
+                'Runtime-primary gameplay commands must use the final WebSocket V2 command path.',
+            );
         }
 
         $manager = $this->manager();
@@ -424,8 +522,9 @@ final readonly class GameWebsocketCommandPatchService
                 return $message;
             }
 
-            $runtimeCommandType = $this->runtimeCommandType($type);
-            $runtimeRoute = $this->runtimeGateway?->routeFor($runtimeCommandType) ?? GameplayRuntimeRoute::LegacyOnly;
+            if ($runtimeFinalEmergencyFallback) {
+                $runtimeRoute = GameplayRuntimeRoute::LegacyOnly;
+            }
             $runtimeLifecycleError = $runtimeRoute === GameplayRuntimeRoute::RuntimePrimary
                 ? $this->runtimeLifecycleTransitionError(
                     $game,
@@ -539,7 +638,6 @@ final readonly class GameWebsocketCommandPatchService
                         $actor->id(),
                         $baseVersion,
                         $clientActionId,
-                        $game->snapshot(),
                         $runtimeCommand['payload'],
                     );
                     $runtimeMetrics = $this->numericRuntimeMetrics($runtimeResult->metrics);
@@ -602,6 +700,7 @@ final readonly class GameWebsocketCommandPatchService
                             'gameplay.runtime_fallback_count' => 0,
                             'gameplay.runtime_error_count' => 0,
                             'gameplay.runtime_patch_contract_error' => 0,
+                            'command.legacy_fallback_count' => 0,
                             ...$runtimeMetrics,
                         ],
                         $usageStartedAt,
@@ -660,6 +759,23 @@ final readonly class GameWebsocketCommandPatchService
                             'Runtime patch contract failed after the legacy snapshot version diverged.',
                         );
                     }
+                    if (!$this->emergencyLegacyFallbackEnabled) {
+                        $this->recordRuntimeFailureMetric(
+                            $metricsRecorder,
+                            $metricsInspector,
+                            $usageStartedAt,
+                            $type,
+                            $game->id(),
+                            $snapshotLoadMs,
+                            $snapshotBytesBefore,
+                            $numberOfPlayers,
+                            $numberOfInstances,
+                            true,
+                            $this->elapsedMs($startedAt),
+                        );
+
+                        return $this->runtimeFailureMessage($game->id(), $messageId, $clientActionId, $currentVersion, true);
+                    }
                     $manager->beginTransaction();
                     $manager->lock($game, LockMode::PESSIMISTIC_WRITE);
                     $this->recordRuntimeFallbackMetric(
@@ -673,6 +789,7 @@ final readonly class GameWebsocketCommandPatchService
                         $numberOfPlayers,
                         $numberOfInstances,
                         true,
+                        $this->elapsedMs($startedAt),
                     );
                 } catch (GameRuntimeGatewayException) {
                     if ($baseVersion !== $currentVersion) {
@@ -684,6 +801,23 @@ final readonly class GameWebsocketCommandPatchService
                             'RUNTIME_UNAVAILABLE_AFTER_VERSION_DIVERGENCE',
                             'Runtime command could not be applied and legacy fallback is unsafe after version divergence.',
                         );
+                    }
+                    if (!$this->emergencyLegacyFallbackEnabled) {
+                        $this->recordRuntimeFailureMetric(
+                            $metricsRecorder,
+                            $metricsInspector,
+                            $usageStartedAt,
+                            $type,
+                            $game->id(),
+                            $snapshotLoadMs,
+                            $snapshotBytesBefore,
+                            $numberOfPlayers,
+                            $numberOfInstances,
+                            false,
+                            $this->elapsedMs($startedAt),
+                        );
+
+                        return $this->runtimeFailureMessage($game->id(), $messageId, $clientActionId, $currentVersion, false);
                     }
                     $manager->beginTransaction();
                     $manager->lock($game, LockMode::PESSIMISTIC_WRITE);
@@ -698,6 +832,7 @@ final readonly class GameWebsocketCommandPatchService
                         $numberOfPlayers,
                         $numberOfInstances,
                         false,
+                        $this->elapsedMs($startedAt),
                     );
                 }
             } elseif ($runtimeRoute === GameplayRuntimeRoute::Shadow) {
@@ -710,7 +845,6 @@ final readonly class GameWebsocketCommandPatchService
                         $actor->id(),
                         $currentVersion,
                         $clientActionId,
-                        $game->snapshot(),
                         $runtimeCommand['payload'],
                     );
                     $runtimeShadowExecuted = $runtimeShadowResult !== null;
@@ -1009,6 +1143,423 @@ final readonly class GameWebsocketCommandPatchService
         }
 
         return $manager;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @param list<string>        $ticketPermissions
+     * @param array<string,int>|null $usageStartedAt
+     */
+    private function runtimeFinalPathResult(
+        string $gameId,
+        string $userId,
+        string $type,
+        array $payload,
+        string $clientActionId,
+        int $baseVersion,
+        ?string $messageId,
+        string $responseProtocol,
+        ?string $ticketPlayerId,
+        array $ticketPermissions,
+        float $startedAt,
+        ?array $usageStartedAt,
+        GameplayMetricsRecorderInterface $metricsRecorder,
+        GameplayMetricsInspector $metricsInspector,
+        bool &$emergencyFallback,
+    ): array|GameWebsocketCommandResult|null {
+        $runtimeCommandType = $this->runtimeCommandType($type);
+        if (($this->runtimeGateway?->routeFor($runtimeCommandType) ?? GameplayRuntimeRoute::LegacyOnly) !== GameplayRuntimeRoute::RuntimePrimary) {
+            return null;
+        }
+        if (!$this->runtimeFinalPathEligible($responseProtocol, $ticketPlayerId, $ticketPermissions)) {
+            return null;
+        }
+
+        $playerId = trim((string) $ticketPlayerId);
+        $permissionError = $this->runtimeFinalPermissionError($type, $gameId, $userId, $playerId, $ticketPermissions);
+        if ($permissionError !== null) {
+            $this->recordRuntimeFinalMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                $usageStartedAt,
+                $type,
+                $gameId,
+                $this->elapsedMs($startedAt),
+                0.0,
+                0,
+                'runtime_permission_denied',
+                [],
+            );
+
+            return $this->messages->rejectedCommand(
+                $gameId,
+                $messageId,
+                $clientActionId,
+                $baseVersion,
+                'GAME_ACCESS_DENIED',
+                $permissionError,
+            );
+        }
+
+        try {
+            $runtimeStartedAt = microtime(true);
+            $runtimeCommand = $this->runtimeCommandFromTicket($type, $payload, $playerId);
+            $runtimeResult = $this->runtimeGateway->dispatchPrimary(
+                $runtimeCommand['type'],
+                $gameId,
+                $playerId,
+                $baseVersion,
+                $clientActionId,
+                $runtimeCommand['payload'],
+            );
+            $runtimeMetrics = $this->numericRuntimeMetrics($runtimeResult->metrics);
+            $patched = $this->runtimeFinalPatchedResult(
+                $gameId,
+                $runtimeResult->patches,
+                $baseVersion,
+                $clientActionId,
+                [
+                    'load' => 0.0,
+                    'apply' => $this->elapsedMs($runtimeStartedAt),
+                    'gameplay.runtime_route' => 1.0,
+                    ...array_map(static fn (int|float $value): float => (float) $value, $runtimeMetrics),
+                ],
+                $startedAt,
+            );
+            $this->recordRuntimeFinalMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                $usageStartedAt,
+                $type,
+                $gameId,
+                $this->elapsedMs($startedAt),
+                (float) $patched['patch_ms'],
+                (int) $patched['patch_bytes'],
+                'runtime_applied',
+                $runtimeMetrics,
+            );
+
+            return $patched['result'];
+        } catch (\InvalidArgumentException $exception) {
+            $this->recordRuntimeFinalMetric(
+                $metricsRecorder,
+                $metricsInspector,
+                $usageStartedAt,
+                $type,
+                $gameId,
+                $this->elapsedMs($startedAt),
+                0.0,
+                0,
+                'invalid_runtime_payload',
+                [],
+            );
+
+            return $this->messages->rejectedCommand(
+                $gameId,
+                $messageId,
+                $clientActionId,
+                $baseVersion,
+                'INVALID_COMMAND_MESSAGE',
+                $exception->getMessage(),
+            );
+        } catch (GameplayRuntimePatchContractException $exception) {
+            return $this->runtimeFinalFailureResult(
+                $exception,
+                $gameId,
+                $type,
+                $messageId,
+                $clientActionId,
+                $baseVersion,
+                true,
+                $startedAt,
+                $usageStartedAt,
+                $metricsRecorder,
+                $metricsInspector,
+                $emergencyFallback,
+            );
+        } catch (GameRuntimeGatewayException $exception) {
+            return $this->runtimeFinalFailureResult(
+                $exception,
+                $gameId,
+                $type,
+                $messageId,
+                $clientActionId,
+                $baseVersion,
+                false,
+                $startedAt,
+                $usageStartedAt,
+                $metricsRecorder,
+                $metricsInspector,
+                $emergencyFallback,
+            );
+        }
+    }
+
+    /**
+     * @param list<string> $ticketPermissions
+     */
+    private function runtimeFinalPermissionError(string $type, string $gameId, string $userId, string $playerId, array $ticketPermissions): ?string
+    {
+        if (trim($gameId) === '' || trim($userId) === '' || $playerId === '') {
+            return 'Runtime command ticket claims are incomplete.';
+        }
+        if (!in_array('command', $ticketPermissions, true)) {
+            return 'Runtime command permission is required.';
+        }
+        if ($type === 'game.close' && !in_array('game.close', $ticketPermissions, true)) {
+            return 'Only the room owner can close the game.';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return array{type:string,payload:array<string,mixed>}
+     */
+    private function runtimeCommandFromTicket(string $type, array $payload, string $playerId): array
+    {
+        return $this->runtimeCommandPayload($type, $payload, $playerId);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $patches
+     * @param array<string,float>       $phaseTimings
+     *
+     * @return array{result: GameWebsocketCommandResult, patch_ms: float, patch_bytes: int}
+     */
+    private function runtimeFinalPatchedResult(
+        string $gameId,
+        array $patches,
+        int $baseVersion,
+        string $ackClientActionId,
+        array $phaseTimings,
+        float $startedAt,
+    ): array {
+        $metricsInspector = $this->metricsInspector();
+        $messagesByUserId = [];
+        $patchStartedAt = microtime(true);
+        $version = $baseVersion + 1;
+        foreach ($patches as $patch) {
+            $version = max($version, (int) ($patch['version'] ?? $version));
+        }
+
+        foreach ($this->rooms->peersForGame($gameId) as $peer) {
+            $viewerOps = [];
+            foreach ($patches as $patch) {
+                $visibility = is_string($patch['visibility'] ?? null) ? $patch['visibility'] : 'public';
+                if (!$this->runtimeFinalPatchVisibleToPeer($visibility, $peer)) {
+                    continue;
+                }
+                foreach (array_values(array_filter($patch['ops'] ?? [], static fn (mixed $op): bool => is_array($op))) as $op) {
+                    $viewerOps[] = $op;
+                }
+            }
+            $messagesByUserId[$peer->userId] = [[
+                'kind' => 'patch.v2',
+                'gameId' => $gameId,
+                'version' => $version,
+                'visibility' => sprintf('player:%s', $peer->effectivePlayerId()),
+                'ops' => $viewerOps,
+                'ackClientActionId' => $ackClientActionId,
+            ]];
+        }
+
+        $patchMs = $this->elapsedMs($patchStartedAt);
+        $patchBytes = 0;
+        foreach ($messagesByUserId as $messages) {
+            $patchBytes += $metricsInspector->patchBytesForMessages($messages);
+        }
+        $phaseTimings['projection'] = 0.0;
+        $phaseTimings['patch'] = round($patchMs, 2);
+        $phaseTimings['total'] = $this->elapsedMs($startedAt);
+
+        return [
+            'result' => GameWebsocketCommandResult::forViewerMessageLists(
+                $messagesByUserId,
+                [[
+                    'kind' => 'patch.v2',
+                    'gameId' => $gameId,
+                    'version' => $version,
+                    'visibility' => 'public',
+                    'ops' => [],
+                    'ackClientActionId' => $ackClientActionId,
+                ]],
+                $this->normalizeDebugProfile($phaseTimings),
+            ),
+            'patch_ms' => $phaseTimings['patch'],
+            'patch_bytes' => $patchBytes,
+        ];
+    }
+
+    private function runtimeFinalPatchVisibleToPeer(string $visibility, GameWebsocketPeer $peer): bool
+    {
+        if ($visibility === 'public') {
+            return true;
+        }
+        if ($visibility === sprintf('player:%s', $peer->effectivePlayerId())
+            || $visibility === sprintf('player:%s', $peer->userId)) {
+            return true;
+        }
+        if (!str_starts_with($visibility, 'group:')) {
+            return false;
+        }
+
+        $groupMask = (int) substr($visibility, strlen('group:'));
+
+        return $groupMask > 0 && ($groupMask & $peer->viewerMask) !== 0;
+    }
+
+    /**
+     * @param list<string> $ticketPermissions
+     */
+    private function runtimeFinalPathEligible(string $responseProtocol, ?string $ticketPlayerId, array $ticketPermissions): bool
+    {
+        return $responseProtocol === 'v2'
+            && ($this->flagsV2?->patchEnabled() ?? false)
+            && ($ticketPlayerId !== null || $ticketPermissions !== []);
+    }
+
+    /**
+     * @param array<string,int>|null $usageStartedAt
+     * @param array<string,int|float> $runtimeMetrics
+     */
+    private function recordRuntimeFinalMetric(
+        GameplayMetricsRecorderInterface $metricsRecorder,
+        GameplayMetricsInspector $metricsInspector,
+        ?array $usageStartedAt,
+        string $type,
+        string $gameId,
+        float $totalServerMs,
+        float $patchMs,
+        int $patchBytes,
+        string $status,
+        array $runtimeMetrics,
+    ): void {
+        $this->recordMetric(
+            $metricsRecorder,
+            $metricsInspector,
+            [
+                'transport' => 'websocket',
+                'command.type' => $type,
+                'gameId' => $gameId,
+                'snapshot_load_ms' => 0.0,
+                'normalize_ms' => 0.0,
+                'command_apply_ms' => (float) ($runtimeMetrics['lifecycle.apply_ms'] ?? $runtimeMetrics['actor.command_latency_ms'] ?? 0.0),
+                'persist_ms' => 0.0,
+                'projection_ms' => 0.0,
+                'patch_build_ms' => $patchMs,
+                'total_server_ms' => $totalServerMs,
+                'snapshot_bytes_before' => 0,
+                'snapshot_bytes_after' => 0,
+                'patch_bytes' => $patchBytes,
+                'number_of_players' => 0,
+                'number_of_instances' => 0,
+                'number_of_visible_cards' => 0,
+                'resync_required' => false,
+                'clientActionId_duplicate' => false,
+                'status' => $status,
+                'gameplay.runtime_route' => 1,
+                'gameplay.runtime_fallback_count' => 0,
+                'gameplay.runtime_error_count' => 0,
+                'gameplay.runtime_patch_contract_error' => 0,
+                'command.legacy_fallback_count' => 0,
+                ...$runtimeMetrics,
+                ...$this->runtimeHotPathCounters(),
+            ],
+            $usageStartedAt,
+        );
+    }
+
+    /**
+     * @param array<string,int>|null $usageStartedAt
+     */
+    private function recordRuntimePrimaryRequiresFinalPathMetric(
+        GameplayMetricsRecorderInterface $metricsRecorder,
+        GameplayMetricsInspector $metricsInspector,
+        ?array $usageStartedAt,
+        string $type,
+        string $gameId,
+        float $totalServerMs,
+    ): void {
+        $this->recordMetric(
+            $metricsRecorder,
+            $metricsInspector,
+            [
+                'transport' => 'websocket',
+                'command.type' => $type,
+                'gameId' => $gameId,
+                'snapshot_load_ms' => 0.0,
+                'normalize_ms' => 0.0,
+                'command_apply_ms' => 0.0,
+                'persist_ms' => 0.0,
+                'projection_ms' => 0.0,
+                'patch_build_ms' => 0.0,
+                'total_server_ms' => $totalServerMs,
+                'snapshot_bytes_before' => 0,
+                'snapshot_bytes_after' => 0,
+                'patch_bytes' => 0,
+                'number_of_players' => 0,
+                'number_of_instances' => 0,
+                'number_of_visible_cards' => 0,
+                'resync_required' => false,
+                'clientActionId_duplicate' => false,
+                'status' => 'runtime_primary_requires_final_websocket',
+                'gameplay.runtime_route' => 1,
+                'gameplay.runtime_fallback_count' => 0,
+                'gameplay.runtime_error_count' => 0,
+                'gameplay.runtime_patch_contract_error' => 0,
+                'command.legacy_fallback_count' => 0,
+                'gameplay.legacy_route_reject_reason' => 'runtime_primary_requires_final_websocket',
+                ...$this->runtimeHotPathCounters(),
+            ],
+            $usageStartedAt,
+        );
+    }
+
+    /**
+     * @param array<string,int>|null $usageStartedAt
+     */
+    private function runtimeFinalFailureResult(
+        GameRuntimeGatewayException $exception,
+        string $gameId,
+        string $type,
+        ?string $messageId,
+        string $clientActionId,
+        int $baseVersion,
+        bool $patchContractError,
+        float $startedAt,
+        ?array $usageStartedAt,
+        GameplayMetricsRecorderInterface $metricsRecorder,
+        GameplayMetricsInspector $metricsInspector,
+        bool &$emergencyFallback,
+    ): array|GameWebsocketCommandResult|null {
+        $emergencyFallback = false;
+
+        $this->logger?->error('Runtime gameplay command failed without emergency fallback.', [
+            'gameId' => $gameId,
+            'command.type' => $type,
+            'clientActionId' => $clientActionId,
+            'exception' => $exception,
+            'reason' => 'runtime_final_path_disallows_legacy_fallback',
+            'alert' => 'runtime_command_failed_no_legacy_fallback',
+        ]);
+        $this->recordRuntimeFailureMetric(
+            $metricsRecorder,
+            $metricsInspector,
+            $usageStartedAt,
+            $type,
+            $gameId,
+            0.0,
+            0,
+            0,
+            0,
+            $patchContractError,
+            $this->elapsedMs($startedAt),
+        );
+
+        return $this->runtimeFailureMessage($gameId, $messageId, $clientActionId, $baseVersion, $patchContractError);
     }
 
     /**
@@ -1393,7 +1944,7 @@ final readonly class GameWebsocketCommandPatchService
      */
     private function runtimeCommandType(string $type): string
     {
-        return $type === 'zone.changed' ? 'zone.reorderedByIds' : $type;
+        return GameplayCommandCatalog::canonicalType($type);
     }
 
     /**
@@ -1445,10 +1996,22 @@ final readonly class GameWebsocketCommandPatchService
         if ($type === 'game.close' && $game->room()->owner()->id() !== $actor->id()) {
             throw new \InvalidArgumentException('Only the room owner can close the game.');
         }
+
+        return $this->runtimeCommandPayload($type, $payload, $actor->id());
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return array{type:string,payload:array<string,mixed>}
+     */
+    private function runtimeCommandPayload(string $type, array $payload, string $defaultPlayerId): array
+    {
         $runtimePayload = $payload;
         if (!is_string($runtimePayload['playerId'] ?? null) || trim((string) $runtimePayload['playerId']) === '') {
-            $runtimePayload['playerId'] = $actor->id();
+            $runtimePayload['playerId'] = $defaultPlayerId;
         }
+        $this->assertRuntimeActorScopedPayload($type, $runtimePayload, $defaultPlayerId);
         if (in_array($type, ['library.reveal_top', 'library.reveal', 'card.revealed'], true) && !isset($runtimePayload['viewers']) && isset($runtimePayload['to'])) {
             $runtimePayload['viewers'] = $runtimePayload['to'];
         }
@@ -1478,11 +2041,52 @@ final readonly class GameWebsocketCommandPatchService
                 ],
             ];
         }
-
         return [
             'type' => $this->runtimeCommandType($type),
             'payload' => $runtimePayload,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function assertRuntimeActorScopedPayload(string $type, array $payload, string $defaultPlayerId): void
+    {
+        $canonicalType = $this->runtimeCommandType($type);
+        if ($canonicalType === 'game.close') {
+            return;
+        }
+        if ($canonicalType === 'game.concede') {
+            $this->assertRuntimeActorPayloadField($payload, 'playerId', $defaultPlayerId, 'Players can only concede themselves.');
+
+            return;
+        }
+        if ($canonicalType === 'library.shuffle' && ($payload['reason'] ?? null) === 'revealed-library-closed') {
+            return;
+        }
+        if (isset(self::RUNTIME_OWN_PLAYER_PAYLOAD_KEYS[$canonicalType])) {
+            $this->assertRuntimeActorPayloadField($payload, self::RUNTIME_OWN_PLAYER_PAYLOAD_KEYS[$canonicalType], $defaultPlayerId);
+        }
+        if (isset(self::RUNTIME_OWN_TARGET_PAYLOAD_KEYS[$canonicalType])) {
+            $this->assertRuntimeActorPayloadField($payload, self::RUNTIME_OWN_TARGET_PAYLOAD_KEYS[$canonicalType], $defaultPlayerId);
+        }
+        if ($canonicalType === 'counter.changed') {
+            $scope = is_string($payload['scope'] ?? null) ? trim($payload['scope']) : '';
+            if (str_starts_with($scope, 'player:') && substr($scope, 7) !== $defaultPlayerId) {
+                throw new \InvalidArgumentException('Runtime command player scope does not match the signed player.');
+            }
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function assertRuntimeActorPayloadField(array $payload, string $key, string $defaultPlayerId, string $message = 'Runtime command player scope does not match the signed player.'): void
+    {
+        $value = is_string($payload[$key] ?? null) ? trim($payload[$key]) : '';
+        if ($value !== '' && $value !== $defaultPlayerId) {
+            throw new \InvalidArgumentException($message);
+        }
     }
 
     /**
@@ -1527,6 +2131,70 @@ final readonly class GameWebsocketCommandPatchService
         int $numberOfPlayers,
         int $numberOfInstances,
         bool $patchContractError,
+        float $totalServerMs = 0.0,
+    ): void {
+        $this->logger?->error('Emergency legacy gameplay fallback metric recorded.', [
+            'gameId' => $gameId,
+            'command.type' => $type,
+            'alert' => 'runtime_emergency_legacy_fallback',
+            'reason' => $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error',
+            'patchContractError' => $patchContractError,
+        ]);
+        $this->recordMetric(
+            $metricsRecorder,
+            $metricsInspector,
+            [
+                'transport' => 'websocket',
+                'command.type' => $type,
+                'gameId' => $gameId,
+                'snapshot_load_ms' => $snapshotLoadMs,
+                'normalize_ms' => 0.0,
+                'command_apply_ms' => 0.0,
+                'persist_ms' => 0.0,
+                'projection_ms' => 0.0,
+                'patch_build_ms' => 0.0,
+                'total_server_ms' => $totalServerMs,
+                'snapshot_bytes_before' => $snapshotBytesBefore,
+                'snapshot_bytes_after' => $snapshotBytesBefore,
+                'patch_bytes' => 0,
+                'number_of_players' => $numberOfPlayers,
+                'number_of_instances' => $numberOfInstances,
+                'number_of_visible_cards' => 0,
+                'resync_required' => false,
+                'clientActionId_duplicate' => false,
+                'status' => 'runtime_fallback',
+                'gameplay.runtime_fallback_reason' => $patchContractError ? 'runtime_patch_contract_error' : 'runtime_gateway_error',
+                'gameplay.runtime_route' => 1,
+                'gameplay.runtime_fallback_count' => 1,
+                'gameplay.runtime_error_count' => $patchContractError ? 0 : 1,
+                'gameplay.runtime_patch_contract_error' => $patchContractError ? 1 : 0,
+                'command.legacy_fallback_count' => 1,
+                ...$this->runtimeHotPathCounters(
+                    legacyHandlerCount: 1,
+                    emergencyFallbackCount: 1,
+                    snapshotLoadCount: $snapshotBytesBefore > 0 ? 1 : 0,
+                    dbLockCount: $snapshotBytesBefore > 0 ? 1 : 0,
+                ),
+            ],
+            $usageStartedAt,
+        );
+    }
+
+    /**
+     * @param array<string,int>|null $usageStartedAt
+     */
+    private function recordRuntimeFailureMetric(
+        GameplayMetricsRecorderInterface $metricsRecorder,
+        GameplayMetricsInspector $metricsInspector,
+        ?array $usageStartedAt,
+        string $type,
+        string $gameId,
+        float $snapshotLoadMs,
+        int $snapshotBytesBefore,
+        int $numberOfPlayers,
+        int $numberOfInstances,
+        bool $patchContractError,
+        float $totalServerMs = 0.0,
     ): void {
         $this->recordMetric(
             $metricsRecorder,
@@ -1541,7 +2209,7 @@ final readonly class GameWebsocketCommandPatchService
                 'persist_ms' => 0.0,
                 'projection_ms' => 0.0,
                 'patch_build_ms' => 0.0,
-                'total_server_ms' => 0.0,
+                'total_server_ms' => $totalServerMs,
                 'snapshot_bytes_before' => $snapshotBytesBefore,
                 'snapshot_bytes_after' => $snapshotBytesBefore,
                 'patch_bytes' => 0,
@@ -1550,14 +2218,56 @@ final readonly class GameWebsocketCommandPatchService
                 'number_of_visible_cards' => 0,
                 'resync_required' => false,
                 'clientActionId_duplicate' => false,
-                'status' => 'runtime_fallback',
+                'status' => $patchContractError ? 'runtime_patch_contract_failed' : 'runtime_failed',
                 'gameplay.runtime_route' => 1,
-                'gameplay.runtime_fallback_count' => 1,
+                'gameplay.runtime_fallback_count' => 0,
                 'gameplay.runtime_error_count' => $patchContractError ? 0 : 1,
                 'gameplay.runtime_patch_contract_error' => $patchContractError ? 1 : 0,
+                'command.legacy_fallback_count' => 0,
+                ...$this->runtimeHotPathCounters(snapshotLoadCount: $snapshotBytesBefore > 0 ? 1 : 0),
             ],
             $usageStartedAt,
         );
+    }
+
+    private function runtimeFailureMessage(
+        string $gameId,
+        ?string $messageId,
+        string $clientActionId,
+        int $version,
+        bool $patchContractError,
+    ): array {
+        return $this->messages->rejectedCommand(
+            $gameId,
+            $messageId,
+            $clientActionId,
+            $version,
+            $patchContractError ? 'RUNTIME_PATCH_CONTRACT_ERROR' : 'RUNTIME_UNAVAILABLE',
+            $patchContractError
+                ? 'Runtime patch contract failed. Legacy fallback is disabled.'
+                : 'Runtime command failed. Legacy fallback is disabled.',
+        );
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    private function runtimeHotPathCounters(
+        int $snapshotLoadCount = 0,
+        int $snapshotWriteCount = 0,
+        int $dbLockCount = 0,
+        int $legacyHandlerCount = 0,
+        int $previousNextProjectionCount = 0,
+        int $emergencyFallbackCount = 0,
+    ): array {
+        return [
+            'runtime.snapshot_load_count' => $snapshotLoadCount,
+            'runtime.snapshot_write_count' => $snapshotWriteCount,
+            'runtime.db_lock_count' => $dbLockCount,
+            'runtime.legacy_handler_count' => $legacyHandlerCount,
+            'runtime.previous_next_projection_count' => $previousNextProjectionCount,
+            'runtime.emergency_fallback_count' => $emergencyFallbackCount,
+        ];
     }
 
     /**
@@ -2844,7 +3554,12 @@ final readonly class GameWebsocketCommandPatchService
 
     private function elapsedMs(float $startedAt): float
     {
-        return round(max(0, (microtime(true) - $startedAt) * 1000), 2);
+        $elapsed = max(0, (microtime(true) - $startedAt) * 1000);
+        if ($elapsed > 0.0 && $elapsed < 0.01) {
+            return 0.01;
+        }
+
+        return round($elapsed, 2);
     }
 
     /**

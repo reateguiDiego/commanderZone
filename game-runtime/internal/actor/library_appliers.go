@@ -2,6 +2,8 @@ package actor
 
 import (
 	"context"
+	cryptorand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"strconv"
 	"time"
@@ -87,11 +89,10 @@ func (LibraryRevealTopApplier) Apply(_ context.Context, game *state.GameState, c
 	if err != nil {
 		return nil, err
 	}
-	mask := uint64(1)
-	if value, ok := intField(command.Payload, "visibleToMask"); ok && value > 0 {
-		mask = uint64(value)
+	viewers, mask := revealTargets(command.Payload)
+	if mask == 0 {
+		mask = 1
 	}
-	viewers, _ := stringSliceField(command.Payload, "viewers")
 	window := game.RevealTopWindow(playerID, count, viewers, mask)
 	cards := make([]map[string]any, 0, len(top))
 	for _, instanceID := range top {
@@ -153,6 +154,7 @@ func (LibraryReorderTopApplier) Apply(_ context.Context, game *state.GameState, 
 			"instanceIds": orderedTopIDs,
 		},
 	})
+	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	return map[string]any{"playerId": playerID, "instanceIds": orderedTopIDs, "metrics": libraryMetrics(command.Type, start, ops)}, nil
 }
 
@@ -267,6 +269,7 @@ func (LibraryViewApplier) Apply(_ context.Context, game *state.GameState, comman
 			"cards":    cards,
 		},
 	})
+	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	return map[string]any{"playerId": playerID, "count": len(cards), "instanceIds": top, "metrics": libraryMetrics(command.Type, start, ops)}, nil
 }
 
@@ -281,15 +284,16 @@ func (LibraryShuffleApplier) Apply(_ context.Context, game *state.GameState, com
 		return nil, err
 	}
 	before := game.Visibility.LibraryEpochByOwner[playerID]
+	seed := libraryShuffleSeed()
 	ops := state.NewLibraryOps()
-	if err := ops.Shuffle(game, playerID); err != nil {
+	if err := ops.ShuffleWithSeed(game, playerID, seed); err != nil {
 		return nil, err
 	}
 	after := game.Visibility.LibraryEpochByOwner[playerID]
 	if after <= before {
 		return nil, fmt.Errorf("%w: visibilityEpoch", ErrInvalidPayloadField)
 	}
-	emitter.EmitPrivate(playerID, protocol.PatchOp{
+	emitter.EmitPublic(protocol.PatchOp{
 		Op: "library.shuffled",
 		Data: map[string]any{
 			"playerId":        playerID,
@@ -297,7 +301,13 @@ func (LibraryShuffleApplier) Apply(_ context.Context, game *state.GameState, com
 		},
 	})
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
-	return map[string]any{"playerId": playerID, "visibilityEpoch": after, "libraryOrder": append([]string(nil), game.Zones[playerID].Library...), "metrics": libraryMetrics(command.Type, start, ops)}, nil
+	return map[string]any{
+		"playerId":         playerID,
+		"visibilityEpoch":  after,
+		"shuffleSeed":      int(seed),
+		"shuffleAlgorithm": state.DeterministicShuffleAlgorithm,
+		"metrics":          libraryMetrics(command.Type, start, ops),
+	}, nil
 }
 
 func applyLibraryPut(command protocol.CommandEnvelopeV2, game *state.GameState, emitter *PatchEmitter, top bool) (map[string]any, error) {
@@ -348,10 +358,20 @@ func libraryMetrics(commandType string, start time.Time, ops *state.LibraryOps) 
 	switch commandType {
 	case "library.draw_many":
 		durationKey = "library.draw_many_ms"
-	case "library.reveal_top", "library.view":
+	case "library.reveal_top":
 		durationKey = "library.reveal_top_ms"
+	case "library.view":
+		durationKey = "library.view_ms"
 	case "library.reorder_top":
 		durationKey = "library.reorder_top_ms"
+	case "library.move_top":
+		durationKey = "library.move_top_ms"
+	case "library.put_top":
+		durationKey = "library.put_top_ms"
+	case "library.put_bottom":
+		durationKey = "library.put_bottom_ms"
+	case "library.shuffle":
+		durationKey = "library.shuffle_ms"
 	}
 	return map[string]any{
 		"library.runtime_route":   1,
@@ -359,4 +379,12 @@ func libraryMetrics(commandType string, start time.Time, ops *state.LibraryOps) 
 		"library.reindex_count":   ops.ReindexCount(),
 		durationKey:               float64(time.Since(start).Microseconds()) / 1000,
 	}
+}
+
+func libraryShuffleSeed() uint32 {
+	var buffer [4]byte
+	if _, err := cryptorand.Read(buffer[:]); err == nil {
+		return binary.BigEndian.Uint32(buffer[:])
+	}
+	return uint32(time.Now().UnixNano())
 }

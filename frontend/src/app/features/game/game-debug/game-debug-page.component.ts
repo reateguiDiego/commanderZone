@@ -66,6 +66,8 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
     };
   });
   readonly deadLetterEvents = computed(() => [...this.snapshotMetrics.deadLetterEvents()].reverse());
+  readonly httpMetricsStatus = computed(() => this.report() ? 'disponibles' : 'sin cargar');
+  readonly gameplayRuntimeObservationStatus = computed(() => this.queueMetrics() ? 'observado por esta pestana' : 'sin telemetria local');
 
   ngOnInit(): void {
     this.snapshotMetrics.observe(this.gameId);
@@ -179,6 +181,23 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
     }
 
     return ((bucket?.characters ?? 0) / messages).toFixed(2);
+  }
+
+  debugLiveStatusLabel(): string {
+    switch (this.debugWebsocket.status()) {
+      case 'connected':
+        return 'conectado';
+      case 'connecting':
+        return 'conectando';
+      case 'disconnected':
+        return 'desconectado, reintentando';
+      case 'unavailable':
+        return 'no configurado';
+      case 'error':
+        return 'error';
+      case 'stopped':
+        return 'detenido';
+    }
   }
 
   snapshotGrowthLabel(action: GameDebugActionExchange): string {

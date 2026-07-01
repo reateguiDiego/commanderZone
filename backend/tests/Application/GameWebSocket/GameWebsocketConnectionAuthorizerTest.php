@@ -62,6 +62,41 @@ class GameWebsocketConnectionAuthorizerTest extends TestCase
         self::assertSame('Player', $context->displayName);
     }
 
+    public function testAuthorizesViewerMaskFromSnapshot(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $player = new User('player@example.test', 'Player');
+        $room = new Room($owner);
+        $room->addPlayer(new RoomPlayer($room, $owner));
+        $room->addPlayer(new RoomPlayer($room, $player));
+        $game = new Game($room, [
+            'version' => 7,
+            'players' => [
+                $owner->id() => ['zones' => []],
+                $player->id() => ['zones' => []],
+            ],
+            'visibility' => [
+                'viewerBits' => [
+                    $owner->id() => 1,
+                    $player->id() => 4,
+                ],
+            ],
+        ]);
+        $ticketManager = new GameWebsocketTicketManager('test-secret');
+        $ticket = $ticketManager->issue($game->id(), $player->id())->ticket;
+
+        $authorizer = new GameWebsocketConnectionAuthorizer(
+            $ticketManager,
+            new GameWebsocketAccessService(),
+            $this->registry($game, $player, expectClear: true),
+        );
+
+        $context = $authorizer->authorize($game->id(), $ticket);
+
+        self::assertSame(7, $context->currentVersion);
+        self::assertSame(4, $context->viewerMask);
+    }
+
     public function testAuthorizesSnapshotViewerAndClearsManager(): void
     {
         $owner = new User('owner@example.test', 'Owner');

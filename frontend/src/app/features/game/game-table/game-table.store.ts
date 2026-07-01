@@ -233,7 +233,7 @@ export class GameTableStore implements OnDestroy {
   constructor() {
     this.contexts.bind({
       setSnapshot: (snapshot) => this.setSnapshot(snapshot),
-      refetch: (force) => this.refetch(force),
+      refetch: (force, source) => this.refetch(force, source),
       command: (type, payload, force) => this.command(type, payload, force),
       playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
       setPendingBattlefieldMove: (move) => this.pendingBattlefieldMove.set(move),
@@ -267,13 +267,14 @@ export class GameTableStore implements OnDestroy {
     await this.session.load(this.contexts.session());
   }
 
-  async refetch(force = false): Promise<void> {
+  async refetch(force = false, source = 'store.refetch'): Promise<void> {
     if (force) {
+      this.logForcedRefetch(source);
       this.dragDropStore.clearForceRefreshState();
     }
     await Promise.all([
       this.gameActionsStore.refreshViewerControlAccess(),
-      this.session.refetch(this.contexts.session(), force),
+      this.session.refetch(this.contexts.session(), force, source),
     ]);
   }
 
@@ -838,7 +839,7 @@ export class GameTableStore implements OnDestroy {
     return this.chatStore.selectedChatTargetPlayerId();
   }
 
-  async changeLife(playerId: string, delta: number): Promise<void> {
+  async changeLife(playerId: string, delta: number, options: { debounce?: boolean } = {}): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
       this.error.set('You can only change your own life total.');
       return;
@@ -853,6 +854,8 @@ export class GameTableStore implements OnDestroy {
     this.debouncedValueCommands.queueLife(this.contexts.debouncedValueCommand(), {
       playerId,
       life: nextLife,
+    }, {
+      flushDelayMs: options.debounce === false ? 0 : undefined,
     });
   }
 
@@ -1726,7 +1729,7 @@ export class GameTableStore implements OnDestroy {
     this.locallyConcededPlayerId = current.id;
     this.websocketGameplay.prepareForLocalConcede();
     try {
-      await this.command('game.concede', {}, true);
+      await this.command('game.concede', { playerId: current.id }, true);
     } catch (error) {
       this.locallyConcededPlayerId = null;
       throw error;
@@ -1751,7 +1754,7 @@ export class GameTableStore implements OnDestroy {
     this.closeContextMenu();
     if (current && current.state.status !== 'conceded') {
       try {
-        await this.command('game.concede', {}, true);
+        await this.command('game.concede', { playerId: current.id }, true);
       } catch (error) {
         if (!this.isAlreadyConcededError(error)) {
           throw error;
@@ -1999,7 +2002,26 @@ export class GameTableStore implements OnDestroy {
     this.pendingLibraryMove.set(null);
     this.selectedCards.set([]);
     this.error.set('Card move did not complete. No changes were applied; try again.');
-    void this.refetch(true);
+    void this.refetch(true, 'pending_transfer.timeout');
+  }
+
+  private logForcedRefetch(source: string): void {
+    console.warn('[CommanderZone gameplay realtime]', {
+      source,
+      gameId: this.gameId(),
+      playerId: null,
+      localSnapshotVersion: this.snapshot()?.version ?? null,
+      normalizedV2LastAppliedVersion: null,
+      incomingMessageKind: null,
+      incomingMessageType: null,
+      incomingPatchVersion: null,
+      ops: [],
+      clientActionId: null,
+      commandType: null,
+      reason: 'forced_refetch',
+      currentVersion: this.snapshot()?.version ?? null,
+      measuredAt: new Date().toISOString(),
+    });
   }
 
 }

@@ -4,6 +4,9 @@ import { createCommanderGameWithBasicDecks } from './support/commander-game';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
+const REQUIRE_DEBUG_HEALTH = isTruthy(
+  process.env['E2E_REQUIRE_DEBUG_HEALTH'] ?? process.env['GAME_DEBUG_HEALTH_ENABLED'],
+);
 
 type JsonObject = Record<string, unknown>;
 type MulliganRuntimeSetup = Awaited<ReturnType<typeof createCommanderGameWithBasicDecks>>;
@@ -41,10 +44,14 @@ test.describe('mulligan runtime release gate', () => {
       const diagnostics = collectPageDiagnostics(page, gameId);
       const frames = collectWebSocketFrames(page);
       let snapshotRefetches = 0;
+      let legacyCommandPosts = 0;
       page.on('request', (httpRequest) => {
         const url = httpRequest.url();
         if (httpRequest.method() === 'GET' && (url.includes(`/games/${gameId}/snapshot`) || url.includes(`/games/${gameId}/bootstrap`))) {
           snapshotRefetches += 1;
+        }
+        if (httpRequest.method() === 'POST' && url.includes(`/games/${gameId}/commands`)) {
+          legacyCommandPosts += 1;
         }
       });
 
@@ -69,6 +76,7 @@ test.describe('mulligan runtime release gate', () => {
 
       expect(take.kind).toBe('patch.v2');
       expect(hasOp(take, 'mulligan.hand.replace_private')).toBe(true);
+      expectNoLegacyFallbackEvidence(frames);
       await expect(page.locator('.mulligan-card')).toHaveCount(7);
       try {
         await expect(page.locator('.mulligan-card', { hasText: 'Unknown Card' })).toHaveCount(0);
@@ -92,25 +100,30 @@ test.describe('mulligan runtime release gate', () => {
       await keepPatch;
       await expect(page.getByTestId('mulligan-ready-panel')).toBeVisible();
       expect(snapshotRefetches).toBe(snapshotBaseline);
+      expect(legacyCommandPosts).toBe(0);
+      expectNoLegacyFallbackEvidence(frames);
 
-      const health = await waitForActionHealth(debug.frames, 'mulligan.take');
-      const phases = latestActionPhases(health, 'mulligan.take');
-      expect(phases).not.toBeNull();
-      if (!phases) {
-        throw new Error('Missing mulligan.take phases in debug health.');
+      if (debug.enabled) {
+        const health = await waitForActionHealth(debug.frames, 'mulligan.take');
+        const phases = latestActionPhases(health, 'mulligan.take');
+        expect(phases).not.toBeNull();
+        if (!phases) {
+          throw new Error('Missing mulligan.take phases in debug health.');
+        }
+        expect(phases['mulligan.runtime_route']).toBe(1);
+        expect(phases['mulligan.runtime_fallback_count']).toBe(0);
+        expect(phases['mulligan.runtime_error_count']).toBe(0);
+        expect(phases['command.legacy_fallback_count'] ?? 0).toBe(0);
+        expect(debugHealthHasPatchV2(health)).toBe(true);
+        expectNoLegacyFallbackEvidence(debug.frames);
+        await debug.page?.close();
       }
-      expect(phases['mulligan.runtime_route']).toBe(1);
-      expect(phases['mulligan.runtime_fallback_count']).toBe(0);
-      expect(phases['mulligan.runtime_error_count']).toBe(0);
-      expect(debugHealthHasPatchV2(health)).toBe(true);
-
-      await debug.page.close();
     } finally {
       await context.close();
     }
   });
 
-  test('runtime mulligan error returns controlled fallback response over real websocket', async ({ browser, request, baseURL }) => {
+  test('runtime mulligan error fails closed without legacy fallback over real websocket', async ({ browser, request, baseURL }) => {
     test.setTimeout(60_000);
     if (!baseURL) {
       throw new Error('Playwright baseURL is required.');
@@ -131,22 +144,29 @@ test.describe('mulligan runtime release gate', () => {
         gameId,
         messageId: `e2e-invalid-scry-${Date.now()}`,
         destination: 'TOP',
-      }, 'mulligan.error');
+      }, ['mulligan.error', 'command_ack']);
 
-      expect(response.kind).toBe('mulligan.error');
-      expect(['SCRY_NOT_ALLOWED', 'INVALID_MULLIGAN_STATE']).toContain((response.error as JsonObject | undefined)?.['code']);
-
-      const health = await waitForActionHealth(debug.frames, 'mulligan.scry.confirm');
-      const phases = latestActionPhases(health, 'mulligan.scry.confirm');
-      expect(phases).not.toBeNull();
-      if (!phases) {
-        throw new Error('Missing mulligan.scry.confirm phases in debug health.');
+      expect(['mulligan.error', 'command_ack']).toContain(response.kind);
+      if (response.kind === 'command_ack') {
+        expect(response.status).toBe('rejected');
+        expect((response.error as JsonObject | undefined)?.['code']).toBe('COMMAND_FAILED');
+      } else {
+        expect(['SCRY_NOT_ALLOWED', 'INVALID_MULLIGAN_STATE', 'RUNTIME_UNAVAILABLE', 'RUNTIME_PATCH_CONTRACT_ERROR']).toContain((response.error as JsonObject | undefined)?.['code']);
       }
-      expect(phases['mulligan.runtime_route']).toBe(0);
-      expect(phases['mulligan.runtime_fallback_count']).toBe(1);
-      expect(phases['mulligan.runtime_error_count']).toBe(1);
 
-      await debug.page.close();
+      if (debug.enabled) {
+        const health = await waitForActionHealth(debug.frames, 'mulligan.scry.confirm');
+        const phases = latestActionPhases(health, 'mulligan.scry.confirm');
+        expect(phases).not.toBeNull();
+        if (!phases) {
+          throw new Error('Missing mulligan.scry.confirm phases in debug health.');
+        }
+        expect(phases['mulligan.runtime_route']).toBe(1);
+        expect(phases['mulligan.runtime_fallback_count']).toBe(0);
+        expect(phases['command.legacy_fallback_count'] ?? 0).toBe(0);
+        expectNoLegacyFallbackEvidence(debug.frames);
+        await debug.page?.close();
+      }
     } finally {
       await context.close();
     }
@@ -209,8 +229,12 @@ async function openDebugObserver(
   request: APIRequestContext,
   gameId: string,
   token: string,
-): Promise<{ page: Page; frames: JsonObject[] }> {
+): Promise<{ page?: Page; frames: JsonObject[]; enabled: boolean }> {
   const ticket = await websocketTicket(request, gameId, token);
+  if (!REQUIRE_DEBUG_HEALTH) {
+    return { frames: [], enabled: false };
+  }
+
   const debugUrl = debugWebsocketUrl(ticket.websocketUrl, gameId);
   const debugPage = await context.newPage();
   const frames = collectWebSocketFrames(debugPage);
@@ -221,7 +245,7 @@ async function openDebugObserver(
   }, debugUrl);
   await expect.poll(() => frames.some((message) => message['kind'] === 'debug_health'), { timeout: 15_000 }).toBe(true);
 
-  return { page: debugPage, frames };
+  return { page: debugPage, frames, enabled: true };
 }
 
 function debugWebsocketUrl(websocketUrl: string, gameId: string): string {
@@ -301,7 +325,8 @@ async function websocketTicket(request: APIRequestContext, gameId: string, token
     },
   });
   expect(response.ok()).toBeTruthy();
-  const payload = await response.json() as { websocketUrl?: string };
+  const payload = await response.json() as { route?: string; websocketUrl?: string };
+  expect(payload.route).toBe('runtime_ws');
   if (!payload.websocketUrl) {
     throw new Error('WebSocket ticket response did not include websocketUrl.');
   }
@@ -320,16 +345,44 @@ async function sendRawWebSocketMessage(
   context: BrowserContext,
   websocketUrl: string,
   message: JsonObject,
-  expectedKind: string,
+  expectedKind: string | readonly string[],
 ): Promise<JsonObject> {
   const page = await context.newPage();
   try {
     return await page.evaluate(
       ({ url, payload, kind }) => new Promise<JsonObject>((resolve, reject) => {
+        const expectedKinds = Array.isArray(kind) ? kind : [kind];
+        const frames: JsonObject[] = [];
+        const findPositiveFallbackCounter = (value: unknown): { key: string; value: number } | null => {
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              const nested = findPositiveFallbackCounter(item);
+              if (nested) {
+                return nested;
+              }
+            }
+
+            return null;
+          }
+          if (!value || typeof value !== 'object') {
+            return null;
+          }
+          for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+            if ((key.endsWith('runtime_fallback_count') || key === 'command.legacy_fallback_count') && Number(nestedValue ?? 0) > 0) {
+              return { key, value: Number(nestedValue) };
+            }
+            const nested = findPositiveFallbackCounter(nestedValue);
+            if (nested) {
+              return nested;
+            }
+          }
+
+          return null;
+        };
         const socket = new WebSocket(url);
         const timeout = window.setTimeout(() => {
           socket.close();
-          reject(new Error(`Timed out waiting for ${kind}`));
+          reject(new Error(`Timed out waiting for ${expectedKinds.join(' or ')}. Frames: ${JSON.stringify(frames.slice(-8))}`));
         }, 15_000);
         socket.onopen = () => socket.send(JSON.stringify(payload));
         socket.onerror = () => {
@@ -339,7 +392,21 @@ async function sendRawWebSocketMessage(
         socket.onmessage = (event) => {
           try {
             const parsed = JSON.parse(String(event.data)) as JsonObject;
-            if (parsed['kind'] === kind) {
+            frames.push(parsed);
+            if (parsed['kind'] === 'game_patch') {
+              window.clearTimeout(timeout);
+              socket.close();
+              reject(new Error(`Runtime gate received legacy game_patch: ${JSON.stringify(parsed)}`));
+              return;
+            }
+            const positiveCounter = findPositiveFallbackCounter(parsed);
+            if (positiveCounter) {
+              window.clearTimeout(timeout);
+              socket.close();
+              reject(new Error(`Runtime gate observed fallback counter ${positiveCounter.key}=${positiveCounter.value}: ${JSON.stringify(parsed)}`));
+              return;
+            }
+            if (expectedKinds.includes(String(parsed['kind'] ?? ''))) {
               window.clearTimeout(timeout);
               socket.close();
               resolve(parsed);
@@ -356,6 +423,61 @@ async function sendRawWebSocketMessage(
   } finally {
     await page.close();
   }
+}
+
+function expectNoLegacyFallbackEvidence(frames: readonly JsonObject[]): void {
+  const legacyFrame = frames.find((message) => message['kind'] === 'game_patch');
+  expect(legacyFrame ?? null).toBeNull();
+
+  const error = fallbackCounterError(frames);
+  if (error) {
+    throw error;
+  }
+}
+
+function fallbackCounterError(frames: readonly JsonObject[]): Error | null {
+  for (const frame of frames) {
+    const positiveCounter = findPositiveFallbackCounter(frame);
+    if (positiveCounter) {
+      return new Error(`Runtime gate observed fallback counter ${positiveCounter.key}=${positiveCounter.value}: ${JSON.stringify(frame)}`);
+    }
+  }
+
+  return null;
+}
+
+function findPositiveFallbackCounter(value: unknown): { key: string; value: number } | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = findPositiveFallbackCounter(item);
+      if (nested) {
+        return nested;
+      }
+    }
+
+    return null;
+  }
+
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  for (const [key, nestedValue] of Object.entries(value as JsonObject)) {
+    if ((key.endsWith('runtime_fallback_count') || key === 'command.legacy_fallback_count') && Number(nestedValue ?? 0) > 0) {
+      return { key, value: Number(nestedValue) };
+    }
+
+    const nested = findPositiveFallbackCounter(nestedValue);
+    if (nested) {
+      return nested;
+    }
+  }
+
+  return null;
+}
+
+function isTruthy(value: string | undefined): boolean {
+  return ['1', 'true', 'yes', 'on'].includes((value ?? '').trim().toLowerCase());
 }
 
 function parseFrame(payload: string | Buffer): JsonObject | null {

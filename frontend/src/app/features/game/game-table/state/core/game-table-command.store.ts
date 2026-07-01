@@ -92,7 +92,28 @@ export class GameTableCommandStore {
       throw new Error('WebSocket gameplay connection is not available.');
     }
 
+    this.logHttpFallback(gameId, type, payload);
     const snapshot = await this.commands.send(gameId, type, payload);
     context.setSnapshot(snapshot);
+  }
+
+  private logHttpFallback(gameId: string, type: GameCommandType, payload: Record<string, unknown>): void {
+    console.warn('[CommanderZone gameplay realtime]', {
+      source: 'fallback HTTP',
+      gameId,
+      playerId: null,
+      localSnapshotVersion: this.core.snapshot()?.version ?? null,
+      normalizedV2LastAppliedVersion: null,
+      incomingMessageKind: null,
+      incomingMessageType: null,
+      incomingPatchVersion: null,
+      ops: [],
+      clientActionId: null,
+      commandType: type,
+      reason: 'legacy_command_http',
+      currentVersion: this.core.snapshot()?.version ?? null,
+      payloadKeys: Object.keys(payload).sort(),
+      measuredAt: new Date().toISOString(),
+    });
   }
 }

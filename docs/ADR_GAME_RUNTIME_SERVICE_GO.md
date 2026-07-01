@@ -60,9 +60,19 @@ Ticket contract:
 
 Routing:
 
-- Phase 1: single runtime process, in-memory actor registry.
-- Phase 2: sticky routing at load balancer by `gameId`.
-- Phase 3: optional registry/lease table for actor ownership if horizontal runtime is needed.
+- Phase 1: single runtime process, in-memory actor registry and explicit `GAME_RUNTIME_OWNERSHIP_MODE=single-node`.
+- Phase 2: Postgres lease/fencing with `GAME_RUNTIME_OWNERSHIP_MODE=postgres-lease`.
+- Phase 3: sticky routing at load balancer by `gameId` and optional sharding when horizontal runtime is needed.
+
+Current implementation status:
+
+- `single-node` and `postgres-lease` ownership modes are supported.
+- The process has a `GAME_RUNTIME_INSTANCE_ID` and acquires owner tokens per `gameId`.
+- `/commands` and `/ws` reject with `ownership_not_held` / `OWNERSHIP_NOT_HELD` when the local process cannot prove ownership.
+- Actor command application rechecks the owner token before mutating state or appending an event.
+- In `postgres-lease` mode, `game_event` append validates `owner_instance_id` and `fencing_token` against `game_runtime_lease` inside the Postgres insert path.
+- Postgres unique constraints for `(game_id, version)` and `(game_id, client_action_id)` remain durable duplicate/idempotency guards, not a distributed ownership policy by themselves.
+- Any ownership mode other than `single-node` or `postgres-lease` fails startup.
 
 ## Game Actor Per Game
 

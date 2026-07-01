@@ -77,6 +77,19 @@ func TestLibraryOpsShuffleBumpsEpochWithoutPerCardCleanup(t *testing.T) {
 	}
 }
 
+func TestLibraryOpsShuffleWithSeedIsDeterministic(t *testing.T) {
+	game := libraryTestState()
+	if err := NewLibraryOps().ShuffleWithSeed(&game, "p1", 123); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := join(game.Zones["p1"].Library), "b,d,a,c"; got != want {
+		t.Fatalf("seeded shuffle got %s want %s", got, want)
+	}
+	if got := game.Visibility.LibraryEpochByOwner["p1"]; got != 2 {
+		t.Fatalf("epoch got %d want 2", got)
+	}
+}
+
 func TestLibraryOpsHotPathUpdatesLocWithoutGlobalReindex(t *testing.T) {
 	game := libraryTestState()
 	ops := NewLibraryOps()

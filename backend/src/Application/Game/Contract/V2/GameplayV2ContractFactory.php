@@ -110,7 +110,11 @@ final class GameplayV2ContractFactory
         $requiredStaticCards = [];
         $knownStaticCatalogKeys = $this->knownStaticCatalogKeySet($knownStaticCatalogKeys);
         $language = LanguageCatalog::normalize($viewer->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE;
-        $cardCatalog = is_array($projectedSnapshot['cardCatalog'] ?? null) ? $projectedSnapshot['cardCatalog'] : [];
+        $compactRuntime = $this->compactRuntimeBootstrapData($game->snapshot());
+        $cardCatalog = [
+            ...$compactRuntime['cardCatalog'],
+            ...(is_array($projectedSnapshot['cardCatalog'] ?? null) ? $projectedSnapshot['cardCatalog'] : []),
+        ];
 
         foreach (($projectedSnapshot['players'] ?? []) as $playerId => $player) {
             if (!is_string($playerId) || !is_array($player)) {
@@ -129,6 +133,10 @@ final class GameplayV2ContractFactory
                     if (!is_array($card)) {
                         continue;
                     }
+                    $card = $this->withCompactRuntimeIdentity(
+                        $card,
+                        $compactRuntime['instances'],
+                    );
 
                     $instanceId = trim((string) ($card['instanceId'] ?? ''));
                     if ($instanceId === '') {
@@ -285,6 +293,75 @@ final class GameplayV2ContractFactory
             'defaultDefense' => $card['defaultDefense'] ?? $baseStats['defense'] ?? null,
             'hasRulings' => ($card['hasRulings'] ?? $layoutMetadata['hasRulings'] ?? false) === true,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array{instances: array<string,array<string,string>>, cardCatalog: array<string,array<string,mixed>>}
+     */
+    private function compactRuntimeBootstrapData(array $snapshot): array
+    {
+        $instances = is_array($snapshot['instances'] ?? null) ? $snapshot['instances'] : [];
+        $catalog = is_array($snapshot['cardCatalog'] ?? null) ? $snapshot['cardCatalog'] : [];
+        if ($instances === [] || $catalog === []) {
+            return ['instances' => [], 'cardCatalog' => []];
+        }
+
+        $runtimeInstances = [];
+        foreach ($instances as $instanceId => $instance) {
+            if (!is_string($instanceId) || !is_array($instance)) {
+                continue;
+            }
+
+            $cardKey = is_string($instance['cardKey'] ?? null) ? trim($instance['cardKey']) : '';
+            if ($cardKey === '' || !is_array($catalog[$cardKey] ?? null)) {
+                continue;
+            }
+
+            $runtimeInstances[$instanceId] = [
+                'cardKey' => $cardKey,
+                'cardVersion' => is_string($catalog[$cardKey]['cardVersion'] ?? null)
+                    ? trim($catalog[$cardKey]['cardVersion'])
+                    : '',
+            ];
+        }
+
+        return [
+            'instances' => $runtimeInstances,
+            'cardCatalog' => array_filter($catalog, static fn (mixed $card): bool => is_array($card)),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     * @param array<string,array<string,string>> $compactRuntimeInstances
+     *
+     * @return array<string,mixed>
+     */
+    private function withCompactRuntimeIdentity(
+        array $card,
+        array $compactRuntimeInstances,
+    ): array {
+        if ($this->isHiddenPlaceholder($card)) {
+            return $card;
+        }
+
+        $instanceId = trim((string) ($card['instanceId'] ?? ''));
+        $identity = $instanceId !== '' && is_array($compactRuntimeInstances[$instanceId] ?? null)
+            ? $compactRuntimeInstances[$instanceId]
+            : null;
+        if ($identity === null || trim((string) ($identity['cardKey'] ?? '')) === '') {
+            return $card;
+        }
+
+        $card['cardKey'] = $identity['cardKey'];
+        $card['cardRef'] = $identity['cardKey'];
+        if (trim((string) ($identity['cardVersion'] ?? '')) !== '') {
+            $card['cardVersion'] = $identity['cardVersion'];
+        }
+
+        return $card;
     }
 
     /**

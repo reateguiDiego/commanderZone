@@ -156,6 +156,15 @@ export interface GameWebsocketTicketResponse {
   ticket: string;
   expiresAt: string;
   websocketUrl: string;
+  route: 'runtime_ws';
+  claims?: {
+    gameId: string;
+    userId: string;
+    playerId: string;
+    role: string;
+    permissions: string[];
+    expiry: number;
+  };
 }
 
 export interface GameDebugPlayerContext {

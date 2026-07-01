@@ -471,7 +471,8 @@ describe('API services', () => {
     request.flush({
       ticket: 'ticket-1',
       expiresAt: '2026-01-01T00:00:30+00:00',
-      websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-1',
+      websocketUrl: 'ws://127.0.0.1:8091/ws?ticket=ticket-1',
+      route: 'runtime_ws',
     });
   });
 

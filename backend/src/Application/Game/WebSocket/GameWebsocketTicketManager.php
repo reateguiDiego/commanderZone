@@ -9,18 +9,37 @@ final readonly class GameWebsocketTicketManager
     private const TTL_SECONDS = 60;
 
     public function __construct(
-        #[Autowire('%kernel.secret%')]
+        #[Autowire('%game_runtime_ticket_secret%')]
         private string $secret,
     ) {
     }
 
-    public function issue(string $gameId, string $userId, ?\DateTimeImmutable $now = null): GameWebsocketTicket
+    /**
+     * @param list<string> $permissions
+     */
+    public function issue(
+        string $gameId,
+        string $userId,
+        ?\DateTimeImmutable $now = null,
+        ?string $playerId = null,
+        string $role = 'player',
+        array $permissions = ['view', 'command'],
+    ): GameWebsocketTicket
     {
         $issuedAt = $now ?? new \DateTimeImmutable();
         $expiresAt = $issuedAt->modify(sprintf('+%d seconds', self::TTL_SECONDS));
+        $playerId = $this->nonEmptyOrDefault($playerId, $userId);
+        $role = $this->nonEmptyOrDefault($role, 'player');
+        $permissions = $this->normalizePermissions($permissions);
         $payload = [
             'gameId' => $gameId,
             'userId' => $userId,
+            'playerId' => $playerId,
+            'role' => $role,
+            'permissions' => $permissions,
+            'roles' => [$role],
+            'viewerKind' => $role,
+            'protocol' => 'v2',
             'iat' => $issuedAt->getTimestamp(),
             'exp' => $expiresAt->getTimestamp(),
         ];
@@ -31,6 +50,9 @@ final readonly class GameWebsocketTicketManager
             ticket: $encodedPayload.'.'.$signature,
             gameId: $gameId,
             userId: $userId,
+            playerId: $playerId,
+            role: $role,
+            permissions: $permissions,
             issuedAt: $issuedAt,
             expiresAt: $expiresAt,
         );
@@ -60,6 +82,10 @@ final readonly class GameWebsocketTicketManager
 
         $gameId = $this->payloadString($payload, 'gameId');
         $userId = $this->payloadString($payload, 'userId');
+        $playerId = $this->payloadOptionalString($payload, 'playerId') ?? $userId;
+        $role = $this->payloadOptionalString($payload, 'role')
+            ?? (is_array($payload['roles'] ?? null) && is_string(($payload['roles'][0] ?? null)) ? (string) $payload['roles'][0] : 'player');
+        $permissions = $this->payloadPermissions($payload);
         $issuedAt = $this->payloadInt($payload, 'iat');
         $expiresAt = $this->payloadInt($payload, 'exp');
         if ($gameId !== $expectedGameId) {
@@ -75,6 +101,9 @@ final readonly class GameWebsocketTicketManager
             ticket: $ticket,
             gameId: $gameId,
             userId: $userId,
+            playerId: $playerId,
+            role: $role,
+            permissions: $permissions,
             issuedAt: (new \DateTimeImmutable())->setTimestamp($issuedAt),
             expiresAt: (new \DateTimeImmutable())->setTimestamp($expiresAt),
         );
@@ -95,6 +124,16 @@ final readonly class GameWebsocketTicketManager
         return $value;
     }
 
+    private function payloadOptionalString(array $payload, string $key): ?string
+    {
+        $value = $payload[$key] ?? null;
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        return trim($value);
+    }
+
     private function payloadInt(array $payload, string $key): int
     {
         $value = $payload[$key] ?? null;
@@ -103,6 +142,43 @@ final readonly class GameWebsocketTicketManager
         }
 
         return $value;
+    }
+
+    private function nonEmptyOrDefault(?string $value, string $default): string
+    {
+        $normalized = trim((string) $value);
+
+        return $normalized !== '' ? $normalized : $default;
+    }
+
+    /**
+     * @param list<string> $permissions
+     *
+     * @return list<string>
+     */
+    private function normalizePermissions(array $permissions): array
+    {
+        $normalized = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $permission): string => is_string($permission) ? trim($permission) : '',
+            $permissions,
+        ), static fn (string $permission): bool => $permission !== '')));
+
+        return $normalized !== [] ? $normalized : ['view'];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return list<string>
+     */
+    private function payloadPermissions(array $payload): array
+    {
+        $permissions = $payload['permissions'] ?? null;
+        if (!is_array($permissions)) {
+            return ['view'];
+        }
+
+        return $this->normalizePermissions($permissions);
     }
 
     private function base64UrlEncode(string $value): string

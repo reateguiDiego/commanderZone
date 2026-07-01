@@ -172,7 +172,6 @@ class GameEventStoreV2Test extends TestCase
                 return true;
             }));
         $registry = $this->createMock(ManagerRegistry::class);
-        $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($entityManager);
         $store = new GameEventStoreV2(
             $registry,
             $handler,
@@ -188,6 +187,134 @@ class GameEventStoreV2Test extends TestCase
 
         self::assertInstanceOf(GameSnapshotCompact::class, $record);
         self::assertSame(5, $record->version());
+    }
+
+    public function testPersistCompactSnapshotUsesManagedGameReferenceForDetachedGame(): void
+    {
+        $actor = new User('detached-owner@example.test', 'Detached Owner');
+        $flags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $runtimeSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), []));
+        $runtimeSnapshot['version'] = 3;
+
+        $detachedGame = new Game(new Room($actor), $runtimeSnapshot);
+        $managedGame = new Game(new Room($actor), $runtimeSnapshot);
+        $snapshotRepository = $this->createMock(EntityRepository::class);
+        $snapshotRepository->expects(self::once())->method('findOneBy')->with(['game' => $managedGame], ['version' => 'DESC'])->willReturn(null);
+
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('getRepository')->with(GameSnapshotCompact::class)->willReturn($snapshotRepository);
+        $entityManager->expects(self::once())->method('contains')->with($detachedGame)->willReturn(false);
+        $entityManager->expects(self::once())->method('getReference')->with(Game::class, $detachedGame->id())->willReturn($managedGame);
+        $entityManager->expects(self::once())
+            ->method('persist')
+            ->with(self::callback(static function (mixed $record) use ($managedGame): bool {
+                return $record instanceof GameSnapshotCompact && $record->game() === $managedGame;
+            }));
+
+        $registry = $this->createMock(ManagerRegistry::class);
+        $store = new GameEventStoreV2(
+            $registry,
+            $handler,
+            new CompactGameCardStateMapper(),
+            new GameEventReplayService(),
+            $flags,
+            null,
+            1,
+            1,
+        );
+
+        $record = $store->persistCompactSnapshotIfDue($entityManager, $detachedGame, $runtimeSnapshot);
+
+        self::assertInstanceOf(GameSnapshotCompact::class, $record);
+        self::assertSame($managedGame, $record->game());
+    }
+
+    public function testHydrateGameDetachesReadOnlyCompactSnapshotAfterReplay(): void
+    {
+        $actor = new User('hydrate-detach-owner@example.test', 'Hydrate Detach Owner');
+        $flags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $snapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => [$this->card('library-1', 'Top Draw', 'library')],
+        ]));
+        $snapshot['version'] = 2;
+        $game = new Game(new Room($actor), $snapshot);
+        $compactSnapshot = (new CompactGameCardStateMapper())->compactSnapshot($snapshot, $game->id(), $game->status());
+        $compactRecord = new GameSnapshotCompact($game, 2, $compactSnapshot, hash('sha256', json_encode($compactSnapshot, JSON_THROW_ON_ERROR)));
+
+        $snapshotRepository = $this->createMock(EntityRepository::class);
+        $snapshotRepository->expects(self::once())->method('findOneBy')->with(['game' => $game], ['version' => 'DESC'])->willReturn($compactRecord);
+        $eventRepository = $this->createMock(EntityRepository::class);
+        $eventRepository->expects(self::once())->method('findBy')->with(['game' => $game], ['version' => 'ASC'])->willReturn([]);
+
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects(self::once())->method('contains')->with($game)->willReturn(true);
+        $entityManager->method('getRepository')->willReturnMap([
+            [GameSnapshotCompact::class, $snapshotRepository],
+            [GameEvent::class, $eventRepository],
+        ]);
+        $entityManager->expects(self::once())->method('detach')->with($compactRecord);
+
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($entityManager);
+        $store = new GameEventStoreV2(
+            $registry,
+            $handler,
+            new CompactGameCardStateMapper(),
+            new GameEventReplayService(),
+            $flags,
+        );
+
+        $hydrated = $store->hydrateGame($game);
+
+        self::assertSame(2, $hydrated['version']);
+        self::assertSame($hydrated, $game->snapshot());
+    }
+
+    public function testInitializeStartedGamePersistsStartedEventAndInitialCompactSnapshot(): void
+    {
+        $actor = new User('start-owner@example.test', 'Start Owner');
+        $flags = new GameplayV2Flags(false, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $runtimeSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => [$this->card('library-1', 'Top Draw', 'library')],
+        ]));
+        $game = new Game(new Room($actor), $runtimeSnapshot);
+
+        $snapshotRepository = $this->createMock(EntityRepository::class);
+        $snapshotRepository->expects(self::once())->method('findOneBy')->with(['game' => $game], ['version' => 'DESC'])->willReturn(null);
+        $persisted = [];
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('getRepository')->with(GameSnapshotCompact::class)->willReturn($snapshotRepository);
+        $entityManager->expects(self::exactly(2))
+            ->method('persist')
+            ->willReturnCallback(static function (mixed $entity) use (&$persisted): void {
+                $persisted[] = $entity;
+            });
+        $registry = $this->createMock(ManagerRegistry::class);
+        $store = new GameEventStoreV2(
+            $registry,
+            $handler,
+            new CompactGameCardStateMapper(),
+            new GameEventReplayService(),
+            $flags,
+            null,
+            1,
+            1,
+        );
+
+        $event = $store->initializeStartedGame($entityManager, $game, $actor);
+
+        self::assertInstanceOf(GameEvent::class, $event);
+        self::assertSame('game.started', $event->type());
+        self::assertSame(1, $event->version());
+        self::assertSame('game-started-'.$game->id(), $event->clientActionId());
+        self::assertArrayNotHasKey('snapshot', $event->payload());
+        self::assertArrayNotHasKey('players', $event->payload());
+        self::assertArrayNotHasKey('zones', $event->payload());
+        self::assertContains(GameEvent::class, array_map(static fn (object $entity): string => $entity::class, $persisted));
+        self::assertContains(GameSnapshotCompact::class, array_map(static fn (object $entity): string => $entity::class, $persisted));
     }
 
     public function testMulliganReplayRebuildsLondonTakeKeepAndBottomFromCompactEvents(): void
@@ -324,6 +451,93 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
     }
 
+    public function testReplayRebuildsCompactRuntimeGoMulliganWithoutLibraryOrder(): void
+    {
+        $actor = new User('runtime-go-mulligan-compact@example.test', 'Runtime Go Mulligan Compact');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'mulligan.take,mulligan.keep');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->mulliganSnapshot($actor, [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 10, 'library'),
+        ], Room::MULLIGAN_LONDON, false, 0));
+        $game = new Game(new Room($actor), $baseSnapshot);
+
+        $takePayload = [
+            'playerId' => $actor->id(),
+            'phase' => 'MULLIGAN',
+            'mulligan' => [
+                'rule' => Room::MULLIGAN_LONDON,
+                'firstMulliganFree' => false,
+                'playerStatus' => [
+                    $actor->id() => [
+                        'status' => 'DECIDING',
+                        'mulliganCount' => 1,
+                        'effectiveMulligans' => 1,
+                        'currentHandSize' => 7,
+                        'cardsToBottom' => 1,
+                        'bottomPending' => true,
+                        'scryPending' => false,
+                        'bottomOrderMode' => 'PLAYER_CHOSEN_ORDER',
+                        'scryMode' => 'NONE',
+                        'scryCardInstanceId' => '',
+                    ],
+                ],
+                'readyPlayers' => [],
+                'completed' => false,
+            ],
+            'drawCount' => 7,
+            'shuffleSeed' => 123,
+            'shuffleAlgorithm' => 'cz.lcg32.fisher-yates.v1',
+        ];
+        self::assertArrayNotHasKey('libraryOrder', $takePayload);
+        self::assertArrayNotHasKey('handIds', $takePayload);
+        $take = new GameEvent($game, 'mulligan.player_took', $takePayload, $actor, 'runtime-compact-take', 2);
+        $afterTake = (new GameEventReplayService())->replay($baseSnapshot, [$take]);
+        $bottomedId = $this->zoneIds($afterTake, $actor->id(), 'hand')[0] ?? null;
+        self::assertIsString($bottomedId);
+
+        $keepPayload = [
+            'playerId' => $actor->id(),
+            'phase' => 'PLAYING',
+            'mulligan' => [
+                'rule' => Room::MULLIGAN_LONDON,
+                'firstMulliganFree' => false,
+                'playerStatus' => [
+                    $actor->id() => [
+                        'status' => 'READY',
+                        'mulliganCount' => 1,
+                        'effectiveMulligans' => 1,
+                        'currentHandSize' => 6,
+                        'cardsToBottom' => 0,
+                        'bottomPending' => false,
+                        'scryPending' => false,
+                        'bottomOrderMode' => 'NONE',
+                        'scryMode' => 'NONE',
+                        'scryCardInstanceId' => '',
+                    ],
+                ],
+                'readyPlayers' => [$actor->id() => true],
+                'completed' => true,
+            ],
+            'bottomedIds' => [$bottomedId],
+        ];
+        self::assertArrayNotHasKey('libraryOrder', $keepPayload);
+        self::assertArrayNotHasKey('handIds', $keepPayload);
+        $keep = new GameEvent($game, 'mulligan.player_kept', $keepPayload, $actor, 'runtime-compact-keep', 3);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$take, $keep]);
+        $rebuiltAgain = (new GameEventReplayService())->replay($baseSnapshot, [$take, $keep]);
+
+        self::assertSame($this->comparableSnapshot($rebuilt), $this->comparableSnapshot($rebuiltAgain));
+        self::assertSame(3, $rebuilt['version']);
+        self::assertSame('PLAYING', $rebuilt['gamePhase']);
+        self::assertSame('READY', $rebuilt['players'][$actor->id()]['mulligan']['status']);
+        self::assertCount(6, $this->zoneIds($rebuilt, $actor->id(), 'hand'));
+        self::assertNotContains($bottomedId, $this->zoneIds($rebuilt, $actor->id(), 'hand'));
+        self::assertSame($bottomedId, $this->zoneIds($rebuilt, $actor->id(), 'library')[0] ?? null);
+        self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
+    }
+
     public function testReplayRebuildsRuntimeGoDrawAndMoveEventsForReconnect(): void
     {
         $actor = new User('runtime-go-gameplay@example.test', 'Runtime Go Gameplay');
@@ -360,6 +574,52 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame('battlefield', $rebuilt['loc']['library-1']['zone'] ?? null);
         self::assertSame($actor->id(), $rebuilt['loc']['library-1']['playerId'] ?? null);
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
+    }
+
+    public function testReplayRebuildsRuntimeGoShuffleFromCompactSeed(): void
+    {
+        $actor = new User('runtime-go-shuffle@example.test', 'Runtime Go Shuffle');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'library.shuffle');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => $this->cards('library', 4, 'library'),
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $shuffle = new GameEvent($game, 'library.shuffle', [
+            'playerId' => $actor->id(),
+            'shuffleSeed' => 123,
+            'shuffleAlgorithm' => 'cz.lcg32.fisher-yates.v1',
+            'visibilityEpoch' => 2,
+        ], $actor, 'runtime-shuffle-seed', 2);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$shuffle]);
+
+        self::assertSame(2, $rebuilt['version']);
+        self::assertSame(['library-3', 'library-1', 'library-4', 'library-2'], $this->zoneIds($rebuilt, $actor->id(), 'library'));
+        self::assertSame(['library-2', 'library-4', 'library-1', 'library-3'], $this->libraryProjectionIds($rebuilt, $actor->id()));
+        self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
+    }
+
+    public function testReplayRejectsUnsupportedRuntimeGoShuffleAlgorithm(): void
+    {
+        $actor = new User('runtime-go-shuffle-unsupported@example.test', 'Runtime Go Shuffle Unsupported');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'library.shuffle');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'library' => $this->cards('library', 4, 'library'),
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $shuffle = new GameEvent($game, 'library.shuffle', [
+            'playerId' => $actor->id(),
+            'shuffleSeed' => 123,
+            'shuffleAlgorithm' => 'unknown.shuffle.v1',
+            'visibilityEpoch' => 2,
+        ], $actor, 'runtime-shuffle-unsupported', 2);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Unsupported runtime shuffle algorithm');
+
+        (new GameEventReplayService())->replay($baseSnapshot, [$shuffle]);
     }
 
     public function testReplayRebuildsRuntimeGoCommanderCastCountersForReconnect(): void

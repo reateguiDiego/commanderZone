@@ -3,16 +3,22 @@ package runtime
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
+	"commanderzone/game-runtime/internal/actor"
 	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
 )
 
 func TestServiceLoadActorIsIdempotentByGameID(t *testing.T) {
-	service := NewService()
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, EmptyInitialState("game-1")); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	service := NewServiceWithStore(store, 8, nil)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
@@ -21,22 +27,179 @@ func TestServiceLoadActorIsIdempotentByGameID(t *testing.T) {
 		}
 	}()
 
-	first, created := service.LoadActor(context.Background(), "game-1", EmptyInitialState("game-1"))
+	first, created := service.LoadActor(context.Background(), "game-1")
 	if !created {
 		t.Fatal("expected first load to create actor")
 	}
-	second, created := service.LoadActor(context.Background(), "game-1", EmptyInitialState("game-1"))
+	second, created := service.LoadActor(context.Background(), "game-1")
 	if created {
 		t.Fatal("expected second load to reuse actor")
 	}
 	if first != second {
 		t.Fatal("expected same actor for same gameId")
 	}
+	metrics := service.RuntimeMetrics()
+	if metrics.ActorCacheMissCount != 1 || metrics.ActorCacheHitCount != 1 || metrics.ActorLoadFromSnapshotCount != 1 {
+		t.Fatalf("runtime metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestServiceOwnershipRejectsSecondRuntimeForSameGame(t *testing.T) {
+	gameID := "game-owned"
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState(gameID)); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	ownership := NewInMemoryOwnershipManager("test-shared-in-memory", 0)
+	first := NewServiceWithStoreAndOptions(store, 8, nil, WithInstanceID("node-a"), WithOwnershipManager(ownership))
+	second := NewServiceWithStoreAndOptions(store, 8, nil, WithInstanceID("node-b"), WithOwnershipManager(ownership))
+	defer shutdownService(t, first)
+	defer shutdownService(t, second)
+
+	firstActor, created, err := first.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil {
+		t.Fatalf("first recover: %v", err)
+	}
+	if !created {
+		t.Fatal("expected first runtime to create actor")
+	}
+	command := protocol.CommandEnvelopeV2{
+		GameID:         gameID,
+		BaseVersion:    1,
+		ClientActionID: "life-owned",
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 37},
+	}
+	result := firstActor.Submit(context.Background(), command, "p1")
+	if result.Err != nil {
+		t.Fatalf("first command failed: %v", result.Err)
+	}
+	duplicate := firstActor.Submit(context.Background(), command, "p1")
+	if duplicate.Err != nil {
+		t.Fatalf("duplicate retry failed: %v", duplicate.Err)
+	}
+	if duplicate.Event.Version != result.Event.Version {
+		t.Fatalf("duplicate version got %d want %d", duplicate.Event.Version, result.Event.Version)
+	}
+
+	if _, _, err := second.LoadActorRecovered(context.Background(), gameID, nil); !errors.Is(err, ErrOwnershipNotHeld) {
+		t.Fatalf("second recover err = %v, want %v", err, ErrOwnershipNotHeld)
+	}
+	if _, ok := second.Actor(gameID); ok {
+		t.Fatal("second runtime registered actor without ownership")
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+	firstActorMetrics := firstActor.Metrics()
+	if firstActorMetrics.DuplicateActionCount != 1 ||
+		firstActorMetrics.DuplicateMemoryCount != 1 ||
+		firstActorMetrics.CommandAppliedCount != 1 ||
+		firstActorMetrics.LegacyFallbackCount != 0 {
+		t.Fatalf("first actor metrics mismatch: %#v", firstActorMetrics)
+	}
+	secondMetrics := second.RuntimeMetrics()
+	if secondMetrics.OwnershipRejectCount != 1 || secondMetrics.CommandLegacyFallbackCount != 0 {
+		t.Fatalf("second runtime metrics mismatch: %#v", secondMetrics)
+	}
+}
+
+func TestServiceOwnershipFenceRejectsStaleActorAfterTokenLoss(t *testing.T) {
+	gameID := "game-stale-owner"
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState(gameID)); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	ownership := NewInMemoryOwnershipManager("test-shared-in-memory", 0)
+	first := NewServiceWithStoreAndOptions(store, 8, nil, WithInstanceID("node-a"), WithOwnershipManager(ownership))
+	second := NewServiceWithStoreAndOptions(store, 8, nil, WithInstanceID("node-b"), WithOwnershipManager(ownership))
+	defer shutdownService(t, first)
+	defer shutdownService(t, second)
+
+	staleActor, _, err := first.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil {
+		t.Fatalf("first recover: %v", err)
+	}
+	ownership.forceOwnerForTest(gameID, "node-b")
+
+	staleCommand := protocol.CommandEnvelopeV2{
+		GameID:         gameID,
+		BaseVersion:    1,
+		ClientActionID: "stale-life",
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 36},
+	}
+	staleResult := staleActor.Submit(context.Background(), staleCommand, "p1")
+	if !errors.Is(staleResult.Err, ErrOwnershipNotHeld) {
+		t.Fatalf("stale command err = %v, want %v", staleResult.Err, ErrOwnershipNotHeld)
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("stale actor appended %d events", len(events))
+	}
+
+	recoveredByNewOwner, _, err := second.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil {
+		t.Fatalf("second recover: %v", err)
+	}
+	newOwnerResult := recoveredByNewOwner.Submit(context.Background(), protocol.CommandEnvelopeV2{
+		GameID:         gameID,
+		BaseVersion:    1,
+		ClientActionID: "new-owner-life",
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 35},
+	}, "p1")
+	if newOwnerResult.Err != nil {
+		t.Fatalf("new owner command failed: %v", newOwnerResult.Err)
+	}
+	firstMetrics := first.RuntimeMetrics()
+	if firstMetrics.OwnershipLostCount != 1 || firstMetrics.OwnershipRejectCount != 1 {
+		t.Fatalf("stale owner metrics mismatch: %#v", firstMetrics)
+	}
+}
+
+func TestServiceOwnershipRecordsExpiredLeaseSteal(t *testing.T) {
+	gameID := "game-expired-owner"
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState(gameID)); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	ownership := NewInMemoryOwnershipManager("test-shared-in-memory", time.Minute)
+	first := NewServiceWithStoreAndOptions(store, 8, nil, WithInstanceID("node-a"), WithOwnershipManager(ownership))
+	second := NewServiceWithStoreAndOptions(store, 8, nil, WithInstanceID("node-b"), WithOwnershipManager(ownership))
+	defer shutdownService(t, first)
+	defer shutdownService(t, second)
+
+	if _, _, err := first.LoadActorRecovered(context.Background(), gameID, nil); err != nil {
+		t.Fatalf("first recover: %v", err)
+	}
+	ownership.expireForTest(gameID)
+	if _, _, err := second.LoadActorRecovered(context.Background(), gameID, nil); err != nil {
+		t.Fatalf("second recover after expiry: %v", err)
+	}
+
+	secondMetrics := second.RuntimeMetrics()
+	if secondMetrics.OwnershipAcquireCount != 1 ||
+		secondMetrics.OwnershipStolenCount != 1 ||
+		secondMetrics.OwnershipExpiredCount != 1 {
+		t.Fatalf("second ownership metrics mismatch: %#v", secondMetrics)
+	}
 }
 
 func TestServiceShutdownStopsActors(t *testing.T) {
-	service := NewService()
-	gameActor, _ := service.LoadActor(context.Background(), "game-1", EmptyInitialState("game-1"))
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, EmptyInitialState("game-1")); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	service := NewServiceWithStore(store, 8, nil)
+	gameActor, _ := service.LoadActor(context.Background(), "game-1")
 	before := gameActor.Heartbeat()
 	gameActor.TouchHeartbeat()
 	if !gameActor.Heartbeat().After(before) && !gameActor.Heartbeat().Equal(before) {
@@ -80,15 +243,214 @@ func TestServiceRecoversFromCompactSnapshotAndEvents(t *testing.T) {
 	if err := store.AppendEvent(context.Background(), second); err != nil {
 		t.Fatalf("append second: %v", err)
 	}
+	if err := saveRuntimeSnapshot(t, store, initial); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
 
 	service := NewServiceWithStore(store, 8, nil)
-	gameActor, _, err := service.LoadActorRecovered(context.Background(), "game-1", initial)
+	gameActor, _, err := service.LoadActorRecovered(context.Background(), "game-1", nil)
 	if err != nil {
 		t.Fatalf("recover: %v", err)
 	}
 	snapshot := gameActor.Snapshot()
 	if snapshot.Version != 3 || snapshot.Players["p1"]["life"] != 38 || snapshot.Turn["activePlayerId"] != "p2" {
 		t.Fatalf("snapshot = %#v", snapshot)
+	}
+	metrics := service.RuntimeMetrics()
+	if metrics.ActorLoadFromSnapshotCount != 1 || metrics.ActorLoadFromEventsCount != 1 || metrics.ActorRecoveredEventCount != 2 || metrics.ActorCacheMissCount != 1 {
+		t.Fatalf("runtime metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestServiceRestartRecoversFromSavedCompactSnapshotWithoutInitialState(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	initial := runtimeTestState("game-1")
+	if err := saveRuntimeSnapshot(t, store, initial); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	firstService := NewServiceWithStore(store, 8, nil)
+	gameActor, _, err := firstService.LoadActorRecovered(context.Background(), "game-1", nil)
+	if err != nil {
+		t.Fatalf("initial recover: %v", err)
+	}
+	result := gameActor.ApplyDirect(context.Background(), protocol.CommandEnvelopeV2{
+		GameID:         "game-1",
+		BaseVersion:    1,
+		ClientActionID: "life-1",
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 37},
+	}, "p1")
+	if result.Err != nil {
+		t.Fatalf("apply failed: %v", result.Err)
+	}
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), time.Second)
+	defer cancelShutdown()
+	if err := firstService.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("shutdown failed: %v", err)
+	}
+
+	restarted := NewServiceWithStore(store, 8, nil)
+	recoveredActor, created, err := restarted.LoadActorRecovered(context.Background(), "game-1", nil)
+	if err != nil {
+		t.Fatalf("restart recover: %v", err)
+	}
+	if !created {
+		t.Fatal("expected restart recovery to create a fresh actor")
+	}
+	recovered := recoveredActor.Snapshot()
+	if recovered.Version != 2 || recovered.Players["p1"]["life"] != 37 {
+		t.Fatalf("recovered snapshot = %#v", recovered)
+	}
+	metrics := restarted.RuntimeMetrics()
+	if metrics.ActorCacheMissCount != 1 || metrics.ActorLoadFromSnapshotCount != 1 || metrics.ActorRecoveredEventCount != 0 {
+		t.Fatalf("restart metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestServiceRetryPostRestartReconstructsPatchesAfterSnapshotFailure(t *testing.T) {
+	gameID := "game-retry"
+	store := persistence.NewInMemoryEventStore()
+	initial := runtimePrivateState(gameID)
+	if err := saveRuntimeSnapshot(t, store, initial); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	failingStore := snapshotFailRuntimeStore{
+		EventStore: store,
+		err:        errors.New("snapshot failed"),
+	}
+	firstActor := actor.NewGameActorWithSnapshotPolicy(gameID, initial, failingStore, 8, actor.DefaultAppliers(), actor.SnapshotPolicy{EveryEvents: 1})
+	command := protocol.CommandEnvelopeV2{
+		GameID:         gameID,
+		BaseVersion:    1,
+		ClientActionID: "face-private-retry",
+		Type:           "card.face.changed",
+		Payload: map[string]any{
+			"instanceId": "h1",
+			"faceIndex":  1,
+		},
+	}
+	first := firstActor.ApplyDirect(context.Background(), command, "p1")
+	if first.Err != nil {
+		t.Fatalf("first command failed: %v", first.Err)
+	}
+	if firstActor.Metrics().SnapshotPostAppendFailureCount != 1 {
+		t.Fatalf("snapshot failure metric = %#v, want one post-append failure", firstActor.Metrics())
+	}
+	events, err := store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("events got %d want 1", len(events))
+	}
+
+	restarted := NewServiceWithStore(store, 8, actor.DefaultAppliers())
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := restarted.Shutdown(ctx); err != nil {
+			t.Fatalf("shutdown failed: %v", err)
+		}
+	}()
+	recoveredActor, created, err := restarted.LoadActorRecovered(context.Background(), gameID, nil)
+	if err != nil {
+		t.Fatalf("restart recovery failed: %v", err)
+	}
+	if !created {
+		t.Fatal("expected cache miss to create recovered actor")
+	}
+
+	retryCtx, cancelRetry := context.WithTimeout(context.Background(), time.Second)
+	defer cancelRetry()
+	retry := recoveredActor.Submit(retryCtx, command, "p1")
+	if retry.Err != nil {
+		t.Fatalf("retry failed: %v", retry.Err)
+	}
+	if retry.Event.Version != first.Event.Version {
+		t.Fatalf("retry version got %d want %d", retry.Event.Version, first.Event.Version)
+	}
+	if !reflect.DeepEqual(retry.Patches, first.Patches) {
+		t.Fatalf("retry patches mismatch:\nretry=%#v\nfirst=%#v", retry.Patches, first.Patches)
+	}
+	if len(retry.Patches) != 2 || retry.Patches[1].Visibility != protocol.VisibilityPublic || retry.Patches[1].Ops[0].Op != "version.advance" {
+		t.Fatalf("retry did not preserve private patch plus public carrier: %#v", retry.Patches)
+	}
+	events, err = store.EventsAfter(context.Background(), gameID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("retry appended duplicate events: got %d want 1", len(events))
+	}
+	actorMetrics := recoveredActor.Metrics()
+	if actorMetrics.DuplicateActionCount != 1 ||
+		actorMetrics.DuplicateDurableCount != 1 ||
+		actorMetrics.DuplicateMemoryCount != 0 ||
+		actorMetrics.DuplicateReceiptMissingCount != 0 ||
+		actorMetrics.CommandAppliedCount != 0 ||
+		actorMetrics.LegacyFallbackCount != 0 {
+		t.Fatalf("retry actor metrics mismatch: %#v", actorMetrics)
+	}
+	runtimeMetrics := restarted.RuntimeMetrics()
+	if runtimeMetrics.ActorCacheMissCount != 1 || runtimeMetrics.ActorLoadFromSnapshotCount != 1 || runtimeMetrics.ActorLoadFromEventsCount != 1 || runtimeMetrics.ActorRecoveredEventCount != 1 || runtimeMetrics.CommandLegacyFallbackCount != 0 {
+		t.Fatalf("restart runtime metrics mismatch: %#v", runtimeMetrics)
+	}
+}
+
+func TestServiceRecoveryRejectsVersionGapAfterCompactSnapshot(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	if err := saveRuntimeSnapshot(t, store, runtimeTestState("game-1")); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	gap := protocol.EventPayloadV2{
+		GameID:         "game-1",
+		Version:        3,
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 36},
+		CreatedBy:      "p1",
+		ClientActionID: "gap-3",
+		CreatedAt:      time.Now().UTC(),
+	}
+	if err := store.AppendEvent(context.Background(), gap); err != nil {
+		t.Fatalf("append gap event: %v", err)
+	}
+
+	service := NewServiceWithStore(store, 8, nil)
+	if _, _, err := service.LoadActorRecovered(context.Background(), "game-1", nil); !errors.Is(err, actor.ErrVersionConflict) {
+		t.Fatalf("err = %v, want %v", err, actor.ErrVersionConflict)
+	}
+	if _, ok := service.Actor("game-1"); ok {
+		t.Fatal("actor should not be registered after failed recovery")
+	}
+	metrics := service.RuntimeMetrics()
+	if metrics.ActorLoadFromSnapshotCount != 1 || metrics.ActorLoadFromEventsCount != 1 || metrics.ActorRecoveredEventCount != 1 {
+		t.Fatalf("gap recovery metrics mismatch: %#v", metrics)
+	}
+}
+
+func TestServiceRecoveryWithoutCompactSnapshotIgnoresEventsAsInvalidFinalState(t *testing.T) {
+	store := persistence.NewInMemoryEventStore()
+	event := protocol.EventPayloadV2{
+		GameID:         "game-1",
+		Version:        2,
+		Type:           "life.changed",
+		Payload:        map[string]any{"playerId": "p1", "life": 39},
+		CreatedBy:      "p1",
+		ClientActionID: "event-only",
+		CreatedAt:      time.Now().UTC(),
+	}
+	if err := store.AppendEvent(context.Background(), event); err != nil {
+		t.Fatalf("append event: %v", err)
+	}
+
+	service := NewServiceWithStore(store, 8, nil)
+	if _, _, err := service.LoadActorRecovered(context.Background(), "game-1", nil); !errors.Is(err, ErrActorStateNotFound) {
+		t.Fatalf("err = %v, want %v", err, ErrActorStateNotFound)
+	}
+	metrics := service.RuntimeMetrics()
+	if metrics.ActorCacheMissCount != 1 || metrics.ActorLoadFromSnapshotCount != 0 || metrics.ActorLoadFromEventsCount != 0 || metrics.ActorRecoveredEventCount != 0 {
+		t.Fatalf("event-only metrics mismatch: %#v", metrics)
 	}
 }
 
@@ -100,8 +462,15 @@ func TestServiceRecoveryFailsOnCorruptSnapshotChecksum(t *testing.T) {
 	snapshot.Checksum = "corrupt"
 
 	service := NewServiceWithStore(corruptSnapshotStore{snapshot: snapshot}, 8, nil)
-	if _, _, err := service.LoadActorRecovered(context.Background(), "game-1", runtimeTestState("game-1")); !errors.Is(err, persistence.ErrSnapshotChecksumMismatch) {
+	if _, _, err := service.LoadActorRecovered(context.Background(), "game-1", nil); !errors.Is(err, persistence.ErrSnapshotChecksumMismatch) {
 		t.Fatalf("err = %v, want %v", err, persistence.ErrSnapshotChecksumMismatch)
+	}
+}
+
+func TestServiceRecoveryWithoutSnapshotOrMigrationInitialStateFails(t *testing.T) {
+	service := NewServiceWithStore(persistence.NewInMemoryEventStore(), 8, nil)
+	if _, _, err := service.LoadActorRecovered(context.Background(), "missing-game", nil); !errors.Is(err, ErrActorStateNotFound) {
+		t.Fatalf("err = %v, want %v", err, ErrActorStateNotFound)
 	}
 }
 
@@ -129,10 +498,51 @@ func (s corruptSnapshotStore) SaveSnapshot(context.Context, persistence.CompactS
 	return nil
 }
 
+type snapshotFailRuntimeStore struct {
+	persistence.EventStore
+	err error
+}
+
+func (s snapshotFailRuntimeStore) SaveSnapshot(context.Context, persistence.CompactSnapshot) error {
+	return s.err
+}
+
 func runtimeTestState(gameID string) state.GameState {
 	gameState := EmptyInitialState(gameID)
 	gameState.Players["p1"] = map[string]any{"life": 40}
 	gameState.Players["p2"] = map[string]any{"life": 40}
 	gameState.Turn = map[string]any{"activePlayerId": "p1"}
 	return gameState
+}
+
+func runtimePrivateState(gameID string) state.GameState {
+	gameState := runtimeTestState(gameID)
+	gameState.Instances["h1"] = state.CardInstanceRuntime{
+		InstanceID:   "h1",
+		CardKey:      "hand-1@1",
+		OwnerID:      "p1",
+		ControllerID: "p1",
+		Zone:         state.ZoneHand,
+	}
+	gameState.Zones["p1"] = state.PlayerZones{Hand: []string{"h1"}}
+	gameState.Loc["h1"] = state.Location{PlayerID: "p1", Zone: state.ZoneHand, Index: 0, ControllerID: "p1"}
+	return gameState
+}
+
+func saveRuntimeSnapshot(t *testing.T, store *persistence.InMemoryEventStore, game state.GameState) error {
+	t.Helper()
+	snapshot, err := persistence.NewCompactSnapshot(game)
+	if err != nil {
+		return err
+	}
+	return store.SaveSnapshot(context.Background(), snapshot)
+}
+
+func shutdownService(t *testing.T, service *Service) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := service.Shutdown(ctx); err != nil {
+		t.Fatalf("shutdown failed: %v", err)
+	}
 }

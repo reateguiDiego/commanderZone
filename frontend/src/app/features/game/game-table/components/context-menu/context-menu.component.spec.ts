@@ -119,6 +119,8 @@ describe('ContextMenuComponent', () => {
     ]);
     expect(buttons[3]?.classList).toContain('danger-menu-item');
     expect(buttons[4]?.classList).toContain('danger-menu-item');
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-menu-concede"]')?.textContent).toContain('Concede');
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-menu-leave-table"]')?.textContent).toContain('Leave table');
     expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="skull"]')).not.toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="bug"]')).not.toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelectorAll('lucide-icon')).toHaveLength(5);

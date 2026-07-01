@@ -37,7 +37,7 @@ class Game
      */
     private ?array $runtimeSnapshot = null;
 
-    #[ORM\OneToMany(mappedBy: 'game', targetEntity: GameEvent::class, cascade: ['persist'], orphanRemoval: false)]
+    #[ORM\OneToMany(mappedBy: 'game', targetEntity: GameEvent::class, cascade: ['persist', 'remove'], orphanRemoval: false)]
     private Collection $events;
 
     #[ORM\Column(type: 'datetime_immutable')]

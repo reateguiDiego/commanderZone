@@ -221,6 +221,7 @@ describe('RoomsComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Zulu private mine');
     expect(fixture.nativeElement.textContent).toContain('Smeagol test deck');
     expect(fixture.debugElement.query(By.css('.deck-art img')).nativeElement.getAttribute('src')).toBe('https://img.test/art.jpg');
+    expect(fixture.debugElement.query(By.css('[data-testid="current-room-leave"]'))).not.toBeNull();
 
     const roomNames = fixture.debugElement
       .queryAll(By.css('.room-col-main strong'))

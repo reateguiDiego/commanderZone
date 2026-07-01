@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -16,8 +17,9 @@ import (
 const defaultHTTPCommandTimeout = 3 * time.Second
 
 type CommandHTTPServer struct {
-	runtime        *runtimesvc.Service
-	commandTimeout time.Duration
+	runtime           *runtimesvc.Service
+	commandTimeout    time.Duration
+	allowInitialState bool
 }
 
 type CommandHTTPRequest struct {
@@ -36,6 +38,12 @@ type CommandHTTPResponse struct {
 
 func NewCommandHTTPServer(runtime *runtimesvc.Service) *CommandHTTPServer {
 	return &CommandHTTPServer{runtime: runtime, commandTimeout: defaultHTTPCommandTimeout}
+}
+
+func NewCommandHTTPServerAllowingInitialState(runtime *runtimesvc.Service) *CommandHTTPServer {
+	server := NewCommandHTTPServer(runtime)
+	server.allowInitialState = true
+	return server
 }
 
 func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -60,18 +68,26 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeCommandHTTPError(w, http.StatusBadRequest, "invalid_command", err.Error())
 		return
 	}
-
-	initial := runtimesvc.EmptyInitialState(request.Command.GameID)
 	if request.InitialState != nil {
-		initial = *request.InitialState
+		s.runtime.RecordInitialStatePerCommand()
+		if !s.allowInitialState {
+			writeCommandHTTPError(w, http.StatusBadRequest, "initial_state_rejected", "initialState is not accepted by /commands in final runtime mode")
+			return
+		}
+	}
+
+	var initial *state.GameState
+	if request.InitialState != nil {
+		initial = request.InitialState
 	}
 	gameActor, _, err := s.runtime.LoadActorRecovered(r.Context(), request.Command.GameID, initial)
 	if err != nil {
+		if errors.Is(err, runtimesvc.ErrOwnershipNotHeld) {
+			writeCommandHTTPError(w, http.StatusConflict, "ownership_not_held", err.Error())
+			return
+		}
 		writeCommandHTTPError(w, http.StatusInternalServerError, "actor_recovery_failed", err.Error())
 		return
-	}
-	if request.InitialState != nil && request.Command.BaseVersion < gameActor.Version() {
-		request.Command.BaseVersion = gameActor.Version()
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), s.commandTimeout)
@@ -82,16 +98,24 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		code := "command_failed"
 		if result.Err == actor.ErrUnknownCommand {
 			status = http.StatusBadRequest
+			code = "unknown_command"
 		}
 		if result.Err == actor.ErrQueueFull {
 			code = "queue_full"
+		}
+		if errors.Is(result.Err, actor.ErrRuntimePatchReceiptMissing) {
+			code = "patch_receipt_missing"
+		}
+		if errors.Is(result.Err, runtimesvc.ErrOwnershipNotHeld) {
+			code = "ownership_not_held"
 		}
 		writeCommandHTTPError(w, status, code, result.Err.Error())
 		return
 	}
 
 	metrics := metricsFromEventPayload(result.Event.Payload)
-	mergeActorMetrics(metrics, gameActor.Metrics())
+	metrics = mergeActorMetrics(metrics, gameActor.Metrics())
+	metrics = mergeRuntimeMetrics(metrics, s.runtime.RuntimeMetrics())
 	writeCommandHTTPJSON(w, http.StatusOK, CommandHTTPResponse{
 		Event:   result.Event,
 		Patches: result.Patches,
@@ -123,6 +147,42 @@ func mergeActorMetrics(metrics map[string]any, actorMetrics actor.ActorMetrics) 
 	metrics["actor.command_applied_count"] = actorMetrics.CommandAppliedCount
 	metrics["actor.command_latency_ms"] = actorMetrics.CommandLatencyMs
 	metrics["actor.queue_wait_ms"] = actorMetrics.QueueWaitMs
+	metrics["command.runtime_coverage_percent"] = actorMetrics.RuntimeCoveragePct
+	metrics["command.alias_translation_count"] = actorMetrics.AliasTranslationCount
+	metrics["command.unsupported_count"] = actorMetrics.UnsupportedCount
+	metrics["command.legacy_fallback_count"] = actorMetrics.LegacyFallbackCount
+	metrics["actor.duplicate_action_count"] = actorMetrics.DuplicateActionCount
+	metrics["actor.duplicate_memory_count"] = actorMetrics.DuplicateMemoryCount
+	metrics["actor.duplicate_durable_count"] = actorMetrics.DuplicateDurableCount
+	metrics["actor.duplicate_receipt_missing_count"] = actorMetrics.DuplicateReceiptMissingCount
+	metrics["actor.version_conflict_count"] = actorMetrics.VersionConflictCount
+	metrics["actor.snapshot_post_append_failure_count"] = actorMetrics.SnapshotPostAppendFailureCount
+	metrics["actor.seen_action_cache_size"] = actorMetrics.SeenActionCacheSize
+	metrics["actor.seen_action_cache_capacity"] = actorMetrics.SeenActionCacheCapacity
+	return metrics
+}
+
+func mergeRuntimeMetrics(metrics map[string]any, runtimeMetrics runtimesvc.RuntimeMetrics) map[string]any {
+	if metrics == nil {
+		metrics = map[string]any{}
+	}
+	metrics["runtime.initial_state_per_command_count"] = runtimeMetrics.InitialStatePerCommandCount
+	metrics["runtime.actor_load_from_snapshot_count"] = runtimeMetrics.ActorLoadFromSnapshotCount
+	metrics["runtime.actor_load_from_events_count"] = runtimeMetrics.ActorLoadFromEventsCount
+	metrics["runtime.actor_recovered_event_count"] = runtimeMetrics.ActorRecoveredEventCount
+	metrics["runtime.actor_cache_hit_count"] = runtimeMetrics.ActorCacheHitCount
+	metrics["runtime.actor_cache_miss_count"] = runtimeMetrics.ActorCacheMissCount
+	metrics["runtime.instance_id"] = runtimeMetrics.RuntimeInstanceID
+	metrics["runtime.ownership_mode"] = runtimeMetrics.RuntimeOwnershipMode
+	metrics["runtime.ownership_acquire_count"] = runtimeMetrics.OwnershipAcquireCount
+	metrics["runtime.ownership_renew_count"] = runtimeMetrics.OwnershipRenewCount
+	metrics["runtime.ownership_reject_count"] = runtimeMetrics.OwnershipRejectCount
+	metrics["runtime.ownership_release_count"] = runtimeMetrics.OwnershipReleaseCount
+	metrics["runtime.ownership_lost_count"] = runtimeMetrics.OwnershipLostCount
+	metrics["runtime.ownership_stolen_count"] = runtimeMetrics.OwnershipStolenCount
+	metrics["runtime.ownership_expired_count"] = runtimeMetrics.OwnershipExpiredCount
+	metrics["command.runtime_coverage_percent"] = runtimeMetrics.CommandRuntimeCoveragePct
+	metrics["command.legacy_fallback_count"] = runtimeMetrics.CommandLegacyFallbackCount
 	return metrics
 }
 

@@ -40,6 +40,7 @@ import {
   GameTableRealtimeAnimationBusService,
   type GameTableRealtimePatchAnimationEvent,
 } from './services/game-table-realtime-animation-bus.service';
+import { GameTableE2eStaticCardCacheToolsService } from './services/game-table-e2e-static-card-cache-tools.service';
 import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
 import { GameTableChatStore } from './state/chat/game-table-chat.store';
 import { GameTableCommandStore } from './state/core/game-table-command.store';
@@ -514,6 +515,7 @@ interface MotionSourceRect {
     GameTableNotificationSoundService,
     GameTableManaCometService,
     GameTableRealtimeAnimationBusService,
+    GameTableE2eStaticCardCacheToolsService,
     GameTablePermanentRelationService,
     GameTableSpecialEntityActionsService,
     GameTableSnapshotSelectors,
@@ -545,6 +547,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly realtimeAnimations = inject(GameTableRealtimeAnimationBusService);
   private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  private readonly e2eStaticCardCacheTools = inject(GameTableE2eStaticCardCacheToolsService);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
   readonly aggressiveCompactViewport = signal(false);
   readonly effectiveBattlefieldZoomPercent = computed(() => (
@@ -889,6 +892,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
 
   constructor() {
+    this.e2eStaticCardCacheTools.install();
+
     this.realtimeAnimationSubscriptions.add(
       this.realtimeAnimations.patchAnimation$.subscribe((event) => this.handleRealtimePatchAnimation(event)),
     );
@@ -1009,6 +1014,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.clearRematchCountdown();
     this.clearChatReactionClock();
     this.clearMessageHighlightTimers();
+    this.e2eStaticCardCacheTools.destroy();
   }
 
   private startChatReactionClock(): void {
@@ -4222,7 +4228,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.showRematchToast(response.message ?? 'Tu voto se ha guardado. Espera a que termine la partida.');
       }
 
-      await this.store.refetch(true);
+      await this.store.refetch(true, 'rematch.vote_waiting_for_game_end');
     } catch (error) {
       this.showRematchToast(this.rematchErrorMessage(error));
     } finally {

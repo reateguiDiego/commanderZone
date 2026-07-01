@@ -22,7 +22,7 @@ final class GameplayRuntimeGatewayTest extends TestCase
             new GameplayRuntimePatchAdapter(),
         );
 
-        $result = $gateway->dispatchPrimary('library.draw', 'game-1', 'player-1', 1, 'action-1', $this->snapshot(), ['playerId' => 'player-1']);
+        $result = $gateway->dispatchPrimary('library.draw', 'game-1', 'player-1', 1, 'action-1', ['playerId' => 'player-1']);
 
         self::assertSame('library.draw', $client->types[0] ?? null);
         self::assertFalse($client->shadowCalls[0] ?? true);
@@ -39,7 +39,7 @@ final class GameplayRuntimeGatewayTest extends TestCase
         );
 
         $this->expectException(GameRuntimeGatewayException::class);
-        $gateway->dispatchPrimary('library.draw', 'game-1', 'player-1', 1, 'action-1', $this->snapshot(), ['playerId' => 'player-1']);
+        $gateway->dispatchPrimary('library.draw', 'game-1', 'player-1', 1, 'action-1', ['playerId' => 'player-1']);
     }
 
     public function testShadowModeDispatchesRuntimeWithoutPrimaryRoute(): void
@@ -50,7 +50,7 @@ final class GameplayRuntimeGatewayTest extends TestCase
             new GameplayRuntimePatchAdapter(),
         );
 
-        $gateway->dispatchShadow('library.draw', 'game-1', 'player-1', 1, 'action-1', $this->snapshot(), ['playerId' => 'player-1']);
+        $gateway->dispatchShadow('library.draw', 'game-1', 'player-1', 1, 'action-1', ['playerId' => 'player-1']);
 
         self::assertTrue($client->shadowCalls[0] ?? false);
     }
@@ -64,7 +64,19 @@ final class GameplayRuntimeGatewayTest extends TestCase
         );
 
         $this->expectException(GameplayRuntimePatchContractException::class);
-        $gateway->dispatchPrimary('library.draw', 'game-1', 'player-1', 1, 'action-1', $this->snapshot(), ['playerId' => 'player-1']);
+        $gateway->dispatchPrimary('library.draw', 'game-1', 'player-1', 1, 'action-1', ['playerId' => 'player-1']);
+    }
+
+    public function testGatewayContractDoesNotAcceptLegacySnapshot(): void
+    {
+        foreach (['dispatchPrimary', 'dispatchShadow'] as $method) {
+            $parameters = array_map(
+                static fn (\ReflectionParameter $parameter): string => $parameter->getName(),
+                (new \ReflectionMethod(GameplayRuntimeGateway::class, $method))->getParameters(),
+            );
+
+            self::assertNotContains('snapshot', $parameters);
+        }
     }
 
     private function flags(bool $runtime, bool $shadow, string $allowlist): GameplayV2Flags
@@ -84,13 +96,6 @@ final class GameplayRuntimeGatewayTest extends TestCase
         );
     }
 
-    /**
-     * @return array<string,mixed>
-     */
-    private function snapshot(): array
-    {
-        return ['version' => 1, 'gamePhase' => 'PLAYING', 'players' => [], 'turn' => []];
-    }
 }
 
 final class GatewayRuntimeClientStub implements GameRuntimeCommandClientInterface
@@ -111,7 +116,6 @@ final class GatewayRuntimeClientStub implements GameRuntimeCommandClientInterfac
         string $actorId,
         int $baseVersion,
         string $clientActionId,
-        array $snapshot,
         array $payload,
         bool $shadow = false,
     ): GameRuntimeCommandResult {

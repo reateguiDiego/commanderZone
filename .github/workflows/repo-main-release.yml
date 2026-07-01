@@ -19,11 +19,16 @@ jobs:
     name: Validate Frontend
     uses: ./.github/workflows/frontend-ci-reusable.yml
 
+  go-runtime-ci:
+    name: Validate Go Runtime
+    uses: ./.github/workflows/go-runtime-ci-reusable.yml
+
   backend-deploy:
     name: Deploy Backend
     needs:
       - backend-ci
       - frontend-ci
+      - go-runtime-ci
     uses: ./.github/workflows/backend-deploy.yml
     secrets: inherit
 

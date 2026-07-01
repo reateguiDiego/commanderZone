@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,26 +26,52 @@ const (
 )
 
 var (
-	ErrConnectionQueueFull = errors.New("websocket connection queue full")
-	ErrPatchHistoryGap     = errors.New("patch history gap")
-	ErrRateLimited         = errors.New("command rate limited")
+	ErrConnectionQueueFull          = errors.New("websocket connection queue full")
+	ErrPatchHistoryGap              = errors.New("patch history gap")
+	ErrPatchReplayRetentionExceeded = errors.New("patch replay retention exceeded")
+	ErrPatchReplayReceiptMismatch   = errors.New("patch replay receipt does not match event")
+	ErrRateLimited                  = errors.New("command rate limited")
 )
 
 type ClientMessage struct {
-	Type    string                      `json:"type"`
-	Command *protocol.CommandEnvelopeV2 `json:"command,omitempty"`
+	Kind           string                      `json:"kind,omitempty"`
+	Type           string                      `json:"type,omitempty"`
+	MessageID      string                      `json:"messageId,omitempty"`
+	GameID         string                      `json:"gameId,omitempty"`
+	BaseVersion    int64                       `json:"baseVersion,omitempty"`
+	ClientActionID string                      `json:"clientActionId,omitempty"`
+	Payload        map[string]any              `json:"payload,omitempty"`
+	Client         map[string]any              `json:"client,omitempty"`
+	Command        *protocol.CommandEnvelopeV2 `json:"command,omitempty"`
+	SentAt         string                      `json:"sentAt,omitempty"`
+	BottomCardIDs  []string                    `json:"bottomCardInstanceIds,omitempty"`
+	Destination    string                      `json:"destination,omitempty"`
 }
 
 type ServerMessage struct {
-	Type               string                    `json:"type"`
-	Patch              *protocol.PatchEnvelopeV2 `json:"patch,omitempty"`
-	Error              string                    `json:"error,omitempty"`
-	Code               string                    `json:"code,omitempty"`
-	ResyncRequired     bool                      `json:"resyncRequired,omitempty"`
-	CurrentVersion     int64                     `json:"currentVersion,omitempty"`
-	AckClientActionID  string                    `json:"ackClientActionId,omitempty"`
-	DroppedEphemeral   bool                      `json:"droppedEphemeral,omitempty"`
-	CoalescedEphemeral bool                      `json:"coalescedEphemeral,omitempty"`
+	Kind               string              `json:"kind"`
+	GameID             string              `json:"gameId,omitempty"`
+	MessageID          string              `json:"messageId,omitempty"`
+	ConnectionID       string              `json:"connectionId,omitempty"`
+	Status             string              `json:"status,omitempty"`
+	ServerTime         string              `json:"serverTime,omitempty"`
+	Version            int64               `json:"version,omitempty"`
+	CurrentVersion     int64               `json:"currentVersion,omitempty"`
+	Reason             string              `json:"reason,omitempty"`
+	Visibility         protocol.Visibility `json:"visibility,omitempty"`
+	Ops                []map[string]any    `json:"ops,omitempty"`
+	AckClientActionID  string              `json:"ackClientActionId,omitempty"`
+	ClientActionID     string              `json:"clientActionId,omitempty"`
+	Error              *ServerErrorPayload `json:"error,omitempty"`
+	DroppedEphemeral   bool                `json:"droppedEphemeral,omitempty"`
+	CoalescedEphemeral bool                `json:"coalescedEphemeral,omitempty"`
+	SentAt             string              `json:"sentAt,omitempty"`
+}
+
+type ServerErrorPayload struct {
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Retryable bool   `json:"retryable"`
 }
 
 type WebSocketServer struct {
@@ -71,6 +98,10 @@ type GatewayMetrics struct {
 	ConnectionBackpressure  int64
 	ReconnectsWithoutGap    int64
 	ReconnectsRequiringSync int64
+	PatchReplayMemoryCount  int64
+	PatchReplayDurableCount int64
+	PatchReplayResyncCount  int64
+	GameplayWSRoute         map[string]int64 `json:"gameplay.ws.route,omitempty"`
 }
 
 type WebSocketOption func(*WebSocketServer)
@@ -130,6 +161,12 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ticket missing gameId", http.StatusUnauthorized)
 		return
 	}
+	s.incMetric(func(metrics *GatewayMetrics) {
+		if metrics.GameplayWSRoute == nil {
+			metrics.GameplayWSRoute = map[string]int64{}
+		}
+		metrics.GameplayWSRoute["runtime_ws"]++
+	})
 
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -147,8 +184,16 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.register(client)
 	defer s.unregister(client)
 
+	s.sendJSON(client, ServerMessage{
+		Kind:         "connection_state",
+		GameID:       claims.GameID,
+		ConnectionID: fmt.Sprintf("%p", client),
+		Status:       "connected",
+		ServerTime:   time.Now().UTC().Format(time.RFC3339Nano),
+	})
+
 	lastApplied := parseLastAppliedVersion(r)
-	s.replayOrRequestResync(client, lastApplied)
+	s.replayOrRequestResync(r.Context(), client, lastApplied)
 
 	go client.writeLoop()
 	client.readLoop()
@@ -176,36 +221,137 @@ func (s *WebSocketServer) unregister(client *wsClient) {
 	_ = client.conn.Close()
 }
 
-func (s *WebSocketServer) replayOrRequestResync(client *wsClient, lastAppliedVersion int64) {
+func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsClient, lastAppliedVersion int64) {
 	if lastAppliedVersion <= 0 {
 		return
 	}
+	gameID := client.claims.GameID
+	currentVersion := int64(0)
 	gameActor, ok := s.runtime.Actor(client.claims.GameID)
-	if !ok {
-		s.sendJSON(client, ServerMessage{Type: "resync.required", ResyncRequired: true, Code: "actor_not_loaded"})
-		s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsRequiringSync++ })
+	if ok {
+		currentVersion = gameActor.Version()
+		if lastAppliedVersion >= currentVersion {
+			s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsWithoutGap++ })
+			slog.Debug("runtime websocket reconnect already current", "gameId", gameID, "lastAppliedVersion", lastAppliedVersion, "currentVersion", currentVersion)
+			return
+		}
+	}
+
+	if patches, err := s.history(gameID).Since(lastAppliedVersion); err == nil {
+		s.sendReplayPatches(client, patches)
+		s.incMetric(func(metrics *GatewayMetrics) {
+			metrics.ReconnectsWithoutGap++
+			metrics.PatchReplayMemoryCount++
+		})
+		slog.Debug("runtime websocket reconnect replayed patches", "gameId", gameID, "source", "memory", "lastAppliedVersion", lastAppliedVersion, "patches", len(patches))
 		return
 	}
-	currentVersion := gameActor.Version()
-	if lastAppliedVersion >= currentVersion {
-		s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsWithoutGap++ })
-		return
+
+	patches, durableCurrentVersion, err := s.durablePatchesSince(ctx, gameID, lastAppliedVersion)
+	if durableCurrentVersion > currentVersion {
+		currentVersion = durableCurrentVersion
 	}
-	patches, err := s.history(client.claims.GameID).Since(lastAppliedVersion)
 	if err != nil {
-		s.sendJSON(client, ServerMessage{Type: "resync.required", ResyncRequired: true, CurrentVersion: currentVersion, Code: "patch_gap"})
-		s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsRequiringSync++ })
+		reason := replayResyncReason(err)
+		s.sendJSON(client, resyncRequiredMessage(gameID, currentVersion, reason))
+		s.incMetric(func(metrics *GatewayMetrics) {
+			metrics.ReconnectsRequiringSync++
+			metrics.PatchReplayResyncCount++
+		})
+		slog.Warn("runtime websocket reconnect requires resync", "gameId", gameID, "lastAppliedVersion", lastAppliedVersion, "currentVersion", currentVersion, "reason", reason, "error", err)
 		return
 	}
+	if len(patches) == 0 {
+		if currentVersion > 0 && lastAppliedVersion < currentVersion {
+			s.sendJSON(client, resyncRequiredMessage(gameID, currentVersion, "version_gap"))
+			s.incMetric(func(metrics *GatewayMetrics) {
+				metrics.ReconnectsRequiringSync++
+				metrics.PatchReplayResyncCount++
+			})
+			slog.Warn("runtime websocket reconnect requires resync", "gameId", gameID, "lastAppliedVersion", lastAppliedVersion, "currentVersion", currentVersion, "reason", "version_gap")
+			return
+		}
+		s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsWithoutGap++ })
+		slog.Debug("runtime websocket reconnect found no missing patches", "gameId", gameID, "lastAppliedVersion", lastAppliedVersion)
+		return
+	}
+	s.sendReplayPatches(client, patches)
+	s.incMetric(func(metrics *GatewayMetrics) {
+		metrics.ReconnectsWithoutGap++
+		metrics.PatchReplayDurableCount++
+	})
+	slog.Debug("runtime websocket reconnect replayed patches", "gameId", gameID, "source", "durable", "lastAppliedVersion", lastAppliedVersion, "currentVersion", currentVersion, "patches", len(patches))
+}
+
+func (s *WebSocketServer) sendReplayPatches(client *wsClient, patches []protocol.PatchEnvelopeV2) {
 	for _, patch := range patches {
 		s.sendPatchIfVisible(client, patch)
 	}
-	s.incMetric(func(metrics *GatewayMetrics) { metrics.ReconnectsWithoutGap++ })
+}
+
+func (s *WebSocketServer) durablePatchesSince(ctx context.Context, gameID string, lastAppliedVersion int64) ([]protocol.PatchEnvelopeV2, int64, error) {
+	events, err := s.runtime.EventsAfter(ctx, gameID, lastAppliedVersion)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(events) == 0 {
+		return nil, lastAppliedVersion, nil
+	}
+	currentVersion := events[len(events)-1].Version
+	if s.patchHistoryLimit > 0 && len(events) > s.patchHistoryLimit {
+		return nil, currentVersion, ErrPatchReplayRetentionExceeded
+	}
+
+	expectedVersion := lastAppliedVersion + 1
+	patches := make([]protocol.PatchEnvelopeV2, 0, len(events))
+	for _, event := range events {
+		if event.Version != expectedVersion {
+			return nil, event.Version, ErrPatchHistoryGap
+		}
+		receiptPatches, ok, err := actor.RuntimePatchReceiptFromEvent(event)
+		if err != nil {
+			return nil, event.Version, err
+		}
+		if !ok {
+			return nil, event.Version, actor.ErrRuntimePatchReceiptMissing
+		}
+		for _, patch := range receiptPatches {
+			if patch.GameID != event.GameID || patch.Version != event.Version {
+				return nil, event.Version, ErrPatchReplayReceiptMismatch
+			}
+		}
+		patches = append(patches, receiptPatches...)
+		expectedVersion++
+	}
+	return patches, currentVersion, nil
+}
+
+func replayResyncReason(err error) string {
+	switch {
+	case errors.Is(err, ErrPatchReplayRetentionExceeded):
+		return "retention_exceeded"
+	case errors.Is(err, actor.ErrRuntimePatchReceiptMissing):
+		return "patch_receipt_missing"
+	default:
+		return "version_gap"
+	}
 }
 
 func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, command protocol.CommandEnvelopeV2) {
 	if command.GameID != client.claims.GameID {
-		s.sendJSON(client, ServerMessage{Type: "error", Error: ErrTicketGameMismatch.Error(), Code: "game_mismatch"})
+		s.sendJSON(client, errorMessage(client.claims.GameID, "", command.ClientActionID, "GAME_ID_MISMATCH", ErrTicketGameMismatch.Error(), false))
+		return
+	}
+	if !hasPermission(client.claims, "command") {
+		s.sendJSON(client, commandRejectedMessage(command, "PERMISSION_DENIED", "runtime ticket does not allow gameplay commands", false))
+		return
+	}
+	if command.Type == "game.close" && !hasPermission(client.claims, "game.close") {
+		s.sendJSON(client, commandRejectedMessage(command, "PERMISSION_DENIED", "runtime ticket does not allow closing this game", false))
+		return
+	}
+	if isInternalOnlyWebSocketCommand(command.Type) {
+		s.sendJSON(client, commandRejectedMessage(command, "PERMISSION_DENIED", "runtime command is internal-only over websocket", false))
 		return
 	}
 	if isEphemeralPosition(command) {
@@ -214,8 +360,11 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 			metrics.CoalescedPositionEvents++
 		})
 		s.sendJSON(client, ServerMessage{
-			Type:               "ack",
-			AckClientActionID:  command.ClientActionID,
+			Kind:               "command_ack",
+			GameID:             command.GameID,
+			ClientActionID:     command.ClientActionID,
+			Status:             "duplicate",
+			Version:            command.BaseVersion,
 			DroppedEphemeral:   true,
 			CoalescedEphemeral: true,
 		})
@@ -223,24 +372,40 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 	}
 	if !client.limiter.Allow(command.Type) {
 		s.incMetric(func(metrics *GatewayMetrics) { metrics.RateLimitedCommands++ })
-		s.sendJSON(client, ServerMessage{Type: "error", Error: ErrRateLimited.Error(), Code: "rate_limited", AckClientActionID: command.ClientActionID})
+		s.sendJSON(client, commandRejectedMessage(command, "RATE_LIMITED", ErrRateLimited.Error(), true))
 		return
 	}
 	if err := command.Validate(); err != nil {
-		s.sendJSON(client, ServerMessage{Type: "error", Error: err.Error(), Code: "invalid_command", AckClientActionID: command.ClientActionID})
+		s.sendJSON(client, commandRejectedMessage(command, "INVALID_COMMAND", err.Error(), false))
 		return
 	}
 
-	gameActor, _, err := s.runtime.LoadActorRecovered(ctx, command.GameID, runtimesvc.EmptyInitialState(command.GameID))
+	gameActor, _, err := s.runtime.LoadActorRecovered(ctx, command.GameID, nil)
 	if err != nil {
-		s.sendJSON(client, ServerMessage{Type: "error", Error: err.Error(), Code: "actor_recovery_failed", AckClientActionID: command.ClientActionID})
+		if errors.Is(err, runtimesvc.ErrOwnershipNotHeld) {
+			s.sendJSON(client, commandRejectedMessage(command, "OWNERSHIP_NOT_HELD", err.Error(), false))
+			return
+		}
+		s.sendJSON(client, commandRejectedMessage(command, "ACTOR_RECOVERY_FAILED", err.Error(), true))
 		return
 	}
 	commandCtx, cancel := context.WithTimeout(ctx, s.commandTimeout)
 	defer cancel()
-	result := gameActor.Submit(commandCtx, command, client.claims.UserID)
+	result := gameActor.Submit(commandCtx, command, client.claims.PlayerID)
 	if result.Err != nil {
-		s.sendJSON(client, ServerMessage{Type: "error", Error: result.Err.Error(), Code: "command_failed", AckClientActionID: command.ClientActionID})
+		if errors.Is(result.Err, actor.ErrVersionConflict) {
+			s.sendJSON(client, commandResyncRequiredMessage(command, gameActor.Version(), "BASE_VERSION_MISMATCH", result.Err.Error(), true))
+			return
+		}
+		if errors.Is(result.Err, actor.ErrRuntimePatchReceiptMissing) {
+			s.sendJSON(client, commandResyncRequiredMessage(command, gameActor.Version(), "PATCH_RECEIPT_MISSING", result.Err.Error(), false))
+			return
+		}
+		if errors.Is(result.Err, runtimesvc.ErrOwnershipNotHeld) {
+			s.sendJSON(client, commandRejectedMessage(command, "OWNERSHIP_NOT_HELD", result.Err.Error(), false))
+			return
+		}
+		s.sendJSON(client, commandRejectedMessage(command, "COMMAND_FAILED", result.Err.Error(), false))
 		return
 	}
 	s.history(command.GameID).Append(result.Patches)
@@ -265,8 +430,7 @@ func (s *WebSocketServer) sendPatchIfVisible(client *wsClient, patch protocol.Pa
 	if !canReceive(client.claims, patch.Visibility) {
 		return
 	}
-	patchCopy := patch
-	s.sendJSON(client, ServerMessage{Type: "patch", Patch: &patchCopy})
+	s.sendJSON(client, patchMessage(patch))
 }
 
 func (s *WebSocketServer) sendJSON(client *wsClient, message ServerMessage) {
@@ -315,11 +479,25 @@ func (c *wsClient) readLoop() {
 		if err := c.conn.ReadJSON(&message); err != nil {
 			return
 		}
-		if message.Type != "command" || message.Command == nil {
-			c.server.sendJSON(c, ServerMessage{Type: "error", Error: "unsupported websocket message", Code: "unsupported_message"})
+		if message.isPing() {
+			c.server.sendJSON(c, ServerMessage{
+				Kind:       "pong",
+				GameID:     c.claims.GameID,
+				MessageID:  message.MessageID,
+				ServerTime: time.Now().UTC().Format(time.RFC3339Nano),
+			})
 			continue
 		}
-		c.server.handleCommand(context.Background(), c, *message.Command)
+		command, ok, err := c.server.commandFromMessage(c.claims, message)
+		if err != nil {
+			c.server.sendJSON(c, errorMessage(c.claims.GameID, message.MessageID, "", "INVALID_MESSAGE", err.Error(), false))
+			continue
+		}
+		if !ok {
+			c.server.sendJSON(c, errorMessage(c.claims.GameID, message.MessageID, "", "UNSUPPORTED_MESSAGE", "unsupported websocket message", false))
+			continue
+		}
+		c.server.handleCommand(context.Background(), c, command)
 	}
 }
 
@@ -340,6 +518,197 @@ func (c *wsClient) writeLoop() {
 	}
 }
 
+func (m ClientMessage) isPing() bool {
+	kind := strings.TrimSpace(m.Kind)
+	if kind == "" {
+		kind = strings.TrimSpace(m.Type)
+	}
+	return kind == "ping"
+}
+
+func (s *WebSocketServer) commandFromMessage(claims TicketClaims, message ClientMessage) (protocol.CommandEnvelopeV2, bool, error) {
+	kind := strings.TrimSpace(message.Kind)
+	if kind == "" && strings.TrimSpace(message.Type) == "command" && message.Command != nil {
+		kind = "command"
+	}
+
+	switch kind {
+	case "command":
+		if message.Command == nil {
+			return protocol.CommandEnvelopeV2{}, false, errors.New("command message requires command")
+		}
+		command := *message.Command
+		if strings.TrimSpace(command.GameID) == "" {
+			command.GameID = claims.GameID
+		}
+		if command.Client == nil {
+			command.Client = map[string]any{}
+		}
+		return command, true, nil
+	case "command.v2":
+		payload := message.Payload
+		if payload == nil {
+			payload = map[string]any{}
+		}
+		command := protocol.CommandEnvelopeV2{
+			GameID:         message.GameID,
+			BaseVersion:    message.BaseVersion,
+			ClientActionID: message.ClientActionID,
+			Type:           message.Type,
+			Payload:        payload,
+			Client:         message.Client,
+		}
+		if strings.TrimSpace(command.GameID) == "" {
+			command.GameID = claims.GameID
+		}
+		if command.Client == nil {
+			command.Client = map[string]any{}
+		}
+		return command, true, nil
+	case "mulligan.take", "mulligan.keep", "mulligan.scry.confirm":
+		playerID := strings.TrimSpace(claims.PlayerID)
+		if playerID == "" {
+			playerID = claims.UserID
+		}
+		baseVersion := message.BaseVersion
+		if baseVersion < 1 {
+			baseVersion = s.currentActorVersion(claims.GameID)
+		}
+		return protocol.CommandEnvelopeV2{
+			GameID:         claims.GameID,
+			BaseVersion:    baseVersion,
+			ClientActionID: clientActionIDForMessage(message),
+			Type:           kind,
+			Payload:        runtimeMulliganPayload(kind, playerID, message),
+			Client:         map[string]any{"source": "runtime_ws_mulligan"},
+		}, true, nil
+	default:
+		return protocol.CommandEnvelopeV2{}, false, nil
+	}
+}
+
+func (s *WebSocketServer) currentActorVersion(gameID string) int64 {
+	gameActor, ok := s.runtime.Actor(gameID)
+	if !ok {
+		return 1
+	}
+	version := gameActor.Version()
+	if version < 1 {
+		return 1
+	}
+	return version
+}
+
+func clientActionIDForMessage(message ClientMessage) string {
+	if strings.TrimSpace(message.ClientActionID) != "" {
+		return strings.TrimSpace(message.ClientActionID)
+	}
+	if strings.TrimSpace(message.MessageID) != "" {
+		return strings.TrimSpace(message.MessageID)
+	}
+	return fmt.Sprintf("ws-action-%d", time.Now().UnixNano())
+}
+
+func runtimeMulliganPayload(kind string, playerID string, message ClientMessage) map[string]any {
+	switch kind {
+	case "mulligan.keep":
+		return map[string]any{
+			"playerId":      playerID,
+			"bottomCardIds": append([]string(nil), message.BottomCardIDs...),
+		}
+	case "mulligan.scry.confirm":
+		choice := "top"
+		if strings.EqualFold(strings.TrimSpace(message.Destination), "bottom") {
+			choice = "bottom"
+		}
+		return map[string]any{
+			"playerId": playerID,
+			"choice":   choice,
+		}
+	default:
+		return map[string]any{"playerId": playerID}
+	}
+}
+
+func patchMessage(patch protocol.PatchEnvelopeV2) ServerMessage {
+	return ServerMessage{
+		Kind:              "patch.v2",
+		GameID:            patch.GameID,
+		Version:           patch.Version,
+		Visibility:        patch.Visibility,
+		Ops:               frontendPatchOps(patch.Ops),
+		AckClientActionID: patch.AckClientActionID,
+	}
+}
+
+func frontendPatchOps(ops []protocol.PatchOp) []map[string]any {
+	out := make([]map[string]any, 0, len(ops))
+	for _, op := range ops {
+		item := map[string]any{"op": op.Op}
+		for key, value := range op.Data {
+			if key == "op" {
+				continue
+			}
+			item[key] = value
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func resyncRequiredMessage(gameID string, currentVersion int64, reason string) ServerMessage {
+	return ServerMessage{
+		Kind:           "resync_required",
+		GameID:         gameID,
+		CurrentVersion: currentVersion,
+		Reason:         reason,
+	}
+}
+
+func errorMessage(gameID string, messageID string, clientActionID string, code string, message string, retryable bool) ServerMessage {
+	return ServerMessage{
+		Kind:           "error",
+		GameID:         gameID,
+		MessageID:      messageID,
+		ClientActionID: clientActionID,
+		Error: &ServerErrorPayload{
+			Code:      code,
+			Message:   message,
+			Retryable: retryable,
+		},
+	}
+}
+
+func commandRejectedMessage(command protocol.CommandEnvelopeV2, code string, message string, retryable bool) ServerMessage {
+	return ServerMessage{
+		Kind:           "command_ack",
+		GameID:         command.GameID,
+		ClientActionID: command.ClientActionID,
+		Status:         "rejected",
+		Version:        command.BaseVersion,
+		Error: &ServerErrorPayload{
+			Code:      code,
+			Message:   message,
+			Retryable: retryable,
+		},
+	}
+}
+
+func commandResyncRequiredMessage(command protocol.CommandEnvelopeV2, currentVersion int64, code string, message string, retryable bool) ServerMessage {
+	return ServerMessage{
+		Kind:           "command_ack",
+		GameID:         command.GameID,
+		ClientActionID: command.ClientActionID,
+		Status:         "resync_required",
+		Version:        currentVersion,
+		Error: &ServerErrorPayload{
+			Code:      code,
+			Message:   message,
+			Retryable: retryable,
+		},
+	}
+}
+
 type patchHistory struct {
 	mu      sync.RWMutex
 	limit   int
@@ -350,9 +719,7 @@ func (h *patchHistory) Append(patches []protocol.PatchEnvelopeV2) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.patches = append(h.patches, patches...)
-	if h.limit > 0 && len(h.patches) > h.limit {
-		h.patches = h.patches[len(h.patches)-h.limit:]
-	}
+	h.trimLocked()
 }
 
 func (h *patchHistory) Since(version int64) ([]protocol.PatchEnvelopeV2, error) {
@@ -367,10 +734,61 @@ func (h *patchHistory) Since(version int64) ([]protocol.PatchEnvelopeV2, error) 
 	if len(out) == 0 {
 		return nil, ErrPatchHistoryGap
 	}
-	if out[0].Version != version+1 {
+	if !patchesAreContiguousSince(out, version) {
 		return nil, ErrPatchHistoryGap
 	}
 	return out, nil
+}
+
+func (h *patchHistory) trimLocked() {
+	if h.limit <= 0 {
+		return
+	}
+	seen := map[int64]struct{}{}
+	cutoffVersion := int64(0)
+	for i := len(h.patches) - 1; i >= 0; i-- {
+		version := h.patches[i].Version
+		if _, ok := seen[version]; ok {
+			continue
+		}
+		seen[version] = struct{}{}
+		if len(seen) == h.limit {
+			cutoffVersion = version
+			break
+		}
+	}
+	if len(seen) < h.limit || cutoffVersion == 0 {
+		return
+	}
+	index := 0
+	for index < len(h.patches) && h.patches[index].Version < cutoffVersion {
+		index++
+	}
+	if index > 0 {
+		h.patches = h.patches[index:]
+	}
+}
+
+func patchesAreContiguousSince(patches []protocol.PatchEnvelopeV2, version int64) bool {
+	expected := version + 1
+	current := int64(0)
+	for _, patch := range patches {
+		if current == 0 {
+			if patch.Version != expected {
+				return false
+			}
+			current = patch.Version
+			continue
+		}
+		if patch.Version == current {
+			continue
+		}
+		if patch.Version != current+1 {
+			return false
+		}
+		current = patch.Version
+	}
+	return current != 0
 }
 
 type commandRateLimiter struct {
@@ -427,9 +845,22 @@ func canReceive(claims TicketClaims, visibility protocol.Visibility) bool {
 	return false
 }
 
+func isInternalOnlyWebSocketCommand(commandType string) bool {
+	return actor.IsInternalOnlyCommandType(commandType)
+}
+
 func hasRole(claims TicketClaims, role string) bool {
 	for _, candidate := range claims.Roles {
 		if candidate == role {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPermission(claims TicketClaims, permission string) bool {
+	for _, candidate := range claims.Permissions {
+		if candidate == permission {
 			return true
 		}
 	}
@@ -472,7 +903,7 @@ type webSocketRouter struct {
 }
 
 func (r *webSocketRouter) Route(ctx context.Context, gameID string, request actor.CommandRequest) error {
-	gameActor, _, err := r.runtime.LoadActorRecovered(ctx, gameID, runtimesvc.EmptyInitialState(gameID))
+	gameActor, _, err := r.runtime.LoadActorRecovered(ctx, gameID, nil)
 	if err != nil {
 		return err
 	}

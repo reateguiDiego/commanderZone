@@ -3,7 +3,7 @@
 namespace App\Tests\Application;
 
 use App\Application\Game\Runtime\GameRuntimeCommandClient;
-use App\Application\Game\Runtime\LegacyMulliganRuntimeStateMapper;
+use App\Application\Game\Runtime\GameRuntimeCommandClientInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -41,14 +41,13 @@ final class GameRuntimeCommandClientTest extends TestCase
             ], JSON_THROW_ON_ERROR), ['http_code' => 200]);
         });
 
-        $client = new GameRuntimeCommandClient($httpClient, new LegacyMulliganRuntimeStateMapper(), 'http://runtime.internal:8091');
+        $client = new GameRuntimeCommandClient($httpClient, 'http://runtime.internal:8091');
         $result = $client->dispatch(
             'library.draw',
             'game-1',
             'player-1',
             1,
             'action-1',
-            $this->snapshot(),
             ['playerId' => 'player-1', 'count' => 1],
         );
 
@@ -57,7 +56,7 @@ final class GameRuntimeCommandClientTest extends TestCase
         self::assertSame('player-1', $captured['body']['actorId']);
         self::assertSame('library.draw', $captured['body']['command']['type']);
         self::assertSame(['playerId' => 'player-1', 'count' => 1], $captured['body']['command']['payload']);
-        self::assertSame('PLAYING', $captured['body']['initialState']['phase']);
+        self::assertArrayNotHasKey('initialState', $captured['body']);
         self::assertSame('library.draw', $result->event['type']);
         self::assertSame(0.4, $result->metrics['command.apply_ms']);
     }
@@ -75,15 +74,15 @@ final class GameRuntimeCommandClientTest extends TestCase
             ], JSON_THROW_ON_ERROR), ['http_code' => 200]);
         });
 
-        $client = new GameRuntimeCommandClient($httpClient, new LegacyMulliganRuntimeStateMapper(), 'http://runtime.internal:8091');
-        $client->dispatch('library.draw', 'game-1', 'player-1', 1, 'action-1', $this->snapshot(), ['playerId' => 'player-1'], true);
+        $client = new GameRuntimeCommandClient($httpClient, 'http://runtime.internal:8091');
+        $client->dispatch('library.draw', 'game-1', 'player-1', 1, 'action-1', ['playerId' => 'player-1'], true);
 
         self::assertSame('game-1-shadow', $captured['command']['gameId']);
         self::assertSame('action-1-shadow', $captured['command']['clientActionId']);
-        self::assertSame('game-1-shadow', $captured['initialState']['gameId']);
+        self::assertArrayNotHasKey('initialState', $captured);
     }
 
-    public function testDispatchSerializesEmptyRuntimeMapsAsJsonObjects(): void
+    public function testDispatchDoesNotSerializeInitialStateForNormalCommand(): void
     {
         $rawBody = '';
         $httpClient = new MockHttpClient(function (string $method, string $url, array $options) use (&$rawBody): MockResponse {
@@ -96,18 +95,20 @@ final class GameRuntimeCommandClientTest extends TestCase
             ], JSON_THROW_ON_ERROR), ['http_code' => 200]);
         });
 
-        $client = new GameRuntimeCommandClient($httpClient, new LegacyMulliganRuntimeStateMapper(), 'http://runtime.internal:8091');
-        $client->dispatch('life.changed', 'game-empty', 'player-1', 1, 'action-empty', [
-            'version' => 1,
-            'gamePhase' => 'PLAYING',
-            'players' => [],
-            'turn' => [],
-        ], ['playerId' => 'player-1', 'life' => 39]);
+        $client = new GameRuntimeCommandClient($httpClient, 'http://runtime.internal:8091');
+        $client->dispatch('life.changed', 'game-empty', 'player-1', 1, 'action-empty', ['playerId' => 'player-1', 'life' => 39]);
 
-        self::assertStringContainsString('"players":{}', $rawBody);
-        self::assertStringContainsString('"instances":{}', $rawBody);
-        self::assertStringContainsString('"zones":{}', $rawBody);
-        self::assertStringContainsString('"loc":{}', $rawBody);
+        self::assertStringNotContainsString('initialState', $rawBody);
+    }
+
+    public function testRuntimeCommandClientContractDoesNotAcceptLegacySnapshot(): void
+    {
+        $parameters = array_map(
+            static fn (\ReflectionParameter $parameter): string => $parameter->getName(),
+            (new \ReflectionMethod(GameRuntimeCommandClientInterface::class, 'dispatch'))->getParameters(),
+        );
+
+        self::assertNotContains('snapshot', $parameters);
     }
 
     public function testRuntimeCommandFailureIsRejectedWithoutLegacyFallback(): void
@@ -117,37 +118,11 @@ final class GameRuntimeCommandClientTest extends TestCase
             'error' => 'invalid payload field: player already conceded',
         ], JSON_THROW_ON_ERROR), ['http_code' => 409]));
 
-        $client = new GameRuntimeCommandClient($httpClient, new LegacyMulliganRuntimeStateMapper(), 'http://runtime.internal:8091');
+        $client = new GameRuntimeCommandClient($httpClient, 'http://runtime.internal:8091');
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('player already conceded');
 
-        $client->dispatch('game.concede', 'game-1', 'player-1', 2, 'action-2', $this->snapshot(), ['playerId' => 'player-1']);
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function snapshot(): array
-    {
-        return [
-            'version' => 1,
-            'gamePhase' => 'PLAYING',
-            'players' => [
-                'player-1' => [
-                    'user' => ['id' => 'player-1', 'displayName' => 'Player 1'],
-                    'life' => 40,
-                    'zones' => [
-                        'library' => [['instanceId' => 'library-1', 'cardKey' => 'card-a']],
-                        'hand' => [],
-                        'battlefield' => [],
-                        'graveyard' => [],
-                        'exile' => [],
-                        'command' => [],
-                    ],
-                ],
-            ],
-            'turn' => [],
-        ];
+        $client->dispatch('game.concede', 'game-1', 'player-1', 2, 'action-2', ['playerId' => 'player-1']);
     }
 }

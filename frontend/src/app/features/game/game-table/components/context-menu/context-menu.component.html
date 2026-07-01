@@ -31,14 +31,14 @@
       </span>
     </button>
     @if (isCurrentPlayerActive()) {
-      <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'concedeGame' })">
+      <button type="button" class="danger-menu-item" data-testid="game-menu-concede" (click)="actionSelected.emit({ type: 'concedeGame' })">
         <span class="menu-item-label">
           <lucide-icon name="skull" size="17" aria-hidden="true" />
           <span>{{ displayLabel('game.contextMenu.labels.concede') }}</span>
         </span>
       </button>
     }
-    <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'leaveTable' })">
+    <button type="button" class="danger-menu-item" data-testid="game-menu-leave-table" (click)="actionSelected.emit({ type: 'leaveTable' })">
       <span class="menu-item-label">
         <lucide-icon name="log-out" size="17" aria-hidden="true" />
         <span>{{ displayLabel('game.contextMenu.labels.leaveTable') }}</span>

@@ -38,7 +38,7 @@ import { GameTableToastState } from './game-table-toast.state';
 
 export interface GameTableContextSource {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
-  readonly refetch: (force?: boolean) => Promise<void>;
+  readonly refetch: (force?: boolean, source?: string) => Promise<void>;
   readonly command: (type: GameCommandType, payload: Record<string, unknown>, force?: boolean) => Promise<void>;
   readonly playCard: (playerId: string, zone: GameZoneName, card: GameCardInstance) => Promise<void>;
   readonly setPendingBattlefieldMove: (move: PendingBattlefieldMove | null) => void;
@@ -87,7 +87,7 @@ export class GameTableContextStore {
       send: (type, payload) => this.websocketCommands.sendCommand(this.command().websocket(), type, payload),
       snapshot: () => this.core.snapshot(),
       setSnapshot: (snapshot) => source.setSnapshot(snapshot),
-      refetch: () => source.refetch(true),
+      refetch: () => source.refetch(true, 'debounced_value_command.error'),
       errorMessage: (error) => this.errorMessage(error),
     };
   }
@@ -190,7 +190,7 @@ export class GameTableContextStore {
         gameId: () => this.core.gameId(),
         snapshot: () => this.core.snapshot(),
         setSnapshot: (snapshot) => source.setSnapshot(snapshot),
-        refetch: (force) => source.refetch(force),
+        refetch: (force) => source.refetch(force, 'websocket.request_resync'),
         setError: (message) => this.core.error.set(message),
         onCommandBlocked: (_reason, type, payload) => this.handleCommandBlocked(source, type, payload),
       }),
@@ -206,7 +206,7 @@ export class GameTableContextStore {
     return {
       setSnapshot: (snapshot) => source.setSnapshot(snapshot),
       errorMessage: (error) => this.errorMessage(error),
-      refetch: (force) => source.refetch(force),
+      refetch: (force) => source.refetch(force, 'card_counter.error'),
       command: (type, payload) => this.websocketCommands.sendCommand(this.command().websocket(), type, payload),
     };
   }
@@ -320,7 +320,7 @@ export class GameTableContextStore {
     const source = this.boundSource();
 
     return {
-      refetch: (force) => source.refetch(force),
+      refetch: (force) => source.refetch(force, 'pending_move.cancel'),
       setPendingBattlefieldMove: (move) => source.setPendingBattlefieldMove(move),
       setPendingLibraryMove: (move) => source.setPendingLibraryMove(move),
     };
@@ -394,7 +394,7 @@ export class GameTableContextStore {
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       setError: (message) => this.core.error.set(message),
       applyDeferredRemoteSnapshot: () => this.sessionService.applyDeferredRemoteSnapshot(this.session()),
-      refetch: (force) => source.refetch(force),
+      refetch: (force) => source.refetch(force, 'pointer_drag_action.recovery'),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
       markPendingTransfer: (playerId, fromZone, instanceIds, options) => this.pendingTransferState.register({
         playerId,

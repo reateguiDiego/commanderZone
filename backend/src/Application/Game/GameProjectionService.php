@@ -621,6 +621,10 @@ class GameProjectionService
             $card = $this->localizeCardImagesFromService($card, $requestedLanguage);
         }
 
+        if (!$ownerView && $this->zoneIsHidden($zone)) {
+            unset($card['cardKey'], $card['cardRef'], $card['printId'], $card['cardVersion'], $card['language'], $card['viewerVisibility']);
+        }
+
         unset($card['basePower'], $card['baseToughness'], $card['baseLoyalty'], $card['lang'], $card['printedName']);
 
         return $card;

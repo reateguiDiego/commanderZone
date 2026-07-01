@@ -63,6 +63,68 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertArrayHasKey($snapshot['instances'][$commanderInstanceId]['cardKey'], $snapshot['cardCatalog']);
     }
 
+    public function testCompactRuntimePreservesPrivateLibraryStaticBundleForOwnerBootstrapOnly(): void
+    {
+        $owner = $this->user('owner-draw@example.test', 'Owner Draw', 'owner-draw-id');
+        $opponent = $this->user('opponent-draw@example.test', 'Opponent Draw', 'opponent-draw-id');
+        $room = new Room($owner);
+        $room->addPlayer(new RoomPlayer($room, $owner));
+        $room->addPlayer(new RoomPlayer($room, $opponent));
+        $snapshot = (new GameCommandHandler())->normalizeSnapshot($this->snapshot($owner, [
+            'library' => [[
+                ...$this->richCard('library-draw-1', 'Immediate Draw Forest', 'library', [
+                    'ownerId' => $owner->id(),
+                    'controllerId' => $owner->id(),
+                    'scryfallId' => '00000000-0000-7000-8000-00000000d048',
+                    'imageUris' => ['normal' => 'https://cards.example/immediate-draw-forest.jpg'],
+                    'cardFaces' => [[
+                        'name' => 'Immediate Draw Forest',
+                        'typeLine' => 'Basic Land - Forest',
+                        'oracleText' => 'Private forest face.',
+                        'imageUris' => ['normal' => 'https://cards.example/immediate-draw-forest-face.jpg'],
+                    ]],
+                    'typeLine' => 'Basic Land - Forest',
+                    'oracleText' => 'Private forest oracle.',
+                ]),
+            ]],
+        ], $opponent));
+
+        $mapper = new CompactGameCardStateMapper();
+        $compact = $mapper->compactSnapshot($snapshot, 'game-runtime-draw-static', Game::STATUS_ACTIVE);
+        $compactInstance = $compact['instances']['library-draw-1'] ?? [];
+        $cardKey = is_string($compactInstance['cardKey'] ?? null) ? $compactInstance['cardKey'] : '';
+        $cardVersion = is_string($compact['cardCatalog'][$cardKey]['cardVersion'] ?? null) ? $compact['cardCatalog'][$cardKey]['cardVersion'] : null;
+
+        self::assertNotSame('', $cardKey);
+        self::assertSame($cardKey, $compactInstance['cardKey'] ?? null);
+        self::assertArrayHasKey($cardKey, $compact['cardCatalog']);
+        self::assertSame('Immediate Draw Forest', $compact['cardCatalog'][$cardKey]['name'] ?? null);
+        self::assertNotNull($cardVersion);
+        self::assertSame('https://cards.example/immediate-draw-forest.jpg', $compact['cardCatalog'][$cardKey]['imageUris']['normal'] ?? null);
+        self::assertArrayNotHasKey('name', $compactInstance);
+        self::assertArrayNotHasKey('imageUris', $compactInstance);
+        self::assertArrayNotHasKey('oracleText', $compactInstance);
+        self::assertArrayNotHasKey('cardFaces', $compactInstance);
+
+        $game = new Game($room, $compact);
+        $projection = new GameProjectionService(new GameCommandHandler());
+        $factory = new GameplayV2ContractFactory();
+        $ownerBootstrap = $factory->bootstrap($game, $owner, $projection->project($game, $owner))->toArray();
+        $opponentBootstrap = $factory->bootstrap($game, $opponent, $projection->project($game, $opponent))->toArray();
+
+        self::assertSame($cardKey, $ownerBootstrap['instances']['library-draw-1']['cardKey'] ?? null);
+        self::assertArrayHasKey($cardKey, $ownerBootstrap['staticCards']);
+        self::assertSame('Immediate Draw Forest', $ownerBootstrap['staticCards'][$cardKey]['name'] ?? null);
+        self::assertSame($cardVersion, $ownerBootstrap['staticCards'][$cardKey]['cardVersion'] ?? null);
+        self::assertSame('private', $ownerBootstrap['staticCards'][$cardKey]['viewerVisibility'] ?? null);
+        self::assertSame('https://cards.example/immediate-draw-forest.jpg', $ownerBootstrap['staticCards'][$cardKey]['imageUris']['normal'] ?? null);
+
+        $opponentEncoded = json_encode($opponentBootstrap, JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString($cardKey, $opponentEncoded);
+        self::assertStringNotContainsString('Immediate Draw Forest', $opponentEncoded);
+        self::assertStringNotContainsString('https://cards.example/immediate-draw-forest.jpg', $opponentEncoded);
+    }
+
     public function testProjectionHydratesCompactRuntimeForBootstrapWithoutLeakingOpponentPrivateCardData(): void
     {
         $owner = $this->user('owner@example.test', 'Owner', 'owner-id');

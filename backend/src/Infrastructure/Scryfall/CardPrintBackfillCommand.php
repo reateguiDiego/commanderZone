@@ -223,7 +223,7 @@ SQL,
                 'set_code' => $row['set_code'],
                 'collector_number' => $row['collector_number'],
                 'default_name' => (string) $row['name'],
-                'default_lang' => $this->nullableString($row['lang']),
+                'default_lang' => $this->nullableString($row['lang']) ?? 'en',
                 'default_set_name' => $this->nullableString($row['set_name']),
                 'default_mana_cost' => $row['mana_cost'],
                 'default_type_line' => $row['type_line'],
@@ -244,10 +244,7 @@ SQL,
      */
     private function upsertCardPrintLocale(array $row): void
     {
-        $lang = $this->nullableString($row['lang']);
-        if ($lang === null) {
-            return;
-        }
+        $lang = $this->nullableString($row['lang']) ?? 'en';
 
         $this->connection->executeStatement(
             <<<'SQL'
