@@ -31,6 +31,8 @@ export class TooltipComponent {
   readonly placement = input<TooltipPlacement>('top');
   readonly align = input<TooltipAlign>('center');
   readonly open = signal(false);
+  readonly visible = signal(false);
+  readonly multiline = signal(false);
   readonly position = signal<TooltipPosition | null>(null);
   readonly effectivePlacement = signal<TooltipPlacement>('top');
   readonly effectiveAlign = signal<TooltipAlign>('center');
@@ -41,19 +43,27 @@ export class TooltipComponent {
       return;
     }
 
-    this.updateTextColor();
-    this.updatePosition();
     this.open.set(true);
+    this.visible.set(false);
+    this.multiline.set(false);
     setTimeout(() => {
       if (this.open()) {
         this.updateTextColor();
-        this.updatePosition();
+        this.multiline.set(this.shouldUseMultilineClamp());
+        setTimeout(() => {
+          if (this.open()) {
+            this.updatePosition();
+            this.visible.set(true);
+          }
+        });
       }
     });
   }
 
   hide(): void {
     this.open.set(false);
+    this.visible.set(false);
+    this.multiline.set(false);
   }
 
   handleMouseEnter(): void {
@@ -239,6 +249,16 @@ export class TooltipComponent {
     const secondary = this.cssVariableValue(style, rootStyle, '--cz-secondary');
 
     this.textColor.set(tooltipTextColorForBackground(secondaryRgb, secondary) ?? 'var(--cz-text)');
+  }
+
+  private shouldUseMultilineClamp(): boolean {
+    const bubbleElement = this.bubble()?.nativeElement;
+    const contentElement = bubbleElement?.querySelector<HTMLElement>('.cz-tooltip__content');
+    if (!contentElement) {
+      return false;
+    }
+
+    return contentElement.scrollWidth > Math.ceil(contentElement.clientWidth) + 1;
   }
 
   private cssVariableValue(style: CSSStyleDeclaration, fallbackStyle: CSSStyleDeclaration, propertyName: string): string {

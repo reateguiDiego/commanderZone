@@ -98,11 +98,9 @@
 .page-header-title h1 {
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
   color: var(--cz-text);
   font-size: calc(var(--cz-page-title-font-size) * var(--cz-text-fit-scale, 1));
   line-height: var(--cz-page-title-line-height);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

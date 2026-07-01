@@ -74,6 +74,44 @@ describe('TooltipComponent', () => {
     expect(bubble(fixture).classList).toContain('cz-tooltip__bubble--align-end');
   });
 
+  it('keeps the bubble hidden until it has measured the edge-aware alignment', async () => {
+    const fixture = TestBed.createComponent(TooltipHostComponent);
+    fixture.detectChanges();
+    trigger(fixture).getBoundingClientRect = () => rect({ top: 80, bottom: 104, left: 292, right: 316, width: 24, height: 24 });
+
+    button(fixture).click();
+    fixture.detectChanges();
+
+    bubble(fixture).getBoundingClientRect = () => rect({ width: 160, height: 48 });
+    expect(bubble(fixture).classList).not.toContain('cz-tooltip__bubble--visible');
+
+    await new Promise<void>((resolve) => setTimeout(resolve));
+    fixture.detectChanges();
+    expect(bubble(fixture).classList).not.toContain('cz-tooltip__bubble--visible');
+
+    await new Promise<void>((resolve) => setTimeout(resolve));
+    fixture.detectChanges();
+
+    expect(bubble(fixture).classList).toContain('cz-tooltip__bubble--visible');
+    expect(bubble(fixture).classList).toContain('cz-tooltip__bubble--align-end');
+  });
+
+  it('uses two-line truncation only when the single-line bubble cannot fit', async () => {
+    const fixture = TestBed.createComponent(TooltipHostComponent);
+    fixture.componentInstance.text = 'This tooltip is intentionally too long to fit in a single line within the available viewport width.';
+
+    await openTooltip(fixture, {
+      triggerRect: rect({ top: 80, bottom: 104, left: 140, right: 180, width: 40, height: 24 }),
+      bubbleRect: rect({ width: 296, height: 48 }),
+      clientWidth: 296,
+      scrollWidth: 520,
+    });
+
+    expect(bubble(fixture).classList).toContain('cz-tooltip__bubble--multiline');
+    expect(getComputedStyle(bubble(fixture)).overflow).not.toBe('hidden');
+    expect(getComputedStyle(content(fixture)).overflow).toBe('hidden');
+  });
+
   it('aligns to the start when the centered tooltip would be clipped on the left', async () => {
     const fixture = TestBed.createComponent(TooltipHostComponent);
 
@@ -112,7 +150,7 @@ describe('TooltipComponent', () => {
 
 async function openTooltip(
   fixture: ComponentFixture<TooltipHostComponent>,
-  options: { triggerRect: DOMRect; bubbleRect: DOMRect },
+  options: { triggerRect: DOMRect; bubbleRect: DOMRect; clientWidth?: number; scrollWidth?: number },
 ): Promise<void> {
   fixture.detectChanges();
   trigger(fixture).getBoundingClientRect = () => options.triggerRect;
@@ -120,7 +158,15 @@ async function openTooltip(
   button(fixture).click();
   fixture.detectChanges();
   bubble(fixture).getBoundingClientRect = () => options.bubbleRect;
+  if (options.clientWidth !== undefined) {
+    Object.defineProperty(content(fixture), 'clientWidth', { configurable: true, value: options.clientWidth });
+  }
+  if (options.scrollWidth !== undefined) {
+    Object.defineProperty(content(fixture), 'scrollWidth', { configurable: true, value: options.scrollWidth });
+  }
 
+  await new Promise<void>((resolve) => setTimeout(resolve));
+  fixture.detectChanges();
   await new Promise<void>((resolve) => setTimeout(resolve));
   fixture.detectChanges();
 }
@@ -135,6 +181,10 @@ function trigger(fixture: ComponentFixture<TooltipHostComponent>): HTMLElement {
 
 function bubble(fixture: ComponentFixture<TooltipHostComponent>): HTMLElement {
   return fixture.nativeElement.querySelector('.cz-tooltip__bubble') as HTMLElement;
+}
+
+function content(fixture: ComponentFixture<TooltipHostComponent>): HTMLElement {
+  return fixture.nativeElement.querySelector('.cz-tooltip__content') as HTMLElement;
 }
 
 function rect(values: Partial<DOMRect>): DOMRect {

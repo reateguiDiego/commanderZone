@@ -166,8 +166,8 @@ describe('DashboardShellComponent', () => {
     expect(adminLink?.closest('app-tooltip')).not.toBeNull();
     expect(adminLink?.querySelector('lucide-icon[name="shield-check"]')).not.toBeNull();
 
-    const firstNavLink = fixture.nativeElement.querySelector('.nav-list a') as HTMLAnchorElement | null;
-    expect(firstNavLink?.getAttribute('href')).toBe('/admin');
+    expect(adminLink?.classList).toContain('admin-action');
+    expect(fixture.nativeElement.querySelector('.nav-list a[href="/admin"]')).toBeNull();
   });
 
   it('hides Friends controls outside desktop devices', () => {

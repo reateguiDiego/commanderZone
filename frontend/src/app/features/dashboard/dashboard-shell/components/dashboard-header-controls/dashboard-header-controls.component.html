@@ -1,4 +1,4 @@
-<div class="user-strip" [class.friends-hidden]="!device.isDesktop()">
+<div class="user-strip" [class.friends-hidden]="!device.isDesktop()" [class.has-admin]="canAccessAdmin()">
   <app-player-info
     [displayName]="userLabel()"
     [avatar]="userAvatar()"
@@ -7,6 +7,21 @@
     (avatarSelected)="openSettings('avatar')"
     (nameSelected)="openSettings('name-style')"
   />
+
+  @if (canAccessAdmin()) {
+    <app-tooltip class="admin-tooltip" [text]="'navigation.dashboard.dashboardShell.admin' | runtimeTranslate">
+      <a
+        czButton="icon"
+        class="icon-button admin-action"
+        routerLink="/admin"
+        routerLinkActive="active"
+        [attr.aria-label]="'navigation.dashboard.dashboardShell.admin' | runtimeTranslate"
+        (click)="closeOverlayMenus()"
+      >
+        <lucide-icon name="shield-check" size="18" aria-hidden="true" />
+      </a>
+    </app-tooltip>
+  }
 
   @if (device.isDesktop()) {
     <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">

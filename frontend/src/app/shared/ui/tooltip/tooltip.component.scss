@@ -29,7 +29,7 @@
   z-index: 500;
   width: fit-content;
   min-width: 0;
-  max-width: min(12.5rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
   padding: 0.45rem 0.62rem;
   border: 1px solid rgb(var(--cz-secondary-rgb) / 86%);
   border-radius: 10px;
@@ -45,8 +45,6 @@
   font-weight: 800;
   line-height: 1.2;
   text-align: center;
-  white-space: normal;
-  overflow-wrap: anywhere;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
@@ -55,6 +53,23 @@
     opacity 140ms ease,
     transform 140ms ease,
     visibility 140ms ease;
+}
+
+.cz-tooltip__content {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-tooltip__bubble--multiline .cz-tooltip__content {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .cz-tooltip__bubble::after {

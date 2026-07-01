@@ -1,16 +1,14 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
 import { AppThemeAssetsService } from '../../../../../core/theme/app-theme-assets.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../core/models/user.model';
 import { DeviceProfileService } from '../../../../../shared/services/device-profile.service';
-import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 import { DashboardHeaderControlsComponent } from '../dashboard-header-controls/dashboard-header-controls.component';
 
 @Component({
   selector: 'app-dashboard-header',
-  imports: [RuntimeTranslatePipe, RouterLink, RouterLinkActive, LucideAngularModule, TooltipComponent, DashboardHeaderControlsComponent],
+  imports: [RuntimeTranslatePipe, RouterLink, RouterLinkActive, DashboardHeaderControlsComponent],
   templateUrl: './dashboard-header.component.html',
   styleUrl: './dashboard-header.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

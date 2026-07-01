@@ -33,12 +33,18 @@ app-player-info {
   max-width: 18.4rem;
 }
 
+.admin-tooltip {
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
 .friends-dropdown,
 .messages-dropdown {
   position: relative;
   flex: 0 0 auto;
 }
 
+.admin-action,
 .friends-action,
 .messages-action {
   position: relative;
@@ -50,10 +56,20 @@ app-player-info {
   overflow: visible;
 }
 
+.admin-action lucide-icon,
 .friends-action lucide-icon,
 .messages-action lucide-icon {
   display: grid;
   place-items: center;
+}
+
+.admin-action lucide-icon {
+  color: var(--cz-primary);
+}
+
+.admin-action.active {
+  border-color: rgb(var(--cz-primary-rgb) / 45%);
+  background: rgb(var(--cz-primary-rgb) / 12%);
 }
 
 .friends-action lucide-icon {
@@ -188,12 +204,49 @@ app-player-info {
     max-width: min(18.4rem, 62vw);
   }
 
+  .user-strip.has-admin {
+    grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  }
+
+  .user-strip.has-admin.friends-hidden {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+  }
+
+  .user-strip.has-admin .admin-tooltip {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .user-strip.has-admin .friends-dropdown {
+    grid-column: 3;
+  }
+
+  .user-strip.has-admin .messages-dropdown {
+    grid-column: 4;
+  }
+
+  .user-strip.has-admin app-header-user-menu {
+    grid-column: 5;
+  }
+
+  .user-strip.has-admin.friends-hidden .admin-tooltip {
+    grid-column: 2;
+  }
+
   .user-strip.friends-hidden .messages-dropdown {
     grid-column: 2;
   }
 
+  .user-strip.has-admin.friends-hidden .messages-dropdown {
+    grid-column: 3;
+  }
+
   .user-strip.friends-hidden app-header-user-menu {
     grid-column: 3;
+  }
+
+  .user-strip.has-admin.friends-hidden app-header-user-menu {
+    grid-column: 4;
   }
 
   .friends-dropdown {
@@ -221,6 +274,7 @@ app-player-info {
     left: auto;
   }
 
+  .admin-action,
   .friends-action,
   .messages-action {
     min-width: 2.65rem;

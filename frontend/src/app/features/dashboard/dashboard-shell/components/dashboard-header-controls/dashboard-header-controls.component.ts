@@ -1,5 +1,6 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, input, output, signal, viewChild } from '@angular/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { FullscreenService } from '../../../../../core/fullscreen/fullscreen.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../core/models/user.model';
@@ -16,6 +17,8 @@ import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.compo
   selector: 'app-dashboard-header-controls',
   imports: [
     RuntimeTranslatePipe,
+    RouterLink,
+    RouterLinkActive,
     LucideAngularModule,
     PlayerInfoComponent,
     FriendsDropdownComponent,
@@ -42,6 +45,7 @@ export class DashboardHeaderControlsComponent {
   readonly onlineFriendsCount = input(0);
   readonly messagesCount = input(0);
   readonly unreadMessagesCount = input(0);
+  readonly canAccessAdmin = input(false);
   readonly toggleFriends = output<MouseEvent>();
   readonly toggleMessages = output<MouseEvent>();
   readonly closeFriends = output<void>();
@@ -68,6 +72,13 @@ export class DashboardHeaderControlsComponent {
     this.closeSettings();
     this.closeFriends.emit();
     this.closeMessages.emit();
+  }
+
+  closeOverlayMenus(): void {
+    this.closeSettings();
+    this.closeFriends.emit();
+    this.closeMessages.emit();
+    this.headerUserMenu()?.closeMenu();
   }
 
   openSettings(target: SettingsLaunchTarget = 'general'): void {
