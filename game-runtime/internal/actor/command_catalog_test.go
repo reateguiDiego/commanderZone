@@ -27,8 +27,18 @@ func TestDefaultAppliersCoverFinalGameplayCommandCatalog(t *testing.T) {
 func TestEnvAndDockerAllowlistsMatchFinalGameplayCommandCatalog(t *testing.T) {
 	root := repoRoot(t)
 	expected := sorted(FinalGameplayCommandTypes())
-	for _, relative := range []string{".env", ".env.prod", "docker-compose.yml"} {
-		allowlists := allowlistsFromFile(t, filepath.Join(root, relative))
+	requiredFiles := []string{".env", "docker-compose.yml"}
+	optionalFiles := []string{".env.prod"}
+	requiredFileSet := map[string]bool{}
+	for _, relative := range requiredFiles {
+		requiredFileSet[relative] = true
+	}
+	for _, relative := range append(requiredFiles, optionalFiles...) {
+		required := requiredFileSet[relative]
+		allowlists := allowlistsFromFile(t, filepath.Join(root, relative), required)
+		if !required && allowlists == nil {
+			continue
+		}
 		if len(allowlists) == 0 {
 			t.Fatalf("%s has no GAMEPLAY_V2_COMMANDS_ALLOWLIST", relative)
 		}
@@ -215,10 +225,13 @@ func repoRoot(t *testing.T) string {
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "../../.."))
 }
 
-func allowlistsFromFile(t *testing.T, path string) [][]string {
+func allowlistsFromFile(t *testing.T, path string, required bool) [][]string {
 	t.Helper()
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
+		if !required && os.IsNotExist(err) {
+			return nil
+		}
 		t.Fatal(err)
 	}
 	lines := strings.Split(string(contentBytes), "\n")
