@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithBasicDecks } from './support/commander-game';
+import { createCommanderGameWithBasicDecks, resolveGameToPlaying } from './support/commander-game';
 
 test.setTimeout(180000);
 
@@ -17,6 +17,7 @@ test('two players can alternate manual turn controls and stay synchronized', asy
     roomVisibility: 'public',
   });
   const { gameId, playerA, playerB } = setup;
+  await resolveGameToPlaying(request, gameId, [playerA, playerB]);
 
   const contextA = await browser.newContext({
     baseURL,
@@ -34,8 +35,6 @@ test('two players can alternate manual turn controls and stay synchronized', asy
     await Promise.all([pageA.goto(`/games/${gameId}`), pageB.goto(`/games/${gameId}`)]);
     await expect(pageA.getByTestId('game-screen')).toBeVisible();
     await expect(pageB.getByTestId('game-screen')).toBeVisible();
-    await keepOpeningHand(pageA);
-    await keepOpeningHand(pageB);
     await expect(pageA.getByTestId('mulligan-overlay')).toBeHidden();
     await expect(pageB.getByTestId('mulligan-overlay')).toBeHidden();
 
@@ -85,12 +84,6 @@ async function advancePhase(page: import('@playwright/test').Page, count: number
     await page.getByTestId('advance-phase').click();
     await expect.poll(async () => readPhase(page)).toBe(expectedPhase);
   }
-}
-
-async function keepOpeningHand(page: import('@playwright/test').Page): Promise<void> {
-  await expect(page.getByTestId('mulligan-overlay')).toBeVisible();
-  await expect(page.getByTestId('mulligan-keep')).toBeEnabled();
-  await page.getByTestId('mulligan-keep').click();
 }
 
 async function activeTurnPage(

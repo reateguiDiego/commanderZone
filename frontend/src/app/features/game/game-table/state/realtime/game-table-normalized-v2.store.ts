@@ -128,6 +128,11 @@ type GameTableNormalizedV2ApplyInternalResult =
   | { status: 'ignored'; state: GameTableNormalizedV2State; reason: 'duplicate_or_late_version' }
   | { status: 'resync_required'; state: GameTableNormalizedV2State; reason: GameTableNormalizedV2ApplyFailureReason };
 
+interface NormalizeIncomingCardContext {
+  instances: Record<string, BootstrapInstanceV2>;
+  staticCards: Record<string, BootstrapStaticCardV2>;
+}
+
 const ZONE_NAMES: readonly GameZoneName[] = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
 
 @Injectable()
@@ -937,7 +942,10 @@ function addCardsToZone(
   const nextStaticCards = { ...state.staticCards };
   const insertedIds: string[] = [];
   for (const card of cards) {
-    const normalized = normalizeIncomingCard(card, playerId, zone, staticCards ?? {});
+    const normalized = normalizeIncomingCard(card, playerId, zone, staticCards ?? {}, {
+      instances: nextInstances,
+      staticCards: nextStaticCards,
+    });
     const existing = nextInstances[normalized.instance.instanceId];
     const nextInstance = {
       ...normalized.instance,
@@ -1062,7 +1070,16 @@ function moveOneCard(
   let nextStaticCards = state.staticCards;
   if (operation.card) {
     const existing = nextInstances[operation.instanceId];
-    const normalized = normalizeIncomingCard(operation.card, operation.to.playerId, operation.to.zone, operation.staticCard ? { [operation.staticCard.cardRef]: operation.staticCard } : {});
+    const normalized = normalizeIncomingCard(
+      operation.card,
+      operation.to.playerId,
+      operation.to.zone,
+      operation.staticCard ? { [operation.staticCard.cardRef]: operation.staticCard } : {},
+      {
+        instances: nextInstances,
+        staticCards: nextStaticCards,
+      },
+    );
     let nextInstance: BootstrapInstanceV2 = {
       ...normalized.instance,
       position: battlefieldPositionForZone(operation.to.zone, normalized.instance.position, existing?.position),
@@ -1236,7 +1253,10 @@ function revealLibraryTop(
   const topIds: string[] = [];
 
   for (const card of cards) {
-    const normalized = normalizeIncomingCard(card, playerId, 'library', staticCards);
+    const normalized = normalizeIncomingCard(card, playerId, 'library', staticCards, {
+      instances: nextInstances,
+      staticCards: nextStaticCards,
+    });
     if (normalized.staticCard) {
       nextStaticCards[normalized.staticCard.cardRef] = mergeStaticCard(
         nextStaticCards[normalized.staticCard.cardRef],
@@ -1563,13 +1583,22 @@ function replacePrivateMulliganHand(
   }
 
   const nextInstances = { ...state.instances };
-  const nextStaticCards = {
-    ...state.staticCards,
-    ...staticCards,
-  };
+  const nextStaticCards = { ...state.staticCards };
   for (const card of hand) {
-    const instance = compactRefToBootstrapInstance(card, playerId, 'hand');
-    nextInstances[card.instanceId] = completeInstanceIdentity(instance, nextStaticCards[instance.cardRef]);
+    const normalized = normalizeIncomingCard(compactRefToLegacyPatchPayload(card), playerId, 'hand', staticCards, {
+      instances: nextInstances,
+      staticCards: nextStaticCards,
+    });
+    if (normalized.staticCard) {
+      nextStaticCards[normalized.staticCard.cardRef] = mergeStaticCard(
+        nextStaticCards[normalized.staticCard.cardRef],
+        normalized.staticCard,
+      );
+    }
+    nextInstances[card.instanceId] = completeInstanceIdentity(
+      normalized.instance,
+      nextStaticCards[normalized.instance.cardRef],
+    );
   }
 
   return {
@@ -1676,26 +1705,18 @@ function updatePlayer(
   };
 }
 
-function compactRefToBootstrapInstance(
-  card: GameCompactCardRef,
-  playerId: string,
-  zone: GameZoneName,
-): BootstrapInstanceV2 {
-  const cardRef = card.cardKey?.trim() || `instance:${card.instanceId}`;
-
+function compactRefToLegacyPatchPayload(card: GameCompactCardRef): LegacyCardPatchPayload {
   return {
     instanceId: card.instanceId,
-    cardRef,
-    cardKey: card.cardKey ?? undefined,
-    printId: card.printId ?? undefined,
-    cardVersion: card.cardVersion ?? undefined,
-    language: card.language ?? fallbackLanguageForZone(zone),
-    viewerVisibility: card.viewerVisibility ?? viewerVisibilityForZone(zone),
-    zoneId: zoneId(playerId, zone),
-    ownerId: playerId,
-    controllerId: playerId,
-    hidden: card.hidden ?? false,
-    tapped: card.tapped ?? false,
+    cardKey: nonEmptyString(card.cardKey) ? card.cardKey : undefined,
+    printId: nonEmptyString(card.printId) ? card.printId : undefined,
+    cardVersion: nonEmptyString(card.cardVersion) ? card.cardVersion : undefined,
+    language: nonEmptyString(card.language) ? card.language : undefined,
+    viewerVisibility: nonEmptyString(card.viewerVisibility) ? card.viewerVisibility : undefined,
+    name: nonEmptyString(card.name) ? card.name : undefined,
+    hidden: card.hidden,
+    tapped: card.tapped,
+    zone: card.zone,
   };
 }
 
@@ -2092,31 +2113,42 @@ function normalizeIncomingCard(
   playerId: string,
   zone: GameZoneName,
   staticCards: Record<string, BootstrapStaticCardV2>,
+  context: NormalizeIncomingCardContext,
 ): { instance: BootstrapInstanceV2; staticCard: BootstrapStaticCardV2 | null } {
   if ('cardRef' in card && typeof card.cardRef === 'string') {
     const compact = {
       ...card,
       zoneId: 'zoneId' in card && typeof card.zoneId === 'string' ? card.zoneId : zoneId(playerId, zone),
     } as BootstrapInstanceV2;
+    const staticCard = staticCardForIncomingKeys(
+      [compact.cardRef, compact.cardKey],
+      staticCards,
+      context.staticCards,
+    );
+    const instance = {
+      ...normalizeInstance(compact),
+      zoneId: zoneId(playerId, zone),
+      ...(staticCard ? { cardRef: staticCard.cardRef } : {}),
+    };
 
     return {
-      instance: {
-        ...normalizeInstance(compact),
-        zoneId: zoneId(playerId, zone),
-      },
-      staticCard: staticCards[card.cardRef] ? normalizeStaticCard(staticCards[card.cardRef]!) : null,
+      instance,
+      staticCard,
     };
   }
 
   const legacy = card as LegacyCardPatchPayload;
   const inferredCardRef = inferCardRefFromLegacyCard(legacy);
   const fallbackLanguage = fallbackLanguageForZone(zone);
-  const staticCard = (legacy.hidden && !legacy.scryfallId && !legacy.name)
-    ? null
+  const existing = context.instances[legacy.instanceId];
+  const cachedStaticCard = staticCardForLegacyPatch(legacy, existing, staticCards, context.staticCards);
+  const cardRef = cachedStaticCard?.cardRef ?? inferredCardRef;
+  const staticCard = cachedStaticCard
+    ?? (!hasRenderableLegacyPayload(legacy) ? null
     : {
-        cardRef: inferredCardRef,
-        cardKey: legacy.cardKey ?? inferredCardRef,
-        printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? inferredCardRef,
+        cardRef,
+        cardKey: legacy.cardKey ?? cardRef,
+        printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? cardRef,
         cardVersion: legacy.cardVersion ?? 'legacy-snapshot-v1',
         language: legacy.language ?? fallbackLanguage,
         viewerVisibility: legacy.viewerVisibility ?? viewerVisibilityForZone(zone),
@@ -2132,17 +2164,17 @@ function normalizeIncomingCard(
         defaultLoyalty: legacy.defaultLoyalty ?? null,
         defaultDefense: legacy.defaultDefense ?? null,
         hasRulings: legacy.hasRulings ?? false,
-      } satisfies BootstrapStaticCardV2;
+      } satisfies BootstrapStaticCardV2);
 
   return {
     instance: {
       instanceId: legacy.instanceId,
-      cardRef: inferredCardRef,
+      cardRef,
       cardKey: legacy.cardKey ?? undefined,
-      printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? inferredCardRef,
-      cardVersion: legacy.cardVersion ?? 'legacy-snapshot-v1',
-      language: legacy.language ?? fallbackLanguage,
-      viewerVisibility: legacy.viewerVisibility ?? viewerVisibilityForZone(zone),
+      printId: legacy.printId ?? legacy.scryfallId ?? legacy.cardKey ?? (staticCard ? undefined : cardRef),
+      cardVersion: legacy.cardVersion ?? (staticCard ? undefined : 'legacy-snapshot-v1'),
+      language: legacy.language ?? (staticCard ? undefined : fallbackLanguage),
+      viewerVisibility: legacy.viewerVisibility ?? (staticCard ? undefined : viewerVisibilityForZone(zone)),
       zoneId: zoneId(playerId, zone),
       ownerId: legacy.ownerId ?? playerId,
       controllerId: legacy.controllerId ?? playerId,
@@ -2167,6 +2199,100 @@ function normalizeIncomingCard(
     },
     staticCard,
   };
+}
+
+function staticCardForLegacyPatch(
+  legacy: LegacyCardPatchPayload,
+  existing: BootstrapInstanceV2 | undefined,
+  operationStaticCards: Record<string, BootstrapStaticCardV2>,
+  cachedStaticCards: Record<string, BootstrapStaticCardV2>,
+): BootstrapStaticCardV2 | null {
+  const direct = staticCardForIncomingKeys(
+    [legacy.cardRef, legacy.cardKey, legacy.scryfallId],
+    operationStaticCards,
+    cachedStaticCards,
+  );
+  if (direct) {
+    return direct;
+  }
+
+  if (!existing) {
+    return null;
+  }
+
+  const existingStaticCard = staticCardForIncomingKeys(
+    [existing.cardRef, existing.cardKey],
+    operationStaticCards,
+    cachedStaticCards,
+  );
+  if (!existingStaticCard) {
+    return null;
+  }
+
+  if (canReuseExistingInstanceStaticCard(legacy, existing, existingStaticCard)) {
+    return existingStaticCard;
+  }
+
+  const incomingKeys = [legacy.cardRef, legacy.cardKey].filter(nonEmptyString);
+  if (incomingKeys.length === 0) {
+    return existingStaticCard;
+  }
+
+  const existingKeys = [
+    existing.cardRef,
+    existing.cardKey,
+    existingStaticCard.cardRef,
+    existingStaticCard.cardKey,
+  ].filter(nonEmptyString);
+
+  return incomingKeys.some((key) => existingKeys.includes(key)) ? existingStaticCard : null;
+}
+
+function canReuseExistingInstanceStaticCard(
+  legacy: LegacyCardPatchPayload,
+  existing: BootstrapInstanceV2,
+  existingStaticCard: BootstrapStaticCardV2,
+): boolean {
+  const existingZone = zoneNameFromZoneId(existing.zoneId);
+  return legacy.instanceId === existing.instanceId
+    && (existingZone === 'library' || existingZone === 'hand')
+    && hasRenderableStaticContent(existingStaticCard);
+}
+
+function staticCardForIncomingKeys(
+  keys: Array<string | null | undefined>,
+  operationStaticCards: Record<string, BootstrapStaticCardV2>,
+  cachedStaticCards: Record<string, BootstrapStaticCardV2>,
+): BootstrapStaticCardV2 | null {
+  const lookupKeys = [...new Set(keys.filter(nonEmptyString))];
+  if (lookupKeys.length === 0) {
+    return null;
+  }
+
+  for (const source of [operationStaticCards, cachedStaticCards]) {
+    for (const key of lookupKeys) {
+      const card = source[key];
+      if (card) {
+        return normalizeStaticCard(card);
+      }
+    }
+
+    for (const card of Object.values(source)) {
+      const candidateKeys = [card.cardRef, card.cardKey, card.scryfallId, card.printId].filter(nonEmptyString);
+      if (lookupKeys.some((key) => candidateKeys.includes(key))) {
+        return normalizeStaticCard(card);
+      }
+    }
+  }
+
+  return null;
+}
+
+function hasRenderableLegacyPayload(card: LegacyCardPatchPayload): boolean {
+  const name = card.name?.trim() ?? '';
+  return (name !== '' && name !== 'Card' && name !== 'Unknown Card')
+    || Boolean(card.imageUris && Object.keys(card.imageUris).length > 0)
+    || Boolean(card.cardFaces && card.cardFaces.length > 0);
 }
 
 function shouldPreserveExistingStaticIdentity(
@@ -2216,7 +2342,7 @@ function hasRenderableIdentity(
 
   return [...instanceIdentity, ...staticIdentity].every((value) =>
     typeof value === 'string' && value.trim() !== '',
-  );
+  ) && hasRenderableStaticContent(staticCard);
 }
 
 function isIncomingIdentityCompatibleWithExisting(
@@ -2300,9 +2426,8 @@ function assertRenderableIdentity(
     throw new Error(`Identity contract violation: static card ${staticCard.cardRef} is missing ${missingStaticField[0]}.`);
   }
 
-  const name = staticCard.name?.trim() ?? '';
-  if (name === '' || name === 'Unknown Card') {
-    throw new Error(`Identity contract violation: visible card ${instanceId} has no renderable name for ${instance.cardRef}.`);
+  if (!hasRenderableStaticContent(staticCard)) {
+    throw new Error(`Identity contract violation: visible card ${instanceId} has no renderable static card for ${instance.cardRef}.`);
   }
 }
 

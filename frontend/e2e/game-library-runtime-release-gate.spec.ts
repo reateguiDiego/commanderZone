@@ -113,13 +113,22 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       });
       const drawOwnerPatch = latestPatchWithOp(framesA, 'zone.cards.add');
       const drawRivalPatch = latestPatch(framesB);
+      const drawOwnerAddOp = operation(drawOwnerPatch, 'zone.cards.add');
+      const drawnCards = addedCards(drawOwnerPatch);
+      const drawnCard = drawnCards[0];
       expect(hasOp(drawOwnerPatch, 'zone.cards.add')).toBe(true);
+      expect(drawnCard).toBeTruthy();
+      expect(drawnCard?.['cardKey']).toBeTruthy();
+      expect(drawOwnerAddOp?.['staticCards']).toBeUndefined();
       expect(hasOp(drawRivalPatch, 'zone.cards.add')).toBe(false);
       expect(hasOnlyPublicCountsForPlayer(drawRivalPatch, playerA.user.id)).toBe(true);
+      expect(JSON.stringify(drawRivalPatch)).not.toContain(String(drawnCard?.['cardKey'] ?? ''));
       await expectZoneCounts(pageA, playerA.user.displayName, framesA, diagnosticsA, 'library.draw', {
         hand: initialCountsA.hand + 1,
         library: initialCountsA.library - 1,
       });
+      await expectRenderableOwnerHandCard(pageA, playerA.user.id, String(drawnCard?.['instanceId'] ?? ''));
+      await expect(pageB.locator(`[data-testid="game-card"][data-card-instance-id="${String(drawnCard?.['instanceId'] ?? '')}"]`)).toHaveCount(0);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
       nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
@@ -582,6 +591,26 @@ function zoneCardsAddedCount(message: JsonObject): number {
   const cards = Array.isArray(op?.['cards']) ? op['cards'] as JsonObject[] : [];
 
   return cards.length;
+}
+
+function addedCards(message: JsonObject): JsonObject[] {
+  const op = operation(message, 'zone.cards.add');
+  return Array.isArray(op?.['cards']) ? op['cards'] as JsonObject[] : [];
+}
+
+async function expectRenderableOwnerHandCard(page: Page, ownerPlayerId: string, instanceId: string): Promise<void> {
+  const card = page.locator(`[data-testid="game-card"][data-zone="hand"][data-owner-player-id="${ownerPlayerId}"][data-card-instance-id="${instanceId}"]`);
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await expect.poll(async () => {
+    const name = ((await card.getAttribute('data-card-name')) ?? '').trim();
+    return name !== '' && name !== 'Card' && name !== 'Unknown Card';
+  }, { timeout: 15_000 }).toBe(true);
+
+  const image = card.locator('img').first();
+  await expect(image).toBeVisible({ timeout: 15_000 });
+  const src = await image.getAttribute('src');
+  expect(src ?? '').not.toBe('');
+  expect(src ?? '').not.toContain('facedown_card');
 }
 
 function cardIdsFromLibraryPatch(message: JsonObject, opName: string): string[] {

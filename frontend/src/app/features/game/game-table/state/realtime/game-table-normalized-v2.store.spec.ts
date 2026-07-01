@@ -1158,7 +1158,7 @@ describe('game table normalized v2 store', () => {
       language: 'en',
       viewerVisibility: 'private',
       name: 'Forest',
-      imageUris: null,
+      imageUris: { normal: 'https://cards.test/forest.jpg' },
       cardFaces: [],
     };
     const initial = createGameTableNormalizedV2State(bootstrap);
@@ -1168,7 +1168,7 @@ describe('game table normalized v2 store', () => {
         op: 'zone.cards.add',
         playerId: 'player-1',
         zone: 'hand',
-        cards: [{ instanceId: 'library-1', cardKey: 'card:forest', ownerId: 'player-1', controllerId: 'player-1' }],
+        cards: [{ instanceId: 'library-1', cardKey: 'scryfall:s-forest:runtime-hash', ownerId: 'player-1', controllerId: 'player-1' }],
       },
       { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 97 },
       { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 2 },
@@ -1176,14 +1176,59 @@ describe('game table normalized v2 store', () => {
     const snapshot = hydrateGameSnapshotFromV2State(result.state);
 
     expect(result.status).toBe('applied');
+    expect(result.state.instances['library-1'].cardKey).toBe('card:forest');
+    expect(result.state.instances['library-1'].printId).toBe('s-forest');
+    expect(result.state.instances['library-1'].cardVersion).toBe('forest-v1');
     expect(result.state.instances['library-1'].language).toBe('en');
     expect(snapshot.players['player-1'].zones.hand[1]?.name).toBe('Forest');
+    expect(snapshot.players['player-1'].zones.hand[1]?.imageUris?.['normal']).toBe('https://cards.test/forest.jpg');
     expect(snapshot.players['player-1'].handCount).toBe(2);
   });
 
-  it('synthesizes minimal private identity for compact runtime draw cards without cached static data', () => {
-    const initial = createGameTableNormalizedV2State(bootstrapV2());
+  it('does not replace a real bootstrap static card with a compact placeholder hint', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.instances['library-1'] = {
+      ...bootstrap.instances['library-1'],
+      cardRef: 'card:forest',
+      cardKey: 'card:forest',
+      printId: 's-forest',
+      cardVersion: 'forest-v1',
+      language: 'en',
+      viewerVisibility: 'private',
+    };
+    bootstrap.staticCards['card:forest'] = {
+      cardRef: 'card:forest',
+      cardKey: 'card:forest',
+      printId: 's-forest',
+      cardVersion: 'forest-v1',
+      language: 'en',
+      viewerVisibility: 'private',
+      name: 'Forest',
+      imageUris: { normal: 'https://cards.test/forest.jpg' },
+      cardFaces: [],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
     const result = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'library', instanceIds: ['library-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [{ instanceId: 'library-1', cardKey: 'card:forest', name: 'Card', ownerId: 'player-1', controllerId: 'player-1' }],
+      },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.staticCards['card:forest'].name).toBe('Forest');
+    expect(result.state.staticCards['card:forest'].imageUris?.normal).toBe('https://cards.test/forest.jpg');
+    expect(snapshot.players['player-1'].zones.hand[1]?.name).toBe('Forest');
+  });
+
+  it('requests resync for visible compact runtime draw cards without cached static data', () => {
+    const store = new GameTableNormalizedV2Store();
+    store.applyBootstrap(bootstrapV2());
+    const result = store.applyPatch(patch(6, [
       { op: 'zone.cards.remove', playerId: 'player-1', zone: 'library', instanceIds: ['library-1'] },
       {
         op: 'zone.cards.add',
@@ -1194,12 +1239,9 @@ describe('game table normalized v2 store', () => {
       { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 97 },
       { op: 'zone.count.set', playerId: 'player-1', zone: 'hand', count: 2 },
     ]));
-    const snapshot = hydrateGameSnapshotFromV2State(result.state);
 
-    expect(result.status).toBe('applied');
-    expect(result.state.instances['library-1'].language).toBe('en');
-    expect(snapshot.players['player-1'].zones.hand[1]?.name).toBe('Card');
-    expect(snapshot.players['player-1'].handCount).toBe(2);
+    expect(result).toMatchObject({ status: 'resync_required', reason: 'invalid_operation' });
+    expect(store.state()?.lastAppliedVersion).toBe(5);
   });
 
   it('hydrates visible hand count from zone.count.set instead of stale hand array length', () => {
@@ -1227,6 +1269,28 @@ describe('game table normalized v2 store', () => {
     expect(result.state.zones['player-2'].hand).toEqual(['opp-hand-1']);
     expect(result.state.zoneCounts['player-2'].hand).toBe(2);
     expect(JSON.stringify(result.state.instances['opp-hand-1'])).not.toContain('cardKey');
+  });
+
+  it('keeps hidden opponent compact card patches private', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-2',
+        zone: 'hand',
+        cards: [{ instanceId: 'opp-hidden-runtime', ownerId: 'player-2', controllerId: 'player-2', hidden: true }],
+      },
+      { op: 'zone.count.set', playerId: 'player-2', zone: 'hand', count: 2 },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    const hiddenCard = snapshot.players['player-2'].zones.hand.find((card) => card.instanceId === 'opp-hidden-runtime');
+
+    expect(result.status).toBe('applied');
+    expect(hiddenCard?.hidden).toBe(true);
+    expect(hiddenCard?.name).toBe('Card');
+    expect(hiddenCard?.imageUris).toBeUndefined();
+    expect(JSON.stringify(result.state.instances['opp-hidden-runtime'])).not.toContain('cardKey');
+    expect(result.state.staticCards['instance:opp-hidden-runtime']).toBeUndefined();
   });
 
   it('accepts library count patches as a compatibility alias without resync', () => {
@@ -1514,6 +1578,55 @@ describe('game table normalized v2 store', () => {
       'runtime-f',
       'runtime-g',
     ]);
+  });
+
+  it('reuses bootstrap static cards for compact mulligan private hand patches', () => {
+    const bootstrap = {
+      ...bootstrapV2(),
+      game: {
+        ...bootstrapV2().game,
+        gamePhase: 'MULLIGAN',
+      },
+    };
+    bootstrap.staticCards['card:mulligan-a'] = {
+      cardRef: 'card:mulligan-a',
+      cardKey: 'card:mulligan-a',
+      printId: 'print:mulligan-a',
+      cardVersion: 'mulligan-a-v1',
+      language: 'en',
+      viewerVisibility: 'private',
+      name: 'Mulligan A',
+      imageUris: { normal: 'https://cards.test/mulligan-a.jpg' },
+      cardFaces: [],
+    };
+    bootstrap.staticCards['card:mulligan-b'] = {
+      cardRef: 'card:mulligan-b',
+      cardKey: 'card:mulligan-b',
+      printId: 'print:mulligan-b',
+      cardVersion: 'mulligan-b-v1',
+      language: 'en',
+      viewerVisibility: 'private',
+      name: 'Mulligan B',
+      imageUris: { normal: 'https://cards.test/mulligan-b.jpg' },
+      cardFaces: [],
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      {
+        op: 'mulligan.hand.replace_private',
+        playerId: 'player-1',
+        hand: [
+          { instanceId: 'runtime-mulligan-a', cardKey: 'card:mulligan-a' },
+          { instanceId: 'runtime-mulligan-b', cardKey: 'card:mulligan-b' },
+        ],
+      },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['runtime-mulligan-a'].cardVersion).toBe('mulligan-a-v1');
+    expect(snapshot.players['player-1'].zones.hand.map((card) => card.name)).toEqual(['Mulligan A', 'Mulligan B']);
+    expect(snapshot.players['player-1'].zones.hand[0]?.imageUris?.['normal']).toBe('https://cards.test/mulligan-a.jpg');
   });
 
   it('requests resync instead of throwing when runtime mulligan hand lacks static identity', () => {
