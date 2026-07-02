@@ -18,8 +18,16 @@ const googleClientId = firstNonEmpty([
   firstConfiguredClientId(localEnv.GOOGLE_OIDC_CLIENT_IDS),
 ]);
 
+const googleAdsenseClient = firstNonEmpty([
+  process.env.GOOGLE_ADSENSE_CLIENT,
+  process.env.COMMANDERZONE_GOOGLE_ADSENSE_CLIENT,
+  localEnv.GOOGLE_ADSENSE_CLIENT,
+  localEnv.COMMANDERZONE_GOOGLE_ADSENSE_CLIENT,
+]);
+
 const config = {
   googleClientId,
+  googleAdsenseClient,
 };
 
 writeFileSync(

@@ -44,7 +44,7 @@ describe('CookieConsentBannerComponent', () => {
     expect(element.querySelector('.cookie-banner')).not.toBeNull();
     expect(element.querySelector('.cookie-banner')?.getAttribute('role')).toBe('region');
     expect(element.querySelector('.cookie-banner__title')?.textContent?.trim()).toBe('Preferencias de cookies');
-    expect(buttons).toEqual(['Rechazar', 'Aceptar']);
+    expect(buttons).toEqual(['Rechazar', 'Personalizar', 'Aceptar']);
     expect(links).toEqual(['/es/politica-privacidad/', '/es/politica-cookies/']);
     expect(Array.from(element.querySelectorAll('a')).map((link) => link.textContent?.trim())).toEqual(['política de privacidad', 'política de cookies']);
     expect(element.textContent).not.toContain('Cookie preferences');
@@ -52,10 +52,10 @@ describe('CookieConsentBannerComponent', () => {
     expect(element.textContent).toContain('cookies esenciales y preferencias funcionales');
     expect(element.textContent).not.toContain('Cookies de analítica');
     expect(visibleActionButtons(element).filter((button) => button.classList.contains('primary-button')).at(-1)?.textContent?.trim()).toBe('Aceptar');
-    expect(visibleActionButtons(element).filter((button) => button.classList.contains('secondary-button'))).toHaveLength(1);
+    expect(visibleActionButtons(element).filter((button) => button.classList.contains('secondary-button'))).toHaveLength(2);
   });
 
-  it('can reject cookies without granting advertising consent', () => {
+  it('can reject cookies without granting personalized ads consent', () => {
     const consent = TestBed.inject(CookieConsentService);
     const element = fixture.nativeElement as HTMLElement;
     const rejectButton = Array.from(element.querySelectorAll('button'))
@@ -66,7 +66,8 @@ describe('CookieConsentBannerComponent', () => {
 
     expect(element.querySelector('.cookie-banner')).toBeNull();
     expect(consent.state().decision).toBe('rejected');
-    expect(consent.canUseAds()).toBe(false);
+    expect(consent.canUseAds()).toBe(true);
+    expect(consent.canUsePersonalizedAds()).toBe(false);
     expect(consent.googleConsentModeState()).toEqual({
       adPersonalization: 'denied',
       adStorage: 'denied',
@@ -75,7 +76,7 @@ describe('CookieConsentBannerComponent', () => {
     });
   });
 
-  it('can accept cookies without granting advertising or analytics consent', () => {
+  it('can accept cookies with personalized ads consent but without analytics consent', () => {
     const consent = TestBed.inject(CookieConsentService);
     const element = fixture.nativeElement as HTMLElement;
     const acceptButton = Array.from(element.querySelectorAll('button'))
@@ -86,11 +87,13 @@ describe('CookieConsentBannerComponent', () => {
 
     expect(element.querySelector('.cookie-banner')).toBeNull();
     expect(consent.state().decision).toBe('accepted');
-    expect(consent.canUseAds()).toBe(false);
+    expect(consent.canUseAds()).toBe(true);
+    expect(consent.canUsePersonalizedAds()).toBe(true);
+    expect(consent.googleConsentModeState().adStorage).toBe('granted');
     expect(consent.googleConsentModeState().analyticsStorage).toBe('denied');
   });
 
-  it('shows essential, functional and prepared advertising categories', () => {
+  it('shows essential, functional and optional personalized ads categories', () => {
     const consent = TestBed.inject(CookieConsentService);
     const element = fixture.nativeElement as HTMLElement;
 
@@ -102,10 +105,32 @@ describe('CookieConsentBannerComponent', () => {
     expect(switches.map((switchElement) => switchElement.getAttribute('aria-checked'))).toEqual(['true', 'true', 'false']);
     expect(switches[0].textContent).toContain('Cookies esenciales');
     expect(switches[1].textContent).toContain('Preferencias funcionales');
-    expect(switches[2].textContent).toContain('Cookies publicitarias');
+    expect(switches[2].textContent).toContain('Anuncios personalizados');
     expect(element.textContent).not.toContain('Cookies de anal');
     expect(visibleActionButtons(element).map((button) => button.textContent?.trim()))
-      .toEqual(['Rechazar', 'Aceptar']);
+      .toEqual(['Rechazar', 'Guardar', 'Aceptar']);
+  });
+
+  it('can save granular personalized ads consent from preferences', () => {
+    const consent = TestBed.inject(CookieConsentService);
+    const element = fixture.nativeElement as HTMLElement;
+
+    fixture.componentInstance.customize();
+    fixture.detectChanges();
+
+    const adsSwitch = Array.from(element.querySelectorAll<HTMLElement>('[role="switch"]')).at(2);
+    adsSwitch?.click();
+    fixture.detectChanges();
+
+    const saveButton = Array.from(element.querySelectorAll('button'))
+      .find((button) => button.textContent?.trim() === 'Guardar');
+    saveButton?.click();
+    fixture.detectChanges();
+
+    expect(consent.state().decision).toBe('custom');
+    expect(consent.canUseAds()).toBe(true);
+    expect(consent.canUsePersonalizedAds()).toBe(true);
+    expect(element.querySelector('.cookie-banner')).toBeNull();
   });
 
   it('can reopen preferences after a previous decision', () => {
@@ -121,7 +146,7 @@ describe('CookieConsentBannerComponent', () => {
 
     expect(element.querySelector('.cookie-banner')).not.toBeNull();
     expect(visibleActionButtons(element).map((button) => button.textContent?.trim()))
-      .toEqual(['Rechazar', 'Aceptar']);
+      .toEqual(['Rechazar', 'Guardar', 'Aceptar']);
   });
 });
 

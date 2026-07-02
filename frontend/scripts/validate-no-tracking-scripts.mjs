@@ -8,8 +8,6 @@ const scanRoots = [
   'dist/frontend/browser',
 ];
 const forbiddenPatterns = [
-  /pagead2\.googlesyndication\.com/i,
-  /googlesyndication\.com\/pagead/i,
   /googletagmanager\.com\/gtag\/js/i,
   /googletagmanager\.com\/gtm\.js/i,
   /google-analytics\.com\/analytics\.js/i,
@@ -23,6 +21,12 @@ const forbiddenPatterns = [
   /matomo\.js/i,
   /plausible\.io\/js/i,
 ];
+const adsensePatterns = [
+  /pagead2\.googlesyndication\.com/i,
+  /googlesyndication\.com\/pagead/i,
+];
+const managedAdsenseSource = 'src/app/core/ads/adsense-loader.ts';
+const managedAdsenseMarker = 'data-cz-managed-adsense';
 const skippedExtensions = new Set([
   '.avif',
   '.gif',
@@ -69,11 +73,35 @@ function scanPath(path) {
   }
 
   const content = readFileSync(path, 'utf8');
-  for (const pattern of forbiddenPatterns) {
-    if (pattern.test(content)) {
-      errors.push(`${relative(workspaceRoot, path)} contains ${pattern}`);
+  const relativePath = normalizePath(relative(workspaceRoot, path));
+
+  for (const pattern of adsensePatterns) {
+    if (pattern.test(content) && !isManagedAdsenseOccurrence(relativePath, content)) {
+      errors.push(`${relativePath} contains unmanaged AdSense pattern ${pattern}`);
     }
   }
+
+  for (const pattern of forbiddenPatterns) {
+    if (pattern.test(content)) {
+      errors.push(`${relativePath} contains ${pattern}`);
+    }
+  }
+}
+
+function isManagedAdsenseOccurrence(relativePath, content) {
+  if (!content.includes(managedAdsenseMarker)) {
+    return false;
+  }
+
+  if (relativePath === managedAdsenseSource) {
+    return true;
+  }
+
+  return relativePath.startsWith('dist/frontend/browser/') && extension(relativePath) === '.js';
+}
+
+function normalizePath(path) {
+  return path.replaceAll('\\', '/');
 }
 
 function extension(path) {

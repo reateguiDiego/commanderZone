@@ -16,6 +16,7 @@ export class CookieConsentBannerComponent {
   readonly consent = inject(CookieConsentService);
 
   readonly showSettings = signal(false);
+  readonly personalizedAdsConsent = signal(false);
   readonly isVisible = computed(() => !this.consent.hasDecision() || this.consent.preferencesPanelOpen());
   readonly copy = this.legalLinks.chromeCopy;
   readonly privacyLink = computed(() => this.legalLinks.links().find((link) => link.pageKey === 'privacy'));
@@ -27,6 +28,7 @@ export class CookieConsentBannerComponent {
         return;
       }
 
+      this.personalizedAdsConsent.set(this.consent.canUsePersonalizedAds());
       this.showSettings.set(true);
     });
   }
@@ -37,5 +39,18 @@ export class CookieConsentBannerComponent {
 
   rejectAll(): void {
     this.consent.rejectAll();
+  }
+
+  customize(): void {
+    this.personalizedAdsConsent.set(this.consent.canUsePersonalizedAds());
+    this.showSettings.set(true);
+  }
+
+  saveChoices(): void {
+    this.consent.savePreferences(this.personalizedAdsConsent());
+  }
+
+  setPersonalizedAdsConsent(checked: boolean): void {
+    this.personalizedAdsConsent.set(checked);
   }
 }

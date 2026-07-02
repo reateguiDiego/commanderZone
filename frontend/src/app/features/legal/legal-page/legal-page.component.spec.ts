@@ -70,7 +70,7 @@ describe('LegalPageComponent', () => {
       'CommanderZone trata datos de cuenta',
     );
     expect(document.head.querySelector('meta[data-cz-legal="true"][name="description"]')?.getAttribute('content')).toContain(
-      'preparación publicitaria',
+      'consentimiento publicitario',
     );
     expect(document.head.querySelector('link[data-cz-legal="true"][rel="canonical"]')?.getAttribute('href')).toBe(
       'https://www.commanderzone.com/es/politica-privacidad/',
@@ -96,9 +96,10 @@ describe('LegalPageComponent', () => {
     expect(element.textContent).toContain('commanderzone.theme');
     expect(element.textContent).toContain('commanderzone.deck-history');
     expect(element.textContent).toContain('no usa cookies de analítica');
-    expect(element.textContent).toContain('no carga scripts publicitarios');
-    expect(element.textContent).toContain('ni trata la publicidad como consentida');
-    expect(element.textContent).toContain('scripts publicitarios');
+    expect(element.textContent).toContain('Google AdSense');
+    expect(element.textContent).toContain('anuncios no personalizados');
+    expect(element.textContent).toContain('publicidad personalizada');
+    expect(element.textContent).toContain('publisher id activo');
     expect(element.textContent).not.toContain('Analítica opcional');
   });
 

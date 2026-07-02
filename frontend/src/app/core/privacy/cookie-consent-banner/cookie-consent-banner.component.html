@@ -26,10 +26,11 @@
         />
         <app-toggle
           class="cookie-banner__toggle"
+          data-cz-cookie-personalized-ads-toggle
           [label]="copy().cookieBanner.adsCookies"
           [description]="copy().cookieBanner.adsDescription"
-          [checked]="false"
-          [disabled]="true"
+          [checked]="personalizedAdsConsent()"
+          (checkedChange)="setPersonalizedAdsConsent($event)"
         />
       </div>
     </div>
@@ -38,6 +39,16 @@
       <button czButton="secondary" czButtonSize="sm" type="button" class="secondary-button compact" data-cz-cookie-action="reject" [attr.aria-label]="copy().cookieBanner.reject" (click)="rejectAll()">
         {{ copy().cookieBanner.reject }}
       </button>
+      @if (!showSettings()) {
+        <button czButton="secondary" czButtonSize="sm" type="button" class="secondary-button compact" data-cz-cookie-action="customize" [attr.aria-label]="copy().cookieBanner.customize" (click)="customize()">
+          {{ copy().cookieBanner.customize }}
+        </button>
+      }
+      @if (showSettings()) {
+        <button czButton="secondary" czButtonSize="sm" type="button" class="secondary-button compact" data-cz-cookie-action="save" [attr.aria-label]="copy().cookieBanner.saveChoices" (click)="saveChoices()">
+          {{ copy().cookieBanner.saveChoices }}
+        </button>
+      }
       <button czButton="primary" czButtonSize="sm" type="button" class="primary-button compact" data-cz-cookie-action="accept" [attr.aria-label]="copy().cookieBanner.accept" (click)="acceptAll()">
         {{ copy().cookieBanner.accept }}
       </button>

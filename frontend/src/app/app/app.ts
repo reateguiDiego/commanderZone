@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, Injector, PLATFORM_ID, computed, in
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthStore } from '../core/auth/auth.store';
+import { AdsenseService } from '../core/ads/adsense.service';
 import { GlobalLoadingFeaturePolicy } from '../core/loading/global-loading-feature-policy.service';
 import { LoadingStore } from '../core/loading/loading.store';
 import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
@@ -30,6 +31,7 @@ import { RouteStylesService } from '../core/ui/route-styles.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
+  private readonly adsense = inject(AdsenseService);
   private readonly auth = inject(AuthStore);
   private readonly document = inject(DOCUMENT);
   private readonly routeRobots = inject(RouteRobotsMetaService);

@@ -8,6 +8,13 @@ const deniedConsentModeState = {
   analyticsStorage: 'denied',
 } as const;
 
+const adsConsentModeState = {
+  adPersonalization: 'granted',
+  adStorage: 'granted',
+  adUserData: 'granted',
+  analyticsStorage: 'denied',
+} as const;
+
 describe('CookieConsentService', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -18,24 +25,26 @@ describe('CookieConsentService', () => {
     localStorage.clear();
   });
 
-  it('starts pending with version 3 and no optional consent granted', () => {
+  it('starts pending with version 5 and only non-personalized ads available', () => {
     const service = TestBed.inject(CookieConsentService);
 
     expect(service.state()).toEqual({
-      version: 3,
+      version: 5,
       essential: true,
       preferences: true,
       adsAvailable: true,
-      ads: false,
+      ads: true,
+      personalizedAds: false,
       decision: 'pending',
       updatedAt: null,
     });
     expect(service.canUsePreferences()).toBe(true);
-    expect(service.canUseAds()).toBe(false);
+    expect(service.canUseAds()).toBe(true);
+    expect(service.canUsePersonalizedAds()).toBe(false);
     expect(service.googleConsentModeState()).toEqual(deniedConsentModeState);
   });
 
-  it('keeps ads and analytics consent denied after accepting all cookies', () => {
+  it('grants personalized ads consent after accepting all cookies without granting analytics', () => {
     const service = TestBed.inject(CookieConsentService);
 
     service.acceptAll();
@@ -43,8 +52,9 @@ describe('CookieConsentService', () => {
     expect(service.hasDecision()).toBe(true);
     expect(service.state().decision).toBe('accepted');
     expect(service.state().adsAvailable).toBe(true);
-    expect(service.canUseAds()).toBe(false);
-    expect(service.googleConsentModeState()).toEqual(deniedConsentModeState);
+    expect(service.canUseAds()).toBe(true);
+    expect(service.canUsePersonalizedAds()).toBe(true);
+    expect(service.googleConsentModeState()).toEqual(adsConsentModeState);
   });
 
   it('keeps optional consent denied after rejecting cookies', () => {
@@ -54,11 +64,12 @@ describe('CookieConsentService', () => {
 
     expect(service.state().decision).toBe('rejected');
     expect(service.canUsePreferences()).toBe(true);
-    expect(service.canUseAds()).toBe(false);
+    expect(service.canUseAds()).toBe(true);
+    expect(service.canUsePersonalizedAds()).toBe(false);
     expect(service.googleConsentModeState()).toEqual(deniedConsentModeState);
   });
 
-  it('migrates a version 2 analytics consent without preserving analytics or ads consent', () => {
+  it('migrates an old analytics consent without preserving analytics or personalized ads consent', () => {
     localStorage.setItem(
       'commanderzone.cookieConsent',
       JSON.stringify({ version: 2, analytics: true, decision: 'custom', updatedAt: '2026-06-03T00:00:00.000Z' }),
@@ -67,18 +78,19 @@ describe('CookieConsentService', () => {
     const service = TestBed.inject(CookieConsentService);
 
     expect(service.state()).toEqual({
-      version: 3,
+      version: 5,
       essential: true,
       preferences: true,
       adsAvailable: true,
-      ads: false,
+      ads: true,
+      personalizedAds: false,
       decision: 'custom',
       updatedAt: '2026-06-03T00:00:00.000Z',
     });
     expect(service.googleConsentModeState()).toEqual(deniedConsentModeState);
   });
 
-  it('forces ads denied when restoring an old accepted state', () => {
+  it('forces personalized ads denied when restoring an old accepted state', () => {
     localStorage.setItem(
       'commanderzone.cookieConsent',
       JSON.stringify({ version: 2, analytics: true, ads: true, decision: 'accepted', updatedAt: '2026-06-04T00:00:00.000Z' }),
@@ -87,8 +99,34 @@ describe('CookieConsentService', () => {
     const service = TestBed.inject(CookieConsentService);
 
     expect(service.state().adsAvailable).toBe(true);
-    expect(service.state().ads).toBe(false);
+    expect(service.state().ads).toBe(true);
+    expect(service.canUsePersonalizedAds()).toBe(false);
     expect(service.googleConsentModeState()).toEqual(deniedConsentModeState);
+  });
+
+  it('restores personalized ads consent from the current consent version', () => {
+    localStorage.setItem(
+      'commanderzone.cookieConsent',
+      JSON.stringify({ version: 5, ads: true, personalizedAds: true, decision: 'custom', updatedAt: '2026-07-02T00:00:00.000Z' }),
+    );
+
+    const service = TestBed.inject(CookieConsentService);
+
+    expect(service.canUseAds()).toBe(true);
+    expect(service.canUsePersonalizedAds()).toBe(true);
+    expect(service.googleConsentModeState()).toEqual(adsConsentModeState);
+  });
+
+  it('migrates v4 ads consent into personalized ads consent', () => {
+    localStorage.setItem(
+      'commanderzone.cookieConsent',
+      JSON.stringify({ version: 4, ads: true, decision: 'accepted', updatedAt: '2026-07-02T00:00:00.000Z' }),
+    );
+
+    const service = TestBed.inject(CookieConsentService);
+
+    expect(service.state().version).toBe(5);
+    expect(service.canUsePersonalizedAds()).toBe(true);
   });
 
   it('opens and closes the reusable preferences panel', () => {
@@ -97,9 +135,10 @@ describe('CookieConsentService', () => {
     service.openPreferences();
     expect(service.preferencesPanelOpen()).toBe(true);
 
-    service.savePreferences();
+    service.savePreferences(true);
     expect(service.preferencesPanelOpen()).toBe(false);
     expect(service.state().decision).toBe('custom');
-    expect(service.canUseAds()).toBe(false);
+    expect(service.canUseAds()).toBe(true);
+    expect(service.canUsePersonalizedAds()).toBe(true);
   });
 });
