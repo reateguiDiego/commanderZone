@@ -111,7 +111,7 @@ describe('GameTableHeaderMenuComponent', () => {
 
     const frenchButton = Array.from(
       fixture.nativeElement.querySelectorAll('.language-item') as NodeListOf<HTMLButtonElement>,
-    ).find((button) => button.textContent?.includes('Français')) as HTMLButtonElement;
+    ).find((button) => button.textContent?.includes('French')) as HTMLButtonElement;
     frenchButton.click();
     fixture.detectChanges();
     await Promise.resolve();

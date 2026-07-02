@@ -18,6 +18,7 @@ class ScryfallImportCommandTest extends ApiTestCase
     {
         $cardsFile = $this->writeTempJson([
             $this->scryfallCardData('40000000-0000-0000-0000-000000000001', 'Sol Ring', [
+                'oracle_id' => '40000000-0000-0000-0000-000000000101',
                 'lang' => 'en',
                 'image_status' => 'highres_scan',
             ]),
@@ -33,7 +34,7 @@ class ScryfallImportCommandTest extends ApiTestCase
             $rebuilder = new CardSearchOptionsRebuilder($this->entityManager->getConnection());
             $entryRebuilder = new CardSearchEntryRebuilder($this->entityManager->getConnection());
             $command = new ScryfallSyncCommand(
-                new ScryfallBulkDataClient($this->createMock(HttpClientInterface::class), 'test-agent'),
+                new ScryfallBulkDataClient($this->createStub(HttpClientInterface::class), 'test-agent'),
                 $this->entityManager->getConnection(),
                 $rebuilder,
                 $entryRebuilder,
@@ -52,12 +53,75 @@ class ScryfallImportCommandTest extends ApiTestCase
             self::assertSame('Sol Ring', (string) $this->entityManager->getConnection()->fetchOne('SELECT name FROM card LIMIT 1'));
             self::assertSame('rare', (string) $this->entityManager->getConnection()->fetchOne('SELECT rarity FROM card LIMIT 1'));
             self::assertSame('Test Set', (string) $this->entityManager->getConnection()->fetchOne('SELECT set_name FROM card LIMIT 1'));
+            self::assertSame('40000000-0000-0000-0000-000000000101', (string) $this->entityManager->getConnection()->fetchOne('SELECT oracle_id FROM card LIMIT 1'));
+            self::assertSame('40000000-0000-0000-0000-000000000101', (string) $this->entityManager->getConnection()->fetchOne('SELECT oracle_id FROM card_print LIMIT 1'));
             self::assertSame('Test Set', (string) $this->entityManager->getConnection()->fetchOne('SELECT default_set_name FROM card_print LIMIT 1'));
             self::assertSame('Test Set', (string) $this->entityManager->getConnection()->fetchOne('SELECT set_name FROM card_print_locale LIMIT 1'));
             self::assertGreaterThan(0, (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_search_option WHERE kind = \'rarity\''));
             self::assertStringContainsString('Skipped 1 unavailable prints.', $tester->getDisplay());
         } finally {
             @unlink($cardsFile);
+            @unlink($rulingsFile);
+        }
+    }
+
+    public function testScryfallSyncPersistsTokenRelationsAndRemovesStaleRelations(): void
+    {
+        $sourceId = '40000000-0000-0000-0000-000000000011';
+        $sourceOracleId = '40000000-0000-0000-0000-000000000111';
+        $tokenId = '40000000-0000-0000-0000-000000000012';
+        $firstCardsFile = $this->writeTempJson([
+            $this->scryfallCardData($sourceId, 'Token Maker', [
+                'oracle_id' => $sourceOracleId,
+                'type_line' => 'Creature - Wizard',
+                'all_parts' => [
+                    [
+                        'id' => $tokenId,
+                        'component' => 'token',
+                        'name' => 'Wizard Token',
+                        'uri' => 'https://api.scryfall.com/cards/'.$tokenId,
+                    ],
+                ],
+            ]),
+            $this->scryfallCardData($tokenId, 'Wizard Token', [
+                'type_line' => 'Token Creature - Wizard',
+            ]),
+        ]);
+        $secondCardsFile = $this->writeTempJson([
+            $this->scryfallCardData($sourceId, 'Token Maker', [
+                'oracle_id' => $sourceOracleId,
+                'type_line' => 'Creature - Wizard',
+                'all_parts' => [],
+            ]),
+        ]);
+        $rulingsFile = $this->writeTempJson([]);
+
+        try {
+            $this->runScryfallSyncCommand($firstCardsFile, $rulingsFile);
+
+            $relation = $this->entityManager->getConnection()->fetchAssociative(
+                'SELECT source_scryfall_id, source_oracle_id, token_scryfall_id, token_name, token_uri FROM card_token_relation WHERE source_scryfall_id = :sourceScryfallId',
+                ['sourceScryfallId' => $sourceId],
+            );
+            self::assertIsArray($relation);
+            self::assertSame($sourceId, $relation['source_scryfall_id']);
+            self::assertSame($sourceOracleId, $relation['source_oracle_id']);
+            self::assertSame($tokenId, $relation['token_scryfall_id']);
+            self::assertSame('Wizard Token', $relation['token_name']);
+            self::assertSame('https://api.scryfall.com/cards/'.$tokenId, $relation['token_uri']);
+
+            $this->runScryfallSyncCommand($secondCardsFile, $rulingsFile);
+
+            self::assertSame(
+                '0',
+                (string) $this->entityManager->getConnection()->fetchOne(
+                    'SELECT COUNT(*) FROM card_token_relation WHERE source_scryfall_id = :sourceScryfallId',
+                    ['sourceScryfallId' => $sourceId],
+                ),
+            );
+        } finally {
+            @unlink($firstCardsFile);
+            @unlink($secondCardsFile);
             @unlink($rulingsFile);
         }
     }
@@ -114,7 +178,7 @@ class ScryfallImportCommandTest extends ApiTestCase
 
         try {
             $command = new ScryfallCardMetadataBackfillCommand(
-                new ScryfallBulkDataClient($this->createMock(HttpClientInterface::class), 'test-agent'),
+                new ScryfallBulkDataClient($this->createStub(HttpClientInterface::class), 'test-agent'),
                 $this->entityManager->getConnection(),
             );
             $tester = new CommandTester($command);
@@ -154,6 +218,24 @@ class ScryfallImportCommandTest extends ApiTestCase
         file_put_contents($file, json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
 
         return $file;
+    }
+
+    private function runScryfallSyncCommand(string $cardsFile, string $rulingsFile): void
+    {
+        $command = new ScryfallSyncCommand(
+            new ScryfallBulkDataClient($this->createStub(HttpClientInterface::class), 'test-agent'),
+            $this->entityManager->getConnection(),
+            new CardSearchOptionsRebuilder($this->entityManager->getConnection()),
+            new CardSearchEntryRebuilder($this->entityManager->getConnection()),
+            '512M',
+        );
+        $tester = new CommandTester($command);
+        $status = $tester->execute([
+            '--file' => $cardsFile,
+            '--rulings-file' => $rulingsFile,
+        ]);
+
+        self::assertSame(Command::SUCCESS, $status);
     }
 
     /**

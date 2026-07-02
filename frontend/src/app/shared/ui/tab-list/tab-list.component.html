@@ -30,7 +30,15 @@
       @if (item.icon) {
         <lucide-icon [name]="item.icon" [size]="iconSize()" aria-hidden="true" />
       }
-      <span class="tab-list-label" [class.is-visually-hidden]="item.labelHidden">{{ item.label | runtimeTranslate }}</span>
+      <span
+        class="tab-list-label"
+        czTextFit
+        czTextFitMinScale="0.72"
+        [czTextFitDisabled]="item.labelHidden"
+        [class.is-visually-hidden]="item.labelHidden"
+      >
+        {{ item.label | runtimeTranslate }}
+      </span>
       @if (item.badge !== undefined && item.badge !== null) {
         <span class="tab-list-badge" [class.attention]="item.attention">{{ item.badge }}</span>
       }

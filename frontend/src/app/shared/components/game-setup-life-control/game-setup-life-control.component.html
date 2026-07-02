@@ -3,12 +3,12 @@
     @if (hasPresets()) {
       <span class="label-accent" aria-hidden="true"></span>
     }
-    <span class="eyebrow">{{ label() }}</span>
+    <span class="eyebrow">{{ label() | runtimeTranslate }}</span>
     @if (hasPresets()) {
       <span class="label-accent" aria-hidden="true"></span>
     }
     @if (summary()) {
-      <strong>{{ summary() }}</strong>
+      <strong>{{ summary() | runtimeTranslate }}</strong>
     }
   </div>
   <div class="life-editor" [attr.aria-label]="'rooms.setup.gameSetupLifeControl.startingLife' | runtimeTranslate">
@@ -23,7 +23,7 @@
     </button>
     <span class="life-value-button" aria-live="polite">
       <span class="life-value">{{ value() }}</span>
-      <span class="life-unit">life</span>
+      <span class="life-unit">{{ 'rooms.setup.gameSetupLifeControl.lifeUnit' | runtimeTranslate }}</span>
     </span>
     <button
       type="button"
@@ -37,7 +37,7 @@
   </div>
 
   @if (hasPresets()) {
-    <div class="life-presets" aria-label="Starting life presets">
+    <div class="life-presets" [attr.aria-label]="'rooms.setup.gameSetupLifeControl.startingLifePresets' | runtimeTranslate">
       @for (preset of presets(); track preset) {
         <button
           type="button"

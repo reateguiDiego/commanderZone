@@ -226,13 +226,14 @@ describe('API services', () => {
   it('builds filtered card search requests', () => {
     TestBed.inject(CardsApi).search('atraxa', 1, 8, {
       commanderLegal: true,
+      commanderCandidate: true,
       tokenOnly: true,
       basic: true,
       legendary: true,
       sort: 'mana_value_desc',
     }).subscribe();
 
-    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&lang=en&commanderLegal=true&sort=mana_value_desc&basic=true&legendary=true&tokenOnly=true`);
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&lang=en&commanderLegal=true&commanderCandidate=true&sort=mana_value_desc&basic=true&legendary=true&tokenOnly=true`);
     expect(request.request.method).toBe('GET');
     expect(request.request.context.get(GLOBAL_LOADING_ENABLED_FEATURES)).toEqual(['cards']);
     request.flush({ data: [], page: 1, limit: 8 });

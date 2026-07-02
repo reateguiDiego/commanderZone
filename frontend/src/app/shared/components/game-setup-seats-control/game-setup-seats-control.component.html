@@ -1,6 +1,6 @@
 <div class="setup-control seats-control">
   <div class="control-copy">
-    <span class="eyebrow">{{ label() }}</span>
+    <span class="eyebrow">{{ label() | runtimeTranslate }}</span>
     <strong>{{ value() }}</strong>
   </div>
   <div class="capacity-editor" [attr.aria-label]="'rooms.setup.gameSetupSeatsControl.tableSize' | runtimeTranslate">
@@ -9,7 +9,7 @@
         type="button"
         [class.selected]="value() === option"
         [disabled]="disabled() || option < minimumValue()"
-        [attr.aria-label]="'Set table size to ' + option + ' players'"
+        [attr.aria-label]="'rooms.setup.gameSetupSeatsControl.setTableSizeToPlayers' | runtimeTranslate: { count: option }"
         (click)="selectValue(option)"
       >
         {{ option }}

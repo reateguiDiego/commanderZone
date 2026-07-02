@@ -5,8 +5,13 @@
   [class.size-md]="size() === 'md'"
   [class.size-lg]="size() === 'lg'"
   [class.size-xl]="size() === 'xl'"
+  [class.is-commander-zone]="isCommanderZoneIdentity()"
 >
-  @if (interactive()) {
+  @if (isCommanderZoneIdentity()) {
+    <span class="player-info-official-logo" [attr.aria-label]="'common.app.brand' | runtimeTranslate">
+      <img [src]="themeAssets.czLogoUrl()" [alt]="'common.app.brand' | runtimeTranslate" />
+    </span>
+  } @else if (interactive()) {
     <button class="player-info-action player-info-avatar-action is-clickable" type="button" (click)="avatarSelected.emit($event)">
       <app-player-avatar
         class="player-info-avatar"

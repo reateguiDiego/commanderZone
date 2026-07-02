@@ -4,6 +4,7 @@ namespace App\UI\Http;
 
 use App\Application\Auth\AuthThrottleService;
 use App\Application\Auth\AuthMailer;
+use App\Application\Auth\AuthSessionResponseFactory;
 use App\Application\Auth\EmailVerificationService;
 use App\Application\Auth\LoginProtectionService;
 use App\Application\Auth\PasswordPolicy;
@@ -15,6 +16,7 @@ use App\Application\Auth\SecurityAuditLogger;
 use App\Application\User\UserAccountDeletionService;
 use App\Domain\Auth\EmailVerificationToken;
 use App\Domain\Localization\LanguageCatalog;
+use App\Domain\User\Role;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\FriendEventPublisher;
 use App\Infrastructure\Realtime\GameEventPublisher;
@@ -132,6 +134,7 @@ class AuthController extends ApiController
         private readonly EmailVerificationService $emailVerificationService,
         private readonly RefreshSessionService $refreshSessionService,
         private readonly RefreshSessionCookieManager $refreshSessionCookieManager,
+        private readonly AuthSessionResponseFactory $sessionResponseFactory,
         private readonly AuthMailer $authMailer,
         private readonly LoginProtectionService $loginProtectionService,
         private readonly PasswordPolicy $passwordPolicy,
@@ -187,6 +190,7 @@ class AuthController extends ApiController
 
         $user = new User($email, $displayName);
         $user->setPassword($passwordHasher->hashPassword($user, $password));
+        $user->grantRole($this->requiredRole($entityManager, Role::USER));
         $entityManager->persist($user);
         $entityManager->flush();
 
@@ -246,9 +250,9 @@ class AuthController extends ApiController
         $this->loginProtectionService->resetFailures($normalizedIdentifier, $clientIp);
         $this->securityAuditLogger->log('auth.login.succeeded', $normalizedIdentifier, $user->id(), $clientIp);
 
-        return $this->jsonWithSessionCookie(
+        return $this->sessionResponseFactory->create(
             $request,
-            ['token' => $this->jwtTokenManager->create($user)],
+            [],
             $user,
         );
     }
@@ -385,11 +389,10 @@ class AuthController extends ApiController
 
         $this->refreshSessionService->revokeAllActiveSessionsForUser($user);
 
-        return $this->jsonWithSessionCookie(
+        return $this->sessionResponseFactory->create(
             $request,
             [
                 'updated' => true,
-                'token' => $this->jwtTokenManager->create($user),
                 'user' => $user->toArray(),
             ],
             $user,
@@ -474,12 +477,11 @@ class AuthController extends ApiController
             'purpose' => $verificationToken->purpose(),
         ]);
 
-        return $this->jsonWithSessionCookie(
+        return $this->sessionResponseFactory->create(
             $request,
             [
                 'verified' => true,
                 'user' => $user->toArray(),
-                'token' => $this->jwtTokenManager->create($user),
             ],
             $user,
         );
@@ -934,23 +936,6 @@ class AuthController extends ApiController
         return $this->json(null, 204);
     }
 
-    private function jsonWithSessionCookie(Request $request, array $payload, User $user, int $status = 200): JsonResponse
-    {
-        $refreshToken = $this->refreshSessionService->issueSession(
-            $user,
-            $request->getClientIp(),
-            $request->headers->get('User-Agent'),
-        );
-
-        $response = $this->json($payload, $status);
-        $response->headers->setCookie($this->refreshSessionCookieManager->makeRefreshCookie($request, $refreshToken));
-        if ($this->refreshSessionCookieManager->hasCookieDomain()) {
-            $response->headers->setCookie($this->refreshSessionCookieManager->makeHostOnlyRefreshCookie($request, $refreshToken));
-        }
-
-        return $response;
-    }
-
     private function jsonWithClearedSessionCookie(Request $request, mixed $payload = null, int $status = 200): JsonResponse
     {
         $response = $this->json($payload, $status);
@@ -960,6 +945,16 @@ class AuthController extends ApiController
         }
 
         return $response;
+    }
+
+    private function requiredRole(EntityManagerInterface $entityManager, string $roleCode): Role
+    {
+        $role = $entityManager->getRepository(Role::class)->find($roleCode);
+        if (!$role instanceof Role) {
+            throw new \RuntimeException(sprintf('Required role "%s" is not configured.', $roleCode));
+        }
+
+        return $role;
     }
 
     private function refreshTokenFromRequest(Request $request): string

@@ -20,8 +20,8 @@ describe('GameSetupLifeControlComponent', () => {
     fixture.componentInstance.valueChange.subscribe((value) => emittedValues.push(value));
     fixture.detectChanges();
 
-    fixture.nativeElement.querySelector('[aria-label="Decrease starting life"]')?.click();
-    fixture.nativeElement.querySelector('[aria-label="Increase starting life"]')?.click();
+    fixture.nativeElement.querySelector('[aria-label="Decrease starting life total"]')?.click();
+    fixture.nativeElement.querySelector('[aria-label="Increase starting life total"]')?.click();
 
     expect(emittedValues).toEqual([35, 45]);
   });
@@ -34,7 +34,7 @@ describe('GameSetupLifeControlComponent', () => {
     fixture.componentInstance.valueChange.subscribe((value) => emittedValues.push(value));
     fixture.detectChanges();
 
-    fixture.nativeElement.querySelector('[aria-label="Increase starting life"]')?.click();
+    fixture.nativeElement.querySelector('[aria-label="Increase starting life total"]')?.click();
 
     expect(emittedValues).toEqual([]);
   });
@@ -50,11 +50,11 @@ describe('GameSetupLifeControlComponent', () => {
     fixture.componentInstance.valueChange.subscribe((value) => emittedValues.push(value));
     fixture.detectChanges();
 
-    fixture.nativeElement.querySelector('[aria-label="Increase starting life"]')?.click();
+    fixture.nativeElement.querySelector('[aria-label="Increase starting life total"]')?.click();
 
     fixture.componentRef.setInput('value', 2);
     fixture.detectChanges();
-    fixture.nativeElement.querySelector('[aria-label="Decrease starting life"]')?.click();
+    fixture.nativeElement.querySelector('[aria-label="Decrease starting life total"]')?.click();
 
     expect(emittedValues).toEqual([99, 1]);
   });
@@ -65,12 +65,12 @@ describe('GameSetupLifeControlComponent', () => {
     fixture.componentRef.setInput('value', 99);
     fixture.componentRef.setInput('maxValue', 99);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[aria-label="Increase starting life"]')?.disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('[aria-label="Increase starting life total"]')?.disabled).toBe(true);
 
     fixture.componentRef.setInput('value', 1);
     fixture.componentRef.setInput('minValue', 1);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[aria-label="Decrease starting life"]')?.disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('[aria-label="Decrease starting life total"]')?.disabled).toBe(true);
   });
 
   it('hides the summary when it is empty', () => {

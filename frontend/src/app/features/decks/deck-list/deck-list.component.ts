@@ -19,12 +19,16 @@ import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.compon
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { BackButtonComponent } from '../../../shared/ui/back-button/back-button.component';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
+import { CreatePlaymatSpoilerComponent, DEFAULT_PLAYMAT_PATH } from './components/create-playmat-spoiler/create-playmat-spoiler.component';
+import { CreateSleeveSpoilerComponent, DEFAULT_SLEEVE_PATH } from './components/create-sleeve-spoiler/create-sleeve-spoiler.component';
 
 interface CommanderHoverPreview {
   imageUrl: string;
   x: number;
   y: number;
 }
+
+type CreateCosmeticEditor = 'playmat' | 'sleeve' | null;
 
 @Component({
   selector: 'app-deck-list',
@@ -45,6 +49,8 @@ interface CommanderHoverPreview {
     HeroRuleComponent,
     BackButtonComponent,
     TooltipComponent,
+    CreatePlaymatSpoilerComponent,
+    CreateSleeveSpoilerComponent,
   ],
   templateUrl: './deck-list.component.html',
   styleUrl: './deck-list.component.scss',
@@ -54,8 +60,26 @@ interface CommanderHoverPreview {
 export class DeckListComponent implements OnInit, OnDestroy {
   readonly store = inject(DeckListStore);
   private readonly route = inject(ActivatedRoute);
+  readonly maxSelectedCommanders = 2;
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
+  readonly activeCosmeticEditor = signal<CreateCosmeticEditor>(null);
+  readonly playmatEditorOpen = computed(() => this.activeCosmeticEditor() === 'playmat');
+  readonly sleeveEditorOpen = computed(() => this.activeCosmeticEditor() === 'sleeve');
+  readonly selectedPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
+  readonly draftPlaymatPath = signal(DEFAULT_PLAYMAT_PATH);
+  readonly selectedSleevePath = signal(DEFAULT_SLEEVE_PATH);
+  readonly draftSleevePath = signal(DEFAULT_SLEEVE_PATH);
   readonly searchPanelOpen = signal(false);
+  readonly createModalTitle = computed(() => {
+    switch (this.activeCosmeticEditor()) {
+      case 'playmat':
+        return 'deckBuilder.deckList.playmat';
+      case 'sleeve':
+        return 'deckBuilder.deckList.sleeve';
+      default:
+        return this.store.createModalTitle();
+    }
+  });
   readonly colorFilterOptions = computed<readonly FormatSelectOption[]>(() =>
     this.store.colorFilterOptions.map((option) => ({ id: option.value, labelKey: option.labelKey })),
   );
@@ -68,7 +92,7 @@ export class DeckListComponent implements OnInit, OnDestroy {
     ...this.store.folders().map((folder) => ({ id: folder.id, name: folder.name })),
   ]);
   readonly importDecklistDisclaimerKey = computed(() => (
-    this.store.selectedCommanders().length === 2
+    this.store.selectedCommanders().length === this.maxSelectedCommanders
       ? 'deckBuilder.deckList.ifYouIncludeYourCommandersInThe'
       : 'deckBuilder.deckList.ifYouIncludeYourCommanderInThe'
   ));
@@ -106,6 +130,50 @@ export class DeckListComponent implements OnInit, OnDestroy {
     return visibility === 'public'
       ? 'common.visibility.visibilityChoice.public'
       : 'common.visibility.visibilityChoice.private';
+  }
+
+  visibilityPillLabelKey(visibility: DeckVisibility | undefined): string {
+    return visibility === 'public'
+      ? 'common.visibility.visibilityPill.public'
+      : 'common.visibility.visibilityPill.private';
+  }
+
+  createDeckNameCountHint(): string {
+    return `${this.store.newDeckName.trim().length}/${this.store.maxDeckNameLength}`;
+  }
+
+  openPlaymatEditor(): void {
+    this.draftPlaymatPath.set(this.selectedPlaymatPath());
+    this.activeCosmeticEditor.set('playmat');
+  }
+
+  openSleeveEditor(): void {
+    this.draftSleevePath.set(this.selectedSleevePath());
+    this.activeCosmeticEditor.set('sleeve');
+  }
+
+  closeCosmeticEditor(): void {
+    this.draftPlaymatPath.set(this.selectedPlaymatPath());
+    this.draftSleevePath.set(this.selectedSleevePath());
+    this.activeCosmeticEditor.set(null);
+  }
+
+  selectDraftPlaymat(path: string): void {
+    this.draftPlaymatPath.set(path);
+  }
+
+  savePlaymatSelection(): void {
+    this.selectedPlaymatPath.set(this.draftPlaymatPath());
+    this.activeCosmeticEditor.set(null);
+  }
+
+  selectDraftSleeve(path: string): void {
+    this.draftSleevePath.set(path);
+  }
+
+  saveSleeveSelection(): void {
+    this.selectedSleevePath.set(this.draftSleevePath());
+    this.activeCosmeticEditor.set(null);
   }
 
   setColorFilter(value: string): void {
@@ -201,11 +269,13 @@ export class DeckListComponent implements OnInit, OnDestroy {
 
   submitCreateModal(): void {
     this.hideCommanderPreview();
+    this.activeCosmeticEditor.set(null);
     this.store.submitCreateModal();
   }
 
   async cancelCreateFlow(): Promise<void> {
     this.hideCommanderPreview();
+    this.closeCosmeticEditor();
     await this.store.cancelCreateFlow();
   }
 

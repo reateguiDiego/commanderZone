@@ -29,7 +29,7 @@ describe('roll', () => {
 
     expect(result).toEqual({
       kind: 'd20',
-      label: 'Dado de 20 caras',
+      label: '20-sided die',
       iterationCount: 14,
       finalResult: '20',
     });
@@ -41,6 +41,6 @@ describe('roll', () => {
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0.51));
 
-    expect(result.finalResult).toBe('Cruz');
+    expect(result.finalResult).toBe('Tails');
   });
 });

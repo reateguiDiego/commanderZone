@@ -1,5 +1,5 @@
 @if (isVisible()) {
-  <section class="cookie-banner" role="region" [attr.aria-label]="copy().cookieBanner.title">
+  <section class="cookie-banner" data-cz-cookie-banner role="region" [attr.aria-label]="copy().cookieBanner.title">
     <div class="cookie-banner__content">
       <p class="cookie-banner__title">{{ copy().cookieBanner.title }}</p>
       <p class="cookie-banner__copy">
@@ -9,33 +9,36 @@
         <a [href]="cookieLink()?.href">{{ copy().cookieBanner.cookiePolicyLabel }}</a>{{ copy().cookieBanner.cookiesJoin }}.
       </p>
 
-      @if (showSettings()) {
-        <div class="cookie-banner__settings">
-          <app-toggle
-            class="cookie-banner__toggle"
-            [label]="copy().cookieBanner.analyticsCookies"
-            [checked]="analyticsEnabled()"
-            (checkedChange)="setAnalyticsEnabled($event)"
-          />
-        </div>
-      }
+      <div class="cookie-banner__settings" data-cz-cookie-settings [hidden]="!showSettings()">
+        <app-toggle
+          class="cookie-banner__toggle"
+          [label]="copy().cookieBanner.essentialCookies"
+          [description]="copy().cookieBanner.essentialDescription"
+          [checked]="true"
+          [disabled]="true"
+        />
+        <app-toggle
+          class="cookie-banner__toggle"
+          [label]="copy().cookieBanner.preferencesCookies"
+          [description]="copy().cookieBanner.preferencesDescription"
+          [checked]="true"
+          [disabled]="true"
+        />
+        <app-toggle
+          class="cookie-banner__toggle"
+          [label]="copy().cookieBanner.adsCookies"
+          [description]="copy().cookieBanner.adsDescription"
+          [checked]="false"
+          [disabled]="true"
+        />
+      </div>
     </div>
 
     <div class="cookie-banner__actions">
-      @if (showSettings()) {
-        <button czButton="primary" czButtonSize="sm" type="button" class="primary-button compact" [attr.aria-label]="copy().cookieBanner.save" (click)="saveSettings()">
-          {{ copy().cookieBanner.save }}
-        </button>
-      } @else {
-        <button czButton="secondary" czButtonSize="sm" type="button" class="secondary-button compact" [attr.aria-label]="copy().cookieBanner.configure" (click)="openSettings()">
-          {{ copy().cookieBanner.configure }}
-        </button>
-      }
-
-      <button czButton="secondary" czButtonSize="sm" type="button" class="secondary-button compact" [attr.aria-label]="copy().cookieBanner.reject" (click)="rejectAll()">
+      <button czButton="secondary" czButtonSize="sm" type="button" class="secondary-button compact" data-cz-cookie-action="reject" [attr.aria-label]="copy().cookieBanner.reject" (click)="rejectAll()">
         {{ copy().cookieBanner.reject }}
       </button>
-      <button czButton="primary" czButtonSize="sm" type="button" class="primary-button compact" [attr.aria-label]="copy().cookieBanner.accept" (click)="acceptAll()">
+      <button czButton="primary" czButtonSize="sm" type="button" class="primary-button compact" data-cz-cookie-action="accept" [attr.aria-label]="copy().cookieBanner.accept" (click)="acceptAll()">
         {{ copy().cookieBanner.accept }}
       </button>
     </div>

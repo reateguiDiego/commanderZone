@@ -1,0 +1,51 @@
+<div class="message-body-content">
+  @for (block of blocks(); track $index) {
+    @switch (block.type) {
+      @case ('heading') {
+        <h4>{{ block.text }}</h4>
+      }
+      @case ('list') {
+        <ul>
+          @for (item of block.items; track $index) {
+            <li>
+              @for (segment of item; track $index) {
+                @if (segment.type === 'link') {
+                  <a [href]="segment.url" target="_blank" rel="noopener noreferrer">{{ segment.text }}</a>
+                } @else {
+                  <span>{{ segment.text }}</span>
+                }
+              }
+            </li>
+          }
+        </ul>
+      }
+      @case ('image') {
+        <figure>
+          <img [src]="block.url" [alt]="block.alt" />
+          @if (block.alt) {
+            <figcaption>{{ block.alt }}</figcaption>
+          }
+        </figure>
+      }
+      @case ('paragraph') {
+        <p>
+          @for (line of block.lines; track $index) {
+            @for (segment of line; track $index) {
+              @if (segment.type === 'link') {
+                <a [href]="segment.url" target="_blank" rel="noopener noreferrer">{{ segment.text }}</a>
+              } @else {
+                <span>{{ segment.text }}</span>
+              }
+            }
+            @if (!$last) {
+              <br />
+            }
+          }
+        </p>
+      }
+      @case ('separator') {
+        <hr />
+      }
+    }
+  }
+</div>

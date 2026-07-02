@@ -16,7 +16,7 @@ describe('GameTableSnapshotSelectors gameplay contract', () => {
     expect(players.map((player) => player.id)).toEqual(['owner-player', 'controller-player', 'focused-player', 'library-player']);
     expect(selectors.focusedPlayer(snapshot, players, null)?.id).toBe('controller-player');
     expect(focused?.id).toBe('focused-player');
-    expect(selectors.gameBackgroundImage(focused)).toBe('/assets/images/play-mat/G_3.png');
+    expect(selectors.gameBackgroundImage(focused)).toBe('/assets/images/play-mat/G_3.webp');
   });
 
   it('uses the owner sleeves for face-down cards even when another player controls them', () => {

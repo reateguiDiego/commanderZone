@@ -1,0 +1,184 @@
+:host {
+  display: block;
+  min-width: 0;
+  --create-playmat-image-width: 14.1rem;
+  --create-playmat-image-height: 7.94rem;
+  --create-playmat-option-width: 14.74rem;
+  --create-playmat-option-height: 8.58rem;
+}
+
+.create-playmat-spoiler {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  min-width: 0;
+  height: min(56.5rem, calc(100dvh - 9rem));
+  padding: 0.65rem;
+}
+
+.create-playmat-tier-tabs {
+  --cz-tabs-border-bottom: 0;
+  --cz-tabs-padding: 0.15rem;
+  --cz-tabs-gap: 0;
+  --cz-tab-track-size: minmax(0, 1fr);
+}
+
+.create-playmat-spoiler-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.create-playmat-spoiler-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--create-playmat-option-width), var(--create-playmat-option-width)));
+  gap: 0.7rem;
+  align-content: start;
+  justify-content: center;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.1rem 0.25rem 0.1rem 0;
+}
+
+.create-playmat-option {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--create-playmat-option-width);
+  height: var(--create-playmat-option-height);
+  min-width: 0;
+  padding: 0.32rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 18%);
+  border-radius: 8px;
+  background: rgb(var(--cz-surface-rgb) / 54%);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.create-playmat-option-pills {
+  position: absolute;
+  left: 0.55rem;
+  bottom: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  max-width: calc(100% - 1.1rem);
+  pointer-events: none;
+}
+
+.create-playmat-option-pill {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0.18rem 0.38rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 38%);
+  border-radius: 999px;
+  background: rgb(var(--cz-bg-rgb) / 82%);
+  color: var(--cz-text);
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  box-shadow: 0 0.25rem 0.65rem rgb(var(--cz-bg-rgb) / 36%);
+}
+
+.create-playmat-option-pill--premium {
+  border-color: rgb(var(--cz-warning-rgb) / 44%);
+  color: var(--cz-warning);
+}
+
+.create-playmat-option-pill--combination {
+  border-color: rgb(var(--cz-accent-rgb) / 42%);
+  color: var(--cz-accent);
+}
+
+.create-playmat-option:hover {
+  border-color: rgb(var(--cz-primary-rgb) / 48%);
+  background: rgb(var(--cz-primary-rgb) / 12%);
+  transform: translateY(-1px);
+}
+
+.create-playmat-option:focus-visible {
+  outline: 2px solid rgb(var(--cz-accent-rgb) / 78%);
+  outline-offset: 2px;
+}
+
+.create-playmat-option.is-selected {
+  border-color: rgb(var(--cz-accent-rgb) / 86%);
+  background: rgb(var(--cz-accent-rgb) / 16%);
+  box-shadow:
+    0 0 0 2px rgb(var(--cz-accent-rgb) / 28%),
+    0 0.65rem 1.3rem rgb(var(--cz-bg-rgb) / 28%);
+}
+
+.create-playmat-option-image {
+  display: block;
+  width: var(--create-playmat-image-width);
+  height: var(--create-playmat-image-height);
+  aspect-ratio: 196 / 110;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 0.45rem 1rem rgb(var(--cz-bg-rgb) / 34%);
+}
+
+.create-playmat-hover-preview {
+  position: fixed;
+  z-index: 13100;
+  width: 520px;
+  height: 292px;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 54%);
+  border-radius: 14px;
+  background: rgb(var(--cz-bg-rgb) / 88%);
+  box-shadow:
+    0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 62%),
+    0 0 0 1px rgb(var(--cz-text-rgb) / 6%) inset;
+  pointer-events: none;
+  animation: create-playmat-hover-preview-in 90ms ease-out;
+}
+
+.create-playmat-hover-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 13px;
+  object-fit: cover;
+}
+
+@keyframes create-playmat-hover-preview-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 520px) {
+  :host {
+    --create-playmat-image-width: 10.8rem;
+    --create-playmat-image-height: 6.06rem;
+    --create-playmat-option-width: 11.44rem;
+    --create-playmat-option-height: 6.7rem;
+  }
+
+  .create-playmat-spoiler {
+    height: min(34rem, calc(100dvh - 8rem));
+  }
+
+  .create-playmat-hover-preview {
+    display: none;
+  }
+}

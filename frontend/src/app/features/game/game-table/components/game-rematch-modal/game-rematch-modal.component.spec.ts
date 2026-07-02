@@ -28,8 +28,8 @@ describe('GameRematchModalComponent', () => {
 
     expect(logo.getAttribute('src')).toBe('assets/icons/CZ/CZ_logo.webp');
     expect(rows.length).toBe(2);
-    expect(fixture.nativeElement.textContent).toContain('Jugar otra partida');
-    expect(fixture.nativeElement.textContent).toContain('Sin votar');
+    expect(fixture.nativeElement.textContent).toContain('Play again');
+    expect(fixture.nativeElement.textContent).toContain('No vote');
     expect(fixture.nativeElement.querySelector('.modal-close-button')).toBeNull();
   });
 
@@ -50,8 +50,8 @@ describe('GameRematchModalComponent', () => {
     fixture.componentRef.setInput('winner', true);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Victoria de leyenda');
-    expect(fixture.nativeElement.textContent).toContain('La mesa es tuya.');
+    expect(fixture.nativeElement.textContent).toContain('Legendary victory');
+    expect(fixture.nativeElement.textContent).toContain('The table is yours.');
     expect(fixture.nativeElement.textContent).not.toContain('Premium finish');
   });
 
@@ -61,13 +61,13 @@ describe('GameRematchModalComponent', () => {
 
     const buttons = fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>;
     const playAgainButton = Array.from(buttons)
-      .find((button): button is HTMLButtonElement => button.textContent?.trim() === 'Jugar otra partida');
+      .find((button): button is HTMLButtonElement => button.textContent?.trim() === 'Play again');
     const leaveButton = Array.from(buttons)
-      .find((button): button is HTMLButtonElement => button.textContent?.trim() === 'Salir de la sala');
+      .find((button): button is HTMLButtonElement => button.textContent?.trim() === 'Leave room');
 
     expect(playAgainButton).toBeUndefined();
     expect(leaveButton).toBeDefined();
-    expect(fixture.nativeElement.textContent).toContain('El resto de jugadores ya ha votado salir de la sala.');
+    expect(fixture.nativeElement.textContent).toContain('The rest of the players have already voted to leave the room.');
   });
 
   it('explains the initial auto-leave countdown', () => {
@@ -75,9 +75,9 @@ describe('GameRematchModalComponent', () => {
     fixture.componentRef.setInput('countdownMode', 'initial');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Tiempo limite');
+    expect(fixture.nativeElement.textContent).toContain('Time limit');
     expect(fixture.nativeElement.textContent).toContain('60s');
-    expect(fixture.nativeElement.textContent).toContain('Tienes 60s para votar.');
+    expect(fixture.nativeElement.textContent).toContain('You have 60s to vote.');
   });
 
   it('explains the courtesy countdown for the last pending voter', () => {
@@ -85,9 +85,9 @@ describe('GameRematchModalComponent', () => {
     fixture.componentRef.setInput('countdownMode', 'courtesy');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Tiempo extra');
+    expect(fixture.nativeElement.textContent).toContain('Extra time');
     expect(fixture.nativeElement.textContent).toContain('30s');
-    expect(fixture.nativeElement.textContent).toContain('Falta tu voto. Tienes 30s extra para votar.');
+    expect(fixture.nativeElement.textContent).toContain('Your vote is missing. You have 30s extra to vote.');
   });
 
   it('keeps showing the countdown for players that already voted', () => {
@@ -97,7 +97,7 @@ describe('GameRematchModalComponent', () => {
     fixture.componentRef.setInput('missingPlayerNames', ['Defeated', 'Pending']);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Defeated y Pending tienen 42s para votar.');
+    expect(fixture.nativeElement.textContent).toContain('Defeated and Pending have 42s to vote.');
   });
 
   it('shows who has the courtesy countdown after the current player voted', () => {
@@ -107,6 +107,6 @@ describe('GameRematchModalComponent', () => {
     fixture.componentRef.setInput('missingPlayerNames', ['Defeated']);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Falta Defeated. Tiene 18s extra para votar.');
+    expect(fixture.nativeElement.textContent).toContain('Defeated still need to vote. They have 18s extra to vote.');
   });
 });

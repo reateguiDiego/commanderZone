@@ -3,12 +3,13 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { DeckFormat } from '../../../../../core/models/deck.model';
-import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole } from '../../../../../core/models/room.model';
+import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, RoomVisibility } from '../../../../../core/models/room.model';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { TextFitDirective } from '../../../../../shared/ui/text-fit/text-fit.directive';
 
 @Component({
   selector: 'app-room-current-banner',
-  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, CzButtonDirective],
+  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, CzButtonDirective, TextFitDirective],
   templateUrl: './room-current-banner.component.html',
   styleUrl: './room-current-banner.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,6 +44,12 @@ export class RoomCurrentBannerComponent {
 
   formatLabel(formatId: string): string {
     return this.formats().find((format) => format.id === formatId)?.name ?? formatId;
+  }
+
+  visibilityPillLabelKey(visibility: RoomVisibility): string {
+    return visibility === 'public'
+      ? 'common.visibility.visibilityPill.public'
+      : 'common.visibility.visibilityPill.private';
   }
 
   roomCapacity(room: CurrentRoomSummary): number {

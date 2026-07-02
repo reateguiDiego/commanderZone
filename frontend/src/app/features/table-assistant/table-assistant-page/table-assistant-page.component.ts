@@ -39,7 +39,7 @@ export class TableAssistantPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.pageHeader.clear();
+    this.pageHeader.clear(this);
   }
 
   openSetup(): void {
@@ -69,6 +69,6 @@ export class TableAssistantPageComponent implements OnInit, OnDestroy {
           execute: () => this.openSetup(),
         },
       ],
-    });
+    }, this);
   }
 }

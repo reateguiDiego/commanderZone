@@ -10,6 +10,7 @@ import { LanguagePreferencesService } from '../localization/language-preferences
 export interface CardSearchFilters {
   sort?: 'colors' | 'name_asc' | 'name_desc' | 'mana_value_asc' | 'mana_value_desc';
   commanderLegal?: boolean;
+  commanderCandidate?: boolean;
   colorIdentity?: string[];
   gameplayKind?: 'token' | 'emblem' | 'dungeon';
   type?: 'creature' | 'instant' | 'sorcery' | 'artifact' | 'enchantment' | 'planeswalker' | 'battle' | 'land';
@@ -27,6 +28,7 @@ export interface CardSearchFilters {
   oracleTextA?: string;
   oracleTextB?: string;
   oracleTextMode?: 'and' | 'or';
+  oracleTextExact?: boolean;
   manaValueMin?: number;
   manaValueMax?: number;
   manaCost?: string;
@@ -72,6 +74,9 @@ export class CardsApi {
     if (filters.commanderLegal !== undefined) {
       params = params.set('commanderLegal', String(filters.commanderLegal));
     }
+    if (filters.commanderCandidate !== undefined) {
+      params = params.set('commanderCandidate', String(filters.commanderCandidate));
+    }
     if (filters.sort) {
       params = params.set('sort', filters.sort);
     }
@@ -102,6 +107,7 @@ export class CardsApi {
     if (filters.oracleTextMode) {
       params = params.set('oracleTextMode', filters.oracleTextMode);
     }
+    params = this.appendBooleanParam(params, 'oracleTextExact', filters.oracleTextExact);
     params = this.appendNumberParam(params, 'manaValueMin', filters.manaValueMin);
     params = this.appendNumberParam(params, 'manaValueMax', filters.manaValueMax);
     params = this.appendStringParam(params, 'manaCost', filters.manaCost);

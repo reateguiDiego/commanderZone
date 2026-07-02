@@ -13,7 +13,7 @@ describe('ChatRecipientSelectComponent', () => {
     fixture.detectChanges();
 
     const options = Array.from(fixture.nativeElement.querySelectorAll('.chat-recipient-option')) as HTMLButtonElement[];
-    expect(options.map((option) => option.textContent?.trim())).toEqual(['Todos', 'Opponent']);
+    expect(options.map((option) => option.textContent?.trim())).toEqual(['All players', 'Opponent']);
 
     options[1]!.click();
 
@@ -30,7 +30,7 @@ async function renderComponent(): Promise<ComponentFixture<ChatRecipientSelectCo
 
   const fixture = TestBed.createComponent(ChatRecipientSelectComponent);
   fixture.componentRef.setInput('recipients', [
-    { playerId: null, label: 'Todos' },
+    { playerId: null, label: 'All players' },
     { playerId: 'player-2', label: 'Opponent' },
   ]);
   fixture.componentRef.setInput('selectedValue', 'all');

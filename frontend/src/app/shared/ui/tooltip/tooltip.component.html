@@ -16,15 +16,17 @@
     <span
       #bubble
       class="cz-tooltip__bubble"
-      [class.cz-tooltip__bubble--visible]="open()"
+      [class.cz-tooltip__bubble--visible]="visible()"
+      [class.cz-tooltip__bubble--multiline]="multiline()"
       [class.cz-tooltip__bubble--bottom]="effectivePlacement() === 'bottom'"
       [class.cz-tooltip__bubble--align-start]="effectiveAlign() === 'start'"
       [class.cz-tooltip__bubble--align-end]="effectiveAlign() === 'end'"
       [style.left.px]="position()?.left ?? 0"
       [style.top.px]="position()?.top ?? 0"
+      [style.color]="textColor()"
       role="tooltip"
     >
-      {{ text() }}
+      <span class="cz-tooltip__content">{{ text() }}</span>
     </span>
   }
 </span>

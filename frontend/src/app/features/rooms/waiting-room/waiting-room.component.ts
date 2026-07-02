@@ -16,6 +16,7 @@ import { RoomInvite } from '../../../core/models/room-invite.model';
 import { Room, RoomMulliganRule, RoomPlayer, RoomTimerMode, WaitingRoomEvent } from '../../../core/models/room.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
+import { runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { PlayerNameComponent } from '../../../shared/ui/player-name/player-name.component';
@@ -186,7 +187,7 @@ export class WaitingRoomComponent implements OnDestroy {
     Flip.killFlipsOf(this.playerOrderElements(), true);
     this.inviteRealtimeSubscription?.unsubscribe();
     this.roomRealtimeSubscription?.unsubscribe();
-    this.pageHeader.clear();
+    this.pageHeader.clear(this);
     void this.deleteWaitingRoomOnDestroy();
   }
 
@@ -348,16 +349,34 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   rollModalTitle(): string {
-    return this.currentTieBreakPrompt() ? 'Tirada de desempate' : 'Roll dice';
+    return this.currentTieBreakPrompt() ? 'rooms.waitingRoom.tieBreakRoll' : 'rooms.waitingRoomDeckSelector.rollDice';
   }
 
   rollModalMessage(): string {
     const prompt = this.currentTieBreakPrompt();
     if (!prompt) {
-      return 'This roll sets your turn order.';
+      return 'rooms.waitingRoom.rollSetsTurnOrder';
     }
 
-    return `Has empatado con ${this.tiePromptNames(prompt.tiedWithNames)}. Vuelve a tirar para desempatar.`;
+    return 'rooms.waitingRoom.tieBreakRollMessage';
+  }
+
+  rollModalMessageParams(): Record<string, unknown> | undefined {
+    const prompt = this.currentTieBreakPrompt();
+
+    return prompt ? { playerNames: this.tiePromptNames(prompt.tiedWithNames) } : undefined;
+  }
+
+  kickPlayerMessageParams(): Record<string, unknown> {
+    return {
+      playerName: this.playerPendingKick()?.user?.displayName ?? runtimeTranslationFallback('rooms.waitingRoom.thisPlayer'),
+    };
+  }
+
+  invalidDeckMessageParams(): Record<string, unknown> {
+    return {
+      deckName: this.invalidDeckSelection()?.name ?? runtimeTranslationFallback('rooms.waitingRoom.thisDeck'),
+    };
   }
 
   async rollTurnOrder(): Promise<void> {
@@ -1114,7 +1133,7 @@ export class WaitingRoomComponent implements OnDestroy {
       title: room?.name ?? 'Waiting room',
       actions,
       actionFeedback: null,
-    });
+    }, this);
   }
 
   private deckValiditySortRank(deckId: string): number {

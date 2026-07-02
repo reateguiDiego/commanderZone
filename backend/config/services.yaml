@@ -12,6 +12,8 @@ parameters:
     game_runtime_websocket_public_url_default: 'ws://127.0.0.1:8091/ws'
     game_runtime_ticket_secret_default: 'commanderzone-dev-runtime-secret-change-me'
     contact_inbox_address_default: 'info.dev.sunrise@gmail.com'
+    google_oidc_client_ids_default: ''
+    google_oidc_jwks_uri_default: 'https://www.googleapis.com/oauth2/v3/certs'
     game_websocket_listen: '%env(default:game_websocket_listen_default:GAME_WEBSOCKET_LISTEN)%'
     game_websocket_public_url: '%env(default:game_websocket_public_url_default:GAME_WEBSOCKET_PUBLIC_URL)%'
     game_runtime_websocket_public_url: '%env(default:game_runtime_websocket_public_url_default:GAME_RUNTIME_WEBSOCKET_PUBLIC_URL)%'
@@ -55,6 +57,8 @@ parameters:
     gameplay_streams_enabled: '%env(bool:default:gameplay_streams_enabled_default:GAMEPLAY_STREAMS_ENABLED)%'
     gameplay_max_token_create_quantity: '%env(int:default:gameplay_max_token_create_quantity_default:GAMEPLAY_MAX_TOKEN_CREATE_QUANTITY)%'
     contact_inbox_address: '%env(default:contact_inbox_address_default:CONTACT_INBOX_ADDRESS)%'
+    google_oidc_client_ids: '%env(default:google_oidc_client_ids_default:GOOGLE_OIDC_CLIENT_IDS)%'
+    google_oidc_jwks_uri: '%env(default:google_oidc_jwks_uri_default:GOOGLE_OIDC_JWKS_URI)%'
 
 services:
     # default configuration for services in *this* file
@@ -67,6 +71,9 @@ services:
     App\:
         resource: '../src/'
 
+    App\Application\Deck\DeckDerivedTokenResolver:
+        shared: true
+
     App\Application\Game\Performance\GameplayMetricsRecorderInterface:
         alias: App\Application\Game\Performance\GameplayMetricsStore
 
@@ -75,6 +82,9 @@ services:
 
     App\Application\Game\Runtime\GameRuntimeCommandClientInterface:
         alias: App\Application\Game\Runtime\GameRuntimeCommandClient
+
+    App\Application\Auth\GoogleIdTokenVerifierInterface:
+        alias: App\Application\Auth\GoogleIdTokenVerifier
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

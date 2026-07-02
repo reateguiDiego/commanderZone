@@ -5,6 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthStore } from '../core/auth/auth.store';
 import { GlobalLoadingFeaturePolicy } from '../core/loading/global-loading-feature-policy.service';
 import { LoadingStore } from '../core/loading/loading.store';
+import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { findSeoRouteByPath } from '../core/localization/seo-routes';
 import { CookieConsentBannerComponent } from '../core/privacy/cookie-consent-banner/cookie-consent-banner.component';
 import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
@@ -38,6 +39,7 @@ export class App {
   private readonly theme = inject(AppThemeService);
   private readonly routeStyles = inject(RouteStylesService);
   private readonly globalLoadingFeaturePolicy = inject(GlobalLoadingFeaturePolicy);
+  private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
   readonly loading = inject(LoadingStore);
   private readonly currentPath = signal(this.initialPath());
   private readonly navigationLoading = signal(this.shouldShowInitialNavigationLoading(this.currentPath()));
@@ -133,6 +135,7 @@ export class App {
     const firstSegment = segments[0];
 
     return [
+      'admin',
       'cards',
       'community',
       'dashboard',
@@ -151,6 +154,7 @@ export class App {
     }
 
     return [
+      'admin',
       'contact',
       'auth',
       'cards',
@@ -171,6 +175,10 @@ export class App {
     const firstSegment = segments[0];
 
     if (!firstSegment || firstSegment === 'games') {
+      return false;
+    }
+
+    if (firstSegment === 'admin') {
       return false;
     }
 

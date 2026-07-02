@@ -317,7 +317,7 @@
           @if (shouldShowRematchVotesButton()) {
             <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
               <lucide-icon name="vote" size="16" />
-              <span>{{ 'game.gameTable.votaciones' | runtimeTranslate }}</span>
+              <span>{{ 'game.gameTable.votes' | runtimeTranslate }}</span>
             </button>
           }
 
@@ -641,7 +641,7 @@
       @if (store.pendingBattlefieldMove(); as pendingMove) {
         <app-modal
           [open]="true"
-          [title]="'game.gameTable.moverCartaAOtroBattlefield' | runtimeTranslate"
+          [title]="'game.gameTable.moveCardToAnotherBattlefield' | runtimeTranslate"
           [message]="'Vas a poner ' + pendingMove.cardName + ' en el battlefield de ' + pendingMove.targetPlayerName + '.'"
           primaryLabel="Confirmar"
           secondaryLabel="Cancelar"
@@ -686,7 +686,7 @@
       @if (store.pendingLibraryMove(); as pendingMove) {
         <app-modal
           [open]="true"
-          [title]="'game.gameTable.devolverABiblioteca' | runtimeTranslate"
+          [title]="'game.gameTable.putIntoLibrary' | runtimeTranslate"
           [message]="pendingLibraryMoveMessage(pendingMove)"
           primaryLabel="Top"
           secondaryLabel="Bottom"

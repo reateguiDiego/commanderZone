@@ -68,12 +68,12 @@ describe('CommunityPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const links = Array.from(element.querySelectorAll<HTMLAnchorElement>('a.top-commanders-link'));
 
-    expect(element.textContent).toContain('Decks de la comunidad');
-    expect(element.textContent).toContain('Descubre decks');
-    expect(element.textContent).toContain('Los comandantes mas jugados');
-    expect(element.textContent).toContain('Las cartas mas jugados');
-    expect(element.textContent).toContain('Basado en partidas jugadas por la comunidad');
-    expect(element.textContent).toContain('Buscar decks');
+    expect(element.textContent).toContain('Community decks');
+    expect(element.textContent).toContain('Discover public decks');
+    expect(element.textContent).toContain('Most played commanders');
+    expect(element.textContent).toContain('Most played cards');
+    expect(element.textContent).toContain('Based on games played by the community');
+    expect(element.textContent).toContain('Search decks');
     expect(element.textContent).toContain(formatTimesPlayed(3000));
     expect(element.textContent).toContain('Legendary Creature');
     expect(element.querySelectorAll('.commander-card')).toHaveLength(6);

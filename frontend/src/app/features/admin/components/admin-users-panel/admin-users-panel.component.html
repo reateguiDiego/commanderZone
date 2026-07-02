@@ -1,0 +1,298 @@
+<section class="admin-users-panel" aria-labelledby="admin-users-title">
+  <header class="admin-users-header">
+    <div>
+      <h2 id="admin-users-title">Users</h2>
+    </div>
+    <button type="button" czButton="secondary" czButtonSize="sm" (click)="loadUsers()" [disabled]="isLoading()">
+      Refresh
+    </button>
+  </header>
+
+  @if (errorMessage(); as error) {
+    <p class="admin-users-alert" role="alert">{{ error }}</p>
+  }
+
+  @if (usersSummary(); as summary) {
+    <dl class="admin-users-summary" aria-label="Users summary">
+      <div class="admin-users-summary-pill">
+        <dt>Total users</dt>
+        <dd>{{ summary.total }}</dd>
+      </div>
+      <div class="admin-users-summary-pill">
+        <dt>Online</dt>
+        <dd>{{ summary.online }}</dd>
+      </div>
+      <div class="admin-users-summary-pill">
+        <dt>Tier 1</dt>
+        <dd>{{ summary.tier1 }}</dd>
+      </div>
+      <div class="admin-users-summary-pill">
+        <dt>Tier 2</dt>
+        <dd>{{ summary.tier2 }}</dd>
+      </div>
+      <div class="admin-users-summary-pill">
+        <dt>Tier 3</dt>
+        <dd>{{ summary.tier3 }}</dd>
+      </div>
+    </dl>
+  }
+
+  @if (isLoading() && users().length === 0) {
+    <p class="admin-users-empty">Loading users...</p>
+  } @else if (users().length === 0) {
+    <p class="admin-users-empty">No users found.</p>
+  } @else {
+    <div class="admin-users-filters" aria-label="User filters">
+      <label class="admin-users-search">
+        <span>Search users</span>
+        <input
+          type="search"
+          name="adminUserSearch"
+          placeholder="Username, mail..."
+          [value]="searchQuery()"
+          (input)="updateSearchQuery($event)"
+        />
+      </label>
+
+      <app-format-select
+        class="admin-users-filter-select"
+        label="Role filter"
+        name="roleFilter"
+        [options]="roleFilterOptions"
+        [value]="roleFilter()"
+        (valueChange)="changeRoleFilter($event)"
+      />
+
+      <app-format-select
+        class="admin-users-filter-select"
+        label="Premium filter"
+        name="premiumTierFilter"
+        [options]="premiumTierFilterOptions"
+        [value]="premiumTierFilter()"
+        (valueChange)="changePremiumTierFilter($event)"
+      />
+
+      <app-format-select
+        class="admin-users-filter-select"
+        label="Status filter"
+        name="presenceFilter"
+        [options]="presenceFilterOptions"
+        [value]="presenceFilter()"
+        (valueChange)="changePresenceFilter($event)"
+      />
+    </div>
+
+    @if (visibleUsers().length === 0) {
+      <p class="admin-users-empty">No users match the current filters.</p>
+    } @else {
+    <div class="admin-users-table-wrap">
+      <table class="admin-users-table">
+        <thead>
+          <tr>
+            <th scope="col">
+              <button type="button" class="admin-users-sort" (click)="changeSort('name')" [attr.aria-label]="'Sort by name. ' + sortLabel('name')">
+                Name
+                @if (sortIcon('name'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
+              </button>
+            </th>
+            <th scope="col">
+              <button type="button" class="admin-users-sort" (click)="changeSort('email')" [attr.aria-label]="'Sort by mail. ' + sortLabel('email')">
+                Mail
+                @if (sortIcon('email'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
+              </button>
+            </th>
+            <th scope="col">
+              <button type="button" class="admin-users-sort" (click)="changeSort('lastConnectedAt')" [attr.aria-label]="'Sort by last connection. ' + sortLabel('lastConnectedAt')">
+                Last connection
+                @if (sortIcon('lastConnectedAt'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
+              </button>
+            </th>
+            <th scope="col">
+              <button type="button" class="admin-users-sort" (click)="changeSort('createdAt')" [attr.aria-label]="'Sort by created date. ' + sortLabel('createdAt')">
+                Created
+                @if (sortIcon('createdAt'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
+              </button>
+            </th>
+            <th scope="col">Status</th>
+            <th scope="col">
+              <button type="button" class="admin-users-sort" (click)="changeSort('role')" [attr.aria-label]="'Sort by role. ' + sortLabel('role')">
+                Role
+                @if (sortIcon('role'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
+              </button>
+            </th>
+            <th scope="col">
+              <button type="button" class="admin-users-sort" (click)="changeSort('premium')" [attr.aria-label]="'Sort by premium. ' + sortLabel('premium')">
+                Premium
+                @if (sortIcon('premium'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
+              </button>
+            </th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of paginatedUsers(); track trackUser($index, user)) {
+            <tr [class.is-disabled]="isUserRowDisabled(user)">
+              <td data-label="Name">
+                <span class="user-name">{{ user.displayName }}</span>
+              </td>
+              <td data-label="Mail">
+                <span class="user-email">{{ user.email }}</span>
+              </td>
+              <td data-label="Last connection">
+                @if (user.lastConnectedAt) {
+                  {{ user.lastConnectedAt | date: 'medium' }}
+                } @else {
+                  Never
+              }
+              </td>
+              <td data-label="Created">{{ user.createdAt | date: 'medium' }}</td>
+              <td data-label="Status">
+                <span class="admin-users-status" [class.is-online]="user.isOnline" [class.is-offline]="!user.isOnline">
+                  {{ presenceLabel(user.presenceStatus) }}
+                </span>
+              </td>
+              <td data-label="Role">
+                <app-format-select
+                  class="admin-users-select"
+                  label="Authorization role"
+                  name="authorizationRole"
+                  [labelHidden]="true"
+                  [options]="roleOptions"
+                  [value]="user.authorizationRole"
+                  [disabled]="isUserBusy(user.id) || !canChangeRole(user)"
+                  (valueChange)="changeAuthorizationRole(user, $event)"
+                />
+              </td>
+              <td data-label="Premium">
+                <app-format-select
+                  class="admin-users-select"
+                  label="Premium tier"
+                  name="premiumTier"
+                  [labelHidden]="true"
+                  [options]="premiumTierOptions"
+                  [value]="user.premiumTier"
+                  [disabled]="isUserBusy(user.id) || !canChangePremium(user)"
+                  (valueChange)="changePremiumTier(user, $event)"
+                />
+              </td>
+              <td data-label="Actions">
+                <div class="admin-users-actions">
+                  <div class="admin-users-action">
+                    <span class="admin-users-action-meta">{{ user.isOnline ? 'Online now' : 'Offline now' }}</span>
+                    <span class="admin-users-action-meta">{{ user.activeSessionsCount }} active session(s)</span>
+                    <button
+                      type="button"
+                      czButton="secondary"
+                      czButtonSize="sm"
+                      [disabled]="isUserBusy(user.id) || user.activeSessionsCount <= 0 || !canRevokeSessions(user)"
+                      (click)="revokeSessions(user)"
+                    >
+                      Close sessions
+                    </button>
+                  </div>
+                  <div class="admin-users-action">
+                    <span class="admin-users-action-meta">{{ user.activeRoomsCount }} active room(s)</span>
+                    <button
+                      type="button"
+                      czButton="secondary"
+                      czButtonSize="sm"
+                      [disabled]="isUserBusy(user.id) || user.activeRoomsCount <= 0 || !canRemoveFromRooms(user)"
+                      (click)="removeFromRooms(user)"
+                    >
+                      Remove rooms
+                    </button>
+                  </div>
+                  <div class="admin-users-action">
+                    <span class="admin-users-action-meta">Permanent action</span>
+                    <button
+                      type="button"
+                      czButton="secondary"
+                      czButtonSize="sm"
+                      czButtonTone="danger"
+                      [disabled]="isUserBusy(user.id) || !canDeleteUser(user)"
+                      (click)="deleteUser(user)"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  <div class="admin-users-action admin-users-message-action">
+                    <app-tooltip text="Send message" align="end">
+                      <button
+                        type="button"
+                        class="admin-users-icon-action"
+                        czButton="icon"
+                        czButtonSize="sm"
+                        [attr.aria-label]="'Send message to ' + user.displayName"
+                        (click)="requestSendMessage(user)"
+                      >
+                        <lucide-icon name="send" size="16" aria-hidden="true" />
+                      </button>
+                    </app-tooltip>
+                  </div>
+                  <div class="admin-users-action admin-users-message-action">
+                    <app-tooltip text="Impersonate" align="end">
+                      <button
+                        type="button"
+                        class="admin-users-icon-action"
+                        czButton="icon"
+                        czButtonSize="sm"
+                        [disabled]="isUserBusy(user.id) || !canImpersonate(user)"
+                        [attr.aria-label]="'Impersonate ' + user.displayName"
+                        (click)="impersonateUser(user)"
+                      >
+                        <lucide-icon name="hammer" size="16" aria-hidden="true" />
+                      </button>
+                    </app-tooltip>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="admin-users-pagination" aria-label="Users pagination">
+      <p>
+        Showing {{ firstVisibleUserIndex() }}-{{ lastVisibleUserIndex() }} of {{ visibleUsers().length }}
+      </p>
+      <div class="admin-users-pagination-actions">
+        <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="activePage() <= 1" (click)="previousPage()">
+          Previous
+        </button>
+        <span>Page {{ activePage() }} of {{ totalPages() }}</span>
+        <button type="button" czButton="secondary" czButtonSize="sm" [disabled]="activePage() >= totalPages()" (click)="nextPage()">
+          Next
+        </button>
+      </div>
+    </div>
+    }
+  }
+
+  @if (pendingConfirmation(); as confirmation) {
+    <app-modal
+      [open]="true"
+      [title]="confirmation.title"
+      [message]="confirmation.message"
+      [primaryLabel]="confirmation.primaryLabel"
+      secondaryLabel="Cancel"
+      [danger]="confirmation.danger"
+      size="compact"
+      (primary)="confirmPendingAction()"
+      (secondary)="cancelPendingAction()"
+      (close)="cancelPendingAction()"
+    />
+  }
+</section>

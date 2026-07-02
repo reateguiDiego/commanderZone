@@ -25,19 +25,10 @@ class UserAccountDeletionService
 
     public function delete(User $user, EntityManagerInterface $entityManager): UserAccountDeletionResult
     {
-        $gameEvents = [];
-        $changedRooms = [];
-        $deletedRoomIds = [];
-
         try {
             $entityManager->beginTransaction();
 
-            foreach ($this->roomsForUser($user, $entityManager) as $room) {
-                $roomResult = $this->removeUserFromRoom($room, $user, $entityManager);
-                $gameEvents = [...$gameEvents, ...$roomResult->gameEvents];
-                $changedRooms = [...$changedRooms, ...$roomResult->changedRooms];
-                $deletedRoomIds = [...$deletedRoomIds, ...$roomResult->deletedRoomIds];
-            }
+            $roomRemovalResult = $this->removeFromRoomsInOpenTransaction($user, $entityManager);
             $entityManager->flush();
 
             $this->deleteOwnedDecks($user, $entityManager);
@@ -54,6 +45,40 @@ class UserAccountDeletionService
             }
 
             throw $exception;
+        }
+
+        return $roomRemovalResult;
+    }
+
+    public function removeFromRooms(User $user, EntityManagerInterface $entityManager): UserAccountDeletionResult
+    {
+        try {
+            $entityManager->beginTransaction();
+            $result = $this->removeFromRoomsInOpenTransaction($user, $entityManager);
+            $entityManager->flush();
+            $entityManager->commit();
+        } catch (\Throwable $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            throw $exception;
+        }
+
+        return $result;
+    }
+
+    private function removeFromRoomsInOpenTransaction(User $user, EntityManagerInterface $entityManager): UserAccountDeletionResult
+    {
+        $gameEvents = [];
+        $changedRooms = [];
+        $deletedRoomIds = [];
+
+        foreach ($this->roomsForUser($user, $entityManager) as $room) {
+            $roomResult = $this->removeUserFromRoom($room, $user, $entityManager);
+            $gameEvents = [...$gameEvents, ...$roomResult->gameEvents];
+            $changedRooms = [...$changedRooms, ...$roomResult->changedRooms];
+            $deletedRoomIds = [...$deletedRoomIds, ...$roomResult->deletedRoomIds];
         }
 
         return new UserAccountDeletionResult(

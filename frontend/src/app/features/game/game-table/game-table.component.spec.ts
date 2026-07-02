@@ -2621,7 +2621,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.recordRollResult({
       kind: 'd20',
-      label: 'Dado de 20 caras',
+      label: '20-sided die',
       iterationCount: 4,
       finalResult: '17',
     });
@@ -2804,7 +2804,7 @@ describe('GameTableComponent', () => {
       faceDown: true,
     };
 
-    expect(gameScreen.style.getPropertyValue('--game-wallpaper-image')).toContain('/assets/images/play-mat/U_2.png');
+    expect(gameScreen.style.getPropertyValue('--game-wallpaper-image')).toContain('/assets/images/play-mat/U_2.webp');
     expect(fixture.componentInstance.store.cardImage(faceDownCard)).toBe('/assets/images/facedown_card.jpg');
     expect(fixture.componentInstance.store.zonePreviewImage(fixture.componentInstance.store.currentPlayer()!, 'library'))
       .toBe('/assets/images/facedown_card.jpg');

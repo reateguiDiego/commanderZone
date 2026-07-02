@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
+import { TextFitDirective } from '../text-fit/text-fit.directive';
 
 export interface TabListItem {
   readonly id: string;
@@ -20,7 +21,7 @@ export type TabListSize = 'md' | 'lg';
 
 @Component({
   selector: 'app-tab-list',
-  imports: [LucideAngularModule, RuntimeTranslatePipe],
+  imports: [LucideAngularModule, RuntimeTranslatePipe, TextFitDirective],
   templateUrl: './tab-list.component.html',
   styleUrl: './tab-list.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

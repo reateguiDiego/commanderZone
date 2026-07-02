@@ -3,6 +3,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { runtimeTranslationFallback } from '../localization/runtime-translate.pipe';
 import { UserAvatar, UserDisplayNameStyle } from '../models/user.model';
 
+export type PageHeaderOwner = object;
 export type PageHeaderActionVariant = 'primary' | 'secondary';
 export type PageHeaderActionTooltipTriggerMode = 'hover' | 'click';
 export type PageHeaderActionTooltipPlacement = 'top' | 'bottom';
@@ -68,10 +69,17 @@ export interface PageHeaderState {
 @Injectable({ providedIn: 'root' })
 export class PageHeaderStore {
   private readonly translate = inject(TranslateService, { optional: true });
+  private readonly destroyedOwners = new WeakSet<PageHeaderOwner>();
+  private activeOwner: PageHeaderOwner | null = null;
 
   readonly state = signal<PageHeaderState | null>(null);
 
-  set(header: PageHeaderState): void {
+  set(header: PageHeaderState, owner?: PageHeaderOwner): void {
+    if (owner && this.destroyedOwners.has(owner)) {
+      return;
+    }
+
+    this.activeOwner = owner ?? null;
     this.state.set({
       ...header,
       title: this.translateText(header.title),
@@ -108,7 +116,15 @@ export class PageHeaderStore {
     });
   }
 
-  clear(): void {
+  clear(owner?: PageHeaderOwner): void {
+    if (owner) {
+      this.destroyedOwners.add(owner);
+      if (this.activeOwner !== owner) {
+        return;
+      }
+    }
+
+    this.activeOwner = null;
     this.state.set(null);
   }
 

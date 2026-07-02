@@ -50,7 +50,7 @@ describe('CommunityDeckListPageComponent', () => {
 
     expect(api.decks).toHaveBeenCalledWith({});
     expect(deckFormatsApi.list).toHaveBeenCalledTimes(1);
-    expect(fixture.nativeElement.textContent).toContain('Buscar decks');
+    expect(fixture.nativeElement.textContent).toContain('Search decks');
     expect(fixture.nativeElement.textContent).toContain('Atraxa Tokens');
 
     fixture.componentInstance.openDeck('deck-1');

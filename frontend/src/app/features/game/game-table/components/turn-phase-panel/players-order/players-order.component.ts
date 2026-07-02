@@ -21,8 +21,10 @@ gsap.registerPlugin(Flip);
 interface PlayersOrderEntry {
   readonly id: string;
   readonly name: string;
-  readonly turnLabel: string;
-  readonly title: string;
+  readonly turnLabelKey: string;
+  readonly turnLabelParams: Readonly<Record<string, number>>;
+  readonly titleKey: string;
+  readonly titleParams: Readonly<Record<string, number | string>>;
   readonly isActive: boolean;
   readonly isCurrent: boolean;
   readonly isDefeated: boolean;
@@ -62,8 +64,14 @@ export class PlayersOrderComponent implements OnChanges, OnDestroy {
       return {
         id: player.id,
         name,
-        turnLabel: this.turnLabel(turnDistance, this.turnNumber()),
-        title: this.playerTitle(name, turnDistance),
+        turnLabelKey: turnDistance === 0
+          ? 'game.playersOrder.currentTurnLabel'
+          : 'game.playersOrder.upcomingTurnLabel',
+        turnLabelParams: { count: turnDistance, turnNumber: this.turnNumber() },
+        titleKey: turnDistance === 0
+          ? 'game.playersOrder.currentTurnTitle'
+          : 'game.playersOrder.upcomingTurnTitle',
+        titleParams: { count: turnDistance, name },
         isActive,
         isCurrent,
         isDefeated: false,
@@ -92,22 +100,6 @@ export class PlayersOrderComponent implements OnChanges, OnDestroy {
 
   trackEntry(_index: number, entry: PlayersOrderEntry): string {
     return entry.id;
-  }
-
-  private turnLabel(index: number, turnNumber: number): string {
-    if (index === 0) {
-      return `Turno ${turnNumber}`;
-    }
-
-    return `En ${index}`;
-  }
-
-  private playerTitle(name: string, index: number): string {
-    if (index === 0) {
-      return `${name} tiene el turno`;
-    }
-
-    return `${name} esta a ${index} turno${index === 1 ? '' : 's'}`;
   }
 
   private playerName(player: PlayerView): string {

@@ -37,50 +37,68 @@ export class GameRematchModalComponent {
 
   readonly logoUrl = 'assets/icons/CZ/CZ_logo.webp';
 
+  titleKey(): string {
+    return this.winner() ? 'game.gameRematchModal.legendaryVictory' : 'game.gameRematchModal.youDied';
+  }
+
+  messageKey(): string {
+    return this.winner()
+      ? 'game.gameRematchModal.winnerMessage'
+      : 'game.gameRematchModal.defeatedMessage';
+  }
+
   voteLabel(vote: GameRematchVote | null): string {
     switch (vote) {
       case 'play_again':
-        return 'Jugar otra partida';
+        return 'game.gameRematchModal.playAgain';
       case 'leave':
-        return 'Salir de la sala';
+        return 'game.gameRematchModal.leaveRoom';
       default:
-        return 'Sin votar';
+        return 'game.gameRematchModal.noVote';
     }
   }
 
   countdownTitle(): string {
-    return this.countdownMode() === 'courtesy' ? 'Tiempo extra' : 'Tiempo limite';
+    return this.countdownMode() === 'courtesy'
+      ? 'game.gameRematchModal.extraTime'
+      : 'game.gameRematchModal.timeLimit';
   }
 
-  countdownMessage(): string {
-    const seconds = this.countdownSeconds() ?? 0;
+  countdownMessageKey(): string {
     if (this.countdownMode() === 'courtesy') {
       if (this.currentVote() === null) {
-        return `Falta tu voto. Tienes ${seconds}s extra para votar.`;
+        return 'game.gameRematchModal.yourVoteMissingExtra';
       }
 
-      return `Falta ${this.missingPlayersLabel()}. Tiene ${seconds}s extra para votar.`;
+      return 'game.gameRematchModal.playersMissingExtra';
     }
 
     if (this.currentVote() === null) {
-      return `Tienes ${seconds}s para votar.`;
+      return 'game.gameRematchModal.youHaveSecondsToVote';
     }
 
-    return `${this.missingPlayersLabel()} tienen ${seconds}s para votar.`;
+    return 'game.gameRematchModal.playersHaveSecondsToVote';
+  }
+
+  countdownMessageParams(): Record<string, unknown> {
+    return {
+      playerNames: this.missingPlayersLabel(),
+      seconds: this.countdownSeconds() ?? 0,
+    };
   }
 
   private missingPlayersLabel(): string {
     const names = this.missingPlayerNames().filter((name) => name.trim().length > 0);
     if (names.length === 0) {
-      return 'los jugadores pendientes';
+      return 'pending players';
     }
     if (names.length === 1) {
-      return names[0] ?? 'el jugador pendiente';
+      return names[0] ?? 'the pending player';
     }
     if (names.length === 2) {
-      return `${names[0]} y ${names[1]}`;
+      return `${names[0]} and ${names[1]}`;
     }
 
-    return `${names[0]} y ${names.length - 1} mas`;
+    return `${names[0]} and ${names.length - 1} more`;
   }
 }

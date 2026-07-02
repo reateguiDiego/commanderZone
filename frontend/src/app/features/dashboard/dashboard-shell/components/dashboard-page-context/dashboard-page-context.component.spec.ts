@@ -96,7 +96,7 @@ describe('DashboardPageContextComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.page-header-stats')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.page-header-title-meta-label')?.textContent).toContain('Compartido por');
+    expect(fixture.nativeElement.querySelector('.page-header-title-meta-label')?.textContent).toContain('Shared by');
     expect(fixture.nativeElement.querySelector('app-player-info')?.textContent).toContain('Alber');
     expect(fixture.nativeElement.querySelector('.page-header-actions-stack')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.page-header-action-feedback')?.textContent).toContain('Saved');

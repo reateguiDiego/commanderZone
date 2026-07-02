@@ -2,7 +2,7 @@
   <app-card-search-help class="cards-header-help-popover" [triggerVisible]="false" [open]="searchHelpOpen()" (openChange)="searchHelpOpen.set($event)" />
 
   <div class="cards-shell">
-    <aside class="cards-aside" [class.cards-aside--expanded]="filtersExpanded()" [class.cards-aside--collapsed]="!filtersExpanded()" aria-label="Card search filters">
+    <aside class="cards-aside" [class.cards-aside--expanded]="filtersExpanded()" [class.cards-aside--collapsed]="!filtersExpanded()" [attr.aria-label]="'deckBuilder.cards.cardSearch.filtersAriaLabel' | runtimeTranslate">
       <app-card-advanced-search-form
         #advancedSearchForm
         [options]="options()"
@@ -11,7 +11,7 @@
         (cleared)="clear()"
       />
 
-      <div class="cards-aside-actions" aria-label="Card search actions">
+      <div class="cards-aside-actions" [attr.aria-label]="'deckBuilder.cards.cardSearch.actionsAriaLabel' | runtimeTranslate">
         <button type="button" class="cards-aside-close" czButton="secondary" czButtonSize="sm" (click)="collapseFilters()">
           <lucide-icon name="x" size="16" aria-hidden="true" />
           <span>{{ 'deckBuilder.cards.cardSearch.close' | runtimeTranslate }}</span>
@@ -112,20 +112,15 @@
       />
 
       @if (searched() && totalPages() > 1) {
-        <nav class="cards-pagination" aria-label="Card search pagination">
-          <button type="button" class="cards-page-button" [disabled]="page() <= 1 || loading()" (click)="previousPage()">
-            <lucide-icon name="chevron-left" size="16" aria-hidden="true" />
-            <span>Previous</span>
-          </button>
-          <span class="cards-page-status">
-            <strong>{{ page() }}</strong>
-            <span>/ {{ totalPages() }}</span>
-          </span>
-          <button type="button" class="cards-page-button" [disabled]="!hasMore() || loading()" (click)="nextPage()">
-            <span>Next</span>
-            <lucide-icon name="chevron-right" size="16" aria-hidden="true" />
-          </button>
-        </nav>
+        <app-pagination
+          [currentPage]="page()"
+          [totalPages]="totalPages()"
+          [previousDisabled]="page() <= 1 || loading()"
+          [nextDisabled]="!hasMore() || loading()"
+          ariaLabelKey="cards.cardSearch.pagination.label"
+          (previousRequested)="previousPage()"
+          (nextRequested)="nextPage()"
+        />
       }
     </app-cards-main-layout>
   </div>

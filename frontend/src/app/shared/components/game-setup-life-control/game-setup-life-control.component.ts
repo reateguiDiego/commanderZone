@@ -11,8 +11,8 @@ import { LucideAngularModule } from 'lucide-angular';
 })
 export class GameSetupLifeControlComponent {
   readonly value = input(40);
-  readonly label = input('Total life');
-  readonly summary = input('Starting total');
+  readonly label = input('rooms.setup.gameSetupLifeControl.totalLife');
+  readonly summary = input('rooms.setup.gameSetupLifeControl.startingTotal');
   readonly step = input(5);
   readonly minValue = input(1);
   readonly maxValue = input(99);

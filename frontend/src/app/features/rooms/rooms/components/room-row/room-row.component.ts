@@ -1,12 +1,13 @@
-import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-﻿import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { DeckFormat } from '../../../../../core/models/deck.model';
-import { Room } from '../../../../../core/models/room.model';
+import { Room, RoomVisibility } from '../../../../../core/models/room.model';
 import { UserDisplayNameStyle } from '../../../../../core/models/user.model';
 import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
 import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
+import { TextFitDirective } from '../../../../../shared/ui/text-fit/text-fit.directive';
 import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 
 const PRIVATE_ANONYMOUS_OWNER_PLACEHOLDER = 'XXXX';
@@ -18,7 +19,7 @@ const PRIVATE_ANONYMOUS_OWNER_NAME_STYLE: UserDisplayNameStyle = {
 
 @Component({
   selector: 'app-room-row',
-  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, PlayerNameComponent, CzButtonDirective, TooltipComponent],
+  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, PlayerNameComponent, CzButtonDirective, TextFitDirective, TooltipComponent],
   templateUrl: './room-row.component.html',
   styleUrl: './room-row.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -93,6 +94,12 @@ export class RoomRowComponent {
 
   formatLabel(formatId: string): string {
     return this.formats().find((format) => format.id === formatId)?.name ?? formatId;
+  }
+
+  visibilityPillLabelKey(visibility: RoomVisibility): string {
+    return visibility === 'public'
+      ? 'common.visibility.visibilityPill.public'
+      : 'common.visibility.visibilityPill.private';
   }
 
   isAnonymousPrivateOwner(room: Room): boolean {

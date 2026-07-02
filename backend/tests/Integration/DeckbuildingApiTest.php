@@ -519,6 +519,331 @@ TXT,
         self::assertResponseStatusCodeSame(404);
     }
 
+    public function testDerivedTokensUseOracleRelationAcrossLocalizedPrints(): void
+    {
+        $token = $this->registerAndLogin('localized-tokens@example.test', 'Localized Tokens');
+        $otherToken = $this->registerAndLogin('localized-tokens-other@example.test', 'Other Tokens');
+        $plantToken = $this->seedCard('10000000-0000-0000-0000-000000000001', 'Plant Token', [
+            'type_line' => 'Token Creature - Plant',
+            'set' => 'ttk',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('10000000-0000-0000-0000-000000000002', 'Token Maker', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000099',
+            'type_line' => 'Creature - Druid',
+            'oracle_text' => 'Create a 0/1 green Plant creature token.',
+            'lang' => 'en',
+            'set' => 'eng',
+            'collector_number' => '1',
+            'all_parts' => [
+                [
+                    'id' => $plantToken->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Plant Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$plantToken->scryfallId(),
+                ],
+            ],
+        ]);
+        $spanishPrint = $this->seedCard('10000000-0000-0000-0000-000000000003', 'Token Maker', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000099',
+            'type_line' => 'Creature - Druid',
+            'oracle_text' => 'Create a 0/1 green Plant creature token.',
+            'lang' => 'es',
+            'printed_name' => 'Creador de fichas',
+            'set' => 'spa',
+            'collector_number' => '1',
+            'all_parts' => [],
+        ]);
+
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Oracle Tokens'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => '1 Token Maker',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $imported = $this->jsonResponse();
+        self::assertSame($spanishPrint->scryfallId(), $imported['deck']['cards'][0]['card']['scryfallId']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
+        self::assertResponseIsSuccessful();
+        $tokens = $this->jsonResponse();
+        self::assertSame('Plant Token', $tokens['data'][0]['token']['name']);
+        self::assertSame(
+            'https://cards.scryfall.io/normal/front/10000000-0000-0000-0000-000000000001.jpg',
+            $tokens['data'][0]['token']['imageUris']['normal'] ?? null,
+        );
+        self::assertSame([], $tokens['unresolved']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $otherToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/sections', token: $token);
+        self::assertResponseIsSuccessful();
+        $sections = $this->jsonResponse();
+        self::assertSame(1, $sections['counts']['tokens']);
+        self::assertSame('Plant Token', $sections['sections']['tokens'][0]['token']['name']);
+        self::assertSame(
+            'https://cards.scryfall.io/normal/front/10000000-0000-0000-0000-000000000001.jpg',
+            $sections['sections']['tokens'][0]['token']['imageUris']['normal'] ?? null,
+        );
+    }
+
+    public function testDerivedTokensFallbackToSourceScryfallIdWhenOracleIdIsMissing(): void
+    {
+        $token = $this->registerAndLogin('fallback-tokens@example.test', 'Fallback Tokens');
+        $clueToken = $this->seedCard('10000000-0000-0000-0000-000000000011', 'Clue Token', [
+            'type_line' => 'Token Artifact - Clue',
+        ]);
+        $producer = $this->seedCard('10000000-0000-0000-0000-000000000012', 'Clue Maker', [
+            'oracle_id' => null,
+            'type_line' => 'Creature - Human',
+            'oracle_text' => 'Create a Clue token.',
+            'all_parts' => [
+                [
+                    'id' => $clueToken->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Clue Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$clueToken->scryfallId(),
+                ],
+            ],
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Scryfall Fallback',
+            'cards' => [
+                ['scryfallId' => $producer->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
+        self::assertResponseIsSuccessful();
+        $tokens = $this->jsonResponse();
+        self::assertSame('Clue Token', $tokens['data'][0]['token']['name']);
+        self::assertSame([], $tokens['unresolved']);
+    }
+
+    public function testDerivedTokensReturnRandomPrintFromTokenOraclePool(): void
+    {
+        $token = $this->registerAndLogin('random-token-print@example.test', 'Random Token Print');
+        $tokenOracleId = '10000000-0000-0000-0000-000000000040';
+        $originalToken = $this->seedCard('10000000-0000-0000-0000-000000000041', 'Plant Token', [
+            'oracle_id' => $tokenOracleId,
+            'type_line' => 'Token Creature - Plant',
+            'set' => 'tok',
+            'collector_number' => '1',
+        ]);
+        $alternateToken = $this->seedCard('10000000-0000-0000-0000-000000000042', 'Plant Token', [
+            'oracle_id' => $tokenOracleId,
+            'type_line' => 'Token Creature - Plant',
+            'set' => 'tok',
+            'collector_number' => '2',
+        ]);
+        $unrelatedSameNameToken = $this->seedCard('10000000-0000-0000-0000-000000000043', 'Plant Token', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000044',
+            'type_line' => 'Token Creature - Plant',
+            'set' => 'tok',
+            'collector_number' => '3',
+        ]);
+        $producer = $this->seedCard('10000000-0000-0000-0000-000000000045', 'Random Plant Maker', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000046',
+            'type_line' => 'Creature - Druid',
+            'oracle_text' => 'Create a 0/1 green Plant creature token.',
+            'all_parts' => [
+                [
+                    'id' => $originalToken->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Plant Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$originalToken->scryfallId(),
+                ],
+            ],
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Random Token Prints',
+            'cards' => [
+                ['scryfallId' => $producer->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $allowedTokenIds = [$originalToken->scryfallId(), $alternateToken->scryfallId()];
+        for ($attempt = 0; $attempt < 5; ++$attempt) {
+            $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
+            self::assertResponseIsSuccessful();
+            $tokens = $this->jsonResponse();
+            $returnedToken = $tokens['data'][0]['token'] ?? null;
+
+            self::assertIsArray($returnedToken);
+            self::assertContains($returnedToken['scryfallId'] ?? null, $allowedTokenIds);
+            self::assertNotSame($unrelatedSameNameToken->scryfallId(), $returnedToken['scryfallId'] ?? null);
+            self::assertNotEmpty($returnedToken['imageUris']['normal'] ?? null);
+            self::assertSame([], $tokens['unresolved']);
+        }
+    }
+
+    public function testDerivedTokensCollapseEquivalentTokenRelationsFromSourceOraclePrints(): void
+    {
+        $token = $this->registerAndLogin('dedupe-token-relations@example.test', 'Dedupe Tokens');
+        $sourceOracleId = '10000000-0000-0000-0000-000000000050';
+        $tokenOracleId = '10000000-0000-0000-0000-000000000051';
+        $firstTokenPrint = $this->seedCard('10000000-0000-0000-0000-000000000052', 'Elephant Token', [
+            'oracle_id' => $tokenOracleId,
+            'type_line' => 'Token Creature - Elephant',
+            'set' => 'tok',
+            'collector_number' => '1',
+        ]);
+        $secondTokenPrint = $this->seedCard('10000000-0000-0000-0000-000000000053', 'Elephant Token', [
+            'oracle_id' => $tokenOracleId,
+            'type_line' => 'Token Creature - Elephant',
+            'set' => 'tok',
+            'collector_number' => '2',
+        ]);
+        $firstSourcePrint = $this->seedCard('10000000-0000-0000-0000-000000000054', 'Gift Maker', [
+            'oracle_id' => $sourceOracleId,
+            'type_line' => 'Instant',
+            'oracle_text' => 'Create a 3/3 green Elephant creature token.',
+            'set' => 'one',
+            'collector_number' => '1',
+            'all_parts' => [
+                [
+                    'id' => $firstTokenPrint->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Elephant Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$firstTokenPrint->scryfallId(),
+                ],
+            ],
+        ]);
+        $this->seedCard('10000000-0000-0000-0000-000000000055', 'Gift Maker', [
+            'oracle_id' => $sourceOracleId,
+            'type_line' => 'Instant',
+            'oracle_text' => 'Create a 3/3 green Elephant creature token.',
+            'set' => 'two',
+            'collector_number' => '1',
+            'all_parts' => [
+                [
+                    'id' => $secondTokenPrint->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Elephant Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$secondTokenPrint->scryfallId(),
+                ],
+            ],
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Dedupe Token Prints',
+            'cards' => [
+                ['scryfallId' => $firstSourcePrint->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
+        self::assertResponseIsSuccessful();
+        $tokens = $this->jsonResponse();
+
+        self::assertCount(1, $tokens['data']);
+        self::assertSame('Elephant Token', $tokens['data'][0]['token']['name']);
+        self::assertContains($tokens['data'][0]['token']['scryfallId'] ?? null, [
+            $firstTokenPrint->scryfallId(),
+            $secondTokenPrint->scryfallId(),
+        ]);
+        self::assertSame([], $tokens['unresolved']);
+    }
+
+    public function testDerivedTokensReturnOnlyOneRandomTokenRelationPerSourceCard(): void
+    {
+        $token = $this->registerAndLogin('single-token-relation@example.test', 'One Token');
+        $firstToken = $this->seedCard('10000000-0000-0000-0000-000000000061', 'Clue Token', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000062',
+            'type_line' => 'Token Artifact - Clue',
+        ]);
+        $secondToken = $this->seedCard('10000000-0000-0000-0000-000000000063', 'Treasure Token', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000064',
+            'type_line' => 'Token Artifact - Treasure',
+        ]);
+        $producer = $this->seedCard('10000000-0000-0000-0000-000000000065', 'Two Token Maker', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000066',
+            'type_line' => 'Creature - Artificer',
+            'oracle_text' => 'Create a Clue token and a Treasure token.',
+            'all_parts' => [
+                [
+                    'id' => $firstToken->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Clue Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$firstToken->scryfallId(),
+                ],
+                [
+                    'id' => $secondToken->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Treasure Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$secondToken->scryfallId(),
+                ],
+            ],
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'One Token Rel',
+            'cards' => [
+                ['scryfallId' => $producer->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
+        self::assertResponseIsSuccessful();
+        $tokens = $this->jsonResponse();
+
+        self::assertCount(1, $tokens['data']);
+        self::assertContains($tokens['data'][0]['token']['scryfallId'] ?? null, [
+            $firstToken->scryfallId(),
+            $secondToken->scryfallId(),
+        ]);
+        self::assertSame([], $tokens['unresolved']);
+    }
+
+    public function testDerivedTokensReportUnresolvedCatalogRelations(): void
+    {
+        $token = $this->registerAndLogin('unresolved-tokens@example.test', 'Unresolved Tokens');
+        $producer = $this->seedCard('10000000-0000-0000-0000-000000000021', 'Unknown Token Maker', [
+            'type_line' => 'Creature - Wizard',
+            'oracle_text' => 'Create an unknown token.',
+            'all_parts' => [
+                [
+                    'id' => '10000000-0000-0000-0000-000000000022',
+                    'component' => 'token',
+                    'name' => 'Unknown Test Token',
+                    'uri' => 'https://api.scryfall.com/cards/10000000-0000-0000-0000-000000000022',
+                ],
+            ],
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Unresolved Tokens',
+            'cards' => [
+                ['scryfallId' => $producer->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
+        self::assertResponseIsSuccessful();
+        $tokens = $this->jsonResponse();
+        self::assertSame([], $tokens['data']);
+        self::assertSame('Unknown Test Token', $tokens['unresolved'][0]['token']['name']);
+        self::assertSame('10000000-0000-0000-0000-000000000022', $tokens['unresolved'][0]['token']['scryfallId']);
+    }
+
     public function testAuthoritativeDeckEditingEndpoints(): void
     {
         $token = $this->registerAndLogin('editor@example.test', 'Editor');

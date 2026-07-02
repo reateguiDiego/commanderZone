@@ -1,0 +1,121 @@
+<section class="admin-notifications-panel" aria-labelledby="admin-notifications-title">
+  <header class="admin-notifications-header">
+    <h2 id="admin-notifications-title">Notifications</h2>
+  </header>
+
+  <form class="admin-notifications-form" [formGroup]="form" novalidate (ngSubmit)="submit()">
+    <label class="field recipient-field">
+      <span>Recipient</span>
+      <input
+        type="text"
+        name="recipient"
+        autocomplete="off"
+        role="combobox"
+        aria-controls="admin-notifications-recipient-options"
+        [attr.aria-expanded]="recipientsOpen()"
+        [formControl]="recipientControl"
+        (focus)="openRecipients()"
+        (blur)="closeRecipients()"
+        (input)="updateRecipientQuery($any($event.target).value)"
+      />
+
+      @if (recipientsOpen()) {
+        <div id="admin-notifications-recipient-options" class="recipient-options" role="listbox">
+          @for (option of filteredRecipients(); track option.id) {
+            <button
+              type="button"
+              role="option"
+              class="recipient-option"
+              [class.is-selected]="selectedRecipient().id === option.id"
+              (mousedown)="$event.preventDefault()"
+              (click)="selectRecipient(option)"
+            >
+              {{ option.name }}
+            </button>
+          } @empty {
+            <span class="recipient-empty">No users found.</span>
+          }
+        </div>
+      }
+    </label>
+
+    <label class="field">
+      <span>Subject</span>
+      <input type="text" formControlName="subject" autocomplete="off" maxlength="30" />
+      <div class="field-meta">
+        @if (fieldInvalid('subject')) {
+          <span class="field-error">Subject is required.</span>
+        } @else {
+          <span></span>
+        }
+        <span>{{ fieldLength('subject') }}/{{ fieldLimit('subject') }}</span>
+      </div>
+    </label>
+
+    <div class="field message-field">
+      <label for="admin-notifications-body">Message</label>
+      <div class="message-tools" aria-label="Message formatting tools">
+        <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('heading')">
+          Title
+        </button>
+        <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('list')">
+          List
+        </button>
+        <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('link')">
+          Link
+        </button>
+        <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('separator')">
+          Separator
+        </button>
+        <button type="button" czButton="secondary" czButtonSize="sm" (click)="insertMessageSnippet('image')">
+          Image URL
+        </button>
+        <button type="button" czButton="secondary" czButtonSize="sm" (click)="openImageUpload()">
+          <lucide-icon name="upload" size="15" aria-hidden="true" />
+          Upload image
+        </button>
+      </div>
+      <input #imageUploadInput class="image-upload-input" type="file" accept="image/*" (change)="uploadImage($event)" />
+      <p class="message-format-help">Enter adds a new line. An empty line creates a paragraph.</p>
+      <textarea
+        #bodyTextarea
+        id="admin-notifications-body"
+        formControlName="body"
+        rows="8"
+        (input)="syncBodyPreview()"
+      ></textarea>
+      <div class="field-meta">
+        @if (fieldInvalid('body')) {
+          <span class="field-error">Message is required.</span>
+        } @else {
+          <span></span>
+        }
+        <span>{{ fieldLength('body') }}/{{ fieldLimit('body') }}</span>
+      </div>
+    </div>
+
+    <p class="message-overflow-warning">Todo lo que quede fuera del recuadro de preview sera scroll horizontal para el usuario... y no mola.</p>
+    <section class="message-preview" aria-labelledby="admin-notifications-preview-title">
+      <header>
+        <span id="admin-notifications-preview-title">Preview</span>
+      </header>
+      @if (bodyPreview().trim() === '') {
+        <p class="message-preview-empty">Your message preview will appear here.</p>
+      } @else {
+        <app-message-body [body]="bodyPreview()" />
+      }
+    </section>
+
+    @if (errorMessage(); as error) {
+      <p class="notice error" role="alert">{{ error }}</p>
+    }
+
+    @if (sentMessage(); as message) {
+      <p class="notice success">{{ message }}</p>
+    }
+
+    <button type="submit" czButton="primary" [disabled]="!canSubmit()">
+      {{ sending() ? 'Sending...' : 'Send' }}
+    </button>
+  </form>
+</section>

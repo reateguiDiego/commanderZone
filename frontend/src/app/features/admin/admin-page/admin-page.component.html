@@ -1,0 +1,42 @@
+<section class="admin-shell" aria-labelledby="admin-title">
+  <aside class="admin-aside" aria-label="Admin sections">
+    <div class="admin-aside-heading">
+      <span class="admin-icon" aria-hidden="true">
+        <lucide-icon name="shield-check" size="22" />
+      </span>
+      <div>
+        <h1 id="admin-title">Admin</h1>
+      </div>
+    </div>
+
+    <nav class="admin-nav" aria-label="Admin tools">
+      @for (item of navigationItems; track item.id) {
+        <button
+          class="admin-nav-item"
+          czButton="menu"
+          type="button"
+          [czButtonActive]="activeSection() === item.id"
+          [attr.aria-current]="activeSection() === item.id ? 'page' : null"
+          (click)="selectSection(item.id)"
+        >
+          <lucide-icon [name]="item.icon" size="17" />
+          <span>{{ item.label }}</span>
+        </button>
+      }
+    </nav>
+  </aside>
+
+  <main class="admin-content" [class.admin-content--top]="contentPinnedToTop()">
+    @switch (activeSection()) {
+      @case ('users') {
+        <app-admin-users-panel (sendMessageRequested)="openNotificationsForUser($event)" />
+      }
+      @case ('reports') {
+        <app-admin-reports-panel (sendMessageRequested)="openNotificationsForUser($event)" />
+      }
+      @case ('notifications') {
+        <app-admin-notifications-panel [preselectedRecipient]="preselectedNotificationRecipient()" />
+      }
+    }
+  </main>
+</section>

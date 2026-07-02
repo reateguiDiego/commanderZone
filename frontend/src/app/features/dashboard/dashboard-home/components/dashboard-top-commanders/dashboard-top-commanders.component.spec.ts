@@ -26,7 +26,7 @@ describe('DashboardTopCommandersComponent', () => {
 
     expect(cards.length).toBe(3);
     expect(element.textContent).toContain('The Ur-Dragon');
-    expect(element.textContent).toContain('47.928 played');
+    expect(element.textContent).toContain('47,928 games');
     expect(element.textContent).not.toContain('decks');
     expect(element.textContent).toContain('Edgar Markov');
     expect(element.textContent).toContain('Atraxa, Grand Unifier');

@@ -65,4 +65,14 @@ describe('PlayerInfoComponent', () => {
     expect(fixture.nativeElement.querySelector('button.player-info-action')).toBeNull();
     expect(fixture.nativeElement.querySelectorAll('span.player-info-action').length).toBe(2);
   });
+
+  it('renders the CommanderZone identity as the CZ logo only', () => {
+    fixture.componentRef.setInput('displayName', 'CommanderZone');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.player-info-official-logo img')?.getAttribute('src'))
+      .toBe(fixture.componentInstance.themeAssets.czLogoUrl());
+    expect(fixture.debugElement.query((debugElement) => debugElement.componentInstance instanceof PlayerAvatarComponent)).toBeNull();
+    expect(fixture.debugElement.query((debugElement) => debugElement.componentInstance instanceof PlayerNameComponent)).toBeNull();
+  });
 });

@@ -135,9 +135,12 @@
 }
 
 .tab-list-label {
+  display: inline-block;
   min-width: 0;
-  overflow: visible;
+  max-width: 100%;
+  font-size: calc(var(--cz-tab-label-font-size, 1em) * var(--cz-text-fit-scale, 1));
   line-height: 1.15;
+  white-space: nowrap;
 }
 
 .tab-list-label.is-visually-hidden {

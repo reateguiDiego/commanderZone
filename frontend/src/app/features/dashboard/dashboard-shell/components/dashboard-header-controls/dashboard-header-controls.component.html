@@ -1,4 +1,4 @@
-<div class="user-strip" [class.friends-hidden]="!device.isDesktop()">
+<div class="user-strip" [class.friends-hidden]="!device.isDesktop()" [class.has-admin]="canAccessAdmin()">
   <app-player-info
     [displayName]="userLabel()"
     [avatar]="userAvatar()"
@@ -7,6 +7,21 @@
     (avatarSelected)="openSettings('avatar')"
     (nameSelected)="openSettings('name-style')"
   />
+
+  @if (canAccessAdmin()) {
+    <app-tooltip class="admin-tooltip" [text]="'navigation.dashboard.dashboardShell.admin' | runtimeTranslate">
+      <a
+        czButton="icon"
+        class="icon-button admin-action"
+        routerLink="/admin"
+        routerLinkActive="active"
+        [attr.aria-label]="'navigation.dashboard.dashboardShell.admin' | runtimeTranslate"
+        (click)="closeOverlayMenus()"
+      >
+        <lucide-icon name="shield-check" size="18" aria-hidden="true" />
+      </a>
+    </app-tooltip>
+  }
 
   @if (device.isDesktop()) {
     <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">
@@ -35,6 +50,31 @@
 
       @if (friendsOpen()) {
         <app-friends-dropdown />
+      }
+    </div>
+  }
+
+  @if (messagesCount() > 0) {
+    <div class="messages-dropdown" [class.open]="messagesOpen()" (click)="$event.stopPropagation()">
+      <app-tooltip [text]="'navigation.dashboard.dashboardHeaderControls.messages' | runtimeTranslate">
+        <button
+          czButton="icon"
+          class="icon-button messages-action"
+          [class.has-notifications]="!messagesOpen() && unreadMessagesCount() > 0"
+          type="button"
+          [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.messages' | runtimeTranslate"
+          [attr.aria-expanded]="messagesOpen()"
+          (click)="toggleMessagesDropdown($event)"
+        >
+          <lucide-icon name="message-square" size="18" />
+          @if (!messagesOpen() && unreadMessagesCount() > 0) {
+            <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.unreadMessages' | runtimeTranslate">{{ unreadMessagesCount() }}</span>
+          }
+        </button>
+      </app-tooltip>
+
+      @if (messagesOpen()) {
+        <app-messages-dropdown />
       }
     </div>
   }

@@ -54,9 +54,9 @@ describe('TableAssistantRoomComponent', () => {
     await settle(fixture);
 
     expect(fixture.nativeElement.textContent).not.toContain('Codigo LOCAL');
-    expect(fixture.nativeElement.textContent).not.toContain('Asistente de Mesa');
+    expect(fixture.nativeElement.textContent).not.toContain('Table Assistant');
     expect(fixture.nativeElement.textContent).toContain('Jugador 1');
-    expect(fixture.nativeElement.textContent).toContain('Siguiente');
+    expect(fixture.nativeElement.textContent).toContain('Next');
     expect(fixture.nativeElement.querySelectorAll('.active-turn-button')).toHaveLength(1);
     expect(
       fixture.nativeElement.querySelector(
@@ -80,10 +80,10 @@ describe('TableAssistantRoomComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.table-exit-menu')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Nueva partida');
-    expect(fixture.nativeElement.textContent).toContain('Tirar dado');
-    expect(fixture.nativeElement.textContent).toContain('Pantalla completa');
-    expect(fixture.nativeElement.textContent).toContain('Salir al dashboard');
+    expect(fixture.nativeElement.textContent).toContain('New game');
+    expect(fixture.nativeElement.textContent).toContain('Roll dice');
+    expect(fixture.nativeElement.textContent).toContain('Full screen');
+    expect(fixture.nativeElement.textContent).toContain('Exit to dashboard');
   });
 
   it('closes the centered menu when clicking outside', async () => {
@@ -173,7 +173,7 @@ describe('TableAssistantRoomComponent', () => {
 
     expect(action).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('app-table-assistant-replay-modal')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Configuraci');
+    expect(fixture.nativeElement.textContent).toContain('Table setup');
     expect(fixture.nativeElement.textContent).not.toContain('Despues va');
   });
 
@@ -193,8 +193,8 @@ describe('TableAssistantRoomComponent', () => {
     await settle(fixture);
 
     expect(fixture.nativeElement.querySelector('app-table-assistant-replay-modal')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Configuraci');
-    expect(fixture.nativeElement.textContent).toContain('Sin jugador');
+    expect(fixture.nativeElement.textContent).toContain('Table setup');
+    expect(fixture.nativeElement.textContent).toContain('No player');
     expect(fixture.nativeElement.querySelector('.primary-action')?.disabled).toBe(true);
   });
 
@@ -219,14 +219,14 @@ describe('TableAssistantRoomComponent', () => {
     fixture.nativeElement.querySelector('.table-logo-button')?.click();
     fixture.detectChanges();
     [...fixture.nativeElement.querySelectorAll('.table-exit-menu .menu-action')]
-      .find((button: Element) => button.textContent?.trim() === 'Tirar dado')
+      .find((button: Element) => button.textContent?.trim() === 'Roll dice')
       ?.click();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-roll-modal')).not.toBeNull();
     expect(
       fixture.nativeElement
-        .querySelector('[aria-label="Dado de 20 caras"] img')
+        .querySelector('[aria-label="20-sided die"] img')
         ?.getAttribute('src'),
     ).toBe('/assets/icons/chance/dice_20.png');
   });
@@ -326,7 +326,7 @@ describe('TableAssistantRoomComponent', () => {
     fixture.detectChanges();
     await settle(fixture);
 
-    expect(fixture.nativeElement.textContent).toContain('Codigo de sala');
+    expect(fixture.nativeElement.textContent).toContain('Room code');
     expect(fixture.nativeElement.textContent).toContain('LOCAL');
     expect(fixture.nativeElement.querySelector('.connected-count')?.textContent.trim()).toBe('1');
 
@@ -393,7 +393,7 @@ describe('TableAssistantRoomComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Untap');
     expect(fixture.nativeElement.textContent).not.toContain('Timer de turno');
     expect(
-      fixture.nativeElement.querySelector('[aria-label="Iniciar temporizador"]'),
+      fixture.nativeElement.querySelector('[aria-label="Start timer"]'),
     ).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.timer-strip')).toBeNull();
     expect(
@@ -403,7 +403,7 @@ describe('TableAssistantRoomComponent', () => {
       fixture.nativeElement
         .querySelector('.player-panel.active .turn-card .active-turn-button')
         ?.textContent.trim(),
-    ).toBe('Siguiente');
+    ).toBe('Next');
     expect(fixture.nativeElement.textContent).toContain('Storm');
     expect(fixture.nativeElement.textContent).toContain('Poison');
     expect(fixture.nativeElement.textContent).toContain('Extras');

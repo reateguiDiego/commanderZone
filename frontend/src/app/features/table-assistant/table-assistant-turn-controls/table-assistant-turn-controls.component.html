@@ -1,7 +1,7 @@
-<section class="turn-card" [class.timer-enabled]="timerEnabled()" [class.timer-warning]="timerAlertLevel() === 'warning'" [class.timer-critical]="timerAlertLevel() === 'critical'" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.turnoActivo' | runtimeTranslate">
+<section class="turn-card" [class.timer-enabled]="timerEnabled()" [class.timer-warning]="timerAlertLevel() === 'warning'" [class.timer-critical]="timerAlertLevel() === 'critical'" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.activeTurn' | runtimeTranslate">
   <div class="turn-meta">
     <div class="turn-line">
-      <span class="eyebrow-small">{{ 'tableAssistant.tableAssistantTurnControls.turno' | runtimeTranslate }}</span>
+      <span class="eyebrow-small">{{ 'tableAssistant.tableAssistantTurnControls.turn' | runtimeTranslate }}</span>
       <strong>{{ turnNumber() }}</strong>
       @if (phaseLabel(); as phase) {
         <strong class="phase-pill">{{ phase }}</strong>
@@ -15,13 +15,13 @@
   <div class="turn-actions">
     @if (timerEnabled()) {
       @if (timerStatus() === 'running') {
-        <button class="symbol-button" type="button" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.pausarTemporizador' | runtimeTranslate" [title]="'tableAssistant.tableAssistantTurnControls.pausar' | runtimeTranslate" (click)="timerPaused.emit()"><span aria-hidden="true">&#10074;&#10074;</span></button>
+        <button class="symbol-button" type="button" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.pauseTimer' | runtimeTranslate" [title]="'tableAssistant.tableAssistantTurnControls.pause' | runtimeTranslate" (click)="timerPaused.emit()"><span aria-hidden="true">&#10074;&#10074;</span></button>
       } @else if (timerStatus() === 'paused') {
-        <button class="symbol-button" type="button" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.reanudarTemporizador' | runtimeTranslate" [title]="'tableAssistant.tableAssistantTurnControls.reanudar' | runtimeTranslate" (click)="timerResumed.emit()"><span aria-hidden="true">&#9654;</span></button>
+        <button class="symbol-button" type="button" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.resumeTimer' | runtimeTranslate" [title]="'tableAssistant.tableAssistantTurnControls.resume' | runtimeTranslate" (click)="timerResumed.emit()"><span aria-hidden="true">&#9654;</span></button>
       } @else {
-        <button class="symbol-button" type="button" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.iniciarTemporizador' | runtimeTranslate" [title]="'tableAssistant.tableAssistantTurnControls.iniciar' | runtimeTranslate" (click)="timerStarted.emit()"><span aria-hidden="true">&#9654;</span></button>
+        <button class="symbol-button" type="button" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.startTimer' | runtimeTranslate" [title]="'tableAssistant.tableAssistantTurnControls.start' | runtimeTranslate" (click)="timerStarted.emit()"><span aria-hidden="true">&#9654;</span></button>
       }
     }
-    <button class="next-button active-turn-button" type="button" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.pasarAlSiguienteTurno' | runtimeTranslate" (click)="turnPassed.emit()">{{ 'tableAssistant.tableAssistantTurnControls.siguiente' | runtimeTranslate }}</button>
+    <button class="next-button active-turn-button" type="button" [attr.aria-label]="'tableAssistant.tableAssistantTurnControls.passToNextTurn' | runtimeTranslate" (click)="turnPassed.emit()">{{ 'tableAssistant.tableAssistantTurnControls.next' | runtimeTranslate }}</button>
   </div>
 </section>

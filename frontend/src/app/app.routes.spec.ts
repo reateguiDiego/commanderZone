@@ -1,4 +1,4 @@
-import { guestGuard } from './core/auth/auth.guard';
+import { adminAccessGuard, guestGuard } from './core/auth/auth.guard';
 import { PAGE_TRANSLATION_STRATEGIES, PageKey } from './core/localization/page-translation-strategy';
 import { getPageRobotsMeta } from './core/seo/route-robots';
 import { routes } from './app.routes';
@@ -38,6 +38,19 @@ describe('app routes', () => {
     expect(contactRoute).toBeDefined();
     expect(contactRoute?.data?.['pageKey']).toBe('contact');
     expect(component?.name).toMatch(/ContactPageComponent$/);
+  });
+
+  it('keeps /admin inside the authenticated shell behind adminAccessGuard', async () => {
+    const shellRoute = routes.find((route) => route.path === '' && route.children);
+    const adminRoute = shellRoute?.children?.find((route) => route.path === 'admin');
+    const componentLoader = adminRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
+    const component = componentLoader ? await componentLoader() : undefined;
+
+    expect(adminRoute).toBeDefined();
+    expect(adminRoute?.canActivate).toEqual([adminAccessGuard]);
+    expect(adminRoute?.data?.['pageKey']).toBe('admin');
+    expect(adminRoute?.title).toBe('Admin | CommanderZone');
+    expect(component?.name).toMatch(/AdminPageComponent$/);
   });
 
   it('renders a not-found page for wildcard routes instead of redirecting to home or dashboard', async () => {

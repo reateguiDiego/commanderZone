@@ -25,12 +25,18 @@ import {
 import { GameplayErrorPayload, GameplayMulliganPublicPlayerState } from '../../../../../core/models/game-realtime.model';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { MulliganOverlayAnimations } from './mulligan-overlay.animations';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 
 type ScryDestination = 'TOP' | 'BOTTOM';
 
+interface MulliganRuleDescriptionLine {
+  readonly key: string;
+  readonly params?: Readonly<Record<string, number>>;
+}
+
 @Component({
   selector: 'app-mulligan-overlay',
-  imports: [GameCardViewComponent, LucideAngularModule],
+  imports: [GameCardViewComponent, LucideAngularModule, RuntimeTranslatePipe],
   templateUrl: './mulligan-overlay.component.html',
   styleUrl: './mulligan-overlay.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -64,7 +70,10 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   readonly bottomOrderMode = computed<BottomOrderMode>(() => this.currentMulligan()?.bottomOrderMode ?? 'NONE');
   readonly status = computed<MulliganPlayerStatus>(() => this.currentMulligan()?.status ?? 'DECIDING');
   readonly bottomSelectionCount = computed(() => this.currentMulligan()?.bottomSelectionCount ?? 0);
-  readonly selectedCountLabel = computed(() => `${this.selectedBottomIds().length} / ${this.bottomSelectionCount()} seleccionadas`);
+  readonly selectedCountParams = computed(() => ({
+    selected: this.selectedBottomIds().length,
+    total: this.bottomSelectionCount(),
+  }));
   readonly acceptDisabled = computed(() =>
     this.pending()
       || (this.bottomSelectionCount() > 0 && this.selectedBottomIds().length !== this.bottomSelectionCount()),
@@ -74,7 +83,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
 
     return this.publicPlayers().filter((player) => player.playerId !== currentPlayerId);
   });
-  readonly ruleDescription = computed(() => this.descriptionForRule());
+  readonly ruleDescription = computed<readonly MulliganRuleDescriptionLine[]>(() => this.descriptionForRule());
   readonly scryCard = computed(() => this.currentMulligan()?.scryCard ?? null);
 
   private readonly animations = new MulliganOverlayAnimations(
@@ -118,22 +127,22 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
     this.animations.destroy();
   }
 
-  ruleLabel(rule: MulliganRule = this.rule()): string {
+  ruleLabelKey(rule: MulliganRule = this.rule()): string {
     const labels: Record<MulliganRule, string> = {
-      LONDON: 'Londres',
-      VANCOUVER: 'Vancouver',
-      PARIS: 'París',
-      GENEROUS: 'Generoso',
+      LONDON: 'game.mulliganOverlay.rules.london',
+      VANCOUVER: 'game.mulliganOverlay.rules.vancouver',
+      PARIS: 'game.mulliganOverlay.rules.paris',
+      GENEROUS: 'game.mulliganOverlay.rules.generous',
     };
 
     return labels[rule];
   }
 
-  statusLabel(status: MulliganPlayerStatus): string {
+  statusLabelKey(status: MulliganPlayerStatus): string {
     const labels: Record<MulliganPlayerStatus, string> = {
-      DECIDING: 'decidiendo',
-      SCRYING: 'haciendo scry',
-      READY: 'listo',
+      DECIDING: 'game.mulliganOverlay.status.deciding',
+      SCRYING: 'game.mulliganOverlay.status.scrying',
+      READY: 'game.mulliganOverlay.status.ready',
     };
 
     return labels[status];
@@ -143,8 +152,10 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
     return this.selectedBottomIdSet().has(card.instanceId);
   }
 
-  bottomCardActionLabel(card: GameCardInstance): string {
-    return this.selectedCard(card) ? 'Quitar del fondo' : 'Mandar al fondo';
+  bottomCardActionLabelKey(card: GameCardInstance): string {
+    return this.selectedCard(card)
+      ? 'game.mulliganOverlay.actions.removeFromBottom'
+      : 'game.mulliganOverlay.actions.putOnBottom';
   }
 
   bottomCardActionDisabled(card: GameCardInstance): boolean {
@@ -259,7 +270,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
     ].join('|');
   }
 
-  private descriptionForRule(): readonly string[] {
+  private descriptionForRule(): readonly MulliganRuleDescriptionLine[] {
     const state = this.currentMulligan();
     const drawCount = state?.drawCount ?? 0;
     const bottomSelectionCount = this.bottomSelectionCount();
@@ -267,23 +278,26 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
     switch (this.rule()) {
       case 'LONDON':
         return bottomSelectionCount === 0
-          ? ['Roba 7. No tienes que mandar cartas al fondo.']
+          ? [{ key: 'game.mulliganOverlay.description.londonNoBottom' }]
           : [
-              `Roba 7. Elige ${bottomSelectionCount} carta(s) para mandar al fondo.`,
-              'El orden elegido será el orden en el fondo.',
+              { key: 'game.mulliganOverlay.description.londonChooseBottom', params: { count: bottomSelectionCount } },
+              { key: 'game.mulliganOverlay.description.londonBottomOrder' },
             ];
       case 'VANCOUVER':
         return state?.needsScryAfterKeep
-          ? [`Roba ${drawCount} carta(s).`, 'Después harás Scry 1.']
-          : [`Roba ${drawCount} carta(s).`];
+          ? [
+              { key: 'game.mulliganOverlay.description.drawCards', params: { count: drawCount } },
+              { key: 'game.mulliganOverlay.description.vancouverScry' },
+            ]
+          : [{ key: 'game.mulliganOverlay.description.drawCards', params: { count: drawCount } }];
       case 'PARIS':
-        return [`Roba ${drawCount} carta(s).`];
+        return [{ key: 'game.mulliganOverlay.description.drawCards', params: { count: drawCount } }];
       case 'GENEROUS':
         return bottomSelectionCount === 0
-          ? [`Roba ${drawCount} carta(s). No tienes que mandar cartas al fondo.`]
+          ? [{ key: 'game.mulliganOverlay.description.generousNoBottom', params: { count: drawCount } }]
           : [
-              `Roba ${drawCount} carta(s). Elige ${bottomSelectionCount} para mandar al fondo en orden aleatorio.`,
-              'El orden final será aleatorio.',
+              { key: 'game.mulliganOverlay.description.generousChooseBottom', params: { drawCount, bottomCount: bottomSelectionCount } },
+              { key: 'game.mulliganOverlay.description.generousRandomOrder' },
             ];
     }
   }

@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Deck\DeckAnalysisService;
+use App\Application\Deck\DeckDerivedTokenResolver;
 use App\Application\Deck\DeckFormatCatalog;
 use App\Application\Deck\DeckValidator;
 use App\Application\Deck\DecklistExporter;
@@ -166,7 +167,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/sections', methods: ['GET'])]
-    public function sections(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    public function sections(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization, DeckDerivedTokenResolver $derivedTokenResolver): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -201,7 +202,7 @@ class DecksController extends ApiController
             }
         }
 
-        $tokenPayload = $this->derivedTokens($deck, $entityManager);
+        $tokenPayload = $derivedTokenResolver->resolve($deck);
         $sections['tokens'] = $tokenPayload['data'];
         $counts['tokens'] = count($tokenPayload['data']);
         $sections = $this->localizeSectionsPayload($sections, $user, $localization);
@@ -214,17 +215,15 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/tokens', methods: ['GET'])]
-    public function tokens(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    public function tokens(string $id, #[CurrentUser] User $user, CardLocalizationService $localization, DeckDerivedTokenResolver $derivedTokenResolver): JsonResponse
     {
-        $deck = $this->ownedDeck($id, $user, $entityManager);
-        if (!$deck) {
+        $payload = $derivedTokenResolver->resolveForOwnedDeck($id, $user->id());
+        if ($payload === null) {
             return $this->fail('Deck not found.', 404);
         }
 
-        $payload = $this->derivedTokens($deck, $entityManager);
-
         return $this->json([
-            'deckId' => $deck->id(),
+            'deckId' => $id,
             ...$this->localizeTokensPayload($payload, $user, $localization),
         ]);
     }
@@ -1049,68 +1048,6 @@ class DecksController extends ApiController
             'reason' => $reason,
             'matches' => array_map(static fn (Card $card): array => $card->toArray(), $matches),
         ];
-    }
-
-    /**
-     * @return array{data:list<array<string,mixed>>,unresolved:list<array<string,mixed>>}
-     */
-    private function derivedTokens(Deck $deck, EntityManagerInterface $entityManager): array
-    {
-        $data = [];
-        $unresolved = [];
-        $seen = [];
-
-        foreach ($deck->cards() as $deckCard) {
-            if (!$deckCard instanceof DeckCard) {
-                continue;
-            }
-
-            $source = $deckCard->card();
-            foreach ($source->allParts() as $part) {
-                if (!is_array($part) || ($part['component'] ?? null) !== 'token') {
-                    continue;
-                }
-
-                $tokenScryfallId = (string) ($part['id'] ?? '');
-                if ($tokenScryfallId === '') {
-                    continue;
-                }
-
-                $key = $source->scryfallId().'|'.$tokenScryfallId;
-                if (isset($seen[$key])) {
-                    continue;
-                }
-                $seen[$key] = true;
-
-                $token = $entityManager->getRepository(Card::class)->findOneBy(['scryfallId' => $tokenScryfallId]);
-                $sourcePayload = [
-                    'scryfallId' => $source->scryfallId(),
-                    'name' => $source->name(),
-                    'section' => $deckCard->section(),
-                ];
-
-                if ($token instanceof Card) {
-                    $data[] = [
-                        'sourceCard' => $sourcePayload,
-                        'token' => $token->toArray(),
-                        'resolved' => true,
-                    ];
-                    continue;
-                }
-
-                $unresolved[] = [
-                    'sourceCard' => $sourcePayload,
-                    'token' => [
-                        'scryfallId' => $tokenScryfallId,
-                        'name' => (string) ($part['name'] ?? 'Unknown token'),
-                        'uri' => $part['uri'] ?? null,
-                    ],
-                    'resolved' => false,
-                ];
-            }
-        }
-
-        return ['data' => $data, 'unresolved' => $unresolved];
     }
 
     /**

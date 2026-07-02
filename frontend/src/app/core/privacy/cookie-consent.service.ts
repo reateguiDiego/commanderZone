@@ -1,21 +1,42 @@
 import { isPlatformBrowser } from '@angular/common';
 import { PLATFORM_ID, computed, inject, Injectable, signal } from '@angular/core';
-import { AnalyticsConsentState } from './analytics.service';
 
 export type CookieConsentDecision = 'pending' | 'accepted' | 'rejected' | 'custom';
 
-export interface CookieConsentPreferences {
-  readonly analytics: boolean;
+export type ConsentModeValue = 'granted' | 'denied';
+
+export interface GoogleConsentModeState {
+  readonly adPersonalization: ConsentModeValue;
+  readonly adStorage: ConsentModeValue;
+  readonly adUserData: ConsentModeValue;
+  readonly analyticsStorage: ConsentModeValue;
 }
 
-export interface CookieConsentState extends CookieConsentPreferences {
+export interface CookieConsentState {
+  readonly version: 3;
+  readonly essential: true;
+  readonly preferences: true;
+  readonly adsAvailable: true;
+  readonly ads: false;
   readonly decision: CookieConsentDecision;
   readonly updatedAt: string | null;
 }
 
+interface StoredCookieConsentState {
+  readonly decision?: unknown;
+  readonly updatedAt?: unknown;
+  readonly analytics?: unknown;
+  readonly ads?: unknown;
+}
+
 const STORAGE_KEY = 'commanderzone.cookieConsent';
+const STORAGE_VERSION = 3;
 const DEFAULT_STATE: CookieConsentState = {
-  analytics: false,
+  version: STORAGE_VERSION,
+  essential: true,
+  preferences: true,
+  adsAvailable: true,
+  ads: false,
   decision: 'pending',
   updatedAt: null,
 };
@@ -24,39 +45,65 @@ const DEFAULT_STATE: CookieConsentState = {
 export class CookieConsentService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly stateSignal = signal<CookieConsentState>(this.readStoredState());
+  private readonly preferencesPanelOpenSignal = signal(false);
 
   readonly state = this.stateSignal.asReadonly();
   readonly hasDecision = computed(() => this.state().decision !== 'pending');
-  readonly canUseAnalytics = computed(() => this.state().analytics);
-  readonly googleConsentModeState = computed<AnalyticsConsentState>(() => ({
+  readonly canUsePreferences = computed(() => this.state().preferences);
+  readonly canUseAds = computed(() => this.state().ads);
+  readonly preferencesPanelOpen = this.preferencesPanelOpenSignal.asReadonly();
+  readonly googleConsentModeState = computed<GoogleConsentModeState>(() => ({
     adPersonalization: 'denied',
     adStorage: 'denied',
     adUserData: 'denied',
-    analyticsStorage: this.canUseAnalytics() ? 'granted' : 'denied',
+    analyticsStorage: 'denied',
   }));
 
   acceptAll(): void {
     this.saveState({
-      analytics: true,
+      version: STORAGE_VERSION,
+      essential: true,
+      preferences: true,
+      adsAvailable: true,
+      ads: false,
       decision: 'accepted',
       updatedAt: new Date().toISOString(),
     });
+    this.closePreferences();
   }
 
   rejectAll(): void {
     this.saveState({
-      analytics: false,
+      version: STORAGE_VERSION,
+      essential: true,
+      preferences: true,
+      adsAvailable: true,
+      ads: false,
       decision: 'rejected',
       updatedAt: new Date().toISOString(),
     });
+    this.closePreferences();
   }
 
-  savePreferences(preferences: CookieConsentPreferences): void {
+  savePreferences(): void {
     this.saveState({
-      analytics: preferences.analytics,
+      version: STORAGE_VERSION,
+      essential: true,
+      preferences: true,
+      adsAvailable: true,
+      ads: false,
       decision: 'custom',
       updatedAt: new Date().toISOString(),
     });
+    this.closePreferences();
+  }
+
+  openPreferences(): void {
+    this.preferencesPanelOpenSignal.set(true);
+  }
+
+  closePreferences(): void {
+    this.preferencesPanelOpenSignal.set(false);
   }
 
   private saveState(state: CookieConsentState): void {
@@ -82,7 +129,7 @@ export class CookieConsentService {
     }
 
     try {
-      const parsed = JSON.parse(rawState) as Partial<CookieConsentState>;
+      const parsed = JSON.parse(rawState) as StoredCookieConsentState;
       return normalizeStoredState(parsed);
     } catch {
       storage.removeItem(STORAGE_KEY);
@@ -103,13 +150,17 @@ export class CookieConsentService {
   }
 }
 
-function normalizeStoredState(state: Partial<CookieConsentState>): CookieConsentState {
+function normalizeStoredState(state: StoredCookieConsentState): CookieConsentState {
   if (!isConsentDecision(state.decision)) {
     return DEFAULT_STATE;
   }
 
   return {
-    analytics: state.analytics === true,
+    version: STORAGE_VERSION,
+    essential: true,
+    preferences: true,
+    adsAvailable: true,
+    ads: false,
     decision: state.decision,
     updatedAt: typeof state.updatedAt === 'string' ? state.updatedAt : null,
   };

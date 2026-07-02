@@ -33,27 +33,55 @@ app-player-info {
   max-width: 18.4rem;
 }
 
-.friends-dropdown {
+.admin-tooltip {
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.friends-dropdown,
+.messages-dropdown {
   position: relative;
   flex: 0 0 auto;
 }
 
-.friends-action {
+.admin-action,
+.friends-action,
+.messages-action {
   position: relative;
   display: inline-grid;
   place-items: center;
   min-width: 2.75rem;
   min-height: 2.75rem;
   line-height: 0;
+  overflow: visible;
+}
+
+.admin-action lucide-icon,
+.friends-action lucide-icon,
+.messages-action lucide-icon {
+  display: grid;
+  place-items: center;
+}
+
+.admin-action lucide-icon {
+  color: var(--cz-primary);
+}
+
+.admin-action.active {
+  border-color: rgb(var(--cz-primary-rgb) / 45%);
+  background: rgb(var(--cz-primary-rgb) / 12%);
 }
 
 .friends-action lucide-icon {
-  display: grid;
-  place-items: center;
   color: var(--cz-success);
 }
 
-.friends-action.has-notifications {
+.messages-action lucide-icon {
+  color: var(--cz-info);
+}
+
+.friends-action.has-notifications,
+.messages-action.has-notifications {
   animation: friends-action-notification var(--friends-notification-pulse-duration) ease-in-out infinite;
 }
 
@@ -95,7 +123,8 @@ app-player-info {
   box-shadow: 0 0 12px rgb(var(--cz-success-rgb) / 52%);
 }
 
-.friends-dropdown app-friends-dropdown {
+.friends-dropdown app-friends-dropdown,
+.messages-dropdown app-messages-dropdown {
   position: absolute;
   top: calc(100% + 0.55rem);
   right: 0;
@@ -103,7 +132,9 @@ app-player-info {
 }
 
 .friends-dropdown.open::before,
-.friends-dropdown.open::after {
+.friends-dropdown.open::after,
+.messages-dropdown.open::before,
+.messages-dropdown.open::after {
   content: '';
   position: absolute;
   right: 0.78rem;
@@ -114,12 +145,14 @@ app-player-info {
   pointer-events: none;
 }
 
-.friends-dropdown.open::before {
+.friends-dropdown.open::before,
+.messages-dropdown.open::before {
   z-index: 10;
   background: rgb(var(--cz-primary-rgb) / 48%);
 }
 
-.friends-dropdown.open::after {
+.friends-dropdown.open::after,
+.messages-dropdown.open::after {
   z-index: 400;
   width: 1.06rem;
   height: 0.67rem;
@@ -139,7 +172,7 @@ app-player-info {
 
   .user-strip {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
     align-self: center;
     gap: 0.42rem;
     align-items: center;
@@ -164,15 +197,56 @@ app-player-info {
   }
 
   .user-strip.friends-hidden {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
   }
 
   .user-strip.friends-hidden app-player-info {
     max-width: min(18.4rem, 62vw);
   }
 
-  .user-strip.friends-hidden app-header-user-menu {
+  .user-strip.has-admin {
+    grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  }
+
+  .user-strip.has-admin.friends-hidden {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+  }
+
+  .user-strip.has-admin .admin-tooltip {
     grid-column: 2;
+    grid-row: 1;
+  }
+
+  .user-strip.has-admin .friends-dropdown {
+    grid-column: 3;
+  }
+
+  .user-strip.has-admin .messages-dropdown {
+    grid-column: 4;
+  }
+
+  .user-strip.has-admin app-header-user-menu {
+    grid-column: 5;
+  }
+
+  .user-strip.has-admin.friends-hidden .admin-tooltip {
+    grid-column: 2;
+  }
+
+  .user-strip.friends-hidden .messages-dropdown {
+    grid-column: 2;
+  }
+
+  .user-strip.has-admin.friends-hidden .messages-dropdown {
+    grid-column: 3;
+  }
+
+  .user-strip.friends-hidden app-header-user-menu {
+    grid-column: 3;
+  }
+
+  .user-strip.has-admin.friends-hidden app-header-user-menu {
+    grid-column: 4;
   }
 
   .friends-dropdown {
@@ -181,19 +255,28 @@ app-player-info {
     align-self: center;
   }
 
-  app-header-user-menu {
+  .messages-dropdown {
     grid-column: 3;
     grid-row: 1;
     align-self: center;
   }
 
-  .friends-dropdown app-friends-dropdown {
+  app-header-user-menu {
+    grid-column: 4;
+    grid-row: 1;
+    align-self: center;
+  }
+
+  .friends-dropdown app-friends-dropdown,
+  .messages-dropdown app-messages-dropdown {
     top: calc(100% + 0.55rem);
     right: calc(-2.75rem - 0.42rem);
     left: auto;
   }
 
-  .friends-action {
+  .admin-action,
+  .friends-action,
+  .messages-action {
     min-width: 2.65rem;
     min-height: 2.65rem;
   }
@@ -216,28 +299,33 @@ app-player-info {
 }
 
 @media (max-width: 1400px), (orientation: portrait) {
-  .friends-dropdown {
+  .friends-dropdown,
+  .messages-dropdown {
     position: relative;
   }
 
-  .friends-dropdown app-friends-dropdown {
+  .friends-dropdown app-friends-dropdown,
+  .messages-dropdown app-messages-dropdown {
     position: absolute;
     top: calc(100% + 0.55rem);
     right: 0;
     left: auto;
   }
 
-  .friends-dropdown.open::after {
+  .friends-dropdown.open::after,
+  .messages-dropdown.open::after {
     display: block;
   }
 
-  .friends-dropdown.open::before {
+  .friends-dropdown.open::before,
+  .messages-dropdown.open::before {
     display: block;
   }
 }
 
 @media (max-width: 980px) {
-  .friends-dropdown app-friends-dropdown {
+  .friends-dropdown app-friends-dropdown,
+  .messages-dropdown app-messages-dropdown {
     right: calc(-2.75rem - 0.42rem);
   }
 }

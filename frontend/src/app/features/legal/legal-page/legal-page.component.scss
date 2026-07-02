@@ -115,6 +115,32 @@
   font-size: clamp(1.2rem, 3vw, 1.65rem);
 }
 
+.legal-page__section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding-top: .15rem;
+}
+
+.legal-page__section-actions a {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 20%);
+  border-radius: 7px;
+  padding: 0 .75rem;
+  background: rgb(var(--cz-primary-rgb) / 10%);
+  color: var(--gold);
+  font-size: .9rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.legal-page__section-actions a:hover {
+  border-color: rgb(var(--cz-primary-rgb) / 34%);
+  background: rgb(var(--cz-primary-rgb) / 16%);
+}
+
 @media (width >= 48rem) {
   .legal-page {
     width: min(100% - 2rem, 72rem);

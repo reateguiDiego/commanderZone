@@ -99,6 +99,7 @@ describe('CardSearchComponent', () => {
 
     expect(fixture.nativeElement.textContent).not.toContain('WIP: cards-page');
     expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Cards');
+    expect(TestBed.inject(PageHeaderStore).state()?.context).toBe('cards');
     expect(TestBed.inject(PageHeaderStore).state()?.heroRule).toBe(true);
     expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[0]?.id).toBe('card-search-language-disclaimer');
     expect(TestBed.inject(PageHeaderStore).state()?.titleActions?.[0]?.tooltipTriggerMode).toBe('click');

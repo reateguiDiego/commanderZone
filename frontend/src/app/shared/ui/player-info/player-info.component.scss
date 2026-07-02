@@ -23,6 +23,46 @@
   padding: 0.12rem 0;
 }
 
+.player-info.is-commander-zone {
+  min-width: 0;
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.player-info-official-logo {
+  display: inline-grid;
+  width: var(--player-info-official-logo-width, 7.2rem);
+  max-width: 100%;
+  min-width: 0;
+  place-items: center;
+  filter:
+    drop-shadow(0 0 0.35rem rgb(var(--cz-bg-rgb) / 54%))
+    drop-shadow(0 0 0.55rem rgb(var(--cz-primary-rgb) / 20%));
+}
+
+.player-info-official-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.player-info.size-xs .player-info-official-logo {
+  --player-info-official-logo-width: 5.2rem;
+}
+
+.player-info.size-sm .player-info-official-logo {
+  --player-info-official-logo-width: 6rem;
+}
+
+.player-info.size-lg .player-info-official-logo {
+  --player-info-official-logo-width: 8.4rem;
+}
+
+.player-info.size-xl .player-info-official-logo {
+  --player-info-official-logo-width: 9.4rem;
+}
+
 .player-info-avatar {
   filter: var(--player-info-avatar-filter, drop-shadow(0 0 0.55rem rgb(var(--cz-primary-rgb) / 18%)));
 }

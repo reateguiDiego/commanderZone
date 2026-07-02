@@ -8,9 +8,13 @@ import { CardSearchResultsComponent } from './card-search-results.component';
 describe('CardSearchResultsComponent', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   beforeEach(async () => {
+    vi.stubGlobal('innerWidth', 1024);
+    vi.stubGlobal('innerHeight', 768);
+
     await TestBed.configureTestingModule({
       imports: [CardSearchResultsComponent],
       providers: [
@@ -61,7 +65,7 @@ describe('CardSearchResultsComponent', () => {
     expect(menu.textContent).toContain('Show details');
     expect(menu.textContent).toContain('Add to deck');
     expect(menu.textContent).toContain('Show rulings');
-    expect(menu.textContent).toContain('View all editions');
+    expect(menu.textContent).toContain('View all printings');
     expect(menu.style.left).toBe('34px');
     expect(menu.style.top).toBe('142px');
   });

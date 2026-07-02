@@ -97,6 +97,11 @@ final class CardSearchFilterBuilder
             $params['commanderLegal'] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN);
         }
 
+        $commanderCandidate = $request->query->get('commanderCandidate');
+        if ($commanderCandidate !== null && $commanderCandidate !== '' && filter_var($commanderCandidate, FILTER_VALIDATE_BOOLEAN)) {
+            $filters[] = CommanderCandidateSql::condition('c');
+        }
+
         $tokenOnly = $request->query->get('tokenOnly');
         if ($tokenOnly !== null && $tokenOnly !== '' && filter_var($tokenOnly, FILTER_VALIDATE_BOOLEAN)) {
             $filters[] = '(c.layout IN (:tokenLayout, :doubleFacedTokenLayout) OR LOWER(c.type_line) LIKE :tokenTypeLine)';
@@ -332,22 +337,28 @@ SQL;
             throw new \InvalidArgumentException('oracleTextMode filter is invalid.');
         }
 
+        $exact = filter_var($request->query->get('oracleTextExact'), FILTER_VALIDATE_BOOLEAN);
         $conditions = [];
         foreach ($texts as $index => $text) {
             $param = 'oracleText'.($index + 1);
+            $operator = $exact ? '~' : 'LIKE';
             $conditions[] = sprintf(
-                "(%s LIKE :%s OR EXISTS (
+                "(%s %s :%s OR EXISTS (
                     SELECT 1
                     FROM card_print_locale oracle_locale
                     WHERE oracle_locale.print_scryfall_id = c.scryfall_id
-                      AND %s LIKE :%s
+                      AND %s %s :%s
                 ))",
                 $this->foldedSearchSql("COALESCE(c.oracle_text, '') || ' ' || COALESCE(c.card_faces::text, '')"),
+                $operator,
                 $param,
                 $this->foldedSearchSql("COALESCE(oracle_locale.oracle_text, '') || ' ' || COALESCE(oracle_locale.card_faces::text, '')"),
+                $operator,
                 $param,
             );
-            $params[$param] = '%'.$this->normalizeSearchText($text).'%';
+            $params[$param] = $exact
+                ? $this->exactTextPattern($text)
+                : '%'.$this->normalizeSearchText($text).'%';
         }
 
         $filters[] = '('.implode($mode === 'and' ? ' AND ' : ' OR ', $conditions).')';
@@ -508,6 +519,14 @@ SQL;
         $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $normalized);
 
         return is_string($converted) && $converted !== '' ? mb_strtolower($converted) : $normalized;
+    }
+
+    private function exactTextPattern(string $value): string
+    {
+        $escaped = preg_quote($this->normalizeSearchText($value));
+        $escaped = (string) preg_replace('/\s+/', '[[:space:]]+', $escaped);
+
+        return '(^|[^[:alnum:]_])'.$escaped.'([^[:alnum:]_]|$)';
     }
 
     private function foldedSearchSql(string $expression): string

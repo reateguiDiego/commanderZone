@@ -31,6 +31,7 @@ security:
         - { path: ^/auth/email-availability$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/display-name-availability$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/auth/google/exchange$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/refresh$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/logout$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/password-reset/request$, roles: PUBLIC_ACCESS }

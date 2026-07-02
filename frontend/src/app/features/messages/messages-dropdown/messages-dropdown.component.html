@@ -1,0 +1,90 @@
+<section class="messages-menu" [attr.aria-label]="'navigation.messages.messagesDropdown.messages' | runtimeTranslate">
+  <header class="messages-header">
+    <div>
+      <p>{{ 'navigation.messages.messagesDropdown.messages' | runtimeTranslate }}</p>
+      <h2>{{ 'navigation.messages.messagesDropdown.inbox' | runtimeTranslate }}</h2>
+    </div>
+    @if (store.unreadCount() > 0) {
+      <span class="messages-count">{{ store.unreadCount() }}</span>
+    }
+  </header>
+
+  <div class="messages-body">
+    @if (store.error(); as error) {
+      <p class="messages-notice error">{{ error }}</p>
+    }
+
+    @if (store.loading() && store.messages().length === 0) {
+      <p class="messages-notice">{{ 'navigation.messages.messagesDropdown.loadingMessages' | runtimeTranslate }}</p>
+    } @else if (store.messages().length === 0) {
+      <p class="messages-notice">{{ 'navigation.messages.messagesDropdown.noMessagesYet' | runtimeTranslate }}</p>
+    } @else {
+      <div class="messages-layout">
+        <div
+          appPrettyScroll
+          class="messages-list"
+          [attr.aria-label]="'navigation.messages.messagesDropdown.receivedMessages' | runtimeTranslate"
+        >
+          @for (message of store.messages(); track message.id) {
+            <button
+              type="button"
+              class="message-row"
+              [class.is-selected]="store.selectedMessage()?.id === message.id"
+              [class.is-unread]="message.readAt === null"
+              (click)="selectMessage(message.id)"
+            >
+              <span class="message-row-heading">
+                <span class="message-row-title">{{ message.subject }}</span>
+                <span class="message-status message-row-status" [class.is-unread]="message.readAt === null">
+                  {{
+                    message.readAt === null
+                      ? ('navigation.messages.messagesDropdown.unread' | runtimeTranslate)
+                      : ('navigation.messages.messagesDropdown.read' | runtimeTranslate)
+                  }}
+                </span>
+              </span>
+              <span class="message-row-sender">
+                <span class="message-row-sender-label">{{ 'navigation.messages.messagesDropdown.sentBy' | runtimeTranslate }}</span>
+                <app-player-info
+                  class="message-sender-info"
+                  [displayName]="message.sender.displayName"
+                  [avatar]="message.sender.avatar"
+                  [nameStyle]="message.sender.displayNameStyle"
+                  size="xs"
+                  [interactive]="false"
+                />
+              </span>
+            </button>
+          }
+        </div>
+
+        @if (store.selectedMessage(); as message) {
+          <article appPrettyScroll class="message-detail">
+            <header>
+              <span class="message-status" [class.is-unread]="message.readAt === null">
+                {{
+                  message.readAt === null
+                    ? ('navigation.messages.messagesDropdown.unread' | runtimeTranslate)
+                    : ('navigation.messages.messagesDropdown.read' | runtimeTranslate)
+                }}
+              </span>
+              <h3>{{ message.subject }}</h3>
+              <div class="message-detail-sender-row">
+                <span>{{ 'navigation.messages.messagesDropdown.sentBy' | runtimeTranslate }}</span>
+                <app-player-info
+                  class="message-detail-sender"
+                  [displayName]="message.sender.displayName"
+                  [avatar]="message.sender.avatar"
+                  [nameStyle]="message.sender.displayNameStyle"
+                  size="sm"
+                  [interactive]="false"
+                />
+              </div>
+            </header>
+            <app-message-body class="message-body" [body]="message.body" />
+          </article>
+        }
+      </div>
+    }
+  </div>
+</section>

@@ -1,0 +1,120 @@
+<section class="admin-reports-panel" aria-labelledby="admin-reports-title">
+  <header class="admin-reports-header">
+    <h2 id="admin-reports-title">Reports</h2>
+    <button type="button" czButton="secondary" czButtonSize="sm" (click)="loadReports()" [disabled]="isLoading()">
+      Refresh
+    </button>
+  </header>
+
+  @if (errorMessage(); as error) {
+    <p class="admin-reports-alert" role="alert">{{ error }}</p>
+  }
+
+  <div class="admin-reports-filters" aria-label="Report filters">
+    <label class="admin-reports-search">
+      <span>Reporter</span>
+      <input
+        type="search"
+        name="reporterSearch"
+        placeholder="Username, mail..."
+        [value]="reporterQuery()"
+        (input)="updateReporterQuery($event)"
+      />
+    </label>
+
+    <label class="admin-reports-search">
+      <span>Reported user</span>
+      <input
+        type="search"
+        name="reportedUserSearch"
+        placeholder="Username, mail..."
+        [value]="reportedUserQuery()"
+        (input)="updateReportedUserQuery($event)"
+      />
+    </label>
+  </div>
+
+  <div class="admin-reports-table-wrap">
+    <table class="admin-reports-table">
+      <thead>
+        <tr>
+          <th scope="col">Reporter</th>
+          <th scope="col">Reporter mail</th>
+          <th scope="col">Reported user</th>
+          <th scope="col">Reported mail</th>
+          <th scope="col">Reason</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (isLoading() && reports().length === 0) {
+          <tr>
+            <td colspan="6">
+              <p class="admin-reports-empty">Loading reports...</p>
+            </td>
+          </tr>
+        } @else if (reports().length === 0) {
+          <tr>
+            <td colspan="6">
+              <p class="admin-reports-empty">No user reports yet.</p>
+            </td>
+          </tr>
+        } @else if (filteredReports().length === 0) {
+          <tr>
+            <td colspan="6">
+              <p class="admin-reports-empty">No reports match the current filters.</p>
+            </td>
+          </tr>
+        } @else {
+          @for (report of filteredReports(); track report.id) {
+            <tr>
+              <td data-label="Reporter">
+                <span class="report-username">{{ report.reporter.displayName }}</span>
+              </td>
+              <td data-label="Reporter mail">
+                <span class="report-mail">{{ report.reporter.email }}</span>
+              </td>
+              <td data-label="Reported user">
+                <span class="report-username">{{ report.reportedUser.displayName }}</span>
+              </td>
+              <td data-label="Reported mail">
+                <span class="report-mail">{{ report.reportedUser.email }}</span>
+              </td>
+              <td data-label="Reason">
+                <span class="report-reason">{{ report.reason }}</span>
+              </td>
+              <td data-label="Actions">
+                <div class="admin-reports-actions">
+                  <app-tooltip text="Message reporter" align="end">
+                    <button
+                      type="button"
+                      class="admin-reports-icon-action"
+                      czButton="icon"
+                      czButtonSize="sm"
+                      [attr.aria-label]="'Send message to reporter ' + report.reporter.displayName"
+                      (click)="requestSendMessageToReporter(report)"
+                    >
+                      <lucide-icon name="send" size="16" aria-hidden="true" />
+                    </button>
+                  </app-tooltip>
+                  <app-tooltip text="Message reported user" align="end">
+                    <button
+                      type="button"
+                      class="admin-reports-icon-action"
+                      czButton="icon"
+                      czButtonSize="sm"
+                      [attr.aria-label]="'Send message to reported user ' + report.reportedUser.displayName"
+                      (click)="requestSendMessage(report)"
+                    >
+                      <lucide-icon name="send" size="16" aria-hidden="true" />
+                    </button>
+                  </app-tooltip>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

@@ -213,15 +213,22 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
   width: fit-content;
-  min-width: 2rem;
+  min-width: 5rem;
   min-height: 2rem;
-  padding: 0;
+  padding: 0 0.6rem;
   border: 1px solid rgb(var(--pill-rgb) / 38%);
   border-radius: 6px;
   background: rgb(var(--pill-rgb) / 12%);
   color: var(--cz-warning);
   backdrop-filter: blur(8px);
+}
+
+.visibility-pill-label {
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1;
 }
 
 .visibility-pill.public {

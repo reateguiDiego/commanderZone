@@ -34,14 +34,25 @@
 
     <div class="filter-panel__body">
       <div class="filter-panel__body-inner">
-        <div class="text-match-toggle">
-          <app-toggle
-            [label]="textModeToggleLabel() | runtimeTranslate"
-            [description]="textModeToggleDescription() | runtimeTranslate"
-            [disabled]="!filterEnabled('text')"
-            [checked]="model.oracleTextMode === 'or'"
-            (checkedChange)="setTextModeFromToggle($event)"
-          />
+        <div class="text-grid text-toggle-grid">
+          <div class="text-match-toggle">
+            <app-toggle
+              [label]="textModeToggleLabel() | runtimeTranslate"
+              [description]="textModeToggleDescription() | runtimeTranslate"
+              [disabled]="!filterEnabled('text')"
+              [checked]="model.oracleTextMode === 'or'"
+              (checkedChange)="setTextModeFromToggle($event)"
+            />
+          </div>
+          <div class="text-match-toggle">
+            <app-toggle
+              [label]="'deckBuilder.cards.cardSearch.form.textExact' | runtimeTranslate"
+              [description]="'deckBuilder.cards.cardSearch.form.textExactDescription' | runtimeTranslate"
+              [disabled]="!filterEnabled('text')"
+              [checked]="model.oracleTextExact"
+              (checkedChange)="setTextExactFromToggle($event)"
+            />
+          </div>
         </div>
         <div class="text-grid">
           <label class="field">
@@ -95,7 +106,14 @@
                 (click)="toggleType(option.code, !selected(model.types, option.code))"
               >
                 <i class="icon-choice__icon" [appManaIcon]="typeIcon(option.code)" manaIconKind="mechanic" aria-hidden="true"></i>
-                <span>{{ option.name }}</span>
+                <span
+                  czTextFit
+                  czTextFitMinScale="0.68"
+                  [czTextFitDisabled]="!iconChoiceNeedsCompactLabel(option.name)"
+                  [style.font-size]="iconChoiceLabelFontSize(option.name)"
+                >
+                  {{ option.name }}
+                </span>
               </button>
             }
           </div>
@@ -262,7 +280,14 @@
               (click)="model.artifact = !model.artifact"
             >
               <i class="icon-choice__icon" appManaIcon="artifact" manaIconKind="mechanic" aria-hidden="true"></i>
-              <span>{{ 'deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate }}</span>
+              <span
+                czTextFit
+                czTextFitMinScale="0.68"
+                [czTextFitDisabled]="!iconChoiceNeedsCompactLabel('deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate)"
+                [style.font-size]="iconChoiceLabelFontSize('deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate)"
+              >
+                {{ 'deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate }}
+              </span>
             </button>
             <button
               type="button"
@@ -275,7 +300,14 @@
               (click)="model.multicolor = !model.multicolor"
             >
               <i class="icon-choice__icon" appManaIcon="multicolor" manaIconKind="mechanic" aria-hidden="true"></i>
-              <span>{{ 'deckBuilder.cards.cardSearch.form.multicolor' | runtimeTranslate }}</span>
+              <span
+                czTextFit
+                czTextFitMinScale="0.68"
+                [czTextFitDisabled]="!iconChoiceNeedsCompactLabel('deckBuilder.cards.cardSearch.form.multicolor' | runtimeTranslate)"
+                [style.font-size]="iconChoiceLabelFontSize('deckBuilder.cards.cardSearch.form.multicolor' | runtimeTranslate)"
+              >
+                {{ 'deckBuilder.cards.cardSearch.form.multicolor' | runtimeTranslate }}
+              </span>
             </button>
             <button
               type="button"
@@ -288,7 +320,14 @@
               (click)="model.land = !model.land"
             >
               <i class="icon-choice__icon" appManaIcon="land" manaIconKind="mechanic" aria-hidden="true"></i>
-              <span>{{ 'deckBuilder.cards.cardSearch.form.land' | runtimeTranslate }}</span>
+              <span
+                czTextFit
+                czTextFitMinScale="0.68"
+                [czTextFitDisabled]="!iconChoiceNeedsCompactLabel('deckBuilder.cards.cardSearch.form.land' | runtimeTranslate)"
+                [style.font-size]="iconChoiceLabelFontSize('deckBuilder.cards.cardSearch.form.land' | runtimeTranslate)"
+              >
+                {{ 'deckBuilder.cards.cardSearch.form.land' | runtimeTranslate }}
+              </span>
             </button>
           </div>
         </div>

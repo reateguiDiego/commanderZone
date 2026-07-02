@@ -16,8 +16,8 @@ describe('GameDisconnectVoteModalComponent', () => {
   it('renders vote labels', () => {
     const component = fixture.componentInstance;
 
-    expect(component.voteLabel('wait')).toBe('Esperar');
-    expect(component.voteLabel('expel')).toBe('Expulsar');
-    expect(component.voteLabel(null)).toBe('Sin voto');
+    expect(component.voteLabel('wait')).toBe('game.gameDisconnectVoteModal.wait');
+    expect(component.voteLabel('expel')).toBe('game.gameDisconnectVoteModal.expel');
+    expect(component.voteLabel(null)).toBe('game.gameDisconnectVoteModal.noVote');
   });
 });

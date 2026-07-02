@@ -1,5 +1,5 @@
 ﻿import { Routes } from '@angular/router';
-import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { adminAccessGuard, authGuard, guestGuard } from './core/auth/auth.guard';
 import { SEO_LANDING_ROUTES } from './features/seo-landings/seo-landing.routes';
 import { LEGAL_ROUTES } from './features/legal/legal.routes';
 
@@ -79,6 +79,14 @@ export const routes: Routes = [
     canActivate: [authGuard],
     data: { pageKey: 'app' },
     children: [
+      {
+        path: 'admin',
+        loadComponent: () => import('./features/admin/admin-page/admin-page.component')
+          .then((component) => component.AdminPageComponent),
+        canActivate: [adminAccessGuard],
+        data: { pageKey: 'admin' },
+        title: 'Admin | CommanderZone',
+      },
       {
         path: 'dashboard',
         loadComponent: () => import('./features/dashboard/dashboard-home/dashboard-home.component')

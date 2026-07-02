@@ -1,51 +1,51 @@
 <section class="landing-page">
-  <nav class="landing-nav" aria-label="Account actions">
+  <nav class="landing-nav" [attr.aria-label]="'onboarding.accountActions' | runtimeTranslate">
     <a class="brand-mark" routerLink="/">
       <img [src]="themeAssets.czLogoUrl()" alt="CommanderZone" />
     </a>
     <div class="landing-auth-actions">
-      <a czButton="secondary" czButtonSize="sm" class="secondary-button compact" routerLink="/auth/login">Login</a>
-      <a czButton="primary" czButtonSize="sm" class="primary-button compact" routerLink="/auth/register">Sign up</a>
+      <a czButton="secondary" czButtonSize="sm" class="secondary-button compact" routerLink="/auth/login">{{ 'auth.authPage.login' | runtimeTranslate }}</a>
+      <a czButton="primary" czButtonSize="sm" class="primary-button compact" routerLink="/auth/register">{{ 'auth.authPage.register' | runtimeTranslate }}</a>
     </div>
   </nav>
 
   <main class="landing-hero">
     <section class="landing-copy">
-      <span class="eyebrow">Manual Commander table</span>
-      <h1>Play Commander online in seconds</h1>
+      <span class="eyebrow">{{ 'onboarding.hero.eyebrow' | runtimeTranslate }}</span>
+      <h1>{{ 'onboarding.hero.title' | runtimeTranslate }}</h1>
       <p>
-        Build the room, share the link, choose decks and play with a table made for real Commander pods.
+        {{ 'onboarding.hero.description' | runtimeTranslate }}
       </p>
     </section>
 
-    <section class="table-preview" aria-label="CommanderZone table preview">
+    <section class="table-preview" [attr.aria-label]="'onboarding.preview.ariaLabel' | runtimeTranslate">
       <div class="preview-orbit">
         <article class="preview-card host-card">
-          <span>Host</span>
+          <span>{{ 'rooms.roomBrowser.host' | runtimeTranslate }}</span>
           <strong>{{ previewCardName() }}</strong>
-          <small>Ready</small>
+          <small>{{ 'onboarding.preview.ready' | runtimeTranslate }}</small>
         </article>
         <article class="preview-card guest-card">
-          <span>Guest</span>
+          <span>{{ 'onboarding.preview.guest' | runtimeTranslate }}</span>
           <strong>{{ previewDisplayName() }}</strong>
-          <small>Deck pending</small>
+          <small>{{ 'game.opponentMiniBoard.deckPending' | runtimeTranslate }}</small>
         </article>
         <article class="preview-card action-card">
           <img src="/assets/icons/chance/dice_20.png" alt="" />
-          <small>Turn order</small>
+          <small>{{ 'rooms.waitingRoomPlayerCard.turnOrder' | runtimeTranslate }}</small>
         </article>
       </div>
       <div class="preview-core">
-        <strong>One link</strong>
-        <span>Waiting room, deck selection and table flow in one place.</span>
+        <strong>{{ 'onboarding.preview.oneLink' | runtimeTranslate }}</strong>
+        <span>{{ 'onboarding.preview.flow' | runtimeTranslate }}</span>
       </div>
     </section>
   </main>
 
-  <section class="landing-proof" aria-label="Product highlights">
-    <span>Commander-first deck validation</span>
-    <span>Private rooms and invites</span>
-    <span>Manual table, no rules engine noise</span>
+  <section class="landing-proof" [attr.aria-label]="'onboarding.highlights.ariaLabel' | runtimeTranslate">
+    <span>{{ 'onboarding.highlights.deckValidation' | runtimeTranslate }}</span>
+    <span>{{ 'onboarding.highlights.privateRooms' | runtimeTranslate }}</span>
+    <span>{{ 'onboarding.highlights.manualTable' | runtimeTranslate }}</span>
   </section>
 </section>
 

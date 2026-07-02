@@ -84,8 +84,11 @@
   border-radius: 999px;
   background: rgb(var(--cz-info-rgb) / 12%);
   color: var(--cz-text);
-  font-size: 0.74rem;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: calc(0.74rem * var(--cz-text-fit-scale, 1));
   font-weight: 900;
+  text-overflow: ellipsis;
   text-transform: capitalize;
   white-space: nowrap;
 }

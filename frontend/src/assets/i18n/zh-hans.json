@@ -2,994 +2,1531 @@
   "common": {
     "app": {
       "app": {
-        "loading": "Loading"
-      }
+        "loading": "加载中"
+      },
+      "brand": "CommanderZone"
     },
     "footerDisclaimer": {
       "footerDisclaimer": {
-        "disclaimer": "Disclaimer",
-        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by",
+        "disclaimer": "免责声明",
+        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone 是 Fan Content Policy 允许的非官方粉丝内容。未经",
         "wizards": "Wizards",
-        "portionsOfTheMaterialsUsedAreProperty": ". Portions of the materials used are property of",
+        "portionsOfTheMaterialsUsedAreProperty": "。所使用的部分材料属于",
         "wizardsOfTheCoast": "Wizards of the Coast",
         "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
         "magicTheGathering": "Magic: The Gathering®",
         "mtg": "MTG®",
-        "andAllAssociatedLogosCardImagesAnd": ", and all associated logos, card images, and intellectual property are trademarks and/or copyrights of",
-        "llcASubsidiaryOf": "LLC, a subsidiary of",
+        "llcASubsidiaryOf": "LLC，其母公司为",
         "hasbroInc": "Hasbro, Inc",
-        "inTheUnitedStatesAndOtherCountries": "., in the United States and other countries.",
-        "text19932025WizardsOfTheCoastLlc": "© 1993-2025 Wizards of the Coast LLC",
-        "allRightsReserved": ". All rights reserved.",
-        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone may display or reference certain",
-        "intellectualPropertyUnderTheGuidelinesSetForth": "intellectual property under the guidelines set forth in",
+        "inTheUnitedStatesAndOtherCountries": ".，在美国和其他国家。",
+        "allRightsReserved": "。版权所有。",
+        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone 可能会显示或引用某些",
+        "intellectualPropertyUnderTheGuidelinesSetForth": "知识产权根据中规定的指导方针",
         "wizardsFanContentPolicy": "Wizards' Fan Content Policy",
-        "thisSiteDoesNotSellProductsHost": ". This site does not sell products, host tournaments, or offer any ranked or competitive services. All features are provided free of charge and are intended solely for non-commercial, educational, and entertainment use by the",
+        "thisSiteDoesNotSellProductsHost": "。本网站不销售产品、不举办锦标赛，也不提供任何排名或竞技服务。所有功能均免费提供，仅供社区以非商业、教育和娱乐用途使用",
         "magicTheGathering1": "Magic: The Gathering",
-        "community": "community.",
-        "forMoreInformationOn": "For more information on",
-        "andTheirIntellectualPropertyPoliciesPleaseVisit": "and their intellectual property policies, please visit:",
-        "ifYouAreTheRightsHolderAnd": "If you are the rights holder and believe any content on this website violates your rights, please contact us directly to resolve the matter. Contact us, view our Help &amp; FAQ, or check our Press Kit."
+        "community": "社区。",
+        "forMoreInformationOn": "欲了解更多信息",
+        "andTheirIntellectualPropertyPoliciesPleaseVisit": "及其知识产权政策，请访问：",
+        "ifYouAreTheRightsHolderAnd": "如果您是权利人并认为本网站的任何内容侵犯了您的权利，请直接联系我们解决问题。",
+        "copyrightYears": "© 1993-{{ currentYear }} Wizards of the Coast LLC",
+        "viewHelpOrPressKit": "请查看 Help & FAQ 或 Press Kit。",
+        "trademarkedLogosImagesAndIpNotice": "，以及所有相关标志、牌图像和知识产权均为以下公司的商标和/或版权",
+        "staticWizardsCopyrightYears": "© 1993-2025 Wizards of the Coast LLC"
       }
     },
     "visibility": {
       "visibilityChoice": {
-        "public": "Public",
-        "private": "Private"
+        "public": "公开",
+        "private": "私密",
+        "label": "可见性",
+        "privacy": "隐私",
+        "privateOnlyYouSubtitle": "只有你能看到",
+        "privateSubtitle": "仅限受邀者",
+        "publicPlayersSubtitle": "其他玩家可见",
+        "publicProfileSubtitle": "在公开资料上可见",
+        "publicSubtitle": "任何玩家都可以加入"
+      },
+      "visibilityPill": {
+        "public": "公开",
+        "private": "私密"
       }
     },
     "extraActions": {
       "label": "Extras",
-      "open": "Open extra actions",
-      "menu": "Extra actions"
+      "open": "打开额外操作",
+      "menu": "额外操作"
     },
     "navigation": {
       "back": "返回"
+    },
+    "actions": {
+      "accept": "接受",
+      "confirm": "确认",
+      "create": "创建",
+      "delete": "删除",
+      "done": "完成",
+      "invite": "邀请",
+      "roll": "掷骰",
+      "save": "保存",
+      "select": "选择",
+      "sending": "正在发送...",
+      "understood": "明白了",
+      "working": "处理中...",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "previous": "上一个",
+      "next": "下一个",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "remove": "移除",
+      "newGame": "新对局"
+    },
+    "modal": {
+      "cancel": "取消",
+      "cannotBeUndone": "此操作无法撤消。",
+      "close": "关闭"
     }
   },
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "tuComandanteHaLlegado": "?????????",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
-        "bienvenido": "??"
-      },
-      "dashboardHeaderContext": {
-        "pageSummary": "Page summary"
-      },
-      "dashboardHeaderControls": {
-        "pendingFriendRequests": "Pending friend requests",
-        "onlineFriends": "Online friends",
-        "friends": "Friends"
-      },
-      "dashboardShell": {
-        "commanderzoneDashboard": "CommanderZone dashboard",
-        "primary": "Primary",
-        "decks": "Decks",
-        "rooms": "Rooms",
-        "asistenteDeMesa": "Asistente de Mesa"
+        "commandersArrivalHeadline": "你的指挥官渴望鲜血",
+        "welcome": "欢迎"
       },
       "dashboardTopCommanders": {
-        "title": "Top commanders",
-        "subtitle": "?????????????",
-        "viewAll": "View more",
-        "viewMore": "View more",
-        "communityPopularity": "????????"
+        "title": "热门指挥官",
+        "subtitle": "该赛制中最常使用的指挥官",
+        "communityPopularity": "基于社区进行的对局",
+        "viewMore": "查看更多"
+      },
+      "dashboardHeaderContext": {
+        "pageSummary": "页面摘要"
+      },
+      "dashboardHeaderControls": {
+        "pendingFriendRequests": "待处理的好友请求",
+        "onlineFriends": "在线好友",
+        "friends": "好友",
+        "messages": "消息",
+        "unreadMessages": "未读消息"
+      },
+      "dashboardShell": {
+        "commanderzoneDashboard": "CommanderZone 面板",
+        "primary": "主要",
+        "cards": "牌",
+        "decks": "套牌",
+        "rooms": "房间",
+        "community": "社区",
+        "tableAssistant": "桌面助手",
+        "admin": "Admin"
       }
     },
     "friends": {
       "friendsDropdown": {
-        "emailOrUsername": "Email or username",
-        "friends": "Friends",
-        "userSearchResults": "User search results",
-        "friendList": "Friend list",
-        "searchUsers": "Search users",
-        "sendFriendRequest": "Send friend request",
-        "cancelRequest": "Cancel request",
-        "removeFriend": "Remove friend",
-        "findUsers": "Find users",
-        "noUsersFound": "No users found.",
-        "invitacionDeSala": "Invitacion de sala",
-        "noFriendsOrPendingRequests": "No friends or pending requests."
+        "friends": "好友",
+        "userSearchResults": "用户搜索结果",
+        "friendList": "好友列表",
+        "sendFriendRequest": "发送好友请求",
+        "cancelRequest": "取消请求",
+        "removeFriend": "删除好友",
+        "findUsers": "寻找用户",
+        "noUsersFound": "没有找到用户。",
+        "acceptedStatus": "好友",
+        "blockedStatus": "被阻止",
+        "declinedStatus": "拒绝",
+        "invitations": "邀请函",
+        "inGameStatus": "游戏中",
+        "joinedPlayers": "加入",
+        "offlineStatus": "离线",
+        "online": "在线的",
+        "onlineStatus": "在线的",
+        "pendingStatus": "待办的",
+        "searchHint": "输入至少两个字符来搜索玩家。",
+        "searchPlayers": "搜索玩家...",
+        "searchTab": "搜索",
+        "seats": "座位",
+        "requests": "要求",
+        "receivedRequests": "已收到",
+        "sentRequests": "发送",
+        "disconnected": "已断开连接",
+        "roomInvite": "房间邀请"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "消息",
+        "inbox": "收件箱",
+        "loadingMessages": "正在加载消息...",
+        "noMessagesYet": "暂无消息。",
+        "receivedMessages": "收到的消息",
+        "sentBy": "发送者：",
+        "unread": "未读",
+        "read": "已读",
+        "couldNotLoadMessages": "无法加载消息。",
+        "couldNotMarkMessageRead": "无法将消息标记为已读。"
       }
     }
   },
   "auth": {
     "authPage": {
-      "authMode": "Auth mode",
+      "authMode": "认证模式",
       "commanderzone": "CommanderZone",
-      "accedeATusMazosSalasYMesa": "Accede a tus mazos, salas y mesa manual de Commander.",
-      "login": "Login",
-      "register": "Register",
-      "email": "Email",
-      "emailOrUserName": "邮箱或用户名",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "introduceUnEmailOUserNameValido": "请输入有效的邮箱或用户名。",
-      "invalidCredentials": "邮箱、用户名或密码不正确。",
-      "tooManyLoginAttempts": "登录失败次数过多。请稍后再试。",
-      "loginLockoutWarning": "登录失败 {{ count }}/5。失败 5 次后，登录将被阻止 15 分钟。",
-      "password": "Password",
-      "heOlvidadoMiContrasena": "He olvidado mi contrasena",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula, numero y caracter especial.",
+      "login": "登录",
+      "register": "登记",
+      "email": "电子邮件",
+      "emailOrUserName": "电子邮件或用户名",
+      "invalidCredentials": "电子邮件、用户名或密码无效。",
+      "tooManyLoginAttempts": "登录尝试失败次数太多。请稍后重试。",
+      "loginLockoutWarning": "登录尝试失败 {{ count }}/5。如果失败 5 次，登录将被阻止 15 分钟。",
+      "password": "密码",
+      "userName": "用户名",
       "passwordRequirements": {
-        "label": "Password requirements",
-        "minLength": "Minimo 8 caracteres",
-        "lowercase": "Minimo 1 letra minuscula",
-        "uppercase": "Minimo 1 letra mayuscula",
-        "number": "Minimo 1 numero",
-        "special": "Minimo 1 caracter especial"
+        "label": "密码要求",
+        "minLength": "最少 8 个字符",
+        "lowercase": "至少 1 个小写字母",
+        "uppercase": "至少 1 个大写字母",
+        "number": "至少 1 个号码",
+        "special": "至少 1 个特殊字符"
       },
-      "confirmarPassword": "Confirmar password",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "registrationCompletedCheckEmail": "Registration complete. Check your email and confirm your account."
+      "registrationCompletedCheckEmail": "注册完成。检查您的电子邮件并确认您的帐户。",
+      "createAccount": "创建账户",
+      "accessDecksRoomsAndTable": "访问你的套牌、房间和手动 Commander 桌。",
+      "enterValidEmail": "输入有效的电子邮件。",
+      "enterValidEmailOrUsername": "输入有效的电子邮件或用户名。",
+      "forgotPassword": "我忘记了密码",
+      "checkingEmail": "正在检查电子邮件...",
+      "checkingAvailability": "正在检查可用性...",
+      "passwordPolicySummary": "至少 8 个字符，包括小写字母、大写字母、数字和特殊字符。",
+      "confirmPassword": "确认密码",
+      "passwordsDoNotMatch": "密码不匹配。",
+      "emailAvailable": "可用电子邮件",
+      "emailAlreadyRegistered": "邮箱已注册",
+      "couldNotCheckNow": "现在无法检查",
+      "usernameLengthRequirement": "用户名必须介于 2 到 20 个字符之间。",
+      "usernameAvailable": "用户名可用",
+      "usernameUnavailable": "用户名不可用",
+      "googleUnavailable": "Google 登录目前不可用。",
+      "signInWithGoogle": "使用 Google 登录",
+      "registerWithGoogle": "使用 Google 注册",
+      "socialSignIn": "社交登录",
+      "or": "或"
     },
     "emailVerificationPage": {
-      "confirmingEmail": "Confirming email",
-      "waitWhileWeConfirmYourAccount": "Wait while we confirm your account.",
-      "couldNotConfirmEmail": "Could not confirm your email",
-      "linkInvalidOrExpired": "The verification link is invalid or has expired.",
-      "backToLogin": "Back to login"
+      "confirmingEmail": "确认电子邮件",
+      "waitWhileWeConfirmYourAccount": "等待我们确认您的帐户。",
+      "couldNotConfirmEmail": "无法确认您的电子邮件",
+      "invalidOrExpiredLink": "验证链接无效或已过期。"
     },
     "passwordResetPage": {
-      "recuperarContrasena": "Recuperar contrasena",
-      "solicitaElCorreoDeRecuperacionParaRecibir": "Solicita el correo de recuperacion para recibir un enlace seguro.",
-      "defineTuNuevaContrasenaConElEnlace": "Define tu nueva contrasena con el enlace seguro que recibiste por email.",
-      "email": "Email",
-      "siElEmailExisteSeEnvioUn": "Si el email existe, se envio un correo con el token de recuperacion.",
-      "nuevaContrasena": "Nueva contrasena",
-      "confirmarContrasena": "Confirmar contrasena",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "contrasenaActualizadaIniciandoSesion": "Contrasena actualizada. Iniciando sesion...",
-      "volverAlLogin": "Volver al login"
+      "email": "电子邮件",
+      "requestError": "无法请求恢复电子邮件。",
+      "invalidOrExpiredLink": "恢复链接无效或已过期。",
+      "updateError": "无法使用该令牌更新密码。",
+      "sending": "正在发送...",
+      "sendRecoveryEmail": "发送恢复电子邮件",
+      "updating": "更新中...",
+      "updatePassword": "更新密码",
+      "resetPassword": "重置密码",
+      "requestRecoveryEmailDescription": "请求恢复电子邮件以接收安全链接。",
+      "setNewPasswordDescription": "使用您通过电子邮件收到的安全链接设置新密码。",
+      "newPassword": "新密码",
+      "confirmPassword": "确认密码",
+      "passwordsDoNotMatch": "密码不匹配。",
+      "passwordUpdatedSigningIn": "密码已更新。正在登录...",
+      "recoveryEmailSentIfAccountExists": "如果电子邮件存在，则已发送密码恢复电子邮件。"
     }
   },
   "rooms": {
     "roomBrowser": {
-      "searchRoom": "Search room",
-      "searchOwner": "Search owner",
-      "roomName": "Room name",
-      "owner": "Owner",
-      "visibility": "Visibility",
-      "publicAndPrivate": "All",
-      "publicOnly": "Public",
-      "privateOnly": "Private",
-      "status": "Status",
-      "allStatus": "All status",
-      "anonymous": "Anonymous",
-      "open": "Open",
-      "full": "Full",
-      "started": "Started",
-      "host": "Host",
-      "format": "Format",
-      "players": "Players",
-      "action": "Action",
-      "noRoomsMatchTheCurrentFilters": "No rooms match the current filters."
+      "searchRoom": "搜索房间",
+      "searchOwner": "搜索房主",
+      "roomName": "房间名称",
+      "owner": "房主",
+      "visibility": "可见性",
+      "publicAndPrivate": "全部",
+      "publicOnly": "公开",
+      "privateOnly": "私密",
+      "status": "状态",
+      "anonymous": "匿名",
+      "open": "开放",
+      "full": "已满",
+      "started": "已开始",
+      "host": "房主",
+      "format": "格式",
+      "players": "玩家",
+      "action": "操作",
+      "noRoomsMatchTheCurrentFilters": "没有房间符合当前的过滤条件。",
+      "paginationLabel": "房间列表分页"
     },
     "roomCreatePanel": {
-      "czAbcDef123": "CZ-ABC-DEF-123",
-      "joinByRoomCode": "Join by room code",
-      "join": "Join",
-      "createANewRoom": "Create a new room",
-      "roomSetup": "Room setup",
-      "createRoom": "Create room"
+      "join": "加入",
+      "createANewRoom": "创建一个新房间",
+      "roomSetup": "房间设置",
+      "createRoom": "创建房间",
+      "alreadyInRoomTooltip": "你已经在一个房间中。请先离开当前房间再加入其他房间。",
+      "enterRoomCode": "输入房间代码",
+      "joinWithCode": "用代码加入"
     },
     "roomCurrentBanner": {
-      "currentRoomDetails": "Current room details",
-      "currentRoom": "Current room",
-      "yourDeck": "Your deck",
-      "turn": "Turn"
+      "currentRoomDetails": "当前房间详细信息",
+      "currentRoom": "当前房间",
+      "yourDeck": "你的套牌",
+      "turn": "回合"
     },
     "roomInvitesPanel": {
-      "invites": "Invites",
-      "pendingRoomInvites": "Pending room invites",
-      "accept": "Accept",
-      "decline": "Decline"
+      "invites": "邀请",
+      "pendingRoomInvites": "待处理的房间邀请",
+      "accept": "接受",
+      "decline": "拒绝"
     },
     "roomRow": {
-      "started": "Started",
-      "full": "Full",
-      "open": "Open",
-      "join": "Join"
+      "started": "已开始",
+      "full": "已满",
+      "open": "开放",
+      "join": "加入"
     },
     "rooms": {
-      "borrarSala": "Borrar sala",
-      "mazoRequerido": "Mazo requerido"
+      "validDeckRequiredToCreate": "你需要一副合法套牌才能创建房间。",
+      "deleteRoom": "删除房间",
+      "deckRequired": "需要套牌"
     },
     "roomSetupControls": {
-      "timer": "Timer",
+      "timer": "定时器",
       "mulligan": "Mulligan",
-      "firstMulliganFree": "First mulligan is free",
+      "firstMulliganFree": "首次再调度免费",
       "mulliganDescriptions": {
-        "london": "Draw 7 cards every time. When you keep, put one card on the bottom for each effective mulligan.",
-        "vancouver": "Each effective mulligan draws one fewer card. If you keep after an effective mulligan, you scry 1.",
-        "paris": "Each effective mulligan draws one fewer card. There is no bottom selection and no scry.",
-        "generous": "Commander-friendly rule: draw up to 10 cards, keep 7 when possible, and the server bottoms the rest in random order."
+        "london": "每次抓 7 张牌。决定保留手牌后，每次有效再调度将一张牌置于牌库底。",
+        "vancouver": "每次有效再调度少抓一张牌。若在有效再调度后保留手牌，则占卜 1。",
+        "paris": "每次有效再调度少抓一张牌。你不把牌置于牌库底，也不占卜。",
+        "generous": "适合 Commander 友局的规则：最多抓 10 张，尽量保留 7 张，其余随机置于牌库底。"
       },
-      "firstMulliganFreeOn": "Free",
-      "firstMulliganFreeOff": "Counts"
+      "firstMulliganFreeOn": "免费",
+      "firstMulliganFreeOff": "计入",
+      "mulliganRules": {
+        "generous": "宽松",
+        "london": "London",
+        "paris": "Paris",
+        "vancouver": "Vancouver"
+      },
+      "noTimer": "无计时器"
     },
     "roomSetupModal": {
-      "ejLaTaberna": "Ej. La taberna",
-      "roomName": "Room name",
-      "timer": "Timer"
+      "roomName": "房间名称",
+      "timer": "定时器",
+      "createRoom": "创建房间",
+      "editRoomConfigurationBeforeStarting": "开始前调整房间设置。",
+      "exampleRoomName": "例如：酒馆"
     },
     "waitingRoomDeckSelector": {
-      "deckSelection": "Deck selection",
-      "invalidDeck": "Invalid deck",
-      "rollDice": "Roll dice",
-      "selectADeck": "Select a deck",
-      "randomDeck": "Random deck",
-      "chooseOne": "Choose one",
-      "checking": "Checking"
+      "deckSelection": "套牌选择",
+      "invalidDeck": "非法套牌",
+      "rollDice": "掷骰",
+      "selectADeck": "选择套牌",
+      "randomDeck": "随机套牌",
+      "chooseOne": "选择一个",
+      "checking": "检查"
     },
     "waitingRoomLogPanel": {
-      "activity": "Activity",
-      "roomEventsWillAppearHere": "Room events will appear here."
+      "activity": "活动",
+      "roomEventsWillAppearHere": "房间事件将出现在这里。"
     },
     "waitingRoomPlayerCard": {
-      "kickPlayer": "Kick player",
-      "d20RollResult": "D20 roll result",
-      "waitingForPlayer": "Waiting for player",
-      "host": "Host",
-      "turnOrder": "Turn order",
-      "d20Roll": "D20 roll",
-      "openSlot": "Open slot"
+      "kickPlayer": "移出玩家",
+      "d20RollResult": "D20 掷骰结果",
+      "waitingForPlayer": "等待玩家",
+      "host": "房主",
+      "turnOrder": "回合顺序",
+      "d20Roll": "D20 掷骰",
+      "openSlot": "空位"
     },
     "waitingRoom": {
-      "leaveRoom": "Leave room",
-      "deleteRoom": "Delete room",
-      "inviteFriends": "Invite friends",
-      "kickPlayer": "Kick player",
-      "invalidDeck": "Invalid deck",
-      "setup": "Setup",
-      "chooseYourDeckAndGetReadyBefore": "Choose your deck and get ready before starting.",
-      "start": "Start",
-      "afterRollingYourDeckSelectionWillBe": "After rolling, your deck selection will be locked and cannot be changed.",
-      "noAcceptedFriendsYet": "No accepted friends yet.",
-      "inRoom": "In room",
-      "invited": "Invited",
-      "loadingRoomState": "Loading room state..."
+      "leaveRoom": "离开房间",
+      "deleteRoom": "删除房间",
+      "inviteFriends": "邀请好友",
+      "kickPlayer": "移出玩家",
+      "invalidDeck": "非法套牌",
+      "setup": "设置",
+      "chooseYourDeckAndGetReadyBefore": "开始前选择套牌并准备好。",
+      "start": "开始",
+      "afterRollingYourDeckSelectionWillBe": "掷骰后，您的套牌选择将被锁定且无法更改。",
+      "noAcceptedFriendsYet": "还没有已接受的好友。",
+      "inRoom": "房间内",
+      "invited": "受邀",
+      "allPlayersReady": "所有玩家已准备",
+      "chooseAcceptedFriendsToInvite": "选择已接受的好友邀请到这个房间。",
+      "invalidDeckSelectionMessage": "你不能选择 {{ deckName }}，因为它存在 Commander 套牌验证错误。",
+      "kickPlayerConfirmation": "要将 {{ playerName }} 移出房间吗？",
+      "leaveRoomConfirmation": "您将离开此房间并返回房间列表。",
+      "playersCount": "玩家 ({{ current }}/{{ max }})",
+      "rollSetsTurnOrder": "这次掷骰决定你的回合顺序。",
+      "thisDeck": "这副套牌",
+      "thisPlayer": "这位玩家",
+      "tieBreakRoll": "平局重掷",
+      "tieBreakRollMessage": "你与 {{ playerNames }} 平局。请再次掷骰决定顺序。",
+      "waitingForDecksAndRolls": "等待套牌和掷骰"
     },
     "setup": {
       "gameSetupLifeControl": {
-        "startingLife": "Starting life",
-        "decreaseStartingLife": "Decrease starting life",
-        "increaseStartingLife": "Increase starting life"
+        "startingLife": "起始生命",
+        "decreaseStartingLife": "减少起始生命",
+        "increaseStartingLife": "增加起始生命",
+        "lifeUnit": "生命",
+        "startingLifePresets": "起始生命预设",
+        "startingTotal": "起始总值",
+        "totalLife": "总生命"
       },
       "gameSetupSeatsControl": {
-        "tableSize": "Table size"
+        "tableSize": "桌面人数",
+        "seats": "座位数",
+        "setTableSizeToPlayers": "将桌面人数设为 {{ count }} 名玩家"
       }
     },
     "header": {
-      "title": "Rooms",
-      "totalRooms": "Total rooms",
-      "openRooms": "Open rooms",
-      "privateRooms": "Private rooms",
-      "publicRooms": "Public rooms",
-      "totalPlayers": "Total players",
-      "startedGames": "Started games"
+      "title": "房间",
+      "totalRooms": "房间总数",
+      "openRooms": "开放房间",
+      "privateRooms": "私密房间",
+      "publicRooms": "公开房间",
+      "totalPlayers": "玩家总数",
+      "startedGames": "已开始的对局",
+      "description": "浏览活跃大厅并立即加入对局。"
     },
     "waiting": {
       "header": {
-        "inviteFriends": "Invite friends"
+        "inviteFriends": "邀请好友"
       }
     }
   },
   "community": {
+    "preview": {
+      "summary": {
+        "topHundred": "前 100 张牌"
+      },
+      "error": "无法加载社区预览。",
+      "empty": "暂无可用牌。",
+      "playedLabel": "玩过",
+      "filters": {
+        "allTypes": "所有类型",
+        "type": {
+          "artifact": "神器",
+          "battle": "战役",
+          "creature": "生物",
+          "enchantment": "结界",
+          "instant": "瞬间",
+          "land": "地",
+          "planeswalker": "鹏洛客",
+          "sorcery": "法术"
+        }
+      }
+    },
     "detail": {
       "saveConfirmation": {
-        "title": "要将这个套牌保存到你的套牌列表中吗？",
+        "title": "您想将此套牌保存到您的套牌列表中吗？",
         "confirm": "确认",
         "cancel": "取消"
+      },
+      "error": "无法加载社区平台。",
+      "headerTitle": "社区套牌",
+      "missingId": "缺少社区套牌 ID。",
+      "save": "保存",
+      "saveError": "无法将此套牌保存到您的套牌列表中。",
+      "shareError": "无法复制社区平台链接。",
+      "unknownCommander": "未知指挥官",
+      "readonly": {
+        "validation": {
+          "backendValid": "这副套牌在社区中标记为合法。",
+          "backendInvalid": "这副套牌在社区中有警告或问题。",
+          "commanders": "指挥官区：{{ names }}",
+          "error": "错误",
+          "warning": "警告"
+        },
+        "historyOwner": "分享者"
       }
+    },
+    "dashboardTopCommanders": {
+      "ariaLabel": "前 3 名指挥官",
+      "theUrDragonPlayed": "47,928 场比赛",
+      "edgarMarkovPlayed": "47,211 场比赛",
+      "atraxaPlayed": "43,917 场比赛"
+    },
+    "home": {
+      "title": "社区套牌",
+      "subtitle": "发现其他玩家创建的公共套牌。",
+      "error": "无法加载社区。",
+      "decksSection": {
+        "title": "可浏览套牌"
+      },
+      "decksButton": "搜索套牌",
+      "decksEmpty": "尚无可用的公共套牌。",
+      "commandersTitle": "最常用指挥官",
+      "mobileCommandersTitle": "高级指挥官",
+      "commandersAriaLabel": "指挥官的灵感",
+      "cardsTitle": "最常用牌",
+      "mobileCardsTitle": "热门牌",
+      "cardsSubtitle": "基于社区进行的对局",
+      "cardsAriaLabel": "探索牌",
+      "viewMore": "查看更多"
+    },
+    "deckList": {
+      "title": "搜索套牌",
+      "subtitle": "探索社区的公共平台。",
+      "filterName": "按名称搜索",
+      "filterNamePlaceholder": "搜索套牌...",
+      "filterCommander": "指挥官",
+      "filterCommanderPlaceholder": "搜索指挥官...",
+      "commanderSelect": "选择",
+      "filterFormat": "格式",
+      "allFormats": "所有格式",
+      "searchButton": "搜索",
+      "empty": "尚无可用的公共套牌。",
+      "error": "无法加载公共套牌。"
+    },
+    "deckViewer": {
+      "cardsCount": "{{ count }} 卡",
+      "sectionsCount": "{{ count }}款",
+      "viewMode": {
+        "label": "查看模式",
+        "text": "文本",
+        "spoiler": "剧透"
+      },
+      "invalidCard": "此牌在 {{ format }} 中不合法。",
+      "groups": {
+        "commander": "指挥官",
+        "planeswalker": "鹏洛客",
+        "battle": "战役",
+        "creature": "生物",
+        "instant": "瞬间",
+        "sorcery": "法术",
+        "enchantment": "结界",
+        "artifact": "神器",
+        "land": "地",
+        "sideboard": "备牌",
+        "other": "其他",
+        "includingMdfc": "{{ count }} 包括 MDFC"
+      }
+    },
+    "shared": {
+      "deckWarnings": "套牌警告"
     }
   },
   "game": {
     "arrowTargetDialog": {
-      "selectArrowTargetPlayer": "Select arrow target player",
-      "drawArrow": "Draw arrow",
-      "chooseTargetBoard": "Choose target board",
-      "theSelectedBattlefieldOpensBehindThisPanel": "The selected battlefield opens behind this panel before you pick a card.",
-      "targetPlayer": "Target player",
-      "multipleTargets": "Multiple targets?",
-      "drawSeveralArrowsFromThisCard": "Draw several arrows from this card",
-      "targets": "Targets",
-      "cancel": "Cancel",
-      "selectTarget": "Select target"
+      "selectArrowTargetPlayer": "选择箭头目标玩家",
+      "drawArrow": "画箭头",
+      "chooseTargetBoard": "选择目标战场",
+      "theSelectedBattlefieldOpensBehindThisPanel": "在您选择牌之前，选定的战场会在此面板后面打开。",
+      "targetPlayer": "目标玩家",
+      "multipleTargets": "多个目标？",
+      "drawSeveralArrowsFromThisCard": "从这张卡上画几个箭头",
+      "targets": "目标",
+      "cancel": "取消",
+      "selectTarget": "选择目标"
     },
     "battlefieldZoomControls": {
-      "openBattlefieldZoomControls": "Open battlefield zoom controls",
-      "battlefieldZoom": "Battlefield zoom",
-      "resetBattlefieldZoom": "Reset battlefield zoom",
-      "resetZoom": "Reset zoom"
+      "openBattlefieldZoomControls": "打开战场缩放控件",
+      "battlefieldZoom": "战场变焦",
+      "resetBattlefieldZoom": "重置战场缩放",
+      "resetZoom": "重置变焦"
     },
     "cardPreviewOverlay": {
-      "cardPreviewDetails": "Card preview details",
-      "powerAndToughness": "Power and toughness",
-      "attachedTo": "Attached to",
-      "attached": "Attached",
-      "current": "Current",
-      "counters": "Counters"
+      "cardPreviewDetails": "牌预览详情",
+      "powerAndToughness": "力量/防御力",
+      "attachedTo": "附于",
+      "attached": "已贴附",
+      "current": "当前的",
+      "counters": "指示物"
     },
     "cardSpoilerGrid": {
-      "lookAtOtherFace": "Look at other face",
-      "loadingCards": "Loading cards"
+      "lookAtOtherFace": "查看另一面",
+      "loadingCards": "正在加载牌"
     },
     "chatRecipientSelect": {
-      "chatRecipient": "Chat recipient"
+      "chatRecipient": "聊天接收者"
     },
     "contextMenu": {
-      "d": "D",
-      "s": "S",
-      "xX": "X/X",
-      "z": "Z",
-      "t": "T",
       "labels": {
-        "refreshSnapshot": "Refresh Snapshot",
-        "focusMyBoard": "Focus My Board",
-        "abrirDebug": "Abrir debug",
-        "concede": "Concede",
-        "leaveTable": "Leave Table",
-        "deleteArrow": "Delete Arrow",
-        "deleteArrows": "Delete Arrows",
-        "deleteCounter": "Delete Counter",
-        "resetManaPool": "Reset Mana Pool",
-        "focusPlayer": "Focus Player",
-        "life1": "Life +1",
-        "viewExile": "View Exile",
-        "viewGraveyard": "View Graveyard",
-        "drawCard": "Draw Card",
-        "drawXCards": "Draw X Cards",
-        "shuffle": "Shuffle",
-        "selectRandomCard": "Select Random Card",
-        "selectAllBattlefieldCards": "Select All Battlefield Cards",
-        "selectAllHandCards": "Select All Hand Cards",
-        "createToken": "Create Token",
-        "tirarDado": "Tirar dado",
-        "showManaPool": "Show Mana Pool",
-        "view": "View",
-        "drawArrow": "Draw Arrow",
-        "addMana": "Add Mana",
-        "attachTo": "Attach to...",
-        "unequip": "Unequip",
-        "detachAllAttached": "Detach all attached",
-        "makeATokenCopy": "Make A Token Copy",
-        "removeStack": "Remove stack",
-        "flipCardFace": "Flip Card Face",
-        "playFaceDown": "Play Face Down",
-        "previewCard": "Preview Card",
-        "moveTop": "Move Top",
-        "revealTopCard": "Reveal Top Card",
-        "revealLibrary": "Reveal Library",
-        "moveAllTo": "Move All To",
-        "counters": "Counters",
-        "giveToPlayer": "Give To Player",
-        "moveTo": "Move To",
-        "giveTo": "Give To",
-        "reveal": "Reveal",
-        "todos": "Todos",
-        "viewAllLibrary": "View all library",
-        "viewXTopCards": "View X top cards",
-        "bottomOfLibrary": "Bottom of Library",
-        "battlefield": "Battlefield",
-        "hand": "Hand",
-        "xToBottomOfLibrary": "X to bottom of library",
-        "xToGraveyard": "X to graveyard",
-        "xToExile": "X to exile",
-        "xToHandPlayer": "X to hand player",
-        "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters",
+        "refreshSnapshot": "刷新快照",
+        "focusMyBoard": "聚焦我的战场",
+        "concede": "认输",
+        "leaveTable": "离开桌面",
+        "deleteArrow": "删除箭头",
+        "deleteArrows": "删除箭头",
+        "deleteCounter": "删除指示物",
+        "resetManaPool": "清空法术力池",
+        "focusPlayer": "聚焦玩家",
+        "life1": "生命+1",
+        "viewExile": "查看放逐区",
+        "viewGraveyard": "查看坟墓场",
+        "drawCard": "抓一张牌",
+        "drawXCards": "抓 X 张牌",
+        "shuffle": "洗牌",
+        "selectRandomCard": "随机选择一张牌",
+        "selectAllBattlefieldCards": "选择战场上的所有牌",
+        "selectAllHandCards": "选择所有手牌",
+        "createToken": "生成衍生物",
+        "gameMechanics": "游戏机制",
+        "addMonarch": "添加君主",
+        "becomeMonarch": "成为君主",
+        "addInitiative": "添加倡议",
+        "takeInitiative": "获得先攻权",
+        "addDayNight": "添加白天/夜晚",
+        "addTheRing": "添加魔戒",
+        "addDungeon": "添加地城",
+        "addCitysBlessing": "获得城市祝福",
+        "removeCitysBlessing": "移除城市祝福",
+        "addEmblem": "添加徽章",
+        "showManaPool": "显示法术力池",
+        "view": "查看",
+        "drawArrow": "画箭头",
+        "addMana": "添加法术力",
+        "attachTo": "附加到...",
+        "unequip": "取消装备",
+        "detachAllAttached": "卸离所有贴附物",
+        "makeATokenCopy": "生成一个复制品衍生物",
+        "removeStack": "从堆叠移除",
+        "flipCardFace": "翻转牌面",
+        "playFaceDown": "面朝下使用",
+        "previewCard": "预览牌",
+        "moveTop": "移至顶部",
+        "revealTopCard": "展示牌库顶牌",
+        "revealLibrary": "展示牌库",
+        "moveAllTo": "全部移至",
+        "counters": "指示物",
+        "giveToPlayer": "给予玩家",
+        "moveTo": "移至",
+        "giveTo": "给予",
+        "reveal": "揭示",
+        "viewAllLibrary": "查看牌库",
+        "viewXTopCards": "查看牌库顶 X 张牌",
+        "bottomOfLibrary": "牌库底",
+        "battlefield": "战场",
+        "hand": "手牌",
+        "xToBottomOfLibrary": "将 X 张牌置于牌库底",
+        "xToGraveyard": "将 X 张牌置入坟墓场",
+        "xToExile": "放逐 X 张牌",
+        "xToHandPlayer": "将 X 张牌置入某位玩家手牌",
+        "xToBattlefieldPlayer": "将 X 张牌在某位玩家操控下放进战场",
+        "removeAllCounters": "删除所有指示物",
         "createHelper": "机制",
-        "setRingBearer": "设为魔戒持有者",
-        "mechanics": "机制"
-      }
+        "setRingBearer": "设为持戒者",
+        "mechanics": "机制",
+        "openDebug": "打开调试",
+        "rollDice": "掷骰",
+        "all": "全部"
+      },
+      "drawShortcut": "D",
+      "shuffleShortcut": "S",
+      "tapShortcut": "T",
+      "faceDownShortcut": "Z",
+      "powerToughnessShortcut": "X/X"
     },
     "contextSubmenu": {
       "x": "X"
     },
     "focusedBattlefield": {
-      "manaRow": "Mana row"
+      "manaRow": "法术力行"
     },
     "gameAdBanner": {
-      "advertisingBanner": "Advertising banner"
+      "advertisingBanner": "广告横幅"
     },
     "gameArrowLayer": {
-      "battlefieldArrows": "Battlefield arrows"
+      "battlefieldArrows": "战场箭头"
     },
     "cardMarkerRail": {
-      "estaCartaEsUnTokenCopy": "Esta carta es un token copy",
-      "openOracleRulingsOnScryfall": "Open Oracle rulings on Scryfall"
+      "openOracleRulingsOnScryfall": "在 Scryfall 打开 Oracle 释疑",
+      "tokenCopyLabel": "此衍生物是复制品"
     },
     "gameCardView": {
-      "lookAtOtherFace": "Look at other face",
-      "powerAndToughness": "Power and toughness",
-      "powerLeftClickAddsRightClickRemoves": "Power. Left click adds, right click removes.",
-      "toughnessLeftClickAddsRightClickRemoves": "Toughness. Left click adds, right click removes.",
-      "attach": "Attach",
-      "stack": "Stack"
+      "lookAtOtherFace": "查看另一面",
+      "powerAndToughness": "力量和防御力",
+      "powerLeftClickAddsRightClickRemoves": "力量。左键单击添加，右键单击删除。",
+      "toughnessLeftClickAddsRightClickRemoves": "防御力。左键单击添加，右键单击删除。",
+      "battleCounter": "战役",
+      "battleCounterTooltip": "战役。左键添加，右键移除。",
+      "sagaCounter": "Saga",
+      "sagaCounterTooltip": "传奇。左键单击添加，右键单击删除。",
+      "attach": "贴附",
+      "stack": "堆叠"
     },
     "loyaltyCounter": {
-      "loyalty": "Loyalty",
-      "loyaltyLeftClickAddsRightClickRemoves": "Loyalty. Left click adds, right click removes."
+      "loyalty": "忠诚",
+      "loyaltyLeftClickAddsRightClickRemoves": "忠诚。左键单击添加，右键单击删除。"
     },
     "gameDisconnectVoteModal": {
-      "votosDeDesconexion": "Votos de desconexion",
-      "jugadorDesconectado": "Jugador desconectado",
-      "tuVoto": "Tu voto:",
-      "tiempoRestante": "Tiempo restante:",
-      "elJugadorObjetivoYaApareceOnline": "El jugador objetivo ya aparece online."
+      "disconnectVotes": "断线投票",
+      "expel": "移出",
+      "genericDisconnectedMessage": "有玩家断线。投票决定等待其重连或将其移出桌面。",
+      "noVote": "未投票",
+      "playerDisconnectedMessage": "{{ playerName }} 已断线。投票决定等待其重连或将其移出桌面。",
+      "wait": "等待",
+      "playerDisconnected": "玩家已断开连接",
+      "yourVote": "您的投票：",
+      "timeRemaining": "剩余时间：",
+      "targetPlayerBackOnline": "目标玩家再次在线。"
     },
     "gameRematchModal": {
-      "votacionesDeLaRoom": "Votaciones de la sala",
-      "tuVotoActual": "Tu voto actual:",
-      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado salir de la sala."
+      "roomVotes": "房间投票",
+      "closeVotes": "关闭投票",
+      "defeatedMessage": "要在这个房间再来一局吗？",
+      "extraTime": "加时赛",
+      "legendaryVictory": "传奇的胜利",
+      "leaveRoom": "离开房间",
+      "lifeTotal": "{{ life }} 点生命",
+      "noVote": "没有投票",
+      "playAgain": "再来一局",
+      "playersHaveSecondsToVote": "{{ playerNames }} 有 {{ seconds }} 秒可以投票。",
+      "playersMissingExtra": "{{ playerNames }} 仍需投票。还剩 {{ seconds }} 秒。",
+      "timeLimit": "时限",
+      "winnerMessage": "这张桌子属于你。你从混乱中存活下来，并赢下了这局。",
+      "youDied": "你已出局",
+      "youHaveSecondsToVote": "你有 {{ seconds }} 秒可以投票。",
+      "yourVoteMissingExtra": "你还没有投票。还剩 {{ seconds }} 秒。",
+      "currentVote": "您当前的投票：",
+      "otherPlayersAlreadyVoted": "其余玩家已经投票决定离开房间。"
     },
     "gameTableHeader": {
-      "currentPlayer": "Current player"
+      "currentPlayer": "当前玩家"
     },
     "gameXQuantityStepper": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "调整值",
+      "increaseValue": "增加数值",
+      "decreaseValue": "减少值"
     },
     "manaActionDialog": {
-      "manaProductionParts": "Mana production parts",
-      "fixedMana": "Fixed mana",
-      "manaToAdd": "Mana to add",
-      "manaAmount": "Mana amount",
-      "cancel": "Cancel"
+      "manaProductionParts": "法术力产生项",
+      "fixedMana": "固定法术力值",
+      "manaToAdd": "要添加的法术力",
+      "manaAmount": "法术力数量",
+      "cancel": "取消"
     },
     "manaPoolPanel": {
-      "manaPool": "Mana pool",
-      "hideManaPool": "Hide mana pool"
+      "manaPool": "法术力池",
+      "hideManaPool": "隐藏法术力池"
     },
     "numberActionDialog": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "调整值",
+      "increaseValue": "增加数值",
+      "decreaseValue": "减少值"
     },
     "opponentMiniBoard": {
-      "opponentZoneCounts": "Opponent zone counts",
-      "playerDefeated": "Player defeated",
-      "deckPending": "Deck pending",
-      "turno": "Turno"
+      "opponentZoneCounts": "对手区域数量",
+      "playerDefeated": "玩家被击败",
+      "deckPending": "套牌待定",
+      "turn": "回合"
     },
     "playerSummaryPanel": {
-      "lifeControls": "Life controls",
-      "lifeTotal": "Life total",
-      "playerCounters": "Player counters",
-      "commanderDamage": "Commander damage",
-      "otherCounters": "Other counters",
+      "lifeControls": "生命控制",
+      "lifeTotal": "总生命",
+      "playerCounters": "玩家指示物",
+      "commanderDamage": "指挥官伤害",
+      "otherCounters": "其他指示物",
       "extras": "Extras",
-      "openExtraPlayerCounters": "Open extra player counters",
-      "extraPlayerCounters": "Extra player counters"
+      "openExtraPlayerCounters": "打开玩家额外指示物",
+      "extraPlayerCounters": "额外玩家指示物"
     },
     "powerToughnessDialog": {
-      "setPowerAndToughness": "Set power and toughness",
-      "powerToughness": "Power / Toughness",
-      "power": "Power",
-      "toughness": "Toughness",
-      "cancel": "Cancel",
-      "apply": "Apply"
+      "setPowerAndToughness": "设置力量/防御力",
+      "powerToughness": "力量 / 防御力",
+      "power": "力量",
+      "toughness": "防御力",
+      "cancel": "取消",
+      "apply": "申请"
     },
     "tokenSearchModal": {
-      "searchTokens": "Search tokens",
-      "tokenCreationControls": "Token creation controls",
-      "createToken": "Create token",
-      "loadingDeckTokens": "Loading deck tokens...",
-      "searchingTokens": "Searching tokens..."
+      "tokenCreationControls": "衍生物生成控制",
+      "loadingDeckTokens": "正在加载套牌衍生物...",
+      "searchingTokens": "正在搜索衍生物..."
     },
     "playersOrder": {
-      "ordenDeTurno": "Orden de turno"
+      "currentTurnLabel": "第 {{ turnNumber }} 回合",
+      "upcomingTurnLabel": "{{ count }} 回合后",
+      "currentTurnTitle": "轮到 {{ name }}",
+      "upcomingTurnTitle": "{{ name }} 距离当前还有 {{ count }} 回合",
+      "turnOrder": "回合顺序"
     },
     "turnPhasePanel": {
-      "turnPhases": "Turn phases",
-      "focusTheActiveTurnPlayer": "Focus the active turn player",
-      "pasarTurno": "Pasar turno",
-      "focusTurn": "Focus turn"
+      "turnPhases": "回合阶段",
+      "focusTheActiveTurnPlayer": "聚焦当前回合玩家",
+      "focusTurn": "聚焦回合",
+      "passTurn": "让过回合"
     },
     "zoneModal": {
-      "searchByName": "Search by name",
-      "closeZone": "Close zone",
-      "readOnlyLibraryReview": "Read-only library review",
-      "type": "Type",
-      "allTypes": "All types",
-      "creatures": "Creatures",
-      "instants": "Instants",
-      "sorceries": "Sorceries",
-      "artifacts": "Artifacts",
-      "enchantments": "Enchantments",
-      "planeswalkers": "Planeswalkers",
-      "lands": "Lands",
-      "search": "Search"
+      "searchByName": "按名称搜索",
+      "closeZone": "关闭区域",
+      "readOnlyLibraryReview": "只读查看牌库",
+      "type": "类型",
+      "allTypes": "所有类型",
+      "creatures": "生物",
+      "instants": "瞬间",
+      "sorceries": "法术",
+      "artifacts": "神器",
+      "enchantments": "结界",
+      "planeswalkers": "鹏洛客",
+      "lands": "地",
+      "search": "搜索"
     },
     "gameTable": {
-      "message": "Message",
-      "closeGame": "Close game?",
-      "moverCartaAOtroBattlefield": "Mover carta a otro battlefield",
-      "giveCard": "Give card?",
-      "moveToHand": "Move to hand?",
-      "devolverABiblioteca": "Devolver a biblioteca",
-      "moveAllToLibrary": "Move all to library",
-      "rotateYourDevice": "Rotate your device",
-      "gamesCanOnlyBePlayedInLandscape": "Games can only be played in landscape on mobile and tablet.",
-      "thisTableNeedsALittleMoreRoom": "This table needs a little more room",
-      "sorryThisResolutionIsTooCrampedFor": "Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.",
-      "useCtrl0InYourBrowserTo": "Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.",
-      "leaveRoom": "Leave room",
-      "loadingGame": "Loading game...",
-      "gameLog": "Game Log",
-      "chat": "Chat",
-      "noGameActionsYet": "No game actions yet.",
-      "noChatMessagesYet": "No chat messages yet.",
-      "reactedBy": "Reacted by",
-      "votaciones": "Votaciones",
-      "opponents": "Opponents",
-      "randomOrder": "Random order",
-      "shuffleOnlyTheseCardsBeforePlacingThem": "Shuffle only these cards before placing them.",
-      "gameLogUnreadActions": "Game Log, unread actions",
-      "chatUnreadMessages": "Chat, unread messages"
+      "message": "信息",
+      "closeGame": "关闭对局？",
+      "giveCard": "给出牌？",
+      "moveToHand": "移至手牌？",
+      "moveAllToLibrary": "全部放入牌库",
+      "rotateYourDevice": "旋转您的设备",
+      "gamesCanOnlyBePlayedInLandscape": "手机和平板上只能横屏进行对局。",
+      "thisTableNeedsALittleMoreRoom": "这张桌子需要多一点空间",
+      "sorryThisResolutionIsTooCrampedFor": "抱歉，这个分辨率对于指挥官游戏来说太局促了。请调整浏览器缩放或使用更大的窗口。",
+      "useCtrl0InYourBrowserTo": "在浏览器中使用 Ctrl+0 将缩放重置为 100%，然后刷新或调整此窗口大小。",
+      "leaveRoom": "离开房间",
+      "gameLog": "对局日志",
+      "chat": "聊天",
+      "noGameActionsYet": "暂无对局操作。",
+      "noChatMessagesYet": "还没有聊天消息。",
+      "reactedBy": "反应者",
+      "votes": "投票数",
+      "opponents": "对手",
+      "randomOrder": "随机顺序",
+      "shuffleOnlyTheseCardsBeforePlacingThem": "放置这些牌之前仅将它们洗混。",
+      "gameLogUnreadActions": "对局日志，有未读操作",
+      "chatUnreadMessages": "聊天、未读消息",
+      "moveCardToAnotherBattlefield": "将牌移至另一个战场",
+      "putIntoLibrary": "放入牌库"
     },
     "reactions": {
-      "like": "Like",
-      "dislike": "Dislike",
-      "love": "Love",
-      "laugh": "Laugh",
-      "angry": "Very angry",
-      "vomit": "Vomit",
-      "cry": "Cry"
+      "like": "喜欢",
+      "dislike": "不喜欢",
+      "love": "爱心",
+      "laugh": "笑",
+      "angry": "很生气",
+      "vomit": "呕吐",
+      "cry": "哭"
     },
     "numberAction": {
       "drawCards": {
-        "title": "Draw cards",
-        "description": "Choose how many cards to draw from your library.",
-        "confirm": "Draw"
+        "title": "抓牌",
+        "description": "选择从牌库抓几张牌。",
+        "confirm": "抓牌"
       },
       "moveTopCards": {
-        "title": "Move top cards",
-        "description": "Choose how many top library cards to move.",
-        "confirm": "Move"
+        "title": "移动牌库顶牌",
+        "description": "选择将几张牌库顶牌移至其他区域。",
+        "confirm": "移动"
       },
       "viewTopCards": {
-        "title": "View top cards",
-        "description": "Choose how many top library cards to view.",
-        "confirm": "View"
+        "title": "查看牌库顶牌",
+        "description": "选择查看几张牌库顶牌。",
+        "confirm": "查看"
       }
     },
     "playerCounters": {
-      "poison": "Poison",
-      "energy": "Energy",
-      "experience": "Experience",
+      "poison": "毒",
+      "energy": "活力",
+      "experience": "经验",
       "rad": "Rad",
-      "tickets": "Tickets"
+      "tickets": "门票"
     },
     "zones": {
-      "hand": "Hand",
-      "library": "Library",
-      "graveyard": "Graveyard",
-      "exile": "Exile"
+      "hand": "手牌",
+      "library": "牌库",
+      "graveyard": "坟墓场",
+      "exile": "放逐区"
     },
     "chat": {
-      "allPlayers": "Todos"
+      "allPlayers": "所有玩家"
     },
     "specialHelpers": {
       "modal": {
         "title": "机制",
-        "quickActions": "快捷操作",
-        "cardBacked": "卡牌实体",
-        "searchPlaceholder": "搜索徽记或地下城",
-        "searching": "正在搜索实体...",
-        "noResults": "未找到结果。",
-        "searchHint": "请至少输入 2 个字符进行搜索。",
-        "searchError": "无法加载特殊实体。",
+        "quickActions": "快速行动",
+        "cardBacked": "牌帮手",
+        "searchPlaceholder": "搜索徽章或地下城",
+        "searching": "寻找帮手...",
+        "noResults": "没有找到结果。",
+        "searchHint": "输入至少 2 个字符进行搜索。",
+        "searchError": "无法加载特殊助手。",
         "playerTarget": "玩家：{{playerName}}",
-        "currentState": "当前状态",
-        "readonly": "只读。你可以在这里查看这些机制，但只有控制该位置的玩家才能更改它们。",
-        "ringLevel": "魔戒等级",
-        "noRingBearer": "未指定魔戒持有者",
-        "removeHelper": "移除",
-        "clearRingBearer": "清除魔戒持有者",
-        "ringLevelUp": "等级 +1",
-        "ringLevelDown": "等级 -1",
-        "noActiveMechanics": "当前没有启用的机制。",
+        "currentState": "目前状态",
+        "readonly": "只读。您可以在这里检查机制，但只有控制玩家才能更改它们。",
+        "ringLevel": "环级",
+        "noRingBearer": "未指定指环持有者",
+        "removeHelper": "消除",
+        "clearRingBearer": "透明指环持有者",
+        "ringLevelUp": "等级+1",
+        "ringLevelDown": "-1级",
+        "noActiveMechanics": "没有主动机制。",
         "notSet": "未设置"
       },
       "quick": {
         "monarch": "成为君主",
-        "initiative": "获得先导权",
+        "initiative": "采取主动",
         "citysBlessing": "获得城市祝福",
         "theRing": "创建魔戒",
-        "setDay": "设为昼",
-        "setNight": "设为夜"
+        "setDay": "设定日期",
+        "setNight": "设为夜晚"
       },
       "labels": {
         "monarch": "君主",
-        "initiative": "先导权",
-        "citys_blessing": "城市祝福",
-        "day_night": "昼/夜",
-        "the_ring": "魔戒",
-        "emblem": "徽记",
+        "initiative": "倡议",
+        "theRing": "魔戒",
+        "emblem": "徽",
         "dungeon": "地下城",
-        "day": "昼",
-        "night": "夜"
+        "day": "天",
+        "night": "夜晚",
+        "citysBlessing": "城市祝福",
+        "dayNight": "白天/夜晚"
+      },
+      "dungeonReplacement": {
+        "title": "更换活动地下城？",
+        "message": "你只能拥有一个活跃的地下城。将 {{currentDungeon}} 替换为 {{nextDungeon}}？",
+        "confirm": "替换地城",
+        "cancel": "取消"
+      },
+      "citysBlessingRemoval": {
+        "title": "移除城市祝福？",
+        "message": "该玩家将从桌上失去城市的祝福。继续？",
+        "confirm": "消除",
+        "cancel": "取消"
       },
       "rail": {
         "title": "特殊实体",
-        "ringLevel": "魔戒等级"
+        "ringLevel": "环级"
+      }
+    },
+    "zonePilesPanel": {
+      "monarchBadgeTooltip": "你是君主。"
+    },
+    "mulliganOverlay": {
+      "title": "再调度",
+      "metaAriaLabel": "调度状态",
+      "firstMulliganFree": "首次再调度免费",
+      "mulligansTaken": "调度：{{ count }}",
+      "effectiveMulligans": "有效：{{ count }}",
+      "scryTitle": "占卜 1",
+      "scryDescription": "选择如何处理牌库顶牌。",
+      "waitingForPlayers": "等待其他玩家...",
+      "currentHand": "当前手牌",
+      "emptyHand": "手上没有牌。",
+      "selectedCount": "{{ selected }} / {{ total }} 已选择",
+      "bottomSelectionHelp": "桌面：右键单击将牌放在底。手机/平板电脑：使用放在底按钮。",
+      "otherPlayersStatus": "其他玩家状态",
+      "players": "玩家",
+      "noOtherPlayers": "没有其他球员。",
+      "rules": {
+        "london": "London",
+        "vancouver": "Vancouver",
+        "paris": "Paris",
+        "generous": "慷慨的"
+      },
+      "status": {
+        "deciding": "决定",
+        "scrying": "占卜",
+        "ready": "准备好"
+      },
+      "actions": {
+        "keepOnTop": "保留在顶",
+        "putOnBottom": "置于底",
+        "removeFromBottom": "从底取出"
+      },
+      "description": {
+        "londonNoBottom": "抓 7 张。你不需要将牌置于牌库底。",
+        "londonChooseBottom": "抓 7 张。选择 {{ count }} 张牌置于牌库底。",
+        "londonBottomOrder": "所选顺序将是底的顺序。",
+        "drawCards": "抓 {{ count }} 张牌。",
+        "vancouverScry": "然后占卜 1。",
+        "generousNoBottom": "抓 {{ count }} 张牌。你不需要将牌置于牌库底。",
+        "generousChooseBottom": "抓 {{ drawCount }} 张牌。选择 {{ bottomCount }} 张牌以随机顺序置于牌库底。",
+        "generousRandomOrder": "最终的顺序将是随机的。"
       }
     }
   },
   "deckBuilder": {
     "cards": {
       "cardDetail": {
-        "backToSearch": "Back to search",
-        "loadingCard": "Loading card...",
-        "colorIdentity": "Color identity:",
-        "commander": "Commander:"
+        "colorIdentity": "颜色标识：",
+        "commander": "指挥官："
       },
       "cardSearch": {
         "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
-        "cards": "Cards",
-        "searchLibrary": "Search library",
-        "search": "Search",
-        "searchingCards": "Searching cards...",
-        "noCardsFound": "No cards found."
+        "header": {
+          "title": "牌",
+          "description": "在桌上政治开始之前找到完美的牌。"
+        },
+        "search": "搜索",
+        "clear": "清除",
+        "close": "关闭",
+        "advancedFilters": "高级过滤器",
+        "searchingCards": "正在搜索牌...",
+        "noCardsFound": "没有找到牌。",
+        "actions": {
+          "showDetails": "显示详情",
+          "addToDeck": "加入套牌",
+          "showRulings": "显示 Oracle 释疑",
+          "viewPrintings": "查看所有版本"
+        },
+        "details": {
+          "close": "关闭详情",
+          "couldNotLoad": "无法加载此卡。",
+          "oracleText": "Oracle 规则叙述",
+          "noOracleText": "没有可用的 Oracle 规则叙述。",
+          "legalFormats": "合法赛制",
+          "illegalFormats": "非法赛制",
+          "noLegalFormats": "本地目录中没有合法格式。",
+          "noIllegalFormats": "本地目录中没有非法格式。"
+        },
+        "addToDeck": {
+          "title": "添加牌",
+          "deck": "套牌",
+          "section": "区段",
+          "quantity": "数量",
+          "selectDeck": "选择套牌",
+          "selectSection": "选择区段",
+          "decreaseQuantity": "减少数量",
+          "increaseQuantity": "增加数量",
+          "sectionMain": "主套牌",
+          "sectionCommander": "指挥官",
+          "sectionSideboard": "备牌",
+          "sectionConsidering": "候选",
+          "confirm": "添加牌",
+          "cancel": "取消",
+          "noDecks": "您还没有套牌。",
+          "colorIdentityWarning": "{{ card }} 的颜色标识超出 {{ deck }} 指挥官的颜色：",
+          "formatLegalityWarning": "{{ card }} 在选定的套牌格式 {{ format }} 中不合法。",
+          "couldNotLoadDecks": "无法加载你的套牌。",
+          "couldNotAdd": "无法将此牌加入所选套牌。"
+        },
+        "printings": {
+          "title": "{{ card }} 的版本",
+          "empty": "未找到此牌的版本。",
+          "couldNotLoad": "无法加载牌的版本。",
+          "close": "关闭"
+        },
+        "summary": {
+          "ariaLabel": "应用牌搜索过滤器",
+          "activeQuery": "主动查询",
+          "totalFound": "找到 {{ total }} 张牌",
+          "pageStatus": "第 {{ page }} 页，共 {{ pages }} 页",
+          "filters": {
+            "name": "名称",
+            "rules": "规则",
+            "types": "类型",
+            "subtypes": "亚型",
+            "sets": "套",
+            "rarity": "稀有度",
+            "colors": "颜色",
+            "cardKind": "牌类别",
+            "manaValue": "法术力值",
+            "manaCost": "法术力费用",
+            "power": "力量",
+            "toughness": "防御力",
+            "formats": "格式"
+          }
+        },
+        "sort": {
+          "label": "排序",
+          "colors": "颜色",
+          "nameAsc": "名称 A-Z",
+          "nameDesc": "名称 Z-A",
+          "manaValueAsc": "法术力由低到高",
+          "manaValueDesc": "法术力值由高到低"
+        },
+        "view": {
+          "list": "列表",
+          "spoiler": "预览"
+        },
+        "form": {
+          "name": "名称",
+          "textA": "规则文本",
+          "textB": "第二段文字",
+          "textMode": "文字匹配",
+          "textModeAll": "所有文字术语",
+          "textModeAllDescription": "这两个框必须出现在卡规则文本中。",
+          "textModeAny": "任何文本术语",
+          "textModeAnyDescription": "任一框都可以匹配卡规则文本。",
+          "textExact": "精确单词匹配",
+          "textExactDescription": "仅匹配完整单词，不匹配较长单词内的文本。",
+          "types": "类型",
+          "subtypes": "亚型",
+          "sets": "套",
+          "rarity": "稀有度",
+          "colors": "颜色",
+          "colorMode": "颜色搭配",
+          "colorModeAny": "任何",
+          "colorModeAll": "全部",
+          "colorModeExact": "精确",
+          "clearManaCost": "清除法术力费用",
+          "basic": "基本",
+          "legendary": "传奇",
+          "artifact": "神器",
+          "multicolor": "多色",
+          "land": "地",
+          "costs": "费用",
+          "manaValueMin": "最小法术力值",
+          "manaValueMax": "最大法术力值",
+          "manaCost": "法术力费用",
+          "powerToughness": "力量/防御力",
+          "powerMin": "最小力量",
+          "powerMax": "最大力量",
+          "toughnessMin": "最小防御力",
+          "toughnessMax": "最大防御力",
+          "includeVariablePower": "包含 * 力量",
+          "includeVariablePowerDescription": "还包括力量不是固定数字的牌，例如 * 或 1+*。",
+          "includeVariableToughness": "包含 * 防御力",
+          "includeVariableToughnessDescription": "还包括防御力不是固定数字的牌，例如 * 或 1+*。",
+          "formats": "格式",
+          "filterOptions": "过滤器选项",
+          "presentation": "显示方式",
+          "loadingOptions": "正在加载过滤器...",
+          "enabled": "启用",
+          "activeFilters": "已启用过滤器",
+          "precisionConsole": "精确搜索",
+          "composeSearch": "构建精确牌查询",
+          "oracleText": "Oracle 规则叙述",
+          "textAPlaceholder": "抓一张牌，消灭目标，每当你施放...",
+          "textBPlaceholder": "可选的第二个规则术语",
+          "removeManaSymbol": "移除最后一个法术力符号"
+        },
+        "help": {
+          "title": "搜索指南",
+          "heading": "高级搜索指南",
+          "nameTitle": "名称",
+          "name": "按完整或部分牌名搜索。CommanderZone 会检查规范名称、印刷/本地化名称以及本地目录中的风味名称，因此中文和英文名称可以找到同一张牌。",
+          "textTitle": "牌文本",
+          "text": "使用一到两个规则叙述词条。匹配模式决定两个输入是否都必须出现在牌文本中，或任意一个即可。",
+          "subtypesTitle": "亚型",
+          "subtypes": "子类型独立于类型工作。您可以将其与任何其他部分结合起来查找精灵、哥布林、龙、装备或光环等内容。",
+          "rarityTitle": "稀有度",
+          "rarity": "您可以一次选择多种稀有品。彩色药丸仅供视觉辅助；搜索仍然使用目录稀有度。",
+          "colorsTitle": "颜色",
+          "colors": "颜色匹配控制选定的打印颜色的行为方式：任何选定的颜色、所有选定的颜色或确切的颜色集。神器、多色和地是额外的捷径。",
+          "costsTitle": "成本",
+          "costs": "法术力值使用 CommanderZone 的标准化牌目录，其中 X 计为 0。精确法术力费用通过符号选择器构建，因此无需输入颜色代码。",
+          "statsTitle": "力量/防御力",
+          "stats": "力量和防御力范围会比较数值。若也要包含 * 或 1+* 等可变数值，请启用可变值选项。"
+        },
+        "actionsAriaLabel": "牌搜索动作",
+        "filtersAriaLabel": "牌搜索过滤器"
+      },
+      "cardImage": {
+        "flipFace": "翻转牌面"
       },
       "autocomplete": {
         "cardAutocomplete": {
-          "searchingCards": "Searching cards..."
+          "searchingCards": "正在搜索牌..."
         }
       }
     },
     "deckAnalysisPanel": {
-      "typeBreakdown": "Type breakdown",
-      "utilityCounts": "Utility counts"
+      "typeBreakdown": "类型细分",
+      "utilityCounts": "功能统计"
     },
     "deckManaBalancePanel": {
-      "manaBalance": "Mana balance",
-      "coloredSourceShareVersusColorDemand": "Colored source share versus color demand.",
-      "sources": "sources",
-      "sourceMix": "Source mix"
+      "manaBalance": "法术力平衡",
+      "coloredSourceShareVersusColorDemand": "有色来源占比与颜色需求对比。",
+      "sources": "来源",
+      "sourceMix": "来源构成"
     },
     "deckManaCurvePanel": {
-      "manaCurve": "Mana curve",
-      "mainDeckByManaValue": "Main deck by mana value.",
-      "permanents": "Permanents",
-      "spells": "Spells",
-      "sampleHand": "Sample hand",
-      "sevenRandomCardsFromTheMainDeck": "Seven random cards from the main deck.",
-      "drawAgain": "Draw again",
-      "noCardsAvailable": "No cards available."
+      "manaCurve": "法术力曲线",
+      "mainDeckByManaValue": "按法术力值显示主套牌。",
+      "permanents": "永久物",
+      "spells": "咒语",
+      "sampleHand": "测试手牌",
+      "sevenRandomCardsFromTheMainDeck": "主套牌中的七张随机牌。",
+      "drawAgain": "重新抓牌",
+      "noCardsAvailable": "没有可用的卡。"
     },
     "deckCardMenu": {
-      "copyQuantityControls": "Copy quantity controls",
-      "selectedCardPreview": "Selected card preview",
-      "quantityToAddOrRemove": "Quantity to add or remove",
-      "editingCard": "Editing card",
-      "quantity": "Quantity",
-      "add": "Add",
-      "remove": "Remove",
-      "selectPrintVersion": "Select print version",
-      "moveToMain": "Move to main",
-      "moveToCommander": "Move to commander",
-      "moveToSideboard": "Move to sideboard",
-      "moveToConsidering": "Move to considering"
+      "copyQuantityControls": "复制数量控制",
+      "selectedCardPreview": "所选牌预览",
+      "quantityToAddOrRemove": "添加或删除的数量",
+      "editingCard": "正在编辑牌",
+      "quantity": "数量",
+      "add": "添加",
+      "remove": "移除",
+      "selectPrintVersion": "选择印刷版本",
+      "moveToMain": "移至主套牌",
+      "moveToCommander": "移至指挥官",
+      "moveToSideboard": "移至备牌",
+      "moveToConsidering": "移至候选"
     },
     "deckCardSpoilerView": {
-      "flipFace": "Flip face",
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "flipFace": "翻转牌面",
+      "noCommanderAssignedYet": "尚未指派指挥官。"
     },
     "deckCardTextView": {
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "noCommanderAssignedYet": "尚未指派指挥官。",
+      "unknownType": "未知类型"
     },
     "deckCommanderShowcase": {
-      "flipFace": "Flip face"
+      "flipFace": "翻转牌面"
     },
     "deckEditor": {
-      "addCardsByName": "Add cards by name",
-      "searchAnotherCardName": "Search another card name",
-      "text1SolRingVoc168101": "1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141",
-      "deckEditorSections": "Deck editor sections",
-      "copyCardName": "Copy card name",
-      "searchCard": "Search card",
-      "saveMissingCard": "Save missing card",
-      "ignoreThisSession": "Ignore this session",
-      "remove": "Remove",
-      "clearLocalHistory": "Clear local history",
-      "importDecklist": "Import decklist",
-      "selectPrintVersion": "Select print version",
-      "restoreHistory": "Restore history",
-      "loadingDeck": "Loading deck...",
-      "view": "View",
-      "text": "Text",
-      "spoiler": "Spoiler",
-      "analysis": "Analysis",
-      "considering": "Considering",
-      "validation": "Validation",
-      "missing": "Missing",
-      "history": "History",
-      "consideringCards": "Considering cards",
-      "cardsParkedOutsideThePlayableDeck": "Cards parked outside the playable deck.",
-      "noConsideringCards": "No considering cards.",
-      "derivedTokens": "Derived tokens",
-      "resolvedFromCardsCurrentlyInTheDeck": "Resolved from cards currently in the deck.",
-      "noResolvedTokensForThisDeck": "No resolved tokens for this deck.",
-      "unresolvedTokens": "Unresolved tokens",
-      "validateWithBackend": "Validate with backend",
-      "errors": "Errors",
-      "warnings": "Warnings",
-      "noFrontendDiagnosticsForTheCurrentDeck": "No frontend diagnostics for the current deck.",
-      "search": "Search",
-      "add": "Add",
-      "noCardSearchResults": "No card search results.",
-      "futureCollection": "Future collection",
-      "snapshot": "Snapshot",
-      "restore": "Restore",
-      "noLocalHistoryForThisDeckYet": "No local history for this deck yet.",
-      "noCards": "No cards",
-      "deckName": "Deck name",
-      "saveName": "Save name",
-      "plainTextDecklist": "Plain text decklist",
-      "loadFile": "Load file",
-      "lastImport": "Last import",
-      "missingCardsFromLatestImport": "Missing cards from latest import",
-      "chooseTheExactPrintingFor": "Choose the exact printing for",
-      "quantityAndSectionWillStayUnchanged": ". Quantity and section will stay unchanged.",
-      "loadingPrintVersions": "Loading print versions...",
-      "onlyOnePrintVersion": "Only one print version",
-      "thisCardOnlyHasOnePrintVersion": "This card only has one print version available in the database.",
-      "noPrintVersionsFoundForThisCard": "No print versions found for this card.",
-      "current": "Current",
+      "addCardsByName": "按名称添加牌",
+      "searchAnotherCardName": "搜索另一个牌名",
+      "deckEditorSections": "套牌编辑器区段",
+      "copyCardName": "复制牌名",
+      "searchCard": "搜索牌",
+      "saveMissingCard": "保存缺失牌",
+      "ignoreThisSession": "忽略此会话",
+      "remove": "移除",
+      "clearLocalHistory": "清除本地历史记录",
+      "importDecklist": "导入套牌列表",
+      "selectPrintVersion": "选择印刷版本",
+      "restoreHistory": "恢复历史记录",
+      "view": "查看",
+      "text": "文本",
+      "spoiler": "剧透",
+      "analysis": "分析",
+      "considering": "候选",
+      "validation": "验证",
+      "missing": "缺失",
+      "history": "历史记录",
+      "consideringCards": "候选牌",
+      "cardsParkedOutsideThePlayableDeck": "放在可用套牌之外的牌。",
+      "noConsideringCards": "没有候选牌。",
+      "derivedTokens": "衍生物",
+      "resolvedFromCardsCurrentlyInTheDeck": "根据当前套牌中的牌解析。",
+      "noResolvedTokensForThisDeck": "这副套牌没有已解析衍生物。",
+      "unresolvedTokens": "未解析衍生物",
+      "validateWithBackend": "在服务器验证",
+      "errors": "错误",
+      "warnings": "警告",
+      "noFrontendDiagnosticsForTheCurrentDeck": "当前平台没有前端诊断。",
+      "search": "搜索",
+      "add": "添加",
+      "noCardSearchResults": "没有牌搜索结果。",
+      "futureCollection": "未来收藏",
+      "snapshot": "快照",
+      "restore": "恢复",
+      "noLocalHistoryForThisDeckYet": "这副套牌还没有本地历史记录。",
+      "noCards": "没有牌",
+      "deckName": "套牌名称",
+      "saveName": "保存名称",
+      "plainTextDecklist": "纯文本套牌列表",
+      "loadFile": "加载文件",
+      "lastImport": "上次导入",
+      "missingCardsFromLatestImport": "最新导入的牌缺失",
+      "chooseTheExactPrintingFor": "选择准确的打印",
+      "quantityAndSectionWillStayUnchanged": "数量和截面保持不变。",
+      "loadingPrintVersions": "正在加载打印版本...",
+      "onlyOnePrintVersion": "只有一个印刷版本",
+      "thisCardOnlyHasOnePrintVersion": "该卡在数据库中只有一种印刷版本。",
+      "noPrintVersionsFoundForThisCard": "找不到此卡的印刷版本。",
+      "current": "当前的",
       "header": {
-        "title": "Deck editor",
-        "deckWarnings": "Deck warnings",
-        "import": "Import",
-        "export": "Export",
-        "backToDecks": "Back to decks"
-      }
+        "title": "套牌编辑器",
+        "deckWarnings": "套牌警告",
+        "import": "进口",
+        "export": "出口",
+        "share": "分享",
+        "shareCopied": "社区链接已复制",
+        "shareError": "无法复制社区链接。"
+      },
+      "cardsCount": "{{ count }} 卡",
+      "clear": "清除",
+      "clearLocalHistoryQuestion": "清除该套牌的本地历史吗？",
+      "colorIdentity": "颜色标识：{{ colors }}",
+      "commanderMode": "指令模式：{{ mode }}",
+      "fromSourceCard": "来自{{ name }}",
+      "historyCardsSummary": "{{ count }} 卡 - {{ commanders }}",
+      "importSummary": "{{ parsed }} 解析卡，{{ imported }} 导入，{{ missing }} 缺失。",
+      "noCommander": "无指挥官",
+      "noCost": "无费用",
+      "no": "不",
+      "restoreSnapshotQuestion": "恢复这个快照吗？",
+      "searchResultsFor": "搜索结果 {{ name }}",
+      "sectionsCount": "{{ count }}款",
+      "usableInGame": "可在对局中使用：{{ value }}",
+      "validationCounts": "牌数：共 {{ total }}（{{ commander }} 指挥官，{{ main }} 主套牌，{{ sideboard }} 备牌，{{ maybeboard }} 候选）",
+      "validationFailed": "Commander 验证失败",
+      "validationPassed": "Commander 验证通过",
+      "yes": "是的",
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141"
     },
     "deckList": {
-      "newDeckName": "New deck name",
-      "searchCommanderByName": "Search commander by name",
-      "commanderSelectionLimitReached": "You already have 2 commanders. You can't add more.",
-      "example1SolRingVoc168": "Example: 1 Sol Ring (VOC) 168",
-      "jeskaiBrewsTesting": "Jeskai, Brews, Testing...",
-      "deckWarnings": "Deck warnings",
-      "renameFolder": "Rename folder",
-      "deleteFolder": "Delete folder",
-      "editDeck": "Edit deck",
-      "deleteDeck": "Delete deck",
-      "deckSaved": "Deck saved",
-      "createFolder": "Create folder",
-      "commanderEnlargedPreview": "Commander enlarged preview",
-      "loadingDecks": "Loading decks...",
-      "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
-      "decks": "Decks",
-      "noDecksInThisFolderYet": "No decks in this folder yet.",
-      "missingCards": "Missing cards",
-      "deckName": "Deck name",
-      "folder": "Folder",
-      "noFolder": "No folder",
-      "thisDeckIsPublicButItsFolder": "This deck is public, but its folder is private. It will not be publicly visible.",
-      "commander": "Commander",
-      "importDecklist": "Import decklist",
-      "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
-      "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
-      "folderName": "Folder name",
+      "newDeckName": "新套牌名称",
+      "searchCommanderByName": "按名字搜索指挥官",
+      "example1SolRingVoc168": "示例：1 个溶胶环 (VOC) 168",
+      "jeskaiBrewsTesting": "Jeskai、酿造、测试……",
+      "renameFolder": "重命名文件夹",
+      "deleteFolder": "删除文件夹",
+      "editDeck": "编辑套牌",
+      "deleteDeck": "删除套牌",
+      "deckSaved": "套牌已保存",
+      "createSuccessMessage": "该套牌已保存。它现在位于您保存的套牌列表中，您可以根据需要对其进行编辑。祝你的指挥官套牌好运！",
+      "createEmptyDeck": "创建空套牌",
+      "createFolder": "创建文件夹",
+      "continueToRooms": "继续前往房间",
+      "commanderEnlargedPreview": "指挥官放大预览",
+      "deckListLabel": "套牌列表",
+      "yourDeckListFeelsALittleEmpty": "你的套牌列表感觉有点空。跳进去开始建造吧！",
+      "noDecksInThisFolderYet": "此文件夹中还没有牌​​组。",
+      "missingCards": "丢失的牌",
+      "deckName": "套牌名称",
+      "folder": "文件夹",
+      "noFolder": "无文件夹",
+      "openDeck": "打开套牌",
+      "thisDeckIsPublicButItsFolder": "这副套牌是公开的，但所在文件夹是私密的。它不会公开可见。",
+      "commander": "指挥官",
+      "importDecklist": "导入套牌列表",
+      "ifYouIncludeYourCommanderInThe": "如果您将您的指挥官包含在导入套牌列表中，请不要担心；我们将为您删除它。",
+      "ifYouIncludeYourCommandersInThe": "如果您将指挥官包含在导入套牌列表中，请不要担心；我们将为您删除它们。",
+      "folderName": "文件夹名称",
+      "playmat": "游戏垫",
+      "sleeve": "袖子",
+      "editPlaymat": "编辑游戏垫",
+      "editSleeve": "编辑袖子",
       "header": {
-        "title": "Decks",
-        "createDeck": "Create deck",
-        "createFolder": "Create folder"
+        "title": "套牌",
+        "createDeck": "创建套牌",
+        "createFolder": "创建文件夹",
+        "description": "整理、构筑并完善你的套牌。"
       },
       "colorFilter": {
-        "label": "??",
-        "any": "??",
-        "white": "??",
-        "blue": "??",
-        "black": "??",
-        "red": "??",
-        "green": "??",
-        "colorless": "??"
+        "label": "颜色",
+        "any": "任何",
+        "white": "白色的",
+        "blue": "蓝色的",
+        "black": "黑色的",
+        "red": "红色的",
+        "green": "绿色的",
+        "colorless": "无色"
       },
       "sortMode": {
-        "label": "??",
-        "nameAsc": "?? (A-Z)",
-        "nameDesc": "?? (Z-A)"
+        "label": "种类",
+        "nameAsc": "姓名（A-Z）",
+        "nameDesc": "姓名（Z-A）"
+      },
+      "cosmetics": {
+        "free": "自由的",
+        "playmatOptions": "游戏垫选项",
+        "playmatTiers": "游戏垫层数",
+        "premium": "优质的",
+        "selectPlaymat": "选择游戏垫 {{ name }}",
+        "selectSleeve": "选择套筒{{ name }}",
+        "sleeveOptions": "袖子选项"
+      },
+      "filters": {
+        "actionsAndFilters": "套牌动作和过滤器"
+      },
+      "maximumCharacters": "最大 {{ count }} 字符。",
+      "noDecksMatchFilters": "没有与当前过滤器匹配的套牌。",
+      "removeCommander": "移除指挥官",
+      "searchDecks": "搜索套牌",
+      "searchDecksPlaceholder": "搜索套牌...",
+      "stats": {
+        "colorDistribution": "颜色分布",
+        "private": "私密",
+        "public": "公开",
+        "summary": "套牌摘要",
+        "total": "Total"
       }
     }
   },
   "tableAssistant": {
     "tableAssistantPage": {
-      "asistenteDeMesa": "Asistente de Mesa",
-      "resumenRapido": "Resumen rápido",
-      "beneficios": "Beneficios",
-      "mesaManualDeCommander": "Mesa manual de Commander",
-      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida física.",
-      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y daño de comandante sin automatizar reglas de Magic.",
-      "setupRapido": "Setup rápido",
-      "text4JugadoresPorDefecto": "4 jugadores por defecto",
-      "text40VidasIniciales": "40 vidas iniciales",
-      "danoDeComandanteActivo": "Daño de comandante activo"
+      "title": "桌面助手",
+      "benefits": "好处",
+      "manualCommanderTable": "手动 Commander 桌",
+      "physicalGameTrackingDescription": "记录实体对局所需的一切。",
+      "setupDescription": "设置玩家、起始生命和计时器。CommanderZone 会记录生命、回合和指挥官伤害，但不会自动执行 Magic 规则。",
+      "quickSetup": "快速设置",
+      "defaultFourPlayers": "默认4名玩家",
+      "defaultFortyLife": "40 点生命",
+      "commanderDamageEnabled": "已启用指挥官伤害",
+      "quickSummary": "快速总结"
     },
     "tableAssistantReplayModal": {
-      "configuracionDeMesa": "Configuración de mesa",
-      "cerrarConfiguracionDeMesa": "Cerrar configuración de mesa",
-      "posicionesDeMesa": "Posiciones de mesa",
-      "jugador": "Jugador",
-      "sinJugador": "Sin jugador",
-      "orden": "Orden",
-      "eligeUnJugadorYSuTurno": "Elige un jugador y su turno.",
-      "turnoAleatorio": "Turno aleatorio"
+      "seatLabel": "座位 {{ count }}",
+      "turnLabel": "第 {{ count }} 回合",
+      "startGame": "开始对局",
+      "tableSetup": "桌面设置",
+      "closeTableSetup": "关闭桌面设置",
+      "tablePositions": "桌面位置",
+      "player": "玩家",
+      "noPlayer": "没有玩家",
+      "order": "顺序",
+      "choosePlayerAndTurn": "选择一名玩家及其回合。",
+      "randomTurn": "随机回合"
     },
     "tableAssistantRoom": {
-      "giraElDispositivo": "Gira el dispositivo",
-      "informacionDeSala": "Informacion de sala",
-      "copiarEnlaceDeSala": "Copiar enlace de sala",
-      "trackersGlobales": "Trackers globales",
-      "jugadores": "Jugadores",
-      "danoDeComandante": "Daño de comandante",
-      "cerrarDanoDeComandante": "Cerrar daño de comandante",
-      "vidaDeJugador": "Vida de jugador",
-      "trackersDeJugador": "Trackers de jugador",
-      "skullKo": "skull-ko",
-      "laSalaEstaOptimizadaParaMovilEn": "La sala esta optimizada para movil en horizontal.",
-      "cargandoSala": "Cargando sala...",
-      "codigoDeSala": "Codigo de sala",
-      "letal": "Letal",
-      "danoDeComandante1": "Daño de comandante",
-      "verYEditar": "Ver y editar",
-      "asignadoAJugadorConectado": "Asignado a jugador conectado"
+      "rotateDevice": "旋转您的设备",
+      "roomInformation": "房间信息",
+      "copyRoomLink": "复制房间链接",
+      "globalTrackers": "全局记录器",
+      "players": "玩家",
+      "commanderDamage": "指挥官伤害",
+      "closeCommanderDamage": "关闭指挥官伤害",
+      "playerLife": "玩家生命",
+      "playerTrackers": "玩家记录器",
+      "knockoutIconLabel": "击倒",
+      "landscapeOptimizedNotice": "该房间针对移动设备上的横向模式进行了优化。",
+      "roomCode": "房间代码",
+      "lethal": "致命",
+      "commanderDamageSummary": "指挥官伤害",
+      "assignedToConnectedPlayer": "分配给连接的玩家",
+      "viewAndEdit": "查看和编辑"
     },
     "tableAssistantSetup": {
-      "configurarAsistenteDeMesa": "Configurar Asistente de Mesa",
-      "nuevaPartida": "Nueva partida",
-      "configuraLaMesa": "Configura la mesa",
-      "jugadoresVidasYTemporizadorLoDemasSe": "Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.",
-      "jugadores": "Jugadores",
-      "reglasDeMesa": "Reglas de mesa",
-      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Daño de comandante siempre activo. Temporizador opcional."
+      "createRoom": "创建房间",
+      "createRoomError": "无法创建桌面助手房间。",
+      "creatingRoom": "创造...",
+      "initialLife": "起始生命",
+      "initialTotal": "起始总计",
+      "needPlayersAndNames": "您需要至少 2 名玩家，并且每个名字都填写完整。",
+      "playerColorAria": "玩家 {{ index }} 颜色",
+      "playerColorsAria": "玩家 {{ index }} 颜色",
+      "playerNameAria": "玩家 {{ index }} 姓名",
+      "playerNamePlaceholder": "玩家 {{ index }}",
+      "players": "玩家",
+      "configureTableAssistant": "配置桌面助手",
+      "newGame": "新对局",
+      "configureTable": "配置桌面",
+      "setupDescription": "玩家、生命和计时器。其余内容在对局中调整。",
+      "tableRules": "桌面规则",
+      "commanderDamageAndTimerNote": "指挥官伤害始终启用。计时器可选。"
     },
     "tableAssistantTableMenu": {
-      "opcionesDePartidaDeCommanderzone": "Opciones de partida de CommanderZone",
-      "opcionesDePartida": "Opciones de partida",
       "cz": "CZ",
-      "nuevaPartida": "Nueva partida",
-      "tirarDado": "Tirar dado",
-      "pantallaCompleta": "Pantalla completa",
-      "salirAlDashboard": "Salir al dashboard",
-      "seguirJugando": "Seguir jugando"
+      "commanderZoneGameOptions": "CommanderZone 对局选项",
+      "gameOptions": "对局选项",
+      "newGame": "新对局",
+      "rollDice": "掷骰",
+      "fullScreen": "全屏",
+      "exitToDashboard": "退出到面板",
+      "keepPlaying": "继续进行"
     },
     "tableAssistantTimerSettings": {
-      "temporizador": "Temporizador",
-      "duracionPorTurno": "Duracion por turno",
-      "min": "Min",
-      "seg": "Seg"
+      "min": "最小",
+      "timer": "定时器",
+      "turnDuration": "回合时长",
+      "seconds": "秒",
+      "timerModes": {
+        "turn": "每回合",
+        "phase": "每阶段"
+      }
     },
     "tableAssistantTurnControls": {
-      "turnoActivo": "Turno activo",
-      "pausarTemporizador": "Pausar temporizador",
-      "reanudarTemporizador": "Reanudar temporizador",
-      "iniciarTemporizador": "Iniciar temporizador",
-      "pasarAlSiguienteTurno": "Pasar al siguiente turno",
-      "pausar": "Pausar",
-      "reanudar": "Reanudar",
-      "iniciar": "Iniciar",
-      "turno": "Turno",
-      "siguiente": "Siguiente"
+      "activeTurn": "当前回合",
+      "pauseTimer": "暂停计时器",
+      "resumeTimer": "恢复定时器",
+      "startTimer": "启动定时器",
+      "passToNextTurn": "传递到下一个回合",
+      "pause": "暂停",
+      "resume": "恢复",
+      "start": "开始",
+      "turn": "回合",
+      "next": "下一个"
     },
     "page": {
       "benefits": {
         "lifeAndCommander": {
-          "title": "Vidas y comandante",
-          "description": "Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo."
+          "title": "生命和指挥官",
+          "description": "记录生命和指挥官伤害，不把对局变成电子表格。"
         },
         "simpleTurns": {
-          "title": "Turnos simples",
-          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas."
+          "title": "简单回合",
+          "description": "标记当前玩家，并在桌面需要节奏时使用计时器，不自动执行规则。"
         },
         "sharedTable": {
-          "title": "Mesa compartida",
-          "description": "Pensado para un único móvil o tablet en el centro de la mesa."
+          "title": "共享桌面",
+          "description": "专为放置在桌子中央的一部手机或平板电脑而设计。"
         }
       },
       "header": {
-        "title": "Asistente de Mesa",
-        "startGame": "Empezar partida"
+        "title": "桌面助手",
+        "startGame": "开始对局"
       }
     }
   },
   "profile": {},
   "settings": {
     "dashboardSettingsModal": {
-      "playerAvatar": "Player avatar",
-      "avatar": "Avatar",
-      "name": "Name",
-      "becomePremium": "Become premium",
-      "email": "Email",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "deleteAccount": "Delete account",
-      "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
-      "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel",
-      "changeTheme": "Change theme",
+      "playerAvatar": "玩家头像",
+      "changeAvatar": "更改头像",
+      "becomePremium": "成为优质",
+      "changeName": "更换铭牌",
+      "accountDetails": "账户详情",
+      "email": "电子邮件",
+      "userName": "用户名",
+      "changePassword": "更改密码",
+      "sendingPasswordEmail": "正在发送电子邮件...",
+      "passwordResetEmailSentShort": "发送",
+      "passwordResetEmailSent": "已发送密码重置电子邮件。",
+      "passwordResetEmailError": "无法发送密码重置电子邮件。",
+      "deleteAccount": "删除帐户",
+      "areYouSureYouWantToPermanently": "您确定要永久删除您的帐户吗？",
+      "cancel": "取消",
+      "changeTheme": "更改主题",
       "gameSettings": {
-        "title": "Gameplay preferences",
+        "title": "游戏偏好",
         "showManaHelperOnStartup": {
-          "label": "Show mana helper on startup",
-          "description": "Open the mana helper when a match starts."
+          "label": "启动时显示法术力助手",
+          "description": "比赛开始时打开法术力助手。"
         },
         "enableManaRow": {
-          "label": "Enable mana row",
-          "description": "Show the dedicated mana row during games."
-        },
-        "enableStackMana": {
-          "label": "Enable stack mana",
-          "description": "Keep mana available while resolving stacked actions."
+          "label": "启用法术力行",
+          "description": "在游戏期间显示专用法术力行。"
         },
         "gameAnimations": {
-          "label": "Game animations",
-          "description": "Use visual movement and feedback animations during matches."
+          "label": "游戏动画",
+          "description": "在比赛期间使用视觉运动和反馈动画。"
         },
         "chatNotificationSounds": {
-          "label": "Chat notification sounds",
-          "description": "Play a sound when new chat notifications arrive."
+          "label": "聊天通知声音",
+          "description": "当新的聊天通知到达时播放声音。"
+        },
+        "preserveManaPool": {
+          "label": "保留法术力池",
+          "description": "在解决堆叠动作时，将法术力保留在法术力池中。"
         }
-      }
+      },
+      "enterValidEmail": "输入有效的电子邮件。",
+      "checkingEmail": "正在检查电子邮件...",
+      "checkingAvailability": "正在检查可用性...",
+      "couldNotCheckNow": "现在无法检查",
+      "usernameLengthRequirement": "用户名必须介于 2 到 20 个字符之间。",
+      "usernameAvailable": "用户名可用",
+      "usernameUnavailable": "用户名不可用",
+      "emailAvailable": "可用电子邮件",
+      "emailAlreadyRegistered": "邮箱已注册",
+      "deleteAccountWarning": "永久删除您的帐户和所有相关数据，包括套牌和偏好设置。此操作无法撤消。"
     },
     "settingsInitialAvatarOption": {
-      "initialAvatarCustomization": "Initial avatar customization",
-      "mainColor": "Main color",
-      "secondaryColor": "Secondary color",
-      "letters": "Letters"
+      "initialAvatarCustomization": "初始头像定制",
+      "mainColor": "主色",
+      "secondaryColor": "次要颜色",
+      "letters": "信件"
     },
     "settingsAvatarEditor": {
-      "avatarPreview": "Avatar preview",
-      "avatarTiers": "Avatar tiers",
-      "basicAvatars": "Basic avatars",
-      "premiumAvatars": "Premium avatars",
-      "chooseAvatar": "Choose avatar",
-      "currentSelection": "Current selection",
-      "basic": "Basic",
-      "premium": "Premium"
+      "avatarPreview": "头像预览",
+      "avatarTiers": "头像等级",
+      "basicAvatars": "基本头像",
+      "premiumAvatars": "高级头像",
+      "chooseAvatar": "选择头像",
+      "currentSelection": "当前选择",
+      "basic": "基本的",
+      "premium": "优质的"
     },
     "settingsAvatarUpload": {
-      "uploadedAvatarPreview": "Uploaded avatar preview",
-      "avatarPreview": "Avatar preview",
-      "uploadImage": "Upload image",
-      "chooseYourOwnImageAndFrameIt": "Choose your own image and frame it inside the avatar circle.",
-      "imageFile": "Image file",
-      "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP or another browser-supported image. Maximum 2MB.",
-      "chooseImage": "Choose image",
-      "avatarImagesMustBeNonOffensiveNon": "Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.",
-      "horizontal": "Horizontal",
-      "vertical": "Vertical",
+      "uploadedAvatarPreview": "上传头像预览",
+      "avatarPreview": "头像预览",
+      "uploadImage": "上传图片",
+      "chooseYourOwnImageAndFrameIt": "选择您自己的图像并将其框在头像圆圈内。",
+      "imageFile": "图片文件",
+      "pngJpgWebpOrAnotherBrowserSupported": "PNG、JPG、WEBP 或其他浏览器支持的图像。最大 2MB。",
+      "chooseImage": "选择图片",
+      "avatarImagesMustBeNonOffensiveNon": "头像图像必须是非攻击性的、非色情的并且适合 CommanderZone 社区。",
+      "horizontal": "水平的",
+      "vertical": "垂直的",
       "zoom": "Zoom"
     },
     "settingsDisplayNameStyleEditor": {
-      "nameStylePreview": "Name style preview",
-      "nameStyleTiers": "Name style tiers",
-      "currentSelection": "Current selection",
-      "textColor": "Text color",
-      "basic": "Basic",
-      "premium": "Premium"
+      "nameStylePreview": "名称样式预览",
+      "nameStyleTiers": "名称样式层级",
+      "currentSelection": "当前选择",
+      "textColor": "文字颜色",
+      "basic": "基本的",
+      "premium": "优质的"
     }
   },
   "forms": {},
@@ -997,24 +1534,24 @@
   "modals": {
     "roll": {
       "rollModal": {
-        "tirarDado": "Tirar dado",
-        "cerrarTirada": "Cerrar tirada",
-        "tipoDeTirada": "Tipo de tirada",
-        "text": "?",
-        "cerrar": "Cerrar",
-        "volverATirar": "Volver a tirar",
-        "tirar": "Tirar"
+        "text": "结果",
+        "rollDice": "掷骰子",
+        "closeRoll": "密掷骰",
+        "rollType": "掷骰筒式",
+        "close": "关闭",
+        "rollAgain": "再滚一次",
+        "roll": "掷骰"
       },
       "options": {
-        "coin": "Moneda",
-        "d4": "Dado de 4 caras",
-        "d6": "Dado de 6 caras",
-        "d10": "Dado de 10 caras",
-        "d20": "Dado de 20 caras"
+        "coin": "硬币",
+        "d4": "4面模具",
+        "d6": "6面模具",
+        "d10": "10面骰子",
+        "d20": "20面骰子"
       },
       "results": {
-        "heads": "Cara",
-        "tails": "Cruz"
+        "heads": "头",
+        "tails": "尾巴"
       }
     }
   },
@@ -1022,36 +1559,99 @@
   "emptyStates": {},
   "contactPage": {
     "meta": {
-      "title": "Contact CommanderZone",
-      "description": "Contact CommanderZone for support, bug reports, rights issues, or general questions."
+      "title": "联系我们",
+      "description": "请联系 CommanderZone 获取支持、错误报告、权利问题或一般问题。"
     },
     "hero": {
-      "title": "Contact CommanderZone",
-      "description": "Send us a message and we will review it as soon as possible."
+      "title": "联系我们",
+      "description": "给我们留言，我们会尽快审核。"
+    },
+    "nav": {
+      "loggedOutCta": "返回仪表板",
+      "anonymousCta": "回到家",
+      "actionsAriaLabel": "联系页面操作"
     },
     "copy": {
-      "supportTitle": "Support and rights",
-      "supportBody": "Use this form for support, bug reports, privacy requests, or rights-related issues. If needed, we can also continue by email at {{ email }}.",
-      "includeTitle": "What to include",
-      "includeBody": "Explain the issue clearly and include any useful page, room, deck, or screenshot context. Do not send secrets or payment details."
+      "supportTitle": "支持与权利",
+      "supportBody": "使用此表格寻求支持、错误报告、隐私请求、权利相关问题或您想与我们分享的任何问题、想法或好奇心。如果这对您来说更容易，我们也可以通过电子邮件继续：{{ email }}。",
+      "includeTitle": "包括什么",
+      "includeBody": "清楚地解释问题并包括任何有用的页面、房间、平台或屏幕截图上下文。不要发送秘密或付款详细信息。"
     },
     "form": {
-      "nameLabel": "Name",
-      "namePlaceholder": "Your name",
-      "nameError": "Enter your name.",
-      "emailLabel": "Email",
-      "emailPlaceholder": "you@example.com",
-      "emailError": "Enter a valid email.",
-      "subjectLabel": "Subject",
-      "subjectPlaceholder": "How can we help?",
-      "subjectError": "Enter a subject.",
-      "messageLabel": "Message",
-      "messagePlaceholder": "Write your message here.",
-      "messageError": "Enter a message.",
-      "submit": "Send message",
-      "submitting": "Sending...",
-      "submitSuccess": "Your message has been sent.",
-      "submitError": "We could not send your message. Write to {{ email }} directly or contact us through another channel."
+      "nameLabel": "姓名",
+      "namePlaceholder": "你的名字",
+      "nameError": "输入您的名字。",
+      "emailLabel": "电子邮件",
+      "emailPlaceholder": "你@example.com",
+      "emailError": "输入有效的电子邮件。",
+      "subjectLabel": "主题",
+      "subjectPlaceholder": "我们能提供什么帮助？",
+      "subjectError": "输入主题。",
+      "messageLabel": "信息",
+      "messagePlaceholder": "在这里写下您的留言。",
+      "messageError": "输入消息。",
+      "submit": "发送消息",
+      "submitting": "正在发送...",
+      "submitSuccess": "您的消息已发送。",
+      "submitRateLimitError": "您已达到联系限制。请等待大约 {{ retryAfterMinutes }} 分钟，然后再重试。如果紧急，直接写信给{{ email }}。",
+      "submitError": "我们无法发送您的消息。直接写信给{{ email }}或通过其他渠道联系我们。"
+    }
+  },
+  "onboarding": {
+    "accountActions": "账户操作",
+    "demoRoom": {
+      "description": "这是入职流程的模拟房间路线。当多人游戏有线时，将其替换为真实的房间体验。",
+      "eyebrow": "演示室",
+      "goToLogin": "前往登录"
+    },
+    "hero": {
+      "description": "创建房间、分享链接、选择套牌，然后在为真实 Commander 对局打造的桌面上开局。",
+      "eyebrow": "手动指挥台",
+      "title": "几秒钟内在线玩指挥官"
+    },
+    "highlights": {
+      "ariaLabel": "产品亮点",
+      "deckValidation": "优先验证 Commander 套牌",
+      "manualTable": "手动表，无规则发动机噪音",
+      "privateRooms": "私密房间和邀请"
+    },
+    "preview": {
+      "ariaLabel": "CommanderZone表格预览",
+      "flow": "等待室、套牌选择和桌面流程集中在一处。",
+      "guest": "客人",
+      "oneLink": "一个链接",
+      "ready": "准备好"
+    },
+    "steps": {
+      "import": {
+        "description": "粘贴您的列表并将其导入。",
+        "title": "导入套牌列表"
+      },
+      "play": {
+        "description": "打开房间并开始游戏。",
+        "title": "玩"
+      },
+      "room": {
+        "description": "为桌子生成一个房间。",
+        "title": "创建房间"
+      },
+      "share": {
+        "description": "复制房间链接并发送。",
+        "title": "分享链接"
+      }
+    }
+  },
+  "shared": {
+    "cardPreview": {
+      "rank": "排名 {{ rank }}",
+      "viewMore": "查看更多"
+    }
+  },
+  "cards": {
+    "cardSearch": {
+      "pagination": {
+        "label": "牌搜索分页"
+      }
     }
   }
 }

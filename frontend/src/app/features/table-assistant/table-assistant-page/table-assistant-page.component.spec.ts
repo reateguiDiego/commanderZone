@@ -23,15 +23,15 @@ describe('TableAssistantPageComponent', () => {
     const pageHeader = TestBed.inject(PageHeaderStore);
     fixture.detectChanges();
 
-    expect(pageHeader.state()?.title).toBe('Asistente de Mesa');
-    expect(pageHeader.state()?.actions?.[0]?.label).toBe('Empezar partida');
-    expect(fixture.nativeElement.textContent).toContain('Mesa manual de Commander');
+    expect(pageHeader.state()?.title).toBe('Table Assistant');
+    expect(pageHeader.state()?.actions?.[0]?.label).toBe('Start game');
+    expect(fixture.nativeElement.textContent).toContain('Manual Commander table');
 
     pageHeader.state()?.actions?.[0]?.execute();
     fixture.detectChanges();
 
     expect(pageHeader.state()?.actions?.[0]?.disabled).toBe(true);
-    expect(fixture.nativeElement.textContent).toContain('Configura la mesa');
+    expect(fixture.nativeElement.textContent).toContain('Configure the table');
     expect(fixture.nativeElement.textContent).not.toContain('Un movil por jugador');
   });
 });

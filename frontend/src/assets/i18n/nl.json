@@ -2,575 +2,827 @@
   "common": {
     "app": {
       "app": {
-        "loading": "Loading"
-      }
+        "loading": "Laden"
+      },
+      "brand": "CommanderZone"
     },
     "footerDisclaimer": {
       "footerDisclaimer": {
         "disclaimer": "Disclaimer",
-        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by",
+        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone is onofficiële fancontent die is toegestaan onder de Fan Content Policy. Niet goedgekeurd of onderschreven door",
         "wizards": "Wizards",
-        "portionsOfTheMaterialsUsedAreProperty": ". Portions of the materials used are property of",
+        "portionsOfTheMaterialsUsedAreProperty": ". Gedeelten van de gebruikte materialen zijn eigendom van",
         "wizardsOfTheCoast": "Wizards of the Coast",
         "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
         "magicTheGathering": "Magic: The Gathering®",
         "mtg": "MTG®",
-        "andAllAssociatedLogosCardImagesAnd": ", and all associated logos, card images, and intellectual property are trademarks and/or copyrights of",
-        "llcASubsidiaryOf": "LLC, a subsidiary of",
+        "llcASubsidiaryOf": "LLC, een dochteronderneming van",
         "hasbroInc": "Hasbro, Inc",
-        "inTheUnitedStatesAndOtherCountries": "., in the United States and other countries.",
-        "text19932025WizardsOfTheCoastLlc": "© 1993-2025 Wizards of the Coast LLC",
-        "allRightsReserved": ". All rights reserved.",
-        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone may display or reference certain",
-        "intellectualPropertyUnderTheGuidelinesSetForth": "intellectual property under the guidelines set forth in",
+        "inTheUnitedStatesAndOtherCountries": "., in de Verenigde Staten en andere landen.",
+        "allRightsReserved": ". Alle rechten voorbehouden.",
+        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone kan bepaalde",
+        "intellectualPropertyUnderTheGuidelinesSetForth": "intellectueel eigendom volgens de richtlijnen uiteengezet in",
         "wizardsFanContentPolicy": "Wizards' Fan Content Policy",
-        "thisSiteDoesNotSellProductsHost": ". This site does not sell products, host tournaments, or offer any ranked or competitive services. All features are provided free of charge and are intended solely for non-commercial, educational, and entertainment use by the",
+        "thisSiteDoesNotSellProductsHost": ". Deze site verkoopt geen producten, organiseert geen toernooien en biedt geen gerangschikte of competitieve diensten aan. Alle functies worden gratis aangeboden en zijn uitsluitend bedoeld voor niet-commercieel, educatief en amusementsgebruik door de",
         "magicTheGathering1": "Magic: The Gathering",
-        "community": "community.",
-        "forMoreInformationOn": "For more information on",
-        "andTheirIntellectualPropertyPoliciesPleaseVisit": "and their intellectual property policies, please visit:",
-        "ifYouAreTheRightsHolderAnd": "If you are the rights holder and believe any content on this website violates your rights, please contact us directly to resolve the matter. Contact us, view our Help &amp; FAQ, or check our Press Kit."
+        "community": "gemeenschap.",
+        "forMoreInformationOn": "Voor meer informatie over",
+        "andTheirIntellectualPropertyPoliciesPleaseVisit": "en hun beleid inzake intellectueel eigendom kun je terecht op:",
+        "ifYouAreTheRightsHolderAnd": "Als je de rechthebbende bent en denkt dat content op deze website je rechten schendt, neem dan rechtstreeks contact met ons op om dit op te lossen.",
+        "copyrightYears": "© 1993-{{ currentYear }} Wizards of the Coast LLC",
+        "viewHelpOrPressKit": "bekijk onze Help & FAQ of onze Press Kit.",
+        "trademarkedLogosImagesAndIpNotice": ", en alle bijbehorende logo's, kaartafbeeldingen en intellectueel eigendom zijn handelsmerken en/of auteursrechten van",
+        "staticWizardsCopyrightYears": "© 1993-2025 Wizards of the Coast LLC"
       }
     },
     "visibility": {
       "visibilityChoice": {
-        "public": "Public",
-        "private": "Private"
+        "public": "Openbaar",
+        "private": "Privé",
+        "label": "Zichtbaarheid",
+        "privacy": "Privacy",
+        "privateOnlyYouSubtitle": "Alleen jij kunt het zien",
+        "privateSubtitle": "Alleen op uitnodiging",
+        "publicPlayersSubtitle": "Zichtbaar voor andere spelers",
+        "publicProfileSubtitle": "Zichtbaar op openbaar profiel",
+        "publicSubtitle": "Iedereen kan meedoen"
+      },
+      "visibilityPill": {
+        "public": "Openbaar",
+        "private": "Privé"
       }
     },
     "extraActions": {
-      "label": "Extras",
-      "open": "Open extra actions",
-      "menu": "Extra actions"
+      "label": "Extra's",
+      "open": "Extra acties openen",
+      "menu": "Extra acties"
     },
     "navigation": {
       "back": "Terug"
+    },
+    "actions": {
+      "accept": "Accepteren",
+      "confirm": "Bevestigen",
+      "create": "Aanmaken",
+      "delete": "Verwijderen",
+      "done": "Klaar",
+      "invite": "Uitnodigen",
+      "roll": "Werp",
+      "save": "Opslaan",
+      "select": "Selecteer",
+      "sending": "Verzenden...",
+      "understood": "Begrepen",
+      "working": "Bezig...",
+      "showPassword": "Wachtwoord tonen",
+      "hidePassword": "Wachtwoord verbergen",
+      "previous": "Vorige",
+      "next": "Volgende",
+      "moveUp": "Omhoog",
+      "moveDown": "Omlaag",
+      "remove": "Verwijderen",
+      "newGame": "Nieuwe partij"
+    },
+    "modal": {
+      "cancel": "Annuleer",
+      "cannotBeUndone": "Deze actie kan niet ongedaan worden gemaakt.",
+      "close": "Sluiten"
     }
   },
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "tuComandanteHaLlegado": "Je commanders dorsten naar bloed",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
-        "bienvenido": "Welkom"
-      },
-      "dashboardHeaderContext": {
-        "pageSummary": "Page summary"
-      },
-      "dashboardHeaderControls": {
-        "pendingFriendRequests": "Pending friend requests",
-        "onlineFriends": "Online friends",
-        "friends": "Friends"
-      },
-      "dashboardShell": {
-        "commanderzoneDashboard": "CommanderZone dashboard",
-        "primary": "Primary",
-        "decks": "Decks",
-        "rooms": "Rooms",
-        "asistenteDeMesa": "Asistente de Mesa"
+        "commandersArrivalHeadline": "Je Commanders dorsten naar bloed",
+        "welcome": "Welkom"
       },
       "dashboardTopCommanders": {
-        "title": "Top commanders",
-        "subtitle": "Meest gespeelde commanders van het formaat",
-        "viewAll": "View more",
-        "viewMore": "View more",
-        "communityPopularity": "Gebaseerd op gespeelde community-games"
+        "title": "Top Commanders",
+        "subtitle": "Meest gespeelde Commanders in het format",
+        "communityPopularity": "Gebaseerd op partijen die door de community zijn gespeeld",
+        "viewMore": "Bekijk meer"
+      },
+      "dashboardHeaderContext": {
+        "pageSummary": "Pagina samenvatting"
+      },
+      "dashboardHeaderControls": {
+        "pendingFriendRequests": "Vriendschapsverzoeken in behandeling",
+        "onlineFriends": "Onlinevrienden",
+        "friends": "Vrienden",
+        "messages": "Berichten",
+        "unreadMessages": "Ongelezen berichten"
+      },
+      "dashboardShell": {
+        "commanderzoneDashboard": "CommanderZone-dashboard",
+        "primary": "Primair",
+        "cards": "Kaarten",
+        "decks": "Decks",
+        "rooms": "Kamers",
+        "community": "Gemeenschap",
+        "tableAssistant": "Tafelassistent",
+        "admin": "Admin"
       }
     },
     "friends": {
       "friendsDropdown": {
-        "emailOrUsername": "Email or username",
-        "friends": "Friends",
-        "userSearchResults": "User search results",
-        "friendList": "Friend list",
-        "searchUsers": "Search users",
-        "sendFriendRequest": "Send friend request",
-        "cancelRequest": "Cancel request",
-        "removeFriend": "Remove friend",
-        "findUsers": "Find users",
-        "noUsersFound": "No users found.",
-        "invitacionDeSala": "Invitacion de sala",
-        "noFriendsOrPendingRequests": "No friends or pending requests."
+        "friends": "Vrienden",
+        "userSearchResults": "Zoekresultaten van gebruikers",
+        "friendList": "Vriendenlijst",
+        "sendFriendRequest": "Vriendschapsverzoek versturen",
+        "cancelRequest": "Aanvraag annuleren",
+        "removeFriend": "Vriend verwijderen",
+        "findUsers": "Vind gebruikers",
+        "noUsersFound": "Geen gebruikers gevonden.",
+        "acceptedStatus": "Vrienden",
+        "blockedStatus": "Geblokkeerd",
+        "declinedStatus": "Geweigerd",
+        "invitations": "Uitnodigingen",
+        "inGameStatus": "In partij",
+        "joinedPlayers": "deelnemers",
+        "offlineStatus": "Offline",
+        "online": "Online",
+        "onlineStatus": "Online",
+        "pendingStatus": "In behandeling",
+        "searchHint": "Typ minimaal twee tekens om spelers te zoeken.",
+        "searchPlayers": "Spelers zoeken...",
+        "searchTab": "Zoeken",
+        "seats": "zitplaatsen",
+        "requests": "Verzoeken",
+        "receivedRequests": "Ontvangen",
+        "sentRequests": "Verzonden",
+        "disconnected": "Verbinding verbroken",
+        "roomInvite": "Kamer uitnodigen"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "Berichten",
+        "inbox": "Postvak IN",
+        "loadingMessages": "Berichten laden...",
+        "noMessagesYet": "Nog geen berichten.",
+        "receivedMessages": "Ontvangen berichten",
+        "sentBy": "Verzonden door:",
+        "unread": "Ongelezen",
+        "read": "Gelezen",
+        "couldNotLoadMessages": "Berichten konden niet worden geladen.",
+        "couldNotMarkMessageRead": "Het bericht kon niet als gelezen worden gemarkeerd."
       }
     }
   },
   "auth": {
     "authPage": {
-      "authMode": "Auth mode",
+      "authMode": "Verificatiemodus",
       "commanderzone": "CommanderZone",
-      "accedeATusMazosSalasYMesa": "Accede a tus mazos, salas y mesa manual de Commander.",
-      "login": "Login",
-      "register": "Register",
-      "email": "Email",
-      "emailOrUserName": "E-mail of gebruikersnaam",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "introduceUnEmailOUserNameValido": "Voer een geldig e-mailadres of gebruikersnaam in.",
-      "invalidCredentials": "E-mail, gebruikersnaam of wachtwoord is onjuist.",
-      "tooManyLoginAttempts": "Te veel mislukte loginpogingen. Probeer het later opnieuw.",
-      "loginLockoutWarning": "Mislukte loginpoging {{ count }}/5. Als je 5 keer faalt, wordt login 15 minuten geblokkeerd.",
-      "password": "Password",
-      "heOlvidadoMiContrasena": "He olvidado mi contrasena",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula, numero y caracter especial.",
+      "login": "Inloggen",
+      "register": "Registreren",
+      "email": "E-mail",
+      "emailOrUserName": "E-mailadres of gebruikersnaam",
+      "invalidCredentials": "Ongeldig e-mailadres, gebruikersnaam of wachtwoord.",
+      "tooManyLoginAttempts": "Te veel mislukte inlogpogingen. Probeer het later opnieuw.",
+      "loginLockoutWarning": "Mislukte inlogpoging {{ count }}/5. Als je 5 keer faalt, wordt de login gedurende 15 minuten geblokkeerd.",
+      "password": "Wachtwoord",
+      "userName": "Gebruikersnaam",
       "passwordRequirements": {
-        "label": "Password requirements",
-        "minLength": "Minimo 8 caracteres",
-        "lowercase": "Minimo 1 letra minuscula",
-        "uppercase": "Minimo 1 letra mayuscula",
-        "number": "Minimo 1 numero",
-        "special": "Minimo 1 caracter especial"
+        "label": "Wachtwoordvereisten",
+        "minLength": "Minimaal 8 tekens",
+        "lowercase": "Minimaal 1 kleine letter",
+        "uppercase": "Minimaal 1 hoofdletter",
+        "number": "Minimaal 1 nummer",
+        "special": "Minimaal 1 speciaal teken"
       },
-      "confirmarPassword": "Confirmar password",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "registrationCompletedCheckEmail": "Registratie voltooid. Controleer je e-mail en bevestig je account."
+      "registrationCompletedCheckEmail": "Registratie voltooid. Controleer je e-mail en bevestig je account.",
+      "createAccount": "Account aanmaken",
+      "accessDecksRoomsAndTable": "Toegang tot je decks, kamers en handmatige Commander-tafel.",
+      "enterValidEmail": "Voer een geldig e-mailadres in.",
+      "enterValidEmailOrUsername": "Voer een geldig e-mailadres of gebruikersnaam in.",
+      "forgotPassword": "Ik ben mijn wachtwoord vergeten",
+      "checkingEmail": "E-mail controleren...",
+      "checkingAvailability": "Beschikbaarheid controleren...",
+      "passwordPolicySummary": "Minimaal 8 tekens met kleine letters, hoofdletters, cijfers en speciale tekens.",
+      "confirmPassword": "Bevestig wachtwoord",
+      "passwordsDoNotMatch": "Wachtwoorden komen niet overeen.",
+      "emailAvailable": "E-mail beschikbaar",
+      "emailAlreadyRegistered": "E-mailadres al geregistreerd",
+      "couldNotCheckNow": "Kan het nu niet controleren",
+      "usernameLengthRequirement": "De gebruikersnaam moet tussen 2 en 20 tekens lang zijn.",
+      "usernameAvailable": "Gebruikersnaam beschikbaar",
+      "usernameUnavailable": "Gebruikersnaam niet beschikbaar",
+      "googleUnavailable": "Inloggen met Google is momenteel niet beschikbaar.",
+      "signInWithGoogle": "Inloggen met Google",
+      "registerWithGoogle": "Registreren met Google",
+      "socialSignIn": "Sociale login",
+      "or": "of"
     },
     "emailVerificationPage": {
       "confirmingEmail": "E-mail bevestigen",
       "waitWhileWeConfirmYourAccount": "Wacht terwijl we je account bevestigen.",
-      "couldNotConfirmEmail": "E-mail kon niet worden bevestigd",
-      "linkInvalidOrExpired": "De verificatielink is ongeldig of verlopen.",
-      "backToLogin": "Terug naar login"
+      "couldNotConfirmEmail": "Kan je e-mailadres niet bevestigen",
+      "invalidOrExpiredLink": "De verificatielink is ongeldig of verlopen."
     },
     "passwordResetPage": {
-      "recuperarContrasena": "Recuperar contrasena",
-      "solicitaElCorreoDeRecuperacionParaRecibir": "Solicita el correo de recuperacion para recibir un enlace seguro.",
-      "defineTuNuevaContrasenaConElEnlace": "Define tu nueva contrasena con el enlace seguro que recibiste por email.",
-      "email": "Email",
-      "siElEmailExisteSeEnvioUn": "Si el email existe, se envio un correo con el token de recuperacion.",
-      "nuevaContrasena": "Nueva contrasena",
-      "confirmarContrasena": "Confirmar contrasena",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "contrasenaActualizadaIniciandoSesion": "Contrasena actualizada. Iniciando sesion...",
-      "volverAlLogin": "Volver al login"
+      "email": "E-mail",
+      "requestError": "Kan de herstel-e-mail niet opvragen.",
+      "invalidOrExpiredLink": "De herstellink is ongeldig of verlopen.",
+      "updateError": "Kan het wachtwoord niet bijwerken met token.",
+      "sending": "Verzenden...",
+      "sendRecoveryEmail": "Herstelmail verzenden",
+      "updating": "Updaten...",
+      "updatePassword": "Wachtwoord bijwerken",
+      "resetPassword": "Wachtwoord opnieuw instellen",
+      "requestRecoveryEmailDescription": "Vraag de herstel-e-mail aan om een beveiligde link te ontvangen.",
+      "setNewPasswordDescription": "Stel je nieuwe wachtwoord in met de beveiligde link die je per e-mail hebt ontvangen.",
+      "newPassword": "Nieje wachtwoord",
+      "confirmPassword": "Bevestig wachtwoord",
+      "passwordsDoNotMatch": "Wachtwoorden komen niet overeen.",
+      "passwordUpdatedSigningIn": "Wachtwoord bijgewerkt. Aanmelden...",
+      "recoveryEmailSentIfAccountExists": "Als de e-mail bestaat, is er een e-mail voor wachtwoordherstel verzonden."
     }
   },
   "rooms": {
     "roomBrowser": {
-      "searchRoom": "Search room",
-      "searchOwner": "Search owner",
-      "roomName": "Room name",
-      "owner": "Owner",
-      "visibility": "Visibility",
-      "publicAndPrivate": "All",
-      "publicOnly": "Public",
-      "privateOnly": "Private",
+      "searchRoom": "Kamer zoeken",
+      "searchOwner": "Zoek host",
+      "roomName": "Kamernaam",
+      "owner": "Host",
+      "visibility": "Zichtbaarheid",
+      "publicAndPrivate": "Allemaal",
+      "publicOnly": "Openbaar",
+      "privateOnly": "Privé",
       "status": "Status",
-      "allStatus": "All status",
-      "anonymous": "Anonymous",
+      "anonymous": "Anoniem",
       "open": "Open",
-      "full": "Full",
-      "started": "Started",
+      "full": "Vol",
+      "started": "Gestart",
       "host": "Host",
-      "format": "Format",
-      "players": "Players",
-      "action": "Action",
-      "noRoomsMatchTheCurrentFilters": "No rooms match the current filters."
+      "format": "Formaat",
+      "players": "Spelers",
+      "action": "Actie",
+      "noRoomsMatchTheCurrentFilters": "Er zijn geen kamers die overeenkomen met de huidige filters.",
+      "paginationLabel": "Paginering van de kamerlijst"
     },
     "roomCreatePanel": {
-      "czAbcDef123": "CZ-ABC-DEF-123",
-      "joinByRoomCode": "Join by room code",
-      "join": "Join",
-      "createANewRoom": "Create a new room",
-      "roomSetup": "Room setup",
-      "createRoom": "Create room"
+      "join": "Deelnemen",
+      "createANewRoom": "Nieuwe kamer maken",
+      "roomSetup": "Kameropstelling",
+      "createRoom": "Kamer maken",
+      "alreadyInRoomTooltip": "Je zit al in een kamer. Verlaat die kamer voordat je aan een andere deelneemt.",
+      "enterRoomCode": "Voer kamercode in",
+      "joinWithCode": "Deelnemen met code"
     },
     "roomCurrentBanner": {
-      "currentRoomDetails": "Current room details",
-      "currentRoom": "Current room",
-      "yourDeck": "Your deck",
-      "turn": "Turn"
+      "currentRoomDetails": "Huidige kamerdetails",
+      "currentRoom": "Huidige kamer",
+      "yourDeck": "Joje deck",
+      "turn": "Beurt"
     },
     "roomInvitesPanel": {
-      "invites": "Invites",
-      "pendingRoomInvites": "Pending room invites",
-      "accept": "Accept",
-      "decline": "Decline"
+      "invites": "Uitnodigingen",
+      "pendingRoomInvites": "Kameruitnodigingen in behandeling",
+      "accept": "Accepteren",
+      "decline": "Weigeren"
     },
     "roomRow": {
-      "started": "Started",
-      "full": "Full",
-      "open": "Open",
-      "join": "Join"
+      "started": "Gestart",
+      "full": "Vol",
+      "open": "Openen",
+      "join": "Deelnemen"
     },
     "rooms": {
-      "borrarSala": "Borrar sala",
-      "mazoRequerido": "Mazo requerido"
+      "validDeckRequiredToCreate": "Je hebt een geldig deck nodig om een kamer te maken.",
+      "deleteRoom": "Kamer verwijderen",
+      "deckRequired": "Deck vereist"
     },
     "roomSetupControls": {
       "timer": "Timer",
       "mulligan": "Mulligan",
-      "firstMulliganFree": "De eerste mulligan is gratis",
+      "firstMulliganFree": "De eerste Mulligan is gratis",
       "mulliganDescriptions": {
-        "london": "London: trek altijd 7 kaarten. Als je houdt, leg je een kaart onderop voor elke effectieve mulligan.",
-        "vancouver": "Vancouver: elke effectieve mulligan trekt een kaart minder. Als je houdt na een effectieve mulligan, doe je Scry 1.",
-        "paris": "Paris: elke effectieve mulligan trekt een kaart minder. Geen bottom-selectie en geen scry.",
-        "generous": "Generous: bedoeld voor Commander. Trek tot 10 kaarten, houd er 7 als dat kan en de server legt de rest willekeurig onderop."
+        "london": "Trek elke keer 7 kaarten. Wanneer je houdt, leg je één kaart onderop je library voor elke effectieve mulligan.",
+        "vancouver": "Elke effectieve mulligan trekt één kaart minder. Als je na een effectieve mulligan houdt, doe je scry 1.",
+        "paris": "Elke effectieve mulligan trekt één kaart minder. Je legt geen kaarten onderop je library en doet geen scry.",
+        "generous": "Commander-vriendelijke regel: trek tot 10 kaarten, houd er 7 wanneer mogelijk en leg de rest in willekeurige volgorde onderop je library."
       },
       "firstMulliganFreeOn": "Gratis",
-      "firstMulliganFreeOff": "Telt"
+      "firstMulliganFreeOff": "Telt",
+      "mulliganRules": {
+        "generous": "Gul",
+        "london": "London",
+        "paris": "Paris",
+        "vancouver": "Vancouver"
+      },
+      "noTimer": "Geen timer"
     },
     "roomSetupModal": {
-      "ejLaTaberna": "Ej. La taberna",
-      "roomName": "Room name",
-      "timer": "Timer"
+      "roomName": "Naam kamer",
+      "timer": "Timer",
+      "createRoom": "Kamer maken",
+      "editRoomConfigurationBeforeStarting": "Pas de kamerconfiguratie aan voordat je begint.",
+      "exampleRoomName": "Bijv. De Taverne"
     },
     "waitingRoomDeckSelector": {
-      "deckSelection": "Deck selection",
-      "invalidDeck": "Invalid deck",
-      "rollDice": "Roll dice",
-      "selectADeck": "Select a deck",
-      "randomDeck": "Random deck",
-      "chooseOne": "Choose one",
-      "checking": "Checking"
+      "deckSelection": "Deckselectie",
+      "invalidDeck": "Ongeldig deck",
+      "rollDice": "Werp dobbelstenen",
+      "selectADeck": "Selecteer een deck",
+      "randomDeck": "Willekeurig deck",
+      "chooseOne": "Kies er één",
+      "checking": "Controleren"
     },
     "waitingRoomLogPanel": {
-      "activity": "Activity",
-      "roomEventsWillAppearHere": "Room events will appear here."
+      "activity": "Activiteit",
+      "roomEventsWillAppearHere": "Hier verschijnen kamergebeurtenissen."
     },
     "waitingRoomPlayerCard": {
-      "kickPlayer": "Kick player",
-      "d20RollResult": "D20 roll result",
-      "waitingForPlayer": "Waiting for player",
+      "kickPlayer": "Speler verwijderen",
+      "d20RollResult": "D20-worpresultaat",
+      "waitingForPlayer": "Wachten op speler",
       "host": "Host",
-      "turnOrder": "Turn order",
-      "d20Roll": "D20 roll",
-      "openSlot": "Open slot"
+      "turnOrder": "Beurtvolgorde",
+      "d20Roll": "D20-worp",
+      "openSlot": "Open sleuf"
     },
     "waitingRoom": {
-      "leaveRoom": "Leave room",
-      "deleteRoom": "Delete room",
-      "inviteFriends": "Invite friends",
-      "kickPlayer": "Kick player",
-      "invalidDeck": "Invalid deck",
-      "setup": "Setup",
-      "chooseYourDeckAndGetReadyBefore": "Choose your deck and get ready before starting.",
-      "start": "Start",
-      "afterRollingYourDeckSelectionWillBe": "After rolling, your deck selection will be locked and cannot be changed.",
-      "noAcceptedFriendsYet": "No accepted friends yet.",
-      "inRoom": "In room",
-      "invited": "Invited",
-      "loadingRoomState": "Loading room state..."
+      "leaveRoom": "Verlaat de kamer",
+      "deleteRoom": "Kamer verwijderen",
+      "inviteFriends": "Nodig vrienden uit",
+      "kickPlayer": "Speler verwijderen",
+      "invalidDeck": "Ongeldig deck",
+      "setup": "Instellingen",
+      "chooseYourDeckAndGetReadyBefore": "Kies je deck en bereid je voor voordat je begint.",
+      "start": "Begin",
+      "afterRollingYourDeckSelectionWillBe": "Na de worp wordt je deckselectie vergrendeld en kan deze niet meer worden gewijzigd.",
+      "noAcceptedFriendsYet": "Nog geen geaccepteerde vrienden.",
+      "inRoom": "In de kamer",
+      "invited": "Uitgenodigd",
+      "allPlayersReady": "Alle spelers klaar",
+      "chooseAcceptedFriendsToInvite": "Kies geaccepteerde vrienden om uit te nodigen voor deze kamer.",
+      "invalidDeckSelectionMessage": "Je kunt {{ deckName }} niet selecteren omdat dit deck Commander-validatiefouten heeft.",
+      "kickPlayerConfirmation": "Wil je {{ playerName }} uit de kamer verwijderen?",
+      "leaveRoomConfirmation": "Je verlaat deze kamer en keert terug naar de kamerlijst.",
+      "playersCount": "Spelers ({{ current }}/{{ max }})",
+      "rollSetsTurnOrder": "Deze worp bepaalt je speelvolgorde.",
+      "thisDeck": "dit deck",
+      "thisPlayer": "deze speler",
+      "tieBreakRoll": "Tiebreak-worp",
+      "tieBreakRollMessage": "Je speelde gelijk met {{ playerNames }}. Werp opnieuw om de gelijke stand te doorbreken.",
+      "waitingForDecksAndRolls": "Wachten op decks en worpen"
     },
     "setup": {
       "gameSetupLifeControl": {
-        "startingLife": "Starting life",
-        "decreaseStartingLife": "Decrease starting life",
-        "increaseStartingLife": "Increase starting life"
+        "startingLife": "Startlevenstotaal",
+        "decreaseStartingLife": "Startlevenstotaal verlagen",
+        "increaseStartingLife": "Startlevenstotaal verhogen",
+        "lifeUnit": "leven",
+        "startingLifePresets": "Presets voor startlevenstotaal",
+        "startingTotal": "Begintotaal",
+        "totalLife": "Levenstotaal"
       },
       "gameSetupSeatsControl": {
-        "tableSize": "Table size"
+        "tableSize": "Tafelgrootte",
+        "seats": "Zitplaatsen",
+        "setTableSizeToPlayers": "Stel tafelgrootte in op {{ count }} spelers"
       }
     },
     "header": {
-      "title": "Rooms",
-      "totalRooms": "Total rooms",
-      "openRooms": "Open rooms",
-      "privateRooms": "Private rooms",
-      "publicRooms": "Public rooms",
-      "totalPlayers": "Total players",
-      "startedGames": "Started games"
+      "title": "Kamers",
+      "totalRooms": "Totaal kamers",
+      "openRooms": "Open kamers",
+      "privateRooms": "Privé kamers",
+      "publicRooms": "Openbare kamers",
+      "totalPlayers": "Totaal aantal spelers",
+      "startedGames": "Gestarte partijen",
+      "description": "Blader door actieve lobby's en doe direct mee aan een partij."
     },
     "waiting": {
       "header": {
-        "inviteFriends": "Invite friends"
+        "inviteFriends": "Nodig vrienden uit"
       }
     }
   },
   "community": {
+    "preview": {
+      "summary": {
+        "topHundred": "Top 100 kaarten"
+      },
+      "error": "Kan communityvoorbeeld niet laden.",
+      "empty": "Er zijn nog geen kaarten beschikbaar.",
+      "playedLabel": "Gespeeld",
+      "filters": {
+        "allTypes": "Alle soorten",
+        "type": {
+          "artifact": "Artifact",
+          "battle": "Battle",
+          "creature": "Creature",
+          "enchantment": "Enchantment",
+          "instant": "Instant",
+          "land": "Land",
+          "planeswalker": "Planeswalker",
+          "sorcery": "Sorcery"
+        }
+      }
+    },
     "detail": {
       "saveConfirmation": {
         "title": "Wil je dit deck opslaan in je decklijst?",
-        "confirm": "Bevestigen",
-        "cancel": "Annuleren"
+        "confirm": "Bevestig",
+        "cancel": "Annuleer"
+      },
+      "error": "Kan communitydeck niet laden.",
+      "headerTitle": "Communitydeck",
+      "missingId": "Ontbrekende communitydeck-ID.",
+      "save": "Opslaan",
+      "saveError": "Kan dit deck niet opslaan in je decklijst.",
+      "shareError": "Kan de link naar het communitydeck niet kopiëren.",
+      "unknownCommander": "Onbekende Commander",
+      "readonly": {
+        "validation": {
+          "backendValid": "Dit deck is in Community gemarkeerd als geldig.",
+          "backendInvalid": "Dit deck bevat waarschjeingen of problemen in de Community.",
+          "commanders": "Command zone: {{ names }}",
+          "error": "Fout",
+          "warning": "Waarschjeing"
+        },
+        "historyOwner": "Gedeeld door"
       }
+    },
+    "dashboardTopCommanders": {
+      "ariaLabel": "Top 3 Commanders",
+      "theUrDragonPlayed": "47.928 partijen",
+      "edgarMarkovPlayed": "47.211 partijen",
+      "atraxaPlayed": "43.917 partijen"
+    },
+    "home": {
+      "title": "Gemeenschapsdecks",
+      "subtitle": "Ontdek openbare decks gemaakt door andere spelers.",
+      "error": "Kan Community niet laden.",
+      "decksSection": {
+        "title": "Decks om te ontdekken"
+      },
+      "decksButton": "Zoek decks",
+      "decksEmpty": "Er zijn nog geen openbare decks beschikbaar.",
+      "commandersTitle": "Meest gespeelde Commanders",
+      "mobileCommandersTitle": "Top Commanders",
+      "commandersAriaLabel": "Commanders voor inspiratie",
+      "cardsTitle": "Meest gespeelde kaarten",
+      "mobileCardsTitle": "Topkaarten",
+      "cardsSubtitle": "Gebaseerd op partijen die door de community zijn gespeeld",
+      "cardsAriaLabel": "Kaarten om te ontdekken",
+      "viewMore": "Bekijk meer"
+    },
+    "deckList": {
+      "title": "Zoek decks",
+      "subtitle": "Ontdek openbare decks uit de community.",
+      "filterName": "Zoek op naam",
+      "filterNamePlaceholder": "Zoek decks...",
+      "filterCommander": "Commander",
+      "filterCommanderPlaceholder": "Zoek Commander...",
+      "commanderSelect": "Selecteer",
+      "filterFormat": "Formaat",
+      "allFormats": "Alle formaten",
+      "searchButton": "Zoeken",
+      "empty": "Er zijn nog geen openbare decks beschikbaar.",
+      "error": "Kan openbare decks niet laden."
+    },
+    "deckViewer": {
+      "cardsCount": "{{ count }}-kaarten",
+      "sectionsCount": "{{ count }}-secties",
+      "viewMode": {
+        "label": "Bekijk modus",
+        "text": "Tekst",
+        "spoiler": "Spoiler"
+      },
+      "invalidCard": "Deze kaart is niet geldig in {{ format }}.",
+      "groups": {
+        "commander": "Commander",
+        "planeswalker": "Planeswalkers",
+        "battle": "Gevechten",
+        "creature": "Wezens",
+        "instant": "Instanten",
+        "sorcery": "Sorcery",
+        "enchantment": "Enchantmenten",
+        "artifact": "Artifacten",
+        "land": "Lands",
+        "sideboard": "Sideboard",
+        "other": "Anders",
+        "includingMdfc": "{{ count }} inclusief MDFC"
+      }
+    },
+    "shared": {
+      "deckWarnings": "Dekwaarschjeingen"
     }
   },
   "game": {
     "arrowTargetDialog": {
-      "selectArrowTargetPlayer": "Select arrow target player",
-      "drawArrow": "Draw arrow",
-      "chooseTargetBoard": "Choose target board",
-      "theSelectedBattlefieldOpensBehindThisPanel": "The selected battlefield opens behind this panel before you pick a card.",
-      "targetPlayer": "Target player",
-      "multipleTargets": "Multiple targets?",
-      "drawSeveralArrowsFromThisCard": "Draw several arrows from this card",
-      "targets": "Targets",
-      "cancel": "Cancel",
-      "selectTarget": "Select target"
+      "selectArrowTargetPlayer": "Selecteer pijldoelspeler",
+      "drawArrow": "Teken een pijl",
+      "chooseTargetBoard": "Kies doelbord",
+      "theSelectedBattlefieldOpensBehindThisPanel": "De geselecteerde battlefield gaat achter dit paneel open voordat je een kaart kiest.",
+      "targetPlayer": "Doelspeler",
+      "multipleTargets": "Meerdere doelen?",
+      "drawSeveralArrowsFromThisCard": "Teken verschillende pijlen van deze kaart",
+      "targets": "Doelstellingen",
+      "cancel": "Annuleer",
+      "selectTarget": "Selecteer doel"
     },
     "battlefieldZoomControls": {
-      "openBattlefieldZoomControls": "Open battlefield zoom controls",
-      "battlefieldZoom": "Battlefield zoom",
-      "resetBattlefieldZoom": "Reset battlefield zoom",
-      "resetZoom": "Reset zoom"
+      "openBattlefieldZoomControls": "Open de zoomregelaars van battlefield",
+      "battlefieldZoom": "Battlefield-zoom",
+      "resetBattlefieldZoom": "battlefield-zoom opnieuw instellen",
+      "resetZoom": "Zoom opnieuw instellen"
     },
     "cardPreviewOverlay": {
-      "cardPreviewDetails": "Card preview details",
-      "powerAndToughness": "Power and toughness",
-      "attachedTo": "Attached to",
-      "attached": "Attached",
-      "current": "Current",
+      "cardPreviewDetails": "Details van kaartvoorbeeld",
+      "powerAndToughness": "Power/toughness",
+      "attachedTo": "Gehecht aan",
+      "attached": "Bijgevoegd",
+      "current": "Huidig",
       "counters": "Counters"
     },
     "cardSpoilerGrid": {
-      "lookAtOtherFace": "Look at other face",
-      "loadingCards": "Loading cards"
+      "lookAtOtherFace": "Kijk naar een ander gezicht",
+      "loadingCards": "Kaarten laden"
     },
     "chatRecipientSelect": {
-      "chatRecipient": "Chat recipient"
+      "chatRecipient": "Chat-ontvanger"
     },
     "contextMenu": {
-      "d": "D",
-      "s": "S",
-      "xX": "X/X",
-      "z": "Z",
-      "t": "T",
       "labels": {
-        "refreshSnapshot": "Refresh Snapshot",
-        "focusMyBoard": "Focus My Board",
-        "abrirDebug": "Abrir debug",
-        "concede": "Concede",
-        "leaveTable": "Leave Table",
-        "deleteArrow": "Delete Arrow",
-        "deleteArrows": "Delete Arrows",
-        "deleteCounter": "Delete Counter",
-        "resetManaPool": "Reset Mana Pool",
-        "focusPlayer": "Focus Player",
-        "life1": "Life +1",
-        "viewExile": "View Exile",
-        "viewGraveyard": "View Graveyard",
-        "drawCard": "Draw Card",
-        "drawXCards": "Draw X Cards",
-        "shuffle": "Shuffle",
-        "selectRandomCard": "Select Random Card",
-        "selectAllBattlefieldCards": "Select All Battlefield Cards",
-        "selectAllHandCards": "Select All Hand Cards",
-        "createToken": "Create Token",
-        "tirarDado": "Tirar dado",
-        "showManaPool": "Show Mana Pool",
-        "view": "View",
-        "drawArrow": "Draw Arrow",
-        "addMana": "Add Mana",
-        "attachTo": "Attach to...",
+        "refreshSnapshot": "Snapshot vernieuwen",
+        "focusMyBoard": "Focus mijn board",
+        "concede": "Geef toe",
+        "leaveTable": "Verlaat de tafel",
+        "deleteArrow": "Pijl verwijderen",
+        "deleteArrows": "Pijlen verwijderen",
+        "deleteCounter": "Counter verwijderen",
+        "resetManaPool": "Mana pool leegmaken",
+        "focusPlayer": "Focus speler",
+        "life1": "Leven +1",
+        "viewExile": "Bekijk exile",
+        "viewGraveyard": "Bekijk graveyard",
+        "drawCard": "Trek een kaart",
+        "drawXCards": "Trek X kaarten",
+        "shuffle": "Schudden",
+        "selectRandomCard": "Selecteer willekeurige kaart",
+        "selectAllBattlefieldCards": "Selecteer alle kaarten op de battlefield",
+        "selectAllHandCards": "Selecteer alle kaarten in hand",
+        "createToken": "Token maken",
+        "gameMechanics": "Spelmechanica",
+        "addMonarch": "Voeg monarch toe",
+        "becomeMonarch": "Word monarch",
+        "addInitiative": "Voeg initiative toe",
+        "takeInitiative": "Neem initiative",
+        "addDayNight": "Dag/Nacht toevoegen",
+        "addTheRing": "Voeg The Ring toe",
+        "addDungeon": "Voeg dungeon toe",
+        "addCitysBlessing": "Krijg city's blessing",
+        "removeCitysBlessing": "Verwijder city's blessing",
+        "addEmblem": "Voeg embleem toe",
+        "showManaPool": "Toon mana pool",
+        "view": "Bekijk",
+        "drawArrow": "Teken een pijl",
+        "addMana": "Mana toevoegen",
+        "attachTo": "Bevestig aan...",
         "unequip": "Unequip",
-        "detachAllAttached": "Detach all attached",
-        "makeATokenCopy": "Make A Token Copy",
-        "removeStack": "Remove stack",
-        "flipCardFace": "Flip Card Face",
-        "playFaceDown": "Play Face Down",
-        "previewCard": "Preview Card",
-        "moveTop": "Move Top",
-        "revealTopCard": "Reveal Top Card",
-        "revealLibrary": "Reveal Library",
-        "moveAllTo": "Move All To",
+        "detachAllAttached": "Maak alle attached kaarten los",
+        "makeATokenCopy": "Maak een tokenkopie",
+        "removeStack": "Verwijder van stack",
+        "flipCardFace": "Beurt de kaart om",
+        "playFaceDown": "Speel met de voorkant naar beneden",
+        "previewCard": "Voorbeeldkaart",
+        "moveTop": "Ga naar boven",
+        "revealTopCard": "Onthul de bovenste kaart",
+        "revealLibrary": "Onthul library",
+        "moveAllTo": "Verplaats alles naar",
         "counters": "Counters",
-        "giveToPlayer": "Give To Player",
-        "moveTo": "Move To",
-        "giveTo": "Give To",
-        "reveal": "Reveal",
-        "todos": "Todos",
-        "viewAllLibrary": "View all library",
-        "viewXTopCards": "View X top cards",
-        "bottomOfLibrary": "Bottom of Library",
+        "giveToPlayer": "Geef aan de speler",
+        "moveTo": "Verplaats naar",
+        "giveTo": "Geef aan",
+        "reveal": "Onthullen",
+        "viewAllLibrary": "Bekijk library",
+        "viewXTopCards": "Kijk naar de bovenste X-kaarten",
+        "bottomOfLibrary": "Onderkant van library",
         "battlefield": "Battlefield",
         "hand": "Hand",
-        "xToBottomOfLibrary": "X to bottom of library",
-        "xToGraveyard": "X to graveyard",
-        "xToExile": "X to exile",
-        "xToHandPlayer": "X to hand player",
-        "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters",
-        "createHelper": "Mechanieken",
-        "setRingBearer": "Instellen als Ringdrager",
-        "mechanics": "Mechanieken"
-      }
+        "xToBottomOfLibrary": "Leg X onderop je library",
+        "xToGraveyard": "Leg X in graveyard",
+        "xToExile": "Leg X in exile",
+        "xToHandPlayer": "Leg X in de hand van een speler",
+        "xToBattlefieldPlayer": "Leg X op de battlefield onder controle van een speler",
+        "removeAllCounters": "Verwijder alle counters",
+        "createHelper": "Mechanica",
+        "setRingBearer": "Instellen als Ring-bearer",
+        "mechanics": "Mechanica",
+        "openDebug": "Foutopsporing openen",
+        "rollDice": "Werp dobbelstenen",
+        "all": "Allemaal"
+      },
+      "drawShortcut": "D",
+      "shuffleShortcut": "S",
+      "tapShortcut": "T",
+      "faceDownShortcut": "Z",
+      "powerToughnessShortcut": "X/X"
     },
     "contextSubmenu": {
       "x": "X"
     },
     "focusedBattlefield": {
-      "manaRow": "Mana row"
+      "manaRow": "Mana-rij"
     },
     "gameAdBanner": {
-      "advertisingBanner": "Advertising banner"
+      "advertisingBanner": "Reclamebanner"
     },
     "gameArrowLayer": {
-      "battlefieldArrows": "Battlefield arrows"
+      "battlefieldArrows": "Battlefield-pijlen"
     },
     "cardMarkerRail": {
-      "estaCartaEsUnTokenCopy": "Esta carta es un token copy",
-      "openOracleRulingsOnScryfall": "Open Oracle rulings on Scryfall"
+      "openOracleRulingsOnScryfall": "Open Oracle rulings op Scryfall",
+      "tokenCopyLabel": "Deze token is een kopie"
     },
     "gameCardView": {
-      "lookAtOtherFace": "Look at other face",
-      "powerAndToughness": "Power and toughness",
-      "powerLeftClickAddsRightClickRemoves": "Power. Left click adds, right click removes.",
-      "toughnessLeftClickAddsRightClickRemoves": "Toughness. Left click adds, right click removes.",
-      "attach": "Attach",
-      "stack": "Stack"
+      "lookAtOtherFace": "Kijk naar een ander gezicht",
+      "powerAndToughness": "Power/toughness",
+      "powerLeftClickAddsRightClickRemoves": "Power. Klik met de linkermuisknop voegt toe, klik met de rechtermuisknop verwijdert.",
+      "toughnessLeftClickAddsRightClickRemoves": "Toughness. Klik met de linkermuisknop voegt toe, klik met de rechtermuisknop verwijdert.",
+      "battleCounter": "Battle",
+      "battleCounterTooltip": "Battle. Klik met de linkermuisknop voegt toe, klik met de rechtermuisknop verwijdert.",
+      "sagaCounter": "Saga",
+      "sagaCounterTooltip": "Saga. Klik met de linkermuisknop voegt toe, klik met de rechtermuisknop verwijdert.",
+      "attach": "Bevestig",
+      "stack": "Stapel"
     },
     "loyaltyCounter": {
-      "loyalty": "Loyalty",
-      "loyaltyLeftClickAddsRightClickRemoves": "Loyalty. Left click adds, right click removes."
+      "loyalty": "Loyaliteit",
+      "loyaltyLeftClickAddsRightClickRemoves": "Loyaliteit. Klik met de linkermuisknop voegt toe, klik met de rechtermuisknop verwijdert."
     },
     "gameDisconnectVoteModal": {
-      "votosDeDesconexion": "Votos de desconexion",
-      "jugadorDesconectado": "Jugador desconectado",
-      "tuVoto": "Tu voto:",
-      "tiempoRestante": "Tiempo restante:",
-      "elJugadorObjetivoYaApareceOnline": "El jugador objetivo ya aparece online."
+      "disconnectVotes": "Disconnect-stemmen",
+      "expel": "Verdrijven",
+      "genericDisconnectedMessage": "Een speler is disconnected. Stem of je wilt wachten tot die speler terugkomt of hem van tafel wilt verwijderen.",
+      "noVote": "Geen stem",
+      "playerDisconnectedMessage": "{{ playerName }} is disconnected. Stem of je wilt wachten tot die speler terugkomt of hem van tafel wilt verwijderen.",
+      "wait": "Wacht",
+      "playerDisconnected": "Speler ontkoppeld",
+      "yourVote": "Joje stem:",
+      "timeRemaining": "Resterende tijd:",
+      "targetPlayerBackOnline": "De doelspeler is weer online."
     },
     "gameRematchModal": {
-      "votacionesDeLaRoom": "Votaciones de la sala",
-      "tuVotoActual": "Tu voto actual:",
-      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado salir de la sala."
+      "roomVotes": "Kamerstemmen",
+      "closeVotes": "Stemmen sluiten",
+      "defeatedMessage": "Wil je nog een keer spelen met deze kamer?",
+      "extraTime": "Extra tijd",
+      "legendaryVictory": "Legendarische overwinning",
+      "leaveRoom": "Verlaat de kamer",
+      "lifeTotal": "{{ life }} leven",
+      "noVote": "Geen stem",
+      "playAgain": "Speel opnieuw",
+      "playersHaveSecondsToVote": "{{ playerNames }} heeft {{ seconds }}s om te stemmen.",
+      "playersMissingExtra": "{{ playerNames }} moet nog stemmen en heeft {{ seconds }}s extra.",
+      "timeLimit": "Tijdslimiet",
+      "winnerMessage": "De tafel is van jou. Je overleefde de chaos en sloot het spel met gezag af.",
+      "youDied": "Jij stierf",
+      "youHaveSecondsToVote": "Je hebt {{ seconds }}s om te stemmen.",
+      "yourVoteMissingExtra": "Je stem ontbreekt. Je hebt {{ seconds }}s extra.",
+      "currentVote": "Je huidige stem:",
+      "otherPlayersAlreadyVoted": "De rest van de spelers heeft al gestemd om de kamer te verlaten."
     },
     "gameTableHeader": {
-      "currentPlayer": "Current player"
+      "currentPlayer": "Huidige speler"
     },
     "gameXQuantityStepper": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "Waarde aanpassen",
+      "increaseValue": "Verhoog de waarde",
+      "decreaseValue": "Waarde verlagen"
     },
     "manaActionDialog": {
-      "manaProductionParts": "Mana production parts",
-      "fixedMana": "Fixed mana",
-      "manaToAdd": "Mana to add",
-      "manaAmount": "Mana amount",
-      "cancel": "Cancel"
+      "manaProductionParts": "Mana-productieonderdelen",
+      "fixedMana": "Vaste mana",
+      "manaToAdd": "Mana om toe te voegen",
+      "manaAmount": "Mana-bedrag",
+      "cancel": "Annuleer"
     },
     "manaPoolPanel": {
       "manaPool": "Mana pool",
-      "hideManaPool": "Hide mana pool"
+      "hideManaPool": "Mana pool verbergen"
     },
     "numberActionDialog": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "Waarde aanpassen",
+      "increaseValue": "Verhoog de waarde",
+      "decreaseValue": "Waarde verlagen"
     },
     "opponentMiniBoard": {
-      "opponentZoneCounts": "Opponent zone counts",
-      "playerDefeated": "Player defeated",
-      "deckPending": "Deck pending",
-      "turno": "Turno"
+      "opponentZoneCounts": "Zone van de tegenstander telt",
+      "playerDefeated": "Speler verslagen",
+      "deckPending": "Deck in behandeling",
+      "turn": "Beurt"
     },
     "playerSummaryPanel": {
-      "lifeControls": "Life controls",
-      "lifeTotal": "Life total",
-      "playerCounters": "Player counters",
+      "lifeControls": "Levenspunten beheren",
+      "lifeTotal": "Levenstotaal",
+      "playerCounters": "Speler counters",
       "commanderDamage": "Commander damage",
-      "otherCounters": "Other counters",
-      "extras": "Extras",
-      "openExtraPlayerCounters": "Open extra player counters",
-      "extraPlayerCounters": "Extra player counters"
+      "otherCounters": "Andere counters",
+      "extras": "Extra's",
+      "openExtraPlayerCounters": "Open extra speler counters",
+      "extraPlayerCounters": "Extra speler counters"
     },
     "powerToughnessDialog": {
-      "setPowerAndToughness": "Set power and toughness",
-      "powerToughness": "Power / Toughness",
+      "setPowerAndToughness": "Stel power en toughness in",
+      "powerToughness": "Power/toughness",
       "power": "Power",
       "toughness": "Toughness",
-      "cancel": "Cancel",
-      "apply": "Apply"
+      "cancel": "Annuleer",
+      "apply": "Toepassen"
     },
     "tokenSearchModal": {
-      "searchTokens": "Search tokens",
-      "tokenCreationControls": "Token creation controls",
-      "createToken": "Create token",
-      "loadingDeckTokens": "Loading deck tokens...",
-      "searchingTokens": "Searching tokens..."
+      "tokenCreationControls": "Controles voor het maken van Token",
+      "loadingDeckTokens": "Decktokens laden...",
+      "searchingTokens": "tokens zoeken..."
     },
     "playersOrder": {
-      "ordenDeTurno": "Orden de turno"
+      "currentTurnLabel": "Beurt {{ turnNumber }}",
+      "upcomingTurnLabel": "In {{ count }}",
+      "currentTurnTitle": "{{ name }} is aan de beurt",
+      "upcomingTurnTitle": "{{ name }} is {{ count }} beurt(en) verwijderd",
+      "turnOrder": "Beurvolgorde"
     },
     "turnPhasePanel": {
-      "turnPhases": "Turn phases",
-      "focusTheActiveTurnPlayer": "Focus the active turn player",
-      "pasarTurno": "Pasar turno",
-      "focusTurn": "Focus turn"
+      "turnPhases": "Beurt fases",
+      "focusTheActiveTurnPlayer": "Focus de actieve speler aan de beurt",
+      "focusTurn": "Focus beurt",
+      "passTurn": "Beurt voorbij"
     },
     "zoneModal": {
-      "searchByName": "Search by name",
-      "closeZone": "Close zone",
-      "readOnlyLibraryReview": "Read-only library review",
-      "type": "Type",
-      "allTypes": "All types",
-      "creatures": "Creatures",
-      "instants": "Instants",
-      "sorceries": "Sorceries",
-      "artifacts": "Artifacts",
-      "enchantments": "Enchantments",
+      "searchByName": "Zoek op naam",
+      "closeZone": "Zone sluiten",
+      "readOnlyLibraryReview": "Alleen-lezen library-recensie",
+      "type": "Typ",
+      "allTypes": "Alle soorten",
+      "creatures": "Wezens",
+      "instants": "Instanten",
+      "sorceries": "Sorcery",
+      "artifacts": "Artifacten",
+      "enchantments": "Enchantmenten",
       "planeswalkers": "Planeswalkers",
       "lands": "Lands",
-      "search": "Search"
+      "search": "Zoeken"
     },
     "gameTable": {
-      "message": "Message",
-      "closeGame": "Close game?",
-      "moverCartaAOtroBattlefield": "Mover carta a otro battlefield",
-      "giveCard": "Give card?",
-      "moveToHand": "Move to hand?",
-      "devolverABiblioteca": "Devolver a biblioteca",
-      "moveAllToLibrary": "Move all to library",
-      "rotateYourDevice": "Rotate your device",
-      "gamesCanOnlyBePlayedInLandscape": "Games can only be played in landscape on mobile and tablet.",
-      "thisTableNeedsALittleMoreRoom": "This table needs a little more room",
-      "sorryThisResolutionIsTooCrampedFor": "Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.",
-      "useCtrl0InYourBrowserTo": "Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.",
-      "leaveRoom": "Leave room",
-      "loadingGame": "Loading game...",
-      "gameLog": "Game Log",
-      "chat": "Chat",
-      "noGameActionsYet": "No game actions yet.",
-      "noChatMessagesYet": "No chat messages yet.",
-      "reactedBy": "Reacted by",
-      "votaciones": "Votaciones",
-      "opponents": "Opponents",
-      "randomOrder": "Random order",
-      "shuffleOnlyTheseCardsBeforePlacingThem": "Shuffle only these cards before placing them.",
-      "gameLogUnreadActions": "Game Log, unread actions",
-      "chatUnreadMessages": "Chat, unread messages"
+      "message": "Bericht",
+      "closeGame": "Partij sluiten?",
+      "giveCard": "Kaart geven?",
+      "moveToHand": "Naar hand verplaatsen?",
+      "moveAllToLibrary": "Leg alles in library",
+      "rotateYourDevice": "Beurt je apparaat",
+      "gamesCanOnlyBePlayedInLandscape": "Partijen kunnen op mobiel en tablet alleen in liggende modus worden gespeeld.",
+      "thisTableNeedsALittleMoreRoom": "Deze tafel heeft iets meer ruimte nodig",
+      "sorryThisResolutionIsTooCrampedFor": "Sorry, deze resolutie is te krap voor een Commander-spel. Pas de browserzoom aan of gebruik een groter venster.",
+      "useCtrl0InYourBrowserTo": "Gebruik Ctrl+0 in je browser om de zoom opnieuw in te stellen op 100% en vernieuw vervolgens dit venster of wijzig het formaat ervan.",
+      "leaveRoom": "Verlaat de kamer",
+      "gameLog": "Partijlog",
+      "chat": "Chatten",
+      "noGameActionsYet": "Nog geen spelacties.",
+      "noChatMessagesYet": "Nog geen chatberichten.",
+      "reactedBy": "Gereageerd door",
+      "votes": "Stemmen",
+      "opponents": "Tegenstanders",
+      "randomOrder": "Willekeurige volgorde",
+      "shuffleOnlyTheseCardsBeforePlacingThem": "Schud alleen deze kaarten voordat je ze plaatst.",
+      "gameLogUnreadActions": "Partijlog, ongelezen acties",
+      "chatUnreadMessages": "Chat, ongelezen berichten",
+      "moveCardToAnotherBattlefield": "Verplaats de kaart naar een andere battlefield",
+      "putIntoLibrary": "Leg in library"
     },
     "reactions": {
-      "like": "Like",
-      "dislike": "Dislike",
-      "love": "Love",
-      "laugh": "Laugh",
-      "angry": "Very angry",
-      "vomit": "Vomit",
-      "cry": "Cry"
+      "like": "Zoals",
+      "dislike": "Houd niet van",
+      "love": "Liefde",
+      "laugh": "Lach",
+      "angry": "Heel boos",
+      "vomit": "Overgeven",
+      "cry": "Huilen"
     },
     "numberAction": {
       "drawCards": {
-        "title": "Draw cards",
-        "description": "Choose how many cards to draw from your library.",
-        "confirm": "Draw"
+        "title": "Trek kaarten",
+        "description": "Kies hoeveel kaarten je uit je library trekt.",
+        "confirm": "Teken"
       },
       "moveTopCards": {
-        "title": "Move top cards",
-        "description": "Choose how many top library cards to move.",
-        "confirm": "Move"
+        "title": "Verplaats de bovenste kaarten",
+        "description": "Kies hoeveel kaarten van de bovenkant van je library je in een andere zone legt.",
+        "confirm": "Verplaatsen"
       },
       "viewTopCards": {
-        "title": "View top cards",
-        "description": "Choose how many top library cards to view.",
-        "confirm": "View"
+        "title": "Bekijk de bovenste kaarten",
+        "description": "Kies hoeveel kaarten je van de bovenkant van je library bekijkt.",
+        "confirm": "Bekijk"
       }
     },
     "playerCounters": {
-      "poison": "Poison",
-      "energy": "Energy",
-      "experience": "Experience",
+      "poison": "Vergif",
+      "energy": "Energie",
+      "experience": "Ervaring",
       "rad": "Rad",
-      "tickets": "Tickets"
+      "tickets": "Kaartjes"
     },
     "zones": {
       "hand": "Hand",
@@ -579,222 +831,461 @@
       "exile": "Exile"
     },
     "chat": {
-      "allPlayers": "Todos"
+      "allPlayers": "Alle spelers"
     },
     "specialHelpers": {
       "modal": {
-        "title": "Mechanieken",
+        "title": "Mechanica",
         "quickActions": "Snelle acties",
-        "cardBacked": "Kaartgebonden entiteiten",
-        "searchPlaceholder": "Zoek emblemen of kerkers",
-        "searching": "Hulpen zoeken...",
+        "cardBacked": "Hulpjes met kaartondersteuning",
+        "searchPlaceholder": "Zoek emblemen of dungeon's",
+        "searching": "Helpers zoeken...",
         "noResults": "Geen resultaten gevonden.",
-        "searchHint": "Voer minstens 2 tekens in om te zoeken.",
-        "searchError": "Speciale hulpen konden niet worden geladen.",
+        "searchHint": "Typ minimaal 2 tekens om te zoeken.",
+        "searchError": "Kan speciale helpers niet laden.",
         "playerTarget": "Speler: {{playerName}}",
-        "currentState": "Huidige status",
-        "readonly": "Alleen-lezen. Je kunt deze mechanieken hier bekijken, maar alleen de speler die deze plek bestuurt kan ze wijzigen.",
+        "currentState": "Huidige staat",
+        "readonly": "Alleen-lezen. Je kunt de werking hier inspecteren, maar alleen de controlerende speler kan deze wijzigen.",
         "ringLevel": "Ringniveau",
-        "noRingBearer": "Geen Ringdrager toegewezen",
+        "noRingBearer": "Geen Ring-bearer toegewezen",
         "removeHelper": "Verwijderen",
-        "clearRingBearer": "Ringdrager wissen",
+        "clearRingBearer": "Wis Ring-bearer",
         "ringLevelUp": "Niveau +1",
         "ringLevelDown": "Niveau -1",
-        "noActiveMechanics": "Geen actieve mechanieken.",
+        "noActiveMechanics": "Geen actieve mechanica.",
         "notSet": "Niet ingesteld"
       },
       "quick": {
         "monarch": "Word monarch",
-        "initiative": "Neem het initiatief",
-        "citysBlessing": "Verkrijg de zegen van de stad",
-        "theRing": "Maak De Ring",
-        "setDay": "Zet op dag",
-        "setNight": "Zet op nacht"
+        "initiative": "Neem initiative",
+        "citysBlessing": "Koop de city's blessing",
+        "theRing": "The Ring maken",
+        "setDay": "Dag instellen",
+        "setNight": "Nacht instellen"
       },
       "labels": {
         "monarch": "Monarch",
-        "initiative": "Initiatief",
-        "citys_blessing": "Zegen van de stad",
-        "day_night": "Dag/Nacht",
-        "the_ring": "De Ring",
-        "emblem": "Embleem",
-        "dungeon": "Kerker",
+        "initiative": "Initiative",
+        "theRing": "The Ring",
+        "emblem": "embleem",
+        "dungeon": "Dungeon",
         "day": "Dag",
-        "night": "Nacht"
+        "night": "Nacht",
+        "citysBlessing": "City's blessing",
+        "dayNight": "Dag/Nacht"
+      },
+      "dungeonReplacement": {
+        "title": "Actieve dungeon vervangen?",
+        "message": "Je kunt slechts één actieve dungeon hebben. {{currentDungeon}} vervangen door {{nextDungeon}}?",
+        "confirm": "Vervang dungeon",
+        "cancel": "Annuleer"
+      },
+      "citysBlessingRemoval": {
+        "title": "De City's Blessing verwijderen?",
+        "message": "Deze speler verliest de city's blessing van de tafel. Doorgaan?",
+        "confirm": "Verwijderen",
+        "cancel": "Annuleer"
       },
       "rail": {
-        "title": "Speciale entiteiten",
+        "title": "Bijzondere entiteiten",
         "ringLevel": "Ringniveau"
+      }
+    },
+    "zonePilesPanel": {
+      "monarchBadgeTooltip": "Jij bent de monarch."
+    },
+    "mulliganOverlay": {
+      "title": "Mulligan",
+      "metaAriaLabel": "Mulligan-status",
+      "firstMulliganFree": "De eerste Mulligan is gratis",
+      "mulligansTaken": "Mulligans: {{ count }}",
+      "effectiveMulligans": "Effectief: {{ count }}",
+      "scryTitle": "Scry 1",
+      "scryDescription": "Kies wat je met de bovenste kaart van je library wilt doen.",
+      "waitingForPlayers": "Wachten op de andere spelers...",
+      "currentHand": "Huidige hand",
+      "emptyHand": "Geen kaarten bij de hand.",
+      "selectedCount": "{{ selected }} / {{ total }} geselecteerd",
+      "bottomSelectionHelp": "Desktop: klik met de rechtermuisknop om een kaart onderaan te plaatsen. Mobiel/tablet: gebruik de onderste knop Aanzetten.",
+      "otherPlayersStatus": "Status van andere spelers",
+      "players": "Spelers",
+      "noOtherPlayers": "Geen andere spelers.",
+      "rules": {
+        "london": "London",
+        "vancouver": "Vancouver",
+        "paris": "Paris",
+        "generous": "Genereus"
+      },
+      "status": {
+        "deciding": "beslissen",
+        "scrying": "schreejeen",
+        "ready": "klaar"
+      },
+      "actions": {
+        "keepOnTop": "Blijf bovenaan",
+        "putOnBottom": "Onderaan zetten",
+        "removeFromBottom": "Van onderaf verwijderen"
+      },
+      "description": {
+        "londonNoBottom": "Trek 7. Je hoeft geen kaarten onderop te leggen.",
+        "londonChooseBottom": "Trek 7. Kies {{ count }} kaart(en) om onderop te leggen.",
+        "londonBottomOrder": "De gekozen volgorde is de volgorde onderaan.",
+        "drawCards": "Trek {{ count }} kaart(en).",
+        "vancouverScry": "Daarna doe je scry 1.",
+        "generousNoBottom": "Trek {{ count }} kaart(en). Je hoeft geen kaarten onderop te leggen.",
+        "generousChooseBottom": "Trek {{ drawCount }} kaart(en). Kies {{ bottomCount }} om in willekeurige volgorde onderop te leggen.",
+        "generousRandomOrder": "De uiteindelijke volgorde zal willekeurig zijn."
       }
     }
   },
   "deckBuilder": {
     "cards": {
       "cardDetail": {
-        "backToSearch": "Back to search",
-        "loadingCard": "Loading card...",
-        "colorIdentity": "Color identity:",
+        "colorIdentity": "Kleuridentiteit:",
         "commander": "Commander:"
       },
       "cardSearch": {
         "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
-        "cards": "Cards",
-        "searchLibrary": "Search library",
-        "search": "Search",
-        "searchingCards": "Searching cards...",
-        "noCardsFound": "No cards found."
+        "header": {
+          "title": "Kaarten",
+          "description": "Vind de perfecte kaart voordat de tafelpolitiek begint."
+        },
+        "search": "Zoeken",
+        "clear": "Duidelijk",
+        "close": "Sluiten",
+        "advancedFilters": "Geavanceerde filters",
+        "searchingCards": "Kaarten zoeken...",
+        "noCardsFound": "Geen kaarten gevonden.",
+        "actions": {
+          "showDetails": "Details tonen",
+          "addToDeck": "Toevoegen aan deck",
+          "showRulings": "Toon Oracle rulings",
+          "viewPrintings": "Bekijk alle prints"
+        },
+        "details": {
+          "close": "Details sluiten",
+          "couldNotLoad": "Kan deze kaart niet laden.",
+          "oracleText": "Oracle-tekst",
+          "noOracleText": "Geen oracle-tekst beschikbaar.",
+          "legalFormats": "Juridische formaten",
+          "illegalFormats": "Illegale formaten",
+          "noLegalFormats": "Geen legale formaten in de lokale catalogus.",
+          "noIllegalFormats": "Geen illegale formaten in de lokale catalogus."
+        },
+        "addToDeck": {
+          "title": "Kaart toevoegen",
+          "deck": "Deck",
+          "section": "Sectie",
+          "quantity": "Hoeveelheid",
+          "selectDeck": "Selecteer een deck",
+          "selectSection": "Selecteer een sectie",
+          "decreaseQuantity": "Hoeveelheid verlagen",
+          "increaseQuantity": "Verhoog de hoeveelheid",
+          "sectionMain": "Main deck",
+          "sectionCommander": "Commander",
+          "sectionSideboard": "Sideboard",
+          "sectionConsidering": "Gezien",
+          "confirm": "Kaart toevoegen",
+          "cancel": "Annuleer",
+          "noDecks": "Je hebt nog geen decks.",
+          "colorIdentityWarning": "{{ card }} heeft een color identity buiten de kleuren van de Commander van {{ deck }}:",
+          "formatLegalityWarning": "{{ card }} is niet legaal in {{ format }}, het geselecteerde deckformaat.",
+          "couldNotLoadDecks": "Kan je decks niet laden.",
+          "couldNotAdd": "Kan deze kaart niet toevoegen aan de geselecteerde stapel."
+        },
+        "printings": {
+          "title": "Prints van {{ card }}",
+          "empty": "Geen prints gevonden voor deze kaart.",
+          "couldNotLoad": "Kon kaartprints niet laden.",
+          "close": "Sluiten"
+        },
+        "summary": {
+          "ariaLabel": "Toegepaste kaartzoekfilters",
+          "activeQuery": "Actieve zoekopdracht",
+          "totalFound": "{{ total }}-kaarten gevonden",
+          "pageStatus": "Pagina {{ page }} van {{ pages }}",
+          "filters": {
+            "name": "Naam",
+            "rules": "Regels",
+            "types": "Soorten",
+            "subtypes": "Subtypen",
+            "sets": "Stelt in",
+            "rarity": "Zeldzaamheid",
+            "colors": "Kleuren",
+            "cardKind": "Soort",
+            "manaValue": "Mana value",
+            "manaCost": "Mana cost",
+            "power": "Power",
+            "toughness": "Toughness",
+            "formats": "Formaten"
+          }
+        },
+        "sort": {
+          "label": "Sorteren",
+          "colors": "Kleuren",
+          "nameAsc": "Naam A-Z",
+          "nameDesc": "Naam Z-A",
+          "manaValueAsc": "Mana laag-hoog",
+          "manaValueDesc": "Mana hoog-laag"
+        },
+        "view": {
+          "list": "Lijst",
+          "spoiler": "Spoiler"
+        },
+        "form": {
+          "name": "Naam",
+          "textA": "Regels tekst",
+          "textB": "Tweede tekst",
+          "textMode": "Tekstovereenkomst",
+          "textModeAll": "Alle teksttermen",
+          "textModeAllDescription": "Beide vakjes moeten voorkomen in de tekst van de kaartregels.",
+          "textModeAny": "Elke tekstterm",
+          "textModeAnyDescription": "Elk vakje kan overeenkomen met de tekst van de kaartregels.",
+          "textExact": "Exacte woordmatch",
+          "textExactDescription": "Zoek alleen volledige woorden, geen tekst binnen langere woorden.",
+          "types": "Soorten",
+          "subtypes": "Subtypen",
+          "sets": "Stelt in",
+          "rarity": "Zeldzaamheid",
+          "colors": "Kleuren",
+          "colorMode": "Kleurovereenkomst",
+          "colorModeAny": "Elke",
+          "colorModeAll": "Allemaal",
+          "colorModeExact": "Exact",
+          "clearManaCost": "Wis mana cost",
+          "basic": "Basis",
+          "legendary": "Legendarisch",
+          "artifact": "Artifact",
+          "multicolor": "Veelkleurig",
+          "land": "Land",
+          "costs": "Kosten",
+          "manaValueMin": "Mana min",
+          "manaValueMax": "Mana max",
+          "manaCost": "Mana cost",
+          "powerToughness": "Power/toughness",
+          "powerMin": "Power min",
+          "powerMax": "Powermax",
+          "toughnessMin": "Toughness min",
+          "toughnessMax": "Toughnessmax",
+          "includeVariablePower": "Inclusief * power",
+          "includeVariablePowerDescription": "Neem ook kaarten op waarvan de power geen vast nummer is, zoals * of 1+*.",
+          "includeVariableToughness": "Inclusief * toughness",
+          "includeVariableToughnessDescription": "Neem ook kaarten op waarvan de toughness geen vast nummer is, zoals * of 1+*.",
+          "formats": "Formaten",
+          "filterOptions": "Filteropties",
+          "presentation": "Presentatie",
+          "loadingOptions": "Filters laden...",
+          "enabled": "Actief",
+          "activeFilters": "actieve filters",
+          "precisionConsole": "Precisieconsole",
+          "composeSearch": "Boje de exacte kaartquery",
+          "oracleText": "Tekst kaartregels",
+          "textAPlaceholder": "Trek een kaart, vernietig het doelwit, elke keer dat je gooit...",
+          "textBPlaceholder": "Optionele tweede regeltermijn",
+          "removeManaSymbol": "Verwijder het laatste mana-symbool"
+        },
+        "help": {
+          "title": "Zoekgids",
+          "heading": "Geavanceerde zoekgids",
+          "nameTitle": "Naam",
+          "name": "Zoek op volledige of gedeeltelijke kaartnaam. CommanderZone controleert canonieke namen, gedrukte/gelokaliseerde namen en smaaknamen wanneer de lokale catalogus deze bevat, zodat gelokaliseerde en Engelse namen dezelfde kaart kunnen vinden.",
+          "textTitle": "Kaart tekst",
+          "text": "Gebruik een of twee termen uit de regeltekst. De match-schakelaar bepaalt of beide vakjes op de kaart moeten voorkomen of dat één vakje voldoende is. Tekst wordt gecontroleerd op Oracle-tekst en kaartvlakken.",
+          "subtypesTitle": "Subtype",
+          "subtypes": "Subtype werkt onafhankelijk van het type. Je kunt het combineren met elke andere sectie om dingen als Elf, Goblin, Dragon, Equipment of Aura te vinden.",
+          "rarityTitle": "Zeldzaamheid",
+          "rarity": "Je kunt meerdere zeldzaamheden tegelijk selecteren. De gekleurde pillen zijn slechts een visueel hulpmiddel; de zoekopdracht maakt nog steeds gebruik van de cataloguszeldzaamheid.",
+          "colorsTitle": "Kleur",
+          "colors": "Kleurmatch bepaalt hoe geselecteerde afgedrukte kleuren zich gedragen: elke geselecteerde kleur, alle geselecteerde kleuren of precies die kleurenset. Artifact, veelkleurig en land zijn extra snelkoppelingen.",
+          "costsTitle": "Kosten",
+          "costs": "Mana value maakt gebruik van de genormaliseerde kaartcatalogus van CommanderZone, waarbij X telt als 0. Exact mana cost wordt gebouwd met de symboolkiezer, zodat je geen kleurcodes hoeft in te voeren.",
+          "statsTitle": "Power/toughness",
+          "stats": "De bereiken voor Power/toughness vergelijken numerieke waarden. Schakel het kleine selectievakje voor variabele waarden in als je ook kaarten wilt met waarden zoals * of 1+*."
+        },
+        "actionsAriaLabel": "Kaartzoekacties",
+        "filtersAriaLabel": "Kaartzoekfilters"
+      },
+      "cardImage": {
+        "flipFace": "Kaartzijde omdraaien"
       },
       "autocomplete": {
         "cardAutocomplete": {
-          "searchingCards": "Searching cards..."
+          "searchingCards": "Kaarten zoeken..."
         }
       }
     },
     "deckAnalysisPanel": {
-      "typeBreakdown": "Type breakdown",
-      "utilityCounts": "Utility counts"
+      "typeBreakdown": "Type uitsplitsing",
+      "utilityCounts": "Nut telt"
     },
     "deckManaBalancePanel": {
-      "manaBalance": "Mana balance",
-      "coloredSourceShareVersusColorDemand": "Colored source share versus color demand.",
-      "sources": "sources",
-      "sourceMix": "Source mix"
+      "manaBalance": "Mana-balans",
+      "coloredSourceShareVersusColorDemand": "Aandeel gekleurde bronnen versus vraag naar kleuren.",
+      "sources": "bronnen",
+      "sourceMix": "Bronmix"
     },
     "deckManaCurvePanel": {
-      "manaCurve": "Mana curve",
-      "mainDeckByManaValue": "Main deck by mana value.",
-      "permanents": "Permanents",
-      "spells": "Spells",
-      "sampleHand": "Sample hand",
-      "sevenRandomCardsFromTheMainDeck": "Seven random cards from the main deck.",
-      "drawAgain": "Draw again",
-      "noCardsAvailable": "No cards available."
+      "manaCurve": "Mana-curve",
+      "mainDeckByManaValue": "Hoofddek van mana value.",
+      "permanents": "Permanenten",
+      "spells": "Spreuken",
+      "sampleHand": "Voorbeeldhand",
+      "sevenRandomCardsFromTheMainDeck": "Zeven willekeurige kaarten uit het hoofddek.",
+      "drawAgain": "Trek opnieuw",
+      "noCardsAvailable": "Geen kaarten beschikbaar."
     },
     "deckCardMenu": {
-      "copyQuantityControls": "Copy quantity controls",
-      "selectedCardPreview": "Selected card preview",
-      "quantityToAddOrRemove": "Quantity to add or remove",
-      "editingCard": "Editing card",
-      "quantity": "Quantity",
-      "add": "Add",
-      "remove": "Remove",
-      "selectPrintVersion": "Select print version",
-      "moveToMain": "Move to main",
-      "moveToCommander": "Move to commander",
-      "moveToSideboard": "Move to sideboard",
-      "moveToConsidering": "Move to considering"
+      "copyQuantityControls": "Kopieer hoeveelheidscontroles",
+      "selectedCardPreview": "Geselecteerd kaartvoorbeeld",
+      "quantityToAddOrRemove": "Hoeveelheid om toe te voegen of te verwijderen",
+      "editingCard": "Kaart bewerken",
+      "quantity": "Hoeveelheid",
+      "add": "Toevoegen",
+      "remove": "Verwijderen",
+      "selectPrintVersion": "Selecteer printversie",
+      "moveToMain": "Ga naar hoofd",
+      "moveToCommander": "Verplaats naar Commander",
+      "moveToSideboard": "Verplaats naar sideboard",
+      "moveToConsidering": "Verplaats naar maybeboard"
     },
     "deckCardSpoilerView": {
-      "flipFace": "Flip face",
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "flipFace": "Kaartzijde omdraaien",
+      "noCommanderAssignedYet": "Nog geen Commander toegewezen."
     },
     "deckCardTextView": {
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "noCommanderAssignedYet": "Nog geen Commander toegewezen.",
+      "unknownType": "Onbekend type"
     },
     "deckCommanderShowcase": {
-      "flipFace": "Flip face"
+      "flipFace": "Kaartzijde omdraaien"
     },
     "deckEditor": {
-      "addCardsByName": "Add cards by name",
-      "searchAnotherCardName": "Search another card name",
-      "text1SolRingVoc168101": "1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141",
-      "deckEditorSections": "Deck editor sections",
-      "copyCardName": "Copy card name",
-      "searchCard": "Search card",
-      "saveMissingCard": "Save missing card",
-      "ignoreThisSession": "Ignore this session",
-      "remove": "Remove",
-      "clearLocalHistory": "Clear local history",
-      "importDecklist": "Import decklist",
-      "selectPrintVersion": "Select print version",
-      "restoreHistory": "Restore history",
-      "loadingDeck": "Loading deck...",
-      "view": "View",
-      "text": "Text",
+      "addCardsByName": "Voeg kaarten op naam toe",
+      "searchAnotherCardName": "Zoek een andere kaartnaam",
+      "deckEditorSections": "Deckeditor-secties",
+      "copyCardName": "Kopieer kaartnaam",
+      "searchCard": "Zoek kaart",
+      "saveMissingCard": "Sla de ontbrekende kaart op",
+      "ignoreThisSession": "Negeer deze sessie",
+      "remove": "Verwijderen",
+      "clearLocalHistory": "Duidelijke lokale geschiedenis",
+      "importDecklist": "Deklijst importeren",
+      "selectPrintVersion": "Selecteer printversie",
+      "restoreHistory": "Herstel de geschiedenis",
+      "view": "Bekijk",
+      "text": "Tekst",
       "spoiler": "Spoiler",
-      "analysis": "Analysis",
-      "considering": "Considering",
-      "validation": "Validation",
-      "missing": "Missing",
-      "history": "History",
-      "consideringCards": "Considering cards",
-      "cardsParkedOutsideThePlayableDeck": "Cards parked outside the playable deck.",
-      "noConsideringCards": "No considering cards.",
-      "derivedTokens": "Derived tokens",
-      "resolvedFromCardsCurrentlyInTheDeck": "Resolved from cards currently in the deck.",
-      "noResolvedTokensForThisDeck": "No resolved tokens for this deck.",
-      "unresolvedTokens": "Unresolved tokens",
-      "validateWithBackend": "Validate with backend",
-      "errors": "Errors",
-      "warnings": "Warnings",
-      "noFrontendDiagnosticsForTheCurrentDeck": "No frontend diagnostics for the current deck.",
-      "search": "Search",
-      "add": "Add",
-      "noCardSearchResults": "No card search results.",
-      "futureCollection": "Future collection",
-      "snapshot": "Snapshot",
-      "restore": "Restore",
-      "noLocalHistoryForThisDeckYet": "No local history for this deck yet.",
-      "noCards": "No cards",
-      "deckName": "Deck name",
-      "saveName": "Save name",
-      "plainTextDecklist": "Plain text decklist",
-      "loadFile": "Load file",
-      "lastImport": "Last import",
-      "missingCardsFromLatestImport": "Missing cards from latest import",
-      "chooseTheExactPrintingFor": "Choose the exact printing for",
-      "quantityAndSectionWillStayUnchanged": ". Quantity and section will stay unchanged.",
-      "loadingPrintVersions": "Loading print versions...",
-      "onlyOnePrintVersion": "Only one print version",
-      "thisCardOnlyHasOnePrintVersion": "This card only has one print version available in the database.",
-      "noPrintVersionsFoundForThisCard": "No print versions found for this card.",
-      "current": "Current",
+      "analysis": "Analyse",
+      "considering": "Gezien",
+      "validation": "Validatie",
+      "missing": "Ontbreekt",
+      "history": "Geschiedenis",
+      "consideringCards": "Kaarten overwegen",
+      "cardsParkedOutsideThePlayableDeck": "Kaarten geparkeerd buiten het speelbare deck.",
+      "noConsideringCards": "Geen rekening houden met kaarten.",
+      "derivedTokens": "Afgeleide tokens",
+      "resolvedFromCardsCurrentlyInTheDeck": "Opgelost op basis van kaarten die momenteel in de stapel zitten.",
+      "noResolvedTokensForThisDeck": "Geen opgeloste tokens voor dit deck.",
+      "unresolvedTokens": "Onopgeloste tokens",
+      "validateWithBackend": "Valideer met server",
+      "errors": "Fouten",
+      "warnings": "Waarschjeingen",
+      "noFrontendDiagnosticsForTheCurrentDeck": "Geen interface-diagnostiek voor het huidige deck.",
+      "search": "Zoeken",
+      "add": "Toevoegen",
+      "noCardSearchResults": "Geen kaartzoekresultaten.",
+      "futureCollection": "Toekomstige collectie",
+      "snapshot": "Momentopname",
+      "restore": "Herstellen",
+      "noLocalHistoryForThisDeckYet": "Nog geen lokale geschiedenis voor dit deck.",
+      "noCards": "Geen kaarten",
+      "deckName": "Deknaam",
+      "saveName": "Naam opslaan",
+      "plainTextDecklist": "Deklijst met platte tekst",
+      "loadFile": "Bestand laden",
+      "lastImport": "Laatste import",
+      "missingCardsFromLatestImport": "Ontbrekende kaarten van de laatste import",
+      "chooseTheExactPrintingFor": "Kies de exacte print voor",
+      "quantityAndSectionWillStayUnchanged": "Aantal en sectie blijven ongewijzigd.",
+      "loadingPrintVersions": "Gedrukte versies laden...",
+      "onlyOnePrintVersion": "Slechts één gedrukte versie",
+      "thisCardOnlyHasOnePrintVersion": "Van deze kaart is slechts één gedrukte versie beschikbaar in de database.",
+      "noPrintVersionsFoundForThisCard": "Er zijn geen gedrukte versies gevonden voor deze kaart.",
+      "current": "Huidig",
       "header": {
-        "title": "Deck editor",
-        "deckWarnings": "Deck warnings",
-        "import": "Import",
-        "export": "Export",
-        "backToDecks": "Back to decks"
-      }
+        "title": "Deck-editor",
+        "deckWarnings": "Dekwaarschjeingen",
+        "import": "Importeren",
+        "export": "Exporteren",
+        "share": "Deel",
+        "shareCopied": "Communitylink gekopieerd",
+        "shareError": "Kan de communitylink niet kopiëren."
+      },
+      "cardsCount": "{{ count }}-kaarten",
+      "clear": "Duidelijk",
+      "clearLocalHistoryQuestion": "Lokale geschiedenis wissen voor dit deck?",
+      "colorIdentity": "Kleuridentiteit: {{ colors }}",
+      "commanderMode": "Commander-modus: {{ mode }}",
+      "fromSourceCard": "Van {{ name }}",
+      "historyCardsSummary": "{{ count }} kaarten - {{ commanders }}",
+      "importSummary": "{{ parsed }} geparseerde kaarten, {{ imported }} geïmporteerd, {{ missing }} ontbreekt.",
+      "noCommander": "Geen Commander",
+      "noCost": "Geen kosten",
+      "no": "nee",
+      "restoreSnapshotQuestion": "Deze momentopname herstellen?",
+      "searchResultsFor": "Zoekresultaten voor {{ name }}",
+      "sectionsCount": "{{ count }}-secties",
+      "usableInGame": "Bruikbaar in het spel: {{ value }}",
+      "validationCounts": "Kaarten: {{ total }} totaal ({{ commander }} Commander, {{ main }} main deck, {{ sideboard }} sideboard, {{ maybeboard }} maybeboard)",
+      "validationFailed": "Commander-validatie mislukt",
+      "validationPassed": "Commander-validatie geslaagd",
+      "yes": "ja",
+      "decklistTextareaExample": "1 Sol Ring (VOC) 168\n1 Fabel van de spiegelbreker / Reflectie van Kiki-Jiki (NEO) 141"
     },
     "deckList": {
-      "newDeckName": "New deck name",
-      "searchCommanderByName": "Search commander by name",
-      "commanderSelectionLimitReached": "You already have 2 commanders. You can't add more.",
-      "example1SolRingVoc168": "Example: 1 Sol Ring (VOC) 168",
-      "jeskaiBrewsTesting": "Jeskai, Brews, Testing...",
-      "deckWarnings": "Deck warnings",
-      "renameFolder": "Rename folder",
-      "deleteFolder": "Delete folder",
-      "editDeck": "Edit deck",
-      "deleteDeck": "Delete deck",
-      "deckSaved": "Deck saved",
-      "createFolder": "Create folder",
-      "commanderEnlargedPreview": "Commander enlarged preview",
-      "loadingDecks": "Loading decks...",
-      "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
-      "decks": "Decks",
-      "noDecksInThisFolderYet": "No decks in this folder yet.",
-      "missingCards": "Missing cards",
-      "deckName": "Deck name",
-      "folder": "Folder",
-      "noFolder": "No folder",
-      "thisDeckIsPublicButItsFolder": "This deck is public, but its folder is private. It will not be publicly visible.",
+      "newDeckName": "Niejee decknaam",
+      "searchCommanderByName": "Zoek Commander op naam",
+      "example1SolRingVoc168": "Voorbeeld: 1 Sol Ring (VOC) 168",
+      "jeskaiBrewsTesting": "Jeskai, Brews, testen...",
+      "renameFolder": "Hernoem map",
+      "deleteFolder": "Map verwijderen",
+      "editDeck": "Deck bewerken",
+      "deleteDeck": "Deck verwijderen",
+      "deckSaved": "Deck opgeslagen",
+      "createSuccessMessage": "Dit deck is opgeslagen. Het staat nu in je lijst met opgeslagen decks en je kunt het bewerken zoals je wilt. Veel succes met je Commander-deck!",
+      "createEmptyDeck": "Maak een leeg deck",
+      "createFolder": "Map maken",
+      "continueToRooms": "Ga verder naar kamers",
+      "commanderEnlargedPreview": "Commander vergroot voorbeeld",
+      "deckListLabel": "Deklijst",
+      "yourDeckListFeelsALittleEmpty": "Je decklijst voelt een beetje leeg. Spring erin en begin met bojeen!",
+      "noDecksInThisFolderYet": "Er zijn nog geen decks in deze map.",
+      "missingCards": "Ontbrekende kaarten",
+      "deckName": "Deknaam",
+      "folder": "Map",
+      "noFolder": "Geen map",
+      "openDeck": "Open deck",
+      "thisDeckIsPublicButItsFolder": "Dit deck is openbaar, maar de map ervan is privé. Het zal niet publiekelijk zichtbaar zijn.",
       "commander": "Commander",
-      "importDecklist": "Import decklist",
-      "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
-      "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
-      "folderName": "Folder name",
+      "importDecklist": "Deklijst importeren",
+      "ifYouIncludeYourCommanderInThe": "Als je je Commander in de importdecklist opneemt, geen zorgen; wij verwijderen hem voor je.",
+      "ifYouIncludeYourCommandersInThe": "Als je je Commanders in de importdecklist opneemt, geen zorgen; wij verwijderen ze voor je.",
+      "folderName": "Mapnaam",
+      "playmat": "Speelmat",
+      "sleeve": "Moje",
+      "editPlaymat": "Speelmat bewerken",
+      "editSleeve": "Moje bewerken",
       "header": {
         "title": "Decks",
-        "createDeck": "Create deck",
-        "createFolder": "Create folder"
+        "createDeck": "Deck maken",
+        "createFolder": "Map maken",
+        "description": "Organiseer, boje en beheer je decks."
       },
       "colorFilter": {
         "label": "Kleur",
-        "any": "Willekeurig",
+        "any": "Elke",
         "white": "Wit",
-        "blue": "Blauw",
+        "blue": "Blaje",
         "black": "Zwart",
         "red": "Rood",
         "green": "Groen",
@@ -804,254 +1295,358 @@
         "label": "Sorteren",
         "nameAsc": "Naam (A-Z)",
         "nameDesc": "Naam (Z-A)"
+      },
+      "cosmetics": {
+        "free": "Gratis",
+        "playmatOptions": "Speelmat opties",
+        "playmatTiers": "Speelmat-lagen",
+        "premium": "Premie",
+        "selectPlaymat": "Selecteer speelmat {{ name }}",
+        "selectSleeve": "Selecteer hoes {{ name }}",
+        "sleeveOptions": "Moje opties"
+      },
+      "filters": {
+        "actionsAndFilters": "Dekacties en filters"
+      },
+      "maximumCharacters": "Maximaal aantal {{ count }}-tekens.",
+      "noDecksMatchFilters": "Er zijn geen decks die overeenkomen met de huidige filters.",
+      "removeCommander": "Commander verwijderen",
+      "searchDecks": "Zoek decks",
+      "searchDecksPlaceholder": "Zoek decks...",
+      "stats": {
+        "colorDistribution": "Kleurverdeling",
+        "private": "Privé",
+        "public": "Openbaar",
+        "summary": "Deck samenvatting",
+        "total": "Totaal"
       }
     }
   },
   "tableAssistant": {
     "tableAssistantPage": {
-      "asistenteDeMesa": "Asistente de Mesa",
-      "resumenRapido": "Resumen rápido",
-      "beneficios": "Beneficios",
-      "mesaManualDeCommander": "Mesa manual de Commander",
-      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida física.",
-      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y daño de comandante sin automatizar reglas de Magic.",
-      "setupRapido": "Setup rápido",
-      "text4JugadoresPorDefecto": "4 jugadores por defecto",
-      "text40VidasIniciales": "40 vidas iniciales",
-      "danoDeComandanteActivo": "Daño de comandante activo"
+      "title": "Tafelassistent",
+      "benefits": "Voordelen",
+      "manualCommanderTable": "Handmatige Commander-tafel",
+      "physicalGameTrackingDescription": "Alles wat je nodig hebt om een fysieke partij bij te houden.",
+      "setupDescription": "Stel spelers, startlevenstotaal en timer in. CommanderZone houdt levenstotalen, beurten en Commander damage bij zonder Magic-regels te automatiseren.",
+      "quickSetup": "Snelle installatie",
+      "defaultFourPlayers": "Standaard 4 spelers",
+      "defaultFortyLife": "40 leven",
+      "commanderDamageEnabled": "Commander damage ingeschakeld",
+      "quickSummary": "Korte samenvatting"
     },
     "tableAssistantReplayModal": {
-      "configuracionDeMesa": "Configuración de mesa",
-      "cerrarConfiguracionDeMesa": "Cerrar configuración de mesa",
-      "posicionesDeMesa": "Posiciones de mesa",
-      "jugador": "Jugador",
-      "sinJugador": "Sin jugador",
-      "orden": "Orden",
-      "eligeUnJugadorYSuTurno": "Elige un jugador y su turno.",
-      "turnoAleatorio": "Turno aleatorio"
+      "seatLabel": "Stoel {{ count }}",
+      "turnLabel": "Beurt {{ count }}",
+      "startGame": "Partij starten",
+      "tableSetup": "Tafelopstelling",
+      "closeTableSetup": "Sluit tafelopstelling",
+      "tablePositions": "Tafelposities",
+      "player": "Speler",
+      "noPlayer": "Geen speler",
+      "order": "Bestel",
+      "choosePlayerAndTurn": "Kies een speler en zijn beurt.",
+      "randomTurn": "Willekeurige beurt"
     },
     "tableAssistantRoom": {
-      "giraElDispositivo": "Gira el dispositivo",
-      "informacionDeSala": "Informacion de sala",
-      "copiarEnlaceDeSala": "Copiar enlace de sala",
-      "trackersGlobales": "Trackers globales",
-      "jugadores": "Jugadores",
-      "danoDeComandante": "Daño de comandante",
-      "cerrarDanoDeComandante": "Cerrar daño de comandante",
-      "vidaDeJugador": "Vida de jugador",
-      "trackersDeJugador": "Trackers de jugador",
-      "skullKo": "skull-ko",
-      "laSalaEstaOptimizadaParaMovilEn": "La sala esta optimizada para movil en horizontal.",
-      "cargandoSala": "Cargando sala...",
-      "codigoDeSala": "Codigo de sala",
-      "letal": "Letal",
-      "danoDeComandante1": "Daño de comandante",
-      "verYEditar": "Ver y editar",
-      "asignadoAJugadorConectado": "Asignado a jugador conectado"
+      "rotateDevice": "Beurt je apparaat",
+      "roomInformation": "Kamerinformatie",
+      "copyRoomLink": "Kopieer de kamerlink",
+      "globalTrackers": "Wereldwijde trackers",
+      "players": "Spelers",
+      "commanderDamage": "Commander damage",
+      "closeCommanderDamage": "Commander damage sluiten",
+      "playerLife": "Leven van speler",
+      "playerTrackers": "Speler-trackers",
+      "knockoutIconLabel": "schedel-ko",
+      "landscapeOptimizedNotice": "De kamer is geoptimaliseerd voor de liggende modus op mobiel.",
+      "roomCode": "Kamercode",
+      "lethal": "Dodelijk",
+      "commanderDamageSummary": "Commander damage",
+      "assignedToConnectedPlayer": "Toegewezen aan verbonden speler",
+      "viewAndEdit": "Bekijk en bewerk"
     },
     "tableAssistantSetup": {
-      "configurarAsistenteDeMesa": "Configurar Asistente de Mesa",
-      "nuevaPartida": "Nueva partida",
-      "configuraLaMesa": "Configura la mesa",
-      "jugadoresVidasYTemporizadorLoDemasSe": "Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.",
-      "jugadores": "Jugadores",
-      "reglasDeMesa": "Reglas de mesa",
-      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Daño de comandante siempre activo. Temporizador opcional."
+      "createRoom": "Maak kamer",
+      "createRoomError": "Kan de tafelassistentruimte niet maken.",
+      "creatingRoom": "Creëren...",
+      "initialLife": "Startlevenstotaal",
+      "initialTotal": "Begintotaal",
+      "needPlayersAndNames": "Je hebt minimaal 2 spelers nodig en elke naam is ingevuld.",
+      "playerColorAria": "Speler {{ index }} kleur",
+      "playerColorsAria": "Speler {{ index }} kleuren",
+      "playerNameAria": "Speler {{ index }} naam",
+      "playerNamePlaceholder": "Speler {{ index }}",
+      "players": "Spelers",
+      "configureTableAssistant": "Configureer Tabelassistent",
+      "newGame": "Nieuwe partij",
+      "configureTable": "Configureer de tafel",
+      "setupDescription": "Spelers, leven en timer. Al het andere wordt tijdens het spel aangepast.",
+      "tableRules": "Tabelregels",
+      "commanderDamageAndTimerNote": "Commander damage is altijd ingeschakeld. Timer optioneel."
     },
     "tableAssistantTableMenu": {
-      "opcionesDePartidaDeCommanderzone": "Opciones de partida de CommanderZone",
-      "opcionesDePartida": "Opciones de partida",
       "cz": "CZ",
-      "nuevaPartida": "Nueva partida",
-      "tirarDado": "Tirar dado",
-      "pantallaCompleta": "Pantalla completa",
-      "salirAlDashboard": "Salir al dashboard",
-      "seguirJugando": "Seguir jugando"
+      "commanderZoneGameOptions": "CommanderZone spelopties",
+      "gameOptions": "Spelopties",
+      "newGame": "Nieuwe partij",
+      "rollDice": "Werp dobbelstenen",
+      "fullScreen": "Volledig scherm",
+      "exitToDashboard": "Afsluiten naar dashboard",
+      "keepPlaying": "Blijf spelen"
     },
     "tableAssistantTimerSettings": {
-      "temporizador": "Temporizador",
-      "duracionPorTurno": "Duracion por turno",
       "min": "Min",
-      "seg": "Seg"
+      "timer": "Timer",
+      "turnDuration": "Duur van de beurt",
+      "seconds": "Sec",
+      "timerModes": {
+        "turn": "Per beurt",
+        "phase": "Per fase"
+      }
     },
     "tableAssistantTurnControls": {
-      "turnoActivo": "Turno activo",
-      "pausarTemporizador": "Pausar temporizador",
-      "reanudarTemporizador": "Reanudar temporizador",
-      "iniciarTemporizador": "Iniciar temporizador",
-      "pasarAlSiguienteTurno": "Pasar al siguiente turno",
-      "pausar": "Pausar",
-      "reanudar": "Reanudar",
-      "iniciar": "Iniciar",
-      "turno": "Turno",
-      "siguiente": "Siguiente"
+      "activeTurn": "Actieve beurt",
+      "pauseTimer": "Pauzetimer",
+      "resumeTimer": "Timer hervatten",
+      "startTimer": "Timer starten",
+      "passToNextTurn": "Ga door naar de volgende beurt",
+      "pause": "Pauze",
+      "resume": "Hervatten",
+      "start": "Begin",
+      "turn": "Beurt",
+      "next": "Volgende"
     },
     "page": {
       "benefits": {
         "lifeAndCommander": {
-          "title": "Vidas y comandante",
-          "description": "Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo."
+          "title": "Leven en Commander",
+          "description": "Houd leven en Commander damage bij zonder van de partij een spreadsheet te maken."
         },
         "simpleTurns": {
-          "title": "Turnos simples",
-          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas."
+          "title": "Simpele bochten",
+          "description": "Markeer de actieve speler en gebruik een timer als de tafel tempo wil, zonder automatische regels."
         },
         "sharedTable": {
-          "title": "Mesa compartida",
-          "description": "Pensado para un único móvil o tablet en el centro de la mesa."
+          "title": "Gedeelde tafel",
+          "description": "Ontworpen voor één telefoon of tablet in het midden van de tafel."
         }
       },
       "header": {
-        "title": "Asistente de Mesa",
-        "startGame": "Empezar partida"
+        "title": "Tafelassistent",
+        "startGame": "Spel starten"
       }
     }
   },
-  "profile": {},
   "settings": {
     "dashboardSettingsModal": {
-      "playerAvatar": "Player avatar",
-      "avatar": "Avatar",
-      "name": "Name",
-      "becomePremium": "Premium worden",
-      "email": "Email",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "deleteAccount": "Delete account",
-      "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
-      "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel",
-      "changeTheme": "Theme wijzigen",
+      "playerAvatar": "Speleravatar",
+      "changeAvatar": "Wijzig avatar",
+      "becomePremium": "Word premium",
+      "changeName": "Naamplaatje wijzigen",
+      "accountDetails": "Accountgegevens",
+      "email": "E-mail",
+      "userName": "Gebruikersnaam",
+      "changePassword": "Wachtwoord wijzigen",
+      "sendingPasswordEmail": "E-mail verzenden...",
+      "passwordResetEmailSentShort": "Verzonden",
+      "passwordResetEmailSent": "E-mail voor wachtwoordherstel verzonden.",
+      "passwordResetEmailError": "Kan de e-mail voor het opnieuw instellen van het wachtwoord niet verzenden.",
+      "deleteAccount": "Account verwijderen",
+      "areYouSureYouWantToPermanently": "Weet je zeker dat je je account definitief wilt verwijderen?",
+      "cancel": "Annuleer",
+      "changeTheme": "Verander thema",
       "gameSettings": {
-        "title": "Gameplay preferences",
+        "title": "Gameplay-voorkeuren",
         "showManaHelperOnStartup": {
-          "label": "Show mana helper on startup",
-          "description": "Open the mana helper when a match starts."
+          "label": "Toon mana-helper bij opstarten",
+          "description": "Open de mana-helper wanneer een partij begint."
         },
         "enableManaRow": {
-          "label": "Enable mana row",
-          "description": "Show the dedicated mana row during games."
-        },
-        "enableStackMana": {
-          "label": "Enable stack mana",
-          "description": "Keep mana available while resolving stacked actions."
+          "label": "Schakel mana-rij in",
+          "description": "Toon de speciale manarij tijdens partijen."
         },
         "gameAnimations": {
-          "label": "Game animations",
-          "description": "Use visual movement and feedback animations during matches."
+          "label": "Spelanimaties",
+          "description": "Gebruik visuele beweging en feedbackanimaties tijdens partijen."
         },
         "chatNotificationSounds": {
-          "label": "Chat notification sounds",
-          "description": "Play a sound when new chat notifications arrive."
+          "label": "Chatmelding klinkt",
+          "description": "Speel een geluid af wanneer er nieuwe chatmeldingen binnenkomen."
+        },
+        "preserveManaPool": {
+          "label": "mana pool behouden",
+          "description": "Houd mana in je mana pool terwijl je gestapelde acties uitvoert."
         }
-      }
+      },
+      "enterValidEmail": "Voer een geldig e-mailadres in.",
+      "checkingEmail": "E-mail controleren...",
+      "checkingAvailability": "Beschikbaarheid controleren...",
+      "couldNotCheckNow": "Kan het nu niet controleren",
+      "usernameLengthRequirement": "De gebruikersnaam moet tussen 2 en 20 tekens lang zijn.",
+      "usernameAvailable": "Gebruikersnaam beschikbaar",
+      "usernameUnavailable": "Gebruikersnaam niet beschikbaar",
+      "emailAvailable": "E-mail beschikbaar",
+      "emailAlreadyRegistered": "E-mailadres al geregistreerd",
+      "deleteAccountWarning": "Verwijder permanent je account en alle bijbehorende gegevens, inclusief decks en voorkeuren. Deze actie kan niet ongedaan worden gemaakt."
     },
     "settingsInitialAvatarOption": {
-      "initialAvatarCustomization": "Initial avatar customization",
-      "mainColor": "Main color",
-      "secondaryColor": "Secondary color",
-      "letters": "Letters"
+      "initialAvatarCustomization": "Eerste aanpassing van de avatar",
+      "mainColor": "Hoofdkleur",
+      "secondaryColor": "Secundaire kleur",
+      "letters": "Brieven"
     },
     "settingsAvatarEditor": {
-      "avatarPreview": "Avatar preview",
-      "avatarTiers": "Avatar tiers",
-      "basicAvatars": "Basic avatars",
+      "avatarPreview": "Avatar-voorbeeld",
+      "avatarTiers": "Avatar-niveaus",
+      "basicAvatars": "Basisavatars",
       "premiumAvatars": "Premium avatars",
-      "chooseAvatar": "Choose avatar",
-      "currentSelection": "Current selection",
-      "basic": "Basic",
-      "premium": "Premium"
+      "chooseAvatar": "Kies avatar",
+      "currentSelection": "Huidige selectie",
+      "basic": "Basis",
+      "premium": "Premie"
     },
     "settingsAvatarUpload": {
-      "uploadedAvatarPreview": "Uploaded avatar preview",
-      "avatarPreview": "Avatar preview",
-      "uploadImage": "Upload image",
-      "chooseYourOwnImageAndFrameIt": "Choose your own image and frame it inside the avatar circle.",
-      "imageFile": "Image file",
-      "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP or another browser-supported image. Maximum 2MB.",
-      "chooseImage": "Choose image",
-      "avatarImagesMustBeNonOffensiveNon": "Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.",
-      "horizontal": "Horizontal",
-      "vertical": "Vertical",
-      "zoom": "Zoom"
+      "uploadedAvatarPreview": "Avatarvoorbeeld geüpload",
+      "avatarPreview": "Avatar-voorbeeld",
+      "uploadImage": "Afbeelding uploaden",
+      "chooseYourOwnImageAndFrameIt": "Kies je eigen afbeelding en kader deze in de avatarcirkel.",
+      "imageFile": "Afbeeldingsbestand",
+      "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP of een andere browserondersteunde afbeelding. Maximaal 2 MB.",
+      "chooseImage": "Kies afbeelding",
+      "avatarImagesMustBeNonOffensiveNon": "Avatarafbeeldingen moeten niet-aanstootgevend, niet-seksueel en geschikt zijn voor de CommanderZone-gemeenschap.",
+      "horizontal": "Horizontaal",
+      "vertical": "Verticaal",
+      "zoom": "Zoomen"
     },
     "settingsDisplayNameStyleEditor": {
-      "nameStylePreview": "Name style preview",
-      "nameStyleTiers": "Name style tiers",
-      "currentSelection": "Current selection",
-      "textColor": "Text color",
-      "basic": "Basic",
-      "premium": "Premium"
+      "nameStylePreview": "Naamstijlvoorbeeld",
+      "nameStyleTiers": "Geef stijllagen een naam",
+      "currentSelection": "Huidige selectie",
+      "textColor": "Tekstkleur",
+      "basic": "Basis",
+      "premium": "Premie"
     }
   },
-  "forms": {},
-  "errors": {},
   "modals": {
     "roll": {
       "rollModal": {
-        "tirarDado": "Tirar dado",
-        "cerrarTirada": "Cerrar tirada",
-        "tipoDeTirada": "Tipo de tirada",
-        "text": "?",
-        "cerrar": "Cerrar",
-        "volverATirar": "Volver a tirar",
-        "tirar": "Tirar"
+        "text": "Resultaat",
+        "rollDice": "Werp dobbelstenen",
+        "closeRoll": "Worp sluiten",
+        "rollType": "Worptype",
+        "close": "Sluiten",
+        "rollAgain": "Werp opnieuw",
+        "roll": "Werp"
       },
       "options": {
-        "coin": "Moneda",
-        "d4": "Dado de 4 caras",
-        "d6": "Dado de 6 caras",
-        "d10": "Dado de 10 caras",
-        "d20": "Dado de 20 caras"
+        "coin": "Munt",
+        "d4": "4-zijdige dobbelsteen",
+        "d6": "6-zijdige dobbelsteen",
+        "d10": "10-zijdige dobbelsteen",
+        "d20": "20-zijdige dobbelsteen"
       },
       "results": {
-        "heads": "Cara",
-        "tails": "Cruz"
+        "heads": "Hoofden",
+        "tails": "Staarten"
       }
     }
   },
-  "toasts": {},
-  "emptyStates": {},
   "contactPage": {
     "meta": {
-      "title": "Contact CommanderZone",
-      "description": "Contact CommanderZone for support, bug reports, rights issues, or general questions."
+      "title": "Neem contact met ons op",
+      "description": "Neem contact op met CommanderZone voor ondersteuning, bugrapporten, rechtenkwesties of algemene vragen."
     },
     "hero": {
-      "title": "Contact CommanderZone",
-      "description": "Send us a message and we will review it as soon as possible."
+      "title": "Neem contact met ons op",
+      "description": "Stuur ons een bericht en we zullen het zo snel mogelijk bekijken."
+    },
+    "nav": {
+      "loggedOutCta": "Terug naar dashboard",
+      "anonymousCta": "Terug naar huis",
+      "actionsAriaLabel": "Acties op de contactpagina"
     },
     "copy": {
-      "supportTitle": "Support and rights",
-      "supportBody": "Use this form for support, bug reports, privacy requests, or rights-related issues. If needed, we can also continue by email at {{ email }}.",
-      "includeTitle": "What to include",
-      "includeBody": "Explain the issue clearly and include any useful page, room, deck, or screenshot context. Do not send secrets or payment details."
+      "supportTitle": "Ondersteuning en rechten",
+      "supportBody": "Gebruik dit formulier voor ondersteuning, bugrapporten, privacyverzoeken, rechtengerelateerde kwesties of elke vraag, idee of nieuwsgierigheid die je met ons wilt delen. Als je dat makkelijker vindt, kunnen we ook per e-mail verder gaan op {{ email }}.",
+      "includeTitle": "Wat moet je opnemen?",
+      "includeBody": "Leg het probleem duidelijk uit en vermeld eventuele nuttige pagina-, kamer-, deck- of screenshot-context. Stuur geen geheimen of betalingsgegevens."
     },
     "form": {
-      "nameLabel": "Name",
-      "namePlaceholder": "Your name",
-      "nameError": "Enter your name.",
-      "emailLabel": "Email",
-      "emailPlaceholder": "you@example.com",
-      "emailError": "Enter a valid email.",
-      "subjectLabel": "Subject",
-      "subjectPlaceholder": "How can we help?",
-      "subjectError": "Enter a subject.",
-      "messageLabel": "Message",
-      "messagePlaceholder": "Write your message here.",
-      "messageError": "Enter a message.",
-      "submit": "Send message",
-      "submitting": "Sending...",
-      "submitSuccess": "Your message has been sent.",
-      "submitError": "We could not send your message. Write to {{ email }} directly or contact us through another channel."
+      "nameLabel": "Naam",
+      "namePlaceholder": "Joje naam",
+      "nameError": "Voer je naam in.",
+      "emailLabel": "E-mail",
+      "emailPlaceholder": "jij@voorbeeld.com",
+      "emailError": "Voer een geldig e-mailadres in.",
+      "subjectLabel": "Onderwerp",
+      "subjectPlaceholder": "Waarmee kunnen we helpen?",
+      "subjectError": "Voer een onderwerp in.",
+      "messageLabel": "Bericht",
+      "messagePlaceholder": "Schrijf hier je bericht.",
+      "messageError": "Voer een bericht in.",
+      "submit": "Bericht verzenden",
+      "submitting": "Verzenden...",
+      "submitSuccess": "Je bericht is verzonden.",
+      "submitRateLimitError": "Je hebt de contactlimiet bereikt. Wacht ongeveer {{ retryAfterMinutes }} minuten voordat je het opnieuw probeert. Als het dringend is, schrijf dan rechtstreeks naar {{ email }}.",
+      "submitError": "We konden je bericht niet verzenden. Schrijf rechtstreeks naar {{ email }} of neem via een ander kanaal contact met ons op."
+    }
+  },
+  "onboarding": {
+    "accountActions": "Accountacties",
+    "demoRoom": {
+      "description": "Dit is een proefruimteroute voor de onboardingstroom. Vervang het door de echte kamerervaring als de multiplayer bekabeld is.",
+      "eyebrow": "Demo kamer",
+      "goToLogin": "Ga naar inloggen"
+    },
+    "hero": {
+      "description": "Boje de kamer, deel de link, kies decks en speel met een tafel gemaakt voor echte Commander-pods.",
+      "eyebrow": "Handleiding Commander tabel",
+      "title": "Speel Commander binnen enkele seconden online"
+    },
+    "highlights": {
+      "ariaLabel": "Producthoogtepunten",
+      "deckValidation": "Commander-eerste deckvalidatie",
+      "manualTable": "Handmatige tafel, geen rules engine",
+      "privateRooms": "Privékamers en uitnodigingen"
+    },
+    "preview": {
+      "ariaLabel": "CommanderZone tabelvoorbeeld",
+      "flow": "Wachtkamer, deckselectie en tafelverloop op één plek.",
+      "guest": "Gast",
+      "oneLink": "Eén koppeling",
+      "ready": "Klaar"
+    },
+    "steps": {
+      "import": {
+        "description": "Plak je lijst en importeer deze.",
+        "title": "Deklijst importeren"
+      },
+      "play": {
+        "description": "Open de kamer en start het spel.",
+        "title": "Spelen"
+      },
+      "room": {
+        "description": "Maak een kamer voor de tafel.",
+        "title": "Maak kamer"
+      },
+      "share": {
+        "description": "Kopieer de kamerlink en verzend deze.",
+        "title": "Deel link"
+      }
+    }
+  },
+  "shared": {
+    "cardPreview": {
+      "rank": "Rang {{ rank }}",
+      "viewMore": "Bekijk meer"
+    }
+  },
+  "cards": {
+    "cardSearch": {
+      "pagination": {
+        "label": "Paginering van kaartzoekopdracht"
+      }
     }
   }
 }

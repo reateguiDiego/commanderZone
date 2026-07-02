@@ -33,12 +33,14 @@ describe('RouteStylesService', () => {
   });
 
   it('loads only private route styles for noindex app pages', () => {
-    service.applyForPath('/dashboard');
+    for (const path of ['/dashboard', '/admin']) {
+      service.applyForPath(path);
 
-    expect(privateStylesheet()).not.toBeNull();
-    expect(publicStylesheet()).toBeNull();
-    expect(documentRef.body.classList.contains('cz-private-route')).toBe(true);
-    expect(documentRef.body.classList.contains('cz-public-route')).toBe(false);
+      expect(privateStylesheet()).not.toBeNull();
+      expect(publicStylesheet()).toBeNull();
+      expect(documentRef.body.classList.contains('cz-private-route')).toBe(true);
+      expect(documentRef.body.classList.contains('cz-public-route')).toBe(false);
+    }
   });
 
   it('loads private route styles for /contact', () => {

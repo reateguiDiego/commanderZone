@@ -1,4 +1,5 @@
 import { booleanAttribute, Directive, HostBinding, Input } from '@angular/core';
+import { TextFitDirective } from '../text-fit/text-fit.directive';
 
 export type CzButtonVariant = 'primary' | 'secondary' | 'ghost' | 'text' | 'icon' | 'menu';
 export type CzButtonSize = 'sm' | 'md' | 'lg';
@@ -7,6 +8,7 @@ export type CzButtonTone = 'default' | 'danger' | 'success' | 'warning';
 @Directive({
   selector: '[czButton]',
   standalone: true,
+  hostDirectives: [TextFitDirective],
 })
 export class CzButtonDirective {
   @Input('czButton') variant: CzButtonVariant = 'secondary';

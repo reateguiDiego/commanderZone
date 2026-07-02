@@ -13,7 +13,7 @@ import { isValidRoomCodeInput, normalizeRoomCodeInput } from '../../../shared/ro
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RoomCreatePanelComponent {
-  readonly lockedRoomTooltip = 'You are already in a room. Leave it before joining another one.';
+  readonly lockedRoomTooltip = 'rooms.roomCreatePanel.alreadyInRoomTooltip';
   readonly actionsLocked = input(false);
   readonly codeJoinRequested = output<string>();
   readonly createRequested = output<void>();

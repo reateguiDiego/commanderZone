@@ -20,9 +20,15 @@ export class DashboardHeaderComponent {
   readonly userAvatar = input<UserAvatar | null | undefined>(null);
   readonly userNameStyle = input<UserDisplayNameStyle | null | undefined>(null);
   readonly friendsOpen = input(false);
+  readonly messagesOpen = input(false);
   readonly pendingNotificationsCount = input(0);
   readonly onlineFriendsCount = input(0);
+  readonly messagesCount = input(0);
+  readonly unreadMessagesCount = input(0);
+  readonly canAccessAdmin = input(false);
   readonly toggleFriends = output<MouseEvent>();
+  readonly toggleMessages = output<MouseEvent>();
   readonly closeFriends = output<void>();
+  readonly closeMessages = output<void>();
   readonly logout = output<void>();
 }

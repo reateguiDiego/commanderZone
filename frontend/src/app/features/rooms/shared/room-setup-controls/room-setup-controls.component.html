@@ -1,6 +1,6 @@
 <div class="setup-controls">
   <app-game-setup-life-control
-    label="Total life"
+    label="rooms.setup.gameSetupLifeControl.totalLife"
     summary=""
     [value]="startingLife()"
     [step]="startingLifeStep()"
@@ -11,7 +11,7 @@
   <div class="setup-control timer-control">
     <div class="control-copy">
       <span class="eyebrow">{{ 'rooms.roomSetupControls.timer' | runtimeTranslate }}</span>
-      <strong>{{ timerSummary() }}</strong>
+      <strong>{{ timerSummary() | runtimeTranslate }}</strong>
     </div>
     <app-table-assistant-timer-settings
       [compact]="true"
@@ -25,7 +25,7 @@
   </div>
 
   <app-game-setup-seats-control
-    label="Seats"
+    label="rooms.setup.gameSetupSeatsControl.seats"
     [value]="maxPlayers()"
     [minimumValue]="minimumPlayers()"
     [options]="maxPlayersOptions()"
@@ -37,7 +37,7 @@
     <div class="mulligan-select-field">
       <app-format-select
         name="mulliganRule"
-        [label]="'rooms.roomSetupControls.mulligan' | runtimeTranslate"
+        labelKey="rooms.roomSetupControls.mulligan"
         [formats]="mulliganSelectOptions()"
         [value]="mulliganRule()"
         [disabled]="disabled() || updatingMulligan()"

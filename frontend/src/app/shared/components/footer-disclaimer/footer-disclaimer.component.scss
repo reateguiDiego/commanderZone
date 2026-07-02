@@ -75,9 +75,39 @@
   display: flex;
   flex-wrap: wrap;
   gap: .75rem;
+  align-items: center;
 }
 
 .app-disclaimer-links a {
   min-height: 2.75rem;
   align-items: center;
+}
+
+.app-disclaimer-link-button {
+  min-height: 2.75rem;
+  padding: 0;
+  color: rgb(var(--cz-secondary-rgb) / 90%);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--cz-primary-rgb) / 48%);
+  text-underline-offset: 0.18rem;
+  cursor: pointer;
+}
+
+.app-disclaimer-link-button:hover {
+  color: var(--cz-text);
+  text-decoration-color: currentColor;
+}
+
+.app-disclaimer-link-button--cookies {
+  margin-left: auto;
+}
+
+@media (max-width: 42rem) {
+  .app-disclaimer-link-button--cookies {
+    margin-left: 0;
+  }
 }

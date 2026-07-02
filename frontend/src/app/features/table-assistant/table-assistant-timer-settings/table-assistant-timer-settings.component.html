@@ -1,18 +1,14 @@
-<section class="timer-settings" [class.compact]="compact()" [attr.aria-label]="'tableAssistant.tableAssistantTimerSettings.temporizador' | runtimeTranslate">
+<section class="timer-settings" [class.compact]="compact()" [attr.aria-label]="'tableAssistant.tableAssistantTimerSettings.timer' | runtimeTranslate">
   <div class="segmented-control">
-    @for (option of timerModes(); track option) {
-      <button type="button" [class.active]="timerMode() === option" [attr.aria-pressed]="timerMode() === option" [disabled]="disabled()" (click)="setTimerMode(option)">
-        @switch (option) {
-          @case ('none') { Sin timer }
-          @case ('turn') { Por turno }
-          @case ('phase') { Por fase }
-        }
+    @for (option of visibleTimerModes(); track option.mode) {
+      <button type="button" [class.active]="timerMode() === option.mode" [attr.aria-pressed]="timerMode() === option.mode" [disabled]="disabled()" (click)="setTimerMode(option.mode)">
+        {{ option.labelKey | runtimeTranslate }}
       </button>
     }
   </div>
 
   @if (timerMode() !== 'none' && (durationPickerOpen() || !compact())) {
-    <section class="timer-wheel" [attr.aria-label]="'tableAssistant.tableAssistantTimerSettings.duracionPorTurno' | runtimeTranslate">
+    <section class="timer-wheel" [attr.aria-label]="'tableAssistant.tableAssistantTimerSettings.turnDuration' | runtimeTranslate">
       <div class="wheel-column">
         <span>{{ 'tableAssistant.tableAssistantTimerSettings.min' | runtimeTranslate }}</span>
         <div appPrettyScroll class="wheel-options">
@@ -22,7 +18,7 @@
         </div>
       </div>
       <div class="wheel-column">
-        <span>{{ 'tableAssistant.tableAssistantTimerSettings.seg' | runtimeTranslate }}</span>
+        <span>{{ 'tableAssistant.tableAssistantTimerSettings.seconds' | runtimeTranslate }}</span>
         <div appPrettyScroll class="wheel-options">
           @for (seconds of timerSecondOptions; track seconds) {
             <button type="button" [class.selected]="timerDurationRemainderSeconds() === seconds" [disabled]="isSecondOptionDisabled(seconds)" (click)="setTimerDurationRemainderSeconds(seconds)">{{ seconds.toString().padStart(2, '0') }}</button>

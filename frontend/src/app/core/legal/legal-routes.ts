@@ -1,5 +1,5 @@
 import { SeoLocaleCode, isSeoLocale } from '../localization/locale-config';
-import { PUBLIC_CONTACT_EMAIL } from '../contact/contact.config';
+import { PUBLIC_CONTACT_EMAIL, PUBLIC_CONTACT_PATH } from '../contact/contact.config';
 
 export type LegalPageKey = 'privacy' | 'cookies' | 'terms';
 
@@ -16,6 +16,7 @@ export interface LegalLink {
 }
 
 export const LEGAL_CONTACT_EMAIL = PUBLIC_CONTACT_EMAIL;
+export const LEGAL_CONTACT_PATH = PUBLIC_CONTACT_PATH;
 
 export const LEGAL_PAGE_KEYS = ['privacy', 'cookies', 'terms'] as const satisfies readonly LegalPageKey[];
 

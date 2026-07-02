@@ -163,6 +163,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->entityManager->persist($card);
         $this->entityManager->flush();
         $this->syncSeededCardPrintTables($card);
+        $this->syncSeededCardTokenRelations($card);
 
         return $card;
     }
@@ -175,19 +176,28 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureCardHasRulingsColumn($connection);
         $this->ensureCardCatalogSearchColumns($connection);
         $this->ensureCardPrintTables($connection);
+        $this->ensureCardTokenRelationTable($connection);
         $this->ensureCardSearchOptionTables($connection);
         $this->ensureRoomWaitingLogEntryTable($connection);
         $this->ensureDeckValidityColumn($connection);
         $this->ensureRoomMulliganColumns($connection);
         $this->ensureUserThemeColumn($connection);
+        $this->ensureUserRoleTables($connection);
+        $this->ensureUserPremiumTierColumn($connection);
+        $this->ensureUserMessageTable($connection);
+        $this->ensureUserReportTable($connection);
+        $this->ensureAuthIdentityTable($connection);
 
         $tables = [
             'game_debug_health',
+            'auth_identity',
             'auth_request_throttle',
             'login_attempt',
             'refresh_session',
             'email_verification_token',
             'password_reset_token',
+            'user_message',
+            'user_report',
             'table_assistant_room',
             'room_invite',
             'friendship',
@@ -200,9 +210,11 @@ abstract class ApiTestCase extends WebTestCase
             'deck_card',
             'deck',
             'deck_folder',
+            'app_user_role',
             'card_search_entry',
             'card_search_option',
             'card_search_set_option',
+            'card_token_relation',
             'card_print_locale',
             'card_print',
             'card',
@@ -218,6 +230,7 @@ abstract class ApiTestCase extends WebTestCase
         }
 
         $connection->executeStatement('TRUNCATE '.implode(', ', $existingTables).' RESTART IDENTITY CASCADE');
+        $this->seedBaseRoles($connection);
     }
 
     private function ensureCardImageStatusColumn(Connection $connection): void
@@ -272,6 +285,10 @@ abstract class ApiTestCase extends WebTestCase
         }
         if (!in_array('set_name', $columns, true)) {
             $connection->executeStatement('ALTER TABLE card ADD COLUMN set_name VARCHAR(255) DEFAULT NULL');
+        }
+        if (!in_array('oracle_id', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE card ADD COLUMN oracle_id VARCHAR(36) DEFAULT NULL');
+            $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_oracle_id ON card (oracle_id)');
         }
     }
 
@@ -359,6 +376,199 @@ SQL,
         $connection->executeStatement('ALTER TABLE app_user ALTER COLUMN theme_id DROP DEFAULT');
     }
 
+    private function ensureUserRoleTables(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        if (!$schemaManager->tablesExist(['app_role'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE app_role (
+    code VARCHAR(32) NOT NULL,
+    label VARCHAR(80) NOT NULL,
+    PRIMARY KEY(code)
+)
+SQL,
+            );
+        }
+
+        if (!$schemaManager->tablesExist(['app_user_role'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE app_user_role (
+    user_id VARCHAR(36) NOT NULL,
+    role_code VARCHAR(32) NOT NULL,
+    PRIMARY KEY(user_id, role_code)
+)
+SQL,
+            );
+            $connection->executeStatement('CREATE INDEX IDX_APP_USER_ROLE_USER ON app_user_role (user_id)');
+            $connection->executeStatement('CREATE INDEX IDX_APP_USER_ROLE_ROLE ON app_user_role (role_code)');
+            $connection->executeStatement('ALTER TABLE app_user_role ADD CONSTRAINT FK_APP_USER_ROLE_USER FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
+            $connection->executeStatement('ALTER TABLE app_user_role ADD CONSTRAINT FK_APP_USER_ROLE_ROLE FOREIGN KEY (role_code) REFERENCES app_role (code) ON DELETE CASCADE');
+        }
+
+        $connection->executeStatement("CREATE UNIQUE INDEX IF NOT EXISTS uniq_single_owner ON app_user_role (role_code) WHERE role_code = 'ROLE_OWNER'");
+        $this->seedBaseRoles($connection);
+        $this->migrateLegacyUserRolesColumn($connection);
+    }
+
+    private function ensureUserPremiumTierColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('app_user'),
+        );
+        if (!in_array('premium_tier', $columns, true)) {
+            $connection->executeStatement("ALTER TABLE app_user ADD COLUMN premium_tier VARCHAR(16) NOT NULL DEFAULT 'none'");
+        }
+    }
+
+    private function ensureUserMessageTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if ($schemaManager->tablesExist(['user_message']) || !$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE user_message (
+    id VARCHAR(36) NOT NULL,
+    sender_id VARCHAR(36) NOT NULL,
+    recipient_id VARCHAR(36) NOT NULL,
+    subject VARCHAR(120) NOT NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    read_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
+    PRIMARY KEY(id)
+)
+SQL,
+        );
+        $connection->executeStatement('CREATE INDEX idx_user_message_recipient_created ON user_message (recipient_id, created_at)');
+        $connection->executeStatement('CREATE INDEX idx_user_message_recipient_read ON user_message (recipient_id, read_at)');
+        $connection->executeStatement('CREATE INDEX IDX_USER_MESSAGE_SENDER ON user_message (sender_id)');
+        $connection->executeStatement('ALTER TABLE user_message ADD CONSTRAINT FK_USER_MESSAGE_SENDER FOREIGN KEY (sender_id) REFERENCES app_user (id) ON DELETE CASCADE');
+        $connection->executeStatement('ALTER TABLE user_message ADD CONSTRAINT FK_USER_MESSAGE_RECIPIENT FOREIGN KEY (recipient_id) REFERENCES app_user (id) ON DELETE CASCADE');
+    }
+
+    private function ensureUserReportTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if ($schemaManager->tablesExist(['user_report']) || !$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE user_report (
+    id VARCHAR(36) NOT NULL,
+    reporter_id VARCHAR(36) NOT NULL,
+    reported_user_id VARCHAR(36) NOT NULL,
+    reason VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY(id)
+)
+SQL,
+        );
+        $connection->executeStatement('CREATE INDEX idx_user_report_created ON user_report (created_at)');
+        $connection->executeStatement('CREATE INDEX idx_user_report_reported_user ON user_report (reported_user_id)');
+        $connection->executeStatement('CREATE INDEX IDX_USER_REPORT_REPORTER ON user_report (reporter_id)');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT FK_USER_REPORT_REPORTER FOREIGN KEY (reporter_id) REFERENCES app_user (id) ON DELETE CASCADE');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT FK_USER_REPORT_REPORTED_USER FOREIGN KEY (reported_user_id) REFERENCES app_user (id) ON DELETE CASCADE');
+        $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT chk_user_report_distinct_users CHECK (reporter_id <> reported_user_id)');
+    }
+
+    private function ensureAuthIdentityTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if ($schemaManager->tablesExist(['auth_identity']) || !$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE auth_identity (
+    id VARCHAR(36) NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    provider VARCHAR(32) NOT NULL,
+    provider_user_id VARCHAR(255) NOT NULL,
+    provider_email VARCHAR(180) NOT NULL,
+    provider_email_verified BOOLEAN NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    last_used_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
+    PRIMARY KEY(id)
+)
+SQL,
+        );
+        $connection->executeStatement('CREATE UNIQUE INDEX uniq_auth_identity_provider_user ON auth_identity (provider, provider_user_id)');
+        $connection->executeStatement('CREATE INDEX idx_auth_identity_user ON auth_identity (user_id)');
+        $connection->executeStatement('ALTER TABLE auth_identity ADD CONSTRAINT FK_AUTH_IDENTITY_USER FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
+    }
+
+    private function seedBaseRoles(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_role'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+INSERT INTO app_role (code, label) VALUES
+    ('ROLE_USER', 'User'),
+    ('ROLE_ADMIN', 'Admin'),
+    ('ROLE_OWNER', 'Owner')
+ON CONFLICT (code) DO UPDATE SET label = EXCLUDED.label
+SQL,
+        );
+    }
+
+    private function migrateLegacyUserRolesColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user', 'app_user_role'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('app_user'),
+        );
+        if (!in_array('roles', $columns, true)) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+INSERT INTO app_user_role (user_id, role_code)
+SELECT DISTINCT app_user.id, role.value
+FROM app_user
+CROSS JOIN LATERAL json_array_elements_text(app_user.roles) AS role(value)
+JOIN app_role ON app_role.code = role.value
+ON CONFLICT DO NOTHING
+SQL,
+        );
+        $connection->executeStatement(
+            <<<'SQL'
+INSERT INTO app_user_role (user_id, role_code)
+SELECT id, 'ROLE_USER'
+FROM app_user
+ON CONFLICT DO NOTHING
+SQL,
+        );
+        $connection->executeStatement('ALTER TABLE app_user DROP COLUMN roles');
+    }
+
     private function ensureCardPrintTables(Connection $connection): void
     {
         $schemaManager = $connection->createSchemaManager();
@@ -367,6 +577,7 @@ SQL,
                 <<<'SQL'
 CREATE TABLE card_print (
     scryfall_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    oracle_id VARCHAR(36) DEFAULT NULL,
     normalized_name VARCHAR(255) NOT NULL,
     set_code VARCHAR(16) DEFAULT NULL,
     collector_number VARCHAR(32) DEFAULT NULL,
@@ -388,6 +599,8 @@ SQL,
         }
 
         $this->ensureColumn($connection, 'card_print', 'default_set_name', 'ALTER TABLE card_print ADD COLUMN default_set_name VARCHAR(255) DEFAULT NULL');
+        $this->ensureColumn($connection, 'card_print', 'oracle_id', 'ALTER TABLE card_print ADD COLUMN oracle_id VARCHAR(36) DEFAULT NULL');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_print_oracle_id ON card_print (oracle_id)');
 
         if (!$schemaManager->tablesExist(['card_print_locale'])) {
             $connection->executeStatement(
@@ -491,6 +704,46 @@ SQL,
         }
     }
 
+    private function ensureCardTokenRelationTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card'])) {
+            return;
+        }
+
+        if (!$schemaManager->tablesExist(['card_token_relation'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE card_token_relation (
+    source_scryfall_id VARCHAR(36) NOT NULL,
+    source_oracle_id VARCHAR(36) DEFAULT NULL,
+    token_scryfall_id VARCHAR(36) NOT NULL,
+    token_name VARCHAR(255) NOT NULL,
+    token_uri TEXT DEFAULT NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY (source_scryfall_id, token_scryfall_id)
+)
+SQL,
+            );
+            $connection->executeStatement('CREATE INDEX idx_card_token_relation_source_oracle ON card_token_relation (source_oracle_id)');
+            $connection->executeStatement('CREATE INDEX idx_card_token_relation_source_scryfall ON card_token_relation (source_scryfall_id)');
+            $connection->executeStatement('CREATE INDEX idx_card_token_relation_token_scryfall ON card_token_relation (token_scryfall_id)');
+            $connection->executeStatement(
+                'ALTER TABLE card_token_relation ADD CONSTRAINT fk_card_token_relation_source FOREIGN KEY (source_scryfall_id) REFERENCES card (scryfall_id) ON DELETE CASCADE',
+            );
+
+            return;
+        }
+
+        $this->ensureColumn($connection, 'card_token_relation', 'source_oracle_id', 'ALTER TABLE card_token_relation ADD COLUMN source_oracle_id VARCHAR(36) DEFAULT NULL');
+        $this->ensureColumn($connection, 'card_token_relation', 'token_name', "ALTER TABLE card_token_relation ADD COLUMN token_name VARCHAR(255) NOT NULL DEFAULT 'Unknown token'");
+        $this->ensureColumn($connection, 'card_token_relation', 'token_uri', 'ALTER TABLE card_token_relation ADD COLUMN token_uri TEXT DEFAULT NULL');
+        $this->ensureColumn($connection, 'card_token_relation', 'updated_at', 'ALTER TABLE card_token_relation ADD COLUMN updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT NOW()');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_token_relation_source_oracle ON card_token_relation (source_oracle_id)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_token_relation_source_scryfall ON card_token_relation (source_scryfall_id)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_token_relation_token_scryfall ON card_token_relation (token_scryfall_id)');
+    }
+
     private function ensureColumn(Connection $connection, string $table, string $column, string $sql): void
     {
         $schemaManager = $connection->createSchemaManager();
@@ -519,6 +772,7 @@ SQL,
             <<<'SQL'
 INSERT INTO card_print (
     scryfall_id,
+    oracle_id,
     normalized_name,
     set_code,
     collector_number,
@@ -535,6 +789,7 @@ INSERT INTO card_print (
     updated_at
 ) VALUES (
     :scryfall_id,
+    :oracle_id,
     :normalized_name,
     :set_code,
     :collector_number,
@@ -551,6 +806,7 @@ INSERT INTO card_print (
     NOW()
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
+    oracle_id = EXCLUDED.oracle_id,
     normalized_name = EXCLUDED.normalized_name,
     set_code = EXCLUDED.set_code,
     collector_number = EXCLUDED.collector_number,
@@ -568,6 +824,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
 SQL,
             [
                 'scryfall_id' => $card->scryfallId(),
+                'oracle_id' => $card->oracleId(),
                 'normalized_name' => Card::normalizeName($card->name()),
                 'set_code' => $card->setCode(),
                 'collector_number' => $card->collectorNumber(),
@@ -647,5 +904,67 @@ SQL,
                 'image_status' => $card->imageStatus(),
             ],
         );
+    }
+
+    private function syncSeededCardTokenRelations(Card $card): void
+    {
+        $connection = $this->entityManager->getConnection();
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card_token_relation'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            'DELETE FROM card_token_relation WHERE source_scryfall_id = :source_scryfall_id',
+            ['source_scryfall_id' => $card->scryfallId()],
+        );
+
+        $seen = [];
+        foreach ($card->allParts() as $part) {
+            if (!is_array($part) || ($part['component'] ?? null) !== 'token') {
+                continue;
+            }
+
+            $tokenScryfallId = trim((string) ($part['id'] ?? ''));
+            if ($tokenScryfallId === '' || isset($seen[$tokenScryfallId])) {
+                continue;
+            }
+            $seen[$tokenScryfallId] = true;
+
+            $tokenName = trim((string) ($part['name'] ?? ''));
+            $connection->executeStatement(
+                <<<'SQL'
+INSERT INTO card_token_relation (
+    source_scryfall_id,
+    source_oracle_id,
+    token_scryfall_id,
+    token_name,
+    token_uri,
+    updated_at
+) VALUES (
+    :source_scryfall_id,
+    :source_oracle_id,
+    :token_scryfall_id,
+    :token_name,
+    :token_uri,
+    NOW()
+)
+ON CONFLICT (source_scryfall_id, token_scryfall_id) DO UPDATE SET
+    source_oracle_id = EXCLUDED.source_oracle_id,
+    token_name = EXCLUDED.token_name,
+    token_uri = EXCLUDED.token_uri,
+    updated_at = NOW()
+SQL,
+                [
+                    'source_scryfall_id' => $card->scryfallId(),
+                    'source_oracle_id' => $card->oracleId(),
+                    'token_scryfall_id' => $tokenScryfallId,
+                    'token_name' => $tokenName !== '' ? $tokenName : 'Unknown token',
+                    'token_uri' => isset($part['uri']) && is_scalar($part['uri']) && trim((string) $part['uri']) !== ''
+                        ? trim((string) $part['uri'])
+                        : null,
+                ],
+            );
+        }
     }
 }

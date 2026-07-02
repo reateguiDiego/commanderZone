@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted for V1 implementation
 
 ## Context
 
@@ -13,7 +13,7 @@ We want to evaluate Google login without breaking existing auth flows.
 
 Implement Google authentication as an additional OIDC provider while keeping local auth active.
 
-Preferred approach for MVP:
+V1 approach:
 
 1. Frontend obtains Google ID token using Google Identity Services.
 2. Backend receives ID token at a dedicated endpoint (`/auth/google/exchange`).

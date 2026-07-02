@@ -1,676 +1,890 @@
-﻿{
+{
   "common": {
     "app": {
       "app": {
-        "loading": "Loading"
-      }
+        "loading": "Cargando"
+      },
+      "brand": "CommanderZone"
     },
     "footerDisclaimer": {
       "footerDisclaimer": {
-        "disclaimer": "Disclaimer",
-        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by",
+        "disclaimer": "Descargo de responsabilidad",
+        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone es contenido de fans no oficial permitido según Fan Content Policy. No aprobado/respaldado por",
         "wizards": "Wizards",
-        "portionsOfTheMaterialsUsedAreProperty": ". Portions of the materials used are property of",
+        "portionsOfTheMaterialsUsedAreProperty": ". Partes de los materiales utilizados son propiedad de",
         "wizardsOfTheCoast": "Wizards of the Coast",
-        "wizardsOfTheCoastLlc": "\u00a9Wizards of the Coast LLC",
-        "magicTheGathering": "Magic: The Gathering\u00ae",
-        "mtg": "MTG\u00ae",
-        "andAllAssociatedLogosCardImagesAnd": ", and all associated logos, card images, and intellectual property are trademarks and/or copyrights of",
-        "llcASubsidiaryOf": "LLC, a subsidiary of",
+        "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
+        "magicTheGathering": "Magic: The Gathering®",
+        "mtg": "MTG®",
+        "llcASubsidiaryOf": "LLC, una subsidiaria de",
         "hasbroInc": "Hasbro, Inc",
-        "inTheUnitedStatesAndOtherCountries": "., in the United States and other countries.",
-        "text19932025WizardsOfTheCoastLlc": "\u00a9 1993-2025 Wizards of the Coast LLC",
-        "allRightsReserved": ". All rights reserved.",
-        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone may display or reference certain",
-        "intellectualPropertyUnderTheGuidelinesSetForth": "intellectual property under the guidelines set forth in",
+        "inTheUnitedStatesAndOtherCountries": "., en Estados Unidos y otros países.",
+        "allRightsReserved": ". Reservados todos los derechos.",
+        "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone puede mostrar o hacer referencia a ciertos",
+        "intellectualPropertyUnderTheGuidelinesSetForth": "propiedad intelectual bajo los lineamientos establecidos en",
         "wizardsFanContentPolicy": "Wizards' Fan Content Policy",
-        "thisSiteDoesNotSellProductsHost": ". This site does not sell products, host tournaments, or offer any ranked or competitive services. All features are provided free of charge and are intended solely for non-commercial, educational, and entertainment use by the",
+        "thisSiteDoesNotSellProductsHost": ". Este sitio no vende productos, organiza torneos ni ofrece ningún servicio competitivo o clasificado. Todas las funciones se proporcionan de forma gratuita y están destinadas únicamente para uso no comercial, educativo y de entretenimiento por parte del",
         "magicTheGathering1": "Magic: The Gathering",
-        "community": "community.",
-        "forMoreInformationOn": "For more information on",
-        "andTheirIntellectualPropertyPoliciesPleaseVisit": "and their intellectual property policies, please visit:",
-        "ifYouAreTheRightsHolderAnd": "If you are the rights holder and believe any content on this website violates your rights, please contact us directly to resolve the matter. Contact us, view our Help &amp; FAQ, or check our Press Kit."
+        "community": "comunidad.",
+        "forMoreInformationOn": "Para más información sobre",
+        "andTheirIntellectualPropertyPoliciesPleaseVisit": "y sus políticas de propiedad intelectual, visita:",
+        "ifYouAreTheRightsHolderAnd": "Si eres el titular de los derechos y crees que algún contenido de este sitio vulnera tus derechos, contacta con nosotros directamente para resolverlo.",
+        "copyrightYears": "© 1993-{{ currentYear }} Wizards of the Coast LLC",
+        "viewHelpOrPressKit": "consulta nuestro Help & FAQ o nuestro Press Kit.",
+        "trademarkedLogosImagesAndIpNotice": "y todos los logotipos, imágenes de cartas y propiedad intelectual asociados son marcas comerciales y/o derechos de autor de",
+        "staticWizardsCopyrightYears": "© 1993-2025 Wizards of the Coast LLC"
       }
     },
     "visibility": {
       "visibilityChoice": {
-        "public": "Public",
-        "private": "Private"
+        "public": "Público",
+        "private": "Privado",
+        "label": "Visibilidad",
+        "privacy": "Privacidad",
+        "privateOnlyYouSubtitle": "Solo tú puedes verlo",
+        "privateSubtitle": "Solo con invitación",
+        "publicPlayersSubtitle": "Visible para otros jugadores",
+        "publicProfileSubtitle": "Visible en el perfil público",
+        "publicSubtitle": "Cualquiera puede unirse"
+      },
+      "visibilityPill": {
+        "public": "Público",
+        "private": "Privado"
       }
     },
     "extraActions": {
       "label": "Extras",
-      "open": "Open extra actions",
-      "menu": "Extra actions"
+      "open": "Abrir acciones adicionales",
+      "menu": "Acciones extra"
     },
     "navigation": {
-      "back": "Atras"
+      "back": "Atrás"
+    },
+    "actions": {
+      "accept": "Aceptar",
+      "confirm": "Confirmar",
+      "create": "Crear",
+      "delete": "Borrar",
+      "done": "Hecho",
+      "invite": "Invitar",
+      "roll": "Tirar",
+      "save": "Guardar",
+      "select": "Seleccionar",
+      "sending": "Envío...",
+      "understood": "Comprendido",
+      "working": "Trabajando...",
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "moveUp": "Subir",
+      "moveDown": "Bajar",
+      "remove": "Eliminar",
+      "newGame": "Nuevo juego"
+    },
+    "modal": {
+      "cancel": "Cancelar",
+      "cannotBeUndone": "Esta acción no se puede deshacer.",
+      "close": "Cerrar"
     }
   },
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "tuComandanteHaLlegado": "Tus comandantes tienen sed de sangre",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aqu\u00ed.",
-        "bienvenido": "Bienvenido"
+        "commandersArrivalHeadline": "Tus comandantes esperan su momento",
+        "welcome": "Bienvenido"
       },
       "dashboardTopCommanders": {
-        "title": "Top commanders",
-        "subtitle": "Los comandantes mas jugados del formato",
-        "viewAll": "View more",
-        "communityPopularity": "Basado en partidas jugadas por la comunidad",
-        "viewMore": "View more"
+        "title": "Comandantes destacados",
+        "subtitle": "Comandantes más jugados del formato",
+        "communityPopularity": "Basado en partidas jugadas por la comunidad.",
+        "viewMore": "Ver más"
       },
       "dashboardHeaderContext": {
-        "pageSummary": "Page summary"
+        "pageSummary": "Resumen de página"
       },
       "dashboardHeaderControls": {
-        "pendingFriendRequests": "Pending friend requests",
-        "onlineFriends": "Online friends",
-        "friends": "Friends"
+        "pendingFriendRequests": "Solicitudes de amistad pendientes",
+        "onlineFriends": "Amigos en línea",
+        "friends": "Amigos",
+        "messages": "Mensajes",
+        "unreadMessages": "Mensajes sin leer"
       },
       "dashboardShell": {
-        "commanderzoneDashboard": "CommanderZone dashboard",
-        "primary": "Primary",
-        "cards": "Cards",
-        "decks": "Decks",
-        "rooms": "Rooms",
-        "asistenteDeMesa": "Asistente de Mesa",
-        "community": "Community"
+        "commanderzoneDashboard": "Panel de control CommanderZone",
+        "primary": "Principal",
+        "cards": "Cartas",
+        "decks": "Mazos",
+        "rooms": "Salas",
+        "community": "Comunidad",
+        "tableAssistant": "Asistente de mesa",
+        "admin": "Admin"
       }
     },
     "friends": {
       "friendsDropdown": {
-        "emailOrUsername": "Usuario",
-        "acceptedStatus": "Amigos",
-        "blockedStatus": "Bloqueado",
-        "declinedStatus": "Rechazado",
         "friends": "Amigos",
-        "friendsTitle": "Amigos",
-        "userSearchResults": "Resultados de busqueda de usuarios",
+        "userSearchResults": "Resultados de búsqueda de usuarios",
         "friendList": "Lista de amigos",
-        "searchUsers": "Buscar usuarios",
-        "searchTab": "Buscar",
-        "searchPlayers": "Buscar jugadores...",
-        "searchHint": "Escribe al menos dos caracteres para buscar jugadores.",
-        "seats": "plazas",
         "sendFriendRequest": "Enviar solicitud de amistad",
         "cancelRequest": "Cancelar solicitud",
         "removeFriend": "Eliminar amigo",
         "findUsers": "Buscar usuarios",
         "noUsersFound": "No se encontraron usuarios.",
-        "online": "En linea",
-        "onlineStatus": "En linea",
-        "pendingStatus": "Pendiente",
+        "acceptedStatus": "Amigos",
+        "blockedStatus": "Bloqueado",
+        "declinedStatus": "Rechazado",
+        "invitations": "Invitaciones",
         "inGameStatus": "En partida",
         "joinedPlayers": "unidos",
         "offlineStatus": "Desconectado",
+        "online": "En línea",
+        "onlineStatus": "En línea",
+        "pendingStatus": "Pendiente",
+        "searchHint": "Escribe al menos dos caracteres para buscar jugadores.",
+        "searchPlayers": "Buscar jugadores...",
+        "searchTab": "Buscar",
+        "seats": "Asientos",
         "requests": "Solicitudes",
         "receivedRequests": "Recibidas",
         "sentRequests": "Enviadas",
-        "disconnected": "Desconectados",
-        "viewAllFriends": "Ver todos los amigos",
-        "invitacionDeSala": "Invitacion de sala",
-        "invitations": "Invitaciones",
-        "noFriendsOrPendingRequests": "No hay amigos ni solicitudes pendientes."
+        "disconnected": "Desconectado",
+        "roomInvite": "Invitación a sala"
+      }
+    },
+    "messages": {
+      "messagesDropdown": {
+        "messages": "Mensajes",
+        "inbox": "Bandeja de entrada",
+        "loadingMessages": "Cargando mensajes...",
+        "noMessagesYet": "Todavía no tienes mensajes.",
+        "receivedMessages": "Mensajes recibidos",
+        "sentBy": "Enviado por:",
+        "unread": "Sin leer",
+        "read": "Leído",
+        "couldNotLoadMessages": "No se pudieron cargar los mensajes.",
+        "couldNotMarkMessageRead": "No se pudo marcar el mensaje como leído."
       }
     }
   },
   "auth": {
     "authPage": {
-      "authMode": "Auth mode",
+      "authMode": "Modo de autenticación",
       "commanderzone": "CommanderZone",
-      "accedeATusMazosSalasYMesa": "Accede a tus mazos, salas y mesa manual de Commander.",
-      "login": "Login",
-      "register": "Register",
-      "email": "Email",
-      "emailOrUserName": "Email o nombre de usuario",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "introduceUnEmailOUserNameValido": "Introduce un email o nombre de usuario valido.",
-      "invalidCredentials": "Email, nombre de usuario o password incorrectos.",
-      "tooManyLoginAttempts": "Demasiados intentos de login fallidos. Intentalo de nuevo mas tarde.",
-      "loginLockoutWarning": "Intento de login fallido {{ count }}/5. Si fallas 5 intentos, el login se bloqueara durante 15 minutos.",
-      "password": "Password",
-      "heOlvidadoMiContrasena": "He olvidado mi contrasena",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "minimo8CaracteresConMinusculaMayusculaY": "Minimo 8 caracteres, con minuscula, mayuscula, numero y caracter especial.",
+      "login": "Iniciar sesión",
+      "register": "Registrarse",
+      "email": "Correo electrónico",
+      "emailOrUserName": "Correo electrónico o nombre de usuario",
+      "invalidCredentials": "Correo electrónico, nombre de usuario o contraseña no válidos.",
+      "tooManyLoginAttempts": "Demasiados intentos fallidos de inicio de sesión. Inténtalo de nuevo más tarde.",
+      "loginLockoutWarning": "Intento fallido de inicio de sesión {{ count }}/5. Si falla 5 veces, el inicio de sesión se bloqueará durante 15 minutos.",
+      "password": "Contraseña",
+      "userName": "Nombre de usuario",
       "passwordRequirements": {
-        "label": "Password requirements",
-        "minLength": "Minimo 8 caracteres",
-        "lowercase": "Minimo 1 letra minuscula",
-        "uppercase": "Minimo 1 letra mayuscula",
-        "number": "Minimo 1 numero",
-        "special": "Minimo 1 caracter especial"
+        "label": "Requisitos de contraseña",
+        "minLength": "Mínimo 8 caracteres",
+        "lowercase": "Al menos 1 letra minúscula",
+        "uppercase": "Al menos 1 letra mayúscula",
+        "number": "Al menos 1 número",
+        "special": "Al menos 1 carácter especial"
       },
-      "confirmarPassword": "Confirmar password",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "registrationCompletedCheckEmail": "Registro completado. Revisa tu correo y confirma tu cuenta."
+      "registrationCompletedCheckEmail": "Registro completo. Revisa tu correo electrónico y confirma tu cuenta.",
+      "createAccount": "Crear una cuenta",
+      "accessDecksRoomsAndTable": "Accede a tus mazos, salas y mesa manual de Commander.",
+      "enterValidEmail": "Introduce un correo electrónico válido.",
+      "enterValidEmailOrUsername": "Introduce un correo electrónico o nombre de usuario válido.",
+      "forgotPassword": "Olvidé mi contraseña",
+      "checkingEmail": "Revisando el correo electrónico...",
+      "checkingAvailability": "Comprobando disponibilidad...",
+      "passwordPolicySummary": "Mínimo 8 caracteres con minúsculas, mayúsculas, números y caracteres especiales.",
+      "confirmPassword": "Confirmar contraseña",
+      "passwordsDoNotMatch": "Las contraseñas no coinciden.",
+      "emailAvailable": "Correo electrónico disponible",
+      "emailAlreadyRegistered": "Correo electrónico ya registrado",
+      "couldNotCheckNow": "No se pudo comprobar en este momento",
+      "usernameLengthRequirement": "El nombre de usuario debe tener entre 2 y 20 caracteres.",
+      "usernameAvailable": "Nombre de usuario disponible",
+      "usernameUnavailable": "Nombre de usuario no disponible",
+      "googleUnavailable": "El inicio de sesión con Google no está disponible ahora.",
+      "signInWithGoogle": "Iniciar sesión con Google",
+      "registerWithGoogle": "Registrarse con Google",
+      "socialSignIn": "Inicio de sesión social",
+      "or": "o"
     },
     "emailVerificationPage": {
-      "confirmingEmail": "Confirmando email",
+      "confirmingEmail": "Correo electrónico de confirmación",
       "waitWhileWeConfirmYourAccount": "Espera mientras confirmamos tu cuenta.",
-      "couldNotConfirmEmail": "No se pudo confirmar el email",
-      "linkInvalidOrExpired": "El enlace de verificacion no es valido o ha caducado.",
-      "backToLogin": "Volver al login"
+      "couldNotConfirmEmail": "No se pudo confirmar tu correo electrónico",
+      "invalidOrExpiredLink": "El enlace de verificación no es válido o ha caducado."
     },
     "passwordResetPage": {
-      "recuperarContrasena": "Recuperar contrasena",
-      "solicitaElCorreoDeRecuperacionParaRecibir": "Solicita el correo de recuperacion para recibir un enlace seguro.",
-      "defineTuNuevaContrasenaConElEnlace": "Define tu nueva contrasena con el enlace seguro que recibiste por email.",
-      "email": "Email",
-      "siElEmailExisteSeEnvioUn": "Si el email existe, se envio un correo con el token de recuperacion.",
-      "nuevaContrasena": "Nueva contrasena",
-      "confirmarContrasena": "Confirmar contrasena",
-      "lasContrasenasNoCoinciden": "Las contrasenas no coinciden.",
-      "contrasenaActualizadaIniciandoSesion": "Contrasena actualizada. Iniciando sesion...",
-      "volverAlLogin": "Volver al login"
+      "email": "Correo electrónico",
+      "requestError": "No se pudo solicitar el correo electrónico de recuperación.",
+      "invalidOrExpiredLink": "El enlace de recuperación no es válido o ha caducado.",
+      "updateError": "No se pudo actualizar la contraseña con ese token.",
+      "sending": "Envío...",
+      "sendRecoveryEmail": "Enviar correo electrónico de recuperación",
+      "updating": "Actualizando...",
+      "updatePassword": "Actualizar contraseña",
+      "resetPassword": "Restablecer contraseña",
+      "requestRecoveryEmailDescription": "Solicita el correo de recuperación para recibir un enlace seguro.",
+      "setNewPasswordDescription": "Establece tu nueva contraseña con el enlace seguro que has recibido por correo.",
+      "newPassword": "Nueva contraseña",
+      "confirmPassword": "Confirmar contraseña",
+      "passwordsDoNotMatch": "Las contraseñas no coinciden.",
+      "passwordUpdatedSigningIn": "Contraseña actualizada. Iniciando sesión...",
+      "recoveryEmailSentIfAccountExists": "Si el correo electrónico existe, se ha enviado un correo electrónico de recuperación de contraseña."
     }
   },
   "rooms": {
     "roomBrowser": {
-      "searchRoom": "Search room",
-      "searchOwner": "Search owner",
-      "roomName": "Room name",
-      "owner": "Owner",
-      "visibility": "Visibility",
-      "publicAndPrivate": "All",
-      "publicOnly": "Public",
-      "privateOnly": "Private",
-      "status": "Status",
-      "allStatus": "All status",
-      "anonymous": "Anonymous",
-      "open": "Open",
-      "full": "Full",
-      "started": "Started",
-      "host": "Host",
-      "format": "Format",
-      "players": "Players",
-      "action": "Action",
-      "noRoomsMatchTheCurrentFilters": "No rooms match the current filters."
+      "searchRoom": "Buscar sala",
+      "searchOwner": "Buscar anfitrión",
+      "roomName": "Nombre de la sala",
+      "owner": "Anfitrión",
+      "visibility": "Visibilidad",
+      "publicAndPrivate": "Todas",
+      "publicOnly": "Público",
+      "privateOnly": "Privado",
+      "status": "Estado",
+      "anonymous": "Anónimo",
+      "open": "Abierto",
+      "full": "Llena",
+      "started": "Empezada",
+      "host": "Anfitrión",
+      "format": "Formato",
+      "players": "Jugadores",
+      "action": "Acción",
+      "noRoomsMatchTheCurrentFilters": "Ninguna sala coincide con los filtros actuales.",
+      "paginationLabel": "Paginación de la lista de salas"
     },
     "roomCreatePanel": {
-      "czAbcDef123": "CZ-ABC-DEF-123",
-      "joinByRoomCode": "Join by room code",
-      "join": "Join",
-      "createANewRoom": "Create a new room",
-      "roomSetup": "Room setup",
-      "createRoom": "Create room"
+      "join": "Unirse",
+      "createANewRoom": "Crear una nueva sala",
+      "roomSetup": "Configuración de la sala",
+      "createRoom": "Crear sala",
+      "alreadyInRoomTooltip": "Ya estás en una sala. Déjalo antes de unirte a otro.",
+      "enterRoomCode": "Introduce el código de la sala",
+      "joinWithCode": "Unirse con código"
     },
     "roomCurrentBanner": {
-      "currentRoomDetails": "Current room details",
-      "currentRoom": "Current room",
-      "yourDeck": "Your deck",
-      "turn": "Turn"
+      "currentRoomDetails": "Detalles de la sala actual",
+      "currentRoom": "Sala actual",
+      "yourDeck": "Tu mazo",
+      "turn": "Turno"
     },
     "roomInvitesPanel": {
-      "invites": "Invites",
-      "pendingRoomInvites": "Pending room invites",
-      "accept": "Accept",
-      "decline": "Decline"
+      "invites": "Invitaciones",
+      "pendingRoomInvites": "Invitaciones a salas pendientes",
+      "accept": "Aceptar",
+      "decline": "Rechazar"
     },
     "roomRow": {
-      "started": "Started",
-      "full": "Full",
-      "open": "Open",
-      "join": "Join"
+      "started": "Empezada",
+      "full": "Lleno",
+      "open": "Abierto",
+      "join": "Unirse"
     },
     "rooms": {
-      "borrarSala": "Borrar sala",
-      "mazoRequerido": "Mazo requerido"
+      "validDeckRequiredToCreate": "Necesitas un mazo válido para crear una sala.",
+      "deleteRoom": "Eliminar sala",
+      "deckRequired": "Mazo obligatorio"
     },
     "roomSetupControls": {
-      "timer": "Timer",
+      "timer": "Minutero",
       "mulligan": "Mulligan",
-      "firstMulliganFree": "Primer mulligan es gratis",
+      "firstMulliganFree": "El primer mulligan es gratis.",
       "mulliganDescriptions": {
-        "london": "Londres: robas 7 cartas siempre. Al quedarte, mandas al fondo una carta por cada mulligan efectivo.",
-        "vancouver": "Vancouver: cada mulligan efectivo roba una carta menos. Si te quedas con penalizacion, haces Scry 1.",
-        "paris": "Paris: cada mulligan efectivo roba una carta menos. No hay seleccion al fondo ni scry.",
-        "generous": "Generoso: pensado para Commander. Robas hasta 10, te quedas con 7 si puedes y el servidor pone el resto al fondo en orden aleatorio."
+        "london": "Roba 7 cartas cada vez. Cuando te quedes una mano, pon una carta en el fondo de tu biblioteca por cada mulligan efectivo.",
+        "vancouver": "Cada mulligan efectivo roba una carta menos. Si te quedas la mano después de un mulligan efectivo, adivina 1.",
+        "paris": "Cada mulligan efectivo roba una carta menos. No pones cartas en el fondo de tu biblioteca ni adivinas.",
+        "generous": "Regla pensada para Commander: roba hasta 10 cartas, quédate con 7 cuando sea posible y coloca el resto en el fondo de tu biblioteca en orden aleatorio."
       },
       "firstMulliganFreeOn": "Gratis",
-      "firstMulliganFreeOff": "Cuenta"
+      "firstMulliganFreeOff": "Cuenta",
+      "mulliganRules": {
+        "generous": "Generoso",
+        "london": "London",
+        "paris": "Paris",
+        "vancouver": "Vancouver"
+      },
+      "noTimer": "Sin temporizador"
     },
     "roomSetupModal": {
-      "ejLaTaberna": "Ej. La taberna",
-      "roomName": "Room name",
-      "timer": "Timer"
+      "roomName": "Nombre de la sala",
+      "timer": "Minutero",
+      "createRoom": "Crear sala",
+      "editRoomConfigurationBeforeStarting": "Ajusta la configuración de la sala antes de empezar.",
+      "exampleRoomName": "P.ej. la taberna"
     },
     "waitingRoomDeckSelector": {
-      "deckSelection": "Deck selection",
-      "invalidDeck": "Invalid deck",
-      "rollDice": "Roll dice",
-      "selectADeck": "Select a deck",
-      "randomDeck": "Random deck",
-      "chooseOne": "Choose one",
-      "checking": "Checking"
+      "deckSelection": "Selección de mazo",
+      "invalidDeck": "Mazo no válido",
+      "rollDice": "Tirar el dado",
+      "selectADeck": "Selecciona un mazo",
+      "randomDeck": "Mazo aleatorio",
+      "chooseOne": "Elige uno",
+      "checking": "Comprobando"
     },
     "waitingRoomLogPanel": {
-      "activity": "Activity",
-      "roomEventsWillAppearHere": "Room events will appear here."
+      "activity": "Actividad",
+      "roomEventsWillAppearHere": "Los eventos de la sala aparecerán aquí."
     },
     "waitingRoomPlayerCard": {
-      "kickPlayer": "Kick player",
-      "d20RollResult": "D20 roll result",
-      "waitingForPlayer": "Waiting for player",
-      "host": "Host",
-      "turnOrder": "Turn order",
-      "d20Roll": "D20 roll",
-      "openSlot": "Open slot"
+      "kickPlayer": "Expulsar jugador",
+      "d20RollResult": "Resultado de la tirada D20",
+      "waitingForPlayer": "Esperando al jugador",
+      "host": "Anfitrión",
+      "turnOrder": "Orden de turno",
+      "d20Roll": "Tirada de D20",
+      "openSlot": "Ranura abierta"
     },
     "waitingRoom": {
-      "leaveRoom": "Leave room",
-      "deleteRoom": "Delete room",
-      "inviteFriends": "Invite friends",
-      "kickPlayer": "Kick player",
-      "invalidDeck": "Invalid deck",
-      "setup": "Setup",
-      "chooseYourDeckAndGetReadyBefore": "Choose your deck and get ready before starting.",
-      "start": "Start",
-      "afterRollingYourDeckSelectionWillBe": "After rolling, your deck selection will be locked and cannot be changed.",
-      "noAcceptedFriendsYet": "No accepted friends yet.",
-      "inRoom": "In room",
-      "invited": "Invited",
-      "loadingRoomState": "Loading room state..."
+      "leaveRoom": "Salir de la sala",
+      "deleteRoom": "Eliminar sala",
+      "inviteFriends": "Invitar amigos",
+      "kickPlayer": "Expulsar jugador",
+      "invalidDeck": "Mazo no válido",
+      "setup": "Configuración",
+      "chooseYourDeckAndGetReadyBefore": "Elige tu mazo y prepárate antes de empezar.",
+      "start": "Empezar",
+      "afterRollingYourDeckSelectionWillBe": "Después de tirar, la selección de mazo quedará bloqueada y no se podrá cambiar.",
+      "noAcceptedFriendsYet": "Aún no se aceptan amigos.",
+      "inRoom": "En la sala",
+      "invited": "Invitado",
+      "allPlayersReady": "Todos los jugadores listos",
+      "chooseAcceptedFriendsToInvite": "Elige amigos aceptados para invitarlos a esta sala.",
+      "invalidDeckSelectionMessage": "No puedes seleccionar {{ deckName }} porque tiene errores de validación de mazo Commander.",
+      "kickPlayerConfirmation": "¿Quieres expulsar a {{ playerName }} de la sala?",
+      "leaveRoomConfirmation": "Saldrá de esta sala y volverá a la lista de salas.",
+      "playersCount": "Jugadores ({{ current }}/{{ max }})",
+      "rollSetsTurnOrder": "Esta tirada establece el orden de tu turno.",
+      "thisDeck": "este mazo",
+      "thisPlayer": "este jugador",
+      "tieBreakRoll": "Tirada de desempate",
+      "tieBreakRollMessage": "Has empatado con {{ playerNames }}. Vuelve a tirar para romper el empate.",
+      "waitingForDecksAndRolls": "Esperando mazos y tiradas"
     },
     "setup": {
       "gameSetupLifeControl": {
-        "startingLife": "Starting life",
-        "decreaseStartingLife": "Decrease starting life",
-        "increaseStartingLife": "Increase starting life"
+        "startingLife": "Total de vida inicial",
+        "decreaseStartingLife": "Reducir el total de vida inicial",
+        "increaseStartingLife": "Aumentar el total de vida inicial",
+        "lifeUnit": "vida",
+        "startingLifePresets": "Preajustes del total de vida inicial",
+        "startingTotal": "Total inicial",
+        "totalLife": "Total de vida"
       },
       "gameSetupSeatsControl": {
-        "tableSize": "Table size"
+        "tableSize": "Tamaño de la mesa",
+        "seats": "Asientos",
+        "setTableSizeToPlayers": "Establecer el tamaño de mesa en {{ count }} jugadores"
       }
     },
     "header": {
-      "title": "Rooms",
-      "totalRooms": "Total rooms",
-      "openRooms": "Open rooms",
-      "privateRooms": "Private rooms",
-      "publicRooms": "Public rooms",
-      "totalPlayers": "Total players",
-      "startedGames": "Started games"
+      "title": "Salas",
+      "totalRooms": "Salas totales",
+      "openRooms": "Salas abiertas",
+      "privateRooms": "Salas privadas",
+      "publicRooms": "Salas públicas",
+      "totalPlayers": "Total de jugadores",
+      "startedGames": "Partidas iniciadas",
+      "description": "Explora salas activas y únete a una partida al instante."
     },
     "waiting": {
       "header": {
-        "inviteFriends": "Invite friends"
+        "inviteFriends": "Invitar amigos"
       }
     }
   },
   "community": {
     "preview": {
       "summary": {
-        "topHundred": "Top 100 cartas"
+        "topHundred": "Las 100 mejores cartas"
+      },
+      "error": "No se pudo cargar la vista previa de la comunidad.",
+      "empty": "Aún no hay cartas disponibles.",
+      "playedLabel": "Jugó",
+      "filters": {
+        "allTypes": "Todos los tipos",
+        "type": {
+          "artifact": "Artefacto",
+          "battle": "Batalla",
+          "creature": "Criatura",
+          "enchantment": "Encantamiento",
+          "instant": "Instantáneo",
+          "land": "Tierra",
+          "planeswalker": "Planeswalker",
+          "sorcery": "Conjuro"
+        }
       }
     },
     "detail": {
       "saveConfirmation": {
-        "title": "¿Quieres guardar este deck en tu lista de decks?",
+        "title": "¿Quieres guardar este mazo en tu lista de mazos?",
         "confirm": "Confirmar",
         "cancel": "Cancelar"
+      },
+      "error": "No se pudo cargar el mazo de la comunidad.",
+      "headerTitle": "Mazo de la comunidad",
+      "missingId": "Falta el ID del mazo de la comunidad.",
+      "save": "Guardar",
+      "saveError": "No se pudo guardar este mazo en tu lista de mazos.",
+      "shareError": "No se pudo copiar el enlace del mazo de la comunidad.",
+      "unknownCommander": "Comandante desconocido",
+      "readonly": {
+        "validation": {
+          "backendValid": "Este mazo está marcado como válido en la comunidad.",
+          "backendInvalid": "Este mazo tiene advertencias o problemas en la comunidad.",
+          "commanders": "Zona de mando: {{ names }}",
+          "error": "Error",
+          "warning": "Advertencia"
+        },
+        "historyOwner": "Compartido por"
       }
+    },
+    "dashboardTopCommanders": {
+      "ariaLabel": "Los 3 mejores comandantes",
+      "theUrDragonPlayed": "47.928 partidas",
+      "edgarMarkovPlayed": "47.211 partidas",
+      "atraxaPlayed": "43.917 partidas"
+    },
+    "home": {
+      "title": "Mazos comunitarios",
+      "subtitle": "Descubre mazos públicos creados por otros jugadores.",
+      "error": "No se pudo cargar la comunidad.",
+      "decksSection": {
+        "title": "Mazos por descubrir"
+      },
+      "decksButton": "Buscar mazos",
+      "decksEmpty": "Aún no hay mazos públicos disponibles.",
+      "commandersTitle": "Comandantes más jugados",
+      "mobileCommandersTitle": "Comandantes destacados",
+      "commandersAriaLabel": "Comandantes para inspirarte",
+      "cardsTitle": "Cartas más jugadas",
+      "mobileCardsTitle": "Cartas destacadas",
+      "cardsSubtitle": "Basado en partidas jugadas por la comunidad.",
+      "cardsAriaLabel": "Cartas para explorar",
+      "viewMore": "Ver más"
+    },
+    "deckList": {
+      "title": "Buscar mazos",
+      "subtitle": "Explora los mazos públicos de la comunidad.",
+      "filterName": "Buscar por nombre",
+      "filterNamePlaceholder": "Buscar mazos...",
+      "filterCommander": "Comandante",
+      "filterCommanderPlaceholder": "Buscar comandante...",
+      "commanderSelect": "Seleccionar comandante",
+      "filterFormat": "Formato",
+      "allFormats": "Todos los formatos",
+      "searchButton": "Buscar",
+      "empty": "Aún no hay mazos públicos disponibles.",
+      "error": "No se pudieron cargar los mazos públicos."
+    },
+    "deckViewer": {
+      "cardsCount": "Cartas {{ count }}",
+      "sectionsCount": "Secciones {{ count }}",
+      "viewMode": {
+        "label": "Modo de visualización",
+        "text": "Texto",
+        "spoiler": "spoiler"
+      },
+      "invalidCard": "Esta carta no es válida en {{ format }}.",
+      "groups": {
+        "commander": "Comandante",
+        "planeswalker": "Planeswalkers",
+        "battle": "Batallas",
+        "creature": "Criaturas",
+        "instant": "Instantáneos",
+        "sorcery": "Conjuros",
+        "enchantment": "Encantamientos",
+        "artifact": "Artefactos",
+        "land": "Tierras",
+        "sideboard": "Banquillo",
+        "other": "Otro",
+        "includingMdfc": "{{ count }} incluyendo MDFC"
+      }
+    },
+    "shared": {
+      "deckWarnings": "Avisos del mazo"
     }
   },
   "game": {
     "arrowTargetDialog": {
-      "selectArrowTargetPlayer": "Select arrow target player",
-      "drawArrow": "Draw arrow",
-      "chooseTargetBoard": "Choose target board",
-      "theSelectedBattlefieldOpensBehindThisPanel": "The selected battlefield opens behind this panel before you pick a card.",
-      "targetPlayer": "Target player",
-      "multipleTargets": "Multiple targets?",
-      "drawSeveralArrowsFromThisCard": "Draw several arrows from this card",
-      "targets": "Targets",
-      "cancel": "Cancel",
-      "selectTarget": "Select target"
+      "selectArrowTargetPlayer": "Seleccionar jugador objetivo de flecha",
+      "drawArrow": "Dibujar flecha",
+      "chooseTargetBoard": "Elige el campo de batalla de destino",
+      "theSelectedBattlefieldOpensBehindThisPanel": "El campo de batalla seleccionado se abre detrás de este panel antes de que elijas una carta.",
+      "targetPlayer": "Jugador objetivo",
+      "multipleTargets": "¿Múltiples objetivos?",
+      "drawSeveralArrowsFromThisCard": "Dibuja varias flechas de esta carta.",
+      "targets": "Objetivos",
+      "cancel": "Cancelar",
+      "selectTarget": "Seleccionar objetivo"
     },
     "battlefieldZoomControls": {
-      "openBattlefieldZoomControls": "Open battlefield zoom controls",
-      "battlefieldZoom": "Battlefield zoom",
-      "resetBattlefieldZoom": "Reset battlefield zoom",
-      "resetZoom": "Reset zoom"
+      "openBattlefieldZoomControls": "Abrir controles de zoom del campo de batalla",
+      "battlefieldZoom": "Zoom del campo de batalla",
+      "resetBattlefieldZoom": "Restablecer el zoom del campo de batalla",
+      "resetZoom": "Restablecer zoom"
     },
     "cardPreviewOverlay": {
-      "cardPreviewDetails": "Card preview details",
-      "powerAndToughness": "Power and toughness",
-      "attachedTo": "Attached to",
-      "attached": "Attached",
-      "current": "Current",
-      "counters": "Counters"
+      "cardPreviewDetails": "Detalles de vista previa de la carta",
+      "powerAndToughness": "Fuerza y resistencia",
+      "attachedTo": "Adjunto a",
+      "attached": "Adjunto",
+      "current": "Actual",
+      "counters": "Contadores"
     },
     "cardSpoilerGrid": {
-      "lookAtOtherFace": "Look at other face",
-      "loadingCards": "Loading cards"
+      "lookAtOtherFace": "Mira otra cara",
+      "loadingCards": "Cargando cartas"
     },
     "chatRecipientSelect": {
-      "chatRecipient": "Chat recipient"
+      "chatRecipient": "Destinatario del chat"
     },
     "contextMenu": {
-      "d": "D",
-      "s": "S",
-      "xX": "X/X",
-      "z": "Z",
-      "t": "T",
       "labels": {
-        "refreshSnapshot": "Refresh Snapshot",
-        "focusMyBoard": "Focus My Board",
-        "abrirDebug": "Abrir debug",
-        "concede": "Concede",
-        "leaveTable": "Leave Table",
-        "deleteArrow": "Delete Arrow",
-        "deleteArrows": "Delete Arrows",
-        "deleteCounter": "Delete Counter",
-        "resetManaPool": "Reset Mana Pool",
-        "focusPlayer": "Focus Player",
-        "life1": "Life +1",
-        "viewExile": "View Exile",
-        "viewGraveyard": "View Graveyard",
-        "drawCard": "Draw Card",
-        "drawXCards": "Draw X Cards",
-        "shuffle": "Shuffle",
-        "selectRandomCard": "Select Random Card",
-        "selectAllBattlefieldCards": "Select All Battlefield Cards",
-        "selectAllHandCards": "Select All Hand Cards",
-        "createToken": "Create Token",
-        "gameMechanics": "Game mechanics",
-        "addMonarch": "Add Monarch",
-        "becomeMonarch": "Become Monarch",
-        "addInitiative": "Add Initiative",
-        "takeInitiative": "Take Initiative",
-        "addDayNight": "Add Day / Night",
-        "addTheRing": "Add The Ring",
-        "addDungeon": "Add Dungeon",
-        "addCitysBlessing": "Add City's Blessing",
-        "removeCitysBlessing": "Remove City's Blessing",
-        "addEmblem": "Add Emblem",
-        "tirarDado": "Tirar dado",
-        "showManaPool": "Show Mana Pool",
-        "view": "View",
-        "drawArrow": "Draw Arrow",
-        "addMana": "Add Mana",
-        "attachTo": "Attach to...",
-        "unequip": "Unequip",
-        "detachAllAttached": "Detach all attached",
-        "makeATokenCopy": "Make A Token Copy",
-        "removeStack": "Remove stack",
-        "flipCardFace": "Flip Card Face",
-        "playFaceDown": "Play Face Down",
-        "previewCard": "Preview Card",
-        "moveTop": "Move Top",
-        "revealTopCard": "Reveal Top Card",
-        "revealLibrary": "Reveal Library",
-        "moveAllTo": "Move All To",
-        "counters": "Counters",
-        "giveToPlayer": "Give To Player",
-        "moveTo": "Move To",
-        "giveTo": "Give To",
-        "reveal": "Reveal",
-        "todos": "Todos",
-        "viewAllLibrary": "View all library",
-        "viewXTopCards": "View X top cards",
-        "bottomOfLibrary": "Bottom of Library",
-        "battlefield": "Battlefield",
-        "hand": "Hand",
-        "xToBottomOfLibrary": "X to bottom of library",
-        "xToGraveyard": "X to graveyard",
-        "xToExile": "X to exile",
-        "xToHandPlayer": "X to hand player",
-        "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters",
-        "createHelper": "Mec\u00e1nicas",
-        "setRingBearer": "Convertir en Portador del Anillo",
-        "mechanics": "Mec\u00e1nicas"
-      }
+        "refreshSnapshot": "Actualizar instantánea",
+        "focusMyBoard": "Enfocar mi campo de batalla",
+        "concede": "Conceder",
+        "leaveTable": "Salir de la mesa",
+        "deleteArrow": "Eliminar flecha",
+        "deleteArrows": "Eliminar flechas",
+        "deleteCounter": "Eliminar contador",
+        "resetManaPool": "Vaciar reserva de maná",
+        "focusPlayer": "Enfocar jugador",
+        "life1": "Vida +1",
+        "viewExile": "Ver exilio",
+        "viewGraveyard": "Ver cementerio",
+        "drawCard": "Robar una carta",
+        "drawXCards": "Robar X cartas",
+        "shuffle": "Barajar",
+        "selectRandomCard": "Seleccionar carta aleatoria",
+        "selectAllBattlefieldCards": "Seleccionar todas las cartas del campo de batalla",
+        "selectAllHandCards": "Seleccionar todas las cartas de la mano",
+        "createToken": "Crear ficha",
+        "gameMechanics": "Mecánicas de juego",
+        "addMonarch": "Añadir el monarca",
+        "becomeMonarch": "Convertirse en el monarca",
+        "addInitiative": "Añadir la iniciativa",
+        "takeInitiative": "Tomar la iniciativa",
+        "addDayNight": "Añadir día/noche",
+        "addTheRing": "Añadir el Anillo",
+        "addDungeon": "Añadir mazmorra",
+        "addCitysBlessing": "Obtener la bendición de la ciudad",
+        "removeCitysBlessing": "Quitar la bendición de la ciudad",
+        "addEmblem": "Añadir emblema",
+        "showManaPool": "Mostrar reserva de maná",
+        "view": "Vista",
+        "drawArrow": "Dibujar flecha",
+        "addMana": "Añadir maná",
+        "attachTo": "Anexar a...",
+        "unequip": "Desequipar",
+        "detachAllAttached": "Separar todo lo anexado",
+        "makeATokenCopy": "Crear una ficha que sea una copia",
+        "removeStack": "Quitar de la pila",
+        "flipCardFace": "Dar la vuelta a la carta",
+        "playFaceDown": "Jugar boca abajo",
+        "previewCard": "Vista previa de la carta",
+        "moveTop": "Mover arriba",
+        "revealTopCard": "Revelar la carta superior",
+        "revealLibrary": "Revelar biblioteca",
+        "moveAllTo": "Mover todo a",
+        "counters": "Contadores",
+        "giveToPlayer": "Dar al jugador",
+        "moveTo": "Mover a",
+        "giveTo": "Dar a",
+        "reveal": "Revelar",
+        "viewAllLibrary": "Ver biblioteca",
+        "viewXTopCards": "Ver las X cartas superiores",
+        "bottomOfLibrary": "Fondo de la biblioteca",
+        "battlefield": "Campo de batalla",
+        "hand": "Mano",
+        "xToBottomOfLibrary": "Pon X cartas en el fondo de la biblioteca",
+        "xToGraveyard": "Pon X cartas en el cementerio",
+        "xToExile": "Pon X cartas en el exilio",
+        "xToHandPlayer": "Pon X cartas en la mano de un jugador",
+        "xToBattlefieldPlayer": "Pon X cartas en el campo de batalla bajo el control de un jugador",
+        "removeAllCounters": "Quitar todos los contadores",
+        "createHelper": "Mecánicas",
+        "setRingBearer": "Establecer como portador del Anillo",
+        "mechanics": "Mecánicas",
+        "openDebug": "Abrir depuración",
+        "rollDice": "Tirar el dado",
+        "all": "Todo"
+      },
+      "drawShortcut": "D",
+      "shuffleShortcut": "S",
+      "tapShortcut": "T",
+      "faceDownShortcut": "Z",
+      "powerToughnessShortcut": "X/X"
     },
     "contextSubmenu": {
       "x": "X"
     },
     "focusedBattlefield": {
-      "manaRow": "Mana row"
+      "manaRow": "Fila de maná"
     },
     "gameAdBanner": {
-      "advertisingBanner": "Advertising banner"
+      "advertisingBanner": "Banner publicitario"
     },
     "gameArrowLayer": {
-      "battlefieldArrows": "Battlefield arrows"
+      "battlefieldArrows": "Flechas del campo de batalla"
     },
     "cardMarkerRail": {
-      "estaCartaEsUnTokenCopy": "Esta carta es un token copy",
-      "openOracleRulingsOnScryfall": "Open Oracle rulings on Scryfall"
+      "openOracleRulingsOnScryfall": "Abrir aclaraciones de Oracle en Scryfall",
+      "tokenCopyLabel": "Esta ficha es una copia."
     },
     "gameCardView": {
-      "lookAtOtherFace": "Look at other face",
-      "powerAndToughness": "Power and toughness",
-      "powerLeftClickAddsRightClickRemoves": "Power. Left click adds, right click removes.",
-      "toughnessLeftClickAddsRightClickRemoves": "Toughness. Left click adds, right click removes.",
-      "attach": "Attach",
-      "stack": "Stack"
+      "lookAtOtherFace": "Mira otra cara",
+      "powerAndToughness": "Fuerza y resistencia",
+      "powerLeftClickAddsRightClickRemoves": "Fuerza. Clic izquierdo para añadir, clic derecho para quitar.",
+      "toughnessLeftClickAddsRightClickRemoves": "Resistencia. Clic izquierdo para añadir, clic derecho para quitar.",
+      "battleCounter": "Batalla",
+      "battleCounterTooltip": "Batalla. Clic izquierdo para añadir, clic derecho para quitar.",
+      "sagaCounter": "Saga",
+      "sagaCounterTooltip": "Saga. Clic izquierdo para añadir, clic derecho para quitar.",
+      "attach": "Adjuntar",
+      "stack": "Pila"
     },
     "loyaltyCounter": {
-      "loyalty": "Loyalty",
-      "loyaltyLeftClickAddsRightClickRemoves": "Loyalty. Left click adds, right click removes."
+      "loyalty": "Lealtad",
+      "loyaltyLeftClickAddsRightClickRemoves": "Lealtad. Clic izquierdo para añadir, clic derecho para quitar."
     },
     "gameDisconnectVoteModal": {
-      "votosDeDesconexion": "Votos de desconexion",
-      "jugadorDesconectado": "Jugador desconectado",
-      "tuVoto": "Tu voto:",
-      "tiempoRestante": "Tiempo restante:",
-      "elJugadorObjetivoYaApareceOnline": "El jugador objetivo ya aparece online."
+      "disconnectVotes": "Desconectar votos",
+      "expel": "Expulsar",
+      "genericDisconnectedMessage": "Un jugador se ha desconectado. Vota si quieres esperar a que reconecte o expulsarlo de la mesa.",
+      "noVote": "Sin voto",
+      "playerDisconnectedMessage": "{{ playerName }} se ha desconectado. Vota si quieres esperar a que reconecte o expulsarlo de la mesa.",
+      "wait": "Esperar",
+      "playerDisconnected": "Jugador desconectado",
+      "yourVote": "Tu voto:",
+      "timeRemaining": "Tiempo restante:",
+      "targetPlayerBackOnline": "El jugador objetivo está nuevamente en línea."
     },
     "gameRematchModal": {
-      "votacionesDeLaRoom": "Votaciones de la sala",
-      "tuVotoActual": "Tu voto actual:",
-      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado salir de la sala."
+      "roomVotes": "Votos de sala",
+      "closeVotes": "Votos cerrados",
+      "defeatedMessage": "¿Quieres volver a jugar con esta sala?",
+      "extraTime": "Tiempo extra",
+      "legendaryVictory": "Victoria legendaria",
+      "leaveRoom": "Salir de la sala",
+      "lifeTotal": "{{ life }} vidas",
+      "noVote": "Sin voto",
+      "playAgain": "Jugar de nuevo",
+      "playersHaveSecondsToVote": "{{ playerNames }} tiene {{ seconds }} para votar.",
+      "playersMissingExtra": "{{ playerNames }} todavía necesita votar. Tienen {{ seconds }} extra para votar.",
+      "timeLimit": "Límite de tiempo",
+      "winnerMessage": "La mesa es tuya. Has sobrevivido al caos y has cerrado la partida con autoridad.",
+      "youDied": "Has muerto",
+      "youHaveSecondsToVote": "Tienes {{ seconds }} para votar.",
+      "yourVoteMissingExtra": "Falta tu voto. Tienes {{ seconds }}s extra para votar.",
+      "currentVote": "Tu voto actual:",
+      "otherPlayersAlreadyVoted": "El resto de jugadores ya han votado para abandonar la sala."
     },
     "gameTableHeader": {
-      "currentPlayer": "Current player"
+      "currentPlayer": "Jugador actual"
     },
     "gameXQuantityStepper": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "Ajustar valor",
+      "increaseValue": "Aumentar valor",
+      "decreaseValue": "Disminuir valor"
     },
     "manaActionDialog": {
-      "manaProductionParts": "Mana production parts",
-      "fixedMana": "Fixed mana",
-      "manaToAdd": "Mana to add",
-      "manaAmount": "Mana amount",
-      "cancel": "Cancel"
+      "manaProductionParts": "Partes de producción de maná",
+      "fixedMana": "Maná fijo",
+      "manaToAdd": "Maná que añadir",
+      "manaAmount": "Cantidad de maná",
+      "cancel": "Cancelar"
     },
     "manaPoolPanel": {
-      "manaPool": "Mana pool",
-      "hideManaPool": "Hide mana pool"
+      "manaPool": "Reserva de maná",
+      "hideManaPool": "Ocultar reserva de maná"
     },
     "numberActionDialog": {
-      "adjustValue": "Adjust value",
-      "increaseValue": "Increase value",
-      "decreaseValue": "Decrease value"
+      "adjustValue": "Ajustar valor",
+      "increaseValue": "Aumentar valor",
+      "decreaseValue": "Disminuir valor"
     },
     "opponentMiniBoard": {
-      "opponentZoneCounts": "Opponent zone counts",
-      "playerDefeated": "Player defeated",
-      "deckPending": "Deck pending",
-      "turno": "Turno"
+      "opponentZoneCounts": "La zona del oponente cuenta",
+      "playerDefeated": "Jugador derrotado",
+      "deckPending": "Mazo pendiente",
+      "turn": "Turno"
     },
     "playerSummaryPanel": {
-      "lifeControls": "Life controls",
-      "lifeTotal": "Life total",
-      "playerCounters": "Player counters",
-      "commanderDamage": "Commander damage",
-      "otherCounters": "Other counters",
+      "lifeControls": "Controles de vida",
+      "lifeTotal": "Total de vida",
+      "playerCounters": "Contadores de jugadores",
+      "commanderDamage": "Daño de comandante",
+      "otherCounters": "Otros contadores",
       "extras": "Extras",
-      "openExtraPlayerCounters": "Open extra player counters",
-      "extraPlayerCounters": "Extra player counters"
+      "openExtraPlayerCounters": "Abrir contadores de jugadores adicionales",
+      "extraPlayerCounters": "Contadores de jugadores adicionales"
     },
     "powerToughnessDialog": {
-      "setPowerAndToughness": "Set power and toughness",
-      "powerToughness": "Power / Toughness",
-      "power": "Power",
-      "toughness": "Toughness",
-      "cancel": "Cancel",
-      "apply": "Apply"
+      "setPowerAndToughness": "Establecer fuerza y resistencia.",
+      "powerToughness": "Fuerza / Resistencia",
+      "power": "Fuerza",
+      "toughness": "Resistencia",
+      "cancel": "Cancelar",
+      "apply": "Aplicar"
     },
     "tokenSearchModal": {
-      "searchTokens": "Search tokens",
-      "tokenCreationControls": "Token creation controls",
-      "createToken": "Create token",
-      "loadingDeckTokens": "Loading deck tokens...",
-      "searchingTokens": "Searching tokens..."
+      "tokenCreationControls": "Controles de creación de fichas",
+      "loadingDeckTokens": "Cargando fichas de mazo...",
+      "searchingTokens": "Buscando fichas..."
     },
     "playersOrder": {
-      "ordenDeTurno": "Orden de turno"
+      "currentTurnLabel": "Turno {{ turnNumber }}",
+      "upcomingTurnLabel": "En {{ count }}",
+      "currentTurnTitle": "A {{ name }} le toca el turno",
+      "upcomingTurnTitle": "A {{ name }} le faltan {{ count }} turno(s)",
+      "turnOrder": "Orden de turno"
     },
     "turnPhasePanel": {
-      "turnPhases": "Turn phases",
-      "focusTheActiveTurnPlayer": "Focus the active turn player",
-      "pasarTurno": "Pasar turno",
-      "focusTurn": "Focus turn"
+      "turnPhases": "Fases del turno",
+      "focusTheActiveTurnPlayer": "Enfocar al jugador activo",
+      "focusTurn": "Enfocar turno",
+      "passTurn": "Pasar turno"
     },
     "zoneModal": {
-      "searchByName": "Search by name",
-      "closeZone": "Close zone",
-      "readOnlyLibraryReview": "Read-only library review",
-      "type": "Type",
-      "allTypes": "All types",
-      "creatures": "Creatures",
-      "instants": "Instants",
-      "sorceries": "Sorceries",
-      "artifacts": "Artifacts",
-      "enchantments": "Enchantments",
+      "searchByName": "Buscar por nombre",
+      "closeZone": "Zona cerrada",
+      "readOnlyLibraryReview": "Revisar biblioteca",
+      "type": "Tipo",
+      "allTypes": "Todos los tipos",
+      "creatures": "Criaturas",
+      "instants": "Instantáneos",
+      "sorceries": "Conjuros",
+      "artifacts": "Artefactos",
+      "enchantments": "Encantamientos",
       "planeswalkers": "Planeswalkers",
-      "lands": "Lands",
-      "search": "Search"
+      "lands": "Tierras",
+      "search": "Buscar"
     },
     "gameTable": {
-      "message": "Message",
-      "closeGame": "Close game?",
-      "moverCartaAOtroBattlefield": "Mover carta a otro battlefield",
-      "giveCard": "Give card?",
-      "moveToHand": "Move to hand?",
-      "devolverABiblioteca": "Devolver a biblioteca",
-      "moveAllToLibrary": "Move all to library",
-      "rotateYourDevice": "Rotate your device",
-      "gamesCanOnlyBePlayedInLandscape": "Games can only be played in landscape on mobile and tablet.",
-      "thisTableNeedsALittleMoreRoom": "This table needs a little more room",
-      "sorryThisResolutionIsTooCrampedFor": "Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.",
-      "useCtrl0InYourBrowserTo": "Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.",
-      "leaveRoom": "Leave room",
-      "loadingGame": "Loading game...",
-      "gameLog": "Game Log",
-      "chat": "Chat",
-      "noGameActionsYet": "No game actions yet.",
-      "noChatMessagesYet": "No chat messages yet.",
-      "reactedBy": "Reacted by",
-      "votaciones": "Votaciones",
-      "opponents": "Opponents",
-      "randomOrder": "Random order",
-      "shuffleOnlyTheseCardsBeforePlacingThem": "Shuffle only these cards before placing them.",
-      "gameLogUnreadActions": "Game Log, unread actions",
-      "chatUnreadMessages": "Chat, unread messages"
+      "message": "Mensaje",
+      "closeGame": "¿Cerrar la partida?",
+      "giveCard": "¿Dar carta?",
+      "moveToHand": "¿Poner en la mano?",
+      "moveAllToLibrary": "Poner todo en la biblioteca",
+      "rotateYourDevice": "Gira tu dispositivo",
+      "gamesCanOnlyBePlayedInLandscape": "Las partidas solo se pueden jugar en horizontal en móviles y tablets.",
+      "thisTableNeedsALittleMoreRoom": "Esta mesa necesita un poco más de espacio.",
+      "sorryThisResolutionIsTooCrampedFor": "Esta resolución es demasiado estrecha para una partida de Commander. Ajusta el zoom del navegador o usa una ventana más grande.",
+      "useCtrl0InYourBrowserTo": "Usa Ctrl+0 en tu navegador para restablecer el zoom al 100%; luego actualiza o cambia el tamaño de esta ventana.",
+      "leaveRoom": "Salir de la sala",
+      "gameLog": "Registro de partida",
+      "chat": "Charlar",
+      "noGameActionsYet": "Aún no hay acciones de juego.",
+      "noChatMessagesYet": "Aún no hay mensajes de chat.",
+      "reactedBy": "Reaccionado por",
+      "votes": "Votos",
+      "opponents": "Oponentes",
+      "randomOrder": "Orden aleatorio",
+      "shuffleOnlyTheseCardsBeforePlacingThem": "Baraja solo estas cartas antes de colocarlas.",
+      "gameLogUnreadActions": "Registro de partida, acciones sin leer",
+      "chatUnreadMessages": "Chat, mensajes no leídos",
+      "moveCardToAnotherBattlefield": "Poner carta en otro campo de batalla",
+      "putIntoLibrary": "Poner en la biblioteca"
     },
     "reactions": {
-      "like": "Like",
-      "dislike": "Dislike",
-      "love": "Love",
-      "laugh": "Laugh",
-      "angry": "Very angry",
-      "vomit": "Vomit",
-      "cry": "Cry"
+      "like": "Me gusta",
+      "dislike": "No me gusta",
+      "love": "Me encanta",
+      "laugh": "Reír",
+      "angry": "Muy enfadado",
+      "vomit": "Qué asco",
+      "cry": "Llorar"
     },
     "numberAction": {
       "drawCards": {
-        "title": "Draw cards",
-        "description": "Choose how many cards to draw from your library.",
-        "confirm": "Draw"
+        "title": "Robar cartas",
+        "description": "Elige cuántas cartas quieres robar de tu biblioteca.",
+        "confirm": "Robar"
       },
       "moveTopCards": {
-        "title": "Move top cards",
-        "description": "Choose how many top library cards to move.",
-        "confirm": "Move"
+        "title": "Mover cartas superiores",
+        "description": "Elige cuántas cartas de la parte superior de tu biblioteca quieres poner en otra zona.",
+        "confirm": "Mover"
       },
       "viewTopCards": {
-        "title": "View top cards",
-        "description": "Choose how many top library cards to view.",
-        "confirm": "View"
+        "title": "Ver cartas superiores",
+        "description": "Elige cuántas cartas de la parte superior de tu biblioteca quieres mirar.",
+        "confirm": "Vista"
       }
     },
     "playerCounters": {
-      "poison": "Poison",
-      "energy": "Energy",
-      "experience": "Experience",
+      "poison": "Veneno",
+      "energy": "Energía",
+      "experience": "Experiencia",
       "rad": "Rad",
-      "tickets": "Tickets"
+      "tickets": "Entradas"
     },
     "zones": {
-      "hand": "Hand",
-      "library": "Library",
-      "graveyard": "Graveyard",
-      "exile": "Exile"
+      "hand": "Mano",
+      "library": "Biblioteca",
+      "graveyard": "Cementerio",
+      "exile": "Exilio"
     },
     "chat": {
-      "allPlayers": "Todos"
+      "allPlayers": "Todos los jugadores"
     },
     "specialHelpers": {
       "modal": {
-        "title": "Mec\u00e1nicas",
-        "quickActions": "Acciones r\u00e1pidas",
-        "cardBacked": "Entidades con carta",
+        "title": "Mecánica",
+        "quickActions": "Acciones rápidas",
+        "cardBacked": "Ayudas respaldadas por cartas",
         "searchPlaceholder": "Buscar emblemas o mazmorras",
-        "searching": "Buscando ayudas...",
+        "searching": "Buscando ayudantes...",
         "noResults": "No se encontraron resultados.",
-        "searchHint": "Escribe al menos 2 caracteres para buscar.",
-        "searchError": "No se pudieron cargar las entidades especiales.",
+        "searchHint": "Escriba al menos 2 caracteres para buscar.",
+        "searchError": "No se pudieron cargar ayudantes especiales.",
         "playerTarget": "Jugador: {{playerName}}",
         "currentState": "Estado actual",
-        "readonly": "Solo lectura. Puedes consultar estas mec\u00e1nicas aqu\u00ed, pero solo el jugador que controla esa posici\u00f3n puede cambiarlas.",
+        "readonly": "Solo lectura. Puedes inspeccionar las mecánicas aquí, pero solo el jugador que las controla puede cambiarlas.",
         "ringLevel": "Nivel del Anillo",
-        "noRingBearer": "Sin Portador del Anillo",
-        "removeHelper": "Quitar",
-        "clearRingBearer": "Quitar Portador del Anillo",
-        "ringLevelUp": "Subir nivel",
-        "ringLevelDown": "Bajar nivel",
-        "noActiveMechanics": "No hay mec\u00e1nicas activas.",
-        "notSet": "Sin definir"
+        "noRingBearer": "No hay portador del anillo asignado",
+        "removeHelper": "Eliminar",
+        "clearRingBearer": "Quitar portador del Anillo",
+        "ringLevelUp": "Nivel +1",
+        "ringLevelDown": "Nivel -1",
+        "noActiveMechanics": "Sin mecánica activa.",
+        "notSet": "No establecido"
       },
       "quick": {
-        "monarch": "Convertirse en monarca",
+        "monarch": "Conviértete en monarca",
         "initiative": "Tomar la iniciativa",
-        "citysBlessing": "Obtener la bendici\u00f3n de la ciudad",
-        "theRing": "Crear El Anillo",
-        "setDay": "Poner de d\u00eda",
-        "setNight": "Poner de noche"
+        "citysBlessing": "Obtén la bendición de la ciudad.",
+        "theRing": "Crear el Anillo",
+        "setDay": "Establecer día",
+        "setNight": "Establecer noche"
       },
       "labels": {
         "monarch": "Monarca",
         "initiative": "Iniciativa",
-        "citys_blessing": "Bendici\u00f3n de la ciudad",
-        "day_night": "D\u00eda/Noche",
-        "the_ring": "El Anillo",
+        "theRing": "El Anillo",
         "emblem": "Emblema",
         "dungeon": "Mazmorra",
-        "day": "D\u00eda",
-        "night": "Noche"
+        "day": "Día",
+        "night": "Noche",
+        "citysBlessing": "Bendición de la ciudad",
+        "dayNight": "Día/Noche"
       },
       "dungeonReplacement": {
-        "title": "Replace active dungeon?",
-        "message": "You can only have one active dungeon. Replace {{currentDungeon}} with {{nextDungeon}}?",
-        "confirm": "Replace dungeon",
-        "cancel": "Cancel"
+        "title": "¿Reemplazar mazmorra activa?",
+        "message": "Solo puedes tener una mazmorra activa. ¿Reemplazar {{currentDungeon}} por {{nextDungeon}}?",
+        "confirm": "Reemplazar mazmorra",
+        "cancel": "Cancelar"
       },
       "citysBlessingRemoval": {
-        "title": "Remove City's Blessing?",
-        "message": "This player will lose City's Blessing from the table. Continue?",
-        "confirm": "Remove",
-        "cancel": "Cancel"
+        "title": "¿Quitar la bendición de la ciudad?",
+        "message": "Este jugador perderá la bendición de la ciudad de la mesa. ¿Continuar?",
+        "confirm": "Eliminar",
+        "cancel": "Cancelar"
       },
       "rail": {
         "title": "Entidades especiales",
@@ -679,92 +893,128 @@
     },
     "zonePilesPanel": {
       "monarchBadgeTooltip": "Eres el monarca."
+    },
+    "mulliganOverlay": {
+      "title": "Mulligan",
+      "metaAriaLabel": "Estado de mulligan",
+      "firstMulliganFree": "El primer mulligan es gratis.",
+      "mulligansTaken": "Mulligan: {{ count }}",
+      "effectiveMulligans": "Efectivo: {{ count }}",
+      "scryTitle": "Adivina 1",
+      "scryDescription": "Elige qué hacer con la carta superior de tu biblioteca.",
+      "waitingForPlayers": "Esperando a los demás jugadores...",
+      "currentHand": "Mano actual",
+      "emptyHand": "Sin cartas en la mano.",
+      "selectedCount": "{{ selected }} / {{ total }} seleccionado",
+      "bottomSelectionHelp": "Escritorio: clic derecho para poner una carta en el fondo. Móvil/tablet: usa el botón de poner en el fondo.",
+      "otherPlayersStatus": "Estado de otros jugadores",
+      "players": "Jugadores",
+      "noOtherPlayers": "Ningún otro jugador.",
+      "rules": {
+        "london": "London",
+        "vancouver": "Vancouver",
+        "paris": "Paris",
+        "generous": "Generoso"
+      },
+      "status": {
+        "deciding": "decidiendo",
+        "scrying": "Adivinando",
+        "ready": "listo"
+      },
+      "actions": {
+        "keepOnTop": "Dejar arriba",
+        "putOnBottom": "Poner en el fondo",
+        "removeFromBottom": "Quitar desde abajo"
+      },
+      "description": {
+        "londonNoBottom": "Roba 7. No tienes que poner ninguna carta en el fondo.",
+        "londonChooseBottom": "Roba 7. Elige {{ count }} carta(s) para ponerlas en el fondo.",
+        "londonBottomOrder": "El orden elegido será el orden de abajo.",
+        "drawCards": "Roba {{ count }} carta(s).",
+        "vancouverScry": "Luego adivina 1.",
+        "generousNoBottom": "Roba {{ count }} carta(s). No tienes que poner ninguna carta en el fondo.",
+        "generousChooseBottom": "Roba {{ drawCount }} carta(s). Elige {{ bottomCount }} para ponerlas en el fondo en orden aleatorio.",
+        "generousRandomOrder": "El orden final será aleatorio."
+      }
     }
   },
   "deckBuilder": {
     "cards": {
       "cardDetail": {
-        "backToSearch": "Back to search",
-        "loadingCard": "Loading card...",
-        "colorIdentity": "Color identity:",
-        "commander": "Commander:"
+        "colorIdentity": "Identidad de color:",
+        "commander": "Comandante:"
       },
       "cardSearch": {
         "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
-        "cards": "Cards",
-        "advancedSearch": "Buscador avanzado de cartas",
         "header": {
           "title": "Cartas",
-          "description": "Encuentra el carton perfecto antes de que la mesa empiece a hacer politica."
+          "description": "Encuentra la carta perfecta antes de que empiece la política de mesa."
         },
-        "searchLibrary": "Search library",
         "search": "Buscar",
         "clear": "Limpiar",
         "close": "Cerrar",
         "advancedFilters": "Filtros avanzados",
         "searchingCards": "Buscando cartas...",
-        "noCardsFound": "No se han encontrado cartas.",
+        "noCardsFound": "No se encontraron cartas.",
         "actions": {
-          "showDetails": "Ver detalles",
-          "addToDeck": "Anadir a mazo",
-          "showRulings": "Ver reglas",
-          "viewPrintings": "Ver todas sus ediciones"
+          "showDetails": "Mostrar detalles",
+          "addToDeck": "Añadir al mazo",
+          "showRulings": "Ver aclaraciones",
+          "viewPrintings": "Ver todas las impresiones"
         },
         "details": {
           "close": "Cerrar detalles",
           "couldNotLoad": "No se pudo cargar esta carta.",
           "oracleText": "Texto Oracle",
-          "noOracleText": "No hay texto Oracle disponible.",
+          "noOracleText": "No hay texto de Oracle disponible.",
           "legalFormats": "Formatos legales",
-          "illegalFormats": "Formatos no legales",
-          "noLegalFormats": "No hay formatos legales en el catalogo local.",
-          "noIllegalFormats": "No hay formatos no legales en el catalogo local."
+          "illegalFormats": "Formatos ilegales",
+          "noLegalFormats": "No hay formatos legales en el catálogo local.",
+          "noIllegalFormats": "No hay formatos ilegales en el catálogo local."
         },
         "addToDeck": {
-          "title": "Add card",
+          "title": "Añadir carta",
           "deck": "Mazo",
-          "section": "Seccion",
+          "section": "Sección",
           "quantity": "Cantidad",
           "selectDeck": "Selecciona un mazo",
-          "selectSection": "Selecciona una seccion",
-          "decreaseQuantity": "Bajar cantidad",
-          "increaseQuantity": "Subir cantidad",
+          "selectSection": "Selecciona una sección",
+          "decreaseQuantity": "Disminuir cantidad",
+          "increaseQuantity": "Aumentar cantidad",
           "sectionMain": "Mazo principal",
           "sectionCommander": "Comandante",
-          "sectionSideboard": "Sideboard",
-          "sectionConsidering": "Considering",
-          "confirm": "Anadir carta",
+          "sectionSideboard": "Banquillo",
+          "sectionConsidering": "En consideración",
+          "confirm": "Añadir carta",
           "cancel": "Cancelar",
-          "loadingDecks": "Cargando tus mazos...",
-          "noDecks": "Todavia no tienes mazos.",
-          "colorIdentityWarning": "{{ card }} tiene identidad de color fuera de los colores del comandante de {{ deck }}:",
+          "noDecks": "Aún no tienes mazos.",
+          "colorIdentityWarning": "{{ card }} tiene una identidad de color fuera de los colores de comandante de {{ deck }}:",
           "formatLegalityWarning": "{{ card }} no es legal en {{ format }}, el formato del mazo seleccionado.",
-          "couldNotLoadDecks": "No se han podido cargar tus mazos.",
-          "couldNotAdd": "No se ha podido anadir esta carta al mazo seleccionado."
+          "couldNotLoadDecks": "No se pudieron cargar tus mazos.",
+          "couldNotAdd": "No se pudo añadir esta carta al mazo seleccionado."
         },
         "printings": {
-          "title": "Ediciones de {{ card }}",
-          "loading": "Cargando ediciones...",
-          "empty": "No se han encontrado ediciones para esta carta.",
-          "couldNotLoad": "No se han podido cargar las ediciones de la carta.",
+          "title": "Impresiones de {{ card }}",
+          "empty": "No se encontraron impresiones para esta carta.",
+          "couldNotLoad": "No se pudieron cargar las impresiones de la carta.",
           "close": "Cerrar"
         },
         "summary": {
-          "ariaLabel": "Filtros aplicados de busqueda de cartas",
-          "activeQuery": "Busqueda activa",
+          "ariaLabel": "Filtros de búsqueda de cartas aplicados.",
+          "activeQuery": "Consulta activa",
           "totalFound": "{{ total }} cartas encontradas",
-          "pageStatus": "Pagina {{ page }} de {{ pages }}",
+          "pageStatus": "Página {{ page }} de {{ pages }}",
           "filters": {
             "name": "Nombre",
             "rules": "Texto",
             "types": "Tipos",
             "subtypes": "Subtipos",
-            "sets": "Ampliaciones",
+            "sets": "Colecciones",
             "rarity": "Rareza",
             "colors": "Colores",
-            "cardKind": "Clase",
-            "manaValue": "Valor de mana",
-            "manaCost": "Coste de mana",
+            "cardKind": "Tipo",
+            "manaValue": "Valor de maná",
+            "manaCost": "Coste de maná",
             "power": "Fuerza",
             "toughness": "Resistencia",
             "formats": "Formatos"
@@ -772,19 +1022,14 @@
         },
         "sort": {
           "label": "Ordenar",
-          "relevance": "Relevancia",
           "colors": "Colores",
           "nameAsc": "Nombre A-Z",
           "nameDesc": "Nombre Z-A",
-          "manaValueAsc": "Mana bajo-alto",
-          "manaValueDesc": "Mana alto-bajo",
-          "setAsc": "Ampliacion A-Z",
-          "setDesc": "Ampliacion Z-A",
-          "rarityAsc": "Rareza mitica primero",
-          "rarityDesc": "Rareza comun primero"
+          "manaValueAsc": "Maná de menor a mayor",
+          "manaValueDesc": "Maná de mayor a menor"
         },
         "view": {
-          "list": "Listado",
+          "list": "Lista",
           "spoiler": "Spoiler"
         },
         "form": {
@@ -792,229 +1037,253 @@
           "textA": "Texto de reglas",
           "textB": "Segundo texto",
           "textMode": "Coincidencia de texto",
-          "textModeAll": "Todos los textos",
-          "textModeAllDescription": "Las dos cajas deben aparecer en el texto de reglas.",
-          "textModeAny": "Cualquier texto",
-          "textModeAnyDescription": "Cualquiera de las dos cajas puede coincidir con el texto de reglas.",
+          "textModeAll": "Todos los términos de texto",
+          "textModeAllDescription": "Ambas casillas deben aparecer en el texto de las reglas de la carta.",
+          "textModeAny": "Cualquier término de texto",
+          "textModeAnyDescription": "Cualquiera de los cuadros puede coincidir con el texto de las reglas de la carta.",
+          "textExact": "Coincidencia exacta de palabra",
+          "textExactDescription": "Busca solo palabras completas, no texto dentro de palabras más largas.",
           "types": "Tipos",
           "subtypes": "Subtipos",
-          "sets": "Ampliaciones",
+          "sets": "Colecciones",
           "rarity": "Rareza",
           "colors": "Colores",
           "colorMode": "Coincidencia de color",
           "colorModeAny": "Cualquiera",
           "colorModeAll": "Todos",
           "colorModeExact": "Exacto",
-          "clearManaCost": "Limpiar coste de mana",
-          "basic": "Basica",
-          "legendary": "Legendaria",
+          "clearManaCost": "Borrar coste de maná",
+          "basic": "Básico",
+          "legendary": "Legendario",
           "artifact": "Artefacto",
           "multicolor": "Multicolor",
           "land": "Tierra",
           "costs": "Costes",
-          "manaValueMin": "Mana min",
-          "manaValueMax": "Mana max",
-          "manaCost": "Coste de mana",
+          "manaValueMin": "Valor de maná mín.",
+          "manaValueMax": "Valor de maná máx.",
+          "manaCost": "Coste de maná",
           "powerToughness": "Fuerza y resistencia",
-          "powerMin": "Fuerza min",
-          "powerMax": "Fuerza max",
-          "toughnessMin": "Resistencia min",
-          "toughnessMax": "Resistencia max",
-          "includeVariablePower": "Incluir fuerza *",
-          "includeVariablePowerDescription": "Incluye tambien cartas cuya fuerza no es un numero fijo, como * o 1+*.",
-          "includeVariableToughness": "Incluir resistencia *",
-          "includeVariableToughnessDescription": "Incluye tambien cartas cuya resistencia no es un numero fijo, como * o 1+*.",
+          "powerMin": "Fuerza mín.",
+          "powerMax": "Fuerza máx.",
+          "toughnessMin": "Resistencia mín.",
+          "toughnessMax": "Resistencia máx.",
+          "includeVariablePower": "Incluir * fuerza",
+          "includeVariablePowerDescription": "Incluye también cartas cuyo poder no sea un número fijo, como * o 1+*.",
+          "includeVariableToughness": "Incluye * resistencia",
+          "includeVariableToughnessDescription": "Incluye también cartas cuya resistencia no sea un número fijo, como * o 1+*.",
           "formats": "Formatos",
-          "filterOptions": "Filtrar opciones",
-          "presentation": "Presentacion",
+          "filterOptions": "Opciones de filtro",
+          "presentation": "Presentación",
           "loadingOptions": "Cargando filtros...",
           "enabled": "Activo",
           "activeFilters": "filtros activos",
-          "precisionConsole": "Consola de precision",
-          "composeSearch": "Compone la busqueda exacta",
-          "oracleText": "Texto de la carta",
-          "textAPlaceholder": "Robar una carta, destruir objetivo, siempre que lances...",
-          "textBPlaceholder": "Segundo termino de reglas opcional"
+          "precisionConsole": "Consola de precisión",
+          "composeSearch": "Crear la consulta exacta de cartas",
+          "oracleText": "Texto de reglas de la carta",
+          "textAPlaceholder": "Roba una carta, destruye el objetivo, cada vez que lances...",
+          "textBPlaceholder": "Término opcional de la segunda regla",
+          "removeManaSymbol": "Eliminar el último símbolo de maná"
         },
         "help": {
-          "title": "Guia de busqueda",
-          "heading": "Guia de uso para este buscador avanzado",
+          "title": "Guía de búsqueda",
+          "heading": "Guía de búsqueda avanzada",
           "nameTitle": "Nombre",
-          "name": "Permite buscar una carta por nombre completo o parcial. CommanderZone consulta nombres canonicos, nombres impresos/localizados y flavor names cuando existen en el catalogo local, asi que el nombre en castellano y el nombre en ingles pueden encontrar la misma carta.",
-          "textTitle": "Texto",
-          "text": "Usa una o dos cajas para buscar texto de reglas. El selector de coincidencia decide si deben aparecer ambos textos en la carta o si basta con cualquiera de ellos. La busqueda revisa texto de reglas y caras de cartas.",
+          "name": "Busca por nombre completo o parcial de carta. CommanderZone comprueba nombres canónicos, nombres impresos/localizados y nombres de ambientación cuando existen en el catálogo local, para que los nombres localizados y en inglés puedan encontrar la misma carta.",
+          "textTitle": "Texto de la carta",
+          "text": "Usa uno o dos términos del texto de reglas. El selector de coincidencia decide si ambos campos deben aparecer en la carta o si basta con cualquiera de ellos. El texto se comprueba en el texto Oracle y en las caras de las cartas.",
           "subtypesTitle": "Subtipo",
-          "subtypes": "El subtipo funciona independientemente del tipo elegido. Puedes combinarlo con cualquier otra seccion para buscar elfos, trasgos, dragones, equipos, auras y otros subtipos.",
+          "subtypes": "El subtipo funciona independientemente del tipo. Puedes combinarlo con cualquier otra sección para encontrar cosas como Elfo, Duende, Dragón, Equipo o Aura.",
           "rarityTitle": "Rareza",
-          "rarity": "Permite activar varias rarezas a la vez. Los colores de las pills son una ayuda visual; el filtro real usa la rareza guardada en el catalogo.",
+          "rarity": "Puedes seleccionar varias rarezas a la vez. Las pastillas de colores son solo una ayuda visual; la búsqueda todavía utiliza la rareza del catálogo.",
           "colorsTitle": "Color",
-          "colors": "La coincidencia de color define el criterio: cartas con cualquier color seleccionado, con todos los colores seleccionados o exactamente con esos colores. Artefacto, multicolor y tierra son accesos rapidos adicionales.",
+          "colors": "La coincidencia de color controla cómo se comportan los colores impresos seleccionados: cualquier color seleccionado, todos los colores seleccionados o exactamente ese conjunto de colores. Artefacto, multicolor y tierra son atajos adicionales.",
           "costsTitle": "Costes",
-          "costs": "El valor de mana usa el catalogo normalizado de CommanderZone, donde X cuenta como 0. El coste de mana exacto se construye con simbolos, asi que el usuario no necesita escribir codigos de color.",
+          "costs": "El valor de maná usa el catálogo normalizado de cartas de CommanderZone, donde X cuenta como 0. El coste de maná exacto se construye con el selector de símbolos, así que no tienes que escribir códigos de color.",
           "statsTitle": "Fuerza y resistencia",
-          "stats": "Los rangos de fuerza y resistencia comparan valores numericos. Activa el pequeno checkbox de valores variables si tambien quieres incluir cartas con valores como * o 1+*."
-        }
+          "stats": "Los rangos de fuerza y resistencia comparan valores numéricos. Activa la casilla de valor variable pequeño si también quieres cartas con valores como * o 1+*."
+        },
+        "actionsAriaLabel": "Acciones de búsqueda de cartas",
+        "filtersAriaLabel": "Filtros de búsqueda de cartas"
       },
       "cardImage": {
-        "flipFace": "Girar carta"
+        "flipFace": "Voltear la cara"
       },
       "autocomplete": {
         "cardAutocomplete": {
-          "searchingCards": "Searching cards..."
+          "searchingCards": "Buscando cartas..."
         }
       }
     },
     "deckAnalysisPanel": {
-      "typeBreakdown": "Type breakdown",
-      "utilityCounts": "Utility counts"
+      "typeBreakdown": "Desglose de tipos",
+      "utilityCounts": "Recuento de utilidad"
     },
     "deckManaBalancePanel": {
-      "manaBalance": "Mana balance",
-      "coloredSourceShareVersusColorDemand": "Colored source share versus color demand.",
-      "sources": "sources",
-      "sourceMix": "Source mix"
+      "manaBalance": "Equilibrio de maná",
+      "coloredSourceShareVersusColorDemand": "Proporción de fuentes de color frente a demanda de color.",
+      "sources": "Fuentes",
+      "sourceMix": "Mezcla de fuentes"
     },
     "deckManaCurvePanel": {
-      "manaCurve": "Mana curve",
-      "mainDeckByManaValue": "Main deck by mana value.",
-      "permanents": "Permanents",
-      "spells": "Spells",
-      "sampleHand": "Sample hand",
-      "sevenRandomCardsFromTheMainDeck": "Seven random cards from the main deck.",
-      "drawAgain": "Draw again",
-      "noCardsAvailable": "No cards available."
+      "manaCurve": "Curva de maná",
+      "mainDeckByManaValue": "Mazo principal por valor de maná.",
+      "permanents": "Permanentes",
+      "spells": "Hechizos",
+      "sampleHand": "Mano de muestra",
+      "sevenRandomCardsFromTheMainDeck": "Siete cartas aleatorias del mazo principal.",
+      "drawAgain": "Robar de nuevo",
+      "noCardsAvailable": "No hay cartas disponibles."
     },
     "deckCardMenu": {
-      "copyQuantityControls": "Copy quantity controls",
-      "selectedCardPreview": "Selected card preview",
-      "quantityToAddOrRemove": "Quantity to add or remove",
-      "editingCard": "Editing card",
-      "quantity": "Quantity",
-      "add": "Add",
-      "remove": "Remove",
-      "selectPrintVersion": "Select print version",
-      "moveToMain": "Move to main",
-      "moveToCommander": "Move to commander",
-      "moveToSideboard": "Move to sideboard",
-      "moveToConsidering": "Move to considering"
+      "copyQuantityControls": "Controles de cantidad de copias",
+      "selectedCardPreview": "Vista previa de la carta seleccionada",
+      "quantityToAddOrRemove": "Cantidad para añadir o quitar",
+      "editingCard": "Editando carta",
+      "quantity": "Cantidad",
+      "add": "Añadir",
+      "remove": "Eliminar",
+      "selectPrintVersion": "Selecciona la versión impresa",
+      "moveToMain": "Mover a principal",
+      "moveToCommander": "Mover a comandante",
+      "moveToSideboard": "Mover al banquillo",
+      "moveToConsidering": "Mover a En consideración"
     },
     "deckCardSpoilerView": {
-      "flipFace": "Flip face",
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "flipFace": "Voltear la cara",
+      "noCommanderAssignedYet": "Aún no se ha asignado ningún comandante."
     },
     "deckCardTextView": {
-      "noCommanderAssignedYet": "No commander assigned yet."
+      "noCommanderAssignedYet": "Aún no se ha asignado ningún comandante.",
+      "unknownType": "Tipo desconocido"
     },
     "deckCommanderShowcase": {
-      "flipFace": "Flip face"
+      "flipFace": "Voltear la cara"
     },
     "deckEditor": {
-      "addCardsByName": "Add cards by name",
-      "searchAnotherCardName": "Search another card name",
-      "text1SolRingVoc168101": "1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141",
-      "deckEditorSections": "Deck editor sections",
-      "copyCardName": "Copy card name",
-      "searchCard": "Search card",
-      "saveMissingCard": "Save missing card",
-      "ignoreThisSession": "Ignore this session",
-      "remove": "Remove",
-      "clearLocalHistory": "Clear local history",
-      "importDecklist": "Import decklist",
-      "selectPrintVersion": "Select print version",
-      "restoreHistory": "Restore history",
-      "loadingDeck": "Loading deck...",
-      "view": "View",
-      "text": "Text",
+      "addCardsByName": "Añadir cartas por nombre",
+      "searchAnotherCardName": "Buscar otro nombre de carta",
+      "deckEditorSections": "Secciones del editor de mazos",
+      "copyCardName": "Copiar nombre de carta",
+      "searchCard": "Buscar carta",
+      "saveMissingCard": "Guardar carta faltante",
+      "ignoreThisSession": "Ignorar esta sesión",
+      "remove": "Eliminar",
+      "clearLocalHistory": "Borrar historial local",
+      "importDecklist": "Importar lista de mazos",
+      "selectPrintVersion": "Selecciona la versión impresa",
+      "restoreHistory": "Restaurar historial",
+      "view": "Vista",
+      "text": "Texto",
       "spoiler": "Spoiler",
-      "analysis": "Analysis",
-      "considering": "Considering",
-      "validation": "Validation",
-      "missing": "Missing",
-      "history": "History",
-      "consideringCards": "Considering cards",
-      "cardsParkedOutsideThePlayableDeck": "Cards parked outside the playable deck.",
-      "noConsideringCards": "No considering cards.",
-      "derivedTokens": "Derived tokens",
-      "resolvedFromCardsCurrentlyInTheDeck": "Resolved from cards currently in the deck.",
-      "noResolvedTokensForThisDeck": "No resolved tokens for this deck.",
-      "unresolvedTokens": "Unresolved tokens",
-      "validateWithBackend": "Validate with backend",
-      "errors": "Errors",
-      "warnings": "Warnings",
-      "noFrontendDiagnosticsForTheCurrentDeck": "No frontend diagnostics for the current deck.",
-      "search": "Search",
-      "add": "Add",
-      "noCardSearchResults": "No card search results.",
-      "futureCollection": "Future collection",
-      "snapshot": "Snapshot",
-      "restore": "Restore",
-      "noLocalHistoryForThisDeckYet": "No local history for this deck yet.",
-      "noCards": "No cards",
-      "deckName": "Deck name",
-      "saveName": "Save name",
-      "plainTextDecklist": "Plain text decklist",
-      "loadFile": "Load file",
-      "lastImport": "Last import",
-      "missingCardsFromLatestImport": "Missing cards from latest import",
-      "chooseTheExactPrintingFor": "Choose the exact printing for",
-      "quantityAndSectionWillStayUnchanged": ". Quantity and section will stay unchanged.",
-      "loadingPrintVersions": "Loading print versions...",
-      "onlyOnePrintVersion": "Only one print version",
-      "thisCardOnlyHasOnePrintVersion": "This card only has one print version available in the database.",
-      "noPrintVersionsFoundForThisCard": "No print versions found for this card.",
-      "current": "Current",
+      "analysis": "Análisis",
+      "considering": "En consideración",
+      "validation": "Validación",
+      "missing": "Faltantes",
+      "history": "Historia",
+      "consideringCards": "Cartas en consideración",
+      "cardsParkedOutsideThePlayableDeck": "Cartas apartadas fuera del mazo jugable.",
+      "noConsideringCards": "No hay cartas en consideración.",
+      "derivedTokens": "Fichas derivadas",
+      "resolvedFromCardsCurrentlyInTheDeck": "Se resuelve a partir de las cartas que hay actualmente en el mazo.",
+      "noResolvedTokensForThisDeck": "No hay fichas resueltas para este mazo.",
+      "unresolvedTokens": "Fichas no resueltas",
+      "validateWithBackend": "Validar con el servidor",
+      "errors": "Errores",
+      "warnings": "Advertencias",
+      "noFrontendDiagnosticsForTheCurrentDeck": "No hay diagnósticos del cliente para el mazo actual.",
+      "search": "Buscar",
+      "add": "Añadir",
+      "noCardSearchResults": "No hay resultados de búsqueda de cartas.",
+      "futureCollection": "Colección futura",
+      "snapshot": "Instantánea",
+      "restore": "Restaurar",
+      "noLocalHistoryForThisDeckYet": "Aún no hay historial local para este mazo.",
+      "noCards": "Sin cartas",
+      "deckName": "Nombre del mazo",
+      "saveName": "Guardar nombre",
+      "plainTextDecklist": "Lista de mazo en texto plano",
+      "loadFile": "Cargar archivo",
+      "lastImport": "Última importación",
+      "missingCardsFromLatestImport": "Cartas faltantes de la última importación",
+      "chooseTheExactPrintingFor": "Elige la edición exacta para",
+      "quantityAndSectionWillStayUnchanged": "La cantidad y la sección permanecerán sin cambios.",
+      "loadingPrintVersions": "Cargando impresiones...",
+      "onlyOnePrintVersion": "Solo una versión impresa",
+      "thisCardOnlyHasOnePrintVersion": "Esta carta solo tiene una versión impresa disponible en la base de datos.",
+      "noPrintVersionsFoundForThisCard": "No se encontraron impresiones para esta carta.",
+      "current": "Actual",
       "header": {
-        "title": "Deck editor",
-        "deckWarnings": "Deck warnings",
-        "import": "Import",
-        "export": "Export",
-        "share": "Share",
-        "shareCopied": "Enlace de community copiado",
-        "shareError": "No se pudo copiar el enlace de community.",
-        "backToDecks": "Back to decks"
-      }
+        "title": "Editor de mazos",
+        "deckWarnings": "Avisos del mazo",
+        "import": "Importar",
+        "export": "Exportar",
+        "share": "Compartir",
+        "shareCopied": "Enlace de la comunidad copiado",
+        "shareError": "No se pudo copiar el enlace de la comunidad."
+      },
+      "cardsCount": "Cartas {{ count }}",
+      "clear": "Limpiar",
+      "clearLocalHistoryQuestion": "¿Borrar el historial local de este mazo?",
+      "colorIdentity": "Identidad de color: {{ colors }}",
+      "commanderMode": "Modo Commander: {{ mode }}",
+      "fromSourceCard": "Desde {{ name }}",
+      "historyCardsSummary": "{{ count }} cartas - {{ commanders }}",
+      "importSummary": "{{ parsed }} cartas analizadas, {{ imported }} importadas, {{ missing }} faltantes.",
+      "noCommander": "Sin comandante",
+      "noCost": "Sin coste",
+      "no": "No",
+      "restoreSnapshotQuestion": "¿Restaurar esta instantánea?",
+      "searchResultsFor": "Resultados de la búsqueda por {{ name }}",
+      "sectionsCount": "Secciones {{ count }}",
+      "usableInGame": "Utilizable en el juego: {{ value }}",
+      "validationCounts": "Cartas: {{ total }} en total ({{ commander }} comandante, {{ main }} mazo principal, {{ sideboard }} banquillo, {{ maybeboard }} en consideración)",
+      "validationFailed": "La validación de Commander falló",
+      "validationPassed": "Validación de Commander aprobada",
+      "yes": "Sí",
+      "decklistTextareaExample": "1 Sol Ring (COV) 168\n1 Fábula del Rompeespejos / Reflejo de Kiki-Jiki (NEO) 141"
     },
     "deckList": {
-      "newDeckName": "New deck name",
-      "searchCommanderByName": "Search commander by name",
-      "commanderSelectionLimitReached": "You already have 2 commanders. You can't add more.",
-      "example1SolRingVoc168": "Example: 1 Sol Ring (VOC) 168",
-      "jeskaiBrewsTesting": "Jeskai, Brews, Testing...",
-      "deckWarnings": "Deck warnings",
-      "renameFolder": "Rename folder",
-      "deleteFolder": "Delete folder",
-      "editDeck": "Edit deck",
-      "deleteDeck": "Delete deck",
-      "deckSaved": "Deck saved",
-      "createSuccessMessage": "This deck has been saved. It is now in your saved decks list, and you can edit it however you like. Good luck with your Commander deck!",
-      "createEmptyDeck": "Crear deck vacio",
-      "createFolder": "Create folder",
-      "continueToRooms": "Continue to rooms",
-      "commanderEnlargedPreview": "Commander enlarged preview",
-      "deckListLabel": "Deck list",
-      "loadingDecks": "Loading decks...",
-      "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
-      "decks": "Decks",
-      "noDecksInThisFolderYet": "No decks in this folder yet.",
-      "missingCards": "Missing cards",
-      "deckName": "Deck name",
-      "folder": "Folder",
-      "noFolder": "No folder",
-      "openDeck": "Open deck",
-      "thisDeckIsPublicButItsFolder": "This deck is public, but its folder is private. It will not be publicly visible.",
+      "newDeckName": "Nuevo nombre del mazo",
+      "searchCommanderByName": "Buscar comandante por nombre",
+      "example1SolRingVoc168": "Ejemplo: 1 Sol Ring (COV) 168",
+      "jeskaiBrewsTesting": "Jeskai, ideas, pruebas...",
+      "renameFolder": "Cambiar nombre de carpeta",
+      "deleteFolder": "Eliminar carpeta",
+      "editDeck": "Editar mazo",
+      "deleteDeck": "Eliminar mazo",
+      "deckSaved": "Mazo guardado",
+      "createSuccessMessage": "Este mazo se ha guardado. Ya está en tu lista de mazos guardados y puedes editarlo cuando quieras. ¡Buena suerte con tu mazo Commander!",
+      "createEmptyDeck": "Crear mazo vacío",
+      "createFolder": "Crear carpeta",
+      "continueToRooms": "Continuar a las salas",
+      "commanderEnlargedPreview": "Vista ampliada del comandante",
+      "deckListLabel": "Lista de mazos",
+      "yourDeckListFeelsALittleEmpty": "Tu lista de mazos está un poco vacía. Entra y empieza a construir.",
+      "noDecksInThisFolderYet": "Aún no hay mazos en esta carpeta.",
+      "missingCards": "Cartas faltantes",
+      "deckName": "Nombre del mazo",
+      "folder": "Carpeta",
+      "noFolder": "Sin carpeta",
+      "openDeck": "Abrir mazo",
+      "thisDeckIsPublicButItsFolder": "Este mazo es público, pero su carpeta es privada. No será visible públicamente.",
       "commander": "Commander",
-      "importDecklist": "Import decklist",
-      "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
-      "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
-      "folderName": "Folder name",
+      "importDecklist": "Importar lista de mazos",
+      "ifYouIncludeYourCommanderInThe": "Si incluyes a tu comandante en la lista importada, no te preocupes; lo quitaremos por ti.",
+      "ifYouIncludeYourCommandersInThe": "Si incluyes a tus comandantes en la lista importada, no te preocupes; los quitaremos por ti.",
+      "folderName": "Nombre de la carpeta",
+      "playmat": "Tapete",
+      "sleeve": "Funda",
+      "editPlaymat": "Editar tapete",
+      "editSleeve": "Editar funda",
       "header": {
-        "title": "Decks",
-        "createDeck": "Create deck",
-        "createFolder": "Create folder"
+        "title": "Mazos",
+        "createDeck": "Crear mazo",
+        "createFolder": "Crear carpeta",
+        "description": "Organiza, construye y domina tus mazos."
       },
       "colorFilter": {
         "label": "Color",
-        "any": "Cualquiera",
+        "any": "Cualquier",
         "white": "Blanco",
         "blue": "Azul",
         "black": "Negro",
@@ -1023,108 +1292,148 @@
         "colorless": "Incoloro"
       },
       "sortMode": {
-        "label": "Orden",
+        "label": "Ordenar",
         "nameAsc": "Nombre (A-Z)",
         "nameDesc": "Nombre (Z-A)"
+      },
+      "cosmetics": {
+        "free": "Gratis",
+        "playmatOptions": "Opciones de tapete",
+        "playmatTiers": "Niveles de tapete",
+        "premium": "Premium",
+        "selectPlaymat": "Seleccionar tapete {{ name }}",
+        "selectSleeve": "Seleccionar funda {{ name }}",
+        "sleeveOptions": "Opciones de fundas"
+      },
+      "filters": {
+        "actionsAndFilters": "Acciones y filtros de mazo"
+      },
+      "maximumCharacters": "Máximo de caracteres {{ count }}.",
+      "noDecksMatchFilters": "Ningún mazo coincide con los filtros actuales.",
+      "removeCommander": "Eliminar comandante",
+      "searchDecks": "Buscar mazos",
+      "searchDecksPlaceholder": "Buscar mazos...",
+      "stats": {
+        "colorDistribution": "Distribución de colores",
+        "private": "Privado",
+        "public": "Público",
+        "summary": "Resumen de mazo",
+        "total": "Total"
       }
     }
   },
   "tableAssistant": {
     "tableAssistantPage": {
-      "asistenteDeMesa": "Asistente de Mesa",
-      "resumenRapido": "Resumen r\u00e1pido",
-      "beneficios": "Beneficios",
-      "mesaManualDeCommander": "Mesa manual de Commander",
-      "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida f\u00edsica.",
-      "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y da\u00f1o de comandante sin automatizar reglas de Magic.",
-      "setupRapido": "Setup r\u00e1pido",
-      "text4JugadoresPorDefecto": "4 jugadores por defecto",
-      "text40VidasIniciales": "40 vidas iniciales",
-      "danoDeComandanteActivo": "Da\u00f1o de comandante activo"
+      "title": "Asistente de mesa",
+      "benefits": "Beneficios",
+      "manualCommanderTable": "Mesa manual de Commander",
+      "physicalGameTrackingDescription": "Todo lo que necesitas para seguir una partida física.",
+      "setupDescription": "Configura jugadores, vida inicial y temporizador. CommanderZone gestiona vidas, turnos y daño de comandante sin automatizar las reglas de Magic.",
+      "quickSetup": "Configuración rápida",
+      "defaultFourPlayers": "4 jugadores por defecto",
+      "defaultFortyLife": "40 vidas",
+      "commanderDamageEnabled": "Daño de comandante activado",
+      "quickSummary": "Resumen rápido"
     },
     "tableAssistantReplayModal": {
-      "configuracionDeMesa": "Configuraci\u00f3n de mesa",
-      "cerrarConfiguracionDeMesa": "Cerrar configuraci\u00f3n de mesa",
-      "posicionesDeMesa": "Posiciones de mesa",
-      "jugador": "Jugador",
-      "sinJugador": "Sin jugador",
-      "orden": "Orden",
-      "eligeUnJugadorYSuTurno": "Elige un jugador y su turno.",
-      "turnoAleatorio": "Turno aleatorio"
+      "seatLabel": "Asiento {{ count }}",
+      "turnLabel": "Turno {{ count }}",
+      "startGame": "Empezar partida",
+      "tableSetup": "Configuración de la mesa",
+      "closeTableSetup": "Cerrar configuración de mesa",
+      "tablePositions": "Posiciones de la mesa",
+      "player": "Jugador",
+      "noPlayer": "Ningún jugador",
+      "order": "Orden",
+      "choosePlayerAndTurn": "Elige un jugador y su turno.",
+      "randomTurn": "Turno aleatorio"
     },
     "tableAssistantRoom": {
-      "giraElDispositivo": "Gira el dispositivo",
-      "informacionDeSala": "Informacion de sala",
-      "copiarEnlaceDeSala": "Copiar enlace de sala",
-      "trackersGlobales": "Trackers globales",
-      "jugadores": "Jugadores",
-      "danoDeComandante": "Da\u00f1o de comandante",
-      "cerrarDanoDeComandante": "Cerrar da\u00f1o de comandante",
-      "vidaDeJugador": "Vida de jugador",
-      "trackersDeJugador": "Trackers de jugador",
-      "skullKo": "skull-ko",
-      "laSalaEstaOptimizadaParaMovilEn": "La sala esta optimizada para movil en horizontal.",
-      "cargandoSala": "Cargando sala...",
-      "codigoDeSala": "Codigo de sala",
-      "letal": "Letal",
-      "danoDeComandante1": "Da\u00f1o de comandante",
-      "verYEditar": "Ver y editar",
-      "asignadoAJugadorConectado": "Asignado a jugador conectado"
+      "rotateDevice": "Gira tu dispositivo",
+      "roomInformation": "Información de la sala",
+      "copyRoomLink": "Copiar enlace de sala",
+      "globalTrackers": "Rastreadores globales",
+      "players": "Jugadores",
+      "commanderDamage": "Daño de comandante",
+      "closeCommanderDamage": "Cerrar daño de comandante",
+      "playerLife": "Vida del jugador",
+      "playerTrackers": "Seguidores de jugadores",
+      "knockoutIconLabel": "Icono de eliminación",
+      "landscapeOptimizedNotice": "La sala está optimizada para el modo horizontal en dispositivos móviles.",
+      "roomCode": "Código de sala",
+      "lethal": "Letal",
+      "commanderDamageSummary": "Daño de comandante",
+      "assignedToConnectedPlayer": "Asignado al jugador conectado",
+      "viewAndEdit": "Ver y editar"
     },
     "tableAssistantSetup": {
-      "configurarAsistenteDeMesa": "Configurar Asistente de Mesa",
-      "nuevaPartida": "Nueva partida",
-      "configuraLaMesa": "Configura la mesa",
-      "jugadoresVidasYTemporizadorLoDemasSe": "Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.",
-      "jugadores": "Jugadores",
-      "reglasDeMesa": "Reglas de mesa",
-      "danoDeComandanteSiempreActivoTemporizadorOpcional": "Da\u00f1o de comandante siempre activo. Temporizador opcional."
+      "createRoom": "Crear sala",
+      "createRoomError": "No se pudo crear la sala del Asistente de mesa.",
+      "creatingRoom": "Creando...",
+      "initialLife": "Total de vida inicial",
+      "initialTotal": "Total inicial",
+      "needPlayersAndNames": "Necesitas al menos 2 jugadores y todos los nombres completos.",
+      "playerColorAria": "Color del jugador {{ index }}",
+      "playerColorsAria": "Colores del jugador {{ index }}",
+      "playerNameAria": "Nombre del jugador {{ index }}",
+      "playerNamePlaceholder": "Jugador {{ index }}",
+      "players": "Jugadores",
+      "configureTableAssistant": "Configurar asistente de mesa",
+      "newGame": "Nuevo juego",
+      "configureTable": "Configurar la mesa",
+      "setupDescription": "Jugadores, vida y temporizador. Todo lo demás se ajusta durante la partida.",
+      "tableRules": "Reglas de la mesa",
+      "commanderDamageAndTimerNote": "El daño de comandante siempre está activado. Temporizador opcional."
     },
     "tableAssistantTableMenu": {
-      "opcionesDePartidaDeCommanderzone": "Opciones de partida de CommanderZone",
-      "opcionesDePartida": "Opciones de partida",
       "cz": "CZ",
-      "nuevaPartida": "Nueva partida",
-      "tirarDado": "Tirar dado",
-      "pantallaCompleta": "Pantalla completa",
-      "salirAlDashboard": "Salir al dashboard",
-      "seguirJugando": "Seguir jugando"
+      "commanderZoneGameOptions": "Opciones de juego CommanderZone",
+      "gameOptions": "Opciones de juego",
+      "newGame": "Nuevo juego",
+      "rollDice": "Tirar el dado",
+      "fullScreen": "Pantalla completa",
+      "exitToDashboard": "Salir al panel",
+      "keepPlaying": "Seguir jugando"
     },
     "tableAssistantTimerSettings": {
-      "temporizador": "Temporizador",
-      "duracionPorTurno": "Duracion por turno",
-      "min": "Min",
-      "seg": "Seg"
+      "min": "Mín.",
+      "timer": "Minutero",
+      "turnDuration": "Duración del turno",
+      "seconds": "Segundo",
+      "timerModes": {
+        "turn": "Por turno",
+        "phase": "Por fase"
+      }
     },
     "tableAssistantTurnControls": {
-      "turnoActivo": "Turno activo",
-      "pausarTemporizador": "Pausar temporizador",
-      "reanudarTemporizador": "Reanudar temporizador",
-      "iniciarTemporizador": "Iniciar temporizador",
-      "pasarAlSiguienteTurno": "Pasar al siguiente turno",
-      "pausar": "Pausar",
-      "reanudar": "Reanudar",
-      "iniciar": "Iniciar",
-      "turno": "Turno",
-      "siguiente": "Siguiente"
+      "activeTurn": "Turno activo",
+      "pauseTimer": "Pausar temporizador",
+      "resumeTimer": "Reanudar el temporizador",
+      "startTimer": "Iniciar temporizador",
+      "passToNextTurn": "Pasar al siguiente turno",
+      "pause": "Pausa",
+      "resume": "Reanudar",
+      "start": "Empezar",
+      "turn": "Turno",
+      "next": "Siguiente"
     },
     "page": {
       "benefits": {
         "lifeAndCommander": {
-          "title": "Vidas y comandante",
-          "description": "Controla vidas y da\u00f1o de comandante sin convertir la partida en una hoja de c\u00e1lculo."
+          "title": "Vida y comandante",
+          "description": "Lleva el seguimiento de vidas y daño de comandante sin convertir la partida en una hoja de cálculo."
         },
         "simpleTurns": {
           "title": "Turnos simples",
-          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas autom\u00e1ticas."
+          "description": "Marca al jugador activo y utiliza un cronómetro si la mesa quiere ritmo, sin reglas automáticas."
         },
         "sharedTable": {
           "title": "Mesa compartida",
-          "description": "Pensado para un \u00fanico m\u00f3vil o tablet en el centro de la mesa."
+          "description": "Diseñado para un teléfono o tableta en el centro de la mesa."
         }
       },
       "header": {
-        "title": "Asistente de Mesa",
+        "title": "Asistente de mesa",
         "startGame": "Empezar partida"
       }
     }
@@ -1132,93 +1441,91 @@
   "profile": {},
   "settings": {
     "dashboardSettingsModal": {
-      "playerAvatar": "Player avatar",
-      "avatar": "Avatar",
-      "name": "Name",
-      "changeAvatar": "Change avatar",
-      "becomePremium": "Hacerte premium",
-      "changeName": "Cambiar nameplate",
-      "accountDetails": "Account details",
-      "email": "Email",
-      "introduceUnEmailValido": "Introduce un email valido.",
-      "comprobandoEmail": "Comprobando email...",
-      "emailDisponible": "Email disponible",
-      "emailYaRegistrado": "Email ya registrado",
-      "noSePudoComprobarAhora": "No se pudo comprobar ahora",
-      "userName": "User name",
-      "userNameEntre2Y20Caracteres": "User name entre 2 y 20 caracteres.",
-      "comprobandoDisponibilidad": "Comprobando disponibilidad...",
-      "userNameDisponible": "User name disponible",
-      "userNameNoDisponible": "User name no disponible",
-      "changePassword": "Change password",
-      "sendingPasswordEmail": "Enviando email...",
+      "playerAvatar": "Avatar del jugador",
+      "changeAvatar": "Cambiar avatar",
+      "becomePremium": "Conviértete en premium",
+      "changeName": "Cambiar placa de identificación",
+      "accountDetails": "Detalles de la cuenta",
+      "email": "Correo electrónico",
+      "userName": "Nombre de usuario",
+      "changePassword": "Cambiar la contraseña",
+      "sendingPasswordEmail": "Enviando correo electrónico...",
       "passwordResetEmailSentShort": "Enviado",
-      "passwordResetEmailSent": "Email para cambiar la contrasena enviado.",
-      "passwordResetEmailError": "No se pudo enviar el email para cambiar la contrasena.",
-      "deleteAccount": "Delete account",
-      "permanentlyDeleteYourAccountAndAllAssociated": "Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.",
-      "areYouSureYouWantToPermanently": "Are you sure you want to permanently delete your account?",
-      "cancel": "Cancel",
-      "changeTheme": "Cambiar theme",
+      "passwordResetEmailSent": "Correo electrónico de restablecimiento de contraseña enviado.",
+      "passwordResetEmailError": "No se pudo enviar el correo electrónico para restablecer la contraseña.",
+      "deleteAccount": "Eliminar cuenta",
+      "areYouSureYouWantToPermanently": "¿Estás seguro de que deseas eliminar permanentemente tu cuenta?",
+      "cancel": "Cancelar",
+      "changeTheme": "Cambiar tema",
       "gameSettings": {
-        "title": "Gameplay preferences",
+        "title": "Preferencias de juego",
         "showManaHelperOnStartup": {
-          "label": "Show mana helper on startup",
-          "description": "Open the mana helper when a match starts."
+          "label": "Mostrar ayuda de maná al iniciar",
+          "description": "Abre el asistente de maná cuando comience una partida."
         },
         "enableManaRow": {
-          "label": "Enable mana row",
-          "description": "Show the dedicated mana row during games."
-        },
-        "enableStackMana": {
-          "label": "Enable stack mana",
-          "description": "Keep mana available while resolving stacked actions."
+          "label": "Habilitar fila de maná",
+          "description": "Muestra la fila de maná dedicada durante las partidas."
         },
         "gameAnimations": {
-          "label": "Game animations",
-          "description": "Use visual movement and feedback animations during matches."
+          "label": "Animaciones del juego",
+          "description": "Usa movimientos visuales y animaciones de respuesta durante las partidas."
         },
         "chatNotificationSounds": {
-          "label": "Chat notification sounds",
-          "description": "Play a sound when new chat notifications arrive."
+          "label": "Sonidos de notificación de chat",
+          "description": "Reproduce un sonido cuando lleguen nuevas notificaciones de chat."
+        },
+        "preserveManaPool": {
+          "label": "Conservar la reserva de maná",
+          "description": "Mantén maná en tu reserva de maná mientras resuelves acciones acumuladas."
         }
-      }
+      },
+      "enterValidEmail": "Introduce un correo electrónico válido.",
+      "checkingEmail": "Revisando el correo electrónico...",
+      "checkingAvailability": "Comprobando disponibilidad...",
+      "couldNotCheckNow": "No se pudo comprobar en este momento",
+      "usernameLengthRequirement": "El nombre de usuario debe tener entre 2 y 20 caracteres.",
+      "usernameAvailable": "Nombre de usuario disponible",
+      "usernameUnavailable": "Nombre de usuario no disponible",
+      "emailAvailable": "Correo electrónico disponible",
+      "emailAlreadyRegistered": "Correo electrónico ya registrado",
+      "deleteAccountWarning": "Elimina permanentemente tu cuenta y todos los datos asociados, incluidos mazos y preferencias. Esta acción no se puede deshacer."
     },
     "settingsInitialAvatarOption": {
-      "initialAvatarCustomization": "Initial avatar customization",
-      "mainColor": "Main color",
-      "secondaryColor": "Secondary color",
-      "letters": "Letters"
+      "initialAvatarCustomization": "Personalización inicial del avatar",
+      "mainColor": "Color principal",
+      "secondaryColor": "Color secundario",
+      "letters": "Letras"
     },
     "settingsAvatarEditor": {
-      "avatarPreview": "Avatar preview",
-      "avatarTiers": "Avatar tiers",
-      "basicAvatars": "Basic avatars",
-      "premiumAvatars": "Premium avatars",
-      "chooseAvatar": "Choose avatar",
-      "currentSelection": "Current selection",
-      "basic": "Basic",
+      "avatarPreview": "Vista previa de avatar",
+      "avatarTiers": "Niveles de avatar",
+      "basicAvatars": "Avatares básicos",
+      "premiumAvatars": "Avatares premium",
+      "chooseAvatar": "Elige avatar",
+      "currentSelection": "Selección actual",
+      "basic": "Básico",
       "premium": "Premium"
     },
     "settingsAvatarUpload": {
-      "uploadedAvatarPreview": "Uploaded avatar preview",
-      "avatarPreview": "Avatar preview",
-      "uploadImage": "Upload image",
-      "chooseYourOwnImageAndFrameIt": "Choose your own image and frame it inside the avatar circle.",
-      "imageFile": "Image file",
-      "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP or another browser-supported image. Maximum 2MB.",
-      "chooseImage": "Choose image",
-      "avatarImagesMustBeNonOffensiveNon": "Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.",
+      "uploadedAvatarPreview": "Vista previa del avatar subido",
+      "avatarPreview": "Vista previa de avatar",
+      "uploadImage": "Subir imagen",
+      "chooseYourOwnImageAndFrameIt": "Elige tu propia imagen y encuádrala dentro del círculo del avatar.",
+      "imageFile": "Archivo de imagen",
+      "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP u otra imagen compatible con el navegador. Máximo 2 MB.",
+      "chooseImage": "Elige imagen",
+      "avatarImagesMustBeNonOffensiveNon": "Las imágenes de avatar no deben ser ofensivas ni sexuales y apropiadas para la comunidad CommanderZone.",
       "horizontal": "Horizontal",
       "vertical": "Vertical",
       "zoom": "Zoom"
     },
     "settingsDisplayNameStyleEditor": {
-      "nameStylePreview": "Name style preview",
-      "nameStyleTiers": "Name style tiers",
-      "currentSelection": "Current selection",
-      "textColor": "Text color",
-      "basic": "Basic",
+      "nameStylePreview": "Vista previa del estilo del nombre",
+      "nameStyleTiers": "Niveles de estilo de nombre",
+      "currentSelection": "Selección actual",
+      "textColor": "Color del texto",
+      "basic": "Básico",
       "premium": "Premium"
     }
   },
@@ -1227,13 +1534,13 @@
   "modals": {
     "roll": {
       "rollModal": {
-        "tirarDado": "Tirar dado",
-        "cerrarTirada": "Cerrar tirada",
-        "tipoDeTirada": "Tipo de tirada",
-        "text": "?",
-        "cerrar": "Cerrar",
-        "volverATirar": "Volver a tirar",
-        "tirar": "Tirar"
+        "text": "Resultado",
+        "rollDice": "Tirar el dado",
+        "closeRoll": "Cerrar tirada",
+        "rollType": "Tipo de tirada",
+        "close": "Cerrar",
+        "rollAgain": "Tirar de nuevo",
+        "roll": "Tirada"
       },
       "options": {
         "coin": "Moneda",
@@ -1252,41 +1559,99 @@
   "emptyStates": {},
   "contactPage": {
     "meta": {
-      "title": "Contacto | CommanderZone",
-      "description": "Contacta con CommanderZone para soporte, bugs, derechos o consultas generales."
+      "title": "Contacto",
+      "description": "Contacta con CommanderZone para soporte, informes de errores, problemas de derechos o preguntas generales."
     },
-      "hero": {
-        "title": "Contacta con nosotros",
-        "description": "Env\u00edanos un mensaje y lo revisaremos lo antes posible."
-      },
-      "nav": {
-        "loggedOutCta": "Volver al dashboard",
-        "anonymousCta": "Volver al inicio"
-      },
-      "copy": {
+    "hero": {
+      "title": "Contacto",
+      "description": "Envíanos un mensaje y lo revisaremos lo antes posible."
+    },
+    "nav": {
+      "loggedOutCta": "Volver al panel",
+      "anonymousCta": "Volver al inicio",
+      "actionsAriaLabel": "Acciones de la página de contacto"
+    },
+    "copy": {
       "supportTitle": "Soporte y derechos",
-        "supportBody": "Usa este formulario para soporte, bugs, privacidad, incidencias de derechos o cualquier duda, idea o curiosidad que quieras compartir con nosotros. Si te resulta m\u00e1s c\u00f3modo, tambi\u00e9n podemos seguir por email en {{ email }}.",
-      "includeTitle": "Qu\u00e9 incluir",
-      "includeBody": "Explica el problema con claridad e incluye cualquier contexto \u00fatil de p\u00e1gina, sala, deck o captura. No env\u00edes secretos ni datos de pago."
+      "supportBody": "Usa este formulario para obtener asistencia, informes de errores, solicitudes de privacidad, cuestiones relacionadas con derechos o cualquier pregunta, idea o curiosidad que desee compartir con nosotros. Si le resulta más fácil, también podemos continuar por correo electrónico a {{ email }}.",
+      "includeTitle": "Qué incluir",
+      "includeBody": "Explica el problema con claridad e incluye cualquier contexto útil de página, sala, mazo o captura. No envíes secretos ni datos de pago."
     },
     "form": {
       "nameLabel": "Nombre",
       "namePlaceholder": "Tu nombre",
       "nameError": "Introduce tu nombre.",
-      "emailLabel": "Email",
-      "emailPlaceholder": "tu@email.com",
-      "emailError": "Introduce un email v\u00e1lido.",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@ejemplo.com",
+      "emailError": "Introduce un correo electrónico válido.",
       "subjectLabel": "Asunto",
-      "subjectPlaceholder": "\u00bfEn qu\u00e9 podemos ayudarte?",
+      "subjectPlaceholder": "¿Cómo podemos ayudar?",
       "subjectError": "Introduce un asunto.",
       "messageLabel": "Mensaje",
-      "messagePlaceholder": "Escribe aqu\u00ed tu mensaje.",
+      "messagePlaceholder": "Escribe tu mensaje aquí.",
       "messageError": "Introduce un mensaje.",
-        "submit": "Enviar mensaje",
-        "submitting": "Enviando...",
-        "submitSuccess": "Tu mensaje se ha enviado.",
-        "submitRateLimitError": "Has alcanzado el l\u00edmite de mensajes de contacto. Espera unos {{ retryAfterMinutes }} minuto(s) antes de volver a intentarlo. Si es urgente, escr\u00edbenos directamente a {{ email }}.",
-        "submitError": "No hemos podido enviar tu mensaje. Escr\u00edbenos directamente a {{ email }} o cont\u00e1ctanos por otro canal."
+      "submit": "enviar mensaje",
+      "submitting": "Envío...",
+      "submitSuccess": "Tu mensaje ha sido enviado.",
+      "submitRateLimitError": "Has alcanzado el límite de contactos. Espera aproximadamente {{ retryAfterMinutes }} minuto(s) antes de volver a intentarlo. Si es urgente, escribe directamente a {{ email }}.",
+      "submitError": "No pudimos enviar tu mensaje. Escribe a {{ email }} directamente o contáctanos por otro canal."
+    }
+  },
+  "onboarding": {
+    "accountActions": "Acciones de cuenta",
+    "demoRoom": {
+      "description": "Esta es una ruta de sala de demostración para el flujo de bienvenida. Sustitúyela por la experiencia real de sala cuando el multijugador esté conectado.",
+      "eyebrow": "Sala de demostración",
+      "goToLogin": "Ir a iniciar sesión"
+    },
+    "hero": {
+      "description": "Crea la sala, comparte el enlace, elige mazos y juega en una mesa pensada para pods reales de Commander.",
+      "eyebrow": "Mesa manual de Commander",
+      "title": "Juega Commander online en segundos"
+    },
+    "highlights": {
+      "ariaLabel": "Aspectos destacados del producto",
+      "deckValidation": "Validación inicial de mazo Commander",
+      "manualTable": "Mesa manual, sin ruido de motor de reglas.",
+      "privateRooms": "Salas privadas e invitaciones."
+    },
+    "preview": {
+      "ariaLabel": "Vista previa de la mesa CommanderZone",
+      "flow": "Sala de espera, selección de mazo y flujo de mesa en un solo lugar.",
+      "guest": "Invitado",
+      "oneLink": "Un enlace",
+      "ready": "Listo"
+    },
+    "steps": {
+      "import": {
+        "description": "Pega tu lista e impórtala.",
+        "title": "Importar lista de mazos"
+      },
+      "play": {
+        "description": "Abre la sala y comienza el juego.",
+        "title": "Jugar"
+      },
+      "room": {
+        "description": "Genera un espacio para la mesa.",
+        "title": "Crear sala"
+      },
+      "share": {
+        "description": "Copia el enlace de la sala y envíalo.",
+        "title": "Compartir enlace"
       }
+    }
+  },
+  "shared": {
+    "cardPreview": {
+      "rank": "Rango {{ rank }}",
+      "viewMore": "Ver más"
+    }
+  },
+  "cards": {
+    "cardSearch": {
+      "pagination": {
+        "label": "Paginación de búsqueda de cartas"
+      }
+    }
   }
 }

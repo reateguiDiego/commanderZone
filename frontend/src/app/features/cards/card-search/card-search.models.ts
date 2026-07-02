@@ -31,6 +31,7 @@ export interface CardAdvancedSearchFormValue {
   oracleTextA: string;
   oracleTextB: string;
   oracleTextMode: TextMatchMode;
+  oracleTextExact: boolean;
   types: string[];
   subtypes: string[];
   sets: string[];
@@ -124,6 +125,7 @@ export const DEFAULT_CARD_SEARCH_FORM_VALUE: CardAdvancedSearchFormValue = {
   oracleTextA: '',
   oracleTextB: '',
   oracleTextMode: 'and',
+  oracleTextExact: false,
   types: [],
   subtypes: [],
   sets: [],

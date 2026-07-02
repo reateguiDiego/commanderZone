@@ -59,6 +59,7 @@ final class CardPrintBackfillCommand extends Command
                 <<<'SQL'
 SELECT
     scryfall_id,
+    oracle_id,
     normalized_name,
     set_code,
     collector_number,
@@ -141,6 +142,7 @@ SQL,
             <<<'SQL'
 INSERT INTO card_print (
     scryfall_id,
+    oracle_id,
     normalized_name,
     set_code,
     collector_number,
@@ -157,6 +159,7 @@ INSERT INTO card_print (
     updated_at
 ) VALUES (
     :scryfall_id,
+    :oracle_id,
     :normalized_name,
     :set_code,
     :collector_number,
@@ -173,6 +176,7 @@ INSERT INTO card_print (
     NOW()
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
+    oracle_id = EXCLUDED.oracle_id,
     normalized_name = EXCLUDED.normalized_name,
     set_code = EXCLUDED.set_code,
     collector_number = EXCLUDED.collector_number,
@@ -214,6 +218,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
 SQL,
             [
                 'scryfall_id' => (string) $row['scryfall_id'],
+                'oracle_id' => $this->nullableString($row['oracle_id'] ?? null),
                 'normalized_name' => (string) $row['normalized_name'],
                 'set_code' => $row['set_code'],
                 'collector_number' => $row['collector_number'],

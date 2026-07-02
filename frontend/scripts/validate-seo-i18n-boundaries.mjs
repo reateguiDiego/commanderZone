@@ -6,22 +6,9 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(scriptDir, '..');
 const appRoot = join(frontendRoot, 'src', 'app');
 const i18nRoot = join(frontendRoot, 'src', 'assets', 'i18n');
+const localeConfigPath = join(frontendRoot, 'src', 'app', 'core', 'localization', 'locale-config.ts');
 
-const localeCodes = [
-  'es',
-  'en',
-  'de',
-  'fr',
-  'it',
-  'pt',
-  'ja',
-  'ko',
-  'zh-hans',
-  'zh-hant',
-  'nl',
-  'ca',
-  'ru',
-];
+const localeCodes = readSupportedLocaleCodes();
 
 const runtimeNamespaces = [
   'common',
@@ -38,17 +25,16 @@ const runtimeNamespaces = [
   'modals',
   'toasts',
   'emptyStates',
+  'onboarding',
 ];
 
 const runtimePageComponents = [
-  'src/app/app/app',
   'src/app/features/auth/auth-page/auth-page.component',
   'src/app/features/auth/email-verification-page/email-verification-page.component',
   'src/app/features/auth/password-reset-page/password-reset-page.component',
   'src/app/features/cards/card-detail/card-detail.component',
   'src/app/features/cards/card-search/card-search.component',
   'src/app/features/dashboard/dashboard-home/dashboard-home.component',
-  'src/app/features/dashboard/dashboard-shell/dashboard-shell.component',
   'src/app/features/decks/deck-editor/deck-editor.component',
   'src/app/features/decks/deck-list/deck-list.component',
   'src/app/features/game/game-table/game-table.component',
@@ -71,6 +57,24 @@ function fail(message) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function readSupportedLocaleCodes() {
+  const localeConfig = readFileSync(localeConfigPath, 'utf8');
+  const supportedLocalesMatch = localeConfig.match(/SUPPORTED_LOCALES\s*=\s*\[([\s\S]*?)\]\s*as const/);
+
+  if (!supportedLocalesMatch) {
+    throw new Error(`Could not read SUPPORTED_LOCALES from ${normalizePath(localeConfigPath)}.`);
+  }
+
+  const codes = [...supportedLocalesMatch[1].matchAll(/code:\s*'([^']+)'/g)]
+    .map((match) => match[1]);
+
+  if (codes.length === 0) {
+    throw new Error(`SUPPORTED_LOCALES has no locale codes in ${normalizePath(localeConfigPath)}.`);
+  }
+
+  return codes;
 }
 
 function flattenKeys(value, prefix = '', out = []) {

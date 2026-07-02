@@ -1,14 +1,29 @@
-<div class="app-frame" [class.room-focus]="roomFocus()">
+<div class="app-frame" [class.room-focus]="roomFocus()" [class.has-impersonation-banner]="auth.isImpersonating()">
+  @if (auth.impersonation(); as impersonation) {
+    <div class="impersonation-banner" role="status">
+      <span>Impersonating {{ impersonation.targetDisplayName }}</span>
+      <button type="button" czButton="secondary" czButtonSize="sm" (click)="stopImpersonation()">
+        Stop
+      </button>
+    </div>
+  }
+
   @if (!roomFocus()) {
     <app-dashboard-header
       [userLabel]="userLabel()"
       [userAvatar]="auth.user()?.avatar"
       [userNameStyle]="auth.user()?.displayNameStyle"
       [friendsOpen]="friendsOpen()"
+      [messagesOpen]="messagesOpen()"
       [pendingNotificationsCount]="friends.pendingNotificationsCount()"
       [onlineFriendsCount]="friends.onlineFriendsCount()"
+      [messagesCount]="messages.messages().length"
+      [unreadMessagesCount]="messages.unreadCount()"
+      [canAccessAdmin]="canAccessAdmin()"
       (toggleFriends)="toggleFriends($event)"
+      (toggleMessages)="toggleMessages($event)"
       (closeFriends)="closeFriends()"
+      (closeMessages)="closeMessages()"
       (logout)="logout()"
     />
 

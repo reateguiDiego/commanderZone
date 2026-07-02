@@ -60,9 +60,9 @@ describe('MulliganOverlayComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('[data-testid="mulligan-bottom-selection"]')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('El orden elegido');
-    expect(fixture.nativeElement.textContent).toContain('Desktop: Click derecho para mandar al fondo.');
-    expect(fixture.nativeElement.textContent).toContain('Mobile/tablet: usa el');
+    expect(fixture.nativeElement.textContent).toContain('The chosen order');
+    expect(fixture.nativeElement.textContent).toContain('Desktop: right click to put a card on the bottom.');
+    expect(fixture.nativeElement.textContent).toContain('Mobile/tablet: use the');
   });
 
   it('selects a bottom card with desktop contextmenu', () => {
@@ -73,7 +73,7 @@ describe('MulliganOverlayComponent', () => {
     selectCard('card-1');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('1 / 1 seleccionadas');
+    expect(fixture.nativeElement.textContent).toContain('1 / 1 selected');
     expect(bottomPills().length).toBe(1);
     expect(bottomPills()[0].textContent).toContain('Sol Ring');
   });
@@ -86,9 +86,9 @@ describe('MulliganOverlayComponent', () => {
     selectCardWithButton('card-1');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('1 / 1 seleccionadas');
+    expect(fixture.nativeElement.textContent).toContain('1 / 1 selected');
     expect(bottomPills().length).toBe(1);
-    expect(bottomActionButton('card-1').textContent).toContain('Quitar del fondo');
+    expect(bottomActionButton('card-1').textContent).toContain('Remove from bottom');
   });
 
   it('deselects a bottom card when removing its pill', () => {
@@ -98,12 +98,12 @@ describe('MulliganOverlayComponent', () => {
 
     selectCardWithButton('card-1');
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('[aria-label="Quitar"]') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('[aria-label="Remove"]') as HTMLButtonElement).click();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('0 / 1 seleccionadas');
+    expect(fixture.nativeElement.textContent).toContain('0 / 1 selected');
     expect(bottomPills().length).toBe(0);
-    expect(bottomActionButton('card-1').textContent).toContain('Mandar al fondo');
+    expect(bottomActionButton('card-1').textContent).toContain('Put on bottom');
   });
 
   it('allows ordering London bottom pills and sends the visible order on accept', () => {
@@ -117,7 +117,7 @@ describe('MulliganOverlayComponent', () => {
     selectCard('card-2');
     fixture.detectChanges();
 
-    (bottomPills()[0].querySelector('[aria-label="Bajar"]') as HTMLButtonElement).click();
+    (bottomPills()[0].querySelector('[aria-label="Move down"]') as HTMLButtonElement).click();
     fixture.detectChanges();
     acceptButton().click();
 
@@ -133,9 +133,9 @@ describe('MulliganOverlayComponent', () => {
     selectCard('card-1');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('El orden final');
+    expect(fixture.nativeElement.textContent).toContain('The final order');
     expect(fixture.nativeElement.querySelector('[aria-label="Subir"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('[aria-label="Bajar"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Move down"]')).toBeNull();
   });
 
   it('shows ten opening cards for Generous and requires three selected bottom cards', () => {
@@ -146,7 +146,7 @@ describe('MulliganOverlayComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.mulligan-card').length).toBe(10);
-    expect(fixture.nativeElement.textContent).toContain('Elige 3');
+    expect(fixture.nativeElement.textContent).toContain('Choose 3');
     expect(acceptButton().disabled).toBe(true);
 
     selectCard('card-1');
@@ -172,8 +172,8 @@ describe('MulliganOverlayComponent', () => {
 
     expect(fixture.nativeElement.querySelector('[data-testid="mulligan-scry-panel"]')).not.toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Scry 1');
-    expect(fixture.nativeElement.textContent).toContain('Dejar arriba');
-    expect(fixture.nativeElement.textContent).toContain('Mandar abajo');
+    expect(fixture.nativeElement.textContent).toContain('Keep on top');
+    expect(fixture.nativeElement.textContent).toContain('Put on bottom');
   });
 
   it('does not show Scry for Paris', () => {
@@ -192,7 +192,7 @@ describe('MulliganOverlayComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('[data-testid="mulligan-ready-panel"]')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Esperando');
+    expect(fixture.nativeElement.textContent).toContain('Waiting');
     expect(fixture.nativeElement.querySelector('[data-testid="mulligan-take"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="mulligan-keep"]')).toBeNull();
   });

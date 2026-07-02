@@ -16,11 +16,11 @@
       <div class="rooms-table-toolbar">
         <label class="filter-field">
           <span>{{ 'rooms.roomBrowser.roomName' | runtimeTranslate }}</span>
-          <input name="roomNameFilter" [placeholder]="'rooms.roomBrowser.searchRoom' | runtimeTranslate" [ngModel]="roomNameFilter()" (ngModelChange)="roomNameFilter.set($event)" />
+          <input name="roomNameFilter" [placeholder]="'rooms.roomBrowser.searchRoom' | runtimeTranslate" [ngModel]="roomNameFilter()" (ngModelChange)="setRoomNameFilter($event)" />
         </label>
         <label class="filter-field">
           <span>{{ 'rooms.roomBrowser.owner' | runtimeTranslate }}</span>
-          <input name="roomOwnerFilter" [placeholder]="'rooms.roomBrowser.searchOwner' | runtimeTranslate" [ngModel]="roomOwnerFilter()" (ngModelChange)="roomOwnerFilter.set($event)" />
+          <input name="roomOwnerFilter" [placeholder]="'rooms.roomBrowser.searchOwner' | runtimeTranslate" [ngModel]="roomOwnerFilter()" (ngModelChange)="setRoomOwnerFilter($event)" />
         </label>
         <div class="filter-pair">
           <div class="filter-field">
@@ -50,11 +50,11 @@
         <app-format-select
           class="format-filter-select"
           name="roomFormatFilter"
-          label="Format"
+          labelKey="rooms.roomBrowser.format"
           allLabel="rooms.roomBrowser.publicAndPrivate"
           [formats]="formats()"
           [value]="formatFilter()"
-          (valueChange)="formatFilter.set($event)"
+          (valueChange)="setFormatFilter($event)"
         />
         <div class="rooms-table-actions">
           <ng-content select="app-room-create-panel" />
@@ -78,7 +78,7 @@
       </div>
 
       <div appPrettyScroll class="dense-list compact-list room-list">
-        @for (room of filteredRooms(); track room.id) {
+        @for (room of pagedRooms(); track room.id) {
           <app-room-row
             [room]="room"
             [formats]="formats()"
@@ -95,6 +95,18 @@
           <p class="notice">{{ 'rooms.roomBrowser.noRoomsMatchTheCurrentFilters' | runtimeTranslate }}</p>
         }
       </div>
+
+      @if (totalPages() > 1) {
+        <app-pagination
+          [currentPage]="currentPage()"
+          [totalPages]="totalPages()"
+          [previousDisabled]="!hasPreviousPage()"
+          [nextDisabled]="!hasNextPage()"
+          ariaLabelKey="rooms.roomBrowser.paginationLabel"
+          (previousRequested)="previousPage()"
+          (nextRequested)="nextPage()"
+        />
+      }
     </div>
   </div>
 </section>

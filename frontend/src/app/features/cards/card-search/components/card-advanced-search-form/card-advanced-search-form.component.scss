@@ -234,6 +234,10 @@
   opacity: 1;
 }
 
+.text-toggle-grid {
+  gap: 0.38rem;
+}
+
 .text-match-toggle {
   border: 1px solid rgb(var(--cz-primary-rgb) / 18%);
   border-radius: 8px;
@@ -492,7 +496,7 @@
 }
 
 .icon-choice--compact-text span {
-  font-size: 0.52rem;
+  font-size: 0.48rem;
   line-height: 1.04;
 }
 

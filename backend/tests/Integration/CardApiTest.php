@@ -44,6 +44,63 @@ class CardApiTest extends ApiTestCase
         self::assertSame($card->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
     }
 
+    public function testCommanderCandidateSearchUsesCanonicalCardTextBeforeLocalization(): void
+    {
+        $commander = $this->seedCard('00000000-0000-0000-0000-000000000101', 'Atraxa, Grand Unifier', [
+            'type_line' => 'Legendary Creature - Phyrexian Angel',
+            'oracle_text' => 'Flying, vigilance, deathtouch, lifelink.',
+            'lang' => 'en',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000102', "Atraxa's Fall", [
+            'type_line' => 'Sorcery',
+            'oracle_text' => 'Destroy target artifact, battle, enchantment, or creature with flying.',
+            'lang' => 'en',
+        ]);
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print_locale (
+    print_scryfall_id,
+    lang,
+    name,
+    printed_name,
+    mana_cost,
+    type_line,
+    oracle_text,
+    image_uris,
+    card_faces,
+    image_status,
+    updated_at
+) VALUES (
+    :print_scryfall_id,
+    'es',
+    'Atraxa, gran unificadora',
+    'Atraxa, gran unificadora',
+    '{1}',
+    'Criatura legendaria - Angel pirexiano',
+    'Vuela, vigilancia, toque mortal, vinculo vital.',
+    '{}',
+    '[]',
+    NULL,
+    NOW()
+)
+ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
+    name = EXCLUDED.name,
+    printed_name = EXCLUDED.printed_name,
+    type_line = EXCLUDED.type_line,
+    oracle_text = EXCLUDED.oracle_text,
+    updated_at = NOW()
+SQL,
+            ['print_scryfall_id' => $commander->scryfallId()],
+        );
+
+        $this->jsonRequest('GET', '/cards/search?q=atraxa&lang=es&limit=10&commanderCandidate=true');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$commander->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+        self::assertSame('Atraxa, gran unificadora', $this->jsonResponse()['data'][0]['name']);
+        self::assertSame('Criatura legendaria - Angel pirexiano', $this->jsonResponse()['data'][0]['typeLine']);
+    }
+
     public function testCardLanguagesReportDistinctNameCoverageAgainstEnglish(): void
     {
         $this->seedCard('00000000-0000-0000-0000-0000000000d1', 'Sol Ring', [
@@ -311,6 +368,65 @@ class CardApiTest extends ApiTestCase
         self::assertSame([$token->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
     }
 
+    public function testTokenSearchWithQueryLooksAcrossAllLanguages(): void
+    {
+        $spanishToken = $this->seedCard('00000000-0000-0000-0000-0000000000d1', 'Spanish Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'es',
+            'printed_name' => 'Ficha de prueba espanola',
+        ]);
+        $englishToken = $this->seedCard('00000000-0000-0000-0000-0000000000d2', 'English Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'en',
+        ]);
+        $portugueseToken = $this->seedCard('00000000-0000-0000-0000-0000000000d3', 'Portuguese Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'pt',
+            'printed_name' => 'Ficha de teste portuguesa',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=token&lang=es&tokenOnly=true&limit=20');
+
+        self::assertResponseIsSuccessful();
+        $resultIds = array_column($this->jsonResponse()['data'], 'scryfallId');
+        self::assertContains($spanishToken->scryfallId(), $resultIds);
+        self::assertContains($englishToken->scryfallId(), $resultIds);
+        self::assertContains($portugueseToken->scryfallId(), $resultIds);
+    }
+
+    public function testTokenSearchFallsBackToEnglishPayloadWhenMatchExistsOnlyInAnotherLanguage(): void
+    {
+        $this->seedCard('00000000-0000-0000-0000-0000000000d4', 'Shared Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'en',
+            'set' => 'tok',
+            'collector_number' => '1',
+            'image_uris' => ['normal' => 'https://cards.scryfall.io/shared-token-en.jpg'],
+        ]);
+        $portugueseToken = $this->seedCard('00000000-0000-0000-0000-0000000000d5', 'Shared Token Probe', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Soldier',
+            'lang' => 'pt',
+            'printed_name' => 'Ficha compartilhada',
+            'set' => 'tok',
+            'collector_number' => '2',
+            'image_uris' => ['normal' => 'https://cards.scryfall.io/shared-token-pt.jpg'],
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=ficha%20compartilhada&lang=es&tokenOnly=true&limit=5');
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame($portugueseToken->scryfallId(), $response['data'][0]['scryfallId']);
+        self::assertSame('Shared Token Probe', $response['data'][0]['name']);
+        self::assertSame('en', $response['data'][0]['lang']);
+        self::assertSame('https://cards.scryfall.io/shared-token-en.jpg', $response['data'][0]['imageUris']['normal'] ?? null);
+    }
+
     public function testSearchCanFilterGameplayHelpersByKind(): void
     {
         $token = $this->seedCard('00000000-0000-0000-0000-0000000000c1', 'Goblin Token', [
@@ -485,6 +601,29 @@ SQL,
         self::assertSame([$match->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
         self::assertSame('Advanced Set', $this->jsonResponse()['data'][0]['setName']);
         self::assertSame('rare', $this->jsonResponse()['data'][0]['rarity']);
+    }
+
+    public function testAdvancedSearchCanMatchExactOracleTextWords(): void
+    {
+        $rat = $this->seedCard('00000000-0000-0000-0000-0000000000f1', 'Exact Text Rat Match', [
+            'type_line' => 'Creature - Rat',
+            'oracle_text' => 'When this creature enters, create a 1/1 black Rat creature token.',
+        ]);
+        $pirates = $this->seedCard('00000000-0000-0000-0000-0000000000f2', 'Exact Text Pirate Partial Miss', [
+            'type_line' => 'Creature - Human Pirate',
+            'oracle_text' => 'Whenever this creature attacks, create two tapped Pirates.',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?oracleTextA=rat&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertContains($rat->scryfallId(), array_column($this->jsonResponse()['data'], 'scryfallId'));
+        self::assertContains($pirates->scryfallId(), array_column($this->jsonResponse()['data'], 'scryfallId'));
+
+        $this->jsonRequest('GET', '/cards/search?oracleTextA=rat&oracleTextExact=true&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$rat->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
     }
 
     public function testUnqueriedAdvancedSearchUsesMaterializedEntriesForFormatPaginationAndSorting(): void

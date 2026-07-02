@@ -10,10 +10,11 @@ import { AppBackgroundService } from '../../../core/ui/app-background.service';
 import { DemoRoom, DemoRoomService } from '../services/demo-room.service';
 import { OnboardingStep } from '../models/onboarding-step.model';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 
 @Component({
   selector: 'app-onboarding-page',
-  imports: [FormsModule, RouterLink, LucideAngularModule, CzButtonDirective],
+  imports: [FormsModule, RouterLink, LucideAngularModule, CzButtonDirective, RuntimeTranslatePipe],
   templateUrl: './onboarding-page.component.html',
   styleUrl: './onboarding-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -46,10 +47,10 @@ export class OnboardingPageComponent {
     const linkCopied = this.copied();
 
     return [
-      step('import', 1, 'Import decklist', 'Paste your list and import it.', imported ? 'complete' : 'active'),
-      step('room', 2, 'Create room', 'Generate a room for the table.', room ? 'complete' : imported ? 'active' : 'upcoming'),
-      step('share', 3, 'Share link', 'Copy the room link and send it.', linkCopied ? 'complete' : room ? 'active' : 'upcoming'),
-      step('play', 4, 'Play', 'Open the room and start the game.', room ? 'active' : 'upcoming'),
+      step('import', 1, 'onboarding.steps.import.title', 'onboarding.steps.import.description', imported ? 'complete' : 'active'),
+      step('room', 2, 'onboarding.steps.room.title', 'onboarding.steps.room.description', room ? 'complete' : imported ? 'active' : 'upcoming'),
+      step('share', 3, 'onboarding.steps.share.title', 'onboarding.steps.share.description', linkCopied ? 'complete' : room ? 'active' : 'upcoming'),
+      step('play', 4, 'onboarding.steps.play.title', 'onboarding.steps.play.description', room ? 'active' : 'upcoming'),
     ];
   });
 

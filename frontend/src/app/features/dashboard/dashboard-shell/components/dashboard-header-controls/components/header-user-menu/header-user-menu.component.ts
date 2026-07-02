@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
 import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
@@ -40,13 +40,20 @@ export class HeaderUserMenuComponent {
   readonly logOffLabel = computed(() => this.i18n.text('logOff'));
   readonly flagAltPrefix = computed(() => this.i18n.text('flagAltPrefix'));
   readonly sortedLanguages = computed(() =>
-    [...this.languages].sort((left, right) =>
-      left.label.localeCompare(right.label, this.selectedLanguage(), { sensitivity: 'base' }),
-    ),
+    [...this.languages]
+      .map((language) => ({
+        ...language,
+        label: this.i18n.languageName(language.code),
+      }))
+      .sort((left, right) =>
+        left.label.localeCompare(right.label, this.selectedLanguage(), { sensitivity: 'base' }),
+      ),
   );
-  readonly selectedLanguageOption = computed(
-    () => this.languages.find((language) => language.code === this.selectedLanguage()) ?? this.languages[0],
-  );
+  readonly selectedLanguageOption = computed(() => {
+    const sortedLanguages = this.sortedLanguages();
+
+    return sortedLanguages.find((language) => language.code === this.selectedLanguage()) ?? sortedLanguages[0]!;
+  });
   readonly selectedLanguageLabel = computed(
     () => this.selectedLanguageOption().label,
   );

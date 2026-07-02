@@ -4,6 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
 import { AuthStore } from '../core/auth/auth.store';
 import { LoadingStore } from '../core/loading/loading.store';
+import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { App } from './app';
 
 @Component({
@@ -30,12 +31,14 @@ describe('App', () => {
       providers: [
         provideHttpClient(),
         { provide: AuthStore, useValue: authStore },
+        { provide: RuntimeLanguageSelectorService, useValue: {} },
         provideRouter([
           { path: '', pathMatch: 'full', component: EmptyRouteComponent },
           { path: 'en/faq', component: EmptyRouteComponent },
           { path: 'en/play-commander-online', component: EmptyRouteComponent },
           { path: 'auth/login', component: EmptyRouteComponent },
           { path: 'auth/register', component: EmptyRouteComponent },
+          { path: 'admin', component: EmptyRouteComponent },
           { path: 'cards', component: EmptyRouteComponent },
           { path: 'community', component: EmptyRouteComponent },
           { path: 'contact', component: EmptyRouteComponent },
@@ -79,6 +82,7 @@ describe('App', () => {
       providers: [
         provideHttpClient(),
         { provide: AuthStore, useValue: authStore },
+        { provide: RuntimeLanguageSelectorService, useValue: {} },
         { provide: PLATFORM_ID, useValue: 'server' },
         provideRouter([]),
       ],
@@ -119,6 +123,11 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain('CommanderZone is unofficial Fan Content');
+
+    await router.navigateByUrl('/admin');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
 
     await router.navigateByUrl('/decks');
     fixture.detectChanges();

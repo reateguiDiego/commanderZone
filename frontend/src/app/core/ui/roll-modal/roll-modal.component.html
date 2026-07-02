@@ -1,11 +1,11 @@
 <div class="modal-backdrop" role="presentation" (click)="close()">
-  <section class="roll-modal" role="dialog" aria-modal="true" [attr.aria-label]="'modals.roll.rollModal.tirarDado' | runtimeTranslate" (click)="$event.stopPropagation()">
+  <section class="roll-modal" role="dialog" aria-modal="true" [attr.aria-label]="'modals.roll.rollModal.rollDice' | runtimeTranslate" (click)="$event.stopPropagation()">
     <header>
-      <span class="eyebrow">{{ 'modals.roll.rollModal.tirarDado' | runtimeTranslate }}</span>
-      <button type="button" [attr.aria-label]="'modals.roll.rollModal.cerrarTirada' | runtimeTranslate" (click)="close()">&#10005;</button>
+      <span class="eyebrow">{{ 'modals.roll.rollModal.rollDice' | runtimeTranslate }}</span>
+      <button type="button" [attr.aria-label]="'modals.roll.rollModal.closeRoll' | runtimeTranslate" (click)="close()">&#10005;</button>
     </header>
 
-    <div class="roll-options" [attr.aria-label]="'modals.roll.rollModal.tipoDeTirada' | runtimeTranslate">
+    <div class="roll-options" [attr.aria-label]="'modals.roll.rollModal.rollType' | runtimeTranslate">
       @for (option of rollOptions; track option.kind) {
         <button
           type="button"
@@ -33,9 +33,9 @@
     }
 
     <footer>
-      <button class="secondary-action" type="button" (click)="close()">{{ 'modals.roll.rollModal.cerrar' | runtimeTranslate }}</button>
+      <button class="secondary-action" type="button" (click)="close()">{{ 'modals.roll.rollModal.close' | runtimeTranslate }}</button>
       <button class="primary-action" type="button" (click)="roll()">
-        {{ (rollResult() ? 'modals.roll.rollModal.volverATirar' : 'modals.roll.rollModal.tirar') | runtimeTranslate }}
+        {{ (rollResult() ? 'modals.roll.rollModal.rollAgain' : 'modals.roll.rollModal.roll') | runtimeTranslate }}
       </button>
     </footer>
   </section>

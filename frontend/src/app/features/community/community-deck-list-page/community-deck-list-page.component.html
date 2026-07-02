@@ -25,8 +25,7 @@
       <app-card-autocomplete
         [placeholder]="'community.deckList.filterCommanderPlaceholder' | runtimeTranslate"
         actionLabel="community.deckList.commanderSelect"
-        [filters]="{ commanderLegal: true }"
-        [commanderCandidateOnly]="true"
+        [filters]="{ commanderCandidate: true }"
         [query]="commanderQuery()"
         (queryChange)="setCommanderQuery($event)"
         (cardSelected)="selectCommanderFilter($event)"

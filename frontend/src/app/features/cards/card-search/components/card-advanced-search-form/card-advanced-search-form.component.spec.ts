@@ -23,6 +23,7 @@ describe('CardAdvancedSearchFormComponent', () => {
     component.model.oracleTextA = 'proliferate';
     component.model.oracleTextB = 'draw';
     component.model.oracleTextMode = 'or';
+    component.model.oracleTextExact = true;
     component.model.types = ['creature'];
     component.model.legendary = true;
     component.model.subtypes = ['phyrexian'];
@@ -59,6 +60,7 @@ describe('CardAdvancedSearchFormComponent', () => {
         oracleTextA: 'proliferate',
         oracleTextB: 'draw',
         oracleTextMode: 'or',
+        oracleTextExact: true,
         types: ['creature'],
         legendary: true,
         subtypes: ['phyrexian'],
@@ -74,6 +76,29 @@ describe('CardAdvancedSearchFormComponent', () => {
         sort: 'mana_value_desc',
       }),
     });
+  });
+
+  it('does not emit exact text matching while the exact toggle is disabled', () => {
+    const fixture = TestBed.createComponent(CardAdvancedSearchFormComponent);
+    const component = fixture.componentInstance;
+    const submitted = vi.fn();
+    component.searchSubmitted.subscribe(submitted);
+
+    component.model.enabledFilters = {
+      ...component.model.enabledFilters,
+      text: true,
+    };
+    component.model.oracleTextA = 'rat';
+
+    component.submit();
+
+    expect(submitted).toHaveBeenCalledWith(expect.objectContaining({
+      filters: expect.objectContaining({
+        oracleTextA: 'rat',
+        oracleTextMode: 'and',
+      }),
+    }));
+    expect(submitted.mock.calls[0][0].filters.oracleTextExact).toBeUndefined();
   });
 
   it('accepts colors as a valid sort mode', () => {

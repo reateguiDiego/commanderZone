@@ -2,7 +2,7 @@
   @if (showTokenCopyMarker() || markerCounters().length > 0) {
     <span class="card-marker-rail" [class.compact]="compact()" aria-hidden="false">
       @if (showTokenCopyMarker()) {
-        <span class="card-marker token-copy-marker" [title]="'game.cardMarkerRail.estaCartaEsUnTokenCopy' | runtimeTranslate" [attr.aria-label]="'game.cardMarkerRail.estaCartaEsUnTokenCopy' | runtimeTranslate">
+        <span class="card-marker token-copy-marker" [title]="'game.cardMarkerRail.tokenCopyLabel' | runtimeTranslate" [attr.aria-label]="'game.cardMarkerRail.tokenCopyLabel' | runtimeTranslate">
           <img src="assets/icons/gameplay/token-copy.png" alt="" />
         </span>
       }

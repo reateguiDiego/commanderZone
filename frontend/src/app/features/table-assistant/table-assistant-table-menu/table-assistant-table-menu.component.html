@@ -2,24 +2,24 @@
   <button
     class="brand-mark table-logo-button"
     type="button"
-    [attr.aria-label]="'tableAssistant.tableAssistantTableMenu.opcionesDePartidaDeCommanderzone' | runtimeTranslate"
+    [attr.aria-label]="'tableAssistant.tableAssistantTableMenu.commanderZoneGameOptions' | runtimeTranslate"
     (click)="toggleMenu()"
   >
     {{ 'tableAssistant.tableAssistantTableMenu.cz' | runtimeTranslate }}
   </button>
   @if (menuOpen()) {
-    <div class="table-exit-menu" role="dialog" [attr.aria-label]="'tableAssistant.tableAssistantTableMenu.opcionesDePartida' | runtimeTranslate">
+    <div class="table-exit-menu" role="dialog" [attr.aria-label]="'tableAssistant.tableAssistantTableMenu.gameOptions' | runtimeTranslate">
       <button class="menu-action primary" type="button" (click)="selectNewTable()">
-        {{ 'tableAssistant.tableAssistantTableMenu.nuevaPartida' | runtimeTranslate }}
+        {{ 'tableAssistant.tableAssistantTableMenu.newGame' | runtimeTranslate }}
       </button>
-      <button class="menu-action" type="button" (click)="selectRoll()">{{ 'tableAssistant.tableAssistantTableMenu.tirarDado' | runtimeTranslate }}</button>
+      <button class="menu-action" type="button" (click)="selectRoll()">{{ 'tableAssistant.tableAssistantTableMenu.rollDice' | runtimeTranslate }}</button>
       <button class="menu-action" type="button" (click)="selectFullscreen()">
-        {{ 'tableAssistant.tableAssistantTableMenu.pantallaCompleta' | runtimeTranslate }}
+        {{ 'tableAssistant.tableAssistantTableMenu.fullScreen' | runtimeTranslate }}
       </button>
       <button class="menu-action" type="button" (click)="selectDashboard()">
-        {{ 'tableAssistant.tableAssistantTableMenu.salirAlDashboard' | runtimeTranslate }}
+        {{ 'tableAssistant.tableAssistantTableMenu.exitToDashboard' | runtimeTranslate }}
       </button>
-      <button class="menu-action subtle" type="button" (click)="closeMenu()">{{ 'tableAssistant.tableAssistantTableMenu.seguirJugando' | runtimeTranslate }}</button>
+      <button class="menu-action subtle" type="button" (click)="closeMenu()">{{ 'tableAssistant.tableAssistantTableMenu.keepPlaying' | runtimeTranslate }}</button>
     </div>
   }
 </div>

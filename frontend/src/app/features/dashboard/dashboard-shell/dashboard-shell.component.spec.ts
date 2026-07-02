@@ -12,8 +12,10 @@ import {
   LucideAngularModule,
   Maximize2,
   Menu,
+  MessageSquare,
   Search,
   Settings,
+  ShieldCheck,
   TabletSmartphone,
   Trash2,
   Users,
@@ -21,6 +23,7 @@ import {
 } from 'lucide-angular';
 import { of } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
+import { MessagesApi } from '../../../core/api/messages.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
@@ -31,12 +34,14 @@ import { DashboardShellComponent } from './dashboard-shell.component';
 describe('DashboardShellComponent', () => {
   let isDesktop: ReturnType<typeof signal<boolean>>;
   let isDesktopLayout: ReturnType<typeof signal<boolean>>;
+  let user: ReturnType<typeof signal<{ id: string; email: string; displayName: string; roles: string[] }>>;
 
   beforeEach(async () => {
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
     isDesktop = signal(true);
     isDesktopLayout = signal(true);
+    user = signal({ id: 'user-1', email: 'player@example.com', displayName: 'Player', roles: ['ROLE_USER'] });
 
     await TestBed.configureTestingModule({
       imports: [DashboardShellComponent],
@@ -52,8 +57,10 @@ describe('DashboardShellComponent', () => {
           LogOut,
           Maximize2,
           Menu,
+          MessageSquare,
           Search,
           Settings,
+          ShieldCheck,
           TabletSmartphone,
           Trash2,
           Users,
@@ -62,10 +69,13 @@ describe('DashboardShellComponent', () => {
         {
           provide: AuthStore,
           useValue: {
-            user: signal({ id: 'user-1', email: 'player@example.com', displayName: 'Player' }),
+            user,
             displayName: signal('Player'),
+            impersonation: signal(null),
+            isImpersonating: signal(false),
             logout: vi.fn().mockResolvedValue(undefined),
             markOfflineOnUnload: vi.fn(),
+            stopImpersonation: vi.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -74,6 +84,13 @@ describe('DashboardShellComponent', () => {
             list: vi.fn().mockReturnValue(of({ data: [] })),
             incoming: vi.fn().mockReturnValue(of({ data: [] })),
             outgoing: vi.fn().mockReturnValue(of({ data: [] })),
+          },
+        },
+        {
+          provide: MessagesApi,
+          useValue: {
+            list: vi.fn().mockReturnValue(of({ data: [], unreadCount: 0 })),
+            markRead: vi.fn().mockReturnValue(of({ message: null, unreadCount: 0 })),
           },
         },
         {
@@ -137,6 +154,23 @@ describe('DashboardShellComponent', () => {
     ]);
     expect(fixture.nativeElement.textContent).not.toContain('Rooms');
     expect(fixture.nativeElement.querySelector('.friends-dropdown')).not.toBeNull();
+  });
+
+  it('shows the admin topbar option for owner users', () => {
+    user.set({ id: 'owner-1', email: 'owner@example.com', displayName: 'Owner', roles: ['ROLE_USER', 'ROLE_OWNER'] });
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.detectChanges();
+
+    const adminLink = fixture.nativeElement.querySelector('a[href="/admin"]') as HTMLAnchorElement | null;
+
+    expect(adminLink).not.toBeNull();
+    expect(adminLink?.textContent?.trim()).toBe('');
+    expect(adminLink?.getAttribute('aria-label')).toBe('Admin');
+    expect(adminLink?.closest('app-tooltip')).not.toBeNull();
+    expect(adminLink?.querySelector('lucide-icon[name="shield-check"]')).not.toBeNull();
+
+    expect(adminLink?.classList).toContain('admin-action');
+    expect(fixture.nativeElement.querySelector('.nav-list a[href="/admin"]')).toBeNull();
   });
 
   it('hides Friends controls outside desktop devices', () => {

@@ -53,10 +53,10 @@
 
   <app-modal
     [open]="roomPendingDelete() !== null"
-    [title]="'rooms.rooms.borrarSala' | runtimeTranslate"
-    message="Esta accion no se puede deshacer."
-    primaryLabel="Borrar"
-    secondaryLabel="Cancelar"
+    [title]="'rooms.rooms.deleteRoom' | runtimeTranslate"
+    message="common.modal.cannotBeUndone"
+    primaryLabel="common.actions.delete"
+    secondaryLabel="common.modal.cancel"
     [danger]="true"
     (primary)="confirmDeleteRoom()"
     (secondary)="cancelDeleteRoom()"
@@ -68,10 +68,10 @@
 
   <app-modal
     [open]="createDeckRequiredModalOpen()"
-    [title]="'rooms.rooms.mazoRequerido' | runtimeTranslate"
-    message="Necesitas un mazo valido para crear una sala."
-    primaryLabel="Entendido"
-    secondaryLabel="Cerrar"
+    [title]="'rooms.rooms.deckRequired' | runtimeTranslate"
+    message="rooms.rooms.validDeckRequiredToCreate"
+    primaryLabel="common.actions.understood"
+    secondaryLabel="common.modal.close"
     (primary)="closeCreateDeckRequiredModal()"
     (secondary)="closeCreateDeckRequiredModal()"
   />

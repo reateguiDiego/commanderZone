@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { UserAvatar, UserDisplayNameStyle } from '../../../core/models/user.model';
+import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { PlayerAvatarComponent } from '../player-avatar/player-avatar.component';
 import { PlayerNameComponent } from '../player-name/player-name.component';
 
@@ -21,12 +23,13 @@ const SIZE_CONFIG: Record<PlayerInfoSize, PlayerInfoSizeConfig> = {
 
 @Component({
   selector: 'app-player-info',
-  imports: [PlayerAvatarComponent, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, PlayerAvatarComponent, PlayerNameComponent],
   templateUrl: './player-info.component.html',
   styleUrl: './player-info.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PlayerInfoComponent {
+  readonly themeAssets = inject(AppThemeAssetsService);
   readonly displayName = input('Player');
   readonly avatar = input<UserAvatar | null | undefined>(null);
   readonly nameStyle = input<UserDisplayNameStyle | null | undefined>(null);
@@ -36,4 +39,5 @@ export class PlayerInfoComponent {
   readonly nameSelected = output<MouseEvent>();
 
   readonly sizeConfig = computed(() => SIZE_CONFIG[this.size()]);
+  readonly isCommanderZoneIdentity = computed(() => this.displayName().trim() === 'CommanderZone');
 }

@@ -31,9 +31,9 @@ describe('DashboardHomeComponent', () => {
     const titleLabel = element.querySelector('.welcome-title-label');
     const titleUser = element.querySelector('.welcome-title-user');
 
-    expect(titleLabel?.textContent?.trim()).toBe('Bienvenido');
+    expect(titleLabel?.textContent?.trim()).toBe('Welcome');
     expect(titleUser?.textContent?.trim()).toBe('Aaguilera21');
-    expect(element.textContent).toContain('Tus comandantes tienen sed de sangre');
+    expect(element.textContent).toContain('Your commanders thirst for blood');
     expect(element.textContent).not.toContain('La mesa te estaba esperando');
     expect(fixture.nativeElement.textContent).toContain('The Ur-Dragon');
     expect(fixture.nativeElement.textContent).not.toContain('Join a room');

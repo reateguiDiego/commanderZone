@@ -158,7 +158,7 @@ export class TableAssistantSetupComponent implements OnDestroy {
 
   async createRoom(): Promise<void> {
     if (!this.canCreateRoom()) {
-      this.error.set('Necesitas al menos 2 jugadores y todos los nombres completos.');
+      this.error.set('tableAssistant.tableAssistantSetup.needPlayersAndNames');
       return;
     }
 
@@ -186,7 +186,7 @@ export class TableAssistantSetupComponent implements OnDestroy {
         queryParams: { arrange: '1' },
       });
     } catch {
-      this.error.set('No se pudo crear la sala de Asistente de Mesa.');
+      this.error.set('tableAssistant.tableAssistantSetup.createRoomError');
     } finally {
       this.creating.set(false);
     }

@@ -144,7 +144,9 @@ class CardsController extends ApiController
             }
 
             $searchPatterns = $this->searchPatterns($query);
-            $buckets = $requestedLanguage === null ? ['all'] : $this->searchBuckets($requestedLanguage);
+            $buckets = $this->searchRequestsGameplayCatalog($request)
+                ? ['all']
+                : ($requestedLanguage === null ? ['all'] : $this->searchBuckets($requestedLanguage));
             $ids = [];
             $total = 0;
 
@@ -583,7 +585,7 @@ SQL;
         $params = $request->query->all();
         $this->sortCacheKeyParams($params);
 
-        return 'cards.search.page.v5.'.hash('xxh128', json_encode($params) ?: '');
+        return 'cards.search.page.v6.'.hash('xxh128', json_encode($params) ?: '');
     }
 
     /**
@@ -809,7 +811,8 @@ SQL;
         $this->primeBucketParams($bucket, $requestedLanguage, $params, $types);
 
         return match ($bucket) {
-            'all', 'requested' => '0',
+            'requested' => '0',
+            'all' => $this->searchLanguageRankSql($requestedLanguage, $params, $alias),
             'english' => sprintf(<<<'SQL'
 CASE
     WHEN %1$s.lang = :bucketEnglishLang THEN 0

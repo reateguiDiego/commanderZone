@@ -57,5 +57,5 @@ function playMatImageUrl(backgroundName: string | null | undefined): string | nu
     return null;
   }
 
-  return `/assets/images/play-mat/${color}_${index}.png`;
+  return `/assets/images/play-mat/${color}_${index}.webp`;
 }

@@ -20,23 +20,23 @@ export interface CardLanguageOption {
 }
 
 export const LANGUAGE_OPTIONS: readonly LanguageOption[] = [
-  { code: 'es', label: 'Espanol', flagAsset: publicAssetUrl('assets/icons/flags/spain.png') },
-  { code: 'fr', label: 'Frances', flagAsset: publicAssetUrl('assets/icons/flags/france.png') },
-  { code: 'en', label: 'Ingles', flagAsset: publicAssetUrl('assets/icons/flags/uk.png') },
-  { code: 'de', label: 'Aleman', flagAsset: publicAssetUrl('assets/icons/flags/germany.png') },
+  { code: 'es', label: 'Español', flagAsset: publicAssetUrl('assets/icons/flags/spain.png') },
+  { code: 'fr', label: 'Français', flagAsset: publicAssetUrl('assets/icons/flags/france.png') },
+  { code: 'en', label: 'English', flagAsset: publicAssetUrl('assets/icons/flags/uk.png') },
+  { code: 'de', label: 'Deutsch', flagAsset: publicAssetUrl('assets/icons/flags/germany.png') },
   { code: 'it', label: 'Italiano', flagAsset: publicAssetUrl('assets/icons/flags/italy.png') },
-  { code: 'pt', label: 'Portugues', flagAsset: publicAssetUrl('assets/icons/flags/portugal.png') },
-  { code: 'ja', label: 'Japones', flagAsset: publicAssetUrl('assets/icons/flags/japan.png') },
-  { code: 'zhs', label: 'Chino (S)', flagAsset: publicAssetUrl('assets/icons/flags/china.png') },
-  { code: 'ru', label: 'Ruso', flagAsset: publicAssetUrl('assets/icons/flags/russia.svg') },
-  { code: 'nl', label: 'Holandes', flagAsset: publicAssetUrl('assets/icons/flags/holand.png') },
-  { code: 'ca', label: 'Catalan', flagAsset: publicAssetUrl('assets/icons/flags/catalan.png') },
+  { code: 'pt', label: 'Português', flagAsset: publicAssetUrl('assets/icons/flags/portugal.png') },
+  { code: 'ja', label: '日本語', flagAsset: publicAssetUrl('assets/icons/flags/japan.png') },
+  { code: 'zhs', label: '简体中文', flagAsset: publicAssetUrl('assets/icons/flags/china.png') },
+  { code: 'ru', label: 'Русский', flagAsset: publicAssetUrl('assets/icons/flags/russia.svg') },
+  { code: 'nl', label: 'Nederlands', flagAsset: publicAssetUrl('assets/icons/flags/holand.png') },
+  { code: 'ca', label: 'Català', flagAsset: publicAssetUrl('assets/icons/flags/catalan.png') },
 ];
 
 export const CARD_LANGUAGE_OPTIONS: readonly CardLanguageOption[] = [
   ...LANGUAGE_OPTIONS,
-  { code: 'ko', label: 'Coreano' },
-  { code: 'zht', label: 'Chino (T)', flagAsset: publicAssetUrl('assets/icons/flags/taiwan.svg') },
+  { code: 'ko', label: '한국어' },
+  { code: 'zht', label: '繁體中文', flagAsset: publicAssetUrl('assets/icons/flags/taiwan.svg') },
 ];
 
 export function isSupportedLanguageCode(value: string | null | undefined): value is SupportedLanguageCode {

@@ -1,15 +1,14 @@
 <app-modal
   [open]="open()"
-  [title]="'game.gameDisconnectVoteModal.jugadorDesconectado' | runtimeTranslate"
-  [message]="targetPlayerName()
-    ? (targetPlayerName() + ' se ha desconectado. Votad si queréis esperar su reconexion o expulsarlo de la mesa.')
-    : 'Un jugador se ha desconectado. Votad si queréis esperar su reconexion o expulsarlo de la mesa.'"
-  primaryLabel="Esperar"
-  secondaryLabel="Expulsar"
+  [title]="'game.gameDisconnectVoteModal.playerDisconnected' | runtimeTranslate"
+  [message]="disconnectMessageKey()"
+  [messageParams]="disconnectMessageParams()"
+  primaryLabel="game.gameDisconnectVoteModal.wait"
+  secondaryLabel="game.gameDisconnectVoteModal.expel"
   secondaryVariant="primary"
   [primaryDisabled]="pending()"
   [showCloseButton]="true"
-  closeLabel="Cerrar"
+  closeLabel="common.modal.close"
   [lockBodyScroll]="false"
   (primary)="voteWait.emit()"
   (secondary)="voteExpel.emit()"
@@ -17,27 +16,27 @@
 >
   <section class="disconnect-vote-body">
     @if (currentVote(); as vote) {
-      <p class="vote-line">{{ 'game.gameDisconnectVoteModal.tuVoto' | runtimeTranslate }} <strong>{{ voteLabel(vote) }}</strong></p>
+      <p class="vote-line">{{ 'game.gameDisconnectVoteModal.yourVote' | runtimeTranslate }} <strong>{{ voteLabel(vote) | runtimeTranslate }}</strong></p>
     }
 
     @if (countdownSeconds() !== null) {
-      <p class="vote-line countdown">{{ 'game.gameDisconnectVoteModal.tiempoRestante' | runtimeTranslate }} <strong>{{ countdownSeconds() }}s</strong></p>
+      <p class="vote-line countdown">{{ 'game.gameDisconnectVoteModal.timeRemaining' | runtimeTranslate }} <strong>{{ countdownSeconds() }}s</strong></p>
     }
 
     @if (targetOnline()) {
-      <p class="vote-line reconnect">{{ 'game.gameDisconnectVoteModal.elJugadorObjetivoYaApareceOnline' | runtimeTranslate }}</p>
+      <p class="vote-line reconnect">{{ 'game.gameDisconnectVoteModal.targetPlayerBackOnline' | runtimeTranslate }}</p>
     }
 
     @if (error(); as errorMessage) {
       <p class="vote-error">{{ errorMessage }}</p>
     }
 
-    <div class="votes-box" [attr.aria-label]="'game.gameDisconnectVoteModal.votosDeDesconexion' | runtimeTranslate">
+    <div class="votes-box" [attr.aria-label]="'game.gameDisconnectVoteModal.disconnectVotes' | runtimeTranslate">
       @for (player of players(); track player.playerId) {
         <article class="vote-row">
           <span class="player-name">{{ player.displayName }}</span>
           <span class="player-status" [attr.data-online]="player.online">{{ player.online ? 'online' : 'offline' }}</span>
-          <strong class="vote-pill" [attr.data-vote]="player.vote ?? 'none'">{{ voteLabel(player.vote) }}</strong>
+          <strong class="vote-pill" [attr.data-vote]="player.vote ?? 'none'">{{ voteLabel(player.vote) | runtimeTranslate }}</strong>
         </article>
       }
     </div>

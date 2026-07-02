@@ -81,8 +81,8 @@ const GAME_SETTINGS_TOGGLE_OPTIONS: readonly GameSettingsToggleOption[] = [
   },
   {
     id: 'enableStackMana',
-    labelKey: 'settings.dashboardSettingsModal.gameSettings.enableStackMana.label',
-    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.enableStackMana.description',
+    labelKey: 'settings.dashboardSettingsModal.gameSettings.preserveManaPool.label',
+    descriptionKey: 'settings.dashboardSettingsModal.gameSettings.preserveManaPool.description',
   },
   {
     id: 'gameAnimations',
@@ -169,8 +169,12 @@ export class DashboardSettingsModalComponent {
   );
   readonly appLanguageSelectOptions = computed<readonly FormatSelectOption[]>(() =>
     [...this.appLanguageOptions]
-      .sort((left, right) => left.label.localeCompare(right.label, this.selectedAppLanguage(), { sensitivity: 'base' }))
-      .map((language) => ({ id: language.code, name: language.label, flagAsset: language.flagAsset })),
+      .map((language) => ({
+        id: language.code,
+        name: this.i18n.languageName(language.code),
+        flagAsset: language.flagAsset,
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name, this.selectedAppLanguage(), { sensitivity: 'base' })),
   );
   readonly settingsTitle = computed(() => this.i18n.text('settingsTitle'));
   readonly cancelLabel = computed(() => this.i18n.text('cancel'));

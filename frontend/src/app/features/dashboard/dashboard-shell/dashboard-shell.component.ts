@@ -4,31 +4,37 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { canAccessAdmin as userCanAccessAdmin } from '../../../core/auth/user-roles';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { FriendsStore } from '../../friends/data-access/friends.store';
+import { MessagesStore } from '../../messages/data-access/messages.store';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { DashboardHeaderComponent } from './components/dashboard-header/dashboard-header.component';
 import { DashboardPageContextComponent } from './components/dashboard-page-context/dashboard-page-context.component';
 
 @Component({
   selector: 'app-dashboard-shell',
-  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent],
+  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent, CzButtonDirective],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [FriendsStore],
+  providers: [FriendsStore, MessagesStore],
 })
 export class DashboardShellComponent implements OnDestroy {
   readonly auth = inject(AuthStore);
   readonly friends = inject(FriendsStore);
+  readonly messages = inject(MessagesStore);
   readonly pageHeader = inject(PageHeaderStore);
   private readonly destroyRef = inject(DestroyRef);
   private readonly document = inject(DOCUMENT);
   private readonly mercure = inject(MercureService);
   private readonly router = inject(Router);
   readonly friendsOpen = signal(false);
+  readonly messagesOpen = signal(false);
   readonly roomFocus = signal(this.isTableAssistantRoomUrl(this.router.url));
   readonly userLabel = computed(() => this.auth.displayName() ?? this.auth.user()?.email ?? 'Player');
+  readonly canAccessAdmin = computed(() => userCanAccessAdmin(this.auth.user()));
   private roomInviteSubscription?: Subscription;
   private friendSubscription?: Subscription;
 
@@ -40,6 +46,7 @@ export class DashboardShellComponent implements OnDestroy {
     });
 
     void this.friends.ensureLoaded();
+    void this.messages.ensureLoaded();
     this.startRoomInviteSync();
     this.startFriendSync();
     this.router.events
@@ -55,11 +62,12 @@ export class DashboardShellComponent implements OnDestroy {
   }
 
   private closeFriendsOnOutsidePointer(target: EventTarget | null): void {
-    if (target instanceof Element && target.closest('.friends-dropdown')) {
+    if (target instanceof Element && (target.closest('.friends-dropdown') || target.closest('.messages-dropdown'))) {
       return;
     }
 
     this.closeFriends();
+    this.closeMessages();
   }
 
   toggleFriends(event: MouseEvent): void {
@@ -70,8 +78,22 @@ export class DashboardShellComponent implements OnDestroy {
       return;
     }
 
+    this.closeMessages();
     this.friendsOpen.set(true);
     void this.friends.ensureLoaded();
+  }
+
+  toggleMessages(event: MouseEvent): void {
+    event.stopPropagation();
+
+    if (this.messagesOpen()) {
+      this.closeMessages();
+      return;
+    }
+
+    this.closeFriends();
+    this.messagesOpen.set(true);
+    void this.messages.ensureLoaded();
   }
 
   closeFriends(): void {
@@ -81,6 +103,15 @@ export class DashboardShellComponent implements OnDestroy {
 
     this.friendsOpen.set(false);
     this.friends.resetTransientState();
+  }
+
+  closeMessages(): void {
+    if (!this.messagesOpen()) {
+      return;
+    }
+
+    this.messagesOpen.set(false);
+    this.messages.resetTransientState();
   }
 
   @HostListener('window:pagehide')
@@ -94,6 +125,11 @@ export class DashboardShellComponent implements OnDestroy {
     this.stopFriendSync();
     await this.auth.logout();
     await this.router.navigate(['/auth/login']);
+  }
+
+  async stopImpersonation(): Promise<void> {
+    await this.auth.stopImpersonation();
+    await this.router.navigate(['/admin']);
   }
 
   ngOnDestroy(): void {

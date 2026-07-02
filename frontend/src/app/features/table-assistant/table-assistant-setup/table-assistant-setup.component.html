@@ -1,29 +1,29 @@
-<form class="setup-panel" [attr.aria-label]="'tableAssistant.tableAssistantSetup.configurarAsistenteDeMesa' | runtimeTranslate" novalidate (ngSubmit)="createRoom()">
+<form class="setup-panel" [attr.aria-label]="'tableAssistant.tableAssistantSetup.configureTableAssistant' | runtimeTranslate" novalidate (ngSubmit)="createRoom()">
   <div class="setup-header">
     <div>
-      <span class="eyebrow">{{ 'tableAssistant.tableAssistantSetup.nuevaPartida' | runtimeTranslate }}</span>
-      <h2>{{ 'tableAssistant.tableAssistantSetup.configuraLaMesa' | runtimeTranslate }}</h2>
-      <p>{{ 'tableAssistant.tableAssistantSetup.jugadoresVidasYTemporizadorLoDemasSe' | runtimeTranslate }}</p>
+      <span class="eyebrow">{{ 'tableAssistant.tableAssistantSetup.newGame' | runtimeTranslate }}</span>
+      <h2>{{ 'tableAssistant.tableAssistantSetup.configureTable' | runtimeTranslate }}</h2>
+      <p>{{ 'tableAssistant.tableAssistantSetup.setupDescription' | runtimeTranslate }}</p>
     </div>
   </div>
 
   @if (error(); as errorMessage) {
-    <p class="error-message">{{ errorMessage }}</p>
+    <p class="error-message">{{ errorMessage | runtimeTranslate }}</p>
   }
 
   <div class="setup-grid">
     <section class="setup-section players-section">
-      <h3>{{ 'tableAssistant.tableAssistantSetup.jugadores' | runtimeTranslate }}</h3>
+      <h3>{{ 'tableAssistant.tableAssistantSetup.players' | runtimeTranslate }}</h3>
       <div class="setup-number-controls">
         <app-game-setup-seats-control
-          label="Jugadores"
+          label="tableAssistant.tableAssistantSetup.players"
           [value]="playerCount()"
           [options]="playerCountOptions"
           (valueChange)="setPlayerCount($event)"
         />
         <app-game-setup-life-control
-          label="Vida inicial"
-          summary="Total inicial"
+          label="tableAssistant.tableAssistantSetup.initialLife"
+          summary="tableAssistant.tableAssistantSetup.initialTotal"
           [value]="initialLife()"
           (valueChange)="setInitialLife($event)"
         />
@@ -33,9 +33,9 @@
         @for (name of playerNames(); track $index; let playerIndex = $index) {
           <div class="player-config-row">
             <span class="seat-number">{{ playerIndex + 1 }}</span>
-            <input [name]="'playerName' + playerIndex" [attr.aria-label]="'Nombre de jugador ' + (playerIndex + 1)" [placeholder]="'Jugador ' + (playerIndex + 1)" [ngModel]="name" (ngModelChange)="updatePlayerName(playerIndex, $event)" />
+            <input [name]="'playerName' + playerIndex" [attr.aria-label]="'tableAssistant.tableAssistantSetup.playerNameAria' | runtimeTranslate: { index: playerIndex + 1 }" [placeholder]="'tableAssistant.tableAssistantSetup.playerNamePlaceholder' | runtimeTranslate: { index: playerIndex + 1 }" [ngModel]="name" (ngModelChange)="updatePlayerName(playerIndex, $event)" />
             <span class="color-picker" [style.--selected-gradient]="colorGradient(playerColors()[playerIndex])" [style.--selected-accent]="colorAccent(playerColors()[playerIndex])">
-              <button class="color-picker-trigger" type="button" [attr.aria-expanded]="openColorPickerIndex() === playerIndex" [attr.aria-label]="'Color de jugador ' + (playerIndex + 1)" (click)="toggleColorPicker(playerIndex)">
+              <button class="color-picker-trigger" type="button" [attr.aria-expanded]="openColorPickerIndex() === playerIndex" [attr.aria-label]="'tableAssistant.tableAssistantSetup.playerColorAria' | runtimeTranslate: { index: playerIndex + 1 }" (click)="toggleColorPicker(playerIndex)">
                 <span>{{ colorLabel(playerColors()[playerIndex]) }}</span>
                 <span class="mana-symbols" aria-hidden="true">
                   <app-mana-symbols
@@ -46,7 +46,7 @@
                 </span>
               </button>
               @if (openColorPickerIndex() === playerIndex) {
-                <div class="color-picker-list" role="listbox" [attr.aria-label]="'Colores de jugador ' + (playerIndex + 1)">
+                <div class="color-picker-list" role="listbox" [attr.aria-label]="'tableAssistant.tableAssistantSetup.playerColorsAria' | runtimeTranslate: { index: playerIndex + 1 }">
                   @for (color of colorOptions; track color.id) {
                     <button class="color-option" type="button" role="option" [class.selected]="playerColors()[playerIndex] === color.id" [style.--option-gradient]="color.gradient" [style.--option-accent]="color.accent" [attr.aria-selected]="playerColors()[playerIndex] === color.id" (mousedown)="$event.preventDefault(); selectPlayerColor(playerIndex, color.id)" (click)="selectPlayerColor(playerIndex, color.id)">
                       <span>{{ color.label }}</span>
@@ -68,8 +68,8 @@
     </section>
 
     <section class="setup-section rules-section">
-      <h3>{{ 'tableAssistant.tableAssistantSetup.reglasDeMesa' | runtimeTranslate }}</h3>
-      <p class="muted">{{ 'tableAssistant.tableAssistantSetup.danoDeComandanteSiempreActivoTemporizadorOpcional' | runtimeTranslate }}</p>
+      <h3>{{ 'tableAssistant.tableAssistantSetup.tableRules' | runtimeTranslate }}</h3>
+      <p class="muted">{{ 'tableAssistant.tableAssistantSetup.commanderDamageAndTimerNote' | runtimeTranslate }}</p>
 
       <app-table-assistant-timer-settings
         [timerMode]="timerMode()"
@@ -83,7 +83,7 @@
 
   <div class="setup-actions">
     <button czButton="primary" class="primary-button" type="submit" [disabled]="!canCreateRoom()">
-      {{ creating() ? 'Creando...' : 'Crear sala' }}
+      {{ (creating() ? 'tableAssistant.tableAssistantSetup.creatingRoom' : 'tableAssistant.tableAssistantSetup.createRoom') | runtimeTranslate }}
     </button>
   </div>
 </form>

@@ -2,23 +2,23 @@
   @if (setupOpen()) {
     <app-table-assistant-setup (cancelled)="handleSetupDestroyed()" />
   } @else {
-    <section class="assistant-overview" [attr.aria-label]="'tableAssistant.tableAssistantPage.asistenteDeMesa' | runtimeTranslate">
+    <section class="assistant-overview" [attr.aria-label]="'tableAssistant.tableAssistantPage.title' | runtimeTranslate">
       <div class="overview-copy">
-        <span class="eyebrow">{{ 'tableAssistant.tableAssistantPage.mesaManualDeCommander' | runtimeTranslate }}</span>
-        <h2>{{ 'tableAssistant.tableAssistantPage.todoLoNecesarioParaSeguirUnaPartida' | runtimeTranslate }}</h2>
+        <span class="eyebrow">{{ 'tableAssistant.tableAssistantPage.manualCommanderTable' | runtimeTranslate }}</span>
+        <h2>{{ 'tableAssistant.tableAssistantPage.physicalGameTrackingDescription' | runtimeTranslate }}</h2>
         <p>
-          {{ 'tableAssistant.tableAssistantPage.configuraJugadoresVidaInicialYTemporizadorCommanderzone' | runtimeTranslate }}
+          {{ 'tableAssistant.tableAssistantPage.setupDescription' | runtimeTranslate }}
         </p>
       </div>
 
-      <div class="overview-card" [attr.aria-label]="'tableAssistant.tableAssistantPage.resumenRapido' | runtimeTranslate">
-        <strong>{{ 'tableAssistant.tableAssistantPage.setupRapido' | runtimeTranslate }}</strong>
-        <span>{{ 'tableAssistant.tableAssistantPage.text4JugadoresPorDefecto' | runtimeTranslate }}</span>
-        <span>{{ 'tableAssistant.tableAssistantPage.text40VidasIniciales' | runtimeTranslate }}</span>
-        <span>{{ 'tableAssistant.tableAssistantPage.danoDeComandanteActivo' | runtimeTranslate }}</span>
+      <div class="overview-card" [attr.aria-label]="'tableAssistant.tableAssistantPage.quickSummary' | runtimeTranslate">
+        <strong>{{ 'tableAssistant.tableAssistantPage.quickSetup' | runtimeTranslate }}</strong>
+        <span>{{ 'tableAssistant.tableAssistantPage.defaultFourPlayers' | runtimeTranslate }}</span>
+        <span>{{ 'tableAssistant.tableAssistantPage.defaultFortyLife' | runtimeTranslate }}</span>
+        <span>{{ 'tableAssistant.tableAssistantPage.commanderDamageEnabled' | runtimeTranslate }}</span>
       </div>
 
-      <div class="benefit-grid" [attr.aria-label]="'tableAssistant.tableAssistantPage.beneficios' | runtimeTranslate">
+      <div class="benefit-grid" [attr.aria-label]="'tableAssistant.tableAssistantPage.benefits' | runtimeTranslate">
         @for (benefit of benefits; track benefit.title) {
           <article class="benefit-card">
             <h2>{{ benefit.title | runtimeTranslate }}</h2>

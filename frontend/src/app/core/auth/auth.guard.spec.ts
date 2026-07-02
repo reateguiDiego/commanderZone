@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { convertToParamMap, provideRouter, Router } from '@angular/router';
 import { AuthStore } from './auth.store';
-import { authGuard, guestGuard } from './auth.guard';
+import { adminAccessGuard, authGuard, guestGuard } from './auth.guard';
 
 describe('auth guards', () => {
   it('redirects anonymous users to login', async () => {
@@ -44,6 +44,72 @@ describe('auth guards', () => {
     const result = await TestBed.runInInjectionContext(() => guestGuard({ queryParamMap: convertToParamMap({}) } as never, {} as never));
 
     expect(result).toEqual(TestBed.inject(Router).parseUrl('/dashboard'));
+  });
+
+  it('allows admin and owner users to access admin routes', async () => {
+    for (const roles of [['ROLE_ADMIN'], ['ROLE_OWNER']]) {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideHttpClient(),
+          provideRouter([]),
+          {
+            provide: AuthStore,
+            useValue: {
+              initialize: vi.fn().mockResolvedValue(undefined),
+              isAuthenticated: () => true,
+              user: () => ({ id: 'user-1', email: 'admin@test.com', displayName: 'Admin', roles }),
+            },
+          },
+        ],
+      });
+
+      const result = await TestBed.runInInjectionContext(() => adminAccessGuard({} as never, { url: '/admin' } as never));
+
+      expect(result).toBe(true);
+    }
+  });
+
+  it('redirects authenticated non-admin users away from admin routes', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideRouter([]),
+        {
+          provide: AuthStore,
+          useValue: {
+            initialize: vi.fn().mockResolvedValue(undefined),
+            isAuthenticated: () => true,
+            user: () => ({ id: 'user-1', email: 'player@test.com', displayName: 'Player', roles: ['ROLE_USER'] }),
+          },
+        },
+      ],
+    });
+
+    const result = await TestBed.runInInjectionContext(() => adminAccessGuard({} as never, { url: '/admin' } as never));
+
+    expect(result).toEqual(TestBed.inject(Router).parseUrl('/dashboard'));
+  });
+
+  it('redirects anonymous admin route visits to login with a safe redirect', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideRouter([]),
+        {
+          provide: AuthStore,
+          useValue: {
+            initialize: vi.fn().mockResolvedValue(undefined),
+            isAuthenticated: () => false,
+            user: () => null,
+          },
+        },
+      ],
+    });
+
+    const result = await TestBed.runInInjectionContext(() => adminAccessGuard({} as never, { url: '/admin' } as never));
+
+    expect(result).toEqual(TestBed.inject(Router).createUrlTree(['/auth/login'], { queryParams: { redirect: '/admin' } }));
   });
 
   it('uses route data as the authenticated guest fallback redirect', async () => {

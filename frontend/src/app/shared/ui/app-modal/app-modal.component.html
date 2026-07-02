@@ -21,7 +21,7 @@
       @if (headerImageSrc || title || showBackButton || showHeaderAction || message) {
       <header>
         @if (headerImageSrc) {
-          <img class="modal-header-image" [src]="headerImageSrc" [alt]="headerImageAlt" />
+          <img class="modal-header-image" [src]="headerImageSrc" [alt]="headerImageAlt | runtimeTranslate" />
         }
         @if (title || showBackButton || showHeaderAction) {
         <div class="modal-title-row" [class.has-title-icon]="titleIcon">
@@ -31,7 +31,7 @@
           @if (titleIcon) {
             <lucide-icon class="modal-title-icon" [name]="titleIcon" size="30" aria-hidden="true" />
           }
-          <h2>{{ title | runtimeTranslate }}</h2>
+          <h2 czTextFit czTextFitMinScale="0.78">{{ title | runtimeTranslate }}</h2>
           @if (showHeaderAction) {
             <button czButton="primary" czButtonSize="sm" class="modal-header-action" type="button" (click)="headerAction.emit()">
               {{ headerActionLabel | runtimeTranslate }}
@@ -43,7 +43,7 @@
           <app-hero-rule class="modal-header-rule" />
         }
         @if (message) {
-          <p>{{ message | runtimeTranslate }}</p>
+          <p>{{ message | runtimeTranslate: messageParams }}</p>
         }
       </header>
       }

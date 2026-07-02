@@ -3,8 +3,8 @@
   [title]="title()"
   [message]="message()"
   [size]="mode() === 'edit' ? 'compact' : 'default'"
-  [primaryLabel]="mode() === 'create' ? 'Create' : 'Done'"
-  secondaryLabel="Cancel"
+  [primaryLabel]="mode() === 'create' ? 'common.actions.create' : 'common.actions.done'"
+  secondaryLabel="common.modal.cancel"
   [showPrimary]="!(mode() === 'edit' && readOnly())"
   [showSecondary]="mode() === 'create'"
   [primaryDisabled]="mode() === 'create' && (actionsLocked() || createRoomForm.invalid)"
@@ -23,14 +23,14 @@
               {{ 'rooms.roomSetupModal.roomName' | runtimeTranslate }}
               <span class="required-mark" aria-hidden="true">*</span>
             </span>
-            <input formControlName="roomName" maxlength="30" [placeholder]="'rooms.roomSetupModal.ejLaTaberna' | runtimeTranslate" />
+            <input formControlName="roomName" maxlength="30" [placeholder]="'rooms.roomSetupModal.exampleRoomName' | runtimeTranslate" />
             <small class="character-count">{{ roomNameLength() }}/30</small>
           </label>
         </div>
 
         <app-game-setup-life-control
           class="modal-setup-field"
-          label="Total life"
+          label="rooms.setup.gameSetupLifeControl.totalLife"
           summary=""
           [value]="createStartingLife()"
           [step]="startingLifeStep()"
@@ -54,7 +54,7 @@
         <div class="setup-control timer-control modal-setup-field">
           <div class="control-copy">
             <span class="eyebrow">{{ 'rooms.roomSetupModal.timer' | runtimeTranslate }}</span>
-            <strong>{{ createTimerSummary() }}</strong>
+            <strong>{{ createTimerSummary() | runtimeTranslate }}</strong>
           </div>
           <app-table-assistant-timer-settings
             [compact]="true"
@@ -72,7 +72,7 @@
         <div class="mulligan-select-field">
           <app-format-select
             name="mulliganRule"
-            [label]="'rooms.roomSetupControls.mulligan' | runtimeTranslate"
+            labelKey="rooms.roomSetupControls.mulligan"
             [formats]="mulliganSelectOptions()"
             [value]="createMulliganRule()"
             [disabled]="actionsLocked()"
@@ -83,7 +83,7 @@
 
         <div class="create-fields">
           <app-visibility-choice
-            label="Privacy"
+            label="common.visibility.visibilityChoice.privacy"
             [required]="true"
             [value]="createRoomForm.controls.privacy.value"
             (valueChange)="createRoomForm.controls.privacy.setValue($event)"
@@ -104,7 +104,7 @@
 
         <app-game-setup-seats-control
           class="modal-setup-field"
-          label="Seats"
+          label="rooms.setup.gameSetupSeatsControl.seats"
           [value]="createMaxPlayers()"
           [minimumValue]="2"
           [options]="maxPlayersOptions()"
