@@ -23,10 +23,24 @@ class TextFitHostComponent {}
 
 describe('TextFitDirective', () => {
   let resizeCallback: ResizeObserverCallbackRef = null;
+  let animationFrameHandle = 0;
+  let animationFrameCallbacks = new Map<number, FrameRequestCallback>();
   let fixture: ComponentFixture<TextFitHostComponent>;
 
   beforeEach(async () => {
     resizeCallback = null;
+    animationFrameHandle = 0;
+    animationFrameCallbacks = new Map<number, FrameRequestCallback>();
+
+    vi.useRealTimers();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback): number => {
+      animationFrameHandle += 1;
+      animationFrameCallbacks.set(animationFrameHandle, callback);
+      return animationFrameHandle;
+    });
+    vi.stubGlobal('cancelAnimationFrame', (handle: number): void => {
+      animationFrameCallbacks.delete(handle);
+    });
 
     class ResizeObserverMock implements ResizeObserver {
       constructor(callback: ResizeObserverCallback) {
@@ -50,9 +64,10 @@ describe('TextFitDirective', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
-  it('shrinks text and marks overflow when the rendered content does not fit', async () => {
+  it('shrinks text and marks overflow when the rendered content does not fit', () => {
     const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
     setElementBox(button, {
       clientWidth: 100,
@@ -62,14 +77,14 @@ describe('TextFitDirective', () => {
     });
 
     resizeCallback?.([], {} as ResizeObserver);
-    await nextAnimationFrame();
+    flushAnimationFrames(animationFrameCallbacks);
 
     expect(button.style.getPropertyValue('--cz-text-fit-scale')).toBe('0.8');
     expect(button.classList).toContain('cz-text-fit--shrunk');
     expect(button.classList).toContain('cz-text-fit--overflowing');
   });
 
-  it('keeps the default scale when the rendered content fits', async () => {
+  it('keeps the default scale when the rendered content fits', () => {
     const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
     setElementBox(button, {
       clientWidth: 180,
@@ -79,14 +94,14 @@ describe('TextFitDirective', () => {
     });
 
     resizeCallback?.([], {} as ResizeObserver);
-    await nextAnimationFrame();
+    flushAnimationFrames(animationFrameCallbacks);
 
     expect(button.style.getPropertyValue('--cz-text-fit-scale')).toBe('1');
     expect(button.classList).not.toContain('cz-text-fit--shrunk');
     expect(button.classList).not.toContain('cz-text-fit--overflowing');
   });
 
-  it('does not shrink icon buttons', async () => {
+  it('does not shrink icon buttons', () => {
     const iconButton = fixture.nativeElement.querySelector('.cz-button--icon') as HTMLButtonElement;
     setElementBox(iconButton, {
       clientWidth: 40,
@@ -96,14 +111,14 @@ describe('TextFitDirective', () => {
     });
 
     resizeCallback?.([], {} as ResizeObserver);
-    await nextAnimationFrame();
+    flushAnimationFrames(animationFrameCallbacks);
 
     expect(iconButton.style.getPropertyValue('--cz-text-fit-scale')).toBe('1');
     expect(iconButton.classList).not.toContain('cz-text-fit--shrunk');
     expect(iconButton.classList).not.toContain('cz-text-fit--overflowing');
   });
 
-  it('does not shrink single-line text for vertical font metric overflow only', async () => {
+  it('does not shrink single-line text for vertical font metric overflow only', () => {
     const title = fixture.nativeElement.querySelector('.single-line-title') as HTMLHeadingElement;
     title.style.whiteSpace = 'nowrap';
     setElementBox(title, {
@@ -114,7 +129,7 @@ describe('TextFitDirective', () => {
     });
 
     resizeCallback?.([], {} as ResizeObserver);
-    await nextAnimationFrame();
+    flushAnimationFrames(animationFrameCallbacks);
 
     expect(title.style.getPropertyValue('--cz-text-fit-scale')).toBe('1');
     expect(title.classList).not.toContain('cz-text-fit--shrunk');
@@ -136,6 +151,11 @@ function setElementBox(element: HTMLElement, box: {
   }
 }
 
-function nextAnimationFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+function flushAnimationFrames(callbacks: Map<number, FrameRequestCallback>): void {
+  const pendingCallbacks = Array.from(callbacks.values());
+  callbacks.clear();
+
+  for (const callback of pendingCallbacks) {
+    callback(performance.now());
+  }
 }
