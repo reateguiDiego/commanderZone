@@ -297,6 +297,34 @@ paths:
           $ref: '#/components/responses/Error'
         '429':
           $ref: '#/components/responses/Error'
+  /auth/google/exchange:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Exchange a Google ID token for a CommanderZone session.
+      description: >
+        Validates a Google Identity Services ID token server-side and, on success, returns the normal CommanderZone
+        access token while setting the HttpOnly refresh cookie. Existing local accounts with the same email are not
+        auto-linked and return `code: link_required`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleExchangeRequest'
+      responses:
+        '200':
+          description: Access token plus refresh cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /auth/refresh:
     post:
       tags: [Auth]
@@ -522,8 +550,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ThemePreferenceResponse'
         '400':
-          $ref: '#/components/responses/Error'
-        '401':
           $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
@@ -2552,7 +2578,9 @@ paths:
     get:
       tags: [Games]
       summary: List chat messages outside the gameplay runtime snapshot.
-      description: Available only when gameplay chat streams are enabled. Visibility rules still apply: private messages are only returned to the sender and target player.
+      description: >
+        Available only when gameplay chat streams are enabled. Visibility rules still apply: private messages are only
+        returned to the sender and target player.
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: limit
@@ -2861,6 +2889,9 @@ components:
       properties:
         error:
           type: string
+        code:
+          type: string
+          description: Stable machine-readable error code when available.
         count:
           type: integer
           minimum: 0
@@ -3334,6 +3365,13 @@ components:
         token:
           type: string
           description: Short-lived access token intended for Authorization Bearer usage.
+    GoogleExchangeRequest:
+      type: object
+      required: [credential]
+      properties:
+        credential:
+          type: string
+          description: Google Identity Services ID token returned to the browser.
     PasswordResetRequest:
       type: object
       required: [email]
@@ -4186,7 +4224,7 @@ components:
           enum: [true]
         message:
           type: string
-          example: Próximamente: estadísticas basadas en partidas reales de CommanderZone.
+          example: "Próximamente: estadísticas basadas en partidas reales de CommanderZone."
     CommunityDeckOwner:
       type: object
       required: [displayName]

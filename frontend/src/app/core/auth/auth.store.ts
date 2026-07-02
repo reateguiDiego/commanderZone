@@ -77,6 +77,27 @@ export class AuthStore {
     }
   }
 
+  async loginWithGoogleCredential(credential: string): Promise<void> {
+    this.loadingState.set(true);
+    this.errorState.set(null);
+    this.loginFailureCountState.set(null);
+    let requestToken: string | null = null;
+
+    try {
+      const response = await firstValueFrom(this.authApi.exchangeGoogleCredential({ credential }));
+      requestToken = response.token;
+      await this.establishSession(response.token);
+    } catch (error) {
+      if (requestToken !== null && this.tokenState() === requestToken) {
+        this.clearSession();
+      }
+      this.errorState.set(errorMessageFromResponse(error, 'Could not complete Google login.'));
+      throw error;
+    } finally {
+      this.loadingState.set(false);
+    }
+  }
+
   async register(email: string, displayName: string, password: string): Promise<void> {
     this.loadingState.set(true);
     this.errorState.set(null);

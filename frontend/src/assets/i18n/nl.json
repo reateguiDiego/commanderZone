@@ -204,7 +204,12 @@
       "couldNotCheckNow": "Kan het nu niet controleren",
       "usernameLengthRequirement": "De gebruikersnaam moet tussen 2 en 20 tekens lang zijn.",
       "usernameAvailable": "Gebruikersnaam beschikbaar",
-      "usernameUnavailable": "Gebruikersnaam niet beschikbaar"
+      "usernameUnavailable": "Gebruikersnaam niet beschikbaar",
+      "googleUnavailable": "Inloggen met Google is momenteel niet beschikbaar.",
+      "signInWithGoogle": "Inloggen met Google",
+      "registerWithGoogle": "Registreren met Google",
+      "socialSignIn": "Sociale login",
+      "or": "of"
     },
     "emailVerificationPage": {
       "confirmingEmail": "E-mail bevestigen",

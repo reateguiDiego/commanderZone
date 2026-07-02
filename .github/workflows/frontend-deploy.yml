@@ -43,6 +43,8 @@ jobs:
 
       - name: Build frontend (production)
         working-directory: frontend
+        env:
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
         run: npm run build:prod
 
       - name: Pull Vercel project settings

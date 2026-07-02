@@ -5,6 +5,7 @@ import { Check, Eye, EyeOff, LogIn, LucideAngularModule, TriangleAlert, UserPlus
 import { of } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { GoogleIdentityService } from '../../../core/auth/google-identity.service';
 import { AuthPageComponent } from './auth-page.component';
 
 describe('AuthPageComponent', () => {
@@ -14,12 +15,20 @@ describe('AuthPageComponent', () => {
     loading: WritableSignal<boolean>;
     clearError: ReturnType<typeof vi.fn>;
     login: ReturnType<typeof vi.fn>;
+    loginWithGoogleCredential: ReturnType<typeof vi.fn>;
     register: ReturnType<typeof vi.fn>;
   };
 
   async function create(
     path: 'auth/login' | 'auth/register',
     queryParams: Record<string, string> = {},
+    googleIdentity: {
+      isConfigured: ReturnType<typeof vi.fn>;
+      renderButton: ReturnType<typeof vi.fn>;
+    } = {
+      isConfigured: vi.fn().mockReturnValue(false),
+      renderButton: vi.fn().mockResolvedValue(undefined),
+    },
   ): Promise<ComponentFixture<AuthPageComponent>> {
     await TestBed.configureTestingModule({
       imports: [AuthPageComponent],
@@ -38,9 +47,11 @@ describe('AuthPageComponent', () => {
             loading: signal(false),
             clearError: vi.fn(),
             login: vi.fn().mockResolvedValue(undefined),
+            loginWithGoogleCredential: vi.fn().mockResolvedValue(undefined),
             register: vi.fn().mockResolvedValue(undefined),
           },
         },
+        { provide: GoogleIdentityService, useValue: googleIdentity },
         {
           provide: AuthApi,
           useValue: {
@@ -144,6 +155,67 @@ describe('AuthPageComponent', () => {
     fixture.detectChanges();
 
     expect(identifierInput.readOnly).toBe(false);
+  });
+
+  it('renders disabled Google icon button when Google has no client id configured', async () => {
+    const googleIdentity = {
+      isConfigured: vi.fn().mockReturnValue(false),
+      renderButton: vi.fn().mockResolvedValue(undefined),
+    };
+    const fixture = await create('auth/login', {}, googleIdentity);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('.social-auth')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.social-google-button:disabled')).toHaveLength(1);
+    expect(fixture.nativeElement.textContent).toContain('Sign in with Google');
+    expect(googleIdentity.renderButton).not.toHaveBeenCalled();
+  });
+
+  it('renders Google sign-in when configured', async () => {
+    const googleIdentity = {
+      isConfigured: vi.fn().mockReturnValue(true),
+      renderButton: vi.fn().mockResolvedValue(undefined),
+    };
+    const fixture = await create('auth/login', {}, googleIdentity);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector('.social-auth')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.google-button-host')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.auth-divider')?.textContent).toContain('or');
+    expect(fixture.nativeElement.textContent).toContain('Sign in with Google');
+    expect(googleIdentity.renderButton).toHaveBeenCalled();
+  });
+
+  it('renders Google register copy on the register route', async () => {
+    const googleIdentity = {
+      isConfigured: vi.fn().mockReturnValue(true),
+      renderButton: vi.fn().mockResolvedValue(undefined),
+    };
+    const fixture = await create('auth/register', {}, googleIdentity);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).toContain('Register with Google');
+  });
+
+  it('submits a Google credential through the shared auth flow', async () => {
+    const googleIdentity = {
+      isConfigured: vi.fn().mockReturnValue(true),
+      renderButton: vi.fn().mockImplementation(async (_host: HTMLElement, callback: (credential: string) => void) => {
+        callback('google-credential');
+      }),
+    };
+    const fixture = await create('auth/login', {}, googleIdentity);
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(googleIdentity.renderButton).toHaveBeenCalled();
+    expect(fixture.componentInstance.auth.loginWithGoogleCredential).toHaveBeenCalledWith('google-credential');
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
   it('warns before login lockout on the third and fourth failed attempts', async () => {

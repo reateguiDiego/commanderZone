@@ -9,6 +9,7 @@ import { AuthStore } from './auth.store';
 describe('AuthStore backend auth', () => {
   let authApi: {
     login: ReturnType<typeof vi.fn>;
+    exchangeGoogleCredential: ReturnType<typeof vi.fn>;
     register: ReturnType<typeof vi.fn>;
     me: ReturnType<typeof vi.fn>;
     offline: ReturnType<typeof vi.fn>;
@@ -29,6 +30,7 @@ describe('AuthStore backend auth', () => {
     document.documentElement.style.removeProperty('--app-session-background');
     authApi = {
       login: vi.fn().mockReturnValue(of({ token: 'jwt-token' })),
+      exchangeGoogleCredential: vi.fn().mockReturnValue(of({ token: 'google-jwt-token' })),
       register: vi.fn().mockReturnValue(of({ user })),
       me: vi.fn().mockReturnValue(of({ user })),
       offline: vi.fn().mockReturnValue(of(undefined)),
@@ -56,6 +58,18 @@ describe('AuthStore backend auth', () => {
     expect(store.token()).toBe('jwt-token');
     expect(store.user()).toEqual(user);
     expect(localStorage.getItem('commanderzone.jwt')).toBeNull();
+    expect(localStorage.getItem('commanderzone.user')).toContain('player@example.test');
+  });
+
+  it('stores backend token in memory and user in local storage on Google login', async () => {
+    const store = TestBed.inject(AuthStore);
+
+    await store.loginWithGoogleCredential('google-credential');
+
+    expect(authApi.exchangeGoogleCredential).toHaveBeenCalledWith({ credential: 'google-credential' });
+    expect(authApi.me).toHaveBeenCalled();
+    expect(store.token()).toBe('google-jwt-token');
+    expect(store.user()).toEqual(user);
     expect(localStorage.getItem('commanderzone.user')).toContain('player@example.test');
   });
 
@@ -174,6 +188,24 @@ describe('AuthStore backend auth', () => {
 
     expect(store.error()).toBeNull();
     expect(store.loginFailureCount()).toBeNull();
+  });
+
+  it('keeps a current session when a Google login attempt fails before receiving a token', async () => {
+    const store = TestBed.inject(AuthStore);
+    await store.login('player@example.test', 'password123');
+    authApi.exchangeGoogleCredential.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status: 409,
+      error: {
+        error: 'This email is already registered. Log in with your password before linking Google.',
+        code: 'link_required',
+      },
+    })));
+
+    await expect(store.loginWithGoogleCredential('google-credential')).rejects.toBeInstanceOf(HttpErrorResponse);
+
+    expect(store.token()).toBe('jwt-token');
+    expect(store.user()).toEqual(user);
+    expect(store.error()).toBe('This email is already registered. Log in with your password before linking Google.');
   });
 
   it('ignores stale /me responses from a previous token during auto-login', async () => {

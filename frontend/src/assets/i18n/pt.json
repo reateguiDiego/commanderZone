@@ -204,7 +204,12 @@
       "couldNotCheckNow": "Não foi possível verificar agora",
       "usernameLengthRequirement": "O nome de usuário deve ter entre 2 e 20 caracteres.",
       "usernameAvailable": "Nome de usuário disponível",
-      "usernameUnavailable": "Nome de usuário não disponível"
+      "usernameUnavailable": "Nome de usuário não disponível",
+      "googleUnavailable": "O login com Google não está disponível neste momento.",
+      "signInWithGoogle": "Entrar com Google",
+      "registerWithGoogle": "Registrar-se com Google",
+      "socialSignIn": "Login social",
+      "or": "ou"
     },
     "emailVerificationPage": {
       "confirmingEmail": "Confirmando e-mail",

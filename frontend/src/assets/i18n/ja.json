@@ -204,7 +204,12 @@
       "couldNotCheckNow": "現在確認できませんでした",
       "usernameLengthRequirement": "ユーザー名は 2 ～ 20 文字にする必要があります。",
       "usernameAvailable": "利用可能なユーザー名",
-      "usernameUnavailable": "ユーザー名が利用できません"
+      "usernameUnavailable": "ユーザー名が利用できません",
+      "googleUnavailable": "現在、Googleログインは利用できません。",
+      "signInWithGoogle": "Googleでログイン",
+      "registerWithGoogle": "Googleで登録",
+      "socialSignIn": "ソーシャルログイン",
+      "or": "または"
     },
     "emailVerificationPage": {
       "confirmingEmail": "メール確認中",

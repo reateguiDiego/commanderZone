@@ -204,7 +204,12 @@
       "couldNotCheckNow": "Не удалось проверить сейчас",
       "usernameLengthRequirement": "Имя пользователя должно содержать от 2 до 20 символов.",
       "usernameAvailable": "Доступно имя пользователя",
-      "usernameUnavailable": "Имя пользователя недоступно"
+      "usernameUnavailable": "Имя пользователя недоступно",
+      "googleUnavailable": "Вход через Google сейчас недоступен.",
+      "signInWithGoogle": "Войти через Google",
+      "registerWithGoogle": "Зарегистрироваться через Google",
+      "socialSignIn": "Вход через соцсети",
+      "or": "или"
     },
     "emailVerificationPage": {
       "confirmingEmail": "Подтверждение электронной почты",

@@ -204,7 +204,12 @@
       "couldNotCheckNow": "No s'ha pogut comprovar ara mateix",
       "usernameLengthRequirement": "El nom d'usuari ha de tenir entre 2 i 20 caràcters.",
       "usernameAvailable": "Nom d'usuari disponible",
-      "usernameUnavailable": "Nom d'usuari no disponible"
+      "usernameUnavailable": "Nom d'usuari no disponible",
+      "googleUnavailable": "L'inici de sessió amb Google no està disponible ara mateix.",
+      "signInWithGoogle": "Inicia sessió amb Google",
+      "registerWithGoogle": "Registra't amb Google",
+      "socialSignIn": "Inici de sessió social",
+      "or": "o"
     },
     "emailVerificationPage": {
       "confirmingEmail": "Correu electrònic de confirmació",

@@ -204,7 +204,12 @@
       "couldNotCheckNow": "现在无法检查",
       "usernameLengthRequirement": "用户名必须介于 2 到 20 个字符之间。",
       "usernameAvailable": "用户名可用",
-      "usernameUnavailable": "用户名不可用"
+      "usernameUnavailable": "用户名不可用",
+      "googleUnavailable": "Google 登录目前不可用。",
+      "signInWithGoogle": "使用 Google 登录",
+      "registerWithGoogle": "使用 Google 注册",
+      "socialSignIn": "社交登录",
+      "or": "或"
     },
     "emailVerificationPage": {
       "confirmingEmail": "确认电子邮件",
