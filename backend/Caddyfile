@@ -1,13 +1,21 @@
 {
-	auto_https off
+        auto_https off
 }
 
 :80 {
-	root * /app/public
-	encode zstd br gzip
-	handle /.well-known/mercure* {
-		reverse_proxy mercure:80
-	}
-	php_server
-}
+        root * /app/public
+        encode zstd br gzip
 
+        handle /ws* {
+                reverse_proxy game-runtime:8091
+        }
+
+        handle /ws-game* {
+                reverse_proxy websocket:8081
+        }
+
+        handle /.well-known/mercure* {
+                reverse_proxy mercure:80
+        }
+        php_server
+}
