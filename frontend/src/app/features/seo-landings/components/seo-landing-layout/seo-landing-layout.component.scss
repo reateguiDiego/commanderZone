@@ -107,9 +107,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  align-items: center;
 }
 
-.seo-landing-layout__footer a {
+.seo-landing-layout__footer a,
+.seo-landing-layout__cookie-button {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
@@ -118,6 +120,19 @@
   font-weight: 800;
   overflow-wrap: anywhere;
   text-decoration: none;
+}
+
+.seo-landing-layout__cookie-button {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.seo-landing-layout__footer a:hover,
+.seo-landing-layout__cookie-button:hover {
+  color: var(--text);
 }
 
 @media (width >= 768px) {
@@ -130,6 +145,10 @@
   .seo-landing-layout__header {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .seo-landing-layout__cookie-button {
+    margin-left: 0;
   }
 
   .seo-landing-layout__brand,

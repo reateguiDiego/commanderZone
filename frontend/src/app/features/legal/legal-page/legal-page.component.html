@@ -24,6 +24,13 @@
           @for (paragraph of section.body; track paragraph) {
             <p>{{ paragraph }}</p>
           }
+          @if (section.actions; as actions) {
+            <div class="legal-page__section-actions">
+              @for (action of actions; track action.href) {
+                <a [href]="action.href">{{ action.label }}</a>
+              }
+            </div>
+          }
         </section>
       }
     </div>

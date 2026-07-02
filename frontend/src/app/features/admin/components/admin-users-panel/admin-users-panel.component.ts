@@ -64,14 +64,15 @@ export class AdminUsersPanelComponent {
   private readonly router = inject(Router);
   readonly pageSize = 30;
 
-  readonly roleOptions: readonly FormatSelectOption[] = [
+  readonly allRoleOptions: readonly FormatSelectOption[] = [
     { id: ROLE_USER, name: 'User' },
     { id: ROLE_ADMIN, name: 'Admin' },
     { id: ROLE_OWNER, name: 'Owner' },
   ];
+  readonly roleOptions: readonly FormatSelectOption[] = this.allRoleOptions.filter((option) => option.id !== ROLE_OWNER);
   readonly roleFilterOptions: readonly FormatSelectOption[] = [
     { id: 'all', name: 'All roles' },
-    ...this.roleOptions,
+    ...this.allRoleOptions,
   ];
   readonly premiumTierOptions: readonly FormatSelectOption[] = [
     { id: 'none', name: 'None' },
@@ -136,7 +137,7 @@ export class AdminUsersPanelComponent {
   }
 
   changeAuthorizationRole(user: AdminUser, selectedRole: string): void {
-    if (!this.isAuthorizationRole(selectedRole) || selectedRole === user.authorizationRole || !this.canChangeRole(user)) {
+    if (!this.isAssignableAuthorizationRole(selectedRole) || selectedRole === user.authorizationRole || !this.canChangeRole(user)) {
       return;
     }
 
@@ -144,7 +145,7 @@ export class AdminUsersPanelComponent {
       title: 'Confirm role change',
       message: `Change ${user.displayName}'s role from ${this.roleLabel(user.authorizationRole)} to ${this.roleLabel(selectedRole)}?`,
       primaryLabel: 'Change role',
-      danger: selectedRole === ROLE_OWNER || user.authorizationRole === ROLE_OWNER,
+      danger: user.authorizationRole === ROLE_OWNER,
       action: () => this.updateUser(user, 'role', { authorizationRole: selectedRole }),
     });
   }
@@ -300,7 +301,7 @@ export class AdminUsersPanelComponent {
   }
 
   roleLabel(role: AuthorizationRole): string {
-    return this.roleOptions.find((option) => option.id === role)?.name ?? role;
+    return this.allRoleOptions.find((option) => option.id === role)?.name ?? role;
   }
 
   premiumTierLabel(tier: PremiumTier): string {
@@ -526,6 +527,10 @@ export class AdminUsersPanelComponent {
   }
 
   private isAuthorizationRole(value: string): value is AuthorizationRole {
+    return this.allRoleOptions.some((option) => option.id === value);
+  }
+
+  private isAssignableAuthorizationRole(value: string): value is Exclude<AuthorizationRole, typeof ROLE_OWNER> {
     return this.roleOptions.some((option) => option.id === value);
   }
 

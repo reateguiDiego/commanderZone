@@ -993,6 +993,12 @@ paths:
             type: string
             enum: [and, or]
             default: and
+        - name: oracleTextExact
+          in: query
+          description: When true, oracleTextA and oracleTextB match whole words only instead of substrings.
+          schema:
+            type: boolean
+            default: false
         - name: manaValueMin
           in: query
           schema:

@@ -112,20 +112,15 @@
       />
 
       @if (searched() && totalPages() > 1) {
-        <nav class="cards-pagination" [attr.aria-label]="'cards.cardSearch.pagination.label' | runtimeTranslate">
-          <button type="button" class="cards-page-button" [disabled]="page() <= 1 || loading()" (click)="previousPage()">
-            <lucide-icon name="chevron-left" size="16" aria-hidden="true" />
-            <span>{{ 'common.actions.previous' | runtimeTranslate }}</span>
-          </button>
-          <span class="cards-page-status">
-            <strong>{{ page() }}</strong>
-            <span>/ {{ totalPages() }}</span>
-          </span>
-          <button type="button" class="cards-page-button" [disabled]="!hasMore() || loading()" (click)="nextPage()">
-            <span>{{ 'common.actions.next' | runtimeTranslate }}</span>
-            <lucide-icon name="chevron-right" size="16" aria-hidden="true" />
-          </button>
-        </nav>
+        <app-pagination
+          [currentPage]="page()"
+          [totalPages]="totalPages()"
+          [previousDisabled]="page() <= 1 || loading()"
+          [nextDisabled]="!hasMore() || loading()"
+          ariaLabelKey="cards.cardSearch.pagination.label"
+          (previousRequested)="previousPage()"
+          (nextRequested)="nextPage()"
+        />
       }
     </app-cards-main-layout>
   </div>

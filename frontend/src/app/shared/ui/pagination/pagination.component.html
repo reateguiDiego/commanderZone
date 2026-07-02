@@ -1,0 +1,14 @@
+<nav class="pagination" [attr.aria-label]="ariaLabelKey() | runtimeTranslate">
+  <button type="button" class="pagination-button" [disabled]="previousDisabled()" (click)="previousRequested.emit()">
+    <lucide-icon name="chevron-left" size="16" aria-hidden="true" />
+    <span>{{ 'common.actions.previous' | runtimeTranslate }}</span>
+  </button>
+  <span class="pagination-status">
+    <strong>{{ currentPage() }}</strong>
+    <span>/ {{ totalPages() }}</span>
+  </span>
+  <button type="button" class="pagination-button" [disabled]="nextDisabled()" (click)="nextRequested.emit()">
+    <span>{{ 'common.actions.next' | runtimeTranslate }}</span>
+    <lucide-icon name="chevron-right" size="16" aria-hidden="true" />
+  </button>
+</nav>

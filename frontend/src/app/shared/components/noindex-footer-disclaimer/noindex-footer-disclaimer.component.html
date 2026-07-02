@@ -32,5 +32,9 @@
       {{ 'common.footerDisclaimer.footerDisclaimer.ifYouAreTheRightsHolderAnd' | runtimeTranslate }}
       <a [routerLink]="contactPath">{{ 'contactPage.meta.title' | runtimeTranslate }}</a>, {{ 'common.footerDisclaimer.footerDisclaimer.viewHelpOrPressKit' | runtimeTranslate }}
     </p>
+
+    <button type="button" class="app-noindex-disclaimer-link-button" data-cz-cookie-preferences (click)="openCookiePreferences()">
+      {{ copy().cookieBanner.managePreferences }}
+    </button>
   </div>
 </footer>

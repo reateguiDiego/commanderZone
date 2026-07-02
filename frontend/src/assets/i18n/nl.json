@@ -255,7 +255,8 @@
       "format": "Formaat",
       "players": "Spelers",
       "action": "Actie",
-      "noRoomsMatchTheCurrentFilters": "Er zijn geen kamers die overeenkomen met de huidige filters."
+      "noRoomsMatchTheCurrentFilters": "Er zijn geen kamers die overeenkomen met de huidige filters.",
+      "paginationLabel": "Paginering van de kamerlijst"
     },
     "roomCreatePanel": {
       "join": "Deelnemen",
@@ -1040,6 +1041,8 @@
           "textModeAllDescription": "Beide vakjes moeten voorkomen in de tekst van de kaartregels.",
           "textModeAny": "Elke tekstterm",
           "textModeAnyDescription": "Elk vakje kan overeenkomen met de tekst van de kaartregels.",
+          "textExact": "Exacte woordmatch",
+          "textExactDescription": "Zoek alleen volledige woorden, geen tekst binnen langere woorden.",
           "types": "Soorten",
           "subtypes": "Subtypen",
           "sets": "Stelt in",

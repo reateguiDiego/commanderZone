@@ -255,7 +255,8 @@
       "format": "Format",
       "players": "Joueurs",
       "action": "Action",
-      "noRoomsMatchTheCurrentFilters": "Aucune salle ne correspond aux filtres actuels."
+      "noRoomsMatchTheCurrentFilters": "Aucune salle ne correspond aux filtres actuels.",
+      "paginationLabel": "Pagination de la liste des salles"
     },
     "roomCreatePanel": {
       "join": "Rejoindre",
@@ -1040,6 +1041,8 @@
           "textModeAllDescription": "Les deux cases doivent apparaître dans le texte des règles de la carte.",
           "textModeAny": "Tout terme textuel",
           "textModeAnyDescription": "L’une ou l’autre case peut correspondre au texte des règles de la carte.",
+          "textExact": "Correspondance exacte du mot",
+          "textExactDescription": "Recherche uniquement des mots complets, pas du texte dans des mots plus longs.",
           "types": "Types",
           "subtypes": "Sous-types",
           "sets": "Extensions",

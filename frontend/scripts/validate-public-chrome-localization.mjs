@@ -7,7 +7,7 @@ const localizedHomes = [
   {
     locale: 'es',
     path: '/es/',
-    expected: ['Idioma', 'Jugar online', 'Preferencias de cookies', 'Rechazar', 'Aceptar', 'política de privacidad', 'Aviso legal'],
+    expected: ['Idioma', 'Jugar Commander online', 'Preferencias de cookies', 'Rechazar', 'Aceptar', 'política de privacidad', 'Aviso legal'],
   },
   {
     locale: 'de',
@@ -22,7 +22,7 @@ const localizedHomes = [
   {
     locale: 'pt',
     path: '/pt/',
-    expected: ['Idioma', 'Jogar online', 'Preferências de cookies', 'Rejeitar', 'Aceitar', 'política de privacidade', 'Aviso legal'],
+    expected: ['Idioma', 'Jogar Commander online', 'Preferências de cookies', 'Rejeitar', 'Aceitar', 'política de privacidade', 'Aviso legal'],
   },
   {
     locale: 'it',

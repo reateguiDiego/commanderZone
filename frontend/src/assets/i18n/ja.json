@@ -255,7 +255,8 @@
       "format": "フォーマット",
       "players": "プレイヤー",
       "action": "アクション",
-      "noRoomsMatchTheCurrentFilters": "現在のフィルターに一致するルームはありません。"
+      "noRoomsMatchTheCurrentFilters": "現在のフィルターに一致するルームはありません。",
+      "paginationLabel": "ルーム一覧のページ切り替え"
     },
     "roomCreatePanel": {
       "join": "参加",
@@ -1040,6 +1041,8 @@
           "textModeAllDescription": "両方のボックスがカード ルールのテキストに表示されなければなりません。",
           "textModeAny": "任意のテキスト用語",
           "textModeAnyDescription": "どちらのボックスもカード ルールのテキストと一致します。",
+          "textExact": "単語の完全一致",
+          "textExactDescription": "長い単語の一部ではなく、完全な単語だけを検索します。",
           "types": "タイプ",
           "subtypes": "サブタイプ",
           "sets": "セット",

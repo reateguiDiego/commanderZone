@@ -30,11 +30,15 @@ export interface PublicChromeCopy {
     readonly privacyJoin: string;
     readonly cookiePolicyLabel: string;
     readonly cookiesJoin: string;
-    readonly configure: string;
     readonly reject: string;
     readonly accept: string;
-    readonly save: string;
-    readonly analyticsCookies: string;
+    readonly managePreferences: string;
+    readonly essentialCookies: string;
+    readonly essentialDescription: string;
+    readonly preferencesCookies: string;
+    readonly preferencesDescription: string;
+    readonly adsCookies: string;
+    readonly adsDescription: string;
   };
   readonly disclaimer: {
     readonly heading: string;
@@ -67,16 +71,20 @@ const PUBLIC_CHROME_COPY = {
     },
     cookieBanner: {
       title: 'Cookie preferences',
-      copyStart: 'CommanderZone uses essential cookies for the app. Optional analytics stay disabled unless you allow them. Read the',
+      copyStart: 'CommanderZone uses essential cookies and functional preferences. Read the',
       privacyPolicyLabel: 'privacy policy',
       privacyJoin: 'and',
       cookiePolicyLabel: 'cookie policy',
       cookiesJoin: '',
-      configure: 'Configure',
       reject: 'Reject',
       accept: 'Accept',
-      save: 'Save',
-      analyticsCookies: 'Analytics cookies',
+      managePreferences: 'Cookie preferences',
+      essentialCookies: 'Essential cookies',
+      essentialDescription: 'Required for login, security, consent storage and core app behavior.',
+      preferencesCookies: 'Functional preferences',
+      preferencesDescription: 'Used for your own app settings such as theme, table view and saved interface choices.',
+      adsCookies: 'Advertising cookies',
+      adsDescription: 'Prepared for a future ads phase. Not active now.',
     },
     disclaimer: {
       heading: 'Disclaimer',
@@ -110,16 +118,20 @@ const PUBLIC_CHROME_COPY = {
     },
     cookieBanner: {
       title: 'Preferencias de cookies',
-      copyStart: 'CommanderZone usa cookies esenciales para la app. La analítica opcional permanece desactivada salvo que la permitas. Lee la',
+      copyStart: 'CommanderZone usa cookies esenciales y preferencias funcionales. Lee la',
       privacyPolicyLabel: 'política de privacidad',
       privacyJoin: 'y la',
       cookiePolicyLabel: 'política de cookies',
       cookiesJoin: '',
-      configure: 'Configurar',
       reject: 'Rechazar',
       accept: 'Aceptar',
-      save: 'Guardar',
-      analyticsCookies: 'Cookies de analítica',
+      managePreferences: 'Preferencias de cookies',
+      essentialCookies: 'Cookies esenciales',
+      essentialDescription: 'Necesarias para login, seguridad, consentimiento y funcionamiento básico.',
+      preferencesCookies: 'Preferencias funcionales',
+      preferencesDescription: 'Usadas para tus ajustes propios como tema, vista de mesa y opciones de interfaz.',
+      adsCookies: 'Cookies publicitarias',
+      adsDescription: 'Preparadas para una fase futura de anuncios. No activas ahora.',
     },
     disclaimer: {
       heading: 'Aviso legal',
@@ -153,16 +165,20 @@ const PUBLIC_CHROME_COPY = {
     },
     cookieBanner: {
       title: 'Cookie-Einstellungen',
-      copyStart: 'CommanderZone verwendet notwendige Cookies für die App. Optionale Analyse bleibt deaktiviert, sofern du sie nicht erlaubst. Lies die',
+      copyStart: 'CommanderZone verwendet notwendige Cookies und funktionale Einstellungen. Lies die',
       privacyPolicyLabel: 'Datenschutzerklärung',
       privacyJoin: 'und die',
       cookiePolicyLabel: 'Cookie-Richtlinie',
       cookiesJoin: '',
-      configure: 'Konfigurieren',
       reject: 'Ablehnen',
       accept: 'Akzeptieren',
-      save: 'Speichern',
-      analyticsCookies: 'Analyse-Cookies',
+      managePreferences: 'Cookie-Einstellungen',
+      essentialCookies: 'Essenzielle Cookies',
+      essentialDescription: 'Erforderlich für Login, Sicherheit, Einwilligungsspeicher und Kernfunktionen.',
+      preferencesCookies: 'Funktionale Einstellungen',
+      preferencesDescription: 'Für eigene App-Einstellungen wie Theme, Tischansicht und gespeicherte UI-Auswahl.',
+      adsCookies: 'Werbe-Cookies',
+      adsDescription: 'Für eine künftige Werbephase vorbereitet. Derzeit nicht aktiv.',
     },
     disclaimer: {
       heading: 'Hinweis',
@@ -196,16 +212,20 @@ const PUBLIC_CHROME_COPY = {
     },
     cookieBanner: {
       title: 'Préférences de cookies',
-      copyStart: 'CommanderZone utilise des cookies essentiels pour l’application. L’analyse optionnelle reste désactivée sauf si vous l’autorisez. Consultez la',
+      copyStart: 'CommanderZone utilise des cookies essentiels et des préférences fonctionnelles. Consultez la',
       privacyPolicyLabel: 'politique de confidentialité',
       privacyJoin: 'et la',
       cookiePolicyLabel: 'politique relative aux cookies',
       cookiesJoin: '',
-      configure: 'Configurer',
       reject: 'Refuser',
       accept: 'Accepter',
-      save: 'Enregistrer',
-      analyticsCookies: 'Cookies d’analyse',
+      managePreferences: 'Préférences de cookies',
+      essentialCookies: 'Cookies essentiels',
+      essentialDescription: 'Nécessaires pour la connexion, la sécurité, le consentement et les fonctions de base.',
+      preferencesCookies: 'Préférences fonctionnelles',
+      preferencesDescription: 'Utilisées pour vos réglages comme le thème, la vue de table et les choix d’interface.',
+      adsCookies: 'Cookies publicitaires',
+      adsDescription: 'Préparés pour une future phase publicitaire. Non actifs actuellement.',
     },
     disclaimer: {
       heading: 'Mention légale',
@@ -239,16 +259,20 @@ const PUBLIC_CHROME_COPY = {
     },
     cookieBanner: {
       title: 'Preferências de cookies',
-      copyStart: 'CommanderZone usa cookies essenciais para a app. A análise opcional fica desativada a menos que você permita. Leia a',
+      copyStart: 'CommanderZone usa cookies essenciais e preferências funcionais. Leia a',
       privacyPolicyLabel: 'política de privacidade',
       privacyJoin: 'e a',
       cookiePolicyLabel: 'política de cookies',
       cookiesJoin: '',
-      configure: 'Configurar',
       reject: 'Rejeitar',
       accept: 'Aceitar',
-      save: 'Salvar',
-      analyticsCookies: 'Cookies de análise',
+      managePreferences: 'Preferências de cookies',
+      essentialCookies: 'Cookies essenciais',
+      essentialDescription: 'Necessários para login, segurança, consentimento e funções principais.',
+      preferencesCookies: 'Preferências funcionais',
+      preferencesDescription: 'Usadas para suas configurações como tema, visualização da mesa e opções da interface.',
+      adsCookies: 'Cookies de publicidade',
+      adsDescription: 'Preparados para uma fase futura de anúncios. Não ativos agora.',
     },
     disclaimer: {
       heading: 'Aviso legal',
@@ -282,16 +306,20 @@ const PUBLIC_CHROME_COPY = {
     },
     cookieBanner: {
       title: 'Preferenze cookie',
-      copyStart: 'CommanderZone usa cookie essenziali per l’app. L’analisi opzionale resta disattivata salvo tuo consenso. Leggi l’informativa sulla',
+      copyStart: 'CommanderZone usa cookie essenziali e preferenze funzionali. Leggi l’informativa sulla',
       privacyPolicyLabel: 'privacy',
       privacyJoin: 'e la',
       cookiePolicyLabel: 'cookie policy',
       cookiesJoin: '',
-      configure: 'Configura',
       reject: 'Rifiuta',
       accept: 'Accetta',
-      save: 'Salva',
-      analyticsCookies: 'Cookie di analisi',
+      managePreferences: 'Preferenze cookie',
+      essentialCookies: 'Cookie essenziali',
+      essentialDescription: 'Necessari per login, sicurezza, consenso e funzioni principali.',
+      preferencesCookies: 'Preferenze funzionali',
+      preferencesDescription: 'Usate per impostazioni come tema, vista tavolo e scelte dell’interfaccia.',
+      adsCookies: 'Cookie pubblicitari',
+      adsDescription: 'Preparati per una futura fase pubblicitaria. Non attivi ora.',
     },
     disclaimer: {
       heading: 'Avviso legale',

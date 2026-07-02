@@ -255,7 +255,8 @@
       "format": "Формат",
       "players": "Игроки",
       "action": "Действие",
-      "noRoomsMatchTheCurrentFilters": "Ни одна комната не соответствует текущим фильтрам."
+      "noRoomsMatchTheCurrentFilters": "Ни одна комната не соответствует текущим фильтрам.",
+      "paginationLabel": "Пагинация списка комнат"
     },
     "roomCreatePanel": {
       "join": "Войти",
@@ -1040,6 +1041,8 @@
           "textModeAllDescription": "Оба поля должны присутствовать в тексте правил карты.",
           "textModeAny": "Любой текстовый термин",
           "textModeAnyDescription": "Любое поле может соответствовать тексту правил карты.",
+          "textExact": "Точное совпадение слова",
+          "textExactDescription": "Искать только целые слова, а не текст внутри более длинных слов.",
           "types": "Типы",
           "subtypes": "Подтипы",
           "sets": "Наборы",

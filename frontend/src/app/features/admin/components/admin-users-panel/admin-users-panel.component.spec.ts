@@ -144,6 +144,12 @@ describe('AdminUsersPanelComponent', () => {
     expect(api.updateUser).toHaveBeenCalledWith('user-1', { authorizationRole: ROLE_ADMIN });
   });
 
+  it('does not expose owner as an assignable role in the role select', () => {
+    const options = openFormatSelectOptions(fixture, 'authorizationRole');
+
+    expect(options.map((option) => option.textContent?.trim())).toEqual(['User', 'Admin']);
+  });
+
   it('asks for confirmation before updating premium tier from the premium select', () => {
     selectFormatOption(fixture, 'premiumTier', 'Tier 2');
 
@@ -270,6 +276,13 @@ describe('AdminUsersPanelComponent', () => {
 });
 
 function selectFormatOption(fixture: ComponentFixture<AdminUsersPanelComponent>, inputName: string, optionText: string): void {
+  const option = openFormatSelectOptions(fixture, inputName)
+    .find((candidate) => candidate.textContent?.includes(optionText)) as HTMLButtonElement | undefined;
+  option?.click();
+  fixture.detectChanges();
+}
+
+function openFormatSelectOptions(fixture: ComponentFixture<AdminUsersPanelComponent>, inputName: string): HTMLButtonElement[] {
   const nativeElement = fixture.nativeElement as HTMLElement;
   const selectHost = nativeElement.querySelector(`app-format-select input[name="${inputName}"]`)
     ?.closest('app-format-select') as HTMLElement | null;
@@ -277,10 +290,7 @@ function selectFormatOption(fixture: ComponentFixture<AdminUsersPanelComponent>,
   trigger?.click();
   fixture.detectChanges();
 
-  const option = Array.from(selectHost?.querySelectorAll('.format-select-option') ?? [])
-    .find((candidate) => candidate.textContent?.includes(optionText)) as HTMLButtonElement | undefined;
-  option?.click();
-  fixture.detectChanges();
+  return Array.from(selectHost?.querySelectorAll('.format-select-option') ?? []) as HTMLButtonElement[];
 }
 
 function buttonByLabelIn(row: HTMLTableRowElement | undefined, label: string): HTMLButtonElement | undefined {

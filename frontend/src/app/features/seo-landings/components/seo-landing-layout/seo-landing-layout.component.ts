@@ -1,6 +1,7 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, PLATFORM_ID, computed, inject, input } from '@angular/core';
 import { getPublicChromeCopy } from '../../../../core/localization/public-chrome-copy';
+import { CookieConsentService } from '../../../../core/privacy/cookie-consent.service';
 import { AppThemeAssetsService } from '../../../../core/theme/app-theme-assets.service';
 import { LandingBreadcrumbComponent } from '../landing-breadcrumb/landing-breadcrumb.component';
 import { LandingInternalLinksComponent } from '../landing-internal-links/landing-internal-links.component';
@@ -21,6 +22,7 @@ const SEO_SCROLL_CLASSES = ['app-pretty-scroll', 'seo-scroll-context'] as const;
 export class SeoLandingLayoutComponent implements OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly cookieConsent = inject(CookieConsentService);
   readonly themeAssets = inject(AppThemeAssetsService);
 
   readonly content = input.required<SeoLandingContent>();
@@ -46,5 +48,9 @@ export class SeoLandingLayoutComponent implements OnDestroy {
 
     this.document.documentElement.classList.remove(...SEO_SCROLL_CLASSES);
     this.document.body.classList.remove(...SEO_SCROLL_CLASSES);
+  }
+
+  openCookiePreferences(): void {
+    this.cookieConsent.openPreferences();
   }
 }

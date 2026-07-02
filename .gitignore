@@ -12,6 +12,7 @@
 /backend/vendor/
 /backend/phpunit.xml
 /backend/.phpunit.cache/
+/backend/Caddyfile.prod
 /frontend/node_modules/
 /frontend/dist/
 *.log

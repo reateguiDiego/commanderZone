@@ -255,7 +255,8 @@
       "format": "Format",
       "players": "Spieler",
       "action": "Aktion",
-      "noRoomsMatchTheCurrentFilters": "Keine Räume entsprechen den aktuellen Filtern."
+      "noRoomsMatchTheCurrentFilters": "Keine Räume entsprechen den aktuellen Filtern.",
+      "paginationLabel": "Paginierung der Raumliste"
     },
     "roomCreatePanel": {
       "join": "Beitreten",
@@ -1040,6 +1041,8 @@
           "textModeAllDescription": "Beide Felder müssen im Text der Kartenregeln erscheinen.",
           "textModeAny": "Beliebiger Textbegriff",
           "textModeAnyDescription": "Jedes Feld kann mit dem Text der Kartenregeln übereinstimmen.",
+          "textExact": "Exakte Wortübereinstimmung",
+          "textExactDescription": "Nur ganze Wörter suchen, keinen Text innerhalb längerer Wörter.",
           "types": "Typen",
           "subtypes": "Untertypen",
           "sets": "Sets",

@@ -255,7 +255,8 @@
       "format": "Format",
       "players": "Jugadors",
       "action": "Acció",
-      "noRoomsMatchTheCurrentFilters": "Cap sala coincideix amb els filtres actuals."
+      "noRoomsMatchTheCurrentFilters": "Cap sala coincideix amb els filtres actuals.",
+      "paginationLabel": "Paginació de la llista de sales"
     },
     "roomCreatePanel": {
       "join": "Uneix-te",
@@ -1040,6 +1041,8 @@
           "textModeAllDescription": "Ambdues caselles han d'aparèixer al text de les regles de la carta.",
           "textModeAny": "Qualsevol terme del text",
           "textModeAnyDescription": "Qualsevol casella pot coincidir amb el text de les regles de la carta.",
+          "textExact": "Coincidència exacta de paraula",
+          "textExactDescription": "Cerca només paraules completes, no text dins de paraules més llargues.",
           "types": "Tipus",
           "subtypes": "Subtipus",
           "sets": "Conjunts",

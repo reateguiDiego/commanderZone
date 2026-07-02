@@ -37,5 +37,7 @@ describe('FooterDisclaimerComponent', () => {
       '/pt/politica-cookies/',
       '/pt/termos/',
     ]);
+    expect(compiled.querySelector('.app-disclaimer-link-button')?.textContent).toContain('cookies');
+    expect(compiled.querySelector('.app-disclaimer-link-button--cookies[data-cz-cookie-preferences]')).not.toBeNull();
   });
 });

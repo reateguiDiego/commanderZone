@@ -255,7 +255,8 @@
       "format": "格式",
       "players": "玩家",
       "action": "操作",
-      "noRoomsMatchTheCurrentFilters": "没有房间符合当前的过滤条件。"
+      "noRoomsMatchTheCurrentFilters": "没有房间符合当前的过滤条件。",
+      "paginationLabel": "房间列表分页"
     },
     "roomCreatePanel": {
       "join": "加入",
@@ -1040,6 +1041,8 @@
           "textModeAllDescription": "这两个框必须出现在卡规则文本中。",
           "textModeAny": "任何文本术语",
           "textModeAnyDescription": "任一框都可以匹配卡规则文本。",
+          "textExact": "精确单词匹配",
+          "textExactDescription": "仅匹配完整单词，不匹配较长单词内的文本。",
           "types": "类型",
           "subtypes": "亚型",
           "sets": "套",

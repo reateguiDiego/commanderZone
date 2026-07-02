@@ -212,7 +212,7 @@ describe('SeoLandingPageComponent', () => {
     expect(links).toContain('/de/commander-online-spielen/');
     expect(links).toContain('/en/import-commander-deck/');
     expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
-    expect(element.querySelector('button')).toBeNull();
+    expect(element.querySelector('button:not(.seo-landing-layout__cookie-button)')).toBeNull();
     expect(element.querySelector('.landing-faq')).not.toBeNull();
     expect(element.querySelector('.landing-full-faq')).toBeNull();
     expect(element.textContent).toContain('No. It is a manual Commander table.');

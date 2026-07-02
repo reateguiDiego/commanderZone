@@ -255,7 +255,8 @@
       "format": "Formato",
       "players": "Jugadores",
       "action": "Acción",
-      "noRoomsMatchTheCurrentFilters": "Ninguna sala coincide con los filtros actuales."
+      "noRoomsMatchTheCurrentFilters": "Ninguna sala coincide con los filtros actuales.",
+      "paginationLabel": "Paginación de la lista de salas"
     },
     "roomCreatePanel": {
       "join": "Unirse",
@@ -1040,6 +1041,8 @@
           "textModeAllDescription": "Ambas casillas deben aparecer en el texto de las reglas de la carta.",
           "textModeAny": "Cualquier término de texto",
           "textModeAnyDescription": "Cualquiera de los cuadros puede coincidir con el texto de las reglas de la carta.",
+          "textExact": "Coincidencia exacta de palabra",
+          "textExactDescription": "Busca solo palabras completas, no texto dentro de palabras más largas.",
           "types": "Tipos",
           "subtypes": "Subtipos",
           "sets": "Colecciones",

@@ -16,6 +16,7 @@
     "validate:seo-final": "node scripts/validate-seo-final-architecture.mjs",
     "validate:seo-i18n": "node scripts/validate-seo-i18n-boundaries.mjs",
     "validate:legal-pages": "node scripts/validate-legal-pages.mjs",
+    "validate:no-tracking": "node scripts/validate-no-tracking-scripts.mjs",
     "validate:public-chrome": "node scripts/validate-public-chrome-localization.mjs",
     "validate:robots": "node scripts/validate-robots.mjs",
     "validate:seo-assets": "node -e \"console.log('validate:seo-assets is temporarily disabled until final SEO images are ready.')\"",

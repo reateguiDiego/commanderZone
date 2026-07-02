@@ -46,6 +46,8 @@ function validateSourceContracts() {
   const appRoutes = readText('src/app/app.routes.ts');
   const legalRoutes = readText('src/app/core/legal/legal-routes.ts');
   const featureLegalRoutes = readText('src/app/features/legal/legal.routes.ts');
+  const contactConfig = readText('src/app/core/contact/contact.config.ts');
+  const legalContent = readText('src/app/features/legal/legal-page.content.ts');
 
   if (!pageStrategies.includes("legal: 'runtime-i18n'")) {
     fail('Legal routes must use runtime-i18n with explicit legal robots handling for noindex, follow.');
@@ -75,6 +77,38 @@ function validateSourceContracts() {
 
   if (!legalRoutes.includes('LEGAL_CONTACT_EMAIL = PUBLIC_CONTACT_EMAIL')) {
     fail('Legal contact email must reuse the shared public contact config.');
+  }
+
+  if (!contactConfig.includes('info.dev.sunrise@gmail.com')) {
+    fail('Public legal/contact email must be info.dev.sunrise@gmail.com.');
+  }
+
+  for (const requiredText of [
+    'LEGAL_OWNER_COUNTRY = \'España\'',
+    'commanderzone.refresh',
+    'mercureAuthorization',
+    'commanderzone.cookieConsent',
+    'commanderzone.user',
+    'commanderzone.theme',
+    'commanderzone.deck-history.*',
+    'commanderzone.missing-watchlist',
+    'CommanderZone no usa cookies de analítica',
+    'ni trata la publicidad como consentida',
+  ]) {
+    if (!legalContent.includes(requiredText)) {
+      fail(`Legal content must include production cookie/privacy text: ${requiredText}`);
+    }
+  }
+
+  for (const forbiddenText of [
+    'analítica opcional',
+    'Analítica opcional',
+    'optional analytics',
+    'Optional analytics',
+  ]) {
+    if (legalContent.includes(forbiddenText)) {
+      fail(`Legal content must not describe analytics as an optional active purpose: ${forbiddenText}`);
+    }
   }
 }
 

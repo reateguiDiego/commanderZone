@@ -1,28 +1,21 @@
-# Analytics and Cookie Consent Preparation
+# Cookie Consent Preparation
 
-Phase 27 prepares the frontend for a future Analytics task without enabling real tracking.
+Phase 1.1 keeps CommanderZone production-ready for cookies without enabling analytics or ads.
 
 ## Current State
 
-- `CookieConsentService` stores only the user's consent choice and whether optional analytics is allowed.
-- `AnalyticsService` is an abstraction backed by `NoopAnalyticsService` by default.
-- No GA4, GTM, analytics script, fake measurement ID, or tracking endpoint is configured.
-- Rejecting optional cookies keeps analytics disabled and must not break the app.
-- The consent banner is a small fixed-bottom UI rendered after page content, so SEO landing content remains visible in prerendered HTML.
+- `CookieConsentService` stores a versioned consent state with essential cookies, functional preferences, and a prepared advertising category.
+- No analytics or ad scripts are loaded.
+- Google Consent Mode remains denied.
+- Users can reopen cookie preferences from the footer.
 
-## Future Analytics Requirements
+## Future Ads Requirements
 
-- Add a real Analytics provider only in a dedicated Analytics implementation task.
-- Do not hardcode fake GA4 or GTM IDs.
-- Do not load analytics scripts before the consent state allows analytics.
-- Wire Google Consent Mode through the existing consent state before loading any provider.
-- Keep ad storage, ad user data, and ad personalization denied unless a reviewed legal requirement explicitly changes that.
-- Never send emails, usernames, room codes, deck names, private game IDs, or other personal identifiers in analytics parameters.
-- Keep SEO landings prerenderable and crawlable if Analytics is added later.
+- Add ad providers only in a dedicated task.
+- Do not reuse Phase 1.1 decisions as future ad consent.
+- Update policies and use a certified CMP where required before enabling ads.
 
 ## Policy Requirements
 
-- Public privacy and cookie policy pages must exist before production Analytics is enabled.
-- The banner links currently reserve `/privacy-policy/` and `/cookie-policy/` as public policy URLs.
 - Legal copy must be reviewed before production.
-- The policy must explain essential app cookies, optional analytics cookies, retention, provider details, withdrawal of consent, and contact/legal ownership.
+- Policies must cover real cookies/storage, no analytics, ads readiness, withdrawal, contact and ownership.

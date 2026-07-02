@@ -143,6 +143,10 @@ export class CardAdvancedSearchFormComponent {
       : 'deckBuilder.cards.cardSearch.form.textModeAllDescription';
   }
 
+  setTextExactFromToggle(exactTextTerm: boolean): void {
+    this.model.oracleTextExact = exactTextTerm;
+  }
+
   selectColorMode(value: string): void {
     if (value === 'all' || value === 'any' || value === 'exact') {
       this.model.colorMatchMode = value;
@@ -312,6 +316,7 @@ export class CardAdvancedSearchFormComponent {
       || this.model.viewMode !== this.defaultModel.viewMode
       || this.model.sort !== this.defaultModel.sort
       || this.model.oracleTextMode !== this.defaultModel.oracleTextMode
+      || this.model.oracleTextExact !== this.defaultModel.oracleTextExact
       || this.model.colorMatchMode !== this.defaultModel.colorMatchMode
       || this.model.manaValueMin !== null
       || this.model.manaValueMax !== null
@@ -343,6 +348,7 @@ export class CardAdvancedSearchFormComponent {
     }
     if (this.filterEnabled('text') && (filters.oracleTextA || filters.oracleTextB)) {
       filters.oracleTextMode = this.model.oracleTextMode;
+      this.assignBoolean(filters, 'oracleTextExact', this.model.oracleTextExact);
     }
 
     if (this.filterEnabled('types')) {
