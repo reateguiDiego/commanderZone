@@ -204,7 +204,12 @@
       "couldNotCheckNow": "Could not check right now",
       "usernameLengthRequirement": "User name must be between 2 and 20 characters.",
       "usernameAvailable": "User name available",
-      "usernameUnavailable": "User name not available"
+      "usernameUnavailable": "User name not available",
+      "googleUnavailable": "Google login is not available right now.",
+      "signInWithGoogle": "Sign in with Google",
+      "registerWithGoogle": "Register with Google",
+      "socialSignIn": "Social sign-in",
+      "or": "or"
     },
     "emailVerificationPage": {
       "confirmingEmail": "Confirming email",
@@ -250,7 +255,8 @@
       "format": "Format",
       "players": "Players",
       "action": "Action",
-      "noRoomsMatchTheCurrentFilters": "No rooms match the current filters."
+      "noRoomsMatchTheCurrentFilters": "No rooms match the current filters.",
+      "paginationLabel": "Room list pagination"
     },
     "roomCreatePanel": {
       "join": "Join",
@@ -1035,6 +1041,8 @@
           "textModeAllDescription": "Both boxes must appear in the card rules text.",
           "textModeAny": "Any text term",
           "textModeAnyDescription": "Either box can match the card rules text.",
+          "textExact": "Exact word match",
+          "textExactDescription": "Match complete words only, not text inside longer words.",
           "types": "Types",
           "subtypes": "Subtypes",
           "sets": "Sets",

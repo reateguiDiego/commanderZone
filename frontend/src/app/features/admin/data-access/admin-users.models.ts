@@ -27,6 +27,18 @@ export interface AdminUserResponse {
   readonly user: AdminUser;
 }
 
+export interface AdminUserImpersonationState {
+  readonly active: true;
+  readonly impersonatorId: string;
+  readonly targetUserId: string;
+}
+
+export interface AdminUserImpersonationResponse {
+  readonly token: string;
+  readonly user: User;
+  readonly impersonation: AdminUserImpersonationState;
+}
+
 export interface AdminUserUpdatePayload {
   readonly authorizationRole?: AuthorizationRole;
   readonly premiumTier?: PremiumTier;

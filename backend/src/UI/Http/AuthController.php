@@ -4,6 +4,7 @@ namespace App\UI\Http;
 
 use App\Application\Auth\AuthThrottleService;
 use App\Application\Auth\AuthMailer;
+use App\Application\Auth\AuthSessionResponseFactory;
 use App\Application\Auth\EmailVerificationService;
 use App\Application\Auth\LoginProtectionService;
 use App\Application\Auth\PasswordPolicy;
@@ -133,6 +134,7 @@ class AuthController extends ApiController
         private readonly EmailVerificationService $emailVerificationService,
         private readonly RefreshSessionService $refreshSessionService,
         private readonly RefreshSessionCookieManager $refreshSessionCookieManager,
+        private readonly AuthSessionResponseFactory $sessionResponseFactory,
         private readonly AuthMailer $authMailer,
         private readonly LoginProtectionService $loginProtectionService,
         private readonly PasswordPolicy $passwordPolicy,
@@ -248,9 +250,9 @@ class AuthController extends ApiController
         $this->loginProtectionService->resetFailures($normalizedIdentifier, $clientIp);
         $this->securityAuditLogger->log('auth.login.succeeded', $normalizedIdentifier, $user->id(), $clientIp);
 
-        return $this->jsonWithSessionCookie(
+        return $this->sessionResponseFactory->create(
             $request,
-            ['token' => $this->jwtTokenManager->create($user)],
+            [],
             $user,
         );
     }
@@ -387,11 +389,10 @@ class AuthController extends ApiController
 
         $this->refreshSessionService->revokeAllActiveSessionsForUser($user);
 
-        return $this->jsonWithSessionCookie(
+        return $this->sessionResponseFactory->create(
             $request,
             [
                 'updated' => true,
-                'token' => $this->jwtTokenManager->create($user),
                 'user' => $user->toArray(),
             ],
             $user,
@@ -476,12 +477,11 @@ class AuthController extends ApiController
             'purpose' => $verificationToken->purpose(),
         ]);
 
-        return $this->jsonWithSessionCookie(
+        return $this->sessionResponseFactory->create(
             $request,
             [
                 'verified' => true,
                 'user' => $user->toArray(),
-                'token' => $this->jwtTokenManager->create($user),
             ],
             $user,
         );
@@ -934,23 +934,6 @@ class AuthController extends ApiController
         $friendEventPublisher->publishPresenceChanged($user);
 
         return $this->json(null, 204);
-    }
-
-    private function jsonWithSessionCookie(Request $request, array $payload, User $user, int $status = 200): JsonResponse
-    {
-        $refreshToken = $this->refreshSessionService->issueSession(
-            $user,
-            $request->getClientIp(),
-            $request->headers->get('User-Agent'),
-        );
-
-        $response = $this->json($payload, $status);
-        $response->headers->setCookie($this->refreshSessionCookieManager->makeRefreshCookie($request, $refreshToken));
-        if ($this->refreshSessionCookieManager->hasCookieDomain()) {
-            $response->headers->setCookie($this->refreshSessionCookieManager->makeHostOnlyRefreshCookie($request, $refreshToken));
-        }
-
-        return $response;
     }
 
     private function jsonWithClearedSessionCookie(Request $request, mixed $payload = null, int $status = 200): JsonResponse

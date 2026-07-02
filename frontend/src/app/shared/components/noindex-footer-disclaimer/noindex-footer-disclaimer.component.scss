@@ -66,3 +66,23 @@
   color: var(--cz-text);
   text-decoration-color: currentColor;
 }
+
+.app-noindex-disclaimer-link-button {
+  justify-self: start;
+  min-height: 2.75rem;
+  padding: 0;
+  color: rgb(var(--cz-secondary-rgb) / 90%);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--cz-primary-rgb) / 48%);
+  text-underline-offset: 0.18rem;
+  cursor: pointer;
+}
+
+.app-noindex-disclaimer-link-button:hover {
+  color: var(--cz-text);
+  text-decoration-color: currentColor;
+}

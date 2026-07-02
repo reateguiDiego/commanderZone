@@ -603,6 +603,29 @@ SQL,
         self::assertSame('rare', $this->jsonResponse()['data'][0]['rarity']);
     }
 
+    public function testAdvancedSearchCanMatchExactOracleTextWords(): void
+    {
+        $rat = $this->seedCard('00000000-0000-0000-0000-0000000000f1', 'Exact Text Rat Match', [
+            'type_line' => 'Creature - Rat',
+            'oracle_text' => 'When this creature enters, create a 1/1 black Rat creature token.',
+        ]);
+        $pirates = $this->seedCard('00000000-0000-0000-0000-0000000000f2', 'Exact Text Pirate Partial Miss', [
+            'type_line' => 'Creature - Human Pirate',
+            'oracle_text' => 'Whenever this creature attacks, create two tapped Pirates.',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?oracleTextA=rat&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertContains($rat->scryfallId(), array_column($this->jsonResponse()['data'], 'scryfallId'));
+        self::assertContains($pirates->scryfallId(), array_column($this->jsonResponse()['data'], 'scryfallId'));
+
+        $this->jsonRequest('GET', '/cards/search?oracleTextA=rat&oracleTextExact=true&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$rat->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
     public function testUnqueriedAdvancedSearchUsesMaterializedEntriesForFormatPaginationAndSorting(): void
     {
         $lowMana = $this->seedCard('00000000-0000-0000-0000-0000000000d1', 'Entry Search Low', [

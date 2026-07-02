@@ -144,7 +144,7 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
             tone: 'success',
           }
           : null,
-      });
+      }, this);
     });
     void this.load();
   }
@@ -154,7 +154,7 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
       window.clearTimeout(this.copiedShareHandle);
     }
     this.deckViewerStore.destroy();
-    this.pageHeader.clear();
+    this.pageHeader.clear(this);
   }
 
   private async load(): Promise<void> {

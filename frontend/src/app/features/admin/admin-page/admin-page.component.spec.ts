@@ -1,7 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
-import { Bell, Flag, LucideAngularModule, Send, ShieldCheck, Upload, Users } from 'lucide-angular';
+import { Bell, Flag, Hammer, LucideAngularModule, MoveDown, MoveUp, Send, ShieldCheck, Upload, Users } from 'lucide-angular';
 import { MessagesApi } from '../../../core/api/messages.api';
 import { ROLE_USER } from '../../../core/auth/user-roles';
 import { AdminUsersApi } from '../data-access/admin-users.api';
@@ -16,7 +16,7 @@ describe('AdminPageComponent', () => {
     await TestBed.configureTestingModule({
       imports: [AdminPageComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Bell, Flag, Send, ShieldCheck, Upload, Users })),
+        importProvidersFrom(LucideAngularModule.pick({ Bell, Flag, Hammer, MoveDown, MoveUp, Send, ShieldCheck, Upload, Users })),
         {
           provide: AdminUsersApi,
           useValue: {

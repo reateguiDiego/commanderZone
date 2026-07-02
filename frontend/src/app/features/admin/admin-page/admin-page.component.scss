@@ -94,7 +94,7 @@ h1 {
   align-content: center;
   align-items: center;
   min-width: 0;
-  padding: clamp(1.5rem, 4vw, 3.5rem);
+  padding: clamp(1rem, 2vw, 1.35rem) clamp(1.5rem, 4vw, 3.5rem);
   border: 0;
   background: transparent;
   box-shadow: none;

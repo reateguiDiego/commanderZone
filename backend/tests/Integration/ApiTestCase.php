@@ -186,9 +186,11 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureUserPremiumTierColumn($connection);
         $this->ensureUserMessageTable($connection);
         $this->ensureUserReportTable($connection);
+        $this->ensureAuthIdentityTable($connection);
 
         $tables = [
             'game_debug_health',
+            'auth_identity',
             'auth_request_throttle',
             'login_attempt',
             'refresh_session',
@@ -483,6 +485,34 @@ SQL,
         $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT FK_USER_REPORT_REPORTER FOREIGN KEY (reporter_id) REFERENCES app_user (id) ON DELETE CASCADE');
         $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT FK_USER_REPORT_REPORTED_USER FOREIGN KEY (reported_user_id) REFERENCES app_user (id) ON DELETE CASCADE');
         $connection->executeStatement('ALTER TABLE user_report ADD CONSTRAINT chk_user_report_distinct_users CHECK (reporter_id <> reported_user_id)');
+    }
+
+    private function ensureAuthIdentityTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if ($schemaManager->tablesExist(['auth_identity']) || !$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE auth_identity (
+    id VARCHAR(36) NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    provider VARCHAR(32) NOT NULL,
+    provider_user_id VARCHAR(255) NOT NULL,
+    provider_email VARCHAR(180) NOT NULL,
+    provider_email_verified BOOLEAN NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    last_used_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
+    PRIMARY KEY(id)
+)
+SQL,
+        );
+        $connection->executeStatement('CREATE UNIQUE INDEX uniq_auth_identity_provider_user ON auth_identity (provider, provider_user_id)');
+        $connection->executeStatement('CREATE INDEX idx_auth_identity_user ON auth_identity (user_id)');
+        $connection->executeStatement('ALTER TABLE auth_identity ADD CONSTRAINT FK_AUTH_IDENTITY_USER FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
     }
 
     private function seedBaseRoles(Connection $connection): void

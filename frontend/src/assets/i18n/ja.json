@@ -204,7 +204,12 @@
       "couldNotCheckNow": "現在確認できませんでした",
       "usernameLengthRequirement": "ユーザー名は 2 ～ 20 文字にする必要があります。",
       "usernameAvailable": "利用可能なユーザー名",
-      "usernameUnavailable": "ユーザー名が利用できません"
+      "usernameUnavailable": "ユーザー名が利用できません",
+      "googleUnavailable": "現在、Googleログインは利用できません。",
+      "signInWithGoogle": "Googleでログイン",
+      "registerWithGoogle": "Googleで登録",
+      "socialSignIn": "ソーシャルログイン",
+      "or": "または"
     },
     "emailVerificationPage": {
       "confirmingEmail": "メール確認中",
@@ -250,7 +255,8 @@
       "format": "フォーマット",
       "players": "プレイヤー",
       "action": "アクション",
-      "noRoomsMatchTheCurrentFilters": "現在のフィルターに一致するルームはありません。"
+      "noRoomsMatchTheCurrentFilters": "現在のフィルターに一致するルームはありません。",
+      "paginationLabel": "ルーム一覧のページ切り替え"
     },
     "roomCreatePanel": {
       "join": "参加",
@@ -1035,6 +1041,8 @@
           "textModeAllDescription": "両方のボックスがカード ルールのテキストに表示されなければなりません。",
           "textModeAny": "任意のテキスト用語",
           "textModeAnyDescription": "どちらのボックスもカード ルールのテキストと一致します。",
+          "textExact": "単語の完全一致",
+          "textExactDescription": "長い単語の一部ではなく、完全な単語だけを検索します。",
           "types": "タイプ",
           "subtypes": "サブタイプ",
           "sets": "セット",

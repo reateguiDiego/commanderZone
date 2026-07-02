@@ -145,6 +145,118 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(409);
     }
 
+    public function testOwnerCanImpersonateRegularUserWithoutIssuingRefreshCookie(): void
+    {
+        $ownerToken = $this->ownerToken('impersonate-owner@example.test', 'Impersonate Owner');
+        $ownerId = $this->currentUserId($ownerToken);
+        $targetToken = $this->registerAndLogin('impersonate-target@example.test', 'Impersonate Target');
+        $targetId = $this->currentUserId($targetToken);
+        $targetSessionCount = $this->activeRefreshSessionCount($targetId);
+
+        $this->jsonRequest('POST', '/admin/users/'.$targetId.'/impersonate', token: $ownerToken);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->refreshCookieFromResponse());
+        self::assertSame($targetSessionCount, $this->activeRefreshSessionCount($targetId));
+        $response = $this->jsonResponse();
+        self::assertSame($targetId, $response['user']['id']);
+        self::assertTrue($response['impersonation']['active']);
+        self::assertSame($ownerId, $response['impersonation']['impersonatorId']);
+        self::assertSame($targetId, $response['impersonation']['targetUserId']);
+
+        $this->jsonRequest('GET', '/me', token: (string) $response['token']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($targetId, $this->jsonResponse()['user']['id']);
+    }
+
+    public function testOwnerCanImpersonateAdminUser(): void
+    {
+        $ownerToken = $this->ownerToken('impersonate-admin-owner@example.test', 'Admin Owner');
+        $targetToken = $this->registerAndLogin('impersonate-admin-target@example.test', 'Admin Target');
+        $targetId = $this->currentUserId($targetToken);
+
+        $this->jsonRequest('PATCH', '/admin/users/'.$targetId, [
+            'authorizationRole' => Role::ADMIN,
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/admin/users/'.$targetId.'/impersonate', token: $ownerToken);
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame($targetId, $response['user']['id']);
+        self::assertContains(Role::ADMIN, $response['user']['roles']);
+    }
+
+    public function testImpersonatedSessionCannotCreateOrJoinRooms(): void
+    {
+        $ownerToken = $this->ownerToken('impersonate-room-owner@example.test', 'Room Owner');
+        $targetToken = $this->registerAndLogin('impersonate-room-target@example.test', 'Room Target');
+        $targetId = $this->currentUserId($targetToken);
+        $impersonatedToken = $this->impersonatedToken($ownerToken, $targetId);
+
+        $this->jsonRequest('GET', '/rooms', token: $impersonatedToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 3], $impersonatedToken);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 3], $ownerToken);
+        self::assertResponseIsSuccessful();
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', token: $impersonatedToken);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', token: $targetToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $impersonatedToken);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testImpersonatedSessionCannotOpenGameEndpoints(): void
+    {
+        $ownerToken = $this->ownerToken('impersonate-game-owner@example.test', 'Game Owner');
+        $targetToken = $this->registerAndLogin('impersonate-game-target@example.test', 'Game Target');
+        $targetId = $this->currentUserId($targetToken);
+        $impersonatedToken = $this->impersonatedToken($ownerToken, $targetId);
+
+        $this->jsonRequest('GET', '/games/00000000-0000-7000-8000-000000000000/snapshot', token: $impersonatedToken);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Impersonated sessions cannot enter rooms or games.', $this->jsonResponse()['error']);
+    }
+
+    public function testAdminCannotImpersonateUsers(): void
+    {
+        $ownerToken = $this->ownerToken('impersonate-admin-block-owner@example.test', 'Block Owner');
+        $adminToken = $this->registerAndLogin('impersonate-admin-block@example.test', 'Block Admin');
+        $adminId = $this->currentUserId($adminToken);
+        $targetToken = $this->registerAndLogin('impersonate-admin-block-target@example.test', 'Block Target');
+        $targetId = $this->currentUserId($targetToken);
+
+        $this->jsonRequest('PATCH', '/admin/users/'.$adminId, [
+            'authorizationRole' => Role::ADMIN,
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/admin/users/'.$targetId.'/impersonate', token: $adminToken);
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    public function testOwnerCannotImpersonateSelf(): void
+    {
+        $ownerToken = $this->ownerToken('impersonate-self-owner@example.test', 'Self Owner');
+        $ownerId = $this->currentUserId($ownerToken);
+
+        $this->jsonRequest('POST', '/admin/users/'.$ownerId.'/impersonate', token: $ownerToken);
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
     public function testAdminCanRevokeUserSessions(): void
     {
         $ownerToken = $this->ownerToken('session-owner@example.test', 'Session Owner');
@@ -206,6 +318,14 @@ final class AdminUsersApiTest extends ApiTestCase
         return $token;
     }
 
+    private function impersonatedToken(string $ownerToken, string $targetId): string
+    {
+        $this->jsonRequest('POST', '/admin/users/'.$targetId.'/impersonate', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        return (string) $this->jsonResponse()['token'];
+    }
+
     private function grantRole(string $userId, string $roleCode): void
     {
         $this->entityManager->getConnection()->executeStatement(
@@ -228,5 +348,16 @@ WHERE user_id = :userId
 SQL,
             ['userId' => $userId],
         );
+    }
+
+    private function refreshCookieFromResponse(): ?\Symfony\Component\HttpFoundation\Cookie
+    {
+        foreach ($this->client->getResponse()->headers->getCookies() as $cookie) {
+            if ($cookie->getName() === 'commanderzone.refresh') {
+                return $cookie;
+            }
+        }
+
+        return null;
     }
 }

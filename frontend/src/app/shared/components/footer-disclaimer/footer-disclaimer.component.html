@@ -9,6 +9,9 @@
       @for (link of links(); track link.href) {
         <a [href]="link.href">{{ link.label }}</a>
       }
+      <button type="button" class="app-disclaimer-link-button app-disclaimer-link-button--cookies" data-cz-cookie-preferences (click)="openCookiePreferences()">
+        {{ copy().cookieBanner.managePreferences }}
+      </button>
     </nav>
   </div>
 </footer>

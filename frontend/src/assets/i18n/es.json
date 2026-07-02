@@ -204,7 +204,12 @@
       "couldNotCheckNow": "No se pudo comprobar en este momento",
       "usernameLengthRequirement": "El nombre de usuario debe tener entre 2 y 20 caracteres.",
       "usernameAvailable": "Nombre de usuario disponible",
-      "usernameUnavailable": "Nombre de usuario no disponible"
+      "usernameUnavailable": "Nombre de usuario no disponible",
+      "googleUnavailable": "El inicio de sesión con Google no está disponible ahora.",
+      "signInWithGoogle": "Iniciar sesión con Google",
+      "registerWithGoogle": "Registrarse con Google",
+      "socialSignIn": "Inicio de sesión social",
+      "or": "o"
     },
     "emailVerificationPage": {
       "confirmingEmail": "Correo electrónico de confirmación",
@@ -250,7 +255,8 @@
       "format": "Formato",
       "players": "Jugadores",
       "action": "Acción",
-      "noRoomsMatchTheCurrentFilters": "Ninguna sala coincide con los filtros actuales."
+      "noRoomsMatchTheCurrentFilters": "Ninguna sala coincide con los filtros actuales.",
+      "paginationLabel": "Paginación de la lista de salas"
     },
     "roomCreatePanel": {
       "join": "Unirse",
@@ -1035,6 +1041,8 @@
           "textModeAllDescription": "Ambas casillas deben aparecer en el texto de las reglas de la carta.",
           "textModeAny": "Cualquier término de texto",
           "textModeAnyDescription": "Cualquiera de los cuadros puede coincidir con el texto de las reglas de la carta.",
+          "textExact": "Coincidencia exacta de palabra",
+          "textExactDescription": "Busca solo palabras completas, no texto dentro de palabras más largas.",
           "types": "Tipos",
           "subtypes": "Subtipos",
           "sets": "Colecciones",

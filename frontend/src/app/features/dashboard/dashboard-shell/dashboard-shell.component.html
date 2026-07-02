@@ -1,4 +1,13 @@
-<div class="app-frame" [class.room-focus]="roomFocus()">
+<div class="app-frame" [class.room-focus]="roomFocus()" [class.has-impersonation-banner]="auth.isImpersonating()">
+  @if (auth.impersonation(); as impersonation) {
+    <div class="impersonation-banner" role="status">
+      <span>Impersonating {{ impersonation.targetDisplayName }}</span>
+      <button type="button" czButton="secondary" czButtonSize="sm" (click)="stopImpersonation()">
+        Stop
+      </button>
+    </div>
+  }
+
   @if (!roomFocus()) {
     <app-dashboard-header
       [userLabel]="userLabel()"

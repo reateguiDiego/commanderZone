@@ -24,5 +24,6 @@ describe('NoindexFooterDisclaimerComponent', () => {
     expect(compiled.textContent).toContain(`© 1993-${new Date().getFullYear()} Wizards of the Coast LLC`);
     expect(compiled.querySelector('a[href="https://company.wizards.com"]')).not.toBeNull();
     expect(compiled.querySelector('a[href="/contact"]')?.textContent?.trim()).toBe('Contact us');
+    expect(compiled.querySelector('.app-noindex-disclaimer-link-button[data-cz-cookie-preferences]')).not.toBeNull();
   });
 });

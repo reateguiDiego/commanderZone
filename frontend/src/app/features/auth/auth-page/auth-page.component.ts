@@ -1,12 +1,13 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { isPlatformBrowser } from '@angular/common';
-import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, PLATFORM_ID, WritableSignal, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, PLATFORM_ID, ViewChild, WritableSignal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { catchError, debounceTime, distinctUntilChanged, map, of, startWith, switchMap, tap } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
+import { GoogleIdentityService } from '../../../core/auth/google-identity.service';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { AUTH_PASSWORD_REGEX } from '../auth-password-policy';
@@ -42,6 +43,7 @@ const AUTH_TAB_ITEMS: readonly TabListItem[] = [
 const AUTH_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   'Invalid credentials.': 'auth.authPage.invalidCredentials',
   'Too many failed login attempts. Please try again later.': 'auth.authPage.tooManyLoginAttempts',
+  'This email is already registered. Log in with your password before linking Google.': 'auth.authPage.googleLinkRequired',
 };
 
 @Component({
@@ -52,10 +54,14 @@ const AUTH_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuthPageComponent implements AfterViewInit {
+  @ViewChild('googleButtonHost') private googleButtonHost?: ElementRef<HTMLElement>;
+
   readonly auth = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(NonNullableFormBuilder);
+  private readonly googleIdentity = inject(GoogleIdentityService);
+  private readonly ngZone = inject(NgZone);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -75,6 +81,11 @@ export class AuthPageComponent implements AfterViewInit {
   readonly registerPasswordFocused = signal(false);
   readonly registerPasswordValue = signal('');
   readonly registrationCompletedNotice = signal(this.route.snapshot.queryParamMap.get('registered') === '1');
+  readonly googleSignInEnabled = this.googleIdentity.isConfigured();
+  readonly googleSignInRenderFailed = signal(false);
+  readonly googleActionLabelKey = computed(() =>
+    this.mode() === 'register' ? 'auth.authPage.registerWithGoogle' : 'auth.authPage.signInWithGoogle',
+  );
   readonly userNameMaxLength = USER_NAME_MAX_LENGTH;
   readonly authTabItems = AUTH_TAB_ITEMS;
   readonly authErrorMessage = computed(() => localizedAuthError(this.auth.error()));
@@ -136,6 +147,7 @@ export class AuthPageComponent implements AfterViewInit {
     }
 
     window.setTimeout(() => this.clearInitialLoginAutofill());
+    void this.renderGoogleButton();
   }
 
   setMode(mode: AuthMode): void {
@@ -185,6 +197,14 @@ export class AuthPageComponent implements AfterViewInit {
     } catch {
       return;
     }
+  }
+
+  async submitGoogleCredential(credential: string): Promise<void> {
+    if (this.auth.loading()) {
+      return;
+    }
+
+    await this.authenticate(() => this.auth.loginWithGoogleCredential(credential));
   }
 
   loginIdentifierInvalid(): boolean {
@@ -333,6 +353,20 @@ export class AuthPageComponent implements AfterViewInit {
     this.registerPasswordFocused.set(false);
     this.registerPasswordVisible.set(false);
     this.registerConfirmPasswordVisible.set(false);
+  }
+
+  private async renderGoogleButton(): Promise<void> {
+    if (!this.googleSignInEnabled || !this.googleButtonHost) {
+      return;
+    }
+
+    try {
+      await this.googleIdentity.renderButton(this.googleButtonHost.nativeElement, (credential) => {
+        this.ngZone.run(() => void this.submitGoogleCredential(credential));
+      });
+    } catch {
+      this.googleSignInRenderFailed.set(true);
+    }
   }
 
   private async authenticate(action: () => Promise<void>): Promise<void> {

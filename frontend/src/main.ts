@@ -1,4 +1,5 @@
 import { isPublicStaticPath, normalizeBrowserPath } from './app/core/routing/public-static-path';
+import { initializePublicStaticCookiePreferences } from './app/core/privacy/public-static-cookie-preferences';
 
 const currentPath = normalizeBrowserPath(globalThis.location?.pathname ?? '/');
 
@@ -19,7 +20,7 @@ function preparePublicStaticPage(path: string): void {
 
   documentRef.body.classList.add('cz-public-route');
   ensureStylesheet(documentRef, 'cz-public-route-stylesheet', '/route-styles/seo-public.css');
-  removeInactiveCookieBanner(documentRef);
+  initializePublicStaticCookiePreferences(documentRef);
 
   if (path === '/' && hasStoredUserSession()) {
     globalThis.location.assign('/dashboard');
@@ -46,10 +47,6 @@ function ensureStylesheet(documentRef: Document, id: string, href: string): void
   link.rel = 'stylesheet';
   link.href = href;
   documentRef.head.appendChild(link);
-}
-
-function removeInactiveCookieBanner(documentRef: Document): void {
-  documentRef.querySelector('app-cookie-consent-banner')?.remove();
 }
 
 function hasStoredUserSession(): boolean {

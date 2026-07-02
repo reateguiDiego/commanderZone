@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Auth\RefreshSessionService;
+use App\Application\Auth\SecurityAuditLogger;
 use App\Application\Friendship\FriendPresenceService;
 use App\Application\User\UserAccountDeletionResult;
 use App\Application\User\UserAccountDeletionService;
@@ -14,6 +15,7 @@ use App\Infrastructure\Realtime\GameEventPublisher;
 use App\Infrastructure\Realtime\RoomEventPublisher;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -21,6 +23,8 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class AdminUsersController extends ApiController
 {
+    private const IMPERSONATION_JWT_TTL_SECONDS = 900;
+
     #[Route('/admin/users', methods: ['GET'])]
     public function list(
         #[CurrentUser] User $actor,
@@ -197,6 +201,65 @@ class AdminUsersController extends ApiController
         return $this->json(['user' => $this->adminUserArray($target, $entityManager, $presence)]);
     }
 
+    #[Route('/admin/users/{id}/impersonate', methods: ['POST'])]
+    public function impersonate(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $actor,
+        EntityManagerInterface $entityManager,
+        JWTTokenManagerInterface $jwtTokenManager,
+        SecurityAuditLogger $securityAuditLogger,
+    ): JsonResponse {
+        if (!$actor->hasRole(Role::OWNER)) {
+            $this->logImpersonationBlocked($securityAuditLogger, $actor, $request, 'owner_required', $id);
+
+            return $this->fail('Only the owner can impersonate users.', 403);
+        }
+
+        $target = $this->targetUser($id, $entityManager);
+        if (!$target instanceof User) {
+            $this->logImpersonationBlocked($securityAuditLogger, $actor, $request, 'target_not_found', $id);
+
+            return $this->fail('User not found.', 404);
+        }
+
+        $permissionError = $this->validateActorCanManageLowerRoleTarget($actor, $target);
+        if ($permissionError instanceof JsonResponse) {
+            $this->logImpersonationBlocked(
+                $securityAuditLogger,
+                $actor,
+                $request,
+                $target->id() === $actor->id() ? 'self_target' : 'target_role_not_lower',
+                $target->id(),
+                $this->authorizationRole($target),
+            );
+
+            return $permissionError;
+        }
+
+        $token = $jwtTokenManager->createFromPayload($target, [
+            'impersonated' => true,
+            'impersonatorId' => $actor->id(),
+            'targetUserId' => $target->id(),
+            'exp' => (new \DateTimeImmutable(sprintf('+%d seconds', self::IMPERSONATION_JWT_TTL_SECONDS)))->getTimestamp(),
+        ]);
+
+        $securityAuditLogger->log('admin.impersonation.started', $actor->email(), $actor->id(), $request->getClientIp(), [
+            'targetUserId' => $target->id(),
+            'targetRole' => $this->authorizationRole($target),
+        ]);
+
+        return $this->json([
+            'token' => $token,
+            'user' => $target->toArray(),
+            'impersonation' => [
+                'active' => true,
+                'impersonatorId' => $actor->id(),
+                'targetUserId' => $target->id(),
+            ],
+        ]);
+    }
+
     private function canAccessAdmin(User $user): bool
     {
         return $user->hasRole(Role::ADMIN) || $user->hasRole(Role::OWNER);
@@ -364,6 +427,21 @@ class AdminUsersController extends ApiController
             Role::ADMIN => 2,
             default => 1,
         };
+    }
+
+    private function logImpersonationBlocked(
+        SecurityAuditLogger $securityAuditLogger,
+        User $actor,
+        Request $request,
+        string $reason,
+        ?string $targetUserId,
+        ?string $targetRole = null,
+    ): void {
+        $securityAuditLogger->log('admin.impersonation.blocked', $actor->email(), $actor->id(), $request->getClientIp(), [
+            'reason' => $reason,
+            'targetUserId' => $targetUserId,
+            'targetRole' => $targetRole,
+        ]);
     }
 
     private function publishRoomRemovalResult(

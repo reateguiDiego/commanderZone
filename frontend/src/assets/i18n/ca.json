@@ -204,7 +204,12 @@
       "couldNotCheckNow": "No s'ha pogut comprovar ara mateix",
       "usernameLengthRequirement": "El nom d'usuari ha de tenir entre 2 i 20 caràcters.",
       "usernameAvailable": "Nom d'usuari disponible",
-      "usernameUnavailable": "Nom d'usuari no disponible"
+      "usernameUnavailable": "Nom d'usuari no disponible",
+      "googleUnavailable": "L'inici de sessió amb Google no està disponible ara mateix.",
+      "signInWithGoogle": "Inicia sessió amb Google",
+      "registerWithGoogle": "Registra't amb Google",
+      "socialSignIn": "Inici de sessió social",
+      "or": "o"
     },
     "emailVerificationPage": {
       "confirmingEmail": "Correu electrònic de confirmació",
@@ -250,7 +255,8 @@
       "format": "Format",
       "players": "Jugadors",
       "action": "Acció",
-      "noRoomsMatchTheCurrentFilters": "Cap sala coincideix amb els filtres actuals."
+      "noRoomsMatchTheCurrentFilters": "Cap sala coincideix amb els filtres actuals.",
+      "paginationLabel": "Paginació de la llista de sales"
     },
     "roomCreatePanel": {
       "join": "Uneix-te",
@@ -1035,6 +1041,8 @@
           "textModeAllDescription": "Ambdues caselles han d'aparèixer al text de les regles de la carta.",
           "textModeAny": "Qualsevol terme del text",
           "textModeAnyDescription": "Qualsevol casella pot coincidir amb el text de les regles de la carta.",
+          "textExact": "Coincidència exacta de paraula",
+          "textExactDescription": "Cerca només paraules completes, no text dins de paraules més llargues.",
           "types": "Tipus",
           "subtypes": "Subtipus",
           "sets": "Conjunts",

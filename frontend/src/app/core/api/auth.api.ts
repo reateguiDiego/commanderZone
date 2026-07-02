@@ -52,6 +52,10 @@ export class AuthApi {
     return this.http.post<LoginResponse>(`${API_BASE_URL}/auth/login`, payload, { withCredentials: true });
   }
 
+  exchangeGoogleCredential(payload: { credential: string }): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${API_BASE_URL}/auth/google/exchange`, payload, { withCredentials: true });
+  }
+
   requestPasswordReset(email: string): Observable<PasswordResetRequestResponse> {
     return this.http.post<PasswordResetRequestResponse>(
       `${API_BASE_URL}/auth/password-reset/request`,

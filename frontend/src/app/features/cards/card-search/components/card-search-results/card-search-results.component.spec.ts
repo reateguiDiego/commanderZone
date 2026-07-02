@@ -8,9 +8,13 @@ import { CardSearchResultsComponent } from './card-search-results.component';
 describe('CardSearchResultsComponent', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   beforeEach(async () => {
+    vi.stubGlobal('innerWidth', 1024);
+    vi.stubGlobal('innerHeight', 768);
+
     await TestBed.configureTestingModule({
       imports: [CardSearchResultsComponent],
       providers: [

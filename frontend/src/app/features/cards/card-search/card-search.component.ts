@@ -17,6 +17,7 @@ import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-sym
 import { CardsMainLayoutComponent } from '../../../shared/components/cards-main-layout/cards-main-layout.component';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
+import { PaginationComponent } from '../../../shared/ui/pagination/pagination.component';
 import { TabListComponent, TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 import { CardAdvancedSearchSubmit, CardSearchViewMode } from './card-search.models';
 import { CardAdvancedSearchFormComponent } from './components/card-advanced-search-form/card-advanced-search-form.component';
@@ -55,6 +56,7 @@ interface CardSearchPageCacheEntry {
     FormatSelectComponent,
     LucideAngularModule,
     ManaSymbolsComponent,
+    PaginationComponent,
     RuntimeTranslatePipe,
     TabListComponent,
   ],
@@ -158,10 +160,10 @@ export class CardSearchComponent implements OnInit, OnDestroy {
     this.pageHeader.set({
       title: 'deckBuilder.cards.cardSearch.header.title',
       description: 'deckBuilder.cards.cardSearch.header.description',
-      context: 'rooms',
+      context: 'cards',
       heroRule: true,
       titleActions,
-    });
+    }, this);
   });
 
   ngOnInit(): void {
@@ -170,7 +172,7 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.pageHeader.clear();
+    this.pageHeader.clear(this);
   }
 
   async search(request: CardAdvancedSearchSubmit): Promise<void> {
@@ -399,6 +401,7 @@ export class CardSearchComponent implements OnInit, OnDestroy {
 
     this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.name', request.query);
     this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.rules', [filters.oracleTextA, filters.oracleTextB].filter(Boolean).join(filters.oracleTextMode === 'or' ? ' OR ' : ' AND '));
+    this.pushPillKey(pills, 'deckBuilder.cards.cardSearch.summary.filters.rules', filters.oracleTextExact ? 'deckBuilder.cards.cardSearch.form.textExact' : null);
     this.pushPill(pills, 'deckBuilder.cards.cardSearch.summary.filters.types', this.optionNames(options?.types, filters.types));
     this.pushPillKey(pills, 'deckBuilder.cards.cardSearch.summary.filters.types', filters.basic ? 'deckBuilder.cards.cardSearch.form.basic' : null);
     this.pushPillKey(pills, 'deckBuilder.cards.cardSearch.summary.filters.types', filters.legendary ? 'deckBuilder.cards.cardSearch.form.legendary' : null);

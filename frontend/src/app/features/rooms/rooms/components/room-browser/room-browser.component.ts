@@ -1,16 +1,19 @@
-import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { DeckFormat } from '../../../../../core/models/deck.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from '../../../../../core/models/room.model';
 import { FormatSelectComponent, type FormatSelectOption } from '../../../../../shared/components/format-select/format-select.component';
+import { PaginationComponent } from '../../../../../shared/ui/pagination/pagination.component';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { RoomCurrentBannerComponent } from '../room-current-banner/room-current-banner.component';
 import { RoomRowComponent } from '../room-row/room-row.component';
 
+const ROOMS_PAGE_SIZE = 20;
+
 @Component({
   selector: 'app-room-browser',
-  imports: [RuntimeTranslatePipe, FormsModule, PrettyScrollDirective, FormatSelectComponent, RoomCurrentBannerComponent, RoomRowComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, PaginationComponent, PrettyScrollDirective, FormatSelectComponent, RoomCurrentBannerComponent, RoomRowComponent],
   templateUrl: './room-browser.component.html',
   styleUrl: './room-browser.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,6 +40,7 @@ export class RoomBrowserComponent {
   readonly visibilityFilter = signal<'all' | 'public' | 'private'>('all');
   readonly statusFilter = signal<'all' | 'open' | 'full' | 'started'>('all');
   readonly formatFilter = signal('all');
+  readonly page = signal(1);
   readonly visibilityFilterOptions: readonly FormatSelectOption[] = [
     { id: 'all', labelKey: 'rooms.roomBrowser.publicAndPrivate' },
     { id: 'public', labelKey: 'rooms.roomBrowser.publicOnly' },
@@ -72,17 +76,59 @@ export class RoomBrowserComponent {
       })
       .sort((left, right) => this.roomSortRank(left) - this.roomSortRank(right) || left.name.localeCompare(right.name));
   });
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRooms().length / ROOMS_PAGE_SIZE)));
+  readonly currentPage = computed(() => Math.min(this.page(), this.totalPages()));
+  readonly pagedRooms = computed(() => {
+    const start = (this.currentPage() - 1) * ROOMS_PAGE_SIZE;
+
+    return this.filteredRooms().slice(start, start + ROOMS_PAGE_SIZE);
+  });
+  readonly hasPreviousPage = computed(() => this.currentPage() > 1);
+  readonly hasNextPage = computed(() => this.currentPage() < this.totalPages());
+
+  setRoomNameFilter(value: string): void {
+    this.roomNameFilter.set(value);
+    this.resetPage();
+  }
+
+  setRoomOwnerFilter(value: string): void {
+    this.roomOwnerFilter.set(value);
+    this.resetPage();
+  }
 
   setVisibilityFilter(value: string): void {
     if (value === 'public' || value === 'private' || value === 'all') {
       this.visibilityFilter.set(value);
+      this.resetPage();
     }
   }
 
   setStatusFilter(value: string): void {
     if (value === 'open' || value === 'full' || value === 'started' || value === 'all') {
       this.statusFilter.set(value);
+      this.resetPage();
     }
+  }
+
+  setFormatFilter(value: string): void {
+    this.formatFilter.set(value);
+    this.resetPage();
+  }
+
+  previousPage(): void {
+    if (this.hasPreviousPage()) {
+      this.page.set(this.currentPage() - 1);
+    }
+  }
+
+  nextPage(): void {
+    if (this.hasNextPage()) {
+      this.page.set(this.currentPage() + 1);
+    }
+  }
+
+  private resetPage(): void {
+    this.page.set(1);
   }
 
   private statusKey(room: Room): 'open' | 'full' | 'started' {

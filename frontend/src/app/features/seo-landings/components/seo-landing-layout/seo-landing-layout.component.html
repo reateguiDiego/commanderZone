@@ -35,6 +35,9 @@
         @for (link of publicFooterLinks(); track link.href) {
           <a appSeoInternalLink [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
         }
+        <a href="#cookie-preferences" class="seo-landing-layout__cookie-button" data-cz-cookie-preferences (click)="openCookiePreferences()">
+          {{ publicChrome().cookieBanner.managePreferences }}
+        </a>
       </nav>
     </footer>
   }

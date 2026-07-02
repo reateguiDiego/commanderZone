@@ -204,7 +204,12 @@
       "couldNotCheckNow": "Не удалось проверить сейчас",
       "usernameLengthRequirement": "Имя пользователя должно содержать от 2 до 20 символов.",
       "usernameAvailable": "Доступно имя пользователя",
-      "usernameUnavailable": "Имя пользователя недоступно"
+      "usernameUnavailable": "Имя пользователя недоступно",
+      "googleUnavailable": "Вход через Google сейчас недоступен.",
+      "signInWithGoogle": "Войти через Google",
+      "registerWithGoogle": "Зарегистрироваться через Google",
+      "socialSignIn": "Вход через соцсети",
+      "or": "или"
     },
     "emailVerificationPage": {
       "confirmingEmail": "Подтверждение электронной почты",
@@ -250,7 +255,8 @@
       "format": "Формат",
       "players": "Игроки",
       "action": "Действие",
-      "noRoomsMatchTheCurrentFilters": "Ни одна комната не соответствует текущим фильтрам."
+      "noRoomsMatchTheCurrentFilters": "Ни одна комната не соответствует текущим фильтрам.",
+      "paginationLabel": "Пагинация списка комнат"
     },
     "roomCreatePanel": {
       "join": "Войти",
@@ -1035,6 +1041,8 @@
           "textModeAllDescription": "Оба поля должны присутствовать в тексте правил карты.",
           "textModeAny": "Любой текстовый термин",
           "textModeAnyDescription": "Любое поле может соответствовать тексту правил карты.",
+          "textExact": "Точное совпадение слова",
+          "textExactDescription": "Искать только целые слова, а не текст внутри более длинных слов.",
           "types": "Типы",
           "subtypes": "Подтипы",
           "sets": "Наборы",

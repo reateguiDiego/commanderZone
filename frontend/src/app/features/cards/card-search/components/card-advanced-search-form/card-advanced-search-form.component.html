@@ -34,14 +34,25 @@
 
     <div class="filter-panel__body">
       <div class="filter-panel__body-inner">
-        <div class="text-match-toggle">
-          <app-toggle
-            [label]="textModeToggleLabel() | runtimeTranslate"
-            [description]="textModeToggleDescription() | runtimeTranslate"
-            [disabled]="!filterEnabled('text')"
-            [checked]="model.oracleTextMode === 'or'"
-            (checkedChange)="setTextModeFromToggle($event)"
-          />
+        <div class="text-grid text-toggle-grid">
+          <div class="text-match-toggle">
+            <app-toggle
+              [label]="textModeToggleLabel() | runtimeTranslate"
+              [description]="textModeToggleDescription() | runtimeTranslate"
+              [disabled]="!filterEnabled('text')"
+              [checked]="model.oracleTextMode === 'or'"
+              (checkedChange)="setTextModeFromToggle($event)"
+            />
+          </div>
+          <div class="text-match-toggle">
+            <app-toggle
+              [label]="'deckBuilder.cards.cardSearch.form.textExact' | runtimeTranslate"
+              [description]="'deckBuilder.cards.cardSearch.form.textExactDescription' | runtimeTranslate"
+              [disabled]="!filterEnabled('text')"
+              [checked]="model.oracleTextExact"
+              (checkedChange)="setTextExactFromToggle($event)"
+            />
+          </div>
         </div>
         <div class="text-grid">
           <label class="field">

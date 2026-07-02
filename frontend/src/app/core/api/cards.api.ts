@@ -28,6 +28,7 @@ export interface CardSearchFilters {
   oracleTextA?: string;
   oracleTextB?: string;
   oracleTextMode?: 'and' | 'or';
+  oracleTextExact?: boolean;
   manaValueMin?: number;
   manaValueMax?: number;
   manaCost?: string;
@@ -106,6 +107,7 @@ export class CardsApi {
     if (filters.oracleTextMode) {
       params = params.set('oracleTextMode', filters.oracleTextMode);
     }
+    params = this.appendBooleanParam(params, 'oracleTextExact', filters.oracleTextExact);
     params = this.appendNumberParam(params, 'manaValueMin', filters.manaValueMin);
     params = this.appendNumberParam(params, 'manaValueMax', filters.manaValueMax);
     params = this.appendStringParam(params, 'manaCost', filters.manaCost);

@@ -115,6 +115,26 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /admin/users/{id}/impersonate:
+    post:
+      tags: [Admin]
+      summary: Issue a short-lived impersonation token for a lower-role user.
+      description: Owner-only endpoint. It does not issue or rotate a refresh cookie.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Impersonation token and target user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserImpersonationResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /admin/messages:
     post:
       tags: [Admin]
@@ -296,6 +316,34 @@ paths:
         '403':
           $ref: '#/components/responses/Error'
         '429':
+          $ref: '#/components/responses/Error'
+  /auth/google/exchange:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Exchange a Google ID token for a CommanderZone session.
+      description: >
+        Validates a Google Identity Services ID token server-side and, on success, returns the normal CommanderZone
+        access token while setting the HttpOnly refresh cookie. Existing local accounts with the same email are not
+        auto-linked and return `code: link_required`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleExchangeRequest'
+      responses:
+        '200':
+          description: Access token plus refresh cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
           $ref: '#/components/responses/Error'
   /auth/refresh:
     post:
@@ -945,6 +993,12 @@ paths:
             type: string
             enum: [and, or]
             default: and
+        - name: oracleTextExact
+          in: query
+          description: When true, oracleTextA and oracleTextB match whole words only instead of substrings.
+          schema:
+            type: boolean
+            default: false
         - name: manaValueMin
           in: query
           schema:
@@ -2550,7 +2604,9 @@ paths:
     get:
       tags: [Games]
       summary: List chat messages outside the gameplay runtime snapshot.
-      description: "Available only when gameplay chat streams are enabled. Visibility rules still apply: private messages are only returned to the sender and target player."
+      description: >
+        Available only when gameplay chat streams are enabled. Visibility rules still apply: private messages are only
+        returned to the sender and target player.
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: limit
@@ -2859,6 +2915,9 @@ components:
       properties:
         error:
           type: string
+        code:
+          type: string
+          description: Stable machine-readable error code when available.
         count:
           type: integer
           minimum: 0
@@ -3361,6 +3420,13 @@ components:
         token:
           type: string
           description: Short-lived access token intended for Authorization Bearer usage.
+    GoogleExchangeRequest:
+      type: object
+      required: [credential]
+      properties:
+        credential:
+          type: string
+          description: Google Identity Services ID token returned to the browser.
     PasswordResetRequest:
       type: object
       required: [email]
@@ -3684,6 +3750,30 @@ components:
       properties:
         user:
           $ref: '#/components/schemas/AdminUser'
+    AdminUserImpersonationState:
+      type: object
+      required: [active, impersonatorId, targetUserId]
+      properties:
+        active:
+          type: boolean
+          enum: [true]
+        impersonatorId:
+          type: string
+          format: uuid
+        targetUserId:
+          type: string
+          format: uuid
+    AdminUserImpersonationResponse:
+      type: object
+      required: [token, user, impersonation]
+      properties:
+        token:
+          type: string
+          description: Short-lived impersonation access token. No refresh cookie is issued.
+        user:
+          $ref: '#/components/schemas/User'
+        impersonation:
+          $ref: '#/components/schemas/AdminUserImpersonationState'
     AdminUserUpdateRequest:
       type: object
       minProperties: 1

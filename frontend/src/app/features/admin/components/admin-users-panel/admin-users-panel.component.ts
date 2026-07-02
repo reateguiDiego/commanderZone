@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { finalize } from 'rxjs';
 import {
@@ -20,9 +21,10 @@ import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.componen
 import { AdminUsersApi } from '../../data-access/admin-users.api';
 import { AdminUser, AdminUserPresenceStatus, PremiumTier } from '../../data-access/admin-users.models';
 
-type UserAction = 'delete' | 'premium' | 'role' | 'rooms' | 'sessions';
+type UserAction = 'delete' | 'impersonate' | 'premium' | 'role' | 'rooms' | 'sessions';
 type SortField = 'createdAt' | 'email' | 'lastConnectedAt' | 'name' | 'premium' | 'role';
 type SortDirection = 'asc' | 'desc';
+type SortIconName = 'move-down' | 'move-up';
 type RoleFilter = AuthorizationRole | 'all';
 type PremiumTierFilter = PremiumTier | 'all';
 type PresenceFilter = AdminUserPresenceStatus | 'all';
@@ -59,16 +61,18 @@ export class AdminUsersPanelComponent {
   private readonly api = inject(AdminUsersApi);
   private readonly auth = inject(AuthStore);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
   readonly pageSize = 30;
 
-  readonly roleOptions: readonly FormatSelectOption[] = [
+  readonly allRoleOptions: readonly FormatSelectOption[] = [
     { id: ROLE_USER, name: 'User' },
     { id: ROLE_ADMIN, name: 'Admin' },
     { id: ROLE_OWNER, name: 'Owner' },
   ];
+  readonly roleOptions: readonly FormatSelectOption[] = this.allRoleOptions.filter((option) => option.id !== ROLE_OWNER);
   readonly roleFilterOptions: readonly FormatSelectOption[] = [
     { id: 'all', name: 'All roles' },
-    ...this.roleOptions,
+    ...this.allRoleOptions,
   ];
   readonly premiumTierOptions: readonly FormatSelectOption[] = [
     { id: 'none', name: 'None' },
@@ -133,7 +137,7 @@ export class AdminUsersPanelComponent {
   }
 
   changeAuthorizationRole(user: AdminUser, selectedRole: string): void {
-    if (!this.isAuthorizationRole(selectedRole) || selectedRole === user.authorizationRole || !this.canChangeRole(user)) {
+    if (!this.isAssignableAuthorizationRole(selectedRole) || selectedRole === user.authorizationRole || !this.canChangeRole(user)) {
       return;
     }
 
@@ -141,7 +145,7 @@ export class AdminUsersPanelComponent {
       title: 'Confirm role change',
       message: `Change ${user.displayName}'s role from ${this.roleLabel(user.authorizationRole)} to ${this.roleLabel(selectedRole)}?`,
       primaryLabel: 'Change role',
-      danger: selectedRole === ROLE_OWNER || user.authorizationRole === ROLE_OWNER,
+      danger: user.authorizationRole === ROLE_OWNER,
       action: () => this.updateUser(user, 'role', { authorizationRole: selectedRole }),
     });
   }
@@ -206,6 +210,20 @@ export class AdminUsersPanelComponent {
     this.sendMessageRequested.emit({ id: user.id, name: user.displayName });
   }
 
+  impersonateUser(user: AdminUser): void {
+    if (!this.canImpersonate(user)) {
+      return;
+    }
+
+    this.requestConfirmation({
+      title: 'Confirm impersonation',
+      message: `Impersonate ${user.displayName}? You will act as this user until you stop impersonating.`,
+      primaryLabel: 'Impersonate',
+      danger: false,
+      action: () => this.confirmImpersonateUser(user),
+    });
+  }
+
   updateSearchQuery(event: Event): void {
     this.searchQuery.set(event.target instanceof HTMLInputElement ? event.target.value : '');
     this.resetPagination();
@@ -260,6 +278,14 @@ export class AdminUsersPanelComponent {
     return this.sortDirection() === 'asc' ? 'Ascending' : 'Descending';
   }
 
+  sortIcon(field: SortField): SortIconName | null {
+    if (this.sortField() !== field) {
+      return null;
+    }
+
+    return this.sortDirection() === 'asc' ? 'move-up' : 'move-down';
+  }
+
   confirmPendingAction(): void {
     const confirmation = this.pendingConfirmation();
     if (!confirmation) {
@@ -275,7 +301,7 @@ export class AdminUsersPanelComponent {
   }
 
   roleLabel(role: AuthorizationRole): string {
-    return this.roleOptions.find((option) => option.id === role)?.name ?? role;
+    return this.allRoleOptions.find((option) => option.id === role)?.name ?? role;
   }
 
   premiumTierLabel(tier: PremiumTier): string {
@@ -295,7 +321,8 @@ export class AdminUsersPanelComponent {
       && !this.canChangePremium(user)
       && !this.canRevokeSessions(user)
       && !this.canRemoveFromRooms(user)
-      && !this.canDeleteUser(user);
+      && !this.canDeleteUser(user)
+      && !this.canImpersonate(user);
   }
 
   canChangeRole(user: AdminUser): boolean {
@@ -316,6 +343,10 @@ export class AdminUsersPanelComponent {
 
   canDeleteUser(user: AdminUser): boolean {
     return this.canManageLowerRole(user);
+  }
+
+  canImpersonate(user: AdminUser): boolean {
+    return this.currentUserRole() === ROLE_OWNER && this.canManageLowerRole(user);
   }
 
   private canManageLowerRole(user: AdminUser): boolean {
@@ -444,6 +475,23 @@ export class AdminUsersPanelComponent {
       });
   }
 
+  private confirmImpersonateUser(user: AdminUser): void {
+    this.setPendingAction(user.id, 'impersonate');
+    this.errorMessage.set(null);
+    this.api.impersonateUser(user.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.clearPendingAction(user.id)),
+      )
+      .subscribe({
+        next: (response) => {
+          this.auth.startImpersonation(response.token, response.user, response.impersonation);
+          void this.router.navigate(['/dashboard']);
+        },
+        error: (error: unknown) => this.errorMessage.set(this.readErrorMessage(error)),
+      });
+  }
+
   private runUserAction(
     user: AdminUser,
     action: UserAction,
@@ -479,6 +527,10 @@ export class AdminUsersPanelComponent {
   }
 
   private isAuthorizationRole(value: string): value is AuthorizationRole {
+    return this.allRoleOptions.some((option) => option.id === value);
+  }
+
+  private isAssignableAuthorizationRole(value: string): value is Exclude<AuthorizationRole, typeof ROLE_OWNER> {
     return this.roleOptions.some((option) => option.id === value);
   }
 

@@ -33,6 +33,18 @@ describe('PlayerNameComponent', () => {
     expect(name.classList.contains('has-nameplate')).toBe(true);
   });
 
+  it('caps nameplate images to the shared maximum width', () => {
+    fixture.componentRef.setInput('displayName', 'Finetti');
+    fixture.componentRef.setInput('nameStyle', { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' });
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+    const image = fixture.nativeElement.querySelector('.nameplate-image') as HTMLImageElement;
+
+    expect(getComputedStyle(name).maxWidth).toBe('250px');
+    expect(getComputedStyle(image).maxWidth).toBe('250px');
+  });
+
   it('can stretch plain names so parent controls can center them', () => {
     fixture.componentRef.setInput('displayName', 'Finetti');
     fixture.componentRef.setInput('nameStyle', { type: 'plain', presetId: 'plain', textColor: '#ffffff' });

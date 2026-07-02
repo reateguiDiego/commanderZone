@@ -11,6 +11,18 @@ import { AppBackgroundService } from '../ui/app-background.service';
 const LEGACY_TOKEN_KEY = 'commanderzone.jwt';
 const USER_KEY = 'commanderzone.user';
 
+export interface ImpersonationState {
+  readonly active: true;
+  readonly impersonatorId: string;
+  readonly targetUserId: string;
+  readonly targetDisplayName: string;
+}
+
+export interface StartImpersonationMetadata {
+  readonly impersonatorId: string;
+  readonly targetUserId: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthStore {
   private readonly authApi = inject(AuthApi);
@@ -20,6 +32,7 @@ export class AuthStore {
   private readonly loadingState = signal(false);
   private readonly errorState = signal<string | null>(null);
   private readonly loginFailureCountState = signal<number | null>(null);
+  private readonly impersonationState = signal<ImpersonationState | null>(null);
   private readonly resolvedDisplayNameState = signal<string | null>(readStoredDisplayName());
   private initialized = false;
   private initializeInFlight: Promise<void> | null = null;
@@ -30,7 +43,9 @@ export class AuthStore {
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly loginFailureCount = this.loginFailureCountState.asReadonly();
+  readonly impersonation = this.impersonationState.asReadonly();
   readonly isAuthenticated = computed(() => this.tokenState() !== null);
+  readonly isImpersonating = computed(() => this.impersonationState() !== null);
   readonly displayName = computed(() => this.currentDisplayName());
 
   async initialize(): Promise<void> {
@@ -77,6 +92,27 @@ export class AuthStore {
     }
   }
 
+  async loginWithGoogleCredential(credential: string): Promise<void> {
+    this.loadingState.set(true);
+    this.errorState.set(null);
+    this.loginFailureCountState.set(null);
+    let requestToken: string | null = null;
+
+    try {
+      const response = await firstValueFrom(this.authApi.exchangeGoogleCredential({ credential }));
+      requestToken = response.token;
+      await this.establishSession(response.token);
+    } catch (error) {
+      if (requestToken !== null && this.tokenState() === requestToken) {
+        this.clearSession();
+      }
+      this.errorState.set(errorMessageFromResponse(error, 'Could not complete Google login.'));
+      throw error;
+    } finally {
+      this.loadingState.set(false);
+    }
+  }
+
   async register(email: string, displayName: string, password: string): Promise<void> {
     this.loadingState.set(true);
     this.errorState.set(null);
@@ -113,6 +149,7 @@ export class AuthStore {
     this.errorState.set(null);
 
     try {
+      this.impersonationState.set(null);
       this.setToken(token);
       this.setUser(user);
       this.rotateSessionBackground();
@@ -123,6 +160,34 @@ export class AuthStore {
     } finally {
       this.loadingState.set(false);
     }
+  }
+
+  startImpersonation(token: string, user: User, metadata: StartImpersonationMetadata): void {
+    this.setToken(token);
+    this.setUser(user, { persist: false });
+    this.impersonationState.set({
+      active: true,
+      impersonatorId: metadata.impersonatorId,
+      targetUserId: metadata.targetUserId,
+      targetDisplayName: this.currentDisplayName() ?? user.email,
+    });
+    this.rotateSessionBackground();
+  }
+
+  async stopImpersonation(): Promise<void> {
+    if (!this.impersonationState()) {
+      return;
+    }
+
+    this.impersonationState.set(null);
+    const refreshedToken = await this.refreshSession();
+    if (!refreshedToken) {
+      this.clearSession();
+      return;
+    }
+
+    await this.loadMe();
+    this.rotateSessionBackground();
   }
 
   async loadMe(): Promise<void> {
@@ -190,6 +255,7 @@ export class AuthStore {
   clearSession(): void {
     this.tokenState.set(null);
     this.userState.set(null);
+    this.impersonationState.set(null);
     this.resolvedDisplayNameState.set(null);
     const storage = browserLocalStorage();
     storage?.removeItem(LEGACY_TOKEN_KEY);
@@ -220,15 +286,19 @@ export class AuthStore {
     this.tokenState.set(token);
   }
 
-  private setUser(user: User): void {
+  private setUser(user: User, options: { readonly persist?: boolean } = {}): void {
+    const persist = options.persist ?? true;
     const normalizedUser = this.normalizeUser(user);
     this.userState.set(normalizedUser);
     this.resolvedDisplayNameState.set(normalizedUser.displayName);
     this.injector.get(AppThemeService).applyUserTheme(normalizedUser.preferences?.themeId);
-    browserLocalStorage()?.setItem(USER_KEY, JSON.stringify(normalizedUser));
+    if (persist) {
+      browserLocalStorage()?.setItem(USER_KEY, JSON.stringify(normalizedUser));
+    }
   }
 
   private async establishSession(token: string): Promise<void> {
+    this.impersonationState.set(null);
     this.setToken(token);
     this.userState.set(null);
     this.resolvedDisplayNameState.set(null);
@@ -273,6 +343,7 @@ export class AuthStore {
   }
 
   private async refreshSessionInternal(): Promise<string | null> {
+    const wasImpersonating = this.impersonationState() !== null;
     try {
       const response = await firstValueFrom(this.authApi.refresh());
       const token = (response.token ?? '').trim();
@@ -282,9 +353,17 @@ export class AuthStore {
       }
 
       this.tokenState.set(token);
+      if (wasImpersonating) {
+        this.impersonationState.set(null);
+        const storedOwner = readStoredUser();
+        if (storedOwner) {
+          this.setUser(storedOwner);
+        }
+      }
       return token;
     } catch {
       this.tokenState.set(null);
+      this.impersonationState.set(null);
       return null;
     }
   }

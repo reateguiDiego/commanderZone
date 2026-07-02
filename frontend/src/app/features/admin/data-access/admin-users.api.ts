@@ -2,7 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../../../core/api/api.config';
-import { AdminUserResponse, AdminUserUpdatePayload, AdminUsersResponse } from './admin-users.models';
+import {
+  AdminUserImpersonationResponse,
+  AdminUserResponse,
+  AdminUserUpdatePayload,
+  AdminUsersResponse,
+} from './admin-users.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdminUsersApi {
@@ -26,5 +31,9 @@ export class AdminUsersApi {
 
   removeFromRooms(userId: string): Observable<AdminUserResponse> {
     return this.http.post<AdminUserResponse>(`${API_BASE_URL}/admin/users/${userId}/rooms/leave`, {});
+  }
+
+  impersonateUser(userId: string): Observable<AdminUserImpersonationResponse> {
+    return this.http.post<AdminUserImpersonationResponse>(`${API_BASE_URL}/admin/users/${userId}/impersonate`, {});
   }
 }

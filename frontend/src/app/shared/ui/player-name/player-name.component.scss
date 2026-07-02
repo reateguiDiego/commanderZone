@@ -63,7 +63,8 @@
 }
 
 .has-nameplate {
-  width: 100%;
+  width: min(100%, var(--player-name-plate-width, 100%));
+  max-width: 250px;
   height: var(--player-name-plate-height, 4.3rem);
   padding: var(--player-name-plate-padding, 0.5rem 2rem);
   justify-self: stretch;
@@ -102,6 +103,7 @@
   inset: 0;
   z-index: 0;
   width: 100%;
+  max-width: 250px;
   height: 100%;
   object-fit: fill;
   pointer-events: none;

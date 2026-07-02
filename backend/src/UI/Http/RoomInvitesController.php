@@ -2,6 +2,7 @@
 
 namespace App\UI\Http;
 
+use App\Application\Auth\ImpersonationContext;
 use App\Application\Deck\DeckValidator;
 use App\Application\Room\ActiveRoomMembershipService;
 use App\Domain\Deck\Deck;
@@ -23,6 +24,10 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class RoomInvitesController extends ApiController
 {
+    public function __construct(private readonly ?ImpersonationContext $impersonation = null)
+    {
+    }
+
     #[Route('/rooms/{id}/invites', methods: ['GET'])]
     public function list(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -56,6 +61,10 @@ class RoomInvitesController extends ApiController
     #[Route('/rooms/{id}/invites', methods: ['POST'])]
     public function invite(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher, RoomInviteEventPublisher $roomInvitePublisher): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
@@ -116,6 +125,10 @@ class RoomInvitesController extends ApiController
         ActiveRoomMembershipService $activeRoomMembership,
     ): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $invite = $this->pendingInvite($entityManager, $id, $user);
         if (!$invite instanceof RoomInvite) {
             return $this->fail('Room invite not found.', 404);
