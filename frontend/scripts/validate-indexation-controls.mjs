@@ -227,7 +227,7 @@ function assertEverySeoStaticPageIsIndexable(pageKeys, strategies) {
 
 function assertEveryNoindexPageIsNoindex(pageKeys, strategies) {
   for (const pageKey of pageKeys) {
-    const expectedRobots = pageKey === 'legal' ? 'noindex, follow' : 'noindex, nofollow';
+    const expectedRobots = pageKey === 'legal' || pageKey === 'contact' ? 'noindex, follow' : 'noindex, nofollow';
     assertRobotsMeta(pageKey, strategies[pageKey], expectedRobots);
   }
 }
