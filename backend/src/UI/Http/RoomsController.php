@@ -2,6 +2,7 @@
 
 namespace App\UI\Http;
 
+use App\Application\Auth\ImpersonationContext;
 use App\Application\Card\CardLocalizationService;
 use App\Application\Deck\DeckValidator;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
@@ -35,6 +36,10 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class RoomsController extends ApiController
 {
+    public function __construct(private readonly ?ImpersonationContext $impersonation = null)
+    {
+    }
+
     #[Route('/rooms', methods: ['GET'])]
     public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
@@ -101,6 +106,10 @@ class RoomsController extends ApiController
         CardLocalizationService $localization,
     ): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $payload = $this->payload($request);
         $hasDeckInPayload = $this->hasDeckIdInPayload($payload);
         $deck = $this->deckFromPayload($payload, $user, $entityManager);
@@ -180,6 +189,10 @@ class RoomsController extends ApiController
     #[Route('/rooms/{id}', methods: ['PATCH'])]
     public function update(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
@@ -252,6 +265,10 @@ class RoomsController extends ApiController
         CardLocalizationService $localization,
     ): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
@@ -272,6 +289,10 @@ class RoomsController extends ApiController
         CardLocalizationService $localization,
     ): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $room = $this->roomFromCode($code, $entityManager);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
@@ -346,6 +367,10 @@ class RoomsController extends ApiController
     #[Route('/rooms/{id}/roll-turn', methods: ['POST'])]
     public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization, GameRandomizer $randomizer): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
@@ -484,6 +509,10 @@ class RoomsController extends ApiController
         CardLocalizationService $localization,
     ): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
@@ -515,6 +544,10 @@ class RoomsController extends ApiController
     #[Route('/rooms/{id}', methods: ['DELETE'])]
     public function delete(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
@@ -547,6 +580,10 @@ class RoomsController extends ApiController
         CardLocalizationService $localization,
     ): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);

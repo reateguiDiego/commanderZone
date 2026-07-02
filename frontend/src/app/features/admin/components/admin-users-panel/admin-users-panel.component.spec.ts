@@ -1,7 +1,8 @@
 import { signal } from '@angular/core';
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { LucideAngularModule, Send } from 'lucide-angular';
+import { Router } from '@angular/router';
+import { Hammer, LucideAngularModule, MoveDown, MoveUp, Send } from 'lucide-angular';
 import { of } from 'rxjs';
 import { AuthStore } from '../../../../core/auth/auth.store';
 import { ROLE_ADMIN, ROLE_OWNER, ROLE_USER } from '../../../../core/auth/user-roles';
@@ -13,6 +14,7 @@ import { AdminUsersPanelComponent } from './admin-users-panel.component';
 interface AdminUsersApiMock {
   readonly deleteUser: ReturnType<typeof vi.fn>;
   readonly listUsers: ReturnType<typeof vi.fn>;
+  readonly impersonateUser: ReturnType<typeof vi.fn>;
   readonly removeFromRooms: ReturnType<typeof vi.fn>;
   readonly revokeSessions: ReturnType<typeof vi.fn>;
   readonly updateUser: ReturnType<typeof vi.fn>;
@@ -21,6 +23,8 @@ interface AdminUsersApiMock {
 describe('AdminUsersPanelComponent', () => {
   let api: AdminUsersApiMock;
   let fixture: ComponentFixture<AdminUsersPanelComponent>;
+  let navigate: ReturnType<typeof vi.fn>;
+  let startImpersonation: ReturnType<typeof vi.fn>;
   const currentAuthUser = signal<User>(authUser('owner-actor', [ROLE_USER, ROLE_OWNER]));
 
   const user: AdminUser = {
@@ -84,18 +88,30 @@ describe('AdminUsersPanelComponent', () => {
     currentAuthUser.set(authUser('owner-actor', [ROLE_USER, ROLE_OWNER]));
     api = {
       deleteUser: vi.fn().mockReturnValue(of(void 0)),
+      impersonateUser: vi.fn().mockReturnValue(of({
+        token: 'impersonated-token',
+        user: authUser(user.id, [ROLE_USER]),
+        impersonation: {
+          active: true,
+          impersonatorId: 'owner-actor',
+          targetUserId: user.id,
+        },
+      })),
       listUsers: vi.fn().mockReturnValue(of({ users: [user, adminUser, ownerSelf, ownerPeer] })),
       removeFromRooms: vi.fn().mockReturnValue(of({ user })),
       revokeSessions: vi.fn().mockReturnValue(of({ user })),
       updateUser: vi.fn().mockReturnValue(of({ user: { ...user, authorizationRole: ROLE_ADMIN, roles: [ROLE_USER, ROLE_ADMIN] } })),
     };
+    navigate = vi.fn().mockResolvedValue(true);
+    startImpersonation = vi.fn();
 
     await TestBed.configureTestingModule({
       imports: [AdminUsersPanelComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Send })),
+        importProvidersFrom(LucideAngularModule.pick({ Hammer, MoveDown, MoveUp, Send })),
         { provide: AdminUsersApi, useValue: api },
-        { provide: AuthStore, useValue: { user: currentAuthUser.asReadonly() } },
+        { provide: AuthStore, useValue: { user: currentAuthUser.asReadonly(), startImpersonation } },
+        { provide: Router, useValue: { navigate } },
       ],
     }).compileComponents();
 
@@ -192,6 +208,22 @@ describe('AdminUsersPanelComponent', () => {
     expect(sendMessageSpy).toHaveBeenCalledWith({ id: 'user-1', name: 'CommanderZone' });
   });
 
+  it('asks for confirmation before impersonating a lower-role user', () => {
+    buttonByLabel(fixture, 'Impersonate CommanderZone')?.click();
+    fixture.detectChanges();
+
+    expect(api.impersonateUser).not.toHaveBeenCalled();
+    clickModalPrimary(fixture);
+
+    expect(api.impersonateUser).toHaveBeenCalledWith('user-1');
+    expect(startImpersonation).toHaveBeenCalledWith('impersonated-token', expect.objectContaining({ id: 'user-1' }), {
+      active: true,
+      impersonatorId: 'owner-actor',
+      targetUserId: 'user-1',
+    });
+    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
+  });
+
   it('disables session and room actions when the user has no active data', () => {
     const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'));
     const adminRow = rows.find((row) => row.textContent?.includes('Admin Tester')) as HTMLTableRowElement | undefined;
@@ -229,6 +261,7 @@ describe('AdminUsersPanelComponent', () => {
     expect(formatSelectTriggerIn(userRow, 'authorizationRole')?.disabled).toBe(true);
     expect(formatSelectTriggerIn(userRow, 'premiumTier')?.disabled).toBe(false);
     expect(buttonIn(userRow, 'Delete')?.disabled).toBe(false);
+    expect(buttonByLabelIn(userRow, 'Impersonate CommanderZone')?.disabled).toBe(true);
 
     expect(formatSelectTriggerIn(adminRow, 'authorizationRole')?.disabled).toBe(true);
     expect(formatSelectTriggerIn(adminRow, 'premiumTier')?.disabled).toBe(true);
@@ -248,6 +281,10 @@ function selectFormatOption(fixture: ComponentFixture<AdminUsersPanelComponent>,
     .find((candidate) => candidate.textContent?.includes(optionText)) as HTMLButtonElement | undefined;
   option?.click();
   fixture.detectChanges();
+}
+
+function buttonByLabelIn(row: HTMLTableRowElement | undefined, label: string): HTMLButtonElement | undefined {
+  return row?.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement | undefined;
 }
 
 function clickButton(fixture: ComponentFixture<AdminUsersPanelComponent>, text: string): void {

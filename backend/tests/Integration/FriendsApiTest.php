@@ -2,6 +2,7 @@
 
 namespace App\Tests\Integration;
 
+use App\Domain\User\Role;
 use App\Domain\User\User;
 use App\Tests\Support\RecordingMercureHub;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -108,7 +109,7 @@ class FriendsApiTest extends ApiTestCase
 
     public function testCommanderZoneAccountIsHiddenFromFriendSearchAndRequests(): void
     {
-        $aliceToken = $this->registerAndLogin('alice-reserved-friend@example.test', 'Alice Reserved');
+        $aliceToken = $this->registerAndLogin('alice-reserved-friend@example.test', 'AliceReserve');
         $commanderZoneId = $this->createCommanderZoneFixtureUser();
 
         $this->jsonRequest('GET', '/friends/search?q=CommanderZone', token: $aliceToken);
@@ -125,6 +126,9 @@ class FriendsApiTest extends ApiTestCase
         $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
         $user->setPassword($passwordHasher->hashPassword($user, 'Password123!'));
         $user->markEmailVerified();
+        $role = $this->entityManager->getRepository(Role::class)->find(Role::USER);
+        self::assertInstanceOf(Role::class, $role);
+        $user->grantRole($role);
         $this->entityManager->persist($user);
         $this->entityManager->flush();
 

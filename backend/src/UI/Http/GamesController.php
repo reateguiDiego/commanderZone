@@ -2,6 +2,7 @@
 
 namespace App\UI\Http;
 
+use App\Application\Auth\ImpersonationContext;
 use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
@@ -41,6 +42,10 @@ class GamesController extends ApiController
         'mulligan.scry_confirm',
     ];
 
+    public function __construct(private readonly ?ImpersonationContext $impersonation = null)
+    {
+    }
+
     #[Route('/games/{id}/snapshot', methods: ['GET'])]
     #[Route('/games/{id}/bootstrap', methods: ['GET'])]
     public function snapshot(
@@ -55,6 +60,10 @@ class GamesController extends ApiController
         ?GameEventStoreV2 $eventStoreV2 = null,
     ): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
@@ -123,6 +132,10 @@ class GamesController extends ApiController
         #[Autowire('%game_websocket_public_url%')]
         string $websocketPublicUrl,
     ): JsonResponse {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
@@ -157,6 +170,10 @@ class GamesController extends ApiController
         EntityManagerInterface $entityManager,
         GameDebugHealthLiveStore $debugHealth,
     ): JsonResponse {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
@@ -391,6 +408,10 @@ class GamesController extends ApiController
         ?GameplayStreamsFlags $streamFlags = null,
     ): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $startedAt = microtime(true);
         $usageStartedAt = $metricsInspector->usageSnapshot();
         $snapshotLoadStartedAt = microtime(true);
@@ -747,6 +768,10 @@ class GamesController extends ApiController
         ?GameplayV2Flags $flagsV2 = null,
         ?GameEventStoreV2 $eventStoreV2 = null,
     ): JsonResponse {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
@@ -877,6 +902,10 @@ class GamesController extends ApiController
         GameEventPublisher $gamePublisher,
         RoomEventPublisher $roomPublisher,
     ): JsonResponse {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
@@ -950,6 +979,10 @@ class GamesController extends ApiController
     #[Route('/games/{id}/events', methods: ['GET'])]
     public function events(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, ?GameActivityStreamService $activityStreams = null, ?GameplayStreamsFlags $streamFlags = null): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
@@ -1007,6 +1040,10 @@ class GamesController extends ApiController
         ?GameActivityStreamService $activityStreams = null,
         ?GameplayStreamsFlags $streamFlags = null,
     ): JsonResponse {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
@@ -1036,6 +1073,10 @@ class GamesController extends ApiController
         ?GameActivityStreamService $activityStreams = null,
         ?GameplayStreamsFlags $streamFlags = null,
     ): JsonResponse {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
@@ -1059,6 +1100,10 @@ class GamesController extends ApiController
     #[Route('/games/{id}/zones/{playerId}/{zone}', methods: ['GET'])]
     public function zone(string $id, string $playerId, string $zone, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameProjectionService $projection, GameCommandHandler $normalizer, ?GameplayV2Flags $flagsV2 = null, ?GameEventStoreV2 $eventStoreV2 = null): JsonResponse
     {
+        if (($response = $this->denyImpersonatedGameplay($this->impersonation)) instanceof JsonResponse) {
+            return $response;
+        }
+
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);

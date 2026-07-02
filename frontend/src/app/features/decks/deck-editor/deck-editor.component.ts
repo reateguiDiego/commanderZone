@@ -122,7 +122,7 @@ export class DeckEditorComponent implements OnDestroy {
         title: 'deckBuilder.deckEditor.header.title',
         heroRule: true,
         actions: [this.backToDecksAction()],
-      });
+      }, this);
       return;
       }
 
@@ -178,7 +178,7 @@ export class DeckEditorComponent implements OnDestroy {
             tone: 'success',
           }
           : null,
-      });
+      }, this);
     });
   }
 
@@ -269,7 +269,7 @@ export class DeckEditorComponent implements OnDestroy {
     document.removeEventListener('keydown', this.closeOverlaysOnDocumentKeydown, { capture: true });
     document.removeEventListener('scroll', this.closeOverlaysOnDocumentScroll, { capture: true });
     window.clearInterval(this.zoomMonitorId);
-    this.pageHeader.clear();
+    this.pageHeader.clear(this);
     this.store.destroy();
   }
 

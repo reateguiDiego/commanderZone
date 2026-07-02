@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { finalize } from 'rxjs';
 import {
@@ -20,9 +21,10 @@ import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.componen
 import { AdminUsersApi } from '../../data-access/admin-users.api';
 import { AdminUser, AdminUserPresenceStatus, PremiumTier } from '../../data-access/admin-users.models';
 
-type UserAction = 'delete' | 'premium' | 'role' | 'rooms' | 'sessions';
+type UserAction = 'delete' | 'impersonate' | 'premium' | 'role' | 'rooms' | 'sessions';
 type SortField = 'createdAt' | 'email' | 'lastConnectedAt' | 'name' | 'premium' | 'role';
 type SortDirection = 'asc' | 'desc';
+type SortIconName = 'move-down' | 'move-up';
 type RoleFilter = AuthorizationRole | 'all';
 type PremiumTierFilter = PremiumTier | 'all';
 type PresenceFilter = AdminUserPresenceStatus | 'all';
@@ -59,6 +61,7 @@ export class AdminUsersPanelComponent {
   private readonly api = inject(AdminUsersApi);
   private readonly auth = inject(AuthStore);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
   readonly pageSize = 30;
 
   readonly roleOptions: readonly FormatSelectOption[] = [
@@ -206,6 +209,20 @@ export class AdminUsersPanelComponent {
     this.sendMessageRequested.emit({ id: user.id, name: user.displayName });
   }
 
+  impersonateUser(user: AdminUser): void {
+    if (!this.canImpersonate(user)) {
+      return;
+    }
+
+    this.requestConfirmation({
+      title: 'Confirm impersonation',
+      message: `Impersonate ${user.displayName}? You will act as this user until you stop impersonating.`,
+      primaryLabel: 'Impersonate',
+      danger: false,
+      action: () => this.confirmImpersonateUser(user),
+    });
+  }
+
   updateSearchQuery(event: Event): void {
     this.searchQuery.set(event.target instanceof HTMLInputElement ? event.target.value : '');
     this.resetPagination();
@@ -260,6 +277,14 @@ export class AdminUsersPanelComponent {
     return this.sortDirection() === 'asc' ? 'Ascending' : 'Descending';
   }
 
+  sortIcon(field: SortField): SortIconName | null {
+    if (this.sortField() !== field) {
+      return null;
+    }
+
+    return this.sortDirection() === 'asc' ? 'move-up' : 'move-down';
+  }
+
   confirmPendingAction(): void {
     const confirmation = this.pendingConfirmation();
     if (!confirmation) {
@@ -295,7 +320,8 @@ export class AdminUsersPanelComponent {
       && !this.canChangePremium(user)
       && !this.canRevokeSessions(user)
       && !this.canRemoveFromRooms(user)
-      && !this.canDeleteUser(user);
+      && !this.canDeleteUser(user)
+      && !this.canImpersonate(user);
   }
 
   canChangeRole(user: AdminUser): boolean {
@@ -316,6 +342,10 @@ export class AdminUsersPanelComponent {
 
   canDeleteUser(user: AdminUser): boolean {
     return this.canManageLowerRole(user);
+  }
+
+  canImpersonate(user: AdminUser): boolean {
+    return this.currentUserRole() === ROLE_OWNER && this.canManageLowerRole(user);
   }
 
   private canManageLowerRole(user: AdminUser): boolean {
@@ -440,6 +470,23 @@ export class AdminUsersPanelComponent {
       )
       .subscribe({
         next: () => this.users.update((users) => users.filter((currentUser) => currentUser.id !== user.id)),
+        error: (error: unknown) => this.errorMessage.set(this.readErrorMessage(error)),
+      });
+  }
+
+  private confirmImpersonateUser(user: AdminUser): void {
+    this.setPendingAction(user.id, 'impersonate');
+    this.errorMessage.set(null);
+    this.api.impersonateUser(user.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.clearPendingAction(user.id)),
+      )
+      .subscribe({
+        next: (response) => {
+          this.auth.startImpersonation(response.token, response.user, response.impersonation);
+          void this.router.navigate(['/dashboard']);
+        },
         error: (error: unknown) => this.errorMessage.set(this.readErrorMessage(error)),
       });
   }

@@ -90,7 +90,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       window.clearTimeout(this.routeToastHandle);
     }
     this.inviteRealtimeSubscription?.unsubscribe();
-    this.pageHeader.clear();
+    this.pageHeader.clear(this);
   }
 
   async loadRooms(skipGlobalLoading = false): Promise<void> {
@@ -703,7 +703,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
           tone: 'warning',
         },
       ],
-    });
+    }, this);
   }
 }
 

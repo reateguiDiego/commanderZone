@@ -2,6 +2,7 @@
 
 namespace App\UI\Http;
 
+use App\Application\Auth\ImpersonationContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,5 +23,14 @@ abstract class ApiController extends AbstractController
     protected function fail(string $message, int $status = 400, array $extra = []): JsonResponse
     {
         return $this->json(['error' => $message, ...$extra], $status);
+    }
+
+    protected function denyImpersonatedGameplay(?ImpersonationContext $impersonation): ?JsonResponse
+    {
+        if (!$impersonation?->isImpersonated()) {
+            return null;
+        }
+
+        return $this->fail('Impersonated sessions cannot enter rooms or games.', 403);
     }
 }

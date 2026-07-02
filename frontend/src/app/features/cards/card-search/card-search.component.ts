@@ -158,10 +158,10 @@ export class CardSearchComponent implements OnInit, OnDestroy {
     this.pageHeader.set({
       title: 'deckBuilder.cards.cardSearch.header.title',
       description: 'deckBuilder.cards.cardSearch.header.description',
-      context: 'rooms',
+      context: 'cards',
       heroRule: true,
       titleActions,
-    });
+    }, this);
   });
 
   ngOnInit(): void {
@@ -170,7 +170,7 @@ export class CardSearchComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.pageHeader.clear();
+    this.pageHeader.clear(this);
   }
 
   async search(request: CardAdvancedSearchSubmit): Promise<void> {

@@ -71,8 +71,11 @@ describe('DashboardShellComponent', () => {
           useValue: {
             user,
             displayName: signal('Player'),
+            impersonation: signal(null),
+            isImpersonating: signal(false),
             logout: vi.fn().mockResolvedValue(undefined),
             markOfflineOnUnload: vi.fn(),
+            stopImpersonation: vi.fn().mockResolvedValue(undefined),
           },
         },
         {

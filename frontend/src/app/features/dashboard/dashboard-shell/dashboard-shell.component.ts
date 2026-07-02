@@ -9,12 +9,13 @@ import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { FriendsStore } from '../../friends/data-access/friends.store';
 import { MessagesStore } from '../../messages/data-access/messages.store';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { DashboardHeaderComponent } from './components/dashboard-header/dashboard-header.component';
 import { DashboardPageContextComponent } from './components/dashboard-page-context/dashboard-page-context.component';
 
 @Component({
   selector: 'app-dashboard-shell',
-  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent],
+  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent, CzButtonDirective],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -124,6 +125,11 @@ export class DashboardShellComponent implements OnDestroy {
     this.stopFriendSync();
     await this.auth.logout();
     await this.router.navigate(['/auth/login']);
+  }
+
+  async stopImpersonation(): Promise<void> {
+    await this.auth.stopImpersonation();
+    await this.router.navigate(['/admin']);
   }
 
   ngOnDestroy(): void {

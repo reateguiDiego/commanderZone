@@ -77,7 +77,6 @@
       </div>
       <input #imageUploadInput class="image-upload-input" type="file" accept="image/*" (change)="uploadImage($event)" />
       <p class="message-format-help">Enter adds a new line. An empty line creates a paragraph.</p>
-      <p class="message-overflow-warning">Todo lo que quede fuera del recuadro sera scroll horizontal para el usuario... y no mola.</p>
       <textarea
         #bodyTextarea
         id="admin-notifications-body"
@@ -95,6 +94,7 @@
       </div>
     </div>
 
+    <p class="message-overflow-warning">Todo lo que quede fuera del recuadro de preview sera scroll horizontal para el usuario... y no mola.</p>
     <section class="message-preview" aria-labelledby="admin-notifications-preview-title">
       <header>
         <span id="admin-notifications-preview-title">Preview</span>

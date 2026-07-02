@@ -92,38 +92,50 @@
             <th scope="col">
               <button type="button" class="admin-users-sort" (click)="changeSort('name')" [attr.aria-label]="'Sort by name. ' + sortLabel('name')">
                 Name
-                <span aria-hidden="true">{{ sortField() === 'name' ? (sortDirection() === 'asc' ? 'ASC' : 'DESC') : '--' }}</span>
+                @if (sortIcon('name'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
               </button>
             </th>
             <th scope="col">
               <button type="button" class="admin-users-sort" (click)="changeSort('email')" [attr.aria-label]="'Sort by mail. ' + sortLabel('email')">
                 Mail
-                <span aria-hidden="true">{{ sortField() === 'email' ? (sortDirection() === 'asc' ? 'ASC' : 'DESC') : '--' }}</span>
+                @if (sortIcon('email'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
               </button>
             </th>
             <th scope="col">
               <button type="button" class="admin-users-sort" (click)="changeSort('lastConnectedAt')" [attr.aria-label]="'Sort by last connection. ' + sortLabel('lastConnectedAt')">
                 Last connection
-                <span aria-hidden="true">{{ sortField() === 'lastConnectedAt' ? (sortDirection() === 'asc' ? 'ASC' : 'DESC') : '--' }}</span>
+                @if (sortIcon('lastConnectedAt'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
               </button>
             </th>
             <th scope="col">
               <button type="button" class="admin-users-sort" (click)="changeSort('createdAt')" [attr.aria-label]="'Sort by created date. ' + sortLabel('createdAt')">
                 Created
-                <span aria-hidden="true">{{ sortField() === 'createdAt' ? (sortDirection() === 'asc' ? 'ASC' : 'DESC') : '--' }}</span>
+                @if (sortIcon('createdAt'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
               </button>
             </th>
             <th scope="col">Status</th>
             <th scope="col">
               <button type="button" class="admin-users-sort" (click)="changeSort('role')" [attr.aria-label]="'Sort by role. ' + sortLabel('role')">
                 Role
-                <span aria-hidden="true">{{ sortField() === 'role' ? (sortDirection() === 'asc' ? 'ASC' : 'DESC') : '--' }}</span>
+                @if (sortIcon('role'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
               </button>
             </th>
             <th scope="col">
               <button type="button" class="admin-users-sort" (click)="changeSort('premium')" [attr.aria-label]="'Sort by premium. ' + sortLabel('premium')">
                 Premium
-                <span aria-hidden="true">{{ sortField() === 'premium' ? (sortDirection() === 'asc' ? 'ASC' : 'DESC') : '--' }}</span>
+                @if (sortIcon('premium'); as icon) {
+                  <lucide-icon class="admin-users-sort-icon" [name]="icon" size="14" aria-hidden="true" />
+                }
               </button>
             </th>
             <th scope="col">Actions</th>
@@ -226,6 +238,21 @@
                         (click)="requestSendMessage(user)"
                       >
                         <lucide-icon name="send" size="16" aria-hidden="true" />
+                      </button>
+                    </app-tooltip>
+                  </div>
+                  <div class="admin-users-action admin-users-message-action">
+                    <app-tooltip text="Impersonate" align="end">
+                      <button
+                        type="button"
+                        class="admin-users-icon-action"
+                        czButton="icon"
+                        czButtonSize="sm"
+                        [disabled]="isUserBusy(user.id) || !canImpersonate(user)"
+                        [attr.aria-label]="'Impersonate ' + user.displayName"
+                        (click)="impersonateUser(user)"
+                      >
+                        <lucide-icon name="hammer" size="16" aria-hidden="true" />
                       </button>
                     </app-tooltip>
                   </div>

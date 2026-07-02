@@ -187,7 +187,7 @@ export class WaitingRoomComponent implements OnDestroy {
     Flip.killFlipsOf(this.playerOrderElements(), true);
     this.inviteRealtimeSubscription?.unsubscribe();
     this.roomRealtimeSubscription?.unsubscribe();
-    this.pageHeader.clear();
+    this.pageHeader.clear(this);
     void this.deleteWaitingRoomOnDestroy();
   }
 
@@ -1133,7 +1133,7 @@ export class WaitingRoomComponent implements OnDestroy {
       title: room?.name ?? 'Waiting room',
       actions,
       actionFeedback: null,
-    });
+    }, this);
   }
 
   private deckValiditySortRank(deckId: string): number {

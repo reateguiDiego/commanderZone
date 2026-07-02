@@ -115,6 +115,26 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /admin/users/{id}/impersonate:
+    post:
+      tags: [Admin]
+      summary: Issue a short-lived impersonation token for a lower-role user.
+      description: Owner-only endpoint. It does not issue or rotate a refresh cookie.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Impersonation token and target user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserImpersonationResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /admin/messages:
     post:
       tags: [Admin]
@@ -3695,6 +3715,30 @@ components:
       properties:
         user:
           $ref: '#/components/schemas/AdminUser'
+    AdminUserImpersonationState:
+      type: object
+      required: [active, impersonatorId, targetUserId]
+      properties:
+        active:
+          type: boolean
+          enum: [true]
+        impersonatorId:
+          type: string
+          format: uuid
+        targetUserId:
+          type: string
+          format: uuid
+    AdminUserImpersonationResponse:
+      type: object
+      required: [token, user, impersonation]
+      properties:
+        token:
+          type: string
+          description: Short-lived impersonation access token. No refresh cookie is issued.
+        user:
+          $ref: '#/components/schemas/User'
+        impersonation:
+          $ref: '#/components/schemas/AdminUserImpersonationState'
     AdminUserUpdateRequest:
       type: object
       minProperties: 1

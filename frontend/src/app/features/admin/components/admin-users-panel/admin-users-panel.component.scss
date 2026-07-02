@@ -173,13 +173,8 @@ h2 {
   text-transform: inherit;
 }
 
-.admin-users-sort span {
-  border: 1px solid rgb(var(--cz-primary-rgb) / 22%);
-  border-radius: 999px;
-  padding: 0.1rem 0.32rem;
-  color: rgb(var(--cz-text-rgb) / 54%);
-  font-size: 0.58rem;
-  line-height: 1;
+.admin-users-sort-icon {
+  color: var(--cz-primary);
 }
 
 .admin-users-sort:focus-visible {
@@ -189,6 +184,20 @@ h2 {
 
 .admin-users-table tr:last-child td {
   border-bottom: 0;
+}
+
+.admin-users-table tbody tr {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.admin-users-table tbody tr:not(.is-disabled):hover td {
+  background: rgb(var(--cz-primary-rgb) / 8%);
+}
+
+.admin-users-table tbody tr:not(.is-disabled):hover .user-name {
+  color: var(--cz-primary);
 }
 
 .admin-users-table tr.is-disabled {
@@ -252,7 +261,7 @@ h2 {
 
 .admin-users-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(7.5rem, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(7.5rem, 1fr)) repeat(2, auto);
   gap: 0.55rem;
   align-items: end;
   min-width: 28rem;
@@ -271,6 +280,23 @@ h2 {
 .admin-users-icon-action {
   width: 2.25rem;
   height: 2.25rem;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.admin-users-actions button:not(:disabled):hover,
+.admin-users-actions button:not(:disabled):focus-visible {
+  border-color: rgb(var(--cz-primary-rgb) / 58%);
+  background: rgb(var(--cz-primary-rgb) / 16%);
+  color: var(--cz-primary);
+}
+
+.admin-users-icon-action:not(:disabled):hover,
+.admin-users-icon-action:not(:disabled):focus-visible {
+  transform: translateY(-1px);
 }
 
 .admin-users-action-meta {

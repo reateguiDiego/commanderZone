@@ -112,6 +112,20 @@ h2 {
   border-bottom: 0;
 }
 
+.admin-reports-table tbody tr {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.admin-reports-table tbody tr:hover td {
+  background: rgb(var(--cz-primary-rgb) / 8%);
+}
+
+.admin-reports-table tbody tr:hover .report-username {
+  color: var(--cz-primary);
+}
+
 .report-username,
 .report-mail,
 .report-reason {
@@ -141,12 +155,29 @@ h2 {
 
 .admin-reports-icon-action {
   color: var(--cz-primary);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
 }
 
 .admin-reports-actions {
   display: inline-flex;
   gap: 0.45rem;
   align-items: center;
+}
+
+.admin-reports-actions button:not(:disabled):hover,
+.admin-reports-actions button:not(:disabled):focus-visible {
+  border-color: rgb(var(--cz-primary-rgb) / 58%);
+  background: rgb(var(--cz-primary-rgb) / 16%);
+  color: var(--cz-primary);
+}
+
+.admin-reports-icon-action:not(:disabled):hover,
+.admin-reports-icon-action:not(:disabled):focus-visible {
+  transform: translateY(-1px);
 }
 
 @media (max-width: 760px) {

@@ -140,6 +140,72 @@ describe('AuthStore backend auth', () => {
     expect(store.user()?.displayName).toBe('Player');
   });
 
+  it('starts impersonation in memory without replacing the stored owner user', () => {
+    localStorage.setItem('commanderzone.user', JSON.stringify(user));
+    const targetUser: User = {
+      id: 'target-user',
+      email: 'target@example.test',
+      displayName: 'Target User',
+      roles: ['ROLE_USER'],
+    };
+    const store = TestBed.inject(AuthStore);
+
+    store.startImpersonation('target-token', targetUser, {
+      impersonatorId: user.id,
+      targetUserId: targetUser.id,
+    });
+
+    expect(store.token()).toBe('target-token');
+    expect(store.user()?.id).toBe('target-user');
+    expect(store.impersonation()?.targetDisplayName).toBe('Target User');
+    expect(localStorage.getItem('commanderzone.user')).toContain('player@example.test');
+    expect(localStorage.getItem('commanderzone.user')).not.toContain('target@example.test');
+  });
+
+  it('stops impersonation by refreshing back into the owner session', async () => {
+    localStorage.setItem('commanderzone.user', JSON.stringify(user));
+    const targetUser: User = {
+      id: 'target-user',
+      email: 'target@example.test',
+      displayName: 'Target User',
+      roles: ['ROLE_USER'],
+    };
+    const store = TestBed.inject(AuthStore);
+    store.startImpersonation('target-token', targetUser, {
+      impersonatorId: user.id,
+      targetUserId: targetUser.id,
+    });
+
+    await store.stopImpersonation();
+
+    expect(authApi.refresh).toHaveBeenCalled();
+    expect(authApi.me).toHaveBeenCalled();
+    expect(store.token()).toBe('refresh-token');
+    expect(store.user()?.id).toBe(user.id);
+    expect(store.impersonation()).toBeNull();
+  });
+
+  it('cleans impersonation and restores the stored owner when refresh happens automatically', async () => {
+    localStorage.setItem('commanderzone.user', JSON.stringify(user));
+    const targetUser: User = {
+      id: 'target-user',
+      email: 'target@example.test',
+      displayName: 'Target User',
+      roles: ['ROLE_USER'],
+    };
+    const store = TestBed.inject(AuthStore);
+    store.startImpersonation('target-token', targetUser, {
+      impersonatorId: user.id,
+      targetUserId: targetUser.id,
+    });
+
+    await store.refreshSession();
+
+    expect(store.token()).toBe('refresh-token');
+    expect(store.user()?.id).toBe(user.id);
+    expect(store.impersonation()).toBeNull();
+  });
+
   it('removes legacy localStorage token during initialize', async () => {
     localStorage.setItem('commanderzone.jwt', 'legacy-token');
     const store = TestBed.inject(AuthStore);
