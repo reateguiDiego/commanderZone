@@ -45,6 +45,7 @@ jobs:
         working-directory: frontend
         env:
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_ADSENSE_CLIENT: ${{ vars.GOOGLE_ADSENSE_CLIENT || secrets.GOOGLE_ADSENSE_CLIENT || 'ca-pub-8530144714199347' }}
         run: npm run build:prod
 
       - name: Pull Vercel project settings
