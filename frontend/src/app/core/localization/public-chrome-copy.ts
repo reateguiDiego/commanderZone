@@ -31,14 +31,16 @@ export interface PublicChromeCopy {
     readonly cookiePolicyLabel: string;
     readonly cookiesJoin: string;
     readonly reject: string;
+    readonly customize: string;
+    readonly saveChoices: string;
     readonly accept: string;
     readonly managePreferences: string;
     readonly essentialCookies: string;
     readonly essentialDescription: string;
     readonly preferencesCookies: string;
     readonly preferencesDescription: string;
-    readonly adsCookies: string;
-    readonly adsDescription: string;
+    readonly advertisingCookies: string;
+    readonly advertisingDescription: string;
   };
   readonly disclaimer: {
     readonly heading: string;
@@ -76,15 +78,17 @@ const PUBLIC_CHROME_COPY = {
       privacyJoin: 'and',
       cookiePolicyLabel: 'cookie policy',
       cookiesJoin: '',
-      reject: 'Reject',
-      accept: 'Accept',
+      reject: 'Essential only',
+      customize: 'Customize',
+      saveChoices: 'Save choices',
+      accept: 'Accept all',
       managePreferences: 'Cookie preferences',
       essentialCookies: 'Essential cookies',
       essentialDescription: 'Required for login, security, consent storage and core app behavior.',
       preferencesCookies: 'Functional preferences',
       preferencesDescription: 'Used for your own app settings such as theme, table view and saved interface choices.',
-      adsCookies: 'Advertising cookies',
-      adsDescription: 'Prepared for a future ads phase. Not active now.',
+      advertisingCookies: 'Advertising cookies',
+      advertisingDescription: 'Handled by a certified Google CMP where required. This app panel does not grant personalized advertising.',
     },
     disclaimer: {
       heading: 'Disclaimer',
@@ -123,15 +127,17 @@ const PUBLIC_CHROME_COPY = {
       privacyJoin: 'y la',
       cookiePolicyLabel: 'política de cookies',
       cookiesJoin: '',
-      reject: 'Rechazar',
-      accept: 'Aceptar',
+      reject: 'Solo esenciales',
+      customize: 'Personalizar',
+      saveChoices: 'Guardar',
+      accept: 'Aceptar todas',
       managePreferences: 'Preferencias de cookies',
       essentialCookies: 'Cookies esenciales',
       essentialDescription: 'Necesarias para login, seguridad, consentimiento y funcionamiento básico.',
       preferencesCookies: 'Preferencias funcionales',
       preferencesDescription: 'Usadas para tus ajustes propios como tema, vista de mesa y opciones de interfaz.',
-      adsCookies: 'Cookies publicitarias',
-      adsDescription: 'Preparadas para una fase futura de anuncios. No activas ahora.',
+      advertisingCookies: 'Cookies de publicidad',
+      advertisingDescription: 'Gestionadas por una CMP certificada de Google cuando sea obligatorio. Este panel no concede publicidad personalizada.',
     },
     disclaimer: {
       heading: 'Aviso legal',
@@ -170,15 +176,17 @@ const PUBLIC_CHROME_COPY = {
       privacyJoin: 'und die',
       cookiePolicyLabel: 'Cookie-Richtlinie',
       cookiesJoin: '',
-      reject: 'Ablehnen',
-      accept: 'Akzeptieren',
+      reject: 'Nur essenzielle',
+      customize: 'Anpassen',
+      saveChoices: 'Auswahl speichern',
+      accept: 'Alle akzeptieren',
       managePreferences: 'Cookie-Einstellungen',
       essentialCookies: 'Essenzielle Cookies',
       essentialDescription: 'Erforderlich für Login, Sicherheit, Einwilligungsspeicher und Kernfunktionen.',
       preferencesCookies: 'Funktionale Einstellungen',
       preferencesDescription: 'Für eigene App-Einstellungen wie Theme, Tischansicht und gespeicherte UI-Auswahl.',
-      adsCookies: 'Werbe-Cookies',
-      adsDescription: 'Für eine künftige Werbephase vorbereitet. Derzeit nicht aktiv.',
+      advertisingCookies: 'Werbe-Cookies',
+      advertisingDescription: 'Werden bei Bedarf über eine zertifizierte Google-CMP verwaltet. Dieses App-Panel erteilt keine Einwilligung für personalisierte Werbung.',
     },
     disclaimer: {
       heading: 'Hinweis',
@@ -217,15 +225,17 @@ const PUBLIC_CHROME_COPY = {
       privacyJoin: 'et la',
       cookiePolicyLabel: 'politique relative aux cookies',
       cookiesJoin: '',
-      reject: 'Refuser',
-      accept: 'Accepter',
+      reject: 'Essentiels uniquement',
+      customize: 'Personnaliser',
+      saveChoices: 'Enregistrer',
+      accept: 'Tout accepter',
       managePreferences: 'Préférences de cookies',
       essentialCookies: 'Cookies essentiels',
       essentialDescription: 'Nécessaires pour la connexion, la sécurité, le consentement et les fonctions de base.',
       preferencesCookies: 'Préférences fonctionnelles',
       preferencesDescription: 'Utilisées pour vos réglages comme le thème, la vue de table et les choix d’interface.',
-      adsCookies: 'Cookies publicitaires',
-      adsDescription: 'Préparés pour une future phase publicitaire. Non actifs actuellement.',
+      advertisingCookies: 'Cookies publicitaires',
+      advertisingDescription: 'Gérés par une CMP Google certifiée lorsque c’est requis. Ce panneau ne donne pas le consentement aux annonces personnalisées.',
     },
     disclaimer: {
       heading: 'Mention légale',
@@ -264,15 +274,17 @@ const PUBLIC_CHROME_COPY = {
       privacyJoin: 'e a',
       cookiePolicyLabel: 'política de cookies',
       cookiesJoin: '',
-      reject: 'Rejeitar',
-      accept: 'Aceitar',
+      reject: 'Somente essenciais',
+      customize: 'Personalizar',
+      saveChoices: 'Salvar',
+      accept: 'Aceitar tudo',
       managePreferences: 'Preferências de cookies',
       essentialCookies: 'Cookies essenciais',
       essentialDescription: 'Necessários para login, segurança, consentimento e funções principais.',
       preferencesCookies: 'Preferências funcionais',
       preferencesDescription: 'Usadas para suas configurações como tema, visualização da mesa e opções da interface.',
-      adsCookies: 'Cookies de publicidade',
-      adsDescription: 'Preparados para uma fase futura de anúncios. Não ativos agora.',
+      advertisingCookies: 'Cookies de publicidade',
+      advertisingDescription: 'Gerenciados por uma CMP certificada do Google quando obrigatório. Este painel não concede anúncios personalizados.',
     },
     disclaimer: {
       heading: 'Aviso legal',
@@ -311,15 +323,17 @@ const PUBLIC_CHROME_COPY = {
       privacyJoin: 'e la',
       cookiePolicyLabel: 'cookie policy',
       cookiesJoin: '',
-      reject: 'Rifiuta',
-      accept: 'Accetta',
+      reject: 'Solo essenziali',
+      customize: 'Personalizza',
+      saveChoices: 'Salva scelte',
+      accept: 'Accetta tutto',
       managePreferences: 'Preferenze cookie',
       essentialCookies: 'Cookie essenziali',
       essentialDescription: 'Necessari per login, sicurezza, consenso e funzioni principali.',
       preferencesCookies: 'Preferenze funzionali',
       preferencesDescription: 'Usate per impostazioni come tema, vista tavolo e scelte dell’interfaccia.',
-      adsCookies: 'Cookie pubblicitari',
-      adsDescription: 'Preparati per una futura fase pubblicitaria. Non attivi ora.',
+      advertisingCookies: 'Cookie pubblicitari',
+      advertisingDescription: 'Gestiti da una CMP Google certificata quando richiesto. Questo pannello non concede annunci personalizzati.',
     },
     disclaimer: {
       heading: 'Avviso legale',

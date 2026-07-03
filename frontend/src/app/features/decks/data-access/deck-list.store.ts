@@ -11,6 +11,7 @@ import { Deck, DeckFolder, DeckFolderVisibility, DeckFormat, DeckVisibility } fr
 import { bestCardArtImage, bestCardImage } from '../../../shared/utils/card-image';
 import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
 import { DeckFolderSection } from '../models/deck-list.models';
+import { deckEditorIdentifier } from '../utils/deck-route';
 
 export type DeckListColorFilter = 'all' | 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
 export type DeckListSortMode = 'name-asc' | 'name-desc';
@@ -261,7 +262,7 @@ export class DeckListStore {
     }
 
     if (deck) {
-      void this.router.navigate(['/decks', deck.id]);
+      void this.router.navigate(['/decks', deckEditorIdentifier(deck)]);
     }
   }
 
@@ -567,7 +568,7 @@ export class DeckListStore {
 
       if (this.newDeckCreateEmpty) {
         this.closeCreateModal();
-        void this.router.navigate(['/decks', deck.id]);
+        void this.router.navigate(['/decks', deckEditorIdentifier(deck)]);
         return;
       }
 
@@ -635,8 +636,8 @@ export class DeckListStore {
     this.currentFolderId.set(null);
   }
 
-  openDeck(id: string): void {
-    void this.router.navigate(['/decks', id]);
+  openDeck(deck: Deck): void {
+    void this.router.navigate(['/decks', deckEditorIdentifier(deck)]);
   }
 
   deckHasIssues(deck: Deck): boolean {

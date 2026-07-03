@@ -19,9 +19,8 @@ const clientServerRoutePaths = [
   'games/:id',
   'dashboard',
   'cards',
-  'cards/:scryfallId',
   'decks',
-  'decks/:id',
+  'decks/:slug',
   'rooms',
   'rooms/:id/waiting',
   'room/:id',
@@ -239,7 +238,7 @@ function assertEveryConfiguredRouteHasNoindexOrIndexableRule(routes, strategies)
     }
 
     const strategy = strategies[route.pageKey];
-    if (!['seo-static', 'runtime-i18n', 'out-of-scope'].includes(strategy)) {
+    if (!['seo-static', 'seo-dynamic', 'runtime-i18n', 'out-of-scope'].includes(strategy)) {
       throw new Error(`Route ${route.path} uses invalid strategy ${strategy}.`);
     }
   }

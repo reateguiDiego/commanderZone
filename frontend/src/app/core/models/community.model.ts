@@ -1,9 +1,12 @@
 import { CardPreviewItem } from './card-preview.model';
 import { Card } from './card.model';
 import { Deck, DeckCard, DeckVisibility } from './deck.model';
+import { UserAvatar, UserDisplayNameStyle } from './user.model';
 
 export interface CommunityDeckSummary {
   id: string;
+  publicSlug?: string | null;
+  canonicalPath?: string | null;
   name: string;
   format: 'commander' | string;
   valid: boolean;
@@ -16,6 +19,10 @@ export interface CommunityDeckSummary {
 
 export interface CommunityDeckOwner {
   displayName: string;
+  handle?: string | null;
+  canonicalPath?: string | null;
+  avatar?: UserAvatar | null;
+  displayNameStyle?: UserDisplayNameStyle | null;
 }
 
 export interface CommunityDeckSections {
@@ -45,8 +52,46 @@ export interface CommunityHome {
 export interface CommunityPreviewCards {
   items: CardPreviewItem[];
   total: number;
-  isPreview: true;
+  isPreview: boolean;
   message: string;
+}
+
+export interface CommunityIndexableEntry {
+  canonicalPath: string;
+  updatedAt: string;
+}
+
+export interface CommunityIndexableDeck extends CommunityIndexableEntry {
+  id: string;
+  slug: string;
+}
+
+export interface CommunityIndexableProfile extends CommunityIndexableEntry {
+  handle: string;
+}
+
+export interface CommunityIndexableCard extends CommunityIndexableEntry {
+  slug: string;
+}
+
+export interface CommunityIndexable {
+  decks: CommunityIndexableDeck[];
+  profiles: CommunityIndexableProfile[];
+  commanders: CommunityIndexableCard[];
+  cards: CommunityIndexableCard[];
+}
+
+export interface CommunityProfile {
+  handle: string;
+  canonicalPath: string;
+  displayName: string;
+  avatar: UserAvatar | null;
+  decks: CommunityDeckSummary[];
+}
+
+export interface CommunityDiscoveryDetail {
+  item: CardPreviewItem;
+  decks: CommunityDeckSummary[];
 }
 
 export function toDeckCardListItem(summary: CommunityDeckSummary): Deck {

@@ -32,21 +32,23 @@
     </nav>
   </div>
 
-  <app-dashboard-header-controls
-    [userLabel]="userLabel()"
-    [userAvatar]="userAvatar()"
-    [userNameStyle]="userNameStyle()"
-    [friendsOpen]="friendsOpen()"
-    [messagesOpen]="messagesOpen()"
-    [pendingNotificationsCount]="pendingNotificationsCount()"
-    [onlineFriendsCount]="onlineFriendsCount()"
-    [messagesCount]="messagesCount()"
-    [unreadMessagesCount]="unreadMessagesCount()"
-    [canAccessAdmin]="canAccessAdmin()"
-    (toggleFriends)="toggleFriends.emit($event)"
-    (toggleMessages)="toggleMessages.emit($event)"
-    (closeFriends)="closeFriends.emit()"
-    (closeMessages)="closeMessages.emit()"
-    (logout)="logout.emit()"
-  />
+  @if (authenticated()) {
+    <app-dashboard-header-controls
+      [userLabel]="userLabel()"
+      [userAvatar]="userAvatar()"
+      [userNameStyle]="userNameStyle()"
+      [friendsOpen]="friendsOpen()"
+      [messagesOpen]="messagesOpen()"
+      [pendingNotificationsCount]="pendingNotificationsCount()"
+      [onlineFriendsCount]="onlineFriendsCount()"
+      [messagesCount]="messagesCount()"
+      [unreadMessagesCount]="unreadMessagesCount()"
+      [canAccessAdmin]="canAccessAdmin()"
+      (toggleFriends)="toggleFriends.emit($event)"
+      (toggleMessages)="toggleMessages.emit($event)"
+      (closeFriends)="closeFriends.emit()"
+      (closeMessages)="closeMessages.emit()"
+      (logout)="logout.emit()"
+    />
+  }
 </header>

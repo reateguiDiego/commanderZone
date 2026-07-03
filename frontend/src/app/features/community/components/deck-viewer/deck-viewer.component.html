@@ -41,9 +41,9 @@
   </div>
 
   @if (viewMode() === 'text') {
-    <app-deck-card-text-view [interactive]="false" [cardClickEnabled]="true" />
+    <app-deck-card-text-view [interactive]="false" [cardClickEnabled]="cardActionsEnabled()" />
   } @else {
-    <app-deck-card-spoiler-view [interactive]="false" [cardClickEnabled]="true" />
+    <app-deck-card-spoiler-view [interactive]="false" [cardClickEnabled]="cardActionsEnabled()" />
   }
 </section>
 
@@ -65,12 +65,14 @@
   </div>
 }
 
-@if (store.contextMenu(); as menu) {
-  <app-common-card-menu
-    [title]="menu.card.name"
-    [actions]="store.contextMenuActions"
-    [top]="menu.top"
-    [left]="menu.left"
-    (actionSelected)="handleContextAction($event)"
-  />
+@if (cardActionsEnabled()) {
+  @if (store.contextMenu(); as menu) {
+    <app-common-card-menu
+      [title]="menu.card.name"
+      [actions]="store.contextMenuActions"
+      [top]="menu.top"
+      [left]="menu.left"
+      (actionSelected)="handleContextAction($event)"
+    />
+  }
 }

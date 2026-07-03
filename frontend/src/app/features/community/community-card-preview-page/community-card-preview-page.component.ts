@@ -2,11 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { CommunityPreviewFilters } from '../../../core/api/community.api';
 import { CommunityPreviewCardsResponse } from '../../../core/models/api-responses.model';
 import { Card } from '../../../core/models/card.model';
 import { CardPreviewItem } from '../../../core/models/card-preview.model';
+import { DynamicPublicSeoService } from '../../../core/seo/dynamic-public-seo.service';
 import { AddCardToDeckModalComponent } from '../../../shared/components/add-card-to-deck-modal/add-card-to-deck-modal.component';
 import { CardDetailsModalComponent } from '../../../shared/components/card-details-modal/card-details-modal.component';
 import { CardPreviewResultActionEvent, CardPreviewResultsComponent, CardPreviewResultsViewMode } from '../../../shared/components/card-preview-results/card-preview-results.component';
@@ -63,6 +65,8 @@ export class CommunityCardPreviewPageComponent {
   private readonly cardsApi = inject(CardsApi);
   private readonly route = inject(ActivatedRoute);
   private readonly device = inject(DeviceProfileService);
+  private readonly seo = inject(DynamicPublicSeoService);
+  readonly auth = inject(AuthStore);
   readonly kind = (this.route.snapshot.data['kind'] as CommunityPreviewKind | undefined) ?? 'commanders';
   private readonly initialViewState = this.cache.previewStateFor(this.kind);
   readonly selectedType = signal(this.initialViewState.selectedType);
@@ -108,6 +112,15 @@ export class CommunityCardPreviewPageComponent {
   ];
 
   constructor() {
+    this.seo.apply({
+      path: this.kind === 'cards' ? '/community/top-cards/' : '/community/top-commanders/',
+      title: this.kind === 'cards'
+        ? 'Top Commander Cards | CommanderZone'
+        : 'Top Commanders | CommanderZone',
+      description: this.kind === 'cards'
+        ? 'Browse popular Commander cards on CommanderZone.'
+        : 'Browse popular Commander leaders on CommanderZone.',
+    });
     void this.load();
   }
 
@@ -142,6 +155,10 @@ export class CommunityCardPreviewPageComponent {
   }
 
   async handlePreviewAction(event: CardPreviewResultActionEvent): Promise<void> {
+    if (!this.auth.isAuthenticated()) {
+      return;
+    }
+
     switch (event.action) {
       case 'details':
         await this.openDetails(event.item.scryfallId, event.item.name);

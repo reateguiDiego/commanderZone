@@ -28,6 +28,76 @@ export const routes: Routes = [
     title: 'CommanderZone',
   },
   {
+    path: '',
+    loadComponent: () => import('./features/dashboard/dashboard-shell/dashboard-shell.component')
+      .then((component) => component.DashboardShellComponent),
+    data: { pageKey: 'publicCommunity' },
+    children: [
+      {
+        path: 'community',
+        loadComponent: () => import('./features/community/community-page/community-page.component')
+          .then((component) => component.CommunityPageComponent),
+        data: { pageKey: 'publicCommunity' },
+        title: 'Community Commander Decks | CommanderZone',
+      },
+      {
+        path: 'community/decks',
+        loadComponent: () => import('./features/community/community-deck-list-page/community-deck-list-page.component')
+          .then((component) => component.CommunityDeckListPageComponent),
+        data: { pageKey: 'publicCommunity' },
+        title: 'Public Commander Decks | CommanderZone',
+      },
+      {
+        path: 'community/decks/:id',
+        loadComponent: () => import('./features/community/community-deck-detail-page/community-deck-detail-page.component')
+          .then((component) => component.CommunityDeckDetailPageComponent),
+        data: { pageKey: 'publicCommunity' },
+      },
+      {
+        path: 'community/top-commanders',
+        loadComponent: () => import('./features/community/community-card-preview-page/community-card-preview-page.component')
+          .then((component) => component.CommunityCardPreviewPageComponent),
+        data: {
+          pageKey: 'publicCommunity',
+          kind: 'commanders',
+          title: 'Top Commanders',
+          subtitle: 'Popular commanders from public CommanderZone decklists.',
+          icon: 'trophy',
+        },
+      },
+      {
+        path: 'community/top-cards',
+        loadComponent: () => import('./features/community/community-card-preview-page/community-card-preview-page.component')
+          .then((component) => component.CommunityCardPreviewPageComponent),
+        data: {
+          pageKey: 'publicCommunity',
+          kind: 'cards',
+          title: 'Top Cards',
+          subtitle: 'Popular Commander cards from public CommanderZone decklists.',
+          icon: 'sparkles',
+        },
+      },
+      {
+        path: 'community/profiles/:handle',
+        loadComponent: () => import('./features/community/community-profile-page/community-profile-page.component')
+          .then((component) => component.CommunityProfilePageComponent),
+        data: { pageKey: 'publicCommunity' },
+      },
+      {
+        path: 'community/commanders/:slug',
+        loadComponent: () => import('./features/community/community-discovery-detail-page/community-discovery-detail-page.component')
+          .then((component) => component.CommunityDiscoveryDetailPageComponent),
+        data: { pageKey: 'publicCommunity', kind: 'commander' },
+      },
+      {
+        path: 'community/cards/:slug',
+        loadComponent: () => import('./features/community/community-discovery-detail-page/community-discovery-detail-page.component')
+          .then((component) => component.CommunityDiscoveryDetailPageComponent),
+        data: { pageKey: 'publicCommunity', kind: 'card' },
+      },
+    ],
+  },
+  {
     path: 'auth/login',
     loadComponent: () => import('./features/auth/auth-page/auth-page.component')
       .then((component) => component.AuthPageComponent),
@@ -100,55 +170,13 @@ export const routes: Routes = [
         data: { pageKey: 'cards' },
       },
       {
-        path: 'community',
-        loadComponent: () => import('./features/community/community-page/community-page.component')
-          .then((component) => component.CommunityPageComponent),
-        data: { pageKey: 'community' },
-      },
-      {
-        path: 'community/decks',
-        loadComponent: () => import('./features/community/community-deck-list-page/community-deck-list-page.component')
-          .then((component) => component.CommunityDeckListPageComponent),
-        data: { pageKey: 'community' },
-      },
-      {
-        path: 'community/decks/:id',
-        loadComponent: () => import('./features/community/community-deck-detail-page/community-deck-detail-page.component')
-          .then((component) => component.CommunityDeckDetailPageComponent),
-        data: { pageKey: 'community' },
-      },
-      {
-        path: 'community/top-commanders',
-        loadComponent: () => import('./features/community/community-card-preview-page/community-card-preview-page.component')
-          .then((component) => component.CommunityCardPreviewPageComponent),
-        data: {
-          pageKey: 'community',
-          kind: 'commanders',
-          title: 'Top Commanders',
-          subtitle: 'Provisional preview based on commander-eligible cards. Real match statistics are not live yet.',
-          icon: 'trophy',
-        },
-      },
-      {
-        path: 'community/top-cards',
-        loadComponent: () => import('./features/community/community-card-preview-page/community-card-preview-page.component')
-          .then((component) => component.CommunityCardPreviewPageComponent),
-        data: {
-          pageKey: 'community',
-          kind: 'cards',
-          title: 'Top Cards',
-          subtitle: 'Preview-only list of commander-legal cards while Community statistics are still provisional.',
-          icon: 'sparkles',
-        },
-      },
-      {
         path: 'decks',
         loadComponent: () => import('./features/decks/deck-list/deck-list.component')
           .then((component) => component.DeckListComponent),
         data: { pageKey: 'decks' },
       },
       {
-        path: 'decks/:id',
+        path: 'decks/:slug',
         loadComponent: () => import('./features/decks/deck-editor/deck-editor.component')
           .then((component) => component.DeckEditorComponent),
         data: { pageKey: 'deckEditor' },

@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { AuthStore } from '../core/auth/auth.store';
 import { LoadingStore } from '../core/loading/loading.store';
 import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
+import { NotFoundNavigationService } from '../core/routing/not-found-navigation.service';
 import { App } from './app';
 
 @Component({
@@ -57,6 +58,7 @@ describe('App', () => {
             component: EmptyRouteComponent,
             canActivate: [() => new Promise<boolean>((resolve) => { resolveSlowNavigation = resolve; })],
           },
+          { path: '**', component: EmptyRouteComponent },
         ]),
       ],
     }).compileComponents();
@@ -136,8 +138,8 @@ describe('App', () => {
 
     await router.navigateByUrl('/community');
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
 
     await router.navigateByUrl('/table-assistant');
     fixture.detectChanges();
@@ -194,6 +196,18 @@ describe('App', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+  });
+
+  it('records the previous route before wildcard not-found navigation', async () => {
+    const router = TestBed.inject(Router);
+    const notFoundNavigation = TestBed.inject(NotFoundNavigationService);
+    const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl('/community');
+    await router.navigateByUrl('/missing-route');
+    fixture.detectChanges();
+
+    expect(notFoundNavigation.returnUrl()).toBe('/community');
   });
 
   it('does not show the global loading overlay on SEO landing routes', async () => {

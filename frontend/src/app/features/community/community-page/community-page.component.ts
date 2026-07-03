@@ -3,6 +3,7 @@ import { Router, RouterLink } from '@angular/router';
 import { CommunityHome } from '../../../core/models/community.model';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { CardPreviewSectionComponent } from '../../../shared/components/card-preview-section/card-preview-section.component';
+import { DynamicPublicSeoService } from '../../../core/seo/dynamic-public-seo.service';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.component';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
@@ -10,6 +11,7 @@ import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-l
 import { sortCardPreviewItemsByTimesPlayed } from '../../../shared/utils/card-preview-item';
 import { CommunityDeckGridComponent } from '../components/community-deck-grid/community-deck-grid.component';
 import { CommunityCacheService } from '../data-access/community-cache.service';
+import { communityDeckRoute } from '../utils/community-deck-route';
 
 @Component({
   selector: 'app-community-page',
@@ -22,6 +24,7 @@ export class CommunityPageComponent {
   private readonly cache = inject(CommunityCacheService);
   private readonly router = inject(Router);
   private readonly device = inject(DeviceProfileService);
+  private readonly seo = inject(DynamicPublicSeoService);
 
   readonly home = signal<CommunityHome | null>(this.cache.peekHome());
   readonly loading = signal(this.home() === null);
@@ -37,11 +40,16 @@ export class CommunityPageComponent {
     : 'community.home.cardsTitle');
 
   constructor() {
+    this.seo.apply({
+      path: '/community/',
+      title: 'Community Commander Decks | CommanderZone',
+      description: 'Browse public Commander decks, popular commanders and shared CommanderZone decklists.',
+    });
     void this.load();
   }
 
-  openDeck(deckId: string): void {
-    void this.router.navigate(['/community/decks', deckId]);
+  openDeck(deck: { id: string; publicSlug?: string | null; canonicalPath?: string | null }): void {
+    void this.router.navigateByUrl(communityDeckRoute(deck));
   }
 
   private async load(): Promise<void> {

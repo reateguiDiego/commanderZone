@@ -12,6 +12,8 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'deck')]
+#[ORM\UniqueConstraint(name: 'uniq_deck_slug', columns: ['slug'])]
+#[ORM\UniqueConstraint(name: 'uniq_deck_public_slug', columns: ['public_slug'])]
 #[ORM\Index(name: 'idx_deck_visibility_valid_updated_at', columns: ['visibility', 'is_valid', 'updated_at'])]
 class Deck
 {
@@ -36,6 +38,12 @@ class Deck
 
     #[ORM\Column(type: 'string', length: 20)]
     private string $visibility = self::VISIBILITY_PRIVATE;
+
+    #[ORM\Column(type: 'string', length: 220, nullable: true)]
+    private ?string $slug = null;
+
+    #[ORM\Column(type: 'string', length: 220, nullable: true)]
+    private ?string $publicSlug = null;
 
     #[ORM\Column(name: 'is_valid', type: 'boolean', options: ['default' => false])]
     private bool $valid = false;
@@ -87,6 +95,7 @@ class Deck
     public function rename(string $name): void
     {
         $this->name = trim($name);
+        $this->refreshPublicSlug();
         $this->touch();
     }
 
@@ -98,6 +107,21 @@ class Deck
     public function visibility(): string
     {
         return $this->visibility;
+    }
+
+    public function slug(): ?string
+    {
+        return $this->slug;
+    }
+
+    public function publicSlug(): ?string
+    {
+        return $this->publicSlug;
+    }
+
+    public function publicPath(): ?string
+    {
+        return $this->publicSlug === null ? null : sprintf('/community/decks/%s/', $this->publicSlug);
     }
 
     public function format(): string
@@ -123,6 +147,7 @@ class Deck
     public function markDecklistChanged(): void
     {
         $this->valid = false;
+        $this->refreshPublicSlug();
         $this->touch();
     }
 
@@ -141,7 +166,34 @@ class Deck
         $this->visibility = in_array($visibility, [self::VISIBILITY_PRIVATE, self::VISIBILITY_PUBLIC], true)
             ? $visibility
             : self::VISIBILITY_PRIVATE;
+        if ($this->visibility === self::VISIBILITY_PUBLIC) {
+            $this->owner->ensurePublicHandle();
+            $this->refreshPublicSlug();
+        }
         $this->touch();
+    }
+
+    public function ensurePublicSlug(): void
+    {
+        if ($this->publicSlug !== null && $this->publicSlug !== '') {
+            return;
+        }
+
+        $this->refreshPublicSlug();
+    }
+
+    public function ensureSlug(): void
+    {
+        if ($this->slug !== null && $this->slug !== '') {
+            return;
+        }
+
+        $this->regenerateSlug();
+    }
+
+    public function regenerateSlug(): void
+    {
+        $this->slug = $this->buildDeckSlug(self::randomSlugSuffix());
     }
 
     public function setFormat(string $format): void
@@ -226,12 +278,14 @@ class Deck
         if ($existing instanceof DeckCard && $existing->id() !== $deckCard->id()) {
             $existing->changeQuantity($existing->quantity() + $deckCard->quantity());
             $this->cards->removeElement($deckCard);
+            $this->refreshPublicSlug();
             $this->touch();
 
             return $existing;
         }
 
         $deckCard->changeCard($targetCard);
+        $this->refreshPublicSlug();
         $this->touch();
 
         return $deckCard;
@@ -282,6 +336,9 @@ class Deck
             'format' => $this->format,
             'valid' => $this->valid,
             'visibility' => $this->visibility,
+            'slug' => $this->slug,
+            'publicSlug' => $this->publicSlug,
+            'canonicalPath' => $this->publicPath(),
             'backgroundName' => $this->backgroundName,
             'sleevesName' => $this->sleevesName,
             'folderId' => $this->folder?->id(),
@@ -293,5 +350,89 @@ class Deck
         }
 
         return $data;
+    }
+
+    private function buildDeckSlug(string $suffix): string
+    {
+        return sprintf(
+            '%s-%s-%s-%s',
+            self::slugPart(implode('-', $this->commanderNames()) ?: 'deck', 96),
+            self::slugPart($this->name, 72),
+            self::slugPart($this->format, 32),
+            $suffix,
+        );
+    }
+
+    private function refreshPublicSlug(): void
+    {
+        if ($this->visibility !== self::VISIBILITY_PUBLIC) {
+            return;
+        }
+
+        $this->publicSlug = $this->buildDeckSlug($this->publicSlugSuffix());
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function commanderNames(): array
+    {
+        $commanderEntries = [];
+        foreach ($this->cards as $deckCard) {
+            if ($deckCard instanceof DeckCard && $deckCard->section() === DeckCard::SECTION_COMMANDER) {
+                $commanderEntries[] = $deckCard;
+            }
+        }
+
+        usort(
+            $commanderEntries,
+            static fn (DeckCard $left, DeckCard $right): int => $left->id() <=> $right->id(),
+        );
+
+        return array_values(array_map(
+            static fn (DeckCard $deckCard): string => $deckCard->card()->name(),
+            $commanderEntries,
+        ));
+    }
+
+    private static function slugPart(string $value, int $maxLength = 140): string
+    {
+        $slug = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if (!is_string($slug)) {
+            $slug = $value;
+        }
+
+        $slug = strtolower(trim($slug));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
+        $slug = trim($slug, '-');
+
+        return $slug !== '' ? substr($slug, 0, $maxLength) : 'deck';
+    }
+
+    private static function randomSlugSuffix(): string
+    {
+        $compact = preg_replace('/[^a-z0-9]/i', '', Uuid::v7()->toRfc4122()) ?? '';
+
+        return strtolower(substr($compact, -8));
+    }
+
+    private function shortPublicId(): string
+    {
+        $compact = preg_replace('/[^a-z0-9]/i', '', $this->id) ?? '';
+
+        return strtolower(substr($compact !== '' ? $compact : $this->id, -8));
+    }
+
+    private function publicSlugSuffix(): string
+    {
+        $currentSlug = trim((string) $this->publicSlug);
+        if ($currentSlug === '') {
+            return $this->shortPublicId();
+        }
+
+        $parts = explode('-', $currentSlug);
+        $suffix = strtolower(trim((string) end($parts)));
+
+        return $suffix !== '' ? $suffix : $this->shortPublicId();
     }
 }

@@ -337,7 +337,9 @@ export class DeckEditorComponent implements OnDestroy {
   private async copyCommunityDeckLink(deckId: string): Promise<void> {
     try {
       this.actionError.set(null);
-      await navigator.clipboard.writeText(`${window.location.origin}/community/decks/${deckId}`);
+      const deck = this.store.deck();
+      const path = deck?.canonicalPath ?? `/community/decks/${deck?.publicSlug ?? deckId}/`;
+      await navigator.clipboard.writeText(`${window.location.origin}${path}`);
       this.shareCopied.set(true);
       if (this.copiedShareHandle !== undefined) {
         window.clearTimeout(this.copiedShareHandle);

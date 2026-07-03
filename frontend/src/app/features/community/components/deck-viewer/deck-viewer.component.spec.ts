@@ -183,4 +183,34 @@ describe('DeckViewerComponent', () => {
     expect(store.contextMenu()).toBeNull();
   });
 
+  it('does not emit card actions when card actions are disabled', () => {
+    const store = TestBed.inject(CommunityDeckViewerStore);
+    store.setDeck(deckFixture);
+    const deckCard = deckFixture.cards?.[0];
+    if (!deckCard) {
+      throw new Error('Expected deck fixture card');
+    }
+
+    const fixture = TestBed.createComponent(DeckViewerComponent);
+    fixture.componentRef.setInput('deck', deckFixture);
+    fixture.componentRef.setInput('cardActionsEnabled', false);
+    fixture.detectChanges();
+
+    const emitted = vi.fn();
+    fixture.componentInstance.cardActionSelected.subscribe(emitted);
+    store.contextMenu.set({
+      card: deckCard.card,
+      top: 120,
+      left: 180,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-common-card-menu')).toBeNull();
+
+    fixture.componentInstance.handleContextAction('details');
+
+    expect(emitted).not.toHaveBeenCalled();
+    expect(store.contextMenu()).toBeNull();
+  });
+
 });

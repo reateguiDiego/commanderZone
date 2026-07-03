@@ -63,6 +63,10 @@ export class DecksApi {
     return this.http.get<DeckResponse>(`${API_BASE_URL}/decks/${id}`);
   }
 
+  getBySlug(slug: string): Observable<DeckResponse> {
+    return this.http.get<DeckResponse>(`${API_BASE_URL}/decks/by-slug/${encodeURIComponent(slug)}`);
+  }
+
   analysis(id: string, options: DeckAnalysisOptions = {}): Observable<DeckAnalysis> {
     const params: Record<string, string> = {};
     for (const [key, value] of Object.entries(options)) {

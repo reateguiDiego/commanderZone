@@ -4,6 +4,7 @@ import { Image as ImageIcon, List, LucideAngularModule } from 'lucide-angular';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { CommunityApi } from '../../../core/api/community.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
@@ -39,6 +40,7 @@ describe('CommunityCardPreviewPageComponent', () => {
         { provide: CardsApi, useValue: cardsApi },
         { provide: CommunityApi, useValue: api },
         { provide: DeckFormatsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(false) } },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
         { provide: DeviceProfileService, useValue: { hasHover: signal(true), isMobileLayout: signal(false) } },
         { provide: ActivatedRoute, useValue: { snapshot: { data: { kind: 'commanders' } } } },
@@ -52,12 +54,15 @@ describe('CommunityCardPreviewPageComponent', () => {
 
     expect(api.topCommanders).toHaveBeenCalledTimes(1);
     expect(api.topCommanders).toHaveBeenCalledWith({ type: '', colors: '', lang: 'es' });
+    expect(fixture.nativeElement.textContent).toContain('Top 100 cards');
+    expect(fixture.nativeElement.textContent).not.toMatch(/preview|provisional/i);
     expect(fixture.nativeElement.textContent).toContain('Atraxa, Grand Unifier');
     expect(fixture.nativeElement.textContent).toContain(formatTimesPlayed(2900));
     expect(fixture.nativeElement.textContent).toContain('Legendary Creature - Dragon Avatar');
     expect(
       Array.from(fixture.nativeElement.querySelectorAll('.card-preview-result strong') as NodeListOf<HTMLElement>).map((node) => node.textContent?.trim()),
     ).toEqual(['The Ur-Dragon', 'Atraxa, Grand Unifier']);
+    expect(fixture.nativeElement.querySelector('.card-preview-result--interactive')).toBeNull();
 
     const secondFixture = TestBed.createComponent(CommunityCardPreviewPageComponent);
     secondFixture.detectChanges();
@@ -92,6 +97,7 @@ describe('CommunityCardPreviewPageComponent', () => {
         { provide: CardsApi, useValue: cardsApi },
         { provide: CommunityApi, useValue: api },
         { provide: DeckFormatsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(false) } },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
         { provide: DeviceProfileService, useValue: { hasHover: signal(true), isMobileLayout: signal(false) } },
         { provide: ActivatedRoute, useValue: { snapshot: { data: { kind: 'cards' } } } },
@@ -105,6 +111,8 @@ describe('CommunityCardPreviewPageComponent', () => {
 
     expect(api.topCards).toHaveBeenCalledTimes(1);
     expect(api.topCards).toHaveBeenCalledWith({ type: '', colors: '', lang: 'es' });
+    expect(fixture.nativeElement.textContent).toContain('Top 100 cards');
+    expect(fixture.nativeElement.textContent).not.toMatch(/preview|provisional/i);
     expect(fixture.nativeElement.textContent).toContain('Cyclonic Rift');
     expect(fixture.nativeElement.textContent).toContain(formatTimesPlayed(3000));
     expect(
@@ -172,6 +180,7 @@ describe('CommunityCardPreviewPageComponent', () => {
         { provide: CardsApi, useValue: cardsApi },
         { provide: CommunityApi, useValue: api },
         { provide: DeckFormatsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(true) } },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
         { provide: DeviceProfileService, useValue: { hasHover: signal(true), isMobileLayout: signal(false) } },
         { provide: ActivatedRoute, useValue: { snapshot: { data: { kind: 'commanders' } } } },
@@ -234,6 +243,7 @@ describe('CommunityCardPreviewPageComponent', () => {
         { provide: CardsApi, useValue: cardsApi },
         { provide: CommunityApi, useValue: api },
         { provide: DeckFormatsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(false) } },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
         { provide: DeviceProfileService, useValue: { hasHover: signal(false), isMobileLayout: signal(true) } },
         { provide: ActivatedRoute, useValue: { snapshot: { data: { kind: 'commanders' } } } },

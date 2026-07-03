@@ -13,30 +13,35 @@ export interface GoogleConsentModeState {
 }
 
 export interface CookieConsentState {
-  readonly version: 3;
+  readonly version: 6;
   readonly essential: true;
-  readonly preferences: true;
+  readonly preferences: boolean;
   readonly adsAvailable: true;
-  readonly ads: false;
+  readonly ads: true;
+  readonly personalizedAds: false;
   readonly decision: CookieConsentDecision;
   readonly updatedAt: string | null;
 }
 
 interface StoredCookieConsentState {
+  readonly version?: unknown;
   readonly decision?: unknown;
   readonly updatedAt?: unknown;
   readonly analytics?: unknown;
   readonly ads?: unknown;
+  readonly personalizedAds?: unknown;
+  readonly preferences?: unknown;
 }
 
 const STORAGE_KEY = 'commanderzone.cookieConsent';
-const STORAGE_VERSION = 3;
+const STORAGE_VERSION = 6;
 const DEFAULT_STATE: CookieConsentState = {
   version: STORAGE_VERSION,
   essential: true,
-  preferences: true,
+  preferences: false,
   adsAvailable: true,
-  ads: false,
+  ads: true,
+  personalizedAds: false,
   decision: 'pending',
   updatedAt: null,
 };
@@ -50,14 +55,19 @@ export class CookieConsentService {
   readonly state = this.stateSignal.asReadonly();
   readonly hasDecision = computed(() => this.state().decision !== 'pending');
   readonly canUsePreferences = computed(() => this.state().preferences);
-  readonly canUseAds = computed(() => this.state().ads);
+  readonly canUseAds = computed(() => this.state().adsAvailable);
+  readonly canUsePersonalizedAds = computed(() => false);
   readonly preferencesPanelOpen = this.preferencesPanelOpenSignal.asReadonly();
-  readonly googleConsentModeState = computed<GoogleConsentModeState>(() => ({
-    adPersonalization: 'denied',
-    adStorage: 'denied',
-    adUserData: 'denied',
-    analyticsStorage: 'denied',
-  }));
+  readonly googleConsentModeState = computed<GoogleConsentModeState>(() => {
+    const personalizationConsent = this.canUsePersonalizedAds() ? 'granted' : 'denied';
+
+    return {
+      adPersonalization: personalizationConsent,
+      adStorage: personalizationConsent,
+      adUserData: personalizationConsent,
+      analyticsStorage: 'denied',
+    };
+  });
 
   acceptAll(): void {
     this.saveState({
@@ -65,7 +75,8 @@ export class CookieConsentService {
       essential: true,
       preferences: true,
       adsAvailable: true,
-      ads: false,
+      ads: true,
+      personalizedAds: false,
       decision: 'accepted',
       updatedAt: new Date().toISOString(),
     });
@@ -76,22 +87,24 @@ export class CookieConsentService {
     this.saveState({
       version: STORAGE_VERSION,
       essential: true,
-      preferences: true,
+      preferences: false,
       adsAvailable: true,
-      ads: false,
+      ads: true,
+      personalizedAds: false,
       decision: 'rejected',
       updatedAt: new Date().toISOString(),
     });
     this.closePreferences();
   }
 
-  savePreferences(): void {
+  savePreferences(preferences = false): void {
     this.saveState({
       version: STORAGE_VERSION,
       essential: true,
-      preferences: true,
+      preferences,
       adsAvailable: true,
-      ads: false,
+      ads: true,
+      personalizedAds: false,
       decision: 'custom',
       updatedAt: new Date().toISOString(),
     });
@@ -158,9 +171,10 @@ function normalizeStoredState(state: StoredCookieConsentState): CookieConsentSta
   return {
     version: STORAGE_VERSION,
     essential: true,
-    preferences: true,
+    preferences: state.preferences === true,
     adsAvailable: true,
-    ads: false,
+    ads: true,
+    personalizedAds: false,
     decision: state.decision,
     updatedAt: typeof state.updatedAt === 'string' ? state.updatedAt : null,
   };

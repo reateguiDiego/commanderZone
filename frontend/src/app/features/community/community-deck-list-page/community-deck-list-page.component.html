@@ -57,5 +57,17 @@
     <p class="notice">{{ 'community.deckList.empty' | runtimeTranslate }}</p>
   } @else {
     <app-community-deck-grid [decks]="visibleDecks()" (deckSelected)="openDeck($event)" />
+
+    @if (totalPages() > 1) {
+      <app-pagination
+        [currentPage]="page()"
+        [totalPages]="totalPages()"
+        [previousDisabled]="page() <= 1 || loading()"
+        [nextDisabled]="!hasMore() || loading()"
+        ariaLabelKey="community.deckList.paginationLabel"
+        (previousRequested)="previousPage()"
+        (nextRequested)="nextPage()"
+      />
+    }
   }
 </section>

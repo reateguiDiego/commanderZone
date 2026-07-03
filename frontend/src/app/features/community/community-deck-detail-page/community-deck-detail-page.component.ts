@@ -3,11 +3,14 @@ import { ChangeDetectionStrategy, Component, OnDestroy, effect, inject, signal }
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { DecksApi, DeckCardMutationPayload } from '../../../core/api/decks.api';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { Card } from '../../../core/models/card.model';
 import { AddCardToDeckModalComponent } from '../../../shared/components/add-card-to-deck-modal/add-card-to-deck-modal.component';
 import { CommunityDeckDetail } from '../../../core/models/community.model';
+import { NotFoundNavigationService } from '../../../core/routing/not-found-navigation.service';
+import { DynamicPublicSeoService } from '../../../core/seo/dynamic-public-seo.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { CardDetailsModalComponent } from '../../../shared/components/card-details-modal/card-details-modal.component';
 import { CardPrintingsModalComponent } from '../../../shared/components/card-printings-modal/card-printings-modal.component';
@@ -21,6 +24,7 @@ import { DeckImportExportService } from '../../decks/services/deck-import-export
 import { CommunityDeckCardActionEvent, CommunityDeckViewerStore } from '../components/deck-viewer/community-deck-viewer.store';
 import { DECK_VIEW_STORE } from '../../decks/deck-editor/deck-view-store.token';
 import { DECK_ANALYSIS_STORE } from '../../decks/deck-editor/deck-analysis-panel/deck-analysis-store.token';
+import { deckEditorIdentifier } from '../../decks/utils/deck-route';
 
 interface CardDetailsDialogState {
   readonly title: string;
@@ -64,6 +68,9 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   private readonly cache = inject(CommunityCacheService);
   private readonly cardsApi = inject(CardsApi);
   private readonly decksApi = inject(DecksApi);
+  private readonly notFoundNavigation = inject(NotFoundNavigationService);
+  private readonly seo = inject(DynamicPublicSeoService);
+  readonly auth = inject(AuthStore);
   private readonly pageHeader = inject(PageHeaderStore);
   private readonly importExport = inject(DeckImportExportService);
   private readonly deckViewerStore = inject(CommunityDeckViewerStore);
@@ -78,11 +85,17 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   readonly shareCopied = signal(false);
   readonly saveConfirmationModalOpen = signal(false);
   readonly saveSuccessModalOpen = signal(false);
-  readonly savedDeckId = signal<string | null>(null);
+  readonly savedDeckIdentifier = signal<string | null>(null);
   readonly addToDeckCard = signal<Card | null>(null);
   readonly detailsDialog = signal<CardDetailsDialogState | null>(null);
   readonly printingsDialog = signal<CardPrintingsDialogState | null>(null);
   constructor() {
+    this.seo.apply({
+      path: `/community/decks/${this.deckId ?? ''}/`,
+      title: 'Community Commander Deck | CommanderZone',
+      description: 'View a public Commander decklist shared on CommanderZone.',
+    });
+
     effect(() => {
       const deck = this.deck();
       const saving = this.saving();
@@ -96,6 +109,8 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
         sharedBy: deck
           ? {
             displayName: deck.owner.displayName,
+            avatar: deck.owner.avatar ?? null,
+            nameStyle: deck.owner.displayNameStyle ?? null,
           }
           : null,
         actions: [
@@ -158,7 +173,9 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   }
 
   private async load(): Promise<void> {
-    if (this.deck() !== null) {
+    const cachedDeck = this.deck();
+    if (cachedDeck !== null) {
+      this.applyDeckSeo(cachedDeck);
       this.loading.set(false);
       return;
     }
@@ -176,8 +193,10 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
     try {
       const response = await this.cache.deck(id);
       this.deck.set(response.deck);
+      this.applyDeckSeo(response.deck);
     } catch (error) {
       if (error instanceof HttpErrorResponse && (error.status === 403 || error.status === 404)) {
+        this.notFoundNavigation.markUrlAsNotFound(this.router.url);
         await this.router.navigateByUrl('/404', { replaceUrl: true });
         return;
       }
@@ -186,6 +205,21 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private applyDeckSeo(deck: CommunityDeckDetail): void {
+    const commanderName = deck.commanderName?.trim();
+    const description = commanderName
+      ? `${deck.name}, a public Commander deck led by ${commanderName}, shared by ${deck.owner.displayName} on CommanderZone.`
+      : `${deck.name}, a public Commander deck shared by ${deck.owner.displayName} on CommanderZone.`;
+
+    this.seo.apply({
+      path: deck.canonicalPath ?? `/community/decks/${deck.publicSlug ?? deck.id}/`,
+      title: `${deck.name} Commander Deck | CommanderZone`,
+      description,
+      image: deck.cropImage ?? deck.secondaryCropImage,
+      type: 'article',
+    });
   }
 
   exportDeck(): void {
@@ -212,6 +246,11 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
 
   async confirmSaveDeck(): Promise<void> {
     this.closeSaveConfirmation();
+    if (!this.auth.isAuthenticated()) {
+      await this.router.navigate(['/auth/register']);
+      return;
+    }
+
     await this.saveDeck();
   }
 
@@ -230,7 +269,7 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
         visibility: 'private',
         cards: this.buildCloneCards(deck),
       }));
-      this.savedDeckId.set(response.deck.id);
+      this.savedDeckIdentifier.set(deckEditorIdentifier(response.deck));
       this.saveSuccessModalOpen.set(true);
     } catch {
       this.actionError.set('community.detail.saveError');
@@ -241,10 +280,14 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
 
   closeSaveSuccessModal(): void {
     this.saveSuccessModalOpen.set(false);
-    this.savedDeckId.set(null);
+    this.savedDeckIdentifier.set(null);
   }
 
   async handleCardAction(event: CommunityDeckCardActionEvent): Promise<void> {
+    if (!this.auth.isAuthenticated()) {
+      return;
+    }
+
     switch (event.action) {
       case 'details':
         await this.openDetails(event.card.scryfallId, event.card.name);
@@ -274,10 +317,10 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   }
 
   openCreatedDeckFromSuccess(): void {
-    const deckId = this.savedDeckId();
+    const deckIdentifier = this.savedDeckIdentifier();
     this.closeSaveSuccessModal();
-    if (deckId) {
-      void this.router.navigate(['/decks', deckId]);
+    if (deckIdentifier) {
+      void this.router.navigate(['/decks', deckIdentifier]);
     }
   }
 
@@ -289,7 +332,9 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   private async copyCommunityDeckLink(deckId: string): Promise<void> {
     try {
       this.actionError.set(null);
-      await navigator.clipboard.writeText(`${window.location.origin}/community/decks/${deckId}`);
+      const deck = this.deck();
+      const path = deck?.canonicalPath ?? `/community/decks/${deck?.publicSlug ?? deckId}/`;
+      await navigator.clipboard.writeText(`${window.location.origin}${path}`);
       this.shareCopied.set(true);
       if (this.copiedShareHandle !== undefined) {
         window.clearTimeout(this.copiedShareHandle);

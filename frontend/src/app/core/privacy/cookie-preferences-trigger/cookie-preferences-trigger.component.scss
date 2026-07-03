@@ -1,0 +1,56 @@
+:host {
+  display: contents;
+}
+
+.cookie-preferences-trigger {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+}
+
+.cookie-preferences-trigger--footer,
+.cookie-preferences-trigger--noindex-footer {
+  color: rgb(var(--cz-secondary-rgb) / 90%);
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--cz-primary-rgb) / 48%);
+  text-underline-offset: 0.18rem;
+}
+
+.cookie-preferences-trigger--footer {
+  margin-left: auto;
+}
+
+.cookie-preferences-trigger--noindex-footer {
+  justify-self: start;
+}
+
+.cookie-preferences-trigger--seo-footer {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.cookie-preferences-trigger:hover {
+  color: var(--cz-text);
+  text-decoration-color: currentColor;
+}
+
+.cookie-preferences-trigger--seo-footer:hover {
+  color: var(--text);
+}
+
+@media (max-width: 42rem) {
+  .cookie-preferences-trigger--footer,
+  .cookie-preferences-trigger--seo-footer {
+    margin-left: 0;
+  }
+}

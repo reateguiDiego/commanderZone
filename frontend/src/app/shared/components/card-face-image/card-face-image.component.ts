@@ -74,7 +74,7 @@ export class CardFaceImageComponent implements OnDestroy {
 
     this.lastControlledFlip = nextFlipped;
     untracked(() => this.setFaceFlipped(nextFlipped, { animate: true, emit: false }));
-  }, { allowSignalWrites: true });
+  });
 
   ngOnDestroy(): void {
     this.animation?.kill();

@@ -138,6 +138,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   "community.deckList.filterFormat": "Format",
   "community.deckList.filterName": "Search by name",
   "community.deckList.filterNamePlaceholder": "Search decks...",
+  "community.deckList.paginationLabel": "Public deck pagination",
   "community.deckList.searchButton": "Search",
   "community.deckList.subtitle": "Explore public decks from the community.",
   "community.deckList.title": "Search decks",

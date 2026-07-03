@@ -1,0 +1,21 @@
+<section class="community-profile-page">
+  @if (loading()) {
+    <app-global-loader />
+  } @else if (error()) {
+    <p class="notice error">{{ error()! | runtimeTranslate }}</p>
+  } @else if (profile(); as profileData) {
+    <header class="community-profile-hero">
+      <div>
+        <span class="community-profile-kicker">&#64;{{ profileData.handle }}</span>
+        <h1>{{ profileData.displayName }}</h1>
+        <p>Public Commander decks shared on CommanderZone.</p>
+        <app-hero-rule />
+      </div>
+    </header>
+
+    <app-community-deck-grid
+      [decks]="profileData.decks"
+      (deckSelected)="openDeck($event)"
+    />
+  }
+</section>

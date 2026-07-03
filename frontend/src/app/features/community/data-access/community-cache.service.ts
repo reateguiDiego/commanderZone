@@ -21,6 +21,7 @@ export interface CommunityDeckListViewState {
   readonly searchQuery: string;
   readonly commanderQuery: string;
   readonly selectedFormat: string;
+  readonly page: number;
 }
 
 export interface CommunityPreviewViewState {
@@ -34,6 +35,7 @@ const COMMUNITY_FILTERS_DEFAULT_STATE: CommunityDeckListViewState = {
   searchQuery: '',
   commanderQuery: '',
   selectedFormat: '',
+  page: 1,
 };
 
 const COMMUNITY_PREVIEW_DEFAULT_STATE: CommunityPreviewViewState = {
@@ -99,7 +101,19 @@ export class CommunityCacheService {
   }
 
   formats(): Promise<readonly DeckFormat[]> {
-    return this.load('formats', async () => (await firstValueFrom(this.deckFormatsApi.list())).data);
+    return this.load('formats', async () => {
+      try {
+        return (await firstValueFrom(this.deckFormatsApi.list())).data;
+      } catch {
+        return [{
+          id: 'commander',
+          name: 'Commander',
+          minCards: 100,
+          maxCards: 100,
+          hasCommander: true,
+        }];
+      }
+    });
   }
 
   setDeckListState(state: CommunityDeckListViewState): void {
@@ -107,6 +121,7 @@ export class CommunityCacheService {
       searchQuery: state.searchQuery,
       commanderQuery: state.commanderQuery,
       selectedFormat: state.selectedFormat,
+      page: Math.max(1, Math.floor(state.page)),
     });
   }
 
@@ -115,6 +130,7 @@ export class CommunityCacheService {
       searchQuery: patch.searchQuery ?? current.searchQuery,
       commanderQuery: patch.commanderQuery ?? current.commanderQuery,
       selectedFormat: patch.selectedFormat ?? current.selectedFormat,
+      page: patch.page ?? current.page,
     }));
   }
 
@@ -185,7 +201,10 @@ export class CommunityCacheService {
 
   private decksKey(filters: CommunityDeckListFilters): string {
     return `decks:${JSON.stringify(Object.entries(filters)
-      .filter(([, value]) => typeof value === 'string' && value.trim() !== '')
+      .filter(([, value]) =>
+        (typeof value === 'string' && value.trim() !== '')
+        || (typeof value === 'number' && Number.isFinite(value) && value > 0)
+      )
       .sort(([left], [right]) => left.localeCompare(right)))}`;
   }
 

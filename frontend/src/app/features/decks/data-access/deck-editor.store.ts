@@ -10,6 +10,7 @@ import { LanguagePreferencesService } from '../../../core/localization/language-
 import { MissingDeckCard } from '../../../core/models/api-responses.model';
 import { Card, CardFace } from '../../../core/models/card.model';
 import { CommanderValidation, Deck, DeckCard, DeckSection, DeckToken, UnresolvedDeckToken } from '../../../core/models/deck.model';
+import { NotFoundNavigationService } from '../../../core/routing/not-found-navigation.service';
 import { DeckCardImageCache } from './deck-card-image-cache.service';
 import { DeckHistoryEntry, DeckHistoryStore } from './deck-history.store';
 import { MissingCardsStore } from './missing-cards.store';
@@ -17,6 +18,7 @@ import { ClientCommanderValidationService } from '../services/client-commander-v
 import { DeckAnalysisService } from '../services/deck-analysis.service';
 import { DeckImportExportService, DecklistEntry } from '../services/deck-import-export.service';
 import { normalizedCardTypeLine, resolveCardTypeLine, resolvedDeckCardTypeLine } from '../utils/deck-card-type-line';
+import { deckEditorIdentifier } from '../utils/deck-route';
 import { bestCardFaceImage, bestCardImage } from '../../../shared/utils/card-image';
 import { cardDisplayFace, hasAlternateCardFace } from '../../../shared/utils/card-faces';
 import {
@@ -64,6 +66,7 @@ const CARD_MENU_HEIGHT = 390;
 const CARD_MENU_IMAGE_PREVIEW_WIDTH = 224;
 const CARD_MENU_POPOVER_GAP = 12;
 const MISSING_CARD_SEARCH_LIMIT = 60;
+const UUID_IDENTIFIER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 interface ToggleCardFaceOptions {
   readonly updatePreview?: boolean;
@@ -75,6 +78,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
   private readonly cardsApi = inject(CardsApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly notFoundNavigation = inject(NotFoundNavigationService);
   private readonly zone = inject(NgZone);
   private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly i18n = inject(AppShellI18nService);
@@ -223,15 +227,15 @@ export class DeckEditorStore implements DeckAnalysisStore {
   }
 
   async load(): Promise<void> {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (!id) {
-      this.error.set('Missing deck id.');
+    const identifier = this.route.snapshot.paramMap.get('slug') ?? this.route.snapshot.paramMap.get('id');
+    if (!identifier) {
+      this.error.set('Missing deck slug.');
       this.loading.set(false);
       return;
     }
 
     try {
-      const response = await firstValueFrom(this.decksApi.get(id));
+      const response = await firstValueFrom(this.loadDeckForRouteIdentifier(identifier));
       this.deck.set(response.deck);
       this.deckName = response.deck.name;
       this.tokens.set([]);
@@ -242,8 +246,10 @@ export class DeckEditorStore implements DeckAnalysisStore {
       this.refreshHistory(response.deck.id);
       void this.refreshTokens(response.deck.id);
       void this.refreshBackendValidation(response.deck.id);
+      await this.redirectLegacyDeckId(identifier, response.deck);
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 404) {
+        this.notFoundNavigation.markUrlAsNotFound(this.router.url);
         await this.router.navigateByUrl('/404', { replaceUrl: true });
         return;
       }
@@ -252,6 +258,29 @@ export class DeckEditorStore implements DeckAnalysisStore {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private loadDeckForRouteIdentifier(identifier: string) {
+    return this.isUuidIdentifier(identifier)
+      ? this.decksApi.get(identifier)
+      : this.decksApi.getBySlug(identifier);
+  }
+
+  private async redirectLegacyDeckId(identifier: string, deck: Deck): Promise<void> {
+    if (!this.isUuidIdentifier(identifier)) {
+      return;
+    }
+
+    const routeIdentifier = deckEditorIdentifier(deck);
+    if (routeIdentifier === identifier) {
+      return;
+    }
+
+    await this.router.navigate(['/decks', routeIdentifier], { replaceUrl: true });
+  }
+
+  private isUuidIdentifier(identifier: string): boolean {
+    return UUID_IDENTIFIER_PATTERN.test(identifier);
   }
 
   async rename(id: string): Promise<void> {

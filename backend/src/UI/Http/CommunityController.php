@@ -34,6 +34,7 @@ class CommunityController extends ApiController
             'commander' => $request->query->get('commander'),
             'format' => $request->query->get('format'),
             'colors' => $request->query->get('colors'),
+            'page' => $request->query->get('page'),
         ], $requestedLanguage));
     }
 
@@ -48,6 +49,60 @@ class CommunityController extends ApiController
         $payload = $community->deckDetail($id, $requestedLanguage);
         if ($payload === null) {
             return $this->fail('Deck not found.', 404);
+        }
+
+        return $this->json($payload);
+    }
+
+    #[Route('/community/indexable', methods: ['GET'])]
+    public function indexable(CommunityService $community): JsonResponse
+    {
+        return $this->json($community->indexable());
+    }
+
+    #[Route('/community/profiles/{handle}', methods: ['GET'])]
+    public function profile(string $handle, Request $request, CommunityService $community): JsonResponse
+    {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
+        $payload = $community->profile($handle, $requestedLanguage);
+        if ($payload === null) {
+            return $this->fail('Profile not found.', 404);
+        }
+
+        return $this->json($payload);
+    }
+
+    #[Route('/community/commanders/{slug}', methods: ['GET'])]
+    public function commander(string $slug, Request $request, CommunityService $community): JsonResponse
+    {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
+        $payload = $community->commanderDetail($slug, $requestedLanguage);
+        if ($payload === null) {
+            return $this->fail('Commander not found.', 404);
+        }
+
+        return $this->json($payload);
+    }
+
+    #[Route('/community/cards/{slug}', methods: ['GET'])]
+    public function card(string $slug, Request $request, CommunityService $community): JsonResponse
+    {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
+        $payload = $community->cardDetail($slug, $requestedLanguage);
+        if ($payload === null) {
+            return $this->fail('Card not found.', 404);
         }
 
         return $this->json($payload);

@@ -5,8 +5,11 @@ import { API_BASE_URL } from './api.config';
 import {
   CommunityDeckDetailResponse,
   CommunityDeckListResponse,
+  CommunityDiscoveryDetailResponse,
   CommunityHomeResponse,
+  CommunityIndexableResponse,
   CommunityPreviewCardsResponse,
+  CommunityProfileResponse,
 } from '../models/api-responses.model';
 
 export interface CommunityDeckListFilters {
@@ -15,6 +18,7 @@ export interface CommunityDeckListFilters {
   format?: string;
   colors?: string;
   lang?: string;
+  page?: number;
 }
 
 export interface CommunityPreviewFilters {
@@ -38,6 +42,8 @@ export class CommunityApi {
     for (const [key, value] of Object.entries(filters)) {
       if (typeof value === 'string' && value.trim() !== '') {
         params = params.set(key, value);
+      } else if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        params = params.set(key, String(Math.floor(value)));
       }
     }
 
@@ -46,6 +52,28 @@ export class CommunityApi {
 
   deck(id: string, lang?: string): Observable<CommunityDeckDetailResponse> {
     return this.http.get<CommunityDeckDetailResponse>(`${API_BASE_URL}/community/decks/${id}`, {
+      params: this.langParams(lang),
+    });
+  }
+
+  indexable(): Observable<CommunityIndexableResponse> {
+    return this.http.get<CommunityIndexableResponse>(`${API_BASE_URL}/community/indexable`);
+  }
+
+  profile(handle: string, lang?: string): Observable<CommunityProfileResponse> {
+    return this.http.get<CommunityProfileResponse>(`${API_BASE_URL}/community/profiles/${handle}`, {
+      params: this.langParams(lang),
+    });
+  }
+
+  commander(slug: string, lang?: string): Observable<CommunityDiscoveryDetailResponse> {
+    return this.http.get<CommunityDiscoveryDetailResponse>(`${API_BASE_URL}/community/commanders/${slug}`, {
+      params: this.langParams(lang),
+    });
+  }
+
+  card(slug: string, lang?: string): Observable<CommunityDiscoveryDetailResponse> {
+    return this.http.get<CommunityDiscoveryDetailResponse>(`${API_BASE_URL}/community/cards/${slug}`, {
       params: this.langParams(lang),
     });
   }
