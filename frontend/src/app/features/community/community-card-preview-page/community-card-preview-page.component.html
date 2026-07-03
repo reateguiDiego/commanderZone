@@ -59,8 +59,8 @@
       <app-card-preview-results
         [items]="sortedItems()"
         [viewMode]="effectiveViewMode()"
-        [contextMenuEnabled]="true"
-        [showAddToDeckAction]="true"
+        [contextMenuEnabled]="auth.isAuthenticated()"
+        [showAddToDeckAction]="auth.isAuthenticated()"
         (actionSelected)="handlePreviewAction($event)"
       />
     </app-cards-main-layout>

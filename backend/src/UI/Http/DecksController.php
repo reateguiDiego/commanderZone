@@ -76,6 +76,7 @@ class DecksController extends ApiController
             return $this->fail('Folder not found.', 404);
         }
         $deck->moveToFolder($folder);
+        $this->ensureUniqueSlug($deck, $entityManager);
         $entityManager->persist($deck);
         $entityManager->flush();
 
@@ -98,7 +99,6 @@ class DecksController extends ApiController
             return $this->fail('Deck format is invalid.');
         }
         $deck->setFormat($deckFormat);
-        $deck->setVisibility($this->visibilityFromPayload($payload));
         $folder = $this->folderFromPayload($payload, $user, $entityManager);
         if ($folder === false) {
             return $this->fail('Folder not found.', 404);
@@ -129,6 +129,8 @@ class DecksController extends ApiController
             }
         }
 
+        $deck->setVisibility($this->visibilityFromPayload($payload));
+        $this->ensureUniqueSlug($deck, $entityManager);
         $entityManager->flush();
 
         return $this->json([
@@ -136,6 +138,17 @@ class DecksController extends ApiController
             'missing' => $this->missingNames($missingCards),
             'missingCards' => $missingCards,
         ], 201);
+    }
+
+    #[Route('/decks/by-slug/{slug}', methods: ['GET'])]
+    public function showBySlug(string $slug, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
+    {
+        $deck = $this->ownedDeckBySlug($slug, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
 
     #[Route('/decks/{id}', methods: ['GET'])]
@@ -688,6 +701,36 @@ class DecksController extends ApiController
         $deck = $entityManager->getRepository(Deck::class)->find($id);
 
         return $deck instanceof Deck && $deck->owner()->id() === $user->id() ? $deck : null;
+    }
+
+    private function ownedDeckBySlug(string $slug, User $user, EntityManagerInterface $entityManager): ?Deck
+    {
+        $deck = $entityManager->getRepository(Deck::class)->findOneBy(['slug' => $slug]);
+
+        return $deck instanceof Deck && $deck->owner()->id() === $user->id() ? $deck : null;
+    }
+
+    private function ensureUniqueSlug(Deck $deck, EntityManagerInterface $entityManager): void
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            if ($attempt === 0) {
+                $deck->ensureSlug();
+            } else {
+                $deck->regenerateSlug();
+            }
+
+            $slug = $deck->slug();
+            if ($slug === null || $slug === '') {
+                continue;
+            }
+
+            $existing = $entityManager->getRepository(Deck::class)->findOneBy(['slug' => $slug]);
+            if (!$existing instanceof Deck || $existing->id() === $deck->id()) {
+                return;
+            }
+        }
+
+        throw new \RuntimeException('Could not generate a unique deck slug.');
     }
 
     private function ownedFolder(string $id, User $user, EntityManagerInterface $entityManager): ?DeckFolder

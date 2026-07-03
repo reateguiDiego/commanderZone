@@ -10,6 +10,8 @@ describe('public static path detection', () => {
 
   it('does not classify private app paths as public static pages', () => {
     expect(isPublicStaticPath('/auth/login')).toBe(false);
+    expect(isPublicStaticPath('/community')).toBe(false);
+    expect(isPublicStaticPath('/community/top-commanders')).toBe(false);
     expect(isPublicStaticPath('/dashboard')).toBe(false);
     expect(isPublicStaticPath('/rooms')).toBe(false);
   });

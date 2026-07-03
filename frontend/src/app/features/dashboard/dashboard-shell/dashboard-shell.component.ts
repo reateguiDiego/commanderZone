@@ -45,10 +45,7 @@ export class DashboardShellComponent implements OnDestroy {
       this.document.removeEventListener('pointerdown', closeFriendsOnOutsidePointer, true);
     });
 
-    void this.friends.ensureLoaded();
-    void this.messages.ensureLoaded();
-    this.startRoomInviteSync();
-    this.startFriendSync();
+    this.syncAuthenticatedHeaderState();
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -56,8 +53,7 @@ export class DashboardShellComponent implements OnDestroy {
       )
       .subscribe((event) => {
         this.roomFocus.set(this.isTableAssistantRoomUrl(event.urlAfterRedirects));
-        this.startRoomInviteSync();
-        this.startFriendSync();
+        this.syncAuthenticatedHeaderState();
       });
   }
 
@@ -164,6 +160,21 @@ export class DashboardShellComponent implements OnDestroy {
   private stopFriendSync(): void {
     this.friendSubscription?.unsubscribe();
     this.friendSubscription = undefined;
+  }
+
+  private syncAuthenticatedHeaderState(): void {
+    if (!this.auth.isAuthenticated()) {
+      this.closeFriends();
+      this.closeMessages();
+      this.stopRoomInviteSync();
+      this.stopFriendSync();
+      return;
+    }
+
+    void this.friends.ensureLoaded();
+    void this.messages.ensureLoaded();
+    this.startRoomInviteSync();
+    this.startFriendSync();
   }
 
   private startFriendSync(): void {

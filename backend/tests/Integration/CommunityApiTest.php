@@ -67,11 +67,22 @@ class CommunityApiTest extends ApiTestCase
         self::assertCount(1, $response['decks']);
         self::assertSame($matchingDeckId, $response['decks'][0]['id']);
         self::assertSame(['G'], $response['decks'][0]['colorIdentity']);
+        self::assertSame(1, $response['page']);
+        self::assertSame(20, $response['limit']);
+        self::assertSame(1, $response['total']);
+        self::assertSame(1, $response['totalPages']);
+        self::assertFalse($response['hasMore']);
     }
 
     public function testCommunityDeckDetailReturnsOnlyPublicValidDecks(): void
     {
         $token = $this->registerAndLogin('community-detail@example.test', 'Community Detail');
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'obsidian-crown',
+            'textColor' => '#ffeeaa',
+        ], $token);
+        self::assertResponseIsSuccessful();
+
         $commander = $this->seedCard('52000000-0000-0000-0000-000000000001', 'Detail Commander', [
             'type_line' => 'Legendary Creature - Human',
         ]);
@@ -90,6 +101,11 @@ class CommunityApiTest extends ApiTestCase
         self::assertSame('public', $response['deck']['visibility']);
         self::assertArrayHasKey('sections', $response['deck']);
         self::assertSame('Community Detail', $response['deck']['owner']['displayName']);
+        self::assertSame([
+            'type' => 'preset',
+            'presetId' => 'obsidian-crown',
+            'textColor' => '#ffeeaa',
+        ], $response['deck']['owner']['displayNameStyle']);
 
         $this->jsonRequest('GET', '/community/decks/'.$privateDeckId);
         self::assertResponseStatusCodeSame(404);
@@ -99,6 +115,144 @@ class CommunityApiTest extends ApiTestCase
 
         $this->jsonRequest('GET', '/community/decks/00000000-0000-0000-0000-000000000000');
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testCommunityCardDiscoveryReturnsRelatedPublicDecks(): void
+    {
+        $token = $this->registerAndLogin('community-card-discovery@example.test', 'Card Discovery');
+        $commander = $this->seedCard('57000000-0000-0000-0000-000000000001', 'Discovery Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+        $mainCard = $this->seedCard('57000000-0000-0000-0000-000000000002', 'Discovery Main Card', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+
+        $deckId = $this->createCommunityDeck($token, 'Discovery Deck', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+
+        $this->jsonRequest('GET', '/community/cards/discovery-main-card-00000002');
+        self::assertResponseIsSuccessful();
+
+        $response = $this->jsonResponse();
+        self::assertSame($mainCard->scryfallId(), $response['item']['scryfallId']);
+        self::assertCount(1, $response['decks']);
+        self::assertSame($deckId, $response['decks'][0]['id']);
+        self::assertMatchesRegularExpression(
+            '/^discovery-commander-discovery-deck-commander-[a-z0-9]{8}$/',
+            (string) $response['decks'][0]['publicSlug'],
+        );
+        self::assertSame('/community/decks/'.$response['decks'][0]['publicSlug'].'/', $response['decks'][0]['canonicalPath']);
+    }
+
+    public function testCommunityIndexableUsesDeckUpdatesForCardAndCommanderLastmod(): void
+    {
+        $token = $this->registerAndLogin('community-indexable-lastmod@example.test', 'Indexable Lastmod');
+        $commander = $this->seedCard('58000000-0000-0000-0000-000000000001', 'Stable Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+        $mainCard = $this->seedCard('58000000-0000-0000-0000-000000000002', 'Stable Main Card', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+
+        $deckId = $this->createCommunityDeck($token, 'Stable Index Deck', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+
+        $this->jsonRequest('GET', '/community/indexable');
+        self::assertResponseIsSuccessful();
+
+        $response = $this->jsonResponse();
+        $deckEntry = $this->singleIndexableEntry($response['decks'], static fn (array $entry): bool => ($entry['id'] ?? null) === $deckId);
+        $commanderEntry = $this->singleIndexableEntry($response['commanders'], static fn (array $entry): bool => ($entry['slug'] ?? null) === 'stable-commander-00000001');
+        $cardEntry = $this->singleIndexableEntry($response['cards'], static fn (array $entry): bool => ($entry['slug'] ?? null) === 'stable-main-card-00000002');
+
+        self::assertNotSame('', $deckEntry['updatedAt']);
+        self::assertSame($deckEntry['updatedAt'], $commanderEntry['updatedAt']);
+        self::assertSame($deckEntry['updatedAt'], $cardEntry['updatedAt']);
+    }
+
+    public function testCommunityIndexableOnlyIncludesPublicValidDecks(): void
+    {
+        $token = $this->registerAndLogin('community-indexable-validity@example.test', 'Indexable Validity');
+        $commander = $this->seedCard('59000000-0000-0000-0000-000000000001', 'Validity Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+        $mainCard = $this->seedCard('59000000-0000-0000-0000-000000000002', 'Validity Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+        $extraCard = $this->seedCard('59000000-0000-0000-0000-000000000003', 'Validity Rock', [
+            'type_line' => 'Artifact',
+        ]);
+
+        $deckId = $this->createCommunityDeck($token, 'Validity Deck', 'public', false, $commander->scryfallId(), $mainCard->scryfallId());
+
+        $this->jsonRequest('GET', '/community/indexable');
+        self::assertResponseIsSuccessful();
+        self::assertSame([], array_values(array_filter(
+            $this->jsonResponse()['decks'],
+            static fn (array $entry): bool => ($entry['id'] ?? null) === $deckId,
+        )));
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/validate-commander', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['valid']);
+
+        $this->jsonRequest('GET', '/community/indexable');
+        self::assertResponseIsSuccessful();
+        $this->singleIndexableEntry($this->jsonResponse()['decks'], static fn (array $entry): bool => ($entry['id'] ?? null) === $deckId);
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
+            'scryfallId' => $extraCard->scryfallId(),
+            'quantity' => 1,
+            'section' => 'main',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse()['deck']['valid']);
+
+        $this->jsonRequest('GET', '/community/indexable');
+        self::assertResponseIsSuccessful();
+        self::assertSame([], array_values(array_filter(
+            $this->jsonResponse()['decks'],
+            static fn (array $entry): bool => ($entry['id'] ?? null) === $deckId,
+        )));
+    }
+
+    public function testCommunityIndexableDoesNotBackfillDiscoveryFields(): void
+    {
+        $token = $this->registerAndLogin('community-indexable-readonly@example.test', 'Indexable Readonly');
+        $commander = $this->seedCard('5a000000-0000-0000-0000-000000000001', 'Readonly Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+        $mainCard = $this->seedCard('5a000000-0000-0000-0000-000000000002', 'Readonly Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+
+        $deckId = $this->createCommunityDeck($token, 'Readonly Deck', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+        $ownerId = (string) $this->entityManager->getConnection()->fetchOne(
+            'SELECT owner_id FROM deck WHERE id = :deckId',
+            ['deckId' => $deckId],
+        );
+        $this->entityManager->getConnection()->executeStatement(
+            'UPDATE deck SET public_slug = NULL WHERE id = :deckId',
+            ['deckId' => $deckId],
+        );
+        $this->entityManager->getConnection()->executeStatement(
+            'UPDATE app_user SET public_handle = NULL WHERE id = :ownerId',
+            ['ownerId' => $ownerId],
+        );
+
+        $this->jsonRequest('GET', '/community/indexable');
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame([], array_values(array_filter(
+            $response['decks'],
+            static fn (array $entry): bool => ($entry['id'] ?? null) === $deckId,
+        )));
+        self::assertNull($this->entityManager->getConnection()->fetchOne(
+            'SELECT public_slug FROM deck WHERE id = :deckId',
+            ['deckId' => $deckId],
+        ));
+        self::assertNull($this->entityManager->getConnection()->fetchOne(
+            'SELECT public_handle FROM app_user WHERE id = :ownerId',
+            ['ownerId' => $ownerId],
+        ));
     }
 
     public function testCommunityTopCommandersReturnsOnlyCommanderCandidates(): void
@@ -266,5 +420,19 @@ class CommunityApiTest extends ApiTestCase
         }
 
         return $deckId;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $entries
+     * @param callable(array<string,mixed>): bool $predicate
+     *
+     * @return array<string,mixed>
+     */
+    private function singleIndexableEntry(array $entries, callable $predicate): array
+    {
+        $matches = array_values(array_filter($entries, $predicate));
+        self::assertCount(1, $matches);
+
+        return $matches[0];
     }
 }

@@ -26,6 +26,7 @@ export class DashboardHeaderComponent {
   readonly messagesCount = input(0);
   readonly unreadMessagesCount = input(0);
   readonly canAccessAdmin = input(false);
+  readonly authenticated = input(false);
   readonly toggleFriends = output<MouseEvent>();
   readonly toggleMessages = output<MouseEvent>();
   readonly closeFriends = output<void>();

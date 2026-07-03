@@ -2,9 +2,11 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   generateSeoSitemapXml,
+  generateCommunitySitemaps,
   generateSitemapIndexXml,
   getSeoSitemapEntries,
   loadSeoSitemapConfig,
+  loadCommunityIndex,
   SEO_SITEMAP_PUBLIC_PATH,
   SITEMAP_INDEX_PUBLIC_PATH,
   toSeoPath,
@@ -12,19 +14,32 @@ import {
 
 const workspaceRoot = process.cwd();
 const config = await loadSeoSitemapConfig(workspaceRoot);
+const communityIndex = await loadCommunityIndex();
+const communitySitemaps = generateCommunitySitemaps(communityIndex);
 const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'];
 const nonSeoHreflangs = ['ja', 'ko', 'zh-Hans', 'zh-Hant', 'nl', 'ca', 'ru'];
-const expectedIndexXml = generateSitemapIndexXml();
+const expectedIndexXml = generateSitemapIndexXml(communitySitemaps.map((sitemap) => sitemap.publicPath));
 const expectedSeoXml = generateSeoSitemapXml(config);
 const sitemapIndexPath = path.join(workspaceRoot, 'public', SITEMAP_INDEX_PUBLIC_PATH);
 const seoSitemapPath = path.join(workspaceRoot, 'public', SEO_SITEMAP_PUBLIC_PATH);
 const vercelConfigPath = path.join(workspaceRoot, 'vercel.json');
+const prerenderRoutesPath = path.join(workspaceRoot, 'src', 'prerender-routes.txt');
 const actualIndexXml = await readFile(sitemapIndexPath, 'utf8');
 const actualSeoXml = await readFile(seoSitemapPath, 'utf8');
 const vercelConfig = JSON.parse(await readFile(vercelConfigPath, 'utf8'));
+const prerenderRoutes = (await readFile(prerenderRoutesPath, 'utf8'))
+  .split(/\r?\n/)
+  .map((route) => route.trim())
+  .filter(Boolean);
 
 assertEqualXml(actualIndexXml, expectedIndexXml, SITEMAP_INDEX_PUBLIC_PATH);
 assertEqualXml(actualSeoXml, expectedSeoXml, SEO_SITEMAP_PUBLIC_PATH);
+assertCommunityDeckDetailsNotPrerendered(prerenderRoutes);
+for (const sitemap of communitySitemaps) {
+  const actualCommunityXml = await readFile(path.join(workspaceRoot, 'public', sitemap.publicPath), 'utf8');
+  assertEqualXml(actualCommunityXml, sitemap.xml, sitemap.publicPath);
+  assertCommunitySitemap(actualCommunityXml);
+}
 assertSitemapIndex(actualIndexXml);
 assertSeoSitemap(actualSeoXml, config, vercelConfig);
 
@@ -43,6 +58,31 @@ function assertSitemapIndex(xml) {
 
   if (!xml.includes('<loc>https://www.commanderzone.com/sitemaps/sitemap-seo.xml</loc>')) {
     throw new Error('sitemap-index.xml must reference sitemap-seo.xml.');
+  }
+
+  for (const sitemap of communitySitemaps) {
+    const loc = `<loc>https://www.commanderzone.com/${sitemap.publicPath}</loc>`;
+    if (!xml.includes(loc)) {
+      throw new Error(`sitemap-index.xml must reference ${sitemap.publicPath}.`);
+    }
+  }
+}
+
+function assertCommunitySitemap(xml) {
+  const locs = extractTagValues(xml, 'loc');
+  for (const loc of locs) {
+    const path = new URL(loc).pathname;
+    if (!path.startsWith('/community/')) {
+      throw new Error(`Community sitemap contains non-community URL: ${loc}`);
+    }
+  }
+}
+
+function assertCommunityDeckDetailsNotPrerendered(routes) {
+  const deckDetailRoute = routes.find((route) => route.startsWith('/community/decks/') && route !== '/community/decks/');
+
+  if (deckDetailRoute) {
+    throw new Error(`Community deck detail routes must use SSR on demand, not prerender: ${deckDetailRoute}`);
   }
 }
 

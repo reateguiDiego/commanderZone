@@ -22,6 +22,8 @@ export function getStrategyRobotsMeta(strategy: PageTranslationStrategy): Robots
   switch (strategy) {
     case 'seo-static':
       return 'index, follow';
+    case 'seo-dynamic':
+      return 'index, follow';
     case 'runtime-i18n':
       return 'noindex, nofollow';
     case 'out-of-scope':

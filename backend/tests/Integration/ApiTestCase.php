@@ -180,8 +180,11 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureCardSearchOptionTables($connection);
         $this->ensureRoomWaitingLogEntryTable($connection);
         $this->ensureDeckValidityColumn($connection);
+        $this->ensureDeckSlugColumn($connection);
+        $this->ensureDeckPublicSlugColumn($connection);
         $this->ensureRoomMulliganColumns($connection);
         $this->ensureUserThemeColumn($connection);
+        $this->ensureUserPublicHandleColumn($connection);
         $this->ensureUserRoleTables($connection);
         $this->ensureUserPremiumTierColumn($connection);
         $this->ensureUserMessageTable($connection);
@@ -336,6 +339,44 @@ SQL,
         $connection->executeStatement('ALTER TABLE deck ALTER COLUMN is_valid DROP DEFAULT');
     }
 
+    private function ensureDeckSlugColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['deck'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('deck'),
+        );
+        if (!in_array('slug', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE deck ADD COLUMN slug VARCHAR(220) DEFAULT NULL');
+        }
+
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_deck_slug ON deck (slug) WHERE slug IS NOT NULL');
+    }
+
+    private function ensureDeckPublicSlugColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['deck'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('deck'),
+        );
+        if (!in_array('public_slug', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE deck ADD COLUMN public_slug VARCHAR(220) DEFAULT NULL');
+        } else {
+            $connection->executeStatement('ALTER TABLE deck ALTER COLUMN public_slug TYPE VARCHAR(220)');
+        }
+
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_deck_public_slug ON deck (public_slug) WHERE public_slug IS NOT NULL');
+    }
+
     private function ensureRoomMulliganColumns(Connection $connection): void
     {
         $schemaManager = $connection->createSchemaManager();
@@ -374,6 +415,24 @@ SQL,
 
         $connection->executeStatement("ALTER TABLE app_user ADD COLUMN theme_id VARCHAR(48) NOT NULL DEFAULT 'sunrise'");
         $connection->executeStatement('ALTER TABLE app_user ALTER COLUMN theme_id DROP DEFAULT');
+    }
+
+    private function ensureUserPublicHandleColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('app_user'),
+        );
+        if (!in_array('public_handle', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE app_user ADD COLUMN public_handle VARCHAR(180) DEFAULT NULL');
+        }
+
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_public_handle ON app_user (public_handle) WHERE public_handle IS NOT NULL');
     }
 
     private function ensureUserRoleTables(Connection $connection): void

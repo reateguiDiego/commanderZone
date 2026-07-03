@@ -23,6 +23,7 @@ const COMMUNITY_DECK_VIEWER_SESSION_KEY = 'community.deckViewer.viewMode';
 })
 export class DeckViewerComponent {
   readonly deck = input.required<Deck>();
+  readonly cardActionsEnabled = input(true);
   readonly cardActionSelected = output<CommunityDeckCardActionEvent>();
   readonly store = inject(CommunityDeckViewerStore);
   private readonly device = inject(DeviceProfileService);
@@ -87,6 +88,11 @@ export class DeckViewerComponent {
   }
 
   handleContextAction(action: CommunityDeckCardAction): void {
+    if (!this.cardActionsEnabled()) {
+      this.store.closeContextMenu();
+      return;
+    }
+
     const menu = this.store.contextMenu();
     if (!menu) {
       return;

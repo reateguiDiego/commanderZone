@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { CommunityDeckSummary, toDeckCardListItem } from '../../../../core/models/community.model';
 import { DeckListCardComponent } from '../../../decks/deck-list/components/deck-list-card/deck-list-card.component';
+import { communityDeckRoute } from '../../utils/community-deck-route';
 
 @Component({
   selector: 'app-community-deck-grid',
@@ -11,10 +12,14 @@ import { DeckListCardComponent } from '../../../decks/deck-list/components/deck-
 })
 export class CommunityDeckGridComponent {
   readonly decks = input<readonly CommunityDeckSummary[]>([]);
-  readonly deckSelected = output<string>();
+  readonly deckSelected = output<CommunityDeckSummary>();
 
   deckItem(deck: CommunityDeckSummary) {
     return toDeckCardListItem(deck);
+  }
+
+  deckHref(deck: CommunityDeckSummary): string {
+    return communityDeckRoute(deck);
   }
 
   commanderBackground(deck: CommunityDeckSummary): string | null {
@@ -33,7 +38,7 @@ export class CommunityDeckGridComponent {
     return this.hasCommanderArt(deck) && typeof deck.secondaryCropImage === 'string' && deck.secondaryCropImage.trim() !== '';
   }
 
-  openDeck(deckId: string): void {
-    this.deckSelected.emit(deckId);
+  openDeck(deck: CommunityDeckSummary): void {
+    this.deckSelected.emit(deck);
   }
 }

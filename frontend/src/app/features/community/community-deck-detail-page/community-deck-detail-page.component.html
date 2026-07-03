@@ -13,7 +13,11 @@
     }
 
     <div class="community-detail-viewer">
-      <app-deck-viewer [deck]="deckDetail" (cardActionSelected)="handleCardAction($event)" />
+      <app-deck-viewer
+        [deck]="deckDetail"
+        [cardActionsEnabled]="auth.isAuthenticated()"
+        (cardActionSelected)="handleCardAction($event)"
+      />
     </div>
 
     <app-community-deck-inspector [deck]="deckDetail" />

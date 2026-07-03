@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { importProvidersFrom } from '@angular/core';
+import { importProvidersFrom, signal } from '@angular/core';
 import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, provideRouter } from '@angular/router';
@@ -19,6 +19,7 @@ import {
 } from 'lucide-angular';
 import { of, throwError } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { CommunityApi } from '../../../core/api/community.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
@@ -125,7 +126,10 @@ describe('CommunityDeckDetailPageComponent', () => {
                   sideboard: [],
                   maybeboard: [],
                 },
-                owner: { displayName: 'Alber' },
+                owner: {
+                  displayName: 'Alber',
+                  displayNameStyle: { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' },
+                },
               },
             })),
           },
@@ -134,6 +138,7 @@ describe('CommunityDeckDetailPageComponent', () => {
           provide: DecksApi,
           useValue: decksApi,
         },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(false) } },
         {
           provide: CardsApi,
           useValue: {
@@ -172,6 +177,8 @@ describe('CommunityDeckDetailPageComponent', () => {
       ],
     }).compileComponents();
 
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(CommunityDeckDetailPageComponent);
     fixture.detectChanges();
     await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
@@ -187,6 +194,7 @@ describe('CommunityDeckDetailPageComponent', () => {
     expect(header?.title).toBe('Readonly Deck');
     expect(header?.context).toBe('community-deck-detail');
     expect(header?.sharedBy?.displayName).toBe('Alber');
+    expect(header?.sharedBy?.nameStyle).toEqual({ type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' });
     expect(header?.stats).toBeUndefined();
     expect(header?.actions?.map((action) => action.id)).toEqual([
       'back-to-community-decks',
@@ -206,7 +214,8 @@ describe('CommunityDeckDetailPageComponent', () => {
 
     const confirmButton = fixture.nativeElement.querySelector('app-modal .modal-panel button.primary-button') as HTMLButtonElement;
     confirmButton.click();
-    await vi.waitFor(() => expect(decksApi.quickBuild).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(navigateSpy).toHaveBeenCalledWith(['/auth/register']));
+    expect(decksApi.quickBuild).not.toHaveBeenCalled();
   });
 
   it('opens the shared details modal for community deck card actions', async () => {
@@ -318,6 +327,7 @@ describe('CommunityDeckDetailPageComponent', () => {
           },
         },
         { provide: CardsApi, useValue: cardsApi },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(true) } },
         {
           provide: DeckFormatsApi,
           useValue: {
@@ -416,6 +426,7 @@ describe('CommunityDeckDetailPageComponent', () => {
             printings: vi.fn(),
           },
         },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(false) } },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
         {
           provide: ActivatedRoute,

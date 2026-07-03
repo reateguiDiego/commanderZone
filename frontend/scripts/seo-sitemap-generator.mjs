@@ -5,6 +5,18 @@ import ts from 'typescript';
 export const SITEMAP_BASE_URL = 'https://www.commanderzone.com';
 export const SITEMAP_INDEX_PUBLIC_PATH = 'sitemap-index.xml';
 export const SEO_SITEMAP_PUBLIC_PATH = 'sitemaps/sitemap-seo.xml';
+export const COMMUNITY_PROFILES_SITEMAP_PUBLIC_PATH = 'sitemaps/community-profiles.xml';
+export const COMMUNITY_COMMANDERS_SITEMAP_PUBLIC_PATH = 'sitemaps/community-commanders.xml';
+export const COMMUNITY_CARDS_SITEMAP_PUBLIC_PATH = 'sitemaps/community-cards.xml';
+const DEFAULT_COMMUNITY_INDEX_URL = 'http://localhost:8000/community/indexable';
+const COMMUNITY_INDEX_OPTIONAL = process.env.COMMANDERZONE_COMMUNITY_INDEX_OPTIONAL === '1';
+const COMMUNITY_DECK_SITEMAP_PAGE_SIZE = 5000;
+const COMMUNITY_STATIC_PATHS = [
+  '/community/',
+  '/community/decks/',
+  '/community/top-commanders/',
+  '/community/top-cards/',
+];
 
 export async function loadSeoSitemapConfig(workspaceRoot = process.cwd()) {
   const localeConfigPath = path.join(workspaceRoot, 'src/app/core/localization/locale-config.ts');
@@ -16,13 +28,22 @@ export async function loadSeoSitemapConfig(workspaceRoot = process.cwd()) {
   };
 }
 
-export function generateSitemapIndexXml() {
+export function generateSitemapIndexXml(communitySitemapPublicPaths = []) {
+  const communitySitemaps = communitySitemapPublicPaths.length > 0
+    ? communitySitemapPublicPaths.flatMap((publicPath) => [
+      '  <sitemap>',
+      `    <loc>${toAbsoluteUrl(`/${publicPath}`)}</loc>`,
+      '  </sitemap>',
+    ])
+    : [];
+
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     '  <sitemap>',
     `    <loc>${toAbsoluteUrl(`/${SEO_SITEMAP_PUBLIC_PATH}`)}</loc>`,
     '  </sitemap>',
+    ...communitySitemaps,
     '</sitemapindex>',
     '',
   ].join('\n');
@@ -53,21 +74,29 @@ export function generateSeoSitemapXml(config) {
 
 export async function writeSitemapFiles(workspaceRoot = process.cwd()) {
   const config = await loadSeoSitemapConfig(workspaceRoot);
+  const communityIndex = await loadCommunityIndex();
+  const communitySitemaps = generateCommunitySitemaps(communityIndex);
   const sitemapIndexPath = path.join(workspaceRoot, 'public', SITEMAP_INDEX_PUBLIC_PATH);
   const seoSitemapPath = path.join(workspaceRoot, 'public', SEO_SITEMAP_PUBLIC_PATH);
-  const sitemapIndexXml = generateSitemapIndexXml();
+  const sitemapIndexXml = generateSitemapIndexXml(communitySitemaps.map((sitemap) => sitemap.publicPath));
   const seoSitemapXml = generateSeoSitemapXml(config);
 
   await mkdir(path.dirname(seoSitemapPath), { recursive: true });
   await writeFile(sitemapIndexPath, sitemapIndexXml, 'utf8');
   await writeFile(seoSitemapPath, seoSitemapXml, 'utf8');
+  for (const sitemap of communitySitemaps) {
+    const sitemapPath = path.join(workspaceRoot, 'public', sitemap.publicPath);
+    await mkdir(path.dirname(sitemapPath), { recursive: true });
+    await writeFile(sitemapPath, sitemap.xml, 'utf8');
+  }
 
   return {
     routeCount: config.routes.length,
     localeCount: config.locales.length,
-    urlCount: config.routes.length * config.locales.length,
+    urlCount: config.routes.length * config.locales.length + communityIndex.paths.length,
     sitemapIndexPath,
     seoSitemapPath,
+    communitySitemapPaths: communitySitemaps.map((sitemap) => path.join(workspaceRoot, 'public', sitemap.publicPath)),
   };
 }
 
@@ -106,6 +135,170 @@ export function toSeoPath(locale, slug, routeKey) {
 export function toAbsoluteUrl(publicPath) {
   const normalizedPath = publicPath.startsWith('/') ? publicPath : `/${publicPath}`;
   return `${SITEMAP_BASE_URL}${normalizedPath}`;
+}
+
+export async function loadCommunityIndex(fetchImpl = globalThis.fetch) {
+  if (typeof fetchImpl !== 'function') {
+    throw new Error('Community sitemap generation requires a fetch implementation.');
+  }
+
+  const url = communityIndexUrl();
+
+  try {
+    const response = await fetchImpl(url, { headers: { accept: 'application/json' } });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const communityIndex = normalizeCommunityIndex(await response.json());
+    assertDynamicCommunityIndex(communityIndex, url);
+
+    return communityIndex;
+  } catch (error) {
+    if (COMMUNITY_INDEX_OPTIONAL) {
+      console.warn(
+        `Community sitemap source ${url} unavailable; COMMANDERZONE_COMMUNITY_INDEX_OPTIONAL=1 allows static community URLs only. ${
+          error instanceof Error ? error.message : ''
+        }`.trim(),
+      );
+      return normalizeCommunityIndex(null);
+    }
+
+    throw new Error(
+      `Community sitemap source ${url} is required and did not return dynamic community URLs. ${
+        error instanceof Error ? error.message : ''
+      }`.trim(),
+    );
+  }
+}
+
+function communityIndexUrl() {
+  const configuredUrl = process.env.COMMANDERZONE_COMMUNITY_INDEX_URL?.trim();
+  return configuredUrl || DEFAULT_COMMUNITY_INDEX_URL;
+}
+
+function assertDynamicCommunityIndex(communityIndex, sourceUrl) {
+  if (communityIndex.paths.length <= COMMUNITY_STATIC_PATHS.length) {
+    throw new Error(`Community sitemap source ${sourceUrl} returned no dynamic community URLs.`);
+  }
+}
+
+export function normalizeCommunityIndex(payload) {
+  const groups = ['decks', 'profiles', 'commanders', 'cards'];
+  const groupedEntries = {
+    static: COMMUNITY_STATIC_PATHS.map((path) => ({ path, updatedAt: null })),
+    decks: [],
+    profiles: [],
+    commanders: [],
+    cards: [],
+  };
+
+  for (const group of groups) {
+    const entries = Array.isArray(payload?.[group]) ? payload[group] : [];
+    for (const entry of entries) {
+      const canonicalPath = typeof entry?.canonicalPath === 'string' ? entry.canonicalPath.trim() : '';
+      if (!canonicalPath.startsWith('/community/') || !canonicalPath.endsWith('/')) {
+        continue;
+      }
+
+      groupedEntries[group].push({
+        path: canonicalPath,
+        updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : null,
+      });
+    }
+  }
+
+  for (const group of Object.keys(groupedEntries)) {
+    groupedEntries[group] = uniqueEntries(groupedEntries[group]);
+  }
+
+  const unique = new Map();
+  for (const entry of Object.values(groupedEntries).flat()) {
+    unique.set(entry.path, entry);
+  }
+
+  return {
+    paths: [...unique.values()].sort((left, right) => left.path.localeCompare(right.path)),
+    groups: groupedEntries,
+  };
+}
+
+export function generateCommunitySitemaps(communityIndex) {
+  const groups = communityIndex.groups ?? {
+    static: COMMUNITY_STATIC_PATHS.map((path) => ({ path, updatedAt: null })),
+    decks: communityIndex.paths.filter((entry) => entry.path.startsWith('/community/decks/') && entry.path !== '/community/decks/'),
+    profiles: communityIndex.paths.filter((entry) => entry.path.startsWith('/community/profiles/')),
+    commanders: communityIndex.paths.filter((entry) => entry.path.startsWith('/community/commanders/')),
+    cards: communityIndex.paths.filter((entry) => entry.path.startsWith('/community/cards/')),
+  };
+  const deckChunks = groups.decks.length > 0 ? chunk(groups.decks, COMMUNITY_DECK_SITEMAP_PAGE_SIZE) : [[]];
+  const deckSitemaps = deckChunks.map((entries, index) => {
+    const sitemapEntries = index === 0 ? [...groups.static, ...entries] : entries;
+
+    return {
+      publicPath: `sitemaps/community-decks-${index + 1}.xml`,
+      entries: sitemapEntries,
+      xml: generateCommunitySitemapXml(sitemapEntries),
+    };
+  });
+  const typedSitemaps = [
+    {
+      publicPath: COMMUNITY_PROFILES_SITEMAP_PUBLIC_PATH,
+      entries: groups.profiles,
+    },
+    {
+      publicPath: COMMUNITY_COMMANDERS_SITEMAP_PUBLIC_PATH,
+      entries: groups.commanders,
+    },
+    {
+      publicPath: COMMUNITY_CARDS_SITEMAP_PUBLIC_PATH,
+      entries: groups.cards,
+    },
+  ]
+    .filter((sitemap) => sitemap.entries.length > 0)
+    .map((sitemap) => ({
+      ...sitemap,
+      xml: generateCommunitySitemapXml(sitemap.entries),
+    }));
+
+  return [...deckSitemaps, ...typedSitemaps];
+}
+
+export function generateCommunitySitemapXml(entries) {
+  const lines = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+  ];
+
+  for (const entry of entries) {
+    lines.push('  <url>');
+    lines.push(`    <loc>${escapeXml(toAbsoluteUrl(entry.path))}</loc>`);
+    if (entry.updatedAt) {
+      lines.push(`    <lastmod>${escapeXml(entry.updatedAt)}</lastmod>`);
+    }
+    lines.push('  </url>');
+  }
+
+  lines.push('</urlset>', '');
+  return lines.join('\n');
+}
+
+function uniqueEntries(entries) {
+  const unique = new Map();
+  for (const entry of entries) {
+    unique.set(entry.path, entry);
+  }
+
+  return [...unique.values()].sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function chunk(entries, size) {
+  const chunks = [];
+  for (let index = 0; index < entries.length; index += size) {
+    chunks.push(entries.slice(index, index + size));
+  }
+
+  return chunks;
 }
 
 async function readSourceFile(filePath) {

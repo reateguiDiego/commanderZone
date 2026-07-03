@@ -14,6 +14,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'app_user')]
 #[ORM\UniqueConstraint(name: 'uniq_user_email', columns: ['email'])]
 #[ORM\UniqueConstraint(name: 'uniq_user_display_name', columns: ['display_name'])]
+#[ORM\UniqueConstraint(name: 'uniq_user_public_handle', columns: ['public_handle'])]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     public const PREMIUM_TIER_NONE = 'none';
@@ -40,6 +41,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'string', length: 20)]
     private string $displayName;
+
+    #[ORM\Column(type: 'string', length: 180, nullable: true)]
+    private ?string $publicHandle = null;
 
     #[ORM\Column(type: 'string', length: 48)]
     private string $displayNameStylePreset = self::DEFAULT_DISPLAY_NAME_STYLE_PRESET;
@@ -115,6 +119,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->id = Uuid::v7()->toRfc4122();
         $this->email = mb_strtolower(trim($email));
         $this->displayName = trim($displayName);
+        $this->ensurePublicHandle();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = $this->createdAt;
         $this->roles = new ArrayCollection();
@@ -133,6 +138,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function displayName(): string
     {
         return $this->displayName;
+    }
+
+    public function publicHandle(): ?string
+    {
+        return $this->publicHandle;
+    }
+
+    public function publicPath(): ?string
+    {
+        return $this->publicHandle === null ? null : sprintf('/community/profiles/%s/', $this->publicHandle);
+    }
+
+    public function ensurePublicHandle(): void
+    {
+        if ($this->publicHandle !== null && $this->publicHandle !== '') {
+            return;
+        }
+
+        $this->publicHandle = sprintf('%s-%s', self::slugPart($this->displayName), $this->shortPublicId());
     }
 
     public function rename(string $displayName): void
@@ -482,6 +506,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'emailVerified' => $this->isEmailVerified(),
             'pendingEmail' => $this->pendingEmail,
             'displayName' => $this->displayName,
+            'publicHandle' => $this->publicHandle,
+            'publicPath' => $this->publicPath(),
             'displayNameStyle' => $this->displayNameStyle(),
             'preferences' => [
                 'cardLanguage' => $this->cardLanguage,
@@ -507,5 +533,26 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $letter = mb_strtoupper(mb_substr(trim($this->displayName), 0, 1));
 
         return $letter !== '' ? $letter : 'P';
+    }
+
+    private static function slugPart(string $value): string
+    {
+        $slug = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if (!is_string($slug)) {
+            $slug = $value;
+        }
+
+        $slug = strtolower(trim($slug));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
+        $slug = trim($slug, '-');
+
+        return $slug !== '' ? substr($slug, 0, 140) : 'player';
+    }
+
+    private function shortPublicId(): string
+    {
+        $compact = preg_replace('/[^a-z0-9]/i', '', $this->id) ?? '';
+
+        return strtolower(substr($compact !== '' ? $compact : $this->id, -8));
     }
 }

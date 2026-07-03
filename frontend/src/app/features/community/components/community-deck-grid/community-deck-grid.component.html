@@ -2,12 +2,13 @@
   @for (deck of decks(); track deck.id) {
     <app-deck-list-card
       [deck]="deckItem(deck)"
+      [deckHref]="deckHref(deck)"
       [commanderBackground]="commanderBackground(deck)"
       [secondaryCommanderBackground]="secondaryCommanderBackground(deck)"
       [colorIdentity]="deck.colorIdentity"
       [hasCommanderArt]="hasCommanderArt(deck)"
       [hasDualCommanderArt]="hasDualCommanderArt(deck)"
-      (openDeck)="openDeck(deck.id)"
+      (openDeck)="openDeck(deck)"
     />
   }
 </div>

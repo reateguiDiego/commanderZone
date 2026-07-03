@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
+import { loadCommunityIndex } from './seo-sitemap-generator.mjs';
 
 const workspaceRoot = process.cwd();
 const localeConfigPath = path.join(workspaceRoot, 'src/app/core/localization/locale-config.ts');
@@ -13,24 +14,29 @@ const publicStaticPathsOutputPath = path.join(workspaceRoot, 'src/app/core/routi
 const localeCodes = extractSupportedLocaleCodes(await readSourceFile(localeConfigPath));
 const seoRoutes = extractSeoRoutes(await readSourceFile(seoRoutesPath));
 const legalRoutes = extractLegalRoutes(await readSourceFile(legalRoutesPath));
+const communityIndex = await loadCommunityIndex();
 const routes = Object.values(seoRoutes).flatMap((route) =>
   localeCodes.map((locale) => toSeoPath(locale, route.slugs[locale], route.routeKey)),
 );
-const combinedRoutes = [
+const combinedRoutes = [...new Set([
   ...routes,
   ...Object.values(legalRoutes).flatMap((route) =>
     localeCodes.map((locale) => toLegalPath(locale, route.slugs[locale])),
   ),
-];
+  ...communityIndex.paths
+    .filter((entry) => !isCommunityDeckDetailRoute(entry.path))
+    .map((entry) => entry.path),
+])];
+const publicStaticRoutes = combinedRoutes.filter((route) => route !== '/community/' && !route.startsWith('/community/'));
 
 validateRoutes(routes, localeCodes.length, Object.keys(seoRoutes).length);
-validateCombinedRoutes(combinedRoutes, routes.length + Object.keys(legalRoutes).length * localeCodes.length);
+validateCombinedRoutes(combinedRoutes);
 
 await mkdir(path.dirname(outputPath), { recursive: true });
 await mkdir(path.dirname(publicStaticPathsOutputPath), { recursive: true });
 await writeFile(outputPath, `${routes.join('\n')}\n`, 'utf8');
 await writeFile(combinedOutputPath, `${combinedRoutes.join('\n')}\n`, 'utf8');
-await writeFile(publicStaticPathsOutputPath, toPublicStaticPathsSource(combinedRoutes), 'utf8');
+await writeFile(publicStaticPathsOutputPath, toPublicStaticPathsSource(publicStaticRoutes), 'utf8');
 
 console.log(`Wrote ${routes.length} SEO prerender routes to ${path.relative(workspaceRoot, outputPath)}.`);
 console.log(`Wrote ${combinedRoutes.length} total prerender routes to ${path.relative(workspaceRoot, combinedOutputPath)}.`);
@@ -245,11 +251,10 @@ function validateRoutes(routes, localeCount, routeCount) {
   }
 }
 
-function validateCombinedRoutes(routes, expectedCount) {
+function validateCombinedRoutes(routes) {
   const forbiddenFragments = [
     '/auth',
     '/dashboard',
-    '/decks',
     '/games',
     '/rooms',
     '/room/',
@@ -258,10 +263,6 @@ function validateCombinedRoutes(routes, expectedCount) {
     '/app',
     '/table-assistant/',
   ];
-
-  if (routes.length !== expectedCount) {
-    throw new Error(`Expected ${expectedCount} total prerender routes, got ${routes.length}.`);
-  }
 
   if (new Set(routes).size !== routes.length) {
     throw new Error('Combined prerender routes must be unique.');
@@ -272,10 +273,22 @@ function validateCombinedRoutes(routes, expectedCount) {
       throw new Error(`Combined prerender route must be normalized: ${route}`);
     }
 
+    if (isCommunityPublicRoute(route)) {
+      continue;
+    }
+
     if (forbiddenFragments.some((forbiddenRoute) => route.includes(forbiddenRoute))) {
       throw new Error(`Internal route must not be prerendered: ${route}`);
     }
   }
+}
+
+function isCommunityPublicRoute(route) {
+  return route === '/community/' || route.startsWith('/community/');
+}
+
+function isCommunityDeckDetailRoute(route) {
+  return route.startsWith('/community/decks/') && route !== '/community/decks/';
 }
 
 function toPublicStaticPathsSource(routes) {

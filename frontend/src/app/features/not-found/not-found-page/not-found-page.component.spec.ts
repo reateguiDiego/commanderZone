@@ -1,10 +1,10 @@
 import { DOCUMENT } from '@angular/common';
-import { Signal, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Meta, Title } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
 import { Subject } from 'rxjs';
-import { AuthStore } from '../../../core/auth/auth.store';
+import { NotFoundNavigationService } from '../../../core/routing/not-found-navigation.service';
 import { NotFoundPageComponent, localeFromNotFoundUrl } from './not-found-page.component';
 
 class RouterStub {
@@ -13,24 +13,19 @@ class RouterStub {
 }
 
 describe('NotFoundPageComponent', () => {
-  let authenticated: ReturnType<typeof signal<boolean | undefined>>;
   let fixture: ComponentFixture<NotFoundPageComponent>;
+  let returnUrl: ReturnType<typeof signal<string | null>>;
   let router: RouterStub;
 
   beforeEach(async () => {
-    authenticated = signal<boolean | undefined>(false);
+    returnUrl = signal<string | null>(null);
     router = new RouterStub();
 
     await TestBed.configureTestingModule({
       imports: [NotFoundPageComponent],
       providers: [
         { provide: Router, useValue: router },
-        {
-          provide: AuthStore,
-          useValue: {
-            isAuthenticated: authenticated.asReadonly() as Signal<boolean>,
-          },
-        },
+        { provide: NotFoundNavigationService, useValue: { returnUrl: returnUrl.asReadonly() } },
       ],
     }).compileComponents();
 
@@ -73,25 +68,21 @@ describe('NotFoundPageComponent', () => {
     );
   });
 
-  it('points the single CTA to dashboard for authenticated users', () => {
-    authenticated.set(true);
+  it('points the single CTA to the previous route when it is known', () => {
+    returnUrl.set('/community/decks');
     fixture.detectChanges();
 
     const links = Array.from(fixture.nativeElement.querySelectorAll('a')) as HTMLAnchorElement[];
 
     expect(links).toHaveLength(1);
-    expect(links[0]?.getAttribute('href')).toBe('/dashboard');
-    expect(links[0]?.textContent?.trim()).toBe('Back to dashboard');
+    expect(links[0]?.getAttribute('href')).toBe('/community/decks');
+    expect(links[0]?.textContent?.trim()).toBe('Back');
   });
 
-  it('keeps the CTA on root when auth is false or unresolved', () => {
-    authenticated.set(false);
+  it('keeps the CTA on root when the previous route is unknown', () => {
+    returnUrl.set(null);
     fixture.detectChanges();
-    expect(primaryCta()?.getAttribute('href')).toBe('/');
-    expect(primaryCta()?.textContent?.trim()).toBe('Back home');
 
-    authenticated.set(undefined);
-    fixture.detectChanges();
     expect(primaryCta()?.getAttribute('href')).toBe('/');
     expect(primaryCta()?.textContent?.trim()).toBe('Back home');
   });

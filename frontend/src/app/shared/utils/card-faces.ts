@@ -3,8 +3,8 @@ import { bestCardFaceImage, bestCardImage } from './card-image';
 
 export interface CardFaceImageSource {
   readonly name: string;
-  readonly imageUris: CardImageUris;
-  readonly cardFaces?: CardFace[];
+  readonly imageUris?: CardImageUris | null;
+  readonly cardFaces?: readonly CardFace[] | null;
 }
 
 export function hasAlternateCardFace(card: CardFaceImageSource | null | undefined): boolean {

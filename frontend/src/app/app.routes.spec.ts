@@ -1,4 +1,4 @@
-import { adminAccessGuard, guestGuard } from './core/auth/auth.guard';
+import { adminAccessGuard, authGuard, guestGuard } from './core/auth/auth.guard';
 import { PAGE_TRANSLATION_STRATEGIES, PageKey } from './core/localization/page-translation-strategy';
 import { getPageRobotsMeta } from './core/seo/route-robots';
 import { routes } from './app.routes';
@@ -41,7 +41,7 @@ describe('app routes', () => {
   });
 
   it('keeps /admin inside the authenticated shell behind adminAccessGuard', async () => {
-    const shellRoute = routes.find((route) => route.path === '' && route.children);
+    const shellRoute = routes.find((route) => route.path === '' && route.children && route.canActivate?.includes(authGuard));
     const adminRoute = shellRoute?.children?.find((route) => route.path === 'admin');
     const componentLoader = adminRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
     const component = componentLoader ? await componentLoader() : undefined;
@@ -51,6 +51,16 @@ describe('app routes', () => {
     expect(adminRoute?.data?.['pageKey']).toBe('admin');
     expect(adminRoute?.title).toBe('Admin | CommanderZone');
     expect(component?.name).toMatch(/AdminPageComponent$/);
+  });
+
+  it('keeps /community inside a public app shell without authGuard', () => {
+    const shellRoute = routes.find((route) => route.path === '' && route.children && !route.canActivate?.includes(authGuard));
+    const communityRoute = shellRoute?.children?.find((route) => route.path === 'community');
+
+    expect(shellRoute).toBeDefined();
+    expect(shellRoute?.canActivate).toBeUndefined();
+    expect(communityRoute).toBeDefined();
+    expect(communityRoute?.data?.['pageKey']).toBe('publicCommunity');
   });
 
   it('renders a not-found page for wildcard routes instead of redirecting to home or dashboard', async () => {
@@ -100,7 +110,7 @@ function expectedRobotsFor(pageKey: PageKey): 'index, follow' | 'noindex, follow
 
   const strategy = PAGE_TRANSLATION_STRATEGIES[pageKey];
 
-  if (strategy === 'seo-static') {
+  if (strategy === 'seo-static' || strategy === 'seo-dynamic') {
     return 'index, follow';
   }
 

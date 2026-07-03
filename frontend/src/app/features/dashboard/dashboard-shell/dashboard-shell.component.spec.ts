@@ -34,13 +34,15 @@ import { DashboardShellComponent } from './dashboard-shell.component';
 describe('DashboardShellComponent', () => {
   let isDesktop: ReturnType<typeof signal<boolean>>;
   let isDesktopLayout: ReturnType<typeof signal<boolean>>;
-  let user: ReturnType<typeof signal<{ id: string; email: string; displayName: string; roles: string[] }>>;
+  let user: ReturnType<typeof signal<{ id: string; email: string; displayName: string; roles: string[] } | null>>;
+  let isAuthenticated: ReturnType<typeof signal<boolean>>;
 
   beforeEach(async () => {
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
     isDesktop = signal(true);
     isDesktopLayout = signal(true);
+    isAuthenticated = signal(true);
     user = signal({ id: 'user-1', email: 'player@example.com', displayName: 'Player', roles: ['ROLE_USER'] });
 
     await TestBed.configureTestingModule({
@@ -71,6 +73,7 @@ describe('DashboardShellComponent', () => {
           useValue: {
             user,
             displayName: signal('Player'),
+            isAuthenticated,
             impersonation: signal(null),
             isImpersonating: signal(false),
             logout: vi.fn().mockResolvedValue(undefined),
@@ -137,6 +140,17 @@ describe('DashboardShellComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Cards');
     expect(fixture.nativeElement.textContent).toContain('Community');
     expect(fixture.nativeElement.textContent).toContain('Player');
+  });
+
+  it('does not render dashboard header controls without an authenticated session', () => {
+    isAuthenticated.set(false);
+    user.set(null);
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-dashboard-header-controls')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.brand')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Community');
   });
 
   it('hides Rooms navigation outside desktop device and desktop layout', () => {

@@ -17,6 +17,9 @@ export interface Deck {
   format: 'commander' | string;
   valid?: boolean;
   visibility?: DeckVisibility;
+  slug?: string | null;
+  publicSlug?: string | null;
+  canonicalPath?: string | null;
   backgroundName?: string;
   sleevesName?: string;
   folderId: string | null;

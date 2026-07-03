@@ -7,6 +7,148 @@ use App\Domain\Deck\DeckCard;
 
 class DeckbuildingApiTest extends ApiTestCase
 {
+    public function testDeckCreationGeneratesStableSlugAndResolvesByOwner(): void
+    {
+        $token = $this->registerAndLogin('deck-slug-owner@example.test', 'Deck Slug Owner');
+        $otherToken = $this->registerAndLogin('deck-slug-other@example.test', 'Deck Slug Other');
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Fancy Deck'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $created = $this->jsonResponse()['deck'];
+        $deckId = (string) $created['id'];
+        $slug = (string) $created['slug'];
+        self::assertMatchesRegularExpression('/^deck-fancy-deck-commander-[a-z0-9]{8}$/', $slug);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Fancy Deck'], $token);
+        self::assertResponseStatusCodeSame(201);
+        self::assertNotSame($slug, (string) $this->jsonResponse()['deck']['slug']);
+
+        $this->jsonRequest('GET', '/decks/by-slug/'.$slug, token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame($deckId, $this->jsonResponse()['deck']['id']);
+
+        $this->jsonRequest('GET', '/decks/by-slug/'.$slug, token: $otherToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('PATCH', '/decks/'.$deckId, ['name' => 'Renamed Deck'], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame($slug, $this->jsonResponse()['deck']['slug']);
+    }
+
+    public function testQuickBuildGeneratesSlugFromCommanderAndDeckName(): void
+    {
+        $token = $this->registerAndLogin('quick-build-slug@example.test', 'Quick Build Slug');
+        $commander = $this->seedCard('00000000-0000-0000-0000-000000009001', 'Atraxa, Grand Unifier', [
+            'type_line' => 'Legendary Creature',
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Superfriends Control',
+            'cards' => [
+                ['scryfallId' => $commander->scryfallId(), 'quantity' => 1, 'section' => DeckCard::SECTION_COMMANDER],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+
+        self::assertMatchesRegularExpression(
+            '/^atraxa-grand-unifier-superfriends-control-commander-[a-z0-9]{8}$/',
+            (string) $this->jsonResponse()['deck']['slug'],
+        );
+    }
+
+    public function testPublicSlugRefreshesWhenPublicDeckNameOrCommanderChanges(): void
+    {
+        $token = $this->registerAndLogin('public-slug-refresh@example.test', 'Public Slug Refresh');
+        $firstCommander = $this->seedCard('00000000-0000-0000-0000-000000009101', 'Atraxa, Grand Unifier', [
+            'type_line' => 'Legendary Creature',
+        ]);
+        $secondCommander = $this->seedCard('00000000-0000-0000-0000-000000009102', 'The Ur-Dragon', [
+            'type_line' => 'Legendary Creature',
+        ]);
+        $island = $this->seedCard('00000000-0000-0000-0000-000000009103', 'Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+        $solRing = $this->seedCard('00000000-0000-0000-0000-000000009104', 'Sol Ring', [
+            'type_line' => 'Artifact',
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Superfriends Control',
+            'visibility' => Deck::VISIBILITY_PUBLIC,
+            'cards' => [
+                ['scryfallId' => $firstCommander->scryfallId(), 'quantity' => 1, 'section' => DeckCard::SECTION_COMMANDER],
+                ['scryfallId' => $island->scryfallId(), 'quantity' => 99, 'section' => DeckCard::SECTION_MAIN],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+
+        $created = $this->jsonResponse()['deck'];
+        $deckId = (string) $created['id'];
+        $editorSlug = (string) $created['slug'];
+        $initialPublicSlug = (string) $created['publicSlug'];
+        $suffix = $this->slugSuffix($initialPublicSlug);
+        self::assertSame("atraxa-grand-unifier-superfriends-control-commander-$suffix", $initialPublicSlug);
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
+            'scryfallId' => $solRing->scryfallId(),
+            'quantity' => 1,
+            'section' => DeckCard::SECTION_MAIN,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame($initialPublicSlug, (string) $this->jsonResponse()['deck']['publicSlug']);
+
+        $this->jsonRequest('PATCH', '/decks/'.$deckId, ['name' => 'Poison Control'], $token);
+        self::assertResponseIsSuccessful();
+        $renamed = $this->jsonResponse()['deck'];
+        self::assertSame($editorSlug, (string) $renamed['slug']);
+        self::assertSame("atraxa-grand-unifier-poison-control-commander-$suffix", (string) $renamed['publicSlug']);
+
+        $this->jsonRequest('PUT', '/decks/'.$deckId.'/commanders', [
+            'cards' => [
+                ['scryfallId' => $secondCommander->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $recommanded = $this->jsonResponse()['deck'];
+        self::assertSame($editorSlug, (string) $recommanded['slug']);
+        self::assertSame("the-ur-dragon-poison-control-commander-$suffix", (string) $recommanded['publicSlug']);
+    }
+
+    public function testDeckSlugsIncludeBothCommandersAndFormat(): void
+    {
+        $token = $this->registerAndLogin('dual-public-slug@example.test', 'Dual Public Slug');
+        $firstCommander = $this->seedCard('00000000-0000-0000-0000-000000009111', 'Tymna the Weaver', [
+            'type_line' => 'Legendary Creature',
+        ]);
+        $secondCommander = $this->seedCard('00000000-0000-0000-0000-000000009112', 'Thrasios, Triton Hero', [
+            'type_line' => 'Legendary Creature',
+        ]);
+        $island = $this->seedCard('00000000-0000-0000-0000-000000009113', 'Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Partner Value',
+            'visibility' => Deck::VISIBILITY_PUBLIC,
+            'cards' => [
+                ['scryfallId' => $firstCommander->scryfallId(), 'quantity' => 1, 'section' => DeckCard::SECTION_COMMANDER],
+                ['scryfallId' => $secondCommander->scryfallId(), 'quantity' => 1, 'section' => DeckCard::SECTION_COMMANDER],
+                ['scryfallId' => $island->scryfallId(), 'quantity' => 98, 'section' => DeckCard::SECTION_MAIN],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+
+        $deck = $this->jsonResponse()['deck'];
+        self::assertMatchesRegularExpression(
+            '/^tymna-the-weaver-thrasios-triton-hero-partner-value-commander-[a-z0-9]{8}$/',
+            (string) $deck['slug'],
+        );
+        self::assertMatchesRegularExpression(
+            '/^tymna-the-weaver-thrasios-triton-hero-partner-value-commander-[a-z0-9]{8}$/',
+            (string) $deck['publicSlug'],
+        );
+    }
+
     public function testDeckSelectedInRoomCannotBeDeleted(): void
     {
         $token = $this->registerAndLogin('deck-in-room@example.test', 'Deck In Room');
@@ -1991,5 +2133,12 @@ SQL,
                 'imageUris' => json_encode($imageUris, JSON_THROW_ON_ERROR),
             ],
         );
+    }
+
+    private function slugSuffix(string $slug): string
+    {
+        $parts = explode('-', $slug);
+
+        return (string) end($parts);
     }
 }

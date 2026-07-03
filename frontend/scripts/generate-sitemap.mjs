@@ -9,3 +9,6 @@ console.log(
 );
 console.log(`Updated ${path.relative(workspaceRoot, result.sitemapIndexPath)}.`);
 console.log(`Updated ${path.relative(workspaceRoot, result.seoSitemapPath)}.`);
+for (const sitemapPath of result.communitySitemapPaths) {
+  console.log(`Updated ${path.relative(workspaceRoot, sitemapPath)}.`);
+}

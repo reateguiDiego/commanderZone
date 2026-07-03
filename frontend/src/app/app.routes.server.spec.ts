@@ -36,15 +36,22 @@ describe('server routes', () => {
     expect(SEO_PRERENDER_ROUTES).not.toContain('/cookie-policy/');
   });
 
-  it('keeps the prerender list limited to SEO and legal routes', () => {
+  it('keeps the prerender list limited to SEO, legal, and public community routes', () => {
     const prerenderPaths = serverRoutes
       .filter((route) => route.renderMode === RenderMode.Prerender)
       .map((route) => route.path);
 
     expect(SEO_PRERENDER_ROUTES).toHaveLength(90);
     expect(LEGAL_PRERENDER_ROUTES).toHaveLength(18);
-    expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length);
-    expect(prerenderPaths).toHaveLength(108);
+    expect(prerenderPaths).toEqual(expect.arrayContaining([
+      'community',
+      'community/decks',
+      'community/top-commanders',
+      'community/top-cards',
+      'community/profiles/:handle',
+      'community/commanders/:slug',
+      'community/cards/:slug',
+    ]));
     expect(prerenderPaths).not.toContain('en');
     expect(prerenderPaths).not.toContain('auth/login');
     expect(prerenderPaths).not.toContain('auth/register');
@@ -67,14 +74,8 @@ describe('server routes', () => {
       'admin',
       'dashboard',
       'cards',
-      'cards/:scryfallId',
-      'community',
-      'community/decks',
-      'community/decks/:id',
-      'community/top-commanders',
-      'community/top-cards',
       'decks',
-      'decks/:id',
+      'decks/:slug',
       'rooms',
       'rooms/:id/waiting',
       'room/:id',
@@ -87,6 +88,24 @@ describe('server routes', () => {
       const route = serverRoutes.find((candidate) => candidate.path === path);
       expect(route?.renderMode).toBe(RenderMode.Client);
     }
+  });
+
+  it('prerenders public community discovery routes', () => {
+    for (const path of [
+      'community',
+      'community/decks',
+      'community/top-commanders',
+      'community/top-cards',
+      'community/profiles/:handle',
+      'community/commanders/:slug',
+      'community/cards/:slug',
+    ]) {
+      expect(serverRoutes.find((route) => route.path === path)?.renderMode).toBe(RenderMode.Prerender);
+    }
+  });
+
+  it('server-renders public community deck details on demand', () => {
+    expect(serverRoutes.find((route) => route.path === 'community/decks/:id')?.renderMode).toBe(RenderMode.Server);
   });
 
   it('uses server rendering with 404 status as the fallback server route', () => {

@@ -1,4 +1,4 @@
-export type PageTranslationStrategy = 'seo-static' | 'runtime-i18n' | 'out-of-scope';
+export type PageTranslationStrategy = 'seo-static' | 'seo-dynamic' | 'runtime-i18n' | 'out-of-scope';
 
 export const PAGE_TRANSLATION_STRATEGIES = {
   home: 'seo-static',
@@ -16,6 +16,7 @@ export const PAGE_TRANSLATION_STRATEGIES = {
   playEdhOnline: 'seo-static',
   commanderSimulator: 'seo-static',
   faq: 'seo-static',
+  publicCommunity: 'seo-dynamic',
 
   login: 'runtime-i18n',
   register: 'runtime-i18n',

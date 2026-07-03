@@ -9,6 +9,7 @@ import { LoadingStore } from '../core/loading/loading.store';
 import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { findSeoRouteByPath } from '../core/localization/seo-routes';
 import { CookieConsentBannerComponent } from '../core/privacy/cookie-consent-banner/cookie-consent-banner.component';
+import { NotFoundNavigationService } from '../core/routing/not-found-navigation.service';
 import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
 import { FooterDisclaimerComponent } from '../shared/components/footer-disclaimer/footer-disclaimer.component';
 import { NoindexFooterDisclaimerComponent } from '../shared/components/noindex-footer-disclaimer/noindex-footer-disclaimer.component';
@@ -36,6 +37,7 @@ export class App {
   private readonly document = inject(DOCUMENT);
   private readonly routeRobots = inject(RouteRobotsMetaService);
   private readonly router = inject(Router);
+  private readonly notFoundNavigation = inject(NotFoundNavigationService);
   private readonly injector = inject(Injector);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly theme = inject(AppThemeService);
@@ -78,6 +80,7 @@ export class App {
 
         if (event instanceof NavigationEnd) {
           this.syncRouteState(event.urlAfterRedirects);
+          this.notFoundNavigation.recordNavigationEnd(event.urlAfterRedirects, this.isCurrentNotFoundRoute());
           this.navigationLoading.set(false);
           return;
         }
@@ -160,7 +163,6 @@ export class App {
       'contact',
       'auth',
       'cards',
-      'community',
       'dashboard',
       'decks',
       'email-verification',
@@ -201,5 +203,14 @@ export class App {
     return segments.length === 2
       && segments[0] === 'auth'
       && ['login', 'register'].includes(segments[1]);
+  }
+
+  private isCurrentNotFoundRoute(): boolean {
+    let route = this.router.routerState.snapshot.root;
+    while (route.firstChild) {
+      route = route.firstChild;
+    }
+
+    return route.routeConfig?.path === '**';
   }
 }

@@ -20,6 +20,7 @@
       [messagesCount]="messages.messages().length"
       [unreadMessagesCount]="messages.unreadCount()"
       [canAccessAdmin]="canAccessAdmin()"
+      [authenticated]="auth.isAuthenticated()"
       (toggleFriends)="toggleFriends($event)"
       (toggleMessages)="toggleMessages($event)"
       (closeFriends)="closeFriends()"

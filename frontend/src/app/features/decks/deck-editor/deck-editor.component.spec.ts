@@ -46,6 +46,7 @@ import { CardAutocompleteComponent } from '../../../shared/components/card-autoc
 
 type DecksApiMock = {
   get: ReturnType<typeof vi.fn>;
+  getBySlug: ReturnType<typeof vi.fn>;
   importDecklist: ReturnType<typeof vi.fn>;
   tokens: ReturnType<typeof vi.fn>;
   validateCommander: ReturnType<typeof vi.fn>;
@@ -64,6 +65,7 @@ describe('DeckEditorComponent', () => {
     const appLanguage = signal<SupportedLanguageCode>(languageConfig.appLanguage ?? 'en');
     const decksApi: DecksApiMock = {
       get: vi.fn().mockReturnValue(of({ deck })),
+      getBySlug: vi.fn().mockReturnValue(of({ deck })),
       importDecklist: vi.fn().mockReturnValue(of({ deck: deck ?? buildDeckWithSingleCard(), missing: [], summary: { parsedCards: 1, importedCards: 1 } })),
       tokens: vi.fn().mockReturnValue(of({ data: [], unresolved: [] })),
       validateCommander: vi.fn().mockReturnValue(of(validCommanderValidation())),
@@ -129,11 +131,11 @@ describe('DeckEditorComponent', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows a missing deck id error without a route id', async () => {
+  it('shows a missing deck slug error without a route identifier', async () => {
     await setup();
     const fixture = TestBed.createComponent(DeckEditorComponent);
 
-    expect(fixture.componentInstance.store.error()).toBe('Missing deck id.');
+    expect(fixture.componentInstance.store.error()).toBe('Missing deck slug.');
   });
 
   it('navigates to the not found page when the deck API returns 404', async () => {
@@ -142,7 +144,7 @@ describe('DeckEditorComponent', () => {
       undefined,
       {},
       {
-        get: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 }))),
+        getBySlug: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 }))),
       },
     );
     const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
@@ -151,6 +153,31 @@ describe('DeckEditorComponent', () => {
     await fixture.componentInstance.store.load();
 
     expect(navigateSpy).toHaveBeenCalledWith('/404', { replaceUrl: true });
+  });
+
+  it('loads the editor deck by slug', async () => {
+    const { decksApi } = await setup({ slug: 'atraxa-control-a7f3c9d2' }, buildDeckWithSingleCard({
+      slug: 'atraxa-control-a7f3c9d2',
+    }));
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    expect(decksApi.getBySlug).toHaveBeenCalledWith('atraxa-control-a7f3c9d2');
+  });
+
+  it('redirects a legacy UUID editor URL to the deck slug after loading', async () => {
+    const legacyId = '00000000-0000-7000-8000-000000000001';
+    const { router } = await setup({ slug: legacyId }, buildDeckWithSingleCard({
+      id: legacyId,
+      slug: 'atraxa-control-a7f3c9d2',
+    }));
+    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    expect(navigateSpy).toHaveBeenCalledWith(['/decks', 'atraxa-control-a7f3c9d2'], { replaceUrl: true });
   });
 
   it('requests deck tokens during the initial deck load', async () => {
@@ -1038,13 +1065,14 @@ function estimatedGroupWeight(id: string, quantity: number): number {
   return id === 'commander' ? 10 : 2 + quantity;
 }
 
-function buildDeckWithSingleCard(): Deck {
+function buildDeckWithSingleCard(overrides: Partial<Deck> = {}): Deck {
   return {
     id: 'deck-1',
     name: 'Print deck',
     format: 'commander',
     folderId: null,
     cards: [deckCard('main-card', 'main', card('Sol Ring', 'Artifact'))],
+    ...overrides,
   };
 }
 

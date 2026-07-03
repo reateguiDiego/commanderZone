@@ -3,15 +3,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Meta, Title } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
-import { AuthStore } from '../../../core/auth/auth.store';
 import { SeoLocaleCode, isSeoLocale } from '../../../core/localization/locale-config';
+import { NotFoundNavigationService } from '../../../core/routing/not-found-navigation.service';
 import { SeoService } from '../../../core/seo/seo.service';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 interface NotFoundContent {
   readonly title: string;
   readonly description: string;
-  readonly ctaLogged: string;
+  readonly ctaPrevious: string;
   readonly ctaAnonymous: string;
   readonly imageAlt: string;
   readonly metaTitle: string;
@@ -24,7 +24,7 @@ const NOT_FOUND_CONTENT = {
   es: {
     title: 'Página no encontrada',
     description: 'Esta página se ha ido al exilio. Vuelve a CommanderZone y sigue jugando.',
-    ctaLogged: 'Volver al dashboard',
+    ctaPrevious: 'Volver',
     ctaAnonymous: 'Volver al inicio',
     imageAlt: 'Ilustración 404 de CommanderZone',
     metaTitle: 'Página no encontrada | CommanderZone',
@@ -32,7 +32,7 @@ const NOT_FOUND_CONTENT = {
   en: {
     title: 'Page not found',
     description: 'This page slipped into exile. Return to CommanderZone and keep playing.',
-    ctaLogged: 'Back to dashboard',
+    ctaPrevious: 'Back',
     ctaAnonymous: 'Back home',
     imageAlt: 'CommanderZone 404 illustration',
     metaTitle: 'Page not found | CommanderZone',
@@ -40,7 +40,7 @@ const NOT_FOUND_CONTENT = {
   de: {
     title: 'Seite nicht gefunden',
     description: 'Diese Seite ist ins Exil gegangen. Kehre zu CommanderZone zurück und spiele weiter.',
-    ctaLogged: 'Zurück zum Dashboard',
+    ctaPrevious: 'Zurück',
     ctaAnonymous: 'Zur Startseite',
     imageAlt: 'CommanderZone 404-Illustration',
     metaTitle: 'Seite nicht gefunden | CommanderZone',
@@ -48,7 +48,7 @@ const NOT_FOUND_CONTENT = {
   fr: {
     title: 'Page introuvable',
     description: 'Cette page est partie en exil. Retournez sur CommanderZone et continuez à jouer.',
-    ctaLogged: 'Retour au tableau de bord',
+    ctaPrevious: 'Retour',
     ctaAnonymous: 'Retour à l’accueil',
     imageAlt: 'Illustration 404 de CommanderZone',
     metaTitle: 'Page introuvable | CommanderZone',
@@ -56,7 +56,7 @@ const NOT_FOUND_CONTENT = {
   pt: {
     title: 'Página não encontrada',
     description: 'Esta página foi para o exílio. Volte ao CommanderZone e continue jogando.',
-    ctaLogged: 'Voltar ao dashboard',
+    ctaPrevious: 'Voltar',
     ctaAnonymous: 'Voltar ao início',
     imageAlt: 'Ilustração 404 do CommanderZone',
     metaTitle: 'Página não encontrada | CommanderZone',
@@ -64,7 +64,7 @@ const NOT_FOUND_CONTENT = {
   it: {
     title: 'Pagina non trovata',
     description: 'Questa pagina è finita in esilio. Torna su CommanderZone e continua a giocare.',
-    ctaLogged: 'Torna alla dashboard',
+    ctaPrevious: 'Indietro',
     ctaAnonymous: 'Torna alla home',
     imageAlt: 'Illustrazione 404 di CommanderZone',
     metaTitle: 'Pagina non trovata | CommanderZone',
@@ -79,19 +79,19 @@ const NOT_FOUND_CONTENT = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NotFoundPageComponent {
-  private readonly auth = inject(AuthStore);
   private readonly destroyRef = inject(DestroyRef);
   private readonly meta = inject(Meta);
+  private readonly notFoundNavigation = inject(NotFoundNavigationService);
   private readonly router = inject(Router);
   private readonly seo = inject(SeoService);
   private readonly title = inject(Title);
 
   readonly locale = signal<SeoLocaleCode>(localeFromNotFoundUrl(this.router.url));
   readonly imageSrc = NOT_FOUND_IMAGE_SRC;
-  readonly ctaHref = computed(() => this.auth.isAuthenticated() === true ? '/dashboard' : '/');
+  readonly ctaHref = computed(() => this.notFoundNavigation.returnUrl() ?? '/');
   readonly ctaLabel = computed(() => {
     const page = this.content();
-    return this.auth.isAuthenticated() === true ? page.ctaLogged : page.ctaAnonymous;
+    return this.notFoundNavigation.returnUrl() === null ? page.ctaAnonymous : page.ctaPrevious;
   });
 
   constructor() {

@@ -32,6 +32,10 @@ export class RouteStylesService {
   }
 
   scopeForPath(path: string): RouteStyleScope {
+    if (path === '/community' || path.startsWith('/community/')) {
+      return 'private';
+    }
+
     if (findSeoRouteByPath(path) !== undefined || findLegalRouteByPath(path) !== undefined) {
       return 'public';
     }
@@ -70,7 +74,6 @@ export class RouteStylesService {
       'admin',
       'auth',
       'cards',
-      'community',
       'contact',
       'dashboard',
       'decks',

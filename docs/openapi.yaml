@@ -1452,9 +1452,14 @@ paths:
   /community/decks/{id}:
     get:
       tags: [Community]
-      summary: Get a public valid deck detail for Community.
+      summary: Get a public valid deck detail for Community by id or public slug.
       parameters:
-        - $ref: '#/components/parameters/Id'
+        - name: id
+          in: path
+          required: true
+          description: Deck UUID or public deck slug.
+          schema:
+            type: string
         - name: lang
           in: query
           description: Optional card-language override for Community card names and art.
@@ -1473,6 +1478,95 @@ paths:
                     $ref: '#/components/schemas/CommunityDeckDetail'
         '400':
           $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /community/indexable:
+    get:
+      tags: [Community]
+      summary: List public Community URLs that can be indexed.
+      responses:
+        '200':
+          description: Public discovery index.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityIndexableResponse'
+  /community/profiles/{handle}:
+    get:
+      tags: [Community]
+      summary: Get a minimal public profile with public valid decks.
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [profile]
+                properties:
+                  profile:
+                    $ref: '#/components/schemas/CommunityProfile'
+        '404':
+          $ref: '#/components/responses/Error'
+  /community/commanders/{slug}:
+    get:
+      tags: [Community]
+      summary: Get a public commander page backed by public valid decks.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: 1-based page number for the public valid deck list.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        '200':
+          description: Commander discovery detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityDiscoveryDetail'
+        '404':
+          $ref: '#/components/responses/Error'
+  /community/cards/{slug}:
+    get:
+      tags: [Community]
+      summary: Get a public card page backed by public valid decks.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Card discovery detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityDiscoveryDetail'
         '404':
           $ref: '#/components/responses/Error'
   /community/top-commanders:
@@ -1611,6 +1705,30 @@ paths:
           $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks/by-slug/{slug}:
+    get:
+      tags: [Decks]
+      summary: Get an owned deck by its stable editor slug.
+      description: Resolves the visible editor URL slug. All deck mutations still use the deck UUID.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deck detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
         '404':
           $ref: '#/components/responses/Error'
   /decks/{id}:
@@ -4261,8 +4379,7 @@ components:
           enum: [artifact, battle, creature, enchantment, instant, land, planeswalker, sorcery, multiple, 'null']
         timesPlayed:
           type: integer
-          minimum: 500
-          maximum: 3000
+          minimum: 0
     CommunityHomeResponse:
       type: object
       required: [commanders, cards, decks]
@@ -4281,12 +4398,26 @@ components:
             $ref: '#/components/schemas/CommunityDeckSummary'
     CommunityDeckListResponse:
       type: object
-      required: [decks]
+      required: [decks, page, limit, total, totalPages, hasMore]
       properties:
         decks:
           type: array
           items:
             $ref: '#/components/schemas/CommunityDeckSummary'
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 1
+        hasMore:
+          type: boolean
     CommunityPreviewCardsResponse:
       type: object
       required: [items, total, isPreview, message]
@@ -4304,12 +4435,100 @@ components:
         message:
           type: string
           example: "Próximamente: estadísticas basadas en partidas reales de CommanderZone."
+    CommunityIndexableEntry:
+      type: object
+      required: [canonicalPath, updatedAt]
+      properties:
+        canonicalPath:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    CommunityIndexableDeck:
+      allOf:
+        - $ref: '#/components/schemas/CommunityIndexableEntry'
+        - type: object
+          required: [id, slug]
+          properties:
+            id:
+              type: string
+              format: uuid
+            slug:
+              type: string
+    CommunityIndexableProfile:
+      allOf:
+        - $ref: '#/components/schemas/CommunityIndexableEntry'
+        - type: object
+          required: [handle]
+          properties:
+            handle:
+              type: string
+    CommunityIndexableCard:
+      allOf:
+        - $ref: '#/components/schemas/CommunityIndexableEntry'
+        - type: object
+          required: [slug]
+          properties:
+            slug:
+              type: string
+    CommunityIndexableResponse:
+      type: object
+      required: [decks, profiles, commanders, cards]
+      properties:
+        decks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityIndexableDeck'
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityIndexableProfile'
+        commanders:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityIndexableCard'
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityIndexableCard'
+    CommunityProfile:
+      type: object
+      required: [handle, canonicalPath, displayName, decks]
+      properties:
+        handle:
+          type: string
+        canonicalPath:
+          type: string
+        displayName:
+          type: string
+        avatar:
+          nullable: true
+        decks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityDeckSummary'
+    CommunityDiscoveryDetail:
+      type: object
+      required: [item, decks]
+      properties:
+        item:
+          $ref: '#/components/schemas/CardPreview'
+        decks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityDeckSummary'
     CommunityDeckOwner:
       type: object
       required: [displayName]
       properties:
         displayName:
           type: string
+        handle:
+          type: [string, 'null']
+        canonicalPath:
+          type: [string, 'null']
+        avatar:
+          nullable: true
     CommunityDeckSections:
       type: object
       required: [commander, main, sideboard, maybeboard]
@@ -4337,6 +4556,10 @@ components:
         id:
           type: string
           format: uuid
+        publicSlug:
+          type: [string, 'null']
+        canonicalPath:
+          type: [string, 'null']
         name:
           type: string
         format:
@@ -4399,6 +4622,9 @@ components:
         id:
           type: string
           format: uuid
+        slug:
+          type: [string, 'null']
+          description: Stable visible identifier for authenticated deck editor URLs.
         name:
           type: string
         format:

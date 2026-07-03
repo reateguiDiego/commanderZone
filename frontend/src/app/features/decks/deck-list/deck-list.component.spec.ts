@@ -878,7 +878,7 @@ describe('DeckListComponent', () => {
     expect(importDecklist).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.createModalOpen()).toBe(false);
     expect(fixture.componentInstance.store.createSuccessModalOpen()).toBe(false);
-    expect(navigate).toHaveBeenCalledWith(['/decks', 'saved-deck']);
+    expect(navigate).toHaveBeenCalledWith(['/decks', 'saved-deck-slug']);
   });
 
   it('sends the raw create-deck decklist and keeps both explicit selected commanders', async () => {
@@ -1272,6 +1272,7 @@ Creatures (1)
 function savedDeck(overrides: Partial<Deck> = {}): Deck {
   return {
     id: 'saved-deck',
+    slug: 'saved-deck-slug',
     name: 'Saved Deck',
     format: 'commander',
     folderId: null,

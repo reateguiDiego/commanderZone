@@ -8,6 +8,7 @@ use App\Application\Deck\DeckFormatCatalog;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
+use App\Domain\User\User;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -75,23 +76,31 @@ final class CommunityService
     }
 
     /**
-     * @param array{q?:mixed,commander?:mixed,format?:mixed,colors?:mixed} $filters
+     * @param array{q?:mixed,commander?:mixed,format?:mixed,colors?:mixed,page?:mixed} $filters
      *
-     * @return array{decks:list<array<string,mixed>>}
+     * @return array{decks:list<array<string,mixed>>,page:int,limit:int,total:int,totalPages:int,hasMore:bool}
      */
     public function decks(array $filters, ?string $requestedLanguage): array
     {
         $normalizedFilters = $this->normalizedFilters($filters);
+        $page = $this->normalizedPage($filters['page'] ?? null);
 
         return $this->remember(
-            $this->cacheKey('decks', ['lang' => $requestedLanguage, 'filters' => $normalizedFilters]),
+            $this->cacheKey('decks', ['lang' => $requestedLanguage, 'filters' => $normalizedFilters, 'page' => $page]),
             self::DECK_LIST_CACHE_TTL_SECONDS,
-            function () use ($normalizedFilters, $requestedLanguage): array {
+            function () use ($normalizedFilters, $page, $requestedLanguage): array {
+                $deckPage = $this->listPublicValidDeckPage($normalizedFilters, $page);
+
                 return [
                     'decks' => $this->fetchDeckSummariesByIds(
-                        $this->listPublicValidDeckIds($normalizedFilters),
+                        $deckPage['ids'],
                         $requestedLanguage,
                     ),
+                    'page' => $deckPage['page'],
+                    'limit' => $deckPage['limit'],
+                    'total' => $deckPage['total'],
+                    'totalPages' => $deckPage['totalPages'],
+                    'hasMore' => $deckPage['hasMore'],
                 ];
             },
         );
@@ -106,11 +115,7 @@ final class CommunityService
             $this->cacheKey('detail', ['id' => $id, 'lang' => $requestedLanguage]),
             self::DECK_DETAIL_CACHE_TTL_SECONDS,
             function () use ($id, $requestedLanguage): ?array {
-                $deck = $this->entityManager->getRepository(Deck::class)->findOneBy([
-                    'id' => $id,
-                    'visibility' => Deck::VISIBILITY_PUBLIC,
-                    'valid' => true,
-                ]);
+                $deck = $this->publicDeckByIdOrSlug($id);
 
                 if (!$deck instanceof Deck) {
                     return null;
@@ -190,19 +195,126 @@ final class CommunityService
     }
 
     /**
+     * @return array{
+     *   decks:list<array{id:string,slug:string,canonicalPath:string,updatedAt:string}>,
+     *   profiles:list<array{handle:string,canonicalPath:string,updatedAt:string}>,
+     *   commanders:list<array{slug:string,canonicalPath:string,updatedAt:string}>,
+     *   cards:list<array{slug:string,canonicalPath:string,updatedAt:string}>
+     * }
+     */
+    public function indexable(): array
+    {
+        return [
+            'decks' => $this->indexableDecks(),
+            'profiles' => $this->indexableProfiles(),
+            'commanders' => $this->indexableCards(true),
+            'cards' => $this->indexableCards(false),
+        ];
+    }
+
+    /**
+     * @return array{profile:array<string,mixed>}|null
+     */
+    public function profile(string $handle, ?string $requestedLanguage): ?array
+    {
+        $user = $this->entityManager->getRepository(User::class)->findOneBy(['publicHandle' => trim($handle)]);
+        if (!$user instanceof User || !$this->userHasPublicValidDecks($user)) {
+            return null;
+        }
+
+        $user->ensurePublicHandle();
+        $this->entityManager->flush();
+
+        return [
+            'profile' => [
+                'handle' => (string) $user->publicHandle(),
+                'canonicalPath' => (string) $user->publicPath(),
+                'displayName' => $user->displayName(),
+                'avatar' => $user->avatar(),
+                'decks' => $this->fetchDeckSummariesByIds($this->publicValidDeckIdsForUser($user), $requestedLanguage),
+            ],
+        ];
+    }
+
+    /**
+     * @return array{item:array<string,mixed>,decks:list<array<string,mixed>>}|null
+     */
+    public function commanderDetail(string $slug, ?string $requestedLanguage): ?array
+    {
+        return $this->cardDiscoveryDetail($slug, true, $requestedLanguage);
+    }
+
+    /**
+     * @return array{item:array<string,mixed>,decks:list<array<string,mixed>>}|null
+     */
+    public function cardDetail(string $slug, ?string $requestedLanguage): ?array
+    {
+        return $this->cardDiscoveryDetail($slug, false, $requestedLanguage);
+    }
+
+    /**
      * @param array{q:string,commander:string,format:string,colors:string} $filters
      *
-     * @return list<string>
+     * @return array{ids:list<string>,page:int,limit:int,total:int,totalPages:int,hasMore:bool}
      */
-    private function listPublicValidDeckIds(array $filters): array
+    private function listPublicValidDeckPage(array $filters, int $page): array
+    {
+        $limit = self::DECKS_PAGE_LIMIT;
+        $query = $this->publicDeckListQuery($filters);
+        if ($query === null) {
+            return [
+                'ids' => [],
+                'page' => 1,
+                'limit' => $limit,
+                'total' => 0,
+                'totalPages' => 1,
+                'hasMore' => false,
+            ];
+        }
+
+        $total = (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) '.$query['fromWhereSql'],
+            $query['params'],
+        );
+        $totalPages = max(1, (int) ceil($total / $limit));
+        $page = min($page, $totalPages);
+        $offset = ($page - 1) * $limit;
+
+        $ids = $this->stringIds(
+            $this->entityManager->getConnection()->fetchFirstColumn(
+                sprintf(
+                    "SELECT d.id\n%s\nORDER BY d.updated_at DESC, d.id DESC\nLIMIT %d OFFSET %d",
+                    $query['fromWhereSql'],
+                    $limit,
+                    $offset,
+                ),
+                $query['params'],
+            ),
+        );
+
+        return [
+            'ids' => $ids,
+            'page' => $page,
+            'limit' => $limit,
+            'total' => $total,
+            'totalPages' => $totalPages,
+            'hasMore' => $page < $totalPages,
+        ];
+    }
+
+    /**
+     * @param array{q:string,commander:string,format:string,colors:string} $filters
+     *
+     * @return array{fromWhereSql:string,params:array<string,mixed>}|null
+     */
+    private function publicDeckListQuery(array $filters): ?array
     {
         $colors = $this->parseColorsFilter($filters['colors']);
         if ($colors === false) {
-            return [];
+            return null;
         }
 
         $sql = <<<'SQL'
-SELECT d.id
 FROM deck d
 WHERE d.visibility = :visibility
   AND d.is_valid = true
@@ -220,7 +332,7 @@ SQL;
         if ($filters['format'] !== '') {
             $normalizedFormat = DeckFormatCatalog::normalize($filters['format']);
             if ($normalizedFormat === null) {
-                return [];
+                return null;
             }
 
             $sql .= "\n  AND d.format = :format";
@@ -273,11 +385,10 @@ SQL;
             }
         }
 
-        $sql .= sprintf("\nORDER BY d.updated_at DESC\nLIMIT %d", self::DECKS_PAGE_LIMIT);
-
-        return $this->stringIds(
-            $this->entityManager->getConnection()->fetchFirstColumn($sql, $params),
-        );
+        return [
+            'fromWhereSql' => $sql,
+            'params' => $params,
+        ];
     }
 
     /**
@@ -351,6 +462,75 @@ SQL;
     }
 
     /**
+     * @param array{type:string,colors:string} $filters
+     *
+     * @return array{
+     *   items:list<array{id:string,scryfallId:string,name:string,cropImage:?string,imageUris:array<string,mixed>,cardFaces:list<array<string,mixed>>,colors:list<string>,cardType:?string,cardTypeIcon:?string,timesPlayed:int}>,
+     *   total:int
+     * }
+     */
+    private function topPublicDeckCards(bool $commandersOnly, array $filters, int $limit, ?string $requestedLanguage): array
+    {
+        $query = $this->publicDeckCardStatsQuery($commandersOnly, $filters);
+        if ($query === null) {
+            return [
+                'items' => [],
+                'total' => 0,
+            ];
+        }
+
+        $rows = $this->entityManager->getConnection()->fetchAllAssociative(
+            sprintf(
+                <<<'SQL'
+SELECT
+    card.id,
+    card.scryfall_id,
+    card.name,
+    card.printed_name,
+    card.colors,
+    card.image_uris,
+    card.card_faces,
+    card.type_line,
+    COUNT(DISTINCT deck.id) AS public_deck_count,
+    MAX(deck.updated_at) AS latest_deck_updated_at
+FROM deck
+JOIN deck_card ON deck_card.deck_id = deck.id
+JOIN card ON card.id = deck_card.card_id
+WHERE %s
+GROUP BY card.id
+ORDER BY public_deck_count DESC, card.name ASC
+LIMIT %d
+SQL,
+                $query['whereSql'],
+                max(1, $limit),
+            ),
+            $query['params'],
+        );
+
+        $total = (int) $this->entityManager->getConnection()->fetchOne(
+            sprintf(
+                <<<'SQL'
+SELECT COUNT(*) FROM (
+    SELECT card.id
+    FROM deck
+    JOIN deck_card ON deck_card.deck_id = deck.id
+    JOIN card ON card.id = deck_card.card_id
+    WHERE %s
+    GROUP BY card.id
+) stats
+SQL,
+                $query['whereSql'],
+            ),
+            $query['params'],
+        );
+
+        return [
+            'items' => $this->mapCardPreviewRows($rows, $requestedLanguage),
+            'total' => $total,
+        ];
+    }
+
+    /**
      * @param list<string> $deckIds
      *
      * @return list<array<string,mixed>>
@@ -365,6 +545,7 @@ SQL;
             <<<'SQL'
 SELECT
     d.id AS deck_id,
+    d.public_slug AS deck_public_slug,
     d.name AS deck_name,
     d.format AS deck_format,
     d.is_valid AS deck_valid,
@@ -409,6 +590,7 @@ SQL,
             if (!isset($grouped[$deckId])) {
                 $grouped[$deckId] = [
                     'id' => $deckId,
+                    'publicSlug' => $this->nullableString($row['deck_public_slug'] ?? null),
                     'name' => (string) ($row['deck_name'] ?? ''),
                     'format' => (string) ($row['deck_format'] ?? DeckFormatCatalog::COMMANDER),
                     'valid' => $this->boolValue($row['deck_valid'] ?? false),
@@ -467,6 +649,8 @@ SQL,
 
         return [
             'id' => (string) ($deck['id'] ?? ''),
+            'publicSlug' => $this->nullableString($deck['publicSlug'] ?? null),
+            'canonicalPath' => $this->canonicalDeckPath($this->nullableString($deck['publicSlug'] ?? null), (string) ($deck['id'] ?? '')),
             'name' => (string) ($deck['name'] ?? ''),
             'format' => (string) ($deck['format'] ?? DeckFormatCatalog::COMMANDER),
             'valid' => $this->boolValue($deck['valid'] ?? false),
@@ -483,6 +667,10 @@ SQL,
      */
     private function mapDeckDetail(Deck $deck, ?string $requestedLanguage): array
     {
+        $deck->ensurePublicSlug();
+        $deck->owner()->ensurePublicHandle();
+        $this->entityManager->flush();
+
         $payload = $deck->toArray(true);
         $payload['commanders'] = $this->localizeCardPayloads(
             is_array($payload['commanders'] ?? null) ? $payload['commanders'] : [],
@@ -495,6 +683,10 @@ SQL,
         $payload['sections'] = $this->sectionsFromDeckCards($payload['cards']);
         $payload['owner'] = [
             'displayName' => $deck->owner()->displayName(),
+            'handle' => $deck->owner()->publicHandle(),
+            'canonicalPath' => $deck->owner()->publicPath(),
+            'avatar' => $deck->owner()->avatar(),
+            'displayNameStyle' => $deck->owner()->displayNameStyle(),
         ];
 
         return $payload;
@@ -529,7 +721,12 @@ SQL,
                     'colors' => is_array($payload['colors'] ?? null) ? array_values($payload['colors']) : [],
                     'cardType' => $this->cardTypeLine($payload),
                     'cardTypeIcon' => $this->cardTypeIcon($sourcePayload),
-                    'timesPlayed' => $this->stablePreviewPlayedCount($payload),
+                    'timesPlayed' => array_key_exists('publicDeckCount', $sourcePayload)
+                        ? max(0, (int) ($sourcePayload['publicDeckCount'] ?? 0))
+                        : $this->stablePreviewPlayedCount($payload),
+                    'updatedAt' => $this->dateTimeAtom($sourcePayload['latestDeckUpdatedAt'] ?? null),
+                    'slug' => $this->cardSlug($payload),
+                    'canonicalPath' => $this->cardCanonicalPath($payload),
                 ];
             },
             $localizedPayloads,
@@ -553,7 +750,7 @@ SQL,
      */
     private function cardPayloadFromPreviewRow(array $row): array
     {
-        return [
+        $payload = [
             'id' => (string) ($row['id'] ?? ''),
             'scryfallId' => (string) ($row['scryfall_id'] ?? ''),
             'name' => (string) ($row['name'] ?? ''),
@@ -563,6 +760,15 @@ SQL,
             'imageUris' => $this->decodeJsonArray($row['image_uris'] ?? []),
             'cardFaces' => $this->decodeJsonArray($row['card_faces'] ?? []),
         ];
+
+        if (array_key_exists('public_deck_count', $row)) {
+            $payload['publicDeckCount'] = (int) ($row['public_deck_count'] ?? 0);
+        }
+        if (array_key_exists('latest_deck_updated_at', $row)) {
+            $payload['latestDeckUpdatedAt'] = $row['latest_deck_updated_at'];
+        }
+
+        return $payload;
     }
 
     /**
@@ -856,7 +1062,7 @@ SQL,
     }
 
     /**
-     * @param array{q?:mixed,commander?:mixed,format?:mixed,colors?:mixed} $filters
+     * @param array{q?:mixed,commander?:mixed,format?:mixed,colors?:mixed,page?:mixed} $filters
      *
      * @return array{q:string,commander:string,format:string,colors:string}
      */
@@ -924,6 +1130,307 @@ SQL,
             'whereSql' => implode(' AND ', $whereParts),
             'params' => $params,
         ];
+    }
+
+    private function normalizedPage(mixed $page): int
+    {
+        $normalized = (int) $page;
+
+        return max(1, $normalized);
+    }
+
+    /**
+     * @param array{type:string,colors:string} $filters
+     *
+     * @return array{whereSql:string,params:array<string,mixed>}|null
+     */
+    private function publicDeckCardStatsQuery(bool $commandersOnly, array $filters): ?array
+    {
+        $whereParts = [
+            'deck.visibility = :visibility',
+            'deck.is_valid = true',
+        ];
+        $params = ['visibility' => Deck::VISIBILITY_PUBLIC];
+
+        if ($commandersOnly) {
+            $whereParts[] = 'deck_card.section = :commanderSection';
+            $whereParts[] = CommanderCandidateSql::condition('card');
+            $params['commanderSection'] = DeckCard::SECTION_COMMANDER;
+        } else {
+            $whereParts[] = 'card.commander_legal = true';
+        }
+
+        if ($filters['type'] !== '') {
+            if (!in_array($filters['type'], self::PREVIEW_TYPE_FILTERS, true)) {
+                return null;
+            }
+
+            $whereParts[] = "(LOWER(COALESCE(card.type_line, '')) LIKE :previewType OR LOWER(COALESCE(card.card_faces::text, '')) LIKE :previewType)";
+            $params['previewType'] = '%'.$filters['type'].'%';
+        }
+
+        $colors = $this->parseColorsFilter($filters['colors']);
+        if ($colors === false) {
+            return null;
+        }
+
+        if ($colors === ['C']) {
+            $whereParts[] = "jsonb_array_length(COALESCE(card.colors::jsonb, '[]'::jsonb)) = 0";
+        } elseif (is_array($colors) && $colors !== []) {
+            foreach (array_values($colors) as $index => $color) {
+                $paramName = 'previewColor'.$index;
+                $whereParts[] = sprintf(
+                    "COALESCE(card.colors::jsonb, '[]'::jsonb) @> :%s::jsonb",
+                    $paramName,
+                );
+                $params[$paramName] = json_encode([$color], JSON_THROW_ON_ERROR);
+            }
+        }
+
+        return [
+            'whereSql' => implode(' AND ', $whereParts),
+            'params' => $params,
+        ];
+    }
+
+    private function publicDeckByIdOrSlug(string $idOrSlug): ?Deck
+    {
+        $idOrSlug = trim($idOrSlug);
+        if ($idOrSlug === '') {
+            return null;
+        }
+
+        return $this->entityManager->getRepository(Deck::class)->findOneBy([
+            str_contains($idOrSlug, '-') && strlen($idOrSlug) > 36 ? 'publicSlug' : 'id' => $idOrSlug,
+            'visibility' => Deck::VISIBILITY_PUBLIC,
+            'valid' => true,
+        ]) ?? $this->entityManager->getRepository(Deck::class)->findOneBy([
+            'publicSlug' => $idOrSlug,
+            'visibility' => Deck::VISIBILITY_PUBLIC,
+            'valid' => true,
+        ]);
+    }
+
+    /**
+     * @return list<array{id:string,slug:string,canonicalPath:string,updatedAt:string}>
+     */
+    private function indexableDecks(): array
+    {
+        $rows = $this->entityManager->getConnection()->fetchAllAssociative(
+            <<<'SQL'
+SELECT id, public_slug, updated_at
+FROM deck
+WHERE visibility = :visibility
+  AND is_valid = true
+  AND public_slug IS NOT NULL
+ORDER BY updated_at DESC
+SQL,
+            ['visibility' => Deck::VISIBILITY_PUBLIC],
+        );
+
+        return array_values(array_map(fn (array $row): array => [
+            'id' => (string) ($row['id'] ?? ''),
+            'slug' => (string) ($row['public_slug'] ?? ''),
+            'canonicalPath' => $this->canonicalDeckPath((string) ($row['public_slug'] ?? ''), (string) ($row['id'] ?? '')),
+            'updatedAt' => $this->dateTimeAtom($row['updated_at'] ?? null),
+        ], $rows));
+    }
+
+    /**
+     * @return list<array{handle:string,canonicalPath:string,updatedAt:string}>
+     */
+    private function indexableProfiles(): array
+    {
+        $rows = $this->entityManager->getConnection()->fetchAllAssociative(
+            <<<'SQL'
+SELECT u.public_handle, MAX(d.updated_at) AS updated_at
+FROM app_user u
+JOIN deck d ON d.owner_id = u.id
+WHERE d.visibility = :visibility
+  AND d.is_valid = true
+  AND u.public_handle IS NOT NULL
+GROUP BY u.id, u.public_handle
+ORDER BY updated_at DESC
+LIMIT 5000
+SQL,
+            ['visibility' => Deck::VISIBILITY_PUBLIC],
+        );
+
+        return array_values(array_map(fn (array $row): array => [
+            'handle' => (string) ($row['public_handle'] ?? ''),
+            'canonicalPath' => sprintf('/community/profiles/%s/', (string) ($row['public_handle'] ?? '')),
+            'updatedAt' => $this->dateTimeAtom($row['updated_at'] ?? null),
+        ], $rows));
+    }
+
+    /**
+     * @return list<array{slug:string,canonicalPath:string,updatedAt:string}>
+     */
+    private function indexableCards(bool $commandersOnly): array
+    {
+        $stats = $this->topPublicDeckCards($commandersOnly, ['type' => '', 'colors' => ''], 5000, null);
+        $pathPrefix = $commandersOnly ? '/community/commanders/' : '/community/cards/';
+
+        return array_values(array_map(fn (array $item): array => [
+            'slug' => (string) ($item['slug'] ?? ''),
+            'canonicalPath' => $pathPrefix.(string) ($item['slug'] ?? '').'/',
+            'updatedAt' => (string) ($item['updatedAt'] ?? ''),
+        ], array_filter(
+            $stats['items'],
+            static fn (array $item): bool => trim((string) ($item['slug'] ?? '')) !== '',
+        )));
+    }
+
+    private function userHasPublicValidDecks(User $user): bool
+    {
+        return (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM deck WHERE owner_id = :owner AND visibility = :visibility AND is_valid = true',
+            ['owner' => $user->id(), 'visibility' => Deck::VISIBILITY_PUBLIC],
+        ) > 0;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function publicValidDeckIdsForUser(User $user): array
+    {
+        return $this->stringIds($this->entityManager->getConnection()->fetchFirstColumn(
+            <<<'SQL'
+SELECT id
+FROM deck
+WHERE owner_id = :owner
+  AND visibility = :visibility
+  AND is_valid = true
+ORDER BY updated_at DESC
+LIMIT 100
+SQL,
+            ['owner' => $user->id(), 'visibility' => Deck::VISIBILITY_PUBLIC],
+        ));
+    }
+
+    /**
+     * @return array{item:array<string,mixed>,decks:list<array<string,mixed>>}|null
+     */
+    private function cardDiscoveryDetail(string $slug, bool $commandersOnly, ?string $requestedLanguage): ?array
+    {
+        $suffix = $this->slugSuffix($slug);
+        if ($suffix === '') {
+            return null;
+        }
+
+        $filters = ['type' => '', 'colors' => ''];
+        $stats = $this->topPublicDeckCards($commandersOnly, $filters, 5000, $requestedLanguage);
+        $item = null;
+        foreach ($stats['items'] as $candidate) {
+            if (($candidate['slug'] ?? '') === $slug || str_ends_with((string) ($candidate['slug'] ?? ''), '-'.$suffix)) {
+                $item = $candidate;
+                break;
+            }
+        }
+
+        if ($item === null) {
+            return null;
+        }
+
+        return [
+            'item' => $item,
+            'decks' => $this->fetchDeckSummariesByIds(
+                $this->publicValidDeckIdsForCard((string) $item['scryfallId'], $commandersOnly),
+                $requestedLanguage,
+            ),
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function publicValidDeckIdsForCard(string $scryfallId, bool $commandersOnly): array
+    {
+        $whereSection = $commandersOnly ? 'AND deck_card.section = :commanderSection' : '';
+        $params = [
+            'scryfallId' => $scryfallId,
+            'visibility' => Deck::VISIBILITY_PUBLIC,
+        ];
+        if ($commandersOnly) {
+            $params['commanderSection'] = DeckCard::SECTION_COMMANDER;
+        }
+
+        return $this->stringIds($this->entityManager->getConnection()->fetchFirstColumn(
+            sprintf(
+                <<<'SQL'
+SELECT DISTINCT deck.id, deck.updated_at
+FROM deck
+JOIN deck_card ON deck_card.deck_id = deck.id
+JOIN card ON card.id = deck_card.card_id
+WHERE deck.visibility = :visibility
+  AND deck.is_valid = true
+  AND card.scryfall_id = :scryfallId
+  %s
+ORDER BY deck.updated_at DESC
+LIMIT 100
+SQL,
+                $whereSection,
+            ),
+            $params,
+        ));
+    }
+
+    private function canonicalDeckPath(?string $slug, string $id): string
+    {
+        $identifier = $slug !== null && $slug !== '' ? $slug : $id;
+
+        return sprintf('/community/decks/%s/', $identifier);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function cardSlug(array $payload): string
+    {
+        $suffix = $this->cardSlugSuffix((string) ($payload['scryfallId'] ?? $payload['id'] ?? ''));
+        if ($suffix === '') {
+            return '';
+        }
+
+        return sprintf('%s-%s', $this->slugPart($this->cardDisplayName($payload)), $suffix);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function cardCanonicalPath(array $payload): string
+    {
+        $slug = $this->cardSlug($payload);
+
+        return $slug === '' ? '' : sprintf('/community/cards/%s/', $slug);
+    }
+
+    private function cardSlugSuffix(string $value): string
+    {
+        $compact = preg_replace('/[^a-z0-9]/i', '', $value) ?? '';
+
+        return strtolower(substr($compact, -8));
+    }
+
+    private function slugSuffix(string $slug): string
+    {
+        $parts = explode('-', trim($slug));
+
+        return strtolower((string) end($parts));
+    }
+
+    private function slugPart(string $value): string
+    {
+        $slug = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if (!is_string($slug)) {
+            $slug = $value;
+        }
+
+        $slug = strtolower(trim($slug));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
+        $slug = trim($slug, '-');
+
+        return $slug !== '' ? substr($slug, 0, 140) : 'card';
     }
 
     /**

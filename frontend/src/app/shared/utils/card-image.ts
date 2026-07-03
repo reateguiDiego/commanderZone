@@ -6,7 +6,7 @@ type CardFaceImageSource = CardFace & {
 
 type CardImageSource = {
   imageUris?: CardImageUris | null;
-  cardFaces?: CardFace[] | null;
+  cardFaces?: readonly CardFace[] | null;
 };
 
 export function bestCardImage<T extends CardImageSource>(card: T | null | undefined): string | null {

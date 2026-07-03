@@ -1,0 +1,36 @@
+<section class="community-discovery-detail">
+  @if (loading()) {
+    <app-global-loader />
+  } @else if (error()) {
+    <p class="notice error">{{ error()! | runtimeTranslate }}</p>
+  } @else if (detail(); as detailData) {
+    <header class="community-discovery-hero">
+      <div class="community-discovery-hero__media">
+        <app-card-face-image
+          [card]="detailData.item"
+          variant="spoiler"
+          loading="eager"
+          [preferLarge]="true"
+          [fallback]="detailData.item.name"
+        />
+      </div>
+      <div class="community-discovery-hero__copy">
+        <span>{{ kind === 'commander' ? 'Commander' : 'Card' }}</span>
+        <h1>{{ title() }}</h1>
+        @if (detailData.item.colors?.length) {
+          <app-mana-symbols [symbols]="detailData.item.colors" />
+        }
+        <p>{{ detailData.item.timesPlayed ?? 0 }} public CommanderZone decks include this {{ kind }}.</p>
+        <app-hero-rule />
+      </div>
+    </header>
+
+    <section class="community-discovery-section">
+      <h2>Public decks</h2>
+      <app-community-deck-grid
+        [decks]="detailData.decks"
+        (deckSelected)="openDeck($event)"
+      />
+    </section>
+  }
+</section>

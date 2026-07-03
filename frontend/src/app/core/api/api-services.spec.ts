@@ -325,6 +325,14 @@ describe('API services', () => {
     request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: 'folder-1', cards: [] } });
   });
 
+  it('loads a deck editor payload by slug', () => {
+    TestBed.inject(DecksApi).getBySlug('atraxa-control-a7f3c9d2').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/by-slug/atraxa-control-a7f3c9d2`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ deck: { id: 'deck-1', slug: 'atraxa-control-a7f3c9d2', name: 'Deck', format: 'commander', folderId: null, cards: [] } });
+  });
+
   it('loads backend deck analysis through the analysis endpoint', () => {
     TestBed.inject(DecksApi).analysis('deck-1', { includeSideboard: true, curvePlayabilityMode: 'draw' }).subscribe();
 

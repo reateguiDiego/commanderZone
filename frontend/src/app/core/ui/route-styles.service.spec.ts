@@ -33,7 +33,7 @@ describe('RouteStylesService', () => {
   });
 
   it('loads only private route styles for noindex app pages', () => {
-    for (const path of ['/dashboard', '/admin']) {
+    for (const path of ['/dashboard', '/admin', '/community', '/community/top-commanders']) {
       service.applyForPath(path);
 
       expect(privateStylesheet()).not.toBeNull();

@@ -25,6 +25,10 @@ describe('page translation strategy manifest', () => {
     'faq',
   ] as const satisfies readonly PageKey[];
 
+  const seoDynamicPages = [
+    'publicCommunity',
+  ] as const satisfies readonly PageKey[];
+
   const runtimeI18nPages = [
     'login',
     'register',
@@ -63,6 +67,15 @@ describe('page translation strategy manifest', () => {
     }
   });
 
+  it('classifies public product discovery pages as seo-dynamic', () => {
+    for (const pageKey of seoDynamicPages) {
+      expect(PAGE_TRANSLATION_STRATEGIES[pageKey]).toBe('seo-dynamic');
+      expect(isSeoStaticPage(pageKey)).toBe(false);
+      expect(isRuntimeI18nPage(pageKey)).toBe(false);
+      expect(isOutOfScopePage(pageKey)).toBe(false);
+    }
+  });
+
   it('classifies internal app pages as runtime-i18n only', () => {
     for (const pageKey of runtimeI18nPages) {
       expect(isSeoStaticPage(pageKey)).toBe(false);
@@ -87,6 +100,7 @@ describe('page translation strategy manifest', () => {
   it('contains every expected page key exactly once', () => {
     const expectedPageKeys = [
       ...seoStaticPages,
+      ...seoDynamicPages,
       ...runtimeI18nPages,
       ...outOfScopePages,
     ];

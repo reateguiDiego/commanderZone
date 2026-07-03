@@ -14,6 +14,15 @@ describe('route robots rules', () => {
     }
   });
 
+  it('maps SEO-dynamic pages to index, follow', () => {
+    expect(getStrategyRobotsMeta('seo-dynamic')).toBe('index, follow');
+
+    for (const pageKey of pageKeysForStrategy('seo-dynamic')) {
+      expect(getPageRobotsMeta(pageKey)).toBe('index, follow');
+      expect(isSeoIndexablePage(pageKey)).toBe(true);
+    }
+  });
+
   it('maps private runtime-i18n pages to noindex, nofollow', () => {
     expect(getStrategyRobotsMeta('runtime-i18n')).toBe('noindex, nofollow');
 
