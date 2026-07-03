@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
 
@@ -137,7 +137,7 @@ export function toAbsoluteUrl(publicPath) {
   return `${SITEMAP_BASE_URL}${normalizedPath}`;
 }
 
-export async function loadCommunityIndex(fetchImpl = globalThis.fetch) {
+export async function loadCommunityIndex(fetchImpl = globalThis.fetch, workspaceRoot = process.cwd()) {
   if (typeof fetchImpl !== 'function') {
     throw new Error('Community sitemap generation requires a fetch implementation.');
   }
@@ -164,12 +164,109 @@ export async function loadCommunityIndex(fetchImpl = globalThis.fetch) {
       return normalizeCommunityIndex(null);
     }
 
+    const existingCommunityIndex = await loadCommunityIndexFromExistingSitemaps(workspaceRoot);
+    if (existingCommunityIndex.paths.length > COMMUNITY_STATIC_PATHS.length) {
+      console.warn(
+        `Community sitemap source ${url} unavailable; using checked-in community sitemap files as dynamic fallback. ${
+          error instanceof Error ? error.message : ''
+        }`.trim(),
+      );
+      return existingCommunityIndex;
+    }
+
     throw new Error(
       `Community sitemap source ${url} is required and did not return dynamic community URLs. ${
         error instanceof Error ? error.message : ''
       }`.trim(),
     );
   }
+}
+
+async function loadCommunityIndexFromExistingSitemaps(workspaceRoot) {
+  const sitemapDir = path.join(workspaceRoot, 'public', 'sitemaps');
+  const payload = {
+    decks: [],
+    profiles: [],
+    commanders: [],
+    cards: [],
+  };
+
+  let filenames;
+  try {
+    filenames = await readdir(sitemapDir);
+  } catch {
+    return normalizeCommunityIndex(null);
+  }
+
+  const communitySitemapFiles = filenames
+    .filter((filename) =>
+      /^community-decks-\d+\.xml$/.test(filename)
+      || filename === path.basename(COMMUNITY_PROFILES_SITEMAP_PUBLIC_PATH)
+      || filename === path.basename(COMMUNITY_COMMANDERS_SITEMAP_PUBLIC_PATH)
+      || filename === path.basename(COMMUNITY_CARDS_SITEMAP_PUBLIC_PATH)
+    )
+    .sort();
+
+  for (const filename of communitySitemapFiles) {
+    const xml = await readFile(path.join(sitemapDir, filename), 'utf8');
+    for (const entry of communityEntriesFromSitemapXml(xml)) {
+      if (entry.canonicalPath.startsWith('/community/decks/') && entry.canonicalPath !== '/community/decks/') {
+        payload.decks.push(entry);
+      } else if (entry.canonicalPath.startsWith('/community/profiles/')) {
+        payload.profiles.push(entry);
+      } else if (entry.canonicalPath.startsWith('/community/commanders/')) {
+        payload.commanders.push(entry);
+      } else if (entry.canonicalPath.startsWith('/community/cards/')) {
+        payload.cards.push(entry);
+      }
+    }
+  }
+
+  return normalizeCommunityIndex(payload);
+}
+
+function communityEntriesFromSitemapXml(xml) {
+  const entries = [];
+  const urlBlocks = xml.match(/<url>[\s\S]*?<\/url>/g) ?? [];
+
+  for (const block of urlBlocks) {
+    const loc = extractXmlTag(block, 'loc');
+    if (!loc) {
+      continue;
+    }
+
+    let pathname;
+    try {
+      pathname = new URL(loc).pathname;
+    } catch {
+      continue;
+    }
+
+    if (!pathname.startsWith('/community/') || !pathname.endsWith('/')) {
+      continue;
+    }
+
+    entries.push({
+      canonicalPath: pathname,
+      updatedAt: extractXmlTag(block, 'lastmod'),
+    });
+  }
+
+  return entries;
+}
+
+function extractXmlTag(xml, tagName) {
+  const match = xml.match(new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`));
+  return match ? unescapeXml(match[1].trim()) : null;
+}
+
+function unescapeXml(value) {
+  return value
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAll('&amp;', '&');
 }
 
 function communityIndexUrl() {

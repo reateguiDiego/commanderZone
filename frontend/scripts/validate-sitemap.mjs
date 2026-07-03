@@ -15,6 +15,12 @@ import {
 const workspaceRoot = process.cwd();
 const config = await loadSeoSitemapConfig(workspaceRoot);
 const communityIndex = await loadCommunityIndex();
+const fallbackCommunityIndex = await loadCommunityIndex(
+  async () => {
+    throw new Error('Simulated unavailable community index source.');
+  },
+  workspaceRoot,
+);
 const communitySitemaps = generateCommunitySitemaps(communityIndex);
 const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'];
 const nonSeoHreflangs = ['ja', 'ko', 'zh-Hans', 'zh-Hant', 'nl', 'ca', 'ru'];
@@ -34,6 +40,7 @@ const prerenderRoutes = (await readFile(prerenderRoutesPath, 'utf8'))
 
 assertEqualXml(actualIndexXml, expectedIndexXml, SITEMAP_INDEX_PUBLIC_PATH);
 assertEqualXml(actualSeoXml, expectedSeoXml, SEO_SITEMAP_PUBLIC_PATH);
+assertDynamicCommunityIndexFallback(fallbackCommunityIndex);
 assertCommunityDeckDetailsNotPrerendered(prerenderRoutes);
 for (const sitemap of communitySitemaps) {
   const actualCommunityXml = await readFile(path.join(workspaceRoot, 'public', sitemap.publicPath), 'utf8');
@@ -75,6 +82,19 @@ function assertCommunitySitemap(xml) {
     if (!path.startsWith('/community/')) {
       throw new Error(`Community sitemap contains non-community URL: ${loc}`);
     }
+  }
+}
+
+function assertDynamicCommunityIndexFallback(index) {
+  const dynamicPaths = index.paths.filter((entry) =>
+    entry.path.startsWith('/community/decks/')
+    || entry.path.startsWith('/community/profiles/')
+    || entry.path.startsWith('/community/commanders/')
+    || entry.path.startsWith('/community/cards/')
+  );
+
+  if (dynamicPaths.length === 0) {
+    throw new Error('Community sitemap fallback must preserve dynamic community URLs when the API source is unavailable.');
   }
 }
 

@@ -1,21 +1,25 @@
 # Cookie Consent Preparation
 
-Phase 1.1 keeps CommanderZone production-ready for cookies without enabling analytics or ads.
+CommanderZone keeps app cookie preferences separate from advertising consent.
 
 ## Current State
 
-- `CookieConsentService` stores a versioned consent state with essential cookies, functional preferences, and a prepared advertising category.
-- No analytics or ad scripts are loaded.
-- Google Consent Mode remains denied.
+- `CookieConsentService` stores a versioned consent state for essential cookies and functional preferences.
+- It does not grant advertising, analytics or personalized ads consent.
+- AdSense may be loaded when a valid publisher id is configured.
+- Personalized advertising must come from a certified CMP / IAB TCF signal, not from CommanderZone's local cookie banner.
+- Google Consent Mode remains denied in the local app preference service.
 - Users can reopen cookie preferences from the footer.
 
-## Future Ads Requirements
+## AdSense / CMP Requirements
 
-- Add ad providers only in a dedicated task.
-- Do not reuse Phase 1.1 decisions as future ad consent.
-- Update policies and use a certified CMP where required before enabling ads.
+- Configure and publish the European regulations message in Google AdSense `Privacy & messaging`.
+- Associate the message with `commanderzone.com`.
+- Include the real privacy policy and cookie policy URLs.
+- Ensure Google Advertising Products are covered by the certified CMP / TCF setup.
+- Do not reuse local cookie preference decisions as advertising consent.
 
 ## Policy Requirements
 
 - Legal copy must be reviewed before production.
-- Policies must cover real cookies/storage, no analytics, ads readiness, withdrawal, contact and ownership.
+- Policies must cover real cookies/storage, no analytics, AdSense behavior, withdrawal, contact and ownership.

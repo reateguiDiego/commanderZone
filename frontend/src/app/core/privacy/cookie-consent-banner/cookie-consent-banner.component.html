@@ -19,18 +19,18 @@
         />
         <app-toggle
           class="cookie-banner__toggle"
+          data-cz-cookie-functional-preferences-toggle
           [label]="copy().cookieBanner.preferencesCookies"
           [description]="copy().cookieBanner.preferencesDescription"
-          [checked]="true"
-          [disabled]="true"
+          [checked]="functionalPreferencesConsent()"
+          (checkedChange)="setFunctionalPreferencesConsent($event)"
         />
         <app-toggle
           class="cookie-banner__toggle"
-          data-cz-cookie-personalized-ads-toggle
-          [label]="copy().cookieBanner.adsCookies"
-          [description]="copy().cookieBanner.adsDescription"
-          [checked]="personalizedAdsConsent()"
-          (checkedChange)="setPersonalizedAdsConsent($event)"
+          [label]="copy().cookieBanner.advertisingCookies"
+          [description]="copy().cookieBanner.advertisingDescription"
+          [checked]="false"
+          [disabled]="true"
         />
       </div>
     </div>
