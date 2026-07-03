@@ -3,7 +3,7 @@ export const environment = {
   apiBaseUrl: 'https://api.commanderzone.com',
   mercureUrl: 'https://api.commanderzone.com/.well-known/mercure',
   gameDebugWebsocketBaseUrl: 'wss://api.commanderzone.com/ws-game',
-  gameplayV2FrontendEnabled: false,
+  gameplayV2FrontendEnabled: true,
   googleClientId: '656749535505-qgai9ul27i0iju4hb3nn22cdmope5ckq.apps.googleusercontent.com',
   googleAdsenseClient: '',
   // Optional Google Search Console HTML meta verification token.
