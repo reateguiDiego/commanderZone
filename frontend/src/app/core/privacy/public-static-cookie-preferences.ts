@@ -1,16 +1,16 @@
-import { loadGoogleAdsenseScript } from '../ads/adsense-loader';
+import { loadGoogleAdsenseScript, normalizeAdsenseClient } from '../ads/adsense-loader';
+import { subscribeToTcfPersonalizedAdsStatus, TcfConsentSubscription } from '../ads/tcf-consent';
 import { runtimeGoogleAdsenseClient } from '../config/runtime-config';
 
 const STORAGE_KEY = 'commanderzone.cookieConsent';
-const STORAGE_VERSION = 5;
+const STORAGE_VERSION = 6;
 
 type CookieDecision = 'accepted' | 'rejected' | 'custom';
 
 interface StoredCookieConsentState {
   readonly version?: unknown;
   readonly decision?: unknown;
-  readonly ads?: unknown;
-  readonly personalizedAds?: unknown;
+  readonly preferences?: unknown;
 }
 
 export function initializePublicStaticCookiePreferences(documentRef: Document): void {
@@ -25,7 +25,8 @@ export function initializePublicStaticCookiePreferences(documentRef: Document): 
 
 class PublicStaticCookieController {
   private readonly settings: HTMLElement | null;
-  private personalizedAdsConsent = false;
+  private tcfSubscription: TcfConsentSubscription | null = null;
+  private functionalPreferencesConsent = false;
 
   constructor(
     private readonly documentRef: Document,
@@ -37,11 +38,11 @@ class PublicStaticCookieController {
   initialize(): void {
     const storedState = this.readStoredState();
 
-    this.personalizedAdsConsent = this.hasStoredPersonalizedAdsConsent(storedState);
+    this.functionalPreferencesConsent = storedState ? storedState.preferences === true : true;
     this.setBannerVisible(!this.hasStoredDecision(storedState));
     this.setSettingsVisible(false);
-    this.syncPersonalizedAdsToggle();
-    this.loadAdsense();
+    this.syncFunctionalPreferencesToggle();
+    this.initializeAdsense();
 
     this.documentRef.addEventListener('click', (event) => this.handleDocumentClick(event));
   }
@@ -62,9 +63,9 @@ class PublicStaticCookieController {
     const actionButton = target.closest<HTMLElement>('[data-cz-cookie-action]');
     const action = actionButton?.dataset['czCookieAction'];
 
-    const personalizedAdsToggle = target.closest('[data-cz-cookie-personalized-ads-toggle]');
-    if (personalizedAdsToggle) {
-      this.setPersonalizedAdsConsent(!this.personalizedAdsConsent);
+    const functionalPreferencesToggle = target.closest('[data-cz-cookie-functional-preferences-toggle]');
+    if (functionalPreferencesToggle) {
+      this.setFunctionalPreferencesConsent(!this.functionalPreferencesConsent);
       return;
     }
 
@@ -79,7 +80,7 @@ class PublicStaticCookieController {
     }
 
     if (action === 'save') {
-      this.saveDecision('custom', this.personalizedAdsConsent);
+      this.saveDecision('custom', this.functionalPreferencesConsent);
       return;
     }
 
@@ -91,7 +92,7 @@ class PublicStaticCookieController {
   private openPreferences(): void {
     this.setBannerVisible(true);
     this.setSettingsVisible(true);
-    this.syncPersonalizedAdsToggle();
+    this.syncFunctionalPreferencesToggle();
     this.bannerHost.querySelector<HTMLButtonElement>('[data-cz-cookie-action="reject"]')?.focus();
   }
 
@@ -105,57 +106,60 @@ class PublicStaticCookieController {
     }
   }
 
-  private setPersonalizedAdsConsent(personalizedAds: boolean): void {
-    this.personalizedAdsConsent = personalizedAds;
-    this.syncPersonalizedAdsToggle();
+  private setFunctionalPreferencesConsent(preferences: boolean): void {
+    this.functionalPreferencesConsent = preferences;
+    this.syncFunctionalPreferencesToggle();
   }
 
-  private syncPersonalizedAdsToggle(): void {
-    const toggle = this.bannerHost.querySelector<HTMLElement>('[data-cz-cookie-personalized-ads-toggle] [role="switch"]');
+  private syncFunctionalPreferencesToggle(): void {
+    const toggle = this.bannerHost.querySelector<HTMLElement>('[data-cz-cookie-functional-preferences-toggle] [role="switch"]');
     if (!toggle) {
       return;
     }
 
-    toggle.setAttribute('aria-checked', String(this.personalizedAdsConsent));
-    toggle.classList.toggle('is-on', this.personalizedAdsConsent);
+    toggle.setAttribute('aria-checked', String(this.functionalPreferencesConsent));
+    toggle.classList.toggle('is-on', this.functionalPreferencesConsent);
   }
 
-  private saveDecision(decision: CookieDecision, personalizedAds: boolean): void {
-    this.personalizedAdsConsent = personalizedAds;
+  private saveDecision(decision: CookieDecision, preferences: boolean): void {
+    this.functionalPreferencesConsent = preferences;
     this.storage()?.setItem(STORAGE_KEY, JSON.stringify({
       version: STORAGE_VERSION,
       essential: true,
-      preferences: true,
+      preferences,
       adsAvailable: true,
       ads: true,
-      personalizedAds,
+      personalizedAds: false,
       decision,
       updatedAt: new Date().toISOString(),
     }));
 
     this.setBannerVisible(false);
     this.setSettingsVisible(false);
-    this.syncPersonalizedAdsToggle();
-    this.loadAdsense();
+    this.syncFunctionalPreferencesToggle();
+    this.loadAdsense(false);
   }
 
   private hasStoredDecision(state: StoredCookieConsentState | null): boolean {
     return state?.decision === 'accepted' || state?.decision === 'rejected' || state?.decision === 'custom';
   }
 
-  private hasStoredPersonalizedAdsConsent(state: StoredCookieConsentState | null): boolean {
-    if (state?.version === STORAGE_VERSION) {
-      return state.personalizedAds === true;
+  private initializeAdsense(): void {
+    if (!normalizeAdsenseClient(runtimeGoogleAdsenseClient())) {
+      return;
     }
 
-    return state?.version === 4 && state.ads === true;
+    this.loadAdsense(false);
+    this.tcfSubscription = subscribeToTcfPersonalizedAdsStatus((status) => {
+      this.loadAdsense(status === 'granted');
+    });
   }
 
-  private loadAdsense(): void {
+  private loadAdsense(personalizedAds: boolean): void {
     loadGoogleAdsenseScript(
       this.documentRef,
       runtimeGoogleAdsenseClient(),
-      this.personalizedAdsConsent ? 'personalized' : 'nonPersonalized',
+      personalizedAds ? 'personalized' : 'nonPersonalized',
     );
   }
 

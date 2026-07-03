@@ -1,0 +1,9 @@
+@if (element() === 'link') {
+  <a href="#cookie-preferences" [class]="cssClass()" data-cz-cookie-preferences (click)="openCookiePreferences($event)">
+    {{ label() }}
+  </a>
+} @else {
+  <button type="button" [class]="cssClass()" data-cz-cookie-preferences (click)="openCookiePreferences($event)">
+    {{ label() }}
+  </button>
+}

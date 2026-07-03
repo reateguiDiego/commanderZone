@@ -13,12 +13,12 @@ export interface GoogleConsentModeState {
 }
 
 export interface CookieConsentState {
-  readonly version: 5;
+  readonly version: 6;
   readonly essential: true;
-  readonly preferences: true;
+  readonly preferences: boolean;
   readonly adsAvailable: true;
   readonly ads: true;
-  readonly personalizedAds: boolean;
+  readonly personalizedAds: false;
   readonly decision: CookieConsentDecision;
   readonly updatedAt: string | null;
 }
@@ -30,14 +30,15 @@ interface StoredCookieConsentState {
   readonly analytics?: unknown;
   readonly ads?: unknown;
   readonly personalizedAds?: unknown;
+  readonly preferences?: unknown;
 }
 
 const STORAGE_KEY = 'commanderzone.cookieConsent';
-const STORAGE_VERSION = 5;
+const STORAGE_VERSION = 6;
 const DEFAULT_STATE: CookieConsentState = {
   version: STORAGE_VERSION,
   essential: true,
-  preferences: true,
+  preferences: false,
   adsAvailable: true,
   ads: true,
   personalizedAds: false,
@@ -55,7 +56,7 @@ export class CookieConsentService {
   readonly hasDecision = computed(() => this.state().decision !== 'pending');
   readonly canUsePreferences = computed(() => this.state().preferences);
   readonly canUseAds = computed(() => this.state().adsAvailable);
-  readonly canUsePersonalizedAds = computed(() => this.state().personalizedAds);
+  readonly canUsePersonalizedAds = computed(() => false);
   readonly preferencesPanelOpen = this.preferencesPanelOpenSignal.asReadonly();
   readonly googleConsentModeState = computed<GoogleConsentModeState>(() => {
     const personalizationConsent = this.canUsePersonalizedAds() ? 'granted' : 'denied';
@@ -75,7 +76,7 @@ export class CookieConsentService {
       preferences: true,
       adsAvailable: true,
       ads: true,
-      personalizedAds: true,
+      personalizedAds: false,
       decision: 'accepted',
       updatedAt: new Date().toISOString(),
     });
@@ -86,7 +87,7 @@ export class CookieConsentService {
     this.saveState({
       version: STORAGE_VERSION,
       essential: true,
-      preferences: true,
+      preferences: false,
       adsAvailable: true,
       ads: true,
       personalizedAds: false,
@@ -96,14 +97,14 @@ export class CookieConsentService {
     this.closePreferences();
   }
 
-  savePreferences(personalizedAds = false): void {
+  savePreferences(preferences = false): void {
     this.saveState({
       version: STORAGE_VERSION,
       essential: true,
-      preferences: true,
+      preferences,
       adsAvailable: true,
       ads: true,
-      personalizedAds,
+      personalizedAds: false,
       decision: 'custom',
       updatedAt: new Date().toISOString(),
     });
@@ -167,15 +168,13 @@ function normalizeStoredState(state: StoredCookieConsentState): CookieConsentSta
     return DEFAULT_STATE;
   }
 
-  const isCurrentVersion = state.version === STORAGE_VERSION;
-
   return {
     version: STORAGE_VERSION,
     essential: true,
-    preferences: true,
+    preferences: state.preferences === true,
     adsAvailable: true,
     ads: true,
-    personalizedAds: isCurrentVersion ? state.personalizedAds === true : state.version === 4 && state.ads === true,
+    personalizedAds: false,
     decision: state.decision,
     updatedAt: typeof state.updatedAt === 'string' ? state.updatedAt : null,
   };

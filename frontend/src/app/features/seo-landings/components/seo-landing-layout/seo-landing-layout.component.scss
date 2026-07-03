@@ -110,8 +110,7 @@
   align-items: center;
 }
 
-.seo-landing-layout__footer a,
-.seo-landing-layout__cookie-button {
+.seo-landing-layout__footer a {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
@@ -122,16 +121,7 @@
   text-decoration: none;
 }
 
-.seo-landing-layout__cookie-button {
-  margin-left: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.seo-landing-layout__footer a:hover,
-.seo-landing-layout__cookie-button:hover {
+.seo-landing-layout__footer a:hover {
   color: var(--text);
 }
 
@@ -145,10 +135,6 @@
   .seo-landing-layout__header {
     grid-template-columns: 1fr;
     align-items: stretch;
-  }
-
-  .seo-landing-layout__cookie-button {
-    margin-left: 0;
   }
 
   .seo-landing-layout__brand,

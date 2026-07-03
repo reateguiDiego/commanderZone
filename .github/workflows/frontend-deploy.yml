@@ -17,6 +17,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      GOOGLE_ADSENSE_CLIENT: ${{ vars.GOOGLE_ADSENSE_CLIENT || secrets.GOOGLE_ADSENSE_CLIENT }}
 
     steps:
       - name: Checkout
@@ -36,6 +37,7 @@ jobs:
           : "${VERCEL_TOKEN:?Missing VERCEL_TOKEN secret}"
           : "${VERCEL_ORG_ID:?Missing VERCEL_ORG_ID secret}"
           : "${VERCEL_PROJECT_ID:?Missing VERCEL_PROJECT_ID secret}"
+          : "${GOOGLE_ADSENSE_CLIENT:?Missing GOOGLE_ADSENSE_CLIENT variable or secret}"
 
       - name: Install dependencies
         working-directory: frontend
@@ -45,7 +47,6 @@ jobs:
         working-directory: frontend
         env:
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_ADSENSE_CLIENT: ${{ vars.GOOGLE_ADSENSE_CLIENT || secrets.GOOGLE_ADSENSE_CLIENT || 'ca-pub-8530144714199347' }}
         run: npm run build:prod
 
       - name: Pull Vercel project settings

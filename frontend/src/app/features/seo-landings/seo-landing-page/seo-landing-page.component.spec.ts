@@ -212,10 +212,23 @@ describe('SeoLandingPageComponent', () => {
     expect(links).toContain('/de/commander-online-spielen/');
     expect(links).toContain('/en/import-commander-deck/');
     expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
-    expect(element.querySelector('button:not(.seo-landing-layout__cookie-button)')).toBeNull();
+    expect(element.querySelector('button')).toBeNull();
     expect(element.querySelector('.landing-faq')).not.toBeNull();
     expect(element.querySelector('.landing-full-faq')).toBeNull();
     expect(element.textContent).toContain('No. It is a manual Commander table.');
+  });
+
+  it('uses the shared cookie preferences trigger in the SEO footer', () => {
+    fixture.componentRef.setInput('content', {
+      ...content,
+      legalFooterLinks: [{ label: 'Privacy Policy', href: '/privacy-policy/' }],
+    });
+    fixture.detectChanges();
+
+    const element: HTMLElement = fixture.nativeElement;
+
+    expect(element.querySelector('.seo-landing-layout__footer')).not.toBeNull();
+    expect(element.querySelector('app-cookie-preferences-trigger [data-cz-cookie-preferences]')).not.toBeNull();
   });
 
   it('renders only one visible FAQ section and does not duplicate questions', () => {
