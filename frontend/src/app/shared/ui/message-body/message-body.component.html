@@ -10,7 +10,11 @@
             <li>
               @for (segment of item; track $index) {
                 @if (segment.type === 'link') {
-                  <a [href]="segment.url" target="_blank" rel="noopener noreferrer">{{ segment.text }}</a>
+                  @if (segment.internal) {
+                    <a [routerLink]="segment.url">{{ segment.text }}</a>
+                  } @else {
+                    <a [href]="segment.url" target="_blank" rel="noopener noreferrer">{{ segment.text }}</a>
+                  }
                 } @else {
                   <span>{{ segment.text }}</span>
                 }
@@ -32,7 +36,11 @@
           @for (line of block.lines; track $index) {
             @for (segment of line; track $index) {
               @if (segment.type === 'link') {
-                <a [href]="segment.url" target="_blank" rel="noopener noreferrer">{{ segment.text }}</a>
+                @if (segment.internal) {
+                  <a [routerLink]="segment.url">{{ segment.text }}</a>
+                } @else {
+                  <a [href]="segment.url" target="_blank" rel="noopener noreferrer">{{ segment.text }}</a>
+                }
               } @else {
                 <span>{{ segment.text }}</span>
               }

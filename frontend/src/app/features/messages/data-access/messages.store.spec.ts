@@ -24,7 +24,21 @@ describe('MessagesStore', () => {
     });
   });
 
-  it('marks the initially opened unread message as read when messages load', async () => {
+  it('loads unread messages without marking them read', async () => {
+    const unreadMessage = message({ id: 'message-1', readAt: null });
+    api.list.mockReturnValue(of({ data: [unreadMessage], unreadCount: 1 }));
+    api.markRead.mockReturnValue(of({ message: unreadMessage, unreadCount: 1 }));
+    const store = TestBed.inject(MessagesStore);
+
+    await store.ensureLoaded();
+
+    expect(store.messages()).toEqual([unreadMessage]);
+    expect(store.selectedMessage()).toBeNull();
+    expect(api.markRead).not.toHaveBeenCalled();
+    expect(store.unreadCount()).toBe(1);
+  });
+
+  it('marks an unread message as read when the user selects it', async () => {
     const unreadMessage = message({ id: 'message-1', readAt: null });
     const readMessage = { ...unreadMessage, readAt: '2026-07-02T10:00:00+00:00' };
     api.list.mockReturnValue(of({ data: [unreadMessage], unreadCount: 1 }));
@@ -32,6 +46,7 @@ describe('MessagesStore', () => {
     const store = TestBed.inject(MessagesStore);
 
     await store.ensureLoaded();
+    await store.selectMessage('message-1');
 
     expect(store.selectedMessage()?.id).toBe('message-1');
     expect(api.markRead).toHaveBeenCalledWith('message-1');

@@ -13,6 +13,7 @@ use App\Application\Auth\RefreshSessionCookieManager;
 use App\Application\Auth\RefreshSessionReplayDetected;
 use App\Application\Auth\RefreshSessionService;
 use App\Application\Auth\SecurityAuditLogger;
+use App\Application\Message\RegistrationWelcomeMessageService;
 use App\Application\User\UserAccountDeletionService;
 use App\Domain\Auth\EmailVerificationToken;
 use App\Domain\Localization\LanguageCatalog;
@@ -140,6 +141,7 @@ class AuthController extends ApiController
         private readonly PasswordPolicy $passwordPolicy,
         private readonly AuthThrottleService $authThrottleService,
         private readonly SecurityAuditLogger $securityAuditLogger,
+        private readonly RegistrationWelcomeMessageService $registrationWelcomeMessageService,
         #[Autowire('%kernel.environment%')]
         private readonly string $kernelEnvironment,
     ) {
@@ -192,6 +194,7 @@ class AuthController extends ApiController
         $user->setPassword($passwordHasher->hashPassword($user, $password));
         $user->grantRole($this->requiredRole($entityManager, Role::USER));
         $entityManager->persist($user);
+        $entityManager->persist($this->registrationWelcomeMessageService->createFor($user));
         $entityManager->flush();
 
         $verificationToken = $this->emailVerificationService->issueRegisterVerification(

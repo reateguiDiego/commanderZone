@@ -6,6 +6,27 @@ use App\Domain\User\Role;
 
 final class MessagesApiTest extends ApiTestCase
 {
+    public function testNewlyRegisteredUserReceivesWelcomeMessage(): void
+    {
+        $token = $this->registerAndLogin('welcome-message@example.test', 'Welcome Message');
+
+        $this->jsonRequest('GET', '/messages', token: $token);
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame(1, $response['unreadCount']);
+        $message = $this->messageBySubject($response, 'Welcome');
+        self::assertSame('system', $message['sender']['id']);
+        self::assertSame('CommanderZone', $message['sender']['displayName']);
+        self::assertStringContainsString('Welcome to CommanderZone!', $message['body']);
+        self::assertStringContainsString('still under construction', $message['body']);
+        self::assertStringContainsString('CommanderZone 1.0 soon', $message['body']);
+        self::assertStringContainsString('[Contact](/contact)', $message['body']);
+        self::assertStringContainsString('![Ms. Bumbleflower](https://api.scryfall.com/cards/blc/103?format=image&version=art_crop)', $message['body']);
+        self::assertStringEndsWith('CommanderZone', $message['body']);
+        self::assertNull($message['readAt']);
+    }
+
     public function testOnlyAdminsCanSendMessages(): void
     {
         $senderToken = $this->registerAndLogin('regular-message-sender@example.test', 'Regular Sender');
@@ -27,7 +48,7 @@ final class MessagesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/admin/messages', [
             'recipientId' => $recipientId,
-            'subject' => 'Welcome',
+            'subject' => 'Admin notice',
             'body' => 'Welcome to CommanderZone.',
         ], $adminToken);
 
@@ -37,17 +58,17 @@ final class MessagesApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/messages', token: $recipientToken);
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
-        self::assertSame(1, $response['unreadCount']);
-        self::assertCount(1, $response['data']);
-        self::assertSame('Welcome', $response['data'][0]['subject']);
-        self::assertSame('Welcome to CommanderZone.', $response['data'][0]['body']);
-        self::assertNull($response['data'][0]['readAt']);
+        self::assertSame(2, $response['unreadCount']);
+        self::assertCount(2, $response['data']);
+        $message = $this->messageBySubject($response, 'Admin notice');
+        self::assertSame('Welcome to CommanderZone.', $message['body']);
+        self::assertNull($message['readAt']);
 
-        $messageId = (string) $response['data'][0]['id'];
+        $messageId = (string) $message['id'];
         $this->jsonRequest('POST', '/messages/'.$messageId.'/read', token: $recipientToken);
 
         self::assertResponseIsSuccessful();
-        self::assertSame(0, $this->jsonResponse()['unreadCount']);
+        self::assertSame(1, $this->jsonResponse()['unreadCount']);
         self::assertNotNull($this->jsonResponse()['message']['readAt']);
     }
 
@@ -68,11 +89,11 @@ final class MessagesApiTest extends ApiTestCase
 
         $this->jsonRequest('GET', '/messages', token: $firstRecipient);
         self::assertResponseIsSuccessful();
-        self::assertSame(1, $this->jsonResponse()['unreadCount']);
+        self::assertSame(2, $this->jsonResponse()['unreadCount']);
 
         $this->jsonRequest('GET', '/messages', token: $secondRecipient);
         self::assertResponseIsSuccessful();
-        self::assertSame(1, $this->jsonResponse()['unreadCount']);
+        self::assertSame(2, $this->jsonResponse()['unreadCount']);
     }
 
     public function testMessageValidationRequiresRecipientSubjectAndBody(): void
@@ -98,5 +119,23 @@ final class MessagesApiTest extends ApiTestCase
         $this->entityManager->clear();
 
         return $token;
+    }
+
+    /**
+     * @param array<string,mixed> $response
+     * @return array<string,mixed>
+     */
+    private function messageBySubject(array $response, string $subject): array
+    {
+        $messages = $response['data'] ?? [];
+        self::assertIsArray($messages);
+
+        foreach ($messages as $message) {
+            if (is_array($message) && ($message['subject'] ?? null) === $subject) {
+                return $message;
+            }
+        }
+
+        self::fail(sprintf('Message with subject "%s" was not found.', $subject));
     }
 }

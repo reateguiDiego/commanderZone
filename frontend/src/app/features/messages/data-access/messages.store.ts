@@ -24,7 +24,9 @@ export class MessagesStore {
   readonly selectedMessage = computed<UserMessage | null>(() => {
     const selectedId = this.selectedMessageId();
 
-    return this.messagesState().find((message) => message.id === selectedId) ?? this.messagesState()[0] ?? null;
+    return selectedId === null
+      ? null
+      : this.messagesState().find((message) => message.id === selectedId) ?? null;
   });
 
   async ensureLoaded(): Promise<void> {
@@ -44,9 +46,6 @@ export class MessagesStore {
       this.messagesState.set(response.data);
       this.unreadCountState.set(response.unreadCount);
       this.loaded = true;
-      if (!this.selectedMessageId() && response.data.length > 0) {
-        await this.selectMessage(response.data[0].id);
-      }
     } catch (error: unknown) {
       this.errorState.set(this.errorMessage(error, 'navigation.messages.messagesDropdown.couldNotLoadMessages'));
     } finally {

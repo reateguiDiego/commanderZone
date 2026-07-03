@@ -12,13 +12,16 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_user_message_recipient_read', columns: ['recipient_id', 'read_at'])]
 class UserMessage
 {
+    private const SYSTEM_SENDER_ID = 'system';
+    private const SYSTEM_SENDER_DISPLAY_NAME = 'CommanderZone';
+
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
     private string $id;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(name: 'sender_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-    private User $sender;
+    #[ORM\JoinColumn(name: 'sender_id', referencedColumnName: 'id', nullable: true, onDelete: 'CASCADE')]
+    private ?User $sender;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'recipient_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
@@ -36,7 +39,7 @@ class UserMessage
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $readAt = null;
 
-    public function __construct(User $sender, User $recipient, string $subject, string $body)
+    public function __construct(?User $sender, User $recipient, string $subject, string $body)
     {
         $this->id = Uuid::v7()->toRfc4122();
         $this->sender = $sender;
@@ -44,6 +47,11 @@ class UserMessage
         $this->subject = trim($subject);
         $this->body = trim($body);
         $this->createdAt = new \DateTimeImmutable();
+    }
+
+    public static function system(User $recipient, string $subject, string $body): self
+    {
+        return new self(null, $recipient, $subject, $body);
     }
 
     public function id(): string
@@ -69,16 +77,31 @@ class UserMessage
     {
         return [
             'id' => $this->id,
-            'sender' => [
-                'id' => $this->sender->id(),
-                'displayName' => $this->sender->displayName(),
-                'displayNameStyle' => $this->sender->displayNameStyle(),
-                'avatar' => $this->sender->avatar(),
-            ],
+            'sender' => $this->senderToArray(),
             'subject' => $this->subject,
             'body' => $this->body,
             'createdAt' => $this->createdAt->format(DATE_ATOM),
             'readAt' => $this->readAt?->format(DATE_ATOM),
+        ];
+    }
+
+    /**
+     * @return array{id:string,displayName:string,displayNameStyle?:array<string,mixed>,avatar?:array<string,mixed>}
+     */
+    private function senderToArray(): array
+    {
+        if ($this->sender === null) {
+            return [
+                'id' => self::SYSTEM_SENDER_ID,
+                'displayName' => self::SYSTEM_SENDER_DISPLAY_NAME,
+            ];
+        }
+
+        return [
+            'id' => $this->sender->id(),
+            'displayName' => $this->sender->displayName(),
+            'displayNameStyle' => $this->sender->displayNameStyle(),
+            'avatar' => $this->sender->avatar(),
         ];
     }
 }
