@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 interface MessageTextSegment {
   readonly type: 'text';
@@ -9,6 +10,7 @@ interface MessageLinkSegment {
   readonly type: 'link';
   readonly text: string;
   readonly url: string;
+  readonly internal: boolean;
 }
 
 type MessageInlineSegment = MessageTextSegment | MessageLinkSegment;
@@ -22,6 +24,7 @@ type MessageBodyBlock =
 
 @Component({
   selector: 'app-message-body',
+  imports: [RouterLink],
   templateUrl: './message-body.component.html',
   styleUrl: './message-body.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -132,7 +135,7 @@ export class MessageBodyComponent {
 
       const url = match[2].trim();
       if (this.isSafeLinkUrl(url)) {
-        segments.push({ type: 'link', text: match[1], url });
+        segments.push({ type: 'link', text: match[1], url, internal: this.isInternalLinkUrl(url) });
       } else {
         segments.push({ type: 'text', text: match[0] });
       }
@@ -147,7 +150,11 @@ export class MessageBodyComponent {
   }
 
   private isSafeLinkUrl(url: string): boolean {
-    return /^(?:https?:\/\/|mailto:)/i.test(url);
+    return this.isInternalLinkUrl(url) || /^(?:https?:\/\/|mailto:)/i.test(url);
+  }
+
+  private isInternalLinkUrl(url: string): boolean {
+    return /^\/(?!\/)/.test(url);
   }
 
   private isSafeImageUrl(url: string): boolean {

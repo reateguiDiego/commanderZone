@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { MessageBodyComponent } from './message-body.component';
 
 describe('MessageBodyComponent', () => {
@@ -7,6 +8,7 @@ describe('MessageBodyComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MessageBodyComponent],
+      providers: [provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(MessageBodyComponent);
@@ -22,6 +24,8 @@ describe('MessageBodyComponent', () => {
       '- Second',
       '---',
       '[Open site](https://example.com)',
+      '[Contact](/contact)',
+      '[Bad](javascript:alert(1))',
       '![Preview](data:image/png;base64,aGVsbG8=)',
       '<strong>Plain text</strong>',
     ].join('\n'));
@@ -31,9 +35,14 @@ describe('MessageBodyComponent', () => {
     expect(element.querySelector('h4')?.textContent).toContain('Section');
     expect(element.querySelectorAll('li').length).toBe(2);
     expect(element.querySelector('hr')).not.toBeNull();
-    expect(element.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
+    const links = Array.from(element.querySelectorAll('a'));
+    expect(links[0]?.getAttribute('href')).toBe('https://example.com');
+    expect(links[0]?.getAttribute('target')).toBe('_blank');
+    expect(links[1]?.getAttribute('href')).toBe('/contact');
+    expect(links[1]?.getAttribute('target')).toBeNull();
     expect(element.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,aGVsbG8=');
     expect(element.querySelector('strong')).toBeNull();
+    expect(element.textContent).toContain('[Bad](javascript:alert(1))');
     expect(element.textContent).toContain('<strong>Plain text</strong>');
   });
 });

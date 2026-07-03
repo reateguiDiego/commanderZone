@@ -494,7 +494,16 @@ SQL,
     private function ensureUserMessageTable(Connection $connection): void
     {
         $schemaManager = $connection->createSchemaManager();
-        if ($schemaManager->tablesExist(['user_message']) || !$schemaManager->tablesExist(['app_user'])) {
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        if ($schemaManager->tablesExist(['user_message'])) {
+            $senderColumn = $schemaManager->listTableColumns('user_message')['sender_id'] ?? null;
+            if ($senderColumn instanceof \Doctrine\DBAL\Schema\Column && $senderColumn->getNotnull()) {
+                $connection->executeStatement('ALTER TABLE user_message ALTER sender_id DROP NOT NULL');
+            }
+
             return;
         }
 
@@ -502,7 +511,7 @@ SQL,
             <<<'SQL'
 CREATE TABLE user_message (
     id VARCHAR(36) NOT NULL,
-    sender_id VARCHAR(36) NOT NULL,
+    sender_id VARCHAR(36) DEFAULT NULL,
     recipient_id VARCHAR(36) NOT NULL,
     subject VARCHAR(120) NOT NULL,
     body TEXT NOT NULL,
