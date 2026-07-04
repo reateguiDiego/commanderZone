@@ -542,9 +542,9 @@ function closeGameBestEffort(owner) {
   if (snapshotResponse.status === 404 || snapshotResponse.status === 403) {
     return;
   }
-  const snapshotBody = expectJson(snapshotResponse, `cleanup snapshot ${owner.gameId}`);
+  const snapshotBody = expectJson(snapshotResponse, `cleanup snapshot ${owner.gameId}`, null);
   const version = Math.max(1, Number(snapshotBody.game && snapshotBody.game.snapshot ? snapshotBody.game.snapshot.version || 1 : 1));
-  const ticket = runtimeTicket(owner.gameId, owner.token);
+  const ticket = runtimeTicketForCleanup(owner.gameId, owner.token);
   const response = ws.connect(ticket.websocketUrl, {}, (socket) => {
     let settled = false;
     socket.on('open', () => {
@@ -570,6 +570,15 @@ function closeGameBestEffort(owner) {
   if (!response || response.status !== 101) {
     throw new Error(`cleanup websocket upgrade failed for ${owner.gameId}`);
   }
+}
+
+function runtimeTicketForCleanup(gameId, token) {
+  const response = postJson(`/games/${gameId}/websocket-ticket`, {}, token, 'cleanup.websocket_ticket');
+  const body = expectJson(response, `create cleanup runtime ticket for ${gameId}`, null);
+  if (body.route !== 'runtime_ws' || !body.websocketUrl) {
+    throw new Error(`Expected cleanup runtime_ws ticket for ${gameId}, got ${JSON.stringify(body)}`);
+  }
+  return body;
 }
 
 function postJson(path, payload, token, name, expected = expectedSuccess) {
@@ -610,24 +619,30 @@ function jsonHeaders(token) {
   return headers;
 }
 
-function expectJson(response, action) {
-  expectOk(response, action);
+function expectJson(response, action, failureRate = setupFailureRate) {
+  expectOk(response, action, failureRate);
   try {
     return response.json();
   } catch (error) {
-    setupFailureRate.add(1);
+    recordFailure(failureRate);
     throw new Error(`Invalid JSON while trying to ${action}: ${String(error)}. Body: ${response.body}`);
   }
 }
 
-function expectOk(response, action) {
+function expectOk(response, action, failureRate = setupFailureRate) {
   if (response && response.status >= 200 && response.status < 300) {
     return;
   }
-  setupFailureRate.add(1);
+  recordFailure(failureRate);
   const status = response ? response.status : 'no-response';
   const body = response ? response.body : '';
   throw new Error(`Failed to ${action}. HTTP ${status}: ${body}`);
+}
+
+function recordFailure(failureRate) {
+  if (failureRate) {
+    failureRate.add(1);
+  }
 }
 
 function parseJson(raw) {
