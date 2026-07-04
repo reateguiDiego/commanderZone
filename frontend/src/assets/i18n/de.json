@@ -427,6 +427,8 @@
       },
       "error": "Community-Deck konnte nicht geladen werden.",
       "headerTitle": "Gemeinschaftsdeck",
+      "like": "Deck liken",
+      "likeError": "Dieses Deck konnte nicht gelikt werden.",
       "missingId": "Fehlende Community-Deck-ID.",
       "save": "Speichern",
       "saveError": "Dieses Deck konnte nicht in deiner Deckliste gespeichert werden.",
@@ -440,8 +442,13 @@
           "error": "Fehler",
           "warning": "Warnung"
         },
-        "historyOwner": "Geteilt von"
+        "historyOwner": "Geteilt von",
+        "ownDeck": "Dieses Deck gehört dir."
       }
+    },
+    "deckCard": {
+      "likes": "Likes: {{ count }}",
+      "copies": "Kopien: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "Top 3 Kommandeure",

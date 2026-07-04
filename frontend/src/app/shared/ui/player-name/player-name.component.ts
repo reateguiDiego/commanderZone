@@ -1,7 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { publicAssetUrl } from '../../../core/assets/app-image-url';
 import { UserDisplayNameStyle } from '../../../core/models/user.model';
 import { DEFAULT_PREMIUM_NAME_COLOR, displayNameStylePreset } from '../../../core/profile/display-name-style-presets';
+import { communityUserProfilePath, shouldOpenCommunityProfileInNewTab } from '../player-profile-navigation';
 
 type PlayerNameSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 type PlayerNamePlateSize = 'micro' | PlayerNameSize;
@@ -140,6 +143,8 @@ function plainFontSizeForLength(length: number): string {
   },
 })
 export class PlayerNameComponent {
+  private readonly auth = inject(AuthStore, { optional: true });
+  private readonly router = inject(Router, { optional: true });
   readonly displayName = input('Player');
   readonly nameStyle = input<UserDisplayNameStyle | null | undefined>(undefined);
   /**
@@ -155,6 +160,9 @@ export class PlayerNameComponent {
   readonly fill = input(false);
   readonly align = input<PlayerNameAlign>('center');
   readonly tooltipMode = input<PlayerNameTooltipMode>('none');
+  readonly profileUserId = input<string | null | undefined>(null);
+  readonly profileUsername = input<string | null | undefined>(null);
+  readonly profileCanonicalPath = input<string | null | undefined>(null);
 
   readonly preset = computed(() => displayNameStylePreset(this.nameStyle()));
   readonly label = computed(() => this.displayName().trim() || 'Player');
@@ -182,4 +190,27 @@ export class PlayerNameComponent {
 
     return assetPath ? publicAssetUrl(assetPath) : null;
   });
+
+  handleClick(event: MouseEvent): void {
+    const path = this.publicProfilePath();
+    if (!path || this.isCurrentUserProfile() || !this.router) {
+      return;
+    }
+
+    event.stopPropagation();
+    if (shouldOpenCommunityProfileInNewTab(this.router.url) && typeof window !== 'undefined') {
+      window.open(path, '_blank', 'noopener');
+    } else {
+      void this.router.navigateByUrl(path);
+    }
+  }
+
+  private isCurrentUserProfile(): boolean {
+    const profileUserId = this.profileUserId()?.trim();
+    return profileUserId !== '' && profileUserId === this.auth?.user()?.id;
+  }
+
+  private publicProfilePath(): string | null {
+    return communityUserProfilePath(this.profileCanonicalPath(), this.profileUsername());
+  }
 }

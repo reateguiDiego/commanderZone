@@ -20,6 +20,7 @@ final class AdminUsersApiTest extends ApiTestCase
         $ownerToken = $this->ownerToken('owner-admin-users@example.test', 'Owner Admin');
         $targetToken = $this->registerAndLogin('target-admin-users@example.test', 'Target Admin');
         $targetId = $this->currentUserId($targetToken);
+        $this->insertGoogleAuthIdentity($targetId, 'google-target-subject', 'google-target@example.test', true);
 
         $this->jsonRequest('GET', '/admin/users', token: $ownerToken);
         self::assertResponseIsSuccessful();
@@ -28,12 +29,23 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertNotEmpty($users);
         self::assertArrayHasKey('displayName', $users[0]);
         self::assertArrayHasKey('email', $users[0]);
+        self::assertArrayHasKey('publicProfilePath', $users[0]);
+        self::assertArrayHasKey('authIdentities', $users[0]);
         self::assertArrayHasKey('lastConnectedAt', $users[0]);
         self::assertArrayHasKey('presenceStatus', $users[0]);
         self::assertArrayHasKey('isOnline', $users[0]);
         self::assertArrayHasKey('activeRoomsCount', $users[0]);
         self::assertArrayHasKey('activeSessionsCount', $users[0]);
         self::assertArrayHasKey('createdAt', $users[0]);
+        $targetUser = $this->adminUserById($users, $targetId);
+        self::assertSame('/community/users/Target-Admin', $targetUser['publicProfilePath']);
+        self::assertCount(1, $targetUser['authIdentities']);
+        self::assertSame('GOOGLE', $targetUser['authIdentities'][0]['provider']);
+        self::assertSame('google-target-subject', $targetUser['authIdentities'][0]['providerUserId']);
+        self::assertSame('google-target@example.test', $targetUser['authIdentities'][0]['providerEmail']);
+        self::assertTrue($targetUser['authIdentities'][0]['providerEmailVerified']);
+        self::assertArrayHasKey('createdAt', $targetUser['authIdentities'][0]);
+        self::assertArrayHasKey('lastUsedAt', $targetUser['authIdentities'][0]);
 
         $this->jsonRequest('PATCH', '/admin/users/'.$targetId, [
             'authorizationRole' => Role::ADMIN,
@@ -46,6 +58,33 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertSame('tier2', $user['premiumTier']);
         self::assertContains(Role::USER, $user['roles']);
         self::assertContains(Role::ADMIN, $user['roles']);
+    }
+
+    public function testSupportCanListAdminUsers(): void
+    {
+        $supportToken = $this->registerAndLogin('support-admin-list@example.test', 'Support List');
+        $this->grantRole($this->currentUserId($supportToken), Role::SUPPORT);
+
+        $this->jsonRequest('GET', '/admin/users', token: $supportToken);
+
+        self::assertResponseIsSuccessful();
+        self::assertIsArray($this->jsonResponse()['users']);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $users
+     *
+     * @return array<string,mixed>
+     */
+    private function adminUserById(array $users, string $userId): array
+    {
+        foreach ($users as $user) {
+            if (($user['id'] ?? null) === $userId) {
+                return $user;
+            }
+        }
+
+        self::fail(sprintf('Admin user "%s" was not returned.', $userId));
     }
 
     public function testAdminCannotModifyAuthorizationRoles(): void
@@ -92,6 +131,21 @@ final class AdminUsersApiTest extends ApiTestCase
         ], $adminToken);
 
         self::assertResponseStatusCodeSame(403);
+    }
+
+    public function testOwnerCanAssignSupportRole(): void
+    {
+        $ownerToken = $this->ownerToken('support-role-owner@example.test', 'Support Owner');
+        $targetToken = $this->registerAndLogin('support-role-target@example.test', 'Support Target');
+        $targetId = $this->currentUserId($targetToken);
+
+        $this->jsonRequest('PATCH', '/admin/users/'.$targetId, [
+            'authorizationRole' => Role::SUPPORT,
+        ], $ownerToken);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(Role::SUPPORT, $this->jsonResponse()['user']['authorizationRole']);
+        self::assertContains(Role::SUPPORT, $this->jsonResponse()['user']['roles']);
     }
 
     public function testAdminCannotManageSameOrHigherRoleUsers(): void
@@ -229,21 +283,73 @@ final class AdminUsersApiTest extends ApiTestCase
         self::assertSame('Impersonated sessions cannot enter rooms or games.', $this->jsonResponse()['error']);
     }
 
-    public function testAdminCannotImpersonateUsers(): void
+    public function testAdminCanImpersonateSupportAndRegularUsers(): void
     {
-        $ownerToken = $this->ownerToken('impersonate-admin-block-owner@example.test', 'Block Owner');
-        $adminToken = $this->registerAndLogin('impersonate-admin-block@example.test', 'Block Admin');
+        $ownerToken = $this->ownerToken('impersonate-admin-matrix-owner@example.test', 'Block Owner');
+        $adminToken = $this->registerAndLogin('impersonate-admin-user@example.test', 'Block Admin');
         $adminId = $this->currentUserId($adminToken);
-        $targetToken = $this->registerAndLogin('impersonate-admin-block-target@example.test', 'Block Target');
-        $targetId = $this->currentUserId($targetToken);
+        $supportToken = $this->registerAndLogin('impersonate-admin-support@example.test', 'Block Support');
+        $supportId = $this->currentUserId($supportToken);
+        $userToken = $this->registerAndLogin('impersonate-admin-target@example.test', 'Block Target');
+        $userId = $this->currentUserId($userToken);
 
         $this->jsonRequest('PATCH', '/admin/users/'.$adminId, [
             'authorizationRole' => Role::ADMIN,
         ], $ownerToken);
         self::assertResponseIsSuccessful();
+        $this->jsonRequest('PATCH', '/admin/users/'.$supportId, [
+            'authorizationRole' => Role::SUPPORT,
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
 
-        $this->jsonRequest('POST', '/admin/users/'.$targetId.'/impersonate', token: $adminToken);
+        $this->jsonRequest('POST', '/admin/users/'.$supportId.'/impersonate', token: $adminToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame($supportId, $this->jsonResponse()['impersonation']['targetUserId']);
 
+        $this->jsonRequest('POST', '/admin/users/'.$userId.'/impersonate', token: $adminToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame($userId, $this->jsonResponse()['impersonation']['targetUserId']);
+
+        $this->jsonRequest('POST', '/admin/users/'.$adminId.'/impersonate', token: $adminToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('You cannot impersonate your own user.', $this->jsonResponse()['error']);
+    }
+
+    public function testSupportCanOnlyImpersonateRegularUsers(): void
+    {
+        $ownerToken = $this->ownerToken('impersonate-support-owner@example.test', 'Support Owner');
+        $supportToken = $this->registerAndLogin('impersonate-support-user@example.test', 'Support User');
+        $supportId = $this->currentUserId($supportToken);
+        $adminToken = $this->registerAndLogin('impersonate-support-admin@example.test', 'Support Admin');
+        $adminId = $this->currentUserId($adminToken);
+        $targetToken = $this->registerAndLogin('impersonate-support-target@example.test', 'Support Target');
+        $targetId = $this->currentUserId($targetToken);
+
+        $this->jsonRequest('PATCH', '/admin/users/'.$supportId, [
+            'authorizationRole' => Role::SUPPORT,
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+        $this->jsonRequest('PATCH', '/admin/users/'.$adminId, [
+            'authorizationRole' => Role::ADMIN,
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/admin/users/'.$targetId.'/impersonate', token: $supportToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame($targetId, $this->jsonResponse()['impersonation']['targetUserId']);
+
+        $this->jsonRequest('POST', '/admin/users/'.$supportId.'/impersonate', token: $supportToken);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('POST', '/admin/users/'.$adminId.'/impersonate', token: $supportToken);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->jsonRequest('PATCH', '/admin/users/'.$targetId, [
+            'premiumTier' => 'tier1',
+        ], $supportToken);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->jsonRequest('DELETE', '/admin/users/'.$targetId, token: $supportToken);
         self::assertResponseStatusCodeSame(403);
     }
 
@@ -331,6 +437,43 @@ final class AdminUsersApiTest extends ApiTestCase
         $this->entityManager->getConnection()->executeStatement(
             'INSERT INTO app_user_role (user_id, role_code) VALUES (:userId, :roleCode) ON CONFLICT DO NOTHING',
             ['userId' => $userId, 'roleCode' => $roleCode],
+        );
+        $this->entityManager->clear();
+    }
+
+    private function insertGoogleAuthIdentity(string $userId, string $providerUserId, string $providerEmail, bool $verified): void
+    {
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO auth_identity (
+    id,
+    user_id,
+    provider,
+    provider_user_id,
+    provider_email,
+    provider_email_verified,
+    created_at,
+    updated_at,
+    last_used_at
+) VALUES (
+    :id,
+    :userId,
+    'google',
+    :providerUserId,
+    :providerEmail,
+    :verified,
+    '2026-07-01 10:00:00',
+    '2026-07-01 10:00:00',
+    '2026-07-02 10:00:00'
+)
+SQL,
+            [
+                'id' => 'google-admin-'.$providerUserId,
+                'userId' => $userId,
+                'providerUserId' => $providerUserId,
+                'providerEmail' => $providerEmail,
+                'verified' => $verified,
+            ],
         );
         $this->entityManager->clear();
     }

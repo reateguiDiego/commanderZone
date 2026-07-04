@@ -9,12 +9,22 @@ import { FriendListRow } from '../data-access/friends.store';
 import { FriendshipStatus } from '../../../core/models/friendship.model';
 import { FriendsStore } from '../data-access/friends.store';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
+import { FriendSearchAutofocusDirective } from './friend-search-autofocus.directive';
 
 type FriendsDropdownTab = 'friends' | 'requests' | 'invitations' | 'search';
 
 @Component({
   selector: 'app-friends-dropdown',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, PrettyScrollDirective, PlayerInfoComponent, TabListComponent, TooltipComponent],
+  imports: [
+    RuntimeTranslatePipe,
+    FormsModule,
+    LucideAngularModule,
+    PrettyScrollDirective,
+    PlayerInfoComponent,
+    TabListComponent,
+    TooltipComponent,
+    FriendSearchAutofocusDirective,
+  ],
   templateUrl: './friends-dropdown.component.html',
   styleUrl: './friends-dropdown.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

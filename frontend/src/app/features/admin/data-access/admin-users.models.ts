@@ -4,10 +4,21 @@ import { User } from '../../../core/models/user.model';
 export type PremiumTier = NonNullable<User['premiumTier']>;
 export type AdminUserPresenceStatus = 'online' | 'in_game' | 'offline';
 
+export interface AdminUserAuthIdentity {
+  readonly provider: string;
+  readonly providerUserId: string;
+  readonly providerEmail: string;
+  readonly providerEmailVerified: boolean;
+  readonly createdAt: string;
+  readonly lastUsedAt: string | null;
+}
+
 export interface AdminUser {
   readonly id: string;
   readonly displayName: string;
+  readonly publicProfilePath: string | null;
   readonly email: string;
+  readonly authIdentities: readonly AdminUserAuthIdentity[];
   readonly roles: readonly string[];
   readonly authorizationRole: AuthorizationRole;
   readonly premiumTier: PremiumTier;

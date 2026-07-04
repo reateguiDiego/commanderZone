@@ -40,6 +40,8 @@ export interface User {
   id: string;
   email: string;
   displayName: string;
+  publicHandle?: string | null;
+  publicPath?: string | null;
   displayNameStyle?: UserDisplayNameStyle;
   roles: string[];
   premiumTier?: 'none' | 'tier1' | 'tier2' | 'tier3';

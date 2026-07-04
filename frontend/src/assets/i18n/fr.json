@@ -427,6 +427,8 @@
       },
       "error": "Impossible de charger le deck communautaire.",
       "headerTitle": "Deck de la communauté",
+      "like": "Aimer le deck",
+      "likeError": "Impossible d'aimer ce deck.",
       "missingId": "ID de deck communautaire manquant.",
       "save": "Enregistrer",
       "saveError": "Impossible d'enregistrer ce deck dans votre liste de decks.",
@@ -440,8 +442,13 @@
           "error": "Erreur",
           "warning": "Avertissement"
         },
-        "historyOwner": "Partagé par"
+        "historyOwner": "Partagé par",
+        "ownDeck": "Ce deck est à vous."
       }
+    },
+    "deckCard": {
+      "likes": "J'aime: {{ count }}",
+      "copies": "Copies: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "Les 3 meilleurs commandants",

@@ -1,14 +1,26 @@
 <div class="community-deck-grid">
   @for (deck of decks(); track deck.id) {
-    <app-deck-list-card
-      [deck]="deckItem(deck)"
-      [deckHref]="deckHref(deck)"
-      [commanderBackground]="commanderBackground(deck)"
-      [secondaryCommanderBackground]="secondaryCommanderBackground(deck)"
-      [colorIdentity]="deck.colorIdentity"
-      [hasCommanderArt]="hasCommanderArt(deck)"
-      [hasDualCommanderArt]="hasDualCommanderArt(deck)"
-      (openDeck)="openDeck(deck)"
-    />
+    <article class="community-deck-card">
+      <app-deck-list-card
+        [deck]="deckItem(deck)"
+        [deckHref]="deckHref(deck)"
+        [commanderBackground]="commanderBackground(deck)"
+        [secondaryCommanderBackground]="secondaryCommanderBackground(deck)"
+        [colorIdentity]="deck.colorIdentity"
+        [hasCommanderArt]="hasCommanderArt(deck)"
+        [hasDualCommanderArt]="hasDualCommanderArt(deck)"
+        (openDeck)="openDeck(deck)"
+      />
+      <div class="community-deck-metrics">
+        <span class="community-deck-metric metric-likes" [attr.aria-label]="'community.deckCard.likes' | runtimeTranslate: { count: deck.likes }">
+          <lucide-icon name="heart" size="14" aria-hidden="true" />
+          <span>{{ deck.likes }}</span>
+        </span>
+        <span class="community-deck-metric metric-copies" [attr.aria-label]="'community.deckCard.copies' | runtimeTranslate: { count: deck.copies }">
+          <lucide-icon name="copy" size="14" aria-hidden="true" />
+          <span>{{ deck.copies }}</span>
+        </span>
+      </div>
+    </article>
   }
 </div>

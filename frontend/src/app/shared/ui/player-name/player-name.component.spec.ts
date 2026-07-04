@@ -1,4 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { provideRouter, Router } from '@angular/router';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { PlayerNameComponent } from './player-name.component';
 
 describe('PlayerNameComponent', () => {
@@ -7,6 +10,10 @@ describe('PlayerNameComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PlayerNameComponent],
+      providers: [
+        provideRouter([]),
+        { provide: AuthStore, useValue: { user: signal({ id: 'current-user' }) } },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PlayerNameComponent);
@@ -105,5 +112,47 @@ describe('PlayerNameComponent', () => {
     expect(name.style.getPropertyValue('--player-name-plate-width')).toBe('10.4rem');
     expect(name.style.getPropertyValue('--player-name-plate-height')).toBe('2.6rem');
     expect(name.style.getPropertyValue('--player-name-auto-font-size')).toBe('1.02rem');
+  });
+
+  it('navigates to the public community user page for another player', () => {
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    fixture.componentRef.setInput('profileUserId', 'other-user');
+    fixture.componentRef.setInput('profileUsername', 'Other User');
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+    name.click();
+
+    expect(navigateSpy).toHaveBeenCalledWith('/community/users/Other-User');
+  });
+
+  it('opens the public community user page in a new tab from game and waiting room surfaces', () => {
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    Object.defineProperty(router, 'url', { configurable: true, value: '/rooms/room-1/waiting' });
+    fixture.componentRef.setInput('profileUserId', 'other-user');
+    fixture.componentRef.setInput('profileCanonicalPath', '/community/users/Other-User');
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+    name.click();
+
+    expect(openSpy).toHaveBeenCalledWith('/community/users/Other-User', '_blank', 'noopener');
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not navigate for the authenticated player', () => {
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    fixture.componentRef.setInput('profileUserId', 'current-user');
+    fixture.componentRef.setInput('profileUsername', 'Current User');
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+    name.click();
+
+    expect(navigateSpy).not.toHaveBeenCalled();
   });
 });

@@ -1,0 +1,150 @@
+<section class="community-user-page">
+  @if (loading() && !user()) {
+    <app-global-loader />
+  } @else if (error() && !user()) {
+    <p class="notice error">{{ error()! | runtimeTranslate }}</p>
+  } @else if (user(); as userData) {
+    <header class="community-user-hero">
+      <app-back-button link="/community" />
+
+      <div class="community-user-identity">
+        <app-player-info
+          class="community-user-player-info"
+          [displayName]="userData.displayName"
+          [avatar]="userData.avatar"
+          [nameStyle]="userData.displayNameStyle"
+          [profileUserId]="userData.id"
+          [profileUsername]="userData.username"
+          [profileCanonicalPath]="userData.canonicalPath"
+          size="xl"
+        />
+
+        <div class="community-user-actions">
+          <div class="community-user-action-buttons" aria-label="User actions">
+            <app-tooltip text="Report user">
+              <button
+                czButton="secondary"
+                czButtonSize="sm"
+                type="button"
+                class="secondary-button compact icon-only community-user-action-button is-danger"
+                aria-label="Report user"
+              >
+                <lucide-icon name="flag" size="18" aria-hidden="true" />
+              </button>
+            </app-tooltip>
+
+            <app-tooltip text="Send friend request">
+              <button
+                czButton="secondary"
+                czButtonSize="sm"
+                type="button"
+                class="secondary-button compact icon-only community-user-action-button is-success"
+                aria-label="Send friend request"
+                [disabled]="sendingFriendRequest()"
+                (click)="sendFriendRequest(userData)"
+              >
+                <lucide-icon name="user-plus" size="18" aria-hidden="true" />
+              </button>
+            </app-tooltip>
+
+            <app-tooltip text="Copy profile link">
+              <button
+                czButton="secondary"
+                czButtonSize="sm"
+                type="button"
+                class="secondary-button compact icon-only community-user-action-button"
+                aria-label="Copy profile link"
+                (click)="shareUser(userData)"
+              >
+                <lucide-icon name="link" size="18" aria-hidden="true" />
+              </button>
+            </app-tooltip>
+          </div>
+
+          @if (actionFeedback()) {
+            <p class="community-user-action-feedback">{{ actionFeedback() }}</p>
+          }
+
+          @if (actionError()) {
+            <p class="community-user-action-feedback error">{{ actionError() }}</p>
+          }
+        </div>
+
+        <app-hero-rule />
+      </div>
+    </header>
+
+    <form class="community-user-filters" (ngSubmit)="applyFilters()">
+      <label class="community-user-filter-field">
+        <span>{{ 'community.deckList.filterName' | runtimeTranslate }}</span>
+        <input
+          name="userDeckSearchQuery"
+          type="search"
+          [placeholder]="'community.deckList.filterNamePlaceholder' | runtimeTranslate"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="setSearchQuery($event)"
+        />
+      </label>
+
+      <label class="community-user-filter-field">
+        <span>{{ 'community.deckList.filterCommander' | runtimeTranslate }}</span>
+        <app-card-autocomplete
+          [placeholder]="'community.deckList.filterCommanderPlaceholder' | runtimeTranslate"
+          actionLabel="community.deckList.commanderSelect"
+          [filters]="{ commanderCandidate: true }"
+          [query]="commanderQuery()"
+          (queryChange)="setCommanderQuery($event)"
+          (cardSelected)="selectCommanderFilter($event)"
+        />
+      </label>
+
+      <div class="community-user-filter-select">
+        <app-format-select
+          name="userDeckFormat"
+          label="community.deckList.filterFormat"
+          [options]="formatOptions()"
+          [value]="selectedFormat()"
+          (valueChange)="setSelectedFormat($event)"
+        />
+      </div>
+
+      <div class="community-user-filter-select">
+        <app-format-select
+          name="userDeckColors"
+          labelKey="community.user.filterColors"
+          [options]="colorOptions"
+          [value]="selectedColor()"
+          (valueChange)="setSelectedColor($event)"
+        />
+      </div>
+
+      <div class="community-user-filter-actions">
+        <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="submit">
+          {{ 'community.deckList.searchButton' | runtimeTranslate }}
+        </button>
+      </div>
+    </form>
+
+    @if (loading()) {
+      <app-global-loader />
+    } @else if (error()) {
+      <p class="notice error">{{ error()! | runtimeTranslate }}</p>
+    } @else if (visibleDecks().length === 0) {
+      <p class="notice">{{ 'community.user.empty' | runtimeTranslate }}</p>
+    } @else {
+      <app-community-deck-grid [decks]="visibleDecks()" (deckSelected)="openDeck($event)" />
+
+      @if (totalPages() > 1) {
+        <app-pagination
+          [currentPage]="page()"
+          [totalPages]="totalPages()"
+          [previousDisabled]="page() <= 1 || loading()"
+          [nextDisabled]="!hasMore() || loading()"
+          ariaLabelKey="community.user.paginationLabel"
+          (previousRequested)="previousPage()"
+          (nextRequested)="nextPage()"
+        />
+      }
+    }
+  }
+</section>

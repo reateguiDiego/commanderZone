@@ -4,6 +4,7 @@
 }
 
 .page-header-context {
+  position: relative;
   display: grid;
   gap: 0.55rem;
   min-width: 0;
@@ -128,9 +129,14 @@
 }
 
 .page-header-context[data-page-context="deck-editor"] .page-header-navigation-row .page-header-detail-row {
+  gap: var(--deck-owner-actions-gap, 5px);
   justify-content: flex-end;
   flex: 1 1 auto;
   margin-top: 0;
+}
+
+.page-header-context[data-page-context="deck-editor"] .page-header-navigation-row .page-header-actions-stack {
+  margin-left: 0;
 }
 
 .page-header-context[data-page-context="deck-editor"] .page-header-title-hero {
@@ -173,15 +179,43 @@
 
 .page-header-context[data-page-context="community-deck-detail"] .page-header-detail-row {
   align-items: flex-start;
+  justify-self: end;
+  max-width: 100%;
 }
 
 .page-header-context[data-page-context="community-deck-detail"] .page-header-actions-stack {
   margin-left: 0;
   justify-items: start;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .page-header-context[data-page-context="community-deck-detail"] .page-header-actions-stack .page-header-actions {
   justify-content: flex-start;
+}
+
+.page-header-context[data-page-context="community-deck-detail"] .page-header-shared-by {
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 0;
+  margin-left: 0;
+  justify-content: flex-start;
+  white-space: normal;
+}
+
+.page-header-context[data-page-context="community-deck-detail"] .page-header-shared-by.is-own-deck {
+  margin-top: 0.45rem;
+}
+
+.page-header-context[data-page-context="community-deck-detail"] .page-header-shared-by .page-header-title-player-info {
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: min(16rem, 100%);
+}
+
+.page-header-shared-by-mobile {
+  display: none;
 }
 
 .page-title-warning {
@@ -245,10 +279,85 @@
 
 .page-header-actions-stack .page-header-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 0.45rem;
+}
+
+.page-header-action-item {
+  display: grid;
+  justify-items: center;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.page-header-owner-metrics {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  box-sizing: border-box;
+  width: var(--deck-owner-actions-width, 5.75rem);
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.page-header-owner-metrics .deck-card-metric {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 1.75rem;
+  padding: 0 0.45rem;
+  border: 1px solid rgb(var(--cz-text-rgb) / 10%);
+  border-radius: 6px;
+  background: rgb(var(--cz-bg-rgb) / 42%);
+  color: rgb(var(--cz-text-rgb) / 84%);
+  font-size: 0.74rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.page-header-owner-metrics .deck-card-metric-likes {
+  border-color: rgb(var(--cz-danger-rgb) / 34%);
+  background: rgb(var(--cz-danger-rgb) / 13%);
+  color: var(--cz-danger);
+}
+
+.page-header-owner-metrics .deck-card-metric-copies {
+  border-color: rgb(var(--cz-primary-rgb) / 34%);
+  background: rgb(var(--cz-primary-rgb) / 13%);
+  color: var(--cz-primary);
+}
+
+.page-header-action-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  min-height: 1rem;
+  color: rgb(var(--cz-text-rgb) / 68%);
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.page-header-action-counter.tone-danger {
+  color: var(--cz-danger);
+}
+
+.page-header-action-counter.tone-success {
+  color: var(--cz-success);
+}
+
+.page-header-action-counter.tone-warning {
+  color: var(--cz-warning);
 }
 
 .page-header-detail-row button {
@@ -339,6 +448,10 @@ button:disabled {
   opacity: 0.52;
 }
 
+button.cz-button--tone-danger:disabled {
+  opacity: 1;
+}
+
 .header-stat.tone-success {
   --header-stat-color: var(--cz-success);
   --header-stat-rgb: var(--cz-success-rgb);
@@ -366,10 +479,6 @@ button:disabled {
 
   .page-header-title h1 {
     white-space: normal;
-  }
-
-  .page-header-context[data-page-context="community-deck-detail"] .page-header-title-line.has-inline-meta {
-    flex-wrap: wrap;
   }
 
   .page-header-context[data-page-context="community-deck-detail"] .page-header-title-meta {
@@ -400,19 +509,168 @@ button:disabled {
     align-items: stretch;
   }
 
+  .page-header-context[data-page-context="community-deck-detail"] {
+    --community-deck-mobile-action-size: 2.5rem;
+
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-detail-row.has-actions:not(.has-stats) {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: min-content;
+    max-width: calc(100% - 8.75rem);
+    grid-template-columns: repeat(4, var(--community-deck-mobile-action-size));
+    gap: 0.28rem;
+    justify-content: end;
+    justify-self: auto;
+  }
+
   .page-header-actions-stack,
   .page-header-actions-stack .page-header-actions {
     display: contents;
   }
 
-  .page-header-action-feedback {
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-shared-by {
+    display: none;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-shared-by-mobile {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin-top: 0.15rem;
+    margin-left: 0;
+    justify-content: stretch;
+    white-space: normal;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-shared-by-mobile.is-own-deck {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-shared-by-mobile .page-header-title-player-info {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-item {
+    position: relative;
+    width: var(--community-deck-mobile-action-size);
+    min-width: var(--community-deck-mobile-action-size);
+    justify-items: center;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-item app-tooltip,
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-item .cz-tooltip,
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-item .cz-tooltip__trigger {
+    width: var(--community-deck-mobile-action-size);
+    min-width: var(--community-deck-mobile-action-size);
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-counter {
+    position: absolute;
+    top: -0.32rem;
+    right: -0.32rem;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 1.05rem;
+    min-height: 1.05rem;
+    padding: 0 0.22rem;
+    border: 1px solid rgb(var(--cz-bg-rgb) / 88%);
+    border-radius: 999px;
+    background: var(--cz-surface-elevated);
+    box-shadow:
+      0 0 0 1px rgb(var(--cz-primary-rgb) / 18%),
+      0 0.25rem 0.7rem rgb(var(--cz-bg-rgb) / 34%);
+    color: var(--cz-text);
+    font-size: 0;
+    line-height: 1;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-counter::before {
+    content: attr(data-counter-value);
+    font-size: 0.62rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-counter.tone-danger {
+    background: var(--cz-danger);
+    color: var(--cz-text);
+  }
+
+  .page-header-detail-row.has-actions:not(.has-stats) .page-header-action-feedback {
     grid-column: 1 / -1;
     justify-self: start;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-action-feedback {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.32rem);
+    z-index: 4;
+    box-sizing: border-box;
+    max-width: min(13rem, calc(100vw - 2rem));
+    padding: 0.32rem 0.55rem;
+    border: 1px solid rgb(var(--cz-success-rgb) / 42%);
+    border-radius: 999px;
+    background: rgb(var(--cz-bg-rgb) / 86%);
+    box-shadow:
+      0 0 0 1px rgb(var(--cz-success-rgb) / 14%),
+      0 0.4rem 1rem rgb(var(--cz-bg-rgb) / 34%);
+    color: var(--cz-secondary);
+    font-size: 0.68rem;
+    line-height: 1.12;
+    text-align: right;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+    justify-self: end;
   }
 
   .page-header-detail-row.has-actions:not(.has-stats) button:not(.icon-only) {
     min-height: 2.75rem;
     width: 100%;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-detail-row.has-actions:not(.has-stats) button[data-action-id="like-deck"],
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-detail-row.has-actions:not(.has-stats) button[data-action-id="save-deck"],
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-detail-row.has-actions:not(.has-stats) button[data-action-id="export-deck"],
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-detail-row.has-actions:not(.has-stats) button[data-action-id="share-deck"] {
+    box-sizing: border-box;
+    display: inline-grid;
+    place-items: center;
+    width: var(--community-deck-mobile-action-size);
+    min-width: var(--community-deck-mobile-action-size);
+    min-height: var(--community-deck-mobile-action-size);
+    height: var(--community-deck-mobile-action-size);
+    max-height: var(--community-deck-mobile-action-size);
+    padding: 0;
+    line-height: 1;
+  }
+
+  .page-header-context[data-page-context="community-deck-detail"] button[data-action-id="save-deck"] span {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    margin: -1px;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   button[data-action-id="copy-room-code"],
@@ -541,7 +799,7 @@ button:disabled {
   }
 
   .page-header-context[data-page-context="community-deck-detail"] {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .page-header-context[data-page-context="community-deck-detail"] .page-header-title h1 {

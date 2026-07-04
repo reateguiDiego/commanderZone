@@ -9,6 +9,7 @@
   [style.--player-name-plate-padding]="platePaddingValue()"
   [style.--player-name-auto-font-size]="nameplateFontSize()"
   [style.--player-name-plain-font-size]="plainFontSize()"
+  (click)="handleClick($event)"
 >
   @if (nameplateUrl()) {
     <img class="nameplate-image" [src]="nameplateUrl()" alt="" aria-hidden="true" draggable="false" />

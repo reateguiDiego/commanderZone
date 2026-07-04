@@ -427,6 +427,8 @@
       },
       "error": "No se pudo cargar el mazo de la comunidad.",
       "headerTitle": "Mazo de la comunidad",
+      "like": "Me gusta",
+      "likeError": "No se pudo marcar este mazo como me gusta.",
       "missingId": "Falta el ID del mazo de la comunidad.",
       "save": "Guardar",
       "saveError": "No se pudo guardar este mazo en tu lista de mazos.",
@@ -440,8 +442,13 @@
           "error": "Error",
           "warning": "Advertencia"
         },
-        "historyOwner": "Compartido por"
+        "historyOwner": "Compartido por",
+        "ownDeck": "Este deck es tuyo."
       }
+    },
+    "deckCard": {
+      "likes": "Me gusta: {{ count }}",
+      "copies": "Copias: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "Los 3 mejores comandantes",

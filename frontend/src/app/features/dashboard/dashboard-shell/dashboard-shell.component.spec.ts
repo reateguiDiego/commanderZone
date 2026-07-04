@@ -1,6 +1,6 @@
-import { importProvidersFrom, signal } from '@angular/core';
+import { Component, importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import {
   Bell,
   Check,
@@ -48,7 +48,7 @@ describe('DashboardShellComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DashboardShellComponent],
       providers: [
-        provideRouter([]),
+        provideRouter([{ path: 'community/users/:username', component: TestRouteStubComponent }]),
         importProvidersFrom(LucideAngularModule.pick({
           Bell,
           Check,
@@ -247,7 +247,27 @@ describe('DashboardShellComponent', () => {
 
     expect(fixture.componentInstance.friendsOpen()).toBe(true);
   });
+
+  it('closes header overlays after route navigation', async () => {
+    const router = TestBed.inject(Router);
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.componentInstance.friendsOpen.set(true);
+    fixture.componentInstance.messagesOpen.set(true);
+    fixture.detectChanges();
+
+    await router.navigateByUrl('/community/users/Finetti');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.friendsOpen()).toBe(false);
+    expect(fixture.componentInstance.messagesOpen()).toBe(false);
+  });
 });
+
+@Component({
+  standalone: true,
+  template: '',
+})
+class TestRouteStubComponent {}
 
 function pointerDown(): Event {
   return typeof PointerEvent === 'undefined'

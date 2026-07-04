@@ -5,6 +5,48 @@
       <p>{{ 'community.home.subtitle' | runtimeTranslate }}</p>
       <app-hero-rule />
     </div>
+
+    <form class="search-panel community-username-search" (submit)="$event.preventDefault()">
+      <label class="search-field">
+        <input
+          name="usernameSearch"
+          type="search"
+          autocomplete="off"
+          [attr.aria-label]="'community.home.usernameSearchLabel' | runtimeTranslate"
+          [placeholder]="'community.home.usernameSearchPlaceholder' | runtimeTranslate"
+          [ngModel]="userSearchQuery()"
+          (ngModelChange)="updateUserSearch($event)"
+        />
+        <lucide-icon name="search" size="20" aria-hidden="true" />
+      </label>
+
+      @if (hasUserSearchInput()) {
+        <div class="friend-table community-username-search__results" [attr.aria-label]="'community.home.usernameSearchResults' | runtimeTranslate">
+          @if (!userSearchReady()) {
+            <p class="dropdown-notice">{{ 'community.home.usernameSearchHint' | runtimeTranslate }}</p>
+          } @else if (!canSearchUsers()) {
+            <p class="dropdown-notice">{{ 'community.home.usernameSearchLoginRequired' | runtimeTranslate }}</p>
+          } @else if (userSearchLoading()) {
+            <p class="dropdown-notice">{{ 'community.home.usernameSearchLoading' | runtimeTranslate }}</p>
+          } @else if (userSearchError()) {
+            <p class="dropdown-notice error">{{ userSearchError()! | runtimeTranslate }}</p>
+          } @else {
+            @for (result of userSearchResults(); track result.id) {
+              <button class="friend-table-row search-row community-username-search__result" type="button" (click)="openUser(result)">
+                <span class="row-main">
+                  <span class="community-username-search__username">&#64;{{ result.username }}</span>
+                  <span class="community-username-search__display-name">{{ result.displayName }}</span>
+                  <span class="row-marker search-marker"></span>
+                </span>
+                <lucide-icon name="chevron-right" size="18" aria-hidden="true" />
+              </button>
+            } @empty {
+              <p class="dropdown-notice">{{ 'community.home.usernameSearchEmpty' | runtimeTranslate }}</p>
+            }
+          }
+        </div>
+      }
+    </form>
   </header>
 
   @if (loading()) {

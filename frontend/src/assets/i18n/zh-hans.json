@@ -427,6 +427,8 @@
       },
       "error": "无法加载社区平台。",
       "headerTitle": "社区套牌",
+      "like": "点赞套牌",
+      "likeError": "无法为此套牌点赞。",
       "missingId": "缺少社区套牌 ID。",
       "save": "保存",
       "saveError": "无法将此套牌保存到您的套牌列表中。",
@@ -440,8 +442,13 @@
           "error": "错误",
           "warning": "警告"
         },
-        "historyOwner": "分享者"
+        "historyOwner": "分享者",
+        "ownDeck": "这是你的套牌。"
       }
+    },
+    "deckCard": {
+      "likes": "点赞：{{ count }}",
+      "copies": "复制数：{{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "前 3 名指挥官",

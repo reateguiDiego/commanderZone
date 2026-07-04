@@ -4,6 +4,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from './api.config';
 import { AuthApi } from './auth.api';
+import { CommunityApi } from './community.api';
 import { ContactApi } from './contact.api';
 import { CardsLanguageService } from './cards-language.service';
 import { CardsApi } from './cards.api';
@@ -84,6 +85,25 @@ describe('API services', () => {
     expect(request.request.method).toBe('GET');
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(false);
     request.flush({ cardName: 'Sol Ring', displayName: 'Player' });
+  });
+
+  it('calls community deck social endpoints', () => {
+    const community = TestBed.inject(CommunityApi);
+
+    community.likeDeck('deck-1').subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/community/decks/deck-1/like`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+    request.flush({ deck: { id: 'deck-1', likes: 1, likedByViewer: true } });
+
+    community.copyDeck('deck-1', 'es').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/community/decks/deck-1/copy?lang=es`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+    request.flush({
+      deck: { id: 'copy-1', name: 'Copy', format: 'commander', folderId: null, cards: [] },
+      source: { id: 'deck-1', copies: 1 },
+    });
   });
 
   it('posts contact requests through the public contact endpoint', () => {

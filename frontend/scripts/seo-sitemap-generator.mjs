@@ -5,7 +5,7 @@ import ts from 'typescript';
 export const SITEMAP_BASE_URL = 'https://www.commanderzone.com';
 export const SITEMAP_INDEX_PUBLIC_PATH = 'sitemap-index.xml';
 export const SEO_SITEMAP_PUBLIC_PATH = 'sitemaps/sitemap-seo.xml';
-export const COMMUNITY_PROFILES_SITEMAP_PUBLIC_PATH = 'sitemaps/community-profiles.xml';
+export const COMMUNITY_USERS_SITEMAP_PUBLIC_PATH = 'sitemaps/community-users.xml';
 export const COMMUNITY_COMMANDERS_SITEMAP_PUBLIC_PATH = 'sitemaps/community-commanders.xml';
 export const COMMUNITY_CARDS_SITEMAP_PUBLIC_PATH = 'sitemaps/community-cards.xml';
 const DEFAULT_COMMUNITY_INDEX_URL = 'http://localhost:8000/community/indexable';
@@ -186,7 +186,7 @@ async function loadCommunityIndexFromExistingSitemaps(workspaceRoot) {
   const sitemapDir = path.join(workspaceRoot, 'public', 'sitemaps');
   const payload = {
     decks: [],
-    profiles: [],
+    users: [],
     commanders: [],
     cards: [],
   };
@@ -201,7 +201,7 @@ async function loadCommunityIndexFromExistingSitemaps(workspaceRoot) {
   const communitySitemapFiles = filenames
     .filter((filename) =>
       /^community-decks-\d+\.xml$/.test(filename)
-      || filename === path.basename(COMMUNITY_PROFILES_SITEMAP_PUBLIC_PATH)
+      || filename === path.basename(COMMUNITY_USERS_SITEMAP_PUBLIC_PATH)
       || filename === path.basename(COMMUNITY_COMMANDERS_SITEMAP_PUBLIC_PATH)
       || filename === path.basename(COMMUNITY_CARDS_SITEMAP_PUBLIC_PATH)
     )
@@ -212,8 +212,8 @@ async function loadCommunityIndexFromExistingSitemaps(workspaceRoot) {
     for (const entry of communityEntriesFromSitemapXml(xml)) {
       if (entry.canonicalPath.startsWith('/community/decks/') && entry.canonicalPath !== '/community/decks/') {
         payload.decks.push(entry);
-      } else if (entry.canonicalPath.startsWith('/community/profiles/')) {
-        payload.profiles.push(entry);
+      } else if (entry.canonicalPath.startsWith('/community/users/')) {
+        payload.users.push(entry);
       } else if (entry.canonicalPath.startsWith('/community/commanders/')) {
         payload.commanders.push(entry);
       } else if (entry.canonicalPath.startsWith('/community/cards/')) {
@@ -281,11 +281,11 @@ function assertDynamicCommunityIndex(communityIndex, sourceUrl) {
 }
 
 export function normalizeCommunityIndex(payload) {
-  const groups = ['decks', 'profiles', 'commanders', 'cards'];
+  const groups = ['decks', 'users', 'commanders', 'cards'];
   const groupedEntries = {
     static: COMMUNITY_STATIC_PATHS.map((path) => ({ path, updatedAt: null })),
     decks: [],
-    profiles: [],
+    users: [],
     commanders: [],
     cards: [],
   };
@@ -324,7 +324,7 @@ export function generateCommunitySitemaps(communityIndex) {
   const groups = communityIndex.groups ?? {
     static: COMMUNITY_STATIC_PATHS.map((path) => ({ path, updatedAt: null })),
     decks: communityIndex.paths.filter((entry) => entry.path.startsWith('/community/decks/') && entry.path !== '/community/decks/'),
-    profiles: communityIndex.paths.filter((entry) => entry.path.startsWith('/community/profiles/')),
+    users: communityIndex.paths.filter((entry) => entry.path.startsWith('/community/users/')),
     commanders: communityIndex.paths.filter((entry) => entry.path.startsWith('/community/commanders/')),
     cards: communityIndex.paths.filter((entry) => entry.path.startsWith('/community/cards/')),
   };
@@ -340,8 +340,8 @@ export function generateCommunitySitemaps(communityIndex) {
   });
   const typedSitemaps = [
     {
-      publicPath: COMMUNITY_PROFILES_SITEMAP_PUBLIC_PATH,
-      entries: groups.profiles,
+      publicPath: COMMUNITY_USERS_SITEMAP_PUBLIC_PATH,
+      entries: groups.users,
     },
     {
       publicPath: COMMUNITY_COMMANDERS_SITEMAP_PUBLIC_PATH,

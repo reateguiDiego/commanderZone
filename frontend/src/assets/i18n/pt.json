@@ -427,6 +427,8 @@
       },
       "error": "Não foi possível carregar o deck da comunidade.",
       "headerTitle": "Deck da comunidade",
+      "like": "Curtir deck",
+      "likeError": "Não foi possível curtir este deck.",
       "missingId": "ID do deck da comunidade ausente.",
       "save": "Salvar",
       "saveError": "Não foi possível salvar este deck na sua lista de decks.",
@@ -440,8 +442,13 @@
           "error": "Erro",
           "warning": "Aviso"
         },
-        "historyOwner": "Compartilhado por"
+        "historyOwner": "Compartilhado por",
+        "ownDeck": "Este deck é seu."
       }
+    },
+    "deckCard": {
+      "likes": "Curtidas: {{ count }}",
+      "copies": "Cópias: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "3 principais Comandantes",

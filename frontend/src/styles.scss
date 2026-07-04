@@ -111,6 +111,26 @@ button {
   flex: 0 0 auto;
 }
 
+.cz-button--tone-danger {
+  border-color: rgb(var(--cz-danger-rgb) / 54%);
+  color: var(--cz-danger);
+}
+
+.cz-button--tone-danger:hover:not(:disabled),
+.cz-button--tone-danger:focus-visible:not(:disabled) {
+  border-color: rgb(var(--cz-danger-rgb) / 72%);
+  background: rgb(var(--cz-danger-rgb) / 12%);
+  color: var(--cz-danger);
+}
+
+.cz-button--tone-danger:disabled {
+  cursor: not-allowed;
+  border-color: rgb(var(--cz-danger-rgb) / 72%);
+  background: rgb(var(--cz-danger-rgb) / 18%);
+  color: var(--cz-danger);
+  opacity: 1;
+}
+
 .primary-button,
 .cz-button--primary {
   display: inline-flex;
@@ -136,6 +156,27 @@ button {
 .cz-button--primary:hover:not(:disabled) {
   border-color: rgb(var(--cz-accent-rgb) / 94%);
   background: linear-gradient(180deg, color-mix(in srgb, var(--cz-accent) 92%, var(--cz-text) 8%), var(--cz-primary));
+}
+
+.cz-button--primary.cz-button--tone-danger {
+  border-color: rgb(var(--cz-danger-rgb) / 78%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cz-danger) 88%, var(--cz-text) 12%), var(--cz-danger));
+  color: var(--cz-text);
+}
+
+.cz-button--primary.cz-button--tone-danger:hover:not(:disabled),
+.cz-button--primary.cz-button--tone-danger:focus-visible:not(:disabled) {
+  border-color: rgb(var(--cz-danger-rgb) / 94%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cz-danger) 78%, var(--cz-text) 22%), var(--cz-danger));
+}
+
+.cz-button--primary.cz-button--tone-danger:disabled {
+  border-color: rgb(var(--cz-danger-rgb) / 78%);
+  background:
+    linear-gradient(180deg, rgb(var(--cz-danger-rgb) / 72%), rgb(var(--cz-danger-rgb) / 58%)),
+    rgb(var(--cz-surface-elevated-rgb) / 92%);
+  color: var(--cz-text);
+  opacity: 1;
 }
 
 .primary-button:focus-visible,

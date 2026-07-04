@@ -53,6 +53,8 @@ export class DashboardShellComponent implements OnDestroy {
       )
       .subscribe((event) => {
         this.roomFocus.set(this.isTableAssistantRoomUrl(event.urlAfterRedirects));
+        this.closeFriends();
+        this.closeMessages();
         this.syncAuthenticatedHeaderState();
       });
   }

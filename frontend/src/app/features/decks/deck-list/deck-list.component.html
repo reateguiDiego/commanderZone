@@ -171,6 +171,7 @@
                       [hasDualCommanderArt]="store.hasDualCommanderArt(item.deck)"
                       [hasIssues]="store.deckHasIssues(item.deck)"
                       [issueTooltip]="store.deckIssueTooltip(item.deck)"
+                      metricsMode="owner"
                       (openDeck)="store.openDeck(item.deck)"
                     />
                     <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
@@ -234,6 +235,7 @@
                     [hasDualCommanderArt]="store.hasDualCommanderArt(deck)"
                     [hasIssues]="store.deckHasIssues(deck)"
                     [issueTooltip]="store.deckIssueTooltip(deck)"
+                    metricsMode="owner"
                     (openDeck)="store.openDeck(deck)"
                   />
                   <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">

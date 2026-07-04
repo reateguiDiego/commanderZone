@@ -1,16 +1,18 @@
 import { User } from '../models/user.model';
 
 export const ROLE_USER = 'ROLE_USER';
+export const ROLE_SUPPORT = 'ROLE_SUPPORT';
 export const ROLE_ADMIN = 'ROLE_ADMIN';
 export const ROLE_OWNER = 'ROLE_OWNER';
 
-export type AuthorizationRole = typeof ROLE_USER | typeof ROLE_ADMIN | typeof ROLE_OWNER;
+export type AuthorizationRole = typeof ROLE_USER | typeof ROLE_SUPPORT | typeof ROLE_ADMIN | typeof ROLE_OWNER;
 
-const ADMIN_ACCESS_ROLES = [ROLE_ADMIN, ROLE_OWNER] as const satisfies readonly AuthorizationRole[];
+const ADMIN_ACCESS_ROLES = [ROLE_SUPPORT, ROLE_ADMIN, ROLE_OWNER] as const satisfies readonly AuthorizationRole[];
 const ROLE_RANK: Readonly<Record<AuthorizationRole, number>> = {
   [ROLE_USER]: 1,
-  [ROLE_ADMIN]: 2,
-  [ROLE_OWNER]: 3,
+  [ROLE_SUPPORT]: 2,
+  [ROLE_ADMIN]: 3,
+  [ROLE_OWNER]: 4,
 };
 
 export function canAccessAdmin(user: User | null | undefined): boolean {
@@ -30,6 +32,9 @@ export function authorizationRoleFor(user: User | null | undefined): Authorizati
   }
   if (roles.has(ROLE_ADMIN)) {
     return ROLE_ADMIN;
+  }
+  if (roles.has(ROLE_SUPPORT)) {
+    return ROLE_SUPPORT;
   }
 
   return ROLE_USER;

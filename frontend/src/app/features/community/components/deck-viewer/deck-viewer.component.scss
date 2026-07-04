@@ -174,17 +174,34 @@
 
 @media (max-width: 720px) {
   .deck-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%);
     align-items: stretch;
+    gap: 0.65rem;
+    flex-wrap: nowrap;
   }
 
   .view-mode-select {
-    width: min(100%, 12rem);
+    width: 100%;
+    min-width: 0;
+  }
+
+  .deck-summary-counts {
+    min-width: 0;
+    align-content: center;
+  }
+
+  .deck-summary-counts strong,
+  .deck-summary-counts span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
 @media (max-width: 520px) {
   .deck-summary {
-    gap: 0.65rem;
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%);
   }
 
   .view-mode-select {
