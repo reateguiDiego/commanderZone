@@ -538,13 +538,14 @@ function sendRuntimeCommand(socket, user, baseVersion, command) {
 }
 
 function closeGameBestEffort(owner) {
-  const snapshotResponse = getJson(`/games/${owner.gameId}/snapshot`, owner.token, 'cleanup.snapshot', expectedSuccessOrForbiddenOrMissing);
+  const token = cleanupToken(owner);
+  const snapshotResponse = getJson(`/games/${owner.gameId}/snapshot`, token, 'cleanup.snapshot', expectedSuccessOrForbiddenOrMissing);
   if (snapshotResponse.status === 404 || snapshotResponse.status === 403) {
     return;
   }
   const snapshotBody = expectJson(snapshotResponse, `cleanup snapshot ${owner.gameId}`, null);
   const version = Math.max(1, Number(snapshotBody.game && snapshotBody.game.snapshot ? snapshotBody.game.snapshot.version || 1 : 1));
-  const ticket = runtimeTicketForCleanup(owner.gameId, owner.token);
+  const ticket = runtimeTicketForCleanup(owner.gameId, token);
   const response = ws.connect(ticket.websocketUrl, {}, (socket) => {
     let settled = false;
     socket.on('open', () => {
@@ -570,6 +571,19 @@ function closeGameBestEffort(owner) {
   if (!response || response.status !== 101) {
     throw new Error(`cleanup websocket upgrade failed for ${owner.gameId}`);
   }
+}
+
+function cleanupToken(owner) {
+  const response = postJson('/auth/login', {
+    email: owner.email,
+    password: USER_PASSWORD,
+  }, null, 'cleanup.auth_login');
+  const body = expectJson(response, `refresh cleanup token for ${owner.email}`, null);
+  const token = String(body.token || '');
+  if (!token) {
+    throw new Error(`Cleanup login response for ${owner.email} did not include token.`);
+  }
+  return token;
 }
 
 function runtimeTicketForCleanup(gameId, token) {
