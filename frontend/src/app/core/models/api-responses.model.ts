@@ -1,5 +1,5 @@
 import { Card } from './card.model';
-import { CommunityDeckDetail, CommunityDiscoveryDetail, CommunityHome, CommunityIndexable, CommunityPreviewCards, CommunityProfile } from './community.model';
+import { CommunityDeckDetail, CommunityDeckSummary, CommunityDiscoveryDetail, CommunityHome, CommunityIndexable, CommunityPreviewCards, CommunityUser } from './community.model';
 import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
 import { Game, GameDisconnectVoteChoice, GameEvent, GameRematchVote, GameSnapshot } from './game.model';
 import { Friendship } from './friendship.model';
@@ -87,8 +87,14 @@ export type CommunityPreviewCardsResponse = CommunityPreviewCards;
 
 export type CommunityIndexableResponse = CommunityIndexable;
 
-export interface CommunityProfileResponse {
-  profile: CommunityProfile;
+export interface CommunityUserResponse {
+  user: CommunityUser;
+  decks: CommunityDeckSummary[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
 }
 
 export type CommunityDiscoveryDetailResponse = CommunityDiscoveryDetail;

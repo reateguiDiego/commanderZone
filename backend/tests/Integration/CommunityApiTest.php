@@ -74,6 +74,93 @@ class CommunityApiTest extends ApiTestCase
         self::assertFalse($response['hasMore']);
     }
 
+    public function testCommunityUserReturnsFilteredPublicDeckPage(): void
+    {
+        $token = $this->registerAndLogin('community-user@example.test', 'Community User');
+        $otherToken = $this->registerAndLogin('community-user-other@example.test', 'Community Other');
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'obsidian-crown',
+            'textColor' => '#ffeeaa',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $userCommander = $this->seedCard('5b000000-0000-0000-0000-000000000001', 'User Commander', [
+            'type_line' => 'Legendary Creature - Elf',
+            'color_identity' => ['G'],
+        ]);
+        $otherCommander = $this->seedCard('5b000000-0000-0000-0000-000000000002', 'Other User Commander', [
+            'type_line' => 'Legendary Creature - Dragon',
+            'color_identity' => ['R'],
+        ]);
+        $island = $this->seedCard('5b000000-0000-0000-0000-000000000003', 'User Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+
+        $matchingDeckId = $this->createCommunityDeck($token, 'Searchable User Deck', 'public', true, $userCommander->scryfallId(), $island->scryfallId());
+        $this->createCommunityDeck($token, 'Other User Deck', 'public', true, $otherCommander->scryfallId(), $island->scryfallId());
+        $this->createCommunityDeck($token, 'Private User Deck', 'private', true, $userCommander->scryfallId(), $island->scryfallId());
+        $this->createCommunityDeck($token, 'Invalid User Deck', 'public', false, $userCommander->scryfallId(), $island->scryfallId());
+        $this->createCommunityDeck($otherToken, 'Searchable User Deck', 'public', true, $userCommander->scryfallId(), $island->scryfallId());
+        $username = $this->publicUsernameForEmail('community-user@example.test');
+
+        $this->jsonRequest('GET', '/community/users/'.rawurlencode($username).'?q=Searchable&commander=User%20Commander&format=commander&colors=G');
+        self::assertResponseIsSuccessful();
+
+        $response = $this->jsonResponse();
+        self::assertNotEmpty($response['user']['id']);
+        self::assertSame($username, $response['user']['username']);
+        self::assertSame('/community/users/'.rawurlencode($username), $response['user']['canonicalPath']);
+        self::assertSame('Community User', $response['user']['displayName']);
+        self::assertSame([
+            'type' => 'preset',
+            'presetId' => 'obsidian-crown',
+            'textColor' => '#ffeeaa',
+        ], $response['user']['displayNameStyle']);
+        self::assertCount(1, $response['decks']);
+        self::assertSame($matchingDeckId, $response['decks'][0]['id']);
+        self::assertSame(1, $response['page']);
+        self::assertSame(20, $response['limit']);
+        self::assertSame(1, $response['total']);
+        self::assertSame(1, $response['totalPages']);
+        self::assertFalse($response['hasMore']);
+
+        $this->jsonRequest('GET', '/community/users/'.rawurlencode($username).'?q=Nope');
+        self::assertResponseIsSuccessful();
+        $emptyResponse = $this->jsonResponse();
+        self::assertSame($username, $emptyResponse['user']['username']);
+        self::assertSame([], $emptyResponse['decks']);
+        self::assertSame(0, $emptyResponse['total']);
+    }
+
+    public function testCommunityUserRejectsMissingUsersAndRemovedProfileRoute(): void
+    {
+        $token = $this->registerAndLogin('community-user-route@example.test', 'Community User Route');
+        $this->registerAndLogin('community-user-empty@example.test', 'Community User Empty');
+        $commander = $this->seedCard('5c000000-0000-0000-0000-000000000001', 'Route Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+        $island = $this->seedCard('5c000000-0000-0000-0000-000000000002', 'Route Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+        $this->createCommunityDeck($token, 'Route Deck', 'public', true, $commander->scryfallId(), $island->scryfallId());
+        $username = $this->publicUsernameForEmail('community-user-route@example.test');
+        $emptyUsername = $this->publicUsernameForEmail('community-user-empty@example.test');
+
+        $this->jsonRequest('GET', '/community/users/'.rawurlencode($emptyUsername));
+        self::assertResponseIsSuccessful();
+        $emptyResponse = $this->jsonResponse();
+        self::assertSame($emptyUsername, $emptyResponse['user']['username']);
+        self::assertSame('/community/users/'.rawurlencode($emptyUsername), $emptyResponse['user']['canonicalPath']);
+        self::assertSame([], $emptyResponse['decks']);
+        self::assertSame(0, $emptyResponse['total']);
+        self::assertSame(1, $emptyResponse['totalPages']);
+
+        $this->jsonRequest('GET', '/community/users/missing-user');
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('GET', '/community/profiles/'.rawurlencode($username));
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function testCommunityDeckDetailReturnsOnlyPublicValidDecks(): void
     {
         $token = $this->registerAndLogin('community-detail@example.test', 'Community Detail');
@@ -162,10 +249,14 @@ class CommunityApiTest extends ApiTestCase
         $deckEntry = $this->singleIndexableEntry($response['decks'], static fn (array $entry): bool => ($entry['id'] ?? null) === $deckId);
         $commanderEntry = $this->singleIndexableEntry($response['commanders'], static fn (array $entry): bool => ($entry['slug'] ?? null) === 'stable-commander-00000001');
         $cardEntry = $this->singleIndexableEntry($response['cards'], static fn (array $entry): bool => ($entry['slug'] ?? null) === 'stable-main-card-00000002');
+        $username = $this->publicUsernameForEmail('community-indexable-lastmod@example.test');
+        $userEntry = $this->singleIndexableEntry($response['users'], static fn (array $entry): bool => ($entry['username'] ?? null) === $username);
 
         self::assertNotSame('', $deckEntry['updatedAt']);
         self::assertSame($deckEntry['updatedAt'], $commanderEntry['updatedAt']);
         self::assertSame($deckEntry['updatedAt'], $cardEntry['updatedAt']);
+        self::assertSame('/community/users/'.rawurlencode($username), $userEntry['canonicalPath']);
+        self::assertArrayNotHasKey('profiles', $response);
     }
 
     public function testCommunityIndexableOnlyIncludesPublicValidDecks(): void
@@ -434,5 +525,15 @@ class CommunityApiTest extends ApiTestCase
         self::assertCount(1, $matches);
 
         return $matches[0];
+    }
+
+    private function publicUsernameForEmail(string $email): string
+    {
+        $displayName = (string) $this->entityManager->getConnection()->fetchOne(
+            'SELECT display_name FROM app_user WHERE email = :email',
+            ['email' => $email],
+        );
+
+        return preg_replace('/\s+/', '-', trim($displayName)) ?? '';
     }
 }

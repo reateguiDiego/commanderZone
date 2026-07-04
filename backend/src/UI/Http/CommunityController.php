@@ -60,17 +60,23 @@ class CommunityController extends ApiController
         return $this->json($community->indexable());
     }
 
-    #[Route('/community/profiles/{handle}', methods: ['GET'])]
-    public function profile(string $handle, Request $request, CommunityService $community): JsonResponse
+    #[Route('/community/users/{username}', methods: ['GET'])]
+    public function user(string $username, Request $request, CommunityService $community): JsonResponse
     {
         $requestedLanguage = $this->requestedLanguage($request);
         if ($requestedLanguage === false) {
             return $this->fail('lang filter is invalid.');
         }
 
-        $payload = $community->profile($handle, $requestedLanguage);
+        $payload = $community->user($username, [
+            'q' => $request->query->get('q'),
+            'commander' => $request->query->get('commander'),
+            'format' => $request->query->get('format'),
+            'colors' => $request->query->get('colors'),
+            'page' => $request->query->get('page'),
+        ], $requestedLanguage);
         if ($payload === null) {
-            return $this->fail('Profile not found.', 404);
+            return $this->fail('User not found.', 404);
         }
 
         return $this->json($payload);

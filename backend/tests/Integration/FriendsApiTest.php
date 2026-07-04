@@ -21,9 +21,12 @@ class FriendsApiTest extends ApiTestCase
 
         $this->jsonRequest('GET', '/friends/search?q=bob', token: $aliceToken);
         self::assertResponseIsSuccessful();
-        self::assertSame('Bobby', $this->jsonResponse()['data'][0]['displayName']);
-        self::assertSame('pending', $this->jsonResponse()['data'][0]['friendshipStatus']);
-        self::assertArrayNotHasKey('email', $this->jsonResponse()['data'][0]);
+        $searchResult = $this->jsonResponse()['data'][0];
+        self::assertSame('Bobby', $searchResult['displayName']);
+        self::assertSame('Bobby', $searchResult['username']);
+        self::assertSame('/community/users/Bobby', $searchResult['canonicalPath']);
+        self::assertSame('pending', $searchResult['friendshipStatus']);
+        self::assertArrayNotHasKey('email', $searchResult);
 
         $this->jsonRequest('GET', '/friends/search?q=bob@example.test', token: $aliceToken);
         self::assertResponseIsSuccessful();

@@ -1,0 +1,207 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.community-user-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.community-user-hero,
+.community-user-identity {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.community-user-identity {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  justify-items: stretch;
+}
+
+.community-user-player-info {
+  min-width: 0;
+  width: min(100%, 32rem);
+}
+
+.community-user-actions {
+  display: grid;
+  gap: 0.28rem;
+  justify-items: end;
+  justify-self: end;
+}
+
+.community-user-action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.community-user-action-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  border: 1px solid rgb(var(--cz-text-rgb) / 11%);
+  border-radius: 8px;
+  padding-inline: 0;
+  background: rgb(var(--cz-surface-elevated-rgb) / 86%);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 8%);
+  color: var(--cz-text);
+}
+
+.community-user-action-button.is-info {
+  border-color: rgb(var(--cz-info-rgb) / 34%);
+  color: var(--cz-info);
+}
+
+.community-user-action-button.is-success {
+  border-color: rgb(var(--cz-success-rgb) / 38%);
+  color: var(--cz-success);
+}
+
+.community-user-action-button.is-danger {
+  border-color: rgb(var(--cz-danger-rgb) / 38%);
+  color: var(--cz-danger);
+}
+
+.community-user-action-button:hover:not(:disabled),
+.community-user-action-button:focus-visible {
+  border-color: rgb(var(--cz-accent-rgb) / 52%);
+  background: rgb(var(--cz-surface-elevated-rgb) / 96%);
+  color: var(--cz-accent);
+  outline: none;
+}
+
+.community-user-action-button.is-info:hover:not(:disabled),
+.community-user-action-button.is-info:focus-visible {
+  border-color: rgb(var(--cz-info-rgb) / 58%);
+  background: rgb(var(--cz-info-rgb) / 10%);
+  color: var(--cz-info);
+}
+
+.community-user-action-button.is-success:hover:not(:disabled),
+.community-user-action-button.is-success:focus-visible {
+  border-color: rgb(var(--cz-success-rgb) / 62%);
+  background: rgb(var(--cz-success-rgb) / 11%);
+  color: var(--cz-success);
+}
+
+.community-user-action-button.is-danger:hover:not(:disabled),
+.community-user-action-button.is-danger:focus-visible {
+  border-color: rgb(var(--cz-danger-rgb) / 62%);
+  background: rgb(var(--cz-danger-rgb) / 11%);
+  color: var(--cz-danger);
+}
+
+.community-user-action-button:disabled {
+  opacity: 0.58;
+}
+
+app-hero-rule {
+  grid-column: 1 / -1;
+}
+
+.community-user-action-feedback {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.community-user-action-feedback.error {
+  color: var(--cz-danger);
+}
+
+.community-user-filters {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(12rem, 1fr) minmax(10rem, 14rem) minmax(10rem, 13rem) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.community-user-filter-field,
+.community-user-filter-select,
+.community-user-filter-actions {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.community-user-filter-actions {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  padding-top: 1.55rem;
+}
+
+.community-user-filter-field span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.community-user-filter-field input {
+  min-height: 2.85rem;
+  border: 1px solid rgb(var(--cz-text-rgb) / 13%);
+  border-radius: 7px;
+  padding: 0 0.85rem;
+  background: rgb(var(--cz-bg-rgb) / 52%);
+  color: var(--cz-text);
+  font: inherit;
+}
+
+app-pagination {
+  justify-self: center;
+}
+
+@media (max-width: 1180px) {
+  .community-user-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .community-user-filter-actions {
+    grid-column: 1 / -1;
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .community-user-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .community-user-filter-actions {
+    align-self: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .community-user-page {
+    gap: 0.85rem;
+  }
+
+  .community-user-identity {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .community-user-actions {
+    justify-self: start;
+    justify-items: start;
+  }
+
+  .community-user-action-feedback {
+    text-align: left;
+  }
+
+  .community-user-filters {
+    gap: 0.65rem;
+  }
+}

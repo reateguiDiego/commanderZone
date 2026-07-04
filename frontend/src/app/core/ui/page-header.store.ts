@@ -47,9 +47,12 @@ export interface PageHeaderActionFeedback {
 }
 
 export interface PageHeaderPlayerInfo {
+  id?: string | null;
   displayName: string;
   avatar?: UserAvatar | null;
   nameStyle?: UserDisplayNameStyle | null;
+  username?: string | null;
+  canonicalPath?: string | null;
 }
 
 export interface PageHeaderState {

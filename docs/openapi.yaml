@@ -714,7 +714,7 @@ paths:
   /friends/search:
     get:
       tags: [Friends]
-      summary: Search users by display name.
+      summary: Search users by username.
       parameters:
         - name: q
           in: query
@@ -1491,27 +1491,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommunityIndexableResponse'
-  /community/profiles/{handle}:
+  /community/users/{username}:
     get:
       tags: [Community]
-      summary: Get a minimal public profile with public valid decks.
+      summary: Get a public user with paginated public valid decks.
       parameters:
-        - name: handle
+        - name: username
           in: path
           required: true
           schema:
             type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: commander
+          in: query
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+        - name: colors
+          in: query
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: Optional card-language override for Community card names and art.
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
       responses:
         '200':
-          description: Public profile.
+          description: Public user with deck page.
           content:
             application/json:
               schema:
-                type: object
-                required: [profile]
-                properties:
-                  profile:
-                    $ref: '#/components/schemas/CommunityProfile'
+                $ref: '#/components/schemas/CommunityUserDeckListResponse'
         '404':
           $ref: '#/components/responses/Error'
   /community/commanders/{slug}:
@@ -4096,11 +4117,16 @@ components:
       enum: [online, in_game, offline]
     FriendSearchResult:
       type: object
-      required: [id, displayName]
+      required: [id, username, canonicalPath, displayName]
       properties:
         id:
           type: string
           format: uuid
+        username:
+          type: string
+        canonicalPath:
+          type: string
+          example: /community/users/Alice-Player
         displayName:
           type: string
         displayNameStyle:
@@ -4455,13 +4481,13 @@ components:
               format: uuid
             slug:
               type: string
-    CommunityIndexableProfile:
+    CommunityIndexableUser:
       allOf:
         - $ref: '#/components/schemas/CommunityIndexableEntry'
         - type: object
-          required: [handle]
+          required: [username]
           properties:
-            handle:
+            username:
               type: string
     CommunityIndexableCard:
       allOf:
@@ -4473,16 +4499,16 @@ components:
               type: string
     CommunityIndexableResponse:
       type: object
-      required: [decks, profiles, commanders, cards]
+      required: [decks, users, commanders, cards]
       properties:
         decks:
           type: array
           items:
             $ref: '#/components/schemas/CommunityIndexableDeck'
-        profiles:
+        users:
           type: array
           items:
-            $ref: '#/components/schemas/CommunityIndexableProfile'
+            $ref: '#/components/schemas/CommunityIndexableUser'
         commanders:
           type: array
           items:
@@ -4491,11 +4517,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CommunityIndexableCard'
-    CommunityProfile:
+    CommunityUser:
       type: object
-      required: [handle, canonicalPath, displayName, decks]
+      required: [id, username, canonicalPath, displayName]
       properties:
-        handle:
+        id:
+          type: string
+        username:
           type: string
         canonicalPath:
           type: string
@@ -4503,10 +4531,29 @@ components:
           type: string
         avatar:
           nullable: true
+          $ref: '#/components/schemas/UserAvatar'
+        displayNameStyle:
+          $ref: '#/components/schemas/UserDisplayNameStyle'
+    CommunityUserDeckListResponse:
+      type: object
+      required: [user, decks, page, limit, total, totalPages, hasMore]
+      properties:
+        user:
+          $ref: '#/components/schemas/CommunityUser'
         decks:
           type: array
           items:
             $ref: '#/components/schemas/CommunityDeckSummary'
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasMore:
+          type: boolean
     CommunityDiscoveryDetail:
       type: object
       required: [item, decks]
@@ -4519,11 +4566,13 @@ components:
             $ref: '#/components/schemas/CommunityDeckSummary'
     CommunityDeckOwner:
       type: object
-      required: [displayName]
+      required: [id, displayName]
       properties:
+        id:
+          type: string
         displayName:
           type: string
-        handle:
+        username:
           type: [string, 'null']
         canonicalPath:
           type: [string, 'null']

@@ -197,7 +197,7 @@ final class CommunityService
     /**
      * @return array{
      *   decks:list<array{id:string,slug:string,canonicalPath:string,updatedAt:string}>,
-     *   profiles:list<array{handle:string,canonicalPath:string,updatedAt:string}>,
+     *   users:list<array{username:string,canonicalPath:string,updatedAt:string}>,
      *   commanders:list<array{slug:string,canonicalPath:string,updatedAt:string}>,
      *   cards:list<array{slug:string,canonicalPath:string,updatedAt:string}>
      * }
@@ -206,34 +206,67 @@ final class CommunityService
     {
         return [
             'decks' => $this->indexableDecks(),
-            'profiles' => $this->indexableProfiles(),
+            'users' => $this->indexableUsers(),
             'commanders' => $this->indexableCards(true),
             'cards' => $this->indexableCards(false),
         ];
     }
 
     /**
-     * @return array{profile:array<string,mixed>}|null
+     * @param array{q?:mixed,commander?:mixed,format?:mixed,colors?:mixed,page?:mixed} $filters
+     *
+     * @return array{user:array<string,mixed>,decks:list<array<string,mixed>>,page:int,limit:int,total:int,totalPages:int,hasMore:bool}|null
      */
-    public function profile(string $handle, ?string $requestedLanguage): ?array
+    public function user(string $username, array $filters, ?string $requestedLanguage): ?array
     {
-        $user = $this->entityManager->getRepository(User::class)->findOneBy(['publicHandle' => trim($handle)]);
-        if (!$user instanceof User || !$this->userHasPublicValidDecks($user)) {
+        $username = trim($username);
+        $decodedUsername = rawurldecode($username);
+        $displayNameCandidates = array_values(array_unique([
+            mb_strtolower($decodedUsername),
+            mb_strtolower(str_replace('-', ' ', $decodedUsername)),
+        ]));
+        $user = $this->entityManager->getRepository(User::class)->createQueryBuilder('user')
+            ->where('LOWER(user.publicHandle) = :username')
+            ->orWhere('LOWER(user.displayName) IN (:displayNameCandidates)')
+            ->setParameter('username', mb_strtolower($decodedUsername))
+            ->setParameter('displayNameCandidates', $displayNameCandidates)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+        if (!$user instanceof User) {
             return null;
         }
 
-        $user->ensurePublicHandle();
-        $this->entityManager->flush();
+        $normalizedFilters = $this->normalizedFilters($filters);
+        $page = $this->normalizedPage($filters['page'] ?? null);
 
-        return [
-            'profile' => [
-                'handle' => (string) $user->publicHandle(),
-                'canonicalPath' => (string) $user->publicPath(),
-                'displayName' => $user->displayName(),
-                'avatar' => $user->avatar(),
-                'decks' => $this->fetchDeckSummariesByIds($this->publicValidDeckIdsForUser($user), $requestedLanguage),
-            ],
-        ];
+        return $this->remember(
+            $this->cacheKey('user', ['username' => $username, 'lang' => $requestedLanguage, 'filters' => $normalizedFilters, 'page' => $page]),
+            self::DECK_LIST_CACHE_TTL_SECONDS,
+            function () use ($user, $normalizedFilters, $page, $requestedLanguage): array {
+                $deckPage = $this->listPublicValidDeckPage($normalizedFilters, $page, (string) $user->id());
+
+                return [
+                    'user' => [
+                        'id' => (string) $user->id(),
+                        'username' => (string) $user->publicHandle(),
+                        'canonicalPath' => (string) $user->publicPath(),
+                        'displayName' => $user->displayName(),
+                        'avatar' => $user->avatar(),
+                        'displayNameStyle' => $user->displayNameStyle(),
+                    ],
+                    'decks' => $this->fetchDeckSummariesByIds(
+                        $deckPage['ids'],
+                        $requestedLanguage,
+                    ),
+                    'page' => $deckPage['page'],
+                    'limit' => $deckPage['limit'],
+                    'total' => $deckPage['total'],
+                    'totalPages' => $deckPage['totalPages'],
+                    'hasMore' => $deckPage['hasMore'],
+                ];
+            },
+        );
     }
 
     /**
@@ -257,10 +290,10 @@ final class CommunityService
      *
      * @return array{ids:list<string>,page:int,limit:int,total:int,totalPages:int,hasMore:bool}
      */
-    private function listPublicValidDeckPage(array $filters, int $page): array
+    private function listPublicValidDeckPage(array $filters, int $page, ?string $ownerId = null): array
     {
         $limit = self::DECKS_PAGE_LIMIT;
-        $query = $this->publicDeckListQuery($filters);
+        $query = $this->publicDeckListQuery($filters, $ownerId);
         if ($query === null) {
             return [
                 'ids' => [],
@@ -307,7 +340,7 @@ final class CommunityService
      *
      * @return array{fromWhereSql:string,params:array<string,mixed>}|null
      */
-    private function publicDeckListQuery(array $filters): ?array
+    private function publicDeckListQuery(array $filters, ?string $ownerId = null): ?array
     {
         $colors = $this->parseColorsFilter($filters['colors']);
         if ($colors === false) {
@@ -323,6 +356,11 @@ SQL;
             'visibility' => Deck::VISIBILITY_PUBLIC,
             'commanderSection' => DeckCard::SECTION_COMMANDER,
         ];
+
+        if ($ownerId !== null) {
+            $sql .= "\n  AND d.owner_id = :ownerId";
+            $params['ownerId'] = $ownerId;
+        }
 
         if ($filters['q'] !== '') {
             $sql .= "\n  AND LOWER(d.name) LIKE :deckQuery";
@@ -682,8 +720,9 @@ SQL,
         );
         $payload['sections'] = $this->sectionsFromDeckCards($payload['cards']);
         $payload['owner'] = [
+            'id' => (string) $deck->owner()->id(),
             'displayName' => $deck->owner()->displayName(),
-            'handle' => $deck->owner()->publicHandle(),
+            'username' => $deck->owner()->publicHandle(),
             'canonicalPath' => $deck->owner()->publicPath(),
             'avatar' => $deck->owner()->avatar(),
             'displayNameStyle' => $deck->owner()->displayNameStyle(),
@@ -1237,19 +1276,18 @@ SQL,
     }
 
     /**
-     * @return list<array{handle:string,canonicalPath:string,updatedAt:string}>
+     * @return list<array{username:string,canonicalPath:string,updatedAt:string}>
      */
-    private function indexableProfiles(): array
+    private function indexableUsers(): array
     {
         $rows = $this->entityManager->getConnection()->fetchAllAssociative(
             <<<'SQL'
-SELECT u.public_handle, MAX(d.updated_at) AS updated_at
+SELECT u.display_name, MAX(d.updated_at) AS updated_at
 FROM app_user u
 JOIN deck d ON d.owner_id = u.id
 WHERE d.visibility = :visibility
   AND d.is_valid = true
-  AND u.public_handle IS NOT NULL
-GROUP BY u.id, u.public_handle
+GROUP BY u.id, u.display_name
 ORDER BY updated_at DESC
 LIMIT 5000
 SQL,
@@ -1257,8 +1295,8 @@ SQL,
         );
 
         return array_values(array_map(fn (array $row): array => [
-            'handle' => (string) ($row['public_handle'] ?? ''),
-            'canonicalPath' => sprintf('/community/profiles/%s/', (string) ($row['public_handle'] ?? '')),
+            'username' => $this->urlUsername((string) ($row['display_name'] ?? '')),
+            'canonicalPath' => sprintf('/community/users/%s', rawurlencode($this->urlUsername((string) ($row['display_name'] ?? '')))),
             'updatedAt' => $this->dateTimeAtom($row['updated_at'] ?? null),
         ], $rows));
     }
@@ -1279,33 +1317,6 @@ SQL,
             $stats['items'],
             static fn (array $item): bool => trim((string) ($item['slug'] ?? '')) !== '',
         )));
-    }
-
-    private function userHasPublicValidDecks(User $user): bool
-    {
-        return (int) $this->entityManager->getConnection()->fetchOne(
-            'SELECT COUNT(*) FROM deck WHERE owner_id = :owner AND visibility = :visibility AND is_valid = true',
-            ['owner' => $user->id(), 'visibility' => Deck::VISIBILITY_PUBLIC],
-        ) > 0;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function publicValidDeckIdsForUser(User $user): array
-    {
-        return $this->stringIds($this->entityManager->getConnection()->fetchFirstColumn(
-            <<<'SQL'
-SELECT id
-FROM deck
-WHERE owner_id = :owner
-  AND visibility = :visibility
-  AND is_valid = true
-ORDER BY updated_at DESC
-LIMIT 100
-SQL,
-            ['owner' => $user->id(), 'visibility' => Deck::VISIBILITY_PUBLIC],
-        ));
     }
 
     /**
@@ -1431,6 +1442,13 @@ SQL,
         $slug = trim($slug, '-');
 
         return $slug !== '' ? substr($slug, 0, 140) : 'card';
+    }
+
+    private function urlUsername(string $displayName): string
+    {
+        $username = preg_replace('/\s+/', '-', trim($displayName)) ?? '';
+
+        return $username !== '' ? $username : 'Player';
     }
 
     /**

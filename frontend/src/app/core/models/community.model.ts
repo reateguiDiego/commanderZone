@@ -18,8 +18,9 @@ export interface CommunityDeckSummary {
 }
 
 export interface CommunityDeckOwner {
+  id?: string | null;
   displayName: string;
-  handle?: string | null;
+  username?: string | null;
   canonicalPath?: string | null;
   avatar?: UserAvatar | null;
   displayNameStyle?: UserDisplayNameStyle | null;
@@ -66,8 +67,8 @@ export interface CommunityIndexableDeck extends CommunityIndexableEntry {
   slug: string;
 }
 
-export interface CommunityIndexableProfile extends CommunityIndexableEntry {
-  handle: string;
+export interface CommunityIndexableUser extends CommunityIndexableEntry {
+  username: string;
 }
 
 export interface CommunityIndexableCard extends CommunityIndexableEntry {
@@ -76,17 +77,18 @@ export interface CommunityIndexableCard extends CommunityIndexableEntry {
 
 export interface CommunityIndexable {
   decks: CommunityIndexableDeck[];
-  profiles: CommunityIndexableProfile[];
+  users: CommunityIndexableUser[];
   commanders: CommunityIndexableCard[];
   cards: CommunityIndexableCard[];
 }
 
-export interface CommunityProfile {
-  handle: string;
+export interface CommunityUser {
+  id: string;
+  username: string;
   canonicalPath: string;
   displayName: string;
   avatar: UserAvatar | null;
-  decks: CommunityDeckSummary[];
+  displayNameStyle?: UserDisplayNameStyle | null;
 }
 
 export interface CommunityDiscoveryDetail {

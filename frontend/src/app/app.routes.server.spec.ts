@@ -48,7 +48,7 @@ describe('server routes', () => {
       'community/decks',
       'community/top-commanders',
       'community/top-cards',
-      'community/profiles/:handle',
+      'community/users/:username',
       'community/commanders/:slug',
       'community/cards/:slug',
     ]));
@@ -96,7 +96,7 @@ describe('server routes', () => {
       'community/decks',
       'community/top-commanders',
       'community/top-cards',
-      'community/profiles/:handle',
+      'community/users/:username',
       'community/commanders/:slug',
       'community/cards/:slug',
     ]) {

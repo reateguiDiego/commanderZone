@@ -160,6 +160,23 @@ describe('FriendsDropdownComponent', () => {
     expect(fixture.nativeElement.querySelector('input[name="friendSearch"]')).not.toBeNull();
   });
 
+  it('focuses the player search input when the search tab is selected from the tab list', async () => {
+    const fixture = TestBed.createComponent(FriendsDropdownComponent);
+    fixture.detectChanges();
+
+    const searchTab = fixture.nativeElement.querySelector('button[aria-label="Search"]') as HTMLButtonElement | null;
+    expect(searchTab).not.toBeNull();
+
+    searchTab?.click();
+    fixture.detectChanges();
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    const searchInput = fixture.nativeElement.querySelector('input[name="friendSearch"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+    expect(document.activeElement).toBe(searchInput);
+  });
+
   it('collapses disconnected friends by default when more than ten friends are online', async () => {
     const friendsApi = TestBed.inject(FriendsApi) as unknown as {
       list: ReturnType<typeof vi.fn>;

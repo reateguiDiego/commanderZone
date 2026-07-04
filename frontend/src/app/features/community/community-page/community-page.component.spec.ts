@@ -1,10 +1,12 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { ChevronRight, Globe, LucideAngularModule, Sparkles, Trophy } from 'lucide-angular';
+import { Router, provideRouter } from '@angular/router';
+import { ChevronRight, Globe, LucideAngularModule, Search, Sparkles, Trophy } from 'lucide-angular';
 import { of } from 'rxjs';
 import { CommunityApi } from '../../../core/api/community.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
+import { FriendsApi } from '../../../core/api/friends.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { DeviceProfileService } from '../../../shared/services/device-profile.service';
 import { CommunityPageComponent } from './community-page.component';
@@ -17,7 +19,7 @@ describe('CommunityPageComponent', () => {
       imports: [CommunityPageComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronRight, Globe, Sparkles, Trophy })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronRight, Globe, Search, Sparkles, Trophy })),
         {
           provide: CommunityApi,
           useValue: {
@@ -53,6 +55,21 @@ describe('CommunityPageComponent', () => {
             list: vi.fn().mockReturnValue(of({ data: [] })),
           },
         },
+        {
+          provide: FriendsApi,
+          useValue: {
+            search: vi.fn().mockReturnValue(of({
+              data: [{
+                id: 'user-1',
+                username: 'Alber',
+                canonicalPath: '/community/users/Alber',
+                displayName: 'Alber',
+                friendshipStatus: null,
+              }],
+            })),
+          },
+        },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(true) } },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
         { provide: DeviceProfileService, useValue: { isMobileLayout: signal(false) } },
       ],
@@ -93,5 +110,63 @@ describe('CommunityPageComponent', () => {
       '/community/top-commanders',
       '/community/top-cards',
     ]);
+  });
+
+  it('searches usernames with the friends search service and opens the user canonical route', async () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(CommunityPageComponent);
+    const friendsApi = TestBed.inject(FriendsApi);
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    try {
+      fixture.detectChanges();
+      fixture.componentInstance.updateUserSearch('alber');
+      expect(friendsApi.search).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(250);
+      fixture.detectChanges();
+
+      expect(friendsApi.search).toHaveBeenCalledWith('alber');
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain('@Alber');
+
+      element.querySelector<HTMLButtonElement>('.community-username-search__result')?.click();
+
+      expect(navigateSpy).toHaveBeenCalledWith('/community/users/Alber');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not navigate to an undefined user route when a search result has no username', () => {
+    const fixture = TestBed.createComponent(CommunityPageComponent);
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    fixture.componentInstance.openUser({ canonicalPath: null, username: null });
+
+    expect(navigateSpy).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.userSearchError()).toBe('community.home.usernameSearchError');
+  });
+
+  it('can open legacy user search payloads through their public handle', () => {
+    const fixture = TestBed.createComponent(CommunityPageComponent);
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    fixture.componentInstance.openUser({ publicPath: null, username: 'Legacy User' });
+
+    expect(navigateSpy).toHaveBeenCalledWith('/community/users/Legacy-User');
+  });
+
+  it('strips the trailing slash from user canonical paths before navigation', () => {
+    const fixture = TestBed.createComponent(CommunityPageComponent);
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    fixture.componentInstance.openUser({ canonicalPath: '/community/users/Finetti/', username: 'Finetti' });
+
+    expect(navigateSpy).toHaveBeenCalledWith('/community/users/Finetti');
   });
 });

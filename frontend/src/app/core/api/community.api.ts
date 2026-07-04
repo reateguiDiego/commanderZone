@@ -9,7 +9,7 @@ import {
   CommunityHomeResponse,
   CommunityIndexableResponse,
   CommunityPreviewCardsResponse,
-  CommunityProfileResponse,
+  CommunityUserResponse,
 } from '../models/api-responses.model';
 
 export interface CommunityDeckListFilters {
@@ -38,16 +38,9 @@ export class CommunityApi {
   }
 
   decks(filters: CommunityDeckListFilters = {}): Observable<CommunityDeckListResponse> {
-    let params = new HttpParams();
-    for (const [key, value] of Object.entries(filters)) {
-      if (typeof value === 'string' && value.trim() !== '') {
-        params = params.set(key, value);
-      } else if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-        params = params.set(key, String(Math.floor(value)));
-      }
-    }
-
-    return this.http.get<CommunityDeckListResponse>(`${API_BASE_URL}/community/decks`, { params });
+    return this.http.get<CommunityDeckListResponse>(`${API_BASE_URL}/community/decks`, {
+      params: this.deckListParams(filters),
+    });
   }
 
   deck(id: string, lang?: string): Observable<CommunityDeckDetailResponse> {
@@ -60,9 +53,9 @@ export class CommunityApi {
     return this.http.get<CommunityIndexableResponse>(`${API_BASE_URL}/community/indexable`);
   }
 
-  profile(handle: string, lang?: string): Observable<CommunityProfileResponse> {
-    return this.http.get<CommunityProfileResponse>(`${API_BASE_URL}/community/profiles/${handle}`, {
-      params: this.langParams(lang),
+  user(username: string, filters: CommunityDeckListFilters = {}): Observable<CommunityUserResponse> {
+    return this.http.get<CommunityUserResponse>(`${API_BASE_URL}/community/users/${encodeURIComponent(username)}`, {
+      params: this.deckListParams(filters),
     });
   }
 
@@ -94,6 +87,19 @@ export class CommunityApi {
     return typeof lang === 'string' && lang.trim() !== ''
       ? new HttpParams().set('lang', lang)
       : undefined;
+  }
+
+  private deckListParams(filters: CommunityDeckListFilters): HttpParams | undefined {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (typeof value === 'string' && value.trim() !== '') {
+        params = params.set(key, value);
+      } else if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        params = params.set(key, String(Math.floor(value)));
+      }
+    }
+
+    return params.keys().length > 0 ? params : undefined;
   }
 
   private queryParams<T extends object>(filters: T): HttpParams | undefined {

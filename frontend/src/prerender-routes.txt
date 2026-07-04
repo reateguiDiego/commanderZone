@@ -283,7 +283,5 @@
 /community/commanders/kaalia-of-the-vast-59e35f6c/
 /community/commanders/korvold-fae-cursed-king-5167666c/
 /community/decks/
-/community/profiles/finetti-7118ee4d/
-/community/profiles/jd-035d6a7d/
 /community/top-cards/
 /community/top-commanders/

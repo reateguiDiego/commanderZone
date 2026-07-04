@@ -36,6 +36,8 @@ class FriendsController extends ApiController
 
         return $this->json(['data' => array_map(fn (User $match) => [
             'id' => $match->id(),
+            'username' => $match->publicHandle(),
+            'canonicalPath' => $match->publicPath(),
             'displayName' => $match->displayName(),
             'displayNameStyle' => $match->displayNameStyle(),
             'friendshipStatus' => $this->friendshipStatusBetween($entityManager, $user, $match),

@@ -108,9 +108,12 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
         title: deck?.name ?? 'community.detail.headerTitle',
         sharedBy: deck
           ? {
+            id: deck.owner.id ?? null,
             displayName: deck.owner.displayName,
             avatar: deck.owner.avatar ?? null,
             nameStyle: deck.owner.displayNameStyle ?? null,
+            username: deck.owner.username ?? null,
+            canonicalPath: deck.owner.canonicalPath ?? null,
           }
           : null,
         actions: [

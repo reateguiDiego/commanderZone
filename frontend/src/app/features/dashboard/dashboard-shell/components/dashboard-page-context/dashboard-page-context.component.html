@@ -106,8 +106,11 @@
               [displayName]="sharedBy.displayName"
               [avatar]="sharedBy.avatar ?? null"
               [nameStyle]="sharedBy.nameStyle ?? null"
+              [profileUserId]="sharedBy.id ?? null"
+              [profileUsername]="sharedBy.username ?? null"
+              [profileCanonicalPath]="sharedBy.canonicalPath ?? null"
               size="sm"
-              [interactive]="false"
+              [interactive]="!!(sharedBy.username || sharedBy.canonicalPath)"
             />
           </div>
         }

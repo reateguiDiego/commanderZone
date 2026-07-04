@@ -247,12 +247,17 @@
 
 .player-identity {
   display: grid;
-  grid-template-columns: auto minmax(0, max-content);
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
+  justify-items: center;
+  width: min(17rem, 100%);
   max-width: 100%;
   min-width: 0;
+}
+
+.player-identity app-player-info {
+  width: 100%;
+  --player-info-avatar-filter:
+    drop-shadow(0 0.8rem 1rem rgb(var(--cz-bg-rgb) / 32%))
+    drop-shadow(0 0 0.8rem rgb(var(--cz-primary-rgb) / 18%));
 }
 
 .player-deck-area {
@@ -315,12 +320,6 @@
 }
 
 .empty-slot-icon { display: grid; place-items: center; border: 1px solid rgb(var(--cz-primary-rgb) / 48%); border-radius: 999px; color: var(--cz-secondary); }
-
-.player-avatar {
-  filter:
-    drop-shadow(0 0.8rem 1rem rgb(var(--cz-bg-rgb) / 32%))
-    drop-shadow(0 0 0.8rem rgb(var(--cz-primary-rgb) / 18%));
-}
 
 .ready-state { display: inline-flex; border: 1px solid rgb(var(--cz-danger-rgb) / 36%); border-radius: 999px; padding: 0.35rem 0.55rem; color: var(--cz-secondary); background: rgb(var(--cz-danger-rgb) / 10%); font-size: 0.78rem; font-weight: 750; }
 
@@ -415,8 +414,6 @@
 
 @media (max-width: 360px) {
   .player-identity {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    gap: 0.35rem;
+    width: 100%;
   }
 }

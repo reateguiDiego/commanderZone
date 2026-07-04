@@ -2,13 +2,12 @@ import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-t
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { RoomPlayer } from '../../../../../core/models/room.model';
-import { PlayerAvatarComponent } from '../../../../../shared/ui/player-avatar/player-avatar.component';
-import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
+import { PlayerInfoComponent } from '../../../../../shared/ui/player-info/player-info.component';
 import { WaitingRoomDeckSelectorComponent, WaitingDeckOption } from '../waiting-room-deck-selector/waiting-room-deck-selector.component';
 
 @Component({
   selector: 'app-waiting-room-player-card',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, PlayerAvatarComponent, PlayerNameComponent, WaitingRoomDeckSelectorComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, PlayerInfoComponent, WaitingRoomDeckSelectorComponent],
   templateUrl: './waiting-room-player-card.component.html',
   styleUrl: './waiting-room-player-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
