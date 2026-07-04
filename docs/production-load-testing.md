@@ -92,6 +92,23 @@ Important files:
 - `server-metrics-delta.json`: numeric deltas and restart deltas.
 - `manifest.json`: users, rooms, games, and run metadata produced by k6.
 
+## Re-Running A Failed Phase
+
+Do not continue from `100` to `280` until the current phase has both:
+
+- `k6 status: pass` in `summary.md`;
+- `server status: pass` in `summary.md`.
+
+If k6 reports `permission denied` for `/reports/k6-summary.json` on Linux,
+update to the runner version that executes the k6 container with the current
+Linux UID/GID. Old partial report folders can be kept for diagnosis or removed
+before re-running the same phase.
+
+Expected setup/cleanup responses such as `409` while resolving turn-order ties,
+and `403`/`404` while cleaning up an already-closed game, are excluded from
+`http_req_failed`. Unexpected responses are still tracked by
+`cz_http_unexpected_failure_rate` and logged in `k6-output.log`.
+
 ## Critical Gates
 
 The k6 thresholds fail the run when:
