@@ -255,9 +255,6 @@
 
 .player-identity app-player-info {
   width: 100%;
-  --player-info-avatar-filter:
-    drop-shadow(0 0.8rem 1rem rgb(var(--cz-bg-rgb) / 32%))
-    drop-shadow(0 0 0.8rem rgb(var(--cz-primary-rgb) / 18%));
 }
 
 .player-deck-area {

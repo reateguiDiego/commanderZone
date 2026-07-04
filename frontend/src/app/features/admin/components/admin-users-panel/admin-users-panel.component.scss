@@ -135,7 +135,7 @@ h2 {
 
 .admin-users-table {
   width: 100%;
-  min-width: 76rem;
+  min-width: 88rem;
   border-collapse: collapse;
   color: var(--cz-text);
   font-size: 0.88rem;
@@ -225,6 +225,52 @@ h2 {
   color: rgb(var(--cz-text-rgb) / 72%);
 }
 
+.admin-users-auth-list {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 12rem;
+}
+
+.admin-users-auth-card {
+  display: grid;
+  gap: 0.18rem;
+  max-width: 16rem;
+}
+
+.admin-users-auth-provider,
+.admin-users-auth-empty {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 1.55rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 28%);
+  border-radius: 999px;
+  padding: 0.16rem 0.5rem;
+  background: rgb(var(--cz-primary-rgb) / 10%);
+  color: var(--cz-primary);
+  font-size: 0.68rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.admin-users-auth-empty {
+  border-color: rgb(var(--cz-text-rgb) / 14%);
+  background: rgb(var(--cz-surface-rgb) / 30%);
+  color: rgb(var(--cz-text-rgb) / 62%);
+}
+
+.admin-users-auth-line {
+  display: block;
+  max-width: 16rem;
+  overflow: hidden;
+  color: rgb(var(--cz-text-rgb) / 68%);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-users-status {
   display: inline-flex;
   align-items: center;
@@ -261,7 +307,7 @@ h2 {
 
 .admin-users-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(7.5rem, 1fr)) repeat(2, auto);
+  grid-template-columns: repeat(3, minmax(7.5rem, 1fr)) repeat(3, auto);
   gap: 0.55rem;
   align-items: end;
   min-width: 28rem;

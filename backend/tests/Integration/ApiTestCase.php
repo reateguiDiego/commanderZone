@@ -182,6 +182,8 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureDeckValidityColumn($connection);
         $this->ensureDeckSlugColumn($connection);
         $this->ensureDeckPublicSlugColumn($connection);
+        $this->ensureDeckSocialColumns($connection);
+        $this->ensureDeckLikeTable($connection);
         $this->ensureRoomMulliganColumns($connection);
         $this->ensureUserThemeColumn($connection);
         $this->ensureUserPublicHandleColumn($connection);
@@ -210,6 +212,7 @@ abstract class ApiTestCase extends WebTestCase
             'room_waiting_log_entry',
             'room_player',
             'room',
+            'deck_like',
             'deck_card',
             'deck',
             'deck_folder',
@@ -375,6 +378,55 @@ SQL,
         }
 
         $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_deck_public_slug ON deck (public_slug) WHERE public_slug IS NOT NULL');
+    }
+
+    private function ensureDeckSocialColumns(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['deck'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('deck'),
+        );
+        if (!in_array('likes', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE deck ADD COLUMN likes INT NOT NULL DEFAULT 0');
+        }
+        if (!in_array('copies', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE deck ADD COLUMN copies INT NOT NULL DEFAULT 0');
+        }
+        if (!in_array('creator_user_id', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE deck ADD COLUMN creator_user_id VARCHAR(36) DEFAULT NULL');
+            $connection->executeStatement('UPDATE deck SET creator_user_id = owner_id WHERE creator_user_id IS NULL');
+            $connection->executeStatement('ALTER TABLE deck ALTER COLUMN creator_user_id SET NOT NULL');
+        }
+
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS IDX_DECK_CREATOR_USER ON deck (creator_user_id)');
+    }
+
+    private function ensureDeckLikeTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['deck']) || !$schemaManager->tablesExist(['app_user']) || $schemaManager->tablesExist(['deck_like'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE deck_like (
+    deck_id VARCHAR(36) NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY(deck_id, user_id)
+)
+SQL,
+        );
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_deck_like_deck_user ON deck_like (deck_id, user_id)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_like_user ON deck_like (user_id)');
+        $connection->executeStatement('ALTER TABLE deck_like ADD CONSTRAINT FK_DECK_LIKE_DECK FOREIGN KEY (deck_id) REFERENCES deck (id) ON DELETE CASCADE');
+        $connection->executeStatement('ALTER TABLE deck_like ADD CONSTRAINT FK_DECK_LIKE_USER FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
     }
 
     private function ensureRoomMulliganColumns(Connection $connection): void
@@ -585,6 +637,7 @@ SQL,
             <<<'SQL'
 INSERT INTO app_role (code, label) VALUES
     ('ROLE_USER', 'User'),
+    ('ROLE_SUPPORT', 'Support'),
     ('ROLE_ADMIN', 'Admin'),
     ('ROLE_OWNER', 'Owner')
 ON CONFLICT (code) DO UPDATE SET label = EXCLUDED.label

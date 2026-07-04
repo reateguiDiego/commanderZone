@@ -30,6 +30,10 @@ class Deck
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private User $owner;
 
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'creator_user_id', nullable: false, onDelete: 'CASCADE')]
+    private User $creatorUser;
+
     #[ORM\Column(type: 'string', length: 120)]
     private string $name;
 
@@ -54,6 +58,12 @@ class Deck
     #[ORM\Column(type: 'string', length: 80)]
     private string $sleevesName = self::DEFAULT_SLEEVES_NAME;
 
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $likes = 0;
+
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $copies = 0;
+
     #[ORM\ManyToOne(targetEntity: DeckFolder::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?DeckFolder $folder = null;
@@ -67,10 +77,11 @@ class Deck
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
-    public function __construct(User $owner, string $name)
+    public function __construct(User $owner, string $name, ?User $creatorUser = null)
     {
         $this->id = Uuid::v7()->toRfc4122();
         $this->owner = $owner;
+        $this->creatorUser = $creatorUser ?? $owner;
         $this->name = trim($name);
         $this->cards = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
@@ -85,6 +96,11 @@ class Deck
     public function owner(): User
     {
         return $this->owner;
+    }
+
+    public function creatorUser(): User
+    {
+        return $this->creatorUser;
     }
 
     public function name(): string
@@ -159,6 +175,16 @@ class Deck
     public function sleevesName(): string
     {
         return $this->sleevesName;
+    }
+
+    public function likes(): int
+    {
+        return $this->likes;
+    }
+
+    public function copies(): int
+    {
+        return $this->copies;
     }
 
     public function setVisibility(string $visibility): void
@@ -339,6 +365,9 @@ class Deck
             'slug' => $this->slug,
             'publicSlug' => $this->publicSlug,
             'canonicalPath' => $this->publicPath(),
+            'creatorUserId' => $this->creatorUser->id(),
+            'likes' => $this->likes,
+            'copies' => $this->copies,
             'backgroundName' => $this->backgroundName,
             'sleevesName' => $this->sleevesName,
             'folderId' => $this->folder?->id(),

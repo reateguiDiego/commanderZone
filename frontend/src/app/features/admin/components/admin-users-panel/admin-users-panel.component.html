@@ -105,6 +105,7 @@
                 }
               </button>
             </th>
+            <th scope="col">Auth</th>
             <th scope="col">
               <button type="button" class="admin-users-sort" (click)="changeSort('lastConnectedAt')" [attr.aria-label]="'Sort by last connection. ' + sortLabel('lastConnectedAt')">
                 Last connection
@@ -149,6 +150,38 @@
               </td>
               <td data-label="Mail">
                 <span class="user-email">{{ user.email }}</span>
+              </td>
+              <td data-label="Auth">
+                @if (user.authIdentities.length > 0) {
+                  <div class="admin-users-auth-list">
+                    @for (identity of user.authIdentities; track identity.provider + ':' + identity.providerUserId) {
+                      <div class="admin-users-auth-card">
+                        <span class="admin-users-auth-provider">{{ authIdentityLabel(identity) }}</span>
+                        <span class="admin-users-auth-line">{{ authIdentityValue(identity.providerEmail) }}</span>
+                        <span class="admin-users-auth-line">ID {{ authIdentityValue(identity.providerUserId) }}</span>
+                        <span class="admin-users-auth-line">{{ identity.providerEmailVerified ? 'Verified' : 'Unverified' }}</span>
+                        <span class="admin-users-auth-line">
+                          Created
+                          @if (identity.createdAt === 'GOOGLE') {
+                            GOOGLE
+                          } @else {
+                            {{ identity.createdAt | date: 'short' }}
+                          }
+                        </span>
+                        <span class="admin-users-auth-line">
+                          Last
+                          @if (identity.lastUsedAt) {
+                            {{ identity.lastUsedAt | date: 'short' }}
+                          } @else {
+                            GOOGLE
+                          }
+                        </span>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <span class="admin-users-auth-empty">Local</span>
+                }
               </td>
               <td data-label="Last connection">
                 @if (user.lastConnectedAt) {
@@ -226,6 +259,21 @@
                     >
                       Delete
                     </button>
+                  </div>
+                  <div class="admin-users-action admin-users-message-action">
+                    <app-tooltip text="View profile" align="end">
+                      <button
+                        type="button"
+                        class="admin-users-icon-action"
+                        czButton="icon"
+                        czButtonSize="sm"
+                        [disabled]="!user.publicProfilePath"
+                        [attr.aria-label]="'View profile for ' + user.displayName"
+                        (click)="viewUserProfile(user)"
+                      >
+                        <lucide-icon name="eye" size="16" aria-hidden="true" />
+                      </button>
+                    </app-tooltip>
                   </div>
                   <div class="admin-users-action admin-users-message-action">
                     <app-tooltip text="Send message" align="end">

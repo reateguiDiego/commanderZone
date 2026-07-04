@@ -64,7 +64,7 @@
 }
 
 .player-info-avatar {
-  filter: var(--player-info-avatar-filter, drop-shadow(0 0 0.55rem rgb(var(--cz-primary-rgb) / 18%)));
+  filter: none;
 }
 
 .player-info-action {
@@ -91,7 +91,7 @@
   flex: 1 1 auto;
   min-width: 0;
   max-width: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .player-info-profile-tooltip .player-info-avatar-action {
@@ -134,6 +134,15 @@
 
   .player-info-name-action {
     width: 100%;
+  }
+
+  .player-info-name-action app-player-name {
+    width: max(0px, calc(100% - 60px));
+    margin-inline: 30px;
+  }
+
+  .player-info-avatar-action {
+    display: none;
   }
 }
 

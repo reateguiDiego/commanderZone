@@ -5,6 +5,7 @@ import { UserAvatar, UserDisplayNameStyle } from '../models/user.model';
 
 export type PageHeaderOwner = object;
 export type PageHeaderActionVariant = 'primary' | 'secondary';
+export type PageHeaderActionTone = 'default' | 'danger' | 'success' | 'warning';
 export type PageHeaderActionTooltipTriggerMode = 'hover' | 'click';
 export type PageHeaderActionTooltipPlacement = 'top' | 'bottom';
 export type PageHeaderActionTooltipAlign = 'center' | 'end';
@@ -20,6 +21,9 @@ export interface PageHeaderAction {
   tooltipPlacement?: PageHeaderActionTooltipPlacement;
   tooltipAlign?: PageHeaderActionTooltipAlign;
   disabled?: boolean;
+  tone?: PageHeaderActionTone;
+  counter?: number | string;
+  counterLabel?: string;
   variant: PageHeaderActionVariant;
   execute: () => void;
 }
@@ -46,6 +50,11 @@ export interface PageHeaderActionFeedback {
   tone: 'success';
 }
 
+export interface PageHeaderDeckMetrics {
+  likes: number;
+  copies: number;
+}
+
 export interface PageHeaderPlayerInfo {
   id?: string | null;
   displayName: string;
@@ -65,7 +74,10 @@ export interface PageHeaderState {
   titleActions?: readonly PageHeaderAction[];
   actions?: readonly PageHeaderAction[];
   actionFeedback?: PageHeaderActionFeedback | null;
+  deckMetrics?: PageHeaderDeckMetrics | null;
   sharedBy?: PageHeaderPlayerInfo | null;
+  sharedByLabel?: string;
+  sharedByOwnDeck?: boolean;
   stats?: readonly PageHeaderStat[];
 }
 
@@ -111,7 +123,10 @@ export class PageHeaderStore {
             message: this.translateText(header.actionFeedback.message),
           }
         : header.actionFeedback,
+      deckMetrics: header.deckMetrics ? { ...header.deckMetrics } : header.deckMetrics,
       sharedBy: header.sharedBy ? { ...header.sharedBy } : header.sharedBy,
+      sharedByLabel: header.sharedByLabel ? this.translateText(header.sharedByLabel) : undefined,
+      sharedByOwnDeck: header.sharedByOwnDeck,
       stats: header.stats?.map((stat) => ({
         ...stat,
         label: this.translateText(stat.label),

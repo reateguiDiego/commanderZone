@@ -11,6 +11,66 @@
   gap: clamp(0.85rem, 1.35vw, 1.15rem);
 }
 
+.community-deck-card {
+  position: relative;
+  min-width: 0;
+}
+
+.community-deck-metrics {
+  pointer-events: none;
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.85rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.24rem;
+  border: 1px solid rgb(var(--cz-text-rgb) / 9%);
+  border-radius: 7px;
+  background: rgb(var(--cz-bg-rgb) / 78%);
+  opacity: 0.88;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    opacity 160ms ease;
+}
+
+.community-deck-metric {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  min-width: 2.55rem;
+  min-height: 2rem;
+  border: 1px solid rgb(var(--cz-text-rgb) / 12%);
+  border-radius: 6px;
+  background: rgb(var(--cz-surface-rgb) / 74%);
+  color: rgb(var(--cz-text-rgb) / 88%);
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+  backdrop-filter: blur(8px);
+}
+
+.metric-likes {
+  border-color: rgb(var(--cz-danger-rgb) / 36%);
+  color: var(--cz-danger);
+}
+
+.metric-copies {
+  border-color: rgb(var(--cz-info-rgb) / 34%);
+  color: var(--cz-info);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .community-deck-card:hover .community-deck-metrics {
+    border-color: rgb(var(--cz-primary-rgb) / 24%);
+    background: rgb(var(--cz-bg-rgb) / 86%);
+    opacity: 1;
+  }
+}
+
 @media (max-width: 1024px) {
   .community-deck-grid {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 17rem));

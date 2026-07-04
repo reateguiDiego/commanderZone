@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping as ORM;
 class Role
 {
     public const USER = 'ROLE_USER';
+    public const SUPPORT = 'ROLE_SUPPORT';
     public const ADMIN = 'ROLE_ADMIN';
     public const OWNER = 'ROLE_OWNER';
 
@@ -51,6 +52,7 @@ class Role
     {
         return [
             self::USER,
+            self::SUPPORT,
             self::ADMIN,
             self::OWNER,
         ];

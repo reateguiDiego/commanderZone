@@ -17,6 +17,9 @@ class DeckbuildingApiTest extends ApiTestCase
         $created = $this->jsonResponse()['deck'];
         $deckId = (string) $created['id'];
         $slug = (string) $created['slug'];
+        self::assertSame($this->currentUserId($token), $created['creatorUserId']);
+        self::assertSame(0, $created['likes']);
+        self::assertSame(0, $created['copies']);
         self::assertMatchesRegularExpression('/^deck-fancy-deck-commander-[a-z0-9]{8}$/', $slug);
 
         $this->jsonRequest('POST', '/decks', ['name' => 'Fancy Deck'], $token);
@@ -50,9 +53,13 @@ class DeckbuildingApiTest extends ApiTestCase
         ], $token);
         self::assertResponseStatusCodeSame(201);
 
+        $deck = $this->jsonResponse()['deck'];
+        self::assertSame($this->currentUserId($token), $deck['creatorUserId']);
+        self::assertSame(0, $deck['likes']);
+        self::assertSame(0, $deck['copies']);
         self::assertMatchesRegularExpression(
             '/^atraxa-grand-unifier-superfriends-control-commander-[a-z0-9]{8}$/',
-            (string) $this->jsonResponse()['deck']['slug'],
+            (string) $deck['slug'],
         );
     }
 

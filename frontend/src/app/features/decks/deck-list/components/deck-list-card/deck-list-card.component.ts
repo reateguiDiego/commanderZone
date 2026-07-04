@@ -6,6 +6,8 @@ import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-t
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { TooltipComponent } from '../../../../../shared/ui/tooltip/tooltip.component';
 
+export type DeckListCardMetricsMode = 'none' | 'owner';
+
 @Component({
   selector: 'app-deck-list-card',
   imports: [NgTemplateOutlet, LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, TooltipComponent],
@@ -23,6 +25,7 @@ export class DeckListCardComponent {
   readonly hasDualCommanderArt = input(false);
   readonly hasIssues = input(false);
   readonly issueTooltip = input('');
+  readonly metricsMode = input<DeckListCardMetricsMode>('none');
 
   readonly openDeck = output<void>();
 
@@ -40,6 +43,18 @@ export class DeckListCardComponent {
     return visibility === 'public'
       ? 'common.visibility.visibilityPill.public'
       : 'common.visibility.visibilityPill.private';
+  }
+
+  showMetrics(): boolean {
+    return this.metricsMode() !== 'none';
+  }
+
+  likes(): number {
+    return this.deck().likes ?? 0;
+  }
+
+  copies(): number {
+    return this.deck().copies ?? 0;
   }
 
   open(event: Event): void {

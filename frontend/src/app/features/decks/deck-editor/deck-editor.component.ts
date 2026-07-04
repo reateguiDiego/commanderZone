@@ -138,6 +138,10 @@ export class DeckEditorComponent implements OnDestroy {
             tone: 'danger',
           }
           : undefined,
+        deckMetrics: {
+          likes: deck.likes ?? 0,
+          copies: deck.copies ?? 0,
+        },
         actions: [
           this.backToDecksAction(),
           {

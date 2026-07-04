@@ -1,7 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { ChevronDown, ChevronLeft, ChevronRight, Globe, LucideAngularModule, Search } from 'lucide-angular';
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Globe, Heart, LucideAngularModule, Search } from 'lucide-angular';
 import { of } from 'rxjs';
 import { CommunityApi } from '../../../core/api/community.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
@@ -23,6 +23,9 @@ describe('CommunityDeckListPageComponent', () => {
             commanderName: 'Atraxa, Grand Unifier',
             colorIdentity: ['W', 'U', 'B', 'G'],
             updatedAt: '2026-06-26T00:00:00Z',
+            likes: 0,
+            copies: 0,
+            creatorUserId: 'user-1',
           },
         ],
         page: 1,
@@ -44,6 +47,9 @@ describe('CommunityDeckListPageComponent', () => {
           commanderName: 'Tymna the Weaver / Thrasios, Triton Hero',
           colorIdentity: ['W', 'U', 'B', 'G'],
           updatedAt: '2026-06-27T00:00:00Z',
+          likes: 0,
+          copies: 0,
+          creatorUserId: 'user-1',
         },
       ],
       page: 2,
@@ -63,7 +69,7 @@ describe('CommunityDeckListPageComponent', () => {
       imports: [CommunityDeckListPageComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Globe, Search })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Copy, Globe, Heart, Search })),
         { provide: CommunityApi, useValue: api },
         { provide: DeckFormatsApi, useValue: deckFormatsApi },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
@@ -100,6 +106,9 @@ describe('CommunityDeckListPageComponent', () => {
       commanderName: 'Atraxa, Grand Unifier',
       colorIdentity: ['W', 'U', 'B', 'G'],
       updatedAt: '2026-06-26T00:00:00Z',
+      likes: 0,
+      copies: 0,
+      creatorUserId: 'user-1',
     });
     expect(navigateSpy).toHaveBeenCalledWith('/community/decks/atraxa-grand-unifier-atraxa-tokens-d3ck0001');
   });

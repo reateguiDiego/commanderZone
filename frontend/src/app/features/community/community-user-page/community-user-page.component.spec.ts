@@ -1,7 +1,7 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
-import { ChevronDown, ChevronLeft, ChevronRight, Flag, Globe, Link, LucideAngularModule, Search, UserPlus } from 'lucide-angular';
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Flag, Globe, Heart, Link, LucideAngularModule, Search, UserPlus } from 'lucide-angular';
 import { BehaviorSubject, of } from 'rxjs';
 import { CommunityApi } from '../../../core/api/community.api';
 import { FriendsApi } from '../../../core/api/friends.api';
@@ -34,6 +34,9 @@ describe('CommunityUserPageComponent', () => {
           commanderName: 'Atraxa, Grand Unifier',
           colorIdentity: ['W', 'U', 'B', 'G'],
           updatedAt: '2026-06-26T00:00:00Z',
+          likes: 0,
+          copies: 0,
+          creatorUserId: 'user-1',
         },
       ],
       page: 1,
@@ -56,6 +59,9 @@ describe('CommunityUserPageComponent', () => {
           commanderName: 'Tymna the Weaver',
           colorIdentity: ['W', 'B'],
           updatedAt: '2026-06-27T00:00:00Z',
+          likes: 0,
+          copies: 0,
+          creatorUserId: 'user-1',
         },
       ],
       page: 2,
@@ -94,7 +100,7 @@ describe('CommunityUserPageComponent', () => {
       imports: [CommunityUserPageComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Flag, Globe, Link, Search, UserPlus })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Copy, Flag, Globe, Heart, Link, Search, UserPlus })),
         { provide: ActivatedRoute, useValue: { paramMap: routeParamMap$.asObservable() } },
         { provide: CommunityApi, useValue: api },
         { provide: FriendsApi, useValue: friendsApi },
@@ -176,7 +182,7 @@ describe('CommunityUserPageComponent', () => {
       imports: [CommunityUserPageComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Flag, Globe, Link, Search, UserPlus })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronLeft, ChevronRight, Copy, Flag, Globe, Heart, Link, Search, UserPlus })),
         { provide: ActivatedRoute, useValue: { paramMap: routeParamMap$.asObservable() } },
         { provide: CommunityApi, useValue: api },
         { provide: FriendsApi, useValue: { requestUser: vi.fn() } },

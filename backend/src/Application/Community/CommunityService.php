@@ -67,7 +67,7 @@ final class CommunityService
                         $requestedLanguage,
                     ),
                     'decks' => $this->fetchDeckSummariesByIds(
-                        $this->randomPublicValidDeckIds(self::HOME_DECKS_LIMIT),
+                        $this->topPublicValidDeckIds(self::HOME_DECKS_LIMIT),
                         $requestedLanguage,
                     ),
                 ];
@@ -109,23 +109,153 @@ final class CommunityService
     /**
      * @return array{deck:array<string,mixed>}|null
      */
-    public function deckDetail(string $id, ?string $requestedLanguage): ?array
+    public function deckDetail(string $id, ?string $requestedLanguage, ?User $viewer = null): ?array
     {
-        return $this->remember(
-            $this->cacheKey('detail', ['id' => $id, 'lang' => $requestedLanguage]),
-            self::DECK_DETAIL_CACHE_TTL_SECONDS,
-            function () use ($id, $requestedLanguage): ?array {
-                $deck = $this->publicDeckByIdOrSlug($id);
+        $deck = $this->publicDeckByIdOrSlug($id);
 
-                if (!$deck instanceof Deck) {
-                    return null;
-                }
+        if (!$deck instanceof Deck) {
+            return null;
+        }
 
-                return [
-                    'deck' => $this->mapDeckDetail($deck, $requestedLanguage),
-                ];
-            },
+        return [
+            'deck' => $this->mapDeckDetail($deck, $requestedLanguage, $viewer),
+        ];
+    }
+
+    /**
+     * @return array{deck:array{id:string,likes:int,likedByViewer:bool}}|null
+     */
+    public function likeDeck(string $id, User $viewer): ?array
+    {
+        $deck = $this->publicDeckByIdOrSlug($id);
+        if (!$deck instanceof Deck) {
+            return null;
+        }
+        $this->assertViewerIsNotDeckOwner($deck, $viewer, 'like');
+
+        $connection = $this->entityManager->getConnection();
+        $likedByViewer = false;
+        $connection->beginTransaction();
+        try {
+            $connection->fetchOne(
+                'SELECT id FROM deck WHERE id = :deckId FOR UPDATE',
+                ['deckId' => $deck->id()],
+            );
+            $existingLike = $connection->fetchOne(
+                'SELECT 1 FROM deck_like WHERE deck_id = :deckId AND user_id = :userId',
+                [
+                    'deckId' => $deck->id(),
+                    'userId' => $viewer->id(),
+                ],
+            );
+
+            if ($existingLike !== false) {
+                $connection->executeStatement(
+                    'DELETE FROM deck_like WHERE deck_id = :deckId AND user_id = :userId',
+                    [
+                        'deckId' => $deck->id(),
+                        'userId' => $viewer->id(),
+                    ],
+                );
+                $connection->executeStatement(
+                    'UPDATE deck SET likes = CASE WHEN likes > 0 THEN likes - 1 ELSE 0 END WHERE id = :deckId',
+                    ['deckId' => $deck->id()],
+                );
+            } else {
+                $connection->executeStatement(
+                    <<<'SQL'
+INSERT INTO deck_like (deck_id, user_id, created_at)
+VALUES (:deckId, :userId, :createdAt)
+SQL,
+                    [
+                        'deckId' => $deck->id(),
+                        'userId' => $viewer->id(),
+                        'createdAt' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+                    ],
+                );
+
+                $likedByViewer = true;
+                $connection->executeStatement(
+                    'UPDATE deck SET likes = likes + 1 WHERE id = :deckId',
+                    ['deckId' => $deck->id()],
+                );
+            }
+
+            $likes = $this->deckCounter($deck->id(), 'likes');
+            $connection->commit();
+        } catch (\Throwable $error) {
+            $connection->rollBack();
+
+            throw $error;
+        }
+
+        return [
+            'deck' => [
+                'id' => $deck->id(),
+                'likes' => $likes,
+                'likedByViewer' => $likedByViewer,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{deck:array<string,mixed>,source:array{id:string,copies:int}}|null
+     */
+    public function copyDeck(string $id, User $viewer, ?string $requestedLanguage): ?array
+    {
+        $source = $this->publicDeckByIdOrSlug($id);
+        if (!$source instanceof Deck) {
+            return null;
+        }
+        $this->assertViewerIsNotDeckOwner($source, $viewer, 'copy');
+
+        $copy = new Deck($viewer, $source->name(), $source->creatorUser());
+        $copy->setFormat($source->format());
+        $copy->setVisibility(Deck::VISIBILITY_PRIVATE);
+        foreach ($source->cards() as $sourceCard) {
+            if (!$sourceCard instanceof DeckCard) {
+                continue;
+            }
+
+            $copy->addOrIncrementCard($sourceCard->card(), $sourceCard->quantity(), $sourceCard->section());
+        }
+        $copy->markValidationResult(true);
+        $this->ensureUniqueSlug($copy);
+
+        $connection = $this->entityManager->getConnection();
+        $connection->beginTransaction();
+        try {
+            $this->entityManager->persist($copy);
+            $this->entityManager->flush();
+            $connection->executeStatement(
+                'UPDATE deck SET copies = copies + 1 WHERE id = :deckId',
+                ['deckId' => $source->id()],
+            );
+            $copies = $this->deckCounter($source->id(), 'copies');
+            $connection->commit();
+        } catch (\Throwable $error) {
+            $connection->rollBack();
+
+            throw $error;
+        }
+
+        $payload = $copy->toArray(true);
+        $payload['commanders'] = $this->localizeCardPayloads(
+            is_array($payload['commanders'] ?? null) ? $payload['commanders'] : [],
+            $requestedLanguage,
         );
+        $payload['cards'] = $this->localizeDeckCardLines(
+            is_array($payload['cards'] ?? null) ? $payload['cards'] : [],
+            $requestedLanguage,
+        );
+
+        return [
+            'deck' => $payload,
+            'source' => [
+                'id' => $source->id(),
+                'copies' => $copies,
+            ],
+        ];
     }
 
     /**
@@ -316,8 +446,9 @@ final class CommunityService
         $ids = $this->stringIds(
             $this->entityManager->getConnection()->fetchFirstColumn(
                 sprintf(
-                    "SELECT d.id\n%s\nORDER BY d.updated_at DESC, d.id DESC\nLIMIT %d OFFSET %d",
+                    "SELECT d.id\n%s\n%s\nLIMIT %d OFFSET %d",
                     $query['fromWhereSql'],
+                    $this->publicDeckRankingOrderSql(),
                     $limit,
                     $offset,
                 ),
@@ -432,17 +563,39 @@ SQL;
     /**
      * @return list<string>
      */
-    private function randomPublicValidDeckIds(int $limit): array
+    private function topPublicValidDeckIds(int $limit): array
     {
         return $this->stringIds(
             $this->entityManager->getConnection()->fetchFirstColumn(
                 sprintf(
-                    'SELECT d.id FROM deck d WHERE d.visibility = :visibility AND d.is_valid = true ORDER BY RANDOM() LIMIT %d',
+                    "SELECT d.id FROM deck d WHERE d.visibility = :visibility AND d.is_valid = true\n%s\nLIMIT %d",
+                    $this->publicDeckRankingOrderSql(),
                     max(1, $limit),
                 ),
-                ['visibility' => Deck::VISIBILITY_PUBLIC],
+                [
+                    'visibility' => Deck::VISIBILITY_PUBLIC,
+                    'commanderSection' => DeckCard::SECTION_COMMANDER,
+                ],
             ),
         );
+    }
+
+    private function publicDeckRankingOrderSql(): string
+    {
+        return <<<'SQL'
+ORDER BY
+    (COALESCE(d.likes, 0) + COALESCE(d.copies, 0)) DESC,
+    COALESCE(d.likes, 0) DESC,
+    LOWER(d.name) ASC,
+    COALESCE((
+        SELECT STRING_AGG(LOWER(commander_card.name), '|' ORDER BY LOWER(commander_card.name), commander_card.id)
+        FROM deck_card commander_dc
+        JOIN card commander_card ON commander_card.id = commander_dc.card_id
+        WHERE commander_dc.deck_id = d.id
+          AND commander_dc.section = :commanderSection
+    ), '') ASC,
+    d.id ASC
+SQL;
     }
 
     /**
@@ -588,6 +741,9 @@ SELECT
     d.format AS deck_format,
     d.is_valid AS deck_valid,
     d.updated_at AS deck_updated_at,
+    d.likes AS deck_likes,
+    d.copies AS deck_copies,
+    d.creator_user_id AS deck_creator_user_id,
     dc.id AS commander_entry_id,
     c.id AS card_id,
     c.scryfall_id,
@@ -633,6 +789,9 @@ SQL,
                     'format' => (string) ($row['deck_format'] ?? DeckFormatCatalog::COMMANDER),
                     'valid' => $this->boolValue($row['deck_valid'] ?? false),
                     'updatedAt' => $this->dateTimeAtom($row['deck_updated_at'] ?? null),
+                    'likes' => (int) ($row['deck_likes'] ?? 0),
+                    'copies' => (int) ($row['deck_copies'] ?? 0),
+                    'creatorUserId' => (string) ($row['deck_creator_user_id'] ?? ''),
                     'commanders' => [],
                 ];
             }
@@ -697,13 +856,16 @@ SQL,
             'commanderName' => $this->commanderDisplayName($commanders),
             'colorIdentity' => $this->commanderColorIdentity($commanders),
             'updatedAt' => (string) ($deck['updatedAt'] ?? ''),
+            'likes' => (int) ($deck['likes'] ?? 0),
+            'copies' => (int) ($deck['copies'] ?? 0),
+            'creatorUserId' => (string) ($deck['creatorUserId'] ?? ''),
         ];
     }
 
     /**
      * @return array<string,mixed>
      */
-    private function mapDeckDetail(Deck $deck, ?string $requestedLanguage): array
+    private function mapDeckDetail(Deck $deck, ?string $requestedLanguage, ?User $viewer): array
     {
         $deck->ensurePublicSlug();
         $deck->owner()->ensurePublicHandle();
@@ -727,6 +889,7 @@ SQL,
             'avatar' => $deck->owner()->avatar(),
             'displayNameStyle' => $deck->owner()->displayNameStyle(),
         ];
+        $payload['likedByViewer'] = $viewer instanceof User ? $this->hasDeckLike($deck->id(), $viewer->id()) : false;
 
         return $payload;
     }
@@ -1391,6 +1554,61 @@ SQL,
         $identifier = $slug !== null && $slug !== '' ? $slug : $id;
 
         return sprintf('/community/decks/%s/', $identifier);
+    }
+
+    private function hasDeckLike(string $deckId, string $userId): bool
+    {
+        return (bool) $this->entityManager->getConnection()->fetchOne(
+            'SELECT 1 FROM deck_like WHERE deck_id = :deckId AND user_id = :userId',
+            [
+                'deckId' => $deckId,
+                'userId' => $userId,
+            ],
+        );
+    }
+
+    private function deckCounter(string $deckId, string $counter): int
+    {
+        if (!in_array($counter, ['likes', 'copies'], true)) {
+            throw new \InvalidArgumentException('Unsupported deck counter.');
+        }
+
+        return (int) $this->entityManager->getConnection()->fetchOne(
+            sprintf('SELECT %s FROM deck WHERE id = :deckId', $counter),
+            ['deckId' => $deckId],
+        );
+    }
+
+    private function assertViewerIsNotDeckOwner(Deck $deck, User $viewer, string $action): void
+    {
+        if ($deck->owner()->id() !== $viewer->id()) {
+            return;
+        }
+
+        throw new \DomainException(sprintf('Deck owners cannot %s their own deck.', $action));
+    }
+
+    private function ensureUniqueSlug(Deck $deck): void
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            if ($attempt === 0) {
+                $deck->ensureSlug();
+            } else {
+                $deck->regenerateSlug();
+            }
+
+            $slug = $deck->slug();
+            if ($slug === null || $slug === '') {
+                continue;
+            }
+
+            $existing = $this->entityManager->getRepository(Deck::class)->findOneBy(['slug' => $slug]);
+            if (!$existing instanceof Deck || $existing->id() === $deck->id()) {
+                return;
+            }
+        }
+
+        throw new \RuntimeException('Could not generate a unique deck slug.');
     }
 
     /**

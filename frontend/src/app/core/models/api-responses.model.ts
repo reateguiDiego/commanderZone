@@ -83,6 +83,22 @@ export interface CommunityDeckDetailResponse {
   deck: CommunityDeckDetail;
 }
 
+export interface CommunityDeckLikeResponse {
+  deck: {
+    id: string;
+    likes: number;
+    likedByViewer: boolean;
+  };
+}
+
+export interface CommunityDeckCopyResponse {
+  deck: Deck;
+  source: {
+    id: string;
+    copies: number;
+  };
+}
+
 export type CommunityPreviewCardsResponse = CommunityPreviewCards;
 
 export type CommunityIndexableResponse = CommunityIndexable;

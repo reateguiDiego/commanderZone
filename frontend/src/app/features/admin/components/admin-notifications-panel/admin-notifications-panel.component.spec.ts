@@ -15,7 +15,9 @@ describe('AdminNotificationsPanelComponent', () => {
   const user: AdminUser = {
     id: 'user-1',
     displayName: 'CommanderZone',
+    publicProfilePath: '/community/users/CommanderZone',
     email: 'cz@test.com',
+    authIdentities: [],
     roles: [ROLE_USER],
     authorizationRole: ROLE_USER,
     premiumTier: 'none',

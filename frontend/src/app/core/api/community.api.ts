@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import {
   CommunityDeckDetailResponse,
+  CommunityDeckCopyResponse,
+  CommunityDeckLikeResponse,
   CommunityDeckListResponse,
   CommunityDiscoveryDetailResponse,
   CommunityHomeResponse,
@@ -45,6 +47,16 @@ export class CommunityApi {
 
   deck(id: string, lang?: string): Observable<CommunityDeckDetailResponse> {
     return this.http.get<CommunityDeckDetailResponse>(`${API_BASE_URL}/community/decks/${id}`, {
+      params: this.langParams(lang),
+    });
+  }
+
+  likeDeck(id: string): Observable<CommunityDeckLikeResponse> {
+    return this.http.post<CommunityDeckLikeResponse>(`${API_BASE_URL}/community/decks/${id}/like`, {});
+  }
+
+  copyDeck(id: string, lang?: string): Observable<CommunityDeckCopyResponse> {
+    return this.http.post<CommunityDeckCopyResponse>(`${API_BASE_URL}/community/decks/${id}/copy`, {}, {
       params: this.langParams(lang),
     });
   }

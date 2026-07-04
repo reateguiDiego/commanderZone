@@ -1397,6 +1397,7 @@ paths:
     get:
       tags: [Community]
       summary: Get Community home preview data.
+      description: Community decks are returned in top-deck order by `(likes + copies)` descending, then `likes` descending, deck name ascending, commander names ascending.
       parameters:
         - name: lang
           in: query
@@ -1416,6 +1417,7 @@ paths:
     get:
       tags: [Community]
       summary: List public valid decks for Community.
+      description: Results are returned in top-deck order by `(likes + copies)` descending, then `likes` descending, deck name ascending, commander names ascending. The same order applies after any filters.
       parameters:
         - name: q
           in: query
@@ -1477,6 +1479,61 @@ paths:
                   deck:
                     $ref: '#/components/schemas/CommunityDeckDetail'
         '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /community/decks/{id}/like:
+    post:
+      tags: [Community]
+      summary: Toggle the current user's like on a public valid Community deck.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Deck UUID or public deck slug.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deck like counter and current viewer like state after the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityDeckLikeResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /community/decks/{id}/copy:
+    post:
+      tags: [Community]
+      summary: Copy a public valid Community deck into the current user's private decks.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Deck UUID or public deck slug.
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: Optional card-language override for the copied deck response.
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Copied deck and updated source copy counter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityDeckCopyResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
@@ -3845,7 +3902,7 @@ components:
           format: date-time
     AdminUser:
       type: object
-      required: [id, displayName, email, roles, authorizationRole, premiumTier, lastConnectedAt, presenceStatus, isOnline, activeRoomsCount, activeSessionsCount, createdAt]
+      required: [id, displayName, publicProfilePath, email, authIdentities, roles, authorizationRole, premiumTier, lastConnectedAt, presenceStatus, isOnline, activeRoomsCount, activeSessionsCount, createdAt]
       properties:
         id:
           type: string
@@ -3853,16 +3910,23 @@ components:
         displayName:
           type: string
           maxLength: 20
+        publicProfilePath:
+          type: [string, 'null']
+          example: /community/users/Alice-Player
         email:
           type: string
           format: email
+        authIdentities:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUserAuthIdentity'
         roles:
           type: array
           items:
             type: string
         authorizationRole:
           type: string
-          enum: [ROLE_USER, ROLE_ADMIN, ROLE_OWNER]
+          enum: [ROLE_USER, ROLE_SUPPORT, ROLE_ADMIN, ROLE_OWNER]
         premiumTier:
           type: string
           enum: [none, tier1, tier2, tier3]
@@ -3882,6 +3946,27 @@ components:
           minimum: 0
         createdAt:
           type: string
+          format: date-time
+    AdminUserAuthIdentity:
+      type: object
+      required: [provider, providerUserId, providerEmail, providerEmailVerified, createdAt, lastUsedAt]
+      properties:
+        provider:
+          type: string
+          example: GOOGLE
+        providerUserId:
+          type: string
+          description: External provider user identifier. Google identities use the Google subject.
+        providerEmail:
+          type: string
+          example: player@gmail.com
+        providerEmailVerified:
+          type: boolean
+        createdAt:
+          type: string
+          description: Provider identity creation timestamp, or GOOGLE when unavailable.
+        lastUsedAt:
+          type: [string, 'null']
           format: date-time
     AdminUserResponse:
       type: object
@@ -3919,7 +4004,7 @@ components:
       properties:
         authorizationRole:
           type: string
-          enum: [ROLE_USER, ROLE_ADMIN, ROLE_OWNER]
+          enum: [ROLE_USER, ROLE_SUPPORT, ROLE_ADMIN, ROLE_OWNER]
         premiumTier:
           type: string
           enum: [none, tier1, tier2, tier3]
@@ -4600,7 +4685,7 @@ components:
             $ref: '#/components/schemas/DeckCard'
     CommunityDeckSummary:
       type: object
-      required: [id, name, format, valid, cropImage, commanderName, colorIdentity, updatedAt]
+      required: [id, name, format, valid, cropImage, commanderName, colorIdentity, updatedAt, likes, copies, creatorUserId]
       properties:
         id:
           type: string
@@ -4631,11 +4716,20 @@ components:
         updatedAt:
           type: string
           format: date-time
+        likes:
+          type: integer
+          minimum: 0
+        copies:
+          type: integer
+          minimum: 0
+        creatorUserId:
+          type: string
+          format: uuid
     CommunityDeckDetail:
       allOf:
         - $ref: '#/components/schemas/CommunityDeckSummary'
         - type: object
-          required: [visibility, commanders, cards, sections, owner]
+          required: [visibility, commanders, cards, sections, owner, likedByViewer]
           properties:
             visibility:
               $ref: '#/components/schemas/DeckVisibility'
@@ -4658,6 +4752,40 @@ components:
               $ref: '#/components/schemas/CommunityDeckSections'
             owner:
               $ref: '#/components/schemas/CommunityDeckOwner'
+            likedByViewer:
+              type: boolean
+    CommunityDeckLikeResponse:
+      type: object
+      required: [deck]
+      properties:
+        deck:
+          type: object
+          required: [id, likes, likedByViewer]
+          properties:
+            id:
+              type: string
+              format: uuid
+            likes:
+              type: integer
+              minimum: 0
+            likedByViewer:
+              type: boolean
+    CommunityDeckCopyResponse:
+      type: object
+      required: [deck, source]
+      properties:
+        deck:
+          $ref: '#/components/schemas/Deck'
+        source:
+          type: object
+          required: [id, copies]
+          properties:
+            id:
+              type: string
+              format: uuid
+            copies:
+              type: integer
+              minimum: 0
     DeckVisibility:
       type: string
       enum: [private, public]
@@ -4666,7 +4794,7 @@ components:
       enum: [private, public]
     DeckSummary:
       type: object
-      required: [id, name, format, valid, visibility, backgroundName, sleevesName, folderId, commanders]
+      required: [id, name, format, valid, visibility, backgroundName, sleevesName, folderId, commanders, creatorUserId, likes, copies]
       properties:
         id:
           type: string
@@ -4693,6 +4821,15 @@ components:
         folderId:
           type: [string, 'null']
           format: uuid
+        creatorUserId:
+          type: string
+          format: uuid
+        likes:
+          type: integer
+          minimum: 0
+        copies:
+          type: integer
+          minimum: 0
         commanders:
           type: array
           description: Fully localized commander cards for this deck, in display order.

@@ -427,6 +427,8 @@
       },
       "error": "Kan communitydeck niet laden.",
       "headerTitle": "Communitydeck",
+      "like": "Deck liken",
+      "likeError": "Kon dit deck niet liken.",
       "missingId": "Ontbrekende communitydeck-ID.",
       "save": "Opslaan",
       "saveError": "Kan dit deck niet opslaan in je decklijst.",
@@ -440,8 +442,13 @@
           "error": "Fout",
           "warning": "Waarschjeing"
         },
-        "historyOwner": "Gedeeld door"
+        "historyOwner": "Gedeeld door",
+        "ownDeck": "Dit deck is van jou."
       }
+    },
+    "deckCard": {
+      "likes": "Likes: {{ count }}",
+      "copies": "Kopieën: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "Top 3 Commanders",

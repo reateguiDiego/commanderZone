@@ -20,6 +20,9 @@ export interface Deck {
   slug?: string | null;
   publicSlug?: string | null;
   canonicalPath?: string | null;
+  creatorUserId?: string;
+  likes?: number;
+  copies?: number;
   backgroundName?: string;
   sleevesName?: string;
   folderId: string | null;

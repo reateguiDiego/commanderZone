@@ -15,6 +15,7 @@ import {
   EyeOff,
   FileDown,
   FileUp,
+  Heart,
   History,
   Layers3,
   LucideAngularModule,
@@ -97,6 +98,7 @@ describe('DeckEditorComponent', () => {
           EyeOff,
           FileDown,
           FileUp,
+          Heart,
           History,
           Layers3,
           Minus,
@@ -786,6 +788,8 @@ Deck
       name: 'Header deck',
       format: 'commander',
       folderId: null,
+      likes: 5,
+      copies: 2,
       cards: [deckCard('main-card', 'main', card('Black Lotus', 'Artifact'))],
     };
     await setup({ id: 'deck-1' }, deck);
@@ -811,6 +815,7 @@ Deck
     const header = TestBed.inject(PageHeaderStore).state();
     expect(header?.title).toBe('Header deck');
     expect(header?.actions?.[0]?.id).toBe('back-to-decks');
+    expect(header?.deckMetrics).toEqual({ likes: 5, copies: 2 });
     expect(header?.titleWarning?.tone).toBe('danger');
     expect(header?.titleWarning?.tooltip).toContain('Banned card');
   });

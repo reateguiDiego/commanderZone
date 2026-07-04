@@ -74,6 +74,83 @@ class CommunityApiTest extends ApiTestCase
         self::assertFalse($response['hasMore']);
     }
 
+    public function testCommunityHomeReturnsTopDecksBySocialRanking(): void
+    {
+        $token = $this->registerAndLogin('community-home-ranking@example.test', 'Home Ranking');
+        $mainCard = $this->seedCard('50a00000-0000-0000-0000-000000000001', 'Ranking Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+        $commander = $this->seedCard('50a00000-0000-0000-0000-000000000002', 'Ranking Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+        $alphaTieCommander = $this->seedCard('50a00000-0000-0000-0000-000000000003', 'Alpha Tie Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+        $betaTieCommander = $this->seedCard('50a00000-0000-0000-0000-000000000004', 'Beta Tie Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+
+        $topByLikes = $this->createCommunityDeck($token, 'M Deck', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+        $topByTotal = $this->createCommunityDeck($token, 'A Deck', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+        $nameFirst = $this->createCommunityDeck($token, 'Aardvark Deck', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+        $sameNameAlphaCommander = $this->createCommunityDeck($token, 'Same Deck', 'public', true, $alphaTieCommander->scryfallId(), $mainCard->scryfallId());
+        $sameNameBetaCommander = $this->createCommunityDeck($token, 'Same Deck', 'public', true, $betaTieCommander->scryfallId(), $mainCard->scryfallId());
+        $nameLast = $this->createCommunityDeck($token, 'Zulu Deck', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+
+        $this->setDeckSocialCounters($topByLikes, 3, 1);
+        $this->setDeckSocialCounters($topByTotal, 2, 2);
+        $this->setDeckSocialCounters($nameFirst, 1, 1);
+        $this->setDeckSocialCounters($sameNameAlphaCommander, 1, 1);
+        $this->setDeckSocialCounters($sameNameBetaCommander, 1, 1);
+        $this->setDeckSocialCounters($nameLast, 1, 1);
+
+        $this->jsonRequest('GET', '/community');
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(
+            [$topByLikes, $topByTotal, $nameFirst, $sameNameAlphaCommander, $sameNameBetaCommander, $nameLast],
+            array_column($this->jsonResponse()['decks'], 'id'),
+        );
+    }
+
+    public function testCommunityDecksUsesSocialRankingWithFilters(): void
+    {
+        $token = $this->registerAndLogin('community-decks-ranking@example.test', 'Decks Ranking');
+        $commander = $this->seedCard('50b00000-0000-0000-0000-000000000001', 'Filtered Ranking Commander', [
+            'type_line' => 'Legendary Creature - Elf',
+            'color_identity' => ['G'],
+        ]);
+        $otherCommander = $this->seedCard('50b00000-0000-0000-0000-000000000002', 'Other Ranking Commander', [
+            'type_line' => 'Legendary Creature - Dragon',
+            'color_identity' => ['R'],
+        ]);
+        $mainCard = $this->seedCard('50b00000-0000-0000-0000-000000000003', 'Filtered Ranking Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+
+        $middleByTotal = $this->createCommunityDeck($token, 'Ranking B', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+        $topByTotalAndLikes = $this->createCommunityDeck($token, 'Ranking A', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+        $lastByName = $this->createCommunityDeck($token, 'Ranking Z', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+        $firstByName = $this->createCommunityDeck($token, 'Ranking C', 'public', true, $commander->scryfallId(), $mainCard->scryfallId());
+        $otherDeck = $this->createCommunityDeck($token, 'Ranking Other', 'public', true, $otherCommander->scryfallId(), $mainCard->scryfallId());
+
+        $this->setDeckSocialCounters($middleByTotal, 2, 3);
+        $this->setDeckSocialCounters($topByTotalAndLikes, 4, 1);
+        $this->setDeckSocialCounters($firstByName, 1, 1);
+        $this->setDeckSocialCounters($lastByName, 1, 1);
+        $this->setDeckSocialCounters($otherDeck, 99, 99);
+
+        $this->jsonRequest('GET', '/community/decks?commander=Filtered%20Ranking%20Commander&format=commander&colors=G');
+        self::assertResponseIsSuccessful();
+
+        $response = $this->jsonResponse();
+        self::assertSame(
+            [$topByTotalAndLikes, $middleByTotal, $firstByName, $lastByName],
+            array_column($response['decks'], 'id'),
+        );
+        self::assertSame(4, $response['total']);
+    }
+
     public function testCommunityUserReturnsFilteredPublicDeckPage(): void
     {
         $token = $this->registerAndLogin('community-user@example.test', 'Community User');
@@ -186,6 +263,10 @@ class CommunityApiTest extends ApiTestCase
         $response = $this->jsonResponse();
         self::assertSame($publicValidDeckId, $response['deck']['id']);
         self::assertSame('public', $response['deck']['visibility']);
+        self::assertSame($this->currentUserId($token), $response['deck']['creatorUserId']);
+        self::assertSame(0, $response['deck']['likes']);
+        self::assertSame(0, $response['deck']['copies']);
+        self::assertFalse($response['deck']['likedByViewer']);
         self::assertArrayHasKey('sections', $response['deck']);
         self::assertSame('Community Detail', $response['deck']['owner']['displayName']);
         self::assertSame([
@@ -202,6 +283,102 @@ class CommunityApiTest extends ApiTestCase
 
         $this->jsonRequest('GET', '/community/decks/00000000-0000-0000-0000-000000000000');
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testCommunityDeckLikeTogglesOncePerUser(): void
+    {
+        $ownerToken = $this->registerAndLogin('community-like-owner@example.test', 'Like Owner');
+        $firstToken = $this->registerAndLogin('community-like-first@example.test', 'Like First');
+        $secondToken = $this->registerAndLogin('community-like-second@example.test', 'Like Second');
+        $commander = $this->seedCard('52100000-0000-0000-0000-000000000001', 'Like Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+        $island = $this->seedCard('52100000-0000-0000-0000-000000000002', 'Like Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+        $deckId = $this->createCommunityDeck($ownerToken, 'Liked Deck', 'public', true, $commander->scryfallId(), $island->scryfallId());
+
+        $this->jsonRequest('POST', '/community/decks/'.$deckId.'/like');
+        self::assertResponseStatusCodeSame(401);
+
+        $this->jsonRequest('POST', '/community/decks/'.$deckId.'/like', token: $ownerToken);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(0, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT likes FROM deck WHERE id = :deckId',
+            ['deckId' => $deckId],
+        ));
+
+        $this->jsonRequest('POST', '/community/decks/'.$deckId.'/like', token: $firstToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $this->jsonResponse()['deck']['likes']);
+        self::assertTrue($this->jsonResponse()['deck']['likedByViewer']);
+
+        $this->jsonRequest('POST', '/community/decks/'.$deckId.'/like', token: $firstToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $this->jsonResponse()['deck']['likes']);
+        self::assertFalse($this->jsonResponse()['deck']['likedByViewer']);
+
+        $this->jsonRequest('POST', '/community/decks/'.$deckId.'/like', token: $secondToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $this->jsonResponse()['deck']['likes']);
+        self::assertTrue($this->jsonResponse()['deck']['likedByViewer']);
+
+        $this->jsonRequest('GET', '/community/decks/'.$deckId, token: $firstToken);
+        self::assertResponseIsSuccessful();
+        $detail = $this->jsonResponse()['deck'];
+        self::assertSame(1, $detail['likes']);
+        self::assertFalse($detail['likedByViewer']);
+    }
+
+    public function testCommunityDeckCopyCreatesPrivateDeckAndPreservesOriginalCreator(): void
+    {
+        $ownerToken = $this->registerAndLogin('community-copy-owner@example.test', 'Copy Owner');
+        $copyToken = $this->registerAndLogin('community-copy-viewer@example.test', 'Copy Viewer');
+        $ownerId = $this->currentUserId($ownerToken);
+        $copyUserId = $this->currentUserId($copyToken);
+        $commander = $this->seedCard('52200000-0000-0000-0000-000000000001', 'Copy Commander', [
+            'type_line' => 'Legendary Creature - Human',
+        ]);
+        $island = $this->seedCard('52200000-0000-0000-0000-000000000002', 'Copy Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+        $sourceDeckId = $this->createCommunityDeck($ownerToken, 'Copied Deck', 'public', true, $commander->scryfallId(), $island->scryfallId());
+
+        $this->jsonRequest('POST', '/community/decks/'.$sourceDeckId.'/copy');
+        self::assertResponseStatusCodeSame(401);
+
+        $this->jsonRequest('POST', '/community/decks/'.$sourceDeckId.'/copy', token: $ownerToken);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(0, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT copies FROM deck WHERE id = :deckId',
+            ['deckId' => $sourceDeckId],
+        ));
+
+        $this->jsonRequest('POST', '/community/decks/'.$sourceDeckId.'/copy', token: $copyToken);
+        self::assertResponseStatusCodeSame(201);
+        $response = $this->jsonResponse();
+        $copiedDeck = $response['deck'];
+        self::assertSame(1, $response['source']['copies']);
+        self::assertSame($ownerId, $copiedDeck['creatorUserId']);
+        self::assertSame(0, $copiedDeck['likes']);
+        self::assertSame(0, $copiedDeck['copies']);
+        self::assertTrue($copiedDeck['valid']);
+        self::assertSame('private', $copiedDeck['visibility']);
+        self::assertCount(2, $copiedDeck['cards']);
+
+        $storedCopy = $this->entityManager->getConnection()->fetchAssociative(
+            'SELECT owner_id, creator_user_id, visibility, is_valid FROM deck WHERE id = :deckId',
+            ['deckId' => $copiedDeck['id']],
+        );
+        self::assertIsArray($storedCopy);
+        self::assertSame($copyUserId, $storedCopy['owner_id']);
+        self::assertSame($ownerId, $storedCopy['creator_user_id']);
+        self::assertSame('private', $storedCopy['visibility']);
+        self::assertTrue((bool) $storedCopy['is_valid']);
+        self::assertSame(1, (int) $this->entityManager->getConnection()->fetchOne(
+            'SELECT copies FROM deck WHERE id = :deckId',
+            ['deckId' => $sourceDeckId],
+        ));
     }
 
     public function testCommunityCardDiscoveryReturnsRelatedPublicDecks(): void
@@ -535,5 +712,17 @@ class CommunityApiTest extends ApiTestCase
         );
 
         return preg_replace('/\s+/', '-', trim($displayName)) ?? '';
+    }
+
+    private function setDeckSocialCounters(string $deckId, int $likes, int $copies): void
+    {
+        $this->entityManager->getConnection()->executeStatement(
+            'UPDATE deck SET likes = :likes, copies = :copies WHERE id = :deckId',
+            [
+                'deckId' => $deckId,
+                'likes' => $likes,
+                'copies' => $copies,
+            ],
+        );
     }
 }

@@ -7,6 +7,7 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
+  Heart,
   History,
   Layers3,
   LucideAngularModule,
@@ -17,11 +18,10 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-angular';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { CommunityApi } from '../../../core/api/community.api';
-import { DecksApi } from '../../../core/api/decks.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
@@ -44,10 +44,77 @@ describe('CommunityDeckDetailPageComponent', () => {
       dispatchEvent: vi.fn(),
     })));
 
-    const decksApi = {
-      quickBuild: vi.fn().mockReturnValue(of({
+    const communityApi = {
+      copyDeck: vi.fn().mockReturnValue(of({
         deck: { id: 'saved-deck', name: 'Readonly Deck', format: 'commander', folderId: null, cards: [] },
-        missing: [],
+        source: { id: 'deck-1', copies: 1 },
+      })),
+      likeDeck: vi.fn().mockReturnValue(of({ deck: { id: 'deck-1', likes: 1, likedByViewer: true } })),
+      deck: vi.fn().mockReturnValue(of({
+        deck: {
+          id: 'deck-1',
+          name: 'Readonly Deck',
+          format: 'commander',
+          valid: true,
+          cropImage: null,
+          commanderName: 'Atraxa, Grand Unifier',
+          colorIdentity: ['W', 'U', 'B', 'G'],
+          updatedAt: '2026-06-26T00:00:00Z',
+          likes: 0,
+          copies: 0,
+          creatorUserId: 'user-1',
+          likedByViewer: false,
+          visibility: 'public',
+          folderId: null,
+          commanders: [{
+            id: 'card-1',
+            scryfallId: 'card-1',
+            name: 'Atraxa, Grand Unifier',
+            manaCost: '{G}{W}{U}{B}',
+            typeLine: 'Legendary Creature',
+            oracleText: null,
+            colors: ['G', 'W', 'U', 'B'],
+            colorIdentity: ['G', 'W', 'U', 'B'],
+            legalities: { commander: 'legal' },
+            imageUris: {},
+            layout: 'normal',
+            commanderLegal: true,
+            set: null,
+            collectorNumber: null,
+          }],
+          cards: [{
+            id: 'deck-card-1',
+            quantity: 1,
+            section: 'commander',
+            card: {
+              id: 'card-1',
+              scryfallId: 'card-1',
+              name: 'Atraxa, Grand Unifier',
+              manaCost: '{G}{W}{U}{B}',
+              typeLine: 'Legendary Creature',
+              oracleText: null,
+              colors: ['G', 'W', 'U', 'B'],
+              colorIdentity: ['G', 'W', 'U', 'B'],
+              legalities: { commander: 'legal' },
+              imageUris: {},
+              layout: 'normal',
+              commanderLegal: true,
+              set: null,
+              collectorNumber: null,
+            },
+          }],
+          sections: {
+            commander: [],
+            main: [],
+            sideboard: [],
+            maybeboard: [],
+          },
+          owner: {
+            id: 'owner-1',
+            displayName: 'Alber',
+            displayNameStyle: { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' },
+          },
+        },
       })),
     };
 
@@ -59,6 +126,7 @@ describe('CommunityDeckDetailPageComponent', () => {
           BarChart3,
           ChevronDown,
           ChevronRight,
+          Heart,
           History,
           Layers3,
           RotateCw,
@@ -70,75 +138,9 @@ describe('CommunityDeckDetailPageComponent', () => {
         })),
         {
           provide: CommunityApi,
-          useValue: {
-            deck: vi.fn().mockReturnValue(of({
-              deck: {
-                id: 'deck-1',
-                name: 'Readonly Deck',
-                format: 'commander',
-                valid: true,
-                cropImage: null,
-                commanderName: 'Atraxa, Grand Unifier',
-                colorIdentity: ['W', 'U', 'B', 'G'],
-                updatedAt: '2026-06-26T00:00:00Z',
-                visibility: 'public',
-                folderId: null,
-                commanders: [{
-                  id: 'card-1',
-                  scryfallId: 'card-1',
-                  name: 'Atraxa, Grand Unifier',
-                  manaCost: '{G}{W}{U}{B}',
-                  typeLine: 'Legendary Creature',
-                  oracleText: null,
-                  colors: ['G', 'W', 'U', 'B'],
-                  colorIdentity: ['G', 'W', 'U', 'B'],
-                  legalities: { commander: 'legal' },
-                  imageUris: {},
-                  layout: 'normal',
-                  commanderLegal: true,
-                  set: null,
-                  collectorNumber: null,
-                }],
-                cards: [{
-                  id: 'deck-card-1',
-                  quantity: 1,
-                  section: 'commander',
-                  card: {
-                    id: 'card-1',
-                    scryfallId: 'card-1',
-                    name: 'Atraxa, Grand Unifier',
-                    manaCost: '{G}{W}{U}{B}',
-                    typeLine: 'Legendary Creature',
-                    oracleText: null,
-                    colors: ['G', 'W', 'U', 'B'],
-                    colorIdentity: ['G', 'W', 'U', 'B'],
-                    legalities: { commander: 'legal' },
-                    imageUris: {},
-                    layout: 'normal',
-                    commanderLegal: true,
-                    set: null,
-                    collectorNumber: null,
-                  },
-                }],
-                sections: {
-                  commander: [],
-                  main: [],
-                  sideboard: [],
-                  maybeboard: [],
-                },
-                owner: {
-                  displayName: 'Alber',
-                  displayNameStyle: { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' },
-                },
-              },
-            })),
-          },
+          useValue: communityApi,
         },
-        {
-          provide: DecksApi,
-          useValue: decksApi,
-        },
-        { provide: AuthStore, useValue: { isAuthenticated: signal(false) } },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(false), user: signal(null) } },
         {
           provide: CardsApi,
           useValue: {
@@ -198,10 +200,19 @@ describe('CommunityDeckDetailPageComponent', () => {
     expect(header?.stats).toBeUndefined();
     expect(header?.actions?.map((action) => action.id)).toEqual([
       'back-to-community-decks',
+      'like-deck',
       'save-deck',
       'export-deck',
       'share-deck',
     ]);
+    const likeAction = header?.actions?.find((action) => action.id === 'like-deck');
+    expect(likeAction?.tone).toBe('danger');
+    expect(likeAction?.counter).toBe(0);
+    expect(likeAction?.counterLabel).toBe('community.deckCard.likes');
+    expect(likeAction?.variant).toBe('secondary');
+    const saveHeaderAction = header?.actions?.find((action) => action.id === 'save-deck');
+    expect(saveHeaderAction?.counter).toBe(0);
+    expect(saveHeaderAction?.counterLabel).toBe('community.deckCard.copies');
     expect(fixture.nativeElement.querySelector('app-deck-card-menu')).toBeNull();
 
     const saveAction = header?.actions?.find((action) => action.id === 'save-deck');
@@ -210,12 +221,12 @@ describe('CommunityDeckDetailPageComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Do you want to save this deck to your deck list?');
-    expect(decksApi.quickBuild).not.toHaveBeenCalled();
+    expect(communityApi.copyDeck).not.toHaveBeenCalled();
 
     const confirmButton = fixture.nativeElement.querySelector('app-modal .modal-panel button.primary-button') as HTMLButtonElement;
     confirmButton.click();
     await vi.waitFor(() => expect(navigateSpy).toHaveBeenCalledWith(['/auth/register']));
-    expect(decksApi.quickBuild).not.toHaveBeenCalled();
+    expect(communityApi.copyDeck).not.toHaveBeenCalled();
   });
 
   it('opens the shared details modal for community deck card actions', async () => {
@@ -260,6 +271,7 @@ describe('CommunityDeckDetailPageComponent', () => {
           BarChart3,
           ChevronDown,
           ChevronRight,
+          Heart,
           History,
           Layers3,
           RotateCw,
@@ -282,6 +294,10 @@ describe('CommunityDeckDetailPageComponent', () => {
                 commanderName: 'Atraxa, Grand Unifier',
                 colorIdentity: ['W', 'U', 'B', 'G'],
                 updatedAt: '2026-06-26T00:00:00Z',
+                likes: 0,
+                copies: 0,
+                creatorUserId: 'user-1',
+                likedByViewer: false,
                 visibility: 'public',
                 folderId: null,
                 commanders: [],
@@ -312,22 +328,15 @@ describe('CommunityDeckDetailPageComponent', () => {
                   sideboard: [],
                   maybeboard: [],
                 },
-                owner: { displayName: 'Alber' },
+                owner: { id: 'owner-1', displayName: 'Alber' },
               },
             })),
-          },
-        },
-        {
-          provide: DecksApi,
-          useValue: {
-            quickBuild: vi.fn().mockReturnValue(of({
-              deck: { id: 'saved-deck', name: 'Readonly Deck', format: 'commander', folderId: null, cards: [] },
-              missing: [],
-            })),
+            copyDeck: vi.fn(),
+            likeDeck: vi.fn(),
           },
         },
         { provide: CardsApi, useValue: cardsApi },
-        { provide: AuthStore, useValue: { isAuthenticated: signal(true) } },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(true), user: signal({ id: 'current-user' }) } },
         {
           provide: DeckFormatsApi,
           useValue: {
@@ -372,6 +381,333 @@ describe('CommunityDeckDetailPageComponent', () => {
     expect(fixture.nativeElement.querySelector('app-card-details-modal')).not.toBeNull();
   });
 
+  it('likes and copies the community deck through CommunityApi actions', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => ({
+      matches: false,
+      media: '',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })));
+
+    const communityApi = {
+      deck: vi.fn().mockReturnValue(of({
+        deck: {
+          id: 'deck-1',
+          name: 'Readonly Deck',
+          format: 'commander',
+          valid: true,
+          cropImage: null,
+          commanderName: null,
+          colorIdentity: [],
+          updatedAt: '2026-06-26T00:00:00Z',
+          likes: 0,
+          copies: 0,
+          creatorUserId: 'owner-1',
+          likedByViewer: false,
+          visibility: 'public',
+          folderId: null,
+          commanders: [],
+          cards: [],
+          sections: {
+            commander: [],
+            main: [],
+            sideboard: [],
+            maybeboard: [],
+          },
+          owner: { id: 'owner-1', displayName: 'Alber' },
+        },
+      })),
+      likeDeck: vi.fn()
+        .mockReturnValueOnce(of({ deck: { id: 'deck-1', likes: 7, likedByViewer: true } }))
+        .mockReturnValueOnce(of({ deck: { id: 'deck-1', likes: 6, likedByViewer: false } })),
+      copyDeck: vi.fn().mockReturnValue(of({
+        deck: { id: 'saved-deck', slug: 'saved-slug', name: 'Readonly Deck', format: 'commander', folderId: null, cards: [] },
+        source: { id: 'deck-1', copies: 3 },
+      })),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [CommunityDeckDetailPageComponent],
+      providers: [
+        provideRouter([]),
+        importProvidersFrom(LucideAngularModule.pick({
+          BarChart3,
+          ChevronDown,
+          ChevronRight,
+          Heart,
+          History,
+          Layers3,
+          RotateCw,
+          SearchX,
+          ShieldCheck,
+          Shuffle,
+          TriangleAlert,
+          X,
+        })),
+        { provide: CommunityApi, useValue: communityApi },
+        {
+          provide: CardsApi,
+          useValue: {
+            get: vi.fn(),
+            printings: vi.fn(),
+          },
+        },
+        {
+          provide: DeckFormatsApi,
+          useValue: {
+            list: vi.fn().mockReturnValue(of({ data: [] })),
+          },
+        },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(true), user: signal({ id: 'current-user' }) } },
+        { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: 'deck-1' }) } },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(CommunityDeckDetailPageComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
+
+    const header = TestBed.inject(PageHeaderStore).state();
+    header?.actions?.find((action) => action.id === 'like-deck')?.execute();
+    await vi.waitFor(() => expect(communityApi.likeDeck).toHaveBeenCalledWith('deck-1'));
+    expect(fixture.componentInstance.deck()?.likes).toBe(7);
+    expect(fixture.componentInstance.deck()?.likedByViewer).toBe(true);
+    await vi.waitFor(() => expect(TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'like-deck')?.counter).toBe(7));
+    expect(TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'like-deck')?.disabled).toBe(false);
+    expect(TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'like-deck')?.variant).toBe('primary');
+
+    TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'like-deck')?.execute();
+    await vi.waitFor(() => expect(communityApi.likeDeck).toHaveBeenCalledTimes(2));
+    expect(fixture.componentInstance.deck()?.likes).toBe(6);
+    expect(fixture.componentInstance.deck()?.likedByViewer).toBe(false);
+    await vi.waitFor(() => expect(TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'like-deck')?.counter).toBe(6));
+    expect(TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'like-deck')?.variant).toBe('secondary');
+
+    await fixture.componentInstance.saveDeck();
+    await vi.waitFor(() => expect(communityApi.copyDeck).toHaveBeenCalledWith('deck-1'));
+    expect(fixture.componentInstance.deck()?.copies).toBe(3);
+    await vi.waitFor(() => expect(TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'save-deck')?.counter).toBe(3));
+    expect(fixture.componentInstance.savedDeckIdentifier()).toBe('saved-slug');
+    expect(fixture.componentInstance.saveSuccessModalOpen()).toBe(true);
+  });
+
+  it('disables like and save when the viewer owns the community deck', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => ({
+      matches: false,
+      media: '',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })));
+
+    const communityApi = {
+      deck: vi.fn().mockReturnValue(of({
+        deck: {
+          id: 'deck-1',
+          name: 'Own Public Deck',
+          format: 'commander',
+          valid: true,
+          cropImage: null,
+          commanderName: null,
+          colorIdentity: [],
+          updatedAt: '2026-06-26T00:00:00Z',
+          likes: 5,
+          copies: 2,
+          creatorUserId: 'current-user',
+          likedByViewer: false,
+          visibility: 'public',
+          folderId: null,
+          commanders: [],
+          cards: [],
+          sections: {
+            commander: [],
+            main: [],
+            sideboard: [],
+            maybeboard: [],
+          },
+          owner: { id: 'current-user', displayName: 'Alber' },
+        },
+      })),
+      likeDeck: vi.fn(),
+      copyDeck: vi.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [CommunityDeckDetailPageComponent],
+      providers: [
+        provideRouter([]),
+        importProvidersFrom(LucideAngularModule.pick({
+          BarChart3,
+          ChevronDown,
+          ChevronRight,
+          Heart,
+          History,
+          Layers3,
+          RotateCw,
+          SearchX,
+          ShieldCheck,
+          Shuffle,
+          TriangleAlert,
+          X,
+        })),
+        { provide: CommunityApi, useValue: communityApi },
+        {
+          provide: CardsApi,
+          useValue: {
+            get: vi.fn(),
+            printings: vi.fn(),
+          },
+        },
+        {
+          provide: DeckFormatsApi,
+          useValue: {
+            list: vi.fn().mockReturnValue(of({ data: [] })),
+          },
+        },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(true), user: signal({ id: 'current-user' }) } },
+        { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: 'deck-1' }) } },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(CommunityDeckDetailPageComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
+
+    const header = TestBed.inject(PageHeaderStore).state();
+    const likeAction = header?.actions?.find((action) => action.id === 'like-deck');
+    const saveAction = header?.actions?.find((action) => action.id === 'save-deck');
+    expect(likeAction?.disabled).toBe(true);
+    expect(saveAction?.disabled).toBe(true);
+    expect(header?.sharedByLabel).toBe('This deck is yours.');
+    expect(header?.sharedByOwnDeck).toBe(true);
+
+    likeAction?.execute();
+    saveAction?.execute();
+
+    expect(communityApi.likeDeck).not.toHaveBeenCalled();
+    expect(communityApi.copyDeck).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.saveConfirmationModalOpen()).toBe(false);
+  });
+
+  it('optimistically removes an existing like while the unlike request is pending', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => ({
+      matches: false,
+      media: '',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })));
+
+    const likeResponse = new Subject<{ deck: { id: string; likes: number; likedByViewer: boolean } }>();
+    const communityApi = {
+      deck: vi.fn().mockReturnValue(of({
+        deck: {
+          id: 'deck-1',
+          name: 'Liked Deck',
+          format: 'commander',
+          valid: true,
+          cropImage: null,
+          commanderName: null,
+          colorIdentity: [],
+          updatedAt: '2026-06-26T00:00:00Z',
+          likes: 4,
+          copies: 0,
+          creatorUserId: 'owner-1',
+          likedByViewer: true,
+          visibility: 'public',
+          folderId: null,
+          commanders: [],
+          cards: [],
+          sections: {
+            commander: [],
+            main: [],
+            sideboard: [],
+            maybeboard: [],
+          },
+          owner: { id: 'owner-1', displayName: 'Alber' },
+        },
+      })),
+      likeDeck: vi.fn().mockReturnValue(likeResponse.asObservable()),
+      copyDeck: vi.fn(),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [CommunityDeckDetailPageComponent],
+      providers: [
+        provideRouter([]),
+        importProvidersFrom(LucideAngularModule.pick({
+          BarChart3,
+          ChevronDown,
+          ChevronRight,
+          Heart,
+          History,
+          Layers3,
+          RotateCw,
+          SearchX,
+          ShieldCheck,
+          Shuffle,
+          TriangleAlert,
+          X,
+        })),
+        { provide: CommunityApi, useValue: communityApi },
+        {
+          provide: CardsApi,
+          useValue: {
+            get: vi.fn(),
+            printings: vi.fn(),
+          },
+        },
+        {
+          provide: DeckFormatsApi,
+          useValue: {
+            list: vi.fn().mockReturnValue(of({ data: [] })),
+          },
+        },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(true), user: signal({ id: 'current-user' }) } },
+        { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: 'deck-1' }) } },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(CommunityDeckDetailPageComponent);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
+
+    expect(TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'like-deck')?.variant).toBe('primary');
+
+    TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'like-deck')?.execute();
+
+    await vi.waitFor(() => expect(communityApi.likeDeck).toHaveBeenCalledWith('deck-1'));
+    expect(fixture.componentInstance.deck()?.likedByViewer).toBe(false);
+    expect(fixture.componentInstance.deck()?.likes).toBe(3);
+    await vi.waitFor(() => expect(TestBed.inject(PageHeaderStore).state()?.actions?.find((action) => action.id === 'like-deck')?.variant).toBe('secondary'));
+
+    likeResponse.next({ deck: { id: 'deck-1', likes: 3, likedByViewer: false } });
+    likeResponse.complete();
+    await vi.waitFor(() => expect(fixture.componentInstance.liking()).toBe(false));
+  });
+
   it('navigates to the not found page when the community deck is missing', async () => {
     vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => ({
       matches: false,
@@ -392,6 +728,7 @@ describe('CommunityDeckDetailPageComponent', () => {
           BarChart3,
           ChevronDown,
           ChevronRight,
+          Heart,
           History,
           Layers3,
           RotateCw,
@@ -405,6 +742,8 @@ describe('CommunityDeckDetailPageComponent', () => {
           provide: CommunityApi,
           useValue: {
             deck: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 }))),
+            copyDeck: vi.fn(),
+            likeDeck: vi.fn(),
           },
         },
         {
@@ -414,19 +753,13 @@ describe('CommunityDeckDetailPageComponent', () => {
           },
         },
         {
-          provide: DecksApi,
-          useValue: {
-            quickBuild: vi.fn(),
-          },
-        },
-        {
           provide: CardsApi,
           useValue: {
             get: vi.fn(),
             printings: vi.fn(),
           },
         },
-        { provide: AuthStore, useValue: { isAuthenticated: signal(false) } },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(false), user: signal(null) } },
         { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
         {
           provide: ActivatedRoute,

@@ -15,6 +15,9 @@ export interface CommunityDeckSummary {
   commanderName: string | null;
   colorIdentity: string[];
   updatedAt: string;
+  likes: number;
+  copies: number;
+  creatorUserId: string;
 }
 
 export interface CommunityDeckOwner {
@@ -42,6 +45,7 @@ export interface CommunityDeckDetail extends CommunityDeckSummary {
   cards: DeckCard[];
   sections: CommunityDeckSections;
   owner: CommunityDeckOwner;
+  likedByViewer: boolean;
 }
 
 export interface CommunityHome {
@@ -103,6 +107,9 @@ export function toDeckCardListItem(summary: CommunityDeckSummary): Deck {
     format: summary.format,
     valid: summary.valid,
     visibility: 'public',
+    creatorUserId: summary.creatorUserId,
+    likes: summary.likes,
+    copies: summary.copies,
     folderId: null,
     cards: [],
   };

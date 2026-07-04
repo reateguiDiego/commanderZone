@@ -1,10 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnDestroy, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { DecksApi, DeckCardMutationPayload } from '../../../core/api/decks.api';
+import { CommunityApi } from '../../../core/api/community.api';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { Card } from '../../../core/models/card.model';
 import { AddCardToDeckModalComponent } from '../../../shared/components/add-card-to-deck-modal/add-card-to-deck-modal.component';
@@ -66,8 +66,8 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly cache = inject(CommunityCacheService);
+  private readonly communityApi = inject(CommunityApi);
   private readonly cardsApi = inject(CardsApi);
-  private readonly decksApi = inject(DecksApi);
   private readonly notFoundNavigation = inject(NotFoundNavigationService);
   private readonly seo = inject(DynamicPublicSeoService);
   readonly auth = inject(AuthStore);
@@ -77,11 +77,12 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   private readonly deckId = this.route.snapshot.paramMap.get('id');
   private copiedShareHandle?: number;
 
-  readonly deck = signal<CommunityDeckDetail | null>(this.deckId ? (this.cache.peekDeck(this.deckId)?.deck ?? null) : null);
-  readonly loading = signal(this.deck() === null);
+  readonly deck = signal<CommunityDeckDetail | null>(null);
+  readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly actionError = signal<string | null>(null);
   readonly saving = signal(false);
+  readonly liking = signal(false);
   readonly shareCopied = signal(false);
   readonly saveConfirmationModalOpen = signal(false);
   readonly saveSuccessModalOpen = signal(false);
@@ -89,6 +90,12 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   readonly addToDeckCard = signal<Card | null>(null);
   readonly detailsDialog = signal<CardDetailsDialogState | null>(null);
   readonly printingsDialog = signal<CardPrintingsDialogState | null>(null);
+  readonly viewerOwnsDeck = computed(() => {
+    const ownerId = this.deck()?.owner.id ?? null;
+    const viewerId = this.auth.user()?.id ?? null;
+
+    return ownerId !== null && viewerId !== null && ownerId === viewerId;
+  });
   constructor() {
     this.seo.apply({
       path: `/community/decks/${this.deckId ?? ''}/`,
@@ -99,6 +106,8 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
     effect(() => {
       const deck = this.deck();
       const saving = this.saving();
+      const liking = this.liking();
+      const viewerOwnsDeck = this.viewerOwnsDeck();
       if (deck) {
         this.deckViewerStore.setDeck(deck);
       }
@@ -116,16 +125,37 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
             canonicalPath: deck.owner.canonicalPath ?? null,
           }
           : null,
+        sharedByLabel: viewerOwnsDeck
+          ? 'community.detail.readonly.ownDeck'
+          : 'community.detail.readonly.historyOwner',
+        sharedByOwnDeck: viewerOwnsDeck,
         actions: [
           this.backToCommunityDecksAction(),
           ...(deck
             ? [
               {
+                id: 'like-deck',
+                label: 'community.detail.like',
+                icon: 'heart',
+                iconOnly: true,
+                tooltip: 'community.detail.like',
+                disabled: liking || viewerOwnsDeck,
+                tone: 'danger' as const,
+                counter: deck.likes,
+                counterLabel: 'community.deckCard.likes',
+                variant: deck.likedByViewer ? 'primary' as const : 'secondary' as const,
+                execute: () => {
+                  void this.likeDeck();
+                },
+              },
+              {
                 id: 'save-deck',
                 label: 'community.detail.save',
                 icon: 'save',
                 tooltip: 'community.detail.save',
-                disabled: saving,
+                disabled: saving || viewerOwnsDeck,
+                counter: deck.copies,
+                counterLabel: 'community.deckCard.copies',
                 variant: 'primary' as const,
                 execute: () => {
                   this.openSaveConfirmation();
@@ -176,13 +206,6 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   }
 
   private async load(): Promise<void> {
-    const cachedDeck = this.deck();
-    if (cachedDeck !== null) {
-      this.applyDeckSeo(cachedDeck);
-      this.loading.set(false);
-      return;
-    }
-
     this.loading.set(true);
     this.error.set(null);
     const id = this.deckId;
@@ -235,7 +258,7 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   }
 
   openSaveConfirmation(): void {
-    if (!this.deck() || this.saving()) {
+    if (!this.deck() || this.saving() || this.viewerOwnsDeck()) {
       return;
     }
 
@@ -259,25 +282,60 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
 
   async saveDeck(): Promise<void> {
     const deck = this.deck();
-    if (!deck || this.saving()) {
+    if (!deck || this.saving() || this.viewerOwnsDeck()) {
       return;
     }
 
     this.actionError.set(null);
     this.saving.set(true);
     try {
-      const response = await firstValueFrom(this.decksApi.quickBuild({
-        name: deck.name,
-        format: deck.format,
-        visibility: 'private',
-        cards: this.buildCloneCards(deck),
-      }));
+      const response = await firstValueFrom(this.communityApi.copyDeck(deck.id));
+      this.deck.update((current) => current ? { ...current, copies: response.source.copies } : current);
       this.savedDeckIdentifier.set(deckEditorIdentifier(response.deck));
       this.saveSuccessModalOpen.set(true);
     } catch {
       this.actionError.set('community.detail.saveError');
     } finally {
       this.saving.set(false);
+    }
+  }
+
+  async likeDeck(): Promise<void> {
+    const deck = this.deck();
+    if (!deck || this.liking() || this.viewerOwnsDeck()) {
+      return;
+    }
+
+    if (!this.auth.isAuthenticated()) {
+      await this.router.navigate(['/auth/register']);
+      return;
+    }
+
+    this.actionError.set(null);
+    const nextLikedByViewer = !deck.likedByViewer;
+    const nextLikes = Math.max(0, deck.likes + (nextLikedByViewer ? 1 : -1));
+    this.liking.set(true);
+    this.deck.update((current) => current ? {
+      ...current,
+      likes: nextLikes,
+      likedByViewer: nextLikedByViewer,
+    } : current);
+    try {
+      const response = await firstValueFrom(this.communityApi.likeDeck(deck.id));
+      this.deck.update((current) => current ? {
+        ...current,
+        likes: response.deck.likes,
+        likedByViewer: response.deck.likedByViewer,
+      } : current);
+    } catch {
+      this.deck.update((current) => current ? {
+        ...current,
+        likes: deck.likes,
+        likedByViewer: deck.likedByViewer,
+      } : current);
+      this.actionError.set('community.detail.likeError');
+    } finally {
+      this.liking.set(false);
     }
   }
 
@@ -349,14 +407,6 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
     } catch {
       this.actionError.set('community.detail.shareError');
     }
-  }
-
-  private buildCloneCards(deck: CommunityDeckDetail): DeckCardMutationPayload[] {
-    return (deck.cards ?? []).map((entry) => ({
-      scryfallId: entry.card.scryfallId,
-      quantity: entry.quantity,
-      section: entry.section,
-    }));
   }
 
   private async openDetails(scryfallId: string, name: string): Promise<void> {

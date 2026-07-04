@@ -1,7 +1,7 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { ChevronRight, Globe, LucideAngularModule, Search, Sparkles, Trophy } from 'lucide-angular';
+import { ChevronRight, Copy, Globe, Heart, LucideAngularModule, Search, Sparkles, Trophy } from 'lucide-angular';
 import { of } from 'rxjs';
 import { CommunityApi } from '../../../core/api/community.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
@@ -19,7 +19,7 @@ describe('CommunityPageComponent', () => {
       imports: [CommunityPageComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronRight, Globe, Search, Sparkles, Trophy })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronRight, Copy, Globe, Heart, Search, Sparkles, Trophy })),
         {
           provide: CommunityApi,
           useValue: {
@@ -45,6 +45,9 @@ describe('CommunityPageComponent', () => {
                 commanderName: 'Atraxa, Grand Unifier',
                 colorIdentity: ['W', 'U', 'B', 'G'],
                 updatedAt: '2026-06-26T00:00:00Z',
+                likes: index,
+                copies: index + 1,
+                creatorUserId: 'user-1',
               })),
             })),
           },
