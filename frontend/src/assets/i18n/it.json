@@ -427,6 +427,8 @@
       },
       "error": "Impossibile caricare il mazzo della community.",
       "headerTitle": "Mazzo della community",
+      "like": "Mi piace",
+      "likeError": "Impossibile mettere Mi piace a questo mazzo.",
       "missingId": "ID del mazzo della community mancante.",
       "save": "Salva",
       "saveError": "Impossibile salvare questo mazzo nell'elenco dei mazzi.",
@@ -440,8 +442,13 @@
           "error": "Errore",
           "warning": "Avvertimento"
         },
-        "historyOwner": "Condiviso da"
+        "historyOwner": "Condiviso da",
+        "ownDeck": "Questo deck è tuo."
       }
+    },
+    "deckCard": {
+      "likes": "Mi piace: {{ count }}",
+      "copies": "Copie: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "I primi 3 comandanti",

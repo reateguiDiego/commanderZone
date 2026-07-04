@@ -427,6 +427,8 @@
       },
       "error": "コミュニティデッキを読み込めませんでした。",
       "headerTitle": "コミュニティデッキ",
+      "like": "デッキにいいね",
+      "likeError": "このデッキにいいねできませんでした。",
       "missingId": "コミュニティデッキIDがありません。",
       "save": "保存",
       "saveError": "このデッキをデッキリストに保存できませんでした。",
@@ -440,8 +442,13 @@
           "error": "エラー",
           "warning": "警告"
         },
-        "historyOwner": "共有者"
+        "historyOwner": "共有者",
+        "ownDeck": "このデッキはあなたのものです。"
       }
+    },
+    "deckCard": {
+      "likes": "いいね数: {{ count }}",
+      "copies": "コピー数: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "トップ3の統率者",

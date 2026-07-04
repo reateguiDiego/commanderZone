@@ -40,17 +40,14 @@
 
   <div class="player-summary">
     <div class="player-identity">
-      <app-player-avatar
-        class="player-avatar"
+      <app-player-info
         [displayName]="player.user.displayName"
         [avatar]="player.user.avatar"
-        size="md"
-      />
-      <app-player-name
-        [displayName]="player.user.displayName"
         [nameStyle]="player.user.displayNameStyle"
-        size="lg"
-        plateSize="sm"
+        [profileUserId]="player.user.id"
+        [profileUsername]="player.user.publicHandle"
+        [profileCanonicalPath]="player.user.publicPath"
+        size="md"
       />
     </div>
 

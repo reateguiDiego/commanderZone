@@ -88,7 +88,7 @@ function assertCommunitySitemap(xml) {
 function assertDynamicCommunityIndexFallback(index) {
   const dynamicPaths = index.paths.filter((entry) =>
     entry.path.startsWith('/community/decks/')
-    || entry.path.startsWith('/community/profiles/')
+    || entry.path.startsWith('/community/users/')
     || entry.path.startsWith('/community/commanders/')
     || entry.path.startsWith('/community/cards/')
   );

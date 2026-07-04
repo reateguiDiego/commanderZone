@@ -12,25 +12,30 @@
       <img [src]="themeAssets.czLogoUrl()" [alt]="'common.app.brand' | runtimeTranslate" />
     </span>
   } @else if (interactive()) {
-    <button class="player-info-action player-info-avatar-action is-clickable" type="button" (click)="avatarSelected.emit($event)">
-      <app-player-avatar
-        class="player-info-avatar"
-        [displayName]="displayName()"
-        [avatar]="avatar()"
-        [size]="sizeConfig().avatarSize"
-      />
-    </button>
-    <button class="player-info-action player-info-name-action is-clickable" type="button" (click)="nameSelected.emit($event)">
-      <app-player-name
-        [displayName]="displayName()"
-        [nameStyle]="nameStyle()"
-        [size]="sizeConfig().nameSize"
-        [plateSize]="sizeConfig().plateSize"
-        [fill]="true"
-        tooltipMode="shared"
-        align="left"
-      />
-    </button>
+    <app-tooltip class="player-info-profile-tooltip" [text]="profileNavigationTooltip()" [stretch]="true">
+      <button class="player-info-action player-info-avatar-action is-clickable" type="button" (click)="handleAvatarSelected($event)">
+        <app-player-avatar
+          class="player-info-avatar"
+          [displayName]="displayName()"
+          [avatar]="avatar()"
+          [size]="sizeConfig().avatarSize"
+        />
+      </button>
+      <button class="player-info-action player-info-name-action is-clickable" type="button" (click)="handleNameSelected($event)">
+        <app-player-name
+          [displayName]="displayName()"
+          [nameStyle]="nameStyle()"
+          [size]="sizeConfig().nameSize"
+          [plateSize]="sizeConfig().plateSize"
+          [fill]="true"
+          tooltipMode="shared"
+          align="left"
+          [profileUserId]="profileUserId()"
+          [profileUsername]="profileUsername()"
+          [profileCanonicalPath]="profileCanonicalPath()"
+        />
+      </button>
+    </app-tooltip>
   } @else {
     <span class="player-info-action player-info-avatar-action">
       <app-player-avatar
@@ -49,6 +54,9 @@
         [fill]="true"
         tooltipMode="shared"
         align="left"
+        [profileUserId]="profileUserId()"
+        [profileUsername]="profileUsername()"
+        [profileCanonicalPath]="profileCanonicalPath()"
       />
     </span>
   }

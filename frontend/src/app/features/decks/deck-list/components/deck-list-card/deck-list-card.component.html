@@ -41,6 +41,19 @@
     }
   </div>
 
+  @if (showMetrics()) {
+    <div class="deck-card-metrics" [class.owner-metrics]="metricsMode() === 'owner'">
+      <span class="deck-card-metric deck-card-metric-likes" [attr.aria-label]="'community.deckCard.likes' | runtimeTranslate: { count: likes() }">
+        <lucide-icon name="heart" size="14" aria-hidden="true" />
+        <span>{{ likes() }}</span>
+      </span>
+      <span class="deck-card-metric deck-card-metric-copies" [attr.aria-label]="'community.deckCard.copies' | runtimeTranslate: { count: copies() }">
+        <lucide-icon name="copy" size="14" aria-hidden="true" />
+        <span>{{ copies() }}</span>
+      </span>
+    </div>
+  }
+
   <div class="deck-card-footer">
     <app-tooltip [text]="visibilityLabelKey(deck().visibility) | runtimeTranslate">
       <span

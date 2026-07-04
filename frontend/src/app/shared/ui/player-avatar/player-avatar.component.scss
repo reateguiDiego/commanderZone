@@ -23,8 +23,7 @@
     var(--avatar-bg);
   box-shadow: var(
     --player-avatar-shadow,
-    0 0 0 3px rgb(6 7 5 / 76%),
-    0 0.8rem 1.9rem rgb(0 0 0 / 34%)
+    0 0 0 3px rgb(6 7 5 / 76%)
   );
 }
 
@@ -47,9 +46,7 @@
     rgb(5 6 4);
   box-shadow:
     0 0 0 3px rgb(4 5 3 / 82%),
-    0 0 0 4px rgb(229 182 74 / 26%),
-    0 0.85rem 2rem rgb(0 0 0 / 42%),
-    0 0 1.35rem rgb(224 176 61 / 22%);
+    0 0 0 4px rgb(229 182 74 / 26%);
 }
 
 .player-avatar-shell.premium::before {

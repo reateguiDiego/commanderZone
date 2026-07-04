@@ -162,6 +162,7 @@
       <label class="search-field">
         <span class="visually-hidden">{{ 'navigation.friends.friendsDropdown.findUsers' | runtimeTranslate }}</span>
         <input
+          appFriendSearchAutofocus
           name="friendSearch"
           [placeholder]="'navigation.friends.friendsDropdown.searchPlayers' | runtimeTranslate"
           autocomplete="off"
@@ -181,8 +182,10 @@
                 class="friend-player-info"
                 [displayName]="result.displayName"
                 [nameStyle]="result.displayNameStyle"
+                [profileUserId]="result.id"
+                [profileUsername]="result.username"
+                [profileCanonicalPath]="result.canonicalPath"
                 size="xs"
-                [interactive]="false"
               />
               <span class="row-marker search-marker"></span>
             </span>

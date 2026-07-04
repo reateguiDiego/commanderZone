@@ -2,10 +2,10 @@ import { signal } from '@angular/core';
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { Hammer, LucideAngularModule, MoveDown, MoveUp, Send } from 'lucide-angular';
+import { Eye, Hammer, LucideAngularModule, MoveDown, MoveUp, Send } from 'lucide-angular';
 import { of } from 'rxjs';
 import { AuthStore } from '../../../../core/auth/auth.store';
-import { ROLE_ADMIN, ROLE_OWNER, ROLE_USER } from '../../../../core/auth/user-roles';
+import { ROLE_ADMIN, ROLE_OWNER, ROLE_SUPPORT, ROLE_USER } from '../../../../core/auth/user-roles';
 import { User } from '../../../../core/models/user.model';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
 import { AdminUser } from '../../data-access/admin-users.models';
@@ -24,13 +24,23 @@ describe('AdminUsersPanelComponent', () => {
   let api: AdminUsersApiMock;
   let fixture: ComponentFixture<AdminUsersPanelComponent>;
   let navigate: ReturnType<typeof vi.fn>;
+  let navigateByUrl: ReturnType<typeof vi.fn>;
   let startImpersonation: ReturnType<typeof vi.fn>;
   const currentAuthUser = signal<User>(authUser('owner-actor', [ROLE_USER, ROLE_OWNER]));
 
   const user: AdminUser = {
     id: 'user-1',
     displayName: 'CommanderZone',
+    publicProfilePath: '/community/users/CommanderZone',
     email: 'cz@test.com',
+    authIdentities: [{
+      provider: 'GOOGLE',
+      providerUserId: 'google-user-1',
+      providerEmail: 'google-cz@test.com',
+      providerEmailVerified: true,
+      createdAt: '2026-06-30T10:00:00+00:00',
+      lastUsedAt: '2026-07-01T09:00:00+00:00',
+    }],
     roles: [ROLE_USER],
     authorizationRole: ROLE_USER,
     premiumTier: 'none',
@@ -44,7 +54,9 @@ describe('AdminUsersPanelComponent', () => {
   const adminUser: AdminUser = {
     id: 'user-2',
     displayName: 'Admin Tester',
+    publicProfilePath: '/community/users/Admin-Tester',
     email: 'admin@test.com',
+    authIdentities: [],
     roles: [ROLE_USER, ROLE_ADMIN],
     authorizationRole: ROLE_ADMIN,
     premiumTier: 'tier2',
@@ -55,10 +67,28 @@ describe('AdminUsersPanelComponent', () => {
     activeSessionsCount: 0,
     createdAt: '2026-06-29T11:00:00+00:00',
   };
+  const supportUser: AdminUser = {
+    id: 'user-support',
+    displayName: 'Support Tester',
+    publicProfilePath: '/community/users/Support-Tester',
+    email: 'support@test.com',
+    authIdentities: [],
+    roles: [ROLE_USER, ROLE_SUPPORT],
+    authorizationRole: ROLE_SUPPORT,
+    premiumTier: 'none',
+    lastConnectedAt: null,
+    presenceStatus: 'offline',
+    isOnline: false,
+    activeRoomsCount: 0,
+    activeSessionsCount: 0,
+    createdAt: '2026-06-29T10:00:00+00:00',
+  };
   const ownerSelf: AdminUser = {
     id: 'owner-actor',
     displayName: 'Owner Self',
+    publicProfilePath: '/community/users/Owner-Self',
     email: 'owner@test.com',
+    authIdentities: [],
     roles: [ROLE_USER, ROLE_OWNER],
     authorizationRole: ROLE_OWNER,
     premiumTier: 'tier1',
@@ -72,7 +102,9 @@ describe('AdminUsersPanelComponent', () => {
   const ownerPeer: AdminUser = {
     id: 'owner-peer',
     displayName: 'Owner Peer',
+    publicProfilePath: '/community/users/Owner-Peer',
     email: 'owner-peer@test.com',
+    authIdentities: [],
     roles: [ROLE_USER, ROLE_OWNER],
     authorizationRole: ROLE_OWNER,
     premiumTier: 'tier3',
@@ -97,21 +129,22 @@ describe('AdminUsersPanelComponent', () => {
           targetUserId: user.id,
         },
       })),
-      listUsers: vi.fn().mockReturnValue(of({ users: [user, adminUser, ownerSelf, ownerPeer] })),
+      listUsers: vi.fn().mockReturnValue(of({ users: [user, adminUser, supportUser, ownerSelf, ownerPeer] })),
       removeFromRooms: vi.fn().mockReturnValue(of({ user })),
       revokeSessions: vi.fn().mockReturnValue(of({ user })),
       updateUser: vi.fn().mockReturnValue(of({ user: { ...user, authorizationRole: ROLE_ADMIN, roles: [ROLE_USER, ROLE_ADMIN] } })),
     };
     navigate = vi.fn().mockResolvedValue(true);
+    navigateByUrl = vi.fn().mockResolvedValue(true);
     startImpersonation = vi.fn();
 
     await TestBed.configureTestingModule({
       imports: [AdminUsersPanelComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Hammer, MoveDown, MoveUp, Send })),
+        importProvidersFrom(LucideAngularModule.pick({ Eye, Hammer, MoveDown, MoveUp, Send })),
         { provide: AdminUsersApi, useValue: api },
         { provide: AuthStore, useValue: { user: currentAuthUser.asReadonly(), startImpersonation } },
-        { provide: Router, useValue: { navigate } },
+        { provide: Router, useValue: { navigate, navigateByUrl } },
       ],
     }).compileComponents();
 
@@ -125,10 +158,14 @@ describe('AdminUsersPanelComponent', () => {
     expect(api.listUsers).toHaveBeenCalled();
     expect(element.textContent).toContain('CommanderZone');
     expect(element.textContent).toContain('cz@test.com');
+    expect(element.textContent).toContain('GOOGLE');
+    expect(element.textContent).toContain('google-cz@test.com');
+    expect(element.textContent).toContain('google-user-1');
+    expect(element.textContent).toContain('Verified');
     expect(element.textContent).toContain('Online');
     expect(element.textContent).toContain('1 active session(s)');
     expect(element.textContent).toContain('2 active room(s)');
-    expect(summaryValue(fixture, 'Total users')).toBe('4');
+    expect(summaryValue(fixture, 'Total users')).toBe('5');
     expect(summaryValue(fixture, 'Online')).toBe('2');
     expect(summaryValue(fixture, 'Tier 1')).toBe('1');
     expect(summaryValue(fixture, 'Tier 2')).toBe('1');
@@ -147,7 +184,7 @@ describe('AdminUsersPanelComponent', () => {
   it('does not expose owner as an assignable role in the role select', () => {
     const options = openFormatSelectOptions(fixture, 'authorizationRole');
 
-    expect(options.map((option) => option.textContent?.trim())).toEqual(['User', 'Admin']);
+    expect(options.map((option) => option.textContent?.trim())).toEqual(['User', 'Support', 'Admin']);
   });
 
   it('asks for confirmation before updating premium tier from the premium select', () => {
@@ -214,6 +251,16 @@ describe('AdminUsersPanelComponent', () => {
     expect(sendMessageSpy).toHaveBeenCalledWith({ id: 'user-1', name: 'CommanderZone' });
   });
 
+  it('opens the selected user public profile in a new tab from the view action', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    buttonByLabel(fixture, 'View profile for CommanderZone')?.click();
+    fixture.detectChanges();
+
+    expect(openSpy).toHaveBeenCalledWith('/community/users/CommanderZone', '_blank', 'noopener');
+    openSpy.mockRestore();
+  });
+
   it('asks for confirmation before impersonating a lower-role user', () => {
     buttonByLabel(fixture, 'Impersonate CommanderZone')?.click();
     fixture.detectChanges();
@@ -262,16 +309,40 @@ describe('AdminUsersPanelComponent', () => {
     fixture.detectChanges();
 
     const userRow = rowContaining(fixture, 'CommanderZone');
+    const supportRow = rowContaining(fixture, 'Support Tester');
     const adminRow = rowContaining(fixture, 'Admin Tester');
 
     expect(formatSelectTriggerIn(userRow, 'authorizationRole')?.disabled).toBe(true);
     expect(formatSelectTriggerIn(userRow, 'premiumTier')?.disabled).toBe(false);
     expect(buttonIn(userRow, 'Delete')?.disabled).toBe(false);
-    expect(buttonByLabelIn(userRow, 'Impersonate CommanderZone')?.disabled).toBe(true);
+    expect(buttonByLabelIn(userRow, 'Impersonate CommanderZone')?.disabled).toBe(false);
+
+    expect(formatSelectTriggerIn(supportRow, 'authorizationRole')?.disabled).toBe(true);
+    expect(formatSelectTriggerIn(supportRow, 'premiumTier')?.disabled).toBe(false);
+    expect(buttonIn(supportRow, 'Delete')?.disabled).toBe(false);
+    expect(buttonByLabelIn(supportRow, 'Impersonate Support Tester')?.disabled).toBe(false);
 
     expect(formatSelectTriggerIn(adminRow, 'authorizationRole')?.disabled).toBe(true);
     expect(formatSelectTriggerIn(adminRow, 'premiumTier')?.disabled).toBe(true);
     expect(buttonIn(adminRow, 'Delete')?.disabled).toBe(true);
+    expect(buttonByLabelIn(adminRow, 'Impersonate Admin Tester')?.disabled).toBe(true);
+  });
+
+  it('lets support impersonate only regular users without exposing management actions', () => {
+    currentAuthUser.set(authUser('support-actor', [ROLE_USER, ROLE_SUPPORT]));
+    fixture.detectChanges();
+
+    const userRow = rowContaining(fixture, 'CommanderZone');
+    const supportRow = rowContaining(fixture, 'Support Tester');
+    const adminRow = rowContaining(fixture, 'Admin Tester');
+
+    expect(formatSelectTriggerIn(userRow, 'authorizationRole')?.disabled).toBe(true);
+    expect(formatSelectTriggerIn(userRow, 'premiumTier')?.disabled).toBe(true);
+    expect(buttonIn(userRow, 'Delete')?.disabled).toBe(true);
+    expect(buttonByLabelIn(userRow, 'Impersonate CommanderZone')?.disabled).toBe(false);
+
+    expect(buttonByLabelIn(supportRow, 'Impersonate Support Tester')?.disabled).toBe(true);
+    expect(buttonByLabelIn(adminRow, 'Impersonate Admin Tester')?.disabled).toBe(true);
   });
 });
 
@@ -356,7 +427,9 @@ function pagedUser(index: number): AdminUser {
   return {
     id: `paged-user-${index}`,
     displayName: `Paged User ${index}`,
+    publicProfilePath: `/community/users/Paged-User-${index}`,
     email: `paged-${index}@test.com`,
+    authIdentities: [],
     roles: [ROLE_USER],
     authorizationRole: ROLE_USER,
     premiumTier: 'none',

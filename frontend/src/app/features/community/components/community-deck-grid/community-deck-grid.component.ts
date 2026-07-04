@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { CommunityDeckSummary, toDeckCardListItem } from '../../../../core/models/community.model';
 import { DeckListCardComponent } from '../../../decks/deck-list/components/deck-list-card/deck-list-card.component';
 import { communityDeckRoute } from '../../utils/community-deck-route';
 
 @Component({
   selector: 'app-community-deck-grid',
-  imports: [DeckListCardComponent],
+  imports: [DeckListCardComponent, LucideAngularModule, RuntimeTranslatePipe],
   templateUrl: './community-deck-grid.component.html',
   styleUrl: './community-deck-grid.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

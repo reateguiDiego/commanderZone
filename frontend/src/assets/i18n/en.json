@@ -427,6 +427,8 @@
       },
       "error": "Could not load Community deck.",
       "headerTitle": "Community deck",
+      "like": "Like deck",
+      "likeError": "Could not like this deck.",
       "missingId": "Missing Community deck id.",
       "save": "Save",
       "saveError": "Could not save this deck to your deck list.",
@@ -440,8 +442,13 @@
           "error": "Error",
           "warning": "Warning"
         },
-        "historyOwner": "Shared by"
+        "historyOwner": "Shared by",
+        "ownDeck": "This deck is yours."
       }
+    },
+    "deckCard": {
+      "likes": "Likes: {{ count }}",
+      "copies": "Copies: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "Top 3 commanders",

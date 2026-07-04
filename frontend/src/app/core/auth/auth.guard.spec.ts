@@ -46,8 +46,8 @@ describe('auth guards', () => {
     expect(result).toEqual(TestBed.inject(Router).parseUrl('/dashboard'));
   });
 
-  it('allows admin and owner users to access admin routes', async () => {
-    for (const roles of [['ROLE_ADMIN'], ['ROLE_OWNER']]) {
+  it('allows support, admin and owner users to access admin routes', async () => {
+    for (const roles of [['ROLE_SUPPORT'], ['ROLE_ADMIN'], ['ROLE_OWNER']]) {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
         providers: [

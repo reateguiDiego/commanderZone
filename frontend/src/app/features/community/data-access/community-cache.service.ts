@@ -88,7 +88,7 @@ export class CommunityCacheService {
   }
 
   deck(id: string): Promise<CommunityDeckDetailResponse> {
-    return this.load(`deck:${id}`, () => this.api.deck(id));
+    return this.refresh(`deck:${id}`, () => this.api.deck(id));
   }
 
   preview(kind: 'commanders' | 'cards', filters: CommunityPreviewFilters = {}): Promise<CommunityPreviewCardsResponse> {
@@ -197,6 +197,16 @@ export class CommunityCacheService {
     });
 
     return pending;
+  }
+
+  private async refresh<T>(key: string, request: () => Observable<T> | Promise<T>): Promise<T> {
+    const value = await this.resolveValue(request());
+    this.cache.set(key, {
+      value,
+      expiresAt: Date.now() + COMMUNITY_CACHE_TTL_MS,
+    });
+
+    return value;
   }
 
   private decksKey(filters: CommunityDeckListFilters): string {

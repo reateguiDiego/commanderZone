@@ -29,7 +29,7 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'community/decks/:id', renderMode: RenderMode.Server },
   { path: 'community/top-commanders', renderMode: RenderMode.Prerender },
   { path: 'community/top-cards', renderMode: RenderMode.Prerender },
-  { path: 'community/profiles/:handle', renderMode: RenderMode.Prerender },
+  { path: 'community/users/:username', renderMode: RenderMode.Prerender },
   { path: 'community/commanders/:slug', renderMode: RenderMode.Prerender },
   { path: 'community/cards/:slug', renderMode: RenderMode.Prerender },
   { path: 'decks', renderMode: RenderMode.Client },

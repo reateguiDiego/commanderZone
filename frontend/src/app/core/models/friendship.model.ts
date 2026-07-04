@@ -23,6 +23,8 @@ export interface Friendship {
 
 export interface FriendSearchResult {
   id: string;
+  username: string;
+  canonicalPath: string;
   displayName: string;
   displayNameStyle?: UserDisplayNameStyle;
   friendshipStatus: FriendshipStatus | null;

@@ -9,6 +9,7 @@ import {
   AuthorizationRole,
   ROLE_ADMIN,
   ROLE_OWNER,
+  ROLE_SUPPORT,
   ROLE_USER,
   authorizationRoleFor,
   isLowerAuthorizationRole,
@@ -19,7 +20,7 @@ import { AppModalComponent } from '../../../../shared/ui/app-modal/app-modal.com
 import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.component';
 import { AdminUsersApi } from '../../data-access/admin-users.api';
-import { AdminUser, AdminUserPresenceStatus, PremiumTier } from '../../data-access/admin-users.models';
+import { AdminUser, AdminUserAuthIdentity, AdminUserPresenceStatus, PremiumTier } from '../../data-access/admin-users.models';
 
 type UserAction = 'delete' | 'impersonate' | 'premium' | 'role' | 'rooms' | 'sessions';
 type SortField = 'createdAt' | 'email' | 'lastConnectedAt' | 'name' | 'premium' | 'role';
@@ -66,6 +67,7 @@ export class AdminUsersPanelComponent {
 
   readonly allRoleOptions: readonly FormatSelectOption[] = [
     { id: ROLE_USER, name: 'User' },
+    { id: ROLE_SUPPORT, name: 'Support' },
     { id: ROLE_ADMIN, name: 'Admin' },
     { id: ROLE_OWNER, name: 'Owner' },
   ];
@@ -210,6 +212,15 @@ export class AdminUsersPanelComponent {
     this.sendMessageRequested.emit({ id: user.id, name: user.displayName });
   }
 
+  viewUserProfile(user: AdminUser): void {
+    const path = user.publicProfilePath?.trim();
+    if (!path) {
+      return;
+    }
+
+    window.open(path, '_blank', 'noopener');
+  }
+
   impersonateUser(user: AdminUser): void {
     if (!this.canImpersonate(user)) {
       return;
@@ -312,6 +323,18 @@ export class AdminUsersPanelComponent {
     return this.presenceFilterOptions.find((option) => option.id === status)?.name ?? status;
   }
 
+  authIdentityLabel(identity: AdminUserAuthIdentity): string {
+    const provider = identity.provider.trim();
+
+    return provider === '' ? 'GOOGLE' : provider.toUpperCase();
+  }
+
+  authIdentityValue(value: string | null | undefined): string {
+    const trimmed = value?.trim();
+
+    return trimmed ? trimmed : 'GOOGLE';
+  }
+
   isUserBusy(userId: string): boolean {
     return this.pendingActions()[userId] !== undefined;
   }
@@ -330,7 +353,7 @@ export class AdminUsersPanelComponent {
   }
 
   canChangePremium(user: AdminUser): boolean {
-    return this.canManageLowerRole(user) || this.isOwnerActingOnOwner(user);
+    return this.canUseManagementActions() && (this.canManageLowerRole(user) || this.isOwnerActingOnOwner(user));
   }
 
   canRevokeSessions(user: AdminUser): boolean {
@@ -342,11 +365,25 @@ export class AdminUsersPanelComponent {
   }
 
   canDeleteUser(user: AdminUser): boolean {
-    return this.canManageLowerRole(user);
+    return this.canUseManagementActions() && this.canManageLowerRole(user);
   }
 
   canImpersonate(user: AdminUser): boolean {
-    return this.currentUserRole() === ROLE_OWNER && this.canManageLowerRole(user);
+    const currentUserId = this.currentUserId();
+    if (currentUserId === null || user.id === currentUserId) {
+      return false;
+    }
+
+    switch (this.currentUserRole()) {
+      case ROLE_OWNER:
+        return true;
+      case ROLE_ADMIN:
+        return user.authorizationRole === ROLE_SUPPORT || user.authorizationRole === ROLE_USER;
+      case ROLE_SUPPORT:
+        return user.authorizationRole === ROLE_USER;
+      case ROLE_USER:
+        return false;
+    }
   }
 
   private canManageLowerRole(user: AdminUser): boolean {
@@ -356,6 +393,10 @@ export class AdminUsersPanelComponent {
     }
 
     return isLowerAuthorizationRole(user.authorizationRole, this.currentUserRole());
+  }
+
+  private canUseManagementActions(): boolean {
+    return this.currentUserRole() === ROLE_ADMIN || this.currentUserRole() === ROLE_OWNER;
   }
 
   private isOwnerActingOnOwner(user: AdminUser): boolean {
@@ -389,6 +430,12 @@ export class AdminUsersPanelComponent {
       return [
         user.displayName,
         user.email,
+        ...user.authIdentities.flatMap((identity) => [
+          this.authIdentityLabel(identity),
+          identity.providerEmail,
+          identity.providerUserId,
+          identity.providerEmailVerified ? 'verified' : 'unverified',
+        ]),
         this.roleLabel(user.authorizationRole),
         this.premiumTierLabel(user.premiumTier),
         this.presenceLabel(user.presenceStatus),

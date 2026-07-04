@@ -4,10 +4,12 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import {
   ArrowLeft,
+  Copy,
   FileUp,
   Folder,
   FolderPlus,
   Globe,
+  Heart,
   Layers3,
   LayoutGrid,
   List,
@@ -41,9 +43,11 @@ describe('DeckListComponent', () => {
         provideRouter([]),
         importProvidersFrom(LucideAngularModule.pick({
           ArrowLeft,
+          Copy,
           FileUp,
           Folder,
           FolderPlus,
+          Heart,
           Layers3,
           LayoutGrid,
           List,

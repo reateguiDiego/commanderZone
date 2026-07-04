@@ -78,9 +78,9 @@ export const routes: Routes = [
         },
       },
       {
-        path: 'community/profiles/:handle',
-        loadComponent: () => import('./features/community/community-profile-page/community-profile-page.component')
-          .then((component) => component.CommunityProfilePageComponent),
+        path: 'community/users/:username',
+        loadComponent: () => import('./features/community/community-user-page/community-user-page.component')
+          .then((component) => component.CommunityUserPageComponent),
         data: { pageKey: 'publicCommunity' },
       },
       {

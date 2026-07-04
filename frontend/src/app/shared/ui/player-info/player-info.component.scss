@@ -64,7 +64,7 @@
 }
 
 .player-info-avatar {
-  filter: var(--player-info-avatar-filter, drop-shadow(0 0 0.55rem rgb(var(--cz-primary-rgb) / 18%)));
+  filter: none;
 }
 
 .player-info-action {
@@ -87,6 +87,18 @@
   flex: 0 0 auto;
 }
 
+.player-info-profile-tooltip {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  overflow: visible;
+}
+
+.player-info-profile-tooltip .player-info-avatar-action {
+  flex: 0 0 auto;
+  margin-right: 0.08rem;
+}
+
 .player-info-name-action {
   flex: 1 1 auto;
   min-width: 0;
@@ -99,6 +111,10 @@
 .player-info-name-action app-player-name {
   width: 100%;
   overflow: hidden;
+}
+
+.player-info-profile-tooltip .player-info-name-action {
+  width: 100%;
 }
 
 @media (max-width: 980px) {
@@ -118,6 +134,15 @@
 
   .player-info-name-action {
     width: 100%;
+  }
+
+  .player-info-name-action app-player-name {
+    width: max(0px, calc(100% - 60px));
+    margin-inline: 30px;
+  }
+
+  .player-info-avatar-action {
+    display: none;
   }
 }
 

@@ -274,6 +274,10 @@
 }
 
 .deck-owner-card {
+  --deck-owner-actions-gap: 5px;
+  --deck-owner-actions-height: 2.75rem;
+  --deck-owner-actions-width: 5.75rem;
+
   position: relative;
   min-width: 0;
 }
@@ -336,6 +340,10 @@
   right: 0.9rem;
   bottom: 0.85rem;
   z-index: 3;
+  box-sizing: border-box;
+  justify-content: center;
+  width: var(--deck-owner-actions-width);
+  min-height: var(--deck-owner-actions-height);
   padding: 0.24rem;
   border: 1px solid rgb(var(--cz-text-rgb) / 9%);
   border-radius: 7px;

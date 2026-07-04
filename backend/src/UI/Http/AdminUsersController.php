@@ -62,6 +62,9 @@ class AdminUsersController extends ApiController
         if (!$this->canAccessAdmin($actor)) {
             return $this->fail('Admin access is required.', 403);
         }
+        if (!$this->canManageAdminActions($actor)) {
+            return $this->fail('Admin or owner access is required for this action.', 403);
+        }
 
         $target = $this->targetUser($id, $entityManager);
         if (!$target instanceof User) {
@@ -129,6 +132,9 @@ class AdminUsersController extends ApiController
         if (!$this->canAccessAdmin($actor)) {
             return $this->fail('Admin access is required.', 403);
         }
+        if (!$this->canManageAdminActions($actor)) {
+            return $this->fail('Admin or owner access is required for this action.', 403);
+        }
 
         $target = $this->targetUser($id, $entityManager);
         if (!$target instanceof User) {
@@ -156,6 +162,9 @@ class AdminUsersController extends ApiController
     ): JsonResponse {
         if (!$this->canAccessAdmin($actor)) {
             return $this->fail('Admin access is required.', 403);
+        }
+        if (!$this->canManageAdminActions($actor)) {
+            return $this->fail('Admin or owner access is required for this action.', 403);
         }
 
         $target = $this->targetUser($id, $entityManager);
@@ -185,6 +194,9 @@ class AdminUsersController extends ApiController
         if (!$this->canAccessAdmin($actor)) {
             return $this->fail('Admin access is required.', 403);
         }
+        if (!$this->canManageAdminActions($actor)) {
+            return $this->fail('Admin or owner access is required for this action.', 403);
+        }
 
         $target = $this->targetUser($id, $entityManager);
         if (!$target instanceof User) {
@@ -210,10 +222,10 @@ class AdminUsersController extends ApiController
         JWTTokenManagerInterface $jwtTokenManager,
         SecurityAuditLogger $securityAuditLogger,
     ): JsonResponse {
-        if (!$actor->hasRole(Role::OWNER)) {
-            $this->logImpersonationBlocked($securityAuditLogger, $actor, $request, 'owner_required', $id);
+        if (!$this->canAccessImpersonation($actor)) {
+            $this->logImpersonationBlocked($securityAuditLogger, $actor, $request, 'impersonation_role_required', $id);
 
-            return $this->fail('Only the owner can impersonate users.', 403);
+            return $this->fail('Support, admin or owner access is required to impersonate users.', 403);
         }
 
         $target = $this->targetUser($id, $entityManager);
@@ -223,13 +235,13 @@ class AdminUsersController extends ApiController
             return $this->fail('User not found.', 404);
         }
 
-        $permissionError = $this->validateActorCanManageLowerRoleTarget($actor, $target);
+        $permissionError = $this->validateActorCanImpersonateTarget($actor, $target);
         if ($permissionError instanceof JsonResponse) {
             $this->logImpersonationBlocked(
                 $securityAuditLogger,
                 $actor,
                 $request,
-                $target->id() === $actor->id() ? 'self_target' : 'target_role_not_lower',
+                $target->id() === $actor->id() ? 'self_target' : 'target_role_not_allowed',
                 $target->id(),
                 $this->authorizationRole($target),
             );
@@ -262,7 +274,17 @@ class AdminUsersController extends ApiController
 
     private function canAccessAdmin(User $user): bool
     {
+        return $user->hasRole(Role::SUPPORT) || $user->hasRole(Role::ADMIN) || $user->hasRole(Role::OWNER);
+    }
+
+    private function canManageAdminActions(User $user): bool
+    {
         return $user->hasRole(Role::ADMIN) || $user->hasRole(Role::OWNER);
+    }
+
+    private function canAccessImpersonation(User $user): bool
+    {
+        return $user->hasRole(Role::SUPPORT) || $user->hasRole(Role::ADMIN) || $user->hasRole(Role::OWNER);
     }
 
     private function targetUser(string $id, EntityManagerInterface $entityManager): ?User
@@ -313,6 +335,30 @@ class AdminUsersController extends ApiController
         return null;
     }
 
+    private function validateActorCanImpersonateTarget(User $actor, User $target): ?JsonResponse
+    {
+        if ($target->id() === $actor->id()) {
+            return $this->fail('You cannot impersonate your own user.', 400);
+        }
+
+        $actorRole = $this->authorizationRole($actor);
+        $targetRole = $this->authorizationRole($target);
+
+        if ($actorRole === Role::OWNER) {
+            return null;
+        }
+
+        if ($actorRole === Role::ADMIN && in_array($targetRole, [Role::SUPPORT, Role::USER], true)) {
+            return null;
+        }
+
+        if ($actorRole === Role::SUPPORT && $targetRole === Role::USER) {
+            return null;
+        }
+
+        return $this->fail('You cannot impersonate a user with that authorization role.', 403);
+    }
+
     private function validateActorCanManagePremiumAndPresenceTarget(User $actor, User $target): ?JsonResponse
     {
         if ($actor->hasRole(Role::OWNER) && $target->hasRole(Role::OWNER)) {
@@ -325,6 +371,7 @@ class AdminUsersController extends ApiController
     private function applyAuthorizationRole(User $user, string $authorizationRole, EntityManagerInterface $entityManager): void
     {
         $user->grantRole($this->requiredRole($entityManager, Role::USER));
+        $user->revokeRole(Role::SUPPORT);
         $user->revokeRole(Role::ADMIN);
         $user->revokeRole(Role::OWNER);
 
@@ -349,7 +396,9 @@ class AdminUsersController extends ApiController
      * @return array{
      *   id: string,
      *   displayName: string,
+     *   publicProfilePath: string|null,
      *   email: string,
+     *   authIdentities: list<array{provider:string, providerUserId:string, providerEmail:string, providerEmailVerified:bool, createdAt:string, lastUsedAt:string|null}>,
      *   roles: list<string>,
      *   authorizationRole: string,
      *   premiumTier: string,
@@ -368,7 +417,9 @@ class AdminUsersController extends ApiController
         return [
             'id' => $user->id(),
             'displayName' => $user->displayName(),
+            'publicProfilePath' => $user->publicPath(),
             'email' => $user->email(),
+            'authIdentities' => $this->authIdentities($user, $entityManager),
             'roles' => $user->getRoles(),
             'authorizationRole' => $this->authorizationRole($user),
             'premiumTier' => $user->premiumTier(),
@@ -379,6 +430,45 @@ class AdminUsersController extends ApiController
             'activeSessionsCount' => $this->activeSessionsCount($user, $entityManager),
             'createdAt' => $user->createdAt()->format(DATE_ATOM),
         ];
+    }
+
+    /**
+     * @return list<array{provider:string, providerUserId:string, providerEmail:string, providerEmailVerified:bool, createdAt:string, lastUsedAt:string|null}>
+     */
+    private function authIdentities(User $user, EntityManagerInterface $entityManager): array
+    {
+        $rows = $entityManager->getConnection()->fetchAllAssociative(
+            <<<'SQL'
+SELECT provider, provider_user_id, provider_email, provider_email_verified, created_at, last_used_at
+FROM auth_identity
+WHERE user_id = :userId
+ORDER BY created_at ASC, provider ASC
+SQL,
+            ['userId' => $user->id()],
+        );
+
+        return array_map(
+            fn (array $row): array => [
+                'provider' => strtoupper($this->stringFallback($row['provider'] ?? null, 'GOOGLE')),
+                'providerUserId' => $this->stringFallback($row['provider_user_id'] ?? null, 'GOOGLE'),
+                'providerEmail' => $this->stringFallback($row['provider_email'] ?? null, 'GOOGLE'),
+                'providerEmailVerified' => $this->boolValue($row['provider_email_verified'] ?? false),
+                'createdAt' => $this->dateTimeAtom($row['created_at'] ?? null) ?? 'GOOGLE',
+                'lastUsedAt' => $this->dateTimeAtom($row['last_used_at'] ?? null),
+            ],
+            $rows,
+        );
+    }
+
+    private function stringFallback(mixed $value, string $fallback): string
+    {
+        if (!is_string($value)) {
+            return $fallback;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? $fallback : $trimmed;
     }
 
     private function activeRoomsCount(User $user, EntityManagerInterface $entityManager): int
@@ -416,6 +506,9 @@ class AdminUsersController extends ApiController
         if ($user->hasRole(Role::ADMIN)) {
             return Role::ADMIN;
         }
+        if ($user->hasRole(Role::SUPPORT)) {
+            return Role::SUPPORT;
+        }
 
         return Role::USER;
     }
@@ -423,10 +516,38 @@ class AdminUsersController extends ApiController
     private function roleRank(string $role): int
     {
         return match ($role) {
-            Role::OWNER => 3,
-            Role::ADMIN => 2,
+            Role::OWNER => 4,
+            Role::ADMIN => 3,
+            Role::SUPPORT => 2,
             default => 1,
         };
+    }
+
+    private function boolValue(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value)) {
+            return $value === 1;
+        }
+        if (is_string($value)) {
+            return in_array(strtolower($value), ['1', 'true', 't', 'yes'], true);
+        }
+
+        return false;
+    }
+
+    private function dateTimeAtom(mixed $value): ?string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format(DATE_ATOM);
+        }
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        return (new \DateTimeImmutable($value))->format(DATE_ATOM);
     }
 
     private function logImpersonationBlocked(

@@ -142,26 +142,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function publicHandle(): ?string
     {
-        return $this->publicHandle;
+        return self::urlUsername($this->displayName);
     }
 
     public function publicPath(): ?string
     {
-        return $this->publicHandle === null ? null : sprintf('/community/profiles/%s/', $this->publicHandle);
+        return sprintf('/community/users/%s', rawurlencode((string) $this->publicHandle()));
     }
 
     public function ensurePublicHandle(): void
     {
-        if ($this->publicHandle !== null && $this->publicHandle !== '') {
+        $urlUsername = self::urlUsername($this->displayName);
+        if ($this->publicHandle === $urlUsername) {
             return;
         }
 
-        $this->publicHandle = sprintf('%s-%s', self::slugPart($this->displayName), $this->shortPublicId());
+        $this->publicHandle = $urlUsername;
     }
 
     public function rename(string $displayName): void
     {
         $this->displayName = trim($displayName);
+        $this->publicHandle = self::urlUsername($this->displayName);
         $this->touch();
     }
 
@@ -535,24 +537,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $letter !== '' ? $letter : 'P';
     }
 
-    private static function slugPart(string $value): string
+    private static function urlUsername(string $displayName): string
     {
-        $slug = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
-        if (!is_string($slug)) {
-            $slug = $value;
-        }
+        $username = preg_replace('/\s+/', '-', trim($displayName)) ?? '';
 
-        $slug = strtolower(trim($slug));
-        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
-        $slug = trim($slug, '-');
-
-        return $slug !== '' ? substr($slug, 0, 140) : 'player';
-    }
-
-    private function shortPublicId(): string
-    {
-        $compact = preg_replace('/[^a-z0-9]/i', '', $this->id) ?? '';
-
-        return strtolower(substr($compact !== '' ? $compact : $this->id, -8));
+        return $username !== '' ? $username : 'Player';
     }
 }

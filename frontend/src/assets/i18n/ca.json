@@ -427,6 +427,8 @@
       },
       "error": "No s'ha pogut carregar la baralla de la comunitat.",
       "headerTitle": "Baralla de la comunitat",
+      "like": "M'agrada la baralla",
+      "likeError": "No s'ha pogut marcar aquesta baralla amb m'agrada.",
       "missingId": "Falta l'identificador de la baralla de la comunitat.",
       "save": "Desa",
       "saveError": "No s'ha pogut desar aquesta baralla a la teva llista de baralles.",
@@ -440,8 +442,13 @@
           "error": "Error",
           "warning": "Advertència"
         },
-        "historyOwner": "Compartit per"
+        "historyOwner": "Compartit per",
+        "ownDeck": "Aquest deck és teu."
       }
+    },
+    "deckCard": {
+      "likes": "M'agrada: {{ count }}",
+      "copies": "Còpies: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "3 millors comandants",
