@@ -13,6 +13,7 @@ const PHASE_NAME = __ENV.PHASE_NAME || `${USERS_REQUESTED}`;
 const DECK_NAME = __ENV.DECK_NAME || 'Load Test Deck';
 const DURATION = __ENV.DURATION || (DRY_RUN ? '30s' : '10m');
 const HOLD_MS = durationToMs(DURATION);
+const SCENARIO_MAX_DURATION = durationFromMs(HOLD_MS + (2 * 60 * 1000));
 const COMMAND_INTERVAL_MS = Math.max(250, parseInt(__ENV.COMMAND_INTERVAL_MS || '2000', 10));
 const ROOM_SIZE = 4;
 
@@ -40,9 +41,10 @@ export const options = {
   teardownTimeout: '20m',
   scenarios: {
     commander_load: {
-      executor: 'constant-vus',
+      executor: 'per-vu-iterations',
       vus: ACTIVE_USERS,
-      duration: DURATION,
+      iterations: 1,
+      maxDuration: SCENARIO_MAX_DURATION,
       gracefulStop: '30s',
     },
   },
@@ -206,16 +208,6 @@ export default function (data) {
         }
         pending = sendRuntimeCommand(socket, user, currentVersion, command);
       }, COMMAND_INTERVAL_MS);
-
-      socket.setTimeout(() => {
-        if (closed || pending) {
-          return;
-        }
-        pending = sendRuntimeCommand(socket, user, currentVersion, {
-          type: 'game.close',
-          payload: {},
-        });
-      }, Math.max(1000, HOLD_MS - 3000));
     }
 
     socket.setTimeout(() => {
@@ -663,6 +655,14 @@ function durationToMs(value) {
     return amount * 60 * 1000;
   }
   return amount * 60 * 60 * 1000;
+}
+
+function durationFromMs(value) {
+  const seconds = Math.ceil(value / 1000);
+  if (seconds % 60 === 0) {
+    return `${seconds / 60}m`;
+  }
+  return `${seconds}s`;
 }
 
 function expectedStatuses(label, statuses) {
