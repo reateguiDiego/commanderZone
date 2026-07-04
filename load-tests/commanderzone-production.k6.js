@@ -17,6 +17,7 @@ const COMMAND_INTERVAL_MS = Math.max(250, parseInt(__ENV.COMMAND_INTERVAL_MS || 
 const ROOM_SIZE = 4;
 
 const httpEndpointMs = new Trend('cz_http_endpoint_ms', true);
+const httpUnexpectedFailureRate = new Rate('cz_http_unexpected_failure_rate');
 const wsConnectMs = new Trend('cz_ws_connect_ms', true);
 const wsCommandAckMs = new Trend('cz_ws_command_ack_ms', true);
 const wsCommandErrorRate = new Rate('cz_ws_command_error_rate');
@@ -28,6 +29,11 @@ const socketsOpened = new Counter('cz_ws_sockets_opened');
 const setupGames = new Counter('cz_setup_games');
 
 let runManifest = null;
+
+const expectedSuccess = expectedStatuses('success', [{ min: 200, max: 399 }]);
+const expectedSuccessOrConflict = expectedStatuses('success_or_conflict', [{ min: 200, max: 399 }, 409]);
+const expectedSuccessOrForbiddenOrMissing = expectedStatuses('success_or_forbidden_or_missing', [{ min: 200, max: 399 }, 403, 404]);
+const expectedSuccessOrMissing = expectedStatuses('success_or_missing', [{ min: 200, max: 399 }, 404]);
 
 export const options = {
   setupTimeout: '45m',
@@ -42,6 +48,7 @@ export const options = {
   },
   thresholds: {
     http_req_failed: ['rate<0.01'],
+    cz_http_unexpected_failure_rate: ['rate<0.01'],
     cz_ws_command_error_rate: ['rate<0.01'],
     cz_ws_command_resync_rate: ['rate<0.005'],
     cz_ws_command_ack_ms: ['p(95)<750', 'p(99)<2000'],
@@ -320,7 +327,7 @@ function ensureUserCanJoinNewRoom(user) {
   if (!roomId) {
     return;
   }
-  const leave = postJson(`/rooms/${roomId}/leave`, {}, user.token, 'rooms.leave');
+  const leave = postJson(`/rooms/${roomId}/leave`, {}, user.token, 'rooms.leave', expectedSuccessOrMissing);
   if (![200, 201, 204, 404].includes(leave.status)) {
     setupFailureRate.add(1);
     throw new Error(`Could not leave existing room ${roomId} for ${user.email}: ${leave.status} ${leave.body}`);
@@ -393,7 +400,7 @@ function resolveTurnOrder(roomId, users) {
       return;
     }
     for (const user of users) {
-      const rollResponse = postJson(`/rooms/${roomId}/roll-turn`, {}, user.token, 'rooms.roll_turn');
+      const rollResponse = postJson(`/rooms/${roomId}/roll-turn`, {}, user.token, 'rooms.roll_turn', expectedSuccessOrConflict);
       if (rollResponse.status >= 200 && rollResponse.status < 300) {
         continue;
       }
@@ -539,7 +546,7 @@ function sendRuntimeCommand(socket, user, baseVersion, command) {
 }
 
 function closeGameBestEffort(owner) {
-  const snapshotResponse = getJson(`/games/${owner.gameId}/snapshot`, owner.token, 'cleanup.snapshot');
+  const snapshotResponse = getJson(`/games/${owner.gameId}/snapshot`, owner.token, 'cleanup.snapshot', expectedSuccessOrForbiddenOrMissing);
   if (snapshotResponse.status === 404 || snapshotResponse.status === 403) {
     return;
   }
@@ -573,25 +580,29 @@ function closeGameBestEffort(owner) {
   }
 }
 
-function postJson(path, payload, token, name) {
+function postJson(path, payload, token, name, expected = expectedSuccess) {
   const started = Date.now();
   const response = http.post(`${API_BASE_URL}${path}`, JSON.stringify(payload || {}), {
     headers: jsonHeaders(token),
     tags: { endpoint: name },
     timeout: '30s',
+    responseCallback: expected.callback,
   });
   httpEndpointMs.add(Date.now() - started, { endpoint: name });
+  recordUnexpectedHttp(response, name, expected);
   return response;
 }
 
-function getJson(path, token, name) {
+function getJson(path, token, name, expected = expectedSuccess) {
   const started = Date.now();
   const response = http.get(`${API_BASE_URL}${path}`, {
     headers: jsonHeaders(token),
     tags: { endpoint: name },
     timeout: '30s',
+    responseCallback: expected.callback,
   });
   httpEndpointMs.add(Date.now() - started, { endpoint: name });
+  recordUnexpectedHttp(response, name, expected);
   return response;
 }
 
@@ -654,6 +665,31 @@ function durationToMs(value) {
   return amount * 60 * 60 * 1000;
 }
 
+function expectedStatuses(label, statuses) {
+  const callbackArgs = statuses.map((status) => (
+    typeof status === 'number' ? status : { min: status.min, max: status.max }
+  ));
+  return {
+    label,
+    callback: http.expectedStatuses(...callbackArgs),
+    matches: (status) => statuses.some((expected) => (
+      typeof expected === 'number'
+        ? status === expected
+        : status >= expected.min && status <= expected.max
+    )),
+  };
+}
+
+function recordUnexpectedHttp(response, endpoint, expected) {
+  const status = response ? Number(response.status || 0) : 0;
+  const ok = expected.matches(status);
+  httpUnexpectedFailureRate.add(!ok, { endpoint, status: String(status), expected: expected.label });
+  if (!ok) {
+    const body = response && response.body ? String(response.body).slice(0, 500) : '';
+    console.error(`Unexpected HTTP response for ${endpoint}: ${status} ${body}`);
+  }
+}
+
 function metricValue(data, name, key) {
   const metric = data.metrics[name];
   if (!metric || !metric.values) {
@@ -664,18 +700,20 @@ function metricValue(data, name, key) {
 
 function markdownSummary(data, manifest) {
   const lines = [];
+  const gamesCreated = metricValue(data, 'cz_setup_games', 'count') || manifest.games.length;
   lines.push(`# CommanderZone Load Test ${manifest.phase}`);
   lines.push('');
   lines.push(`- Run: ${manifest.runId}`);
   lines.push(`- API: ${manifest.apiBaseUrl}`);
   lines.push(`- Users: ${manifest.activeUsers}`);
-  lines.push(`- Games: ${manifest.games.length}`);
+  lines.push(`- Games: ${formatMetric(gamesCreated)}`);
   lines.push(`- Duration: ${manifest.duration}`);
   lines.push(`- Dry run: ${manifest.dryRun ? 'yes' : 'no'}`);
   lines.push('');
   lines.push('## Key Metrics');
   lines.push('');
   lines.push(`- HTTP failed rate: ${formatMetric(metricValue(data, 'http_req_failed', 'rate'))}`);
+  lines.push(`- HTTP unexpected failure rate: ${formatMetric(metricValue(data, 'cz_http_unexpected_failure_rate', 'rate'))}`);
   lines.push(`- HTTP p95: ${formatMetric(metricValue(data, 'http_req_duration', 'p(95)'))} ms`);
   lines.push(`- HTTP p99: ${formatMetric(metricValue(data, 'http_req_duration', 'p(99)'))} ms`);
   lines.push(`- WS connect p95: ${formatMetric(metricValue(data, 'cz_ws_connect_ms', 'p(95)'))} ms`);

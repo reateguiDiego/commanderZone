@@ -363,9 +363,13 @@ invoke_phase() {
   fi
 
   local k6_exit_code=0
+  local docker_uid docker_gid
+  docker_uid="$(id -u)"
+  docker_gid="$(id -g)"
   USER_PASSWORD="$USER_PASSWORD" docker run \
     --rm \
     --pull=missing \
+    --user "$docker_uid:$docker_gid" \
     -e K6_NO_USAGE_REPORT=true \
     -e API_BASE_URL="$API_BASE_URL" \
     -e USERS="$phase_users" \
