@@ -68,12 +68,26 @@
   box-shadow:
     0 0.2rem 0.55rem rgb(0 0 0 / 56%),
     0 0 0.38rem rgb(215 180 106 / 18%);
-  pointer-events: auto;
+  opacity: 0;
+  pointer-events: none;
   cursor: pointer;
+  transform: scale(0.86);
   transition:
+    opacity 140ms ease,
     box-shadow 140ms ease,
     filter 140ms ease,
     transform 140ms ease;
+}
+
+:host-context(.game-card:hover) .oracle-rulings-marker,
+:host-context(.game-card:focus-within) .oracle-rulings-marker,
+:host-context(.mini-card:hover) .oracle-rulings-marker,
+:host-context(.mini-card:focus-within) .oracle-rulings-marker,
+.oracle-rulings-marker:hover,
+.oracle-rulings-marker:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
 }
 
 .oracle-rulings-marker:hover,
