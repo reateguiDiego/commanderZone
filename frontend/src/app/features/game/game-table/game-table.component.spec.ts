@@ -476,6 +476,36 @@ describe('GameTableComponent', () => {
     }
   });
 
+  it('uses the historical aggressive compact media query for narrow low-height viewports', async () => {
+    const matchMedia = vi.fn((query: string): MediaQueryList => ({
+      matches: query === '(max-width: 1180px) and (max-height: 768px)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: matchMedia,
+    });
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.store.loading.set(false);
+    fixture.componentInstance.store.snapshot.set(snapshotWithStatus('active'));
+    fixture.detectChanges();
+
+    expect(matchMedia).toHaveBeenCalledWith('(max-width: 1180px) and (max-height: 768px)');
+    expect(fixture.componentInstance.aggressiveCompactViewport()).toBe(true);
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-controls"]')).toBeNull();
+
+    fixture.destroy();
+  });
+
   it('reflows the focused opponent battlefield with the local zoom applied', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -3422,8 +3452,6 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.store.openZone('user-1', 'library');
 
     expect(gamesApi.zone).toHaveBeenCalledWith('game-1', 'user-1', 'library', {
-      type: '',
-      search: '',
       limit: 200,
     });
     expect(fixture.componentInstance.store.zoneModal()?.title).toBe('User Library');

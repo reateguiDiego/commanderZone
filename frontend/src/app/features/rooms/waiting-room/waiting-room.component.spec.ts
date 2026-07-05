@@ -540,6 +540,79 @@ describe('WaitingRoomComponent', () => {
     expect(component.rollModalMessageParams()).toEqual({ playerNames: 'Guest 2' });
   });
 
+  it('lists every tied player in the tie-break prompt', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    component.currentRoom.set(room({
+      players: [
+        readyPlayer('player-1', 'user-1', 'Owner', 10),
+        readyPlayer('player-2', 'user-2', 'Guest 2', 10),
+        readyPlayer('player-3', 'user-3', 'Guest 3', 10),
+        readyPlayer('player-4', 'user-4', 'Guest 4', 4),
+      ],
+    }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.rollModalOpen()).toBe(true);
+    expect(component.rollModalMessageParams()).toEqual({ playerNames: 'Guest 2 y Guest 3' });
+  });
+
+  it('keeps the dice button enabled for tied players after closing the tie-break modal', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    component.currentRoom.set(room({
+      players: [
+        readyPlayer('player-1', 'user-1', 'Owner', 10),
+        readyPlayer('player-2', 'user-2', 'Guest 2', 10),
+        readyPlayer('player-3', 'user-3', 'Guest 3', 4),
+      ],
+    }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    component.closeRollModal();
+    fixture.detectChanges();
+
+    const rollButton = fixture.nativeElement.querySelector('button[aria-label="Roll dice"]') as HTMLButtonElement | null;
+    expect(component.currentPlayerCanRoll()).toBe(true);
+    expect(rollButton).not.toBeNull();
+    expect(rollButton?.disabled).toBe(false);
+  });
+
+  it('keeps a lagging tied player rollable after another tied player has already rerolled', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    component.currentRoom.set(room({
+      players: [
+        { ...readyPlayer('player-1', 'user-1', 'Owner', 18), turnRoll: 18, turnRolls: [18] },
+        { ...readyPlayer('player-2', 'user-2', 'Guest 2', 12), turnRoll: 12, turnRolls: [18, 12] },
+      ],
+    }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.hasCompletedTurnOrder(component.currentRoom() as Room)).toBe(false);
+    expect(component.currentPlayerCanRoll()).toBe(true);
+    expect(component.rollModalOpen()).toBe(true);
+    expect(component.rollModalMessageParams()).toEqual({ playerNames: 'Guest 2' });
+
+    component.closeRollModal();
+    fixture.detectChanges();
+
+    const rollButton = fixture.nativeElement.querySelector('button[aria-label="Roll dice"]') as HTMLButtonElement | null;
+    expect(rollButton?.disabled).toBe(false);
+  });
+
   it('keeps turn labels hidden until every player has rolled', async () => {
     const fixture = TestBed.createComponent(WaitingRoomComponent);
     fixture.detectChanges();

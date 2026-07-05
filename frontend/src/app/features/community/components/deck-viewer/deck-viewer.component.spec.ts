@@ -213,4 +213,58 @@ describe('DeckViewerComponent', () => {
     expect(store.contextMenu()).toBeNull();
   });
 
+  it('closes the open community card context menu instead of opening another card menu', () => {
+    const store = TestBed.inject(CommunityDeckViewerStore);
+    store.setDeck(deckFixture);
+    const deckCard = deckFixture.cards?.[0];
+    if (!deckCard) {
+      throw new Error('Expected deck fixture card');
+    }
+    const secondEntry = {
+      id: 'deck-card-2',
+      quantity: 1,
+      section: 'main' as const,
+      card: {
+        ...deckCard.card,
+        id: 'card-2',
+        scryfallId: 'card-2',
+        name: 'Sol Ring',
+      },
+    };
+
+    store.contextMenu.set({
+      card: deckCard.card,
+      top: 120,
+      left: 180,
+    });
+
+    store.toggleCardMenu(new MouseEvent('click', { bubbles: true }), secondEntry);
+
+    expect(store.contextMenu()).toBeNull();
+  });
+
+  it('closes the open community card context menu instead of toggling card faces', () => {
+    const store = TestBed.inject(CommunityDeckViewerStore);
+    store.setDeck(deckFixture);
+    const deckCard = deckFixture.cards?.[0];
+    if (!deckCard) {
+      throw new Error('Expected deck fixture card');
+    }
+
+    store.contextMenu.set({
+      card: deckCard.card,
+      top: 120,
+      left: 180,
+    });
+
+    store.toggleCardFace(new MouseEvent('click', { bubbles: true }), deckCard.card, { updatePreview: false });
+
+    expect(store.isFaceFlipped(deckCard.card)).toBe(false);
+    expect(store.contextMenu()).toBeNull();
+
+    store.toggleCardFace(new MouseEvent('click', { bubbles: true }), deckCard.card, { updatePreview: false });
+
+    expect(store.isFaceFlipped(deckCard.card)).toBe(true);
+  });
+
 });

@@ -267,7 +267,7 @@ class Room
     {
         $players = $this->players->toArray();
 
-        return $this->allPlayersHaveTurnRolls($players) && $this->turnRollTieGroups($players) === [];
+        return $this->allPlayersHaveTurnRolls($players) && $this->pendingTurnRollTieBreakGroups($players) === [];
     }
 
     public function canPlayerRollTurnOrder(RoomPlayer $player): bool
@@ -276,9 +276,13 @@ class Room
             return true;
         }
 
-        foreach ($this->turnRollTieGroups($this->players->toArray()) as $group) {
-            foreach ($group as $tiedPlayer) {
-                if ($tiedPlayer->id() === $player->id()) {
+        foreach ($this->pendingTurnRollTieBreakGroups($this->players->toArray()) as $group) {
+            if (!$this->playerMustRollForTieBreakGroup($player, $group)) {
+                continue;
+            }
+
+            foreach ($group as $groupPlayer) {
+                if ($groupPlayer->id() === $player->id()) {
                     return true;
                 }
             }
@@ -507,21 +511,77 @@ class Room
      *
      * @return list<list<RoomPlayer>>
      */
-    private function turnRollTieGroups(array $players): array
+    private function pendingTurnRollTieBreakGroups(array $players): array
     {
         if (!$this->allPlayersHaveTurnRolls($players)) {
             return [];
         }
 
-        $groups = [];
-        foreach ($players as $player) {
-            $groups[implode('-', $player->turnRolls())][] = $player;
+        return $this->pendingTurnRollTieBreakGroupsForRolledPlayers($players);
+    }
+
+    /**
+     * @param list<RoomPlayer> $players
+     *
+     * @return list<list<RoomPlayer>>
+     */
+    private function pendingTurnRollTieBreakGroupsForRolledPlayers(array $players): array
+    {
+        if (count($players) <= 1) {
+            return [];
         }
 
-        return array_values(array_filter(
-            $groups,
-            static fn (array $group): bool => count($group) > 1,
-        ));
+        $rollDepths = array_map(static fn (RoomPlayer $player): int => count($player->turnRolls()), $players);
+        $minRollDepth = min($rollDepths);
+        if ($minRollDepth <= 0) {
+            return [];
+        }
+
+        $groups = [];
+        foreach ($players as $player) {
+            $groups[implode('-', array_slice($player->turnRolls(), 0, $minRollDepth))][] = $player;
+        }
+
+        $pendingGroups = [];
+        foreach ($groups as $group) {
+            if (count($group) <= 1) {
+                continue;
+            }
+
+            if ($this->groupHasPendingRollAtDepth($group, $minRollDepth)) {
+                $pendingGroups[] = $group;
+                continue;
+            }
+
+            array_push($pendingGroups, ...$this->pendingTurnRollTieBreakGroupsForRolledPlayers($group));
+        }
+
+        return $pendingGroups;
+    }
+
+    /**
+     * @param list<RoomPlayer> $group
+     */
+    private function groupHasPendingRollAtDepth(array $group, int $rollDepth): bool
+    {
+        foreach ($group as $player) {
+            if (count($player->turnRolls()) === $rollDepth) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<RoomPlayer> $group
+     */
+    private function playerMustRollForTieBreakGroup(RoomPlayer $player, array $group): bool
+    {
+        $rollDepths = array_map(static fn (RoomPlayer $groupPlayer): int => count($groupPlayer->turnRolls()), $group);
+        $minRollDepth = min($rollDepths);
+
+        return count($player->turnRolls()) === $minRollDepth;
     }
 
     private static function defaultNameForOwner(User $owner): string
