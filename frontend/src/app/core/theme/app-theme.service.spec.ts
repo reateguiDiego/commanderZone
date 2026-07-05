@@ -45,6 +45,33 @@ describe('AppThemeService', () => {
     expect(documentRef.documentElement.getAttribute('data-theme')).toBe('cyber-duel-arena');
   });
 
+  it('uses the cached user theme when no direct stored theme exists', () => {
+    localStorage.setItem('commanderzone.user', JSON.stringify({
+      preferences: {
+        themeId: 'treasure-tavern',
+      },
+    }));
+
+    const service = TestBed.inject(AppThemeService);
+
+    expect(service.themeId()).toBe('treasure-tavern');
+    expect(documentRef.documentElement.getAttribute('data-theme')).toBe('treasure-tavern');
+  });
+
+  it('prefers the direct stored theme over the cached user theme', () => {
+    localStorage.setItem('commanderzone.theme', 'cyber-duel-arena');
+    localStorage.setItem('commanderzone.user', JSON.stringify({
+      preferences: {
+        themeId: 'treasure-tavern',
+      },
+    }));
+
+    const service = TestBed.inject(AppThemeService);
+
+    expect(service.themeId()).toBe('cyber-duel-arena');
+    expect(documentRef.documentElement.getAttribute('data-theme')).toBe('cyber-duel-arena');
+  });
+
   it('falls back to sunrise for invalid stored values', () => {
     localStorage.setItem('commanderzone.theme', 'unknown-theme');
 

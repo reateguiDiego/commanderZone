@@ -5,6 +5,7 @@
     [ngModel]="selectedDeckId()"
     aria-hidden="true"
     tabindex="-1"
+    [disabled]="updatingDeck() || deckLocked()"
     (ngModelChange)="selectNativeDeck($event)"
   >
     <option value="" disabled>{{ 'rooms.waitingRoomDeckSelector.selectADeck' | runtimeTranslate }}</option>
@@ -18,7 +19,7 @@
 
   <div class="deck-select-row">
     <div class="deck-select">
-      <button class="deck-select-trigger" type="button" aria-haspopup="listbox" [attr.aria-expanded]="selectorOpen()" [disabled]="updatingDeck()" (click)="toggleSelector()">
+      <button class="deck-select-trigger" type="button" aria-haspopup="listbox" [attr.aria-expanded]="selectorOpen()" [disabled]="updatingDeck() || deckLocked()" (click)="toggleSelector()">
         @if (selectedDeck(); as deck) {
           <span class="deck-option-main">
             <span class="deck-option-name">{{ deck.name }}</span>

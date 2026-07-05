@@ -10,6 +10,40 @@
   <link rel="icon" type="image/png" href="/icon-512x512.png" sizes="512x512">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/manifest.webmanifest">
+  <script>
+    (function () {
+      var themeStorageKey = 'commanderzone.theme';
+      var userStorageKey = 'commanderzone.user';
+      var themeIdPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+      function validThemeId(value) {
+        return typeof value === 'string' && themeIdPattern.test(value) ? value : null;
+      }
+
+      function storedUserThemeId(storage) {
+        var rawUser = storage.getItem(userStorageKey);
+        if (!rawUser) {
+          return null;
+        }
+
+        try {
+          var user = JSON.parse(rawUser);
+          return validThemeId(user && user.preferences && user.preferences.themeId);
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      try {
+        var storage = window.localStorage;
+        var themeId = validThemeId(storage.getItem(themeStorageKey)) || storedUserThemeId(storage);
+        if (themeId) {
+          document.documentElement.setAttribute('data-theme', themeId);
+        }
+      } catch (_error) {
+      }
+    })();
+  </script>
   <script src="/runtime-config.js"></script>
 </head>
 <body>

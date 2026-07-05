@@ -127,18 +127,17 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly currentTieBreakPrompt = computed<TurnOrderTiePrompt | null>(() => {
     const room = this.currentRoom();
     const currentPlayer = this.currentPlayer();
-    if (!room || !currentPlayer || this.turnRollsFor(currentPlayer).length === 0 || !this.allPlayersRolled(room)) {
+    if (!room || !currentPlayer || !this.playerMustRollForTieBreak(room, currentPlayer)) {
       return null;
     }
 
-    const currentRollKey = this.turnRollKey(currentPlayer);
-    const tiedPlayers = room.players.filter((player) => this.turnRollKey(player) === currentRollKey);
-    if (tiedPlayers.length <= 1) {
+    const tiedPlayers = this.tieBreakGroupForPlayer(room, currentPlayer);
+    if (!tiedPlayers) {
       return null;
     }
 
     return {
-      key: `${currentPlayer.id}:${currentRollKey}`,
+      key: `${currentPlayer.id}:${tiedPlayers.map((player) => `${player.id}:${this.turnRollKey(player)}`).join('|')}`,
       tiedWithNames: tiedPlayers
         .filter((player) => player.id !== currentPlayer.id)
         .map((player) => player.user.displayName),
@@ -1205,21 +1204,74 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   private playerCanRollTurnOrder(room: Room, player: RoomPlayer): boolean {
-    return this.turnRollsFor(player).length === 0 || this.playerNeedsTieBreak(room, player);
+    return this.turnRollsFor(player).length === 0 || this.playerMustRollForTieBreak(room, player);
   }
 
   private playerNeedsTieBreak(room: Room, player: RoomPlayer): boolean {
-    if (!this.allPlayersRolled(room) || this.turnRollsFor(player).length === 0) {
+    return this.tieBreakGroupForPlayer(room, player) !== null;
+  }
+
+  private playerMustRollForTieBreak(room: Room, player: RoomPlayer): boolean {
+    const group = this.tieBreakGroupForPlayer(room, player);
+    if (!group) {
       return false;
     }
 
-    const rollKey = this.turnRollKey(player);
+    return this.turnRollsFor(player).length === this.minRollDepth(group);
+  }
 
-    return room.players.filter((roomPlayer) => this.turnRollKey(roomPlayer) === rollKey).length > 1;
+  private tieBreakGroupForPlayer(room: Room, player: RoomPlayer): readonly RoomPlayer[] | null {
+    return this.pendingTurnRollTieBreakGroups(room)
+      .find((group) => group.some((groupPlayer) => groupPlayer.id === player.id)) ?? null;
   }
 
   private hasTurnOrderTies(room: Room): boolean {
-    return room.players.some((player) => this.playerNeedsTieBreak(room, player));
+    return this.pendingTurnRollTieBreakGroups(room).length > 0;
+  }
+
+  private pendingTurnRollTieBreakGroups(room: Room): readonly (readonly RoomPlayer[])[] {
+    if (!this.allPlayersRolled(room)) {
+      return [];
+    }
+
+    return this.pendingTurnRollTieBreakGroupsForRolledPlayers(room.players);
+  }
+
+  private pendingTurnRollTieBreakGroupsForRolledPlayers(players: readonly RoomPlayer[]): readonly (readonly RoomPlayer[])[] {
+    if (players.length <= 1) {
+      return [];
+    }
+
+    const minRollDepth = this.minRollDepth(players);
+    if (minRollDepth <= 0) {
+      return [];
+    }
+
+    const groups = new Map<string, RoomPlayer[]>();
+    for (const player of players) {
+      const prefix = this.turnRollsFor(player).slice(0, minRollDepth).join('-');
+      groups.set(prefix, [...(groups.get(prefix) ?? []), player]);
+    }
+
+    const pendingGroups: Array<readonly RoomPlayer[]> = [];
+    for (const group of groups.values()) {
+      if (group.length <= 1) {
+        continue;
+      }
+
+      if (group.some((player) => this.turnRollsFor(player).length === minRollDepth)) {
+        pendingGroups.push(group);
+        continue;
+      }
+
+      pendingGroups.push(...this.pendingTurnRollTieBreakGroupsForRolledPlayers(group));
+    }
+
+    return pendingGroups;
+  }
+
+  private minRollDepth(players: readonly RoomPlayer[]): number {
+    return Math.min(...players.map((player) => this.turnRollsFor(player).length));
   }
 
   private prefersReducedMotion(): boolean {

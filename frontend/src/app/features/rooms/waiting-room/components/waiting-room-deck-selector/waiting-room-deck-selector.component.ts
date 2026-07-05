@@ -31,6 +31,7 @@ export class WaitingRoomDeckSelectorComponent {
   readonly selectedDeckId = input('');
   readonly selectorOpen = input(false);
   readonly updatingDeck = input(false);
+  readonly deckLocked = input(false);
   readonly canRoll = input(false);
   readonly rolling = input(false);
   readonly showRandomDeckOption = computed(() => this.deckOptions().length > 1);

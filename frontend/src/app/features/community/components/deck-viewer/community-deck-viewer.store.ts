@@ -310,7 +310,7 @@ export class CommunityDeckViewerStore implements DeckViewStore, DeckAnalysisStor
     event.stopPropagation();
 
     const currentMenu = this.contextMenu();
-    if (currentMenu?.card.scryfallId === entry.card.scryfallId) {
+    if (currentMenu) {
       this.closeContextMenu();
       return;
     }
@@ -323,6 +323,11 @@ export class CommunityDeckViewerStore implements DeckViewStore, DeckAnalysisStor
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
+    if (this.contextMenu()) {
+      this.closeContextMenu();
+      return;
+    }
+
     if (this.previewEnterTimeout) {
       clearTimeout(this.previewEnterTimeout);
       this.previewEnterTimeout = null;

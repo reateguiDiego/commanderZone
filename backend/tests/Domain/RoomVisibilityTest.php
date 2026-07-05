@@ -224,6 +224,38 @@ class RoomVisibilityTest extends TestCase
         self::assertSame([5, 15], $room->toArray()['players'][2]['turnRolls']);
     }
 
+    public function testLaggingPlayerInTieBreakCanRollAfterAnotherTiedPlayerAlreadyRerolled(): void
+    {
+        $owner = new User('owner-lagging-tie@example.test', 'Owner');
+        $secondUser = new User('second-lagging-tie@example.test', 'Second');
+        $room = new Room($owner);
+        $first = new RoomPlayer($room, $owner);
+        $second = new RoomPlayer($room, $secondUser);
+
+        $room->addPlayer($first);
+        $room->addPlayer($second);
+
+        $first->rollTurnOrder(18);
+        $second->rollTurnOrder(18);
+
+        self::assertFalse($room->hasResolvedTurnOrder());
+        self::assertTrue($room->canPlayerRollTurnOrder($first));
+        self::assertTrue($room->canPlayerRollTurnOrder($second));
+
+        $second->rollTurnOrder(12);
+
+        self::assertFalse($room->hasResolvedTurnOrder());
+        self::assertTrue($room->canPlayerRollTurnOrder($first));
+        self::assertFalse($room->canPlayerRollTurnOrder($second));
+
+        $first->rollTurnOrder(7);
+
+        self::assertTrue($room->hasResolvedTurnOrder());
+        self::assertFalse($room->canPlayerRollTurnOrder($first));
+        self::assertFalse($room->canPlayerRollTurnOrder($second));
+        self::assertSame([$second, $first], $room->orderedPlayers());
+    }
+
     public function testStartedRoomCanOnlyBeViewedByOwnerOrPlayer(): void
     {
         $owner = new User('owner@example.test', 'Owner');

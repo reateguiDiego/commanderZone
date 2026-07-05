@@ -516,6 +516,10 @@ button.cz-button--tone-danger:disabled {
     align-items: start;
   }
 
+  .page-header-context[data-page-context="community-deck-detail"] .page-header-title {
+    padding-top: 10px;
+  }
+
   .page-header-context[data-page-context="community-deck-detail"] .page-header-detail-row.has-actions:not(.has-stats) {
     position: absolute;
     top: 0;
