@@ -3452,8 +3452,6 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.store.openZone('user-1', 'library');
 
     expect(gamesApi.zone).toHaveBeenCalledWith('game-1', 'user-1', 'library', {
-      type: '',
-      search: '',
       limit: 200,
     });
     expect(fixture.componentInstance.store.zoneModal()?.title).toBe('User Library');

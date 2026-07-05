@@ -578,6 +578,11 @@ export class GameTableContextStore {
       return;
     }
 
+    if (modal.zone === 'library') {
+      await this.zoneActions.loadZone(this.zoneAction());
+      return;
+    }
+
     this.zoneActions.removeZoneModalCards(instanceIds);
   }
 

@@ -14,6 +14,7 @@ export interface GameTableZoneActionContext {
 
 @Injectable()
 export class GameTableZoneActionsService {
+  private readonly snapshotBackedZones: ReadonlySet<GameZoneName> = new Set(['graveyard', 'exile']);
   private readonly gamesApi = inject(GamesApi);
   private readonly zoneModalState = inject(GameTableZoneModalState);
 
@@ -31,13 +32,26 @@ export class GameTableZoneActionsService {
     }
 
     this.zoneModalState.open(playerId, zone, `${context.playerName(playerId)} ${context.zoneTitle(zone)}`, selectedCardId, readOnly, options);
+    if (this.loadSnapshotBackedZone(context)) {
+      return;
+    }
+
     await this.loadZone(context);
   }
 
-  async loadZone(context: Pick<GameTableZoneActionContext, 'gameId'>): Promise<void> {
+  async loadZone(context: GameTableZoneActionContext): Promise<void> {
+    if (this.loadSnapshotBackedZone(context)) {
+      return;
+    }
+
     const modal = this.zoneModalState.zoneModal();
     const gameId = context.gameId();
     if (!modal || !gameId) {
+      return;
+    }
+
+    if (modal.zone === 'library') {
+      await this.loadLibraryZone(gameId, modal);
       return;
     }
 
@@ -50,8 +64,15 @@ export class GameTableZoneActionsService {
     this.zoneModalState.setLoaded(response.data, response.total);
   }
 
-  updateZoneFilter(context: Pick<GameTableZoneActionContext, 'gameId'>, patch: Partial<Pick<ZoneModalState, 'type' | 'search'>>): void {
+  updateZoneFilter(context: GameTableZoneActionContext, patch: Partial<Pick<ZoneModalState, 'type' | 'search'>>): void {
     this.zoneModalState.patchFilters(patch);
+    if (this.loadSnapshotBackedZone(context)) {
+      return;
+    }
+    if (this.applyCachedZoneFilter()) {
+      return;
+    }
+
     void this.loadZone(context);
   }
 
@@ -93,5 +114,73 @@ export class GameTableZoneActionsService {
       ?? 0;
 
     return count < 1;
+  }
+
+  private loadSnapshotBackedZone(context: Pick<GameTableZoneActionContext, 'snapshot'>): boolean {
+    const modal = this.zoneModalState.zoneModal();
+    if (!modal || !this.snapshotBackedZones.has(modal.zone)) {
+      return false;
+    }
+
+    const cards = this.filteredCards(context.snapshot()?.players[modal.playerId]?.zones[modal.zone] ?? [], modal);
+    this.zoneModalState.setLoaded(cards, cards.length);
+
+    return true;
+  }
+
+  private async loadLibraryZone(gameId: string, modal: ZoneModalState): Promise<void> {
+    this.zoneModalState.setLoading();
+    if (this.hasModalFilters(modal) && modal.filterSourceCards === null) {
+      const filteredResponse = await firstValueFrom(this.gamesApi.zone(gameId, modal.playerId, modal.zone, {
+        type: modal.type,
+        search: modal.search,
+        limit: 200,
+      }));
+      this.zoneModalState.setLoaded(filteredResponse.data, filteredResponse.total, null);
+      return;
+    }
+
+    const response = await firstValueFrom(this.gamesApi.zone(gameId, modal.playerId, modal.zone, { limit: 200 }));
+    const currentModal = this.zoneModalState.zoneModal();
+    if (!currentModal || currentModal.playerId !== modal.playerId || currentModal.zone !== modal.zone) {
+      return;
+    }
+
+    if (response.total === response.data.length) {
+      const cards = this.filteredCards(response.data, currentModal);
+      this.zoneModalState.setLoaded(cards, cards.length, response.data);
+      return;
+    }
+
+    this.zoneModalState.setLoaded(response.data, response.total, null);
+  }
+
+  private applyCachedZoneFilter(): boolean {
+    const modal = this.zoneModalState.zoneModal();
+    if (!modal || modal.zone !== 'library' || !modal.filterSourceCards) {
+      return false;
+    }
+
+    const cards = this.filteredCards(modal.filterSourceCards, modal);
+    this.zoneModalState.setLoaded(cards, cards.length, modal.filterSourceCards);
+
+    return true;
+  }
+
+  private filteredCards(cards: readonly GameCardInstance[], modal: ZoneModalState): GameCardInstance[] {
+    const type = modal.type.trim().toLowerCase();
+    const search = modal.search.trim().toLowerCase();
+
+    return cards.filter((card) => {
+      if (type !== '' && !(card.typeLine ?? '').toLowerCase().includes(type)) {
+        return false;
+      }
+
+      return search === '' || card.name.toLowerCase().includes(search);
+    });
+  }
+
+  private hasModalFilters(modal: ZoneModalState): boolean {
+    return modal.type.trim() !== '' || modal.search.trim() !== '';
   }
 }

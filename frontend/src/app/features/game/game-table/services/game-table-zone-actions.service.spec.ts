@@ -17,22 +17,93 @@ describe('GameTableZoneActionsService', () => {
     expect(gamesApi.zone).not.toHaveBeenCalled();
   });
 
-  it('opens public pile modal when the zone contains cards', async () => {
+  it('opens public pile modal from the local snapshot when the zone contains cards', async () => {
     const { service, state, gamesApi } = setup(snapshotWithZoneCount('exile', 1));
 
     await service.openZone(context(), 'player-1', 'exile');
 
-    expect(gamesApi.zone).toHaveBeenCalledWith('game-1', 'player-1', 'exile', { type: '', search: '', limit: 200 });
+    expect(gamesApi.zone).not.toHaveBeenCalled();
     expect(state.zoneModal()?.zone).toBe('exile');
+    expect(state.zoneModal()?.loading).toBe(false);
+    expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['card-0']);
+  });
+
+  it('filters local graveyard and exile modals without calling the zone endpoint', async () => {
+    const { service, state, gamesApi } = setup(snapshotWithCards('graveyard', [
+      card('creature-1', { name: 'Silver Knight', typeLine: 'Creature - Knight' }),
+      card('instant-1', { name: 'Lightning Bolt', typeLine: 'Instant' }),
+      card('creature-2', { name: 'Llanowar Elves', typeLine: 'Creature - Elf' }),
+    ]));
+
+    await service.openZone(context(), 'player-1', 'graveyard');
+    service.updateZoneFilter(context(), { type: 'creature', search: 'llanowar' });
+
+    expect(gamesApi.zone).not.toHaveBeenCalled();
+    expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['creature-2']);
+    expect(state.zoneModal()?.total).toBe(1);
   });
 
   it('can allow give destinations for a view-all library modal', async () => {
-    const { service, state } = setup(snapshotWithZoneCount('graveyard', 0));
+    const { service, state, gamesApi } = setup(snapshotWithZoneCount('graveyard', 0));
 
     await service.openZone(context(), 'player-1', 'library', null, false, { allowGiveDestination: true });
 
+    expect(gamesApi.zone).toHaveBeenCalledWith('game-1', 'player-1', 'library', { limit: 200 });
     expect(state.zoneModal()?.zone).toBe('library');
     expect(state.zoneModal()?.allowGiveDestination).toBe(true);
+  });
+
+  it('filters a complete library response locally after the initial backend load', async () => {
+    const libraryCards = [
+      card('creature-1', { name: 'Silver Knight', typeLine: 'Creature - Knight', zone: 'library' }),
+      card('instant-1', { name: 'Lightning Bolt', typeLine: 'Instant', zone: 'library' }),
+      card('creature-2', { name: 'Llanowar Elves', typeLine: 'Creature - Elf', zone: 'library' }),
+    ];
+    const { service, state, gamesApi } = setup();
+    gamesApi.zone.mockReturnValue(of({ data: libraryCards, total: libraryCards.length }));
+
+    await service.openZone(context(), 'player-1', 'library');
+    service.updateZoneFilter(context(), { type: 'creature' });
+    service.updateZoneFilter(context(), { search: 'llanowar' });
+
+    expect(gamesApi.zone).toHaveBeenCalledTimes(1);
+    expect(gamesApi.zone).toHaveBeenCalledWith('game-1', 'player-1', 'library', { limit: 200 });
+    expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['creature-2']);
+    expect(state.zoneModal()?.total).toBe(1);
+  });
+
+  it('keeps backend filtering for library when the loaded response is incomplete', async () => {
+    const { service, state, gamesApi } = setup();
+    gamesApi.zone.mockReturnValueOnce(of({ data: [card('card-1', { zone: 'library' })], total: 250 }));
+
+    await service.openZone(context(), 'player-1', 'library');
+
+    gamesApi.zone.mockClear();
+    gamesApi.zone.mockReturnValueOnce(of({ data: [card('creature-1', { typeLine: 'Creature', zone: 'library' })], total: 80 }));
+    service.updateZoneFilter(context(), { type: 'creature' });
+
+    await vi.waitFor(() => expect(gamesApi.zone).toHaveBeenCalledWith('game-1', 'player-1', 'library', {
+      type: 'creature',
+      search: '',
+      limit: 200,
+    }));
+    expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['creature-1']);
+    expect(state.zoneModal()?.total).toBe(80);
+  });
+
+  it('invalidates the local library filter source when modal cards are removed', async () => {
+    const libraryCards = [
+      card('card-1', { zone: 'library' }),
+      card('card-2', { zone: 'library' }),
+    ];
+    const { service, state, gamesApi } = setup();
+    gamesApi.zone.mockReturnValue(of({ data: libraryCards, total: libraryCards.length }));
+
+    await service.openZone(context(), 'player-1', 'library');
+    service.removeZoneModalCards(['card-1']);
+
+    expect(state.zoneModal()?.filterSourceCards).toBeNull();
+    expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['card-2']);
   });
 
   it('preserves fixed reorder slots when replacing top-library modal cards', () => {
@@ -97,12 +168,19 @@ function context(options: { setError?: (message: string) => void } = {}) {
     gameId: () => 'game-1',
     snapshot: () => currentSnapshot,
     playerName: () => 'Player One',
-    zoneTitle: (zone: GameZoneName) => zone === 'graveyard' ? 'Graveyard' : 'Exile',
+    zoneTitle: (zone: GameZoneName) => zone === 'graveyard' ? 'Graveyard' : zone === 'library' ? 'Library' : 'Exile',
     setError: options.setError ?? vi.fn(),
   };
 }
 
 function snapshotWithZoneCount(zone: Extract<GameZoneName, 'graveyard' | 'exile'>, count: number): GameSnapshot {
+  return snapshotWithCards(zone, Array.from({ length: count }, (_, index) => card(`card-${index}`, {
+    name: `Card ${index}`,
+    zone,
+  })));
+}
+
+function snapshotWithCards(zone: Extract<GameZoneName, 'graveyard' | 'exile'>, cards: GameCardInstance[]): GameSnapshot {
   return {
     version: 1,
     players: {
@@ -118,19 +196,14 @@ function snapshotWithZoneCount(zone: Extract<GameZoneName, 'graveyard' | 'exile'
           graveyard: [],
           exile: [],
           command: [],
-          [zone]: Array.from({ length: count }, (_, index) => ({
-            instanceId: `card-${index}`,
-            name: `Card ${index}`,
-            zone,
-            tapped: false,
-          })),
+          [zone]: cards,
         },
         zoneCounts: {
           library: 0,
           hand: 0,
           battlefield: 0,
-          graveyard: zone === 'graveyard' ? count : 0,
-          exile: zone === 'exile' ? count : 0,
+          graveyard: zone === 'graveyard' ? cards.length : 0,
+          exile: zone === 'exile' ? cards.length : 0,
           command: 0,
         },
       },
@@ -144,11 +217,12 @@ function snapshotWithZoneCount(zone: Extract<GameZoneName, 'graveyard' | 'exile'
   };
 }
 
-function card(instanceId: string): GameCardInstance {
+function card(instanceId: string, overrides: Partial<GameCardInstance> = {}): GameCardInstance {
   return {
     instanceId,
     name: instanceId,
     zone: 'library',
     tapped: false,
+    ...overrides,
   };
 }

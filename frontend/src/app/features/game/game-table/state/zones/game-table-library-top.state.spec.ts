@@ -150,6 +150,7 @@ function zoneModal(cards: GameCardInstance[]): ZoneModalState {
     title: 'player-1 top 2 library cards',
     selectedCardId: 'card-3',
     cards,
+    filterSourceCards: null,
     total: cards.length,
     type: '',
     search: '',

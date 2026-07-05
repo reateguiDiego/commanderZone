@@ -7,6 +7,7 @@ export interface ZoneModalState {
   title: string;
   selectedCardId: string | null;
   cards: GameCardInstance[];
+  filterSourceCards: readonly GameCardInstance[] | null;
   total: number;
   type: string;
   search: string;
@@ -39,6 +40,7 @@ export class GameTableZoneModalState {
       title,
       selectedCardId,
       cards: [],
+      filterSourceCards: null,
       total: 0,
       type: '',
       search: '',
@@ -69,6 +71,7 @@ export class GameTableZoneModalState {
       title,
       selectedCardId,
       cards,
+      filterSourceCards: null,
       total: cards.length,
       type: '',
       search: '',
@@ -93,7 +96,7 @@ export class GameTableZoneModalState {
     this.zoneModal.set({ ...modal, loading: true });
   }
 
-  setLoaded(cards: GameCardInstance[], total: number): void {
+  setLoaded(cards: GameCardInstance[], total: number, filterSourceCards?: readonly GameCardInstance[] | null): void {
     const modal = this.zoneModal();
     if (!modal) {
       return;
@@ -102,6 +105,7 @@ export class GameTableZoneModalState {
     this.zoneModal.set({
       ...modal,
       cards,
+      filterSourceCards: filterSourceCards === undefined ? modal.filterSourceCards : filterSourceCards,
       total,
       selectedCard: cards.find((card) => card.instanceId === modal.selectedCardId) ?? cards[0] ?? null,
       drawOrderLabels: modal.drawOrderLabels.slice(0, cards.length),
@@ -140,6 +144,7 @@ export class GameTableZoneModalState {
     this.zoneModal.set({
       ...modal,
       cards,
+      filterSourceCards: null,
       total: fixedSlotCount,
       selectedCard: cards.find((card) => card.instanceId === modal.selectedCardId) ?? cards[0] ?? null,
       drawOrderLabels: modal.allowReorder ? modal.drawOrderLabels : modal.drawOrderLabels.slice(0, cards.length),
@@ -166,6 +171,7 @@ export class GameTableZoneModalState {
     this.zoneModal.set({
       ...modal,
       cards,
+      filterSourceCards: null,
       total: fixedSlotCount,
       selectedCard: cards.find((card) => card.instanceId === modal.selectedCardId) ?? cards[0] ?? null,
       drawOrderLabels: modal.allowReorder ? modal.drawOrderLabels : modal.drawOrderLabels.slice(0, cards.length),
