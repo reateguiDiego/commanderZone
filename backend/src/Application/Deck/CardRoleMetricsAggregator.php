@@ -52,13 +52,14 @@ final class CardRoleMetricsAggregator
     ];
 
     /**
-     * @param list<array{quantity:int,analysisProfile:array<string,mixed>}> $resolvedCards
+     * @param list<array{deckCardId:string,cardId:string,oracleId:string,name:string,imageUrl?:?string,quantity:int,section:string,analysisProfile:array<string,mixed>}> $resolvedCards
      * @param list<array{quantity:int}> $unmatchedCards
-     * @return array{cards:array<string,int>,roles:array<string,int>,quality:array<string,array<string,int>>}
+     * @return array{cards:array<string,int>,roles:array<string,int>,roleCards:array<string,list<array<string,mixed>>>,quality:array<string,array<string,int>>}
      */
     public function aggregate(array $resolvedCards, array $unmatchedCards): array
     {
         $roles = $this->emptyRoleMetrics();
+        $roleCards = $this->emptyRoleCards();
         $quality = $this->emptyQualityMetrics();
         $lands = 0;
         $resolvedQuantity = 0;
@@ -71,11 +72,13 @@ final class CardRoleMetricsAggregator
 
             if ($this->isLand($profile)) {
                 $lands += $quantity;
+                $this->addMetricCard($roleCards, 'lands', $this->cardReference($card));
             }
 
-            $this->addRoleMetrics($roles, $profile, $quantity);
-            $this->addSubroleMetrics($roles, $profile, $quantity);
-            $this->addSpecialMetrics($roles, $profile, $quantity);
+            $reference = $this->cardReference($card);
+            $this->addRoleMetrics($roles, $roleCards, $profile, $quantity, $reference);
+            $this->addSubroleMetrics($roles, $roleCards, $profile, $quantity, $reference);
+            $this->addSpecialMetrics($roles, $roleCards, $profile, $quantity, $reference);
             $this->addQualityMetrics($quality, $profile, $quantity);
         }
 
@@ -91,6 +94,7 @@ final class CardRoleMetricsAggregator
                 'nonlands' => max(0, $resolvedQuantity - $lands),
             ],
             'roles' => $roles,
+            'roleCards' => $roleCards,
             'quality' => $quality,
         ];
     }
@@ -173,10 +177,20 @@ final class CardRoleMetricsAggregator
     }
 
     /**
-     * @param array<string,int> $roles
-     * @param array<string,mixed> $profile
+     * @return array<string,list<array<string,mixed>>>
      */
-    private function addRoleMetrics(array &$roles, array $profile, int $quantity): void
+    private function emptyRoleCards(): array
+    {
+        return array_fill_keys(array_keys($this->emptyRoleMetrics()), []);
+    }
+
+    /**
+     * @param array<string,int> $roles
+     * @param array<string,list<array<string,mixed>>> $roleCards
+     * @param array<string,mixed> $profile
+     * @param array<string,mixed> $reference
+     */
+    private function addRoleMetrics(array &$roles, array &$roleCards, array $profile, int $quantity, array $reference): void
     {
         foreach (self::ROLE_METRICS as $metric => $rule) {
             if (!$this->hasRole($profile, $rule['role'])) {
@@ -192,46 +206,95 @@ final class CardRoleMetricsAggregator
             }
 
             $roles[$metric] += $quantity;
+            $this->addMetricCard($roleCards, $metric, $reference);
         }
     }
 
     /**
      * @param array<string,int> $roles
+     * @param array<string,list<array<string,mixed>>> $roleCards
      * @param array<string,mixed> $profile
+     * @param array<string,mixed> $reference
      */
-    private function addSubroleMetrics(array &$roles, array $profile, int $quantity): void
+    private function addSubroleMetrics(array &$roles, array &$roleCards, array $profile, int $quantity, array $reference): void
     {
         foreach (self::SUBROLE_METRICS as $metric => $subrole) {
             if ($this->hasSubrole($profile, $subrole)) {
                 $roles[$metric] += $quantity;
+                $this->addMetricCard($roleCards, $metric, $reference);
             }
         }
     }
 
     /**
      * @param array<string,int> $roles
+     * @param array<string,list<array<string,mixed>>> $roleCards
      * @param array<string,mixed> $profile
+     * @param array<string,mixed> $reference
      */
-    private function addSpecialMetrics(array &$roles, array $profile, int $quantity): void
+    private function addSpecialMetrics(array &$roles, array &$roleCards, array $profile, int $quantity, array $reference): void
     {
         if ($this->hasRole($profile, 'tutor') && !$this->hasAnySubrole($profile, ['true_tutor', 'typed_tutor', 'land_tutor', 'ramp_search', 'opponent_tutor'])) {
             $roles['trueTutors'] += $quantity;
+            $this->addMetricCard($roleCards, 'trueTutors', $reference);
         }
         if ($this->hasSubrole($profile, 'true_tutor')) {
             $roles['trueTutors'] += $quantity;
+            $this->addMetricCard($roleCards, 'trueTutors', $reference);
         }
         if ($this->isOneShotRamp($profile)) {
             $roles['oneShotMana'] += $quantity;
+            $this->addMetricCard($roleCards, 'oneShotMana', $reference);
         }
         if ($this->boolPath($profile, ['flags', 'fastMana']) || $this->hasPowerFlag($profile, 'fast_mana')) {
-            $roles['fastMana'] += $this->hasRole($profile, 'fast_mana') ? 0 : $quantity;
+            if (!$this->hasRole($profile, 'fast_mana')) {
+                $roles['fastMana'] += $quantity;
+                $this->addMetricCard($roleCards, 'fastMana', $reference);
+            }
         }
         if ($this->hasCondition($profile, 'symmetrical_stax_risk')) {
             $roles['symmetricalStaxRisk'] += $quantity;
+            $this->addMetricCard($roleCards, 'symmetricalStaxRisk', $reference);
         }
         if ($this->hasRole($profile, 'extra_combat') || $this->hasSubrole($profile, 'extra_combat_engine')) {
             $roles['extraCombatEngines'] += $quantity;
+            $this->addMetricCard($roleCards, 'extraCombatEngines', $reference);
         }
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     * @return array{deckCardId:string,cardId:string,oracleId:string,name:string,imageUrl:?string,quantity:int,section:string}
+     */
+    private function cardReference(array $card): array
+    {
+        return [
+            'deckCardId' => (string) $card['deckCardId'],
+            'cardId' => (string) $card['cardId'],
+            'oracleId' => (string) $card['oracleId'],
+            'name' => (string) $card['name'],
+            'imageUrl' => $this->nullableString($card['imageUrl'] ?? null),
+            'quantity' => max(1, (int) $card['quantity']),
+            'section' => (string) $card['section'],
+        ];
+    }
+
+    /**
+     * @param array<string,list<array<string,mixed>>> $roleCards
+     * @param array<string,mixed> $reference
+     */
+    private function addMetricCard(array &$roleCards, string $metric, array $reference): void
+    {
+        $roleCards[$metric] ??= [];
+        $key = (string) ($reference['deckCardId'] ?? $reference['cardId'] ?? $reference['oracleId'] ?? '');
+        foreach ($roleCards[$metric] as $existing) {
+            $existingKey = (string) ($existing['deckCardId'] ?? $existing['cardId'] ?? $existing['oracleId'] ?? '');
+            if ($existingKey === $key) {
+                return;
+            }
+        }
+
+        $roleCards[$metric][] = $reference;
     }
 
     /**
@@ -398,5 +461,10 @@ final class CardRoleMetricsAggregator
         $string = trim((string) $value);
 
         return $string !== '' ? mb_strtolower($string) : null;
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        return is_scalar($value) && trim((string) $value) !== '' ? (string) $value : null;
     }
 }

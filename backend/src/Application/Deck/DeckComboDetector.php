@@ -15,11 +15,11 @@ final class DeckComboDetector
 
     /**
      * @param list<string> $deckOracleIds
-     * @param list<array{name:string,oracleId:string}> $resolvedCards
+     * @param list<array<string,mixed>> $resolvedCards
      * @param list<string> $commanderOracleIds
      * @return array{
      *     combos:array<string,mixed>,
-     *     topComboCompleters:list<array{oracleId:string,name:string,completesCombos:int}>
+     *     topComboCompleters:list<array{oracleId:string,name:string,imageUrl:?string,completesCombos:int}>
      * }
      */
     public function detect(array $deckOracleIds, array $resolvedCards, array $commanderOracleIds = []): array
@@ -72,6 +72,12 @@ final class DeckComboDetector
         $this->sortCombos($partialTwoMissing);
 
         $topComboCompleters = $this->topComboCompleters($partialOneMissing, $resolvedCards);
+        $cardReferences = $this->cardReferences([
+            ...$this->comboOracleIds($complete),
+            ...$this->comboOracleIds($partialOneMissing),
+            ...$this->comboOracleIds($partialTwoMissing),
+            ...array_column($topComboCompleters, 'oracleId'),
+        ], $resolvedCards);
 
         return [
             'combos' => [
@@ -85,11 +91,11 @@ final class DeckComboDetector
                 'lethalLoopCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['lethalLoop'] === true),
                 'commanderRequiredCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['requiresCommander'] === true),
                 'templateRequiredCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['requiresTemplate'] === true),
-                'complete' => $this->publicDetails($complete),
-                'partialOneMissing' => $this->publicDetails($partialOneMissing),
-                'partialTwoMissing' => $this->publicDetails($partialTwoMissing),
+                'complete' => $this->publicDetails($complete, $cardReferences),
+                'partialOneMissing' => $this->publicDetails($partialOneMissing, $cardReferences),
+                'partialTwoMissing' => $this->publicDetails($partialTwoMissing, $cardReferences),
             ],
-            'topComboCompleters' => $topComboCompleters,
+            'topComboCompleters' => $this->enrichTopComboCompleters($topComboCompleters, $cardReferences),
         ];
     }
 
@@ -285,13 +291,16 @@ SQL,
 
     /**
      * @param list<array<string,mixed>> $combos
+     * @param array<string,array<string,mixed>> $cardReferences
      * @return list<array<string,mixed>>
      */
-    private function publicDetails(array $combos): array
+    private function publicDetails(array $combos, array $cardReferences): array
     {
         $details = [];
         foreach (array_slice($combos, 0, self::DETAIL_LIMIT) as $combo) {
             unset($combo['popularity']);
+            $combo['cards'] = $this->referencesForOracleIds($combo['requiredOracleIds'], $cardReferences);
+            $combo['missingCards'] = $this->referencesForOracleIds($combo['missingOracleIds'], $cardReferences);
             $details[] = $combo;
         }
 
@@ -300,7 +309,7 @@ SQL,
 
     /**
      * @param list<array<string,mixed>> $partialOneMissing
-     * @param list<array{name:string,oracleId:string}> $resolvedCards
+     * @param list<array<string,mixed>> $resolvedCards
      * @return list<array{oracleId:string,name:string,completesCombos:int}>
      */
     private function topComboCompleters(array $partialOneMissing, array $resolvedCards): array
@@ -323,12 +332,12 @@ SQL,
             return [];
         }
 
-        $names = $this->cardNames(array_keys($frequencies));
+        $references = $this->cardReferences(array_keys($frequencies), $resolvedCards);
         $items = [];
         foreach ($frequencies as $oracleId => $count) {
             $items[] = [
                 'oracleId' => $oracleId,
-                'name' => $names[$oracleId] ?? $presentNames[$oracleId] ?? $oracleId,
+                'name' => $references[$oracleId]['name'] ?? $presentNames[$oracleId] ?? $oracleId,
                 'completesCombos' => $count,
             ];
         }
@@ -340,10 +349,35 @@ SQL,
 
     /**
      * @param list<string> $oracleIds
-     * @return array<string,string>
+     * @param list<array<string,mixed>> $resolvedCards
+     * @return array<string,array<string,mixed>>
      */
-    private function cardNames(array $oracleIds): array
+    private function cardReferences(array $oracleIds, array $resolvedCards): array
     {
+        $references = [];
+        foreach ($resolvedCards as $card) {
+            $oracleId = $this->stringOrNull($card['oracleId'] ?? null);
+            $name = $this->stringOrNull($card['name'] ?? null);
+            if ($oracleId === null || $name === null) {
+                continue;
+            }
+
+            $references[$oracleId] = [
+                'deckCardId' => $this->stringOrNull($card['deckCardId'] ?? null),
+                'cardId' => $this->stringOrNull($card['cardId'] ?? null),
+                'oracleId' => $oracleId,
+                'name' => $name,
+                'imageUrl' => $this->stringOrNull($card['imageUrl'] ?? null),
+                'quantity' => is_numeric($card['quantity'] ?? null) ? max(1, (int) $card['quantity']) : null,
+                'section' => $this->stringOrNull($card['section'] ?? null),
+            ];
+        }
+
+        $oracleIds = array_values(array_unique(array_filter($oracleIds, fn (string $oracleId): bool => !isset($references[$oracleId]))));
+        if ($oracleIds === []) {
+            return $references;
+        }
+
         $placeholders = [];
         $parameters = [];
         foreach ($oracleIds as $index => $oracleId) {
@@ -358,7 +392,15 @@ SQL,
 WITH missing(oracle_id) AS (VALUES %s)
 SELECT
     missing.oracle_id,
-    COALESCE(card_oracle_profile.name, card_analysis_profile.name, MIN(card.name)) AS name
+    COALESCE(card_oracle_profile.name, card_analysis_profile.name, MIN(card.name)) AS name,
+    MIN(COALESCE(
+        NULLIF(card.image_uris::jsonb ->> 'normal', ''),
+        NULLIF(card.image_uris::jsonb ->> 'large', ''),
+        NULLIF(card.image_uris::jsonb ->> 'small', ''),
+        NULLIF(card.image_uris::jsonb ->> 'png', ''),
+        NULLIF(card.image_uris::jsonb ->> 'border_crop', ''),
+        NULLIF(card.image_uris::jsonb ->> 'art_crop', '')
+    )) AS image_url
 FROM missing
 LEFT JOIN card_oracle_profile ON card_oracle_profile.oracle_id = missing.oracle_id
 LEFT JOIN card_analysis_profile ON card_analysis_profile.oracle_id = missing.oracle_id
@@ -370,16 +412,74 @@ SQL,
             $parameters,
         )->fetchAllAssociative();
 
-        $names = [];
         foreach ($rows as $row) {
             $oracleId = $this->stringOrNull($row['oracle_id'] ?? null);
             $name = $this->stringOrNull($row['name'] ?? null);
             if ($oracleId !== null && $name !== null) {
-                $names[$oracleId] = $name;
+                $references[$oracleId] = [
+                    'oracleId' => $oracleId,
+                    'name' => $name,
+                    'imageUrl' => $this->stringOrNull($row['image_url'] ?? null),
+                ];
             }
         }
 
-        return $names;
+        return $references;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $combos
+     * @return list<string>
+     */
+    private function comboOracleIds(array $combos): array
+    {
+        $oracleIds = [];
+        foreach (array_slice($combos, 0, self::DETAIL_LIMIT) as $combo) {
+            foreach ([...($combo['requiredOracleIds'] ?? []), ...($combo['missingOracleIds'] ?? [])] as $oracleId) {
+                if (is_string($oracleId) && $oracleId !== '') {
+                    $oracleIds[$oracleId] = true;
+                }
+            }
+        }
+
+        return array_keys($oracleIds);
+    }
+
+    /**
+     * @param list<string> $oracleIds
+     * @param array<string,array<string,mixed>> $cardReferences
+     * @return list<array<string,mixed>>
+     */
+    private function referencesForOracleIds(array $oracleIds, array $cardReferences): array
+    {
+        $references = [];
+        foreach ($oracleIds as $oracleId) {
+            $reference = $cardReferences[$oracleId] ?? null;
+            $references[] = $reference ?? [
+                'oracleId' => $oracleId,
+                'name' => $oracleId,
+                'imageUrl' => null,
+            ];
+        }
+
+        return $references;
+    }
+
+    /**
+     * @param list<array{oracleId:string,name:string,completesCombos:int}> $items
+     * @param array<string,array<string,mixed>> $cardReferences
+     * @return list<array{oracleId:string,name:string,imageUrl:?string,completesCombos:int}>
+     */
+    private function enrichTopComboCompleters(array $items, array $cardReferences): array
+    {
+        return array_map(static function (array $item) use ($cardReferences): array {
+            $reference = $cardReferences[$item['oracleId']] ?? null;
+
+            return [
+                ...$item,
+                'imageUrl' => $reference['imageUrl'] ?? null,
+            ];
+        }, $items);
     }
 
     /**

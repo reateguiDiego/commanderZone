@@ -82,6 +82,20 @@
       />
 
       @if (store.visibleActiveTab() === 'analysis') {
+        <div class="analysis-advanced-cta">
+          <div class="analysis-advanced-copy">
+            <strong>{{ 'deckBuilder.advancedAnalysis.title' | runtimeTranslate }}</strong>
+            <span>{{ 'deckBuilder.advancedAnalysis.description' | runtimeTranslate }}</span>
+          </div>
+          <a
+            czButton="secondary"
+            class="secondary-button analysis-advanced-button"
+            [routerLink]="advancedAnalysisLink(deck)"
+          >
+            <lucide-icon name="bar-chart-3" size="17" />
+            {{ 'deckBuilder.advancedAnalysis.openButton' | runtimeTranslate }}
+          </a>
+        </div>
         <app-deck-analysis-panel />
       } @else if (store.visibleActiveTab() === 'considering') {
         <div class="analysis-shell analysis-screen considering-layout">

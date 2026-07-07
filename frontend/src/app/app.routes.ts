@@ -48,6 +48,12 @@ export const routes: Routes = [
         title: 'Public Commander Decks | CommanderZone',
       },
       {
+        path: 'community/decks/:slug/analysis',
+        loadComponent: () => import('./features/community/community-deck-advanced-analysis-page/community-deck-advanced-analysis-page.component')
+          .then((component) => component.CommunityDeckAdvancedAnalysisPageComponent),
+        data: { pageKey: 'publicCommunity' },
+      },
+      {
         path: 'community/decks/:id',
         loadComponent: () => import('./features/community/community-deck-detail-page/community-deck-detail-page.component')
           .then((component) => component.CommunityDeckDetailPageComponent),
@@ -174,6 +180,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/decks/deck-list/deck-list.component')
           .then((component) => component.DeckListComponent),
         data: { pageKey: 'decks' },
+      },
+      {
+        path: 'decks/:slug/analysis',
+        loadComponent: () => import('./features/decks/deck-advanced-analysis/deck-advanced-analysis-page.component')
+          .then((component) => component.DeckAdvancedAnalysisPageComponent),
+        data: { pageKey: 'deckEditor' },
       },
       {
         path: 'decks/:slug',

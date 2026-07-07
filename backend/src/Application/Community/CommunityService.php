@@ -1395,7 +1395,7 @@ SQL,
         ];
     }
 
-    private function publicDeckByIdOrSlug(string $idOrSlug): ?Deck
+    public function publicDeckByIdOrSlug(string $idOrSlug): ?Deck
     {
         $idOrSlug = trim($idOrSlug);
         if ($idOrSlug === '') {

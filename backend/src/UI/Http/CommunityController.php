@@ -3,6 +3,8 @@
 namespace App\UI\Http;
 
 use App\Application\Community\CommunityService;
+use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
+use App\Application\Deck\DeckAdvancedAnalyzerService;
 use App\Domain\Localization\LanguageCatalog;
 use App\Domain\User\User;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -54,6 +56,22 @@ class CommunityController extends ApiController
         }
 
         return $this->json($payload);
+    }
+
+    #[Route('/community/decks/{slug}/analysis', methods: ['GET'])]
+    public function deckAdvancedAnalysis(
+        string $slug,
+        CommunityService $community,
+        DeckAdvancedAnalysisSnapshotService $snapshotService,
+        DeckAdvancedAnalyzerService $analyzer,
+    ): JsonResponse
+    {
+        $deck = $community->publicDeckByIdOrSlug($slug);
+        if ($deck === null) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        return $this->json($snapshotService->analyze($deck, $analyzer));
     }
 
     #[Route('/community/decks/{id}/like', methods: ['POST'])]

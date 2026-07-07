@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
+import { withGlobalLoading } from '../loading/loading-context';
 import {
   CommunityDeckDetailResponse,
   CommunityDeckCopyResponse,
@@ -13,6 +14,7 @@ import {
   CommunityPreviewCardsResponse,
   CommunityUserResponse,
 } from '../models/api-responses.model';
+import { AdvancedAnalysisResponse } from '../models/deck-advanced-analysis.model';
 
 export interface CommunityDeckListFilters {
   q?: string;
@@ -48,6 +50,12 @@ export class CommunityApi {
   deck(id: string, lang?: string): Observable<CommunityDeckDetailResponse> {
     return this.http.get<CommunityDeckDetailResponse>(`${API_BASE_URL}/community/decks/${id}`, {
       params: this.langParams(lang),
+    });
+  }
+
+  getCommunityDeckAdvancedAnalysis(slug: string): Observable<AdvancedAnalysisResponse> {
+    return this.http.get<AdvancedAnalysisResponse>(`${API_BASE_URL}/community/decks/${slug}/analysis`, {
+      context: withGlobalLoading(),
     });
   }
 

@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { Card } from '../../../core/models/card.model';
+import { Deck } from '../../../core/models/deck.model';
 import { CardAutocompleteComponent } from '../../../shared/components/card-autocomplete/card-autocomplete.component';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
@@ -23,6 +24,7 @@ import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
 import { CardFaceImageComponent } from '../../../shared/components/card-face-image/card-face-image.component';
 import { DECK_VIEW_STORE } from './deck-view-store.token';
 import { DECK_ANALYSIS_STORE } from './deck-analysis-panel/deck-analysis-store.token';
+import { deckEditorIdentifier } from '../utils/deck-route';
 
 @Component({
   selector: 'app-deck-editor',
@@ -242,6 +244,10 @@ export class DeckEditorComponent implements OnDestroy {
     if (isDeckEditorTab(tab)) {
       this.store.activeTab.set(tab);
     }
+  }
+
+  advancedAnalysisLink(deck: Pick<Deck, 'id' | 'slug'>): readonly string[] {
+    return ['/decks', deckEditorIdentifier(deck), 'analysis'];
   }
 
   showCardPreview(event: MouseEvent, card: Card): void {

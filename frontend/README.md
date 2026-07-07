@@ -34,11 +34,22 @@ npm run build
 npm run build:local
 npm run build:prod
 npm test
+npm run i18n:check
 npm run e2e
 npm run e2e:runtime-release
 npm run e2e:headed
 npm run e2e:ui
 ```
+
+## Translation Validation
+
+Run the locale parity check before changing `src/assets/i18n/*.json`:
+
+```bash
+npm run i18n:check
+```
+
+It validates JSON syntax, locale key parity, placeholder parity, empty values, unresolved TODO-style markers, and broken encoding markers.
 
 ## E2E (Playwright)
 

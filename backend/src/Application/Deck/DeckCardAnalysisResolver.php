@@ -19,6 +19,7 @@ final class DeckCardAnalysisResolver
      *         cardId:string,
      *         oracleId:string,
      *         name:string,
+     *         imageUrl:?string,
      *         quantity:int,
      *         section:string,
      *         analysisProfile:array<string,mixed>
@@ -27,6 +28,7 @@ final class DeckCardAnalysisResolver
      *         deckCardId:string,
      *         cardId:?string,
      *         name:?string,
+     *         imageUrl:?string,
      *         quantity:int,
      *         section:string,
      *         reason:string
@@ -46,23 +48,23 @@ final class DeckCardAnalysisResolver
             $section = $this->stringOrNull($row['section'] ?? null) ?? DeckCard::SECTION_MAIN;
 
             if (!in_array($section, DeckCard::SECTIONS, true)) {
-                $unmatchedCards[] = $this->unmatchedCard($deckCardId, $cardId, $name, $quantity, $section, 'unsupported_section');
+                $unmatchedCards[] = $this->unmatchedCard($deckCardId, $cardId, $name, $this->imageUrl($row), $quantity, $section, 'unsupported_section');
                 continue;
             }
 
             if ($cardId === null) {
-                $unmatchedCards[] = $this->unmatchedCard($deckCardId, null, $name, $quantity, $section, 'missing_card');
+                $unmatchedCards[] = $this->unmatchedCard($deckCardId, null, $name, null, $quantity, $section, 'missing_card');
                 continue;
             }
 
             $oracleId = $this->stringOrNull($row['oracle_id'] ?? null);
             if ($oracleId === null) {
-                $unmatchedCards[] = $this->unmatchedCard($deckCardId, $cardId, $name, $quantity, $section, 'missing_oracle_id');
+                $unmatchedCards[] = $this->unmatchedCard($deckCardId, $cardId, $name, $this->imageUrl($row), $quantity, $section, 'missing_oracle_id');
                 continue;
             }
 
             if (!$this->boolValue($row['has_analysis_profile'] ?? false)) {
-                $unmatchedCards[] = $this->unmatchedCard($deckCardId, $cardId, $name, $quantity, $section, 'missing_analysis_profile');
+                $unmatchedCards[] = $this->unmatchedCard($deckCardId, $cardId, $name, $this->imageUrl($row), $quantity, $section, 'missing_analysis_profile');
                 continue;
             }
 
@@ -71,6 +73,7 @@ final class DeckCardAnalysisResolver
                 'cardId' => $cardId,
                 'oracleId' => $oracleId,
                 'name' => $name ?? 'Unknown card',
+                'imageUrl' => $this->imageUrl($row),
                 'quantity' => $quantity,
                 'section' => $section,
                 'analysisProfile' => $this->analysisProfile($row),
@@ -97,6 +100,7 @@ SELECT
     deck_card.section,
     card.id AS card_id,
     card.name AS card_name,
+    card.image_uris AS card_image_uris,
     card.oracle_id,
     CASE WHEN card_analysis_profile.oracle_id IS NULL THEN false ELSE true END AS has_analysis_profile,
     card_analysis_profile.name AS profile_name,
@@ -190,18 +194,36 @@ SQL,
     }
 
     /**
-     * @return array{deckCardId:string,cardId:?string,name:?string,quantity:int,section:string,reason:string}
+     * @return array{deckCardId:string,cardId:?string,name:?string,imageUrl:?string,quantity:int,section:string,reason:string}
      */
-    private function unmatchedCard(string $deckCardId, ?string $cardId, ?string $name, int $quantity, string $section, string $reason): array
+    private function unmatchedCard(string $deckCardId, ?string $cardId, ?string $name, ?string $imageUrl, int $quantity, string $section, string $reason): array
     {
         return [
             'deckCardId' => $deckCardId,
             'cardId' => $cardId,
             'name' => $name,
+            'imageUrl' => $imageUrl,
             'quantity' => $quantity,
             'section' => $section,
             'reason' => $reason,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     */
+    private function imageUrl(array $row): ?string
+    {
+        $imageUris = $this->jsonObject($row['card_image_uris'] ?? null);
+
+        foreach (['normal', 'large', 'small', 'png', 'border_crop', 'art_crop'] as $key) {
+            $url = $this->stringOrNull($imageUris[$key] ?? null);
+            if ($url !== null) {
+                return $url;
+            }
+        }
+
+        return null;
     }
 
     private function stringOrNull(mixed $value): ?string

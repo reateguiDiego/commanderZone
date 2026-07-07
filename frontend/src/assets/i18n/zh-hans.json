@@ -1327,6 +1327,261 @@
         "summary": "套牌摘要",
         "total": "Total"
       }
+    },
+    "advancedAnalysis": {
+      "title": "高级分析",
+      "eyebrow": "牌组分析",
+      "description": "深入展示套牌健康度、连击、一致性和强度信号。",
+      "openButton": "高级分析",
+      "openCommunityAria": "打开此社区平台的高级分析",
+      "loading": "正在加载高级分析...",
+      "retry": "重试",
+      "retryAria": "重试加载高级分析",
+      "error": {
+        "generic": "无法加载高级分析。",
+        "notFound": "此套牌不提供高级分析。",
+        "forbidden": "您无权查看此分析。"
+      },
+      "common": {
+        "unavailable": "不可用",
+        "notAvailable": "无法使用",
+        "available": "可用的",
+        "yes": "是的",
+        "no": "不"
+      },
+      "overview": {
+        "aria": "高级分析概述",
+        "eyebrow": "概述"
+      },
+      "summary": {
+        "title": "概括",
+        "primaryArchetype": "主要原型",
+        "secondaryArchetypes": "次要原型",
+        "archetypeConfidence": "原型信心",
+        "powerBand": "功率带",
+        "powerConfidence": "动力信心",
+        "criticalIssues": "关键问题",
+        "mainWarnings": "主要警告"
+      },
+      "header": {
+        "deckId": "甲板编号",
+        "analyzedAt": "分析于",
+        "snapshot": "Snapshot"
+      },
+      "snapshot": {
+        "fresh": "最新分析",
+        "cached": "缓存分析",
+        "metadataUnavailable": "Snapshot 元数据不可用。",
+        "calculatedAt": "计算的{{date}}",
+        "calculatedEarlier": "之前计算过该套牌状态。",
+        "reasonCalculatedAt": "{{reason}} 计算的 {{date}}",
+        "recalculated": "针对当前牌组状态重新计算。"
+      },
+      "status": {
+        "excellent": "出色的",
+        "good": "好的",
+        "warning": "警告",
+        "critical": "批判的",
+        "unknown": "未知",
+        "info": "信息"
+      },
+      "priority": {
+        "high": "高的",
+        "medium": "中等的",
+        "low": "低的"
+      },
+      "health": {
+        "eyebrow": "甲板健康",
+        "title": "健康网格",
+        "defaultMessage": "无法自信地评估该区域。",
+        "cards": {
+          "ramp": "Ramp",
+          "draw": "画",
+          "interaction": "相互作用",
+          "wipes": "湿巾",
+          "tutors": "Tutors",
+          "sacrifice": "牺牲",
+          "wincons": "Wincons",
+          "combos": "Combos",
+          "consistency": "一致性",
+          "stax": "Stax"
+        }
+      },
+      "metrics": {
+        "eyebrow": "信号",
+        "title": "关键指标",
+        "unavailable": "详细的度量信号不可用于此分析。",
+        "permanentRamp": "永久坡道",
+        "fastMana": "快速法力",
+        "trueTutors": "真正的导师",
+        "boardWipes": "板擦拭巾",
+        "massBounce": "质量弹跳",
+        "sacOutlets": "囊出口",
+        "wincons": "Wincons",
+        "completeCombos": "完整的连击",
+        "keepableHands": "可保留起手牌",
+        "drawEffects": "绘制效果",
+        "spotInteraction": "现场互动",
+        "outlets": "奥特莱斯",
+        "staxPieces": "Stax 件",
+        "burstMana": "爆发法力",
+        "rituals": "仪式",
+        "manaFixing": "法力固定",
+        "oneShotMana": "一击法力",
+        "typedTutors": "打字导师",
+        "landTutors": "土地导师",
+        "rampSearch": "Ramp 搜索",
+        "opponentTutors": "对手导师",
+        "pseudoWipes": "伪湿巾",
+        "conditionalWipes": "有条件湿巾",
+        "sacrificeOutlets": "牺牲网点",
+        "oneShotSacrifice": "一击牺牲",
+        "selfSacrifice": "自我牺牲",
+        "sacrificePayoffs": "牺牲回报",
+        "combatFinishers": "战斗终结者",
+        "infectThreats": "感染威胁",
+        "extraCombatEngines": "额外的战斗引擎",
+        "stax": "Stax",
+        "tax": "税",
+        "symmetricalStaxRisk": "对称税务风险"
+      },
+      "cardResolution": {
+        "title": "卡片分辨率",
+        "cards": "牌",
+        "resolved": "已解决",
+        "unmatched": "无与伦比",
+        "unmatchedAria": "无与伦比的卡牌",
+        "unmatchedCount": "{{count}} 不匹配的卡",
+        "unmatchedCopy": "有些卡牌无法解析，因此角色和组合信号可能不完整。",
+        "cardCouldNotBeMatched": "卡无法匹配。"
+      },
+      "warnings": {
+        "eyebrow": "热门问题",
+        "title": "主要警告",
+        "empty": "未发现主要警告。"
+      },
+      "combos": {
+        "eyebrow": "已知线路",
+        "title": "连击分析",
+        "completeTitle": "完整的连击",
+        "partialTitle": "部分连击",
+        "completersTitle": "顶级组合完成者",
+        "viewMore": "查看更多",
+        "viewMoreCompleteAria": "查看更完整的组合",
+        "viewMorePartialAria": "查看更多部分组合",
+        "viewMoreCompletersAria": "查看更多组合完成者",
+        "missingCards": "缺失：{{cards}}",
+        "comboLine": "连击线 {{index}}",
+        "summary": {
+          "complete": "完整的连击",
+          "partialOneMissing": "部分，缺失一处",
+          "partialTwoMissing": "部分，两处缺失",
+          "winLike": "类似胜利的连击",
+          "infiniteMana": "无限法力",
+          "lethalLoops": "致命循环"
+        },
+        "empty": {
+          "noComplete": "未检测到完整的组合线。",
+          "noOneCardAway": "未检测到单牌组合线。",
+          "noCompleters": "未识别出组合完成者。",
+          "unavailable": "此分析没有可用的连击数据。",
+          "noCompleteOrPartial": "未检测到完整或部分组合线。"
+        },
+        "badges": {
+          "winLike": "胜利般的",
+          "infiniteMana": "无限法力",
+          "infiniteDamage": "无限伤害",
+          "requiresCommander": "需要指挥官",
+          "requiresTemplate": "需要模板"
+        }
+      },
+      "consistency": {
+        "eyebrow": "Monte Carlo",
+        "title": "一致性模拟",
+        "disclaimer": "模拟起手牌和卡牌获取，不是对局结果。",
+        "simulationRuns": "模拟运行",
+        "openingHand": "开手",
+        "keepRule": "遵守规则",
+        "mulligan": "Mulligan",
+        "byTurn": "轮流",
+        "unavailable": "一致性模拟不适用于此分析。",
+        "keepRuleFallback": "可保留的手牌是根据土地数量、早期游戏、发展信号、互动和头重脚轻的压力来评估的。",
+        "turn3": "第3回合",
+        "turn5": "第5回合",
+        "metrics": {
+          "keepableHands": "可保留起手牌",
+          "twoToFourLands": "2-4 地",
+          "zeroOrOneLand": "0-1 地",
+          "fivePlusLands": "5+ 土地",
+          "earlyInteraction": "早期互动",
+          "drawOrSelection": "绘制或选择",
+          "trueTutor": "真正的导师",
+          "earlyPlay": "早期游戏",
+          "tooFewLands": "土地太少",
+          "tooManyLands": "土地太多",
+          "noEarlyPlay": "没有早玩",
+          "tooTopHeavy": "头重脚轻",
+          "keepableAt7": "可保存在7",
+          "keepableBy6": "可保存至 6",
+          "keepableBy5": "可保存5",
+          "averageMulligansNeeded": "平均需要调度",
+          "permanentRampSeen": "看到永久坡道",
+          "earlyInteractionSeen": "早期互动可见",
+          "drawOrSelectionSeen": "绘制或选择看到",
+          "trueTutorSeen": "真正的导师见过",
+          "winconSeen": "看到 Wincon",
+          "comboPieceSeen": "看到连击组件",
+          "interactionSeen": "互动可见",
+          "completeTwoCardComboSeen": "看到完整的 2 张牌组合",
+          "comboPlusProtectionSeen": "看到连击与保护"
+        }
+      },
+      "roles": {
+        "eyebrow": "职能角色",
+        "title": "角色质量分解",
+        "qualityAria": "{{role}}质量",
+        "unavailable": "角色质量数据不可用于此分析。",
+        "cards": {
+          "ramp": "Ramp",
+          "tutors": "Tutors",
+          "wipes": "湿巾",
+          "sacrifice": "牺牲",
+          "winconsCombat": "Wincons / 战斗",
+          "stax": "Stax"
+        },
+        "messages": {
+          "rampOneShot": "有些加速是一次性的，不应算作稳定斜坡。",
+          "tutorsSeparated": "Ramp搜索和对手导师与真正的导师是分开的。",
+          "wipesSeparated": "质量反弹和条件擦拭与硬板擦拭不同。",
+          "sacrificeOneShot": "一击牺牲不算是可重复的出路。"
+        }
+      },
+      "quality": {
+        "premium": "优质的",
+        "good": "好的",
+        "medium": "中等的",
+        "slow": "慢的",
+        "oneShot": "一击"
+      },
+      "actions": {
+        "eyebrow": "行动计划",
+        "title": "问题和功能建议",
+        "criticalIssues": "关键问题",
+        "actionPrefix": "行动：{{action}}",
+        "evidence": "证据",
+        "noCriticalIssues": "未检测到严重问题。",
+        "warnings": "警告",
+        "noWarnings": "未检测到警告。",
+        "info": "信息",
+        "noMajorIssues": "未发现重大结构性问题。",
+        "review": "审查"
+      },
+      "recommendations": {
+        "title": "建议",
+        "targetsPrefix": "目标：{{targets}}",
+        "reasonsPrefix": "原因：{{reasons}}",
+        "empty": "没有可用的功能建议。"
+      }
     }
   },
   "tableAssistant": {

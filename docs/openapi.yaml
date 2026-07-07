@@ -1482,6 +1482,29 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /community/decks/{slug}/analysis:
+    get:
+      tags: [Community]
+      summary: Return advanced analysis for a public valid Community deck by slug.
+      description: >
+        Returns the same Advanced Deck Analysis response as `/decks/{id}/analysis/advanced`,
+        using the shared deck_id snapshot cache. Private or invalid decks are not exposed.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Public Community deck slug.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Advanced deck analysis.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckAdvancedAnalysis'
+        '404':
+          $ref: '#/components/responses/Error'
   /community/decks/{id}/like:
     post:
       tags: [Community]
@@ -5038,7 +5061,7 @@ components:
           format: uuid
         analyzerVersion:
           type: string
-          example: advanced-v1.5.0
+          example: advanced-v1.7.0
         analyzedAt:
           type: string
           format: date-time
@@ -5184,7 +5207,7 @@ components:
             type: string
     DeckAdvancedAnalysisMetrics:
       type: object
-      required: [cards, roles, quality]
+      required: [cards, roles, roleCards, quality]
       properties:
         cards:
           type: object
@@ -5204,6 +5227,13 @@ components:
               type: integer
         roles:
           $ref: '#/components/schemas/DeckAdvancedAnalysisRoleMetrics'
+        roleCards:
+          type: object
+          description: Card references grouped by role metric. Keys match role metric names such as permanentRamp, boardWipes, massBounce or conditionalWipes.
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
         quality:
           type: object
           required: [ramp, tutor, wipe, protection, wincon]
@@ -5388,6 +5418,8 @@ components:
         - externalId
         - requiredOracleIds
         - missingOracleIds
+        - cards
+        - missingCards
         - features
         - producesWin
         - producesWinLike
@@ -5418,6 +5450,16 @@ components:
           items:
             type: string
             format: uuid
+        cards:
+          type: array
+          description: Required combo cards enriched for visual rendering. Kept in the same order as requiredOracleIds.
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
+        missingCards:
+          type: array
+          description: Missing combo cards enriched for visual rendering. Kept in the same order as missingOracleIds.
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
         features:
           type: array
           items:
@@ -5453,15 +5495,49 @@ components:
         bracketTag:
           type: string
           nullable: true
+    DeckAdvancedAnalysisCardReference:
+      type: object
+      required: [oracleId, name, imageUrl]
+      properties:
+        deckCardId:
+          type: string
+          format: uuid
+          nullable: true
+        cardId:
+          type: string
+          format: uuid
+          nullable: true
+        oracleId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+          nullable: true
+        section:
+          type: string
+          nullable: true
+        matchedMetrics:
+          type: array
+          description: Health metrics that caused this card to appear in a grouped health category.
+          items:
+            type: string
     DeckAdvancedAnalysisTopComboCompleter:
       type: object
-      required: [oracleId, name, completesCombos]
+      required: [oracleId, name, imageUrl, completesCombos]
       properties:
         oracleId:
           type: string
           format: uuid
         name:
           type: string
+        imageUrl:
+          type: string
+          nullable: true
         completesCombos:
           type: integer
     DeckAdvancedAnalysisArchetypes:
@@ -5497,7 +5573,7 @@ components:
             type: string
     DeckAdvancedAnalysisPower:
       type: object
-      required: [band, confidence, signals, evidence, notes]
+      required: [band, confidence, signals, signalCards, evidence, notes]
       properties:
         band:
           type: string
@@ -5509,6 +5585,13 @@ components:
           type: object
           additionalProperties:
             type: integer
+        signalCards:
+          type: object
+          description: Card references grouped by power signal key. Combo signals include the cards from the completed combo line.
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
         evidence:
           type: array
           items:
@@ -5568,7 +5651,7 @@ components:
             type: number
     DeckAdvancedAnalysisUnmatchedCard:
       type: object
-      required: [deckCardId, cardId, name, quantity, section, reason]
+      required: [deckCardId, cardId, name, imageUrl, quantity, section, reason]
       properties:
         deckCardId:
           type: string
@@ -5578,6 +5661,9 @@ components:
           format: uuid
           nullable: true
         name:
+          type: string
+          nullable: true
+        imageUrl:
           type: string
           nullable: true
         quantity:

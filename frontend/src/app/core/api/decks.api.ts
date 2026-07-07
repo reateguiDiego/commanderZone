@@ -2,12 +2,14 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
+import { withGlobalLoading } from '../loading/loading-context';
 import {
   CommanderValidationResponse,
   DataResponse,
   DeckImportResponse,
   DeckResponse,
 } from '../models/api-responses.model';
+import { AdvancedAnalysisResponse } from '../models/deck-advanced-analysis.model';
 import { DeckAnalysis, DeckAnalysisOptions } from '../models/deck-analysis.model';
 import { Deck, DeckCardPrintingsResponse, DeckFormat, DeckSection, DeckSectionsResponse, DeckTokensResponse, DeckVisibility } from '../models/deck.model';
 
@@ -76,6 +78,12 @@ export class DecksApi {
     }
 
     return this.http.get<DeckAnalysis>(`${API_BASE_URL}/decks/${id}/analysis`, { params });
+  }
+
+  getDeckAdvancedAnalysis(deckId: string): Observable<AdvancedAnalysisResponse> {
+    return this.http.get<AdvancedAnalysisResponse>(`${API_BASE_URL}/decks/${deckId}/analysis/advanced`, {
+      context: withGlobalLoading(),
+    });
   }
 
   sections(id: string): Observable<DeckSectionsResponse> {

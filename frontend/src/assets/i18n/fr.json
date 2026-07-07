@@ -1327,6 +1327,261 @@
         "summary": "Résumé du deck",
         "total": "Total"
       }
+    },
+    "advancedAnalysis": {
+      "title": "Analyse avancée",
+      "eyebrow": "Analyse du pont",
+      "description": "État du deck en profondeur, combos, consistance et signaux de puissance.",
+      "openButton": "Analyse avancée",
+      "openCommunityAria": "Ouvrir l'analyse avancée pour ce deck communautaire",
+      "loading": "Chargement de l'analyse avancée...",
+      "retry": "Réessayer",
+      "retryAria": "Réessayez de charger l'analyse avancée",
+      "error": {
+        "generic": "Impossible de charger l'analyse avancée.",
+        "notFound": "L'analyse avancée n'est pas disponible pour ce deck.",
+        "forbidden": "Vous n'êtes pas autorisé à afficher cette analyse."
+      },
+      "common": {
+        "unavailable": "Indisponible",
+        "notAvailable": "Non disponible",
+        "available": "Disponible",
+        "yes": "Oui",
+        "no": "Non"
+      },
+      "overview": {
+        "aria": "Présentation de l'analyse avancée",
+        "eyebrow": "Aperçu"
+      },
+      "summary": {
+        "title": "Résumé",
+        "primaryArchetype": "Archétype principal",
+        "secondaryArchetypes": "Archétypes secondaires",
+        "archetypeConfidence": "Confiance archétypique",
+        "powerBand": "Niveau de puissance",
+        "powerConfidence": "Confiance en puissance",
+        "criticalIssues": "Problèmes critiques",
+        "mainWarnings": "Principaux avertissements"
+      },
+      "header": {
+        "deckId": "Identifiant du deck",
+        "analyzedAt": "Analysé à",
+        "snapshot": "Snapshot"
+      },
+      "snapshot": {
+        "fresh": "Analyse récente",
+        "cached": "Analyse en cache",
+        "metadataUnavailable": "Les métadonnées de l'instantané ne sont pas disponibles.",
+        "calculatedAt": "{{date}} calculé",
+        "calculatedEarlier": "Calculé précédemment pour cet état du deck.",
+        "reasonCalculatedAt": "{{reason}} Calculé {{date}}",
+        "recalculated": "Recalculé pour l'état actuel du deck."
+      },
+      "status": {
+        "excellent": "Très bon",
+        "good": "Bien",
+        "warning": "Avertissement",
+        "critical": "Critique",
+        "unknown": "Inconnu",
+        "info": "Info"
+      },
+      "priority": {
+        "high": "Élevé",
+        "medium": "Moyen",
+        "low": "Faible"
+      },
+      "health": {
+        "eyebrow": "Santé du pont",
+        "title": "Grille santé",
+        "defaultMessage": "Ce domaine ne peut pas être évalué avec certitude.",
+        "cards": {
+          "ramp": "Ramp",
+          "draw": "Dessiner",
+          "interaction": "Interactions",
+          "wipes": "Lingettes",
+          "tutors": "Tuteurs",
+          "sacrifice": "Sacrifice récurrent",
+          "wincons": "Wincons",
+          "combos": "Combos",
+          "consistency": "Consistance",
+          "stax": "Stax"
+        }
+      },
+      "metrics": {
+        "eyebrow": "Signaux",
+        "title": "Indicateurs clés",
+        "unavailable": "Les signaux métriques détaillés ne sont pas disponibles pour cette analyse.",
+        "permanentRamp": "Rampe permanente",
+        "fastMana": "Mana rapide",
+        "trueTutors": "De vrais tuteurs",
+        "boardWipes": "Lingettes pour planches",
+        "massBounce": "Rebond de masse",
+        "sacOutlets": "Sorties de sacs",
+        "wincons": "Wincons",
+        "completeCombos": "Combinaisons complètes",
+        "keepableHands": "Mains gardables",
+        "drawEffects": "Dessiner des effets",
+        "spotInteraction": "Interaction ponctuelle",
+        "outlets": "Points de vente",
+        "staxPieces": "Pièces Stax",
+        "burstMana": "Mana éclaté",
+        "rituals": "Rituels",
+        "manaFixing": "Fixation du mana",
+        "oneShotMana": "Mana à un coup",
+        "typedTutors": "Des tuteurs typés",
+        "landTutors": "Tuteurs fonciers",
+        "rampSearch": "Recherche de rampe",
+        "opponentTutors": "Tuteurs adverses",
+        "pseudoWipes": "Pseudo-lingettes",
+        "conditionalWipes": "Lingettes conditionnelles",
+        "sacrificeOutlets": "Points de vente du sacrifice",
+        "oneShotSacrifice": "Sacrifice en un seul coup",
+        "selfSacrifice": "Sacrifice de soi",
+        "sacrificePayoffs": "Les récompenses des sacrifices",
+        "combatFinishers": "Finisseurs de combat",
+        "infectThreats": "Menaces d'infection",
+        "extraCombatEngines": "Moteurs de combat supplémentaires",
+        "stax": "Stax",
+        "tax": "Taxe",
+        "symmetricalStaxRisk": "Risque fiscal symétrique"
+      },
+      "cardResolution": {
+        "title": "Résolution de la carte",
+        "cards": "Cartes",
+        "resolved": "Résolu",
+        "unmatched": "Inégalé",
+        "unmatchedAria": "Cartes inégalées",
+        "unmatchedCount": "Cartes inégalées {{count}}",
+        "unmatchedCopy": "Certaines cartes n’ont pas pu être identifiées ; les signaux de rôles et de combos peuvent donc être incomplets.",
+        "cardCouldNotBeMatched": "La carte n'a pas pu correspondre."
+      },
+      "warnings": {
+        "eyebrow": "Problèmes majeurs",
+        "title": "Principaux avertissements",
+        "empty": "Aucun avertissement principal trouvé."
+      },
+      "combos": {
+        "eyebrow": "Lignes connues",
+        "title": "Analyse des combos",
+        "completeTitle": "Combinaisons complètes",
+        "partialTitle": "Combos partiels",
+        "completersTitle": "Meilleurs finalistes de combos",
+        "viewMore": "Voir plus",
+        "viewMoreCompleteAria": "Voir des combos plus complets",
+        "viewMorePartialAria": "Voir plus de combos partiels",
+        "viewMoreCompletersAria": "Voir plus de compléteurs de combo",
+        "missingCards": "Manquant : {{cards}}",
+        "comboLine": "Ligne combinée {{index}}",
+        "summary": {
+          "complete": "Combinaisons complètes",
+          "partialOneMissing": "Partiel, un manquant",
+          "partialTwoMissing": "Partielle, deux disparus",
+          "winLike": "Des combos gagnants",
+          "infiniteMana": "Mana infini",
+          "lethalLoops": "Boucles mortelles"
+        },
+        "empty": {
+          "noComplete": "Aucune ligne de combo complète détectée.",
+          "noOneCardAway": "Aucune ligne de combo à une carte près détectée.",
+          "noCompleters": "Aucun compléteur de combo identifié.",
+          "unavailable": "Les données combinées ne sont pas disponibles pour cette analyse.",
+          "noCompleteOrPartial": "Aucune ligne de combo complète ou partielle détectée."
+        },
+        "badges": {
+          "winLike": "Comme une victoire",
+          "infiniteMana": "Mana infini",
+          "infiniteDamage": "Dégâts infinis",
+          "requiresCommander": "Nécessite un commandant",
+          "requiresTemplate": "Nécessite un modèle"
+        }
+      },
+      "consistency": {
+        "eyebrow": "Monte Carlo",
+        "title": "Simulation de consistance",
+        "disclaimer": "Simule les mains de départ et l’accès aux cartes, pas les résultats de partie.",
+        "simulationRuns": "Exécutions de simulation",
+        "openingHand": "Main d'ouverture",
+        "keepRule": "Gardez la règle",
+        "mulligan": "Mulligan",
+        "byTurn": "À tour de rôle",
+        "unavailable": "La simulation de consistance n’est pas disponible pour cette analyse.",
+        "keepRuleFallback": "Les mains pouvant être gardées sont évaluées à partir du nombre de terrains, des premiers jeux, des signaux de développement, de l'interaction et de la pression élevée.",
+        "turn3": "Tour 3",
+        "turn5": "Tour 5",
+        "metrics": {
+          "keepableHands": "Mains gardables",
+          "twoToFourLands": "2-4 terrains",
+          "zeroOrOneLand": "0-1 atterrit",
+          "fivePlusLands": "5+ terrains",
+          "earlyInteraction": "Interaction précoce",
+          "drawOrSelection": "Tirage au sort ou sélection",
+          "trueTutor": "Véritable tuteur",
+          "earlyPlay": "Jeu précoce",
+          "tooFewLands": "Trop peu de terres",
+          "tooManyLands": "Trop de terres",
+          "noEarlyPlay": "Pas de jeu anticipé",
+          "tooTopHeavy": "Trop lourd",
+          "keepableAt7": "Conservable à 7 heures",
+          "keepableBy6": "Conservable jusqu'à 6 heures",
+          "keepableBy5": "Conservable jusqu'à 5",
+          "averageMulligansNeeded": "Mulligans moyens nécessaires",
+          "permanentRampSeen": "Rampe permanente vue",
+          "earlyInteractionSeen": "Interaction précoce observée",
+          "drawOrSelectionSeen": "Tirage ou sélection vu",
+          "trueTutorSeen": "Vrai tuteur vu",
+          "winconSeen": "Wincon vu",
+          "comboPieceSeen": "Pièce combinée vue",
+          "interactionSeen": "Interaction vue",
+          "completeTwoCardComboSeen": "Combo complet de 2 cartes vu",
+          "comboPlusProtectionSeen": "Combo avec protection vu"
+        }
+      },
+      "roles": {
+        "eyebrow": "Rôles fonctionnels",
+        "title": "Répartition de la qualité des rôles",
+        "qualityAria": "Qualité {{role}}",
+        "unavailable": "Les données sur la qualité des rôles ne sont pas disponibles pour cette analyse.",
+        "cards": {
+          "ramp": "Ramp",
+          "tutors": "Tuteurs",
+          "wipes": "Lingettes",
+          "sacrifice": "Sacrifice récurrent",
+          "winconsCombat": "Wincon / combat",
+          "stax": "Stax"
+        },
+        "messages": {
+          "rampOneShot": "Certaines accélérations sont ponctuelles et ne doivent pas être considérées comme une rampe stable.",
+          "tutorsSeparated": "Les tuteurs de recherche de rampe et d'adversaires sont séparés des vrais tuteurs.",
+          "wipesSeparated": "Le rebond de masse et les lingettes conditionnelles ne sont pas les mêmes que les lingettes rigides.",
+          "sacrificeOneShot": "Le sacrifice ponctuel ne compte pas comme un débouché reproductible."
+        }
+      },
+      "quality": {
+        "premium": "Premium",
+        "good": "Bien",
+        "medium": "Moyen",
+        "slow": "Lent",
+        "oneShot": "Un coup"
+      },
+      "actions": {
+        "eyebrow": "Plan d'action",
+        "title": "Problèmes et recommandations fonctionnelles",
+        "criticalIssues": "Problèmes critiques",
+        "actionPrefix": "Action : {{action}}",
+        "evidence": "Preuve",
+        "noCriticalIssues": "Aucun problème critique détecté.",
+        "warnings": "Avertissements",
+        "noWarnings": "Aucun avertissement détecté.",
+        "info": "Info",
+        "noMajorIssues": "Aucun problème structurel majeur détecté.",
+        "review": "Examen"
+      },
+      "recommendations": {
+        "title": "Recommandations",
+        "targetsPrefix": "Cibles : {{targets}}",
+        "reasonsPrefix": "Motifs : {{reasons}}",
+        "empty": "Aucune recommandation fonctionnelle disponible."
+      }
     }
   },
   "tableAssistant": {

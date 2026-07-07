@@ -1327,6 +1327,261 @@
         "summary": "Resum de la baralla",
         "total": "Total"
       }
+    },
+    "advancedAnalysis": {
+      "title": "Anàlisi avançada",
+      "eyebrow": "Anàlisi de baralla",
+      "description": "Salut de la baralla en profunditat, combos, consistència i senyals de poder.",
+      "openButton": "Anàlisi avançada",
+      "openCommunityAria": "Obre l’anàlisi avançada d’aquesta baralla de la comunitat",
+      "loading": "S'està carregant l'anàlisi avançada...",
+      "retry": "Torna-ho a provar",
+      "retryAria": "Torna-ho a provar",
+      "error": {
+        "generic": "No s'ha pogut carregar l'anàlisi avançada.",
+        "notFound": "L'anàlisi avançada no està disponible per a aquesta plataforma.",
+        "forbidden": "No teniu permís per veure aquesta anàlisi."
+      },
+      "common": {
+        "unavailable": "No disponible",
+        "notAvailable": "No disponible",
+        "available": "Disponible",
+        "yes": "Sí",
+        "no": "No"
+      },
+      "overview": {
+        "aria": "Visió general de l'anàlisi avançada",
+        "eyebrow": "Vista general"
+      },
+      "summary": {
+        "title": "Resum",
+        "primaryArchetype": "Arquetip principal",
+        "secondaryArchetypes": "Arquetips secundaris",
+        "archetypeConfidence": "Confiança arquetípica",
+        "powerBand": "Banda de poder",
+        "powerConfidence": "Confiança en el poder",
+        "criticalIssues": "Assumptes crítics",
+        "mainWarnings": "Avisos principals"
+      },
+      "header": {
+        "deckId": "ID de la baralla",
+        "analyzedAt": "Analitzat el",
+        "snapshot": "Snapshot"
+      },
+      "snapshot": {
+        "fresh": "Anàlisi recent",
+        "cached": "Anàlisi en memòria cau",
+        "metadataUnavailable": "Les metadades del snapshot no estan disponibles.",
+        "calculatedAt": "Calculat {{date}}",
+        "calculatedEarlier": "Calculat anteriorment per a aquest estat de la baralla.",
+        "reasonCalculatedAt": "{{reason}} Calculat {{date}}",
+        "recalculated": "Recalculat per a l'estat actual de la baralla."
+      },
+      "status": {
+        "excellent": "Excel·lent",
+        "good": "Bo",
+        "warning": "Avís",
+        "critical": "Crític",
+        "unknown": "Desconegut",
+        "info": "Info"
+      },
+      "priority": {
+        "high": "Alta",
+        "medium": "Mitjana",
+        "low": "Baixa"
+      },
+      "health": {
+        "eyebrow": "Salut de la baralla",
+        "title": "Graella de salut",
+        "defaultMessage": "Aquesta àrea no es pot avaluar amb confiança.",
+        "cards": {
+          "ramp": "Ramp",
+          "draw": "Robatori",
+          "interaction": "Interacció",
+          "wipes": "Netejes",
+          "tutors": "Tutors",
+          "sacrifice": "Sacrifici",
+          "wincons": "Wincons",
+          "combos": "Combos",
+          "consistency": "Coherència",
+          "stax": "Stax"
+        }
+      },
+      "metrics": {
+        "eyebrow": "Senyals",
+        "title": "Mètriques clau",
+        "unavailable": "No hi ha senyals mètriques detallades disponibles per a aquesta anàlisi.",
+        "permanentRamp": "Ramp permanent",
+        "fastMana": "Mana ràpid",
+        "trueTutors": "Tutors reals",
+        "boardWipes": "Netejes de taula",
+        "massBounce": "Bounce massiu",
+        "sacOutlets": "Sortides de sacrifici",
+        "wincons": "Wincons",
+        "completeCombos": "Combos complets",
+        "keepableHands": "Mans conservables",
+        "drawEffects": "Efectes de robatori",
+        "spotInteraction": "Interacció puntual",
+        "outlets": "Sortides",
+        "staxPieces": "Peces de stax",
+        "burstMana": "Mana explosiu",
+        "rituals": "Rituals de mana",
+        "manaFixing": "Fixing de mana",
+        "oneShotMana": "Mana d'un tir",
+        "typedTutors": "Tutors tipats",
+        "landTutors": "Tutors de terres",
+        "rampSearch": "Cerca de ramp",
+        "opponentTutors": "Tutores contraris",
+        "pseudoWipes": "Pseudo-netejes",
+        "conditionalWipes": "Netejes condicionals",
+        "sacrificeOutlets": "Outlets de sacrifici",
+        "oneShotSacrifice": "Sacrifici d'un sol cop",
+        "selfSacrifice": "Autosacrifici",
+        "sacrificePayoffs": "Payoffs de sacrifici",
+        "combatFinishers": "Finalitzadors de combat",
+        "infectThreats": "Infectar amenaces",
+        "extraCombatEngines": "Motors de combat extra",
+        "stax": "Stax",
+        "tax": "Tax",
+        "symmetricalStaxRisk": "Risc d'estax simètric"
+      },
+      "cardResolution": {
+        "title": "Resolució de cartes",
+        "cards": "Cartes",
+        "resolved": "Resoltes",
+        "unmatched": "No resoltes",
+        "unmatchedAria": "Cartes no resoltes",
+        "unmatchedCount": "{{count}} cartes no resoltes",
+        "unmatchedCopy": "Algunes cartes no s'han pogut resoldre, de manera que els senyals de rol i combinació poden estar incomplets.",
+        "cardCouldNotBeMatched": "No s'ha pogut identificar la carta."
+      },
+      "warnings": {
+        "eyebrow": "Problemes principals",
+        "title": "Avisos principals",
+        "empty": "No s'han trobat avisos principals."
+      },
+      "combos": {
+        "eyebrow": "Línies conegudes",
+        "title": "Intel·ligència de combos",
+        "completeTitle": "Combos complets",
+        "partialTitle": "Combos parcials",
+        "completersTitle": "Millors completadors de combos",
+        "viewMore": "Veure més",
+        "viewMoreCompleteAria": "Veure combos més complets",
+        "viewMorePartialAria": "Veure més combos parcials",
+        "viewMoreCompletersAria": "Veure més completadors de combo",
+        "missingCards": "Falta: {{cards}}",
+        "comboLine": "Línia de combo {{index}}",
+        "summary": {
+          "complete": "Combos complets",
+          "partialOneMissing": "Parcial, en falta una",
+          "partialTwoMissing": "Parcial, en falten dues",
+          "winLike": "Combos semblants a la victòria",
+          "infiniteMana": "Mana infinit",
+          "lethalLoops": "Bucles letals"
+        },
+        "empty": {
+          "noComplete": "No s'han detectat línies combinades completes.",
+          "noOneCardAway": "No s’han detectat línies de combo a una carta.",
+          "noCompleters": "No s'han identificat cap completador de combinacions.",
+          "unavailable": "Les dades de combos no estan disponibles per a aquesta anàlisi.",
+          "noCompleteOrPartial": "No s'han detectat línies combinades completes o parcials."
+        },
+        "badges": {
+          "winLike": "Com la victòria",
+          "infiniteMana": "Mana infinit",
+          "infiniteDamage": "Dany infinit",
+          "requiresCommander": "Requereix commander",
+          "requiresTemplate": "Requereix plantilla"
+        }
+      },
+      "consistency": {
+        "eyebrow": "Monte Carlo",
+        "title": "Simulació de consistència",
+        "disclaimer": "Simula mans inicials i accés a cartes, no resultats de partida.",
+        "simulationRuns": "Simulacions",
+        "openingHand": "Mà inicial",
+        "keepRule": "Regla de keep",
+        "mulligan": "Mulligan",
+        "byTurn": "Per torn",
+        "unavailable": "La simulació de coherència no està disponible per a aquesta anàlisi.",
+        "keepRuleFallback": "Les mans que es poden mantenir s'avaluen a partir del recompte de terres, les primeres jugades, els senyals de desenvolupament, la interacció i la pressió superior.",
+        "turn3": "Torn 3",
+        "turn5": "Torn 5",
+        "metrics": {
+          "keepableHands": "Mans conservables",
+          "twoToFourLands": "2-4 terres",
+          "zeroOrOneLand": "0-1 terres",
+          "fivePlusLands": "5+ terres",
+          "earlyInteraction": "Interacció primerenca",
+          "drawOrSelection": "Robatori o selecció",
+          "trueTutor": "Tutor real",
+          "earlyPlay": "Jugada primerenca",
+          "tooFewLands": "Massa poques terres",
+          "tooManyLands": "Massa terres",
+          "noEarlyPlay": "Sense jugada primerenca",
+          "tooTopHeavy": "Massa top-heavy",
+          "keepableAt7": "Conservable a 7",
+          "keepableBy6": "Conservable a 6",
+          "keepableBy5": "Conservable a 5",
+          "averageMulligansNeeded": "Mitjana de mulligans necessaris",
+          "permanentRampSeen": "Ramp permanent vist",
+          "earlyInteractionSeen": "Interacció primerenca vista",
+          "drawOrSelectionSeen": "Robatori o selecció vist",
+          "trueTutorSeen": "Tutor real vist",
+          "winconSeen": "Wincon vist",
+          "comboPieceSeen": "Peça de combo vista",
+          "interactionSeen": "Interacció vista",
+          "completeTwoCardComboSeen": "Combo complet de 2 cartes vist",
+          "comboPlusProtectionSeen": "Combo amb protecció vist"
+        }
+      },
+      "roles": {
+        "eyebrow": "Rols funcionals",
+        "title": "Desglossament de qualitat de rols",
+        "qualityAria": "Qualitat de {{role}}",
+        "unavailable": "Les dades de qualitat del rol no estan disponibles per a aquesta anàlisi.",
+        "cards": {
+          "ramp": "Ramp",
+          "tutors": "Tutors",
+          "wipes": "Netejes",
+          "sacrifice": "Sacrifici",
+          "winconsCombat": "Condicions de victòria / combat",
+          "stax": "Stax"
+        },
+        "messages": {
+          "rampOneShot": "Alguna acceleració és d'un sol tir i no s'ha de comptar com a rampa estable.",
+          "tutorsSeparated": "Els tutors de cerca i oponents Ramp estan separats dels veritables tutors.",
+          "wipesSeparated": "El rebot massiu i les tovalloletes condicionals no són el mateix que les tovalloletes dures.",
+          "sacrificeOneShot": "El sacrifici d'un sol cop no compta com a sortida repetible."
+        }
+      },
+      "quality": {
+        "premium": "Premium",
+        "good": "Bo",
+        "medium": "Mitjana",
+        "slow": "Lent",
+        "oneShot": "Un tir"
+      },
+      "actions": {
+        "eyebrow": "Pla d'acció",
+        "title": "Problemes i recomanacions funcionals",
+        "criticalIssues": "Assumptes crítics",
+        "actionPrefix": "Acció: {{action}}",
+        "evidence": "Evidència",
+        "noCriticalIssues": "No s'han detectat problemes crítics.",
+        "warnings": "Avisos",
+        "noWarnings": "No s'han detectat avisos.",
+        "info": "Info",
+        "noMajorIssues": "No s'han detectat problemes estructurals importants.",
+        "review": "Revisar"
+      },
+      "recommendations": {
+        "title": "Recomanacions",
+        "targetsPrefix": "Objectius: {{targets}}",
+        "reasonsPrefix": "Motius: {{reasons}}",
+        "empty": "No hi ha recomanacions funcionals disponibles."
+      }
     }
   },
   "tableAssistant": {

@@ -351,6 +351,42 @@ textarea::placeholder {
   --cz-tab-active-color: var(--text);
 }
 
+.analysis-advanced-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  min-width: 0;
+  margin-bottom: 1rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 22%);
+  border-radius: 8px;
+  padding: 0.8rem 0.9rem;
+  background:
+    linear-gradient(90deg, rgb(var(--cz-primary-rgb) / 10%), transparent 58%),
+    rgb(var(--cz-bg-rgb) / 20%);
+}
+
+.analysis-advanced-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.analysis-advanced-copy strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.analysis-advanced-copy span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.analysis-advanced-button {
+  flex: 0 0 auto;
+}
+
 .analysis-shell {
   grid-template-columns: minmax(0, 1.45fr) minmax(22rem, 0.95fr);
 }
@@ -715,6 +751,15 @@ textarea::placeholder {
   .analysis-shell,
   .metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .analysis-advanced-cta {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .analysis-advanced-button {
+    width: 100%;
   }
 
   .deck-card-cost {

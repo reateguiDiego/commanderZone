@@ -74,7 +74,9 @@ describe('server routes', () => {
       'admin',
       'dashboard',
       'cards',
+      'community/decks/:slug/analysis',
       'decks',
+      'decks/:slug/analysis',
       'decks/:slug',
       'rooms',
       'rooms/:id/waiting',
@@ -106,6 +108,10 @@ describe('server routes', () => {
 
   it('server-renders public community deck details on demand', () => {
     expect(serverRoutes.find((route) => route.path === 'community/decks/:id')?.renderMode).toBe(RenderMode.Server);
+  });
+
+  it('keeps community advanced deck analysis in client render mode', () => {
+    expect(serverRoutes.find((route) => route.path === 'community/decks/:slug/analysis')?.renderMode).toBe(RenderMode.Client);
   });
 
   it('uses server rendering with 404 status as the fallback server route', () => {

@@ -1327,6 +1327,261 @@
         "summary": "Сводка колоды",
         "total": "Всего"
       }
+    },
+    "advancedAnalysis": {
+      "title": "Расширенный анализ",
+      "eyebrow": "Анализ колоды",
+      "description": "Глубокая оценка колоды: структура, комбо, стабильность и уровень силы.",
+      "openButton": "Расширенный анализ",
+      "openCommunityAria": "Открыть расширенный анализ для этой колоды сообщества",
+      "loading": "Загрузка расширенного анализа...",
+      "retry": "Повторить попытку",
+      "retryAria": "Повторить попытку загрузки расширенного анализа.",
+      "error": {
+        "generic": "Не удалось загрузить расширенный анализ.",
+        "notFound": "Для этой колоды расширенный анализ недоступен.",
+        "forbidden": "У вас нет разрешения на просмотр этого анализа."
+      },
+      "common": {
+        "unavailable": "Недоступно",
+        "notAvailable": "Нет в наличии",
+        "available": "Доступный",
+        "yes": "Да",
+        "no": "Нет"
+      },
+      "overview": {
+        "aria": "Обзор расширенного анализа",
+        "eyebrow": "Обзор"
+      },
+      "summary": {
+        "title": "Краткое содержание",
+        "primaryArchetype": "Первичный архетип",
+        "secondaryArchetypes": "Вторичные архетипы",
+        "archetypeConfidence": "Архетип уверенности",
+        "powerBand": "Диапазон мощности",
+        "powerConfidence": "Сила уверенности",
+        "criticalIssues": "Критические проблемы",
+        "mainWarnings": "Основные предупреждения"
+      },
+      "header": {
+        "deckId": "Идентификатор колоды",
+        "analyzedAt": "Проанализировано на",
+        "snapshot": "Snapshot"
+      },
+      "snapshot": {
+        "fresh": "Актуальный анализ",
+        "cached": "Кэшированный анализ",
+        "metadataUnavailable": "Метаданные Snapshot недоступны.",
+        "calculatedAt": "Рассчитанный {{date}}",
+        "calculatedEarlier": "Рассчитано ранее для этого состояния колоды.",
+        "reasonCalculatedAt": "{{reason}} Рассчитанный {{date}}",
+        "recalculated": "Пересчитывается для текущего состояния колоды."
+      },
+      "status": {
+        "excellent": "Отличный",
+        "good": "Хороший",
+        "warning": "Предупреждение",
+        "critical": "Критический",
+        "unknown": "Неизвестный",
+        "info": "Информация"
+      },
+      "priority": {
+        "high": "Высокий",
+        "medium": "Середина",
+        "low": "Низкий"
+      },
+      "health": {
+        "eyebrow": "Здоровье колоды",
+        "title": "Сетка здоровья",
+        "defaultMessage": "Эту область нельзя оценить уверенно.",
+        "cards": {
+          "ramp": "Ramp",
+          "draw": "Рисовать",
+          "interaction": "Взаимодействие",
+          "wipes": "Салфетки",
+          "tutors": "Tutors",
+          "sacrifice": "Жертва",
+          "wincons": "Wincons",
+          "combos": "Combos",
+          "consistency": "Последовательность",
+          "stax": "Stax"
+        }
+      },
+      "metrics": {
+        "eyebrow": "Сигналы",
+        "title": "Ключевые показатели",
+        "unavailable": "Подробные сигналы показателей недоступны для этого анализа.",
+        "permanentRamp": "Постоянная рампа",
+        "fastMana": "Быстрая мана",
+        "trueTutors": "Настоящие репетиторы",
+        "boardWipes": "Салфетки для досок",
+        "massBounce": "Массовый отскок",
+        "sacOutlets": "Розетки для мешков",
+        "wincons": "Wincons",
+        "completeCombos": "Полные комбо",
+        "keepableHands": "Руки, которые можно оставить",
+        "drawEffects": "Эффекты рисования",
+        "spotInteraction": "Точечное взаимодействие",
+        "outlets": "Розетки",
+        "staxPieces": "Stax штук",
+        "burstMana": "Взрыв маны",
+        "rituals": "Ритуалы",
+        "manaFixing": "Исправление маны",
+        "oneShotMana": "Однократная мана",
+        "typedTutors": "Типизированные репетиторы",
+        "landTutors": "Земельные репетиторы",
+        "rampSearch": "Ramp поиск",
+        "opponentTutors": "Репетиторы противника",
+        "pseudoWipes": "Псевдо салфетки",
+        "conditionalWipes": "Условные салфетки",
+        "sacrificeOutlets": "Жертвоприношения",
+        "oneShotSacrifice": "Одноразовая жертва",
+        "selfSacrifice": "Самопожертвование",
+        "sacrificePayoffs": "Жертвовать выигрышами",
+        "combatFinishers": "Боевые финишеры",
+        "infectThreats": "Угрозы заражения",
+        "extraCombatEngines": "Дополнительные боевые двигатели",
+        "stax": "Stax",
+        "tax": "Налог",
+        "symmetricalStaxRisk": "Симметричный статический риск"
+      },
+      "cardResolution": {
+        "title": "Разрешение карты",
+        "cards": "Карты",
+        "resolved": "Решено",
+        "unmatched": "Бесподобный",
+        "unmatchedAria": "Непревзойденные карты",
+        "unmatchedCount": "{{count}} непревзойденные карты",
+        "unmatchedCopy": "Некоторые карты не удалось определить, поэтому сигналы ролей и комбо могут быть неполными.",
+        "cardCouldNotBeMatched": "Карта не может быть сопоставлена."
+      },
+      "warnings": {
+        "eyebrow": "Главные проблемы",
+        "title": "Основные предупреждения",
+        "empty": "Основные предупреждения не найдены."
+      },
+      "combos": {
+        "eyebrow": "Известные линии",
+        "title": "Анализ комбо",
+        "completeTitle": "Полные комбо",
+        "partialTitle": "Частичные комбо",
+        "completersTitle": "Лучшие исполнители комбо",
+        "viewMore": "Посмотреть больше",
+        "viewMoreCompleteAria": "Посмотреть больше полных комбинаций",
+        "viewMorePartialAria": "Посмотреть больше частичных комбинаций",
+        "viewMoreCompletersAria": "Посмотреть больше комбо-дополнителей",
+        "missingCards": "Отсутствует: {{cards}}",
+        "comboLine": "Линия комбо {{index}}",
+        "summary": {
+          "complete": "Полные комбо",
+          "partialOneMissing": "Частично, один отсутствует",
+          "partialTwoMissing": "Частично, два отсутствуют",
+          "winLike": "Выигрышные комбинации",
+          "infiniteMana": "Бесконечная мана",
+          "lethalLoops": "Смертельные петли"
+        },
+        "empty": {
+          "noComplete": "Полных комбо-строк не обнаружено.",
+          "noOneCardAway": "Комбо-линий с одной картой не обнаружено.",
+          "noCompleters": "Совершители комбо не обнаружены.",
+          "unavailable": "Данные о комбо недоступны для этого анализа.",
+          "noCompleteOrPartial": "Полные или частичные комбинированные линии не обнаружены."
+        },
+        "badges": {
+          "winLike": "Беспроигрышный",
+          "infiniteMana": "Бесконечная мана",
+          "infiniteDamage": "Бесконечный урон",
+          "requiresCommander": "Требуется командир",
+          "requiresTemplate": "Требуется шаблон"
+        }
+      },
+      "consistency": {
+        "eyebrow": "Monte Carlo",
+        "title": "Моделирование согласованности",
+        "disclaimer": "Моделирует стартовые руки и доступ к картам, а не результаты партии.",
+        "simulationRuns": "Моделирование выполняется",
+        "openingHand": "Открытие руки",
+        "keepRule": "Держите правило",
+        "mulligan": "Mulligan",
+        "byTurn": "По очереди",
+        "unavailable": "Для этого анализа моделирование согласованности недоступно.",
+        "keepRuleFallback": "Руки, которые можно сохранить, оцениваются по количеству земель, ранним играм, сигналам развития, взаимодействию и сильному давлению сверху.",
+        "turn3": "Третий поворот",
+        "turn5": "Поворот 5",
+        "metrics": {
+          "keepableHands": "Хранимые руки",
+          "twoToFourLands": "2-4 земли",
+          "zeroOrOneLand": "0-1 земли",
+          "fivePlusLands": "5+ земель",
+          "earlyInteraction": "Раннее взаимодействие",
+          "drawOrSelection": "Рисовать или выбирать",
+          "trueTutor": "Настоящий репетитор",
+          "earlyPlay": "Ранняя игра",
+          "tooFewLands": "Слишком мало земель",
+          "tooManyLands": "Слишком много земель",
+          "noEarlyPlay": "Нет ранней игры",
+          "tooTopHeavy": "Слишком тяжелый верх",
+          "keepableAt7": "Можно сохранить в 7",
+          "keepableBy6": "Можно сохранить до 6",
+          "keepableBy5": "Сохраняется на 5",
+          "averageMulligansNeeded": "Нужны средние пересдачи",
+          "permanentRampSeen": "Виден постоянный пандус",
+          "earlyInteractionSeen": "Видно раннее взаимодействие",
+          "drawOrSelectionSeen": "Виден рисунок или выделение",
+          "trueTutorSeen": "Настоящий репетитор замечен",
+          "winconSeen": "Wincon просмотрен",
+          "comboPieceSeen": "Виден фрагмент Combo",
+          "interactionSeen": "Взаимодействие замечено",
+          "completeTwoCardComboSeen": "Видна полная комбинация из 2 карт",
+          "comboPlusProtectionSeen": "Комбо с защитой найдено"
+        }
+      },
+      "roles": {
+        "eyebrow": "Функциональные роли",
+        "title": "Разбивка по качеству ролей",
+        "qualityAria": "Качество {{role}}",
+        "unavailable": "Данные о качестве ролей для данного анализа недоступны.",
+        "cards": {
+          "ramp": "Ramp",
+          "tutors": "Tutors",
+          "wipes": "Салфетки",
+          "sacrifice": "Жертва",
+          "winconsCombat": "Wincons / бой",
+          "stax": "Stax"
+        },
+        "messages": {
+          "rampOneShot": "Некоторое ускорение носит однократный характер и не должно рассматриваться как стабильное изменение скорости.",
+          "tutorsSeparated": "Поиск Ramp и репетиторы-оппоненты отделены от настоящих репетиторов.",
+          "wipesSeparated": "Массовый отскок и условные вытирания — это не то же самое, что вытирание твердой доски.",
+          "sacrificeOneShot": "Одноразовая жертва не считается повторяемым выходом."
+        }
+      },
+      "quality": {
+        "premium": "Премиум",
+        "good": "Хороший",
+        "medium": "Середина",
+        "slow": "Медленный",
+        "oneShot": "Один выстрел"
+      },
+      "actions": {
+        "eyebrow": "План действий",
+        "title": "Проблемы и функциональные рекомендации",
+        "criticalIssues": "Критические проблемы",
+        "actionPrefix": "Действие: {{action}}",
+        "evidence": "Доказательство",
+        "noCriticalIssues": "Критических проблем не обнаружено.",
+        "warnings": "Предупреждения",
+        "noWarnings": "Предупреждений не обнаружено.",
+        "info": "Информация",
+        "noMajorIssues": "Серьезных структурных проблем не обнаружено.",
+        "review": "Обзор"
+      },
+      "recommendations": {
+        "title": "Рекомендации",
+        "targetsPrefix": "Цели: {{targets}}",
+        "reasonsPrefix": "Причины: {{reasons}}",
+        "empty": "Функциональные рекомендации отсутствуют."
+      }
     }
   },
   "tableAssistant": {

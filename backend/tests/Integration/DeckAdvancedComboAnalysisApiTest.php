@@ -28,6 +28,13 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
         self::assertSame('oracle-consultation', $response['combos']['complete'][0]['externalId']);
         self::assertTrue($response['combos']['complete'][0]['producesWin']);
         self::assertSame([], $response['combos']['complete'][0]['missingOracleIds']);
+        self::assertSame('91000000-0000-0000-0000-000000000101', $response['combos']['complete'][0]['cards'][0]['oracleId']);
+        self::assertSame('Thassa\'s Oracle', $response['combos']['complete'][0]['cards'][0]['name']);
+        self::assertSame(
+            'https://cards.scryfall.io/normal/front/92000000-0000-0000-0000-000000000101.jpg',
+            $response['combos']['complete'][0]['cards'][0]['imageUrl'],
+        );
+        self::assertSame([], $response['combos']['complete'][0]['missingCards']);
     }
 
     public function testOracleOnlyReportsConsultationAndPactAsOneMissingPartials(): void
@@ -35,6 +42,8 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
         [$token, $deck] = $this->deckWithCards('oracle-only', [
             $this->cardFixture('Thassa\'s Oracle', '91000000-0000-0000-0000-000000000201'),
         ]);
+        $this->seedCard('92000000-0000-0000-0000-000000000202', 'Demonic Consultation', ['oracle_id' => '91000000-0000-0000-0000-000000000202']);
+        $this->seedCard('92000000-0000-0000-0000-000000000203', 'Tainted Pact', ['oracle_id' => '91000000-0000-0000-0000-000000000203']);
         $this->insertCardAnalysisProfile('91000000-0000-0000-0000-000000000202', 'Demonic Consultation');
         $this->insertCardAnalysisProfile('91000000-0000-0000-0000-000000000203', 'Tainted Pact');
         $this->insertComboProfile('91000000-0000-0000-0000-000000000002', 'oracle-consultation', [
@@ -51,6 +60,14 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
         self::assertSame(0, $response['combos']['completeCount']);
         self::assertSame(2, $response['combos']['partialOneMissingCount']);
         self::assertSame(['Demonic Consultation', 'Tainted Pact'], array_column($response['topComboCompleters'], 'name'));
+        self::assertSame(
+            'https://cards.scryfall.io/normal/front/92000000-0000-0000-0000-000000000202.jpg',
+            $response['combos']['partialOneMissing'][0]['missingCards'][0]['imageUrl'],
+        );
+        self::assertSame(
+            'https://cards.scryfall.io/normal/front/92000000-0000-0000-0000-000000000202.jpg',
+            $response['topComboCompleters'][0]['imageUrl'],
+        );
     }
 
     public function testIsochronScepterDramaticReversalDetectsInfiniteMana(): void

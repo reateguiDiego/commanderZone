@@ -1327,6 +1327,261 @@
         "summary": "Deck summary",
         "total": "Total"
       }
+    },
+    "advancedAnalysis": {
+      "title": "Advanced Analysis",
+      "eyebrow": "Deck analysis",
+      "description": "Deep deck health, combos, consistency and power signals.",
+      "openButton": "Advanced Analysis",
+      "openCommunityAria": "Open advanced analysis for this community deck",
+      "loading": "Loading advanced analysis...",
+      "retry": "Retry",
+      "retryAria": "Retry loading advanced analysis",
+      "error": {
+        "generic": "Couldn't load advanced analysis.",
+        "notFound": "Advanced analysis is not available for this deck.",
+        "forbidden": "You don't have permission to view this analysis."
+      },
+      "common": {
+        "unavailable": "Unavailable",
+        "notAvailable": "Not available",
+        "available": "Available",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "overview": {
+        "aria": "Advanced analysis overview",
+        "eyebrow": "Overview"
+      },
+      "summary": {
+        "title": "Summary",
+        "primaryArchetype": "Primary archetype",
+        "secondaryArchetypes": "Secondary archetypes",
+        "archetypeConfidence": "Archetype confidence",
+        "powerBand": "Power band",
+        "powerConfidence": "Power confidence",
+        "criticalIssues": "Critical issues",
+        "mainWarnings": "Main warnings"
+      },
+      "header": {
+        "deckId": "Deck id",
+        "analyzedAt": "Analyzed at",
+        "snapshot": "Snapshot"
+      },
+      "snapshot": {
+        "fresh": "Fresh analysis",
+        "cached": "Cached analysis",
+        "metadataUnavailable": "Snapshot metadata is unavailable.",
+        "calculatedAt": "Calculated {{date}}",
+        "calculatedEarlier": "Calculated earlier for this deck state.",
+        "reasonCalculatedAt": "{{reason}} Calculated {{date}}",
+        "recalculated": "Recalculated for the current deck state."
+      },
+      "status": {
+        "excellent": "Excellent",
+        "good": "Good",
+        "warning": "Warning",
+        "critical": "Critical",
+        "unknown": "Unknown",
+        "info": "Info"
+      },
+      "priority": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "health": {
+        "eyebrow": "Deck health",
+        "title": "Health grid",
+        "defaultMessage": "This area cannot be evaluated confidently.",
+        "cards": {
+          "ramp": "Ramp",
+          "draw": "Draw",
+          "interaction": "Interaction",
+          "wipes": "Wipes",
+          "tutors": "Tutors",
+          "sacrifice": "Sacrifice",
+          "wincons": "Wincons",
+          "combos": "Combos",
+          "consistency": "Consistency",
+          "stax": "Stax"
+        }
+      },
+      "metrics": {
+        "eyebrow": "Signals",
+        "title": "Key metrics",
+        "unavailable": "Detailed metric signals are not available for this analysis.",
+        "permanentRamp": "Permanent ramp",
+        "fastMana": "Fast mana",
+        "trueTutors": "True tutors",
+        "boardWipes": "Board wipes",
+        "massBounce": "Mass bounce",
+        "sacOutlets": "Sac outlets",
+        "wincons": "Wincons",
+        "completeCombos": "Complete combos",
+        "keepableHands": "Keepable hands",
+        "drawEffects": "Draw effects",
+        "spotInteraction": "Spot interaction",
+        "outlets": "Outlets",
+        "staxPieces": "Stax pieces",
+        "burstMana": "Burst mana",
+        "rituals": "Rituals",
+        "manaFixing": "Mana fixing",
+        "oneShotMana": "One-shot mana",
+        "typedTutors": "Typed tutors",
+        "landTutors": "Land tutors",
+        "rampSearch": "Ramp search",
+        "opponentTutors": "Opponent tutors",
+        "pseudoWipes": "Pseudo wipes",
+        "conditionalWipes": "Conditional wipes",
+        "sacrificeOutlets": "Sacrifice outlets",
+        "oneShotSacrifice": "One-shot sacrifice",
+        "selfSacrifice": "Self sacrifice",
+        "sacrificePayoffs": "Sacrifice payoffs",
+        "combatFinishers": "Combat finishers",
+        "infectThreats": "Infect threats",
+        "extraCombatEngines": "Extra combat engines",
+        "stax": "Stax",
+        "tax": "Tax",
+        "symmetricalStaxRisk": "Symmetrical stax risk"
+      },
+      "cardResolution": {
+        "title": "Card resolution",
+        "cards": "Cards",
+        "resolved": "Resolved",
+        "unmatched": "Unmatched",
+        "unmatchedAria": "Unmatched cards",
+        "unmatchedCount": "{{count}} unmatched cards",
+        "unmatchedCopy": "Some cards could not be resolved, so role and combo signals may be incomplete.",
+        "cardCouldNotBeMatched": "Card could not be matched."
+      },
+      "warnings": {
+        "eyebrow": "Top issues",
+        "title": "Main warnings",
+        "empty": "No main warnings found."
+      },
+      "combos": {
+        "eyebrow": "Known lines",
+        "title": "Combo Intelligence",
+        "completeTitle": "Complete combos",
+        "partialTitle": "Partial combos",
+        "completersTitle": "Top combo completers",
+        "viewMore": "View more",
+        "viewMoreCompleteAria": "View more complete combos",
+        "viewMorePartialAria": "View more partial combos",
+        "viewMoreCompletersAria": "View more combo completers",
+        "missingCards": "Missing: {{cards}}",
+        "comboLine": "Combo line {{index}}",
+        "summary": {
+          "complete": "Complete combos",
+          "partialOneMissing": "Partial, one missing",
+          "partialTwoMissing": "Partial, two missing",
+          "winLike": "Win-like combos",
+          "infiniteMana": "Infinite mana",
+          "lethalLoops": "Lethal loops"
+        },
+        "empty": {
+          "noComplete": "No complete combo lines detected.",
+          "noOneCardAway": "No one-card-away combo lines detected.",
+          "noCompleters": "No combo completers identified.",
+          "unavailable": "Combo data is not available for this analysis.",
+          "noCompleteOrPartial": "No complete or partial combo lines detected."
+        },
+        "badges": {
+          "winLike": "Win-like",
+          "infiniteMana": "Infinite mana",
+          "infiniteDamage": "Infinite damage",
+          "requiresCommander": "Requires commander",
+          "requiresTemplate": "Requires template"
+        }
+      },
+      "consistency": {
+        "eyebrow": "Monte Carlo",
+        "title": "Consistency Simulation",
+        "disclaimer": "Simulates opening hands and card access, not match outcomes.",
+        "simulationRuns": "Simulation runs",
+        "openingHand": "Opening hand",
+        "keepRule": "Keep rule",
+        "mulligan": "Mulligan",
+        "byTurn": "By turn",
+        "unavailable": "Consistency simulation is not available for this analysis.",
+        "keepRuleFallback": "Keepable hands are evaluated from land count, early plays, development signals, interaction and top-heavy pressure.",
+        "turn3": "Turn 3",
+        "turn5": "Turn 5",
+        "metrics": {
+          "keepableHands": "Keepable hands",
+          "twoToFourLands": "2-4 lands",
+          "zeroOrOneLand": "0-1 lands",
+          "fivePlusLands": "5+ lands",
+          "earlyInteraction": "Early interaction",
+          "drawOrSelection": "Draw or selection",
+          "trueTutor": "True tutor",
+          "earlyPlay": "Early play",
+          "tooFewLands": "Too few lands",
+          "tooManyLands": "Too many lands",
+          "noEarlyPlay": "No early play",
+          "tooTopHeavy": "Too top-heavy",
+          "keepableAt7": "Keepable at 7",
+          "keepableBy6": "Keepable by 6",
+          "keepableBy5": "Keepable by 5",
+          "averageMulligansNeeded": "Average mulligans needed",
+          "permanentRampSeen": "Permanent ramp seen",
+          "earlyInteractionSeen": "Early interaction seen",
+          "drawOrSelectionSeen": "Draw or selection seen",
+          "trueTutorSeen": "True tutor seen",
+          "winconSeen": "Wincon seen",
+          "comboPieceSeen": "Combo piece seen",
+          "interactionSeen": "Interaction seen",
+          "completeTwoCardComboSeen": "Complete 2-card combo seen",
+          "comboPlusProtectionSeen": "Combo plus protection seen"
+        }
+      },
+      "roles": {
+        "eyebrow": "Functional roles",
+        "title": "Role Quality Breakdown",
+        "qualityAria": "{{role}} quality",
+        "unavailable": "Role quality data is not available for this analysis.",
+        "cards": {
+          "ramp": "Ramp",
+          "tutors": "Tutors",
+          "wipes": "Wipes",
+          "sacrifice": "Sacrifice",
+          "winconsCombat": "Wincons / combat",
+          "stax": "Stax"
+        },
+        "messages": {
+          "rampOneShot": "Some acceleration is one-shot and should not be counted as stable ramp.",
+          "tutorsSeparated": "Ramp search and opponent tutors are separated from true tutors.",
+          "wipesSeparated": "Mass bounce and conditional wipes are not the same as hard board wipes.",
+          "sacrificeOneShot": "One-shot sacrifice does not count as a repeatable outlet."
+        }
+      },
+      "quality": {
+        "premium": "Premium",
+        "good": "Good",
+        "medium": "Medium",
+        "slow": "Slow",
+        "oneShot": "One-shot"
+      },
+      "actions": {
+        "eyebrow": "Action plan",
+        "title": "Issues and Functional Recommendations",
+        "criticalIssues": "Critical issues",
+        "actionPrefix": "Action: {{action}}",
+        "evidence": "Evidence",
+        "noCriticalIssues": "No critical issues detected.",
+        "warnings": "Warnings",
+        "noWarnings": "No warnings detected.",
+        "info": "Info",
+        "noMajorIssues": "No major structural issues detected.",
+        "review": "Review"
+      },
+      "recommendations": {
+        "title": "Recommendations",
+        "targetsPrefix": "Targets: {{targets}}",
+        "reasonsPrefix": "Reasons: {{reasons}}",
+        "empty": "No functional recommendations available."
+      }
     }
   },
   "tableAssistant": {

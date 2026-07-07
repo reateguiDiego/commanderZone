@@ -7,14 +7,14 @@ use Doctrine\DBAL\Connection;
 final class DeckAdvancedAnalysisHealthEvaluator
 {
     private const SECTION_METRICS = [
-        'ramp' => ['ruleMetric' => 'ramp', 'roleMetrics' => ['permanentRamp']],
-        'draw' => ['ruleMetric' => 'draw', 'roleMetrics' => ['draw']],
-        'interaction' => ['ruleMetric' => 'spot_removal', 'roleMetrics' => ['spotRemoval', 'creatureRemoval', 'artifactRemoval', 'enchantmentRemoval', 'counterspells', 'graveyardHate']],
-        'wipes' => ['ruleMetric' => 'board_wipe', 'roleMetrics' => ['boardWipes']],
-        'tutors' => ['ruleMetric' => 'tutor', 'roleMetrics' => ['trueTutors', 'typedTutors']],
-        'sacrifice' => ['ruleMetric' => 'sacrifice_outlet', 'roleMetrics' => ['sacrificeOutlets']],
-        'wincons' => ['ruleMetric' => 'wincon', 'roleMetrics' => ['wincons', 'combatFinishers']],
-        'stax' => ['ruleMetric' => 'stax', 'roleMetrics' => ['stax', 'tax']],
+        'ramp' => ['ruleMetric' => 'ramp', 'roleMetrics' => ['permanentRamp'], 'cardMetrics' => ['permanentRamp', 'fastMana', 'burstMana', 'rituals', 'manaFixing', 'oneShotMana']],
+        'draw' => ['ruleMetric' => 'draw', 'roleMetrics' => ['draw'], 'cardMetrics' => ['draw', 'cardSelection']],
+        'interaction' => ['ruleMetric' => 'spot_removal', 'roleMetrics' => ['spotRemoval', 'creatureRemoval', 'artifactRemoval', 'enchantmentRemoval', 'counterspells', 'graveyardHate'], 'cardMetrics' => ['spotRemoval', 'creatureRemoval', 'artifactRemoval', 'enchantmentRemoval', 'counterspells', 'graveyardHate']],
+        'wipes' => ['ruleMetric' => 'board_wipe', 'roleMetrics' => ['boardWipes'], 'cardMetrics' => ['boardWipes', 'massBounce', 'pseudoWipes', 'conditionalWipes']],
+        'tutors' => ['ruleMetric' => 'tutor', 'roleMetrics' => ['trueTutors', 'typedTutors'], 'cardMetrics' => ['trueTutors', 'typedTutors', 'landTutors', 'rampSearch', 'opponentTutors']],
+        'sacrifice' => ['ruleMetric' => 'sacrifice_outlet', 'roleMetrics' => ['sacrificeOutlets'], 'cardMetrics' => ['sacrificeOutlets', 'oneShotSacrifice', 'selfSacrifice', 'sacrificePayoffs']],
+        'wincons' => ['ruleMetric' => 'wincon', 'roleMetrics' => ['wincons', 'combatFinishers'], 'cardMetrics' => ['wincons', 'combatFinishers', 'infectThreats', 'extraCombatEngines']],
+        'stax' => ['ruleMetric' => 'stax', 'roleMetrics' => ['stax', 'tax'], 'cardMetrics' => ['stax', 'tax', 'symmetricalStaxRisk']],
     ];
 
     private const FALLBACK_MINIMUMS = [
@@ -33,7 +33,7 @@ final class DeckAdvancedAnalysisHealthEvaluator
     }
 
     /**
-     * @param array{roles:array<string,int>} $metrics
+     * @param array{roles:array<string,int>,roleCards?:array<string,list<array<string,mixed>>>} $metrics
      * @param array<string,mixed> $combos
      * @param array<string,mixed> $consistency
      * @param list<array{code:string,severity:string}> $issues
@@ -44,6 +44,7 @@ final class DeckAdvancedAnalysisHealthEvaluator
         $rules = $this->genericRules();
         $health = [];
         $roles = $metrics['roles'];
+        $roleCards = is_array($metrics['roleCards'] ?? null) ? $metrics['roleCards'] : [];
 
         foreach (self::SECTION_METRICS as $section => $config) {
             $ruleMetric = $config['ruleMetric'];
@@ -58,6 +59,7 @@ final class DeckAdvancedAnalysisHealthEvaluator
                 'status' => $status,
                 'message' => $this->message($section, $status),
                 'evidence' => $this->sectionEvidence($section, $roles, $value, $minimum),
+                'cards' => $this->sectionCards($roleCards, $config['cardMetrics']),
                 'value' => $value,
                 'minRecommended' => $minimum,
                 'source' => isset($rules[$ruleMetric]) ? 'analysis_rule' : 'fallback',
@@ -280,11 +282,9 @@ SQL,
      */
     private function comboHealth(array $combos, array $issues): array
     {
-        $status = 'unknown';
+        $status = 'good';
         if (($combos['completeCount'] ?? 0) > 0) {
             $status = ($combos['winLikeCount'] ?? 0) > 0 ? 'excellent' : 'good';
-        } elseif (($combos['partialOneMissingCount'] ?? 0) > 0) {
-            $status = 'warning';
         }
         $status = $this->sectionStatus($status, $issues, [
             'combo_pieces_without_complete_combos',
@@ -295,7 +295,9 @@ SQL,
 
         return [
             'status' => $status,
-            'message' => $this->message('combos', $status),
+            'message' => ($combos['completeCount'] ?? 0) === 0 && ($combos['partialOneMissingCount'] ?? 0) === 0
+                ? 'No combo package detected.'
+                : $this->message('combos', $status),
             'evidence' => [
                 'completeCount' => $combos['completeCount'] ?? 0,
                 'partialOneMissingCount' => $combos['partialOneMissingCount'] ?? 0,
@@ -303,6 +305,48 @@ SQL,
                 'commanderRequiredCount' => $combos['commanderRequiredCount'] ?? 0,
             ],
         ];
+    }
+
+    /**
+     * @param array<string,list<array<string,mixed>>> $roleCards
+     * @param list<string> $metrics
+     * @return list<array<string,mixed>>
+     */
+    private function sectionCards(array $roleCards, array $metrics): array
+    {
+        $cards = [];
+        foreach ($metrics as $metric) {
+            foreach ($roleCards[$metric] ?? [] as $card) {
+                $key = $this->cardReferenceKey($card);
+                if ($key === '') {
+                    continue;
+                }
+
+                $cards[$key] ??= $card + ['matchedMetrics' => []];
+                $matchedMetrics = is_array($cards[$key]['matchedMetrics'] ?? null) ? $cards[$key]['matchedMetrics'] : [];
+                if (!in_array($metric, $matchedMetrics, true)) {
+                    $matchedMetrics[] = $metric;
+                }
+                $cards[$key]['matchedMetrics'] = $matchedMetrics;
+            }
+        }
+
+        return array_values($cards);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function cardReferenceKey(array $card): string
+    {
+        foreach (['deckCardId', 'cardId', 'oracleId', 'name'] as $key) {
+            $value = $card[$key] ?? null;
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return (string) $value;
+            }
+        }
+
+        return '';
     }
 
     /**

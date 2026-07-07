@@ -1327,6 +1327,261 @@
         "summary": "Deck samenvatting",
         "total": "Totaal"
       }
+    },
+    "advancedAnalysis": {
+      "title": "Geavanceerde analyse",
+      "eyebrow": "Dekanalyse",
+      "description": "Diep inzicht in deckgezondheid, combo’s, consistentie en power-signalen.",
+      "openButton": "Geavanceerde analyse",
+      "openCommunityAria": "Open geavanceerde analyse voor dit communitydeck",
+      "loading": "Geavanceerde analyse laden...",
+      "retry": "Opnieuw proberen",
+      "retryAria": "Probeer de geavanceerde analyse opnieuw te laden",
+      "error": {
+        "generic": "Kan geavanceerde analyse niet laden.",
+        "notFound": "Geavanceerde analyse is niet beschikbaar voor dit kaartspel.",
+        "forbidden": "U heeft geen toestemming om deze analyse te bekijken."
+      },
+      "common": {
+        "unavailable": "Niet beschikbaar",
+        "notAvailable": "Niet beschikbaar",
+        "available": "Beschikbaar",
+        "yes": "Ja",
+        "no": "Nee"
+      },
+      "overview": {
+        "aria": "Geavanceerd analyseoverzicht",
+        "eyebrow": "Overzicht"
+      },
+      "summary": {
+        "title": "Samenvatting",
+        "primaryArchetype": "Primair archetype",
+        "secondaryArchetypes": "Secundaire archetypen",
+        "archetypeConfidence": "Archetype vertrouwen",
+        "powerBand": "Powerband",
+        "powerConfidence": "Machtsvertrouwen",
+        "criticalIssues": "Kritieke problemen",
+        "mainWarnings": "Belangrijkste waarschuwingen"
+      },
+      "header": {
+        "deckId": "Dek-id",
+        "analyzedAt": "Geanalyseerd op",
+        "snapshot": "Snapshot"
+      },
+      "snapshot": {
+        "fresh": "Actuele analyse",
+        "cached": "In cache opgeslagen analyse",
+        "metadataUnavailable": "Snapshot-metagegevens zijn niet beschikbaar.",
+        "calculatedAt": "Berekend {{date}}",
+        "calculatedEarlier": "Eerder berekend voor deze dekstatus.",
+        "reasonCalculatedAt": "{{reason}} Berekend {{date}}",
+        "recalculated": "Opnieuw berekend voor de huidige deckstatus."
+      },
+      "status": {
+        "excellent": "Uitstekend",
+        "good": "Goed",
+        "warning": "Waarschuwing",
+        "critical": "Kritisch",
+        "unknown": "Onbekend",
+        "info": "Info"
+      },
+      "priority": {
+        "high": "Hoog",
+        "medium": "Gemiddeld",
+        "low": "Laag"
+      },
+      "health": {
+        "eyebrow": "Deckgezondheid",
+        "title": "Gezondheidsraster",
+        "defaultMessage": "Dit gebied kan niet met zekerheid worden beoordeeld.",
+        "cards": {
+          "ramp": "Ramp",
+          "draw": "Tekenen",
+          "interaction": "Interactie",
+          "wipes": "Doekjes",
+          "tutors": "Tutors",
+          "sacrifice": "Offer",
+          "wincons": "Wincons",
+          "combos": "Combos",
+          "consistency": "Samenhang",
+          "stax": "Stax"
+        }
+      },
+      "metrics": {
+        "eyebrow": "Signalen",
+        "title": "Belangrijke statistieken",
+        "unavailable": "Gedetailleerde metrische signalen zijn niet beschikbaar voor deze analyse.",
+        "permanentRamp": "Permanente oprit",
+        "fastMana": "Snelle mana",
+        "trueTutors": "Echte docenten",
+        "boardWipes": "Borddoekjes",
+        "massBounce": "Massa stuiteren",
+        "sacOutlets": "Zakuitgangen",
+        "wincons": "Wincons",
+        "completeCombos": "Complete combo's",
+        "keepableHands": "Keepbare handen",
+        "drawEffects": "Teken effecten",
+        "spotInteraction": "Interactie ter plaatse",
+        "outlets": "Stopcontacten",
+        "staxPieces": "Stax-stukken",
+        "burstMana": "Mana barsten",
+        "rituals": "Rituelen",
+        "manaFixing": "Mana-fixing",
+        "oneShotMana": "Eenmalige mana",
+        "typedTutors": "Getypte docenten",
+        "landTutors": "Landleraren",
+        "rampSearch": "Ramp zoeken",
+        "opponentTutors": "Docenten van de tegenstander",
+        "pseudoWipes": "Pseudo-doekjes",
+        "conditionalWipes": "Voorwaardelijke doekjes",
+        "sacrificeOutlets": "Opofferingsmogelijkheden",
+        "oneShotSacrifice": "Eenmalig offer",
+        "selfSacrifice": "Zelfopoffering",
+        "sacrificePayoffs": "Offer uitbetalingen",
+        "combatFinishers": "Bestrijd finishers",
+        "infectThreats": "Bedreigingen infecteren",
+        "extraCombatEngines": "Extra gevechtsmotoren",
+        "stax": "Stax",
+        "tax": "Belasting",
+        "symmetricalStaxRisk": "Symmetrisch staxrisico"
+      },
+      "cardResolution": {
+        "title": "Kaartresolutie",
+        "cards": "Kaarten",
+        "resolved": "Opgelost",
+        "unmatched": "Ongeëvenaard",
+        "unmatchedAria": "Ongeëvenaarde kaarten",
+        "unmatchedCount": "{{count}} ongeëvenaarde kaarten",
+        "unmatchedCopy": "Sommige kaarten konden niet worden opgelost, dus rol- en combo-signalen kunnen onvolledig zijn.",
+        "cardCouldNotBeMatched": "Kaart kon niet worden gematcht."
+      },
+      "warnings": {
+        "eyebrow": "Topproblemen",
+        "title": "Belangrijkste waarschuwingen",
+        "empty": "Geen belangrijke waarschuwingen gevonden."
+      },
+      "combos": {
+        "eyebrow": "Bekende lijnen",
+        "title": "Combo-analyse",
+        "completeTitle": "Complete combo's",
+        "partialTitle": "Gedeeltelijke combo's",
+        "completersTitle": "Top combo-voltooiers",
+        "viewMore": "Bekijk meer",
+        "viewMoreCompleteAria": "Bekijk meer complete combo's",
+        "viewMorePartialAria": "Bekijk meer gedeeltelijke combo's",
+        "viewMoreCompletersAria": "Bekijk meer combo-voltooiers",
+        "missingCards": "Ontbreekt: {{cards}}",
+        "comboLine": "Combo-lijn {{index}}",
+        "summary": {
+          "complete": "Complete combo's",
+          "partialOneMissing": "Gedeeltelijk, één ontbreekt",
+          "partialTwoMissing": "Gedeeltelijk, twee ontbrekend",
+          "winLike": "Win-achtige combo's",
+          "infiniteMana": "Oneindige mana",
+          "lethalLoops": "Dodelijke lussen"
+        },
+        "empty": {
+          "noComplete": "Geen volledige combolijnen gedetecteerd.",
+          "noOneCardAway": "Er zijn geen combolijnen met één kaart weg gedetecteerd.",
+          "noCompleters": "Er zijn geen combo-voltooiers geïdentificeerd.",
+          "unavailable": "Combo-gegevens zijn niet beschikbaar voor deze analyse.",
+          "noCompleteOrPartial": "Er zijn geen volledige of gedeeltelijke combolijnen gedetecteerd."
+        },
+        "badges": {
+          "winLike": "Win-achtig",
+          "infiniteMana": "Oneindige mana",
+          "infiniteDamage": "Oneindige schade",
+          "requiresCommander": "Vereist commandant",
+          "requiresTemplate": "Vereist sjabloon"
+        }
+      },
+      "consistency": {
+        "eyebrow": "Monte Carlo",
+        "title": "Consistentie simulatie",
+        "disclaimer": "Simuleert openingshanden en kaarttoegang, geen matchresultaten.",
+        "simulationRuns": "Simulatie wordt uitgevoerd",
+        "openingHand": "Handje openen",
+        "keepRule": "Houd de regel in stand",
+        "mulligan": "Mulligan",
+        "byTurn": "Om de beurt",
+        "unavailable": "Consistentiesimulatie is niet beschikbaar voor deze analyse.",
+        "keepRuleFallback": "Keepbare handen worden beoordeeld op landaantal, vroege plays, ontwikkelingssignalen, interactie en te hoge mana curve.",
+        "turn3": "Draai 3",
+        "turn5": "Draai 5",
+        "metrics": {
+          "keepableHands": "Keepbare handen",
+          "twoToFourLands": "2-4 landen",
+          "zeroOrOneLand": "0-1 landt",
+          "fivePlusLands": "5+ landen",
+          "earlyInteraction": "Vroege interactie",
+          "drawOrSelection": "Tekenen of selecteren",
+          "trueTutor": "Echte docent",
+          "earlyPlay": "Vroeg spelen",
+          "tooFewLands": "Te weinig gronden",
+          "tooManyLands": "Te veel landen",
+          "noEarlyPlay": "Geen vroeg spel",
+          "tooTopHeavy": "Te topzwaar",
+          "keepableAt7": "Houdbaar op 7",
+          "keepableBy6": "Houdbaar per 6",
+          "keepableBy5": "Houdbaar per 5",
+          "averageMulligansNeeded": "Gemiddelde mulligans nodig",
+          "permanentRampSeen": "Permanente oprit gezien",
+          "earlyInteractionSeen": "Vroege interactie gezien",
+          "drawOrSelectionSeen": "Trek of selectie gezien",
+          "trueTutorSeen": "Echte leraar gezien",
+          "winconSeen": "Wincon gezien",
+          "comboPieceSeen": "Combogedeelte gezien",
+          "interactionSeen": "Interactie gezien",
+          "completeTwoCardComboSeen": "Complete 2-kaartcombo gezien",
+          "comboPlusProtectionSeen": "Combo met bescherming gezien"
+        }
+      },
+      "roles": {
+        "eyebrow": "Functionele rollen",
+        "title": "Uitsplitsing van rolkwaliteit",
+        "qualityAria": "{{role}}-kwaliteit",
+        "unavailable": "Gegevens over rolkwaliteit zijn niet beschikbaar voor deze analyse.",
+        "cards": {
+          "ramp": "Ramp",
+          "tutors": "Tutors",
+          "wipes": "Doekjes",
+          "sacrifice": "Offer",
+          "winconsCombat": "Wincons / gevecht",
+          "stax": "Stax"
+        },
+        "messages": {
+          "rampOneShot": "Een bepaalde versnelling is eenmalig en mag niet als stabiele helling worden geteld.",
+          "tutorsSeparated": "Ramp zoek- en tegenstander-docenten zijn gescheiden van echte docenten.",
+          "wipesSeparated": "Massa-bounce en voorwaardelijke doekjes zijn niet hetzelfde als doekjes voor hardboards.",
+          "sacrificeOneShot": "Eenmalig offer telt niet als een herhaalbare uitlaatklep."
+        }
+      },
+      "quality": {
+        "premium": "Premie",
+        "good": "Goed",
+        "medium": "Gemiddeld",
+        "slow": "Langzaam",
+        "oneShot": "Eén schot"
+      },
+      "actions": {
+        "eyebrow": "Actieplan",
+        "title": "Problemen en functionele aanbevelingen",
+        "criticalIssues": "Kritieke problemen",
+        "actionPrefix": "Actie: {{action}}",
+        "evidence": "Bewijs",
+        "noCriticalIssues": "Er zijn geen kritieke problemen gedetecteerd.",
+        "warnings": "Waarschuwingen",
+        "noWarnings": "Geen waarschuwingen gedetecteerd.",
+        "info": "Info",
+        "noMajorIssues": "Er zijn geen grote structurele problemen gedetecteerd.",
+        "review": "Beoordeling"
+      },
+      "recommendations": {
+        "title": "Aanbevelingen",
+        "targetsPrefix": "Doelstellingen: {{targets}}",
+        "reasonsPrefix": "Redenen: {{reasons}}",
+        "empty": "Geen functionele aanbevelingen beschikbaar."
+      }
     }
   },
   "tableAssistant": {
