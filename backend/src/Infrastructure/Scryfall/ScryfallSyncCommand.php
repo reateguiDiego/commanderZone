@@ -188,6 +188,10 @@ INSERT INTO card (
     power,
     toughness,
     loyalty,
+    defense,
+    keywords,
+    edhrec_rank,
+    is_game_changer,
     face_stats,
     colors,
     color_identity,
@@ -222,6 +226,10 @@ INSERT INTO card (
     :power,
     :toughness,
     :loyalty,
+    :defense,
+    :keywords,
+    :edhrec_rank,
+    :is_game_changer,
     :face_stats,
     :colors,
     :color_identity,
@@ -255,6 +263,10 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     power = EXCLUDED.power,
     toughness = EXCLUDED.toughness,
     loyalty = EXCLUDED.loyalty,
+    defense = EXCLUDED.defense,
+    keywords = EXCLUDED.keywords,
+    edhrec_rank = EXCLUDED.edhrec_rank,
+    is_game_changer = EXCLUDED.is_game_changer,
     face_stats = EXCLUDED.face_stats,
     colors = EXCLUDED.colors,
     color_identity = EXCLUDED.color_identity,
@@ -290,6 +302,10 @@ SQL,
                 'power' => $this->cardString($data, 'power'),
                 'toughness' => $this->cardString($data, 'toughness'),
                 'loyalty' => $this->cardString($data, 'loyalty'),
+                'defense' => $this->cardString($data, 'defense'),
+                'keywords' => $this->json($this->stringList($data['keywords'] ?? [])),
+                'edhrec_rank' => $this->intOrNull($data['edhrec_rank'] ?? null),
+                'is_game_changer' => $this->gameChangerFromScryfall($data),
                 'face_stats' => $this->json($this->faceStats($data)),
                 'colors' => $this->json($data['colors'] ?? []),
                 'color_identity' => $this->json($data['color_identity'] ?? []),
@@ -297,7 +313,7 @@ SQL,
                 'image_uris' => $this->json($data['image_uris'] ?? ($data['card_faces'][0]['image_uris'] ?? [])),
                 'card_faces' => $this->json($this->cardFaces($data)),
                 'all_parts' => $this->json($data['all_parts'] ?? []),
-                'mana_value' => isset($data['cmc']) ? (float) $data['cmc'] : null,
+                'mana_value' => $this->manaValue($data),
                 'produced_mana' => $this->json($data['produced_mana'] ?? []),
                 'prices' => $this->json($data['prices'] ?? []),
                 'layout' => $data['layout'] ?? 'normal',
@@ -316,6 +332,7 @@ SQL,
             ],
             [
                 'commander_legal' => ParameterType::BOOLEAN,
+                'is_game_changer' => ParameterType::BOOLEAN,
                 'has_rulings' => ParameterType::BOOLEAN,
             ],
         );
@@ -654,6 +671,38 @@ SQL,
     private function scalarOrNull(mixed $value): ?string
     {
         return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
+    }
+
+    private function intOrNull(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function manaValue(array $data): ?float
+    {
+        $value = $data['cmc'] ?? $data['mana_value'] ?? null;
+
+        return is_numeric($value) ? (float) $value : null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map(
+            static fn (mixed $item): string => (string) $item,
+            array_filter($value, static fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== ''),
+        ));
+    }
+
+    private function gameChangerFromScryfall(array $data): bool
+    {
+        return (bool) ($data['game_changer'] ?? $data['is_game_changer'] ?? false);
     }
 
     private function firstFaceValue(array $data, string $key): mixed

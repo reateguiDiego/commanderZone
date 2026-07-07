@@ -12,6 +12,8 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_card_print', columns: ['set_code', 'collector_number'])]
 #[ORM\Index(name: 'idx_card_commander_legal', columns: ['commander_legal'])]
 #[ORM\Index(name: 'idx_card_oracle_id', columns: ['oracle_id'])]
+#[ORM\Index(name: 'idx_card_edhrec_rank_commander_legal', columns: ['edhrec_rank'], options: ['where' => 'commander_legal = true'])]
+#[ORM\Index(name: 'idx_card_is_game_changer_true', columns: ['is_game_changer'], options: ['where' => 'is_game_changer = true'])]
 class Card
 {
     #[ORM\Id]
@@ -47,6 +49,18 @@ class Card
 
     #[ORM\Column(type: 'string', length: 16, nullable: true)]
     private ?string $loyalty = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $defense = null;
+
+    #[ORM\Column(type: 'json')]
+    private array $keywords = [];
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $edhrecRank = null;
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $isGameChanger = false;
 
     #[ORM\Column(type: 'json')]
     private array $faceStats = [];
@@ -140,6 +154,10 @@ class Card
         $this->power = $this->cardString($data, 'power');
         $this->toughness = $this->cardString($data, 'toughness');
         $this->loyalty = $this->cardString($data, 'loyalty');
+        $this->defense = $this->cardString($data, 'defense');
+        $this->keywords = $this->stringList($data['keywords'] ?? []);
+        $this->edhrecRank = $this->intOrNull($data['edhrec_rank'] ?? null);
+        $this->isGameChanger = $this->gameChangerFromScryfall($data);
         $this->faceStats = $this->faceStatsFromScryfall($data);
         $this->colors = $data['colors'] ?? [];
         $this->colorIdentity = $data['color_identity'] ?? [];
@@ -147,7 +165,7 @@ class Card
         $this->imageUris = $data['image_uris'] ?? ($data['card_faces'][0]['image_uris'] ?? []);
         $this->cardFaces = $this->rawCardFaces($data);
         $this->allParts = $data['all_parts'] ?? [];
-        $this->manaValue = isset($data['cmc']) ? (float) $data['cmc'] : null;
+        $this->manaValue = $this->manaValueFromScryfall($data);
         $this->producedMana = $data['produced_mana'] ?? [];
         $this->prices = $data['prices'] ?? [];
         $this->layout = $data['layout'] ?? 'normal';
@@ -221,6 +239,26 @@ class Card
     public function loyalty(): ?string
     {
         return $this->loyalty;
+    }
+
+    public function defense(): ?string
+    {
+        return $this->defense;
+    }
+
+    public function keywords(): array
+    {
+        return $this->keywords;
+    }
+
+    public function edhrecRank(): ?int
+    {
+        return $this->edhrecRank;
+    }
+
+    public function isGameChanger(): bool
+    {
+        return $this->isGameChanger;
     }
 
     public function legalities(): array
@@ -559,6 +597,38 @@ class Card
     private function scalarOrNull(mixed $value): ?string
     {
         return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
+    }
+
+    private function intOrNull(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function manaValueFromScryfall(array $data): ?float
+    {
+        $value = $data['cmc'] ?? $data['mana_value'] ?? null;
+
+        return is_numeric($value) ? (float) $value : null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map(
+            static fn (mixed $item): string => (string) $item,
+            array_filter($value, static fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== ''),
+        ));
+    }
+
+    private function gameChangerFromScryfall(array $data): bool
+    {
+        return (bool) ($data['game_changer'] ?? $data['is_game_changer'] ?? false);
     }
 
 }
