@@ -77,4 +77,31 @@ class CardImageTest extends TestCase
         self::assertNull($data['cardFaces'][1]['power']);
         self::assertSame([], (new Card('00000000-0000-0000-0000-000000000004'))->toArray()['cardFaces']);
     }
+
+    public function testStoresDeckAnalysisFieldsFromScryfall(): void
+    {
+        $card = new Card('00000000-0000-0000-0000-000000000005');
+        $card->updateFromScryfall([
+            'name' => 'Analysis Card',
+            'keywords' => ['Flying', 'Ward'],
+            'edhrec_rank' => 123,
+            'game_changer' => true,
+            'defense' => '5',
+            'mana_value' => 4.0,
+        ]);
+
+        self::assertSame(['Flying', 'Ward'], $card->keywords());
+        self::assertSame(123, $card->edhrecRank());
+        self::assertTrue($card->isGameChanger());
+        self::assertSame('5', $card->defense());
+        self::assertSame(4.0, $card->manaValue());
+
+        $card->updateFromScryfall([
+            'name' => 'Analysis Card',
+        ]);
+
+        self::assertSame([], $card->keywords());
+        self::assertNull($card->edhrecRank());
+        self::assertFalse($card->isGameChanger());
+    }
 }

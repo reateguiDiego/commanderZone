@@ -3,6 +3,7 @@
 namespace App\Tests\Integration;
 
 use App\Domain\Card\Card;
+use App\Tests\Integration\Support\DeckAnalysisTestSchema;
 use App\Tests\Support\RecordingMercureHub;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
@@ -175,8 +176,10 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureCardImageStatusColumn($connection);
         $this->ensureCardHasRulingsColumn($connection);
         $this->ensureCardCatalogSearchColumns($connection);
+        $this->ensureCardAnalysisColumns($connection);
         $this->ensureCardPrintTables($connection);
         $this->ensureCardTokenRelationTable($connection);
+        DeckAnalysisTestSchema::ensure($connection);
         $this->ensureCardSearchOptionTables($connection);
         $this->ensureRoomWaitingLogEntryTable($connection);
         $this->ensureDeckValidityColumn($connection);
@@ -220,6 +223,7 @@ abstract class ApiTestCase extends WebTestCase
             'card_search_entry',
             'card_search_option',
             'card_search_set_option',
+            ...DeckAnalysisTestSchema::tableNames(),
             'card_token_relation',
             'card_print_locale',
             'card_print',
@@ -295,6 +299,31 @@ abstract class ApiTestCase extends WebTestCase
         if (!in_array('oracle_id', $columns, true)) {
             $connection->executeStatement('ALTER TABLE card ADD COLUMN oracle_id VARCHAR(36) DEFAULT NULL');
             $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_oracle_id ON card (oracle_id)');
+        }
+    }
+
+    private function ensureCardAnalysisColumns(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('card'),
+        );
+        if (!in_array('keywords', $columns, true)) {
+            $connection->executeStatement("ALTER TABLE card ADD COLUMN keywords JSON NOT NULL DEFAULT '[]'");
+        }
+        if (!in_array('edhrec_rank', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE card ADD COLUMN edhrec_rank INT DEFAULT NULL');
+        }
+        if (!in_array('is_game_changer', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE card ADD COLUMN is_game_changer BOOLEAN NOT NULL DEFAULT false');
+        }
+        if (!in_array('defense', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE card ADD COLUMN defense TEXT DEFAULT NULL');
         }
     }
 
