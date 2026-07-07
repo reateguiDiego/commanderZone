@@ -1,0 +1,463 @@
+<?php
+
+namespace App\Application\Deck;
+
+use Doctrine\DBAL\Connection;
+
+final class DeckComboDetector
+{
+    private const DETAIL_LIMIT = 20;
+    private const MAX_USEFUL_TEMPLATE_PARTIAL_SIZE = 4;
+
+    public function __construct(private readonly Connection $connection)
+    {
+    }
+
+    /**
+     * @param list<string> $deckOracleIds
+     * @param list<array{name:string,oracleId:string}> $resolvedCards
+     * @param list<string> $commanderOracleIds
+     * @return array{
+     *     combos:array<string,mixed>,
+     *     topComboCompleters:list<array{oracleId:string,name:string,completesCombos:int}>
+     * }
+     */
+    public function detect(array $deckOracleIds, array $resolvedCards, array $commanderOracleIds = []): array
+    {
+        $deckOracleIdSet = $this->idSet($deckOracleIds);
+        if ($deckOracleIdSet === []) {
+            return [
+                'combos' => $this->emptyResult(),
+                'topComboCompleters' => [],
+            ];
+        }
+
+        $commanderOracleIdSet = $this->idSet($commanderOracleIds);
+        $complete = [];
+        $partialOneMissing = [];
+        $partialTwoMissing = [];
+
+        foreach ($this->candidateRows(array_keys($deckOracleIdSet)) as $row) {
+            $item = $this->comboItem($row);
+            if (!$this->isValidComboItem($item)) {
+                continue;
+            }
+
+            $missingOracleIds = array_values(array_diff($item['requiredOracleIds'], array_keys($deckOracleIdSet)));
+            sort($missingOracleIds, SORT_STRING);
+            $item['missingOracleIds'] = $missingOracleIds;
+
+            $missingCount = count($missingOracleIds);
+            if ($missingCount === 0) {
+                if (!$this->commanderRequirementCanBeSatisfied($item, $commanderOracleIdSet)) {
+                    continue;
+                }
+                $complete[] = $item;
+                continue;
+            }
+
+            if (!$this->isUsefulPartial($item)) {
+                continue;
+            }
+
+            if ($missingCount === 1) {
+                $partialOneMissing[] = $item;
+            } elseif ($missingCount === 2) {
+                $partialTwoMissing[] = $item;
+            }
+        }
+
+        $this->sortCombos($complete);
+        $this->sortCombos($partialOneMissing);
+        $this->sortCombos($partialTwoMissing);
+
+        $topComboCompleters = $this->topComboCompleters($partialOneMissing, $resolvedCards);
+
+        return [
+            'combos' => [
+                'completeCount' => count($complete),
+                'partialOneMissingCount' => count($partialOneMissing),
+                'partialTwoMissingCount' => count($partialTwoMissing),
+                'winLikeCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['producesWinLike'] === true),
+                'infiniteManaCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['producesInfiniteMana'] === true),
+                'infiniteDamageCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['producesInfiniteDamage'] === true),
+                'infiniteTokensCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['producesInfiniteTokens'] === true),
+                'lethalLoopCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['lethalLoop'] === true),
+                'commanderRequiredCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['requiresCommander'] === true),
+                'templateRequiredCount' => $this->countCompleteBy($complete, static fn (array $combo): bool => $combo['requiresTemplate'] === true),
+                'complete' => $this->publicDetails($complete),
+                'partialOneMissing' => $this->publicDetails($partialOneMissing),
+                'partialTwoMissing' => $this->publicDetails($partialTwoMissing),
+            ],
+            'topComboCompleters' => $topComboCompleters,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function emptyResult(): array
+    {
+        return [
+            'completeCount' => 0,
+            'partialOneMissingCount' => 0,
+            'partialTwoMissingCount' => 0,
+            'winLikeCount' => 0,
+            'infiniteManaCount' => 0,
+            'infiniteDamageCount' => 0,
+            'infiniteTokensCount' => 0,
+            'lethalLoopCount' => 0,
+            'commanderRequiredCount' => 0,
+            'templateRequiredCount' => 0,
+            'complete' => [],
+            'partialOneMissing' => [],
+            'partialTwoMissing' => [],
+        ];
+    }
+
+    /**
+     * @param list<string> $oracleIds
+     * @return iterable<array<string,mixed>>
+     */
+    private function candidateRows(array $oracleIds): iterable
+    {
+        $overlapClauses = array_map(
+            fn (string $oracleId): string => 'required_oracle_ids @> '.$this->connection->quote(json_encode([$oracleId], JSON_THROW_ON_ERROR)).'::jsonb',
+            $oracleIds,
+        );
+
+        $sql = sprintf(
+            <<<'SQL'
+SELECT
+    combo_variant_id,
+    external_id,
+    required_oracle_ids,
+    features,
+    produces_win,
+    produces_infinite_mana,
+    produces_infinite_damage,
+    produces_infinite_tokens,
+    produces_mill,
+    produces_lock,
+    requires_commander,
+    requires_template,
+    popularity,
+    bracket_tag,
+    combo_power_score,
+    combo_complexity_score,
+    combo_size
+FROM combo_analysis_profile
+WHERE jsonb_typeof(required_oracle_ids) = 'array'
+  AND (%s)
+SQL,
+            implode(' OR ', $overlapClauses),
+        );
+
+        return $this->connection->executeQuery($sql)->iterateAssociative();
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     * @return array{
+     *     comboVariantId:string,
+     *     externalId:string,
+     *     requiredOracleIds:list<string>,
+     *     missingOracleIds:list<string>,
+     *     features:list<string>,
+     *     producesWin:bool,
+     *     producesWinLike:bool,
+     *     lethalLoop:bool,
+     *     producesInfiniteMana:bool,
+     *     producesInfiniteDamage:bool,
+     *     producesInfiniteTokens:bool,
+     *     producesMill:bool,
+     *     producesLock:bool,
+     *     requiresCommander:bool,
+     *     requiresTemplate:bool,
+     *     comboPowerScore:?int,
+     *     comboComplexityScore:?int,
+     *     comboSize:int,
+     *     bracketTag:?string,
+     *     popularity:?int
+     * }
+     */
+    private function comboItem(array $row): array
+    {
+        $features = $this->jsonStringList($row['features'] ?? null);
+        $lethalLoop = in_array('lethal_loop', $features, true);
+        $producesWin = $this->boolValue($row['produces_win'] ?? false);
+        $producesInfiniteDamage = $this->boolValue($row['produces_infinite_damage'] ?? false);
+        $producesInfiniteTokens = $this->boolValue($row['produces_infinite_tokens'] ?? false);
+        $producesMill = $this->boolValue($row['produces_mill'] ?? false);
+        $producesLock = $this->boolValue($row['produces_lock'] ?? false);
+
+        return [
+            'comboVariantId' => (string) $row['combo_variant_id'],
+            'externalId' => (string) $row['external_id'],
+            'requiredOracleIds' => $this->jsonStringList($row['required_oracle_ids'] ?? null),
+            'missingOracleIds' => [],
+            'features' => $features,
+            'producesWin' => $producesWin,
+            'producesWinLike' => $producesWin || $lethalLoop || $producesInfiniteDamage || $producesInfiniteTokens || $producesMill || $producesLock,
+            'lethalLoop' => $lethalLoop,
+            'producesInfiniteMana' => $this->boolValue($row['produces_infinite_mana'] ?? false),
+            'producesInfiniteDamage' => $producesInfiniteDamage,
+            'producesInfiniteTokens' => $producesInfiniteTokens,
+            'producesMill' => $producesMill,
+            'producesLock' => $producesLock,
+            'requiresCommander' => $this->boolValue($row['requires_commander'] ?? false),
+            'requiresTemplate' => $this->boolValue($row['requires_template'] ?? false),
+            'comboPowerScore' => $this->intOrNull($row['combo_power_score'] ?? null),
+            'comboComplexityScore' => $this->intOrNull($row['combo_complexity_score'] ?? null),
+            'comboSize' => max(0, (int) ($row['combo_size'] ?? 0)),
+            'bracketTag' => $this->stringOrNull($row['bracket_tag'] ?? null),
+            'popularity' => $this->intOrNull($row['popularity'] ?? null),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $item
+     */
+    private function isValidComboItem(array $item): bool
+    {
+        return $item['comboVariantId'] !== ''
+            && $item['externalId'] !== ''
+            && $item['comboSize'] > 0
+            && $item['requiredOracleIds'] !== [];
+    }
+
+    /**
+     * @param array<string,mixed> $item
+     */
+    private function isUsefulPartial(array $item): bool
+    {
+        if (!$item['requiresTemplate']) {
+            return true;
+        }
+
+        return $item['comboSize'] <= self::MAX_USEFUL_TEMPLATE_PARTIAL_SIZE;
+    }
+
+    /**
+     * @param array<string,mixed> $item
+     * @param array<string,true> $commanderOracleIdSet
+     */
+    private function commanderRequirementCanBeSatisfied(array $item, array $commanderOracleIdSet): bool
+    {
+        if ($commanderOracleIdSet === []) {
+            return true;
+        }
+
+        foreach ($item['requiredOracleIds'] as $requiredOracleId) {
+            if (isset($commanderOracleIdSet[$requiredOracleId])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $combos
+     */
+    private function sortCombos(array &$combos): void
+    {
+        usort($combos, static function (array $left, array $right): int {
+            return [$right['producesWinLike'], $left['comboSize'], -($left['comboPowerScore'] ?? 0), $left['comboComplexityScore'] ?? 999, -($left['popularity'] ?? 0), $left['externalId']]
+                <=> [$left['producesWinLike'], $right['comboSize'], -($right['comboPowerScore'] ?? 0), $right['comboComplexityScore'] ?? 999, -($right['popularity'] ?? 0), $right['externalId']];
+        });
+    }
+
+    /**
+     * @param list<array<string,mixed>> $combos
+     */
+    private function countCompleteBy(array $combos, callable $predicate): int
+    {
+        $count = 0;
+        foreach ($combos as $combo) {
+            if ($predicate($combo)) {
+                ++$count;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $combos
+     * @return list<array<string,mixed>>
+     */
+    private function publicDetails(array $combos): array
+    {
+        $details = [];
+        foreach (array_slice($combos, 0, self::DETAIL_LIMIT) as $combo) {
+            unset($combo['popularity']);
+            $details[] = $combo;
+        }
+
+        return $details;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $partialOneMissing
+     * @param list<array{name:string,oracleId:string}> $resolvedCards
+     * @return list<array{oracleId:string,name:string,completesCombos:int}>
+     */
+    private function topComboCompleters(array $partialOneMissing, array $resolvedCards): array
+    {
+        $presentNames = [];
+        foreach ($resolvedCards as $card) {
+            $presentNames[$card['oracleId']] = $card['name'];
+        }
+
+        $frequencies = [];
+        foreach ($partialOneMissing as $combo) {
+            $missingOracleId = $combo['missingOracleIds'][0] ?? null;
+            if (!is_string($missingOracleId) || $missingOracleId === '') {
+                continue;
+            }
+            $frequencies[$missingOracleId] = ($frequencies[$missingOracleId] ?? 0) + 1;
+        }
+
+        if ($frequencies === []) {
+            return [];
+        }
+
+        $names = $this->cardNames(array_keys($frequencies));
+        $items = [];
+        foreach ($frequencies as $oracleId => $count) {
+            $items[] = [
+                'oracleId' => $oracleId,
+                'name' => $names[$oracleId] ?? $presentNames[$oracleId] ?? $oracleId,
+                'completesCombos' => $count,
+            ];
+        }
+
+        usort($items, static fn (array $left, array $right): int => [$right['completesCombos'], $left['name'], $left['oracleId']] <=> [$left['completesCombos'], $right['name'], $right['oracleId']]);
+
+        return array_slice($items, 0, self::DETAIL_LIMIT);
+    }
+
+    /**
+     * @param list<string> $oracleIds
+     * @return array<string,string>
+     */
+    private function cardNames(array $oracleIds): array
+    {
+        $placeholders = [];
+        $parameters = [];
+        foreach ($oracleIds as $index => $oracleId) {
+            $parameter = 'missing_'.$index;
+            $placeholders[] = '(:'.$parameter.')';
+            $parameters[$parameter] = $oracleId;
+        }
+
+        $rows = $this->connection->executeQuery(
+            sprintf(
+                <<<'SQL'
+WITH missing(oracle_id) AS (VALUES %s)
+SELECT
+    missing.oracle_id,
+    COALESCE(card_oracle_profile.name, card_analysis_profile.name, MIN(card.name)) AS name
+FROM missing
+LEFT JOIN card_oracle_profile ON card_oracle_profile.oracle_id = missing.oracle_id
+LEFT JOIN card_analysis_profile ON card_analysis_profile.oracle_id = missing.oracle_id
+LEFT JOIN card ON card.oracle_id = missing.oracle_id
+GROUP BY missing.oracle_id, card_oracle_profile.name, card_analysis_profile.name
+SQL,
+                implode(', ', $placeholders),
+            ),
+            $parameters,
+        )->fetchAllAssociative();
+
+        $names = [];
+        foreach ($rows as $row) {
+            $oracleId = $this->stringOrNull($row['oracle_id'] ?? null);
+            $name = $this->stringOrNull($row['name'] ?? null);
+            if ($oracleId !== null && $name !== null) {
+                $names[$oracleId] = $name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @param list<string> $oracleIds
+     * @return array<string,true>
+     */
+    private function idSet(array $oracleIds): array
+    {
+        $set = [];
+        foreach ($oracleIds as $oracleId) {
+            $normalized = $this->stringOrNull($oracleId);
+            if ($normalized !== null) {
+                $set[$normalized] = true;
+            }
+        }
+
+        return $set;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function jsonStringList(mixed $value): array
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+        } else {
+            $decoded = $value;
+        }
+
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $items = [];
+        foreach ($decoded as $item) {
+            $string = $this->stringOrNull($item);
+            if ($string !== null) {
+                $items[$string] = true;
+            }
+        }
+
+        $list = array_keys($items);
+        sort($list, SORT_STRING);
+
+        return $list;
+    }
+
+    private function intOrNull(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function stringOrNull(mixed $value): ?string
+    {
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $string = trim((string) $value);
+
+        return $string !== '' ? $string : null;
+    }
+
+    private function boolValue(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return $value === 1;
+        }
+
+        if (!is_string($value)) {
+            return false;
+        }
+
+        return in_array(mb_strtolower(trim($value)), ['1', 'true', 't', 'yes', 'y'], true);
+    }
+}

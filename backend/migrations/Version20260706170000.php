@@ -67,6 +67,7 @@ SQL,
         $this->addSql('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_semantic_data_version ON deck_advanced_analysis_snapshot (semantic_data_version)');
         $this->addSql('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_combo_data_version ON deck_advanced_analysis_snapshot (combo_data_version)');
         $this->addSql('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_rules_version ON deck_advanced_analysis_snapshot (rules_version)');
+        $this->addSql('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_monte_carlo_version ON deck_advanced_analysis_snapshot (monte_carlo_version)');
     }
 
     public function down(Schema $schema): void

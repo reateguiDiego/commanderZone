@@ -83,9 +83,6 @@ services:
     App\Application\Game\Runtime\GameRuntimeCommandClientInterface:
         alias: App\Application\Game\Runtime\GameRuntimeCommandClient
 
-    App\Application\Deck\DeckAdvancedAnalyzerInterface:
-        alias: App\Application\Deck\DeckAdvancedAnalyzerService
-
     App\Application\Auth\GoogleIdTokenVerifierInterface:
         alias: App\Application\Auth\GoogleIdTokenVerifier
 

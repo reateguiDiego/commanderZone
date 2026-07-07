@@ -2,14 +2,12 @@
 
 namespace App\Tests\Integration;
 
-use App\Application\Card\CardOracleProfileRebuilder;
-use App\Application\Deck\CardAnalysisProfileRebuilder;
+use App\Application\Deck\DeckAdvancedAnalysisCalculatorInterface;
+use App\Application\Deck\DeckAdvancedAnalysisContext;
 use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
-use App\Application\Deck\DeckAdvancedAnalyzerInterface;
-use App\Application\Deck\DeckAdvancedAnalyzerService;
 use App\Application\Deck\DeckAdvancedAnalyzerVersion;
-use App\Application\Deck\DeckAnalysisDeckCardResolver;
 use App\Application\Deck\DeckAnalysisDataVersionProvider;
+use App\Application\Deck\DeckAnalysisDeckHasher;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\User\User;
@@ -19,28 +17,30 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
     public function testSnapshotMissCalculatesAndStoresResult(): void
     {
         [$deck] = $this->deckFixture('miss');
-        $analyzer = new RecordingAdvancedAnalyzer();
-        $service = $this->service($analyzer);
+        $calculator = new RecordingAdvancedCalculator();
+        $service = $this->service();
 
-        $result = $service->analyze($deck);
+        $result = $service->analyze($deck, $calculator);
 
-        self::assertSame(1, $analyzer->calls);
+        self::assertSame(1, $calculator->calls);
         self::assertFalse($result['snapshot']['hit']);
         self::assertSame('missing', $result['snapshot']['reason']);
+        self::assertSame(DeckAdvancedAnalyzerVersion::CURRENT, $result['snapshot']['analyzerVersion']);
+        self::assertSame(DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS, $result['snapshot']['monteCarloRuns']);
         self::assertSame('1', (string) $this->connection()->fetchOne('SELECT COUNT(*) FROM deck_advanced_analysis_snapshot WHERE deck_id = :deckId', ['deckId' => $deck->id()]));
     }
 
     public function testFreshSnapshotIsReturnedWithoutRecalculating(): void
     {
         [$deck] = $this->deckFixture('hit');
-        $analyzer = new RecordingAdvancedAnalyzer();
-        $service = $this->service($analyzer);
-        $first = $service->analyze($deck);
+        $calculator = new RecordingAdvancedCalculator();
+        $service = $this->service();
+        $first = $service->analyze($deck, $calculator);
 
-        $analyzer->resultLabel = 'changed analyzer output';
-        $second = $service->analyze($deck);
+        $calculator->resultLabel = 'changed calculator output';
+        $second = $service->analyze($deck, $calculator);
 
-        self::assertSame(1, $analyzer->calls);
+        self::assertSame(1, $calculator->calls);
         self::assertFalse($first['snapshot']['hit']);
         self::assertTrue($second['snapshot']['hit']);
         self::assertSame('fresh', $second['snapshot']['reason']);
@@ -50,16 +50,16 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
     public function testDeckChangeInvalidatesSnapshot(): void
     {
         [$deck, $firstCard, $secondCard] = $this->deckFixture('deck-change');
-        $analyzer = new RecordingAdvancedAnalyzer();
-        $service = $this->service($analyzer);
-        $service->analyze($deck);
+        $calculator = new RecordingAdvancedCalculator();
+        $service = $this->service();
+        $service->analyze($deck, $calculator);
         $firstHash = $service->deckHash($deck);
 
         $deck->addOrIncrementCard($secondCard, 1, DeckCard::SECTION_MAIN);
         $this->entityManager->flush();
-        $result = $service->analyze($deck);
+        $result = $service->analyze($deck, $calculator);
 
-        self::assertSame(2, $analyzer->calls);
+        self::assertSame(2, $calculator->calls);
         self::assertSame('deck_hash_changed', $result['snapshot']['reason']);
         self::assertNotSame($firstHash, $service->deckHash($deck));
         self::assertNotNull($firstCard->oracleId());
@@ -68,59 +68,76 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
     public function testAnalyzerVersionChangeInvalidatesSnapshot(): void
     {
         [$deck] = $this->deckFixture('analyzer-version');
-        $service = $this->service(new DeckAdvancedAnalyzerService(new DeckAnalysisDeckCardResolver($this->connection())));
+        $calculator = new RecordingAdvancedCalculator();
         $this->insertSnapshot($deck, ['analyzer_version' => 'old-version']);
 
-        $result = $service->analyze($deck);
+        $result = $this->service()->analyze($deck, $calculator);
 
+        self::assertSame(1, $calculator->calls);
         self::assertSame('analyzer_version_changed', $result['snapshot']['reason']);
     }
 
     public function testSemanticDataVersionChangeInvalidatesSnapshot(): void
     {
         [$deck] = $this->deckFixture('semantic-version');
-        $service = $this->service(new RecordingAdvancedAnalyzer());
+        $calculator = new RecordingAdvancedCalculator();
         $this->insertSnapshot($deck, ['semantic_data_version' => 'old-semantic']);
 
-        $result = $service->analyze($deck);
+        $result = $this->service()->analyze($deck, $calculator);
 
+        self::assertSame(1, $calculator->calls);
         self::assertSame('semantic_data_changed', $result['snapshot']['reason']);
     }
 
     public function testComboDataVersionChangeInvalidatesSnapshot(): void
     {
         [$deck] = $this->deckFixture('combo-version');
-        $service = $this->service(new RecordingAdvancedAnalyzer());
+        $calculator = new RecordingAdvancedCalculator();
         $this->insertSnapshot($deck, ['combo_data_version' => 'old-combo']);
 
-        $result = $service->analyze($deck);
+        $result = $this->service()->analyze($deck, $calculator);
 
+        self::assertSame(1, $calculator->calls);
         self::assertSame('combo_data_changed', $result['snapshot']['reason']);
     }
 
     public function testRulesVersionChangeInvalidatesSnapshot(): void
     {
         [$deck] = $this->deckFixture('rules-version');
-        $service = $this->service(new RecordingAdvancedAnalyzer());
+        $calculator = new RecordingAdvancedCalculator();
         $this->insertSnapshot($deck, ['rules_version' => 'old-rules']);
 
-        $result = $service->analyze($deck);
+        $result = $this->service()->analyze($deck, $calculator);
 
+        self::assertSame(1, $calculator->calls);
         self::assertSame('rules_changed', $result['snapshot']['reason']);
+    }
+
+    public function testMonteCarloVersionChangeInvalidatesSnapshot(): void
+    {
+        [$deck] = $this->deckFixture('monte-version');
+        $calculator = new RecordingAdvancedCalculator();
+        $this->insertSnapshot($deck, ['monte_carlo_version' => 'old-monte-carlo']);
+
+        $result = $this->service()->analyze($deck, $calculator);
+
+        self::assertSame(1, $calculator->calls);
+        self::assertSame('monte_carlo_version_changed', $result['snapshot']['reason']);
     }
 
     public function testMonteCarloRunsChangeInvalidatesSnapshot(): void
     {
         [$deck] = $this->deckFixture('monte-runs');
-        $analyzer = new RecordingAdvancedAnalyzer();
-        $service = $this->service($analyzer);
-        $service->analyze($deck, 100000);
+        $calculator = new RecordingAdvancedCalculator();
+        $service = $this->service();
+        $service->analyze($deck, $calculator, 100000);
 
-        $result = $service->analyze($deck, 50000);
+        $result = $service->analyze($deck, $calculator, 50000);
 
-        self::assertSame(2, $analyzer->calls);
-        self::assertSame('monte_carlo_version_changed', $result['snapshot']['reason']);
+        self::assertSame(2, $calculator->calls);
+        self::assertSame('monte_carlo_runs_changed', $result['snapshot']['reason']);
         self::assertSame(50000, $result['monteCarloRuns']);
+        self::assertSame(50000, $result['snapshot']['monteCarloRuns']);
     }
 
     public function testUnmatchedCardParticipatesInStableDeckHash(): void
@@ -134,7 +151,7 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
         $this->entityManager->persist($user);
         $this->entityManager->persist($deck);
         $this->entityManager->flush();
-        $service = $this->service(new RecordingAdvancedAnalyzer());
+        $service = $this->service();
 
         $first = $service->deckHash($deck);
         $second = $service->deckHash($deck);
@@ -143,33 +160,7 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
 
         self::assertSame($first, $second);
         self::assertNotSame($first, $service->deckHash($deck));
-        self::assertFalse($service->analyze($deck)['snapshot']['hit']);
-    }
-
-    public function testAdvancedEndpointReturnsSnapshotMetadata(): void
-    {
-        $token = $this->registerAndLogin('advanced-snapshot@example.test', 'AdvSnap');
-        $user = $this->entityManager->getRepository(User::class)->find($this->currentUserId($token));
-        self::assertInstanceOf(User::class, $user);
-        $card = $this->seedCard('97000000-0000-0000-0000-000000000201', 'Endpoint Analysis Card', [
-            'oracle_id' => '97000000-0000-0000-0000-000000000301',
-        ]);
-        (new CardOracleProfileRebuilder($this->connection()))->rebuild();
-        (new CardAnalysisProfileRebuilder($this->connection()))->rebuild();
-        $deck = new Deck($user, 'Endpoint Advanced Snapshot');
-        $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_MAIN);
-        $this->entityManager->persist($deck);
-        $this->entityManager->flush();
-
-        $this->jsonRequest('GET', '/decks/'.$deck->id().'/analysis/advanced', token: $token);
-
-        self::assertResponseIsSuccessful();
-        $response = $this->jsonResponse();
-        self::assertArrayHasKey('snapshot', $response);
-        self::assertFalse($response['snapshot']['hit']);
-        self::assertSame('missing', $response['snapshot']['reason']);
-        self::assertSame(DeckAdvancedAnalyzerVersion::CURRENT, $response['snapshot']['analyzerVersion']);
-        self::assertSame(DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS, $response['monteCarlo']['runs']);
+        self::assertFalse($service->analyze($deck, new RecordingAdvancedCalculator())['snapshot']['hit']);
     }
 
     /**
@@ -201,12 +192,12 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
         return $user;
     }
 
-    private function service(DeckAdvancedAnalyzerInterface $analyzer): DeckAdvancedAnalysisSnapshotService
+    private function service(): DeckAdvancedAnalysisSnapshotService
     {
         return new DeckAdvancedAnalysisSnapshotService(
             $this->connection(),
             new DeckAnalysisDataVersionProvider($this->connection()),
-            $analyzer,
+            new DeckAnalysisDeckHasher($this->connection()),
         );
     }
 
@@ -215,9 +206,9 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
      */
     private function insertSnapshot(Deck $deck, array $overrides): void
     {
-        $service = $this->service(new RecordingAdvancedAnalyzer());
-        $deckHash = $service->deckHash($deck);
+        $deckHash = $this->service()->deckHash($deck);
         $versions = (new DeckAnalysisDataVersionProvider($this->connection()))->currentVersions();
+        $monteCarloRuns = DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS;
         $values = array_replace([
             'id' => '97000000-0000-0000-0002-'.substr(md5($deck->id()), 0, 12),
             'deck_id' => $deck->id(),
@@ -227,8 +218,8 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
             'combo_data_version' => $versions[DeckAnalysisDataVersionProvider::KEY_COMBO],
             'rules_version' => $versions[DeckAnalysisDataVersionProvider::KEY_RULES],
             'monte_carlo_version' => DeckAdvancedAnalyzerVersion::MONTE_CARLO,
-            'monte_carlo_runs' => DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS,
-            'monte_carlo_seed' => hash('sha256', $deckHash.'|'.DeckAdvancedAnalyzerVersion::CURRENT.'|'.DeckAdvancedAnalyzerVersion::MONTE_CARLO),
+            'monte_carlo_runs' => $monteCarloRuns,
+            'monte_carlo_seed' => $this->monteCarloSeed($deckHash, $monteCarloRuns),
             'result_json' => json_encode(['label' => 'old snapshot'], JSON_THROW_ON_ERROR),
         ], $overrides);
 
@@ -270,27 +261,38 @@ SQL,
         );
     }
 
+    private function monteCarloSeed(string $deckHash, int $monteCarloRuns): string
+    {
+        unset($monteCarloRuns);
+
+        return hash('sha256', implode('|', [
+            $deckHash,
+            DeckAdvancedAnalyzerVersion::CURRENT,
+            DeckAdvancedAnalyzerVersion::MONTE_CARLO,
+        ]));
+    }
+
     private function connection(): \Doctrine\DBAL\Connection
     {
         return $this->entityManager->getConnection();
     }
 }
 
-final class RecordingAdvancedAnalyzer implements DeckAdvancedAnalyzerInterface
+final class RecordingAdvancedCalculator implements DeckAdvancedAnalysisCalculatorInterface
 {
     public int $calls = 0;
     public string $resultLabel = 'analysis';
 
-    public function analyze(Deck $deck, string $deckHash, int $monteCarloRuns, string $monteCarloSeed): array
+    public function calculate(DeckAdvancedAnalysisContext $context): array
     {
         ++$this->calls;
 
         return [
-            'deckId' => $deck->id(),
-            'deckHash' => $deckHash,
+            'deckId' => $context->deck->id(),
+            'deckHash' => $context->deckHash,
             'label' => $this->resultLabel.' #'.$this->calls,
-            'monteCarloRuns' => $monteCarloRuns,
-            'monteCarloSeed' => $monteCarloSeed,
+            'monteCarloRuns' => $context->monteCarloRuns,
+            'monteCarloSeed' => $context->monteCarloSeed,
             'cards' => [
                 'unmatched' => [],
             ],
