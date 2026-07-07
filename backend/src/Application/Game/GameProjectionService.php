@@ -28,7 +28,10 @@ class GameProjectionService
 
     public function project(Game $game, User $viewer): array
     {
-        $snapshot = $this->normalizer->normalizeSnapshot($game->snapshot());
+        $rawSnapshot = $game->snapshot();
+        $positionlessBattlefieldInstanceIds = $this->positionlessBattlefieldInstanceIds($rawSnapshot);
+        $snapshot = $this->normalizer->normalizeSnapshot($rawSnapshot);
+        $this->restorePositionlessBattlefieldInstances($snapshot, $positionlessBattlefieldInstanceIds);
         if (($this->streamFlags?->enabled() ?? false) && $this->activityStreams instanceof GameActivityStreamService) {
             $snapshot = $this->activityStreams->decorateSnapshotForViewer($game, $snapshot, $viewer);
         }
@@ -604,7 +607,7 @@ class GameProjectionService
                 'hidden' => true,
                 'tapped' => $zone === 'battlefield' && (bool) ($card['tapped'] ?? false),
                 'faceDown' => true,
-                'position' => $card['position'] ?? ['x' => 0, 'y' => 0],
+                'position' => is_array($card['position'] ?? null) ? $card['position'] : null,
                 'rotation' => $zone === 'battlefield' ? $card['rotation'] ?? 0 : 0,
                 'counters' => $card['counters'] ?? [],
                 'zone' => $card['zone'] ?? null,
@@ -1035,6 +1038,56 @@ class GameProjectionService
     private function requestedLanguages(?string $requestedLanguage): array
     {
         return is_string($requestedLanguage) && trim($requestedLanguage) !== '' ? [$requestedLanguage] : [];
+    }
+
+    /**
+     * @return array<string,true>
+     */
+    private function positionlessBattlefieldInstanceIds(array $snapshot): array
+    {
+        $ids = [];
+        foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $player) {
+            if (!is_array($player)) {
+                continue;
+            }
+            foreach (is_array($player['zones']['battlefield'] ?? null) ? $player['zones']['battlefield'] : [] as $card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $instanceId = is_string($card['instanceId'] ?? null) ? trim($card['instanceId']) : '';
+                if ($instanceId !== '' && !is_array($card['position'] ?? null)) {
+                    $ids[$instanceId] = true;
+                }
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param array<string,true> $instanceIds
+     */
+    private function restorePositionlessBattlefieldInstances(array &$snapshot, array $instanceIds): void
+    {
+        if ($instanceIds === [] || !is_array($snapshot['players'] ?? null)) {
+            return;
+        }
+        foreach ($snapshot['players'] as &$player) {
+            if (!is_array($player) || !is_array($player['zones']['battlefield'] ?? null)) {
+                continue;
+            }
+            foreach ($player['zones']['battlefield'] as &$card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $instanceId = is_string($card['instanceId'] ?? null) ? trim($card['instanceId']) : '';
+                if ($instanceId !== '' && isset($instanceIds[$instanceId])) {
+                    unset($card['position']);
+                }
+            }
+            unset($card);
+        }
+        unset($player);
     }
 
     private function libraryOps(): GameLibraryOps

@@ -21,6 +21,7 @@ class GameCommandHandler
     private const HIDDEN_ZONES = ['library', 'hand'];
     private const GAME_PHASE_MULLIGAN = 'MULLIGAN';
     private const GAME_PHASE_PLAYING = 'PLAYING';
+    private const GAME_PHASE_FINISHED = 'FINISHED';
     private const MULLIGAN_STATUS_DECIDING = 'DECIDING';
     private const MULLIGAN_STATUS_SCRYING = 'SCRYING';
     private const MULLIGAN_STATUS_READY = 'READY';
@@ -399,7 +400,7 @@ class GameCommandHandler
         $snapshot['version'] = max(1, (int) ($snapshot['version'] ?? 1));
         $snapshot['ownerId'] = (string) ($snapshot['ownerId'] ?? '');
         $gamePhase = $snapshot['gamePhase'] ?? self::GAME_PHASE_PLAYING;
-        $snapshot['gamePhase'] = in_array($gamePhase, [self::GAME_PHASE_MULLIGAN, self::GAME_PHASE_PLAYING], true)
+        $snapshot['gamePhase'] = in_array($gamePhase, [self::GAME_PHASE_MULLIGAN, self::GAME_PHASE_PLAYING, self::GAME_PHASE_FINISHED], true)
             ? $gamePhase
             : self::GAME_PHASE_PLAYING;
         $snapshot['mulligan'] = is_array($snapshot['mulligan'] ?? null) ? $snapshot['mulligan'] : [];
@@ -691,6 +692,9 @@ class GameCommandHandler
             'isTokenCopy' => (bool) ($card['isTokenCopy'] ?? false),
             'isCommander' => (bool) ($card['isCommander'] ?? $zone === 'command'),
         ];
+        if ($zone !== 'battlefield') {
+            unset($normalized['position']);
+        }
         if (is_array($card['tokenMeta'] ?? null) && $card['tokenMeta'] !== []) {
             $normalized['tokenMeta'] = $this->normalizeTokenMeta($card['tokenMeta']);
         }
@@ -3346,7 +3350,7 @@ class GameCommandHandler
         if ($zone === 'battlefield' && is_array($position)) {
             $card['position'] = $this->normalizedPosition($position);
         } elseif ($zone !== 'battlefield') {
-            $card['position'] = ['x' => 0, 'y' => 0];
+            unset($card['position']);
         }
         if (!in_array($zone, self::HIDDEN_ZONES, true) && !($zone === 'battlefield' && ($card['faceDown'] ?? false))) {
             $card['revealedTo'] = [];
@@ -6544,7 +6548,7 @@ class GameCommandHandler
         $snapshot['version'] = max(1, (int) ($snapshot['version'] ?? 1));
         $snapshot['ownerId'] = (string) ($snapshot['ownerId'] ?? '');
         $gamePhase = $snapshot['gamePhase'] ?? self::GAME_PHASE_PLAYING;
-        $snapshot['gamePhase'] = in_array($gamePhase, [self::GAME_PHASE_MULLIGAN, self::GAME_PHASE_PLAYING], true)
+        $snapshot['gamePhase'] = in_array($gamePhase, [self::GAME_PHASE_MULLIGAN, self::GAME_PHASE_PLAYING, self::GAME_PHASE_FINISHED], true)
             ? (string) $gamePhase
             : self::GAME_PHASE_PLAYING;
         $snapshot['mulligan'] = is_array($snapshot['mulligan'] ?? null) ? $snapshot['mulligan'] : [];

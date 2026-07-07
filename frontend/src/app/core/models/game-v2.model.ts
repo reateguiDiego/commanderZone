@@ -176,6 +176,8 @@ export interface BootstrapV2 {
   relations: BootstrapRelationsV2;
   turn: GameTurn;
   staticCards: Record<string, BootstrapStaticCardV2>;
+  chat?: ChatMessage[];
+  eventLog?: GameLogEntry[];
   chatCursor?: string | null;
   logCursor?: string | null;
   rulesVersion?: string;

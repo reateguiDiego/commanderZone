@@ -90,6 +90,72 @@ class GameCommandHandlerV2Test extends TestCase
         self::assertNull($handler->consumeLastDirectPatchPayload());
     }
 
+    public function testV2BattlefieldExitReturnsControlledPermanentToOwnerAndResetsBattlefieldState(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $controller = new User('controller@example.test', 'Controller');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $rawSnapshot = self::baseSnapshot($owner->id(), [], $controller->id());
+        $rawSnapshot['players'][$controller->id()]['zones']['battlefield'] = [[
+            ...self::card('controlled-1', 'Controlled Permanent', 'battlefield'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $controller->id(),
+            'tapped' => true,
+            'rotation' => 90,
+            'counters' => ['+1/+1' => 2],
+            'power' => 7,
+            'toughness' => 8,
+            'faceDown' => true,
+        ]];
+        $snapshot = $handler->normalizeSnapshot($rawSnapshot);
+        $game = new Game(new Room($owner), $snapshot);
+
+        $handler->apply($game, 'card.moved', [
+            'playerId' => $controller->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'controlled-1',
+        ], $controller, 'move-controlled-to-owner');
+
+        $next = $game->snapshot();
+        self::assertCount(1, $next['players'][$owner->id()]['zones']['graveyard']);
+        self::assertSame([], $next['players'][$controller->id()]['zones']['graveyard']);
+        $card = $next['players'][$owner->id()]['zones']['graveyard'][0];
+        self::assertSame($owner->id(), $card['ownerId']);
+        self::assertSame($owner->id(), $card['controllerId']);
+        self::assertFalse($card['tapped']);
+        self::assertSame(0, $card['rotation']);
+        self::assertSame([], $card['counters']);
+        self::assertFalse($card['faceDown']);
+        self::assertSame(2, $card['power']);
+        self::assertSame(2, $card['toughness']);
+        self::assertNotNull($handler->consumeLastDirectPatchPayload());
+    }
+
+    public function testV2HandToBattlefieldFaceDownMovePreservesHiddenBattlefieldState(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $snapshot = $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'hand' => [self::card('hand-1', 'Private Card', 'hand')],
+        ]));
+        $game = new Game(new Room($actor), $snapshot);
+
+        $handler->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'hand',
+            'toZone' => 'battlefield',
+            'instanceId' => 'hand-1',
+            'faceDown' => true,
+        ], $actor, 'move-face-down');
+
+        $next = $game->snapshot();
+        $card = $next['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertTrue($card['faceDown']);
+        self::assertSame([$actor->id()], $card['revealedTo']);
+        self::assertNotNull($handler->consumeLastDirectPatchPayload());
+    }
+
     /**
      * @return array<string,array{0:string,1:array<string,mixed>,2:array<string,mixed>,3?:GameRandomizer}>
      */

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
@@ -64,6 +65,7 @@ func DefaultAppliers() []Applier {
 		HelperRemovedApplier{},
 		GameConcedeApplier{},
 		GameCloseApplier{},
+		DisconnectVoteApplier{},
 		MulliganTakeApplier{},
 		MulliganKeepApplier{},
 		MulliganCardsBottomedApplier{},
@@ -411,10 +413,70 @@ func cardPatchData(game *state.GameState, viewerID string, instanceID string) ma
 	}
 	if game.CanViewerSeeCardKey(viewerID, instanceID) {
 		data["cardKey"] = instance.CardKey
+		data["printId"] = printIDForViewer(instance, viewerID)
+		data["cardVersion"] = cardVersionForViewer(instance, viewerID)
+		data["language"] = languageForViewer(game, instance, viewerID)
+		data["viewerVisibility"] = viewerVisibilityForZone(location.Zone)
 	} else {
 		data["hidden"] = true
 	}
 	return data
+}
+
+func printIDForViewer(instance state.CardInstanceRuntime, viewerID string) string {
+	if viewerID != "" && viewerID == instance.OwnerID && instance.PrintID != "" {
+		return instance.PrintID
+	}
+	return printIDFromCardKey(instance.CardKey)
+}
+
+func printIDFromCardKey(cardKey string) string {
+	if strings.HasSuffix(cardKey, ":card") {
+		return strings.TrimSuffix(cardKey, ":card")
+	}
+	return cardKey
+}
+
+func cardVersionForViewer(instance state.CardInstanceRuntime, viewerID string) string {
+	if viewerID != "" && viewerID == instance.OwnerID && instance.CardVersion != "" {
+		return instance.CardVersion
+	}
+	return "runtime-identity-v1"
+}
+
+func languageForViewer(game *state.GameState, instance state.CardInstanceRuntime, viewerID string) string {
+	if viewerID != "" && viewerID == instance.OwnerID && instance.Language != "" {
+		return instance.Language
+	}
+	if language := playerCardLanguage(game, viewerID); language != "" {
+		return language
+	}
+	return "en"
+}
+
+func viewerVisibilityForZone(zone state.Zone) string {
+	if privateZone(zone) {
+		return "private"
+	}
+	return "public"
+}
+
+func playerCardLanguage(game *state.GameState, playerID string) string {
+	if game == nil || playerID == "" {
+		return ""
+	}
+	player := game.Players[playerID]
+	if player == nil {
+		return ""
+	}
+	user, _ := player["user"].(map[string]any)
+	preferences, _ := user["preferences"].(map[string]any)
+	language, _ := preferences["cardLanguage"].(string)
+	language = strings.TrimSpace(language)
+	if language == "" {
+		return ""
+	}
+	return language
 }
 
 func cloneIntMapAny(values map[string]int) map[string]any {

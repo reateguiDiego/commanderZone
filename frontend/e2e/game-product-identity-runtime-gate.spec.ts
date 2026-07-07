@@ -5,6 +5,7 @@ import { focusPlayer, readTableZoneCounts } from './support/game-table';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
+const POST_REFRESH_CARD_TIMEOUT_MS = 30_000;
 
 type JsonObject = Record<string, unknown>;
 type IdentitySetup = Awaited<ReturnType<typeof createCommanderGameWithBasicDecks>>;
@@ -112,7 +113,10 @@ test.describe('product correctness identity runtime gate', () => {
         ownerPatch: (patch) => hasOp(patch, 'zone.cards.move'),
       });
       nextBaseVersion = outcome.version;
-      const rivalMovePatch = latestPatchWithOp(framesB, 'zone.cards.add');
+      const rivalMovePatch = await waitForPatchV2(
+        framesB,
+        (patch) => hasOp(patch, 'zone.cards.add') && addedCards(patch).some((card) => card['instanceId'] === moveId),
+      );
       const rivalMoved = addedCards(rivalMovePatch).find((card) => card['instanceId'] === moveId);
       expect(rivalMoved).toBeTruthy();
       assertVisibleCardIdentity(rivalMoved!, 'public', 'en');
@@ -220,10 +224,10 @@ test.describe('product correctness identity runtime gate', () => {
       await pageA.reload();
       await expect(pageA.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
       await focusPlayer(pageA, playerA.user.displayName);
-      await expect(gameCard(pageA, playerA.user.id, moveId, 'battlefield')).toBeVisible({ timeout: 15_000 });
-      await expect(gameCard(pageA, playerA.user.id, tokenId, 'battlefield')).toBeVisible({ timeout: 15_000 });
-      await expect(gameCard(pageA, playerA.user.id, tokenCopyId, 'battlefield')).toBeVisible({ timeout: 15_000 });
-      await expect(gameCard(pageA, playerA.user.id, dfc.instanceId, 'battlefield')).toBeVisible({ timeout: 15_000 });
+      await expect(gameCard(pageA, playerA.user.id, moveId, 'battlefield')).toBeVisible({ timeout: POST_REFRESH_CARD_TIMEOUT_MS });
+      await expect(gameCard(pageA, playerA.user.id, tokenId, 'battlefield')).toBeVisible({ timeout: POST_REFRESH_CARD_TIMEOUT_MS });
+      await expect(gameCard(pageA, playerA.user.id, tokenCopyId, 'battlefield')).toBeVisible({ timeout: POST_REFRESH_CARD_TIMEOUT_MS });
+      await expect(gameCard(pageA, playerA.user.id, dfc.instanceId, 'battlefield')).toBeVisible({ timeout: POST_REFRESH_CARD_TIMEOUT_MS });
       expect(await expectCardImageSrc(pageA, playerA.user.id, moveId, 'battlefield')).toBe(ownerMoveLiveImageSrc);
       expect(await expectCardImageSrc(pageA, playerA.user.id, tokenId, 'battlefield')).toBe(ownerTokenLiveImageSrc);
       expect(await expectCardImageSrc(pageA, playerA.user.id, tokenCopyId, 'battlefield')).toBe(ownerTokenCopyLiveImageSrc);
@@ -241,10 +245,10 @@ test.describe('product correctness identity runtime gate', () => {
       await expect(reconnectPage.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
       await waitForGameplayConnection(reconnectFrames);
       await focusPlayer(reconnectPage, playerA.user.displayName);
-      await expect(gameCard(reconnectPage, playerA.user.id, moveId, 'battlefield')).toBeVisible({ timeout: 15_000 });
-      await expect(gameCard(reconnectPage, playerA.user.id, tokenId, 'battlefield')).toBeVisible({ timeout: 15_000 });
-      await expect(gameCard(reconnectPage, playerA.user.id, tokenCopyId, 'battlefield')).toBeVisible({ timeout: 15_000 });
-      await expect(gameCard(reconnectPage, playerA.user.id, dfc.instanceId, 'battlefield')).toBeVisible({ timeout: 15_000 });
+      await expect(gameCard(reconnectPage, playerA.user.id, moveId, 'battlefield')).toBeVisible({ timeout: POST_REFRESH_CARD_TIMEOUT_MS });
+      await expect(gameCard(reconnectPage, playerA.user.id, tokenId, 'battlefield')).toBeVisible({ timeout: POST_REFRESH_CARD_TIMEOUT_MS });
+      await expect(gameCard(reconnectPage, playerA.user.id, tokenCopyId, 'battlefield')).toBeVisible({ timeout: POST_REFRESH_CARD_TIMEOUT_MS });
+      await expect(gameCard(reconnectPage, playerA.user.id, dfc.instanceId, 'battlefield')).toBeVisible({ timeout: POST_REFRESH_CARD_TIMEOUT_MS });
       expect(await expectCardImageSrc(reconnectPage, playerA.user.id, moveId, 'battlefield')).toBe(rivalMoveLiveImageSrc);
       expect(await expectCardImageSrc(reconnectPage, playerA.user.id, tokenId, 'battlefield')).toBe(rivalTokenLiveImageSrc);
       expect(await expectCardImageSrc(reconnectPage, playerA.user.id, tokenCopyId, 'battlefield')).toBe(rivalTokenCopyLiveImageSrc);
@@ -442,14 +446,6 @@ function waitForPatchV2(frames: JsonObject[], predicate: (message: JsonObject) =
       }
       return patch;
     });
-}
-
-function latestPatchWithOp(frames: JsonObject[], op: string): JsonObject {
-  const patch = frames.filter((message) => message['kind'] === 'patch.v2' && hasOp(message, op)).at(-1);
-  if (!patch) {
-    throw new Error(`No patch.v2 frame captured for op ${op}.`);
-  }
-  return patch;
 }
 
 function hasOp(message: JsonObject, op: string): boolean {

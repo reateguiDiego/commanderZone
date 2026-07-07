@@ -2253,7 +2253,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(0, $metricsStore->records()[0]['lifecycle.snapshot_write_count'] ?? 1);
     }
 
-    public function testRuntimeGameConcedeRejectsAlreadyConcededPlayerFromLifecycleEvents(): void
+    public function testRuntimeGameConcedeAlreadyConcededPlayerRoutesAsIdempotentNoop(): void
     {
         [$game, $actor] = $this->game();
         $concededEvent = new GameEvent(
@@ -2265,7 +2265,22 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             2,
         );
         $metricsStore = new GameplayMetricsStore();
-        $runtimeClient = new CommandPatchRuntimeClientStub([]);
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [[
+                'op' => 'player.status.set',
+                'data' => [
+                    'playerId' => $actor->id(),
+                    'status' => 'conceded',
+                    'concededAt' => '2026-01-01T00:00:05+00:00',
+                ],
+            ]],
+        ]], [
+            'lifecycle.runtime_route' => 1,
+            'lifecycle.snapshot_write_count' => 0,
+        ]);
         $service = $this->service(
             $game,
             existingEvent: null,
@@ -2289,13 +2304,14 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             'v2',
         );
 
-        $message = is_array($result) ? $result : $result->messageForUserId($actor->id());
-        self::assertSame('command_ack', $message['kind']);
-        self::assertSame('rejected', $message['status']);
-        self::assertSame('INVALID_COMMAND_MESSAGE', $message['error']['code'] ?? null);
-        self::assertStringContainsString('already conceded', (string) ($message['error']['message'] ?? ''));
-        self::assertSame([], $runtimeClient->types);
-        self::assertSame('invalid_runtime_lifecycle_transition', $metricsStore->records()[0]['status'] ?? null);
+        self::assertInstanceOf(GameWebsocketCommandResult::class, $result);
+        $message = $result->messageForUserId($actor->id());
+        self::assertSame('patch.v2', $message['kind']);
+        self::assertSame(2, $message['version']);
+        self::assertSame('player.status.set', $message['ops'][0]['op']);
+        self::assertSame(['game.concede'], $runtimeClient->types);
+        self::assertSame($actor->id(), $runtimeClient->payloads[0]['playerId'] ?? null);
+        self::assertSame('runtime_applied', $metricsStore->records()[0]['status'] ?? null);
     }
 
     public function testAllowlistedGameCloseRoutesRuntimePrimaryAndPersistsLifecycleStatusOnly(): void

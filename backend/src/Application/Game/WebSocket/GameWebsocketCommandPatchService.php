@@ -1340,10 +1340,13 @@ final readonly class GameWebsocketCommandPatchService
         $metricsInspector = $this->metricsInspector();
         $messagesByUserId = [];
         $patchStartedAt = microtime(true);
-        $version = $baseVersion + 1;
+        $version = null;
         foreach ($patches as $patch) {
-            $version = max($version, (int) ($patch['version'] ?? $version));
+            if (is_int($patch['version'] ?? null)) {
+                $version = max($version ?? 1, (int) $patch['version']);
+            }
         }
+        $version ??= $baseVersion + 1;
 
         foreach ($this->rooms->peersForGame($gameId) as $peer) {
             $viewerOps = [];
@@ -2485,28 +2488,6 @@ final readonly class GameWebsocketCommandPatchService
      */
     private function runtimeLifecycleTransitionError(Game $game, string $type, array $payload, User $actor, array $events): ?string
     {
-        if ($type === 'game.concede') {
-            $playerId = is_string($payload['playerId'] ?? null) && trim($payload['playerId']) !== ''
-                ? trim($payload['playerId'])
-                : $actor->id();
-            $snapshotPlayer = $game->snapshot()['players'][$playerId] ?? null;
-            if (is_array($snapshotPlayer) && ($snapshotPlayer['status'] ?? null) === 'conceded') {
-                return 'Player already conceded.';
-            }
-            foreach ($events as $event) {
-                if (!$event instanceof GameEvent || $event->type() !== 'game.concede') {
-                    continue;
-                }
-                $eventPayload = $this->runtimeLifecycleEventPayload($event);
-                $eventPlayerId = is_string($eventPayload['playerId'] ?? null) && trim($eventPayload['playerId']) !== ''
-                    ? trim($eventPayload['playerId'])
-                    : $event->createdBy()?->id();
-                if ($eventPlayerId === $playerId) {
-                    return 'Player already conceded.';
-                }
-            }
-        }
-
         if ($type === 'game.close') {
             if ($game->status() === Game::STATUS_FINISHED || ($game->snapshot()['gamePhase'] ?? null) === 'FINISHED') {
                 return 'Game is already closed.';

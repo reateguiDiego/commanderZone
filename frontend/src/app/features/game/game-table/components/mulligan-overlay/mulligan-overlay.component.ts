@@ -100,7 +100,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
         .filter((instanceId) => validHandIds.has(instanceId))
         .slice(0, bottomSelectionCount);
 
-      if (status !== 'DECIDING' || bottomSelectionCount === 0) {
+      if (!this.canSubmitBottomSelection() || bottomSelectionCount === 0) {
         if (this.selectedBottomIds().length > 0) {
           this.selectedBottomIds.set([]);
         }
@@ -141,6 +141,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   statusLabelKey(status: MulliganPlayerStatus): string {
     const labels: Record<MulliganPlayerStatus, string> = {
       DECIDING: 'game.mulliganOverlay.status.deciding',
+      BOTTOMING: 'game.mulliganOverlay.status.bottoming',
       SCRYING: 'game.mulliganOverlay.status.scrying',
       READY: 'game.mulliganOverlay.status.ready',
     };
@@ -213,7 +214,7 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   }
 
   acceptMulligan(): void {
-    if (this.acceptDisabled() || this.status() !== 'DECIDING') {
+    if (this.acceptDisabled() || !this.canSubmitBottomSelection()) {
       return;
     }
 
@@ -239,9 +240,13 @@ export class MulliganOverlayComponent implements AfterViewChecked, OnDestroy {
   }
 
   private canSelectBottomCards(): boolean {
-    return this.status() === 'DECIDING'
+    return this.canSubmitBottomSelection()
       && this.bottomSelectionCount() > 0
       && (this.rule() === 'LONDON' || this.rule() === 'GENEROUS');
+  }
+
+  private canSubmitBottomSelection(): boolean {
+    return this.status() === 'DECIDING' || this.status() === 'BOTTOMING';
   }
 
   private toggleBottomCard(card: GameCardInstance): void {

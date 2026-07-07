@@ -80,10 +80,16 @@ class GoogleIdTokenVerifierTest extends TestCase
      */
     private static function tokenFixture(array $payloadOverrides = []): array
     {
-        $privateKey = openssl_pkey_new([
+        $keyOptions = [
             'private_key_bits' => 2048,
             'private_key_type' => OPENSSL_KEYTYPE_RSA,
-        ]);
+        ];
+        $opensslConfig = self::opensslConfigPath();
+        if ($opensslConfig !== null) {
+            $keyOptions['config'] = $opensslConfig;
+        }
+
+        $privateKey = openssl_pkey_new($keyOptions);
         self::assertNotFalse($privateKey);
 
         $details = openssl_pkey_get_details($privateKey);
@@ -134,5 +140,25 @@ class GoogleIdTokenVerifierTest extends TestCase
     private static function base64UrlEncode(string $value): string
     {
         return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+
+    private static function opensslConfigPath(): ?string
+    {
+        $candidates = array_filter([
+            getenv('OPENSSL_CONF') ?: null,
+            ini_get('openssl.default_config') ?: null,
+            '/etc/ssl/openssl.cnf',
+            '/usr/lib/ssl/openssl.cnf',
+            'C:/Program Files/Git/mingw64/etc/ssl/openssl.cnf',
+            'C:/Program Files/Git/usr/ssl/openssl.cnf',
+        ], static fn (?string $path): bool => is_string($path) && $path !== '');
+
+        foreach ($candidates as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 }

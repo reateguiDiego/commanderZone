@@ -70,6 +70,20 @@ func TestCommandHTTPServerProcessesRuntimeMulligan(t *testing.T) {
 	}
 }
 
+func TestCommandHTTPServerTimeoutCanBeConfigured(t *testing.T) {
+	server := NewCommandHTTPServer(runtimesvc.NewService())
+
+	server.SetCommandTimeout(15 * time.Second)
+	if server.commandTimeout != 15*time.Second {
+		t.Fatalf("command timeout = %s, want 15s", server.commandTimeout)
+	}
+
+	server.SetCommandTimeout(0)
+	if server.commandTimeout != 15*time.Second {
+		t.Fatalf("zero timeout changed command timeout to %s", server.commandTimeout)
+	}
+}
+
 func TestCommandHTTPServerRejectsInitialStateInFinalMode(t *testing.T) {
 	server := NewCommandHTTPServer(runtimesvc.NewServiceWithStore(persistence.NewInMemoryEventStore(), 8, actor.DefaultAppliers()))
 	initial := runtimeMulliganState("game-stale", "player-1")

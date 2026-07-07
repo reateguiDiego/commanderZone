@@ -48,13 +48,30 @@ func main() {
 	}()
 
 	validator := ticketValidatorFromEnv(logger)
-	webSocketServer := gateway.NewWebSocketServer(validator, runtimeService)
+	commandTimeout := envDuration(os.Getenv("GAME_RUNTIME_COMMAND_TIMEOUT"), 15*time.Second)
+	var activityStore gateway.ActivityStore
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("GAME_RUNTIME_PERSISTENCE")), "postgres") {
+		store, err := gateway.NewPostgresActivityStore(normalizePostgresURL(os.Getenv("DATABASE_URL")))
+		if err != nil {
+			logger.Error("postgres runtime activity stream configuration failed", "error", err)
+			os.Exit(1)
+		}
+		activityStore = store
+		defer func() { _ = store.Close() }()
+	}
+	webSocketOptions := []gateway.WebSocketOption{}
+	if activityStore != nil {
+		webSocketOptions = append(webSocketOptions, gateway.WithActivityStore(activityStore))
+	}
+	webSocketOptions = append(webSocketOptions, gateway.WithCommandTimeout(commandTimeout))
+	webSocketServer := gateway.NewWebSocketServer(validator, runtimeService, webSocketOptions...)
 	mux.Handle("/ws", webSocketServer)
 	commandServer := gateway.NewCommandHTTPServer(runtimeService)
 	if envBool(os.Getenv("GAME_RUNTIME_ALLOW_INITIAL_STATE_COMMANDS")) {
 		logger.Warn("GAME_RUNTIME_ALLOW_INITIAL_STATE_COMMANDS is enabled; /commands accepts legacy initialState migration payloads")
 		commandServer = gateway.NewCommandHTTPServerAllowingInitialState(runtimeService)
 	}
+	commandServer.SetCommandTimeout(commandTimeout)
 	mux.Handle("/commands", commandServer)
 	mux.Handle("/metrics", gateway.NewMetricsHTTPServer(runtimeService, webSocketServer))
 

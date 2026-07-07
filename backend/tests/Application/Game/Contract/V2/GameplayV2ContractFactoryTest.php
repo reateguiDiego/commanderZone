@@ -93,8 +93,12 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertSame('en', $bootstrap->instances['battlefield-1']['language']);
         self::assertSame('public', $bootstrap->instances['battlefield-1']['viewerVisibility']);
         self::assertSame('private', $bootstrap->instances['hand-1']['viewerVisibility']);
+        self::assertSame('chat-1', $bootstrap->chat[0]['id']);
+        self::assertSame('log-1', $bootstrap->eventLog[0]['id']);
         self::assertSame('chat-1', $bootstrap->chatCursor);
         self::assertSame('log-1', $bootstrap->logCursor);
+        self::assertSame('chat-1', $bootstrap->toArray()['chat'][0]['id']);
+        self::assertSame('log-1', $bootstrap->toArray()['eventLog'][0]['id']);
         self::assertSame('commanderzone-manual-v1', $bootstrap->rulesVersion);
         self::assertSame('legacy-snapshot-v1', $bootstrap->cardCatalogVersion);
         self::assertIsInt($bootstrap->payloadBytes);

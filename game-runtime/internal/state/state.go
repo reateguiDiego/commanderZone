@@ -73,6 +73,9 @@ type PlayerZones struct {
 type CardInstanceRuntime struct {
 	InstanceID    string         `json:"instanceId"`
 	CardKey       string         `json:"cardKey,omitempty"`
+	PrintID       string         `json:"printId,omitempty"`
+	CardVersion   string         `json:"cardVersion,omitempty"`
+	Language      string         `json:"language,omitempty"`
 	OwnerID       string         `json:"ownerId"`
 	ControllerID  string         `json:"controllerId"`
 	Zone          Zone           `json:"zone"`
@@ -246,6 +249,7 @@ type GameState struct {
 	Players        map[string]map[string]any      `json:"players"`
 	SharedCounters map[string]map[string]int      `json:"sharedCounters,omitempty"`
 	Turn           map[string]any                 `json:"turn"`
+	DisconnectVote map[string]any                 `json:"disconnectVote,omitempty"`
 	Instances      map[string]CardInstanceRuntime `json:"instances"`
 	Zones          map[string]PlayerZones         `json:"zones"`
 	Loc            map[string]Location            `json:"loc"`
@@ -343,6 +347,7 @@ func (s GameState) Clone() GameState {
 		clone.SharedCounters[scope] = cloneIntMap(counters)
 	}
 	clone.Turn = cloneAnyMap(s.Turn)
+	clone.DisconnectVote = cloneAnyMap(s.DisconnectVote)
 	clone.Instances = map[string]CardInstanceRuntime{}
 	for instanceID, instance := range s.Instances {
 		clone.Instances[instanceID] = instance.Clone()

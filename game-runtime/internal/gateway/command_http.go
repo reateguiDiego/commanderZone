@@ -46,6 +46,12 @@ func NewCommandHTTPServerAllowingInitialState(runtime *runtimesvc.Service) *Comm
 	return server
 }
 
+func (s *CommandHTTPServer) SetCommandTimeout(timeout time.Duration) {
+	if timeout > 0 {
+		s.commandTimeout = timeout
+	}
+}
+
 func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

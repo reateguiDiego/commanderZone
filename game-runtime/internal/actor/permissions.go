@@ -69,6 +69,9 @@ var ownInstanceSubjectCommands = map[string][]string{
 
 func (a *GameActor) permissionErrorLocked(command protocol.CommandEnvelopeV2, actorID string) error {
 	actorID = strings.TrimSpace(actorID)
+	if command.Type == "disconnect.vote" && command.Client["source"] == "runtime_ws_presence" {
+		return nil
+	}
 	if actorID == "" {
 		return ErrActorPermission
 	}

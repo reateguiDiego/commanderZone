@@ -328,13 +328,17 @@ export class GameTableStaticCardResolverV2Service {
   private printId(card: RuntimeCardRef): string {
     const direct = this.trimmed(card.printId) || this.trimmed(card.scryfallId);
     if (direct) {
-      return direct;
+      return this.catalogPrintId(direct);
     }
 
     const cardKey = this.trimmed(card.cardKey) || this.trimmed(card.cardRef);
     return cardKey
-      ? this.scryfallIdFromRuntimeCardKey(cardKey) ?? this.scryfallIdFromStaticRef(cardKey) ?? ''
+      ? this.catalogPrintId(cardKey)
       : '';
+  }
+
+  private catalogPrintId(value: string): string {
+    return this.scryfallIdFromRuntimeCardKey(value) ?? this.scryfallIdFromStaticRef(value) ?? value;
   }
 
   private suffixedPrintId(card: RuntimeCardRef): string {

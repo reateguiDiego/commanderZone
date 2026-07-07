@@ -85,7 +85,7 @@ func (MulliganKeepApplier) Apply(_ context.Context, game *state.GameState, comma
 		return nil, err
 	}
 	player := mulliganPlayer(game, playerID)
-	if player.Status != state.MulliganStatusDeciding {
+	if player.Status != state.MulliganStatusDeciding && player.Status != state.MulliganStatusBottoming {
 		return nil, fmt.Errorf("%w: player status", ErrInvalidPayloadField)
 	}
 	selected := []string{}

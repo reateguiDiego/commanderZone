@@ -331,22 +331,24 @@ describe('game snapshot patch reducer', () => {
     const result = applyGameSnapshotPatch(snapshot, patch([
       {
         op: 'disconnect.vote.set',
-        disconnectVote: {
-          targetPlayerId: 'player-2',
-          status: 'open',
-          openedAt: '2026-01-01T00:00:10.000Z',
-          deadlineAt: '2026-01-01T00:01:10.000Z',
-          cooldownUntil: null,
-          votes: {
-            'player-1': {
-              playerId: 'player-1',
-              displayName: 'Player 1',
-              vote: 'expel',
-              votedAt: '2026-01-01T00:00:15.000Z',
+        data: {
+          disconnectVote: {
+            targetPlayerId: 'player-2',
+            status: 'open',
+            openedAt: '2026-01-01T00:00:10.000Z',
+            deadlineAt: '2026-01-01T00:01:10.000Z',
+            cooldownUntil: null,
+            votes: {
+              'player-1': {
+                playerId: 'player-1',
+                displayName: 'Player 1',
+                vote: 'expel',
+                votedAt: '2026-01-01T00:00:15.000Z',
+              },
             },
           },
         },
-      },
+      } as any,
     ]));
 
     expect(result.status).toBe('applied');

@@ -10,7 +10,6 @@ var commandAliases = map[string]string{
 var explicitNonRuntimeCommandTypes = map[string]string{
 	"chat.message":          "chat streams are handled outside the gameplay actor",
 	"chat.reaction.toggled": "chat streams are handled outside the gameplay actor",
-	"disconnect.vote":       "disconnect vote orchestration is handled outside the gameplay actor",
 }
 
 var clientInvocableRuntimeCommandTypes = map[string]string{
@@ -59,6 +58,7 @@ var clientInvocableRuntimeCommandTypes = map[string]string{
 	"helper.removed":               "runtime websocket gameplay command",
 	"game.concede":                 "runtime websocket gameplay command",
 	"game.close":                   "runtime websocket gameplay command",
+	"disconnect.vote":              "runtime websocket lifecycle command",
 	"mulligan.take":                "runtime websocket mulligan command",
 	"mulligan.keep":                "runtime websocket mulligan command",
 	"mulligan.scry.confirm":        "runtime websocket mulligan command",
@@ -167,6 +167,7 @@ func FinalGameplayCommandTypes() []string {
 		"helper.removed",
 		"game.concede",
 		"game.close",
+		"disconnect.vote",
 		"mulligan.take",
 		"mulligan.keep",
 		"mulligan.cards_bottomed",

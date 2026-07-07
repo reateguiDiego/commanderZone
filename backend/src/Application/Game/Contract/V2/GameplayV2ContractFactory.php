@@ -210,6 +210,8 @@ final class GameplayV2ContractFactory
             'relations' => $relations,
             'turn' => is_array($projectedSnapshot['turn'] ?? null) ? $projectedSnapshot['turn'] : [],
             'staticCards' => $staticCards,
+            'chat' => array_values(array_filter($projectedSnapshot['chat'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+            'eventLog' => array_values(array_filter($projectedSnapshot['eventLog'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'chatCursor' => $this->cursorForEntries($projectedSnapshot['chat'] ?? []),
             'logCursor' => $this->cursorForEntries($projectedSnapshot['eventLog'] ?? []),
             'rulesVersion' => self::RULES_VERSION,

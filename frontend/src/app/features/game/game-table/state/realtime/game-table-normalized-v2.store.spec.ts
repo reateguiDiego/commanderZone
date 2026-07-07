@@ -201,6 +201,66 @@ describe('game table normalized v2 store', () => {
     expect(result.state.instances['battlefield-1'].counters).toEqual({ charge: 2 });
   });
 
+  it('keeps field state, life and relations intact across a counter patch and bootstrap hydration', () => {
+    const bootstrap = stateIntegrityBootstrapV2(5, { shield: 1 });
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'card.counters.patch',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      counters: { shield: 1, '+1/+1': 3 },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.instances['battlefield-1']).toMatchObject({
+      position: { x: 0.37, y: 0.61, unit: 'ratio' },
+      tapped: true,
+      rotation: 90,
+      faceDown: true,
+      controllerId: 'player-2',
+      counters: { shield: 1, '+1/+1': 3 },
+      power: 5,
+      toughness: 7,
+    });
+    expect(result.state.players['player-1'].life).toBe(33);
+    expect(result.state.players['player-2'].life).toBe(27);
+    expect(result.state.relations.arrows['arrow-1']?.fromInstanceId).toBe('battlefield-1');
+    expect(result.state.relations.attachments['attachment-1']?.attachedToInstanceId).toBe('battlefield-1');
+
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    expect(snapshot.players['player-1'].zones.battlefield[0]).toMatchObject({
+      position: { x: 0.37, y: 0.61, unit: 'ratio' },
+      tapped: true,
+      rotation: 90,
+      faceDown: true,
+      controllerId: 'player-2',
+      counters: { shield: 1, '+1/+1': 3 },
+      power: 5,
+      toughness: 7,
+    });
+    expect(snapshot.players['player-1'].life).toBe(33);
+    expect(snapshot.players['player-2'].life).toBe(27);
+    expect(snapshot.arrows?.[0]?.id).toBe('arrow-1');
+    expect(snapshot.attachments?.[0]?.id).toBe('attachment-1');
+
+    const hydratedAfterRefresh = hydrateGameSnapshotFromV2State(
+      createGameTableNormalizedV2State(stateIntegrityBootstrapV2(6, { shield: 1, '+1/+1': 3 })),
+    );
+    expect(hydratedAfterRefresh.players['player-1'].zones.battlefield[0]).toMatchObject({
+      position: { x: 0.37, y: 0.61, unit: 'ratio' },
+      tapped: true,
+      rotation: 90,
+      faceDown: true,
+      controllerId: 'player-2',
+      counters: { shield: 1, '+1/+1': 3 },
+      power: 5,
+      toughness: 7,
+    });
+    expect(hydratedAfterRefresh.players['player-1'].life).toBe(33);
+    expect(hydratedAfterRefresh.players['player-2'].life).toBe(27);
+  });
+
   it('applies public player and shared counters plus commander damage patches', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [
@@ -375,6 +435,91 @@ describe('game table normalized v2 store', () => {
     expect(gameplayDuplicate.state.players['player-1'].life).toBe(40);
   });
 
+  it('hydrates chat and game log history from bootstrap without extra snapshot fetch', () => {
+    const bootstrap = {
+      ...bootstrapV2(),
+      chat: [{
+        id: 'chat-bootstrap-1',
+        userId: 'player-1',
+        displayName: 'Player One',
+        message: 'persisted hello',
+        createdAt: '2026-01-01T00:00:12.000Z',
+        reactions: {
+          like: [{ userId: 'player-2', displayName: 'Player Two', createdAt: '2026-01-01T00:00:13.000Z' }],
+        },
+      }],
+      eventLog: [{
+        id: 'log-bootstrap-1',
+        type: 'library.draw',
+        message: 'Player One drew a card.',
+        actorId: 'player-1',
+        displayName: 'Player One',
+        createdAt: '2026-01-01T00:00:14.000Z',
+      }],
+      chatCursor: 'chat-bootstrap-1',
+      logCursor: 'log-bootstrap-1',
+    } satisfies BootstrapV2;
+
+    const state = createGameTableNormalizedV2State(bootstrap);
+    const snapshot = hydrateGameSnapshotFromV2State(state);
+
+    expect(snapshot.chat.map((message) => message.id)).toEqual(['chat-bootstrap-1']);
+    expect(snapshot.chat[0]?.reactions?.like?.[0]?.userId).toBe('player-2');
+    expect(snapshot.eventLog.map((entry) => entry.id)).toEqual(['log-bootstrap-1']);
+    expect(state.chat.cursor).toBe('chat-bootstrap-1');
+    expect(state.log.cursor).toBe('log-bootstrap-1');
+  });
+
+  it('merges same-version public event log after a private runtime patch', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const privateDrawPatch: PatchEnvelopeV2 = {
+      ...patch(6, [
+        { op: 'zone.cards.remove', playerId: 'player-1', zone: 'library', instanceIds: ['library-1'] },
+        {
+          op: 'zone.cards.add',
+          playerId: 'player-1',
+          zone: 'hand',
+          cards: [{
+            instanceId: 'library-1',
+            cardRef: 'card:bolt',
+            cardKey: 'card:bolt',
+            printId: 's-bolt',
+            cardVersion: 'bolt-v1',
+            language: 'en',
+            viewerVisibility: 'private',
+            zoneId: 'player-1:hand',
+            ownerId: 'player-1',
+            controllerId: 'player-1',
+          }],
+        },
+      ]),
+      visibility: 'player:player-1',
+      ackClientActionId: 'draw-log',
+    };
+    const publicLogPatch: PatchEnvelopeV2 = {
+      ...patch(6, [{
+        op: 'eventLog.append',
+        entries: [{
+          id: 'draw-log-entry',
+          type: 'library.draw',
+          message: 'Player One drew a card.',
+          actorId: 'player-1',
+          displayName: 'Player One',
+          createdAt: '2026-01-01T00:00:14.000Z',
+        }],
+      }]),
+      ackClientActionId: 'draw-log',
+    };
+
+    const privateResult = applyPatchEnvelopeV2(initial, privateDrawPatch);
+    const publicResult = applyPatchEnvelopeV2(privateResult.state, publicLogPatch);
+
+    expect(privateResult.status).toBe('applied');
+    expect(publicResult.status).toBe('applied');
+    expect(publicResult.state.lastAppliedVersion).toBe(6);
+    expect(hydrateGameSnapshotFromV2State(publicResult.state).eventLog.map((entry) => entry.id)).toEqual(['draw-log-entry']);
+  });
+
   it('merges same-version runtime library visibility patches without losing public counts', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const privateDrawPatch: PatchEnvelopeV2 = {
@@ -451,22 +596,24 @@ describe('game table normalized v2 store', () => {
       },
       {
         op: 'disconnect.vote.set',
-        disconnectVote: {
-          targetPlayerId: 'player-2',
-          status: 'open',
-          openedAt: '2026-01-01T00:00:13.000Z',
-          deadlineAt: '2026-01-01T00:01:13.000Z',
-          cooldownUntil: null,
-          votes: {
-            'player-1': {
-              playerId: 'player-1',
-              displayName: 'Player One',
-              vote: 'expel',
-              votedAt: '2026-01-01T00:00:14.000Z',
+        data: {
+          disconnectVote: {
+            targetPlayerId: 'player-2',
+            status: 'open',
+            openedAt: '2026-01-01T00:00:13.000Z',
+            deadlineAt: '2026-01-01T00:01:13.000Z',
+            cooldownUntil: null,
+            votes: {
+              'player-1': {
+                playerId: 'player-1',
+                displayName: 'Player One',
+                vote: 'expel',
+                votedAt: '2026-01-01T00:00:14.000Z',
+              },
             },
           },
         },
-      },
+      } as any,
       {
         op: 'game.status.set',
         status: 'finished',
@@ -1548,6 +1695,129 @@ describe('game table normalized v2 store', () => {
     expect(hydrateGameSnapshotFromV2State(result.state).players['player-1'].zones.library[0]?.name).toBe('Forest');
   });
 
+  it('moves one viewed library card without revealing the rest of the library', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const viewed = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'library.top.viewed',
+      playerId: 'player-1',
+      cards: [
+        { instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' },
+        { instanceId: 'library-2', cardRef: 'card:island', cardKey: 'card:island', printId: 's-island', cardVersion: 'island-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' },
+      ],
+      staticCards: {
+        'card:forest': { cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', name: 'Forest', imageUris: null, cardFaces: [] },
+        'card:island': { cardRef: 'card:island', cardKey: 'card:island', printId: 's-island', cardVersion: 'island-v1', language: 'en', viewerVisibility: 'private', name: 'Island', imageUris: null, cardFaces: [] },
+      },
+    }]));
+    const moved = applyPatchEnvelopeV2(viewed.state, patch(7, [
+      {
+        op: 'zone.cards.move',
+        instanceId: 'library-1',
+        from: { playerId: 'player-1', zone: 'library' },
+        to: { playerId: 'player-1', zone: 'hand', index: 1 },
+        card: { instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:hand', ownerId: 'player-1', controllerId: 'player-1' },
+      },
+      { op: 'zone.count.set', playerId: 'player-1', zone: 'library', count: 97 },
+    ]));
+
+    expect(viewed.status).toBe('applied');
+    expect(moved.status).toBe('applied');
+    expect(moved.state.zones['player-1'].library).toEqual(['library-2']);
+    expect(moved.state.zoneCounts['player-1'].library).toBe(97);
+    expect(moved.state.instances['library-2'].cardKey).toBe('card:island');
+    expect(moved.state.instances['opp-library-1'].cardKey).toBeUndefined();
+    expect(Object.values(moved.state.instances).filter((instance) =>
+      instance.zoneId === 'player-1:library' && instance.cardKey,
+    ).map((instance) => instance.instanceId)).toEqual(['library-2']);
+  });
+
+  it('keeps a rival face-down hand-to-battlefield move hidden', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.move',
+      instanceId: 'opp-hand-1',
+      from: { playerId: 'player-2', zone: 'hand' },
+      to: { playerId: 'player-2', zone: 'battlefield', index: 0 },
+      card: {
+        instanceId: 'opp-hand-1',
+        ownerId: 'player-2',
+        controllerId: 'player-2',
+        zone: 'battlefield',
+        hidden: true,
+        faceDown: true,
+      },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].hand).toEqual([]);
+    expect(result.state.zones['player-2'].battlefield).toEqual(['opp-hand-1']);
+    expect(result.state.instances['opp-hand-1'].hidden).toBe(true);
+    expect(result.state.instances['opp-hand-1'].faceDown).toBe(true);
+    expect(result.state.instances['opp-hand-1'].cardKey).toBeUndefined();
+    expect(hydrateGameSnapshotFromV2State(result.state).players['player-2'].zones.battlefield[0]?.name).toBe('Card');
+  });
+
+  it('applies battlefield exit patch without touching life or unrelated zones', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.players['player-1'].life = 31;
+    bootstrap.instances['battlefield-1'] = {
+      ...bootstrap.instances['battlefield-1'],
+      tapped: true,
+      rotation: 90,
+      faceDown: true,
+      counters: { '+1/+1': 2 },
+      power: 7,
+      toughness: 8,
+    };
+    bootstrap.relations.arrows = [{
+      id: 'arrow-1',
+      fromInstanceId: 'battlefield-1',
+      toInstanceId: 'commander-1',
+      color: '#f97316',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }];
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      {
+        op: 'zone.cards.move',
+        instanceId: 'battlefield-1',
+        from: { playerId: 'player-1', zone: 'battlefield' },
+        to: { playerId: 'player-1', zone: 'graveyard', index: 0 },
+        card: {
+          instanceId: 'battlefield-1',
+          cardRef: 'card:sol-ring',
+          cardKey: 'card:sol-ring',
+          printId: 's-ring',
+          cardVersion: 'ring-v1',
+          language: 'en',
+          viewerVisibility: 'public',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          zone: 'graveyard',
+          tapped: false,
+          rotation: 0,
+          faceDown: false,
+          counters: {},
+          power: null,
+          toughness: null,
+          position: null,
+        },
+      },
+      { op: 'relation.remove', kind: 'arrow', id: 'arrow-1' },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.players['player-1'].life).toBe(31);
+    expect(result.state.zones['player-1'].battlefield).toEqual([]);
+    expect(result.state.zones['player-1'].graveyard).toEqual(['battlefield-1']);
+    expect(result.state.instances['battlefield-1'].position).toBeNull();
+    expect(result.state.instances['battlefield-1'].tapped).toBe(false);
+    expect(result.state.instances['battlefield-1'].rotation).toBe(0);
+    expect(result.state.instances['battlefield-1'].faceDown).toBe(false);
+    expect(result.state.instances['battlefield-1'].counters).toEqual({});
+    expect(result.state.relations.arrows['arrow-1']).toBeUndefined();
+  });
+
   it('applies sensitive card field patches without snapshot refetch', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [{
@@ -1981,6 +2251,41 @@ function patch(version: number, ops: PatchEnvelopeV2['ops']): PatchEnvelopeV2 {
     visibility: 'player:player-1',
     ops,
   };
+}
+
+function stateIntegrityBootstrapV2(version: number, counters: Record<string, number>): BootstrapV2 {
+  const bootstrap = bootstrapV2();
+  bootstrap.game.version = version;
+  bootstrap.players['player-1'].life = 33;
+  bootstrap.players['player-2'].life = 27;
+  bootstrap.instances['battlefield-1'] = {
+    ...bootstrap.instances['battlefield-1'],
+    controllerId: 'player-2',
+    tapped: true,
+    rotation: 90,
+    faceDown: true,
+    position: { x: 0.37, y: 0.61, unit: 'ratio' },
+    counters,
+    power: 5,
+    toughness: 7,
+  };
+  bootstrap.relations.arrows = [{
+    id: 'arrow-1',
+    ownerId: 'player-1',
+    fromInstanceId: 'battlefield-1',
+    toInstanceId: 'commander-1',
+    color: 'blue',
+    createdAt: '2026-01-01T00:00:03.000Z',
+  }];
+  bootstrap.relations.attachments = [{
+    id: 'attachment-1',
+    ownerId: 'player-1',
+    equipmentInstanceId: 'commander-1',
+    attachedToInstanceId: 'battlefield-1',
+    createdAt: '2026-01-01T00:00:04.000Z',
+  }];
+
+  return bootstrap;
 }
 
 function bootstrapV2(): BootstrapV2 {

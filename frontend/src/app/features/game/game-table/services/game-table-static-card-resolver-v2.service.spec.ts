@@ -57,6 +57,39 @@ describe('GameTableStaticCardResolverV2Service', () => {
     });
   });
 
+  it('normalizes runtime scryfall print ids before catalog lookup', async () => {
+    const scryfallId = '0007fa33-ccc3-4e33-8d83-909c5c8d408c';
+    const runtimePrintId = `scryfall:${scryfallId}:315a4486f3f6b25f`;
+    cardsApi.getSilently.mockReturnValue(of({ card: card(scryfallId, 'Plains') }));
+    const patch = patchV2([{
+      op: 'zone.cards.add',
+      playerId: 'player-1',
+      zone: 'hand',
+      cards: [{
+        instanceId: 'drawn-1',
+        cardKey: runtimePrintId,
+        printId: runtimePrintId,
+        cardVersion: 'runtime-identity-v1',
+        language: 'en',
+        viewerVisibility: 'private',
+        ownerId: 'player-1',
+        controllerId: 'player-1',
+      }],
+    }]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+    const add = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'zone.cards.add' }>;
+
+    expect(cardsApi.getSilently).toHaveBeenCalledWith(scryfallId);
+    expect(add.staticCards?.[runtimePrintId]).toMatchObject({
+      cardRef: runtimePrintId,
+      cardKey: runtimePrintId,
+      printId: scryfallId,
+      scryfallId,
+      name: 'Plains',
+    });
+  });
+
   it('does not resolve or expose hidden rival private cards', async () => {
     const patch = patchV2([{
       op: 'zone.cards.add',
