@@ -53,6 +53,24 @@ describe('app routes', () => {
     expect(component?.name).toMatch(/AdminPageComponent$/);
   });
 
+  it('registers advanced deck analysis before the generic deck detail route', async () => {
+    const shellRoute = routes.find((route) => route.path === '' && route.children && route.canActivate?.includes(authGuard));
+    const advancedRoute = shellRoute?.children?.find((route) => route.path === 'decks/:slug/analysis');
+    const detailRoute = shellRoute?.children?.find((route) => route.path === 'decks/:slug');
+    const advancedRouteIndex = shellRoute?.children?.findIndex((route) => route.path === 'decks/:slug/analysis') ?? -1;
+    const detailRouteIndex = shellRoute?.children?.findIndex((route) => route.path === 'decks/:slug') ?? -1;
+    const componentLoader = advancedRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
+    const component = componentLoader ? await componentLoader() : undefined;
+
+    expect(advancedRoute).toBeDefined();
+    expect(detailRoute).toBeDefined();
+    expect(advancedRoute?.data?.['pageKey']).toBe('deckEditor');
+    expect(advancedRouteIndex).toBeGreaterThan(-1);
+    expect(detailRouteIndex).toBeGreaterThan(-1);
+    expect(advancedRouteIndex).toBeLessThan(detailRouteIndex);
+    expect(component?.name).toMatch(/DeckAdvancedAnalysisPageComponent$/);
+  });
+
   it('keeps /community inside a public app shell without authGuard', () => {
     const shellRoute = routes.find((route) => route.path === '' && route.children && !route.canActivate?.includes(authGuard));
     const communityRoute = shellRoute?.children?.find((route) => route.path === 'community');
@@ -61,6 +79,24 @@ describe('app routes', () => {
     expect(shellRoute?.canActivate).toBeUndefined();
     expect(communityRoute).toBeDefined();
     expect(communityRoute?.data?.['pageKey']).toBe('publicCommunity');
+  });
+
+  it('registers community advanced deck analysis before the generic community deck detail route', async () => {
+    const shellRoute = routes.find((route) => route.path === '' && route.children && !route.canActivate?.includes(authGuard));
+    const advancedRoute = shellRoute?.children?.find((route) => route.path === 'community/decks/:slug/analysis');
+    const detailRoute = shellRoute?.children?.find((route) => route.path === 'community/decks/:id');
+    const advancedRouteIndex = shellRoute?.children?.findIndex((route) => route.path === 'community/decks/:slug/analysis') ?? -1;
+    const detailRouteIndex = shellRoute?.children?.findIndex((route) => route.path === 'community/decks/:id') ?? -1;
+    const componentLoader = advancedRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
+    const component = componentLoader ? await componentLoader() : undefined;
+
+    expect(advancedRoute).toBeDefined();
+    expect(detailRoute).toBeDefined();
+    expect(advancedRoute?.data?.['pageKey']).toBe('publicCommunity');
+    expect(advancedRouteIndex).toBeGreaterThan(-1);
+    expect(detailRouteIndex).toBeGreaterThan(-1);
+    expect(advancedRouteIndex).toBeLessThan(detailRouteIndex);
+    expect(component?.name).toMatch(/CommunityDeckAdvancedAnalysisPageComponent$/);
   });
 
   it('renders a not-found page for wildcard routes instead of redirecting to home or dashboard', async () => {

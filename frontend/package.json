@@ -15,6 +15,7 @@
     "validate:indexation": "node scripts/validate-indexation-controls.mjs",
     "validate:seo-final": "node scripts/validate-seo-final-architecture.mjs",
     "validate:seo-i18n": "node scripts/validate-seo-i18n-boundaries.mjs",
+    "i18n:check": "node scripts/validate-i18n-translations.mjs",
     "validate:legal-pages": "node scripts/validate-legal-pages.mjs",
     "validate:no-tracking": "node scripts/validate-no-tracking-scripts.mjs",
     "validate:public-chrome": "node scripts/validate-public-chrome-localization.mjs",

@@ -1,0 +1,56 @@
+<section class="advanced-analysis-section advanced-analysis-metrics" [attr.aria-label]="'deckBuilder.advancedAnalysis.metrics.title' | runtimeTranslate">
+  <dl class="advanced-analysis-metric-strip advanced-analysis-data-grid">
+    @for (stat of keyMetrics(); track stat.label) {
+      <div>
+        <dt>{{ stat.label }}</dt>
+        <dd>{{ stat.value }}</dd>
+      </div>
+    }
+  </dl>
+  @if (metricsUnavailable()) {
+    <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.metrics.unavailable' | runtimeTranslate }}</p>
+  } @else {
+    <div class="advanced-analysis-card-resolution-block">
+      <h3>{{ 'deckBuilder.advancedAnalysis.cardResolution.title' | runtimeTranslate }}</h3>
+      <dl class="advanced-analysis-stats advanced-analysis-data-grid">
+        @for (stat of cardResolutionStats(); track stat.label) {
+          <div>
+            <dt>{{ stat.label }}</dt>
+            <dd>{{ stat.value }}</dd>
+          </div>
+        }
+      </dl>
+    </div>
+  }
+  @if (powerSignalCardGroups().length > 0) {
+    <div class="advanced-analysis-signal-card-groups">
+      @for (group of powerSignalCardGroups(); track group.key) {
+        <section class="advanced-analysis-signal-card-group">
+          <div>
+            <strong>{{ group.label }}</strong>
+            <span>{{ group.value }}</span>
+          </div>
+          <app-advanced-analysis-card-grid [title]="group.label" [cards]="group.cards" />
+        </section>
+      }
+    </div>
+  }
+  @if (hasUnmatchedCards()) {
+    <article class="advanced-analysis-combo-warning advanced-analysis-unmatched" [attr.aria-label]="'deckBuilder.advancedAnalysis.cardResolution.unmatchedAria' | runtimeTranslate">
+      <div>
+        <strong>{{ 'deckBuilder.advancedAnalysis.cardResolution.unmatchedCount' | runtimeTranslate: { count: unmatchedCardCount() } }}</strong>
+        <p>{{ 'deckBuilder.advancedAnalysis.cardResolution.unmatchedCopy' | runtimeTranslate }}</p>
+      </div>
+      @if (unmatchedCardItems().length > 0) {
+        <ul class="advanced-analysis-issue-list">
+          @for (card of unmatchedCardItems(); track card.id) {
+            <li>
+              <span>{{ card.name }}</span>
+              <small>{{ card.detail }}</small>
+            </li>
+          }
+        </ul>
+      }
+    </article>
+  }
+</section>

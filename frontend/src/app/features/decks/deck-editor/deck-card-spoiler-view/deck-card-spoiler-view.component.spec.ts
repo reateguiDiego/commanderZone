@@ -25,6 +25,28 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('https://img.test/card.jpg');
   });
 
+  it('renders the spoiler toggle icon before the category title and count', async () => {
+    const store = storeStub();
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.spoiler-section-toggle') as HTMLButtonElement | null;
+    const firstChild = toggle?.firstElementChild;
+    const secondChild = firstChild?.nextElementSibling;
+
+    expect(firstChild?.tagName.toLowerCase()).toBe('lucide-icon');
+    expect(secondChild?.classList.contains('spoiler-section-title')).toBe(true);
+    expect(secondChild?.textContent?.replace(/\s+/g, ' ').trim()).toContain('(1)');
+  });
+
   it('flips card faces without opening the card menu preview flow', async () => {
     const store = storeStub({ hasAlternateFace: true });
     await TestBed.configureTestingModule({
@@ -210,6 +232,45 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(section?.classList.contains('spoiler-section--full')).toBe(true);
   });
 
+  it('shows only the front name for split double-faced card names', async () => {
+    const store = storeStub({ cardName: 'Mila, Crafty Companion // Lukka, Wayward Bonder' });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.spoiler-card-name') as HTMLElement | null;
+
+    expect(name?.textContent?.trim()).toBe('Mila, Crafty Companion');
+  });
+
+  it('can force full spoiler mode for compact embedded views', async () => {
+    const store = storeStub({ groupCards: 1 });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.componentRef.setInput('full', true);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement.querySelector('.spoiler-sections') as HTMLElement | null;
+    const section = fixture.nativeElement.querySelector('.spoiler-section') as HTMLElement | null;
+
+    expect(root?.classList.contains('spoiler-sections--full')).toBe(true);
+    expect(section?.classList.contains('spoiler-section--full')).toBe(true);
+  });
+
   it('stops rotating the visible card when the flipped face is no longer a battle', async () => {
     const store = storeStub({ cardTypeLine: 'Battle - Siege' });
     await TestBed.configureTestingModule({
@@ -234,12 +295,12 @@ describe('DeckCardSpoilerViewComponent', () => {
   });
 });
 
-function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolean; cardTypeLine?: string; groupCards?: number } = {}) {
+function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolean; cardTypeLine?: string; groupCards?: number; cardName?: string } = {}) {
   const entries = Array.from({ length: options.groupCards ?? 1 }, (_, index) => ({
     id: `deck-card-${index + 1}`,
     quantity: 1,
     section: 'main',
-    card: card(options.cardTypeLine, index + 1),
+    card: card(options.cardTypeLine, index + 1, options.cardName),
   })) satisfies DeckCard[];
   const collapsedGroups = signal<Set<string>>(new Set());
   const visibleTypeLine = signal(options.cardTypeLine ?? entries[0].card.typeLine);
@@ -283,11 +344,11 @@ function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolea
   };
 }
 
-function card(typeLine = 'Creature', index = 1): Card {
+function card(typeLine = 'Creature', index = 1, cardName?: string): Card {
   return {
     id: `card-${index}`,
     scryfallId: `scryfall-${index}`,
-    name: index === 1 ? 'Esper Sentinel' : `Esper Sentinel ${index}`,
+    name: cardName ?? (index === 1 ? 'Esper Sentinel' : `Esper Sentinel ${index}`),
     manaCost: '{W}',
     typeLine,
     oracleText: null,

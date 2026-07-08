@@ -1,3 +1,22 @@
+@if (advancedAnalysisLink(); as link) {
+  <div class="analysis-advanced-cta">
+    <div class="analysis-advanced-copy">
+      <strong>{{ 'deckBuilder.advancedAnalysis.title' | runtimeTranslate }}</strong>
+      <span>{{ 'deckBuilder.advancedAnalysis.description' | runtimeTranslate }}</span>
+    </div>
+    <a
+      czButton="secondary"
+      class="secondary-button analysis-advanced-button"
+      [routerLink]="link"
+      [state]="advancedAnalysisState() ?? undefined"
+      [attr.aria-label]="advancedAnalysisAriaLabel() | runtimeTranslate"
+    >
+      <lucide-icon name="bar-chart-3" size="17" />
+      {{ 'deckBuilder.advancedAnalysis.openButton' | runtimeTranslate }}
+    </a>
+  </div>
+}
+
 <div class="analysis-shell analysis-screen">
   <app-deck-mana-curve-panel />
 

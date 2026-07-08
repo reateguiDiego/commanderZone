@@ -1,0 +1,127 @@
+:host {
+  display: block;
+  margin-top: var(--advanced-analysis-block-padding);
+  padding-top: var(--advanced-analysis-block-padding);
+  border-top: 1px solid var(--advanced-analysis-soft-line);
+}
+
+h3,
+p,
+dl {
+  margin: 0;
+}
+
+:is(h3, p, strong, span, dd) {
+  overflow-wrap: anywhere;
+}
+
+.advanced-analysis-section,
+.advanced-analysis-card-frame {
+  display: grid;
+  align-content: start;
+  gap: var(--advanced-analysis-section-gap);
+  min-width: 0;
+}
+
+.advanced-analysis-card-frame {
+  gap: var(--advanced-analysis-inner-gap);
+}
+
+h3 {
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.advanced-analysis-role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--advanced-analysis-inner-gap);
+}
+
+.advanced-analysis-role-card p,
+.advanced-analysis-empty-copy {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.advanced-analysis-data-grid {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgb(var(--cz-bg-rgb) / 14%);
+}
+
+.advanced-analysis-data-grid div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: var(--advanced-analysis-item-padding);
+  border-top: 1px solid var(--advanced-analysis-soft-line);
+}
+
+.advanced-analysis-data-grid dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.advanced-analysis-data-grid dd {
+  margin: 0;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.advanced-analysis-role-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.advanced-analysis-role-metrics div:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.advanced-analysis-role-metrics div:not(:nth-child(2n + 1)) {
+  border-left: 1px solid var(--advanced-analysis-soft-line);
+}
+
+.advanced-analysis-quality-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.advanced-analysis-quality-strip span {
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.advanced-analysis-quality-strip strong {
+  color: var(--text);
+}
+
+@media (max-width: 1180px) {
+  .advanced-analysis-role-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .advanced-analysis-role-grid,
+  .advanced-analysis-role-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-analysis-role-metrics div:nth-child(n) {
+    border-left: 0;
+    border-top: 1px solid var(--advanced-analysis-soft-line);
+  }
+
+  .advanced-analysis-role-metrics div:first-child {
+    border-top: 0;
+  }
+}

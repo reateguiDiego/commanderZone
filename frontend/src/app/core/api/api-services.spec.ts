@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -16,9 +16,10 @@ import { GamesApi } from './games.api';
 import { LandingApi } from './landing.api';
 import { RoomsApi } from './rooms.api';
 import { ThemesService } from './themes.service';
-import { GLOBAL_LOADING_ENABLED_FEATURES, SKIP_GLOBAL_LOADING } from '../loading/loading-context';
+import { FORCE_GLOBAL_LOADING, GLOBAL_LOADING_ENABLED_FEATURES, SKIP_GLOBAL_LOADING } from '../loading/loading-context';
 import { TableAssistantApi } from '../../features/table-assistant/data-access/table-assistant.api';
 import { LanguagePreferencesService } from '../localization/language-preferences.service';
+import { AdvancedAnalysisResponse } from '../models/deck-advanced-analysis.model';
 
 describe('API services', () => {
   let http: HttpTestingController;
@@ -361,6 +362,58 @@ describe('API services', () => {
     request.flush(deckAnalysisFixture());
   });
 
+  it('loads backend advanced deck analysis through the advanced analysis endpoint', () => {
+    const responses: AdvancedAnalysisResponse[] = [];
+
+    TestBed.inject(DecksApi).getDeckAdvancedAnalysis('deck-1').subscribe((response) => responses.push(response));
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis/advanced`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
+    request.flush(deckAdvancedAnalysisFixture());
+
+    expect(responses[0]?.deckId).toBe('deck-1');
+    expect(responses[0]?.summary?.primaryArchetype).toBe('tokens');
+    expect(responses[0]?.metrics?.roles?.draw).toBe(12);
+    expect(responses[0]?.health?.['score']).toBe(82);
+    expect(responses[0]?.issues?.[0]?.severity).toBe('warning');
+    expect('recommendations' in (responses[0] ?? {})).toBe(false);
+  });
+
+  it('loads community advanced deck analysis through the public slug endpoint', () => {
+    const responses: AdvancedAnalysisResponse[] = [];
+
+    TestBed.inject(CommunityApi)
+      .getCommunityDeckAdvancedAnalysis('atraxa-control-a7f3c9d2')
+      .subscribe((response) => responses.push(response));
+
+    const request = http.expectOne((candidate) =>
+      candidate.url === `${API_BASE_URL}/community/decks/atraxa-control-a7f3c9d2/analysis`
+        && candidate.params.get('lang') === 'en',
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
+    request.flush(deckAdvancedAnalysisFixture());
+
+    expect(responses[0]?.deckId).toBe('deck-1');
+    expect(responses[0]?.summary?.primaryArchetype).toBe('tokens');
+  });
+
+  it('propagates advanced deck analysis HTTP errors to the caller', () => {
+    const errors: HttpErrorResponse[] = [];
+
+    TestBed.inject(DecksApi).getDeckAdvancedAnalysis('deck-1').subscribe({
+      error: (error: HttpErrorResponse) => errors.push(error),
+    });
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis/advanced`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ error: 'Could not load advanced analysis.' }, { status: 500, statusText: 'Server Error' });
+
+    expect(errors[0]).toBeInstanceOf(HttpErrorResponse);
+    expect(errors[0]?.status).toBe(500);
+  });
+
     it('adds cards through the deck card mutation endpoint', () => {
       TestBed.inject(DecksApi).addCard('deck-1', { setCode: 'tst', collectorNumber: '1', quantity: 2, section: 'main' }).subscribe();
 
@@ -690,6 +743,162 @@ function deckAnalysisFixture() {
       curvePlayabilityMode: 'play',
       manaSourcesMode: 'landsOnly',
     },
+  };
+}
+
+function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
+  return {
+    deckId: 'deck-1',
+    analyzerVersion: 'advanced-v1.9.1',
+    analyzedAt: '2026-07-07T12:00:00+00:00',
+    snapshot: {
+      hit: true,
+      reason: 'fresh',
+      deckHash: 'deck-hash',
+      calculatedAt: '2026-07-07T12:00:00+00:00',
+      analyzerVersion: 'advanced-v1.9.1',
+      semanticDataVersion: 'semantic-v1',
+      comboDataVersion: 'combo-v1',
+      rulesVersion: 'rules-v1',
+      monteCarloVersion: 'monte-carlo-v1',
+      monteCarloRuns: 1000,
+    },
+    summary: {
+      status: 'completed',
+      primaryArchetype: 'tokens',
+      secondaryArchetypes: ['aristocrats'],
+      archetypeConfidence: 'high',
+      mainStrengths: ['Reliable token engine'],
+      criticalIssues: [],
+      primaryTypalType: 'Elf',
+    },
+    typal: {
+      detected: true,
+      primaryType: 'Elf',
+      confidence: 'medium',
+      creatureCount: 14,
+      supportCount: 3,
+      commanderMatches: true,
+      types: [{
+        type: 'Elf',
+        creatureCount: 14,
+        supportCount: 3,
+        commanderMatches: true,
+        creatureCards: ['deck-card-elf'],
+        supportCards: ['deck-card-archdruid'],
+      }],
+    },
+    cardCatalog: {
+      'oracle-1': { oracleId: 'oracle-1', name: 'Ashnods Altar', imageUrl: 'https://cards.example.test/ashnods-altar.jpg' },
+      'oracle-2': { oracleId: 'oracle-2', name: 'Ashnods Altar', imageUrl: 'https://cards.example.test/ashnods-altar.jpg' },
+    },
+    health: {
+      score: 82,
+      label: 'Healthy',
+    },
+    metrics: {
+      cards: {
+        totalCards: 100,
+        uniqueCards: 80,
+        resolvedCards: 99,
+        unmatchedCards: 1,
+        lands: 36,
+        nonlands: 64,
+      },
+      roles: {
+        lands: 36,
+        draw: 12,
+        permanentRamp: 8,
+      },
+      quality: {
+        ramp: {
+          premium: 2,
+          good: 4,
+          medium: 2,
+          slow: 0,
+          oneShot: 1,
+        },
+      },
+    },
+    consistency: {
+      simulationRuns: 1000,
+      monteCarloVersion: 'monte-carlo-v1',
+      method: 'monte_carlo',
+      scope: 'opening_hand_and_card_access',
+      disclaimer: 'This simulates card access.',
+      openingHand: { keepable: 72.5 },
+      keepRule: { minLands: 2 },
+      mulligan: { averageMulligans: 0.4 },
+      byTurn: {
+        turn3: { landDrop: 80.2 },
+        turn5: { engineOnline: 52.1 },
+      },
+    },
+    combos: {
+      completeCount: 1,
+      partialOneMissingCount: 2,
+      partialTwoMissingCount: 0,
+      winLikeCount: 1,
+      infiniteManaCount: 0,
+      infiniteDamageCount: 0,
+      infiniteTokensCount: 1,
+      lethalLoopCount: 0,
+      commanderRequiredCount: 1,
+      templateRequiredCount: 0,
+      complete: [{
+        comboVariantId: 'combo-1',
+        externalId: 'external-1',
+        requiredOracleIds: ['oracle-1'],
+        missingOracleIds: [],
+        cards: ['oracle-1'],
+        missingCards: [],
+        features: ['infinite_tokens'],
+        producesWin: false,
+        producesWinLike: true,
+        lethalLoop: false,
+        producesInfiniteMana: false,
+        producesInfiniteDamage: false,
+        producesInfiniteTokens: true,
+        producesMill: false,
+        producesLock: false,
+        requiresCommander: true,
+        requiresTemplate: false,
+        comboPowerScore: 7,
+        comboComplexityScore: 3,
+        comboSize: 2,
+        bracketTag: 'casual',
+      }],
+      partialOneMissing: [],
+      partialTwoMissing: [],
+    },
+    topComboCompleters: [{ oracleId: 'oracle-2', completesCombos: 2 }],
+    archetypes: {
+      primary: 'tokens',
+      secondary: ['aristocrats'],
+      confidence: 'high',
+      scores: [{ archetype: 'tokens', reasonKey: 'tokens', cards: ['deck-card-1'] }],
+    },
+    power: {
+      signals: { fastMana: 1 },
+      evidence: ['Moderate acceleration'],
+      notes: ['No cEDH fast mana density.'],
+    },
+    issues: [{
+      code: 'low_permanent_ramp',
+      severity: 'warning',
+      title: 'Low permanent ramp',
+      message: 'Add more ramp.',
+      evidence: { permanentRamp: 8 },
+      suggestedActionType: 'add_role',
+    }],
+    unmatchedCards: [{
+      deckCardId: 'deck-card-1',
+      name: 'Unknown Card',
+      imageUrl: null,
+      quantity: 1,
+      section: 'main',
+      reason: 'missing_analysis_profile',
+    }],
   };
 }
 

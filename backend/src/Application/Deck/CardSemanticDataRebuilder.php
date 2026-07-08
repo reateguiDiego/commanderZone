@@ -286,6 +286,10 @@ SQL,
 
         if ($profile['is_land']) {
             $this->addRole($roles, 'land', null, '1.00', self::SOURCE_RULE);
+            if ($this->isFetchland($profile)) {
+                $this->addRole($roles, 'enabler', 'fetchland', '0.82', self::SOURCE_RULE);
+                $this->addRole($roles, 'mana_fixing', 'fetchland', '0.72', self::SOURCE_RULE);
+            }
         }
 
         if ($profile['produced_mana'] !== [] && !$profile['is_land'] && !$this->isOneShotMana($profile)) {
@@ -507,6 +511,9 @@ SQL,
         } elseif ($tutorKind === 'ramp_search') {
             $this->removeRoles($roles, ['tutor']);
             $this->addRole($roles, 'ramp', 'ramp_search', '0.72', self::SOURCE_RULE);
+            if (!$profile['is_land']) {
+                $this->addRole($roles, 'ramp', 'land_ramp', '0.72', self::SOURCE_RULE);
+            }
         } else {
             $this->removeRoles($roles, ['tutor']);
         }
@@ -1418,6 +1425,49 @@ SQL,
     /**
      * @param array<string,mixed> $profile
      */
+    private function isFetchland(array $profile): bool
+    {
+        if (!$profile['is_land']) {
+            return false;
+        }
+
+        if (in_array($profile['normalized_name'], [
+            'flooded strand',
+            'polluted delta',
+            'misty rainforest',
+            'scalding tarn',
+            'verdant catacombs',
+            'marsh flats',
+            'windswept heath',
+            'arid mesa',
+            'wooded foothills',
+            'bloodstained mire',
+            'prismatic vista',
+            'fabled passage',
+            'evolving wilds',
+            'terramorphic expanse',
+        ], true)) {
+            return true;
+        }
+
+        return str_contains($profile['text'], 'search your library')
+            && $this->searchesForLandCard($profile)
+            && str_contains($profile['text'], 'onto the battlefield')
+            && str_contains($profile['text'], 'sacrifice');
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     */
+    private function searchesForLandCard(array $profile): bool
+    {
+        return preg_match('/search your library for (a|an|up to one|up to two|any number of)? ?(basic land|basic [a-z ]*land|land|plains|island|swamp|mountain|forest|desert|gate|locus|cave) cards?/', $profile['text']) === 1
+            || preg_match('/search your library for (a|an|up to one|up to two)? ?[a-z ]*(plains|island|swamp|mountain|forest) cards?/', $profile['text']) === 1;
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     */
     private function isTutor(array $profile): bool
     {
         $tutorKind = $this->tutorKind($profile);
@@ -1432,6 +1482,14 @@ SQL,
     {
         if ($this->isCompactTutorByName($profile)) {
             return 'true_tutor';
+        }
+
+        if ($this->isFetchland($profile)) {
+            return null;
+        }
+
+        if ($profile['is_land'] && str_contains($profile['text'], 'search your library')) {
+            return null;
         }
 
         if (preg_match('/\b(search|look through) target opponents?\'?s? library\b/', $profile['text']) === 1
@@ -1474,6 +1532,9 @@ SQL,
             'crop rotation',
             'sylvan scrying',
             'expedition map',
+            'elvish reclaimer',
+            'knight of the reliquary',
+            'weathered wayfarer',
             'tolaria west',
         ], true)) {
             return 'land_tutor';
@@ -1509,7 +1570,11 @@ SQL,
             return null;
         }
 
-        if (preg_match('/search your library for (a|an|up to one|up to two|any number of)? ?(basic land|basic [a-z ]*land|land) cards?/', $profile['text']) === 1) {
+        if ($this->searchesForLandCard($profile)) {
+            if ($profile['is_land']) {
+                return null;
+            }
+
             return preg_match('/\bput (it|that card|them|one) onto the battlefield\b/', $profile['text']) === 1
                 || str_contains($profile['text'], 'onto the battlefield tapped')
                 ? 'ramp_search'

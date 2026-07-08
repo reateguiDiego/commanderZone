@@ -1482,6 +1482,29 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /community/decks/{slug}/analysis:
+    get:
+      tags: [Community]
+      summary: Return advanced analysis for a public valid Community deck by slug.
+      description: >
+        Returns the same Advanced Deck Analysis payload as the private deck advanced analysis endpoint,
+        using the shared deck_id snapshot cache. Private or invalid decks are not exposed.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Public Community deck slug.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Advanced deck analysis.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckAdvancedAnalysis'
+        '404':
+          $ref: '#/components/responses/Error'
   /community/decks/{id}/like:
     post:
       tags: [Community]
@@ -1920,6 +1943,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeckAnalysis'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks/{id}/analysis/advanced:
+    get:
+      tags: [Decks]
+      summary: Return the cached advanced deck analysis.
+      description: >
+        Returns the Advanced Deck Analysis shape backed by the snapshot cache.
+        Combo detection uses local combo_analysis_profile data. Archetype, power band, consistency, and issues are conservative.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Advanced deck analysis.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckAdvancedAnalysis'
         '401':
           $ref: '#/components/responses/Error'
         '404':
@@ -5009,6 +5052,841 @@ components:
         options:
           type: object
           additionalProperties: true
+    DeckAdvancedAnalysis:
+      type: object
+      required: [deckId, analyzerVersion, analyzedAt, snapshot, summary, metrics, health, consistency, combos, topComboCompleters, archetypes, typal, power, issues, unmatchedCards]
+      properties:
+        deckId:
+          type: string
+          format: uuid
+        analyzerVersion:
+          type: string
+          example: advanced-v1.20.0
+        analyzedAt:
+          type: string
+          format: date-time
+        snapshot:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisSnapshotMetadata'
+        cardCatalog:
+          type: object
+          description: Compact card catalog for advanced-analysis references that cannot be resolved from the already loaded deck payload.
+          additionalProperties:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardCatalogEntry'
+        summary:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisSummary'
+        metrics:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisMetrics'
+        health:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisHealth'
+        consistency:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisConsistency'
+        combos:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisCombos'
+        topComboCompleters:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisTopComboCompleter'
+        archetypes:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisArchetypes'
+        typal:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisTypal'
+        power:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisPower'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisIssue'
+        unmatchedCards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisUnmatchedCard'
+    DeckAdvancedAnalysisIssue:
+      type: object
+      required: [code, severity, title, message, evidence, suggestedActionType]
+      properties:
+        code:
+          type: string
+          example: low_permanent_ramp
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        title:
+          type: string
+          example: Low permanent ramp
+        message:
+          type: string
+        evidence:
+          type: object
+          additionalProperties: true
+        suggestedActionType:
+          type: string
+          example: add_role
+    DeckAdvancedAnalysisSnapshotMetadata:
+      type: object
+      required: [hit, reason, deckHash, calculatedAt, analyzerVersion, semanticDataVersion, manaDataVersion, comboDataVersion, rulesVersion, monteCarloVersion, monteCarloRuns]
+      properties:
+        hit:
+          type: boolean
+        reason:
+          type: string
+          enum: [fresh, missing, deck_hash_changed, analyzer_version_changed, semantic_data_changed, mana_data_changed, combo_data_changed, rules_changed, monte_carlo_version_changed, monte_carlo_runs_changed]
+        deckHash:
+          type: string
+        calculatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        analyzerVersion:
+          type: string
+        semanticDataVersion:
+          type: string
+        manaDataVersion:
+          type: string
+        comboDataVersion:
+          type: string
+        rulesVersion:
+          type: string
+        monteCarloVersion:
+          type: string
+        monteCarloRuns:
+          type: integer
+    DeckAdvancedAnalysisSummary:
+      type: object
+      required: [status, primaryArchetype, secondaryArchetypes, archetypeConfidence, mainStrengths, criticalIssues]
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        primaryArchetype:
+          type: string
+        primaryTypalType:
+          type: string
+          nullable: true
+        secondaryArchetypes:
+          type: array
+          maxItems: 1
+          items:
+            type: string
+        archetypeConfidence:
+          type: string
+          enum: [high, medium, low, fragmented]
+        archetypeExplanations:
+          type: array
+          maxItems: 2
+          items:
+            type: object
+            required: [archetype, reasonKey, cards]
+            properties:
+              archetype:
+                type: string
+              reasonKey:
+                type: string
+              cards:
+                type: array
+                description: Compact card reference ids that contributed to this archetype explanation.
+                items:
+                  $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
+        mainStrengths:
+          type: array
+          items:
+            type: string
+        criticalIssues:
+          type: array
+          items:
+            type: string
+    DeckAdvancedAnalysisMetrics:
+      type: object
+      required: [cards, roles, roleCards, quality, qualityCards, mana]
+      properties:
+        cards:
+          type: object
+          required: [totalCards, uniqueCards, resolvedCards, unmatchedCards, lands, nonlands]
+          properties:
+            totalCards:
+              type: integer
+            uniqueCards:
+              type: integer
+            resolvedCards:
+              type: integer
+            unmatchedCards:
+              type: integer
+            lands:
+              type: integer
+            nonlands:
+              type: integer
+        roles:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisRoleMetrics'
+        roleCards:
+          type: object
+          description: Compact card reference ids grouped by role metric. Each item is deckCardId when available, otherwise oracleId.
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
+        qualityCards:
+          type: object
+          description: Compact card reference ids grouped by quality category and quality bucket.
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
+        quality:
+          type: object
+          required: [ramp, tutor, wipe, protection, wincon]
+          properties:
+            ramp:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisQualityMetrics'
+            tutor:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisQualityMetrics'
+            wipe:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisQualityMetrics'
+            protection:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisQualityMetrics'
+            wincon:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisQualityMetrics'
+        mana:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisManaMetrics'
+    DeckAdvancedAnalysisRoleMetrics:
+      type: object
+      additionalProperties:
+        type: integer
+      properties:
+        lands:
+          type: integer
+        permanentRamp:
+          type: integer
+        fastMana:
+          type: integer
+        burstMana:
+          type: integer
+        rituals:
+          type: integer
+        manaFixing:
+          type: integer
+        oneShotMana:
+          type: integer
+        draw:
+          type: integer
+        cardSelection:
+          type: integer
+        trueTutors:
+          type: integer
+        typedTutors:
+          type: integer
+        landTutors:
+          type: integer
+        rampSearch:
+          type: integer
+        opponentTutors:
+          type: integer
+        spotRemoval:
+          type: integer
+        creatureRemoval:
+          type: integer
+        artifactRemoval:
+          type: integer
+        enchantmentRemoval:
+          type: integer
+        counterspells:
+          type: integer
+        protection:
+          type: integer
+        graveyardHate:
+          type: integer
+        boardWipes:
+          type: integer
+        massBounce:
+          type: integer
+        pseudoWipes:
+          type: integer
+        conditionalWipes:
+          type: integer
+        sacrificeOutlets:
+          type: integer
+        oneShotSacrifice:
+          type: integer
+        selfSacrifice:
+          type: integer
+        sacrificePayoffs:
+          type: integer
+        wincons:
+          type: integer
+        combatFinishers:
+          type: integer
+        combatSupport:
+          type: integer
+        infectThreats:
+          type: integer
+        extraCombatEngines:
+          type: integer
+        stax:
+          type: integer
+        tax:
+          type: integer
+        symmetricalStaxRisk:
+          type: integer
+        tokenMakers:
+          type: integer
+        payoffs:
+          type: integer
+        enablers:
+          type: integer
+        comboPieces:
+          type: integer
+        recursion:
+          type: integer
+        reanimation:
+          type: integer
+        costReducers:
+          type: integer
+        discard:
+          type: integer
+        lifegain:
+          type: integer
+    DeckAdvancedAnalysisManaMetrics:
+      type: object
+      required: [lands, landCycles, sources, untappedSources, earlySources, ramp, fixing, fetchlands, landCycleAnalysis, requirements]
+      properties:
+        lands:
+          type: object
+          additionalProperties: true
+        landCycles:
+          type: object
+          additionalProperties:
+            type: integer
+        sources:
+          type: object
+          additionalProperties:
+            type: integer
+        untappedSources:
+          type: object
+          additionalProperties:
+            type: integer
+        earlySources:
+          type: object
+          required: [turn1, turn2, turn3]
+          properties:
+            turn1:
+              type: object
+              additionalProperties:
+                type: integer
+            turn2:
+              type: object
+              additionalProperties:
+                type: integer
+            turn3:
+              type: object
+              additionalProperties:
+                type: integer
+        ramp:
+          type: object
+          additionalProperties:
+            type: integer
+        fixing:
+          type: object
+          additionalProperties:
+            type: integer
+        fetchlands:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisManaFetchlands'
+        landCycleAnalysis:
+          type: object
+          additionalProperties: true
+        requirements:
+          type: object
+          additionalProperties: true
+    DeckAdvancedAnalysisManaFetchlands:
+      type: object
+      required: [count, deadFetchlands, effectiveColorSources, untappedEffectiveColorSources, tappedOnlyEffectiveColorSources, details]
+      properties:
+        count:
+          type: integer
+        deadFetchlands:
+          type: integer
+        effectiveColorSources:
+          type: object
+          additionalProperties:
+            type: integer
+        untappedEffectiveColorSources:
+          type: object
+          additionalProperties:
+            type: integer
+        tappedOnlyEffectiveColorSources:
+          type: object
+          additionalProperties:
+            type: integer
+        details:
+          type: array
+          description: Fetchland coverage details with compact card references. Visuals resolve from the loaded deck payload.
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisManaFetchlandDetail'
+      additionalProperties: true
+    DeckAdvancedAnalysisManaFetchlandDetail:
+      allOf:
+        - $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
+        - type: object
+          required: [quantity, fetchableLandTypes, effectiveColors, untappedEffectiveColors, tappedOnlyEffectiveColors, dead]
+          properties:
+            quantity:
+              type: integer
+            fetchableLandTypes:
+              type: array
+              items:
+                type: string
+            effectiveColors:
+              type: array
+              items:
+                type: string
+            untappedEffectiveColors:
+              type: array
+              items:
+                type: string
+            tappedOnlyEffectiveColors:
+              type: array
+              items:
+                type: string
+            dead:
+              type: boolean
+          additionalProperties: true
+    DeckAdvancedAnalysisHealth:
+      type: object
+      required: [ramp, draw, interaction, wipes, tutors, sacrifice, wincons, stax, combos, consistency, mana]
+      properties:
+        mana:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisManaHealth'
+      additionalProperties: true
+    DeckAdvancedAnalysisManaHealth:
+      type: object
+      required: [status, message, evidence]
+      properties:
+        status:
+          type: string
+          enum: [good, warning, critical, unknown]
+        message:
+          type: string
+        evidence:
+          type: object
+          required: [lands, coloredSources, tappedLands, deadFetchlands, commanderCastability, landCycleRisks]
+          properties:
+            lands:
+              type: integer
+              nullable: true
+            coloredSources:
+              type: object
+              additionalProperties:
+                type: integer
+            tappedLands:
+              type: integer
+              nullable: true
+            deadFetchlands:
+              type: integer
+              nullable: true
+            commanderCastability:
+              type: string
+              enum: [good, warning, critical, unknown]
+            landCycleRisks:
+              type: object
+              additionalProperties: true
+          additionalProperties: true
+    DeckAdvancedAnalysisQualityMetrics:
+      type: object
+      required: [premium, good, medium, slow, oneShot]
+      properties:
+        premium:
+          type: integer
+        good:
+          type: integer
+        medium:
+          type: integer
+        slow:
+          type: integer
+        oneShot:
+          type: integer
+    DeckAdvancedAnalysisCombos:
+      type: object
+      required:
+        - completeCount
+        - partialOneMissingCount
+        - partialTwoMissingCount
+        - winLikeCount
+        - infiniteManaCount
+        - infiniteDamageCount
+        - infiniteTokensCount
+        - lethalLoopCount
+        - commanderRequiredCount
+        - templateRequiredCount
+        - complete
+        - partialOneMissing
+        - partialTwoMissing
+      properties:
+        completeCount:
+          type: integer
+        partialOneMissingCount:
+          type: integer
+        partialTwoMissingCount:
+          type: integer
+        winLikeCount:
+          type: integer
+        infiniteManaCount:
+          type: integer
+        infiniteDamageCount:
+          type: integer
+        infiniteTokensCount:
+          type: integer
+        lethalLoopCount:
+          type: integer
+        commanderRequiredCount:
+          type: integer
+        templateRequiredCount:
+          type: integer
+        complete:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisComboItem'
+        partialOneMissing:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisComboItem'
+        partialTwoMissing:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisComboItem'
+    DeckAdvancedAnalysisComboItem:
+      type: object
+      required:
+        - comboVariantId
+        - externalId
+        - requiredOracleIds
+        - missingOracleIds
+        - cards
+        - missingCards
+        - features
+        - producesWin
+        - producesWinLike
+        - lethalLoop
+        - producesInfiniteMana
+        - producesInfiniteDamage
+        - producesInfiniteTokens
+        - producesMill
+        - producesLock
+        - requiresCommander
+        - requiresTemplate
+        - comboPowerScore
+        - comboComplexityScore
+        - comboSize
+        - bracketTag
+      properties:
+        comboVariantId:
+          type: string
+        externalId:
+          type: string
+        requiredOracleIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        missingOracleIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        cards:
+          type: array
+          description: Required combo card reference ids. Kept in the same order as requiredOracleIds. Each item is deckCardId when available, otherwise oracleId.
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
+        missingCards:
+          type: array
+          description: Missing combo card reference ids. Kept in the same order as missingOracleIds. Missing external cards resolve through cardCatalog.
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
+        features:
+          type: array
+          items:
+            type: string
+        producesWin:
+          type: boolean
+        producesWinLike:
+          type: boolean
+        lethalLoop:
+          type: boolean
+        producesInfiniteMana:
+          type: boolean
+        producesInfiniteDamage:
+          type: boolean
+        producesInfiniteTokens:
+          type: boolean
+        producesMill:
+          type: boolean
+        producesLock:
+          type: boolean
+        requiresCommander:
+          type: boolean
+        requiresTemplate:
+          type: boolean
+        comboPowerScore:
+          type: integer
+          nullable: true
+        comboComplexityScore:
+          type: integer
+          nullable: true
+        comboSize:
+          type: integer
+        bracketTag:
+          type: string
+          nullable: true
+    DeckAdvancedAnalysisCardReferenceId:
+      type: string
+      description: deckCardId for cards present in the deck; oracleId for external or otherwise deck-unresolved cards.
+    DeckAdvancedAnalysisCardReference:
+      type: object
+      required: [oracleId]
+      properties:
+        deckCardId:
+          type: string
+          format: uuid
+          nullable: true
+        oracleId:
+          type: string
+          format: uuid
+        matchedMetrics:
+          type: array
+          description: Health metrics that caused this card to appear in a grouped health category.
+          items:
+            type: string
+    DeckAdvancedAnalysisCardCatalogEntry:
+      type: object
+      required: [oracleId, name]
+      properties:
+        oracleId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+    DeckAdvancedAnalysisTopComboCompleter:
+      type: object
+      required: [oracleId, completesCombos]
+      properties:
+        oracleId:
+          type: string
+          format: uuid
+        completesCombos:
+          type: integer
+    DeckAdvancedAnalysisArchetypes:
+      type: object
+      required: [primary, secondary, confidence, scores]
+      properties:
+        primary:
+          type: string
+        secondary:
+          type: array
+          maxItems: 1
+          items:
+            type: string
+        confidence:
+          type: string
+          enum: [high, medium, low, fragmented]
+        scores:
+          type: array
+          description: Only the exposed primary archetype and, when present, the single secondary archetype. Scores are intentionally omitted from the public contract.
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisArchetypeScore'
+    DeckAdvancedAnalysisArchetypeScore:
+      type: object
+      required: [archetype, reasonKey, cards]
+      properties:
+        archetype:
+          type: string
+        reasonKey:
+          type: string
+          description: Translation key suffix for the user-facing archetype rationale.
+        cards:
+          type: array
+          description: Compact card reference ids that contributed to this archetype.
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
+    DeckAdvancedAnalysisTypal:
+      type: object
+      required: [detected, primaryType, confidence, creatureCount, supportCount, commanderMatches, types]
+      properties:
+        detected:
+          type: boolean
+        primaryType:
+          type: string
+          nullable: true
+          example: Elf
+        confidence:
+          type: string
+          enum: [low, medium, high]
+        creatureCount:
+          type: integer
+        supportCount:
+          type: integer
+        commanderMatches:
+          type: boolean
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisTypalTypeBreakdown'
+    DeckAdvancedAnalysisTypalTypeBreakdown:
+      type: object
+      required: [type, creatureCount, supportCount, commanderMatches, creatureCards, supportCards]
+      properties:
+        type:
+          type: string
+          example: Elf
+        creatureCount:
+          type: integer
+        supportCount:
+          type: integer
+        commanderMatches:
+          type: boolean
+        creatureCards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
+        supportCards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
+    DeckAdvancedAnalysisPower:
+      type: object
+      required: [signals, signalCards, evidence, notes]
+      properties:
+        signals:
+          type: object
+          additionalProperties:
+            type: integer
+        signalCards:
+          type: object
+          description: Compact card reference ids grouped by power signal key. Combo signals include the cards from the completed combo line.
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
+        evidence:
+          type: array
+          items:
+            type: string
+        notes:
+          type: array
+          items:
+            type: string
+    DeckAdvancedAnalysisConsistency:
+      type: object
+      required: [simulationRuns, monteCarloVersion, method, scope, disclaimer, openingHand, keepRule, mulligan, byTurn, colorAccess]
+      properties:
+        simulationRuns:
+          type: integer
+        monteCarloVersion:
+          type: string
+          example: monte-carlo-v2
+        method:
+          type: string
+          enum: [monte_carlo]
+        scope:
+          type: string
+          enum: [opening_hand_and_card_access]
+        disclaimer:
+          type: string
+          example: This simulates hands and card access, not match win rate.
+        assumptions:
+          type: array
+          items:
+            type: string
+        openingHand:
+          type: object
+          additionalProperties:
+            type: number
+        keepRule:
+          type: object
+          additionalProperties: true
+        mulligan:
+          type: object
+          additionalProperties:
+            type: number
+        byTurn:
+          type: object
+          required: [turn3, turn5]
+          properties:
+            turn3:
+              type: object
+              additionalProperties:
+                type: number
+            turn5:
+              type: object
+              additionalProperties:
+                type: number
+        comboAccess:
+          type: object
+          additionalProperties:
+            type: number
+        colorAccess:
+          type: object
+          required: [turn1, turn2, turn3, commanderCurve]
+          properties:
+            turn1:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisColorAccessTurn'
+            turn2:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisColorAccessTurn'
+            turn3:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisColorAccessTurn'
+            commanderCurve:
+              type: object
+              required: [canCastOnCurveRate, missingColorRate, missingManaValueRate, tappedOutDelayRate]
+              properties:
+                canCastOnCurveRate:
+                  type: number
+                missingColorRate:
+                  type: number
+                missingManaValueRate:
+                  type: number
+                tappedOutDelayRate:
+                  type: number
+    DeckAdvancedAnalysisColorAccessTurn:
+      type: object
+      required: [white, blue, black, red, green, allCommanderColors]
+      properties:
+        white:
+          type: number
+        blue:
+          type: number
+        black:
+          type: number
+        red:
+          type: number
+        green:
+          type: number
+        allCommanderColors:
+          type: number
+    DeckAdvancedAnalysisUnmatchedCard:
+      type: object
+      required: [deckCardId, name, imageUrl, quantity, section, reason]
+      properties:
+        deckCardId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        section:
+          type: string
+        reason:
+          type: string
+          enum: [missing_oracle_id, missing_analysis_profile, missing_card, unsupported_section]
     DeckAnalysisSummary:
       type: object
       required: [totalCards, mainboardCards, commanderCards, landCount, nonLandCount, creatureCount, instantCount, sorceryCount, artifactCount, enchantmentCount, planeswalkerCount, battleCount, averageManaValueWithLands, averageManaValueWithoutLands, medianManaValueWithLands, medianManaValueWithoutLands, totalManaValue, colorIdentity]

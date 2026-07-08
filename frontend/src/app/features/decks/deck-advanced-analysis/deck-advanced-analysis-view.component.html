@@ -1,0 +1,94 @@
+<section class="advanced-analysis-page">
+  @if (errorMessage()) {
+    <app-advanced-analysis-state variant="error" [message]="errorMessage()" (retry)="retry.emit()" />
+  } @else if (!hasAdvancedContent()) {
+    <app-advanced-analysis-state variant="empty" [message]="'deckBuilder.advancedAnalysis.error.notFound' | runtimeTranslate" (retry)="retry.emit()" />
+  } @else {
+    <section class="advanced-analysis-overview" [attr.aria-label]="'deckBuilder.advancedAnalysis.overview.aria' | runtimeTranslate">
+      <app-tab-list
+        [items]="analysisTabs"
+        [activeId]="activeAnalysisTab()"
+        ariaLabel="deckBuilder.advancedAnalysis.overview.aria"
+        (tabSelected)="selectAnalysisTab($event)"
+      />
+
+      <app-advanced-analysis-summary-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'summary'"
+        [stats]="summaryStats()"
+        [typal]="typalIdentity()"
+        [archetypes]="archetypeIdentities()"
+      />
+
+      <app-advanced-analysis-health-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'health'"
+        [cards]="healthCards()"
+      />
+
+      <app-advanced-analysis-mana-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'mana'"
+        [hasMana]="hasManaAnalysis()"
+        [overviewRows]="manaOverviewRows()"
+        [sourceRows]="manaSourceRows()"
+        [sourceCardGroups]="manaSourceCardGroups()"
+        [landBaseCardGroups]="manaLandBaseCardGroups()"
+        [landCycleRows]="manaLandCycleRows()"
+        [rampCardGroups]="manaRampCardGroups()"
+        [fixingCardGroups]="manaFixingCardGroups()"
+        [demandRows]="manaDemandRows()"
+        [manaIssues]="manaIssueItems()"
+      />
+
+      <app-advanced-analysis-metrics-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'metrics'"
+        [keyMetrics]="keyMetrics()"
+        [metricsUnavailable]="metricsUnavailable()"
+        [cardResolutionStats]="cardResolutionStats()"
+        [powerSignalCardGroups]="powerSignalCardGroups()"
+        [hasUnmatchedCards]="hasUnmatchedCards()"
+        [unmatchedCardCount]="unmatchedCardCount()"
+        [unmatchedCardItems]="unmatchedCardItems()"
+      />
+
+      <app-advanced-analysis-combos-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'combos'"
+        [comboPiecesWarning]="comboPiecesWarning()"
+        [comboEmptyMessage]="comboEmptyMessage()"
+        [summaryStats]="comboSummaryStats()"
+        [completeCombos]="visibleCompleteComboItems()"
+        [partialCombos]="visiblePartialOneMissingComboItems()"
+        [topCompleters]="visibleTopComboCompleters()"
+        [hiddenCompleteCount]="hiddenCompleteComboCount()"
+        [hiddenPartialCount]="hiddenPartialComboCount()"
+        [hiddenCompleterCount]="hiddenComboCompleterCount()"
+        (showAllComplete)="showAllCompleteCombos.set(true)"
+        (showAllPartial)="showAllPartialCombos.set(true)"
+        (showAllCompleters)="showAllComboCompleters.set(true)"
+      />
+
+      <app-advanced-analysis-consistency-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'consistency'"
+        [hasConsistency]="hasConsistency()"
+        [simulationRuns]="simulationRuns()"
+        [openingHandRows]="openingHandRows()"
+        [keepRuleDescription]="keepRuleDescription()"
+        [keepRuleRows]="keepRuleRows()"
+        [mulliganRows]="mulliganRows()"
+        [byTurnGroups]="byTurnGroups()"
+        [colorAccessGroups]="colorAccessGroups()"
+        [commanderCurveRows]="commanderCurveRows()"
+      />
+
+      <app-advanced-analysis-roles-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'roles'"
+        [cards]="roleBreakdownCards()"
+      />
+    </section>
+  }
+</section>

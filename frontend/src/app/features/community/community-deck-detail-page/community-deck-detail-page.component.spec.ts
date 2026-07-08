@@ -65,6 +65,7 @@ describe('CommunityDeckDetailPageComponent', () => {
           creatorUserId: 'user-1',
           likedByViewer: false,
           visibility: 'public',
+          publicSlug: 'readonly-deck-a7f3c9d2',
           folderId: null,
           commanders: [{
             id: 'card-1',
@@ -189,6 +190,8 @@ describe('CommunityDeckDetailPageComponent', () => {
     const header = TestBed.inject(PageHeaderStore).state();
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Analysis');
+    expect(text).toContain('Advanced Analysis');
+    expect(text).toContain('Deep deck health, combos, consistency and power signals.');
     expect(text).toContain('Considering');
     expect(text).toContain('Validation');
     expect(text).not.toContain('History');
@@ -213,6 +216,14 @@ describe('CommunityDeckDetailPageComponent', () => {
     const saveHeaderAction = header?.actions?.find((action) => action.id === 'save-deck');
     expect(saveHeaderAction?.counter).toBe(0);
     expect(saveHeaderAction?.counterLabel).toBe('community.deckCard.copies');
+    const advancedAnalysisLink = fixture.nativeElement.querySelector(
+      'a[aria-label="Open advanced analysis for this community deck"]',
+    ) as HTMLAnchorElement | null;
+    expect(advancedAnalysisLink?.getAttribute('href')).toBe('/community/decks/readonly-deck-a7f3c9d2/analysis');
+    const navigateByUrlSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    advancedAnalysisLink?.click();
+    expect(router.serializeUrl(navigateByUrlSpy.mock.calls[0]?.[0] as Parameters<Router['serializeUrl']>[0]))
+      .toBe('/community/decks/readonly-deck-a7f3c9d2/analysis');
     expect(fixture.nativeElement.querySelector('app-deck-card-menu')).toBeNull();
 
     const saveAction = header?.actions?.find((action) => action.id === 'save-deck');

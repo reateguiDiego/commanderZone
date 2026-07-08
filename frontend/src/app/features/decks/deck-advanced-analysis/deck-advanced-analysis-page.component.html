@@ -1,0 +1,10 @@
+@if (loading()) {
+  <app-global-loader />
+} @else {
+  <app-deck-advanced-analysis-view
+    [analysis]="analysis()"
+    [deck]="deck()"
+    [errorMessage]="errorMessage()"
+    (retry)="load()"
+  />
+}

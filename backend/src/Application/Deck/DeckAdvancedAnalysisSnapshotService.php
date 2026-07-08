@@ -11,87 +11,66 @@ final class DeckAdvancedAnalysisSnapshotService
     public function __construct(
         private readonly Connection $connection,
         private readonly DeckAnalysisDataVersionProvider $versionProvider,
-        private readonly DeckAdvancedAnalyzerInterface $analyzer,
+        private readonly DeckAnalysisDeckHasher $deckHasher,
+        private readonly DeckAdvancedAnalysisResultCompactor $resultCompactor,
     ) {
     }
 
     /**
      * @return array<string,mixed>
      */
-    public function analyze(Deck $deck, int $monteCarloRuns = DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS): array
+    public function analyze(
+        Deck $deck,
+        DeckAdvancedAnalysisCalculatorInterface $calculator,
+        int $monteCarloRuns = DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS,
+    ): array
     {
         $context = $this->context($deck, $monteCarloRuns);
+        $snapshotContext = $context->snapshotColumns();
         $existing = $this->snapshotRow($deck->id());
-        $staleReason = $this->staleReason($existing, $context);
+        $staleReason = $this->staleReason($existing, $snapshotContext);
 
         if ($existing !== null && $staleReason === null) {
             $result = $this->jsonObject($existing['result_json'] ?? null);
-            $result['snapshot'] = $this->metadata(true, 'fresh', $existing, $context);
+            $result['snapshot'] = $this->metadata(true, 'fresh', $existing, $snapshotContext);
 
             return $result;
         }
 
-        $result = $this->analyzer->analyze(
-            $deck,
-            $context['deck_hash'],
-            $context['monte_carlo_runs'],
-            $context['monte_carlo_seed'],
-        );
-        $saved = $this->saveSnapshot($deck->id(), $context, $result, $existing);
-        $result['snapshot'] = $this->metadata(false, $staleReason ?? 'missing', $saved, $context);
+        $result = $this->resultCompactor->compact($calculator->calculate($context));
+        $saved = $this->saveSnapshot($deck->id(), $snapshotContext, $result, $existing);
+        $result['snapshot'] = $this->metadata(false, $staleReason ?? 'missing', $saved, $snapshotContext);
 
         return $result;
     }
 
     public function deckHash(Deck $deck): string
     {
-        $items = [];
-        foreach ($this->deckRows($deck->id()) as $row) {
-            $oracleId = $this->stringOrNull($row['oracle_id'] ?? null);
-            $cardId = $this->stringOrNull($row['card_id'] ?? null);
-            $items[] = [
-                'identity' => $oracleId !== null ? 'oracle:'.$oracleId : 'unmatched:'.($cardId ?? 'missing'),
-                'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
-                'section' => $this->stringOrNull($row['section'] ?? null) ?? 'main',
-            ];
-        }
-
-        usort($items, static function (array $left, array $right): int {
-            return [$left['section'], $left['identity'], $left['quantity']]
-                <=> [$right['section'], $right['identity'], $right['quantity']];
-        });
-
-        return hash('sha256', json_encode($items, JSON_THROW_ON_ERROR));
+        return $this->deckHasher->hash($deck);
     }
 
-    /**
-     * @return array{
-     *     deck_hash:string,
-     *     analyzer_version:string,
-     *     semantic_data_version:string,
-     *     combo_data_version:string,
-     *     rules_version:string,
-     *     monte_carlo_version:string,
-     *     monte_carlo_runs:int,
-     *     monte_carlo_seed:string
-     * }
-     */
-    private function context(Deck $deck, int $monteCarloRuns): array
+    private function context(Deck $deck, int $monteCarloRuns): DeckAdvancedAnalysisContext
     {
         $deckHash = $this->deckHash($deck);
         $versions = $this->versionProvider->currentVersions();
         $runs = max(1, $monteCarloRuns);
 
-        return [
-            'deck_hash' => $deckHash,
-            'analyzer_version' => DeckAdvancedAnalyzerVersion::CURRENT,
-            'semantic_data_version' => $versions[DeckAnalysisDataVersionProvider::KEY_SEMANTIC],
-            'combo_data_version' => $versions[DeckAnalysisDataVersionProvider::KEY_COMBO],
-            'rules_version' => $versions[DeckAnalysisDataVersionProvider::KEY_RULES],
-            'monte_carlo_version' => DeckAdvancedAnalyzerVersion::MONTE_CARLO,
-            'monte_carlo_runs' => $runs,
-            'monte_carlo_seed' => hash('sha256', $deckHash.'|'.DeckAdvancedAnalyzerVersion::CURRENT.'|'.DeckAdvancedAnalyzerVersion::MONTE_CARLO),
-        ];
+        return new DeckAdvancedAnalysisContext(
+            deck: $deck,
+            deckHash: $deckHash,
+            analyzerVersion: DeckAdvancedAnalyzerVersion::CURRENT,
+            semanticDataVersion: $versions[DeckAnalysisDataVersionProvider::KEY_SEMANTIC],
+            manaDataVersion: $versions[DeckAnalysisDataVersionProvider::KEY_MANA],
+            comboDataVersion: $versions[DeckAnalysisDataVersionProvider::KEY_COMBO],
+            rulesVersion: $versions[DeckAnalysisDataVersionProvider::KEY_RULES],
+            monteCarloVersion: DeckAdvancedAnalyzerVersion::MONTE_CARLO,
+            monteCarloRuns: $runs,
+            monteCarloSeed: hash('sha256', implode('|', [
+                $deckHash,
+                DeckAdvancedAnalyzerVersion::CURRENT,
+                DeckAdvancedAnalyzerVersion::MONTE_CARLO,
+            ])),
+        );
     }
 
     /**
@@ -108,6 +87,7 @@ final class DeckAdvancedAnalysisSnapshotService
             'deck_hash' => 'deck_hash_changed',
             'analyzer_version' => 'analyzer_version_changed',
             'semantic_data_version' => 'semantic_data_changed',
+            'mana_data_version' => 'mana_data_changed',
             'combo_data_version' => 'combo_data_changed',
             'rules_version' => 'rules_changed',
         ] as $field => $reason) {
@@ -116,10 +96,15 @@ final class DeckAdvancedAnalysisSnapshotService
             }
         }
 
-        if ((string) ($row['monte_carlo_version'] ?? '') !== $context['monte_carlo_version']
-            || (int) ($row['monte_carlo_runs'] ?? 0) !== $context['monte_carlo_runs']
-            || (string) ($row['monte_carlo_seed'] ?? '') !== $context['monte_carlo_seed']
-        ) {
+        if ((string) ($row['monte_carlo_version'] ?? '') !== $context['monte_carlo_version']) {
+            return 'monte_carlo_version_changed';
+        }
+
+        if ((int) ($row['monte_carlo_runs'] ?? 0) !== $context['monte_carlo_runs']) {
+            return 'monte_carlo_runs_changed';
+        }
+
+        if ((string) ($row['monte_carlo_seed'] ?? '') !== $context['monte_carlo_seed']) {
             return 'monte_carlo_version_changed';
         }
 
@@ -144,6 +129,7 @@ INSERT INTO deck_advanced_analysis_snapshot (
     deck_hash,
     analyzer_version,
     semantic_data_version,
+    mana_data_version,
     combo_data_version,
     rules_version,
     monte_carlo_version,
@@ -159,6 +145,7 @@ INSERT INTO deck_advanced_analysis_snapshot (
     :deck_hash,
     :analyzer_version,
     :semantic_data_version,
+    :mana_data_version,
     :combo_data_version,
     :rules_version,
     :monte_carlo_version,
@@ -173,6 +160,7 @@ ON CONFLICT (deck_id) DO UPDATE SET
     deck_hash = EXCLUDED.deck_hash,
     analyzer_version = EXCLUDED.analyzer_version,
     semantic_data_version = EXCLUDED.semantic_data_version,
+    mana_data_version = EXCLUDED.mana_data_version,
     combo_data_version = EXCLUDED.combo_data_version,
     rules_version = EXCLUDED.rules_version,
     monte_carlo_version = EXCLUDED.monte_carlo_version,
@@ -211,27 +199,6 @@ SQL,
     }
 
     /**
-     * @return iterable<array<string,mixed>>
-     */
-    private function deckRows(string $deckId): iterable
-    {
-        return $this->connection->executeQuery(
-            <<<'SQL'
-SELECT
-    deck_card.id AS deck_card_id,
-    deck_card.quantity,
-    deck_card.section,
-    card.id AS card_id,
-    card.oracle_id
-FROM deck_card
-LEFT JOIN card ON card.id = deck_card.card_id
-WHERE deck_card.deck_id = :deck_id
-SQL,
-            ['deck_id' => $deckId],
-        )->iterateAssociative();
-    }
-
-    /**
      * @param array<string,mixed> $row
      * @param array<string,mixed> $context
      * @return array<string,mixed>
@@ -245,9 +212,11 @@ SQL,
             'deckHash' => $context['deck_hash'],
             'analyzerVersion' => $context['analyzer_version'],
             'semanticDataVersion' => $context['semantic_data_version'],
+            'manaDataVersion' => $context['mana_data_version'],
             'comboDataVersion' => $context['combo_data_version'],
             'rulesVersion' => $context['rules_version'],
             'monteCarloVersion' => $context['monte_carlo_version'],
+            'monteCarloRuns' => $context['monte_carlo_runs'],
         ];
     }
 
@@ -278,14 +247,4 @@ SQL,
         return (new \DateTimeImmutable((string) $value))->format(\DateTimeInterface::ATOM);
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (!is_scalar($value)) {
-            return null;
-        }
-
-        $string = trim((string) $value);
-
-        return $string !== '' ? $string : null;
-    }
 }

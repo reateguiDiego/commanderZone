@@ -2,6 +2,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
+import { withGlobalLoading } from '../loading/loading-context';
+import { LanguagePreferencesService } from '../localization/language-preferences.service';
 import {
   CommunityDeckDetailResponse,
   CommunityDeckCopyResponse,
@@ -13,6 +15,7 @@ import {
   CommunityPreviewCardsResponse,
   CommunityUserResponse,
 } from '../models/api-responses.model';
+import { AdvancedAnalysisResponse } from '../models/deck-advanced-analysis.model';
 
 export interface CommunityDeckListFilters {
   q?: string;
@@ -32,6 +35,7 @@ export interface CommunityPreviewFilters {
 @Injectable({ providedIn: 'root' })
 export class CommunityApi {
   private readonly http = inject(HttpClient);
+  private readonly languagePreferences = inject(LanguagePreferencesService);
 
   home(lang?: string): Observable<CommunityHomeResponse> {
     return this.http.get<CommunityHomeResponse>(`${API_BASE_URL}/community`, {
@@ -48,6 +52,13 @@ export class CommunityApi {
   deck(id: string, lang?: string): Observable<CommunityDeckDetailResponse> {
     return this.http.get<CommunityDeckDetailResponse>(`${API_BASE_URL}/community/decks/${id}`, {
       params: this.langParams(lang),
+    });
+  }
+
+  getCommunityDeckAdvancedAnalysis(slug: string): Observable<AdvancedAnalysisResponse> {
+    return this.http.get<AdvancedAnalysisResponse>(`${API_BASE_URL}/community/decks/${slug}/analysis`, {
+      context: withGlobalLoading(),
+      params: this.langParams(this.languagePreferences.cardLanguage()),
     });
   }
 

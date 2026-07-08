@@ -1,0 +1,145 @@
+<section class="advanced-analysis-section advanced-analysis-combos" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.title' | runtimeTranslate">
+  @if (comboPiecesWarning()) {
+    <p class="advanced-analysis-combo-warning">{{ comboPiecesWarning() }}</p>
+  }
+  @if (comboEmptyMessage()) {
+    <p class="advanced-analysis-empty-copy">{{ comboEmptyMessage() }}</p>
+  }
+
+  <dl class="advanced-analysis-combo-summary advanced-analysis-data-grid">
+    @for (stat of summaryStats(); track stat.label) {
+      <div>
+        <dt>{{ stat.label }}</dt>
+        <dd>{{ stat.value }}</dd>
+      </div>
+    }
+  </dl>
+
+  <div class="advanced-analysis-combo-grid">
+    <article class="advanced-analysis-combo-panel advanced-analysis-card-frame">
+      <div class="advanced-analysis-combo-panel__header">
+        <h3>{{ 'deckBuilder.advancedAnalysis.combos.completeTitle' | runtimeTranslate }}</h3>
+        @if (hiddenCompleteCount() > 0) {
+          <button czButton="text" czButtonSize="sm" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.viewMoreCompleteAria' | runtimeTranslate" (click)="showAllComplete.emit()">
+            {{ 'deckBuilder.advancedAnalysis.combos.viewMore' | runtimeTranslate }}
+          </button>
+        }
+      </div>
+      @if (completeCombos().length > 0) {
+        <ol class="advanced-analysis-combo-list">
+          @for (combo of completeCombos(); track combo.id) {
+            <li>
+              <strong>{{ combo.title }}</strong>
+              @if (combo.cards.length > 0) {
+                <div class="advanced-analysis-combo-card-row" [attr.aria-label]="combo.title">
+                  @for (card of combo.cards; track card.id; let isLast = $last) {
+                    <article class="advanced-analysis-combo-card" [attr.data-card-state]="card.state ?? 'present'">
+                      <app-card-face-image class="advanced-analysis-card-image" [card]="card.imageSource" [fallback]="card.name" />
+                      <span class="advanced-analysis-combo-card__name">{{ card.name }}</span>
+                      @if (card.stateLabel) {
+                        <span class="advanced-analysis-combo-card__state">{{ card.stateLabel }}</span>
+                      }
+                    </article>
+                    @if (!isLast) {
+                      <span class="advanced-analysis-combo-card-link" aria-hidden="true"></span>
+                    }
+                  }
+                </div>
+              } @else {
+                <span>{{ 'deckBuilder.advancedAnalysis.common.unavailable' | runtimeTranslate }}</span>
+              }
+              @if (combo.features.length > 0) {
+                <small>{{ combo.features.join(', ') }}</small>
+              }
+              @if (combo.badges.length > 0) {
+                <div class="advanced-analysis-combo-badges">
+                  @for (badge of combo.badges; track badge) {
+                    <em>{{ badge }}</em>
+                  }
+                </div>
+              }
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.combos.empty.noComplete' | runtimeTranslate }}</p>
+      }
+    </article>
+
+    <article class="advanced-analysis-combo-panel advanced-analysis-card-frame">
+      <div class="advanced-analysis-combo-panel__header">
+        <h3>{{ 'deckBuilder.advancedAnalysis.combos.partialTitle' | runtimeTranslate }}</h3>
+        @if (hiddenPartialCount() > 0) {
+          <button czButton="text" czButtonSize="sm" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.viewMorePartialAria' | runtimeTranslate" (click)="showAllPartial.emit()">
+            {{ 'deckBuilder.advancedAnalysis.combos.viewMore' | runtimeTranslate }}
+          </button>
+        }
+      </div>
+      @if (partialCombos().length > 0) {
+        <ol class="advanced-analysis-combo-list">
+          @for (combo of partialCombos(); track combo.id) {
+            <li>
+              <strong>{{ combo.title }}</strong>
+              @if (combo.cards.length > 0) {
+                <div class="advanced-analysis-combo-card-row" [attr.aria-label]="combo.title">
+                  @for (card of combo.cards; track card.id; let isLast = $last) {
+                    <article class="advanced-analysis-combo-card" [attr.data-card-state]="card.state ?? 'present'">
+                      <app-card-face-image class="advanced-analysis-card-image" [card]="card.imageSource" [fallback]="card.name" />
+                      <span class="advanced-analysis-combo-card__name">{{ card.name }}</span>
+                      @if (card.stateLabel) {
+                        <span class="advanced-analysis-combo-card__state">{{ card.stateLabel }}</span>
+                      }
+                    </article>
+                    @if (!isLast) {
+                      <span class="advanced-analysis-combo-card-link" aria-hidden="true"></span>
+                    }
+                  }
+                </div>
+              } @else {
+                <span>{{ 'deckBuilder.advancedAnalysis.common.unavailable' | runtimeTranslate }}</span>
+              }
+              @if (combo.features.length > 0) {
+                <small>{{ combo.features.join(', ') }}</small>
+              }
+              @if (combo.badges.length > 0) {
+                <div class="advanced-analysis-combo-badges">
+                  @for (badge of combo.badges; track badge) {
+                    <em>{{ badge }}</em>
+                  }
+                </div>
+              }
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.combos.empty.noOneCardAway' | runtimeTranslate }}</p>
+      }
+    </article>
+
+    <article class="advanced-analysis-combo-panel advanced-analysis-card-frame">
+      <div class="advanced-analysis-combo-panel__header">
+        <h3>{{ 'deckBuilder.advancedAnalysis.combos.completersTitle' | runtimeTranslate }}</h3>
+        @if (hiddenCompleterCount() > 0) {
+          <button czButton="text" czButtonSize="sm" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.viewMoreCompletersAria' | runtimeTranslate" (click)="showAllCompleters.emit()">
+            {{ 'deckBuilder.advancedAnalysis.combos.viewMore' | runtimeTranslate }}
+          </button>
+        }
+      </div>
+      @if (topCompleters().length > 0) {
+        <ol class="advanced-analysis-completer-list">
+          @for (item of topCompleters(); track item.id) {
+            <li>
+              <div class="advanced-analysis-completer-card">
+                <app-card-face-image class="advanced-analysis-card-image" [card]="item.imageSource" [fallback]="item.name" />
+                <span>{{ item.name }}</span>
+              </div>
+              <strong>{{ item.completesCombos }}</strong>
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.combos.empty.noCompleters' | runtimeTranslate }}</p>
+      }
+    </article>
+  </div>
+</section>

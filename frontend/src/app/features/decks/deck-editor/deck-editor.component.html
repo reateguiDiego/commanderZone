@@ -82,7 +82,7 @@
       />
 
       @if (store.visibleActiveTab() === 'analysis') {
-        <app-deck-analysis-panel />
+        <app-deck-analysis-panel [advancedAnalysisLink]="advancedAnalysisLink(deck)" [advancedAnalysisState]="advancedAnalysisState(deck)" />
       } @else if (store.visibleActiveTab() === 'considering') {
         <div class="analysis-shell analysis-screen considering-layout">
           <section class="analysis-panel">

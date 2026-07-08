@@ -23,6 +23,7 @@ export interface CardFace {
 export interface Card {
   id: string;
   scryfallId: string;
+  oracleId?: string | null;
   name: string;
   manaCost: string | null;
   typeLine: string | null;

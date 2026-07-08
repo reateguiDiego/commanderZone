@@ -23,20 +23,46 @@
 .deck-group-toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  justify-content: flex-start;
+  gap: 0.45rem;
   width: 100%;
-  padding: 0.2rem 0;
-  border: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: transparent;
   color: var(--gold);
+  cursor: pointer;
   font-size: 0.95rem;
   font-weight: 700;
+  text-align: left;
   text-transform: uppercase;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .deck-group-toggle .lucide {
-  transition: transform 180ms ease;
+  flex: 0 0 auto;
+  color: currentColor;
+  transition: transform 160ms ease;
+}
+
+.deck-group-toggle:hover {
+  border-color: rgb(var(--cz-secondary-rgb) / 48%);
+  background: rgb(var(--cz-surface-rgb) / 36%);
+  color: var(--cz-text);
+  box-shadow: 0 0.35rem 1rem rgb(var(--cz-bg-rgb) / 18%);
+}
+
+.deck-group-toggle:active .lucide {
+  transform: translateY(1px);
+}
+
+.deck-group-toggle:focus-visible {
+  outline: 2px solid rgb(var(--cz-secondary-rgb) / 74%);
+  outline-offset: 2px;
 }
 
 .deck-group-title {
@@ -50,10 +76,6 @@
 .commander-colors {
   color: var(--text);
   font-size: 0.85rem;
-}
-
-.deck-group-toggle[aria-expanded="false"] .lucide {
-  transform: rotate(-90deg);
 }
 
 .deck-group-body {

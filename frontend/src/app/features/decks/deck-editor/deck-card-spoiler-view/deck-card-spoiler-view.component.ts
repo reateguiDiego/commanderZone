@@ -17,6 +17,7 @@ import { DECK_VIEW_STORE } from '../deck-view-store.token';
 export class DeckCardSpoilerViewComponent {
   readonly interactive = input(true);
   readonly cardClickEnabled = input(true);
+  readonly full = input(false);
   readonly store = inject(DECK_VIEW_STORE);
 
   constructor() {
@@ -46,6 +47,13 @@ export class DeckCardSpoilerViewComponent {
 
   isRowMenuOpen(entryId: string): boolean {
     return this.store.cardMenu()?.entryId === entryId;
+  }
+
+  spoilerCardName(card: Card): string {
+    const name = this.store.displayCardListName(card);
+    const frontName = name.split(/\s*\/\/\s*/, 1)[0].trim();
+
+    return frontName || name;
   }
 
   toggleCardFace(event: MouseEvent, card: Card): void {

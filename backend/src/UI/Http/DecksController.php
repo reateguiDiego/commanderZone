@@ -3,8 +3,9 @@
 namespace App\UI\Http;
 
 use App\Application\Deck\DeckAnalysisService;
+use App\Application\Deck\DeckAdvancedAnalysisImageLocalizer;
 use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
-use App\Application\Deck\DeckAdvancedAnalyzerVersion;
+use App\Application\Deck\DeckAdvancedAnalyzerService;
 use App\Application\Deck\DeckDerivedTokenResolver;
 use App\Application\Deck\DeckFormatCatalog;
 use App\Application\Deck\DeckValidator;
@@ -182,14 +183,24 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/analysis/advanced', methods: ['GET'])]
-    public function advancedAnalysis(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DeckAdvancedAnalysisSnapshotService $analysis): JsonResponse
+    public function advancedAnalysis(
+        string $id,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        DeckAdvancedAnalysisSnapshotService $snapshotService,
+        DeckAdvancedAnalyzerService $analyzer,
+        DeckAdvancedAnalysisImageLocalizer $imageLocalizer,
+    ): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
 
-        return $this->json($analysis->analyze($deck, $this->monteCarloRunsFromRequest($request)));
+        return $this->json($imageLocalizer->localize(
+            $snapshotService->analyze($deck, $analyzer),
+            $user->cardLanguage(),
+        ));
     }
 
     #[Route('/decks/{id}/sections', methods: ['GET'])]
@@ -1210,16 +1221,6 @@ class DecksController extends ApiController
         }
 
         return $sections;
-    }
-
-    private function monteCarloRunsFromRequest(Request $request): int
-    {
-        $value = $request->query->get('monteCarloRuns');
-        if (!is_scalar($value) || trim((string) $value) === '') {
-            return DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS;
-        }
-
-        return max(1, min(1000000, (int) $value));
     }
 
     /**

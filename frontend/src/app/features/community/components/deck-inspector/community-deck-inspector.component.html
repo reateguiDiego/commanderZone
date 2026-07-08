@@ -8,7 +8,10 @@
   />
 
   @if (activeTab() === 'analysis') {
-    <app-deck-analysis-panel />
+    <app-deck-analysis-panel
+      [advancedAnalysisLink]="advancedAnalysisLink()"
+      advancedAnalysisAriaLabel="deckBuilder.advancedAnalysis.openCommunityAria"
+    />
   } @else if (activeTab() === 'considering') {
     <section class="analysis-panel">
       <div class="analysis-panel-header">

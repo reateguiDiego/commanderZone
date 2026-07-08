@@ -48,6 +48,7 @@ import { CardAutocompleteComponent } from '../../../shared/components/card-autoc
 type DecksApiMock = {
   get: ReturnType<typeof vi.fn>;
   getBySlug: ReturnType<typeof vi.fn>;
+  getDeckAdvancedAnalysis: ReturnType<typeof vi.fn>;
   importDecklist: ReturnType<typeof vi.fn>;
   tokens: ReturnType<typeof vi.fn>;
   validateCommander: ReturnType<typeof vi.fn>;
@@ -67,6 +68,7 @@ describe('DeckEditorComponent', () => {
     const decksApi: DecksApiMock = {
       get: vi.fn().mockReturnValue(of({ deck })),
       getBySlug: vi.fn().mockReturnValue(of({ deck })),
+      getDeckAdvancedAnalysis: vi.fn(),
       importDecklist: vi.fn().mockReturnValue(of({ deck: deck ?? buildDeckWithSingleCard(), missing: [], summary: { parsedCards: 1, importedCards: 1 } })),
       tokens: vi.fn().mockReturnValue(of({ data: [], unresolved: [] })),
       validateCommander: vi.fn().mockReturnValue(of(validCommanderValidation())),
@@ -166,6 +168,51 @@ describe('DeckEditorComponent', () => {
     await fixture.componentInstance.store.load();
 
     expect(decksApi.getBySlug).toHaveBeenCalledWith('atraxa-control-a7f3c9d2');
+  });
+
+  it('renders the advanced analysis action without replacing the basic analysis panel', async () => {
+    const deck = buildDeckWithSingleCard({
+      slug: 'atraxa-control-a7f3c9d2',
+    });
+    const { decksApi } = await setup({ slug: 'atraxa-control-a7f3c9d2' }, buildDeckWithSingleCard({
+      slug: 'atraxa-control-a7f3c9d2',
+    }));
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    fixture.detectChanges();
+
+    const action = fixture.nativeElement.querySelector('.analysis-advanced-button') as HTMLAnchorElement | null;
+
+    expect(action).not.toBeNull();
+    expect(action?.textContent).toContain('Advanced Analysis');
+    expect(action?.getAttribute('href')).toBe('/decks/atraxa-control-a7f3c9d2/analysis');
+    expect(fixture.componentInstance.advancedAnalysisState(deck)).toEqual({
+      deck,
+      routeIdentifier: 'atraxa-control-a7f3c9d2',
+    });
+    expect(fixture.nativeElement.querySelector('app-deck-analysis-panel')).not.toBeNull();
+    expect(decksApi.getDeckAdvancedAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('navigates to advanced analysis from the analysis tab action', async () => {
+    await setup({ slug: 'atraxa-control-a7f3c9d2' }, buildDeckWithSingleCard({
+      slug: 'atraxa-control-a7f3c9d2',
+    }));
+    const router = TestBed.inject(Router);
+    const navigateByUrlSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    fixture.detectChanges();
+
+    const action = fixture.nativeElement.querySelector('.analysis-advanced-button') as HTMLAnchorElement;
+    action.click();
+
+    expect(navigateByUrlSpy).toHaveBeenCalled();
+    const target = navigateByUrlSpy.mock.calls[0]?.[0];
+    const url = typeof target === 'string' ? target : router.serializeUrl(target);
+    expect(url).toBe('/decks/atraxa-control-a7f3c9d2/analysis');
   });
 
   it('redirects a legacy UUID editor URL to the deck slug after loading', async () => {
