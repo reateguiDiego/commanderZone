@@ -72,6 +72,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lastSeenAt = null;
 
+    #[ORM\Column(type: 'string', length: 64, nullable: true)]
+    private ?string $lastSeenIpHash = null;
+
     #[ORM\Column(type: 'string', length: 16)]
     private string $avatarType = 'initial';
 
@@ -293,6 +296,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function lastSeenAt(): ?\DateTimeImmutable
     {
         return $this->lastSeenAt;
+    }
+
+    public function lastSeenIpHash(): ?string
+    {
+        return $this->lastSeenIpHash;
     }
 
     public function createdAt(): \DateTimeImmutable

@@ -192,6 +192,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureUserPublicHandleColumn($connection);
         $this->ensureUserRoleTables($connection);
         $this->ensureUserPremiumTierColumn($connection);
+        $this->ensureUserDailyVisitSchema($connection);
         $this->ensureUserMessageTable($connection);
         $this->ensureUserReportTable($connection);
         $this->ensureAuthIdentityTable($connection);
@@ -204,6 +205,7 @@ abstract class ApiTestCase extends WebTestCase
             'refresh_session',
             'email_verification_token',
             'password_reset_token',
+            'user_daily_visit',
             'user_message',
             'user_report',
             'table_assistant_room',
@@ -570,6 +572,39 @@ SQL,
         if (!in_array('premium_tier', $columns, true)) {
             $connection->executeStatement("ALTER TABLE app_user ADD COLUMN premium_tier VARCHAR(16) NOT NULL DEFAULT 'none'");
         }
+    }
+
+    private function ensureUserDailyVisitSchema(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['app_user'])) {
+            return;
+        }
+
+        $this->ensureColumn($connection, 'app_user', 'last_seen_ip_hash', 'ALTER TABLE app_user ADD COLUMN last_seen_ip_hash VARCHAR(64) DEFAULT NULL');
+
+        if (!$schemaManager->tablesExist(['user_daily_visit'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE user_daily_visit (
+    id VARCHAR(36) NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    visit_date DATE NOT NULL,
+    first_seen_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    ip_hash VARCHAR(64) NOT NULL,
+    ip_prefix VARCHAR(64) DEFAULT NULL,
+    user_agent_hash VARCHAR(64) DEFAULT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY(id)
+)
+SQL,
+            );
+            $connection->executeStatement('ALTER TABLE user_daily_visit ADD CONSTRAINT FK_USER_DAILY_VISIT_USER FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
+        }
+
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_daily_visit_user_date ON user_daily_visit (user_id, visit_date)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_user_daily_visit_date ON user_daily_visit (visit_date)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_user_daily_visit_user_first_seen ON user_daily_visit (user_id, first_seen_at)');
     }
 
     private function ensureUserMessageTable(Connection $connection): void
