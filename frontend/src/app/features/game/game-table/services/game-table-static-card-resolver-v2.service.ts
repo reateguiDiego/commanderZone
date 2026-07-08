@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../../core/api/cards.api';
 import type { Card } from '../../../../core/models/card.model';
-import type { GameCompactCardRef, GameZoneName } from '../../../../core/models/game.model';
+import type { GameCompactCardRef, GameSpecialEntity, GameSpecialEntityCardRef, GameZoneName } from '../../../../core/models/game.model';
 import type {
   BootstrapInstanceV2,
   BootstrapStaticCardV2,
@@ -121,9 +121,43 @@ export class GameTableStaticCardResolverV2Service {
           : { ...operation, staticCards: { ...(operation.staticCards ?? {}), ...resolved } };
       }
 
+      case 'helper.add':
+      case 'helper.update':
+        return this.hydrateHelperOperation(operation);
+
       default:
         return operation;
     }
+  }
+
+  private async hydrateHelperOperation<T extends Extract<GameplayPatchV2Operation, { op: 'helper.add' | 'helper.update' }>>(
+    operation: T,
+  ): Promise<T> {
+    const entity = await this.hydrateSpecialEntity(operation.entity);
+
+    return entity === operation.entity ? operation : { ...operation, entity };
+  }
+
+  private async hydrateSpecialEntity(entity: GameSpecialEntity): Promise<GameSpecialEntity> {
+    const card = entity.card;
+    if (!card || this.hasRenderableSpecialEntityCard(card)) {
+      return entity;
+    }
+
+    const printId = this.catalogPrintId(this.trimmed(card.scryfallId));
+    if (!printId) {
+      return entity;
+    }
+
+    const apiCard = await this.cardForPrintId(printId);
+    if (!apiCard) {
+      return entity;
+    }
+
+    return {
+      ...entity,
+      card: this.specialEntityCardFromApiCard(card, apiCard),
+    };
   }
 
   private async hydrateMove<T extends GameplayZoneCardsMoveV2>(
@@ -250,6 +284,18 @@ export class GameTableStaticCardResolverV2Service {
     };
   }
 
+  private specialEntityCardFromApiCard(card: GameSpecialEntityCardRef, apiCard: Card): GameSpecialEntityCardRef {
+    return {
+      scryfallId: this.trimmed(card.scryfallId) || apiCard.scryfallId,
+      name: this.trimmed(card.name) || apiCard.name,
+      imageUris: apiCard.imageUris,
+      cardFaces: apiCard.cardFaces ? structuredClone(apiCard.cardFaces) : [],
+      typeLine: this.trimmed(card.typeLine) || apiCard.typeLine,
+      oracleText: this.trimmed(card.oracleText) || apiCard.oracleText,
+      layout: this.trimmed(card.layout) || apiCard.layout,
+    };
+  }
+
   private staticCardForCard(
     card: RuntimeCardRef,
     operationStaticCards: Record<string, BootstrapStaticCardV2>,
@@ -368,6 +414,11 @@ export class GameTableStaticCardResolverV2Service {
     return (name !== '' && name !== 'Card' && name !== 'Unknown Card')
       || Boolean(card.imageUris && Object.keys(card.imageUris).length > 0)
       || Boolean(card.cardFaces && card.cardFaces.length > 0);
+  }
+
+  private hasRenderableSpecialEntityCard(card: GameSpecialEntityCardRef): boolean {
+    return Boolean(card.imageUris && Object.keys(card.imageUris).length > 0)
+      || Boolean(card.cardFaces && card.cardFaces.some((face) => face.imageUris && Object.keys(face.imageUris).length > 0));
   }
 
   private viewerVisibilityForZone(zone: GameZoneName): string {

@@ -172,6 +172,8 @@ test.describe('product state integrity runtime gate', () => {
       expect(operation(counterOutcome.patch, 'card.counters.patch')).toMatchObject({
         instanceId: permanentId,
         counters: { '+1/+1': 3 },
+        power: 8,
+        toughness: 10,
       });
       expect(operation(counterOutcome.patch, 'card.field.set')).toBeNull();
       expect(requestAudit.bootstrap + requestAudit.snapshot).toBe(liveRequestBaseline);
@@ -184,8 +186,8 @@ test.describe('product state integrity runtime gate', () => {
         faceDown: true,
         controllerId: playerB.user.id,
         counters: { '+1/+1': 3 },
-        power: 5,
-        toughness: 7,
+        power: 8,
+        toughness: 10,
       });
       expect(playerLife(liveSnapshot, playerA.user.id)).toBe(33);
       expect(relationCount(liveSnapshot, 'arrows')).toBeGreaterThanOrEqual(1);
@@ -412,6 +414,7 @@ function operation(message: JsonObject, op: string): JsonObject | null {
 function collectWebSocketFrames(page: Page): JsonObject[] {
   const frames: JsonObject[] = [];
   page.on('websocket', (socket) => {
+    frames.push({ kind: 'connection_open', url: socket.url() });
     socket.on('framereceived', (event) => {
       const parsed = parseFrame(event.payload);
       if (parsed) {
@@ -423,7 +426,9 @@ function collectWebSocketFrames(page: Page): JsonObject[] {
 }
 
 function waitForGameplayConnection(frames: JsonObject[]): Promise<void> {
-  return expect.poll(() => frames.some((frame) => frame['kind'] === 'connection_state' && frame['status'] === 'connected'), {
+  return expect.poll(() => frames.some((frame) =>
+    frame['kind'] === 'connection_open' || (frame['kind'] === 'connection_state' && frame['status'] === 'connected'),
+  ), {
     timeout: 30_000,
   }).toBe(true);
 }

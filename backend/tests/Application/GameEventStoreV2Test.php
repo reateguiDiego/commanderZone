@@ -1011,6 +1011,8 @@ class GameEventStoreV2Test extends TestCase
                 'zone' => 'battlefield',
                 'counter' => '+1/+1',
                 'value' => 3,
+                'power' => 8,
+                'toughness' => 10,
             ], $actor, 'runtime-counter', 10),
         ];
 
@@ -1026,8 +1028,8 @@ class GameEventStoreV2Test extends TestCase
         self::assertTrue($card['faceDown'] ?? false);
         self::assertSame($controller->id(), $card['controllerId'] ?? null);
         self::assertSame(['+1/+1' => 3], $card['counters'] ?? null);
-        self::assertSame(5, $card['power'] ?? null);
-        self::assertSame(7, $card['toughness'] ?? null);
+        self::assertSame(8, $card['power'] ?? null);
+        self::assertSame(10, $card['toughness'] ?? null);
         self::assertSame('arrow-1', $rebuilt['arrows'][0]['id'] ?? null);
         self::assertSame('attachment-1', $rebuilt['attachments'][0]['id'] ?? null);
         $equipment = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'equipment-1');
@@ -1337,6 +1339,125 @@ class GameEventStoreV2Test extends TestCase
         $encoded = json_encode($rebuilt, JSON_THROW_ON_ERROR);
         self::assertStringNotContainsString('oracleText":"must-not-leak', $encoded);
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
+    }
+
+    public function testReplayDoesNotReintroduceRuntimeGoEvaporatedToken(): void
+    {
+        $actor = new User('runtime-go-token-evaporate@example.test', 'Runtime Go Token Evaporate');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'card.moved');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('runtime-token-1', 'Runtime Bear Token', 'battlefield'),
+                'isToken' => true,
+                'isTokenCopy' => false,
+                'tokenMeta' => ['isCopy' => false],
+            ]],
+            'graveyard' => [],
+            'exile' => [],
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $move = new GameEvent($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceIds' => ['runtime-token-1'],
+            'instanceId' => 'runtime-token-1',
+            'moves' => [[
+                'instanceId' => 'runtime-token-1',
+                'from' => ['playerId' => $actor->id(), 'zone' => 'battlefield', 'index' => 0],
+                'to' => ['playerId' => $actor->id(), 'zone' => 'graveyard', 'index' => 0],
+                'evaporates' => true,
+            ]],
+        ], $actor, 'runtime-token-evaporate', 2);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), null, [$move]);
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $rebuilt), $actor, $rebuilt)->toArray();
+
+        self::assertSame([], $this->zoneIds($rebuilt, $actor->id(), 'battlefield'));
+        self::assertSame([], $this->zoneIds($rebuilt, $actor->id(), 'graveyard'));
+        self::assertArrayNotHasKey('runtime-token-1', $rebuilt['loc'] ?? []);
+        self::assertArrayNotHasKey('runtime-token-1', $bootstrap['instances']);
+    }
+
+    public function testReplayPreservesRuntimeGoUntapAllForControlledPermanentsAcrossBattlefields(): void
+    {
+        $actor = new User('runtime-go-untap-owner@example.test', 'Runtime Go Untap Owner');
+        $opponent = new User('runtime-go-untap-opponent@example.test', 'Runtime Go Untap Opponent');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'battlefield.untap_all');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $rawSnapshot = $this->baseSnapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('commander-1', 'Runtime Commander', 'battlefield'),
+                    'ownerId' => $actor->id(),
+                    'controllerId' => $actor->id(),
+                    'isCommander' => true,
+                    'tapped' => true,
+                    'rotation' => 90,
+                ],
+                [
+                    ...$this->card('token-1', 'Runtime Soldier', 'battlefield'),
+                    'ownerId' => $actor->id(),
+                    'controllerId' => $actor->id(),
+                    'isToken' => true,
+                    'tapped' => true,
+                    'rotation' => 90,
+                ],
+            ],
+        ]);
+        $rawSnapshot['players'][$opponent->id()] = [
+            'user' => ['id' => $opponent->id(), 'email' => $opponent->email(), 'displayName' => $opponent->displayName(), 'roles' => []],
+            'life' => 40,
+            'zones' => [
+                'library' => [],
+                'hand' => [],
+                'battlefield' => [
+                    [
+                        ...$this->card('borrowed-1', 'Borrowed Permanent', 'battlefield'),
+                        'ownerId' => $opponent->id(),
+                        'controllerId' => $actor->id(),
+                        'tapped' => true,
+                        'rotation' => 90,
+                    ],
+                    [
+                        ...$this->card('opponent-1', 'Opponent Permanent', 'battlefield'),
+                        'ownerId' => $opponent->id(),
+                        'controllerId' => $opponent->id(),
+                        'tapped' => true,
+                        'rotation' => 90,
+                    ],
+                ],
+                'graveyard' => [],
+                'exile' => [],
+                'command' => [],
+            ],
+            'commanderDamage' => [],
+            'counters' => [],
+        ];
+        $baseSnapshot = $handler->normalizeSnapshot($rawSnapshot);
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $untap = new GameEvent($game, 'battlefield.untap_all', [
+            'playerId' => $actor->id(),
+            'instanceIds' => ['commander-1', 'token-1', 'borrowed-1'],
+        ], $actor, 'runtime-untap-all', 2);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), null, [$untap]);
+
+        self::assertFalse($this->cardById($rebuilt, $actor->id(), 'battlefield', 'commander-1')['tapped'] ?? true);
+        self::assertSame(0, $this->cardById($rebuilt, $actor->id(), 'battlefield', 'commander-1')['rotation'] ?? null);
+        self::assertFalse($this->cardById($rebuilt, $actor->id(), 'battlefield', 'token-1')['tapped'] ?? true);
+        self::assertSame(0, $this->cardById($rebuilt, $actor->id(), 'battlefield', 'token-1')['rotation'] ?? null);
+        self::assertFalse($this->cardById($rebuilt, $opponent->id(), 'battlefield', 'borrowed-1')['tapped'] ?? true);
+        self::assertSame(0, $this->cardById($rebuilt, $opponent->id(), 'battlefield', 'borrowed-1')['rotation'] ?? null);
+        self::assertTrue($this->cardById($rebuilt, $opponent->id(), 'battlefield', 'opponent-1')['tapped'] ?? false);
+        self::assertSame(90, $this->cardById($rebuilt, $opponent->id(), 'battlefield', 'opponent-1')['rotation'] ?? null);
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $rebuilt), $actor, $rebuilt)->toArray();
+        self::assertFalse($bootstrap['instances']['commander-1']['tapped'] ?? true);
+        self::assertFalse($bootstrap['instances']['token-1']['tapped'] ?? true);
+        self::assertFalse($bootstrap['instances']['borrowed-1']['tapped'] ?? true);
+        self::assertTrue($bootstrap['instances']['opponent-1']['tapped'] ?? false);
     }
 
     public function testReplayIgnoresCorruptCompactSnapshotWhenEventsCanRecover(): void

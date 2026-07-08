@@ -200,6 +200,13 @@ test.describe('product chat and gamelog runtime gate', () => {
       });
       baseVersion = await applyRuntime(request, commandFrames, {
         gameId,
+        token: playerA.token,
+        baseVersion,
+        type: 'library.shuffle',
+        payload: { playerId: playerA.user.id },
+      });
+      baseVersion = await applyRuntime(request, commandFrames, {
+        gameId,
         token: playerB.token,
         baseVersion,
         type: 'game.concede',
@@ -211,6 +218,7 @@ test.describe('product chat and gamelog runtime gate', () => {
       await expectLogEntry(pageA, /tapped a permanent/i);
       await expectLogEntry(pageA, /\+1\/\+1/i);
       await expectLogEntry(pageA, /token/i);
+      await expectLogEntry(pageA, /shuffled their library/i);
       await expectLogEntry(pageA, /conceded/i);
       await expect.poll(() => pageA.getByTestId('game-log-entry').filter({ hasText: /drew a card/i }).count(), { timeout: 10_000 }).toBe(1);
       expect(requestAudit.bootstrap + requestAudit.snapshot).toBe(liveRequestBaseline);
@@ -218,6 +226,7 @@ test.describe('product chat and gamelog runtime gate', () => {
       const snapshotAfterActions = await gameSnapshot(request, gameId, playerA.token);
       expect((snapshotAfterActions['chat'] as JsonObject[] | undefined)?.filter((entry) => entry['message'] === chatText)).toHaveLength(1);
       expect((snapshotAfterActions['eventLog'] as JsonObject[] | undefined)?.some((entry) => String(entry['message'] ?? '').includes('drew a card'))).toBe(true);
+      expect((snapshotAfterActions['eventLog'] as JsonObject[] | undefined)?.some((entry) => String(entry['message'] ?? '').includes('shuffled their library'))).toBe(true);
 
       const beforeRefreshRequests = requestAudit.bootstrap + requestAudit.snapshot;
       await pageA.reload();
@@ -227,6 +236,7 @@ test.describe('product chat and gamelog runtime gate', () => {
       await expectChatReactionCount(pageA, chatText, '1');
       await openLog(pageA);
       await expectLogEntry(pageA, /drew a card/i);
+      await expectLogEntry(pageA, /shuffled their library/i);
       await expectLogEntry(pageA, /conceded/i);
       expect(requestAudit.bootstrap + requestAudit.snapshot).toBeGreaterThan(beforeRefreshRequests);
 
@@ -245,6 +255,7 @@ test.describe('product chat and gamelog runtime gate', () => {
         await expectChatReactionCount(reconnectPage, chatText, '1');
         await openLog(reconnectPage);
         await expectLogEntry(reconnectPage, /drew a card/i);
+        await expectLogEntry(reconnectPage, /shuffled their library/i);
         assertNoRuntimeFallbackFrames(reconnectFrames);
       } finally {
         await reconnectContext.close().catch(() => undefined);

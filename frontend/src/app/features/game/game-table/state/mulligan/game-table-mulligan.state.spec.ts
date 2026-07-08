@@ -162,6 +162,77 @@ describe('GameTableMulliganState', () => {
     expect(mulligan.privateHandFor('player-1')?.map((card) => card.name)).toEqual(['Runtime Card A', 'Runtime Card B']);
   });
 
+  it('uses private mulligan patch bottom requirements over stale snapshot values', () => {
+    const generousHand = Array.from({ length: 10 }, (_, index) => card(`runtime-${index + 1}`, `Runtime Card ${index + 1}`));
+    const snapshot = {
+      ...snapshotFixture(),
+      version: 2,
+      mulligan: { rule: 'GENEROUS' as const, firstMulliganFree: true },
+      players: {
+        ...snapshotFixture().players,
+        'player-1': {
+          ...player('player-1', generousHand, 'DECIDING', false),
+          mulligan: {
+            ...privateMulliganState({
+              rule: 'GENEROUS',
+              drawCount: 10,
+              bottomSelectionCount: 0,
+              finalHandSize: 7,
+              needsBottomSelection: false,
+              bottomOrderMode: 'NONE',
+            }),
+            handCount: 10,
+          },
+        },
+      },
+    } satisfies GameSnapshot;
+    core.snapshot.set(snapshot);
+
+    mulligan.handlePatchV2Applied({
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 3,
+      visibility: 'player:player-1',
+      ops: [
+        {
+          op: 'mulligan.private_state.set',
+          playerId: 'player-1',
+          state: {
+            rule: 'GENEROUS',
+            status: 'DECIDING',
+            mulligansTaken: 0,
+            effectiveMulligans: 0,
+            drawCount: 10,
+            handSize: 10,
+            cardsToBottom: 3,
+            finalHandSize: 7,
+            bottomPending: true,
+            bottomOrderMode: 'RANDOM_SERVER_SIDE',
+            scryPending: false,
+            canTakeAnotherMulligan: true,
+            ready: false,
+          },
+        },
+        {
+          op: 'mulligan.hand.replace_private',
+          playerId: 'player-1',
+          hand: generousHand.map((card) => ({ instanceId: card.instanceId, cardKey: `card:${card.instanceId}` })),
+        },
+        {
+          op: 'mulligan.bottom.required.set',
+          playerId: 'player-1',
+          count: 3,
+          orderMode: 'RANDOM_SERVER_SIDE',
+        },
+      ],
+    } satisfies GameplayPatchV2Message, snapshot);
+
+    expect(mulligan.privateState()?.mulligan.rule).toBe('GENEROUS');
+    expect(mulligan.privateState()?.mulligan.bottomSelectionCount).toBe(3);
+    expect(mulligan.privateState()?.mulligan.needsBottomSelection).toBe(true);
+    expect(mulligan.privateState()?.mulligan.bottomOrderMode).toBe('RANDOM_SERVER_SIDE');
+  });
+
   it('keeps duplicate card keys distinct by instanceId in compact private state', () => {
     const snapshot = snapshotFixture();
     core.snapshot.set(snapshot);

@@ -455,6 +455,7 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'library.top.reordered':
     case 'library.top.moved':
     case 'library.shuffled':
+    case 'game.counters.set':
     case 'mulligan.status.set':
     case 'mulligan.private_state.set':
     case 'mulligan.hand.replace_private':
@@ -561,6 +562,8 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       return updateInstanceAtZone(state, operation.playerId, operation.zone, operation.instanceId, (instance) => ({
         ...instance,
         counters: { ...operation.counters },
+        ...(operation.power !== undefined ? { power: operation.power } : {}),
+        ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
       }));
 
     case 'zone.cards.add':
@@ -2025,6 +2028,7 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
     backgroundName: player.backgroundName ?? null,
     sleevesName: player.sleevesName ?? null,
     playTopLibraryRevealed: player.playTopLibraryRevealed ?? false,
+    mulligan: player.mulligan ? { ...player.mulligan } : undefined,
   };
 }
 

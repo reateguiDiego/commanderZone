@@ -107,6 +107,8 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 	case "library.reveal", "library.reveal_top":
 		count := intFromPayload(payload, "count", 1)
 		return fmt.Sprintf("%s revealed the top %d cards of their library.", displayName, count)
+	case "library.shuffle":
+		return fmt.Sprintf("%s shuffled their library.", displayName)
 	case "game.concede":
 		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorIDFromPayload(command.Payload))
 		name := playerDisplayName(game, playerID)

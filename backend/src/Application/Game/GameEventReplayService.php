@@ -246,6 +246,11 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'battlefield.untap_all':
+                $this->applyRuntimeBattlefieldUntapAll($snapshot, $payload);
+
+                return true;
+
             case 'card.position.changed':
                 $this->applyRuntimeCardPositionChanged($snapshot, $payload);
 
@@ -513,6 +518,56 @@ final class GameEventReplayService
     /**
      * @param array<string,mixed> $payload
      */
+    private function applyRuntimeBattlefieldUntapAll(array &$snapshot, array $payload): void
+    {
+        $instanceIds = $this->stringList($payload['instanceIds'] ?? []);
+        if ($instanceIds !== []) {
+            foreach ($instanceIds as $instanceId) {
+                $card =& $this->locateCard($snapshot, $instanceId);
+                if (is_array($card) && ($card['zone'] ?? null) === 'battlefield') {
+                    $card['tapped'] = false;
+                    $card['rotation'] = 0;
+                }
+                unset($card);
+            }
+
+            return;
+        }
+
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        if ($playerId === '') {
+            return;
+        }
+
+        foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $battlefieldPlayerId => &$player) {
+            if (!is_array($player)) {
+                continue;
+            }
+            if (!is_array($player['zones']['battlefield'] ?? null)) {
+                continue;
+            }
+            $battlefield =& $player['zones']['battlefield'];
+            foreach ($battlefield as &$card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $controllerId = is_string($card['controllerId'] ?? null) && trim($card['controllerId']) !== ''
+                    ? trim($card['controllerId'])
+                    : (string) $battlefieldPlayerId;
+                if ($controllerId !== $playerId) {
+                    continue;
+                }
+                $card['tapped'] = false;
+                $card['rotation'] = 0;
+            }
+            unset($card, $battlefield);
+        }
+        unset($player);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
     private function applyRuntimeCardPositionChanged(array &$snapshot, array $payload): void
     {
         $position = is_array($payload['position'] ?? null) ? $payload['position'] : null;
@@ -699,6 +754,11 @@ final class GameEventReplayService
             $counters[$counter] = $value;
         }
         $card['counters'] = $counters;
+        foreach (['power', 'toughness'] as $field) {
+            if (array_key_exists($field, $payload)) {
+                $card[$field] = $payload[$field];
+            }
+        }
     }
 
     /**
@@ -1162,6 +1222,11 @@ final class GameEventReplayService
                     return;
                 }
                 $card['counters'] = is_array($operation['counters'] ?? null) ? $operation['counters'] : [];
+                foreach (['power', 'toughness'] as $field) {
+                    if (array_key_exists($field, $operation)) {
+                        $card[$field] = $operation[$field];
+                    }
+                }
                 return;
 
             case 'zone.cards.move':
@@ -1336,6 +1401,9 @@ final class GameEventReplayService
         if ($sourceZone === 'battlefield' && $targetZone !== 'battlefield') {
             $this->resetBattlefieldExitCard($card, $targetPlayerId);
             $this->pruneBattlefieldRelationsForMovedInstance($snapshot, $instanceId);
+        }
+        if (($move['evaporates'] ?? false) === true || (($card['isToken'] ?? false) === true && $sourceZone === 'battlefield' && $targetZone !== 'battlefield')) {
+            return;
         }
         if ($targetZone === 'battlefield' && array_key_exists('faceDown', $move)) {
             $card['faceDown'] = ($move['faceDown'] ?? false) === true;

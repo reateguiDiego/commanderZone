@@ -221,6 +221,118 @@ describe('GameTableStaticCardResolverV2Service', () => {
     expect(cardsApi.getSilently).toHaveBeenCalledTimes(2);
     expect(add.staticCards?.['runtime-card-forest'].name).toBe('Forest');
   });
+
+  it('hydrates compact helper add card refs from the card catalog without runtime static payload', async () => {
+    cardsApi.getSilently.mockReturnValue(of({ card: card('monarch-print', 'The Monarch') }));
+    const patch = patchV2([{
+      op: 'helper.add',
+      entity: {
+        id: 'helper-monarch',
+        template: 'monarch',
+        scope: 'global',
+        ownerPlayerId: 'player-1',
+        card: {
+          scryfallId: 'monarch-print',
+          name: 'The Monarch',
+          layout: 'token',
+        },
+        state: {},
+        createdAt: '2026-07-08T00:00:00+00:00',
+      },
+    }]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+    const add = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'helper.add' }>;
+
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('monarch-print');
+    expect(add.entity.card).toEqual(expect.objectContaining({
+      scryfallId: 'monarch-print',
+      name: 'The Monarch',
+      imageUris: { normal: 'https://cards.test/monarch-print.jpg' },
+      typeLine: 'Basic Land - Forest',
+      layout: 'token',
+    }));
+    expect(JSON.stringify(patch)).not.toContain('imageUris');
+  });
+
+  it('hydrates compact helper updates with double-faced card images from the card catalog', async () => {
+    const dayNight = card('day-night-print', 'Day // Night');
+    dayNight.layout = 'double_faced_token';
+    dayNight.cardFaces = [
+      {
+        name: 'Day',
+        manaCost: null,
+        typeLine: 'Card',
+        oracleText: 'It is day.',
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: { normal: 'https://cards.test/day-night-front.jpg' },
+      },
+      {
+        name: 'Night',
+        manaCost: null,
+        typeLine: 'Card',
+        oracleText: 'It is night.',
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: { normal: 'https://cards.test/day-night-back.jpg' },
+      },
+    ];
+    cardsApi.getSilently.mockReturnValue(of({ card: dayNight }));
+    const patch = patchV2([{
+      op: 'helper.update',
+      entity: {
+        id: 'helper-day-night',
+        template: 'day_night',
+        scope: 'global',
+        ownerPlayerId: null,
+        card: {
+          scryfallId: 'day-night-print',
+          name: 'Day // Night',
+          layout: 'double_faced_token',
+        },
+        state: { mode: 'night' },
+        createdAt: '2026-07-08T00:00:00+00:00',
+      },
+    }]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+    const update = hydrated.ops[0] as Extract<PatchEnvelopeV2['ops'][number], { op: 'helper.update' }>;
+
+    expect(update.entity.card?.imageUris?.normal).toBe('https://cards.test/day-night-print.jpg');
+    expect(update.entity.card?.cardFaces?.[1]?.imageUris.normal).toBe('https://cards.test/day-night-back.jpg');
+    expect(update.entity.card?.layout).toBe('double_faced_token');
+  });
+
+  it('keeps helpers as marker refs when the card catalog cannot resolve the print', async () => {
+    cardsApi.getSilently.mockReturnValue(of({ card: null }));
+    const patch = patchV2([{
+      op: 'helper.add',
+      entity: {
+        id: 'helper-unsupported',
+        template: 'citys_blessing',
+        scope: 'player',
+        ownerPlayerId: 'player-1',
+        card: {
+          scryfallId: 'missing-helper-print',
+          name: 'Unsupported Helper',
+          layout: 'token',
+        },
+        state: {},
+        createdAt: '2026-07-08T00:00:00+00:00',
+      },
+    }]);
+
+    const hydrated = await service.hydratePatch(patch, stateWithStaticCards({}));
+
+    expect(hydrated).toBe(patch);
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('missing-helper-print');
+    expect(JSON.stringify(hydrated)).not.toContain('Unknown Card');
+  });
 });
 
 function patchV2(ops: PatchEnvelopeV2['ops']): PatchEnvelopeV2 & { kind: 'patch.v2' } {

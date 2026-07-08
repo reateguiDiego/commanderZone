@@ -2018,6 +2018,9 @@ final readonly class GameWebsocketCommandPatchService
         if (in_array($type, ['library.reveal_top', 'library.reveal', 'card.revealed'], true) && !isset($runtimePayload['viewers']) && isset($runtimePayload['to'])) {
             $runtimePayload['viewers'] = $runtimePayload['to'];
         }
+        if ($this->runtimeCommandType($type) === 'card.counter.changed') {
+            $runtimePayload = $this->normalizeCardCounterRuntimePayload($runtimePayload);
+        }
         if ($type === 'zone.changed') {
             if (isset($runtimePayload['cards'])) {
                 throw new \InvalidArgumentException('zone.changed runtime path accepts instanceIds only.');
@@ -2048,6 +2051,28 @@ final readonly class GameWebsocketCommandPatchService
             'type' => $this->runtimeCommandType($type),
             'payload' => $runtimePayload,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return array<string,mixed>
+     */
+    private function normalizeCardCounterRuntimePayload(array $payload): array
+    {
+        $counter = is_string($payload['counter'] ?? null) ? trim($payload['counter']) : '';
+        $legacyKey = is_string($payload['key'] ?? null) ? trim($payload['key']) : '';
+        if ($counter !== '' && $legacyKey !== '' && $counter !== $legacyKey) {
+            throw new \InvalidArgumentException('Card counter payload has conflicting counter and key fields.');
+        }
+        if ($counter === '' && $legacyKey !== '') {
+            $payload['counter'] = $legacyKey;
+        }
+        if (($payload['remove'] ?? false) === true && !array_key_exists('value', $payload)) {
+            $payload['value'] = 0;
+        }
+
+        return $payload;
     }
 
     /**

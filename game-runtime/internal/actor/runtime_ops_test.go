@@ -85,6 +85,38 @@ func TestRuntimeCommandEmitsIdempotentGameLogEntry(t *testing.T) {
 	}
 }
 
+func TestLibraryShuffleEmitsCompactGameLogEntry(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "shuffle-log", "library.shuffle", map[string]any{"playerId": "p1"}), "p1")
+	if result.Err != nil {
+		t.Fatalf("shuffle failed: %v", result.Err)
+	}
+
+	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if logPatch == nil {
+		t.Fatalf("missing eventLog.append patch: %#v", result.Patches)
+	}
+	entries := logPatch.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["type"] != "library.shuffle" || entries[0]["actorId"] != "p1" {
+		t.Fatalf("bad shuffle log entry: %#v", entries)
+	}
+	if message, _ := entries[0]["message"].(string); !strings.Contains(message, "shuffled their library") {
+		t.Fatalf("bad shuffle log message: %#v", entries[0])
+	}
+	if _, leaked := entries[0]["cardNames"]; leaked {
+		t.Fatalf("shuffle log must not include card names: %#v", entries[0])
+	}
+	encoded := fmt.Sprintf("%#v", entries[0])
+	if contains(encoded, "cardKey") || contains(encoded, "library-") {
+		t.Fatalf("shuffle log leaked library identity/order: %s", encoded)
+	}
+
+	eventEntries := result.Event.Payload["eventLogEntries"].([]map[string]any)
+	if len(eventEntries) != 1 || eventEntries[0]["id"] != entries[0]["id"] {
+		t.Fatalf("event payload did not carry matching shuffle log entry: patch=%#v event=%#v", entries, eventEntries)
+	}
+}
+
 func TestMoveFromPrivateToPublicKeepsLocalizedOwnerIdentityAndCanonicalPublicIdentity(t *testing.T) {
 	game := testState()
 	instance := game.Instances["h1"]
@@ -92,7 +124,8 @@ func TestMoveFromPrivateToPublicKeepsLocalizedOwnerIdentityAndCanonicalPublicIde
 	instance.CardVersion = "localized-v1"
 	instance.Language = "es"
 	game.Instances["h1"] = instance
-	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+	initial := game.Clone()
+	gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
 
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-localized", "card.moved", map[string]any{
 		"playerId":   "p1",
@@ -1537,6 +1570,14 @@ func TestCommanderMoveFromCommandToBattlefieldIncrementsCastCount(t *testing.T) 
 	if counters["casts"] != 1 {
 		t.Fatalf("bad commander counter patch: %#v", patch.Data)
 	}
+	movePatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.move")
+	if movePatch == nil {
+		t.Fatalf("missing commander move patch: %#v", result.Patches)
+	}
+	card := movePatch.Data["card"].(map[string]any)
+	if card["isCommander"] != true {
+		t.Fatalf("commander move patch lost isCommander: %#v", card)
+	}
 	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
 	if logPatch == nil {
 		t.Fatalf("missing commander cast eventLog.append patch: %#v", result.Patches)
@@ -1544,6 +1585,74 @@ func TestCommanderMoveFromCommandToBattlefieldIncrementsCastCount(t *testing.T) 
 	entries := logPatch.Data["entries"].([]map[string]any)
 	if len(entries) != 1 || !strings.Contains(strings.ToLower(fmt.Sprint(entries[0]["message"])), "commander") || !strings.Contains(fmt.Sprint(entries[0]["message"]), "1") {
 		t.Fatalf("bad commander cast log entry: %#v", entries)
+	}
+}
+
+func TestCommanderCastDerivesMissingCommanderFlagFromCommandZone(t *testing.T) {
+	game := testStateWithCommanderInCommand()
+	commander := game.Instances["commander-1"]
+	commander.IsCommander = false
+	game.Instances["commander-1"] = commander
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "cast-command-zone-card-with-missing-flag", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "command",
+		"toZone":     "battlefield",
+		"instanceId": "commander-1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("commander move failed: %v", result.Err)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if got := snapshot.SharedCounters["commander:commander-1"]["casts"]; got != 1 {
+		t.Fatalf("commander casts got %d want 1", got)
+	}
+	if snapshot.Instances["commander-1"].IsCommander != true {
+		t.Fatalf("runtime did not normalize missing commander flag: %#v", snapshot.Instances["commander-1"])
+	}
+	movePatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.move")
+	if movePatch == nil {
+		t.Fatalf("missing commander move patch: %#v", result.Patches)
+	}
+	card := movePatch.Data["card"].(map[string]any)
+	if card["isCommander"] != true {
+		t.Fatalf("commander move patch did not normalize isCommander: %#v", card)
+	}
+}
+
+func TestCardsMovedFromCommandZoneDerivesMissingCommanderFlagsAndCountsCasts(t *testing.T) {
+	game := testStateWithCommanderInCommand()
+	partner := game.Instances["commander-1"]
+	partner.InstanceID = "commander-2"
+	partner.IsCommander = false
+	game.Instances["commander-2"] = partner
+	game.Zones["p1"] = state.PlayerZones{Command: []string{"commander-1", "commander-2"}, Library: game.Zones["p1"].Library, Hand: game.Zones["p1"].Hand, Battlefield: game.Zones["p1"].Battlefield, Graveyard: game.Zones["p1"].Graveyard, Exile: game.Zones["p1"].Exile}
+	first := game.Instances["commander-1"]
+	first.IsCommander = false
+	game.Instances["commander-1"] = first
+	game.Loc["commander-2"] = state.Location{PlayerID: "p1", Zone: state.ZoneCommand, Index: 1, ControllerID: "p1"}
+
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "cast-commanders-batch", "cards.moved", map[string]any{
+		"playerId":    "p1",
+		"fromZone":    "command",
+		"toZone":      "battlefield",
+		"instanceIds": []any{"commander-1", "commander-2"},
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("commander batch move failed: %v", result.Err)
+	}
+
+	snapshot := gameActor.Snapshot()
+	for _, instanceID := range []string{"commander-1", "commander-2"} {
+		if got := snapshot.SharedCounters["commander:"+instanceID]["casts"]; got != 1 {
+			t.Fatalf("%s casts got %d want 1", instanceID, got)
+		}
+		if snapshot.Instances[instanceID].IsCommander != true {
+			t.Fatalf("%s missing normalized commander flag: %#v", instanceID, snapshot.Instances[instanceID])
+		}
 	}
 }
 
@@ -1690,6 +1799,29 @@ func TestMovingCommanderWithoutCastingDoesNotIncrementCastCount(t *testing.T) {
 	}
 	if patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "game.counters.set"); patch != nil {
 		t.Fatalf("non-cast move emitted commander counter patch: %#v", patch)
+	}
+}
+
+func TestCommanderCastCountsWhenBattlefieldTargetPlayerDiffersFromOwner(t *testing.T) {
+	game := testStateWithCommanderInCommand()
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "cast-commander-target-battlefield", "card.moved", map[string]any{
+		"playerId":       "p1",
+		"fromZone":       "command",
+		"toZone":         "battlefield",
+		"targetPlayerId": "p2",
+		"instanceId":     "commander-1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("commander move failed: %v", result.Err)
+	}
+
+	snapshot := gameActor.Snapshot()
+	if got := snapshot.SharedCounters["commander:commander-1"]["casts"]; got != 1 {
+		t.Fatalf("commander casts got %d want 1", got)
+	}
+	if got := snapshot.Instances["commander-1"].ControllerID; got != "p2" {
+		t.Fatalf("commander controller got %s want p2", got)
 	}
 }
 
@@ -1847,6 +1979,48 @@ func TestBattlefieldUntapAllPatchesOnlyAffectedCards(t *testing.T) {
 	}
 }
 
+func TestBattlefieldUntapAllUsesControllerAcrossBattlefields(t *testing.T) {
+	game := testState()
+	controlled := state.CardInstanceRuntime{InstanceID: "borrowed-1", CardKey: "borrowed@1", OwnerID: "p2", ControllerID: "p1", Zone: state.ZoneBattlefield, Tapped: true, Rotation: 90}
+	opponent := state.CardInstanceRuntime{InstanceID: "opponent-1", CardKey: "opponent@1", OwnerID: "p2", ControllerID: "p2", Zone: state.ZoneBattlefield, Tapped: true, Rotation: 90}
+	game.Instances["borrowed-1"] = controlled
+	game.Instances["opponent-1"] = opponent
+	zones := game.Zones["p2"]
+	zones.Battlefield = []string{"borrowed-1", "opponent-1"}
+	game.Zones["p2"] = zones
+	game.Loc["borrowed-1"] = state.Location{PlayerID: "p2", Zone: state.ZoneBattlefield, Index: 0, ControllerID: "p1"}
+	game.Loc["opponent-1"] = state.Location{PlayerID: "p2", Zone: state.ZoneBattlefield, Index: 1, ControllerID: "p2"}
+
+	initial := game.Clone()
+	gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "untap-controller", "battlefield.untap_all", map[string]any{"playerId": "p1"}), "p1")
+	if result.Err != nil {
+		t.Fatalf("untap failed: %v", result.Err)
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Instances["borrowed-1"].Tapped || snapshot.Instances["borrowed-1"].Rotation != 0 {
+		t.Fatalf("controlled permanent was not untapped: %#v", snapshot.Instances["borrowed-1"])
+	}
+	if !snapshot.Instances["opponent-1"].Tapped || snapshot.Instances["opponent-1"].Rotation != 90 {
+		t.Fatalf("opponent permanent was untapped: %#v", snapshot.Instances["opponent-1"])
+	}
+	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "card.field.set")
+	if patch == nil || patch.Data["instanceId"] != "borrowed-1" || patch.Data["playerId"] != "p2" {
+		t.Fatalf("bad controlled untap patch: %#v", result.Patches)
+	}
+
+	replayed, err := ReplayEvents(initial, []protocol.EventPayloadV2{result.Event}, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("replay failed: %v", err)
+	}
+	if replayed.Instances["borrowed-1"].Tapped || replayed.Instances["borrowed-1"].Rotation != 0 {
+		t.Fatalf("replay did not preserve untap all: %#v", replayed.Instances["borrowed-1"])
+	}
+	if !replayed.Instances["opponent-1"].Tapped || replayed.Instances["opponent-1"].Rotation != 90 {
+		t.Fatalf("replay untapped opponent permanent: %#v", replayed.Instances["opponent-1"])
+	}
+}
+
 func TestBattlefieldAndCountersRuntimeMetricsStayAtZeroFullScan(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 
@@ -1946,6 +2120,89 @@ func TestCardCounterChangedDoesNotMutateUnrelatedState(t *testing.T) {
 
 	after := gameActor.Snapshot()
 	assertStateIntegrityAroundCounter(t, before, after, 3)
+}
+
+func TestCardCounterChangedAcceptsLegacyKeyPayload(t *testing.T) {
+	gameActor := NewGameActor("game-1", stateIntegrityCounterState(t), nil, 8, DefaultAppliers())
+
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "legacy-counter", "card.counter.changed", map[string]any{
+		"instanceId": "i1",
+		"key":        "charge",
+		"value":      2,
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("legacy key counter failed: %v", result.Err)
+	}
+	if got := gameActor.Snapshot().Instances["i1"].Counters["charge"]; got != 2 {
+		t.Fatalf("counter got %d want 2", got)
+	}
+}
+
+func TestPowerToughnessCountersUpdateMutableStats(t *testing.T) {
+	gameActor := NewGameActor("game-1", stateIntegrityCounterState(t), nil, 8, DefaultAppliers())
+
+	plus := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "plus-counter", "card.counter.changed", map[string]any{
+		"instanceId": "i1",
+		"counter":    "+1/+1",
+		"value":      1,
+	}), "p1")
+	if plus.Err != nil {
+		t.Fatalf("+1/+1 counter failed: %v", plus.Err)
+	}
+	instance := gameActor.Snapshot().Instances["i1"]
+	if instance.MutableStats["power"] != 6 || instance.MutableStats["toughness"] != 8 {
+		t.Fatalf("+1/+1 did not update stats: %#v", instance.MutableStats)
+	}
+	plusPatch := patchForVisibility(plus.Patches, protocol.VisibilityPublic, "card.counters.patch")
+	if plusPatch == nil || plusPatch.Data["power"] != 6 || plusPatch.Data["toughness"] != 8 {
+		t.Fatalf("+1/+1 patch missing stats: %#v", plus.Patches)
+	}
+
+	minus := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "minus-counter", "card.counter.changed", map[string]any{
+		"instanceId": "i1",
+		"counter":    "-1/-1",
+		"value":      1,
+	}), "p1")
+	if minus.Err != nil {
+		t.Fatalf("-1/-1 counter failed: %v", minus.Err)
+	}
+	instance = gameActor.Snapshot().Instances["i1"]
+	if instance.MutableStats["power"] != 5 || instance.MutableStats["toughness"] != 7 {
+		t.Fatalf("-1/-1 did not update stats: %#v", instance.MutableStats)
+	}
+	minusPatch := patchForVisibility(minus.Patches, protocol.VisibilityPublic, "card.counters.patch")
+	if minusPatch == nil || minusPatch.Data["power"] != 5 || minusPatch.Data["toughness"] != 7 {
+		t.Fatalf("-1/-1 patch missing stats: %#v", minus.Patches)
+	}
+	if patch := patchForVisibility(minus.Patches, protocol.VisibilityPublic, "card.field.set"); patch != nil {
+		t.Fatalf("counter stats must stay on card.counters.patch, got field patch: %#v", patch)
+	}
+}
+
+func TestCardCounterChangedRejectsMissingOrConflictingCounterPayload(t *testing.T) {
+	t.Run("missing counter", func(t *testing.T) {
+		gameActor := NewGameActor("game-1", stateIntegrityCounterState(t), nil, 8, DefaultAppliers())
+		result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "missing-counter", "card.counter.changed", map[string]any{
+			"instanceId": "i1",
+			"value":      2,
+		}), "p1")
+		if !errors.Is(result.Err, ErrMissingPayloadField) {
+			t.Fatalf("err got %v want missing payload field", result.Err)
+		}
+	})
+
+	t.Run("conflicting counter and key", func(t *testing.T) {
+		gameActor := NewGameActor("game-1", stateIntegrityCounterState(t), nil, 8, DefaultAppliers())
+		result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "conflicting-counter", "card.counter.changed", map[string]any{
+			"instanceId": "i1",
+			"counter":    "charge",
+			"key":        "+1/+1",
+			"value":      2,
+		}), "p1")
+		if result.Err == nil || !strings.Contains(result.Err.Error(), "conflicting payload fields") {
+			t.Fatalf("err got %v want conflicting payload fields", result.Err)
+		}
+	})
 }
 
 func TestCardCounterReplayPreservesUnrelatedState(t *testing.T) {
@@ -2413,6 +2670,84 @@ func TestControlledPermanentMovesToOwnerGraveyardAndExile(t *testing.T) {
 				t.Fatalf("replayed controller did not return to owner: %#v", replayed.Instances["i1"])
 			}
 		})
+	}
+}
+
+func TestTokenLeavingBattlefieldEvaporatesInsteadOfEnteringDestinationZone(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		zone state.Zone
+	}{
+		{name: "graveyard", zone: state.ZoneGraveyard},
+		{name: "exile", zone: state.ZoneExile},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			initial := testState()
+			token := initial.Instances["i1"]
+			token.IsToken = true
+			token.TokenMeta = map[string]any{"isCopy": false}
+			initial.Instances["i1"] = token
+			gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+			result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "token-evaporate-"+tt.name, "card.moved", map[string]any{
+				"playerId":   "p1",
+				"fromZone":   "battlefield",
+				"toZone":     string(tt.zone),
+				"instanceId": "i1",
+			}), "p1")
+			if result.Err != nil {
+				t.Fatalf("token move failed: %v", result.Err)
+			}
+
+			snapshot := gameActor.Snapshot()
+			if _, ok := snapshot.Instances["i1"]; ok {
+				t.Fatalf("token remained in instances after evaporation: %#v", snapshot.Instances["i1"])
+			}
+			if _, ok := snapshot.Loc["i1"]; ok {
+				t.Fatalf("token remained in loc after evaporation: %#v", snapshot.Loc["i1"])
+			}
+			if got := joinStrings(testZoneIDs(snapshot.Zones["p1"], tt.zone)); got != "" {
+				t.Fatalf("token entered %s: %s", tt.zone, got)
+			}
+			remove := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.remove")
+			if remove == nil {
+				t.Fatalf("missing token remove patch: %#v", result.Patches)
+			}
+			if move := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.move"); move != nil {
+				t.Fatalf("token emitted move patch instead of remove: %#v", move)
+			}
+
+			replayed, err := ReplayEvents(initial, []protocol.EventPayloadV2{result.Event}, DefaultAppliers())
+			if err != nil {
+				t.Fatalf("replay failed: %v", err)
+			}
+			if _, ok := replayed.Instances["i1"]; ok {
+				t.Fatalf("replay reintroduced evaporated token: %#v", replayed.Instances["i1"])
+			}
+			if got := joinStrings(testZoneIDs(replayed.Zones["p1"], tt.zone)); got != "" {
+				t.Fatalf("replay put token into %s: %s", tt.zone, got)
+			}
+		})
+	}
+}
+
+func TestTokenCopyLeavingBattlefieldEvaporates(t *testing.T) {
+	initial := testState()
+	token := initial.Instances["i1"]
+	token.IsToken = true
+	token.TokenMeta = map[string]any{"isCopy": true, "copiedFromInstanceId": "source-1"}
+	initial.Instances["i1"] = token
+	gameActor := NewGameActor("game-1", initial.Clone(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "token-copy-evaporate", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "battlefield",
+		"toZone":     "graveyard",
+		"instanceId": "i1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("token copy move failed: %v", result.Err)
+	}
+	if _, ok := gameActor.Snapshot().Instances["i1"]; ok {
+		t.Fatalf("token copy remained after evaporation")
 	}
 }
 
@@ -2921,13 +3256,27 @@ func assertStateIntegrityAroundCounter(t *testing.T, before state.GameState, aft
 	if afterCard.Counters["+1/+1"] != counterValue || afterCard.Counters["shield"] != beforeCard.Counters["shield"] {
 		t.Fatalf("counter mismatch before=%#v after=%#v", beforeCard.Counters, afterCard.Counters)
 	}
+	if beforePower, ok := intFromAny(beforeCard.MutableStats["power"]); ok {
+		if afterPower, ok := intFromAny(afterCard.MutableStats["power"]); !ok || afterPower != beforePower+counterValue {
+			t.Fatalf("counter did not update power from %d by %d: %#v", beforePower, counterValue, afterCard.MutableStats)
+		}
+	}
+	if beforeToughness, ok := intFromAny(beforeCard.MutableStats["toughness"]); ok {
+		if afterToughness, ok := intFromAny(afterCard.MutableStats["toughness"]); !ok || afterToughness != beforeToughness+counterValue {
+			t.Fatalf("counter did not update toughness from %d by %d: %#v", beforeToughness, counterValue, afterCard.MutableStats)
+		}
+	}
 	beforeCard.Counters = nil
 	afterCounters := afterCard.Counters
 	afterCard.Counters = nil
+	beforeCard.MutableStats = nil
+	afterMutableStats := afterCard.MutableStats
+	afterCard.MutableStats = nil
 	if !reflect.DeepEqual(beforeCard, afterCard) {
 		t.Fatalf("counter mutated unrelated card fields\nbefore=%#v\nafter=%#v", beforeCard, afterCard)
 	}
 	afterCard.Counters = afterCounters
+	afterCard.MutableStats = afterMutableStats
 
 	if !reflect.DeepEqual(before.Instances["i2"], after.Instances["i2"]) {
 		t.Fatalf("counter mutated another card\nbefore=%#v\nafter=%#v", before.Instances["i2"], after.Instances["i2"])

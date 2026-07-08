@@ -149,7 +149,7 @@ final class GameplayV2ContractFactory
                     if (!$this->isHiddenPlaceholder($card)) {
                         $requiredStaticCards[$cardRef] ??= $staticCard;
                     }
-                    $instances[$instanceId] = $this->instance($card, $instanceId, $staticCard, $zoneId);
+                    $instances[$instanceId] = $this->instance($card, $instanceId, $staticCard, $zoneId, $zoneName);
                     $instanceIds[] = $instanceId;
                 }
 
@@ -180,6 +180,7 @@ final class GameplayV2ContractFactory
                 'colorIdentity' => is_array($player['colorIdentity'] ?? null) ? array_values($player['colorIdentity']) : [],
                 'backgroundName' => is_string($player['backgroundName'] ?? null) ? $player['backgroundName'] : null,
                 'sleevesName' => is_string($player['sleevesName'] ?? null) ? $player['sleevesName'] : null,
+                'mulligan' => is_array($player['mulligan'] ?? null) ? $player['mulligan'] : null,
             ];
         }
 
@@ -370,7 +371,7 @@ final class GameplayV2ContractFactory
      * @param array<string,mixed> $card
      * @return array<string,mixed>
      */
-    private function instance(array $card, string $instanceId, array $staticCard, string $zoneId): array
+    private function instance(array $card, string $instanceId, array $staticCard, string $zoneId, string $zoneName): array
     {
         $instance = [
             'instanceId' => $instanceId,
@@ -392,7 +393,7 @@ final class GameplayV2ContractFactory
             'revealedTo' => is_array($card['revealedTo'] ?? null) ? array_values($card['revealedTo']) : [],
             'isToken' => ($card['isToken'] ?? false) === true,
             'isTokenCopy' => ($card['isTokenCopy'] ?? false) === true,
-            'isCommander' => ($card['isCommander'] ?? false) === true,
+            'isCommander' => ($card['isCommander'] ?? $zoneName === 'command') === true,
         ];
         if (!$this->isHiddenPlaceholder($card)) {
             $instance['cardKey'] = $staticCard['cardKey'];

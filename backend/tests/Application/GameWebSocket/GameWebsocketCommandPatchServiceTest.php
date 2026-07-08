@@ -2146,6 +2146,82 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(0, $metricsStore->records()[0]['battlefield.full_scan_count'] ?? 1);
     }
 
+    public function testCardCounterRuntimePayloadNormalizesLegacyKeyToCounter(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+        $runtimeClient = new CommandPatchRuntimeClientStub([[
+            'gameId' => $game->id(),
+            'version' => 2,
+            'visibility' => 'public',
+            'ops' => [[
+                'op' => 'card.counters.patch',
+                'data' => [
+                    'playerId' => $actor->id(),
+                    'zone' => 'battlefield',
+                    'instanceId' => 'battlefield-1',
+                    'counters' => ['charge' => 2],
+                ],
+            ]],
+        ]]);
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: false,
+            expectFlush: false,
+            expectClear: true,
+            flagsV2: $this->runtimeFlags('card.counter.changed', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'card.counter.changed', runtime: true, shadow: false),
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'card.counter.changed',
+            ['playerId' => $actor->id(), 'zone' => 'battlefield', 'instanceId' => 'battlefield-1', 'key' => 'charge', 'value' => 2],
+            'action-runtime-card-counter-key',
+            1,
+            'message-runtime-card-counter-key',
+            'v2',
+        );
+
+        self::assertSame('patch.v2', $result->messageForUserId($actor->id())['kind']);
+        self::assertSame(['card.counter.changed'], $runtimeClient->types);
+        self::assertSame('charge', $runtimeClient->payloads[0]['counter'] ?? null);
+        self::assertSame('charge', $runtimeClient->payloads[0]['key'] ?? null);
+    }
+
+    public function testCardCounterRuntimePayloadRejectsConflictingCounterAndKey(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+        $runtimeClient = new CommandPatchRuntimeClientStub([]);
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: false,
+            expectFlush: false,
+            expectClear: true,
+            flagsV2: $this->runtimeFlags('card.counter.changed', runtime: true, shadow: false),
+            runtimeGateway: $this->runtimeGateway($runtimeClient, 'card.counter.changed', runtime: true, shadow: false),
+        );
+
+        $message = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'card.counter.changed',
+            ['playerId' => $actor->id(), 'zone' => 'battlefield', 'instanceId' => 'battlefield-1', 'counter' => 'charge', 'key' => '+1/+1', 'value' => 2],
+            'action-runtime-card-counter-conflict',
+            1,
+            'message-runtime-card-counter-conflict',
+            'v2',
+        );
+
+        self::assertSame('command_ack', $message['kind']);
+        self::assertSame('rejected', $message['status']);
+        self::assertSame('INVALID_COMMAND_MESSAGE', $message['error']['code'] ?? null);
+        self::assertStringContainsString('conflicting counter and key', $message['error']['message'] ?? '');
+        self::assertSame([], $runtimeClient->types);
+    }
+
     public function testAllowlistedLifeChangedRoutesRuntimePrimary(): void
     {
         [$game, $actor] = $this->game();

@@ -193,7 +193,7 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	if err != nil {
 		return nil, err
 	}
-	counter, err := stringField(command.Payload, "counter")
+	counter, err := cardCounterName(command.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -204,6 +204,7 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	if instance.Counters == nil {
 		instance.Counters = map[string]int{}
 	}
+	previousValue := instance.Counters[counter]
 	value, ok := intField(command.Payload, "value")
 	if !ok {
 		delta, hasDelta := intField(command.Payload, "delta")
@@ -218,6 +219,7 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	} else {
 		instance.Counters[counter] = value
 	}
+	statPatch, hasStatPatch := applyPowerToughnessCounterDelta(&instance, counter, value-previousValue)
 	game.Instances[instanceID] = instance
 	patch := map[string]any{
 		"instanceId": instanceID,
@@ -227,17 +229,73 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 		"value":      value,
 		"counters":   cloneIntMapAny(instance.Counters),
 	}
+	if hasStatPatch {
+		for key, value := range statPatch {
+			patch[key] = value
+		}
+	}
+	patchData := map[string]any{
+		"instanceId": instanceID,
+		"playerId":   location.PlayerID,
+		"zone":       location.Zone,
+		"counters":   cloneIntMapAny(instance.Counters),
+	}
+	if hasStatPatch {
+		for key, value := range statPatch {
+			patchData[key] = value
+		}
+	}
 	emitter.EmitPublic(protocol.PatchOp{
-		Op: "card.counters.patch",
-		Data: map[string]any{
-			"instanceId": instanceID,
-			"playerId":   location.PlayerID,
-			"zone":       location.Zone,
-			"counters":   cloneIntMapAny(instance.Counters),
-		},
+		Op:   "card.counters.patch",
+		Data: patchData,
 	})
 	patch["metrics"] = countersMetrics(start, emitter)
 	return patch, nil
+}
+
+func applyPowerToughnessCounterDelta(instance *state.CardInstanceRuntime, counter string, delta int) (map[string]any, bool) {
+	modifier := 0
+	switch counter {
+	case "+1/+1":
+		modifier = 1
+	case "-1/-1":
+		modifier = -1
+	default:
+		return nil, false
+	}
+	if delta == 0 {
+		return nil, false
+	}
+	if instance.MutableStats == nil {
+		instance.MutableStats = map[string]any{}
+	}
+	power := numericMutableStat(instance.MutableStats["power"]) + (delta * modifier)
+	toughness := numericMutableStat(instance.MutableStats["toughness"]) + (delta * modifier)
+	instance.MutableStats["power"] = power
+	instance.MutableStats["toughness"] = toughness
+	return map[string]any{"power": power, "toughness": toughness}, true
+}
+
+func numericMutableStat(value any) int {
+	if parsed, ok := intFromAny(value); ok {
+		return parsed
+	}
+	return 0
+}
+
+func cardCounterName(payload map[string]any) (string, error) {
+	counter, counterErr := stringField(payload, "counter")
+	legacyKey, keyErr := stringField(payload, "key")
+	if counterErr == nil && keyErr == nil && counter != legacyKey {
+		return "", fmt.Errorf("conflicting payload fields: counter and key")
+	}
+	if counterErr == nil {
+		return counter, nil
+	}
+	if keyErr == nil {
+		return legacyKey, nil
+	}
+	return "", fmt.Errorf("%w: counter", ErrMissingPayloadField)
 }
 
 type CardPositionChangedApplier struct{}
@@ -405,6 +463,7 @@ func cardPatchData(game *state.GameState, viewerID string, instanceID string) ma
 		"counters":     instance.Counters,
 		"position":     instance.Position,
 		"faceDown":     instance.FaceDown,
+		"isCommander":  instance.IsCommander,
 	}
 	for _, key := range []string{"power", "toughness", "loyalty", "defense", "saga"} {
 		if value, ok := instance.MutableStats[key]; ok {

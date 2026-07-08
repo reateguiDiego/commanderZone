@@ -72,7 +72,24 @@ class GameplayV2ContractFactoryTest extends TestCase
     {
         [$game, $viewer] = $this->game();
         $factory = new GameplayV2ContractFactory();
-        $bootstrap = $factory->bootstrap($game, $viewer, $this->projectedSnapshot($viewer));
+        $snapshot = $this->projectedSnapshot($viewer);
+        $snapshot['players'][$viewer->id()]['mulligan'] = [
+            'rule' => 'GENEROUS',
+            'firstMulliganFree' => true,
+            'mulligansTaken' => 0,
+            'effectiveMulligans' => 0,
+            'drawCount' => 10,
+            'bottomSelectionCount' => 3,
+            'finalHandSize' => 7,
+            'needsBottomSelection' => true,
+            'bottomOrderMode' => 'RANDOM_SERVER_SIDE',
+            'needsScryAfterKeep' => false,
+            'canTakeAnotherMulligan' => true,
+            'status' => 'DECIDING',
+            'ready' => false,
+            'handCount' => 10,
+        ];
+        $bootstrap = $factory->bootstrap($game, $viewer, $snapshot);
 
         self::assertInstanceOf(BootstrapV2::class, $bootstrap);
         self::assertSame($game->id(), $bootstrap->game['id']);
@@ -84,6 +101,8 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertSame(['U', 'R', 'G'], $bootstrap->players[$viewer->id()]['colorIdentity']);
         self::assertSame('R_7', $bootstrap->players[$viewer->id()]['backgroundName']);
         self::assertSame('custom-sleeves', $bootstrap->players[$viewer->id()]['sleevesName']);
+        self::assertSame(3, $bootstrap->players[$viewer->id()]['mulligan']['bottomSelectionCount'] ?? null);
+        self::assertSame('RANDOM_SERVER_SIDE', $bootstrap->players[$viewer->id()]['mulligan']['bottomOrderMode'] ?? null);
         self::assertNotEmpty($bootstrap->staticCards);
         self::assertSame('33333333-3333-3333-3333-333333333333', $bootstrap->staticCards['33333333-3333-3333-3333-333333333333:card']['printId']);
         self::assertSame('legacy-snapshot-v1', $bootstrap->staticCards['33333333-3333-3333-3333-333333333333:card']['cardVersion']);
@@ -102,6 +121,25 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertSame('commanderzone-manual-v1', $bootstrap->rulesVersion);
         self::assertSame('legacy-snapshot-v1', $bootstrap->cardCatalogVersion);
         self::assertIsInt($bootstrap->payloadBytes);
+    }
+
+    public function testBootstrapMarksCommandZoneCardsAsCommandersWhenLegacySnapshotOmittedFlag(): void
+    {
+        [$game, $viewer] = $this->game();
+        $snapshot = $this->projectedSnapshot($viewer);
+        $snapshot['players'][$viewer->id()]['zones']['command'] = [[
+            'instanceId' => 'commander-without-flag',
+            'ownerId' => $viewer->id(),
+            'controllerId' => $viewer->id(),
+            'scryfallId' => '33333333-3333-3333-3333-333333333333',
+            'name' => 'Commander Without Flag',
+            'zone' => 'command',
+        ]];
+        $snapshot['players'][$viewer->id()]['zoneCounts']['command'] = 1;
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $viewer, $snapshot);
+
+        self::assertTrue($bootstrap->instances['commander-without-flag']['isCommander'] ?? false);
     }
 
     public function testBootstrapUsesSharedStaticRefForGenericTokensAndCompactStackRelations(): void

@@ -9,6 +9,7 @@ import type {
   GameDisconnectVoteState,
   GameLogEntry,
   GamePowerToughnessValue,
+  GamePlayerMulliganState,
   GameRematchState,
   GameSpecialEntity,
   GameTurn,
@@ -74,6 +75,7 @@ export interface BootstrapPlayerV2 {
   backgroundName?: string | null;
   sleevesName?: string | null;
   playTopLibraryRevealed?: boolean;
+  mulligan?: GamePlayerMulliganState | null;
 }
 
 export interface BootstrapZoneV2 {
@@ -306,6 +308,8 @@ export type GameplayPatchV2Operation =
       zone: GameZoneName;
       instanceId: string;
       counters: Record<string, number>;
+      power?: GamePowerToughnessValue;
+      toughness?: GamePowerToughnessValue;
     }
   | {
       op: 'zone.cards.add';

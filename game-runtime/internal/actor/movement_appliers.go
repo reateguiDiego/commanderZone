@@ -61,10 +61,15 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 	}
 
 	applyMovementZoneState(game, moves, visualPosition, hasRequestedFaceDown, requestedFaceDown)
-	commanderCastCounters := applyCommanderCastCounters(game, moves)
-	emitMovementPatches(emitter, game, moves)
+	evaporated := evaporatingMoveSet(game, moves)
+	removedRelations := pruneRelationsForMoves(game, moves)
+	removeEvaporatedInstances(game, moves, evaporated)
+	normalMoves := nonEvaporatingMoves(moves, evaporated)
+	commanderCastCounters := applyCommanderCastCounters(game, normalMoves)
+	emitMovementPatches(emitter, game, normalMoves)
+	emitEvaporatedRemovalPatches(emitter, moves, evaporated)
 	emitCommanderCastCounterPatches(emitter, commanderCastCounters)
-	emitPrunedRelationPatches(emitter, pruneRelationsForMoves(game, moves))
+	emitPrunedRelationPatches(emitter, removedRelations)
 	emitTouchedZoneCounts(emitter, game, moves)
 	payload := map[string]any{
 		"playerId":              playerID,
@@ -73,7 +78,7 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 		"instanceId":            instanceIDs[0],
 		"toZone":                string(toZone),
 		"position":              visualPosition,
-		"moves":                 movementEventMoves(game, moves),
+		"moves":                 movementEventMoves(game, moves, evaporated),
 		"commanderCastCounters": commanderCastCounters,
 		"metrics":               movementMetrics(start, ops, len(moves), emitter),
 	}
@@ -152,12 +157,17 @@ func (ZoneMoveAllApplier) Apply(_ context.Context, game *state.GameState, comman
 		return nil, err
 	}
 	applyMovementZoneState(game, moves, nil, false, false)
-	commanderCastCounters := applyCommanderCastCounters(game, moves)
-	emitMovementPatches(emitter, game, moves)
+	evaporated := evaporatingMoveSet(game, moves)
+	removedRelations := pruneRelationsForMoves(game, moves)
+	removeEvaporatedInstances(game, moves, evaporated)
+	normalMoves := nonEvaporatingMoves(moves, evaporated)
+	commanderCastCounters := applyCommanderCastCounters(game, normalMoves)
+	emitMovementPatches(emitter, game, normalMoves)
+	emitEvaporatedRemovalPatches(emitter, moves, evaporated)
 	emitCommanderCastCounterPatches(emitter, commanderCastCounters)
-	emitPrunedRelationPatches(emitter, pruneRelationsForMoves(game, moves))
+	emitPrunedRelationPatches(emitter, removedRelations)
 	emitTouchedZoneCounts(emitter, game, moves)
-	payload := map[string]any{"playerId": playerID, "fromZone": string(fromZone), "toZone": string(toZone), "count": len(moves), "moves": movementEventMoves(game, moves), "commanderCastCounters": commanderCastCounters, "metrics": movementMetrics(start, ops, len(moves), emitter)}
+	payload := map[string]any{"playerId": playerID, "fromZone": string(fromZone), "toZone": string(toZone), "count": len(moves), "moves": movementEventMoves(game, moves, evaporated), "commanderCastCounters": commanderCastCounters, "metrics": movementMetrics(start, ops, len(moves), emitter)}
 	if target := uniformMoveTargetPlayerID(moves); target != "" {
 		payload["targetPlayerId"] = target
 	}
@@ -174,10 +184,19 @@ func (BattlefieldUntapAllApplier) Apply(_ context.Context, game *state.GameState
 	if err != nil {
 		return nil, err
 	}
-	ids := game.Zones[playerID].Battlefield
-	untapped := make([]string, 0, len(ids))
-	for _, instanceID := range ids {
+	untapped := []string{}
+	for instanceID, location := range game.Loc {
+		if location.Zone != state.ZoneBattlefield {
+			continue
+		}
 		instance := game.Instances[instanceID]
+		controllerID := instance.ControllerID
+		if controllerID == "" {
+			controllerID = location.ControllerID
+		}
+		if controllerID != playerID {
+			continue
+		}
 		if !instance.Tapped && instance.Rotation == 0 {
 			continue
 		}
@@ -189,7 +208,7 @@ func (BattlefieldUntapAllApplier) Apply(_ context.Context, game *state.GameState
 			Op: "card.field.set",
 			Data: map[string]any{
 				"instanceId": instanceID,
-				"playerId":   playerID,
+				"playerId":   location.PlayerID,
 				"zone":       state.ZoneBattlefield,
 				"tapped":     false,
 				"rotation":   0,
@@ -361,6 +380,10 @@ func applyCommanderCastCounters(game *state.GameState, moves []state.ZoneMove) [
 			continue
 		}
 		instance := game.Instances[move.InstanceID]
+		if !instance.IsCommander {
+			instance.IsCommander = true
+			game.Instances[move.InstanceID] = instance
+		}
 		scope := "commander:" + move.InstanceID
 		counters := cloneIntMap(game.SharedCounters[scope])
 		counters["casts"] = counters["casts"] + 1
@@ -386,14 +409,17 @@ func isCommanderCastMove(game *state.GameState, move state.ZoneMove) bool {
 		return false
 	}
 	instance := game.Instances[move.InstanceID]
-	if !instance.IsCommander {
-		return false
-	}
 	ownerID := instance.OwnerID
 	if ownerID == "" {
 		ownerID = move.From.PlayerID
 	}
-	return move.From.PlayerID == ownerID && move.To.PlayerID == ownerID
+	if move.From.PlayerID != ownerID {
+		return false
+	}
+	if instance.IsCommander {
+		return true
+	}
+	return move.From.Zone == state.ZoneCommand
 }
 
 func emitCommanderCastCounterPatches(emitter *PatchEmitter, counters []map[string]any) {
@@ -598,17 +624,83 @@ func emitTouchedZoneCounts(emitter *PatchEmitter, game *state.GameState, moves [
 	}
 }
 
-func movementEventMoves(game *state.GameState, moves []state.ZoneMove) []map[string]any {
+func movementEventMoves(game *state.GameState, moves []state.ZoneMove, evaporated map[string]struct{}) []map[string]any {
 	out := make([]map[string]any, 0, len(moves))
 	for _, move := range moves {
-		out = append(out, map[string]any{
+		entry := map[string]any{
 			"instanceId": move.InstanceID,
 			"from":       map[string]any{"playerId": move.From.PlayerID, "zone": move.From.Zone, "index": move.From.Index},
 			"to":         map[string]any{"playerId": move.To.PlayerID, "zone": move.To.Zone, "index": move.To.Index},
-			"position":   cloneMap(game.Instances[move.InstanceID].Position),
-		})
+		}
+		if _, ok := evaporated[move.InstanceID]; ok {
+			entry["evaporates"] = true
+		} else {
+			entry["position"] = cloneMap(game.Instances[move.InstanceID].Position)
+		}
+		out = append(out, entry)
 	}
 	return out
+}
+
+func evaporatingMoveSet(game *state.GameState, moves []state.ZoneMove) map[string]struct{} {
+	evaporated := map[string]struct{}{}
+	for _, move := range moves {
+		if move.From.Zone != state.ZoneBattlefield || move.To.Zone == state.ZoneBattlefield {
+			continue
+		}
+		instance := game.Instances[move.InstanceID]
+		if instance.IsToken {
+			evaporated[move.InstanceID] = struct{}{}
+		}
+	}
+	return evaporated
+}
+
+func nonEvaporatingMoves(moves []state.ZoneMove, evaporated map[string]struct{}) []state.ZoneMove {
+	if len(evaporated) == 0 {
+		return moves
+	}
+	kept := make([]state.ZoneMove, 0, len(moves)-len(evaporated))
+	for _, move := range moves {
+		if _, ok := evaporated[move.InstanceID]; ok {
+			continue
+		}
+		kept = append(kept, move)
+	}
+	return kept
+}
+
+func removeEvaporatedInstances(game *state.GameState, moves []state.ZoneMove, evaporated map[string]struct{}) {
+	if len(evaporated) == 0 {
+		return
+	}
+	game.EnsureVisibility()
+	for _, move := range moves {
+		if _, ok := evaporated[move.InstanceID]; !ok {
+			continue
+		}
+		_, _ = state.RemoveFromCurrentZone(game, move.InstanceID)
+		delete(game.Instances, move.InstanceID)
+		delete(game.Visibility.InstanceMasks, move.InstanceID)
+	}
+}
+
+func emitEvaporatedRemovalPatches(emitter *PatchEmitter, moves []state.ZoneMove, evaporated map[string]struct{}) {
+	if len(evaporated) == 0 {
+		return
+	}
+	removesByZone := map[string][]string{}
+	for _, move := range moves {
+		if _, ok := evaporated[move.InstanceID]; !ok {
+			continue
+		}
+		key := zoneKey(move.From.PlayerID, move.From.Zone)
+		removesByZone[key] = append(removesByZone[key], move.InstanceID)
+	}
+	for key, ids := range removesByZone {
+		playerID, zone := splitZoneKey(key)
+		emitter.EmitPublic(protocol.PatchOp{Op: "zone.cards.remove", Data: map[string]any{"playerId": playerID, "zone": zone, "instanceIds": ids}})
+	}
 }
 
 func pruneRelationsForMoves(game *state.GameState, moves []state.ZoneMove) []state.RemovedRelation {
