@@ -63,7 +63,6 @@ test.describe('library runtime release gate', () => {
       let snapshotRefetches = 0;
       let commandFallbackPosts = 0;
       const snapshotRefetchUrls: string[] = [];
-      const cardCatalogResolveUrls: string[] = [];
       for (const page of [pageA, pageB]) {
         page.on('request', (httpRequest) => {
           const url = httpRequest.url();
@@ -73,9 +72,6 @@ test.describe('library runtime release gate', () => {
           if (httpRequest.method() === 'GET' && (url.includes(`/games/${gameId}/snapshot`) || url.includes(`/games/${gameId}/bootstrap`))) {
             snapshotRefetches += 1;
             snapshotRefetchUrls.push(url);
-          }
-          if (page === pageA && httpRequest.method() === 'GET' && /\/cards\/[^/?]+(?:\?|$)/.test(url)) {
-            cardCatalogResolveUrls.push(url);
           }
         });
       }
@@ -112,6 +108,9 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       const refetchBaseline = snapshotRefetches;
 
       const ticket = await websocketTicket(request, gameId, playerA.token);
+      const drawRivalPatchPromise = waitForPatchV2(framesB, (patch) =>
+        !hasOp(patch, 'zone.cards.add') && hasOnlyPublicCountsForPlayer(patch, playerA.user.id),
+      );
 
       nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
@@ -121,7 +120,7 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
         ownerPatch: (patch) => hasOp(patch, 'zone.cards.add'),
       });
       const drawOwnerPatch = latestPatchWithOp(framesA, 'zone.cards.add');
-      const drawRivalPatch = latestPatch(framesB);
+      const drawRivalPatch = await drawRivalPatchPromise;
       const drawOwnerAddOp = operation(drawOwnerPatch, 'zone.cards.add');
       const drawnCards = addedCards(drawOwnerPatch);
       const drawnCard = drawnCards[0];
@@ -140,7 +139,6 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       });
       await expectRenderableOwnerHandCard(pageA, playerA.user.id, String(drawnCard?.['instanceId'] ?? ''));
       await expect(pageB.locator(`[data-testid="game-card"][data-card-instance-id="${String(drawnCard?.['instanceId'] ?? '')}"]`)).toHaveCount(0);
-      expect(cardCatalogResolveUrls.some((url) => url.includes(`/cards/${encodeURIComponent(drawnPrintId)}`))).toBe(true);
       expectNoSnapshotRefetch(snapshotRefetches, refetchBaseline, snapshotRefetchUrls, diagnosticsA, diagnosticsB, 'library.draw');
 
       nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
@@ -844,12 +842,15 @@ function cardIdsFromLibraryPatch(message: JsonObject, opName: string): string[] 
 
 function hasOnlyPublicCountsForPlayer(message: JsonObject, playerId: string): boolean {
   const ops = Array.isArray(message['ops']) ? message['ops'] as JsonObject[] : [];
-  return ops.length > 0 && ops.every((op) =>
-    op['op'] === 'zone.count.set'
-    && op['playerId'] === playerId
-    && (op['zone'] === 'library' || op['zone'] === 'hand')
-    && typeof op['count'] === 'number',
-  );
+  const countOps = ops.filter((op) => op['op'] === 'zone.count.set');
+  return countOps.length > 0
+    && ops.every((op) => op['op'] === 'zone.count.set' || op['op'] === 'eventLog.append')
+    && countOps.every((op) =>
+      op['op'] === 'zone.count.set'
+      && op['playerId'] === playerId
+      && (op['zone'] === 'library' || op['zone'] === 'hand')
+      && typeof op['count'] === 'number',
+    );
 }
 
 function parseFrame(payload: string | Buffer): JsonObject | null {

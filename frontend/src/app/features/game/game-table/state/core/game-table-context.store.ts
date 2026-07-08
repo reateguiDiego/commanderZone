@@ -578,7 +578,7 @@ export class GameTableContextStore {
       return;
     }
 
-    if (modal.zone === 'library') {
+    if (modal.zone === 'library' && modal.showFilters) {
       await this.zoneActions.loadZone(this.zoneAction());
       return;
     }

@@ -226,6 +226,56 @@ final class GameEventReplayService
             case 'game.started':
                 return true;
 
+            case 'disconnect.vote.updated':
+                $this->applyRuntimeDisconnectVoteUpdated($snapshot, $payload);
+
+                return true;
+
+            case 'life.changed':
+                $this->applyRuntimeLifeChanged($snapshot, $payload);
+
+                return true;
+
+            case 'turn.changed':
+                $this->applyRuntimeTurnChanged($snapshot, $payload);
+
+                return true;
+
+            case 'card.tapped':
+                $this->applyRuntimeCardTapped($snapshot, $payload);
+
+                return true;
+
+            case 'battlefield.untap_all':
+                $this->applyRuntimeBattlefieldUntapAll($snapshot, $payload);
+
+                return true;
+
+            case 'card.position.changed':
+                $this->applyRuntimeCardPositionChanged($snapshot, $payload);
+
+                return true;
+
+            case 'cards.position.changed':
+                $this->applyRuntimeCardsPositionChanged($snapshot, $payload);
+
+                return true;
+
+            case 'card.face_down.changed':
+                $this->applyRuntimeCardFaceDownChanged($snapshot, $payload);
+
+                return true;
+
+            case 'card.revealed':
+                $this->applyRuntimeCardRevealed($snapshot, $payload);
+
+                return true;
+
+            case 'card.controller.changed':
+                $this->applyRuntimeCardControllerChanged($snapshot, $payload);
+
+                return true;
+
             case 'library.draw':
             case 'library.draw_many':
                 $playerId = is_string($payload['playerId'] ?? null) ? $payload['playerId'] : '';
@@ -245,7 +295,11 @@ final class GameEventReplayService
             case 'card.moved':
             case 'cards.moved':
             case 'zone.move_all':
-                foreach (array_values(array_filter($payload['moves'] ?? [], static fn (mixed $move): bool => is_array($move))) as $move) {
+                $moves = array_values(array_filter($payload['moves'] ?? [], static fn (mixed $move): bool => is_array($move)));
+                if ($event->type() === 'card.moved' && count($moves) === 1 && array_key_exists('faceDown', $payload)) {
+                    $moves[0]['faceDown'] = ($payload['faceDown'] ?? false) === true;
+                }
+                foreach ($moves as $move) {
                     $this->applyMove($snapshot, $move);
                 }
                 $this->applyRuntimeCommanderCastCounters($snapshot, $payload);
@@ -307,6 +361,31 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'card.face.changed':
+                $this->applyRuntimeCardFaceChanged($snapshot, $payload);
+
+                return true;
+
+            case 'arrow.created':
+                $this->applyRuntimeArrowCreated($snapshot, $event, $payload);
+
+                return true;
+
+            case 'arrow.removed':
+                $this->applyRuntimeRelationRemoved($snapshot, 'arrows', $payload);
+
+                return true;
+
+            case 'attachment.created':
+                $this->applyRuntimeAttachmentCreated($snapshot, $event, $payload);
+
+                return true;
+
+            case 'attachment.removed':
+                $this->applyRuntimeAttachmentRemoved($snapshot, $payload);
+
+                return true;
+
             case 'helper.created':
                 $this->applyRuntimeHelperCreated($snapshot, $event, $payload);
 
@@ -346,6 +425,248 @@ final class GameEventReplayService
             default:
                 return false;
         }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeDisconnectVoteUpdated(array &$snapshot, array $payload): void
+    {
+        if (is_array($payload['disconnectVote'] ?? null)) {
+            $disconnectVote = $payload['disconnectVote'];
+            $disconnectVote['votes'] = is_array($disconnectVote['votes'] ?? null) ? $disconnectVote['votes'] : [];
+            $snapshot['disconnectVote'] = $disconnectVote;
+        }
+
+        $targetPlayerId = is_string($payload['targetPlayerId'] ?? null) ? trim($payload['targetPlayerId']) : '';
+        if ($targetPlayerId !== '' && ($payload['status'] ?? null) === 'resolved_expel' && isset($snapshot['players'][$targetPlayerId])) {
+            $snapshot['players'][$targetPlayerId]['status'] = 'conceded';
+            if (is_string($payload['concededAt'] ?? null)) {
+                $snapshot['players'][$targetPlayerId]['concededAt'] = $payload['concededAt'];
+            }
+        }
+
+        if (is_array($payload['turn'] ?? null)) {
+            $snapshot['turn'] = $payload['turn'];
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeLifeChanged(array &$snapshot, array $payload): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+        if (array_key_exists('life', $payload)) {
+            $snapshot['players'][$playerId]['life'] = (int) $payload['life'];
+
+            return;
+        }
+        if (array_key_exists('value', $payload)) {
+            $snapshot['players'][$playerId]['life'] = (int) $payload['value'];
+
+            return;
+        }
+        if (array_key_exists('delta', $payload)) {
+            $snapshot['players'][$playerId]['life'] = (int) ($snapshot['players'][$playerId]['life'] ?? 0) + (int) $payload['delta'];
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeTurnChanged(array &$snapshot, array $payload): void
+    {
+        if (is_array($payload['turn'] ?? null)) {
+            $snapshot['turn'] = $payload['turn'];
+
+            return;
+        }
+
+        $turn = is_array($snapshot['turn'] ?? null) ? $snapshot['turn'] : [];
+        foreach (['activePlayerId', 'phase', 'step'] as $field) {
+            if (array_key_exists($field, $payload)) {
+                $turn[$field] = $payload[$field];
+            }
+        }
+        if (array_key_exists('number', $payload)) {
+            $turn['number'] = (int) $payload['number'];
+        }
+        $snapshot['turn'] = $turn;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardTapped(array &$snapshot, array $payload): void
+    {
+        $card =& $this->locateCard($snapshot, (string) ($payload['instanceId'] ?? ''));
+        if (!is_array($card)) {
+            return;
+        }
+        if (array_key_exists('tapped', $payload)) {
+            $card['tapped'] = ($payload['tapped'] ?? false) === true;
+        }
+        if (array_key_exists('rotation', $payload)) {
+            $card['rotation'] = (int) $payload['rotation'];
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeBattlefieldUntapAll(array &$snapshot, array $payload): void
+    {
+        $instanceIds = $this->stringList($payload['instanceIds'] ?? []);
+        if ($instanceIds !== []) {
+            foreach ($instanceIds as $instanceId) {
+                $card =& $this->locateCard($snapshot, $instanceId);
+                if (is_array($card) && ($card['zone'] ?? null) === 'battlefield') {
+                    $card['tapped'] = false;
+                    $card['rotation'] = 0;
+                }
+                unset($card);
+            }
+
+            return;
+        }
+
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        if ($playerId === '') {
+            return;
+        }
+
+        foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $battlefieldPlayerId => &$player) {
+            if (!is_array($player)) {
+                continue;
+            }
+            if (!is_array($player['zones']['battlefield'] ?? null)) {
+                continue;
+            }
+            $battlefield =& $player['zones']['battlefield'];
+            foreach ($battlefield as &$card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $controllerId = is_string($card['controllerId'] ?? null) && trim($card['controllerId']) !== ''
+                    ? trim($card['controllerId'])
+                    : (string) $battlefieldPlayerId;
+                if ($controllerId !== $playerId) {
+                    continue;
+                }
+                $card['tapped'] = false;
+                $card['rotation'] = 0;
+            }
+            unset($card, $battlefield);
+        }
+        unset($player);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardPositionChanged(array &$snapshot, array $payload): void
+    {
+        $position = is_array($payload['position'] ?? null) ? $payload['position'] : null;
+        if ($position === null) {
+            return;
+        }
+        $card =& $this->locateCard($snapshot, (string) ($payload['instanceId'] ?? ''));
+        if (!is_array($card)) {
+            return;
+        }
+        $card['position'] = $position;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardsPositionChanged(array &$snapshot, array $payload): void
+    {
+        foreach (array_values(array_filter($payload['positions'] ?? [], static fn (mixed $entry): bool => is_array($entry))) as $entry) {
+            $position = is_array($entry['position'] ?? null) ? $entry['position'] : null;
+            if ($position === null) {
+                continue;
+            }
+            $card =& $this->locateCard($snapshot, (string) ($entry['instanceId'] ?? ''));
+            if (is_array($card)) {
+                $card['position'] = $position;
+            }
+            unset($card);
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardFaceDownChanged(array &$snapshot, array $payload): void
+    {
+        $card =& $this->locateCard($snapshot, (string) ($payload['instanceId'] ?? ''));
+        if (!is_array($card)) {
+            return;
+        }
+        if (!array_key_exists('faceDown', $payload)) {
+            return;
+        }
+        $faceDown = ($payload['faceDown'] ?? false) === true;
+        $card['faceDown'] = $faceDown;
+        if ($faceDown) {
+            $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+            $card['revealedTo'] = $playerId !== '' ? [$playerId] : [];
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardRevealed(array &$snapshot, array $payload): void
+    {
+        $card =& $this->locateCard($snapshot, (string) ($payload['instanceId'] ?? ''));
+        if (!is_array($card)) {
+            return;
+        }
+
+        $revealed = true;
+        if (array_key_exists('revealed', $payload)) {
+            $revealed = ($payload['revealed'] ?? false) === true;
+        }
+        if (array_key_exists('hidden', $payload)) {
+            $revealed = ($payload['hidden'] ?? false) !== true;
+        }
+
+        if (!$revealed) {
+            $card['revealedTo'] = [];
+
+            return;
+        }
+
+        $viewers = $this->stringList($payload['viewers'] ?? []);
+        if ($viewers === [] && is_string($payload['to'] ?? null)) {
+            $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
+        }
+        $card['revealedTo'] = $viewers !== [] ? $viewers : ['all'];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardControllerChanged(array &$snapshot, array $payload): void
+    {
+        $controllerId = is_string($payload['controllerId'] ?? null) && trim($payload['controllerId']) !== ''
+            ? trim($payload['controllerId'])
+            : (is_string($payload['targetPlayerId'] ?? null) ? trim($payload['targetPlayerId']) : '');
+        if ($controllerId === '') {
+            return;
+        }
+        $card =& $this->locateCard($snapshot, (string) ($payload['instanceId'] ?? ''));
+        if (!is_array($card)) {
+            return;
+        }
+        $card['controllerId'] = $controllerId;
+        $this->rebuildLoc($snapshot);
     }
 
     /**
@@ -426,8 +747,18 @@ final class GameEventReplayService
             return;
         }
         $counters = is_array($card['counters'] ?? null) ? $card['counters'] : [];
-        $counters[$counter] = max(0, (int) ($payload['value'] ?? 0));
+        $value = max(0, (int) ($payload['value'] ?? 0));
+        if ($value === 0) {
+            unset($counters[$counter]);
+        } else {
+            $counters[$counter] = $value;
+        }
         $card['counters'] = $counters;
+        foreach (['power', 'toughness'] as $field) {
+            if (array_key_exists($field, $payload)) {
+                $card[$field] = $payload[$field];
+            }
+        }
     }
 
     /**
@@ -444,6 +775,152 @@ final class GameEventReplayService
                 $card[$field] = $payload[$field];
             }
         }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardFaceChanged(array &$snapshot, array $payload): void
+    {
+        $rawFaceIndex = $payload['activeFaceIndex'] ?? $payload['faceIndex'] ?? null;
+        if (!is_numeric($rawFaceIndex)) {
+            return;
+        }
+        $card =& $this->locateCard($snapshot, (string) ($payload['instanceId'] ?? ''));
+        if (!is_array($card)) {
+            return;
+        }
+        $card['activeFaceIndex'] = max(0, (int) $rawFaceIndex);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeArrowCreated(array &$snapshot, GameEvent $event, array $payload): void
+    {
+        $id = $this->runtimeRelationId($event, $payload, 'arrow');
+        $fromInstanceId = is_string($payload['fromInstanceId'] ?? null) ? trim($payload['fromInstanceId']) : '';
+        $toInstanceId = is_string($payload['toInstanceId'] ?? null) ? trim($payload['toInstanceId']) : '';
+        if ($id === '' || $fromInstanceId === '' || $toInstanceId === '') {
+            return;
+        }
+
+        $ownerId = is_string($payload['ownerId'] ?? null) && trim($payload['ownerId']) !== ''
+            ? trim($payload['ownerId'])
+            : ($event->createdBy()?->id() ?? null);
+        $relation = [
+            'id' => $id,
+            'fromInstanceId' => $fromInstanceId,
+            'toInstanceId' => $toInstanceId,
+            'color' => is_string($payload['color'] ?? null) && trim($payload['color']) !== '' ? trim($payload['color']) : 'yellow',
+            'createdAt' => is_string($payload['createdAt'] ?? null) && trim($payload['createdAt']) !== ''
+                ? trim($payload['createdAt'])
+                : $event->createdAt()->format(DATE_ATOM),
+        ];
+        if (is_string($ownerId) && $ownerId !== '') {
+            $relation['ownerId'] = $ownerId;
+        }
+        $this->upsertRuntimeRelation($snapshot, 'arrows', $relation);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeAttachmentCreated(array &$snapshot, GameEvent $event, array $payload): void
+    {
+        $id = $this->runtimeRelationId($event, $payload, 'attachment');
+        $equipmentInstanceId = is_string($payload['equipmentInstanceId'] ?? null) ? trim($payload['equipmentInstanceId']) : '';
+        $attachedToInstanceId = is_string($payload['attachedToInstanceId'] ?? null) ? trim($payload['attachedToInstanceId']) : '';
+        if ($id === '' || $equipmentInstanceId === '' || $attachedToInstanceId === '') {
+            return;
+        }
+
+        $ownerId = is_string($payload['ownerId'] ?? null) && trim($payload['ownerId']) !== ''
+            ? trim($payload['ownerId'])
+            : ($event->createdBy()?->id() ?? null);
+        $relation = [
+            'id' => $id,
+            'equipmentInstanceId' => $equipmentInstanceId,
+            'attachedToInstanceId' => $attachedToInstanceId,
+            'createdAt' => is_string($payload['createdAt'] ?? null) && trim($payload['createdAt']) !== ''
+                ? trim($payload['createdAt'])
+                : $event->createdAt()->format(DATE_ATOM),
+        ];
+        if (is_string($ownerId) && $ownerId !== '') {
+            $relation['ownerId'] = $ownerId;
+        }
+        $snapshot['attachments'] = array_values(array_filter(
+            is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : [],
+            static fn (mixed $attachment): bool => !is_array($attachment)
+                || ($attachment['equipmentInstanceId'] ?? null) !== $equipmentInstanceId,
+        ));
+        $this->upsertRuntimeRelation($snapshot, 'attachments', $relation);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeAttachmentRemoved(array &$snapshot, array $payload): void
+    {
+        $id = is_string($payload['id'] ?? null) ? trim($payload['id']) : '';
+        $equipmentInstanceId = is_string($payload['equipmentInstanceId'] ?? null) ? trim($payload['equipmentInstanceId']) : '';
+        if ($id === '' && $equipmentInstanceId === '') {
+            return;
+        }
+
+        $snapshot['attachments'] = array_values(array_filter(
+            is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : [],
+            static fn (mixed $attachment): bool => !is_array($attachment)
+                || (
+                    ($id === '' || ($attachment['id'] ?? null) !== $id)
+                    && ($equipmentInstanceId === '' || ($attachment['equipmentInstanceId'] ?? null) !== $equipmentInstanceId)
+                ),
+        ));
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeRelationRemoved(array &$snapshot, string $key, array $payload): void
+    {
+        $id = is_string($payload['id'] ?? null) ? trim($payload['id']) : '';
+        if ($id === '') {
+            return;
+        }
+        $snapshot[$key] = array_values(array_filter(
+            is_array($snapshot[$key] ?? null) ? $snapshot[$key] : [],
+            static fn (mixed $relation): bool => !is_array($relation) || ($relation['id'] ?? null) !== $id,
+        ));
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function runtimeRelationId(GameEvent $event, array $payload, string $prefix): string
+    {
+        if (is_string($payload['id'] ?? null) && trim($payload['id']) !== '') {
+            return trim($payload['id']);
+        }
+        $clientActionId = $event->clientActionId();
+
+        return is_string($clientActionId) && trim($clientActionId) !== '' ? $prefix.'-'.trim($clientActionId) : '';
+    }
+
+    /**
+     * @param array<string,mixed> $relation
+     */
+    private function upsertRuntimeRelation(array &$snapshot, string $key, array $relation): void
+    {
+        $id = is_string($relation['id'] ?? null) ? $relation['id'] : '';
+        if ($id === '') {
+            return;
+        }
+        $relations = array_values(array_filter(
+            is_array($snapshot[$key] ?? null) ? $snapshot[$key] : [],
+            static fn (mixed $candidate): bool => !is_array($candidate) || ($candidate['id'] ?? null) !== $id,
+        ));
+        $relations[] = $relation;
+        $snapshot[$key] = $relations;
     }
 
     /**
@@ -745,6 +1222,11 @@ final class GameEventReplayService
                     return;
                 }
                 $card['counters'] = is_array($operation['counters'] ?? null) ? $operation['counters'] : [];
+                foreach (['power', 'toughness'] as $field) {
+                    if (array_key_exists($field, $operation)) {
+                        $card[$field] = $operation[$field];
+                    }
+                }
                 return;
 
             case 'zone.cards.move':
@@ -916,10 +1398,92 @@ final class GameEventReplayService
         $targetPlayerId = (string) ($to['playerId'] ?? '');
         $targetZone = (string) ($to['zone'] ?? '');
         $targetIndex = array_key_exists('index', $to) ? max(0, (int) $to['index']) : null;
+        if ($sourceZone === 'battlefield' && $targetZone !== 'battlefield') {
+            $this->resetBattlefieldExitCard($card, $targetPlayerId);
+            $this->pruneBattlefieldRelationsForMovedInstance($snapshot, $instanceId);
+        }
+        if (($move['evaporates'] ?? false) === true || (($card['isToken'] ?? false) === true && $sourceZone === 'battlefield' && $targetZone !== 'battlefield')) {
+            return;
+        }
+        if ($targetZone === 'battlefield' && array_key_exists('faceDown', $move)) {
+            $card['faceDown'] = ($move['faceDown'] ?? false) === true;
+            if ($card['faceDown']) {
+                $viewerId = $sourcePlayerId !== '' ? $sourcePlayerId : $targetPlayerId;
+                $card['revealedTo'] = $viewerId !== '' ? [$viewerId] : [];
+            }
+        }
         if ($targetZone === 'battlefield' && is_array($move['position'] ?? null)) {
             $card['position'] = $move['position'];
         }
         $this->insertCard($snapshot, $targetPlayerId, $targetZone, $card, $targetIndex);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function resetBattlefieldExitCard(array &$card, string $targetPlayerId): void
+    {
+        $ownerId = is_string($card['ownerId'] ?? null) && trim($card['ownerId']) !== ''
+            ? trim($card['ownerId'])
+            : $targetPlayerId;
+        if ($ownerId !== '') {
+            $card['controllerId'] = $ownerId;
+        }
+        $card['tapped'] = false;
+        $card['rotation'] = 0;
+        $card['faceDown'] = false;
+        $card['revealedTo'] = [];
+        $card['counters'] = [];
+        $card['power'] = $this->gameplayStat($card['defaultPower'] ?? null);
+        $card['toughness'] = $this->gameplayStat($card['defaultToughness'] ?? null);
+        $card['loyalty'] = $this->gameplayStat($card['defaultLoyalty'] ?? null);
+        $card['defense'] = $this->gameplayStat($card['defaultDefense'] ?? null);
+        $card['saga'] = null;
+        $card['activeFaceIndex'] = 0;
+        unset($card['position']);
+    }
+
+    private function gameplayStat(mixed $value): int|string|null
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_float($value)) {
+            return (int) $value;
+        }
+        if (is_string($value) && is_numeric($value)) {
+            return (int) $value;
+        }
+
+        $printed = is_string($value) ? trim($value) : (string) $value;
+
+        return in_array($printed, ['*', 'X', 'x', '?', '∞'], true) ? 0 : $printed;
+    }
+
+    private function pruneBattlefieldRelationsForMovedInstance(array &$snapshot, string $instanceId): void
+    {
+        if ($instanceId === '') {
+            return;
+        }
+        $snapshot['arrows'] = array_values(array_filter(
+            is_array($snapshot['arrows'] ?? null) ? $snapshot['arrows'] : [],
+            static fn (mixed $arrow): bool => !is_array($arrow)
+                || (
+                    (string) ($arrow['fromInstanceId'] ?? $arrow['sourceId'] ?? '') !== $instanceId
+                    && (string) ($arrow['toInstanceId'] ?? $arrow['targetId'] ?? '') !== $instanceId
+                ),
+        ));
+        $snapshot['attachments'] = array_values(array_filter(
+            is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : [],
+            static fn (mixed $attachment): bool => !is_array($attachment)
+                || (
+                    (string) ($attachment['equipmentInstanceId'] ?? $attachment['sourceId'] ?? '') !== $instanceId
+                    && (string) ($attachment['attachedToInstanceId'] ?? $attachment['targetId'] ?? '') !== $instanceId
+                ),
+        ));
     }
 
     /**

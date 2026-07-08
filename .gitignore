@@ -15,10 +15,11 @@
 /backend/Caddyfile.prod
 /frontend/node_modules/
 /frontend/dist/
+/frontend/playwright-report/
+/frontend/test-results/
 *.log
 /reports/
 
 /.env.prod
 /.env
-/docker-compose.prod.yml
 /.tmp/

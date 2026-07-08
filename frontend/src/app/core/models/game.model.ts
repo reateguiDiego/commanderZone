@@ -9,7 +9,7 @@ export type GamePowerToughnessValue = GameCardStatValue;
 export type GamePhase = 'MULLIGAN' | 'PLAYING' | 'FINISHED';
 export type MulliganRule = 'LONDON' | 'VANCOUVER' | 'PARIS' | 'GENEROUS';
 export type BottomOrderMode = 'NONE' | 'PLAYER_CHOSEN_ORDER' | 'RANDOM_SERVER_SIDE';
-export type MulliganPlayerStatus = 'DECIDING' | 'SCRYING' | 'READY';
+export type MulliganPlayerStatus = 'DECIDING' | 'BOTTOMING' | 'SCRYING' | 'READY';
 export interface GameCardPixelPosition {
   x: number;
   y: number;

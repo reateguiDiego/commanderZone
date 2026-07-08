@@ -1340,10 +1340,13 @@ final readonly class GameWebsocketCommandPatchService
         $metricsInspector = $this->metricsInspector();
         $messagesByUserId = [];
         $patchStartedAt = microtime(true);
-        $version = $baseVersion + 1;
+        $version = null;
         foreach ($patches as $patch) {
-            $version = max($version, (int) ($patch['version'] ?? $version));
+            if (is_int($patch['version'] ?? null)) {
+                $version = max($version ?? 1, (int) $patch['version']);
+            }
         }
+        $version ??= $baseVersion + 1;
 
         foreach ($this->rooms->peersForGame($gameId) as $peer) {
             $viewerOps = [];
@@ -2015,6 +2018,9 @@ final readonly class GameWebsocketCommandPatchService
         if (in_array($type, ['library.reveal_top', 'library.reveal', 'card.revealed'], true) && !isset($runtimePayload['viewers']) && isset($runtimePayload['to'])) {
             $runtimePayload['viewers'] = $runtimePayload['to'];
         }
+        if ($this->runtimeCommandType($type) === 'card.counter.changed') {
+            $runtimePayload = $this->normalizeCardCounterRuntimePayload($runtimePayload);
+        }
         if ($type === 'zone.changed') {
             if (isset($runtimePayload['cards'])) {
                 throw new \InvalidArgumentException('zone.changed runtime path accepts instanceIds only.');
@@ -2045,6 +2051,28 @@ final readonly class GameWebsocketCommandPatchService
             'type' => $this->runtimeCommandType($type),
             'payload' => $runtimePayload,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return array<string,mixed>
+     */
+    private function normalizeCardCounterRuntimePayload(array $payload): array
+    {
+        $counter = is_string($payload['counter'] ?? null) ? trim($payload['counter']) : '';
+        $legacyKey = is_string($payload['key'] ?? null) ? trim($payload['key']) : '';
+        if ($counter !== '' && $legacyKey !== '' && $counter !== $legacyKey) {
+            throw new \InvalidArgumentException('Card counter payload has conflicting counter and key fields.');
+        }
+        if ($counter === '' && $legacyKey !== '') {
+            $payload['counter'] = $legacyKey;
+        }
+        if (($payload['remove'] ?? false) === true && !array_key_exists('value', $payload)) {
+            $payload['value'] = 0;
+        }
+
+        return $payload;
     }
 
     /**
@@ -2485,28 +2513,6 @@ final readonly class GameWebsocketCommandPatchService
      */
     private function runtimeLifecycleTransitionError(Game $game, string $type, array $payload, User $actor, array $events): ?string
     {
-        if ($type === 'game.concede') {
-            $playerId = is_string($payload['playerId'] ?? null) && trim($payload['playerId']) !== ''
-                ? trim($payload['playerId'])
-                : $actor->id();
-            $snapshotPlayer = $game->snapshot()['players'][$playerId] ?? null;
-            if (is_array($snapshotPlayer) && ($snapshotPlayer['status'] ?? null) === 'conceded') {
-                return 'Player already conceded.';
-            }
-            foreach ($events as $event) {
-                if (!$event instanceof GameEvent || $event->type() !== 'game.concede') {
-                    continue;
-                }
-                $eventPayload = $this->runtimeLifecycleEventPayload($event);
-                $eventPlayerId = is_string($eventPayload['playerId'] ?? null) && trim($eventPayload['playerId']) !== ''
-                    ? trim($eventPayload['playerId'])
-                    : $event->createdBy()?->id();
-                if ($eventPlayerId === $playerId) {
-                    return 'Player already conceded.';
-                }
-            }
-        }
-
         if ($type === 'game.close') {
             if ($game->status() === Game::STATUS_FINISHED || ($game->snapshot()['gamePhase'] ?? null) === 'FINISHED') {
                 return 'Game is already closed.';

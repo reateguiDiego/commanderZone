@@ -121,6 +121,52 @@ func TestRuntimeParisAndGenerousRules(t *testing.T) {
 	}
 }
 
+func TestRuntimeGenerousBottomingKeepCompletesPlayer(t *testing.T) {
+	initial := mulliganGame("game-generous-bottoming", []string{"p1", "p2", "p3"}, 100)
+	initial.Mulligan.Rule = mulliganRuleGenerous
+	initial.Mulligan.FirstMulliganFree = true
+	if _, err := state.NewLibraryOps().DrawMany(&initial, "p1", 3); err != nil {
+		t.Fatalf("prepare generous hand failed: %v", err)
+	}
+	for _, playerID := range []string{"p2", "p3"} {
+		player := calculateMulliganPlayer(initial.Mulligan, 0, state.MulliganStatusReady)
+		player.CardsToBottom = 0
+		player.BottomPending = false
+		player.CurrentHandSize = len(initial.Zones[playerID].Hand)
+		initial.Mulligan.PlayerStatus[playerID] = player
+		initial.Mulligan.ReadyPlayers[playerID] = true
+	}
+	gameActor := NewGameActor("game-generous-bottoming", initial, nil, 8, DefaultAppliers())
+
+	firstKeep := gameActor.ApplyDirect(context.Background(), command("game-generous-bottoming", 1, "keep-open-bottoming", "mulligan.keep", map[string]any{"playerId": "p1"}), "p1")
+	if firstKeep.Err != nil {
+		t.Fatalf("first keep failed: %v", firstKeep.Err)
+	}
+	afterFirstKeep := gameActor.Snapshot()
+	if got := afterFirstKeep.Mulligan.PlayerStatus["p1"].Status; got != state.MulliganStatusBottoming {
+		t.Fatalf("status got %q want BOTTOMING", got)
+	}
+	bottomIDs := append([]string(nil), afterFirstKeep.Zones["p1"].Hand[:3]...)
+
+	secondKeep := gameActor.ApplyDirect(context.Background(), command("game-generous-bottoming", 2, "keep-with-bottoms", "mulligan.keep", map[string]any{"playerId": "p1", "bottomCardIds": bottomIDs}), "p1")
+	if secondKeep.Err != nil {
+		t.Fatalf("second keep from BOTTOMING failed: %v", secondKeep.Err)
+	}
+	snapshot := gameActor.Snapshot()
+	if got := snapshot.Mulligan.PlayerStatus["p1"].Status; got != state.MulliganStatusReady {
+		t.Fatalf("status got %q want READY", got)
+	}
+	if got := len(snapshot.Zones["p1"].Hand); got != 7 {
+		t.Fatalf("hand got %d want 7", got)
+	}
+	if snapshot.Phase != state.PhasePlaying {
+		t.Fatalf("phase got %q want PLAYING", snapshot.Phase)
+	}
+	if got := secondKeep.Event.Payload["bottomedIds"]; !equalStringAnySlice(got, bottomIDs) {
+		t.Fatalf("bottomedIds got %#v want %#v", got, bottomIDs)
+	}
+}
+
 func TestRuntimeMulliganRejectsForeignBottomAndDuplicateAction(t *testing.T) {
 	initial := mulliganGame("game-d", []string{"p1", "p2"}, 100)
 	store := persistence.NewInMemoryEventStore()

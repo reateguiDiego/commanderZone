@@ -1076,6 +1076,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   "game.mulliganOverlay.scryDescription": "Choose what to do with the top card of your library.",
   "game.mulliganOverlay.scryTitle": "Scry 1",
   "game.mulliganOverlay.selectedCount": "{{ selected }} / {{ total }} selected",
+  "game.mulliganOverlay.status.bottoming": "choosing bottom",
   "game.mulliganOverlay.status.deciding": "deciding",
   "game.mulliganOverlay.status.ready": "ready",
   "game.mulliganOverlay.status.scrying": "scrying",

@@ -159,6 +159,27 @@ describe('MulliganOverlayComponent', () => {
     expect(acceptButton().disabled).toBe(false);
   });
 
+  it('allows selecting and accepting bottom cards after runtime enters BOTTOMING', () => {
+    setMulligan('GENEROUS', {
+      status: 'BOTTOMING',
+      drawCount: 10,
+      bottomSelectionCount: 3,
+      bottomOrderMode: 'RANDOM_SERVER_SIDE',
+    });
+    fixture.componentRef.setInput('config', { rule: 'GENEROUS', firstMulliganFree: true });
+    fixture.componentRef.setInput('hand', Array.from({ length: 10 }, (_, index) => card(`card-${index + 1}`, `Card ${index + 1}`)));
+    fixture.componentRef.setInput('gamePhase', 'MULLIGAN');
+    fixture.detectChanges();
+
+    selectCard('card-1');
+    selectCard('card-2');
+    selectCard('card-3');
+    fixture.detectChanges();
+
+    expect(bottomPills().length).toBe(3);
+    expect(acceptButton().disabled).toBe(false);
+  });
+
   it('shows Scry 1 for Vancouver while SCRYING', () => {
     setMulligan('VANCOUVER', {
       bottomSelectionCount: 0,

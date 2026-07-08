@@ -763,7 +763,11 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame(['left' => true, 'roomDeleted' => false], $this->jsonResponse());
 
         $events = $this->entityManager->getRepository(GameEvent::class)->findBy(['game' => $gameId]);
-        self::assertSame(['game.concede', 'rematch.vote'], array_values(array_map(static fn (GameEvent $event): string => $event->type(), $events)));
+        $eventTypes = array_values(array_filter(
+            array_map(static fn (GameEvent $event): string => $event->type(), $events),
+            static fn (string $type): bool => $type !== 'game.started',
+        ));
+        self::assertSame(['game.concede', 'rematch.vote'], $eventTypes);
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
         self::assertResponseIsSuccessful();

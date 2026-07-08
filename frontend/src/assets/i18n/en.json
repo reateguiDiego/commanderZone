@@ -924,6 +924,7 @@
         "generous": "Generous"
       },
       "status": {
+        "bottoming": "choosing bottom",
         "deciding": "deciding",
         "scrying": "scrying",
         "ready": "ready"

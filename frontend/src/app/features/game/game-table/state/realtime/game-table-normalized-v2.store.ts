@@ -197,6 +197,8 @@ export function createGameTableNormalizedV2State(
 
   const relations = createRelationsState(bootstrap.relations.arrows, bootstrap.relations.attachments, bootstrap.relations.specialEntities);
   const stack = createStackState(bootstrap.relations.stack);
+  const chat = createChatState(bootstrap.chat, bootstrap.chatCursor ?? null);
+  const log = createLogState(bootstrap.eventLog, bootstrap.logCursor ?? null);
 
   return {
     game: {
@@ -229,16 +231,8 @@ export function createGameTableNormalizedV2State(
     staticCards: Object.fromEntries(
       Object.entries(bootstrap.staticCards).map(([cardRef, card]) => [cardRef, normalizeStaticCard(card)]),
     ),
-    chat: {
-      byId: {},
-      order: [],
-      cursor: bootstrap.chatCursor ?? null,
-    },
-    log: {
-      byId: {},
-      order: [],
-      cursor: bootstrap.logCursor ?? null,
-    },
+    chat,
+    log,
     lastAppliedVersion: bootstrap.game.version,
     pendingOptimisticActions: { ...pendingOptimisticActions },
   };
@@ -461,6 +455,7 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'library.top.reordered':
     case 'library.top.moved':
     case 'library.shuffled':
+    case 'game.counters.set':
     case 'mulligan.status.set':
     case 'mulligan.private_state.set':
     case 'mulligan.hand.replace_private':
@@ -469,6 +464,7 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'mulligan.scry.available.set':
     case 'mulligan.completed':
     case 'game.phase.set':
+    case 'eventLog.append':
       return true;
     default:
       return false;
@@ -566,6 +562,8 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       return updateInstanceAtZone(state, operation.playerId, operation.zone, operation.instanceId, (instance) => ({
         ...instance,
         counters: { ...operation.counters },
+        ...(operation.power !== undefined ? { power: operation.power } : {}),
+        ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
       }));
 
     case 'zone.cards.add':
@@ -905,7 +903,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
           ...state,
           game: {
             ...state.game,
-            disconnectVote: operation.disconnectVote,
+            disconnectVote: disconnectVotePayload(operation),
           },
         },
       };
@@ -925,6 +923,15 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
     default:
       return { status: 'failed', reason: 'invalid_operation' };
   }
+}
+
+function disconnectVotePayload(operation: GameplayPatchV2Operation): GameDisconnectVoteState | null {
+  const payload = operation as {
+    disconnectVote?: GameDisconnectVoteState | null;
+    data?: { disconnectVote?: GameDisconnectVoteState | null };
+  };
+
+  return payload.disconnectVote ?? payload.data?.disconnectVote ?? null;
 }
 
 function addCardsToZone(
@@ -1572,6 +1579,37 @@ function appendEventLogEntries(state: GameTableNormalizedV2State, entries: GameL
   };
 }
 
+function createChatState(entries: readonly ChatMessage[] | undefined, fallbackCursor: string | null): GameTableNormalizedV2ChatState {
+  const byId: Record<string, ChatMessage> = {};
+  const order: string[] = [];
+  let cursor = fallbackCursor;
+  for (const entry of entries ?? []) {
+    const id = chatMessageId(entry);
+    byId[id] = { ...entry, id };
+    if (!order.includes(id)) {
+      order.push(id);
+    }
+    cursor = entry.id ?? entry.createdAt ?? cursor;
+  }
+
+  return { byId, order, cursor };
+}
+
+function createLogState(entries: readonly GameLogEntry[] | undefined, fallbackCursor: string | null): GameTableNormalizedV2LogState {
+  const byId: Record<string, GameLogEntry> = {};
+  const order: string[] = [];
+  let cursor = fallbackCursor;
+  for (const entry of entries ?? []) {
+    byId[entry.id] = { ...entry };
+    if (!order.includes(entry.id)) {
+      order.push(entry.id);
+    }
+    cursor = entry.id;
+  }
+
+  return { byId, order, cursor };
+}
+
 function replacePrivateMulliganHand(
   state: GameTableNormalizedV2State,
   playerId: string,
@@ -1990,6 +2028,7 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
     backgroundName: player.backgroundName ?? null,
     sleevesName: player.sleevesName ?? null,
     playTopLibraryRevealed: player.playTopLibraryRevealed ?? false,
+    mulligan: player.mulligan ? { ...player.mulligan } : undefined,
   };
 }
 

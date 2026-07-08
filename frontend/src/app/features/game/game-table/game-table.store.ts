@@ -1510,7 +1510,9 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    const hasTappedCards = current.state.zones.battlefield.some((card) => card.tapped);
+    const hasTappedCards = this.players().some((player) =>
+      player.state.zones.battlefield.some((card) => (card.controllerId ?? player.id) === current.id && (card.tapped || (card.rotation ?? 0) !== 0)),
+    );
     if (!hasTappedCards) {
       return;
     }

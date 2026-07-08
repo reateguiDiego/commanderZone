@@ -110,6 +110,39 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(3, $recoveredSnapshot['version']);
     }
 
+    public function testReplayHydratesPersistedStructuredCompactSnapshotWithoutRuntimeFormat(): void
+    {
+        $actor = new User('compact-format-owner@example.test', 'Compact Format Owner');
+        $flags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $mapper = new CompactGameCardStateMapper();
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'battlefield' => [$this->card('dfc-compact-1', 'Persisted Double Faced Card', 'battlefield')],
+        ]));
+        $baseSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['cardFaces'] = [
+            ['name' => 'Front', 'typeLine' => 'Creature', 'oracleText' => '', 'imageUris' => ['normal' => 'https://example.test/front.jpg']],
+            ['name' => 'Back', 'typeLine' => 'Creature', 'oracleText' => '', 'imageUris' => ['normal' => 'https://example.test/back.jpg']],
+        ];
+        $baseSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['activeFaceIndex'] = 1;
+        $baseSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['tapped'] = true;
+        $baseSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['rotation'] = 90;
+        $baseSnapshot['version'] = 2;
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $store = $this->eventStore($handler, $flags);
+        $compactSnapshot = $mapper->compactSnapshot($baseSnapshot, $game->id(), $game->status());
+        unset($compactSnapshot['runtimeFormat'], $compactSnapshot['cardCatalog']);
+        self::assertSame(1, $compactSnapshot['instances']['dfc-compact-1']['activeFace'] ?? null);
+        $compactRecord = new GameSnapshotCompact($game, 2, $compactSnapshot, $store->checksum($compactSnapshot));
+
+        $rebuilt = $store->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), $compactRecord, []);
+        $card = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'dfc-compact-1');
+
+        self::assertSame(1, $card['activeFaceIndex'] ?? null);
+        self::assertTrue($card['tapped'] ?? false);
+        self::assertSame(90, $card['rotation'] ?? null);
+        self::assertSame('Back', $card['cardFaces'][1]['name'] ?? null);
+    }
+
     public function testReplayAppliesRuntimeLifecycleEvents(): void
     {
         $actor = new User('owner-lifecycle@example.test', 'Lifecycle Owner');
@@ -135,6 +168,168 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame('next-player', $rebuilt['turn']['activePlayerId']);
         self::assertSame('FINISHED', $rebuilt['gamePhase']);
         self::assertSame(3, $rebuilt['version']);
+    }
+
+    public function testReplayAppliesRuntimeDisconnectVoteEvents(): void
+    {
+        $actor = new User('owner-disconnect@example.test', 'Disconnect Owner');
+        $target = new User('target-disconnect@example.test', 'Disconnect Target');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), []));
+        $baseSnapshot['players'][$target->id()] = [
+            'user' => ['id' => $target->id(), 'email' => $target->email(), 'displayName' => $target->displayName(), 'roles' => []],
+            'life' => 40,
+            'status' => 'active',
+            'zones' => [
+                'library' => [],
+                'hand' => [],
+                'battlefield' => [],
+                'graveyard' => [],
+                'exile' => [],
+                'command' => [],
+            ],
+            'commanderDamage' => [],
+            'counters' => [],
+        ];
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $disconnectVote = [
+            'targetPlayerId' => $target->id(),
+            'status' => 'resolved_expel',
+            'openedAt' => null,
+            'deadlineAt' => null,
+            'cooldownUntil' => null,
+            'votes' => [
+                $actor->id() => [
+                    'playerId' => $actor->id(),
+                    'displayName' => $actor->displayName(),
+                    'vote' => 'expel',
+                    'votedAt' => '2026-01-01T00:00:10+00:00',
+                ],
+            ],
+        ];
+        $event = new GameEvent($game, 'disconnect.vote.updated', [
+            'targetPlayerId' => $target->id(),
+            'status' => 'resolved_expel',
+            'disconnectVote' => $disconnectVote,
+            'concededAt' => '2026-01-01T00:00:11+00:00',
+        ], $actor, 'runtime-disconnect-vote', 2);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$event]);
+
+        self::assertSame($disconnectVote, $rebuilt['disconnectVote']);
+        self::assertSame('conceded', $rebuilt['players'][$target->id()]['status']);
+        self::assertSame('2026-01-01T00:00:11+00:00', $rebuilt['players'][$target->id()]['concededAt']);
+        self::assertSame(2, $rebuilt['version']);
+    }
+
+    public function testCompactSnapshotPreservesDisconnectVoteState(): void
+    {
+        $actor = new User('compact-disconnect@example.test', 'Compact Disconnect');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
+        $snapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), []));
+        $snapshot['disconnectVote'] = [
+            'targetPlayerId' => $actor->id(),
+            'status' => 'open',
+            'openedAt' => '2026-01-01T00:00:00+00:00',
+            'deadlineAt' => '2026-01-01T00:01:00+00:00',
+            'cooldownUntil' => null,
+            'votes' => [],
+        ];
+
+        $mapper = new CompactGameCardStateMapper();
+        $hydrated = $mapper->hydrateSnapshot($mapper->compactSnapshot($snapshot, 'game-compact-disconnect', 'active'));
+
+        self::assertSame($snapshot['disconnectVote'], $hydrated['disconnectVote']);
+    }
+
+    public function testReplayAndBootstrapPreserveLongRunningTurnStateAfterConcede(): void
+    {
+        $actor = new User('runtime-turn-owner@example.test', 'Runtime Turn Owner');
+        $second = new User('runtime-turn-second@example.test', 'Runtime Turn Second');
+        $third = new User('runtime-turn-third@example.test', 'Runtime Turn Third');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
+        $baseSnapshot = $this->baseSnapshot($actor->id(), []);
+        foreach ([$second, $third] as $player) {
+            $baseSnapshot['players'][$player->id()] = [
+                'user' => ['id' => $player->id(), 'email' => $player->email(), 'displayName' => $player->displayName(), 'roles' => []],
+                'life' => $player === $second ? 31 : 27,
+                'status' => 'active',
+                'zones' => [
+                    'library' => [],
+                    'hand' => [],
+                    'battlefield' => [],
+                    'graveyard' => [],
+                    'exile' => [],
+                    'command' => [],
+                ],
+                'commanderDamage' => [],
+                'counters' => [],
+            ];
+        }
+        $baseSnapshot['gamePhase'] = 'PLAYING';
+        $baseSnapshot = $handler->normalizeSnapshot($baseSnapshot);
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $players = [$actor->id(), $second->id(), $third->id()];
+        $phases = ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end'];
+        $events = [];
+        $version = 2;
+
+        for ($index = 0; $index < 24; ++$index) {
+            $activePlayerId = $players[$index % count($players)];
+            $phase = $phases[$index % count($phases)];
+            $events[] = new GameEvent($game, 'turn.changed', [
+                'turn' => [
+                    'activePlayerId' => $activePlayerId,
+                    'phase' => $phase,
+                    'number' => 1 + intdiv($index, count($players)),
+                ],
+            ], $actor, sprintf('runtime-turn-%02d', $index), $version++);
+        }
+
+        $events[] = new GameEvent($game, 'game.concede', [
+            'playerId' => $second->id(),
+            'status' => 'conceded',
+            'concededAt' => '2026-01-01T00:05:00+00:00',
+            'turn' => ['activePlayerId' => $third->id(), 'phase' => 'untap', 'number' => 9],
+        ], $second, 'runtime-concede-second', $version++);
+        $events[] = new GameEvent($game, 'turn.changed', [
+            'turn' => ['activePlayerId' => $actor->id(), 'phase' => 'main-1', 'number' => 10],
+        ], $third, 'runtime-turn-after-concede', $version++);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, $events);
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $rebuilt), $actor, $rebuilt);
+
+        self::assertSame(['activePlayerId' => $actor->id(), 'phase' => 'main-1', 'number' => 10], $rebuilt['turn']);
+        self::assertSame('conceded', $rebuilt['players'][$second->id()]['status']);
+        self::assertSame('2026-01-01T00:05:00+00:00', $rebuilt['players'][$second->id()]['concededAt']);
+        self::assertSame('PLAYING', $rebuilt['gamePhase']);
+        self::assertSame(31, $rebuilt['players'][$second->id()]['life']);
+        self::assertSame(27, $rebuilt['players'][$third->id()]['life']);
+        self::assertSame($version - 1, $rebuilt['version']);
+        self::assertSame($rebuilt['turn'], $bootstrap->turn);
+        self::assertSame('conceded', $bootstrap->players[$second->id()]['status']);
+        self::assertSame('PLAYING', $bootstrap->game['gamePhase']);
+    }
+
+    public function testRebuildSnapshotPreservesRuntimeCloseFinishedPhaseAfterNormalization(): void
+    {
+        $actor = new User('runtime-close-owner@example.test', 'Runtime Close Owner');
+        $flags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), []));
+        $baseSnapshot['gamePhase'] = 'PLAYING';
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $close = new GameEvent($game, 'game.close', [
+            'status' => 'finished',
+            'phase' => 'FINISHED',
+        ], $actor, 'runtime-close', 2);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot($game, null, [$close]);
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $rebuilt), $actor, $rebuilt);
+
+        self::assertSame('FINISHED', $rebuilt['gamePhase']);
+        self::assertSame(2, $rebuilt['version']);
+        self::assertSame('FINISHED', $bootstrap->game['gamePhase']);
     }
 
     public function testPersistCompactSnapshotStoresStateWithoutStaticCardPayload(): void
@@ -576,6 +771,310 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
     }
 
+    public function testReplayAppliesRuntimeGoCardFaceChangeForReconnect(): void
+    {
+        $actor = new User('runtime-go-face-change@example.test', 'Runtime Go Face Change');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'card.face.changed,card.tapped');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'battlefield' => [$this->card('dfc-1', 'Double Faced Commander', 'battlefield')],
+        ]));
+        $baseSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['cardFaces'] = [
+            ['name' => 'Front', 'typeLine' => 'Creature', 'oracleText' => '', 'imageUris' => ['normal' => 'https://example.test/front.jpg']],
+            ['name' => 'Back', 'typeLine' => 'Creature', 'oracleText' => '', 'imageUris' => ['normal' => 'https://example.test/back.jpg']],
+        ];
+        $baseSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['activeFaceIndex'] = 0;
+        $game = new Game(new Room($actor), $baseSnapshot);
+
+        $face = new GameEvent($game, 'card.face.changed', [
+            'playerId' => $actor->id(),
+            'instanceId' => 'dfc-1',
+            'zone' => 'battlefield',
+            'activeFaceIndex' => 1,
+        ], $actor, 'runtime-face-1', 2);
+        $tap = new GameEvent($game, 'card.tapped', [
+            'playerId' => $actor->id(),
+            'instanceId' => 'dfc-1',
+            'zone' => 'battlefield',
+            'tapped' => true,
+            'rotation' => 90,
+        ], $actor, 'runtime-tap-1', 3);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), null, [$face, $tap]);
+        $card = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'dfc-1');
+
+        self::assertSame(1, $card['activeFaceIndex'] ?? null);
+        self::assertTrue($card['tapped'] ?? false);
+        self::assertSame(90, $card['rotation'] ?? null);
+    }
+
+    public function testReplayPreservesRuntimeGoFaceDownMoveAndResetsBattlefieldExitForReconnect(): void
+    {
+        $owner = new User('runtime-zone-owner@example.test', 'Runtime Zone Owner');
+        $controller = new User('runtime-zone-controller@example.test', 'Runtime Zone Controller');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'card.moved');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $rawSnapshot = $this->baseSnapshot($owner->id(), [
+            'hand' => [$this->card('hand-hidden-1', 'Hidden From Hand', 'hand')],
+            'battlefield' => [
+                $this->card('controlled-permanent-1', 'Controlled Permanent', 'battlefield'),
+                $this->card('equipment-1', 'Equipment', 'battlefield'),
+            ],
+        ]);
+        $rawSnapshot['players'][$controller->id()] = [
+            'user' => ['id' => $controller->id(), 'email' => $controller->id(), 'displayName' => $controller->displayName(), 'roles' => []],
+            'life' => 35,
+            'zones' => [
+                'library' => [],
+                'hand' => [],
+                'battlefield' => [],
+                'graveyard' => [],
+                'exile' => [],
+                'command' => [],
+            ],
+            'commanderDamage' => [],
+            'counters' => [],
+        ];
+        $baseSnapshot = $handler->normalizeSnapshot($rawSnapshot);
+        $baseSnapshot['players'][$owner->id()]['life'] = 31;
+        $baseSnapshot['arrows'] = [[
+            'id' => 'arrow-controlled',
+            'fromInstanceId' => 'controlled-permanent-1',
+            'toInstanceId' => 'equipment-1',
+            'color' => 'yellow',
+            'ownerId' => $owner->id(),
+        ]];
+        $baseSnapshot['attachments'] = [[
+            'id' => 'attachment-controlled',
+            'equipmentInstanceId' => 'equipment-1',
+            'attachedToInstanceId' => 'controlled-permanent-1',
+            'ownerId' => $owner->id(),
+        ]];
+        $baseSnapshot['players'][$owner->id()]['zones']['battlefield'][0] = [
+            ...$baseSnapshot['players'][$owner->id()]['zones']['battlefield'][0],
+            'ownerId' => $owner->id(),
+            'controllerId' => $controller->id(),
+            'tapped' => true,
+            'rotation' => 90,
+            'faceDown' => true,
+            'revealedTo' => [$owner->id()],
+            'counters' => ['charge' => 2],
+            'position' => ['x' => 0.42, 'y' => 0.66, 'unit' => 'ratio'],
+            'power' => 8,
+            'toughness' => 9,
+            'defaultPower' => 2,
+            'defaultToughness' => 3,
+        ];
+        $baseSnapshot['players'][$owner->id()]['zones']['battlefield'][1]['ownerId'] = $owner->id();
+        $baseSnapshot['players'][$owner->id()]['zones']['battlefield'][1]['controllerId'] = $owner->id();
+        $game = new Game(new Room($owner), $baseSnapshot);
+
+        $moveFaceDown = new GameEvent($game, 'card.moved', [
+            'playerId' => $owner->id(),
+            'fromZone' => 'hand',
+            'toZone' => 'battlefield',
+            'instanceId' => 'hand-hidden-1',
+            'instanceIds' => ['hand-hidden-1'],
+            'faceDown' => true,
+            'moves' => [[
+                'instanceId' => 'hand-hidden-1',
+                'from' => ['playerId' => $owner->id(), 'zone' => 'hand', 'index' => 0],
+                'to' => ['playerId' => $owner->id(), 'zone' => 'battlefield', 'index' => 2],
+                'position' => ['x' => 0.57, 'y' => 0.63, 'unit' => 'ratio'],
+            ]],
+        ], $owner, 'runtime-zone-face-down', 2);
+        $moveToGraveyard = new GameEvent($game, 'card.moved', [
+            'playerId' => $controller->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'targetPlayerId' => $owner->id(),
+            'instanceId' => 'controlled-permanent-1',
+            'instanceIds' => ['controlled-permanent-1'],
+            'moves' => [[
+                'instanceId' => 'controlled-permanent-1',
+                'from' => ['playerId' => $owner->id(), 'zone' => 'battlefield', 'index' => 0],
+                'to' => ['playerId' => $owner->id(), 'zone' => 'graveyard', 'index' => 0],
+            ]],
+        ], $controller, 'runtime-zone-owner-destination', 3);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(new Game(new Room($owner), $baseSnapshot), null, [$moveFaceDown, $moveToGraveyard]);
+
+        $faceDownCard = $this->cardById($rebuilt, $owner->id(), 'battlefield', 'hand-hidden-1');
+        self::assertTrue($faceDownCard['faceDown'] ?? false);
+        self::assertSame([$owner->id()], $faceDownCard['revealedTo'] ?? null);
+        self::assertSame(['x' => 0.57, 'y' => 0.63, 'unit' => 'ratio'], $faceDownCard['position'] ?? null);
+
+        self::assertSame(['controlled-permanent-1'], $this->zoneIds($rebuilt, $owner->id(), 'graveyard'));
+        self::assertSame([], $this->zoneIds($rebuilt, $controller->id(), 'graveyard'));
+        $graveyardCard = $this->cardById($rebuilt, $owner->id(), 'graveyard', 'controlled-permanent-1');
+        self::assertSame($owner->id(), $graveyardCard['ownerId'] ?? null);
+        self::assertSame($owner->id(), $graveyardCard['controllerId'] ?? null);
+        self::assertFalse($graveyardCard['tapped'] ?? true);
+        self::assertSame(0, $graveyardCard['rotation'] ?? null);
+        self::assertFalse($graveyardCard['faceDown'] ?? true);
+        self::assertSame([], $graveyardCard['revealedTo'] ?? null);
+        self::assertSame([], $graveyardCard['counters'] ?? null);
+        self::assertSame(2, $graveyardCard['power'] ?? null);
+        self::assertSame(3, $graveyardCard['toughness'] ?? null);
+        self::assertNotSame(['x' => 0.42, 'y' => 0.66, 'unit' => 'ratio'], $graveyardCard['position'] ?? null);
+        self::assertNotSame(['x' => 0, 'y' => 0], $graveyardCard['position'] ?? null);
+        self::assertSame([], $rebuilt['arrows'] ?? null);
+        self::assertSame([], $rebuilt['attachments'] ?? null);
+        self::assertSame(31, $rebuilt['players'][$owner->id()]['life']);
+        self::assertSame(35, $rebuilt['players'][$controller->id()]['life']);
+    }
+
+    public function testRuntimeGoReplayPreservesBattlefieldStateAcrossCounterForRefresh(): void
+    {
+        $actor = new User('runtime-integrity-owner@example.test', 'Runtime Integrity Owner');
+        $controller = new User('runtime-integrity-controller@example.test', 'Runtime Integrity Controller');
+        $spectator = new User('runtime-integrity-spectator@example.test', 'Runtime Integrity Spectator');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'life.changed,card.position.changed,card.tapped,card.face_down.changed,card.controller.changed,arrow.created,attachment.created,card.counter.changed,card.power_toughness.changed');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $rawSnapshot = $this->baseSnapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('battlefield-1', 'Integrity Permanent', 'battlefield'),
+                $this->card('equipment-1', 'Integrity Equipment', 'battlefield'),
+            ],
+        ]);
+        foreach ([$controller, $spectator] as $player) {
+            $rawSnapshot['players'][$player->id()] = [
+                'user' => ['id' => $player->id(), 'email' => $player->id(), 'displayName' => $player->displayName(), 'roles' => []],
+                'life' => 40,
+                'zones' => [
+                    'library' => [],
+                    'hand' => [],
+                    'battlefield' => [],
+                    'graveyard' => [],
+                    'exile' => [],
+                    'command' => [],
+                ],
+                'commanderDamage' => [],
+                'counters' => [],
+            ];
+        }
+        $baseSnapshot = $handler->normalizeSnapshot($rawSnapshot);
+        $game = new Game(new Room($actor), $baseSnapshot);
+
+        $events = [
+            new GameEvent($game, 'life.changed', [
+                'playerId' => $actor->id(),
+                'life' => 33,
+            ], $actor, 'runtime-life', 2),
+            new GameEvent($game, 'card.position.changed', [
+                'instanceId' => 'battlefield-1',
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'position' => ['x' => 0.37, 'y' => 0.61, 'unit' => 'ratio'],
+            ], $actor, 'runtime-position', 3),
+            new GameEvent($game, 'card.tapped', [
+                'instanceId' => 'battlefield-1',
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'tapped' => true,
+                'rotation' => 90,
+            ], $actor, 'runtime-tap', 4),
+            new GameEvent($game, 'card.face_down.changed', [
+                'instanceId' => 'battlefield-1',
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'faceDown' => true,
+            ], $actor, 'runtime-face-down', 5),
+            new GameEvent($game, 'card.controller.changed', [
+                'instanceId' => 'battlefield-1',
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'controllerId' => $controller->id(),
+            ], $actor, 'runtime-controller', 6),
+            new GameEvent($game, 'arrow.created', [
+                'id' => 'arrow-1',
+                'playerId' => $actor->id(),
+                'fromInstanceId' => 'battlefield-1',
+                'toInstanceId' => 'equipment-1',
+            ], $actor, 'runtime-arrow', 7),
+            new GameEvent($game, 'attachment.created', [
+                'id' => 'attachment-1',
+                'playerId' => $actor->id(),
+                'equipmentInstanceId' => 'equipment-1',
+                'attachedToInstanceId' => 'battlefield-1',
+            ], $actor, 'runtime-attachment', 8),
+            new GameEvent($game, 'card.power_toughness.changed', [
+                'instanceId' => 'battlefield-1',
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'power' => 5,
+                'toughness' => 7,
+            ], $actor, 'runtime-stats', 9),
+            new GameEvent($game, 'card.counter.changed', [
+                'instanceId' => 'battlefield-1',
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'counter' => '+1/+1',
+                'value' => 3,
+                'power' => 8,
+                'toughness' => 10,
+            ], $actor, 'runtime-counter', 10),
+        ];
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), null, $events);
+
+        self::assertSame(10, $rebuilt['version']);
+        self::assertSame(33, $rebuilt['players'][$actor->id()]['life']);
+        self::assertSame(40, $rebuilt['players'][$controller->id()]['life']);
+        $card = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'battlefield-1');
+        self::assertSame(['x' => 0.37, 'y' => 0.61, 'unit' => 'ratio'], $card['position'] ?? null);
+        self::assertTrue($card['tapped'] ?? false);
+        self::assertSame(90, $card['rotation'] ?? null);
+        self::assertTrue($card['faceDown'] ?? false);
+        self::assertSame($controller->id(), $card['controllerId'] ?? null);
+        self::assertSame(['+1/+1' => 3], $card['counters'] ?? null);
+        self::assertSame(8, $card['power'] ?? null);
+        self::assertSame(10, $card['toughness'] ?? null);
+        self::assertSame('arrow-1', $rebuilt['arrows'][0]['id'] ?? null);
+        self::assertSame('attachment-1', $rebuilt['attachments'][0]['id'] ?? null);
+        $equipment = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'equipment-1');
+        self::assertSame(['x' => 0, 'y' => 0], $equipment['position'] ?? null);
+        self::assertFalse($equipment['tapped'] ?? true);
+    }
+
+    public function testCompactReplayBootstrapDoesNotInventMissingBattlefieldPosition(): void
+    {
+        $actor = new User('runtime-compact-position@example.test', 'Runtime Compact Position');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'card.counter.changed');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $snapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'battlefield' => [$this->card('battlefield-without-position', 'Positionless Permanent', 'battlefield')],
+        ]));
+        unset($snapshot['players'][$actor->id()]['zones']['battlefield'][0]['position']);
+        $snapshot['version'] = 2;
+        $game = new Game(new Room($actor), $snapshot);
+        $store = $this->eventStore($handler, $flags);
+        $compact = (new CompactGameCardStateMapper())->compactSnapshot($snapshot, $game->id(), $game->status());
+        $compactRecord = new GameSnapshotCompact($game, 2, $compact, $store->checksum($compact));
+
+        self::assertArrayNotHasKey('position', $compact['instances']['battlefield-without-position']);
+
+        $counter = new GameEvent($game, 'card.counter.changed', [
+            'instanceId' => 'battlefield-without-position',
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'counter' => 'charge',
+            'value' => 1,
+        ], $actor, 'runtime-positionless-counter', 3);
+
+        $rebuilt = $store->rebuildSnapshot(new Game(new Room($actor), $snapshot), $compactRecord, [$counter]);
+        $card = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'battlefield-without-position');
+        self::assertArrayNotHasKey('position', $card);
+        self::assertSame(['charge' => 1], $card['counters'] ?? null);
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(
+            new Game(new Room($actor), $rebuilt),
+            $actor,
+            $rebuilt,
+        );
+        self::assertNull($bootstrap->instances['battlefield-without-position']['position'] ?? null);
+    }
+
     public function testReplayRebuildsRuntimeGoShuffleFromCompactSeed(): void
     {
         $actor = new User('runtime-go-shuffle@example.test', 'Runtime Go Shuffle');
@@ -840,6 +1339,125 @@ class GameEventStoreV2Test extends TestCase
         $encoded = json_encode($rebuilt, JSON_THROW_ON_ERROR);
         self::assertStringNotContainsString('oracleText":"must-not-leak', $encoded);
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));
+    }
+
+    public function testReplayDoesNotReintroduceRuntimeGoEvaporatedToken(): void
+    {
+        $actor = new User('runtime-go-token-evaporate@example.test', 'Runtime Go Token Evaporate');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'card.moved');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('runtime-token-1', 'Runtime Bear Token', 'battlefield'),
+                'isToken' => true,
+                'isTokenCopy' => false,
+                'tokenMeta' => ['isCopy' => false],
+            ]],
+            'graveyard' => [],
+            'exile' => [],
+        ]));
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $move = new GameEvent($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceIds' => ['runtime-token-1'],
+            'instanceId' => 'runtime-token-1',
+            'moves' => [[
+                'instanceId' => 'runtime-token-1',
+                'from' => ['playerId' => $actor->id(), 'zone' => 'battlefield', 'index' => 0],
+                'to' => ['playerId' => $actor->id(), 'zone' => 'graveyard', 'index' => 0],
+                'evaporates' => true,
+            ]],
+        ], $actor, 'runtime-token-evaporate', 2);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), null, [$move]);
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $rebuilt), $actor, $rebuilt)->toArray();
+
+        self::assertSame([], $this->zoneIds($rebuilt, $actor->id(), 'battlefield'));
+        self::assertSame([], $this->zoneIds($rebuilt, $actor->id(), 'graveyard'));
+        self::assertArrayNotHasKey('runtime-token-1', $rebuilt['loc'] ?? []);
+        self::assertArrayNotHasKey('runtime-token-1', $bootstrap['instances']);
+    }
+
+    public function testReplayPreservesRuntimeGoUntapAllForControlledPermanentsAcrossBattlefields(): void
+    {
+        $actor = new User('runtime-go-untap-owner@example.test', 'Runtime Go Untap Owner');
+        $opponent = new User('runtime-go-untap-opponent@example.test', 'Runtime Go Untap Opponent');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'battlefield.untap_all');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $rawSnapshot = $this->baseSnapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('commander-1', 'Runtime Commander', 'battlefield'),
+                    'ownerId' => $actor->id(),
+                    'controllerId' => $actor->id(),
+                    'isCommander' => true,
+                    'tapped' => true,
+                    'rotation' => 90,
+                ],
+                [
+                    ...$this->card('token-1', 'Runtime Soldier', 'battlefield'),
+                    'ownerId' => $actor->id(),
+                    'controllerId' => $actor->id(),
+                    'isToken' => true,
+                    'tapped' => true,
+                    'rotation' => 90,
+                ],
+            ],
+        ]);
+        $rawSnapshot['players'][$opponent->id()] = [
+            'user' => ['id' => $opponent->id(), 'email' => $opponent->email(), 'displayName' => $opponent->displayName(), 'roles' => []],
+            'life' => 40,
+            'zones' => [
+                'library' => [],
+                'hand' => [],
+                'battlefield' => [
+                    [
+                        ...$this->card('borrowed-1', 'Borrowed Permanent', 'battlefield'),
+                        'ownerId' => $opponent->id(),
+                        'controllerId' => $actor->id(),
+                        'tapped' => true,
+                        'rotation' => 90,
+                    ],
+                    [
+                        ...$this->card('opponent-1', 'Opponent Permanent', 'battlefield'),
+                        'ownerId' => $opponent->id(),
+                        'controllerId' => $opponent->id(),
+                        'tapped' => true,
+                        'rotation' => 90,
+                    ],
+                ],
+                'graveyard' => [],
+                'exile' => [],
+                'command' => [],
+            ],
+            'commanderDamage' => [],
+            'counters' => [],
+        ];
+        $baseSnapshot = $handler->normalizeSnapshot($rawSnapshot);
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $untap = new GameEvent($game, 'battlefield.untap_all', [
+            'playerId' => $actor->id(),
+            'instanceIds' => ['commander-1', 'token-1', 'borrowed-1'],
+        ], $actor, 'runtime-untap-all', 2);
+
+        $rebuilt = $this->eventStore($handler, $flags)->rebuildSnapshot(new Game(new Room($actor), $baseSnapshot), null, [$untap]);
+
+        self::assertFalse($this->cardById($rebuilt, $actor->id(), 'battlefield', 'commander-1')['tapped'] ?? true);
+        self::assertSame(0, $this->cardById($rebuilt, $actor->id(), 'battlefield', 'commander-1')['rotation'] ?? null);
+        self::assertFalse($this->cardById($rebuilt, $actor->id(), 'battlefield', 'token-1')['tapped'] ?? true);
+        self::assertSame(0, $this->cardById($rebuilt, $actor->id(), 'battlefield', 'token-1')['rotation'] ?? null);
+        self::assertFalse($this->cardById($rebuilt, $opponent->id(), 'battlefield', 'borrowed-1')['tapped'] ?? true);
+        self::assertSame(0, $this->cardById($rebuilt, $opponent->id(), 'battlefield', 'borrowed-1')['rotation'] ?? null);
+        self::assertTrue($this->cardById($rebuilt, $opponent->id(), 'battlefield', 'opponent-1')['tapped'] ?? false);
+        self::assertSame(90, $this->cardById($rebuilt, $opponent->id(), 'battlefield', 'opponent-1')['rotation'] ?? null);
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $rebuilt), $actor, $rebuilt)->toArray();
+        self::assertFalse($bootstrap['instances']['commander-1']['tapped'] ?? true);
+        self::assertFalse($bootstrap['instances']['token-1']['tapped'] ?? true);
+        self::assertFalse($bootstrap['instances']['borrowed-1']['tapped'] ?? true);
+        self::assertTrue($bootstrap['instances']['opponent-1']['tapped'] ?? false);
     }
 
     public function testReplayIgnoresCorruptCompactSnapshotWhenEventsCanRecover(): void

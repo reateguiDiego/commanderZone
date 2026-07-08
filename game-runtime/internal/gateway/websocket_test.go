@@ -40,6 +40,82 @@ func TestWebSocketAcceptsValidTicketAndEmitsPatch(t *testing.T) {
 	}
 }
 
+func TestWebSocketCommandTimeoutCanBeConfigured(t *testing.T) {
+	runtimeService := runtimesvc.NewService()
+	validator, err := NewHMACTicketValidator(testTicketSecret)
+	if err != nil {
+		t.Fatalf("validator: %v", err)
+	}
+
+	handler := NewWebSocketServer(validator, runtimeService, WithCommandTimeout(15*time.Second))
+	if handler.commandTimeout != 15*time.Second {
+		t.Fatalf("command timeout = %s, want 15s", handler.commandTimeout)
+	}
+
+	handler = NewWebSocketServer(validator, runtimeService, WithCommandTimeout(0))
+	if handler.commandTimeout != defaultCommandTimeout {
+		t.Fatalf("zero command timeout = %s, want default %s", handler.commandTimeout, defaultCommandTimeout)
+	}
+}
+
+func TestWebSocketDisconnectOpensRuntimeDisconnectVote(t *testing.T) {
+	initial := testInitialState("game-1")
+	initial.Players["p3"] = map[string]any{"life": 40}
+	server, runtimeService, handler := testWebSocketServerWithStateAndHandler(t, "game-1", initial, 128, 256)
+	handler.disconnectVoteGrace = 20 * time.Millisecond
+	defer server.Close()
+
+	playerA := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID:      "p1",
+		PlayerID:    "p1",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	defer playerA.Close()
+	playerB := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID:      "p2",
+		PlayerID:    "p2",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	playerC := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID:      "p3",
+		PlayerID:    "p3",
+		GameID:      "game-1",
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	defer playerC.Close()
+
+	_ = playerB.Close()
+	presence := readUntil(t, playerA, "player_presence_changed")
+	if presence.PlayerID != "p2" || presence.Status != "offline" {
+		t.Fatalf("presence = %#v, want p2 offline", presence)
+	}
+	patch := readPatchWithoutResync(t, playerA)
+	if patch.Version != 2 {
+		t.Fatalf("disconnect vote patch version = %d, want 2", patch.Version)
+	}
+	if len(patch.Ops) == 0 || patch.Ops[0]["op"] != "disconnect.vote.set" {
+		t.Fatalf("ops = %#v, want disconnect.vote.set", patch.Ops)
+	}
+	vote := patch.Ops[0]["disconnectVote"].(map[string]any)
+	if vote["status"] != "open" || vote["targetPlayerId"] != "p2" {
+		t.Fatalf("disconnect vote = %#v, want open for p2", vote)
+	}
+	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 2 {
+		t.Fatalf("actor version did not advance for disconnect vote")
+	}
+	if handler.Metrics().RuntimeDisconnects != 1 {
+		t.Fatalf("runtime disconnect metric = %#v, want 1", handler.Metrics())
+	}
+}
+
 func TestWebSocketAcceptsLegacyTypeCommandThroughExplicitAdapter(t *testing.T) {
 	server, _ := testWebSocketServer(t, "game-1", 128, 256)
 	defer server.Close()
@@ -55,6 +131,59 @@ func TestWebSocketAcceptsLegacyTypeCommandThroughExplicitAdapter(t *testing.T) {
 	message := readUntil(t, conn, "patch.v2")
 	if message.Version != 2 || message.AckClientActionID != "legacy-life" {
 		t.Fatalf("message = %#v, want adapted patch.v2", message)
+	}
+}
+
+func TestWebSocketRoutesChatMessageThroughActivityStore(t *testing.T) {
+	gameID := "game-chat"
+	runtimeService := runtimesvc.NewService()
+	if _, _, err := runtimeService.LoadActorFromInitialState(context.Background(), gameID, testInitialState(gameID)); err != nil {
+		t.Fatalf("load actor: %v", err)
+	}
+	validator, err := NewHMACTicketValidator(testTicketSecret)
+	if err != nil {
+		t.Fatalf("validator: %v", err)
+	}
+	store := &fakeActivityStore{}
+	handler := NewWebSocketServer(validator, runtimeService, WithActivityStore(store))
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	playerA := dialRuntime(t, server.URL, gameID, 0, nil)
+	defer playerA.Close()
+	playerB := dialRuntimeWithClaims(t, server.URL, gameID, 0, TicketClaims{
+		UserID:      "p2",
+		PlayerID:    "p2",
+		GameID:      gameID,
+		Role:        "player",
+		Permissions: []string{"view", "command"},
+		Protocol:    "v2",
+	})
+	defer playerB.Close()
+
+	writeCommand(t, playerA, command(gameID, 1, "chat-action", "chat.message", map[string]any{"message": "hello table"}, nil))
+	for label, conn := range map[string]*websocket.Conn{"A": playerA, "B": playerB} {
+		message := readUntil(t, conn, "patch.v2")
+		if message.Version != 1 || message.AckClientActionID != "chat-action" {
+			t.Fatalf("%s message = %#v, want same-version chat patch", label, message)
+		}
+		if len(message.Ops) != 1 || message.Ops[0]["op"] != "chat.message.add" {
+			t.Fatalf("%s ops = %#v, want chat.message.add", label, message.Ops)
+		}
+		chat := message.Ops[0]["message"].(map[string]any)
+		if chat["message"] != "hello table" || chat["userId"] != "p1" {
+			t.Fatalf("%s chat payload = %#v", label, chat)
+		}
+	}
+	if store.chatCommands != 1 {
+		t.Fatalf("activity store chatCommands = %d, want 1", store.chatCommands)
+	}
+	if runtimeServiceActorVersion(t, runtimeService, gameID) != 1 {
+		t.Fatalf("chat command advanced actor version")
+	}
+	metrics := handler.Metrics()
+	if metrics.ChatMessageRoute != 1 || metrics.ChatSnapshotWriteCount != 0 {
+		t.Fatalf("activity metrics = %#v, want chat route without snapshot write", metrics)
 	}
 }
 
@@ -1090,6 +1219,45 @@ func testReorderState(gameID string) state.GameState {
 	gameState.Loc["h1"] = state.Location{PlayerID: "p1", Zone: state.ZoneHand, Index: 0, ControllerID: "p1"}
 	gameState.Loc["h2"] = state.Location{PlayerID: "p1", Zone: state.ZoneHand, Index: 1, ControllerID: "p1"}
 	return gameState
+}
+
+type fakeActivityStore struct {
+	chatCommands int
+}
+
+func (s *fakeActivityStore) AppendChatMessage(_ context.Context, gameID string, claims TicketClaims, command protocol.CommandEnvelopeV2, version int64) ([]protocol.PatchEnvelopeV2, error) {
+	s.chatCommands++
+	return []protocol.PatchEnvelopeV2{{
+		GameID:            gameID,
+		Version:           version,
+		Visibility:        protocol.VisibilityPublic,
+		AckClientActionID: command.ClientActionID,
+		Ops: []protocol.PatchOp{{
+			Op: "chat.message.add",
+			Data: map[string]any{
+				"message": map[string]any{
+					"id":          "chat-test",
+					"userId":      claims.PlayerID,
+					"displayName": claims.PlayerID,
+					"message":     command.Payload["message"],
+					"createdAt":   "2026-01-01T00:00:00Z",
+					"reactions":   map[string]any{},
+				},
+			},
+		}},
+	}}, nil
+}
+
+func (s *fakeActivityStore) ToggleChatReaction(context.Context, string, TicketClaims, protocol.CommandEnvelopeV2, int64) ([]protocol.PatchEnvelopeV2, error) {
+	return nil, errors.New("unexpected reaction")
+}
+
+func (s *fakeActivityStore) AppendLogEntries(context.Context, string, []map[string]any) error {
+	return nil
+}
+
+func (s *fakeActivityStore) Close() error {
+	return nil
 }
 
 func runtimeServiceActorVersion(t *testing.T, runtimeService *runtimesvc.Service, gameID string) int64 {

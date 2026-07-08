@@ -244,6 +244,8 @@ func allowlistsFromFile(t *testing.T, path string, required bool) [][]string {
 		value := ""
 		if strings.Contains(line, ":-") {
 			value = strings.TrimSuffix(line[strings.Index(line, ":-")+2:], "}")
+		} else if strings.Contains(line, "GAMEPLAY_V2_COMMANDS_ALLOWLIST-") {
+			value = strings.TrimSuffix(line[strings.Index(line, "GAMEPLAY_V2_COMMANDS_ALLOWLIST-")+len("GAMEPLAY_V2_COMMANDS_ALLOWLIST-"):], "}")
 		} else if strings.Contains(line, "=") {
 			value = line[strings.Index(line, "=")+1:]
 		}

@@ -331,8 +331,35 @@ func (s *GameState) CanViewerSeeCardKey(viewerID string, instanceID string) bool
 	if location.Zone != ZoneHand && location.Zone != ZoneLibrary {
 		return true
 	}
-	mask := s.Visibility.InstanceMasks[instanceID] | instance.VisibleToMask
-	return mask != 0
+	if location.Zone == ZoneLibrary {
+		return s.canViewerSeeTopRevealWindow(viewerID, location)
+	}
+	return false
+}
+
+func (s *GameState) canViewerSeeTopRevealWindow(viewerID string, location Location) bool {
+	if viewerID == "" {
+		return false
+	}
+	window, ok := s.Visibility.TopRevealWindows[location.PlayerID]
+	if !ok {
+		return false
+	}
+	if window.OwnerID != "" && window.OwnerID != location.PlayerID {
+		return false
+	}
+	if current := s.Visibility.LibraryEpochByOwner[location.PlayerID]; window.Epoch != current {
+		return false
+	}
+	if location.Index < 0 || location.Index >= window.Count {
+		return false
+	}
+	for _, candidate := range window.To {
+		if candidate == viewerID {
+			return true
+		}
+	}
+	return false
 }
 
 func RemoveFromCurrentZone(game *GameState, instanceID string) (Location, error) {

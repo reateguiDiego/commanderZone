@@ -326,9 +326,33 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	if err := a.permissionErrorLocked(command, request.ActorID); err != nil {
 		return a.rejectedResult(err, queueWait, startedAt)
 	}
+	if result, ok := a.idempotentConcedeResultLocked(command, request.ActorID, queueWait, startedAt); ok {
+		return result
+	}
+	if command.BaseVersion > a.state.Version && a.store != nil {
+		if err := a.catchUpPersistedEventsLocked(ctx, command.BaseVersion); err != nil {
+			a.recordVersionConflict()
+			slog.Warn("runtime actor catch-up failed before command", "gameId", a.gameID, "actorVersion", a.state.Version, "baseVersion", command.BaseVersion, "clientActionId", command.ClientActionID, "error", err)
+			return a.rejectedResult(ErrVersionConflict, queueWait, startedAt)
+		}
+	}
+	if command.BaseVersion < a.state.Version {
+		accepted, err := a.canAcceptStaleBaseVersionLocked(ctx, command.BaseVersion)
+		if err != nil {
+			a.recordVersionConflict()
+			slog.Warn("runtime actor stale-base inspection failed before command", "gameId", a.gameID, "actorVersion", a.state.Version, "baseVersion", command.BaseVersion, "clientActionId", command.ClientActionID, "error", err)
+			return a.rejectedResult(ErrVersionConflict, queueWait, startedAt)
+		}
+		if !accepted {
+			a.recordVersionConflict()
+			return a.rejectedResult(ErrVersionConflict, queueWait, startedAt)
+		}
+	}
 	if command.BaseVersion != a.state.Version {
-		a.recordVersionConflict()
-		return a.rejectedResult(ErrVersionConflict, queueWait, startedAt)
+		if command.BaseVersion > a.state.Version {
+			a.recordVersionConflict()
+			return a.rejectedResult(ErrVersionConflict, queueWait, startedAt)
+		}
 	}
 	applier, ok := a.appliers[command.Type]
 	if !ok {
@@ -361,6 +385,15 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		delete(eventPayload, "_eventType")
 	}
 
+	createdAt := time.Now().UTC()
+	if logEntries := runtimeEventLogEntries(a.state, command, eventPayload, request.ActorID, nextVersion, createdAt); len(logEntries) > 0 {
+		eventPayload["eventLogEntries"] = logEntries
+		emitter.EmitPublic(protocol.PatchOp{
+			Op:   "eventLog.append",
+			Data: map[string]any{"entries": logEntries},
+		})
+	}
+
 	event := protocol.EventPayloadV2{
 		GameID:         a.gameID,
 		Version:        nextVersion,
@@ -368,7 +401,7 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		Payload:        eventPayload,
 		CreatedBy:      request.ActorID,
 		ClientActionID: command.ClientActionID,
-		CreatedAt:      time.Now().UTC(),
+		CreatedAt:      createdAt,
 	}
 	if err := event.Validate(); err != nil {
 		rollback.Restore(a.state)
@@ -436,6 +469,84 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	return result
 }
 
+func (a *GameActor) catchUpPersistedEventsLocked(ctx context.Context, targetVersion int64) error {
+	if a.store == nil || targetVersion <= a.state.Version {
+		return nil
+	}
+	events, err := a.store.EventsAfter(ctx, a.gameID, a.state.Version)
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		if event.Version > targetVersion {
+			break
+		}
+		if event.Version != a.state.Version+1 {
+			return ErrVersionConflict
+		}
+		if actorExternalNoopEvent(event.Type) {
+			a.state.Version = event.Version
+			continue
+		}
+		if err := ReplayEventWithAppliers(a.state, eventWithoutRuntimePatchReceipt(event), a.appliersList()); err != nil {
+			return err
+		}
+		a.state.Version = event.Version
+	}
+	state.RebuildLocIndexForRecoveryOnly(a.state)
+	return nil
+}
+
+func (a *GameActor) canAcceptStaleBaseVersionLocked(ctx context.Context, baseVersion int64) (bool, error) {
+	if a.store == nil || baseVersion >= a.state.Version {
+		return false, nil
+	}
+	events, err := a.store.EventsAfter(ctx, a.gameID, baseVersion)
+	if err != nil {
+		return false, err
+	}
+	expectedVersion := baseVersion + 1
+	for _, event := range events {
+		if event.Version > a.state.Version {
+			break
+		}
+		if event.Version != expectedVersion {
+			return false, nil
+		}
+		if !actorAllowsStaleBaseOverEvent(event.Type) {
+			return false, nil
+		}
+		expectedVersion = event.Version + 1
+	}
+	return expectedVersion == a.state.Version+1, nil
+}
+
+func (a *GameActor) appliersList() []Applier {
+	appliers := make([]Applier, 0, len(a.appliers))
+	for _, applier := range a.appliers {
+		appliers = append(appliers, applier)
+	}
+	return appliers
+}
+
+func actorExternalNoopEvent(eventType string) bool {
+	switch eventType {
+	case "rematch.vote", "chat.message", "chat.reaction.toggled":
+		return true
+	default:
+		return false
+	}
+}
+
+func actorAllowsStaleBaseOverEvent(eventType string) bool {
+	switch eventType {
+	case "rematch.vote", "chat.message", "chat.reaction.toggled", "disconnect.vote.updated":
+		return true
+	default:
+		return false
+	}
+}
+
 func (a *GameActor) resultFromStoredEvent(event protocol.EventPayloadV2) (CommandResult, error) {
 	patches, ok, err := runtimePatchReceiptFromEvent(event)
 	if err != nil {
@@ -465,6 +576,65 @@ func (a *GameActor) storedDuplicateResult(ctx context.Context, command protocol.
 	}
 	a.rememberSeenAction(command.ClientActionID, result)
 	return result, true, nil
+}
+
+func (a *GameActor) idempotentConcedeResultLocked(command protocol.CommandEnvelopeV2, actorID string, queueWait time.Duration, startedAt time.Time) (CommandResult, bool) {
+	if command.Type != "game.concede" {
+		return CommandResult{}, false
+	}
+	playerID, _ := command.Payload["playerId"].(string)
+	if playerID == "" {
+		return CommandResult{}, false
+	}
+	player, ok := a.state.Players[playerID]
+	if !ok || player["status"] != "conceded" {
+		return CommandResult{}, false
+	}
+	if command.BaseVersion > a.state.Version {
+		a.recordVersionConflict()
+		return a.rejectedResult(ErrVersionConflict, queueWait, startedAt), true
+	}
+
+	emitter := NewPatchEmitter()
+	concededAt, _ := player["concededAt"].(string)
+	emitter.EmitPublic(protocol.PatchOp{
+		Op: "player.status.set",
+		Data: map[string]any{
+			"playerId":   playerID,
+			"status":     "conceded",
+			"concededAt": concededAt,
+		},
+	})
+	payload := map[string]any{
+		"playerId":   playerID,
+		"status":     "conceded",
+		"concededAt": concededAt,
+		"idempotent": true,
+		"metrics":    lifecycleMetrics(startedAt, emitter),
+	}
+	addCommandMetric(payload, "command.runtime_coverage_percent", a.commandRuntimeCoveragePercent())
+	addCommandMetric(payload, "command.unsupported_count", 0)
+	addCommandMetric(payload, "command.legacy_fallback_count", 0)
+	addCommandMetric(payload, "command.alias_translation_count", 0)
+
+	event := protocol.EventPayloadV2{
+		GameID:         a.gameID,
+		Version:        a.state.Version,
+		Type:           "game.concede",
+		Payload:        payload,
+		CreatedBy:      actorID,
+		ClientActionID: command.ClientActionID,
+		CreatedAt:      time.Now().UTC(),
+	}
+	if err := event.Validate(); err != nil {
+		return a.rejectedResult(err, queueWait, startedAt), true
+	}
+	patches := emitter.Envelopes(a.gameID, a.state.Version, command.ClientActionID)
+	if err := validatePatchEnvelopes(patches); err != nil {
+		return a.rejectedResult(err, queueWait, startedAt), true
+	}
+
+	return CommandResult{Event: event, Patches: patches}, true
 }
 
 func (a *GameActor) duplicateDurableErrorResult(err error, clientActionID string, queueWait time.Duration, startedAt time.Time) CommandResult {

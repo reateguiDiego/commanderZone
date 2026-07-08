@@ -773,6 +773,41 @@ class GameProjectionServiceTest extends TestCase
         );
     }
 
+    public function testProjectionHydratesCompactSpecialEntityCardImagesFromLookup(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $viewer->updateCardLanguage('es');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['specialEntities'] = [[
+            'id' => 'monarch-1',
+            'template' => 'monarch',
+            'scope' => 'global',
+            'ownerPlayerId' => $owner->id(),
+            'card' => [
+                'scryfallId' => 'monarch-print',
+                'name' => 'The Monarch',
+                'layout' => 'token',
+            ],
+            'state' => [],
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+        $lookup = [
+            'es' => [
+                'monarch-print' => [
+                    'imageUris' => ['normal' => 'https://cards.example/monarch-es.jpg'],
+                ],
+            ],
+        ];
+
+        $projected = (new GameProjectionService(new GameCommandHandler()))
+            ->projectSnapshot($snapshot, $viewer, true, $lookup);
+
+        self::assertSame('The Monarch', $projected['specialEntities'][0]['card']['name']);
+        self::assertSame('https://cards.example/monarch-es.jpg', $projected['specialEntities'][0]['card']['imageUris']['normal']);
+        self::assertArrayNotHasKey('printedName', $projected['specialEntities'][0]['card']);
+    }
+
     public function testProjectedSnapshotPreservesGameplayContractFieldsForUiBootstrap(): void
     {
         $owner = new User('owner@example.test', 'Owner');
