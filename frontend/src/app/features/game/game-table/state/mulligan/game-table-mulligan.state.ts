@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { GameCardInstance, GameCompactCardRef, GamePhase, GamePlayerMulliganState, GameSnapshot } from '../../../../../core/models/game.model';
+import type { GameplayPatchV2Operation } from '../../../../../core/models/game-v2.model';
 import {
   GameplayMulliganCompletedMessage,
   GameplayMulliganErrorMessage,
@@ -10,6 +11,8 @@ import {
   GameplayPatchV2Message,
 } from '../../../../../core/models/game-realtime.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
+
+type MulliganBottomRequiredOperation = Extract<GameplayPatchV2Operation, { op: 'mulligan.bottom.required.set' }>;
 
 @Injectable()
 export class GameTableMulliganState {
@@ -119,6 +122,11 @@ export class GameTableMulliganState {
 
     const player = snapshot.players[playerId];
     const mulligan = player?.mulligan;
+    const patchState = stateOperation?.state;
+    const bottomOperation = message.ops.find((operation): operation is MulliganBottomRequiredOperation =>
+      operation.op === 'mulligan.bottom.required.set' && operation.playerId === playerId
+    );
+    const bottomOperationOrderMode = bottomOperation?.orderMode as GamePlayerMulliganState['bottomOrderMode'] | undefined;
     const hand = handOperation?.hand ?? stateOperation?.hand ?? [];
     return {
       kind: 'mulligan.private_state',
@@ -126,20 +134,20 @@ export class GameTableMulliganState {
       version: message.version,
       playerId,
       hand,
-      handSize: hand.length || stateOperation?.state.handSize || mulligan?.handCount || player?.handCount,
+      handSize: hand.length || patchState?.handSize || mulligan?.handCount || player?.handCount,
       mulligan: {
-        rule: mulligan?.rule ?? (stateOperation?.state.rule as GamePlayerMulliganState['rule'] | undefined),
-        mulligansTaken: mulligan?.mulligansTaken ?? stateOperation?.state.mulligansTaken ?? 0,
-        effectiveMulligans: mulligan?.effectiveMulligans ?? stateOperation?.state.effectiveMulligans ?? 0,
-        drawCount: mulligan?.drawCount ?? stateOperation?.state.drawCount ?? hand.length,
-        bottomSelectionCount: mulligan?.bottomSelectionCount ?? stateOperation?.state.bottomSelectionCount ?? stateOperation?.state.cardsToBottom ?? 0,
-        finalHandSize: mulligan?.finalHandSize ?? stateOperation?.state.finalHandSize ?? hand.length,
-        needsBottomSelection: mulligan?.needsBottomSelection ?? stateOperation?.state.needsBottomSelection ?? stateOperation?.state.bottomPending ?? false,
-        bottomOrderMode: mulligan?.bottomOrderMode ?? (stateOperation?.state.bottomOrderMode as GamePlayerMulliganState['bottomOrderMode'] | undefined) ?? 'NONE',
-        needsScryAfterKeep: mulligan?.needsScryAfterKeep ?? stateOperation?.state.needsScryAfterKeep ?? stateOperation?.state.scryPending ?? false,
-        canTakeAnotherMulligan: mulligan?.canTakeAnotherMulligan ?? stateOperation?.state.canTakeAnotherMulligan ?? true,
-        status: mulligan?.status ?? stateOperation?.state.status ?? 'DECIDING',
-        ready: mulligan?.ready ?? stateOperation?.state.ready ?? false,
+        rule: (patchState?.rule as GamePlayerMulliganState['rule'] | undefined) ?? mulligan?.rule,
+        mulligansTaken: patchState?.mulligansTaken ?? mulligan?.mulligansTaken ?? 0,
+        effectiveMulligans: patchState?.effectiveMulligans ?? mulligan?.effectiveMulligans ?? 0,
+        drawCount: patchState?.drawCount ?? mulligan?.drawCount ?? hand.length,
+        bottomSelectionCount: patchState?.bottomSelectionCount ?? patchState?.cardsToBottom ?? bottomOperation?.count ?? mulligan?.bottomSelectionCount ?? 0,
+        finalHandSize: patchState?.finalHandSize ?? mulligan?.finalHandSize ?? hand.length,
+        needsBottomSelection: patchState?.needsBottomSelection ?? patchState?.bottomPending ?? (bottomOperation ? bottomOperation.count > 0 : undefined) ?? mulligan?.needsBottomSelection ?? false,
+        bottomOrderMode: (patchState?.bottomOrderMode as GamePlayerMulliganState['bottomOrderMode'] | undefined) ?? bottomOperationOrderMode ?? mulligan?.bottomOrderMode ?? 'NONE',
+        needsScryAfterKeep: patchState?.needsScryAfterKeep ?? patchState?.scryPending ?? mulligan?.needsScryAfterKeep ?? false,
+        canTakeAnotherMulligan: patchState?.canTakeAnotherMulligan ?? mulligan?.canTakeAnotherMulligan ?? true,
+        status: patchState?.status ?? mulligan?.status ?? 'DECIDING',
+        ready: patchState?.ready ?? mulligan?.ready ?? false,
       },
       ...(stateOperation?.scryCard ? { scryCard: stateOperation.scryCard } : {}),
       ...(handOperation?.staticCards ? { staticCards: handOperation.staticCards } : {}),

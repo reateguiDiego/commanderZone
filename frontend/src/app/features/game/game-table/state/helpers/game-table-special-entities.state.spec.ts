@@ -415,6 +415,40 @@ describe('GameTableSpecialEntitiesState', () => {
       'initiative:initiative-1',
     ]);
   });
+
+  it('renders compact helpers without catalog art as stable markers instead of unknown cards', () => {
+    const core = TestBed.inject(GameTableCoreState);
+    const state = TestBed.inject(GameTableSpecialEntitiesState);
+
+    core.snapshot.set({
+      ...snapshotWithMonarchCard(),
+      specialEntities: [{
+        id: 'day-night-1',
+        template: 'day_night',
+        scope: 'global',
+        ownerPlayerId: null,
+        card: {
+          scryfallId: 'day-night-print',
+          name: 'Day // Night',
+          layout: 'double_faced_token',
+        },
+        state: { mode: 'night', createdByPlayerId: 'user-1' },
+        createdAt: '2026-06-16T00:00:01+00:00',
+      }],
+    });
+
+    const card = state.dayNightCardForPlayer('user-1');
+
+    expect(card).toEqual(expect.objectContaining({
+      name: 'Day // Night',
+      scryfallId: 'day-night-print',
+      layout: 'double_faced_token',
+      typeLine: 'Game Mechanic - Day/Night',
+      oracleText: 'It is night.',
+    }));
+    expect(card?.name).not.toBe('Unknown Card');
+    expect(card?.imageUris).toBeUndefined();
+  });
 });
 
 function snapshotWithMonarchCard(): GameSnapshot {

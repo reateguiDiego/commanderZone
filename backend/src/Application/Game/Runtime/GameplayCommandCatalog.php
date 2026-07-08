@@ -61,6 +61,7 @@ final class GameplayCommandCatalog
         'helper.removed',
         'game.concede',
         'game.close',
+        'disconnect.vote',
         'mulligan.take',
         'mulligan.keep',
         'mulligan.cards_bottomed',
@@ -119,6 +120,7 @@ final class GameplayCommandCatalog
         'helper.removed',
         'game.concede',
         'game.close',
+        'disconnect.vote',
         'mulligan.take',
         'mulligan.keep',
         'mulligan.scry.confirm',
@@ -140,7 +142,6 @@ final class GameplayCommandCatalog
     private const EXPLICIT_NON_RUNTIME = [
         'chat.message' => 'chat streams are handled outside the gameplay actor',
         'chat.reaction.toggled' => 'chat streams are handled outside the gameplay actor',
-        'disconnect.vote' => 'disconnect vote orchestration is handled outside the gameplay actor',
     ];
 
     public static function canonicalType(string $type): string

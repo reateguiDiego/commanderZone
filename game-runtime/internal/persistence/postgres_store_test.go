@@ -111,6 +111,29 @@ func TestPostgresAppendP95IsMeasured(t *testing.T) {
 	}
 }
 
+func TestMapPostgresConstraintErrorMapsMissingGameForeignKey(t *testing.T) {
+	err := mapPostgresConstraintError(
+		errors.New(`ERROR: insert or update on table "game_event" violates foreign key constraint "fk_99097f27e48fd905" (SQLSTATE 23503)`),
+		"game-missing",
+		2,
+		"action-1",
+	)
+	if !errors.Is(err, ErrGameNotFound) {
+		t.Fatalf("err = %v, want %v", err, ErrGameNotFound)
+	}
+}
+
+func TestMapPostgresConstraintErrorDoesNotHideActorForeignKey(t *testing.T) {
+	original := errors.New(`ERROR: insert or update on table "game_event" violates foreign key constraint "fk_99097f27b03a8386" (SQLSTATE 23503)`)
+	err := mapPostgresConstraintError(original, "game-1", 2, "action-1")
+	if !errors.Is(err, original) {
+		t.Fatalf("err = %v, want original actor foreign key error", err)
+	}
+	if errors.Is(err, ErrGameNotFound) {
+		t.Fatalf("actor foreign key error was incorrectly mapped to %v", ErrGameNotFound)
+	}
+}
+
 func TestPostgresAppendEventWithFenceRejectsStaleToken(t *testing.T) {
 	store := postgresStoreForTest(t)
 	ctx := context.Background()

@@ -12,6 +12,7 @@ import (
 var (
 	ErrDuplicateVersion        = errors.New("duplicate game event version")
 	ErrDuplicateClientActionID = errors.New("duplicate client action id")
+	ErrGameNotFound            = errors.New("game not found")
 )
 
 type InMemoryEventStore struct {

@@ -2771,6 +2771,41 @@ describe('GameTableComponent', () => {
     }), 'game-1'));
   });
 
+  it('sends the U shortcut when only a borrowed controlled permanent is tapped', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-1']!.zones.battlefield[0]!.tapped = false;
+    snapshot.players['user-2']!.zones.battlefield[0] = {
+      ...snapshot.players['user-2']!.zones.battlefield[0]!,
+      instanceId: 'borrowed-1',
+      ownerId: 'user-2',
+      controllerId: 'user-1',
+      tapped: true,
+      rotation: 90,
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-untap-borrowed', type: 'battlefield.untap_all', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
+
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'battlefield.untap_all',
+      payload: {
+        playerId: 'user-1',
+      },
+    }), 'game-1'));
+  });
+
   it('does not send the U shortcut command when the current player has no tapped battlefield cards', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -3457,6 +3492,62 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.zoneModal()?.title).toBe('User Library');
     expect(fixture.componentInstance.store.zoneModal()?.cards).toEqual([libraryCard]);
     expect(fixture.componentInstance.store.zoneModal()?.selectedCard).toBe(libraryCard);
+  });
+
+  it('keeps a viewed top-library modal bounded after moving one viewed card', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const firstLibraryCard = {
+      ...snapshot.players['user-1']!.zones.library[0]!,
+      instanceId: 'library-card-1',
+      name: 'Viewed Plains',
+    };
+    const secondLibraryCard = {
+      ...firstLibraryCard,
+      instanceId: 'library-card-2',
+      name: 'Viewed Island',
+    };
+    snapshot.players['user-1']!.zones.library = [firstLibraryCard, secondLibraryCard];
+    snapshot.players['user-1']!.zoneCounts!.library = 20;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-library', type: 'library.view', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.store.viewTopLibrary('user-1', 2);
+    expect(gamesApi.zone).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.zoneModal()?.showFilters).toBe(false);
+    expect(fixture.componentInstance.store.zoneModal()?.cards.map((card) => card.instanceId)).toEqual(['library-card-1', 'library-card-2']);
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'moveCard', zone: 'graveyard' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'library',
+      kind: 'card',
+      card: firstLibraryCard,
+      fromFixedZoneModal: true,
+    });
+
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.moved',
+      payload: expect.objectContaining({
+        playerId: 'user-1',
+        fromZone: 'library',
+        toZone: 'graveyard',
+        instanceId: 'library-card-1',
+        sourceContext: { type: 'libraryTopView', count: 2 },
+      }),
+    }), 'game-1'));
+    expect(gamesApi.zone).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.zoneModal()?.cards.map((card) => card.instanceId)).toEqual(['library-card-2']));
+    expect(fixture.componentInstance.store.zoneModal()?.total).toBe(2);
   });
 
   it('shuffles the library after closing a view all library modal', async () => {
@@ -4291,7 +4382,7 @@ describe('GameTableComponent', () => {
         playerId: 'user-1',
         zone: 'battlefield',
         instanceId: 'card-1',
-        key: '+1/+1',
+        counter: '+1/+1',
         value: 0,
       },
     }), 'game-1');

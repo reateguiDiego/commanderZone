@@ -50,10 +50,12 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayViaApplier(game, event, appliers)
 	case "stack.card_added", "stack.item_removed", "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
 		return replayViaApplier(game, event, appliers)
+	case "game.concede", "game.close":
+		return replayViaApplier(game, event, appliers)
 	case "mulligan.player_took", "mulligan.player_kept", "mulligan.cards_bottomed", "mulligan.scry_confirmed", "mulligan.player_ready", "mulligan.completed", "game.phase_changed":
 		return replayMulliganEvent(game, event)
 	case "disconnect.vote.updated":
-		return nil
+		return replayViaApplierWithType(game, event, appliers, "disconnect.vote")
 	default:
 		return ReplayEvent(game, event)
 	}
@@ -131,6 +133,15 @@ func mergeLegacyCardRuntimeFields(game *state.GameState, instanceID string, card
 	}
 	if cardKey, ok := cardKeyFromLegacyCard(card, instanceID); ok {
 		instance.CardKey = cardKey
+	}
+	if printID, ok := card["printId"].(string); ok && printID != "" {
+		instance.PrintID = printID
+	}
+	if cardVersion, ok := card["cardVersion"].(string); ok && cardVersion != "" {
+		instance.CardVersion = cardVersion
+	}
+	if language, ok := card["language"].(string); ok && language != "" {
+		instance.Language = language
 	}
 	if tapped, ok := card["tapped"].(bool); ok {
 		instance.Tapped = tapped
@@ -411,19 +422,23 @@ func mulliganStateFromAny(value any) (state.MulliganState, bool) {
 }
 
 func replayViaApplier(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
+	return replayViaApplierWithType(game, event, appliers, event.Type)
+}
+
+func replayViaApplierWithType(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier, commandType string) error {
 	for _, applier := range appliers {
-		if applier.Type() != event.Type {
+		if applier.Type() != commandType {
 			continue
 		}
 		command := protocol.CommandEnvelopeV2{
 			GameID:         event.GameID,
 			BaseVersion:    game.Version,
 			ClientActionID: event.ClientActionID,
-			Type:           event.Type,
+			Type:           commandType,
 			Payload:        cloneMap(event.Payload),
 		}
 		_, err := applier.Apply(context.Background(), game, command, NewPatchEmitter())
 		return err
 	}
-	return fmt.Errorf("%w: %s", ErrUnknownCommand, event.Type)
+	return fmt.Errorf("%w: %s", ErrUnknownCommand, commandType)
 }

@@ -14,6 +14,8 @@ final readonly class BootstrapV2 implements \JsonSerializable
      * @param array<string,mixed> $relations
      * @param array<string,mixed> $turn
      * @param array<string,array<string,mixed>> $staticCards
+     * @param list<array<string,mixed>> $chat
+     * @param list<array<string,mixed>> $eventLog
      */
     public function __construct(
         public array $game,
@@ -25,6 +27,8 @@ final readonly class BootstrapV2 implements \JsonSerializable
         public array $relations,
         public array $turn,
         public array $staticCards,
+        public array $chat,
+        public array $eventLog,
         public ?string $chatCursor,
         public ?string $logCursor,
         public string $rulesVersion = 'commanderzone-manual-v1',
@@ -48,6 +52,8 @@ final readonly class BootstrapV2 implements \JsonSerializable
             ContractV2Assert::requiredMap($data, 'relations'),
             ContractV2Assert::requiredMap($data, 'turn'),
             self::validateStaticCards($data),
+            self::optionalListOfMaps($data, 'chat'),
+            self::optionalListOfMaps($data, 'eventLog'),
             ContractV2Assert::optionalNonEmptyString($data, 'chatCursor'),
             ContractV2Assert::optionalNonEmptyString($data, 'logCursor'),
             is_string($data['rulesVersion'] ?? null) && trim((string) $data['rulesVersion']) !== ''
@@ -77,6 +83,12 @@ final readonly class BootstrapV2 implements \JsonSerializable
             'rulesVersion' => $this->rulesVersion,
             'cardCatalogVersion' => $this->cardCatalogVersion,
         ];
+        if ($this->chat !== []) {
+            $data['chat'] = $this->chat;
+        }
+        if ($this->eventLog !== []) {
+            $data['eventLog'] = $this->eventLog;
+        }
         if ($this->sharedCounters !== []) {
             $data['sharedCounters'] = $this->sharedCounters;
         }
@@ -134,6 +146,20 @@ final readonly class BootstrapV2 implements \JsonSerializable
         }
 
         return $value;
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     * @return list<array<string,mixed>>
+     */
+    private static function optionalListOfMaps(array $data, string $field): array
+    {
+        $value = $data[$field] ?? [];
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter($value, static fn (mixed $entry): bool => is_array($entry)));
     }
 
     /**

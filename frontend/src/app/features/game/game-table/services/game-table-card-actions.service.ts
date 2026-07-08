@@ -631,7 +631,7 @@ export class GameTableCardActionsService {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
-      key,
+      counter: key,
       delta,
     });
     context.closeContextMenu();
@@ -651,7 +651,7 @@ export class GameTableCardActionsService {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
-      key,
+      counter: key,
       value,
     });
     context.closeContextMenu();

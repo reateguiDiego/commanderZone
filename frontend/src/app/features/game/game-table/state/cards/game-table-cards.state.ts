@@ -166,8 +166,8 @@ export class GameTableCardsState {
         playerId: command.playerId,
         zone: command.zone,
         instanceId: command.instanceId,
-        key: command.key,
-        ...(command.value === null ? { remove: true } : { value: command.value }),
+        counter: command.key,
+        value: command.value ?? 0,
       })) {
         throw new Error('WebSocket gameplay connection is not available.');
       }

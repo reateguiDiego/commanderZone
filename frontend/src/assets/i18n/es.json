@@ -924,6 +924,7 @@
         "generous": "Generoso"
       },
       "status": {
+        "bottoming": "eligiendo fondo",
         "deciding": "decidiendo",
         "scrying": "Adivinando",
         "ready": "listo"

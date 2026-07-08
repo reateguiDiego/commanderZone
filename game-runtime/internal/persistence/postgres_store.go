@@ -284,11 +284,17 @@ func (s *PostgresEventStore) recordAppendDuration(duration time.Duration) {
 
 func mapPostgresConstraintError(err error, gameID string, version int64, clientActionID string) error {
 	message := err.Error()
+	lowerMessage := strings.ToLower(message)
 	if strings.Contains(message, "uniq_game_event_version") {
 		return fmt.Errorf("%w: %s/%d", ErrDuplicateVersion, gameID, version)
 	}
 	if strings.Contains(message, "uniq_game_event_client_action") {
 		return fmt.Errorf("%w: %s/%s", ErrDuplicateClientActionID, gameID, clientActionID)
+	}
+	if strings.Contains(lowerMessage, "game_event") &&
+		strings.Contains(lowerMessage, "foreign key constraint") &&
+		strings.Contains(lowerMessage, "fk_99097f27e48fd905") {
+		return fmt.Errorf("%w: %s", ErrGameNotFound, gameID)
 	}
 	return err
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
@@ -64,6 +65,7 @@ func DefaultAppliers() []Applier {
 		HelperRemovedApplier{},
 		GameConcedeApplier{},
 		GameCloseApplier{},
+		DisconnectVoteApplier{},
 		MulliganTakeApplier{},
 		MulliganKeepApplier{},
 		MulliganCardsBottomedApplier{},
@@ -191,7 +193,7 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	if err != nil {
 		return nil, err
 	}
-	counter, err := stringField(command.Payload, "counter")
+	counter, err := cardCounterName(command.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +204,7 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	if instance.Counters == nil {
 		instance.Counters = map[string]int{}
 	}
+	previousValue := instance.Counters[counter]
 	value, ok := intField(command.Payload, "value")
 	if !ok {
 		delta, hasDelta := intField(command.Payload, "delta")
@@ -216,6 +219,7 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	} else {
 		instance.Counters[counter] = value
 	}
+	statPatch, hasStatPatch := applyPowerToughnessCounterDelta(&instance, counter, value-previousValue)
 	game.Instances[instanceID] = instance
 	patch := map[string]any{
 		"instanceId": instanceID,
@@ -225,17 +229,73 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 		"value":      value,
 		"counters":   cloneIntMapAny(instance.Counters),
 	}
+	if hasStatPatch {
+		for key, value := range statPatch {
+			patch[key] = value
+		}
+	}
+	patchData := map[string]any{
+		"instanceId": instanceID,
+		"playerId":   location.PlayerID,
+		"zone":       location.Zone,
+		"counters":   cloneIntMapAny(instance.Counters),
+	}
+	if hasStatPatch {
+		for key, value := range statPatch {
+			patchData[key] = value
+		}
+	}
 	emitter.EmitPublic(protocol.PatchOp{
-		Op: "card.counters.patch",
-		Data: map[string]any{
-			"instanceId": instanceID,
-			"playerId":   location.PlayerID,
-			"zone":       location.Zone,
-			"counters":   cloneIntMapAny(instance.Counters),
-		},
+		Op:   "card.counters.patch",
+		Data: patchData,
 	})
 	patch["metrics"] = countersMetrics(start, emitter)
 	return patch, nil
+}
+
+func applyPowerToughnessCounterDelta(instance *state.CardInstanceRuntime, counter string, delta int) (map[string]any, bool) {
+	modifier := 0
+	switch counter {
+	case "+1/+1":
+		modifier = 1
+	case "-1/-1":
+		modifier = -1
+	default:
+		return nil, false
+	}
+	if delta == 0 {
+		return nil, false
+	}
+	if instance.MutableStats == nil {
+		instance.MutableStats = map[string]any{}
+	}
+	power := numericMutableStat(instance.MutableStats["power"]) + (delta * modifier)
+	toughness := numericMutableStat(instance.MutableStats["toughness"]) + (delta * modifier)
+	instance.MutableStats["power"] = power
+	instance.MutableStats["toughness"] = toughness
+	return map[string]any{"power": power, "toughness": toughness}, true
+}
+
+func numericMutableStat(value any) int {
+	if parsed, ok := intFromAny(value); ok {
+		return parsed
+	}
+	return 0
+}
+
+func cardCounterName(payload map[string]any) (string, error) {
+	counter, counterErr := stringField(payload, "counter")
+	legacyKey, keyErr := stringField(payload, "key")
+	if counterErr == nil && keyErr == nil && counter != legacyKey {
+		return "", fmt.Errorf("conflicting payload fields: counter and key")
+	}
+	if counterErr == nil {
+		return counter, nil
+	}
+	if keyErr == nil {
+		return legacyKey, nil
+	}
+	return "", fmt.Errorf("%w: counter", ErrMissingPayloadField)
 }
 
 type CardPositionChangedApplier struct{}
@@ -403,6 +463,7 @@ func cardPatchData(game *state.GameState, viewerID string, instanceID string) ma
 		"counters":     instance.Counters,
 		"position":     instance.Position,
 		"faceDown":     instance.FaceDown,
+		"isCommander":  instance.IsCommander,
 	}
 	for _, key := range []string{"power", "toughness", "loyalty", "defense", "saga"} {
 		if value, ok := instance.MutableStats[key]; ok {
@@ -411,10 +472,70 @@ func cardPatchData(game *state.GameState, viewerID string, instanceID string) ma
 	}
 	if game.CanViewerSeeCardKey(viewerID, instanceID) {
 		data["cardKey"] = instance.CardKey
+		data["printId"] = printIDForViewer(instance, viewerID)
+		data["cardVersion"] = cardVersionForViewer(instance, viewerID)
+		data["language"] = languageForViewer(game, instance, viewerID)
+		data["viewerVisibility"] = viewerVisibilityForZone(location.Zone)
 	} else {
 		data["hidden"] = true
 	}
 	return data
+}
+
+func printIDForViewer(instance state.CardInstanceRuntime, viewerID string) string {
+	if viewerID != "" && viewerID == instance.OwnerID && instance.PrintID != "" {
+		return instance.PrintID
+	}
+	return printIDFromCardKey(instance.CardKey)
+}
+
+func printIDFromCardKey(cardKey string) string {
+	if strings.HasSuffix(cardKey, ":card") {
+		return strings.TrimSuffix(cardKey, ":card")
+	}
+	return cardKey
+}
+
+func cardVersionForViewer(instance state.CardInstanceRuntime, viewerID string) string {
+	if viewerID != "" && viewerID == instance.OwnerID && instance.CardVersion != "" {
+		return instance.CardVersion
+	}
+	return "runtime-identity-v1"
+}
+
+func languageForViewer(game *state.GameState, instance state.CardInstanceRuntime, viewerID string) string {
+	if viewerID != "" && viewerID == instance.OwnerID && instance.Language != "" {
+		return instance.Language
+	}
+	if language := playerCardLanguage(game, viewerID); language != "" {
+		return language
+	}
+	return "en"
+}
+
+func viewerVisibilityForZone(zone state.Zone) string {
+	if privateZone(zone) {
+		return "private"
+	}
+	return "public"
+}
+
+func playerCardLanguage(game *state.GameState, playerID string) string {
+	if game == nil || playerID == "" {
+		return ""
+	}
+	player := game.Players[playerID]
+	if player == nil {
+		return ""
+	}
+	user, _ := player["user"].(map[string]any)
+	preferences, _ := user["preferences"].(map[string]any)
+	language, _ := preferences["cardLanguage"].(string)
+	language = strings.TrimSpace(language)
+	if language == "" {
+		return ""
+	}
+	return language
 }
 
 func cloneIntMapAny(values map[string]int) map[string]any {

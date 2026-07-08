@@ -109,11 +109,17 @@ final class GameEventStoreV2
             }
         }
 
+        $positionlessBattlefieldInstanceIds = $this->positionlessBattlefieldInstanceIds($baseSnapshot);
         $snapshot = $this->normalizer->normalizeSnapshot($baseSnapshot);
         $eventsToReplay = array_values(array_filter(
             $events,
             static fn (mixed $event): bool => $event instanceof GameEvent && $event->version() > $baseVersion,
         ));
+        $positionlessBattlefieldInstanceIds = array_diff_key(
+            $positionlessBattlefieldInstanceIds,
+            $this->runtimePositionMutatedInstanceIds($eventsToReplay),
+        );
+        $this->restorePositionlessBattlefieldInstances($snapshot, $positionlessBattlefieldInstanceIds);
         $runtimeStaticCards = [
             ...$this->runtimeStaticCardsFromSnapshot($snapshot),
             ...$this->runtimeStaticCardsFromEvents($events),
@@ -135,6 +141,7 @@ final class GameEventStoreV2
             'gameplay.compact_snapshot_checksum_mismatch' => $compactChecksumMismatch ? 1 : 0,
         ];
         $snapshot = $this->normalizer->normalizeSnapshot($snapshot);
+        $this->restorePositionlessBattlefieldInstances($snapshot, $positionlessBattlefieldInstanceIds);
         if ($this->flagsV2?->visibilityEnabled() ?? false) {
             ($this->visibilityIndex ?? new GameVisibilityIndex())->rebuild($snapshot);
         }
@@ -242,6 +249,91 @@ final class GameEventStoreV2
     public function checksum(array $snapshot): string
     {
         return hash('sha256', json_encode($snapshot, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @return array<string,true>
+     */
+    private function positionlessBattlefieldInstanceIds(array $snapshot): array
+    {
+        $ids = [];
+        foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $player) {
+            if (!is_array($player)) {
+                continue;
+            }
+            foreach (is_array($player['zones']['battlefield'] ?? null) ? $player['zones']['battlefield'] : [] as $card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $instanceId = is_string($card['instanceId'] ?? null) ? trim($card['instanceId']) : '';
+                if ($instanceId !== '' && !is_array($card['position'] ?? null)) {
+                    $ids[$instanceId] = true;
+                }
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param list<GameEvent> $events
+     *
+     * @return array<string,true>
+     */
+    private function runtimePositionMutatedInstanceIds(array $events): array
+    {
+        $ids = [];
+        foreach ($events as $event) {
+            $payload = $event->payload();
+            if ($event->type() === 'card.position.changed' && is_string($payload['instanceId'] ?? null)) {
+                $ids[trim($payload['instanceId'])] = true;
+                continue;
+            }
+            if ($event->type() === 'cards.position.changed') {
+                foreach (array_values(array_filter($payload['positions'] ?? [], static fn (mixed $entry): bool => is_array($entry))) as $entry) {
+                    if (is_string($entry['instanceId'] ?? null) && trim($entry['instanceId']) !== '') {
+                        $ids[trim($entry['instanceId'])] = true;
+                    }
+                }
+                continue;
+            }
+            if (!in_array($event->type(), ['card.moved', 'cards.moved', 'zone.move_all'], true)) {
+                continue;
+            }
+            foreach (array_values(array_filter($payload['moves'] ?? [], static fn (mixed $move): bool => is_array($move))) as $move) {
+                if (is_string($move['instanceId'] ?? null) && is_array($move['position'] ?? null)) {
+                    $ids[trim($move['instanceId'])] = true;
+                }
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param array<string,true> $instanceIds
+     */
+    private function restorePositionlessBattlefieldInstances(array &$snapshot, array $instanceIds): void
+    {
+        if ($instanceIds === [] || !is_array($snapshot['players'] ?? null)) {
+            return;
+        }
+        foreach ($snapshot['players'] as &$player) {
+            if (!is_array($player) || !is_array($player['zones']['battlefield'] ?? null)) {
+                continue;
+            }
+            foreach ($player['zones']['battlefield'] as &$card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+                $instanceId = is_string($card['instanceId'] ?? null) ? trim($card['instanceId']) : '';
+                if ($instanceId !== '' && isset($instanceIds[$instanceId])) {
+                    unset($card['position']);
+                }
+            }
+            unset($card);
+        }
+        unset($player);
     }
 
     /**
@@ -404,7 +496,24 @@ final class GameEventStoreV2
                 ? $legacyCompact['cardCatalog']
                 : [];
         }
+        if (!isset($compactSnapshot['runtimeFormat']) && $this->looksLikeStructuredCompactSnapshot($compactSnapshot)) {
+            $compactSnapshot['runtimeFormat'] = CompactGameCardStateMapper::SNAPSHOT_FORMAT;
+        }
 
         return $this->compactStateMapper()->hydrateSnapshot($compactSnapshot);
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     */
+    private function looksLikeStructuredCompactSnapshot(array $snapshot): bool
+    {
+        foreach (['instances', 'zones', 'loc', 'relations', 'stack'] as $key) {
+            if (!array_key_exists($key, $snapshot)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

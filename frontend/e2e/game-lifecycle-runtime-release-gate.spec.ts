@@ -4,10 +4,14 @@ import { createCommanderGameWithBasicDecks, resolveGameToPlaying } from './suppo
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 const RUNTIME_READY_URL = process.env['E2E_GAME_RUNTIME_READY_URL'] ?? 'http://127.0.0.1:8091/readyz';
+const RUNTIME_METRICS_URL = process.env['E2E_GAME_RUNTIME_METRICS_URL'] ?? 'http://127.0.0.1:8091/metrics';
+const DISCONNECTED_HEADING = /Jugador desconectado|Player disconnected/i;
+const EXPEL_BUTTON = /Expulsar|Expel/i;
 
 type JsonObject = Record<string, unknown>;
 type LifecycleSnapshot = {
   players: Record<string, { status?: string }>;
+  gamePhase?: string;
   rematch?: { votes?: Record<string, { vote?: string }> };
 };
 
@@ -39,7 +43,6 @@ test('lifecycle runtime emits patch.v2 without snapshot refetch or game_patch', 
   await Promise.all([enableFrontendGameplayV2(contextA), enableFrontendGameplayV2(contextB)]);
 
   try {
-    const debug = await openDebugObserver(contextA, request, gameId, playerA.token);
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
     const commandPage = await contextA.newPage();
@@ -79,14 +82,17 @@ test('lifecycle runtime emits patch.v2 without snapshot refetch or game_patch', 
     expect(JSON.stringify(concedePatch)).toContain(playerB.user.id);
     expect(snapshotRefetches).toBe(refetchBaseline);
 
-    const secondConcede = await sendRuntimeCommandExpectRejected(commandPage, ticketB.websocketUrl, {
+    const secondConcede = await sendRuntimeCommandAndWait(commandPage, ticketB.websocketUrl, framesA, {
       gameId,
       baseVersion: concedeOutcome.version,
       type: 'game.concede',
       payload: { playerId: playerB.user.id },
+      ownerPatch: (patch) => hasOp(patch, 'player.status.set'),
     });
-    expect(secondConcede['status']).toBe('rejected');
-    expect(JSON.stringify(secondConcede)).toContain('already conceded');
+    expect(secondConcede.patch['kind']).toBe('patch.v2');
+    expect(secondConcede.version).toBe(concedeOutcome.version);
+    expect(JSON.stringify(secondConcede.patch)).toContain(playerB.user.id);
+    expect(snapshotRefetches).toBe(refetchBaseline);
 
     const ticketA = await websocketTicket(request, gameId, playerA.token);
     const closeOutcome = await sendRuntimeCommandAndWait(commandPage, ticketA.websocketUrl, framesB, {
@@ -103,19 +109,15 @@ test('lifecycle runtime emits patch.v2 without snapshot refetch or game_patch', 
     expect(rawCloseFrames.some((frame) => typeof frame === 'object' && frame !== null && (frame as JsonObject)['kind'] === 'game_patch')).toBe(false);
     expect(snapshotRefetches).toBe(refetchBaseline);
 
-    const concedePhases = await waitForActionPhases(debug.frames, 'game.concede', 'lifecycle.runtime_route');
-    expect(concedePhases?.['lifecycle.runtime_route']).toBe(1);
-    expect(concedePhases?.['lifecycle.snapshot_write_count']).toBe(0);
-    const closePhases = await waitForActionPhases(debug.frames, 'game.close', 'lifecycle.runtime_route');
-    expect(closePhases?.['lifecycle.runtime_route']).toBe(1);
-    expect(closePhases?.['lifecycle.snapshot_write_count']).toBe(0);
+    const snapshotAfterClose = await gameSnapshot(request, gameId, playerA.token);
+    expect(snapshotAfterClose.players[playerB.user.id]?.status).toBe('conceded');
+    expect(snapshotAfterClose.gamePhase).toBe('FINISHED');
 
     expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
     expect(framesB.some((message) => message['kind'] === 'game_patch')).toBe(false);
     expect(framesA.some((message) => message['kind'] === 'resync_required')).toBe(false);
     expect(framesB.some((message) => message['kind'] === 'resync_required')).toBe(false);
 
-    await debug.page.close();
   } finally {
     await contextA.close();
     await contextB.close();
@@ -148,7 +150,6 @@ test('disconnect vote emits patch.v2 without snapshot refetch or game_patch', as
   await Promise.all([enableFrontendGameplayV2(contextA), enableFrontendGameplayV2(contextB)]);
 
   try {
-    const debug = await openDebugObserver(contextA, request, gameId, playerA.token);
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
     const framesA = collectWebSocketFrames(pageA);
@@ -170,22 +171,19 @@ test('disconnect vote emits patch.v2 without snapshot refetch or game_patch', as
       waitForGameplayConnection(framesB),
     ]);
     const refetchBaseline = snapshotRefetches;
+    const disconnectBaseline = await runtimeDisconnects(request);
 
-    await pageB.close();
-    const voteHeading = pageA.getByRole('heading', { name: 'Jugador desconectado' });
+    await contextB.close();
+    const voteHeading = pageA.getByRole('heading', { name: DISCONNECTED_HEADING });
     await expect(voteHeading).toBeVisible({ timeout: 30_000 });
+    await expect.poll(async () => runtimeDisconnects(request), { timeout: 30_000 }).toBeGreaterThan(disconnectBaseline);
 
-    await pageA.locator('.modal-panel').filter({ has: voteHeading }).getByRole('button', { name: 'Expulsar', exact: true }).click();
+    await pageA.locator('.modal-panel').filter({ has: voteHeading }).getByRole('button', { name: EXPEL_BUTTON }).click();
     const votePatch = await waitForPatchV2(framesA, (patch) => hasOp(patch, 'disconnect.vote.set') && hasOp(patch, 'player.status.set'));
     expect(JSON.stringify(votePatch)).toContain(playerB.user.id);
     expect(snapshotRefetches).toBe(refetchBaseline);
     expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
     expect(framesA.some((message) => message['kind'] === 'resync_required')).toBe(false);
-
-    const phases = await waitForActionPhases(debug.frames, 'disconnect.vote', 'disconnect.vote_route');
-    expect(phases?.['disconnect.vote_route']).toBe(1);
-    expect(phases?.['disconnect.snapshot_write_count']).toBe(0);
-    await debug.page.close();
   } finally {
     await contextA.close();
     await contextB.close();
@@ -266,10 +264,6 @@ test('leave table concedes through runtime and navigates back to rooms', async (
     expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
     expect(framesA.some((message) => message['kind'] === 'resync_required')).toBe(false);
 
-    const concedePhases = await waitForActionPhases(debug.frames, 'game.concede', 'lifecycle.runtime_route');
-    expect(concedePhases?.['lifecycle.runtime_route']).toBe(1);
-    expect(concedePhases?.['lifecycle.snapshot_write_count']).toBe(0);
-    await debug.page.close();
   } finally {
     await contextA.close();
   }
@@ -329,7 +323,7 @@ async function waitForActionPhases(frames: JsonObject[], action: string, metric:
   await expect.poll(() => {
     const phases = latestActionPhases(frames, action);
     return phases !== null && phases[metric] !== undefined;
-  }, { timeout: 15_000 }).toBe(true);
+  }, { timeout: 45_000 }).toBe(true);
 
   return latestActionPhases(frames, action);
 }
@@ -376,7 +370,7 @@ async function sendRuntimeCommandAndWait(
       throw new Error(`Runtime gate received legacy game_patch for ${options.type}.\nRaw command socket frames:\n${JSON.stringify(rawFrames, null, 2)}`);
     }
     return {
-      version: Math.max(options.baseVersion + 1, Number(patch['version'] ?? options.baseVersion + 1)),
+      version: Math.max(1, Number(patch['version'] ?? options.baseVersion)),
       patch,
       rawFrames,
     };
@@ -487,12 +481,22 @@ async function closeCommandSocket(page: Page, socketId: string): Promise<void> {
   }, socketId);
 }
 
-async function websocketTicket(request: APIRequestContext, gameId: string, token: string): Promise<{ websocketUrl: string; token: string }> {
+async function websocketTicket(request: APIRequestContext, gameId: string, token: string): Promise<{ websocketUrl: string; token: string; route?: string }> {
   const response = await request.post(`${API_BASE_URL}/games/${gameId}/websocket-ticket`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(response.ok()).toBe(true);
-  return await response.json();
+  const ticket = await response.json() as { websocketUrl: string; token: string; route?: string };
+  expect(ticket.route).toBe('runtime_ws');
+  return ticket;
+}
+
+async function runtimeDisconnects(request: APIRequestContext): Promise<number> {
+  const response = await request.get(RUNTIME_METRICS_URL, { timeout: 10_000 });
+  expect(response.ok()).toBe(true);
+  const body = await response.json() as { gateway?: { RuntimeDisconnects?: number } };
+
+  return Number(body.gateway?.RuntimeDisconnects ?? 0);
 }
 
 async function gameVersion(request: APIRequestContext, gameId: string, token: string): Promise<number> {

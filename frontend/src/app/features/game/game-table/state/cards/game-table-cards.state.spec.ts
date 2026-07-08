@@ -117,6 +117,35 @@ describe('GameTableCardsState', () => {
     expect(updated?.toughness).toBe(2);
   });
 
+  it('flushes card counter commands with the runtime counter field', async () => {
+    vi.useFakeTimers();
+    const command = vi.fn().mockResolvedValue(true);
+    core.snapshot.set(snapshot([cardWithCounters({ '+1/+1': 2 })]));
+
+    state.queueCardCounter({
+      setSnapshot: (next) => core.snapshot.set(next),
+      errorMessage: () => 'error',
+      refetch: vi.fn(),
+      command,
+    }, {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      key: '+1/+1',
+      value: null,
+    });
+
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(command).toHaveBeenCalledWith('card.counter.changed', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      counter: '+1/+1',
+      value: 0,
+    });
+  });
+
   it('caps The Ring level counter between one and four', () => {
     vi.useFakeTimers();
     core.snapshot.set(snapshot([theRingWithLevel(2)]));

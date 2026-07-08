@@ -1,5 +1,6 @@
 import {
   GameCardInstance,
+  GameDisconnectVoteState,
   GamePlayerState,
   GameSpecialEntity,
   GameSnapshot,
@@ -195,14 +196,15 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
       return { status: 'applied', snapshot: { ...snapshot, timer: operation.timer ? { ...operation.timer } : undefined } };
 
     case 'disconnect.vote.set':
+      const disconnectVote = disconnectVotePayload(operation);
       return {
         status: 'applied',
         snapshot: {
           ...snapshot,
-          disconnectVote: operation.disconnectVote
+          disconnectVote: disconnectVote
             ? {
-                ...operation.disconnectVote,
-                votes: { ...operation.disconnectVote.votes },
+                ...disconnectVote,
+                votes: { ...disconnectVote.votes },
               }
             : null,
         },
@@ -390,6 +392,15 @@ function removeSpecialEntity(snapshot: GameSnapshot, entityId: string): Operatio
       specialEntities: entities.filter((entity) => entity.id !== entityId),
     },
   };
+}
+
+function disconnectVotePayload(operation: GameSnapshotPatchOperation): GameDisconnectVoteState | null {
+  const payload = operation as {
+    disconnectVote?: GameDisconnectVoteState | null;
+    data?: { disconnectVote?: GameDisconnectVoteState | null };
+  };
+
+  return payload.disconnectVote ?? payload.data?.disconnectVote ?? null;
 }
 
 function applyCardPositions(
