@@ -1,0 +1,31 @@
+<section class="advanced-analysis-section advanced-analysis-role-quality" [attr.aria-label]="'deckBuilder.advancedAnalysis.roles.title' | runtimeTranslate">
+  @if (cards().length > 0) {
+    <div class="advanced-analysis-role-grid">
+      @for (card of cards(); track card.key) {
+        <article class="advanced-analysis-role-card advanced-analysis-card-frame">
+          <h3>{{ card.title }}</h3>
+          @if (card.message) {
+            <p>{{ card.message }}</p>
+          }
+          <dl class="advanced-analysis-role-metrics advanced-analysis-data-grid">
+            @for (row of card.rows; track row.label) {
+              <div>
+                <dt>{{ row.label }}</dt>
+                <dd>{{ row.value }}</dd>
+              </div>
+            }
+          </dl>
+          @if (card.qualityRows.length > 0) {
+            <div class="advanced-analysis-quality-strip" [attr.aria-label]="'deckBuilder.advancedAnalysis.roles.qualityAria' | runtimeTranslate: { role: card.title }">
+              @for (row of card.qualityRows; track row.label) {
+                <span>{{ row.label }} <strong>{{ row.value }}</strong></span>
+              }
+            </div>
+          }
+        </article>
+      }
+    </div>
+  } @else {
+    <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.roles.unavailable' | runtimeTranslate }}</p>
+  }
+</section>

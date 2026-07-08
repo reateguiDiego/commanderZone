@@ -1,8 +1,11 @@
+import { importProvidersFrom } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ChevronDown, ChevronRight, Info, LucideAngularModule, RotateCw } from 'lucide-angular';
 import { of, Subject, throwError } from 'rxjs';
 import { CommunityApi } from '../../../core/api/community.api';
+import { CommunityDeckDetail } from '../../../core/models/community.model';
 import { AdvancedAnalysisResponse } from '../../../core/models/deck-advanced-analysis.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { CommunityDeckAdvancedAnalysisPageComponent } from './community-deck-advanced-analysis-page.component';
@@ -11,6 +14,7 @@ const DECK_ID = '00000000-0000-7000-8000-000000000001';
 const COMMUNITY_SLUG = 'atraxa-control-a7f3c9d2';
 
 type CommunityApiMock = {
+  deck: ReturnType<typeof vi.fn>;
   getCommunityDeckAdvancedAnalysis: ReturnType<typeof vi.fn>;
 };
 
@@ -22,6 +26,7 @@ describe('CommunityDeckAdvancedAnalysisPageComponent', () => {
     TestBed.resetTestingModule();
 
     const communityApi: CommunityApiMock = {
+      deck: vi.fn().mockReturnValue(of({ deck: buildCommunityDeck() })),
       getCommunityDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(buildAdvancedAnalysis())),
       ...communityApiOverrides,
     };
@@ -30,6 +35,7 @@ describe('CommunityDeckAdvancedAnalysisPageComponent', () => {
       imports: [CommunityDeckAdvancedAnalysisPageComponent],
       providers: [
         provideRouter([]),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, Info, RotateCw })),
         { provide: CommunityApi, useValue: communityApi },
         {
           provide: ActivatedRoute,
@@ -52,10 +58,12 @@ describe('CommunityDeckAdvancedAnalysisPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect(communityApi.getCommunityDeckAdvancedAnalysis).toHaveBeenCalledWith(COMMUNITY_SLUG);
+    expect(communityApi.deck).toHaveBeenCalledWith(COMMUNITY_SLUG);
     expect(element.querySelector('app-deck-advanced-analysis-view')).not.toBeNull();
-    expect(element.textContent).toContain('Advanced Analysis');
+    expect(element.querySelector('.advanced-analysis-panel')).toBeNull();
+    expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Public Advanced deck');
+    expect(TestBed.inject(PageHeaderStore).state()?.description).toBe('Anàlisi de baralla');
     expect(element.textContent).toContain('Aristocrats');
-    expect(element.textContent).toContain('Cached analysis');
   });
 
   it('shows loading while community advanced analysis is pending', async () => {
@@ -64,7 +72,10 @@ describe('CommunityDeckAdvancedAnalysisPageComponent', () => {
       getCommunityDeckAdvancedAnalysis: vi.fn().mockReturnValue(pendingAnalysis.asObservable()),
     });
 
-    expect(fixture.nativeElement.textContent).toContain('Loading advanced analysis...');
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('app-global-loader')).not.toBeNull();
+    expect(element.querySelector('app-deck-advanced-analysis-view')).toBeNull();
+    expect(element.textContent).not.toContain('Loading advanced analysis...');
 
     pendingAnalysis.next(buildAdvancedAnalysis());
     pendingAnalysis.complete();
@@ -112,11 +123,46 @@ describe('CommunityDeckAdvancedAnalysisPageComponent', () => {
     const header = TestBed.inject(PageHeaderStore).state();
 
     expect(fixture.componentInstance.deckDetailLink()).toEqual(['/community/decks', COMMUNITY_SLUG]);
-    expect(header?.title).toBe('Advanced Analysis');
+    expect(header?.title).toBe('Public Advanced deck');
+    expect(header?.description).toBe('Anàlisi de baralla');
     expect(header?.context).toBe('community-deck-advanced-analysis');
     expect(header?.actions?.[0]?.id).toBe('back-to-community-deck-detail');
   });
 });
+
+function buildCommunityDeck(overrides: Partial<CommunityDeckDetail> = {}): CommunityDeckDetail {
+  return {
+    id: DECK_ID,
+    publicSlug: COMMUNITY_SLUG,
+    canonicalPath: `/community/decks/${COMMUNITY_SLUG}`,
+    name: 'Public Advanced deck',
+    format: 'commander',
+    valid: true,
+    cropImage: null,
+    commanderName: null,
+    colorIdentity: [],
+    updatedAt: '2026-07-07T10:00:00Z',
+    likes: 0,
+    copies: 0,
+    creatorUserId: 'user-1',
+    visibility: 'public',
+    folderId: null,
+    commanders: [],
+    cards: [],
+    sections: {
+      commander: [],
+      main: [],
+      sideboard: [],
+      maybeboard: [],
+    },
+    owner: {
+      id: 'user-1',
+      displayName: 'Owner',
+    },
+    likedByViewer: false,
+    ...overrides,
+  };
+}
 
 function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}): AdvancedAnalysisResponse {
   return {
@@ -131,8 +177,6 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
       primaryArchetype: 'Aristocrats',
       secondaryArchetypes: ['Tokens'],
       archetypeConfidence: 'high',
-      powerBand: 'high_power',
-      powerConfidence: 'medium',
       mainWarnings: [],
       criticalIssues: [],
     },

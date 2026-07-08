@@ -5054,14 +5054,14 @@ components:
           additionalProperties: true
     DeckAdvancedAnalysis:
       type: object
-      required: [deckId, analyzerVersion, analyzedAt, snapshot, summary, metrics, health, consistency, combos, topComboCompleters, archetypes, power, issues, recommendations, unmatchedCards]
+      required: [deckId, analyzerVersion, analyzedAt, snapshot, summary, metrics, health, consistency, combos, topComboCompleters, archetypes, typal, power, issues, recommendations, unmatchedCards]
       properties:
         deckId:
           type: string
           format: uuid
         analyzerVersion:
           type: string
-          example: advanced-v1.7.0
+          example: advanced-v1.9.2
         analyzedAt:
           type: string
           format: date-time
@@ -5084,6 +5084,8 @@ components:
             $ref: '#/components/schemas/DeckAdvancedAnalysisTopComboCompleter'
         archetypes:
           $ref: '#/components/schemas/DeckAdvancedAnalysisArchetypes'
+        typal:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisTypal'
         power:
           $ref: '#/components/schemas/DeckAdvancedAnalysisPower'
         issues:
@@ -5173,13 +5175,16 @@ components:
           type: integer
     DeckAdvancedAnalysisSummary:
       type: object
-      required: [status, primaryArchetype, secondaryArchetypes, archetypeConfidence, powerBand, powerConfidence, mainStrengths, mainWarnings, criticalIssues]
+      required: [status, primaryArchetype, secondaryArchetypes, archetypeConfidence, mainStrengths, mainWarnings, criticalIssues]
       properties:
         status:
           type: string
           enum: [completed]
         primaryArchetype:
           type: string
+        primaryTypalType:
+          type: string
+          nullable: true
         secondaryArchetypes:
           type: array
           items:
@@ -5187,12 +5192,18 @@ components:
         archetypeConfidence:
           type: string
           enum: [high, medium, low, fragmented]
-        powerBand:
-          type: string
-          enum: [precon_like, casual, upgraded, high_casual, high_power, cedh_like]
-        powerConfidence:
-          type: string
-          enum: [low, medium, high]
+        archetypeExplanations:
+          type: array
+          items:
+            type: object
+            required: [archetype, reasonKey, score]
+            properties:
+              archetype:
+                type: string
+              reasonKey:
+                type: string
+              score:
+                type: integer
         mainStrengths:
           type: array
           items:
@@ -5507,6 +5518,10 @@ components:
           type: string
           format: uuid
           nullable: true
+        scryfallId:
+          type: string
+          format: uuid
+          nullable: true
         oracleId:
           type: string
           format: uuid
@@ -5515,6 +5530,16 @@ components:
         imageUrl:
           type: string
           nullable: true
+        imageUris:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        cardFaces:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
         quantity:
           type: integer
           nullable: true
@@ -5530,6 +5555,10 @@ components:
       type: object
       required: [oracleId, name, imageUrl, completesCombos]
       properties:
+        scryfallId:
+          type: string
+          format: uuid
+          nullable: true
         oracleId:
           type: string
           format: uuid
@@ -5538,6 +5567,16 @@ components:
         imageUrl:
           type: string
           nullable: true
+        imageUris:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        cardFaces:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
         completesCombos:
           type: integer
     DeckAdvancedAnalysisArchetypes:
@@ -5571,16 +5610,54 @@ components:
           type: array
           items:
             type: string
-    DeckAdvancedAnalysisPower:
+    DeckAdvancedAnalysisTypal:
       type: object
-      required: [band, confidence, signals, signalCards, evidence, notes]
+      required: [detected, primaryType, confidence, creatureCount, supportCount, commanderMatches, types]
       properties:
-        band:
+        detected:
+          type: boolean
+        primaryType:
           type: string
-          enum: [precon_like, casual, upgraded, high_casual, high_power, cedh_like]
+          nullable: true
+          example: Elf
         confidence:
           type: string
           enum: [low, medium, high]
+        creatureCount:
+          type: integer
+        supportCount:
+          type: integer
+        commanderMatches:
+          type: boolean
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisTypalTypeBreakdown'
+    DeckAdvancedAnalysisTypalTypeBreakdown:
+      type: object
+      required: [type, creatureCount, supportCount, commanderMatches, creatureCards, supportCards]
+      properties:
+        type:
+          type: string
+          example: Elf
+        creatureCount:
+          type: integer
+        supportCount:
+          type: integer
+        commanderMatches:
+          type: boolean
+        creatureCards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
+        supportCards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
+    DeckAdvancedAnalysisPower:
+      type: object
+      required: [signals, signalCards, evidence, notes]
+      properties:
         signals:
           type: object
           additionalProperties:

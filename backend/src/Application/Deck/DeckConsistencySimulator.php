@@ -4,7 +4,7 @@ namespace App\Application\Deck;
 
 final class DeckConsistencySimulator
 {
-    private const DEFAULT_RUNS = 100000;
+    private const DEFAULT_RUNS = DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS;
 
     /**
      * @param list<array{quantity:int,oracleId:string,section?:string,analysisProfile:array<string,mixed>}> $resolvedCards

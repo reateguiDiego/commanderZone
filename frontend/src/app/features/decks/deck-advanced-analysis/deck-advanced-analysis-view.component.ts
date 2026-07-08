@@ -1,7 +1,36 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { TranslationService } from '../../../core/localization/translation.service';
 import { runtimeTranslationFallback, RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
+import { CardFaceImageSource } from '../../../shared/utils/card-faces';
+import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
+import { AdvancedAnalysisActionsSectionComponent } from './sections/advanced-analysis-actions-section.component';
+import { AdvancedAnalysisCombosSectionComponent } from './sections/advanced-analysis-combos-section.component';
+import { AdvancedAnalysisConsistencySectionComponent } from './sections/advanced-analysis-consistency-section.component';
+import { AdvancedAnalysisHealthSectionComponent } from './sections/advanced-analysis-health-section.component';
+import { AdvancedAnalysisMetricsSectionComponent } from './sections/advanced-analysis-metrics-section.component';
+import { AdvancedAnalysisRolesSectionComponent } from './sections/advanced-analysis-roles-section.component';
+import { AdvancedAnalysisStateComponent } from './sections/advanced-analysis-state.component';
+import { AdvancedAnalysisSummarySectionComponent } from './sections/advanced-analysis-summary-section.component';
+import { AdvancedAnalysisWarningsSectionComponent } from './sections/advanced-analysis-warnings-section.component';
+import type {
+  ActionIssueItem,
+  AdvancedAnalysisStat,
+  AdvancedHealthCard,
+  AdvancedIssueItem,
+  ComboCardPreviewItem,
+  ComboCompleterItem,
+  ComboDisplayItem,
+  ConsistencyMetricRow,
+  ConsistencyTurnGroup,
+  EvidenceItem,
+  PowerSignalCardGroup,
+  RecommendationItem,
+  RoleBreakdownCard,
+  TypalIdentityView,
+  UnmatchedCardItem,
+} from './deck-advanced-analysis-view.models';
 import {
+  AdvancedArchetypeExplanation,
   AdvancedAnalysisResponse,
   AdvancedCardReference,
   AdvancedComboItem,
@@ -12,7 +41,6 @@ import {
   AdvancedTopComboCompleter,
   UnmatchedCard,
 } from '../../../core/models/deck-advanced-analysis.model';
-import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 const ADVANCED_ANALYSIS_I18N_PREFIX = 'deckBuilder.advancedAnalysis';
 
@@ -37,18 +65,18 @@ const RECOMMENDATION_PRIORITY_RANK: Record<string, number> = {
   medium: 1,
   low: 2,
 };
+type AdvancedAnalysisTabId = 'summary' | 'health' | 'metrics' | 'warnings' | 'combos' | 'consistency' | 'roles' | 'actions';
 
-interface AdvancedAnalysisStat {
-  readonly key?: string;
-  readonly label: string;
-  readonly value: string;
-}
-
-interface SnapshotIndicator {
-  readonly label: string;
-  readonly detail: string;
-  readonly state: 'cached' | 'fresh' | 'missing';
-}
+const ADVANCED_ANALYSIS_TABS: readonly TabListItem[] = [
+  { id: 'summary', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.summary.title` },
+  { id: 'health', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.eyebrow` },
+  { id: 'metrics', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.eyebrow` },
+  { id: 'warnings', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.warnings.title` },
+  { id: 'combos', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.combos.title` },
+  { id: 'consistency', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.consistency.eyebrow` },
+  { id: 'roles', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.roles.eyebrow` },
+  { id: 'actions', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.actions.eyebrow` },
+];
 
 interface HealthCardConfig {
   readonly key: string;
@@ -56,38 +84,7 @@ interface HealthCardConfig {
   readonly metricLabel: string;
   readonly metricKey?: string;
   readonly valueSource?: 'combos' | 'keepableHandRate';
-}
-
-interface AdvancedHealthCard {
-  readonly key: string;
-  readonly title: string;
-  readonly status: AdvancedHealthStatus;
-  readonly statusLabel: string;
-  readonly message: string;
-  readonly metricLabel: string;
-  readonly metricValue: string;
-  readonly cards: ComboCardPreviewItem[];
-  readonly hiddenCardCount: number;
-}
-
-interface AdvancedIssueItem {
-  readonly code: string;
-  readonly title: string;
-  readonly message: string;
-  readonly severity: string;
-}
-
-interface ConsistencyMetricRow {
-  readonly key: string;
-  readonly label: string;
-  readonly value: string;
-  readonly barWidth: string;
-  readonly available: boolean;
-}
-
-interface ConsistencyTurnGroup {
-  readonly title: string;
-  readonly rows: ConsistencyMetricRow[];
+  readonly optional?: boolean;
 }
 
 interface RoleBreakdownConfig {
@@ -99,75 +96,6 @@ interface RoleBreakdownConfig {
   readonly qualityKey?: string;
 }
 
-interface RoleBreakdownCard {
-  readonly key: string;
-  readonly title: string;
-  readonly rows: AdvancedAnalysisStat[];
-  readonly message: string | null;
-  readonly qualityRows: AdvancedAnalysisStat[];
-}
-
-interface PowerSignalCardGroup {
-  readonly key: string;
-  readonly label: string;
-  readonly value: string;
-  readonly cards: ComboCardPreviewItem[];
-}
-
-interface ComboDisplayItem {
-  readonly id: string;
-  readonly title: string;
-  readonly cards: ComboCardPreviewItem[];
-  readonly missingCards: ComboCardPreviewItem[];
-  readonly missingCardNames: string;
-  readonly features: string[];
-  readonly badges: string[];
-}
-
-interface ComboCardPreviewItem {
-  readonly id: string;
-  readonly name: string;
-  readonly imageUrl: string | null;
-}
-
-interface ComboCompleterItem {
-  readonly id: string;
-  readonly name: string;
-  readonly imageUrl: string | null;
-  readonly completesCombos: string;
-}
-
-interface EvidenceItem {
-  readonly label: string;
-  readonly value: string;
-}
-
-interface ActionIssueItem {
-  readonly code: string;
-  readonly severity: string;
-  readonly title: string;
-  readonly message: string;
-  readonly suggestedActionType: string;
-  readonly evidence: EvidenceItem[];
-}
-
-interface RecommendationItem {
-  readonly code: string;
-  readonly priority: string;
-  readonly title: string;
-  readonly message: string;
-  readonly targetRoles: string;
-  readonly hasTargetRoles: boolean;
-  readonly reasonIssueCodes: string;
-  readonly hasReasonIssueCodes: boolean;
-}
-
-interface UnmatchedCardItem {
-  readonly id: string;
-  readonly name: string;
-  readonly detail: string;
-}
-
 const HEALTH_CARD_CONFIGS: readonly HealthCardConfig[] = [
   { key: 'ramp', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.ramp`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.permanentRamp`, metricKey: 'permanentRamp' },
   { key: 'draw', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.draw`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.drawEffects`, metricKey: 'draw' },
@@ -176,6 +104,7 @@ const HEALTH_CARD_CONFIGS: readonly HealthCardConfig[] = [
   { key: 'tutors', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.tutors`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.trueTutors`, metricKey: 'trueTutors' },
   { key: 'sacrifice', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.sacrifice`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.outlets`, metricKey: 'sacrificeOutlets' },
   { key: 'wincons', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.wincons`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.wincons`, metricKey: 'wincons' },
+  { key: 'typal', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.typal`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.typalCreatures`, metricKey: 'creatureCount', optional: true },
   { key: 'combos', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.combos`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.completeCombos`, valueSource: 'combos' },
   { key: 'consistency', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.consistency`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.keepableHands`, valueSource: 'keepableHandRate' },
   { key: 'stax', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.stax`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.staxPieces`, metricKey: 'stax' },
@@ -311,7 +240,19 @@ const QUALITY_LABELS: ReadonlyArray<readonly [string, string]> = [
 
 @Component({
   selector: 'app-deck-advanced-analysis-view',
-  imports: [CzButtonDirective, RuntimeTranslatePipe],
+  imports: [
+    AdvancedAnalysisActionsSectionComponent,
+    AdvancedAnalysisCombosSectionComponent,
+    AdvancedAnalysisConsistencySectionComponent,
+    AdvancedAnalysisHealthSectionComponent,
+    AdvancedAnalysisMetricsSectionComponent,
+    AdvancedAnalysisRolesSectionComponent,
+    AdvancedAnalysisStateComponent,
+    AdvancedAnalysisSummarySectionComponent,
+    AdvancedAnalysisWarningsSectionComponent,
+    RuntimeTranslatePipe,
+    TabListComponent,
+  ],
   templateUrl: './deck-advanced-analysis-view.component.html',
   styleUrl: './deck-advanced-analysis-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -320,15 +261,14 @@ export class DeckAdvancedAnalysisViewComponent {
   private readonly translations = inject(TranslationService);
 
   readonly analysis = input<AdvancedAnalysisResponse | null>(null);
-  readonly loading = input(false);
   readonly errorMessage = input<string | null>(null);
-  readonly deckName = input<string | null>(null);
-  readonly deckIdentifier = input('');
   readonly retry = output<void>();
 
   readonly showAllCompleteCombos = signal(false);
   readonly showAllPartialCombos = signal(false);
   readonly showAllComboCompleters = signal(false);
+  readonly activeAnalysisTab = signal<AdvancedAnalysisTabId>('summary');
+  readonly analysisTabs = ADVANCED_ANALYSIS_TABS;
   readonly hasAdvancedContent = computed(() => {
     const analysis = this.analysis();
 
@@ -336,22 +276,36 @@ export class DeckAdvancedAnalysisViewComponent {
   });
   readonly summaryStats = computed<AdvancedAnalysisStat[]>(() => {
     const summary = this.analysis()?.summary;
+    const secondaryArchetypes = summary?.secondaryArchetypes ?? [];
+    const stats: AdvancedAnalysisStat[] = [
+      {
+        label: this.t('summary.primaryArchetype'),
+        value: this.formatTitleText(summary?.primaryArchetype),
+        tooltipItems: this.archetypeTooltipItems(summary?.primaryArchetype ? [summary.primaryArchetype] : [], summary?.archetypeExplanations),
+      },
+    ];
 
-    return [
-      { label: this.t('summary.primaryArchetype'), value: this.formatText(summary?.primaryArchetype) },
-      { label: this.t('summary.secondaryArchetypes'), value: this.formatList(summary?.secondaryArchetypes) },
-      { label: this.t('summary.archetypeConfidence'), value: this.formatText(summary?.archetypeConfidence) },
-      { label: this.t('summary.powerBand'), value: this.formatText(summary?.powerBand) },
-      { label: this.t('summary.powerConfidence'), value: this.formatText(summary?.powerConfidence) },
+    if (summary?.primaryTypalType) {
+      stats.push({ label: this.t('summary.primaryTypalType'), value: this.formatText(summary.primaryTypalType) });
+    }
+
+    stats.push(
+      {
+        label: this.t('summary.secondaryArchetypes'),
+        value: this.formatTitleList(secondaryArchetypes),
+        tooltipItems: this.archetypeTooltipItems(secondaryArchetypes, summary?.archetypeExplanations),
+      },
+      {
+        label: this.t('summary.archetypeConfidence'),
+        value: this.formatTitleText(summary?.archetypeConfidence),
+        description: this.t('summary.archetypeConfidenceDescription'),
+      },
       { label: this.t('summary.criticalIssues'), value: this.formatNumber(summary?.criticalIssues?.length ?? this.issueCount('critical')) },
       { label: this.t('summary.mainWarnings'), value: this.formatNumber(summary?.mainWarnings?.length ?? this.issueCount('warning')) },
-    ];
+    );
+
+    return stats;
   });
-  readonly headerStats = computed<AdvancedAnalysisStat[]>(() => [
-    { key: 'deck-id', label: this.t('header.deckId'), value: this.analysis()?.deckId || this.deckIdentifier() },
-    { key: 'analyzed-at', label: this.t('header.analyzedAt'), value: this.formatDateTime(this.analysis()?.analyzedAt) },
-    { key: 'snapshot', label: this.t('header.snapshot'), value: this.snapshotStatus() },
-  ]);
   readonly keyMetrics = computed<AdvancedAnalysisStat[]>(() => [
     { label: this.t('metrics.permanentRamp'), value: this.formatRoleMetric('permanentRamp') },
     { label: this.t('metrics.fastMana'), value: this.formatRoleMetric('fastMana') },
@@ -377,13 +331,34 @@ export class DeckAdvancedAnalysisViewComponent {
 
     return !metrics?.cards && !metrics?.roles && !metrics?.quality;
   });
-  readonly healthCards = computed<AdvancedHealthCard[]>(() => HEALTH_CARD_CONFIGS.map((config) => {
+  readonly typalIdentity = computed<TypalIdentityView | null>(() => {
+    const typal = this.analysis()?.typal;
+    if (typal?.detected !== true || !typal.primaryType) {
+      return null;
+    }
+
+    const primary = (typal.types ?? []).find((type) => type.type === typal.primaryType) ?? typal.types?.[0] ?? null;
+
+    return {
+      primaryType: typal.primaryType,
+      confidence: this.formatText(typal.confidence),
+      creatureCount: this.formatNumber(typal.creatureCount ?? primary?.creatureCount),
+      supportCount: this.formatNumber(typal.supportCount ?? primary?.supportCount),
+      commanderMatches: typal.commanderMatches ? this.t('common.yes') : this.t('common.no'),
+      creatureCards: this.cardReferenceItems(primary?.creatureCards).slice(0, 10),
+      supportCards: this.cardReferenceItems(primary?.supportCards).slice(0, 8),
+    };
+  });
+  readonly healthCards = computed<AdvancedHealthCard[]>(() => HEALTH_CARD_CONFIGS.flatMap((config) => {
     const entry = this.healthEntry(config.key);
+    if (config.optional && entry === null) {
+      return [];
+    }
     const status = this.normalizeHealthStatus(entry?.status);
     const cards = this.cardReferenceItems(entry?.cards).slice(0, 8);
     const cardCount = Array.isArray(entry?.cards) ? entry.cards.length : 0;
 
-    return {
+    return [{
       key: config.key,
       title: this.translateKey(config.title),
       status,
@@ -393,7 +368,7 @@ export class DeckAdvancedAnalysisViewComponent {
       metricValue: this.healthMetricValue(config, entry),
       cards,
       hiddenCardCount: Math.max(0, cardCount - cards.length),
-    };
+    }];
   }));
   readonly topIssues = computed<AdvancedIssueItem[]>(() => (this.analysis()?.issues ?? [])
     .slice()
@@ -405,39 +380,6 @@ export class DeckAdvancedAnalysisViewComponent {
       message: this.formatText(issue.message),
       severity: this.formatIssueSeverity(issue.severity),
     })));
-  readonly snapshotIndicator = computed<SnapshotIndicator>(() => {
-    const snapshot = this.analysis()?.snapshot;
-    const calculatedAt = this.formatDateTime(snapshot?.calculatedAt);
-    const hasCalculatedAt = calculatedAt !== this.t('common.unavailable');
-
-    if (!snapshot) {
-      return {
-        label: this.t('snapshot.fresh'),
-        detail: this.t('snapshot.metadataUnavailable'),
-        state: 'missing',
-      };
-    }
-
-    if (snapshot.hit === true) {
-      return {
-        label: this.t('snapshot.cached'),
-        detail: hasCalculatedAt
-          ? this.t('snapshot.calculatedAt', { date: calculatedAt })
-          : this.t('snapshot.calculatedEarlier'),
-        state: 'cached',
-      };
-    }
-
-    const reason = this.formatSnapshotReason(snapshot.reason);
-
-    return {
-      label: this.t('snapshot.fresh'),
-      detail: hasCalculatedAt ? this.t('snapshot.reasonCalculatedAt', { reason, date: calculatedAt }) : reason,
-      state: 'fresh',
-    };
-  });
-  readonly snapshotDetail = computed(() => this.snapshotIndicator().detail);
-  readonly snapshotStatus = computed(() => this.snapshotIndicator().label);
   readonly hasConsistency = computed(() => this.analysis()?.consistency !== null && this.analysis()?.consistency !== undefined);
   readonly simulationRuns = computed(() => this.formatNumber(this.analysis()?.consistency?.simulationRuns));
   readonly openingHandRows = computed(() => this.metricRows(this.analysis()?.consistency?.openingHand, OPENING_HAND_METRICS));
@@ -567,8 +509,45 @@ export class DeckAdvancedAnalysisViewComponent {
       ?? null;
   });
 
+  selectAnalysisTab(tabId: string): void {
+    if (this.isAdvancedAnalysisTabId(tabId)) {
+      this.activeAnalysisTab.set(tabId);
+    }
+  }
+
+  private isAdvancedAnalysisTabId(tabId: string): tabId is AdvancedAnalysisTabId {
+    return ADVANCED_ANALYSIS_TABS.some((tab) => tab.id === tabId);
+  }
+
   private t(key: string, params?: Record<string, unknown>): string {
     return this.translateKey(`${ADVANCED_ANALYSIS_I18N_PREFIX}.${key}`, params);
+  }
+
+  private archetypeTooltipItems(
+    archetypes: readonly string[],
+    explanations: readonly AdvancedArchetypeExplanation[] | undefined,
+  ): { value: string; description: string }[] {
+    const explanationsByArchetype = new Map(
+      (explanations ?? [])
+        .filter((explanation) => typeof explanation.archetype === 'string' && explanation.archetype.trim() !== '')
+        .map((explanation) => [explanation.archetype as string, explanation]),
+    );
+
+    return archetypes
+      .map((archetype) => archetype.trim())
+      .filter((archetype) => archetype !== '')
+      .map((archetype) => {
+        const explanation = explanationsByArchetype.get(archetype);
+        const reasonKey = explanation?.reasonKey?.trim() || 'generic';
+
+        return {
+          value: this.formatTitleText(archetype),
+          description: this.t(`summary.archetypeReasons.${reasonKey}`, {
+            archetype: this.formatTitleText(archetype),
+            score: this.formatNumber(explanation?.score),
+          }),
+        };
+      });
   }
 
   private translateKey(key: string, params?: Record<string, unknown>): string {
@@ -578,22 +557,30 @@ export class DeckAdvancedAnalysisViewComponent {
       : runtimeTranslationFallback(key, params);
   }
 
-  private formatSnapshotReason(value: string | null | undefined): string {
-    const reason = value?.trim();
-
-    if (!reason) {
-      return this.t('snapshot.recalculated');
-    }
-
-    return `${this.formatFeatureLabel(reason)}.`;
-  }
-
   private formatText(value: string | null | undefined): string {
     return value?.trim() || this.t('common.unavailable');
   }
 
   private formatList(value: string[] | null | undefined): string {
     return value && value.length > 0 ? value.join(', ') : this.t('common.unavailable');
+  }
+
+  private formatTitleText(value: string | null | undefined): string {
+    const text = value?.trim();
+    return text ? this.toTitleCase(this.formatFeatureLabel(text)) : this.t('common.unavailable');
+  }
+
+  private formatTitleList(value: string[] | null | undefined): string {
+    if (!value || value.length === 0) {
+      return this.t('common.unavailable');
+    }
+
+    const items = value
+      .map((item) => item.trim())
+      .filter((item) => item !== '')
+      .map((item) => this.toTitleCase(this.formatFeatureLabel(item)));
+
+    return items.length > 0 ? items.join(', ') : this.t('common.unavailable');
   }
 
   private formatNumber(value: number | null | undefined): string {
@@ -689,6 +676,9 @@ export class DeckAdvancedAnalysisViewComponent {
     const evidenceValue = this.numberFromRecord(entry?.evidence, config.metricKey);
     if (evidenceValue !== null) {
       return this.formatNumber(evidenceValue);
+    }
+    if (typeof entry?.value === 'number') {
+      return this.formatNumber(entry.value);
     }
 
     return this.formatRoleMetric(config.metricKey);
@@ -786,14 +776,13 @@ export class DeckAdvancedAnalysisViewComponent {
 
   private comboItems(items: AdvancedComboItem[]): ComboDisplayItem[] {
     return items.map((item, index) => {
-      const missingCards = this.comboMissingCards(item);
+      const presentCards = this.comboCards(item).map((card) => this.comboCardWithState(card, 'present'));
+      const missingCards = this.comboMissingCards(item).map((card) => this.comboCardWithState(card, 'missing'));
 
       return {
         id: item.comboVariantId ?? item.externalId ?? String(index),
         title: this.comboTitle(item, index),
-        cards: this.comboCards(item),
-        missingCards,
-        missingCardNames: missingCards.map((card) => card.name).join(', '),
+        cards: this.mergeComboCards(presentCards, missingCards),
         features: this.comboFeatures(item),
         badges: this.comboBadges(item),
       };
@@ -815,6 +804,30 @@ export class DeckAdvancedAnalysisViewComponent {
     return this.comboCardItems(item.missingCards, item.missingCardNames ?? []);
   }
 
+  private comboCardWithState(card: ComboCardPreviewItem, state: 'present' | 'missing'): ComboCardPreviewItem {
+    return {
+      ...card,
+      state,
+      stateLabel: this.t(state === 'present' ? 'combos.cardState.inDeck' : 'combos.cardState.missing'),
+    };
+  }
+
+  private mergeComboCards(presentCards: ComboCardPreviewItem[], missingCards: ComboCardPreviewItem[]): ComboCardPreviewItem[] {
+    const byCard = new Map<string, ComboCardPreviewItem>();
+
+    for (const card of [...missingCards, ...presentCards]) {
+      byCard.set(this.comboCardDeduplicationKey(card), card);
+    }
+
+    return [...presentCards, ...missingCards]
+      .map((card) => byCard.get(this.comboCardDeduplicationKey(card)))
+      .filter((card, index, cards): card is ComboCardPreviewItem => card !== undefined && cards.indexOf(card) === index);
+  }
+
+  private comboCardDeduplicationKey(card: ComboCardPreviewItem): string {
+    return this.cardPreviewKey(card.name || card.id);
+  }
+
   private comboCardItems(references: readonly AdvancedCardReference[] | undefined, fallbackNames: readonly string[]): ComboCardPreviewItem[] {
     const items = (references ?? [])
       .map((reference) => this.comboCardItem(reference))
@@ -831,6 +844,7 @@ export class DeckAdvancedAnalysisViewComponent {
         id: this.cardPreviewKey(name),
         name,
         imageUrl: null,
+        imageSource: this.cardImageSource(name, null),
       }));
   }
 
@@ -847,8 +861,11 @@ export class DeckAdvancedAnalysisViewComponent {
 
     return {
       id,
+      scryfallId: reference.scryfallId ?? null,
       name,
       imageUrl: reference.imageUrl?.trim() || null,
+      imageSource: this.cardImageSource(name, reference),
+      quantity: reference.quantity ?? null,
     };
   }
 
@@ -904,14 +921,37 @@ export class DeckAdvancedAnalysisViewComponent {
     return normalized.replace(/^\w/, (letter) => letter.toUpperCase());
   }
 
+  private toTitleCase(value: string): string {
+    return value
+      .split(' ')
+      .map((word) => word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : word)
+      .join(' ');
+  }
+
   private comboCompleterItem(item: AdvancedTopComboCompleter): ComboCompleterItem {
     const name = this.displayCardName(item.name);
 
     return {
       id: item.oracleId ?? item.name ?? 'combo-completer',
+      scryfallId: item.scryfallId ?? null,
       name,
       imageUrl: item.imageUrl?.trim() || null,
+      imageSource: this.cardImageSource(name, item),
       completesCombos: this.formatNumber(item.completesCombos),
+    };
+  }
+
+  private cardImageSource(name: string, reference: AdvancedCardReference | AdvancedTopComboCompleter | null): CardFaceImageSource {
+    const imageUrl = reference?.imageUrl?.trim() || null;
+    const imageUris = reference?.imageUris && Object.keys(reference.imageUris).length > 0
+      ? reference.imageUris
+      : (imageUrl ? { normal: imageUrl } : null);
+    const cardFaces = reference?.cardFaces && reference.cardFaces.length > 0 ? reference.cardFaces : null;
+
+    return {
+      name,
+      imageUris,
+      cardFaces,
     };
   }
 

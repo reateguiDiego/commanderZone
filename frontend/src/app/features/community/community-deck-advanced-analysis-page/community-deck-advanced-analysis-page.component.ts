@@ -7,11 +7,12 @@ import { runtimeTranslationFallback } from '../../../core/localization/runtime-t
 import { TranslationService } from '../../../core/localization/translation.service';
 import { AdvancedAnalysisResponse } from '../../../core/models/deck-advanced-analysis.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { DeckAdvancedAnalysisViewComponent } from '../../decks/deck-advanced-analysis/deck-advanced-analysis-view.component';
 
 @Component({
   selector: 'app-community-deck-advanced-analysis-page',
-  imports: [DeckAdvancedAnalysisViewComponent],
+  imports: [DeckAdvancedAnalysisViewComponent, GlobalLoaderComponent],
   templateUrl: './community-deck-advanced-analysis-page.component.html',
   styleUrl: './community-deck-advanced-analysis-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,22 +31,7 @@ export class CommunityDeckAdvancedAnalysisPageComponent implements OnDestroy {
   readonly deckDetailLink = computed<readonly string[]>(() => ['/community/decks', this.slug()]);
 
   constructor() {
-    this.pageHeader.set({
-      context: 'community-deck-advanced-analysis',
-      title: 'deckBuilder.advancedAnalysis.title',
-      heroRule: true,
-      actions: [
-        {
-          id: 'back-to-community-deck-detail',
-          label: 'common.navigation.back',
-          isBack: true,
-          variant: 'secondary',
-          execute: () => {
-            void this.router.navigate([...this.deckDetailLink()]);
-          },
-        },
-      ],
-    }, this);
+    this.setPageHeader(this.slug() || this.t('common.unavailable'));
 
     void this.load();
   }
@@ -66,8 +52,11 @@ export class CommunityDeckAdvancedAnalysisPageComponent implements OnDestroy {
     this.loading.set(true);
     this.errorMessage.set(null);
     this.analysis.set(null);
+    this.setPageHeader(slug);
 
     try {
+      const deckResponse = await firstValueFrom(this.communityApi.deck(slug));
+      this.setPageHeader(deckResponse.deck.name);
       this.analysis.set(await firstValueFrom(this.communityApi.getCommunityDeckAdvancedAnalysis(slug)));
     } catch (error) {
       this.errorMessage.set(this.errorMessageFor(error));
@@ -88,6 +77,26 @@ export class CommunityDeckAdvancedAnalysisPageComponent implements OnDestroy {
     }
 
     return this.t('error.generic');
+  }
+
+  private setPageHeader(title: string): void {
+    this.pageHeader.set({
+      context: 'community-deck-advanced-analysis',
+      title,
+      description: 'Anàlisi de baralla',
+      heroRule: true,
+      actions: [
+        {
+          id: 'back-to-community-deck-detail',
+          label: 'common.navigation.back',
+          isBack: true,
+          variant: 'secondary',
+          execute: () => {
+            void this.router.navigate([...this.deckDetailLink()]);
+          },
+        },
+      ],
+    }, this);
   }
 
   private t(key: string): string {

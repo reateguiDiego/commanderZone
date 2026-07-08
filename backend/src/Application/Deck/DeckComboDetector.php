@@ -17,12 +17,13 @@ final class DeckComboDetector
      * @param list<string> $deckOracleIds
      * @param list<array<string,mixed>> $resolvedCards
      * @param list<string> $commanderOracleIds
+     * @param list<string> $deckColorIdentity
      * @return array{
      *     combos:array<string,mixed>,
      *     topComboCompleters:list<array{oracleId:string,name:string,imageUrl:?string,completesCombos:int}>
      * }
      */
-    public function detect(array $deckOracleIds, array $resolvedCards, array $commanderOracleIds = []): array
+    public function detect(array $deckOracleIds, array $resolvedCards, array $commanderOracleIds = [], array $deckColorIdentity = []): array
     {
         $deckOracleIdSet = $this->idSet($deckOracleIds);
         if ($deckOracleIdSet === []) {
@@ -33,6 +34,7 @@ final class DeckComboDetector
         }
 
         $commanderOracleIdSet = $this->idSet($commanderOracleIds);
+        $deckColorIdentitySet = $this->colorSet($deckColorIdentity);
         $complete = [];
         $partialOneMissing = [];
         $partialTwoMissing = [];
@@ -40,6 +42,9 @@ final class DeckComboDetector
         foreach ($this->candidateRows(array_keys($deckOracleIdSet)) as $row) {
             $item = $this->comboItem($row);
             if (!$this->isValidComboItem($item)) {
+                continue;
+            }
+            if (!$this->comboFitsColorIdentity($item, $deckColorIdentitySet)) {
                 continue;
             }
 
@@ -127,17 +132,38 @@ final class DeckComboDetector
      */
     private function candidateRows(array $oracleIds): iterable
     {
-        $overlapClauses = array_map(
-            fn (string $oracleId): string => 'required_oracle_ids @> '.$this->connection->quote(json_encode([$oracleId], JSON_THROW_ON_ERROR)).'::jsonb',
-            $oracleIds,
-        );
+        $oracleIdPlaceholders = [];
+        $parameters = [];
+        foreach ($oracleIds as $index => $oracleId) {
+            $parameter = 'oracle_id_'.$index;
+            $oracleIdPlaceholders[] = ':'.$parameter;
+            $parameters[$parameter] = $oracleId;
+        }
 
-        $sql = sprintf(
-            <<<'SQL'
+        $sql = <<<'SQL'
 SELECT
     combo_variant_id,
     external_id,
     required_oracle_ids,
+    identity,
+    COALESCE((
+        SELECT jsonb_agg(DISTINCT required_card_color.color)
+        FROM jsonb_array_elements_text(combo_analysis_profile.required_oracle_ids) AS required_card(oracle_id)
+        LEFT JOIN card_analysis_profile required_analysis_profile ON required_analysis_profile.oracle_id = required_card.oracle_id
+        LEFT JOIN card_oracle_profile required_oracle_profile ON required_oracle_profile.oracle_id = required_card.oracle_id
+        CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(
+            required_analysis_profile.color_identity::jsonb,
+            required_oracle_profile.color_identity::jsonb,
+            (
+                SELECT required_print.color_identity::jsonb
+                FROM card required_print
+                WHERE required_print.oracle_id = required_card.oracle_id
+                  AND required_print.color_identity IS NOT NULL
+                LIMIT 1
+            ),
+            '[]'::jsonb
+        )) AS required_card_color(color)
+    ), '[]'::jsonb) AS required_card_identity,
     features,
     produces_win,
     produces_infinite_mana,
@@ -154,12 +180,10 @@ SELECT
     combo_size
 FROM combo_analysis_profile
 WHERE jsonb_typeof(required_oracle_ids) = 'array'
-  AND (%s)
-SQL,
-            implode(' OR ', $overlapClauses),
-        );
+  AND jsonb_exists_any(required_oracle_ids, ARRAY[%s])
+SQL;
 
-        return $this->connection->executeQuery($sql)->iterateAssociative();
+        return $this->connection->executeQuery(sprintf($sql, implode(', ', $oracleIdPlaceholders)), $parameters)->iterateAssociative();
     }
 
     /**
@@ -169,6 +193,8 @@ SQL,
      *     externalId:string,
      *     requiredOracleIds:list<string>,
      *     missingOracleIds:list<string>,
+     *     identity:list<string>,
+     *     requiredCardIdentity:list<string>,
      *     features:list<string>,
      *     producesWin:bool,
      *     producesWinLike:bool,
@@ -202,6 +228,8 @@ SQL,
             'externalId' => (string) $row['external_id'],
             'requiredOracleIds' => $this->jsonStringList($row['required_oracle_ids'] ?? null),
             'missingOracleIds' => [],
+            'identity' => $this->jsonStringList($row['identity'] ?? null),
+            'requiredCardIdentity' => $this->jsonStringList($row['required_card_identity'] ?? null),
             'features' => $features,
             'producesWin' => $producesWin,
             'producesWinLike' => $producesWin || $lethalLoop || $producesInfiniteDamage || $producesInfiniteTokens || $producesMill || $producesLock,
@@ -230,6 +258,33 @@ SQL,
             && $item['externalId'] !== ''
             && $item['comboSize'] > 0
             && $item['requiredOracleIds'] !== [];
+    }
+
+    /**
+     * @param array<string,mixed> $item
+     * @param array<string,true> $deckColorIdentitySet
+     */
+    private function comboFitsColorIdentity(array $item, array $deckColorIdentitySet): bool
+    {
+        foreach ($this->comboColorIdentitySet($item) as $color => $_) {
+            if (!isset($deckColorIdentitySet[$color])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<string,mixed> $item
+     * @return array<string,true>
+     */
+    private function comboColorIdentitySet(array $item): array
+    {
+        return [
+            ...$this->colorSet($item['identity'] ?? []),
+            ...$this->colorSet($item['requiredCardIdentity'] ?? []),
+        ];
     }
 
     /**
@@ -299,7 +354,8 @@ SQL,
         $details = [];
         foreach (array_slice($combos, 0, self::DETAIL_LIMIT) as $combo) {
             unset($combo['popularity']);
-            $combo['cards'] = $this->referencesForOracleIds($combo['requiredOracleIds'], $cardReferences);
+            $presentOracleIds = array_values(array_diff($combo['requiredOracleIds'], $combo['missingOracleIds']));
+            $combo['cards'] = $this->referencesForOracleIds($presentOracleIds, $cardReferences);
             $combo['missingCards'] = $this->referencesForOracleIds($combo['missingOracleIds'], $cardReferences);
             $details[] = $combo;
         }
@@ -365,9 +421,12 @@ SQL,
             $references[$oracleId] = [
                 'deckCardId' => $this->stringOrNull($card['deckCardId'] ?? null),
                 'cardId' => $this->stringOrNull($card['cardId'] ?? null),
+                'scryfallId' => $this->stringOrNull($card['scryfallId'] ?? null),
                 'oracleId' => $oracleId,
                 'name' => $name,
                 'imageUrl' => $this->stringOrNull($card['imageUrl'] ?? null),
+                'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : [],
+                'cardFaces' => is_array($card['cardFaces'] ?? null) ? array_values($card['cardFaces']) : [],
                 'quantity' => is_numeric($card['quantity'] ?? null) ? max(1, (int) $card['quantity']) : null,
                 'section' => $this->stringOrNull($card['section'] ?? null),
             ];
@@ -392,6 +451,7 @@ SQL,
 WITH missing(oracle_id) AS (VALUES %s)
 SELECT
     missing.oracle_id,
+    MIN(card.scryfall_id) AS scryfall_id,
     COALESCE(card_oracle_profile.name, card_analysis_profile.name, MIN(card.name)) AS name,
     MIN(COALESCE(
         NULLIF(card.image_uris::jsonb ->> 'normal', ''),
@@ -400,7 +460,15 @@ SELECT
         NULLIF(card.image_uris::jsonb ->> 'png', ''),
         NULLIF(card.image_uris::jsonb ->> 'border_crop', ''),
         NULLIF(card.image_uris::jsonb ->> 'art_crop', '')
-    )) AS image_url
+    )) AS image_url,
+    COALESCE(
+        jsonb_object_agg(card.id, card.image_uris::jsonb) FILTER (WHERE card.id IS NOT NULL),
+        '{}'::jsonb
+    ) AS image_uris_by_card,
+    COALESCE(
+        jsonb_object_agg(card.id, card.card_faces::jsonb) FILTER (WHERE card.id IS NOT NULL),
+        '{}'::jsonb
+    ) AS card_faces_by_card
 FROM missing
 LEFT JOIN card_oracle_profile ON card_oracle_profile.oracle_id = missing.oracle_id
 LEFT JOIN card_analysis_profile ON card_analysis_profile.oracle_id = missing.oracle_id
@@ -416,10 +484,17 @@ SQL,
             $oracleId = $this->stringOrNull($row['oracle_id'] ?? null);
             $name = $this->stringOrNull($row['name'] ?? null);
             if ($oracleId !== null && $name !== null) {
+                $imageUrisByCard = $this->jsonObject($row['image_uris_by_card'] ?? null);
+                $cardFacesByCard = $this->jsonObject($row['card_faces_by_card'] ?? null);
+                $imageUris = $this->firstObjectValue($imageUrisByCard);
+                $cardFaces = $this->firstListValue($cardFacesByCard);
                 $references[$oracleId] = [
                     'oracleId' => $oracleId,
+                    'scryfallId' => $this->stringOrNull($row['scryfall_id'] ?? null),
                     'name' => $name,
                     'imageUrl' => $this->stringOrNull($row['image_url'] ?? null),
+                    'imageUris' => $imageUris,
+                    'cardFaces' => $cardFaces,
                 ];
             }
         }
@@ -457,8 +532,11 @@ SQL,
             $reference = $cardReferences[$oracleId] ?? null;
             $references[] = $reference ?? [
                 'oracleId' => $oracleId,
+                'scryfallId' => null,
                 'name' => $oracleId,
                 'imageUrl' => null,
+                'imageUris' => [],
+                'cardFaces' => [],
             ];
         }
 
@@ -477,7 +555,10 @@ SQL,
 
             return [
                 ...$item,
+                'scryfallId' => $reference['scryfallId'] ?? null,
                 'imageUrl' => $reference['imageUrl'] ?? null,
+                'imageUris' => is_array($reference['imageUris'] ?? null) ? $reference['imageUris'] : [],
+                'cardFaces' => is_array($reference['cardFaces'] ?? null) ? $reference['cardFaces'] : [],
             ];
         }, $items);
     }
@@ -492,6 +573,27 @@ SQL,
         foreach ($oracleIds as $oracleId) {
             $normalized = $this->stringOrNull($oracleId);
             if ($normalized !== null) {
+                $set[$normalized] = true;
+            }
+        }
+
+        return $set;
+    }
+
+    /**
+     * @param list<mixed> $colors
+     * @return array<string,true>
+     */
+    private function colorSet(array $colors): array
+    {
+        $set = [];
+        foreach ($colors as $color) {
+            $normalized = $this->stringOrNull($color);
+            if ($normalized === null) {
+                continue;
+            }
+            $normalized = mb_strtoupper($normalized);
+            if (in_array($normalized, ['W', 'U', 'B', 'R', 'G'], true)) {
                 $set[$normalized] = true;
             }
         }
@@ -531,6 +633,59 @@ SQL,
     private function intOrNull(mixed $value): ?int
     {
         return is_numeric($value) ? (int) $value : null;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function jsonObject(mixed $value): array
+    {
+        $decoded = $this->jsonValue($value);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param array<string,mixed> $values
+     * @return array<string,mixed>
+     */
+    private function firstObjectValue(array $values): array
+    {
+        foreach ($values as $value) {
+            if (is_array($value)) {
+                return $value;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string,mixed> $values
+     * @return list<array<string,mixed>>
+     */
+    private function firstListValue(array $values): array
+    {
+        foreach ($values as $value) {
+            if (is_array($value)) {
+                return array_values(array_filter($value, static fn (mixed $item): bool => is_array($item)));
+            }
+        }
+
+        return [];
+    }
+
+    private function jsonValue(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        return json_decode($value, true);
     }
 
     private function stringOrNull(mixed $value): ?string

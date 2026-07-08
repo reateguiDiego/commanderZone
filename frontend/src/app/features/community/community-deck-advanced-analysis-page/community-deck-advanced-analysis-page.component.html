@@ -1,7 +1,9 @@
-<app-deck-advanced-analysis-view
-  [analysis]="analysis()"
-  [loading]="loading()"
-  [errorMessage]="errorMessage()"
-  [deckIdentifier]="slug()"
-  (retry)="load()"
-/>
+@if (loading()) {
+  <app-global-loader />
+} @else {
+  <app-deck-advanced-analysis-view
+    [analysis]="analysis()"
+    [errorMessage]="errorMessage()"
+    (retry)="load()"
+  />
+}

@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Deck\DeckAnalysisService;
+use App\Application\Deck\DeckAdvancedAnalysisImageLocalizer;
 use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalyzerService;
 use App\Application\Deck\DeckDerivedTokenResolver;
@@ -188,6 +189,7 @@ class DecksController extends ApiController
         EntityManagerInterface $entityManager,
         DeckAdvancedAnalysisSnapshotService $snapshotService,
         DeckAdvancedAnalyzerService $analyzer,
+        DeckAdvancedAnalysisImageLocalizer $imageLocalizer,
     ): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
@@ -195,7 +197,10 @@ class DecksController extends ApiController
             return $this->fail('Deck not found.', 404);
         }
 
-        return $this->json($snapshotService->analyze($deck, $analyzer));
+        return $this->json($imageLocalizer->localize(
+            $snapshotService->analyze($deck, $analyzer),
+            $user->cardLanguage(),
+        ));
     }
 
     #[Route('/decks/{id}/sections', methods: ['GET'])]

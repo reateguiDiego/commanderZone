@@ -15,6 +15,10 @@
   align-items: start;
 }
 
+.spoiler-sections--full {
+  grid-template-columns: 1fr;
+}
+
 .spoiler-section {
   display: grid;
   gap: 0.35rem;
@@ -72,9 +76,11 @@
   grid-template-rows: 0fr;
   opacity: 0;
   margin-top: -0.15rem;
+  pointer-events: none;
 }
 
 .spoiler-section-body-inner {
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -109,6 +115,10 @@
   border-radius: 10px;
 }
 
+.spoiler-sections--full .spoiler-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(8.5rem, 100%), 1fr));
+}
+
 .spoiler-card {
   display: grid;
   gap: 0.4rem;
@@ -120,6 +130,10 @@
   transition:
     transform 180ms ease,
     filter 180ms ease;
+}
+
+.spoiler-sections--full .spoiler-card {
+  width: min(100%, 10rem);
 }
 
 .spoiler-card--battle {

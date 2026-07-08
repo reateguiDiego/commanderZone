@@ -1,6 +1,8 @@
+import { importProvidersFrom } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ChevronDown, ChevronRight, Info, LucideAngularModule, RotateCw } from 'lucide-angular';
 import { of, Subject, throwError } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
 import { AdvancedAnalysisResponse } from '../../../core/models/deck-advanced-analysis.model';
@@ -11,6 +13,7 @@ import { DeckAdvancedAnalysisPageComponent } from './deck-advanced-analysis-page
 const DECK_ID = '00000000-0000-7000-8000-000000000001';
 
 type DecksApiMock = {
+  get: ReturnType<typeof vi.fn>;
   getBySlug: ReturnType<typeof vi.fn>;
   getDeckAdvancedAnalysis: ReturnType<typeof vi.fn>;
   analysis: ReturnType<typeof vi.fn>;
@@ -24,6 +27,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     TestBed.resetTestingModule();
 
     const decksApi: DecksApiMock = {
+      get: vi.fn().mockReturnValue(of({ deck: buildDeck() })),
       getBySlug: vi.fn().mockReturnValue(of({ deck: buildDeck() })),
       getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(buildAdvancedAnalysis())),
       analysis: vi.fn(),
@@ -34,6 +38,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
       imports: [DeckAdvancedAnalysisPageComponent],
       providers: [
         provideRouter([]),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, Info, RotateCw })),
         { provide: DecksApi, useValue: decksApi },
         {
           provide: ActivatedRoute,
@@ -43,6 +48,9 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     }).compileComponents();
 
     const fixture = TestBed.createComponent(DeckAdvancedAnalysisPageComponent);
+    fixture.detectChanges();
+    await Promise.resolve();
+    await Promise.resolve();
     fixture.detectChanges();
 
     return { fixture, decksApi };
@@ -55,7 +63,9 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     });
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.textContent).toContain('Loading advanced analysis...');
+    expect(element.querySelector('app-global-loader')).not.toBeNull();
+    expect(element.querySelector('app-deck-advanced-analysis-view')).toBeNull();
+    expect(element.textContent).not.toContain('Loading advanced analysis...');
     expect(decksApi.getDeckAdvancedAnalysis).toHaveBeenCalledWith(DECK_ID);
 
     pendingAnalysis.next(buildAdvancedAnalysis());
@@ -73,15 +83,48 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(decksApi.getDeckAdvancedAnalysis).toHaveBeenCalledWith(DECK_ID);
     expect(decksApi.analysis).not.toHaveBeenCalled();
     expect(element.querySelector('app-deck-advanced-analysis-view')).not.toBeNull();
-    expect(element.textContent).toContain('Advanced Analysis');
+    expect(element.querySelector('.advanced-analysis-panel')).toBeNull();
+    expect(element.querySelector('.advanced-analysis-section-heading')).toBeNull();
+    expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Advanced deck');
+    expect(TestBed.inject(PageHeaderStore).state()?.description).toBe('Anàlisi de baralla');
     expect(element.textContent).toContain('Aristocrats');
     expect(element.textContent).toContain('Tokens');
+    const archetypeTooltips = Array.from(element.querySelectorAll('.advanced-analysis-tooltip-value')) as HTMLElement[];
+    expect(archetypeTooltips.map((item) => item.getAttribute('aria-label'))).toContain(
+      'Detected from repeatable sacrifice outlets, sacrifice payoffs, token makers and recursion support. Score: 82/100.',
+    );
+    expect(archetypeTooltips.map((item) => item.getAttribute('aria-label'))).toContain(
+      'Detected from token makers, payoff cards and combat finishers that convert tokens into pressure. Score: 48/100.',
+    );
     expect(element.textContent).toContain('Archetype confidence');
-    expect(element.textContent).toContain('high');
-    expect(element.textContent).toContain('high_power');
-    expect(element.textContent).toContain('Power confidence');
+    expect(element.querySelector('lucide-icon[name="info"]')).not.toBeNull();
+    expect(element.textContent).toContain('Primary tribe');
+    expect(element.textContent).toContain('Elf');
+    expect(element.textContent).toContain('High');
+    expect(element.textContent).not.toContain('Power band');
+    expect(element.textContent).not.toContain('Power confidence');
     expect(element.textContent).toContain('Critical issues');
     expect(element.textContent).toContain('Main warnings');
+  });
+
+  it('uses tabs for advanced analysis sections on non-mobile layouts', async () => {
+    const { fixture } = await setup();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const tabs = Array.from(element.querySelectorAll('app-tab-list button[role="tab"]')) as HTMLButtonElement[];
+    const comboTab = tabs.find((tab) => tab.textContent?.includes('Combo Intelligence'));
+
+    expect(tabs.length).toBeGreaterThan(1);
+    expect(element.querySelector('app-advanced-analysis-summary-section')?.classList.contains('is-active')).toBe(true);
+    expect(comboTab).toBeTruthy();
+
+    comboTab?.click();
+    fixture.detectChanges();
+
+    expect(element.querySelector('app-advanced-analysis-summary-section')?.classList.contains('is-active')).toBe(false);
+    expect(element.querySelector('app-advanced-analysis-combos-section')?.classList.contains('is-active')).toBe(true);
   });
 
   it('renders snapshot status and key metrics', async () => {
@@ -91,8 +134,6 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
 
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.textContent).toContain('Cached analysis');
-    expect(element.textContent).toContain('Calculated');
     expect(element.textContent).toContain('Permanent ramp');
     expect(element.textContent).toContain('Fast mana');
     expect(element.textContent).toContain('True tutors');
@@ -114,12 +155,29 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const healthCards = element.querySelectorAll('.advanced-analysis-health-card');
 
-    expect(healthCards).toHaveLength(10);
+    expect(healthCards).toHaveLength(11);
     expect(element.textContent).toContain('Ramp');
     expect(element.textContent).toContain('Ramp needs review.');
     expect(element.textContent).toContain('Permanent ramp');
     expect(element.textContent).toContain('Sol Ring');
     expect(element.querySelector('img[alt="Sol Ring"]')?.getAttribute('src')).toBe('https://cards.example.test/sol-ring.jpg');
+    const firstGridToggle = element.querySelector('.advanced-analysis-health-card app-advanced-analysis-card-grid .spoiler-section-toggle') as HTMLButtonElement | null;
+    const firstGridBody = element.querySelector('.advanced-analysis-health-card app-advanced-analysis-card-grid .spoiler-section-body') as HTMLElement | null;
+    expect(firstGridToggle?.getAttribute('aria-expanded')).toBe('false');
+    expect(firstGridBody?.classList.contains('collapsed')).toBe(true);
+    firstGridToggle?.click();
+    fixture.detectChanges();
+    expect(firstGridToggle?.getAttribute('aria-expanded')).toBe('true');
+    expect(firstGridBody?.classList.contains('collapsed')).toBe(false);
+    const solRingPreview = Array.from(element.querySelectorAll('.spoiler-card'))
+      .find((preview) => preview.textContent?.includes('Sol Ring')) as HTMLElement | undefined;
+    expect(solRingPreview?.querySelector('.face-toggle-button')).not.toBeNull();
+    solRingPreview?.querySelector<HTMLButtonElement>('.face-toggle-button')?.click();
+    fixture.detectChanges();
+    expect(solRingPreview?.querySelector('img[alt="Sol Ring Back"]')?.getAttribute('src')).toBe('https://cards.example.test/sol-ring-back.jpg');
+    expect(element.textContent).toContain('Tribal');
+    expect(element.textContent).toContain('Tribal creatures');
+    expect(element.textContent).toContain('Elf tribal identity detected.');
     expect(element.textContent).toContain('Consistency');
     expect(element.textContent).toContain('Keepable hands');
     expect(element.textContent).toContain('Wrath of God');
@@ -139,6 +197,25 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(signalGroup?.textContent).toContain('Fast mana');
     expect(signalGroup?.textContent).not.toContain('oracle-sol-ring');
     expect(signalGroup?.querySelector('img[alt="Sol Ring"]')?.getAttribute('src')).toBe('https://cards.example.test/sol-ring.jpg');
+  });
+
+  it('renders tribal identity with card images without exposing raw ids as labels', async () => {
+    const { fixture } = await setup();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const typal = element.querySelector('.advanced-analysis-typal-identity') as HTMLElement | null;
+
+    expect(typal).not.toBeNull();
+    expect(typal?.textContent).toContain('Tribal identity');
+    expect(typal?.textContent).toContain('Elf tribal');
+    expect(typal?.textContent).toContain('Commander matches');
+    expect(typal?.textContent).toContain('Llanowar Elves');
+    expect(typal?.textContent).toContain('Elvish Archdruid');
+    expect(typal?.textContent).not.toContain('oracle-llanowar');
+    expect(typal?.querySelector('img[alt="Llanowar Elves"]')?.getAttribute('src')).toBe('https://cards.example.test/llanowar.jpg');
+    expect(typal?.querySelector('img[alt="Elvish Archdruid"]')?.getAttribute('src')).toBe('https://cards.example.test/archdruid.jpg');
   });
 
   it('renders main issues ordered by severity', async () => {
@@ -165,7 +242,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const text = element.textContent ?? '';
     const normalizedText = text.toLowerCase();
 
-    expect(text).toContain('Consistency Simulation');
+    expect(text).toContain('Monte Carlo');
     expect(text).toContain('Simulates opening hands and card access, not match outcomes.');
     expect(text).toContain('Simulation runs');
     expect(text).toContain('100000');
@@ -198,7 +275,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const text = element.textContent ?? '';
 
-    expect(text).toContain('Role Quality Breakdown');
+    expect(text).toContain('Functional roles');
     expect(text).toContain('Permanent ramp');
     expect(text).toContain('Fast mana');
     expect(text).toContain('Burst mana');
@@ -253,7 +330,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
 
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.textContent).toContain('Role Quality Breakdown');
+    expect(element.textContent).toContain('Functional roles');
     expect(element.textContent).toContain('Permanent ramp');
     expect(element.textContent).toContain('Ramp search');
     expect(element.textContent).not.toContain('Premium');
@@ -293,10 +370,13 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect(element.textContent).toContain('Partial combos');
-    expect(element.textContent).toContain('Missing: Demonic Consultation');
+    expect(element.textContent).toContain('In deck');
+    expect(element.textContent).toContain('Missing');
     expect(element.textContent).toContain('Top combo completers');
     expect(element.textContent).toContain('Demonic Consultation');
     expect(element.textContent).toContain('Tainted Pact');
+    expect(element.querySelectorAll('.advanced-analysis-combo-card-link').length).toBeGreaterThan(0);
+    expect(element.querySelectorAll('.advanced-analysis-combo-list img[alt^="Demonic Consultation"]')).toHaveLength(1);
     expect(element.querySelectorAll('.advanced-analysis-completer-card img')).toHaveLength(2);
     expect(element.querySelectorAll('.advanced-analysis-combo-list li').length).toBeLessThanOrEqual(16);
   });
@@ -343,6 +423,43 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(element.textContent).toContain('No complete combo lines detected.');
     expect(element.textContent).toContain('No one-card-away combo lines detected.');
     expect(element.textContent).toContain('No combo completers identified.');
+  });
+
+  it('does not render tribal identity when typal analysis is unavailable or not detected', async () => {
+    const analysis = buildAdvancedAnalysis({
+      summary: {
+        primaryArchetype: 'Control',
+        secondaryArchetypes: [],
+        archetypeConfidence: 'medium',
+        mainWarnings: [],
+        criticalIssues: [],
+        primaryTypalType: null,
+      },
+      typal: {
+        detected: false,
+        primaryType: null,
+        confidence: 'low',
+        creatureCount: 0,
+        supportCount: 0,
+        commanderMatches: false,
+        types: [],
+      },
+    });
+    if (analysis.health && typeof analysis.health === 'object') {
+      delete analysis.health['typal'];
+    }
+
+    const { fixture } = await setup({ slug: DECK_ID }, {
+      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(analysis)),
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.advanced-analysis-typal-identity')).toBeNull();
+    expect(element.textContent).not.toContain('Primary tribe');
+    expect(element.querySelectorAll('.advanced-analysis-health-card')).toHaveLength(10);
   });
 
   it('renders an empty combo state when combo payload has no lines', async () => {
@@ -429,7 +546,9 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
 
     expect(decksApi.getBySlug).toHaveBeenCalledWith('atraxa-control-a7f3c9d2');
     expect(decksApi.getDeckAdvancedAnalysis).toHaveBeenCalledWith(DECK_ID);
-    expect(fixture.nativeElement.textContent).toContain('Advanced deck');
+    expect(fixture.nativeElement.querySelector('.advanced-analysis-panel')).toBeNull();
+    expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Advanced deck');
+    expect(TestBed.inject(PageHeaderStore).state()?.description).toBe('Anàlisi de baralla');
     expect(fixture.componentInstance.deckDetailLink()).toEqual(['/decks', 'atraxa-control-a7f3c9d2']);
   });
 
@@ -448,6 +567,8 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const retryButton = element.querySelector('button') as HTMLButtonElement;
     retryButton.click();
     fixture.detectChanges();
+    await Promise.resolve();
+    await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
     fixture.detectChanges();
@@ -496,8 +617,6 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
 
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.textContent).toContain('Fresh analysis');
-    expect(element.textContent).toContain('Recalculated for the current deck state.');
     expect(element.textContent).toContain('Ramp');
     expect(element.textContent).toContain('Unknown');
     expect(element.textContent).toContain('No main warnings found.');
@@ -541,22 +660,6 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(element.textContent).toContain('Not found');
   });
 
-  it('renders snapshot metadata when it is missing', async () => {
-    const { fixture } = await setup({ slug: DECK_ID }, {
-      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(buildAdvancedAnalysis({
-        snapshot: null,
-      }))),
-    });
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const snapshot = fixture.nativeElement.querySelector('[data-snapshot-state="missing"]') as HTMLElement | null;
-
-    expect(snapshot).not.toBeNull();
-    expect(snapshot?.textContent).toContain('Fresh analysis');
-    expect(snapshot?.textContent).toContain('Snapshot metadata is unavailable.');
-  });
-
   it('keeps the deck detail route available for the dashboard back action', async () => {
     const { fixture } = await setup({ slug: DECK_ID });
     await fixture.whenStable();
@@ -569,7 +672,8 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     await setup({ slug: DECK_ID });
     const header = TestBed.inject(PageHeaderStore).state();
 
-    expect(header?.title).toBe('Advanced Analysis');
+    expect(header?.title).toBe('Advanced deck');
+    expect(header?.description).toBe('Anàlisi de baralla');
     expect(header?.context).toBe('deck-advanced-analysis');
     expect(header?.actions?.[0]?.id).toBe('back-to-deck-detail');
   });
@@ -598,12 +702,37 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
     },
     summary: {
       primaryArchetype: 'Aristocrats',
+      primaryTypalType: 'Elf',
       secondaryArchetypes: ['Tokens'],
       archetypeConfidence: 'high',
-      powerBand: 'high_power',
-      powerConfidence: 'medium',
+      archetypeExplanations: [
+        { archetype: 'Aristocrats', reasonKey: 'aristocrats', score: 82 },
+        { archetype: 'Tokens', reasonKey: 'tokens', score: 48 },
+      ],
       mainWarnings: ['Low ramp'],
       criticalIssues: ['Not enough win conditions'],
+    },
+    typal: {
+      detected: true,
+      primaryType: 'Elf',
+      confidence: 'medium',
+      creatureCount: 14,
+      supportCount: 3,
+      commanderMatches: true,
+      types: [
+        {
+          type: 'Elf',
+          creatureCount: 14,
+          supportCount: 3,
+          commanderMatches: true,
+          creatureCards: [
+            { deckCardId: 'deck-card-llanowar', cardId: 'card-llanowar', oracleId: 'oracle-llanowar', name: 'Llanowar Elves', imageUrl: 'https://cards.example.test/llanowar.jpg', quantity: 1, section: 'main' },
+          ],
+          supportCards: [
+            { deckCardId: 'deck-card-archdruid', cardId: 'card-archdruid', oracleId: 'oracle-archdruid', name: 'Elvish Archdruid', imageUrl: 'https://cards.example.test/archdruid.jpg', quantity: 1, section: 'main' },
+          ],
+        },
+      ],
     },
     health: {
       ramp: {
@@ -611,7 +740,21 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         message: 'Ramp needs review.',
         evidence: { permanentRamp: 8 },
         cards: [
-          { deckCardId: 'deck-card-sol-ring', cardId: 'card-sol-ring', oracleId: 'oracle-sol-ring', name: 'Sol Ring', imageUrl: 'https://cards.example.test/sol-ring.jpg', quantity: 1, section: 'main', matchedMetrics: ['permanentRamp', 'fastMana'] },
+          {
+            deckCardId: 'deck-card-sol-ring',
+            cardId: 'card-sol-ring',
+            oracleId: 'oracle-sol-ring',
+            name: 'Sol Ring',
+            imageUrl: 'https://cards.example.test/sol-ring.jpg',
+            imageUris: { normal: 'https://cards.example.test/sol-ring.jpg' },
+            cardFaces: [
+              { name: 'Sol Ring', manaCost: null, typeLine: 'Artifact', oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: 'https://cards.example.test/sol-ring.jpg' } },
+              { name: 'Sol Ring Back', manaCost: null, typeLine: 'Artifact', oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: 'https://cards.example.test/sol-ring-back.jpg' } },
+            ],
+            quantity: 1,
+            section: 'main',
+            matchedMetrics: ['permanentRamp', 'fastMana'],
+          },
         ],
       },
       draw: {
@@ -648,6 +791,21 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         status: 'critical',
         message: 'Win conditions are likely under-supported.',
         evidence: { wincons: 1 },
+      },
+      typal: {
+        status: 'good',
+        message: 'Elf tribal identity detected.',
+        evidence: {
+          primaryType: 'Elf',
+          creatureCount: 14,
+          supportCount: 3,
+          commanderMatches: true,
+        },
+        cards: [
+          { deckCardId: 'deck-card-llanowar', cardId: 'card-llanowar', oracleId: 'oracle-llanowar', name: 'Llanowar Elves', imageUrl: 'https://cards.example.test/llanowar.jpg', quantity: 1, section: 'main' },
+          { deckCardId: 'deck-card-archdruid', cardId: 'card-archdruid', oracleId: 'oracle-archdruid', name: 'Elvish Archdruid', imageUrl: 'https://cards.example.test/archdruid.jpg', quantity: 1, section: 'main' },
+        ],
+        value: 14,
       },
       combos: {
         status: 'excellent',
@@ -740,8 +898,6 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
       },
     },
     power: {
-      band: 'high_power',
-      confidence: 'medium',
       signals: {
         fastMana: 1,
         efficientTutors: 0,

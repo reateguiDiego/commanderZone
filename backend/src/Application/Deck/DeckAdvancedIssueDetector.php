@@ -25,9 +25,10 @@ final class DeckAdvancedIssueDetector
      * @param array{band:string,signals:array<string,int>} $power
      * @param array<string,mixed> $consistency
      * @param list<array{quantity:int}> $unmatchedCards
+     * @param array{detected?:bool,primaryType?:?string,confidence?:string,creatureCount?:int,supportCount?:int,commanderMatches?:bool,types?:list<array{type:string,creatureCount:int,supportCount:int}>} $typal
      * @return list<array{code:string,severity:string,title:string,message:string,evidence:array<string,mixed>,suggestedActionType:string}>
      */
-    public function detect(array $metrics, array $combos, array $archetypes, array $power, array $consistency, array $unmatchedCards): array
+    public function detect(array $metrics, array $combos, array $archetypes, array $power, array $consistency, array $unmatchedCards, array $typal = []): array
     {
         $roles = $metrics['roles'];
         $rules = $this->genericRules();
@@ -41,6 +42,7 @@ final class DeckAdvancedIssueDetector
         $this->comboIssues($issues, $roles, $combos);
         $this->winconIssues($issues, $roles, $combos);
         $this->staxIssues($issues, $roles);
+        $this->typalIssues($issues, $typal);
         $this->powerIssues($issues, $power);
         $this->consistencyIssues($issues, $consistency, $archetypes, $power);
         $this->unmatchedIssues($issues, $unmatchedCards);
@@ -106,7 +108,6 @@ final class DeckAdvancedIssueDetector
             $issues[] = $this->issue('low_true_tutors_for_combo', 'warning', 'Low true tutor density', 'The plan has combo or high-power signals, but true tutors are low.', [
                 'trueTutors' => $roles['trueTutors'] ?? 0,
                 'primaryArchetype' => $archetypes['primary'],
-                'powerBand' => $power['band'],
             ], 'add_role');
         }
         if (($roles['rampSearch'] ?? 0) >= 4 && ($roles['trueTutors'] ?? 0) <= 1) {
@@ -251,6 +252,46 @@ final class DeckAdvancedIssueDetector
 
     /**
      * @param list<array<string,mixed>> $issues
+     * @param array{detected?:bool,primaryType?:?string,confidence?:string,creatureCount?:int,supportCount?:int,commanderMatches?:bool,types?:list<array{type:string,creatureCount:int,supportCount:int}>} $typal
+     */
+    private function typalIssues(array &$issues, array $typal): void
+    {
+        if (($typal['detected'] ?? false) === true) {
+            $primaryType = is_string($typal['primaryType'] ?? null) ? $typal['primaryType'] : 'the primary creature type';
+            $creatures = (int) ($typal['creatureCount'] ?? 0);
+            $support = (int) ($typal['supportCount'] ?? 0);
+            if ($creatures >= 10 && $support < 2) {
+                $issues[] = $this->issue('typal_density_without_support', 'warning', 'Tribal density without enough support', sprintf('The deck has a clear %s creature base, but few cards that actively reward or support that tribe.', $primaryType), [
+                    'primaryType' => $primaryType,
+                    'creatureCount' => $creatures,
+                    'supportCount' => $support,
+                ], 'add_role');
+            }
+
+            if (($typal['commanderMatches'] ?? false) !== true && in_array($typal['confidence'] ?? 'low', ['medium', 'high'], true)) {
+                $issues[] = $this->issue('typal_commander_mismatch', 'info', 'Commander does not match the main tribe', sprintf('The deck looks like %s tribal, but the commander does not share that creature type.', $primaryType), [
+                    'primaryType' => $primaryType,
+                    'commanderMatches' => false,
+                ], 'review_package');
+            }
+
+            return;
+        }
+
+        foreach ($typal['types'] ?? [] as $type) {
+            if (($type['supportCount'] ?? 0) >= 3 && ($type['creatureCount'] ?? 0) < 8) {
+                $issues[] = $this->issue('typal_support_without_density', 'warning', 'Tribal support without enough creatures', sprintf('The deck has support for %s tribal, but not enough matching creature cards to make that package reliable.', $type['type']), [
+                    'primaryType' => $type['type'],
+                    'creatureCount' => $type['creatureCount'],
+                    'supportCount' => $type['supportCount'],
+                ], 'review_role_mix');
+                return;
+            }
+        }
+    }
+
+    /**
+     * @param list<array<string,mixed>> $issues
      * @param array{band:string,signals:array<string,int>} $power
      */
     private function powerIssues(array &$issues, array $power): void
@@ -259,7 +300,6 @@ final class DeckAdvancedIssueDetector
         $strongSignals = ($signals['fastMana'] ?? 0) + ($signals['efficientTutors'] ?? 0) + ($signals['freeInteraction'] ?? 0) + ($signals['completeWinLikeCombos'] ?? 0);
         if (in_array($power['band'], ['high_power', 'cedh_like'], true) || $strongSignals >= 8) {
             $issues[] = $this->issue('high_power_signals_detected', 'info', 'High-power signals detected', 'Fast mana, efficient tutors, free interaction, or complete combos push the deck toward higher-power bands.', [
-                'powerBand' => $power['band'],
                 'strongPowerSignals' => $strongSignals,
             ], 'review_package');
         }

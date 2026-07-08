@@ -9,6 +9,7 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         private readonly CardRoleMetricsAggregator $metricsAggregator,
         private readonly DeckAdvancedAnalysisHealthEvaluator $healthEvaluator,
         private readonly DeckComboDetector $comboDetector,
+        private readonly DeckTypalAnalyzer $typalAnalyzer,
         private readonly DeckArchetypeAnalyzer $archetypeAnalyzer,
         private readonly DeckPowerAnalyzer $powerAnalyzer,
         private readonly DeckConsistencySimulator $consistencySimulator,
@@ -30,8 +31,10 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
             $this->oracleIds($resolvedCards),
             $resolvedCards,
             $this->commanderOracleIds($resolvedCards),
+            $this->deckColorIdentity($resolvedCards),
         );
-        $archetypeResult = $this->archetypeAnalyzer->analyze($metrics, $resolvedCards, $comboResult['combos']);
+        $typal = $this->typalAnalyzer->analyze($resolvedCards);
+        $archetypeResult = $this->archetypeAnalyzer->analyze($metrics, $resolvedCards, $comboResult['combos'], $typal);
         $power = $this->powerAnalyzer->analyze($metrics, $resolvedCards, $comboResult['combos']);
         $archetypes = $archetypeResult['archetypes'];
         $consistencyResult = $this->consistencySimulator->simulate($resolvedCards, $comboResult['combos'], [
@@ -42,7 +45,7 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
             'comboDeckLikely' => $this->comboDeckLikely($archetypes, $comboResult['combos']),
         ]);
         $issues = [
-            ...$this->issueDetector->detect($metrics, $comboResult['combos'], $archetypes, $power, $consistencyResult['consistency'], $unmatchedCards),
+            ...$this->issueDetector->detect($metrics, $comboResult['combos'], $archetypes, $power, $consistencyResult['consistency'], $unmatchedCards, $typal),
             ...$archetypeResult['issues'],
         ];
         $recommendations = $this->recommendationBuilder->build($issues);
@@ -54,24 +57,75 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
             'summary' => [
                 'status' => 'completed',
                 'primaryArchetype' => $archetypes['primary'],
+                'primaryTypalType' => $typal['primaryType'],
                 'secondaryArchetypes' => $archetypes['secondary'],
                 'archetypeConfidence' => $archetypes['confidence'],
-                'powerBand' => $power['band'],
-                'powerConfidence' => $power['confidence'],
-                'mainStrengths' => $this->mainStrengths($metrics, $archetypes, $power, $comboResult['combos'], $consistencyResult['consistency']),
+                'archetypeExplanations' => $this->archetypeExplanations($archetypes),
+                'mainStrengths' => $this->mainStrengths($metrics, $archetypes, $power, $comboResult['combos'], $consistencyResult['consistency'], $typal),
                 'mainWarnings' => $this->mainWarnings($issues),
                 'criticalIssues' => $this->criticalIssues($issues),
             ],
             'metrics' => $metrics,
-            'health' => $this->healthEvaluator->evaluate($metrics, $comboResult['combos'], $consistencyResult['consistency'], $issues),
+            'health' => $this->healthEvaluator->evaluate($metrics, $comboResult['combos'], $consistencyResult['consistency'], $issues, $typal),
             'consistency' => $consistencyResult['consistency'],
             'combos' => $comboResult['combos'],
             'topComboCompleters' => $comboResult['topComboCompleters'],
             'archetypes' => $archetypes,
-            'power' => $power,
+            'typal' => $typal,
+            'power' => $this->publicPowerSignals($power),
             'issues' => $issues,
             'recommendations' => $recommendations,
             'unmatchedCards' => $unmatchedCards,
+        ];
+    }
+
+    /**
+     * @param array{primary:string,secondary:list<string>,confidence:string,scores:list<array{archetype:string,score:int,evidence:list<string>}>} $archetypes
+     * @return list<array{archetype:string,reasonKey:string,score:int}>
+     */
+    private function archetypeExplanations(array $archetypes): array
+    {
+        $scoresByArchetype = [];
+        foreach ($archetypes['scores'] as $score) {
+            $scoresByArchetype[$score['archetype']] = $score['score'];
+        }
+
+        $topScore = $archetypes['scores'][0]['score'] ?? 0;
+        $items = [
+            [
+                'archetype' => $archetypes['primary'],
+                'reasonKey' => $this->archetypeReasonKey($archetypes['primary']),
+                'score' => $archetypes['primary'] === 'mixed' ? $topScore : ($scoresByArchetype[$archetypes['primary']] ?? 0),
+            ],
+        ];
+
+        foreach ($archetypes['secondary'] as $secondary) {
+            $items[] = [
+                'archetype' => $secondary,
+                'reasonKey' => $this->archetypeReasonKey($secondary),
+                'score' => $scoresByArchetype[$secondary] ?? 0,
+            ];
+        }
+
+        return $items;
+    }
+
+    private function archetypeReasonKey(string $archetype): string
+    {
+        return preg_match('/^[a-z0-9_]+$/', $archetype) === 1 ? $archetype : 'generic';
+    }
+
+    /**
+     * @param array{band:string,confidence:string,signals:array<string,int>,signalCards:array<string,list<array<string,mixed>>>,evidence:list<string>,notes:list<string>} $power
+     * @return array{signals:array<string,int>,signalCards:array<string,list<array<string,mixed>>>,evidence:list<string>,notes:list<string>}
+     */
+    private function publicPowerSignals(array $power): array
+    {
+        return [
+            'signals' => $power['signals'],
+            'signalCards' => $power['signalCards'],
+            'evidence' => $power['evidence'],
+            'notes' => $power['notes'],
         ];
     }
 
@@ -107,14 +161,60 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
     }
 
     /**
+     * @param list<array{section:string,analysisProfile:array<string,mixed>}> $resolvedCards
+     * @return list<string>
+     */
+    private function deckColorIdentity(array $resolvedCards): array
+    {
+        $commanderColors = [];
+        $deckColors = [];
+
+        foreach ($resolvedCards as $card) {
+            $colors = $this->colorIdentityFromProfile($card['analysisProfile']);
+            foreach ($colors as $color) {
+                $deckColors[$color] = true;
+                if ($card['section'] === 'commander') {
+                    $commanderColors[$color] = true;
+                }
+            }
+        }
+
+        $identity = $commanderColors !== [] ? array_keys($commanderColors) : array_keys($deckColors);
+        sort($identity, SORT_STRING);
+
+        return $identity;
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     * @return list<string>
+     */
+    private function colorIdentityFromProfile(array $profile): array
+    {
+        $colors = [];
+        foreach (($profile['colorIdentity'] ?? []) as $color) {
+            if (!is_scalar($color)) {
+                continue;
+            }
+            $normalized = mb_strtoupper(trim((string) $color));
+            if (in_array($normalized, ['W', 'U', 'B', 'R', 'G'], true)) {
+                $colors[$normalized] = true;
+            }
+        }
+
+        return array_keys($colors);
+    }
+
+    /**
      * @param array{roles:array<string,int>} $metrics
      * @param array{primary:string,secondary:list<string>,confidence:string,scores:list<array{archetype:string,score:int,evidence:list<string>}>} $archetypes
      * @param array{band:string,confidence:string,evidence:list<string>} $power
      * @param array<string,mixed> $combos
      * @param array<string,mixed> $consistency
+     * @param array{detected:bool,primaryType:?string,confidence:string,creatureCount:int,supportCount:int,commanderMatches:bool} $typal
      * @return list<string>
      */
-    private function mainStrengths(array $metrics, array $archetypes, array $power, array $combos, array $consistency): array
+    private function mainStrengths(array $metrics, array $archetypes, array $power, array $combos, array $consistency, array $typal): array
     {
         $roles = $metrics['roles'];
         $strengths = [];
@@ -130,6 +230,9 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         $topScore = $archetypes['scores'][0] ?? null;
         if (is_array($topScore) && $archetypes['primary'] !== 'mixed' && in_array($archetypes['confidence'], ['high', 'medium'], true)) {
             $strengths[] = sprintf('%s plan detected with %s confidence.', str_replace('_', ' ', $archetypes['primary']), $archetypes['confidence']);
+        }
+        if ($typal['detected'] && $typal['primaryType'] !== null) {
+            $strengths[] = sprintf('%s tribal identity detected.', $typal['primaryType']);
         }
         if (($combos['winLikeCount'] ?? 0) > 0) {
             $strengths[] = ($combos['winLikeCount']).' complete win-like combo lines detected.';

@@ -1358,10 +1358,31 @@
         "primaryArchetype": "Arquetipo principal",
         "secondaryArchetypes": "Arquetipos secundarios",
         "archetypeConfidence": "Confianza del arquetipo",
-        "powerBand": "Banda de poder",
-        "powerConfidence": "Confianza de poder",
+        "archetypeConfidenceDescription": "Indica hasta que punto el analizador cree que el arquetipo detectado encaja con las senales de cartas de la baraja.",
+        "archetypeReasons": {
+          "generic": "Detectado por las senales de rol de cartas mas fuertes de la baraja. Puntuacion: {{score}}/100.",
+          "mixed": "No hay un plan unico claramente dominante; varias senales de arquetipo estan muy cerca. Mejor puntuacion: {{score}}/100.",
+          "combo": "Detectado por lineas de combo completas, lineas a una carta, tutores eficientes, condiciones de victoria compactas y densidad de piezas de combo. Puntuacion: {{score}}/100.",
+          "aristocrats": "Detectado por outlets de sacrificio repetibles, payoffs de sacrificio, generadores de fichas y recursion. Puntuacion: {{score}}/100.",
+          "reanimator": "Detectado por cartas de reanimacion, preparacion de cementerio y amenazas grandes que merece la pena devolver. Puntuacion: {{score}}/100.",
+          "control": "Detectado por contrahechizos, removal, wraths reales y densidad de robo o seleccion. Puntuacion: {{score}}/100.",
+          "stax": "Detectado por piezas de stax, efectos de tax y cartas que restringen la mesa. Puntuacion: {{score}}/100.",
+          "blink": "Detectado por habilitadores de blink, payoffs de entrar al campo y senales de rol de apoyo. Puntuacion: {{score}}/100.",
+          "tokens": "Detectado por generadores de fichas, payoffs y rematadores de combate que convierten fichas en presion. Puntuacion: {{score}}/100.",
+          "typal": "Detectado por una alta densidad de un mismo tipo de criatura, soporte tribal y encaje del comandante. Puntuacion: {{score}}/100.",
+          "voltron_infect": "Detectado por proteccion, amenazas de infect, rematadores de combate y senales de equipos o auras. Puntuacion: {{score}}/100.",
+          "spellslinger": "Detectado por densidad de instantaneos y conjuros, reductores de coste, seleccion de cartas y rituales o mana explosivo. Puntuacion: {{score}}/100.",
+          "artifact": "Detectado por densidad de artefactos y senales de rol que apoyan artefactos. Puntuacion: {{score}}/100.",
+          "enchantress": "Detectado por densidad de encantamientos y senales de rol que apoyan encantamientos. Puntuacion: {{score}}/100.",
+          "landfall": "Detectado por senales de landfall y soporte de busqueda de tierras. Puntuacion: {{score}}/100.",
+          "theft": "Detectado por efectos de robo de permanentes/hechizos y senales de rol de apoyo. Puntuacion: {{score}}/100.",
+          "discard": "Detectado por efectos de descarte, payoffs de descarte y senales de rol de apoyo. Puntuacion: {{score}}/100.",
+          "mill": "Detectado por efectos de mill y senales de rol de apoyo. Puntuacion: {{score}}/100.",
+          "lifegain": "Detectado por densidad de ganancia de vidas y payoffs relacionados. Puntuacion: {{score}}/100."
+        },
         "criticalIssues": "Cuestiones críticas",
-        "mainWarnings": "Avisos principales"
+        "mainWarnings": "Avisos principales",
+        "primaryTypalType": "Tribu principal"
       },
       "header": {
         "deckId": "ID del mazo",
@@ -1404,7 +1425,8 @@
           "wincons": "Wincons",
           "combos": "Combos",
           "consistency": "Consistencia",
-          "stax": "Stax"
+          "stax": "Stax",
+          "typal": "Tribal"
         }
       },
       "metrics": {
@@ -1443,7 +1465,8 @@
         "extraCombatEngines": "Motores de combate extra",
         "stax": "Stax",
         "tax": "Tax",
-        "symmetricalStaxRisk": "Riesgo de estancamiento simétrico"
+        "symmetricalStaxRisk": "Riesgo de estancamiento simétrico",
+        "typalCreatures": "Criaturas tribales"
       },
       "cardResolution": {
         "title": "Resolución de la tarjeta",
@@ -1493,6 +1516,10 @@
           "infiniteDamage": "Daño infinito",
           "requiresCommander": "Requiere commander",
           "requiresTemplate": "Requiere plantilla"
+        },
+        "cardState": {
+          "inDeck": "En el mazo",
+          "missing": "Falta"
         }
       },
       "consistency": {
@@ -1581,6 +1608,15 @@
         "targetsPrefix": "Objetivos: {{targets}}",
         "reasonsPrefix": "Motivos: {{reasons}}",
         "empty": "No hay recomendaciones funcionales disponibles."
+      },
+      "typal": {
+        "eyebrow": "Identidad tribal",
+        "title": "Tribal de {{type}}",
+        "creatures": "Criaturas",
+        "support": "Soporte",
+        "commanderMatches": "El comandante encaja",
+        "creatureCards": "Cartas de criatura",
+        "supportCards": "Cartas de soporte"
       }
     }
   },

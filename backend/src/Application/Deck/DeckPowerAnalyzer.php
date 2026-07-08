@@ -6,7 +6,7 @@ final class DeckPowerAnalyzer
 {
     /**
      * @param array{roles:array<string,int>,quality:array<string,array<string,int>>} $metrics
-     * @param list<array{deckCardId:string,cardId:string,oracleId:string,name:string,imageUrl?:?string,quantity:int,section:string,analysisProfile:array<string,mixed>}> $resolvedCards
+     * @param list<array{deckCardId:string,cardId:string,scryfallId:string,oracleId:string,name:string,imageUrl?:?string,quantity:int,section:string,analysisProfile:array<string,mixed>}> $resolvedCards
      * @param array<string,mixed> $combos
      * @return array{band:string,confidence:string,signals:array<string,int>,signalCards:array<string,list<array<string,mixed>>>,evidence:list<string>,notes:list<string>}
      */
@@ -51,7 +51,7 @@ final class DeckPowerAnalyzer
     }
 
     /**
-     * @param list<array{deckCardId:string,cardId:string,oracleId:string,name:string,imageUrl?:?string,quantity:int,section:string,analysisProfile:array<string,mixed>}> $resolvedCards
+     * @param list<array{deckCardId:string,cardId:string,scryfallId:string,oracleId:string,name:string,imageUrl?:?string,quantity:int,section:string,analysisProfile:array<string,mixed>}> $resolvedCards
      * @param array<string,mixed> $combos
      * @return array{signals:array<string,int>,signalCards:array<string,list<array<string,mixed>>>}
      */
@@ -227,16 +227,19 @@ final class DeckPowerAnalyzer
 
     /**
      * @param array<string,mixed> $card
-     * @return array{deckCardId:string,cardId:string,oracleId:string,name:string,imageUrl:?string,quantity:int,section:string}
+     * @return array{deckCardId:string,cardId:string,scryfallId:string,oracleId:string,name:string,imageUrl:?string,imageUris:array<string,mixed>,cardFaces:list<array<string,mixed>>,quantity:int,section:string}
      */
     private function cardReference(array $card): array
     {
         return [
             'deckCardId' => (string) $card['deckCardId'],
             'cardId' => (string) $card['cardId'],
+            'scryfallId' => (string) $card['scryfallId'],
             'oracleId' => (string) $card['oracleId'],
             'name' => (string) $card['name'],
             'imageUrl' => $this->nullableString($card['imageUrl'] ?? null),
+            'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : [],
+            'cardFaces' => is_array($card['cardFaces'] ?? null) ? array_values($card['cardFaces']) : [],
             'quantity' => max(1, (int) $card['quantity']),
             'section' => (string) $card['section'],
         ];

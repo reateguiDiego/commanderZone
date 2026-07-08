@@ -3,6 +3,7 @@
 namespace App\Application\Deck;
 
 use App\Domain\Deck\Deck;
+use App\Domain\Deck\DeckCard;
 use Doctrine\DBAL\Connection;
 
 final class DeckAnalysisDeckHasher
@@ -50,8 +51,13 @@ SELECT
 FROM deck_card
 LEFT JOIN card ON card.id = deck_card.card_id
 WHERE deck_card.deck_id = :deck_id
+  AND deck_card.section IN (:main_section, :commander_section)
 SQL,
-            ['deck_id' => $deckId],
+            [
+                'deck_id' => $deckId,
+                'main_section' => DeckCard::SECTION_MAIN,
+                'commander_section' => DeckCard::SECTION_COMMANDER,
+            ],
         )->iterateAssociative();
     }
 

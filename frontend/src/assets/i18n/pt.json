@@ -1358,10 +1358,31 @@
         "primaryArchetype": "Arquétipo primário",
         "secondaryArchetypes": "Arquétipos secundários",
         "archetypeConfidence": "Confiança arquetípica",
-        "powerBand": "Faixa de poder",
-        "powerConfidence": "Confiança no poder",
+        "archetypeConfidenceDescription": "Indica o quanto o analisador acredita que o arquetipo detectado combina com os sinais das cartas do deck.",
+        "archetypeReasons": {
+          "generic": "Detected from the deck's strongest card-role signals. Score: {{score}}/100.",
+          "mixed": "No single plan clearly dominates; several archetype signals are close together. Top score: {{score}}/100.",
+          "combo": "Detected from complete combo lines, one-card-away lines, efficient tutors, compact win conditions and combo-piece density. Score: {{score}}/100.",
+          "aristocrats": "Detected from repeatable sacrifice outlets, sacrifice payoffs, token makers and recursion support. Score: {{score}}/100.",
+          "reanimator": "Detected from reanimation cards, graveyard setup and large threats worth bringing back. Score: {{score}}/100.",
+          "control": "Detected from counterspells, removal, hard board wipes and draw or selection density. Score: {{score}}/100.",
+          "stax": "Detected from stax pieces, tax effects and cards that can restrict the table. Score: {{score}}/100.",
+          "blink": "Detected from blink enablers, enter-the-battlefield payoffs and supporting role signals. Score: {{score}}/100.",
+          "tokens": "Detected from token makers, payoff cards and combat finishers that convert tokens into pressure. Score: {{score}}/100.",
+          "typal": "Detected from a dense shared creature type, tribal support cards and commander type alignment. Score: {{score}}/100.",
+          "voltron_infect": "Detected from protection, infect threats, combat finishers and equipment or aura signals. Score: {{score}}/100.",
+          "spellslinger": "Detected from instant and sorcery density, cost reducers, card selection and ritual or burst mana. Score: {{score}}/100.",
+          "artifact": "Detected from artifact density and supporting artifact-role signals. Score: {{score}}/100.",
+          "enchantress": "Detected from enchantment density and supporting enchantment-role signals. Score: {{score}}/100.",
+          "landfall": "Detected from landfall signals and ramp-search support. Score: {{score}}/100.",
+          "theft": "Detected from theft effects and supporting role signals. Score: {{score}}/100.",
+          "discard": "Detected from discard effects, discard payoffs and supporting role signals. Score: {{score}}/100.",
+          "mill": "Detected from mill effects and supporting role signals. Score: {{score}}/100.",
+          "lifegain": "Detected from lifegain density and supporting payoff signals. Score: {{score}}/100."
+        },
         "criticalIssues": "Questões críticas",
-        "mainWarnings": "Principais avisos"
+        "mainWarnings": "Principais avisos",
+        "primaryTypalType": "Tribo principal"
       },
       "header": {
         "deckId": "ID do deck",
@@ -1404,7 +1425,8 @@
           "wincons": "Wincons",
           "combos": "Combos",
           "consistency": "Consistência",
-          "stax": "Stax"
+          "stax": "Stax",
+          "typal": "Tribal"
         }
       },
       "metrics": {
@@ -1443,7 +1465,8 @@
         "extraCombatEngines": "Motores de combate extras",
         "stax": "Stax",
         "tax": "Imposto",
-        "symmetricalStaxRisk": "Risco de imposto simétrico"
+        "symmetricalStaxRisk": "Risco de imposto simétrico",
+        "typalCreatures": "Criaturas tribais"
       },
       "cardResolution": {
         "title": "Resolução de cartas",
@@ -1493,6 +1516,10 @@
           "infiniteDamage": "Dano infinito",
           "requiresCommander": "Requer comandante",
           "requiresTemplate": "Requer modelo"
+        },
+        "cardState": {
+          "inDeck": "No deck",
+          "missing": "Falta"
         }
       },
       "consistency": {
@@ -1581,6 +1608,15 @@
         "targetsPrefix": "Alvos: {{targets}}",
         "reasonsPrefix": "Razões: {{reasons}}",
         "empty": "Nenhuma recomendação funcional disponível."
+      },
+      "typal": {
+        "eyebrow": "Identidade tribal",
+        "title": "Tribal de {{type}}",
+        "creatures": "Criaturas",
+        "support": "Suporte",
+        "commanderMatches": "O commander combina",
+        "creatureCards": "Cartas de criatura",
+        "supportCards": "Cartas de suporte"
       }
     }
   },

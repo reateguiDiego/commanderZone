@@ -17,9 +17,12 @@ final class DeckCardAnalysisResolver
      *     resolvedCards:list<array{
      *         deckCardId:string,
      *         cardId:string,
+     *         scryfallId:string,
      *         oracleId:string,
      *         name:string,
      *         imageUrl:?string,
+     *         imageUris:array<string,mixed>,
+     *         cardFaces:list<array<string,mixed>>,
      *         quantity:int,
      *         section:string,
      *         analysisProfile:array<string,mixed>
@@ -71,9 +74,12 @@ final class DeckCardAnalysisResolver
             $resolvedCards[] = [
                 'deckCardId' => $deckCardId,
                 'cardId' => $cardId,
+                'scryfallId' => (string) $row['scryfall_id'],
                 'oracleId' => $oracleId,
                 'name' => $name ?? 'Unknown card',
                 'imageUrl' => $this->imageUrl($row),
+                'imageUris' => $this->jsonObject($row['card_image_uris'] ?? null),
+                'cardFaces' => $this->jsonList($row['card_faces'] ?? null),
                 'quantity' => $quantity,
                 'section' => $section,
                 'analysisProfile' => $this->analysisProfile($row),
@@ -99,8 +105,10 @@ SELECT
     deck_card.quantity,
     deck_card.section,
     card.id AS card_id,
+    card.scryfall_id,
     card.name AS card_name,
     card.image_uris AS card_image_uris,
+    card.card_faces,
     card.oracle_id,
     CASE WHEN card_analysis_profile.oracle_id IS NULL THEN false ELSE true END AS has_analysis_profile,
     card_analysis_profile.name AS profile_name,
@@ -140,9 +148,14 @@ FROM deck_card
 LEFT JOIN card ON card.id = deck_card.card_id
 LEFT JOIN card_analysis_profile ON card_analysis_profile.oracle_id = card.oracle_id
 WHERE deck_card.deck_id = :deck_id
+  AND deck_card.section IN (:main_section, :commander_section)
 ORDER BY deck_card.section, card.name, deck_card.id
 SQL,
-            ['deck_id' => $deckId],
+            [
+                'deck_id' => $deckId,
+                'main_section' => DeckCard::SECTION_MAIN,
+                'commander_section' => DeckCard::SECTION_COMMANDER,
+            ],
         )->iterateAssociative();
     }
 

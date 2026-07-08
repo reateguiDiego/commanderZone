@@ -12,6 +12,7 @@ final class DeckArchetypeAnalyzer
         'stax',
         'blink',
         'tokens',
+        'typal',
         'voltron_infect',
         'spellslinger',
         'artifact',
@@ -27,12 +28,13 @@ final class DeckArchetypeAnalyzer
      * @param array{roles:array<string,int>} $metrics
      * @param list<array{quantity:int,analysisProfile:array<string,mixed>}> $resolvedCards
      * @param array<string,mixed> $combos
+     * @param array{detected:bool,primaryType:?string,confidence:string,creatureCount:int,supportCount:int,commanderMatches:bool} $typal
      * @return array{
      *     archetypes:array{primary:string,secondary:list<string>,confidence:string,scores:list<array{archetype:string,score:int,evidence:list<string>}>},
      *     issues:list<array{code:string,severity:string,title:string,message:string,evidence:array<string,mixed>,suggestedActionType:string}>
      * }
      */
-    public function analyze(array $metrics, array $resolvedCards, array $combos): array
+    public function analyze(array $metrics, array $resolvedCards, array $combos, array $typal = []): array
     {
         $roles = $metrics['roles'];
         $profileSignals = $this->profileSignals($resolvedCards);
@@ -44,6 +46,7 @@ final class DeckArchetypeAnalyzer
             $this->staxScore($roles),
             $this->weightedScore('blink', $profileSignals, $roles),
             $this->tokensScore($roles),
+            $this->typalScore($typal),
             $this->voltronInfectScore($roles, $profileSignals),
             $this->spellslingerScore($roles, $profileSignals),
             $this->weightedScore('artifact', $profileSignals, $roles),
@@ -211,6 +214,38 @@ final class DeckArchetypeAnalyzer
         $score = min(34, $tokens * 5) + min(24, $payoffs * 4) + min(18, $finishers * 6);
 
         return $this->score('tokens', $score, [$tokens.' token makers', $payoffs.' payoffs', $finishers.' combat finishers']);
+    }
+
+    /**
+     * @param array{detected?:bool,primaryType?:?string,confidence?:string,creatureCount?:int,supportCount?:int,commanderMatches?:bool} $typal
+     * @return array{archetype:string,score:int,evidence:list<string>}
+     */
+    private function typalScore(array $typal): array
+    {
+        if (($typal['detected'] ?? false) !== true) {
+            return $this->score('typal', 0, []);
+        }
+
+        $creatures = (int) ($typal['creatureCount'] ?? 0);
+        $support = (int) ($typal['supportCount'] ?? 0);
+        $score = min(44, $creatures * 3) + min(24, $support * 6);
+        if (($typal['commanderMatches'] ?? false) === true) {
+            $score += 14;
+        }
+        if (($typal['confidence'] ?? 'low') === 'high') {
+            $score += 10;
+        }
+
+        $type = is_string($typal['primaryType'] ?? null) ? $typal['primaryType'] : 'creature type';
+        $evidence = [
+            $creatures.' '.$type.' creature cards',
+            $support.' tribal support cards',
+        ];
+        if (($typal['commanderMatches'] ?? false) === true) {
+            $evidence[] = 'commander matches the primary creature type';
+        }
+
+        return $this->score('typal', $score, $evidence);
     }
 
     /**

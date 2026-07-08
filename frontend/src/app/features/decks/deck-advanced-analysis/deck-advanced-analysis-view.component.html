@@ -1,624 +1,92 @@
 <section class="advanced-analysis-page">
-  <section class="advanced-analysis-panel" aria-labelledby="advanced-analysis-title">
-    <div class="advanced-analysis-copy">
-      <span class="advanced-analysis-eyebrow">{{ 'deckBuilder.advancedAnalysis.eyebrow' | runtimeTranslate }}</span>
-      <h1 id="advanced-analysis-title">{{ 'deckBuilder.advancedAnalysis.title' | runtimeTranslate }}</h1>
-      @if (deckName()) {
-        <p class="advanced-analysis-deck-name">{{ deckName() }}</p>
-      }
-      <p class="advanced-analysis-placeholder">{{ 'deckBuilder.advancedAnalysis.description' | runtimeTranslate }}</p>
-    </div>
-
-    <dl class="advanced-analysis-meta">
-      @for (stat of headerStats(); track stat.label) {
-        <div [attr.data-snapshot-state]="stat.key === 'snapshot' ? snapshotIndicator().state : null">
-          <dt>{{ stat.label }}</dt>
-          <dd>{{ stat.value }}</dd>
-          @if (stat.key === 'snapshot') {
-            <small>{{ snapshotDetail() }}</small>
-          }
-        </div>
-      }
-    </dl>
-  </section>
-
-  @if (loading()) {
-    <section class="advanced-analysis-state" aria-live="polite" aria-busy="true">
-      <p>{{ 'deckBuilder.advancedAnalysis.loading' | runtimeTranslate }}</p>
-    </section>
-  } @else if (errorMessage()) {
-    <section class="advanced-analysis-state advanced-analysis-state--error" aria-live="polite">
-      <p>{{ errorMessage() }}</p>
-      <button czButton="secondary" class="secondary-button" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.retryAria' | runtimeTranslate" (click)="retry.emit()">{{ 'deckBuilder.advancedAnalysis.retry' | runtimeTranslate }}</button>
-    </section>
+  @if (errorMessage()) {
+    <app-advanced-analysis-state variant="error" [message]="errorMessage()" (retry)="retry.emit()" />
   } @else if (!hasAdvancedContent()) {
-    <section class="advanced-analysis-state" aria-live="polite">
-      <p>{{ 'deckBuilder.advancedAnalysis.error.notFound' | runtimeTranslate }}</p>
-      <button czButton="secondary" class="secondary-button" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.retryAria' | runtimeTranslate" (click)="retry.emit()">{{ 'deckBuilder.advancedAnalysis.retry' | runtimeTranslate }}</button>
-    </section>
+    <app-advanced-analysis-state variant="empty" [message]="'deckBuilder.advancedAnalysis.error.notFound' | runtimeTranslate" (retry)="retry.emit()" />
   } @else {
     <section class="advanced-analysis-overview" [attr.aria-label]="'deckBuilder.advancedAnalysis.overview.aria' | runtimeTranslate">
-      <article class="advanced-analysis-section advanced-analysis-summary">
-        <div class="advanced-analysis-section-heading">
-          <span>{{ 'deckBuilder.advancedAnalysis.overview.eyebrow' | runtimeTranslate }}</span>
-          <h2>{{ 'deckBuilder.advancedAnalysis.summary.title' | runtimeTranslate }}</h2>
-        </div>
-        <dl class="advanced-analysis-stats advanced-analysis-data-grid">
-          @for (stat of summaryStats(); track stat.label) {
-            <div>
-              <dt>{{ stat.label }}</dt>
-              <dd>{{ stat.value }}</dd>
-            </div>
-          }
-        </dl>
-      </article>
+      <app-tab-list
+        [items]="analysisTabs"
+        [activeId]="activeAnalysisTab()"
+        ariaLabel="deckBuilder.advancedAnalysis.overview.aria"
+        (tabSelected)="selectAnalysisTab($event)"
+      />
 
-      <section class="advanced-analysis-section advanced-analysis-health" aria-labelledby="advanced-analysis-health-title">
-        <div class="advanced-analysis-section-heading">
-          <span>{{ 'deckBuilder.advancedAnalysis.health.eyebrow' | runtimeTranslate }}</span>
-          <h2 id="advanced-analysis-health-title">{{ 'deckBuilder.advancedAnalysis.health.title' | runtimeTranslate }}</h2>
-        </div>
-        <div class="advanced-analysis-health-grid">
-          @for (card of healthCards(); track card.key) {
-            <article class="advanced-analysis-health-card" [attr.data-status]="card.status">
-              <div class="advanced-analysis-health-card__header">
-                <h3>{{ card.title }}</h3>
-                <span>{{ card.statusLabel }}</span>
-              </div>
-              <p>{{ card.message }}</p>
-              <dl>
-                <div>
-                  <dt>{{ card.metricLabel }}</dt>
-                  <dd>{{ card.metricValue }}</dd>
-                </div>
-              </dl>
-              @if (card.cards.length > 0) {
-                <div class="advanced-analysis-card-strip advanced-analysis-card-strip--compact" [attr.aria-label]="card.title">
-                  @for (item of card.cards; track item.id) {
-                    <article class="advanced-analysis-card-preview">
-                      @if (item.imageUrl) {
-                        <img [src]="item.imageUrl" [alt]="item.name" loading="lazy" decoding="async" />
-                      } @else {
-                        <span class="advanced-analysis-card-preview__fallback">{{ item.name }}</span>
-                      }
-                      <span>{{ item.name }}</span>
-                    </article>
-                  }
-                  @if (card.hiddenCardCount > 0) {
-                    <span class="advanced-analysis-card-more">+{{ card.hiddenCardCount }}</span>
-                  }
-                </div>
-              }
-            </article>
-          }
-        </div>
-      </section>
+      <app-advanced-analysis-summary-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'summary'"
+        [stats]="summaryStats()"
+        [typal]="typalIdentity()"
+      />
 
-      <section class="advanced-analysis-section advanced-analysis-metrics" aria-labelledby="advanced-analysis-metrics-title">
-        <div class="advanced-analysis-section-heading">
-          <span>{{ 'deckBuilder.advancedAnalysis.metrics.eyebrow' | runtimeTranslate }}</span>
-          <h2 id="advanced-analysis-metrics-title">{{ 'deckBuilder.advancedAnalysis.metrics.title' | runtimeTranslate }}</h2>
-        </div>
-        <dl class="advanced-analysis-metric-strip advanced-analysis-data-grid">
-          @for (stat of keyMetrics(); track stat.label) {
-            <div>
-              <dt>{{ stat.label }}</dt>
-              <dd>{{ stat.value }}</dd>
-            </div>
-          }
-        </dl>
-        @if (metricsUnavailable()) {
-          <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.metrics.unavailable' | runtimeTranslate }}</p>
-        } @else {
-          <div class="advanced-analysis-card-resolution-block">
-            <h3>{{ 'deckBuilder.advancedAnalysis.cardResolution.title' | runtimeTranslate }}</h3>
-            <dl class="advanced-analysis-stats advanced-analysis-data-grid">
-              @for (stat of cardResolutionStats(); track stat.label) {
-                <div>
-                  <dt>{{ stat.label }}</dt>
-                  <dd>{{ stat.value }}</dd>
-                </div>
-              }
-            </dl>
-          </div>
-        }
-        @if (powerSignalCardGroups().length > 0) {
-          <div class="advanced-analysis-signal-card-groups">
-            @for (group of powerSignalCardGroups(); track group.key) {
-              <section class="advanced-analysis-signal-card-group">
-                <div>
-                  <strong>{{ group.label }}</strong>
-                  <span>{{ group.value }}</span>
-                </div>
-                <div class="advanced-analysis-card-strip advanced-analysis-card-strip--compact" [attr.aria-label]="group.label">
-                  @for (card of group.cards; track card.id) {
-                    <article class="advanced-analysis-card-preview">
-                      @if (card.imageUrl) {
-                        <img [src]="card.imageUrl" [alt]="card.name" loading="lazy" decoding="async" />
-                      } @else {
-                        <span class="advanced-analysis-card-preview__fallback">{{ card.name }}</span>
-                      }
-                      <span>{{ card.name }}</span>
-                    </article>
-                  }
-                </div>
-              </section>
-            }
-          </div>
-        }
-        @if (hasUnmatchedCards()) {
-          <article class="advanced-analysis-combo-warning advanced-analysis-unmatched" [attr.aria-label]="'deckBuilder.advancedAnalysis.cardResolution.unmatchedAria' | runtimeTranslate">
-            <div>
-              <strong>{{ 'deckBuilder.advancedAnalysis.cardResolution.unmatchedCount' | runtimeTranslate: { count: unmatchedCardCount() } }}</strong>
-              <p>{{ 'deckBuilder.advancedAnalysis.cardResolution.unmatchedCopy' | runtimeTranslate }}</p>
-            </div>
-            @if (unmatchedCardItems().length > 0) {
-              <ul class="advanced-analysis-issue-list">
-                @for (card of unmatchedCardItems(); track card.id) {
-                  <li>
-                    <span>{{ card.name }}</span>
-                    <small>{{ card.detail }}</small>
-                  </li>
-                }
-              </ul>
-            }
-          </article>
-        }
-      </section>
+      <app-advanced-analysis-health-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'health'"
+        [cards]="healthCards()"
+      />
 
-      <section class="advanced-analysis-section advanced-analysis-warnings" aria-labelledby="advanced-analysis-warnings-title">
-        <div class="advanced-analysis-section-heading">
-          <span>{{ 'deckBuilder.advancedAnalysis.warnings.eyebrow' | runtimeTranslate }}</span>
-          <h2 id="advanced-analysis-warnings-title">{{ 'deckBuilder.advancedAnalysis.warnings.title' | runtimeTranslate }}</h2>
-        </div>
-        @if (topIssues().length > 0) {
-          <ol class="advanced-analysis-issue-list">
-            @for (issue of topIssues(); track issue.code) {
-              <li [attr.data-severity]="issue.severity">
-                <div>
-                  <strong>{{ issue.title }}</strong>
-                  <span>{{ issue.severity }}</span>
-                </div>
-                <p>{{ issue.message }}</p>
-              </li>
-            }
-          </ol>
-        } @else {
-          <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.warnings.empty' | runtimeTranslate }}</p>
-        }
-      </section>
+      <app-advanced-analysis-metrics-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'metrics'"
+        [keyMetrics]="keyMetrics()"
+        [metricsUnavailable]="metricsUnavailable()"
+        [cardResolutionStats]="cardResolutionStats()"
+        [powerSignalCardGroups]="powerSignalCardGroups()"
+        [hasUnmatchedCards]="hasUnmatchedCards()"
+        [unmatchedCardCount]="unmatchedCardCount()"
+        [unmatchedCardItems]="unmatchedCardItems()"
+      />
 
-      <section class="advanced-analysis-section advanced-analysis-combos" aria-labelledby="advanced-analysis-combos-title">
-        <div class="advanced-analysis-section-heading">
-          <span>{{ 'deckBuilder.advancedAnalysis.combos.eyebrow' | runtimeTranslate }}</span>
-          <h2 id="advanced-analysis-combos-title">{{ 'deckBuilder.advancedAnalysis.combos.title' | runtimeTranslate }}</h2>
-        </div>
+      <app-advanced-analysis-warnings-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'warnings'"
+        [issues]="topIssues()"
+      />
 
-        @if (comboPiecesWarning()) {
-          <p class="advanced-analysis-combo-warning">{{ comboPiecesWarning() }}</p>
-        }
-        @if (comboEmptyMessage()) {
-          <p class="advanced-analysis-empty-copy">{{ comboEmptyMessage() }}</p>
-        }
+      <app-advanced-analysis-combos-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'combos'"
+        [comboPiecesWarning]="comboPiecesWarning()"
+        [comboEmptyMessage]="comboEmptyMessage()"
+        [summaryStats]="comboSummaryStats()"
+        [completeCombos]="visibleCompleteComboItems()"
+        [partialCombos]="visiblePartialOneMissingComboItems()"
+        [topCompleters]="visibleTopComboCompleters()"
+        [hiddenCompleteCount]="hiddenCompleteComboCount()"
+        [hiddenPartialCount]="hiddenPartialComboCount()"
+        [hiddenCompleterCount]="hiddenComboCompleterCount()"
+        (showAllComplete)="showAllCompleteCombos.set(true)"
+        (showAllPartial)="showAllPartialCombos.set(true)"
+        (showAllCompleters)="showAllComboCompleters.set(true)"
+      />
 
-        <dl class="advanced-analysis-combo-summary advanced-analysis-data-grid">
-          @for (stat of comboSummaryStats(); track stat.label) {
-            <div>
-              <dt>{{ stat.label }}</dt>
-              <dd>{{ stat.value }}</dd>
-            </div>
-          }
-        </dl>
+      <app-advanced-analysis-consistency-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'consistency'"
+        [hasConsistency]="hasConsistency()"
+        [simulationRuns]="simulationRuns()"
+        [openingHandRows]="openingHandRows()"
+        [keepRuleDescription]="keepRuleDescription()"
+        [keepRuleRows]="keepRuleRows()"
+        [mulliganRows]="mulliganRows()"
+        [byTurnGroups]="byTurnGroups()"
+      />
 
-        <div class="advanced-analysis-combo-grid">
-          <article class="advanced-analysis-combo-panel advanced-analysis-card-frame">
-            <div class="advanced-analysis-combo-panel__header">
-              <h3>{{ 'deckBuilder.advancedAnalysis.combos.completeTitle' | runtimeTranslate }}</h3>
-              @if (hiddenCompleteComboCount() > 0) {
-                <button czButton="text" czButtonSize="sm" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.viewMoreCompleteAria' | runtimeTranslate" (click)="showAllCompleteCombos.set(true)">
-                  {{ 'deckBuilder.advancedAnalysis.combos.viewMore' | runtimeTranslate }}
-                </button>
-              }
-            </div>
-            @if (visibleCompleteComboItems().length > 0) {
-              <ol class="advanced-analysis-combo-list">
-                @for (combo of visibleCompleteComboItems(); track combo.id) {
-                  <li>
-                    <strong>{{ combo.title }}</strong>
-                    @if (combo.cards.length > 0) {
-                      <div class="advanced-analysis-card-strip" [attr.aria-label]="combo.title">
-                        @for (card of combo.cards; track card.id) {
-                          <article class="advanced-analysis-card-preview">
-                            @if (card.imageUrl) {
-                              <img [src]="card.imageUrl" [alt]="card.name" loading="lazy" decoding="async" />
-                            } @else {
-                              <span class="advanced-analysis-card-preview__fallback">{{ card.name }}</span>
-                            }
-                            <span>{{ card.name }}</span>
-                          </article>
-                        }
-                      </div>
-                    } @else {
-                      <span>{{ 'deckBuilder.advancedAnalysis.common.unavailable' | runtimeTranslate }}</span>
-                    }
-                    @if (combo.features.length > 0) {
-                      <small>{{ combo.features.join(', ') }}</small>
-                    }
-                    @if (combo.badges.length > 0) {
-                      <div class="advanced-analysis-combo-badges">
-                        @for (badge of combo.badges; track badge) {
-                          <em>{{ badge }}</em>
-                        }
-                      </div>
-                    }
-                  </li>
-                }
-              </ol>
-            } @else {
-              <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.combos.empty.noComplete' | runtimeTranslate }}</p>
-            }
-          </article>
+      <app-advanced-analysis-roles-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'roles'"
+        [cards]="roleBreakdownCards()"
+      />
 
-          <article class="advanced-analysis-combo-panel advanced-analysis-card-frame">
-            <div class="advanced-analysis-combo-panel__header">
-              <h3>{{ 'deckBuilder.advancedAnalysis.combos.partialTitle' | runtimeTranslate }}</h3>
-              @if (hiddenPartialComboCount() > 0) {
-                <button czButton="text" czButtonSize="sm" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.viewMorePartialAria' | runtimeTranslate" (click)="showAllPartialCombos.set(true)">
-                  {{ 'deckBuilder.advancedAnalysis.combos.viewMore' | runtimeTranslate }}
-                </button>
-              }
-            </div>
-            @if (visiblePartialOneMissingComboItems().length > 0) {
-              <ol class="advanced-analysis-combo-list">
-                @for (combo of visiblePartialOneMissingComboItems(); track combo.id) {
-                  <li>
-                    <strong>{{ combo.title }}</strong>
-                    @if (combo.cards.length > 0) {
-                      <div class="advanced-analysis-card-strip" [attr.aria-label]="combo.title">
-                        @for (card of combo.cards; track card.id) {
-                          <article class="advanced-analysis-card-preview">
-                            @if (card.imageUrl) {
-                              <img [src]="card.imageUrl" [alt]="card.name" loading="lazy" decoding="async" />
-                            } @else {
-                              <span class="advanced-analysis-card-preview__fallback">{{ card.name }}</span>
-                            }
-                            <span>{{ card.name }}</span>
-                          </article>
-                        }
-                      </div>
-                    }
-                    @if (combo.missingCards.length > 0) {
-                      <span>{{ 'deckBuilder.advancedAnalysis.combos.missingCards' | runtimeTranslate: { cards: combo.missingCardNames } }}</span>
-                      <div class="advanced-analysis-card-strip advanced-analysis-card-strip--missing">
-                        @for (card of combo.missingCards; track card.id) {
-                          <article class="advanced-analysis-card-preview">
-                            @if (card.imageUrl) {
-                              <img [src]="card.imageUrl" [alt]="card.name" loading="lazy" decoding="async" />
-                            } @else {
-                              <span class="advanced-analysis-card-preview__fallback">{{ card.name }}</span>
-                            }
-                            <span>{{ card.name }}</span>
-                          </article>
-                        }
-                      </div>
-                    } @else if (combo.cards.length === 0) {
-                      <span>{{ 'deckBuilder.advancedAnalysis.common.unavailable' | runtimeTranslate }}</span>
-                    }
-                    @if (combo.features.length > 0) {
-                      <small>{{ combo.features.join(', ') }}</small>
-                    }
-                    @if (combo.badges.length > 0) {
-                      <div class="advanced-analysis-combo-badges">
-                        @for (badge of combo.badges; track badge) {
-                          <em>{{ badge }}</em>
-                        }
-                      </div>
-                    }
-                  </li>
-                }
-              </ol>
-            } @else {
-              <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.combos.empty.noOneCardAway' | runtimeTranslate }}</p>
-            }
-          </article>
-
-          <article class="advanced-analysis-combo-panel advanced-analysis-card-frame">
-            <div class="advanced-analysis-combo-panel__header">
-              <h3>{{ 'deckBuilder.advancedAnalysis.combos.completersTitle' | runtimeTranslate }}</h3>
-              @if (hiddenComboCompleterCount() > 0) {
-                <button czButton="text" czButtonSize="sm" type="button" [attr.aria-label]="'deckBuilder.advancedAnalysis.combos.viewMoreCompletersAria' | runtimeTranslate" (click)="showAllComboCompleters.set(true)">
-                  {{ 'deckBuilder.advancedAnalysis.combos.viewMore' | runtimeTranslate }}
-                </button>
-              }
-            </div>
-            @if (visibleTopComboCompleters().length > 0) {
-              <ol class="advanced-analysis-completer-list">
-                @for (item of visibleTopComboCompleters(); track item.id) {
-                  <li>
-                    <div class="advanced-analysis-completer-card">
-                      @if (item.imageUrl) {
-                        <img [src]="item.imageUrl" [alt]="item.name" loading="lazy" decoding="async" />
-                      } @else {
-                        <span class="advanced-analysis-card-preview__fallback">{{ item.name }}</span>
-                      }
-                      <span>{{ item.name }}</span>
-                    </div>
-                    <strong>{{ item.completesCombos }}</strong>
-                  </li>
-                }
-              </ol>
-            } @else {
-              <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.combos.empty.noCompleters' | runtimeTranslate }}</p>
-            }
-          </article>
-        </div>
-      </section>
-
-      @if (hasConsistency()) {
-        <section class="advanced-analysis-section advanced-analysis-consistency" aria-labelledby="advanced-analysis-consistency-title">
-          <div class="advanced-analysis-consistency-header">
-            <div class="advanced-analysis-section-heading">
-              <span>{{ 'deckBuilder.advancedAnalysis.consistency.eyebrow' | runtimeTranslate }}</span>
-              <h2 id="advanced-analysis-consistency-title">{{ 'deckBuilder.advancedAnalysis.consistency.title' | runtimeTranslate }}</h2>
-            </div>
-            <p>{{ 'deckBuilder.advancedAnalysis.consistency.disclaimer' | runtimeTranslate }}</p>
-            <dl>
-              <div>
-                <dt>{{ 'deckBuilder.advancedAnalysis.consistency.simulationRuns' | runtimeTranslate }}</dt>
-                <dd>{{ simulationRuns() }}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <div class="advanced-analysis-consistency-grid">
-            <article class="advanced-analysis-consistency-card advanced-analysis-card-frame">
-              <h3>{{ 'deckBuilder.advancedAnalysis.consistency.openingHand' | runtimeTranslate }}</h3>
-              <div class="advanced-analysis-rate-list">
-                @for (row of openingHandRows(); track row.key) {
-                  <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
-                    <span>{{ row.label }}</span>
-                    <strong>{{ row.value }}</strong>
-                    <div class="advanced-analysis-rate-bar" aria-hidden="true">
-                      <span [style.--metric-fill]="row.barWidth"></span>
-                    </div>
-                  </div>
-                }
-              </div>
-            </article>
-
-            <article class="advanced-analysis-consistency-card advanced-analysis-card-frame">
-              <h3>{{ 'deckBuilder.advancedAnalysis.consistency.keepRule' | runtimeTranslate }}</h3>
-              <p>{{ keepRuleDescription() }}</p>
-              <div class="advanced-analysis-rate-list">
-                @for (row of keepRuleRows(); track row.key) {
-                  <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
-                    <span>{{ row.label }}</span>
-                    <strong>{{ row.value }}</strong>
-                    <div class="advanced-analysis-rate-bar" aria-hidden="true">
-                      <span [style.--metric-fill]="row.barWidth"></span>
-                    </div>
-                  </div>
-                }
-              </div>
-            </article>
-
-            <article class="advanced-analysis-consistency-card advanced-analysis-card-frame">
-              <h3>{{ 'deckBuilder.advancedAnalysis.consistency.mulligan' | runtimeTranslate }}</h3>
-              <div class="advanced-analysis-rate-list">
-                @for (row of mulliganRows(); track row.key) {
-                  <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
-                    <span>{{ row.label }}</span>
-                    <strong>{{ row.value }}</strong>
-                    <div class="advanced-analysis-rate-bar" aria-hidden="true">
-                      <span [style.--metric-fill]="row.barWidth"></span>
-                    </div>
-                  </div>
-                }
-              </div>
-            </article>
-
-            <article class="advanced-analysis-consistency-card advanced-analysis-consistency-card--wide advanced-analysis-card-frame">
-              <h3>{{ 'deckBuilder.advancedAnalysis.consistency.byTurn' | runtimeTranslate }}</h3>
-              <div class="advanced-analysis-turn-grid">
-                @for (group of byTurnGroups(); track group.title) {
-                  <section class="advanced-analysis-turn-group">
-                    <h4>{{ group.title }}</h4>
-                    <div class="advanced-analysis-rate-list">
-                      @for (row of group.rows; track row.key) {
-                        <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
-                          <span>{{ row.label }}</span>
-                          <strong>{{ row.value }}</strong>
-                          <div class="advanced-analysis-rate-bar" aria-hidden="true">
-                            <span [style.--metric-fill]="row.barWidth"></span>
-                          </div>
-                        </div>
-                      }
-                    </div>
-                  </section>
-                }
-              </div>
-            </article>
-          </div>
-        </section>
-      } @else {
-        <section class="advanced-analysis-section advanced-analysis-consistency" aria-labelledby="advanced-analysis-consistency-title">
-          <div class="advanced-analysis-section-heading">
-            <span>{{ 'deckBuilder.advancedAnalysis.consistency.eyebrow' | runtimeTranslate }}</span>
-            <h2 id="advanced-analysis-consistency-title">{{ 'deckBuilder.advancedAnalysis.consistency.title' | runtimeTranslate }}</h2>
-          </div>
-          <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.consistency.unavailable' | runtimeTranslate }}</p>
-        </section>
-      }
-
-      <section class="advanced-analysis-section advanced-analysis-role-quality" aria-labelledby="advanced-analysis-role-quality-title">
-        <div class="advanced-analysis-section-heading">
-          <span>{{ 'deckBuilder.advancedAnalysis.roles.eyebrow' | runtimeTranslate }}</span>
-          <h2 id="advanced-analysis-role-quality-title">{{ 'deckBuilder.advancedAnalysis.roles.title' | runtimeTranslate }}</h2>
-        </div>
-        @if (roleBreakdownCards().length > 0) {
-          <div class="advanced-analysis-role-grid">
-            @for (card of roleBreakdownCards(); track card.key) {
-              <article class="advanced-analysis-role-card advanced-analysis-card-frame">
-                <h3>{{ card.title }}</h3>
-                @if (card.message) {
-                  <p>{{ card.message }}</p>
-                }
-                <dl class="advanced-analysis-role-metrics advanced-analysis-data-grid">
-                  @for (row of card.rows; track row.label) {
-                    <div>
-                      <dt>{{ row.label }}</dt>
-                      <dd>{{ row.value }}</dd>
-                    </div>
-                  }
-                </dl>
-                @if (card.qualityRows.length > 0) {
-                  <div class="advanced-analysis-quality-strip" [attr.aria-label]="'deckBuilder.advancedAnalysis.roles.qualityAria' | runtimeTranslate: { role: card.title }">
-                    @for (row of card.qualityRows; track row.label) {
-                      <span>{{ row.label }} <strong>{{ row.value }}</strong></span>
-                    }
-                  </div>
-                }
-              </article>
-            }
-          </div>
-        } @else {
-          <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.roles.unavailable' | runtimeTranslate }}</p>
-        }
-      </section>
-
-      <section class="advanced-analysis-section advanced-analysis-actions" aria-labelledby="advanced-analysis-actions-title">
-        <div class="advanced-analysis-section-heading">
-          <span>{{ 'deckBuilder.advancedAnalysis.actions.eyebrow' | runtimeTranslate }}</span>
-          <h2 id="advanced-analysis-actions-title">{{ 'deckBuilder.advancedAnalysis.actions.title' | runtimeTranslate }}</h2>
-        </div>
-
-        @if (hasActionIssues()) {
-          <div class="advanced-analysis-action-grid">
-            <article class="advanced-analysis-action-group advanced-analysis-card-frame" data-severity="critical">
-              <h3>{{ 'deckBuilder.advancedAnalysis.actions.criticalIssues' | runtimeTranslate }}</h3>
-              @if (criticalIssueItems().length > 0) {
-                <ol class="advanced-analysis-action-list advanced-analysis-issue-list">
-                  @for (issue of criticalIssueItems(); track issue.code) {
-                    <li [attr.data-severity]="issue.severity">
-                      <div>
-                        <strong>{{ issue.title }}</strong>
-                        <span>{{ issue.severity }}</span>
-                      </div>
-                      <p>{{ issue.message }}</p>
-                      <small>{{ 'deckBuilder.advancedAnalysis.actions.actionPrefix' | runtimeTranslate: { action: issue.suggestedActionType } }}</small>
-                      @if (issue.evidence.length > 0) {
-                        <details>
-                          <summary>{{ 'deckBuilder.advancedAnalysis.actions.evidence' | runtimeTranslate }}</summary>
-                          <dl>
-                            @for (item of issue.evidence; track item.label) {
-                              <div>
-                                <dt>{{ item.label }}</dt>
-                                <dd>{{ item.value }}</dd>
-                              </div>
-                            }
-                          </dl>
-                        </details>
-                      }
-                    </li>
-                  }
-                </ol>
-              } @else {
-                <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.actions.noCriticalIssues' | runtimeTranslate }}</p>
-              }
-            </article>
-
-            <article class="advanced-analysis-action-group advanced-analysis-card-frame" data-severity="warning">
-              <h3>{{ 'deckBuilder.advancedAnalysis.actions.warnings' | runtimeTranslate }}</h3>
-              @if (warningIssueItems().length > 0) {
-                <ol class="advanced-analysis-action-list advanced-analysis-issue-list">
-                  @for (issue of warningIssueItems(); track issue.code) {
-                    <li [attr.data-severity]="issue.severity">
-                      <div>
-                        <strong>{{ issue.title }}</strong>
-                        <span>{{ issue.severity }}</span>
-                      </div>
-                      <p>{{ issue.message }}</p>
-                      <small>{{ 'deckBuilder.advancedAnalysis.actions.actionPrefix' | runtimeTranslate: { action: issue.suggestedActionType } }}</small>
-                      @if (issue.evidence.length > 0) {
-                        <details>
-                          <summary>{{ 'deckBuilder.advancedAnalysis.actions.evidence' | runtimeTranslate }}</summary>
-                          <dl>
-                            @for (item of issue.evidence; track item.label) {
-                              <div>
-                                <dt>{{ item.label }}</dt>
-                                <dd>{{ item.value }}</dd>
-                              </div>
-                            }
-                          </dl>
-                        </details>
-                      }
-                    </li>
-                  }
-                </ol>
-              } @else {
-                <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.actions.noWarnings' | runtimeTranslate }}</p>
-              }
-            </article>
-          </div>
-
-          @if (infoIssueItems().length > 0) {
-            <details class="advanced-analysis-info-issues advanced-analysis-card-frame">
-              <summary>{{ 'deckBuilder.advancedAnalysis.actions.info' | runtimeTranslate }}</summary>
-              <ol class="advanced-analysis-action-list advanced-analysis-issue-list">
-                @for (issue of infoIssueItems(); track issue.code) {
-                  <li [attr.data-severity]="issue.severity">
-                    <div>
-                      <strong>{{ issue.title }}</strong>
-                      <span>{{ issue.severity }}</span>
-                    </div>
-                    <p>{{ issue.message }}</p>
-                    @if (issue.evidence.length > 0) {
-                      <details>
-                        <summary>{{ 'deckBuilder.advancedAnalysis.actions.evidence' | runtimeTranslate }}</summary>
-                        <dl>
-                          @for (item of issue.evidence; track item.label) {
-                            <div>
-                              <dt>{{ item.label }}</dt>
-                              <dd>{{ item.value }}</dd>
-                            </div>
-                          }
-                        </dl>
-                      </details>
-                    }
-                  </li>
-                }
-              </ol>
-            </details>
-          }
-        } @else {
-          <p class="advanced-analysis-positive-state">{{ 'deckBuilder.advancedAnalysis.actions.noMajorIssues' | runtimeTranslate }}</p>
-        }
-
-        <article class="advanced-analysis-recommendations advanced-analysis-card-frame">
-          <h3>{{ 'deckBuilder.advancedAnalysis.recommendations.title' | runtimeTranslate }}</h3>
-          @if (recommendationItems().length > 0) {
-            <ol class="advanced-analysis-recommendation-list advanced-analysis-issue-list">
-              @for (recommendation of recommendationItems(); track recommendation.code) {
-                <li [attr.data-priority]="recommendation.priority">
-                  <div>
-                    <strong>{{ recommendation.title }}</strong>
-                    <span>{{ recommendation.priority }}</span>
-                  </div>
-                  <p>{{ recommendation.message }}</p>
-                  @if (recommendation.hasTargetRoles) {
-                    <small>{{ 'deckBuilder.advancedAnalysis.recommendations.targetsPrefix' | runtimeTranslate: { targets: recommendation.targetRoles } }}</small>
-                  }
-                  @if (recommendation.hasReasonIssueCodes) {
-                    <small>{{ 'deckBuilder.advancedAnalysis.recommendations.reasonsPrefix' | runtimeTranslate: { reasons: recommendation.reasonIssueCodes } }}</small>
-                  }
-                </li>
-              }
-            </ol>
-          } @else {
-            <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.recommendations.empty' | runtimeTranslate }}</p>
-          }
-        </article>
-      </section>
+      <app-advanced-analysis-actions-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'actions'"
+        [hasActionIssues]="hasActionIssues()"
+        [criticalIssues]="criticalIssueItems()"
+        [warningIssues]="warningIssueItems()"
+        [infoIssues]="infoIssueItems()"
+        [recommendations]="recommendationItems()"
+      />
     </section>
   }
 </section>

@@ -96,6 +96,13 @@ final class DeckAdvancedRecommendationBuilder
             'targetRoles' => ['combo_piece', 'compact_wincon', 'protection'],
             'issues' => ['combo_pieces_without_complete_combos', 'many_partial_combos', 'commander_required_combo_dependency'],
         ],
+        'review_tribal_package' => [
+            'priority' => 'medium',
+            'title' => 'Review tribal package',
+            'message' => 'Make sure the deck has enough matching creatures and payoffs for the main creature type.',
+            'targetRoles' => ['typal_support', 'payoff', 'creature_density'],
+            'issues' => ['typal_density_without_support', 'typal_support_without_density', 'typal_commander_mismatch'],
+        ],
     ];
 
     /**

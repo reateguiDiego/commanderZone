@@ -1434,6 +1434,10 @@ SQL,
             return 'true_tutor';
         }
 
+        if ($profile['is_land'] && str_contains($profile['text'], 'search your library')) {
+            return null;
+        }
+
         if (preg_match('/\b(search|look through) target opponents?\'?s? library\b/', $profile['text']) === 1
             || str_contains($profile['text'], 'search target opponent\'s library')
             || str_contains($profile['text'], 'search an opponent\'s library')

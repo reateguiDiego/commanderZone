@@ -60,6 +60,8 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
         self::assertSame(0, $response['combos']['completeCount']);
         self::assertSame(2, $response['combos']['partialOneMissingCount']);
         self::assertSame(['Demonic Consultation', 'Tainted Pact'], array_column($response['topComboCompleters'], 'name'));
+        self::assertSame(['Thassa\'s Oracle'], array_column($response['combos']['partialOneMissing'][0]['cards'], 'name'));
+        self::assertSame(['Demonic Consultation'], array_column($response['combos']['partialOneMissing'][0]['missingCards'], 'name'));
         self::assertSame(
             'https://cards.scryfall.io/normal/front/92000000-0000-0000-0000-000000000202.jpg',
             $response['combos']['partialOneMissing'][0]['missingCards'][0]['imageUrl'],
@@ -106,6 +108,25 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
         self::assertSame(1, $response['combos']['lethalLoopCount']);
         self::assertTrue($response['combos']['complete'][0]['producesWinLike']);
         self::assertTrue($response['combos']['complete'][0]['lethalLoop']);
+    }
+
+    public function testCombosOutsideDeckColorIdentityAreExcluded(): void
+    {
+        [$token, $deck] = $this->deckWithCards('identity-filter', [
+            $this->cardFixture('Thassa\'s Oracle', '91000000-0000-0000-0000-000000000901', colorIdentity: ['U']),
+        ]);
+        $this->seedCard('92000000-0000-0000-0000-000000000902', 'Demonic Consultation', ['oracle_id' => '91000000-0000-0000-0000-000000000902']);
+        $this->insertCardAnalysisProfile('91000000-0000-0000-0000-000000000902', 'Demonic Consultation', colorIdentity: ['B']);
+        $this->insertComboProfile('91000000-0000-0000-0000-000000000009', 'off-color-oracle-consultation', [
+            '91000000-0000-0000-0000-000000000901',
+            '91000000-0000-0000-0000-000000000902',
+        ], ['win_game'], producesWin: true, power: 80, complexity: 20);
+
+        $response = $this->advancedAnalysis($token, $deck);
+
+        self::assertSame(0, $response['combos']['completeCount']);
+        self::assertSame(0, $response['combos']['partialOneMissingCount']);
+        self::assertSame([], $response['topComboCompleters']);
     }
 
     public function testManyComboPiecesWithoutCompleteComboCreatesWarningWithoutArchetype(): void
@@ -199,11 +220,11 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
      * @param list<string> $roles
      * @return array{card:Card,roles:list<string>}
      */
-    private function cardFixture(string $name, string $oracleId, array $roles = []): array
+    private function cardFixture(string $name, string $oracleId, array $roles = [], array $colorIdentity = []): array
     {
         $scryfallId = str_replace('91000000', '92000000', $oracleId);
-        $card = $this->seedCard($scryfallId, $name, ['oracle_id' => $oracleId]);
-        $this->insertCardAnalysisProfile($oracleId, $name, $roles);
+        $card = $this->seedCard($scryfallId, $name, ['oracle_id' => $oracleId, 'color_identity' => $colorIdentity]);
+        $this->insertCardAnalysisProfile($oracleId, $name, $roles, $colorIdentity);
 
         return ['card' => $card, 'roles' => $roles];
     }
@@ -222,7 +243,7 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
     /**
      * @param list<string> $roles
      */
-    private function insertCardAnalysisProfile(string $oracleId, string $name, array $roles = []): void
+    private function insertCardAnalysisProfile(string $oracleId, string $name, array $roles = [], array $colorIdentity = []): void
     {
         $this->connection()->executeStatement(
             <<<'SQL'
@@ -252,7 +273,7 @@ INSERT INTO card_analysis_profile (
     1,
     'Artifact',
     '[]'::jsonb,
-    '[]'::jsonb,
+    :color_identity::jsonb,
     '[]'::jsonb,
     '[]'::jsonb,
     true,
@@ -268,6 +289,7 @@ INSERT INTO card_analysis_profile (
 ON CONFLICT (oracle_id) DO UPDATE SET
     name = EXCLUDED.name,
     normalized_name = EXCLUDED.normalized_name,
+    color_identity = EXCLUDED.color_identity,
     roles = EXCLUDED.roles,
     analysis_hash = EXCLUDED.analysis_hash,
     updated_at = NOW()
@@ -277,6 +299,7 @@ SQL,
                 'name' => $name,
                 'normalized_name' => mb_strtolower($name),
                 'roles' => json_encode($roles, JSON_THROW_ON_ERROR),
+                'color_identity' => json_encode($colorIdentity, JSON_THROW_ON_ERROR),
                 'analysis_hash' => hash('sha256', $oracleId.'|'.$name),
             ],
         );
@@ -300,7 +323,7 @@ INSERT INTO card_oracle_profile (
     :name,
     :normalized_name,
     '[]'::jsonb,
-    '[]'::jsonb,
+    :color_identity::jsonb,
     '[]'::jsonb,
     '[]'::jsonb,
     '[]'::jsonb,
@@ -311,6 +334,7 @@ INSERT INTO card_oracle_profile (
 ON CONFLICT (oracle_id) DO UPDATE SET
     name = EXCLUDED.name,
     normalized_name = EXCLUDED.normalized_name,
+    color_identity = EXCLUDED.color_identity,
     data_hash = EXCLUDED.data_hash,
     updated_at = NOW()
 SQL,
@@ -318,6 +342,7 @@ SQL,
                 'oracle_id' => $oracleId,
                 'name' => $name,
                 'normalized_name' => mb_strtolower($name),
+                'color_identity' => json_encode($colorIdentity, JSON_THROW_ON_ERROR),
                 'data_hash' => hash('sha256', 'oracle|'.$oracleId.'|'.$name),
             ],
         );
@@ -340,6 +365,7 @@ SQL,
         bool $requiresTemplate = false,
         int $power = 40,
         int $complexity = 40,
+        array $identity = [],
     ): void {
         $this->connection()->executeStatement(
             <<<'SQL'
@@ -355,7 +381,7 @@ INSERT INTO spellbook_combo_variant (
 ) VALUES (
     :id,
     :external_id,
-    '[]'::jsonb,
+    :identity::jsonb,
     'OK',
     :popularity,
     'E',
@@ -367,6 +393,7 @@ SQL,
             [
                 'id' => $comboVariantId,
                 'external_id' => $externalId,
+                'identity' => json_encode($identity, JSON_THROW_ON_ERROR),
                 'popularity' => 100,
                 'source_hash' => hash('sha256', $externalId),
             ],
@@ -405,7 +432,7 @@ INSERT INTO combo_analysis_profile (
     :required_oracle_ids::jsonb,
     :required_count,
     :combo_size,
-    '[]'::jsonb,
+    :identity::jsonb,
     :features::jsonb,
     :produces_win,
     :produces_infinite_mana,
@@ -432,6 +459,7 @@ SQL,
                 'required_oracle_ids' => json_encode($requiredOracleIds, JSON_THROW_ON_ERROR),
                 'required_count' => count($requiredOracleIds),
                 'combo_size' => count($requiredOracleIds),
+                'identity' => json_encode($identity, JSON_THROW_ON_ERROR),
                 'features' => json_encode($features, JSON_THROW_ON_ERROR),
                 'produces_win' => $producesWin,
                 'produces_infinite_mana' => $producesInfiniteMana,

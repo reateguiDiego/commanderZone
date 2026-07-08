@@ -1,8 +1,10 @@
+import type { CardFace, CardImageUris } from './card.model';
+
 export type AdvancedAnalysisMap = Record<string, unknown>;
 export type AdvancedNumberMap = Record<string, number>;
+
 export type AdvancedIssueSeverity = 'info' | 'warning' | 'critical';
 export type AdvancedRecommendationPriority = 'high' | 'medium' | 'low';
-export type AdvancedPowerBand = 'precon_like' | 'casual' | 'upgraded' | 'high_casual' | 'high_power' | 'cedh_like';
 export type AdvancedConfidence = 'low' | 'medium' | 'high';
 export type AdvancedArchetypeConfidence = AdvancedConfidence | 'fragmented';
 export type AdvancedHealthStatus = 'excellent' | 'good' | 'warning' | 'critical' | 'unknown';
@@ -19,6 +21,7 @@ export interface AdvancedAnalysisResponse {
   combos?: AdvancedCombos | null;
   topComboCompleters?: AdvancedTopComboCompleter[];
   archetypes?: AdvancedArchetypes | null;
+  typal?: AdvancedTypalAnalysis | null;
   power?: AdvancedPower | null;
   issues?: AdvancedIssue[];
   recommendations?: AdvancedRecommendation[];
@@ -41,13 +44,19 @@ export interface SnapshotInfo {
 export interface AdvancedSummary {
   status?: 'completed' | string;
   primaryArchetype?: string | null;
+  primaryTypalType?: string | null;
   secondaryArchetypes?: string[];
   archetypeConfidence?: AdvancedArchetypeConfidence | string | null;
-  powerBand?: AdvancedPowerBand | string | null;
-  powerConfidence?: AdvancedConfidence | string | null;
+  archetypeExplanations?: AdvancedArchetypeExplanation[];
   mainStrengths?: string[];
   mainWarnings?: string[];
   criticalIssues?: string[];
+}
+
+export interface AdvancedArchetypeExplanation {
+  archetype?: string | null;
+  reasonKey?: string | null;
+  score?: number | null;
 }
 
 export type AdvancedHealth = Record<string, AdvancedHealthSection | string | number | boolean | null | undefined>;
@@ -216,18 +225,24 @@ export interface AdvancedComboItem {
 export interface AdvancedCardReference {
   deckCardId?: string | null;
   cardId?: string | null;
+  scryfallId?: string | null;
   oracleId?: string;
   name?: string | null;
   imageUrl?: string | null;
+  imageUris?: CardImageUris | null;
+  cardFaces?: CardFace[];
   quantity?: number | null;
   section?: string | null;
   matchedMetrics?: string[];
 }
 
 export interface AdvancedTopComboCompleter {
+  scryfallId?: string | null;
   oracleId?: string;
   name?: string | null;
   imageUrl?: string | null;
+  imageUris?: CardImageUris | null;
+  cardFaces?: CardFace[];
   completesCombos?: number;
 }
 
@@ -244,9 +259,26 @@ export interface AdvancedArchetypeScore {
   evidence?: string[];
 }
 
-export interface AdvancedPower {
-  band?: AdvancedPowerBand | string | null;
+export interface AdvancedTypalAnalysis {
+  detected?: boolean;
+  primaryType?: string | null;
   confidence?: AdvancedConfidence | string | null;
+  creatureCount?: number;
+  supportCount?: number;
+  commanderMatches?: boolean;
+  types?: AdvancedTypalTypeBreakdown[];
+}
+
+export interface AdvancedTypalTypeBreakdown {
+  type?: string;
+  creatureCount?: number;
+  supportCount?: number;
+  commanderMatches?: boolean;
+  creatureCards?: AdvancedCardReference[];
+  supportCards?: AdvancedCardReference[];
+}
+
+export interface AdvancedPower {
   signals?: AdvancedNumberMap;
   signalCards?: AdvancedRoleCardGroups | null;
   evidence?: string[];

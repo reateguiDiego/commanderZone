@@ -6,14 +6,16 @@ import { DecksApi } from '../../../core/api/decks.api';
 import { runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { TranslationService } from '../../../core/localization/translation.service';
 import { AdvancedAnalysisResponse } from '../../../core/models/deck-advanced-analysis.model';
+import { Deck } from '../../../core/models/deck.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
+import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { DeckAdvancedAnalysisViewComponent } from './deck-advanced-analysis-view.component';
 
 const UUID_IDENTIFIER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 @Component({
   selector: 'app-deck-advanced-analysis-page',
-  imports: [DeckAdvancedAnalysisViewComponent],
+  imports: [DeckAdvancedAnalysisViewComponent, GlobalLoaderComponent],
   templateUrl: './deck-advanced-analysis-page.component.html',
   styleUrl: './deck-advanced-analysis-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,22 +36,7 @@ export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
   readonly deckDetailLink = computed<readonly string[]>(() => ['/decks', this.routeIdentifier()]);
 
   constructor() {
-    this.pageHeader.set({
-      context: 'deck-advanced-analysis',
-      title: 'deckBuilder.advancedAnalysis.title',
-      heroRule: true,
-      actions: [
-        {
-          id: 'back-to-deck-detail',
-          label: 'common.navigation.back',
-          isBack: true,
-          variant: 'secondary',
-          execute: () => {
-            void this.router.navigate([...this.deckDetailLink()]);
-          },
-        },
-      ],
-    }, this);
+    this.setPageHeader(this.routeIdentifier() || this.t('common.unavailable'));
 
     void this.load();
   }
@@ -71,14 +58,17 @@ export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
     this.errorMessage.set(null);
     this.analysis.set(null);
     this.deckName.set(null);
+    this.setPageHeader(identifier);
 
     try {
-      const deckId = await this.resolveDeckId(identifier);
-      this.deckId.set(deckId);
+      const deck = await this.resolveDeck(identifier);
+      this.deckId.set(deck.id);
+      this.deckName.set(deck.name);
+      this.setPageHeader(deck.name);
 
-      const analysis = await firstValueFrom(this.decksApi.getDeckAdvancedAnalysis(deckId));
+      const analysis = await firstValueFrom(this.decksApi.getDeckAdvancedAnalysis(deck.id));
       this.analysis.set(analysis);
-      this.deckId.set(analysis.deckId || deckId);
+      this.deckId.set(analysis.deckId || deck.id);
     } catch (error) {
       this.errorMessage.set(this.errorMessageFor(error));
     } finally {
@@ -86,14 +76,33 @@ export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
     }
   }
 
-  private async resolveDeckId(identifier: string): Promise<string> {
+  private async resolveDeck(identifier: string): Promise<Deck> {
     if (UUID_IDENTIFIER_PATTERN.test(identifier)) {
-      return identifier;
+      return (await firstValueFrom(this.decksApi.get(identifier))).deck;
     }
 
     const response = await firstValueFrom(this.decksApi.getBySlug(identifier));
-    this.deckName.set(response.deck.name);
-    return response.deck.id;
+    return response.deck;
+  }
+
+  private setPageHeader(title: string): void {
+    this.pageHeader.set({
+      context: 'deck-advanced-analysis',
+      title,
+      description: 'Anàlisi de baralla',
+      heroRule: true,
+      actions: [
+        {
+          id: 'back-to-deck-detail',
+          label: 'common.navigation.back',
+          isBack: true,
+          variant: 'secondary',
+          execute: () => {
+            void this.router.navigate([...this.deckDetailLink()]);
+          },
+        },
+      ],
+    }, this);
   }
 
   private errorMessageFor(error: unknown): string {

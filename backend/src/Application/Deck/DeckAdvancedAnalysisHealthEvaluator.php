@@ -37,9 +37,10 @@ final class DeckAdvancedAnalysisHealthEvaluator
      * @param array<string,mixed> $combos
      * @param array<string,mixed> $consistency
      * @param list<array{code:string,severity:string}> $issues
+     * @param array{detected?:bool,primaryType?:?string,confidence?:string,creatureCount?:int,supportCount?:int,commanderMatches?:bool,types?:list<array{type:string,creatureCount:int,supportCount:int,commanderMatches:bool,creatureCards:list<array<string,mixed>>,supportCards:list<array<string,mixed>>}>} $typal
      * @return array<string,array<string,mixed>>
      */
-    public function evaluate(array $metrics, array $combos = [], array $consistency = [], array $issues = []): array
+    public function evaluate(array $metrics, array $combos = [], array $consistency = [], array $issues = [], array $typal = []): array
     {
         $rules = $this->genericRules();
         $health = [];
@@ -68,6 +69,9 @@ final class DeckAdvancedAnalysisHealthEvaluator
 
         $health['combos'] = $this->comboHealth($combos, $issues);
         $health['consistency'] = $this->consistencyHealth($consistency, $issues);
+        if (($typal['detected'] ?? false) === true) {
+            $health['typal'] = $this->typalHealth($typal, $issues);
+        }
 
         return $health;
     }
@@ -383,5 +387,68 @@ SQL,
                 'earlyPlayInOpeningRate' => $opening['earlyPlayInOpeningRate'] ?? null,
             ],
         ];
+    }
+
+    /**
+     * @param array{primaryType?:?string,confidence?:string,creatureCount?:int,supportCount?:int,commanderMatches?:bool,types?:list<array{type:string,creatureCount:int,supportCount:int,commanderMatches:bool,creatureCards:list<array<string,mixed>>,supportCards:list<array<string,mixed>>}>} $typal
+     * @param list<array{code:string,severity:string}> $issues
+     * @return array<string,mixed>
+     */
+    private function typalHealth(array $typal, array $issues): array
+    {
+        $primaryType = is_string($typal['primaryType'] ?? null) ? $typal['primaryType'] : 'Tribal';
+        $primary = null;
+        foreach ($typal['types'] ?? [] as $type) {
+            if (($type['type'] ?? null) === $primaryType) {
+                $primary = $type;
+                break;
+            }
+        }
+        $primary ??= $typal['types'][0] ?? null;
+        $creatureCards = is_array($primary['creatureCards'] ?? null) ? $primary['creatureCards'] : [];
+        $supportCards = is_array($primary['supportCards'] ?? null) ? $primary['supportCards'] : [];
+        $status = match ($typal['confidence'] ?? 'low') {
+            'high' => 'excellent',
+            'medium' => 'good',
+            default => 'warning',
+        };
+        $status = $this->sectionStatus($status, $issues, [
+            'typal_density_without_support',
+            'typal_support_without_density',
+            'typal_commander_mismatch',
+        ]);
+
+        return [
+            'status' => $status,
+            'message' => sprintf('%s tribal identity detected.', $primaryType),
+            'evidence' => [
+                'primaryType' => $primaryType,
+                'creatureCount' => $typal['creatureCount'] ?? 0,
+                'supportCount' => $typal['supportCount'] ?? 0,
+                'commanderMatches' => $typal['commanderMatches'] ?? false,
+            ],
+            'cards' => $this->uniqueCardReferences([...$creatureCards, ...$supportCards]),
+            'value' => $typal['creatureCount'] ?? 0,
+            'minRecommended' => null,
+            'source' => 'typal_analysis',
+        ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     * @return list<array<string,mixed>>
+     */
+    private function uniqueCardReferences(array $cards): array
+    {
+        $unique = [];
+        foreach ($cards as $card) {
+            $key = $this->cardReferenceKey($card);
+            if ($key === '') {
+                continue;
+            }
+            $unique[$key] = $card;
+        }
+
+        return array_values($unique);
     }
 }

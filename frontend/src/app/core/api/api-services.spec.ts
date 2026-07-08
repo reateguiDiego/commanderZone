@@ -387,7 +387,10 @@ describe('API services', () => {
       .getCommunityDeckAdvancedAnalysis('atraxa-control-a7f3c9d2')
       .subscribe((response) => responses.push(response));
 
-    const request = http.expectOne(`${API_BASE_URL}/community/decks/atraxa-control-a7f3c9d2/analysis`);
+    const request = http.expectOne((candidate) =>
+      candidate.url === `${API_BASE_URL}/community/decks/atraxa-control-a7f3c9d2/analysis`
+        && candidate.params.get('lang') === 'en',
+    );
     expect(request.request.method).toBe('GET');
     expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
     request.flush(deckAdvancedAnalysisFixture());
@@ -746,14 +749,14 @@ function deckAnalysisFixture() {
 function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
   return {
     deckId: 'deck-1',
-    analyzerVersion: 'advanced-v1.7.0',
+    analyzerVersion: 'advanced-v1.9.1',
     analyzedAt: '2026-07-07T12:00:00+00:00',
     snapshot: {
       hit: true,
       reason: 'fresh',
       deckHash: 'deck-hash',
       calculatedAt: '2026-07-07T12:00:00+00:00',
-      analyzerVersion: 'advanced-v1.7.0',
+      analyzerVersion: 'advanced-v1.9.1',
       semanticDataVersion: 'semantic-v1',
       comboDataVersion: 'combo-v1',
       rulesVersion: 'rules-v1',
@@ -765,11 +768,26 @@ function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
       primaryArchetype: 'tokens',
       secondaryArchetypes: ['aristocrats'],
       archetypeConfidence: 'high',
-      powerBand: 'upgraded',
-      powerConfidence: 'medium',
       mainStrengths: ['Reliable token engine'],
       mainWarnings: ['Low interaction'],
       criticalIssues: [],
+      primaryTypalType: 'Elf',
+    },
+    typal: {
+      detected: true,
+      primaryType: 'Elf',
+      confidence: 'medium',
+      creatureCount: 14,
+      supportCount: 3,
+      commanderMatches: true,
+      types: [{
+        type: 'Elf',
+        creatureCount: 14,
+        supportCount: 3,
+        commanderMatches: true,
+        creatureCards: [{ deckCardId: 'deck-card-elf', cardId: 'card-elf', oracleId: 'oracle-elf', name: 'Llanowar Elves', imageUrl: 'https://cards.example.test/llanowar-elves.jpg', quantity: 1, section: 'main' }],
+        supportCards: [{ deckCardId: 'deck-card-archdruid', cardId: 'card-archdruid', oracleId: 'oracle-archdruid', name: 'Elvish Archdruid', imageUrl: 'https://cards.example.test/elvish-archdruid.jpg', quantity: 1, section: 'main' }],
+      }],
     },
     health: {
       score: 82,
@@ -858,8 +876,6 @@ function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
       scores: [{ archetype: 'tokens', score: 88, evidence: ['Token makers'] }],
     },
     power: {
-      band: 'upgraded',
-      confidence: 'medium',
       signals: { fastMana: 1 },
       evidence: ['Moderate acceleration'],
       notes: ['No cEDH fast mana density.'],

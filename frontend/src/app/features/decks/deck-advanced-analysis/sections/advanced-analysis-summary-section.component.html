@@ -1,0 +1,72 @@
+<article class="advanced-analysis-section advanced-analysis-summary">
+  <dl class="advanced-analysis-stats advanced-analysis-data-grid">
+    @for (stat of stats(); track stat.label) {
+      <div>
+        <dt>
+          <span>{{ stat.label }}</span>
+          @if (stat.description) {
+            <app-tooltip [text]="stat.description" placement="top" align="center">
+              <span class="advanced-analysis-info-icon" tabindex="0" [attr.aria-label]="stat.description">
+                <lucide-icon name="info" size="13" aria-hidden="true" />
+              </span>
+            </app-tooltip>
+          }
+        </dt>
+        <dd>
+          @if (stat.tooltipItems?.length) {
+            <span class="advanced-analysis-tooltip-value-list">
+              @for (item of stat.tooltipItems; track item.value) {
+                <app-tooltip [text]="item.description" placement="top" align="center">
+                  <span class="advanced-analysis-tooltip-value" tabindex="0" [attr.aria-label]="item.description">{{ item.value }}</span>
+                </app-tooltip>
+              }
+            </span>
+          } @else {
+            {{ stat.value }}
+          }
+        </dd>
+      </div>
+    }
+  </dl>
+  @if (typal(); as typalIdentity) {
+    <section class="advanced-analysis-typal-identity" aria-labelledby="advanced-analysis-typal-title">
+      <div class="advanced-analysis-typal-identity__header">
+        <div>
+          <span>{{ 'deckBuilder.advancedAnalysis.typal.eyebrow' | runtimeTranslate }}</span>
+          <h3 id="advanced-analysis-typal-title">{{ 'deckBuilder.advancedAnalysis.typal.title' | runtimeTranslate: { type: typalIdentity.primaryType } }}</h3>
+        </div>
+        <strong>{{ typalIdentity.confidence }}</strong>
+      </div>
+      <dl class="advanced-analysis-typal-stats advanced-analysis-data-grid">
+        <div>
+          <dt>{{ 'deckBuilder.advancedAnalysis.typal.creatures' | runtimeTranslate }}</dt>
+          <dd>{{ typalIdentity.creatureCount }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'deckBuilder.advancedAnalysis.typal.support' | runtimeTranslate }}</dt>
+          <dd>{{ typalIdentity.supportCount }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'deckBuilder.advancedAnalysis.typal.commanderMatches' | runtimeTranslate }}</dt>
+          <dd>{{ typalIdentity.commanderMatches }}</dd>
+        </div>
+      </dl>
+      @if (typalIdentity.creatureCards.length > 0) {
+        <div class="advanced-analysis-typal-cards">
+          <app-advanced-analysis-card-grid
+            [title]="'deckBuilder.advancedAnalysis.typal.creatureCards' | runtimeTranslate"
+            [cards]="typalIdentity.creatureCards"
+          />
+        </div>
+      }
+      @if (typalIdentity.supportCards.length > 0) {
+        <div class="advanced-analysis-typal-cards">
+          <app-advanced-analysis-card-grid
+            [title]="'deckBuilder.advancedAnalysis.typal.supportCards' | runtimeTranslate"
+            [cards]="typalIdentity.supportCards"
+          />
+        </div>
+      }
+    </section>
+  }
+</article>

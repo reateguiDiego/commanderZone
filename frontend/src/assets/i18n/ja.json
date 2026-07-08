@@ -1358,10 +1358,31 @@
         "primaryArchetype": "主要な原型",
         "secondaryArchetypes": "二次原型",
         "archetypeConfidence": "原型の信頼性",
-        "powerBand": "パワーバンド",
-        "powerConfidence": "パワーの信頼性",
+        "archetypeConfidenceDescription": "Shows how strongly the analyzer believes the detected archetype matches the deck card signals.",
+        "archetypeReasons": {
+          "generic": "Detected from the deck's strongest card-role signals. Score: {{score}}/100.",
+          "mixed": "No single plan clearly dominates; several archetype signals are close together. Top score: {{score}}/100.",
+          "combo": "Detected from complete combo lines, one-card-away lines, efficient tutors, compact win conditions and combo-piece density. Score: {{score}}/100.",
+          "aristocrats": "Detected from repeatable sacrifice outlets, sacrifice payoffs, token makers and recursion support. Score: {{score}}/100.",
+          "reanimator": "Detected from reanimation cards, graveyard setup and large threats worth bringing back. Score: {{score}}/100.",
+          "control": "Detected from counterspells, removal, hard board wipes and draw or selection density. Score: {{score}}/100.",
+          "stax": "Detected from stax pieces, tax effects and cards that can restrict the table. Score: {{score}}/100.",
+          "blink": "Detected from blink enablers, enter-the-battlefield payoffs and supporting role signals. Score: {{score}}/100.",
+          "tokens": "Detected from token makers, payoff cards and combat finishers that convert tokens into pressure. Score: {{score}}/100.",
+          "typal": "Detected from a dense shared creature type, tribal support cards and commander type alignment. Score: {{score}}/100.",
+          "voltron_infect": "Detected from protection, infect threats, combat finishers and equipment or aura signals. Score: {{score}}/100.",
+          "spellslinger": "Detected from instant and sorcery density, cost reducers, card selection and ritual or burst mana. Score: {{score}}/100.",
+          "artifact": "Detected from artifact density and supporting artifact-role signals. Score: {{score}}/100.",
+          "enchantress": "Detected from enchantment density and supporting enchantment-role signals. Score: {{score}}/100.",
+          "landfall": "Detected from landfall signals and ramp-search support. Score: {{score}}/100.",
+          "theft": "Detected from theft effects and supporting role signals. Score: {{score}}/100.",
+          "discard": "Detected from discard effects, discard payoffs and supporting role signals. Score: {{score}}/100.",
+          "mill": "Detected from mill effects and supporting role signals. Score: {{score}}/100.",
+          "lifegain": "Detected from lifegain density and supporting payoff signals. Score: {{score}}/100."
+        },
         "criticalIssues": "重大な問題",
-        "mainWarnings": "主な警告"
+        "mainWarnings": "主な警告",
+        "primaryTypalType": "主要部族"
       },
       "header": {
         "deckId": "デッキID",
@@ -1404,7 +1425,8 @@
           "wincons": "Wincons",
           "combos": "Combos",
           "consistency": "一貫性",
-          "stax": "Stax"
+          "stax": "Stax",
+          "typal": "Tribal"
         }
       },
       "metrics": {
@@ -1443,7 +1465,8 @@
         "extraCombatEngines": "追加の戦闘エンジン",
         "stax": "Stax",
         "tax": "税",
-        "symmetricalStaxRisk": "対称的なスタックリスク"
+        "symmetricalStaxRisk": "対称的なスタックリスク",
+        "typalCreatures": "????????"
       },
       "cardResolution": {
         "title": "カードの解像度",
@@ -1493,6 +1516,10 @@
           "infiniteDamage": "無限ダメージ",
           "requiresCommander": "指揮官が必要です",
           "requiresTemplate": "テンプレートが必要です"
+        },
+        "cardState": {
+          "inDeck": "Deck?",
+          "missing": "??"
         }
       },
       "consistency": {
@@ -1581,6 +1608,15 @@
         "targetsPrefix": "ターゲット: {{targets}}",
         "reasonsPrefix": "理由: {{reasons}}",
         "empty": "機能的な推奨事項はありません。"
+      },
+      "typal": {
+        "eyebrow": "部族アイデンティティ",
+        "title": "{{type}} tribal",
+        "creatures": "クリーチャー",
+        "support": "サポート",
+        "commanderMatches": "Commander が一致",
+        "creatureCards": "クリーチャーカード",
+        "supportCards": "サポートカード"
       }
     }
   },

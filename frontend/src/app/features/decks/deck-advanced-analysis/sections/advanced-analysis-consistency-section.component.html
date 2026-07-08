@@ -1,0 +1,87 @@
+@if (hasConsistency()) {
+  <section class="advanced-analysis-section advanced-analysis-consistency" [attr.aria-label]="'deckBuilder.advancedAnalysis.consistency.title' | runtimeTranslate">
+    <div class="advanced-analysis-consistency-header">
+      <p>{{ 'deckBuilder.advancedAnalysis.consistency.disclaimer' | runtimeTranslate }}</p>
+      <dl>
+        <div>
+          <dt>{{ 'deckBuilder.advancedAnalysis.consistency.simulationRuns' | runtimeTranslate }}</dt>
+          <dd>{{ simulationRuns() }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="advanced-analysis-consistency-grid">
+      <article class="advanced-analysis-consistency-card advanced-analysis-card-frame">
+        <h3>{{ 'deckBuilder.advancedAnalysis.consistency.openingHand' | runtimeTranslate }}</h3>
+        <div class="advanced-analysis-rate-list">
+          @for (row of openingHandRows(); track row.key) {
+            <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
+              <span>{{ row.label }}</span>
+              <strong>{{ row.value }}</strong>
+              <div class="advanced-analysis-rate-bar" aria-hidden="true">
+                <span [style.--metric-fill]="row.barWidth"></span>
+              </div>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="advanced-analysis-consistency-card advanced-analysis-card-frame">
+        <h3>{{ 'deckBuilder.advancedAnalysis.consistency.keepRule' | runtimeTranslate }}</h3>
+        <p>{{ keepRuleDescription() }}</p>
+        <div class="advanced-analysis-rate-list">
+          @for (row of keepRuleRows(); track row.key) {
+            <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
+              <span>{{ row.label }}</span>
+              <strong>{{ row.value }}</strong>
+              <div class="advanced-analysis-rate-bar" aria-hidden="true">
+                <span [style.--metric-fill]="row.barWidth"></span>
+              </div>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="advanced-analysis-consistency-card advanced-analysis-card-frame">
+        <h3>{{ 'deckBuilder.advancedAnalysis.consistency.mulligan' | runtimeTranslate }}</h3>
+        <div class="advanced-analysis-rate-list">
+          @for (row of mulliganRows(); track row.key) {
+            <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
+              <span>{{ row.label }}</span>
+              <strong>{{ row.value }}</strong>
+              <div class="advanced-analysis-rate-bar" aria-hidden="true">
+                <span [style.--metric-fill]="row.barWidth"></span>
+              </div>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="advanced-analysis-consistency-card advanced-analysis-consistency-card--wide advanced-analysis-card-frame">
+        <h3>{{ 'deckBuilder.advancedAnalysis.consistency.byTurn' | runtimeTranslate }}</h3>
+        <div class="advanced-analysis-turn-grid">
+          @for (group of byTurnGroups(); track group.title) {
+            <section class="advanced-analysis-turn-group">
+              <h4>{{ group.title }}</h4>
+              <div class="advanced-analysis-rate-list">
+                @for (row of group.rows; track row.key) {
+                  <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
+                    <span>{{ row.label }}</span>
+                    <strong>{{ row.value }}</strong>
+                    <div class="advanced-analysis-rate-bar" aria-hidden="true">
+                      <span [style.--metric-fill]="row.barWidth"></span>
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
+          }
+        </div>
+      </article>
+    </div>
+  </section>
+} @else {
+  <section class="advanced-analysis-section advanced-analysis-consistency" [attr.aria-label]="'deckBuilder.advancedAnalysis.consistency.title' | runtimeTranslate">
+    <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.consistency.unavailable' | runtimeTranslate }}</p>
+  </section>
+}

@@ -1,0 +1,22 @@
+<section class="advanced-analysis-section advanced-analysis-health" [attr.aria-label]="'deckBuilder.advancedAnalysis.health.title' | runtimeTranslate">
+  <div class="advanced-analysis-health-grid">
+    @for (card of cards(); track card.key) {
+      <article class="advanced-analysis-health-card" [attr.data-status]="card.status">
+        <div class="advanced-analysis-health-card__header">
+          <h3>{{ card.title }}</h3>
+          <span>{{ card.statusLabel }}</span>
+        </div>
+        <p>{{ card.message }}</p>
+        <dl>
+          <div>
+            <dt>{{ card.metricLabel }}</dt>
+            <dd>{{ card.metricValue }}</dd>
+          </div>
+        </dl>
+        @if (card.cards.length > 0) {
+          <app-advanced-analysis-card-grid [title]="card.title" [cards]="card.cards" [hiddenCount]="card.hiddenCardCount" />
+        }
+      </article>
+    }
+  </div>
+</section>
