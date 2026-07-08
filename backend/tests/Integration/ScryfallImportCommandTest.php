@@ -65,6 +65,51 @@ class ScryfallImportCommandTest extends ApiTestCase
         }
     }
 
+    public function testScryfallSyncPersistsDeckAnalysisFields(): void
+    {
+        $gameChangerId = '40000000-0000-0000-0000-000000000003';
+        $defaultId = '40000000-0000-0000-0000-000000000004';
+        $cardsFile = $this->writeTempJson([
+            $this->scryfallCardData($gameChangerId, 'Analysis Battle', [
+                'keywords' => ['Flying', 'Ward'],
+                'edhrec_rank' => 321,
+                'game_changer' => true,
+                'defense' => '6',
+                'cmc' => 3.0,
+            ]),
+            $this->scryfallCardData($defaultId, 'Default Analysis Card', [
+                'keywords' => ['Vigilance'],
+                'edhrec_rank' => 654,
+            ]),
+        ]);
+        $rulingsFile = $this->writeTempJson([]);
+
+        try {
+            $this->runScryfallSyncCommand($cardsFile, $rulingsFile);
+
+            $gameChanger = $this->entityManager->getConnection()->fetchAssociative(
+                'SELECT keywords, edhrec_rank, CASE WHEN is_game_changer THEN 1 ELSE 0 END AS is_game_changer, defense, mana_value FROM card WHERE scryfall_id = :scryfallId',
+                ['scryfallId' => $gameChangerId],
+            );
+            self::assertIsArray($gameChanger);
+            self::assertSame(['Flying', 'Ward'], json_decode((string) $gameChanger['keywords'], true, 512, JSON_THROW_ON_ERROR));
+            self::assertSame(321, (int) $gameChanger['edhrec_rank']);
+            self::assertSame(1, (int) $gameChanger['is_game_changer']);
+            self::assertSame('6', $gameChanger['defense']);
+            self::assertSame(3.0, (float) $gameChanger['mana_value']);
+
+            $default = $this->entityManager->getConnection()->fetchAssociative(
+                'SELECT CASE WHEN is_game_changer THEN 1 ELSE 0 END AS is_game_changer FROM card WHERE scryfall_id = :scryfallId',
+                ['scryfallId' => $defaultId],
+            );
+            self::assertIsArray($default);
+            self::assertSame(0, (int) $default['is_game_changer']);
+        } finally {
+            @unlink($cardsFile);
+            @unlink($rulingsFile);
+        }
+    }
+
     public function testScryfallSyncPersistsTokenRelationsAndRemovesStaleRelations(): void
     {
         $sourceId = '40000000-0000-0000-0000-000000000011';
