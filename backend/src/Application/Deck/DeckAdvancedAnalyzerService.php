@@ -15,7 +15,6 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         private readonly DeckManaSourceAnalyzer $manaSourceAnalyzer,
         private readonly DeckConsistencySimulator $consistencySimulator,
         private readonly DeckAdvancedIssueDetector $issueDetector,
-        private readonly DeckAdvancedRecommendationBuilder $recommendationBuilder,
     ) {
     }
 
@@ -51,7 +50,6 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
             ...$this->issueDetector->detect($metrics, $comboResult['combos'], $archetypes, $power, $consistencyResult['consistency'], $unmatchedCards, $typal),
             ...$archetypeResult['issues'],
         ];
-        $recommendations = $this->recommendationBuilder->build($issues);
 
         return [
             'deckId' => $context->deck->id(),
@@ -65,7 +63,6 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
                 'archetypeConfidence' => $archetypes['confidence'],
                 'archetypeExplanations' => $this->archetypeExplanations($archetypes),
                 'mainStrengths' => $this->mainStrengths($metrics, $archetypes, $power, $comboResult['combos'], $consistencyResult['consistency'], $typal),
-                'mainWarnings' => $this->mainWarnings($issues),
                 'criticalIssues' => $this->criticalIssues($issues),
             ],
             'metrics' => $metrics,
@@ -77,7 +74,6 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
             'typal' => $typal,
             'power' => $this->publicPowerSignals($power),
             'issues' => $issues,
-            'recommendations' => $recommendations,
             'unmatchedCards' => $unmatchedCards,
         ];
     }
@@ -254,56 +250,6 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         }
 
         return array_slice($strengths, 0, 4);
-    }
-
-    /**
-     * @param list<array{severity:string,title?:string,message:string}> $issues
-     * @return list<string>
-     */
-    private function mainWarnings(array $issues): array
-    {
-        $warnings = [];
-        $manaWarnings = [];
-        foreach ($issues as $issue) {
-            if (!in_array($issue['severity'], ['warning', 'critical'], true)) {
-                continue;
-            }
-            $title = $issue['title'] ?? $issue['message'];
-            if ($this->isManaIssueCode((string) ($issue['code'] ?? ''))) {
-                $manaWarnings[] = $title;
-
-                continue;
-            }
-            $warnings[] = $title;
-        }
-
-        return array_slice(array_values(array_unique([...$manaWarnings, ...$warnings])), 0, 6);
-    }
-
-    private function isManaIssueCode(string $code): bool
-    {
-        return in_array($code, [
-            'low_colored_sources',
-            'weak_primary_color_sources',
-            'low_early_color_access',
-            'low_commander_castability',
-            'commander_color_bottleneck',
-            'too_many_tapped_lands',
-            'too_many_slow_lands',
-            'colorless_land_pressure',
-            'fetchlands_without_targets',
-            'fetchlands_mostly_tapped_targets',
-            'typed_land_density_low_for_fetches',
-            'typed_land_density_low_for_checklands',
-            'checklands_not_supported',
-            'filterlands_need_input_sources',
-            'pathways_create_color_choice_pressure',
-            'bounce_lands_tempo_risk',
-            'painland_life_pressure',
-            'ramp_does_not_fix_colors',
-            'rituals_not_stable_ramp',
-            'cost_reducers_not_mana_sources',
-        ], true);
     }
 
     /**

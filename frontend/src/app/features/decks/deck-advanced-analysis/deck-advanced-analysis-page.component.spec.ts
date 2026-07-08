@@ -109,7 +109,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(element.textContent).not.toContain('Power band');
     expect(element.textContent).not.toContain('Power confidence');
     expect(element.textContent).toContain('Critical issues');
-    expect(element.textContent).toContain('Main warnings');
+    expect(element.textContent).not.toContain('Main warnings');
   });
 
   it('uses tabs for advanced analysis sections on non-mobile layouts', async () => {
@@ -268,19 +268,20 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(tokens?.querySelector('img[alt="Elvish Archdruid"]')?.getAttribute('src')).toBe('https://cards.example.test/archdruid.jpg');
   });
 
-  it('renders main issues ordered by severity', async () => {
+  it('does not render main warnings or action plan sections', async () => {
     const { fixture } = await setup();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const issues = Array.from(
-      fixture.nativeElement.querySelectorAll('.advanced-analysis-warnings .advanced-analysis-issue-list li'),
-    ) as HTMLElement[];
+    const element = fixture.nativeElement as HTMLElement;
+    const tabsText = Array.from(element.querySelectorAll('app-tab-list button[role="tab"]'))
+      .map((tab) => tab.textContent ?? '')
+      .join(' ');
 
-    expect(issues).toHaveLength(3);
-    expect(issues[0]?.textContent).toContain('Critical win condition gap');
-    expect(issues[1]?.textContent).toContain('Low ramp');
-    expect(issues[2]?.textContent).toContain('Many one-card-away combo lines');
+    expect(tabsText).not.toContain('Main warnings');
+    expect(tabsText).not.toContain('Action plan');
+    expect(element.querySelector('app-advanced-analysis-warnings-section')).toBeNull();
+    expect(element.querySelector('app-advanced-analysis-actions-section')).toBeNull();
   });
 
   it('renders the Monte Carlo consistency section without implying match outcome probability', async () => {
@@ -317,7 +318,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(normalizedText).not.toContain('chance to win');
   });
 
-  it('renders mana analysis with source, land cycle, fetchland and ramp sections', async () => {
+  it('renders mana analysis with compact source, land, fetchland, fixing and ramp data', async () => {
     const { fixture } = await setup();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -326,39 +327,64 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const text = element.textContent ?? '';
 
     expect(text).toContain('Mana Analysis');
+    expect(text).not.toContain('Mana overview');
+    expect(text).not.toContain('Mana data version');
     expect(text).toContain('Mana sources by color');
     expect(text).toContain('White');
     expect(text).toContain('Untapped sources');
-    expect(text).toContain('Land base');
+    expect(text).toContain('Mana base and acceleration');
     expect(text).toContain('Typed lands');
     expect(text).toContain('Land cycles');
     expect(text).toContain('Shocklands');
     expect(text).toContain('Triomes');
-    expect(text).toContain('Fetchland coverage');
-    expect(text).toContain('Fetchlands are analyzed as mana fixing, not generic tutors.');
-    expect(text).toContain('Bloodstained Mire');
-    expect(text).toContain('Overgrown Tomb');
+    expect(text).toContain('Color demand');
+    expect(text).not.toContain('Fetchland coverage');
+    expect(text).not.toContain('Fetchlands are analyzed as mana fixing, not generic tutors.');
+    expect(text).not.toContain('Bloodstained Mire');
+    expect(text).not.toContain('Valid fetch targets');
+    expect(text).not.toContain('Overgrown Tomb');
+    expect(text).not.toContain('Fetch synergy');
+    expect(text).not.toContain('Tapped land pressure');
     expect(text).not.toContain('oracle-bloodstained-mire');
     expect(text).not.toContain('oracle-overgrown-tomb');
-    expect(element.querySelector('img[alt="Bloodstained Mire"]')?.getAttribute('src')).toBe('https://cards.example.test/bloodstained-mire.jpg');
-    expect(element.querySelector('img[alt="Overgrown Tomb"]')?.getAttribute('src')).toBe('https://cards.example.test/overgrown-tomb.jpg');
-    expect(text).toContain('Ramp profile');
-    expect(text).toContain('Cost reducers');
-    expect(text).toContain('Commander castability');
-    expect(text).toContain('Atraxa cost');
+    expect(element.querySelector('img[alt="Bloodstained Mire"]')).toBeNull();
+    expect(text).not.toContain('Land base');
+    expect(text).not.toContain('Ramp profile');
+    expect(text).not.toContain('Fixing profile');
+    expect(text).not.toContain('Cost reducers');
+    const firstManaCardTitle = element.querySelector('.advanced-analysis-mana-card h3')?.textContent?.trim();
+    expect(firstManaCardTitle).toBe('Mana base and acceleration');
+    const baseAndAccelerationCard = Array.from(element.querySelectorAll('.advanced-analysis-mana-card') as NodeListOf<HTMLElement>)
+      .find((card) => card.querySelector('h3')?.textContent?.trim() === 'Mana base and acceleration');
+    const baseAndAccelerationText = baseAndAccelerationCard?.textContent ?? '';
+    expect(baseAndAccelerationText).toContain('Total lands');
+    expect(baseAndAccelerationText).toContain('Average mana value');
+    expect(baseAndAccelerationText).toContain('Colored source health');
+    expect(text).not.toContain('Atraxa cost');
+    expect(element.querySelector('.advanced-analysis-mana app-deck-card-spoiler-view')).not.toBeNull();
+    expect(element.querySelector('.advanced-analysis-mana-panel-grid--three dl')).toBeNull();
+    expect(text).toContain('Command Tower');
+    expect(text).toContain('Arcane Signet');
+    expect(text).toContain('Llanowar Elves');
+    const sourceCard = Array.from(element.querySelectorAll('.advanced-analysis-mana-card') as NodeListOf<HTMLElement>)
+      .find((card) => card.querySelector('h3')?.textContent?.trim() === 'Mana sources by color');
+    const sourceGridText = sourceCard?.querySelector('.advanced-analysis-mana-source-grid')?.textContent ?? '';
+    const sourceCardGroupsText = sourceCard?.querySelector('.advanced-analysis-mana-card-groups')?.textContent ?? '';
+    expect(sourceGridText).toContain('White');
+    expect(sourceGridText).toContain('Green');
+    expect(sourceGridText).not.toContain('Red');
+    expect(sourceCardGroupsText).toContain('Fixed mana');
+    expect(sourceCardGroupsText).toContain('White');
+    expect(sourceCardGroupsText).toContain('Green');
+    expect(sourceCardGroupsText).not.toContain('Red');
+    expect(sourceCardGroupsText).not.toContain('Colorless');
+    expect(element.querySelector('.advanced-analysis-mana img[alt="Command Tower"]')?.getAttribute('src')).toBe('https://cards.example.test/command-tower.jpg');
+    expect(element.querySelector('.advanced-analysis-mana img[alt="Arcane Signet"]')?.getAttribute('src')).toBe('https://cards.example.test/arcane-signet.jpg');
+    expect(element.querySelector('.advanced-analysis-mana img[alt="Llanowar Elves"]')?.getAttribute('src')).toBe('https://cards.example.test/llanowar.jpg');
   });
 
-  it('uses the effective fetchland count in the land base summary', async () => {
+  it('renders only spoiler sections inside mana base and acceleration', async () => {
     const analysis = buildAdvancedAnalysis();
-    const mana = analysis.metrics?.mana;
-    if (!mana?.lands || !mana.fetchlands || !mana.landCycles || !mana.fixing) {
-      throw new Error('Test fixture must include mana metrics.');
-    }
-    mana.lands.fetchlands = 0;
-    mana.fetchlands.count = 3;
-    mana.landCycles['fetchland'] = 3;
-    mana.fixing['fetchlands'] = 3;
-
     const { fixture } = await setup({ slug: DECK_ID }, {
       getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(analysis)),
     });
@@ -366,12 +392,85 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    const landBaseCard = Array.from(element.querySelectorAll('.advanced-analysis-mana-card'))
-      .find((card) => card.querySelector('h3')?.textContent?.trim() === 'Land base');
-    const fetchlandRow = Array.from(landBaseCard?.querySelectorAll('dl > div') ?? [])
-      .find((row) => row.querySelector('dt')?.textContent?.trim() === 'Fetchlands');
+    const manaBaseGrid = element.querySelector('.advanced-analysis-mana-panel-grid--three');
 
-    expect(fetchlandRow?.querySelector('dd')?.textContent?.trim()).toBe('3');
+    expect(manaBaseGrid?.querySelector('dl')).toBeNull();
+    expect(manaBaseGrid?.querySelector('h4')).toBeNull();
+    expect(manaBaseGrid?.querySelectorAll('.spoiler-sections.spoiler-sections--full').length).toBeGreaterThan(0);
+  });
+
+  it('renders temporary mana as one spoiler and ignores MDFC land faces', async () => {
+    const baseDeck = buildDeck();
+    const darkRitual = buildDeckCard('deck-card-dark-ritual', 'card-dark-ritual', 'oracle-dark-ritual', 'Dark Ritual', 'https://cards.example.test/dark-ritual.jpg', [], {
+      typeLine: 'Instant',
+      oracleText: 'Add {B}{B}{B}.',
+    });
+    const fellTheProfane = buildDeckCard('deck-card-fell-profane', 'card-fell-profane', 'oracle-fell-profane', 'Fell the Profane', 'https://cards.example.test/fell-the-profane.jpg', [
+      {
+        name: 'Fell the Profane',
+        manaCost: '{2}{B}{B}',
+        typeLine: 'Instant',
+        oracleText: 'Destroy target creature or planeswalker.',
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: ['B'],
+        imageUris: { normal: 'https://cards.example.test/fell-the-profane.jpg' },
+      },
+      {
+        name: 'Fell Mire',
+        manaCost: null,
+        typeLine: 'Land',
+        oracleText: 'As Fell Mire enters the battlefield, you may pay 3 life. {T}: Add {B}.',
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: { normal: 'https://cards.example.test/fell-mire.jpg' },
+      },
+    ], {
+      typeLine: 'Instant // Land',
+      oracleText: 'Destroy target creature or planeswalker. As Fell Mire enters the battlefield, you may pay 3 life. {T}: Add {B}.',
+      layout: 'modal_dfc',
+      colorIdentity: ['B'],
+    });
+    const deck = {
+      ...baseDeck,
+      cards: [...(baseDeck.cards ?? []), darkRitual, fellTheProfane],
+    };
+    const analysis = buildAdvancedAnalysis();
+    if (!analysis.metrics) {
+      throw new Error('Test fixture must include metrics.');
+    }
+    analysis.metrics.roleCards = {
+      ...analysis.metrics.roleCards,
+      burstMana: ['deck-card-dark-ritual', 'deck-card-fell-profane'],
+      rituals: ['deck-card-dark-ritual', 'deck-card-fell-profane'],
+      oneShotMana: ['deck-card-dark-ritual', 'deck-card-fell-profane'],
+    };
+
+    const { fixture } = await setup({ slug: DECK_ID }, {
+      get: vi.fn().mockReturnValue(of({ deck })),
+      getBySlug: vi.fn().mockReturnValue(of({ deck })),
+      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(analysis)),
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const manaBaseGrid = element.querySelector('.advanced-analysis-mana-panel-grid--three') as HTMLElement | null;
+    const manaBaseText = manaBaseGrid?.textContent ?? '';
+    const temporaryManaGroup = Array.from(manaBaseGrid?.querySelectorAll('app-advanced-analysis-card-grid') ?? [])
+      .find((group) => group.textContent?.includes('Temporary mana'));
+    const temporaryManaText = temporaryManaGroup?.textContent ?? '';
+
+    expect(manaBaseText).toContain('Temporary mana');
+    expect(temporaryManaText).toContain('Dark Ritual');
+    expect(temporaryManaText).not.toContain('Fell the Profane');
+    expect(temporaryManaText).not.toContain('Fell Mire');
+    expect(manaBaseText).not.toContain('Burst mana');
+    expect(manaBaseText).not.toContain('Rituals');
+    expect(manaBaseText).not.toContain('One-shot mana');
   });
 
   it('renders mana analysis as unavailable without metrics.mana', async () => {
@@ -439,9 +538,9 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(text).toContain('Fetchlands without valid targets');
     expect(text).toContain('Color access by turn');
     expect(text).toContain('All commander colors');
-    const colorAccessText = Array.from(fixture.nativeElement.querySelectorAll('.advanced-analysis-mana-card') as NodeListOf<HTMLElement>)
+    const sourceCard = Array.from(fixture.nativeElement.querySelectorAll('.advanced-analysis-mana-card') as NodeListOf<HTMLElement>)
       .find((card) => card.querySelector('h3')?.textContent?.trim() === 'Mana sources by color')
-      ?.textContent ?? '';
+    const colorAccessText = sourceCard?.querySelector('.advanced-analysis-mana-source-grid')?.textContent ?? '';
     expect(colorAccessText).toContain('White');
     expect(colorAccessText).toContain('Blue');
     expect(colorAccessText).not.toContain('Black');
@@ -617,7 +716,6 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
         primaryArchetype: 'Control',
         secondaryArchetypes: [],
         archetypeConfidence: 'medium',
-        mainWarnings: [],
         criticalIssues: [],
         primaryTypalType: null,
       },
@@ -669,60 +767,6 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('No complete or partial combo lines detected.');
-  });
-
-  it('renders critical issues before warnings with optional evidence', async () => {
-    const { fixture } = await setup();
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const groups = Array.from(fixture.nativeElement.querySelectorAll('.advanced-analysis-action-group')) as HTMLElement[];
-
-    expect(groups[0]?.querySelector('h3')?.textContent).toContain('Critical issues');
-    expect(groups[0]?.textContent).toContain('Critical win condition gap');
-    expect(groups[0]?.textContent).toContain('Action: Add role');
-    expect(groups[0]?.textContent).toContain('Evidence');
-    expect(groups[1]?.querySelector('h3')?.textContent).toContain('Warnings');
-    expect(groups[1]?.textContent).toContain('Low ramp');
-    expect(groups[1]?.textContent).toContain('Permanent ramp');
-  });
-
-  it('renders info issues collapsed and recommendations ordered by priority', async () => {
-    const { fixture } = await setup();
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const element = fixture.nativeElement as HTMLElement;
-    const info = element.querySelector('.advanced-analysis-info-issues') as HTMLDetailsElement | null;
-    const recommendations = Array.from(element.querySelectorAll('.advanced-analysis-recommendation-list li')) as HTMLElement[];
-
-    expect(info).not.toBeNull();
-    expect(info?.open).toBe(false);
-    expect(info?.textContent).toContain('Many one-card-away combo lines');
-    expect(recommendations).toHaveLength(3);
-    expect(recommendations[0]?.textContent).toContain('Add permanent ramp');
-    expect(recommendations[0]?.textContent).toContain('High');
-    expect(recommendations[1]?.textContent).toContain('Add hard board wipes');
-    expect(recommendations[1]?.textContent).toContain('Medium');
-    expect(recommendations[2]?.textContent).toContain('Review pseudo-wipes');
-    expect(recommendations[2]?.textContent).toContain('Low');
-    expect(recommendations.map((item) => item.textContent ?? '').join(' ')).not.toContain('Sol Ring');
-  });
-
-  it('renders a positive action state when there are no issues', async () => {
-    const { fixture } = await setup({ slug: DECK_ID }, {
-      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(buildAdvancedAnalysis({
-        issues: [],
-        recommendations: [],
-      }))),
-    });
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const element = fixture.nativeElement as HTMLElement;
-
-    expect(element.textContent).toContain('No major structural issues detected.');
-    expect(element.textContent).toContain('No functional recommendations available.');
   });
 
   it('resolves a deck slug before loading advanced analysis and keeps the page header back route on the slug', async () => {
@@ -828,7 +872,6 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
 
     expect(element.textContent).toContain('Ramp');
     expect(element.textContent).toContain('Unknown');
-    expect(element.textContent).toContain('No main warnings found.');
     expect(element.textContent).toContain('Consistency simulation is not available for this analysis.');
     expect(element.textContent).toContain('Detailed metric signals are not available for this analysis.');
   });
@@ -899,9 +942,31 @@ function buildDeck(overrides: Partial<Deck> = {}): Deck {
       buildDeckCard('deck-card-sol-ring', 'card-sol-ring', 'oracle-sol-ring', 'Sol Ring', 'https://cards.example.test/sol-ring.jpg', [
         { name: 'Sol Ring', manaCost: null, typeLine: 'Artifact', oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: 'https://cards.example.test/sol-ring.jpg' } },
         { name: 'Sol Ring Back', manaCost: null, typeLine: 'Artifact', oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: 'https://cards.example.test/sol-ring-back.jpg' } },
-      ]),
-      buildDeckCard('deck-card-llanowar', 'card-llanowar', 'oracle-llanowar', 'Llanowar Elves', 'https://cards.example.test/llanowar.jpg'),
+      ], {
+        manaValue: 1,
+        producedMana: ['C'],
+        typeLine: 'Artifact',
+      }),
+      buildDeckCard('deck-card-llanowar', 'card-llanowar', 'oracle-llanowar', 'Llanowar Elves', 'https://cards.example.test/llanowar.jpg', [], {
+        typeLine: 'Creature - Elf Druid',
+        oracleText: '{T}: Add {G}.',
+        producedMana: ['G'],
+      }),
       buildDeckCard('deck-card-archdruid', 'card-archdruid', 'oracle-archdruid', 'Elvish Archdruid', 'https://cards.example.test/archdruid.jpg'),
+      buildDeckCard('deck-card-command-tower', 'card-command-tower', 'oracle-command-tower', 'Command Tower', 'https://cards.example.test/command-tower.jpg', [], {
+        typeLine: 'Land',
+        oracleText: "{T}: Add one mana of any color in your commander's color identity.",
+        producedMana: ['W', 'U', 'B', 'R', 'G'],
+      }),
+      buildDeckCard('deck-card-forest', 'card-forest', 'oracle-forest', 'Forest', 'https://cards.example.test/forest.jpg', [], {
+        typeLine: 'Basic Land - Forest',
+        producedMana: ['G'],
+      }),
+      buildDeckCard('deck-card-arcane-signet', 'card-arcane-signet', 'oracle-arcane-signet', 'Arcane Signet', 'https://cards.example.test/arcane-signet.jpg', [], {
+        typeLine: 'Artifact',
+        oracleText: "{T}: Add one mana of any color in your commander's color identity.",
+        producedMana: ['W', 'U', 'B', 'R', 'G'],
+      }),
       buildDeckCard('deck-card-wrath', 'card-wrath', 'oracle-wrath', 'Wrath of God', 'https://cards.example.test/wrath.jpg'),
       buildDeckCard('deck-card-farewell', 'card-farewell', 'oracle-farewell', 'Farewell', 'https://cards.example.test/farewell.jpg'),
       buildDeckCard('deck-card-rift', 'card-rift', 'oracle-rift', 'Cyclonic Rift', 'https://cards.example.test/rift.jpg'),
@@ -910,7 +975,15 @@ function buildDeck(overrides: Partial<Deck> = {}): Deck {
   };
 }
 
-function buildDeckCard(deckCardId: string, cardId: string, oracleId: string, name: string, imageUrl: string, cardFaces: DeckCard['card']['cardFaces'] = []): DeckCard {
+function buildDeckCard(
+  deckCardId: string,
+  cardId: string,
+  oracleId: string,
+  name: string,
+  imageUrl: string,
+  cardFaces: DeckCard['card']['cardFaces'] = [],
+  cardOverrides: Partial<DeckCard['card']> = {},
+): DeckCard {
   return {
     id: deckCardId,
     quantity: 1,
@@ -932,6 +1005,7 @@ function buildDeckCard(deckCardId: string, cardId: string, oracleId: string, nam
       commanderLegal: true,
       set: null,
       collectorNumber: null,
+      ...cardOverrides,
     },
   };
 }
@@ -954,7 +1028,6 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         { archetype: 'Aristocrats', reasonKey: 'aristocrats' },
         { archetype: 'Tokens', reasonKey: 'tokens' },
       ],
-      mainWarnings: ['Low ramp'],
       criticalIssues: ['Not enough win conditions'],
     },
     archetypes: {
@@ -1210,7 +1283,6 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         },
         fetchlands: {
           count: 2,
-          validTargets: 4,
           deadFetchlands: 0,
           effectiveColorSources: { white: 1, blue: 1, black: 2, red: 1, green: 1 },
           untappedEffectiveColorSources: { white: 1, blue: 0, black: 1, red: 1, green: 1 },
@@ -1223,10 +1295,6 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
               imageUrl: 'https://cards.example.test/bloodstained-mire.jpg',
               quantity: 1,
               fetchableLandTypes: ['Swamp', 'Mountain'],
-              validTargets: [
-                { oracleId: 'oracle-blood-crypt', scryfallId: 'scryfall-blood-crypt', name: 'Blood Crypt', imageUrl: 'https://cards.example.test/blood-crypt.jpg', colors: ['black', 'red'], canEnterUntapped: true },
-                { oracleId: 'oracle-overgrown-tomb', scryfallId: 'scryfall-overgrown-tomb', name: 'Overgrown Tomb', imageUrl: 'https://cards.example.test/overgrown-tomb.jpg', colors: ['black', 'green'], canEnterUntapped: true },
-              ],
               effectiveColors: ['black', 'red', 'green'],
               untappedEffectiveColors: ['black', 'red', 'green'],
               tappedOnlyEffectiveColors: [],
@@ -1248,8 +1316,6 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         requirements: {
           pipDemand: { white: 18, blue: 16, black: 20, red: 8, green: 22 },
           earlyPipDemand: { white: 6, blue: 5, black: 8, red: 2, green: 7 },
-          doublePipCards: [],
-          triplePipCards: [],
           colorIntensity: { white: 0.22, blue: 0.2, black: 0.26, red: 0.1, green: 0.28 },
           commanderCost: {
             Atraxa: { white: 1, blue: 1, black: 1, red: 0, green: 1 },
@@ -1264,6 +1330,9 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
       },
       roleCards: {
         permanentRamp: ['deck-card-sol-ring'],
+        manaRocks: ['deck-card-sol-ring', 'deck-card-arcane-signet'],
+        manaDorks: ['deck-card-llanowar'],
+        manaFixing: ['deck-card-command-tower', 'deck-card-arcane-signet'],
         boardWipes: ['deck-card-wrath', 'deck-card-farewell'],
         massBounce: ['deck-card-rift'],
         conditionalWipes: ['deck-card-farewell'],
@@ -1485,32 +1554,6 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           partialOneMissingCount: 2,
         },
         suggestedActionType: 'review_package',
-      },
-    ],
-    recommendations: [
-      {
-        code: 'review_pseudo_wipes',
-        priority: 'low',
-        title: 'Review pseudo-wipes',
-        message: 'Check whether pseudo-wipes are doing the job of hard board wipes.',
-        targetRoles: ['pseudo_wipes'],
-        reasonIssueCodes: ['wipes_are_mostly_bounce_or_conditional'],
-      },
-      {
-        code: 'add_hard_board_wipes',
-        priority: 'medium',
-        title: 'Add hard board wipes',
-        message: 'Increase reliable reset effects instead of relying only on bounce or conditional wipes.',
-        targetRoles: ['board_wipes'],
-        reasonIssueCodes: ['low_hard_board_wipes'],
-      },
-      {
-        code: 'add_permanent_ramp',
-        priority: 'high',
-        title: 'Add permanent ramp',
-        message: 'Add stable mana development rather than one-shot acceleration.',
-        targetRoles: ['permanent_ramp'],
-        reasonIssueCodes: ['low_ramp'],
       },
     ],
     unmatchedCards: [],

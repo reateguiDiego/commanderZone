@@ -66,7 +66,7 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertSame('good', $response['health']['combos']['status']);
         self::assertSame('No combo package detected.', $response['health']['combos']['message']);
         self::assertArrayHasKey('suggestedActionType', $response['issues'][0]);
-        self::assertArrayHasKey('targetRoles', $response['recommendations'][0]);
+        self::assertArrayNotHasKey('recommendations', $response);
         self::assertFalse($response['snapshot']['hit']);
         self::assertSame('missing', $response['snapshot']['reason']);
         self::assertArrayHasKey('manaDataVersion', $response['snapshot']);
@@ -359,7 +359,7 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         $response = $this->jsonResponse();
         self::assertFalse($response['typal']['detected']);
         self::assertContains('typal_support_without_density', array_column($response['issues'], 'code'));
-        self::assertContains('review_tribal_package', array_column($response['recommendations'], 'code'));
+        self::assertArrayNotHasKey('recommendations', $response);
     }
 
     public function testEndpointRespectsDeckOwnership(): void
@@ -510,21 +510,10 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayNotHasKey('cardId', $detail);
         self::assertArrayNotHasKey('name', $detail);
         self::assertArrayNotHasKey('imageUrl', $detail);
-
-        $targetsByOracleId = [];
-        foreach ($detail['validTargets'] as $target) {
-            $targetsByOracleId[$target['oracleId']] = $target;
-            self::assertNotEmpty($target['oracleId']);
-            self::assertArrayNotHasKey('cardId', $target);
-            self::assertArrayNotHasKey('imageUrl', $target);
-            self::assertArrayNotHasKey('imageUris', $target);
-        }
-
-        self::assertArrayHasKey($shock->oracleId(), $targetsByOracleId);
-        self::assertArrayHasKey($battle->oracleId(), $targetsByOracleId);
-        self::assertSame('shockland', $targetsByOracleId[$shock->oracleId()]['landCycleType']);
-        self::assertSame(['red', 'green'], $targetsByOracleId[$shock->oracleId()]['colors']);
-        self::assertSame('battle_land', $targetsByOracleId[$battle->oracleId()]['landCycleType']);
+        self::assertArrayNotHasKey('validTargets', $detail);
+        self::assertSame(['red', 'green'], $detail['effectiveColors']);
+        self::assertSame(['red', 'green'], $detail['untappedEffectiveColors']);
+        self::assertSame([], $detail['tappedOnlyEffectiveColors']);
     }
 
     public function testEndpointReturnsNotFoundForMissingDeck(): void

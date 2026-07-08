@@ -167,7 +167,7 @@ export class AdvancedAnalysisCardGridComponent implements DeckViewStore {
         legalities: {},
         imageUris: item.imageSource.imageUris ?? (item.imageUrl ? { normal: item.imageUrl } : {}),
         cardFaces: item.imageSource.cardFaces ? [...item.imageSource.cardFaces] : undefined,
-        layout: item.imageSource.cardFaces && item.imageSource.cardFaces.length > 1 ? 'transform' : 'normal',
+        layout: item.layout ?? (item.imageSource.cardFaces && item.imageSource.cardFaces.length > 1 ? 'transform' : 'normal'),
         commanderLegal: true,
         set: null,
         collectorNumber: String(index + 1),

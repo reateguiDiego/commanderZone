@@ -1381,7 +1381,6 @@
           "lifegain": "The deck has lifegain cards or payoffs that turn life gain into material advantage."
         },
         "criticalIssues": "重大な問題",
-        "mainWarnings": "主な警告",
         "primaryTypalType": "主要部族",
         "archetypeSignals": "Archetype rationale",
         "archetypeReason": "Why this fits",
@@ -1481,11 +1480,6 @@
         "unmatchedCount": "{{count}} 一致しないカード",
         "unmatchedCopy": "一部のカードを解決できなかったため、役割とコンボのシグナルが不完全である可能性があります。",
         "cardCouldNotBeMatched": "カードを照合できませんでした。"
-      },
-      "warnings": {
-        "eyebrow": "主要な問題",
-        "title": "主な警告",
-        "empty": "主な警告は見つかりませんでした。"
       },
       "combos": {
         "eyebrow": "既知の行",
@@ -1602,25 +1596,6 @@
         "slow": "遅い",
         "oneShot": "ワンショット"
       },
-      "actions": {
-        "eyebrow": "行動計画",
-        "title": "問題と機能的な推奨",
-        "criticalIssues": "重大な問題",
-        "actionPrefix": "アクション: {{action}}",
-        "evidence": "証拠",
-        "noCriticalIssues": "重大な問題は検出されませんでした。",
-        "warnings": "警告",
-        "noWarnings": "警告は検出されませんでした。",
-        "info": "情報",
-        "noMajorIssues": "大きな構造上の問題は検出されませんでした。",
-        "review": "レビュー"
-      },
-      "recommendations": {
-        "title": "推奨事項",
-        "targetsPrefix": "ターゲット: {{targets}}",
-        "reasonsPrefix": "理由: {{reasons}}",
-        "empty": "機能的な推奨事項はありません。"
-      },
       "typal": {
         "eyebrow": "部族アイデンティティ",
         "title": "{{type}} tribal",
@@ -1632,7 +1607,6 @@
       },
       "mana": {
         "title": "Mana Analysis",
-        "overview": "Mana overview",
         "sourcesByColor": "Mana sources by color",
         "color": "Color",
         "coloredSources": "Colored sources",
@@ -1641,10 +1615,10 @@
         "earlySources": "Early sources",
         "status": "Status",
         "totalLands": "Total lands",
+        "averageManaValue": "Average mana value",
         "tappedLands": "Tapped lands",
         "fetchlands": "Fetchlands",
         "deadFetchlands": "Dead fetchlands",
-        "mainIssue": "Main mana issue",
         "landBase": "Land base",
         "basics": "Basics",
         "nonbasics": "Nonbasics",
@@ -1657,7 +1631,6 @@
         "noLandCycles": "No tracked land cycles detected.",
         "fetchlandCoverage": "Fetchland coverage",
         "fetchlandsNotTutors": "Fetchlands are analyzed as mana fixing, not generic tutors.",
-        "validFetchTargets": "Valid fetch targets",
         "effectiveColors": "Effective colors",
         "untappedEffectiveColors": "Untapped effective colors",
         "tappedOnlyColors": "Tapped-only colors",

@@ -3,11 +3,11 @@ import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-tran
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { AdvancedAnalysisCardGridComponent } from '../advanced-analysis-card-grid.component';
 import type {
-  AdvancedAnalysisStat,
   AdvancedIssueItem,
+  AdvancedAnalysisStat,
+  ManaCardGroup,
+  ManaColorDemandRow,
   ManaColorSourceRow,
-  ManaFetchlandDetailItem,
-  ManaSectionGroup,
 } from '../deck-advanced-analysis-view.models';
 
 @Component({
@@ -21,12 +21,11 @@ export class AdvancedAnalysisManaSectionComponent {
   readonly hasMana = input(false);
   readonly overviewRows = input<readonly AdvancedAnalysisStat[]>([]);
   readonly sourceRows = input<readonly ManaColorSourceRow[]>([]);
-  readonly landBaseRows = input<readonly AdvancedAnalysisStat[]>([]);
+  readonly sourceCardGroups = input<readonly ManaCardGroup[]>([]);
+  readonly landBaseCardGroups = input<readonly ManaCardGroup[]>([]);
   readonly landCycleRows = input<readonly AdvancedAnalysisStat[]>([]);
-  readonly landCycleAnalysisRows = input<readonly AdvancedAnalysisStat[]>([]);
-  readonly fetchlandRows = input<readonly AdvancedAnalysisStat[]>([]);
-  readonly fetchlandDetails = input<readonly ManaFetchlandDetailItem[]>([]);
-  readonly rampRows = input<readonly AdvancedAnalysisStat[]>([]);
-  readonly commanderRows = input<readonly ManaSectionGroup[]>([]);
+  readonly rampCardGroups = input<readonly ManaCardGroup[]>([]);
+  readonly fixingCardGroups = input<readonly ManaCardGroup[]>([]);
+  readonly demandRows = input<readonly ManaColorDemandRow[]>([]);
   readonly manaIssues = input<readonly AdvancedIssueItem[]>([]);
 }

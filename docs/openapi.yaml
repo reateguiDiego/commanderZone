@@ -1953,7 +1953,7 @@ paths:
       summary: Return the cached advanced deck analysis.
       description: >
         Returns the Advanced Deck Analysis shape backed by the snapshot cache.
-        Combo detection uses local combo_analysis_profile data. Archetype, power band, consistency, issues, and functional recommendations are conservative. Card-specific recommendations are intentionally not implemented yet.
+        Combo detection uses local combo_analysis_profile data. Archetype, power band, consistency, and issues are conservative.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -5054,14 +5054,14 @@ components:
           additionalProperties: true
     DeckAdvancedAnalysis:
       type: object
-      required: [deckId, analyzerVersion, analyzedAt, snapshot, summary, metrics, health, consistency, combos, topComboCompleters, archetypes, typal, power, issues, recommendations, unmatchedCards]
+      required: [deckId, analyzerVersion, analyzedAt, snapshot, summary, metrics, health, consistency, combos, topComboCompleters, archetypes, typal, power, issues, unmatchedCards]
       properties:
         deckId:
           type: string
           format: uuid
         analyzerVersion:
           type: string
-          example: advanced-v1.19.0
+          example: advanced-v1.20.0
         analyzedAt:
           type: string
           format: date-time
@@ -5096,10 +5096,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DeckAdvancedAnalysisIssue'
-        recommendations:
-          type: array
-          items:
-            $ref: '#/components/schemas/DeckAdvancedAnalysisRecommendation'
         unmatchedCards:
           type: array
           items:
@@ -5125,31 +5121,6 @@ components:
         suggestedActionType:
           type: string
           example: add_role
-    DeckAdvancedAnalysisRecommendation:
-      type: object
-      required: [code, priority, title, message, targetRoles, reasonIssueCodes]
-      properties:
-        code:
-          type: string
-          example: add_permanent_ramp
-        priority:
-          type: string
-          enum: [high, medium, low]
-        title:
-          type: string
-          example: Add permanent ramp
-        message:
-          type: string
-        targetRoles:
-          type: array
-          items:
-            type: string
-          example: [permanent_ramp]
-        reasonIssueCodes:
-          type: array
-          items:
-            type: string
-          example: [low_permanent_ramp]
     DeckAdvancedAnalysisSnapshotMetadata:
       type: object
       required: [hit, reason, deckHash, calculatedAt, analyzerVersion, semanticDataVersion, manaDataVersion, comboDataVersion, rulesVersion, monteCarloVersion, monteCarloRuns]
@@ -5181,7 +5152,7 @@ components:
           type: integer
     DeckAdvancedAnalysisSummary:
       type: object
-      required: [status, primaryArchetype, secondaryArchetypes, archetypeConfidence, mainStrengths, mainWarnings, criticalIssues]
+      required: [status, primaryArchetype, secondaryArchetypes, archetypeConfidence, mainStrengths, criticalIssues]
       properties:
         status:
           type: string
@@ -5216,10 +5187,6 @@ components:
                 items:
                   $ref: '#/components/schemas/DeckAdvancedAnalysisCardReferenceId'
         mainStrengths:
-          type: array
-          items:
-            type: string
-        mainWarnings:
           type: array
           items:
             type: string
@@ -5431,11 +5398,9 @@ components:
           additionalProperties: true
     DeckAdvancedAnalysisManaFetchlands:
       type: object
-      required: [count, validTargets, deadFetchlands, effectiveColorSources, untappedEffectiveColorSources, tappedOnlyEffectiveColorSources, details]
+      required: [count, deadFetchlands, effectiveColorSources, untappedEffectiveColorSources, tappedOnlyEffectiveColorSources, details]
       properties:
         count:
-          type: integer
-        validTargets:
           type: integer
         deadFetchlands:
           type: integer
@@ -5461,7 +5426,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
         - type: object
-          required: [quantity, fetchableLandTypes, validTargets, effectiveColors, untappedEffectiveColors, tappedOnlyEffectiveColors, dead]
+          required: [quantity, fetchableLandTypes, effectiveColors, untappedEffectiveColors, tappedOnlyEffectiveColors, dead]
           properties:
             quantity:
               type: integer
@@ -5469,10 +5434,6 @@ components:
               type: array
               items:
                 type: string
-            validTargets:
-              type: array
-              items:
-                $ref: '#/components/schemas/DeckAdvancedAnalysisManaFetchlandTarget'
             effectiveColors:
               type: array
               items:
@@ -5486,23 +5447,6 @@ components:
               items:
                 type: string
             dead:
-              type: boolean
-          additionalProperties: true
-    DeckAdvancedAnalysisManaFetchlandTarget:
-      allOf:
-        - $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
-        - type: object
-          required: [landCycleType, colors, canEnterUntapped, entersTapped]
-          properties:
-            landCycleType:
-              type: string
-            colors:
-              type: array
-              items:
-                type: string
-            canEnterUntapped:
-              type: boolean
-            entersTapped:
               type: boolean
           additionalProperties: true
     DeckAdvancedAnalysisHealth:

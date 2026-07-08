@@ -22,7 +22,7 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         );
 
         self::assertSame(1, $metrics['fetchlands']['count']);
-        self::assertSame(1, $metrics['fetchlands']['validTargets']);
+        self::assertArrayNotHasKey('validTargets', $metrics['fetchlands']);
         self::assertSame(0, $metrics['fetchlands']['deadFetchlands']);
         self::assertSame(1, $metrics['fetchlands']['effectiveColorSources']['white']);
         self::assertSame(1, $metrics['fetchlands']['effectiveColorSources']['blue']);
@@ -75,7 +75,7 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         self::assertArrayNotHasKey('green', $metrics['sources']);
         self::assertArrayNotHasKey('red', $metrics['fetchlands']['effectiveColorSources']);
         self::assertSame(['white', 'blue'], $metrics['fetchlands']['details'][0]['effectiveColors']);
-        self::assertSame(['white', 'blue'], $metrics['fetchlands']['details'][0]['validTargets'][0]['colors']);
+        self::assertArrayNotHasKey('validTargets', $metrics['fetchlands']['details'][0]);
     }
 
     public function testDeadFetchlandDoesNotCountAsEffectiveSource(): void
@@ -97,7 +97,7 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         self::assertSame('critical', $metrics['landCycleAnalysis']['fetchSynergyScore']);
     }
 
-    public function testFetchlandDetailsIncludeRenderableFetchlandAndTargets(): void
+    public function testFetchlandDetailsIncludeRenderableFetchlandSummary(): void
     {
         $metrics = $this->analyze(
             [
@@ -138,17 +138,10 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         self::assertSame($detail['oracleId'], $detail['fetchland']['oracleId']);
         self::assertSame($detail['name'], $detail['fetchland']['name']);
         self::assertSame($detail['imageUrl'], $detail['fetchland']['imageUrl']);
-
-        self::assertCount(2, $detail['validTargets']);
-        self::assertSame('shock', $detail['validTargets'][0]['oracleId']);
-        self::assertSame('Stomping Ground', $detail['validTargets'][0]['name']);
-        self::assertSame('https://cards.example.test/stomping-ground.jpg', $detail['validTargets'][0]['imageUrl']);
-        self::assertSame('shockland', $detail['validTargets'][0]['landCycleType']);
-        self::assertSame(['red', 'green'], $detail['validTargets'][0]['colors']);
-        self::assertTrue($detail['validTargets'][0]['canEnterUntapped']);
-        self::assertFalse($detail['validTargets'][0]['missingImage']);
-        self::assertSame('Cinder Glade', $detail['validTargets'][1]['name']);
-        self::assertSame('https://cards.example.test/cinder-glade.jpg', $detail['validTargets'][1]['imageUrl']);
+        self::assertArrayNotHasKey('validTargets', $detail);
+        self::assertSame(['red', 'green'], $detail['effectiveColors']);
+        self::assertSame(['red', 'green'], $detail['untappedEffectiveColors']);
+        self::assertSame([], $detail['tappedOnlyEffectiveColors']);
     }
 
     public function testFetchlandDetailsMarkMissingImagesWithoutFailing(): void
@@ -170,9 +163,8 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         self::assertSame('Wooded Foothills', $detail['fetchland']['name']);
         self::assertNull($detail['fetchland']['imageUrl']);
         self::assertTrue($detail['fetchland']['missingImage']);
-        self::assertSame('Forest', $detail['validTargets'][0]['name']);
-        self::assertNull($detail['validTargets'][0]['imageUrl']);
-        self::assertTrue($detail['validTargets'][0]['missingImage']);
+        self::assertArrayNotHasKey('validTargets', $detail);
+        self::assertSame(['green'], $detail['effectiveColors']);
     }
 
     public function testRampRitualAndCostReducerBucketsDoNotConflatePermanentMana(): void
@@ -275,8 +267,8 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         self::assertSame(1, $metrics['requirements']['pipDemand']['white']);
         self::assertSame(6, $metrics['requirements']['pipDemand']['blue']);
         self::assertSame(3, $metrics['requirements']['earlyPipDemand']['blue']);
-        self::assertCount(2, $metrics['requirements']['doublePipCards']);
-        self::assertCount(1, $metrics['requirements']['triplePipCards']);
+        self::assertArrayNotHasKey('doublePipCards', $metrics['requirements']);
+        self::assertArrayNotHasKey('triplePipCards', $metrics['requirements']);
         self::assertSame(1, $metrics['requirements']['commanderCastability']['white']['requiredPips']);
         self::assertSame('critical', $metrics['requirements']['commanderCastability']['white']['status']);
         self::assertSame(2, $metrics['requirements']['commanderCastability']['blue']['sourceCount']);

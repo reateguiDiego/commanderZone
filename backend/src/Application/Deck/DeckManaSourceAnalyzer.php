@@ -142,7 +142,6 @@ final class DeckManaSourceAnalyzer
             ],
             'fetchlands' => [
                 'count' => 0,
-                'validTargets' => 0,
                 'deadFetchlands' => 0,
                 'effectiveColorSources' => $this->emptyColorCounts(false),
                 'untappedEffectiveColorSources' => $this->emptyColorCounts(false),
@@ -163,8 +162,6 @@ final class DeckManaSourceAnalyzer
             'requirements' => [
                 'pipDemand' => $this->emptyPipCounts(),
                 'earlyPipDemand' => $this->emptyPipCounts(),
-                'doublePipCards' => [],
-                'triplePipCards' => [],
                 'colorIntensity' => $this->emptyFloatColorCounts(),
                 'commanderCost' => [],
                 'commanderCastability' => [],
@@ -363,7 +360,6 @@ final class DeckManaSourceAnalyzer
             }
 
             $metrics['fetchlands']['count'] += $quantity;
-            $metrics['fetchlands']['validTargets'] += count($targets) * $quantity;
             if ($targets === []) {
                 $metrics['fetchlands']['deadFetchlands'] += $quantity;
             }
@@ -381,16 +377,6 @@ final class DeckManaSourceAnalyzer
                 'fetchland' => $fetchland,
                 'quantity' => $quantity,
                 'fetchableLandTypes' => $fetchableTypes,
-                'validTargets' => array_map(
-                    fn (array $target): array => [
-                        ...$this->cardReference($target, (string) ($target['profile']['name'] ?? 'Unknown land')),
-                        'landCycleType' => (string) ($target['profile']['land_cycle_type'] ?? 'other'),
-                        'colors' => $this->colorNames($this->jsonList($target['profile']['produced_mana_colors'] ?? [])),
-                        'canEnterUntapped' => $this->targetCanEnterUntapped($target['profile']),
-                        'entersTapped' => $this->boolValue($target['profile']['enters_tapped'] ?? false),
-                    ],
-                    $targets,
-                ),
                 'effectiveColors' => $this->colorNames(array_keys($effective)),
                 'untappedEffectiveColors' => $this->colorNames(array_keys($untapped)),
                 'tappedOnlyEffectiveColors' => $this->colorNames(array_keys($tappedOnly)),
@@ -496,13 +482,6 @@ final class DeckManaSourceAnalyzer
                             $metrics['fetchlands']['details'][$index][$key] = $this->filterColorNameList($detail[$key], $allowedColors);
                         }
                     }
-                    if (is_array($detail['validTargets'] ?? null)) {
-                        foreach ($detail['validTargets'] as $targetIndex => $target) {
-                            if (is_array($target) && is_array($target['colors'] ?? null)) {
-                                $metrics['fetchlands']['details'][$index]['validTargets'][$targetIndex]['colors'] = $this->filterColorNameList($target['colors'], $allowedColors);
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -543,12 +522,6 @@ final class DeckManaSourceAnalyzer
             $totalPips += $count * $quantity;
             if ($manaValue !== null && $manaValue <= 3.0) {
                 $metrics['requirements']['earlyPipDemand'][$color] += $count * $quantity;
-            }
-            if ($count >= 2) {
-                $metrics['requirements']['doublePipCards'][] = $this->pipCard($card, $color, $count);
-            }
-            if ($count >= 3) {
-                $metrics['requirements']['triplePipCards'][] = $this->pipCard($card, $color, $count);
             }
         }
 
@@ -811,7 +784,7 @@ final class DeckManaSourceAnalyzer
             return (int) $metrics['fetchlands']['deadFetchlands'] >= $count ? 'critical' : 'warning';
         }
 
-        return (int) $metrics['fetchlands']['validTargets'] >= $count ? 'good' : 'warning';
+        return 'good';
     }
 
     private function thresholdStatus(int $value, int $good, int $warning): string
@@ -910,21 +883,6 @@ final class DeckManaSourceAnalyzer
         }
 
         return $pips;
-    }
-
-    /**
-     * @param array<string,mixed> $card
-     * @return array{name:string,oracleId:string,color:string,pips:int,quantity:int}
-     */
-    private function pipCard(array $card, string $color, int $pips): array
-    {
-        return [
-            'name' => (string) ($card['name'] ?? 'Unknown card'),
-            'oracleId' => (string) ($card['oracleId'] ?? ''),
-            'color' => $color,
-            'pips' => $pips,
-            'quantity' => max(1, (int) ($card['quantity'] ?? 1)),
-        ];
     }
 
     /**

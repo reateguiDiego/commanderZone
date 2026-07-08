@@ -1381,7 +1381,6 @@
           "lifegain": "El mazo tiene cartas de ganancia de vidas o payoffs que convierten ganar vida en ventaja real."
         },
         "criticalIssues": "Cuestiones críticas",
-        "mainWarnings": "Avisos principales",
         "primaryTypalType": "Tribu principal",
         "archetypeSignals": "Argumentos de arquetipo",
         "archetypeCards": "Cartas",
@@ -1481,11 +1480,6 @@
         "unmatchedCount": "{{count}} cartas sin resolver",
         "unmatchedCopy": "Algunas cartas no se pudieron resolver, por lo que las señales de roles y combos pueden estar incompletas.",
         "cardCouldNotBeMatched": "La carta no se pudo emparejar."
-      },
-      "warnings": {
-        "eyebrow": "Problemas principales",
-        "title": "Avisos principales",
-        "empty": "No se encontraron avisos principales."
       },
       "combos": {
         "eyebrow": "Líneas conocidas",
@@ -1602,25 +1596,6 @@
         "slow": "Lenta",
         "oneShot": "De un uso"
       },
-      "actions": {
-        "eyebrow": "plan de acción",
-        "title": "Problemas y recomendaciones funcionales",
-        "criticalIssues": "Cuestiones críticas",
-        "actionPrefix": "Acción: {{action}}",
-        "evidence": "Evidencia",
-        "noCriticalIssues": "No se detectaron problemas críticos.",
-        "warnings": "Avisos",
-        "noWarnings": "No se detectaron avisos.",
-        "info": "Info",
-        "noMajorIssues": "No se detectaron problemas estructurales importantes.",
-        "review": "Revisar"
-      },
-      "recommendations": {
-        "title": "Recomendaciones",
-        "targetsPrefix": "Objetivos: {{targets}}",
-        "reasonsPrefix": "Motivos: {{reasons}}",
-        "empty": "No hay recomendaciones funcionales disponibles."
-      },
       "typal": {
         "eyebrow": "Identidad tribal",
         "title": "Tribal de {{type}}",
@@ -1632,7 +1607,6 @@
       },
       "mana": {
         "title": "Análisis de maná",
-        "overview": "Resumen de maná",
         "sourcesByColor": "Fuentes de maná por color",
         "color": "Color",
         "coloredSources": "Fuentes de color",
@@ -1641,10 +1615,10 @@
         "earlySources": "Fuentes tempranas",
         "status": "Estado",
         "totalLands": "Tierras totales",
+        "averageManaValue": "Valor de maná medio",
         "tappedLands": "Tierras giradas",
         "fetchlands": "Fetchlands",
         "deadFetchlands": "Fetchlands sin objetivo",
-        "mainIssue": "Problema principal de maná",
         "landBase": "Base de tierras",
         "basics": "Básicas",
         "nonbasics": "No básicas",
@@ -1657,7 +1631,6 @@
         "noLandCycles": "No se detectaron ciclos de tierras rastreados.",
         "fetchlandCoverage": "Cobertura de fetchlands",
         "fetchlandsNotTutors": "Las fetchlands se analizan como fijación de maná, no como tutores genéricos.",
-        "validFetchTargets": "Objetivos válidos de fetch",
         "effectiveColors": "Colores efectivos",
         "untappedEffectiveColors": "Colores efectivos enderezados",
         "tappedOnlyColors": "Colores solo girados",

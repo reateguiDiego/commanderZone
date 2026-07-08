@@ -4,7 +4,6 @@ export type AdvancedAnalysisMap = Record<string, unknown>;
 export type AdvancedNumberMap = Record<string, number>;
 
 export type AdvancedIssueSeverity = 'info' | 'warning' | 'critical';
-export type AdvancedRecommendationPriority = 'high' | 'medium' | 'low';
 export type AdvancedConfidence = 'low' | 'medium' | 'high';
 export type AdvancedArchetypeConfidence = AdvancedConfidence | 'fragmented';
 export type AdvancedHealthStatus = 'excellent' | 'good' | 'warning' | 'critical' | 'unknown';
@@ -25,7 +24,6 @@ export interface AdvancedAnalysisResponse {
   typal?: AdvancedTypalAnalysis | null;
   power?: AdvancedPower | null;
   issues?: AdvancedIssue[];
-  recommendations?: AdvancedRecommendation[];
   unmatchedCards?: UnmatchedCard[];
 }
 
@@ -51,7 +49,6 @@ export interface AdvancedSummary {
   archetypeConfidence?: AdvancedArchetypeConfidence | string | null;
   archetypeExplanations?: AdvancedArchetypeExplanation[];
   mainStrengths?: string[];
-  mainWarnings?: string[];
   criticalIssues?: string[];
 }
 
@@ -181,7 +178,6 @@ export interface AdvancedManaEarlySources {
 
 export interface AdvancedFetchlandMetrics extends AdvancedAnalysisMap {
   count?: number;
-  validTargets?: number;
   deadFetchlands?: number;
   effectiveColorSources?: AdvancedNumberMap;
   untappedEffectiveColorSources?: AdvancedNumberMap;
@@ -199,32 +195,15 @@ export interface AdvancedFetchlandDetail {
   cardFaces?: CardFace[];
   quantity?: number | null;
   fetchableLandTypes?: string[];
-  validTargets?: AdvancedFetchlandTarget[];
   effectiveColors?: string[];
   untappedEffectiveColors?: string[];
   tappedOnlyEffectiveColors?: string[];
   dead?: boolean;
 }
 
-export interface AdvancedFetchlandTarget {
-  deckCardId?: string | null;
-  oracleId?: string;
-  scryfallId?: string | null;
-  name?: string | null;
-  imageUrl?: string | null;
-  imageUris?: CardImageUris | null;
-  cardFaces?: CardFace[];
-  quantity?: number | null;
-  colors?: string[];
-  canEnterUntapped?: boolean;
-  entersTapped?: boolean;
-}
-
 export interface AdvancedManaRequirements extends AdvancedAnalysisMap {
   pipDemand?: AdvancedNumberMap;
   earlyPipDemand?: AdvancedNumberMap;
-  doublePipCards?: AdvancedAnalysisMap[];
-  triplePipCards?: AdvancedAnalysisMap[];
   colorIntensity?: AdvancedNumberMap;
   commanderCost?: Record<string, AdvancedNumberMap>;
   commanderCastability?: Record<string, AdvancedCommanderCastability>;
@@ -410,15 +389,6 @@ export interface AdvancedIssue {
   message?: string;
   evidence?: AdvancedAnalysisMap;
   suggestedActionType?: string | null;
-}
-
-export interface AdvancedRecommendation {
-  code?: string;
-  priority?: AdvancedRecommendationPriority | string;
-  title?: string;
-  message?: string;
-  targetRoles?: string[];
-  reasonIssueCodes?: string[];
 }
 
 export interface UnmatchedCard {

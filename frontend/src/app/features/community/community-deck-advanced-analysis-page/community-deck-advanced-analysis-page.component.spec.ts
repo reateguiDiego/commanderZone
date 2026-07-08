@@ -177,7 +177,6 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
       primaryArchetype: 'Aristocrats',
       secondaryArchetypes: ['Tokens'],
       archetypeConfidence: 'high',
-      mainWarnings: [],
       criticalIssues: [],
     },
     health: null,
@@ -185,7 +184,6 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
     consistency: null,
     combos: null,
     issues: [],
-    recommendations: [],
     unmatchedCards: [],
     ...overrides,
   };

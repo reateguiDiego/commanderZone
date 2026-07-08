@@ -1,4 +1,5 @@
 import type { AdvancedHealthStatus } from '../../../core/models/deck-advanced-analysis.model';
+import type { Card } from '../../../core/models/card.model';
 import type { CardFaceImageSource } from '../../../shared/utils/card-faces';
 
 export interface AdvancedAnalysisStat {
@@ -67,24 +68,19 @@ export interface ManaColorSourceRow {
   readonly status: string;
 }
 
-export interface ManaSectionGroup {
+export interface ManaColorDemandRow {
   readonly key: string;
-  readonly title: string;
-  readonly titleManaSymbols: readonly string[];
-  readonly rows: AdvancedAnalysisStat[];
+  readonly symbols: readonly string[];
+  readonly label: string;
+  readonly pipDemand: string;
+  readonly earlyPipDemand: string;
+  readonly colorIntensity: string;
 }
 
-export interface ManaFetchlandDetailItem {
+export interface ManaCardGroup {
   readonly key: string;
-  readonly name: string;
-  readonly quantity: string;
+  readonly title: string;
   readonly cards: readonly AdvancedAnalysisCardGridItem[];
-  readonly targetCards: readonly AdvancedAnalysisCardGridItem[];
-  readonly validTargets: string;
-  readonly effectiveColorSymbols: readonly string[];
-  readonly untappedEffectiveColorSymbols: readonly string[];
-  readonly tappedOnlyColorSymbols: readonly string[];
-  readonly dead: boolean;
 }
 
 export interface RoleBreakdownCard {
@@ -133,6 +129,7 @@ export interface AdvancedAnalysisCardGridItem {
   readonly name: string;
   readonly imageUrl: string | null;
   readonly imageSource: CardFaceImageSource;
+  readonly layout?: Card['layout'] | null;
   readonly quantity?: number | null;
   readonly detail?: string | null;
 }
@@ -144,31 +141,6 @@ export interface ComboCardPreviewItem extends AdvancedAnalysisCardGridItem {
 
 export interface ComboCompleterItem extends AdvancedAnalysisCardGridItem {
   readonly completesCombos: string;
-}
-
-export interface EvidenceItem {
-  readonly label: string;
-  readonly value: string;
-}
-
-export interface ActionIssueItem {
-  readonly code: string;
-  readonly severity: string;
-  readonly title: string;
-  readonly message: string;
-  readonly suggestedActionType: string;
-  readonly evidence: EvidenceItem[];
-}
-
-export interface RecommendationItem {
-  readonly code: string;
-  readonly priority: string;
-  readonly title: string;
-  readonly message: string;
-  readonly targetRoles: string;
-  readonly hasTargetRoles: boolean;
-  readonly reasonIssueCodes: string;
-  readonly hasReasonIssueCodes: boolean;
 }
 
 export interface UnmatchedCardItem {

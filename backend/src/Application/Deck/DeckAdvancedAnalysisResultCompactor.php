@@ -273,27 +273,6 @@ final class DeckAdvancedAnalysisResultCompactor
                 }
             }
 
-            $targets = [];
-            foreach (($detail['validTargets'] ?? []) as $target) {
-                if (!is_array($target)) {
-                    continue;
-                }
-
-                $compactTarget = $this->compactReference($target, $catalog);
-                if ($compactTarget === null) {
-                    continue;
-                }
-
-                foreach (['landCycleType', 'colors', 'canEnterUntapped', 'entersTapped'] as $key) {
-                    if (array_key_exists($key, $target)) {
-                        $compactTarget[$key] = $target[$key];
-                    }
-                }
-
-                $targets[] = $compactTarget;
-            }
-
-            $compact['validTargets'] = $targets;
             $details[] = $compact;
         }
 

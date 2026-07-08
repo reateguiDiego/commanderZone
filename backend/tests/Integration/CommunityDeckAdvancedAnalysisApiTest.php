@@ -134,18 +134,10 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayNotHasKey('cardId', $detail);
         self::assertArrayNotHasKey('name', $detail);
         self::assertArrayNotHasKey('imageUrl', $detail);
-
-        $targetCycleTypes = [];
-        foreach ($detail['validTargets'] as $target) {
-            $targetCycleTypes[] = $target['landCycleType'];
-            self::assertNotEmpty($target['oracleId']);
-            self::assertArrayNotHasKey('cardId', $target);
-            self::assertArrayNotHasKey('imageUrl', $target);
-            self::assertArrayNotHasKey('imageUris', $target);
-        }
-
-        self::assertContains('shockland', $targetCycleTypes);
-        self::assertContains('battle_land', $targetCycleTypes);
+        self::assertArrayNotHasKey('validTargets', $detail);
+        self::assertIsArray($detail['effectiveColors']);
+        self::assertIsArray($detail['untappedEffectiveColors']);
+        self::assertIsArray($detail['tappedOnlyEffectiveColors']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis/advanced', token: $token);
         self::assertResponseIsSuccessful();
@@ -459,11 +451,11 @@ SQL,
             'archetypes',
             'power',
             'issues',
-            'recommendations',
             'unmatchedCards',
         ] as $key) {
             self::assertArrayHasKey($key, $response);
         }
+        self::assertArrayNotHasKey('recommendations', $response);
     }
 
     private function snapshotId(string $deckId): string

@@ -377,7 +377,7 @@ describe('API services', () => {
     expect(responses[0]?.metrics?.roles?.draw).toBe(12);
     expect(responses[0]?.health?.['score']).toBe(82);
     expect(responses[0]?.issues?.[0]?.severity).toBe('warning');
-    expect(responses[0]?.recommendations?.[0]?.targetRoles).toEqual(['permanent_ramp']);
+    expect('recommendations' in (responses[0] ?? {})).toBe(false);
   });
 
   it('loads community advanced deck analysis through the public slug endpoint', () => {
@@ -769,7 +769,6 @@ function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
       secondaryArchetypes: ['aristocrats'],
       archetypeConfidence: 'high',
       mainStrengths: ['Reliable token engine'],
-      mainWarnings: ['Low interaction'],
       criticalIssues: [],
       primaryTypalType: 'Elf',
     },
@@ -891,14 +890,6 @@ function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
       message: 'Add more ramp.',
       evidence: { permanentRamp: 8 },
       suggestedActionType: 'add_role',
-    }],
-    recommendations: [{
-      code: 'add_permanent_ramp',
-      priority: 'medium',
-      title: 'Add permanent ramp',
-      message: 'Add one or two ramp pieces.',
-      targetRoles: ['permanent_ramp'],
-      reasonIssueCodes: ['low_permanent_ramp'],
     }],
     unmatchedCards: [{
       deckCardId: 'deck-card-1',

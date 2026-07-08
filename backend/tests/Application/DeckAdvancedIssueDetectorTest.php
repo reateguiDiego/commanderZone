@@ -4,12 +4,11 @@ namespace App\Tests\Application;
 
 use App\Application\Deck\DeckAdvancedIssueDetector;
 use App\Application\Deck\DeckAdvancedAnalysisHealthEvaluator;
-use App\Application\Deck\DeckAdvancedRecommendationBuilder;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Result;
 use PHPUnit\Framework\TestCase;
 
-final class DeckAdvancedIssueAndRecommendationTest extends TestCase
+final class DeckAdvancedIssueDetectorTest extends TestCase
 {
     public function testFakeAristocratsRequiresRealSacrificeOutlets(): void
     {
@@ -22,7 +21,6 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
         ], archetypes: ['primary' => 'aristocrats', 'secondary' => [], 'confidence' => 'low']);
 
         self::assertContains('low_real_sacrifice_outlets', $this->issueCodes($issues));
-        self::assertContains('add_repeatable_sacrifice_outlet', $this->recommendationCodes($issues));
     }
 
     public function testGoWideTokensWithoutSacrificePlanDoesNotRequireSacrificeOutlets(): void
@@ -36,7 +34,6 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
         ], archetypes: ['primary' => 'tokens', 'secondary' => [], 'confidence' => 'medium']);
 
         self::assertNotContains('low_real_sacrifice_outlets', $this->issueCodes($issues));
-        self::assertNotContains('add_repeatable_sacrifice_outlet', $this->recommendationCodes($issues));
     }
 
     public function testBlinkValueWithoutSacrificePlanDoesNotRequireSacrificeOutlets(): void
@@ -120,10 +117,9 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
         self::assertContains('fetchlands_without_targets', $this->issueCodes($issues));
         self::assertContains('too_many_tapped_lands', $this->issueCodes($issues));
         self::assertContains('colorless_land_pressure', $this->issueCodes($issues));
-        self::assertContains('review_mana_base', $this->recommendationCodes($issues));
     }
 
-    public function testSpecificManabaseIssuesAndRecommendationsAreReported(): void
+    public function testSpecificManabaseIssuesAreReported(): void
     {
         $issues = $this->detect([
             'permanentRamp' => 9,
@@ -210,7 +206,6 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
             'colorAccess' => ['commanderCurve' => ['canCastOnCurveRate' => 0.4]],
         ]);
         $codes = $this->issueCodes($issues);
-        $recommendations = $this->recommendationCodes($issues);
 
         foreach ([
             'low_colored_sources',
@@ -235,27 +230,6 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
             self::assertContains($expectedCode, $codes);
         }
 
-        foreach ([
-            'add_colored_sources',
-            'add_untapped_sources',
-            'reduce_tapped_lands',
-            'reduce_slow_lands',
-            'reduce_colorless_utility_lands',
-            'add_fetchable_targets',
-            'improve_fetch_targets',
-            'add_rainbow_sources',
-            'add_land_ramp_that_fixes',
-            'replace_rituals_with_permanent_ramp',
-            'add_commander_color_sources',
-            'review_mana_base_speed',
-            'improve_checkland_support',
-            'reduce_unsupported_filterlands',
-            'reduce_pathway_color_pressure',
-            'reduce_bounce_lands',
-            'review_painland_life_pressure',
-        ] as $expectedRecommendation) {
-            self::assertContains($expectedRecommendation, $recommendations);
-        }
     }
 
     public function testGoodManabaseDoesNotProduceCriticalManaIssues(): void
@@ -300,7 +274,6 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
         $issues = $this->detect(['comboPieces' => 7], combos: ['completeCount' => 0, 'partialOneMissingCount' => 0]);
 
         self::assertContains('combo_pieces_without_complete_combos', $this->issueCodes($issues));
-        self::assertContains('review_combo_package', $this->recommendationCodes($issues));
     }
 
     public function testStaxReportsSymmetricalRisk(): void
@@ -453,15 +426,6 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
     private function issueCodes(array $issues): array
     {
         return array_column($issues, 'code');
-    }
-
-    /**
-     * @param list<array{code:string}> $issues
-     * @return list<string>
-     */
-    private function recommendationCodes(array $issues): array
-    {
-        return array_column((new DeckAdvancedRecommendationBuilder())->build($issues), 'code');
     }
 
     /**

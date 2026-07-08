@@ -1381,7 +1381,6 @@
           "lifegain": "The deck has lifegain cards or payoffs that turn life gain into material advantage."
         },
         "criticalIssues": "Problèmes critiques",
-        "mainWarnings": "Principaux avertissements",
         "primaryTypalType": "Tribu principale",
         "archetypeSignals": "Archetype rationale",
         "archetypeReason": "Why this fits",
@@ -1481,11 +1480,6 @@
         "unmatchedCount": "Cartes inégalées {{count}}",
         "unmatchedCopy": "Certaines cartes n’ont pas pu être identifiées ; les signaux de rôles et de combos peuvent donc être incomplets.",
         "cardCouldNotBeMatched": "La carte n'a pas pu correspondre."
-      },
-      "warnings": {
-        "eyebrow": "Problèmes majeurs",
-        "title": "Principaux avertissements",
-        "empty": "Aucun avertissement principal trouvé."
       },
       "combos": {
         "eyebrow": "Lignes connues",
@@ -1602,25 +1596,6 @@
         "slow": "Lent",
         "oneShot": "Un coup"
       },
-      "actions": {
-        "eyebrow": "Plan d'action",
-        "title": "Problèmes et recommandations fonctionnelles",
-        "criticalIssues": "Problèmes critiques",
-        "actionPrefix": "Action : {{action}}",
-        "evidence": "Preuve",
-        "noCriticalIssues": "Aucun problème critique détecté.",
-        "warnings": "Avertissements",
-        "noWarnings": "Aucun avertissement détecté.",
-        "info": "Info",
-        "noMajorIssues": "Aucun problème structurel majeur détecté.",
-        "review": "Examen"
-      },
-      "recommendations": {
-        "title": "Recommandations",
-        "targetsPrefix": "Cibles : {{targets}}",
-        "reasonsPrefix": "Motifs : {{reasons}}",
-        "empty": "Aucune recommandation fonctionnelle disponible."
-      },
       "typal": {
         "eyebrow": "Identité tribale",
         "title": "Tribal {{type}}",
@@ -1632,7 +1607,6 @@
       },
       "mana": {
         "title": "Mana Analysis",
-        "overview": "Mana overview",
         "sourcesByColor": "Mana sources by color",
         "color": "Color",
         "coloredSources": "Colored sources",
@@ -1641,10 +1615,10 @@
         "earlySources": "Early sources",
         "status": "Status",
         "totalLands": "Total lands",
+        "averageManaValue": "Average mana value",
         "tappedLands": "Tapped lands",
         "fetchlands": "Fetchlands",
         "deadFetchlands": "Dead fetchlands",
-        "mainIssue": "Main mana issue",
         "landBase": "Land base",
         "basics": "Basics",
         "nonbasics": "Nonbasics",
@@ -1657,7 +1631,6 @@
         "noLandCycles": "No tracked land cycles detected.",
         "fetchlandCoverage": "Fetchland coverage",
         "fetchlandsNotTutors": "Fetchlands are analyzed as mana fixing, not generic tutors.",
-        "validFetchTargets": "Valid fetch targets",
         "effectiveColors": "Effective colors",
         "untappedEffectiveColors": "Untapped effective colors",
         "tappedOnlyColors": "Tapped-only colors",

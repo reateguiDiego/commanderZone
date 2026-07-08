@@ -32,13 +32,12 @@
         [hasMana]="hasManaAnalysis()"
         [overviewRows]="manaOverviewRows()"
         [sourceRows]="manaSourceRows()"
-        [landBaseRows]="manaLandBaseRows()"
+        [sourceCardGroups]="manaSourceCardGroups()"
+        [landBaseCardGroups]="manaLandBaseCardGroups()"
         [landCycleRows]="manaLandCycleRows()"
-        [landCycleAnalysisRows]="manaLandCycleAnalysisRows()"
-        [fetchlandRows]="manaFetchlandRows()"
-        [fetchlandDetails]="manaFetchlandDetails()"
-        [rampRows]="manaRampRows()"
-        [commanderRows]="manaCommanderRows()"
+        [rampCardGroups]="manaRampCardGroups()"
+        [fixingCardGroups]="manaFixingCardGroups()"
+        [demandRows]="manaDemandRows()"
         [manaIssues]="manaIssueItems()"
       />
 
@@ -52,12 +51,6 @@
         [hasUnmatchedCards]="hasUnmatchedCards()"
         [unmatchedCardCount]="unmatchedCardCount()"
         [unmatchedCardItems]="unmatchedCardItems()"
-      />
-
-      <app-advanced-analysis-warnings-section
-        class="advanced-analysis-tab-panel"
-        [class.is-active]="activeAnalysisTab() === 'warnings'"
-        [issues]="topIssues()"
       />
 
       <app-advanced-analysis-combos-section
@@ -95,16 +88,6 @@
         class="advanced-analysis-tab-panel"
         [class.is-active]="activeAnalysisTab() === 'roles'"
         [cards]="roleBreakdownCards()"
-      />
-
-      <app-advanced-analysis-actions-section
-        class="advanced-analysis-tab-panel"
-        [class.is-active]="activeAnalysisTab() === 'actions'"
-        [hasActionIssues]="hasActionIssues()"
-        [criticalIssues]="criticalIssueItems()"
-        [warningIssues]="warningIssueItems()"
-        [infoIssues]="infoIssueItems()"
-        [recommendations]="recommendationItems()"
       />
     </section>
   }
