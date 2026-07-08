@@ -38,6 +38,11 @@ describe('CommunityDeckInspectorComponent', () => {
     const hoverList = fixture.nativeElement.querySelector('.analysis-hover-list') as HTMLElement | null;
     expect(hoverList).not.toBeNull();
     expect(hoverList?.textContent).toContain('Esper Sentinel');
+
+    const advancedAnalysisLink = fixture.nativeElement.querySelector(
+      'a[aria-label="Open advanced analysis for this community deck"]',
+    ) as HTMLAnchorElement | null;
+    expect(advancedAnalysisLink?.getAttribute('href')).toBe('/community/decks/community-deck-slug/analysis');
   });
 });
 
@@ -48,6 +53,7 @@ function buildDeckDetail(): CommunityDeckDetail {
 
   return {
     id: 'community-deck-1',
+    publicSlug: 'community-deck-slug',
     name: 'Community Deck',
     format: 'commander',
     valid: true,

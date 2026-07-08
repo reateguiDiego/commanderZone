@@ -31,6 +31,11 @@ export class CommunityDeckInspectorComponent {
   readonly clientIssues = computed(() => this.validationService.validate(this.deck()));
   readonly consideringCards = computed(() => this.deck().sections.maybeboard ?? []);
   readonly commanderNames = computed(() => this.deck().commanders.map((commander) => commander.name).join(' / '));
+  readonly advancedAnalysisLink = computed<readonly string[]>(() => [
+    '/community/decks',
+    this.deck().publicSlug ?? this.deck().id,
+    'analysis',
+  ]);
   readonly tabItems = computed<readonly TabListItem[]>(() => COMMUNITY_INSPECTOR_TABS.map((item) => {
     if (item.id === 'considering') {
       return { ...item, badge: this.consideringCards().length || undefined };

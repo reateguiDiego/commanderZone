@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { AuthStore } from '../../../core/auth/auth.store';
@@ -20,7 +20,6 @@ import { HeroRuleComponent } from '../../../shared/ui/hero-rule/hero-rule.compon
 import { CommunityDeckInspectorComponent } from '../components/deck-inspector/community-deck-inspector.component';
 import { CommunityCacheService } from '../data-access/community-cache.service';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
-import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { DeckImportExportService } from '../../decks/services/deck-import-export.service';
 import { CommunityDeckCardActionEvent, CommunityDeckViewerStore } from '../components/deck-viewer/community-deck-viewer.store';
 import { DECK_VIEW_STORE } from '../../decks/deck-editor/deck-view-store.token';
@@ -53,8 +52,6 @@ interface CardPrintingsDialogState {
     AppModalComponent,
     CardDetailsModalComponent,
     CardPrintingsModalComponent,
-    RouterLink,
-    CzButtonDirective,
   ],
   templateUrl: './community-deck-detail-page.component.html',
   styleUrl: './community-deck-detail-page.component.scss',
@@ -99,11 +96,6 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
 
     return ownerId !== null && viewerId !== null && ownerId === viewerId;
   });
-  readonly advancedAnalysisLink = computed<readonly string[]>(() => [
-    '/community/decks',
-    this.deck()?.publicSlug ?? this.deckId ?? this.deck()?.id ?? '',
-    'analysis',
-  ]);
   constructor() {
     this.seo.apply({
       path: `/community/decks/${this.deckId ?? ''}/`,

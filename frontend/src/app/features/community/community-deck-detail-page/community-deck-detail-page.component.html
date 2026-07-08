@@ -12,21 +12,6 @@
       <p class="notice error">{{ actionError()! | runtimeTranslate }}</p>
     }
 
-    <section class="community-advanced-analysis-callout" aria-labelledby="community-advanced-analysis-title">
-      <div>
-        <span>{{ 'deckBuilder.advancedAnalysis.eyebrow' | runtimeTranslate }}</span>
-        <h2 id="community-advanced-analysis-title">{{ 'deckBuilder.advancedAnalysis.title' | runtimeTranslate }}</h2>
-        <p>{{ 'deckBuilder.advancedAnalysis.description' | runtimeTranslate }}</p>
-      </div>
-      <a
-        czButton="secondary"
-        [routerLink]="advancedAnalysisLink()"
-        [attr.aria-label]="'deckBuilder.advancedAnalysis.openCommunityAria' | runtimeTranslate"
-      >
-        {{ 'deckBuilder.advancedAnalysis.openButton' | runtimeTranslate }}
-      </a>
-    </section>
-
     <div class="community-detail-viewer">
       <app-deck-viewer
         [deck]="deckDetail"
