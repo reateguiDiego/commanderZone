@@ -1,0 +1,212 @@
+@if (hasMana()) {
+  <section class="advanced-analysis-section advanced-analysis-mana" [attr.aria-label]="'deckBuilder.advancedAnalysis.mana.title' | runtimeTranslate">
+    <div class="advanced-analysis-mana-grid">
+      <article class="advanced-analysis-mana-card advanced-analysis-card-frame">
+        <h3>{{ 'deckBuilder.advancedAnalysis.mana.overview' | runtimeTranslate }}</h3>
+        <dl class="advanced-analysis-mana-stat-list">
+          @for (stat of overviewRows(); track stat.label) {
+            <div>
+              <dt>{{ stat.label }}</dt>
+              <dd>{{ stat.value }}</dd>
+            </div>
+          }
+        </dl>
+      </article>
+
+      <article class="advanced-analysis-mana-card advanced-analysis-card-frame advanced-analysis-mana-card--wide">
+        <h3>{{ 'deckBuilder.advancedAnalysis.mana.sourcesByColor' | runtimeTranslate }}</h3>
+        <div class="advanced-analysis-mana-source-grid" role="table">
+          <div class="advanced-analysis-mana-source-header" role="row">
+            <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.color' | runtimeTranslate }}</span>
+            <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.coloredSources' | runtimeTranslate }}</span>
+            <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.untappedSources' | runtimeTranslate }}</span>
+            <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.earlySources' | runtimeTranslate }}</span>
+            <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.status' | runtimeTranslate }}</span>
+          </div>
+          @for (row of sourceRows(); track row.key) {
+            <div class="advanced-analysis-mana-source-row" role="row">
+              <span role="cell">
+                <app-mana-symbols [symbols]="row.symbols" fallback="" size="small" />
+                <span class="advanced-analysis-visually-hidden">{{ row.label }}</span>
+              </span>
+              <span role="cell">{{ row.sources }}</span>
+              <span role="cell">{{ row.untappedSources }}</span>
+              <span role="cell">{{ row.earlySources }}</span>
+              <span role="cell">{{ row.status }}</span>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="advanced-analysis-mana-card advanced-analysis-card-frame">
+        <h3>{{ 'deckBuilder.advancedAnalysis.mana.landBase' | runtimeTranslate }}</h3>
+        <dl class="advanced-analysis-mana-stat-list">
+          @for (stat of landBaseRows(); track stat.label) {
+            <div>
+              <dt>{{ stat.label }}</dt>
+              <dd>
+                @if (stat.symbolItems?.length) {
+                  <span class="advanced-analysis-symbol-value-list">
+                    @for (item of stat.symbolItems; track item.key) {
+                      <span class="advanced-analysis-symbol-value" [attr.aria-label]="item.label + ' ' + item.value">
+                        <app-mana-symbols [symbols]="item.symbols" fallback="" size="small" />
+                        <span>{{ item.value }}</span>
+                      </span>
+                    }
+                  </span>
+                } @else {
+                  {{ stat.value }}
+                }
+              </dd>
+            </div>
+          }
+        </dl>
+      </article>
+
+      <article class="advanced-analysis-mana-card advanced-analysis-card-frame">
+        <h3>{{ 'deckBuilder.advancedAnalysis.mana.rampProfile' | runtimeTranslate }}</h3>
+        <dl class="advanced-analysis-mana-stat-list">
+          @for (stat of rampRows(); track stat.label) {
+            <div>
+              <dt>{{ stat.label }}</dt>
+              <dd>{{ stat.value }}</dd>
+            </div>
+          }
+        </dl>
+      </article>
+
+      <article class="advanced-analysis-mana-card advanced-analysis-card-frame advanced-analysis-mana-card--wide">
+        <h3>{{ 'deckBuilder.advancedAnalysis.mana.landCycles' | runtimeTranslate }}</h3>
+        @if (landCycleRows().length > 0) {
+          <dl class="advanced-analysis-mana-cycle-list">
+            @for (stat of landCycleRows(); track stat.label) {
+              <div>
+                <dt>{{ stat.label }}</dt>
+                <dd>{{ stat.value }}</dd>
+              </div>
+            }
+          </dl>
+        } @else {
+          <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.mana.noLandCycles' | runtimeTranslate }}</p>
+        }
+        @if (landCycleAnalysisRows().length > 0) {
+          <dl class="advanced-analysis-mana-analysis-list">
+            @for (stat of landCycleAnalysisRows(); track stat.label) {
+              <div>
+                <dt>{{ stat.label }}</dt>
+                <dd>{{ stat.value }}</dd>
+              </div>
+            }
+          </dl>
+        }
+      </article>
+
+      <article class="advanced-analysis-mana-card advanced-analysis-card-frame advanced-analysis-mana-card--wide">
+        <h3>{{ 'deckBuilder.advancedAnalysis.mana.fetchlandCoverage' | runtimeTranslate }}</h3>
+        <p class="advanced-analysis-mana-note">{{ 'deckBuilder.advancedAnalysis.mana.fetchlandsNotTutors' | runtimeTranslate }}</p>
+        <dl class="advanced-analysis-mana-stat-list advanced-analysis-mana-stat-list--compact">
+          @for (stat of fetchlandRows(); track stat.label) {
+            <div>
+              <dt>{{ stat.label }}</dt>
+              <dd>{{ stat.value }}</dd>
+            </div>
+          }
+        </dl>
+        @if (fetchlandDetails().length > 0) {
+          <ul class="advanced-analysis-mana-fetch-list">
+            @for (detail of fetchlandDetails(); track detail.key) {
+              <li [class.is-dead]="detail.dead">
+                <div>
+                  <strong>{{ detail.name }}</strong>
+                  <span>{{ detail.quantity }}</span>
+                </div>
+                @if (detail.cards.length > 0) {
+                  <app-advanced-analysis-card-grid [title]="detail.name" [cards]="detail.cards" [defaultCollapsed]="false" />
+                }
+                <dl>
+                  <div>
+                    <dt>{{ 'deckBuilder.advancedAnalysis.mana.validFetchTargets' | runtimeTranslate }}</dt>
+                    <dd>{{ detail.validTargets }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'deckBuilder.advancedAnalysis.mana.effectiveColors' | runtimeTranslate }}</dt>
+                    <dd><app-mana-symbols [symbols]="detail.effectiveColorSymbols" [fallback]="'deckBuilder.advancedAnalysis.common.unavailable' | runtimeTranslate" size="small" /></dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'deckBuilder.advancedAnalysis.mana.untappedEffectiveColors' | runtimeTranslate }}</dt>
+                    <dd><app-mana-symbols [symbols]="detail.untappedEffectiveColorSymbols" [fallback]="'deckBuilder.advancedAnalysis.common.unavailable' | runtimeTranslate" size="small" /></dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'deckBuilder.advancedAnalysis.mana.tappedOnlyColors' | runtimeTranslate }}</dt>
+                    <dd><app-mana-symbols [symbols]="detail.tappedOnlyColorSymbols" [fallback]="'deckBuilder.advancedAnalysis.common.unavailable' | runtimeTranslate" size="small" /></dd>
+                  </div>
+                </dl>
+                @if (detail.targetCards.length > 0) {
+                  <app-advanced-analysis-card-grid
+                    [title]="'deckBuilder.advancedAnalysis.mana.validFetchTargets' | runtimeTranslate"
+                    [cards]="detail.targetCards"
+                    [defaultCollapsed]="false"
+                  />
+                }
+              </li>
+            }
+          </ul>
+        }
+      </article>
+
+      @if (commanderRows().length > 0) {
+        <article class="advanced-analysis-mana-card advanced-analysis-card-frame advanced-analysis-mana-card--wide">
+          <h3>{{ 'deckBuilder.advancedAnalysis.mana.commanderCastability' | runtimeTranslate }}</h3>
+          <div class="advanced-analysis-mana-commander-grid">
+            @for (group of commanderRows(); track group.key) {
+              <section>
+                <h4>
+                  @if (group.titleManaSymbols.length > 0) {
+                    <app-mana-symbols [symbols]="group.titleManaSymbols" fallback="" size="small" />
+                  }
+                  <span>{{ group.title }}</span>
+                </h4>
+                <dl class="advanced-analysis-mana-stat-list">
+                  @for (stat of group.rows; track stat.label) {
+                    <div>
+                      <dt>
+                        @if (stat.manaSymbols?.length) {
+                          <app-mana-symbols [symbols]="stat.manaSymbols" fallback="" size="small" />
+                          <span class="advanced-analysis-visually-hidden">{{ stat.label }}</span>
+                        } @else {
+                          {{ stat.label }}
+                        }
+                      </dt>
+                      <dd>{{ stat.value }}</dd>
+                    </div>
+                  }
+                </dl>
+              </section>
+            }
+          </div>
+        </article>
+      }
+
+      <article class="advanced-analysis-mana-card advanced-analysis-card-frame advanced-analysis-mana-card--wide">
+        <h3>{{ 'deckBuilder.advancedAnalysis.mana.warnings' | runtimeTranslate }}</h3>
+        @if (manaIssues().length > 0) {
+          <ul class="advanced-analysis-issue-list">
+            @for (issue of manaIssues(); track issue.code) {
+              <li>
+                <span>{{ issue.title }}</span>
+                <small>{{ issue.message }}</small>
+                <em>{{ issue.severity }}</em>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.mana.noManaIssues' | runtimeTranslate }}</p>
+        }
+      </article>
+    </div>
+  </section>
+} @else {
+  <section class="advanced-analysis-section advanced-analysis-mana" [attr.aria-label]="'deckBuilder.advancedAnalysis.mana.title' | runtimeTranslate">
+    <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.mana.unavailable' | runtimeTranslate }}</p>
+  </section>
+}

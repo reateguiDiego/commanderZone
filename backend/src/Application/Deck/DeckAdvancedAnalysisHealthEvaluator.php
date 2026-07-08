@@ -69,6 +69,7 @@ final class DeckAdvancedAnalysisHealthEvaluator
 
         $health['combos'] = $this->comboHealth($combos, $issues);
         $health['consistency'] = $this->consistencyHealth($consistency, $issues);
+        $health['mana'] = $this->manaHealth(is_array($metrics['mana'] ?? null) ? $metrics['mana'] : [], $consistency, $issues);
         if (($typal['detected'] ?? false) === true) {
             $health['typal'] = $this->typalHealth($typal, $issues);
         }
@@ -387,6 +388,117 @@ SQL,
                 'earlyPlayInOpeningRate' => $opening['earlyPlayInOpeningRate'] ?? null,
             ],
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $mana
+     * @param array<string,mixed> $consistency
+     * @param list<array{code:string,severity:string}> $issues
+     * @return array<string,mixed>
+     */
+    private function manaHealth(array $mana, array $consistency, array $issues): array
+    {
+        if ($mana === []) {
+            return [
+                'status' => 'unknown',
+                'message' => 'Mana base cannot be evaluated confidently.',
+                'evidence' => [
+                    'lands' => null,
+                    'coloredSources' => [],
+                    'tappedLands' => null,
+                    'deadFetchlands' => null,
+                    'commanderCastability' => 'unknown',
+                    'landCycleRisks' => [],
+                ],
+            ];
+        }
+
+        $manaIssueCodes = [
+            'low_colored_sources',
+            'weak_primary_color_sources',
+            'low_early_color_access',
+            'low_commander_castability',
+            'commander_color_bottleneck',
+            'too_many_tapped_lands',
+            'too_many_slow_lands',
+            'colorless_land_pressure',
+            'fetchlands_without_targets',
+            'fetchlands_mostly_tapped_targets',
+            'typed_land_density_low_for_fetches',
+            'typed_land_density_low_for_checklands',
+            'checklands_not_supported',
+            'filterlands_need_input_sources',
+            'pathways_create_color_choice_pressure',
+            'bounce_lands_tempo_risk',
+            'painland_life_pressure',
+            'ramp_does_not_fix_colors',
+            'rituals_not_stable_ramp',
+            'cost_reducers_not_mana_sources',
+        ];
+
+        $status = $this->sectionStatus('good', $issues, $manaIssueCodes);
+        if ($status === 'excellent') {
+            $status = 'good';
+        }
+
+        $lands = is_array($mana['lands'] ?? null) ? $mana['lands'] : [];
+        $sources = is_array($mana['sources'] ?? null) ? $mana['sources'] : [];
+        $fetchlands = is_array($mana['fetchlands'] ?? null) ? $mana['fetchlands'] : [];
+        $requirements = is_array($mana['requirements'] ?? null) ? $mana['requirements'] : [];
+        $cycle = is_array($mana['landCycleAnalysis'] ?? null) ? $mana['landCycleAnalysis'] : [];
+        $opening = is_array($consistency['openingHand'] ?? null) ? $consistency['openingHand'] : [];
+
+        return [
+            'status' => $status,
+            'message' => match ($status) {
+                'good' => 'Mana base looks functional.',
+                'warning' => 'Mana base needs review.',
+                'critical' => 'Mana base has serious color or speed pressure.',
+                default => 'Mana base cannot be evaluated confidently.',
+            },
+            'evidence' => [
+                'lands' => $lands['total'] ?? null,
+                'coloredSources' => array_intersect_key($sources, array_flip(['white', 'blue', 'black', 'red', 'green'])),
+                'tappedLands' => $lands['tappedLands'] ?? null,
+                'deadFetchlands' => $fetchlands['deadFetchlands'] ?? null,
+                'commanderCastability' => $this->commanderCastabilityStatus(is_array($requirements['commanderCastability'] ?? null) ? $requirements['commanderCastability'] : []),
+                'landCycleRisks' => array_filter([
+                    'fetchSynergyScore' => $cycle['fetchSynergyScore'] ?? null,
+                    'checklandSupport' => $cycle['checklandSupport'] ?? null,
+                    'tappedLandPressure' => $cycle['tappedLandPressure'] ?? null,
+                    'colorlessUtilityPressure' => $cycle['colorlessUtilityPressure'] ?? null,
+                    'pathwayColorChoicePressure' => $cycle['pathwayColorChoicePressure'] ?? null,
+                    'filterlandInputPressure' => $cycle['filterlandInputPressure'] ?? null,
+                    'bounceLandTempoPressure' => $cycle['bounceLandTempoPressure'] ?? null,
+                ], static fn (mixed $value): bool => $value !== null && $value !== 'unknown'),
+                'keepableManaRate' => $opening['keepableManaRate'] ?? null,
+                'hasAllEarlyColorsRate' => $opening['hasAllEarlyColorsRate'] ?? null,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $commanderCastability
+     */
+    private function commanderCastabilityStatus(array $commanderCastability): string
+    {
+        $status = 'unknown';
+        foreach ($commanderCastability as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $entryStatus = (string) ($entry['status'] ?? 'unknown');
+            if ($entryStatus === 'critical') {
+                return 'critical';
+            }
+            if ($entryStatus === 'warning') {
+                $status = 'warning';
+            } elseif ($status === 'unknown' && $entryStatus === 'good') {
+                $status = 'good';
+            }
+        }
+
+        return $status;
     }
 
     /**

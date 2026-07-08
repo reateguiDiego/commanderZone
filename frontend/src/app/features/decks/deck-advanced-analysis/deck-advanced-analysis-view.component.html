@@ -25,6 +25,22 @@
         [cards]="healthCards()"
       />
 
+      <app-advanced-analysis-mana-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'mana'"
+        [hasMana]="hasManaAnalysis()"
+        [overviewRows]="manaOverviewRows()"
+        [sourceRows]="manaSourceRows()"
+        [landBaseRows]="manaLandBaseRows()"
+        [landCycleRows]="manaLandCycleRows()"
+        [landCycleAnalysisRows]="manaLandCycleAnalysisRows()"
+        [fetchlandRows]="manaFetchlandRows()"
+        [fetchlandDetails]="manaFetchlandDetails()"
+        [rampRows]="manaRampRows()"
+        [commanderRows]="manaCommanderRows()"
+        [manaIssues]="manaIssueItems()"
+      />
+
       <app-advanced-analysis-metrics-section
         class="advanced-analysis-tab-panel"
         [class.is-active]="activeAnalysisTab() === 'metrics'"
@@ -70,6 +86,8 @@
         [keepRuleRows]="keepRuleRows()"
         [mulliganRows]="mulliganRows()"
         [byTurnGroups]="byTurnGroups()"
+        [colorAccessGroups]="colorAccessGroups()"
+        [commanderCurveRows]="commanderCurveRows()"
       />
 
       <app-advanced-analysis-roles-section

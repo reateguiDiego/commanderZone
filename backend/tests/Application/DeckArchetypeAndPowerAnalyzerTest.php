@@ -116,6 +116,16 @@ final class DeckArchetypeAndPowerAnalyzerTest extends TestCase
         self::assertGreaterThan($lowOnly['power']['signals']['lowOpportunityCost'], $powered['power']['signals']['fastMana'] + $powered['power']['signals']['efficientTutors'] + $powered['power']['signals']['freeInteraction']);
     }
 
+    public function testLandWithTutorRoleDoesNotCreateStrongTutorPowerSignal(): void
+    {
+        $analysis = $this->analyze([
+            $this->card(4, roles: ['land', 'tutor'], subroles: ['true_tutor'], roleScores: ['tutor' => ['quality' => 'good']]),
+            $this->card(1, roles: ['tutor'], subroles: ['true_tutor'], roleScores: ['tutor' => ['quality' => 'good']]),
+        ]);
+
+        self::assertSame(1, $analysis['power']['signals']['strongTutors']);
+    }
+
     /**
      * @param list<array{quantity:int,analysisProfile:array<string,mixed>}> $cards
      * @param array<string,mixed> $combos
@@ -155,6 +165,7 @@ final class DeckArchetypeAndPowerAnalyzerTest extends TestCase
      * @param array<string,bool> $flags
      * @param list<string> $conditionKeys
      * @param array<string,float|int> $archetypeWeights
+     * @param array<string,array<string,mixed>> $roleScores
      * @return array{quantity:int,analysisProfile:array<string,mixed>}
      */
     private function card(
@@ -165,15 +176,27 @@ final class DeckArchetypeAndPowerAnalyzerTest extends TestCase
         array $flags = [],
         array $conditionKeys = [],
         array $archetypeWeights = [],
+        array $roleScores = [],
         int $manaValue = 2,
         string $typeLine = 'Artifact',
     ): array {
+        $id = 'test-card-'.substr(hash('sha256', serialize([$quantity, $roles, $subroles, $powerFlags, $flags, $conditionKeys, $archetypeWeights, $roleScores, $manaValue, $typeLine])), 0, 12);
+
         return [
+            'deckCardId' => $id.'-deck',
+            'cardId' => $id.'-card',
+            'scryfallId' => $id.'-scryfall',
+            'oracleId' => $id.'-oracle',
+            'name' => $id,
+            'imageUrl' => null,
+            'imageUris' => [],
+            'cardFaces' => [],
             'quantity' => $quantity,
+            'section' => 'main',
             'analysisProfile' => [
                 'roles' => $roles,
                 'subroles' => $subroles,
-                'roleScores' => [],
+                'roleScores' => $roleScores,
                 'conditionKeys' => $conditionKeys,
                 'archetypeWeights' => $archetypeWeights,
                 'powerFlags' => $powerFlags,

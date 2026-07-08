@@ -250,6 +250,16 @@ export class DeckEditorComponent implements OnDestroy {
     return ['/decks', deckEditorIdentifier(deck), 'analysis'];
   }
 
+  advancedAnalysisState(deck: Deck): {
+    readonly deck: Deck;
+    readonly routeIdentifier: string;
+  } {
+    return {
+      deck,
+      routeIdentifier: deckEditorIdentifier(deck),
+    };
+  }
+
   showCardPreview(event: MouseEvent, card: Card): void {
     this.store.showCardPreview(event, card);
   }

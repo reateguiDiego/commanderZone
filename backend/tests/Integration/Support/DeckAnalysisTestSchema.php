@@ -13,6 +13,7 @@ final class DeckAnalysisTestSchema
         self::ensureExternalCardTagTable($connection);
         self::ensureInternalCardAnalysisTables($connection);
         self::ensureCardAnalysisProfileTable($connection);
+        self::ensureCardManaProfileTable($connection);
         self::ensureAnalysisRuleTable($connection);
         self::ensureSpellbookTables($connection);
         self::ensureComboAnalysisProfileTable($connection);
@@ -34,6 +35,7 @@ final class DeckAnalysisTestSchema
             'spellbook_feature',
             'spellbook_combo_variant',
             'analysis_rule',
+            'card_mana_profile',
             'card_analysis_profile',
             'card_oracle_profile',
             'external_card_tag',
@@ -335,6 +337,115 @@ SQL,
         $connection->executeStatement('CREATE INDEX idx_card_analysis_profile_power_flags_gin ON card_analysis_profile USING GIN (power_flags)');
     }
 
+    private static function ensureCardManaProfileTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if ($schemaManager->tablesExist(['card_mana_profile'])) {
+            self::ensureCardManaProfileColumns($connection);
+            self::ensureCardManaProfileIndexes($connection);
+
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE card_mana_profile (
+    oracle_id VARCHAR(36) NOT NULL,
+    name TEXT NOT NULL,
+    type_line TEXT DEFAULT NULL,
+    oracle_text TEXT DEFAULT NULL,
+    is_land BOOLEAN NOT NULL DEFAULT false,
+    is_mdfc_land BOOLEAN NOT NULL DEFAULT false,
+    is_basic_land BOOLEAN NOT NULL DEFAULT false,
+    is_nonbasic_land BOOLEAN NOT NULL DEFAULT false,
+    is_fetchland BOOLEAN NOT NULL DEFAULT false,
+    is_typed_land BOOLEAN NOT NULL DEFAULT false,
+    basic_land_types JSONB NOT NULL DEFAULT '[]',
+    is_utility_land BOOLEAN NOT NULL DEFAULT false,
+    is_colorless_utility_land BOOLEAN NOT NULL DEFAULT false,
+    is_legendary_land BOOLEAN NOT NULL DEFAULT false,
+    produced_mana_colors JSONB NOT NULL DEFAULT '[]',
+    produces_colorless BOOLEAN NOT NULL DEFAULT false,
+    produces_any_color BOOLEAN NOT NULL DEFAULT false,
+    produces_commander_identity BOOLEAN NOT NULL DEFAULT false,
+    produced_mana_is_conditional BOOLEAN NOT NULL DEFAULT false,
+    produced_mana_condition_type TEXT DEFAULT NULL,
+    requires_input_mana BOOLEAN NOT NULL DEFAULT false,
+    requires_tap BOOLEAN NOT NULL DEFAULT false,
+    requires_life_payment BOOLEAN NOT NULL DEFAULT false,
+    requires_sacrifice BOOLEAN NOT NULL DEFAULT false,
+    requires_creature_type_choice BOOLEAN NOT NULL DEFAULT false,
+    requires_opponent_mana BOOLEAN NOT NULL DEFAULT false,
+    requires_existing_source BOOLEAN NOT NULL DEFAULT false,
+    is_repeatable_mana BOOLEAN NOT NULL DEFAULT false,
+    is_one_shot_mana BOOLEAN NOT NULL DEFAULT false,
+    enters_tapped BOOLEAN NOT NULL DEFAULT false,
+    enters_tapped_conditionally BOOLEAN NOT NULL DEFAULT false,
+    can_enter_untapped BOOLEAN NOT NULL DEFAULT false,
+    untapped_condition_type TEXT DEFAULT NULL,
+    delayed_until_turn SMALLINT DEFAULT NULL,
+    usable_turn_one BOOLEAN NOT NULL DEFAULT false,
+    usable_turn_two BOOLEAN NOT NULL DEFAULT false,
+    mana_source_category TEXT NOT NULL DEFAULT 'other',
+    land_cycle_type TEXT NOT NULL DEFAULT 'other',
+    land_cycle_family TEXT DEFAULT NULL,
+    land_speed_profile TEXT NOT NULL DEFAULT 'unknown',
+    land_fixing_profile TEXT NOT NULL DEFAULT 'unknown',
+    land_risk_profile JSONB NOT NULL DEFAULT '[]',
+    land_synergy_profile JSONB NOT NULL DEFAULT '[]',
+    is_permanent_ramp BOOLEAN NOT NULL DEFAULT false,
+    is_fast_mana BOOLEAN NOT NULL DEFAULT false,
+    is_burst_mana BOOLEAN NOT NULL DEFAULT false,
+    is_ritual BOOLEAN NOT NULL DEFAULT false,
+    is_mana_rock BOOLEAN NOT NULL DEFAULT false,
+    is_mana_dork BOOLEAN NOT NULL DEFAULT false,
+    is_land_ramp BOOLEAN NOT NULL DEFAULT false,
+    is_land_search_to_hand BOOLEAN NOT NULL DEFAULT false,
+    is_land_search_to_battlefield BOOLEAN NOT NULL DEFAULT false,
+    is_land_tutor BOOLEAN NOT NULL DEFAULT false,
+    is_fetchland_fixing BOOLEAN NOT NULL DEFAULT false,
+    is_color_fixing BOOLEAN NOT NULL DEFAULT false,
+    is_cost_reducer BOOLEAN NOT NULL DEFAULT false,
+    is_treasure_related BOOLEAN NOT NULL DEFAULT false,
+    is_landfall_enabler BOOLEAN NOT NULL DEFAULT false,
+    is_domain_support BOOLEAN NOT NULL DEFAULT false,
+    is_graveyard_land_synergy BOOLEAN NOT NULL DEFAULT false,
+    fetchable_land_types JSONB NOT NULL DEFAULT '[]',
+    can_fetch_basic BOOLEAN NOT NULL DEFAULT false,
+    can_fetch_typed_nonbasic BOOLEAN NOT NULL DEFAULT false,
+    fetch_puts_onto_battlefield BOOLEAN NOT NULL DEFAULT false,
+    fetch_requires_sacrifice BOOLEAN NOT NULL DEFAULT false,
+    fetch_life_payment BOOLEAN NOT NULL DEFAULT false,
+    fetch_timing TEXT DEFAULT NULL,
+    fetch_enters_untapped_itself BOOLEAN NOT NULL DEFAULT false,
+    classification_status TEXT NOT NULL DEFAULT 'classified',
+    needs_manual_review BOOLEAN NOT NULL DEFAULT false,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY (oracle_id)
+)
+SQL,
+        );
+        self::ensureCardManaProfileColumns($connection);
+        self::ensureCardManaProfileIndexes($connection);
+    }
+
+    private static function ensureCardManaProfileColumns(Connection $connection): void
+    {
+        $connection->executeStatement("ALTER TABLE card_mana_profile ADD COLUMN IF NOT EXISTS classification_status TEXT NOT NULL DEFAULT 'classified'");
+        $connection->executeStatement('ALTER TABLE card_mana_profile ADD COLUMN IF NOT EXISTS needs_manual_review BOOLEAN NOT NULL DEFAULT false');
+    }
+
+    private static function ensureCardManaProfileIndexes(Connection $connection): void
+    {
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_mana_profile_category ON card_mana_profile (mana_source_category)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_mana_profile_classification_status ON card_mana_profile (classification_status)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_mana_profile_land_cycle_type ON card_mana_profile (land_cycle_type)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_mana_profile_is_fetchland ON card_mana_profile (is_fetchland)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_mana_profile_produced_colors_gin ON card_mana_profile USING GIN (produced_mana_colors)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_mana_profile_risks_gin ON card_mana_profile USING GIN (land_risk_profile)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_mana_profile_synergies_gin ON card_mana_profile USING GIN (land_synergy_profile)');
+    }
+
     private static function ensureAnalysisRuleTable(Connection $connection): void
     {
         $schemaManager = $connection->createSchemaManager();
@@ -561,6 +672,7 @@ SQL,
 INSERT INTO deck_analysis_data_version (key, version, updated_at)
 VALUES
     ('semantic', 'initial', NOW()),
+    ('mana', 'initial', NOW()),
     ('combo', 'initial', NOW()),
     ('rules', 'initial', NOW())
 ON CONFLICT (key) DO NOTHING
@@ -572,6 +684,7 @@ SQL,
     {
         $schemaManager = $connection->createSchemaManager();
         if ($schemaManager->tablesExist(['deck_advanced_analysis_snapshot'])) {
+            self::ensureDeckAdvancedAnalysisSnapshotColumns($connection);
             self::ensureDeckAdvancedAnalysisSnapshotIndexes($connection);
 
             return;
@@ -585,6 +698,7 @@ CREATE TABLE deck_advanced_analysis_snapshot (
     deck_hash TEXT NOT NULL,
     analyzer_version TEXT NOT NULL,
     semantic_data_version TEXT NOT NULL,
+    mana_data_version TEXT NOT NULL,
     combo_data_version TEXT NOT NULL,
     rules_version TEXT NOT NULL,
     monte_carlo_version TEXT NOT NULL,
@@ -599,7 +713,14 @@ CREATE TABLE deck_advanced_analysis_snapshot (
 )
 SQL,
         );
+        self::ensureDeckAdvancedAnalysisSnapshotColumns($connection);
         self::ensureDeckAdvancedAnalysisSnapshotIndexes($connection);
+    }
+
+    private static function ensureDeckAdvancedAnalysisSnapshotColumns(Connection $connection): void
+    {
+        $connection->executeStatement("ALTER TABLE deck_advanced_analysis_snapshot ADD COLUMN IF NOT EXISTS mana_data_version TEXT NOT NULL DEFAULT 'initial'");
+        $connection->executeStatement('ALTER TABLE deck_advanced_analysis_snapshot ALTER COLUMN mana_data_version DROP DEFAULT');
     }
 
     private static function ensureDeckAdvancedAnalysisSnapshotIndexes(Connection $connection): void
@@ -608,6 +729,7 @@ SQL,
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_deck_hash ON deck_advanced_analysis_snapshot (deck_hash)');
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_analyzer_version ON deck_advanced_analysis_snapshot (analyzer_version)');
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_semantic_data_version ON deck_advanced_analysis_snapshot (semantic_data_version)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_mana_data_version ON deck_advanced_analysis_snapshot (mana_data_version)');
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_combo_data_version ON deck_advanced_analysis_snapshot (combo_data_version)');
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_rules_version ON deck_advanced_analysis_snapshot (rules_version)');
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_advanced_analysis_snapshot_monte_carlo_version ON deck_advanced_analysis_snapshot (monte_carlo_version)');

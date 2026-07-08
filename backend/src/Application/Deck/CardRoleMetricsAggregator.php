@@ -4,6 +4,16 @@ namespace App\Application\Deck;
 
 final class CardRoleMetricsAggregator
 {
+    private const TRUE_TUTOR_NAMES = [
+        'demonic tutor',
+        'vampiric tutor',
+        'imperial seal',
+        'gamble',
+        'diabolic intent',
+        'demonic consultation',
+        'tainted pact',
+    ];
+
     private const ROLE_METRICS = [
         'permanentRamp' => ['role' => 'ramp'],
         'fastMana' => ['role' => 'fast_mana'],
@@ -69,17 +79,19 @@ final class CardRoleMetricsAggregator
             $quantity = max(1, $card['quantity']);
             $resolvedQuantity += $quantity;
             $profile = $card['analysisProfile'];
+            $manaProfile = is_array($card['manaProfile'] ?? null) ? $card['manaProfile'] : [];
 
-            if ($this->isLand($profile)) {
+            if ($this->isLand($profile, $manaProfile)) {
                 $lands += $quantity;
                 $this->addMetricCard($roleCards, 'lands', $this->cardReference($card));
             }
 
             $reference = $this->cardReference($card);
-            $this->addRoleMetrics($roles, $roleCards, $profile, $quantity, $reference);
-            $this->addSubroleMetrics($roles, $roleCards, $profile, $quantity, $reference);
-            $this->addSpecialMetrics($roles, $roleCards, $profile, $quantity, $reference);
-            $this->addQualityMetrics($quality, $profile, $quantity);
+            $this->addRoleMetrics($roles, $roleCards, $profile, $manaProfile, $quantity, $reference);
+            $this->addSubroleMetrics($roles, $roleCards, $profile, $manaProfile, $quantity, $reference);
+            $this->addSpecialMetrics($roles, $roleCards, $profile, $manaProfile, $quantity, $reference);
+            $this->addManaProfileMetrics($roles, $roleCards, $manaProfile, $quantity, $reference);
+            $this->addQualityMetrics($quality, $profile, $manaProfile, $quantity);
         }
 
         $roles['lands'] = $lands;
@@ -149,6 +161,11 @@ final class CardRoleMetricsAggregator
             'recursion',
             'reanimation',
             'costReducers',
+            'fetchlands',
+            'colorFixing',
+            'landRamp',
+            'manaRocks',
+            'manaDorks',
             'discard',
             'lifegain',
         ], 0);
@@ -190,14 +207,18 @@ final class CardRoleMetricsAggregator
      * @param array<string,mixed> $profile
      * @param array<string,mixed> $reference
      */
-    private function addRoleMetrics(array &$roles, array &$roleCards, array $profile, int $quantity, array $reference): void
+    private function addRoleMetrics(array &$roles, array &$roleCards, array $profile, array $manaProfile, int $quantity, array $reference): void
     {
         foreach (self::ROLE_METRICS as $metric => $rule) {
             if (!$this->hasRole($profile, $rule['role'])) {
                 continue;
             }
 
-            if ($metric === 'permanentRamp' && $this->isOneShotRamp($profile)) {
+            if (in_array($metric, ['permanentRamp', 'fastMana', 'burstMana', 'rituals', 'manaFixing', 'costReducers'], true) && $manaProfile !== []) {
+                continue;
+            }
+
+            if ($metric === 'permanentRamp' && $this->isOneShotRamp($profile, $manaProfile)) {
                 continue;
             }
 
@@ -216,11 +237,15 @@ final class CardRoleMetricsAggregator
      * @param array<string,mixed> $profile
      * @param array<string,mixed> $reference
      */
-    private function addSubroleMetrics(array &$roles, array &$roleCards, array $profile, int $quantity, array $reference): void
+    private function addSubroleMetrics(array &$roles, array &$roleCards, array $profile, array $manaProfile, int $quantity, array $reference): void
     {
-        $isLand = $this->isLand($profile);
+        $isLand = $this->isLand($profile, $manaProfile);
         foreach (self::SUBROLE_METRICS as $metric => $subrole) {
             if ($isLand && in_array($metric, ['typedTutors', 'landTutors', 'rampSearch', 'opponentTutors'], true)) {
+                continue;
+            }
+
+            if (in_array($metric, ['typedTutors', 'landTutors', 'rampSearch', 'opponentTutors'], true) && $this->manaProfileExcludesTrueTutor($manaProfile)) {
                 continue;
             }
 
@@ -237,22 +262,23 @@ final class CardRoleMetricsAggregator
      * @param array<string,mixed> $profile
      * @param array<string,mixed> $reference
      */
-    private function addSpecialMetrics(array &$roles, array &$roleCards, array $profile, int $quantity, array $reference): void
+    private function addSpecialMetrics(array &$roles, array &$roleCards, array $profile, array $manaProfile, int $quantity, array $reference): void
     {
-        $isLand = $this->isLand($profile);
-        if (!$isLand && $this->hasRole($profile, 'tutor') && !$this->hasAnySubrole($profile, ['true_tutor', 'typed_tutor', 'land_tutor', 'ramp_search', 'opponent_tutor'])) {
+        $isLand = $this->isLand($profile, $manaProfile);
+        $isTrueTutor = $this->isTrueTutor($profile, $manaProfile, $reference);
+        if (!$isLand && $isTrueTutor && $this->hasRole($profile, 'tutor') && !$this->hasAnySubrole($profile, ['true_tutor', 'typed_tutor', 'land_tutor', 'ramp_search', 'opponent_tutor'])) {
             $roles['trueTutors'] += $quantity;
             $this->addMetricCard($roleCards, 'trueTutors', $reference);
         }
-        if (!$isLand && $this->hasSubrole($profile, 'true_tutor')) {
+        if (!$isLand && $isTrueTutor && $this->hasSubrole($profile, 'true_tutor')) {
             $roles['trueTutors'] += $quantity;
             $this->addMetricCard($roleCards, 'trueTutors', $reference);
         }
-        if ($this->isOneShotRamp($profile)) {
+        if ($this->isOneShotRamp($profile, $manaProfile) && !$this->boolPath($manaProfile, ['isOneShotMana'])) {
             $roles['oneShotMana'] += $quantity;
             $this->addMetricCard($roleCards, 'oneShotMana', $reference);
         }
-        if ($this->boolPath($profile, ['flags', 'fastMana']) || $this->hasPowerFlag($profile, 'fast_mana')) {
+        if ($manaProfile === [] && ($this->boolPath($profile, ['flags', 'fastMana']) || $this->hasPowerFlag($profile, 'fast_mana'))) {
             if (!$this->hasRole($profile, 'fast_mana')) {
                 $roles['fastMana'] += $quantity;
                 $this->addMetricCard($roleCards, 'fastMana', $reference);
@@ -265,6 +291,51 @@ final class CardRoleMetricsAggregator
         if ($this->hasRole($profile, 'extra_combat') || $this->hasSubrole($profile, 'extra_combat_engine')) {
             $roles['extraCombatEngines'] += $quantity;
             $this->addMetricCard($roleCards, 'extraCombatEngines', $reference);
+        }
+    }
+
+    /**
+     * @param array<string,int> $roles
+     * @param array<string,list<array<string,mixed>>> $roleCards
+     * @param array<string,mixed> $manaProfile
+     * @param array<string,mixed> $reference
+     */
+    private function addManaProfileMetrics(array &$roles, array &$roleCards, array $manaProfile, int $quantity, array $reference): void
+    {
+        if ($manaProfile === []) {
+            return;
+        }
+
+        foreach ([
+            'fetchlands' => $this->boolPath($manaProfile, ['isFetchland']),
+            'landTutors' => $this->isManaLandTutor($manaProfile),
+            'rampSearch' => $this->isManaRampSearch($manaProfile),
+            'landRamp' => $this->boolPath($manaProfile, ['isLandRamp']),
+            'manaRocks' => $this->boolPath($manaProfile, ['isManaRock']),
+            'manaDorks' => $this->boolPath($manaProfile, ['isManaDork']),
+            'fastMana' => $this->boolPath($manaProfile, ['isFastMana']),
+            'burstMana' => $this->boolPath($manaProfile, ['isBurstMana']),
+            'rituals' => $this->boolPath($manaProfile, ['isRitual']),
+            'oneShotMana' => $this->boolPath($manaProfile, ['isOneShotMana']),
+            'costReducers' => $this->boolPath($manaProfile, ['isCostReducer']),
+            'colorFixing' => $this->boolPath($manaProfile, ['isColorFixing']),
+            'manaFixing' => $this->isManaFixing($manaProfile),
+        ] as $metric => $matches) {
+            if (!$matches) {
+                continue;
+            }
+            $roles[$metric] += $quantity;
+            $this->addMetricCard($roleCards, $metric, $reference);
+        }
+
+        if ($this->boolPath($manaProfile, ['isPermanentRamp'])
+            && !$this->boolPath($manaProfile, ['isRitual'])
+            && !$this->boolPath($manaProfile, ['isBurstMana'])
+            && !$this->boolPath($manaProfile, ['isOneShotMana'])
+            && !$this->boolPath($manaProfile, ['isCostReducer'])
+        ) {
+            $roles['permanentRamp'] += $quantity;
+            $this->addMetricCard($roleCards, 'permanentRamp', $reference);
         }
     }
 
@@ -310,7 +381,7 @@ final class CardRoleMetricsAggregator
      * @param array<string,array<string,int>> $quality
      * @param array<string,mixed> $profile
      */
-    private function addQualityMetrics(array &$quality, array $profile, int $quantity): void
+    private function addQualityMetrics(array &$quality, array $profile, array $manaProfile, int $quantity): void
     {
         foreach ([
             'ramp' => 'ramp',
@@ -319,7 +390,7 @@ final class CardRoleMetricsAggregator
             'protection' => 'protection',
             'wincon' => 'wincon',
         ] as $qualityKey => $role) {
-            if ($qualityKey === 'tutor' && $this->isLand($profile)) {
+            if ($qualityKey === 'tutor' && ($this->isLand($profile, $manaProfile) || $this->manaProfileExcludesTrueTutor($manaProfile))) {
                 continue;
             }
 
@@ -354,22 +425,97 @@ final class CardRoleMetricsAggregator
     /**
      * @param array<string,mixed> $profile
      */
-    private function isLand(array $profile): bool
+    private function isLand(array $profile, array $manaProfile = []): bool
     {
-        return $this->boolPath($profile, ['types', 'land']) || $this->hasRole($profile, 'land');
+        return $this->boolPath($manaProfile, ['isLand'])
+            || $this->boolPath($profile, ['types', 'land'])
+            || $this->hasRole($profile, 'land');
     }
 
     /**
      * @param array<string,mixed> $profile
      */
-    private function isOneShotRamp(array $profile): bool
+    private function isOneShotRamp(array $profile, array $manaProfile = []): bool
     {
         $rampScore = $this->roleScore($profile, 'ramp');
 
-        return $this->stringValue($rampScore['repeatability'] ?? null) === 'one_shot'
+        return $this->boolPath($manaProfile, ['isOneShotMana'])
+            || $this->boolPath($manaProfile, ['isRitual'])
+            || $this->boolPath($manaProfile, ['isBurstMana'])
+            || $this->stringValue($rampScore['repeatability'] ?? null) === 'one_shot'
             || $this->hasRole($profile, 'burst_mana')
             || $this->hasRole($profile, 'ritual')
             || $this->hasSubrole($profile, 'one_shot_mana');
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     * @param array<string,mixed> $manaProfile
+     * @param array<string,mixed> $reference
+     */
+    private function isTrueTutor(array $profile, array $manaProfile, array $reference): bool
+    {
+        if ($this->manaProfileExcludesTrueTutor($manaProfile) || $this->hasSubrole($profile, 'opponent_tutor')) {
+            return false;
+        }
+
+        $name = $this->stringValue($reference['name'] ?? $profile['name'] ?? null);
+        if ($name !== null && in_array($name, self::TRUE_TUTOR_NAMES, true)) {
+            return true;
+        }
+
+        return $this->hasSubrole($profile, 'true_tutor')
+            || ($this->hasRole($profile, 'tutor') && !$this->hasAnySubrole($profile, ['typed_tutor', 'land_tutor', 'ramp_search', 'opponent_tutor']));
+    }
+
+    /**
+     * @param array<string,mixed> $manaProfile
+     */
+    private function manaProfileExcludesTrueTutor(array $manaProfile): bool
+    {
+        if ($manaProfile === []) {
+            return false;
+        }
+
+        $category = $this->stringValue($manaProfile['manaSourceCategory'] ?? null);
+
+        return $this->boolPath($manaProfile, ['isFetchland'])
+            || $this->boolPath($manaProfile, ['isLand'])
+            || $this->boolPath($manaProfile, ['isLandRamp'])
+            || $this->boolPath($manaProfile, ['isLandTutor'])
+            || $this->boolPath($manaProfile, ['isLandSearchToBattlefield'])
+            || $this->boolPath($manaProfile, ['isLandSearchToHand'])
+            || in_array($category, ['fetchland', 'land_ramp', 'ramp_search', 'land_tutor'], true);
+    }
+
+    /**
+     * @param array<string,mixed> $manaProfile
+     */
+    private function isManaLandTutor(array $manaProfile): bool
+    {
+        return !$this->boolPath($manaProfile, ['isFetchland'])
+            && ($this->boolPath($manaProfile, ['isLandTutor']) || $this->stringValue($manaProfile['manaSourceCategory'] ?? null) === 'land_tutor');
+    }
+
+    /**
+     * @param array<string,mixed> $manaProfile
+     */
+    private function isManaRampSearch(array $manaProfile): bool
+    {
+        return !$this->boolPath($manaProfile, ['isFetchland'])
+            && ($this->boolPath($manaProfile, ['isLandRamp'])
+                || $this->boolPath($manaProfile, ['isLandSearchToBattlefield'])
+                || in_array($this->stringValue($manaProfile['manaSourceCategory'] ?? null), ['land_ramp', 'ramp_search'], true));
+    }
+
+    /**
+     * @param array<string,mixed> $manaProfile
+     */
+    private function isManaFixing(array $manaProfile): bool
+    {
+        return $this->boolPath($manaProfile, ['isColorFixing'])
+            || $this->boolPath($manaProfile, ['isFetchland'])
+            || $this->boolPath($manaProfile, ['producesAnyColor']);
     }
 
     /**

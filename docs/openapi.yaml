@@ -1487,7 +1487,7 @@ paths:
       tags: [Community]
       summary: Return advanced analysis for a public valid Community deck by slug.
       description: >
-        Returns the same Advanced Deck Analysis response as `/decks/{id}/analysis/advanced`,
+        Returns the same Advanced Deck Analysis payload as the private deck advanced analysis endpoint,
         using the shared deck_id snapshot cache. Private or invalid decks are not exposed.
       parameters:
         - name: slug
@@ -5061,7 +5061,7 @@ components:
           format: uuid
         analyzerVersion:
           type: string
-          example: advanced-v1.9.2
+          example: advanced-v1.11.0
         analyzedAt:
           type: string
           format: date-time
@@ -5072,8 +5072,7 @@ components:
         metrics:
           $ref: '#/components/schemas/DeckAdvancedAnalysisMetrics'
         health:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/DeckAdvancedAnalysisHealth'
         consistency:
           $ref: '#/components/schemas/DeckAdvancedAnalysisConsistency'
         combos:
@@ -5148,13 +5147,13 @@ components:
           example: [low_permanent_ramp]
     DeckAdvancedAnalysisSnapshotMetadata:
       type: object
-      required: [hit, reason, deckHash, calculatedAt, analyzerVersion, semanticDataVersion, comboDataVersion, rulesVersion, monteCarloVersion, monteCarloRuns]
+      required: [hit, reason, deckHash, calculatedAt, analyzerVersion, semanticDataVersion, manaDataVersion, comboDataVersion, rulesVersion, monteCarloVersion, monteCarloRuns]
       properties:
         hit:
           type: boolean
         reason:
           type: string
-          enum: [fresh, missing, deck_hash_changed, analyzer_version_changed, semantic_data_changed, combo_data_changed, rules_changed, monte_carlo_version_changed, monte_carlo_runs_changed]
+          enum: [fresh, missing, deck_hash_changed, analyzer_version_changed, semantic_data_changed, mana_data_changed, combo_data_changed, rules_changed, monte_carlo_version_changed, monte_carlo_runs_changed]
         deckHash:
           type: string
         calculatedAt:
@@ -5164,6 +5163,8 @@ components:
         analyzerVersion:
           type: string
         semanticDataVersion:
+          type: string
+        manaDataVersion:
           type: string
         comboDataVersion:
           type: string
@@ -5218,7 +5219,7 @@ components:
             type: string
     DeckAdvancedAnalysisMetrics:
       type: object
-      required: [cards, roles, roleCards, quality]
+      required: [cards, roles, roleCards, quality, mana]
       properties:
         cards:
           type: object
@@ -5259,6 +5260,8 @@ components:
               $ref: '#/components/schemas/DeckAdvancedAnalysisQualityMetrics'
             wincon:
               $ref: '#/components/schemas/DeckAdvancedAnalysisQualityMetrics'
+        mana:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisManaMetrics'
     DeckAdvancedAnalysisRoleMetrics:
       type: object
       additionalProperties:
@@ -5356,6 +5359,175 @@ components:
           type: integer
         lifegain:
           type: integer
+    DeckAdvancedAnalysisManaMetrics:
+      type: object
+      required: [lands, landCycles, sources, untappedSources, earlySources, ramp, fixing, fetchlands, landCycleAnalysis, requirements]
+      properties:
+        lands:
+          type: object
+          additionalProperties: true
+        landCycles:
+          type: object
+          additionalProperties:
+            type: integer
+        sources:
+          type: object
+          additionalProperties:
+            type: integer
+        untappedSources:
+          type: object
+          additionalProperties:
+            type: integer
+        earlySources:
+          type: object
+          required: [turn1, turn2, turn3]
+          properties:
+            turn1:
+              type: object
+              additionalProperties:
+                type: integer
+            turn2:
+              type: object
+              additionalProperties:
+                type: integer
+            turn3:
+              type: object
+              additionalProperties:
+                type: integer
+        ramp:
+          type: object
+          additionalProperties:
+            type: integer
+        fixing:
+          type: object
+          additionalProperties:
+            type: integer
+        fetchlands:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisManaFetchlands'
+        landCycleAnalysis:
+          type: object
+          additionalProperties: true
+        requirements:
+          type: object
+          additionalProperties: true
+    DeckAdvancedAnalysisManaFetchlands:
+      type: object
+      required: [count, validTargets, deadFetchlands, effectiveColorSources, untappedEffectiveColorSources, tappedOnlyEffectiveColorSources, details]
+      properties:
+        count:
+          type: integer
+        validTargets:
+          type: integer
+        deadFetchlands:
+          type: integer
+        effectiveColorSources:
+          type: object
+          additionalProperties:
+            type: integer
+        untappedEffectiveColorSources:
+          type: object
+          additionalProperties:
+            type: integer
+        tappedOnlyEffectiveColorSources:
+          type: object
+          additionalProperties:
+            type: integer
+        details:
+          type: array
+          description: Fetchland coverage details. Every visible card id is accompanied by renderable card reference data from local card records.
+          items:
+            $ref: '#/components/schemas/DeckAdvancedAnalysisManaFetchlandDetail'
+      additionalProperties: true
+    DeckAdvancedAnalysisManaFetchlandDetail:
+      allOf:
+        - $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
+        - type: object
+          required: [fetchland, quantity, fetchableLandTypes, validTargets, effectiveColors, untappedEffectiveColors, tappedOnlyEffectiveColors, dead]
+          properties:
+            fetchland:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
+            quantity:
+              type: integer
+            fetchableLandTypes:
+              type: array
+              items:
+                type: string
+            validTargets:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckAdvancedAnalysisManaFetchlandTarget'
+            effectiveColors:
+              type: array
+              items:
+                type: string
+            untappedEffectiveColors:
+              type: array
+              items:
+                type: string
+            tappedOnlyEffectiveColors:
+              type: array
+              items:
+                type: string
+            dead:
+              type: boolean
+          additionalProperties: true
+    DeckAdvancedAnalysisManaFetchlandTarget:
+      allOf:
+        - $ref: '#/components/schemas/DeckAdvancedAnalysisCardReference'
+        - type: object
+          required: [landCycleType, colors, canEnterUntapped, entersTapped]
+          properties:
+            landCycleType:
+              type: string
+            colors:
+              type: array
+              items:
+                type: string
+            canEnterUntapped:
+              type: boolean
+            entersTapped:
+              type: boolean
+          additionalProperties: true
+    DeckAdvancedAnalysisHealth:
+      type: object
+      required: [ramp, draw, interaction, wipes, tutors, sacrifice, wincons, stax, combos, consistency, mana]
+      properties:
+        mana:
+          $ref: '#/components/schemas/DeckAdvancedAnalysisManaHealth'
+      additionalProperties: true
+    DeckAdvancedAnalysisManaHealth:
+      type: object
+      required: [status, message, evidence]
+      properties:
+        status:
+          type: string
+          enum: [good, warning, critical, unknown]
+        message:
+          type: string
+        evidence:
+          type: object
+          required: [lands, coloredSources, tappedLands, deadFetchlands, commanderCastability, landCycleRisks]
+          properties:
+            lands:
+              type: integer
+              nullable: true
+            coloredSources:
+              type: object
+              additionalProperties:
+                type: integer
+            tappedLands:
+              type: integer
+              nullable: true
+            deadFetchlands:
+              type: integer
+              nullable: true
+            commanderCastability:
+              type: string
+              enum: [good, warning, critical, unknown]
+            landCycleRisks:
+              type: object
+              additionalProperties: true
+          additionalProperties: true
     DeckAdvancedAnalysisQualityMetrics:
       type: object
       required: [premium, good, medium, slow, oneShot]
@@ -5540,6 +5712,9 @@ components:
           items:
             type: object
             additionalProperties: true
+        missingImage:
+          type: boolean
+          description: True when local card records have no usable image URL or imageUris for this reference.
         quantity:
           type: integer
           nullable: true
@@ -5679,13 +5854,13 @@ components:
             type: string
     DeckAdvancedAnalysisConsistency:
       type: object
-      required: [simulationRuns, monteCarloVersion, method, scope, disclaimer, openingHand, keepRule, mulligan, byTurn]
+      required: [simulationRuns, monteCarloVersion, method, scope, disclaimer, openingHand, keepRule, mulligan, byTurn, colorAccess]
       properties:
         simulationRuns:
           type: integer
         monteCarloVersion:
           type: string
-          example: monte-carlo-v1
+          example: monte-carlo-v2
         method:
           type: string
           enum: [monte_carlo]
@@ -5726,6 +5901,44 @@ components:
           type: object
           additionalProperties:
             type: number
+        colorAccess:
+          type: object
+          required: [turn1, turn2, turn3, commanderCurve]
+          properties:
+            turn1:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisColorAccessTurn'
+            turn2:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisColorAccessTurn'
+            turn3:
+              $ref: '#/components/schemas/DeckAdvancedAnalysisColorAccessTurn'
+            commanderCurve:
+              type: object
+              required: [canCastOnCurveRate, missingColorRate, missingManaValueRate, tappedOutDelayRate]
+              properties:
+                canCastOnCurveRate:
+                  type: number
+                missingColorRate:
+                  type: number
+                missingManaValueRate:
+                  type: number
+                tappedOutDelayRate:
+                  type: number
+    DeckAdvancedAnalysisColorAccessTurn:
+      type: object
+      required: [white, blue, black, red, green, allCommanderColors]
+      properties:
+        white:
+          type: number
+        blue:
+          type: number
+        black:
+          type: number
+        red:
+          type: number
+        green:
+          type: number
+        allCommanderColors:
+          type: number
     DeckAdvancedAnalysisUnmatchedCard:
       type: object
       required: [deckCardId, cardId, name, imageUrl, quantity, section, reason]

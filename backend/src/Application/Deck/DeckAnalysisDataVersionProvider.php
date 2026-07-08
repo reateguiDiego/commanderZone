@@ -8,6 +8,7 @@ use Symfony\Component\Uid\Uuid;
 final class DeckAnalysisDataVersionProvider
 {
     public const KEY_SEMANTIC = 'semantic';
+    public const KEY_MANA = 'mana';
     public const KEY_COMBO = 'combo';
     public const KEY_RULES = 'rules';
 
@@ -18,12 +19,13 @@ final class DeckAnalysisDataVersionProvider
     }
 
     /**
-     * @return array{semantic:string,combo:string,rules:string}
+     * @return array{semantic:string,mana:string,combo:string,rules:string}
      */
     public function currentVersions(): array
     {
         return [
             self::KEY_SEMANTIC => $this->version(self::KEY_SEMANTIC),
+            self::KEY_MANA => $this->version(self::KEY_MANA),
             self::KEY_COMBO => $this->version(self::KEY_COMBO),
             self::KEY_RULES => $this->version(self::KEY_RULES),
         ];
@@ -32,6 +34,16 @@ final class DeckAnalysisDataVersionProvider
     public function touchSemantic(): string
     {
         return $this->touch(self::KEY_SEMANTIC);
+    }
+
+    public function setManaVersion(string $version): string
+    {
+        return $this->setVersion(self::KEY_MANA, $version);
+    }
+
+    public function touchMana(): string
+    {
+        return $this->touch(self::KEY_MANA);
     }
 
     public function touchCombo(): string
@@ -57,6 +69,13 @@ final class DeckAnalysisDataVersionProvider
     private function touch(string $key): string
     {
         $version = Uuid::v7()->toRfc4122();
+        $this->setVersion($key, $version);
+
+        return $version;
+    }
+
+    private function setVersion(string $key, string $version): string
+    {
         $this->connection->executeStatement(
             <<<'SQL'
 INSERT INTO deck_analysis_data_version (key, version, updated_at)

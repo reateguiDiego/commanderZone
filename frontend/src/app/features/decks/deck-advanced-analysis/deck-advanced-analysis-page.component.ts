@@ -13,6 +13,11 @@ import { DeckAdvancedAnalysisViewComponent } from './deck-advanced-analysis-view
 
 const UUID_IDENTIFIER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+interface DeckAdvancedAnalysisNavigationState {
+  readonly deck?: unknown;
+  readonly routeIdentifier?: unknown;
+}
+
 @Component({
   selector: 'app-deck-advanced-analysis-page',
   imports: [DeckAdvancedAnalysisViewComponent, GlobalLoaderComponent],
@@ -77,12 +82,48 @@ export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
   }
 
   private async resolveDeck(identifier: string): Promise<Deck> {
+    const navigationDeck = this.deckFromNavigationState(identifier);
+    if (navigationDeck !== null) {
+      return navigationDeck;
+    }
+
     if (UUID_IDENTIFIER_PATTERN.test(identifier)) {
       return (await firstValueFrom(this.decksApi.get(identifier))).deck;
     }
 
     const response = await firstValueFrom(this.decksApi.getBySlug(identifier));
     return response.deck;
+  }
+
+  private deckFromNavigationState(identifier: string): Deck | null {
+    const state = this.currentNavigationState();
+    if (!state) {
+      return null;
+    }
+
+    const routeIdentifier = typeof state.routeIdentifier === 'string' ? state.routeIdentifier.trim() : '';
+    if (routeIdentifier !== identifier || !this.isDeckNavigationPayload(state.deck)) {
+      return null;
+    }
+
+    return state.deck;
+  }
+
+  private currentNavigationState(): DeckAdvancedAnalysisNavigationState | null {
+    const state = this.router.getCurrentNavigation()?.extras.state ?? window.history.state;
+    return state && typeof state === 'object' ? state as DeckAdvancedAnalysisNavigationState : null;
+  }
+
+  private isDeckNavigationPayload(value: unknown): value is Deck {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const candidate = value as Partial<Deck>;
+    return typeof candidate.id === 'string'
+      && candidate.id.trim() !== ''
+      && typeof candidate.name === 'string'
+      && candidate.name.trim() !== '';
   }
 
   private setPageHeader(title: string): void {

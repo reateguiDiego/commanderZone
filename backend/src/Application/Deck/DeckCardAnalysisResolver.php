@@ -25,7 +25,8 @@ final class DeckCardAnalysisResolver
      *         cardFaces:list<array<string,mixed>>,
      *         quantity:int,
      *         section:string,
-     *         analysisProfile:array<string,mixed>
+     *         analysisProfile:array<string,mixed>,
+     *         manaProfile:array<string,mixed>
      *     }>,
      *     unmatchedCards:list<array{
      *         deckCardId:string,
@@ -83,6 +84,7 @@ final class DeckCardAnalysisResolver
                 'quantity' => $quantity,
                 'section' => $section,
                 'analysisProfile' => $this->analysisProfile($row),
+                'manaProfile' => $this->manaProfile($row),
             ];
         }
 
@@ -143,10 +145,44 @@ SELECT
     card_analysis_profile.is_free_interaction,
     card_analysis_profile.is_efficient_tutor,
     card_analysis_profile.is_cedh_staple,
-    card_analysis_profile.analysis_hash
+    card_analysis_profile.analysis_hash,
+    card_mana_profile.oracle_id AS mana_profile_oracle_id,
+    card_mana_profile.mana_source_category,
+    card_mana_profile.land_cycle_type,
+    card_mana_profile.land_speed_profile,
+    card_mana_profile.is_land AS mana_is_land,
+    card_mana_profile.is_basic_land AS mana_is_basic_land,
+    card_mana_profile.is_typed_land AS mana_is_typed_land,
+    card_mana_profile.basic_land_types,
+    card_mana_profile.is_colorless_utility_land AS mana_is_colorless_utility_land,
+    card_mana_profile.is_fetchland,
+    card_mana_profile.is_land_tutor,
+    card_mana_profile.is_land_ramp,
+    card_mana_profile.is_land_search_to_hand,
+    card_mana_profile.is_land_search_to_battlefield,
+    card_mana_profile.is_mana_rock,
+    card_mana_profile.is_mana_dork,
+    card_mana_profile.is_fast_mana AS mana_is_fast_mana,
+    card_mana_profile.is_burst_mana,
+    card_mana_profile.is_ritual,
+    card_mana_profile.is_one_shot_mana,
+    card_mana_profile.is_permanent_ramp,
+    card_mana_profile.is_cost_reducer,
+    card_mana_profile.is_color_fixing,
+    card_mana_profile.is_treasure_related,
+    card_mana_profile.produces_colorless,
+    card_mana_profile.produces_any_color,
+    card_mana_profile.produced_mana_colors,
+    card_mana_profile.produced_mana_is_conditional,
+    card_mana_profile.requires_input_mana,
+    card_mana_profile.enters_tapped,
+    card_mana_profile.enters_tapped_conditionally,
+    card_mana_profile.can_enter_untapped,
+    card_mana_profile.fetchable_land_types
 FROM deck_card
 LEFT JOIN card ON card.id = deck_card.card_id
 LEFT JOIN card_analysis_profile ON card_analysis_profile.oracle_id = card.oracle_id
+LEFT JOIN card_mana_profile ON card_mana_profile.oracle_id = card.oracle_id
 WHERE deck_card.deck_id = :deck_id
   AND deck_card.section IN (:main_section, :commander_section)
 ORDER BY deck_card.section, card.name, deck_card.id
@@ -203,6 +239,52 @@ SQL,
                 'cedhStaple' => $this->boolValue($row['is_cedh_staple'] ?? false),
             ],
             'analysisHash' => $this->stringOrNull($row['analysis_hash'] ?? null),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     * @return array<string,mixed>
+     */
+    private function manaProfile(array $row): array
+    {
+        if ($this->stringOrNull($row['mana_profile_oracle_id'] ?? null) === null) {
+            return [];
+        }
+
+        return [
+            'manaSourceCategory' => $this->stringOrNull($row['mana_source_category'] ?? null),
+            'landCycleType' => $this->stringOrNull($row['land_cycle_type'] ?? null),
+            'landSpeedProfile' => $this->stringOrNull($row['land_speed_profile'] ?? null),
+            'isLand' => $this->boolValue($row['mana_is_land'] ?? false),
+            'isBasicLand' => $this->boolValue($row['mana_is_basic_land'] ?? false),
+            'isTypedLand' => $this->boolValue($row['mana_is_typed_land'] ?? false),
+            'basicLandTypes' => $this->jsonList($row['basic_land_types'] ?? null),
+            'isColorlessUtilityLand' => $this->boolValue($row['mana_is_colorless_utility_land'] ?? false),
+            'isFetchland' => $this->boolValue($row['is_fetchland'] ?? false),
+            'isLandTutor' => $this->boolValue($row['is_land_tutor'] ?? false),
+            'isLandRamp' => $this->boolValue($row['is_land_ramp'] ?? false),
+            'isLandSearchToHand' => $this->boolValue($row['is_land_search_to_hand'] ?? false),
+            'isLandSearchToBattlefield' => $this->boolValue($row['is_land_search_to_battlefield'] ?? false),
+            'isManaRock' => $this->boolValue($row['is_mana_rock'] ?? false),
+            'isManaDork' => $this->boolValue($row['is_mana_dork'] ?? false),
+            'isFastMana' => $this->boolValue($row['mana_is_fast_mana'] ?? false),
+            'isBurstMana' => $this->boolValue($row['is_burst_mana'] ?? false),
+            'isRitual' => $this->boolValue($row['is_ritual'] ?? false),
+            'isOneShotMana' => $this->boolValue($row['is_one_shot_mana'] ?? false),
+            'isPermanentRamp' => $this->boolValue($row['is_permanent_ramp'] ?? false),
+            'isCostReducer' => $this->boolValue($row['is_cost_reducer'] ?? false),
+            'isColorFixing' => $this->boolValue($row['is_color_fixing'] ?? false),
+            'isTreasureRelated' => $this->boolValue($row['is_treasure_related'] ?? false),
+            'producesColorless' => $this->boolValue($row['produces_colorless'] ?? false),
+            'producesAnyColor' => $this->boolValue($row['produces_any_color'] ?? false),
+            'producedManaColors' => $this->jsonList($row['produced_mana_colors'] ?? null),
+            'producedManaIsConditional' => $this->boolValue($row['produced_mana_is_conditional'] ?? false),
+            'requiresInputMana' => $this->boolValue($row['requires_input_mana'] ?? false),
+            'entersTapped' => $this->boolValue($row['enters_tapped'] ?? false),
+            'entersTappedConditionally' => $this->boolValue($row['enters_tapped_conditionally'] ?? false),
+            'canEnterUntapped' => $this->boolValue($row['can_enter_untapped'] ?? false),
+            'fetchableLandTypes' => $this->jsonList($row['fetchable_land_types'] ?? null),
         ];
     }
 

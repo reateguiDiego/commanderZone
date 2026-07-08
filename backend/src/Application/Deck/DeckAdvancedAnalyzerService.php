@@ -12,6 +12,7 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         private readonly DeckTypalAnalyzer $typalAnalyzer,
         private readonly DeckArchetypeAnalyzer $archetypeAnalyzer,
         private readonly DeckPowerAnalyzer $powerAnalyzer,
+        private readonly DeckManaSourceAnalyzer $manaSourceAnalyzer,
         private readonly DeckConsistencySimulator $consistencySimulator,
         private readonly DeckAdvancedIssueDetector $issueDetector,
         private readonly DeckAdvancedRecommendationBuilder $recommendationBuilder,
@@ -27,6 +28,7 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         $resolvedCards = $cards['resolvedCards'];
         $unmatchedCards = $cards['unmatchedCards'];
         $metrics = $this->metricsAggregator->aggregate($resolvedCards, $unmatchedCards);
+        $metrics['mana'] = $this->manaSourceAnalyzer->analyze($context->deck->id(), $resolvedCards);
         $comboResult = $this->comboDetector->detect(
             $this->oracleIds($resolvedCards),
             $resolvedCards,
@@ -41,6 +43,7 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
             'runs' => $context->monteCarloRuns,
             'seed' => $context->monteCarloSeed,
             'monteCarloVersion' => $context->monteCarloVersion,
+            'mana' => $metrics['mana'],
             'wantsEarlyInteraction' => $this->wantsEarlyInteraction($archetypes, $power),
             'comboDeckLikely' => $this->comboDeckLikely($archetypes, $comboResult['combos']),
         ]);
@@ -255,14 +258,47 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
     private function mainWarnings(array $issues): array
     {
         $warnings = [];
+        $manaWarnings = [];
         foreach ($issues as $issue) {
-            if ($issue['severity'] !== 'warning') {
+            if (!in_array($issue['severity'], ['warning', 'critical'], true)) {
                 continue;
             }
-            $warnings[] = $issue['title'] ?? $issue['message'];
+            $title = $issue['title'] ?? $issue['message'];
+            if ($this->isManaIssueCode((string) ($issue['code'] ?? ''))) {
+                $manaWarnings[] = $title;
+
+                continue;
+            }
+            $warnings[] = $title;
         }
 
-        return array_slice(array_values(array_unique($warnings)), 0, 6);
+        return array_slice(array_values(array_unique([...$manaWarnings, ...$warnings])), 0, 6);
+    }
+
+    private function isManaIssueCode(string $code): bool
+    {
+        return in_array($code, [
+            'low_colored_sources',
+            'weak_primary_color_sources',
+            'low_early_color_access',
+            'low_commander_castability',
+            'commander_color_bottleneck',
+            'too_many_tapped_lands',
+            'too_many_slow_lands',
+            'colorless_land_pressure',
+            'fetchlands_without_targets',
+            'fetchlands_mostly_tapped_targets',
+            'typed_land_density_low_for_fetches',
+            'typed_land_density_low_for_checklands',
+            'checklands_not_supported',
+            'filterlands_need_input_sources',
+            'pathways_create_color_choice_pressure',
+            'bounce_lands_tempo_risk',
+            'painland_life_pressure',
+            'ramp_does_not_fix_colors',
+            'rituals_not_stable_ramp',
+            'cost_reducers_not_mana_sources',
+        ], true);
     }
 
     /**

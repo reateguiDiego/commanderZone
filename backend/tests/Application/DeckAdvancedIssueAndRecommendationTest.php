@@ -3,7 +3,10 @@
 namespace App\Tests\Application;
 
 use App\Application\Deck\DeckAdvancedIssueDetector;
+use App\Application\Deck\DeckAdvancedAnalysisHealthEvaluator;
 use App\Application\Deck\DeckAdvancedRecommendationBuilder;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Result;
 use PHPUnit\Framework\TestCase;
 
 final class DeckAdvancedIssueAndRecommendationTest extends TestCase
@@ -84,6 +87,212 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
         ]);
 
         self::assertContains('ramp_is_mostly_one_shot', $this->issueCodes($issues));
+    }
+
+    public function testComboTutorIssueUsesTrueAndTypedTutorsOnly(): void
+    {
+        $issues = $this->detect(
+            [
+                'trueTutors' => 0,
+                'typedTutors' => 2,
+                'rampSearch' => 5,
+                'landTutors' => 3,
+            ],
+            archetypes: ['primary' => 'combo', 'secondary' => [], 'confidence' => 'medium'],
+        );
+
+        self::assertContains('low_true_tutors_for_combo', $this->issueCodes($issues));
+        self::assertContains('tutor_count_inflated_by_ramp_search', $this->issueCodes($issues));
+    }
+
+    public function testManaAnalysisIssuesAreReported(): void
+    {
+        $issues = $this->detect([], mana: [
+            'fetchlands' => ['count' => 3, 'deadFetchlands' => 1],
+            'lands' => ['tappedLands' => 14, 'conditionallyTappedLands' => 5, 'colorlessUtilityLands' => 8],
+            'landCycleAnalysis' => [
+                'tappedLandPressure' => 'critical',
+                'colorlessUtilityPressure' => 'warning',
+            ],
+            'fixing' => ['landRampFixing' => 0],
+        ]);
+
+        self::assertContains('fetchlands_without_targets', $this->issueCodes($issues));
+        self::assertContains('too_many_tapped_lands', $this->issueCodes($issues));
+        self::assertContains('colorless_land_pressure', $this->issueCodes($issues));
+        self::assertContains('review_mana_base', $this->recommendationCodes($issues));
+    }
+
+    public function testSpecificManabaseIssuesAndRecommendationsAreReported(): void
+    {
+        $issues = $this->detect([
+            'permanentRamp' => 9,
+            'landRamp' => 3,
+            'rituals' => 5,
+            'burstMana' => 5,
+            'costReducers' => 5,
+        ], mana: [
+            'sources' => [
+                'white' => 6,
+                'blue' => 3,
+                'black' => 9,
+                'red' => 14,
+                'green' => 12,
+            ],
+            'earlySources' => [
+                'turn2' => [
+                    'white' => 2,
+                    'blue' => 1,
+                    'black' => 3,
+                    'red' => 9,
+                    'green' => 8,
+                ],
+            ],
+            'requirements' => [
+                'pipDemand' => [
+                    'white' => 16,
+                    'blue' => 18,
+                    'black' => 4,
+                    'red' => 8,
+                    'green' => 6,
+                ],
+                'earlyPipDemand' => [
+                    'white' => 8,
+                    'blue' => 10,
+                    'black' => 0,
+                    'red' => 2,
+                    'green' => 0,
+                ],
+                'commanderCastability' => [
+                    'blue' => [
+                        'requiredPips' => 1,
+                        'sourceCount' => 3,
+                        'earlySourceCount' => 1,
+                        'status' => 'critical',
+                    ],
+                ],
+            ],
+            'fetchlands' => [
+                'count' => 4,
+                'deadFetchlands' => 0,
+                'effectiveColorSources' => ['blue' => 4],
+                'untappedEffectiveColorSources' => ['blue' => 0],
+                'tappedOnlyEffectiveColorSources' => ['blue' => 4],
+            ],
+            'lands' => ['tappedLands' => 12, 'conditionallyTappedLands' => 4, 'colorlessUtilityLands' => 7],
+            'landCycles' => ['painland' => 6],
+            'landCycleAnalysis' => [
+                'fetchSynergyScore' => 'warning',
+                'typedLandDensity' => 0.12,
+                'tappedLandPressure' => 'critical',
+                'colorlessUtilityPressure' => 'warning',
+                'checklandSupport' => 'warning',
+                'filterlandInputPressure' => 'warning',
+                'pathwayColorChoicePressure' => 'warning',
+                'bounceLandTempoPressure' => 'warning',
+            ],
+            'fixing' => ['landRampFixing' => 0],
+        ], consistency: [
+            'openingHand' => [
+                'keepableHandRate' => 0.8,
+                'keepableManaRate' => 0.5,
+                'hasPrimaryColorRate' => 0.55,
+                'tappedLandHeavyRate' => 0.3,
+                'slowlandEarlyDelayRate' => 0.35,
+                'zeroOrOneLandRate' => 0.1,
+                'fivePlusLandsRate' => 0.1,
+                'earlyPlayInOpeningRate' => 0.8,
+                'earlyInteractionInOpeningRate' => 0.4,
+            ],
+            'mulligan' => ['keepableBy6Rate' => 0.85],
+            'byTurn' => ['turn3' => ['permanentRampSeenRate' => 0.5]],
+            'comboAccess' => ['completeTwoCardComboByTurn5Rate' => 0.3],
+            'colorAccess' => ['commanderCurve' => ['canCastOnCurveRate' => 0.4]],
+        ]);
+        $codes = $this->issueCodes($issues);
+        $recommendations = $this->recommendationCodes($issues);
+
+        foreach ([
+            'low_colored_sources',
+            'weak_primary_color_sources',
+            'low_early_color_access',
+            'low_commander_castability',
+            'commander_color_bottleneck',
+            'fetchlands_mostly_tapped_targets',
+            'typed_land_density_low_for_fetches',
+            'typed_land_density_low_for_checklands',
+            'checklands_not_supported',
+            'filterlands_need_input_sources',
+            'pathways_create_color_choice_pressure',
+            'bounce_lands_tempo_risk',
+            'painland_life_pressure',
+            'ramp_does_not_fix_colors',
+            'rituals_not_stable_ramp',
+            'cost_reducers_not_mana_sources',
+            'too_many_slow_lands',
+            'colorless_land_pressure',
+        ] as $expectedCode) {
+            self::assertContains($expectedCode, $codes);
+        }
+
+        foreach ([
+            'add_colored_sources',
+            'add_untapped_sources',
+            'reduce_tapped_lands',
+            'reduce_slow_lands',
+            'reduce_colorless_utility_lands',
+            'add_fetchable_targets',
+            'improve_fetch_targets',
+            'add_rainbow_sources',
+            'add_land_ramp_that_fixes',
+            'replace_rituals_with_permanent_ramp',
+            'add_commander_color_sources',
+            'review_mana_base_speed',
+            'improve_checkland_support',
+            'reduce_unsupported_filterlands',
+            'reduce_pathway_color_pressure',
+            'reduce_bounce_lands',
+            'review_painland_life_pressure',
+        ] as $expectedRecommendation) {
+            self::assertContains($expectedRecommendation, $recommendations);
+        }
+    }
+
+    public function testGoodManabaseDoesNotProduceCriticalManaIssues(): void
+    {
+        $issues = $this->detect([], mana: $this->goodMana());
+
+        self::assertNotContains('critical', array_column($issues, 'severity'));
+        self::assertNotContains('fetchlands_without_targets', $this->issueCodes($issues));
+        self::assertNotContains('low_colored_sources', $this->issueCodes($issues));
+    }
+
+    public function testManaHealthSummarizesManaEvidence(): void
+    {
+        $connection = $this->createStub(Connection::class);
+        $result = $this->createStub(Result::class);
+        $result->method('iterateAssociative')->willReturn(new \ArrayIterator([]));
+        $connection->method('executeQuery')->willReturn($result);
+        $issues = [
+            ['code' => 'commander_color_bottleneck', 'severity' => 'warning'],
+        ];
+
+        $health = (new DeckAdvancedAnalysisHealthEvaluator($connection))->evaluate(
+            ['roles' => $this->roles([]), 'mana' => $this->goodMana([
+                'requirements' => [
+                    'commanderCastability' => [
+                        'blue' => ['status' => 'warning', 'sourceCount' => 9, 'earlySourceCount' => 5],
+                    ],
+                ],
+            ])],
+            issues: $issues,
+        );
+
+        self::assertArrayHasKey('mana', $health);
+        self::assertSame('warning', $health['mana']['status']);
+        self::assertSame(36, $health['mana']['evidence']['lands']);
+        self::assertSame('warning', $health['mana']['evidence']['commanderCastability']);
+        self::assertSame(14, $health['mana']['evidence']['coloredSources']['blue']);
     }
 
     public function testComboPiecesWithoutCompleteCombosCreatesPackageWarning(): void
@@ -179,9 +388,10 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
         array $archetypes = ['primary' => 'mixed', 'secondary' => [], 'confidence' => 'low'],
         array $consistency = [],
         array $unmatchedCards = [],
+        array $mana = [],
     ): array {
         return (new DeckAdvancedIssueDetector())->detect(
-            ['roles' => $this->roles($roles)],
+            ['roles' => $this->roles($roles), 'mana' => $mana],
             $combos + [
                 'completeCount' => 0,
                 'partialOneMissingCount' => 0,
@@ -252,5 +462,71 @@ final class DeckAdvancedIssueAndRecommendationTest extends TestCase
     private function recommendationCodes(array $issues): array
     {
         return array_column((new DeckAdvancedRecommendationBuilder())->build($issues), 'code');
+    }
+
+    /**
+     * @param array<string,mixed> $overrides
+     * @return array<string,mixed>
+     */
+    private function goodMana(array $overrides = []): array
+    {
+        return array_replace_recursive([
+            'sources' => [
+                'white' => 14,
+                'blue' => 14,
+                'black' => 12,
+                'red' => 0,
+                'green' => 0,
+            ],
+            'earlySources' => [
+                'turn2' => [
+                    'white' => 8,
+                    'blue' => 8,
+                    'black' => 7,
+                    'red' => 0,
+                    'green' => 0,
+                ],
+            ],
+            'requirements' => [
+                'pipDemand' => [
+                    'white' => 12,
+                    'blue' => 12,
+                    'black' => 8,
+                    'red' => 0,
+                    'green' => 0,
+                ],
+                'earlyPipDemand' => [
+                    'white' => 4,
+                    'blue' => 4,
+                    'black' => 2,
+                    'red' => 0,
+                    'green' => 0,
+                ],
+                'commanderCastability' => [
+                    'white' => ['status' => 'good', 'sourceCount' => 14, 'earlySourceCount' => 8],
+                    'blue' => ['status' => 'good', 'sourceCount' => 14, 'earlySourceCount' => 8],
+                ],
+            ],
+            'fetchlands' => [
+                'count' => 4,
+                'deadFetchlands' => 0,
+                'effectiveColorSources' => ['white' => 4, 'blue' => 4],
+                'untappedEffectiveColorSources' => ['white' => 4, 'blue' => 4],
+                'tappedOnlyEffectiveColorSources' => ['white' => 0, 'blue' => 0],
+            ],
+            'lands' => ['total' => 36, 'tappedLands' => 4, 'conditionallyTappedLands' => 2, 'colorlessUtilityLands' => 2],
+            'landCycles' => ['painland' => 2],
+            'landCycleAnalysis' => [
+                'fetchSynergyScore' => 'good',
+                'typedLandDensity' => 0.35,
+                'tappedLandPressure' => 'good',
+                'colorlessUtilityPressure' => 'good',
+                'checklandSupport' => 'good',
+                'filterlandInputPressure' => 'unknown',
+                'pathwayColorChoicePressure' => 'unknown',
+                'bounceLandTempoPressure' => 'unknown',
+            ],
+            'fixing' => ['landRampFixing' => 2],
+        ], $overrides);
     }
 }

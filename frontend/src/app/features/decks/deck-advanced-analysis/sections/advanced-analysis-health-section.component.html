@@ -10,7 +10,20 @@
         <dl>
           <div>
             <dt>{{ card.metricLabel }}</dt>
-            <dd>{{ card.metricValue }}</dd>
+            <dd>
+              @if (card.metricSymbolItems.length > 0) {
+                <span class="advanced-analysis-symbol-value-list">
+                  @for (item of card.metricSymbolItems; track item.key) {
+                    <span class="advanced-analysis-symbol-value" [attr.aria-label]="item.label + ' ' + item.value">
+                      <app-mana-symbols [symbols]="item.symbols" fallback="" size="small" />
+                      <span>{{ item.value }}</span>
+                    </span>
+                  }
+                </span>
+              } @else {
+                {{ card.metricValue }}
+              }
+            </dd>
           </div>
         </dl>
         @if (card.cards.length > 0) {

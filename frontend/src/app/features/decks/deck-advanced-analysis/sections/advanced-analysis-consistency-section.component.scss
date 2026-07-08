@@ -42,6 +42,17 @@ h4 {
   font-size: 0.86rem;
 }
 
+.advanced-analysis-visually-hidden {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .advanced-analysis-consistency-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.42fr);
@@ -104,6 +115,10 @@ h4 {
   font-size: 0.8rem;
 }
 
+.advanced-analysis-rate-row app-mana-symbols {
+  --mana-symbols-wrap: nowrap;
+}
+
 .advanced-analysis-rate-row strong {
   color: var(--text);
   font-size: 0.82rem;
@@ -136,10 +151,19 @@ h4 {
   gap: var(--advanced-analysis-inner-gap);
 }
 
+.advanced-analysis-turn-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .advanced-analysis-turn-group {
   display: grid;
   gap: 0.55rem;
   min-width: 0;
+}
+
+.advanced-analysis-commander-curve {
+  padding-top: var(--advanced-analysis-inner-gap);
+  border-top: 1px solid var(--advanced-analysis-soft-line);
 }
 
 .advanced-analysis-empty-copy {

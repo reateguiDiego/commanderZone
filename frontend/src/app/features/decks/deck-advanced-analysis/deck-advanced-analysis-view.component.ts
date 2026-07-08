@@ -7,6 +7,7 @@ import { AdvancedAnalysisActionsSectionComponent } from './sections/advanced-ana
 import { AdvancedAnalysisCombosSectionComponent } from './sections/advanced-analysis-combos-section.component';
 import { AdvancedAnalysisConsistencySectionComponent } from './sections/advanced-analysis-consistency-section.component';
 import { AdvancedAnalysisHealthSectionComponent } from './sections/advanced-analysis-health-section.component';
+import { AdvancedAnalysisManaSectionComponent } from './sections/advanced-analysis-mana-section.component';
 import { AdvancedAnalysisMetricsSectionComponent } from './sections/advanced-analysis-metrics-section.component';
 import { AdvancedAnalysisRolesSectionComponent } from './sections/advanced-analysis-roles-section.component';
 import { AdvancedAnalysisStateComponent } from './sections/advanced-analysis-state.component';
@@ -14,6 +15,7 @@ import { AdvancedAnalysisSummarySectionComponent } from './sections/advanced-ana
 import { AdvancedAnalysisWarningsSectionComponent } from './sections/advanced-analysis-warnings-section.component';
 import type {
   ActionIssueItem,
+  AdvancedAnalysisCardGridItem,
   AdvancedAnalysisStat,
   AdvancedHealthCard,
   AdvancedIssueItem,
@@ -23,6 +25,10 @@ import type {
   ConsistencyMetricRow,
   ConsistencyTurnGroup,
   EvidenceItem,
+  ManaColorSourceRow,
+  ManaFetchlandDetailItem,
+  ManaSectionGroup,
+  ManaSymbolStatItem,
   PowerSignalCardGroup,
   RecommendationItem,
   RoleBreakdownCard,
@@ -34,15 +40,27 @@ import {
   AdvancedAnalysisResponse,
   AdvancedCardReference,
   AdvancedComboItem,
+  AdvancedFetchlandDetail,
   AdvancedHealthSection,
   AdvancedHealthStatus,
   AdvancedIssue,
+  AdvancedManaMetrics,
   AdvancedRecommendation,
   AdvancedTopComboCompleter,
   UnmatchedCard,
 } from '../../../core/models/deck-advanced-analysis.model';
 
 const ADVANCED_ANALYSIS_I18N_PREFIX = 'deckBuilder.advancedAnalysis';
+
+interface ManaCardImageReference {
+  readonly oracleId?: string;
+  readonly scryfallId?: string | null;
+  readonly name?: string | null;
+  readonly imageUrl?: string | null;
+  readonly imageUris?: AdvancedCardReference['imageUris'];
+  readonly cardFaces?: AdvancedCardReference['cardFaces'];
+  readonly quantity?: number | null;
+}
 
 const HEALTH_STATUS_LABEL_KEYS: Record<AdvancedHealthStatus, string> = {
   excellent: `${ADVANCED_ANALYSIS_I18N_PREFIX}.status.excellent`,
@@ -65,11 +83,12 @@ const RECOMMENDATION_PRIORITY_RANK: Record<string, number> = {
   medium: 1,
   low: 2,
 };
-type AdvancedAnalysisTabId = 'summary' | 'health' | 'metrics' | 'warnings' | 'combos' | 'consistency' | 'roles' | 'actions';
+type AdvancedAnalysisTabId = 'summary' | 'health' | 'mana' | 'metrics' | 'warnings' | 'combos' | 'consistency' | 'roles' | 'actions';
 
 const ADVANCED_ANALYSIS_TABS: readonly TabListItem[] = [
   { id: 'summary', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.summary.title` },
   { id: 'health', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.eyebrow` },
+  { id: 'mana', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.title` },
   { id: 'metrics', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.eyebrow` },
   { id: 'warnings', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.warnings.title` },
   { id: 'combos', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.combos.title` },
@@ -102,6 +121,7 @@ const HEALTH_CARD_CONFIGS: readonly HealthCardConfig[] = [
   { key: 'interaction', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.interaction`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.spotInteraction`, metricKey: 'spotRemoval' },
   { key: 'wipes', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.wipes`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.boardWipes`, metricKey: 'boardWipes' },
   { key: 'tutors', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.tutors`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.trueTutors`, metricKey: 'trueTutors' },
+  { key: 'mana', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.mana`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.coloredSources`, optional: true },
   { key: 'sacrifice', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.sacrifice`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.outlets`, metricKey: 'sacrificeOutlets' },
   { key: 'wincons', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.wincons`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.wincons`, metricKey: 'wincons' },
   { key: 'typal', title: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.cards.typal`, metricLabel: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.typalCreatures`, metricKey: 'creatureCount', optional: true },
@@ -154,6 +174,111 @@ const TURN_5_METRICS: ReadonlyArray<readonly [string, string]> = [
   ['completeTwoCardComboSeenRate', `${ADVANCED_ANALYSIS_I18N_PREFIX}.consistency.metrics.completeTwoCardComboSeen`],
   ['comboPlusProtectionSeenRate', `${ADVANCED_ANALYSIS_I18N_PREFIX}.consistency.metrics.comboPlusProtectionSeen`],
 ];
+
+const MANA_COLOR_ROWS: ReadonlyArray<readonly [string, string, string]> = [
+  ['white', 'W', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.white`],
+  ['blue', 'U', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.blue`],
+  ['black', 'B', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.black`],
+  ['red', 'R', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.red`],
+  ['green', 'G', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.green`],
+  ['colorless', 'C', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.colorless`],
+];
+
+const MANA_LAND_BASE_METRICS: ReadonlyArray<readonly [string, string]> = [
+  ['total', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.totalLands`],
+  ['basic', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.basics`],
+  ['nonBasic', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.nonbasics`],
+  ['fetchlands', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.fetchlands`],
+  ['typedLands', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.typedLands`],
+  ['utilityLands', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.utilityLands`],
+  ['colorlessUtilityLands', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colorlessUtilityLands`],
+  ['tappedLands', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.tappedLands`],
+  ['conditionallyTappedLands', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.conditionallyTappedLands`],
+  ['mdfcLands', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.mdfcLands`],
+];
+
+const MANA_LAND_CYCLES: ReadonlyArray<readonly [string, string]> = [
+  ['fetchland', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.fetchland`],
+  ['shockland', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.shockland`],
+  ['triome', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.triome`],
+  ['surveil_land', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.surveilLand`],
+  ['fastland', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.fastland`],
+  ['slowland', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.slowland`],
+  ['painland', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.painland`],
+  ['checkland', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.checkland`],
+  ['filterland', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.filterland`],
+  ['pathway', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.pathway`],
+  ['battle_land', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.battleLand`],
+  ['bond_land', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.bondLand`],
+  ['bounce_land', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.bounceLand`],
+  ['temple', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.temple`],
+  ['gain_land', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.gainLand`],
+  ['utility_land', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.utilityLand`],
+  ['colorless_utility_land', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.cycles.colorlessUtilityLand`],
+];
+
+const MANA_LAND_CYCLE_ANALYSIS_METRICS: ReadonlyArray<readonly [string, string]> = [
+  ['typedLandDensity', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.analysis.typedLandDensity`],
+  ['fetchSynergyScore', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.analysis.fetchSynergyScore`],
+  ['checklandSupport', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.analysis.checklandSupport`],
+  ['earlyUntappedAccess', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.analysis.earlyUntappedAccess`],
+  ['tappedLandPressure', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.analysis.tappedLandPressure`],
+  ['colorlessUtilityPressure', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.analysis.colorlessUtilityPressure`],
+  ['pathwayColorChoicePressure', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.analysis.pathwayColorChoicePressure`],
+  ['filterlandInputPressure', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.analysis.filterlandInputPressure`],
+  ['bounceLandTempoPressure', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.analysis.bounceLandTempoPressure`],
+];
+
+const MANA_FETCHLAND_METRICS: ReadonlyArray<readonly [string, string]> = [
+  ['count', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.fetchlands`],
+  ['validTargets', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.validFetchTargets`],
+  ['deadFetchlands', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.deadFetchlands`],
+];
+
+const MANA_RAMP_METRICS: ReadonlyArray<readonly [string, string]> = [
+  ['permanentRamp', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.permanentRamp`],
+  ['landRamp', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.landRamp`],
+  ['manaRocks', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.manaRocks`],
+  ['manaDorks', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.manaDorks`],
+  ['fastMana', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.fastMana`],
+  ['burstMana', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.burstMana`],
+  ['rituals', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.rituals`],
+  ['oneShotMana', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.oneShotMana`],
+  ['costReducers', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.costReducers`],
+];
+
+const COLOR_ACCESS_TURN_METRICS: ReadonlyArray<readonly [string, string]> = [
+  ['white', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.white`],
+  ['blue', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.blue`],
+  ['black', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.black`],
+  ['red', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.red`],
+  ['green', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.colors.green`],
+  ['allCommanderColors', `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.allCommanderColors`],
+];
+
+const COMMANDER_CURVE_METRICS: ReadonlyArray<readonly [string, string]> = [
+  ['canCastOnCurveRate', `${ADVANCED_ANALYSIS_I18N_PREFIX}.consistency.metrics.canCastOnCurve`],
+  ['missingColorRate', `${ADVANCED_ANALYSIS_I18N_PREFIX}.consistency.metrics.missingColor`],
+  ['missingManaValueRate', `${ADVANCED_ANALYSIS_I18N_PREFIX}.consistency.metrics.missingManaValue`],
+  ['tappedOutDelayRate', `${ADVANCED_ANALYSIS_I18N_PREFIX}.consistency.metrics.tappedOutDelay`],
+];
+
+const MANA_ISSUE_CODES = new Set([
+  'low_colored_sources',
+  'too_many_tapped_lands',
+  'too_many_slow_lands',
+  'fetchlands_without_targets',
+  'ramp_does_not_fix_colors',
+  'commander_color_bottleneck',
+  'checklands_not_supported',
+  'filterlands_need_input_sources',
+  'pathways_create_color_choice_pressure',
+  'bounce_lands_tempo_risk',
+  'colorless_land_pressure',
+  'fetchlands_mostly_tapped_targets',
+  'typed_land_density_low_for_fetches',
+  'low_commander_castability',
+]);
 
 const ROLE_BREAKDOWN_CONFIGS: readonly RoleBreakdownConfig[] = [
   {
@@ -245,6 +370,7 @@ const QUALITY_LABELS: ReadonlyArray<readonly [string, string]> = [
     AdvancedAnalysisCombosSectionComponent,
     AdvancedAnalysisConsistencySectionComponent,
     AdvancedAnalysisHealthSectionComponent,
+    AdvancedAnalysisManaSectionComponent,
     AdvancedAnalysisMetricsSectionComponent,
     AdvancedAnalysisRolesSectionComponent,
     AdvancedAnalysisStateComponent,
@@ -366,6 +492,7 @@ export class DeckAdvancedAnalysisViewComponent {
       message: this.formatText(entry?.message ?? this.defaultHealthMessage()),
       metricLabel: this.translateKey(config.metricLabel),
       metricValue: this.healthMetricValue(config, entry),
+      metricSymbolItems: this.healthMetricSymbolItems(config, entry),
       cards,
       hiddenCardCount: Math.max(0, cardCount - cards.length),
     }];
@@ -400,6 +527,154 @@ export class DeckAdvancedAnalysisViewComponent {
       { title: this.t('consistency.turn5'), rows: this.metricRows(byTurn?.turn5, TURN_5_METRICS) },
     ];
   });
+  readonly colorAccessGroups = computed<ConsistencyTurnGroup[]>(() => {
+    const colorAccess = this.analysis()?.consistency?.colorAccess;
+    if (!colorAccess) {
+      return [];
+    }
+
+    return [
+      { title: this.t('consistency.turn1'), rows: this.metricRows(colorAccess.turn1, COLOR_ACCESS_TURN_METRICS) },
+      { title: this.t('consistency.turn2'), rows: this.metricRows(colorAccess.turn2, COLOR_ACCESS_TURN_METRICS) },
+      { title: this.t('consistency.turn3'), rows: this.metricRows(colorAccess.turn3, COLOR_ACCESS_TURN_METRICS) },
+    ];
+  });
+  readonly commanderCurveRows = computed(() => this.metricRows(this.analysis()?.consistency?.colorAccess?.commanderCurve, COMMANDER_CURVE_METRICS));
+  readonly manaMetrics = computed(() => this.analysis()?.metrics?.mana ?? null);
+  readonly hasManaAnalysis = computed(() => this.manaMetrics() !== null);
+  readonly manaOverviewRows = computed<AdvancedAnalysisStat[]>(() => {
+    const mana = this.manaMetrics();
+    const health = this.healthEntry('mana');
+    const mainManaIssue = this.manaIssueItems()[0];
+    if (!mana && !health) {
+      return [];
+    }
+
+    return [
+      { label: this.t('mana.totalLands'), value: this.formatNumber(mana?.lands?.total) },
+      { label: this.t('mana.coloredSourceHealth'), value: this.formatColoredSourceHealth(mana) },
+      { label: this.t('mana.tappedLands'), value: this.formatNumber(mana?.lands?.tappedLands) },
+      { label: this.t('mana.fetchlands'), value: this.formatNumber(mana?.fetchlands?.count ?? mana?.lands?.fetchlands) },
+      { label: this.t('mana.deadFetchlands'), value: this.formatNumber(mana?.fetchlands?.deadFetchlands) },
+      { label: this.t('mana.commanderCastability'), value: this.formatCommanderCastabilitySummary(mana) },
+      { label: this.t('mana.mainIssue'), value: mainManaIssue?.title ?? this.t('mana.noManaIssues') },
+    ];
+  });
+  readonly manaSourceRows = computed<ManaColorSourceRow[]>(() => {
+    const mana = this.manaMetrics();
+
+    return MANA_COLOR_ROWS.map(([key, symbol, label]) => {
+      const status = this.commanderColorStatus(key);
+
+      return {
+        key,
+        symbols: [symbol],
+        label: this.translateKey(label),
+        sources: this.formatNumber(mana?.sources?.[key]),
+        untappedSources: this.formatNumber(mana?.untappedSources?.[key]),
+        earlySources: this.formatNumber(mana?.earlySources?.turn3?.[key]),
+        status,
+      };
+    });
+  });
+  readonly manaLandBaseRows = computed<AdvancedAnalysisStat[]>(() => {
+    const mana = this.manaMetrics();
+    const lands = mana?.lands;
+
+    return MANA_LAND_BASE_METRICS.map(([key, label]) => ({
+      label: this.translateKey(label),
+      value: this.formatNumber(this.manaLandBaseMetricValue(key, mana)),
+    }));
+  });
+  readonly manaLandCycleRows = computed<AdvancedAnalysisStat[]>(() => {
+    const landCycles = this.manaMetrics()?.landCycles;
+
+    return MANA_LAND_CYCLES
+      .map(([key, label]) => ({
+        label: this.translateKey(label),
+        value: this.formatNumber(this.numberFromRecord(landCycles, key)),
+      }))
+      .filter((row) => row.value !== this.t('common.unavailable') && row.value !== '0');
+  });
+  readonly manaLandCycleAnalysisRows = computed<AdvancedAnalysisStat[]>(() => {
+    const analysis = this.manaMetrics()?.landCycleAnalysis;
+
+    return MANA_LAND_CYCLE_ANALYSIS_METRICS
+      .map(([key, label]) => ({
+        label: this.translateKey(label),
+        value: this.formatManaAnalysisValue(analysis?.[key]),
+      }))
+      .filter((row) => row.value !== this.t('common.unavailable'));
+  });
+  readonly manaFetchlandRows = computed<AdvancedAnalysisStat[]>(() => {
+    const fetchlands = this.manaMetrics()?.fetchlands;
+    const baseRows = MANA_FETCHLAND_METRICS.map(([key, label]) => ({
+      label: this.translateKey(label),
+      value: this.formatNumber(this.numberFromRecord(fetchlands, key)),
+    }));
+
+    return [
+      ...baseRows,
+      {
+        label: this.t('mana.effectiveColors'),
+        value: this.formatColorCountSummary(fetchlands?.effectiveColorSources),
+        symbolItems: this.colorCountSymbolItems(fetchlands?.effectiveColorSources),
+      },
+      {
+        label: this.t('mana.untappedEffectiveColors'),
+        value: this.formatColorCountSummary(fetchlands?.untappedEffectiveColorSources),
+        symbolItems: this.colorCountSymbolItems(fetchlands?.untappedEffectiveColorSources),
+      },
+      {
+        label: this.t('mana.tappedOnlyColors'),
+        value: this.formatColorCountSummary(fetchlands?.tappedOnlyEffectiveColorSources),
+        symbolItems: this.colorCountSymbolItems(fetchlands?.tappedOnlyEffectiveColorSources),
+      },
+    ];
+  });
+  readonly manaFetchlandDetails = computed<ManaFetchlandDetailItem[]>(() => (this.manaMetrics()?.fetchlands?.details ?? [])
+    .map((detail, index) => this.manaFetchlandDetailItem(detail, index)));
+  readonly manaRampRows = computed<AdvancedAnalysisStat[]>(() => {
+    const ramp = this.manaMetrics()?.ramp;
+
+    return MANA_RAMP_METRICS.map(([key, label]) => ({
+      label: this.translateKey(label),
+      value: this.formatNumber(this.numberFromRecord(ramp, key)),
+    }));
+  });
+  readonly manaCommanderRows = computed<ManaSectionGroup[]>(() => {
+    const requirements = this.manaMetrics()?.requirements;
+    const commanderRows = Object.entries(requirements?.commanderCost ?? {}).map(([name, pips]) => ({
+      key: `cost-${name}`,
+      title: this.t('mana.commanderCostTitle', { commander: name }),
+      titleManaSymbols: [],
+      rows: this.manaPipRows(pips),
+    }));
+    const castabilityRows = Object.entries(requirements?.commanderCastability ?? {}).map(([color, castability]) => ({
+      key: `castability-${color}`,
+      title: this.t('mana.commanderCastability'),
+      titleManaSymbols: this.manaSymbolsForColor(color),
+      rows: [
+        { label: this.t('mana.requiredPips'), value: this.formatNumber(castability.requiredPips) },
+        { label: this.t('mana.coloredSources'), value: this.formatNumber(castability.sourceCount) },
+        { label: this.t('mana.untappedSources'), value: this.formatNumber(castability.untappedSourceCount) },
+        { label: this.t('mana.earlySources'), value: this.formatNumber(castability.earlySourceCount) },
+        { label: this.t('mana.status'), value: this.formatStatus(castability.status) },
+      ],
+    }));
+
+    return [...commanderRows, ...castabilityRows];
+  });
+  readonly manaIssueItems = computed<AdvancedIssueItem[]>(() => (this.analysis()?.issues ?? [])
+    .filter((issue) => MANA_ISSUE_CODES.has(issue.code ?? ''))
+    .slice()
+    .sort((left, right) => this.issueSeverityRank(left) - this.issueSeverityRank(right))
+    .map((issue) => ({
+      code: issue.code ?? issue.title ?? 'mana_issue',
+      title: this.formatText(issue.title ?? issue.code),
+      message: this.formatText(issue.message),
+      severity: this.formatIssueSeverity(issue.severity),
+    })));
   readonly roleBreakdownCards = computed<RoleBreakdownCard[]>(() => ROLE_BREAKDOWN_CONFIGS
     .map((config) => this.roleBreakdownCard(config))
     .filter((card) => card.rows.length > 0 || card.qualityRows.length > 0));
@@ -684,6 +959,12 @@ export class DeckAdvancedAnalysisViewComponent {
     return this.formatRoleMetric(config.metricKey);
   }
 
+  private healthMetricSymbolItems(config: HealthCardConfig, entry: AdvancedHealthSection | null): ManaSymbolStatItem[] {
+    return config.key === 'mana'
+      ? this.colorCountSymbolItems(this.recordFromRecord(entry?.evidence, 'coloredSources'))
+      : [];
+  }
+
   private formatRoleMetric(key: string): string {
     return this.formatNumber(this.analysis()?.metrics?.roles?.[key]);
   }
@@ -691,6 +972,11 @@ export class DeckAdvancedAnalysisViewComponent {
   private numberFromRecord(record: Record<string, unknown> | null | undefined, key: string): number | null {
     const value = record?.[key];
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  private recordFromRecord(record: Record<string, unknown> | null | undefined, key: string): Record<string, unknown> | null {
+    const value = record?.[key];
+    return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
   }
 
   private metricRows(
@@ -703,6 +989,7 @@ export class DeckAdvancedAnalysisViewComponent {
       return {
         key,
         label: this.translateKey(label),
+        manaSymbols: this.manaSymbolsForColor(key),
         value: this.formatMetricValue(key, value),
         barWidth: this.metricBarWidth(key, value),
         available: value !== null,
@@ -721,6 +1008,197 @@ export class DeckAdvancedAnalysisViewComponent {
 
     const percentage = value <= 1 ? value * 100 : value;
     return `${Math.max(0, Math.min(percentage, 100))}%`;
+  }
+
+  private formatManaAnalysisValue(value: unknown): string {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? this.formatCompactNumber(value) : this.t('common.unavailable');
+    }
+
+    if (typeof value === 'boolean') {
+      return value ? this.t('common.yes') : this.t('common.no');
+    }
+
+    if (typeof value === 'string') {
+      return this.formatTitleText(value);
+    }
+
+    return this.t('common.unavailable');
+  }
+
+  private manaLandBaseMetricValue(key: string, mana: AdvancedManaMetrics | null): number | null {
+    if (key !== 'fetchlands') {
+      return this.numberFromRecord(mana?.lands, key);
+    }
+
+    const candidates = [
+      this.numberFromRecord(mana?.lands, 'fetchlands'),
+      this.numberFromRecord(mana?.fetchlands, 'count'),
+      this.numberFromRecord(mana?.landCycles, 'fetchland'),
+      this.numberFromRecord(mana?.fixing, 'fetchlands'),
+    ].filter((value): value is number => value !== null);
+
+    return candidates.length > 0 ? Math.max(...candidates) : null;
+  }
+
+  private formatColorCountSummary(record: Record<string, unknown> | null | undefined): string {
+    if (!record) {
+      return this.t('common.unavailable');
+    }
+
+    const items = MANA_COLOR_ROWS
+      .map(([key]) => {
+        const value = this.numberFromRecord(record, key);
+        return value !== null && value > 0 ? `${this.colorLabel(key)} ${this.formatNumber(value)}` : null;
+      })
+      .filter((item): item is string => item !== null);
+
+    return items.length > 0 ? items.join(', ') : this.t('common.unavailable');
+  }
+
+  private colorCountSymbolItems(record: Record<string, unknown> | null | undefined): ManaSymbolStatItem[] {
+    if (!record) {
+      return [];
+    }
+
+    return MANA_COLOR_ROWS
+      .flatMap(([key, symbol]) => {
+        const value = this.numberFromRecord(record, key);
+        return value !== null && value > 0
+          ? [{ key, symbols: [symbol], value: this.formatNumber(value), label: this.colorLabel(key) }]
+          : [];
+      });
+  }
+
+  private manaFetchlandDetailItem(detail: AdvancedFetchlandDetail, index: number): ManaFetchlandDetailItem {
+    const name = this.displayCardName(detail.name);
+    const quantity = typeof detail.quantity === 'number' && Number.isFinite(detail.quantity)
+      ? detail.quantity
+      : 1;
+    const cards = this.manaCardGridItem(detail, `fetchland-${index}`);
+
+    return {
+      key: detail.oracleId ?? `${name}-${index}`,
+      name,
+      quantity: this.t('mana.quantity', { quantity }),
+      cards: cards ? [cards] : [],
+      targetCards: (detail.validTargets ?? [])
+        .map((target, targetIndex) => this.manaCardGridItem(target, `fetch-target-${index}-${targetIndex}`))
+        .filter((card): card is AdvancedAnalysisCardGridItem => card !== null),
+      validTargets: this.formatFetchTargetList(detail.validTargets),
+      effectiveColorSymbols: this.colorListSymbols(detail.effectiveColors),
+      untappedEffectiveColorSymbols: this.colorListSymbols(detail.untappedEffectiveColors),
+      tappedOnlyColorSymbols: this.colorListSymbols(detail.tappedOnlyEffectiveColors),
+      dead: detail.dead === true,
+    };
+  }
+
+  private manaCardGridItem(reference: ManaCardImageReference, fallbackId: string): AdvancedAnalysisCardGridItem | null {
+    const name = this.displayCardName(reference.name);
+    const hasImage = Boolean(
+      reference.imageUrl?.trim()
+      || (reference.imageUris && Object.keys(reference.imageUris).length > 0)
+      || (reference.cardFaces && reference.cardFaces.length > 0),
+    );
+
+    if (!hasImage) {
+      return null;
+    }
+
+    return {
+      id: reference.oracleId ?? reference.scryfallId ?? fallbackId,
+      scryfallId: reference.scryfallId ?? null,
+      name,
+      imageUrl: reference.imageUrl?.trim() || null,
+      imageSource: this.cardImageSource(name, reference),
+      quantity: reference.quantity ?? null,
+    };
+  }
+
+  private formatFetchTargetList(targets: readonly { readonly name?: string | null }[] | undefined): string {
+    const names = (targets ?? [])
+      .map((target) => target.name?.trim())
+      .filter((name): name is string => Boolean(name));
+
+    return names.length > 0 ? names.join(', ') : this.t('common.unavailable');
+  }
+
+  private colorLabel(color: string): string {
+    const normalized = color.trim().toLowerCase();
+    const row = MANA_COLOR_ROWS.find(([key, symbol]) => key === normalized || symbol.toLowerCase() === normalized);
+
+    return row ? this.translateKey(row[2]) : this.formatTitleText(color);
+  }
+
+  private manaSymbolsForColor(color: string): readonly string[] {
+    const normalized = color.trim().toLowerCase();
+    const row = MANA_COLOR_ROWS.find(([key, symbol]) => key === normalized || symbol.toLowerCase() === normalized);
+
+    return row ? [row[1]] : [];
+  }
+
+  private colorListSymbols(colors: readonly string[] | undefined): readonly string[] {
+    return (colors ?? []).flatMap((color) => this.manaSymbolsForColor(color));
+  }
+
+  private manaPipRows(pips: Record<string, number>): AdvancedAnalysisStat[] {
+    return MANA_COLOR_ROWS
+      .map(([key]) => ({
+        label: this.colorLabel(key),
+        manaSymbols: this.manaSymbolsForColor(key),
+        value: this.formatNumber(pips[key]),
+      }))
+      .filter((row) => row.value !== this.t('common.unavailable') && row.value !== '0');
+  }
+
+  private commanderColorStatus(color: string): string {
+    const status = this.manaMetrics()?.requirements?.commanderCastability?.[color]?.status;
+
+    return status ? this.formatStatus(status) : this.t('common.notAvailable');
+  }
+
+  private formatCommanderCastabilitySummary(mana: AdvancedManaMetrics | null): string {
+    const entries = Object.values(mana?.requirements?.commanderCastability ?? {});
+    if (entries.length === 0) {
+      const healthValue = this.healthEntry('mana')?.evidence?.['commanderCastability'];
+      return typeof healthValue === 'string' ? this.formatStatus(healthValue) : this.t('common.notAvailable');
+    }
+
+    const worst = entries
+      .map((entry) => this.normalizeHealthStatus(entry.status))
+      .sort((left, right) => this.healthStatusRank(right) - this.healthStatusRank(left))[0];
+
+    return this.formatStatus(worst);
+  }
+
+  private formatColoredSourceHealth(mana: AdvancedManaMetrics | null): string {
+    const entries = Object.values(mana?.requirements?.commanderCastability ?? {});
+    if (entries.length === 0) {
+      return this.t('common.notAvailable');
+    }
+
+    const worst = entries
+      .map((entry) => this.normalizeHealthStatus(entry.status))
+      .sort((left, right) => this.healthStatusRank(right) - this.healthStatusRank(left))[0];
+
+    return this.formatStatus(worst);
+  }
+
+  private healthStatusRank(status: AdvancedHealthStatus): number {
+    if (status === 'critical') {
+      return 4;
+    }
+    if (status === 'warning') {
+      return 3;
+    }
+    if (status === 'unknown') {
+      return 2;
+    }
+    if (status === 'good') {
+      return 1;
+    }
+
+    return 0;
   }
 
   private roleBreakdownCard(config: RoleBreakdownConfig): RoleBreakdownCard {
@@ -941,7 +1419,7 @@ export class DeckAdvancedAnalysisViewComponent {
     };
   }
 
-  private cardImageSource(name: string, reference: AdvancedCardReference | AdvancedTopComboCompleter | null): CardFaceImageSource {
+  private cardImageSource(name: string, reference: ManaCardImageReference | null): CardFaceImageSource {
     const imageUrl = reference?.imageUrl?.trim() || null;
     const imageUris = reference?.imageUris && Object.keys(reference.imageUris).length > 0
       ? reference.imageUris

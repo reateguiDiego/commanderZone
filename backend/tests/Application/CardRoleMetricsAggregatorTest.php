@@ -68,6 +68,115 @@ final class CardRoleMetricsAggregatorTest extends TestCase
         self::assertSame(0, $metrics['roles']['opponentTutors']);
     }
 
+    public function testFetchlandsStaySeparateFromTutorMetrics(): void
+    {
+        $metrics = $this->aggregate([
+            $this->card(10, roles: ['tutor'], subroles: ['land_tutor'], manaProfile: [
+                'isFetchland' => true,
+                'isLand' => true,
+                'isColorFixing' => true,
+                'manaSourceCategory' => 'fetchland',
+            ]),
+        ]);
+
+        self::assertSame(0, $metrics['roles']['trueTutors']);
+        self::assertSame(0, $metrics['roles']['typedTutors']);
+        self::assertSame(0, $metrics['roles']['landTutors']);
+        self::assertSame(0, $metrics['roles']['rampSearch']);
+        self::assertSame(10, $metrics['roles']['fetchlands']);
+        self::assertSame(10, $metrics['roles']['manaFixing']);
+    }
+
+    public function testGreenLandRampDoesNotInflateTutors(): void
+    {
+        $metrics = $this->aggregate([
+            $this->card(3, roles: ['tutor', 'ramp'], subroles: ['ramp_search'], manaProfile: [
+                'isLandRamp' => true,
+                'isLandSearchToBattlefield' => true,
+                'isPermanentRamp' => true,
+                'manaSourceCategory' => 'land_ramp',
+            ]),
+        ]);
+
+        self::assertSame(0, $metrics['roles']['trueTutors']);
+        self::assertSame(3, $metrics['roles']['rampSearch']);
+        self::assertSame(3, $metrics['roles']['landRamp']);
+        self::assertSame(3, $metrics['roles']['permanentRamp']);
+    }
+
+    public function testLandTutorsStaySeparateFromTrueTutors(): void
+    {
+        $metrics = $this->aggregate([
+            $this->card(2, roles: ['tutor'], subroles: ['land_tutor'], manaProfile: [
+                'isLandTutor' => true,
+                'isLandSearchToHand' => true,
+                'manaSourceCategory' => 'land_tutor',
+            ]),
+        ]);
+
+        self::assertSame(0, $metrics['roles']['trueTutors']);
+        self::assertSame(2, $metrics['roles']['landTutors']);
+    }
+
+    public function testTrueTutorsStillCountStrategicTutors(): void
+    {
+        $metrics = $this->aggregate([
+            $this->card(1, roles: ['tutor'], name: 'Demonic Tutor'),
+            $this->card(1, roles: ['tutor'], subroles: ['true_tutor'], name: 'Vampiric Tutor'),
+        ]);
+
+        self::assertSame(2, $metrics['roles']['trueTutors']);
+    }
+
+    public function testMixedFetchlandsAndTrueTutorsCountIndependently(): void
+    {
+        $metrics = $this->aggregate([
+            $this->card(4, roles: ['tutor'], subroles: ['land_tutor'], manaProfile: [
+                'isFetchland' => true,
+                'isLand' => true,
+                'isColorFixing' => true,
+                'manaSourceCategory' => 'fetchland',
+            ]),
+            $this->card(1, roles: ['tutor'], name: 'Demonic Tutor'),
+        ]);
+
+        self::assertSame(1, $metrics['roles']['trueTutors']);
+        self::assertSame(4, $metrics['roles']['fetchlands']);
+        self::assertSame(0, $metrics['roles']['landTutors']);
+    }
+
+    public function testCostReducersAreNotPermanentRamp(): void
+    {
+        $metrics = $this->aggregate([
+            $this->card(1, roles: ['cost_reducer', 'ramp'], name: 'Goblin Electromancer', manaProfile: [
+                'isCostReducer' => true,
+                'manaSourceCategory' => 'cost_reducer',
+            ]),
+        ]);
+
+        self::assertSame(1, $metrics['roles']['costReducers']);
+        self::assertSame(0, $metrics['roles']['permanentRamp']);
+        self::assertSame(0, $metrics['roles']['manaRocks']);
+        self::assertSame(0, $metrics['roles']['manaDorks']);
+    }
+
+    public function testRitualsAreBurstNotPermanentRamp(): void
+    {
+        $metrics = $this->aggregate([
+            $this->card(2, roles: ['ramp', 'burst_mana', 'ritual'], roleScores: ['ramp' => ['repeatability' => 'one_shot']], manaProfile: [
+                'isRitual' => true,
+                'isBurstMana' => true,
+                'isOneShotMana' => true,
+                'manaSourceCategory' => 'ritual',
+            ]),
+        ]);
+
+        self::assertSame(2, $metrics['roles']['rituals']);
+        self::assertSame(2, $metrics['roles']['burstMana']);
+        self::assertSame(2, $metrics['roles']['oneShotMana']);
+        self::assertSame(0, $metrics['roles']['permanentRamp']);
+    }
+
     public function testStaxSymmetricalRiskIsTrackedSeparately(): void
     {
         $metrics = $this->aggregate([
@@ -146,10 +255,23 @@ final class CardRoleMetricsAggregatorTest extends TestCase
         array $subroles = [],
         array $roleScores = [],
         array $conditionKeys = [],
+        array $manaProfile = [],
+        ?string $name = null,
     ): array
     {
+        $id = 'test-card-'.substr(hash('sha256', serialize([$quantity, $roles, $subroles, $roleScores, $conditionKeys, $manaProfile, $name])), 0, 12);
+
         return [
+            'deckCardId' => $id.'-deck',
+            'cardId' => $id.'-card',
+            'scryfallId' => $id.'-scryfall',
+            'oracleId' => $id.'-oracle',
+            'name' => $name ?? $id,
+            'imageUrl' => null,
+            'imageUris' => [],
+            'cardFaces' => [],
             'quantity' => $quantity,
+            'section' => 'main',
             'analysisProfile' => [
                 'roles' => $roles,
                 'subroles' => $subroles,
@@ -159,6 +281,7 @@ final class CardRoleMetricsAggregatorTest extends TestCase
                 'flags' => [],
                 'types' => ['land' => in_array('land', $roles, true)],
             ],
+            'manaProfile' => $manaProfile,
         ];
     }
 }

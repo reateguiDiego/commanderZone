@@ -27,6 +27,10 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertSame(0, $response['metrics']['cards']['unmatchedCards']);
         self::assertArrayHasKey('roles', $response['metrics']);
         self::assertArrayHasKey('quality', $response['metrics']);
+        self::assertArrayHasKey('mana', $response['metrics']);
+        foreach (['lands', 'landCycles', 'sources', 'untappedSources', 'earlySources', 'ramp', 'fixing', 'fetchlands', 'landCycleAnalysis', 'requirements'] as $manaKey) {
+            self::assertArrayHasKey($manaKey, $response['metrics']['mana']);
+        }
         self::assertSame(0, $response['combos']['completeCount']);
         self::assertSame([], $response['topComboCompleters']);
         self::assertArrayHasKey('primary', $response['archetypes']);
@@ -36,6 +40,8 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayNotHasKey('confidence', $response['power']);
         self::assertArrayHasKey('signals', $response['power']);
         self::assertSame('monte_carlo', $response['consistency']['method']);
+        self::assertArrayHasKey('colorAccess', $response['consistency']);
+        self::assertArrayHasKey('commanderCurve', $response['consistency']['colorAccess']);
         self::assertSame('opening_hand_and_card_access', $response['consistency']['scope']);
         self::assertStringContainsString('not match win rate', $response['consistency']['disclaimer']);
         self::assertArrayHasKey('archetypeConfidence', $response['summary']);
@@ -46,6 +52,8 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayNotHasKey('powerBand', $response['summary']);
         self::assertArrayNotHasKey('powerConfidence', $response['summary']);
         self::assertArrayHasKey('ramp', $response['health']);
+        self::assertArrayHasKey('mana', $response['health']);
+        self::assertArrayHasKey('evidence', $response['health']['mana']);
         self::assertArrayHasKey('message', $response['health']['ramp']);
         self::assertArrayHasKey('evidence', $response['health']['ramp']);
         self::assertSame('good', $response['health']['combos']['status']);
@@ -54,6 +62,7 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayHasKey('targetRoles', $response['recommendations'][0]);
         self::assertFalse($response['snapshot']['hit']);
         self::assertSame('missing', $response['snapshot']['reason']);
+        self::assertArrayHasKey('manaDataVersion', $response['snapshot']);
         self::assertSame(DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS, $response['snapshot']['monteCarloRuns']);
 
         $this->jsonRequest('GET', '/decks/'.$deck->id().'/analysis', token: $token);
@@ -390,6 +399,72 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertSame(0, $roles['rampSearch']);
     }
 
+    public function testManaFetchlandDetailsIncludeRenderableCardReferences(): void
+    {
+        $token = $this->registerAndLogin('advanced-fetch-visuals@example.test', 'Fetch Visuals');
+        $user = $this->entityManager->getRepository(User::class)->find($this->currentUserId($token));
+        self::assertInstanceOf(User::class, $user);
+
+        $fetch = $this->seedCard('99000000-0000-0000-0000-000000002001', 'Wooded Foothills', [
+            'oracle_id' => '99000000-0000-0000-0001-000000002001',
+            'type_line' => 'Land',
+            'oracle_text' => '{T}, Pay 1 life, Sacrifice Wooded Foothills: Search your library for a Mountain or Forest card, put it onto the battlefield, then shuffle.',
+        ]);
+        $shock = $this->seedCard('99000000-0000-0000-0000-000000002002', 'Stomping Ground', [
+            'oracle_id' => '99000000-0000-0000-0001-000000002002',
+            'type_line' => 'Land - Mountain Forest',
+            'oracle_text' => 'As Stomping Ground enters, you may pay 2 life. If you do not, it enters tapped.',
+        ]);
+        $battle = $this->seedCard('99000000-0000-0000-0000-000000002003', 'Cinder Glade', [
+            'oracle_id' => '99000000-0000-0000-0001-000000002003',
+            'type_line' => 'Land - Mountain Forest',
+            'oracle_text' => 'Cinder Glade enters tapped unless you control two or more basic lands.',
+        ]);
+
+        $this->insertAnalysisProfile($fetch->oracleId(), 'Wooded Foothills', typeLine: $fetch->typeLine() ?? 'Land', isLand: true);
+        $this->insertAnalysisProfile($shock->oracleId(), 'Stomping Ground', typeLine: $shock->typeLine() ?? 'Land', isLand: true);
+        $this->insertAnalysisProfile($battle->oracleId(), 'Cinder Glade', typeLine: $battle->typeLine() ?? 'Land', isLand: true);
+        $this->insertManaProfile($fetch->oracleId(), 'Wooded Foothills', fetchableTypes: ['Mountain', 'Forest'], isFetchland: true, cycle: 'fetchland');
+        $this->insertManaProfile($shock->oracleId(), 'Stomping Ground', colors: ['R', 'G'], basicTypes: ['Mountain', 'Forest'], cycle: 'shockland', canEnterUntapped: true);
+        $this->insertManaProfile($battle->oracleId(), 'Cinder Glade', colors: ['R', 'G'], basicTypes: ['Mountain', 'Forest'], cycle: 'battle_land', conditional: true, canEnterUntapped: true);
+
+        $deck = new Deck($user, 'Advanced Fetch Visuals');
+        $deck->addOrIncrementCard($fetch, 1, DeckCard::SECTION_MAIN);
+        $deck->addOrIncrementCard($shock, 1, DeckCard::SECTION_MAIN);
+        $deck->addOrIncrementCard($battle, 1, DeckCard::SECTION_MAIN);
+        $this->entityManager->persist($deck);
+        $this->entityManager->flush();
+
+        $this->jsonRequest('GET', '/decks/'.$deck->id().'/analysis/advanced', token: $token);
+
+        self::assertResponseIsSuccessful();
+        $details = $this->jsonResponse()['metrics']['mana']['fetchlands']['details'];
+        self::assertCount(1, $details);
+        $detail = $details[0];
+        self::assertSame('Wooded Foothills', $detail['fetchland']['name']);
+        self::assertSame($fetch->oracleId(), $detail['fetchland']['oracleId']);
+        self::assertNotEmpty($detail['fetchland']['imageUrl']);
+        self::assertNotEmpty($detail['fetchland']['imageUris']['normal']);
+        self::assertFalse($detail['fetchland']['missingImage']);
+        self::assertSame('Wooded Foothills', $detail['name']);
+        self::assertNotEmpty($detail['imageUrl']);
+
+        $targetsByName = [];
+        foreach ($detail['validTargets'] as $target) {
+            $targetsByName[$target['name']] = $target;
+            self::assertNotEmpty($target['oracleId']);
+            self::assertNotEmpty($target['imageUrl']);
+            self::assertNotEmpty($target['imageUris']['normal']);
+            self::assertFalse($target['missingImage']);
+        }
+
+        self::assertArrayHasKey('Stomping Ground', $targetsByName);
+        self::assertArrayHasKey('Cinder Glade', $targetsByName);
+        self::assertSame('shockland', $targetsByName['Stomping Ground']['landCycleType']);
+        self::assertSame(['red', 'green'], $targetsByName['Stomping Ground']['colors']);
+        self::assertSame('battle_land', $targetsByName['Cinder Glade']['landCycleType']);
+    }
+
     public function testEndpointReturnsNotFoundForMissingDeck(): void
     {
         $token = $this->registerAndLogin('advanced-missing-deck@example.test', 'Advanced Missing');
@@ -527,6 +602,92 @@ SQL,
             ],
             [
                 'is_land' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+            ],
+        );
+    }
+
+    /**
+     * @param list<string> $colors
+     * @param list<string> $basicTypes
+     * @param list<string> $fetchableTypes
+     */
+    private function insertManaProfile(
+        ?string $oracleId,
+        string $name,
+        array $colors = [],
+        array $basicTypes = [],
+        array $fetchableTypes = [],
+        bool $isFetchland = false,
+        string $cycle = 'land',
+        bool $basic = false,
+        bool $conditional = false,
+        bool $canEnterUntapped = false,
+    ): void {
+        self::assertNotNull($oracleId);
+        $this->connection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_mana_profile (
+    oracle_id,
+    name,
+    type_line,
+    is_land,
+    is_basic_land,
+    is_nonbasic_land,
+    is_fetchland,
+    is_typed_land,
+    basic_land_types,
+    produced_mana_colors,
+    enters_tapped_conditionally,
+    can_enter_untapped,
+    mana_source_category,
+    land_cycle_type,
+    land_speed_profile,
+    fetchable_land_types,
+    updated_at
+) VALUES (
+    :oracle_id,
+    :name,
+    :type_line,
+    true,
+    :is_basic_land,
+    :is_nonbasic_land,
+    :is_fetchland,
+    :is_typed_land,
+    :basic_land_types::jsonb,
+    :produced_mana_colors::jsonb,
+    :enters_tapped_conditionally,
+    :can_enter_untapped,
+    :mana_source_category,
+    :land_cycle_type,
+    :land_speed_profile,
+    :fetchable_land_types::jsonb,
+    NOW()
+)
+SQL,
+            [
+                'oracle_id' => $oracleId,
+                'name' => $name,
+                'type_line' => $basicTypes === [] ? 'Land' : 'Land - '.implode(' ', $basicTypes),
+                'is_basic_land' => $basic,
+                'is_nonbasic_land' => !$basic,
+                'is_fetchland' => $isFetchland,
+                'is_typed_land' => $basicTypes !== [],
+                'basic_land_types' => json_encode($basicTypes, JSON_THROW_ON_ERROR),
+                'produced_mana_colors' => json_encode($colors, JSON_THROW_ON_ERROR),
+                'enters_tapped_conditionally' => $conditional,
+                'can_enter_untapped' => $canEnterUntapped,
+                'mana_source_category' => $isFetchland ? 'fetchland' : 'land',
+                'land_cycle_type' => $cycle,
+                'land_speed_profile' => $canEnterUntapped ? 'always_untapped' : 'unknown',
+                'fetchable_land_types' => json_encode($fetchableTypes, JSON_THROW_ON_ERROR),
+            ],
+            [
+                'is_basic_land' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+                'is_nonbasic_land' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+                'is_fetchland' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+                'is_typed_land' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+                'enters_tapped_conditionally' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+                'can_enter_untapped' => \Doctrine\DBAL\ParameterType::BOOLEAN,
             ],
         );
     }

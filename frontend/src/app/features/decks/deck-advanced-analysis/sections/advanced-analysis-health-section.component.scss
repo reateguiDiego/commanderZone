@@ -114,6 +114,23 @@ h3 {
   font-weight: 900;
 }
 
+.advanced-analysis-symbol-value-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+}
+
+.advanced-analysis-symbol-value {
+  display: inline-flex;
+  gap: 0.2rem;
+  align-items: center;
+}
+
+.advanced-analysis-symbol-value app-mana-symbols {
+  --mana-symbols-wrap: nowrap;
+}
+
 @media (max-width: 1180px) {
   .advanced-analysis-health-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

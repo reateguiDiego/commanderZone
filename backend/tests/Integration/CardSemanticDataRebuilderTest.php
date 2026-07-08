@@ -825,6 +825,51 @@ SQL,
         self::assertFalse($this->hasRole($fieldId, 'tutor'));
     }
 
+    public function testFetchlandsAndLandRampTagsDoNotBecomeTrueTutors(): void
+    {
+        $fetchId = '83000000-0000-0000-0000-000000000280';
+        $woodElvesId = '83000000-0000-0000-0000-000000000281';
+        $expeditionMapId = '83000000-0000-0000-0000-000000000282';
+
+        $this->insertOracleProfile($fetchId, 'Polluted Delta', [
+            'type_line' => 'Land',
+            'oracle_text' => '{T}, Pay 1 life, Sacrifice Polluted Delta: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.',
+            'is_artifact' => false,
+            'is_land' => true,
+        ]);
+        $this->insertOracleProfile($woodElvesId, 'Wood Elves', [
+            'type_line' => 'Creature — Elf Scout',
+            'oracle_text' => 'When Wood Elves enters the battlefield, search your library for a Forest card, put that card onto the battlefield, then shuffle.',
+            'is_artifact' => false,
+            'is_creature' => true,
+        ]);
+        $this->insertOracleProfile($expeditionMapId, 'Expedition Map', [
+            'type_line' => 'Artifact',
+            'oracle_text' => '{2}, {T}, Sacrifice Expedition Map: Search your library for a land card, reveal it, put it into your hand, then shuffle.',
+            'is_artifact' => true,
+        ]);
+        $this->insertExternalTag('83000000-0000-0000-0000-000000000290', $fetchId, 'tutor');
+        $this->insertExternalTag('83000000-0000-0000-0000-000000000291', $woodElvesId, 'tutor');
+        $this->insertExternalTag('83000000-0000-0000-0000-000000000292', $woodElvesId, 'ramp');
+        $this->insertExternalTag('83000000-0000-0000-0000-000000000293', $expeditionMapId, 'tutor');
+
+        $this->rebuilder()->rebuild();
+
+        self::assertFalse($this->hasRole($fetchId, 'tutor'));
+        self::assertFalse($this->hasSubrole($fetchId, 'true_tutor'));
+        self::assertTrue($this->hasSubrole($fetchId, 'fetchland'));
+        self::assertTrue($this->hasRole($fetchId, 'mana_fixing'));
+
+        self::assertFalse($this->hasRole($woodElvesId, 'tutor'));
+        self::assertFalse($this->hasSubrole($woodElvesId, 'true_tutor'));
+        self::assertTrue($this->hasSubrole($woodElvesId, 'ramp_search'));
+        self::assertTrue($this->hasSubrole($woodElvesId, 'land_ramp'));
+
+        self::assertFalse($this->hasRole($expeditionMapId, 'tutor'));
+        self::assertFalse($this->hasSubrole($expeditionMapId, 'true_tutor'));
+        self::assertTrue($this->hasSubrole($expeditionMapId, 'land_tutor'));
+    }
+
     public function testConservativeWinconAndRemovalRulesAvoidFalsePositives(): void
     {
         $notDeadId = '83000000-0000-0000-0000-000000000180';

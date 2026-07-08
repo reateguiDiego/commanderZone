@@ -89,7 +89,7 @@ final class DeckPowerAnalyzer
             $this->addSignal($signals, $signalCards, 'manaPositiveComboPieces', $quantity, $reference, isset($flags['mana_positive_combo_piece']));
             $this->addSignal($signals, $signalCards, 'highPowerStaples', $quantity, $reference, isset($flags['high_power_staple']));
             $this->addSignal($signals, $signalCards, 'gameChanger', $quantity, $reference, ($profile['isGameChanger'] ?? false) === true || isset($flags['manual_game_changer']));
-            $this->addSignal($signals, $signalCards, 'strongTutors', $quantity, $reference, $this->isStrongRole($profile, 'tutor'));
+            $this->addSignal($signals, $signalCards, 'strongTutors', $quantity, $reference, $this->isStrongTutor($profile));
             $this->addSignal($signals, $signalCards, 'strongProtection', $quantity, $reference, $this->isStrongRole($profile, 'protection'));
         }
 
@@ -271,6 +271,19 @@ final class DeckPowerAnalyzer
     /**
      * @param array<string,mixed> $profile
      */
+    private function isStrongTutor(array $profile): bool
+    {
+        $subroles = $this->stringSet($profile['subroles'] ?? []);
+
+        return !$this->boolPath($profile, ['types', 'land'])
+            && !$this->hasRole($profile, 'land')
+            && !$this->hasAny($subroles, ['land_tutor', 'ramp_search', 'opponent_tutor', 'fetchland'])
+            && $this->isStrongRole($profile, 'tutor');
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     */
     private function isStrongRole(array $profile, string $role): bool
     {
         $score = $this->roleScore($profile, $role);
@@ -314,6 +327,21 @@ final class DeckPowerAnalyzer
         }
 
         return $set;
+    }
+
+    /**
+     * @param array<string,true> $set
+     * @param list<string> $keys
+     */
+    private function hasAny(array $set, array $keys): bool
+    {
+        foreach ($keys as $key) {
+            if (isset($set[$key])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function stringValue(mixed $value): ?string

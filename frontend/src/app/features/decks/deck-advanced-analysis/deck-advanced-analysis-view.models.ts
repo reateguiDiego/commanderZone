@@ -6,7 +6,16 @@ export interface AdvancedAnalysisStat {
   readonly label: string;
   readonly value: string;
   readonly description?: string;
+  readonly manaSymbols?: readonly string[];
+  readonly symbolItems?: readonly ManaSymbolStatItem[];
   readonly tooltipItems?: readonly AdvancedAnalysisTooltipItem[];
+}
+
+export interface ManaSymbolStatItem {
+  readonly key: string;
+  readonly symbols: readonly string[];
+  readonly value: string;
+  readonly label: string;
 }
 
 export interface AdvancedAnalysisTooltipItem {
@@ -22,6 +31,7 @@ export interface AdvancedHealthCard {
   readonly message: string;
   readonly metricLabel: string;
   readonly metricValue: string;
+  readonly metricSymbolItems: readonly ManaSymbolStatItem[];
   readonly cards: ComboCardPreviewItem[];
   readonly hiddenCardCount: number;
 }
@@ -36,6 +46,7 @@ export interface AdvancedIssueItem {
 export interface ConsistencyMetricRow {
   readonly key: string;
   readonly label: string;
+  readonly manaSymbols: readonly string[];
   readonly value: string;
   readonly barWidth: string;
   readonly available: boolean;
@@ -44,6 +55,36 @@ export interface ConsistencyMetricRow {
 export interface ConsistencyTurnGroup {
   readonly title: string;
   readonly rows: ConsistencyMetricRow[];
+}
+
+export interface ManaColorSourceRow {
+  readonly key: string;
+  readonly symbols: readonly string[];
+  readonly label: string;
+  readonly sources: string;
+  readonly untappedSources: string;
+  readonly earlySources: string;
+  readonly status: string;
+}
+
+export interface ManaSectionGroup {
+  readonly key: string;
+  readonly title: string;
+  readonly titleManaSymbols: readonly string[];
+  readonly rows: AdvancedAnalysisStat[];
+}
+
+export interface ManaFetchlandDetailItem {
+  readonly key: string;
+  readonly name: string;
+  readonly quantity: string;
+  readonly cards: readonly AdvancedAnalysisCardGridItem[];
+  readonly targetCards: readonly AdvancedAnalysisCardGridItem[];
+  readonly validTargets: string;
+  readonly effectiveColorSymbols: readonly string[];
+  readonly untappedEffectiveColorSymbols: readonly string[];
+  readonly tappedOnlyColorSymbols: readonly string[];
+  readonly dead: boolean;
 }
 
 export interface RoleBreakdownCard {

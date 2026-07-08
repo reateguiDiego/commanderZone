@@ -16,7 +16,14 @@
         <div class="advanced-analysis-rate-list">
           @for (row of openingHandRows(); track row.key) {
             <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
-              <span>{{ row.label }}</span>
+              <span>
+                @if (row.manaSymbols.length > 0) {
+                  <app-mana-symbols [symbols]="row.manaSymbols" fallback="" size="small" />
+                  <span class="advanced-analysis-visually-hidden">{{ row.label }}</span>
+                } @else {
+                  {{ row.label }}
+                }
+              </span>
               <strong>{{ row.value }}</strong>
               <div class="advanced-analysis-rate-bar" aria-hidden="true">
                 <span [style.--metric-fill]="row.barWidth"></span>
@@ -32,7 +39,14 @@
         <div class="advanced-analysis-rate-list">
           @for (row of keepRuleRows(); track row.key) {
             <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
-              <span>{{ row.label }}</span>
+                <span>
+                  @if (row.manaSymbols.length > 0) {
+                    <app-mana-symbols [symbols]="row.manaSymbols" fallback="" size="small" />
+                    <span class="advanced-analysis-visually-hidden">{{ row.label }}</span>
+                  } @else {
+                    {{ row.label }}
+                  }
+                </span>
               <strong>{{ row.value }}</strong>
               <div class="advanced-analysis-rate-bar" aria-hidden="true">
                 <span [style.--metric-fill]="row.barWidth"></span>
@@ -47,7 +61,14 @@
         <div class="advanced-analysis-rate-list">
           @for (row of mulliganRows(); track row.key) {
             <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
-              <span>{{ row.label }}</span>
+                <span>
+                  @if (row.manaSymbols.length > 0) {
+                    <app-mana-symbols [symbols]="row.manaSymbols" fallback="" size="small" />
+                    <span class="advanced-analysis-visually-hidden">{{ row.label }}</span>
+                  } @else {
+                    {{ row.label }}
+                  }
+                </span>
               <strong>{{ row.value }}</strong>
               <div class="advanced-analysis-rate-bar" aria-hidden="true">
                 <span [style.--metric-fill]="row.barWidth"></span>
@@ -66,7 +87,14 @@
               <div class="advanced-analysis-rate-list">
                 @for (row of group.rows; track row.key) {
                   <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
-                    <span>{{ row.label }}</span>
+                    <span>
+                      @if (row.manaSymbols.length > 0) {
+                        <app-mana-symbols [symbols]="row.manaSymbols" fallback="" size="small" />
+                        <span class="advanced-analysis-visually-hidden">{{ row.label }}</span>
+                      } @else {
+                        {{ row.label }}
+                      }
+                    </span>
                     <strong>{{ row.value }}</strong>
                     <div class="advanced-analysis-rate-bar" aria-hidden="true">
                       <span [style.--metric-fill]="row.barWidth"></span>
@@ -78,6 +106,62 @@
           }
         </div>
       </article>
+
+      @if (colorAccessGroups().length > 0 || commanderCurveRows().length > 0) {
+        <article class="advanced-analysis-consistency-card advanced-analysis-consistency-card--wide advanced-analysis-card-frame">
+          <h3>{{ 'deckBuilder.advancedAnalysis.consistency.colorAccessByTurn' | runtimeTranslate }}</h3>
+          @if (colorAccessGroups().length > 0) {
+            <div class="advanced-analysis-turn-grid advanced-analysis-turn-grid--three">
+              @for (group of colorAccessGroups(); track group.title) {
+                <section class="advanced-analysis-turn-group">
+                  <h4>{{ group.title }}</h4>
+                  <div class="advanced-analysis-rate-list">
+                    @for (row of group.rows; track row.key) {
+                      <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
+                        <span>
+                          @if (row.manaSymbols.length > 0) {
+                            <app-mana-symbols [symbols]="row.manaSymbols" fallback="" size="small" />
+                            <span class="advanced-analysis-visually-hidden">{{ row.label }}</span>
+                          } @else {
+                            {{ row.label }}
+                          }
+                        </span>
+                        <strong>{{ row.value }}</strong>
+                        <div class="advanced-analysis-rate-bar" aria-hidden="true">
+                          <span [style.--metric-fill]="row.barWidth"></span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </section>
+              }
+            </div>
+          }
+          @if (commanderCurveRows().length > 0) {
+            <section class="advanced-analysis-turn-group advanced-analysis-commander-curve">
+              <h4>{{ 'deckBuilder.advancedAnalysis.consistency.commanderCurveCastability' | runtimeTranslate }}</h4>
+              <div class="advanced-analysis-rate-list">
+                @for (row of commanderCurveRows(); track row.key) {
+                  <div class="advanced-analysis-rate-row" [class.is-unavailable]="!row.available">
+                    <span>
+                      @if (row.manaSymbols.length > 0) {
+                        <app-mana-symbols [symbols]="row.manaSymbols" fallback="" size="small" />
+                        <span class="advanced-analysis-visually-hidden">{{ row.label }}</span>
+                      } @else {
+                        {{ row.label }}
+                      }
+                    </span>
+                    <strong>{{ row.value }}</strong>
+                    <div class="advanced-analysis-rate-bar" aria-hidden="true">
+                      <span [style.--metric-fill]="row.barWidth"></span>
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
+          }
+        </article>
+      }
     </div>
   </section>
 } @else {

@@ -171,6 +171,9 @@ describe('DeckEditorComponent', () => {
   });
 
   it('renders the advanced analysis action without replacing the basic analysis panel', async () => {
+    const deck = buildDeckWithSingleCard({
+      slug: 'atraxa-control-a7f3c9d2',
+    });
     const { decksApi } = await setup({ slug: 'atraxa-control-a7f3c9d2' }, buildDeckWithSingleCard({
       slug: 'atraxa-control-a7f3c9d2',
     }));
@@ -184,6 +187,10 @@ describe('DeckEditorComponent', () => {
     expect(action).not.toBeNull();
     expect(action?.textContent).toContain('Advanced Analysis');
     expect(action?.getAttribute('href')).toBe('/decks/atraxa-control-a7f3c9d2/analysis');
+    expect(fixture.componentInstance.advancedAnalysisState(deck)).toEqual({
+      deck,
+      routeIdentifier: 'atraxa-control-a7f3c9d2',
+    });
     expect(fixture.nativeElement.querySelector('app-deck-analysis-panel')).not.toBeNull();
     expect(decksApi.getDeckAdvancedAnalysis).not.toHaveBeenCalled();
   });

@@ -5,6 +5,7 @@ namespace App\Tests\Integration;
 use App\Application\Card\CardOracleProfileRebuilder;
 use App\Application\Deck\AnalysisRuleSeeder;
 use App\Application\Deck\CardAnalysisProfileRebuilder;
+use App\Application\Deck\CardManaProfileRebuilder;
 use App\Application\Deck\CardSemanticDataRebuilder;
 use App\Application\Deck\ComboAnalysisProfileRebuilder;
 use App\Infrastructure\DeckAnalysis\DeckAnalysisLocalDataRebuildCommand;
@@ -31,6 +32,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
         self::assertStringContainsString('oracle profiles rebuilt', $tester->getDisplay());
         self::assertStringContainsString('semantic rows inserted=', $tester->getDisplay());
         self::assertStringContainsString('card analysis profiles inserted=', $tester->getDisplay());
+        self::assertStringContainsString('card mana profiles processed=', $tester->getDisplay());
         self::assertStringContainsString('rules seeded:', $tester->getDisplay());
         self::assertStringContainsString('skippedBecause=spellbook_not_populated', $tester->getDisplay());
 
@@ -39,6 +41,13 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
             ['oracleId' => $oracleId],
         ), true, flags: JSON_THROW_ON_ERROR);
         self::assertContains('ramp', $roles);
+        self::assertSame('mana_rock', (string) $this->entityManager->getConnection()->fetchOne(
+            'SELECT mana_source_category FROM card_mana_profile WHERE oracle_id = :oracleId',
+            ['oracleId' => $oracleId],
+        ));
+        self::assertStringStartsWith('sha256:', (string) $this->entityManager->getConnection()->fetchOne(
+            "SELECT version FROM deck_analysis_data_version WHERE key = 'mana'",
+        ));
     }
 
     public function testSkipFlagsAreRespected(): void
@@ -53,6 +62,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
         $status = $tester->execute([
             '--skip-semantic' => true,
             '--skip-card-analysis-profile' => true,
+            '--skip-card-mana-profile' => true,
             '--skip-rules' => true,
             '--skip-combo-analysis-profile' => true,
         ]);
@@ -60,6 +70,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
         self::assertSame(Command::SUCCESS, $status);
         self::assertSame('0', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_role'));
         self::assertSame('0', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_analysis_profile'));
+        self::assertSame('0', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_mana_profile'));
         self::assertSame('0', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM analysis_rule'));
         self::assertStringContainsString('semantic rows inserted=0 updated=0 skipped=0 skippedByFlag=true', $tester->getDisplay());
     }
@@ -72,6 +83,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
             '--skip-oracle-profile' => true,
             '--skip-semantic' => true,
             '--skip-card-analysis-profile' => true,
+            '--skip-card-mana-profile' => true,
             '--skip-rules' => true,
             '--skip-combo-analysis-profile' => true,
         ]);
@@ -90,6 +102,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
             new CardOracleProfileRebuilder($connection),
             new CardSemanticDataRebuilder($connection),
             new CardAnalysisProfileRebuilder($connection),
+            new CardManaProfileRebuilder($connection),
             new AnalysisRuleSeeder($connection),
             new ComboAnalysisProfileRebuilder($connection),
             $connection,

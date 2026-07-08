@@ -26,6 +26,7 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
         self::assertFalse($result['snapshot']['hit']);
         self::assertSame('missing', $result['snapshot']['reason']);
         self::assertSame(DeckAdvancedAnalyzerVersion::CURRENT, $result['snapshot']['analyzerVersion']);
+        self::assertArrayHasKey('manaDataVersion', $result['snapshot']);
         self::assertSame(DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS, $result['snapshot']['monteCarloRuns']);
         self::assertSame('1', (string) $this->connection()->fetchOne('SELECT COUNT(*) FROM deck_advanced_analysis_snapshot WHERE deck_id = :deckId', ['deckId' => $deck->id()]));
     }
@@ -88,6 +89,42 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
         self::assertSame(1, $calculator->calls);
         self::assertSame('semantic_data_changed', $result['snapshot']['reason']);
     }
+
+    public function testManaDataVersionChangeInvalidatesSnapshot(): void
+    {
+        [$deck] = $this->deckFixture('mana-version');
+        $calculator = new RecordingAdvancedCalculator();
+        $this->insertSnapshot($deck, ['mana_data_version' => 'old-mana']);
+
+        $result = $this->service()->analyze($deck, $calculator);
+
+        self::assertSame(1, $calculator->calls);
+        self::assertSame('mana_data_changed', $result['snapshot']['reason']);
+    }
+
+    public function testExistingSnapshotPayloadWithoutManaDataVersionDoesNotCrash(): void
+    {
+        [$deck] = $this->deckFixture('old-payload-no-mana-version');
+        $calculator = new RecordingAdvancedCalculator();
+        $this->insertSnapshot($deck, [
+            'result_json' => json_encode([
+                'label' => 'old snapshot',
+                'snapshot' => [
+                    'hit' => false,
+                    'reason' => 'missing',
+                ],
+            ], JSON_THROW_ON_ERROR),
+        ]);
+
+        $result = $this->service()->analyze($deck, $calculator);
+
+        self::assertSame(0, $calculator->calls);
+        self::assertTrue($result['snapshot']['hit']);
+        self::assertSame('fresh', $result['snapshot']['reason']);
+        self::assertArrayHasKey('manaDataVersion', $result['snapshot']);
+        self::assertSame('old snapshot', $result['label']);
+    }
+
 
     public function testComboDataVersionChangeInvalidatesSnapshot(): void
     {
@@ -215,6 +252,7 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
             'deck_hash' => $deckHash,
             'analyzer_version' => DeckAdvancedAnalyzerVersion::CURRENT,
             'semantic_data_version' => $versions[DeckAnalysisDataVersionProvider::KEY_SEMANTIC],
+            'mana_data_version' => $versions[DeckAnalysisDataVersionProvider::KEY_MANA],
             'combo_data_version' => $versions[DeckAnalysisDataVersionProvider::KEY_COMBO],
             'rules_version' => $versions[DeckAnalysisDataVersionProvider::KEY_RULES],
             'monte_carlo_version' => DeckAdvancedAnalyzerVersion::MONTE_CARLO,
@@ -231,6 +269,7 @@ INSERT INTO deck_advanced_analysis_snapshot (
     deck_hash,
     analyzer_version,
     semantic_data_version,
+    mana_data_version,
     combo_data_version,
     rules_version,
     monte_carlo_version,
@@ -246,6 +285,7 @@ INSERT INTO deck_advanced_analysis_snapshot (
     :deck_hash,
     :analyzer_version,
     :semantic_data_version,
+    :mana_data_version,
     :combo_data_version,
     :rules_version,
     :monte_carlo_version,

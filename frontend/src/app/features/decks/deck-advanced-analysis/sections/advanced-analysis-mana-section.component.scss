@@ -1,0 +1,309 @@
+:host {
+  display: block;
+  margin-top: var(--advanced-analysis-block-padding);
+  padding-top: var(--advanced-analysis-block-padding);
+  border-top: 1px solid var(--advanced-analysis-soft-line);
+}
+
+h3,
+h4,
+p,
+dl,
+ul {
+  margin: 0;
+}
+
+:is(h3, h4, p, strong, span, dd, dt, small, em) {
+  overflow-wrap: anywhere;
+}
+
+.advanced-analysis-section,
+.advanced-analysis-card-frame {
+  display: grid;
+  align-content: start;
+  gap: var(--advanced-analysis-section-gap);
+  min-width: 0;
+}
+
+.advanced-analysis-card-frame {
+  gap: var(--advanced-analysis-inner-gap);
+}
+
+h3,
+h4 {
+  color: var(--text);
+  line-height: 1.2;
+}
+
+h3 {
+  font-size: 0.95rem;
+}
+
+h4 {
+  font-size: 0.86rem;
+}
+
+.advanced-analysis-visually-hidden {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.advanced-analysis-mana-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--advanced-analysis-inner-gap);
+}
+
+.advanced-analysis-mana-card {
+  min-width: 0;
+}
+
+.advanced-analysis-mana-card--wide {
+  grid-column: 1 / -1;
+}
+
+.advanced-analysis-mana-stat-list,
+.advanced-analysis-mana-analysis-list,
+.advanced-analysis-mana-cycle-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.advanced-analysis-mana-stat-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.advanced-analysis-mana-stat-list--compact,
+.advanced-analysis-mana-cycle-list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.advanced-analysis-mana-stat-list div,
+.advanced-analysis-mana-analysis-list div,
+.advanced-analysis-mana-cycle-list div {
+  min-width: 0;
+  padding: var(--advanced-analysis-item-padding);
+  border: 1px solid var(--advanced-analysis-soft-line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 850;
+}
+
+.advanced-analysis-mana-source-grid {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--advanced-analysis-soft-line);
+  border-radius: 8px;
+}
+
+.advanced-analysis-mana-source-header,
+.advanced-analysis-mana-source-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1.25fr) repeat(4, minmax(5rem, 1fr));
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+}
+
+.advanced-analysis-mana-source-header {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  background: var(--surface);
+}
+
+.advanced-analysis-mana-source-row {
+  border-top: 1px solid var(--advanced-analysis-soft-line);
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.advanced-analysis-mana-source-row > span:first-child {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.advanced-analysis-mana-source-row app-mana-symbols,
+.advanced-analysis-symbol-value app-mana-symbols,
+.advanced-analysis-mana-commander-grid h4 app-mana-symbols,
+.advanced-analysis-mana-commander-grid dt app-mana-symbols,
+.advanced-analysis-mana-fetch-list dd app-mana-symbols {
+  --mana-symbols-wrap: nowrap;
+}
+
+.advanced-analysis-symbol-value-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+}
+
+.advanced-analysis-symbol-value {
+  display: inline-flex;
+  gap: 0.2rem;
+  align-items: center;
+}
+
+.advanced-analysis-mana-commander-grid h4 {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.advanced-analysis-mana-note {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.advanced-analysis-mana-fetch-list,
+.advanced-analysis-issue-list {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0;
+  list-style: none;
+}
+
+.advanced-analysis-mana-fetch-list > li {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: var(--advanced-analysis-item-padding);
+  border: 1px solid var(--advanced-analysis-soft-line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.advanced-analysis-mana-fetch-list > li.is-dead {
+  border-color: var(--cz-danger);
+}
+
+.advanced-analysis-mana-fetch-list > li > div {
+  display: flex;
+  gap: 0.55rem;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.advanced-analysis-mana-fetch-list strong {
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.advanced-analysis-mana-fetch-list span,
+.advanced-analysis-mana-fetch-list small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.advanced-analysis-mana-fetch-list dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.advanced-analysis-mana-commander-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--advanced-analysis-inner-gap);
+}
+
+.advanced-analysis-mana-commander-grid section {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.advanced-analysis-issue-list li {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: var(--advanced-analysis-item-padding);
+  border: 1px solid var(--advanced-analysis-soft-line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.advanced-analysis-issue-list span {
+  color: var(--text);
+  font-weight: 850;
+}
+
+.advanced-analysis-issue-list small,
+.advanced-analysis-issue-list em,
+.advanced-analysis-empty-copy {
+  color: var(--muted);
+}
+
+.advanced-analysis-issue-list em {
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.advanced-analysis-empty-copy {
+  line-height: 1.45;
+}
+
+@media (max-width: 920px) {
+  .advanced-analysis-mana-grid,
+  .advanced-analysis-mana-commander-grid,
+  .advanced-analysis-mana-stat-list,
+  .advanced-analysis-mana-stat-list--compact,
+  .advanced-analysis-mana-cycle-list,
+  .advanced-analysis-mana-fetch-list dl {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-analysis-mana-source-grid {
+    border: 0;
+    border-radius: 0;
+    gap: 0.55rem;
+  }
+
+  .advanced-analysis-mana-source-header {
+    display: none;
+  }
+
+  .advanced-analysis-mana-source-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--advanced-analysis-soft-line);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+}
+
+@media (max-width: 560px) {
+  .advanced-analysis-mana-source-row {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-analysis-mana-fetch-list > li > div {
+    display: grid;
+    justify-content: stretch;
+  }
+}

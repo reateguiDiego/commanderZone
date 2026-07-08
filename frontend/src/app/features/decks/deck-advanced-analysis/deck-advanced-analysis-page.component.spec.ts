@@ -23,6 +23,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
   async function setup(
     routeParams: Record<string, string> = { slug: DECK_ID },
     decksApiOverrides: Partial<DecksApiMock> = {},
+    navigationState: Record<string, unknown> | null = null,
   ): Promise<{ fixture: ComponentFixture<DeckAdvancedAnalysisPageComponent>; decksApi: DecksApiMock }> {
     TestBed.resetTestingModule();
 
@@ -47,6 +48,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
       ],
     }).compileComponents();
 
+    window.history.replaceState(navigationState, '', window.location.href);
     const fixture = TestBed.createComponent(DeckAdvancedAnalysisPageComponent);
     fixture.detectChanges();
     await Promise.resolve();
@@ -155,7 +157,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const healthCards = element.querySelectorAll('.advanced-analysis-health-card');
 
-    expect(healthCards).toHaveLength(11);
+    expect(healthCards).toHaveLength(12);
     expect(element.textContent).toContain('Ramp');
     expect(element.textContent).toContain('Ramp needs review.');
     expect(element.textContent).toContain('Permanent ramp');
@@ -180,6 +182,16 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(element.textContent).toContain('Elf tribal identity detected.');
     expect(element.textContent).toContain('Consistency');
     expect(element.textContent).toContain('Keepable hands');
+    expect(element.textContent).toContain('Mana');
+    expect(element.textContent).toContain('Colored sources');
+    const manaHealthCard = Array.from(healthCards)
+      .find((card) => card.querySelector('h3')?.textContent?.trim() === 'Mana') as HTMLElement | undefined;
+    expect(manaHealthCard?.querySelector('app-mana-symbols')).not.toBeNull();
+    expect(manaHealthCard?.textContent).not.toContain('White');
+    expect(manaHealthCard?.textContent).not.toContain('Blue');
+    expect(manaHealthCard?.textContent).not.toContain('Black');
+    expect(manaHealthCard?.textContent).not.toContain('Red');
+    expect(manaHealthCard?.textContent).not.toContain('Green');
     expect(element.textContent).toContain('Wrath of God');
     expect(element.textContent).toContain('Cyclonic Rift');
     expect(element.textContent).toContain('Farewell');
@@ -265,6 +277,110 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(normalizedText).not.toContain('win rate');
     expect(normalizedText).not.toContain('win probability');
     expect(normalizedText).not.toContain('chance to win');
+  });
+
+  it('renders mana analysis with source, land cycle, fetchland and ramp sections', async () => {
+    const { fixture } = await setup();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const text = element.textContent ?? '';
+
+    expect(text).toContain('Mana Analysis');
+    expect(text).toContain('Mana sources by color');
+    expect(text).toContain('White');
+    expect(text).toContain('Untapped sources');
+    expect(text).toContain('Land base');
+    expect(text).toContain('Typed lands');
+    expect(text).toContain('Land cycles');
+    expect(text).toContain('Shocklands');
+    expect(text).toContain('Triomes');
+    expect(text).toContain('Fetchland coverage');
+    expect(text).toContain('Fetchlands are analyzed as mana fixing, not generic tutors.');
+    expect(text).toContain('Bloodstained Mire');
+    expect(text).toContain('Overgrown Tomb');
+    expect(text).not.toContain('oracle-bloodstained-mire');
+    expect(text).not.toContain('oracle-overgrown-tomb');
+    expect(element.querySelector('img[alt="Bloodstained Mire"]')?.getAttribute('src')).toBe('https://cards.example.test/bloodstained-mire.jpg');
+    expect(element.querySelector('img[alt="Overgrown Tomb"]')?.getAttribute('src')).toBe('https://cards.example.test/overgrown-tomb.jpg');
+    expect(text).toContain('Ramp profile');
+    expect(text).toContain('Cost reducers');
+    expect(text).toContain('Commander castability');
+    expect(text).toContain('Atraxa cost');
+  });
+
+  it('uses the effective fetchland count in the land base summary', async () => {
+    const analysis = buildAdvancedAnalysis();
+    const mana = analysis.metrics?.mana;
+    if (!mana?.lands || !mana.fetchlands || !mana.landCycles || !mana.fixing) {
+      throw new Error('Test fixture must include mana metrics.');
+    }
+    mana.lands.fetchlands = 0;
+    mana.fetchlands.count = 3;
+    mana.landCycles['fetchland'] = 3;
+    mana.fixing['fetchlands'] = 3;
+
+    const { fixture } = await setup({ slug: DECK_ID }, {
+      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(analysis)),
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const landBaseCard = Array.from(element.querySelectorAll('.advanced-analysis-mana-card'))
+      .find((card) => card.querySelector('h3')?.textContent?.trim() === 'Land base');
+    const fetchlandRow = Array.from(landBaseCard?.querySelectorAll('dl > div') ?? [])
+      .find((row) => row.querySelector('dt')?.textContent?.trim() === 'Fetchlands');
+
+    expect(fetchlandRow?.querySelector('dd')?.textContent?.trim()).toBe('3');
+  });
+
+  it('renders mana analysis as unavailable without metrics.mana', async () => {
+    const analysis = buildAdvancedAnalysis({
+      metrics: {
+        cards: { totalCards: 100, resolvedCards: 100, unmatchedCards: 0 },
+        roles: { permanentRamp: 8 },
+        mana: null,
+      },
+    });
+
+    const { fixture } = await setup({ slug: DECK_ID }, {
+      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(analysis)),
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Mana analysis is not available for this deck.');
+  });
+
+  it('renders mana issues and color access without presenting them as winrate', async () => {
+    const { fixture } = await setup({ slug: DECK_ID }, {
+      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(buildAdvancedAnalysis({
+        issues: [
+          {
+            code: 'fetchlands_without_targets',
+            severity: 'warning',
+            title: 'Fetchlands without valid targets',
+            message: 'Mana analysis found fetchlands that do not have valid fetch targets in the deck.',
+          },
+        ],
+      }))),
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent ?? '';
+    const normalizedText = text.toLowerCase();
+
+    expect(text).toContain('Mana warnings');
+    expect(text).toContain('Fetchlands without valid targets');
+    expect(text).toContain('Color access by turn');
+    expect(text).toContain('All commander colors');
+    expect(text).toContain('Commander curve castability');
+    expect(text).toContain('Can cast on curve');
+    expect(normalizedText).not.toContain('winrate');
+    expect(normalizedText).not.toContain('win rate');
   });
 
   it('renders role quality breakdown with functional role labels', async () => {
@@ -459,7 +575,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
 
     expect(element.querySelector('.advanced-analysis-typal-identity')).toBeNull();
     expect(element.textContent).not.toContain('Primary tribe');
-    expect(element.querySelectorAll('.advanced-analysis-health-card')).toHaveLength(10);
+    expect(element.querySelectorAll('.advanced-analysis-health-card')).toHaveLength(11);
   });
 
   it('renders an empty combo state when combo payload has no lines', async () => {
@@ -550,6 +666,29 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Advanced deck');
     expect(TestBed.inject(PageHeaderStore).state()?.description).toBe('Anàlisi de baralla');
     expect(fixture.componentInstance.deckDetailLink()).toEqual(['/decks', 'atraxa-control-a7f3c9d2']);
+  });
+
+  it('uses navigation deck state instead of resolving the owner deck slug again', async () => {
+    const deck = buildDeck({
+      id: DECK_ID,
+      name: 'Advanced deck',
+      slug: 'atraxa-control-a7f3c9d2',
+    });
+    const { fixture, decksApi } = await setup(
+      { slug: 'atraxa-control-a7f3c9d2' },
+      {},
+      {
+        deck,
+        routeIdentifier: 'atraxa-control-a7f3c9d2',
+      },
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(decksApi.getBySlug).not.toHaveBeenCalled();
+    expect(decksApi.get).not.toHaveBeenCalled();
+    expect(decksApi.getDeckAdvancedAnalysis).toHaveBeenCalledWith(DECK_ID);
+    expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Advanced deck');
   });
 
   it('shows an unavailable error for 404 responses and retries the advanced request', async () => {
@@ -782,6 +921,20 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         message: 'Tutors cannot be evaluated confidently.',
         evidence: { trueTutors: 0 },
       },
+      mana: {
+        status: 'warning',
+        message: 'Mana base needs review.',
+        evidence: {
+          lands: 36,
+          coloredSources: { white: 12, blue: 11, black: 14, red: 8, green: 15 },
+          tappedLands: 9,
+          deadFetchlands: 0,
+          commanderCastability: 'warning',
+          landCycleRisks: {
+            tappedLandPressure: 'warning',
+          },
+        },
+      },
       sacrifice: {
         status: 'excellent',
         message: 'Sacrifice looks strong.',
@@ -859,6 +1012,136 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         tax: 1,
         symmetricalStaxRisk: 1,
         comboPieces: 7,
+      },
+      mana: {
+        lands: {
+          total: 36,
+          basic: 8,
+          nonBasic: 28,
+          fetchlands: 2,
+          typedLands: 7,
+          utilityLands: 4,
+          colorlessUtilityLands: 1,
+          tappedLands: 9,
+          conditionallyTappedLands: 3,
+          untappedLands: 24,
+          mdfcLands: 1,
+        },
+        landCycles: {
+          fetchland: 2,
+          shockland: 2,
+          triome: 1,
+          surveil_land: 1,
+          fastland: 1,
+          slowland: 1,
+          painland: 1,
+          checkland: 1,
+          filterland: 1,
+          pathway: 1,
+          battle_land: 1,
+          bond_land: 1,
+          bounce_land: 1,
+          temple: 1,
+          gain_land: 1,
+          utility_land: 3,
+          colorless_utility_land: 1,
+        },
+        sources: {
+          white: 12,
+          blue: 11,
+          black: 14,
+          red: 8,
+          green: 15,
+          colorless: 5,
+          anyColor: 3,
+          commanderColor: 22,
+        },
+        untappedSources: {
+          white: 9,
+          blue: 8,
+          black: 10,
+          red: 6,
+          green: 11,
+          colorless: 4,
+        },
+        earlySources: {
+          turn1: { white: 7, blue: 6, black: 8, red: 5, green: 9, colorless: 3 },
+          turn2: { white: 10, blue: 9, black: 12, red: 7, green: 13, colorless: 4 },
+          turn3: { white: 12, blue: 11, black: 14, red: 8, green: 15, colorless: 5 },
+        },
+        ramp: {
+          permanentRamp: 8,
+          landRamp: 3,
+          manaRocks: 4,
+          manaDorks: 1,
+          fastMana: 1,
+          burstMana: 2,
+          rituals: 1,
+          oneShotMana: 2,
+          treasureSources: 1,
+          costReducers: 1,
+        },
+        fixing: {
+          fetchlands: 2,
+          rainbowSources: 3,
+          conditionalFixing: 2,
+          landRampFixing: 2,
+          artifactFixing: 2,
+          creatureFixing: 1,
+        },
+        fetchlands: {
+          count: 2,
+          validTargets: 4,
+          deadFetchlands: 0,
+          effectiveColorSources: { white: 1, blue: 1, black: 2, red: 1, green: 1 },
+          untappedEffectiveColorSources: { white: 1, blue: 0, black: 1, red: 1, green: 1 },
+          tappedOnlyEffectiveColorSources: { white: 0, blue: 1, black: 1, red: 0, green: 0 },
+          details: [
+            {
+              oracleId: 'oracle-bloodstained-mire',
+              scryfallId: 'scryfall-bloodstained-mire',
+              name: 'Bloodstained Mire',
+              imageUrl: 'https://cards.example.test/bloodstained-mire.jpg',
+              quantity: 1,
+              fetchableLandTypes: ['Swamp', 'Mountain'],
+              validTargets: [
+                { oracleId: 'oracle-blood-crypt', scryfallId: 'scryfall-blood-crypt', name: 'Blood Crypt', imageUrl: 'https://cards.example.test/blood-crypt.jpg', colors: ['black', 'red'], canEnterUntapped: true },
+                { oracleId: 'oracle-overgrown-tomb', scryfallId: 'scryfall-overgrown-tomb', name: 'Overgrown Tomb', imageUrl: 'https://cards.example.test/overgrown-tomb.jpg', colors: ['black', 'green'], canEnterUntapped: true },
+              ],
+              effectiveColors: ['black', 'red', 'green'],
+              untappedEffectiveColors: ['black', 'red', 'green'],
+              tappedOnlyEffectiveColors: [],
+              dead: false,
+            },
+          ],
+        },
+        landCycleAnalysis: {
+          typedLandDensity: 0.194,
+          fetchSynergyScore: 'good',
+          checklandSupport: 'warning',
+          earlyUntappedAccess: 'warning',
+          tappedLandPressure: 'warning',
+          colorlessUtilityPressure: 'good',
+          pathwayColorChoicePressure: 'good',
+          filterlandInputPressure: 'good',
+          bounceLandTempoPressure: 'warning',
+        },
+        requirements: {
+          pipDemand: { white: 18, blue: 16, black: 20, red: 8, green: 22 },
+          earlyPipDemand: { white: 6, blue: 5, black: 8, red: 2, green: 7 },
+          doublePipCards: [],
+          triplePipCards: [],
+          colorIntensity: { white: 0.22, blue: 0.2, black: 0.26, red: 0.1, green: 0.28 },
+          commanderCost: {
+            Atraxa: { white: 1, blue: 1, black: 1, red: 0, green: 1 },
+          },
+          commanderCastability: {
+            white: { requiredPips: 1, sourceCount: 12, untappedSourceCount: 9, earlySourceCount: 12, status: 'good' },
+            blue: { requiredPips: 1, sourceCount: 11, untappedSourceCount: 8, earlySourceCount: 11, status: 'warning' },
+            black: { requiredPips: 1, sourceCount: 14, untappedSourceCount: 10, earlySourceCount: 14, status: 'good' },
+            green: { requiredPips: 1, sourceCount: 15, untappedSourceCount: 11, earlySourceCount: 15, status: 'good' },
+          },
+        },
       },
       roleCards: {
         permanentRamp: [
@@ -958,6 +1241,38 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           comboPieceSeenRate: 0.489,
           completeTwoCardComboSeenRate: 0.084,
           comboPlusProtectionSeenRate: 0.031,
+        },
+      },
+      colorAccess: {
+        turn1: {
+          white: 0.71,
+          blue: 0.63,
+          black: 0.77,
+          red: 0.48,
+          green: 0.8,
+          allCommanderColors: 0.42,
+        },
+        turn2: {
+          white: 0.84,
+          blue: 0.79,
+          black: 0.88,
+          red: 0.61,
+          green: 0.91,
+          allCommanderColors: 0.58,
+        },
+        turn3: {
+          white: 0.91,
+          blue: 0.86,
+          black: 0.93,
+          red: 0.71,
+          green: 0.95,
+          allCommanderColors: 0.68,
+        },
+        commanderCurve: {
+          canCastOnCurveRate: 0.62,
+          missingColorRate: 0.22,
+          missingManaValueRate: 0.12,
+          tappedOutDelayRate: 0.04,
         },
       },
     },

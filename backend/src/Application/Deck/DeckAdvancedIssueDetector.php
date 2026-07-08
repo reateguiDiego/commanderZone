@@ -34,9 +34,10 @@ final class DeckAdvancedIssueDetector
         $rules = $this->genericRules();
         $issues = [];
 
-        $this->rampIssues($issues, $roles, $rules);
+        $this->rampIssues($issues, $roles, $rules, $metrics);
         $this->drawIssues($issues, $roles, $rules);
         $this->tutorIssues($issues, $roles, $archetypes, $power);
+        $this->manaIssues($issues, $metrics);
         $this->wipeIssues($issues, $roles, $rules);
         $this->sacrificeIssues($issues, $roles, $archetypes);
         $this->comboIssues($issues, $roles, $combos);
@@ -55,7 +56,7 @@ final class DeckAdvancedIssueDetector
      * @param array<string,int> $roles
      * @param array<string,int> $rules
      */
-    private function rampIssues(array &$issues, array $roles, array $rules): void
+    private function rampIssues(array &$issues, array $roles, array $rules, array $metrics): void
     {
         $minimum = $rules['ramp'] ?? self::FALLBACK_MINIMUMS['ramp'];
         if (($roles['permanentRamp'] ?? 0) < $minimum) {
@@ -71,6 +72,31 @@ final class DeckAdvancedIssueDetector
                 'permanentRamp' => $roles['permanentRamp'] ?? 0,
                 'oneShotManaSignals' => $oneShot,
             ], 'review_role_mix');
+        }
+        if (($roles['rituals'] ?? 0) >= 4 && $oneShot > max(1, ($roles['permanentRamp'] ?? 0))) {
+            $issues[] = $this->issue('rituals_not_stable_ramp', 'warning', 'Rituals are not stable ramp', 'Ritual and burst mana can enable explosive turns, but they do not replace repeatable mana development.', [
+                'rituals' => $roles['rituals'] ?? 0,
+                'burstMana' => $roles['burstMana'] ?? 0,
+                'permanentRamp' => $roles['permanentRamp'] ?? 0,
+            ], 'replace_rituals_with_permanent_ramp');
+        }
+        if (($roles['costReducers'] ?? 0) >= 4) {
+            $issues[] = $this->issue('cost_reducers_not_mana_sources', 'info', 'Cost reducers are not mana sources', 'Cost reducers can improve spell efficiency, but they should not be counted as stable mana sources.', [
+                'costReducers' => $roles['costReducers'] ?? 0,
+                'permanentRamp' => $roles['permanentRamp'] ?? 0,
+                'minRecommendedRamp' => $minimum,
+            ], 'add_permanent_ramp');
+        }
+
+        $mana = $this->arrayValue($metrics['mana'] ?? []);
+        $fixing = $this->arrayValue($mana['fixing'] ?? []);
+        $landRamp = (int) ($roles['landRamp'] ?? 0);
+        if (($roles['permanentRamp'] ?? 0) >= $minimum && $landRamp > 0 && (int) ($fixing['landRampFixing'] ?? 0) === 0) {
+            $issues[] = $this->issue('ramp_does_not_fix_colors', 'info', 'Ramp does not fix colors', 'The ramp package develops mana, but current mana analysis does not see land-ramp color fixing.', [
+                'permanentRamp' => $roles['permanentRamp'] ?? 0,
+                'landRamp' => $landRamp,
+                'landRampFixing' => $fixing['landRampFixing'] ?? 0,
+            ], 'add_land_ramp_that_fixes');
         }
     }
 
@@ -104,9 +130,12 @@ final class DeckAdvancedIssueDetector
     private function tutorIssues(array &$issues, array $roles, array $archetypes, array $power): void
     {
         $comboOrHighPower = $archetypes['primary'] === 'combo' || in_array($power['band'], ['high_power', 'cedh_like'], true);
-        if ($comboOrHighPower && ($roles['trueTutors'] ?? 0) < 3) {
+        $strategicTutors = ($roles['trueTutors'] ?? 0) + ($roles['typedTutors'] ?? 0);
+        if ($comboOrHighPower && $strategicTutors < 3) {
             $issues[] = $this->issue('low_true_tutors_for_combo', 'warning', 'Low true tutor density', 'The plan has combo or high-power signals, but true tutors are low.', [
                 'trueTutors' => $roles['trueTutors'] ?? 0,
+                'typedTutors' => $roles['typedTutors'] ?? 0,
+                'strategicTutors' => $strategicTutors,
                 'primaryArchetype' => $archetypes['primary'],
             ], 'add_role');
         }
@@ -115,6 +144,185 @@ final class DeckAdvancedIssueDetector
                 'rampSearch' => $roles['rampSearch'] ?? 0,
                 'trueTutors' => $roles['trueTutors'] ?? 0,
             ], 'review_role_mix');
+        }
+    }
+
+    /**
+     * @param list<array<string,mixed>> $issues
+     * @param array<string,mixed> $metrics
+     */
+    private function manaIssues(array &$issues, array $metrics): void
+    {
+        $mana = $this->arrayValue($metrics['mana'] ?? []);
+        if ($mana === []) {
+            return;
+        }
+
+        $fetchlands = $this->arrayValue($mana['fetchlands'] ?? []);
+        if ((int) ($fetchlands['deadFetchlands'] ?? 0) > 0) {
+            $deadFetchlands = (int) ($fetchlands['deadFetchlands'] ?? 0);
+            $fetchCount = max(1, (int) ($fetchlands['count'] ?? 0));
+            $issues[] = $this->issue('fetchlands_without_targets', $deadFetchlands >= $fetchCount ? 'critical' : 'warning', 'Fetchlands without valid targets', 'Mana analysis found fetchlands that do not have valid fetch targets in the deck.', [
+                'deadFetchlands' => (int) ($fetchlands['deadFetchlands'] ?? 0),
+                'fetchlands' => (int) ($fetchlands['count'] ?? 0),
+                'recommendedAction' => 'add_fetchable_targets',
+            ], 'add_fetchable_targets');
+        }
+
+        $this->coloredSourceIssues($issues, $mana);
+        $this->fetchTargetIssues($issues, $mana);
+
+        $cycle = $this->arrayValue($mana['landCycleAnalysis'] ?? []);
+        if (($cycle['tappedLandPressure'] ?? 'unknown') === 'critical') {
+            $issues[] = $this->issue('too_many_tapped_lands', 'warning', 'Too many tapped lands', 'Mana analysis sees high tapped-land pressure, which can slow early development.', [
+                'tappedLandPressure' => $cycle['tappedLandPressure'],
+                'tappedLands' => $this->arrayValue($mana['lands'] ?? [])['tappedLands'] ?? null,
+                'conditionallyTappedLands' => $this->arrayValue($mana['lands'] ?? [])['conditionallyTappedLands'] ?? null,
+            ], 'reduce_tapped_lands');
+        }
+
+        if (in_array($cycle['colorlessUtilityPressure'] ?? 'unknown', ['warning', 'critical'], true)) {
+            $issues[] = $this->issue('colorless_land_pressure', 'warning', 'Colorless utility land pressure', 'Mana analysis sees enough colorless utility lands to pressure colored source counts.', [
+                'colorlessUtilityPressure' => $cycle['colorlessUtilityPressure'],
+                'colorlessUtilityLands' => $this->arrayValue($mana['lands'] ?? [])['colorlessUtilityLands'] ?? null,
+            ], 'reduce_colorless_utility_lands');
+        }
+
+        foreach ([
+            'checklandSupport' => ['typed_land_density_low_for_checklands', 'Typed land density is low for checklands', 'Mana analysis sees checklands without enough typed/basic land support.', 'improve_checkland_support'],
+            'filterlandInputPressure' => ['filterlands_need_input_sources', 'Filterlands need input sources', 'Mana analysis sees filterlands that may not provide independent colored access early.', 'reduce_unsupported_filterlands'],
+            'pathwayColorChoicePressure' => ['pathways_create_color_choice_pressure', 'Pathways create color choice pressure', 'Mana analysis sees pathway density that can force mutually exclusive early color choices.', 'reduce_pathway_color_pressure'],
+            'bounceLandTempoPressure' => ['bounce_lands_tempo_risk', 'Bounce lands create tempo risk', 'Mana analysis sees bounce lands that can slow early land development.', 'reduce_bounce_lands'],
+        ] as $key => [$code, $title, $message, $action]) {
+            if (in_array($cycle[$key] ?? 'unknown', ['warning', 'critical'], true)) {
+                $issues[] = $this->issue($code, 'warning', $title, $message, [$key => $cycle[$key]], $action);
+                if ($key === 'checklandSupport') {
+                    $issues[] = $this->issue('checklands_not_supported', 'warning', 'Checklands are not supported', 'Checklands probably enter tapped too often because typed/basic land support is low.', [$key => $cycle[$key]], 'improve_checkland_support');
+                }
+            }
+        }
+
+        $landCycles = $this->arrayValue($mana['landCycles'] ?? []);
+        $painlands = (int) ($landCycles['painland'] ?? 0);
+        if ($painlands >= 6) {
+            $issues[] = $this->issue('painland_life_pressure', 'info', 'Painland life pressure', 'Painlands are usually acceptable in Commander, but a high count can add up with other life costs.', [
+                'painlands' => $painlands,
+            ], 'review_painland_life_pressure');
+        }
+    }
+
+    /**
+     * @param list<array<string,mixed>> $issues
+     * @param array<string,mixed> $mana
+     */
+    private function coloredSourceIssues(array &$issues, array $mana): void
+    {
+        $sources = $this->arrayValue($mana['sources'] ?? []);
+        $earlySources = $this->arrayValue($this->arrayValue($mana['earlySources'] ?? [])['turn2'] ?? []);
+        $requirements = $this->arrayValue($mana['requirements'] ?? []);
+        $pipDemand = $this->arrayValue($requirements['pipDemand'] ?? []);
+        $earlyPipDemand = $this->arrayValue($requirements['earlyPipDemand'] ?? []);
+        $commanderCastability = $this->arrayValue($requirements['commanderCastability'] ?? []);
+        $primaryColor = null;
+        $primaryDemand = 0;
+
+        foreach ($pipDemand as $color => $demand) {
+            if (!is_string($color) || !is_numeric($demand) || !array_key_exists($color, $sources)) {
+                continue;
+            }
+            $demand = (int) $demand;
+            if ($demand > $primaryDemand) {
+                $primaryDemand = $demand;
+                $primaryColor = $color;
+            }
+            $sourceCount = (int) ($sources[$color] ?? 0);
+            $recommended = $this->recommendedSourcesForDemand($demand, (int) ($earlyPipDemand[$color] ?? 0));
+            if ($demand > 0 && $sourceCount < $recommended) {
+                $issues[] = $this->issue('low_colored_sources', $sourceCount < max(6, (int) floor($recommended * 0.65)) ? 'critical' : 'warning', 'Low colored sources', sprintf('The deck has low %s source density for its pip demand.', $color), [
+                    'color' => $color,
+                    'sourceCount' => $sourceCount,
+                    'pipDemand' => $demand,
+                    'earlyPipDemand' => (int) ($earlyPipDemand[$color] ?? 0),
+                    'recommendedSources' => $recommended,
+                    'recommendedAction' => 'add_'.$color.'_sources',
+                ], 'add_colored_sources');
+            }
+            if ((int) ($earlyPipDemand[$color] ?? 0) > 0 && (int) ($earlySources[$color] ?? 0) < min(8, max(4, (int) ceil((int) ($earlyPipDemand[$color] ?? 0) / 2)))) {
+                $issues[] = $this->issue('low_early_color_access', 'warning', 'Low early color access', sprintf('Early cards require %s, but turn-two source access looks low.', $color), [
+                    'color' => $color,
+                    'earlySourceCount' => (int) ($earlySources[$color] ?? 0),
+                    'earlyPipDemand' => (int) ($earlyPipDemand[$color] ?? 0),
+                ], 'add_untapped_sources');
+            }
+        }
+
+        if ($primaryColor !== null && (int) ($sources[$primaryColor] ?? 0) < $this->recommendedSourcesForDemand($primaryDemand, (int) ($earlyPipDemand[$primaryColor] ?? 0))) {
+            $issues[] = $this->issue('weak_primary_color_sources', 'warning', 'Weak primary color sources', 'The deck primary color has fewer sources than its pip demand suggests.', [
+                'color' => $primaryColor,
+                'sourceCount' => (int) ($sources[$primaryColor] ?? 0),
+                'pipDemand' => $primaryDemand,
+                'earlyPipDemand' => (int) ($earlyPipDemand[$primaryColor] ?? 0),
+            ], 'add_colored_sources');
+        }
+
+        foreach ($commanderCastability as $color => $castability) {
+            if (!is_array($castability)) {
+                continue;
+            }
+            $status = (string) ($castability['status'] ?? 'unknown');
+            if (!in_array($status, ['warning', 'critical'], true)) {
+                continue;
+            }
+            $severity = $status === 'critical' ? 'critical' : 'warning';
+            $issues[] = $this->issue('commander_color_bottleneck', $severity, 'Commander color bottleneck', sprintf('Commander castability is constrained by %s sources.', $color), [
+                'color' => $color,
+                'requiredPips' => (int) ($castability['requiredPips'] ?? 0),
+                'sourceCount' => (int) ($castability['sourceCount'] ?? 0),
+                'earlySourceCount' => (int) ($castability['earlySourceCount'] ?? 0),
+                'status' => $status,
+            ], 'add_commander_color_sources');
+        }
+    }
+
+    /**
+     * @param list<array<string,mixed>> $issues
+     * @param array<string,mixed> $mana
+     */
+    private function fetchTargetIssues(array &$issues, array $mana): void
+    {
+        $fetchlands = $this->arrayValue($mana['fetchlands'] ?? []);
+        $fetchCount = (int) ($fetchlands['count'] ?? 0);
+        if ($fetchCount <= 0) {
+            return;
+        }
+
+        $effective = $this->arrayValue($fetchlands['effectiveColorSources'] ?? []);
+        $untapped = $this->arrayValue($fetchlands['untappedEffectiveColorSources'] ?? []);
+        $tappedOnly = $this->arrayValue($fetchlands['tappedOnlyEffectiveColorSources'] ?? []);
+        foreach ($effective as $color => $count) {
+            if (!is_numeric($count) || (int) $count <= 0) {
+                continue;
+            }
+            $tapped = (int) ($tappedOnly[$color] ?? 0);
+            $untappedCount = (int) ($untapped[$color] ?? 0);
+            if ($tapped > 0 && $untappedCount === 0) {
+                $issues[] = $this->issue('fetchlands_mostly_tapped_targets', 'warning', 'Fetchlands mostly find tapped targets', sprintf('Fetchlands find %s, but only through tapped targets.', $color), [
+                    'color' => $color,
+                    'fetchlands' => $fetchCount,
+                    'effectiveColorSources' => (int) $count,
+                    'untappedEffectiveColorSources' => $untappedCount,
+                    'tappedOnlyEffectiveColorSources' => $tapped,
+                ], 'improve_fetch_targets');
+            }
+        }
+
+        $cycle = $this->arrayValue($mana['landCycleAnalysis'] ?? []);
+        if (($cycle['fetchSynergyScore'] ?? 'unknown') === 'warning' && (float) ($cycle['typedLandDensity'] ?? 0.0) < 0.25) {
+            $issues[] = $this->issue('typed_land_density_low_for_fetches', 'warning', 'Typed land density is low for fetches', 'Fetchlands are present, but typed fetchable target density looks low.', [
+                'fetchlands' => $fetchCount,
+                'typedLandDensity' => (float) ($cycle['typedLandDensity'] ?? 0.0),
+                'fetchSynergyScore' => $cycle['fetchSynergyScore'] ?? 'unknown',
+            ], 'add_fetchable_targets');
         }
     }
 
@@ -322,11 +530,18 @@ final class DeckAdvancedIssueDetector
         $mulligan = $this->arrayValue($consistency['mulligan'] ?? []);
         $turn3 = $this->arrayValue($this->arrayValue($consistency['byTurn'] ?? [])['turn3'] ?? []);
         $comboAccess = $this->arrayValue($consistency['comboAccess'] ?? []);
+        $colorAccess = $this->arrayValue($consistency['colorAccess'] ?? []);
+        $commanderCurve = $this->arrayValue($colorAccess['commanderCurve'] ?? []);
 
         $this->rateIssue($issues, ($opening['keepableHandRate'] ?? 1.0) < 0.60, 'low_keepable_hand_rate', 'Low keepable hand rate', 'Opening hand simulation estimates a low probability of seeing a keepable hand.', ['keepableHandRate' => $opening['keepableHandRate'] ?? null]);
+        $this->rateIssue($issues, ($opening['keepableManaRate'] ?? 1.0) < 0.60, 'low_early_color_access', 'Low early color access', 'Opening hand simulation estimates low keepable mana, after color and tapped-land behavior.', ['keepableManaRate' => $opening['keepableManaRate'] ?? null], 'add_untapped_sources');
+        $this->rateIssue($issues, ($opening['hasPrimaryColorRate'] ?? 1.0) < 0.70, 'weak_primary_color_sources', 'Weak primary color access', 'Opening hand simulation estimates low access to the deck primary early color.', ['hasPrimaryColorRate' => $opening['hasPrimaryColorRate'] ?? null], 'add_colored_sources');
+        $this->rateIssue($issues, ($commanderCurve['canCastOnCurveRate'] ?? 1.0) < 0.55, 'low_commander_castability', 'Low commander castability', 'Mana simulation estimates low probability of casting the commander on curve.', ['canCastOnCurveRate' => $commanderCurve['canCastOnCurveRate'] ?? null], 'add_commander_color_sources');
         $this->rateIssue($issues, ($mulligan['keepableBy6Rate'] ?? 1.0) < 0.75, 'high_mulligan_pressure', 'High mulligan pressure', 'Opening hand simulation estimates a low probability of seeing a keepable hand by a mulligan to 6.', ['keepableBy6Rate' => $mulligan['keepableBy6Rate'] ?? null]);
         $this->rateIssue($issues, ($opening['zeroOrOneLandRate'] ?? 0.0) > 0.30, 'too_many_low_land_openers', 'Too many low-land openers', 'Opening hand simulation estimates a high probability of seeing zero-or-one-land hands.', ['zeroOrOneLandRate' => $opening['zeroOrOneLandRate'] ?? null]);
         $this->rateIssue($issues, ($opening['fivePlusLandsRate'] ?? 0.0) > 0.20, 'too_many_flooded_openers', 'Too many flooded openers', 'Opening hand simulation estimates a high probability of seeing five-plus-land hands.', ['fivePlusLandsRate' => $opening['fivePlusLandsRate'] ?? null]);
+        $this->rateIssue($issues, ($opening['tappedLandHeavyRate'] ?? 0.0) > 0.25, 'too_many_tapped_lands', 'Too many tapped lands', 'Opening hand simulation estimates high tapped-land pressure.', ['tappedLandHeavyRate' => $opening['tappedLandHeavyRate'] ?? null], 'reduce_tapped_lands');
+        $this->rateIssue($issues, ($opening['slowlandEarlyDelayRate'] ?? 0.0) > 0.25, 'too_many_slow_lands', 'Too many slow early lands', 'Opening hand simulation estimates slowlands frequently delay early access.', ['slowlandEarlyDelayRate' => $opening['slowlandEarlyDelayRate'] ?? null], 'reduce_slow_lands');
         $this->rateIssue($issues, ($opening['earlyPlayInOpeningRate'] ?? 1.0) < 0.55, 'low_early_development', 'Low early development', 'Opening hand simulation estimates a low probability of seeing an early play.', ['earlyPlayInOpeningRate' => $opening['earlyPlayInOpeningRate'] ?? null]);
         $wantsInteraction = in_array($archetypes['primary'], ['control', 'stax'], true) || in_array($power['band'], ['high_power', 'cedh_like'], true);
         $this->rateIssue($issues, $wantsInteraction && ($opening['earlyInteractionInOpeningRate'] ?? 1.0) < 0.30, 'low_early_interaction', 'Low early interaction access', 'Opening hand simulation estimates a low probability of seeing early interaction for this plan.', ['earlyInteractionInOpeningRate' => $opening['earlyInteractionInOpeningRate'] ?? null]);
@@ -339,12 +554,12 @@ final class DeckAdvancedIssueDetector
      * @param list<array<string,mixed>> $issues
      * @param array<string,mixed> $evidence
      */
-    private function rateIssue(array &$issues, bool $condition, string $code, string $title, string $message, array $evidence): void
+    private function rateIssue(array &$issues, bool $condition, string $code, string $title, string $message, array $evidence, string $suggestedActionType = 'adjust_ratio'): void
     {
         if (!$condition) {
             return;
         }
-        $issues[] = $this->issue($code, 'warning', $title, $message, $evidence, 'adjust_ratio');
+        $issues[] = $this->issue($code, 'warning', $title, $message, $evidence, $suggestedActionType);
     }
 
     /**
@@ -408,6 +623,15 @@ SQL,
         }
 
         return $rules;
+    }
+
+    private function recommendedSourcesForDemand(int $pipDemand, int $earlyPipDemand): int
+    {
+        if ($pipDemand <= 0) {
+            return 0;
+        }
+
+        return max(8, min(20, (int) ceil($pipDemand / 2) + ($earlyPipDemand > 0 ? 3 : 0)));
     }
 
     /**

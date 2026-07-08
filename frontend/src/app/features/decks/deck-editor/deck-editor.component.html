@@ -91,6 +91,7 @@
             czButton="secondary"
             class="secondary-button analysis-advanced-button"
             [routerLink]="advancedAnalysisLink(deck)"
+            [state]="advancedAnalysisState(deck)"
           >
             <lucide-icon name="bar-chart-3" size="17" />
             {{ 'deckBuilder.advancedAnalysis.openButton' | runtimeTranslate }}

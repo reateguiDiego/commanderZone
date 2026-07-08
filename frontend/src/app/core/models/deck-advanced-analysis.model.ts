@@ -35,6 +35,7 @@ export interface SnapshotInfo {
   calculatedAt?: string | null;
   analyzerVersion?: string | null;
   semanticDataVersion?: string | null;
+  manaDataVersion?: string | null;
   comboDataVersion?: string | null;
   rulesVersion?: string | null;
   monteCarloVersion?: string | null;
@@ -75,6 +76,7 @@ export interface AdvancedHealthSection {
 export interface AdvancedMetrics {
   cards?: AdvancedCardMetrics | null;
   roles?: AdvancedRoleMetrics | null;
+  mana?: AdvancedManaMetrics | null;
   roleCards?: AdvancedRoleCardGroups | null;
   quality?: AdvancedQualityMetricGroups | null;
 }
@@ -140,6 +142,96 @@ export interface AdvancedRoleMetrics {
 
 export type AdvancedRoleCardGroups = Record<string, AdvancedCardReference[]>;
 
+export interface AdvancedManaMetrics {
+  lands?: AdvancedManaLandMetrics | null;
+  landCycles?: AdvancedNumberMap | null;
+  sources?: AdvancedNumberMap | null;
+  untappedSources?: AdvancedNumberMap | null;
+  earlySources?: AdvancedManaEarlySources | null;
+  ramp?: AdvancedNumberMap | null;
+  fixing?: AdvancedNumberMap | null;
+  fetchlands?: AdvancedFetchlandMetrics | null;
+  landCycleAnalysis?: AdvancedAnalysisMap | null;
+  requirements?: AdvancedManaRequirements | null;
+}
+
+export interface AdvancedManaLandMetrics extends AdvancedAnalysisMap {
+  total?: number;
+  basic?: number;
+  nonBasic?: number;
+  fetchlands?: number;
+  typedLands?: number;
+  utilityLands?: number;
+  colorlessUtilityLands?: number;
+  tappedLands?: number;
+  conditionallyTappedLands?: number;
+  untappedLands?: number;
+  mdfcLands?: number;
+}
+
+export interface AdvancedManaEarlySources {
+  turn1?: AdvancedNumberMap;
+  turn2?: AdvancedNumberMap;
+  turn3?: AdvancedNumberMap;
+  [turn: string]: AdvancedNumberMap | undefined;
+}
+
+export interface AdvancedFetchlandMetrics extends AdvancedAnalysisMap {
+  count?: number;
+  validTargets?: number;
+  deadFetchlands?: number;
+  effectiveColorSources?: AdvancedNumberMap;
+  untappedEffectiveColorSources?: AdvancedNumberMap;
+  tappedOnlyEffectiveColorSources?: AdvancedNumberMap;
+  details?: AdvancedFetchlandDetail[];
+}
+
+export interface AdvancedFetchlandDetail {
+  oracleId?: string;
+  scryfallId?: string | null;
+  name?: string | null;
+  imageUrl?: string | null;
+  imageUris?: CardImageUris | null;
+  cardFaces?: CardFace[];
+  quantity?: number | null;
+  fetchableLandTypes?: string[];
+  validTargets?: AdvancedFetchlandTarget[];
+  effectiveColors?: string[];
+  untappedEffectiveColors?: string[];
+  tappedOnlyEffectiveColors?: string[];
+  dead?: boolean;
+}
+
+export interface AdvancedFetchlandTarget {
+  oracleId?: string;
+  scryfallId?: string | null;
+  name?: string | null;
+  imageUrl?: string | null;
+  imageUris?: CardImageUris | null;
+  cardFaces?: CardFace[];
+  quantity?: number | null;
+  colors?: string[];
+  canEnterUntapped?: boolean;
+}
+
+export interface AdvancedManaRequirements extends AdvancedAnalysisMap {
+  pipDemand?: AdvancedNumberMap;
+  earlyPipDemand?: AdvancedNumberMap;
+  doublePipCards?: AdvancedAnalysisMap[];
+  triplePipCards?: AdvancedAnalysisMap[];
+  colorIntensity?: AdvancedNumberMap;
+  commanderCost?: Record<string, AdvancedNumberMap>;
+  commanderCastability?: Record<string, AdvancedCommanderCastability>;
+}
+
+export interface AdvancedCommanderCastability {
+  requiredPips?: number;
+  sourceCount?: number;
+  untappedSourceCount?: number;
+  earlySourceCount?: number;
+  status?: AdvancedHealthStatus | string | null;
+}
+
 export interface AdvancedQualityMetricGroups {
   ramp?: AdvancedQualityMetrics | null;
   tutor?: AdvancedQualityMetrics | null;
@@ -170,12 +262,20 @@ export interface AdvancedConsistency {
   mulligan?: AdvancedNumberMap;
   byTurn?: AdvancedConsistencyByTurn;
   comboAccess?: AdvancedNumberMap;
+  colorAccess?: AdvancedColorAccess | null;
 }
 
 export interface AdvancedConsistencyByTurn {
   turn3?: AdvancedNumberMap;
   turn5?: AdvancedNumberMap;
   [turn: string]: AdvancedNumberMap | undefined;
+}
+
+export interface AdvancedColorAccess {
+  turn1?: AdvancedNumberMap;
+  turn2?: AdvancedNumberMap;
+  turn3?: AdvancedNumberMap;
+  commanderCurve?: AdvancedNumberMap;
 }
 
 export interface AdvancedCombos {

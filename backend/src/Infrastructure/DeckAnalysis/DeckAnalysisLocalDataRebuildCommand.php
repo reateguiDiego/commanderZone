@@ -5,6 +5,7 @@ namespace App\Infrastructure\DeckAnalysis;
 use App\Application\Card\CardOracleProfileRebuilder;
 use App\Application\Deck\AnalysisRuleSeeder;
 use App\Application\Deck\CardAnalysisProfileRebuilder;
+use App\Application\Deck\CardManaProfileRebuilder;
 use App\Application\Deck\CardSemanticDataRebuilder;
 use App\Application\Deck\ComboAnalysisProfileRebuilder;
 use Doctrine\DBAL\Connection;
@@ -21,6 +22,7 @@ final class DeckAnalysisLocalDataRebuildCommand extends Command
         private readonly CardOracleProfileRebuilder $oracleProfileRebuilder,
         private readonly CardSemanticDataRebuilder $semanticDataRebuilder,
         private readonly CardAnalysisProfileRebuilder $cardAnalysisProfileRebuilder,
+        private readonly CardManaProfileRebuilder $cardManaProfileRebuilder,
         private readonly AnalysisRuleSeeder $analysisRuleSeeder,
         private readonly ComboAnalysisProfileRebuilder $comboAnalysisProfileRebuilder,
         private readonly Connection $connection,
@@ -34,6 +36,7 @@ final class DeckAnalysisLocalDataRebuildCommand extends Command
             ->addOption('skip-oracle-profile', null, InputOption::VALUE_NONE, 'Skip rebuilding card_oracle_profile.')
             ->addOption('skip-semantic', null, InputOption::VALUE_NONE, 'Skip rebuilding internal semantic card tables.')
             ->addOption('skip-card-analysis-profile', null, InputOption::VALUE_NONE, 'Skip rebuilding card_analysis_profile.')
+            ->addOption('skip-card-mana-profile', null, InputOption::VALUE_NONE, 'Skip rebuilding card_mana_profile.')
             ->addOption('skip-rules', null, InputOption::VALUE_NONE, 'Skip seeding analysis_rule.')
             ->addOption('skip-combo-analysis-profile', null, InputOption::VALUE_NONE, 'Skip rebuilding combo_analysis_profile.');
     }
@@ -103,6 +106,28 @@ final class DeckAnalysisLocalDataRebuildCommand extends Command
         } else {
             $summary['cardAnalysis'] = 'card analysis profiles inserted=0 updated=0 skipped=0 skippedByFlag=true';
             $output->writeln('<comment>'.$summary['cardAnalysis'].'</comment>');
+        }
+
+        if (!$input->getOption('skip-card-mana-profile')) {
+            $this->requireTables('card mana profile rebuild', [
+                'card_oracle_profile',
+                'card_mana_profile',
+                'deck_analysis_data_version',
+            ]);
+            $result = $this->cardManaProfileRebuilder->rebuild();
+            $summary['cardMana'] = sprintf(
+                'card mana profiles processed=%d inserted=%d updated=%d skipped=%d unknown=%d version=%s',
+                $result['totalProcessed'],
+                $result['inserted'],
+                $result['updated'],
+                $result['skipped'],
+                $result['unknownNeedsReview'],
+                $result['dataVersion'],
+            );
+            $output->writeln($summary['cardMana']);
+        } else {
+            $summary['cardMana'] = 'card mana profiles rebuilt=0 skippedByFlag=true';
+            $output->writeln('<comment>'.$summary['cardMana'].'</comment>');
         }
 
         if (!$input->getOption('skip-rules')) {
