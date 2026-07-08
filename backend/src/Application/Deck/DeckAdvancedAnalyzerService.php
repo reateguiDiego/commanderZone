@@ -83,22 +83,26 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
     }
 
     /**
-     * @param array{primary:string,secondary:list<string>,confidence:string,scores:list<array{archetype:string,score:int,evidence:list<string>}>} $archetypes
-     * @return list<array{archetype:string,reasonKey:string,score:int}>
+     * @param array{primary:string,secondary:list<string>,confidence:string,scores:list<array{archetype:string,score:int,evidence:list<string>,cards?:list<array<string,mixed>>}>} $archetypes
+     * @return list<array{archetype:string,reasonKey:string,score:int,cards:list<array<string,mixed>>}>
      */
     private function archetypeExplanations(array $archetypes): array
     {
         $scoresByArchetype = [];
+        $cardsByArchetype = [];
         foreach ($archetypes['scores'] as $score) {
             $scoresByArchetype[$score['archetype']] = $score['score'];
+            $cardsByArchetype[$score['archetype']] = is_array($score['cards'] ?? null) ? $score['cards'] : [];
         }
 
         $topScore = $archetypes['scores'][0]['score'] ?? 0;
+        $topCards = is_array($archetypes['scores'][0]['cards'] ?? null) ? $archetypes['scores'][0]['cards'] : [];
         $items = [
             [
                 'archetype' => $archetypes['primary'],
                 'reasonKey' => $this->archetypeReasonKey($archetypes['primary']),
                 'score' => $archetypes['primary'] === 'mixed' ? $topScore : ($scoresByArchetype[$archetypes['primary']] ?? 0),
+                'cards' => $archetypes['primary'] === 'mixed' ? $topCards : ($cardsByArchetype[$archetypes['primary']] ?? []),
             ],
         ];
 
@@ -107,6 +111,7 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
                 'archetype' => $secondary,
                 'reasonKey' => $this->archetypeReasonKey($secondary),
                 'score' => $scoresByArchetype[$secondary] ?? 0,
+                'cards' => $cardsByArchetype[$secondary] ?? [],
             ];
         }
 

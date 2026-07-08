@@ -28,12 +28,14 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
         self::assertSame('oracle-consultation', $response['combos']['complete'][0]['externalId']);
         self::assertTrue($response['combos']['complete'][0]['producesWin']);
         self::assertSame([], $response['combos']['complete'][0]['missingOracleIds']);
-        self::assertSame('91000000-0000-0000-0000-000000000101', $response['combos']['complete'][0]['cards'][0]['oracleId']);
-        self::assertSame('Thassa\'s Oracle', $response['combos']['complete'][0]['cards'][0]['name']);
-        self::assertSame(
-            'https://cards.scryfall.io/normal/front/92000000-0000-0000-0000-000000000101.jpg',
-            $response['combos']['complete'][0]['cards'][0]['imageUrl'],
-        );
+        self::assertContains($this->deckCardIdForOracle($deck, '91000000-0000-0000-0000-000000000101'), $response['combos']['complete'][0]['cards']);
+        self::assertContains($this->deckCardIdForOracle($deck, '91000000-0000-0000-0000-000000000101'), array_column($response['health']['combos']['cards'], 'deckCardId'));
+        $comboScore = array_values(array_filter(
+            $response['archetypes']['scores'],
+            static fn (array $score): bool => ($score['archetype'] ?? null) === 'combo',
+        ))[0] ?? null;
+        self::assertIsArray($comboScore);
+        self::assertContains($this->deckCardIdForOracle($deck, '91000000-0000-0000-0000-000000000101'), $comboScore['cards']);
         self::assertSame([], $response['combos']['complete'][0]['missingCards']);
     }
 
@@ -59,16 +61,19 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
 
         self::assertSame(0, $response['combos']['completeCount']);
         self::assertSame(2, $response['combos']['partialOneMissingCount']);
-        self::assertSame(['Demonic Consultation', 'Tainted Pact'], array_column($response['topComboCompleters'], 'name'));
-        self::assertSame(['Thassa\'s Oracle'], array_column($response['combos']['partialOneMissing'][0]['cards'], 'name'));
-        self::assertSame(['Demonic Consultation'], array_column($response['combos']['partialOneMissing'][0]['missingCards'], 'name'));
+        self::assertSame([
+            '91000000-0000-0000-0000-000000000202',
+            '91000000-0000-0000-0000-000000000203',
+        ], array_column($response['topComboCompleters'], 'oracleId'));
+        self::assertContains($this->deckCardIdForOracle($deck, '91000000-0000-0000-0000-000000000201'), $response['combos']['partialOneMissing'][0]['cards']);
+        self::assertSame(['91000000-0000-0000-0000-000000000202'], $response['combos']['partialOneMissing'][0]['missingCards']);
         self::assertSame(
             'https://cards.scryfall.io/normal/front/92000000-0000-0000-0000-000000000202.jpg',
-            $response['combos']['partialOneMissing'][0]['missingCards'][0]['imageUrl'],
+            $response['cardCatalog']['91000000-0000-0000-0000-000000000202']['imageUrl'],
         );
         self::assertSame(
-            'https://cards.scryfall.io/normal/front/92000000-0000-0000-0000-000000000202.jpg',
-            $response['topComboCompleters'][0]['imageUrl'],
+            'Demonic Consultation',
+            $response['cardCatalog']['91000000-0000-0000-0000-000000000202']['name'],
         );
     }
 
@@ -238,6 +243,21 @@ final class DeckAdvancedComboAnalysisApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
 
         return $this->jsonResponse();
+    }
+
+    private function deckCardIdForOracle(Deck $deck, string $oracleId): string
+    {
+        foreach ($deck->cards() as $deckCard) {
+            if (!$deckCard instanceof DeckCard) {
+                continue;
+            }
+
+            if ($deckCard->card()->oracleId() === $oracleId) {
+                return $deckCard->id();
+            }
+        }
+
+        self::fail(sprintf('Deck card for oracle id "%s" was not found.', $oracleId));
     }
 
     /**

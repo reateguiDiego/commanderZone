@@ -145,50 +145,54 @@ h3 {
   color: var(--gold);
 }
 
-.advanced-analysis-typal-identity {
+.advanced-analysis-typal-identity,
+.advanced-analysis-archetype-identities {
   display: grid;
-  grid-template-columns: minmax(11rem, 0.78fr) repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 0.55rem;
   min-width: 0;
   padding-top: 0.55rem;
   border-top: 1px solid var(--advanced-analysis-soft-line);
 }
 
-.advanced-analysis-typal-identity__header {
+.advanced-analysis-typal-identity {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.advanced-analysis-typal-identity__header,
+.advanced-analysis-archetype-identity__header {
   display: flex;
-  grid-column: 1;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
   min-width: 0;
 }
 
-.advanced-analysis-typal-identity__header > div {
+.advanced-analysis-typal-identity__header {
+  grid-column: 1;
+}
+
+.advanced-analysis-typal-identity__header {
   display: grid;
   gap: 0.2rem;
+  align-content: start;
   min-width: 0;
 }
 
-.advanced-analysis-typal-identity__header span {
+.advanced-analysis-typal-identity__header span,
+.advanced-analysis-archetype-identities__header span {
   color: var(--gold);
   font-size: 0.72rem;
   font-weight: 850;
   text-transform: uppercase;
 }
 
-.advanced-analysis-typal-identity__header strong {
-  flex: 0 0 auto;
-  color: var(--text);
-  font-size: 0.78rem;
-  font-weight: 850;
-  text-transform: uppercase;
+.advanced-analysis-archetype-identity__header h3 {
+  color: var(--cz-info);
 }
 
-.advanced-analysis-typal-stats {
+.advanced-analysis-typal-stats,
+.advanced-analysis-archetype-stats {
   display: grid;
-  grid-column: 1;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
   overflow: hidden;
   border: 1px solid rgb(var(--cz-primary-rgb) / 14%);
@@ -196,7 +200,17 @@ h3 {
   background: rgb(var(--cz-bg-rgb) / 10%);
 }
 
-.advanced-analysis-typal-stats div {
+.advanced-analysis-typal-stats {
+  grid-column: 2;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.advanced-analysis-archetype-stats {
+  grid-template-columns: 1fr;
+}
+
+.advanced-analysis-typal-stats div,
+.advanced-analysis-archetype-stats div {
   padding: 0.42rem 0.55rem;
   border-top: 0;
 }
@@ -205,19 +219,72 @@ h3 {
   border-left: 1px solid var(--advanced-analysis-soft-line);
 }
 
-.advanced-analysis-typal-stats dt {
+.advanced-analysis-typal-stats dt,
+.advanced-analysis-archetype-stats dt {
   font-size: 0.61rem;
 }
 
-.advanced-analysis-typal-stats dd {
+.advanced-analysis-typal-stats dd,
+.advanced-analysis-archetype-stats dd {
   font-size: 0.82rem;
 }
 
-.advanced-analysis-typal-cards {
+.advanced-analysis-typal-cards,
+.advanced-analysis-archetype-cards {
   display: grid;
   align-content: start;
   gap: 0.32rem;
   min-width: 0;
+}
+
+.advanced-analysis-typal-cards {
+  grid-row: 2;
+}
+
+.advanced-analysis-typal-cards--creatures {
+  grid-column: 1;
+}
+
+.advanced-analysis-typal-cards--support {
+  grid-column: 2;
+}
+
+.advanced-analysis-archetype-identities {
+  gap: 0.6rem;
+}
+
+.advanced-analysis-archetype-identities__header,
+.advanced-analysis-archetype-identity {
+  display: grid;
+  gap: 0.38rem;
+  min-width: 0;
+}
+
+.advanced-analysis-archetype-identities__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.advanced-analysis-archetype-identity {
+  grid-template-rows: auto minmax(6.5rem, auto) 1fr;
+  align-content: stretch;
+}
+
+.advanced-analysis-archetype-cards {
+  align-self: start;
+}
+
+:host ::ng-deep .advanced-analysis-archetype-cards .spoiler-section,
+:host ::ng-deep .advanced-analysis-typal-cards .spoiler-section {
+  height: 100%;
+}
+
+:host ::ng-deep .advanced-analysis-archetype-cards .spoiler-section--full,
+:host ::ng-deep .advanced-analysis-typal-cards .spoiler-section--full {
+  display: grid;
+  align-content: start;
 }
 
 @media (max-width: 820px) {
@@ -238,12 +305,22 @@ h3 {
     border-left: 1px solid var(--advanced-analysis-soft-line);
   }
 
-  .advanced-analysis-typal-identity {
+  .advanced-analysis-typal-identity,
+  .advanced-analysis-archetype-identities__list {
     grid-template-columns: 1fr;
   }
 
   .advanced-analysis-typal-identity__header,
   .advanced-analysis-typal-stats {
+    grid-column: auto;
+  }
+
+  .advanced-analysis-typal-cards {
+    grid-row: auto;
+  }
+
+  .advanced-analysis-typal-cards--creatures,
+  .advanced-analysis-typal-cards--support {
     grid-column: auto;
   }
 }
@@ -261,5 +338,4 @@ h3 {
   .advanced-analysis-stats div:first-child {
     border-top: 0;
   }
-
 }

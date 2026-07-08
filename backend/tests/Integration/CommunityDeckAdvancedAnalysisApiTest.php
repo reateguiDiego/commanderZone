@@ -129,27 +129,23 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
         $details = $response['metrics']['mana']['fetchlands']['details'];
         self::assertCount(1, $details);
         $detail = $details[0];
-        self::assertSame('Wooded Foothills', $detail['fetchland']['name']);
-        self::assertNotEmpty($detail['fetchland']['oracleId']);
-        self::assertNotEmpty($detail['fetchland']['imageUrl']);
-        self::assertNotEmpty($detail['fetchland']['imageUris']['normal']);
-        self::assertFalse($detail['fetchland']['missingImage']);
-        self::assertSame('Wooded Foothills', $detail['name']);
-        self::assertNotEmpty($detail['imageUrl']);
+        self::assertArrayNotHasKey('fetchland', $detail);
+        self::assertNotEmpty($detail['oracleId']);
+        self::assertArrayNotHasKey('cardId', $detail);
+        self::assertArrayNotHasKey('name', $detail);
+        self::assertArrayNotHasKey('imageUrl', $detail);
 
-        $targetsByName = [];
+        $targetCycleTypes = [];
         foreach ($detail['validTargets'] as $target) {
-            $targetsByName[$target['name']] = $target;
+            $targetCycleTypes[] = $target['landCycleType'];
             self::assertNotEmpty($target['oracleId']);
-            self::assertNotEmpty($target['imageUrl']);
-            self::assertNotEmpty($target['imageUris']['normal']);
-            self::assertFalse($target['missingImage']);
+            self::assertArrayNotHasKey('cardId', $target);
+            self::assertArrayNotHasKey('imageUrl', $target);
+            self::assertArrayNotHasKey('imageUris', $target);
         }
 
-        self::assertArrayHasKey('Stomping Ground', $targetsByName);
-        self::assertArrayHasKey('Cinder Glade', $targetsByName);
-        self::assertSame('shockland', $targetsByName['Stomping Ground']['landCycleType']);
-        self::assertSame('battle_land', $targetsByName['Cinder Glade']['landCycleType']);
+        self::assertContains('shockland', $targetCycleTypes);
+        self::assertContains('battle_land', $targetCycleTypes);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis/advanced', token: $token);
         self::assertResponseIsSuccessful();

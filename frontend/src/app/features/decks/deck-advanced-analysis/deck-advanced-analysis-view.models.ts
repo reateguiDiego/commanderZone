@@ -112,6 +112,13 @@ export interface TypalIdentityView {
   readonly supportCards: ComboCardPreviewItem[];
 }
 
+export interface ArchetypeIdentityView {
+  readonly key: string;
+  readonly title: string;
+  readonly reason: string;
+  readonly cards: ComboCardPreviewItem[];
+}
+
 export interface ComboDisplayItem {
   readonly id: string;
   readonly title: string;

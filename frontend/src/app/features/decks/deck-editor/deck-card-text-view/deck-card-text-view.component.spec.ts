@@ -29,6 +29,19 @@ describe('DeckCardTextViewComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Command Tower');
   });
 
+  it('renders the group toggle icon before the category title and count', async () => {
+    const fixture = await setup();
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.deck-group-toggle') as HTMLButtonElement | null;
+    const firstChild = toggle?.firstElementChild;
+    const secondChild = firstChild?.nextElementSibling;
+
+    expect(firstChild?.tagName.toLowerCase()).toBe('lucide-icon');
+    expect(secondChild?.classList.contains('deck-group-title')).toBe(true);
+    expect(secondChild?.textContent?.replace(/\s+/g, ' ').trim()).toContain('Tierras (1)');
+  });
+
   it('flips card faces from text rows without opening the card menu', async () => {
     const store = storeStub({ hasAlternateFace: true });
     const fixture = await setup(store);
@@ -184,7 +197,7 @@ function storeStub(options: {
   const entry: DeckCard = options.entry ?? { id: 'deck-card-1', quantity: 1, section: 'main', card: card() };
 
   return {
-    cardColumns: signal([{ id: 'land-sideboard', groups: [{ id: 'land', title: 'Tierras', cards: [entry] }] }]),
+    cardColumns: signal([{ id: 'land-sideboard', groups: [{ id: 'land', title: 'Tierras', quantity: 1, cards: [entry] }] }]),
     cardMenu: signal(options.cardMenuEntryId ? { entryId: options.cardMenuEntryId, top: 0, left: 0, amount: 1, showImagePreview: false } : null),
     isGroupCollapsed: () => false,
     toggleGroup: vi.fn(),

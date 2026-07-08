@@ -28,14 +28,39 @@
       </div>
     }
   </dl>
+  @if (archetypes().length > 0) {
+    <section class="advanced-analysis-archetype-identities" [attr.aria-label]="'deckBuilder.advancedAnalysis.summary.archetypeSignals' | runtimeTranslate">
+      <div class="advanced-analysis-archetype-identities__header">
+        <span>{{ 'deckBuilder.advancedAnalysis.summary.archetypeSignals' | runtimeTranslate }}</span>
+      </div>
+      <div class="advanced-analysis-archetype-identities__list">
+        @for (archetype of archetypes(); track archetype.key) {
+          <article class="advanced-analysis-archetype-identity">
+            <div class="advanced-analysis-archetype-identity__header">
+              <h3>{{ archetype.title }}</h3>
+            </div>
+            <dl class="advanced-analysis-archetype-stats advanced-analysis-data-grid">
+              <div>
+                <dt>{{ 'deckBuilder.advancedAnalysis.summary.archetypeReason' | runtimeTranslate }}</dt>
+                <dd>{{ archetype.reason }}</dd>
+              </div>
+            </dl>
+            <div class="advanced-analysis-archetype-cards">
+              <app-advanced-analysis-card-grid
+                [title]="'deckBuilder.advancedAnalysis.summary.archetypeCards' | runtimeTranslate"
+                [cards]="archetype.cards"
+              />
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+  }
   @if (typal(); as typalIdentity) {
     <section class="advanced-analysis-typal-identity" aria-labelledby="advanced-analysis-typal-title">
       <div class="advanced-analysis-typal-identity__header">
-        <div>
-          <span>{{ 'deckBuilder.advancedAnalysis.typal.eyebrow' | runtimeTranslate }}</span>
-          <h3 id="advanced-analysis-typal-title">{{ 'deckBuilder.advancedAnalysis.typal.title' | runtimeTranslate: { type: typalIdentity.primaryType } }}</h3>
-        </div>
-        <strong>{{ typalIdentity.confidence }}</strong>
+        <span>{{ 'deckBuilder.advancedAnalysis.typal.eyebrow' | runtimeTranslate }}</span>
+        <h3 id="advanced-analysis-typal-title">{{ 'deckBuilder.advancedAnalysis.typal.title' | runtimeTranslate: { type: typalIdentity.primaryType } }}</h3>
       </div>
       <dl class="advanced-analysis-typal-stats advanced-analysis-data-grid">
         <div>
@@ -47,12 +72,12 @@
           <dd>{{ typalIdentity.supportCount }}</dd>
         </div>
         <div>
-          <dt>{{ 'deckBuilder.advancedAnalysis.typal.commanderMatches' | runtimeTranslate }}</dt>
+          <dt>{{ 'deckBuilder.advancedAnalysis.typal.commanderMatches' | runtimeTranslate: { type: typalIdentity.primaryType } }}</dt>
           <dd>{{ typalIdentity.commanderMatches }}</dd>
         </div>
       </dl>
       @if (typalIdentity.creatureCards.length > 0) {
-        <div class="advanced-analysis-typal-cards">
+        <div class="advanced-analysis-typal-cards advanced-analysis-typal-cards--creatures">
           <app-advanced-analysis-card-grid
             [title]="'deckBuilder.advancedAnalysis.typal.creatureCards' | runtimeTranslate"
             [cards]="typalIdentity.creatureCards"
@@ -60,7 +85,7 @@
         </div>
       }
       @if (typalIdentity.supportCards.length > 0) {
-        <div class="advanced-analysis-typal-cards">
+        <div class="advanced-analysis-typal-cards advanced-analysis-typal-cards--support">
           <app-advanced-analysis-card-grid
             [title]="'deckBuilder.advancedAnalysis.typal.supportCards' | runtimeTranslate"
             [cards]="typalIdentity.supportCards"

@@ -88,6 +88,7 @@ final class DeckManaSourceAnalyzer
         $this->addFetchlandAnalysis($metrics, $resolvedCards, $profilesByOracleId, $deckLands);
         $this->finalizeLandCycleAnalysis($metrics, $identity, $filterlands, $pathways, $checklands, $bounceLands);
         $this->addCommanderCastability($metrics, $resolvedCards);
+        $this->filterManaSourcesToDeckIdentity($metrics, $identity, $this->hasCommander($resolvedCards));
 
         return $metrics;
     }
@@ -452,6 +453,76 @@ final class DeckManaSourceAnalyzer
 
     /**
      * @param array<string,mixed> $metrics
+     * @param list<string> $identity
+     * @param bool $hasCommander
+     */
+    private function filterManaSourcesToDeckIdentity(array &$metrics, array $identity, bool $hasCommander): void
+    {
+        if ($identity === [] && !$hasCommander) {
+            return;
+        }
+
+        $allowedColors = array_flip(array_map(static fn (string $color): string => self::COLOR_KEYS[$color], $identity));
+        $sourceKeys = $allowedColors + ['colorless' => true, 'anyColor' => true, 'commanderColor' => true];
+        $colorSourceKeys = $allowedColors + ['colorless' => true];
+
+        if (is_array($metrics['sources'] ?? null)) {
+            $metrics['sources'] = array_intersect_key($metrics['sources'], $sourceKeys);
+        }
+        if (is_array($metrics['untappedSources'] ?? null)) {
+            $metrics['untappedSources'] = array_intersect_key($metrics['untappedSources'], $colorSourceKeys);
+        }
+        if (is_array($metrics['earlySources'] ?? null)) {
+            foreach (['turn1', 'turn2', 'turn3'] as $turn) {
+                if (is_array($metrics['earlySources'][$turn] ?? null)) {
+                    $metrics['earlySources'][$turn] = array_intersect_key($metrics['earlySources'][$turn], $colorSourceKeys);
+                }
+            }
+        }
+        if (is_array($metrics['fetchlands'] ?? null)) {
+            foreach (['effectiveColorSources', 'untappedEffectiveColorSources', 'tappedOnlyEffectiveColorSources'] as $key) {
+                if (is_array($metrics['fetchlands'][$key] ?? null)) {
+                    $metrics['fetchlands'][$key] = array_intersect_key($metrics['fetchlands'][$key], $allowedColors);
+                }
+            }
+
+            if (is_array($metrics['fetchlands']['details'] ?? null)) {
+                foreach ($metrics['fetchlands']['details'] as $index => $detail) {
+                    if (!is_array($detail)) {
+                        continue;
+                    }
+                    foreach (['effectiveColors', 'untappedEffectiveColors', 'tappedOnlyEffectiveColors'] as $key) {
+                        if (is_array($detail[$key] ?? null)) {
+                            $metrics['fetchlands']['details'][$index][$key] = $this->filterColorNameList($detail[$key], $allowedColors);
+                        }
+                    }
+                    if (is_array($detail['validTargets'] ?? null)) {
+                        foreach ($detail['validTargets'] as $targetIndex => $target) {
+                            if (is_array($target) && is_array($target['colors'] ?? null)) {
+                                $metrics['fetchlands']['details'][$index]['validTargets'][$targetIndex]['colors'] = $this->filterColorNameList($target['colors'], $allowedColors);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * @param list<mixed> $colors
+     * @param array<string,int> $allowedColors
+     * @return list<string>
+     */
+    private function filterColorNameList(array $colors, array $allowedColors): array
+    {
+        return array_values(array_filter(
+            array_map(static fn (mixed $color): ?string => is_scalar($color) ? trim((string) $color) : null, $colors),
+            static fn (?string $color): bool => $color !== null && isset($allowedColors[$color]),
+        ));
+    }
+
+    /**
+     * @param array<string,mixed> $metrics
      * @param array<string,mixed> $card
      */
     private function addPipDemand(array &$metrics, array $card, int $quantity): void
@@ -804,6 +875,20 @@ final class DeckManaSourceAnalyzer
         sort($identity, SORT_STRING);
 
         return $identity;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $resolvedCards
+     */
+    private function hasCommander(array $resolvedCards): bool
+    {
+        foreach ($resolvedCards as $card) {
+            if (($card['section'] ?? '') === 'commander') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

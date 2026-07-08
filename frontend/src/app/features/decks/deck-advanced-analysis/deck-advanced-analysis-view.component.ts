@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, output, si
 import { TranslationService } from '../../../core/localization/translation.service';
 import { runtimeTranslationFallback, RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { CardFaceImageSource } from '../../../shared/utils/card-faces';
+import { bestCardImage } from '../../../shared/utils/card-image';
 import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 import { AdvancedAnalysisActionsSectionComponent } from './sections/advanced-analysis-actions-section.component';
 import { AdvancedAnalysisCombosSectionComponent } from './sections/advanced-analysis-combos-section.component';
@@ -17,6 +18,7 @@ import type {
   ActionIssueItem,
   AdvancedAnalysisCardGridItem,
   AdvancedAnalysisStat,
+  ArchetypeIdentityView,
   AdvancedHealthCard,
   AdvancedIssueItem,
   ComboCardPreviewItem,
@@ -36,6 +38,7 @@ import type {
   UnmatchedCardItem,
 } from './deck-advanced-analysis-view.models';
 import {
+  AdvancedCardCatalogEntry,
   AdvancedArchetypeExplanation,
   AdvancedAnalysisResponse,
   AdvancedCardReference,
@@ -49,17 +52,24 @@ import {
   AdvancedTopComboCompleter,
   UnmatchedCard,
 } from '../../../core/models/deck-advanced-analysis.model';
+import { Deck, DeckCard } from '../../../core/models/deck.model';
+import type { CardFace, CardImageUris } from '../../../core/models/card.model';
 
 const ADVANCED_ANALYSIS_I18N_PREFIX = 'deckBuilder.advancedAnalysis';
 
 interface ManaCardImageReference {
-  readonly oracleId?: string;
+  readonly deckCardId?: string | null;
+  readonly oracleId?: string | null;
   readonly scryfallId?: string | null;
   readonly name?: string | null;
   readonly imageUrl?: string | null;
-  readonly imageUris?: AdvancedCardReference['imageUris'];
-  readonly cardFaces?: AdvancedCardReference['cardFaces'];
+  readonly imageUris?: CardImageUris | null;
+  readonly cardFaces?: CardFace[];
   readonly quantity?: number | null;
+}
+
+interface NormalizedCardReference extends ManaCardImageReference {
+  readonly id?: string | null;
 }
 
 const HEALTH_STATUS_LABEL_KEYS: Record<AdvancedHealthStatus, string> = {
@@ -87,8 +97,8 @@ type AdvancedAnalysisTabId = 'summary' | 'health' | 'mana' | 'metrics' | 'warnin
 
 const ADVANCED_ANALYSIS_TABS: readonly TabListItem[] = [
   { id: 'summary', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.summary.title` },
-  { id: 'health', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.eyebrow` },
   { id: 'mana', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.title` },
+  { id: 'health', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.eyebrow` },
   { id: 'metrics', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.eyebrow` },
   { id: 'warnings', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.warnings.title` },
   { id: 'combos', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.combos.title` },
@@ -113,6 +123,12 @@ interface RoleBreakdownConfig {
   readonly message?: string;
   readonly messageMetricKeys?: readonly string[];
   readonly qualityKey?: string;
+}
+
+interface OrderedArchetypeIdentity {
+  readonly view: ArchetypeIdentityView;
+  readonly sortRank: number;
+  readonly originalIndex: number;
 }
 
 const HEALTH_CARD_CONFIGS: readonly HealthCardConfig[] = [
@@ -387,6 +403,7 @@ export class DeckAdvancedAnalysisViewComponent {
   private readonly translations = inject(TranslationService);
 
   readonly analysis = input<AdvancedAnalysisResponse | null>(null);
+  readonly deck = input<Deck | null>(null);
   readonly errorMessage = input<string | null>(null);
   readonly retry = output<void>();
 
@@ -395,6 +412,8 @@ export class DeckAdvancedAnalysisViewComponent {
   readonly showAllComboCompleters = signal(false);
   readonly activeAnalysisTab = signal<AdvancedAnalysisTabId>('summary');
   readonly analysisTabs = ADVANCED_ANALYSIS_TABS;
+  private readonly deckCardsByDeckCardId = computed(() => this.deckCardLookup('deckCardId'));
+  private readonly deckCardsByOracleId = computed(() => this.deckCardLookup('oracleId'));
   readonly hasAdvancedContent = computed(() => {
     const analysis = this.analysis();
 
@@ -411,10 +430,6 @@ export class DeckAdvancedAnalysisViewComponent {
       },
     ];
 
-    if (summary?.primaryTypalType) {
-      stats.push({ label: this.t('summary.primaryTypalType'), value: this.formatText(summary.primaryTypalType) });
-    }
-
     stats.push(
       {
         label: this.t('summary.secondaryArchetypes'),
@@ -426,6 +441,13 @@ export class DeckAdvancedAnalysisViewComponent {
         value: this.formatTitleText(summary?.archetypeConfidence),
         description: this.t('summary.archetypeConfidenceDescription'),
       },
+    );
+
+    if (summary?.primaryTypalType) {
+      stats.push({ label: this.t('summary.primaryTypalType'), value: this.formatText(summary.primaryTypalType) });
+    }
+
+    stats.push(
       { label: this.t('summary.criticalIssues'), value: this.formatNumber(summary?.criticalIssues?.length ?? this.issueCount('critical')) },
       { label: this.t('summary.mainWarnings'), value: this.formatNumber(summary?.mainWarnings?.length ?? this.issueCount('warning')) },
     );
@@ -474,6 +496,58 @@ export class DeckAdvancedAnalysisViewComponent {
       creatureCards: this.cardReferenceItems(primary?.creatureCards).slice(0, 10),
       supportCards: this.cardReferenceItems(primary?.supportCards).slice(0, 8),
     };
+  });
+  readonly archetypeIdentities = computed<ArchetypeIdentityView[]>(() => {
+    const analysis = this.analysis();
+    const preferredOrder = new Map<string, number>();
+    const explanationsByArchetype = this.archetypeExplanationsByArchetype(analysis?.summary?.archetypeExplanations);
+    const primaryArchetype = analysis?.summary?.primaryArchetype?.trim();
+    if (primaryArchetype) {
+      preferredOrder.set(primaryArchetype, 0);
+    }
+    for (const [index, archetype] of (analysis?.summary?.secondaryArchetypes ?? []).entries()) {
+      const key = archetype.trim();
+      if (key !== '' && !preferredOrder.has(key)) {
+        preferredOrder.set(key, index + 1);
+      }
+    }
+
+    const items = (analysis?.archetypes?.scores ?? [])
+      .map((score, index) => {
+        const archetype = score.archetype?.trim();
+        const cards = this.cardReferenceItems(score.cards);
+        if (!archetype || cards.length === 0) {
+          return null;
+        }
+
+        const explanation = explanationsByArchetype.get(archetype);
+        const reasonKey = score.reasonKey?.trim() || explanation?.reasonKey?.trim() || this.archetypeReasonKey(archetype);
+        const title = this.formatTitleText(archetype);
+
+        return {
+          view: {
+            key: archetype,
+            title,
+            reason: this.archetypeReasonText(reasonKey, title),
+            cards,
+          },
+          sortRank: preferredOrder.get(archetype) ?? Number.MAX_SAFE_INTEGER,
+          originalIndex: index,
+        };
+      })
+      .filter((item): item is OrderedArchetypeIdentity => item !== null)
+      .sort((left, right) => {
+        if (left.sortRank !== right.sortRank) {
+          return left.sortRank - right.sortRank;
+        }
+        if (left.sortRank !== Number.MAX_SAFE_INTEGER) {
+          return left.originalIndex - right.originalIndex;
+        }
+
+        return left.originalIndex - right.originalIndex;
+      });
+
+    return items.map((item) => item.view);
   });
   readonly healthCards = computed<AdvancedHealthCard[]>(() => HEALTH_CARD_CONFIGS.flatMap((config) => {
     const entry = this.healthEntry(config.key);
@@ -563,19 +637,21 @@ export class DeckAdvancedAnalysisViewComponent {
   readonly manaSourceRows = computed<ManaColorSourceRow[]>(() => {
     const mana = this.manaMetrics();
 
-    return MANA_COLOR_ROWS.map(([key, symbol, label]) => {
-      const status = this.commanderColorStatus(key);
+    return MANA_COLOR_ROWS
+      .filter(([key]) => this.hasManaSourceColor(mana, key))
+      .map(([key, symbol, label]) => {
+        const status = this.commanderColorStatus(key);
 
-      return {
-        key,
-        symbols: [symbol],
-        label: this.translateKey(label),
-        sources: this.formatNumber(mana?.sources?.[key]),
-        untappedSources: this.formatNumber(mana?.untappedSources?.[key]),
-        earlySources: this.formatNumber(mana?.earlySources?.turn3?.[key]),
-        status,
-      };
-    });
+        return {
+          key,
+          symbols: [symbol],
+          label: this.translateKey(label),
+          sources: this.formatNumber(mana?.sources?.[key]),
+          untappedSources: this.formatNumber(mana?.untappedSources?.[key]),
+          earlySources: this.formatNumber(mana?.earlySources?.turn3?.[key]),
+          status,
+        };
+      });
   });
   readonly manaLandBaseRows = computed<AdvancedAnalysisStat[]>(() => {
     const mana = this.manaMetrics();
@@ -802,27 +878,39 @@ export class DeckAdvancedAnalysisViewComponent {
     archetypes: readonly string[],
     explanations: readonly AdvancedArchetypeExplanation[] | undefined,
   ): { value: string; description: string }[] {
-    const explanationsByArchetype = new Map(
-      (explanations ?? [])
-        .filter((explanation) => typeof explanation.archetype === 'string' && explanation.archetype.trim() !== '')
-        .map((explanation) => [explanation.archetype as string, explanation]),
-    );
+    const explanationsByArchetype = this.archetypeExplanationsByArchetype(explanations);
 
     return archetypes
       .map((archetype) => archetype.trim())
       .filter((archetype) => archetype !== '')
       .map((archetype) => {
         const explanation = explanationsByArchetype.get(archetype);
-        const reasonKey = explanation?.reasonKey?.trim() || 'generic';
+        const reasonKey = explanation?.reasonKey?.trim() || this.archetypeReasonKey(archetype);
+        const title = this.formatTitleText(archetype);
 
         return {
-          value: this.formatTitleText(archetype),
-          description: this.t(`summary.archetypeReasons.${reasonKey}`, {
-            archetype: this.formatTitleText(archetype),
-            score: this.formatNumber(explanation?.score),
-          }),
+          value: title,
+          description: this.archetypeReasonText(reasonKey, title),
         };
       });
+  }
+
+  private archetypeExplanationsByArchetype(
+    explanations: readonly AdvancedArchetypeExplanation[] | undefined,
+  ): Map<string, AdvancedArchetypeExplanation> {
+    return new Map(
+      (explanations ?? [])
+        .filter((explanation) => typeof explanation.archetype === 'string' && explanation.archetype.trim() !== '')
+        .map((explanation) => [explanation.archetype as string, explanation]),
+    );
+  }
+
+  private archetypeReasonKey(archetype: string): string {
+    return /^[a-z0-9_]+$/.test(archetype) ? archetype : 'generic';
+  }
+
+  private archetypeReasonText(reasonKey: string, archetype: string): string {
+    return this.t(`summary.archetypeReasons.${reasonKey || 'generic'}`, { archetype });
   }
 
   private translateKey(key: string, params?: Record<string, unknown>): string {
@@ -1071,10 +1159,11 @@ export class DeckAdvancedAnalysisViewComponent {
   }
 
   private manaFetchlandDetailItem(detail: AdvancedFetchlandDetail, index: number): ManaFetchlandDetailItem {
-    const name = this.displayCardName(detail.name);
+    const resolved = this.resolveCardReference(detail);
+    const name = resolved?.name ?? this.displayCardName(detail.name);
     const quantity = typeof detail.quantity === 'number' && Number.isFinite(detail.quantity)
       ? detail.quantity
-      : 1;
+      : (resolved?.quantity ?? 1);
     const cards = this.manaCardGridItem(detail, `fetchland-${index}`);
 
     return {
@@ -1094,11 +1183,12 @@ export class DeckAdvancedAnalysisViewComponent {
   }
 
   private manaCardGridItem(reference: ManaCardImageReference, fallbackId: string): AdvancedAnalysisCardGridItem | null {
-    const name = this.displayCardName(reference.name);
+    const resolved = this.resolveCardReference(reference);
+    const name = resolved?.name ?? this.displayCardName(reference.name);
     const hasImage = Boolean(
-      reference.imageUrl?.trim()
-      || (reference.imageUris && Object.keys(reference.imageUris).length > 0)
-      || (reference.cardFaces && reference.cardFaces.length > 0),
+      resolved?.imageUrl
+      || resolved?.imageSource.imageUris
+      || (resolved?.imageSource.cardFaces && resolved.imageSource.cardFaces.length > 0),
     );
 
     if (!hasImage) {
@@ -1106,18 +1196,18 @@ export class DeckAdvancedAnalysisViewComponent {
     }
 
     return {
-      id: reference.oracleId ?? reference.scryfallId ?? fallbackId,
-      scryfallId: reference.scryfallId ?? null,
+      id: resolved?.id ?? reference.oracleId ?? reference.scryfallId ?? fallbackId,
+      scryfallId: resolved?.scryfallId ?? reference.scryfallId ?? null,
       name,
-      imageUrl: reference.imageUrl?.trim() || null,
-      imageSource: this.cardImageSource(name, reference),
-      quantity: reference.quantity ?? null,
+      imageUrl: resolved?.imageUrl ?? reference.imageUrl?.trim() ?? null,
+      imageSource: resolved?.imageSource ?? this.cardImageSource(name, reference),
+      quantity: reference.quantity ?? resolved?.quantity ?? null,
     };
   }
 
-  private formatFetchTargetList(targets: readonly { readonly name?: string | null }[] | undefined): string {
+  private formatFetchTargetList(targets: readonly ManaCardImageReference[] | undefined): string {
     const names = (targets ?? [])
-      .map((target) => target.name?.trim())
+      .map((target) => this.resolveCardReference(target)?.name ?? target.name?.trim())
       .filter((name): name is string => Boolean(name));
 
     return names.length > 0 ? names.join(', ') : this.t('common.unavailable');
@@ -1182,6 +1272,16 @@ export class DeckAdvancedAnalysisViewComponent {
       .sort((left, right) => this.healthStatusRank(right) - this.healthStatusRank(left))[0];
 
     return this.formatStatus(worst);
+  }
+
+  private hasManaSourceColor(mana: AdvancedManaMetrics | null, color: string): boolean {
+    if (!mana) {
+      return true;
+    }
+
+    return Object.prototype.hasOwnProperty.call(mana.sources ?? {}, color)
+      || Object.prototype.hasOwnProperty.call(mana.untappedSources ?? {}, color)
+      || Object.prototype.hasOwnProperty.call(mana.earlySources?.turn3 ?? {}, color);
   }
 
   private healthStatusRank(status: AdvancedHealthStatus): number {
@@ -1327,23 +1427,26 @@ export class DeckAdvancedAnalysisViewComponent {
   }
 
   private comboCardItem(reference: AdvancedCardReference): ComboCardPreviewItem | null {
-    const name = this.displayCardName(reference.name);
-    const id = reference.deckCardId?.trim()
-      || reference.cardId?.trim()
-      || reference.oracleId?.trim()
+    const normalized = this.normalizeCardReference(reference);
+    const resolved = this.resolveCardReference(normalized);
+    const name = resolved?.name ?? this.displayCardName(normalized.name);
+    const id = normalized.id?.trim()
+      || normalized.deckCardId?.trim()
+      || normalized.oracleId?.trim()
+      || resolved?.id
       || this.cardPreviewKey(name);
 
-    if (name === this.t('common.unavailable') && !reference.imageUrl) {
+    if (name === this.t('common.unavailable') && !normalized.imageUrl && !resolved?.imageUrl) {
       return null;
     }
 
     return {
       id,
-      scryfallId: reference.scryfallId ?? null,
+      scryfallId: resolved?.scryfallId ?? normalized.scryfallId ?? null,
       name,
-      imageUrl: reference.imageUrl?.trim() || null,
-      imageSource: this.cardImageSource(name, reference),
-      quantity: reference.quantity ?? null,
+      imageUrl: resolved?.imageUrl ?? normalized.imageUrl?.trim() ?? null,
+      imageSource: resolved?.imageSource ?? this.cardImageSource(name, normalized),
+      quantity: normalized.quantity ?? resolved?.quantity ?? null,
     };
   }
 
@@ -1407,16 +1510,117 @@ export class DeckAdvancedAnalysisViewComponent {
   }
 
   private comboCompleterItem(item: AdvancedTopComboCompleter): ComboCompleterItem {
-    const name = this.displayCardName(item.name);
+    const resolved = this.resolveCardReference(item);
+    const name = resolved?.name ?? this.displayCardName(item.name);
 
     return {
-      id: item.oracleId ?? item.name ?? 'combo-completer',
-      scryfallId: item.scryfallId ?? null,
+      id: resolved?.id ?? item.oracleId ?? item.name ?? 'combo-completer',
+      scryfallId: resolved?.scryfallId ?? item.scryfallId ?? null,
       name,
-      imageUrl: item.imageUrl?.trim() || null,
-      imageSource: this.cardImageSource(name, item),
+      imageUrl: resolved?.imageUrl ?? item.imageUrl?.trim() ?? null,
+      imageSource: resolved?.imageSource ?? this.cardImageSource(name, item),
       completesCombos: this.formatNumber(item.completesCombos),
     };
+  }
+
+  private resolveCardReference(reference: AdvancedCardReference | ManaCardImageReference | null | undefined): AdvancedAnalysisCardGridItem | null {
+    if (!reference) {
+      return null;
+    }
+
+    const normalized = this.normalizeCardReference(reference);
+    const deckCard = this.deckCardForReference(normalized);
+    if (deckCard) {
+      return this.gridItemFromDeckCard(deckCard);
+    }
+
+    const catalogKey = normalized.oracleId ?? normalized.id ?? null;
+    const catalogEntry = catalogKey ? this.analysis()?.cardCatalog?.[catalogKey] : null;
+    if (catalogEntry) {
+      return this.gridItemFromCatalogEntry(catalogEntry, normalized);
+    }
+
+    if (normalized.name || normalized.imageUrl || normalized.imageUris || normalized.cardFaces) {
+      const name = this.displayCardName(normalized.name);
+
+      return {
+        id: normalized.id ?? normalized.oracleId ?? normalized.scryfallId ?? this.cardPreviewKey(name),
+        scryfallId: normalized.scryfallId ?? null,
+        name,
+        imageUrl: normalized.imageUrl?.trim() || null,
+        imageSource: this.cardImageSource(name, normalized),
+        quantity: normalized.quantity ?? null,
+      };
+    }
+
+    return null;
+  }
+
+  private deckCardForReference(reference: NormalizedCardReference): DeckCard | null {
+    const id = reference.id?.trim();
+    if (id) {
+      const deckCard = this.deckCardsByDeckCardId().get(id) ?? this.deckCardsByOracleId().get(id);
+      if (deckCard) {
+        return deckCard;
+      }
+    }
+
+    const deckCardId = reference.deckCardId?.trim();
+    if (deckCardId) {
+      const deckCard = this.deckCardsByDeckCardId().get(deckCardId);
+      if (deckCard) {
+        return deckCard;
+      }
+    }
+
+    const oracleId = reference.oracleId?.trim();
+    return oracleId ? this.deckCardsByOracleId().get(oracleId) ?? null : null;
+  }
+
+  private deckCardLookup(kind: 'deckCardId' | 'oracleId'): Map<string, DeckCard> {
+    const lookup = new Map<string, DeckCard>();
+    for (const deckCard of this.deck()?.cards ?? []) {
+      const key = kind === 'deckCardId' ? deckCard.id : deckCard.card.oracleId;
+      if (typeof key === 'string' && key.trim()) {
+        lookup.set(key, deckCard);
+      }
+    }
+
+    return lookup;
+  }
+
+  private gridItemFromDeckCard(deckCard: DeckCard): AdvancedAnalysisCardGridItem {
+    const card = deckCard.card;
+
+    return {
+      id: deckCard.id,
+      scryfallId: card.scryfallId,
+      name: card.name,
+      imageUrl: bestCardImage(card),
+      imageSource: this.cardImageSource(card.name, card),
+      quantity: deckCard.quantity,
+    };
+  }
+
+  private gridItemFromCatalogEntry(entry: AdvancedCardCatalogEntry, reference: ManaCardImageReference): AdvancedAnalysisCardGridItem {
+    return {
+      id: reference.oracleId ?? entry.oracleId,
+      scryfallId: reference.scryfallId ?? null,
+      name: entry.name,
+      imageUrl: entry.imageUrl?.trim() || null,
+      imageSource: this.cardImageSource(entry.name, entry),
+      quantity: reference.quantity ?? null,
+    };
+  }
+
+  private normalizeCardReference(reference: AdvancedCardReference | ManaCardImageReference): NormalizedCardReference {
+    if (typeof reference === 'string') {
+      const id = reference.trim();
+
+      return { id: id || null, oracleId: id || undefined };
+    }
+
+    return reference;
   }
 
   private cardImageSource(name: string, reference: ManaCardImageReference | null): CardFaceImageSource {
@@ -1451,7 +1655,7 @@ export class DeckAdvancedAnalysisViewComponent {
     const reason = card.reason ? ` · ${this.formatFeatureLabel(card.reason)}` : '';
 
     return {
-      id: card.deckCardId ?? card.cardId ?? card.name ?? String(index),
+      id: card.deckCardId ?? card.name ?? String(index),
       name: `${quantity}${this.formatText(card.name)}`,
       detail: `${section}${reason}`.replace(/^ · /, '') || this.t('cardResolution.cardCouldNotBeMatched'),
     };

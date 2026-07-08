@@ -46,6 +46,62 @@ final class DeckArchetypeAndPowerAnalyzerTest extends TestCase
         self::assertSame('high', $analysis['archetypes']['confidence']);
     }
 
+    public function testGenericWeightedArchetypeDoesNotOutrankStrongerStructuralEngine(): void
+    {
+        $analysis = $this->analyze([
+            $this->card(7, roles: ['sacrifice_outlet']),
+            $this->card(7, subroles: ['sacrifice_payoff']),
+            $this->card(37, roles: ['token_maker']),
+            $this->card(6, roles: ['lifegain'], archetypeWeights: ['lifegain' => 4]),
+        ]);
+
+        self::assertSame('aristocrats', $analysis['archetypes']['primary']);
+
+        $scores = array_column($analysis['archetypes']['scores'], 'score', 'archetype');
+        self::assertSame(80, $scores['aristocrats'] ?? null);
+        self::assertLessThan($scores['aristocrats'], $scores['lifegain'] ?? 0);
+    }
+
+    public function testArchetypePayloadOnlyExposesPrimaryAndOneSecondary(): void
+    {
+        $analysis = $this->analyze([
+            $this->card(7, roles: ['sacrifice_outlet']),
+            $this->card(7, subroles: ['sacrifice_payoff']),
+            $this->card(37, roles: ['token_maker']),
+            $this->card(6, roles: ['lifegain'], archetypeWeights: ['lifegain' => 4]),
+            $this->card(10, typeLine: 'Enchantment'),
+        ]);
+
+        self::assertCount(1, $analysis['archetypes']['secondary']);
+        self::assertCount(2, $analysis['archetypes']['scores']);
+        self::assertSame('aristocrats', $analysis['archetypes']['scores'][0]['archetype']);
+        self::assertSame($analysis['archetypes']['secondary'][0], $analysis['archetypes']['scores'][1]['archetype']);
+    }
+
+    public function testTiedScoresUseArchetypePriorityInsteadOfAlphabeticalOrder(): void
+    {
+        $staxCards = [
+            $this->card(1, roles: ['stax'], conditionKeys: ['symmetrical_stax_risk'], typeLine: 'Creature - Stax Risk'),
+        ];
+        for ($index = 0; $index < 3; ++$index) {
+            $staxCards[] = $this->card(1, roles: ['stax'], typeLine: 'Creature - Stax '.$index);
+        }
+        for ($index = 0; $index < 4; ++$index) {
+            $staxCards[] = $this->card(1, roles: ['tax'], typeLine: 'Creature - Tax '.$index);
+        }
+
+        $blinkCards = [];
+        for ($index = 0; $index < 8; ++$index) {
+            $blinkCards[] = $this->card(1, roles: ['enabler'], subroles: ['blink'], archetypeWeights: ['blink' => 2.625], typeLine: 'Creature - Blink '.$index);
+        }
+
+        $analysis = $this->analyze([...$staxCards, ...$blinkCards]);
+
+        self::assertSame('mixed', $analysis['archetypes']['primary']);
+        self::assertSame('stax', $analysis['archetypes']['scores'][0]['archetype']);
+        self::assertSame(62, $analysis['archetypes']['scores'][0]['score']);
+    }
+
     public function testFakeAristocratsDoesNotBecomeStrongAristocrats(): void
     {
         $analysis = $this->analyze([

@@ -51,6 +51,33 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         self::assertSame(1, $metrics['lands']['tappedLands']);
     }
 
+    public function testManaSourceColorsAreFilteredToCommanderColorIdentity(): void
+    {
+        $metrics = $this->analyze(
+            [
+                $this->card('commander', 'Azorius Commander', 'commander', manaCost: '{2}{W}{U}', colorIdentity: ['W', 'U']),
+                $this->card('fetch', 'Flooded Strand'),
+                $this->card('triome', 'Raugrin Triome'),
+                $this->card('wastes', 'Wastes'),
+            ],
+            [
+                'fetch' => $this->fetchProfile('Flooded Strand', ['Plains', 'Island']),
+                'triome' => $this->landProfile('Raugrin Triome', ['W', 'U', 'R'], ['Plains', 'Island', 'Mountain'], 'triome', entersTapped: true),
+                'wastes' => $this->landProfile('Wastes', ['C'], [], 'basic', basic: true, canEnterUntapped: true),
+            ],
+        );
+
+        self::assertArrayHasKey('white', $metrics['sources']);
+        self::assertArrayHasKey('blue', $metrics['sources']);
+        self::assertArrayHasKey('colorless', $metrics['sources']);
+        self::assertArrayNotHasKey('black', $metrics['sources']);
+        self::assertArrayNotHasKey('red', $metrics['sources']);
+        self::assertArrayNotHasKey('green', $metrics['sources']);
+        self::assertArrayNotHasKey('red', $metrics['fetchlands']['effectiveColorSources']);
+        self::assertSame(['white', 'blue'], $metrics['fetchlands']['details'][0]['effectiveColors']);
+        self::assertSame(['white', 'blue'], $metrics['fetchlands']['details'][0]['validTargets'][0]['colors']);
+    }
+
     public function testDeadFetchlandDoesNotCountAsEffectiveSource(): void
     {
         $metrics = $this->analyze(

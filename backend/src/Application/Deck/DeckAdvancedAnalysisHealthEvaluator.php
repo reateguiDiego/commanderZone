@@ -68,8 +68,8 @@ final class DeckAdvancedAnalysisHealthEvaluator
         }
 
         $health['combos'] = $this->comboHealth($combos, $issues);
-        $health['consistency'] = $this->consistencyHealth($consistency, $issues);
-        $health['mana'] = $this->manaHealth(is_array($metrics['mana'] ?? null) ? $metrics['mana'] : [], $consistency, $issues);
+        $health['consistency'] = $this->consistencyHealth($consistency, $issues, $roleCards);
+        $health['mana'] = $this->manaHealth(is_array($metrics['mana'] ?? null) ? $metrics['mana'] : [], $consistency, $issues, $roleCards);
         if (($typal['detected'] ?? false) === true) {
             $health['typal'] = $this->typalHealth($typal, $issues);
         }
@@ -309,6 +309,7 @@ SQL,
                 'winLikeCount' => $combos['winLikeCount'] ?? 0,
                 'commanderRequiredCount' => $combos['commanderRequiredCount'] ?? 0,
             ],
+            'cards' => $this->comboCards($combos),
         ];
     }
 
@@ -359,7 +360,7 @@ SQL,
      * @param list<array{code:string,severity:string}> $issues
      * @return array<string,mixed>
      */
-    private function consistencyHealth(array $consistency, array $issues): array
+    private function consistencyHealth(array $consistency, array $issues, array $roleCards): array
     {
         $opening = is_array($consistency['openingHand'] ?? null) ? $consistency['openingHand'] : [];
         $keepable = is_numeric($opening['keepableHandRate'] ?? null) ? (float) $opening['keepableHandRate'] : null;
@@ -387,6 +388,17 @@ SQL,
                 'fivePlusLandsRate' => $opening['fivePlusLandsRate'] ?? null,
                 'earlyPlayInOpeningRate' => $opening['earlyPlayInOpeningRate'] ?? null,
             ],
+            'cards' => $this->sectionCards($roleCards, [
+                'lands',
+                'permanentRamp',
+                'draw',
+                'cardSelection',
+                'spotRemoval',
+                'counterspells',
+                'trueTutors',
+                'wincons',
+                'comboPieces',
+            ]),
         ];
     }
 
@@ -396,7 +408,7 @@ SQL,
      * @param list<array{code:string,severity:string}> $issues
      * @return array<string,mixed>
      */
-    private function manaHealth(array $mana, array $consistency, array $issues): array
+    private function manaHealth(array $mana, array $consistency, array $issues, array $roleCards): array
     {
         if ($mana === []) {
             return [
@@ -410,6 +422,7 @@ SQL,
                     'commanderCastability' => 'unknown',
                     'landCycleRisks' => [],
                 ],
+                'cards' => [],
             ];
         }
 
@@ -474,7 +487,57 @@ SQL,
                 'keepableManaRate' => $opening['keepableManaRate'] ?? null,
                 'hasAllEarlyColorsRate' => $opening['hasAllEarlyColorsRate'] ?? null,
             ],
+            'cards' => $this->sectionCards($roleCards, [
+                'lands',
+                'manaFixing',
+                'colorFixing',
+                'fetchlands',
+                'landRamp',
+                'manaRocks',
+                'manaDorks',
+                'permanentRamp',
+            ]),
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $combos
+     * @return list<array<string,mixed>>
+     */
+    private function comboCards(array $combos): array
+    {
+        $cards = [];
+        foreach ([
+            'complete' => 'completeCombos',
+            'partialOneMissing' => 'partialOneMissing',
+            'partialTwoMissing' => 'partialTwoMissing',
+        ] as $group => $matchedMetric) {
+            foreach (($combos[$group] ?? []) as $combo) {
+                if (!is_array($combo)) {
+                    continue;
+                }
+
+                foreach ([...($combo['cards'] ?? []), ...($combo['missingCards'] ?? [])] as $card) {
+                    if (!is_array($card)) {
+                        continue;
+                    }
+
+                    $key = $this->cardReferenceKey($card);
+                    if ($key === '') {
+                        continue;
+                    }
+
+                    $cards[$key] ??= $card + ['matchedMetrics' => []];
+                    $matchedMetrics = is_array($cards[$key]['matchedMetrics'] ?? null) ? $cards[$key]['matchedMetrics'] : [];
+                    if (!in_array($matchedMetric, $matchedMetrics, true)) {
+                        $matchedMetrics[] = $matchedMetric;
+                    }
+                    $cards[$key]['matchedMetrics'] = $matchedMetrics;
+                }
+            }
+        }
+
+        return array_values($cards);
     }
 
     /**

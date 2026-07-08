@@ -12,6 +12,7 @@ final class DeckAdvancedAnalysisSnapshotService
         private readonly Connection $connection,
         private readonly DeckAnalysisDataVersionProvider $versionProvider,
         private readonly DeckAnalysisDeckHasher $deckHasher,
+        private readonly DeckAdvancedAnalysisResultCompactor $resultCompactor,
     ) {
     }
 
@@ -36,7 +37,7 @@ final class DeckAdvancedAnalysisSnapshotService
             return $result;
         }
 
-        $result = $calculator->calculate($context);
+        $result = $this->resultCompactor->compact($calculator->calculate($context));
         $saved = $this->saveSnapshot($deck->id(), $snapshotContext, $result, $existing);
         $result['snapshot'] = $this->metadata(false, $staleReason ?? 'missing', $saved, $snapshotContext);
 

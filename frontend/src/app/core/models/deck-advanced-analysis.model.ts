@@ -14,6 +14,7 @@ export interface AdvancedAnalysisResponse {
   analyzerVersion?: string | null;
   analyzedAt?: string | null;
   snapshot?: SnapshotInfo | null;
+  cardCatalog?: AdvancedCardCatalog | null;
   summary?: AdvancedSummary | null;
   health?: AdvancedHealth | null;
   metrics?: AdvancedMetrics | null;
@@ -57,7 +58,7 @@ export interface AdvancedSummary {
 export interface AdvancedArchetypeExplanation {
   archetype?: string | null;
   reasonKey?: string | null;
-  score?: number | null;
+  cards?: AdvancedCardReference[];
 }
 
 export type AdvancedHealth = Record<string, AdvancedHealthSection | string | number | boolean | null | undefined>;
@@ -66,7 +67,7 @@ export interface AdvancedHealthSection {
   status?: AdvancedHealthStatus | string | null;
   message?: string | null;
   evidence?: AdvancedAnalysisMap | null;
-  cards?: AdvancedCardReference[];
+  cards?: AdvancedMetricCardReference[];
   value?: number | null;
   minRecommended?: number | null;
   source?: string | null;
@@ -78,6 +79,7 @@ export interface AdvancedMetrics {
   roles?: AdvancedRoleMetrics | null;
   mana?: AdvancedManaMetrics | null;
   roleCards?: AdvancedRoleCardGroups | null;
+  qualityCards?: AdvancedQualityCardGroups | null;
   quality?: AdvancedQualityMetricGroups | null;
 }
 
@@ -140,7 +142,8 @@ export interface AdvancedRoleMetrics {
   lifegain?: number;
 }
 
-export type AdvancedRoleCardGroups = Record<string, AdvancedCardReference[]>;
+export type AdvancedRoleCardGroups = Record<string, string[]>;
+export type AdvancedQualityCardGroups = Record<string, Record<string, string[]>>;
 
 export interface AdvancedManaMetrics {
   lands?: AdvancedManaLandMetrics | null;
@@ -187,6 +190,7 @@ export interface AdvancedFetchlandMetrics extends AdvancedAnalysisMap {
 }
 
 export interface AdvancedFetchlandDetail {
+  deckCardId?: string | null;
   oracleId?: string;
   scryfallId?: string | null;
   name?: string | null;
@@ -203,6 +207,7 @@ export interface AdvancedFetchlandDetail {
 }
 
 export interface AdvancedFetchlandTarget {
+  deckCardId?: string | null;
   oracleId?: string;
   scryfallId?: string | null;
   name?: string | null;
@@ -212,6 +217,7 @@ export interface AdvancedFetchlandTarget {
   quantity?: number | null;
   colors?: string[];
   canEnterUntapped?: boolean;
+  entersTapped?: boolean;
 }
 
 export interface AdvancedManaRequirements extends AdvancedAnalysisMap {
@@ -322,9 +328,14 @@ export interface AdvancedComboItem {
   bracketTag?: string | null;
 }
 
-export interface AdvancedCardReference {
+export type AdvancedCardReference = string | AdvancedCardReferenceObject;
+
+export interface AdvancedMetricCardReference extends AdvancedCardReferenceObject {
+  matchedMetrics?: string[];
+}
+
+export interface AdvancedCardReferenceObject {
   deckCardId?: string | null;
-  cardId?: string | null;
   scryfallId?: string | null;
   oracleId?: string;
   name?: string | null;
@@ -333,7 +344,14 @@ export interface AdvancedCardReference {
   cardFaces?: CardFace[];
   quantity?: number | null;
   section?: string | null;
-  matchedMetrics?: string[];
+}
+
+export type AdvancedCardCatalog = Record<string, AdvancedCardCatalogEntry>;
+
+export interface AdvancedCardCatalogEntry {
+  oracleId: string;
+  name: string;
+  imageUrl?: string | null;
 }
 
 export interface AdvancedTopComboCompleter {
@@ -355,8 +373,8 @@ export interface AdvancedArchetypes {
 
 export interface AdvancedArchetypeScore {
   archetype?: string;
-  score?: number;
-  evidence?: string[];
+  reasonKey?: string | null;
+  cards?: AdvancedCardReference[];
 }
 
 export interface AdvancedTypalAnalysis {
@@ -405,7 +423,6 @@ export interface AdvancedRecommendation {
 
 export interface UnmatchedCard {
   deckCardId?: string;
-  cardId?: string | null;
   name?: string | null;
   imageUrl?: string | null;
   quantity?: number;

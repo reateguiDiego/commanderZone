@@ -25,6 +25,28 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('https://img.test/card.jpg');
   });
 
+  it('renders the spoiler toggle icon before the category title and count', async () => {
+    const store = storeStub();
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.spoiler-section-toggle') as HTMLButtonElement | null;
+    const firstChild = toggle?.firstElementChild;
+    const secondChild = firstChild?.nextElementSibling;
+
+    expect(firstChild?.tagName.toLowerCase()).toBe('lucide-icon');
+    expect(secondChild?.classList.contains('spoiler-section-title')).toBe(true);
+    expect(secondChild?.textContent?.replace(/\s+/g, ' ').trim()).toContain('(1)');
+  });
+
   it('flips card faces without opening the card menu preview flow', async () => {
     const store = storeStub({ hasAlternateFace: true });
     await TestBed.configureTestingModule({

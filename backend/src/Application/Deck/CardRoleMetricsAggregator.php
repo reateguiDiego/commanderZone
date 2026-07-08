@@ -64,13 +64,14 @@ final class CardRoleMetricsAggregator
     /**
      * @param list<array{deckCardId:string,cardId:string,scryfallId:string,oracleId:string,name:string,imageUrl?:?string,imageUris?:array<string,mixed>,cardFaces?:list<array<string,mixed>>,quantity:int,section:string,analysisProfile:array<string,mixed>}> $resolvedCards
      * @param list<array{quantity:int}> $unmatchedCards
-     * @return array{cards:array<string,int>,roles:array<string,int>,roleCards:array<string,list<array<string,mixed>>>,quality:array<string,array<string,int>>}
+     * @return array{cards:array<string,int>,roles:array<string,int>,roleCards:array<string,list<array<string,mixed>>>,quality:array<string,array<string,int>>,qualityCards:array<string,array<string,list<array<string,mixed>>>>}
      */
     public function aggregate(array $resolvedCards, array $unmatchedCards): array
     {
         $roles = $this->emptyRoleMetrics();
         $roleCards = $this->emptyRoleCards();
         $quality = $this->emptyQualityMetrics();
+        $qualityCards = $this->emptyQualityCards();
         $lands = 0;
         $resolvedQuantity = 0;
         $unmatchedQuantity = $this->totalQuantity($unmatchedCards);
@@ -91,7 +92,7 @@ final class CardRoleMetricsAggregator
             $this->addSubroleMetrics($roles, $roleCards, $profile, $manaProfile, $quantity, $reference);
             $this->addSpecialMetrics($roles, $roleCards, $profile, $manaProfile, $quantity, $reference);
             $this->addManaProfileMetrics($roles, $roleCards, $manaProfile, $quantity, $reference);
-            $this->addQualityMetrics($quality, $profile, $manaProfile, $quantity);
+            $this->addQualityMetrics($quality, $qualityCards, $profile, $manaProfile, $quantity, $reference);
         }
 
         $roles['lands'] = $lands;
@@ -108,6 +109,7 @@ final class CardRoleMetricsAggregator
             'roles' => $roles,
             'roleCards' => $roleCards,
             'quality' => $quality,
+            'qualityCards' => $qualityCards,
         ];
     }
 
@@ -182,6 +184,28 @@ final class CardRoleMetricsAggregator
             'medium' => 0,
             'slow' => 0,
             'oneShot' => 0,
+        ];
+
+        return [
+            'ramp' => $empty,
+            'tutor' => $empty,
+            'wipe' => $empty,
+            'protection' => $empty,
+            'wincon' => $empty,
+        ];
+    }
+
+    /**
+     * @return array<string,array<string,list<array<string,mixed>>>>
+     */
+    private function emptyQualityCards(): array
+    {
+        $empty = [
+            'premium' => [],
+            'good' => [],
+            'medium' => [],
+            'slow' => [],
+            'oneShot' => [],
         ];
 
         return [
@@ -379,9 +403,11 @@ final class CardRoleMetricsAggregator
 
     /**
      * @param array<string,array<string,int>> $quality
+     * @param array<string,array<string,list<array<string,mixed>>>> $qualityCards
      * @param array<string,mixed> $profile
+     * @param array<string,mixed> $reference
      */
-    private function addQualityMetrics(array &$quality, array $profile, array $manaProfile, int $quantity): void
+    private function addQualityMetrics(array &$quality, array &$qualityCards, array $profile, array $manaProfile, int $quantity, array $reference): void
     {
         foreach ([
             'ramp' => 'ramp',
@@ -402,10 +428,12 @@ final class CardRoleMetricsAggregator
             $qualityValue = $this->stringValue($roleScore['quality'] ?? null);
             if ($qualityValue !== null && isset($quality[$qualityKey][$qualityValue])) {
                 $quality[$qualityKey][$qualityValue] += $quantity;
+                $this->addMetricCard($qualityCards[$qualityKey], $qualityValue, $reference);
             }
 
             if ($this->stringValue($roleScore['repeatability'] ?? null) === 'one_shot') {
                 $quality[$qualityKey]['oneShot'] += $quantity;
+                $this->addMetricCard($qualityCards[$qualityKey], 'oneShot', $reference);
             }
         }
     }

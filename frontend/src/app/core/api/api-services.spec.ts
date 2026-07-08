@@ -785,9 +785,13 @@ function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
         creatureCount: 14,
         supportCount: 3,
         commanderMatches: true,
-        creatureCards: [{ deckCardId: 'deck-card-elf', cardId: 'card-elf', oracleId: 'oracle-elf', name: 'Llanowar Elves', imageUrl: 'https://cards.example.test/llanowar-elves.jpg', quantity: 1, section: 'main' }],
-        supportCards: [{ deckCardId: 'deck-card-archdruid', cardId: 'card-archdruid', oracleId: 'oracle-archdruid', name: 'Elvish Archdruid', imageUrl: 'https://cards.example.test/elvish-archdruid.jpg', quantity: 1, section: 'main' }],
+        creatureCards: ['deck-card-elf'],
+        supportCards: ['deck-card-archdruid'],
       }],
+    },
+    cardCatalog: {
+      'oracle-1': { oracleId: 'oracle-1', name: 'Ashnods Altar', imageUrl: 'https://cards.example.test/ashnods-altar.jpg' },
+      'oracle-2': { oracleId: 'oracle-2', name: 'Ashnods Altar', imageUrl: 'https://cards.example.test/ashnods-altar.jpg' },
     },
     health: {
       score: 82,
@@ -847,7 +851,7 @@ function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
         externalId: 'external-1',
         requiredOracleIds: ['oracle-1'],
         missingOracleIds: [],
-        cards: [{ oracleId: 'oracle-1', name: 'Ashnods Altar', imageUrl: 'https://cards.example.test/ashnods-altar.jpg' }],
+        cards: ['oracle-1'],
         missingCards: [],
         features: ['infinite_tokens'],
         producesWin: false,
@@ -868,12 +872,12 @@ function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
       partialOneMissing: [],
       partialTwoMissing: [],
     },
-    topComboCompleters: [{ oracleId: 'oracle-2', name: 'Ashnods Altar', imageUrl: 'https://cards.example.test/ashnods-altar.jpg', completesCombos: 2 }],
+    topComboCompleters: [{ oracleId: 'oracle-2', completesCombos: 2 }],
     archetypes: {
       primary: 'tokens',
       secondary: ['aristocrats'],
       confidence: 'high',
-      scores: [{ archetype: 'tokens', score: 88, evidence: ['Token makers'] }],
+      scores: [{ archetype: 'tokens', reasonKey: 'tokens', cards: ['deck-card-1'] }],
     },
     power: {
       signals: { fastMana: 1 },
@@ -898,7 +902,6 @@ function deckAdvancedAnalysisFixture(): AdvancedAnalysisResponse {
     }],
     unmatchedCards: [{
       deckCardId: 'deck-card-1',
-      cardId: null,
       name: 'Unknown Card',
       imageUrl: null,
       quantity: 1,

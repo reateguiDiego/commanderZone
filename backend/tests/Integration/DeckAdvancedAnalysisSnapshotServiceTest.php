@@ -4,6 +4,7 @@ namespace App\Tests\Integration;
 
 use App\Application\Deck\DeckAdvancedAnalysisCalculatorInterface;
 use App\Application\Deck\DeckAdvancedAnalysisContext;
+use App\Application\Deck\DeckAdvancedAnalysisResultCompactor;
 use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalyzerVersion;
 use App\Application\Deck\DeckAnalysisDataVersionProvider;
@@ -235,6 +236,7 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
             $this->connection(),
             new DeckAnalysisDataVersionProvider($this->connection()),
             new DeckAnalysisDeckHasher($this->connection()),
+            new DeckAdvancedAnalysisResultCompactor(),
         );
     }
 

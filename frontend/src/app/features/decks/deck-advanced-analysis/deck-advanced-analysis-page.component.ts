@@ -38,6 +38,7 @@ export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
   readonly loading = signal(true);
   readonly errorMessage = signal<string | null>(null);
   readonly analysis = signal<AdvancedAnalysisResponse | null>(null);
+  readonly deck = signal<Deck | null>(null);
   readonly deckDetailLink = computed<readonly string[]>(() => ['/decks', this.routeIdentifier()]);
 
   constructor() {
@@ -62,6 +63,7 @@ export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
     this.loading.set(true);
     this.errorMessage.set(null);
     this.analysis.set(null);
+    this.deck.set(null);
     this.deckName.set(null);
     this.setPageHeader(identifier);
 
@@ -69,6 +71,7 @@ export class DeckAdvancedAnalysisPageComponent implements OnDestroy {
       const deck = await this.resolveDeck(identifier);
       this.deckId.set(deck.id);
       this.deckName.set(deck.name);
+      this.deck.set(deck);
       this.setPageHeader(deck.name);
 
       const analysis = await firstValueFrom(this.decksApi.getDeckAdvancedAnalysis(deck.id));

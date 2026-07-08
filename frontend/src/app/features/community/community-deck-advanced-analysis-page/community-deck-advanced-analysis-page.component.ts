@@ -6,6 +6,7 @@ import { CommunityApi } from '../../../core/api/community.api';
 import { runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { TranslationService } from '../../../core/localization/translation.service';
 import { AdvancedAnalysisResponse } from '../../../core/models/deck-advanced-analysis.model';
+import { CommunityDeckDetail } from '../../../core/models/community.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { DeckAdvancedAnalysisViewComponent } from '../../decks/deck-advanced-analysis/deck-advanced-analysis-view.component';
@@ -28,6 +29,7 @@ export class CommunityDeckAdvancedAnalysisPageComponent implements OnDestroy {
   readonly loading = signal(true);
   readonly errorMessage = signal<string | null>(null);
   readonly analysis = signal<AdvancedAnalysisResponse | null>(null);
+  readonly deck = signal<CommunityDeckDetail | null>(null);
   readonly deckDetailLink = computed<readonly string[]>(() => ['/community/decks', this.slug()]);
 
   constructor() {
@@ -52,10 +54,12 @@ export class CommunityDeckAdvancedAnalysisPageComponent implements OnDestroy {
     this.loading.set(true);
     this.errorMessage.set(null);
     this.analysis.set(null);
+    this.deck.set(null);
     this.setPageHeader(slug);
 
     try {
       const deckResponse = await firstValueFrom(this.communityApi.deck(slug));
+      this.deck.set(deckResponse.deck);
       this.setPageHeader(deckResponse.deck.name);
       this.analysis.set(await firstValueFrom(this.communityApi.getCommunityDeckAdvancedAnalysis(slug)));
     } catch (error) {

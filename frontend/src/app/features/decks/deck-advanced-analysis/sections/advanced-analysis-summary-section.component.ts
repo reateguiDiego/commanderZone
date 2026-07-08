@@ -3,7 +3,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { TooltipComponent } from '../../../../shared/ui/tooltip/tooltip.component';
 import { AdvancedAnalysisCardGridComponent } from '../advanced-analysis-card-grid.component';
-import type { AdvancedAnalysisStat, TypalIdentityView } from '../deck-advanced-analysis-view.models';
+import type { AdvancedAnalysisStat, ArchetypeIdentityView, TypalIdentityView } from '../deck-advanced-analysis-view.models';
 
 @Component({
   selector: 'app-advanced-analysis-summary-section',
@@ -15,4 +15,5 @@ import type { AdvancedAnalysisStat, TypalIdentityView } from '../deck-advanced-a
 export class AdvancedAnalysisSummarySectionComponent {
   readonly stats = input<readonly AdvancedAnalysisStat[]>([]);
   readonly typal = input<TypalIdentityView | null>(null);
+  readonly archetypes = input<readonly ArchetypeIdentityView[]>([]);
 }

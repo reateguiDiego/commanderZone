@@ -6,7 +6,7 @@ import { ChevronDown, ChevronRight, Info, LucideAngularModule, RotateCw } from '
 import { of, Subject, throwError } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
 import { AdvancedAnalysisResponse } from '../../../core/models/deck-advanced-analysis.model';
-import { Deck } from '../../../core/models/deck.model';
+import { Deck, DeckCard } from '../../../core/models/deck.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeckAdvancedAnalysisPageComponent } from './deck-advanced-analysis-page.component';
 
@@ -93,15 +93,18 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(element.textContent).toContain('Tokens');
     const archetypeTooltips = Array.from(element.querySelectorAll('.advanced-analysis-tooltip-value')) as HTMLElement[];
     expect(archetypeTooltips.map((item) => item.getAttribute('aria-label'))).toContain(
-      'Detected from repeatable sacrifice outlets, sacrifice payoffs, token makers and recursion support. Score: 82/100.',
+      'The deck has sacrifice outlets, sacrifice payoffs, token makers, or recursion that work together as an aristocrats engine.',
     );
     expect(archetypeTooltips.map((item) => item.getAttribute('aria-label'))).toContain(
-      'Detected from token makers, payoff cards and combat finishers that convert tokens into pressure. Score: 48/100.',
+      'The deck can create tokens and has payoffs or finishers that turn those bodies into pressure.',
     );
     expect(element.textContent).toContain('Archetype confidence');
     expect(element.querySelector('lucide-icon[name="info"]')).not.toBeNull();
     expect(element.textContent).toContain('Primary tribe');
     expect(element.textContent).toContain('Elf');
+    const summaryLabels = Array.from(element.querySelectorAll('.advanced-analysis-summary > .advanced-analysis-stats > div > dt > span'))
+      .map((label) => label.textContent?.trim());
+    expect(summaryLabels.indexOf('Primary tribe')).toBe(summaryLabels.indexOf('Archetype confidence') + 1);
     expect(element.textContent).toContain('High');
     expect(element.textContent).not.toContain('Power band');
     expect(element.textContent).not.toContain('Power confidence');
@@ -222,12 +225,47 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(typal).not.toBeNull();
     expect(typal?.textContent).toContain('Tribal identity');
     expect(typal?.textContent).toContain('Elf tribal');
-    expect(typal?.textContent).toContain('Commander matches');
+    expect(typal?.textContent).toContain('Commander is Elf tribal');
     expect(typal?.textContent).toContain('Llanowar Elves');
     expect(typal?.textContent).toContain('Elvish Archdruid');
     expect(typal?.textContent).not.toContain('oracle-llanowar');
     expect(typal?.querySelector('img[alt="Llanowar Elves"]')?.getAttribute('src')).toBe('https://cards.example.test/llanowar.jpg');
     expect(typal?.querySelector('img[alt="Elvish Archdruid"]')?.getAttribute('src')).toBe('https://cards.example.test/archdruid.jpg');
+  });
+
+  it('renders analyzer archetype blocks with compact card references resolved from the deck', async () => {
+    const { fixture } = await setup();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const archetypeBlocks = Array.from(element.querySelectorAll('.advanced-analysis-archetype-identity')) as HTMLElement[];
+    const archetypeSection = element.querySelector('.advanced-analysis-archetype-identities') as HTMLElement | null;
+    const typalSection = element.querySelector('.advanced-analysis-typal-identity') as HTMLElement | null;
+    const aristocrats = archetypeBlocks.find((block) => block.querySelector('h3')?.textContent?.trim() === 'Aristocrats');
+    const tokens = archetypeBlocks.find((block) => block.querySelector('h3')?.textContent?.trim() === 'Tokens');
+
+    expect(element.textContent).toContain('Archetype rationale');
+    expect(element.textContent).not.toContain('Analyzer archetypes');
+    expect(archetypeSection).not.toBeNull();
+    expect(typalSection).not.toBeNull();
+    expect(archetypeSection?.compareDocumentPosition(typalSection as Node) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(archetypeBlocks[0]?.querySelector('h3')?.textContent?.trim()).toBe('Aristocrats');
+    expect(archetypeBlocks[1]?.querySelector('h3')?.textContent?.trim()).toBe('Tokens');
+    expect(archetypeBlocks).toHaveLength(2);
+    expect(aristocrats).toBeTruthy();
+    expect(aristocrats?.textContent).not.toContain('82');
+    expect(aristocrats?.textContent).toContain('Cards');
+    expect(aristocrats?.textContent).not.toContain('Signal cards');
+    expect(aristocrats?.textContent).toContain('Why this fits');
+    expect(aristocrats?.textContent).toContain('sacrifice outlets');
+    expect(aristocrats?.textContent).toContain('Sol Ring');
+    expect(aristocrats?.textContent).toContain('Llanowar Elves');
+    expect(aristocrats?.textContent).not.toContain('deck-card-sol-ring');
+    expect(aristocrats?.querySelector('img[alt="Sol Ring"]')?.getAttribute('src')).toBe('https://cards.example.test/sol-ring.jpg');
+    expect(tokens).toBeTruthy();
+    expect(tokens?.textContent).toContain('Elvish Archdruid');
+    expect(tokens?.querySelector('img[alt="Elvish Archdruid"]')?.getAttribute('src')).toBe('https://cards.example.test/archdruid.jpg');
   });
 
   it('renders main issues ordered by severity', async () => {
@@ -355,8 +393,32 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
   });
 
   it('renders mana issues and color access without presenting them as winrate', async () => {
+    const analysis = buildAdvancedAnalysis();
+    const mana = analysis.metrics?.mana;
+    if (!mana) {
+      throw new Error('Test fixture must include mana metrics.');
+    }
+    mana.sources = {
+      white: 12,
+      blue: 11,
+      colorless: 5,
+      anyColor: 3,
+      commanderColor: 22,
+    };
+    mana.untappedSources = {
+      white: 9,
+      blue: 8,
+      colorless: 4,
+    };
+    mana.earlySources = {
+      turn1: { white: 7, blue: 6, colorless: 3 },
+      turn2: { white: 10, blue: 9, colorless: 4 },
+      turn3: { white: 12, blue: 11, colorless: 5 },
+    };
+
     const { fixture } = await setup({ slug: DECK_ID }, {
-      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(buildAdvancedAnalysis({
+      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of({
+        ...analysis,
         issues: [
           {
             code: 'fetchlands_without_targets',
@@ -365,7 +427,7 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
             message: 'Mana analysis found fetchlands that do not have valid fetch targets in the deck.',
           },
         ],
-      }))),
+      })),
     });
     await fixture.whenStable();
     fixture.detectChanges();
@@ -377,6 +439,14 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(text).toContain('Fetchlands without valid targets');
     expect(text).toContain('Color access by turn');
     expect(text).toContain('All commander colors');
+    const colorAccessText = Array.from(fixture.nativeElement.querySelectorAll('.advanced-analysis-mana-card') as NodeListOf<HTMLElement>)
+      .find((card) => card.querySelector('h3')?.textContent?.trim() === 'Mana sources by color')
+      ?.textContent ?? '';
+    expect(colorAccessText).toContain('White');
+    expect(colorAccessText).toContain('Blue');
+    expect(colorAccessText).not.toContain('Black');
+    expect(colorAccessText).not.toContain('Red');
+    expect(colorAccessText).not.toContain('Green');
     expect(text).toContain('Commander curve castability');
     expect(text).toContain('Can cast on curve');
     expect(normalizedText).not.toContain('winrate');
@@ -825,8 +895,44 @@ function buildDeck(overrides: Partial<Deck> = {}): Deck {
     format: 'commander',
     folderId: null,
     slug: 'atraxa-control-a7f3c9d2',
-    cards: [],
+    cards: [
+      buildDeckCard('deck-card-sol-ring', 'card-sol-ring', 'oracle-sol-ring', 'Sol Ring', 'https://cards.example.test/sol-ring.jpg', [
+        { name: 'Sol Ring', manaCost: null, typeLine: 'Artifact', oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: 'https://cards.example.test/sol-ring.jpg' } },
+        { name: 'Sol Ring Back', manaCost: null, typeLine: 'Artifact', oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: 'https://cards.example.test/sol-ring-back.jpg' } },
+      ]),
+      buildDeckCard('deck-card-llanowar', 'card-llanowar', 'oracle-llanowar', 'Llanowar Elves', 'https://cards.example.test/llanowar.jpg'),
+      buildDeckCard('deck-card-archdruid', 'card-archdruid', 'oracle-archdruid', 'Elvish Archdruid', 'https://cards.example.test/archdruid.jpg'),
+      buildDeckCard('deck-card-wrath', 'card-wrath', 'oracle-wrath', 'Wrath of God', 'https://cards.example.test/wrath.jpg'),
+      buildDeckCard('deck-card-farewell', 'card-farewell', 'oracle-farewell', 'Farewell', 'https://cards.example.test/farewell.jpg'),
+      buildDeckCard('deck-card-rift', 'card-rift', 'oracle-rift', 'Cyclonic Rift', 'https://cards.example.test/rift.jpg'),
+    ],
     ...overrides,
+  };
+}
+
+function buildDeckCard(deckCardId: string, cardId: string, oracleId: string, name: string, imageUrl: string, cardFaces: DeckCard['card']['cardFaces'] = []): DeckCard {
+  return {
+    id: deckCardId,
+    quantity: 1,
+    section: 'main',
+    card: {
+      id: cardId,
+      scryfallId: cardId,
+      oracleId,
+      name,
+      manaCost: null,
+      typeLine: null,
+      oracleText: null,
+      colors: [],
+      colorIdentity: [],
+      legalities: {},
+      imageUris: { normal: imageUrl },
+      cardFaces,
+      layout: 'normal',
+      commanderLegal: true,
+      set: null,
+      collectorNumber: null,
+    },
   };
 }
 
@@ -845,11 +951,28 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
       secondaryArchetypes: ['Tokens'],
       archetypeConfidence: 'high',
       archetypeExplanations: [
-        { archetype: 'Aristocrats', reasonKey: 'aristocrats', score: 82 },
-        { archetype: 'Tokens', reasonKey: 'tokens', score: 48 },
+        { archetype: 'Aristocrats', reasonKey: 'aristocrats' },
+        { archetype: 'Tokens', reasonKey: 'tokens' },
       ],
       mainWarnings: ['Low ramp'],
       criticalIssues: ['Not enough win conditions'],
+    },
+    archetypes: {
+      primary: 'Aristocrats',
+      secondary: ['Tokens'],
+      confidence: 'high',
+      scores: [
+        {
+          archetype: 'Aristocrats',
+          reasonKey: 'aristocrats',
+          cards: ['deck-card-sol-ring', 'deck-card-llanowar'],
+        },
+        {
+          archetype: 'Tokens',
+          reasonKey: 'tokens',
+          cards: ['deck-card-archdruid'],
+        },
+      ],
     },
     typal: {
       detected: true,
@@ -864,14 +987,20 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           creatureCount: 14,
           supportCount: 3,
           commanderMatches: true,
-          creatureCards: [
-            { deckCardId: 'deck-card-llanowar', cardId: 'card-llanowar', oracleId: 'oracle-llanowar', name: 'Llanowar Elves', imageUrl: 'https://cards.example.test/llanowar.jpg', quantity: 1, section: 'main' },
-          ],
-          supportCards: [
-            { deckCardId: 'deck-card-archdruid', cardId: 'card-archdruid', oracleId: 'oracle-archdruid', name: 'Elvish Archdruid', imageUrl: 'https://cards.example.test/archdruid.jpg', quantity: 1, section: 'main' },
-          ],
+          creatureCards: ['deck-card-llanowar'],
+          supportCards: ['deck-card-archdruid'],
         },
       ],
+    },
+    cardCatalog: {
+      'oracle-thopter': { oracleId: 'oracle-thopter', name: 'Thopter Foundry', imageUrl: 'https://cards.example.test/card-thopter.jpg' },
+      'oracle-sword': { oracleId: 'oracle-sword', name: 'Sword of the Meek', imageUrl: 'https://cards.example.test/card-sword.jpg' },
+      'oracle-altar': { oracleId: 'oracle-altar', name: 'Ashnods Altar', imageUrl: 'https://cards.example.test/card-altar.jpg' },
+      'oracle-a': { oracleId: 'oracle-a', name: 'Damage Piece A', imageUrl: 'https://cards.example.test/card-a.jpg' },
+      'oracle-b': { oracleId: 'oracle-b', name: 'Damage Piece B', imageUrl: 'https://cards.example.test/card-b.jpg' },
+      'oracle-thassa': { oracleId: 'oracle-thassa', name: 'Thassa Oracle', imageUrl: 'https://cards.example.test/card-oracle.jpg' },
+      'oracle-consultation': { oracleId: 'oracle-consultation', name: 'Demonic Consultation', imageUrl: 'https://cards.example.test/card-consultation.jpg' },
+      'oracle-pact': { oracleId: 'oracle-pact', name: 'Tainted Pact', imageUrl: 'https://cards.example.test/card-pact.jpg' },
     },
     health: {
       ramp: {
@@ -881,17 +1010,7 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         cards: [
           {
             deckCardId: 'deck-card-sol-ring',
-            cardId: 'card-sol-ring',
             oracleId: 'oracle-sol-ring',
-            name: 'Sol Ring',
-            imageUrl: 'https://cards.example.test/sol-ring.jpg',
-            imageUris: { normal: 'https://cards.example.test/sol-ring.jpg' },
-            cardFaces: [
-              { name: 'Sol Ring', manaCost: null, typeLine: 'Artifact', oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: 'https://cards.example.test/sol-ring.jpg' } },
-              { name: 'Sol Ring Back', manaCost: null, typeLine: 'Artifact', oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: 'https://cards.example.test/sol-ring-back.jpg' } },
-            ],
-            quantity: 1,
-            section: 'main',
             matchedMetrics: ['permanentRamp', 'fastMana'],
           },
         ],
@@ -911,9 +1030,9 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         message: 'Wipes look functional.',
         evidence: { boardWipes: 3 },
         cards: [
-          { deckCardId: 'deck-card-wrath', cardId: 'card-wrath', oracleId: 'oracle-wrath', name: 'Wrath of God', imageUrl: 'https://cards.example.test/wrath.jpg', quantity: 1, section: 'main', matchedMetrics: ['boardWipes'] },
-          { deckCardId: 'deck-card-rift', cardId: 'card-rift', oracleId: 'oracle-rift', name: 'Cyclonic Rift', imageUrl: 'https://cards.example.test/rift.jpg', quantity: 1, section: 'main', matchedMetrics: ['massBounce'] },
-          { deckCardId: 'deck-card-farewell', cardId: 'card-farewell', oracleId: 'oracle-farewell', name: 'Farewell', imageUrl: 'https://cards.example.test/farewell.jpg', quantity: 1, section: 'main', matchedMetrics: ['boardWipes', 'conditionalWipes'] },
+          { deckCardId: 'deck-card-wrath', oracleId: 'oracle-wrath', matchedMetrics: ['boardWipes'] },
+          { deckCardId: 'deck-card-rift', oracleId: 'oracle-rift', matchedMetrics: ['massBounce'] },
+          { deckCardId: 'deck-card-farewell', oracleId: 'oracle-farewell', matchedMetrics: ['boardWipes', 'conditionalWipes'] },
         ],
       },
       tutors: {
@@ -955,8 +1074,8 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           commanderMatches: true,
         },
         cards: [
-          { deckCardId: 'deck-card-llanowar', cardId: 'card-llanowar', oracleId: 'oracle-llanowar', name: 'Llanowar Elves', imageUrl: 'https://cards.example.test/llanowar.jpg', quantity: 1, section: 'main' },
-          { deckCardId: 'deck-card-archdruid', cardId: 'card-archdruid', oracleId: 'oracle-archdruid', name: 'Elvish Archdruid', imageUrl: 'https://cards.example.test/archdruid.jpg', quantity: 1, section: 'main' },
+          { deckCardId: 'deck-card-llanowar', oracleId: 'oracle-llanowar' },
+          { deckCardId: 'deck-card-archdruid', oracleId: 'oracle-archdruid' },
         ],
         value: 14,
       },
@@ -1144,19 +1263,10 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         },
       },
       roleCards: {
-        permanentRamp: [
-          { deckCardId: 'deck-card-sol-ring', cardId: 'card-sol-ring', oracleId: 'oracle-sol-ring', name: 'Sol Ring', imageUrl: 'https://cards.example.test/sol-ring.jpg', quantity: 1, section: 'main' },
-        ],
-        boardWipes: [
-          { deckCardId: 'deck-card-wrath', cardId: 'card-wrath', oracleId: 'oracle-wrath', name: 'Wrath of God', imageUrl: 'https://cards.example.test/wrath.jpg', quantity: 1, section: 'main' },
-          { deckCardId: 'deck-card-farewell', cardId: 'card-farewell', oracleId: 'oracle-farewell', name: 'Farewell', imageUrl: 'https://cards.example.test/farewell.jpg', quantity: 1, section: 'main' },
-        ],
-        massBounce: [
-          { deckCardId: 'deck-card-rift', cardId: 'card-rift', oracleId: 'oracle-rift', name: 'Cyclonic Rift', imageUrl: 'https://cards.example.test/rift.jpg', quantity: 1, section: 'main' },
-        ],
-        conditionalWipes: [
-          { deckCardId: 'deck-card-farewell', cardId: 'card-farewell', oracleId: 'oracle-farewell', name: 'Farewell', imageUrl: 'https://cards.example.test/farewell.jpg', quantity: 1, section: 'main' },
-        ],
+        permanentRamp: ['deck-card-sol-ring'],
+        boardWipes: ['deck-card-wrath', 'deck-card-farewell'],
+        massBounce: ['deck-card-rift'],
+        conditionalWipes: ['deck-card-farewell'],
       },
       quality: {
         ramp: {
@@ -1186,9 +1296,7 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
         efficientTutors: 0,
       },
       signalCards: {
-        fastMana: [
-          { deckCardId: 'deck-card-sol-ring', cardId: 'card-sol-ring', oracleId: 'oracle-sol-ring', name: 'Sol Ring', imageUrl: 'https://cards.example.test/sol-ring.jpg', quantity: 1, section: 'main' },
-        ],
+        fastMana: ['deck-card-sol-ring'],
       },
       evidence: [],
       notes: [],
@@ -1293,11 +1401,7 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           name: 'Thopter Foundry Loop',
           cardNames: ['Thopter Foundry', 'Sword of the Meek', 'Ashnods Altar'],
           requiredOracleIds: ['oracle-thopter', 'oracle-sword', 'oracle-altar'],
-          cards: [
-            { oracleId: 'oracle-thopter', name: 'Thopter Foundry', imageUrl: 'https://cards.example.test/card-thopter.jpg' },
-            { oracleId: 'oracle-sword', name: 'Sword of the Meek', imageUrl: 'https://cards.example.test/card-sword.jpg' },
-            { oracleId: 'oracle-altar', name: 'Ashnods Altar', imageUrl: 'https://cards.example.test/card-altar.jpg' },
-          ],
+          cards: ['oracle-thopter', 'oracle-sword', 'oracle-altar'],
           features: ['infinite_mana', 'lethal_loop'],
           producesWinLike: true,
           producesInfiniteMana: true,
@@ -1310,10 +1414,7 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           comboVariantId: 'combo-2',
           externalId: 'Damage Loop',
           requiredOracleIds: ['oracle-a', 'oracle-b'],
-          cards: [
-            { oracleId: 'oracle-a', name: 'Damage Piece A', imageUrl: 'https://cards.example.test/card-a.jpg' },
-            { oracleId: 'oracle-b', name: 'Damage Piece B', imageUrl: 'https://cards.example.test/card-b.jpg' },
-          ],
+          cards: ['oracle-a', 'oracle-b'],
           features: ['infinite_damage'],
           producesWinLike: true,
           producesInfiniteDamage: true,
@@ -1327,12 +1428,8 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           requiredCardNames: ['Thassa Oracle'],
           missingCardNames: ['Demonic Consultation'],
           missingOracleIds: ['oracle-consultation'],
-          cards: [
-            { oracleId: 'oracle-thassa', name: 'Thassa Oracle', imageUrl: 'https://cards.example.test/card-oracle.jpg' },
-          ],
-          missingCards: [
-            { oracleId: 'oracle-consultation', name: 'Demonic Consultation', imageUrl: 'https://cards.example.test/card-consultation.jpg' },
-          ],
+          cards: ['oracle-thassa'],
+          missingCards: ['oracle-consultation'],
           features: ['win_condition'],
           producesWinLike: true,
           comboSize: 2,
@@ -1343,12 +1440,8 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           requiredCardNames: ['Thassa Oracle'],
           missingCardNames: ['Tainted Pact'],
           missingOracleIds: ['oracle-pact'],
-          cards: [
-            { oracleId: 'oracle-thassa', name: 'Thassa Oracle', imageUrl: 'https://cards.example.test/card-oracle.jpg' },
-          ],
-          missingCards: [
-            { oracleId: 'oracle-pact', name: 'Tainted Pact', imageUrl: 'https://cards.example.test/card-pact.jpg' },
-          ],
+          cards: ['oracle-thassa'],
+          missingCards: ['oracle-pact'],
           features: ['win_condition'],
           producesWinLike: true,
           comboSize: 2,
@@ -1357,8 +1450,8 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
       partialTwoMissing: [],
     },
     topComboCompleters: [
-      { oracleId: 'oracle-consultation', name: 'Demonic Consultation', imageUrl: 'https://cards.example.test/card-consultation.jpg', completesCombos: 3 },
-      { oracleId: 'oracle-pact', name: 'Tainted Pact', imageUrl: 'https://cards.example.test/card-pact.jpg', completesCombos: 2 },
+      { oracleId: 'oracle-consultation', completesCombos: 3 },
+      { oracleId: 'oracle-pact', completesCombos: 2 },
     ],
     issues: [
       {

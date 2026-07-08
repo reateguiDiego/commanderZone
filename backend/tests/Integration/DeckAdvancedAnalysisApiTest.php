@@ -34,6 +34,9 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertSame(0, $response['combos']['completeCount']);
         self::assertSame([], $response['topComboCompleters']);
         self::assertArrayHasKey('primary', $response['archetypes']);
+        self::assertLessThanOrEqual(1, count($response['summary']['secondaryArchetypes']));
+        self::assertLessThanOrEqual(1, count($response['archetypes']['secondary']));
+        self::assertLessThanOrEqual(2, count($response['archetypes']['scores']));
         self::assertArrayHasKey('typal', $response);
         self::assertFalse($response['typal']['detected']);
         self::assertArrayNotHasKey('band', $response['power']);
@@ -48,7 +51,11 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayHasKey('archetypeExplanations', $response['summary']);
         self::assertNotEmpty($response['summary']['archetypeExplanations']);
         self::assertArrayHasKey('reasonKey', $response['summary']['archetypeExplanations'][0]);
-        self::assertArrayHasKey('score', $response['summary']['archetypeExplanations'][0]);
+        self::assertArrayNotHasKey('score', $response['summary']['archetypeExplanations'][0]);
+        self::assertArrayNotHasKey('evidence', $response['summary']['archetypeExplanations'][0]);
+        self::assertArrayHasKey('reasonKey', $response['archetypes']['scores'][0]);
+        self::assertArrayNotHasKey('score', $response['archetypes']['scores'][0]);
+        self::assertArrayNotHasKey('evidence', $response['archetypes']['scores'][0]);
         self::assertArrayNotHasKey('powerBand', $response['summary']);
         self::assertArrayNotHasKey('powerConfidence', $response['summary']);
         self::assertArrayHasKey('ramp', $response['health']);
@@ -144,14 +151,17 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
             'collector_number' => '4',
         ]);
 
-        $this->insertAnalysisProfile($solRing->oracleId(), 'Sol Ring', roles: ['ramp', 'fast_mana'], powerFlags: ['fast_mana']);
+        $this->insertAnalysisProfile($solRing->oracleId(), 'Sol Ring', roles: ['ramp', 'fast_mana'], roleScores: [
+            'ramp' => ['quality' => 'premium', 'repeatability' => 'repeatable'],
+        ], powerFlags: ['fast_mana']);
         $this->insertAnalysisProfile($wrath->oracleId(), 'Wrath of God', roles: ['board_wipe']);
         $this->insertAnalysisProfile($rift->oracleId(), 'Cyclonic Rift', subroles: ['mass_bounce']);
         $this->insertAnalysisProfile($farewell->oracleId(), 'Farewell', roles: ['board_wipe'], subroles: ['conditional_wipe']);
 
         $deck = new Deck($user, 'Advanced Card References');
+        $deckCardIds = [];
         foreach ([$solRing, $wrath, $rift, $farewell] as $card) {
-            $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_MAIN);
+            $deckCardIds[$card->oracleId()] = $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_MAIN)->id();
         }
         $this->entityManager->persist($deck);
         $this->entityManager->flush();
@@ -160,33 +170,79 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
 
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
-        self::assertSame('Sol Ring', $response['metrics']['roleCards']['permanentRamp'][0]['name']);
-        self::assertSame($solRing->id(), $response['metrics']['roleCards']['permanentRamp'][0]['cardId']);
-        self::assertSame($solRing->scryfallId(), $response['metrics']['roleCards']['permanentRamp'][0]['scryfallId']);
-        self::assertSame('https://cards.scryfall.io/normal/front/99000000-0000-0000-0000-000000001101-es.jpg', $response['metrics']['roleCards']['permanentRamp'][0]['imageUrl']);
-        self::assertCount(2, $response['metrics']['roleCards']['permanentRamp'][0]['cardFaces']);
-        self::assertSame('https://cards.scryfall.io/normal/back/99000000-0000-0000-0000-000000001101-es.jpg', $response['metrics']['roleCards']['permanentRamp'][0]['cardFaces'][1]['imageUris']['normal']);
-        self::assertSame('Sol Ring', $response['health']['ramp']['cards'][0]['name']);
-        self::assertCount(2, $response['health']['ramp']['cards'][0]['cardFaces']);
-        self::assertSame('https://cards.scryfall.io/normal/front/99000000-0000-0000-0000-000000001101-es.jpg', $response['health']['ramp']['cards'][0]['imageUris']['normal']);
+        self::assertSame($deckCardIds[$solRing->oracleId()], $response['metrics']['roleCards']['permanentRamp'][0]);
+        self::assertArrayNotHasKey('name', $response['health']['ramp']['cards'][0]);
+        self::assertArrayNotHasKey('cardId', $response['health']['ramp']['cards'][0]);
+        self::assertArrayNotHasKey('imageUris', $response['health']['ramp']['cards'][0]);
         self::assertContains('permanentRamp', $response['health']['ramp']['cards'][0]['matchedMetrics']);
-        self::assertEqualsCanonicalizing(['Wrath of God', 'Farewell', 'Cyclonic Rift'], array_column($response['health']['wipes']['cards'], 'name'));
+        self::assertEqualsCanonicalizing(
+            [$wrath->oracleId(), $farewell->oracleId(), $rift->oracleId()],
+            array_column($response['health']['wipes']['cards'], 'oracleId'),
+        );
         $farewellReference = array_values(array_filter(
             $response['health']['wipes']['cards'],
-            static fn (array $card): bool => ($card['name'] ?? null) === 'Farewell',
+            static fn (array $card): bool => ($card['oracleId'] ?? null) === $farewell->oracleId(),
         ))[0] ?? null;
         self::assertIsArray($farewellReference);
         self::assertContains('conditionalWipes', $farewellReference['matchedMetrics']);
         $wrathReference = array_values(array_filter(
             $response['health']['wipes']['cards'],
-            static fn (array $card): bool => ($card['name'] ?? null) === 'Wrath of God',
+            static fn (array $card): bool => ($card['oracleId'] ?? null) === $wrath->oracleId(),
         ))[0] ?? null;
         self::assertIsArray($wrathReference);
-        self::assertSame('https://cards.scryfall.io/normal/front/99000000-0000-0000-0000-000000001002.jpg', $wrathReference['imageUrl']);
-        self::assertSame('Sol Ring', $response['power']['signalCards']['fastMana'][0]['name']);
-        self::assertSame($solRing->id(), $response['power']['signalCards']['fastMana'][0]['cardId']);
-        self::assertSame('https://cards.scryfall.io/normal/front/99000000-0000-0000-0000-000000001101-es.jpg', $response['power']['signalCards']['fastMana'][0]['imageUrl']);
-        self::assertCount(2, $response['power']['signalCards']['fastMana'][0]['cardFaces']);
+        self::assertArrayNotHasKey('imageUrl', $wrathReference);
+        self::assertSame($deckCardIds[$solRing->oracleId()], $response['power']['signalCards']['fastMana'][0]);
+        self::assertContains($deckCardIds[$solRing->oracleId()], $response['metrics']['qualityCards']['ramp']['premium']);
+        self::assertContains($deckCardIds[$solRing->oracleId()], array_column($response['health']['consistency']['cards'], 'deckCardId'));
+        self::assertContains($deckCardIds[$solRing->oracleId()], array_column($response['health']['mana']['cards'], 'deckCardId'));
+        self::assertSame([], $response['cardCatalog']);
+
+        $snapshotJson = (string) $this->entityManager->getConnection()->fetchOne(
+            'SELECT result_json::text FROM deck_advanced_analysis_snapshot WHERE deck_id = :deckId',
+            ['deckId' => $deck->id()],
+        );
+        self::assertStringNotContainsString('imageUris', $snapshotJson);
+        self::assertStringNotContainsString('cardFaces', $snapshotJson);
+    }
+
+    public function testManaSourcesAreFilteredToDeckColorIdentityInResponseAndSnapshot(): void
+    {
+        $token = $this->registerAndLogin('advanced-mana-identity@example.test', 'Mana Identity');
+        $user = $this->entityManager->getRepository(User::class)->find($this->currentUserId($token));
+        self::assertInstanceOf(User::class, $user);
+
+        $commander = $this->seedCard('99000000-0000-0000-0000-000000009901', 'Azorius Commander', [
+            'oracle_id' => '99000000-0000-0000-0001-000000009901',
+            'color_identity' => ['W', 'U'],
+        ]);
+        $triome = $this->seedCard('99000000-0000-0000-0000-000000009902', 'Raugrin Triome', [
+            'oracle_id' => '99000000-0000-0000-0001-000000009902',
+        ]);
+        $this->insertAnalysisProfile($commander->oracleId(), 'Azorius Commander', typeLine: 'Legendary Creature', colorIdentity: ['W', 'U']);
+        $this->insertAnalysisProfile($triome->oracleId(), 'Raugrin Triome', typeLine: 'Land', isLand: true);
+        $this->insertManaProfile($triome->oracleId(), 'Raugrin Triome', ['W', 'U', 'R'], ['Plains', 'Island', 'Mountain'], cycle: 'triome');
+
+        $deck = new Deck($user, 'Advanced Mana Identity');
+        $deck->addOrIncrementCard($commander, 1, DeckCard::SECTION_COMMANDER);
+        $deck->addOrIncrementCard($triome, 1, DeckCard::SECTION_MAIN);
+        $this->entityManager->persist($deck);
+        $this->entityManager->flush();
+
+        $this->jsonRequest('GET', '/decks/'.$deck->id().'/analysis/advanced', token: $token);
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertArrayHasKey('white', $response['metrics']['mana']['sources']);
+        self::assertArrayHasKey('blue', $response['metrics']['mana']['sources']);
+        self::assertArrayNotHasKey('black', $response['metrics']['mana']['sources']);
+        self::assertArrayNotHasKey('red', $response['metrics']['mana']['sources']);
+        self::assertArrayNotHasKey('green', $response['metrics']['mana']['sources']);
+
+        $stored = $this->connection()->fetchOne('SELECT result_json::text FROM deck_advanced_analysis_snapshot WHERE deck_id = :deckId', ['deckId' => $deck->id()]);
+        self::assertIsString($stored);
+        $snapshot = json_decode($stored, true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayNotHasKey('red', $snapshot['metrics']['mana']['sources']);
+        self::assertArrayNotHasKey('green', $snapshot['metrics']['mana']['sources']);
     }
 
     public function testEndpointDetectsElfTypalDeckWithVisualCardReferences(): void
@@ -201,7 +257,7 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         $this->insertAnalysisProfile($commander->oracleId(), 'Lathril, Blade of the Elves', typeLine: 'Legendary Creature - Elf Noble');
 
         $deck = new Deck($user, 'Advanced Elf Typal');
-        $deck->addOrIncrementCard($commander, 1, DeckCard::SECTION_COMMANDER);
+        $commanderEntry = $deck->addOrIncrementCard($commander, 1, DeckCard::SECTION_COMMANDER);
 
         for ($index = 1; $index <= 14; ++$index) {
             $card = $this->seedCard(sprintf('99000000-0000-0000-0000-000000002%03d', $index), 'Elf Scout '.$index, [
@@ -211,12 +267,14 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
             $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_MAIN);
         }
 
+        $firstSupportEntry = null;
         for ($index = 1; $index <= 2; ++$index) {
             $card = $this->seedCard(sprintf('99000000-0000-0000-0000-000000003%03d', $index), 'Elf Warcaller '.$index, [
                 'oracle_id' => sprintf('99000000-0000-0000-0001-000000003%03d', $index),
             ]);
             $this->insertAnalysisProfile($card->oracleId(), 'Elf Warcaller '.$index, subroles: ['typal'], archetypeWeights: ['typal' => 4], typeLine: 'Creature - Elf Advisor');
-            $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_MAIN);
+            $entry = $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_MAIN);
+            $firstSupportEntry ??= $entry;
         }
 
         $this->entityManager->persist($deck);
@@ -236,10 +294,16 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
 
         $elfType = $response['typal']['types'][0];
         self::assertSame('Elf', $elfType['type']);
-        self::assertSame('Lathril, Blade of the Elves', $elfType['creatureCards'][0]['name']);
-        self::assertSame($commander->id(), $elfType['creatureCards'][0]['cardId']);
-        self::assertSame('https://cards.scryfall.io/normal/front/99000000-0000-0000-0000-000000002000.jpg', $elfType['creatureCards'][0]['imageUrl']);
-        self::assertSame('Elf Warcaller 1', $elfType['supportCards'][0]['name']);
+        self::assertContains($commanderEntry->id(), $elfType['creatureCards']);
+        self::assertNotNull($firstSupportEntry);
+        self::assertContains($firstSupportEntry->id(), $elfType['supportCards']);
+        $typalScore = array_values(array_filter(
+            $response['archetypes']['scores'],
+            static fn (array $score): bool => ($score['archetype'] ?? null) === 'typal',
+        ))[0] ?? null;
+        self::assertIsArray($typalScore);
+        self::assertContains($commanderEntry->id(), $typalScore['cards']);
+        self::assertContains($commanderEntry->id(), $response['summary']['archetypeExplanations'][0]['cards']);
         self::assertArrayNotHasKey('combo_pieces_without_complete_combos', array_flip(array_column($response['issues'], 'code')));
     }
 
@@ -441,28 +505,26 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         $details = $this->jsonResponse()['metrics']['mana']['fetchlands']['details'];
         self::assertCount(1, $details);
         $detail = $details[0];
-        self::assertSame('Wooded Foothills', $detail['fetchland']['name']);
-        self::assertSame($fetch->oracleId(), $detail['fetchland']['oracleId']);
-        self::assertNotEmpty($detail['fetchland']['imageUrl']);
-        self::assertNotEmpty($detail['fetchland']['imageUris']['normal']);
-        self::assertFalse($detail['fetchland']['missingImage']);
-        self::assertSame('Wooded Foothills', $detail['name']);
-        self::assertNotEmpty($detail['imageUrl']);
+        self::assertArrayNotHasKey('fetchland', $detail);
+        self::assertSame($fetch->oracleId(), $detail['oracleId']);
+        self::assertArrayNotHasKey('cardId', $detail);
+        self::assertArrayNotHasKey('name', $detail);
+        self::assertArrayNotHasKey('imageUrl', $detail);
 
-        $targetsByName = [];
+        $targetsByOracleId = [];
         foreach ($detail['validTargets'] as $target) {
-            $targetsByName[$target['name']] = $target;
+            $targetsByOracleId[$target['oracleId']] = $target;
             self::assertNotEmpty($target['oracleId']);
-            self::assertNotEmpty($target['imageUrl']);
-            self::assertNotEmpty($target['imageUris']['normal']);
-            self::assertFalse($target['missingImage']);
+            self::assertArrayNotHasKey('cardId', $target);
+            self::assertArrayNotHasKey('imageUrl', $target);
+            self::assertArrayNotHasKey('imageUris', $target);
         }
 
-        self::assertArrayHasKey('Stomping Ground', $targetsByName);
-        self::assertArrayHasKey('Cinder Glade', $targetsByName);
-        self::assertSame('shockland', $targetsByName['Stomping Ground']['landCycleType']);
-        self::assertSame(['red', 'green'], $targetsByName['Stomping Ground']['colors']);
-        self::assertSame('battle_land', $targetsByName['Cinder Glade']['landCycleType']);
+        self::assertArrayHasKey($shock->oracleId(), $targetsByOracleId);
+        self::assertArrayHasKey($battle->oracleId(), $targetsByOracleId);
+        self::assertSame('shockland', $targetsByOracleId[$shock->oracleId()]['landCycleType']);
+        self::assertSame(['red', 'green'], $targetsByOracleId[$shock->oracleId()]['colors']);
+        self::assertSame('battle_land', $targetsByOracleId[$battle->oracleId()]['landCycleType']);
     }
 
     public function testEndpointReturnsNotFoundForMissingDeck(): void
@@ -493,6 +555,7 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         $response = $this->jsonResponse();
         self::assertSame(1, $response['metrics']['cards']['unmatchedCards']);
         self::assertSame('missing_oracle_id', $response['unmatchedCards'][0]['reason']);
+        self::assertArrayNotHasKey('cardId', $response['unmatchedCards'][0]);
     }
 
     /**

@@ -30,7 +30,7 @@ final class DeckArchetypeAnalyzer
      * @param array<string,mixed> $combos
      * @param array{detected:bool,primaryType:?string,confidence:string,creatureCount:int,supportCount:int,commanderMatches:bool} $typal
      * @return array{
-     *     archetypes:array{primary:string,secondary:list<string>,confidence:string,scores:list<array{archetype:string,score:int,evidence:list<string>}>},
+     *     archetypes:array{primary:string,secondary:list<string>,confidence:string,scores:list<array{archetype:string,score:int,evidence:list<string>,cards:list<array<string,mixed>>}>},
      *     issues:list<array{code:string,severity:string,title:string,message:string,evidence:array<string,mixed>,suggestedActionType:string}>
      * }
      */
@@ -58,7 +58,18 @@ final class DeckArchetypeAnalyzer
             $this->weightedScore('lifegain', $profileSignals, $roles),
         ];
 
-        usort($scores, static fn (array $left, array $right): int => [$right['score'], $left['archetype']] <=> [$left['score'], $right['archetype']]);
+        $archetypeCards = $this->archetypeCards(
+            is_array($metrics['roleCards'] ?? null) ? $metrics['roleCards'] : [],
+            $resolvedCards,
+            $combos,
+            $typal,
+        );
+        $scores = array_map(
+            static fn (array $score): array => $score + ['cards' => $archetypeCards[$score['archetype']] ?? []],
+            $scores,
+        );
+
+        usort($scores, fn (array $left, array $right): int => $this->compareScores($left, $right));
 
         $top = $scores[0] ?? ['archetype' => 'mixed', 'score' => 0, 'evidence' => []];
         $second = $scores[1] ?? ['score' => 0];
@@ -88,7 +99,7 @@ final class DeckArchetypeAnalyzer
                 'primary' => $primary,
                 'secondary' => $secondary,
                 'confidence' => $confidence,
-                'scores' => array_slice($scores, 0, 8),
+                'scores' => $this->publicScores($scores, $primary, $secondary),
             ],
             'issues' => $issues,
         ];
@@ -301,9 +312,12 @@ final class DeckArchetypeAnalyzer
             default => 0,
         };
 
-        $score = min(58, (int) round($weight * 3)) + min(24, (int) $sanity * 4);
-        if ($weight > 0 && $sanity < 2) {
-            $score = min($score, 38);
+        $score = min(48, (int) round($weight * 2)) + min(20, (int) $sanity * 3);
+        if ($weight > 0 && $sanity < 4) {
+            $score = min($score, 45);
+        }
+        if ($sanity < 8) {
+            $score = min($score, 62);
         }
 
         return $this->score($archetype, $score, [sprintf('%.1f aggregated archetype weight', $weight), (int) $sanity.' supporting role/type signals']);
@@ -371,6 +385,274 @@ final class DeckArchetypeAnalyzer
     }
 
     /**
+     * @param array<string,list<array<string,mixed>>> $roleCards
+     * @param list<array{deckCardId:string,cardId:string,scryfallId:string,oracleId:string,name:string,imageUrl?:?string,imageUris?:array<string,mixed>,cardFaces?:list<array<string,mixed>>,quantity:int,section:string,analysisProfile:array<string,mixed>}> $resolvedCards
+     * @param array<string,mixed> $combos
+     * @param array<string,mixed> $typal
+     * @return array<string,list<array<string,mixed>>>
+     */
+    private function archetypeCards(array $roleCards, array $resolvedCards, array $combos, array $typal): array
+    {
+        return [
+            'combo' => $this->uniqueCardReferences([
+                ...$this->roleCards($roleCards, ['comboPieces', 'trueTutors', 'protection', 'fastMana']),
+                ...$this->profileCards($resolvedCards, ['compact_wincon', 'efficient_tutor', 'mana_positive_combo_piece', 'free_interaction']),
+                ...$this->comboCards($combos),
+            ]),
+            'aristocrats' => $this->roleCards($roleCards, ['sacrificeOutlets', 'sacrificePayoffs', 'tokenMakers', 'recursion', 'payoffs']),
+            'reanimator' => $this->uniqueCardReferences([
+                ...$this->roleCards($roleCards, ['reanimation', 'recursion', 'discard']),
+                ...$this->largeThreatCards($resolvedCards),
+            ]),
+            'control' => $this->roleCards($roleCards, ['spotRemoval', 'creatureRemoval', 'artifactRemoval', 'enchantmentRemoval', 'counterspells', 'boardWipes', 'draw', 'cardSelection', 'stax', 'tax']),
+            'stax' => $this->roleCards($roleCards, ['stax', 'tax', 'symmetricalStaxRisk']),
+            'blink' => $this->uniqueCardReferences([
+                ...$this->roleCards($roleCards, ['enablers', 'payoffs']),
+                ...$this->subroleCards($resolvedCards, ['blink', 'blink_enabler']),
+            ]),
+            'tokens' => $this->roleCards($roleCards, ['tokenMakers', 'payoffs', 'combatFinishers']),
+            'typal' => $this->typalCards($typal),
+            'voltron_infect' => $this->uniqueCardReferences([
+                ...$this->roleCards($roleCards, ['protection', 'infectThreats', 'combatFinishers']),
+                ...$this->equipmentAuraCards($resolvedCards),
+            ]),
+            'spellslinger' => $this->uniqueCardReferences([
+                ...$this->roleCards($roleCards, ['costReducers', 'draw', 'cardSelection', 'rituals', 'burstMana']),
+                ...$this->typeCards($resolvedCards, ['instant', 'sorcery']),
+                ...$this->subroleCards($resolvedCards, ['storm']),
+            ]),
+            'artifact' => $this->typeCards($resolvedCards, ['artifact']),
+            'enchantress' => $this->typeCards($resolvedCards, ['enchantment']),
+            'landfall' => $this->uniqueCardReferences([
+                ...$this->roleCards($roleCards, ['rampSearch']),
+                ...$this->subroleCards($resolvedCards, ['landfall']),
+            ]),
+            'theft' => $this->subroleCards($resolvedCards, ['theft']),
+            'discard' => $this->uniqueCardReferences([
+                ...$this->roleCards($roleCards, ['discard']),
+                ...$this->subroleCards($resolvedCards, ['discard_payoff']),
+            ]),
+            'mill' => $this->subroleCards($resolvedCards, ['mill']),
+            'lifegain' => $this->roleCards($roleCards, ['lifegain']),
+        ];
+    }
+
+    /**
+     * @param array<string,list<array<string,mixed>>> $roleCards
+     * @param list<string> $metrics
+     * @return list<array<string,mixed>>
+     */
+    private function roleCards(array $roleCards, array $metrics): array
+    {
+        $cards = [];
+        foreach ($metrics as $metric) {
+            foreach ($roleCards[$metric] ?? [] as $card) {
+                if (is_array($card)) {
+                    $cards[] = $card;
+                }
+            }
+        }
+
+        return $this->uniqueCardReferences($cards);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $resolvedCards
+     * @param list<string> $flags
+     * @return list<array<string,mixed>>
+     */
+    private function profileCards(array $resolvedCards, array $flags): array
+    {
+        $flagSet = array_fill_keys($flags, true);
+        $cards = [];
+        foreach ($resolvedCards as $card) {
+            $profile = is_array($card['analysisProfile'] ?? null) ? $card['analysisProfile'] : [];
+            $powerFlags = $this->stringSet($profile['powerFlags'] ?? []);
+            $profileFlags = is_array($profile['flags'] ?? null) ? $profile['flags'] : [];
+            foreach ($flagSet as $flag => $_) {
+                $camelFlag = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $flag))));
+                if (isset($powerFlags[$flag]) || ($profileFlags[$camelFlag] ?? false) === true) {
+                    $cards[] = $this->cardReference($card);
+                    break;
+                }
+            }
+        }
+
+        return $this->uniqueCardReferences($cards);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $resolvedCards
+     * @param list<string> $types
+     * @return list<array<string,mixed>>
+     */
+    private function typeCards(array $resolvedCards, array $types): array
+    {
+        $cards = [];
+        foreach ($resolvedCards as $card) {
+            $profile = is_array($card['analysisProfile'] ?? null) ? $card['analysisProfile'] : [];
+            $profileTypes = is_array($profile['types'] ?? null) ? $profile['types'] : [];
+            foreach ($types as $type) {
+                if (($profileTypes[$type] ?? false) === true) {
+                    $cards[] = $this->cardReference($card);
+                    break;
+                }
+            }
+        }
+
+        return $this->uniqueCardReferences($cards);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $resolvedCards
+     * @param list<string> $subroles
+     * @return list<array<string,mixed>>
+     */
+    private function subroleCards(array $resolvedCards, array $subroles): array
+    {
+        $subroleSet = array_fill_keys($subroles, true);
+        $cards = [];
+        foreach ($resolvedCards as $card) {
+            $profile = is_array($card['analysisProfile'] ?? null) ? $card['analysisProfile'] : [];
+            foreach ($this->stringSet($profile['subroles'] ?? []) as $subrole => $_) {
+                if (isset($subroleSet[$subrole])) {
+                    $cards[] = $this->cardReference($card);
+                    break;
+                }
+            }
+        }
+
+        return $this->uniqueCardReferences($cards);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $resolvedCards
+     * @return list<array<string,mixed>>
+     */
+    private function largeThreatCards(array $resolvedCards): array
+    {
+        $cards = [];
+        foreach ($resolvedCards as $card) {
+            $profile = is_array($card['analysisProfile'] ?? null) ? $card['analysisProfile'] : [];
+            if (($profile['manaValue'] ?? 0) >= 6 && !$this->boolPath($profile, ['types', 'land'])) {
+                $cards[] = $this->cardReference($card);
+            }
+        }
+
+        return $this->uniqueCardReferences($cards);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $resolvedCards
+     * @return list<array<string,mixed>>
+     */
+    private function equipmentAuraCards(array $resolvedCards): array
+    {
+        $cards = [];
+        foreach ($resolvedCards as $card) {
+            $profile = is_array($card['analysisProfile'] ?? null) ? $card['analysisProfile'] : [];
+            $typeLine = mb_strtolower((string) ($profile['typeLine'] ?? ''));
+            if (str_contains($typeLine, 'equipment') || str_contains($typeLine, 'aura')) {
+                $cards[] = $this->cardReference($card);
+            }
+        }
+
+        return $this->uniqueCardReferences($cards);
+    }
+
+    /**
+     * @param array<string,mixed> $combos
+     * @return list<array<string,mixed>>
+     */
+    private function comboCards(array $combos): array
+    {
+        $cards = [];
+        foreach (['complete', 'partialOneMissing', 'partialTwoMissing'] as $group) {
+            foreach (($combos[$group] ?? []) as $combo) {
+                if (!is_array($combo)) {
+                    continue;
+                }
+                foreach ([...($combo['cards'] ?? []), ...($combo['missingCards'] ?? [])] as $card) {
+                    if (is_array($card)) {
+                        $cards[] = $card;
+                    }
+                }
+            }
+        }
+
+        return $this->uniqueCardReferences($cards);
+    }
+
+    /**
+     * @param array<string,mixed> $typal
+     * @return list<array<string,mixed>>
+     */
+    private function typalCards(array $typal): array
+    {
+        $primaryType = is_string($typal['primaryType'] ?? null) ? $typal['primaryType'] : null;
+        $primary = null;
+        foreach ($typal['types'] ?? [] as $type) {
+            if (!is_array($type)) {
+                continue;
+            }
+            if ($primaryType !== null && ($type['type'] ?? null) === $primaryType) {
+                $primary = $type;
+                break;
+            }
+            $primary ??= $type;
+        }
+
+        return $this->uniqueCardReferences([
+            ...(is_array($primary['creatureCards'] ?? null) ? $primary['creatureCards'] : []),
+            ...(is_array($primary['supportCards'] ?? null) ? $primary['supportCards'] : []),
+        ]);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     * @return array<string,mixed>
+     */
+    private function cardReference(array $card): array
+    {
+        return [
+            'deckCardId' => (string) $card['deckCardId'],
+            'cardId' => (string) $card['cardId'],
+            'scryfallId' => (string) $card['scryfallId'],
+            'oracleId' => (string) $card['oracleId'],
+            'name' => (string) $card['name'],
+            'imageUrl' => is_scalar($card['imageUrl'] ?? null) && trim((string) $card['imageUrl']) !== '' ? (string) $card['imageUrl'] : null,
+            'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : [],
+            'cardFaces' => is_array($card['cardFaces'] ?? null) ? array_values($card['cardFaces']) : [],
+            'quantity' => max(1, (int) ($card['quantity'] ?? 1)),
+            'section' => (string) ($card['section'] ?? 'main'),
+        ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     * @return list<array<string,mixed>>
+     */
+    private function uniqueCardReferences(array $cards): array
+    {
+        $unique = [];
+        foreach ($cards as $card) {
+            $key = '';
+            foreach (['deckCardId', 'cardId', 'oracleId', 'name'] as $field) {
+                $value = $card[$field] ?? null;
+                if (is_scalar($value) && trim((string) $value) !== '') {
+                    $key = (string) $value;
+                    break;
+                }
+            }
+            if ($key !== '') {
+                $unique[$key] = $card;
+            }
+        }
+
+        return array_values($unique);
+    }
+
+    /**
      * @param array<string,mixed> $source
      * @return array<string,float>
      */
@@ -398,12 +680,69 @@ final class DeckArchetypeAnalyzer
                 continue;
             }
             $secondary[] = $score['archetype'];
-            if (count($secondary) >= 3) {
+            if (count($secondary) >= 1) {
                 break;
             }
         }
 
         return $secondary;
+    }
+
+    /**
+     * @param array{archetype:string,score:int,cards?:list<array<string,mixed>>} $left
+     * @param array{archetype:string,score:int,cards?:list<array<string,mixed>>} $right
+     */
+    private function compareScores(array $left, array $right): int
+    {
+        if ($left['score'] !== $right['score']) {
+            return $right['score'] <=> $left['score'];
+        }
+
+        $leftCardCount = is_array($left['cards'] ?? null) ? count($left['cards']) : 0;
+        $rightCardCount = is_array($right['cards'] ?? null) ? count($right['cards']) : 0;
+        if ($leftCardCount !== $rightCardCount) {
+            return $rightCardCount <=> $leftCardCount;
+        }
+
+        $leftPriority = $this->archetypePriority($left['archetype']);
+        $rightPriority = $this->archetypePriority($right['archetype']);
+        if ($leftPriority !== $rightPriority) {
+            return $leftPriority <=> $rightPriority;
+        }
+
+        return $left['archetype'] <=> $right['archetype'];
+    }
+
+    private function archetypePriority(string $archetype): int
+    {
+        static $priorities = null;
+        $priorities ??= array_flip(self::ARCHETYPES);
+
+        return $priorities[$archetype] ?? PHP_INT_MAX;
+    }
+
+    /**
+     * @param list<array{archetype:string,score:int,evidence:list<string>,cards:list<array<string,mixed>>}> $scores
+     * @param list<string> $secondary
+     * @return list<array{archetype:string,score:int,evidence:list<string>,cards:list<array<string,mixed>>}>
+     */
+    private function publicScores(array $scores, string $primary, array $secondary): array
+    {
+        $allowed = array_fill_keys(array_filter([$primary, ...$secondary], static fn (string $archetype): bool => $archetype !== 'mixed'), true);
+        $public = [];
+
+        foreach ($scores as $score) {
+            if ($primary === 'mixed' && $public === []) {
+                $public[$score['archetype']] = $score;
+                continue;
+            }
+
+            if (isset($allowed[$score['archetype']])) {
+                $public[$score['archetype']] = $score;
+            }
+        }
+
+        return array_values($public);
     }
 
     /**
