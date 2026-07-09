@@ -1290,7 +1290,7 @@ class GameCommandHandler
     private function applyCardCounterChanged(array &$snapshot, array $payload): string
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
-        $key = trim((string) ($payload['key'] ?? '+1/+1'));
+        $key = trim((string) ($payload['counter'] ?? $payload['key'] ?? '+1/+1'));
         if ($key === '') {
             throw new \InvalidArgumentException('Counter key is required.');
         }

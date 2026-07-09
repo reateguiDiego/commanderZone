@@ -520,7 +520,8 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         state: { ...state, turn: { ...operation.turn } },
       };
 
-    case 'dice.result':
+    case 'dice.result': {
+      const diceResult = operation.result ?? operation.value;
       return {
         status: 'applied',
         state: {
@@ -530,12 +531,13 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
             lastDiceResult: {
               playerId: operation.playerId,
               kind: operation.kind,
-              result: operation.result,
+              result: diceResult ?? '',
               createdAt: operation.createdAt,
             },
           },
         },
       };
+    }
 
     case 'card.field.set':
       return updateInstanceAtZone(state, operation.playerId, operation.zone, operation.instanceId, (instance) => ({
@@ -2132,7 +2134,7 @@ function hasCompleteStaticIdentity(card: BootstrapStaticCardV2): boolean {
 
 function hasRenderableStaticContent(card: BootstrapStaticCardV2): boolean {
   const name = card.name?.trim() ?? '';
-  return (name !== '' && name !== 'Card')
+  return (name !== '' && name !== 'Card' && name !== 'Unknown Card')
     || Boolean(card.imageUris && Object.keys(card.imageUris).length > 0)
     || Boolean(card.cardFaces && card.cardFaces.length > 0);
 }
@@ -2159,7 +2161,7 @@ function normalizeIncomingCard(
       zoneId: 'zoneId' in card && typeof card.zoneId === 'string' ? card.zoneId : zoneId(playerId, zone),
     } as BootstrapInstanceV2;
     const staticCard = staticCardForIncomingKeys(
-      [compact.cardRef, compact.cardKey],
+      [compact.cardRef, compact.cardKey, compact.tokenMeta?.copiedFromCardKey],
       staticCards,
       context.staticCards,
     );
@@ -2246,7 +2248,7 @@ function staticCardForLegacyPatch(
   cachedStaticCards: Record<string, BootstrapStaticCardV2>,
 ): BootstrapStaticCardV2 | null {
   const direct = staticCardForIncomingKeys(
-    [legacy.cardRef, legacy.cardKey, legacy.scryfallId],
+    [legacy.cardRef, legacy.cardKey, legacy.tokenMeta?.copiedFromCardKey, legacy.scryfallId],
     operationStaticCards,
     cachedStaticCards,
   );
@@ -2293,7 +2295,7 @@ function canReuseExistingInstanceStaticCard(
 ): boolean {
   const existingZone = zoneNameFromZoneId(existing.zoneId);
   return legacy.instanceId === existing.instanceId
-    && (existingZone === 'library' || existingZone === 'hand')
+    && ((existingZone === 'library' || existingZone === 'hand') || existing.isTokenCopy === true)
     && hasRenderableStaticContent(existingStaticCard);
 }
 
@@ -2614,6 +2616,11 @@ function inferCardRefFromLegacyCard(card: LegacyCardPatchPayload): string {
   const templateCardKey = typeof card.tokenMeta?.templateCardKey === 'string' ? card.tokenMeta.templateCardKey.trim() : '';
   if (templateCardKey) {
     return templateCardKey;
+  }
+
+  const copiedFromCardKey = typeof card.tokenMeta?.copiedFromCardKey === 'string' ? card.tokenMeta.copiedFromCardKey.trim() : '';
+  if (copiedFromCardKey) {
+    return copiedFromCardKey;
   }
 
   const scryfallId = typeof card.scryfallId === 'string' ? card.scryfallId.trim() : '';

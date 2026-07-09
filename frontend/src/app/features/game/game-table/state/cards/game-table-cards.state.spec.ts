@@ -143,6 +143,7 @@ describe('GameTableCardsState', () => {
       instanceId: 'card-1',
       counter: '+1/+1',
       value: 0,
+      remove: true,
     });
   });
 

@@ -742,13 +742,25 @@ final class GameEventReplayService
         if (!is_array($card)) {
             return;
         }
+        if (is_array($payload['counters'] ?? null)) {
+            $card['counters'] = $payload['counters'];
+            foreach (['power', 'toughness'] as $field) {
+                if (array_key_exists($field, $payload)) {
+                    $card[$field] = $payload[$field];
+                }
+            }
+            return;
+        }
         $counter = is_string($payload['counter'] ?? null) ? trim($payload['counter']) : '';
+        if ($counter === '' && is_string($payload['key'] ?? null)) {
+            $counter = trim($payload['key']);
+        }
         if ($counter === '') {
             return;
         }
         $counters = is_array($card['counters'] ?? null) ? $card['counters'] : [];
         $value = max(0, (int) ($payload['value'] ?? 0));
-        if ($value === 0) {
+        if (($payload['remove'] ?? false) === true) {
             unset($counters[$counter]);
         } else {
             $counters[$counter] = $value;
@@ -1025,9 +1037,150 @@ final class GameEventReplayService
             return;
         }
 
+        $sourceCard = $this->tokenCopySourceCard($snapshot, $payload);
         foreach ($this->runtimeTokenCards($payload, $event, $targetPlayerId, true) as $token) {
+            if ($sourceCard !== null) {
+                $token = $this->withTokenCopyStaticIdentity($token, $sourceCard);
+            }
             $this->insertCard($snapshot, $targetPlayerId, 'battlefield', $token, null);
         }
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $payload
+     *
+     * @return array<string,mixed>|null
+     */
+    private function tokenCopySourceCard(array &$snapshot, array $payload): ?array
+    {
+        $sourceInstanceId = $this->nonEmptyString($payload['sourceInstanceId'] ?? null);
+        $tokens = array_values(array_filter($payload['tokens'] ?? [], static fn (mixed $token): bool => is_array($token)));
+        if ($sourceInstanceId === '' && is_array($tokens[0]['tokenMeta'] ?? null)) {
+            $sourceInstanceId = $this->nonEmptyString($tokens[0]['tokenMeta']['copiedFromInstanceId'] ?? null);
+        }
+        if ($sourceInstanceId !== '') {
+            $card =& $this->locateCard($snapshot, $sourceInstanceId);
+            if (is_array($card)) {
+                $source = $card;
+                unset($card);
+
+                return $this->sourceCardIsSafeForTokenCopy($source) ? $source : null;
+            }
+            unset($card);
+        }
+
+        $sourceCardKey = $this->nonEmptyString($payload['copiedFromCardKey'] ?? null);
+        if ($sourceCardKey === '' && is_array($tokens[0]['tokenMeta'] ?? null)) {
+            $sourceCardKey = $this->nonEmptyString($tokens[0]['tokenMeta']['copiedFromCardKey'] ?? null);
+        }
+        if ($sourceCardKey === '') {
+            return null;
+        }
+
+        foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $player) {
+            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                continue;
+            }
+            foreach ($player['zones'] as $cards) {
+                if (!is_array($cards)) {
+                    continue;
+                }
+                foreach ($cards as $card) {
+                    if (!is_array($card) || ($card['isTokenCopy'] ?? false) === true) {
+                        continue;
+                    }
+                    $cardKey = $this->nonEmptyString($card['cardKey'] ?? null)
+                        ?: $this->nonEmptyString($card['cardRef'] ?? null);
+                    if ($cardKey === $sourceCardKey && $this->sourceCardIsSafeForTokenCopy($card)) {
+                        return $card;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $source
+     */
+    private function sourceCardIsSafeForTokenCopy(array $source): bool
+    {
+        return ($source['hidden'] ?? false) !== true
+            && ($source['faceDown'] ?? false) !== true;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     * @param array<string,mixed> $source
+     *
+     * @return array<string,mixed>
+     */
+    private function withTokenCopyStaticIdentity(array $card, array $source): array
+    {
+        foreach ([
+            'scryfallId',
+            'name',
+            'imageUris',
+            'cardFaces',
+            'hasRulings',
+            'typeLine',
+            'manaCost',
+            'oracleText',
+            'colorIdentity',
+            'defaultPower',
+            'defaultToughness',
+            'defaultLoyalty',
+            'defaultDefense',
+        ] as $field) {
+            if ($this->hasMeaningfulValue($source[$field] ?? null)) {
+                $card[$field] = $source[$field];
+            }
+        }
+
+        foreach (['power', 'toughness', 'loyalty', 'defense'] as $field) {
+            if (!array_key_exists($field, $card) && array_key_exists($field, $source)) {
+                $card[$field] = $source[$field];
+            }
+        }
+
+        $sourceCardKey = $this->nonEmptyString($source['cardKey'] ?? null)
+            ?: $this->nonEmptyString($source['cardRef'] ?? null);
+        if ($sourceCardKey !== '') {
+            $card['cardKey'] = $sourceCardKey;
+            $card['cardRef'] = $sourceCardKey;
+        }
+        $sourcePrintId = $this->nonEmptyString($source['printId'] ?? null)
+            ?: $this->nonEmptyString($source['cardKey'] ?? null)
+            ?: $this->nonEmptyString($source['scryfallId'] ?? null);
+        if ($sourcePrintId !== '') {
+            $card['printId'] = $sourcePrintId;
+        }
+        $sourceVersion = $this->nonEmptyString($source['cardVersion'] ?? null);
+        if ($sourceVersion !== '') {
+            $card['cardVersion'] = $sourceVersion;
+        }
+
+        return $card;
+    }
+
+    private function nonEmptyString(mixed $value): string
+    {
+        return is_string($value) && trim($value) !== '' ? trim($value) : '';
+    }
+
+    private function hasMeaningfulValue(mixed $value): bool
+    {
+        if (is_string($value)) {
+            return trim($value) !== '';
+        }
+
+        if (is_array($value)) {
+            return $value !== [];
+        }
+
+        return $value !== null;
     }
 
     /**

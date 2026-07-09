@@ -50,6 +50,19 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 			return fmt.Sprintf("%s drew a card.", displayName)
 		}
 		return fmt.Sprintf("%s drew %d cards.", displayName, count)
+	case "dice.rolled":
+		kind := firstString(payload["kind"], command.Payload["kind"])
+		result := payload["result"]
+		if result == nil {
+			result = payload["value"]
+		}
+		return fmt.Sprintf("%s rolled %s and got %v.", displayName, readableDiceKind(kind), result)
+	case "life.changed":
+		playerID := firstString(payload["playerId"], command.Payload["playerId"])
+		name := playerDisplayName(game, playerID)
+		previous := intFromPayload(payload, "previousLife", 0)
+		life := intFromPayload(payload, "life", previous)
+		return fmt.Sprintf("%s changed %s's life from %d to %d.", displayName, name, previous, life)
 	case "card.moved", "cards.moved":
 		count := len(stringsFromAny(payload["instanceIds"]))
 		if count == 0 {
@@ -230,6 +243,17 @@ func readableZone(zone string) string {
 		return "command zone"
 	default:
 		return "zone"
+	}
+}
+
+func readableDiceKind(kind string) string {
+	switch strings.TrimSpace(kind) {
+	case "coin":
+		return "a coin"
+	case "d4", "d6", "d10", "d20":
+		return kind
+	default:
+		return "dice"
 	}
 }
 

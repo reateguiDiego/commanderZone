@@ -2,9 +2,11 @@ package actor
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -96,15 +98,22 @@ func (LifeChangedApplier) Apply(_ context.Context, game *state.GameState, comman
 		if !hasDelta {
 			return nil, fmt.Errorf("%w: life", ErrMissingPayloadField)
 		}
-		current, _ := intFromAny(player["life"])
-		life = current + delta
+		previousLife, _ := intFromAny(player["life"])
+		life = previousLife + delta
 	}
+	previousLife, _ := intFromAny(player["life"])
 	player["life"] = life
 	emitter.EmitPublic(protocol.PatchOp{
 		Op:   "player.life.set",
 		Data: map[string]any{"playerId": playerID, "value": life},
 	})
-	return map[string]any{"playerId": playerID, "life": life, "metrics": simpleMetrics("simple.runtime_route", start, emitter)}, nil
+	return map[string]any{
+		"playerId":     playerID,
+		"life":         life,
+		"previousLife": previousLife,
+		"delta":        life - previousLife,
+		"metrics":      simpleMetrics("simple.runtime_route", start, emitter),
+	}, nil
 }
 
 type TurnChangedApplier struct{}
@@ -135,9 +144,22 @@ func (DiceRolledApplier) Type() string { return "dice.rolled" }
 
 func (DiceRolledApplier) Apply(_ context.Context, _ *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
 	start := nowUTC()
-	payload := cloneMap(command.Payload)
-	if _, ok := payload["result"]; !ok {
-		payload["result"] = 1
+	kind, err := stringField(command.Payload, "kind")
+	if err != nil {
+		return nil, err
+	}
+	result, err := rollDice(kind)
+	if err != nil {
+		return nil, err
+	}
+	payload := map[string]any{
+		"kind":      kind,
+		"result":    result,
+		"value":     result,
+		"createdAt": nowUTC().Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if playerID, ok := command.Payload["playerId"].(string); ok && strings.TrimSpace(playerID) != "" {
+		payload["playerId"] = strings.TrimSpace(playerID)
 	}
 	emitter.EmitPublic(protocol.PatchOp{Op: "dice.result", Data: payload})
 	payload["metrics"] = simpleMetrics("simple.runtime_route", start, emitter)
@@ -205,15 +227,18 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 		instance.Counters = map[string]int{}
 	}
 	previousValue := instance.Counters[counter]
+	remove, _ := boolField(command.Payload, "remove")
 	value, ok := intField(command.Payload, "value")
-	if !ok {
+	if remove {
+		value = 0
+	} else if !ok {
 		delta, hasDelta := intField(command.Payload, "delta")
 		if !hasDelta {
 			return nil, fmt.Errorf("%w: value", ErrMissingPayloadField)
 		}
 		value = instance.Counters[counter] + delta
 	}
-	if value <= 0 {
+	if remove {
 		delete(instance.Counters, counter)
 		value = 0
 	} else {
@@ -251,6 +276,42 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	})
 	patch["metrics"] = countersMetrics(start, emitter)
 	return patch, nil
+}
+
+func rollDice(kind string) (any, error) {
+	switch kind {
+	case "coin":
+		value, err := randomIntInclusive(1, 2)
+		if err != nil {
+			return nil, err
+		}
+		if value == 1 {
+			return "cara", nil
+		}
+		return "cruz", nil
+	case "d4":
+		return randomIntInclusive(1, 4)
+	case "d6":
+		return randomIntInclusive(1, 6)
+	case "d10":
+		return randomIntInclusive(1, 10)
+	case "d20":
+		return randomIntInclusive(1, 20)
+	default:
+		return nil, fmt.Errorf("%w: kind", ErrInvalidPayloadField)
+	}
+}
+
+func randomIntInclusive(minimum int, maximum int) (int, error) {
+	if maximum < minimum {
+		return 0, fmt.Errorf("%w: range", ErrInvalidPayloadField)
+	}
+	span := big.NewInt(int64(maximum - minimum + 1))
+	value, err := rand.Int(rand.Reader, span)
+	if err != nil {
+		return 0, err
+	}
+	return minimum + int(value.Int64()), nil
 }
 
 func applyPowerToughnessCounterDelta(instance *state.CardInstanceRuntime, counter string, delta int) (map[string]any, bool) {

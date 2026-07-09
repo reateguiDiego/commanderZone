@@ -85,6 +85,61 @@ func TestRuntimeCommandEmitsIdempotentGameLogEntry(t *testing.T) {
 	}
 }
 
+func TestDiceRolledEmitsServerResultPatchAndGameLog(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "dice-d20", "dice.rolled", map[string]any{
+		"playerId": "p1",
+		"kind":     "d20",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("dice failed: %v", result.Err)
+	}
+	dicePatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "dice.result")
+	if dicePatch == nil {
+		t.Fatalf("missing dice.result patch: %#v", result.Patches)
+	}
+	if dicePatch.Data["playerId"] != "p1" || dicePatch.Data["kind"] != "d20" {
+		t.Fatalf("bad dice patch metadata: %#v", dicePatch.Data)
+	}
+	value, ok := intFromAny(dicePatch.Data["result"])
+	if !ok || value < 1 || value > 20 {
+		t.Fatalf("dice result out of range: %#v", dicePatch.Data)
+	}
+	if dicePatch.Data["value"] != dicePatch.Data["result"] {
+		t.Fatalf("dice patch must carry value compatibility field: %#v", dicePatch.Data)
+	}
+	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if logPatch == nil {
+		t.Fatalf("missing dice log patch: %#v", result.Patches)
+	}
+	entries := logPatch.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["type"] != "dice.rolled" {
+		t.Fatalf("bad dice log entry: %#v", entries)
+	}
+}
+
+func TestLifeChangedEmitsGameLogEntry(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "life-log", "life.changed", map[string]any{
+		"playerId": "p1",
+		"delta":    -3,
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("life failed: %v", result.Err)
+	}
+	if result.Event.Payload["previousLife"] != 40 || result.Event.Payload["life"] != 37 || result.Event.Payload["delta"] != -3 {
+		t.Fatalf("life event payload missing before/after: %#v", result.Event.Payload)
+	}
+	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if logPatch == nil {
+		t.Fatalf("missing life log patch: %#v", result.Patches)
+	}
+	entries := logPatch.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["type"] != "life.changed" {
+		t.Fatalf("bad life log entry: %#v", entries)
+	}
+}
+
 func TestLibraryShuffleEmitsCompactGameLogEntry(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "shuffle-log", "library.shuffle", map[string]any{"playerId": "p1"}), "p1")
@@ -2138,6 +2193,49 @@ func TestCardCounterChangedAcceptsLegacyKeyPayload(t *testing.T) {
 	}
 }
 
+func TestCardCounterZeroPersistsUntilExplicitRemove(t *testing.T) {
+	gameActor := NewGameActor("game-1", stateIntegrityCounterState(t), nil, 8, DefaultAppliers())
+
+	zero := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "counter-zero", "card.counter.changed", map[string]any{
+		"instanceId": "i1",
+		"counter":    "charge",
+		"value":      0,
+	}), "p1")
+	if zero.Err != nil {
+		t.Fatalf("zero counter failed: %v", zero.Err)
+	}
+	if got, ok := gameActor.Snapshot().Instances["i1"].Counters["charge"]; !ok || got != 0 {
+		t.Fatalf("zero counter was not persisted: %#v", gameActor.Snapshot().Instances["i1"].Counters)
+	}
+	patch := patchForVisibility(zero.Patches, protocol.VisibilityPublic, "card.counters.patch")
+	if patch == nil || patch.Data["counters"].(map[string]any)["charge"] != 0 {
+		t.Fatalf("zero counter missing from patch: %#v", zero.Patches)
+	}
+
+	life := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "life-after-zero-counter", "life.changed", map[string]any{
+		"playerId": "p1",
+		"delta":    -1,
+	}), "p1")
+	if life.Err != nil {
+		t.Fatalf("life after zero counter failed: %v", life.Err)
+	}
+	if got, ok := gameActor.Snapshot().Instances["i1"].Counters["charge"]; !ok || got != 0 {
+		t.Fatalf("zero counter evaporated after unrelated action: %#v", gameActor.Snapshot().Instances["i1"].Counters)
+	}
+
+	remove := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "counter-remove", "card.counter.changed", map[string]any{
+		"instanceId": "i1",
+		"counter":    "charge",
+		"remove":     true,
+	}), "p1")
+	if remove.Err != nil {
+		t.Fatalf("counter remove failed: %v", remove.Err)
+	}
+	if _, ok := gameActor.Snapshot().Instances["i1"].Counters["charge"]; ok {
+		t.Fatalf("explicit remove did not delete counter: %#v", gameActor.Snapshot().Instances["i1"].Counters)
+	}
+}
+
 func TestPowerToughnessCountersUpdateMutableStats(t *testing.T) {
 	gameActor := NewGameActor("game-1", stateIntegrityCounterState(t), nil, 8, DefaultAppliers())
 
@@ -2223,6 +2321,26 @@ func TestCardCounterReplayPreservesUnrelatedState(t *testing.T) {
 	}
 
 	assertStateIntegrityAroundCounter(t, before, replayed, 3)
+}
+
+func TestCardCounterReplayPreservesZeroValueCounter(t *testing.T) {
+	initial := stateIntegrityCounterState(t)
+	event := protocol.EventPayloadV2{
+		GameID:         "game-1",
+		Version:        2,
+		Type:           "card.counter.changed",
+		Payload:        map[string]any{"instanceId": "i1", "counter": "charge", "value": 0},
+		CreatedBy:      "p1",
+		ClientActionID: "zero-counter",
+	}
+
+	replayed, err := ReplayEvents(initial, []protocol.EventPayloadV2{event}, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("replay failed: %v", err)
+	}
+	if got, ok := replayed.Instances["i1"].Counters["charge"]; !ok || got != 0 {
+		t.Fatalf("replay did not preserve zero counter: %#v", replayed.Instances["i1"].Counters)
+	}
 }
 
 func TestCardCounterRollbackDoesNotClobberUnrelatedState(t *testing.T) {
