@@ -162,12 +162,14 @@ export class GameTableCardsState {
     this.core.pending.set(true);
     this.core.error.set(null);
     try {
+      const remove = command.value === null;
       if (!await context.command('card.counter.changed', {
         playerId: command.playerId,
         zone: command.zone,
         instanceId: command.instanceId,
         counter: command.key,
         value: command.value ?? 0,
+        ...(remove ? { remove: true } : {}),
       })) {
         throw new Error('WebSocket gameplay connection is not available.');
       }

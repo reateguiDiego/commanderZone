@@ -1075,6 +1075,41 @@ class GameEventStoreV2Test extends TestCase
         self::assertNull($bootstrap->instances['battlefield-without-position']['position'] ?? null);
     }
 
+    public function testRuntimeCardCounterReplayPreservesZeroValueCounter(): void
+    {
+        $actor = new User('runtime-zero-counter@example.test', 'Runtime Zero Counter');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'card.counter.changed');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $snapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'battlefield' => [$this->card('battlefield-zero-counter', 'Zero Counter Permanent', 'battlefield')],
+        ]));
+        $snapshot['version'] = 2;
+        $game = new Game(new Room($actor), $snapshot);
+        $store = $this->eventStore($handler, $flags);
+        $compact = (new CompactGameCardStateMapper())->compactSnapshot($snapshot, $game->id(), $game->status());
+        $compactRecord = new GameSnapshotCompact($game, 2, $compact, $store->checksum($compact));
+
+        $counter = new GameEvent($game, 'card.counter.changed', [
+            'instanceId' => 'battlefield-zero-counter',
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'counter' => 'charge',
+            'value' => 0,
+            'counters' => ['charge' => 0],
+        ], $actor, 'runtime-zero-counter', 3);
+
+        $rebuilt = $store->rebuildSnapshot(new Game(new Room($actor), $snapshot), $compactRecord, [$counter]);
+        $card = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'battlefield-zero-counter');
+        self::assertSame(['charge' => 0], $card['counters'] ?? null);
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap(
+            new Game(new Room($actor), $rebuilt),
+            $actor,
+            $rebuilt,
+        );
+        self::assertSame(['charge' => 0], $bootstrap->instances['battlefield-zero-counter']['counters'] ?? null);
+    }
+
     public function testReplayRebuildsRuntimeGoShuffleFromCompactSeed(): void
     {
         $actor = new User('runtime-go-shuffle@example.test', 'Runtime Go Shuffle');

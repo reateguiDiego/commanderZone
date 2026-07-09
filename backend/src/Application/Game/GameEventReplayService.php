@@ -742,13 +742,25 @@ final class GameEventReplayService
         if (!is_array($card)) {
             return;
         }
+        if (is_array($payload['counters'] ?? null)) {
+            $card['counters'] = $payload['counters'];
+            foreach (['power', 'toughness'] as $field) {
+                if (array_key_exists($field, $payload)) {
+                    $card[$field] = $payload[$field];
+                }
+            }
+            return;
+        }
         $counter = is_string($payload['counter'] ?? null) ? trim($payload['counter']) : '';
+        if ($counter === '' && is_string($payload['key'] ?? null)) {
+            $counter = trim($payload['key']);
+        }
         if ($counter === '') {
             return;
         }
         $counters = is_array($card['counters'] ?? null) ? $card['counters'] : [];
         $value = max(0, (int) ($payload['value'] ?? 0));
-        if ($value === 0) {
+        if (($payload['remove'] ?? false) === true) {
             unset($counters[$counter]);
         } else {
             $counters[$counter] = $value;

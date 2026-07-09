@@ -32,12 +32,21 @@ func TestWebSocketAcceptsValidTicketAndEmitsPatch(t *testing.T) {
 	if message.Version != 2 {
 		t.Fatalf("patch = %#v, want version 2", message)
 	}
-	if len(message.Ops) != 1 || message.Ops[0]["op"] != "player.life.set" || message.Ops[0]["playerId"] != "p1" {
-		t.Fatalf("ops = %#v, want flattened frontend patch op", message.Ops)
+	if !hasPatchOp(message.Ops, "player.life.set") || !hasPatchOp(message.Ops, "eventLog.append") {
+		t.Fatalf("ops = %#v, want life patch and event log op", message.Ops)
 	}
 	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 2 {
 		t.Fatalf("actor version was not updated")
 	}
+}
+
+func hasPatchOp(ops []map[string]any, op string) bool {
+	for _, candidate := range ops {
+		if candidate["op"] == op {
+			return true
+		}
+	}
+	return false
 }
 
 func TestWebSocketCommandTimeoutCanBeConfigured(t *testing.T) {

@@ -2467,7 +2467,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         void this.store.clearPowerToughness(menu);
         return;
       case 'changeCounter':
-        void this.store.setCardCounter(menu, action.counter, 0);
+        void this.store.setCardCounter(menu, action.counter, 1);
         return;
       case 'removeCounter':
         void this.store.deleteCardCounterByKey(menu, action.counter);
