@@ -1365,12 +1365,17 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame('https://example.test/runtime-goblin.jpg', $rebuilt['cardCatalog']['runtime-goblin:token']['imageUris']['normal'] ?? null);
         $copyCard = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'runtime-copy-1');
         self::assertSame('source-card:card', $copyCard['cardKey'] ?? null);
+        self::assertSame('Source Creature', $copyCard['name'] ?? null);
+        self::assertSame('https://example.test/card.jpg', $copyCard['imageUris']['normal'] ?? null);
+        self::assertNotSame('Token Copy', $copyCard['name'] ?? null);
         self::assertTrue($copyCard['isTokenCopy'] ?? false);
         self::assertSame('source-1', $copyCard['tokenMeta']['copiedFromInstanceId'] ?? null);
         self::assertSame('battlefield', $rebuilt['loc']['runtime-copy-1']['zone'] ?? null);
         $bootstrap = (new GameplayV2ContractFactory())->bootstrap(new Game(new Room($actor), $baseSnapshot), $actor, $rebuilt);
         self::assertSame('https://example.test/runtime-goblin.jpg', $bootstrap->staticCards['runtime-goblin:token']['imageUris']['normal'] ?? null);
         self::assertSame('https://example.test/card.jpg', $bootstrap->staticCards['source-card:card']['imageUris']['normal'] ?? null);
+        self::assertSame('Source Creature', $bootstrap->staticCards['source-card:card']['name'] ?? null);
+        self::assertNotSame('Token Copy', $bootstrap->staticCards['source-card:card']['name'] ?? null);
         $encoded = json_encode($rebuilt, JSON_THROW_ON_ERROR);
         self::assertStringNotContainsString('oracleText":"must-not-leak', $encoded);
         self::assertSame(count($this->allZoneIds($rebuilt)), count(array_unique($this->allZoneIds($rebuilt))));

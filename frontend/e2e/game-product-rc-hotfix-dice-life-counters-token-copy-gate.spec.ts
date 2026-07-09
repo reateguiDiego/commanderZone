@@ -363,7 +363,7 @@ async function expectLogEntry(page: Page, text: RegExp): Promise<void> {
 }
 
 async function cardImageSrc(page: Page, instanceId: string): Promise<string> {
-  const image = battlefieldCard(page, instanceId).locator('img').first();
+  const image = battlefieldCard(page, instanceId).locator('.card-visual > img').first();
   await expect(image).toBeVisible({ timeout: 15_000 });
   return (await image.getAttribute('src')) ?? '';
 }
