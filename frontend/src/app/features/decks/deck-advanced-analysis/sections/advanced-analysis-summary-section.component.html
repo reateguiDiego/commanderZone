@@ -28,6 +28,27 @@
       </div>
     }
   </dl>
+  @if (boardWipes(); as wipeOverview) {
+    <section class="advanced-analysis-board-wipe-overview" [attr.aria-label]="'deckBuilder.advancedAnalysis.boardWipes.overviewTitle' | runtimeTranslate">
+      <div class="advanced-analysis-board-wipe-overview__header">
+        <span>{{ 'deckBuilder.advancedAnalysis.boardWipes.overviewTitle' | runtimeTranslate }}</span>
+      </div>
+      <dl class="advanced-analysis-board-wipe-overview__stats advanced-analysis-data-grid">
+        @for (stat of wipeOverview.stats; track stat.label) {
+          <div>
+            <dt>{{ stat.label }}</dt>
+            <dd>{{ stat.value }}</dd>
+          </div>
+        }
+      </dl>
+      @if (wipeOverview.mainIssue) {
+        <p class="advanced-analysis-board-wipe-overview__issue">
+          <strong>{{ wipeOverview.mainIssue.title }}</strong>
+          <span>{{ wipeOverview.mainIssue.message }}</span>
+        </p>
+      }
+    </section>
+  }
   @if (archetypes().length > 0) {
     <section class="advanced-analysis-archetype-identities" [attr.aria-label]="'deckBuilder.advancedAnalysis.summary.archetypeSignals' | runtimeTranslate">
       <div class="advanced-analysis-archetype-identities__header">

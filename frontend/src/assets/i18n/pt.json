@@ -926,7 +926,8 @@
       "status": {
         "deciding": "decidindo",
         "scrying": "vidência",
-        "ready": "pronto"
+        "ready": "pronto",
+        "bottoming": "Bottoming cards"
       },
       "actions": {
         "keepOnTop": "Mantenha-se no topo",
@@ -1690,6 +1691,150 @@
           "pathwayColorChoicePressure": "Pathway color pressure",
           "filterlandInputPressure": "Filterland input pressure",
           "bounceLandTempoPressure": "Bounce land tempo pressure"
+        }
+      },
+      "boardWipes": {
+        "title": "Analise de limpezas de mesa",
+        "overviewTitle": "Resumo de limpezas de mesa",
+        "package": "Pacote de limpezas",
+        "methods": "Metodos",
+        "coverage": "Cobertura",
+        "qualitySignals": "Sinais de qualidade",
+        "pseudoConditionalWarnings": "Avisos pseudo / condicionais",
+        "warnings": "Problemas de limpezas",
+        "details": "Detalhes das limpezas",
+        "viewMore": "Ver mais",
+        "viewMoreDetailsAria": "Ver mais detalhes das limpezas de mesa",
+        "detectedWipes": "Limpezas detectadas",
+        "manaValue": "Valor de mana",
+        "noIssues": "Nenhum problema de limpeza de mesa detectado",
+        "noDetectedWipes": "Nenhuma limpeza de mesa detectada.",
+        "unavailable": "A analise de limpezas de mesa nao esta disponivel para este deck.",
+        "stats": {
+          "total": "Total wipes",
+          "hardTotal": "Hard wipes",
+          "pseudoTotal": "Pseudo wipes",
+          "hardCreatureWipes": "Hard creature wipes",
+          "averageManaValue": "Average mana value",
+          "effectiveLowCostWipes": "Cheap emergency wipes",
+          "destroyWipes": "Destroy wipes",
+          "exileWipes": "Exile wipes",
+          "sacrificeWipes": "Sacrifice wipes",
+          "massBounce": "Mass bounce",
+          "damageWipes": "Damage wipes",
+          "minusXMinusXWipes": "-X/-X wipes",
+          "creatureWipes": "Creature wipes",
+          "artifactWipes": "Artifact wipes",
+          "enchantmentWipes": "Enchantment wipes",
+          "artifactEnchantmentWipes": "Artifact/enchantment wipes",
+          "graveyardWipes": "Graveyard wipes",
+          "nonlandPermanentWipes": "Nonland permanent wipes",
+          "allPermanentWipes": "All permanent wipes",
+          "modalWipes": "Modal wipes",
+          "asymmetricalWipes": "Asymmetrical wipes",
+          "oneSidedWipes": "One-sided wipes",
+          "overloadedWipes": "Overloaded wipes",
+          "scalableWipes": "Scalable wipes",
+          "instantSpeedWipes": "Instant-speed wipes",
+          "answersIndestructible": "Answers indestructible",
+          "getsAroundHexproof": "Gets around hexproof",
+          "permanentBasedWipes": "Permanent-based wipes",
+          "repeatableWipes": "Repeatable wipes",
+          "combatOnlyWipes": "Combat-only wipes",
+          "conditionalWipes": "Conditional wipes",
+          "opponentCompensationWipes": "Opponent compensation",
+          "selfPlanRiskWipes": "Own plan collision"
+        },
+        "badges": {
+          "hard": "Hard",
+          "pseudo": "Pseudo",
+          "modal": "Modal",
+          "overload": "Overload",
+          "asymmetric": "Asymmetric",
+          "exile": "Exile",
+          "bounce": "Bounce",
+          "damage": "Damage",
+          "tuckShuffle": "Tuck / shuffle",
+          "answersIndestructible": "Answers indestructible",
+          "artifactWipe": "Artifact wipe",
+          "enchantmentWipe": "Enchantment wipe"
+        },
+        "issues": {
+          "low_hard_board_wipes": {
+            "title": "Few hard board wipes",
+            "message": "Hard board wipe count is below the expected baseline for this plan."
+          },
+          "wipes_are_mostly_bounce_or_conditional": {
+            "title": "Wipes are mostly soft or conditional",
+            "message": "Mass bounce, pseudo-wipes, and conditional wipes are separated from hard resets."
+          },
+          "wipes_are_mostly_pseudo": {
+            "title": "Wipes are mostly pseudo-wipes",
+            "message": "The wipe count is mostly pseudo, combat-only, or conditional rather than reliable hard resets."
+          },
+          "wipes_are_mostly_bounce": {
+            "title": "Wipes are mostly bounce",
+            "message": "The wipe package leans on mass bounce and has little hard creature reset coverage."
+          },
+          "no_indestructible_answer": {
+            "title": "No wipe answers indestructible",
+            "message": "The deck has wipes, but none are classified as exile, sacrifice, -X/-X, tuck, or shuffle answers."
+          },
+          "no_artifact_enchantment_wipe_coverage": {
+            "title": "No artifact or enchantment wipe coverage",
+            "message": "The wipe package has no mass artifact or enchantment coverage."
+          },
+          "no_graveyard_wipe_coverage": {
+            "title": "No graveyard wipe coverage",
+            "message": "The wipe package has no graveyard exile coverage for plans where that can matter."
+          },
+          "too_many_symmetrical_wipes_for_creature_deck": {
+            "title": "Too many symmetrical wipes for a creature plan",
+            "message": "Several wipes can reset the deck own creature board."
+          },
+          "own_plan_collision_wipes": {
+            "title": "Wipes collide with the deck plan",
+            "message": "Some wipes overlap with the deck own permanent, graveyard, artifact, enchantment, token, or creature plan."
+          },
+          "board_wipes_self_plan_risk": {
+            "title": "Board wipes may pressure the deck plan",
+            "message": "Some wipes overlap with the deck own permanent strategy."
+          },
+          "expensive_wipe_package": {
+            "title": "Wipe package is expensive",
+            "message": "Most wipes cost six or more mana and no low-cost emergency wipe is classified."
+          },
+          "no_cheap_emergency_wipe": {
+            "title": "No cheap emergency wipe",
+            "message": "The deck has wipes, but none are classified as efficient low-cost emergency resets."
+          },
+          "overload_wipe_available": {
+            "title": "Overload wipe available",
+            "message": "At least one wipe has an alternative mass mode such as overload."
+          },
+          "asymmetrical_wipe_strength": {
+            "title": "Asymmetrical wipe strength",
+            "message": "The deck has one-sided or asymmetrical board wipe coverage."
+          },
+          "modal_wipe_strength": {
+            "title": "Modal wipe strength",
+            "message": "The deck has flexible modal board wipe coverage."
+          },
+          "opponent_compensation_risk": {
+            "title": "Opponent compensation risk",
+            "message": "Some wipes can compensate opponents by ramping or replacing resources."
+          }
+        },
+        "notes": {
+          "control_friendly": "Control friendly",
+          "pseudo_wipe": "Pseudo wipe",
+          "self_plan_risk": "Own plan risk",
+          "token_plan_risk": "Token plan risk",
+          "artifact_plan_risk": "Artifact plan risk",
+          "enchantment_plan_risk": "Enchantment plan risk",
+          "graveyard_plan_risk": "Graveyard plan risk",
+          "alternative_mass_mode": "Alternative mass mode",
+          "opponent_compensation": "Opponent compensation"
         }
       }
     }

@@ -26,7 +26,7 @@ const adsensePatterns = [
   /googlesyndication\.com\/pagead/i,
 ];
 const managedAdsenseSource = 'src/app/core/ads/adsense-loader.ts';
-const managedAdsenseMarker = 'data-cz-managed-adsense';
+const managedAdsenseScriptId = 'cz-google-adsense-script';
 const skippedExtensions = new Set([
   '.avif',
   '.gif',
@@ -89,15 +89,13 @@ function scanPath(path) {
 }
 
 function isManagedAdsenseOccurrence(relativePath, content) {
-  if (!content.includes(managedAdsenseMarker)) {
-    return false;
-  }
-
   if (relativePath === managedAdsenseSource) {
     return true;
   }
 
-  return relativePath.startsWith('dist/frontend/browser/') && extension(relativePath) === '.js';
+  return relativePath.startsWith('dist/frontend/browser/')
+    && (relativePath.endsWith('.js') || relativePath.endsWith('.js.map'))
+    && content.includes(managedAdsenseScriptId);
 }
 
 function normalizePath(path) {

@@ -38,7 +38,7 @@ final class DeckAdvancedIssueDetector
         $this->drawIssues($issues, $roles, $rules);
         $this->tutorIssues($issues, $roles, $archetypes, $power);
         $this->manaIssues($issues, $metrics);
-        $this->wipeIssues($issues, $roles, $rules);
+        $this->wipeIssues($issues, $roles, $rules, $metrics, $archetypes, $power);
         $this->sacrificeIssues($issues, $roles, $archetypes);
         $this->comboIssues($issues, $roles, $combos);
         $this->winconIssues($issues, $roles, $combos);
@@ -330,23 +330,263 @@ final class DeckAdvancedIssueDetector
      * @param list<array<string,mixed>> $issues
      * @param array<string,int> $roles
      * @param array<string,int> $rules
+     * @param array{primary:string,secondary:list<string>} $archetypes
+     * @param array{band:string} $power
      */
-    private function wipeIssues(array &$issues, array $roles, array $rules): void
+    private function wipeIssues(array &$issues, array $roles, array $rules, array $metrics, array $archetypes, array $power): void
     {
+        $boardWipes = $this->arrayValue($metrics['boardWipes'] ?? []);
+        $hardWipes = $boardWipes === [] ? ($roles['boardWipes'] ?? 0) : (int) ($boardWipes['hardTotal'] ?? 0);
+        $hardCreatureWipes = $boardWipes === [] ? ($roles['boardWipes'] ?? 0) : (int) ($boardWipes['hardCreatureWipes'] ?? 0);
         $minimum = $rules['board_wipe'] ?? self::FALLBACK_MINIMUMS['board_wipe'];
-        if (($roles['boardWipes'] ?? 0) < $minimum) {
-            $issues[] = $this->issue('low_hard_board_wipes', 'warning', 'Few hard board wipes', sprintf('Hard board wipes are below the baseline (%d detected, %d recommended).', $roles['boardWipes'] ?? 0, $minimum), [
-                'boardWipes' => $roles['boardWipes'] ?? 0,
+        if ($hardWipes < $minimum) {
+            $severity = $hardWipes === 0 && $this->wantsHardBoardWipes($archetypes, $power) ? 'critical' : 'warning';
+            $issues[] = $this->issue('low_hard_board_wipes', $severity, 'Few hard board wipes', sprintf('Hard board wipes are below the baseline (%d detected, %d recommended).', $hardWipes, $minimum), [
+                'boardWipes' => $hardWipes,
+                'hardCreatureWipes' => $hardCreatureWipes,
                 'minRecommended' => $minimum,
-            ], 'add_role');
+                'primaryArchetype' => $archetypes['primary'],
+                'powerBand' => $power['band'],
+            ], 'add_hard_creature_wipe');
         }
-        $softWipes = ($roles['massBounce'] ?? 0) + ($roles['pseudoWipes'] ?? 0) + ($roles['conditionalWipes'] ?? 0);
-        if ($softWipes >= 2 && $softWipes > ($roles['boardWipes'] ?? 0)) {
+
+        $softWipes = $boardWipes === []
+            ? ($roles['massBounce'] ?? 0) + ($roles['pseudoWipes'] ?? 0) + ($roles['conditionalWipes'] ?? 0)
+            : (int) ($boardWipes['massBounce'] ?? 0) + (int) ($boardWipes['pseudoTotal'] ?? 0) + (int) ($boardWipes['conditionalWipes'] ?? 0);
+        if ($softWipes >= 2 && $softWipes > $hardWipes) {
             $issues[] = $this->issue('wipes_are_mostly_bounce_or_conditional', 'warning', 'Wipes are mostly soft or conditional', 'Mass bounce, pseudo-wipes, and conditional wipes are separated from hard board wipes.', [
-                'boardWipes' => $roles['boardWipes'] ?? 0,
+                'boardWipes' => $hardWipes,
                 'softOrConditionalWipes' => $softWipes,
             ], 'review_role_mix');
         }
+
+        if ($boardWipes === []) {
+            return;
+        }
+
+        $total = (int) ($boardWipes['total'] ?? max($hardWipes, $softWipes));
+        $pseudoWipes = (int) ($boardWipes['pseudoTotal'] ?? 0);
+        $combatOnlyWipes = (int) ($boardWipes['combatOnlyWipes'] ?? 0);
+        $massBounce = (int) ($boardWipes['massBounce'] ?? 0);
+        $conditionalWipes = (int) ($boardWipes['conditionalWipes'] ?? 0);
+        $answersIndestructible = (int) ($boardWipes['answersIndestructible'] ?? 0);
+        $artifactEnchantmentCoverage = (int) ($boardWipes['artifactEnchantmentWipes'] ?? 0)
+            + max((int) ($boardWipes['artifactWipes'] ?? 0), (int) ($boardWipes['enchantmentWipes'] ?? 0));
+        $selfPlanRiskWipes = (int) ($boardWipes['selfPlanRiskWipes'] ?? 0);
+
+        if ($total >= 2 && ($pseudoWipes + $combatOnlyWipes + $conditionalWipes) >= (int) ceil($total * 0.6) && $hardWipes < $total) {
+            $issues[] = $this->issue('wipes_are_mostly_pseudo', 'warning', 'Wipes are mostly pseudo-wipes', 'The wipe count is mostly pseudo, combat-only, or conditional rather than reliable hard resets.', [
+                'totalWipes' => $total,
+                'hardWipes' => $hardWipes,
+                'pseudoWipes' => $pseudoWipes,
+                'combatOnlyWipes' => $combatOnlyWipes,
+                'conditionalWipes' => $conditionalWipes,
+            ], 'reduce_pseudo_wipes');
+        }
+
+        if ($total >= 2 && $massBounce >= max(2, (int) ceil($total * 0.5)) && $hardCreatureWipes <= 1) {
+            $issues[] = $this->issue('wipes_are_mostly_bounce', 'warning', 'Wipes are mostly bounce', 'The wipe package leans on mass bounce and has little hard creature reset coverage.', [
+                'totalWipes' => $total,
+                'massBounce' => $massBounce,
+                'hardCreatureWipes' => $hardCreatureWipes,
+            ], 'add_hard_creature_wipe');
+        }
+
+        if ($hardWipes > 0 && $answersIndestructible === 0) {
+            $issues[] = $this->issue('no_indestructible_answer', 'warning', 'No wipe answers indestructible', 'The deck has board wipes, but none are classified as exile, sacrifice, -X/-X, tuck, or shuffle answers.', [
+                'hardWipes' => $hardWipes,
+                'answersIndestructible' => $answersIndestructible,
+            ], 'add_wipe_that_answers_indestructible');
+        }
+
+        if ($artifactEnchantmentCoverage === 0 && $this->wantsNonCreatureWipeCoverage($archetypes, $power)) {
+            $issues[] = $this->issue('no_artifact_enchantment_wipe_coverage', 'warning', 'No mass artifact or enchantment wipe coverage', 'The deck has no mass artifact or enchantment wipe coverage for a plan that usually wants broad permanent answers.', [
+                'artifactWipes' => (int) ($boardWipes['artifactWipes'] ?? 0),
+                'enchantmentWipes' => (int) ($boardWipes['enchantmentWipes'] ?? 0),
+                'artifactEnchantmentWipes' => (int) ($boardWipes['artifactEnchantmentWipes'] ?? 0),
+                'primaryArchetype' => $archetypes['primary'],
+                'powerBand' => $power['band'],
+            ], 'add_artifact_enchantment_wipe');
+        }
+
+        if ((int) ($boardWipes['graveyardWipes'] ?? 0) === 0 && $this->wantsGraveyardWipeCoverage($roles, $archetypes, $power)) {
+            $issues[] = $this->issue('no_graveyard_wipe_coverage', 'info', 'No mass graveyard wipe coverage', 'The current wipe package has no graveyard exile coverage for a plan or power band where that can matter.', [
+                'graveyardWipes' => 0,
+                'graveyardHate' => (int) ($roles['graveyardHate'] ?? 0),
+                'primaryArchetype' => $archetypes['primary'],
+                'powerBand' => $power['band'],
+            ], 'add_graveyard_wipe');
+        }
+
+        if ($selfPlanRiskWipes >= 3 && $this->isCreatureBoardPlan($roles, $archetypes)) {
+            $issues[] = $this->issue('too_many_symmetrical_wipes_for_creature_deck', 'warning', 'Too many symmetrical wipes for a creature plan', 'The deck has a creature-forward plan and several wipes that can reset its own board.', [
+                'selfPlanRiskWipes' => $selfPlanRiskWipes,
+                'hardCreatureWipes' => $hardCreatureWipes,
+                'primaryArchetype' => $archetypes['primary'],
+            ], 'replace_symmetrical_wipe_with_asymmetrical');
+        }
+
+        if ($selfPlanRiskWipes > 0) {
+            $issues[] = $this->issue('own_plan_collision_wipes', 'warning', 'Wipes collide with the deck plan', 'Some wipes overlap with the deck own permanent, graveyard, artifact, enchantment, token, or creature plan.', [
+                'selfPlanRiskWipes' => $selfPlanRiskWipes,
+                'riskNotes' => $this->wipeRiskNotes($boardWipes),
+            ], 'reduce_self_harming_wipes');
+        }
+
+        if ($selfPlanRiskWipes >= 2) {
+            $issues[] = $this->issue('board_wipes_self_plan_risk', 'warning', 'Board wipes may pressure the deck plan', 'Some wipes overlap with the deck own permanent strategy.', [
+                'selfPlanRiskWipes' => $selfPlanRiskWipes,
+                'hardWipes' => $hardWipes,
+            ], 'review_role_mix');
+        }
+
+        $expensiveWipes = $this->expensiveWipeCount($boardWipes);
+        if ($total >= 2 && $expensiveWipes >= (int) ceil($total * 0.6) && (int) ($boardWipes['effectiveLowCostWipes'] ?? 0) === 0) {
+            $issues[] = $this->issue('expensive_wipe_package', 'warning', 'Wipe package is expensive', 'Most wipes cost six or more mana and no low-cost emergency wipe is classified.', [
+                'totalWipes' => $total,
+                'expensiveWipes' => $expensiveWipes,
+                'averageManaValue' => (float) ($boardWipes['averageManaValue'] ?? 0.0),
+                'effectiveLowCostWipes' => (int) ($boardWipes['effectiveLowCostWipes'] ?? 0),
+            ], 'add_cheaper_wipe');
+        }
+
+        if ($total > 0 && (int) ($boardWipes['effectiveLowCostWipes'] ?? 0) === 0 && $this->wantsCheapEmergencyWipe($archetypes, $power)) {
+            $issues[] = $this->issue('no_cheap_emergency_wipe', 'warning', 'No cheap emergency wipe', 'The deck has wipes, but none are classified as efficient low-cost emergency resets.', [
+                'totalWipes' => $total,
+                'effectiveLowCostWipes' => 0,
+                'primaryArchetype' => $archetypes['primary'],
+                'powerBand' => $power['band'],
+            ], 'add_cheaper_wipe');
+        }
+
+        if ((int) ($boardWipes['overloadedWipes'] ?? 0) > 0) {
+            $issues[] = $this->issue('overload_wipe_available', 'info', 'Overload wipe available', 'The deck has at least one wipe with an alternative mass mode such as overload.', [
+                'overloadedWipes' => (int) ($boardWipes['overloadedWipes'] ?? 0),
+            ], 'none');
+        }
+
+        if ((int) ($boardWipes['asymmetricalWipes'] ?? 0) > 0 || (int) ($boardWipes['oneSidedWipes'] ?? 0) > 0) {
+            $issues[] = $this->issue('asymmetrical_wipe_strength', 'info', 'Asymmetrical wipe strength', 'The deck has one-sided or asymmetrical board wipe coverage.', [
+                'asymmetricalWipes' => (int) ($boardWipes['asymmetricalWipes'] ?? 0),
+                'oneSidedWipes' => (int) ($boardWipes['oneSidedWipes'] ?? 0),
+            ], 'none');
+        }
+
+        if ((int) ($boardWipes['modalWipes'] ?? 0) > 0) {
+            $issues[] = $this->issue('modal_wipe_strength', 'info', 'Modal wipe strength', 'The deck has flexible modal board wipe coverage.', [
+                'modalWipes' => (int) ($boardWipes['modalWipes'] ?? 0),
+            ], 'none');
+        }
+
+        if ((int) ($boardWipes['opponentCompensationWipes'] ?? 0) > 0) {
+            $issues[] = $this->issue('opponent_compensation_risk', 'info', 'Opponent compensation risk', 'Some wipes can compensate opponents, for example by ramping or replacing resources.', [
+                'opponentCompensationWipes' => (int) ($boardWipes['opponentCompensationWipes'] ?? 0),
+            ], 'review_opponent_compensation_wipes');
+        }
+    }
+
+    /**
+     * @param array{primary:string,secondary:list<string>} $archetypes
+     * @param array{band:string} $power
+     */
+    private function wantsHardBoardWipes(array $archetypes, array $power): bool
+    {
+        return in_array($archetypes['primary'], ['control', 'midrange', 'stax', 'battlecruiser'], true)
+            || array_intersect($archetypes['secondary'], ['control', 'midrange', 'stax']) !== []
+            || in_array($power['band'], ['high_power', 'cedh_like'], true);
+    }
+
+    /**
+     * @param array{primary:string,secondary:list<string>} $archetypes
+     * @param array{band:string} $power
+     */
+    private function wantsNonCreatureWipeCoverage(array $archetypes, array $power): bool
+    {
+        return in_array($archetypes['primary'], ['control', 'midrange', 'stax', 'battlecruiser'], true)
+            || array_intersect($archetypes['secondary'], ['control', 'midrange', 'stax']) !== []
+            || in_array($power['band'], ['high_power', 'cedh_like'], true);
+    }
+
+    /**
+     * @param array<string,int> $roles
+     * @param array{primary:string,secondary:list<string>} $archetypes
+     * @param array{band:string} $power
+     */
+    private function wantsGraveyardWipeCoverage(array $roles, array $archetypes, array $power): bool
+    {
+        if (($roles['graveyardHate'] ?? 0) > 0) {
+            return false;
+        }
+
+        return in_array($archetypes['primary'], ['graveyard', 'reanimator', 'control'], true)
+            || array_intersect($archetypes['secondary'], ['graveyard', 'reanimator']) !== []
+            || in_array($power['band'], ['high_power', 'cedh_like'], true);
+    }
+
+    /**
+     * @param array<string,int> $roles
+     * @param array{primary:string,secondary:list<string>} $archetypes
+     */
+    private function isCreatureBoardPlan(array $roles, array $archetypes): bool
+    {
+        return in_array($archetypes['primary'], ['tokens', 'typal', 'voltron', 'aggro', 'creatures'], true)
+            || array_intersect($archetypes['secondary'], ['tokens', 'typal', 'voltron', 'aggro', 'creatures']) !== []
+            || ($roles['tokenMakers'] ?? 0) >= 5
+            || ($roles['combatFinishers'] ?? 0) >= 3;
+    }
+
+    /**
+     * @param array<string,mixed> $boardWipes
+     * @return list<string>
+     */
+    private function wipeRiskNotes(array $boardWipes): array
+    {
+        $notes = [];
+        foreach ($this->arrayValue($boardWipes['details'] ?? []) as $detail) {
+            foreach ($this->arrayValue($detail['notes'] ?? []) as $note) {
+                if (!is_scalar($note)) {
+                    continue;
+                }
+                $normalized = trim((string) $note);
+                if ($normalized !== '') {
+                    $notes[$normalized] = true;
+                }
+            }
+        }
+
+        return array_keys($notes);
+    }
+
+    /**
+     * @param array<string,mixed> $boardWipes
+     */
+    private function expensiveWipeCount(array $boardWipes): int
+    {
+        $count = 0;
+        foreach ($this->arrayValue($boardWipes['details'] ?? []) as $detail) {
+            $manaValue = is_numeric($detail['manaValue'] ?? null) ? (float) $detail['manaValue'] : null;
+            $effectiveCost = is_numeric($detail['effectiveCostMin'] ?? null) ? (float) $detail['effectiveCostMin'] : $manaValue;
+            if ($manaValue !== null && $manaValue >= 6.0 && ($effectiveCost ?? $manaValue) >= 6.0) {
+                ++$count;
+            }
+        }
+
+        if ($count === 0 && is_numeric($boardWipes['averageManaValue'] ?? null) && (float) $boardWipes['averageManaValue'] >= 6.0) {
+            return (int) ($boardWipes['total'] ?? 0);
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param array{primary:string,secondary:list<string>} $archetypes
+     * @param array{band:string} $power
+     */
+    private function wantsCheapEmergencyWipe(array $archetypes, array $power): bool
+    {
+        return in_array($archetypes['primary'], ['control', 'midrange'], true)
+            || array_intersect($archetypes['secondary'], ['control', 'midrange']) !== []
+            || in_array($power['band'], ['high_power', 'cedh_like'], true);
     }
 
     /**

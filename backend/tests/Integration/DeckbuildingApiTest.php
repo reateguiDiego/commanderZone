@@ -63,6 +63,31 @@ class DeckbuildingApiTest extends ApiTestCase
         );
     }
 
+    public function testDeckShowMapsCardGameChangerFlag(): void
+    {
+        $token = $this->registerAndLogin('deck-game-changer@example.test', 'Deck Game Changer');
+        $commander = $this->seedCard('00000000-0000-0000-0000-000000009011', 'Game Changer Commander', [
+            'type_line' => 'Legendary Creature',
+            'game_changer' => true,
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Game Changer Deck',
+            'cards' => [
+                ['scryfallId' => $commander->scryfallId(), 'quantity' => 1, 'section' => DeckCard::SECTION_COMMANDER],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('GET', '/decks/'.$deckId, token: $token);
+        self::assertResponseIsSuccessful();
+
+        $cards = $this->jsonResponse()['deck']['cards'] ?? [];
+        self::assertIsArray($cards);
+        self::assertSame(true, $cards[0]['card']['isGameChanger'] ?? null);
+    }
+
     public function testPublicSlugRefreshesWhenPublicDeckNameOrCommanderChanges(): void
     {
         $token = $this->registerAndLogin('public-slug-refresh@example.test', 'Public Slug Refresh');
