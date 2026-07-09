@@ -51,14 +51,16 @@ final class DeckAdvancedAnalysisHealthEvaluator
             $ruleMetric = $config['ruleMetric'];
             $minimum = $rules[$ruleMetric] ?? self::FALLBACK_MINIMUMS[$ruleMetric] ?? null;
             $value = $this->metricValue($roles, $config['roleMetrics']);
+            $issueCodes = $this->issueCodesForSection($section);
             $status = $this->sectionStatus(
                 $this->status($value, $minimum),
                 $issues,
-                $this->issueCodesForSection($section),
+                $issueCodes,
             );
             $health[$section] = [
                 'status' => $status,
                 'message' => $this->message($section, $status),
+                'reasonCode' => $this->reasonCode($section, $status, $issues, $issueCodes, $value, $minimum),
                 'evidence' => $this->sectionEvidence($section, $roles, $value, $minimum),
                 'cards' => $this->sectionCards($roleCards, $config['cardMetrics']),
                 'value' => $value,
@@ -159,6 +161,41 @@ SQL,
         }
 
         return $baseStatus;
+    }
+
+    /**
+     * @param list<array{code:string,severity:string}> $issues
+     * @param list<string> $issueCodes
+     */
+    private function reasonCode(string $section, string $status, array $issues, array $issueCodes, int|float|null $value = null, int|float|null $minimum = null): ?string
+    {
+        if (!in_array($status, ['warning', 'critical'], true)) {
+            return null;
+        }
+
+        if ($minimum !== null && $minimum > 0 && $value !== null && $value < $minimum) {
+            return 'belowRecommendedMinimum';
+        }
+
+        if ($this->highestSeverity($issues, $issueCodes) !== null) {
+            return match ($section) {
+                'mana' => 'manaIssueDetected',
+                'wipes', 'boardWipes' => 'boardWipeIssueDetected',
+                'consistency' => 'consistencyIssueDetected',
+                'combos' => 'comboIssueDetected',
+                'typal' => 'typalIssueDetected',
+                default => 'relatedIssueDetected',
+            };
+        }
+
+        return match ($section) {
+            'mana' => 'manaIssueDetected',
+            'wipes', 'boardWipes' => 'boardWipeIssueDetected',
+            'consistency' => 'consistencyIssueDetected',
+            'combos' => 'comboIssueDetected',
+            'typal' => 'typalIssueDetected',
+            default => 'relatedIssueDetected',
+        };
     }
 
     /**
@@ -300,22 +337,24 @@ SQL,
      */
     private function comboHealth(array $combos, array $issues): array
     {
-        $status = 'good';
-        if (($combos['completeCount'] ?? 0) > 0) {
-            $status = ($combos['winLikeCount'] ?? 0) > 0 ? 'excellent' : 'good';
-        }
-        $status = $this->sectionStatus($status, $issues, [
+        $issueCodes = [
             'combo_pieces_without_complete_combos',
             'many_partial_combos',
             'commander_required_combo_dependency',
             'low_combo_access',
-        ]);
+        ];
+        $status = 'good';
+        if (($combos['completeCount'] ?? 0) > 0) {
+            $status = ($combos['winLikeCount'] ?? 0) > 0 ? 'excellent' : 'good';
+        }
+        $status = $this->sectionStatus($status, $issues, $issueCodes);
 
         return [
             'status' => $status,
             'message' => ($combos['completeCount'] ?? 0) === 0 && ($combos['partialOneMissingCount'] ?? 0) === 0
                 ? 'No combo package detected.'
                 : $this->message('combos', $status),
+            'reasonCode' => $this->reasonCode('combos', $status, $issues, $issueCodes),
             'evidence' => [
                 'completeCount' => $combos['completeCount'] ?? 0,
                 'partialOneMissingCount' => $combos['partialOneMissingCount'] ?? 0,
@@ -381,7 +420,7 @@ SQL,
         if ($keepable !== null) {
             $status = $keepable >= 0.75 ? 'good' : ($keepable >= 0.60 ? 'warning' : 'critical');
         }
-        $status = $this->sectionStatus($status, $issues, [
+        $issueCodes = [
             'low_keepable_hand_rate',
             'high_mulligan_pressure',
             'too_many_low_land_openers',
@@ -390,11 +429,13 @@ SQL,
             'low_early_interaction',
             'ramp_not_seen_early',
             'low_combo_access',
-        ]);
+        ];
+        $status = $this->sectionStatus($status, $issues, $issueCodes);
 
         return [
             'status' => $status,
             'message' => $this->message('consistency', $status),
+            'reasonCode' => $this->reasonCode('consistency', $status, $issues, $issueCodes),
             'evidence' => [
                 'keepableHandRate' => $opening['keepableHandRate'] ?? null,
                 'zeroOrOneLandRate' => $opening['zeroOrOneLandRate'] ?? null,
@@ -427,6 +468,7 @@ SQL,
             return [
                 'status' => 'unknown',
                 'message' => 'Mana base cannot be evaluated confidently.',
+                'reasonCode' => null,
                 'evidence' => [
                     'lands' => null,
                     'coloredSources' => [],
@@ -482,6 +524,7 @@ SQL,
                 'critical' => 'Mana base has serious color or speed pressure.',
                 default => 'Mana base cannot be evaluated confidently.',
             },
+            'reasonCode' => $this->reasonCode('mana', $status, $issues, $manaIssueCodes),
             'evidence' => [
                 'lands' => $lands['total'] ?? null,
                 'coloredSources' => array_intersect_key($sources, array_flip(['white', 'blue', 'black', 'red', 'green'])),
@@ -524,6 +567,7 @@ SQL,
             return [
                 'status' => 'unknown',
                 'message' => 'Board wipe package cannot be evaluated confidently.',
+                'reasonCode' => null,
                 'evidence' => [
                     'hardCreatureWipes' => 0,
                     'pseudoWipes' => 0,
@@ -549,7 +593,7 @@ SQL,
             $status = 'warning';
         }
 
-        $status = $this->sectionStatus($status, $issues, [
+        $issueCodes = [
             'low_hard_board_wipes',
             'wipes_are_mostly_bounce_or_conditional',
             'wipes_are_mostly_pseudo',
@@ -562,7 +606,8 @@ SQL,
             'expensive_wipe_package',
             'no_cheap_emergency_wipe',
             'opponent_compensation_risk',
-        ]);
+        ];
+        $status = $this->sectionStatus($status, $issues, $issueCodes);
 
         return [
             'status' => $status,
@@ -573,6 +618,7 @@ SQL,
                 'critical' => 'Board wipe package is likely under-supported.',
                 default => 'Board wipe package cannot be evaluated confidently.',
             },
+            'reasonCode' => $this->reasonCode('boardWipes', $status, $issues, $issueCodes),
             'evidence' => [
                 'hardCreatureWipes' => $hardCreatureWipes,
                 'hardTotal' => (int) ($boardWipes['hardTotal'] ?? 0),
@@ -680,15 +726,17 @@ SQL,
             'medium' => 'good',
             default => 'warning',
         };
-        $status = $this->sectionStatus($status, $issues, [
+        $issueCodes = [
             'typal_density_without_support',
             'typal_support_without_density',
             'typal_commander_mismatch',
-        ]);
+        ];
+        $status = $this->sectionStatus($status, $issues, $issueCodes);
 
         return [
             'status' => $status,
             'message' => sprintf('%s tribal identity detected.', $primaryType),
+            'reasonCode' => $this->reasonCode('typal', $status, $issues, $issueCodes),
             'evidence' => [
                 'primaryType' => $primaryType,
                 'creatureCount' => $typal['creatureCount'] ?? 0,

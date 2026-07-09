@@ -25,6 +25,7 @@ export interface ImportStats {
 export interface DeckCardGroup {
   id: string;
   title: string;
+  titleManaSymbols?: readonly string[];
   cards: DeckCard[];
   quantity: number;
   detail?: string;

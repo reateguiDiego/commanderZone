@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core
 import { LucideAngularModule } from 'lucide-angular';
 import { Card, CardFace } from '../../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { GameChangerIconComponent } from '../../../../shared/ui/game-changer-icon/game-changer-icon.component';
 import { cardDisplayFace } from '../../../../shared/utils/card-faces';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { DeckCommanderShowcaseComponent } from '../deck-commander-showcase/deck-commander-showcase.component';
@@ -10,7 +11,7 @@ import { DECK_VIEW_STORE } from '../deck-view-store.token';
 
 @Component({
   selector: 'app-deck-card-text-view',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaSymbolsComponent, DeckCardMenuComponent, DeckCommanderShowcaseComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaSymbolsComponent, GameChangerIconComponent, DeckCardMenuComponent, DeckCommanderShowcaseComponent],
   templateUrl: './deck-card-text-view.component.html',
   styleUrl: './deck-card-text-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

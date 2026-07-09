@@ -1,10 +1,15 @@
 <div class="common-card-menu" [style.top.px]="top()" [style.left.px]="left()" (click)="$event.stopPropagation()">
   @if (title()) {
     <div class="common-card-menu__title">
-      @if (translateTitle()) {
-        {{ title()! | runtimeTranslate }}
-      } @else {
-        {{ title() }}
+      <span>
+        @if (translateTitle()) {
+          {{ title()! | runtimeTranslate }}
+        } @else {
+          {{ title() }}
+        }
+      </span>
+      @if (titleIsGameChanger()) {
+        <app-game-changer-icon />
       }
     </div>
   }

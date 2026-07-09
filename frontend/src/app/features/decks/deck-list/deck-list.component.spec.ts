@@ -113,6 +113,24 @@ describe('DeckListComponent', () => {
     expect(fixture.componentInstance.store.createModalTitle()).toBe('Create deck');
   });
 
+  it('selects public visibility by default in the create deck modal', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openCreateModal();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.newDeckVisibility).toBe('public');
+
+    fixture.componentInstance.store.newDeckVisibility = 'private';
+    fixture.componentInstance.store.closeCreateModal();
+    fixture.componentInstance.store.openCreateModal();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.newDeckVisibility).toBe('public');
+  });
+
   it('sorts root folders and unfiled decks together by name', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();

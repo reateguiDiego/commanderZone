@@ -1418,6 +1418,15 @@
         "eyebrow": "Salud del mazo",
         "title": "Estado por rol",
         "defaultMessage": "Esta área no se puede evaluar con confianza.",
+        "reasonCodes": {
+          "belowRecommendedMinimum": "El recuento detectado está por debajo del mínimo recomendado para esta categoría.",
+          "relatedIssueDetected": "Se han detectado avisos de análisis relacionados con esta categoría.",
+          "manaIssueDetected": "Se han detectado avisos de acceso a colores, velocidad o casteo del comandante.",
+          "boardWipeIssueDetected": "El paquete de limpiezas tiene avisos de cobertura, calidad o choque con el plan.",
+          "consistencyIssueDetected": "La simulación de mano inicial o acceso temprano ha detectado puntos de presión.",
+          "comboIssueDetected": "El paquete de combos tiene avisos de completitud, dependencia o acceso.",
+          "typalIssueDetected": "El paquete typal tiene avisos de densidad, soporte o alineación con el comandante."
+        },
         "cards": {
           "ramp": "Ramp",
           "draw": "Robo",
@@ -1434,7 +1443,7 @@
         }
       },
       "metrics": {
-        "eyebrow": "Señales",
+        "eyebrow": "Señales del mazo",
         "title": "Métricas clave",
         "unavailable": "Las señales métricas detalladas no están disponibles para este análisis.",
         "permanentRamp": "Ramp permanente",
@@ -1610,6 +1619,11 @@
         "title": "Análisis de maná",
         "sourcesByColor": "Fuentes de maná por color",
         "color": "Color",
+        "pipDemand": "Demanda total de color",
+        "earlyPipDemand": "Demanda temprana de color",
+        "colorIntensity": "Reparto de demanda de color",
+        "sourcesOfColor": "Fuentes de este color",
+        "colorSourceShare": "Reparto de fuentes de color",
         "coloredSources": "Fuentes de color",
         "coloredSourceHealth": "Salud de fuentes de color",
         "untappedSources": "Fuentes enderezadas",
@@ -1620,6 +1634,9 @@
         "tappedLands": "Tierras giradas",
         "fetchlands": "Fetchlands",
         "deadFetchlands": "Fetchlands sin objetivo",
+        "manaBase": "Base de man?",
+        "acceleration": "Aceleraci?n",
+        "colorFixing": "Fixing de colores",
         "landBase": "Base de tierras",
         "basics": "Básicas",
         "nonbasics": "No básicas",

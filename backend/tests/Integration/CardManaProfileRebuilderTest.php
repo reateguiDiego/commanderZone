@@ -228,6 +228,76 @@ final class CardManaProfileRebuilderTest extends ApiTestCase
         self::assertSame(['Island', 'Swamp'], $this->jsonColumn('Polluted Delta', 'fetchable_land_types'));
     }
 
+    public function testKeepsManaClassificationsConservativeForLandsTreasureEnergyAndMdfcLandFaces(): void
+    {
+        $this->insertOracleProfile('85000000-0000-0000-0000-000000000151', 'Sokenzan, Crucible of Defiance', [
+            'type_line' => 'Legendary Land',
+            'oracle_text' => 'Channel - {3}{R}, Discard Sokenzan, Crucible of Defiance: Create two 1/1 colorless Spirit creature tokens with haste. This ability costs {1} less to activate for each legendary creature you control. {T}: Add {R}.',
+            'mana_value' => 0,
+            'produced_mana' => ['R'],
+            'is_land' => true,
+            'is_legendary' => true,
+            'is_artifact' => false,
+        ]);
+        $this->insertOracleProfile('85000000-0000-0000-0000-000000000152', 'Pitiless Plunderer', [
+            'type_line' => 'Creature — Human Pirate',
+            'oracle_text' => 'Whenever another creature you control dies, create a Treasure token.',
+            'produced_mana' => ['B'],
+            'is_creature' => true,
+            'is_artifact' => false,
+        ]);
+        $this->insertOracleProfile('85000000-0000-0000-0000-000000000153', 'Guide of Souls', [
+            'type_line' => 'Creature — Human Cleric',
+            'oracle_text' => 'Whenever another creature enters the battlefield under your control, you get {E}. Whenever you attack, you may pay {E}{E}{E}.',
+            'mana_value' => 1,
+            'produced_mana' => ['W'],
+            'is_creature' => true,
+            'is_artifact' => false,
+        ]);
+        $this->insertOracleProfile('85000000-0000-0000-0000-000000000154', 'Agate Instigator', [
+            'type_line' => 'Creature — Lizard Rogue',
+            'oracle_text' => 'Offspring {1}{R}. Whenever another creature you control enters, Agate Instigator deals 1 damage to each opponent.',
+            'produced_mana' => ['R'],
+            'is_creature' => true,
+            'is_artifact' => false,
+        ]);
+        $this->insertOracleProfile('85000000-0000-0000-0000-000000000155', 'MDFC Creature Land', [
+            'type_line' => 'Creature — Elf // Land',
+            'oracle_text' => 'Vigilance. {T}: Add {G}.',
+            'produced_mana' => ['G'],
+            'is_land' => true,
+            'is_creature' => true,
+            'is_artifact' => false,
+        ]);
+
+        $this->rebuilder()->rebuild();
+
+        self::assertProfile('Sokenzan, Crucible of Defiance', [
+            'is_fast_mana' => false,
+            'is_cost_reducer' => false,
+            'is_mana_dork' => false,
+        ]);
+        self::assertProfile('Pitiless Plunderer', [
+            'mana_source_category' => 'treasure_creator',
+            'is_mana_dork' => false,
+            'is_treasure_related' => true,
+        ]);
+        self::assertProfile('Guide of Souls', [
+            'mana_source_category' => 'other',
+            'is_fast_mana' => false,
+            'is_mana_dork' => false,
+        ]);
+        self::assertProfile('Agate Instigator', [
+            'mana_source_category' => 'other',
+            'is_mana_dork' => false,
+        ]);
+        self::assertProfile('MDFC Creature Land', [
+            'land_cycle_type' => 'mdfc_land',
+            'is_mana_dork' => false,
+            'is_fast_mana' => false,
+        ]);
+    }
+
     public function testRebuildIsIdempotentAndUpdatesManaDataVersion(): void
     {
         $this->insertOracleProfile('85000000-0000-0000-0000-000000000201', 'Steam Vents', [

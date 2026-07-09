@@ -31,15 +31,16 @@ ul {
 
 h3,
 h4 {
-  color: var(--text);
   line-height: 1.2;
 }
 
 h3 {
+  color: var(--cz-info);
   font-size: 0.95rem;
 }
 
 h4 {
+  color: var(--text);
   font-size: 0.86rem;
 }
 
@@ -96,8 +97,7 @@ h4 {
   min-width: 0;
 }
 
-.advanced-analysis-mana-stat-list,
-.advanced-analysis-mana-cycle-list {
+.advanced-analysis-mana-stat-list {
   display: grid;
   gap: 0.45rem;
 }
@@ -106,8 +106,7 @@ h4 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.advanced-analysis-mana-stat-list--compact,
-.advanced-analysis-mana-cycle-list {
+.advanced-analysis-mana-stat-list--compact {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -120,8 +119,7 @@ h4 {
   background: var(--surface);
 }
 
-.advanced-analysis-mana-stat-list div,
-.advanced-analysis-mana-cycle-list div {
+.advanced-analysis-mana-stat-list div {
   min-width: 0;
   padding: var(--advanced-analysis-item-padding);
   border: 1px solid var(--advanced-analysis-soft-line);
@@ -153,6 +151,18 @@ dd {
   font-weight: 850;
 }
 
+.advanced-analysis-mana-stat-value--danger {
+  color: var(--cz-danger);
+}
+
+.advanced-analysis-mana-stat-value--warning {
+  color: var(--cz-warning);
+}
+
+.advanced-analysis-mana-stat-value--success {
+  color: var(--cz-success);
+}
+
 .advanced-analysis-mana-source-grid {
   display: grid;
   overflow: hidden;
@@ -173,12 +183,12 @@ dd {
 
 .advanced-analysis-mana-source-header,
 .advanced-analysis-mana-source-row {
-  grid-template-columns: minmax(7rem, 1.25fr) repeat(4, minmax(5rem, 1fr));
+  grid-template-columns: minmax(7rem, 1.25fr) repeat(3, minmax(5rem, 1fr));
 }
 
 .advanced-analysis-mana-demand-header,
 .advanced-analysis-mana-demand-row {
-  grid-template-columns: minmax(7rem, 1.2fr) repeat(3, minmax(5rem, 1fr));
+  grid-template-columns: minmax(7rem, 1.15fr) repeat(5, minmax(5rem, 1fr));
 }
 
 .advanced-analysis-mana-source-header {
@@ -224,13 +234,6 @@ dd {
   --mana-symbols-wrap: nowrap;
 }
 
-.advanced-analysis-issue-list {
-  display: grid;
-  gap: 0.55rem;
-  padding: 0;
-  list-style: none;
-}
-
 .advanced-analysis-mana-card-groups {
   display: grid;
   gap: 0.75rem;
@@ -238,32 +241,31 @@ dd {
   margin-top: 0.75rem;
 }
 
-.advanced-analysis-issue-list li {
-  display: grid;
-  gap: 0.25rem;
-  min-width: 0;
-  padding: var(--advanced-analysis-item-padding);
-  border: 1px solid var(--advanced-analysis-soft-line);
-  border-radius: 8px;
-  background: var(--surface);
+.advanced-analysis-mana-card-groups--functional {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.advanced-analysis-issue-list span {
-  color: var(--text);
+.advanced-analysis-mana-functional-group {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.advanced-analysis-mana-functional-group > h4 {
+  color: var(--accent);
+  font-size: 0.9rem;
   font-weight: 850;
 }
 
-.advanced-analysis-issue-list small,
-.advanced-analysis-issue-list em,
+.advanced-analysis-mana-functional-subgroups {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
 .advanced-analysis-empty-copy {
   color: var(--muted);
-}
-
-.advanced-analysis-issue-list em {
-  font-style: normal;
-  font-size: 0.72rem;
-  font-weight: 850;
-  text-transform: uppercase;
 }
 
 .advanced-analysis-empty-copy {
@@ -274,10 +276,10 @@ dd {
   .advanced-analysis-mana-grid,
   .advanced-analysis-mana-panel-grid,
   .advanced-analysis-mana-panel-grid--three,
+  .advanced-analysis-mana-card-groups--functional,
   .advanced-analysis-mana-stat-list,
   .advanced-analysis-mana-stat-list--base-summary,
-  .advanced-analysis-mana-stat-list--compact,
-  .advanced-analysis-mana-cycle-list {
+  .advanced-analysis-mana-stat-list--compact {
     grid-template-columns: 1fr;
   }
 

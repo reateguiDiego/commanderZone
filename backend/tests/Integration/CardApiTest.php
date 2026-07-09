@@ -14,11 +14,13 @@ class CardApiTest extends ApiTestCase
         $card = $this->seedCard('00000000-0000-0000-0000-000000000001', 'Sol Ring', [
             'set' => 'tst',
             'collector_number' => '1',
+            'game_changer' => true,
         ]);
 
         $this->jsonRequest('GET', '/cards/search?q=Sol%20Ring&commanderLegal=true&type=artifact&limit=5');
         self::assertResponseIsSuccessful();
         self::assertSame($card->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
+        self::assertTrue($this->jsonResponse()['data'][0]['isGameChanger']);
 
         $this->jsonRequest('GET', '/cards/'.$card->scryfallId());
         self::assertResponseIsSuccessful();

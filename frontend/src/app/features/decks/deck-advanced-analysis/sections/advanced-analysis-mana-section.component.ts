@@ -1,13 +1,14 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
+import type { FormatSelectOption } from '../../../../shared/components/format-select/format-select.component';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { AdvancedAnalysisCardGridComponent } from '../advanced-analysis-card-grid.component';
 import type {
-  AdvancedIssueItem,
   AdvancedAnalysisStat,
   ManaCardGroup,
   ManaColorDemandRow,
   ManaColorSourceRow,
+  ManaFunctionalCardGroup,
 } from '../deck-advanced-analysis-view.models';
 
 @Component({
@@ -22,10 +23,10 @@ export class AdvancedAnalysisManaSectionComponent {
   readonly overviewRows = input<readonly AdvancedAnalysisStat[]>([]);
   readonly sourceRows = input<readonly ManaColorSourceRow[]>([]);
   readonly sourceCardGroups = input<readonly ManaCardGroup[]>([]);
-  readonly landBaseCardGroups = input<readonly ManaCardGroup[]>([]);
-  readonly landCycleRows = input<readonly AdvancedAnalysisStat[]>([]);
-  readonly rampCardGroups = input<readonly ManaCardGroup[]>([]);
-  readonly fixingCardGroups = input<readonly ManaCardGroup[]>([]);
+  readonly sourceColorFilterOptions = input<readonly FormatSelectOption[]>([]);
+  readonly sourceColorFilterValue = input('all');
+  readonly baseAndAccelerationCardGroups = input<readonly ManaFunctionalCardGroup[]>([]);
   readonly demandRows = input<readonly ManaColorDemandRow[]>([]);
-  readonly manaIssues = input<readonly AdvancedIssueItem[]>([]);
+
+  readonly sourceColorFilterChange = output<string>();
 }

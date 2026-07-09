@@ -64,6 +64,7 @@ export type AdvancedHealth = Record<string, AdvancedHealthSection | string | num
 export interface AdvancedHealthSection {
   status?: AdvancedHealthStatus | string | null;
   message?: string | null;
+  reasonCode?: string | null;
   evidence?: AdvancedAnalysisMap | null;
   cards?: AdvancedMetricCardReference[];
   value?: number | null;

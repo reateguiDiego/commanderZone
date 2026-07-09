@@ -3,12 +3,14 @@
 namespace App\Tests\Integration;
 
 use App\Application\Card\ScryfallTagSyncService;
+use App\Application\Card\ScryfallGameChangerSyncService;
 use App\Application\Deck\CommanderSpellbookClient;
 use App\Application\Deck\SpellbookSyncService;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\User\User;
 use App\Infrastructure\DeckAnalysis\DeckAnalysisLocalDataRebuildCommand;
+use App\Infrastructure\DeckAnalysis\ScryfallGameChangersSyncCommand;
 use App\Infrastructure\DeckAnalysis\ScryfallTagsSyncCommand;
 use App\Infrastructure\DeckAnalysis\SpellbookSyncCommand;
 use App\Infrastructure\Scryfall\CardPrintBackfillCommand;
@@ -135,7 +137,7 @@ final class CardCatalogMaintainCommandTest extends ApiTestCase
             self::assertSame(Command::SUCCESS, $status);
             self::assertStringContainsString('Syncing external advanced deck analysis data after full import...', $tester->getDisplay());
             self::assertStringContainsString('Scryfall functional tags synced.', $tester->getDisplay());
-            self::assertStringNotContainsString('Scryfall game changers synced.', $tester->getDisplay());
+            self::assertStringContainsString('Scryfall game changers synced.', $tester->getDisplay());
             self::assertStringContainsString('Commander Spellbook synced.', $tester->getDisplay());
             self::assertStringContainsString('Rebuilding advanced deck analysis data after full import...', $tester->getDisplay());
             self::assertStringContainsString('Local deck analysis rebuild summary:', $tester->getDisplay());
@@ -165,10 +167,15 @@ final class CardCatalogMaintainCommandTest extends ApiTestCase
             self::assertSame('sha256:', substr((string) $connection->fetchOne(
                 "SELECT version FROM deck_analysis_data_version WHERE key = 'board_wipe'",
             ), 0, 7));
-            self::assertSame('2', (string) $connection->fetchOne(
-                'SELECT COUNT(DISTINCT source) FROM external_sync_run WHERE source IN (:tags, :spellbook) AND status = :status',
+            self::assertTrue((bool) $connection->fetchOne(
+                'SELECT is_game_changer FROM card WHERE oracle_id = :oracleId LIMIT 1',
+                ['oracleId' => $solRingOracleId],
+            ));
+            self::assertSame('3', (string) $connection->fetchOne(
+                'SELECT COUNT(DISTINCT source) FROM external_sync_run WHERE source IN (:tags, :gameChangers, :spellbook) AND status = :status',
                 [
                     'tags' => ScryfallTagSyncService::SOURCE,
+                    'gameChangers' => ScryfallGameChangerSyncService::SOURCE,
                     'spellbook' => SpellbookSyncService::SOURCE,
                     'status' => 'success',
                 ],
@@ -287,6 +294,20 @@ final class CardCatalogMaintainCommandTest extends ApiTestCase
             static::getContainer()->get(CardSearchEntryRebuildCommand::class),
             new ScryfallTagsSyncCommand(new ScryfallTagSyncService(
                 new MockHttpClient($tagResponses),
+                $connection,
+                'CommanderZoneTest/1.0',
+                0,
+            )),
+            new ScryfallGameChangersSyncCommand(new ScryfallGameChangerSyncService(
+                new MockHttpClient([
+                    $this->scryfallListResponse([
+                        [
+                            'id' => '70000000-0000-0000-0000-000000000010',
+                            'oracle_id' => '70000000-0000-0000-0001-000000000010',
+                            'name' => 'Sol Ring',
+                        ],
+                    ]),
+                ]),
                 $connection,
                 'CommanderZoneTest/1.0',
                 0,

@@ -74,7 +74,7 @@ final class DeckManaSourceAnalyzer
                 $cycle = (string) ($profile['land_cycle_type'] ?? 'other');
                 $this->addLandMetrics($metrics, $profile, $quantity);
                 $this->addRampMetrics($metrics, $profile, $quantity);
-                $this->addFixingMetrics($metrics, $profile, $quantity);
+                $this->addFixingMetrics($metrics, $profile, $quantity, $identity);
                 $this->addSourceMetrics($metrics, $profile, $quantity, $identity);
                 $filterlands += $cycle === 'filterland' ? $quantity : 0;
                 $pathways += $cycle === 'pathway' ? $quantity : 0;
@@ -85,10 +85,13 @@ final class DeckManaSourceAnalyzer
             $this->addPipDemand($metrics, $card, $quantity);
         }
 
+        $hasCommander = $this->hasCommander($resolvedCards);
+        $this->filterManaRequirementsToDeckIdentity($metrics, $identity, $hasCommander);
+        $this->finalizeColorIntensity($metrics);
         $this->addFetchlandAnalysis($metrics, $resolvedCards, $profilesByOracleId, $deckLands);
         $this->finalizeLandCycleAnalysis($metrics, $identity, $filterlands, $pathways, $checklands, $bounceLands);
         $this->addCommanderCastability($metrics, $resolvedCards);
-        $this->filterManaSourcesToDeckIdentity($metrics, $identity, $this->hasCommander($resolvedCards));
+        $this->filterManaSourcesToDeckIdentity($metrics, $identity, $hasCommander);
 
         return $metrics;
     }
@@ -253,7 +256,8 @@ final class DeckManaSourceAnalyzer
     {
         $isRitual = $this->boolValue($profile['is_ritual'] ?? false);
         $isBurst = $this->boolValue($profile['is_burst_mana'] ?? false);
-        $metrics['ramp']['landRamp'] += $this->boolValue($profile['is_land_ramp'] ?? false) ? $quantity : 0;
+        $isFetchland = $this->boolValue($profile['is_fetchland'] ?? false);
+        $metrics['ramp']['landRamp'] += $this->boolValue($profile['is_land_ramp'] ?? false) && !$isFetchland ? $quantity : 0;
         $metrics['ramp']['manaRocks'] += $this->boolValue($profile['is_mana_rock'] ?? false) ? $quantity : 0;
         $metrics['ramp']['manaDorks'] += $this->boolValue($profile['is_mana_dork'] ?? false) ? $quantity : 0;
         $metrics['ramp']['fastMana'] += $this->boolValue($profile['is_fast_mana'] ?? false) ? $quantity : 0;
@@ -268,26 +272,28 @@ final class DeckManaSourceAnalyzer
     /**
      * @param array<string,mixed> $metrics
      * @param array<string,mixed> $profile
+     * @param list<string> $identity
      */
-    private function addFixingMetrics(array &$metrics, array $profile, int $quantity): void
+    private function addFixingMetrics(array &$metrics, array $profile, int $quantity, array $identity): void
     {
         $category = (string) ($profile['mana_source_category'] ?? 'other');
-        if ($this->boolValue($profile['is_fetchland'] ?? false)) {
+        $isFetchland = $this->boolValue($profile['is_fetchland'] ?? false);
+        if ($this->boolValue($profile['is_fetchland'] ?? false) && $this->sourceFixesMultipleCommanderColors($profile, $identity)) {
             $metrics['fixing']['fetchlands'] += $quantity;
         }
-        if ($this->boolValue($profile['produces_any_color'] ?? false)) {
+        if ($this->sourceCoversCommanderIdentity($profile, $identity)) {
             $metrics['fixing']['rainbowSources'] += $quantity;
         }
-        if ($this->boolValue($profile['produced_mana_is_conditional'] ?? false)) {
+        if ($this->isConditionalManaFixing($profile) && $this->sourceFixesMultipleCommanderColors($profile, $identity)) {
             $metrics['fixing']['conditionalFixing'] += $quantity;
         }
-        if ($category === 'land_ramp') {
+        if ($category === 'land_ramp' && !$isFetchland && $this->sourceFixesMultipleCommanderColors($profile, $identity)) {
             $metrics['fixing']['landRampFixing'] += $quantity;
         }
-        if ($category === 'mana_rock' && $this->boolValue($profile['is_color_fixing'] ?? false)) {
+        if ($category === 'mana_rock' && $this->sourceFixesMultipleCommanderColors($profile, $identity)) {
             $metrics['fixing']['artifactFixing'] += $quantity;
         }
-        if ($category === 'mana_dork' && $this->boolValue($profile['is_color_fixing'] ?? false)) {
+        if ($category === 'mana_dork' && $this->sourceFixesMultipleCommanderColors($profile, $identity)) {
             $metrics['fixing']['creatureFixing'] += $quantity;
         }
     }
@@ -308,7 +314,7 @@ final class DeckManaSourceAnalyzer
             return;
         }
 
-        $colors = $this->sourceColors($profile, $identity);
+        $colors = $this->sourceColors($profile, $identity, includeLandSearch: true);
         $this->addColors($metrics['sources'], $colors, $quantity);
         if ($this->boolValue($profile['produces_any_color'] ?? false)) {
             $metrics['sources']['anyColor'] += $quantity;
@@ -488,6 +494,24 @@ final class DeckManaSourceAnalyzer
     }
 
     /**
+     * @param array<string,mixed> $metrics
+     * @param list<string> $identity
+     */
+    private function filterManaRequirementsToDeckIdentity(array &$metrics, array $identity, bool $hasCommander): void
+    {
+        if ($identity === [] && !$hasCommander) {
+            return;
+        }
+
+        $allowedColors = array_flip(array_map(static fn (string $color): string => self::COLOR_KEYS[$color], $identity));
+        foreach (['pipDemand', 'earlyPipDemand', 'colorIntensity'] as $key) {
+            if (is_array($metrics['requirements'][$key] ?? null)) {
+                $metrics['requirements'][$key] = array_intersect_key($metrics['requirements'][$key], $allowedColors);
+            }
+        }
+    }
+
+    /**
      * @param list<mixed> $colors
      * @param array<string,int> $allowedColors
      * @return list<string>
@@ -513,22 +537,32 @@ final class DeckManaSourceAnalyzer
 
         $pips = $this->manaCostPips($this->stringOrNull($profile['manaCost'] ?? null));
         $manaValue = is_numeric($profile['manaValue'] ?? null) ? (float) $profile['manaValue'] : null;
-        $totalPips = 0;
         foreach ($pips as $color => $count) {
             if ($count <= 0) {
                 continue;
             }
             $metrics['requirements']['pipDemand'][$color] += $count * $quantity;
-            $totalPips += $count * $quantity;
             if ($manaValue !== null && $manaValue <= 3.0) {
                 $metrics['requirements']['earlyPipDemand'][$color] += $count * $quantity;
             }
         }
+    }
 
-        if ($totalPips > 0) {
-            foreach ($pips as $color => $count) {
-                $metrics['requirements']['colorIntensity'][$color] = round($metrics['requirements']['colorIntensity'][$color] + ($count * $quantity / $totalPips), 3);
-            }
+    /**
+     * @param array<string,mixed> $metrics
+     */
+    private function finalizeColorIntensity(array &$metrics): void
+    {
+        $pipDemand = is_array($metrics['requirements']['pipDemand'] ?? null) ? $metrics['requirements']['pipDemand'] : [];
+        $totalPips = array_sum(array_map(static fn (mixed $count): int => is_numeric($count) ? (int) $count : 0, $pipDemand));
+        if ($totalPips <= 0) {
+            return;
+        }
+
+        $metrics['requirements']['colorIntensity'] = [];
+        foreach ($pipDemand as $color => $value) {
+            $count = is_numeric($value) ? (int) $value : 0;
+            $metrics['requirements']['colorIntensity'][$color] = round($count / $totalPips, 3);
         }
     }
 
@@ -646,14 +680,95 @@ final class DeckManaSourceAnalyzer
      * @param list<string> $identity
      * @return list<string>
      */
-    private function sourceColors(array $profile, array $identity): array
+    private function sourceColors(array $profile, array $identity, bool $includeLandSearch): array
     {
         $colors = $this->jsonList($profile['produced_mana_colors'] ?? []);
+        if ($includeLandSearch) {
+            foreach ($this->jsonList($profile['fetchable_land_types'] ?? []) as $type) {
+                $color = $this->landTypeColor($type);
+                if ($color !== null) {
+                    $colors[] = $color;
+                }
+            }
+        }
         if ($this->boolValue($profile['produces_any_color'] ?? false) && $identity !== []) {
             $colors = [...$colors, ...$identity];
         }
 
         return array_values(array_unique(array_filter($colors, static fn (string $color): bool => isset(self::COLOR_KEYS[$color]))));
+    }
+
+    private function landTypeColor(string $type): ?string
+    {
+        return match (strtolower($type)) {
+            'plains' => 'W',
+            'island' => 'U',
+            'swamp' => 'B',
+            'mountain' => 'R',
+            'forest' => 'G',
+            default => null,
+        };
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     * @param list<string> $identity
+     */
+    private function sourceCoversCommanderIdentity(array $profile, array $identity): bool
+    {
+        if ($this->isConditionalManaFixing($profile)) {
+            return false;
+        }
+
+        $identityColors = array_values(array_filter($identity, static fn (string $color): bool => isset(self::COLOR_KEYS[$color])));
+        if ($identityColors === []) {
+            return false;
+        }
+
+        $colors = $this->sourceColors($profile, $identityColors, includeLandSearch: false);
+        $covered = array_flip($colors);
+
+        foreach ($identityColors as $color) {
+            if (!isset($covered[$color])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     * @param list<string> $identity
+     */
+    private function sourceFixesMultipleCommanderColors(array $profile, array $identity): bool
+    {
+        $identityColors = array_values(array_filter($identity, static fn (string $color): bool => isset(self::COLOR_KEYS[$color])));
+        if (count($identityColors) < 2) {
+            return false;
+        }
+
+        $colors = $this->sourceColors($profile, $identityColors, includeLandSearch: true);
+        $identityColorKeys = array_flip($identityColors);
+        $coveredIdentityColors = array_values(array_filter($colors, static fn (string $color): bool => isset($identityColorKeys[$color])));
+
+        return count(array_unique($coveredIdentityColors)) >= 2;
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     */
+    private function isConditionalManaFixing(array $profile): bool
+    {
+        if (!$this->boolValue($profile['produced_mana_is_conditional'] ?? false)) {
+            return false;
+        }
+
+        $conditionType = (string) ($profile['produced_mana_condition_type'] ?? '');
+
+        return in_array($conditionType, ['requires_input_mana', 'requires_opponent_colors'], true)
+            || $this->boolValue($profile['requires_input_mana'] ?? false)
+            || $this->boolValue($profile['requires_opponent_mana'] ?? false);
     }
 
     /**

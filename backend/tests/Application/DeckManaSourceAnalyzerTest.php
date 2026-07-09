@@ -59,6 +59,7 @@ final class DeckManaSourceAnalyzerTest extends TestCase
                 $this->card('fetch', 'Flooded Strand'),
                 $this->card('triome', 'Raugrin Triome'),
                 $this->card('wastes', 'Wastes'),
+                $this->card('off-color-spell', 'Lightning Bolt', manaCost: '{R}', manaValue: 1, colorIdentity: ['R']),
             ],
             [
                 'fetch' => $this->fetchProfile('Flooded Strand', ['Plains', 'Island']),
@@ -74,6 +75,9 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         self::assertArrayNotHasKey('red', $metrics['sources']);
         self::assertArrayNotHasKey('green', $metrics['sources']);
         self::assertArrayNotHasKey('red', $metrics['fetchlands']['effectiveColorSources']);
+        self::assertArrayNotHasKey('red', $metrics['requirements']['pipDemand']);
+        self::assertArrayNotHasKey('red', $metrics['requirements']['earlyPipDemand']);
+        self::assertArrayNotHasKey('red', $metrics['requirements']['colorIntensity']);
         self::assertSame(['white', 'blue'], $metrics['fetchlands']['details'][0]['effectiveColors']);
         self::assertArrayNotHasKey('validTargets', $metrics['fetchlands']['details'][0]);
     }
@@ -191,6 +195,82 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         self::assertSame(0, $metrics['sources']['red']);
     }
 
+    public function testManaBaseAccelerationBucketsAvoidRedundantFixingClassifications(): void
+    {
+        $metrics = $this->analyze(
+            [
+                $this->card('commander', 'Esper Commander', 'commander', manaCost: '{1}{W}{U}{B}', colorIdentity: ['W', 'U', 'B']),
+                $this->card('fetch', 'Flooded Strand'),
+                $this->card('growth', 'Rampant Growth'),
+                $this->card('tower', 'Command Tower'),
+                $this->card('orchard', 'Exotic Orchard'),
+                $this->card('check', 'Glacial Fortress'),
+                $this->card('filter', 'Mystic Gate'),
+                $this->card('charcoal', 'Charcoal Diamond'),
+                $this->card('signet', 'Azorius Signet'),
+                $this->card('deep-shadow', 'Elves of Deep Shadow'),
+                $this->card('caryatid', 'Sylvan Caryatid'),
+            ],
+            [
+                'fetch' => [
+                    ...$this->fetchProfile('Flooded Strand', ['Plains', 'Island']),
+                    'is_land_ramp' => true,
+                    'mana_source_category' => 'land_ramp',
+                ],
+                'growth' => [
+                    ...$this->spellProfile('Rampant Growth', 'land_ramp', landRamp: true, permanentRamp: true),
+                    'fetchable_land_types' => ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'],
+                ],
+                'tower' => [
+                    ...$this->landProfile('Command Tower', ['W', 'U', 'B'], [], 'utility_land', canEnterUntapped: true),
+                    'produces_any_color' => true,
+                ],
+                'orchard' => [
+                    ...$this->landProfile('Exotic Orchard', [], [], 'utility_land', conditional: true, canEnterUntapped: true),
+                    'produces_any_color' => true,
+                    'produced_mana_condition_type' => 'requires_opponent_colors',
+                    'requires_opponent_mana' => true,
+                ],
+                'check' => [
+                    ...$this->landProfile('Glacial Fortress', ['W', 'U'], [], 'checkland', conditional: true, canEnterUntapped: true),
+                    'produced_mana_condition_type' => 'requires_basic_types',
+                ],
+                'filter' => [
+                    ...$this->landProfile('Mystic Gate', ['C', 'W', 'U'], [], 'filterland', conditional: true, canEnterUntapped: true, requiresInput: true),
+                    'produced_mana_condition_type' => 'requires_input_mana',
+                ],
+                'charcoal' => [
+                    ...$this->spellProfile('Charcoal Diamond', 'mana_rock', permanentRamp: true),
+                    'is_mana_rock' => true,
+                    'produced_mana_colors' => ['B'],
+                ],
+                'signet' => [
+                    ...$this->spellProfile('Azorius Signet', 'mana_rock', permanentRamp: true),
+                    'is_mana_rock' => true,
+                    'produced_mana_colors' => ['W', 'U'],
+                ],
+                'deep-shadow' => [
+                    ...$this->spellProfile('Elves of Deep Shadow', 'mana_dork', permanentRamp: true),
+                    'is_mana_dork' => true,
+                    'produced_mana_colors' => ['B'],
+                ],
+                'caryatid' => [
+                    ...$this->spellProfile('Sylvan Caryatid', 'mana_dork', permanentRamp: true),
+                    'is_mana_dork' => true,
+                    'produced_mana_colors' => ['W', 'U', 'B'],
+                ],
+            ],
+        );
+
+        self::assertSame(1, $metrics['fixing']['fetchlands']);
+        self::assertSame(1, $metrics['ramp']['landRamp']);
+        self::assertSame(1, $metrics['fixing']['landRampFixing']);
+        self::assertSame(2, $metrics['fixing']['rainbowSources']);
+        self::assertSame(2, $metrics['fixing']['conditionalFixing']);
+        self::assertSame(1, $metrics['fixing']['artifactFixing']);
+        self::assertSame(1, $metrics['fixing']['creatureFixing']);
+    }
+
     public function testLandCycleTimingAndPressureSignals(): void
     {
         $cards = [
@@ -267,6 +347,8 @@ final class DeckManaSourceAnalyzerTest extends TestCase
         self::assertSame(1, $metrics['requirements']['pipDemand']['white']);
         self::assertSame(6, $metrics['requirements']['pipDemand']['blue']);
         self::assertSame(3, $metrics['requirements']['earlyPipDemand']['blue']);
+        self::assertSame(0.143, $metrics['requirements']['colorIntensity']['white']);
+        self::assertSame(0.857, $metrics['requirements']['colorIntensity']['blue']);
         self::assertArrayNotHasKey('doublePipCards', $metrics['requirements']);
         self::assertArrayNotHasKey('triplePipCards', $metrics['requirements']);
         self::assertSame(1, $metrics['requirements']['commanderCastability']['white']['requiredPips']);

@@ -109,6 +109,9 @@
                       <span class="deck-card-name-text" [attr.title]="store.displayCardListName(entry.card)">
                         {{ entry.quantity }} - {{ store.displayCardListName(entry.card) }}
                       </span>
+                      @if (entry.card.isGameChanger) {
+                        <app-game-changer-icon />
+                      }
                       @if (store.hasAlternateFace(entry.card)) {
                         <button class="face-toggle-button" type="button" (click)="toggleCardFace($event, entry.card)">
                           <lucide-icon name="rotate-cw" size="13" />

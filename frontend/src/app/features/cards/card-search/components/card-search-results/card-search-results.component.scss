@@ -107,14 +107,21 @@
 }
 
 .mtg-card-result__name {
-  display: -webkit-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   min-width: 0;
-  overflow: hidden;
   color: var(--cz-text);
   font-size: 0.92rem;
   font-weight: 900;
   line-height: 1.18;
   padding-block: 0.06rem 0.12rem;
+}
+
+.mtg-card-result__name span {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow-wrap: anywhere;

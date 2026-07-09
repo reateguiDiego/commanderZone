@@ -4,7 +4,12 @@
     <div appPrettyScroll class="card-row-menu">
       <header class="card-menu-header">
         <span>{{ 'deckBuilder.deckCardMenu.editingCard' | runtimeTranslate }}</span>
-        <strong>{{ entry().card.name }}</strong>
+        <strong class="card-menu-card-name">
+          <span>{{ entry().card.name }}</span>
+          @if (entry().card.isGameChanger) {
+            <app-game-changer-icon />
+          }
+        </strong>
         <small>{{ entry().quantity }} {{ entry().quantity === 1 ? 'copy' : 'copies' }} in {{ entry().section }}</small>
       </header>
 

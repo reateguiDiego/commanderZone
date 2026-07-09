@@ -42,6 +42,9 @@
                           <span class="deck-card-name-text" [attr.title]="displayRowName(entry.card)">
                             {{ entry.quantity }} - {{ displayRowName(entry.card) }}
                           </span>
+                          @if (entry.card.isGameChanger) {
+                            <app-game-changer-icon />
+                          }
                           @if (store.hasAlternateFace(entry.card)) {
                             <button
                               class="face-toggle-button"

@@ -7,6 +7,9 @@
           <span>{{ card.statusLabel }}</span>
         </div>
         <p>{{ card.message }}</p>
+        @if (card.reasonDescription) {
+          <p class="advanced-analysis-health-card__reason">{{ card.reasonDescription }}</p>
+        }
         <dl>
           <div>
             <dt>{{ card.metricLabel }}</dt>

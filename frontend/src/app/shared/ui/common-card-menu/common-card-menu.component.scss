@@ -19,13 +19,21 @@
 }
 
 .common-card-menu__title {
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
   border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 18%);
   padding: 0.44rem 0.58rem 0.5rem;
   color: var(--cz-accent);
   font-size: 0.72rem;
   font-weight: 950;
   line-height: 1.15;
+}
+
+.common-card-menu__title span {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

@@ -1418,6 +1418,15 @@
         "eyebrow": "Deck health",
         "title": "Health grid",
         "defaultMessage": "This area cannot be evaluated confidently.",
+        "reasonCodes": {
+          "belowRecommendedMinimum": "The detected count is below the recommended baseline for this category.",
+          "relatedIssueDetected": "Related analysis warnings were detected for this category.",
+          "manaIssueDetected": "Color access, speed, or commander castability warnings were detected.",
+          "boardWipeIssueDetected": "The wipe package has coverage, quality, or self-plan risk warnings.",
+          "consistencyIssueDetected": "Opening hand or early access simulation found pressure points.",
+          "comboIssueDetected": "The combo package has completeness, dependency, or access warnings.",
+          "typalIssueDetected": "The typal package has density, support, or commander alignment warnings."
+        },
         "cards": {
           "ramp": "Ramp",
           "draw": "Draw",
@@ -1434,7 +1443,7 @@
         }
       },
       "metrics": {
-        "eyebrow": "Signals",
+        "eyebrow": "Deck signals",
         "title": "Key metrics",
         "unavailable": "Detailed metric signals are not available for this analysis.",
         "permanentRamp": "Permanent ramp",
@@ -1610,6 +1619,11 @@
         "title": "Mana Analysis",
         "sourcesByColor": "Mana sources by color",
         "color": "Color",
+        "pipDemand": "Total color demand",
+        "earlyPipDemand": "Early color demand",
+        "colorIntensity": "Color demand share",
+        "sourcesOfColor": "Sources for this color",
+        "colorSourceShare": "Share of color sources",
         "coloredSources": "Colored sources",
         "coloredSourceHealth": "Colored source health",
         "untappedSources": "Untapped sources",
@@ -1620,6 +1634,9 @@
         "tappedLands": "Tapped lands",
         "fetchlands": "Fetchlands",
         "deadFetchlands": "Dead fetchlands",
+        "manaBase": "Mana base",
+        "acceleration": "Acceleration",
+        "colorFixing": "Color fixing",
         "landBase": "Land base",
         "basics": "Basics",
         "nonbasics": "Nonbasics",

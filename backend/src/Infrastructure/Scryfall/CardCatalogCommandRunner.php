@@ -3,6 +3,7 @@
 namespace App\Infrastructure\Scryfall;
 
 use App\Infrastructure\DeckAnalysis\DeckAnalysisLocalDataRebuildCommand;
+use App\Infrastructure\DeckAnalysis\ScryfallGameChangersSyncCommand;
 use App\Infrastructure\DeckAnalysis\ScryfallTagsSyncCommand;
 use App\Infrastructure\DeckAnalysis\SpellbookSyncCommand;
 use Symfony\Component\Console\Command\Command;
@@ -18,6 +19,7 @@ final readonly class CardCatalogCommandRunner
         private CardSearchOptionsRebuildCommand $searchOptionsRebuildCommand,
         private CardSearchEntryRebuildCommand $searchEntryRebuildCommand,
         private ScryfallTagsSyncCommand $deckAnalysisScryfallTagsSyncCommand,
+        private ScryfallGameChangersSyncCommand $deckAnalysisScryfallGameChangersSyncCommand,
         private SpellbookSyncCommand $deckAnalysisSpellbookSyncCommand,
         private DeckAnalysisLocalDataRebuildCommand $deckAnalysisLocalDataRebuildCommand,
     ) {
@@ -60,6 +62,11 @@ final readonly class CardCatalogCommandRunner
     public function runDeckAnalysisScryfallTagsSync(OutputInterface $output): int
     {
         return $this->run($this->deckAnalysisScryfallTagsSyncCommand, [], $output);
+    }
+
+    public function runDeckAnalysisScryfallGameChangersSync(OutputInterface $output): int
+    {
+        return $this->run($this->deckAnalysisScryfallGameChangersSyncCommand, [], $output);
     }
 
     public function runDeckAnalysisSpellbookSync(OutputInterface $output): int

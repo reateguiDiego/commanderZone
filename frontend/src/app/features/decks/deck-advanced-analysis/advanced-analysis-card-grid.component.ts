@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, forwardRef, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, forwardRef, input, output, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
 import { DeckCard } from '../../../core/models/deck.model';
+import type { FormatSelectOption } from '../../../shared/components/format-select/format-select.component';
 import { bestCardFaceImage, bestCardImage } from '../../../shared/utils/card-image';
 import { cardDisplayFace, hasAlternateCardFace } from '../../../shared/utils/card-faces';
 import { DeckCardSpoilerViewComponent } from '../deck-editor/deck-card-spoiler-view/deck-card-spoiler-view.component';
@@ -11,7 +12,18 @@ import { AdvancedAnalysisCardGridItem } from './deck-advanced-analysis-view.mode
 @Component({
   selector: 'app-advanced-analysis-card-grid',
   imports: [DeckCardSpoilerViewComponent],
-  template: '<app-deck-card-spoiler-view [interactive]="false" [cardClickEnabled]="false" [full]="true" />',
+  template: `
+    <app-deck-card-spoiler-view
+      [interactive]="false"
+      [cardClickEnabled]="false"
+      [full]="true"
+      [headerFilterOptions]="headerFilterOptions()"
+      [headerFilterValue]="headerFilterValue()"
+      [headerFilterLabelKey]="headerFilterLabelKey()"
+      [headerFilterName]="headerFilterName()"
+      (headerFilterValueChange)="headerFilterValueChange.emit($event)"
+    />
+  `,
   providers: [
     {
       provide: DECK_VIEW_STORE,
@@ -22,9 +34,15 @@ import { AdvancedAnalysisCardGridItem } from './deck-advanced-analysis-view.mode
 })
 export class AdvancedAnalysisCardGridComponent implements DeckViewStore {
   readonly title = input.required<string>();
+  readonly titleManaSymbols = input<readonly string[]>([]);
   readonly cards = input<readonly AdvancedAnalysisCardGridItem[]>([]);
   readonly hiddenCount = input(0);
   readonly defaultCollapsed = input(true);
+  readonly headerFilterOptions = input<readonly FormatSelectOption[]>([]);
+  readonly headerFilterValue = input('all');
+  readonly headerFilterLabelKey = input<string | null>(null);
+  readonly headerFilterName = input('advanced-analysis-card-filter');
+  readonly headerFilterValueChange = output<string>();
 
   readonly cardMenu = signal<CardMenuState | null>(null).asReadonly();
   readonly cardPreview = signal<CardPreviewState | null>(null).asReadonly();
@@ -37,6 +55,7 @@ export class AdvancedAnalysisCardGridComponent implements DeckViewStore {
     return [{
       id: 'advanced-analysis-cards',
       title: this.title(),
+      titleManaSymbols: this.titleManaSymbols(),
       cards,
       quantity: cards.reduce((total, entry) => total + entry.quantity, 0),
       detail: this.hiddenCount() > 0 ? `+${this.hiddenCount()}` : undefined,
@@ -155,6 +174,8 @@ export class AdvancedAnalysisCardGridComponent implements DeckViewStore {
       id: item.id,
       quantity: Math.max(1, Math.floor(item.quantity ?? 1)),
       section: 'main',
+      analysisBadges: item.analysisBadges,
+      showSingleAnalysisBadge: item.showSingleAnalysisBadge,
       card: {
         id: item.id,
         scryfallId,

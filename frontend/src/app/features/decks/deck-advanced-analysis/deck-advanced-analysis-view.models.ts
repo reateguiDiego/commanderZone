@@ -6,6 +6,7 @@ export interface AdvancedAnalysisStat {
   readonly key?: string;
   readonly label: string;
   readonly value: string;
+  readonly tone?: 'danger' | 'warning' | 'success';
   readonly description?: string;
   readonly manaSymbols?: readonly string[];
   readonly symbolItems?: readonly ManaSymbolStatItem[];
@@ -30,6 +31,7 @@ export interface AdvancedHealthCard {
   readonly status: AdvancedHealthStatus;
   readonly statusLabel: string;
   readonly message: string;
+  readonly reasonDescription: string | null;
   readonly metricLabel: string;
   readonly metricValue: string;
   readonly metricSymbolItems: readonly ManaSymbolStatItem[];
@@ -82,22 +84,30 @@ export interface ManaColorSourceRow {
   readonly sources: string;
   readonly untappedSources: string;
   readonly earlySources: string;
-  readonly status: string;
 }
 
 export interface ManaColorDemandRow {
   readonly key: string;
   readonly symbols: readonly string[];
   readonly label: string;
-  readonly pipDemand: string;
   readonly earlyPipDemand: string;
+  readonly pipDemand: string;
   readonly colorIntensity: string;
+  readonly sourcesOfColor: string;
+  readonly colorSourceShare: string;
 }
 
 export interface ManaCardGroup {
   readonly key: string;
   readonly title: string;
+  readonly titleManaSymbols?: readonly string[];
   readonly cards: readonly AdvancedAnalysisCardGridItem[];
+}
+
+export interface ManaFunctionalCardGroup {
+  readonly key: string;
+  readonly title: string;
+  readonly subgroups: readonly ManaCardGroup[];
 }
 
 export interface RoleBreakdownCard {
@@ -149,6 +159,8 @@ export interface AdvancedAnalysisCardGridItem {
   readonly layout?: Card['layout'] | null;
   readonly quantity?: number | null;
   readonly detail?: string | null;
+  readonly analysisBadges?: readonly string[];
+  readonly showSingleAnalysisBadge?: boolean;
 }
 
 export interface ComboCardPreviewItem extends AdvancedAnalysisCardGridItem {
