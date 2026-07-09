@@ -5,6 +5,7 @@ namespace App\Infrastructure\DeckAnalysis;
 use App\Application\Card\CardOracleProfileRebuilder;
 use App\Application\Deck\AnalysisRuleSeeder;
 use App\Application\Deck\CardAnalysisProfileRebuilder;
+use App\Application\Deck\CardBoardWipeProfileRebuilder;
 use App\Application\Deck\CardManaProfileRebuilder;
 use App\Application\Deck\CardSemanticDataRebuilder;
 use App\Application\Deck\ComboAnalysisProfileRebuilder;
@@ -20,6 +21,7 @@ final class DeckAnalysisLocalDataRebuildCommand extends Command
 {
     public function __construct(
         private readonly CardOracleProfileRebuilder $oracleProfileRebuilder,
+        private readonly CardBoardWipeProfileRebuilder $cardBoardWipeProfileRebuilder,
         private readonly CardSemanticDataRebuilder $semanticDataRebuilder,
         private readonly CardAnalysisProfileRebuilder $cardAnalysisProfileRebuilder,
         private readonly CardManaProfileRebuilder $cardManaProfileRebuilder,
@@ -34,6 +36,7 @@ final class DeckAnalysisLocalDataRebuildCommand extends Command
     {
         $this
             ->addOption('skip-oracle-profile', null, InputOption::VALUE_NONE, 'Skip rebuilding card_oracle_profile.')
+            ->addOption('skip-card-board-wipe-profile', null, InputOption::VALUE_NONE, 'Skip rebuilding card_board_wipe_profile.')
             ->addOption('skip-semantic', null, InputOption::VALUE_NONE, 'Skip rebuilding internal semantic card tables.')
             ->addOption('skip-card-analysis-profile', null, InputOption::VALUE_NONE, 'Skip rebuilding card_analysis_profile.')
             ->addOption('skip-card-mana-profile', null, InputOption::VALUE_NONE, 'Skip rebuilding card_mana_profile.')
@@ -61,9 +64,32 @@ final class DeckAnalysisLocalDataRebuildCommand extends Command
             $output->writeln('<comment>'.$summary['oracle'].'</comment>');
         }
 
+        if (!$input->getOption('skip-card-board-wipe-profile')) {
+            $this->requireTables('card board wipe profile rebuild', [
+                'card_oracle_profile',
+                'card_board_wipe_profile',
+                'deck_analysis_data_version',
+            ]);
+            $result = $this->cardBoardWipeProfileRebuilder->rebuild();
+            $summary['boardWipes'] = sprintf(
+                'card board wipe profiles inserted=%d updated=%d skipped=%d seen=%d wipes=%d version=%s',
+                $result['inserted'],
+                $result['updated'],
+                $result['skipped'],
+                $result['seen'],
+                $result['wipes'],
+                $result['dataVersion'],
+            );
+            $output->writeln($summary['boardWipes']);
+        } else {
+            $summary['boardWipes'] = 'card board wipe profiles inserted=0 updated=0 skipped=0 skippedByFlag=true';
+            $output->writeln('<comment>'.$summary['boardWipes'].'</comment>');
+        }
+
         if (!$input->getOption('skip-semantic')) {
             $this->requireTables('semantic data rebuild', [
                 'card_oracle_profile',
+                'card_board_wipe_profile',
                 'external_card_tag',
                 'card_role',
                 'card_role_quality',

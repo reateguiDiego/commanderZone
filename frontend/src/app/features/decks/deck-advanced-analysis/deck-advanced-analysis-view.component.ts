@@ -4,6 +4,7 @@ import { runtimeTranslationFallback, RuntimeTranslatePipe } from '../../../core/
 import { CardFaceImageSource } from '../../../shared/utils/card-faces';
 import { bestCardImage } from '../../../shared/utils/card-image';
 import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
+import { AdvancedAnalysisBoardWipesSectionComponent } from './sections/advanced-analysis-board-wipes-section.component';
 import { AdvancedAnalysisCombosSectionComponent } from './sections/advanced-analysis-combos-section.component';
 import { AdvancedAnalysisConsistencySectionComponent } from './sections/advanced-analysis-consistency-section.component';
 import { AdvancedAnalysisHealthSectionComponent } from './sections/advanced-analysis-health-section.component';
@@ -18,6 +19,9 @@ import type {
   ArchetypeIdentityView,
   AdvancedHealthCard,
   AdvancedIssueItem,
+  BoardWipeDetailItem,
+  BoardWipeOverview,
+  BoardWipeStatGroup,
   ComboCardPreviewItem,
   ComboCompleterItem,
   ComboDisplayItem,
@@ -36,6 +40,8 @@ import {
   AdvancedCardCatalogEntry,
   AdvancedArchetypeExplanation,
   AdvancedAnalysisResponse,
+  AdvancedBoardWipeDetail,
+  AdvancedBoardWipeMetrics,
   AdvancedCardReference,
   AdvancedComboItem,
   AdvancedHealthSection,
@@ -81,11 +87,12 @@ const COMPLETE_COMBO_INITIAL_LIMIT = 10;
 const PARTIAL_COMBO_INITIAL_LIMIT = 6;
 const COMBO_COMPLETER_INITIAL_LIMIT = 8;
 const UUID_LIKE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-type AdvancedAnalysisTabId = 'summary' | 'health' | 'mana' | 'metrics' | 'combos' | 'consistency' | 'roles';
+type AdvancedAnalysisTabId = 'summary' | 'health' | 'mana' | 'boardWipes' | 'metrics' | 'combos' | 'consistency' | 'roles';
 
 const ADVANCED_ANALYSIS_TABS: readonly TabListItem[] = [
   { id: 'summary', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.summary.title` },
   { id: 'mana', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.mana.title` },
+  { id: 'boardWipes', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.title` },
   { id: 'health', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.health.eyebrow` },
   { id: 'metrics', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.metrics.eyebrow` },
   { id: 'combos', label: `${ADVANCED_ANALYSIS_I18N_PREFIX}.combos.title` },
@@ -259,6 +266,79 @@ const MANA_ISSUE_CODES = new Set([
   'low_commander_castability',
 ]);
 
+const BOARD_WIPE_DETAIL_INITIAL_LIMIT = 8;
+const BOARD_WIPE_ISSUE_CODES = new Set([
+  'low_hard_board_wipes',
+  'wipes_are_mostly_bounce_or_conditional',
+  'wipes_are_mostly_pseudo',
+  'wipes_are_mostly_bounce',
+  'no_indestructible_answer',
+  'no_artifact_enchantment_wipe_coverage',
+  'no_graveyard_wipe_coverage',
+  'too_many_symmetrical_wipes_for_creature_deck',
+  'own_plan_collision_wipes',
+  'board_wipes_self_plan_risk',
+  'expensive_wipe_package',
+  'no_cheap_emergency_wipe',
+  'overload_wipe_available',
+  'asymmetrical_wipe_strength',
+  'modal_wipe_strength',
+  'opponent_compensation_risk',
+]);
+const BOARD_WIPE_MAIN_ISSUE_CODES = new Set([
+  'low_hard_board_wipes',
+  'wipes_are_mostly_pseudo',
+  'wipes_are_mostly_bounce',
+  'no_indestructible_answer',
+  'too_many_symmetrical_wipes_for_creature_deck',
+  'own_plan_collision_wipes',
+  'expensive_wipe_package',
+  'opponent_compensation_risk',
+]);
+const BOARD_WIPE_PACKAGE_METRICS: ReadonlyArray<readonly [keyof AdvancedBoardWipeMetrics, string]> = [
+  ['total', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.total`],
+  ['hardTotal', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.hardTotal`],
+  ['pseudoTotal', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.pseudoTotal`],
+  ['hardCreatureWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.hardCreatureWipes`],
+  ['averageManaValue', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.averageManaValue`],
+  ['effectiveLowCostWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.effectiveLowCostWipes`],
+];
+const BOARD_WIPE_METHOD_METRICS: ReadonlyArray<readonly [keyof AdvancedBoardWipeMetrics, string]> = [
+  ['destroyWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.destroyWipes`],
+  ['exileWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.exileWipes`],
+  ['sacrificeWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.sacrificeWipes`],
+  ['massBounce', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.massBounce`],
+  ['damageWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.damageWipes`],
+  ['minusXMinusXWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.minusXMinusXWipes`],
+];
+const BOARD_WIPE_COVERAGE_METRICS: ReadonlyArray<readonly [keyof AdvancedBoardWipeMetrics, string]> = [
+  ['creatureWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.creatureWipes`],
+  ['artifactWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.artifactWipes`],
+  ['enchantmentWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.enchantmentWipes`],
+  ['artifactEnchantmentWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.artifactEnchantmentWipes`],
+  ['graveyardWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.graveyardWipes`],
+  ['nonlandPermanentWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.nonlandPermanentWipes`],
+  ['allPermanentWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.allPermanentWipes`],
+];
+const BOARD_WIPE_QUALITY_METRICS: ReadonlyArray<readonly [keyof AdvancedBoardWipeMetrics, string]> = [
+  ['modalWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.modalWipes`],
+  ['asymmetricalWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.asymmetricalWipes`],
+  ['oneSidedWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.oneSidedWipes`],
+  ['overloadedWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.overloadedWipes`],
+  ['scalableWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.scalableWipes`],
+  ['instantSpeedWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.instantSpeedWipes`],
+  ['answersIndestructible', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.answersIndestructible`],
+  ['getsAroundHexproof', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.getsAroundHexproof`],
+  ['permanentBasedWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.permanentBasedWipes`],
+  ['repeatableWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.repeatableWipes`],
+];
+const BOARD_WIPE_WARNING_METRICS: ReadonlyArray<readonly [keyof AdvancedBoardWipeMetrics, string]> = [
+  ['combatOnlyWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.combatOnlyWipes`],
+  ['conditionalWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.conditionalWipes`],
+  ['opponentCompensationWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.opponentCompensationWipes`],
+  ['selfPlanRiskWipes', `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.stats.selfPlanRiskWipes`],
+];
+
 const ROLE_BREAKDOWN_CONFIGS: readonly RoleBreakdownConfig[] = [
   {
     key: 'ramp',
@@ -345,6 +425,7 @@ const QUALITY_LABELS: ReadonlyArray<readonly [string, string]> = [
 @Component({
   selector: 'app-deck-advanced-analysis-view',
   imports: [
+    AdvancedAnalysisBoardWipesSectionComponent,
     AdvancedAnalysisCombosSectionComponent,
     AdvancedAnalysisConsistencySectionComponent,
     AdvancedAnalysisHealthSectionComponent,
@@ -371,6 +452,7 @@ export class DeckAdvancedAnalysisViewComponent {
   readonly showAllCompleteCombos = signal(false);
   readonly showAllPartialCombos = signal(false);
   readonly showAllComboCompleters = signal(false);
+  readonly showAllBoardWipeDetails = signal(false);
   readonly activeAnalysisTab = signal<AdvancedAnalysisTabId>('summary');
   readonly analysisTabs = ADVANCED_ANALYSIS_TABS;
   private readonly deckCardsByDeckCardId = computed(() => this.deckCardLookup('deckCardId'));
@@ -681,6 +763,54 @@ export class DeckAdvancedAnalysisViewComponent {
       message: this.formatText(issue.message),
       severity: this.formatIssueSeverity(issue.severity),
     })));
+  readonly boardWipeMetrics = computed(() => this.analysis()?.metrics?.boardWipes ?? null);
+  readonly hasBoardWipeAnalysis = computed(() => this.boardWipeMetrics() !== null);
+  readonly boardWipeOverview = computed<BoardWipeOverview | null>(() => {
+    const metrics = this.boardWipeMetrics();
+    if (!metrics) {
+      return null;
+    }
+
+    return {
+      stats: [
+        { label: this.t('boardWipes.stats.hardTotal'), value: this.formatNumber(metrics.hardTotal) },
+        { label: this.t('boardWipes.stats.pseudoTotal'), value: this.formatNumber(metrics.pseudoTotal) },
+        { label: this.t('boardWipes.stats.modalWipes'), value: this.formatNumber(metrics.modalWipes) },
+        { label: this.t('boardWipes.stats.asymmetricalWipes'), value: this.formatNumber(metrics.asymmetricalWipes) },
+        { label: this.t('boardWipes.stats.answersIndestructible'), value: this.formatNumber(metrics.answersIndestructible) },
+        { label: this.t('boardWipes.stats.effectiveLowCostWipes'), value: this.formatNumber(metrics.effectiveLowCostWipes) },
+      ],
+      mainIssue: this.boardWipeMainIssue(),
+    };
+  });
+  readonly boardWipeStatGroups = computed<BoardWipeStatGroup[]>(() => {
+    const metrics = this.boardWipeMetrics();
+    if (!metrics) {
+      return [];
+    }
+
+    return [
+      this.boardWipeStatGroup('package', this.t('boardWipes.package'), metrics, BOARD_WIPE_PACKAGE_METRICS, false),
+      this.boardWipeStatGroup('methods', this.t('boardWipes.methods'), metrics, BOARD_WIPE_METHOD_METRICS, true),
+      this.boardWipeStatGroup('coverage', this.t('boardWipes.coverage'), metrics, BOARD_WIPE_COVERAGE_METRICS, true),
+      this.boardWipeStatGroup('quality', this.t('boardWipes.qualitySignals'), metrics, BOARD_WIPE_QUALITY_METRICS, true),
+      this.boardWipeStatGroup('warnings', this.t('boardWipes.pseudoConditionalWarnings'), metrics, BOARD_WIPE_WARNING_METRICS, true),
+    ].filter((group) => group.rows.length > 0);
+  });
+  readonly boardWipeIssueItems = computed<AdvancedIssueItem[]>(() => (this.analysis()?.issues ?? [])
+    .filter((issue) => BOARD_WIPE_ISSUE_CODES.has(issue.code ?? ''))
+    .slice()
+    .sort((left, right) => this.issueSeverityRank(left) - this.issueSeverityRank(right))
+    .map((issue) => this.boardWipeIssueItem(issue)));
+  readonly boardWipeMainIssue = computed<AdvancedIssueItem | null>(() => this.boardWipeIssueItems()
+    .find((issue) => BOARD_WIPE_MAIN_ISSUE_CODES.has(issue.code)) ?? null);
+  readonly boardWipeDetailItems = computed<BoardWipeDetailItem[]>(() => (this.boardWipeMetrics()?.details ?? [])
+    .map((detail, index) => this.boardWipeDetailItem(detail, index))
+    .filter((item): item is BoardWipeDetailItem => item !== null));
+  readonly visibleBoardWipeDetailItems = computed(() => this.showAllBoardWipeDetails()
+    ? this.boardWipeDetailItems()
+    : this.boardWipeDetailItems().slice(0, BOARD_WIPE_DETAIL_INITIAL_LIMIT));
+  readonly hiddenBoardWipeDetailCount = computed(() => Math.max(0, this.boardWipeDetailItems().length - this.visibleBoardWipeDetailItems().length));
   readonly roleBreakdownCards = computed<RoleBreakdownCard[]>(() => ROLE_BREAKDOWN_CONFIGS
     .map((config) => this.roleBreakdownCard(config))
     .filter((card) => card.rows.length > 0 || card.qualityRows.length > 0));
@@ -1659,6 +1789,126 @@ export class DeckAdvancedAnalysisViewComponent {
     return (references ?? [])
       .map((reference) => this.comboCardItem(reference))
       .filter((item): item is ComboCardPreviewItem => item !== null);
+  }
+
+  private boardWipeStatGroup(
+    key: string,
+    title: string,
+    metrics: AdvancedBoardWipeMetrics,
+    rows: ReadonlyArray<readonly [keyof AdvancedBoardWipeMetrics, string]>,
+    hideZero: boolean,
+  ): BoardWipeStatGroup {
+    return {
+      key,
+      title,
+      rows: rows
+        .map(([metricKey, label]) => {
+          const value = metrics[metricKey];
+          const numericValue = typeof value === 'number' ? value : null;
+
+          return {
+            label: this.translateKey(label),
+            value: metricKey === 'averageManaValue'
+              ? this.formatCompactNumber(numericValue)
+              : this.formatNumber(numericValue),
+          };
+        })
+        .filter((row) => !hideZero || (row.value !== this.t('common.unavailable') && row.value !== '0')),
+    };
+  }
+
+  private boardWipeIssueItem(issue: AdvancedIssue): AdvancedIssueItem {
+    const code = issue.code ?? 'board_wipe_issue';
+
+    return {
+      code,
+      title: this.boardWipeIssueText(code, 'title', issue.title),
+      message: this.boardWipeIssueText(code, 'message', issue.message),
+      severity: this.formatIssueSeverity(issue.severity),
+    };
+  }
+
+  private boardWipeIssueText(code: string, field: 'title' | 'message', fallback: string | undefined): string {
+    const key = `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.issues.${code}.${field}`;
+    const translated = this.translations.instant(key);
+    if (typeof translated === 'string' && translated !== key) {
+      return translated;
+    }
+
+    return this.formatText(fallback ?? code);
+  }
+
+  private boardWipeDetailItem(detail: AdvancedBoardWipeDetail, index: number): BoardWipeDetailItem | null {
+    const card = this.comboCardItem(detail);
+    if (!card) {
+      return null;
+    }
+
+    return {
+      ...card,
+      id: card.id || detail.cardId || detail.oracleId || String(index),
+      badges: this.boardWipeBadges(detail),
+      manaValue: this.formatCompactNumber(detail.manaValue),
+      notes: (detail.notes ?? []).map((note) => this.boardWipeNoteLabel(note)).filter((note) => note !== ''),
+    };
+  }
+
+  private boardWipeBadges(detail: AdvancedBoardWipeDetail): string[] {
+    const badges: string[] = [];
+    const methods = new Set((detail.methods ?? []).map((method) => method.trim().toLowerCase()));
+    if (detail.isHardWipe) {
+      badges.push(this.t('boardWipes.badges.hard'));
+    }
+    if (detail.isPseudoWipe) {
+      badges.push(this.t('boardWipes.badges.pseudo'));
+    }
+    if (detail.isModal) {
+      badges.push(this.t('boardWipes.badges.modal'));
+    }
+    if (detail.isOverloaded) {
+      badges.push(this.t('boardWipes.badges.overload'));
+    }
+    if (['asymmetrical', 'one_sided', 'opponent_only', 'each_opponent'].includes((detail.symmetry ?? '').trim().toLowerCase())) {
+      badges.push(this.t('boardWipes.badges.asymmetric'));
+    }
+    if (methods.has('exile')) {
+      badges.push(this.t('boardWipes.badges.exile'));
+    }
+    if (methods.has('bounce')) {
+      badges.push(this.t('boardWipes.badges.bounce'));
+    }
+    if (methods.has('damage')) {
+      badges.push(this.t('boardWipes.badges.damage'));
+    }
+    if (methods.has('tuck') || methods.has('shuffle')) {
+      badges.push(this.t('boardWipes.badges.tuckShuffle'));
+    }
+    if (detail.answersIndestructible) {
+      badges.push(this.t('boardWipes.badges.answersIndestructible'));
+    }
+    if ((detail.scope ?? []).includes('artifacts')) {
+      badges.push(this.t('boardWipes.badges.artifactWipe'));
+    }
+    if ((detail.scope ?? []).includes('enchantments')) {
+      badges.push(this.t('boardWipes.badges.enchantmentWipe'));
+    }
+
+    return [...new Set(badges)];
+  }
+
+  private boardWipeNoteLabel(note: string): string {
+    const normalized = note.trim();
+    if (normalized === '') {
+      return '';
+    }
+
+    const key = `${ADVANCED_ANALYSIS_I18N_PREFIX}.boardWipes.notes.${normalized}`;
+    const translated = this.translations.instant(key);
+    if (typeof translated === 'string' && translated !== key) {
+      return translated;
+    }
+
+    return this.formatFeatureLabel(normalized);
   }
 
   private powerSignalLabel(key: string): string {

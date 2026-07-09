@@ -13,6 +13,7 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         private readonly DeckArchetypeAnalyzer $archetypeAnalyzer,
         private readonly DeckPowerAnalyzer $powerAnalyzer,
         private readonly DeckManaSourceAnalyzer $manaSourceAnalyzer,
+        private readonly DeckBoardWipeAnalyzer $boardWipeAnalyzer,
         private readonly DeckConsistencySimulator $consistencySimulator,
         private readonly DeckAdvancedIssueDetector $issueDetector,
     ) {
@@ -36,6 +37,8 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         );
         $typal = $this->typalAnalyzer->analyze($resolvedCards);
         $archetypeResult = $this->archetypeAnalyzer->analyze($metrics, $resolvedCards, $comboResult['combos'], $typal);
+        $metrics['boardWipes'] = $this->boardWipeAnalyzer->analyze($resolvedCards, $archetypeResult['archetypes']);
+        $metrics = $this->metricsAggregator->withBoardWipeMetrics($metrics, $metrics['boardWipes']);
         $power = $this->powerAnalyzer->analyze($metrics, $resolvedCards, $comboResult['combos']);
         $archetypes = $archetypeResult['archetypes'];
         $consistencyResult = $this->consistencySimulator->simulate($resolvedCards, $comboResult['combos'], [
@@ -63,6 +66,7 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
                 'archetypeConfidence' => $archetypes['confidence'],
                 'archetypeExplanations' => $this->archetypeExplanations($archetypes),
                 'mainStrengths' => $this->mainStrengths($metrics, $archetypes, $power, $comboResult['combos'], $consistencyResult['consistency'], $typal),
+                'mainWarnings' => $this->mainWarnings($issues),
                 'criticalIssues' => $this->criticalIssues($issues),
             ],
             'metrics' => $metrics,
@@ -267,6 +271,32 @@ final class DeckAdvancedAnalyzerService implements DeckAdvancedAnalysisCalculato
         }
 
         return array_values(array_unique($critical));
+    }
+
+    /**
+     * @param list<array{code:string,severity:string,title?:string,message:string}> $issues
+     * @return list<string>
+     */
+    private function mainWarnings(array $issues): array
+    {
+        $messages = [];
+        foreach ($issues as $issue) {
+            $message = match ($issue['code']) {
+                'wipes_are_mostly_pseudo' => 'Your wipe count looks high, but most are pseudo-wipes.',
+                'wipes_are_mostly_bounce' => 'Your wipe package leans on bounce and lacks hard reset coverage.',
+                'no_indestructible_answer' => 'You have creature wipes, but none answer indestructible.',
+                'too_many_symmetrical_wipes_for_creature_deck', 'own_plan_collision_wipes' => 'Your wipes collide with your creature-heavy plan.',
+                'modal_wipe_strength' => 'You have flexible modal wipes, which improves board control.',
+                default => null,
+            };
+
+            if ($message === null) {
+                continue;
+            }
+            $messages[$message] = true;
+        }
+
+        return array_slice(array_keys($messages), 0, 4);
     }
 
     /**

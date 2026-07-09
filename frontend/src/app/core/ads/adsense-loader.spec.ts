@@ -29,7 +29,7 @@ describe('adsense-loader', () => {
     expect(scripts).toHaveLength(1);
     expect(script.async).toBe(true);
     expect(script.crossOrigin).toBe('anonymous');
-    expect(script.getAttribute('data-cz-managed-adsense')).toBe('true');
+    expect(script.getAttribute('data-cz-managed-adsense')).toBeNull();
     expect(new URL(script.src).searchParams.get('client')).toBe('ca-pub-1234567890123456');
     expect(globalThis.adsbygoogle?.requestNonPersonalizedAds).toBe(1);
   });

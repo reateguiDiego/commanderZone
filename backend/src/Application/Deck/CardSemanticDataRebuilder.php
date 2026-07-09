@@ -56,10 +56,19 @@ final class CardSemanticDataRebuilder
      * locally from oracle text so rebuilds do not depend on those tags existing.
      */
 
+    private readonly CardBoardWipeClassifier $boardWipeClassifier;
+
+    /**
+     * @var array<string,array<string,mixed>>|null
+     */
+    private ?array $boardWipeProfiles = null;
+
     public function __construct(
         private readonly Connection $connection,
         private readonly ?DeckAnalysisDataVersionProvider $versionProvider = null,
+        ?CardBoardWipeClassifier $boardWipeClassifier = null,
     ) {
+        $this->boardWipeClassifier = $boardWipeClassifier ?? new CardBoardWipeClassifier();
     }
 
     /**
@@ -316,9 +325,7 @@ SQL,
             $this->addRole($roles, 'spot_removal', null, '0.80', self::SOURCE_RULE);
         }
 
-        if ($this->isBoardWipe($profile)) {
-            $this->addRole($roles, 'board_wipe', null, '0.80', self::SOURCE_RULE);
-        }
+        $this->addBoardWipeRoles($profile, $roles);
 
         if ($this->createsTokens($profile)) {
             $this->addRole($roles, 'token_maker', null, '0.80', self::SOURCE_RULE);
@@ -475,6 +482,81 @@ SQL,
             if (isset($remove[$role['role']])) {
                 unset($roles[$key]);
             }
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     * @param array<string,array{role:string,subrole:?string,confidence:string,source:string}> $roles
+     */
+    private function addBoardWipeRoles(array $profile, array &$roles): void
+    {
+        $wipe = $this->boardWipeProfile($profile);
+        if (!$this->boolValue($wipe['is_board_wipe'] ?? false)) {
+            return;
+        }
+
+        $type = $this->stringOrNull($wipe['board_wipe_type'] ?? null);
+        $methods = $this->jsonList($wipe['wipe_method'] ?? []);
+        $scopes = $this->jsonList($wipe['wipe_scope'] ?? []);
+        $isCreatureOrPermanentWipe = $this->boolValue($wipe['is_creature_wipe'] ?? false)
+            || $this->boolValue($wipe['is_permanent_wipe'] ?? false);
+        $isCombatOnly = $type === 'combat_only_wipe';
+        $isSoftTempoWipe = in_array($type, ['bounce_wipe', 'tuck_wipe', 'combat_only_wipe', 'pseudo_wipe'], true);
+        $isConditionalOnly = $type === 'conditional_wipe';
+        $isNonCreatureOnly = !$this->boolValue($wipe['is_creature_wipe'] ?? false)
+            && $this->boolValue($wipe['is_noncreature_wipe'] ?? false)
+            && !$this->boolValue($wipe['is_permanent_wipe'] ?? false);
+
+        if ($isCreatureOrPermanentWipe && !$isCombatOnly && !$isSoftTempoWipe && !$isConditionalOnly) {
+            $this->addRole($roles, 'board_wipe', null, '0.82', self::SOURCE_RULE);
+            if ($type === 'hard_creature_wipe') {
+                $this->addRole($roles, 'hard_board_wipe', null, '0.82', self::SOURCE_RULE);
+            }
+        }
+
+        if ($type === 'bounce_wipe') {
+            $this->addRole($roles, 'mass_bounce', null, '0.74', self::SOURCE_RULE);
+            $this->addRole($roles, 'enabler', 'mass_bounce', '0.70', self::SOURCE_RULE);
+        }
+
+        if ($this->boolValue($wipe['is_pseudo_wipe'] ?? false) || $isCombatOnly) {
+            $this->addRole($roles, 'pseudo_wipe', null, '0.72', self::SOURCE_RULE);
+            $this->addRole($roles, 'enabler', 'pseudo_wipe', '0.70', self::SOURCE_RULE);
+        }
+
+        if ($type === 'conditional_wipe'
+            || $type === 'modal_wipe'
+            || count(array_intersect($scopes, ['chosen_creature_type', 'selected_mana_value', 'selected_power', 'selected_toughness', 'controller_choice', 'each_player_choice'])) > 0
+        ) {
+            $this->addRole($roles, 'conditional_wipe', null, '0.72', self::SOURCE_RULE);
+            $this->addRole($roles, 'enabler', 'conditional_wipe', '0.70', self::SOURCE_RULE);
+        }
+
+        if (in_array('artifacts', $scopes, true)) {
+            $this->addRole($roles, 'artifact_wipe', null, '0.78', self::SOURCE_RULE);
+        }
+        if (in_array('enchantments', $scopes, true)) {
+            $this->addRole($roles, 'enchantment_wipe', null, '0.78', self::SOURCE_RULE);
+        }
+        if (in_array('graveyards', $scopes, true)) {
+            $this->addRole($roles, 'graveyard_wipe', null, '0.78', self::SOURCE_RULE);
+        }
+        if (in_array((string) ($wipe['symmetry_profile'] ?? ''), ['one_sided', 'opponents_only', 'asymmetrical', 'controller_choice', 'creature_type_asymmetry'], true)) {
+            $this->addRole($roles, 'asymmetric_wipe', null, '0.74', self::SOURCE_RULE);
+        }
+        if ($this->boolValue($wipe['has_modes'] ?? false)) {
+            $this->addRole($roles, 'modal_wipe', null, '0.76', self::SOURCE_RULE);
+        }
+        if ($this->boolValue($wipe['has_alternative_mass_mode'] ?? false)) {
+            $this->addRole($roles, 'overloaded_wipe', null, '0.76', self::SOURCE_RULE);
+        }
+        if ($this->boolValue($wipe['answers_indestructible'] ?? false)) {
+            $this->addRole($roles, 'answers_indestructible', null, '0.72', self::SOURCE_RULE);
+        }
+
+        if ($isNonCreatureOnly) {
+            $this->removeRoles($roles, ['board_wipe', 'hard_board_wipe']);
         }
     }
 
@@ -1605,7 +1687,11 @@ SQL,
      */
     private function isBoardWipe(array $profile): bool
     {
-        return $this->boardWipeKind($profile) === 'board_wipe';
+        $wipe = $this->boardWipeProfile($profile);
+
+        return $this->boolValue($wipe['is_board_wipe'] ?? false)
+            && ($this->boolValue($wipe['is_creature_wipe'] ?? false) || $this->boolValue($wipe['is_permanent_wipe'] ?? false))
+            && (string) ($wipe['board_wipe_type'] ?? '') !== 'combat_only_wipe';
     }
 
     /**
@@ -1613,63 +1699,95 @@ SQL,
      */
     private function boardWipeKind(array $profile): ?string
     {
-        if (str_contains($profile['text'], 'exile all other cards revealed this way')
-            || str_contains($profile['text'], 'exile the rest')
-            || $this->isSelfLibraryExile($profile)
-        ) {
+        $wipe = $this->boardWipeProfile($profile);
+        if (!$this->boolValue($wipe['is_board_wipe'] ?? false)) {
             return null;
         }
 
-        if (in_array($profile['normalized_name'], [
-            'cyclonic rift',
-            'evacuation',
-            'aetherize',
-            'aetherspouts',
-        ], true)
-            || preg_match('/\breturn all (creatures|nonland permanents|permanents)\b/', $profile['text']) === 1
-            || preg_match('/\breturn (all|each) attacking creatures?\b/', $profile['text']) === 1
-        ) {
+        $type = (string) ($wipe['board_wipe_type'] ?? '');
+        $methods = $this->jsonList($wipe['wipe_method'] ?? []);
+        if ($type === 'combat_only_wipe' || $this->boolValue($wipe['is_pseudo_wipe'] ?? false)) {
+            return 'pseudo_wipe';
+        }
+
+        if ($type === 'bounce_wipe' || in_array('bounce', $methods, true)) {
             return 'mass_bounce';
         }
 
-        if (in_array($profile['normalized_name'], [
-            'angel of the dire hour',
-            'balefire dragon',
-            'blast zone',
-            'arcbond',
-        ], true)
-            || str_contains($profile['text'], 'whenever') && str_contains($profile['text'], 'deals combat damage') && str_contains($profile['text'], 'each creature')
-            || str_contains($profile['text'], 'deals combat damage') && str_contains($profile['text'], 'destroy all permanents')
-            || preg_match('/\bdestroy each creature with\b/', $profile['text']) === 1
-        ) {
+        if ($type === 'conditional_wipe') {
             return 'conditional_wipe';
         }
 
-        if (preg_match('/\b(destroy|exile) all (creatures|artifacts|enchantments|nonland permanents|permanents)\b/', $profile['text']) === 1
-            || preg_match('/\bdeals? \d+ damage to each creature\b/', $profile['text']) === 1
-            || in_array($profile['normalized_name'], [
-                'toxic deluge',
-                'damnation',
-                'wrath of god',
-                'farewell',
-                'austere command',
-                'blasphemous act',
-                'vanquish the horde',
-                'vandalblast',
-                'bane of progress',
-                'fire covenant',
-                'living death',
-                'patriarch\'s bidding',
-            ], true)
+        if (($this->boolValue($wipe['is_creature_wipe'] ?? false) || $this->boolValue($wipe['is_permanent_wipe'] ?? false))
+            && !$this->boolValue($wipe['is_noncreature_wipe'] ?? false)
+            || $this->boolValue($wipe['is_permanent_wipe'] ?? false)
         ) {
             return 'board_wipe';
         }
 
-        if (preg_match('/\b(exile|destroy) (all|each) (attacking|blocking|tapped) creatures?\b/', $profile['text']) === 1) {
-            return 'pseudo_wipe';
+        if ($this->boolValue($wipe['is_creature_wipe'] ?? false)) {
+            return 'board_wipe';
         }
 
         return null;
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     * @return array<string,mixed>
+     */
+    private function boardWipeProfile(array $profile): array
+    {
+        $oracleId = (string) ($profile['oracle_id'] ?? '');
+        $profiles = $this->boardWipeProfilesByOracleId();
+        if ($oracleId !== '' && isset($profiles[$oracleId])) {
+            return $profiles[$oracleId];
+        }
+
+        return $this->boardWipeClassifier->classify($profile);
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function boardWipeProfilesByOracleId(): array
+    {
+        if ($this->boardWipeProfiles !== null) {
+            return $this->boardWipeProfiles;
+        }
+
+        if (!$this->tableExists('card_board_wipe_profile')) {
+            $this->boardWipeProfiles = [];
+
+            return $this->boardWipeProfiles;
+        }
+
+        $profiles = [];
+        foreach ($this->connection->executeQuery(
+            <<<'SQL'
+SELECT
+    oracle_id,
+    is_board_wipe,
+    is_creature_wipe,
+    is_noncreature_wipe,
+    is_permanent_wipe,
+    is_pseudo_wipe,
+    board_wipe_type,
+    wipe_method,
+    wipe_scope,
+    symmetry_profile,
+    has_modes,
+    has_alternative_mass_mode,
+    answers_indestructible
+FROM card_board_wipe_profile
+SQL,
+        )->iterateAssociative() as $row) {
+            $profiles[(string) $row['oracle_id']] = $row;
+        }
+
+        $this->boardWipeProfiles = $profiles;
+
+        return $this->boardWipeProfiles;
     }
 
     /**
@@ -2387,6 +2505,22 @@ SQL,
         return is_array($decoded) ? $decoded : [];
     }
 
+    /**
+     * @return list<string>
+     */
+    private function jsonList(mixed $value): array
+    {
+        $array = $this->jsonArray($value);
+        $list = [];
+        foreach ($array as $item) {
+            if (is_scalar($item)) {
+                $list[] = (string) $item;
+            }
+        }
+
+        return $list;
+    }
+
     private function stringOrNull(mixed $value): ?string
     {
         if (!is_scalar($value)) {
@@ -2413,5 +2547,12 @@ SQL,
         }
 
         return in_array(mb_strtolower(trim($value)), ['1', 'true', 't', 'yes', 'y'], true);
+    }
+
+    private function tableExists(string $tableName): bool
+    {
+        $table = $this->connection->fetchOne('SELECT to_regclass(:tableName)', ['tableName' => 'public.'.$tableName]);
+
+        return is_string($table) && $table !== '';
     }
 }

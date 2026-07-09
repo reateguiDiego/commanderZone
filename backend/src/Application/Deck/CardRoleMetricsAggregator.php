@@ -114,6 +114,73 @@ final class CardRoleMetricsAggregator
     }
 
     /**
+     * Projects the dedicated board-wipe read model into legacy role metrics.
+     *
+     * Backward compatibility note: roles.boardWipes is intentionally mapped to
+     * hardCreatureWipes, not total board-wipe coverage. Artifact-only,
+     * enchantment-only, graveyard-only, combat-only, bounce, and conditional
+     * wipes remain available through their specific metrics.
+     *
+     * @param array<string,mixed> $metrics
+     * @param array<string,mixed> $boardWipes
+     * @return array<string,mixed>
+     */
+    public function withBoardWipeMetrics(array $metrics, array $boardWipes): array
+    {
+        if (!is_array($metrics['roles'] ?? null)) {
+            return $metrics;
+        }
+
+        $roleMap = [
+            'boardWipes' => 'hardCreatureWipes',
+            'massBounce' => 'massBounce',
+            'pseudoWipes' => 'pseudoTotal',
+            'conditionalWipes' => 'conditionalWipes',
+            'exileWipes' => 'exileWipes',
+            'asymmetricalWipes' => 'asymmetricalWipes',
+            'overloadedWipes' => 'overloadedWipes',
+            'artifactWipes' => 'artifactWipes',
+            'enchantmentWipes' => 'enchantmentWipes',
+            'graveyardWipes' => 'graveyardWipes',
+            'answersIndestructibleWipes' => 'answersIndestructible',
+            'modalWipes' => 'modalWipes',
+            'scalableWipes' => 'scalableWipes',
+            'combatOnlyWipes' => 'combatOnlyWipes',
+        ];
+
+        foreach ($roleMap as $roleMetric => $boardWipeMetric) {
+            $metrics['roles'][$roleMetric] = max(0, (int) ($boardWipes[$boardWipeMetric] ?? 0));
+        }
+
+        $details = is_array($boardWipes['details'] ?? null) ? $boardWipes['details'] : [];
+        $roleCards = is_array($metrics['roleCards'] ?? null) ? $metrics['roleCards'] : [];
+        foreach (array_keys($roleMap) as $roleMetric) {
+            $roleCards[$roleMetric] = [];
+        }
+
+        foreach ($details as $detail) {
+            if (!is_array($detail)) {
+                continue;
+            }
+            $reference = $this->boardWipeDetailReference($detail);
+            if ($reference === null) {
+                continue;
+            }
+
+            foreach ($this->boardWipeDetailMetrics($detail) as $metric) {
+                if (!array_key_exists($metric, $roleMap)) {
+                    continue;
+                }
+                $this->addMetricCard($roleCards, $metric, $reference);
+            }
+        }
+
+        $metrics['roleCards'] = $roleCards;
+
+        return $metrics;
+    }
+
+    /**
      * @return array<string,int>
      */
     private function emptyRoleMetrics(): array
@@ -144,6 +211,16 @@ final class CardRoleMetricsAggregator
             'massBounce',
             'pseudoWipes',
             'conditionalWipes',
+            'exileWipes',
+            'asymmetricalWipes',
+            'overloadedWipes',
+            'artifactWipes',
+            'enchantmentWipes',
+            'graveyardWipes',
+            'answersIndestructibleWipes',
+            'modalWipes',
+            'scalableWipes',
+            'combatOnlyWipes',
             'sacrificeOutlets',
             'oneShotSacrifice',
             'selfSacrifice',
@@ -361,6 +438,90 @@ final class CardRoleMetricsAggregator
             $roles['permanentRamp'] += $quantity;
             $this->addMetricCard($roleCards, 'permanentRamp', $reference);
         }
+    }
+
+    /**
+     * @param array<string,mixed> $detail
+     * @return array<string,mixed>|null
+     */
+    private function boardWipeDetailReference(array $detail): ?array
+    {
+        $oracleId = $this->nullableString($detail['oracleId'] ?? null);
+        $name = $this->nullableString($detail['name'] ?? null);
+        if ($oracleId === null || $name === null) {
+            return null;
+        }
+
+        return [
+            'deckCardId' => $this->nullableString($detail['deckCardId'] ?? null) ?? $oracleId,
+            'cardId' => $this->nullableString($detail['cardId'] ?? null) ?? $oracleId,
+            'scryfallId' => $oracleId,
+            'oracleId' => $oracleId,
+            'name' => $name,
+            'imageUrl' => $this->nullableString($detail['imageUrl'] ?? null),
+            'imageUris' => [],
+            'cardFaces' => [],
+            'quantity' => max(1, (int) ($detail['quantity'] ?? 1)),
+            'section' => 'main',
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $detail
+     * @return list<string>
+     */
+    private function boardWipeDetailMetrics(array $detail): array
+    {
+        $metrics = [];
+        $methods = $this->stringList($detail['methods'] ?? []);
+        $scope = $this->stringList($detail['scope'] ?? []);
+        $types = $this->stringList($detail['types'] ?? []);
+        $symmetry = $this->stringValue($detail['symmetry'] ?? null);
+
+        if (($detail['isHardWipe'] ?? false) === true && (in_array('creatures', $scope, true) || in_array('nonland_permanents', $scope, true) || in_array('all_permanents', $scope, true) || in_array('colored_permanents', $scope, true))) {
+            $metrics[] = 'boardWipes';
+        }
+        if (in_array('mass_bounce', $types, true)) {
+            $metrics[] = 'massBounce';
+        }
+        if (($detail['isPseudoWipe'] ?? false) === true) {
+            $metrics[] = 'pseudoWipes';
+        }
+        if (in_array('conditional_wipe', $types, true)) {
+            $metrics[] = 'conditionalWipes';
+        }
+        if (array_intersect($methods, ['exile', 'graveyard_exile']) !== []) {
+            $metrics[] = 'exileWipes';
+        }
+        if (in_array($symmetry, ['asymmetrical', 'one_sided', 'opponents_only', 'semi_asymmetrical', 'controller_choice', 'each_player_chooses', 'creature_type_asymmetry'], true)) {
+            $metrics[] = 'asymmetricalWipes';
+        }
+        if (($detail['isOverloaded'] ?? false) === true) {
+            $metrics[] = 'overloadedWipes';
+        }
+        if (in_array('artifacts', $scope, true)) {
+            $metrics[] = 'artifactWipes';
+        }
+        if (in_array('enchantments', $scope, true)) {
+            $metrics[] = 'enchantmentWipes';
+        }
+        if (in_array('graveyards', $scope, true)) {
+            $metrics[] = 'graveyardWipes';
+        }
+        if (($detail['answersIndestructible'] ?? false) === true) {
+            $metrics[] = 'answersIndestructibleWipes';
+        }
+        if (($detail['isModal'] ?? false) === true) {
+            $metrics[] = 'modalWipes';
+        }
+        if (($detail['isScalable'] ?? false) === true) {
+            $metrics[] = 'scalableWipes';
+        }
+        if (in_array('combat_only_wipe', $types, true)) {
+            $metrics[] = 'combatOnlyWipes';
+        }
+
+        return array_values(array_unique($metrics));
     }
 
     /**

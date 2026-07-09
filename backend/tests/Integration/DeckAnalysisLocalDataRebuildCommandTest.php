@@ -5,6 +5,8 @@ namespace App\Tests\Integration;
 use App\Application\Card\CardOracleProfileRebuilder;
 use App\Application\Deck\AnalysisRuleSeeder;
 use App\Application\Deck\CardAnalysisProfileRebuilder;
+use App\Application\Deck\CardBoardWipeClassifier;
+use App\Application\Deck\CardBoardWipeProfileRebuilder;
 use App\Application\Deck\CardManaProfileRebuilder;
 use App\Application\Deck\CardSemanticDataRebuilder;
 use App\Application\Deck\ComboAnalysisProfileRebuilder;
@@ -30,6 +32,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
 
         self::assertSame(Command::SUCCESS, $status);
         self::assertStringContainsString('oracle profiles rebuilt', $tester->getDisplay());
+        self::assertStringContainsString('card board wipe profiles inserted=', $tester->getDisplay());
         self::assertStringContainsString('semantic rows inserted=', $tester->getDisplay());
         self::assertStringContainsString('card analysis profiles inserted=', $tester->getDisplay());
         self::assertStringContainsString('card mana profiles processed=', $tester->getDisplay());
@@ -61,6 +64,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
 
         $status = $tester->execute([
             '--skip-semantic' => true,
+            '--skip-card-board-wipe-profile' => true,
             '--skip-card-analysis-profile' => true,
             '--skip-card-mana-profile' => true,
             '--skip-rules' => true,
@@ -69,6 +73,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
 
         self::assertSame(Command::SUCCESS, $status);
         self::assertSame('0', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_role'));
+        self::assertSame('0', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_board_wipe_profile'));
         self::assertSame('0', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_analysis_profile'));
         self::assertSame('0', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM card_mana_profile'));
         self::assertSame('0', (string) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM analysis_rule'));
@@ -81,6 +86,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
 
         $status = $tester->execute([
             '--skip-oracle-profile' => true,
+            '--skip-card-board-wipe-profile' => true,
             '--skip-semantic' => true,
             '--skip-card-analysis-profile' => true,
             '--skip-card-mana-profile' => true,
@@ -100,6 +106,7 @@ final class DeckAnalysisLocalDataRebuildCommandTest extends ApiTestCase
 
         return new DeckAnalysisLocalDataRebuildCommand(
             new CardOracleProfileRebuilder($connection),
+            new CardBoardWipeProfileRebuilder($connection, new CardBoardWipeClassifier()),
             new CardSemanticDataRebuilder($connection),
             new CardAnalysisProfileRebuilder($connection),
             new CardManaProfileRebuilder($connection),

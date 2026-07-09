@@ -10,7 +10,7 @@ final class DeckAdvancedAnalysisHealthEvaluator
         'ramp' => ['ruleMetric' => 'ramp', 'roleMetrics' => ['permanentRamp'], 'cardMetrics' => ['permanentRamp', 'fastMana', 'burstMana', 'rituals', 'manaFixing', 'oneShotMana']],
         'draw' => ['ruleMetric' => 'draw', 'roleMetrics' => ['draw'], 'cardMetrics' => ['draw', 'cardSelection']],
         'interaction' => ['ruleMetric' => 'spot_removal', 'roleMetrics' => ['spotRemoval', 'creatureRemoval', 'artifactRemoval', 'enchantmentRemoval', 'counterspells', 'graveyardHate'], 'cardMetrics' => ['spotRemoval', 'creatureRemoval', 'artifactRemoval', 'enchantmentRemoval', 'counterspells', 'graveyardHate']],
-        'wipes' => ['ruleMetric' => 'board_wipe', 'roleMetrics' => ['boardWipes'], 'cardMetrics' => ['boardWipes', 'massBounce', 'pseudoWipes', 'conditionalWipes']],
+        'wipes' => ['ruleMetric' => 'board_wipe', 'roleMetrics' => ['boardWipes'], 'cardMetrics' => ['boardWipes', 'massBounce', 'pseudoWipes', 'conditionalWipes', 'exileWipes', 'asymmetricalWipes', 'overloadedWipes', 'artifactWipes', 'enchantmentWipes', 'graveyardWipes', 'answersIndestructibleWipes', 'modalWipes', 'scalableWipes', 'combatOnlyWipes']],
         'tutors' => ['ruleMetric' => 'tutor', 'roleMetrics' => ['trueTutors', 'typedTutors'], 'cardMetrics' => ['trueTutors', 'typedTutors', 'landTutors', 'rampSearch', 'opponentTutors']],
         'sacrifice' => ['ruleMetric' => 'sacrifice_outlet', 'roleMetrics' => ['sacrificeOutlets'], 'cardMetrics' => ['sacrificeOutlets', 'oneShotSacrifice', 'selfSacrifice', 'sacrificePayoffs']],
         'wincons' => ['ruleMetric' => 'wincon', 'roleMetrics' => ['wincons', 'combatFinishers'], 'cardMetrics' => ['wincons', 'combatFinishers', 'infectThreats', 'extraCombatEngines']],
@@ -70,6 +70,7 @@ final class DeckAdvancedAnalysisHealthEvaluator
         $health['combos'] = $this->comboHealth($combos, $issues);
         $health['consistency'] = $this->consistencyHealth($consistency, $issues, $roleCards);
         $health['mana'] = $this->manaHealth(is_array($metrics['mana'] ?? null) ? $metrics['mana'] : [], $consistency, $issues, $roleCards);
+        $health['boardWipes'] = $this->boardWipeHealth(is_array($metrics['boardWipes'] ?? null) ? $metrics['boardWipes'] : [], $issues);
         if (($typal['detected'] ?? false) === true) {
             $health['typal'] = $this->typalHealth($typal, $issues);
         }
@@ -195,7 +196,19 @@ SQL,
             'draw' => ['low_draw', 'low_card_selection'],
             'tutors' => ['low_true_tutors_for_combo', 'tutor_count_inflated_by_ramp_search'],
             'interaction' => ['low_early_interaction'],
-            'wipes' => ['low_hard_board_wipes', 'wipes_are_mostly_bounce_or_conditional'],
+            'wipes' => [
+                'low_hard_board_wipes',
+                'wipes_are_mostly_bounce_or_conditional',
+                'wipes_are_mostly_pseudo',
+                'wipes_are_mostly_bounce',
+                'no_indestructible_answer',
+                'no_artifact_enchantment_wipe_coverage',
+                'too_many_symmetrical_wipes_for_creature_deck',
+                'own_plan_collision_wipes',
+                'expensive_wipe_package',
+                'no_cheap_emergency_wipe',
+                'opponent_compensation_risk',
+            ],
             'sacrifice' => ['low_real_sacrifice_outlets', 'sacrifice_is_mostly_one_shot'],
             'wincons' => ['low_wincons', 'value_without_closure'],
             'stax' => ['symmetrical_stax_risk'],
@@ -497,6 +510,86 @@ SQL,
                 'manaDorks',
                 'permanentRamp',
             ]),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $boardWipes
+     * @param list<array{code:string,severity:string}> $issues
+     * @return array<string,mixed>
+     */
+    private function boardWipeHealth(array $boardWipes, array $issues): array
+    {
+        if ($boardWipes === []) {
+            return [
+                'status' => 'unknown',
+                'message' => 'Board wipe package cannot be evaluated confidently.',
+                'evidence' => [
+                    'hardCreatureWipes' => 0,
+                    'pseudoWipes' => 0,
+                    'answersIndestructible' => 0,
+                    'asymmetricalWipes' => 0,
+                    'artifactEnchantmentCoverage' => 0,
+                ],
+            ];
+        }
+
+        $hardCreatureWipes = (int) ($boardWipes['hardCreatureWipes'] ?? 0);
+        $coverage = (int) ($boardWipes['artifactEnchantmentWipes'] ?? 0)
+            + max((int) ($boardWipes['artifactWipes'] ?? 0), (int) ($boardWipes['enchantmentWipes'] ?? 0));
+        $answersIndestructible = (int) ($boardWipes['answersIndestructible'] ?? 0);
+        $flexibility = (int) ($boardWipes['modalWipes'] ?? 0) + (int) ($boardWipes['asymmetricalWipes'] ?? 0);
+
+        $status = 'critical';
+        if ($hardCreatureWipes >= 3 && ($coverage > 0 || $answersIndestructible > 0) && $flexibility > 0) {
+            $status = 'excellent';
+        } elseif ($hardCreatureWipes >= 2 || ($hardCreatureWipes >= 1 && ((int) ($boardWipes['massBounce'] ?? 0) > 0 || $coverage > 0))) {
+            $status = 'good';
+        } elseif ($hardCreatureWipes >= 1 || (int) ($boardWipes['massBounce'] ?? 0) > 0) {
+            $status = 'warning';
+        }
+
+        $status = $this->sectionStatus($status, $issues, [
+            'low_hard_board_wipes',
+            'wipes_are_mostly_bounce_or_conditional',
+            'wipes_are_mostly_pseudo',
+            'wipes_are_mostly_bounce',
+            'no_indestructible_answer',
+            'no_artifact_enchantment_wipe_coverage',
+            'too_many_symmetrical_wipes_for_creature_deck',
+            'own_plan_collision_wipes',
+            'board_wipes_self_plan_risk',
+            'expensive_wipe_package',
+            'no_cheap_emergency_wipe',
+            'opponent_compensation_risk',
+        ]);
+
+        return [
+            'status' => $status,
+            'message' => match ($status) {
+                'excellent' => 'Board wipe package has strong hard-wipe and coverage signals.',
+                'good' => 'Board wipe package looks functional.',
+                'warning' => 'Board wipe package needs review.',
+                'critical' => 'Board wipe package is likely under-supported.',
+                default => 'Board wipe package cannot be evaluated confidently.',
+            },
+            'evidence' => [
+                'hardCreatureWipes' => $hardCreatureWipes,
+                'hardTotal' => (int) ($boardWipes['hardTotal'] ?? 0),
+                'total' => (int) ($boardWipes['total'] ?? 0),
+                'pseudoWipes' => (int) ($boardWipes['pseudoTotal'] ?? 0),
+                'massBounce' => (int) ($boardWipes['massBounce'] ?? 0),
+                'conditionalWipes' => (int) ($boardWipes['conditionalWipes'] ?? 0),
+                'answersIndestructible' => $answersIndestructible,
+                'asymmetricalWipes' => (int) ($boardWipes['asymmetricalWipes'] ?? 0),
+                'modalWipes' => (int) ($boardWipes['modalWipes'] ?? 0),
+                'overloadedWipes' => (int) ($boardWipes['overloadedWipes'] ?? 0),
+                'combatOnlyWipes' => (int) ($boardWipes['combatOnlyWipes'] ?? 0),
+                'selfPlanRiskWipes' => (int) ($boardWipes['selfPlanRiskWipes'] ?? 0),
+                'effectiveLowCostWipes' => (int) ($boardWipes['effectiveLowCostWipes'] ?? 0),
+                'averageManaValue' => (float) ($boardWipes['averageManaValue'] ?? 0.0),
+                'artifactEnchantmentCoverage' => $coverage,
+            ],
         ];
     }
 

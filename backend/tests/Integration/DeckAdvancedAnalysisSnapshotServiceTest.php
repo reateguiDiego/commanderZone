@@ -91,6 +91,19 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
         self::assertSame('semantic_data_changed', $result['snapshot']['reason']);
     }
 
+    public function testBoardWipeDataVersionChangeInvalidatesSnapshotThroughSemanticVersion(): void
+    {
+        [$deck] = $this->deckFixture('board-wipe-version');
+        $calculator = new RecordingAdvancedCalculator();
+        $this->insertSnapshot($deck);
+        (new DeckAnalysisDataVersionProvider($this->connection()))->setBoardWipeVersion('sha256:changed-board-wipe-profiles');
+
+        $result = $this->service()->analyze($deck, $calculator);
+
+        self::assertSame(1, $calculator->calls);
+        self::assertSame('semantic_data_changed', $result['snapshot']['reason']);
+    }
+
     public function testManaDataVersionChangeInvalidatesSnapshot(): void
     {
         [$deck] = $this->deckFixture('mana-version');
@@ -243,7 +256,7 @@ final class DeckAdvancedAnalysisSnapshotServiceTest extends ApiTestCase
     /**
      * @param array<string,mixed> $overrides
      */
-    private function insertSnapshot(Deck $deck, array $overrides): void
+    private function insertSnapshot(Deck $deck, array $overrides = []): void
     {
         $deckHash = $this->service()->deckHash($deck);
         $versions = (new DeckAnalysisDataVersionProvider($this->connection()))->currentVersions();

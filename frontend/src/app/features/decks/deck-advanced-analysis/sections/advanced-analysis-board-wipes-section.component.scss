@@ -1,0 +1,186 @@
+:host {
+  display: block;
+  margin-top: var(--advanced-analysis-block-padding);
+  padding-top: var(--advanced-analysis-block-padding);
+  border-top: 1px solid var(--advanced-analysis-soft-line);
+}
+
+h3,
+p,
+dl,
+ol {
+  margin: 0;
+}
+
+:is(h3, p, strong, span, small, dd, em) {
+  overflow-wrap: anywhere;
+}
+
+.advanced-analysis-section,
+.advanced-analysis-card-frame {
+  display: grid;
+  align-content: start;
+  gap: var(--advanced-analysis-section-gap);
+  min-width: 0;
+}
+
+.advanced-analysis-card-frame {
+  gap: var(--advanced-analysis-inner-gap);
+}
+
+h3 {
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.advanced-analysis-empty-copy {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.advanced-analysis-board-wipe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--advanced-analysis-inner-gap);
+}
+
+.advanced-analysis-board-wipe-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.advanced-analysis-board-wipe-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.advanced-analysis-board-wipe-stat-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgb(var(--cz-bg-rgb) / 14%);
+}
+
+.advanced-analysis-board-wipe-stat-list div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: var(--advanced-analysis-item-padding);
+  border-top: 1px solid var(--advanced-analysis-soft-line);
+}
+
+.advanced-analysis-board-wipe-stat-list div:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.advanced-analysis-board-wipe-stat-list div:nth-child(even) {
+  border-left: 1px solid var(--advanced-analysis-soft-line);
+}
+
+.advanced-analysis-board-wipe-stat-list dt {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.advanced-analysis-board-wipe-stat-list dd {
+  margin: 0;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.advanced-analysis-board-wipe-issues,
+.advanced-analysis-board-wipe-detail-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.advanced-analysis-board-wipe-issues li,
+.advanced-analysis-board-wipe-detail-list li {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: var(--advanced-analysis-item-padding) 0;
+  border-top: 1px solid var(--advanced-analysis-soft-line);
+}
+
+.advanced-analysis-board-wipe-issues li:first-child,
+.advanced-analysis-board-wipe-detail-list li:first-child {
+  border-top: 0;
+}
+
+.advanced-analysis-board-wipe-issues span,
+.advanced-analysis-board-wipe-detail-list strong {
+  color: var(--text);
+  font-weight: 850;
+}
+
+.advanced-analysis-board-wipe-issues small,
+.advanced-analysis-board-wipe-issues em,
+.advanced-analysis-board-wipe-detail-list small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.advanced-analysis-board-wipe-issues em {
+  color: var(--gold);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.advanced-analysis-board-wipe-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.advanced-analysis-board-wipe-badges em {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.45rem;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 22%);
+  border-radius: 999px;
+  background: rgb(var(--cz-primary-rgb) / 10%);
+  color: var(--text);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.advanced-analysis-board-wipe-notes {
+  display: block;
+}
+
+@media (max-width: 1180px) {
+  .advanced-analysis-board-wipe-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .advanced-analysis-board-wipe-grid,
+  .advanced-analysis-board-wipe-stat-list {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-analysis-board-wipe-stat-list div:nth-child(even) {
+    border-left: 0;
+  }
+
+  .advanced-analysis-board-wipe-stat-list div:nth-child(2) {
+    border-top: 1px solid var(--advanced-analysis-soft-line);
+  }
+}

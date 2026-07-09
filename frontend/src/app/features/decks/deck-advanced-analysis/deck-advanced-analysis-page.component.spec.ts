@@ -132,6 +132,75 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(element.querySelector('app-advanced-analysis-combos-section')?.classList.contains('is-active')).toBe(true);
   });
 
+  it('renders board wipe analysis with summary, badges, issues and detected cards', async () => {
+    const { fixture } = await setup();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const tabs = Array.from(element.querySelectorAll('app-tab-list button[role="tab"]')) as HTMLButtonElement[];
+    const boardWipeTab = tabs.find((tab) => tab.textContent?.includes('Board Wipe Analysis'));
+
+    expect(boardWipeTab).toBeTruthy();
+    expect(element.textContent).toContain('Board wipe overview');
+    expect(element.textContent).toContain('Hard wipes');
+    expect(element.textContent).toContain('Pseudo wipes');
+    expect(element.textContent).toContain('Modal wipes');
+    expect(element.textContent).toContain('Asymmetrical wipes');
+    expect(element.textContent).toContain('Answers indestructible');
+    expect(element.textContent).toContain('No wipe answers indestructible');
+
+    boardWipeTab?.click();
+    fixture.detectChanges();
+
+    const section = element.querySelector('app-advanced-analysis-board-wipes-section') as HTMLElement | null;
+    expect(section?.classList.contains('is-active')).toBe(true);
+    expect(section?.textContent).toContain('Wipe package');
+    expect(section?.textContent).toContain('Methods');
+    expect(section?.textContent).toContain('Coverage');
+    expect(section?.textContent).toContain('Quality signals');
+    expect(section?.textContent).toContain('Pseudo / conditional warnings');
+    expect(section?.textContent).toContain('Wrath of God');
+    expect(section?.textContent).toContain('Cyclonic Rift');
+    expect(section?.textContent).toContain('Farewell');
+    expect(section?.textContent).toContain('Hard');
+    expect(section?.textContent).toContain('Pseudo');
+    expect(section?.textContent).toContain('Modal');
+    expect(section?.textContent).toContain('Overload');
+    expect(section?.textContent).toContain('Asymmetric');
+    expect(section?.textContent).toContain('Exile');
+    expect(section?.textContent).toContain('Bounce');
+    expect(section?.textContent).toContain('Answers indestructible');
+    expect(section?.textContent).toContain('Artifact wipe');
+    expect(section?.textContent).toContain('Enchantment wipe');
+    expect(section?.textContent).toContain('Opponent compensation risk');
+    expect(section?.querySelector('img[alt="Cyclonic Rift"]')?.getAttribute('src')).toBe('https://cards.example.test/rift.jpg');
+  });
+
+  it('renders board wipe analysis as unavailable without metrics.boardWipes', async () => {
+    const analysis = buildAdvancedAnalysis({
+      metrics: {
+        ...buildAdvancedAnalysis().metrics,
+        boardWipes: null,
+      },
+    });
+    const { fixture } = await setup({ slug: DECK_ID }, {
+      getDeckAdvancedAnalysis: vi.fn().mockReturnValue(of(analysis)),
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const boardWipeTab = Array.from(element.querySelectorAll('app-tab-list button[role="tab"]') as NodeListOf<HTMLButtonElement>)
+      .find((tab) => tab.textContent?.includes('Board Wipe Analysis'));
+
+    boardWipeTab?.click();
+    fixture.detectChanges();
+
+    expect(element.querySelector('app-advanced-analysis-board-wipes-section')?.textContent)
+      .toContain('Board wipe analysis is not available for this deck.');
+  });
+
   it('renders snapshot status and key metrics', async () => {
     const { fixture } = await setup();
     await fixture.whenStable();
@@ -1328,6 +1397,98 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           },
         },
       },
+      boardWipes: {
+        total: 3,
+        hardTotal: 2,
+        pseudoTotal: 1,
+        creatureWipes: 3,
+        hardCreatureWipes: 2,
+        exileWipes: 1,
+        destroyWipes: 1,
+        sacrificeWipes: 0,
+        bounceWipes: 1,
+        massBounce: 1,
+        damageWipes: 0,
+        minusXMinusXWipes: 0,
+        artifactWipes: 1,
+        enchantmentWipes: 1,
+        artifactEnchantmentWipes: 1,
+        graveyardWipes: 1,
+        nonlandPermanentWipes: 1,
+        allPermanentWipes: 0,
+        modalWipes: 1,
+        conditionalWipes: 1,
+        asymmetricalWipes: 1,
+        oneSidedWipes: 1,
+        overloadedWipes: 1,
+        scalableWipes: 1,
+        instantSpeedWipes: 1,
+        permanentBasedWipes: 0,
+        repeatableWipes: 0,
+        combatOnlyWipes: 0,
+        answersIndestructible: 1,
+        getsAroundHexproof: 1,
+        opponentCompensationWipes: 1,
+        effectiveLowCostWipes: 1,
+        selfPlanRiskWipes: 0,
+        averageManaValue: 4.7,
+        details: [
+          {
+            deckCardId: 'deck-card-wrath',
+            oracleId: 'oracle-wrath',
+            name: 'Wrath of God',
+            imageUrl: 'https://cards.example.test/wrath.jpg',
+            methods: ['destroy'],
+            scope: ['creatures'],
+            symmetry: 'symmetrical',
+            manaValue: 4,
+            effectiveCostMin: 4,
+            isHardWipe: true,
+            isPseudoWipe: false,
+            isModal: false,
+            isOverloaded: false,
+            isScalable: false,
+            answersIndestructible: false,
+            notes: [],
+          },
+          {
+            deckCardId: 'deck-card-rift',
+            oracleId: 'oracle-rift',
+            name: 'Cyclonic Rift',
+            imageUrl: 'https://cards.example.test/rift.jpg',
+            methods: ['bounce'],
+            scope: ['nonland_permanents'],
+            symmetry: 'opponent_only',
+            manaValue: 2,
+            effectiveCostMin: 2,
+            isHardWipe: false,
+            isPseudoWipe: true,
+            isModal: false,
+            isOverloaded: true,
+            isScalable: true,
+            answersIndestructible: true,
+            notes: ['alternative_mass_mode'],
+          },
+          {
+            deckCardId: 'deck-card-farewell',
+            oracleId: 'oracle-farewell',
+            name: 'Farewell',
+            imageUrl: 'https://cards.example.test/farewell.jpg',
+            methods: ['exile'],
+            scope: ['creatures', 'artifacts', 'enchantments', 'graveyards'],
+            symmetry: 'controller_choice',
+            manaValue: 6,
+            effectiveCostMin: 6,
+            isHardWipe: true,
+            isPseudoWipe: false,
+            isModal: true,
+            isOverloaded: false,
+            isScalable: false,
+            answersIndestructible: true,
+            notes: ['control_friendly'],
+          },
+        ],
+      },
       roleCards: {
         permanentRamp: ['deck-card-sol-ring'],
         manaRocks: ['deck-card-sol-ring', 'deck-card-arcane-signet'],
@@ -1554,6 +1715,26 @@ function buildAdvancedAnalysis(overrides: Partial<AdvancedAnalysisResponse> = {}
           partialOneMissingCount: 2,
         },
         suggestedActionType: 'review_package',
+      },
+      {
+        code: 'no_indestructible_answer',
+        severity: 'warning',
+        title: 'No wipe answers indestructible',
+        message: 'The deck has board wipes, but none answer indestructible.',
+        evidence: {
+          hardWipes: 2,
+        },
+        suggestedActionType: 'add_wipe_that_answers_indestructible',
+      },
+      {
+        code: 'opponent_compensation_risk',
+        severity: 'info',
+        title: 'Opponent compensation risk',
+        message: 'Some wipes can compensate opponents.',
+        evidence: {
+          opponentCompensationWipes: 1,
+        },
+        suggestedActionType: 'review_opponent_compensation_wipes',
       },
     ],
     unmatchedCards: [],

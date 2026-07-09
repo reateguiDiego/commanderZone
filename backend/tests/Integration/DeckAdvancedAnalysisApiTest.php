@@ -28,6 +28,8 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayHasKey('roles', $response['metrics']);
         self::assertArrayHasKey('quality', $response['metrics']);
         self::assertArrayHasKey('mana', $response['metrics']);
+        self::assertArrayHasKey('boardWipes', $response['metrics']);
+        self::assertArrayHasKey('details', $response['metrics']['boardWipes']);
         foreach (['lands', 'landCycles', 'sources', 'untappedSources', 'earlySources', 'ramp', 'fixing', 'fetchlands', 'landCycleAnalysis', 'requirements'] as $manaKey) {
             self::assertArrayHasKey($manaKey, $response['metrics']['mana']);
         }
@@ -49,6 +51,8 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertStringContainsString('not match win rate', $response['consistency']['disclaimer']);
         self::assertArrayHasKey('archetypeConfidence', $response['summary']);
         self::assertArrayHasKey('archetypeExplanations', $response['summary']);
+        self::assertArrayHasKey('mainWarnings', $response['summary']);
+        self::assertIsArray($response['summary']['mainWarnings']);
         self::assertNotEmpty($response['summary']['archetypeExplanations']);
         self::assertArrayHasKey('reasonKey', $response['summary']['archetypeExplanations'][0]);
         self::assertArrayNotHasKey('score', $response['summary']['archetypeExplanations'][0]);
@@ -60,6 +64,8 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayNotHasKey('powerConfidence', $response['summary']);
         self::assertArrayHasKey('ramp', $response['health']);
         self::assertArrayHasKey('mana', $response['health']);
+        self::assertArrayHasKey('boardWipes', $response['health']);
+        self::assertArrayHasKey('evidence', $response['health']['boardWipes']);
         self::assertArrayHasKey('evidence', $response['health']['mana']);
         self::assertArrayHasKey('message', $response['health']['ramp']);
         self::assertArrayHasKey('evidence', $response['health']['ramp']);
@@ -157,6 +163,9 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         $this->insertAnalysisProfile($wrath->oracleId(), 'Wrath of God', roles: ['board_wipe']);
         $this->insertAnalysisProfile($rift->oracleId(), 'Cyclonic Rift', subroles: ['mass_bounce']);
         $this->insertAnalysisProfile($farewell->oracleId(), 'Farewell', roles: ['board_wipe'], subroles: ['conditional_wipe']);
+        $this->insertBoardWipeProfile($wrath->oracleId(), 'Wrath of God', methods: ['destroy'], scope: ['creatures'], hardCreature: true);
+        $this->insertBoardWipeProfile($rift->oracleId(), 'Cyclonic Rift', type: 'bounce_wipe', methods: ['bounce'], scope: ['nonland_permanents', 'opponents_only'], symmetry: 'one_sided', overload: true);
+        $this->insertBoardWipeProfile($farewell->oracleId(), 'Farewell', type: 'modal_wipe', methods: ['exile', 'graveyard_exile'], scope: ['artifacts', 'creatures', 'enchantments', 'graveyards'], modal: true, answersIndestructible: true);
 
         $deck = new Deck($user, 'Advanced Card References');
         $deckCardIds = [];
@@ -184,7 +193,7 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
             static fn (array $card): bool => ($card['oracleId'] ?? null) === $farewell->oracleId(),
         ))[0] ?? null;
         self::assertIsArray($farewellReference);
-        self::assertContains('conditionalWipes', $farewellReference['matchedMetrics']);
+        self::assertContains('modalWipes', $farewellReference['matchedMetrics']);
         $wrathReference = array_values(array_filter(
             $response['health']['wipes']['cards'],
             static fn (array $card): bool => ($card['oracleId'] ?? null) === $wrath->oracleId(),
@@ -740,6 +749,91 @@ SQL,
                 'is_typed_land' => \Doctrine\DBAL\ParameterType::BOOLEAN,
                 'enters_tapped_conditionally' => \Doctrine\DBAL\ParameterType::BOOLEAN,
                 'can_enter_untapped' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+            ],
+        );
+    }
+
+    /**
+     * @param list<string> $methods
+     * @param list<string> $scope
+     */
+    private function insertBoardWipeProfile(
+        ?string $oracleId,
+        string $name,
+        string $type = 'hard_creature_wipe',
+        array $methods = ['destroy'],
+        array $scope = ['creatures'],
+        string $symmetry = 'symmetrical',
+        bool $hardCreature = false,
+        bool $modal = false,
+        bool $overload = false,
+        bool $answersIndestructible = false,
+    ): void {
+        self::assertNotNull($oracleId);
+        $this->connection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_board_wipe_profile (
+    oracle_id,
+    name,
+    mana_value,
+    is_board_wipe,
+    is_creature_wipe,
+    board_wipe_type,
+    wipe_method,
+    wipe_scope,
+    symmetry_profile,
+    effective_cost_min,
+    has_modes,
+    has_alternative_mass_mode,
+    alternative_cost_type,
+    mass_mode_type,
+    answers_indestructible,
+    gets_around_hexproof_shroud,
+    analysis_hash,
+    updated_at
+) VALUES (
+    :oracle_id,
+    :name,
+    4,
+    true,
+    :is_creature_wipe,
+    :board_wipe_type,
+    :wipe_method::jsonb,
+    :wipe_scope::jsonb,
+    :symmetry_profile,
+    4,
+    :has_modes,
+    :has_alternative_mass_mode,
+    :alternative_cost_type,
+    :mass_mode_type,
+    :answers_indestructible,
+    :gets_around_hexproof_shroud,
+    :analysis_hash,
+    NOW()
+)
+SQL,
+            [
+                'oracle_id' => $oracleId,
+                'name' => $name,
+                'is_creature_wipe' => $hardCreature || in_array('creatures', $scope, true),
+                'board_wipe_type' => $type,
+                'wipe_method' => json_encode($methods, JSON_THROW_ON_ERROR),
+                'wipe_scope' => json_encode($scope, JSON_THROW_ON_ERROR),
+                'symmetry_profile' => $symmetry,
+                'has_modes' => $modal,
+                'has_alternative_mass_mode' => $overload,
+                'alternative_cost_type' => $overload ? 'overload' : null,
+                'mass_mode_type' => in_array('bounce', $methods, true) ? 'mass_bounce' : 'board_wipe',
+                'answers_indestructible' => $answersIndestructible,
+                'gets_around_hexproof_shroud' => $hardCreature,
+                'analysis_hash' => hash('sha256', $oracleId.$name),
+            ],
+            [
+                'is_creature_wipe' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+                'has_modes' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+                'has_alternative_mass_mode' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+                'answers_indestructible' => \Doctrine\DBAL\ParameterType::BOOLEAN,
+                'gets_around_hexproof_shroud' => \Doctrine\DBAL\ParameterType::BOOLEAN,
             ],
         );
     }

@@ -16,6 +16,7 @@
         class="advanced-analysis-tab-panel"
         [class.is-active]="activeAnalysisTab() === 'summary'"
         [stats]="summaryStats()"
+        [boardWipes]="boardWipeOverview()"
         [typal]="typalIdentity()"
         [archetypes]="archetypeIdentities()"
       />
@@ -39,6 +40,18 @@
         [fixingCardGroups]="manaFixingCardGroups()"
         [demandRows]="manaDemandRows()"
         [manaIssues]="manaIssueItems()"
+      />
+
+      <app-advanced-analysis-board-wipes-section
+        class="advanced-analysis-tab-panel"
+        [class.is-active]="activeAnalysisTab() === 'boardWipes'"
+        [hasBoardWipes]="hasBoardWipeAnalysis()"
+        [summaryRows]="boardWipeStatGroups()"
+        [warningIssues]="boardWipeIssueItems()"
+        [details]="boardWipeDetailItems()"
+        [visibleCards]="visibleBoardWipeDetailItems()"
+        [hiddenCardCount]="hiddenBoardWipeDetailCount()"
+        (showAllDetails)="showAllBoardWipeDetails.set(true)"
       />
 
       <app-advanced-analysis-metrics-section

@@ -418,6 +418,7 @@ class Card
             'hasRulings' => $this->hasRulings,
             'allParts' => $this->allParts,
             'manaValue' => $this->manaValue,
+            'isGameChanger' => $this->isGameChanger,
             'producedMana' => $this->producedMana,
             'prices' => $this->prices,
             'layout' => $this->layout,

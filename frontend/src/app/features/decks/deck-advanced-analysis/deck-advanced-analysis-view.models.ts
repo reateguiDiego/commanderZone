@@ -44,6 +44,23 @@ export interface AdvancedIssueItem {
   readonly severity: string;
 }
 
+export interface BoardWipeOverview {
+  readonly stats: readonly AdvancedAnalysisStat[];
+  readonly mainIssue: AdvancedIssueItem | null;
+}
+
+export interface BoardWipeStatGroup {
+  readonly key: string;
+  readonly title: string;
+  readonly rows: readonly AdvancedAnalysisStat[];
+}
+
+export interface BoardWipeDetailItem extends AdvancedAnalysisCardGridItem {
+  readonly badges: readonly string[];
+  readonly manaValue: string;
+  readonly notes: readonly string[];
+}
+
 export interface ConsistencyMetricRow {
   readonly key: string;
   readonly label: string;
