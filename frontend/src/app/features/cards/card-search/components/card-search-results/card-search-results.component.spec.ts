@@ -39,6 +39,20 @@ describe('CardSearchResultsComponent', () => {
     expect(fixture.nativeElement.querySelector('.mtg-card-result img')?.getAttribute('src')).toBe('/sol-ring.jpg');
   });
 
+  it('renders the game changer icon next to a game changer card name in list mode', () => {
+    const fixture = TestBed.createComponent(CardSearchResultsComponent);
+    fixture.componentRef.setInput('results', [cardFixture({ isGameChanger: true })]);
+    fixture.componentRef.setInput('searched', true);
+    fixture.componentRef.setInput('viewMode', 'list');
+    fixture.detectChanges();
+
+    const icon = fixture.nativeElement.querySelector('.mtg-card-result__name app-game-changer-icon img.game-changer-icon') as HTMLImageElement | null;
+
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute('title')).toBe('Game Changer');
+    expect(icon?.getAttribute('alt')).toBe('Game Changer');
+  });
+
   it('opens an action context menu instead of navigating', () => {
     const fixture = TestBed.createComponent(CardSearchResultsComponent);
     fixture.componentRef.setInput('results', [cardFixture({ hasRulings: true })]);
@@ -68,6 +82,22 @@ describe('CardSearchResultsComponent', () => {
     expect(menu.textContent).toContain('View all printings');
     expect(menu.style.left).toBe('34px');
     expect(menu.style.top).toBe('142px');
+  });
+
+  it('renders the game changer icon in the shared context menu title', () => {
+    const fixture = TestBed.createComponent(CardSearchResultsComponent);
+    fixture.componentRef.setInput('results', [cardFixture({ isGameChanger: true })]);
+    fixture.componentRef.setInput('searched', true);
+    fixture.detectChanges();
+
+    const result = fixture.nativeElement.querySelector('.mtg-card-result') as HTMLElement;
+    result.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 18 }));
+    fixture.detectChanges();
+
+    const icon = fixture.nativeElement.querySelector('.common-card-menu__title app-game-changer-icon img.game-changer-icon') as HTMLImageElement | null;
+
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute('title')).toBe('Game Changer');
   });
 
   it('emits the selected context menu action', () => {

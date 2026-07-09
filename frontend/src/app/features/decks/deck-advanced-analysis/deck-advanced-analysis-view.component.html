@@ -1,4 +1,8 @@
 <section class="advanced-analysis-page">
+  <p class="advanced-analysis-work-in-progress app-disclaimer-callout" role="status" aria-live="polite">
+    We are still working on this page. It is currently provisional, and some details may change. Sorry for the inconvenience.
+  </p>
+
   @if (errorMessage()) {
     <app-advanced-analysis-state variant="error" [message]="errorMessage()" (retry)="retry.emit()" />
   } @else if (!hasAdvancedContent()) {
@@ -33,25 +37,30 @@
         [overviewRows]="manaOverviewRows()"
         [sourceRows]="manaSourceRows()"
         [sourceCardGroups]="manaSourceCardGroups()"
-        [landBaseCardGroups]="manaLandBaseCardGroups()"
-        [landCycleRows]="manaLandCycleRows()"
-        [rampCardGroups]="manaRampCardGroups()"
-        [fixingCardGroups]="manaFixingCardGroups()"
+        [sourceColorFilterOptions]="manaSourceColorFilterOptions()"
+        [sourceColorFilterValue]="manaSourceColorFilter()"
+        [baseAndAccelerationCardGroups]="manaBaseAndAccelerationCardGroups()"
         [demandRows]="manaDemandRows()"
-        [manaIssues]="manaIssueItems()"
+        (sourceColorFilterChange)="manaSourceColorFilter.set($event)"
       />
 
-      <app-advanced-analysis-metrics-section
-        class="advanced-analysis-tab-panel"
+      <div
+        class="advanced-analysis-tab-panel advanced-analysis-signals-panel"
         [class.is-active]="activeAnalysisTab() === 'metrics'"
-        [keyMetrics]="keyMetrics()"
-        [metricsUnavailable]="metricsUnavailable()"
-        [cardResolutionStats]="cardResolutionStats()"
-        [powerSignalCardGroups]="powerSignalCardGroups()"
-        [hasUnmatchedCards]="hasUnmatchedCards()"
-        [unmatchedCardCount]="unmatchedCardCount()"
-        [unmatchedCardItems]="unmatchedCardItems()"
-      />
+      >
+        <app-advanced-analysis-metrics-section
+          [keyMetrics]="keyMetrics()"
+          [metricsUnavailable]="metricsUnavailable()"
+          [cardResolutionStats]="cardResolutionStats()"
+          [powerSignalCardGroups]="powerSignalCardGroups()"
+          [hasUnmatchedCards]="hasUnmatchedCards()"
+          [unmatchedCardCount]="unmatchedCardCount()"
+          [unmatchedCardItems]="unmatchedCardItems()"
+        />
+        <app-advanced-analysis-roles-section
+          [cards]="roleBreakdownCards()"
+        />
+      </div>
 
       <app-advanced-analysis-combos-section
         class="advanced-analysis-tab-panel"
@@ -84,11 +93,6 @@
         [commanderCurveRows]="commanderCurveRows()"
       />
 
-      <app-advanced-analysis-roles-section
-        class="advanced-analysis-tab-panel"
-        [class.is-active]="activeAnalysisTab() === 'roles'"
-        [cards]="roleBreakdownCards()"
-      />
     </section>
   }
 </section>

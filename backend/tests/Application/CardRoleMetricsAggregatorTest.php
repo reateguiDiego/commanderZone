@@ -54,6 +54,101 @@ final class CardRoleMetricsAggregatorTest extends TestCase
         self::assertSame(1, $metrics['quality']['wipe']['good']);
     }
 
+    public function testBoardWipeLegacyMetricsAreProjectedFromDedicatedAnalyzer(): void
+    {
+        $aggregator = new CardRoleMetricsAggregator();
+        $metrics = $aggregator->aggregate([
+            $this->card(4, roles: ['board_wipe'], subroles: ['mass_bounce', 'pseudo_wipe', 'conditional_wipe']),
+        ], []);
+
+        $metrics = $aggregator->withBoardWipeMetrics($metrics, [
+            'hardCreatureWipes' => 1,
+            'massBounce' => 1,
+            'pseudoTotal' => 2,
+            'conditionalWipes' => 1,
+            'exileWipes' => 1,
+            'asymmetricalWipes' => 1,
+            'overloadedWipes' => 1,
+            'artifactWipes' => 1,
+            'enchantmentWipes' => 0,
+            'graveyardWipes' => 1,
+            'answersIndestructible' => 1,
+            'modalWipes' => 1,
+            'scalableWipes' => 1,
+            'combatOnlyWipes' => 1,
+            'details' => [
+                [
+                    'oracleId' => 'wipe-1',
+                    'deckCardId' => 'deck-wipe-1',
+                    'cardId' => 'card-wipe-1',
+                    'name' => 'Farewell',
+                    'quantity' => 1,
+                    'types' => ['modal_wipe', 'hard_wipe'],
+                    'methods' => ['exile', 'graveyard_exile'],
+                    'scope' => ['artifacts', 'creatures', 'graveyards'],
+                    'symmetry' => 'symmetrical',
+                    'isHardWipe' => true,
+                    'isPseudoWipe' => false,
+                    'isModal' => true,
+                    'isOverloaded' => false,
+                    'isScalable' => false,
+                    'answersIndestructible' => true,
+                ],
+                [
+                    'oracleId' => 'wipe-2',
+                    'deckCardId' => 'deck-wipe-2',
+                    'cardId' => 'card-wipe-2',
+                    'name' => 'Cyclonic Rift',
+                    'quantity' => 1,
+                    'types' => ['bounce_wipe', 'mass_bounce'],
+                    'methods' => ['bounce'],
+                    'scope' => ['nonland_permanents'],
+                    'symmetry' => 'one_sided',
+                    'isHardWipe' => false,
+                    'isPseudoWipe' => false,
+                    'isModal' => false,
+                    'isOverloaded' => true,
+                    'isScalable' => false,
+                    'answersIndestructible' => false,
+                ],
+                [
+                    'oracleId' => 'wipe-3',
+                    'deckCardId' => 'deck-wipe-3',
+                    'cardId' => 'card-wipe-3',
+                    'name' => 'Aetherize',
+                    'quantity' => 1,
+                    'types' => ['combat_only_wipe', 'pseudo_wipe'],
+                    'methods' => ['bounce'],
+                    'scope' => ['attacking_creatures'],
+                    'symmetry' => 'symmetrical',
+                    'isHardWipe' => false,
+                    'isPseudoWipe' => true,
+                    'isModal' => false,
+                    'isOverloaded' => false,
+                    'isScalable' => true,
+                    'answersIndestructible' => false,
+                ],
+            ],
+        ]);
+
+        self::assertSame(1, $metrics['roles']['boardWipes']);
+        self::assertSame(1, $metrics['roles']['massBounce']);
+        self::assertSame(2, $metrics['roles']['pseudoWipes']);
+        self::assertSame(1, $metrics['roles']['conditionalWipes']);
+        self::assertSame(1, $metrics['roles']['exileWipes']);
+        self::assertSame(1, $metrics['roles']['asymmetricalWipes']);
+        self::assertSame(1, $metrics['roles']['overloadedWipes']);
+        self::assertSame(1, $metrics['roles']['artifactWipes']);
+        self::assertSame(1, $metrics['roles']['graveyardWipes']);
+        self::assertSame(1, $metrics['roles']['answersIndestructibleWipes']);
+        self::assertSame(1, $metrics['roles']['modalWipes']);
+        self::assertSame(1, $metrics['roles']['scalableWipes']);
+        self::assertSame(1, $metrics['roles']['combatOnlyWipes']);
+        self::assertSame(['deck-wipe-1'], array_column($metrics['roleCards']['boardWipes'], 'deckCardId'));
+        self::assertSame(['deck-wipe-2'], array_column($metrics['roleCards']['massBounce'], 'deckCardId'));
+        self::assertSame(['deck-wipe-3'], array_column($metrics['roleCards']['combatOnlyWipes'], 'deckCardId'));
+    }
+
     public function testLandSearchRampDoesNotInflateTrueTutors(): void
     {
         $metrics = $this->aggregate([
@@ -76,7 +171,8 @@ final class CardRoleMetricsAggregatorTest extends TestCase
                 'isLand' => true,
                 'isColorFixing' => true,
                 'manaSourceCategory' => 'fetchland',
-            ]),
+                'fetchableLandTypes' => ['Plains', 'Island'],
+            ], colorIdentity: ['W', 'U']),
         ]);
 
         self::assertSame(0, $metrics['roles']['trueTutors']);
@@ -85,6 +181,27 @@ final class CardRoleMetricsAggregatorTest extends TestCase
         self::assertSame(0, $metrics['roles']['rampSearch']);
         self::assertSame(10, $metrics['roles']['fetchlands']);
         self::assertSame(10, $metrics['roles']['manaFixing']);
+    }
+
+    public function testSingleColorManaSourcesDoNotCountAsFixing(): void
+    {
+        $metrics = $this->aggregate([
+            $this->card(1, manaProfile: [
+                'isManaRock' => true,
+                'isColorFixing' => true,
+                'manaSourceCategory' => 'mana_rock',
+                'producedManaColors' => ['B'],
+            ], colorIdentity: ['W', 'U', 'B']),
+            $this->card(1, manaProfile: [
+                'isManaRock' => true,
+                'isColorFixing' => true,
+                'manaSourceCategory' => 'mana_rock',
+                'producedManaColors' => ['W', 'U'],
+            ], colorIdentity: ['W', 'U', 'B']),
+        ]);
+
+        self::assertSame(1, $metrics['roles']['colorFixing']);
+        self::assertSame(1, $metrics['roles']['manaFixing']);
     }
 
     public function testGreenLandRampDoesNotInflateTutors(): void
@@ -257,6 +374,7 @@ final class CardRoleMetricsAggregatorTest extends TestCase
         array $conditionKeys = [],
         array $manaProfile = [],
         ?string $name = null,
+        array $colorIdentity = [],
     ): array
     {
         $id = 'test-card-'.substr(hash('sha256', serialize([$quantity, $roles, $subroles, $roleScores, $conditionKeys, $manaProfile, $name])), 0, 12);
@@ -277,6 +395,7 @@ final class CardRoleMetricsAggregatorTest extends TestCase
                 'subroles' => $subroles,
                 'roleScores' => $roleScores,
                 'conditionKeys' => $conditionKeys,
+                'colorIdentity' => $colorIdentity,
                 'powerFlags' => [],
                 'flags' => [],
                 'types' => ['land' => in_array('land', $roles, true)],

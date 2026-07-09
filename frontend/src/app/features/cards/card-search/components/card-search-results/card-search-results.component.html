@@ -35,7 +35,12 @@
       </span>
 
       @if (viewMode() === 'list') {
-        <span class="mtg-card-result__name">{{ card.name }}</span>
+        <span class="mtg-card-result__name">
+          <span>{{ card.name }}</span>
+          @if (card.isGameChanger) {
+            <app-game-changer-icon />
+          }
+        </span>
 
         @if (hasAlternateFace(card)) {
           <span
@@ -77,6 +82,7 @@
 @if (contextMenu(); as menu) {
   <app-common-card-menu
     [title]="menu.card.name"
+    [titleIsGameChanger]="menu.card.isGameChanger === true"
     [actions]="contextActionsFor(menu.card)"
     [top]="menu.top"
     [left]="menu.left"

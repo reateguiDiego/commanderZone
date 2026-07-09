@@ -775,10 +775,10 @@ SQL,
         foreach ([$damnationId, $farewellId] as $oracleId) {
             self::assertTrue($this->hasRole($oracleId, 'board_wipe'));
         }
-        foreach ([$riftId, $aetherizeId] as $oracleId) {
-            self::assertFalse($this->hasRole($oracleId, 'board_wipe'));
-            self::assertTrue($this->hasSubrole($oracleId, 'mass_bounce'));
-        }
+        self::assertFalse($this->hasRole($riftId, 'board_wipe'));
+        self::assertTrue($this->hasSubrole($riftId, 'mass_bounce'));
+        self::assertFalse($this->hasRole($aetherizeId, 'board_wipe'));
+        self::assertTrue($this->hasSubrole($aetherizeId, 'pseudo_wipe'));
         foreach ([$balefireId, $blastZoneId] as $oracleId) {
             self::assertFalse($this->hasRole($oracleId, 'board_wipe'));
             self::assertTrue($this->hasSubrole($oracleId, 'conditional_wipe'));

@@ -127,6 +127,9 @@ final class ScryfallGameChangerSyncService
             $changed = $this->connection->executeStatement(
                 'UPDATE card_oracle_profile SET is_game_changer = false, updated_at = NOW() WHERE is_game_changer = true',
             );
+            $changed += $this->connection->executeStatement(
+                'UPDATE card SET is_game_changer = false, updated_at = NOW() WHERE is_game_changer = true',
+            );
 
             if ($oracleIds === []) {
                 return $changed;
@@ -134,6 +137,11 @@ final class ScryfallGameChangerSyncService
 
             $changed += $this->connection->executeStatement(
                 'UPDATE card_oracle_profile SET is_game_changer = true, updated_at = NOW() WHERE oracle_id IN (:oracle_ids)',
+                ['oracle_ids' => $oracleIds],
+                ['oracle_ids' => ArrayParameterType::STRING],
+            );
+            $changed += $this->connection->executeStatement(
+                'UPDATE card SET is_game_changer = true, updated_at = NOW() WHERE oracle_id IN (:oracle_ids)',
                 ['oracle_ids' => $oracleIds],
                 ['oracle_ids' => ArrayParameterType::STRING],
             );

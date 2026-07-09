@@ -49,6 +49,7 @@ export interface AdvancedSummary {
   archetypeConfidence?: AdvancedArchetypeConfidence | string | null;
   archetypeExplanations?: AdvancedArchetypeExplanation[];
   mainStrengths?: string[];
+  mainWarnings?: string[];
   criticalIssues?: string[];
 }
 
@@ -63,6 +64,7 @@ export type AdvancedHealth = Record<string, AdvancedHealthSection | string | num
 export interface AdvancedHealthSection {
   status?: AdvancedHealthStatus | string | null;
   message?: string | null;
+  reasonCode?: string | null;
   evidence?: AdvancedAnalysisMap | null;
   cards?: AdvancedMetricCardReference[];
   value?: number | null;
@@ -75,9 +77,65 @@ export interface AdvancedMetrics {
   cards?: AdvancedCardMetrics | null;
   roles?: AdvancedRoleMetrics | null;
   mana?: AdvancedManaMetrics | null;
+  boardWipes?: AdvancedBoardWipeMetrics | null;
   roleCards?: AdvancedRoleCardGroups | null;
   qualityCards?: AdvancedQualityCardGroups | null;
   quality?: AdvancedQualityMetricGroups | null;
+}
+
+export interface AdvancedBoardWipeMetrics {
+  total?: number;
+  hardTotal?: number;
+  pseudoTotal?: number;
+  creatureWipes?: number;
+  hardCreatureWipes?: number;
+  exileWipes?: number;
+  destroyWipes?: number;
+  sacrificeWipes?: number;
+  bounceWipes?: number;
+  massBounce?: number;
+  damageWipes?: number;
+  minusXMinusXWipes?: number;
+  artifactWipes?: number;
+  enchantmentWipes?: number;
+  artifactEnchantmentWipes?: number;
+  graveyardWipes?: number;
+  nonlandPermanentWipes?: number;
+  allPermanentWipes?: number;
+  modalWipes?: number;
+  conditionalWipes?: number;
+  asymmetricalWipes?: number;
+  oneSidedWipes?: number;
+  overloadedWipes?: number;
+  scalableWipes?: number;
+  instantSpeedWipes?: number;
+  permanentBasedWipes?: number;
+  repeatableWipes?: number;
+  combatOnlyWipes?: number;
+  answersIndestructible?: number;
+  getsAroundHexproof?: number;
+  opponentCompensationWipes?: number;
+  effectiveLowCostWipes?: number;
+  selfPlanRiskWipes?: number;
+  averageManaValue?: number | null;
+  details?: AdvancedBoardWipeDetail[];
+}
+
+export interface AdvancedBoardWipeDetail extends AdvancedCardReferenceObject {
+  cardId?: string | null;
+  types?: string[];
+  methods?: string[];
+  scope?: string[];
+  symmetry?: string | null;
+  manaValue?: number | null;
+  effectiveCostMin?: number | null;
+  isHardWipe?: boolean;
+  isPseudoWipe?: boolean;
+  isModal?: boolean;
+  isOverloaded?: boolean;
+  isScalable?: boolean;
+  answersIndestructible?: boolean;
+  notes?: string[];
 }
 
 export interface AdvancedCardMetrics {

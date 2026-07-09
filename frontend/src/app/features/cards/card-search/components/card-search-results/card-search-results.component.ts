@@ -5,6 +5,7 @@ import { CardFaceImageComponent } from '../../../../../shared/components/card-fa
 import { CardFaceToggleButtonComponent } from '../../../../../shared/components/card-face-toggle-button/card-face-toggle-button.component';
 import { cardFaceImage, hasAlternateCardFace } from '../../../../../shared/utils/card-faces';
 import { CommonCardMenuAction, CommonCardMenuComponent } from '../../../../../shared/ui/common-card-menu/common-card-menu.component';
+import { GameChangerIconComponent } from '../../../../../shared/ui/game-changer-icon/game-changer-icon.component';
 import { CardSearchViewMode } from '../../card-search.models';
 
 interface CardContextMenuState {
@@ -39,7 +40,7 @@ export interface CardSearchResultActionEvent {
 
 @Component({
   selector: 'app-card-search-results',
-  imports: [CardFaceImageComponent, CardFaceToggleButtonComponent, RuntimeTranslatePipe, CommonCardMenuComponent],
+  imports: [CardFaceImageComponent, CardFaceToggleButtonComponent, RuntimeTranslatePipe, CommonCardMenuComponent, GameChangerIconComponent],
   templateUrl: './card-search-results.component.html',
   styleUrl: './card-search-results.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

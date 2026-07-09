@@ -236,8 +236,9 @@ SQL,
         $isLandSearchToBattlefield = !$isFetchland && $this->isLandSearchToBattlefield($profile);
         $isLandSearchToHand = !$isFetchland && $this->isLandSearchToHand($profile);
         $isLandTutor = !$isFetchland && !$isLandSearchToBattlefield && $this->isLandTutor($profile);
-        $isOneShotMana = $this->isOneShotMana($profile);
-        $isCostReducer = $this->isCostReducer($profile);
+        $directlyAddsMana = $this->directlyAddsMana($profile);
+        $isOneShotMana = $this->isOneShotMana($profile, $directlyAddsMana);
+        $isCostReducer = $this->isCostReducer($profile, $isLand);
         $cycle = $this->landCycle($profile, $isLand, $isMdfcLand, $isFetchland, $basicLandTypes, $producedMana);
         $risks = $cycle['risks'];
         $synergies = $cycle['synergies'];
@@ -247,16 +248,16 @@ SQL,
         $requiresInputMana = $this->requiresInputMana($profile, $cycle['type']);
         $requiresOpponentMana = str_contains($text, 'opponent') && (str_contains($text, 'could produce') || str_contains($text, 'opponents'));
         $requiresExistingSource = $requiresInputMana || in_array($cycle['type'], ['filterland'], true);
-        $isManaRock = !$isLand && $profile['is_artifact'] && $producedMana !== [] && !$isOneShotMana;
-        $isManaDork = !$isLand && $profile['is_creature'] && $producedMana !== [] && !$isOneShotMana;
-        $isRitual = $this->isRitual($profile);
+        $isManaRock = !$isLand && $profile['is_artifact'] && $directlyAddsMana && !$isOneShotMana;
+        $isManaDork = !$isLand && $profile['is_creature'] && $directlyAddsMana && !$isOneShotMana && !str_contains($text, 'treasure');
+        $isRitual = $this->isRitual($profile, $directlyAddsMana);
         $isBurstMana = $isOneShotMana || $isRitual;
         $isLandRamp = $isLandSearchToBattlefield && !$isLand;
         $isFastMana = $this->isFastMana($profile);
         $isColorFixing = count(array_intersect($producedMana, self::MANA_COLORS)) > 1
-            || $cycle['fixing'] !== 'mono_color'
-            && !in_array($cycle['fixing'], ['colorless', 'unknown'], true)
-            || $isFetchland;
+            || ($cycle['fixing'] !== 'mono_color' && !in_array($cycle['fixing'], ['colorless', 'unknown'], true))
+            || $isFetchland
+            || $this->isFlexibleLandSearch($profile);
         $category = $this->manaSourceCategory($profile, $isLand, $isFetchland, $isManaRock, $isManaDork, $isRitual, $isLandRamp, $isLandTutor, $isLandSearchToBattlefield, $isCostReducer, $cycle['type']);
 
         if ($requiresLifePayment) {
@@ -472,7 +473,23 @@ SQL,
     /**
      * @param array<string,mixed> $profile
      */
-    private function isOneShotMana(array $profile): bool
+    private function isFlexibleLandSearch(array $profile): bool
+    {
+        if (!str_contains($profile['text'], 'search your library') || !$this->searchesLand($profile)) {
+            return false;
+        }
+
+        if (preg_match('/search your library for (a |an |up to one |up to two |any number of )?(basic land|land) cards?/', $profile['text']) === 1) {
+            return true;
+        }
+
+        return count($this->fetchableLandTypes($profile)) >= 2;
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     */
+    private function isOneShotMana(array $profile, bool $directlyAddsMana): bool
     {
         if (in_array($profile['normalized_name'], [
             'black lotus',
@@ -494,25 +511,30 @@ SQL,
         }
 
         return ($profile['is_instant'] || $profile['is_sorcery'])
-            && ($profile['produced_mana'] !== [] || preg_match('/\badd(s)?\b.*\bmana\b/', $profile['text']) === 1)
+            && $directlyAddsMana
             || preg_match('/\bsacrifice this (artifact|creature|land): add\b/', $profile['text']) === 1;
     }
 
     /**
      * @param array<string,mixed> $profile
      */
-    private function isRitual(array $profile): bool
+    private function isRitual(array $profile, bool $directlyAddsMana): bool
     {
-        return $this->isOneShotMana($profile)
+        return $this->isOneShotMana($profile, $directlyAddsMana)
             && ($profile['is_instant'] || $profile['is_sorcery'] || str_contains($profile['text'], 'sacrifice this'));
     }
 
     /**
      * @param array<string,mixed> $profile
      */
-    private function isCostReducer(array $profile): bool
+    private function isCostReducer(array $profile, bool $isLand): bool
     {
-        return preg_match('/costs?\b[^.]*\bless/', $profile['text']) === 1
+        if ($isLand) {
+            return false;
+        }
+
+        return preg_match('/\b(spells?|creature spells?|artifact spells?|enchantment spells?|instant and sorcery spells?|activated abilities of artifacts) (you cast )?costs?\b[^.]*\bless\b[^.]*\bto cast\b/', $profile['text']) === 1
+            || preg_match('/\bcosts?\b[^.]*\bless\b[^.]*\bto cast\b/', $profile['text']) === 1
             || in_array($profile['normalized_name'], [
                 'goblin electromancer',
                 'foundry inspector',
@@ -528,7 +550,7 @@ SQL,
      */
     private function isFastMana(array $profile): bool
     {
-        return in_array($profile['normalized_name'], [
+        return !$profile['is_land'] && in_array($profile['normalized_name'], [
             'sol ring',
             'mana crypt',
             'mox diamond',
@@ -538,6 +560,17 @@ SQL,
             'lion\'s eye diamond',
             'black lotus',
         ], true);
+    }
+
+    /**
+     * @param array<string,mixed> $profile
+     */
+    private function directlyAddsMana(array $profile): bool
+    {
+        $text = $profile['text'];
+
+        return preg_match('/(^|[.:]\s+|,\s+|;\s+)\badd(s)?\b[^.]*?(\{[wubrgc]\}|mana)/', $text) === 1
+            || preg_match('/\b(add|adds)\b[^.]*?\b(one|two|three|four|five|six|seven|eight|nine|ten|x)\b[^.]*?\bmana\b/', $text) === 1;
     }
 
     /**
@@ -608,8 +641,15 @@ SQL,
      */
     private function requiresInputMana(array $profile, string $cycleType): bool
     {
-        return $cycleType === 'filterland'
-            || preg_match('/\{[wubrgc]\}.*add/i', $profile['text']) === 1
+        if ($cycleType === 'filterland') {
+            return true;
+        }
+
+        if (!$this->directlyAddsMana($profile)) {
+            return false;
+        }
+
+        return preg_match('/\{[wubrgc]\}[^.]*\badd(s)?\b/i', $profile['text']) === 1
             || str_contains($profile['text'], 'filter');
     }
 

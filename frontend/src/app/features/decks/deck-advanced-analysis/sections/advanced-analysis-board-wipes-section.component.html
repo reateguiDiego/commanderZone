@@ -1,0 +1,87 @@
+@if (hasBoardWipes()) {
+  <section class="advanced-analysis-section advanced-analysis-board-wipes" [attr.aria-label]="'deckBuilder.advancedAnalysis.boardWipes.title' | runtimeTranslate">
+    <div class="advanced-analysis-board-wipe-grid">
+      @for (group of summaryRows(); track group.key) {
+        <article class="advanced-analysis-board-wipe-panel advanced-analysis-card-frame">
+          <h3>{{ group.title }}</h3>
+          <dl class="advanced-analysis-board-wipe-stat-list">
+            @for (stat of group.rows; track stat.label) {
+              <div>
+                <dt>{{ stat.label }}</dt>
+                <dd>{{ stat.value }}</dd>
+              </div>
+            }
+          </dl>
+        </article>
+      }
+
+      <article class="advanced-analysis-board-wipe-panel advanced-analysis-card-frame advanced-analysis-board-wipe-panel--wide">
+        <h3>{{ 'deckBuilder.advancedAnalysis.boardWipes.warnings' | runtimeTranslate }}</h3>
+        @if (warningIssues().length > 0) {
+          <ul class="advanced-analysis-board-wipe-issues">
+            @for (issue of warningIssues(); track issue.code) {
+              <li>
+                <span>{{ issue.title }}</span>
+                <small>{{ issue.message }}</small>
+                <em>{{ issue.severity }}</em>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.boardWipes.noIssues' | runtimeTranslate }}</p>
+        }
+      </article>
+
+      <article class="advanced-analysis-board-wipe-panel advanced-analysis-card-frame advanced-analysis-board-wipe-panel--wide">
+        <div class="advanced-analysis-board-wipe-panel__header">
+          <h3>{{ 'deckBuilder.advancedAnalysis.boardWipes.details' | runtimeTranslate }}</h3>
+          @if (hiddenCardCount() > 0) {
+            <button
+              czButton="text"
+              czButtonSize="sm"
+              type="button"
+              [attr.aria-label]="'deckBuilder.advancedAnalysis.boardWipes.viewMoreDetailsAria' | runtimeTranslate"
+              (click)="showAllDetails.emit()"
+            >
+              {{ 'deckBuilder.advancedAnalysis.boardWipes.viewMore' | runtimeTranslate }}
+            </button>
+          }
+        </div>
+
+        @if (details().length > 0) {
+          <app-advanced-analysis-card-grid
+            [title]="'deckBuilder.advancedAnalysis.boardWipes.detectedWipes' | runtimeTranslate"
+            [cards]="visibleCards()"
+            [hiddenCount]="hiddenCardCount()"
+          />
+          <ol class="advanced-analysis-board-wipe-detail-list">
+            @for (item of visibleCards(); track item.id) {
+              <li>
+                <div>
+                  <strong>{{ item.name }}</strong>
+                  <small>{{ 'deckBuilder.advancedAnalysis.boardWipes.manaValue' | runtimeTranslate }}: {{ item.manaValue }}</small>
+                </div>
+                @if (item.badges.length > 0) {
+                  <div class="advanced-analysis-board-wipe-badges">
+                    @for (badge of item.badges; track badge) {
+                      <em>{{ badge }}</em>
+                    }
+                  </div>
+                }
+                @if (item.notes.length > 0) {
+                  <small class="advanced-analysis-board-wipe-notes">{{ item.notes.join(', ') }}</small>
+                }
+              </li>
+            }
+          </ol>
+        } @else {
+          <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.boardWipes.noDetectedWipes' | runtimeTranslate }}</p>
+        }
+      </article>
+    </div>
+  </section>
+} @else {
+  <section class="advanced-analysis-section advanced-analysis-board-wipes" [attr.aria-label]="'deckBuilder.advancedAnalysis.boardWipes.title' | runtimeTranslate">
+    <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.boardWipes.unavailable' | runtimeTranslate }}</p>
+  </section>
+}

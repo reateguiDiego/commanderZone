@@ -9,6 +9,8 @@ export interface DeckCard {
   quantity: number;
   section: DeckSection;
   card: Card;
+  analysisBadges?: readonly string[];
+  showSingleAnalysisBadge?: boolean;
 }
 
 export interface Deck {

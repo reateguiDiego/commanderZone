@@ -19,6 +19,7 @@ import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-
 import { runDeckFaceToggleAnimation } from './deck-face-toggle-animation';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
+import { GameChangerIconComponent } from '../../../shared/ui/game-changer-icon/game-changer-icon.component';
 import { TabListComponent, type TabListItem } from '../../../shared/ui/tab-list/tab-list.component';
 import { TooltipComponent } from '../../../shared/ui/tooltip/tooltip.component';
 import { CardFaceImageComponent } from '../../../shared/components/card-face-image/card-face-image.component';
@@ -42,6 +43,7 @@ import { deckEditorIdentifier } from '../utils/deck-route';
     DeckCardTextViewComponent,
     CzButtonDirective,
     GlobalLoaderComponent,
+    GameChangerIconComponent,
     TabListComponent,
     TooltipComponent,
     CardFaceImageComponent,

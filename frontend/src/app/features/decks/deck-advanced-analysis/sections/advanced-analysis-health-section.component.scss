@@ -96,6 +96,10 @@ h3 {
   line-height: 1.35;
 }
 
+.advanced-analysis-health-card__reason {
+  color: var(--status-color);
+}
+
 .advanced-analysis-health-card dl div {
   display: grid;
   gap: 0.15rem;

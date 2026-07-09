@@ -1218,7 +1218,8 @@ SELECT
     collector_number,
     lang,
     printed_name,
-    flavor_name
+    flavor_name,
+    is_game_changer
 FROM card
 WHERE id IN (:ids)
 SQL,
@@ -1284,6 +1285,7 @@ SQL,
             'lang' => $this->nullableString($row['lang'] ?? null),
             'printedName' => $printedName,
             'flavorName' => $this->nullableString($row['flavor_name'] ?? null),
+            'isGameChanger' => (bool) ($row['is_game_changer'] ?? false),
         ];
     }
 

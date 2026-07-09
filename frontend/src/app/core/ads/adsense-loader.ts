@@ -42,7 +42,6 @@ export function loadGoogleAdsenseScript(
   script.async = true;
   script.src = `${ADSENSE_SCRIPT_BASE_URL}?client=${encodeURIComponent(client)}`;
   script.crossOrigin = 'anonymous';
-  script.setAttribute('data-cz-managed-adsense', 'true');
 
   documentRef.head.appendChild(script);
   return true;

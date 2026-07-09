@@ -371,6 +371,8 @@ describe('API services', () => {
     expect(request.request.method).toBe('GET');
     expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
     request.flush(deckAdvancedAnalysisFixture());
+    http.expectNone(`${API_BASE_URL}/community/decks/atraxa-control-a7f3c9d2/analysis/advanced`);
+    http.expectNone(`${API_BASE_URL}/decks/deck-1/analysis/advanced`);
 
     expect(responses[0]?.deckId).toBe('deck-1');
     expect(responses[0]?.summary?.primaryArchetype).toBe('tokens');

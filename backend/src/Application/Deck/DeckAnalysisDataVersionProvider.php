@@ -9,6 +9,7 @@ final class DeckAnalysisDataVersionProvider
 {
     public const KEY_SEMANTIC = 'semantic';
     public const KEY_MANA = 'mana';
+    public const KEY_BOARD_WIPE = 'board_wipe';
     public const KEY_COMBO = 'combo';
     public const KEY_RULES = 'rules';
 
@@ -23,8 +24,14 @@ final class DeckAnalysisDataVersionProvider
      */
     public function currentVersions(): array
     {
+        $semanticVersion = $this->version(self::KEY_SEMANTIC);
+        $boardWipeVersion = $this->version(self::KEY_BOARD_WIPE);
+        if ($boardWipeVersion !== self::DEFAULT_VERSION) {
+            $semanticVersion .= '|'.self::KEY_BOARD_WIPE.':'.$boardWipeVersion;
+        }
+
         return [
-            self::KEY_SEMANTIC => $this->version(self::KEY_SEMANTIC),
+            self::KEY_SEMANTIC => $semanticVersion,
             self::KEY_MANA => $this->version(self::KEY_MANA),
             self::KEY_COMBO => $this->version(self::KEY_COMBO),
             self::KEY_RULES => $this->version(self::KEY_RULES),
@@ -39,6 +46,11 @@ final class DeckAnalysisDataVersionProvider
     public function setManaVersion(string $version): string
     {
         return $this->setVersion(self::KEY_MANA, $version);
+    }
+
+    public function setBoardWipeVersion(string $version): string
+    {
+        return $this->setVersion(self::KEY_BOARD_WIPE, $version);
     }
 
     public function touchMana(): string

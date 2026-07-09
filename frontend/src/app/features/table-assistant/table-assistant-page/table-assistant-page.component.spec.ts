@@ -25,12 +25,14 @@ describe('TableAssistantPageComponent', () => {
 
     expect(pageHeader.state()?.title).toBe('Table Assistant');
     expect(pageHeader.state()?.actions?.[0]?.label).toBe('Start game');
+    expect(fixture.nativeElement.textContent).toContain('We are still working on this page.');
     expect(fixture.nativeElement.textContent).toContain('Manual Commander table');
 
     pageHeader.state()?.actions?.[0]?.execute();
     fixture.detectChanges();
 
     expect(pageHeader.state()?.actions?.[0]?.disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('We are still working on this page.');
     expect(fixture.nativeElement.textContent).toContain('Configure the table');
     expect(fixture.nativeElement.textContent).not.toContain('Un movil por jugador');
   });

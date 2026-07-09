@@ -74,6 +74,240 @@ final class DeckAdvancedIssueDetectorTest extends TestCase
         self::assertContains('wipes_are_mostly_bounce_or_conditional', $this->issueCodes($issues));
     }
 
+    public function testWipeIssuesUseDedicatedBoardWipeMetricsWhenAvailable(): void
+    {
+        $issues = $this->detect(
+            [
+                'boardWipes' => 5,
+                'massBounce' => 0,
+                'pseudoWipes' => 0,
+                'conditionalWipes' => 0,
+            ],
+            boardWipes: [
+                'hardTotal' => 1,
+                'hardCreatureWipes' => 1,
+                'massBounce' => 2,
+                'pseudoTotal' => 1,
+                'conditionalWipes' => 1,
+                'selfPlanRiskWipes' => 2,
+            ],
+        );
+
+        $codes = $this->issueCodes($issues);
+        self::assertContains('low_hard_board_wipes', $codes);
+        self::assertContains('wipes_are_mostly_bounce_or_conditional', $codes);
+        self::assertContains('board_wipes_self_plan_risk', $codes);
+    }
+
+    public function testArtifactOnlyWipesDoNotSatisfyHardBoardWipeRequirement(): void
+    {
+        $issues = $this->detect(
+            ['boardWipes' => 0],
+            boardWipes: [
+                'hardTotal' => 0,
+                'hardCreatureWipes' => 0,
+                'artifactWipes' => 3,
+                'massBounce' => 0,
+                'pseudoTotal' => 0,
+                'conditionalWipes' => 0,
+            ],
+        );
+
+        self::assertContains('low_hard_board_wipes', $this->issueCodes($issues));
+    }
+
+    public function testNoWipesControlCreatesLowHardBoardWipeIssue(): void
+    {
+        $issues = $this->detect(
+            ['boardWipes' => 0],
+            archetypes: ['primary' => 'control', 'secondary' => [], 'confidence' => 'medium'],
+            boardWipes: $this->boardWipes([
+                'total' => 0,
+                'hardTotal' => 0,
+                'hardCreatureWipes' => 0,
+            ]),
+        );
+
+        $lowWipe = $this->issueByCode($issues, 'low_hard_board_wipes');
+        self::assertNotNull($lowWipe);
+        self::assertSame('critical', $lowWipe['severity']);
+        self::assertSame('add_hard_creature_wipe', $lowWipe['suggestedActionType']);
+    }
+
+    public function testPseudoOnlyWipesCreateSpecificPseudoIssue(): void
+    {
+        $issues = $this->detect(
+            [],
+            boardWipes: $this->boardWipes([
+                'total' => 2,
+                'hardTotal' => 0,
+                'hardCreatureWipes' => 0,
+                'pseudoTotal' => 2,
+                'combatOnlyWipes' => 2,
+            ]),
+        );
+
+        self::assertContains('wipes_are_mostly_pseudo', $this->issueCodes($issues));
+    }
+
+    public function testBounceOnlyWipesCreateSpecificBounceIssue(): void
+    {
+        $issues = $this->detect(
+            [],
+            boardWipes: $this->boardWipes([
+                'total' => 2,
+                'hardTotal' => 0,
+                'hardCreatureWipes' => 0,
+                'massBounce' => 2,
+            ]),
+        );
+
+        self::assertContains('wipes_are_mostly_bounce', $this->issueCodes($issues));
+    }
+
+    public function testHardWipesWithoutExileOrMinusXWarnAboutIndestructible(): void
+    {
+        $issues = $this->detect(
+            [],
+            boardWipes: $this->boardWipes([
+                'total' => 2,
+                'hardTotal' => 2,
+                'hardCreatureWipes' => 2,
+                'destroyWipes' => 1,
+                'damageWipes' => 1,
+                'answersIndestructible' => 0,
+            ]),
+        );
+
+        $issue = $this->issueByCode($issues, 'no_indestructible_answer');
+        self::assertNotNull($issue);
+        self::assertSame('add_wipe_that_answers_indestructible', $issue['suggestedActionType']);
+    }
+
+    public function testModalFlexibleWipesCreateStrengthSignal(): void
+    {
+        $issues = $this->detect(
+            [],
+            boardWipes: $this->boardWipes([
+                'total' => 2,
+                'hardTotal' => 2,
+                'hardCreatureWipes' => 2,
+                'modalWipes' => 2,
+                'answersIndestructible' => 1,
+            ]),
+        );
+
+        self::assertContains('modal_wipe_strength', $this->issueCodes($issues));
+    }
+
+    public function testAsymmetricalWipesCreateStrengthSignal(): void
+    {
+        $issues = $this->detect(
+            [],
+            boardWipes: $this->boardWipes([
+                'total' => 2,
+                'hardTotal' => 2,
+                'hardCreatureWipes' => 2,
+                'asymmetricalWipes' => 2,
+                'oneSidedWipes' => 1,
+                'answersIndestructible' => 1,
+            ]),
+        );
+
+        self::assertContains('asymmetrical_wipe_strength', $this->issueCodes($issues));
+    }
+
+    public function testCreatureHeavyDeckWithSymmetricalWipesCreatesCollisionIssue(): void
+    {
+        $issues = $this->detect(
+            ['tokenMakers' => 8],
+            archetypes: ['primary' => 'tokens', 'secondary' => [], 'confidence' => 'medium'],
+            boardWipes: $this->boardWipes([
+                'total' => 4,
+                'hardTotal' => 4,
+                'hardCreatureWipes' => 4,
+                'selfPlanRiskWipes' => 4,
+                'answersIndestructible' => 1,
+            ]),
+        );
+
+        self::assertContains('too_many_symmetrical_wipes_for_creature_deck', $this->issueCodes($issues));
+        self::assertContains('own_plan_collision_wipes', $this->issueCodes($issues));
+    }
+
+    public function testArtifactDeckWithArtifactWipeCreatesOwnPlanCollisionIssue(): void
+    {
+        $issues = $this->detect(
+            [],
+            archetypes: ['primary' => 'artifacts', 'secondary' => [], 'confidence' => 'medium'],
+            boardWipes: $this->boardWipes([
+                'total' => 1,
+                'hardTotal' => 0,
+                'artifactWipes' => 1,
+                'selfPlanRiskWipes' => 1,
+                'details' => [
+                    ['name' => 'Bane of Progress', 'manaValue' => 6, 'effectiveCostMin' => 6, 'notes' => ['artifact_plan_risk']],
+                ],
+            ]),
+        );
+
+        $issue = $this->issueByCode($issues, 'own_plan_collision_wipes');
+        self::assertNotNull($issue);
+        self::assertContains('artifact_plan_risk', $issue['evidence']['riskNotes']);
+    }
+
+    public function testExpensiveWipePackageCreatesCostIssue(): void
+    {
+        $issues = $this->detect(
+            [],
+            archetypes: ['primary' => 'control', 'secondary' => [], 'confidence' => 'medium'],
+            boardWipes: $this->boardWipes([
+                'total' => 3,
+                'hardTotal' => 3,
+                'hardCreatureWipes' => 3,
+                'answersIndestructible' => 1,
+                'effectiveLowCostWipes' => 0,
+                'averageManaValue' => 7.0,
+                'details' => [
+                    ['name' => 'In Garruk\'s Wake', 'manaValue' => 9, 'effectiveCostMin' => 9, 'notes' => []],
+                    ['name' => 'Ruinous Ultimatum', 'manaValue' => 7, 'effectiveCostMin' => 7, 'notes' => []],
+                    ['name' => 'Hour of Revelation', 'manaValue' => 6, 'effectiveCostMin' => 6, 'notes' => []],
+                ],
+            ]),
+        );
+
+        self::assertContains('expensive_wipe_package', $this->issueCodes($issues));
+        self::assertContains('no_cheap_emergency_wipe', $this->issueCodes($issues));
+    }
+
+    public function testBalancedBoardWipePackageDoesNotCreateCriticalWipeIssues(): void
+    {
+        $issues = $this->detect(
+            [],
+            archetypes: ['primary' => 'control', 'secondary' => [], 'confidence' => 'medium'],
+            boardWipes: $this->boardWipes([
+                'total' => 4,
+                'hardTotal' => 3,
+                'hardCreatureWipes' => 2,
+                'massBounce' => 1,
+                'exileWipes' => 1,
+                'minusXMinusXWipes' => 1,
+                'artifactEnchantmentWipes' => 1,
+                'graveyardWipes' => 1,
+                'modalWipes' => 1,
+                'asymmetricalWipes' => 1,
+                'answersIndestructible' => 2,
+                'effectiveLowCostWipes' => 1,
+                'averageManaValue' => 4.0,
+            ]),
+        );
+
+        self::assertNotContains('critical', array_column($issues, 'severity'));
+        self::assertNotContains('low_hard_board_wipes', $this->issueCodes($issues));
+        self::assertNotContains('wipes_are_mostly_pseudo', $this->issueCodes($issues));
+        self::assertNotContains('wipes_are_mostly_bounce', $this->issueCodes($issues));
+    }
+
     public function testRitualStormWarnsWhenRampIsMostlyOneShot(): void
     {
         $issues = $this->detect([
@@ -264,6 +498,7 @@ final class DeckAdvancedIssueDetectorTest extends TestCase
 
         self::assertArrayHasKey('mana', $health);
         self::assertSame('warning', $health['mana']['status']);
+        self::assertSame('manaIssueDetected', $health['mana']['reasonCode']);
         self::assertSame(36, $health['mana']['evidence']['lands']);
         self::assertSame('warning', $health['mana']['evidence']['commanderCastability']);
         self::assertSame(14, $health['mana']['evidence']['coloredSources']['blue']);
@@ -362,9 +597,15 @@ final class DeckAdvancedIssueDetectorTest extends TestCase
         array $consistency = [],
         array $unmatchedCards = [],
         array $mana = [],
+        array $boardWipes = [],
     ): array {
+        $metrics = ['roles' => $this->roles($roles), 'mana' => $mana];
+        if ($boardWipes !== []) {
+            $metrics['boardWipes'] = $boardWipes;
+        }
+
         return (new DeckAdvancedIssueDetector())->detect(
-            ['roles' => $this->roles($roles), 'mana' => $mana],
+            $metrics,
             $combos + [
                 'completeCount' => 0,
                 'partialOneMissingCount' => 0,
@@ -416,7 +657,62 @@ final class DeckAdvancedIssueDetectorTest extends TestCase
             'wincons' => 2,
             'combatFinishers' => 0,
             'symmetricalStaxRisk' => 0,
+            'graveyardHate' => 0,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $overrides
+     * @return array<string,mixed>
+     */
+    private function boardWipes(array $overrides): array
+    {
+        return $overrides + [
+            'total' => 0,
+            'hardTotal' => 0,
+            'pseudoTotal' => 0,
+            'creatureWipes' => 0,
+            'hardCreatureWipes' => 0,
+            'exileWipes' => 0,
+            'destroyWipes' => 0,
+            'sacrificeWipes' => 0,
+            'bounceWipes' => 0,
+            'massBounce' => 0,
+            'damageWipes' => 0,
+            'minusXMinusXWipes' => 0,
+            'artifactWipes' => 0,
+            'enchantmentWipes' => 0,
+            'artifactEnchantmentWipes' => 0,
+            'graveyardWipes' => 0,
+            'modalWipes' => 0,
+            'conditionalWipes' => 0,
+            'asymmetricalWipes' => 0,
+            'oneSidedWipes' => 0,
+            'overloadedWipes' => 0,
+            'scalableWipes' => 0,
+            'combatOnlyWipes' => 0,
+            'answersIndestructible' => 0,
+            'opponentCompensationWipes' => 0,
+            'effectiveLowCostWipes' => 0,
+            'selfPlanRiskWipes' => 0,
+            'averageManaValue' => 0.0,
+            'details' => [],
+        ];
+    }
+
+    /**
+     * @param list<array{code:string}> $issues
+     * @return array<string,mixed>|null
+     */
+    private function issueByCode(array $issues, string $code): ?array
+    {
+        foreach ($issues as $issue) {
+            if ($issue['code'] === $code) {
+                return $issue;
+            }
+        }
+
+        return null;
     }
 
     /**

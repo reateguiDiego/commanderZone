@@ -9,38 +9,38 @@
     "footerDisclaimer": {
       "footerDisclaimer": {
         "disclaimer": "Avertissement",
-        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone est un contenu de fan non officiel autorisé par la Fan Content Policy. Non approuvé ni sponsorisé par",
+        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone est un contenu de fan non officiel autorisÃ© par la Fan Content Policy. Non approuvÃ© ni sponsorisÃ© par",
         "wizards": "Wizards",
-        "portionsOfTheMaterialsUsedAreProperty": ". Certaines parties des éléments utilisés appartiennent à",
+        "portionsOfTheMaterialsUsedAreProperty": ". Certaines parties des Ã©lÃ©ments utilisÃ©s appartiennent Ã ",
         "wizardsOfTheCoast": "Wizards of the Coast",
-        "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
-        "magicTheGathering": "Magic: The Gathering®",
-        "mtg": "MTG®",
+        "wizardsOfTheCoastLlc": "Â©Wizards of the Coast LLC",
+        "magicTheGathering": "Magic: The GatheringÂ®",
+        "mtg": "MTGÂ®",
         "llcASubsidiaryOf": "LLC, filiale de",
         "hasbroInc": "Hasbro, Inc",
-        "inTheUnitedStatesAndOtherCountries": "., aux États-Unis et dans d’autres pays.",
-        "allRightsReserved": ". Tous droits réservés.",
+        "inTheUnitedStatesAndOtherCountries": "., aux Ã‰tats-Unis et dans dâ€™autres pays.",
+        "allRightsReserved": ". Tous droits rÃ©servÃ©s.",
         "commanderzoneMayDisplayOrReferenceCertain": "CommanderZone peut afficher ou mentionner certaines",
-        "intellectualPropertyUnderTheGuidelinesSetForth": "propriétés intellectuelles selon les directives définies dans la",
+        "intellectualPropertyUnderTheGuidelinesSetForth": "propriÃ©tÃ©s intellectuelles selon les directives dÃ©finies dans la",
         "wizardsFanContentPolicy": "Fan Content Policy de Wizards",
-        "thisSiteDoesNotSellProductsHost": ". Ce site ne vend aucun produit, n’organise aucun tournoi et ne propose aucun service classé ou compétitif. Toutes les fonctionnalités sont fournies gratuitement et destinées uniquement à un usage non commercial, éducatif et récréatif par la",
+        "thisSiteDoesNotSellProductsHost": ". Ce site ne vend aucun produit, nâ€™organise aucun tournoi et ne propose aucun service classÃ© ou compÃ©titif. Toutes les fonctionnalitÃ©s sont fournies gratuitement et destinÃ©es uniquement Ã  un usage non commercial, Ã©ducatif et rÃ©crÃ©atif par la",
         "magicTheGathering1": "Magic: The Gathering",
-        "community": "communauté.",
-        "forMoreInformationOn": "Pour plus d’informations sur",
-        "andTheirIntellectualPropertyPoliciesPleaseVisit": "et leurs politiques de propriété intellectuelle, consultez :",
-        "ifYouAreTheRightsHolderAnd": "Si vous êtes titulaire de droits et pensez qu’un contenu de ce site porte atteinte à vos droits, contactez-nous directement afin de résoudre la situation.",
-        "copyrightYears": "© 1993-{{ currentYear }} Wizards of the Coast LLC",
+        "community": "communautÃ©.",
+        "forMoreInformationOn": "Pour plus dâ€™informations sur",
+        "andTheirIntellectualPropertyPoliciesPleaseVisit": "et leurs politiques de propriÃ©tÃ© intellectuelle, consultez :",
+        "ifYouAreTheRightsHolderAnd": "Si vous Ãªtes titulaire de droits et pensez quâ€™un contenu de ce site porte atteinte Ã  vos droits, contactez-nous directement afin de rÃ©soudre la situation.",
+        "copyrightYears": "Â© 1993-{{ currentYear }} Wizards of the Coast LLC",
         "viewHelpOrPressKit": "consultez notre Help & FAQ ou notre Press Kit.",
-        "trademarkedLogosImagesAndIpNotice": ", et tous les logos, images de cartes et propriétés intellectuelles associés sont des marques commerciales et/ou des droits d’auteur de",
-        "staticWizardsCopyrightYears": "© 1993-2025 Wizards of the Coast LLC"
+        "trademarkedLogosImagesAndIpNotice": ", et tous les logos, images de cartes et propriÃ©tÃ©s intellectuelles associÃ©s sont des marques commerciales et/ou des droits dâ€™auteur de",
+        "staticWizardsCopyrightYears": "Â© 1993-2025 Wizards of the Coast LLC"
       }
     },
     "visibility": {
       "visibilityChoice": {
         "public": "Public",
-        "private": "Privé",
-        "label": "Visibilité",
-        "privacy": "Confidentialité",
+        "private": "PrivÃ©",
+        "label": "VisibilitÃ©",
+        "privacy": "ConfidentialitÃ©",
         "privateOnlyYouSubtitle": "Toi seul peux le voir",
         "privateSubtitle": "Sur invitation uniquement",
         "publicPlayersSubtitle": "Visible par les autres joueurs",
@@ -49,13 +49,13 @@
       },
       "visibilityPill": {
         "public": "Public",
-        "private": "Privé"
+        "private": "PrivÃ©"
       }
     },
     "extraActions": {
-      "label": "Suppléments",
-      "open": "Ouvrir des actions supplémentaires",
-      "menu": "Actions supplémentaires"
+      "label": "SupplÃ©ments",
+      "open": "Ouvrir des actions supplÃ©mentaires",
+      "menu": "Actions supplÃ©mentaires"
     },
     "navigation": {
       "back": "Retour"
@@ -63,19 +63,19 @@
     "actions": {
       "accept": "Accepter",
       "confirm": "Confirmer",
-      "create": "Créer",
+      "create": "CrÃ©er",
       "delete": "Supprimer",
       "done": "Fait",
       "invite": "Inviter",
       "roll": "Lancer",
       "save": "Enregistrer",
-      "select": "Sélectionner",
+      "select": "SÃ©lectionner",
       "sending": "Envoi...",
       "understood": "Compris",
       "working": "Traitement...",
       "showPassword": "Afficher le mot de passe",
       "hidePassword": "Masquer le mot de passe",
-      "previous": "Précédent",
+      "previous": "PrÃ©cÃ©dent",
       "next": "Suivant",
       "moveUp": "Monter",
       "moveDown": "Descendre",
@@ -84,7 +84,7 @@
     },
     "modal": {
       "cancel": "Annuler",
-      "cannotBeUndone": "Cette action ne peut pas être annulée.",
+      "cannotBeUndone": "Cette action ne peut pas Ãªtre annulÃ©e.",
       "close": "Fermer"
     }
   },
@@ -96,12 +96,12 @@
       },
       "dashboardTopCommanders": {
         "title": "Commandants populaires",
-        "subtitle": "Commandants les plus joués du format",
-        "communityPopularity": "Basé sur les parties jouées par la communauté.",
+        "subtitle": "Commandants les plus jouÃ©s du format",
+        "communityPopularity": "BasÃ© sur les parties jouÃ©es par la communautÃ©.",
         "viewMore": "Voir plus"
       },
       "dashboardHeaderContext": {
-        "pageSummary": "Résumé des pages"
+        "pageSummary": "RÃ©sumÃ© des pages"
       },
       "dashboardHeaderControls": {
         "pendingFriendRequests": "Demandes d'amis en attente",
@@ -116,7 +116,7 @@
         "cards": "Cartes",
         "decks": "Decks",
         "rooms": "Salles",
-        "community": "Communauté",
+        "community": "CommunautÃ©",
         "tableAssistant": "Assistant de table",
         "admin": "Admin"
       }
@@ -124,16 +124,16 @@
     "friends": {
       "friendsDropdown": {
         "friends": "Amis",
-        "userSearchResults": "Résultats de recherche d'utilisateurs",
+        "userSearchResults": "RÃ©sultats de recherche d'utilisateurs",
         "friendList": "Liste d'amis",
         "sendFriendRequest": "Envoyer une demande d'ami",
         "cancelRequest": "Annuler la demande",
         "removeFriend": "Supprimer un ami",
         "findUsers": "Trouver des utilisateurs",
-        "noUsersFound": "Aucun utilisateur trouvé.",
+        "noUsersFound": "Aucun utilisateur trouvÃ©.",
         "acceptedStatus": "Amis",
-        "blockedStatus": "Bloqué",
-        "declinedStatus": "Refusé",
+        "blockedStatus": "BloquÃ©",
+        "declinedStatus": "RefusÃ©",
         "invitations": "Invitations",
         "inGameStatus": "En jeu",
         "joinedPlayers": "ont rejoint",
@@ -141,25 +141,25 @@
         "online": "En ligne",
         "onlineStatus": "En ligne",
         "pendingStatus": "En attente",
-        "searchHint": "Tapez au moins deux caractères pour rechercher des joueurs.",
+        "searchHint": "Tapez au moins deux caractÃ¨res pour rechercher des joueurs.",
         "searchPlayers": "Rechercher des joueurs...",
         "searchTab": "Rechercher",
-        "seats": "sièges",
+        "seats": "siÃ¨ges",
         "requests": "Demandes",
-        "receivedRequests": "Reçues",
-        "sentRequests": "Envoyées",
-        "disconnected": "Déconnecté",
-        "roomInvite": "Invitation à une salle"
+        "receivedRequests": "ReÃ§ues",
+        "sentRequests": "EnvoyÃ©es",
+        "disconnected": "DÃ©connectÃ©",
+        "roomInvite": "Invitation Ã  une salle"
       }
     },
     "messages": {
       "messagesDropdown": {
         "messages": "Messages",
-        "inbox": "Boîte de réception",
+        "inbox": "BoÃ®te de rÃ©ception",
         "loadingMessages": "Chargement des messages...",
         "noMessagesYet": "Aucun message pour le moment.",
-        "receivedMessages": "Messages reçus",
-        "sentBy": "Envoyé par :",
+        "receivedMessages": "Messages reÃ§us",
+        "sentBy": "EnvoyÃ© par :",
         "unread": "Non lu",
         "read": "Lu",
         "couldNotLoadMessages": "Impossible de charger les messages.",
@@ -172,37 +172,37 @@
       "authMode": "Mode d'authentification",
       "commanderzone": "CommanderZone",
       "login": "Connexion",
-      "register": "S’inscrire",
+      "register": "Sâ€™inscrire",
       "email": "E-mail",
       "emailOrUserName": "E-mail ou nom d'utilisateur",
       "invalidCredentials": "E-mail, nom d'utilisateur ou mot de passe invalide.",
-      "tooManyLoginAttempts": "Trop de tentatives de connexion échouées. Veuillez réessayer plus tard.",
-      "loginLockoutWarning": "Échec de la tentative de connexion {{ count }}/5. Si vous échouez 5 fois, la connexion sera bloquée pendant 15 minutes.",
+      "tooManyLoginAttempts": "Trop de tentatives de connexion Ã©chouÃ©es. Veuillez rÃ©essayer plus tard.",
+      "loginLockoutWarning": "Ã‰chec de la tentative de connexion {{ count }}/5. Si vous Ã©chouez 5 fois, la connexion sera bloquÃ©e pendant 15 minutes.",
       "password": "Mot de passe",
       "userName": "Nom d'utilisateur",
       "passwordRequirements": {
         "label": "Exigences de mot de passe",
-        "minLength": "Minimum 8 caractères",
+        "minLength": "Minimum 8 caractÃ¨res",
         "lowercase": "Au moins 1 lettre minuscule",
         "uppercase": "Au moins 1 lettre majuscule",
-        "number": "Au moins 1 numéro",
-        "special": "Au moins 1 caractère spécial"
+        "number": "Au moins 1 numÃ©ro",
+        "special": "Au moins 1 caractÃ¨re spÃ©cial"
       },
-      "registrationCompletedCheckEmail": "Inscription terminée. Vérifiez votre courrier électronique et confirmez votre compte.",
-      "createAccount": "Créer un compte",
-      "accessDecksRoomsAndTable": "Accédez à vos decks, salles et table de commandant manuelle.",
+      "registrationCompletedCheckEmail": "Inscription terminÃ©e. VÃ©rifiez votre courrier Ã©lectronique et confirmez votre compte.",
+      "createAccount": "CrÃ©er un compte",
+      "accessDecksRoomsAndTable": "AccÃ©dez Ã  vos decks, salles et table de commandant manuelle.",
       "enterValidEmail": "Entrez un email valide.",
       "enterValidEmailOrUsername": "Entrez un e-mail ou un nom d'utilisateur valide.",
-      "forgotPassword": "J'ai oublié mon mot de passe",
-      "checkingEmail": "Vérification des e-mails...",
-      "checkingAvailability": "Vérification de la disponibilité...",
-      "passwordPolicySummary": "Minimum 8 caractères avec minuscules, majuscules, chiffres et caractères spéciaux.",
+      "forgotPassword": "J'ai oubliÃ© mon mot de passe",
+      "checkingEmail": "VÃ©rification des e-mails...",
+      "checkingAvailability": "VÃ©rification de la disponibilitÃ©...",
+      "passwordPolicySummary": "Minimum 8 caractÃ¨res avec minuscules, majuscules, chiffres et caractÃ¨res spÃ©ciaux.",
       "confirmPassword": "Confirmez le mot de passe",
       "passwordsDoNotMatch": "Les mots de passe ne correspondent pas.",
       "emailAvailable": "Courriel disponible",
-      "emailAlreadyRegistered": "Email déjà enregistré",
-      "couldNotCheckNow": "Impossible de vérifier pour le moment",
-      "usernameLengthRequirement": "Le nom d'utilisateur doit comporter entre 2 et 20 caractères.",
+      "emailAlreadyRegistered": "Email dÃ©jÃ  enregistrÃ©",
+      "couldNotCheckNow": "Impossible de vÃ©rifier pour le moment",
+      "usernameLengthRequirement": "Le nom d'utilisateur doit comporter entre 2 et 20 caractÃ¨res.",
       "usernameAvailable": "Nom d'utilisateur disponible",
       "usernameUnavailable": "Nom d'utilisateur non disponible",
       "googleUnavailable": "La connexion avec Google n'est pas disponible pour le moment.",
@@ -215,43 +215,43 @@
       "confirmingEmail": "E-mail de confirmation",
       "waitWhileWeConfirmYourAccount": "Attendez pendant que nous confirmons votre compte.",
       "couldNotConfirmEmail": "Impossible de confirmer votre email",
-      "invalidOrExpiredLink": "Le lien de vérification n’est pas valide ou a expiré."
+      "invalidOrExpiredLink": "Le lien de vÃ©rification nâ€™est pas valide ou a expirÃ©."
     },
     "passwordResetPage": {
       "email": "E-mail",
-      "requestError": "Impossible de demander l’e-mail de récupération.",
-      "invalidOrExpiredLink": "Le lien de récupération n’est pas valide ou a expiré.",
-      "updateError": "Impossible de mettre à jour le mot de passe avec ce jeton.",
+      "requestError": "Impossible de demander lâ€™e-mail de rÃ©cupÃ©ration.",
+      "invalidOrExpiredLink": "Le lien de rÃ©cupÃ©ration nâ€™est pas valide ou a expirÃ©.",
+      "updateError": "Impossible de mettre Ã  jour le mot de passe avec ce jeton.",
       "sending": "Envoi...",
-      "sendRecoveryEmail": "Envoyer un e-mail de récupération",
-      "updating": "Mise à jour...",
-      "updatePassword": "Mettre à jour le mot de passe",
-      "resetPassword": "Réinitialiser le mot de passe",
-      "requestRecoveryEmailDescription": "Demandez l’e-mail de récupération pour recevoir un lien sécurisé.",
-      "setNewPasswordDescription": "Définissez votre nouveau mot de passe avec le lien sécurisé que vous avez reçu par email.",
+      "sendRecoveryEmail": "Envoyer un e-mail de rÃ©cupÃ©ration",
+      "updating": "Mise Ã  jour...",
+      "updatePassword": "Mettre Ã  jour le mot de passe",
+      "resetPassword": "RÃ©initialiser le mot de passe",
+      "requestRecoveryEmailDescription": "Demandez lâ€™e-mail de rÃ©cupÃ©ration pour recevoir un lien sÃ©curisÃ©.",
+      "setNewPasswordDescription": "DÃ©finissez votre nouveau mot de passe avec le lien sÃ©curisÃ© que vous avez reÃ§u par email.",
       "newPassword": "Nouveau mot de passe",
       "confirmPassword": "Confirmez le mot de passe",
       "passwordsDoNotMatch": "Les mots de passe ne correspondent pas.",
-      "passwordUpdatedSigningIn": "Mot de passe mis à jour. Connexion...",
-      "recoveryEmailSentIfAccountExists": "Si l’e-mail existe, un e-mail de récupération de mot de passe a été envoyé."
+      "passwordUpdatedSigningIn": "Mot de passe mis Ã  jour. Connexion...",
+      "recoveryEmailSentIfAccountExists": "Si lâ€™e-mail existe, un e-mail de rÃ©cupÃ©ration de mot de passe a Ã©tÃ© envoyÃ©."
     }
   },
   "rooms": {
     "roomBrowser": {
       "searchRoom": "Rechercher une salle",
-      "searchOwner": "Rechercher un hôte",
+      "searchOwner": "Rechercher un hÃ´te",
       "roomName": "Nom de la salle",
-      "owner": "Hôte",
-      "visibility": "Visibilité",
+      "owner": "HÃ´te",
+      "visibility": "VisibilitÃ©",
       "publicAndPrivate": "Tous",
       "publicOnly": "Publique",
-      "privateOnly": "Privé",
+      "privateOnly": "PrivÃ©",
       "status": "Statut",
       "anonymous": "Anonyme",
       "open": "Ouverte",
       "full": "Complet",
-      "started": "Commencée",
-      "host": "Hôte",
+      "started": "CommencÃ©e",
+      "host": "HÃ´te",
       "format": "Format",
       "players": "Joueurs",
       "action": "Action",
@@ -260,33 +260,33 @@
     },
     "roomCreatePanel": {
       "join": "Rejoindre",
-      "createANewRoom": "Créer une nouvelle salle",
+      "createANewRoom": "CrÃ©er une nouvelle salle",
       "roomSetup": "Configuration de la salle",
-      "createRoom": "Créer une salle",
-      "alreadyInRoomTooltip": "Vous êtes déjà dans une salle. Quittez-la avant d’en rejoindre une autre.",
+      "createRoom": "CrÃ©er une salle",
+      "alreadyInRoomTooltip": "Vous Ãªtes dÃ©jÃ  dans une salle. Quittez-la avant dâ€™en rejoindre une autre.",
       "enterRoomCode": "Entrez le code de la salle",
       "joinWithCode": "Rejoindre avec le code"
     },
     "roomCurrentBanner": {
-      "currentRoomDetails": "Détails actuels de la salle",
+      "currentRoomDetails": "DÃ©tails actuels de la salle",
       "currentRoom": "Salle actuelle",
       "yourDeck": "Votre deck",
       "turn": "Tour"
     },
     "roomInvitesPanel": {
       "invites": "Invitations",
-      "pendingRoomInvites": "Invitations à des salles en attente",
+      "pendingRoomInvites": "Invitations Ã  des salles en attente",
       "accept": "Accepter",
       "decline": "Refuser"
     },
     "roomRow": {
-      "started": "Commencée",
+      "started": "CommencÃ©e",
       "full": "Complet",
       "open": "Ouvrir",
       "join": "Rejoindre"
     },
     "rooms": {
-      "validDeckRequiredToCreate": "Vous avez besoin d’un deck valide pour créer une salle.",
+      "validDeckRequiredToCreate": "Vous avez besoin dâ€™un deck valide pour crÃ©er une salle.",
       "deleteRoom": "Supprimer la salle",
       "deckRequired": "Deck requis"
     },
@@ -295,15 +295,15 @@
       "mulligan": "Mulligan",
       "firstMulliganFree": "Le premier mulligan est gratuit",
       "mulliganDescriptions": {
-        "london": "Piochez 7 cartes à chaque fois. Quand vous gardez une main, mettez une carte au-dessous de votre bibliothèque pour chaque mulligan effectif.",
-        "vancouver": "Chaque mulligan effectif vous fait piocher une carte de moins. Si vous gardez après un mulligan effectif, regard 1.",
-        "paris": "Chaque mulligan effectif vous fait piocher une carte de moins. Vous ne mettez pas de cartes au-dessous de votre bibliothèque et vous ne faites pas regard.",
-        "generous": "Règle adaptée au Commander : piochez jusqu’à 10 cartes, gardez-en 7 si possible, puis mettez le reste au-dessous de votre bibliothèque dans un ordre aléatoire."
+        "london": "Piochez 7 cartes Ã  chaque fois. Quand vous gardez une main, mettez une carte au-dessous de votre bibliothÃ¨que pour chaque mulligan effectif.",
+        "vancouver": "Chaque mulligan effectif vous fait piocher une carte de moins. Si vous gardez aprÃ¨s un mulligan effectif, regard 1.",
+        "paris": "Chaque mulligan effectif vous fait piocher une carte de moins. Vous ne mettez pas de cartes au-dessous de votre bibliothÃ¨que et vous ne faites pas regard.",
+        "generous": "RÃ¨gle adaptÃ©e au Commander : piochez jusquâ€™Ã  10 cartes, gardez-en 7 si possible, puis mettez le reste au-dessous de votre bibliothÃ¨que dans un ordre alÃ©atoire."
       },
       "firstMulliganFreeOn": "Gratuit",
       "firstMulliganFreeOff": "Comptes",
       "mulliganRules": {
-        "generous": "Généreux",
+        "generous": "GÃ©nÃ©reux",
         "london": "London",
         "paris": "Paris",
         "vancouver": "Vancouver"
@@ -313,28 +313,28 @@
     "roomSetupModal": {
       "roomName": "Nom de la salle",
       "timer": "Minuteur",
-      "createRoom": "Créer une salle",
+      "createRoom": "CrÃ©er une salle",
       "editRoomConfigurationBeforeStarting": "Ajustez la configuration de la salle avant de commencer.",
       "exampleRoomName": "Par ex. La Taverne"
     },
     "waitingRoomDeckSelector": {
-      "deckSelection": "Sélection du deck",
+      "deckSelection": "SÃ©lection du deck",
       "invalidDeck": "Deck invalide",
-      "rollDice": "Lancer les dés",
-      "selectADeck": "Sélectionnez un deck",
-      "randomDeck": "Deck aléatoire",
+      "rollDice": "Lancer les dÃ©s",
+      "selectADeck": "SÃ©lectionnez un deck",
+      "randomDeck": "Deck alÃ©atoire",
       "chooseOne": "Choisissez-en un",
-      "checking": "Vérification"
+      "checking": "VÃ©rification"
     },
     "waitingRoomLogPanel": {
-      "activity": "Activité",
-      "roomEventsWillAppearHere": "Les événements de salle apparaîtront ici."
+      "activity": "ActivitÃ©",
+      "roomEventsWillAppearHere": "Les Ã©vÃ©nements de salle apparaÃ®tront ici."
     },
     "waitingRoomPlayerCard": {
       "kickPlayer": "Expulser le joueur",
-      "d20RollResult": "Résultat du lancer de D20",
+      "d20RollResult": "RÃ©sultat du lancer de D20",
       "waitingForPlayer": "En attente du joueur",
-      "host": "Hôte",
+      "host": "HÃ´te",
       "turnOrder": "Ordre du tour",
       "d20Roll": "Lancer de D20",
       "openSlot": "Emplacement ouvert"
@@ -346,50 +346,50 @@
       "kickPlayer": "Expulser le joueur",
       "invalidDeck": "Deck invalide",
       "setup": "Installation",
-      "chooseYourDeckAndGetReadyBefore": "Choisissez votre deck et préparez-vous avant de commencer.",
+      "chooseYourDeckAndGetReadyBefore": "Choisissez votre deck et prÃ©parez-vous avant de commencer.",
       "start": "Commencer",
-      "afterRollingYourDeckSelectionWillBe": "Après le lancer, votre sélection de deck sera verrouillée et ne pourra plus être modifiée.",
-      "noAcceptedFriendsYet": "Aucun ami accepté pour l’instant.",
+      "afterRollingYourDeckSelectionWillBe": "AprÃ¨s le lancer, votre sÃ©lection de deck sera verrouillÃ©e et ne pourra plus Ãªtre modifiÃ©e.",
+      "noAcceptedFriendsYet": "Aucun ami acceptÃ© pour lâ€™instant.",
       "inRoom": "Dans la salle",
-      "invited": "Invité",
-      "allPlayersReady": "Tous les joueurs sont prêts",
-      "chooseAcceptedFriendsToInvite": "Choisissez des amis acceptés à inviter dans cette salle.",
-      "invalidDeckSelectionMessage": "Vous ne pouvez pas sélectionner {{ deckName }} car il contient des erreurs de validation du deck Commander.",
+      "invited": "InvitÃ©",
+      "allPlayersReady": "Tous les joueurs sont prÃªts",
+      "chooseAcceptedFriendsToInvite": "Choisissez des amis acceptÃ©s Ã  inviter dans cette salle.",
+      "invalidDeckSelectionMessage": "Vous ne pouvez pas sÃ©lectionner {{ deckName }} car il contient des erreurs de validation du deck Commander.",
       "kickPlayerConfirmation": "Voulez-vous expulser {{ playerName }} de la salle ?",
-      "leaveRoomConfirmation": "Vous quitterez cette salle et reviendrez à la liste des salles.",
+      "leaveRoomConfirmation": "Vous quitterez cette salle et reviendrez Ã  la liste des salles.",
       "playersCount": "Joueurs ({{ current }}/{{ max }})",
-      "rollSetsTurnOrder": "Ce lancer définit votre ordre de tour.",
+      "rollSetsTurnOrder": "Ce lancer dÃ©finit votre ordre de tour.",
       "thisDeck": "ce deck",
       "thisPlayer": "ce joueur",
-      "tieBreakRoll": "Lancement décisif",
-      "tieBreakRollMessage": "Vous êtes à égalité avec {{ playerNames }}. Lancez à nouveau pour briser l’égalité.",
+      "tieBreakRoll": "Lancement dÃ©cisif",
+      "tieBreakRollMessage": "Vous Ãªtes Ã  Ã©galitÃ© avec {{ playerNames }}. Lancez Ã  nouveau pour briser lâ€™Ã©galitÃ©.",
       "waitingForDecksAndRolls": "En attente des decks et des lancers"
     },
     "setup": {
       "gameSetupLifeControl": {
-        "startingLife": "Total de vie de départ",
-        "decreaseStartingLife": "Diminuer le total de vie de départ",
-        "increaseStartingLife": "Augmenter le total de points de vie de départ",
+        "startingLife": "Total de vie de dÃ©part",
+        "decreaseStartingLife": "Diminuer le total de vie de dÃ©part",
+        "increaseStartingLife": "Augmenter le total de points de vie de dÃ©part",
         "lifeUnit": "vie",
-        "startingLifePresets": "Préréglages du total de vie de départ",
-        "startingTotal": "Total de départ",
+        "startingLifePresets": "PrÃ©rÃ©glages du total de vie de dÃ©part",
+        "startingTotal": "Total de dÃ©part",
         "totalLife": "Total de vie"
       },
       "gameSetupSeatsControl": {
         "tableSize": "Taille de la table",
-        "seats": "Sièges",
-        "setTableSizeToPlayers": "Définir la taille de la table pour les joueurs {{ count }}"
+        "seats": "SiÃ¨ges",
+        "setTableSizeToPlayers": "DÃ©finir la taille de la table pour les joueurs {{ count }}"
       }
     },
     "header": {
       "title": "Salles",
       "totalRooms": "Nombre total de salles",
       "openRooms": "Salles ouvertes",
-      "privateRooms": "Salles privées",
+      "privateRooms": "Salles privÃ©es",
       "publicRooms": "Salles publiques",
       "totalPlayers": "Nombre total de joueurs",
-      "startedGames": "Parties commencées",
-      "description": "Parcourez les salons actifs et rejoignez une partie instantanément."
+      "startedGames": "Parties commencÃ©es",
+      "description": "Parcourez les salons actifs et rejoignez une partie instantanÃ©ment."
     },
     "waiting": {
       "header": {
@@ -402,17 +402,17 @@
       "summary": {
         "topHundred": "Top 100 des cartes"
       },
-      "error": "Impossible de charger l’aperçu de la communauté.",
-      "empty": "Aucune carte disponible pour l’instant.",
-      "playedLabel": "Joué",
+      "error": "Impossible de charger lâ€™aperÃ§u de la communautÃ©.",
+      "empty": "Aucune carte disponible pour lâ€™instant.",
+      "playedLabel": "JouÃ©",
       "filters": {
         "allTypes": "Tous types",
         "type": {
           "artifact": "Artefact",
           "battle": "Bataille",
-          "creature": "Créature",
+          "creature": "CrÃ©ature",
           "enchantment": "Enchantement",
-          "instant": "Éphémère",
+          "instant": "Ã‰phÃ©mÃ¨re",
           "land": "Terrain",
           "planeswalker": "Planeswalker",
           "sorcery": "Rituel"
@@ -426,7 +426,7 @@
         "cancel": "Annuler"
       },
       "error": "Impossible de charger le deck communautaire.",
-      "headerTitle": "Deck de la communauté",
+      "headerTitle": "Deck de la communautÃ©",
       "like": "Aimer le deck",
       "likeError": "Impossible d'aimer ce deck.",
       "missingId": "ID de deck communautaire manquant.",
@@ -436,14 +436,14 @@
       "unknownCommander": "Commandant inconnu",
       "readonly": {
         "validation": {
-          "backendValid": "Ce deck est marqué comme valide dans la Communauté.",
-          "backendInvalid": "Ce deck contient des avertissements ou des problèmes dans la communauté.",
+          "backendValid": "Ce deck est marquÃ© comme valide dans la CommunautÃ©.",
+          "backendInvalid": "Ce deck contient des avertissements ou des problÃ¨mes dans la communautÃ©.",
           "commanders": "Zone de commandement : {{ names }}",
           "error": "Erreur",
           "warning": "Avertissement"
         },
-        "historyOwner": "Partagé par",
-        "ownDeck": "Ce deck est à vous."
+        "historyOwner": "PartagÃ© par",
+        "ownDeck": "Ce deck est Ã  vous."
       }
     },
     "deckCard": {
@@ -458,34 +458,34 @@
     },
     "home": {
       "title": "Decks communautaires",
-      "subtitle": "Découvrez les decks publics créés par d'autres joueurs.",
-      "error": "Impossible de charger la communauté.",
+      "subtitle": "DÃ©couvrez les decks publics crÃ©Ã©s par d'autres joueurs.",
+      "error": "Impossible de charger la communautÃ©.",
       "decksSection": {
-        "title": "Decks à découvrir"
+        "title": "Decks Ã  dÃ©couvrir"
       },
       "decksButton": "Rechercher des decks",
-      "decksEmpty": "Aucun deck public disponible pour l’instant.",
-      "commandersTitle": "Commandants les plus joués",
+      "decksEmpty": "Aucun deck public disponible pour lâ€™instant.",
+      "commandersTitle": "Commandants les plus jouÃ©s",
       "mobileCommandersTitle": "Commandants populaires",
-      "commandersAriaLabel": "Commandants pour l’inspiration",
-      "cardsTitle": "Cartes les plus jouées",
+      "commandersAriaLabel": "Commandants pour lâ€™inspiration",
+      "cardsTitle": "Cartes les plus jouÃ©es",
       "mobileCardsTitle": "Meilleures cartes",
-      "cardsSubtitle": "Basé sur des parties jouées par la communauté",
-      "cardsAriaLabel": "Cartes à explorer",
+      "cardsSubtitle": "BasÃ© sur des parties jouÃ©es par la communautÃ©",
+      "cardsAriaLabel": "Cartes Ã  explorer",
       "viewMore": "Voir plus"
     },
     "deckList": {
       "title": "Rechercher des decks",
-      "subtitle": "Explorez les decks publics de la communauté.",
+      "subtitle": "Explorez les decks publics de la communautÃ©.",
       "filterName": "Rechercher par nom",
       "filterNamePlaceholder": "Rechercher des decks...",
       "filterCommander": "Commandant",
       "filterCommanderPlaceholder": "Rechercher un commandant...",
-      "commanderSelect": "Sélectionner",
+      "commanderSelect": "SÃ©lectionner",
       "filterFormat": "Format",
       "allFormats": "Tous les formats",
       "searchButton": "Rechercher",
-      "empty": "Aucun deck public disponible pour l’instant.",
+      "empty": "Aucun deck public disponible pour lâ€™instant.",
       "error": "Impossible de charger les decks publics."
     },
     "deckViewer": {
@@ -496,18 +496,18 @@
         "text": "Texte",
         "spoiler": "Spoiler"
       },
-      "invalidCard": "Cette carte n’est pas valable dans {{ format }}.",
+      "invalidCard": "Cette carte nâ€™est pas valable dans {{ format }}.",
       "groups": {
         "commander": "Commandant",
         "planeswalker": "Planeswalkers",
         "battle": "Batailles",
-        "creature": "Créatures",
-        "instant": "Éphémères",
+        "creature": "CrÃ©atures",
+        "instant": "Ã‰phÃ©mÃ¨res",
         "sorcery": "Rituels",
         "enchantment": "Enchantements",
         "artifact": "Artefacts",
         "land": "Terrains",
-        "sideboard": "Réserve",
+        "sideboard": "RÃ©serve",
         "other": "Autre",
         "includingMdfc": "{{ count }} y compris MDFC"
       }
@@ -518,33 +518,33 @@
   },
   "game": {
     "arrowTargetDialog": {
-      "selectArrowTargetPlayer": "Sélectionnez le joueur cible de la flèche",
-      "drawArrow": "Tracer une flèche",
+      "selectArrowTargetPlayer": "SÃ©lectionnez le joueur cible de la flÃ¨che",
+      "drawArrow": "Tracer une flÃ¨che",
       "chooseTargetBoard": "Choisir le champ de bataille cible",
-      "theSelectedBattlefieldOpensBehindThisPanel": "Le champ de bataille sélectionné s'ouvre derrière ce panneau avant que vous ne choisissiez une carte.",
+      "theSelectedBattlefieldOpensBehindThisPanel": "Le champ de bataille sÃ©lectionnÃ© s'ouvre derriÃ¨re ce panneau avant que vous ne choisissiez une carte.",
       "targetPlayer": "Joueur cible",
       "multipleTargets": "Plusieurs cibles ?",
-      "drawSeveralArrowsFromThisCard": "Tracer plusieurs flèches depuis cette carte",
+      "drawSeveralArrowsFromThisCard": "Tracer plusieurs flÃ¨ches depuis cette carte",
       "targets": "Cibles",
       "cancel": "Annuler",
-      "selectTarget": "Sélectionnez la cible"
+      "selectTarget": "SÃ©lectionnez la cible"
     },
     "battlefieldZoomControls": {
-      "openBattlefieldZoomControls": "Ouvrir les contrôles de zoom du champ de bataille",
+      "openBattlefieldZoomControls": "Ouvrir les contrÃ´les de zoom du champ de bataille",
       "battlefieldZoom": "Zoom sur le champ de bataille",
-      "resetBattlefieldZoom": "Réinitialiser le zoom du champ de bataille",
-      "resetZoom": "Réinitialiser le zoom"
+      "resetBattlefieldZoom": "RÃ©initialiser le zoom du champ de bataille",
+      "resetZoom": "RÃ©initialiser le zoom"
     },
     "cardPreviewOverlay": {
-      "cardPreviewDetails": "Détails de l’aperçu de la carte",
+      "cardPreviewDetails": "DÃ©tails de lâ€™aperÃ§u de la carte",
       "powerAndToughness": "Force et endurance",
-      "attachedTo": "Attaché à",
+      "attachedTo": "AttachÃ© Ã ",
       "attached": "Ci-joint",
       "current": "Actuel",
       "counters": "Marqueurs"
     },
     "cardSpoilerGrid": {
-      "lookAtOtherFace": "Regarder l’autre face",
+      "lookAtOtherFace": "Regarder lâ€™autre face",
       "loadingCards": "Chargement des cartes"
     },
     "chatRecipientSelect": {
@@ -552,73 +552,73 @@
     },
     "contextMenu": {
       "labels": {
-        "refreshSnapshot": "Actualiser l’éphémère",
+        "refreshSnapshot": "Actualiser lâ€™Ã©phÃ©mÃ¨re",
         "focusMyBoard": "Centrer mon champ de bataille",
-        "concede": "Concéder",
+        "concede": "ConcÃ©der",
         "leaveTable": "Quitter la table",
-        "deleteArrow": "Supprimer la flèche",
-        "deleteArrows": "Supprimer les flèches",
+        "deleteArrow": "Supprimer la flÃ¨che",
+        "deleteArrows": "Supprimer les flÃ¨ches",
         "deleteCounter": "Supprimer le marqueur",
-        "resetManaPool": "Vider la réserve de mana",
+        "resetManaPool": "Vider la rÃ©serve de mana",
         "focusPlayer": "Centrer le joueur",
         "life1": "Vie +1",
-        "viewExile": "Voir l’exil",
-        "viewGraveyard": "Voir le cimetière",
+        "viewExile": "Voir lâ€™exil",
+        "viewGraveyard": "Voir le cimetiÃ¨re",
         "drawCard": "Piochez une carte",
         "drawXCards": "Piochez X cartes",
-        "shuffle": "Mélanger",
-        "selectRandomCard": "Sélectionnez une carte au hasard",
-        "selectAllBattlefieldCards": "Sélectionnez toutes les cartes sur le champ de bataille",
-        "selectAllHandCards": "Sélectionnez toutes les cartes en main",
-        "createToken": "Créer un jeton",
-        "gameMechanics": "Mécaniques de jeu",
+        "shuffle": "MÃ©langer",
+        "selectRandomCard": "SÃ©lectionnez une carte au hasard",
+        "selectAllBattlefieldCards": "SÃ©lectionnez toutes les cartes sur le champ de bataille",
+        "selectAllHandCards": "SÃ©lectionnez toutes les cartes en main",
+        "createToken": "CrÃ©er un jeton",
+        "gameMechanics": "MÃ©caniques de jeu",
         "addMonarch": "Ajouter le monarque",
         "becomeMonarch": "Devenez le monarque",
-        "addInitiative": "Ajouter l’initiative",
-        "takeInitiative": "Prendre l’initiative",
+        "addInitiative": "Ajouter lâ€™initiative",
+        "takeInitiative": "Prendre lâ€™initiative",
         "addDayNight": "Ajouter jour/nuit",
-        "addTheRing": "Ajouter l’Anneau",
+        "addTheRing": "Ajouter lâ€™Anneau",
         "addDungeon": "Ajouter un donjon",
-        "addCitysBlessing": "Obtenir la bénédiction de la Cité",
-        "removeCitysBlessing": "Retirer la bénédiction de la Cité",
-        "addEmblem": "Ajouter un emblème",
-        "showManaPool": "Afficher la réserve de mana",
+        "addCitysBlessing": "Obtenir la bÃ©nÃ©diction de la CitÃ©",
+        "removeCitysBlessing": "Retirer la bÃ©nÃ©diction de la CitÃ©",
+        "addEmblem": "Ajouter un emblÃ¨me",
+        "showManaPool": "Afficher la rÃ©serve de mana",
         "view": "Voir",
-        "drawArrow": "Tracer une flèche",
+        "drawArrow": "Tracer une flÃ¨che",
         "addMana": "Ajouter du mana",
-        "attachTo": "Attacher à...",
-        "unequip": "Déséquiper",
-        "detachAllAttached": "Détachez tous les éléments attachés",
-        "makeATokenCopy": "Créer un jeton qui est une copie",
+        "attachTo": "Attacher Ã ...",
+        "unequip": "DÃ©sÃ©quiper",
+        "detachAllAttached": "DÃ©tachez tous les Ã©lÃ©ments attachÃ©s",
+        "makeATokenCopy": "CrÃ©er un jeton qui est une copie",
         "removeStack": "Supprimer de la pile",
         "flipCardFace": "Retourner la carte",
-        "playFaceDown": "Jouez face cachée",
-        "previewCard": "Prévisualiser la carte",
-        "moveTop": "Déplacer vers le haut",
-        "revealTopCard": "Révéler la carte du dessus",
-        "revealLibrary": "Révéler la bibliothèque",
-        "moveAllTo": "Déplacez tout vers",
+        "playFaceDown": "Jouez face cachÃ©e",
+        "previewCard": "PrÃ©visualiser la carte",
+        "moveTop": "DÃ©placer vers le haut",
+        "revealTopCard": "RÃ©vÃ©ler la carte du dessus",
+        "revealLibrary": "RÃ©vÃ©ler la bibliothÃ¨que",
+        "moveAllTo": "DÃ©placez tout vers",
         "counters": "Marqueurs",
         "giveToPlayer": "Donner au joueur",
-        "moveTo": "Passer à",
-        "giveTo": "Donner à",
-        "reveal": "Révéler",
-        "viewAllLibrary": "Voir la bibliothèque",
+        "moveTo": "Passer Ã ",
+        "giveTo": "Donner Ã ",
+        "reveal": "RÃ©vÃ©ler",
+        "viewAllLibrary": "Voir la bibliothÃ¨que",
         "viewXTopCards": "Regarder les X cartes du dessus",
-        "bottomOfLibrary": "Dessous de la bibliothèque",
+        "bottomOfLibrary": "Dessous de la bibliothÃ¨que",
         "battlefield": "Champ de bataille",
         "hand": "Main",
-        "xToBottomOfLibrary": "Mettre X cartes au-dessous de la bibliothèque",
-        "xToGraveyard": "Mettez X au cimetière",
+        "xToBottomOfLibrary": "Mettre X cartes au-dessous de la bibliothÃ¨que",
+        "xToGraveyard": "Mettez X au cimetiÃ¨re",
         "xToExile": "Mettre X en exil",
-        "xToHandPlayer": "Mettre X cartes dans la main d’un joueur",
-        "xToBattlefieldPlayer": "Mettre X cartes sur le champ de bataille sous le contrôle d’un joueur",
+        "xToHandPlayer": "Mettre X cartes dans la main dâ€™un joueur",
+        "xToBattlefieldPlayer": "Mettre X cartes sur le champ de bataille sous le contrÃ´le dâ€™un joueur",
         "removeAllCounters": "Supprimer tous les marqueurs",
-        "createHelper": "Mécaniques",
-        "setRingBearer": "Définir comme porteur de l’Anneau",
-        "mechanics": "Mécaniques",
-        "openDebug": "Ouvrir le débogage",
-        "rollDice": "Lancer les dés",
+        "createHelper": "MÃ©caniques",
+        "setRingBearer": "DÃ©finir comme porteur de lâ€™Anneau",
+        "mechanics": "MÃ©caniques",
+        "openDebug": "Ouvrir le dÃ©bogage",
+        "rollDice": "Lancer les dÃ©s",
         "all": "Tous"
       },
       "drawShortcut": "D",
@@ -634,17 +634,17 @@
       "manaRow": "Ligne de mana"
     },
     "gameAdBanner": {
-      "advertisingBanner": "Bannière publicitaire"
+      "advertisingBanner": "BanniÃ¨re publicitaire"
     },
     "gameArrowLayer": {
-      "battlefieldArrows": "Flèches du champ de bataille"
+      "battlefieldArrows": "FlÃ¨ches du champ de bataille"
     },
     "cardMarkerRail": {
       "openOracleRulingsOnScryfall": "Ouvrir les clarifications Oracle sur Scryfall",
       "tokenCopyLabel": "Ce jeton est une copie"
     },
     "gameCardView": {
-      "lookAtOtherFace": "Regarde l’autre visage",
+      "lookAtOtherFace": "Regarde lâ€™autre visage",
       "powerAndToughness": "Force et endurance",
       "powerLeftClickAddsRightClickRemoves": "Force. Clic gauche pour ajouter, clic droit pour retirer.",
       "toughnessLeftClickAddsRightClickRemoves": "Endurance. Clic gauche pour ajouter, clic droit pour retirer.",
@@ -656,40 +656,40 @@
       "stack": "Empiler"
     },
     "loyaltyCounter": {
-      "loyalty": "Loyauté",
-      "loyaltyLeftClickAddsRightClickRemoves": "Loyauté. Clic gauche pour ajouter, clic droit pour retirer."
+      "loyalty": "LoyautÃ©",
+      "loyaltyLeftClickAddsRightClickRemoves": "LoyautÃ©. Clic gauche pour ajouter, clic droit pour retirer."
     },
     "gameDisconnectVoteModal": {
-      "disconnectVotes": "Déconnecter les votes",
+      "disconnectVotes": "DÃ©connecter les votes",
       "expel": "Expulser",
-      "genericDisconnectedMessage": "Un joueur s'est déconnecté. Votez pour savoir s'il faut attendre leur reconnexion ou les expulser de la table.",
+      "genericDisconnectedMessage": "Un joueur s'est dÃ©connectÃ©. Votez pour savoir s'il faut attendre leur reconnexion ou les expulser de la table.",
       "noVote": "Pas de vote",
-      "playerDisconnectedMessage": "{{ playerName }} s’est déconnecté. Votez pour savoir s'il faut attendre leur reconnexion ou les expulser de la table.",
+      "playerDisconnectedMessage": "{{ playerName }} sâ€™est dÃ©connectÃ©. Votez pour savoir s'il faut attendre leur reconnexion ou les expulser de la table.",
       "wait": "Attendez",
-      "playerDisconnected": "Joueur déconnecté",
+      "playerDisconnected": "Joueur dÃ©connectÃ©",
       "yourVote": "Votre vote :",
       "timeRemaining": "Temps restant :",
-      "targetPlayerBackOnline": "Le joueur ciblé est à nouveau en ligne."
+      "targetPlayerBackOnline": "Le joueur ciblÃ© est Ã  nouveau en ligne."
     },
     "gameRematchModal": {
       "roomVotes": "Votes de la salle",
       "closeVotes": "Votes de fermeture",
       "defeatedMessage": "Voulez-vous rejouer avec cette salle ?",
-      "extraTime": "Temps supplémentaire",
-      "legendaryVictory": "Victoire légendaire",
+      "extraTime": "Temps supplÃ©mentaire",
+      "legendaryVictory": "Victoire lÃ©gendaire",
       "leaveRoom": "Quitter la salle",
       "lifeTotal": "{{ life }} points de vie",
       "noVote": "Pas de vote",
       "playAgain": "Rejouer",
       "playersHaveSecondsToVote": "{{ playerNames }} ont {{ seconds }} s pour voter.",
-      "playersMissingExtra": "{{ playerNames }} doivent encore voter. Ils ont {{ seconds }} s supplémentaires.",
-      "timeLimit": "Délai",
-      "winnerMessage": "La table est à vous. Vous avez survécu au chaos et remporté la partie avec autorité.",
+      "playersMissingExtra": "{{ playerNames }} doivent encore voter. Ils ont {{ seconds }} s supplÃ©mentaires.",
+      "timeLimit": "DÃ©lai",
+      "winnerMessage": "La table est Ã  vous. Vous avez survÃ©cu au chaos et remportÃ© la partie avec autoritÃ©.",
       "youDied": "Tu es mort",
       "youHaveSecondsToVote": "Vous avez {{ seconds }} s pour voter.",
-      "yourVoteMissingExtra": "Votre vote est manquant. Vous disposez de {{ seconds }} supplémentaires pour voter.",
+      "yourVoteMissingExtra": "Votre vote est manquant. Vous disposez de {{ seconds }} supplÃ©mentaires pour voter.",
       "currentVote": "Votre vote actuel :",
-      "otherPlayersAlreadyVoted": "Le reste des joueurs a déjà voté pour quitter la salle."
+      "otherPlayersAlreadyVoted": "Le reste des joueurs a dÃ©jÃ  votÃ© pour quitter la salle."
     },
     "gameTableHeader": {
       "currentPlayer": "Joueur actuel"
@@ -702,13 +702,13 @@
     "manaActionDialog": {
       "manaProductionParts": "Sources de production de mana",
       "fixedMana": "Mana fixe",
-      "manaToAdd": "Mana à ajouter",
-      "manaAmount": "Quantité de mana",
+      "manaToAdd": "Mana Ã  ajouter",
+      "manaAmount": "QuantitÃ© de mana",
       "cancel": "Annuler"
     },
     "manaPoolPanel": {
-      "manaPool": "Réserve de mana",
-      "hideManaPool": "Masquer la réserve de mana"
+      "manaPool": "RÃ©serve de mana",
+      "hideManaPool": "Masquer la rÃ©serve de mana"
     },
     "numberActionDialog": {
       "adjustValue": "Ajuster la valeur",
@@ -716,23 +716,23 @@
       "decreaseValue": "Diminuer la valeur"
     },
     "opponentMiniBoard": {
-      "opponentZoneCounts": "Recompte des zones de l’adversaire",
+      "opponentZoneCounts": "Recompte des zones de lâ€™adversaire",
       "playerDefeated": "Joueur vaincu",
       "deckPending": "Deck en attente",
       "turn": "Tourner"
     },
     "playerSummaryPanel": {
-      "lifeControls": "Contrôles de la vie",
+      "lifeControls": "ContrÃ´les de la vie",
       "lifeTotal": "Total de vie",
       "playerCounters": "Marqueurs de joueurs",
-      "commanderDamage": "dégâts de commandant",
+      "commanderDamage": "dÃ©gÃ¢ts de commandant",
       "otherCounters": "Autres marqueurs",
-      "extras": "Suppléments",
-      "openExtraPlayerCounters": "Ouvrir des marqueurs de joueurs supplémentaires",
-      "extraPlayerCounters": "Marqueurs de joueurs supplémentaires"
+      "extras": "SupplÃ©ments",
+      "openExtraPlayerCounters": "Ouvrir des marqueurs de joueurs supplÃ©mentaires",
+      "extraPlayerCounters": "Marqueurs de joueurs supplÃ©mentaires"
     },
     "powerToughnessDialog": {
-      "setPowerAndToughness": "Définir la force et l’endurance",
+      "setPowerAndToughness": "DÃ©finir la force et lâ€™endurance",
       "powerToughness": "Force / Endurance",
       "power": "Force",
       "toughness": "Endurance",
@@ -740,7 +740,7 @@
       "apply": "Appliquer"
     },
     "tokenSearchModal": {
-      "tokenCreationControls": "Contrôles de création de jetons",
+      "tokenCreationControls": "ContrÃ´les de crÃ©ation de jetons",
       "loadingDeckTokens": "Chargement des jetons de deck...",
       "searchingTokens": "Recherche de jetons..."
     },
@@ -748,7 +748,7 @@
       "currentTurnLabel": "Tournez {{ turnNumber }}",
       "upcomingTurnLabel": "Dans {{ count }}",
       "currentTurnTitle": "{{ name }} a le tour",
-      "upcomingTurnTitle": "{{ name }} est à {{ count }} à un tour(s)",
+      "upcomingTurnTitle": "{{ name }} est Ã  {{ count }} Ã  un tour(s)",
       "turnOrder": "Ordre du tour"
     },
     "turnPhasePanel": {
@@ -759,12 +759,12 @@
     },
     "zoneModal": {
       "searchByName": "Rechercher par nom",
-      "closeZone": "Zone fermée",
-      "readOnlyLibraryReview": "Revue de bibliothèque en lecture seule",
+      "closeZone": "Zone fermÃ©e",
+      "readOnlyLibraryReview": "Revue de bibliothÃ¨que en lecture seule",
       "type": "Type",
       "allTypes": "Tous types",
-      "creatures": "Créatures",
-      "instants": "Éphémères",
+      "creatures": "CrÃ©atures",
+      "instants": "Ã‰phÃ©mÃ¨res",
       "sorceries": "Rituels",
       "artifacts": "Artefacts",
       "enchantments": "Enchantements",
@@ -777,64 +777,64 @@
       "closeGame": "Fermer la partie ?",
       "giveCard": "Donner une carte ?",
       "moveToHand": "Mettre en main ?",
-      "moveAllToLibrary": "Mettez tout dans la bibliothèque",
+      "moveAllToLibrary": "Mettez tout dans la bibliothÃ¨que",
       "rotateYourDevice": "Faites pivoter votre appareil",
-      "gamesCanOnlyBePlayedInLandscape": "Les parties ne peuvent être jouées qu’en mode paysage sur mobile et tablette.",
-      "thisTableNeedsALittleMoreRoom": "Cette table a besoin d’un peu plus de place",
-      "sorryThisResolutionIsTooCrampedFor": "Désolé, cette résolution est trop étroite pour une partie de Commander. Veuillez ajuster le zoom du navigateur ou utiliser une fenêtre plus grande.",
-      "useCtrl0InYourBrowserTo": "Utilisez Ctrl+0 dans votre navigateur pour réinitialiser le zoom à 100 %, puis actualisez ou redimensionnez cette fenêtre.",
+      "gamesCanOnlyBePlayedInLandscape": "Les parties ne peuvent Ãªtre jouÃ©es quâ€™en mode paysage sur mobile et tablette.",
+      "thisTableNeedsALittleMoreRoom": "Cette table a besoin dâ€™un peu plus de place",
+      "sorryThisResolutionIsTooCrampedFor": "DÃ©solÃ©, cette rÃ©solution est trop Ã©troite pour une partie de Commander. Veuillez ajuster le zoom du navigateur ou utiliser une fenÃªtre plus grande.",
+      "useCtrl0InYourBrowserTo": "Utilisez Ctrl+0 dans votre navigateur pour rÃ©initialiser le zoom Ã  100Â %, puis actualisez ou redimensionnez cette fenÃªtre.",
       "leaveRoom": "Quitter la salle",
       "gameLog": "Journal de partie",
       "chat": "Chat",
-      "noGameActionsYet": "Aucune action de partie pour l’instant.",
-      "noChatMessagesYet": "Aucun message de discussion pour l’instant.",
-      "reactedBy": "Réagi par",
+      "noGameActionsYet": "Aucune action de partie pour lâ€™instant.",
+      "noChatMessagesYet": "Aucun message de discussion pour lâ€™instant.",
+      "reactedBy": "RÃ©agi par",
       "votes": "Votes",
       "opponents": "Adversaires",
-      "randomOrder": "Ordre aléatoire",
-      "shuffleOnlyTheseCardsBeforePlacingThem": "Mélangez uniquement ces cartes avant de les placer.",
+      "randomOrder": "Ordre alÃ©atoire",
+      "shuffleOnlyTheseCardsBeforePlacingThem": "MÃ©langez uniquement ces cartes avant de les placer.",
       "gameLogUnreadActions": "Journal de partie, actions non lues",
       "chatUnreadMessages": "Chat, messages non lus",
-      "moveCardToAnotherBattlefield": "Déplacer la carte vers un autre champ de bataille",
-      "putIntoLibrary": "Mettre en bibliothèque"
+      "moveCardToAnotherBattlefield": "DÃ©placer la carte vers un autre champ de bataille",
+      "putIntoLibrary": "Mettre en bibliothÃ¨que"
     },
     "reactions": {
-      "like": "J’aime",
-      "dislike": "Je n’aime pas",
-      "love": "J’adore",
+      "like": "Jâ€™aime",
+      "dislike": "Je nâ€™aime pas",
+      "love": "Jâ€™adore",
       "laugh": "Rire",
-      "angry": "Très en colère",
-      "vomit": "Dégoûté",
+      "angry": "TrÃ¨s en colÃ¨re",
+      "vomit": "DÃ©goÃ»tÃ©",
       "cry": "Pleurer"
     },
     "numberAction": {
       "drawCards": {
         "title": "Piocher des cartes",
-        "description": "Choisissez le nombre de cartes à piocher dans votre bibliothèque.",
+        "description": "Choisissez le nombre de cartes Ã  piocher dans votre bibliothÃ¨que.",
         "confirm": "Piocher"
       },
       "moveTopCards": {
-        "title": "Déplacer les premières cartes",
-        "description": "Choisissez combien de cartes du haut de votre bibliothèque vous souhaitez placer dans une autre zone.",
-        "confirm": "Déplacer"
+        "title": "DÃ©placer les premiÃ¨res cartes",
+        "description": "Choisissez combien de cartes du haut de votre bibliothÃ¨que vous souhaitez placer dans une autre zone.",
+        "confirm": "DÃ©placer"
       },
       "viewTopCards": {
         "title": "Regarder les cartes du dessus",
-        "description": "Choisissez le nombre de cartes du haut de votre bibliothèque que vous souhaitez consulter.",
+        "description": "Choisissez le nombre de cartes du haut de votre bibliothÃ¨que que vous souhaitez consulter.",
         "confirm": "Regarder"
       }
     },
     "playerCounters": {
       "poison": "Poison",
-      "energy": "Énergie",
-      "experience": "Expérience",
+      "energy": "Ã‰nergie",
+      "experience": "ExpÃ©rience",
       "rad": "Rad",
       "tickets": "Tickets"
     },
     "zones": {
       "hand": "Main",
-      "library": "Bibliothèque",
-      "graveyard": "Cimetière",
+      "library": "BibliothÃ¨que",
+      "graveyard": "CimetiÃ¨re",
       "exile": "Exil"
     },
     "chat": {
@@ -842,77 +842,77 @@
     },
     "specialHelpers": {
       "modal": {
-        "title": "Mécanique",
+        "title": "MÃ©canique",
         "quickActions": "Actions rapides",
         "cardBacked": "Aides soutenues par des cartes",
-        "searchPlaceholder": "Rechercher des emblèmes ou des donjons",
+        "searchPlaceholder": "Rechercher des emblÃ¨mes ou des donjons",
         "searching": "Recherche d'aides...",
-        "noResults": "Aucun résultat trouvé.",
-        "searchHint": "Tapez au moins 2 caractères pour effectuer la recherche.",
-        "searchError": "Impossible de charger les assistants spéciaux.",
+        "noResults": "Aucun rÃ©sultat trouvÃ©.",
+        "searchHint": "Tapez au moins 2 caractÃ¨res pour effectuer la recherche.",
+        "searchError": "Impossible de charger les assistants spÃ©ciaux.",
         "playerTarget": "Joueur : {{playerName}}",
-        "currentState": "État actuel",
-        "readonly": "Lecture seule. Vous pouvez inspecter les mécanismes ici, mais seul le joueur qui contrôle peut les modifier.",
-        "ringLevel": "Niveau de l’Anneau",
-        "noRingBearer": "Aucun porteur de l’Anneau assigné",
+        "currentState": "Ã‰tat actuel",
+        "readonly": "Lecture seule. Vous pouvez inspecter les mÃ©canismes ici, mais seul le joueur qui contrÃ´le peut les modifier.",
+        "ringLevel": "Niveau de lâ€™Anneau",
+        "noRingBearer": "Aucun porteur de lâ€™Anneau assignÃ©",
         "removeHelper": "Retirer",
-        "clearRingBearer": "Effacer le porteur de l’Anneau",
+        "clearRingBearer": "Effacer le porteur de lâ€™Anneau",
         "ringLevelUp": "Niveau +1",
         "ringLevelDown": "Niveau -1",
-        "noActiveMechanics": "Pas de mécanique active.",
-        "notSet": "Non défini"
+        "noActiveMechanics": "Pas de mÃ©canique active.",
+        "notSet": "Non dÃ©fini"
       },
       "quick": {
         "monarch": "Devenez monarque",
         "initiative": "Prendre des initiatives",
-        "citysBlessing": "Obtenez la bénédiction de la Cité",
-        "theRing": "Créer l’Anneau",
-        "setDay": "Définir le jour",
-        "setNight": "Définir la nuit"
+        "citysBlessing": "Obtenez la bÃ©nÃ©diction de la CitÃ©",
+        "theRing": "CrÃ©er lâ€™Anneau",
+        "setDay": "DÃ©finir le jour",
+        "setNight": "DÃ©finir la nuit"
       },
       "labels": {
         "monarch": "Monarque",
         "initiative": "Initiative",
-        "theRing": "L’Anneau",
-        "emblem": "Emblème",
+        "theRing": "Lâ€™Anneau",
+        "emblem": "EmblÃ¨me",
         "dungeon": "Donjon",
         "day": "Jour",
         "night": "Nuit",
-        "citysBlessing": "Bénédiction de la Cité",
+        "citysBlessing": "BÃ©nÃ©diction de la CitÃ©",
         "dayNight": "Jour/Nuit"
       },
       "dungeonReplacement": {
         "title": "Remplacer le donjon actif ?",
-        "message": "Vous ne pouvez avoir qu’un seul donjon actif. Remplacer {{currentDungeon}} par {{nextDungeon}} ?",
+        "message": "Vous ne pouvez avoir quâ€™un seul donjon actif. Remplacer {{currentDungeon}} par {{nextDungeon}} ?",
         "confirm": "Remplacer le donjon",
         "cancel": "Annuler"
       },
       "citysBlessingRemoval": {
-        "title": "Supprimer la bénédiction de la Cité ?",
-        "message": "Ce joueur perdra la bénédiction de la Cité sur la table. Continuer?",
+        "title": "Supprimer la bÃ©nÃ©diction de la CitÃ© ?",
+        "message": "Ce joueur perdra la bÃ©nÃ©diction de la CitÃ© sur la table. Continuer?",
         "confirm": "Retirer",
         "cancel": "Annuler"
       },
       "rail": {
-        "title": "Entités spéciales",
-        "ringLevel": "Niveau de l’Anneau"
+        "title": "EntitÃ©s spÃ©ciales",
+        "ringLevel": "Niveau de lâ€™Anneau"
       }
     },
     "zonePilesPanel": {
-      "monarchBadgeTooltip": "Vous êtes le monarque."
+      "monarchBadgeTooltip": "Vous Ãªtes le monarque."
     },
     "mulliganOverlay": {
       "title": "Mulligan",
-      "metaAriaLabel": "État du mulligan",
+      "metaAriaLabel": "Ã‰tat du mulligan",
       "firstMulliganFree": "Le premier mulligan est gratuit",
       "mulligansTaken": "Mulligans : {{ count }}",
       "effectiveMulligans": "Effectifs : {{ count }}",
       "scryTitle": "Regard 1",
-      "scryDescription": "Choisissez quoi faire avec la carte du dessus de votre bibliothèque.",
+      "scryDescription": "Choisissez quoi faire avec la carte du dessus de votre bibliothÃ¨que.",
       "waitingForPlayers": "En attendant les autres joueurs...",
       "currentHand": "Main actuelle",
       "emptyHand": "Aucune carte en main.",
-      "selectedCount": "{{ selected }} / {{ total }} sélectionné",
+      "selectedCount": "{{ selected }} / {{ total }} sÃ©lectionnÃ©",
       "bottomSelectionHelp": "Bureau : clic droit pour mettre une carte au-dessous. Mobile/tablette : utilisez le bouton Mettre au-dessous.",
       "otherPlayersStatus": "Statut des autres joueurs",
       "players": "Joueurs",
@@ -921,12 +921,13 @@
         "london": "London",
         "vancouver": "Vancouver",
         "paris": "Paris",
-        "generous": "Généreux"
+        "generous": "GÃ©nÃ©reux"
       },
       "status": {
-        "deciding": "en réflexion",
+        "deciding": "en rÃ©flexion",
         "scrying": "regard",
-        "ready": "prêt"
+        "ready": "prÃªt",
+        "bottoming": "Bottoming cards"
       },
       "actions": {
         "keepOnTop": "Laisser au-dessus",
@@ -934,94 +935,94 @@
         "removeFromBottom": "Retirer du dessous"
       },
       "description": {
-        "londonNoBottom": "Piochez 7. Vous n’avez pas besoin de mettre de cartes au-dessous.",
-        "londonChooseBottom": "Piochez 7. Choisissez la ou les cartes {{ count }} à placer au-dessous.",
-        "londonBottomOrder": "L'ordre choisi sera l’ordre du bas.",
+        "londonNoBottom": "Piochez 7. Vous nâ€™avez pas besoin de mettre de cartes au-dessous.",
+        "londonChooseBottom": "Piochez 7. Choisissez la ou les cartes {{ count }} Ã  placer au-dessous.",
+        "londonBottomOrder": "L'ordre choisi sera lâ€™ordre du bas.",
         "drawCards": "Piochez des cartes {{ count }}.",
         "vancouverScry": "Ensuite, vous ferez le regard 1.",
-        "generousNoBottom": "Piochez des cartes {{ count }}. Vous n’avez pas besoin de mettre de cartes au-dessous.",
-        "generousChooseBottom": "Piochez des cartes {{ drawCount }}. Choisissez {{ bottomCount }} à mettre au-dessous dans un ordre aléatoire.",
-        "generousRandomOrder": "L’ordre final sera aléatoire."
+        "generousNoBottom": "Piochez des cartes {{ count }}. Vous nâ€™avez pas besoin de mettre de cartes au-dessous.",
+        "generousChooseBottom": "Piochez des cartes {{ drawCount }}. Choisissez {{ bottomCount }} Ã  mettre au-dessous dans un ordre alÃ©atoire.",
+        "generousRandomOrder": "Lâ€™ordre final sera alÃ©atoire."
       }
     }
   },
   "deckBuilder": {
     "cards": {
       "cardDetail": {
-        "colorIdentity": "Identité couleur :",
+        "colorIdentity": "IdentitÃ© couleur :",
         "commander": "Commandant:"
       },
       "cardSearch": {
         "solRingAtraxaLightningGreaves": "Sol Ring, Atraxa, Lightning Greaves...",
         "header": {
           "title": "Cartes",
-          "description": "Trouvez la carte parfaite avant le début de la politique à table."
+          "description": "Trouvez la carte parfaite avant le dÃ©but de la politique Ã  table."
         },
         "search": "Rechercher",
         "clear": "Effacer",
         "close": "Fermer",
-        "advancedFilters": "Filtres avancés",
+        "advancedFilters": "Filtres avancÃ©s",
         "searchingCards": "Recherche de cartes...",
-        "noCardsFound": "Aucune carte trouvée.",
+        "noCardsFound": "Aucune carte trouvÃ©e.",
         "actions": {
-          "showDetails": "Afficher les détails",
+          "showDetails": "Afficher les dÃ©tails",
           "addToDeck": "Ajouter au deck",
           "showRulings": "Voir les clarifications",
           "viewPrintings": "Voir toutes les impressions"
         },
         "details": {
-          "close": "Fermer les détails",
+          "close": "Fermer les dÃ©tails",
           "couldNotLoad": "Impossible de charger cette carte.",
           "oracleText": "Texte Oracle",
           "noOracleText": "Aucun texte oracle disponible.",
-          "legalFormats": "Formats légaux",
-          "illegalFormats": "Formats illégaux",
-          "noLegalFormats": "Aucun format légal dans le catalogue local.",
-          "noIllegalFormats": "Aucun format illégal dans le catalogue local."
+          "legalFormats": "Formats lÃ©gaux",
+          "illegalFormats": "Formats illÃ©gaux",
+          "noLegalFormats": "Aucun format lÃ©gal dans le catalogue local.",
+          "noIllegalFormats": "Aucun format illÃ©gal dans le catalogue local."
         },
         "addToDeck": {
           "title": "Ajouter une carte",
           "deck": "Deck",
           "section": "Section",
-          "quantity": "Quantité",
-          "selectDeck": "Sélectionnez un deck",
-          "selectSection": "Sélectionnez une rubrique",
-          "decreaseQuantity": "Diminuer la quantité",
-          "increaseQuantity": "Augmenter la quantité",
+          "quantity": "QuantitÃ©",
+          "selectDeck": "SÃ©lectionnez un deck",
+          "selectSection": "SÃ©lectionnez une rubrique",
+          "decreaseQuantity": "Diminuer la quantitÃ©",
+          "increaseQuantity": "Augmenter la quantitÃ©",
           "sectionMain": "Deck principal",
           "sectionCommander": "Commandant",
-          "sectionSideboard": "Réserve",
-          "sectionConsidering": "À considérer",
+          "sectionSideboard": "RÃ©serve",
+          "sectionConsidering": "Ã€ considÃ©rer",
           "confirm": "Ajouter une carte",
           "cancel": "Annuler",
-          "noDecks": "Vous n’avez pas encore de decks.",
-          "colorIdentityWarning": "{{ card }} a une identité de couleur en dehors des couleurs du commandant de {{ deck }} :",
-          "formatLegalityWarning": "{{ card }} n’est pas légal dans {{ format }}, le format de deck sélectionné.",
+          "noDecks": "Vous nâ€™avez pas encore de decks.",
+          "colorIdentityWarning": "{{ card }} a une identitÃ© de couleur en dehors des couleurs du commandant de {{ deck }} :",
+          "formatLegalityWarning": "{{ card }} nâ€™est pas lÃ©gal dans {{ format }}, le format de deck sÃ©lectionnÃ©.",
           "couldNotLoadDecks": "Impossible de charger vos decks.",
-          "couldNotAdd": "Impossible d'ajouter cette carte au deck sélectionné."
+          "couldNotAdd": "Impossible d'ajouter cette carte au deck sÃ©lectionnÃ©."
         },
         "printings": {
           "title": "Impressions de {{ card }}",
-          "empty": "Aucune impression trouvée pour cette carte.",
+          "empty": "Aucune impression trouvÃ©e pour cette carte.",
           "couldNotLoad": "Impossible de charger les impressions de cartes.",
           "close": "Fermer"
         },
         "summary": {
-          "ariaLabel": "Filtres de recherche de cartes appliqués",
-          "activeQuery": "Requête active",
-          "totalFound": "Cartes {{ total }} trouvées",
+          "ariaLabel": "Filtres de recherche de cartes appliquÃ©s",
+          "activeQuery": "RequÃªte active",
+          "totalFound": "Cartes {{ total }} trouvÃ©es",
           "pageStatus": "Page {{ page }} de {{ pages }}",
           "filters": {
             "name": "Nom",
-            "rules": "Règles",
+            "rules": "RÃ¨gles",
             "types": "Types",
             "subtypes": "Sous-types",
             "sets": "Extensions",
-            "rarity": "Rareté",
+            "rarity": "RaretÃ©",
             "colors": "Couleurs",
             "cardKind": "Type",
             "manaValue": "Valeur de mana",
-            "manaCost": "Coût en mana",
+            "manaCost": "CoÃ»t en mana",
             "power": "Force",
             "toughness": "Endurance",
             "formats": "Formats"
@@ -1033,7 +1034,7 @@
           "nameAsc": "Nom A-Z",
           "nameDesc": "Nom Z-A",
           "manaValueAsc": "Mana croissant",
-          "manaValueDesc": "Mana décroissant"
+          "manaValueDesc": "Mana dÃ©croissant"
         },
         "view": {
           "list": "Liste",
@@ -1041,73 +1042,73 @@
         },
         "form": {
           "name": "Nom",
-          "textA": "Texte des règles",
-          "textB": "Deuxième texte",
+          "textA": "Texte des rÃ¨gles",
+          "textB": "DeuxiÃ¨me texte",
           "textMode": "Correspondance du texte",
           "textModeAll": "Tous les termes du texte",
-          "textModeAllDescription": "Les deux cases doivent apparaître dans le texte des règles de la carte.",
+          "textModeAllDescription": "Les deux cases doivent apparaÃ®tre dans le texte des rÃ¨gles de la carte.",
           "textModeAny": "Tout terme textuel",
-          "textModeAnyDescription": "L’une ou l’autre case peut correspondre au texte des règles de la carte.",
+          "textModeAnyDescription": "Lâ€™une ou lâ€™autre case peut correspondre au texte des rÃ¨gles de la carte.",
           "textExact": "Correspondance exacte du mot",
           "textExactDescription": "Recherche uniquement des mots complets, pas du texte dans des mots plus longs.",
           "types": "Types",
           "subtypes": "Sous-types",
           "sets": "Extensions",
-          "rarity": "Rareté",
+          "rarity": "RaretÃ©",
           "colors": "Couleurs",
           "colorMode": "Correspondance des couleurs",
           "colorModeAny": "Au choix",
           "colorModeAll": "Tous",
           "colorModeExact": "Exact",
-          "clearManaCost": "Effacer le coût en mana",
+          "clearManaCost": "Effacer le coÃ»t en mana",
           "basic": "Basique",
-          "legendary": "Légendaire",
+          "legendary": "LÃ©gendaire",
           "artifact": "Artefact",
           "multicolor": "Multicolore",
           "land": "Terrain",
-          "costs": "Coûts",
+          "costs": "CoÃ»ts",
           "manaValueMin": "Min de mana",
           "manaValueMax": "Mana maximum",
-          "manaCost": "Coût en mana",
+          "manaCost": "CoÃ»t en mana",
           "powerToughness": "Force et endurance",
           "powerMin": "Force min.",
           "powerMax": "Force max.",
           "toughnessMin": "Endurance min.",
           "toughnessMax": "Endurance max.",
           "includeVariablePower": "Inclure * force",
-          "includeVariablePowerDescription": "Incluez également les cartes dont la force n’est pas un nombre fixe, comme * ou 1+*.",
-          "includeVariableToughness": "Inclure * l’endurance",
-          "includeVariableToughnessDescription": "Incluez également les cartes dont l’endurance n’est pas un nombre fixe, comme * ou 1+*.",
+          "includeVariablePowerDescription": "Incluez Ã©galement les cartes dont la force nâ€™est pas un nombre fixe, comme * ou 1+*.",
+          "includeVariableToughness": "Inclure * lâ€™endurance",
+          "includeVariableToughnessDescription": "Incluez Ã©galement les cartes dont lâ€™endurance nâ€™est pas un nombre fixe, comme * ou 1+*.",
           "formats": "Formats",
           "filterOptions": "Options de filtrage",
-          "presentation": "Présentation",
+          "presentation": "PrÃ©sentation",
           "loadingOptions": "Chargement des filtres...",
           "enabled": "Actif",
           "activeFilters": "filtres actifs",
-          "precisionConsole": "Console de recherche précise",
-          "composeSearch": "Composer la requête de carte exacte",
-          "oracleText": "Texte des règles de la carte",
-          "textAPlaceholder": "Piochez une carte, détruisez la cible, à chaque fois que vous lancez...",
-          "textBPlaceholder": "Deuxième terme de règle facultatif",
+          "precisionConsole": "Console de recherche prÃ©cise",
+          "composeSearch": "Composer la requÃªte de carte exacte",
+          "oracleText": "Texte des rÃ¨gles de la carte",
+          "textAPlaceholder": "Piochez une carte, dÃ©truisez la cible, Ã  chaque fois que vous lancez...",
+          "textBPlaceholder": "DeuxiÃ¨me terme de rÃ¨gle facultatif",
           "removeManaSymbol": "Supprimer le dernier symbole de mana"
         },
         "help": {
           "title": "Guide de recherche",
-          "heading": "Guide de recherche avancée",
+          "heading": "Guide de recherche avancÃ©e",
           "nameTitle": "Nom",
-          "name": "Recherchez par nom de carte complet ou partiel. CommanderZone vérifie les noms canoniques, les noms imprimés/localisés et les noms d’ambiance lorsque le catalogue local en contient, afin que les noms localisés et anglais puissent trouver la même carte.",
+          "name": "Recherchez par nom de carte complet ou partiel. CommanderZone vÃ©rifie les noms canoniques, les noms imprimÃ©s/localisÃ©s et les noms dâ€™ambiance lorsque le catalogue local en contient, afin que les noms localisÃ©s et anglais puissent trouver la mÃªme carte.",
           "textTitle": "Texte de la carte",
-          "text": "Utilisez un ou deux termes du texte de règle. La bascule de correspondance décide si les deux cases doivent apparaître sur la carte ou si l’une ou l’autre des cases est suffisante. Le texte est vérifié sur le texte Oracle et les faces des cartes.",
+          "text": "Utilisez un ou deux termes du texte de rÃ¨gle. La bascule de correspondance dÃ©cide si les deux cases doivent apparaÃ®tre sur la carte ou si lâ€™une ou lâ€™autre des cases est suffisante. Le texte est vÃ©rifiÃ© sur le texte Oracle et les faces des cartes.",
           "subtypesTitle": "Sous-type",
-          "subtypes": "Le sous-type fonctionne indépendamment du type. Vous pouvez le combiner avec n’importe quelle autre section pour trouver des éléments comme Elfe, Gobelin, Dragon, Équipement ou Aura.",
-          "rarityTitle": "Rareté",
-          "rarity": "Vous pouvez sélectionner plusieurs raretés à la fois. Les pastilles de couleur ne sont qu’une aide visuelle ; la recherche utilise toujours la rareté du catalogue.",
+          "subtypes": "Le sous-type fonctionne indÃ©pendamment du type. Vous pouvez le combiner avec nâ€™importe quelle autre section pour trouver des Ã©lÃ©ments comme Elfe, Gobelin, Dragon, Ã‰quipement ou Aura.",
+          "rarityTitle": "RaretÃ©",
+          "rarity": "Vous pouvez sÃ©lectionner plusieurs raretÃ©s Ã  la fois. Les pastilles de couleur ne sont quâ€™une aide visuelle ; la recherche utilise toujours la raretÃ© du catalogue.",
           "colorsTitle": "Couleur",
-          "colors": "La correspondance des couleurs contrôle le comportement des couleurs imprimées sélectionnées : n’importe quelle couleur sélectionnée, toutes les couleurs sélectionnées ou exactement cet ensemble de couleurs. Artefact, multicolore et terrain sont des raccourcis supplémentaires.",
-          "costsTitle": "Coûts",
-          "costs": "La valeur de mana utilise le catalogue de cartes normalisé de CommanderZone, où X compte pour 0. Le coût exact de mana est construit avec le sélecteur de symboles, vous n’avez donc pas besoin de saisir de codes de couleur.",
+          "colors": "La correspondance des couleurs contrÃ´le le comportement des couleurs imprimÃ©es sÃ©lectionnÃ©es : nâ€™importe quelle couleur sÃ©lectionnÃ©e, toutes les couleurs sÃ©lectionnÃ©es ou exactement cet ensemble de couleurs. Artefact, multicolore et terrain sont des raccourcis supplÃ©mentaires.",
+          "costsTitle": "CoÃ»ts",
+          "costs": "La valeur de mana utilise le catalogue de cartes normalisÃ© de CommanderZone, oÃ¹ X compte pour 0. Le coÃ»t exact de mana est construit avec le sÃ©lecteur de symboles, vous nâ€™avez donc pas besoin de saisir de codes de couleur.",
           "statsTitle": "Force et endurance",
-          "stats": "Les plages de force et de endurance comparent les valeurs numériques. Cochez la petite case à valeur variable lorsque vous souhaitez également des cartes avec des valeurs telles que * ou 1+*."
+          "stats": "Les plages de force et de endurance comparent les valeurs numÃ©riques. Cochez la petite case Ã  valeur variable lorsque vous souhaitez Ã©galement des cartes avec des valeurs telles que * ou 1+*."
         },
         "actionsAriaLabel": "Actions de recherche de carte",
         "filtersAriaLabel": "Filtres de recherche de cartes"
@@ -1122,14 +1123,14 @@
       }
     },
     "deckAnalysisPanel": {
-      "typeBreakdown": "Répartition des types",
-      "utilityCounts": "Décompte des utilitaires"
+      "typeBreakdown": "RÃ©partition des types",
+      "utilityCounts": "DÃ©compte des utilitaires"
     },
     "deckManaBalancePanel": {
-      "manaBalance": "Équilibre du mana",
-      "coloredSourceShareVersusColorDemand": "Part de source colorée par face à la demande de couleur.",
+      "manaBalance": "Ã‰quilibre du mana",
+      "coloredSourceShareVersusColorDemand": "Part de source colorÃ©e par face Ã  la demande de couleur.",
       "sources": "sources",
-      "sourceMix": "Mélange de sources"
+      "sourceMix": "MÃ©lange de sources"
     },
     "deckManaCurvePanel": {
       "manaCurve": "Courbe de mana",
@@ -1137,30 +1138,30 @@
       "permanents": "Permanents",
       "spells": "Sorts",
       "sampleHand": "Exemple de main",
-      "sevenRandomCardsFromTheMainDeck": "Sept cartes aléatoires du deck principal.",
-      "drawAgain": "Piocher à nouveau",
+      "sevenRandomCardsFromTheMainDeck": "Sept cartes alÃ©atoires du deck principal.",
+      "drawAgain": "Piocher Ã  nouveau",
       "noCardsAvailable": "Aucune carte disponible."
     },
     "deckCardMenu": {
-      "copyQuantityControls": "Contrôles de quantité de copies",
-      "selectedCardPreview": "Aperçu de la carte sélectionnée",
-      "quantityToAddOrRemove": "Quantité à ajouter ou à supprimer",
+      "copyQuantityControls": "ContrÃ´les de quantitÃ© de copies",
+      "selectedCardPreview": "AperÃ§u de la carte sÃ©lectionnÃ©e",
+      "quantityToAddOrRemove": "QuantitÃ© Ã  ajouter ou Ã  supprimer",
       "editingCard": "Modification de la carte",
-      "quantity": "Quantité",
+      "quantity": "QuantitÃ©",
       "add": "Ajouter",
       "remove": "Retirer",
-      "selectPrintVersion": "Sélectionner l’impression",
-      "moveToMain": "Déplacer vers le deck principal",
-      "moveToCommander": "Déplacer vers Commandant",
-      "moveToSideboard": "Déplacer vers la réserve",
-      "moveToConsidering": "Déplacer vers À considérer"
+      "selectPrintVersion": "SÃ©lectionner lâ€™impression",
+      "moveToMain": "DÃ©placer vers le deck principal",
+      "moveToCommander": "DÃ©placer vers Commandant",
+      "moveToSideboard": "DÃ©placer vers la rÃ©serve",
+      "moveToConsidering": "DÃ©placer vers Ã€ considÃ©rer"
     },
     "deckCardSpoilerView": {
       "flipFace": "Retourner la face",
-      "noCommanderAssignedYet": "Aucun commandant n’a encore été désigné."
+      "noCommanderAssignedYet": "Aucun commandant nâ€™a encore Ã©tÃ© dÃ©signÃ©."
     },
     "deckCardTextView": {
-      "noCommanderAssignedYet": "Aucun commandant n’a encore été désigné.",
+      "noCommanderAssignedYet": "Aucun commandant nâ€™a encore Ã©tÃ© dÃ©signÃ©.",
       "unknownType": "Type inconnu"
     },
     "deckCommanderShowcase": {
@@ -1169,83 +1170,83 @@
     "deckEditor": {
       "addCardsByName": "Ajouter des cartes par nom",
       "searchAnotherCardName": "Rechercher un autre nom de carte",
-      "deckEditorSections": "Sections de l’éditeur de deck",
+      "deckEditorSections": "Sections de lâ€™Ã©diteur de deck",
       "copyCardName": "Copier le nom de la carte",
       "searchCard": "Rechercher une carte",
       "saveMissingCard": "Enregistrer la carte manquante",
-      "ignoreThisSession": "Ignorer cette séance",
+      "ignoreThisSession": "Ignorer cette sÃ©ance",
       "remove": "Retirer",
-      "clearLocalHistory": "Effacer l’historique local",
+      "clearLocalHistory": "Effacer lâ€™historique local",
       "importDecklist": "Importer la liste de deck",
-      "selectPrintVersion": "Sélectionnez la version imprimable",
-      "restoreHistory": "Restaurer l’historique",
+      "selectPrintVersion": "SÃ©lectionnez la version imprimable",
+      "restoreHistory": "Restaurer lâ€™historique",
       "view": "Voir",
       "text": "Texte",
       "spoiler": "Spoiler",
       "analysis": "Analyse",
-      "considering": "À considérer",
+      "considering": "Ã€ considÃ©rer",
       "validation": "Validation",
       "missing": "Manquantes",
       "history": "Historique",
-      "consideringCards": "Cartes à considérer",
-      "cardsParkedOutsideThePlayableDeck": "Cartes mises de côté hors du deck jouable.",
-      "noConsideringCards": "Aucune carte à considérer.",
-      "derivedTokens": "Jetons dérivés",
-      "resolvedFromCardsCurrentlyInTheDeck": "Résolu à partir des cartes actuellement dans le deck.",
-      "noResolvedTokensForThisDeck": "Aucun jeton résolu pour ce deck.",
-      "unresolvedTokens": "Jetons non résolus",
+      "consideringCards": "Cartes Ã  considÃ©rer",
+      "cardsParkedOutsideThePlayableDeck": "Cartes mises de cÃ´tÃ© hors du deck jouable.",
+      "noConsideringCards": "Aucune carte Ã  considÃ©rer.",
+      "derivedTokens": "Jetons dÃ©rivÃ©s",
+      "resolvedFromCardsCurrentlyInTheDeck": "RÃ©solu Ã  partir des cartes actuellement dans le deck.",
+      "noResolvedTokensForThisDeck": "Aucun jeton rÃ©solu pour ce deck.",
+      "unresolvedTokens": "Jetons non rÃ©solus",
       "validateWithBackend": "Valider avec le serveur",
       "errors": "Erreurs",
       "warnings": "Avertissements",
       "noFrontendDiagnosticsForTheCurrentDeck": "Aucun diagnostic client pour le deck actuel.",
       "search": "Rechercher",
       "add": "Ajouter",
-      "noCardSearchResults": "Aucun résultat de recherche de carte.",
+      "noCardSearchResults": "Aucun rÃ©sultat de recherche de carte.",
       "futureCollection": "Collection future",
-      "snapshot": "Instantané",
+      "snapshot": "InstantanÃ©",
       "restore": "Restaurer",
-      "noLocalHistoryForThisDeckYet": "Aucun historique local pour ce deck pour l’instant.",
+      "noLocalHistoryForThisDeckYet": "Aucun historique local pour ce deck pour lâ€™instant.",
       "noCards": "Pas de cartes",
       "deckName": "Nom du deck",
       "saveName": "Enregistrer le nom",
       "plainTextDecklist": "Liste de deck en texte brut",
       "loadFile": "Charger le fichier",
-      "lastImport": "Dernière importation",
-      "missingCardsFromLatestImport": "Cartes manquantes lors de la dernière importation",
-      "chooseTheExactPrintingFor": "Choisissez l’impression exacte pour",
-      "quantityAndSectionWillStayUnchanged": "La quantité et la section resteront inchangées.",
-      "loadingPrintVersions": "Chargement des versions imprimées...",
-      "onlyOnePrintVersion": "Une seule version imprimée",
-      "thisCardOnlyHasOnePrintVersion": "Cette carte n’a qu’une seule version imprimable disponible dans la base de données.",
-      "noPrintVersionsFoundForThisCard": "Aucune version imprimée trouvée pour cette carte.",
+      "lastImport": "DerniÃ¨re importation",
+      "missingCardsFromLatestImport": "Cartes manquantes lors de la derniÃ¨re importation",
+      "chooseTheExactPrintingFor": "Choisissez lâ€™impression exacte pour",
+      "quantityAndSectionWillStayUnchanged": "La quantitÃ© et la section resteront inchangÃ©es.",
+      "loadingPrintVersions": "Chargement des versions imprimÃ©es...",
+      "onlyOnePrintVersion": "Une seule version imprimÃ©e",
+      "thisCardOnlyHasOnePrintVersion": "Cette carte nâ€™a quâ€™une seule version imprimable disponible dans la base de donnÃ©es.",
+      "noPrintVersionsFoundForThisCard": "Aucune version imprimÃ©e trouvÃ©e pour cette carte.",
       "current": "Actuel",
       "header": {
-        "title": "Éditeur de deck",
+        "title": "Ã‰diteur de deck",
         "deckWarnings": "Avertissements sur le deck",
         "import": "Importer",
         "export": "Exporter",
         "share": "Partager",
-        "shareCopied": "Lien de la communauté copié",
-        "shareError": "Impossible de copier le lien de la communauté."
+        "shareCopied": "Lien de la communautÃ© copiÃ©",
+        "shareError": "Impossible de copier le lien de la communautÃ©."
       },
       "cardsCount": "Cartes {{ count }}",
       "clear": "Effacer",
-      "clearLocalHistoryQuestion": "Effacer l’histoire locale pour ce deck ?",
-      "colorIdentity": "Identité couleur : {{ colors }}",
+      "clearLocalHistoryQuestion": "Effacer lâ€™histoire locale pour ce deck ?",
+      "colorIdentity": "IdentitÃ© couleur : {{ colors }}",
       "commanderMode": "Mode commandant : {{ mode }}",
       "fromSourceCard": "De {{ name }}",
       "historyCardsSummary": "Cartes {{ count }} - {{ commanders }}",
-      "importSummary": "Cartes analysées {{ parsed }}, {{ imported }} importées, {{ missing }} manquantes.",
+      "importSummary": "Cartes analysÃ©es {{ parsed }}, {{ imported }} importÃ©es, {{ missing }} manquantes.",
       "noCommander": "Pas de commandant",
-      "noCost": "Aucun coût",
+      "noCost": "Aucun coÃ»t",
       "no": "Non",
-      "restoreSnapshotQuestion": "Restaurer cet instantané ?",
-      "searchResultsFor": "Résultats de recherche pour {{ name }}",
+      "restoreSnapshotQuestion": "Restaurer cet instantanÃ© ?",
+      "searchResultsFor": "RÃ©sultats de recherche pour {{ name }}",
       "sectionsCount": "Sections {{ count }}",
       "usableInGame": "Utilisable en partie : {{ value }}",
-      "validationCounts": "Cartes : {{ total }} au total ({{ commander }} commandant, {{ main }} deck principal, {{ sideboard }} réserve, {{ maybeboard }} à considérer)",
-      "validationFailed": "La validation Commander a échoué",
-      "validationPassed": "Validation Commander réussie",
+      "validationCounts": "Cartes : {{ total }} au total ({{ commander }} commandant, {{ main }} deck principal, {{ sideboard }} rÃ©serve, {{ maybeboard }} Ã  considÃ©rer)",
+      "validationFailed": "La validation Commander a Ã©chouÃ©",
+      "validationPassed": "Validation Commander rÃ©ussie",
       "yes": "Oui",
       "decklistTextareaExample": "1 Sol Ring (COV) 168\n1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141"
     },
@@ -1253,40 +1254,40 @@
       "newDeckName": "Nouveau nom de deck",
       "searchCommanderByName": "Rechercher un commandant par nom",
       "example1SolRingVoc168": "Exemple : 1 Sol Ring (COV) 168",
-      "jeskaiBrewsTesting": "Jeskai, idées, tests...",
+      "jeskaiBrewsTesting": "Jeskai, idÃ©es, tests...",
       "renameFolder": "Renommer le dossier",
       "deleteFolder": "Supprimer le dossier",
       "editDeck": "Modifier le deck",
       "deleteDeck": "Supprimer le deck",
-      "deckSaved": "Deck enregistré",
-      "createSuccessMessage": "Ce deck a été enregistré. Il est maintenant dans votre liste de decks enregistrés et vous pouvez le modifier comme bon vous semble. Bonne chance avec votre deck Commander !",
-      "createEmptyDeck": "Créer un deck vide",
-      "createFolder": "Créer un dossier",
+      "deckSaved": "Deck enregistrÃ©",
+      "createSuccessMessage": "Ce deck a Ã©tÃ© enregistrÃ©. Il est maintenant dans votre liste de decks enregistrÃ©s et vous pouvez le modifier comme bon vous semble. Bonne chance avec votre deck Commander !",
+      "createEmptyDeck": "CrÃ©er un deck vide",
+      "createFolder": "CrÃ©er un dossier",
       "continueToRooms": "Continuer vers les salles",
-      "commanderEnlargedPreview": "Aperçu agrandi du commandant",
+      "commanderEnlargedPreview": "AperÃ§u agrandi du commandant",
       "deckListLabel": "Liste des decks",
-      "yourDeckListFeelsALittleEmpty": "Votre liste de deck semble un peu vide. Lancez-vous et commencez à construire !",
-      "noDecksInThisFolderYet": "Aucun deck dans ce dossier pour l’instant.",
+      "yourDeckListFeelsALittleEmpty": "Votre liste de deck semble un peu vide. Lancez-vous et commencez Ã  construire !",
+      "noDecksInThisFolderYet": "Aucun deck dans ce dossier pour lâ€™instant.",
       "missingCards": "Cartes manquantes",
       "deckName": "Nom du deck",
       "folder": "Dossier",
       "noFolder": "Aucun dossier",
       "openDeck": "Ouvrir le deck",
-      "thisDeckIsPublicButItsFolder": "Ce deck est public, mais son dossier est privé. Il ne sera pas visible publiquement.",
+      "thisDeckIsPublicButItsFolder": "Ce deck est public, mais son dossier est privÃ©. Il ne sera pas visible publiquement.",
       "commander": "Commandant",
       "importDecklist": "Importer la liste de deck",
-      "ifYouIncludeYourCommanderInThe": "Si vous incluez votre commandant dans la liste de deck d'importation, ne vous inquiétez pas ; nous le supprimerons pour vous.",
-      "ifYouIncludeYourCommandersInThe": "Si vous incluez vos commandants dans la liste de deck d'importation, ne vous inquiétez pas ; nous les supprimerons pour vous.",
+      "ifYouIncludeYourCommanderInThe": "Si vous incluez votre commandant dans la liste de deck d'importation, ne vous inquiÃ©tez pas ; nous le supprimerons pour vous.",
+      "ifYouIncludeYourCommandersInThe": "Si vous incluez vos commandants dans la liste de deck d'importation, ne vous inquiÃ©tez pas ; nous les supprimerons pour vous.",
       "folderName": "Nom du dossier",
       "playmat": "Tapis",
-      "sleeve": "Protège-carte",
+      "sleeve": "ProtÃ¨ge-carte",
       "editPlaymat": "Modifier le tapis",
-      "editSleeve": "Modifier le protège-carte",
+      "editSleeve": "Modifier le protÃ¨ge-carte",
       "header": {
         "title": "Decks",
-        "createDeck": "Créer un deck",
-        "createFolder": "Créer un dossier",
-        "description": "Organisez, construisez et maîtrisez vos decks."
+        "createDeck": "CrÃ©er un deck",
+        "createFolder": "CrÃ©er un dossier",
+        "description": "Organisez, construisez et maÃ®trisez vos decks."
       },
       "colorFilter": {
         "label": "Couleur",
@@ -1308,39 +1309,39 @@
         "playmatOptions": "Options de tapis",
         "playmatTiers": "Niveaux de tapis",
         "premium": "Premium",
-        "selectPlaymat": "Sélectionner le tapis {{ name }}",
-        "selectSleeve": "Sélectionner le protège-carte {{ name }}",
-        "sleeveOptions": "Options de protège-cartes"
+        "selectPlaymat": "SÃ©lectionner le tapis {{ name }}",
+        "selectSleeve": "SÃ©lectionner le protÃ¨ge-carte {{ name }}",
+        "sleeveOptions": "Options de protÃ¨ge-cartes"
       },
       "filters": {
         "actionsAndFilters": "Actions et filtres du deck"
       },
-      "maximumCharacters": "Nombre maximal de caractères {{ count }}.",
+      "maximumCharacters": "Nombre maximal de caractÃ¨res {{ count }}.",
       "noDecksMatchFilters": "Aucun deck ne correspond aux filtres actuels.",
       "removeCommander": "Supprimer le commandant",
       "searchDecks": "Rechercher des decks",
       "searchDecksPlaceholder": "Rechercher des decks...",
       "stats": {
-        "colorDistribution": "Répartition des couleurs",
-        "private": "Privé",
+        "colorDistribution": "RÃ©partition des couleurs",
+        "private": "PrivÃ©",
         "public": "Publique",
-        "summary": "Résumé du deck",
+        "summary": "RÃ©sumÃ© du deck",
         "total": "Total"
       }
     },
     "advancedAnalysis": {
-      "title": "Analyse avancée",
+      "title": "Analyse avancÃ©e",
       "eyebrow": "Analyse du pont",
-      "description": "État du deck en profondeur, combos, consistance et signaux de puissance.",
-      "openButton": "Analyse avancée",
-      "openCommunityAria": "Ouvrir l'analyse avancée pour ce deck communautaire",
-      "loading": "Chargement de l'analyse avancée...",
-      "retry": "Réessayer",
-      "retryAria": "Réessayez de charger l'analyse avancée",
+      "description": "Ã‰tat du deck en profondeur, combos, consistance et signaux de puissance.",
+      "openButton": "Analyse avancÃ©e",
+      "openCommunityAria": "Ouvrir l'analyse avancÃ©e pour ce deck communautaire",
+      "loading": "Chargement de l'analyse avancÃ©e...",
+      "retry": "RÃ©essayer",
+      "retryAria": "RÃ©essayez de charger l'analyse avancÃ©e",
       "error": {
-        "generic": "Impossible de charger l'analyse avancée.",
-        "notFound": "L'analyse avancée n'est pas disponible pour ce deck.",
-        "forbidden": "Vous n'êtes pas autorisé à afficher cette analyse."
+        "generic": "Impossible de charger l'analyse avancÃ©e.",
+        "notFound": "L'analyse avancÃ©e n'est pas disponible pour ce deck.",
+        "forbidden": "Vous n'Ãªtes pas autorisÃ© Ã  afficher cette analyse."
       },
       "common": {
         "unavailable": "Indisponible",
@@ -1350,14 +1351,14 @@
         "no": "Non"
       },
       "overview": {
-        "aria": "Présentation de l'analyse avancée",
-        "eyebrow": "Aperçu"
+        "aria": "PrÃ©sentation de l'analyse avancÃ©e",
+        "eyebrow": "AperÃ§u"
       },
       "summary": {
-        "title": "Résumé",
-        "primaryArchetype": "Archétype principal",
-        "secondaryArchetypes": "Archétypes secondaires",
-        "archetypeConfidence": "Confiance archétypique",
+        "title": "RÃ©sumÃ©",
+        "primaryArchetype": "ArchÃ©type principal",
+        "secondaryArchetypes": "ArchÃ©types secondaires",
+        "archetypeConfidence": "Confiance archÃ©typique",
         "archetypeConfidenceDescription": "Indique dans quelle mesure l'analyseur estime que l'archetype detecte correspond aux signaux des cartes du deck.",
         "archetypeReasons": {
           "generic": "This plan is supported by the strongest card-role patterns found in the deck.",
@@ -1380,7 +1381,7 @@
           "mill": "The deck has mill effects or payoffs that make milling a meaningful path.",
           "lifegain": "The deck has lifegain cards or payoffs that turn life gain into material advantage."
         },
-        "criticalIssues": "Problèmes critiques",
+        "criticalIssues": "ProblÃ¨mes critiques",
         "primaryTypalType": "Tribu principale",
         "archetypeSignals": "Archetype rationale",
         "archetypeReason": "Why this fits",
@@ -1388,20 +1389,20 @@
       },
       "header": {
         "deckId": "Identifiant du deck",
-        "analyzedAt": "Analysé à",
+        "analyzedAt": "AnalysÃ© Ã ",
         "snapshot": "Snapshot"
       },
       "snapshot": {
-        "fresh": "Analyse récente",
+        "fresh": "Analyse rÃ©cente",
         "cached": "Analyse en cache",
-        "metadataUnavailable": "Les métadonnées de l'instantané ne sont pas disponibles.",
-        "calculatedAt": "{{date}} calculé",
-        "calculatedEarlier": "Calculé précédemment pour cet état du deck.",
-        "reasonCalculatedAt": "{{reason}} Calculé {{date}}",
-        "recalculated": "Recalculé pour l'état actuel du deck."
+        "metadataUnavailable": "Les mÃ©tadonnÃ©es de l'instantanÃ© ne sont pas disponibles.",
+        "calculatedAt": "{{date}} calculÃ©",
+        "calculatedEarlier": "CalculÃ© prÃ©cÃ©demment pour cet Ã©tat du deck.",
+        "reasonCalculatedAt": "{{reason}} CalculÃ© {{date}}",
+        "recalculated": "RecalculÃ© pour l'Ã©tat actuel du deck."
       },
       "status": {
-        "excellent": "Très bon",
+        "excellent": "TrÃ¨s bon",
         "good": "Bien",
         "warning": "Avertissement",
         "critical": "Critique",
@@ -1409,21 +1410,29 @@
         "info": "Info"
       },
       "priority": {
-        "high": "Élevé",
+        "high": "Ã‰levÃ©",
         "medium": "Moyen",
         "low": "Faible"
       },
       "health": {
-        "eyebrow": "Santé du pont",
-        "title": "Grille santé",
-        "defaultMessage": "Ce domaine ne peut pas être évalué avec certitude.",
-        "cards": {
+        "eyebrow": "SantÃ© du pont",
+        "title": "Grille santÃ©",
+        "defaultMessage": "Ce domaine ne peut pas Ãªtre Ã©valuÃ© avec certitude.",
+        "reasonCodes": {
+          "belowRecommendedMinimum": "Le nombre détecté est inférieur au seuil recommandé pour cette catégorie.",
+          "relatedIssueDetected": "Des avertissements d'analyse liés à cette catégorie ont été détectés.",
+          "manaIssueDetected": "Des avertissements d'accès aux couleurs, de vitesse ou de lancement du commandant ont été détectés.",
+          "boardWipeIssueDetected": "Le paquet de nettoyages présente des avertissements de couverture, de qualité ou de conflit avec le plan.",
+          "consistencyIssueDetected": "La simulation de main de départ ou d'accès précoce a détecté des points de pression.",
+          "comboIssueDetected": "Le paquet de combos présente des avertissements de complétude, de dépendance ou d'accès.",
+          "typalIssueDetected": "Le paquet typal présente des avertissements de densité, de soutien ou d'alignement avec le commandant."
+        },        "cards": {
           "ramp": "Ramp",
           "draw": "Dessiner",
           "interaction": "Interactions",
           "wipes": "Lingettes",
           "tutors": "Tuteurs",
-          "sacrifice": "Sacrifice récurrent",
+          "sacrifice": "Sacrifice rÃ©current",
           "wincons": "Wincons",
           "combos": "Combos",
           "consistency": "Consistance",
@@ -1433,9 +1442,9 @@
         }
       },
       "metrics": {
-        "eyebrow": "Signaux",
-        "title": "Indicateurs clés",
-        "unavailable": "Les signaux métriques détaillés ne sont pas disponibles pour cette analyse.",
+        "eyebrow": "Signaux du deck",
+        "title": "Indicateurs clÃ©s",
+        "unavailable": "Les signaux mÃ©triques dÃ©taillÃ©s ne sont pas disponibles pour cette analyse.",
         "permanentRamp": "Rampe permanente",
         "fastMana": "Mana rapide",
         "trueTutors": "De vrais tuteurs",
@@ -1443,17 +1452,17 @@
         "massBounce": "Rebond de masse",
         "sacOutlets": "Sorties de sacs",
         "wincons": "Wincons",
-        "completeCombos": "Combinaisons complètes",
+        "completeCombos": "Combinaisons complÃ¨tes",
         "keepableHands": "Mains gardables",
         "drawEffects": "Dessiner des effets",
         "spotInteraction": "Interaction ponctuelle",
         "outlets": "Points de vente",
-        "staxPieces": "Pièces Stax",
-        "burstMana": "Mana éclaté",
+        "staxPieces": "PiÃ¨ces Stax",
+        "burstMana": "Mana Ã©clatÃ©",
         "rituals": "Rituels",
         "manaFixing": "Fixation du mana",
-        "oneShotMana": "Mana à un coup",
-        "typedTutors": "Des tuteurs typés",
+        "oneShotMana": "Mana Ã  un coup",
+        "typedTutors": "Des tuteurs typÃ©s",
         "landTutors": "Tuteurs fonciers",
         "rampSearch": "Recherche de rampe",
         "opponentTutors": "Tuteurs adverses",
@@ -1462,39 +1471,39 @@
         "sacrificeOutlets": "Points de vente du sacrifice",
         "oneShotSacrifice": "Sacrifice en un seul coup",
         "selfSacrifice": "Sacrifice de soi",
-        "sacrificePayoffs": "Les récompenses des sacrifices",
+        "sacrificePayoffs": "Les rÃ©compenses des sacrifices",
         "combatFinishers": "Finisseurs de combat",
         "infectThreats": "Menaces d'infection",
-        "extraCombatEngines": "Moteurs de combat supplémentaires",
+        "extraCombatEngines": "Moteurs de combat supplÃ©mentaires",
         "stax": "Stax",
         "tax": "Taxe",
-        "symmetricalStaxRisk": "Risque fiscal symétrique",
-        "typalCreatures": "Créatures tribales"
+        "symmetricalStaxRisk": "Risque fiscal symÃ©trique",
+        "typalCreatures": "CrÃ©atures tribales"
       },
       "cardResolution": {
-        "title": "Résolution de la carte",
+        "title": "RÃ©solution de la carte",
         "cards": "Cartes",
-        "resolved": "Résolu",
-        "unmatched": "Inégalé",
-        "unmatchedAria": "Cartes inégalées",
-        "unmatchedCount": "Cartes inégalées {{count}}",
-        "unmatchedCopy": "Certaines cartes n’ont pas pu être identifiées ; les signaux de rôles et de combos peuvent donc être incomplets.",
+        "resolved": "RÃ©solu",
+        "unmatched": "InÃ©galÃ©",
+        "unmatchedAria": "Cartes inÃ©galÃ©es",
+        "unmatchedCount": "Cartes inÃ©galÃ©es {{count}}",
+        "unmatchedCopy": "Certaines cartes nâ€™ont pas pu Ãªtre identifiÃ©es ; les signaux de rÃ´les et de combos peuvent donc Ãªtre incomplets.",
         "cardCouldNotBeMatched": "La carte n'a pas pu correspondre."
       },
       "combos": {
         "eyebrow": "Lignes connues",
         "title": "Analyse des combos",
-        "completeTitle": "Combinaisons complètes",
+        "completeTitle": "Combinaisons complÃ¨tes",
         "partialTitle": "Combos partiels",
         "completersTitle": "Meilleurs finalistes de combos",
         "viewMore": "Voir plus",
         "viewMoreCompleteAria": "Voir des combos plus complets",
         "viewMorePartialAria": "Voir plus de combos partiels",
-        "viewMoreCompletersAria": "Voir plus de compléteurs de combo",
-        "missingCards": "Manquant : {{cards}}",
-        "comboLine": "Ligne combinée {{index}}",
+        "viewMoreCompletersAria": "Voir plus de complÃ©teurs de combo",
+        "missingCards": "ManquantÂ :Â {{cards}}",
+        "comboLine": "Ligne combinÃ©e {{index}}",
         "summary": {
-          "complete": "Combinaisons complètes",
+          "complete": "Combinaisons complÃ¨tes",
           "partialOneMissing": "Partiel, un manquant",
           "partialTwoMissing": "Partielle, deux disparus",
           "winLike": "Des combos gagnants",
@@ -1502,18 +1511,18 @@
           "lethalLoops": "Boucles mortelles"
         },
         "empty": {
-          "noComplete": "Aucune ligne de combo complète détectée.",
-          "noOneCardAway": "Aucune ligne de combo à une carte près détectée.",
-          "noCompleters": "Aucun compléteur de combo identifié.",
-          "unavailable": "Les données combinées ne sont pas disponibles pour cette analyse.",
-          "noCompleteOrPartial": "Aucune ligne de combo complète ou partielle détectée."
+          "noComplete": "Aucune ligne de combo complÃ¨te dÃ©tectÃ©e.",
+          "noOneCardAway": "Aucune ligne de combo Ã  une carte prÃ¨s dÃ©tectÃ©e.",
+          "noCompleters": "Aucun complÃ©teur de combo identifiÃ©.",
+          "unavailable": "Les donnÃ©es combinÃ©es ne sont pas disponibles pour cette analyse.",
+          "noCompleteOrPartial": "Aucune ligne de combo complÃ¨te ou partielle dÃ©tectÃ©e."
         },
         "badges": {
           "winLike": "Comme une victoire",
           "infiniteMana": "Mana infini",
-          "infiniteDamage": "Dégâts infinis",
-          "requiresCommander": "Nécessite un commandant",
-          "requiresTemplate": "Nécessite un modèle"
+          "infiniteDamage": "DÃ©gÃ¢ts infinis",
+          "requiresCommander": "NÃ©cessite un commandant",
+          "requiresTemplate": "NÃ©cessite un modÃ¨le"
         },
         "cardState": {
           "inDeck": "Dans le deck",
@@ -1523,14 +1532,14 @@
       "consistency": {
         "eyebrow": "Monte Carlo",
         "title": "Simulation de consistance",
-        "disclaimer": "Simule les mains de départ et l’accès aux cartes, pas les résultats de partie.",
-        "simulationRuns": "Exécutions de simulation",
+        "disclaimer": "Simule les mains de dÃ©part et lâ€™accÃ¨s aux cartes, pas les rÃ©sultats de partie.",
+        "simulationRuns": "ExÃ©cutions de simulation",
         "openingHand": "Main d'ouverture",
-        "keepRule": "Gardez la règle",
+        "keepRule": "Gardez la rÃ¨gle",
         "mulligan": "Mulligan",
-        "byTurn": "À tour de rôle",
-        "unavailable": "La simulation de consistance n’est pas disponible pour cette analyse.",
-        "keepRuleFallback": "Les mains pouvant être gardées sont évaluées à partir du nombre de terrains, des premiers jeux, des signaux de développement, de l'interaction et de la pression élevée.",
+        "byTurn": "Ã€ tour de rÃ´le",
+        "unavailable": "La simulation de consistance nâ€™est pas disponible pour cette analyse.",
+        "keepRuleFallback": "Les mains pouvant Ãªtre gardÃ©es sont Ã©valuÃ©es Ã  partir du nombre de terrains, des premiers jeux, des signaux de dÃ©veloppement, de l'interaction et de la pression Ã©levÃ©e.",
         "turn3": "Tour 3",
         "turn5": "Tour 5",
         "metrics": {
@@ -1538,24 +1547,24 @@
           "twoToFourLands": "2-4 terrains",
           "zeroOrOneLand": "0-1 atterrit",
           "fivePlusLands": "5+ terrains",
-          "earlyInteraction": "Interaction précoce",
-          "drawOrSelection": "Tirage au sort ou sélection",
-          "trueTutor": "Véritable tuteur",
-          "earlyPlay": "Jeu précoce",
+          "earlyInteraction": "Interaction prÃ©coce",
+          "drawOrSelection": "Tirage au sort ou sÃ©lection",
+          "trueTutor": "VÃ©ritable tuteur",
+          "earlyPlay": "Jeu prÃ©coce",
           "tooFewLands": "Trop peu de terres",
           "tooManyLands": "Trop de terres",
-          "noEarlyPlay": "Pas de jeu anticipé",
+          "noEarlyPlay": "Pas de jeu anticipÃ©",
           "tooTopHeavy": "Trop lourd",
-          "keepableAt7": "Conservable à 7 heures",
-          "keepableBy6": "Conservable jusqu'à 6 heures",
-          "keepableBy5": "Conservable jusqu'à 5",
-          "averageMulligansNeeded": "Mulligans moyens nécessaires",
+          "keepableAt7": "Conservable Ã  7 heures",
+          "keepableBy6": "Conservable jusqu'Ã  6 heures",
+          "keepableBy5": "Conservable jusqu'Ã  5",
+          "averageMulligansNeeded": "Mulligans moyens nÃ©cessaires",
           "permanentRampSeen": "Rampe permanente vue",
-          "earlyInteractionSeen": "Interaction précoce observée",
-          "drawOrSelectionSeen": "Tirage ou sélection vu",
+          "earlyInteractionSeen": "Interaction prÃ©coce observÃ©e",
+          "drawOrSelectionSeen": "Tirage ou sÃ©lection vu",
           "trueTutorSeen": "Vrai tuteur vu",
           "winconSeen": "Wincon vu",
-          "comboPieceSeen": "Pièce combinée vue",
+          "comboPieceSeen": "PiÃ¨ce combinÃ©e vue",
           "interactionSeen": "Interaction vue",
           "completeTwoCardComboSeen": "Combo complet de 2 cartes vu",
           "comboPlusProtectionSeen": "Combo avec protection vu",
@@ -1570,23 +1579,23 @@
         "commanderCurveCastability": "Commander curve castability"
       },
       "roles": {
-        "eyebrow": "Rôles fonctionnels",
-        "title": "Répartition de la qualité des rôles",
-        "qualityAria": "Qualité {{role}}",
-        "unavailable": "Les données sur la qualité des rôles ne sont pas disponibles pour cette analyse.",
+        "eyebrow": "RÃ´les fonctionnels",
+        "title": "RÃ©partition de la qualitÃ© des rÃ´les",
+        "qualityAria": "QualitÃ© {{role}}",
+        "unavailable": "Les donnÃ©es sur la qualitÃ© des rÃ´les ne sont pas disponibles pour cette analyse.",
         "cards": {
           "ramp": "Ramp",
           "tutors": "Tuteurs",
           "wipes": "Lingettes",
-          "sacrifice": "Sacrifice récurrent",
+          "sacrifice": "Sacrifice rÃ©current",
           "winconsCombat": "Wincon / combat",
           "stax": "Stax"
         },
         "messages": {
-          "rampOneShot": "Certaines accélérations sont ponctuelles et ne doivent pas être considérées comme une rampe stable.",
-          "tutorsSeparated": "Les tuteurs de recherche de rampe et d'adversaires sont séparés des vrais tuteurs.",
-          "wipesSeparated": "Le rebond de masse et les lingettes conditionnelles ne sont pas les mêmes que les lingettes rigides.",
-          "sacrificeOneShot": "Le sacrifice ponctuel ne compte pas comme un débouché reproductible."
+          "rampOneShot": "Certaines accÃ©lÃ©rations sont ponctuelles et ne doivent pas Ãªtre considÃ©rÃ©es comme une rampe stable.",
+          "tutorsSeparated": "Les tuteurs de recherche de rampe et d'adversaires sont sÃ©parÃ©s des vrais tuteurs.",
+          "wipesSeparated": "Le rebond de masse et les lingettes conditionnelles ne sont pas les mÃªmes que les lingettes rigides.",
+          "sacrificeOneShot": "Le sacrifice ponctuel ne compte pas comme un dÃ©bouchÃ© reproductible."
         }
       },
       "quality": {
@@ -1597,18 +1606,23 @@
         "oneShot": "Un coup"
       },
       "typal": {
-        "eyebrow": "Identité tribale",
+        "eyebrow": "IdentitÃ© tribale",
         "title": "Tribal {{type}}",
-        "creatures": "Créatures",
+        "creatures": "CrÃ©atures",
         "support": "Soutien",
         "commanderMatches": "Le commandant est tribal {{type}}",
-        "creatureCards": "Cartes de créature",
+        "creatureCards": "Cartes de crÃ©ature",
         "supportCards": "Cartes de soutien"
       },
       "mana": {
         "title": "Mana Analysis",
         "sourcesByColor": "Mana sources by color",
         "color": "Color",
+        "pipDemand": "Demande totale de couleur",
+        "earlyPipDemand": "Demande de couleur prÃ©coce",
+        "colorIntensity": "Part de demande de couleur",
+        "sourcesOfColor": "Sources pour cette couleur",
+        "colorSourceShare": "Part des sources de couleur",
         "coloredSources": "Colored sources",
         "coloredSourceHealth": "Colored source health",
         "untappedSources": "Untapped sources",
@@ -1619,6 +1633,9 @@
         "tappedLands": "Tapped lands",
         "fetchlands": "Fetchlands",
         "deadFetchlands": "Dead fetchlands",
+        "manaBase": "Base de mana",
+        "acceleration": "Acc?l?ration",
+        "colorFixing": "Fixation des couleurs",
         "landBase": "Land base",
         "basics": "Basics",
         "nonbasics": "Nonbasics",
@@ -1691,6 +1708,150 @@
           "filterlandInputPressure": "Filterland input pressure",
           "bounceLandTempoPressure": "Bounce land tempo pressure"
         }
+      },
+      "boardWipes": {
+        "title": "Board Wipe Analysis",
+        "overviewTitle": "Board wipe overview",
+        "package": "Wipe package",
+        "methods": "Methods",
+        "coverage": "Coverage",
+        "qualitySignals": "Quality signals",
+        "pseudoConditionalWarnings": "Pseudo / conditional warnings",
+        "warnings": "Board wipe issues",
+        "details": "Wipe details",
+        "viewMore": "View more",
+        "viewMoreDetailsAria": "View more board wipe details",
+        "detectedWipes": "Detected wipes",
+        "manaValue": "Mana value",
+        "noIssues": "No board wipe issues detected",
+        "noDetectedWipes": "No board wipes detected.",
+        "unavailable": "Board wipe analysis is not available for this deck.",
+        "stats": {
+          "total": "Total wipes",
+          "hardTotal": "Hard wipes",
+          "pseudoTotal": "Pseudo wipes",
+          "hardCreatureWipes": "Hard creature wipes",
+          "averageManaValue": "Average mana value",
+          "effectiveLowCostWipes": "Cheap emergency wipes",
+          "destroyWipes": "Destroy wipes",
+          "exileWipes": "Exile wipes",
+          "sacrificeWipes": "Sacrifice wipes",
+          "massBounce": "Mass bounce",
+          "damageWipes": "Damage wipes",
+          "minusXMinusXWipes": "-X/-X wipes",
+          "creatureWipes": "Creature wipes",
+          "artifactWipes": "Artifact wipes",
+          "enchantmentWipes": "Enchantment wipes",
+          "artifactEnchantmentWipes": "Artifact/enchantment wipes",
+          "graveyardWipes": "Graveyard wipes",
+          "nonlandPermanentWipes": "Nonland permanent wipes",
+          "allPermanentWipes": "All permanent wipes",
+          "modalWipes": "Modal wipes",
+          "asymmetricalWipes": "Asymmetrical wipes",
+          "oneSidedWipes": "One-sided wipes",
+          "overloadedWipes": "Overloaded wipes",
+          "scalableWipes": "Scalable wipes",
+          "instantSpeedWipes": "Instant-speed wipes",
+          "answersIndestructible": "Answers indestructible",
+          "getsAroundHexproof": "Gets around hexproof",
+          "permanentBasedWipes": "Permanent-based wipes",
+          "repeatableWipes": "Repeatable wipes",
+          "combatOnlyWipes": "Combat-only wipes",
+          "conditionalWipes": "Conditional wipes",
+          "opponentCompensationWipes": "Opponent compensation",
+          "selfPlanRiskWipes": "Own plan collision"
+        },
+        "badges": {
+          "hard": "Hard",
+          "pseudo": "Pseudo",
+          "modal": "Modal",
+          "overload": "Overload",
+          "asymmetric": "Asymmetric",
+          "exile": "Exile",
+          "bounce": "Bounce",
+          "damage": "Damage",
+          "tuckShuffle": "Tuck / shuffle",
+          "answersIndestructible": "Answers indestructible",
+          "artifactWipe": "Artifact wipe",
+          "enchantmentWipe": "Enchantment wipe"
+        },
+        "issues": {
+          "low_hard_board_wipes": {
+            "title": "Few hard board wipes",
+            "message": "Hard board wipe count is below the expected baseline for this plan."
+          },
+          "wipes_are_mostly_bounce_or_conditional": {
+            "title": "Wipes are mostly soft or conditional",
+            "message": "Mass bounce, pseudo-wipes, and conditional wipes are separated from hard resets."
+          },
+          "wipes_are_mostly_pseudo": {
+            "title": "Wipes are mostly pseudo-wipes",
+            "message": "The wipe count is mostly pseudo, combat-only, or conditional rather than reliable hard resets."
+          },
+          "wipes_are_mostly_bounce": {
+            "title": "Wipes are mostly bounce",
+            "message": "The wipe package leans on mass bounce and has little hard creature reset coverage."
+          },
+          "no_indestructible_answer": {
+            "title": "No wipe answers indestructible",
+            "message": "The deck has wipes, but none are classified as exile, sacrifice, -X/-X, tuck, or shuffle answers."
+          },
+          "no_artifact_enchantment_wipe_coverage": {
+            "title": "No artifact or enchantment wipe coverage",
+            "message": "The wipe package has no mass artifact or enchantment coverage."
+          },
+          "no_graveyard_wipe_coverage": {
+            "title": "No graveyard wipe coverage",
+            "message": "The wipe package has no graveyard exile coverage for plans where that can matter."
+          },
+          "too_many_symmetrical_wipes_for_creature_deck": {
+            "title": "Too many symmetrical wipes for a creature plan",
+            "message": "Several wipes can reset the deck own creature board."
+          },
+          "own_plan_collision_wipes": {
+            "title": "Wipes collide with the deck plan",
+            "message": "Some wipes overlap with the deck own permanent, graveyard, artifact, enchantment, token, or creature plan."
+          },
+          "board_wipes_self_plan_risk": {
+            "title": "Board wipes may pressure the deck plan",
+            "message": "Some wipes overlap with the deck own permanent strategy."
+          },
+          "expensive_wipe_package": {
+            "title": "Wipe package is expensive",
+            "message": "Most wipes cost six or more mana and no low-cost emergency wipe is classified."
+          },
+          "no_cheap_emergency_wipe": {
+            "title": "No cheap emergency wipe",
+            "message": "The deck has wipes, but none are classified as efficient low-cost emergency resets."
+          },
+          "overload_wipe_available": {
+            "title": "Overload wipe available",
+            "message": "At least one wipe has an alternative mass mode such as overload."
+          },
+          "asymmetrical_wipe_strength": {
+            "title": "Asymmetrical wipe strength",
+            "message": "The deck has one-sided or asymmetrical board wipe coverage."
+          },
+          "modal_wipe_strength": {
+            "title": "Modal wipe strength",
+            "message": "The deck has flexible modal board wipe coverage."
+          },
+          "opponent_compensation_risk": {
+            "title": "Opponent compensation risk",
+            "message": "Some wipes can compensate opponents by ramping or replacing resources."
+          }
+        },
+        "notes": {
+          "control_friendly": "Control friendly",
+          "pseudo_wipe": "Pseudo wipe",
+          "self_plan_risk": "Own plan risk",
+          "token_plan_risk": "Token plan risk",
+          "artifact_plan_risk": "Artifact plan risk",
+          "enchantment_plan_risk": "Enchantment plan risk",
+          "graveyard_plan_risk": "Graveyard plan risk",
+          "alternative_mass_mode": "Alternative mass mode",
+          "opponent_compensation": "Opponent compensation"
+        }
       }
     }
   },
@@ -1700,15 +1861,15 @@
       "benefits": "Avantages",
       "manualCommanderTable": "Table manuelle de Commander",
       "physicalGameTrackingDescription": "Tout ce dont vous avez besoin pour suivre une partie physique.",
-      "setupDescription": "Configurez les joueurs, le total de points de vie de départ et le minuteur. CommanderZone gère les totaux de vie, les tours et les dégâts de commandant sans automatiser les règles de Magic.",
+      "setupDescription": "Configurez les joueurs, le total de points de vie de dÃ©part et le minuteur. CommanderZone gÃ¨re les totaux de vie, les tours et les dÃ©gÃ¢ts de commandant sans automatiser les rÃ¨gles de Magic.",
       "quickSetup": "Configuration rapide",
-      "defaultFourPlayers": "4 joueurs par défaut",
+      "defaultFourPlayers": "4 joueurs par dÃ©faut",
       "defaultFortyLife": "40 points de vie",
-      "commanderDamageEnabled": "Dégâts de commandant activés",
-      "quickSummary": "Résumé rapide"
+      "commanderDamageEnabled": "DÃ©gÃ¢ts de commandant activÃ©s",
+      "quickSummary": "RÃ©sumÃ© rapide"
     },
     "tableAssistantReplayModal": {
-      "seatLabel": "Siège {{ count }}",
+      "seatLabel": "SiÃ¨ge {{ count }}",
       "turnLabel": "Tour {{ count }}",
       "startGame": "Commencer la partie",
       "tableSetup": "Configuration de la table",
@@ -1718,7 +1879,7 @@
       "noPlayer": "Aucun joueur",
       "order": "Ordre",
       "choosePlayerAndTurn": "Choisissez un joueur et son tour.",
-      "randomTurn": "Tour aléatoire"
+      "randomTurn": "Tour alÃ©atoire"
     },
     "tableAssistantRoom": {
       "rotateDevice": "Faites pivoter votre appareil",
@@ -1726,51 +1887,51 @@
       "copyRoomLink": "Copier le lien de la salle",
       "globalTrackers": "Traqueurs mondiaux",
       "players": "Joueurs",
-      "commanderDamage": "Dégâts de commandant",
-      "closeCommanderDamage": "Fermer les dégâts de commandant",
+      "commanderDamage": "DÃ©gÃ¢ts de commandant",
+      "closeCommanderDamage": "Fermer les dÃ©gÃ¢ts de commandant",
       "playerLife": "Vie du joueur",
       "playerTrackers": "Suivi des joueurs",
-      "knockoutIconLabel": "Icône d’élimination",
-      "landscapeOptimizedNotice": "La salle est optimisée pour le mode paysage sur mobile.",
+      "knockoutIconLabel": "IcÃ´ne dâ€™Ã©limination",
+      "landscapeOptimizedNotice": "La salle est optimisÃ©e pour le mode paysage sur mobile.",
       "roomCode": "Code de la salle",
       "lethal": "Mortel",
-      "commanderDamageSummary": "Dégâts de commandant",
-      "assignedToConnectedPlayer": "Attribué au joueur connecté",
+      "commanderDamageSummary": "DÃ©gÃ¢ts de commandant",
+      "assignedToConnectedPlayer": "AttribuÃ© au joueur connectÃ©",
       "viewAndEdit": "Afficher et modifier"
     },
     "tableAssistantSetup": {
-      "createRoom": "Créer une salle",
-      "createRoomError": "Impossible de créer la salle Table Assistant.",
-      "creatingRoom": "Création...",
-      "initialLife": "Total de vie de départ",
-      "initialTotal": "Total de départ",
-      "needPlayersAndNames": "Vous avez besoin d'au moins 2 joueurs et chaque nom est complété.",
+      "createRoom": "CrÃ©er une salle",
+      "createRoomError": "Impossible de crÃ©er la salle Table Assistant.",
+      "creatingRoom": "CrÃ©ation...",
+      "initialLife": "Total de vie de dÃ©part",
+      "initialTotal": "Total de dÃ©part",
+      "needPlayersAndNames": "Vous avez besoin d'au moins 2 joueurs et chaque nom est complÃ©tÃ©.",
       "playerColorAria": "Couleur du joueur {{ index }}",
       "playerColorsAria": "Couleurs du joueur {{ index }}",
       "playerNameAria": "Nom du joueur {{ index }}",
       "playerNamePlaceholder": "Joueur {{ index }}",
       "players": "Joueurs",
-      "configureTableAssistant": "Configurer l’assistant de table",
+      "configureTableAssistant": "Configurer lâ€™assistant de table",
       "newGame": "Nouvelle partie",
       "configureTable": "Configurer la table",
-      "setupDescription": "Joueurs, vie et minuteur. Tout le reste est ajusté pendant la partie.",
-      "tableRules": "Règles de la table",
-      "commanderDamageAndTimerNote": "Les dégâts de commandant sont toujours activés. Minuteur facultatif."
+      "setupDescription": "Joueurs, vie et minuteur. Tout le reste est ajustÃ© pendant la partie.",
+      "tableRules": "RÃ¨gles de la table",
+      "commanderDamageAndTimerNote": "Les dÃ©gÃ¢ts de commandant sont toujours activÃ©s. Minuteur facultatif."
     },
     "tableAssistantTableMenu": {
       "cz": "CZ",
       "commanderZoneGameOptions": "Options de partie de CommanderZone",
       "gameOptions": "Options de partie",
       "newGame": "Nouvelle partie",
-      "rollDice": "Lancer les dés",
-      "fullScreen": "Plein écran",
+      "rollDice": "Lancer les dÃ©s",
+      "fullScreen": "Plein Ã©cran",
       "exitToDashboard": "Quitter vers le tableau de bord",
-      "keepPlaying": "Continuer à jouer"
+      "keepPlaying": "Continuer Ã  jouer"
     },
     "tableAssistantTimerSettings": {
       "min": "Min.",
       "timer": "Minuteur",
-      "turnDuration": "Durée du tour",
+      "turnDuration": "DurÃ©e du tour",
       "seconds": "Seconde",
       "timerModes": {
         "turn": "Par tour",
@@ -1781,7 +1942,7 @@
       "activeTurn": "Tour actif",
       "pauseTimer": "Minuteur de pause",
       "resumeTimer": "Reprendre la minuteur",
-      "startTimer": "Démarrer la minuteur",
+      "startTimer": "DÃ©marrer la minuteur",
       "passToNextTurn": "Passer au tour suivant",
       "pause": "Pause",
       "resume": "Reprendre",
@@ -1793,15 +1954,15 @@
       "benefits": {
         "lifeAndCommander": {
           "title": "Vie et commandant",
-          "description": "Suivez la vie et les dégâts de commandant sans transformer la partie en feuille de calcul."
+          "description": "Suivez la vie et les dÃ©gÃ¢ts de commandant sans transformer la partie en feuille de calcul."
         },
         "simpleTurns": {
           "title": "Tours simples",
-          "description": "Marquez le joueur actif et utilisez un minuteur si la table veut du rythme, sans règles automatiques."
+          "description": "Marquez le joueur actif et utilisez un minuteur si la table veut du rythme, sans rÃ¨gles automatiques."
         },
         "sharedTable": {
-          "title": "Table partagée",
-          "description": "Conçu pour un téléphone ou une tablette au centre de la table."
+          "title": "Table partagÃ©e",
+          "description": "ConÃ§u pour un tÃ©lÃ©phone ou une tablette au centre de la table."
         }
       },
       "header": {
@@ -1816,28 +1977,28 @@
       "playerAvatar": "Avatar du joueur",
       "changeAvatar": "Changer d'avatar",
       "becomePremium": "Devenez premium",
-      "changeName": "Changer la plaque signalétique",
-      "accountDetails": "Détails du compte",
+      "changeName": "Changer la plaque signalÃ©tique",
+      "accountDetails": "DÃ©tails du compte",
       "email": "E-mail",
       "userName": "Nom d'utilisateur",
       "changePassword": "Changer le mot de passe",
       "sendingPasswordEmail": "Envoi d'e-mail...",
-      "passwordResetEmailSentShort": "Envoyé",
-      "passwordResetEmailSent": "E-mail de réinitialisation du mot de passe envoyé.",
-      "passwordResetEmailError": "Impossible d'envoyer l’e-mail de réinitialisation du mot de passe.",
+      "passwordResetEmailSentShort": "EnvoyÃ©",
+      "passwordResetEmailSent": "E-mail de rÃ©initialisation du mot de passe envoyÃ©.",
+      "passwordResetEmailError": "Impossible d'envoyer lâ€™e-mail de rÃ©initialisation du mot de passe.",
       "deleteAccount": "Supprimer le compte",
-      "areYouSureYouWantToPermanently": "Êtes-vous sûr de vouloir supprimer définitivement votre compte ?",
+      "areYouSureYouWantToPermanently": "ÃŠtes-vous sÃ»r de vouloir supprimer dÃ©finitivement votre compte ?",
       "cancel": "Annuler",
-      "changeTheme": "Changer de thème",
+      "changeTheme": "Changer de thÃ¨me",
       "gameSettings": {
-        "title": "Préférences de jeu",
+        "title": "PrÃ©fÃ©rences de jeu",
         "showManaHelperOnStartup": {
-          "label": "Afficher l’assistant de mana au démarrage",
-          "description": "Ouvrez l’assistant de mana lorsqu’un match commence."
+          "label": "Afficher lâ€™assistant de mana au dÃ©marrage",
+          "description": "Ouvrez lâ€™assistant de mana lorsquâ€™un match commence."
         },
         "enableManaRow": {
           "label": "Activer la ligne de mana",
-          "description": "Afficher la ligne de mana dédiée pendant les parties."
+          "description": "Afficher la ligne de mana dÃ©diÃ©e pendant les parties."
         },
         "gameAnimations": {
           "label": "Animations de parties",
@@ -1848,54 +2009,54 @@
           "description": "Lire un son lorsque de nouvelles notifications de chat arrivent."
         },
         "preserveManaPool": {
-          "label": "Conserver la réserve de mana",
-          "description": "Conservez le mana dans votre réserve de mana pendant la résolution des actions empilées."
+          "label": "Conserver la rÃ©serve de mana",
+          "description": "Conservez le mana dans votre rÃ©serve de mana pendant la rÃ©solution des actions empilÃ©es."
         }
       },
       "enterValidEmail": "Entrez un email valide.",
-      "checkingEmail": "Vérification des e-mails...",
-      "checkingAvailability": "Vérification de la disponibilité...",
-      "couldNotCheckNow": "Impossible de vérifier pour le moment",
-      "usernameLengthRequirement": "Le nom d'utilisateur doit comporter entre 2 et 20 caractères.",
+      "checkingEmail": "VÃ©rification des e-mails...",
+      "checkingAvailability": "VÃ©rification de la disponibilitÃ©...",
+      "couldNotCheckNow": "Impossible de vÃ©rifier pour le moment",
+      "usernameLengthRequirement": "Le nom d'utilisateur doit comporter entre 2 et 20 caractÃ¨res.",
       "usernameAvailable": "Nom d'utilisateur disponible",
       "usernameUnavailable": "Nom d'utilisateur non disponible",
       "emailAvailable": "Courriel disponible",
-      "emailAlreadyRegistered": "Email déjà enregistré",
-      "deleteAccountWarning": "Supprimez définitivement votre compte et toutes les données associées, y compris les decks et les préférences. Cette action ne peut pas être annulée."
+      "emailAlreadyRegistered": "Email dÃ©jÃ  enregistrÃ©",
+      "deleteAccountWarning": "Supprimez dÃ©finitivement votre compte et toutes les donnÃ©es associÃ©es, y compris les decks et les prÃ©fÃ©rences. Cette action ne peut pas Ãªtre annulÃ©e."
     },
     "settingsInitialAvatarOption": {
-      "initialAvatarCustomization": "Personnalisation initiale de l’avatar",
+      "initialAvatarCustomization": "Personnalisation initiale de lâ€™avatar",
       "mainColor": "Couleur principale",
       "secondaryColor": "Couleur secondaire",
       "letters": "Lettres"
     },
     "settingsAvatarEditor": {
-      "avatarPreview": "Aperçu de l’avatar",
+      "avatarPreview": "AperÃ§u de lâ€™avatar",
       "avatarTiers": "Niveaux d'avatar",
       "basicAvatars": "Avatars de base",
       "premiumAvatars": "Avatars premium",
       "chooseAvatar": "Choisir un avatar",
-      "currentSelection": "Sélection actuelle",
+      "currentSelection": "SÃ©lection actuelle",
       "basic": "Basique",
       "premium": "Premium"
     },
     "settingsAvatarUpload": {
-      "uploadedAvatarPreview": "Aperçu de l’avatar importé",
-      "avatarPreview": "Aperçu de l’avatar",
-      "uploadImage": "Télécharger une image",
-      "chooseYourOwnImageAndFrameIt": "Choisissez votre propre image et encadrez-la dans le cercle de l’avatar.",
+      "uploadedAvatarPreview": "AperÃ§u de lâ€™avatar importÃ©",
+      "avatarPreview": "AperÃ§u de lâ€™avatar",
+      "uploadImage": "TÃ©lÃ©charger une image",
+      "chooseYourOwnImageAndFrameIt": "Choisissez votre propre image et encadrez-la dans le cercle de lâ€™avatar.",
       "imageFile": "Fichier image",
       "pngJpgWebpOrAnotherBrowserSupported": "PNG, JPG, WEBP ou une autre image prise en charge par le navigateur. Maximum 2 Mo.",
       "chooseImage": "Choisir une image",
-      "avatarImagesMustBeNonOffensiveNon": "Les images d'avatar doivent être non offensantes, non sexuelles et appropriées à la communauté CommanderZone.",
+      "avatarImagesMustBeNonOffensiveNon": "Les images d'avatar doivent Ãªtre non offensantes, non sexuelles et appropriÃ©es Ã  la communautÃ© CommanderZone.",
       "horizontal": "Horizontal",
       "vertical": "Verticale",
       "zoom": "Zoom"
     },
     "settingsDisplayNameStyleEditor": {
-      "nameStylePreview": "Aperçu du style de nom",
+      "nameStylePreview": "AperÃ§u du style de nom",
       "nameStyleTiers": "Niveaux de style de nom",
-      "currentSelection": "Sélection actuelle",
+      "currentSelection": "SÃ©lection actuelle",
       "textColor": "Couleur du texte",
       "basic": "Basique",
       "premium": "Premium"
@@ -1906,8 +2067,8 @@
   "modals": {
     "roll": {
       "rollModal": {
-        "text": "Résultat",
-        "rollDice": "Lancer les dés",
+        "text": "RÃ©sultat",
+        "rollDice": "Lancer les dÃ©s",
         "closeRoll": "Fermer le lancer",
         "rollType": "Type de lancer",
         "close": "Fermer",
@@ -1915,11 +2076,11 @@
         "roll": "Lancer"
       },
       "options": {
-        "coin": "Pièce",
-        "d4": "Dé à 4 faces",
-        "d6": "Dé à 6 faces",
-        "d10": "Dé à 10 faces",
-        "d20": "Dé à 20 faces"
+        "coin": "PiÃ¨ce",
+        "d4": "DÃ© Ã  4 faces",
+        "d6": "DÃ© Ã  6 faces",
+        "d10": "DÃ© Ã  10 faces",
+        "d20": "DÃ© Ã  20 faces"
       },
       "results": {
         "heads": "Face",
@@ -1932,22 +2093,22 @@
   "contactPage": {
     "meta": {
       "title": "Contactez-nous",
-      "description": "Contactez CommanderZone pour obtenir de l’aide, des rapports de bogues, des problèmes de droits ou des questions générales."
+      "description": "Contactez CommanderZone pour obtenir de lâ€™aide, des rapports de bogues, des problÃ¨mes de droits ou des questions gÃ©nÃ©rales."
     },
     "hero": {
       "title": "Contactez-nous",
-      "description": "Envoyez-nous un message et nous l’examinerons dans les plus brefs délais."
+      "description": "Envoyez-nous un message et nous lâ€™examinerons dans les plus brefs dÃ©lais."
     },
     "nav": {
       "loggedOutCta": "Retour au tableau de bord",
-      "anonymousCta": "Retour à l’accueil",
+      "anonymousCta": "Retour Ã  lâ€™accueil",
       "actionsAriaLabel": "Actions sur la page de contact"
     },
     "copy": {
       "supportTitle": "Assistance et droits",
-      "supportBody": "Utilisez ce formulaire pour obtenir de l’aide, des rapports de bugs, des demandes de confidentialité, des problèmes liés aux droits ou toute question, idée ou curiosité que vous souhaiteriez partager avec nous. Si cela est plus simple pour vous, nous pouvons également continuer par email à {{ email }}.",
+      "supportBody": "Utilisez ce formulaire pour obtenir de lâ€™aide, des rapports de bugs, des demandes de confidentialitÃ©, des problÃ¨mes liÃ©s aux droits ou toute question, idÃ©e ou curiositÃ© que vous souhaiteriez partager avec nous. Si cela est plus simple pour vous, nous pouvons Ã©galement continuer par email Ã  {{ email }}.",
       "includeTitle": "Que faut-il inclure",
-      "includeBody": "Expliquez clairement le problème et incluez tout contexte utile de page, de salle, de deck ou de capture d’écran. N’envoyez pas de secrets ni de données de paiement."
+      "includeBody": "Expliquez clairement le problÃ¨me et incluez tout contexte utile de page, de salle, de deck ou de capture dâ€™Ã©cran. Nâ€™envoyez pas de secrets ni de donnÃ©es de paiement."
     },
     "form": {
       "nameLabel": "Nom",
@@ -1960,39 +2121,39 @@
       "subjectPlaceholder": "Comment pouvons-nous vous aider ?",
       "subjectError": "Entrez un sujet.",
       "messageLabel": "Message",
-      "messagePlaceholder": "Écrivez votre message ici.",
+      "messagePlaceholder": "Ã‰crivez votre message ici.",
       "messageError": "Saisissez un message.",
       "submit": "Envoyer le message",
       "submitting": "Envoi...",
-      "submitSuccess": "Votre message a été envoyé.",
-      "submitRateLimitError": "Vous avez atteint la limite de contact. Veuillez patienter environ {{ retryAfterMinutes }} minute(s) avant de réessayer. Si c'est urgent, écrivez directement à {{ email }}.",
-      "submitError": "Nous n’avons pas pu envoyer votre message. Écrivez directement à {{ email }} ou contactez-nous via un autre canal."
+      "submitSuccess": "Votre message a Ã©tÃ© envoyÃ©.",
+      "submitRateLimitError": "Vous avez atteint la limite de contact. Veuillez patienter environ {{ retryAfterMinutes }} minute(s) avant de rÃ©essayer. Si c'est urgent, Ã©crivez directement Ã  {{ email }}.",
+      "submitError": "Nous nâ€™avons pas pu envoyer votre message. Ã‰crivez directement Ã  {{ email }} ou contactez-nous via un autre canal."
     }
   },
   "onboarding": {
     "accountActions": "Actions du compte",
     "demoRoom": {
-      "description": "Il s'agit d’un itinéraire de salle fictive pour le flux d'intégration. Remplacez-le par l’expérience réelle de la salle lorsque le multijoueur est connecté.",
-      "eyebrow": "Salle de démonstration",
-      "goToLogin": "Aller à la connexion"
+      "description": "Il s'agit dâ€™un itinÃ©raire de salle fictive pour le flux d'intÃ©gration. Remplacez-le par lâ€™expÃ©rience rÃ©elle de la salle lorsque le multijoueur est connectÃ©.",
+      "eyebrow": "Salle de dÃ©monstration",
+      "goToLogin": "Aller Ã  la connexion"
     },
     "hero": {
-      "description": "Construisez la salle, partagez le lien, choisissez des decks et jouez avec une table conçue pour les vrais pods Commander.",
+      "description": "Construisez la salle, partagez le lien, choisissez des decks et jouez avec une table conÃ§ue pour les vrais pods Commander.",
       "eyebrow": "Table manuelle de Commander",
-      "title": "Jouez à Commander en ligne en quelques secondes"
+      "title": "Jouez Ã  Commander en ligne en quelques secondes"
     },
     "highlights": {
       "ariaLabel": "Points forts du produit",
-      "deckValidation": "Validation de deck centrée sur Commander",
-      "manualTable": "Table manuelle, sans bruit de moteur de règles",
-      "privateRooms": "Salons privés et invitations"
+      "deckValidation": "Validation de deck centrÃ©e sur Commander",
+      "manualTable": "Table manuelle, sans bruit de moteur de rÃ¨gles",
+      "privateRooms": "Salons privÃ©s et invitations"
     },
     "preview": {
-      "ariaLabel": "Aperçu de la table CommanderZone",
-      "flow": "Salle d’attente, sélection de deck et flux de table au même endroit.",
-      "guest": "Invité",
+      "ariaLabel": "AperÃ§u de la table CommanderZone",
+      "flow": "Salle dâ€™attente, sÃ©lection de deck et flux de table au mÃªme endroit.",
+      "guest": "InvitÃ©",
       "oneLink": "Un lien",
-      "ready": "Prêt"
+      "ready": "PrÃªt"
     },
     "steps": {
       "import": {
@@ -2000,12 +2161,12 @@
         "title": "Importer la liste de deck"
       },
       "play": {
-        "description": "Ouvrez la salle et démarrez la partie.",
+        "description": "Ouvrez la salle et dÃ©marrez la partie.",
         "title": "Jouer"
       },
       "room": {
-        "description": "Générez une salle pour la table.",
-        "title": "Créer une salle"
+        "description": "GÃ©nÃ©rez une salle pour la table.",
+        "title": "CrÃ©er une salle"
       },
       "share": {
         "description": "Copiez le lien de la salle et envoyez-le.",

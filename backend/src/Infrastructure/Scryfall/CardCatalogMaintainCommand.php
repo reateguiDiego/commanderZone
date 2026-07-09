@@ -162,6 +162,28 @@ final class CardCatalogMaintainCommand extends Command
             return $status;
         }
 
+        $output->writeln('Syncing external advanced deck analysis data after full import...');
+        $status = $this->runner->runDeckAnalysisScryfallTagsSync($output);
+        if ($status !== Command::SUCCESS) {
+            return $status;
+        }
+
+        $status = $this->runner->runDeckAnalysisScryfallGameChangersSync($output);
+        if ($status !== Command::SUCCESS) {
+            return $status;
+        }
+
+        $status = $this->runner->runDeckAnalysisSpellbookSync($output);
+        if ($status !== Command::SUCCESS) {
+            return $status;
+        }
+
+        $output->writeln('Rebuilding advanced deck analysis data after full import...');
+        $status = $this->runner->runDeckAnalysisLocalDataRebuild($output);
+        if ($status !== Command::SUCCESS) {
+            return $status;
+        }
+
         $output->writeln('Card catalog full import completed.');
 
         return Command::SUCCESS;

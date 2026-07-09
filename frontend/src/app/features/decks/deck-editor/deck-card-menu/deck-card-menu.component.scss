@@ -83,9 +83,20 @@
 }
 
 .card-menu-header strong {
-  max-width: 18rem;
-  overflow: hidden;
   color: var(--text);
+}
+
+.card-menu-card-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 18rem;
+  min-width: 0;
+}
+
+.card-menu-card-name span {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

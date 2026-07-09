@@ -93,6 +93,7 @@ class CardImageTest extends TestCase
         self::assertSame(['Flying', 'Ward'], $card->keywords());
         self::assertSame(123, $card->edhrecRank());
         self::assertTrue($card->isGameChanger());
+        self::assertTrue($card->toArray()['isGameChanger']);
         self::assertSame('5', $card->defense());
         self::assertSame(4.0, $card->manaValue());
 
@@ -103,5 +104,6 @@ class CardImageTest extends TestCase
         self::assertSame([], $card->keywords());
         self::assertNull($card->edhrecRank());
         self::assertFalse($card->isGameChanger());
+        self::assertFalse($card->toArray()['isGameChanger']);
     }
 }

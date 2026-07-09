@@ -9,13 +9,13 @@
     "footerDisclaimer": {
       "footerDisclaimer": {
         "disclaimer": "Disclaimer",
-        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone is onofficiële fancontent die is toegestaan onder de Fan Content Policy. Niet goedgekeurd of onderschreven door",
+        "commanderzoneIsUnofficialFanContentPermittedUnder": "CommanderZone is onofficiÃ«le fancontent die is toegestaan onder de Fan Content Policy. Niet goedgekeurd of onderschreven door",
         "wizards": "Wizards",
         "portionsOfTheMaterialsUsedAreProperty": ". Gedeelten van de gebruikte materialen zijn eigendom van",
         "wizardsOfTheCoast": "Wizards of the Coast",
-        "wizardsOfTheCoastLlc": "©Wizards of the Coast LLC",
-        "magicTheGathering": "Magic: The Gathering®",
-        "mtg": "MTG®",
+        "wizardsOfTheCoastLlc": "Â©Wizards of the Coast LLC",
+        "magicTheGathering": "Magic: The GatheringÂ®",
+        "mtg": "MTGÂ®",
         "llcASubsidiaryOf": "LLC, een dochteronderneming van",
         "hasbroInc": "Hasbro, Inc",
         "inTheUnitedStatesAndOtherCountries": "., in de Verenigde Staten en andere landen.",
@@ -29,16 +29,16 @@
         "forMoreInformationOn": "Voor meer informatie over",
         "andTheirIntellectualPropertyPoliciesPleaseVisit": "en hun beleid inzake intellectueel eigendom kun je terecht op:",
         "ifYouAreTheRightsHolderAnd": "Als je de rechthebbende bent en denkt dat content op deze website je rechten schendt, neem dan rechtstreeks contact met ons op om dit op te lossen.",
-        "copyrightYears": "© 1993-{{ currentYear }} Wizards of the Coast LLC",
+        "copyrightYears": "Â© 1993-{{ currentYear }} Wizards of the Coast LLC",
         "viewHelpOrPressKit": "bekijk onze Help & FAQ of onze Press Kit.",
         "trademarkedLogosImagesAndIpNotice": ", en alle bijbehorende logo's, kaartafbeeldingen en intellectueel eigendom zijn handelsmerken en/of auteursrechten van",
-        "staticWizardsCopyrightYears": "© 1993-2025 Wizards of the Coast LLC"
+        "staticWizardsCopyrightYears": "Â© 1993-2025 Wizards of the Coast LLC"
       }
     },
     "visibility": {
       "visibilityChoice": {
         "public": "Openbaar",
-        "private": "Privé",
+        "private": "PrivÃ©",
         "label": "Zichtbaarheid",
         "privacy": "Privacy",
         "privateOnlyYouSubtitle": "Alleen jij kunt het zien",
@@ -49,7 +49,7 @@
       },
       "visibilityPill": {
         "public": "Openbaar",
-        "private": "Privé"
+        "private": "PrivÃ©"
       }
     },
     "extraActions": {
@@ -245,7 +245,7 @@
       "visibility": "Zichtbaarheid",
       "publicAndPrivate": "Allemaal",
       "publicOnly": "Openbaar",
-      "privateOnly": "Privé",
+      "privateOnly": "PrivÃ©",
       "status": "Status",
       "anonymous": "Anoniem",
       "open": "Open",
@@ -295,9 +295,9 @@
       "mulligan": "Mulligan",
       "firstMulliganFree": "De eerste Mulligan is gratis",
       "mulliganDescriptions": {
-        "london": "Trek elke keer 7 kaarten. Wanneer je houdt, leg je één kaart onderop je library voor elke effectieve mulligan.",
-        "vancouver": "Elke effectieve mulligan trekt één kaart minder. Als je na een effectieve mulligan houdt, doe je scry 1.",
-        "paris": "Elke effectieve mulligan trekt één kaart minder. Je legt geen kaarten onderop je library en doet geen scry.",
+        "london": "Trek elke keer 7 kaarten. Wanneer je houdt, leg je Ã©Ã©n kaart onderop je library voor elke effectieve mulligan.",
+        "vancouver": "Elke effectieve mulligan trekt Ã©Ã©n kaart minder. Als je na een effectieve mulligan houdt, doe je scry 1.",
+        "paris": "Elke effectieve mulligan trekt Ã©Ã©n kaart minder. Je legt geen kaarten onderop je library en doet geen scry.",
         "generous": "Commander-vriendelijke regel: trek tot 10 kaarten, houd er 7 wanneer mogelijk en leg de rest in willekeurige volgorde onderop je library."
       },
       "firstMulliganFreeOn": "Gratis",
@@ -323,7 +323,7 @@
       "rollDice": "Werp dobbelstenen",
       "selectADeck": "Selecteer een deck",
       "randomDeck": "Willekeurig deck",
-      "chooseOne": "Kies er één",
+      "chooseOne": "Kies er Ã©Ã©n",
       "checking": "Controleren"
     },
     "waitingRoomLogPanel": {
@@ -385,7 +385,7 @@
       "title": "Kamers",
       "totalRooms": "Totaal kamers",
       "openRooms": "Open kamers",
-      "privateRooms": "Privé kamers",
+      "privateRooms": "PrivÃ© kamers",
       "publicRooms": "Openbare kamers",
       "totalPlayers": "Totaal aantal spelers",
       "startedGames": "Gestarte partijen",
@@ -432,7 +432,7 @@
       "missingId": "Ontbrekende communitydeck-ID.",
       "save": "Opslaan",
       "saveError": "Kan dit deck niet opslaan in je decklijst.",
-      "shareError": "Kan de link naar het communitydeck niet kopiëren.",
+      "shareError": "Kan de link naar het communitydeck niet kopiÃ«ren.",
       "unknownCommander": "Onbekende Commander",
       "readonly": {
         "validation": {
@@ -448,7 +448,7 @@
     },
     "deckCard": {
       "likes": "Likes: {{ count }}",
-      "copies": "Kopieën: {{ count }}"
+      "copies": "KopieÃ«n: {{ count }}"
     },
     "dashboardTopCommanders": {
       "ariaLabel": "Top 3 Commanders",
@@ -883,7 +883,7 @@
       },
       "dungeonReplacement": {
         "title": "Actieve dungeon vervangen?",
-        "message": "Je kunt slechts één actieve dungeon hebben. {{currentDungeon}} vervangen door {{nextDungeon}}?",
+        "message": "Je kunt slechts Ã©Ã©n actieve dungeon hebben. {{currentDungeon}} vervangen door {{nextDungeon}}?",
         "confirm": "Vervang dungeon",
         "cancel": "Annuleer"
       },
@@ -926,7 +926,8 @@
       "status": {
         "deciding": "beslissen",
         "scrying": "schreejeen",
-        "ready": "klaar"
+        "ready": "klaar",
+        "bottoming": "Bottoming cards"
       },
       "actions": {
         "keepOnTop": "Blijf bovenaan",
@@ -1097,7 +1098,7 @@
           "nameTitle": "Naam",
           "name": "Zoek op volledige of gedeeltelijke kaartnaam. CommanderZone controleert canonieke namen, gedrukte/gelokaliseerde namen en smaaknamen wanneer de lokale catalogus deze bevat, zodat gelokaliseerde en Engelse namen dezelfde kaart kunnen vinden.",
           "textTitle": "Kaart tekst",
-          "text": "Gebruik een of twee termen uit de regeltekst. De match-schakelaar bepaalt of beide vakjes op de kaart moeten voorkomen of dat één vakje voldoende is. Tekst wordt gecontroleerd op Oracle-tekst en kaartvlakken.",
+          "text": "Gebruik een of twee termen uit de regeltekst. De match-schakelaar bepaalt of beide vakjes op de kaart moeten voorkomen of dat Ã©Ã©n vakje voldoende is. Tekst wordt gecontroleerd op Oracle-tekst en kaartvlakken.",
           "subtypesTitle": "Subtype",
           "subtypes": "Subtype werkt onafhankelijk van het type. Je kunt het combineren met elke andere sectie om dingen als Elf, Goblin, Dragon, Equipment of Aura te vinden.",
           "rarityTitle": "Zeldzaamheid",
@@ -1215,8 +1216,8 @@
       "chooseTheExactPrintingFor": "Kies de exacte print voor",
       "quantityAndSectionWillStayUnchanged": "Aantal en sectie blijven ongewijzigd.",
       "loadingPrintVersions": "Gedrukte versies laden...",
-      "onlyOnePrintVersion": "Slechts één gedrukte versie",
-      "thisCardOnlyHasOnePrintVersion": "Van deze kaart is slechts één gedrukte versie beschikbaar in de database.",
+      "onlyOnePrintVersion": "Slechts Ã©Ã©n gedrukte versie",
+      "thisCardOnlyHasOnePrintVersion": "Van deze kaart is slechts Ã©Ã©n gedrukte versie beschikbaar in de database.",
       "noPrintVersionsFoundForThisCard": "Er zijn geen gedrukte versies gevonden voor deze kaart.",
       "current": "Huidig",
       "header": {
@@ -1226,7 +1227,7 @@
         "export": "Exporteren",
         "share": "Deel",
         "shareCopied": "Communitylink gekopieerd",
-        "shareError": "Kan de communitylink niet kopiëren."
+        "shareError": "Kan de communitylink niet kopiÃ«ren."
       },
       "cardsCount": "{{ count }}-kaarten",
       "clear": "Duidelijk",
@@ -1235,7 +1236,7 @@
       "commanderMode": "Commander-modus: {{ mode }}",
       "fromSourceCard": "Van {{ name }}",
       "historyCardsSummary": "{{ count }} kaarten - {{ commanders }}",
-      "importSummary": "{{ parsed }} geparseerde kaarten, {{ imported }} geïmporteerd, {{ missing }} ontbreekt.",
+      "importSummary": "{{ parsed }} geparseerde kaarten, {{ imported }} geÃ¯mporteerd, {{ missing }} ontbreekt.",
       "noCommander": "Geen Commander",
       "noCost": "Geen kosten",
       "no": "nee",
@@ -1272,7 +1273,7 @@
       "folder": "Map",
       "noFolder": "Geen map",
       "openDeck": "Open deck",
-      "thisDeckIsPublicButItsFolder": "Dit deck is openbaar, maar de map ervan is privé. Het zal niet publiekelijk zichtbaar zijn.",
+      "thisDeckIsPublicButItsFolder": "Dit deck is openbaar, maar de map ervan is privÃ©. Het zal niet publiekelijk zichtbaar zijn.",
       "commander": "Commander",
       "importDecklist": "Deklijst importeren",
       "ifYouIncludeYourCommanderInThe": "Als je je Commander in de importdecklist opneemt, geen zorgen; wij verwijderen hem voor je.",
@@ -1322,7 +1323,7 @@
       "searchDecksPlaceholder": "Zoek decks...",
       "stats": {
         "colorDistribution": "Kleurverdeling",
-        "private": "Privé",
+        "private": "PrivÃ©",
         "public": "Openbaar",
         "summary": "Deck samenvatting",
         "total": "Totaal"
@@ -1331,7 +1332,7 @@
     "advancedAnalysis": {
       "title": "Geavanceerde analyse",
       "eyebrow": "Dekanalyse",
-      "description": "Diep inzicht in deckgezondheid, combo’s, consistentie en power-signalen.",
+      "description": "Diep inzicht in deckgezondheid, comboâ€™s, consistentie en power-signalen.",
       "openButton": "Geavanceerde analyse",
       "openCommunityAria": "Open geavanceerde analyse voor dit communitydeck",
       "loading": "Geavanceerde analyse laden...",
@@ -1417,7 +1418,15 @@
         "eyebrow": "Deckgezondheid",
         "title": "Gezondheidsraster",
         "defaultMessage": "Dit gebied kan niet met zekerheid worden beoordeeld.",
-        "cards": {
+        "reasonCodes": {
+          "belowRecommendedMinimum": "Het gevonden aantal ligt onder de aanbevolen basislijn voor deze categorie.",
+          "relatedIssueDetected": "Er zijn analysewaarschuwingen gevonden die bij deze categorie horen.",
+          "manaIssueDetected": "Er zijn waarschuwingen gevonden voor kleurtoegang, snelheid of commander-castbaarheid.",
+          "boardWipeIssueDetected": "Het wipe-pakket heeft waarschuwingen voor dekking, kwaliteit of botsing met het eigen plan.",
+          "consistencyIssueDetected": "De simulatie van beginhand of vroege toegang heeft drukpunten gevonden.",
+          "comboIssueDetected": "Het combo-pakket heeft waarschuwingen voor volledigheid, afhankelijkheid of toegang.",
+          "typalIssueDetected": "Het typal-pakket heeft waarschuwingen voor dichtheid, ondersteuning of commander-afstemming."
+        },        "cards": {
           "ramp": "Ramp",
           "draw": "Tekenen",
           "interaction": "Interactie",
@@ -1433,7 +1442,7 @@
         }
       },
       "metrics": {
-        "eyebrow": "Signalen",
+        "eyebrow": "Decksignalen",
         "title": "Belangrijke statistieken",
         "unavailable": "Gedetailleerde metrische signalen zijn niet beschikbaar voor deze analyse.",
         "permanentRamp": "Permanente oprit",
@@ -1475,9 +1484,9 @@
         "title": "Kaartresolutie",
         "cards": "Kaarten",
         "resolved": "Opgelost",
-        "unmatched": "Ongeëvenaard",
-        "unmatchedAria": "Ongeëvenaarde kaarten",
-        "unmatchedCount": "{{count}} ongeëvenaarde kaarten",
+        "unmatched": "OngeÃ«venaard",
+        "unmatchedAria": "OngeÃ«venaarde kaarten",
+        "unmatchedCount": "{{count}} ongeÃ«venaarde kaarten",
         "unmatchedCopy": "Sommige kaarten konden niet worden opgelost, dus rol- en combo-signalen kunnen onvolledig zijn.",
         "cardCouldNotBeMatched": "Kaart kon niet worden gematcht."
       },
@@ -1495,7 +1504,7 @@
         "comboLine": "Combo-lijn {{index}}",
         "summary": {
           "complete": "Complete combo's",
-          "partialOneMissing": "Gedeeltelijk, één ontbreekt",
+          "partialOneMissing": "Gedeeltelijk, Ã©Ã©n ontbreekt",
           "partialTwoMissing": "Gedeeltelijk, twee ontbrekend",
           "winLike": "Win-achtige combo's",
           "infiniteMana": "Oneindige mana",
@@ -1503,8 +1512,8 @@
         },
         "empty": {
           "noComplete": "Geen volledige combolijnen gedetecteerd.",
-          "noOneCardAway": "Er zijn geen combolijnen met één kaart weg gedetecteerd.",
-          "noCompleters": "Er zijn geen combo-voltooiers geïdentificeerd.",
+          "noOneCardAway": "Er zijn geen combolijnen met Ã©Ã©n kaart weg gedetecteerd.",
+          "noCompleters": "Er zijn geen combo-voltooiers geÃ¯dentificeerd.",
           "unavailable": "Combo-gegevens zijn niet beschikbaar voor deze analyse.",
           "noCompleteOrPartial": "Er zijn geen volledige of gedeeltelijke combolijnen gedetecteerd."
         },
@@ -1594,7 +1603,7 @@
         "good": "Goed",
         "medium": "Gemiddeld",
         "slow": "Langzaam",
-        "oneShot": "Eén schot"
+        "oneShot": "EÃ©n schot"
       },
       "typal": {
         "eyebrow": "Tribal-identiteit",
@@ -1609,6 +1618,11 @@
         "title": "Mana Analysis",
         "sourcesByColor": "Mana sources by color",
         "color": "Color",
+        "pipDemand": "Totale kleurvraag",
+        "earlyPipDemand": "Vroege kleurvraag",
+        "colorIntensity": "Aandeel kleurvraag",
+        "sourcesOfColor": "Bronnen voor deze kleur",
+        "colorSourceShare": "Aandeel kleurbronnen",
         "coloredSources": "Colored sources",
         "coloredSourceHealth": "Colored source health",
         "untappedSources": "Untapped sources",
@@ -1619,6 +1633,9 @@
         "tappedLands": "Tapped lands",
         "fetchlands": "Fetchlands",
         "deadFetchlands": "Dead fetchlands",
+        "manaBase": "Manabasis",
+        "acceleration": "Versnelling",
+        "colorFixing": "Kleurfixing",
         "landBase": "Land base",
         "basics": "Basics",
         "nonbasics": "Nonbasics",
@@ -1691,6 +1708,150 @@
           "filterlandInputPressure": "Filterland input pressure",
           "bounceLandTempoPressure": "Bounce land tempo pressure"
         }
+      },
+      "boardWipes": {
+        "title": "Board Wipe Analysis",
+        "overviewTitle": "Board wipe overview",
+        "package": "Wipe package",
+        "methods": "Methods",
+        "coverage": "Coverage",
+        "qualitySignals": "Quality signals",
+        "pseudoConditionalWarnings": "Pseudo / conditional warnings",
+        "warnings": "Board wipe issues",
+        "details": "Wipe details",
+        "viewMore": "View more",
+        "viewMoreDetailsAria": "View more board wipe details",
+        "detectedWipes": "Detected wipes",
+        "manaValue": "Mana value",
+        "noIssues": "No board wipe issues detected",
+        "noDetectedWipes": "No board wipes detected.",
+        "unavailable": "Board wipe analysis is not available for this deck.",
+        "stats": {
+          "total": "Total wipes",
+          "hardTotal": "Hard wipes",
+          "pseudoTotal": "Pseudo wipes",
+          "hardCreatureWipes": "Hard creature wipes",
+          "averageManaValue": "Average mana value",
+          "effectiveLowCostWipes": "Cheap emergency wipes",
+          "destroyWipes": "Destroy wipes",
+          "exileWipes": "Exile wipes",
+          "sacrificeWipes": "Sacrifice wipes",
+          "massBounce": "Mass bounce",
+          "damageWipes": "Damage wipes",
+          "minusXMinusXWipes": "-X/-X wipes",
+          "creatureWipes": "Creature wipes",
+          "artifactWipes": "Artifact wipes",
+          "enchantmentWipes": "Enchantment wipes",
+          "artifactEnchantmentWipes": "Artifact/enchantment wipes",
+          "graveyardWipes": "Graveyard wipes",
+          "nonlandPermanentWipes": "Nonland permanent wipes",
+          "allPermanentWipes": "All permanent wipes",
+          "modalWipes": "Modal wipes",
+          "asymmetricalWipes": "Asymmetrical wipes",
+          "oneSidedWipes": "One-sided wipes",
+          "overloadedWipes": "Overloaded wipes",
+          "scalableWipes": "Scalable wipes",
+          "instantSpeedWipes": "Instant-speed wipes",
+          "answersIndestructible": "Answers indestructible",
+          "getsAroundHexproof": "Gets around hexproof",
+          "permanentBasedWipes": "Permanent-based wipes",
+          "repeatableWipes": "Repeatable wipes",
+          "combatOnlyWipes": "Combat-only wipes",
+          "conditionalWipes": "Conditional wipes",
+          "opponentCompensationWipes": "Opponent compensation",
+          "selfPlanRiskWipes": "Own plan collision"
+        },
+        "badges": {
+          "hard": "Hard",
+          "pseudo": "Pseudo",
+          "modal": "Modal",
+          "overload": "Overload",
+          "asymmetric": "Asymmetric",
+          "exile": "Exile",
+          "bounce": "Bounce",
+          "damage": "Damage",
+          "tuckShuffle": "Tuck / shuffle",
+          "answersIndestructible": "Answers indestructible",
+          "artifactWipe": "Artifact wipe",
+          "enchantmentWipe": "Enchantment wipe"
+        },
+        "issues": {
+          "low_hard_board_wipes": {
+            "title": "Few hard board wipes",
+            "message": "Hard board wipe count is below the expected baseline for this plan."
+          },
+          "wipes_are_mostly_bounce_or_conditional": {
+            "title": "Wipes are mostly soft or conditional",
+            "message": "Mass bounce, pseudo-wipes, and conditional wipes are separated from hard resets."
+          },
+          "wipes_are_mostly_pseudo": {
+            "title": "Wipes are mostly pseudo-wipes",
+            "message": "The wipe count is mostly pseudo, combat-only, or conditional rather than reliable hard resets."
+          },
+          "wipes_are_mostly_bounce": {
+            "title": "Wipes are mostly bounce",
+            "message": "The wipe package leans on mass bounce and has little hard creature reset coverage."
+          },
+          "no_indestructible_answer": {
+            "title": "No wipe answers indestructible",
+            "message": "The deck has wipes, but none are classified as exile, sacrifice, -X/-X, tuck, or shuffle answers."
+          },
+          "no_artifact_enchantment_wipe_coverage": {
+            "title": "No artifact or enchantment wipe coverage",
+            "message": "The wipe package has no mass artifact or enchantment coverage."
+          },
+          "no_graveyard_wipe_coverage": {
+            "title": "No graveyard wipe coverage",
+            "message": "The wipe package has no graveyard exile coverage for plans where that can matter."
+          },
+          "too_many_symmetrical_wipes_for_creature_deck": {
+            "title": "Too many symmetrical wipes for a creature plan",
+            "message": "Several wipes can reset the deck own creature board."
+          },
+          "own_plan_collision_wipes": {
+            "title": "Wipes collide with the deck plan",
+            "message": "Some wipes overlap with the deck own permanent, graveyard, artifact, enchantment, token, or creature plan."
+          },
+          "board_wipes_self_plan_risk": {
+            "title": "Board wipes may pressure the deck plan",
+            "message": "Some wipes overlap with the deck own permanent strategy."
+          },
+          "expensive_wipe_package": {
+            "title": "Wipe package is expensive",
+            "message": "Most wipes cost six or more mana and no low-cost emergency wipe is classified."
+          },
+          "no_cheap_emergency_wipe": {
+            "title": "No cheap emergency wipe",
+            "message": "The deck has wipes, but none are classified as efficient low-cost emergency resets."
+          },
+          "overload_wipe_available": {
+            "title": "Overload wipe available",
+            "message": "At least one wipe has an alternative mass mode such as overload."
+          },
+          "asymmetrical_wipe_strength": {
+            "title": "Asymmetrical wipe strength",
+            "message": "The deck has one-sided or asymmetrical board wipe coverage."
+          },
+          "modal_wipe_strength": {
+            "title": "Modal wipe strength",
+            "message": "The deck has flexible modal board wipe coverage."
+          },
+          "opponent_compensation_risk": {
+            "title": "Opponent compensation risk",
+            "message": "Some wipes can compensate opponents by ramping or replacing resources."
+          }
+        },
+        "notes": {
+          "control_friendly": "Control friendly",
+          "pseudo_wipe": "Pseudo wipe",
+          "self_plan_risk": "Own plan risk",
+          "token_plan_risk": "Token plan risk",
+          "artifact_plan_risk": "Artifact plan risk",
+          "enchantment_plan_risk": "Enchantment plan risk",
+          "graveyard_plan_risk": "Graveyard plan risk",
+          "alternative_mass_mode": "Alternative mass mode",
+          "opponent_compensation": "Opponent compensation"
+        }
       }
     }
   },
@@ -1741,7 +1902,7 @@
     "tableAssistantSetup": {
       "createRoom": "Maak kamer",
       "createRoomError": "Kan de tafelassistentruimte niet maken.",
-      "creatingRoom": "Creëren...",
+      "creatingRoom": "CreÃ«ren...",
       "initialLife": "Startlevenstotaal",
       "initialTotal": "Begintotaal",
       "needPlayersAndNames": "Je hebt minimaal 2 spelers nodig en elke naam is ingevuld.",
@@ -1801,7 +1962,7 @@
         },
         "sharedTable": {
           "title": "Gedeelde tafel",
-          "description": "Ontworpen voor één telefoon of tablet in het midden van de tafel."
+          "description": "Ontworpen voor Ã©Ã©n telefoon of tablet in het midden van de tafel."
         }
       },
       "header": {
@@ -1879,7 +2040,7 @@
       "premium": "Premie"
     },
     "settingsAvatarUpload": {
-      "uploadedAvatarPreview": "Avatarvoorbeeld geüpload",
+      "uploadedAvatarPreview": "Avatarvoorbeeld geÃ¼pload",
       "avatarPreview": "Avatar-voorbeeld",
       "uploadImage": "Afbeelding uploaden",
       "chooseYourOwnImageAndFrameIt": "Kies je eigen afbeelding en kader deze in de avatarcirkel.",
@@ -1980,13 +2141,13 @@
       "ariaLabel": "Producthoogtepunten",
       "deckValidation": "Commander-eerste deckvalidatie",
       "manualTable": "Handmatige tafel, geen rules engine",
-      "privateRooms": "Privékamers en uitnodigingen"
+      "privateRooms": "PrivÃ©kamers en uitnodigingen"
     },
     "preview": {
       "ariaLabel": "CommanderZone tabelvoorbeeld",
-      "flow": "Wachtkamer, deckselectie en tafelverloop op één plek.",
+      "flow": "Wachtkamer, deckselectie en tafelverloop op Ã©Ã©n plek.",
       "guest": "Gast",
-      "oneLink": "Eén koppeling",
+      "oneLink": "EÃ©n koppeling",
       "ready": "Klaar"
     },
     "steps": {

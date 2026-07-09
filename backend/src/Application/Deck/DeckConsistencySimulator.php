@@ -2,6 +2,11 @@
 
 namespace App\Application\Deck;
 
+use App\Application\Game\GameLibraryOps;
+use App\Application\Game\GameRandomizer;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
+
 final class DeckConsistencySimulator
 {
     private const DEFAULT_RUNS = DeckAdvancedAnalyzerVersion::DEFAULT_MONTE_CARLO_RUNS;
@@ -14,6 +19,10 @@ final class DeckConsistencySimulator
     ];
     private const COLOR_NAMES = ['white', 'blue', 'black', 'red', 'green'];
 
+    public function __construct(private readonly ?GameLibraryOps $libraryOps = null)
+    {
+    }
+
     /**
      * @param list<array{quantity:int,oracleId:string,section?:string,analysisProfile:array<string,mixed>,manaProfile?:array<string,mixed>}> $resolvedCards
      * @param array<string,mixed> $combos
@@ -23,7 +32,7 @@ final class DeckConsistencySimulator
     public function simulate(array $resolvedCards, array $combos, array $options = []): array
     {
         $runs = max(1, (int) ($options['runs'] ?? self::DEFAULT_RUNS));
-        $seed = $this->seed($options['seed'] ?? 'commanderzone-consistency');
+        $randomizer = $this->seededRandomizer($options['seed'] ?? 'commanderzone-consistency');
         $manaContext = $this->manaContext($resolvedCards, is_array($options['mana'] ?? null) ? $options['mana'] : []);
         $library = $this->library($resolvedCards, $manaContext);
         $comboPlans = $this->comboPlans($combos);
@@ -81,14 +90,14 @@ final class DeckConsistencySimulator
 
         $mulligansNeeded = 0;
         for ($run = 0; $run < $runs; ++$run) {
-            $drawSequence = $this->sample($library, min(11, count($library)), $seed);
+            $drawSequence = $this->drawSequence($library, min(11, count($library)), $randomizer);
             $openingHand = array_slice($drawSequence, 0, min(7, count($drawSequence)));
             $openingStats = $this->handStats($openingHand, $comboPlans);
             $openingMana = $this->manaStats($openingHand, 2, $manaContext);
             $keep = $this->keepEvaluation($openingStats, $openingMana);
             $this->countOpening($opening, $openingStats, $keep);
             $this->countOpeningMana($opening, $openingMana, $manaContext);
-            $this->countMulligan($mulligan, $mulligansNeeded, $keep, $library, $comboPlans, $manaContext, $seed);
+            $this->countMulligan($mulligan, $mulligansNeeded, $keep, $library, $comboPlans, $manaContext, $randomizer);
 
             $turn1Hand = array_slice($drawSequence, 0, min(7, count($drawSequence)));
             $turn2Hand = array_slice($drawSequence, 0, min(8, count($drawSequence)));
@@ -115,6 +124,7 @@ final class DeckConsistencySimulator
                 'By-turn access assumes no draw on turn 1; turn 3 sees opening hand plus 2 draws, and turn 5 sees opening hand plus 4 draws.',
                 'Combo access checks direct pieces only for complete 2-card and 3-card combos already detected locally.',
                 'Mulligans resample seven-card hands and do not model perfect bottom decisions.',
+                'Shuffle and draw order use the same backend library operations as gameplay.',
             ],
             'openingHand' => [
                 'keepableHandRate' => $this->rate($opening['keepableHand'], $runs),
@@ -550,7 +560,7 @@ final class DeckConsistencySimulator
      * @param list<array<string,mixed>> $library
      * @param list<list<string>> $comboPlans
      */
-    private function countMulligan(array &$mulligan, int &$mulligansNeeded, array $openingKeep, array $library, array $comboPlans, array $manaContext, int &$seed): void
+    private function countMulligan(array &$mulligan, int &$mulligansNeeded, array $openingKeep, array $library, array $comboPlans, array $manaContext, GameRandomizer $randomizer): void
     {
         if ($openingKeep['keepable']) {
             ++$mulligan['keepAt7'];
@@ -558,7 +568,7 @@ final class DeckConsistencySimulator
             return;
         }
 
-        $six = $this->sample($library, 7, $seed);
+        $six = $this->drawSequence($library, 7, $randomizer);
         $keepAt6 = $this->keepEvaluation($this->handStats($six, $comboPlans), $this->manaStats($six, 2, $manaContext));
         if ($keepAt6['keepable']) {
             ++$mulligan['keepAt6'];
@@ -567,7 +577,7 @@ final class DeckConsistencySimulator
             return;
         }
 
-        $five = $this->sample($library, 7, $seed);
+        $five = $this->drawSequence($library, 7, $randomizer);
         $keepAt5 = $this->keepEvaluation($this->handStats($five, $comboPlans), $this->manaStats($five, 2, $manaContext));
         if ($keepAt5['keepable']) {
             ++$mulligan['keepAt5'];
@@ -1104,36 +1114,33 @@ final class DeckConsistencySimulator
      * @param list<array<string,mixed>> $library
      * @return list<array<string,mixed>>
      */
-    private function sample(array $library, int $count, int &$seed): array
+    private function drawSequence(array $library, int $count, GameRandomizer $randomizer): array
     {
-        $size = count($library);
-        if ($count >= $size) {
-            return $library;
-        }
+        $player = [
+            GameLibraryOps::ORIENTATION_KEY => GameLibraryOps::ORIENTATION_TAIL_TOP,
+            'zones' => [
+                'library' => $library,
+            ],
+        ];
 
-        $pool = $library;
-        $hand = [];
-        for ($index = 0; $index < $count; ++$index) {
-            $selected = $index + $this->randomInt($seed, $size - $index);
-            $hand[] = $pool[$selected];
-            $pool[$selected] = $pool[$index];
-        }
+        $this->libraryOps()->shuffle(
+            $player,
+            fn (array $cards): array => $randomizer->shuffle($cards),
+        );
 
-        return $hand;
+        return $this->libraryOps()->drawMany($player, $count);
     }
 
-    private function randomInt(int &$seed, int $maxExclusive): int
-    {
-        $seed = (int) ((1103515245 * $seed + 12345) & 0x7fffffff);
-
-        return $maxExclusive <= 1 ? 0 : $seed % $maxExclusive;
-    }
-
-    private function seed(string $seed): int
+    private function seededRandomizer(string $seed): GameRandomizer
     {
         $value = (int) hexdec(substr(hash('sha256', $seed), 0, 8)) & 0x7fffffff;
 
-        return $value > 0 ? $value : 1;
+        return new GameRandomizer(new Randomizer(new Mt19937($value > 0 ? $value : 1)));
+    }
+
+    private function libraryOps(): GameLibraryOps
+    {
+        return $this->libraryOps ?? new GameLibraryOps();
     }
 
     private function rate(int $count, int $runs): float
