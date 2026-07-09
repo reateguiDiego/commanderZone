@@ -29,6 +29,26 @@ describe('DeckCardTextViewComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Command Tower');
   });
 
+  it('renders the game changer icon next to a game changer card name', async () => {
+    const store = storeStub({
+      entry: {
+        id: 'deck-card-1',
+        quantity: 1,
+        section: 'main',
+        card: { ...card(), isGameChanger: true },
+      },
+    });
+    const fixture = await setup(store);
+    fixture.detectChanges();
+
+    const icon = fixture.nativeElement.querySelector('.deck-card-name app-game-changer-icon img.game-changer-icon') as HTMLImageElement | null;
+
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute('src')).toBe('assets/icons/card-types/game-changers.png');
+    expect(icon?.getAttribute('title')).toBe('Game Changer');
+    expect(icon?.getAttribute('alt')).toBe('Game Changer');
+  });
+
   it('renders the group toggle icon before the category title and count', async () => {
     const fixture = await setup();
     fixture.detectChanges();

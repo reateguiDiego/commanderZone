@@ -171,7 +171,8 @@ final class CardRoleMetricsAggregatorTest extends TestCase
                 'isLand' => true,
                 'isColorFixing' => true,
                 'manaSourceCategory' => 'fetchland',
-            ]),
+                'fetchableLandTypes' => ['Plains', 'Island'],
+            ], colorIdentity: ['W', 'U']),
         ]);
 
         self::assertSame(0, $metrics['roles']['trueTutors']);
@@ -180,6 +181,27 @@ final class CardRoleMetricsAggregatorTest extends TestCase
         self::assertSame(0, $metrics['roles']['rampSearch']);
         self::assertSame(10, $metrics['roles']['fetchlands']);
         self::assertSame(10, $metrics['roles']['manaFixing']);
+    }
+
+    public function testSingleColorManaSourcesDoNotCountAsFixing(): void
+    {
+        $metrics = $this->aggregate([
+            $this->card(1, manaProfile: [
+                'isManaRock' => true,
+                'isColorFixing' => true,
+                'manaSourceCategory' => 'mana_rock',
+                'producedManaColors' => ['B'],
+            ], colorIdentity: ['W', 'U', 'B']),
+            $this->card(1, manaProfile: [
+                'isManaRock' => true,
+                'isColorFixing' => true,
+                'manaSourceCategory' => 'mana_rock',
+                'producedManaColors' => ['W', 'U'],
+            ], colorIdentity: ['W', 'U', 'B']),
+        ]);
+
+        self::assertSame(1, $metrics['roles']['colorFixing']);
+        self::assertSame(1, $metrics['roles']['manaFixing']);
     }
 
     public function testGreenLandRampDoesNotInflateTutors(): void
@@ -352,6 +374,7 @@ final class CardRoleMetricsAggregatorTest extends TestCase
         array $conditionKeys = [],
         array $manaProfile = [],
         ?string $name = null,
+        array $colorIdentity = [],
     ): array
     {
         $id = 'test-card-'.substr(hash('sha256', serialize([$quantity, $roles, $subroles, $roleScores, $conditionKeys, $manaProfile, $name])), 0, 12);
@@ -372,6 +395,7 @@ final class CardRoleMetricsAggregatorTest extends TestCase
                 'subroles' => $subroles,
                 'roleScores' => $roleScores,
                 'conditionKeys' => $conditionKeys,
+                'colorIdentity' => $colorIdentity,
                 'powerFlags' => [],
                 'flags' => [],
                 'types' => ['land' => in_array('land', $roles, true)],

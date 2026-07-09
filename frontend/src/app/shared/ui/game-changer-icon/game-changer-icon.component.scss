@@ -1,0 +1,17 @@
+:host {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  width: var(--cz-game-changer-icon-size, 1rem);
+  height: var(--cz-game-changer-icon-size, 1rem);
+  line-height: 1;
+  vertical-align: -0.12em;
+}
+
+.game-changer-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0.08rem 0.18rem rgb(var(--cz-bg-rgb) / 70%));
+}

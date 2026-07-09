@@ -111,6 +111,7 @@
   @if (contextMenu(); as menu) {
     <app-common-card-menu
       [title]="menu.item.name"
+      [titleIsGameChanger]="menu.item.isGameChanger === true"
       [actions]="actionsFor(menu.item)"
       [top]="menu.top"
       [left]="menu.left"

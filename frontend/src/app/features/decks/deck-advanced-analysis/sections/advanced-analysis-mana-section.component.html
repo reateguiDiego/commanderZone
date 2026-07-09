@@ -9,34 +9,23 @@
           @for (stat of overviewRows(); track stat.label) {
             <div>
               <dt>{{ stat.label }}</dt>
-              <dd>{{ stat.value }}</dd>
+              <dd
+                [class.advanced-analysis-mana-stat-value--danger]="stat.tone === 'danger'"
+                [class.advanced-analysis-mana-stat-value--warning]="stat.tone === 'warning'"
+                [class.advanced-analysis-mana-stat-value--success]="stat.tone === 'success'"
+              >
+                {{ stat.value }}
+              </dd>
             </div>
           }
         </dl>
-        <div class="advanced-analysis-mana-panel-grid advanced-analysis-mana-panel-grid--three">
-          @if (landBaseCardGroups().length > 0) {
-            <section class="advanced-analysis-mana-subsection">
-              <div class="advanced-analysis-mana-card-groups">
-                @for (group of landBaseCardGroups(); track group.key) {
-                  <app-advanced-analysis-card-grid [title]="group.title" [cards]="group.cards" />
-                }
-              </div>
-            </section>
-          }
-          @if (rampCardGroups().length > 0) {
-            <section class="advanced-analysis-mana-subsection">
-              <div class="advanced-analysis-mana-card-groups">
-                @for (group of rampCardGroups(); track group.key) {
-                  <app-advanced-analysis-card-grid [title]="group.title" [cards]="group.cards" />
-                }
-              </div>
-            </section>
-          }
-          @if (fixingCardGroups().length > 0) {
-            <section class="advanced-analysis-mana-subsection">
-              <div class="advanced-analysis-mana-card-groups">
-                @for (group of fixingCardGroups(); track group.key) {
-                  <app-advanced-analysis-card-grid [title]="group.title" [cards]="group.cards" />
+        <div class="advanced-analysis-mana-card-groups advanced-analysis-mana-card-groups--functional">
+          @for (group of baseAndAccelerationCardGroups(); track group.key) {
+            <section class="advanced-analysis-mana-functional-group">
+              <h4>{{ group.title }}</h4>
+              <div class="advanced-analysis-mana-functional-subgroups">
+                @for (subgroup of group.subgroups; track subgroup.key) {
+                  <app-advanced-analysis-card-grid [title]="subgroup.title" [cards]="subgroup.cards" />
                 }
               </div>
             </section>
@@ -54,7 +43,6 @@
             <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.coloredSources' | runtimeTranslate }}</span>
             <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.untappedSources' | runtimeTranslate }}</span>
             <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.earlySources' | runtimeTranslate }}</span>
-            <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.status' | runtimeTranslate }}</span>
           </div>
           @for (row of sourceRows(); track row.key) {
             <div class="advanced-analysis-mana-source-row" role="row">
@@ -65,14 +53,22 @@
               <span role="cell">{{ row.sources }}</span>
               <span role="cell">{{ row.untappedSources }}</span>
               <span role="cell">{{ row.earlySources }}</span>
-              <span role="cell">{{ row.status }}</span>
             </div>
           }
         </div>
         @if (sourceCardGroups().length > 0) {
           <div class="advanced-analysis-mana-card-groups">
             @for (group of sourceCardGroups(); track group.key) {
-              <app-advanced-analysis-card-grid [title]="group.title" [cards]="group.cards" />
+              <app-advanced-analysis-card-grid
+                [title]="group.title"
+                [titleManaSymbols]="group.titleManaSymbols ?? []"
+                [cards]="group.cards"
+                [headerFilterOptions]="sourceColorFilterOptions()"
+                [headerFilterValue]="sourceColorFilterValue()"
+                headerFilterLabelKey="deckBuilder.advancedAnalysis.mana.color"
+                headerFilterName="mana-source-color-filter"
+                (headerFilterValueChange)="sourceColorFilterChange.emit($event)"
+              />
             }
           </div>
         }
@@ -89,9 +85,11 @@
               <div class="advanced-analysis-mana-demand-grid" role="table">
                 <div class="advanced-analysis-mana-demand-header" role="row">
                   <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.color' | runtimeTranslate }}</span>
-                  <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.pipDemand' | runtimeTranslate }}</span>
                   <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.earlyPipDemand' | runtimeTranslate }}</span>
+                  <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.pipDemand' | runtimeTranslate }}</span>
                   <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.colorIntensity' | runtimeTranslate }}</span>
+                  <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.sourcesOfColor' | runtimeTranslate }}</span>
+                  <span role="columnheader">{{ 'deckBuilder.advancedAnalysis.mana.colorSourceShare' | runtimeTranslate }}</span>
                 </div>
                 @for (row of demandRows(); track row.key) {
                   <div class="advanced-analysis-mana-demand-row" role="row">
@@ -99,9 +97,11 @@
                       <app-mana-symbols [symbols]="row.symbols" fallback="" size="small" />
                       <span>{{ row.label }}</span>
                     </span>
-                    <span role="cell">{{ row.pipDemand }}</span>
                     <span role="cell">{{ row.earlyPipDemand }}</span>
+                    <span role="cell">{{ row.pipDemand }}</span>
                     <span role="cell">{{ row.colorIntensity }}</span>
+                    <span role="cell">{{ row.sourcesOfColor }}</span>
+                    <span role="cell">{{ row.colorSourceShare }}</span>
                   </div>
                 }
               </div>
@@ -109,40 +109,7 @@
               <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.mana.noColorDemand' | runtimeTranslate }}</p>
             }
           </section>
-
-          <section class="advanced-analysis-mana-subsection">
-            <h4>{{ 'deckBuilder.advancedAnalysis.mana.landCycles' | runtimeTranslate }}</h4>
-            @if (landCycleRows().length > 0) {
-              <dl class="advanced-analysis-mana-cycle-list">
-                @for (stat of landCycleRows(); track stat.label) {
-                  <div>
-                    <dt>{{ stat.label }}</dt>
-                    <dd>{{ stat.value }}</dd>
-                  </div>
-                }
-              </dl>
-            } @else {
-              <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.mana.noLandCycles' | runtimeTranslate }}</p>
-            }
-          </section>
         </div>
-      </article>
-
-      <article class="advanced-analysis-mana-card advanced-analysis-card-frame advanced-analysis-mana-card--wide">
-        <h3>{{ 'deckBuilder.advancedAnalysis.mana.warnings' | runtimeTranslate }}</h3>
-        @if (manaIssues().length > 0) {
-          <ul class="advanced-analysis-issue-list">
-            @for (issue of manaIssues(); track issue.code) {
-              <li>
-                <span>{{ issue.title }}</span>
-                <small>{{ issue.message }}</small>
-                <em>{{ issue.severity }}</em>
-              </li>
-            }
-          </ul>
-        } @else {
-          <p class="advanced-analysis-empty-copy">{{ 'deckBuilder.advancedAnalysis.mana.noManaIssues' | runtimeTranslate }}</p>
-        }
       </article>
     </div>
   </section>

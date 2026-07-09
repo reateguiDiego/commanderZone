@@ -4,6 +4,8 @@ namespace App\Application\Deck;
 
 final class CardRoleMetricsAggregator
 {
+    private const COLORS = ['W', 'U', 'B', 'R', 'G'];
+
     private const TRUE_TUTOR_NAMES = [
         'demonic tutor',
         'vampiric tutor',
@@ -75,6 +77,7 @@ final class CardRoleMetricsAggregator
         $lands = 0;
         $resolvedQuantity = 0;
         $unmatchedQuantity = $this->totalQuantity($unmatchedCards);
+        $identity = $this->deckColorIdentity($resolvedCards);
 
         foreach ($resolvedCards as $card) {
             $quantity = max(1, $card['quantity']);
@@ -91,7 +94,7 @@ final class CardRoleMetricsAggregator
             $this->addRoleMetrics($roles, $roleCards, $profile, $manaProfile, $quantity, $reference);
             $this->addSubroleMetrics($roles, $roleCards, $profile, $manaProfile, $quantity, $reference);
             $this->addSpecialMetrics($roles, $roleCards, $profile, $manaProfile, $quantity, $reference);
-            $this->addManaProfileMetrics($roles, $roleCards, $manaProfile, $quantity, $reference);
+            $this->addManaProfileMetrics($roles, $roleCards, $manaProfile, $quantity, $reference, $identity);
             $this->addQualityMetrics($quality, $qualityCards, $profile, $manaProfile, $quantity, $reference);
         }
 
@@ -401,17 +404,18 @@ final class CardRoleMetricsAggregator
      * @param array<string,mixed> $manaProfile
      * @param array<string,mixed> $reference
      */
-    private function addManaProfileMetrics(array &$roles, array &$roleCards, array $manaProfile, int $quantity, array $reference): void
+    private function addManaProfileMetrics(array &$roles, array &$roleCards, array $manaProfile, int $quantity, array $reference, array $identity): void
     {
         if ($manaProfile === []) {
             return;
         }
 
+        $fixesMultipleCommanderColors = $this->manaProfileFixesMultipleCommanderColors($manaProfile, $identity);
         foreach ([
             'fetchlands' => $this->boolPath($manaProfile, ['isFetchland']),
             'landTutors' => $this->isManaLandTutor($manaProfile),
             'rampSearch' => $this->isManaRampSearch($manaProfile),
-            'landRamp' => $this->boolPath($manaProfile, ['isLandRamp']),
+            'landRamp' => !$this->boolPath($manaProfile, ['isFetchland']) && $this->boolPath($manaProfile, ['isLandRamp']),
             'manaRocks' => $this->boolPath($manaProfile, ['isManaRock']),
             'manaDorks' => $this->boolPath($manaProfile, ['isManaDork']),
             'fastMana' => $this->boolPath($manaProfile, ['isFastMana']),
@@ -419,8 +423,8 @@ final class CardRoleMetricsAggregator
             'rituals' => $this->boolPath($manaProfile, ['isRitual']),
             'oneShotMana' => $this->boolPath($manaProfile, ['isOneShotMana']),
             'costReducers' => $this->boolPath($manaProfile, ['isCostReducer']),
-            'colorFixing' => $this->boolPath($manaProfile, ['isColorFixing']),
-            'manaFixing' => $this->isManaFixing($manaProfile),
+            'colorFixing' => $fixesMultipleCommanderColors,
+            'manaFixing' => $this->isManaFixing($manaProfile, $identity),
         ] as $metric => $matches) {
             if (!$matches) {
                 continue;
@@ -700,11 +704,93 @@ final class CardRoleMetricsAggregator
     /**
      * @param array<string,mixed> $manaProfile
      */
-    private function isManaFixing(array $manaProfile): bool
+    private function isManaFixing(array $manaProfile, array $identity): bool
     {
-        return $this->boolPath($manaProfile, ['isColorFixing'])
-            || $this->boolPath($manaProfile, ['isFetchland'])
-            || $this->boolPath($manaProfile, ['producesAnyColor']);
+        return $this->manaProfileFixesMultipleCommanderColors($manaProfile, $identity);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     * @return list<string>
+     */
+    private function deckColorIdentity(array $cards): array
+    {
+        $colors = [];
+        foreach ($cards as $card) {
+            $profile = is_array($card['analysisProfile'] ?? null) ? $card['analysisProfile'] : [];
+            foreach ($this->stringList($profile['colorIdentity'] ?? []) as $color) {
+                $symbol = strtoupper($color);
+                if (in_array($symbol, self::COLORS, true)) {
+                    $colors[$symbol] = true;
+                }
+            }
+        }
+
+        return array_keys($colors);
+    }
+
+    /**
+     * @param array<string,mixed> $manaProfile
+     * @param list<string> $identity
+     */
+    private function manaProfileFixesMultipleCommanderColors(array $manaProfile, array $identity): bool
+    {
+        if (count($identity) < 2) {
+            return false;
+        }
+
+        $identityLookup = array_flip($identity);
+        $covered = [];
+        foreach ($this->manaProfileColors($manaProfile, $identity) as $color) {
+            if (isset($identityLookup[$color])) {
+                $covered[$color] = true;
+            }
+        }
+
+        return count($covered) >= 2;
+    }
+
+    /**
+     * @param array<string,mixed> $manaProfile
+     * @param list<string> $identity
+     * @return list<string>
+     */
+    private function manaProfileColors(array $manaProfile, array $identity): array
+    {
+        $colors = [];
+        foreach ($this->stringList($manaProfile['producedManaColors'] ?? []) as $color) {
+            $symbol = strtoupper($color);
+            if (in_array($symbol, [...self::COLORS, 'C'], true)) {
+                $colors[$symbol] = true;
+            }
+        }
+
+        foreach ($this->stringList($manaProfile['fetchableLandTypes'] ?? []) as $type) {
+            $symbol = $this->landTypeColor($type);
+            if ($symbol !== null) {
+                $colors[$symbol] = true;
+            }
+        }
+
+        if ($this->boolPath($manaProfile, ['producesAnyColor'])) {
+            foreach ($identity as $color) {
+                $colors[$color] = true;
+            }
+        }
+
+        return array_keys($colors);
+    }
+
+    private function landTypeColor(string $type): ?string
+    {
+        return match (mb_strtolower($type)) {
+            'plains' => 'W',
+            'island' => 'U',
+            'swamp' => 'B',
+            'mountain' => 'R',
+            'forest' => 'G',
+            default => null,
+        };
     }
 
     /**

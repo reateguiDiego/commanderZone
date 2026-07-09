@@ -169,7 +169,7 @@ export class DeckListStore {
   newDeckName = '';
   newDeckFormatId = 'commander';
   newDeckFolderId = '';
-  newDeckVisibility: DeckVisibility = 'private';
+  newDeckVisibility: DeckVisibility = 'public';
   newDeckCreateEmpty = false;
   newFolderName = '';
   newFolderVisibility: DeckVisibility = 'private';
@@ -219,7 +219,7 @@ export class DeckListStore {
     this.newDeckName = '';
     this.newDeckFormatId = this.formats()[0]?.id ?? 'commander';
     this.newDeckFolderId = '';
-    this.newDeckVisibility = 'private';
+    this.newDeckVisibility = 'public';
     this.newDeckCreateEmpty = false;
     this.commanderQuery = '';
     this.createdDecklist = '';

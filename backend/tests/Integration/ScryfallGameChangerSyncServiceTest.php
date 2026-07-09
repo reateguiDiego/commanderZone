@@ -14,6 +14,14 @@ final class ScryfallGameChangerSyncServiceTest extends ApiTestCase
         $staleId = '88000000-0000-0000-0000-000000000002';
         $this->insertOracleProfile($currentId, 'Current Game Changer', false);
         $this->insertOracleProfile($staleId, 'Stale Game Changer', true);
+        $this->seedCard('88000000-0000-0000-0000-000000000101', 'Current Game Changer', [
+            'oracle_id' => $currentId,
+            'game_changer' => false,
+        ]);
+        $this->seedCard('88000000-0000-0000-0000-000000000102', 'Stale Game Changer', [
+            'oracle_id' => $staleId,
+            'game_changer' => true,
+        ]);
         $service = new ScryfallGameChangerSyncService(
             new MockHttpClient([
                 new MockResponse(json_encode([
@@ -43,6 +51,8 @@ final class ScryfallGameChangerSyncServiceTest extends ApiTestCase
         ]));
         self::assertTrue($this->isGameChanger($currentId));
         self::assertFalse($this->isGameChanger($staleId));
+        self::assertTrue($this->isCatalogCardGameChanger($currentId));
+        self::assertFalse($this->isCatalogCardGameChanger($staleId));
     }
 
     private function insertOracleProfile(string $oracleId, string $name, bool $isGameChanger): void
@@ -90,6 +100,14 @@ SQL,
     {
         return (bool) $this->entityManager->getConnection()->fetchOne(
             'SELECT is_game_changer FROM card_oracle_profile WHERE oracle_id = :oracleId',
+            ['oracleId' => $oracleId],
+        );
+    }
+
+    private function isCatalogCardGameChanger(string $oracleId): bool
+    {
+        return (bool) $this->entityManager->getConnection()->fetchOne(
+            'SELECT is_game_changer FROM card WHERE oracle_id = :oracleId LIMIT 1',
             ['oracleId' => $oracleId],
         );
     }

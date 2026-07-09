@@ -31,6 +31,17 @@ describe('DeckCardMenuComponent', () => {
     expect(text).toContain('Remove');
     expect(input?.value).toBe('2');
   });
+
+  it('renders the game changer icon next to a game changer card name', () => {
+    fixture.componentRef.setInput('entry', entry({ isGameChanger: true }));
+    fixture.detectChanges();
+
+    const icon = fixture.nativeElement.querySelector('.card-menu-card-name app-game-changer-icon img.game-changer-icon') as HTMLImageElement | null;
+
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute('title')).toBe('Game Changer');
+    expect(icon?.getAttribute('alt')).toBe('Game Changer');
+  });
 });
 
 function storeStub() {
@@ -45,7 +56,7 @@ function storeStub() {
   };
 }
 
-function entry(): DeckCard {
+function entry(cardOverrides: Partial<DeckCard['card']> = {}): DeckCard {
   return {
     id: 'deck-card-1',
     quantity: 1,
@@ -65,6 +76,7 @@ function entry(): DeckCard {
       commanderLegal: true,
       set: null,
       collectorNumber: null,
+      ...cardOverrides,
     },
   };
 }

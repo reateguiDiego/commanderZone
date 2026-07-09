@@ -1,15 +1,17 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, effect, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { Card } from '../../../../core/models/card.model';
+import { FormatSelectComponent, type FormatSelectOption } from '../../../../shared/components/format-select/format-select.component';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { GameChangerIconComponent } from '../../../../shared/ui/game-changer-icon/game-changer-icon.component';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { runDeckFaceToggleAnimation } from '../deck-face-toggle-animation';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
 
 @Component({
   selector: 'app-deck-card-spoiler-view',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaSymbolsComponent, DeckCardMenuComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, FormatSelectComponent, ManaSymbolsComponent, GameChangerIconComponent, DeckCardMenuComponent],
   templateUrl: './deck-card-spoiler-view.component.html',
   styleUrl: './deck-card-spoiler-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -18,6 +20,11 @@ export class DeckCardSpoilerViewComponent {
   readonly interactive = input(true);
   readonly cardClickEnabled = input(true);
   readonly full = input(false);
+  readonly headerFilterOptions = input<readonly FormatSelectOption[]>([]);
+  readonly headerFilterValue = input('all');
+  readonly headerFilterLabelKey = input<string | null>(null);
+  readonly headerFilterName = input('spoiler-section-filter');
+  readonly headerFilterValueChange = output<string>();
   readonly store = inject(DECK_VIEW_STORE);
 
   constructor() {

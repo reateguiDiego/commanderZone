@@ -168,6 +168,11 @@ final class CardCatalogMaintainCommand extends Command
             return $status;
         }
 
+        $status = $this->runner->runDeckAnalysisScryfallGameChangersSync($output);
+        if ($status !== Command::SUCCESS) {
+            return $status;
+        }
+
         $status = $this->runner->runDeckAnalysisSpellbookSync($output);
         if ($status !== Command::SUCCESS) {
             return $status;

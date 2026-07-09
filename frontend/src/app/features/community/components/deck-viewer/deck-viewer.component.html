@@ -69,6 +69,7 @@
   @if (store.contextMenu(); as menu) {
     <app-common-card-menu
       [title]="menu.card.name"
+      [titleIsGameChanger]="menu.card.isGameChanger === true"
       [actions]="store.contextMenuActions"
       [top]="menu.top"
       [left]="menu.left"

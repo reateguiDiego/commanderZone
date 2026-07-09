@@ -38,6 +38,7 @@ export interface Card {
   imageUris: CardImageUris;
   cardFaces?: CardFace[];
   hasRulings?: boolean;
+  isGameChanger?: boolean;
   allParts?: Record<string, unknown>[];
   manaValue?: number | null;
   producedMana?: string[];

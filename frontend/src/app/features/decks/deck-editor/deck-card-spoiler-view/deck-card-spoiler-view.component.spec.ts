@@ -25,6 +25,27 @@ describe('DeckCardSpoilerViewComponent', () => {
     expect(fixture.nativeElement.querySelector('img')?.getAttribute('src')).toBe('https://img.test/card.jpg');
   });
 
+  it('renders the game changer icon next to a game changer spoiler card name', async () => {
+    const store = storeStub({ isGameChanger: true });
+    await TestBed.configureTestingModule({
+      imports: [DeckCardSpoilerViewComponent],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
+        { provide: DECK_VIEW_STORE, useValue: store },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(DeckCardSpoilerViewComponent);
+    fixture.detectChanges();
+
+    const icon = fixture.nativeElement.querySelector('.spoiler-card-name app-game-changer-icon img.game-changer-icon') as HTMLImageElement | null;
+
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute('src')).toBe('assets/icons/card-types/game-changers.png');
+    expect(icon?.getAttribute('title')).toBe('Game Changer');
+    expect(icon?.getAttribute('alt')).toBe('Game Changer');
+  });
+
   it('renders the spoiler toggle icon before the category title and count', async () => {
     const store = storeStub();
     await TestBed.configureTestingModule({
@@ -295,12 +316,12 @@ describe('DeckCardSpoilerViewComponent', () => {
   });
 });
 
-function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolean; cardTypeLine?: string; groupCards?: number; cardName?: string } = {}) {
+function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolean; cardTypeLine?: string; groupCards?: number; cardName?: string; isGameChanger?: boolean } = {}) {
   const entries = Array.from({ length: options.groupCards ?? 1 }, (_, index) => ({
     id: `deck-card-${index + 1}`,
     quantity: 1,
     section: 'main',
-    card: card(options.cardTypeLine, index + 1, options.cardName),
+    card: card(options.cardTypeLine, index + 1, options.cardName, options.isGameChanger),
   })) satisfies DeckCard[];
   const collapsedGroups = signal<Set<string>>(new Set());
   const visibleTypeLine = signal(options.cardTypeLine ?? entries[0].card.typeLine);
@@ -344,7 +365,7 @@ function storeStub(options: { hasAlternateFace?: boolean; resetCardFace?: boolea
   };
 }
 
-function card(typeLine = 'Creature', index = 1, cardName?: string): Card {
+function card(typeLine = 'Creature', index = 1, cardName?: string, isGameChanger = false): Card {
   return {
     id: `card-${index}`,
     scryfallId: `scryfall-${index}`,
@@ -360,5 +381,6 @@ function card(typeLine = 'Creature', index = 1, cardName?: string): Card {
     commanderLegal: true,
     set: null,
     collectorNumber: null,
+    isGameChanger,
   };
 }

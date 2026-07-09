@@ -13,6 +13,7 @@ export interface CardPreviewItem {
   colors?: readonly ManaColor[];
   cardType?: string | null;
   cardTypeIcon?: string | null;
+  isGameChanger?: boolean;
   timesPlayed?: number;
   label?: string;
   rank?: number;

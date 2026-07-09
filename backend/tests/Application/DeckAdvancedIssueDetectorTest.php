@@ -498,6 +498,7 @@ final class DeckAdvancedIssueDetectorTest extends TestCase
 
         self::assertArrayHasKey('mana', $health);
         self::assertSame('warning', $health['mana']['status']);
+        self::assertSame('manaIssueDetected', $health['mana']['reasonCode']);
         self::assertSame(36, $health['mana']['evidence']['lands']);
         self::assertSame('warning', $health['mana']['evidence']['commanderCastability']);
         self::assertSame(14, $health['mana']['evidence']['coloredSources']['blue']);
