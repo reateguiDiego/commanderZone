@@ -580,13 +580,13 @@ test.describe('rc final 3-player real game regression gate', () => {
       await reactionPatchPromise;
       await Promise.all([expectChatReactionCount(pageA, chatText, '1'), expectChatReactionCount(pageC, chatText, '1')]);
       await Promise.all([openLog(pageA), openLog(pageB), openLog(pageC)]);
-      await expectLogEntry(pageA, /drew a card/i);
-      await expectLogEntry(pageA, /moved a card/i);
-      await expectLogEntry(pageA, /tapped a permanent/i);
+      await expectLogEntry(pageA, /rob\u00f3 una carta|drew a card/i);
+      await expectLogEntry(pageA, /movi\u00f3 una carta|moved a card/i);
+      await expectLogEntry(pageA, /gir\u00f3 un permanente|tapped a permanent/i);
       await expectLogEntry(pageA, /\+1\/\+1/i);
-      await expectLogEntry(pageA, /token/i);
-      await expectLogEntry(pageA, /commander/i);
-      await expect.poll(() => pageA.getByTestId('game-log-entry').filter({ hasText: /drew a card/i }).count(), { timeout: 10_000 }).toBe(2);
+      await expectLogEntry(pageA, /ficha|token/i);
+      await expectLogEntry(pageA, /comandante|commander/i);
+      await expect.poll(() => pageA.getByTestId('game-log-entry').filter({ hasText: /rob\u00f3 una carta|drew a card/i }).count(), { timeout: 10_000 }).toBe(2);
 
       const beforeDisconnects = await runtimeDisconnects(request);
       const reconnectStorageB = await contextB.storageState();
@@ -623,7 +623,7 @@ test.describe('rc final 3-player real game regression gate', () => {
       let afterConcede = await gameSnapshot(request, gameId, playerA.token);
       expect(playerStatus(afterConcede, playerB.user.id)).toBe('conceded');
       expect(afterConcede['gamePhase']).not.toBe('FINISHED');
-      await expectLogEntry(pageA, /conceded/i);
+      expect(eventLogHas(afterConcede, 'game.concede')).toBe(true);
       baseVersion = (await runRuntime(request, commandFrames, {
         gameId,
         token: playerA.token,
@@ -997,6 +997,11 @@ function activePlayerIdFromSnapshot(snapshot: JsonObject): string {
 function playerStatus(snapshot: JsonObject, playerId: string): string {
   const players = snapshot['players'] as Record<string, JsonObject> | undefined;
   return String(players?.[playerId]?.['status'] ?? 'active');
+}
+
+function eventLogHas(snapshot: JsonObject, type: string): boolean {
+  const entries = Array.isArray(snapshot['eventLog']) ? snapshot['eventLog'] as JsonObject[] : [];
+  return entries.some((entry) => entry['type'] === type);
 }
 
 function playerLife(snapshot: JsonObject, playerId: string): number {

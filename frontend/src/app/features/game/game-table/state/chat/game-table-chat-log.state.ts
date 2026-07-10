@@ -1,7 +1,16 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, Optional, signal } from '@angular/core';
+import { TranslateService as NgxTranslateService } from '@ngx-translate/core';
+import { RuntimeLanguageSelectorService } from '../../../../../core/localization/runtime-language-selector.service';
+import { runtimeTranslationFallback } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 
-type GameLogEntry = GameSnapshot['eventLog'][number];
+type RawGameLogEntry = GameSnapshot['eventLog'][number];
+type GameLogEntry = RawGameLogEntry & {
+  message: string;
+  createdAt: string;
+  actorId: string | null;
+  displayName: string | null;
+};
 
 interface CommanderCastCounterChange {
   from: number;
@@ -40,6 +49,11 @@ export class GameTableChatLogState {
   readonly chatMessage = signal('');
   readonly chatTargetPlayerId = signal<string | null>(null);
 
+  constructor(
+    @Optional() private readonly translate: NgxTranslateService | null = null,
+    @Optional() private readonly runtimeLanguageSelector: RuntimeLanguageSelectorService | null = null,
+  ) {}
+
   normalizedMessage(): string {
     return this.chatMessage().trim();
   }
@@ -57,11 +71,16 @@ export class GameTableChatLogState {
   }
 
   eventLog(snapshot: GameSnapshot | null): GameLogEntry[] {
-    return this.compactLog(this.suppressDefeatedPlayerLogs(
-      [...(snapshot?.eventLog ?? [])].filter((entry) =>
+    this.runtimeLanguageSelector?.selectedLanguage();
+    const entries = [...(snapshot?.eventLog ?? [])]
+      .map((entry) => this.renderableLogEntry(snapshot, entry))
+      .filter((entry) =>
         entry.type !== 'card.position.changed'
         && entry.type !== 'cards.position.changed'
-        && entry.message !== 'Reordered hand.'),
+        && entry.message !== 'Reordered hand.');
+
+    return this.compactLog(this.suppressDefeatedPlayerLogs(
+      entries,
     ));
   }
 
@@ -127,6 +146,126 @@ export class GameTableChatLogState {
       messageSuffix: index >= 0 ? entry.message.slice(index + card.name.length) : '',
       appearance: this.logAppearance(entry),
     };
+  }
+
+  private renderableLogEntry(snapshot: GameSnapshot | null, entry: RawGameLogEntry): GameLogEntry {
+    return {
+      ...entry,
+      message: this.logMessage(snapshot, entry),
+      createdAt: entry.createdAt ?? '',
+      actorId: entry.actorId ?? null,
+      displayName: entry.displayName ?? null,
+    };
+  }
+
+  private logMessage(snapshot: GameSnapshot | null, entry: RawGameLogEntry): string {
+    if (!entry.i18nKey) {
+      return entry.message ?? '';
+    }
+
+    const params = this.logTranslationParams(snapshot, entry);
+    const translated = this.translateRuntime(entry.i18nKey, params);
+
+    return translated === entry.i18nKey
+      ? entry.message ?? ''
+      : translated;
+  }
+
+  private logTranslationParams(snapshot: GameSnapshot | null, entry: RawGameLogEntry): Record<string, unknown> {
+    const params = this.recordParam(entry.params);
+    const actorPlayerId = this.stringParam(params, 'actorPlayerId') ?? entry.actorId ?? undefined;
+    const playerId = this.stringParam(params, 'playerId') ?? actorPlayerId;
+
+    return {
+      actor: actorPlayerId ? this.playerDisplayName(snapshot, entry, actorPlayerId) : entry.displayName ?? 'System',
+      player: playerId ? this.playerDisplayName(snapshot, entry, playerId) : entry.displayName ?? 'System',
+      target: this.playerLabelParam(snapshot, entry, params, 'targetPlayerId'),
+      count: params['count'] ?? '',
+      fromZone: this.zoneLabel(this.stringParam(params, 'fromZone')),
+      toZone: this.zoneLabel(this.stringParam(params, 'toZone')),
+      counter: params['counter'] ?? '',
+      value: params['value'] ?? '',
+      previousLife: params['previousLife'] ?? '',
+      life: params['life'] ?? '',
+      kind: this.diceKindLabel(this.stringParam(params, 'kind')),
+      result: params['result'] ?? '',
+      tokenName: params['tokenName'] ?? 'Token',
+      commanderCastCount: params['commanderCastCount'] ?? '',
+    };
+  }
+
+  private playerLabelParam(
+    snapshot: GameSnapshot | null,
+    entry: RawGameLogEntry,
+    params: Record<string, unknown>,
+    key: string,
+  ): string {
+    const playerId = this.stringParam(params, key);
+
+    return playerId ? this.playerDisplayName(snapshot, entry, playerId) : '';
+  }
+
+  private playerDisplayName(snapshot: GameSnapshot | null, entry: RawGameLogEntry, playerId: string): string {
+    const snapshotName = snapshot?.players[playerId]?.user?.displayName?.trim();
+    if (snapshotName) {
+      return snapshotName;
+    }
+
+    const refName = entry.refs?.players?.[playerId]?.displayName?.trim();
+    if (refName) {
+      return refName;
+    }
+
+    if (entry.actorId === playerId && entry.displayName?.trim()) {
+      return entry.displayName.trim();
+    }
+
+    return playerId;
+  }
+
+  private zoneLabel(zone: string | null): string {
+    if (!zone) {
+      return this.translateRuntime('gameLog.zone.zone');
+    }
+
+    const key = `gameLog.zone.${zone}`;
+    const translated = this.translateRuntime(key);
+
+    return translated === key ? zone : translated;
+  }
+
+  private diceKindLabel(kind: string | null): string {
+    if (!kind) {
+      return this.translateRuntime('gameLog.dice.dice');
+    }
+
+    const key = `gameLog.dice.${kind}`;
+    const translated = this.translateRuntime(key);
+
+    return translated === key ? kind : translated;
+  }
+
+  private translateRuntime(key: string, params?: Record<string, unknown>): string {
+    if (this.translate) {
+      const translated = this.translate.instant(key, params);
+      if (typeof translated === 'string' && translated !== key) {
+        return translated;
+      }
+    }
+
+    return runtimeTranslationFallback(key, params);
+  }
+
+  private recordParam(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+  }
+
+  private stringParam(params: Record<string, unknown>, key: string): string | null {
+    const value = params[key];
+
+    return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
   }
 
   private logAppearance(entry: GameLogEntry): GameLogEntryView['appearance'] {
