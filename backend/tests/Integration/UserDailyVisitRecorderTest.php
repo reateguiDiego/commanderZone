@@ -21,7 +21,7 @@ final class UserDailyVisitRecorderTest extends ApiTestCase
     private const DIRECT_USER_AGENT = 'DailyVisitTest/1';
     private const TRUSTED_PROXY_IP = '10.0.0.1';
     private const UNTRUSTED_PROXY_IP = '10.0.0.2';
-    private const FORWARDED_CLIENT_IP = '198.51.100.99';
+    private const FORWARDED_CLIENT_IP = '8.8.8.8';
 
     protected function setUp(): void
     {
@@ -169,6 +169,19 @@ final class UserDailyVisitRecorderTest extends ApiTestCase
         self::assertSame('error', $row['geo_source']);
     }
 
+    public function testPrivateAndLocalIpsResolveAsLocal(): void
+    {
+        $geolocation = new \App\Application\User\IpGeolocationService();
+
+        foreach (['172.18.0.12', '10.20.30.40', '192.168.1.25', '127.0.0.1'] as $ip) {
+            $result = $geolocation->locate($ip);
+            self::assertNull($result->countryCode(), $ip);
+            self::assertNull($result->countryName(), $ip);
+            self::assertNull($result->continentCode(), $ip);
+            self::assertSame('local', $result->source(), $ip);
+        }
+    }
+
     public function testIpIsStoredHashedAndRawIpIsNotStored(): void
     {
         $email = 'daily-ip@example.test';
@@ -260,13 +273,51 @@ final class UserDailyVisitRecorderTest extends ApiTestCase
         $row = $this->dailyVisitRow($userId);
         self::assertSame(hash_hmac('sha256', self::FORWARDED_CLIENT_IP, self::HMAC_SECRET), $row['ip_hash']);
         self::assertNotSame(hash_hmac('sha256', self::TRUSTED_PROXY_IP, self::HMAC_SECRET), $row['ip_hash']);
-        self::assertSame('198.51.100.0/24', $row['ip_prefix']);
+        self::assertSame('8.8.8.0/24', $row['ip_prefix']);
     }
 
-    public function testUntrustedForwardedHeaderDoesNotOverrideRemoteAddr(): void
+    public function testTrustedProxyPublicClientIpCanBeGeolocatedByRecorder(): void
     {
-        $email = 'daily-untrusted-forwarded-ip@example.test';
-        $token = $this->registerAndLogin($email, 'Daily Untrusted');
+        $user = $this->createPersistedUser('daily-trusted-country@example.test', 'Trusted Country');
+        $clock = new MockClock('2026-07-08 10:00:00', 'UTC');
+        $request = Request::create(
+            '/me',
+            'GET',
+            [],
+            [],
+            [],
+            [
+                'REMOTE_ADDR' => self::TRUSTED_PROXY_IP,
+                'HTTP_X_FORWARDED_FOR' => self::FORWARDED_CLIENT_IP,
+            ],
+        );
+
+        Request::setTrustedProxies([self::TRUSTED_PROXY_IP], Request::HEADER_X_FORWARDED_FOR);
+        try {
+            self::assertSame(self::FORWARDED_CLIENT_IP, $request->getClientIp());
+            $recorder = $this->recorder(
+                $clock,
+                new ArrayAdapter(),
+                new IpGeolocationResult('US', 'United States', 'NA', 'test-geoip'),
+            );
+            self::assertTrue($recorder->record($user, $request->getClientIp(), 'TrustedProxyTest/1'));
+        } finally {
+            Request::setTrustedProxies([], Request::HEADER_X_FORWARDED_FOR);
+        }
+
+        $row = $this->dailyVisitRow($user->id());
+        self::assertSame('US', $row['country_code']);
+        self::assertSame('United States', $row['country_name']);
+        self::assertSame('NA', $row['continent_code']);
+        self::assertSame('test-geoip', $row['geo_source']);
+        self::assertSame(hash_hmac('sha256', self::FORWARDED_CLIENT_IP, self::HMAC_SECRET), $row['ip_hash']);
+        self::assertSame('8.8.8.0/24', $row['ip_prefix']);
+    }
+
+    public function testForwardedHeaderIsIgnoredWithoutTrustedProxy(): void
+    {
+        $email = 'daily-no-trusted-proxy@example.test';
+        $token = $this->registerAndLogin($email, 'No Trust');
         $userId = $this->userIdForEmail($email);
 
         Request::setTrustedProxies([], Request::HEADER_X_FORWARDED_FOR);
@@ -274,6 +325,30 @@ final class UserDailyVisitRecorderTest extends ApiTestCase
             'REMOTE_ADDR' => self::UNTRUSTED_PROXY_IP,
             'HTTP_X_FORWARDED_FOR' => self::FORWARDED_CLIENT_IP,
         ]);
+
+        self::assertResponseIsSuccessful();
+        $row = $this->dailyVisitRow($userId);
+        self::assertSame(hash_hmac('sha256', self::UNTRUSTED_PROXY_IP, self::HMAC_SECRET), $row['ip_hash']);
+        self::assertNotSame(hash_hmac('sha256', self::FORWARDED_CLIENT_IP, self::HMAC_SECRET), $row['ip_hash']);
+        self::assertSame('10.0.0.0/24', $row['ip_prefix']);
+        self::assertSame('local', $row['geo_source']);
+    }
+
+    public function testUntrustedProxyForwardedHeaderDoesNotOverrideRemoteAddr(): void
+    {
+        $email = 'daily-untrusted-forwarded-ip@example.test';
+        $token = $this->registerAndLogin($email, 'Untrusted Proxy');
+        $userId = $this->userIdForEmail($email);
+
+        Request::setTrustedProxies([self::TRUSTED_PROXY_IP], Request::HEADER_X_FORWARDED_FOR);
+        try {
+            $this->authenticatedGet('/me', $token, [
+                'REMOTE_ADDR' => self::UNTRUSTED_PROXY_IP,
+                'HTTP_X_FORWARDED_FOR' => self::FORWARDED_CLIENT_IP,
+            ]);
+        } finally {
+            Request::setTrustedProxies([], Request::HEADER_X_FORWARDED_FOR);
+        }
 
         self::assertResponseIsSuccessful();
         $row = $this->dailyVisitRow($userId);

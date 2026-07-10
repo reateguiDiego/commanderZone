@@ -26,11 +26,11 @@ final class UserDailyVisitRecorder
         private readonly CacheInterface $cache,
         private readonly ClockInterface $clock,
         private readonly IpGeolocationServiceInterface $geolocation,
-        #[Autowire('%kernel.secret%')]
+        #[Autowire('%user_visit_hash_secret%')]
         private readonly string $hmacSecret,
     ) {
         if (trim($this->hmacSecret) === '') {
-            throw new \LogicException('APP_SECRET must be configured to hash user daily visit IP metadata.');
+            throw new \LogicException('USER_VISIT_HASH_SECRET or APP_SECRET must be configured to hash user daily visit IP metadata.');
         }
 
         $this->utc = new \DateTimeZone('UTC');
