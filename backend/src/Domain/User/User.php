@@ -72,6 +72,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lastSeenAt = null;
 
+    #[ORM\Column(type: 'string', length: 2, nullable: true)]
+    private ?string $lastSeenCountryCode = null;
+
     #[ORM\Column(type: 'string', length: 64, nullable: true)]
     private ?string $lastSeenIpHash = null;
 
@@ -296,6 +299,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function lastSeenAt(): ?\DateTimeImmutable
     {
         return $this->lastSeenAt;
+    }
+
+    public function lastSeenCountryCode(): ?string
+    {
+        return $this->lastSeenCountryCode;
     }
 
     public function lastSeenIpHash(): ?string

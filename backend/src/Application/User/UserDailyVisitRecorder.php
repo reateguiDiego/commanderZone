@@ -13,7 +13,8 @@ use Symfony\Contracts\Cache\ItemInterface;
 /**
  * Records minimal daily authenticated visits.
  *
- * IP hashes and coarse prefixes are still personal data: do not expose them in public UI/API,
+ * IP hashes, coarse prefixes, and geolocation are personal or potentially personal data:
+ * do not expose them in public UI/API, do not use them for automatic moderation decisions,
  * and prune rows with app:user-daily-visits:prune according to the configured retention.
  */
 final class UserDailyVisitRecorder
@@ -24,6 +25,7 @@ final class UserDailyVisitRecorder
         private readonly Connection $connection,
         private readonly CacheInterface $cache,
         private readonly ClockInterface $clock,
+        private readonly IpGeolocationServiceInterface $geolocation,
         #[Autowire('%kernel.secret%')]
         private readonly string $hmacSecret,
     ) {
@@ -54,7 +56,8 @@ final class UserDailyVisitRecorder
     private function insertDailyVisit(User $user, ?string $clientIp, ?string $userAgent, \DateTimeImmutable $now, string $visitDate): bool
     {
         $normalizedIp = $this->normalizeIp($clientIp);
-        $ipHash = $this->hash($normalizedIp);
+        $geolocation = $this->locate($normalizedIp);
+        $ipHash = $normalizedIp !== null ? $this->hash($normalizedIp) : null;
         $timestamp = $now->format('Y-m-d H:i:s');
         $rowCount = $this->connection->executeStatement(
             <<<'SQL'
@@ -63,18 +66,26 @@ INSERT INTO user_daily_visit (
     user_id,
     visit_date,
     first_seen_at,
+    country_code,
+    country_name,
+    continent_code,
     ip_hash,
     ip_prefix,
     user_agent_hash,
+    geo_source,
     created_at
 ) VALUES (
     :id,
     :user_id,
     :visit_date,
     :first_seen_at,
+    :country_code,
+    :country_name,
+    :continent_code,
     :ip_hash,
     :ip_prefix,
     :user_agent_hash,
+    :geo_source,
     :created_at
 )
 ON CONFLICT (user_id, visit_date) DO NOTHING
@@ -84,9 +95,13 @@ SQL,
                 'user_id' => $user->id(),
                 'visit_date' => $visitDate,
                 'first_seen_at' => $timestamp,
+                'country_code' => $geolocation->countryCode(),
+                'country_name' => $geolocation->countryName(),
+                'continent_code' => $geolocation->continentCode(),
                 'ip_hash' => $ipHash,
                 'ip_prefix' => $this->ipPrefix($normalizedIp),
                 'user_agent_hash' => $this->hashNullable($userAgent),
+                'geo_source' => $geolocation->source(),
                 'created_at' => $timestamp,
             ],
         );
@@ -99,11 +114,13 @@ SQL,
             <<<'SQL'
 UPDATE app_user
 SET last_seen_at = :last_seen_at,
+    last_seen_country_code = :last_seen_country_code,
     last_seen_ip_hash = :last_seen_ip_hash
 WHERE id = :user_id
 SQL,
             [
                 'last_seen_at' => $timestamp,
+                'last_seen_country_code' => $geolocation->countryCode(),
                 'last_seen_ip_hash' => $ipHash,
                 'user_id' => $user->id(),
             ],
@@ -112,11 +129,14 @@ SQL,
         return true;
     }
 
-    private function normalizeIp(?string $clientIp): string
+    private function normalizeIp(?string $clientIp): ?string
     {
         $ip = trim((string) $clientIp);
+        if ($ip === '' || !filter_var($ip, FILTER_VALIDATE_IP)) {
+            return null;
+        }
 
-        return $ip !== '' ? $ip : 'unknown';
+        return $ip;
     }
 
     private function hashNullable(?string $value): ?string
@@ -134,8 +154,21 @@ SQL,
         return hash_hmac('sha256', $value, $this->hmacSecret);
     }
 
-    private function ipPrefix(string $ip): ?string
+    private function locate(?string $ip): IpGeolocationResult
     {
+        try {
+            return $this->geolocation->locate($ip);
+        } catch (\Throwable) {
+            return IpGeolocationResult::unresolved('error');
+        }
+    }
+
+    private function ipPrefix(?string $ip): ?string
+    {
+        if ($ip === null) {
+            return null;
+        }
+
         if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
             $parts = explode('.', $ip);
 

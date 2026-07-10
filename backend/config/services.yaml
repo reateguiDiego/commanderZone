@@ -88,5 +88,8 @@ services:
     App\Application\Auth\GoogleIdTokenVerifierInterface:
         alias: App\Application\Auth\GoogleIdTokenVerifier
 
+    App\Application\User\IpGeolocationServiceInterface:
+        alias: App\Application\User\IpGeolocationService
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
