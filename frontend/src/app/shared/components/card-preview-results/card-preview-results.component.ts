@@ -3,7 +3,7 @@ import { CardPreviewItem } from '../../../core/models/card-preview.model';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { CardFaceImageComponent } from '../card-face-image/card-face-image.component';
 import { CardFaceToggleButtonComponent } from '../card-face-toggle-button/card-face-toggle-button.component';
-import { ManaIconComponent } from '../../mana/mana-icon/mana-icon.component';
+import { MTGIconComponent } from '../../mtg/mtg-icon/mtg-icon.component';
 import { ManaSymbolsComponent } from '../../mana/mana-symbols/mana-symbols.component';
 import { CommonCardMenuAction, CommonCardMenuComponent } from '../../ui/common-card-menu/common-card-menu.component';
 import { cardPreviewFaceSource, primaryCardPreviewTypeLabel, resolveCardPreviewTypeIcon } from '../../utils/card-preview-item';
@@ -49,7 +49,7 @@ const HOVER_PREVIEW_DELAY_MS = 180;
     CardFaceImageComponent,
     CardFaceToggleButtonComponent,
     ManaSymbolsComponent,
-    ManaIconComponent,
+    MTGIconComponent,
     CommonCardMenuComponent,
   ],
   templateUrl: './card-preview-results.component.html',

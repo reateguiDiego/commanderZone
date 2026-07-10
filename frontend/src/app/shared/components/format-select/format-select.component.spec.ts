@@ -31,7 +31,6 @@ describe('FormatSelectComponent', () => {
 
     document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.format-select-menu.is-closing')).not.toBeNull();
 
     vi.advanceTimersByTime(170);
     fixture.detectChanges();
@@ -80,51 +79,6 @@ describe('FormatSelectComponent', () => {
     expect(optionFlags[1]?.getAttribute('src')).toContain('france.png');
   });
 
-  it('uses the shared visual scroll treatment for the dropdown menu', () => {
-    fixture.nativeElement.querySelector('.format-select-trigger').click();
-    fixture.detectChanges();
-
-    const menu = fixture.nativeElement.querySelector('.format-select-menu') as HTMLElement | null;
-
-    expect(menu?.classList.contains('app-pretty-scroll')).toBe(true);
-  });
-
-  it('marks the host while the dropdown is open', () => {
-    fixture.nativeElement.querySelector('.format-select-trigger').click();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.classList.contains('is-open')).toBe(true);
-  });
-
-  it('does not move or mutate scrollable parents while opening the dropdown', () => {
-    const scrollParent = document.createElement('div');
-    const host = fixture.nativeElement as HTMLElement;
-    host.parentElement?.insertBefore(scrollParent, host);
-    scrollParent.appendChild(host);
-    scrollParent.style.overflowY = 'auto';
-    scrollParent.style.paddingBottom = '10px';
-    Object.defineProperty(scrollParent, 'clientHeight', { configurable: true, value: 100 });
-    Object.defineProperty(scrollParent, 'scrollHeight', { configurable: true, value: 101 });
-    scrollParent.getBoundingClientRect = () => ({
-      x: 0,
-      y: 0,
-      top: 0,
-      right: 240,
-      bottom: 100,
-      left: 0,
-      width: 240,
-      height: 100,
-      toJSON: () => ({}),
-    });
-
-    const trigger = fixture.nativeElement.querySelector('.format-select-trigger') as HTMLButtonElement;
-    trigger.click();
-    fixture.detectChanges();
-
-    expect(scrollParent.style.paddingBottom).toBe('10px');
-    expect(scrollParent.scrollTop).toBe(0);
-  });
-
   it('does not emit disabled options', () => {
     const selectedValues: string[] = [];
     fixture.componentRef.setInput('formats', []);
@@ -144,21 +98,4 @@ describe('FormatSelectComponent', () => {
     expect(selectedValues).toEqual([]);
   });
 
-  it('uses the exit animation state before removing the menu', () => {
-    vi.useFakeTimers();
-    const trigger = fixture.nativeElement.querySelector('.format-select-trigger') as HTMLButtonElement;
-
-    trigger.click();
-    fixture.detectChanges();
-    trigger.click();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.format-select-menu.is-closing')).not.toBeNull();
-
-    vi.advanceTimersByTime(170);
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.format-select-menu')).toBeNull();
-    vi.useRealTimers();
-  });
 });

@@ -40,25 +40,14 @@ class RoomVisibilityTest extends TestCase
         self::assertSame(Room::VISIBILITY_PRIVATE, $room->visibility());
     }
 
-    public function testPublicWaitingRoomCanBeViewedByAnyAuthenticatedUser(): void
+    public function testWaitingRoomCanBeViewedByAuthenticatedUsersBeforeStart(): void
     {
         $room = new Room(new User('owner@example.test', 'Owner'));
         $room->setVisibility(Room::VISIBILITY_PUBLIC);
 
         self::assertTrue($room->canBeViewedBy(new User('guest@example.test', 'Guest')));
-    }
 
-    public function testPrivateWaitingRoomCanBeViewedByExternalUserWithDirectLink(): void
-    {
-        $room = new Room(new User('owner@example.test', 'Owner'));
-
-        self::assertTrue($room->canBeViewedBy(new User('guest@example.test', 'Guest')));
-    }
-
-    public function testPrivateWaitingRoomCanBeViewedByInvitedUser(): void
-    {
-        $room = new Room(new User('owner@example.test', 'Owner'));
-
+        $room->setVisibility(Room::VISIBILITY_PRIVATE);
         self::assertTrue($room->canBeViewedBy(new User('guest@example.test', 'Guest')));
     }
 

@@ -14,7 +14,7 @@ import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.compo
 import { SagaCounterComponent } from './saga-counter/saga-counter.component';
 import { GameTableDoubleTapDirective } from '../../directives/game-table-double-tap.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
-import { ManaIconComponent } from '../../../../../shared/mana/mana-icon/mana-icon.component';
+import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
 import { isBattleCard, isDayNightCard, isGameplayCardTapLocked, isMonarchCard, isSagaCard } from '../../utils/gameplay-card-kind';
@@ -97,7 +97,7 @@ interface DungeonMarkerDragPoint {
     LucideAngularModule,
     GameTableDoubleTapDirective,
     GameTableLongPressDirective,
-    ManaIconComponent,
+    MTGIconComponent,
   ],
   templateUrl: './game-card-view.component.html',
   styleUrls: ['./game-card-view.component.scss', './game-card-view-effects.scss'],

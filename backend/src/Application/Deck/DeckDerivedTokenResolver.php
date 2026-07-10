@@ -22,6 +22,14 @@ final readonly class DeckDerivedTokenResolver
     }
 
     /**
+     * @return array{data:list<array<string,mixed>>,unresolved:list<array<string,mixed>>}
+     */
+    public function resolveEditor(Deck $deck): array
+    {
+        return $this->resolveSourceRows($this->sourceRowsForDeck($deck->id()), true);
+    }
+
+    /**
      * @return array{data:list<array<string,mixed>>,unresolved:list<array<string,mixed>>}|null
      */
     public function resolveForOwnedDeck(string $deckId, string $ownerId): ?array
@@ -37,7 +45,7 @@ final readonly class DeckDerivedTokenResolver
      * @param list<array<string,mixed>> $sourceRows
      * @return array{data:list<array<string,mixed>>,unresolved:list<array<string,mixed>>}
      */
-    private function resolveSourceRows(array $sourceRows): array
+    private function resolveSourceRows(array $sourceRows, bool $compactTokenPayload = false): array
     {
         if ($sourceRows === []) {
             return ['data' => [], 'unresolved' => []];
@@ -85,7 +93,7 @@ final readonly class DeckDerivedTokenResolver
 
                     $resolvedCandidates[] = [
                         'sourceCard' => $sourcePayload,
-                        'token' => $token->toArray(),
+                        'token' => $compactTokenPayload ? $this->editorTokenPayload($token) : $token->toArray(),
                         'resolved' => true,
                     ];
                     continue;
@@ -123,6 +131,39 @@ final readonly class DeckDerivedTokenResolver
         return ['data' => $data, 'unresolved' => $unresolved];
     }
 
+    /**
+     * @param array{data?:mixed,unresolved?:mixed} $payload
+     * @return array{data:list<array<string,mixed>>,tokens:array<string,array<string,mixed>>,unresolved:list<array<string,mixed>>}
+     */
+    public function compactEditorPayload(array $payload): array
+    {
+        $data = [];
+        $tokens = [];
+        foreach (($payload['data'] ?? []) as $entry) {
+            if (!is_array($entry) || !is_array($entry['token'] ?? null)) {
+                continue;
+            }
+
+            $token = $this->compactEditorTokenArray($entry['token']);
+            $tokenRef = $this->editorTokenReference($token);
+            $tokens[$tokenRef] ??= $token;
+            $data[] = [
+                'sourceCard' => is_array($entry['sourceCard'] ?? null) ? $entry['sourceCard'] : [],
+                'tokenRef' => $tokenRef,
+                'resolved' => true,
+            ];
+        }
+
+        return [
+            'data' => $data,
+            'tokens' => $tokens,
+            'unresolved' => array_values(array_filter(
+                is_array($payload['unresolved'] ?? null) ? $payload['unresolved'] : [],
+                static fn (mixed $entry): bool => is_array($entry),
+            )),
+        ];
+    }
+
     private function deckIsOwnedBy(string $deckId, string $ownerId): bool
     {
         return (bool) $this->entityManager->getConnection()->fetchOne(
@@ -132,6 +173,31 @@ final readonly class DeckDerivedTokenResolver
                 'ownerId' => $ownerId,
             ],
         );
+    }
+
+    public function tokenDataVersion(Deck $deck): string
+    {
+        $rows = $this->entityManager->getConnection()->executeQuery(
+            <<<'SQL'
+SELECT
+    source.scryfall_id AS source_scryfall_id,
+    source.updated_at AS source_updated_at,
+    relation.token_scryfall_id,
+    relation.updated_at AS relation_updated_at,
+    token.updated_at AS token_updated_at
+FROM deck_card
+INNER JOIN card source ON source.id = deck_card.card_id
+LEFT JOIN card_token_relation relation
+    ON relation.source_scryfall_id = source.scryfall_id
+    OR relation.source_oracle_id = source.oracle_id
+LEFT JOIN card token ON token.scryfall_id = relation.token_scryfall_id
+WHERE deck_card.deck_id = :deckId
+ORDER BY source.scryfall_id ASC, relation.token_scryfall_id ASC
+SQL,
+            ['deckId' => $deck->id()],
+        )->fetchAllAssociative();
+
+        return hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -387,6 +453,118 @@ SQL,
         }
 
         return false;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function editorTokenPayload(Card $token): array
+    {
+        return [
+            'id' => $token->id(),
+            'scryfallId' => $token->scryfallId(),
+            'name' => $token->printedName() ?: $token->name(),
+            'manaCost' => $token->manaCost(),
+            'typeLine' => $token->typeLine(),
+            'oracleText' => null,
+            'power' => $token->power(),
+            'toughness' => $token->toughness(),
+            'loyalty' => $token->loyalty(),
+            'colors' => [],
+            'colorIdentity' => $token->colorIdentity(),
+            'legalities' => [],
+            'imageUris' => $token->imageUris(),
+            'cardFaces' => $this->compactEditorCardFaces($token->cardFaces()),
+            'layout' => $token->layout(),
+            'commanderLegal' => false,
+            'set' => $token->setCode(),
+            'collectorNumber' => $token->collectorNumber(),
+            'lang' => $token->lang(),
+            'printedName' => $token->printedName(),
+            'flavorName' => $token->flavorName(),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $token
+     * @return array<string,mixed>
+     */
+    private function compactEditorTokenArray(array $token): array
+    {
+        return [
+            'id' => $this->nullableString($token['id'] ?? null) ?? $this->nullableString($token['scryfallId'] ?? null) ?? 'token',
+            'scryfallId' => $this->nullableString($token['scryfallId'] ?? null) ?? '',
+            'name' => $this->nullableString($token['name'] ?? null) ?? 'Token',
+            'manaCost' => $this->nullableString($token['manaCost'] ?? null),
+            'typeLine' => $this->nullableString($token['typeLine'] ?? null),
+            'oracleText' => null,
+            'power' => $this->nullableString($token['power'] ?? null),
+            'toughness' => $this->nullableString($token['toughness'] ?? null),
+            'loyalty' => $this->nullableString($token['loyalty'] ?? null),
+            'colors' => [],
+            'colorIdentity' => array_values(array_filter(
+                is_array($token['colorIdentity'] ?? null) ? $token['colorIdentity'] : [],
+                static fn (mixed $value): bool => is_scalar($value),
+            )),
+            'legalities' => [],
+            'imageUris' => is_array($token['imageUris'] ?? null) ? $token['imageUris'] : [],
+            'cardFaces' => $this->compactEditorCardFaces(is_array($token['cardFaces'] ?? null) ? $token['cardFaces'] : []),
+            'layout' => $this->nullableString($token['layout'] ?? null) ?? 'token',
+            'commanderLegal' => false,
+            'set' => $this->nullableString($token['set'] ?? null),
+            'collectorNumber' => $this->nullableString($token['collectorNumber'] ?? null),
+            'lang' => $this->nullableString($token['lang'] ?? null),
+            'printedName' => $this->nullableString($token['printedName'] ?? null),
+            'flavorName' => $this->nullableString($token['flavorName'] ?? null),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $token
+     */
+    private function editorTokenReference(array $token): string
+    {
+        $scryfallId = $this->nullableString($token['scryfallId'] ?? null);
+        if ($scryfallId !== null) {
+            return 'scryfall:'.$scryfallId;
+        }
+
+        return 'token:'.hash('sha256', json_encode([
+            'name' => $token['name'] ?? null,
+            'typeLine' => $token['typeLine'] ?? null,
+            'manaCost' => $token['manaCost'] ?? null,
+            'power' => $token['power'] ?? null,
+            'toughness' => $token['toughness'] ?? null,
+            'loyalty' => $token['loyalty'] ?? null,
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @param list<array<string,mixed>> $faces
+     * @return list<array<string,mixed>>
+     */
+    private function compactEditorCardFaces(array $faces): array
+    {
+        $compact = [];
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $compact[] = [
+                'name' => $this->nullableString($face['name'] ?? null),
+                'manaCost' => $this->nullableString($face['manaCost'] ?? null),
+                'typeLine' => $this->nullableString($face['typeLine'] ?? null),
+                'oracleText' => null,
+                'power' => $this->nullableString($face['power'] ?? null),
+                'toughness' => $this->nullableString($face['toughness'] ?? null),
+                'loyalty' => $this->nullableString($face['loyalty'] ?? null),
+                'colors' => [],
+                'imageUris' => is_array($face['imageUris'] ?? null) ? $face['imageUris'] : [],
+            ];
+        }
+
+        return $compact;
     }
 
     /**

@@ -91,8 +91,14 @@ describe('API services', () => {
   it('calls community deck social endpoints', () => {
     const community = TestBed.inject(CommunityApi);
 
+    community.deck('atraxa-control-a7f3c9d2', 'es').subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/community/decks/atraxa-control-a7f3c9d2?lang=es`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
+    request.flush({ deck: { id: 'deck-1', slug: 'atraxa-control-a7f3c9d2', name: 'Deck', format: 'commander', folderId: null, cards: [] } });
+
     community.likeDeck('deck-1').subscribe();
-    let request = http.expectOne(`${API_BASE_URL}/community/decks/deck-1/like`);
+    request = http.expectOne(`${API_BASE_URL}/community/decks/deck-1/like`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({});
     request.flush({ deck: { id: 'deck-1', likes: 1, likedByViewer: true } });
@@ -351,6 +357,7 @@ describe('API services', () => {
 
     const request = http.expectOne(`${API_BASE_URL}/decks/by-slug/atraxa-control-a7f3c9d2`);
     expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
     request.flush({ deck: { id: 'deck-1', slug: 'atraxa-control-a7f3c9d2', name: 'Deck', format: 'commander', folderId: null, cards: [] } });
   });
 
@@ -359,7 +366,49 @@ describe('API services', () => {
 
     const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis?includeSideboard=true&curvePlayabilityMode=draw`);
     expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
     request.flush(deckAnalysisFixture());
+  });
+
+  it('loads compact backend bracket analysis through the basic analysis endpoint', () => {
+    TestBed.inject(DecksApi).bracketAnalysis('deck-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis?view=bracket`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
+    request.flush({ bracket: deckAnalysisFixture().bracket, snapshot: deckAnalysisFixture().snapshot });
+  });
+
+  it('loads full deck tokens through the table token endpoint', () => {
+    TestBed.inject(DecksApi).tokens('deck-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/tokens`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
+    request.flush({ deckId: 'deck-1', data: [], unresolved: [] });
+  });
+
+  it('loads compact editor tokens through the editor token endpoint', () => {
+    TestBed.inject(DecksApi).editorTokens('deck-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/tokens/editor`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
+    request.flush({
+      deckId: 'deck-1',
+      data: [],
+      tokens: {},
+      unresolved: [],
+      snapshot: {
+        hit: false,
+        reason: 'missing',
+        calculatedAt: null,
+        deckHash: 'deck-hash',
+        cardLanguage: 'en',
+        payloadVersion: 'deck_editor_tokens_v2',
+        tokenDataVersion: 'token-data-version',
+      },
+    });
   });
 
   it('loads backend advanced deck analysis through the advanced analysis endpoint', () => {
@@ -390,7 +439,7 @@ describe('API services', () => {
       .subscribe((response) => responses.push(response));
 
     const request = http.expectOne((candidate) =>
-      candidate.url === `${API_BASE_URL}/community/decks/atraxa-control-a7f3c9d2/analysis`
+      candidate.url === `${API_BASE_URL}/community/decks/atraxa-control-a7f3c9d2/analysis/advanced`
         && candidate.params.get('lang') === 'en',
     );
     expect(request.request.method).toBe('GET');
@@ -399,6 +448,35 @@ describe('API services', () => {
 
     expect(responses[0]?.deckId).toBe('deck-1');
     expect(responses[0]?.summary?.primaryArchetype).toBe('tokens');
+  });
+
+  it('loads community basic deck analysis through the public slug endpoint', () => {
+    TestBed.inject(CommunityApi)
+      .getCommunityDeckAnalysis('atraxa-control-a7f3c9d2')
+      .subscribe();
+
+    const request = http.expectOne((candidate) =>
+      candidate.url === `${API_BASE_URL}/community/decks/atraxa-control-a7f3c9d2/analysis`
+        && candidate.params.get('lang') === 'en',
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
+    request.flush(deckAnalysisFixture());
+  });
+
+  it('loads compact community bracket analysis through the public basic analysis endpoint', () => {
+    TestBed.inject(CommunityApi)
+      .getCommunityDeckBracketAnalysis('atraxa-control-a7f3c9d2')
+      .subscribe();
+
+    const request = http.expectOne((candidate) =>
+      candidate.url === `${API_BASE_URL}/community/decks/atraxa-control-a7f3c9d2/analysis`
+        && candidate.params.get('lang') === 'en'
+        && candidate.params.get('view') === 'bracket',
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(FORCE_GLOBAL_LOADING)).toBe(true);
+    request.flush({ bracket: deckAnalysisFixture().bracket, snapshot: deckAnalysisFixture().snapshot });
   });
 
   it('propagates advanced deck analysis HTTP errors to the caller', () => {
@@ -744,6 +822,59 @@ function deckAnalysisFixture() {
       includeMaybeboard: false,
       curvePlayabilityMode: 'play',
       manaSourcesMode: 'landsOnly',
+    },
+    bracket: {
+      bracket: 3,
+      label: 'Upgraded',
+      confidence: 'medium',
+      method: 'commander_brackets_beta_v1',
+      floor: 3,
+      ceiling: 4,
+      ruleBreakers: [],
+      differences: {
+        themeScore: 30,
+        staplesScore: 50,
+        speedScore: 40,
+        metagameScore: 20,
+        manaEfficiencyScore: 45,
+      },
+      officialSignals: {
+        gameChangers: { count: 1, cards: [], status: 'allowed_in_bracket_3' },
+        massLandDenial: { count: 0, cards: [], detected: false },
+        extraTurns: { count: 0, cards: [], chainsOrLoops: false },
+        twoCardCombos: { count: 0, beforeTurnSix: false, lateGameOnly: false },
+        nonLandTutors: { count: 0, cards: [], efficientCount: 0 },
+      },
+      reasonCodes: [],
+      reasons: [],
+      warnings: [],
+      explanation: {
+        short: 'Estimated as Bracket 3.',
+        long: 'Long explanation.',
+        officialCriteria: [],
+        detectedSignalsExplanation: [],
+        ruleBreakersExplanation: [],
+        differenceModel: {
+          theme: 'Theme',
+          staples: 'Staples',
+          speed: 'Speed',
+          metagame: 'Metagame',
+          manaEfficiency: 'Mana efficiency',
+        },
+        reasonCodes: [],
+      },
+    },
+    snapshot: {
+      hit: true,
+      reason: 'fresh',
+      deckHash: 'deck-hash',
+      optionsHash: 'options-hash',
+      calculatedAt: '2026-07-10T08:00:00+00:00',
+      analyzerVersion: 'basic_deck_analysis_v1',
+      semanticDataVersion: 'semantic-v1',
+      manaDataVersion: 'mana-v1',
+      comboDataVersion: 'combo-v1',
+      rulesVersion: 'rules-v1',
     },
   };
 }

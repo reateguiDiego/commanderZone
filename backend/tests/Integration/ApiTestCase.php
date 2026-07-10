@@ -187,6 +187,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureDeckPublicSlugColumn($connection);
         $this->ensureDeckSocialColumns($connection);
         $this->ensureDeckLikeTable($connection);
+        $this->ensureDeckEditorTokenSnapshotTable($connection);
         $this->ensureRoomMulliganColumns($connection);
         $this->ensureUserThemeColumn($connection);
         $this->ensureUserPublicHandleColumn($connection);
@@ -218,6 +219,7 @@ abstract class ApiTestCase extends WebTestCase
             'room_player',
             'room',
             'deck_like',
+            'deck_editor_token_snapshot',
             'deck_card',
             'deck',
             'deck_folder',
@@ -938,6 +940,40 @@ SQL,
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_token_relation_source_oracle ON card_token_relation (source_oracle_id)');
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_token_relation_source_scryfall ON card_token_relation (source_scryfall_id)');
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_card_token_relation_token_scryfall ON card_token_relation (token_scryfall_id)');
+    }
+
+    private function ensureDeckEditorTokenSnapshotTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['deck'])) {
+            return;
+        }
+
+        if (!$schemaManager->tablesExist(['deck_editor_token_snapshot'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE deck_editor_token_snapshot (
+    id VARCHAR(36) NOT NULL,
+    deck_id VARCHAR(36) NOT NULL,
+    deck_hash TEXT NOT NULL,
+    card_language TEXT NOT NULL,
+    payload_version TEXT NOT NULL,
+    token_data_version TEXT NOT NULL,
+    result_json JSONB NOT NULL,
+    calculated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_deck_editor_token_snapshot_deck FOREIGN KEY (deck_id) REFERENCES deck (id) ON DELETE CASCADE
+)
+SQL,
+            );
+        }
+
+        $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_deck_editor_token_snapshot_deck_language ON deck_editor_token_snapshot (deck_id, card_language)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_editor_token_snapshot_deck_hash ON deck_editor_token_snapshot (deck_hash)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_editor_token_snapshot_payload_version ON deck_editor_token_snapshot (payload_version)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_deck_editor_token_snapshot_token_data_version ON deck_editor_token_snapshot (token_data_version)');
     }
 
     private function ensureColumn(Connection $connection, string $table, string $column, string $sql): void

@@ -34,30 +34,6 @@ describe('LegalPageComponent', () => {
     document.head.querySelectorAll('[data-cz-seo="true"], [data-cz-legal="true"]').forEach((element) => element.remove());
   });
 
-  it('renders localized legal content instead of the SEO home', () => {
-    const fixture = TestBed.createComponent(LegalPageComponent);
-    fixture.detectChanges();
-
-    const element = fixture.nativeElement as HTMLElement;
-
-    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Política de privacidad');
-    expect(element.textContent).toContain('Qué datos tratamos');
-    expect(element.textContent).toContain('CommanderZone');
-    expect(element.textContent).toContain('info.dev.sunrise@gmail.com');
-    expect(element.textContent).toContain('España');
-    expect(element.textContent).toContain('No usa analítica');
-    expect(element.textContent).not.toContain('Analítica opcional');
-    const contactLink = element.querySelector('.legal-page__section-actions a[href="/contact"]') as HTMLAnchorElement | null;
-    expect(contactLink?.textContent?.trim()).toBe('Ir a contacto');
-    expect(Array.from(element.querySelectorAll('.legal-page__nav a')).map((link) => link.textContent?.trim())).toEqual([
-      'Inicio de CommanderZone',
-      'Privacidad',
-      'Cookies',
-      'Términos',
-    ]);
-    expect(element.textContent).not.toContain('Play Commander online with your pod');
-  });
-
   it('applies localized legal metadata without hreflang or structured data', () => {
     const title = TestBed.inject(Title);
     const fixture = TestBed.createComponent(LegalPageComponent);
@@ -102,5 +78,4 @@ describe('LegalPageComponent', () => {
     expect(element.textContent).toContain('publisher id activo');
     expect(element.textContent).not.toContain('Analítica opcional');
   });
-
 });

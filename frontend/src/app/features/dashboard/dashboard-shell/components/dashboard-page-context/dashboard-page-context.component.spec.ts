@@ -1,6 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { CircleHelp, Copy, Heart, Info, LucideAngularModule } from 'lucide-angular';
+import { CircleHelp, Copy, Heart, Info, LucideAngularModule, X } from 'lucide-angular';
+import { RUNTIME_TRANSLATION_FALLBACKS } from '../../../../../core/localization/runtime-translation-fallbacks';
 import { DashboardPageContextComponent } from './dashboard-page-context.component';
 
 describe('DashboardPageContextComponent', () => {
@@ -8,7 +9,7 @@ describe('DashboardPageContextComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DashboardPageContextComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ CircleHelp, Copy, Heart, Info })),
+        importProvidersFrom(LucideAngularModule.pick({ CircleHelp, Copy, Heart, Info, X })),
       ],
     }).compileComponents();
   });
@@ -194,6 +195,76 @@ describe('DashboardPageContextComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('.page-header-actions-stack').length).toBe(1);
   });
 
+  it('does not render the commander bracket pill when bracket is missing', () => {
+    const fixture = TestBed.createComponent(DashboardPageContextComponent);
+    fixture.componentRef.setInput('header', {
+      title: 'Deck editor',
+      context: 'deck-editor',
+      bracket: null,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-bracket-pill')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.page-header-title-main h1')?.textContent).toContain('Deck editor');
+  });
+
+  it('opens and closes the commander bracket explanation modal', () => {
+    const fixture = TestBed.createComponent(DashboardPageContextComponent);
+    fixture.componentRef.setInput('header', {
+      title: 'Community deck',
+      context: 'community-deck-detail',
+      bracket: buildBracketEstimate(),
+    });
+    fixture.detectChanges();
+
+    const pill = fixture.nativeElement.querySelector('app-bracket-pill .bracket-pill') as HTMLButtonElement;
+    pill.click();
+    fixture.detectChanges();
+
+    const modal = fixture.nativeElement.querySelector('.modal-panel') as HTMLElement | null;
+    const text = modal?.textContent ?? '';
+
+    expect(modal).not.toBeNull();
+    expect(text).toContain('Commander Bracket Estimate');
+    expect(text).toContain(`Bracket 3 ${String.fromCharCode(8212)} Upgraded`);
+    expect(text).toContain('Official Commander Bracket gates set a minimum bracket of 3.');
+    expect(text).toContain('Game Changers');
+    expect(text).toContain('Mass Land Denial');
+    expect(text).toContain('Difference between Bracket 2 and 3.');
+    expect(text).not.toContain('Mana efficiency: key gate for Bracket 5');
+    expect(text).not.toContain('Important factor for Bracket 5.');
+
+    const closeButton = fixture.nativeElement.querySelector('.modal-close-button') as HTMLButtonElement;
+    closeButton.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.modal-panel')).toBeNull();
+  });
+
+  it('keeps the commander bracket translation keys available in runtime fallbacks', () => {
+    const requiredKeys = [
+      'bracket.pill.label',
+      'bracket.tooltip.current',
+      'bracket.explanation.button',
+      'bracket.explanation.title',
+      'bracket.explanation.currentBracket',
+      'bracket.explanation.detectedSignals',
+      'bracket.explanation.officialSignals',
+      'bracket.explanation.differenceModel',
+      'bracket.explanation.theme',
+      'bracket.explanation.staples',
+      'bracket.explanation.speed',
+      'bracket.explanation.metagame',
+      'bracket.explanation.manaEfficiency',
+      'bracket.explanation.warning',
+      'bracket.confidence.high',
+      'bracket.confidence.medium',
+      'bracket.confidence.low',
+    ];
+
+    expect(requiredKeys.every((key) => RUNTIME_TRANSLATION_FALLBACKS[key])).toBe(true);
+  });
+
   it('renders deck editor owner metrics inside the actions row', () => {
     const fixture = TestBed.createComponent(DashboardPageContextComponent);
     fixture.componentRef.setInput('header', {
@@ -227,3 +298,50 @@ describe('DashboardPageContextComponent', () => {
     expect(metrics?.textContent).toContain('3');
   });
 });
+
+function buildBracketEstimate() {
+  return {
+    bracket: 3,
+    label: 'Upgraded',
+    confidence: 'medium',
+    method: 'commander_brackets_beta_v1',
+    floor: 3,
+    ceiling: 4,
+    ruleBreakers: [],
+    differences: {
+      themeScore: 15,
+      staplesScore: 52,
+      speedScore: 41,
+      metagameScore: 18,
+      manaEfficiencyScore: 54,
+    },
+    officialSignals: {
+      gameChangers: { count: 2, status: 'allowed_in_bracket_3', cards: [] },
+      massLandDenial: { detected: false, count: 0, cards: [] },
+      extraTurns: { count: 1, chainsOrLoops: false, cards: [] },
+      twoCardCombos: { count: 0, beforeTurnSix: false, lateGameOnly: false },
+      nonLandTutors: { count: 3, efficientCount: 1, cards: [] },
+    },
+    reasonCodes: [],
+    reasons: [
+      'Official Commander Bracket gates set a minimum bracket of 3.',
+      'It does not move higher because speed is below optimized.',
+    ],
+    warnings: [],
+    explanation: {
+      short: 'Estimated as Bracket 3 because the deck has upgraded staples.',
+      long: 'Long explanation.',
+      officialCriteria: [],
+      detectedSignalsExplanation: [],
+      ruleBreakersExplanation: [],
+      differenceModel: {
+        theme: 'Difference between Bracket 1 and 2.',
+        staples: 'Difference between Bracket 2 and 3.',
+        speed: 'Difference between Bracket 3 and 4.',
+        metagame: 'Difference between Bracket 4 and 5.',
+        manaEfficiency: 'Important factor for Bracket 5.',
+      },
+      reasonCodes: [],
+    },
+  } as const;
+}

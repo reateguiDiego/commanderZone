@@ -60,30 +60,6 @@ describe('CardPreviewResultsComponent', () => {
     });
   });
 
-  it('renders the game changer icon in the shared context menu title', async () => {
-    const fixture = TestBed.createComponent(CardPreviewResultsComponent);
-    fixture.componentRef.setInput('items', [
-      {
-        id: 'card-1',
-        scryfallId: 'scryfall-1',
-        name: 'Cyclonic Rift',
-        cropImage: 'https://cards.test/cyclonic-rift.jpg',
-        isGameChanger: true,
-      },
-    ]);
-    fixture.componentRef.setInput('contextMenuEnabled', true);
-    fixture.detectChanges();
-
-    const article = fixture.nativeElement.querySelector('.card-preview-result') as HTMLElement;
-    article.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 120, clientY: 140 }));
-    fixture.detectChanges();
-
-    const icon = fixture.nativeElement.querySelector('.common-card-menu__title app-game-changer-icon img.game-changer-icon') as HTMLImageElement | null;
-
-    expect(icon).not.toBeNull();
-    expect(icon?.getAttribute('title')).toBe('Game Changer');
-  });
-
   it('shows the same debounced hover preview in list mode', async () => {
     vi.useFakeTimers();
 

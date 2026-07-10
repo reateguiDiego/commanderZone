@@ -10,8 +10,8 @@ import {
   DeckResponse,
 } from '../models/api-responses.model';
 import { AdvancedAnalysisResponse } from '../models/deck-advanced-analysis.model';
-import { DeckAnalysis, DeckAnalysisOptions } from '../models/deck-analysis.model';
-import { Deck, DeckCardPrintingsResponse, DeckFormat, DeckSection, DeckSectionsResponse, DeckTokensResponse, DeckVisibility } from '../models/deck.model';
+import { DeckAnalysis, DeckAnalysisOptions, DeckBracketAnalysisResponse } from '../models/deck-analysis.model';
+import { Deck, DeckCardPrintingsResponse, DeckEditorTokensResponse, DeckFormat, DeckSection, DeckSectionsResponse, DeckTokensResponse, DeckVisibility } from '../models/deck.model';
 
 export interface DeckCardMutationPayload {
   scryfallId?: string;
@@ -66,7 +66,9 @@ export class DecksApi {
   }
 
   getBySlug(slug: string): Observable<DeckResponse> {
-    return this.http.get<DeckResponse>(`${API_BASE_URL}/decks/by-slug/${encodeURIComponent(slug)}`);
+    return this.http.get<DeckResponse>(`${API_BASE_URL}/decks/by-slug/${encodeURIComponent(slug)}`, {
+      context: withGlobalLoading(),
+    });
   }
 
   analysis(id: string, options: DeckAnalysisOptions = {}): Observable<DeckAnalysis> {
@@ -77,7 +79,17 @@ export class DecksApi {
       }
     }
 
-    return this.http.get<DeckAnalysis>(`${API_BASE_URL}/decks/${id}/analysis`, { params });
+    return this.http.get<DeckAnalysis>(`${API_BASE_URL}/decks/${id}/analysis`, {
+      context: withGlobalLoading(),
+      params,
+    });
+  }
+
+  bracketAnalysis(id: string): Observable<DeckBracketAnalysisResponse> {
+    return this.http.get<DeckBracketAnalysisResponse>(`${API_BASE_URL}/decks/${id}/analysis`, {
+      context: withGlobalLoading(),
+      params: { view: 'bracket' },
+    });
   }
 
   getDeckAdvancedAnalysis(deckId: string): Observable<AdvancedAnalysisResponse> {
@@ -91,7 +103,15 @@ export class DecksApi {
   }
 
   tokens(id: string): Observable<DeckTokensResponse> {
-    return this.http.get<DeckTokensResponse>(`${API_BASE_URL}/decks/${id}/tokens`);
+    return this.http.get<DeckTokensResponse>(`${API_BASE_URL}/decks/${id}/tokens`, {
+      context: withGlobalLoading(),
+    });
+  }
+
+  editorTokens(id: string): Observable<DeckEditorTokensResponse> {
+    return this.http.get<DeckEditorTokensResponse>(`${API_BASE_URL}/decks/${id}/tokens/editor`, {
+      context: withGlobalLoading(),
+    });
   }
 
   rename(id: string, name: string): Observable<DeckResponse> {

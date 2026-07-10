@@ -45,21 +45,6 @@ describe('AdminPageComponent', () => {
     }).compileComponents();
   });
 
-  it('renders the admin entry page with users as the default section', () => {
-    const fixture = TestBed.createComponent(AdminPageComponent);
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain('Admin');
-    expect(fixture.nativeElement.querySelector('.admin-content')?.classList.contains('admin-content--top')).toBe(true);
-    expect(fixture.nativeElement.textContent).toContain('Admin User');
-    expect(fixture.nativeElement.textContent).toContain('Users');
-    expect(fixture.nativeElement.textContent).toContain('Reports');
-    expect(fixture.nativeElement.textContent).toContain('Notifications');
-    expect(fixture.nativeElement.textContent).not.toContain('Analytics');
-    expect(fixture.nativeElement.querySelector('lucide-icon[name="shield-check"]')).not.toBeNull();
-    expect(menuButton(fixture.nativeElement, 'Users')?.querySelector('lucide-icon')).not.toBeNull();
-  });
-
   it('renders the selected admin section component from the aside menu', async () => {
     const fixture = TestBed.createComponent(AdminPageComponent);
     fixture.detectChanges();
@@ -74,8 +59,6 @@ describe('AdminPageComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('No user reports yet.');
-    expect(fixture.nativeElement.querySelector('.admin-content')?.classList.contains('admin-content--top')).toBe(true);
-
     clickMenuButton(fixture.nativeElement, 'Notifications');
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Recipient');

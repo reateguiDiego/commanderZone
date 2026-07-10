@@ -1166,156 +1166,65 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertContains('eventLog.append', array_column($message['operations'], 'op'));
     }
 
-    public function testConcedeEmitsSpecialEntitiesSetWhenMonarchChanges(): void
+    public function testEmitsSpecialEntityUpdateWhenLifecycleCommandsMoveMonarchOrInitiative(): void
     {
-        [$game, $actor, $opponent] = $this->gameWithBattlefieldCards();
-        $previous = $game->snapshot();
-        $previous['specialEntities'] = [[
-            'id' => 'monarch-1',
-            'template' => 'monarch',
-            'scope' => 'global',
-            'ownerPlayerId' => $actor->id(),
-            'card' => null,
-            'state' => [],
-            'createdAt' => '2026-06-16T00:00:00+00:00',
-        ]];
-        $next = $previous;
-        $next['version'] = $previous['version'] + 1;
-        $next['players'][$actor->id()]['status'] = 'conceded';
-        $next['players'][$actor->id()]['concededAt'] = '2026-01-01T00:00:01+00:00';
-        $next['turn'] = ['activePlayerId' => $opponent->id(), 'phase' => 'untap', 'number' => 2];
-        $next['specialEntities'][0]['ownerPlayerId'] = $opponent->id();
-        $next['eventLog'][] = [
-            'id' => 'log-concede-turn-shift',
-            'type' => 'game.concede',
-            'message' => 'Actor conceded.',
-            'actorId' => $actor->id(),
-            'displayName' => $actor->displayName(),
-            'createdAt' => '2026-01-01T00:00:01+00:00',
-        ];
-        $event = new GameEvent($game, 'game.concede', [], $actor, 'action-concede-monarch-shift');
+        foreach (['monarch', 'initiative'] as $template) {
+            foreach (['concede', 'disconnect-expel'] as $action) {
+                [$game, $actor, $opponent] = $this->gameWithBattlefieldCards();
+                $previous = $game->snapshot();
+                $previous['specialEntities'] = [[
+                    'id' => $template.'-1',
+                    'template' => $template,
+                    'scope' => 'global',
+                    'ownerPlayerId' => $action === 'concede' ? $actor->id() : $opponent->id(),
+                    'card' => null,
+                    'state' => [],
+                    'createdAt' => '2026-06-16T00:00:00+00:00',
+                ]];
+                $next = $previous;
+                $next['version'] = $previous['version'] + 1;
+                $next['specialEntities'][0]['ownerPlayerId'] = $action === 'concede' ? $opponent->id() : $actor->id();
 
-        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))
-            ->build($game->id(), $previous, $next, $event);
+                if ($action === 'concede') {
+                    $next['players'][$actor->id()]['status'] = 'conceded';
+                    $next['players'][$actor->id()]['concededAt'] = '2026-01-01T00:00:01+00:00';
+                    $next['turn'] = ['activePlayerId' => $opponent->id(), 'phase' => 'untap', 'number' => 2];
+                    $next['eventLog'][] = [
+                        'id' => 'log-concede-'.$template,
+                        'type' => 'game.concede',
+                        'message' => 'Actor conceded.',
+                        'actorId' => $actor->id(),
+                        'displayName' => $actor->displayName(),
+                        'createdAt' => '2026-01-01T00:00:01+00:00',
+                    ];
+                    $event = new GameEvent($game, 'game.concede', [], $actor, 'action-concede-'.$template);
+                } else {
+                    $next['players'][$opponent->id()]['status'] = 'conceded';
+                    $next['players'][$opponent->id()]['concededAt'] = '2026-01-01T00:00:10+00:00';
+                    $next['disconnectVote'] = [
+                        'targetPlayerId' => $opponent->id(),
+                        'status' => 'resolved_expel',
+                        'openedAt' => null,
+                        'deadlineAt' => null,
+                        'cooldownUntil' => null,
+                        'votes' => [],
+                    ];
+                    $next['eventLog'][] = [
+                        'id' => 'log-disconnect-expel-'.$template,
+                        'type' => 'disconnect.vote.updated',
+                        'message' => 'Votacion resuelta en expulsion.',
+                        'actorId' => $actor->id(),
+                        'displayName' => 'Actor',
+                        'createdAt' => '2026-01-01T00:00:10+00:00',
+                    ];
+                    $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'vote.resolved'], $actor, 'action-disconnect-expel-'.$template);
+                }
 
-        self::assertContains('specialEntity.update', array_column($message['operations'], 'op'));
-    }
+                $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
 
-    public function testDisconnectVoteExpelEmitsSpecialEntitiesSetWhenMonarchChanges(): void
-    {
-        [$game, $actor, $opponent] = $this->gameWithBattlefieldCards();
-        $previous = $game->snapshot();
-        $previous['specialEntities'] = [[
-            'id' => 'monarch-1',
-            'template' => 'monarch',
-            'scope' => 'global',
-            'ownerPlayerId' => $opponent->id(),
-            'card' => null,
-            'state' => [],
-            'createdAt' => '2026-06-16T00:00:00+00:00',
-        ]];
-        $next = $previous;
-        $next['version'] = $previous['version'] + 1;
-        $next['players'][$opponent->id()]['status'] = 'conceded';
-        $next['players'][$opponent->id()]['concededAt'] = '2026-01-01T00:00:10+00:00';
-        $next['disconnectVote'] = [
-            'targetPlayerId' => $opponent->id(),
-            'status' => 'resolved_expel',
-            'openedAt' => null,
-            'deadlineAt' => null,
-            'cooldownUntil' => null,
-            'votes' => [],
-        ];
-        $next['specialEntities'][0]['ownerPlayerId'] = $actor->id();
-        $next['eventLog'][] = [
-            'id' => 'log-disconnect-expel-monarch',
-            'type' => 'disconnect.vote.updated',
-            'message' => 'Votacion resuelta en expulsion.',
-            'actorId' => $actor->id(),
-            'displayName' => 'Actor',
-            'createdAt' => '2026-01-01T00:00:10+00:00',
-        ];
-
-        $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'vote.resolved'], $actor, 'action-disconnect-expel-monarch');
-        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
-
-        self::assertContains('specialEntity.update', array_column($message['operations'], 'op'));
-    }
-
-    public function testConcedeEmitsSpecialEntitiesSetWhenInitiativeChanges(): void
-    {
-        [$game, $actor, $opponent] = $this->gameWithBattlefieldCards();
-        $previous = $game->snapshot();
-        $previous['specialEntities'] = [[
-            'id' => 'initiative-1',
-            'template' => 'initiative',
-            'scope' => 'global',
-            'ownerPlayerId' => $actor->id(),
-            'card' => null,
-            'state' => [],
-            'createdAt' => '2026-06-16T00:00:00+00:00',
-        ]];
-        $next = $previous;
-        $next['version'] = $previous['version'] + 1;
-        $next['players'][$actor->id()]['status'] = 'conceded';
-        $next['players'][$actor->id()]['concededAt'] = '2026-01-01T00:00:01+00:00';
-        $next['turn'] = ['activePlayerId' => $opponent->id(), 'phase' => 'untap', 'number' => 2];
-        $next['specialEntities'][0]['ownerPlayerId'] = $opponent->id();
-        $next['eventLog'][] = [
-            'id' => 'log-concede-turn-shift-initiative',
-            'type' => 'game.concede',
-            'message' => 'Actor conceded.',
-            'actorId' => $actor->id(),
-            'displayName' => $actor->displayName(),
-            'createdAt' => '2026-01-01T00:00:01+00:00',
-        ];
-        $event = new GameEvent($game, 'game.concede', [], $actor, 'action-concede-initiative-shift');
-
-        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))
-            ->build($game->id(), $previous, $next, $event);
-
-        self::assertContains('specialEntity.update', array_column($message['operations'], 'op'));
-    }
-
-    public function testDisconnectVoteExpelEmitsSpecialEntitiesSetWhenInitiativeChanges(): void
-    {
-        [$game, $actor, $opponent] = $this->gameWithBattlefieldCards();
-        $previous = $game->snapshot();
-        $previous['specialEntities'] = [[
-            'id' => 'initiative-1',
-            'template' => 'initiative',
-            'scope' => 'global',
-            'ownerPlayerId' => $opponent->id(),
-            'card' => null,
-            'state' => [],
-            'createdAt' => '2026-06-16T00:00:00+00:00',
-        ]];
-        $next = $previous;
-        $next['version'] = $previous['version'] + 1;
-        $next['players'][$opponent->id()]['status'] = 'conceded';
-        $next['players'][$opponent->id()]['concededAt'] = '2026-01-01T00:00:10+00:00';
-        $next['disconnectVote'] = [
-            'targetPlayerId' => $opponent->id(),
-            'status' => 'resolved_expel',
-            'openedAt' => null,
-            'deadlineAt' => null,
-            'cooldownUntil' => null,
-            'votes' => [],
-        ];
-        $next['specialEntities'][0]['ownerPlayerId'] = $actor->id();
-        $next['eventLog'][] = [
-            'id' => 'log-disconnect-expel-initiative',
-            'type' => 'disconnect.vote.updated',
-            'message' => 'Votacion resuelta en expulsion.',
-            'actorId' => $actor->id(),
-            'displayName' => 'Actor',
-            'createdAt' => '2026-01-01T00:00:10+00:00',
-        ];
-
-        $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'vote.resolved'], $actor, 'action-disconnect-expel-initiative');
-        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
-
-        self::assertContains('specialEntity.update', array_column($message['operations'], 'op'));
+                self::assertContains('specialEntity.update', array_column($message['operations'], 'op'), $template.' '.$action);
+            }
+        }
     }
 
     public function testBuildsEventLogAppendAcrossSlidingWindowRollover(): void

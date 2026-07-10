@@ -2,6 +2,7 @@ import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { ChevronDown, ChevronRight, LucideAngularModule, RotateCw, TriangleAlert } from 'lucide-angular';
+import { DeckBracketEstimate } from '../../../../core/models/deck-analysis.model';
 import { Deck } from '../../../../core/models/deck.model';
 import { DeviceProfileService } from '../../../../shared/services/device-profile.service';
 import { DECK_ANALYSIS_STORE } from '../../../decks/deck-editor/deck-analysis-panel/deck-analysis-store.token';
@@ -90,6 +91,21 @@ describe('DeckViewerComponent', () => {
     expect(element.querySelector('app-deck-card-menu')).toBeNull();
     expect(element.textContent).not.toContain('Import');
     expect(element.textContent).not.toContain('Delete');
+  });
+
+  it('renders the bracket pill before the summary counts', () => {
+    TestBed.inject(CommunityDeckViewerStore).setDeck(deckFixture);
+    const fixture = TestBed.createComponent(DeckViewerComponent);
+    fixture.componentRef.setInput('deck', deckFixture);
+    fixture.componentRef.setInput('bracket', bracketFixture());
+    fixture.detectChanges();
+
+    const status = fixture.nativeElement.querySelector('.deck-summary-status') as HTMLElement | null;
+    const firstChild = status?.firstElementChild;
+    const secondChild = firstChild?.nextElementSibling;
+
+    expect(firstChild?.tagName.toLowerCase()).toBe('app-bracket-pill');
+    expect(secondChild?.classList.contains('deck-summary-counts')).toBe(true);
   });
 
   it('defaults to spoiler on first session open without hover and outside desktop layout', async () => {
@@ -268,3 +284,49 @@ describe('DeckViewerComponent', () => {
   });
 
 });
+
+function bracketFixture(): DeckBracketEstimate {
+  return {
+    bracket: 3,
+    label: 'Upgraded',
+    confidence: 'medium',
+    method: 'commander_brackets_beta_v1',
+    floor: 1,
+    ceiling: 5,
+    ruleBreakers: [],
+    differences: {
+      themeScore: 40,
+      staplesScore: 60,
+      speedScore: 45,
+      metagameScore: 30,
+      manaEfficiencyScore: 50,
+    },
+    officialSignals: {
+      gameChangers: { count: 1, cards: [], status: 'detected' },
+      massLandDenial: { detected: false, count: 0, cards: [] },
+      extraTurns: { count: 0, cards: [], chainsOrLoops: false },
+      twoCardCombos: { count: 0, beforeTurnSix: false, lateGameOnly: false },
+      nonLandTutors: { count: 0, cards: [], efficientCount: 0 },
+    },
+    reasonCodes: [],
+    reasons: ['Upgraded deck signals detected.'],
+    warnings: [],
+    explanation: {
+      short: 'Estimated as Bracket 3.',
+      long: 'Estimated as Bracket 3.',
+      officialCriteria: [
+        { bracket: 3, label: 'Upgraded', summary: 'Upgraded decks with staples.' },
+      ],
+      detectedSignalsExplanation: [],
+      ruleBreakersExplanation: [],
+      differenceModel: {
+        theme: 'Theme',
+        staples: 'Staples',
+        speed: 'Speed',
+        metagame: 'Metagame',
+        manaEfficiency: 'Mana efficiency',
+      },
+      reasonCodes: [],
+    },
+  };
+}

@@ -52,11 +52,24 @@
   top: 0.85rem;
   right: 0.85rem;
   z-index: 1;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  min-height: 2.15rem;
+  padding: 0;
+  border-radius: 8px;
+  line-height: 0;
 }
 
 .modal-close-button:hover {
-  border-color: rgb(var(--cz-primary-rgb) / 68%);
+  border-color: rgb(var(--cz-danger-rgb) / 72%);
+}
+
+.modal-close-button lucide-icon {
+  display: block;
 }
 
 .modal-panel-compact {

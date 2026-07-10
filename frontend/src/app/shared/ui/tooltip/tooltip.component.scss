@@ -60,7 +60,7 @@
   overflow: hidden;
   max-width: 100%;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-line;
 }
 
 .cz-tooltip__bubble--multiline .cz-tooltip__content {

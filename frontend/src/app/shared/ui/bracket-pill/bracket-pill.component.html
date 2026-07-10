@@ -1,0 +1,152 @@
+@if (bracket(); as estimate) {
+  <span class="bracket-pill-group">
+    <app-tooltip [text]="(('bracket.tooltip.current' | runtimeTranslate: { bracket: estimate.bracket }) + '\n' + ('bracket.explanation.button' | runtimeTranslate))">
+      <button
+        class="bracket-pill"
+        type="button"
+        [class.bracket-pill--1]="estimate.bracket === 1"
+        [class.bracket-pill--2]="estimate.bracket === 2"
+        [class.bracket-pill--3]="estimate.bracket === 3"
+        [class.bracket-pill--4]="estimate.bracket === 4"
+        [class.bracket-pill--5]="estimate.bracket === 5"
+        [attr.aria-label]="'bracket.explanation.button' | runtimeTranslate"
+        (click)="openExplanation()"
+      >
+        @if (bracketImageSrc(); as imageSrc) {
+          <img
+            class="bracket-pill__image"
+            [src]="imageSrc"
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+          />
+        }
+        <span class="sr-only">{{ 'bracket.pill.ariaLabel' | runtimeTranslate: { bracket: estimate.bracket, label: estimate.label } }}</span>
+      </button>
+    </app-tooltip>
+  </span>
+
+  <app-modal
+    [open]="explanationOpen()"
+    title="bracket.explanation.title"
+    ariaLabel="bracket.explanation.title"
+    closeLabel="common.modal.close"
+    [showCloseButton]="true"
+    [showPrimary]="false"
+    [showSecondary]="false"
+    size="wide"
+    (close)="closeExplanation()"
+  >
+    <section class="bracket-explanation">
+      <header class="bracket-explanation__hero">
+        @if (bracketImageSrc(); as imageSrc) {
+          <div class="bracket-explanation__hero-art">
+            <img
+              class="bracket-explanation__hero-image"
+              [src]="imageSrc"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        }
+
+        <div class="bracket-explanation__hero-copy">
+          <div class="bracket-explanation__summary">
+            <strong>{{ 'bracket.explanation.currentBracket' | runtimeTranslate: { bracket: estimate.bracket, label: estimate.label } }}</strong>
+            <span>{{ 'bracket.explanation.confidence' | runtimeTranslate: { confidence: ('bracket.confidence.' + estimate.confidence) | runtimeTranslate } }}</span>
+          </div>
+
+          @if (shortExplanation(); as explanation) {
+            <p class="bracket-explanation__copy">{{ explanation }}</p>
+          }
+        </div>
+      </header>
+
+      @if (officialCriterionCards().length > 0) {
+        <section class="bracket-explanation__section">
+          <h3>{{ 'bracket.explanation.officialCriteria' | runtimeTranslate }}</h3>
+          <div class="bracket-explanation__criteria">
+            @for (card of officialCriterionCards(); track card.criterion.bracket) {
+              <article
+                class="bracket-explanation__criterion"
+                [class.bracket-explanation__criterion--active]="card.active"
+              >
+                <img
+                  class="bracket-explanation__criterion-image"
+                  [src]="card.imageSrc"
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div class="bracket-explanation__criterion-copy">
+                  <strong>{{ 'bracket.explanation.currentBracket' | runtimeTranslate: { bracket: card.criterion.bracket, label: card.criterion.label } }}</strong>
+                  <p>{{ card.criterion.summary }}</p>
+                </div>
+              </article>
+            }
+          </div>
+        </section>
+      }
+
+      <section class="bracket-explanation__section">
+        <h3>{{ 'bracket.explanation.detectedSignals' | runtimeTranslate }}</h3>
+        <p class="bracket-explanation__section-copy">{{ 'bracket.explanation.officialSignals' | runtimeTranslate }}</p>
+        <div class="bracket-explanation__signals">
+          @for (signal of officialSignalRows(); track signal.labelKey) {
+            <div class="bracket-explanation__signal">
+              <span>{{ signal.labelKey | runtimeTranslate }}</span>
+              <strong>{{ signal.value | runtimeTranslate }}</strong>
+            </div>
+          }
+          @for (signal of differenceSignalRows(); track signal.labelKey) {
+            <div class="bracket-explanation__signal">
+              <span>{{ signal.labelKey | runtimeTranslate }}</span>
+              <strong>{{ signal.value }}</strong>
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="bracket-explanation__section">
+        <h3>{{ 'bracket.explanation.reasons' | runtimeTranslate }}</h3>
+        <ul class="bracket-explanation__list">
+          @for (reason of visibleReasons(); track reason) {
+            <li>{{ reason }}</li>
+          } @empty {
+            <li>{{ 'bracket.explanation.noReasons' | runtimeTranslate }}</li>
+          }
+        </ul>
+      </section>
+
+      <section class="bracket-explanation__section">
+        <h3>{{ 'bracket.explanation.differenceModel' | runtimeTranslate }}</h3>
+        <dl class="bracket-explanation__model">
+          <div>
+            <dt>{{ 'bracket.explanation.theme' | runtimeTranslate }}</dt>
+            <dd>{{ estimate.explanation.differenceModel.theme }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'bracket.explanation.staples' | runtimeTranslate }}</dt>
+            <dd>{{ estimate.explanation.differenceModel.staples }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'bracket.explanation.speed' | runtimeTranslate }}</dt>
+            <dd>{{ estimate.explanation.differenceModel.speed }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'bracket.explanation.metagame' | runtimeTranslate }}</dt>
+            <dd>{{ estimate.explanation.differenceModel.metagame }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <p class="bracket-explanation__warning app-disclaimer-callout" role="status">
+        {{ 'bracket.explanation.warning' | runtimeTranslate }}
+      </p>
+    </section>
+  </app-modal>
+}

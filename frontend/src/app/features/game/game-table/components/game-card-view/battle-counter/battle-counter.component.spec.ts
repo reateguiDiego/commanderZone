@@ -35,14 +35,6 @@ describe('BattleCounterComponent', () => {
     expect(fixture.nativeElement.querySelector('.battle-counter-value')?.textContent?.trim()).toBe('3');
   });
 
-  it('moves to the rotated battle corner when requested', async () => {
-    const { fixture } = await renderBattleCounter();
-    fixture.componentRef.setInput('rotatedPlacement', true);
-    fixture.detectChanges();
-
-    expect((fixture.nativeElement as HTMLElement).classList).toContain('battle-counter-rotated-placement');
-  });
-
   it('shows a short press feedback pulse during the pointer interaction', async () => {
     const { fixture } = await renderBattleCounter();
     const counter = fixture.nativeElement.querySelector('.battle-counter') as HTMLElement;

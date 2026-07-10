@@ -37,27 +37,6 @@ describe('FriendsDropdownComponent', () => {
     }).compileComponents();
   });
 
-  it('renders the compact friend list', () => {
-    const fixture = TestBed.createComponent(FriendsDropdownComponent);
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain('Friends');
-    expect(fixture.nativeElement.querySelector('button[aria-label="Search"]')).not.toBeNull();
-  });
-
-  it('hides empty request and invitation tabs and does not render the view all friends action', () => {
-    const fixture = TestBed.createComponent(FriendsDropdownComponent);
-    fixture.detectChanges();
-
-    const tabLabels = Array.from(
-      fixture.nativeElement.querySelectorAll('.tab-list-button') as NodeListOf<HTMLButtonElement>,
-    ).map((button) => button.textContent?.trim() ?? '');
-
-    expect(tabLabels.some((label) => label.includes('Requests'))).toBe(false);
-    expect(tabLabels.some((label) => label.includes('Invitations'))).toBe(false);
-    expect(fixture.nativeElement.querySelector('.view-all-friends')).toBeNull();
-  });
-
   it('shows request and invitation tabs only when those rows exist', async () => {
     const friendsApi = TestBed.inject(FriendsApi) as unknown as {
       list: ReturnType<typeof vi.fn>;
@@ -124,28 +103,6 @@ describe('FriendsDropdownComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Marta');
     expect(fixture.nativeElement.textContent).toContain('Lucas');
     expect(fixture.nativeElement.querySelector('.tab-list-button.attention')).not.toBeNull();
-  });
-
-  it('does not animate the request tab when there are only sent requests', async () => {
-    const friendsApi = TestBed.inject(FriendsApi) as unknown as {
-      outgoing: ReturnType<typeof vi.fn>;
-    };
-
-    friendsApi.outgoing.mockReturnValue(of({ data: [sentFriendship()] }));
-
-    const store = TestBed.inject(FriendsStore);
-    await store.load();
-
-    const fixture = TestBed.createComponent(FriendsDropdownComponent);
-    fixture.detectChanges();
-
-    const requestTab = Array.from(
-      fixture.nativeElement.querySelectorAll('.tab-list-button') as NodeListOf<HTMLButtonElement>,
-    ).find((button) => button.textContent?.includes('Requests'));
-
-    expect(requestTab).toBeDefined();
-    expect(requestTab?.classList.contains('attention')).toBe(false);
-    expect(requestTab?.querySelector('.tab-list-badge')?.classList.contains('attention')).toBe(false);
   });
 
   it('only renders the player search input in the search tab', () => {

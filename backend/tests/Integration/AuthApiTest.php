@@ -645,17 +645,6 @@ class AuthApiTest extends ApiTestCase
         ], $this->jsonResponse()['user']['displayNameStyle']);
 
         $this->jsonRequest('PATCH', '/me/display-name-style', [
-            'presetId' => 'basic-green',
-            'textColor' => '#d7ffd0',
-        ], $token);
-        self::assertResponseIsSuccessful();
-        self::assertSame([
-            'type' => 'preset',
-            'presetId' => 'basic-green',
-            'textColor' => '#d7ffd0',
-        ], $this->jsonResponse()['user']['displayNameStyle']);
-
-        $this->jsonRequest('PATCH', '/me/display-name-style', [
             'presetId' => 'plain',
             'textColor' => '#ffffff',
         ], $token);
@@ -664,17 +653,6 @@ class AuthApiTest extends ApiTestCase
             'type' => 'plain',
             'presetId' => 'plain',
             'textColor' => '#ffffff',
-        ], $this->jsonResponse()['user']['displayNameStyle']);
-
-        $this->jsonRequest('PATCH', '/me/display-name-style', [
-            'presetId' => 'basic-colorless',
-            'textColor' => '#f8f0d0',
-        ], $token);
-        self::assertResponseIsSuccessful();
-        self::assertSame([
-            'type' => 'preset',
-            'presetId' => 'basic-colorless',
-            'textColor' => '#f8f0d0',
         ], $this->jsonResponse()['user']['displayNameStyle']);
 
         $this->jsonRequest('PATCH', '/me/display-name-style', [

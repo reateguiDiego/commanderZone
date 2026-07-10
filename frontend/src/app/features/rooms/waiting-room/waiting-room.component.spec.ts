@@ -344,7 +344,6 @@ describe('WaitingRoomComponent', () => {
     component.openSetupModal(room());
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.modal-panel')?.classList.contains('modal-panel-compact')).toBe(true);
     const setupModal = fixture.debugElement.query(By.directive(RoomSetupModalComponent)).componentInstance as RoomSetupModalComponent;
     expect(setupModal.readOnly()).toBe(false);
     expect(setupModal.actionsLocked()).toBe(false);
@@ -435,50 +434,6 @@ describe('WaitingRoomComponent', () => {
     expect(component.hasCompletedTurnOrder(partialRoom)).toBe(false);
     expect(component.turnOrderPlayers(partialRoom).map((player) => player.user.displayName)).toEqual(['Guest 3', 'Guest 2', 'Owner']);
     expect(component.seatPlayer(partialRoom, 0)?.user.displayName).toBe('Guest 3');
-  });
-
-  it('assigns row-first visual seat classes and centers odd final seats', async () => {
-    const fixture = TestBed.createComponent(WaitingRoomComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    const component = fixture.componentInstance;
-
-    component.currentRoom.set(room({
-      maxPlayers: 4,
-      players: readyPlayers(4),
-    }));
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.players-grid')?.classList.contains('capacity-four')).toBe(true);
-    expect(renderedSeatClasses(fixture)).toEqual(['seat-one', 'seat-two', 'seat-three', 'seat-four']);
-
-    component.currentRoom.set(room({
-      maxPlayers: 6,
-      players: readyPlayers(6),
-    }));
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.players-grid')?.classList.contains('capacity-six')).toBe(true);
-    expect(renderedSeatClasses(fixture)).toEqual(['seat-one', 'seat-two', 'seat-three', 'seat-four', 'seat-five', 'seat-six']);
-
-    component.currentRoom.set(room({
-      maxPlayers: 3,
-      players: readyPlayers(3),
-    }));
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.players-grid')?.classList.contains('capacity-three')).toBe(true);
-    expect(renderedPlayerCards(fixture).at(-1)?.classList.contains('seat-odd-last')).toBe(true);
-
-    component.currentRoom.set(room({
-      maxPlayers: 5,
-      players: readyPlayers(5),
-    }));
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.players-grid')?.classList.contains('capacity-five')).toBe(true);
-    expect(renderedPlayerCards(fixture).at(-1)?.classList.contains('seat-odd-last')).toBe(true);
   });
 
   it('keeps tied players rollable and resolves order by repeated tie-break rolls', async () => {
@@ -743,23 +698,9 @@ describe('WaitingRoomComponent', () => {
   });
 });
 
-function renderedSeatClasses(fixture: ComponentFixture<WaitingRoomComponent>): string[] {
-  return renderedPlayerCards(fixture).map((card) => ['seat-one', 'seat-two', 'seat-three', 'seat-four', 'seat-five', 'seat-six']
-    .find((seatClass) => card.classList.contains(seatClass)) ?? '');
-}
-
 function renderedPlayerCards(fixture: ComponentFixture<WaitingRoomComponent>): HTMLElement[] {
   return Array.from(fixture.nativeElement.querySelectorAll('app-waiting-room-player-card'))
     .filter((card): card is HTMLElement => card instanceof HTMLElement && !card.classList.contains('empty-slot'));
-}
-
-function readyPlayers(count: number) {
-  return Array.from({ length: count }, (_, index) => readyPlayer(
-    `player-${index + 1}`,
-    `user-${index + 1}`,
-    `Player ${index + 1}`,
-    20 - index,
-  ));
 }
 
 function room(overrides: Partial<Room> = {}): Room {

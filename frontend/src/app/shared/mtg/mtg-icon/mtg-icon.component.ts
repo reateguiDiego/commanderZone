@@ -7,33 +7,33 @@ import {
   inject,
   input,
 } from '@angular/core';
-import { ManaStylesService } from '../mana-styles.service';
+import { ManaStylesService } from '../../mana/mana-styles.service';
 
-export type ManaIconKind = 'plain' | 'cost' | 'mechanic';
+export type MTGIconKind = 'plain' | 'cost' | 'mechanic';
 
 @Component({
-  selector: 'i[appManaIcon], span[appManaIcon]',
+  selector: 'i[appMtgIcon], span[appMtgIcon]',
   template: '',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ManaIconComponent {
+export class MTGIconComponent {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly renderer = inject(Renderer2);
   private readonly manaStyles = inject(ManaStylesService);
   private readonly appliedClasses = new Set<string>();
 
-  readonly appManaIcon = input.required<string>();
-  readonly manaIconKind = input<ManaIconKind>('plain');
+  readonly appMtgIcon = input.required<string>();
+  readonly mtgIconKind = input<MTGIconKind>('plain');
 
   constructor() {
     this.manaStyles.load();
 
     effect(() => {
-      this.syncClasses(this.appManaIcon(), this.manaIconKind());
+      this.syncClasses(this.appMtgIcon(), this.mtgIconKind());
     });
   }
 
-  private syncClasses(icon: string, kind: ManaIconKind): void {
+  private syncClasses(icon: string, kind: MTGIconKind): void {
     for (const className of this.appliedClasses) {
       this.renderer.removeClass(this.element.nativeElement, className);
     }
@@ -45,7 +45,7 @@ export class ManaIconComponent {
     }
   }
 
-  private iconClasses(icon: string, kind: ManaIconKind): readonly string[] {
+  private iconClasses(icon: string, kind: MTGIconKind): readonly string[] {
     const classes = ['ms'];
     if (kind === 'cost') {
       classes.push('ms-cost');

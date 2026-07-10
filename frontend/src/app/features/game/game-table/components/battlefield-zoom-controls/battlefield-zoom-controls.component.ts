@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ManaIconComponent } from '../../../../../shared/mana/mana-icon/mana-icon.component';
+import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -61,7 +61,7 @@ const DEFAULT_ZOOM_SNAP_DISTANCE_PERCENT = 2;
 
 @Component({
   selector: 'app-battlefield-zoom-controls',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaIconComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, MTGIconComponent],
   templateUrl: './battlefield-zoom-controls.component.html',
   styleUrl: './battlefield-zoom-controls.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

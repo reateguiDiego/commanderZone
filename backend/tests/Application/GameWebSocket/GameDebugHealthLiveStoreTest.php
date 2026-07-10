@@ -103,27 +103,20 @@ class GameDebugHealthLiveStoreTest extends TestCase
         $store->subscribe('game-1', static function (): void {
         });
 
-        $baseline = $store->reportForGame('game-1');
-        self::assertSame($baseline['generatedAt'], $baseline['updatedAt']);
-
-        sleep(1);
+        $storedMutationTime = new \DateTimeImmutable('2026-01-01T12:00:00+00:00');
+        $this->setLastUpdatedAt($store, 'game-1', $storedMutationTime);
         $afterRead = $store->reportForGame('game-1');
-        self::assertNotSame($baseline['generatedAt'], $afterRead['generatedAt']);
-        self::assertSame($afterRead['generatedAt'], $afterRead['updatedAt']);
-        self::assertNotSame($baseline['updatedAt'], $afterRead['updatedAt']);
+        self::assertSame($storedMutationTime->format(DATE_ATOM), $afterRead['updatedAt']);
 
-        sleep(1);
         $store->recordIncomingMessage('game-1', [
             'kind' => 'command',
             'command' => ['type' => 'life.changed'],
         ], 18);
 
         $afterMutation = $store->reportForGame('game-1');
-        self::assertNotSame($afterRead['updatedAt'], $afterMutation['updatedAt']);
+        self::assertNotSame($storedMutationTime->format(DATE_ATOM), $afterMutation['updatedAt']);
 
-        sleep(1);
         $afterMutationRead = $store->reportForGame('game-1');
-        self::assertNotSame($afterMutation['generatedAt'], $afterMutationRead['generatedAt']);
         self::assertSame($afterMutation['updatedAt'], $afterMutationRead['updatedAt']);
     }
 
@@ -142,5 +135,17 @@ class GameDebugHealthLiveStoreTest extends TestCase
         self::assertSame(1, $reports[1]['health']['bootstrap']['stages']['websocket_ticket']['count']);
         self::assertSame(32.5, $reports[1]['health']['bootstrap']['stages']['websocket_ticket']['lastMs']);
         self::assertSame(4, $reports[1]['health']['bootstrap']['stages']['websocket_ticket']['lastContext']['viewerCount']);
+    }
+
+    private function setLastUpdatedAt(GameDebugHealthLiveStore $store, string $gameId, \DateTimeImmutable $updatedAt): void
+    {
+        $reflection = new \ReflectionClass($store);
+        $property = $reflection->getProperty('lastUpdatedAt');
+        $property->setAccessible(true);
+        $values = $property->getValue($store);
+        self::assertIsArray($values);
+
+        $values[$gameId] = $updatedAt;
+        $property->setValue($store, $values);
     }
 }

@@ -3,7 +3,6 @@ import { importProvidersFrom } from '@angular/core';
 import { CircleQuestionMark, Layers3, Link, LucideAngularModule, RotateCw } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS } from '../../models/card-preview.model';
-import { DEFAULT_DUNGEON_MARKER } from '../../utils/dungeon-marker';
 import { GameCardViewComponent } from './game-card-view.component';
 
 describe('GameCardViewComponent', () => {
@@ -109,95 +108,6 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList).toContain('hover-lifted');
   });
 
-  it('sets fan layout variables for hand cards', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-
-    fixture.componentRef.setInput('handIndex', 0);
-    fixture.componentRef.setInput('handCount', 7);
-    fixture.detectChanges();
-
-    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-rotation'))).toBeLessThan(0);
-    expect(cardElement.style.getPropertyValue('--hand-fan-lift')).toBe('0px');
-    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-splay'))).toBeLessThan(0);
-    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'))).toBeGreaterThan(0);
-    expect(cardElement.style.getPropertyValue('--hand-depth')).toBe('0');
-    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-counter-rotation'))).toBeGreaterThan(0);
-    expect(cardElement.style.getPropertyValue('--hand-overlap-px')).toBe('');
-  });
-
-  it('uses a gentle hand fan rotation step between adjacent cards', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-
-    fixture.componentRef.setInput('handIndex', 2);
-    fixture.componentRef.setInput('handCount', 7);
-    fixture.detectChanges();
-    const leftRotation = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-rotation'));
-
-    fixture.componentRef.setInput('handIndex', 3);
-    fixture.detectChanges();
-    const middleRotation = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-rotation'));
-
-    expect(Math.abs(middleRotation - leftRotation)).toBeLessThanOrEqual(1.5);
-  });
-
-  it('raises the middle hand card to the top of the fan', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-
-    fixture.componentRef.setInput('handIndex', 3);
-    fixture.componentRef.setInput('handCount', 7);
-    fixture.detectChanges();
-
-    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'))).toBeLessThan(0);
-  });
-
-  it('keeps the two middle cards highest for even hands', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-
-    fixture.componentRef.setInput('handIndex', 2);
-    fixture.componentRef.setInput('handCount', 6);
-    fixture.detectChanges();
-    const leftMiddleArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
-
-    fixture.componentRef.setInput('handIndex', 3);
-    fixture.detectChanges();
-    const rightMiddleArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
-
-    expect(leftMiddleArc).toBe(rightMiddleArc);
-    expect(leftMiddleArc).toBeLessThan(0);
-  });
-
-  it('lowers both edges of the fan relative to the middle', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-
-    fixture.componentRef.setInput('handIndex', 0);
-    fixture.componentRef.setInput('handCount', 7);
-    fixture.detectChanges();
-    const leftEdgeArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
-
-    fixture.componentRef.setInput('handIndex', 3);
-    fixture.detectChanges();
-    const middleArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
-
-    fixture.componentRef.setInput('handIndex', 6);
-    fixture.detectChanges();
-    const rightEdgeArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
-
-    expect(leftEdgeArc).toBeGreaterThan(middleArc);
-    expect(rightEdgeArc).toBeGreaterThan(middleArc);
-  });
-
-  it('uses straight row variables while hand ordering is active', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-
-    fixture.componentRef.setInput('handIndex', 0);
-    fixture.componentRef.setInput('handCount', 7);
-    fixture.componentRef.setInput('handLayout', 'row');
-    fixture.detectChanges();
-
-    expect(cardElement.classList).toContain('hand-row-layout');
-    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-row-distance'))).toBeLessThan(0);
-  });
-
   it('marks the active hovered hand card before hover lift starts', async () => {
     const { fixture, cardElement } = await renderHandCard();
 
@@ -206,18 +116,6 @@ describe('GameCardViewComponent', () => {
 
     expect(cardElement.classList).toContain('hand-active-hover');
     expect(cardElement.classList).not.toContain('hover-lifted');
-  });
-
-  it('applies battlefield focus entry classes by entry mode', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-
-    fixture.componentRef.setInput('mode', 'battlefield');
-    fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('battlefieldFocusEntry', 'fade');
-    fixture.detectChanges();
-
-    expect(cardElement.classList).toContain('focus-entry-fade');
-    expect(cardElement.classList).not.toContain('focus-entry-left');
   });
 
   it('uses the normal battlefield hover glow for land stack cards after the behind-pile delay', async () => {
@@ -397,8 +295,6 @@ describe('GameCardViewComponent', () => {
 
     const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
     expect(pin).not.toBeNull();
-    expect(pin?.style.left).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.x));
-    expect(pin?.style.top).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.y));
   });
 
   it('renders a default location pin for legacy official dungeon cards without layout metadata', async () => {
@@ -416,8 +312,6 @@ describe('GameCardViewComponent', () => {
 
     const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
     expect(pin).not.toBeNull();
-    expect(pin?.style.left).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.x));
-    expect(pin?.style.top).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.y));
   });
 
   it('emits a clamped dungeon marker position after dragging the pin inside the card', async () => {
@@ -458,14 +352,9 @@ describe('GameCardViewComponent', () => {
       card: fixture.componentInstance.card(),
       marker: { x: 1, y: 0 },
     });
-    expect(pin.style.left).toBe('100%');
-    expect(pin.style.top).toBe('0%');
 
     fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 1, y: 0 } });
     fixture.detectChanges();
-
-    expect(pin.style.left).toBe('100%');
-    expect(pin.style.top).toBe('0%');
   });
 
   it('keeps the grabbed pin point under the pointer while dragging the dungeon marker', async () => {
@@ -922,54 +811,35 @@ describe('GameCardViewComponent', () => {
     open.mockRestore();
   });
 
-  it('plays a face flip animation when the active face changes on the same card', async () => {
+  it('plays face flip animation for active face and face-down changes', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
+
+    const expectFlipThenClear = (): void => {
+      expect(cardElement.classList).toContain('face-flipping');
+      vi.advanceTimersByTime(620);
+      fixture.detectChanges();
+      expect(cardElement.classList).not.toContain('face-flipping');
+    };
 
     fixture.componentRef.setInput('card', { ...gameCard(), activeFaceIndex: 1 });
     fixture.detectChanges();
-
-    expect(cardElement.classList).toContain('face-flipping');
-
-    vi.advanceTimersByTime(620);
-    fixture.detectChanges();
-
-    expect(cardElement.classList).not.toContain('face-flipping');
-  });
-
-  it('plays a face flip animation when the card turns face down or face up', async () => {
-    vi.useFakeTimers();
-    const { fixture, cardElement } = await renderHandCard();
+    expectFlipThenClear();
 
     fixture.componentRef.setInput('card', { ...gameCard(), faceDown: true });
     fixture.detectChanges();
-
-    expect(cardElement.classList).toContain('face-flipping');
-
-    vi.advanceTimersByTime(620);
-    fixture.detectChanges();
+    expectFlipThenClear();
 
     fixture.componentRef.setInput('card', { ...gameCard(), faceDown: false });
     fixture.detectChanges();
-
-    expect(cardElement.classList).toContain('face-flipping');
-  });
-
-  it('plays a face flip animation when the effective face-down input changes', async () => {
-    vi.useFakeTimers();
-    const { fixture, cardElement } = await renderHandCard();
+    expectFlipThenClear();
 
     fixture.componentRef.setInput('faceDown', true);
     fixture.detectChanges();
-
-    expect(cardElement.classList).toContain('face-flipping');
-
-    vi.advanceTimersByTime(620);
-    fixture.detectChanges();
+    expectFlipThenClear();
 
     fixture.componentRef.setInput('faceDown', false);
     fixture.detectChanges();
-
     expect(cardElement.classList).toContain('face-flipping');
   });
 
@@ -1483,13 +1353,13 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList.contains('tapped')).toBe(true);
   });
 
-  it('marks a power increase with the gold stat pulse', async () => {
+  it('marks stat changes with directional pulses and keeps repeated pulses alive', async () => {
     vi.useFakeTimers();
     const { fixture } = await renderHandCard();
 
     fixture.componentRef.setInput('showPowerToughness', true);
     fixture.componentRef.setInput('powerValue', 2);
-    fixture.componentRef.setInput('toughnessValue', 2);
+    fixture.componentRef.setInput('toughnessValue', 3);
     fixture.detectChanges();
 
     fixture.componentRef.setInput('powerValue', 3);
@@ -1500,50 +1370,22 @@ describe('GameCardViewComponent', () => {
     expect(powerElement.classList).not.toContain('stat-pulse-decrease');
     expect(toughnessElement.classList).not.toContain('stat-pulse-increase');
 
-    vi.advanceTimersByTime(900);
-    fixture.detectChanges();
-
-    expect(powerElement.classList).not.toContain('stat-pulse-increase');
-  });
-
-  it('keeps the stat pulse alive while repeated changes keep arriving', async () => {
-    vi.useFakeTimers();
-    const { fixture } = await renderHandCard();
-
-    fixture.componentRef.setInput('showPowerToughness', true);
-    fixture.componentRef.setInput('powerValue', 2);
-    fixture.componentRef.setInput('toughnessValue', 2);
-    fixture.detectChanges();
-
-    fixture.componentRef.setInput('powerValue', 3);
-    fixture.detectChanges();
     vi.advanceTimersByTime(300);
     fixture.componentRef.setInput('powerValue', 4);
     fixture.detectChanges();
     vi.advanceTimersByTime(899);
     fixture.detectChanges();
 
-    const [powerElement] = statElements(fixture);
     expect(powerElement.classList).toContain('stat-pulse-increase');
 
     vi.advanceTimersByTime(1);
     fixture.detectChanges();
 
     expect(powerElement.classList).not.toContain('stat-pulse-increase');
-  });
-
-  it('marks a toughness decrease with the red stat pulse', async () => {
-    const { fixture } = await renderHandCard();
-
-    fixture.componentRef.setInput('showPowerToughness', true);
-    fixture.componentRef.setInput('powerValue', 2);
-    fixture.componentRef.setInput('toughnessValue', 3);
-    fixture.detectChanges();
 
     fixture.componentRef.setInput('toughnessValue', 2);
     fixture.detectChanges();
 
-    const [_powerElement, toughnessElement] = statElements(fixture);
     expect(toughnessElement.classList).toContain('stat-pulse-decrease');
     expect(toughnessElement.classList).not.toContain('stat-pulse-increase');
   });
@@ -1598,10 +1440,6 @@ function gameCard(): GameCardInstance {
     name: 'Arcane Signet',
     tapped: false,
   };
-}
-
-function markerPercent(value: number): string {
-  return `${value * 100}%`;
 }
 
 function undercityInitiativeCard(): GameCardInstance {

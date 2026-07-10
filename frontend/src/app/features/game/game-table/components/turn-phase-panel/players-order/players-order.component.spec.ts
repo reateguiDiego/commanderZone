@@ -3,7 +3,7 @@ import { PlayerView } from '../../../game-table.store';
 import { PlayersOrderComponent } from './players-order.component';
 
 describe('PlayersOrderComponent', () => {
-  it('places the active turn player at the far left', async () => {
+  it('orders players from the active turn and marks active/current cards', async () => {
     const fixture = await renderPlayersOrder({
       activePlayerId: 'player-2',
       currentPlayerId: 'player-1',
@@ -16,20 +16,11 @@ describe('PlayersOrderComponent', () => {
     expect(cards[0]?.textContent).toContain('Turn 7');
     expect(cards[1]?.textContent).toContain('In 1');
     expect(cards[2]?.textContent).toContain('In 2');
-  });
-
-  it('marks the active and current player cards separately', async () => {
-    const fixture = await renderPlayersOrder({
-      activePlayerId: 'player-2',
-      currentPlayerId: 'player-1',
-    });
-
-    const cards = orderCards(fixture);
     expect(cards[0]?.classList).toContain('active');
     expect(cards[2]?.classList).toContain('current-player');
   });
 
-  it('keeps six players in one ordered row', async () => {
+  it('keeps six players in turn order and hides defeated players', async () => {
     const fixture = await renderPlayersOrder({
       activePlayerId: 'player-4',
       currentPlayerId: 'player-2',
@@ -53,22 +44,19 @@ describe('PlayersOrderComponent', () => {
       'player-2',
       'player-3',
     ]);
-  });
 
-  it('hides defeated players from the turn order', async () => {
-    const fixture = await renderPlayersOrder({
-      activePlayerId: 'player-1',
-      currentPlayerId: 'player-1',
-      players: [
-        player('player-1', 'Alive'),
-        player('player-2', 'Dead', { life: 0 }),
-        player('player-3', 'Conceded', { status: 'conceded' }),
-      ],
-    });
+    fixture.componentRef.setInput('activePlayerId', 'player-1');
+    fixture.componentRef.setInput('currentPlayerId', 'player-1');
+    fixture.componentRef.setInput('players', [
+      player('player-1', 'Alive'),
+      player('player-2', 'Dead', { life: 0 }),
+      player('player-3', 'Conceded', { status: 'conceded' }),
+    ]);
+    fixture.detectChanges();
 
-    const cards = orderCards(fixture);
-    expect(cards).toHaveLength(1);
-    expect(cards[0]?.dataset['playerId']).toBe('player-1');
+    const visibleCards = orderCards(fixture);
+    expect(visibleCards).toHaveLength(1);
+    expect(visibleCards[0]?.dataset['playerId']).toBe('player-1');
   });
 });
 

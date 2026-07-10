@@ -69,8 +69,13 @@
 .page-header-title-main {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.55rem;
   min-width: 0;
+}
+
+.page-header-bracket-pill {
+  flex: 0 0 auto;
 }
 
 .page-header-title-meta {

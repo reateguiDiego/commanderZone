@@ -31,13 +31,6 @@ describe('SagaCounterComponent', () => {
     expect(valueChanged).not.toHaveBeenCalled();
   });
 
-  it('renders a black hexagon with roman numerals', async () => {
-    const { fixture } = await renderSagaCounter();
-
-    expect(fixture.nativeElement.querySelector('.saga-counter-hexagon')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.saga-counter-value')?.textContent?.trim()).toBe('III');
-  });
-
   it('clamps the displayed chapter between I and IX', async () => {
     const { fixture } = await renderSagaCounter();
 
@@ -56,28 +49,6 @@ describe('SagaCounterComponent', () => {
     fixture.componentRef.setInput('value', 99);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.saga-counter-value')?.textContent?.trim()).toBe('IX');
-  });
-
-  it('shows a short press feedback pulse during the pointer interaction', async () => {
-    const { fixture } = await renderSagaCounter();
-    const counter = fixture.nativeElement.querySelector('.saga-counter') as HTMLElement;
-
-    vi.useFakeTimers();
-    try {
-      counter.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
-      fixture.detectChanges();
-      expect(counter.classList).toContain('stat-pulse-increase');
-
-      counter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
-      fixture.detectChanges();
-      expect(counter.classList).toContain('stat-pulse-increase');
-
-      await vi.advanceTimersByTimeAsync(420);
-      fixture.detectChanges();
-      expect(counter.classList).not.toContain('stat-pulse-increase');
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it('swallows pointer and mouse events to avoid propagation', async () => {

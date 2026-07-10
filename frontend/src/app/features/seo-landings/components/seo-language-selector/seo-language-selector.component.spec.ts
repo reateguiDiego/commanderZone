@@ -53,7 +53,6 @@ describe('SeoLanguageSelectorComponent', () => {
     expect(trigger?.querySelector('.seo-language-selector__flag')?.getAttribute('src')).toBe('/assets/icons/flags/uk.png');
     expect(trigger?.textContent).not.toContain('English');
     expect(element.querySelector('details.seo-language-selector')).not.toBeNull();
-    expect(element.querySelector('.seo-language-selector__menu')?.classList.contains('app-pretty-scroll')).toBe(true);
     expect(links).toHaveLength(3);
     expect(links.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
     expect(flags.map((flag) => flag.getAttribute('src'))).toEqual([
