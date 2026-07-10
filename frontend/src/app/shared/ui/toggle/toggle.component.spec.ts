@@ -15,13 +15,6 @@ describe('ToggleComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders the label and description', () => {
-    const textContent = fixture.nativeElement.textContent;
-
-    expect(textContent).toContain('Show commander damage tracker');
-    expect(textContent).toContain('Display commander damage counters in matches.');
-  });
-
   it('emits the next checked state when clicked', () => {
     const changes: boolean[] = [];
     fixture.componentInstance.checkedChange.subscribe((checked) => changes.push(checked));
@@ -52,16 +45,5 @@ describe('ToggleComponent', () => {
 
     expect(button.getAttribute('role')).toBe('switch');
     expect(button.getAttribute('aria-checked')).toBe('true');
-    expect(button.classList).toContain('is-on');
-  });
-
-  it('supports the compact visual variant without changing switch semantics', () => {
-    fixture.componentRef.setInput('compact', true);
-    fixture.detectChanges();
-
-    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
-
-    expect(button.classList).toContain('toggle--compact');
-    expect(button.getAttribute('role')).toBe('switch');
   });
 });

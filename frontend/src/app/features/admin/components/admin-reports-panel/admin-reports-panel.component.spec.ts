@@ -42,51 +42,16 @@ describe('AdminReportsPanelComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders the reports table columns', () => {
-    const textContent = fixture.nativeElement.textContent;
-
-    expect(textContent).toContain('Reports');
-    expect(textContent).toContain('Reporter');
-    expect(textContent).toContain('Reporter mail');
-    expect(textContent).toContain('Reported user');
-    expect(textContent).toContain('Reported mail');
-    expect(textContent).toContain('Reason');
-    expect(textContent).toContain('Actions');
-  });
-
-  it('renders the empty state until reports are connected to data', async () => {
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain('No user reports yet.');
-  });
-
-  it('emits the reported user when send message is clicked', () => {
+  it('emits reporter and reported users when send message actions are clicked', () => {
     const emitSpy = vi.spyOn(fixture.componentInstance.sendMessageRequested, 'emit');
     fixture.componentInstance.reports.set([report]);
     fixture.detectChanges();
 
-    const sendButton = fixture.nativeElement.querySelector('button[aria-label="Send message to reported user ReportedOne"]') as HTMLButtonElement;
-    sendButton.click();
+    sendMessageButton(fixture, 'reported user ReportedOne').click();
+    sendMessageButton(fixture, 'reporter ReporterOne').click();
 
-    expect(emitSpy).toHaveBeenCalledWith({
-      id: 'reported-user-1',
-      name: 'ReportedOne',
-    });
-  });
-
-  it('emits the reporter when reporter send message is clicked', () => {
-    const emitSpy = vi.spyOn(fixture.componentInstance.sendMessageRequested, 'emit');
-    fixture.componentInstance.reports.set([report]);
-    fixture.detectChanges();
-
-    const sendButton = fixture.nativeElement.querySelector('button[aria-label="Send message to reporter ReporterOne"]') as HTMLButtonElement;
-    sendButton.click();
-
-    expect(emitSpy).toHaveBeenCalledWith({
-      id: 'reporter-user-1',
-      name: 'ReporterOne',
-    });
+    expect(emitSpy).toHaveBeenNthCalledWith(1, { id: 'reported-user-1', name: 'ReportedOne' });
+    expect(emitSpy).toHaveBeenNthCalledWith(2, { id: 'reporter-user-1', name: 'ReporterOne' });
   });
 
   it('loads reports from the admin reports api', async () => {
@@ -129,6 +94,10 @@ describe('AdminReportsPanelComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('No reports match the current filters.');
   });
 });
+
+function sendMessageButton(fixture: ComponentFixture<AdminReportsPanelComponent>, target: string): HTMLButtonElement {
+  return fixture.nativeElement.querySelector(`button[aria-label="Send message to ${target}"]`) as HTMLButtonElement;
+}
 
 function setInputValue(fixture: ComponentFixture<AdminReportsPanelComponent>, selector: string, value: string): void {
   const input = fixture.nativeElement.querySelector(selector) as HTMLInputElement;

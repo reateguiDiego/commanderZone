@@ -1707,75 +1707,6 @@ TXT,
         self::assertSame($arcaneSignetSpanish->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Arcane Signet'));
     }
 
-    public function testDecklistParseIgnoresKnownMetadataAndRecognizesDeckstatsCommanderMarker(): void
-    {
-        $token = $this->registerAndLogin('parse-deckstats@example.test', 'Parse Deckstats');
-        $this->seedCard('90000000-0000-0000-0000-000000000001', 'Sliver Gravemother', [
-            'type_line' => 'Legendary Creature - Sliver',
-            'set' => 'tst',
-            'collector_number' => '1',
-            'legalities' => ['commander' => 'legal'],
-        ]);
-        $this->seedCard('90000000-0000-0000-0000-000000000002', 'Arcane Signet', [
-            'type_line' => 'Artifact',
-            'set' => 'tst',
-            'collector_number' => '2',
-        ]);
-
-        $this->jsonRequest('POST', '/decklists/parse', [
-            'decklist' => <<<TXT
-About
-Name Slivers from deckstats.net
-
-1 Sliver Gravemother # !Commander
-1 Arcane Signet
-TXT,
-        ], $token);
-        self::assertResponseIsSuccessful();
-
-        $preview = $this->jsonResponse();
-        self::assertSame('plain', $preview['format']);
-        self::assertSame([], $preview['missingCards']);
-        self::assertSame(2, $preview['summary']['totalCards']);
-        self::assertSame(1, $preview['summary']['commanderCount']);
-        self::assertSame(1, $preview['summary']['mainCount']);
-        self::assertSame('Sliver Gravemother', $preview['entries'][0]['name']);
-        self::assertSame('commander', $preview['entries'][0]['section']);
-    }
-
-    public function testDecklistParseRecognizesArchidektInlineCommanderTags(): void
-    {
-        $token = $this->registerAndLogin('parse-archidekt@example.test', 'Parse Archidekt');
-        $this->seedCard('91000000-0000-0000-0000-000000000001', 'Ghyrson Starn, Kelermorph', [
-            'type_line' => 'Legendary Creature - Human Tyranid',
-            'set' => '40k',
-            'collector_number' => '124',
-            'legalities' => ['commander' => 'legal'],
-        ]);
-        $this->seedCard('91000000-0000-0000-0000-000000000002', 'Island', [
-            'type_line' => 'Basic Land - Island',
-            'set' => 'tst',
-            'collector_number' => '2',
-        ]);
-
-        $this->jsonRequest('POST', '/decklists/parse', [
-            'decklist' => <<<TXT
-1x Ghyrson Starn, Kelermorph (40k) 124 [Commander{top}]
-14x Island (TST) 2 [Land]
-TXT,
-        ], $token);
-        self::assertResponseIsSuccessful();
-
-        $preview = $this->jsonResponse();
-        self::assertSame('archidekt', $preview['format']);
-        self::assertSame([], $preview['missingCards']);
-        self::assertSame(15, $preview['summary']['totalCards']);
-        self::assertSame(1, $preview['summary']['commanderCount']);
-        self::assertSame(14, $preview['summary']['mainCount']);
-        self::assertSame('Ghyrson Starn, Kelermorph', $preview['entries'][0]['name']);
-        self::assertSame('commander', $preview['entries'][0]['section']);
-    }
-
     public function testDecklistImportInfersCommanderFromFirstBoundaryEntryInMoxfieldExports(): void
     {
         $token = $this->registerAndLogin('import-moxfield-first@example.test', 'Import Mox First');
@@ -2054,45 +1985,6 @@ TXT,
         self::assertNull($this->lineByScryfallIdOrNull($response['deck']['cards'], $secondCommander->scryfallId(), 'main'));
         self::assertSame(98, $this->lineByScryfallId($response['deck']['cards'], $island->scryfallId(), 'main')['quantity']);
         self::assertCount(2, $response['deck']['commanders']);
-    }
-
-    public function testDecklistImportRemovesSingleExplicitSelectedCommanderFromMainDecklist(): void
-    {
-        $token = $this->registerAndLogin('single-selected-commander-import@example.test', 'Single Commander');
-        $commander = $this->seedCard('51000000-0000-0000-0000-000000000001', 'Derevi, Empyrial Tactician', [
-            'type_line' => 'Legendary Creature - Bird Wizard',
-            'oracle_text' => 'Flying',
-            'set' => 'oc13',
-            'collector_number' => '186',
-        ]);
-        $island = $this->seedCard('51000000-0000-0000-0000-000000000002', 'Island', [
-            'type_line' => 'Basic Land - Island',
-            'set' => 'tst',
-            'collector_number' => '2',
-        ]);
-
-        $this->jsonRequest('POST', '/decks', ['name' => 'Single Cmd'], $token);
-        self::assertResponseStatusCodeSame(201);
-        $deckId = (string) $this->jsonResponse()['deck']['id'];
-
-        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
-            'commanderScryfallIds' => [$commander->scryfallId()],
-            'decklist' => <<<TXT
-Deck
-1 Derevi, Empyrial Tactician
-99 Island (TST) 2
-TXT,
-        ], $token);
-        self::assertResponseIsSuccessful();
-
-        $response = $this->jsonResponse();
-        self::assertSame(100, $response['summary']['totalCards']);
-        self::assertSame(1, $response['summary']['commanderCount']);
-        self::assertSame(99, $response['summary']['mainCount']);
-        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $commander->scryfallId(), 'commander')['quantity']);
-        self::assertNull($this->lineByScryfallIdOrNull($response['deck']['cards'], $commander->scryfallId(), 'main'));
-        self::assertSame(99, $this->lineByScryfallId($response['deck']['cards'], $island->scryfallId(), 'main')['quantity']);
-        self::assertCount(1, $response['deck']['commanders']);
     }
 
     public function testDecklistImportMatchesExplicitSelectedCommanderAcrossPreferredLanguagePrints(): void

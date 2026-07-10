@@ -38,44 +38,24 @@ class GameRuntimeWebsocketUrlFactoryTest extends TestCase
         );
     }
 
-    public function testRejectsMissingRuntimePublicUrl(): void
+    public function testRejectsInvalidProductionRuntimePublicUrls(): void
     {
-        $factory = new GameRuntimeWebsocketUrlFactory('', true, 'prod');
-
-        $this->expectException(GameRuntimeWebsocketConfigurationException::class);
-        $this->expectExceptionMessage('GAME_RUNTIME_WEBSOCKET_PUBLIC_URL must be configured.');
-
-        $factory->urlWithTicket('ticket-1');
-    }
-
-    public function testRejectsProductionRuntimeDefaultUrl(): void
-    {
-        $factory = new GameRuntimeWebsocketUrlFactory('ws://127.0.0.1:8091/ws', true, 'prod');
-
-        $this->expectException(GameRuntimeWebsocketConfigurationException::class);
-        $this->expectExceptionMessage('GAME_RUNTIME_WEBSOCKET_PUBLIC_URL must be a public runtime websocket URL in prod when GAME_RUNTIME_ENABLED=1.');
-
-        $factory->urlWithTicket('ticket-1');
-    }
-
-    public function testRejectsProductionInsecurePublicUrl(): void
-    {
-        $factory = new GameRuntimeWebsocketUrlFactory('ws://runtime.commanderzone.test/ws', true, 'prod');
-
-        $this->expectException(GameRuntimeWebsocketConfigurationException::class);
-        $this->expectExceptionMessage('GAME_RUNTIME_WEBSOCKET_PUBLIC_URL must use wss:// in prod when GAME_RUNTIME_ENABLED=1.');
-
-        $factory->urlWithTicket('ticket-1');
-    }
-
-    public function testRejectsProductionLocalhostEvenWithSecureScheme(): void
-    {
-        $factory = new GameRuntimeWebsocketUrlFactory('wss://localhost/ws', true, 'prod');
-
-        $this->expectException(GameRuntimeWebsocketConfigurationException::class);
-        $this->expectExceptionMessage('GAME_RUNTIME_WEBSOCKET_PUBLIC_URL must be a public runtime websocket URL in prod when GAME_RUNTIME_ENABLED=1.');
-
-        $factory->urlWithTicket('ticket-1');
+        $this->assertInvalidRuntimePublicUrl(
+            '',
+            'GAME_RUNTIME_WEBSOCKET_PUBLIC_URL must be configured.',
+        );
+        $this->assertInvalidRuntimePublicUrl(
+            'ws://127.0.0.1:8091/ws',
+            'GAME_RUNTIME_WEBSOCKET_PUBLIC_URL must be a public runtime websocket URL in prod when GAME_RUNTIME_ENABLED=1.',
+        );
+        $this->assertInvalidRuntimePublicUrl(
+            'ws://runtime.commanderzone.test/ws',
+            'GAME_RUNTIME_WEBSOCKET_PUBLIC_URL must use wss:// in prod when GAME_RUNTIME_ENABLED=1.',
+        );
+        $this->assertInvalidRuntimePublicUrl(
+            'wss://localhost/ws',
+            'GAME_RUNTIME_WEBSOCKET_PUBLIC_URL must be a public runtime websocket URL in prod when GAME_RUNTIME_ENABLED=1.',
+        );
     }
 
     public function testDoesNotApplyProductionPublicUrlGuardWhenRuntimeIsDisabled(): void
@@ -86,5 +66,15 @@ class GameRuntimeWebsocketUrlFactoryTest extends TestCase
             'ws://127.0.0.1:8091/ws?ticket=ticket-1',
             $factory->urlWithTicket('ticket-1'),
         );
+    }
+
+    private function assertInvalidRuntimePublicUrl(string $publicUrl, string $expectedMessage): void
+    {
+        try {
+            (new GameRuntimeWebsocketUrlFactory($publicUrl, true, 'prod'))->urlWithTicket('ticket-1');
+            self::fail('Expected invalid runtime websocket public URL to be rejected.');
+        } catch (GameRuntimeWebsocketConfigurationException $exception) {
+            self::assertSame($expectedMessage, $exception->getMessage());
+        }
     }
 }

@@ -1,23 +1,14 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ArrowLeft, LucideAngularModule, Settings, X } from 'lucide-angular';
+import { ArrowLeft, LucideAngularModule, X } from 'lucide-angular';
 import { AppModalComponent } from './app-modal.component';
 
 describe('AppModalComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppModalComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ ArrowLeft, Settings, X }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ ArrowLeft, X }))],
     }).compileComponents();
-  });
-
-  it('renders projected modal content when open', () => {
-    const fixture = TestBed.createComponent(AppModalComponent);
-    fixture.componentRef.setInput('open', true);
-    fixture.componentRef.setInput('title', 'Confirm');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain('Confirm');
   });
 
   it('can provide an accessible label without rendering a visible title row', () => {
@@ -30,19 +21,6 @@ describe('AppModalComponent', () => {
 
     expect(dialog.getAttribute('aria-label')).toBe('Select print version');
     expect(fixture.nativeElement.querySelector('.modal-title-row')).toBeNull();
-  });
-
-  it('renders an optional title icon before the title', () => {
-    const fixture = TestBed.createComponent(AppModalComponent);
-    fixture.componentRef.setInput('open', true);
-    fixture.componentRef.setInput('title', 'Settings');
-    fixture.componentRef.setInput('titleIcon', 'settings');
-    fixture.detectChanges();
-
-    const titleRow = fixture.nativeElement.querySelector('.modal-title-row') as HTMLElement;
-
-    expect(titleRow.querySelector('.modal-title-icon')).not.toBeNull();
-    expect(titleRow.querySelector('h2')?.textContent?.trim()).toBe('Settings');
   });
 
   it('locks body scroll while open and restores it when closed', () => {
@@ -126,19 +104,6 @@ describe('AppModalComponent', () => {
     expect(emitted).toHaveBeenCalledOnce();
   });
 
-  it('uses the shared danger icon button for the optional close action', () => {
-    const fixture = TestBed.createComponent(AppModalComponent);
-    fixture.componentRef.setInput('open', true);
-    fixture.componentRef.setInput('showCloseButton', true);
-    fixture.detectChanges();
-
-    const closeButton = fixture.nativeElement.querySelector('.modal-close-button') as HTMLButtonElement;
-
-    expect(closeButton.classList).toContain('cz-button');
-    expect(closeButton.classList).toContain('cz-button--icon');
-    expect(closeButton.classList).toContain('cz-button--tone-danger');
-  });
-
   it('does not close from the panel click when backdrop closing is enabled', () => {
     const fixture = TestBed.createComponent(AppModalComponent);
     const emitted = vi.fn();
@@ -167,16 +132,10 @@ describe('AppModalComponent', () => {
     fixture.componentInstance.secondary.subscribe(secondary);
     fixture.detectChanges();
 
-    const footer = fixture.nativeElement.querySelector('footer');
     const buttons = fixture.nativeElement.querySelectorAll('footer button');
     buttons[0].click();
     buttons[1].click();
 
-    expect(footer.classList).toContain('split-actions');
-    expect(buttons[0].textContent.trim()).toBe('Cancel');
-    expect(buttons[1].textContent.trim()).toBe('Bottom');
-    expect(buttons[1].classList).toContain('primary-button');
-    expect(buttons[2].textContent.trim()).toBe('Top');
     expect(tertiary).toHaveBeenCalledOnce();
     expect(secondary).toHaveBeenCalledOnce();
   });

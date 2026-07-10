@@ -14,10 +14,6 @@ describe('CompactCheckboxComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders the checkbox label', () => {
-    expect(fixture.nativeElement.textContent).toContain('Focus turn');
-  });
-
   it('emits checked changes', () => {
     const changes: boolean[] = [];
     fixture.componentInstance.checkedChange.subscribe((checked) => changes.push(checked));

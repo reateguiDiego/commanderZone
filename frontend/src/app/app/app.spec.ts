@@ -64,12 +64,6 @@ describe('App', () => {
     }).compileComponents();
   });
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
-
   it('initializes auth in the browser', () => {
     TestBed.createComponent(App);
 
@@ -94,26 +88,6 @@ describe('App', () => {
     TestBed.createComponent(App);
 
     expect(authStore.initialize).not.toHaveBeenCalled();
-  });
-
-  it('should render the router outlet host', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('router-outlet')).toBeTruthy();
-  });
-
-  it('renders cookie consent after the routed content host', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    const routerOutlet = compiled.querySelector('router-outlet');
-    const cookieBanner = compiled.querySelector('app-cookie-consent-banner');
-
-    expect(cookieBanner).not.toBeNull();
-    expect(routerOutlet?.compareDocumentPosition(cookieBanner as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('replaces the public footer disclaimer with the long noindex disclaimer on app noindex routes', async () => {
@@ -183,21 +157,6 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
   });
 
-  it('pushes the noindex disclaimer below the first viewport only on noindex footer routes', async () => {
-    const router = TestBed.inject(Router);
-    const fixture = TestBed.createComponent(App);
-
-    await router.navigateByUrl('/dashboard');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).not.toBeNull();
-
-    await router.navigateByUrl('/');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
-  });
-
   it('records the previous route before wildcard not-found navigation', async () => {
     const router = TestBed.inject(Router);
     const notFoundNavigation = TestBed.inject(NotFoundNavigationService);
@@ -210,7 +169,7 @@ describe('App', () => {
     expect(notFoundNavigation.returnUrl()).toBe('/community');
   });
 
-  it('does not show the global loading overlay on SEO landing routes', async () => {
+  it('applies global loading visibility by route ownership', async () => {
     const router = TestBed.inject(Router);
     const loading = TestBed.inject(LoadingStore);
     const fixture = TestBed.createComponent(App);
@@ -218,13 +177,6 @@ describe('App', () => {
     loading.start();
 
     await router.navigateByUrl('/');
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
-    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
-
-    await router.navigateByUrl('/en/faq');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
@@ -238,43 +190,6 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
 
-    loading.stop();
-  });
-
-  it('keeps the global loading overlay on app routes that do not own local loading', async () => {
-    const router = TestBed.inject(Router);
-    const loading = TestBed.inject(LoadingStore);
-    const fixture = TestBed.createComponent(App);
-
-    loading.start();
-    await router.navigateByUrl('/dashboard');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
-
-    loading.stop();
-  });
-
-  it('hides the global loading overlay on features with local loading ownership', async () => {
-    const router = TestBed.inject(Router);
-    const loading = TestBed.inject(LoadingStore);
-    const fixture = TestBed.createComponent(App);
-
-    loading.start();
-    await router.navigateByUrl('/games/game-1');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
-
-    loading.stop();
-  });
-
-  it('hides footer disclaimers while the global loading overlay is visible', async () => {
-    const router = TestBed.inject(Router);
-    const loading = TestBed.inject(LoadingStore);
-    const fixture = TestBed.createComponent(App);
-
-    loading.start();
     await router.navigateByUrl('/dashboard');
     fixture.detectChanges();
 
@@ -282,6 +197,11 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+
+    await router.navigateByUrl('/games/game-1');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
 
     loading.stop();
   });

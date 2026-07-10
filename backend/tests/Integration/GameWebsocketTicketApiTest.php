@@ -6,16 +6,14 @@ class GameWebsocketTicketApiTest extends ApiTestCase
 {
     public function testWebsocketTicketEndpointRequiresAuthentication(): void
     {
-        $fixture = $this->startedGameFixture('ws-auth-required');
-
-        $this->jsonRequest('POST', '/games/'.$fixture['gameId'].'/websocket-ticket');
+        $this->jsonRequest('POST', '/games/00000000-0000-7000-8000-000000000001/websocket-ticket');
 
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testWebsocketTicketEndpointRejectsMissingGameAndOutsider(): void
+    public function testWebsocketTicketEndpointEnforcesAccessAndIssuesTicketForGameParticipants(): void
     {
-        $fixture = $this->startedGameFixture('ws-access');
+        $fixture = $this->startedGameFixture('ws-ticket');
         $outsiderToken = $this->registerAndLogin('ws-outsider@example.test', 'Ws Outsider');
 
         $this->jsonRequest('POST', '/games/00000000-0000-7000-8000-000000000000/websocket-ticket', token: $fixture['ownerToken']);
@@ -23,11 +21,6 @@ class GameWebsocketTicketApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/games/'.$fixture['gameId'].'/websocket-ticket', token: $outsiderToken);
         self::assertResponseStatusCodeSame(403);
-    }
-
-    public function testWebsocketTicketEndpointIssuesTicketForGameParticipants(): void
-    {
-        $fixture = $this->startedGameFixture('ws-ticket');
 
         $this->jsonRequest('POST', '/games/'.$fixture['gameId'].'/websocket-ticket', token: $fixture['ownerToken']);
         self::assertResponseIsSuccessful();

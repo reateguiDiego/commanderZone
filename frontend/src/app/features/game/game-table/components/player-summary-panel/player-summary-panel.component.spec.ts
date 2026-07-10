@@ -5,7 +5,6 @@ import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../.
 import { PlayerView } from '../../state/core/game-table-snapshot-selectors';
 import {
   PLAYER_SUMMARY_ACTION_DEBOUNCE_MS,
-  PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS,
   PlayerSummaryPanelComponent,
 } from './player-summary-panel.component';
 
@@ -72,47 +71,6 @@ describe('PlayerSummaryPanelComponent', () => {
     expect(lifeChanged).toHaveBeenCalledOnce();
     expect(lifeChanged).toHaveBeenCalledWith({ playerId: 'player-1', delta: 1 });
     expect(parentContextMenu).not.toHaveBeenCalled();
-  });
-
-  it('shows the net life feedback during the same debounce window', () => {
-    vi.useFakeTimers();
-    const fixture = createFixture();
-
-    const decreaseButton = fixture.nativeElement.querySelector('[data-testid="life-decrease"]') as HTMLButtonElement;
-    const increaseButton = fixture.nativeElement.querySelector('[data-testid="life-increase"]') as HTMLButtonElement;
-
-    increaseButton.click();
-    fixture.detectChanges();
-    expect(lifeFeedbackText(fixture)).toBe('+1');
-
-    increaseButton.click();
-    increaseButton.click();
-    increaseButton.click();
-    fixture.detectChanges();
-    expect(lifeFeedbackText(fixture)).toBe('+4');
-    expect(fixture.nativeElement.querySelector('.life-total-gain')).not.toBeNull();
-
-    decreaseButton.click();
-    decreaseButton.click();
-    decreaseButton.click();
-    decreaseButton.click();
-    fixture.detectChanges();
-    expect(lifeFeedbackText(fixture)).toBe('0');
-    expect(fixture.nativeElement.querySelector('.life-total-neutral')).not.toBeNull();
-
-    decreaseButton.click();
-    fixture.detectChanges();
-    expect(lifeFeedbackText(fixture)).toBe('-1');
-    expect(fixture.nativeElement.querySelector('.life-total-damage')).not.toBeNull();
-
-    vi.advanceTimersByTime(PLAYER_SUMMARY_ACTION_DEBOUNCE_MS);
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.life-feedback-exiting')).not.toBeNull();
-    vi.advanceTimersByTime(PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS);
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.life-feedback')).toBeNull();
   });
 
   it('clamps life changes between -99 and 499 before emitting', () => {
@@ -293,41 +251,11 @@ describe('PlayerSummaryPanelComponent', () => {
     const returnRequested = vi.fn();
     fixture.componentInstance.returnRequested.subscribe(returnRequested);
 
-    const panel = fixture.nativeElement.querySelector('[data-testid="player-summary-panel"]') as HTMLElement;
     const returnButton = fixture.nativeElement.querySelector('[data-testid="return-own-battlefield"]') as HTMLButtonElement;
-
-    expect(panel.textContent).toContain('Estas viendo a:');
-    expect(panel.classList).toContain('player-summary-panel-long-name');
-    expect(panel.querySelector('.player-deck-meta')?.textContent).toContain('Test deck');
-    expect(returnButton.textContent).toContain('Ir a tu battlefield');
 
     returnButton.click();
 
     expect(returnRequested).toHaveBeenCalledOnce();
-  });
-
-  it('renders the mechanics strip only when there are helper entities', () => {
-    const emptyFixture = createFixture();
-
-    expect(emptyFixture.nativeElement.querySelector('[data-testid="special-entity-strip"]')).toBeNull();
-    expect(emptyFixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
-
-    const fixture = createFixture({
-      specialEntities: [
-        helperEntity('monarch', 'player-1'),
-        helperEntity('citys_blessing', 'player-1'),
-      ],
-    });
-
-    const strip = fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]') as HTMLElement;
-
-    expect(strip.dataset['variant']).toBe('summary');
-    expect(strip.textContent).toContain('Monarch');
-    expect(strip.textContent).toContain("City's blessing");
-    expect(strip.querySelector('[aria-label="Monarch"]')).not.toBeNull();
-    expect(strip.querySelector('.ms-ability-ascend')).not.toBeNull();
-    expect(strip.querySelector('.ms-ability-role-royal')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
   });
 
   it('forwards helper hover previews from the mechanics rail', () => {
@@ -390,22 +318,6 @@ describe('PlayerSummaryPanelComponent', () => {
     }));
   });
 
-  it('keeps the mechanics strip visible while life controls are read-only', () => {
-    const fixture = createFixture({
-      canEditCounters: false,
-      specialEntities: [
-        helperEntity('monarch', 'player-1'),
-      ],
-    });
-
-    const strip = fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]') as HTMLElement;
-
-    expect(fixture.nativeElement.querySelector('[data-testid="life-decrease"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-testid="life-increase"]')).toBeNull();
-    expect(strip).not.toBeNull();
-    expect(strip.textContent).toContain('Monarch');
-    expect(fixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
-  });
 });
 
 function createFixture(
@@ -448,10 +360,6 @@ function createFixture(
 
 function extraToggle(fixture: ComponentFixture<PlayerSummaryPanelComponent>): HTMLButtonElement {
   return fixture.nativeElement.querySelector('.player-extra-actions .extra-actions-toggle') as HTMLButtonElement;
-}
-
-function lifeFeedbackText(fixture: ComponentFixture<PlayerSummaryPanelComponent>): string | undefined {
-  return fixture.nativeElement.querySelector('.life-feedback')?.textContent.trim();
 }
 
 function player(

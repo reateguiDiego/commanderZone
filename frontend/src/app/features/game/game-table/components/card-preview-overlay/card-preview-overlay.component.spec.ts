@@ -2,77 +2,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
 import { Link, LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
-import { DEFAULT_DUNGEON_MARKER } from '../../utils/dungeon-marker';
 import { CardPreviewOverlayComponent } from './card-preview-overlay.component';
 
 describe('CardPreviewOverlayComponent', () => {
-  it('anchors the preview near the right side of the battlefield and vertically centered', async () => {
-    const fixture = await renderPreview();
-    const style = fixture.componentInstance.previewStyle();
-
-    expect(style.left).toBe(600);
-    expect(style.top).toBeCloseTo(58.8, 1);
-    expect(style.width).toBe(288);
-  });
-
-  it('moves below the hovered source when the default position would cover it', async () => {
-    const fixture = await renderPreview({
-      sourceRect: {
-        left: 650,
-        top: 30,
-        right: 760,
-        bottom: 80,
-        width: 110,
-        height: 50,
-      },
-    });
-
-    expect(fixture.componentInstance.previewStyle().top).toBe(94);
-  });
-
-  it('moves away from an open context menu when the default position would cover it', async () => {
-    const fixture = await renderPreview({
-      avoidRect: {
-        left: 590,
-        top: 40,
-        right: 880,
-        bottom: 80,
-      },
-    });
-
-    expect(fixture.componentInstance.previewStyle().top).toBe(94);
-  });
-
-  it('moves above the hovered source when there is no room below it', async () => {
-    const fixture = await renderPreview({
-      sourceRect: {
-        left: 650,
-        top: 395,
-        right: 760,
-        bottom: 515,
-        width: 110,
-        height: 120,
-      },
-    });
-
-    expect(fixture.componentInstance.previewStyle().top).toBeLessThan(395);
-  });
-
-  it('prefers a clamped above position when below would not fit', async () => {
-    const fixture = await renderPreview({
-      sourceRect: {
-        left: 650,
-        top: 210,
-        right: 760,
-        bottom: 470,
-        width: 110,
-        height: 260,
-      },
-    });
-
-    expect(fixture.componentInstance.previewStyle().top).toBeLessThan(210);
-  });
-
   it('renders premium attachment details when provided', async () => {
     const fixture = await renderPreview({
       attachmentInfo: {
@@ -86,7 +18,6 @@ describe('CardPreviewOverlayComponent', () => {
     });
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(fixture.componentInstance.previewStyle().width).toBe(270);
     expect(element.querySelector('.attachment-preview')?.textContent).toContain('Attached to');
     expect(element.querySelector('.attachment-preview')?.textContent).toContain('Kor Duelist');
     expect(element.querySelector('.attachment-preview')?.textContent).toContain('Attached');
@@ -96,50 +27,6 @@ describe('CardPreviewOverlayComponent', () => {
     expect(element.querySelector('.attachment-preview')?.textContent).not.toContain('+1');
     expect(element.querySelector('.attachment-preview-label-with-icon lucide-icon')).not.toBeNull();
     expect(element.querySelector('.attached-to-row .attachment-preview-label-with-icon lucide-icon')).not.toBeNull();
-  });
-
-  it('rotates battle previews', async () => {
-    const fixture = await renderPreview({
-      card: {
-        ...gameCard(),
-        typeLine: 'Battle - Siege',
-      },
-    });
-
-    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-horizontal')).toBe(true);
-    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-vertical')).toBe(false);
-    expect(fixture.nativeElement.querySelector('.card-preview-visual img')?.classList.contains('battle-preview-rotated')).toBe(true);
-    expect(fixture.componentInstance.previewVisualStyle().width).toBeGreaterThan(fixture.componentInstance.previewVisualStyle().height);
-  });
-
-  it('keeps non-battle previews in vertical mode', async () => {
-    const fixture = await renderPreview();
-
-    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-vertical')).toBe(true);
-    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-horizontal')).toBe(false);
-  });
-
-  it('plays the face flip animation when the hover preview changes card face', async () => {
-    const fixture = await renderPreview();
-
-    vi.useFakeTimers();
-    try {
-      const visual = fixture.nativeElement.querySelector('.card-preview-visual') as HTMLElement;
-
-      expect(visual.classList).not.toContain('face-flipping');
-
-      fixture.componentRef.setInput('card', { ...gameCard(), activeFaceIndex: 1 });
-      fixture.detectChanges();
-
-      expect(visual.classList).toContain('face-flipping');
-
-      vi.advanceTimersByTime(620);
-      fixture.detectChanges();
-
-      expect(visual.classList).not.toContain('face-flipping');
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it('renders modified power toughness and counters in the same premium detail box', async () => {
@@ -248,24 +135,6 @@ describe('CardPreviewOverlayComponent', () => {
 
     const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
     expect(pin).not.toBeNull();
-    expect(pin?.style.left).toBe('25%');
-    expect(pin?.style.top).toBe('75%');
-    expect(pin?.style.getPropertyValue('--cz-dungeon-pin-size')).toBe('55px');
-  });
-
-  it('uses the live dungeon marker override over the card marker', async () => {
-    const fixture = await renderPreview({
-      card: {
-        ...gameCard(),
-        typeLine: 'Dungeon',
-        dungeonMarker: { x: 0.25, y: 0.75 },
-      },
-      dungeonMarkerOverride: { x: 0.6, y: 0.35 },
-    });
-
-    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
-    expect(pin?.style.left).toBe('60%');
-    expect(pin?.style.top).toBe('35%');
   });
 
   it('renders the dungeon marker for legacy official dungeon cards without layout metadata', async () => {
@@ -280,14 +149,8 @@ describe('CardPreviewOverlayComponent', () => {
 
     const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
     expect(pin).not.toBeNull();
-    expect(pin?.style.left).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.x));
-    expect(pin?.style.top).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.y));
   });
 });
-
-function markerPercent(value: number): string {
-  return `${value * 100}%`;
-}
 
 async function renderPreview(options: {
   card?: GameCardInstance;

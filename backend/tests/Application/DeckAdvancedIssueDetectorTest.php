@@ -134,35 +134,29 @@ final class DeckAdvancedIssueDetectorTest extends TestCase
         self::assertSame('add_hard_creature_wipe', $lowWipe['suggestedActionType']);
     }
 
-    public function testPseudoOnlyWipesCreateSpecificPseudoIssue(): void
+    public function testSoftWipePackagesCreateSpecificIssues(): void
     {
-        $issues = $this->detect(
-            [],
-            boardWipes: $this->boardWipes([
-                'total' => 2,
-                'hardTotal' => 0,
-                'hardCreatureWipes' => 0,
-                'pseudoTotal' => 2,
-                'combatOnlyWipes' => 2,
-            ]),
-        );
+        foreach ([
+            [
+                'metrics' => ['pseudoTotal' => 2, 'combatOnlyWipes' => 2],
+                'code' => 'wipes_are_mostly_pseudo',
+            ],
+            [
+                'metrics' => ['massBounce' => 2],
+                'code' => 'wipes_are_mostly_bounce',
+            ],
+        ] as $case) {
+            $issues = $this->detect(
+                [],
+                boardWipes: $this->boardWipes(array_replace([
+                    'total' => 2,
+                    'hardTotal' => 0,
+                    'hardCreatureWipes' => 0,
+                ], $case['metrics'])),
+            );
 
-        self::assertContains('wipes_are_mostly_pseudo', $this->issueCodes($issues));
-    }
-
-    public function testBounceOnlyWipesCreateSpecificBounceIssue(): void
-    {
-        $issues = $this->detect(
-            [],
-            boardWipes: $this->boardWipes([
-                'total' => 2,
-                'hardTotal' => 0,
-                'hardCreatureWipes' => 0,
-                'massBounce' => 2,
-            ]),
-        );
-
-        self::assertContains('wipes_are_mostly_bounce', $this->issueCodes($issues));
+            self::assertContains($case['code'], $this->issueCodes($issues));
+        }
     }
 
     public function testHardWipesWithoutExileOrMinusXWarnAboutIndestructible(): void
@@ -184,37 +178,30 @@ final class DeckAdvancedIssueDetectorTest extends TestCase
         self::assertSame('add_wipe_that_answers_indestructible', $issue['suggestedActionType']);
     }
 
-    public function testModalFlexibleWipesCreateStrengthSignal(): void
+    public function testFlexibleWipePackagesCreateStrengthSignals(): void
     {
-        $issues = $this->detect(
-            [],
-            boardWipes: $this->boardWipes([
-                'total' => 2,
-                'hardTotal' => 2,
-                'hardCreatureWipes' => 2,
-                'modalWipes' => 2,
-                'answersIndestructible' => 1,
-            ]),
-        );
+        foreach ([
+            [
+                'metrics' => ['modalWipes' => 2],
+                'code' => 'modal_wipe_strength',
+            ],
+            [
+                'metrics' => ['asymmetricalWipes' => 2, 'oneSidedWipes' => 1],
+                'code' => 'asymmetrical_wipe_strength',
+            ],
+        ] as $case) {
+            $issues = $this->detect(
+                [],
+                boardWipes: $this->boardWipes(array_replace([
+                    'total' => 2,
+                    'hardTotal' => 2,
+                    'hardCreatureWipes' => 2,
+                    'answersIndestructible' => 1,
+                ], $case['metrics'])),
+            );
 
-        self::assertContains('modal_wipe_strength', $this->issueCodes($issues));
-    }
-
-    public function testAsymmetricalWipesCreateStrengthSignal(): void
-    {
-        $issues = $this->detect(
-            [],
-            boardWipes: $this->boardWipes([
-                'total' => 2,
-                'hardTotal' => 2,
-                'hardCreatureWipes' => 2,
-                'asymmetricalWipes' => 2,
-                'oneSidedWipes' => 1,
-                'answersIndestructible' => 1,
-            ]),
-        );
-
-        self::assertContains('asymmetrical_wipe_strength', $this->issueCodes($issues));
+            self::assertContains($case['code'], $this->issueCodes($issues));
+        }
     }
 
     public function testCreatureHeavyDeckWithSymmetricalWipesCreatesCollisionIssue(): void

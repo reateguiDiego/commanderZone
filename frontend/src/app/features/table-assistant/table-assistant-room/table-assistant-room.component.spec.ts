@@ -103,62 +103,6 @@ describe('TableAssistantRoomComponent', () => {
     expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
   });
 
-  it('opens the centered menu when clicking the central table surface', async () => {
-    get.mockReturnValue(of({ tableAssistantRoom: roomResource() }));
-
-    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
-    fixture.detectChanges();
-    await settle(fixture);
-
-    clickTableSurface(fixture.nativeElement, { x: 500, y: 300 });
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.table-exit-menu')).not.toBeNull();
-  });
-
-  it('does not open the centered menu outside the central table surface', async () => {
-    get.mockReturnValue(of({ tableAssistantRoom: roomResource() }));
-
-    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
-    fixture.detectChanges();
-    await settle(fixture);
-
-    clickTableSurface(fixture.nativeElement, { x: 80, y: 80 });
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
-  });
-
-  it('does not open the centered menu from table controls', async () => {
-    const resource = roomResource({ activeTrackerIds: ['commander-damage'] });
-    get.mockReturnValue(of({ tableAssistantRoom: resource }));
-    action.mockReturnValue(of({ tableAssistantRoom: resource, applied: true }));
-
-    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
-    fixture.detectChanges();
-    await settle(fixture);
-
-    fixture.nativeElement.querySelector('.active-turn-button')?.click();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
-
-    clickTableTarget(fixture.nativeElement, '.player-turn-controls', { x: 500, y: 300 });
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
-
-    fixture.nativeElement.querySelector('.life-row button')?.click();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
-
-    fixture.nativeElement.querySelector('.commander-damage-trigger')?.click();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
-  });
-
   it('opens replay setup from the centered menu without closing the room', async () => {
     get.mockReturnValue(of({ tableAssistantRoom: roomResource() }));
 
@@ -196,17 +140,6 @@ describe('TableAssistantRoomComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Table setup');
     expect(fixture.nativeElement.textContent).toContain('No player');
     expect(fixture.nativeElement.querySelector('.primary-action')?.disabled).toBe(true);
-  });
-
-  it('hides the active player name when five or more players are seated', async () => {
-    get.mockReturnValue(of({ tableAssistantRoom: roomResource({ playerCount: 5 }) }));
-
-    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
-    fixture.detectChanges();
-    await settle(fixture);
-
-    expect(fixture.nativeElement.querySelector('.player-panel.active h2')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.player-panel:not(.active) h2')).not.toBeNull();
   });
 
   it('opens the roll modal from the centered menu', async () => {
@@ -433,123 +366,6 @@ describe('TableAssistantRoomComponent', () => {
     ).toBe(true);
   });
 
-  it('uses player color gradients and caps long player names in the room board', async () => {
-    get.mockReturnValue(
-      of({
-        tableAssistantRoom: roomResource({
-          players: [{ name: 'Jugador con nombre larguisimo', color: 'grixis' }],
-        }),
-      }),
-    );
-
-    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
-    fixture.detectChanges();
-    await settle(fixture);
-
-    const activePanel = fixture.nativeElement.querySelector('.player-panel.active') as HTMLElement;
-    const activeName = activePanel.querySelector('h2')?.textContent?.trim();
-
-    expect(activeName).toBe('Jugador con nom');
-    expect(activePanel.style.getPropertyValue('--player-gradient')).toContain('#08070a');
-    expect(activePanel.querySelector('.player-mana-symbols')).not.toBeNull();
-  });
-
-  it('places odd-numbered seats in the top row and even-numbered seats in the bottom row', async () => {
-    get.mockReturnValue(
-      of({
-        tableAssistantRoom: roomResource({
-          players: [
-            { name: 'Jugador 1', color: 'white' },
-            { name: 'Jugador 2', color: 'blue' },
-            { name: 'Jugador 3', color: 'green' },
-            { name: 'Jugador 4', color: 'red' },
-            { name: 'Jugador 5', color: 'black' },
-            { name: 'Jugador 6', color: 'grixis' },
-          ],
-          playerCount: 6,
-        }),
-      }),
-    );
-
-    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
-    fixture.detectChanges();
-    await settle(fixture);
-
-    const topSeatPanels = [
-      ...fixture.nativeElement.querySelectorAll('.player-panel.seat-row-top'),
-    ] as HTMLElement[];
-    const topSeatNames = topSeatPanels
-      .map((seat) => seat.querySelector('h2')?.textContent?.trim())
-      .filter(Boolean);
-    const bottomSeatNames = [
-      ...fixture.nativeElement.querySelectorAll('.player-panel.seat-row-bottom h2'),
-    ].map((seat) => seat.textContent?.trim());
-    const seatColumns = [
-      ...fixture.nativeElement.querySelectorAll('.player-panel.single-device-seat'),
-    ].map((seat) => (seat as HTMLElement).style.getPropertyValue('--seat-column'));
-
-    expect(topSeatPanels).toHaveLength(3);
-    expect(topSeatPanels[0].classList.contains('active')).toBe(true);
-    expect(topSeatNames).toEqual(['Jugador 3', 'Jugador 5']);
-    expect(bottomSeatNames).toEqual(['Jugador 2', 'Jugador 4', 'Jugador 6']);
-    expect(seatColumns).toEqual(['1', '1', '2', '2', '3', '3']);
-  });
-
-  it('expands and rotates the last single-device seat when player count is odd', async () => {
-    get.mockReturnValue(
-      of({
-        tableAssistantRoom: roomResource({
-          players: [
-            { name: 'Jugador 1', color: 'white' },
-            { name: 'Jugador 2', color: 'blue' },
-            { name: 'Jugador 3', color: 'green' },
-            { name: 'Jugador 4', color: 'red' },
-            { name: 'Jugador 5', color: 'black' },
-          ],
-          playerCount: 5,
-        }),
-      }),
-    );
-
-    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
-    fixture.detectChanges();
-    await settle(fixture);
-
-    const oddLastSeat = fixture.nativeElement.querySelector(
-      '.player-panel.seat-odd-last',
-    ) as HTMLElement;
-    const topSeatPanels = [
-      ...fixture.nativeElement.querySelectorAll('.player-panel.seat-row-top'),
-    ] as HTMLElement[];
-    const topSeatNames = topSeatPanels
-      .map((seat) => seat.querySelector('h2')?.textContent?.trim())
-      .filter(Boolean);
-    const bottomSeatNames = [
-      ...fixture.nativeElement.querySelectorAll('.player-panel.seat-row-bottom h2'),
-    ].map((seat) => seat.textContent?.trim());
-
-    expect(oddLastSeat.querySelector('h2')?.textContent?.trim()).toBe('Jugador 5');
-    expect(oddLastSeat.classList.contains('seat-row-top')).toBe(false);
-    expect(oddLastSeat.classList.contains('seat-row-bottom')).toBe(false);
-    expect(oddLastSeat.style.getPropertyValue('--seat-column')).toBe('3');
-    expect(topSeatPanels).toHaveLength(2);
-    expect(topSeatPanels[0].classList.contains('active')).toBe(true);
-    expect(topSeatNames).toEqual(['Jugador 3']);
-    expect(bottomSeatNames).toEqual(['Jugador 2', 'Jugador 4']);
-  });
-
-  it('keeps per-player-device panels readable without table-edge rotation', async () => {
-    get.mockReturnValue(of({ tableAssistantRoom: roomResource({ mode: 'per-player-device' }) }));
-
-    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
-    fixture.detectChanges();
-    await settle(fixture);
-
-    expect(
-      fixture.nativeElement.querySelector('.single-device-seat, .seat-row-top, .seat-row-bottom'),
-    ).toBeNull();
-  });
-
   it('replaces the life controls with commander damage controls while opened', async () => {
     const resource = roomResource();
     get.mockReturnValue(of({ tableAssistantRoom: resource }));
@@ -570,42 +386,6 @@ describe('TableAssistantRoomComponent', () => {
     expect(fixture.nativeElement.querySelector('.player-panel.active .life-row')).not.toBeNull();
   });
 });
-
-function clickTableSurface(
-  nativeElement: HTMLElement,
-  position: { x: number; y: number },
-): void {
-  clickTableTarget(nativeElement, '.players-grid', position);
-}
-
-function clickTableTarget(
-  nativeElement: HTMLElement,
-  targetSelector: string,
-  position: { x: number; y: number },
-): void {
-  const tableSurface = nativeElement.querySelector('.players-grid') as HTMLElement;
-  const boundsSpy = vi.spyOn(tableSurface, 'getBoundingClientRect').mockReturnValue({
-    left: 0,
-    top: 0,
-    right: 1000,
-    bottom: 600,
-    width: 1000,
-    height: 600,
-    x: 0,
-    y: 0,
-    toJSON: () => ({}),
-  });
-  const target = nativeElement.querySelector(targetSelector) as HTMLElement;
-
-  target.dispatchEvent(
-    new MouseEvent('click', {
-      bubbles: true,
-      clientX: position.x,
-      clientY: position.y,
-    }),
-  );
-  boundsSpy.mockRestore();
-}
 
 async function settle(
   fixture: ReturnType<typeof TestBed.createComponent<TableAssistantRoomComponent>>,

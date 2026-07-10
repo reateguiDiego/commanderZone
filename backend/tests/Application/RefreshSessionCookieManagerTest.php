@@ -19,29 +19,17 @@ class RefreshSessionCookieManagerTest extends TestCase
         self::assertSame('commanderzone.refresh', $manager->cookieName());
     }
 
-    public function testRejectsProductionConfigurationWhenTtlIsNotPositive(): void
+    public function testRejectsInvalidProductionConfiguration(): void
     {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('AUTH_REFRESH_TOKEN_TTL must be a positive integer in production.');
-
-        new RefreshSessionCookieManager(
+        $this->assertInvalidProductionConfiguration(
             refreshTokenTtlSeconds: 0,
             cookieDomain: '.commanderzone.com',
-            cookieSameSite: 'none',
-            kernelEnvironment: 'prod',
+            expectedMessage: 'AUTH_REFRESH_TOKEN_TTL must be a positive integer in production.',
         );
-    }
-
-    public function testRejectsProductionConfigurationWhenCookieDomainIsInvalid(): void
-    {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('AUTH_REFRESH_COOKIE_DOMAIN must be a valid domain name in production.');
-
-        new RefreshSessionCookieManager(
+        $this->assertInvalidProductionConfiguration(
             refreshTokenTtlSeconds: 604800,
             cookieDomain: 'https://commanderzone.com',
-            cookieSameSite: 'none',
-            kernelEnvironment: 'prod',
+            expectedMessage: 'AUTH_REFRESH_COOKIE_DOMAIN must be a valid domain name in production.',
         );
     }
 
@@ -55,5 +43,23 @@ class RefreshSessionCookieManagerTest extends TestCase
         );
 
         self::assertSame('commanderzone.refresh', $manager->cookieName());
+    }
+
+    private function assertInvalidProductionConfiguration(
+        int $refreshTokenTtlSeconds,
+        string $cookieDomain,
+        string $expectedMessage,
+    ): void {
+        try {
+            new RefreshSessionCookieManager(
+                refreshTokenTtlSeconds: $refreshTokenTtlSeconds,
+                cookieDomain: $cookieDomain,
+                cookieSameSite: 'none',
+                kernelEnvironment: 'prod',
+            );
+            self::fail('Expected invalid refresh session cookie configuration to be rejected.');
+        } catch (\LogicException $exception) {
+            self::assertSame($expectedMessage, $exception->getMessage());
+        }
     }
 }

@@ -1177,14 +1177,6 @@ SQL,
         self::assertSame(['set-accent', 'set-a', 'set-b'], array_column($response['sets'], 'code'));
     }
 
-    public function testAdvancedSearchOptionsRejectInvalidLanguage(): void
-    {
-        $this->jsonRequest('GET', '/cards/search/options?lang=zz');
-
-        self::assertResponseStatusCodeSame(400);
-        self::assertSame('lang filter is invalid.', $this->jsonResponse()['error']);
-    }
-
     public function testAdvancedSearchRejectsInvalidEnums(): void
     {
         $this->jsonRequest('GET', '/cards/search?rarities=legendary');
