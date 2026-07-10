@@ -176,6 +176,7 @@
       [title]="'rooms.waitingRoom.inviteFriends' | runtimeTranslate"
       message="rooms.waitingRoom.chooseAcceptedFriendsToInvite"
       secondaryLabel="common.modal.close"
+      size="narrow"
       [showPrimary]="false"
       (secondary)="closeInviteModal()"
     >
@@ -185,21 +186,35 @@
         <div appPrettyScroll class="friends-list invite-modal-list">
           @for (friend of friends(); track friend.id) {
             <div class="friend-row">
-              <span>
+              <span class="friend-row-main">
                 <app-player-name
                   [displayName]="friend.displayName"
                   [nameStyle]="friend.displayNameStyle"
                   size="md"
                   plateSize="sm"
                 />
-                <small>{{ friend.presence || ('navigation.friends.friendsDropdown.offlineStatus' | runtimeTranslate) }}</small>
+                <small
+                  class="friend-presence"
+                  [class.friend-presence-online]="friend.presence === 'online' || friend.presence === 'in_game'"
+                  [class.friend-presence-offline]="!friend.presence || friend.presence === 'offline'"
+                >
+                  {{ friend.presence || ('navigation.friends.friendsDropdown.offlineStatus' | runtimeTranslate) }}
+                </small>
               </span>
               @if (isFriendInCurrentRoom(friend.id)) {
                 <span class="metric">{{ 'rooms.waitingRoom.inRoom' | runtimeTranslate }}</span>
               } @else if (hasPendingInvite(friend.id)) {
                 <span class="metric">{{ 'rooms.waitingRoom.invited' | runtimeTranslate }}</span>
               } @else {
-                <button class="secondary-button compact" type="button" [disabled]="!canInviteFriend(room, friend.id)" (click)="inviteFriend(friend.id)">
+                <button
+                  czButton="primary"
+                  czButtonTone="success"
+                  czButtonSize="sm"
+                  class="invite-friend-button"
+                  type="button"
+                  [disabled]="!canInviteFriend(room, friend.id)"
+                  (click)="inviteFriend(friend.id)"
+                >
                   {{ (isInviting(friend.id) ? 'common.actions.sending' : 'common.actions.invite') | runtimeTranslate }}
                 </button>
               }

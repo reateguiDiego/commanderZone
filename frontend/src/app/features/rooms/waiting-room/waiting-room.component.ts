@@ -18,6 +18,7 @@ import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 import { GlobalLoaderComponent } from '../../../shared/ui/global-loader/global-loader.component';
 import { PlayerNameComponent } from '../../../shared/ui/player-name/player-name.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
@@ -48,6 +49,7 @@ interface WaitingTurnOrderRow {
   imports: [RuntimeTranslatePipe, 
     LucideAngularModule,
     AppModalComponent,
+    CzButtonDirective,
     GlobalLoaderComponent,
     PlayerNameComponent,
     PrettyScrollDirective,
