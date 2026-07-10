@@ -2,6 +2,8 @@
 
 namespace App\Tests\Integration;
 
+use App\Application\User\IpGeolocationResult;
+use App\Application\User\IpGeolocationServiceInterface;
 use App\Application\User\UserDailyVisitRecorder;
 use App\Domain\User\User;
 use App\UI\Console\UserDailyVisitsPruneCommand;
@@ -35,6 +37,7 @@ final class UserDailyVisitRecorderTest extends ApiTestCase
         self::assertNotEmpty($row['first_seen_at']);
         self::assertSame('203.0.113.0/24', $row['ip_prefix']);
         self::assertSame(hash_hmac('sha256', 'DailyVisitTest/1', self::HMAC_SECRET), $row['user_agent_hash']);
+        self::assertNull($row['country_code']);
     }
 
     public function testSecondAuthenticatedRequestSameDayDoesNotDuplicate(): void
@@ -70,6 +73,81 @@ final class UserDailyVisitRecorderTest extends ApiTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame(0, $this->dailyVisitCount());
+    }
+
+    public function testCountryIsStoredWhenGeoIpResolves(): void
+    {
+        $user = $this->createPersistedUser('daily-country@example.test', 'Daily Country');
+        $clock = new MockClock('2026-07-08 10:00:00', 'UTC');
+        $recorder = $this->recorder(
+            $clock,
+            new ArrayAdapter(),
+            new IpGeolocationResult('es', 'Spain', 'eu', 'test-geoip'),
+        );
+
+        self::assertTrue($recorder->record($user, '8.8.8.8', 'CountryTest/1'));
+
+        $row = $this->dailyVisitRow($user->id());
+        self::assertSame('ES', $row['country_code']);
+        self::assertSame('Spain', $row['country_name']);
+        self::assertSame('EU', $row['continent_code']);
+        self::assertSame('test-geoip', $row['geo_source']);
+        self::assertSame(
+            'ES',
+            (string) $this->entityManager->getConnection()->fetchOne(
+                'SELECT last_seen_country_code FROM app_user WHERE id = :user_id',
+                ['user_id' => $user->id()],
+            ),
+        );
+    }
+
+    public function testCountryIsNullWhenGeoIpDoesNotResolve(): void
+    {
+        $user = $this->createPersistedUser('daily-country-null@example.test', 'Daily Country Null');
+        $clock = new MockClock('2026-07-08 10:00:00', 'UTC');
+        $recorder = $this->recorder(
+            $clock,
+            new ArrayAdapter(),
+            IpGeolocationResult::unresolved('unresolved'),
+        );
+
+        self::assertTrue($recorder->record($user, '8.8.4.4', 'CountryNullTest/1'));
+
+        $row = $this->dailyVisitRow($user->id());
+        self::assertNull($row['country_code']);
+        self::assertNull($row['country_name']);
+        self::assertNull($row['continent_code']);
+        self::assertSame('unresolved', $row['geo_source']);
+        self::assertNull($this->entityManager->getConnection()->fetchOne(
+            'SELECT last_seen_country_code FROM app_user WHERE id = :user_id',
+            ['user_id' => $user->id()],
+        ));
+    }
+
+    public function testGeoIpProviderFailureDoesNotBreakRecording(): void
+    {
+        $user = $this->createPersistedUser('daily-country-error@example.test', 'Daily Country Error');
+        $clock = new MockClock('2026-07-08 10:00:00', 'UTC');
+        $geolocation = new class implements IpGeolocationServiceInterface {
+            public function locate(?string $ip): IpGeolocationResult
+            {
+                throw new \RuntimeException('GeoIP unavailable');
+            }
+        };
+
+        $recorder = new UserDailyVisitRecorder(
+            $this->entityManager->getConnection(),
+            new ArrayAdapter(),
+            $clock,
+            $geolocation,
+            self::HMAC_SECRET,
+        );
+
+        self::assertTrue($recorder->record($user, '8.8.4.4', 'CountryErrorTest/1'));
+
+        $row = $this->dailyVisitRow($user->id());
+        self::assertNull($row['country_code']);
+        self::assertSame('error', $row['geo_source']);
     }
 
     public function testIpIsStoredHashedAndRawIpIsNotStored(): void
@@ -197,14 +275,32 @@ final class UserDailyVisitRecorderTest extends ApiTestCase
         );
     }
 
-    private function recorder(MockClock $clock, ArrayAdapter $cache): UserDailyVisitRecorder
-    {
+    private function recorder(
+        MockClock $clock,
+        ArrayAdapter $cache,
+        ?IpGeolocationResult $geolocationResult = null,
+    ): UserDailyVisitRecorder {
         return new UserDailyVisitRecorder(
             $this->entityManager->getConnection(),
             $cache,
             $clock,
+            $this->geolocation($geolocationResult),
             self::HMAC_SECRET,
         );
+    }
+
+    private function geolocation(?IpGeolocationResult $result): IpGeolocationServiceInterface
+    {
+        return new class($result ?? IpGeolocationResult::unresolved('unconfigured')) implements IpGeolocationServiceInterface {
+            public function __construct(private readonly IpGeolocationResult $result)
+            {
+            }
+
+            public function locate(?string $ip): IpGeolocationResult
+            {
+                return $this->result;
+            }
+        };
     }
 
     private function createPersistedUser(string $email, string $displayName): User
@@ -246,7 +342,7 @@ final class UserDailyVisitRecorderTest extends ApiTestCase
     private function dailyVisitRow(string $userId): array
     {
         $row = $this->entityManager->getConnection()->fetchAssociative(
-            'SELECT visit_date::text, first_seen_at::text, ip_hash, ip_prefix, user_agent_hash FROM user_daily_visit WHERE user_id = :user_id',
+            'SELECT visit_date::text, first_seen_at::text, country_code, country_name, continent_code, ip_hash, ip_prefix, user_agent_hash, geo_source FROM user_daily_visit WHERE user_id = :user_id',
             ['user_id' => $userId],
         );
         self::assertIsArray($row);
@@ -263,16 +359,24 @@ INSERT INTO user_daily_visit (
     user_id,
     visit_date,
     first_seen_at,
+    country_code,
+    country_name,
+    continent_code,
     ip_hash,
     ip_prefix,
     user_agent_hash,
+    geo_source,
     created_at
 ) VALUES (
     :id,
     :user_id,
     :visit_date,
     :first_seen_at,
+    NULL,
+    NULL,
+    NULL,
     :ip_hash,
+    NULL,
     NULL,
     NULL,
     :created_at
