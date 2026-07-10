@@ -120,6 +120,11 @@
       <div class="page-header-title-line">
         <div class="page-header-title-main">
           <h1 czTextFit czTextFitMinScale="0.72">{{ headerState.title | runtimeTranslate }}</h1>
+          @if (headerState.context !== 'deck-editor') {
+            @if (headerState.bracket; as bracket) {
+              <app-bracket-pill class="page-header-bracket-pill" [bracket]="bracket" />
+            }
+          }
           @if (headerState.titleWarning; as warning) {
             <app-tooltip [text]="warning.tooltip | runtimeTranslate">
               <span

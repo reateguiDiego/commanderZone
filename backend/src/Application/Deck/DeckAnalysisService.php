@@ -22,6 +22,10 @@ class DeckAnalysisService
         'other' => 'Other',
     ];
 
+    public function __construct(private readonly ?DeckBracketSignalProvider $bracketSignalProvider = null)
+    {
+    }
+
     /**
      * @param array<string,mixed> $options
      * @return array<string,mixed>
@@ -38,7 +42,7 @@ class DeckAnalysisService
         $colorRequirement = $this->calculateColorRequirement($entries);
         $manaProduction = $this->calculateManaProduction($entries, (string) $options['manaSourcesMode']);
 
-        return [
+        $analysis = [
             'summary' => [
                 'totalCards' => count($expanded),
                 'mainboardCards' => $this->countSection($deck, DeckCard::SECTION_MAIN),
@@ -74,6 +78,14 @@ class DeckAnalysisService
             'sections' => array_values($typeSections),
             'options' => $options,
         ];
+
+        if ($this->bracketSignalProvider instanceof DeckBracketSignalProvider) {
+            $bracketAnalysis = $this->bracketSignalProvider->analysis($deck);
+            $analysis['bracketSignals'] = $bracketAnalysis['signals'];
+            $analysis['bracket'] = $bracketAnalysis['bracket'];
+        }
+
+        return $analysis;
     }
 
     /**
@@ -187,7 +199,7 @@ class DeckAnalysisService
         return (float) $values[$middle];
     }
 
-    private function normalizeOptions(array $options): array
+    public function normalizeOptions(array $options): array
     {
         $curvePlayabilityMode = $options['curvePlayabilityMode'] ?? 'play';
         $manaSourcesMode = $options['manaSourcesMode'] ?? 'landsOnly';

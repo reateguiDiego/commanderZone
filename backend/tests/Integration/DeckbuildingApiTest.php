@@ -2,6 +2,7 @@
 
 namespace App\Tests\Integration;
 
+use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 
@@ -86,6 +87,55 @@ class DeckbuildingApiTest extends ApiTestCase
         $cards = $this->jsonResponse()['deck']['cards'] ?? [];
         self::assertIsArray($cards);
         self::assertSame(true, $cards[0]['card']['isGameChanger'] ?? null);
+    }
+
+    public function testCommanderIllegalCardsDoNotContributeToBracketAnalysis(): void
+    {
+        $token = $this->registerAndLogin('bracket-illegal-cards@example.test', 'Bracket Illegal');
+        $illegalSpike = $this->seedCard('00000000-0000-0000-0000-000000009021', 'Armageddon', [
+            'type_line' => 'Sorcery',
+            'legalities' => ['commander' => 'banned'],
+        ]);
+        $normalCard = $this->seedCard('00000000-0000-0000-0000-000000009022', 'Normal Card', [
+            'type_line' => 'Instant',
+        ]);
+        $this->insertBracketAnalysisProfile($illegalSpike, [
+            'commander_legal' => false,
+            'commander_banned' => true,
+            'is_game_changer' => true,
+            'roles' => ['fast_mana', 'tutor', 'extra_turn'],
+            'subroles' => ['true_tutor'],
+            'power_flags' => ['fast_mana', 'free_interaction', 'compact_wincon', 'cedh_staple'],
+            'is_fast_mana' => true,
+            'is_free_interaction' => true,
+            'is_efficient_tutor' => true,
+            'is_cedh_staple' => true,
+        ]);
+        $this->insertBracketAnalysisProfile($normalCard);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Illegal Bracket',
+            'cards' => [
+                ['scryfallId' => $illegalSpike->scryfallId(), 'quantity' => 1, 'section' => DeckCard::SECTION_MAIN],
+                ['scryfallId' => $normalCard->scryfallId(), 'quantity' => 1, 'section' => DeckCard::SECTION_MAIN],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis', token: $token);
+        self::assertResponseIsSuccessful();
+        $analysis = $this->jsonResponse();
+
+        self::assertSame(0, $analysis['bracketSignals']['gameChangerSignal']['count']);
+        self::assertSame(0, $analysis['bracketSignals']['massLandDenialSignal']['count']);
+        self::assertSame(0, $analysis['bracketSignals']['extraTurnSignal']['count']);
+        self::assertSame(0, $analysis['bracketSignals']['nonLandTutorSignal']['count']);
+        self::assertSame(0, $analysis['bracketSignals']['fastManaSignal']['count']);
+        self::assertSame(0, $analysis['bracketSignals']['freeInteractionSignal']['count']);
+        self::assertSame(0, $analysis['bracketSignals']['compactWinconSignal']['count']);
+        self::assertSame(0, $analysis['bracket']['officialSignals']['gameChangers']['count']);
+        self::assertSame(1, $analysis['bracket']['floor']);
     }
 
     public function testPublicSlugRefreshesWhenPublicDeckNameOrCommanderChanges(): void
@@ -610,6 +660,27 @@ TXT,
         self::assertArrayHasKey('colorRequirement', $analysis);
         self::assertArrayHasKey('manaProduction', $analysis);
         self::assertArrayHasKey('curvePlayability', $analysis);
+        self::assertArrayHasKey('bracketSignals', $analysis);
+        self::assertArrayHasKey('manaEfficiencySignal', $analysis['bracketSignals']);
+        self::assertArrayHasKey('bracket', $analysis);
+        self::assertContains($analysis['bracket']['bracket'], [1, 2, 3, 4, 5]);
+        self::assertSame('commander_brackets_beta_v1', $analysis['bracket']['method']);
+        self::assertArrayHasKey('explanation', $analysis['bracket']);
+        self::assertCount(5, $analysis['bracket']['explanation']['officialCriteria']);
+        self::assertArrayHasKey('manaEfficiency', $analysis['bracket']['explanation']['differenceModel']);
+        self::assertArrayHasKey('snapshot', $analysis);
+        self::assertFalse($analysis['snapshot']['hit']);
+        self::assertSame('missing', $analysis['snapshot']['reason']);
+        self::assertArrayHasKey('deckHash', $analysis['snapshot']);
+        self::assertArrayHasKey('optionsHash', $analysis['snapshot']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis', token: $token);
+        self::assertResponseIsSuccessful();
+        $cachedAnalysis = $this->jsonResponse();
+        self::assertTrue($cachedAnalysis['snapshot']['hit']);
+        self::assertSame('fresh', $cachedAnalysis['snapshot']['reason']);
+        self::assertSame($analysis['snapshot']['deckHash'], $cachedAnalysis['snapshot']['deckHash']);
+        self::assertSame($analysis['snapshot']['optionsHash'], $cachedAnalysis['snapshot']['optionsHash']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis?includeSideboard=true&includeMaybeboard=true&curvePlayabilityMode=draw&manaSourcesMode=landsAndRamp', token: $token);
         self::assertResponseIsSuccessful();
@@ -765,6 +836,136 @@ TXT,
             'https://cards.scryfall.io/normal/front/10000000-0000-0000-0000-000000000001.jpg',
             $sections['sections']['tokens'][0]['token']['imageUris']['normal'] ?? null,
         );
+    }
+
+    public function testEditorDerivedTokensUseCompactSnapshotWithoutChangingTableTokenEndpoint(): void
+    {
+        $token = $this->registerAndLogin('editor-compact-tokens@example.test', 'Editor Compact');
+        $otherToken = $this->registerAndLogin('editor-compact-tokens-other@example.test', 'Other Tokens');
+        $plantToken = $this->seedCard('10000000-0000-0000-0000-000000000031', 'Plant Token', [
+            'type_line' => 'Token Creature - Plant',
+            'oracle_text' => 'This field is intentionally omitted from editor token snapshots.',
+        ]);
+        $producer = $this->seedCard('10000000-0000-0000-0000-000000000032', 'Compact Token Maker', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000033',
+            'type_line' => 'Creature - Druid',
+            'oracle_text' => 'Create a 0/1 green Plant creature token.',
+            'all_parts' => [
+                [
+                    'id' => $plantToken->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Plant Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$plantToken->scryfallId(),
+                ],
+            ],
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Editor Tokens',
+            'cards' => [
+                ['scryfallId' => $producer->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens/editor', token: $token);
+        self::assertResponseIsSuccessful();
+        $first = $this->jsonResponse();
+        $tokenRef = $first['data'][0]['tokenRef'] ?? null;
+        self::assertIsString($tokenRef);
+        $compactToken = $first['tokens'][$tokenRef] ?? [];
+        self::assertSame($deckId, $first['deckId']);
+        self::assertArrayNotHasKey('token', $first['data'][0]);
+        self::assertSame('Plant Token', $compactToken['name'] ?? null);
+        self::assertSame('https://cards.scryfall.io/normal/front/10000000-0000-0000-0000-000000000031.jpg', $compactToken['imageUris']['normal'] ?? null);
+        self::assertNull($compactToken['oracleText'] ?? null);
+        self::assertArrayNotHasKey('prices', $compactToken);
+        self::assertArrayNotHasKey('allParts', $compactToken);
+        self::assertFalse($first['snapshot']['hit'] ?? true);
+        self::assertSame('missing', $first['snapshot']['reason'] ?? null);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens/editor', token: $token);
+        self::assertResponseIsSuccessful();
+        $second = $this->jsonResponse();
+        self::assertTrue($second['snapshot']['hit'] ?? false);
+        self::assertSame('fresh', $second['snapshot']['reason'] ?? null);
+        self::assertSame($first['data'][0]['sourceCard']['scryfallId'] ?? null, $second['data'][0]['sourceCard']['scryfallId'] ?? null);
+        self::assertSame($first['data'][0]['tokenRef'] ?? null, $second['data'][0]['tokenRef'] ?? null);
+        self::assertSame($first['tokens'][$tokenRef]['scryfallId'] ?? null, $second['tokens'][$tokenRef]['scryfallId'] ?? null);
+        self::assertSame($first['tokens'][$tokenRef]['imageUris']['normal'] ?? null, $second['tokens'][$tokenRef]['imageUris']['normal'] ?? null);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
+        self::assertResponseIsSuccessful();
+        $full = $this->jsonResponse();
+        self::assertSame('This field is intentionally omitted from editor token snapshots.', $full['data'][0]['token']['oracleText'] ?? null);
+        self::assertArrayHasKey('prices', $full['data'][0]['token']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens/editor', token: $otherToken);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testEditorDerivedTokensDeduplicateRepeatedTokenDefinitions(): void
+    {
+        $token = $this->registerAndLogin('editor-token-refs@example.test', 'Token Refs');
+        $treasureToken = $this->seedCard('10000000-0000-0000-0000-000000000034', 'Treasure Token', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000035',
+            'type_line' => 'Token Artifact - Treasure',
+        ]);
+        $firstProducer = $this->seedCard('10000000-0000-0000-0000-000000000036', 'Treasure Maker A', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000037',
+            'type_line' => 'Creature - Pirate',
+            'oracle_text' => 'Create a Treasure token.',
+            'all_parts' => [
+                [
+                    'id' => $treasureToken->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Treasure Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$treasureToken->scryfallId(),
+                ],
+            ],
+        ]);
+        $secondProducer = $this->seedCard('10000000-0000-0000-0000-000000000038', 'Treasure Maker B', [
+            'oracle_id' => '10000000-0000-0000-0000-000000000039',
+            'type_line' => 'Sorcery',
+            'oracle_text' => 'Create a Treasure token.',
+            'all_parts' => [
+                [
+                    'id' => $treasureToken->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Treasure Token',
+                    'uri' => 'https://api.scryfall.com/cards/'.$treasureToken->scryfallId(),
+                ],
+            ],
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Token Refs',
+            'cards' => [
+                ['scryfallId' => $firstProducer->scryfallId()],
+                ['scryfallId' => $secondProducer->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens/editor', token: $token);
+        self::assertResponseIsSuccessful();
+        $payload = $this->jsonResponse();
+
+        self::assertCount(2, $payload['data']);
+        self::assertCount(1, $payload['tokens']);
+        self::assertSame($payload['data'][0]['tokenRef'], $payload['data'][1]['tokenRef']);
+        self::assertArrayNotHasKey('token', $payload['data'][0]);
+        self::assertArrayNotHasKey('token', $payload['data'][1]);
+
+        $tokenRef = (string) $payload['data'][0]['tokenRef'];
+        self::assertSame('Treasure Token', $payload['tokens'][$tokenRef]['name'] ?? null);
+        self::assertSame($treasureToken->scryfallId(), $payload['tokens'][$tokenRef]['scryfallId'] ?? null);
+        self::assertSame([
+            $firstProducer->scryfallId(),
+            $secondProducer->scryfallId(),
+        ], array_map(static fn (array $entry): string => (string) $entry['sourceCard']['scryfallId'], $payload['data']));
     }
 
     public function testDerivedTokensFallbackToSourceScryfallIdWhenOracleIdIsMissing(): void
@@ -2040,6 +2241,176 @@ TXT,
         self::assertIsArray($line);
 
         return $line;
+    }
+
+    private function insertBracketAnalysisProfile(Card $card, array $overrides = []): void
+    {
+        $profile = array_replace([
+            'name' => $card->name(),
+            'mana_cost' => $card->manaCost(),
+            'mana_value' => 1.0,
+            'type_line' => $card->typeLine(),
+            'colors' => [],
+            'color_identity' => [],
+            'produced_mana' => [],
+            'keywords' => [],
+            'commander_legal' => true,
+            'commander_banned' => false,
+            'can_be_commander' => false,
+            'is_land' => false,
+            'is_creature' => false,
+            'is_artifact' => false,
+            'is_enchantment' => false,
+            'is_instant' => str_contains(mb_strtolower($card->typeLine()), 'instant'),
+            'is_sorcery' => str_contains(mb_strtolower($card->typeLine()), 'sorcery'),
+            'is_planeswalker' => false,
+            'is_battle' => false,
+            'is_legendary' => false,
+            'edhrec_rank' => null,
+            'is_game_changer' => false,
+            'roles' => [],
+            'subroles' => [],
+            'role_scores' => [],
+            'condition_keys' => [],
+            'archetype_weights' => [],
+            'power_flags' => [],
+            'is_fast_mana' => false,
+            'is_free_interaction' => false,
+            'is_efficient_tutor' => false,
+            'is_cedh_staple' => false,
+            'analysis_hash' => 'test-bracket-profile',
+        ], $overrides);
+
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_analysis_profile (
+    oracle_id,
+    name,
+    normalized_name,
+    mana_cost,
+    mana_value,
+    type_line,
+    colors,
+    color_identity,
+    produced_mana,
+    keywords,
+    commander_legal,
+    commander_banned,
+    can_be_commander,
+    is_land,
+    is_creature,
+    is_artifact,
+    is_enchantment,
+    is_instant,
+    is_sorcery,
+    is_planeswalker,
+    is_battle,
+    is_legendary,
+    edhrec_rank,
+    is_game_changer,
+    roles,
+    subroles,
+    role_scores,
+    condition_keys,
+    archetype_weights,
+    power_flags,
+    is_fast_mana,
+    is_free_interaction,
+    is_efficient_tutor,
+    is_cedh_staple,
+    analysis_hash,
+    updated_at
+) VALUES (
+    :oracle_id,
+    :name,
+    :normalized_name,
+    :mana_cost,
+    :mana_value,
+    :type_line,
+    :colors,
+    :color_identity,
+    :produced_mana,
+    :keywords,
+    :commander_legal,
+    :commander_banned,
+    :can_be_commander,
+    :is_land,
+    :is_creature,
+    :is_artifact,
+    :is_enchantment,
+    :is_instant,
+    :is_sorcery,
+    :is_planeswalker,
+    :is_battle,
+    :is_legendary,
+    :edhrec_rank,
+    :is_game_changer,
+    :roles,
+    :subroles,
+    :role_scores,
+    :condition_keys,
+    :archetype_weights,
+    :power_flags,
+    :is_fast_mana,
+    :is_free_interaction,
+    :is_efficient_tutor,
+    :is_cedh_staple,
+    :analysis_hash,
+    NOW()
+)
+ON CONFLICT (oracle_id) DO UPDATE SET
+    name = EXCLUDED.name,
+    normalized_name = EXCLUDED.normalized_name,
+    commander_legal = EXCLUDED.commander_legal,
+    commander_banned = EXCLUDED.commander_banned,
+    is_game_changer = EXCLUDED.is_game_changer,
+    roles = EXCLUDED.roles,
+    subroles = EXCLUDED.subroles,
+    power_flags = EXCLUDED.power_flags,
+    is_fast_mana = EXCLUDED.is_fast_mana,
+    is_free_interaction = EXCLUDED.is_free_interaction,
+    is_efficient_tutor = EXCLUDED.is_efficient_tutor,
+    is_cedh_staple = EXCLUDED.is_cedh_staple,
+    updated_at = NOW()
+SQL,
+            [
+                'oracle_id' => $card->oracleId() ?? $card->scryfallId(),
+                'name' => $profile['name'],
+                'normalized_name' => Card::normalizeName((string) $profile['name']),
+                'mana_cost' => $profile['mana_cost'],
+                'mana_value' => $profile['mana_value'],
+                'type_line' => $profile['type_line'],
+                'colors' => json_encode($profile['colors'], JSON_THROW_ON_ERROR),
+                'color_identity' => json_encode($profile['color_identity'], JSON_THROW_ON_ERROR),
+                'produced_mana' => json_encode($profile['produced_mana'], JSON_THROW_ON_ERROR),
+                'keywords' => json_encode($profile['keywords'], JSON_THROW_ON_ERROR),
+                'commander_legal' => (int) $profile['commander_legal'],
+                'commander_banned' => (int) $profile['commander_banned'],
+                'can_be_commander' => (int) $profile['can_be_commander'],
+                'is_land' => (int) $profile['is_land'],
+                'is_creature' => (int) $profile['is_creature'],
+                'is_artifact' => (int) $profile['is_artifact'],
+                'is_enchantment' => (int) $profile['is_enchantment'],
+                'is_instant' => (int) $profile['is_instant'],
+                'is_sorcery' => (int) $profile['is_sorcery'],
+                'is_planeswalker' => (int) $profile['is_planeswalker'],
+                'is_battle' => (int) $profile['is_battle'],
+                'is_legendary' => (int) $profile['is_legendary'],
+                'edhrec_rank' => $profile['edhrec_rank'],
+                'is_game_changer' => (int) $profile['is_game_changer'],
+                'roles' => json_encode($profile['roles'], JSON_THROW_ON_ERROR),
+                'subroles' => json_encode($profile['subroles'], JSON_THROW_ON_ERROR),
+                'role_scores' => json_encode($profile['role_scores'], JSON_THROW_ON_ERROR),
+                'condition_keys' => json_encode($profile['condition_keys'], JSON_THROW_ON_ERROR),
+                'archetype_weights' => json_encode($profile['archetype_weights'], JSON_THROW_ON_ERROR),
+                'power_flags' => json_encode($profile['power_flags'], JSON_THROW_ON_ERROR),
+                'is_fast_mana' => (int) $profile['is_fast_mana'],
+                'is_free_interaction' => (int) $profile['is_free_interaction'],
+                'is_efficient_tutor' => (int) $profile['is_efficient_tutor'],
+                'is_cedh_staple' => (int) $profile['is_cedh_staple'],
+                'analysis_hash' => $profile['analysis_hash'],
+            ],
+        );
     }
 
     private function deckById(array $decks, string $deckId): array

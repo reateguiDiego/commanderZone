@@ -105,7 +105,7 @@
                 [title]="option.name"
                 (click)="toggleType(option.code, !selected(model.types, option.code))"
               >
-                <i class="icon-choice__icon" [appManaIcon]="typeIcon(option.code)" manaIconKind="mechanic" aria-hidden="true"></i>
+                <i class="icon-choice__icon" [appMtgIcon]="typeIcon(option.code)" mtgIconKind="mechanic" aria-hidden="true"></i>
                 <span
                   czTextFit
                   czTextFitMinScale="0.68"
@@ -279,7 +279,7 @@
               [title]="'deckBuilder.cards.cardSearch.form.artifact' | runtimeTranslate"
               (click)="model.artifact = !model.artifact"
             >
-              <i class="icon-choice__icon" appManaIcon="artifact" manaIconKind="mechanic" aria-hidden="true"></i>
+              <i class="icon-choice__icon" appMtgIcon="artifact" mtgIconKind="mechanic" aria-hidden="true"></i>
               <span
                 czTextFit
                 czTextFitMinScale="0.68"
@@ -299,7 +299,7 @@
               [title]="'deckBuilder.cards.cardSearch.form.multicolor' | runtimeTranslate"
               (click)="model.multicolor = !model.multicolor"
             >
-              <i class="icon-choice__icon" appManaIcon="multicolor" manaIconKind="mechanic" aria-hidden="true"></i>
+              <i class="icon-choice__icon" appMtgIcon="multicolor" mtgIconKind="mechanic" aria-hidden="true"></i>
               <span
                 czTextFit
                 czTextFitMinScale="0.68"
@@ -319,7 +319,7 @@
               [title]="'deckBuilder.cards.cardSearch.form.land' | runtimeTranslate"
               (click)="model.land = !model.land"
             >
-              <i class="icon-choice__icon" appManaIcon="land" manaIconKind="mechanic" aria-hidden="true"></i>
+              <i class="icon-choice__icon" appMtgIcon="land" mtgIconKind="mechanic" aria-hidden="true"></i>
               <span
                 czTextFit
                 czTextFitMinScale="0.68"
@@ -391,19 +391,19 @@
         <div class="filter-panel__body-inner">
           <div class="range-row range-row--stats">
             <label class="field field--icon stat-field">
-              <span><i appManaIcon="power" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.powerMin' | runtimeTranslate }}</span>
+              <span><i appMtgIcon="power" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.powerMin' | runtimeTranslate }}</span>
               <input name="powerMin" type="number" max="99" step="1" inputmode="numeric" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.powerMin" (input)="limitStatInput($event, 'powerMin')" />
             </label>
             <label class="field field--icon stat-field">
-              <span><i appManaIcon="power" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.powerMax' | runtimeTranslate }}</span>
+              <span><i appMtgIcon="power" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.powerMax' | runtimeTranslate }}</span>
               <input name="powerMax" type="number" max="99" step="1" inputmode="numeric" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.powerMax" (input)="limitStatInput($event, 'powerMax')" />
             </label>
             <label class="field field--icon stat-field">
-              <span><i appManaIcon="toughness" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.toughnessMin' | runtimeTranslate }}</span>
+              <span><i appMtgIcon="toughness" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.toughnessMin' | runtimeTranslate }}</span>
               <input name="toughnessMin" type="number" max="99" step="1" inputmode="numeric" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.toughnessMin" (input)="limitStatInput($event, 'toughnessMin')" />
             </label>
             <label class="field field--icon stat-field">
-              <span><i appManaIcon="toughness" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.toughnessMax' | runtimeTranslate }}</span>
+              <span><i appMtgIcon="toughness" aria-hidden="true"></i>{{ 'deckBuilder.cards.cardSearch.form.toughnessMax' | runtimeTranslate }}</span>
               <input name="toughnessMax" type="number" max="99" step="1" inputmode="numeric" [disabled]="!filterEnabled('stats')" [(ngModel)]="model.toughnessMax" (input)="limitStatInput($event, 'toughnessMax')" />
             </label>
           </div>

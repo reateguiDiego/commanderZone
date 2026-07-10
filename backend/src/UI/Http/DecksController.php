@@ -3,9 +3,12 @@
 namespace App\UI\Http;
 
 use App\Application\Deck\DeckAnalysisService;
+use App\Application\Deck\DeckAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalysisImageLocalizer;
 use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalyzerService;
+use App\Application\Deck\DeckBracketSignalProvider;
+use App\Application\Deck\DeckEditorTokenSnapshotService;
 use App\Application\Deck\DeckDerivedTokenResolver;
 use App\Application\Deck\DeckFormatCatalog;
 use App\Application\Deck\DeckValidator;
@@ -166,20 +169,37 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/analysis', methods: ['GET'])]
-    public function analysis(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DeckAnalysisService $analysis): JsonResponse
+    public function analysis(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        DeckAnalysisService $analysis,
+        DeckAnalysisSnapshotService $snapshotService,
+        DeckBracketSignalProvider $bracketSignalProvider,
+    ): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
 
-        return $this->json($analysis->analyze($deck, [
+        if ($this->isBracketOnlyAnalysisRequest($request)) {
+            return $this->json($snapshotService->bracket($deck, $bracketSignalProvider));
+        }
+
+        return $this->json($snapshotService->analyze($deck, $analysis, [
             'includeCommanderInAnalysis' => $request->query->get('includeCommanderInAnalysis'),
             'includeSideboard' => $request->query->get('includeSideboard'),
             'includeMaybeboard' => $request->query->get('includeMaybeboard'),
             'curvePlayabilityMode' => $request->query->get('curvePlayabilityMode'),
             'manaSourcesMode' => $request->query->get('manaSourcesMode'),
         ]));
+    }
+
+    private function isBracketOnlyAnalysisRequest(Request $request): bool
+    {
+        return $request->query->get('view') === 'bracket' || $request->query->get('fields') === 'bracket';
     }
 
     #[Route('/decks/{id}/analysis/advanced', methods: ['GET'])]
@@ -263,6 +283,39 @@ class DecksController extends ApiController
             'deckId' => $id,
             ...$this->localizeTokensPayload($payload, $user, $localization),
         ]);
+    }
+
+    #[Route('/decks/{id}/tokens/editor', methods: ['GET'])]
+    public function editorTokens(
+        string $id,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        CardLocalizationService $localization,
+        DeckDerivedTokenResolver $derivedTokenResolver,
+        DeckEditorTokenSnapshotService $snapshotService,
+    ): JsonResponse {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $cardLanguage = LanguageCatalog::normalize($user->cardLanguage()) ?? LanguageCatalog::DEFAULT_LANGUAGE;
+        $result = $snapshotService->tokens(
+            $deck,
+            $cardLanguage,
+            $derivedTokenResolver->tokenDataVersion($deck),
+            function () use ($deck, $user, $localization, $derivedTokenResolver): array {
+                $payload = $derivedTokenResolver->resolveEditor($deck);
+                $localizedPayload = $this->localizeTokensPayload($payload, $user, $localization);
+
+                return [
+                    'deckId' => $deck->id(),
+                    ...$derivedTokenResolver->compactEditorPayload($localizedPayload),
+                ];
+            },
+        );
+
+        return $this->json($result);
     }
 
     #[Route('/decks/{id}', methods: ['PATCH'])]

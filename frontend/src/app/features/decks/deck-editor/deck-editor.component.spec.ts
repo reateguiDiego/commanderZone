@@ -33,7 +33,7 @@ import {
   Upload,
   X,
 } from 'lucide-angular';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
@@ -48,9 +48,12 @@ import { CardAutocompleteComponent } from '../../../shared/components/card-autoc
 type DecksApiMock = {
   get: ReturnType<typeof vi.fn>;
   getBySlug: ReturnType<typeof vi.fn>;
+  analysis: ReturnType<typeof vi.fn>;
+  bracketAnalysis: ReturnType<typeof vi.fn>;
   getDeckAdvancedAnalysis: ReturnType<typeof vi.fn>;
   importDecklist: ReturnType<typeof vi.fn>;
   tokens: ReturnType<typeof vi.fn>;
+  editorTokens: ReturnType<typeof vi.fn>;
   validateCommander: ReturnType<typeof vi.fn>;
   updateCard: ReturnType<typeof vi.fn>;
   selectPrinting: ReturnType<typeof vi.fn>;
@@ -68,9 +71,12 @@ describe('DeckEditorComponent', () => {
     const decksApi: DecksApiMock = {
       get: vi.fn().mockReturnValue(of({ deck })),
       getBySlug: vi.fn().mockReturnValue(of({ deck })),
+      analysis: vi.fn(),
+      bracketAnalysis: vi.fn().mockReturnValue(of({ bracket: buildBracketEstimate(3, 'Upgraded') })),
       getDeckAdvancedAnalysis: vi.fn(),
       importDecklist: vi.fn().mockReturnValue(of({ deck: deck ?? buildDeckWithSingleCard(), missing: [], summary: { parsedCards: 1, importedCards: 1 } })),
       tokens: vi.fn().mockReturnValue(of({ data: [], unresolved: [] })),
+      editorTokens: vi.fn().mockReturnValue(of({ data: [], tokens: {}, unresolved: [], snapshot: editorTokenSnapshot() })),
       validateCommander: vi.fn().mockReturnValue(of(validCommanderValidation())),
       updateCard: vi.fn(),
       selectPrinting: vi.fn(),
@@ -170,6 +176,54 @@ describe('DeckEditorComponent', () => {
     expect(decksApi.getBySlug).toHaveBeenCalledWith('atraxa-control-a7f3c9d2');
   });
 
+  it('loads the commander bracket from basic analysis', async () => {
+    const { decksApi } = await setup({ id: 'deck-1' }, buildDeckWithSingleCard());
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(decksApi.bracketAnalysis).toHaveBeenCalledWith('deck-1'));
+    await vi.waitFor(() => expect(fixture.componentInstance.store.bracket()?.bracket).toBe(3));
+
+    expect(fixture.componentInstance.store.bracket()?.label).toBe('Upgraded');
+    expect(decksApi.getDeckAdvancedAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('keeps the page loading until the commander bracket request completes', async () => {
+    const bracketResponse = new Subject<{ bracket: ReturnType<typeof buildBracketEstimate> }>();
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard(), {}, {
+      bracketAnalysis: vi.fn().mockReturnValue(bracketResponse.asObservable()),
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(fixture.componentInstance.store.deck()?.id).toBe('deck-1'));
+    expect(fixture.componentInstance.store.loading()).toBe(true);
+    expect(fixture.nativeElement.querySelector('app-global-loader')).not.toBeNull();
+
+    bracketResponse.next({ bracket: buildBracketEstimate(3, 'Upgraded') });
+    bracketResponse.complete();
+
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-global-loader')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-bracket-pill')).not.toBeNull();
+  });
+
+  it('keeps the deck header stable when basic analysis has no bracket', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard(), {}, {
+      bracketAnalysis: vi.fn().mockReturnValue(of({ bracket: null })),
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Print deck'));
+
+    expect(fixture.componentInstance.store.bracket()).toBeNull();
+    expect(TestBed.inject(PageHeaderStore).state()?.bracket).toBeUndefined();
+    expect(fixture.nativeElement.querySelector('app-bracket-pill')).toBeNull();
+  });
+
   it('renders the advanced analysis action without replacing the basic analysis panel', async () => {
     const deck = buildDeckWithSingleCard({
       slug: 'atraxa-control-a7f3c9d2',
@@ -235,7 +289,35 @@ describe('DeckEditorComponent', () => {
 
     await fixture.componentInstance.store.load();
 
-    expect(decksApi.tokens).toHaveBeenCalledWith('deck-1');
+    expect(decksApi.editorTokens).toHaveBeenCalledWith('deck-1');
+    expect(decksApi.tokens).not.toHaveBeenCalled();
+  });
+
+  it('resolves compact editor token references into token rows', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard(), {}, {
+      editorTokens: vi.fn().mockReturnValue(of({
+        deckId: 'deck-1',
+        data: [{
+          sourceCard: { scryfallId: 'maker-scryfall-id', name: 'Treasure Maker', section: 'main' },
+          tokenRef: 'scryfall:treasure-token',
+          resolved: true,
+        }],
+        tokens: {
+          'scryfall:treasure-token': card('Treasure Token', 'Token Artifact - Treasure'),
+        },
+        unresolved: [],
+        snapshot: editorTokenSnapshot(),
+      })),
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    expect(fixture.componentInstance.store.tokens()).toEqual([{
+      sourceCard: { scryfallId: 'maker-scryfall-id', name: 'Treasure Maker', section: 'main' },
+      token: card('Treasure Token', 'Token Artifact - Treasure'),
+      resolved: true,
+    }]);
   });
 
   it('sends the raw decklist text to the backend import endpoint', async () => {
@@ -313,15 +395,15 @@ Deck
     const fixture = TestBed.createComponent(DeckEditorComponent);
 
     await fixture.componentInstance.store.load();
-    decksApi.tokens.mockClear();
+    decksApi.editorTokens.mockClear();
 
     const sideboardEntry = fixture.componentInstance.store.deck()?.cards?.find((entry) => entry.id === 'side-card');
     await fixture.componentInstance.store.addCardCopy(new MouseEvent('click'), sideboardEntry!);
-    expect(decksApi.tokens).not.toHaveBeenCalled();
+    expect(decksApi.editorTokens).not.toHaveBeenCalled();
 
     const mainEntry = fixture.componentInstance.store.deck()?.cards?.find((entry) => entry.id === 'main-card');
     await fixture.componentInstance.store.addCardCopy(new MouseEvent('click'), mainEntry!);
-    expect(decksApi.tokens).toHaveBeenCalledWith('deck-1');
+    expect(decksApi.editorTokens).toHaveBeenCalledWith('deck-1');
   });
 
   it('loads raw decklist files into the editor import modal', async () => {
@@ -1136,6 +1218,62 @@ function validCommanderValidation() {
     commander: { mode: 'single' as const, names: ['Atraxa'], colorIdentity: ['W', 'U', 'B', 'G'] },
     errors: [],
     warnings: [],
+  };
+}
+
+function editorTokenSnapshot() {
+  return {
+    hit: false,
+    reason: 'missing',
+    calculatedAt: '2026-07-10T10:00:00+00:00',
+    deckHash: 'deck-hash',
+    cardLanguage: 'en',
+    payloadVersion: 'deck_editor_tokens_v2',
+    tokenDataVersion: 'token-data-version',
+  };
+}
+
+function buildBracketEstimate(bracket: 1 | 2 | 3 | 4 | 5, label: 'Exhibition' | 'Core' | 'Upgraded' | 'Optimized' | 'cEDH') {
+  return {
+    bracket,
+    label,
+    confidence: 'medium',
+    method: 'commander_brackets_beta_v1',
+    floor: bracket,
+    ceiling: bracket,
+    ruleBreakers: [],
+    differences: {
+      themeScore: 0,
+      staplesScore: 0,
+      speedScore: 0,
+      metagameScore: 0,
+      manaEfficiencyScore: 0,
+    },
+    officialSignals: {
+      gameChangers: { count: 0, status: 'none', cards: [] },
+      massLandDenial: { detected: false, count: 0, cards: [] },
+      extraTurns: { count: 0, chainsOrLoops: false, cards: [] },
+      twoCardCombos: { count: 0, beforeTurnSix: false, lateGameOnly: false },
+      nonLandTutors: { count: 0, efficientCount: 0, cards: [] },
+    },
+    reasonCodes: [],
+    reasons: [],
+    warnings: [],
+    explanation: {
+      short: '',
+      long: '',
+      officialCriteria: [],
+      detectedSignalsExplanation: [],
+      ruleBreakersExplanation: [],
+      differenceModel: {
+        theme: '',
+        staples: '',
+        speed: '',
+        metagame: '',
+        manaEfficiency: '',
+      },
+      reasonCodes: [],
+    },
   };
 }
 

@@ -1635,7 +1635,7 @@
         "fetchlands": "Fetchlands",
         "deadFetchlands": "Fetchlands sin objetivo",
         "manaBase": "Base de man?",
-        "acceleration": "Aceleraci?n",
+        "acceleration": "Aceleración",
         "colorFixing": "Fixing de colores",
         "landBase": "Base de tierras",
         "basics": "Básicas",
@@ -2186,6 +2186,53 @@
       "pagination": {
         "label": "Paginación de búsqueda de cartas"
       }
+    }
+  },
+  "bracket": {
+    "pill": {
+      "label": "Bracket {{ bracket }} · {{ label }}",
+      "ariaLabel": "Commander Bracket {{ bracket }}: {{ label }}"
+    },
+    "tooltip": {
+      "current": "Bracket {{ bracket }}"
+    },
+    "explanation": {
+      "button": "¿Cómo se calcula?",
+      "title": "Commander Bracket Estimate",
+      "currentBracket": "Bracket {{ bracket }} — {{ label }}",
+      "confidence": "Confianza: {{ confidence }}",
+      "detectedSignals": "Señales detectadas",
+      "officialSignals": "Límites oficiales del bracket y señales detectables del deck.",
+      "officialCriteria": "Criterios oficiales",
+      "reasons": "Motivos",
+      "noReasons": "No se recibieron motivos detallados para esta estimación.",
+      "differenceModel": "Modelo de diferencias",
+      "theme": "1 → 2: Tema",
+      "staples": "2 → 3: Staples",
+      "speed": "3 → 4: Velocidad",
+      "metagame": "4 → 5: Metajuego",
+      "manaEfficiency": "Eficiencia de maná: gate clave para Bracket 5",
+      "warning": "Los Commander Brackets son una herramienta de comunicación previa a la partida. CommanderZone asigna un bracket operativo a partir de señales detectables del deck. Esta estimación es orientativa y podemos equivocarnos, pero todos los decks se valoran con los mismos criterios."
+    },
+    "confidence": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja"
+    },
+    "signals": {
+      "gameChangers": "Game Changers",
+      "massLandDenial": "Mass Land Denial",
+      "extraTurns": "Turnos extra",
+      "twoCardCombos": "Combos de dos cartas",
+      "nonLandTutors": "Tutors",
+      "staples": "Staples",
+      "speed": "Velocidad",
+      "metagame": "Metajuego",
+      "manaEfficiency": "Eficiencia de maná",
+      "detected": "Detectado",
+      "notDetected": "No detectado",
+      "yes": "Yes",
+      "no": "No"
     }
   }
 }

@@ -1426,7 +1426,8 @@
           "consistencyIssueDetected": "La simulació de mà inicial o accés primerenc ha detectat punts de pressió.",
           "comboIssueDetected": "El paquet de combos té avisos de completitud, dependència o accés.",
           "typalIssueDetected": "El paquet typal té avisos de densitat, suport o alineació amb el comandant."
-        },        "cards": {
+        },
+        "cards": {
           "ramp": "Ramp",
           "draw": "Robatori",
           "interaction": "InteracciÃ³",
@@ -2185,6 +2186,55 @@
       "pagination": {
         "label": "PaginaciÃ³ de cerca de cartes"
       }
+    }
+  },
+  "bracket": {
+    "pill": {
+      "label": "Bracket {{ bracket }} · {{ label }}",
+      "ariaLabel": "Commander Bracket {{ bracket }}: {{ label }}"
+    },
+    "tooltip": {
+      "current": "Bracket {{ bracket }}"
+    },
+    "explanation": {
+      "button": "Com es calcula?",
+      "title": "Commander Bracket Estimate",
+      "currentBracket": "Bracket {{ bracket }} — {{ label }}",
+      "confidence": "Confiança: {{ confidence }}",
+      "detectedSignals": "Senyals detectats",
+      "officialSignals": "Límits oficials del bracket i senyals detectables del deck.",
+      "officialCriteria": "Criteris oficials",
+      "reasons": "Motius",
+      "noReasons": "No s'han rebut motius detallats per a aquesta estimació.",
+      "differenceModel": "Model de diferències",
+      "theme": "1 → 2: Theme",
+      "staples": "2 → 3: Staples",
+      "speed": "3 → 4: Speed",
+      "metagame": "4 → 5: Metagame",
+      "manaEfficiency": "Mana efficiency: key gate for Bracket 5",
+      "warning": "Els Commander Brackets són una eina de comunicació prèvia a la partida. CommanderZone assigna un bracket operatiu a partir de senyals detectables del deck. Aquesta estimació és orientativa i ens podem equivocar, però tots els decks es valoren amb els mateixos criteris."
+    },
+    "confidence": {
+      "high": "Alta",
+      "medium": "Mitjana",
+      "low": "Baixa"
+    },
+    "signals": {
+      "gameChangers": "Game Changers",
+      "massLandDenial": "Mass Land Denial",
+      "extraTurns": "Extra Turns",
+      "twoCardCombos": "Two-card combos",
+      "nonLandTutors": "Tutors",
+      "staples": "Staples",
+      "speed": "Speed",
+      "metagame": "Metagame",
+      "manaEfficiency": "Mana efficiency",
+      "detected": "Detected",
+      "notDetected": "Not detected",
+      "yes": "Yes",
+      "no": "No",
+      "yes": "Yes",
+      "no": "No"
     }
   }
 }

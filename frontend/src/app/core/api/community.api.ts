@@ -16,6 +16,7 @@ import {
   CommunityUserResponse,
 } from '../models/api-responses.model';
 import { AdvancedAnalysisResponse } from '../models/deck-advanced-analysis.model';
+import { DeckAnalysis, DeckBracketAnalysisResponse } from '../models/deck-analysis.model';
 
 export interface CommunityDeckListFilters {
   q?: string;
@@ -51,14 +52,32 @@ export class CommunityApi {
 
   deck(id: string, lang?: string): Observable<CommunityDeckDetailResponse> {
     return this.http.get<CommunityDeckDetailResponse>(`${API_BASE_URL}/community/decks/${id}`, {
+      context: withGlobalLoading(),
       params: this.langParams(lang),
     });
   }
 
   getCommunityDeckAdvancedAnalysis(slug: string): Observable<AdvancedAnalysisResponse> {
-    return this.http.get<AdvancedAnalysisResponse>(`${API_BASE_URL}/community/decks/${slug}/analysis`, {
+    return this.http.get<AdvancedAnalysisResponse>(`${API_BASE_URL}/community/decks/${slug}/analysis/advanced`, {
       context: withGlobalLoading(),
       params: this.langParams(this.languagePreferences.cardLanguage()),
+    });
+  }
+
+  getCommunityDeckAnalysis(slug: string): Observable<DeckAnalysis> {
+    return this.http.get<DeckAnalysis>(`${API_BASE_URL}/community/decks/${slug}/analysis`, {
+      context: withGlobalLoading(),
+      params: this.langParams(this.languagePreferences.cardLanguage()),
+    });
+  }
+
+  getCommunityDeckBracketAnalysis(slug: string): Observable<DeckBracketAnalysisResponse> {
+    let params = this.langParams(this.languagePreferences.cardLanguage()) ?? new HttpParams();
+    params = params.set('view', 'bracket');
+
+    return this.http.get<DeckBracketAnalysisResponse>(`${API_BASE_URL}/community/decks/${slug}/analysis`, {
+      context: withGlobalLoading(),
+      params,
     });
   }
 

@@ -3,9 +3,12 @@
 namespace App\UI\Http;
 
 use App\Application\Community\CommunityService;
+use App\Application\Deck\DeckAnalysisService;
+use App\Application\Deck\DeckAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalysisImageLocalizer;
 use App\Application\Deck\DeckAdvancedAnalysisSnapshotService;
 use App\Application\Deck\DeckAdvancedAnalyzerService;
+use App\Application\Deck\DeckBracketSignalProvider;
 use App\Domain\Localization\LanguageCatalog;
 use App\Domain\User\User;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -60,6 +63,39 @@ class CommunityController extends ApiController
     }
 
     #[Route('/community/decks/{slug}/analysis', methods: ['GET'])]
+    public function deckAnalysis(
+        string $slug,
+        Request $request,
+        CommunityService $community,
+        DeckAnalysisService $analysis,
+        DeckAnalysisSnapshotService $snapshotService,
+        DeckBracketSignalProvider $bracketSignalProvider,
+    ): JsonResponse
+    {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
+        $deck = $community->publicDeckByIdOrSlug($slug);
+        if ($deck === null) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        if ($this->isBracketOnlyAnalysisRequest($request)) {
+            return $this->json($snapshotService->bracket($deck, $bracketSignalProvider));
+        }
+
+        return $this->json($snapshotService->analyze($deck, $analysis, [
+            'includeCommanderInAnalysis' => $request->query->get('includeCommanderInAnalysis'),
+            'includeSideboard' => $request->query->get('includeSideboard'),
+            'includeMaybeboard' => $request->query->get('includeMaybeboard'),
+            'curvePlayabilityMode' => $request->query->get('curvePlayabilityMode'),
+            'manaSourcesMode' => $request->query->get('manaSourcesMode'),
+        ]));
+    }
+
+    #[Route('/community/decks/{slug}/analysis/advanced', methods: ['GET'])]
     public function deckAdvancedAnalysis(
         string $slug,
         Request $request,
@@ -79,10 +115,17 @@ class CommunityController extends ApiController
             return $this->fail('Deck not found.', 404);
         }
 
-        return $this->json($imageLocalizer->localize(
+        $payload = $imageLocalizer->localize(
             $snapshotService->analyze($deck, $analyzer),
             $requestedLanguage ?? LanguageCatalog::DEFAULT_LANGUAGE,
-        ));
+        );
+
+        return $this->json($payload);
+    }
+
+    private function isBracketOnlyAnalysisRequest(Request $request): bool
+    {
+        return $request->query->get('view') === 'bracket' || $request->query->get('fields') === 'bracket';
     }
 
     #[Route('/community/decks/{id}/like', methods: ['POST'])]

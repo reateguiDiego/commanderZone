@@ -1,13 +1,13 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ArrowLeft, LucideAngularModule, Settings } from 'lucide-angular';
+import { ArrowLeft, LucideAngularModule, Settings, X } from 'lucide-angular';
 import { AppModalComponent } from './app-modal.component';
 
 describe('AppModalComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppModalComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ ArrowLeft, Settings }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ ArrowLeft, Settings, X }))],
     }).compileComponents();
   });
 
@@ -124,6 +124,19 @@ describe('AppModalComponent', () => {
     fixture.nativeElement.querySelector('.modal-backdrop').click();
 
     expect(emitted).toHaveBeenCalledOnce();
+  });
+
+  it('uses the shared danger icon button for the optional close action', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('showCloseButton', true);
+    fixture.detectChanges();
+
+    const closeButton = fixture.nativeElement.querySelector('.modal-close-button') as HTMLButtonElement;
+
+    expect(closeButton.classList).toContain('cz-button');
+    expect(closeButton.classList).toContain('cz-button--icon');
+    expect(closeButton.classList).toContain('cz-button--tone-danger');
   });
 
   it('does not close from the panel click when backdrop closing is enabled', () => {

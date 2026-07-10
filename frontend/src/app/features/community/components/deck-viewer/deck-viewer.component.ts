@@ -11,18 +11,21 @@ import { CommunityDeckCardAction, CommunityDeckCardActionEvent, CommunityDeckVie
 import { CommonCardMenuComponent } from '../../../../shared/ui/common-card-menu/common-card-menu.component';
 import { DeviceProfileService } from '../../../../shared/services/device-profile.service';
 import { CardFaceImageComponent } from '../../../../shared/components/card-face-image/card-face-image.component';
+import { DeckBracketEstimate } from '../../../../core/models/deck-analysis.model';
+import { BracketPillComponent } from '../../../../shared/ui/bracket-pill/bracket-pill.component';
 
 const COMMUNITY_DECK_VIEWER_SESSION_KEY = 'community.deckViewer.viewMode';
 
 @Component({
   selector: 'app-deck-viewer',
-  imports: [LucideAngularModule, RuntimeTranslatePipe, DeckCardTextViewComponent, DeckCardSpoilerViewComponent, CommonCardMenuComponent, CardFaceImageComponent],
+  imports: [LucideAngularModule, RuntimeTranslatePipe, BracketPillComponent, DeckCardTextViewComponent, DeckCardSpoilerViewComponent, CommonCardMenuComponent, CardFaceImageComponent],
   templateUrl: './deck-viewer.component.html',
   styleUrl: './deck-viewer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DeckViewerComponent {
   readonly deck = input.required<Deck>();
+  readonly bracket = input<DeckBracketEstimate | null>(null);
   readonly cardActionsEnabled = input(true);
   readonly cardActionSelected = output<CommunityDeckCardActionEvent>();
   readonly store = inject(CommunityDeckViewerStore);

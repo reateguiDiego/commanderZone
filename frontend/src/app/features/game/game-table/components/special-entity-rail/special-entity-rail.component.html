@@ -19,8 +19,8 @@
       >
         <i
           class="special-entity-mana-icon"
-          [appManaIcon]="mechanicIcon(visibleEntities()[0])"
-          manaIconKind="mechanic"
+          [appMtgIcon]="mechanicIcon(visibleEntities()[0])"
+          mtgIconKind="mechanic"
           aria-hidden="true"
         ></i>
         <span class="special-entity-rail-overlay-count" aria-hidden="true">
@@ -49,7 +49,7 @@
         (contextmenu)="requestEntityContext($event, entity)"
       >
         <span class="special-entity-icon" aria-hidden="true">
-          <i class="special-entity-mana-icon" [appManaIcon]="mechanicIcon(entity)" manaIconKind="mechanic"></i>
+          <i class="special-entity-mana-icon" [appMtgIcon]="mechanicIcon(entity)" mtgIconKind="mechanic"></i>
         </span>
         <span class="special-entity-pill-copy" aria-hidden="true">
           {{ tooltipFor(entity, labelFor(entity) | runtimeTranslate) }}
@@ -67,7 +67,7 @@
           (contextmenu)="requestEntityContext($event, entity)"
         >
           <span class="special-entity-icon" aria-hidden="true">
-            <i class="special-entity-mana-icon" [appManaIcon]="mechanicIcon(entity)" manaIconKind="mechanic"></i>
+            <i class="special-entity-mana-icon" [appMtgIcon]="mechanicIcon(entity)" mtgIconKind="mechanic"></i>
           </span>
           <span class="special-entity-pill-copy" aria-hidden="true">
             {{ tooltipFor(entity, cardLabel(entity)) }}

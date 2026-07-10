@@ -49,6 +49,13 @@
   transition: transform 160ms ease;
 }
 
+.deck-group-type-icon {
+  flex: 0 0 auto;
+  color: rgb(var(--cz-primary-rgb));
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
 .deck-group-toggle:hover {
   border-color: rgb(var(--cz-secondary-rgb) / 48%);
   background: rgb(var(--cz-surface-rgb) / 36%);

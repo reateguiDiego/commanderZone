@@ -9,6 +9,7 @@ import { Deck } from '../../../core/models/deck.model';
 import { CardAutocompleteComponent } from '../../../shared/components/card-autocomplete/card-autocomplete.component';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { BracketPillComponent } from '../../../shared/ui/bracket-pill/bracket-pill.component';
 import { DeckCardImageCache } from '../data-access/deck-card-image-cache.service';
 import { DeckEditorStore } from '../data-access/deck-editor.store';
 import { type DeckEditorTab, DeckEditorViewMode } from '../models/deck-editor.models';
@@ -41,6 +42,7 @@ import { deckEditorIdentifier } from '../utils/deck-route';
     DeckCardMenuComponent,
     DeckCardSpoilerViewComponent,
     DeckCardTextViewComponent,
+    BracketPillComponent,
     CzButtonDirective,
     GlobalLoaderComponent,
     GameChangerIconComponent,

@@ -1485,10 +1485,11 @@ paths:
   /community/decks/{slug}/analysis:
     get:
       tags: [Community]
-      summary: Return advanced analysis for a public valid Community deck by slug.
+      summary: Return public Basic Deck Analysis for a valid Community deck by slug.
       description: >
-        Returns the same Advanced Deck Analysis payload as the private deck advanced analysis endpoint,
-        using the shared deck_id snapshot cache. Private or invalid decks are not exposed.
+        Returns the same Basic Deck Analysis shape exposed by the private deck analysis endpoint
+        for a valid public deck. Use view=bracket to return only the Commander Bracket Estimate
+        and basic snapshot metadata. Private or invalid decks are not exposed.
       parameters:
         - name: slug
           in: path
@@ -1496,9 +1497,44 @@ paths:
           description: Public Community deck slug.
           schema:
             type: string
+        - name: view
+          in: query
+          description: Return only the Commander Bracket Estimate when set to bracket.
+          schema:
+            type: string
+            enum: [bracket]
       responses:
         '200':
-          description: Advanced deck analysis.
+          description: Public Community Basic Deck Analysis.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/DeckAnalysis'
+                  - $ref: '#/components/schemas/DeckBracketAnalysis'
+        '404':
+          $ref: '#/components/responses/Error'
+  /community/decks/{slug}/analysis/advanced:
+    get:
+      tags: [Community]
+      summary: Return public Advanced Deck Analysis for a valid Community deck by slug.
+      description: >
+        Returns the same Advanced Deck Analysis shape exposed by the private advanced analysis
+        endpoint for a valid public deck. Private or invalid decks are not exposed.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Public Community deck slug.
+          schema:
+            type: string
+        - name: lang
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public Community Advanced Deck Analysis.
           content:
             application/json:
               schema:
@@ -1936,13 +1972,21 @@ paths:
             type: string
             enum: [landsOnly, landsAndRamp]
             default: landsOnly
+        - name: view
+          in: query
+          description: Return only the Commander Bracket Estimate when set to bracket.
+          schema:
+            type: string
+            enum: [bracket]
       responses:
         '200':
           description: Deck analysis.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeckAnalysis'
+                oneOf:
+                  - $ref: '#/components/schemas/DeckAnalysis'
+                  - $ref: '#/components/schemas/DeckBracketAnalysis'
         '401':
           $ref: '#/components/responses/Error'
         '404':
@@ -1997,6 +2041,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeckTokensResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks/{id}/tokens/editor:
+    get:
+      tags: [Decks]
+      summary: Return compact derived token cards for the deck editor.
+      description: Uses the deck modification hash and token catalog version to reuse a compact snapshot when the deck and token data have not changed. The full /tokens endpoint remains available for gameplay token creation.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Compact derived deck tokens for editor UI.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckEditorTokensResponse'
         '401':
           $ref: '#/components/responses/Error'
         '404':
@@ -4975,6 +5037,48 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UnresolvedDeckToken'
+    DeckEditorTokensResponse:
+      type: object
+      required: [deckId, data, tokens, unresolved, snapshot]
+      properties:
+        deckId:
+          type: string
+          format: uuid
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResolvedDeckEditorToken'
+        tokens:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DeckEditorTokenCard'
+          description: Token definitions keyed by data[].tokenRef so repeated tokens are sent once.
+        unresolved:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnresolvedDeckToken'
+        snapshot:
+          $ref: '#/components/schemas/DeckEditorTokenSnapshot'
+    DeckEditorTokenSnapshot:
+      type: object
+      required: [hit, reason, calculatedAt, deckHash, cardLanguage, payloadVersion, tokenDataVersion]
+      properties:
+        hit:
+          type: boolean
+        reason:
+          type: string
+          enum: [fresh, missing, deck_hash_changed, card_language_changed, payload_version_changed, token_data_changed]
+        calculatedAt:
+          type: [string, 'null']
+          format: date-time
+        deckHash:
+          type: string
+        cardLanguage:
+          type: string
+        payloadVersion:
+          type: string
+        tokenDataVersion:
+          type: string
     DeckTokenSource:
       type: object
       required: [scryfallId, name, section]
@@ -4998,6 +5102,75 @@ components:
         resolved:
           type: boolean
           enum: [true]
+    ResolvedDeckEditorToken:
+      type: object
+      required: [sourceCard, tokenRef, resolved]
+      properties:
+        sourceCard:
+          $ref: '#/components/schemas/DeckTokenSource'
+        tokenRef:
+          type: string
+          description: Key into DeckEditorTokensResponse.tokens.
+        resolved:
+          type: boolean
+          enum: [true]
+    DeckEditorTokenCard:
+      type: object
+      required: [id, scryfallId, name, manaCost, typeLine, oracleText, colors, colorIdentity, legalities, imageUris, cardFaces, layout, commanderLegal, set, collectorNumber]
+      properties:
+        id:
+          type: string
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        manaCost:
+          type: [string, 'null']
+        typeLine:
+          type: [string, 'null']
+        oracleText:
+          type: [string, 'null']
+        power:
+          type: [string, 'null']
+        toughness:
+          type: [string, 'null']
+        loyalty:
+          type: [string, 'null']
+        colors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManaColor'
+        colorIdentity:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManaColor'
+        legalities:
+          type: object
+          additionalProperties:
+            type: string
+        imageUris:
+          type: object
+          additionalProperties:
+            type: string
+        cardFaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFace'
+        layout:
+          type: string
+        commanderLegal:
+          type: boolean
+        set:
+          type: [string, 'null']
+        collectorNumber:
+          type: [string, 'null']
+        lang:
+          type: [string, 'null']
+        printedName:
+          type: [string, 'null']
+        flavorName:
+          type: [string, 'null']
     UnresolvedDeckToken:
       type: object
       required: [sourceCard, token, resolved]
@@ -5029,7 +5202,7 @@ components:
       enum: [underproduced, balanced, overproduced, unused]
     DeckAnalysis:
       type: object
-      required: [summary, manaCurve, typeBreakdown, colorRequirement, manaProduction, colorBalance, curvePlayability, sections, options]
+      required: [summary, manaCurve, typeBreakdown, colorRequirement, manaProduction, colorBalance, curvePlayability, sections, options, bracket, snapshot]
       properties:
         summary:
           $ref: '#/components/schemas/DeckAnalysisSummary'
@@ -5052,6 +5225,349 @@ components:
         options:
           type: object
           additionalProperties: true
+        bracket:
+          $ref: '#/components/schemas/DeckBracketEstimate'
+        bracketSignals:
+          $ref: '#/components/schemas/DeckBracketSignals'
+        snapshot:
+          $ref: '#/components/schemas/DeckAnalysisSnapshotMetadata'
+    DeckBracketEstimate:
+      type: object
+      required: [bracket, label, confidence, method, floor, ceiling, ruleBreakers, differences, officialSignals, reasonCodes, reasons, warnings, explanation]
+      properties:
+        bracket:
+          type: integer
+          enum: [1, 2, 3, 4, 5]
+        label:
+          type: string
+          enum: [Exhibition, Core, Upgraded, Optimized, cEDH]
+        confidence:
+          type: string
+          enum: [low, medium, high]
+        method:
+          type: string
+          enum: [commander_brackets_beta_v1]
+        floor:
+          type: integer
+          enum: [1, 2, 3, 4, 5]
+        ceiling:
+          type: integer
+          enum: [1, 2, 3, 4, 5]
+        ruleBreakers:
+          type: array
+          items:
+            type: string
+        differences:
+          type: object
+          required: [themeScore, staplesScore, speedScore, metagameScore, manaEfficiencyScore]
+          properties:
+            themeScore:
+              type: integer
+              minimum: 0
+              maximum: 100
+            staplesScore:
+              type: integer
+              minimum: 0
+              maximum: 100
+            speedScore:
+              type: integer
+              minimum: 0
+              maximum: 100
+            metagameScore:
+              type: integer
+              minimum: 0
+              maximum: 100
+            manaEfficiencyScore:
+              type: integer
+              minimum: 0
+              maximum: 100
+        officialSignals:
+          type: object
+          required: [gameChangers, massLandDenial, extraTurns, twoCardCombos, nonLandTutors]
+          properties:
+            gameChangers:
+              allOf:
+                - $ref: '#/components/schemas/DeckBracketCardSignal'
+                - type: object
+                  required: [status]
+                  properties:
+                    status:
+                      type: string
+            massLandDenial:
+              $ref: '#/components/schemas/DeckBracketMassLandDenialSignal'
+            extraTurns:
+              allOf:
+                - $ref: '#/components/schemas/DeckBracketCardSignal'
+                - type: object
+                  required: [chainsOrLoops]
+                  properties:
+                    chainsOrLoops:
+                      type: boolean
+            twoCardCombos:
+              type: object
+              required: [count, beforeTurnSix, lateGameOnly]
+              properties:
+                count:
+                  type: integer
+                beforeTurnSix:
+                  type: boolean
+                lateGameOnly:
+                  type: boolean
+            nonLandTutors:
+              $ref: '#/components/schemas/DeckBracketNonLandTutorSignal'
+        reasonCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckBracketReasonCode'
+        reasons:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        explanation:
+          $ref: '#/components/schemas/DeckBracketExplanation'
+    DeckBracketReasonCode:
+      type: object
+      required: [code, params, message]
+      properties:
+        code:
+          type: string
+        params:
+          type: object
+          additionalProperties: true
+        message:
+          type: string
+    DeckBracketExplanation:
+      type: object
+      required: [short, long, officialCriteria, detectedSignalsExplanation, ruleBreakersExplanation, differenceModel, reasonCodes]
+      properties:
+        short:
+          type: string
+        long:
+          type: string
+        officialCriteria:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckBracketOfficialCriterion'
+        detectedSignalsExplanation:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckBracketReasonCode'
+        ruleBreakersExplanation:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckBracketReasonCode'
+        differenceModel:
+          type: object
+          required: [theme, staples, speed, metagame, manaEfficiency]
+          properties:
+            theme:
+              type: string
+            staples:
+              type: string
+            speed:
+              type: string
+            metagame:
+              type: string
+            manaEfficiency:
+              type: string
+        reasonCodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckBracketReasonCode'
+    DeckBracketOfficialCriterion:
+      type: object
+      required: [bracket, label, summary]
+      properties:
+        bracket:
+          type: integer
+          enum: [1, 2, 3, 4, 5]
+        label:
+          type: string
+          enum: [Exhibition, Core, Upgraded, Optimized, cEDH]
+        summary:
+          type: string
+    DeckBracketSignals:
+      type: object
+      description: Internal Commander Bracket signals exposed by the basic analysis response for the bracket classifier and UI explanation.
+      required: [gameChangerSignal, massLandDenialSignal, extraTurnSignal, twoCardComboSignal, nonLandTutorSignal, fastManaSignal, freeInteractionSignal, compactWinconSignal, manaEfficiencySignal, themeSignal, staplesSignal, speedSignal, metagameSignal]
+      properties:
+        gameChangerSignal:
+          $ref: '#/components/schemas/DeckBracketCardSignal'
+        massLandDenialSignal:
+          $ref: '#/components/schemas/DeckBracketMassLandDenialSignal'
+        extraTurnSignal:
+          $ref: '#/components/schemas/DeckBracketExtraTurnSignal'
+        twoCardComboSignal:
+          $ref: '#/components/schemas/DeckBracketTwoCardComboSignal'
+        nonLandTutorSignal:
+          $ref: '#/components/schemas/DeckBracketNonLandTutorSignal'
+        fastManaSignal:
+          $ref: '#/components/schemas/DeckBracketFastManaSignal'
+        freeInteractionSignal:
+          $ref: '#/components/schemas/DeckBracketFreeInteractionSignal'
+        compactWinconSignal:
+          $ref: '#/components/schemas/DeckBracketCompactWinconSignal'
+        manaEfficiencySignal:
+          $ref: '#/components/schemas/DeckBracketManaEfficiencySignal'
+        themeSignal:
+          type: object
+          additionalProperties: true
+        staplesSignal:
+          type: object
+          additionalProperties: true
+        speedSignal:
+          type: object
+          additionalProperties: true
+        metagameSignal:
+          type: object
+          additionalProperties: true
+    DeckBracketSignalCard:
+      type: object
+      required: [deckCardId, cardId, scryfallId, oracleId, name, imageUrl, quantity, section]
+      properties:
+        deckCardId:
+          type: string
+          nullable: true
+        cardId:
+          type: string
+          nullable: true
+        scryfallId:
+          type: string
+          nullable: true
+        oracleId:
+          type: string
+          nullable: true
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        section:
+          type: string
+    DeckBracketCardSignal:
+      type: object
+      required: [count, cards]
+      properties:
+        count:
+          type: integer
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckBracketSignalCard'
+    DeckBracketMassLandDenialSignal:
+      allOf:
+        - $ref: '#/components/schemas/DeckBracketCardSignal'
+        - type: object
+          required: [detected]
+          properties:
+            detected:
+              type: boolean
+    DeckBracketExtraTurnSignal:
+      allOf:
+        - $ref: '#/components/schemas/DeckBracketCardSignal'
+        - type: object
+          required: [chainsOrLoops, repeatableExtraTurns]
+          properties:
+            chainsOrLoops:
+              type: boolean
+            repeatableExtraTurns:
+              type: boolean
+    DeckBracketTwoCardComboSignal:
+      type: object
+      required: [count, beforeTurnSix, lateGameOnly, combos]
+      properties:
+        count:
+          type: integer
+        beforeTurnSix:
+          type: integer
+        lateGameOnly:
+          type: integer
+        combos:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    DeckBracketNonLandTutorSignal:
+      allOf:
+        - $ref: '#/components/schemas/DeckBracketCardSignal'
+        - type: object
+          required: [efficientCount]
+          properties:
+            efficientCount:
+              type: integer
+    DeckBracketFastManaSignal:
+      allOf:
+        - $ref: '#/components/schemas/DeckBracketCardSignal'
+        - type: object
+          required: [premiumCount, permanentCount, oneShotCount, colorlessCount, coloredCount]
+          properties:
+            premiumCount:
+              type: integer
+            permanentCount:
+              type: integer
+            oneShotCount:
+              type: integer
+            colorlessCount:
+              type: integer
+            coloredCount:
+              type: integer
+    DeckBracketFreeInteractionSignal:
+      allOf:
+        - $ref: '#/components/schemas/DeckBracketCardSignal'
+        - type: object
+          required: [premiumCount]
+          properties:
+            premiumCount:
+              type: integer
+    DeckBracketCompactWinconSignal:
+      type: object
+      required: [count, cardsOrCombos]
+      properties:
+        count:
+          type: integer
+        cardsOrCombos:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    DeckBracketManaEfficiencySignal:
+      type: object
+      required: [score, fastManaPremiumCount, earlyColorAccessScore, untappedSourceScore, tappedLandPressure, slowLandPressure, colorlessUtilityPressure, fetchTargetQuality, commanderCastability, rampFixingQuality, curveCompatibility, reasons]
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        fastManaPremiumCount:
+          type: integer
+        earlyColorAccessScore:
+          type: integer
+        untappedSourceScore:
+          type: integer
+        tappedLandPressure:
+          type: integer
+        slowLandPressure:
+          type: integer
+        colorlessUtilityPressure:
+          type: integer
+        fetchTargetQuality:
+          type: integer
+        commanderCastability:
+          type: integer
+        rampFixingQuality:
+          type: integer
+        curveCompatibility:
+          type: integer
+        reasons:
+          type: array
+          items:
+            type: string
     DeckAdvancedAnalysis:
       type: object
       required: [deckId, analyzerVersion, analyzedAt, snapshot, summary, metrics, health, consistency, combos, topComboCompleters, archetypes, typal, power, issues, unmatchedCards]
@@ -5100,6 +5616,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DeckAdvancedAnalysisUnmatchedCard'
+    DeckBracketAnalysis:
+      type: object
+      required: [bracket, snapshot]
+      properties:
+        bracket:
+          $ref: '#/components/schemas/DeckBracketEstimate'
+        snapshot:
+          $ref: '#/components/schemas/DeckAnalysisSnapshotMetadata'
     DeckAdvancedAnalysisIssue:
       type: object
       required: [code, severity, title, message, evidence, suggestedActionType]
@@ -5150,6 +5674,33 @@ components:
           type: string
         monteCarloRuns:
           type: integer
+    DeckAnalysisSnapshotMetadata:
+      type: object
+      required: [hit, reason, deckHash, optionsHash, calculatedAt, analyzerVersion, semanticDataVersion, manaDataVersion, comboDataVersion, rulesVersion]
+      properties:
+        hit:
+          type: boolean
+        reason:
+          type: string
+          enum: [fresh, missing, deck_hash_changed, options_changed, analyzer_version_changed, semantic_data_changed, mana_data_changed, combo_data_changed, rules_changed]
+        deckHash:
+          type: string
+        optionsHash:
+          type: string
+        calculatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        analyzerVersion:
+          type: string
+        semanticDataVersion:
+          type: string
+        manaDataVersion:
+          type: string
+        comboDataVersion:
+          type: string
+        rulesVersion:
+          type: string
     DeckAdvancedAnalysisSummary:
       type: object
       required: [status, primaryArchetype, secondaryArchetypes, archetypeConfidence, mainStrengths, criticalIssues]

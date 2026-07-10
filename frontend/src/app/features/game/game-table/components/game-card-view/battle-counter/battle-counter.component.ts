@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, HostBinding, OnDestroy, input, output, signal } from '@angular/core';
 import { GameCardStatValue } from '../../../../../../core/models/game.model';
 import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
-import { ManaIconComponent } from '../../../../../../shared/mana/mana-icon/mana-icon.component';
+import { MTGIconComponent } from '../../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { StatCounterChangeEvent } from '../stat-counter/stat-counter.component';
 
 type StatPulse = 'increase' | 'decrease' | null;
@@ -9,7 +9,7 @@ const PRESS_FEEDBACK_MS = 420;
 
 @Component({
   selector: 'app-battle-counter',
-  imports: [RuntimeTranslatePipe, ManaIconComponent],
+  imports: [RuntimeTranslatePipe, MTGIconComponent],
   templateUrl: './battle-counter.component.html',
   styleUrl: './battle-counter.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

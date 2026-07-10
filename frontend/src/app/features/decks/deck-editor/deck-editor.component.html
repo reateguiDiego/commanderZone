@@ -10,9 +10,14 @@
 
     <section class="panel deck-catalog-panel">
       <div class="deck-summary">
-        <div class="deck-summary-counts">
-          <strong>{{ 'deckBuilder.deckEditor.cardsCount' | runtimeTranslate: { count: store.playableCardCount() } }}</strong>
-          <span>{{ 'deckBuilder.deckEditor.sectionsCount' | runtimeTranslate: { count: store.playableSectionCount() } }}</span>
+        <div class="deck-summary-status">
+          @if (store.bracket(); as bracket) {
+            <app-bracket-pill class="deck-summary-bracket-pill" [bracket]="bracket" />
+          }
+          <div class="deck-summary-counts">
+            <strong>{{ 'deckBuilder.deckEditor.cardsCount' | runtimeTranslate: { count: store.playableCardCount() } }}</strong>
+            <span>{{ 'deckBuilder.deckEditor.sectionsCount' | runtimeTranslate: { count: store.playableSectionCount() } }}</span>
+          </div>
         </div>
         <div class="deck-summary-controls">
           <div class="deck-search-stack">

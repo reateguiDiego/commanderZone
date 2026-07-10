@@ -5,6 +5,9 @@
         <section class="deck-card-group">
           <button class="deck-group-toggle" type="button" [attr.aria-expanded]="!store.isGroupCollapsed(group.id)" (click)="store.toggleGroup(group.id)">
             <lucide-icon [name]="store.isGroupCollapsed(group.id) ? 'chevron-right' : 'chevron-down'" size="16" />
+            @if (groupTypeIcon(group.id); as typeIcon) {
+              <i class="deck-group-type-icon" [appMtgIcon]="typeIcon" aria-hidden="true"></i>
+            }
             <span class="deck-group-title">
               {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
               @if (group.id === 'commander') {

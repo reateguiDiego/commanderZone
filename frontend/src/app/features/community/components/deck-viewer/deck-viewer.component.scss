@@ -17,9 +17,20 @@
   gap: 0.8rem;
 }
 
+.deck-summary-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
 .deck-summary-counts {
   display: grid;
   gap: 0.2rem;
+}
+
+.deck-summary-bracket-pill {
+  flex: 0 0 auto;
 }
 
 .deck-summary-counts span,
@@ -186,17 +197,19 @@
     min-width: 0;
   }
 
-  .deck-summary-counts {
+  .deck-summary-status {
     min-width: 0;
     align-content: center;
   }
 
-  .deck-summary-counts strong,
-  .deck-summary-counts span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .deck-summary-status:not(:has(.deck-summary-bracket-pill)) {
+    display: none;
   }
+
+  .deck-summary-counts {
+    display: none;
+  }
+
 }
 
 @media (max-width: 520px) {
