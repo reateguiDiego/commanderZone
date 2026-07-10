@@ -946,6 +946,55 @@
       }
     }
   },
+  "gameLog": {
+    "library": {
+      "draw": "{{ actor }} rob\u00f3 una carta.",
+      "drawMany": "{{ actor }} rob\u00f3 {{ count }} cartas.",
+      "shuffle": "{{ actor }} baraj\u00f3 su biblioteca."
+    },
+    "card": {
+      "moved": "{{ actor }} movi\u00f3 una carta de {{ fromZone }} a {{ toZone }}.",
+      "tapped": "{{ actor }} gir\u00f3 un permanente.",
+      "untapped": "{{ actor }} enderez\u00f3 un permanente."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} puso los contadores {{ counter }} en {{ value }}."
+    },
+    "life": {
+      "changed": "{{ actor }} cambi\u00f3 la vida de {{ player }} de {{ previousLife }} a {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} tir\u00f3 {{ kind }} y sac\u00f3 {{ result }}.",
+      "coin": "una moneda",
+      "dice": "dados",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} lanz\u00f3 su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}."
+    },
+    "token": {
+      "created": "{{ actor }} cre\u00f3 una ficha: {{ tokenName }}.",
+      "createdMany": "{{ actor }} cre\u00f3 {{ count }} fichas: {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} cre\u00f3 una copia de ficha."
+    },
+    "game": {
+      "concede": "{{ player }} concedi\u00f3."
+    },
+    "zone": {
+      "battlefield": "campo de batalla",
+      "graveyard": "cementerio",
+      "exile": "exilio",
+      "hand": "mano",
+      "library": "biblioteca",
+      "command": "zona de mando",
+      "zone": "zona"
+    }
+  },
   "deckBuilder": {
     "cards": {
       "cardDetail": {

@@ -277,7 +277,8 @@ export type GameplayPatchV2Operation =
       op: 'dice.result';
       playerId?: string;
       kind?: string;
-      result: number | string;
+      result?: number | string;
+      value?: number | string;
       createdAt?: string;
     }
   | {

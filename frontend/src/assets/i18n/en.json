@@ -946,6 +946,55 @@
       }
     }
   },
+  "gameLog": {
+    "library": {
+      "draw": "{{ actor }} drew a card.",
+      "drawMany": "{{ actor }} drew {{ count }} cards.",
+      "shuffle": "{{ actor }} shuffled their library."
+    },
+    "card": {
+      "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
+      "tapped": "{{ actor }} tapped a permanent.",
+      "untapped": "{{ actor }} untapped a permanent."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} set {{ counter }} counters to {{ value }}."
+    },
+    "life": {
+      "changed": "{{ actor }} changed {{ player }}'s life from {{ previousLife }} to {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} rolled {{ kind }} and got {{ result }}.",
+      "coin": "a coin",
+      "dice": "dice",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} cast their commander from the command zone. Commander cast count is {{ commanderCastCount }}."
+    },
+    "token": {
+      "created": "{{ actor }} created a token: {{ tokenName }}.",
+      "createdMany": "{{ actor }} created {{ count }} tokens: {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} created a token copy."
+    },
+    "game": {
+      "concede": "{{ player }} conceded."
+    },
+    "zone": {
+      "battlefield": "battlefield",
+      "graveyard": "graveyard",
+      "exile": "exile",
+      "hand": "hand",
+      "library": "library",
+      "command": "command zone",
+      "zone": "zone"
+    }
+  },
   "deckBuilder": {
     "cards": {
       "cardDetail": {

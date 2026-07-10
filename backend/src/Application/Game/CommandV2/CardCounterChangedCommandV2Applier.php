@@ -21,7 +21,7 @@ final class CardCounterChangedCommandV2Applier implements GameCommandV2ApplierIn
             return null;
         }
 
-        $key = trim((string) ($payload['key'] ?? '+1/+1'));
+        $key = trim((string) ($payload['counter'] ?? $payload['key'] ?? '+1/+1'));
         if ($key === '') {
             throw new \InvalidArgumentException('Counter key is required.');
         }

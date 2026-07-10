@@ -39,7 +39,211 @@ func runtimeEventLogEntries(game *state.GameState, command protocol.CommandEnvel
 	if cardNames := runtimeLogCardNames(payload); len(cardNames) > 0 {
 		entry["cardNames"] = cardNames
 	}
+	for key, value := range runtimeLogSemantic(game, command, payload, actorID) {
+		entry[key] = value
+	}
 	return []map[string]any{entry}
+}
+
+func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, actorID string) map[string]any {
+	actorPlayerID := actorID
+	if actorPlayerID == "" {
+		actorPlayerID = firstString(payload["playerId"], command.Payload["playerId"])
+	}
+	baseParams := func() map[string]any {
+		params := map[string]any{}
+		if actorPlayerID != "" {
+			params["actorPlayerId"] = actorPlayerID
+		}
+		return params
+	}
+	semantic := func(i18nKey string, params map[string]any, playerIDs []string, cardIDs []string) map[string]any {
+		fields := map[string]any{
+			"i18nKey":    i18nKey,
+			"params":     params,
+			"visibility": "public",
+		}
+		if refs := runtimeLogRefs(game, playerIDs, cardIDs); len(refs) > 0 {
+			fields["refs"] = refs
+		}
+		return fields
+	}
+
+	switch command.Type {
+	case "library.draw", "library.draw_many":
+		count := intFromPayload(payload, "count", 1)
+		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorPlayerID)
+		params := baseParams()
+		params["playerId"] = playerID
+		params["count"] = count
+		key := "gameLog.library.draw"
+		if count != 1 {
+			key = "gameLog.library.drawMany"
+		}
+		return semantic(key, params, []string{actorPlayerID, playerID}, nil)
+	case "library.shuffle":
+		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorPlayerID)
+		params := baseParams()
+		params["playerId"] = playerID
+		return semantic("gameLog.library.shuffle", params, []string{actorPlayerID, playerID}, nil)
+	case "card.moved":
+		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
+		fromZone := firstString(payload["fromZone"], command.Payload["fromZone"])
+		toZone := firstString(payload["toZone"], command.Payload["toZone"], payload["destination"], command.Payload["destination"])
+		params := baseParams()
+		params["fromZone"] = fromZone
+		params["toZone"] = toZone
+		params["count"] = 1
+		if instanceID != "" {
+			params["cardInstanceId"] = instanceID
+		}
+		if fromZone == "command" && toZone == "battlefield" {
+			if casts, ok := commanderCastCountFromPayload(payload); ok {
+				params["commanderCastCount"] = casts
+				return semantic("gameLog.commander.cast", params, []string{actorPlayerID}, []string{instanceID})
+			}
+		}
+		return semantic("gameLog.card.moved", params, []string{actorPlayerID}, []string{instanceID})
+	case "card.tapped":
+		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
+		params := baseParams()
+		params["tapped"] = firstBool(payload["tapped"], command.Payload["tapped"])
+		if instanceID != "" {
+			params["cardInstanceId"] = instanceID
+		}
+		key := "gameLog.card.untapped"
+		if firstBool(payload["tapped"], command.Payload["tapped"]) {
+			key = "gameLog.card.tapped"
+		}
+		return semantic(key, params, []string{actorPlayerID}, []string{instanceID})
+	case "card.counter.changed":
+		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
+		counter := firstString(payload["counter"], command.Payload["counter"], payload["key"], command.Payload["key"])
+		params := baseParams()
+		params["counter"] = counterLabel(counter)
+		params["value"] = intFromPayload(payload, "value", 0)
+		if instanceID != "" {
+			params["cardInstanceId"] = instanceID
+		}
+		return semantic("gameLog.cardCounter.changed", params, []string{actorPlayerID}, []string{instanceID})
+	case "life.changed":
+		playerID := firstString(payload["playerId"], command.Payload["playerId"])
+		params := baseParams()
+		params["playerId"] = playerID
+		params["previousLife"] = intFromPayload(payload, "previousLife", 0)
+		params["life"] = intFromPayload(payload, "life", intFromPayload(payload, "previousLife", 0))
+		return semantic("gameLog.life.changed", params, []string{actorPlayerID, playerID}, nil)
+	case "dice.rolled":
+		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorPlayerID)
+		result := payload["result"]
+		if result == nil {
+			result = payload["value"]
+		}
+		params := baseParams()
+		params["playerId"] = playerID
+		params["kind"] = firstString(payload["kind"], command.Payload["kind"])
+		params["result"] = result
+		return semantic("gameLog.dice.rolled", params, []string{actorPlayerID, playerID}, nil)
+	case "card.token.created":
+		count := intFromPayload(payload, "count", 1)
+		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorPlayerID)
+		params := baseParams()
+		params["playerId"] = playerID
+		params["count"] = count
+		params["tokenName"] = firstString(payload["name"], command.Payload["name"], "Token")
+		key := "gameLog.token.created"
+		if count != 1 {
+			key = "gameLog.token.createdMany"
+		}
+		return semantic(key, params, []string{actorPlayerID, playerID}, stringsFromAny(payload["instanceIds"]))
+	case "card.token_copy.created":
+		playerID := firstString(payload["targetPlayerId"], command.Payload["targetPlayerId"], payload["playerId"], command.Payload["playerId"], actorPlayerID)
+		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
+		sourceID := firstString(payload["sourceInstanceId"], command.Payload["sourceInstanceId"])
+		params := baseParams()
+		params["playerId"] = playerID
+		if instanceID != "" {
+			params["cardInstanceId"] = instanceID
+		}
+		if sourceID != "" {
+			params["sourceCardInstanceId"] = sourceID
+		}
+		return semantic("gameLog.tokenCopy.created", params, []string{actorPlayerID, playerID}, []string{instanceID, sourceID})
+	case "game.concede":
+		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorIDFromPayload(command.Payload), actorPlayerID)
+		params := baseParams()
+		params["playerId"] = playerID
+		return semantic("gameLog.game.concede", params, []string{actorPlayerID, playerID}, nil)
+	}
+
+	return nil
+}
+
+func runtimeLogRefs(game *state.GameState, playerIDs []string, cardIDs []string) map[string]any {
+	refs := map[string]any{}
+	if players := runtimeLogPlayerRefs(game, playerIDs); len(players) > 0 {
+		refs["players"] = players
+	}
+	if cards := runtimeLogCardRefs(game, cardIDs); len(cards) > 0 {
+		refs["cards"] = cards
+	}
+	return refs
+}
+
+func runtimeLogPlayerRefs(game *state.GameState, playerIDs []string) map[string]any {
+	players := map[string]any{}
+	for _, playerID := range playerIDs {
+		if strings.TrimSpace(playerID) == "" {
+			continue
+		}
+		if _, exists := players[playerID]; exists {
+			continue
+		}
+		players[playerID] = map[string]any{
+			"id":          playerID,
+			"displayName": playerDisplayName(game, playerID),
+		}
+	}
+	return players
+}
+
+func runtimeLogCardRefs(game *state.GameState, instanceIDs []string) map[string]any {
+	cards := map[string]any{}
+	for _, instanceID := range instanceIDs {
+		if strings.TrimSpace(instanceID) == "" {
+			continue
+		}
+		if _, exists := cards[instanceID]; exists {
+			continue
+		}
+		ref := map[string]any{
+			"instanceId": instanceID,
+			"visibility": "hidden",
+		}
+		instance, hasInstance := game.Instances[instanceID]
+		location, hasLocation := game.Loc[instanceID]
+		if hasInstance && hasLocation && runtimeLogCardIsPublic(instance, location) {
+			ref["visibility"] = "public"
+			if strings.TrimSpace(instance.CardKey) != "" {
+				ref["cardKey"] = instance.CardKey
+				ref["cardRef"] = instance.CardKey
+			}
+		}
+		cards[instanceID] = ref
+	}
+	return cards
+}
+
+func runtimeLogCardIsPublic(instance state.CardInstanceRuntime, location state.Location) bool {
+	if instance.FaceDown {
+		return false
+	}
+	switch location.Zone {
+	case state.ZoneBattlefield, state.ZoneGraveyard, state.ZoneExile, state.ZoneCommand:
+		return true
+	default:
+		return false
+	}
 }
 
 func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, displayName string) string {
@@ -50,6 +254,19 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 			return fmt.Sprintf("%s drew a card.", displayName)
 		}
 		return fmt.Sprintf("%s drew %d cards.", displayName, count)
+	case "dice.rolled":
+		kind := firstString(payload["kind"], command.Payload["kind"])
+		result := payload["result"]
+		if result == nil {
+			result = payload["value"]
+		}
+		return fmt.Sprintf("%s rolled %s and got %v.", displayName, readableDiceKind(kind), result)
+	case "life.changed":
+		playerID := firstString(payload["playerId"], command.Payload["playerId"])
+		name := playerDisplayName(game, playerID)
+		previous := intFromPayload(payload, "previousLife", 0)
+		life := intFromPayload(payload, "life", previous)
+		return fmt.Sprintf("%s changed %s's life from %d to %d.", displayName, name, previous, life)
 	case "card.moved", "cards.moved":
 		count := len(stringsFromAny(payload["instanceIds"]))
 		if count == 0 {
@@ -230,6 +447,17 @@ func readableZone(zone string) string {
 		return "command zone"
 	default:
 		return "zone"
+	}
+}
+
+func readableDiceKind(kind string) string {
+	switch strings.TrimSpace(kind) {
+	case "coin":
+		return "a coin"
+	case "d4", "d6", "d10", "d20":
+		return kind
+	default:
+		return "dice"
 	}
 }
 

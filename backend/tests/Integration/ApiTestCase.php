@@ -583,6 +583,7 @@ SQL,
             return;
         }
 
+        $this->ensureColumn($connection, 'app_user', 'last_seen_country_code', 'ALTER TABLE app_user ADD COLUMN last_seen_country_code VARCHAR(2) DEFAULT NULL');
         $this->ensureColumn($connection, 'app_user', 'last_seen_ip_hash', 'ALTER TABLE app_user ADD COLUMN last_seen_ip_hash VARCHAR(64) DEFAULT NULL');
 
         if (!$schemaManager->tablesExist(['user_daily_visit'])) {
@@ -593,9 +594,13 @@ CREATE TABLE user_daily_visit (
     user_id VARCHAR(36) NOT NULL,
     visit_date DATE NOT NULL,
     first_seen_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
-    ip_hash VARCHAR(64) NOT NULL,
+    country_code VARCHAR(2) DEFAULT NULL,
+    country_name VARCHAR(120) DEFAULT NULL,
+    continent_code VARCHAR(8) DEFAULT NULL,
+    ip_hash VARCHAR(64) DEFAULT NULL,
     ip_prefix VARCHAR(64) DEFAULT NULL,
     user_agent_hash VARCHAR(64) DEFAULT NULL,
+    geo_source VARCHAR(64) DEFAULT NULL,
     created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
     PRIMARY KEY(id)
 )
@@ -604,9 +609,15 @@ SQL,
             $connection->executeStatement('ALTER TABLE user_daily_visit ADD CONSTRAINT FK_USER_DAILY_VISIT_USER FOREIGN KEY (user_id) REFERENCES app_user (id) ON DELETE CASCADE');
         }
 
+        $this->ensureColumn($connection, 'user_daily_visit', 'country_code', 'ALTER TABLE user_daily_visit ADD COLUMN country_code VARCHAR(2) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_daily_visit', 'country_name', 'ALTER TABLE user_daily_visit ADD COLUMN country_name VARCHAR(120) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_daily_visit', 'continent_code', 'ALTER TABLE user_daily_visit ADD COLUMN continent_code VARCHAR(8) DEFAULT NULL');
+        $this->ensureColumn($connection, 'user_daily_visit', 'geo_source', 'ALTER TABLE user_daily_visit ADD COLUMN geo_source VARCHAR(64) DEFAULT NULL');
+        $connection->executeStatement('ALTER TABLE user_daily_visit ALTER COLUMN ip_hash DROP NOT NULL');
         $connection->executeStatement('CREATE UNIQUE INDEX IF NOT EXISTS uniq_user_daily_visit_user_date ON user_daily_visit (user_id, visit_date)');
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_user_daily_visit_date ON user_daily_visit (visit_date)');
         $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_user_daily_visit_user_first_seen ON user_daily_visit (user_id, first_seen_at)');
+        $connection->executeStatement('CREATE INDEX IF NOT EXISTS idx_user_daily_visit_country_code ON user_daily_visit (country_code)');
     }
 
     private function ensureUserMessageTable(Connection $connection): void

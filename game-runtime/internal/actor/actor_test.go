@@ -22,7 +22,7 @@ func TestGameActorAppliesSimpleCommandsInOrder(t *testing.T) {
 	commands := []protocol.CommandEnvelopeV2{
 		command("game-1", 1, "a-life", "life.changed", map[string]any{"playerId": "p1", "life": 37}),
 		command("game-1", 2, "a-turn", "turn.changed", map[string]any{"activePlayerId": "p2", "phase": "combat", "number": 3}),
-		command("game-1", 3, "a-dice", "dice.rolled", map[string]any{"playerId": "p1", "sides": 20, "result": 17}),
+		command("game-1", 3, "a-dice", "dice.rolled", map[string]any{"playerId": "p1", "kind": "d20"}),
 		command("game-1", 4, "a-tap", "card.tapped", map[string]any{"instanceId": "i1", "tapped": true}),
 		command("game-1", 5, "a-counter", "card.counter.changed", map[string]any{"instanceId": "i1", "counter": "+1/+1", "value": 2}),
 		command("game-1", 6, "a-position", "card.position.changed", map[string]any{"instanceId": "i1", "position": map[string]any{"x": 0.4, "y": 0.2, "unit": "ratio"}}),

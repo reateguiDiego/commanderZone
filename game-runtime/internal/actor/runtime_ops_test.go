@@ -85,6 +85,61 @@ func TestRuntimeCommandEmitsIdempotentGameLogEntry(t *testing.T) {
 	}
 }
 
+func TestDiceRolledEmitsServerResultPatchAndGameLog(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "dice-d20", "dice.rolled", map[string]any{
+		"playerId": "p1",
+		"kind":     "d20",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("dice failed: %v", result.Err)
+	}
+	dicePatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "dice.result")
+	if dicePatch == nil {
+		t.Fatalf("missing dice.result patch: %#v", result.Patches)
+	}
+	if dicePatch.Data["playerId"] != "p1" || dicePatch.Data["kind"] != "d20" {
+		t.Fatalf("bad dice patch metadata: %#v", dicePatch.Data)
+	}
+	value, ok := intFromAny(dicePatch.Data["result"])
+	if !ok || value < 1 || value > 20 {
+		t.Fatalf("dice result out of range: %#v", dicePatch.Data)
+	}
+	if dicePatch.Data["value"] != dicePatch.Data["result"] {
+		t.Fatalf("dice patch must carry value compatibility field: %#v", dicePatch.Data)
+	}
+	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if logPatch == nil {
+		t.Fatalf("missing dice log patch: %#v", result.Patches)
+	}
+	entries := logPatch.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["type"] != "dice.rolled" {
+		t.Fatalf("bad dice log entry: %#v", entries)
+	}
+}
+
+func TestLifeChangedEmitsGameLogEntry(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "life-log", "life.changed", map[string]any{
+		"playerId": "p1",
+		"delta":    -3,
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("life failed: %v", result.Err)
+	}
+	if result.Event.Payload["previousLife"] != 40 || result.Event.Payload["life"] != 37 || result.Event.Payload["delta"] != -3 {
+		t.Fatalf("life event payload missing before/after: %#v", result.Event.Payload)
+	}
+	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if logPatch == nil {
+		t.Fatalf("missing life log patch: %#v", result.Patches)
+	}
+	entries := logPatch.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["type"] != "life.changed" {
+		t.Fatalf("bad life log entry: %#v", entries)
+	}
+}
+
 func TestLibraryShuffleEmitsCompactGameLogEntry(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "shuffle-log", "library.shuffle", map[string]any{"playerId": "p1"}), "p1")
@@ -114,6 +169,205 @@ func TestLibraryShuffleEmitsCompactGameLogEntry(t *testing.T) {
 	eventEntries := result.Event.Payload["eventLogEntries"].([]map[string]any)
 	if len(eventEntries) != 1 || eventEntries[0]["id"] != entries[0]["id"] {
 		t.Fatalf("event payload did not carry matching shuffle log entry: patch=%#v event=%#v", entries, eventEntries)
+	}
+}
+
+func TestRuntimeP0GameLogEntriesCarrySemanticI18nMetadata(t *testing.T) {
+	tests := []struct {
+		name       string
+		initial    state.GameState
+		command    protocol.CommandEnvelopeV2
+		actorID    string
+		i18nKey    string
+		assertions func(t *testing.T, entry map[string]any)
+	}{
+		{
+			name:    "draw one",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-draw-one", "library.draw", map[string]any{"playerId": "p1"}),
+			actorID: "p1",
+			i18nKey: "gameLog.library.draw",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["count"] != 1 || params["playerId"] != "p1" {
+					t.Fatalf("bad draw params: %#v", params)
+				}
+				assertNoPrivateCardIdentity(t, entry)
+			},
+		},
+		{
+			name:    "draw many",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-draw-many", "library.draw_many", map[string]any{"playerId": "p1", "count": 2}),
+			actorID: "p1",
+			i18nKey: "gameLog.library.drawMany",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["count"] != 2 {
+					t.Fatalf("bad draw_many params: %#v", params)
+				}
+				assertNoPrivateCardIdentity(t, entry)
+			},
+		},
+		{
+			name:    "shuffle",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-shuffle", "library.shuffle", map[string]any{"playerId": "p1"}),
+			actorID: "p1",
+			i18nKey: "gameLog.library.shuffle",
+			assertions: func(t *testing.T, entry map[string]any) {
+				assertNoPrivateCardIdentity(t, entry)
+			},
+		},
+		{
+			name:    "move card",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-move", "card.moved", map[string]any{"playerId": "p1", "fromZone": "hand", "toZone": "battlefield", "instanceId": "h1"}),
+			actorID: "p1",
+			i18nKey: "gameLog.card.moved",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["fromZone"] != "hand" || params["toZone"] != "battlefield" || params["cardInstanceId"] != "h1" {
+					t.Fatalf("bad move params: %#v", params)
+				}
+				cardRef := requireCardRef(t, entry, "h1")
+				if cardRef["visibility"] != "public" || cardRef["cardKey"] == "" {
+					t.Fatalf("public move should expose public card ref only after reveal: %#v", cardRef)
+				}
+			},
+		},
+		{
+			name:    "tap card",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-tap", "card.tapped", map[string]any{"instanceId": "i1", "tapped": true}),
+			actorID: "p1",
+			i18nKey: "gameLog.card.tapped",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["tapped"] != true || params["cardInstanceId"] != "i1" {
+					t.Fatalf("bad tap params: %#v", params)
+				}
+			},
+		},
+		{
+			name:    "card counter",
+			initial: stateIntegrityCounterState(t),
+			command: command("game-1", 1, "i18n-counter", "card.counter.changed", map[string]any{"instanceId": "i1", "counter": "+1/+1", "value": 3}),
+			actorID: "p1",
+			i18nKey: "gameLog.cardCounter.changed",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["counter"] != "+1/+1" || params["value"] != 3 {
+					t.Fatalf("bad counter params: %#v", params)
+				}
+				cardRef := requireCardRef(t, entry, "i1")
+				if cardRef["visibility"] != "hidden" || cardRef["cardKey"] != nil {
+					t.Fatalf("face-down counter ref leaked identity: %#v", cardRef)
+				}
+			},
+		},
+		{
+			name:    "life",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-life", "life.changed", map[string]any{"playerId": "p2", "life": 37}),
+			actorID: "p2",
+			i18nKey: "gameLog.life.changed",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["playerId"] != "p2" || params["previousLife"] != 40 || params["life"] != 37 {
+					t.Fatalf("bad life params: %#v", params)
+				}
+				requirePlayerRef(t, entry, "p2")
+			},
+		},
+		{
+			name:    "dice",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-dice", "dice.rolled", map[string]any{"playerId": "p1", "kind": "d20"}),
+			actorID: "p1",
+			i18nKey: "gameLog.dice.rolled",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["kind"] != "d20" || params["result"] == nil {
+					t.Fatalf("bad dice params: %#v", params)
+				}
+			},
+		},
+		{
+			name:    "commander cast",
+			initial: testStateWithCommanderInCommand(),
+			command: command("game-1", 1, "i18n-commander", "card.moved", map[string]any{"playerId": "p1", "fromZone": "command", "toZone": "battlefield", "instanceId": "commander-1"}),
+			actorID: "p1",
+			i18nKey: "gameLog.commander.cast",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["commanderCastCount"] != 1 || params["cardInstanceId"] != "commander-1" {
+					t.Fatalf("bad commander params: %#v", params)
+				}
+			},
+		},
+		{
+			name:    "token created",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-token", "card.token.created", map[string]any{"playerId": "p1", "quantity": 2, "name": "Clue"}),
+			actorID: "p1",
+			i18nKey: "gameLog.token.createdMany",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["count"] != 2 || params["tokenName"] != "Clue" {
+					t.Fatalf("bad token params: %#v", params)
+				}
+			},
+		},
+		{
+			name:    "token copy",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-token-copy", "card.token_copy.created", map[string]any{"instanceId": "i1", "targetPlayerId": "p1"}),
+			actorID: "p1",
+			i18nKey: "gameLog.tokenCopy.created",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["sourceCardInstanceId"] != "i1" || params["cardInstanceId"] == "" {
+					t.Fatalf("bad token copy params: %#v", params)
+				}
+			},
+		},
+		{
+			name:    "concede",
+			initial: testState(),
+			command: command("game-1", 1, "i18n-concede", "game.concede", map[string]any{"playerId": "p1"}),
+			actorID: "p1",
+			i18nKey: "gameLog.game.concede",
+			assertions: func(t *testing.T, entry map[string]any) {
+				params := requireMap(t, entry["params"])
+				if params["playerId"] != "p1" {
+					t.Fatalf("bad concede params: %#v", params)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gameActor := NewGameActor("game-1", tt.initial, nil, 8, DefaultAppliers())
+			result := gameActor.ApplyDirect(context.Background(), tt.command, tt.actorID)
+			if result.Err != nil {
+				t.Fatalf("command failed: %v", result.Err)
+			}
+			entry := requireRuntimeLogEntry(t, result)
+			if entry["message"] == "" {
+				t.Fatalf("semantic log entry must keep legacy message fallback: %#v", entry)
+			}
+			if entry["i18nKey"] != tt.i18nKey || entry["visibility"] != "public" {
+				t.Fatalf("bad i18n fields: %#v", entry)
+			}
+			params := requireMap(t, entry["params"])
+			if params["actorPlayerId"] != tt.actorID {
+				t.Fatalf("bad actor param: %#v", params)
+			}
+			requirePlayerRef(t, entry, tt.actorID)
+			tt.assertions(t, entry)
+		})
 	}
 }
 
@@ -2138,6 +2392,49 @@ func TestCardCounterChangedAcceptsLegacyKeyPayload(t *testing.T) {
 	}
 }
 
+func TestCardCounterZeroPersistsUntilExplicitRemove(t *testing.T) {
+	gameActor := NewGameActor("game-1", stateIntegrityCounterState(t), nil, 8, DefaultAppliers())
+
+	zero := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "counter-zero", "card.counter.changed", map[string]any{
+		"instanceId": "i1",
+		"counter":    "charge",
+		"value":      0,
+	}), "p1")
+	if zero.Err != nil {
+		t.Fatalf("zero counter failed: %v", zero.Err)
+	}
+	if got, ok := gameActor.Snapshot().Instances["i1"].Counters["charge"]; !ok || got != 0 {
+		t.Fatalf("zero counter was not persisted: %#v", gameActor.Snapshot().Instances["i1"].Counters)
+	}
+	patch := patchForVisibility(zero.Patches, protocol.VisibilityPublic, "card.counters.patch")
+	if patch == nil || patch.Data["counters"].(map[string]any)["charge"] != 0 {
+		t.Fatalf("zero counter missing from patch: %#v", zero.Patches)
+	}
+
+	life := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "life-after-zero-counter", "life.changed", map[string]any{
+		"playerId": "p1",
+		"delta":    -1,
+	}), "p1")
+	if life.Err != nil {
+		t.Fatalf("life after zero counter failed: %v", life.Err)
+	}
+	if got, ok := gameActor.Snapshot().Instances["i1"].Counters["charge"]; !ok || got != 0 {
+		t.Fatalf("zero counter evaporated after unrelated action: %#v", gameActor.Snapshot().Instances["i1"].Counters)
+	}
+
+	remove := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "counter-remove", "card.counter.changed", map[string]any{
+		"instanceId": "i1",
+		"counter":    "charge",
+		"remove":     true,
+	}), "p1")
+	if remove.Err != nil {
+		t.Fatalf("counter remove failed: %v", remove.Err)
+	}
+	if _, ok := gameActor.Snapshot().Instances["i1"].Counters["charge"]; ok {
+		t.Fatalf("explicit remove did not delete counter: %#v", gameActor.Snapshot().Instances["i1"].Counters)
+	}
+}
+
 func TestPowerToughnessCountersUpdateMutableStats(t *testing.T) {
 	gameActor := NewGameActor("game-1", stateIntegrityCounterState(t), nil, 8, DefaultAppliers())
 
@@ -2223,6 +2520,26 @@ func TestCardCounterReplayPreservesUnrelatedState(t *testing.T) {
 	}
 
 	assertStateIntegrityAroundCounter(t, before, replayed, 3)
+}
+
+func TestCardCounterReplayPreservesZeroValueCounter(t *testing.T) {
+	initial := stateIntegrityCounterState(t)
+	event := protocol.EventPayloadV2{
+		GameID:         "game-1",
+		Version:        2,
+		Type:           "card.counter.changed",
+		Payload:        map[string]any{"instanceId": "i1", "counter": "charge", "value": 0},
+		CreatedBy:      "p1",
+		ClientActionID: "zero-counter",
+	}
+
+	replayed, err := ReplayEvents(initial, []protocol.EventPayloadV2{event}, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("replay failed: %v", err)
+	}
+	if got, ok := replayed.Instances["i1"].Counters["charge"]; !ok || got != 0 {
+		t.Fatalf("replay did not preserve zero counter: %#v", replayed.Instances["i1"].Counters)
+	}
 }
 
 func TestCardCounterRollbackDoesNotClobberUnrelatedState(t *testing.T) {
@@ -3349,6 +3666,58 @@ func nonZeroRatioPosition(position map[string]any) bool {
 		return false
 	}
 	return toFloat(position["x"], 0) > 0 || toFloat(position["y"], 0) > 0
+}
+
+func requireRuntimeLogEntry(t *testing.T, result CommandResult) map[string]any {
+	t.Helper()
+	logPatch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if logPatch == nil {
+		t.Fatalf("missing eventLog.append patch: %#v", result.Patches)
+	}
+	entries, ok := logPatch.Data["entries"].([]map[string]any)
+	if !ok || len(entries) != 1 {
+		t.Fatalf("bad log entries payload: %#v", logPatch.Data)
+	}
+	return entries[0]
+}
+
+func requireMap(t *testing.T, value any) map[string]any {
+	t.Helper()
+	typed, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map[string]any, got %#v", value)
+	}
+	return typed
+}
+
+func requirePlayerRef(t *testing.T, entry map[string]any, playerID string) map[string]any {
+	t.Helper()
+	refs := requireMap(t, entry["refs"])
+	players := requireMap(t, refs["players"])
+	player := requireMap(t, players[playerID])
+	if player["id"] != playerID || player["displayName"] == "" {
+		t.Fatalf("bad player ref for %s: %#v", playerID, player)
+	}
+	return player
+}
+
+func requireCardRef(t *testing.T, entry map[string]any, instanceID string) map[string]any {
+	t.Helper()
+	refs := requireMap(t, entry["refs"])
+	cards := requireMap(t, refs["cards"])
+	card := requireMap(t, cards[instanceID])
+	if card["instanceId"] != instanceID {
+		t.Fatalf("bad card ref for %s: %#v", instanceID, card)
+	}
+	return card
+}
+
+func assertNoPrivateCardIdentity(t *testing.T, entry map[string]any) {
+	t.Helper()
+	encoded := fmt.Sprintf("%#v", entry)
+	if contains(encoded, "cardKey") || contains(encoded, "library-") {
+		t.Fatalf("log leaked private card identity: %s", encoded)
+	}
 }
 
 func equalStrings(a []string, b []string) bool {

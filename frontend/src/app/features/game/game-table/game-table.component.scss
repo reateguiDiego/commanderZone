@@ -67,7 +67,7 @@
 
 .game-screen > app-game-arrow-layer {
   position: absolute;
-  z-index: 620;
+  z-index: 240;
 }
 
 .game-screen > app-arrow-target-dialog {
@@ -345,6 +345,8 @@
 
 .player-sidebar {
   grid-area: opponents;
+  position: relative;
+  z-index: 245;
   display: grid;
   align-content: start;
   gap: 0;

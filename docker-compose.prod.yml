@@ -26,6 +26,8 @@ services:
       SHADOW_COMPARE_ENABLED: ${SHADOW_COMPARE_ENABLED:-0}
       GAMEPLAY_STREAMS_ENABLED: ${GAMEPLAY_STREAMS_ENABLED:-1}
       GAMEPLAY_METRICS_OUTPUT: ${GAMEPLAY_METRICS_OUTPUT:-}
+      SYMFONY_TRUSTED_PROXIES: ${SYMFONY_TRUSTED_PROXIES:-172.18.0.0/16}
+      SYMFONY_TRUSTED_HEADERS: ${SYMFONY_TRUSTED_HEADERS:-x-forwarded-for,x-forwarded-host,x-forwarded-proto,x-forwarded-port}
     depends_on:
       database:
         condition: service_healthy
@@ -38,6 +40,7 @@ services:
     volumes:
       - ./backend/docker/php/conf.d/api-prod-memory.ini:/usr/local/etc/php/conf.d/zz-api-prod-memory.ini:ro
       - ./backend/Caddyfile.prod:/etc/frankenphp/Caddyfile:ro
+      - ./backend/var/geoip:/app/var/geoip:ro
     mem_limit: 1200m
     cpus: "1.0"
     ulimits:

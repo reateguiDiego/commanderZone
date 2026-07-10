@@ -202,10 +202,27 @@ export interface ChatMessage {
 export interface GameLogEntry {
   id: string;
   type: string;
-  message: string;
-  actorId: string | null;
-  displayName: string | null;
-  createdAt: string;
+  message?: string;
+  version?: number;
+  createdAt?: string;
+  actorId?: string | null;
+  displayName?: string | null;
+  i18nKey?: string;
+  params?: Record<string, unknown>;
+  refs?: {
+    players?: Record<string, {
+      id: string;
+      displayName: string;
+    }>;
+    cards?: Record<string, {
+      instanceId?: string;
+      cardKey?: string;
+      cardRef?: string;
+      name?: string;
+      visibility: 'public' | 'hidden';
+    }>;
+  };
+  visibility?: 'public' | 'private' | 'group';
   cardNames?: string[];
   cardInstanceId?: string;
   cardPlayerId?: string;

@@ -15,6 +15,7 @@ parameters:
     google_oidc_client_ids_default: ''
     google_oidc_jwks_uri_default: 'https://www.googleapis.com/oauth2/v3/certs'
     user_daily_visit_retention_days_default: '180'
+    user_visit_geoip_country_database_default: ''
     game_websocket_listen: '%env(default:game_websocket_listen_default:GAME_WEBSOCKET_LISTEN)%'
     game_websocket_public_url: '%env(default:game_websocket_public_url_default:GAME_WEBSOCKET_PUBLIC_URL)%'
     game_runtime_websocket_public_url: '%env(default:game_runtime_websocket_public_url_default:GAME_RUNTIME_WEBSOCKET_PUBLIC_URL)%'
@@ -61,6 +62,8 @@ parameters:
     google_oidc_client_ids: '%env(default:google_oidc_client_ids_default:GOOGLE_OIDC_CLIENT_IDS)%'
     google_oidc_jwks_uri: '%env(default:google_oidc_jwks_uri_default:GOOGLE_OIDC_JWKS_URI)%'
     user_daily_visit_retention_days: '%env(int:default:user_daily_visit_retention_days_default:USER_DAILY_VISIT_RETENTION_DAYS)%'
+    user_visit_hash_secret: '%env(default:kernel.secret:USER_VISIT_HASH_SECRET)%'
+    user_visit_geoip_country_database: '%env(default:user_visit_geoip_country_database_default:USER_VISIT_GEOIP_COUNTRY_DATABASE)%'
 
 services:
     # default configuration for services in *this* file
@@ -87,6 +90,9 @@ services:
 
     App\Application\Auth\GoogleIdTokenVerifierInterface:
         alias: App\Application\Auth\GoogleIdTokenVerifier
+
+    App\Application\User\IpGeolocationServiceInterface:
+        alias: App\Application\User\IpGeolocationService
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

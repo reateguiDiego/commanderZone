@@ -2660,6 +2660,7 @@ describe('GameTableComponent', () => {
       type: 'dice.rolled',
       payload: {
         kind: 'd20',
+        playerId: 'user-1',
       },
     }), 'game-1');
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
@@ -2697,6 +2698,7 @@ describe('GameTableComponent', () => {
         type: 'dice.rolled',
         payload: {
           kind: 'd20',
+          playerId: 'user-1',
         },
       }), 'game-1'));
       await vi.waitFor(() => expect(fixture.componentInstance.store.eventLog()[0]?.messagePrefix)
@@ -4349,7 +4351,7 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.syncStatus()).toBe('pending');
   });
 
-  it('initializes a selected card counter at zero without opening the number dialog', async () => {
+  it('initializes a selected card counter at one without opening the number dialog', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
@@ -4383,7 +4385,7 @@ describe('GameTableComponent', () => {
         zone: 'battlefield',
         instanceId: 'card-1',
         counter: '+1/+1',
-        value: 0,
+        value: 1,
       },
     }), 'game-1');
     expect(fixture.componentInstance.numberActionDialog()).toBeNull();

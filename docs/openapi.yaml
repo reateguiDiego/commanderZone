@@ -7704,7 +7704,7 @@ components:
           format: date-time
     GameLogEntry:
       type: object
-      required: [id, type, message, actorId, displayName, createdAt]
+      required: [id, type]
       properties:
         id:
           type: string
@@ -7712,6 +7712,9 @@ components:
           type: string
         message:
           type: string
+          description: Legacy rendered fallback. New clients should prefer i18nKey/params/refs when present.
+        version:
+          type: integer
         actorId:
           type: [string, 'null']
           format: uuid
@@ -7720,6 +7723,45 @@ components:
         createdAt:
           type: string
           format: date-time
+        i18nKey:
+          type: string
+          description: Semantic translation key for viewer-localized game log rendering.
+        params:
+          type: object
+          additionalProperties: true
+        refs:
+          type: object
+          properties:
+            players:
+              type: object
+              additionalProperties:
+                type: object
+                required: [id, displayName]
+                properties:
+                  id:
+                    type: string
+                  displayName:
+                    type: string
+            cards:
+              type: object
+              additionalProperties:
+                type: object
+                required: [visibility]
+                properties:
+                  instanceId:
+                    type: string
+                  cardKey:
+                    type: string
+                  cardRef:
+                    type: string
+                  name:
+                    type: string
+                  visibility:
+                    type: string
+                    enum: [public, hidden]
+        visibility:
+          type: string
+          enum: [public, private, group]
     GameRematch:
       type: object
       required: [votes]

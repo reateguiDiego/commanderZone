@@ -1525,9 +1525,11 @@ export class GameTableStore implements OnDestroy {
     if (!kind) {
       return;
     }
+    const playerId = this.currentPlayer()?.id;
 
     await this.command('dice.rolled', {
       kind,
+      ...(playerId ? { playerId } : {}),
     });
   }
 
