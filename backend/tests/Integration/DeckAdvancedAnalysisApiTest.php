@@ -73,6 +73,8 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertSame('No combo package detected.', $response['health']['combos']['message']);
         self::assertArrayHasKey('suggestedActionType', $response['issues'][0]);
         self::assertArrayNotHasKey('recommendations', $response);
+        self::assertArrayNotHasKey('bracketSignals', $response);
+        self::assertArrayNotHasKey('bracket', $response);
         self::assertFalse($response['snapshot']['hit']);
         self::assertSame('missing', $response['snapshot']['reason']);
         self::assertArrayHasKey('manaDataVersion', $response['snapshot']);
@@ -82,7 +84,11 @@ final class DeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         $simple = $this->jsonResponse();
         self::assertArrayHasKey('manaCurve', $simple);
-        self::assertArrayNotHasKey('snapshot', $simple);
+        self::assertArrayHasKey('bracketSignals', $simple);
+        self::assertArrayHasKey('bracket', $simple);
+        self::assertArrayHasKey('snapshot', $simple);
+        self::assertFalse($simple['snapshot']['hit']);
+        self::assertSame('missing', $simple['snapshot']['reason']);
     }
 
     public function testEndpointReturnsCardReferencesForHealthAndPowerSignals(): void

@@ -2,27 +2,17 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ZoneCardStackComponent } from './zone-card-stack.component';
 
 describe('ZoneCardStackComponent', () => {
-  it('renders only the top card image when the stack has one card', async () => {
-    const fixture = await renderZoneCardStack(1);
-
-    expect(stackLayers(fixture).length).toBe(0);
-    expect(topImage(fixture)?.getAttribute('src')).toBe('/assets/card.jpg');
-  });
-
-  it('renders stack layers with the configured layer image', async () => {
-    const fixture = await renderZoneCardStack(4, '/assets/second-card.jpg');
-
+  it.each([
+    { count: 1, layerImage: null, expectedLayers: 0 },
+    { count: 4, layerImage: null, expectedLayers: 0 },
+    { count: 4, layerImage: '/assets/second-card.jpg', expectedLayers: 3 },
+  ])('renders the top card and optional visual layers for count $count', async ({ count, layerImage, expectedLayers }) => {
+    const fixture = await renderZoneCardStack(count, layerImage);
     const layers = stackLayers(fixture);
-    expect(layers.length).toBe(3);
-    expect(layers.every((layer) => layer.getAttribute('src') === '/assets/second-card.jpg')).toBe(true);
-    expect(topImage(fixture)?.getAttribute('src')).toBe('/assets/card.jpg');
-  });
 
-  it('does not render stack layers when no second-card image is available', async () => {
-    const fixture = await renderZoneCardStack(4);
-
-    expect(stackLayers(fixture).length).toBe(0);
     expect(topImage(fixture)?.getAttribute('src')).toBe('/assets/card.jpg');
+    expect(layers.length).toBe(expectedLayers);
+    expect(layers.every((layer) => layer.getAttribute('src') === layerImage)).toBe(true);
   });
 
   it('caps deep piles to a stable visual stack while keeping the real count outside', async () => {

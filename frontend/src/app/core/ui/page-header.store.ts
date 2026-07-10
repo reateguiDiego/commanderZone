@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { runtimeTranslationFallback } from '../localization/runtime-translate.pipe';
+import { DeckBracketEstimate } from '../models/deck-analysis.model';
 import { UserAvatar, UserDisplayNameStyle } from '../models/user.model';
 
 export type PageHeaderOwner = object;
@@ -70,6 +71,7 @@ export interface PageHeaderState {
   description?: string;
   context?: string;
   heroRule?: boolean;
+  bracket?: DeckBracketEstimate | null;
   titleWarning?: PageHeaderTitleWarning;
   titleActions?: readonly PageHeaderAction[];
   actions?: readonly PageHeaderAction[];
@@ -100,6 +102,7 @@ export class PageHeaderStore {
       title: this.translateText(header.title),
       eyebrow: header.eyebrow ? this.translateText(header.eyebrow) : undefined,
       description: header.description ? this.translateText(header.description) : undefined,
+      bracket: header.bracket ? { ...header.bracket } : header.bracket,
       titleWarning: header.titleWarning
         ? {
             ...header.titleWarning,

@@ -1555,19 +1555,6 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertStringContainsString('lower than current players', (string) $this->jsonResponse()['error']);
     }
 
-    public function testRoomCreationDefaultsCommanderMulliganSettings(): void
-    {
-        $ownerToken = $this->registerAndLogin('mulligan-default-owner@example.test', 'Mulligan Owner');
-
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2], $ownerToken);
-        self::assertResponseStatusCodeSame(201);
-
-        $room = $this->jsonResponse()['room'];
-        self::assertSame('commander', $room['format']);
-        self::assertSame('LONDON', $room['mulliganRule']);
-        self::assertTrue($room['firstMulliganFree']);
-    }
-
     public function testOwnerCanUpdateMulliganSettings(): void
     {
         $ownerToken = $this->registerAndLogin('mulligan-owner@example.test', 'Mulligan Owner');

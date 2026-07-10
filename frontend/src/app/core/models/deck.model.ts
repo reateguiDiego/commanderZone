@@ -83,6 +83,30 @@ export interface DeckTokensResponse {
   unresolved: UnresolvedDeckToken[];
 }
 
+export interface DeckEditorTokenReference {
+  sourceCard: DeckTokenSource;
+  tokenRef: string;
+  resolved: true;
+}
+
+export interface DeckEditorTokenSnapshot {
+  hit: boolean;
+  reason: string;
+  calculatedAt: string | null;
+  deckHash: string;
+  cardLanguage: string;
+  payloadVersion: string;
+  tokenDataVersion: string;
+}
+
+export interface DeckEditorTokensResponse {
+  deckId: string;
+  data: DeckEditorTokenReference[];
+  tokens: Record<string, Card>;
+  unresolved: UnresolvedDeckToken[];
+  snapshot: DeckEditorTokenSnapshot;
+}
+
 export interface DeckCardPrintingsResponse {
   deckCardId: string;
   data: Card[];

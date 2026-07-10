@@ -1,8 +1,13 @@
 <section class="deck-viewer-panel">
   <div class="deck-summary">
-    <div class="deck-summary-counts">
-      <strong>{{ 'community.deckViewer.cardsCount' | runtimeTranslate: { count: store.playableCardCount() } }}</strong>
-      <span>{{ 'community.deckViewer.sectionsCount' | runtimeTranslate: { count: store.playableSectionCount() } }}</span>
+    <div class="deck-summary-status">
+      @if (bracket(); as bracketEstimate) {
+        <app-bracket-pill class="deck-summary-bracket-pill" [bracket]="bracketEstimate" />
+      }
+      <div class="deck-summary-counts">
+        <strong>{{ 'community.deckViewer.cardsCount' | runtimeTranslate: { count: store.playableCardCount() } }}</strong>
+        <span>{{ 'community.deckViewer.sectionsCount' | runtimeTranslate: { count: store.playableSectionCount() } }}</span>
+      </div>
     </div>
 
     <div class="view-mode-select" [class.is-open]="viewModeMenuOpen()" (click)="$event.stopPropagation()">

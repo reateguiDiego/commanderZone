@@ -228,20 +228,34 @@
 
 .friends-list { display: grid; gap: 0.55rem; max-height: 20rem; overflow: auto; }
 
-.invite-modal-list { max-height: 22rem; }
+.invite-modal-list {
+  justify-items: stretch;
+  max-height: 22rem;
+}
 
 .friend-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 100%;
   border: 1px solid rgb(var(--cz-primary-rgb) / 18%);
-  border-radius: 16px;
-  padding: 0.65rem;
+  border-radius: 10px;
+  padding: 0.46rem 0.5rem;
   background: rgb(var(--cz-bg-rgb) / 48%);
 }
 
 .friend-row span { min-width: 0; }
+
+.friend-row-main {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 0.08rem;
+  width: 12rem;
+  max-width: 100%;
+}
 
 .friend-row app-player-name,
 .friend-row small {
@@ -252,7 +266,58 @@
   max-width: 100%;
 }
 
-.friend-row small { color: var(--muted); }
+.friend-presence {
+  width: fit-content;
+  border: 1px solid rgb(var(--cz-muted-rgb, var(--cz-text-rgb)) / 22%);
+  border-radius: 999px;
+  padding: 0.14rem 0.45rem;
+  background: rgb(var(--cz-surface-rgb) / 28%);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.friend-presence-online {
+  border-color: rgb(var(--cz-success-rgb) / 42%);
+  background: rgb(var(--cz-success-rgb) / 12%);
+  color: var(--cz-success);
+}
+
+.friend-presence-offline {
+  border-color: rgb(var(--cz-text-rgb) / 16%);
+  background: rgb(var(--cz-text-rgb) / 6%);
+  color: rgb(var(--cz-text-rgb) / 58%);
+}
+
+.invite-friend-button {
+  min-width: 5.4rem;
+  border-color: rgb(var(--cz-success-rgb) / 76%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cz-success) 88%, var(--cz-text) 12%), var(--cz-success));
+  color: var(--cz-bg);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 20%),
+    0 0.55rem 1rem rgb(var(--cz-success-rgb) / 18%);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.invite-friend-button:hover:not(:disabled),
+.invite-friend-button:focus-visible:not(:disabled) {
+  border-color: rgb(var(--cz-success-rgb) / 92%);
+  background:
+    radial-gradient(circle at 50% 0%, rgb(var(--cz-text-rgb) / 24%), transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--cz-success) 72%, var(--cz-text) 28%), var(--cz-success));
+  box-shadow:
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 28%),
+    0 0.72rem 1.35rem rgb(var(--cz-success-rgb) / 26%),
+    0 0 0 3px rgb(var(--cz-success-rgb) / 16%);
+  transform: translateY(-1px);
+}
 
 .danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 2.45rem; border: 1px solid rgb(var(--cz-danger-rgb) / 42%); border-radius: 7px; padding: 0.62rem 0.9rem; background: rgb(var(--cz-surface-rgb) / 20%); color: var(--cz-text); font-weight: 800; }
 

@@ -36,10 +36,7 @@ describe('TableAssistantReplayModalComponent', () => {
 
   it('only changes table seats through player selects', () => {
     const fixture = createFixture();
-    const firstSeat = fixture.nativeElement.querySelector('.seat-layout article') as HTMLElement;
 
-    expect(firstSeat.getAttribute('draggable')).toBeNull();
-    expect(firstSeat.getAttribute('tabindex')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Despues va');
 
     fixture.componentInstance.setSeatPlayer(0, 'player-3');

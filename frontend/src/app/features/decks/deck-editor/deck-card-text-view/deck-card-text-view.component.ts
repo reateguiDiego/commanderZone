@@ -3,15 +3,29 @@ import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core
 import { LucideAngularModule } from 'lucide-angular';
 import { Card, CardFace } from '../../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { MTGIconComponent } from '../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { GameChangerIconComponent } from '../../../../shared/ui/game-changer-icon/game-changer-icon.component';
 import { cardDisplayFace } from '../../../../shared/utils/card-faces';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
 import { DeckCommanderShowcaseComponent } from '../deck-commander-showcase/deck-commander-showcase.component';
 import { DECK_VIEW_STORE } from '../deck-view-store.token';
 
+const CARD_TYPE_ICONS: Readonly<Record<string, string>> = {
+  artifact: 'artifact',
+  battle: 'battle',
+  commander: 'commander',
+  creature: 'creature',
+  enchantment: 'enchantment',
+  instant: 'instant',
+  land: 'land',
+  planeswalker: 'planeswalker',
+  saga: 'saga',
+  sorcery: 'sorcery',
+};
+
 @Component({
   selector: 'app-deck-card-text-view',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaSymbolsComponent, GameChangerIconComponent, DeckCardMenuComponent, DeckCommanderShowcaseComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaSymbolsComponent, MTGIconComponent, GameChangerIconComponent, DeckCardMenuComponent, DeckCommanderShowcaseComponent],
   templateUrl: './deck-card-text-view.component.html',
   styleUrl: './deck-card-text-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,6 +57,11 @@ export class DeckCardTextViewComponent {
     event.stopPropagation();
     event.stopImmediatePropagation?.();
   }
+
+  groupTypeIcon(groupId: string): string | null {
+    return CARD_TYPE_ICONS[groupId] ?? null;
+  }
+
 
   toggleCardFace(event: MouseEvent, card: Card): void {
     event.preventDefault();

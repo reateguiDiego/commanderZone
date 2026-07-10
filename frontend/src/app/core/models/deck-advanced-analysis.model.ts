@@ -1,4 +1,5 @@
 import type { CardFace, CardImageUris } from './card.model';
+import type { DeckBracketEstimate } from './deck-analysis.model';
 
 export type AdvancedAnalysisMap = Record<string, unknown>;
 export type AdvancedNumberMap = Record<string, number>;
@@ -25,6 +26,7 @@ export interface AdvancedAnalysisResponse {
   power?: AdvancedPower | null;
   issues?: AdvancedIssue[];
   unmatchedCards?: UnmatchedCard[];
+  bracket?: DeckBracketEstimate | null;
 }
 
 export interface SnapshotInfo {

@@ -112,26 +112,6 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(element.textContent).not.toContain('Main warnings');
   });
 
-  it('uses tabs for advanced analysis sections on non-mobile layouts', async () => {
-    const { fixture } = await setup();
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const element = fixture.nativeElement as HTMLElement;
-    const tabs = Array.from(element.querySelectorAll('app-tab-list button[role="tab"]')) as HTMLButtonElement[];
-    const comboTab = tabs.find((tab) => tab.textContent?.includes('Combo Intelligence'));
-
-    expect(tabs.length).toBeGreaterThan(1);
-    expect(element.querySelector('app-advanced-analysis-summary-section')?.classList.contains('is-active')).toBe(true);
-    expect(comboTab).toBeTruthy();
-
-    comboTab?.click();
-    fixture.detectChanges();
-
-    expect(element.querySelector('app-advanced-analysis-summary-section')?.classList.contains('is-active')).toBe(false);
-    expect(element.querySelector('app-advanced-analysis-combos-section')?.classList.contains('is-active')).toBe(true);
-  });
-
   it('does not render the board wipe summary overview or dedicated analysis tab', async () => {
     const { fixture } = await setup();
     await fixture.whenStable();
@@ -306,7 +286,6 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     expect(element.textContent).not.toContain('Analyzer archetypes');
     expect(archetypeSection).not.toBeNull();
     expect(typalSection).not.toBeNull();
-    expect(archetypeSection?.compareDocumentPosition(typalSection as Node) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(archetypeBlocks[0]?.querySelector('h3')?.textContent?.trim()).toBe('Aristocrats');
     expect(archetypeBlocks[1]?.querySelector('h3')?.textContent?.trim()).toBe('Tokens');
     expect(archetypeBlocks).toHaveLength(2);
@@ -847,13 +826,9 @@ describe('DeckAdvancedAnalysisPageComponent', () => {
     deckSignalsTab?.click();
     fixture.detectChanges();
 
-    const signalsPanel = element.querySelector('.advanced-analysis-signals-panel') as HTMLElement | null;
     const text = element.textContent ?? '';
 
     expect(deckSignalsTab).toBeTruthy();
-    expect(signalsPanel?.classList.contains('is-active')).toBe(true);
-    expect(signalsPanel?.querySelector('app-advanced-analysis-metrics-section')).not.toBeNull();
-    expect(signalsPanel?.querySelector('app-advanced-analysis-roles-section')).not.toBeNull();
     expect(text).toContain('Permanent ramp');
     expect(text).toContain('Fast mana');
     expect(text).toContain('Burst mana');

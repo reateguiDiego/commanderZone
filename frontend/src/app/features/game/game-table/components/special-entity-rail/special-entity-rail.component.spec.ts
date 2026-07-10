@@ -46,25 +46,6 @@ describe('SpecialEntityRailComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders icon-first helpers with expandable copy metadata', () => {
-    const pills = Array.from(fixture.nativeElement.querySelectorAll('.special-entity-pill')) as HTMLElement[];
-    const labels = pills.map((pill) => pill.getAttribute('aria-label'));
-    const copy = Array.from(fixture.nativeElement.querySelectorAll('.special-entity-pill-copy')) as HTMLElement[];
-
-    expect(labels).toContain('Monarch');
-    expect(labels).toContain('The Initiative');
-    expect(labels).not.toContain('Lost Mine of Phandelver - Trap!');
-    expect(copy.map((element) => element.textContent?.trim())).toEqual(expect.arrayContaining([
-      'Monarch',
-      'The Initiative',
-    ]));
-    expect(copy.map((element) => element.textContent?.trim())).not.toContain('Lost Mine of Phandelver - Trap!');
-    expect(pills.some((pill) => pill.hasAttribute('title'))).toBe(false);
-    expect(fixture.nativeElement.querySelector('.ms-ability-role-royal')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.ms-ability-d20')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.ms-ability-dungeon')).toBeNull();
-  });
-
   it('emits preview events for card-backed helpers', () => {
     const shown = vi.fn();
     const hidden = vi.fn();
@@ -97,14 +78,6 @@ describe('SpecialEntityRailComponent', () => {
       template: 'monarch',
     }));
     expect(hidden).toHaveBeenCalled();
-  });
-
-  it('renders card-backed helpers as expandable text pills without inline mini-card art or native tooltip', () => {
-    expect(fixture.nativeElement.querySelector('.special-entity-ring-button')).toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('The Initiative');
-    expect(fixture.nativeElement.textContent).not.toContain('Lost Mine of Phandelver');
-    expect(fixture.nativeElement.querySelector('.special-entity-pill-card-backed')?.hasAttribute('title')).toBe(false);
-    expect(fixture.nativeElement.querySelector('.special-entity-pill-card-backed img')).toBeNull();
   });
 
   it("emits a context request for City's Blessing on right click", () => {

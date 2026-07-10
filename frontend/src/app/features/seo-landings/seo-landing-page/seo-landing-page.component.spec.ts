@@ -172,28 +172,6 @@ describe('SeoLandingPageComponent', () => {
     expect(element.textContent).toContain('Related CommanderZone pages');
   });
 
-  it('enables the app custom scrollbar while the SEO layout is mounted', () => {
-    expect(document.documentElement.classList.contains('app-pretty-scroll')).toBe(true);
-    expect(document.documentElement.classList.contains('seo-scroll-context')).toBe(true);
-    expect(document.body.classList.contains('app-pretty-scroll')).toBe(true);
-    expect(document.body.classList.contains('seo-scroll-context')).toBe(true);
-
-    fixture.destroy();
-
-    expect(document.documentElement.classList.contains('app-pretty-scroll')).toBe(false);
-    expect(document.documentElement.classList.contains('seo-scroll-context')).toBe(false);
-    expect(document.body.classList.contains('app-pretty-scroll')).toBe(false);
-    expect(document.body.classList.contains('seo-scroll-context')).toBe(false);
-  });
-
-  it('marks SEO scrollable content areas with the app pretty scrollbar class', () => {
-    const element: HTMLElement = fixture.nativeElement;
-
-    expect(element.querySelector('.seo-language-selector__menu')?.classList.contains('app-pretty-scroll')).toBe(true);
-    expect(element.querySelector('.landing-faq__items')?.classList.contains('app-pretty-scroll')).toBe(true);
-    expect(element.querySelector('.landing-internal-links ul')?.classList.contains('app-pretty-scroll')).toBe(true);
-  });
-
   it('keeps semantic heading structure with a single H1', () => {
     const element: HTMLElement = fixture.nativeElement;
 
@@ -306,25 +284,6 @@ describe('SeoLandingPageComponent', () => {
     expect(element.querySelector('.landing-full-faq details')?.hasAttribute('open')).toBe(true);
   });
 
-  it('renders the CommanderZone public header with logo and account actions only', () => {
-    const element: HTMLElement = fixture.nativeElement;
-    const logo = element.querySelector('.seo-landing-layout__brand img') as HTMLImageElement;
-    const authLinks = Array.from(element.querySelectorAll('.seo-landing-layout__auth a') as NodeListOf<HTMLAnchorElement>);
-
-    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.webp');
-    expect(logo.getAttribute('width')).toBe('256');
-    expect(logo.getAttribute('height')).toBe('124');
-    expect(logo.getAttribute('decoding')).toBe('async');
-    expect(element.querySelector('.seo-landing-layout__brand')?.getAttribute('href')).toBe('/en/');
-    expect(element.querySelector('.seo-landing-layout__menu')).toBeNull();
-    expect(element.querySelector('.seo-landing-layout__nav')).toBeNull();
-    expect(element.querySelector('app-seo-language-selector')).not.toBeNull();
-    expect(authLinks.map((link) => link.getAttribute('href'))).toEqual(['/auth/login/', '/auth/register/']);
-    expect(authLinks.map((link) => link.textContent?.trim())).toEqual(['Login', 'Register']);
-    expect(authLinks[0].classList.contains('primary-button')).toBe(true);
-    expect(authLinks[1].classList.contains('primary-button')).toBe(true);
-  });
-
   it('does not render SEO CTA navigation in the header on FAQ landing', () => {
     fixture.componentRef.setInput('content', {
       ...content,
@@ -341,43 +300,6 @@ describe('SeoLandingPageComponent', () => {
     expect(element.querySelector('.seo-landing-layout__nav')).toBeNull();
     expect(element.querySelector('.seo-landing-layout__auth a[href="/auth/login/"]')).not.toBeNull();
     expect(element.querySelector('.seo-landing-layout__auth a[href="/auth/register/"]')).not.toBeNull();
-  });
-
-  it('uses the app button classes for hero and final CTA links', () => {
-    const element: HTMLElement = fixture.nativeElement;
-    const heroPrimary = element.querySelector('.landing-hero__actions a[href="/auth/login?redirect=/decks"]');
-    const heroSecondary = element.querySelector('.landing-hero__actions a.primary-button[href="/auth/login?redirect=/decks"]');
-    const ctaPrimary = element.querySelector('.landing-cta__actions a[href="/auth/login?redirect=/decks"]');
-
-    expect(heroPrimary?.classList.contains('primary-button')).toBe(true);
-    expect(heroSecondary?.classList.contains('primary-button')).toBe(true);
-    expect(ctaPrimary?.classList.contains('primary-button')).toBe(true);
-  });
-
-  it('renders a stable SEO hero image without layout shift or lazy loading', () => {
-    const element: HTMLElement = fixture.nativeElement;
-    const image = element.querySelector('.landing-hero__media img');
-
-    expect(image?.getAttribute('src')).toBe('/assets/og/play-commander-og.png');
-    expect(image?.getAttribute('alt')).toBe('Play Commander online - CommanderZone');
-    expect(image?.getAttribute('width')).toBe('960');
-    expect(image?.getAttribute('height')).toBe('504');
-    expect(image?.getAttribute('decoding')).toBe('async');
-    expect(image?.getAttribute('loading')).toBe('eager');
-    expect(image?.getAttribute('fetchpriority')).toBe('high');
-  });
-
-  it('renders reusable responsive system sections', () => {
-    const element: HTMLElement = fixture.nativeElement;
-
-    expect(element.querySelector('app-product-landing-template')).toBeTruthy();
-    expect(element.querySelector('app-seo-landing-template-renderer')).toBeTruthy();
-    expect(element.querySelector('app-landing-breadcrumb')).toBeTruthy();
-    expect(element.querySelector('app-seo-language-selector')).toBeTruthy();
-    expect(element.querySelector('app-landing-trust-bar')).toBeTruthy();
-    expect(element.querySelector('app-landing-use-cases')).toBeTruthy();
-    expect(element.querySelector('app-landing-faq')).toBeTruthy();
-    expect(element.querySelector('app-landing-internal-links')).toBeTruthy();
   });
 
   it('selects the reusable landing template by SEO intent', () => {

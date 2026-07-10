@@ -1,18 +1,18 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ManaIconComponent } from './mana-icon.component';
+import { MTGIconComponent } from './mtg-icon.component';
 
 @Component({
-  imports: [ManaIconComponent],
-  template: '<i class="custom-icon" [appManaIcon]="icon" manaIconKind="mechanic"></i>',
+  imports: [MTGIconComponent],
+  template: '<i class="custom-icon" [appMtgIcon]="icon" mtgIconKind="mechanic"></i>',
 })
-class ManaIconHostComponent {
+class MTGIconHostComponent {
   icon = 'ability-role-royal';
 }
 
-describe('ManaIconComponent', () => {
+describe('MTGIconComponent', () => {
   it('adds Mana classes without removing existing visual classes', () => {
-    const fixture = TestBed.createComponent(ManaIconHostComponent);
+    const fixture = TestBed.createComponent(MTGIconHostComponent);
     fixture.detectChanges();
 
     const icon = iconElement(fixture);
@@ -24,7 +24,7 @@ describe('ManaIconComponent', () => {
   });
 
   it('accepts already-prefixed Mana icon classes', () => {
-    const fixture = TestBed.createComponent(ManaIconHostComponent);
+    const fixture = TestBed.createComponent(MTGIconHostComponent);
     fixture.componentInstance.icon = 'planeswalker';
     fixture.detectChanges();
 
@@ -34,6 +34,6 @@ describe('ManaIconComponent', () => {
   });
 });
 
-function iconElement(fixture: ComponentFixture<ManaIconHostComponent>): HTMLElement {
+function iconElement(fixture: ComponentFixture<MTGIconHostComponent>): HTMLElement {
   return fixture.nativeElement.querySelector('.custom-icon');
 }

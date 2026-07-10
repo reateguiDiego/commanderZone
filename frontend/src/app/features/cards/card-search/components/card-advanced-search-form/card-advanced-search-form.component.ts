@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { CardSearchFilters, CardSearchOption, CardSearchOptionsResponse } from '../../../../../core/api/cards.api';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ManaIconComponent } from '../../../../../shared/mana/mana-icon/mana-icon.component';
+import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.component';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { TabListComponent, TabListItem } from '../../../../../shared/ui/tab-list/tab-list.component';
 import { CompactCheckboxComponent } from '../../../../../shared/ui/compact-checkbox/compact-checkbox.component';
@@ -63,7 +63,7 @@ const CARD_SEARCH_SORTS: readonly CardSearchSort[] = [
     FormsModule,
     LucideAngularModule,
     RuntimeTranslatePipe,
-    ManaIconComponent,
+    MTGIconComponent,
     ManaSymbolsComponent,
     TabListComponent,
     CompactCheckboxComponent,

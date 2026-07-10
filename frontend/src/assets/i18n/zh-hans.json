@@ -1426,7 +1426,8 @@
           "consistencyIssueDetected": "起手或早期访问模拟发现了压力点。",
           "comboIssueDetected": "组合技组件存在完整性、依赖性或访问方面的警告。",
           "typalIssueDetected": "部族组件存在密度、支持或与指挥官契合度方面的警告。"
-        },        "cards": {
+        },
+        "cards": {
           "ramp": "Ramp",
           "draw": "ç”»",
           "interaction": "ç›¸äº’ä½œç”¨",
@@ -2185,6 +2186,55 @@
       "pagination": {
         "label": "ç‰Œæœç´¢åˆ†é¡µ"
       }
+    }
+  },
+  "bracket": {
+    "pill": {
+      "label": "Bracket {{ bracket }} · {{ label }}",
+      "ariaLabel": "Commander Bracket {{ bracket }}: {{ label }}"
+    },
+    "tooltip": {
+      "current": "Bracket {{ bracket }}"
+    },
+    "explanation": {
+      "button": "How is this calculated?",
+      "title": "Commander Bracket Estimate",
+      "currentBracket": "Bracket {{ bracket }} — {{ label }}",
+      "confidence": "Confidence: {{ confidence }}",
+      "detectedSignals": "Detected signals",
+      "officialSignals": "Official bracket limits and detectable deck signals.",
+      "officialCriteria": "Official criteria",
+      "reasons": "Reasons",
+      "noReasons": "No detailed reasons were returned for this estimate.",
+      "differenceModel": "Difference model",
+      "theme": "1 → 2: Theme",
+      "staples": "2 → 3: Staples",
+      "speed": "3 → 4: Speed",
+      "metagame": "4 → 5: Metagame",
+      "manaEfficiency": "Mana efficiency: key gate for Bracket 5",
+      "warning": "Commander Brackets are a pregame communication tool. CommanderZone assigns an operational bracket from detectable deck signals. This estimate is advisory and can be wrong, but every deck is evaluated with the same criteria."
+    },
+    "confidence": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "signals": {
+      "gameChangers": "Game Changers",
+      "massLandDenial": "Mass Land Denial",
+      "extraTurns": "Extra Turns",
+      "twoCardCombos": "Two-card combos",
+      "nonLandTutors": "Tutors",
+      "staples": "Staples",
+      "speed": "Speed",
+      "metagame": "Metagame",
+      "manaEfficiency": "Mana efficiency",
+      "detected": "Detected",
+      "notDetected": "Not detected",
+      "yes": "Yes",
+      "no": "No",
+      "yes": "Yes",
+      "no": "No"
     }
   }
 }

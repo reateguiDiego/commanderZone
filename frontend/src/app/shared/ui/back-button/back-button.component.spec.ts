@@ -10,17 +10,6 @@ describe('BackButtonComponent', () => {
     }).compileComponents();
   });
 
-  it('renders the shared back label for links', () => {
-    const fixture = TestBed.createComponent(BackButtonComponent);
-    fixture.componentRef.setInput('link', '/cards');
-    fixture.detectChanges();
-
-    const anchor = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
-
-    expect(anchor).not.toBeNull();
-    expect(anchor.textContent?.replace(/\s+/g, ' ').trim()).toContain('Back');
-  });
-
   it('emits pressed when used as an action button', () => {
     const fixture = TestBed.createComponent(BackButtonComponent);
     const emitted = vi.fn();

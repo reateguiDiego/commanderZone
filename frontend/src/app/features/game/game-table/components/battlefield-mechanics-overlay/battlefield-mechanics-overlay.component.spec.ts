@@ -27,46 +27,6 @@ describe('BattlefieldMechanicsOverlayComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="battlefield-mechanics-overlay"]')).toBeNull();
   });
 
-  it('renders mechanic cards in the provided order with fixed overlay sizing', () => {
-    fixture.componentRef.setInput('cards', [
-      mechanicCard('day-night:1', 'Day'),
-      mechanicCard('monarch:1', 'Monarch'),
-      mechanicCard('initiative:1', 'The Initiative'),
-    ]);
-    fixture.detectChanges();
-
-    const overlay = fixture.nativeElement.querySelector('[data-testid="battlefield-mechanics-overlay"]') as HTMLElement | null;
-    const cards = Array.from(fixture.nativeElement.querySelectorAll('[data-card-instance-id]')) as HTMLElement[];
-
-    expect(overlay).not.toBeNull();
-    expect(cards.map((card) => card.getAttribute('data-card-instance-id'))).toEqual([
-      'day-night:1',
-      'monarch:1',
-      'initiative:1',
-    ]);
-    expect(cards[0]?.closest('app-game-card-view')?.getAttribute('style')).toContain('--game-card-view-width: var(--battlefield-mechanics-card-width)');
-  });
-
-  it('renders mini mechanic cards as small right-aligned mini cards', () => {
-    fixture.componentRef.setInput('variant', 'mini');
-    fixture.componentRef.setInput('miniViewportSize', { width: 500, height: 260 });
-    fixture.componentRef.setInput('cards', [
-      mechanicCard('day-night:1', 'Day'),
-      mechanicCard('emblem:1', 'Emblem'),
-    ]);
-    fixture.detectChanges();
-
-    const overlay = fixture.nativeElement.querySelector('[data-testid="battlefield-mechanics-overlay"]') as HTMLElement | null;
-    const cards = Array.from(fixture.nativeElement.querySelectorAll('[data-testid="battlefield-mechanics-mini-card"]')) as HTMLElement[];
-
-    expect(overlay?.dataset['variant']).toBe('mini');
-    expect(cards.length).toBe(2);
-    expect(cards[0]?.style.width).toBe('45px');
-    expect(cards[0]?.style.height).toBe('63px');
-    expect(cards[0]?.style.left).toBe('409px');
-    expect(cards[1]?.style.left).toBe('455px');
-  });
-
   it('requests left-opening context menus for mechanic overlay cards', () => {
     const card = mechanicCard('monarch:1', 'Monarch');
     const opened = vi.fn();

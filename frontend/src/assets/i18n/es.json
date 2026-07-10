@@ -946,6 +946,55 @@
       }
     }
   },
+  "gameLog": {
+    "library": {
+      "draw": "{{ actor }} rob\u00f3 una carta.",
+      "drawMany": "{{ actor }} rob\u00f3 {{ count }} cartas.",
+      "shuffle": "{{ actor }} baraj\u00f3 su biblioteca."
+    },
+    "card": {
+      "moved": "{{ actor }} movi\u00f3 una carta de {{ fromZone }} a {{ toZone }}.",
+      "tapped": "{{ actor }} gir\u00f3 un permanente.",
+      "untapped": "{{ actor }} enderez\u00f3 un permanente."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} puso los contadores {{ counter }} en {{ value }}."
+    },
+    "life": {
+      "changed": "{{ actor }} cambi\u00f3 la vida de {{ player }} de {{ previousLife }} a {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} tir\u00f3 {{ kind }} y sac\u00f3 {{ result }}.",
+      "coin": "una moneda",
+      "dice": "dados",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} lanz\u00f3 su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}."
+    },
+    "token": {
+      "created": "{{ actor }} cre\u00f3 una ficha: {{ tokenName }}.",
+      "createdMany": "{{ actor }} cre\u00f3 {{ count }} fichas: {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} cre\u00f3 una copia de ficha."
+    },
+    "game": {
+      "concede": "{{ player }} concedi\u00f3."
+    },
+    "zone": {
+      "battlefield": "campo de batalla",
+      "graveyard": "cementerio",
+      "exile": "exilio",
+      "hand": "mano",
+      "library": "biblioteca",
+      "command": "zona de mando",
+      "zone": "zona"
+    }
+  },
   "deckBuilder": {
     "cards": {
       "cardDetail": {
@@ -1635,7 +1684,7 @@
         "fetchlands": "Fetchlands",
         "deadFetchlands": "Fetchlands sin objetivo",
         "manaBase": "Base de man?",
-        "acceleration": "Aceleraci?n",
+        "acceleration": "Aceleración",
         "colorFixing": "Fixing de colores",
         "landBase": "Base de tierras",
         "basics": "Básicas",
@@ -2186,6 +2235,53 @@
       "pagination": {
         "label": "Paginación de búsqueda de cartas"
       }
+    }
+  },
+  "bracket": {
+    "pill": {
+      "label": "Bracket {{ bracket }} · {{ label }}",
+      "ariaLabel": "Commander Bracket {{ bracket }}: {{ label }}"
+    },
+    "tooltip": {
+      "current": "Bracket {{ bracket }}"
+    },
+    "explanation": {
+      "button": "¿Cómo se calcula?",
+      "title": "Commander Bracket Estimate",
+      "currentBracket": "Bracket {{ bracket }} — {{ label }}",
+      "confidence": "Confianza: {{ confidence }}",
+      "detectedSignals": "Señales detectadas",
+      "officialSignals": "Límites oficiales del bracket y señales detectables del deck.",
+      "officialCriteria": "Criterios oficiales",
+      "reasons": "Motivos",
+      "noReasons": "No se recibieron motivos detallados para esta estimación.",
+      "differenceModel": "Modelo de diferencias",
+      "theme": "1 → 2: Tema",
+      "staples": "2 → 3: Staples",
+      "speed": "3 → 4: Velocidad",
+      "metagame": "4 → 5: Metajuego",
+      "manaEfficiency": "Eficiencia de maná: gate clave para Bracket 5",
+      "warning": "Los Commander Brackets son una herramienta de comunicación previa a la partida. CommanderZone asigna un bracket operativo a partir de señales detectables del deck. Esta estimación es orientativa y podemos equivocarnos, pero todos los decks se valoran con los mismos criterios."
+    },
+    "confidence": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja"
+    },
+    "signals": {
+      "gameChangers": "Game Changers",
+      "massLandDenial": "Mass Land Denial",
+      "extraTurns": "Turnos extra",
+      "twoCardCombos": "Combos de dos cartas",
+      "nonLandTutors": "Tutors",
+      "staples": "Staples",
+      "speed": "Velocidad",
+      "metagame": "Metajuego",
+      "manaEfficiency": "Eficiencia de maná",
+      "detected": "Detectado",
+      "notDetected": "No detectado",
+      "yes": "Yes",
+      "no": "No"
     }
   }
 }

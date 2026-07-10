@@ -16,19 +16,25 @@ final class CardAnalysisTaxonomyTest extends TestCase
         self::assertContains('requires_combo_plan', CardAnalysisTaxonomy::conditions());
     }
 
-    public function testRejectsUnsupportedRole(): void
+    public function testRejectsUnsupportedRolesAndConditions(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Unsupported card analysis role');
-
-        CardAnalysisTaxonomy::assertRole('mana_acceleration');
+        $this->assertInvalidTaxonomyValue(
+            static fn () => CardAnalysisTaxonomy::assertRole('mana_acceleration'),
+            'Unsupported card analysis role',
+        );
+        $this->assertInvalidTaxonomyValue(
+            static fn () => CardAnalysisTaxonomy::assertCondition('requires_good_cards'),
+            'Unsupported card analysis condition',
+        );
     }
 
-    public function testRejectsUnsupportedCondition(): void
+    private function assertInvalidTaxonomyValue(callable $assertion, string $expectedMessage): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Unsupported card analysis condition');
-
-        CardAnalysisTaxonomy::assertCondition('requires_good_cards');
+        try {
+            $assertion();
+            self::fail('Expected unsupported taxonomy value to be rejected.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertStringContainsString($expectedMessage, $exception->getMessage());
+        }
     }
 }

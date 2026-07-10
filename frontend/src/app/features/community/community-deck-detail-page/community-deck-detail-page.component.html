@@ -15,6 +15,7 @@
     <div class="community-detail-viewer">
       <app-deck-viewer
         [deck]="deckDetail"
+        [bracket]="bracket()"
         [cardActionsEnabled]="auth.isAuthenticated()"
         (cardActionSelected)="handleCardAction($event)"
       />

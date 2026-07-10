@@ -11,7 +11,7 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
     {
         [$token, $deckId, $publicSlug] = $this->publicAdvancedDeckFixture('community-create');
 
-        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis');
+        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis/advanced');
 
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
@@ -23,6 +23,7 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayHasKey('mana', $response['metrics']);
         self::assertArrayHasKey('mana', $response['health']);
         self::assertArrayHasKey('colorAccess', $response['consistency']);
+        self::assertArrayNotHasKey('bracket', $response);
         self::assertSame('1', (string) $this->connection()->fetchOne(
             'SELECT COUNT(*) FROM deck_advanced_analysis_snapshot WHERE deck_id = :deckId',
             ['deckId' => $deckId],
@@ -30,6 +31,50 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis/advanced', token: $token);
         self::assertResponseIsSuccessful();
+        self::assertArrayNotHasKey('bracket', $this->jsonResponse());
+    }
+
+    public function testCommunityBasicAnalysisMatchesOwnedBasicAnalysisBracket(): void
+    {
+        [$token, $deckId, $publicSlug] = $this->publicAdvancedDeckFixture('community-bracket-match');
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis?view=bracket', token: $token);
+        self::assertResponseIsSuccessful();
+        $ownedResponse = $this->jsonResponse();
+        $ownedBracket = $ownedResponse['bracket'];
+        self::assertArrayNotHasKey('manaCurve', $ownedResponse);
+
+        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis?view=bracket');
+
+        self::assertResponseIsSuccessful();
+        $communityResponse = $this->jsonResponse();
+        self::assertArrayHasKey('bracket', $communityResponse);
+        self::assertArrayNotHasKey('manaCurve', $communityResponse);
+        self::assertEquals($ownedBracket, $communityResponse['bracket']);
+    }
+
+    public function testCommunityAnalysisReturnsBasicAnalysisWithoutAdvancedSnapshot(): void
+    {
+        [, $deckId, $publicSlug] = $this->publicAdvancedDeckFixture('community-basic');
+
+        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis');
+
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertArrayHasKey('manaCurve', $response);
+        self::assertArrayHasKey('typeBreakdown', $response);
+        self::assertArrayHasKey('bracket', $response);
+        self::assertArrayHasKey('snapshot', $response);
+        self::assertFalse($response['snapshot']['hit']);
+        self::assertSame('missing', $response['snapshot']['reason']);
+        self::assertSame('1', (string) $this->connection()->fetchOne(
+            'SELECT COUNT(*) FROM deck_analysis_snapshot WHERE deck_id = :deckId',
+            ['deckId' => $deckId],
+        ));
+        self::assertSame('0', (string) $this->connection()->fetchOne(
+            'SELECT COUNT(*) FROM deck_advanced_analysis_snapshot WHERE deck_id = :deckId',
+            ['deckId' => $deckId],
+        ));
     }
 
     public function testSnapshotIsReusedFromOwnedEndpointToCommunityEndpoint(): void
@@ -43,7 +88,7 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
         $ownedManaVersion = $ownedResponse['snapshot']['manaDataVersion'];
         $snapshotId = $this->snapshotId($deckId);
 
-        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis');
+        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis/advanced');
 
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
@@ -65,7 +110,7 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
     {
         [$token, $deckId, $publicSlug] = $this->publicAdvancedDeckFixture('community-to-id');
 
-        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis');
+        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis/advanced');
         self::assertResponseIsSuccessful();
         self::assertFalse($this->jsonResponse()['snapshot']['hit']);
         $snapshotId = $this->snapshotId($deckId);
@@ -90,6 +135,12 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/community/decks/'.$privateSlug.'/analysis');
 
         self::assertResponseStatusCodeSame(404);
+        self::assertArrayNotHasKey('bracket', $this->jsonResponse());
+
+        $this->jsonRequest('GET', '/community/decks/'.$privateSlug.'/analysis/advanced');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertArrayNotHasKey('bracket', $this->jsonResponse());
         self::assertSame('0', (string) $this->connection()->fetchOne(
             'SELECT COUNT(*) FROM deck_advanced_analysis_snapshot WHERE deck_id = :deckId',
             ['deckId' => $privateDeckId],
@@ -101,22 +152,24 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/community/decks/missing-public-deck/analysis');
 
         self::assertResponseStatusCodeSame(404);
+        self::assertArrayNotHasKey('bracket', $this->jsonResponse());
     }
 
-    public function testCommunityAdvancedAnalysisRouteIsNotExposed(): void
+    public function testCommunityAdvancedAnalysisRouteReturnsAdvancedAnalysisWithoutBracket(): void
     {
         [, , $publicSlug] = $this->publicAdvancedDeckFixture('no-advanced-suffix');
 
         $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis/advanced');
 
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseIsSuccessful();
+        self::assertArrayNotHasKey('bracket', $this->jsonResponse());
     }
 
     public function testCommunityAnalysisIncludesRenderableFetchlandDetails(): void
     {
         [$token, $deckId, $publicSlug] = $this->publicFetchlandDeckFixture('fetchland-visuals');
 
-        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis');
+        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis/advanced');
 
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
@@ -125,6 +178,7 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
         self::assertArrayHasKey('mana', $response['health']);
         self::assertArrayHasKey('colorAccess', $response['consistency']);
         self::assertArrayHasKey('manaDataVersion', $response['snapshot']);
+        self::assertArrayNotHasKey('bracket', $response);
 
         $details = $response['metrics']['mana']['fetchlands']['details'];
         self::assertCount(1, $details);
@@ -148,7 +202,7 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
     {
         [, , $publicSlug] = $this->publicAdvancedDeckFixture('no-external-sync');
 
-        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis');
+        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis/advanced');
 
         self::assertResponseIsSuccessful();
         self::assertSame('0', (string) $this->connection()->fetchOne('SELECT COUNT(*) FROM external_sync_run'));
@@ -158,18 +212,23 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
     {
         [$token, $deckId, $publicSlug] = $this->publicAdvancedDeckFixture('no-regression');
 
-        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis');
+        $this->jsonRequest('GET', '/community/decks/'.$publicSlug.'/analysis/advanced');
         self::assertResponseIsSuccessful();
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis', token: $token);
         self::assertResponseIsSuccessful();
         $simple = $this->jsonResponse();
         self::assertArrayHasKey('manaCurve', $simple);
-        self::assertArrayNotHasKey('snapshot', $simple);
+        self::assertArrayHasKey('bracket', $simple);
+        self::assertArrayHasKey('snapshot', $simple);
+        self::assertFalse($simple['snapshot']['hit']);
+        self::assertSame('missing', $simple['snapshot']['reason']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis/advanced', token: $token);
         self::assertResponseIsSuccessful();
-        self::assertTrue($this->jsonResponse()['snapshot']['hit']);
+        $advanced = $this->jsonResponse();
+        self::assertTrue($advanced['snapshot']['hit']);
+        self::assertArrayNotHasKey('bracket', $advanced);
     }
 
     /**
@@ -249,7 +308,7 @@ final class CommunityDeckAdvancedAnalysisApiTest extends ApiTestCase
             'type_line' => 'Legendary Creature - Human',
             'oracle_id' => '8a000000-0000-0000-0001-'.substr(md5($suffix.'commander'), 0, 12),
         ]);
-        $mainCard = $this->advancedCard('8b000000-0000-0000-0000-'.substr(md5($suffix.'main'), 0, 12), 'Community Main '.$suffix, [
+        $mainCard = $this->advancedCard('8b000000-0000-0000-0000-'.substr(md5($suffix.'main'), 0, 12), 'Island', [
             'type_line' => 'Basic Land - Island',
             'oracle_id' => '8b000000-0000-0000-0001-'.substr(md5($suffix.'main'), 0, 12),
         ]);
@@ -456,6 +515,7 @@ SQL,
             self::assertArrayHasKey($key, $response);
         }
         self::assertArrayNotHasKey('recommendations', $response);
+        self::assertArrayNotHasKey('bracket', $response);
     }
 
     private function snapshotId(string $deckId): string

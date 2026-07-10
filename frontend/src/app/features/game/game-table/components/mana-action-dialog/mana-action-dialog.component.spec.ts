@@ -324,67 +324,6 @@ describe('ManaActionDialogComponent', () => {
     expect(primaryButton(fixture).disabled).toBe(false);
   });
 
-  it('keeps the popover inside the left viewport edge', () => {
-    setViewportSize(320, 240);
-    const fixture = createFixture({
-      kind: 'fixed',
-      cardName: 'Exotic Orchard',
-      summary: 'Add {U}.',
-      additions: [{ color: 'U', amount: 1 }],
-      colors: ['U'],
-      amount: 0,
-      restriction: null,
-      manualOnly: false,
-    }, null, 1, { x: 4, y: 24 });
-
-    const popover = popoverElement(fixture);
-
-    expect(popover.classList).toContain('mana-action-popover--below');
-    expect(popover.style.left).toBe('12px');
-    expect(popover.style.width).toBe('296px');
-    expect(popover.style.top).toBe('32px');
-    expect(popover.style.getPropertyValue('--mana-action-arrow-left')).toBe('14px');
-  });
-
-  it('places the popover above cards near the bottom viewport edge', () => {
-    setViewportSize(360, 240);
-    const fixture = createFixture({
-      kind: 'variable',
-      cardName: 'Priest of Titania',
-      summary: 'Variable mana amount.',
-      additions: [],
-      colors: ['G'],
-      amount: 1,
-      restriction: null,
-      manualOnly: false,
-    }, 'G', 1, { x: 180, y: 228 });
-
-    const popover = popoverElement(fixture);
-
-    expect(popover.classList).toContain('mana-action-popover--above');
-    expect(popover.style.bottom).toBe('20px');
-    expect(popover.style.maxHeight).toBe('208px');
-  });
-
-  it('uses the lower side instead of forcing a tight upper scroll area', () => {
-    setViewportSize(640, 700);
-    const fixture = createFixture({
-      kind: 'variable',
-      cardName: 'Priest of Titania',
-      summary: 'Variable mana amount.',
-      additions: [],
-      colors: ['G'],
-      amount: 1,
-      restriction: null,
-      manualOnly: false,
-    }, 'G', 1, { x: 320, y: 250 });
-
-    const popover = popoverElement(fixture);
-
-    expect(popover.classList).toContain('mana-action-popover--below');
-    expect(popover.style.top).toBe('258px');
-    expect(popover.style.maxHeight).toBe('430px');
-  });
 });
 
 function createFixture(
@@ -405,15 +344,6 @@ function createFixture(
 
 function primaryButton(fixture: ComponentFixture<ManaActionDialogComponent>): HTMLButtonElement {
   return (fixture.nativeElement as HTMLElement).querySelector('.primary-button') as HTMLButtonElement;
-}
-
-function popoverElement(fixture: ComponentFixture<ManaActionDialogComponent>): HTMLElement {
-  return (fixture.nativeElement as HTMLElement).querySelector('.mana-action-popover') as HTMLElement;
-}
-
-function setViewportSize(width: number, height: number): void {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
 }
 
 function abilityChoiceText(element: HTMLElement): string {

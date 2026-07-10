@@ -26,26 +26,31 @@ final class GameplayRuntimePatchAdapterTest extends TestCase
         self::assertArrayNotHasKey('data', $patches[0]['ops'][0]);
     }
 
-    public function testRejectsPatchWithoutVersion(): void
+    public function testRejectsInvalidRuntimePatchContracts(): void
     {
-        $this->expectException(GameplayRuntimePatchContractException::class);
-
-        (new GameplayRuntimePatchAdapter())->normalize([[
+        $this->assertInvalidPatch([[
             'gameId' => 'game-1',
             'visibility' => 'public',
             'ops' => [['op' => 'turn.set', 'data' => ['turn' => []]]],
         ]]);
-    }
-
-    public function testRejectsOperationWithoutOp(): void
-    {
-        $this->expectException(GameplayRuntimePatchContractException::class);
-
-        (new GameplayRuntimePatchAdapter())->normalize([[
+        $this->assertInvalidPatch([[
             'gameId' => 'game-1',
             'version' => 2,
             'visibility' => 'public',
             'ops' => [['data' => ['turn' => []]]],
         ]]);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $patches
+     */
+    private function assertInvalidPatch(array $patches): void
+    {
+        try {
+            (new GameplayRuntimePatchAdapter())->normalize($patches);
+            self::fail('Expected invalid runtime patch contract to be rejected.');
+        } catch (GameplayRuntimePatchContractException) {
+            self::assertTrue(true);
+        }
     }
 }

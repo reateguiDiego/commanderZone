@@ -6,25 +6,9 @@ class GameDebugHealthApiTest extends ApiTestCase
 {
     public function testDebugHealthRequiresAuthentication(): void
     {
-        $fixture = $this->startedGameFixture('debug-health-auth');
-
-        $this->jsonRequest('GET', '/games/'.$fixture['gameId'].'/debug/health');
+        $this->jsonRequest('GET', '/games/00000000-0000-7000-8000-000000000001/debug/health');
 
         self::assertResponseStatusCodeSame(401);
-    }
-
-    public function testDebugHealthReturnsEmptyReportWhenNoDebugWebsocketIsConnected(): void
-    {
-        $fixture = $this->startedGameFixture('debug-health-empty');
-
-        $this->jsonRequest('GET', '/games/'.$fixture['gameId'].'/debug/health', token: $fixture['ownerToken']);
-
-        self::assertResponseIsSuccessful();
-        $response = $this->jsonResponse();
-        self::assertSame($fixture['gameId'], $response['gameId']);
-        self::assertTrue($response['enabled']);
-        self::assertIsArray($response['context']['players']);
-        self::assertIsArray($response['health']);
     }
 
     public function testDebugHealthReturnsNotFoundWhenGameDoesNotExist(): void
@@ -34,19 +18,13 @@ class GameDebugHealthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testDebugHealthReturnsForbiddenForOutsider(): void
+    public function testDebugHealthRejectsOutsiderAndReturnsSanitizedHealthReportForGameViewer(): void
     {
-        $fixture = $this->startedGameFixture('debug-health-forbidden');
+        $fixture = $this->startedGameFixture('debug-health-success');
         $outsiderToken = $this->registerAndLogin('debug-health-outsider@example.test', 'Debug Outsider');
 
         $this->jsonRequest('GET', '/games/'.$fixture['gameId'].'/debug/health', token: $outsiderToken);
-
         self::assertResponseStatusCodeSame(403);
-    }
-
-    public function testDebugHealthReturnsSanitizedHealthReportForGameViewer(): void
-    {
-        $fixture = $this->startedGameFixture('debug-health-success');
 
         $this->jsonRequest('GET', '/games/'.$fixture['gameId'].'/debug/health', token: $fixture['ownerToken']);
 

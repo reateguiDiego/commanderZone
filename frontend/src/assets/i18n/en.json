@@ -946,6 +946,55 @@
       }
     }
   },
+  "gameLog": {
+    "library": {
+      "draw": "{{ actor }} drew a card.",
+      "drawMany": "{{ actor }} drew {{ count }} cards.",
+      "shuffle": "{{ actor }} shuffled their library."
+    },
+    "card": {
+      "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
+      "tapped": "{{ actor }} tapped a permanent.",
+      "untapped": "{{ actor }} untapped a permanent."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} set {{ counter }} counters to {{ value }}."
+    },
+    "life": {
+      "changed": "{{ actor }} changed {{ player }}'s life from {{ previousLife }} to {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} rolled {{ kind }} and got {{ result }}.",
+      "coin": "a coin",
+      "dice": "dice",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} cast their commander from the command zone. Commander cast count is {{ commanderCastCount }}."
+    },
+    "token": {
+      "created": "{{ actor }} created a token: {{ tokenName }}.",
+      "createdMany": "{{ actor }} created {{ count }} tokens: {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} created a token copy."
+    },
+    "game": {
+      "concede": "{{ player }} conceded."
+    },
+    "zone": {
+      "battlefield": "battlefield",
+      "graveyard": "graveyard",
+      "exile": "exile",
+      "hand": "hand",
+      "library": "library",
+      "command": "command zone",
+      "zone": "zone"
+    }
+  },
   "deckBuilder": {
     "cards": {
       "cardDetail": {
@@ -2186,6 +2235,53 @@
       "pagination": {
         "label": "Card search pagination"
       }
+    }
+  },
+  "bracket": {
+    "pill": {
+      "label": "Bracket {{ bracket }} · {{ label }}",
+      "ariaLabel": "Commander Bracket {{ bracket }}: {{ label }}"
+    },
+    "tooltip": {
+      "current": "Bracket {{ bracket }}"
+    },
+    "explanation": {
+      "button": "How is this calculated?",
+      "title": "Commander Bracket Estimate",
+      "currentBracket": "Bracket {{ bracket }} — {{ label }}",
+      "confidence": "Confidence: {{ confidence }}",
+      "detectedSignals": "Detected signals",
+      "officialSignals": "Official bracket limits and detectable deck signals.",
+      "officialCriteria": "Official criteria",
+      "reasons": "Reasons",
+      "noReasons": "No detailed reasons were returned for this estimate.",
+      "differenceModel": "Difference model",
+      "theme": "1 → 2: Theme",
+      "staples": "2 → 3: Staples",
+      "speed": "3 → 4: Speed",
+      "metagame": "4 → 5: Metagame",
+      "manaEfficiency": "Mana efficiency: key gate for Bracket 5",
+      "warning": "Commander Brackets are a pregame communication tool. CommanderZone assigns an operational bracket from detectable deck signals. This estimate is advisory and can be wrong, but every deck is evaluated with the same criteria."
+    },
+    "confidence": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "signals": {
+      "gameChangers": "Game Changers",
+      "massLandDenial": "Mass Land Denial",
+      "extraTurns": "Extra Turns",
+      "twoCardCombos": "Two-card combos",
+      "nonLandTutors": "Tutors",
+      "staples": "Staples",
+      "speed": "Speed",
+      "metagame": "Metagame",
+      "manaEfficiency": "Mana efficiency",
+      "detected": "Detected",
+      "notDetected": "Not detected",
+      "yes": "Yes",
+      "no": "No"
     }
   }
 }

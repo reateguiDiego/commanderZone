@@ -9,6 +9,7 @@ import { RuntimeTranslatePipe } from '../../../core/localization/runtime-transla
 import { Card } from '../../../core/models/card.model';
 import { AddCardToDeckModalComponent } from '../../../shared/components/add-card-to-deck-modal/add-card-to-deck-modal.component';
 import { CommunityDeckDetail } from '../../../core/models/community.model';
+import { DeckBracketEstimate } from '../../../core/models/deck-analysis.model';
 import { NotFoundNavigationService } from '../../../core/routing/not-found-navigation.service';
 import { DynamicPublicSeoService } from '../../../core/seo/dynamic-public-seo.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
@@ -78,6 +79,7 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
   private copiedShareHandle?: number;
 
   readonly deck = signal<CommunityDeckDetail | null>(null);
+  readonly bracket = signal<DeckBracketEstimate | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly actionError = signal<string | null>(null);
@@ -220,6 +222,7 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
       const response = await this.cache.deck(id);
       this.deck.set(response.deck);
       this.applyDeckSeo(response.deck);
+      await this.loadBracket(response.deck.publicSlug ?? response.deck.id);
     } catch (error) {
       if (error instanceof HttpErrorResponse && (error.status === 403 || error.status === 404)) {
         this.notFoundNavigation.markUrlAsNotFound(this.router.url);
@@ -246,6 +249,15 @@ export class CommunityDeckDetailPageComponent implements OnDestroy {
       image: deck.cropImage ?? deck.secondaryCropImage,
       type: 'article',
     });
+  }
+
+  private async loadBracket(slug: string): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.communityApi.getCommunityDeckBracketAnalysis(slug));
+      this.bracket.set(response.bracket ?? null);
+    } catch {
+      this.bracket.set(null);
+    }
   }
 
   exportDeck(): void {

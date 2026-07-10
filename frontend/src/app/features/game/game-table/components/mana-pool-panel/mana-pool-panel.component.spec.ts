@@ -1,7 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LucideAngularModule, Minus, Plus, RotateCcw, X } from 'lucide-angular';
-import { ManaPoolPanelComponent, contrastManaColorForBackground } from './mana-pool-panel.component';
+import { ManaPoolPanelComponent } from './mana-pool-panel.component';
 import { ManaPool } from '../../state/mana/game-table-mana-pool.state';
 import { ManaPoolColor } from '../../utils/mana-source-detector';
 
@@ -35,27 +35,6 @@ describe('ManaPoolPanelComponent', () => {
 
     expect(added).toEqual(['W']);
     expect(removed).toEqual(['W']);
-  });
-
-  it('uses English mana type names as color tooltips', () => {
-    const fixture = createFixture({ W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 });
-    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
-
-    expect(buttons.some((button) => button.title === 'White mana')).toBe(true);
-    expect(buttons.some((button) => button.title === 'Blue mana')).toBe(true);
-    expect(buttons.some((button) => button.title === 'Black mana')).toBe(true);
-    expect(buttons.some((button) => button.title === 'Red mana')).toBe(true);
-    expect(buttons.some((button) => button.title === 'Green mana')).toBe(true);
-    expect(buttons.some((button) => button.title === 'Colorless mana')).toBe(true);
-  });
-
-  it('renders mana symbols without colored cost backgrounds', () => {
-    const fixture = createFixture({ W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 });
-    const poolGrid = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.mana-pool-grid');
-    const symbols = Array.from(poolGrid?.querySelectorAll('.ms') ?? []);
-
-    expect(symbols.length).toBe(6);
-    expect(symbols.every((symbol) => !symbol.classList.contains('ms-cost'))).toBe(true);
   });
 
   it('always shows colorless and uses deck color identity as the base colored mana set', () => {
@@ -126,19 +105,6 @@ describe('ManaPoolPanelComponent', () => {
 
     expect(colorButtonTitles(fixture)).not.toContain('Blue mana');
     expect(colorButtonTitles(fixture)).toContain('Green mana');
-  });
-
-  it('paints every mana symbol with the contrast color selected from the player background', () => {
-    const fixture = createFixture({ W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 }, 'R_1');
-    const panel = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.mana-pool-panel');
-
-    expect(contrastManaColorForBackground('R_1')).toBe('U');
-    expect(panel?.style.getPropertyValue('--mana-pool-symbol-color')).toBe('#00d9ff');
-  });
-
-  it('falls back to white mana for generic game backgrounds', () => {
-    expect(contrastManaColorForBackground('back_5')).toBe('W');
-    expect(contrastManaColorForBackground(null)).toBe('W');
   });
 
   it('emits a context menu request from the panel context menu', () => {

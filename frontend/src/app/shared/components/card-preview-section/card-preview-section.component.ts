@@ -2,14 +2,14 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { ManaIconComponent } from '../../mana/mana-icon/mana-icon.component';
+import { MTGIconComponent } from '../../mtg/mtg-icon/mtg-icon.component';
 import { ManaSymbolsComponent } from '../../mana/mana-symbols/mana-symbols.component';
 import { CardPreviewItem } from './card-preview-section.models';
 import { primaryCardPreviewTypeLabel, resolveCardPreviewTypeIcon } from '../../utils/card-preview-item';
 
 @Component({
   selector: 'app-card-preview-section',
-  imports: [RouterLink, LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, ManaIconComponent],
+  imports: [RouterLink, LucideAngularModule, RuntimeTranslatePipe, ManaSymbolsComponent, MTGIconComponent],
   templateUrl: './card-preview-section.component.html',
   styleUrl: './card-preview-section.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

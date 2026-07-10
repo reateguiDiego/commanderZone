@@ -9,7 +9,8 @@ import { SUPPORTED_CARD_LANGUAGE_CODES, SupportedCardLanguageCode } from '../../
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { MissingDeckCard } from '../../../core/models/api-responses.model';
 import { Card, CardFace } from '../../../core/models/card.model';
-import { CommanderValidation, Deck, DeckCard, DeckSection, DeckToken, UnresolvedDeckToken } from '../../../core/models/deck.model';
+import { CommanderValidation, Deck, DeckCard, DeckEditorTokensResponse, DeckSection, DeckToken, UnresolvedDeckToken } from '../../../core/models/deck.model';
+import { DeckBracketEstimate } from '../../../core/models/deck-analysis.model';
 import { NotFoundNavigationService } from '../../../core/routing/not-found-navigation.service';
 import { DeckCardImageCache } from './deck-card-image-cache.service';
 import { DeckHistoryEntry, DeckHistoryStore } from './deck-history.store';
@@ -100,6 +101,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
   readonly unresolvedTokens = signal<UnresolvedDeckToken[]>([]);
   readonly lastImportStats = signal<ImportStats | null>(null);
   readonly validation = signal<CommanderValidation | null>(null);
+  readonly bracket = signal<DeckBracketEstimate | null>(null);
   readonly activeTab = signal<DeckEditorTab>('analysis');
   readonly viewMode = signal<DeckEditorViewMode>('text');
   readonly importModalOpen = signal(false);
@@ -197,6 +199,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
   missingSearchQuery = '';
   private previewEnterTimeout: ReturnType<typeof setTimeout> | null = null;
   private lastPreviewPointer: PointerPosition | null = null;
+  private bracketRequestId = 0;
 
   constructor() {
     void this.load();
@@ -246,6 +249,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
       this.refreshHistory(response.deck.id);
       void this.refreshTokens(response.deck.id);
       void this.refreshBackendValidation(response.deck.id);
+      await this.refreshBracket(response.deck.id);
       await this.redirectLegacyDeckId(identifier, response.deck);
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 404) {
@@ -312,6 +316,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
       this.recordHistory(response.deck, 'Import decklist');
       this.refreshTokensIfPlayableCardsChanged(previousDeck, response.deck);
       void this.refreshBackendValidation(response.deck.id);
+      void this.refreshBracket(response.deck.id);
       if (response.missing.length > 0) {
         this.activeTab.set('missing');
       } else {
@@ -503,6 +508,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
       this.recordHistory(response.deck, `Manual add ${card.name}`);
       this.refreshTokensIfPlayableCardsChanged(currentDeck, response.deck);
       void this.refreshBackendValidation(response.deck.id);
+      void this.refreshBracket(response.deck.id);
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not add selected card.'));
     }
@@ -552,6 +558,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
       this.refreshHistory(deckId);
       this.refreshTokensIfPlayableCardsChanged(current, response.deck);
       void this.refreshBackendValidation(deckId);
+      void this.refreshBracket(deckId);
       this.restoreModalOpen.set(false);
       this.restoreTarget.set(null);
     } catch (error) {
@@ -1110,6 +1117,7 @@ export class DeckEditorStore implements DeckAnalysisStore {
     this.refreshTokensIfPlayableCardsChanged(previousDeck, normalizedDeck);
     if (options.refreshValidation ?? true) {
       void this.refreshBackendValidation(deck.id);
+      void this.refreshBracket(deck.id);
     }
     if (responseIncludesCards) {
       this.recordHistory(normalizedDeck, historySource);
@@ -1198,13 +1206,28 @@ export class DeckEditorStore implements DeckAnalysisStore {
 
   private async refreshTokens(deckId: string): Promise<void> {
     try {
-      const response = await firstValueFrom(this.decksApi.tokens(deckId));
-      this.tokens.set(response.data);
+      const response = await firstValueFrom(this.decksApi.editorTokens(deckId));
+      this.tokens.set(this.resolveEditorTokens(response));
       this.unresolvedTokens.set(response.unresolved);
     } catch {
       this.tokens.set([]);
       this.unresolvedTokens.set([]);
     }
+  }
+
+  private resolveEditorTokens(response: DeckEditorTokensResponse): DeckToken[] {
+    return response.data.flatMap((entry) => {
+      const token = response.tokens[entry.tokenRef];
+      if (!token) {
+        return [];
+      }
+
+      return [{
+        sourceCard: entry.sourceCard,
+        token,
+        resolved: true as const,
+      }];
+    });
   }
 
   private refreshTokensIfPlayableCardsChanged(previousDeck: Deck | null | undefined, nextDeck: Deck): void {
@@ -1253,11 +1276,26 @@ export class DeckEditorStore implements DeckAnalysisStore {
     }
   }
 
+  private async refreshBracket(deckId: string): Promise<void> {
+    const requestId = ++this.bracketRequestId;
+    try {
+      const analysis = await firstValueFrom(this.decksApi.bracketAnalysis(deckId));
+      if (requestId === this.bracketRequestId) {
+        this.bracket.set(analysis.bracket ?? null);
+      }
+    } catch {
+      if (requestId === this.bracketRequestId) {
+        this.bracket.set(null);
+      }
+    }
+  }
+
   private async reloadDeckCards(deckId: string, historySource?: string): Promise<void> {
     try {
       const response = await firstValueFrom(this.decksApi.get(deckId));
       this.deck.set(response.deck);
       this.drawOpeningHand(response.deck);
+      void this.refreshBracket(response.deck.id);
       if (historySource) {
         this.recordHistory(response.deck, historySource);
       }

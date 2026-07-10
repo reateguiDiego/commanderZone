@@ -23,6 +23,8 @@ import { CardsApi } from '../../../core/api/cards.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { CommunityApi } from '../../../core/api/community.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
+import { DeckBracketEstimate } from '../../../core/models/deck-analysis.model';
+import { CommunityDeckDetail } from '../../../core/models/community.model';
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { CommunityDeckDetailPageComponent } from './community-deck-detail-page.component';
@@ -50,6 +52,7 @@ describe('CommunityDeckDetailPageComponent', () => {
         source: { id: 'deck-1', copies: 1 },
       })),
       likeDeck: vi.fn().mockReturnValue(of({ deck: { id: 'deck-1', likes: 1, likedByViewer: true } })),
+      getCommunityDeckBracketAnalysis: vi.fn().mockReturnValue(of({ bracket: bracketFixture() })),
       deck: vi.fn().mockReturnValue(of({
         deck: {
           id: 'deck-1',
@@ -199,6 +202,11 @@ describe('CommunityDeckDetailPageComponent', () => {
     expect(header?.title).toBe('Readonly Deck');
     expect(header?.context).toBe('community-deck-detail');
     expect(header?.sharedBy?.displayName).toBe('Alber');
+    await vi.waitFor(() => expect(communityApi.getCommunityDeckBracketAnalysis).toHaveBeenCalledWith('readonly-deck-a7f3c9d2'));
+    await vi.waitFor(() => expect(fixture.componentInstance.bracket()?.bracket).toBe(3));
+    fixture.detectChanges();
+    expect(TestBed.inject(PageHeaderStore).state()?.bracket).toBeUndefined();
+    expect(fixture.nativeElement.querySelector('.deck-summary-status app-bracket-pill')).not.toBeNull();
     expect(header?.sharedBy?.nameStyle).toEqual({ type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' });
     expect(header?.stats).toBeUndefined();
     expect(header?.actions?.map((action) => action.id)).toEqual([
@@ -342,6 +350,7 @@ describe('CommunityDeckDetailPageComponent', () => {
                 owner: { id: 'owner-1', displayName: 'Alber' },
               },
             })),
+            getCommunityDeckBracketAnalysis: vi.fn().mockReturnValue(of({ bracket: null })),
             copyDeck: vi.fn(),
             likeDeck: vi.fn(),
           },
@@ -392,6 +401,86 @@ describe('CommunityDeckDetailPageComponent', () => {
     expect(fixture.nativeElement.querySelector('app-card-details-modal')).not.toBeNull();
   });
 
+  it('keeps the page loading until the community bracket request completes', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => ({
+      matches: false,
+      media: '',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })));
+
+    const bracketResponse = new Subject<{ bracket: DeckBracketEstimate }>();
+    const communityApi = {
+      copyDeck: vi.fn(),
+      likeDeck: vi.fn(),
+      getCommunityDeckBracketAnalysis: vi.fn().mockReturnValue(bracketResponse.asObservable()),
+      deck: vi.fn().mockReturnValue(of({ deck: communityDeckFixture() })),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [CommunityDeckDetailPageComponent],
+      providers: [
+        provideRouter([]),
+        importProvidersFrom(LucideAngularModule.pick({
+          BarChart3,
+          ChevronDown,
+          ChevronRight,
+          Heart,
+          History,
+          Layers3,
+          RotateCw,
+          SearchX,
+          ShieldCheck,
+          Shuffle,
+          TriangleAlert,
+          X,
+        })),
+        { provide: CommunityApi, useValue: communityApi },
+        {
+          provide: DeckFormatsApi,
+          useValue: {
+            list: vi.fn().mockReturnValue(of({
+              data: [{ id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true }],
+            })),
+          },
+        },
+        {
+          provide: CardsApi,
+          useValue: {
+            get: vi.fn(),
+            printings: vi.fn(),
+          },
+        },
+        { provide: AuthStore, useValue: { isAuthenticated: signal(false), user: signal(null) } },
+        { provide: LanguagePreferencesService, useValue: { cardLanguage: () => 'es' } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: 'readonly-deck-a7f3c9d2' }) } },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(CommunityDeckDetailPageComponent);
+    fixture.detectChanges();
+
+    await vi.waitFor(() => expect(fixture.componentInstance.deck()?.id).toBe('deck-1'));
+    expect(fixture.componentInstance.loading()).toBe(true);
+    expect(fixture.nativeElement.querySelector('app-global-loader')).not.toBeNull();
+
+    bracketResponse.next({ bracket: bracketFixture() });
+    bracketResponse.complete();
+
+    await vi.waitFor(() => expect(fixture.componentInstance.loading()).toBe(false));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-global-loader')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.deck-summary-status app-bracket-pill')).not.toBeNull();
+  });
+
   it('likes and copies the community deck through CommunityApi actions', async () => {
     vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => ({
       matches: false,
@@ -439,6 +528,7 @@ describe('CommunityDeckDetailPageComponent', () => {
         deck: { id: 'saved-deck', slug: 'saved-slug', name: 'Readonly Deck', format: 'commander', folderId: null, cards: [] },
         source: { id: 'deck-1', copies: 3 },
       })),
+      getCommunityDeckBracketAnalysis: vi.fn().mockReturnValue(of({ bracket: null })),
     };
 
     await TestBed.configureTestingModule({
@@ -552,6 +642,7 @@ describe('CommunityDeckDetailPageComponent', () => {
       })),
       likeDeck: vi.fn(),
       copyDeck: vi.fn(),
+      getCommunityDeckBracketAnalysis: vi.fn().mockReturnValue(of({ bracket: null })),
     };
 
     await TestBed.configureTestingModule({
@@ -658,6 +749,7 @@ describe('CommunityDeckDetailPageComponent', () => {
       })),
       likeDeck: vi.fn().mockReturnValue(likeResponse.asObservable()),
       copyDeck: vi.fn(),
+      getCommunityDeckBracketAnalysis: vi.fn().mockReturnValue(of({ bracket: null })),
     };
 
     await TestBed.configureTestingModule({
@@ -755,6 +847,7 @@ describe('CommunityDeckDetailPageComponent', () => {
             deck: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 }))),
             copyDeck: vi.fn(),
             likeDeck: vi.fn(),
+            getCommunityDeckBracketAnalysis: vi.fn(),
           },
         },
         {
@@ -788,3 +881,117 @@ describe('CommunityDeckDetailPageComponent', () => {
     expect(navigateSpy).toHaveBeenCalledWith('/404', { replaceUrl: true });
   });
 });
+
+function bracketFixture(): DeckBracketEstimate {
+  return {
+    bracket: 3,
+    label: 'Upgraded',
+    confidence: 'medium',
+    method: 'commander_brackets_beta_v1',
+    floor: 1,
+    ceiling: 5,
+    ruleBreakers: [],
+    differences: {
+      themeScore: 40,
+      staplesScore: 60,
+      speedScore: 45,
+      metagameScore: 30,
+      manaEfficiencyScore: 50,
+    },
+    officialSignals: {
+      gameChangers: { count: 1, cards: [], status: 'detected' },
+      massLandDenial: { detected: false, count: 0, cards: [] },
+      extraTurns: { count: 0, cards: [], chainsOrLoops: false },
+      twoCardCombos: { count: 0, beforeTurnSix: false, lateGameOnly: false },
+      nonLandTutors: { count: 0, cards: [], efficientCount: 0 },
+    },
+    reasonCodes: [],
+    reasons: ['Upgraded deck signals detected.'],
+    warnings: [],
+    explanation: {
+      short: 'Estimated as Bracket 3.',
+      long: 'Estimated as Bracket 3.',
+      officialCriteria: [
+        { bracket: 3, label: 'Upgraded', summary: 'Upgraded decks with staples.' },
+      ],
+      detectedSignalsExplanation: [],
+      ruleBreakersExplanation: [],
+      differenceModel: {
+        theme: 'Theme',
+        staples: 'Staples',
+        speed: 'Speed',
+        metagame: 'Metagame',
+        manaEfficiency: 'Mana efficiency',
+      },
+      reasonCodes: [],
+    },
+  };
+}
+
+function communityDeckFixture(): CommunityDeckDetail {
+  return {
+    id: 'deck-1',
+    name: 'Readonly Deck',
+    format: 'commander',
+    valid: true,
+    cropImage: null,
+    commanderName: 'Atraxa, Grand Unifier',
+    colorIdentity: ['W', 'U', 'B', 'G'],
+    updatedAt: '2026-06-26T00:00:00Z',
+    likes: 0,
+    copies: 0,
+    creatorUserId: 'user-1',
+    likedByViewer: false,
+    visibility: 'public',
+    publicSlug: 'readonly-deck-a7f3c9d2',
+    folderId: null,
+    commanders: [{
+      id: 'card-1',
+      scryfallId: 'card-1',
+      name: 'Atraxa, Grand Unifier',
+      manaCost: '{G}{W}{U}{B}',
+      typeLine: 'Legendary Creature',
+      oracleText: null,
+      colors: ['G', 'W', 'U', 'B'],
+      colorIdentity: ['G', 'W', 'U', 'B'],
+      legalities: { commander: 'legal' },
+      imageUris: {},
+      layout: 'normal',
+      commanderLegal: true,
+      set: null,
+      collectorNumber: null,
+    }],
+    cards: [{
+      id: 'deck-card-1',
+      quantity: 1,
+      section: 'commander',
+      card: {
+        id: 'card-1',
+        scryfallId: 'card-1',
+        name: 'Atraxa, Grand Unifier',
+        manaCost: '{G}{W}{U}{B}',
+        typeLine: 'Legendary Creature',
+        oracleText: null,
+        colors: ['G', 'W', 'U', 'B'],
+        colorIdentity: ['G', 'W', 'U', 'B'],
+        legalities: { commander: 'legal' },
+        imageUris: {},
+        layout: 'normal',
+        commanderLegal: true,
+        set: null,
+        collectorNumber: null,
+      },
+    }],
+    sections: {
+      commander: [],
+      main: [],
+      sideboard: [],
+      maybeboard: [],
+    },
+    owner: {
+      id: 'owner-1',
+      displayName: 'Alber',
+      displayNameStyle: { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' },
+    },
+  };
+}

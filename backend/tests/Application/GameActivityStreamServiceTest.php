@@ -38,8 +38,10 @@ class GameActivityStreamServiceTest extends TestCase
 
         self::assertCount(1, $decorated['chat']);
         self::assertSame('public', $decorated['chat'][0]['message']);
+        self::assertArrayNotHasKey('type', $decorated['chat'][0]);
         self::assertCount(1, $decorated['eventLog']);
         self::assertSame('life.changed', $decorated['eventLog'][0]['type']);
+        self::assertSame('lost 2 life', $decorated['eventLog'][0]['message']);
     }
 
     public function testToggleReactionReplacesPreviousReactionAndCanClearIt(): void
@@ -98,6 +100,75 @@ class GameActivityStreamServiceTest extends TestCase
         self::assertCount(2, $entries);
         self::assertSame('turn.changed', $entries[0]['type']);
         self::assertSame('chat.message', $entries[1]['type']);
+    }
+
+    public function testAppendLogEntriesPreservesSemanticMetadataAndLegacyMessageFallback(): void
+    {
+        [$game, $actor] = $this->gameWithPlayers();
+        $persisted = [];
+
+        $manager = $this->createMock(EntityManagerInterface::class);
+        $manager->expects(self::exactly(2))
+            ->method('persist')
+            ->willReturnCallback(static function (object $entity) use (&$persisted): void {
+                $persisted[] = $entity;
+            });
+
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->method('getManagerForClass')->with(Game::class)->willReturn($manager);
+        $service = new GameActivityStreamService($registry, new GameplayStreamsFlags(true));
+
+        $records = $service->appendLogEntries($manager, $game, 12, [
+            [
+                'id' => 'patch-log-id',
+                'type' => 'library.draw',
+                'message' => 'Actor drew a card.',
+                'createdAt' => '2026-07-10T10:00:00+00:00',
+                'actorId' => $actor->id(),
+                'displayName' => $actor->displayName(),
+                'i18nKey' => 'gameLog.library.draw',
+                'params' => [
+                    'actorPlayerId' => $actor->id(),
+                    'playerId' => $actor->id(),
+                    'count' => 1,
+                ],
+                'refs' => [
+                    'players' => [
+                        $actor->id() => [
+                            'id' => $actor->id(),
+                            'displayName' => $actor->displayName(),
+                        ],
+                    ],
+                ],
+                'visibility' => 'public',
+            ],
+            [
+                'type' => 'legacy.event',
+                'message' => 'Legacy message only.',
+            ],
+        ]);
+
+        self::assertCount(2, $records);
+        self::assertContainsOnlyInstancesOf(GameLogEntry::class, $persisted);
+
+        $semantic = $records[0]->toArray();
+        self::assertSame('library.draw', $semantic['type']);
+        self::assertSame('Actor drew a card.', $semantic['message']);
+        self::assertSame(12, $semantic['version']);
+        self::assertSame('gameLog.library.draw', $semantic['i18nKey']);
+        self::assertSame(1, $semantic['params']['count']);
+        self::assertSame($actor->displayName(), $semantic['refs']['players'][$actor->id()]['displayName']);
+        self::assertSame('public', $semantic['visibility']);
+        self::assertSame($actor->id(), $semantic['actorId']);
+        self::assertSame($actor->displayName(), $semantic['displayName']);
+        self::assertArrayNotHasKey('id', $semantic['params']);
+
+        $legacy = $records[1]->toArray();
+        self::assertSame('legacy.event', $legacy['type']);
+        self::assertSame('Legacy message only.', $legacy['message']);
+        self::assertArrayNotHasKey('i18nKey', $legacy);
+        self::assertArrayNotHasKey('params', $legacy);
+        self::assertArrayNotHasKey('refs', $legacy);
     }
 
     /**

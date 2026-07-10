@@ -13,6 +13,90 @@ describe('GameTableChatLogState', () => {
     expect(entry?.cardList).toEqual(['Bear', 'Elf', 'Sol Ring']);
   });
 
+  it('renders semantic game log entries with runtime translation fallback', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: { 'player-1': playerState('Alice') },
+      eventLog: [{
+        id: 'event-semantic-draw',
+        type: 'library.draw_many',
+        message: 'Alice drew 2 cards.',
+        actorId: 'player-1',
+        displayName: 'Legacy Alice',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.library.drawMany',
+        params: { actorPlayerId: 'player-1', playerId: 'player-1', count: 2 },
+        refs: { players: { 'player-1': { id: 'player-1', displayName: 'Ref Alice' } } },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.messagePrefix).toBe('Alice drew 2 cards.');
+  });
+
+  it('renders semantic game log entries with the platform translation service', () => {
+    const state = new GameTableChatLogState({
+      instant: (key: string, params?: Record<string, unknown>) => {
+        if (key === 'gameLog.life.changed') {
+          return `${params?.['actor']} cambi\u00f3 la vida de ${params?.['player']} de ${params?.['previousLife']} a ${params?.['life']}.`;
+        }
+
+        return key;
+      },
+    } as never);
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      players: {
+        'player-1': playerState('Alicia'),
+        'player-2': playerState('Bruno'),
+      },
+      eventLog: [{
+        id: 'event-semantic-life',
+        type: 'life.changed',
+        message: 'Alicia changed Bruno\'s life from 40 to 37.',
+        actorId: 'player-1',
+        displayName: 'Alicia',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.life.changed',
+        params: { actorPlayerId: 'player-1', playerId: 'player-2', previousLife: 40, life: 37 },
+        refs: {
+          players: {
+            'player-1': { id: 'player-1', displayName: 'Alicia' },
+            'player-2': { id: 'player-2', displayName: 'Bruno' },
+          },
+        },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.messagePrefix).toBe('Alicia cambi\u00f3 la vida de Bruno de 40 a 37.');
+  });
+
+  it('falls back to the legacy message when a semantic key is unknown', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      eventLog: [{
+        id: 'event-legacy-fallback',
+        type: 'library.draw',
+        message: 'Legacy draw message.',
+        actorId: 'player-1',
+        displayName: 'Player',
+        createdAt: '2026-05-14T00:00:00Z',
+        i18nKey: 'gameLog.unknown',
+        params: { actorPlayerId: 'player-1' },
+        refs: { players: { 'player-1': { id: 'player-1', displayName: 'Player' } } },
+        visibility: 'public',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.messagePrefix).toBe('Legacy draw message.');
+  });
+
   it('exposes aggregate card links when public-zone cards move to library', () => {
     const state = new GameTableChatLogState();
 
@@ -286,5 +370,22 @@ function card(instanceId: string, name: string, zone: 'library'): GameSnapshot['
     name,
     zone,
     tapped: false,
+  };
+}
+
+function playerState(displayName: string): GameSnapshot['players'][string] {
+  return {
+    user: { id: displayName.toLowerCase(), email: `${displayName.toLowerCase()}@test`, displayName, roles: [] },
+    life: 40,
+    zones: {
+      library: [],
+      hand: [],
+      battlefield: [],
+      graveyard: [],
+      exile: [],
+      command: [],
+    },
+    commanderDamage: {},
+    counters: {},
   };
 }

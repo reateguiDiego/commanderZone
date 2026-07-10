@@ -49,17 +49,28 @@ describe('DeckCardTextViewComponent', () => {
     expect(icon?.getAttribute('alt')).toBe('Game Changer');
   });
 
-  it('renders the group toggle icon before the category title and count', async () => {
+  it('renders the group toggle and card type icon before the category title and count', async () => {
     const fixture = await setup();
     fixture.detectChanges();
 
     const toggle = fixture.nativeElement.querySelector('.deck-group-toggle') as HTMLButtonElement | null;
     const firstChild = toggle?.firstElementChild;
     const secondChild = firstChild?.nextElementSibling;
+    const thirdChild = secondChild?.nextElementSibling;
 
     expect(firstChild?.tagName.toLowerCase()).toBe('lucide-icon');
-    expect(secondChild?.classList.contains('deck-group-title')).toBe(true);
-    expect(secondChild?.textContent?.replace(/\s+/g, ' ').trim()).toContain('Tierras (1)');
+    expect(secondChild?.classList.contains('deck-group-type-icon')).toBe(true);
+    expect(thirdChild?.classList.contains('deck-group-title')).toBe(true);
+    expect(thirdChild?.textContent?.replace(/\s+/g, ' ').trim()).toContain('Tierras (1)');
+  });
+
+  it('renders the commander card type icon in the commander toggle', async () => {
+    const fixture = await setup(storeStub({ groupId: 'commander', groupTitle: 'Comandante', groupCards: [] }));
+    fixture.detectChanges();
+
+    const icon = fixture.nativeElement.querySelector('.deck-group-toggle .deck-group-type-icon') as HTMLElement | null;
+
+    expect(icon?.classList).toContain('ms-commander');
   });
 
   it('flips card faces from text rows without opening the card menu', async () => {
@@ -213,11 +224,23 @@ function storeStub(options: {
   displayCardTypeLine?: (value: Card) => string | null;
   displayCardManaCost?: (value: Card) => string | null;
   shouldShowManaCost?: (value: Card) => boolean;
+  groupId?: string;
+  groupTitle?: string;
+  groupCards?: DeckCard[];
 } = {}) {
   const entry: DeckCard = options.entry ?? { id: 'deck-card-1', quantity: 1, section: 'main', card: card() };
+  const groupCards = options.groupCards ?? [entry];
 
   return {
-    cardColumns: signal([{ id: 'land-sideboard', groups: [{ id: 'land', title: 'Tierras', quantity: 1, cards: [entry] }] }]),
+    cardColumns: signal([{
+      id: 'land-sideboard',
+      groups: [{
+        id: options.groupId ?? 'land',
+        title: options.groupTitle ?? 'Tierras',
+        quantity: groupCards.length,
+        cards: groupCards,
+      }],
+    }]),
     cardMenu: signal(options.cardMenuEntryId ? { entryId: options.cardMenuEntryId, top: 0, left: 0, amount: 1, showImagePreview: false } : null),
     isGroupCollapsed: () => false,
     toggleGroup: vi.fn(),
@@ -227,6 +250,7 @@ function storeStub(options: {
     toggleCardMenu: vi.fn(),
     displayCardName: (value: Card) => value.name,
     displayCardListName: (value: Card) => value.name,
+    deckColorIdentitySymbols: () => [],
     displayCardManaCost: options.displayCardManaCost ?? ((value: Card) => value.manaCost),
     hasAlternateFace: () => options.hasAlternateFace ?? false,
     toggleCardFace: vi.fn(),

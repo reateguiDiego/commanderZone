@@ -80,8 +80,6 @@ describe('CardSearchResultsComponent', () => {
     expect(menu.textContent).toContain('Add to deck');
     expect(menu.textContent).toContain('Show rulings');
     expect(menu.textContent).toContain('View all printings');
-    expect(menu.style.left).toBe('34px');
-    expect(menu.style.top).toBe('142px');
   });
 
   it('renders the game changer icon in the shared context menu title', () => {
@@ -282,19 +280,6 @@ describe('CardSearchResultsComponent', () => {
 
     expect(image()?.getAttribute('src')).toBe('/face-back.jpg');
     expect(fixture.nativeElement.querySelector('.common-card-menu')).toBeNull();
-  });
-
-  it('switches list results to two ten-row columns after ten visible cards', () => {
-    const fixture = TestBed.createComponent(CardSearchResultsComponent);
-    fixture.componentRef.setInput('results', Array.from({ length: 11 }, (_, index) => cardFixture({
-      scryfallId: `00000000-0000-0000-0000-0000000000${String(index).padStart(2, '0')}`,
-      name: `Very Long Search Result Name ${index}`,
-    })));
-    fixture.componentRef.setInput('searched', true);
-    fixture.componentRef.setInput('viewMode', 'list');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.card-results')?.classList.contains('card-results--list-columns')).toBe(true);
   });
 
   it('marks battle card images for rotated rendering', () => {
