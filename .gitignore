@@ -24,3 +24,5 @@
 /.env
 /.tmp/
 /.docker-compose.prod.yml
+docker-compose.prod.yml
+.env.prod
