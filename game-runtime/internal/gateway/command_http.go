@@ -102,6 +102,14 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if result.Err != nil {
 		status := http.StatusConflict
 		code := "command_failed"
+		if authorizationError, ok := actor.AsAuthorizationError(result.Err); ok {
+			writeCommandHTTPError(w, http.StatusForbidden, strings.ToLower(authorizationError.Code), authorizationError.Error())
+			return
+		}
+		if errors.Is(result.Err, actor.ErrActorPermission) {
+			writeCommandHTTPError(w, http.StatusForbidden, "permission_denied", result.Err.Error())
+			return
+		}
 		if result.Err == actor.ErrUnknownCommand {
 			status = http.StatusBadRequest
 			code = "unknown_command"

@@ -2576,6 +2576,26 @@ final readonly class GameWebsocketCommandPatchService
     private function hydrateRuntimeStaticCards(array $op, array $staticCardsByCardKey, string $viewerLanguage): array
     {
         $opName = is_string($op['op'] ?? null) ? $op['op'] : '';
+        if ($opName === 'private.cards.materialize') {
+            $entries = array_values(array_filter($op['entries'] ?? [], static fn (mixed $entry): bool => is_array($entry)));
+            $viewerVisibility = $this->viewerVisibilityForZone((string) ($op['zone'] ?? 'hand'));
+            $cards = [];
+            foreach ($entries as $index => $entry) {
+                if (!is_array($entry['card'] ?? null)) {
+                    continue;
+                }
+                $cards[] = $entry['card'];
+                $entries[$index]['card'] = $this->cardWithRuntimeIdentity($entry['card'], $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            }
+            $op['entries'] = $entries;
+            $staticCards = $this->staticCardsForCards($cards, $staticCardsByCardKey, $viewerVisibility, $viewerLanguage);
+            if ($staticCards !== []) {
+                $op['staticCards'] = $staticCards;
+            }
+
+            return $op;
+        }
+
         if (in_array($opName, ['zone.cards.add', 'library.top.revealed', 'library.top.viewed', 'library.revealed.set'], true)) {
             $cards = array_values(array_filter($op['cards'] ?? [], static fn (mixed $card): bool => is_array($card)));
             $viewerVisibility = $this->viewerVisibilityForZone((string) ($op['zone'] ?? 'library'));

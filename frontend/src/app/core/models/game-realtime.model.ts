@@ -258,6 +258,9 @@ export interface GameplayErrorPayload {
   code: string;
   message: string;
   retryable: boolean;
+  commandType?: string;
+  instanceId?: string;
+  index?: number;
   conflict?: GameplayVersionConflict;
 }
 

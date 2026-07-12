@@ -201,7 +201,7 @@ class GamesControllerV2Test extends TestCase
         self::assertArrayHasKey('snapshot', $payload['game']);
     }
 
-    public function testLegacyHttpCommandEndpointRejectsRuntimePrimaryCommands(): void
+    public function testLegacyHttpCommandEndpointRejectsRuntimePrimaryBatchWithoutFallback(): void
     {
         [$game, $viewer] = $this->game();
         $projection = $this->createMock(GameProjectionService::class);
@@ -211,7 +211,7 @@ class GamesControllerV2Test extends TestCase
         $runtimeRouter = new GameplayRuntimeRouter(
             new GameplayV2Flags(
                 enabled: true,
-                commandsAllowlist: 'life.changed',
+                commandsAllowlist: 'cards.moved',
                 runtimeServiceEnabled: true,
             ),
             new class implements GameRuntimeCommandClientInterface {
@@ -234,9 +234,14 @@ class GamesControllerV2Test extends TestCase
         $response = $controller->command(
             $game->id(),
             Request::create('/games/'.$game->id().'/commands', 'POST', [], [], [], [], json_encode([
-                'type' => 'life.changed',
-                'clientActionId' => 'http-runtime-primary',
-                'payload' => ['playerId' => $viewer->id(), 'delta' => -1],
+                'type' => 'cards.moved',
+                'clientActionId' => 'http-runtime-primary-batch',
+                'payload' => [
+                    'playerId' => $viewer->id(),
+                    'fromZone' => 'battlefield',
+                    'toZone' => 'graveyard',
+                    'instanceIds' => ['own-instance', 'foreign-instance'],
+                ],
             ], JSON_THROW_ON_ERROR)),
             $viewer,
             $this->entityManager($game),

@@ -290,6 +290,18 @@ final class GameVisibilityIndex
 
     /**
      * @param array<string,mixed> $snapshot
+     */
+    public function maskForKnownViewer(array $snapshot, string $viewerId): int
+    {
+        if ($this->isReady($snapshot)) {
+            return $this->maskForViewer($snapshot, $viewerId);
+        }
+
+        return max(0, (int) ($this->viewerBitsFromSnapshot($snapshot)[$viewerId] ?? 0));
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
      * @param array<string,mixed> $card
      */
     public function canViewerSeeCardIdentity(
@@ -376,7 +388,12 @@ final class GameVisibilityIndex
     {
         $viewerBits = [];
         $bit = 1;
-        foreach (array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []) as $playerId) {
+        $playerIds = array_values(array_filter(
+            array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []),
+            static fn (mixed $playerId): bool => is_string($playerId) && $playerId !== '',
+        ));
+        sort($playerIds, SORT_STRING);
+        foreach ($playerIds as $playerId) {
             if (!is_string($playerId)) {
                 continue;
             }

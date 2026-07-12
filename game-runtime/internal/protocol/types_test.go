@@ -26,3 +26,11 @@ func TestPatchEnvelopeV2RejectsInvalidVisibility(t *testing.T) {
 		t.Fatal("expected invalid visibility")
 	}
 }
+
+func TestVisibilityRejectsEmptyPlayerAndNonNumericGroup(t *testing.T) {
+	for _, visibility := range []Visibility{"player:", "player:p1:extra", "group:0", "group:players"} {
+		if err := visibility.Validate(); err == nil {
+			t.Fatalf("visibility %q should be invalid", visibility)
+		}
+	}
+}

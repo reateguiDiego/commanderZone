@@ -253,7 +253,7 @@ func TestRuntimeP0GameLogEntriesCarrySemanticI18nMetadata(t *testing.T) {
 			name:    "card counter",
 			initial: stateIntegrityCounterState(t),
 			command: command("game-1", 1, "i18n-counter", "card.counter.changed", map[string]any{"instanceId": "i1", "counter": "+1/+1", "value": 3}),
-			actorID: "p1",
+			actorID: "p2",
 			i18nKey: "gameLog.cardCounter.changed",
 			assertions: func(t *testing.T, entry map[string]any) {
 				params := requireMap(t, entry["params"])
@@ -788,24 +788,23 @@ func TestGameCloseEmitsGameStatusPatchWithoutSnapshotWrite(t *testing.T) {
 }
 
 func TestRevealTopEmitsGroupPatchWithCardKey(t *testing.T) {
-	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
-	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal", "library.reveal_top", map[string]any{"playerId": "p1", "count": 2, "visibleToMask": 3}), "p1")
+	game := testState()
+	game.Players["p3"] = map[string]any{"life": 40}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal", "library.reveal_top", map[string]any{"playerId": "p1", "count": 2, "to": []any{"p2", "p1"}}), "p1")
 	if result.Err != nil {
 		t.Fatalf("reveal failed: %v", result.Err)
 	}
-	found := false
-	for _, envelope := range result.Patches {
-		if envelope.Visibility != "group:3" {
-			continue
-		}
-		found = true
-		cards := envelope.Ops[0].Data["cards"].([]map[string]any)
-		if len(cards) != 2 || cards[0]["cardKey"] == nil {
-			t.Fatalf("bad reveal cards: %#v", cards)
-		}
+	materialize := patchForVisibility(result.Patches, protocol.GroupVisibility("3"), "private.cards.materialize")
+	if materialize == nil {
+		t.Fatalf("missing group materialization patch: %#v", result.Patches)
 	}
-	if !found {
-		t.Fatal("missing group reveal patch")
+	entries := materialize.Data["entries"].([]map[string]any)
+	if len(entries) != 2 || entries[0]["placeholderId"] != "p1-hidden-library-top" || entries[1]["placeholderId"] != nil {
+		t.Fatalf("bad materialization entries: %#v", entries)
+	}
+	if entries[0]["card"].(map[string]any)["cardKey"] == nil {
+		t.Fatalf("materialization omitted card identity: %#v", entries)
 	}
 }
 
@@ -1007,9 +1006,9 @@ func TestPrivateOnlyRuntimePatchAddsPublicVersionCarrier(t *testing.T) {
 func TestLibraryShuffleUsesCompactSeededPayloadAndPublicInvalidation(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-before-shuffle", "library.reveal_top", map[string]any{
-		"playerId":      "p1",
-		"count":         2,
-		"visibleToMask": 3,
+		"playerId": "p1",
+		"count":    2,
+		"to":       "all",
 	}), "p1")
 	if reveal.Err != nil {
 		t.Fatalf("reveal failed: %v", reveal.Err)
@@ -1140,20 +1139,26 @@ func TestCardFaceDownRuntimeHidesPublicIdentityAndSendsPrivateOwnerPatch(t *test
 }
 
 func TestCardRevealedRuntimeTargetsAuthorizedGroupOnly(t *testing.T) {
-	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	game := testState()
+	game.Players["p3"] = map[string]any{"life": 40}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-card", "card.revealed", map[string]any{
-		"instanceId":    "h1",
-		"visibleToMask": 3,
+		"instanceId": "h1",
+		"to":         []any{"p1", "p2"},
 	}), "p1")
 	if result.Err != nil {
 		t.Fatalf("reveal failed: %v", result.Err)
 	}
-	if patchForVisibility(result.Patches, protocol.VisibilityPublic, "card.field.set") != nil {
+	if patchForVisibility(result.Patches, protocol.VisibilityPublic, "private.cards.materialize") != nil {
 		t.Fatalf("private hand reveal must not be public: %#v", result.Patches)
 	}
-	group := patchForVisibility(result.Patches, protocol.GroupVisibility("3"), "card.field.set")
-	if group == nil || group.Data["cardKey"] != "hand-1@1" {
+	group := patchForVisibility(result.Patches, protocol.GroupVisibility("3"), "private.cards.materialize")
+	if group == nil {
 		t.Fatalf("authorized group did not receive cardKey: %#v", result.Patches)
+	}
+	entries := group.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["placeholderId"] != "p1-hidden-hand-0" || entries[0]["card"].(map[string]any)["cardKey"] != "hand-1@1" {
+		t.Fatalf("authorized group received bad materialization: %#v", entries)
 	}
 }
 
@@ -1171,15 +1176,42 @@ func TestCardRevealedRuntimeCanRevealFaceDownIdentityOnlyToAuthorizedViewer(t *t
 	if result.Err != nil {
 		t.Fatalf("face-down reveal failed: %v", result.Err)
 	}
-	if patchForVisibility(result.Patches, protocol.VisibilityPublic, "card.field.set") != nil {
+	if patchForVisibility(result.Patches, protocol.VisibilityPublic, "private.cards.materialize") != nil {
 		t.Fatalf("face-down private reveal must not be public: %#v", result.Patches)
 	}
-	owner := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "card.field.set")
-	if owner == nil || owner.Data["cardKey"] != "hand-1@1" {
+	owner := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "private.cards.materialize")
+	if owner == nil || owner.Data["entries"].([]map[string]any)[0]["card"].(map[string]any)["cardKey"] != "hand-1@1" {
 		t.Fatalf("authorized owner did not receive face-down identity: %#v", result.Patches)
 	}
-	if patchForVisibility(result.Patches, protocol.PlayerVisibility("p2"), "card.field.set") != nil {
+	if patchForVisibility(result.Patches, protocol.PlayerVisibility("p2"), "private.cards.materialize") != nil {
 		t.Fatalf("unauthorized viewer received face-down identity patch: %#v", result.Patches)
+	}
+}
+
+func TestCardRevealRevocationEmitsOpaqueConcealmentWithoutIdentity(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-hand", "card.revealed", map[string]any{
+		"instanceId": "h1",
+		"to":         []any{"p2"},
+	}), "p1")
+	if reveal.Err != nil {
+		t.Fatalf("reveal failed: %v", reveal.Err)
+	}
+	hide := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "hide-hand", "card.revealed", map[string]any{
+		"instanceId": "h1",
+		"to":         []any{"p2"},
+		"revealed":   false,
+	}), "p1")
+	if hide.Err != nil {
+		t.Fatalf("hide failed: %v", hide.Err)
+	}
+	conceal := patchForVisibility(hide.Patches, protocol.PlayerVisibility("p2"), "private.cards.conceal")
+	if conceal == nil {
+		t.Fatalf("missing concealment patch: %#v", hide.Patches)
+	}
+	encoded := fmt.Sprintf("%#v", conceal.Data)
+	if contains(encoded, "cardKey") || contains(encoded, "hand-1@1") {
+		t.Fatalf("concealment leaked identity: %s", encoded)
 	}
 }
 
@@ -1210,10 +1242,12 @@ func TestControllerChangeOnPrivateCardDoesNotEmitPublicIdentity(t *testing.T) {
 }
 
 func TestLibraryRevealRuntimeTargetsAuthorizedGroupAndNoStaticPayload(t *testing.T) {
-	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	game := testState()
+	game.Players["p3"] = map[string]any{"life": 40}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-library", "library.reveal", map[string]any{
-		"playerId":      "p1",
-		"visibleToMask": 7,
+		"playerId": "p1",
+		"to":       []any{"p1", "p2"},
 	}), "p1")
 	if result.Err != nil {
 		t.Fatalf("library reveal failed: %v", result.Err)
@@ -1221,7 +1255,7 @@ func TestLibraryRevealRuntimeTargetsAuthorizedGroupAndNoStaticPayload(t *testing
 	if patchForVisibility(result.Patches, protocol.VisibilityPublic, "library.revealed.set") != nil {
 		t.Fatalf("library reveal must not be public when group mask is provided: %#v", result.Patches)
 	}
-	group := patchForVisibility(result.Patches, protocol.GroupVisibility("7"), "library.revealed.set")
+	group := patchForVisibility(result.Patches, protocol.GroupVisibility("3"), "library.revealed.set")
 	if group == nil {
 		t.Fatalf("missing group library reveal patch: %#v", result.Patches)
 	}
@@ -1492,7 +1526,7 @@ func TestSensitiveCommandsReplay(t *testing.T) {
 	if controller.Err != nil {
 		t.Fatalf("controller failed: %v", controller.Err)
 	}
-	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "library-reveal", "library.reveal", map[string]any{"playerId": "p1", "visibleToMask": 3}), "p1")
+	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "library-reveal", "library.reveal", map[string]any{"playerId": "p1", "to": "all"}), "p1")
 	if reveal.Err != nil {
 		t.Fatalf("library reveal failed: %v", reveal.Err)
 	}
@@ -2135,9 +2169,40 @@ func TestMoveToPrivateZoneDoesNotExposeCardKeyPublicly(t *testing.T) {
 	if contains(publicEncoded, "card-a@1") {
 		t.Fatalf("public patch leaked private destination card key: %s", publicEncoded)
 	}
+	publicConceal := patchForVisibility(result.Patches, protocol.VisibilityPublic, "private.cards.conceal")
+	if publicConceal == nil {
+		t.Fatalf("public viewers missing destination placeholder: %#v", result.Patches)
+	}
+	entries := publicConceal.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["instanceId"] != "i1" || entries[0]["placeholderId"] != "p1-hidden-hand-2" || entries[0]["index"] != 2 {
+		t.Fatalf("bad public concealment: %#v", publicConceal.Data)
+	}
 	privateMove := patchForVisibility(result.Patches, "player:p1", "zone.cards.move")
 	if privateMove == nil {
 		t.Fatalf("owner missing private move patch: %#v", result.Patches)
+	}
+}
+
+func TestMoveFromPrivateZoneRemovesRealAndOpaqueSourceIdsPublicly(t *testing.T) {
+	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-public", "card.moved", map[string]any{
+		"playerId":   "p1",
+		"fromZone":   "hand",
+		"toZone":     "battlefield",
+		"instanceId": "h1",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("move failed: %v", result.Err)
+	}
+	publicRemove := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.remove")
+	if publicRemove == nil {
+		t.Fatalf("missing public private-zone removal: %#v", result.Patches)
+	}
+	if got, want := publicRemove.Data["instanceIds"], []string{"h1", "p1-hidden-hand-0"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("public removal ids = %#v, want %#v", got, want)
+	}
+	if add := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add"); add == nil {
+		t.Fatalf("missing public identity materialization: %#v", result.Patches)
 	}
 }
 
@@ -2345,7 +2410,7 @@ func TestCardCounterChangedDoesNotMutateUnrelatedState(t *testing.T) {
 		"instanceId": "i1",
 		"counter":    "+1/+1",
 		"value":      3,
-	}), "p1")
+	}), "p2")
 	if result.Err != nil {
 		t.Fatalf("counter failed: %v", result.Err)
 	}
@@ -2383,7 +2448,7 @@ func TestCardCounterChangedAcceptsLegacyKeyPayload(t *testing.T) {
 		"instanceId": "i1",
 		"key":        "charge",
 		"value":      2,
-	}), "p1")
+	}), "p2")
 	if result.Err != nil {
 		t.Fatalf("legacy key counter failed: %v", result.Err)
 	}
@@ -2399,7 +2464,7 @@ func TestCardCounterZeroPersistsUntilExplicitRemove(t *testing.T) {
 		"instanceId": "i1",
 		"counter":    "charge",
 		"value":      0,
-	}), "p1")
+	}), "p2")
 	if zero.Err != nil {
 		t.Fatalf("zero counter failed: %v", zero.Err)
 	}
@@ -2426,7 +2491,7 @@ func TestCardCounterZeroPersistsUntilExplicitRemove(t *testing.T) {
 		"instanceId": "i1",
 		"counter":    "charge",
 		"remove":     true,
-	}), "p1")
+	}), "p2")
 	if remove.Err != nil {
 		t.Fatalf("counter remove failed: %v", remove.Err)
 	}
@@ -2442,7 +2507,7 @@ func TestPowerToughnessCountersUpdateMutableStats(t *testing.T) {
 		"instanceId": "i1",
 		"counter":    "+1/+1",
 		"value":      1,
-	}), "p1")
+	}), "p2")
 	if plus.Err != nil {
 		t.Fatalf("+1/+1 counter failed: %v", plus.Err)
 	}
@@ -2459,7 +2524,7 @@ func TestPowerToughnessCountersUpdateMutableStats(t *testing.T) {
 		"instanceId": "i1",
 		"counter":    "-1/-1",
 		"value":      1,
-	}), "p1")
+	}), "p2")
 	if minus.Err != nil {
 		t.Fatalf("-1/-1 counter failed: %v", minus.Err)
 	}
@@ -2482,7 +2547,7 @@ func TestCardCounterChangedRejectsMissingOrConflictingCounterPayload(t *testing.
 		result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "missing-counter", "card.counter.changed", map[string]any{
 			"instanceId": "i1",
 			"value":      2,
-		}), "p1")
+		}), "p2")
 		if !errors.Is(result.Err, ErrMissingPayloadField) {
 			t.Fatalf("err got %v want missing payload field", result.Err)
 		}
@@ -2495,7 +2560,7 @@ func TestCardCounterChangedRejectsMissingOrConflictingCounterPayload(t *testing.
 			"counter":    "charge",
 			"key":        "+1/+1",
 			"value":      2,
-		}), "p1")
+		}), "p2")
 		if result.Err == nil || !strings.Contains(result.Err.Error(), "conflicting payload fields") {
 			t.Fatalf("err got %v want conflicting payload fields", result.Err)
 		}
@@ -2552,7 +2617,7 @@ func TestCardCounterRollbackDoesNotClobberUnrelatedState(t *testing.T) {
 		"instanceId": "i1",
 		"counter":    "+1/+1",
 		"value":      3,
-	}), "p1")
+	}), "p2")
 	if !errors.Is(result.Err, store.err) {
 		t.Fatalf("err got %v want %v", result.Err, store.err)
 	}
@@ -2899,6 +2964,153 @@ func TestLibraryReplayReconstructsMoveAndPut(t *testing.T) {
 	}
 }
 
+func TestLibraryReplayParityCoversReorderMovePutTopAndPutBottom(t *testing.T) {
+	initial := testState()
+	gameActor := NewGameActor("game-1", initial, nil, 16, DefaultAppliers())
+	events := make([]protocol.EventPayloadV2, 0, 5)
+	commands := []struct {
+		actionID string
+		typeName string
+		payload  map[string]any
+	}{
+		{"reorder", "library.reorder_top", map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}},
+		{"move", "library.move_top", map[string]any{"playerId": "p1", "toZone": "graveyard", "count": 1}},
+		{"put-top", "library.put_top", map[string]any{"playerId": "p1", "instanceId": "h1"}},
+		{"put-bottom", "library.put_bottom", map[string]any{"playerId": "p1", "instanceId": "i1"}},
+	}
+	for index, item := range commands {
+		result := gameActor.ApplyDirect(context.Background(), command("game-1", int64(index+1), item.actionID, item.typeName, item.payload), "p1")
+		if result.Err != nil {
+			t.Fatalf("%s failed: %v", item.typeName, result.Err)
+		}
+		if item.typeName == "library.put_top" || item.typeName == "library.put_bottom" {
+			add := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "zone.cards.add")
+			if add == nil {
+				t.Fatalf("%s missing private library add patch: %#v", item.typeName, result.Patches)
+			}
+			index, ok := intFromAny(add.Data["index"])
+			if !ok || (item.typeName == "library.put_top" && index != 0) || (item.typeName == "library.put_bottom" && index == 0) {
+				t.Fatalf("%s emitted wrong library insertion index: %#v", item.typeName, add.Data)
+			}
+		}
+		events = append(events, result.Event)
+	}
+
+	replayed, err := ReplayEvents(testState(), events, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("replay failed: %v", err)
+	}
+	live := gameActor.Snapshot()
+	for _, zone := range []state.Zone{state.ZoneLibrary, state.ZoneHand, state.ZoneBattlefield, state.ZoneGraveyard} {
+		if got, want := movementZoneIDs(replayed.Zones["p1"], zone), movementZoneIDs(live.Zones["p1"], zone); joinStrings(got) != joinStrings(want) {
+			t.Fatalf("%s parity mismatch live=%#v replay=%#v", zone, want, got)
+		}
+	}
+	if !reflect.DeepEqual(replayed.Loc, live.Loc) {
+		t.Fatalf("location parity mismatch\nlive=%#v\nreplay=%#v", live.Loc, replayed.Loc)
+	}
+
+	tampered := events[1]
+	tampered.Payload = cloneMap(tampered.Payload)
+	tampered.Payload["instanceIds"] = []string{"l3"}
+	validationState := testState()
+	if err := ReplayEvent(&validationState, events[0]); err != nil {
+		t.Fatalf("reorder validation setup failed: %v", err)
+	}
+	if err := ReplayEvent(&validationState, tampered); !errors.Is(err, state.ErrInvalidWindow) {
+		t.Fatalf("move replay accepted non-top canonical IDs: %v", err)
+	}
+}
+
+func TestStackReplayUsesCanonicalItemAndNetState(t *testing.T) {
+	initial := testState()
+	gameActor := NewGameActor("game-1", initial, nil, 16, DefaultAppliers())
+	privateAdd := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "stack-private", "stack.card_added", map[string]any{
+		"instanceId": "h1",
+		"stackId":    "stack-private",
+	}), "p1")
+	if privateAdd.Err != nil {
+		t.Fatalf("private stack add failed: %v", privateAdd.Err)
+	}
+	item, ok := privateAdd.Event.Payload["item"].(map[string]any)
+	if !ok || item["visibility"] != "player:p1" || item["sourceInstanceId"] != "h1" || item["cardKey"] == "" || item["createdAt"] == "" {
+		t.Fatalf("canonical private stack item missing fields: %#v", privateAdd.Event.Payload)
+	}
+	publicPatch := patchForVisibility(privateAdd.Patches, protocol.VisibilityPublic, "stack.item.add")
+	if publicPatch == nil {
+		t.Fatalf("missing public private-stack shell: %#v", privateAdd.Patches)
+	}
+	publicItem := publicPatch.Data["item"].(map[string]any)
+	if _, leaked := publicItem["sourceInstanceId"]; leaked {
+		t.Fatalf("private stack source leaked publicly: %#v", publicItem)
+	}
+
+	publicAdd := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "stack-public", "stack.card_added", map[string]any{
+		"instanceId": "i1",
+		"stackId":    "stack-public",
+	}), "p1")
+	if publicAdd.Err != nil {
+		t.Fatalf("public stack add failed: %v", publicAdd.Err)
+	}
+	remove := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "stack-remove", "stack.item_removed", map[string]any{"stackId": "stack-private"}), "p1")
+	if remove.Err != nil {
+		t.Fatalf("stack remove failed: %v", remove.Err)
+	}
+
+	replayed, err := ReplayEvents(testState(), []protocol.EventPayloadV2{privateAdd.Event, publicAdd.Event, remove.Event}, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("stack replay failed: %v", err)
+	}
+	if len(replayed.Stack) != 1 || replayed.Stack[0].StackID != "stack-public" || !reflect.DeepEqual(replayed.Stack, gameActor.Snapshot().Stack) {
+		t.Fatalf("stack net state mismatch live=%#v replay=%#v", gameActor.Snapshot().Stack, replayed.Stack)
+	}
+	if err := replayStackEvent(&replayed, remove.Event); err != nil || len(replayed.Stack) != 1 {
+		t.Fatalf("stack remove retry was not idempotent: err=%v stack=%#v", err, replayed.Stack)
+	}
+}
+
+func TestDungeonMarkerReplayPersistsExactMarkerAndExplicitNullRemoval(t *testing.T) {
+	initial := testState()
+	before := initial.Instances["i1"]
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+	set := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "marker-set", "card.dungeon_marker.changed", map[string]any{
+		"instanceId": "i1",
+		"position":   map[string]any{"x": 0.25, "y": 0.75, "unit": "ratio"},
+	}), "p1")
+	if set.Err != nil {
+		t.Fatalf("marker set failed: %v", set.Err)
+	}
+	marker := set.Event.Payload["dungeonMarker"]
+	replayedSet, err := ReplayEvents(testState(), []protocol.EventPayloadV2{set.Event}, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("marker set replay failed: %v", err)
+	}
+	if !reflect.DeepEqual(replayedSet.Instances["i1"].MutableStats["dungeonMarker"], marker) {
+		t.Fatalf("marker mismatch event=%#v replay=%#v", marker, replayedSet.Instances["i1"].MutableStats)
+	}
+
+	clear := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "marker-clear", "card.dungeon_marker.changed", map[string]any{
+		"instanceId":    "i1",
+		"dungeonMarker": nil,
+	}), "p1")
+	if clear.Err != nil {
+		t.Fatalf("marker clear failed: %v", clear.Err)
+	}
+	replayed, err := ReplayEvents(testState(), []protocol.EventPayloadV2{set.Event, clear.Event}, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("marker clear replay failed: %v", err)
+	}
+	after := replayed.Instances["i1"]
+	if _, exists := after.MutableStats["dungeonMarker"]; exists {
+		t.Fatalf("explicit null did not remove marker: %#v", after.MutableStats)
+	}
+	before.MutableStats = nil
+	after.MutableStats = nil
+	if !reflect.DeepEqual(before, after) {
+		t.Fatalf("dungeon marker mutated unrelated state\nbefore=%#v\nafter=%#v", before, after)
+	}
+}
+
 func TestCardsMovedBatchDoesNotTouchLargeLibraryOrder(t *testing.T) {
 	game := benchmarkState(100)
 	before := append([]string(nil), game.Zones["p1"].Library...)
@@ -3173,6 +3385,40 @@ func TestHandToBattlefieldFaceDownMoveStaysHidden(t *testing.T) {
 	}
 }
 
+func TestCardsMovedFaceDownBatchPersistsFlagPerMove(t *testing.T) {
+	initial := testState()
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-face-down-batch", "cards.moved", map[string]any{
+		"playerId":    "p1",
+		"fromZone":    "hand",
+		"toZone":      "battlefield",
+		"instanceIds": []string{"h1", "h2"},
+		"faceDown":    true,
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("batch move failed: %v", result.Err)
+	}
+	moves, ok := result.Event.Payload["moves"].([]map[string]any)
+	if !ok || len(moves) != 2 {
+		t.Fatalf("missing canonical moves: %#v", result.Event.Payload)
+	}
+	for _, move := range moves {
+		if move["faceDown"] != true {
+			t.Fatalf("faceDown missing from canonical move: %#v", move)
+		}
+	}
+
+	replayed, err := ReplayEvents(testState(), []protocol.EventPayloadV2{result.Event}, DefaultAppliers())
+	if err != nil {
+		t.Fatalf("batch replay failed: %v", err)
+	}
+	for _, instanceID := range []string{"h1", "h2"} {
+		if !replayed.Instances[instanceID].FaceDown {
+			t.Fatalf("%s lost faceDown during replay: %#v", instanceID, replayed.Instances[instanceID])
+		}
+	}
+}
+
 func TestLibraryViewAndTargetedRevealDoNotLeakFullLibraryOnMove(t *testing.T) {
 	game := testState()
 	game.Players["p3"] = map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}}
@@ -3191,7 +3437,7 @@ func TestLibraryViewAndTargetedRevealDoNotLeakFullLibraryOnMove(t *testing.T) {
 	reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "targeted-reveal", "library.reveal_top", map[string]any{
 		"playerId": "p1",
 		"count":    2,
-		"viewers":  []any{"p2"},
+		"to":       []any{"p2"},
 	}), "p1")
 	if reveal.Err != nil {
 		t.Fatalf("targeted reveal failed: %v", reveal.Err)
@@ -3331,7 +3577,7 @@ func BenchmarkLibraryOps4Players100(b *testing.B) {
 	}{
 		{name: "draw_1", command: "library.draw", payload: map[string]any{"playerId": "p1"}},
 		{name: "draw_7", command: "library.draw_many", payload: map[string]any{"playerId": "p1", "count": 7}},
-		{name: "reveal_top_10", command: "library.reveal_top", payload: map[string]any{"playerId": "p1", "count": 10, "visibleToMask": 1}},
+		{name: "reveal_top_10", command: "library.reveal_top", payload: map[string]any{"playerId": "p1", "count": 10, "to": "p1"}},
 		{name: "reorder_top_10", command: "library.reorder_top", payload: map[string]any{"playerId": "p1", "instanceIds": []string{"l099", "l098", "l097", "l096", "l095", "l094", "l093", "l092", "l091", "l090"}}},
 	} {
 		b.Run(scenario.name, func(b *testing.B) {

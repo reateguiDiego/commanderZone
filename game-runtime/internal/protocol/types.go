@@ -3,6 +3,7 @@ package protocol
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -52,8 +53,20 @@ func GroupVisibility(mask string) Visibility {
 
 func (v Visibility) Validate() error {
 	value := string(v)
-	if value == string(VisibilityPublic) || strings.HasPrefix(value, "player:") || strings.HasPrefix(value, "group:") {
+	if value == string(VisibilityPublic) {
 		return nil
+	}
+	if strings.HasPrefix(value, "player:") {
+		playerID := strings.TrimPrefix(value, "player:")
+		if playerID != "" && !strings.Contains(playerID, ":") {
+			return nil
+		}
+	}
+	if strings.HasPrefix(value, "group:") {
+		mask, err := strconv.ParseUint(strings.TrimPrefix(value, "group:"), 10, 64)
+		if err == nil && mask > 0 {
+			return nil
+		}
 	}
 	return fmt.Errorf("invalid visibility %q", value)
 }

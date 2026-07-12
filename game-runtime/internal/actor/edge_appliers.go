@@ -255,20 +255,37 @@ func (CardDungeonMarkerChangedApplier) Apply(_ context.Context, game *state.Game
 	if err != nil {
 		return nil, err
 	}
-	position := normalizedPoint(mapField(command.Payload, "position"))
+	marker, hasMarker := command.Payload["dungeonMarker"]
+	if !hasMarker {
+		marker, hasMarker = command.Payload["position"]
+	}
+	if !hasMarker {
+		return nil, fmt.Errorf("%w: dungeonMarker", ErrMissingPayloadField)
+	}
 	if instance.MutableStats == nil {
 		instance.MutableStats = map[string]any{}
 	}
-	instance.MutableStats["dungeonMarker"] = position
+	var canonicalMarker any
+	if marker == nil {
+		delete(instance.MutableStats, "dungeonMarker")
+		canonicalMarker = nil
+	} else {
+		point, ok := marker.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%w: dungeonMarker", ErrInvalidPayloadField)
+		}
+		canonicalMarker = normalizedPoint(point)
+		instance.MutableStats["dungeonMarker"] = canonicalMarker
+	}
 	game.Instances[instanceID] = instance
 	emitter.EmitPublic(protocol.PatchOp{
 		Op:   "card.field.set",
-		Data: cardFieldData(instanceID, location, map[string]any{"dungeonMarker": position}),
+		Data: cardFieldData(instanceID, location, map[string]any{"dungeonMarker": canonicalMarker}),
 	})
 	return map[string]any{
 		"instanceId":    instanceID,
 		"playerId":      location.PlayerID,
-		"dungeonMarker": position,
+		"dungeonMarker": canonicalMarker,
 		"metrics":       edgeMetrics("edge.dungeon_marker_ms", start, emitter),
 	}, nil
 }

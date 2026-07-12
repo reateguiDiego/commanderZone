@@ -291,6 +291,7 @@ func finishLibraryShuffle(game *GameState, playerID string, zones PlayerZones) e
 }
 
 func (s *GameState) EnsureVisibility() {
+	ensureViewerBits(s)
 	if s.Visibility.InstanceMasks == nil {
 		s.Visibility.InstanceMasks = map[string]uint64{}
 	}
@@ -315,18 +316,21 @@ func (s *GameState) CanViewerSeeCardKey(viewerID string, instanceID string) bool
 	if !ok {
 		return false
 	}
-	if instance.FaceDown {
-		return false
-	}
 	location, ok := s.Loc[instanceID]
 	if !ok {
 		return false
 	}
-	if location.Zone == ZoneHand && location.PlayerID == viewerID {
+	ownerView := location.PlayerID == viewerID
+	if ownerView && (location.Zone == ZoneHand || location.Zone == ZoneLibrary || instance.FaceDown) {
 		return true
 	}
-	if location.Zone == ZoneLibrary && location.PlayerID == viewerID {
-		return true
+	viewerMask := s.Visibility.ViewerBits[viewerID]
+	instanceMask := instance.VisibleToMask | s.Visibility.InstanceMasks[instanceID]
+	if instance.FaceDown {
+		return viewerMask > 0 && instanceMask&viewerMask != 0
+	}
+	if location.Zone == ZoneHand {
+		return viewerMask > 0 && instanceMask&viewerMask != 0
 	}
 	if location.Zone != ZoneHand && location.Zone != ZoneLibrary {
 		return true
@@ -355,7 +359,7 @@ func (s *GameState) canViewerSeeTopRevealWindow(viewerID string, location Locati
 		return false
 	}
 	for _, candidate := range window.To {
-		if candidate == viewerID {
+		if candidate == "all" || candidate == viewerID {
 			return true
 		}
 	}

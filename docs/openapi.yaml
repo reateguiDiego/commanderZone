@@ -2817,7 +2817,7 @@ paths:
     post:
       tags: [Games]
       summary: Issue a short-lived gameplay WebSocket ticket.
-      description: The ticket is scoped to the game and current authenticated user and opens the Go runtime gameplay WebSocket route (`runtime_ws`). PHP websocket routes are not returned for gameplay. In prod, `GAME_RUNTIME_WEBSOCKET_PUBLIC_URL` must be configured as the public `wss://` runtime `/ws` endpoint.
+      description: The ticket is scoped to the game and current authenticated user, carries the server-derived viewer mask used for `group:<mask>` routing, and opens the Go runtime gameplay WebSocket route (`runtime_ws`). PHP websocket routes are not returned for gameplay. Runtime authorization rejections use `command_ack` with status `rejected`; the error contains a stable code, commandType, and only the submitted instanceId/index when applicable. Rejected commands do not emit Patch.v2, increment the game version, persist an event, or fall back to PHP. In prod, `GAME_RUNTIME_WEBSOCKET_PUBLIC_URL` must be configured as the public `wss://` runtime `/ws` endpoint.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -3244,7 +3244,7 @@ components:
           description: Active gameplay websocket route. Legacy/PHP routes must not be returned by this endpoint.
         claims:
           type: object
-          required: [gameId, userId, playerId, role, permissions, expiry]
+          required: [gameId, userId, playerId, role, permissions, viewerMask, expiry]
           properties:
             gameId:
               type: string
@@ -3263,6 +3263,10 @@ components:
               items:
                 type: string
                 enum: [view, command, game.close]
+            viewerMask:
+              type: integer
+              minimum: 0
+              description: Server-derived bit for the authenticated viewer. Clients cannot choose or override it.
             expiry:
               type: integer
               description: Unix timestamp matching the signed ticket `exp` claim.
@@ -8083,6 +8087,7 @@ components:
           type: string
         payload:
           type: object
+          description: 'Command-specific payload. Visibility commands accept only `to: all`, `to: <playerId>`, or `to: [<playerId>, ...]`; `audience`, `viewers`, and `visibleToMask` are server-owned fields and are rejected from clients.'
           additionalProperties: true
         clientActionId:
           type: [string, 'null']
@@ -8141,14 +8146,18 @@ components:
           type: [string, 'null']
         visibility:
           type: string
-          pattern: '^(public|player:[^:]+|group:[A-Za-z0-9_-]+)$'
+          pattern: '^(public|player:[^:]+|group:[1-9][0-9]*)$'
         ops:
           type: array
           items:
             $ref: '#/components/schemas/PatchOperationV2'
     PatchOperationV2:
       type: object
-      description: Semantic runtime patch operation. `version.advance` is a public no-op carrier used to advance viewer versions when a command only has private or group-visible changes.
+      description: >-
+        Semantic runtime patch operation. `version.advance` is a public no-op carrier used to advance viewer versions when a command only has private or group-visible changes.
+        `private.cards.materialize` atomically replaces opaque private-zone placeholders using `{ playerId, zone, entries: [{ placeholderId?, index, card }], staticCards? }`;
+        only server-routed authorized viewers receive real card identity. `private.cards.conceal` reverses that projection using
+        `{ playerId, zone, entries: [{ instanceId, placeholderId, index }] }` without carrying card identity. Placeholder IDs never contain the real instance ID.
       required: [op]
       properties:
         op:

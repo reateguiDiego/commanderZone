@@ -5,6 +5,7 @@ import {
   GameplayClientMessage,
   GameplayCommandAckMessage,
   GameplayErrorMessage,
+  GameplayErrorPayload,
   GameplayGamePatchMessage,
   GameplayPatchV2Message,
   GameplayMulliganCompletedMessage,
@@ -46,6 +47,17 @@ export interface GameTableWebsocketGameplayContext {
     type: GameWebsocketCommandType,
     payload: Record<string, unknown>,
   ): void;
+}
+
+export class GameplayCommandRejectedError extends Error {
+  constructor(readonly details: GameplayErrorPayload) {
+    super(details.message || 'WebSocket command rejected.');
+    this.name = 'GameplayCommandRejectedError';
+  }
+}
+
+export function isGameplayCommandRejectedError(error: unknown): error is GameplayCommandRejectedError {
+  return error instanceof GameplayCommandRejectedError;
 }
 
 interface PendingWebsocketCommand {
@@ -717,7 +729,11 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         this.trackRejectedSignature(inFlight.signature);
       }
       this.rejectInFlightCommand(
-        new Error(ack.error?.message ?? 'WebSocket command rejected.'),
+        new GameplayCommandRejectedError(ack.error ?? {
+          code: 'COMMAND_REJECTED',
+          message: 'WebSocket command rejected.',
+          retryable: false,
+        }),
         ack.clientActionId,
         ack.messageId,
         'rejected',

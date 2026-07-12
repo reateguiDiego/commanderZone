@@ -19,6 +19,7 @@ type TicketClaims struct {
 	Roles       []string
 	ViewerKind  string
 	Protocol    string
+	ViewerMask  uint64
 }
 
 type TicketValidator interface {

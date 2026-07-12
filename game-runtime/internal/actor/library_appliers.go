@@ -5,7 +5,6 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"strconv"
 	"time"
 
 	"commanderzone/game-runtime/internal/protocol"
@@ -89,10 +88,12 @@ func (LibraryRevealTopApplier) Apply(_ context.Context, game *state.GameState, c
 	if err != nil {
 		return nil, err
 	}
-	viewers, mask := revealTargets(command.Payload)
-	if mask == 0 {
-		mask = 1
+	audience, err := resolveVisibilityAudience(game, command.Payload)
+	if err != nil {
+		return nil, err
 	}
+	viewers := audience.revealedTo()
+	mask := audience.Mask
 	window := game.RevealTopWindow(playerID, count, viewers, mask)
 	cards := make([]map[string]any, 0, len(top))
 	for _, instanceID := range top {
@@ -108,23 +109,24 @@ func (LibraryRevealTopApplier) Apply(_ context.Context, game *state.GameState, c
 	revealOp := protocol.PatchOp{
 		Op: "library.top.revealed",
 		Data: map[string]any{
-			"playerId": playerID,
-			"count":    count,
-			"epoch":    window.Epoch,
-			"cards":    cards,
+			"playerId":   playerID,
+			"count":      count,
+			"epoch":      window.Epoch,
+			"cards":      cards,
+			"revealedTo": viewers,
 		},
 	}
-	if len(viewers) == 1 {
-		emitter.EmitPrivate(viewers[0], revealOp)
-	} else {
-		emitter.EmitGroup(strconv.FormatUint(mask, 10), revealOp)
-	}
+	emitVisibilityAudiencePatch(emitter, audience, privateCardsMaterializeOp(game, playerID, state.ZoneLibrary, privateLibrarySlots(playerID, top), viewers))
+	emitVisibilityAudiencePatch(emitter, audience, revealOp)
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	return map[string]any{
 		"playerId":        playerID,
 		"count":           count,
 		"instanceIds":     top,
 		"visibilityEpoch": window.Epoch,
+		"visibleToMask":   mask,
+		"viewers":         viewers,
+		"audience":        audience.eventValue(),
 		"metrics":         libraryMetrics(command.Type, start, ops),
 	}, nil
 }
@@ -343,7 +345,11 @@ func applyLibraryPut(command protocol.CommandEnvelopeV2, game *state.GameState, 
 	}
 	card := cardPatchData(game, playerID, instanceID)
 	emitter.EmitPrivate(playerID, protocol.PatchOp{Op: "zone.cards.remove", Data: map[string]any{"playerId": from.PlayerID, "zone": from.Zone, "instanceIds": []string{instanceID}}})
-	emitter.EmitPrivate(playerID, protocol.PatchOp{Op: "zone.cards.add", Data: map[string]any{"playerId": playerID, "zone": state.ZoneLibrary, "cards": []map[string]any{card}}})
+	addIndex := len(game.Zones[playerID].Library)
+	if top {
+		addIndex = 0
+	}
+	emitter.EmitPrivate(playerID, protocol.PatchOp{Op: "zone.cards.add", Data: map[string]any{"playerId": playerID, "zone": state.ZoneLibrary, "index": addIndex, "cards": []map[string]any{card}}})
 	emitZoneCount(emitter, game, from.PlayerID, from.Zone)
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	position := "bottom"

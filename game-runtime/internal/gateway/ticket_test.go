@@ -19,6 +19,7 @@ func TestHMACTicketValidatorAcceptsSignedTicket(t *testing.T) {
 		GameID:      "game-1",
 		Role:        "player",
 		Permissions: []string{"view", "command"},
+		ViewerMask:  4,
 	}, time.Minute)
 	if err != nil {
 		t.Fatalf("sign: %v", err)
@@ -30,7 +31,7 @@ func TestHMACTicketValidatorAcceptsSignedTicket(t *testing.T) {
 	if claims.UserID != "u1" || claims.PlayerID != "p1" || claims.GameID != "game-1" {
 		t.Fatalf("claims = %#v", claims)
 	}
-	if claims.Role != "player" || len(claims.Permissions) != 2 || claims.Permissions[1] != "command" {
+	if claims.Role != "player" || len(claims.Permissions) != 2 || claims.Permissions[1] != "command" || claims.ViewerMask != 4 {
 		t.Fatalf("runtime claims = %#v", claims)
 	}
 }

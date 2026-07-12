@@ -198,6 +198,7 @@ export interface GameWebsocketTicketResponse {
     playerId: string;
     role: string;
     permissions: string[];
+    viewerMask: number;
     expiry: number;
   };
 }

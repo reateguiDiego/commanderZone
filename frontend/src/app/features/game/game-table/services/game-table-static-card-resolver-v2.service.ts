@@ -59,6 +59,19 @@ export class GameTableStaticCardResolverV2Service {
           : { ...operation, staticCards: { ...(operation.staticCards ?? {}), ...resolved } };
       }
 
+      case 'private.cards.materialize': {
+        const resolved = await this.resolveStaticCardsForCards(
+          operation.entries.map((entry) => entry.card),
+          operation.zone,
+          operation.staticCards ?? {},
+          stateStaticCards,
+        );
+
+        return Object.keys(resolved).length === 0
+          ? operation
+          : { ...operation, staticCards: { ...(operation.staticCards ?? {}), ...resolved } };
+      }
+
       case 'library.top.revealed':
       case 'library.top.viewed':
       case 'library.revealed.set': {

@@ -29,12 +29,13 @@ class GameWebsocketTicketManagerTest extends TestCase
         $manager = new GameWebsocketTicketManager('test-secret');
         $now = new \DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
-        $issued = $manager->issue('game-1', 'user-1', $now, 'player-1', 'viewer', ['view']);
+        $issued = $manager->issue('game-1', 'user-1', $now, 'player-1', 'viewer', ['view'], 4);
         $validated = $manager->validate($issued->ticket, 'game-1', $now->modify('+1 second'));
 
         self::assertSame('player-1', $validated->playerId);
         self::assertSame('viewer', $validated->role);
         self::assertSame(['view'], $validated->permissions);
+        self::assertSame(4, $validated->viewerMask);
 
         [$encodedPayload] = explode('.', $issued->ticket, 2);
         $payloadJson = base64_decode(str_pad(strtr($encodedPayload, '-_', '+/'), (int) ceil(strlen($encodedPayload) / 4) * 4, '=', STR_PAD_RIGHT), true);
@@ -46,6 +47,7 @@ class GameWebsocketTicketManagerTest extends TestCase
         self::assertSame('player-1', $payload['playerId'] ?? null);
         self::assertSame('viewer', $payload['role'] ?? null);
         self::assertSame(['view'], $payload['permissions'] ?? null);
+        self::assertSame(4, $payload['viewerMask'] ?? null);
         self::assertSame(['viewer'], $payload['roles'] ?? null);
         self::assertSame('v2', $payload['protocol'] ?? null);
         self::assertSame($now->modify('+60 seconds')->getTimestamp(), $payload['exp'] ?? null);

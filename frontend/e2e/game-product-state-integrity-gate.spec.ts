@@ -133,17 +133,17 @@ test.describe('product state integrity runtime gate', () => {
       });
       baseVersion = await applyRuntime(request, commandFrames, {
         gameId,
-        token: playerA.token,
+        token: playerB.token,
         baseVersion,
         type: 'card.power_toughness.changed',
-        payload: { instanceId: permanentId, power: 5, toughness: 7 },
+        payload: { playerId: playerB.user.id, instanceId: permanentId, power: 5, toughness: 7 },
       });
       baseVersion = await applyRuntime(request, commandFrames, {
         gameId,
-        token: playerA.token,
+        token: playerB.token,
         baseVersion,
         type: 'arrow.created',
-        payload: { fromInstanceId: permanentId, toInstanceId: equipmentId, color: 'blue' },
+        payload: { ownerId: playerB.user.id, fromInstanceId: permanentId, toInstanceId: equipmentId, color: 'blue' },
       });
       baseVersion = await applyRuntime(request, commandFrames, {
         gameId,
@@ -161,10 +161,10 @@ test.describe('product state integrity runtime gate', () => {
       });
       const counterOutcome = await sendRuntimeCommand(request, {
         gameId,
-        token: playerA.token,
+        token: playerB.token,
         baseVersion,
         type: 'card.counter.changed',
-        payload: { instanceId: permanentId, counter: '+1/+1', value: 3 },
+        payload: { playerId: playerB.user.id, instanceId: permanentId, counter: '+1/+1', value: 3 },
       });
       commandFrames.push(...counterOutcome.frames);
       baseVersion = counterOutcome.version;

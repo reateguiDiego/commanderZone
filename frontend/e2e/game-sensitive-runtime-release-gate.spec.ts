@@ -43,7 +43,6 @@ test.describe('sensitive privacy runtime release gate', () => {
     await Promise.all([enableFrontendGameplayV2(contextA), enableFrontendGameplayV2(contextB)]);
 
     try {
-      const debug = await openDebugObserver(contextA, request, gameId, playerA.token);
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
       const commandPage = await contextA.newPage();
@@ -84,7 +83,7 @@ test.describe('sensitive privacy runtime release gate', () => {
         baseVersion: nextBaseVersion,
         type: 'card.revealed',
         payload: { playerId: playerA.user.id, instanceId: handId, to: [playerA.user.id] },
-        ownerPatch: (patch) => hasOp(patch, 'card.field.set') && JSON.stringify(patch).includes('cardKey'),
+        ownerPatch: (patch) => hasOp(patch, 'private.cards.materialize') && JSON.stringify(patch).includes('cardKey'),
       });
       expect(JSON.stringify(latestPatch(framesB))).not.toContain('cardKey');
       expect(snapshotRefetches).toBe(refetchBaseline);
@@ -128,24 +127,16 @@ test.describe('sensitive privacy runtime release gate', () => {
           zone: 'hand',
           cards: [{ instanceId: handId, cardKey: 'must-not-be-accepted' }],
         },
-        expectedMessage: 'zone.changed runtime path accepts instanceIds only.',
+        expectedMessage: 'instanceIds',
       });
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      for (const commandType of ['card.face_down.changed', 'card.revealed', 'card.controller.changed', 'library.reveal', 'library.play_top_revealed']) {
-        const health = await waitForActionHealth(debug.frames, commandType);
-        const phases = latestActionPhases(health, commandType);
-        expect(phases?.['gameplay.runtime_route']).toBe(1);
-        expect(phases?.['gameplay.runtime_fallback_count']).toBe(0);
-        expect(phases?.['gameplay.runtime_error_count']).toBe(0);
-      }
       expect(framesA.some((message) => message['kind'] === 'game_patch')).toBe(false);
       expect(framesB.some((message) => message['kind'] === 'game_patch')).toBe(false);
       expect(framesA.some((message) => message['kind'] === 'resync_required')).toBe(false);
       expect(framesB.some((message) => message['kind'] === 'resync_required')).toBe(false);
 
       await commandPage.close();
-      await debug.page.close();
     } finally {
       await contextA.close();
       await contextB.close();

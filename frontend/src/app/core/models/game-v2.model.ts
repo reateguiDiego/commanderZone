@@ -230,6 +230,18 @@ export interface LegacyCardPatchPayload {
   tokenMeta?: CardTokenMetaV2;
 }
 
+export interface PrivateCardMaterializationEntryV2 {
+  placeholderId?: string;
+  index: number;
+  card: BootstrapInstanceV2 | LegacyCardPatchPayload;
+}
+
+export interface PrivateCardConcealmentEntryV2 {
+  instanceId: string;
+  placeholderId: string;
+  index: number;
+}
+
 export interface GameplayZoneCardsMoveV2 {
   instanceId: string;
   from: {
@@ -311,6 +323,19 @@ export type GameplayPatchV2Operation =
       counters: Record<string, number>;
       power?: GamePowerToughnessValue;
       toughness?: GamePowerToughnessValue;
+    }
+  | {
+      op: 'private.cards.materialize';
+      playerId: string;
+      zone: GameZoneName;
+      entries: PrivateCardMaterializationEntryV2[];
+      staticCards?: Record<string, BootstrapStaticCardV2>;
+    }
+  | {
+      op: 'private.cards.conceal';
+      playerId: string;
+      zone: GameZoneName;
+      entries: PrivateCardConcealmentEntryV2[];
     }
   | {
       op: 'zone.cards.add';

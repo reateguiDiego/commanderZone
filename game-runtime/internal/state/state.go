@@ -1,6 +1,9 @@
 package state
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"sort"
+)
 
 type Zone string
 
@@ -120,6 +123,7 @@ func (c *CardInstanceRuntime) UnmarshalJSON(data []byte) error {
 }
 
 type VisibilityIndex struct {
+	ViewerBits          map[string]uint64          `json:"viewerBits"`
 	InstanceMasks       map[string]uint64          `json:"instanceMasks"`
 	LibraryEpochByOwner map[string]int64           `json:"libraryEpochByOwner"`
 	TopRevealWindows    map[string]TopRevealWindow `json:"topRevealWindows"`
@@ -204,10 +208,14 @@ func (r *RelationIndexes) UnmarshalJSON(data []byte) error {
 
 type StackItem struct {
 	StackID          string         `json:"stackId"`
+	Kind             string         `json:"kind,omitempty"`
 	SourceInstanceID string         `json:"sourceInstanceId,omitempty"`
 	CardKey          string         `json:"cardKey,omitempty"`
 	ControllerID     string         `json:"controllerId"`
+	OwnerID          string         `json:"ownerId,omitempty"`
+	Visibility       string         `json:"visibility,omitempty"`
 	Text             string         `json:"text,omitempty"`
+	CreatedAt        string         `json:"createdAt,omitempty"`
 	Meta             map[string]any `json:"meta,omitempty"`
 }
 
@@ -304,6 +312,7 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	if game.Visibility.InstanceMasks == nil {
 		game.Visibility.InstanceMasks = map[string]uint64{}
 	}
+	ensureViewerBits(game)
 	if game.Visibility.LibraryEpochByOwner == nil {
 		game.Visibility.LibraryEpochByOwner = map[string]int64{}
 	}
@@ -420,9 +429,13 @@ func (m MulliganState) Clone() MulliganState {
 
 func (v VisibilityIndex) Clone() VisibilityIndex {
 	clone := VisibilityIndex{
+		ViewerBits:          map[string]uint64{},
 		InstanceMasks:       map[string]uint64{},
 		LibraryEpochByOwner: map[string]int64{},
 		TopRevealWindows:    map[string]TopRevealWindow{},
+	}
+	for key, value := range v.ViewerBits {
+		clone.ViewerBits[key] = value
 	}
 	for key, value := range v.InstanceMasks {
 		clone.InstanceMasks[key] = value
@@ -435,6 +448,38 @@ func (v VisibilityIndex) Clone() VisibilityIndex {
 		clone.TopRevealWindows[key] = value
 	}
 	return clone
+}
+
+func ensureViewerBits(game *GameState) {
+	if game.Visibility.ViewerBits == nil {
+		game.Visibility.ViewerBits = map[string]uint64{}
+	}
+	playerIDs := make([]string, 0, len(game.Players))
+	for playerID := range game.Players {
+		if playerID != "" {
+			playerIDs = append(playerIDs, playerID)
+		}
+	}
+	sort.Strings(playerIDs)
+	used := uint64(0)
+	for _, bit := range game.Visibility.ViewerBits {
+		used |= bit
+	}
+	nextBit := uint64(1)
+	for _, playerID := range playerIDs {
+		if game.Visibility.ViewerBits[playerID] > 0 {
+			continue
+		}
+		for nextBit != 0 && used&nextBit != 0 {
+			nextBit <<= 1
+		}
+		if nextBit == 0 {
+			break
+		}
+		game.Visibility.ViewerBits[playerID] = nextBit
+		used |= nextBit
+		nextBit <<= 1
+	}
 }
 
 func (r Relations) Clone() Relations {

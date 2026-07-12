@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
@@ -48,7 +49,9 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayViaApplier(game, event, appliers)
 	case "card.token.created", "card.token_copy.created", "zone.random_card.selected", "card.dungeon_marker.changed", "card.face.changed":
 		return replayViaApplier(game, event, appliers)
-	case "stack.card_added", "stack.item_removed", "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
+	case "stack.card_added", "stack.item_removed":
+		return replayStackEvent(game, event)
+	case "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
 		return replayViaApplier(game, event, appliers)
 	case "game.concede", "game.close":
 		return replayViaApplier(game, event, appliers)
@@ -59,6 +62,68 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 	default:
 		return ReplayEvent(game, event)
 	}
+}
+
+func replayStackEvent(game *state.GameState, event protocol.EventPayloadV2) error {
+	stackID := optionalString(event.Payload, "stackId")
+	if stackID == "" {
+		stackID = optionalString(event.Payload, "id")
+	}
+	if event.Type == "stack.item_removed" {
+		if stackID == "" {
+			return fmt.Errorf("%w: stackId", ErrMissingPayloadField)
+		}
+		next := make([]state.StackItem, 0, len(game.Stack))
+		for _, item := range game.Stack {
+			if item.StackID != stackID {
+				next = append(next, item)
+			}
+		}
+		game.Stack = next
+		return nil
+	}
+
+	command := protocol.CommandEnvelopeV2{
+		GameID:         event.GameID,
+		ClientActionID: event.ClientActionID,
+		Payload:        cloneMap(event.Payload),
+	}
+	item, _, err := canonicalStackItem(game, command)
+	if err == nil {
+		if _, canonical := event.Payload["item"].(map[string]any); !canonical {
+			item.CreatedAt = event.CreatedAt.Format(time.RFC3339Nano)
+			if item.Meta == nil {
+				item.Meta = map[string]any{}
+			}
+			item.Meta["createdAt"] = item.CreatedAt
+		}
+	}
+	if err != nil {
+		instanceID := optionalString(event.Payload, "sourceInstanceId")
+		if instanceID == "" {
+			instanceID = optionalString(event.Payload, "instanceId")
+		}
+		if stackID == "" {
+			return err
+		}
+		item = state.StackItem{
+			StackID:          stackID,
+			Kind:             defaultString(optionalString(event.Payload, "kind"), "card"),
+			SourceInstanceID: instanceID,
+			OwnerID:          event.CreatedBy,
+			Visibility:       "player:" + event.CreatedBy,
+			Text:             optionalString(event.Payload, "text"),
+			CreatedAt:        event.CreatedAt.Format(time.RFC3339Nano),
+		}
+	}
+	next := make([]state.StackItem, 0, len(game.Stack)+1)
+	for _, existing := range game.Stack {
+		if existing.StackID != item.StackID {
+			next = append(next, existing)
+		}
+	}
+	game.Stack = append(next, item)
+	return nil
 }
 
 func replayLegacyOpsEvent(game *state.GameState, event protocol.EventPayloadV2) (bool, error) {
@@ -223,17 +288,34 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 		if err != nil {
 			return err
 		}
-		instanceIDs, err := stringSliceField(event.Payload, "instanceIds")
+		instanceIDs, idsErr := stringSliceField(event.Payload, "instanceIds")
+		if idsErr != nil || len(instanceIDs) == 0 {
+			count, hasCount := intField(event.Payload, "count")
+			if !hasCount || count <= 0 {
+				return fmt.Errorf("%w: instanceIds", ErrMissingPayloadField)
+			}
+			instanceIDs, err = state.NewLibraryOps().PeekTop(game, playerID, count)
+			if err != nil {
+				return err
+			}
+		}
+		currentTop, err := state.NewLibraryOps().PeekTop(game, playerID, len(instanceIDs))
 		if err != nil {
 			return err
+		}
+		if !equalStringOrder(currentTop, instanceIDs) {
+			return state.ErrInvalidWindow
 		}
 		targetPlayerID := playerID
 		if value, ok := event.Payload["targetPlayerId"].(string); ok && value != "" {
 			targetPlayerID = value
 		}
-		destinationRaw, err := stringField(event.Payload, "destination")
-		if err != nil {
-			return err
+		destinationRaw, _ := event.Payload["destination"].(string)
+		if destinationRaw == "" {
+			destinationRaw, _ = event.Payload["toZone"].(string)
+		}
+		if destinationRaw == "" {
+			return fmt.Errorf("%w: destination", ErrMissingPayloadField)
 		}
 		destination := state.Zone(destinationRaw)
 		if destination == state.ZoneLibrary {
@@ -285,6 +367,18 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownCommand, event.Type)
 	}
+}
+
+func equalStringOrder(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func replayMulliganEvent(game *state.GameState, event protocol.EventPayloadV2) error {

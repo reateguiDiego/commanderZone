@@ -358,6 +358,9 @@ function applySameVersionOperation(
           { playerId: move.to.playerId, zone: move.to.zone },
         ]),
       );
+    case 'private.cards.materialize':
+    case 'private.cards.conceal':
+      return applyOperationPreservingZoneCounts(state, operation, [{ playerId: operation.playerId, zone: operation.zone }]);
     default:
       return applyOperation(state, operation);
   }
@@ -445,6 +448,8 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'zone.cards.remove':
     case 'zone.cards.move':
     case 'zone.cards.batchMove':
+    case 'private.cards.materialize':
+    case 'private.cards.conceal':
     case 'zone.count.set':
     case 'library.count.set':
     case 'library.top.revealed':
@@ -568,6 +573,18 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
       }));
 
+    case 'private.cards.materialize':
+      return materializePrivateCards(
+        state,
+        operation.playerId,
+        operation.zone,
+        operation.entries,
+        operation.staticCards ?? {},
+      );
+
+    case 'private.cards.conceal':
+      return concealPrivateCards(state, operation.playerId, operation.zone, operation.entries);
+
     case 'zone.cards.add':
       return addCardsToZone(state, operation.playerId, operation.zone, operation.cards, operation.index, operation.staticCards ?? {});
 
@@ -620,7 +637,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       return reorderLibraryTop(state, operation.playerId, operation.instanceIds);
 
     case 'library.top.moved':
-      return clearKnownLibraryOrder(state, operation.playerId);
+      return moveKnownLibraryTopToBottom(state, operation.playerId, operation.instanceIds);
 
     case 'library.shuffled':
       return clearKnownLibraryOrder(state, operation.playerId);
@@ -1027,27 +1044,67 @@ function removeCardsFromZone(
   const currentZone = playerZones[zone] ?? [];
   const removalIds = new Set(instanceIds);
   const knownRemovalCount = currentZone.filter((instanceId) => removalIds.has(instanceId)).length;
-  const nextZone = removeIds(currentZone, instanceIds);
+  const removedZone = removeIds(currentZone, instanceIds);
+  const normalizedPrivateZone = normalizeOpaqueHandOrdinals(state.instances, playerId, zone, removedZone);
 
   return {
     status: 'applied',
     state: {
       ...state,
+      instances: normalizedPrivateZone.instances,
       zones: {
         ...state.zones,
         [playerId]: {
           ...playerZones,
-          [zone]: nextZone,
+          [zone]: normalizedPrivateZone.instanceIds,
         },
       },
       zoneCounts: {
         ...state.zoneCounts,
         [playerId]: {
           ...playerZoneCounts,
-          [zone]: knownRemovalCount === 0 ? playerZoneCounts[zone] : nextZone.length,
+          [zone]: knownRemovalCount === 0 ? playerZoneCounts[zone] : normalizedPrivateZone.instanceIds.length,
         },
       },
     },
+  };
+}
+
+function normalizeOpaqueHandOrdinals(
+  instances: Record<string, BootstrapInstanceV2>,
+  playerId: string,
+  zone: GameZoneName,
+  instanceIds: string[],
+): { instances: Record<string, BootstrapInstanceV2>; instanceIds: string[] } {
+  if (zone !== 'hand') {
+    return { instances, instanceIds };
+  }
+
+  const prefix = `${playerId}-hidden-hand-`;
+  const replacements = instanceIds
+    .map((instanceId, index) => ({ instanceId, replacementId: `${prefix}${index}`, instance: instances[instanceId] }))
+    .filter(({ instanceId, replacementId, instance }) => instanceId.startsWith(prefix) && instance?.hidden === true && instanceId !== replacementId);
+  if (replacements.length === 0) {
+    return { instances, instanceIds };
+  }
+
+  const nextInstances = { ...instances };
+  for (const { instanceId } of replacements) {
+    delete nextInstances[instanceId];
+  }
+  for (const { replacementId, instance } of replacements) {
+    nextInstances[replacementId] = {
+      ...instance!,
+      instanceId: replacementId,
+      cardRef: `placeholder:${replacementId}`,
+      zoneId: zoneId(playerId, zone),
+    };
+  }
+
+  const replacementIds = new Map(replacements.map(({ instanceId, replacementId }) => [instanceId, replacementId]));
+  return {
+    instances: nextInstances,
+    instanceIds: instanceIds.map((instanceId) => replacementIds.get(instanceId) ?? instanceId),
   };
 }
 
@@ -1300,6 +1357,181 @@ function revealLibraryTop(
   };
 }
 
+function materializePrivateCards(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  zone: GameZoneName,
+  entries: Extract<GameplayPatchV2Operation, { op: 'private.cards.materialize' }>['entries'],
+  staticCards: Record<string, BootstrapStaticCardV2>,
+): OperationApplyResult {
+  const playerZones = state.zones[playerId];
+  if (!playerZones || !isPlaceholderPrivateZone(zone) || entries.length === 0) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+
+  const nextZone = [...(playerZones[zone] ?? [])];
+  const nextInstances = { ...state.instances };
+  const nextStaticCards = { ...state.staticCards };
+  const materializedIds = new Set<string>();
+
+  for (const entry of entries) {
+    const instanceId = entry.card.instanceId?.trim();
+    if (!instanceId || !Number.isInteger(entry.index) || entry.index < 0 || materializedIds.has(instanceId)) {
+      return { status: 'failed', reason: 'invalid_operation' };
+    }
+    materializedIds.add(instanceId);
+
+    if (nextZone.includes(instanceId)) {
+      continue;
+    }
+
+    const placeholderId = entry.placeholderId?.trim() ?? '';
+    const placeholderIndex = placeholderId ? nextZone.indexOf(placeholderId) : -1;
+    if (zone === 'hand' && placeholderIndex < 0) {
+      return { status: 'failed', reason: 'target_not_found' };
+    }
+
+    const normalized = normalizeIncomingCard(entry.card, playerId, zone, staticCards, {
+      instances: nextInstances,
+      staticCards: nextStaticCards,
+    });
+    if (normalized.staticCard) {
+      nextStaticCards[normalized.staticCard.cardRef] = mergeStaticCard(
+        nextStaticCards[normalized.staticCard.cardRef],
+        normalized.staticCard,
+      );
+    }
+    nextInstances[instanceId] = completeInstanceIdentity(
+      { ...normalized.instance, hidden: false },
+      nextStaticCards[normalized.instance.cardRef],
+    );
+
+    if (placeholderIndex >= 0) {
+      nextZone.splice(placeholderIndex, 1, instanceId);
+      delete nextInstances[placeholderId];
+    } else {
+      nextZone.splice(Math.min(entry.index, nextZone.length), 0, instanceId);
+    }
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      instances: nextInstances,
+      staticCards: nextStaticCards,
+      zones: {
+        ...state.zones,
+        [playerId]: {
+          ...playerZones,
+          [zone]: nextZone,
+        },
+      },
+    },
+  };
+}
+
+function concealPrivateCards(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  zone: GameZoneName,
+  entries: Extract<GameplayPatchV2Operation, { op: 'private.cards.conceal' }>['entries'],
+): OperationApplyResult {
+  const playerZones = state.zones[playerId];
+  if (!playerZones || !isPlaceholderPrivateZone(zone) || entries.length === 0) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+  if (state.game.viewerId === playerId) {
+    return { status: 'applied', state };
+  }
+
+  const nextZone = [...(playerZones[zone] ?? [])];
+  const nextInstances = { ...state.instances };
+  const removedCardRefs = new Set<string>();
+
+  for (const entry of entries) {
+    if (!entry.instanceId.trim() || !entry.placeholderId.trim() || !Number.isInteger(entry.index) || entry.index < 0) {
+      return { status: 'failed', reason: 'invalid_operation' };
+    }
+
+    const realIndex = nextZone.indexOf(entry.instanceId);
+    const placeholderIndex = nextZone.indexOf(entry.placeholderId);
+    if (realIndex < 0) {
+      if (placeholderIndex >= 0) {
+        continue;
+      }
+      const removed = nextInstances[entry.instanceId];
+      if (!removed) {
+        return { status: 'failed', reason: 'target_not_found' };
+      }
+      if (removed.cardRef) {
+        removedCardRefs.add(removed.cardRef);
+      }
+      delete nextInstances[entry.instanceId];
+      const insertIndex = Math.min(entry.index, nextZone.length);
+      nextZone.splice(insertIndex, 0, entry.placeholderId);
+      nextInstances[entry.placeholderId] = hiddenPlaceholderInstance(playerId, zone, entry.placeholderId);
+      continue;
+    }
+
+    const removed = nextInstances[entry.instanceId];
+    if (removed?.cardRef) {
+      removedCardRefs.add(removed.cardRef);
+    }
+    delete nextInstances[entry.instanceId];
+
+    if (placeholderIndex >= 0) {
+      nextZone.splice(realIndex, 1);
+    } else {
+      nextZone.splice(realIndex, 1, entry.placeholderId);
+      nextInstances[entry.placeholderId] = hiddenPlaceholderInstance(playerId, zone, entry.placeholderId);
+    }
+  }
+
+  const nextStaticCards = { ...state.staticCards };
+  const retainedCardRefs = new Set(Object.values(nextInstances).map((instance) => instance.cardRef));
+  for (const cardRef of removedCardRefs) {
+    if (!retainedCardRefs.has(cardRef)) {
+      delete nextStaticCards[cardRef];
+    }
+  }
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      instances: nextInstances,
+      staticCards: nextStaticCards,
+      zones: {
+        ...state.zones,
+        [playerId]: {
+          ...playerZones,
+          [zone]: nextZone,
+        },
+      },
+    },
+  };
+}
+
+function hiddenPlaceholderInstance(playerId: string, zone: GameZoneName, instanceId: string): BootstrapInstanceV2 {
+  return {
+    instanceId,
+    cardRef: `placeholder:${instanceId}`,
+    zoneId: zoneId(playerId, zone),
+    ownerId: playerId,
+    controllerId: playerId,
+    hidden: true,
+    faceDown: true,
+    tapped: false,
+    counters: {},
+    revealedTo: [],
+  };
+}
+
+function isPlaceholderPrivateZone(zone: GameZoneName): zone is 'hand' | 'library' {
+  return zone === 'hand' || zone === 'library';
+}
+
 function reorderLibraryTop(
   state: GameTableNormalizedV2State,
   playerId: string,
@@ -1355,6 +1587,36 @@ function clearKnownLibraryOrder(
   };
 }
 
+function moveKnownLibraryTopToBottom(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  instanceIds: string[],
+): OperationApplyResult {
+  const playerZones = state.zones[playerId];
+  if (!playerZones) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+  const currentLibrary = playerZones.library ?? [];
+  if (instanceIds.some((instanceId, index) => currentLibrary[index] !== instanceId)) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+  const moved = new Set(instanceIds);
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      zones: {
+        ...state.zones,
+        [playerId]: {
+          ...playerZones,
+          library: [...currentLibrary.filter((instanceId) => !moved.has(instanceId)), ...instanceIds],
+        },
+      },
+    },
+  };
+}
+
 function setPlayTopLibraryRevealed(
   state: GameTableNormalizedV2State,
   playerId: string,
@@ -1393,7 +1655,7 @@ function addStackItem(state: GameTableNormalizedV2State, item: BootstrapStackIte
       stack: {
         byId: {
           ...state.stack.byId,
-          [stackId]: { ...item, stackId, id: stackId },
+          [stackId]: { ...state.stack.byId[stackId], ...item, stackId, id: stackId },
         },
         order: state.stack.order.includes(stackId) ? state.stack.order : [...state.stack.order, stackId],
       },
@@ -1403,7 +1665,7 @@ function addStackItem(state: GameTableNormalizedV2State, item: BootstrapStackIte
 
 function removeStackItem(state: GameTableNormalizedV2State, stackId: string): OperationApplyResult {
   if (!state.stack.byId[stackId]) {
-    return { status: 'failed', reason: 'target_not_found' };
+    return { status: 'applied', state };
   }
 
   return {

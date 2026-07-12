@@ -219,7 +219,7 @@ func (s *Service) recoverState(ctx context.Context, gameID string, initial *stat
 		return state.GameState{}, err
 	}
 	if ok {
-		base = snapshot.State
+		base = snapshot.State.Clone()
 		hasBase = true
 		s.recordActorLoadFromSnapshot()
 	} else if initial != nil {
@@ -390,6 +390,7 @@ func EmptyInitialState(gameID string) state.GameState {
 		Zones:     map[string]state.PlayerZones{},
 		Loc:       map[string]state.Location{},
 		Visibility: state.VisibilityIndex{
+			ViewerBits:          map[string]uint64{},
 			InstanceMasks:       map[string]uint64{},
 			LibraryEpochByOwner: map[string]int64{},
 			TopRevealWindows:    map[string]state.TopRevealWindow{},

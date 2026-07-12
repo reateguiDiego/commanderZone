@@ -15,39 +15,111 @@ func (StackCardAddedApplier) Type() string { return "stack.card_added" }
 
 func (StackCardAddedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
 	start := nowUTC()
-	instanceID, err := stringField(command.Payload, "instanceId")
+	item, visibility, err := canonicalStackItem(game, command)
 	if err != nil {
 		return nil, err
 	}
+	next := make([]state.StackItem, 0, len(game.Stack)+1)
+	for _, existing := range game.Stack {
+		if existing.StackID != item.StackID {
+			next = append(next, existing)
+		}
+	}
+	game.Stack = append(next, item)
+	patch := stackItemPatch(item)
+	if visibility == "public" {
+		emitter.EmitPublic(protocol.PatchOp{Op: "stack.item.add", Data: map[string]any{"item": patch}})
+	} else {
+		emitter.EmitPublic(protocol.PatchOp{Op: "stack.item.add", Data: map[string]any{"item": privateStackItemPatch(item)}})
+		emitter.EmitPrivate(item.OwnerID, protocol.PatchOp{Op: "stack.item.add", Data: map[string]any{"item": patch}})
+	}
+	patch["visibility"] = visibility
+	patch["ownerId"] = item.OwnerID
+	payload := map[string]any{
+		"stackId":          item.StackID,
+		"instanceId":       item.SourceInstanceID,
+		"sourceInstanceId": item.SourceInstanceID,
+		"item":             patch,
+		"metrics":          stackMetrics(start, emitter),
+	}
+	return payload, nil
+}
+
+func canonicalStackItem(game *state.GameState, command protocol.CommandEnvelopeV2) (state.StackItem, string, error) {
+	// Canonical item payloads are a replay compatibility input only. Live
+	// clients must reference the authoritative source instance and cannot
+	// inject owner/controller/visibility/card identity through item fields.
+	if raw, ok := command.Payload["item"].(map[string]any); ok && command.Type == "" {
+		stackID := optionalString(raw, "stackId")
+		if stackID == "" {
+			stackID = optionalString(raw, "id")
+		}
+		if stackID == "" {
+			return state.StackItem{}, "", fmt.Errorf("%w: stackId", ErrMissingPayloadField)
+		}
+		instanceID := optionalString(raw, "sourceInstanceId")
+		if instanceID == "" {
+			instanceID = optionalString(raw, "instanceId")
+		}
+		visibility := defaultString(optionalString(raw, "visibility"), "public")
+		ownerID := optionalString(raw, "ownerId")
+		return state.StackItem{
+			StackID:          stackID,
+			Kind:             defaultString(optionalString(raw, "kind"), "card"),
+			SourceInstanceID: instanceID,
+			CardKey:          optionalString(raw, "cardKey"),
+			ControllerID:     optionalString(raw, "controllerId"),
+			OwnerID:          ownerID,
+			Visibility:       visibility,
+			Text:             optionalString(raw, "text"),
+			CreatedAt:        optionalString(raw, "createdAt"),
+			Meta: map[string]any{
+				"kind":       defaultString(optionalString(raw, "kind"), "card"),
+				"playerId":   optionalString(raw, "playerId"),
+				"zone":       optionalString(raw, "zone"),
+				"ownerId":    ownerID,
+				"visibility": visibility,
+				"createdAt":  optionalString(raw, "createdAt"),
+			},
+		}, visibility, nil
+	}
+
+	instanceID, err := stringField(command.Payload, "instanceId")
+	if err != nil {
+		return state.StackItem{}, "", err
+	}
 	instance, location, err := instanceAt(game, instanceID, "")
 	if err != nil {
-		return nil, err
+		return state.StackItem{}, "", err
 	}
 	stackID := optionalString(command.Payload, "stackId")
 	if stackID == "" {
 		stackID = "stack-" + command.ClientActionID
 	}
-	item := state.StackItem{
+	visibility := "public"
+	if privateZone(location.Zone) || instance.FaceDown {
+		visibility = "player:" + location.PlayerID
+	}
+	createdAt := nowUTC().Format(time.RFC3339Nano)
+	return state.StackItem{
 		StackID:          stackID,
+		Kind:             "card",
 		SourceInstanceID: instanceID,
 		CardKey:          instance.CardKey,
 		ControllerID:     instance.ControllerID,
+		OwnerID:          location.PlayerID,
+		Visibility:       visibility,
 		Text:             optionalString(command.Payload, "text"),
+		CreatedAt:        createdAt,
 		Meta: map[string]any{
-			"kind":      "card",
-			"playerId":  location.PlayerID,
-			"zone":      location.Zone,
-			"createdAt": nowUTC().Format(time.RFC3339Nano),
+			"kind":       "card",
+			"playerId":   location.PlayerID,
+			"zone":       string(location.Zone),
+			"ownerId":    location.PlayerID,
+			"visibility": visibility,
+			"createdAt":  createdAt,
 		},
-	}
-	game.Stack = append(game.Stack, item)
-	patch := stackItemPatch(item)
-	emitter.EmitPublic(protocol.PatchOp{Op: "stack.item.add", Data: map[string]any{"item": patch}})
-	payload := map[string]any{"stackId": stackID, "instanceId": instanceID, "sourceInstanceId": instanceID, "metrics": stackMetrics(start, emitter)}
-	if item.Text != "" {
-		payload["text"] = item.Text
-	}
-	return payload, nil
+	}, visibility, nil
 }
 
 type StackItemRemovedApplier struct{}
@@ -274,17 +346,29 @@ func stackItemPatch(item state.StackItem) map[string]any {
 	data := map[string]any{
 		"id":               item.StackID,
 		"stackId":          item.StackID,
-		"kind":             defaultString(stringFromMap(item.Meta, "kind"), "card"),
+		"kind":             defaultString(item.Kind, defaultString(stringFromMap(item.Meta, "kind"), "card")),
 		"sourceInstanceId": item.SourceInstanceID,
 		"instanceId":       item.SourceInstanceID,
 		"controllerId":     item.ControllerID,
 		"cardKey":          item.CardKey,
 		"text":             item.Text,
+		"playerId":         stringFromMap(item.Meta, "playerId"),
+		"zone":             stringFromMap(item.Meta, "zone"),
 	}
-	if createdAt := stringFromMap(item.Meta, "createdAt"); createdAt != "" {
+	if createdAt := defaultString(item.CreatedAt, stringFromMap(item.Meta, "createdAt")); createdAt != "" {
 		data["createdAt"] = createdAt
 	}
 	return compactMap(data)
+}
+
+func privateStackItemPatch(item state.StackItem) map[string]any {
+	return compactMap(map[string]any{
+		"id":        item.StackID,
+		"stackId":   item.StackID,
+		"kind":      defaultString(item.Kind, defaultString(stringFromMap(item.Meta, "kind"), "card")),
+		"text":      item.Text,
+		"createdAt": defaultString(item.CreatedAt, stringFromMap(item.Meta, "createdAt")),
+	})
 }
 
 func arrowPatch(relation state.Relation) map[string]any {

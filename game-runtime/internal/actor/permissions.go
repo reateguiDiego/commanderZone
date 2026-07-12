@@ -1,11 +1,60 @@
 package actor
 
 import (
+	"errors"
 	"strings"
 
 	"commanderzone/game-runtime/internal/protocol"
 	"commanderzone/game-runtime/internal/state"
 )
+
+const (
+	AuthorizationCodeInstanceNotFound      = "INSTANCE_NOT_FOUND"
+	AuthorizationCodeInstanceNotControlled = "INSTANCE_NOT_CONTROLLED"
+	AuthorizationCodeInstanceNotOwned      = "INSTANCE_NOT_OWNED"
+	AuthorizationCodeZoneMismatch          = "ZONE_MISMATCH"
+	AuthorizationCodeMixedAuthorityBatch   = "MIXED_AUTHORITY_BATCH"
+	AuthorizationCodeDuplicateInstance     = "DUPLICATE_INSTANCE"
+	AuthorizationCodePermissionDenied      = "PERMISSION_DENIED"
+)
+
+// AuthorizationError is safe to serialize to the command actor. InstanceID is
+// always copied from that actor's command payload; no card identity is exposed.
+type AuthorizationError struct {
+	Code        string
+	CommandType string
+	InstanceID  string
+	Index       int
+}
+
+func (e *AuthorizationError) Error() string {
+	switch e.Code {
+	case AuthorizationCodeInstanceNotFound:
+		return "command references an instance that does not exist"
+	case AuthorizationCodeInstanceNotControlled:
+		return "actor does not control the referenced battlefield instance"
+	case AuthorizationCodeInstanceNotOwned:
+		return "actor does not own the referenced zone instance"
+	case AuthorizationCodeZoneMismatch:
+		return "referenced instance is no longer in the expected zone"
+	case AuthorizationCodeMixedAuthorityBatch:
+		return "batch contains instances with mixed authority"
+	case AuthorizationCodeDuplicateInstance:
+		return "batch contains a duplicate instance"
+	default:
+		return "actor is not allowed to perform command"
+	}
+}
+
+func (e *AuthorizationError) Unwrap() error { return ErrActorPermission }
+
+func AsAuthorizationError(err error) (*AuthorizationError, bool) {
+	var authorizationError *AuthorizationError
+	if !errors.As(err, &authorizationError) {
+		return nil, false
+	}
+	return authorizationError, true
+}
 
 var ownPlayerPayloadCommands = map[string]string{
 	"life.changed":                 "playerId",
@@ -64,6 +113,9 @@ var ownInstanceSubjectCommands = map[string][]string{
 	"card.counter.changed":         {"instanceId"},
 	"card.token_copy.created":      {"instanceId"},
 	"stack.card_added":             {"instanceId"},
+	"library.put_top":              {"instanceId"},
+	"library.put_bottom":           {"instanceId"},
+	"arrow.created":                {"fromInstanceId"},
 	"attachment.created":           {"equipmentInstanceId"},
 }
 
@@ -105,10 +157,7 @@ func (a *GameActor) permissionErrorLocked(command protocol.CommandEnvelopeV2, ac
 			return err
 		}
 	}
-	if err := a.requireOwnInstances(command, actorID); err != nil {
-		return err
-	}
-	if err := a.requireOwnMovedPrivateSources(command, actorID); err != nil {
+	if err := a.requireAuthorizedCommandInstances(command, actorID); err != nil {
 		return err
 	}
 	if err := a.requireOwnRelation(command, actorID); err != nil {
@@ -150,39 +199,173 @@ func (a *GameActor) requireCounterOwner(payload map[string]any, actorID string) 
 	return nil
 }
 
-func (a *GameActor) requireOwnInstances(command protocol.CommandEnvelopeV2, actorID string) error {
-	for _, key := range ownInstanceSubjectCommands[command.Type] {
-		instanceID, _ := command.Payload[key].(string)
-		if instanceID == "" {
-			continue
-		}
-		if !a.actorControlsInstance(instanceID, actorID) {
-			return ErrActorPermission
-		}
-	}
-	return nil
+type authorizationSubject struct {
+	instanceID   string
+	index        int
+	expectedZone state.Zone
 }
 
-func (a *GameActor) requireOwnMovedPrivateSources(command protocol.CommandEnvelopeV2, actorID string) error {
-	if command.Type != "card.moved" && command.Type != "cards.moved" {
+func (a *GameActor) requireAuthorizedCommandInstances(command protocol.CommandEnvelopeV2, actorID string) error {
+	subjects := a.authorizationSubjects(command)
+	if len(subjects) == 0 {
 		return nil
 	}
-	instanceIDs, err := stringSliceField(command.Payload, "instanceIds")
-	if err != nil {
-		if instanceID, ok := command.Payload["instanceId"].(string); ok && instanceID != "" {
-			instanceIDs = []string{instanceID}
+
+	seen := make(map[string]struct{}, len(subjects))
+	locations := make([]state.Location, len(subjects))
+	instances := make([]state.CardInstanceRuntime, len(subjects))
+	for index, subject := range subjects {
+		if _, duplicate := seen[subject.instanceID]; duplicate {
+			return commandAuthorizationError(command, AuthorizationCodeDuplicateInstance, subject.instanceID, subject.index)
 		}
+		seen[subject.instanceID] = struct{}{}
+		location, locationExists := a.state.GetLocation(subject.instanceID)
+		instance, instanceExists := a.state.Instances[subject.instanceID]
+		if !locationExists || !instanceExists {
+			return commandAuthorizationError(command, AuthorizationCodeInstanceNotFound, subject.instanceID, subject.index)
+		}
+		if subject.expectedZone != "" && location.Zone != subject.expectedZone {
+			return commandAuthorizationError(command, AuthorizationCodeZoneMismatch, subject.instanceID, subject.index)
+		}
+		locations[index] = location
+		instances[index] = instance
 	}
-	for _, instanceID := range instanceIDs {
-		location, ok := a.state.GetLocation(instanceID)
-		if !ok {
+
+	firstUnauthorized := -1
+	authorizedCount := 0
+	for index := range subjects {
+		if instanceAuthorityMatches(instances[index], locations[index], actorID) {
+			authorizedCount++
 			continue
 		}
-		if privateZone(location.Zone) && location.PlayerID != actorID {
-			return ErrActorPermission
+		if firstUnauthorized < 0 {
+			firstUnauthorized = index
 		}
 	}
-	return nil
+	if firstUnauthorized < 0 {
+		return nil
+	}
+	invalid := subjects[firstUnauthorized]
+	if len(subjects) > 1 && authorizedCount > 0 {
+		return commandAuthorizationError(command, AuthorizationCodeMixedAuthorityBatch, invalid.instanceID, invalid.index)
+	}
+	code := AuthorizationCodeInstanceNotOwned
+	if locations[firstUnauthorized].Zone == state.ZoneBattlefield {
+		code = AuthorizationCodeInstanceNotControlled
+	}
+	return commandAuthorizationError(command, code, invalid.instanceID, invalid.index)
+}
+
+func (a *GameActor) authorizationSubjects(command protocol.CommandEnvelopeV2) []authorizationSubject {
+	fromIDs := func(instanceIDs []string, expectedZone state.Zone) []authorizationSubject {
+		subjects := make([]authorizationSubject, 0, len(instanceIDs))
+		for index, instanceID := range instanceIDs {
+			if strings.TrimSpace(instanceID) != "" {
+				subjects = append(subjects, authorizationSubject{instanceID: instanceID, index: index, expectedZone: expectedZone})
+			}
+		}
+		return subjects
+	}
+
+	switch command.Type {
+	case "card.moved":
+		instanceID, _ := command.Payload["instanceId"].(string)
+		expectedZone := state.Zone(optionalPayloadString(command.Payload, "fromZone"))
+		return fromIDs([]string{instanceID}, expectedZone)
+	case "cards.moved":
+		instanceIDs, err := stringSliceField(command.Payload, "instanceIds")
+		if err != nil {
+			return nil
+		}
+		expectedZone := state.Zone(optionalPayloadString(command.Payload, "fromZone"))
+		return fromIDs(instanceIDs, expectedZone)
+	case "cards.position.changed":
+		return positionAuthorizationSubjects(command.Payload["positions"])
+	case "zone.reorderedByIds", "library.reorder_top":
+		instanceIDs, err := stringSliceField(command.Payload, "instanceIds")
+		if err != nil {
+			return nil
+		}
+		expectedZone := state.ZoneLibrary
+		if command.Type == "zone.reorderedByIds" {
+			expectedZone = state.Zone(optionalPayloadString(command.Payload, "zone"))
+		}
+		return fromIDs(instanceIDs, expectedZone)
+	case "zone.move_all":
+		playerID := optionalPayloadString(command.Payload, "playerId")
+		zone := state.Zone(optionalPayloadString(command.Payload, "fromZone"))
+		return fromIDs(append([]string(nil), movementZoneIDs(a.state.Zones[playerID], zone)...), zone)
+	}
+
+	subjects := make([]authorizationSubject, 0, len(ownInstanceSubjectCommands[command.Type]))
+	for _, key := range ownInstanceSubjectCommands[command.Type] {
+		instanceID, _ := command.Payload[key].(string)
+		if instanceID == "" && command.Type == "stack.card_added" {
+			if item, ok := command.Payload["item"].(map[string]any); ok {
+				instanceID = optionalPayloadString(item, "sourceInstanceId")
+				if instanceID == "" {
+					instanceID = optionalPayloadString(item, "instanceId")
+				}
+			}
+		}
+		if instanceID != "" {
+			subjects = append(subjects, authorizationSubject{instanceID: instanceID, index: len(subjects)})
+		}
+	}
+	return subjects
+}
+
+func positionAuthorizationSubjects(raw any) []authorizationSubject {
+	entries := []map[string]any{}
+	switch typed := raw.(type) {
+	case []map[string]any:
+		entries = typed
+	case []any:
+		for _, value := range typed {
+			entry, ok := value.(map[string]any)
+			if !ok {
+				return nil
+			}
+			entries = append(entries, entry)
+		}
+	default:
+		return nil
+	}
+	subjects := make([]authorizationSubject, 0, len(entries))
+	for index, entry := range entries {
+		instanceID, _ := entry["instanceId"].(string)
+		if strings.TrimSpace(instanceID) != "" {
+			subjects = append(subjects, authorizationSubject{instanceID: instanceID, index: index, expectedZone: state.ZoneBattlefield})
+		}
+	}
+	return subjects
+}
+
+func instanceAuthorityMatches(instance state.CardInstanceRuntime, location state.Location, actorID string) bool {
+	if location.Zone == state.ZoneBattlefield {
+		controllerID := strings.TrimSpace(instance.ControllerID)
+		if controllerID == "" {
+			controllerID = strings.TrimSpace(location.ControllerID)
+		}
+		if controllerID == "" {
+			controllerID = strings.TrimSpace(instance.OwnerID)
+		}
+		return controllerID != "" && controllerID == actorID
+	}
+	ownerID := strings.TrimSpace(instance.OwnerID)
+	if ownerID == "" {
+		ownerID = strings.TrimSpace(location.PlayerID)
+	}
+	return ownerID != "" && ownerID == actorID
+}
+
+func commandAuthorizationError(command protocol.CommandEnvelopeV2, code string, instanceID string, index int) error {
+	return &AuthorizationError{Code: code, CommandType: command.Type, InstanceID: instanceID, Index: index}
+}
+
+func optionalPayloadString(payload map[string]any, key string) string {
+	value, _ := payload[key].(string)
+	return strings.TrimSpace(value)
 }
 
 func (a *GameActor) requireOwnRelation(command protocol.CommandEnvelopeV2, actorID string) error {
@@ -271,15 +454,9 @@ func (a *GameActor) requireOwnStackItem(command protocol.CommandEnvelopeV2, acto
 }
 
 func (a *GameActor) actorControlsInstance(instanceID string, actorID string) bool {
-	location, ok := a.state.GetLocation(instanceID)
-	if ok && location.PlayerID == actorID {
-		return true
-	}
-	instance, ok := a.state.Instances[instanceID]
-	if !ok {
-		return true
-	}
-	return instance.ControllerID == actorID || instance.OwnerID == actorID
+	location, locationExists := a.state.GetLocation(instanceID)
+	instance, instanceExists := a.state.Instances[instanceID]
+	return locationExists && instanceExists && instanceAuthorityMatches(instance, location, actorID)
 }
 
 func eventCreatedByMatches(event protocol.EventPayloadV2, actorID string) bool {

@@ -24,6 +24,7 @@ final readonly class GameWebsocketTicketManager
         ?string $playerId = null,
         string $role = 'player',
         array $permissions = ['view', 'command'],
+        int $viewerMask = 0,
     ): GameWebsocketTicket
     {
         $issuedAt = $now ?? new \DateTimeImmutable();
@@ -40,6 +41,7 @@ final readonly class GameWebsocketTicketManager
             'roles' => [$role],
             'viewerKind' => $role,
             'protocol' => 'v2',
+            'viewerMask' => max(0, $viewerMask),
             'iat' => $issuedAt->getTimestamp(),
             'exp' => $expiresAt->getTimestamp(),
         ];
@@ -53,6 +55,7 @@ final readonly class GameWebsocketTicketManager
             playerId: $playerId,
             role: $role,
             permissions: $permissions,
+            viewerMask: max(0, $viewerMask),
             issuedAt: $issuedAt,
             expiresAt: $expiresAt,
         );
@@ -86,6 +89,7 @@ final readonly class GameWebsocketTicketManager
         $role = $this->payloadOptionalString($payload, 'role')
             ?? (is_array($payload['roles'] ?? null) && is_string(($payload['roles'][0] ?? null)) ? (string) $payload['roles'][0] : 'player');
         $permissions = $this->payloadPermissions($payload);
+        $viewerMask = max(0, $this->payloadOptionalInt($payload, 'viewerMask') ?? 0);
         $issuedAt = $this->payloadInt($payload, 'iat');
         $expiresAt = $this->payloadInt($payload, 'exp');
         if ($gameId !== $expectedGameId) {
@@ -104,6 +108,7 @@ final readonly class GameWebsocketTicketManager
             playerId: $playerId,
             role: $role,
             permissions: $permissions,
+            viewerMask: $viewerMask,
             issuedAt: (new \DateTimeImmutable())->setTimestamp($issuedAt),
             expiresAt: (new \DateTimeImmutable())->setTimestamp($expiresAt),
         );
@@ -142,6 +147,13 @@ final readonly class GameWebsocketTicketManager
         }
 
         return $value;
+    }
+
+    private function payloadOptionalInt(array $payload, string $key): ?int
+    {
+        $value = $payload[$key] ?? null;
+
+        return is_int($value) ? $value : null;
     }
 
     private function nonEmptyOrDefault(?string $value, string $default): string

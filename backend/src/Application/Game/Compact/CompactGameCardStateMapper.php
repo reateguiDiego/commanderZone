@@ -580,6 +580,8 @@ final class CompactGameCardStateMapper
                 'instanceId' => $instanceId,
                 'cardKey' => $cardKey !== '' ? $cardKey : null,
                 'controllerId' => $controllerId !== '' ? $controllerId : null,
+                'ownerId' => is_string($item['ownerId'] ?? null) && trim($item['ownerId']) !== '' ? trim($item['ownerId']) : null,
+                'visibility' => is_string($item['visibility'] ?? null) && trim($item['visibility']) !== '' ? trim($item['visibility']) : null,
                 'text' => is_string($item['text'] ?? null) && trim((string) $item['text']) !== ''
                     ? trim((string) $item['text'])
                     : null,

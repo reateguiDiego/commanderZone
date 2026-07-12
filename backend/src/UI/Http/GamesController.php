@@ -12,6 +12,7 @@ use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameplayStreamsFlags;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
+use App\Application\Game\GameVisibilityIndex;
 use App\Application\Game\Debug\GameDebugHealthLiveStore;
 use App\Application\Game\Performance\GameplayMetricsInspector;
 use App\Application\Game\Performance\GameplayMetricsRecorderInterface;
@@ -131,6 +132,7 @@ class GamesController extends ApiController
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
         GameWebsocketTicketManager $tickets,
+        GameVisibilityIndex $visibilityIndex,
         GameDebugHealthLiveStore $debugHealth,
         GameRuntimeWebsocketUrlFactory $runtimeWebsocketUrls,
     ): JsonResponse {
@@ -159,6 +161,7 @@ class GamesController extends ApiController
             playerId: $user->id(),
             role: $role,
             permissions: $permissions,
+            viewerMask: $visibilityIndex->maskForKnownViewer($game->snapshot(), $user->id()),
         );
         $debugObserved = $debugHealth->isObserved($game->id());
         if ($debugObserved) {
@@ -187,6 +190,7 @@ class GamesController extends ApiController
                 'playerId' => $ticket->playerId,
                 'role' => $ticket->role,
                 'permissions' => $ticket->permissions,
+                'viewerMask' => $ticket->viewerMask,
                 'expiry' => $ticket->expiresAt->getTimestamp(),
             ],
         ]);

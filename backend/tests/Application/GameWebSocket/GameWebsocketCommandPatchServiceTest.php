@@ -1140,6 +1140,7 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $spectator = new User('spectator@example.test', 'Spectator');
         $metricsStore = new GameplayMetricsStore();
         $actorMask = $this->viewerMaskForGame($game, $actor->id());
+        $runtimeCardKey = CardStaticBundle::fromLegacyCard($game->snapshot()['players'][$actor->id()]['zones']['library'][1])->cardKey;
         $runtimeClient = new CommandPatchRuntimeClientStub([[
             'gameId' => $game->id(),
             'version' => 2,
@@ -1152,6 +1153,15 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             'version' => 2,
             'visibility' => 'group:'.$actorMask,
             'ops' => [
+                ['op' => 'private.cards.materialize', 'data' => [
+                    'playerId' => $actor->id(),
+                    'zone' => 'library',
+                    'entries' => [[
+                        'placeholderId' => $actor->id().'-hidden-library-top',
+                        'index' => 0,
+                        'card' => ['instanceId' => 'library-2', 'cardKey' => $runtimeCardKey],
+                    ]],
+                ]],
                 ['op' => 'library.top.revealed', 'data' => ['playerId' => $actor->id(), 'cards' => [['instanceId' => 'library-2', 'cardRef' => 'private-top-card']]]],
             ],
         ]]);
@@ -1197,7 +1207,8 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $spectatorMessage = $result->messageForUserId($spectator->id());
 
         self::assertSame(2, $ownerMessage['version']);
-        self::assertSame(['turn.set', 'library.top.revealed'], array_column($ownerMessage['ops'], 'op'));
+        self::assertSame(['turn.set', 'private.cards.materialize', 'library.top.revealed'], array_column($ownerMessage['ops'], 'op'));
+        self::assertSame($runtimeCardKey, $ownerMessage['ops'][1]['entries'][0]['card']['cardKey']);
         self::assertSame(['turn.set'], array_column($opponentMessage['ops'], 'op'));
         self::assertSame(['turn.set'], array_column($spectatorMessage['ops'], 'op'));
         self::assertStringNotContainsString('private-top-card', json_encode($opponentMessage, JSON_THROW_ON_ERROR));

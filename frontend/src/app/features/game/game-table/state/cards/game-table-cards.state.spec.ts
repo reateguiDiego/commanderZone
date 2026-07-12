@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { GameCardInstance, GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
 import { User } from '../../../../../core/models/user.model';
+import { GameplayCommandRejectedError } from '../../services/game-table-websocket-gameplay.service';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
 import { GameTableCardsState } from './game-table-cards.state';
@@ -145,6 +146,40 @@ describe('GameTableCardsState', () => {
       value: 0,
       remove: true,
     });
+  });
+
+  it('rolls back an authorization rejection without refetching or leaving pending state', async () => {
+    vi.useFakeTimers();
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    const rejection = new GameplayCommandRejectedError({
+      code: 'INSTANCE_NOT_CONTROLLED',
+      message: 'actor does not control the referenced battlefield instance',
+      retryable: false,
+      commandType: 'card.counter.changed',
+      instanceId: 'card-1',
+    });
+    core.snapshot.set(snapshot([cardWithCounters({ charge: 1 })]));
+
+    state.queueCardCounter({
+      setSnapshot: (next) => core.snapshot.set(next),
+      errorMessage: (error) => error instanceof Error ? error.message : 'error',
+      refetch,
+      command: vi.fn().mockRejectedValue(rejection),
+    }, {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      key: 'charge',
+      value: 4,
+    });
+
+    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters).toEqual({ charge: 4 });
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(core.snapshot()?.players['player-1']?.zones.battlefield[0]?.counters).toEqual({ charge: 1 });
+    expect(core.error()).toBe('actor does not control the referenced battlefield instance');
+    expect(core.pending()).toBe(false);
+    expect(refetch).not.toHaveBeenCalled();
   });
 
   it('caps The Ring level counter between one and four', () => {

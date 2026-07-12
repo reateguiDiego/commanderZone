@@ -74,9 +74,12 @@ type ServerMessage struct {
 }
 
 type ServerErrorPayload struct {
-	Code      string `json:"code"`
-	Message   string `json:"message"`
-	Retryable bool   `json:"retryable"`
+	Code        string `json:"code"`
+	Message     string `json:"message"`
+	Retryable   bool   `json:"retryable"`
+	CommandType string `json:"commandType,omitempty"`
+	InstanceID  string `json:"instanceId,omitempty"`
+	Index       *int   `json:"index,omitempty"`
 }
 
 type WebSocketServer struct {
@@ -623,6 +626,17 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 			s.sendJSON(client, commandRejectedMessage(command, "OWNERSHIP_NOT_HELD", result.Err.Error(), false))
 			return
 		}
+		if authorizationError, ok := actor.AsAuthorizationError(result.Err); ok {
+			s.sendJSON(client, commandAuthorizationRejectedMessage(command, authorizationError))
+			return
+		}
+		if errors.Is(result.Err, actor.ErrActorPermission) {
+			s.sendJSON(client, commandAuthorizationRejectedMessage(command, &actor.AuthorizationError{
+				Code:        actor.AuthorizationCodePermissionDenied,
+				CommandType: command.Type,
+			}))
+			return
+		}
 		s.sendJSON(client, commandRejectedMessage(command, "COMMAND_FAILED", result.Err.Error(), false))
 		return
 	}
@@ -990,6 +1004,29 @@ func commandRejectedMessage(command protocol.CommandEnvelopeV2, code string, mes
 	}
 }
 
+func commandAuthorizationRejectedMessage(command protocol.CommandEnvelopeV2, authorizationError *actor.AuthorizationError) ServerMessage {
+	errorPayload := &ServerErrorPayload{
+		Code:        authorizationError.Code,
+		Message:     authorizationError.Error(),
+		Retryable:   false,
+		CommandType: authorizationError.CommandType,
+		InstanceID:  authorizationError.InstanceID,
+	}
+	switch command.Type {
+	case "cards.moved", "cards.position.changed", "zone.reorderedByIds", "library.reorder_top", "zone.move_all":
+		index := authorizationError.Index
+		errorPayload.Index = &index
+	}
+	return ServerMessage{
+		Kind:           "command_ack",
+		GameID:         command.GameID,
+		ClientActionID: command.ClientActionID,
+		Status:         "rejected",
+		Version:        command.BaseVersion,
+		Error:          errorPayload,
+	}
+}
+
 func commandResyncRequiredMessage(command protocol.CommandEnvelopeV2, currentVersion int64, code string, message string, retryable bool) ServerMessage {
 	return ServerMessage{
 		Kind:           "command_ack",
@@ -1136,7 +1173,8 @@ func canReceive(claims TicketClaims, visibility protocol.Visibility) bool {
 		return playerID != "" && (claims.PlayerID == playerID || claims.UserID == playerID || hasRole(claims, "admin"))
 	}
 	if strings.HasPrefix(value, "group:") {
-		return hasRole(claims, value) || hasRole(claims, "admin")
+		mask, err := strconv.ParseUint(strings.TrimPrefix(value, "group:"), 10, 64)
+		return hasRole(claims, "admin") || (err == nil && mask > 0 && claims.ViewerMask > 0 && mask&claims.ViewerMask != 0)
 	}
 	return false
 }

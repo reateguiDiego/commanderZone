@@ -323,12 +323,6 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 			return result
 		}
 	}
-	if err := a.permissionErrorLocked(command, request.ActorID); err != nil {
-		return a.rejectedResult(err, queueWait, startedAt)
-	}
-	if result, ok := a.idempotentConcedeResultLocked(command, request.ActorID, queueWait, startedAt); ok {
-		return result
-	}
 	if command.BaseVersion > a.state.Version && a.store != nil {
 		if err := a.catchUpPersistedEventsLocked(ctx, command.BaseVersion); err != nil {
 			a.recordVersionConflict()
@@ -358,6 +352,18 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	if !ok {
 		a.recordUnsupported()
 		return a.rejectedResult(ErrUnknownCommand, queueWait, startedAt)
+	}
+	// Authority must be evaluated against the current recovered state. No
+	// applier, rollback capture, version increment, event append or patch emit
+	// occurs before this full command-level prevalidation succeeds.
+	if err := a.permissionErrorLocked(command, request.ActorID); err != nil {
+		return a.rejectedResult(err, queueWait, startedAt)
+	}
+	if err := validateClientVisibilityAudience(a.state, command); err != nil {
+		return a.rejectedResult(err, queueWait, startedAt)
+	}
+	if result, ok := a.idempotentConcedeResultLocked(command, request.ActorID, queueWait, startedAt); ok {
+		return result
 	}
 	nextVersion := a.state.Version + 1
 	emitter := NewPatchEmitter()

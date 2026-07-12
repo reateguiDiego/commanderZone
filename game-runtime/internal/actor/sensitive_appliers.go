@@ -3,7 +3,6 @@ package actor
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"commanderzone/game-runtime/internal/protocol"
@@ -30,6 +29,7 @@ func (CardFaceDownChangedApplier) Apply(_ context.Context, game *state.GameState
 	}
 
 	instance.FaceDown = faceDown
+	previousVisibilityMask := instance.VisibleToMask
 	if faceDown {
 		instance.VisibleToMask = 0
 		game.EnsureVisibility()
@@ -48,6 +48,11 @@ func (CardFaceDownChangedApplier) Apply(_ context.Context, game *state.GameState
 	}
 	if privateZone(location.Zone) {
 		emitZoneCount(emitter, game, location.PlayerID, location.Zone)
+		if faceDown && previousVisibilityMask > 0 {
+			if audience, audienceErr := visibilityAudienceFromMask(game, previousVisibilityMask); audienceErr == nil {
+				emitVisibilityAudiencePatch(emitter, audience, privateCardsConcealOp(location.PlayerID, location.Zone, []privateCardSlot{{InstanceID: instanceID, PlaceholderID: privatePlaceholderID(location.PlayerID, location.Zone, location.Index), Index: privateProjectedIndex(game, location)}}))
+			}
+		}
 	} else {
 		emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: publicData})
 	}
@@ -89,11 +94,12 @@ func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, comma
 	if value, ok := boolField(command.Payload, "hidden"); ok {
 		revealed = !value
 	}
-	viewers, mask := revealTargets(command.Payload)
-	targeted := hasTargetedVisibility(command.Payload, viewers)
-	if mask == 0 {
-		mask = 1
+	audience, err := resolveVisibilityAudience(game, command.Payload)
+	if err != nil {
+		return nil, err
 	}
+	viewers := audience.revealedTo()
+	mask := audience.Mask
 
 	game.EnsureVisibility()
 	if revealed {
@@ -108,17 +114,31 @@ func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, comma
 	}
 	game.Instances[instanceID] = instance
 
-	revealData := cardFieldData(instanceID, location, map[string]any{
-		"hidden":     !revealed,
-		"revealedTo": viewers,
-	})
-	if revealed {
-		revealData["cardKey"] = instance.CardKey
-	}
+	patchRevealedTo := viewers
 	if !revealed {
-		delete(revealData, "cardKey")
+		patchRevealedTo = []string{}
 	}
-	emitTargetedCardPatch(emitter, viewers, mask, targeted, protocol.PatchOp{Op: "card.field.set", Data: revealData})
+	if privateZone(location.Zone) {
+		slot := privateCardSlot{
+			InstanceID:    instanceID,
+			PlaceholderID: privatePlaceholderID(location.PlayerID, location.Zone, location.Index),
+			Index:         privateProjectedIndex(game, location),
+		}
+		if revealed {
+			emitVisibilityAudiencePatch(emitter, audience, privateCardsMaterializeOp(game, location.PlayerID, location.Zone, []privateCardSlot{slot}, patchRevealedTo))
+		} else {
+			emitVisibilityAudiencePatch(emitter, audience, privateCardsConcealOp(location.PlayerID, location.Zone, []privateCardSlot{slot}))
+		}
+	} else {
+		revealData := cardFieldData(instanceID, location, map[string]any{
+			"hidden":     !revealed,
+			"revealedTo": patchRevealedTo,
+		})
+		if revealed {
+			revealData["cardKey"] = instance.CardKey
+		}
+		emitVisibilityAudiencePatch(emitter, audience, protocol.PatchOp{Op: "card.field.set", Data: revealData})
+	}
 
 	if privateZone(location.Zone) {
 		emitZoneCount(emitter, game, location.PlayerID, location.Zone)
@@ -130,6 +150,7 @@ func (CardRevealedApplier) Apply(_ context.Context, game *state.GameState, comma
 		"revealed":      revealed,
 		"visibleToMask": mask,
 		"viewers":       viewers,
+		"audience":      audience.eventValue(),
 		"metrics":       sensitiveMetrics("sensitive.revealed_ms", start, emitter),
 	}, nil
 }
@@ -196,14 +217,19 @@ func (LibraryRevealApplier) Apply(_ context.Context, game *state.GameState, comm
 	if !ok {
 		return nil, state.ErrMissingZone
 	}
-	viewers, mask := revealTargets(command.Payload)
-	targeted := hasTargetedVisibility(command.Payload, viewers)
-	if mask == 0 {
-		mask = 1
+	audience, err := resolveVisibilityAudience(game, command.Payload)
+	if err != nil {
+		return nil, err
 	}
+	viewers := audience.revealedTo()
+	mask := audience.Mask
 	game.EnsureVisibility()
-	cards := make([]map[string]any, 0, len(zones.Library))
-	for _, instanceID := range zones.Library {
+	orderedIDs := make([]string, 0, len(zones.Library))
+	for index := len(zones.Library) - 1; index >= 0; index-- {
+		orderedIDs = append(orderedIDs, zones.Library[index])
+	}
+	cards := make([]map[string]any, 0, len(orderedIDs))
+	for _, instanceID := range orderedIDs {
 		instance := game.Instances[instanceID]
 		instance.VisibleToMask |= mask
 		game.Instances[instanceID] = instance
@@ -213,22 +239,25 @@ func (LibraryRevealApplier) Apply(_ context.Context, game *state.GameState, comm
 			"cardKey":    instance.CardKey,
 		})
 	}
+	emitVisibilityAudiencePatch(emitter, audience, privateCardsMaterializeOp(game, playerID, state.ZoneLibrary, privateLibrarySlots(playerID, orderedIDs), viewers))
 	op := protocol.PatchOp{
 		Op: "library.revealed.set",
 		Data: map[string]any{
-			"playerId": playerID,
-			"count":    len(cards),
-			"cards":    cards,
-			"epoch":    game.Visibility.LibraryEpochByOwner[playerID],
+			"playerId":   playerID,
+			"count":      len(cards),
+			"cards":      cards,
+			"epoch":      game.Visibility.LibraryEpochByOwner[playerID],
+			"revealedTo": viewers,
 		},
 	}
-	emitTargetedCardPatch(emitter, viewers, mask, targeted, op)
+	emitVisibilityAudiencePatch(emitter, audience, op)
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	return map[string]any{
 		"playerId":        playerID,
 		"count":           len(cards),
 		"visibleToMask":   mask,
 		"viewers":         viewers,
+		"audience":        audience.eventValue(),
 		"visibilityEpoch": game.Visibility.LibraryEpochByOwner[playerID],
 		"metrics":         sensitiveMetrics("sensitive.library_reveal_ms", start, emitter),
 	}, nil
@@ -271,6 +300,7 @@ func (LibraryPlayTopRevealedApplier) Apply(_ context.Context, game *state.GameSt
 			instance.VisibleToMask |= 1
 			game.Instances[top[0]] = instance
 			game.Visibility.InstanceMasks[top[0]] |= 1
+			emitter.EmitPublic(privateCardsMaterializeOp(game, playerID, state.ZoneLibrary, privateLibrarySlots(playerID, top), []string{"all"}))
 			emitter.EmitPublic(protocol.PatchOp{
 				Op: "library.top.revealed",
 				Data: map[string]any{
@@ -296,57 +326,6 @@ func (LibraryPlayTopRevealedApplier) Apply(_ context.Context, game *state.GameSt
 	}, nil
 }
 
-func revealTargets(payload map[string]any) ([]string, uint64) {
-	viewers, err := stringSliceField(payload, "viewers")
-	if err != nil {
-		viewers = nil
-		if value, ok := payload["to"].(string); ok && value != "" && value != "all" {
-			viewers = []string{value}
-		} else if values, ok := payload["to"].([]any); ok {
-			for _, value := range values {
-				if viewer, ok := value.(string); ok && viewer != "" {
-					viewers = append(viewers, viewer)
-				}
-			}
-		} else if values, ok := payload["to"].([]string); ok {
-			viewers = append([]string(nil), values...)
-		}
-	}
-	mask := uint64(0)
-	if value, ok := intField(payload, "visibleToMask"); ok && value > 0 {
-		mask = uint64(value)
-	}
-	if mask == 0 && len(viewers) > 0 {
-		mask = 1
-		for index := 1; index < len(viewers) && index < 63; index++ {
-			mask |= 1 << index
-		}
-	}
-	return viewers, mask
-}
-
-func hasTargetedVisibility(payload map[string]any, viewers []string) bool {
-	if len(viewers) > 0 {
-		return true
-	}
-	if value, ok := intField(payload, "visibleToMask"); ok && value > 0 {
-		return true
-	}
-	return false
-}
-
-func emitTargetedCardPatch(emitter *PatchEmitter, viewers []string, mask uint64, targeted bool, op protocol.PatchOp) {
-	if len(viewers) == 1 {
-		emitter.EmitPrivate(viewers[0], op)
-		return
-	}
-	if targeted {
-		emitter.EmitGroup(strconv.FormatUint(mask, 10), op)
-		return
-	}
-	emitter.EmitPublic(op)
-}
-
 func cardFieldData(instanceID string, location state.Location, fields map[string]any) map[string]any {
 	data := map[string]any{
 		"instanceId": instanceID,
@@ -357,6 +336,80 @@ func cardFieldData(instanceID string, location state.Location, fields map[string
 		data[key] = value
 	}
 	return data
+}
+
+type privateCardSlot struct {
+	InstanceID    string
+	PlaceholderID string
+	Index         int
+}
+
+func privateCardsMaterializeOp(game *state.GameState, playerID string, zone state.Zone, slots []privateCardSlot, revealedTo []string) protocol.PatchOp {
+	entries := make([]map[string]any, 0, len(slots))
+	for _, slot := range slots {
+		instance := game.Instances[slot.InstanceID]
+		card := cardPatchData(game, instance.OwnerID, slot.InstanceID)
+		// Viewer language is resolved at the PHP/frontend hydration boundary; a
+		// group operation must not force the owner's language on every recipient.
+		delete(card, "language")
+		card["hidden"] = false
+		card["revealedTo"] = append([]string(nil), revealedTo...)
+		entry := map[string]any{
+			"index": slot.Index,
+			"card":  card,
+		}
+		if slot.PlaceholderID != "" {
+			entry["placeholderId"] = slot.PlaceholderID
+		}
+		entries = append(entries, entry)
+	}
+	return protocol.PatchOp{Op: "private.cards.materialize", Data: map[string]any{
+		"playerId": playerID,
+		"zone":     zone,
+		"entries":  entries,
+	}}
+}
+
+func privateCardsConcealOp(playerID string, zone state.Zone, slots []privateCardSlot) protocol.PatchOp {
+	entries := make([]map[string]any, 0, len(slots))
+	for _, slot := range slots {
+		entries = append(entries, map[string]any{
+			"instanceId":    slot.InstanceID,
+			"placeholderId": slot.PlaceholderID,
+			"index":         slot.Index,
+		})
+	}
+	return protocol.PatchOp{Op: "private.cards.conceal", Data: map[string]any{
+		"playerId": playerID,
+		"zone":     zone,
+		"entries":  entries,
+	}}
+}
+
+func privateLibrarySlots(playerID string, instanceIDs []string) []privateCardSlot {
+	slots := make([]privateCardSlot, 0, len(instanceIDs))
+	for index, instanceID := range instanceIDs {
+		placeholderID := ""
+		if index == 0 {
+			placeholderID = privatePlaceholderID(playerID, state.ZoneLibrary, index)
+		}
+		slots = append(slots, privateCardSlot{InstanceID: instanceID, PlaceholderID: placeholderID, Index: index})
+	}
+	return slots
+}
+
+func privatePlaceholderID(playerID string, zone state.Zone, index int) string {
+	if zone == state.ZoneLibrary {
+		return fmt.Sprintf("%s-hidden-library-top", playerID)
+	}
+	return fmt.Sprintf("%s-hidden-hand-%d", playerID, index)
+}
+
+func privateProjectedIndex(game *state.GameState, location state.Location) int {
+	if location.Zone == state.ZoneLibrary {
+		return 0
+	}
+	return location.Index
 }
 
 func sensitiveMetrics(durationKey string, start time.Time, emitter *PatchEmitter) map[string]any {

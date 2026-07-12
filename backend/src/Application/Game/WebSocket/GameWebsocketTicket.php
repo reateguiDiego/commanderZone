@@ -12,6 +12,7 @@ final readonly class GameWebsocketTicket
         public string $role,
         /** @var list<string> */
         public array $permissions,
+        public int $viewerMask,
         public \DateTimeImmutable $issuedAt,
         public \DateTimeImmutable $expiresAt,
     ) {

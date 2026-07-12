@@ -4,6 +4,9 @@ import { PendingCardCounterCommand } from '../../models/game-table-card.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTableSnapshotSelectors, PlayerView } from '../core/game-table-snapshot-selectors';
 import { isTheRingCard } from '../../utils/gameplay-card-kind';
+import { isGameplayCommandRejectedError } from '../../services/game-table-websocket-gameplay.service';
+
+type CardCounterBaseline = Pick<GameCardInstance, 'counters' | 'power' | 'toughness'>;
 
 export interface GameTableCardCounterContext {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
@@ -18,6 +21,7 @@ export class GameTableCardsState {
   private readonly cardCounterFlushDelayMs = 450;
   private readonly counterFlushRetryMs = 80;
   private readonly optimisticCardCounters = new Map<string, PendingCardCounterCommand>();
+  private readonly optimisticCardCounterBaselines = new Map<string, CardCounterBaseline>();
   private readonly cardCounterFlushTimers = new Map<string, number>();
 
   constructor(
@@ -93,6 +97,7 @@ export class GameTableCardsState {
   queueCardCounter(context: GameTableCardCounterContext, command: PendingCardCounterCommand): void {
     command = this.normalizedCardCounterCommand(command);
     const key = this.cardCounterCommandKey(command.playerId, command.zone, command.instanceId, command.key);
+    this.captureCardCounterBaseline(key, command);
     this.optimisticCardCounters.set(key, command);
     this.updateLocalCardCounter(context, command);
     this.scheduleCardCounterFlush(context, key, this.cardCounterFlushDelayMs);
@@ -124,6 +129,7 @@ export class GameTableCardsState {
     }
     this.cardCounterFlushTimers.clear();
     this.optimisticCardCounters.clear();
+    this.optimisticCardCounterBaselines.clear();
   }
 
   private hasCardCounter(card: GameCardInstance, key: string): boolean {
@@ -175,13 +181,17 @@ export class GameTableCardsState {
       }
       if (this.optimisticCardCounters.get(key) === command) {
         this.optimisticCardCounters.delete(key);
+        this.optimisticCardCounterBaselines.delete(key);
       }
     } catch (error) {
       if (this.optimisticCardCounters.get(key) === command) {
         this.optimisticCardCounters.delete(key);
+        this.restoreCardCounterBaseline(context, key, command);
       }
       this.core.error.set(context.errorMessage(error));
-      await context.refetch(true);
+      if (!isGameplayCommandRejectedError(error)) {
+        await context.refetch(true);
+      }
     } finally {
       this.core.pending.set(false);
       if (this.optimisticCardCounters.has(key)) {
@@ -203,6 +213,39 @@ export class GameTableCardsState {
     }
 
     this.applyCardCounterValue(card, command.key, command.value);
+    context.setSnapshot(next);
+  }
+
+  private captureCardCounterBaseline(key: string, command: PendingCardCounterCommand): void {
+    if (this.optimisticCardCounterBaselines.has(key)) {
+      return;
+    }
+    const card = this.core.snapshot()?.players[command.playerId]?.zones[command.zone]?.find((candidate) => candidate.instanceId === command.instanceId);
+    if (!card) {
+      return;
+    }
+    this.optimisticCardCounterBaselines.set(key, {
+      counters: structuredClone(card.counters),
+      power: card.power,
+      toughness: card.toughness,
+    });
+  }
+
+  private restoreCardCounterBaseline(context: GameTableCardCounterContext, key: string, command: PendingCardCounterCommand): void {
+    const baseline = this.optimisticCardCounterBaselines.get(key);
+    this.optimisticCardCounterBaselines.delete(key);
+    const snapshot = this.core.snapshot();
+    if (!baseline || !snapshot) {
+      return;
+    }
+    const next = structuredClone(snapshot);
+    const card = next.players[command.playerId]?.zones[command.zone]?.find((candidate) => candidate.instanceId === command.instanceId);
+    if (!card) {
+      return;
+    }
+    card.counters = structuredClone(baseline.counters);
+    card.power = baseline.power;
+    card.toughness = baseline.toughness;
     context.setSnapshot(next);
   }
 

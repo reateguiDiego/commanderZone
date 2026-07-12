@@ -130,7 +130,7 @@ final class ContractV2Assert
 
     public static function visibility(string $value): string
     {
-        if (preg_match('/^(public|player:[^:]+|group:[A-Za-z0-9_-]+)$/', $value) !== 1) {
+        if (preg_match('/^(public|player:[^:]+|group:[1-9][0-9]*)$/', $value) !== 1) {
             throw new \InvalidArgumentException('Field "visibility" must be "public", "player:<id>", or "group:<mask>".');
         }
 

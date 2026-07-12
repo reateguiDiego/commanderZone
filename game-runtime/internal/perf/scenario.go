@@ -37,7 +37,7 @@ func commandSequence() []commandSpec {
 			return map[string]any{"playerId": "p2", "count": 7}, "p2", false
 		}},
 		{name: "reveal-top-10", commandType: "library.reveal_top", payload: func(_ state.GameState, _ int, _ int) (map[string]any, string, bool) {
-			return map[string]any{"playerId": "p3", "count": 10, "viewers": []string{"p1", "p2", "p3", "p4"}, "visibleToMask": 15}, "p3", false
+			return map[string]any{"playerId": "p3", "count": 10, "to": "all"}, "p3", false
 		}},
 		{name: "cards-moved", commandType: "cards.moved", payload: func(game state.GameState, _ int, _ int) (map[string]any, string, bool) {
 			instanceIDs := firstZoneIDs(game, "p1", state.ZoneHand, 5)

@@ -14,6 +14,20 @@ use PHPUnit\Framework\TestCase;
 
 class GameProjectionServiceTest extends TestCase
 {
+    public function testVisibilityViewerBitsUseTheSameCanonicalPlayerOrderAsRuntimeGo(): void
+    {
+        $snapshot = ['players' => [
+            'viewer-z' => [],
+            'viewer-a' => [],
+            'viewer-m' => [],
+        ]];
+        $index = new GameVisibilityIndex();
+
+        self::assertSame(1, $index->maskForKnownViewer($snapshot, 'viewer-a'));
+        self::assertSame(2, $index->maskForKnownViewer($snapshot, 'viewer-m'));
+        self::assertSame(4, $index->maskForKnownViewer($snapshot, 'viewer-z'));
+    }
+
     public function testProjectionDoesNotExposeRuntimeLocationIndex(): void
     {
         $owner = new User('owner@example.test', 'Owner');
@@ -26,7 +40,25 @@ class GameProjectionServiceTest extends TestCase
         self::assertArrayNotHasKey('loc', $projected);
     }
 
-    public function testOpponentHandProjectionCentersRevealedCardsWithoutLeakingOriginalPosition(): void
+    public function testProjectionDoesNotExposePrivateInstanceIdsThroughServerVisibilityIndex(): void
+    {
+        $owner = new User('visibility-owner@example.test', 'Visibility Owner');
+        $viewer = new User('visibility-viewer@example.test', 'Visibility Viewer');
+        $handler = new GameCommandHandler();
+        $snapshot = $handler->normalizeSnapshot($this->snapshot($owner->id(), $viewer->id()));
+        (new GameVisibilityIndex())->rebuild($snapshot);
+        self::assertArrayHasKey('hidden-before', $snapshot['visibility']['instances']);
+
+        $projected = (new GameProjectionService($handler, null, null, null, new GameVisibilityIndex()))
+            ->projectSnapshot($snapshot, $viewer);
+        $encoded = json_encode($projected, JSON_THROW_ON_ERROR);
+
+        self::assertArrayNotHasKey('visibility', $projected);
+        self::assertStringNotContainsString('hidden-before', $encoded);
+        self::assertSame($owner->id().'-hidden-hand-1', $projected['players'][$owner->id()]['zones']['hand'][1]['instanceId']);
+    }
+
+    public function testOpponentHandProjectionKeepsStableOpaqueOrdinalsForPatchMaterialization(): void
     {
         $owner = new User('owner@example.test', 'Owner');
         $viewer = new User('viewer@example.test', 'Viewer');
@@ -36,13 +68,15 @@ class GameProjectionServiceTest extends TestCase
         $hand = $projected['players'][$owner->id()]['zones']['hand'];
 
         self::assertCount(5, $hand);
-        self::assertSame('Hidden card', $hand[0]['name']);
-        self::assertTrue($hand[0]['hidden']);
+        self::assertSame('Revealed Tutor', $hand[0]['name']);
+        self::assertSame([$viewer->id()], $hand[0]['revealedTo']);
+        self::assertArrayNotHasKey('hidden', $hand[0]);
+        self::assertSame($owner->id().'-hidden-hand-1', $hand[1]['instanceId']);
         self::assertSame('Hidden card', $hand[1]['name']);
         self::assertTrue($hand[1]['hidden']);
-        self::assertSame('Revealed Tutor', $hand[2]['name']);
-        self::assertSame([$viewer->id()], $hand[2]['revealedTo']);
-        self::assertArrayNotHasKey('hidden', $hand[2]);
+        self::assertSame($owner->id().'-hidden-hand-2', $hand[2]['instanceId']);
+        self::assertSame('Hidden card', $hand[2]['name']);
+        self::assertTrue($hand[2]['hidden']);
         self::assertSame('Hidden card', $hand[3]['name']);
         self::assertTrue($hand[3]['hidden']);
         self::assertSame('Hidden card', $hand[4]['name']);
@@ -948,6 +982,39 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame('public-permanent', $publicPermanent['instanceId']);
         self::assertSame($viewer->id(), $publicPermanent['revealedTo'][0]);
         self::assertFalse($publicPermanent['faceDown']);
+    }
+
+    public function testPrivateStackReplayProjectionDoesNotLeakSourceIdentity(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['stack'] = [[
+            'stackId' => 'stack-private',
+            'id' => 'stack-private',
+            'kind' => 'card',
+            'sourceInstanceId' => 'private-card',
+            'instanceId' => 'private-card',
+            'cardKey' => 'private-print:key',
+            'controllerId' => $owner->id(),
+            'ownerId' => $owner->id(),
+            'visibility' => 'player:'.$owner->id(),
+            'text' => 'private spell',
+            'createdAt' => '2026-01-01T00:00:10+00:00',
+        ]];
+        $projection = new GameProjectionService(new GameCommandHandler());
+
+        $ownerItem = $projection->projectSnapshot($snapshot, $owner)['stack'][0];
+        $viewerItem = $projection->projectSnapshot($snapshot, $viewer)['stack'][0];
+
+        self::assertSame('private-card', $ownerItem['sourceInstanceId']);
+        self::assertSame('private-print:key', $ownerItem['cardKey']);
+        self::assertSame('stack-private', $viewerItem['stackId']);
+        self::assertArrayNotHasKey('sourceInstanceId', $viewerItem);
+        self::assertArrayNotHasKey('instanceId', $viewerItem);
+        self::assertArrayNotHasKey('cardKey', $viewerItem);
+        self::assertArrayNotHasKey('controllerId', $viewerItem);
+        self::assertArrayNotHasKey('ownerId', $viewerItem);
     }
 
     private function snapshot(string $ownerId, string $viewerId): array

@@ -230,6 +230,60 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).not.toHaveBeenCalled();
   });
 
+  it('materializes an opponent private placeholder from patch.v2 without bootstrap refetch', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    cardsApi.getSilently.mockReturnValue(of({ card: catalogCard('runtime-print-secret', 'Revealed Secret') }));
+    const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    const bootstrap = bootstrapV2();
+    bootstrap.players['player-2'].handCount = 1;
+    bootstrap.players['player-2'].zoneCounts.hand = 1;
+    bootstrap.zones['player-2:hand'].instanceIds = ['player-2-hidden-hand-0'];
+    bootstrap.instances['player-2-hidden-hand-0'] = {
+      instanceId: 'player-2-hidden-hand-0',
+      cardRef: 'instance:player-2-hidden-hand-0',
+      zoneId: 'player-2:hand',
+      ownerId: 'player-2',
+      controllerId: 'player-2',
+      hidden: true,
+      faceDown: true,
+    };
+    bootstrap.zoneCounts['player-2:hand'] = 1;
+    normalizedStore.applyBootstrap(bootstrap);
+
+    messages.next({
+      kind: 'patch.v2',
+      gameId: 'game-1',
+      version: 2,
+      visibility: 'player:player-1',
+      ops: [{
+        op: 'private.cards.materialize',
+        playerId: 'player-2',
+        zone: 'hand',
+        entries: [{
+          placeholderId: 'player-2-hidden-hand-0',
+          index: 0,
+          card: {
+            instanceId: 'real-secret',
+            cardKey: 'runtime-print-secret:card',
+            printId: 'runtime-print-secret',
+            cardVersion: 'runtime-identity-v1',
+            ownerId: 'player-2',
+            controllerId: 'player-2',
+            zone: 'hand',
+            revealedTo: ['player-1'],
+          },
+        }],
+      }],
+    });
+
+    await vi.waitFor(() => expect(snapshotState.version).toBe(2));
+    expect(snapshotState.players['player-2'].zones.hand).toEqual([
+      expect.objectContaining({ instanceId: 'real-secret', name: 'Revealed Secret', hidden: false }),
+    ]);
+    expect(cardsApi.getSilently).toHaveBeenCalledWith('runtime-print-secret');
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
   it('does not loop refetches when patch.v2 arrives before bootstrap v2 is initialized', async () => {
     gameplayV2Flags.enabled.mockReturnValue(true);
     const patch: PatchEnvelopeV2 & { kind: 'patch.v2' } = {
@@ -1626,7 +1680,12 @@ describe('GameTableWebsocketGameplayService', () => {
   });
 
   it('rejects pending commands when command_ack is rejected', async () => {
-    const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const sent = service.sendCommand(context(), 'cards.moved', {
+      playerId: 'player-1',
+      fromZone: 'battlefield',
+      toZone: 'graveyard',
+      instanceIds: ['own-1', 'foreign-1'],
+    });
     const message = sentMessage();
 
     messages.next({
@@ -1636,10 +1695,27 @@ describe('GameTableWebsocketGameplayService', () => {
       clientActionId: message.command.clientActionId,
       status: 'rejected',
       version: 1,
-      error: { code: 'COMMAND_REJECTED', message: 'Denied', retryable: false },
+      error: {
+        code: 'MIXED_AUTHORITY_BATCH',
+        message: 'Denied',
+        retryable: false,
+        commandType: 'cards.moved',
+        instanceId: 'foreign-1',
+        index: 1,
+      },
     });
 
-    await expect(sent).rejects.toThrow('Denied');
+    await expect(sent).rejects.toMatchObject({
+      name: 'GameplayCommandRejectedError',
+      message: 'Denied',
+      details: {
+        code: 'MIXED_AUTHORITY_BATCH',
+        commandType: 'cards.moved',
+        instanceId: 'foreign-1',
+        index: 1,
+      },
+    });
+    expect(refetchSpy).not.toHaveBeenCalled();
   });
 
   it('uses one resync for stale duplicate command_ack states', async () => {

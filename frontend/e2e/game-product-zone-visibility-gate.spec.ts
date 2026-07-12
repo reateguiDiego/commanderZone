@@ -175,11 +175,11 @@ test.describe('product zone visibility runtime gate', () => {
 
       const moveToGraveyard = await sendRuntimeCommand(request, {
         gameId,
-        token: playerA.token,
+        token: playerB.token,
         baseVersion,
         type: 'card.moved',
         payload: {
-          playerId: playerA.user.id,
+          playerId: playerB.user.id,
           fromZone: 'battlefield',
           toZone: 'graveyard',
           targetPlayerId: playerB.user.id,
@@ -214,11 +214,11 @@ test.describe('product zone visibility runtime gate', () => {
       });
       const moveToExile = await sendRuntimeCommand(request, {
         gameId,
-        token: playerA.token,
+        token: playerB.token,
         baseVersion,
         type: 'card.moved',
         payload: {
-          playerId: playerA.user.id,
+          playerId: playerB.user.id,
           fromZone: 'battlefield',
           toZone: 'exile',
           targetPlayerId: playerB.user.id,

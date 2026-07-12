@@ -292,12 +292,39 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'library.reveal_top':
+                $this->applyRuntimeLibraryRevealTop($snapshot, $payload);
+
+                return true;
+
+            case 'library.reorder_top':
+                $this->applyRuntimeLibraryReorderTop($snapshot, $payload);
+
+                return true;
+
+            case 'library.move_top':
+                $this->applyRuntimeLibraryMoveTop($snapshot, $payload);
+
+                return true;
+
+            case 'library.put_top':
+            case 'library.put_bottom':
+                $this->applyRuntimeLibraryPut($snapshot, $payload, $event->type() === 'library.put_top');
+
+                return true;
+
             case 'card.moved':
             case 'cards.moved':
             case 'zone.move_all':
                 $moves = array_values(array_filter($payload['moves'] ?? [], static fn (mixed $move): bool => is_array($move)));
-                if ($event->type() === 'card.moved' && count($moves) === 1 && array_key_exists('faceDown', $payload)) {
-                    $moves[0]['faceDown'] = ($payload['faceDown'] ?? false) === true;
+                if (array_key_exists('faceDown', $payload)) {
+                    foreach ($moves as &$move) {
+                        $to = is_array($move['to'] ?? null) ? $move['to'] : [];
+                        if (($to['zone'] ?? null) === 'battlefield' && !array_key_exists('faceDown', $move)) {
+                            $move['faceDown'] = ($payload['faceDown'] ?? false) === true;
+                        }
+                    }
+                    unset($move);
                 }
                 foreach ($moves as $move) {
                     $this->applyMove($snapshot, $move);
@@ -363,6 +390,21 @@ final class GameEventReplayService
 
             case 'card.face.changed':
                 $this->applyRuntimeCardFaceChanged($snapshot, $payload);
+
+                return true;
+
+            case 'card.dungeon_marker.changed':
+                $this->applyRuntimeCardDungeonMarkerChanged($snapshot, $payload);
+
+                return true;
+
+            case 'stack.card_added':
+                $this->applyRuntimeStackCardAdded($snapshot, $event, $payload);
+
+                return true;
+
+            case 'stack.item_removed':
+                $this->applyRuntimeStackItemRemoved($snapshot, $payload);
 
                 return true;
 
@@ -637,17 +679,283 @@ final class GameEventReplayService
             $revealed = ($payload['hidden'] ?? false) !== true;
         }
 
+        $viewers = $this->targetsFromRuntimeAudience($payload);
+        if ($viewers === [] && is_string($payload['to'] ?? null)) {
+            $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
+        }
+        $current = $this->stringList($card['revealedTo'] ?? []);
+
         if (!$revealed) {
-            $card['revealedTo'] = [];
+            // Runtime audiences are cumulative masks: conceal/revoke removes only
+            // the addressed viewers. Legacy conceal events without an audience
+            // keep the historical safe fallback of revoking everyone.
+            if ($viewers === [] || in_array('all', $viewers, true)) {
+                $card['revealedTo'] = [];
+
+                return;
+            }
+            if (in_array('all', $current, true)) {
+                $current = array_values(array_filter(
+                    array_keys(is_array($snapshot['players'] ?? null) ? $snapshot['players'] : []),
+                    static fn (mixed $playerId): bool => is_string($playerId) && $playerId !== '',
+                ));
+            }
+            $card['revealedTo'] = array_values(array_diff($current, $viewers));
 
             return;
         }
 
-        $viewers = $this->stringList($payload['viewers'] ?? []);
+        if ($viewers === [] || in_array('all', $viewers, true) || in_array('all', $current, true)) {
+            $card['revealedTo'] = ['all'];
+
+            return;
+        }
+        $card['revealedTo'] = array_values(array_unique([...$current, ...$viewers]));
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeLibraryRevealTop(array &$snapshot, array $payload): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+
+        $viewers = $this->targetsFromRuntimeAudience($payload);
         if ($viewers === [] && is_string($payload['to'] ?? null)) {
             $viewers = $this->targetsFromVisibility($snapshot, $payload['to']);
         }
-        $card['revealedTo'] = $viewers !== [] ? $viewers : ['all'];
+        if ($viewers === []) {
+            $viewers = ['all'];
+        }
+
+        $epoch = max(1, (int) ($payload['visibilityEpoch'] ?? $snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1));
+        $snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] = $epoch;
+        $snapshot['players'][$playerId]['revealedLibraryTo'] = [];
+        $library =& $snapshot['players'][$playerId]['zones']['library'];
+        foreach ($library as &$libraryCard) {
+            if (!is_array($libraryCard)) {
+                continue;
+            }
+            $libraryCard['revealedTo'] = [];
+            unset($libraryCard[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY]);
+        }
+        unset($libraryCard);
+
+        $revealedIds = array_fill_keys($this->stringList($payload['instanceIds'] ?? []), true);
+        foreach ($library as &$libraryCard) {
+            if (!is_array($libraryCard) || !isset($revealedIds[(string) ($libraryCard['instanceId'] ?? '')])) {
+                continue;
+            }
+            $libraryCard['faceDown'] = false;
+            $libraryCard['revealedTo'] = $viewers;
+            $libraryCard[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] = $epoch;
+        }
+        unset($libraryCard);
+        unset($library);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeLibraryReorderTop(array &$snapshot, array $payload): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        $instanceIds = $this->stringList($payload['instanceIds'] ?? []);
+        if ($playerId === '' || $instanceIds === [] || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+
+        $this->libraryOps()->reorderTop($snapshot['players'][$playerId], $instanceIds);
+        $this->rebuildLoc($snapshot);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeLibraryMoveTop(array &$snapshot, array $payload): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        $targetPlayerId = is_string($payload['targetPlayerId'] ?? null) && trim($payload['targetPlayerId']) !== ''
+            ? trim($payload['targetPlayerId'])
+            : $playerId;
+        $destination = is_string($payload['destination'] ?? null) && trim($payload['destination']) !== ''
+            ? trim($payload['destination'])
+            : (is_string($payload['toZone'] ?? null) ? trim($payload['toZone']) : '');
+        $instanceIds = $this->stringList($payload['instanceIds'] ?? []);
+        if ($playerId === '' || $targetPlayerId === '' || $destination === ''
+            || !isset($snapshot['players'][$playerId], $snapshot['players'][$targetPlayerId])) {
+            return;
+        }
+        if ($instanceIds === [] && isset($payload['count'])) {
+            $count = max(0, (int) $payload['count']);
+            $instanceIds = array_values(array_map(
+                static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+                $this->libraryOps()->peekTop($snapshot['players'][$playerId], $count),
+            ));
+        }
+        if ($instanceIds === []) {
+            return;
+        }
+
+        $topIds = array_values(array_map(
+            static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+            $this->libraryOps()->peekTop($snapshot['players'][$playerId], count($instanceIds)),
+        ));
+        if ($topIds !== $instanceIds) {
+            throw new \RuntimeException('library.move_top instanceIds do not match the current top window.');
+        }
+
+        $cards = [];
+        foreach ($instanceIds as $instanceId) {
+            $card = $this->removeCard($snapshot, $playerId, 'library', $instanceId);
+            if (!is_array($card)) {
+                throw new \RuntimeException(sprintf('library.move_top card "%s" is missing.', $instanceId));
+            }
+            $cards[] = $card;
+        }
+        if ($destination === 'library') {
+            if ($targetPlayerId !== $playerId) {
+                throw new \RuntimeException('library.move_top cannot move to another player library.');
+            }
+            $this->putRuntimeCardsOnLibraryBottom($snapshot['players'][$playerId], $playerId, $cards);
+        } else {
+            $this->appendRuntimeCardsToZone($snapshot['players'][$targetPlayerId], $targetPlayerId, $destination, $cards);
+        }
+        $this->rebuildLoc($snapshot);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeLibraryPut(array &$snapshot, array $payload, bool $top): void
+    {
+        $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
+        $instanceId = is_string($payload['instanceId'] ?? null) ? trim($payload['instanceId']) : '';
+        if ($playerId === '' || $instanceId === '' || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+
+        $fromPlayerId = is_string($payload['fromPlayerId'] ?? null) ? trim($payload['fromPlayerId']) : '';
+        $fromZone = is_string($payload['fromZone'] ?? null) ? trim($payload['fromZone']) : '';
+        if (($fromPlayerId === '' || $fromZone === '') && is_array($snapshot['loc'][$instanceId] ?? null)) {
+            $fromPlayerId = (string) ($snapshot['loc'][$instanceId]['playerId'] ?? '');
+            $fromZone = (string) ($snapshot['loc'][$instanceId]['zone'] ?? '');
+        }
+        $card = $this->removeCard($snapshot, $fromPlayerId, $fromZone, $instanceId);
+        if (!is_array($card)) {
+            return;
+        }
+
+        if ($top) {
+            $this->libraryOps()->putOnTop($snapshot['players'][$playerId], $card);
+        } else {
+            $this->libraryOps()->putOnBottom($snapshot['players'][$playerId], $card);
+        }
+        $this->rebuildLoc($snapshot);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardDungeonMarkerChanged(array &$snapshot, array $payload): void
+    {
+        $instanceId = is_string($payload['instanceId'] ?? null) ? trim($payload['instanceId']) : '';
+        if ($instanceId === '') {
+            return;
+        }
+        $card =& $this->locateCard($snapshot, $instanceId);
+        if (!is_array($card)) {
+            return;
+        }
+
+        if (array_key_exists('dungeonMarker', $payload)) {
+            $marker = $payload['dungeonMarker'];
+        } elseif (array_key_exists('position', $payload)) {
+            $marker = $payload['position'];
+        } else {
+            return;
+        }
+        if ($marker === null) {
+            unset($card['dungeonMarker']);
+
+            return;
+        }
+        if (is_array($marker)) {
+            $card['dungeonMarker'] = $marker;
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeStackCardAdded(array &$snapshot, GameEvent $event, array $payload): void
+    {
+        $item = is_array($payload['item'] ?? null) ? $payload['item'] : [];
+        $stackId = trim((string) ($item['stackId'] ?? $item['id'] ?? $payload['stackId'] ?? $payload['id'] ?? ''));
+        if ($stackId === '') {
+            return;
+        }
+        $sourceInstanceId = trim((string) ($item['sourceInstanceId'] ?? $item['instanceId'] ?? $payload['sourceInstanceId'] ?? $payload['instanceId'] ?? ''));
+        $visibility = is_string($item['visibility'] ?? $payload['visibility'] ?? null)
+            ? trim((string) ($item['visibility'] ?? $payload['visibility']))
+            : '';
+        $sourceLocation = is_array($snapshot['loc'][$sourceInstanceId] ?? null) ? $snapshot['loc'][$sourceInstanceId] : [];
+        $sourcePlayerId = trim((string) ($sourceLocation['playerId'] ?? ''));
+        $sourceZone = trim((string) ($sourceLocation['zone'] ?? ''));
+        $sourceCard =& $this->locateCard($snapshot, $sourceInstanceId);
+        if ($visibility === '') {
+            if ($sourcePlayerId !== '' && (in_array($sourceZone, ['hand', 'library'], true) || (is_array($sourceCard) && ($sourceCard['faceDown'] ?? false) === true))) {
+                $visibility = 'player:'.$sourcePlayerId;
+            } elseif ($sourcePlayerId !== '') {
+                $visibility = 'public';
+            } elseif ($event->createdBy() !== null) {
+                $visibility = 'player:'.$event->createdBy()->id();
+            } else {
+                $visibility = 'player:__legacy_unknown__';
+            }
+        }
+        $canonical = array_filter([
+            'stackId' => $stackId,
+            'id' => $stackId,
+            'kind' => $item['kind'] ?? $payload['kind'] ?? 'card',
+            'sourceInstanceId' => $sourceInstanceId !== '' ? $sourceInstanceId : null,
+            'instanceId' => $sourceInstanceId !== '' ? $sourceInstanceId : null,
+            'cardKey' => $item['cardKey'] ?? $payload['cardKey'] ?? null,
+            'controllerId' => $item['controllerId'] ?? $payload['controllerId'] ?? null,
+            'ownerId' => $item['ownerId'] ?? $payload['ownerId'] ?? null,
+            'text' => $item['text'] ?? $payload['text'] ?? null,
+            'createdAt' => $item['createdAt'] ?? $payload['createdAt'] ?? null,
+            'visibility' => $visibility !== '' ? $visibility : null,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
+        if (is_array($sourceCard)) {
+            $canonical['card'] = $sourceCard;
+        }
+
+        $snapshot['stack'] = array_values(array_filter(
+            is_array($snapshot['stack'] ?? null) ? $snapshot['stack'] : [],
+            static fn (mixed $entry): bool => !is_array($entry)
+                || (string) ($entry['stackId'] ?? $entry['id'] ?? '') !== $stackId,
+        ));
+        $snapshot['stack'][] = $canonical;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeStackItemRemoved(array &$snapshot, array $payload): void
+    {
+        $stackId = trim((string) ($payload['stackId'] ?? $payload['id'] ?? ''));
+        if ($stackId === '') {
+            return;
+        }
+        $snapshot['stack'] = array_values(array_filter(
+            is_array($snapshot['stack'] ?? null) ? $snapshot['stack'] : [],
+            static fn (mixed $entry): bool => !is_array($entry)
+                || (string) ($entry['stackId'] ?? $entry['id'] ?? '') !== $stackId,
+        ));
     }
 
     /**
@@ -1699,7 +2007,10 @@ final class GameEventReplayService
         }
 
         $libraryOps = $this->libraryOps();
-        $targets = $this->targetsFromVisibility($snapshot, $visibility);
+        $targets = $this->stringList($operation['revealedTo'] ?? []);
+        if ($targets === []) {
+            $targets = $this->targetsFromVisibility($snapshot, $visibility);
+        }
         $libraryOps->clearReveals($snapshot['players'][$playerId]);
         $epoch = (int) ($snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1);
         $cards = array_values(array_filter($operation['cards'] ?? [], static fn (mixed $card): bool => is_array($card)));
@@ -1752,6 +2063,25 @@ final class GameEventReplayService
         }
 
         return $targets;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return list<string>
+     */
+    private function targetsFromRuntimeAudience(array $payload): array
+    {
+        $audience = is_array($payload['audience'] ?? null) ? $payload['audience'] : [];
+        $scope = is_string($audience['scope'] ?? null) ? $audience['scope'] : '';
+        if ($scope === 'public') {
+            return ['all'];
+        }
+        if ($scope === 'players') {
+            return $this->stringList($audience['playerIds'] ?? []);
+        }
+
+        return $this->stringList($payload['viewers'] ?? []);
     }
 
     private function libraryOps(): GameLibraryOps

@@ -475,6 +475,7 @@ func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []s
 	publicMoves := []map[string]any{}
 	publicAddsByZone := map[string][]map[string]any{}
 	publicRemovesByZone := map[string][]string{}
+	publicConcealsByZone := map[string][]privateCardSlot{}
 	privateMovesByPlayer := map[string][]map[string]any{}
 
 	for _, move := range moves {
@@ -488,10 +489,18 @@ func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []s
 			if !fromPrivate && toPrivate {
 				key := zoneKey(move.From.PlayerID, move.From.Zone)
 				publicRemovesByZone[key] = append(publicRemovesByZone[key], move.InstanceID)
+				concealKey := zoneKey(move.To.PlayerID, move.To.Zone)
+				index := privateProjectedIndex(game, move.To)
+				publicConcealsByZone[concealKey] = append(publicConcealsByZone[concealKey], privateCardSlot{
+					InstanceID:    move.InstanceID,
+					PlaceholderID: privatePlaceholderID(move.To.PlayerID, move.To.Zone, index),
+					Index:         index,
+				})
 			}
 			if fromPrivate && !toPrivate {
 				removeKey := zoneKey(move.From.PlayerID, move.From.Zone)
-				publicRemovesByZone[removeKey] = append(publicRemovesByZone[removeKey], move.InstanceID)
+				placeholderID := privatePlaceholderID(move.From.PlayerID, move.From.Zone, privateProjectedIndex(game, move.From))
+				publicRemovesByZone[removeKey] = append(publicRemovesByZone[removeKey], move.InstanceID, placeholderID)
 				key := zoneKey(move.To.PlayerID, move.To.Zone)
 				publicAddsByZone[key] = append(publicAddsByZone[key], cardPatchData(game, "", move.InstanceID))
 			}
@@ -511,6 +520,10 @@ func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []s
 	for key, ids := range publicRemovesByZone {
 		playerID, zone := splitZoneKey(key)
 		emitter.EmitPublic(protocol.PatchOp{Op: "zone.cards.remove", Data: map[string]any{"playerId": playerID, "zone": zone, "instanceIds": ids}})
+	}
+	for key, slots := range publicConcealsByZone {
+		playerID, zone := splitZoneKey(key)
+		emitter.EmitPublic(privateCardsConcealOp(playerID, zone, slots))
 	}
 	for key, cards := range publicAddsByZone {
 		playerID, zone := splitZoneKey(key)
@@ -635,7 +648,11 @@ func movementEventMoves(game *state.GameState, moves []state.ZoneMove, evaporate
 		if _, ok := evaporated[move.InstanceID]; ok {
 			entry["evaporates"] = true
 		} else {
-			entry["position"] = cloneMap(game.Instances[move.InstanceID].Position)
+			instance := game.Instances[move.InstanceID]
+			entry["position"] = cloneMap(instance.Position)
+			if move.To.Zone == state.ZoneBattlefield {
+				entry["faceDown"] = instance.FaceDown
+			}
 		}
 		out = append(out, entry)
 	}

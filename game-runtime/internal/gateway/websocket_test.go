@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"commanderzone/game-runtime/internal/actor"
 	"commanderzone/game-runtime/internal/persistence"
 	"commanderzone/game-runtime/internal/protocol"
 	runtimesvc "commanderzone/game-runtime/internal/runtime"
@@ -403,11 +404,58 @@ func TestWebSocketRejectsPlayerScopedCommandForDifferentSignedPlayer(t *testing.
 
 	writeCommand(t, conn, command("game-1", 1, "life-other", "life.changed", map[string]any{"playerId": "p2", "life": 1}, nil))
 	message := readUntil(t, conn, "command_ack")
-	if message.Status != "rejected" || message.Error == nil || message.Error.Code != "COMMAND_FAILED" {
-		t.Fatalf("message = %#v, want rejected command failure", message)
+	if message.Status != "rejected" || message.Error == nil || message.Error.Code != "PERMISSION_DENIED" || message.Error.CommandType != "life.changed" {
+		t.Fatalf("message = %#v, want structured permission denial", message)
 	}
 	if runtimeServiceActorVersion(t, runtimeService, "game-1") != 1 {
 		t.Fatalf("rejected player-scoped command changed actor version")
+	}
+}
+
+func TestWebSocketRejectsMixedAuthorityBatchWithoutPatchVersionOrLegacyFallback(t *testing.T) {
+	initial := testInitialState("game-1")
+	initial.Players["p3"] = map[string]any{"life": 40}
+	initial.Instances["a1"] = state.CardInstanceRuntime{InstanceID: "a1", CardKey: "private-a@1", OwnerID: "p1", ControllerID: "p1", Zone: state.ZoneBattlefield, Position: map[string]any{"x": 0.1, "y": 0.1, "unit": "ratio"}}
+	initial.Instances["c1"] = state.CardInstanceRuntime{InstanceID: "c1", CardKey: "private-c@1", OwnerID: "p3", ControllerID: "p3", Zone: state.ZoneBattlefield, Position: map[string]any{"x": 0.8, "y": 0.8, "unit": "ratio"}}
+	initial.Zones["p1"] = state.PlayerZones{Battlefield: []string{"a1"}}
+	initial.Zones["p3"] = state.PlayerZones{Battlefield: []string{"c1"}}
+	initial.Loc["a1"] = state.Location{PlayerID: "p1", Zone: state.ZoneBattlefield, Index: 0, ControllerID: "p1"}
+	initial.Loc["c1"] = state.Location{PlayerID: "p3", Zone: state.ZoneBattlefield, Index: 0, ControllerID: "p3"}
+
+	server, runtimeService, handler := testWebSocketServerWithStateAndHandler(t, "game-1", initial, 128, 256)
+	defer server.Close()
+	conn := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID: "p1", PlayerID: "p1", GameID: "game-1", Role: "player",
+		Permissions: []string{"view", "command"}, Protocol: "v2",
+	})
+	defer conn.Close()
+
+	writeCommand(t, conn, command("game-1", 1, "mixed-move", "cards.moved", map[string]any{
+		"playerId": "p1", "fromZone": "battlefield", "toZone": "graveyard", "instanceIds": []string{"a1", "c1"},
+	}, nil))
+	message := readUntil(t, conn, "command_ack")
+	if message.Status != "rejected" || message.Error == nil {
+		t.Fatalf("message=%#v want rejected structured ack", message)
+	}
+	if message.Error.Code != actor.AuthorizationCodeMixedAuthorityBatch || message.Error.CommandType != "cards.moved" || message.Error.InstanceID != "c1" || message.Error.Index == nil || *message.Error.Index != 1 {
+		t.Fatalf("authorization error=%#v", message.Error)
+	}
+	if strings.Contains(message.Error.Message, "private-c@1") {
+		t.Fatalf("authorization error leaked identity: %#v", message.Error)
+	}
+	gameActor, ok := runtimeService.Actor("game-1")
+	if !ok {
+		t.Fatal("actor missing")
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.Version != 1 || snapshot.Loc["a1"].Zone != state.ZoneBattlefield || snapshot.Loc["c1"].Zone != state.ZoneBattlefield {
+		t.Fatalf("rejected batch mutated actor: %#v", snapshot)
+	}
+	if gameActor.Metrics().LegacyFallbackCount != 0 {
+		t.Fatalf("rejected batch incremented legacy fallback: %#v", gameActor.Metrics())
+	}
+	if _, err := handler.history("game-1").Since(1); !errors.Is(err, ErrPatchHistoryGap) {
+		t.Fatalf("rejected batch emitted patch history, err=%v", err)
 	}
 }
 
@@ -598,6 +646,69 @@ func TestWebSocketPrivateOnlyPatchSendsPublicVersionCarrier(t *testing.T) {
 	replayed := readUntil(t, reconnected, "patch.v2")
 	if replayed.Version != 2 || len(replayed.Ops) != 1 || replayed.Ops[0]["op"] != "version.advance" {
 		t.Fatalf("replayed carrier = %#v, want version.advance without resync", replayed)
+	}
+}
+
+func TestWebSocketGroupPatchRoutesBySignedViewerMask(t *testing.T) {
+	game := testReorderState("game-group-audience")
+	game.Players["p3"] = map[string]any{"life": 40}
+	server, _ := testWebSocketServerWithState(t, "game-group-audience", game, 128, 256)
+	defer server.Close()
+
+	player := func(playerID string, mask uint64) *websocket.Conn {
+		return dialRuntimeWithClaims(t, server.URL, "game-group-audience", 0, TicketClaims{
+			UserID:      playerID,
+			PlayerID:    playerID,
+			GameID:      "game-group-audience",
+			Role:        "player",
+			Permissions: []string{"view", "command"},
+			Protocol:    "v2",
+			ViewerMask:  mask,
+		})
+	}
+	p1 := player("p1", 1)
+	defer p1.Close()
+	p2 := player("p2", 2)
+	defer p2.Close()
+	p3 := player("p3", 4)
+	defer p3.Close()
+
+	writeCommand(t, p1, command("game-group-audience", 1, "group-reveal", "card.revealed", map[string]any{
+		"playerId":   "p1",
+		"instanceId": "h1",
+		"to":         []any{"p2", "p1"},
+	}, nil))
+
+	for viewer, conn := range map[string]*websocket.Conn{"p1": p1, "p2": p2} {
+		patch := readPatchWithoutResync(t, conn)
+		entries, ok := patch.Ops[0]["entries"].([]any)
+		if patch.Visibility != protocol.GroupVisibility("3") || !ok || len(entries) != 1 {
+			t.Fatalf("%s patch = %#v, want authorized group identity", viewer, patch)
+		}
+		entry, _ := entries[0].(map[string]any)
+		card, _ := entry["card"].(map[string]any)
+		if patch.Ops[0]["op"] != "private.cards.materialize" || card["cardKey"] != "card:h1" {
+			t.Fatalf("%s patch = %#v, want materialized group identity", viewer, patch)
+		}
+	}
+	carrier := readPatchWithoutResync(t, p3)
+	if carrier.Visibility != protocol.VisibilityPublic {
+		t.Fatalf("unauthorized viewer patch = %#v, want public envelope", carrier)
+	}
+	for _, op := range carrier.Ops {
+		if _, leaked := op["cardKey"]; leaked || op["op"] == "card.field.set" {
+			t.Fatalf("unauthorized viewer received identity operation: %#v", carrier)
+		}
+	}
+}
+
+func TestCanReceiveGroupRequiresIntersectingServerViewerMask(t *testing.T) {
+	visibility := protocol.GroupVisibility("6")
+	if !canReceive(TicketClaims{ViewerMask: 2}, visibility) || !canReceive(TicketClaims{ViewerMask: 4}, visibility) {
+		t.Fatal("authorized viewer mask did not receive group")
+	}
+	if canReceive(TicketClaims{ViewerMask: 1, Roles: []string{"group:6"}}, visibility) {
+		t.Fatal("legacy client role must not authorize a non-member viewer")
 	}
 }
 

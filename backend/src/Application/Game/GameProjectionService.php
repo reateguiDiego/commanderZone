@@ -134,14 +134,51 @@ class GameProjectionService
         }
         unset($player);
 
+        $snapshot['stack'] = $this->projectStackForViewer(
+            is_array($snapshot['stack'] ?? null) ? $snapshot['stack'] : [],
+            $viewerId,
+        );
+
         $snapshot['specialEntities'] = $this->projectSpecialEntities(
             is_array($snapshot['specialEntities'] ?? null) ? $snapshot['specialEntities'] : [],
             $requestedLanguage,
             $localizedCardsByLanguage,
         );
-        unset($snapshot['loc']);
+        // loc and the mask index are server-authoritative replay/projection
+        // structures. Both are keyed by real instance IDs and must never be
+        // serialized to a viewer bootstrap after hidden zones are projected
+        // to opaque placeholders.
+        unset($snapshot['loc'], $snapshot['visibility']);
 
         return $snapshot;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $items
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function projectStackForViewer(array $items, string $viewerId): array
+    {
+        return array_values(array_map(static function (array $item) use ($viewerId): array {
+            $visibility = is_string($item['visibility'] ?? null) ? $item['visibility'] : 'public';
+            if ($visibility === 'public' || $visibility === 'player:'.$viewerId) {
+                return $item;
+            }
+
+            unset(
+                $item['sourceInstanceId'],
+                $item['instanceId'],
+                $item['cardKey'],
+                $item['cardRef'],
+                $item['card'],
+                $item['controllerId'],
+                $item['ownerId'],
+                $item['visibility'],
+            );
+
+            return $item;
+        }, array_values(array_filter($items, static fn (mixed $item): bool => is_array($item)))));
     }
 
     public function projectZone(
@@ -367,25 +404,13 @@ class GameProjectionService
             return [];
         }
 
-        $visibleCards = array_values(array_filter(
+        return array_values(array_map(
+            fn (array $card, int $index): array => $this->isVisibleCard($card, $viewerId)
+                ? $this->projectCard($card, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup)
+                : $this->hiddenOpponentHandCard($ownerId, $index),
             $cards,
-            fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
+            array_keys($cards),
         ));
-        $projected = array_map(
-            fn (int $index): array => $this->hiddenOpponentHandCard($ownerId, $index),
-            range(0, $handSize - 1),
-        );
-
-        if ($visibleCards === []) {
-            return $projected;
-        }
-
-        $startIndex = max(0, (int) floor(($handSize - count($visibleCards)) / 2));
-        foreach ($visibleCards as $offset => $card) {
-            $projected[$startIndex + $offset] = $this->projectCard($card, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
-        }
-
-        return array_values($projected);
     }
 
     /**

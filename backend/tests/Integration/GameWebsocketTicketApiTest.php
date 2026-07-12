@@ -35,6 +35,7 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         self::assertSame($fixture['gameId'], $ownerResponse['claims']['gameId']);
         self::assertSame('player', $ownerResponse['claims']['role']);
         self::assertSame(['view', 'command', 'game.close'], $ownerResponse['claims']['permissions']);
+        self::assertGreaterThan(0, $ownerResponse['claims']['viewerMask']);
         $runtimeSecret = static::getContainer()->getParameter('game_runtime_ticket_secret');
         self::assertIsString($runtimeSecret);
         self::assertTrue($this->ticketSignatureMatches($ownerResponse['ticket'], $runtimeSecret));
@@ -49,6 +50,7 @@ class GameWebsocketTicketApiTest extends ApiTestCase
         self::assertIsString($playerResponse['ticket']);
         self::assertSame('runtime_ws', $playerResponse['route']);
         self::assertSame(['view', 'command'], $playerResponse['claims']['permissions']);
+        self::assertGreaterThan(0, $playerResponse['claims']['viewerMask']);
     }
 
     /**

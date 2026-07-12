@@ -9,6 +9,7 @@ use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameRandomizer;
 use App\Application\Game\GameEventReplayService;
 use App\Application\Game\GameEventStoreV2;
+use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganEventTypes;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
@@ -240,6 +241,127 @@ class GameEventStoreV2Test extends TestCase
         $hydrated = $mapper->hydrateSnapshot($mapper->compactSnapshot($snapshot, 'game-compact-disconnect', 'active'));
 
         self::assertSame($snapshot['disconnectVote'], $hydrated['disconnectVote']);
+    }
+
+    public function testRuntimeRevealAudienceReplaysCanonicalPublicAndPlayerTargets(): void
+    {
+        $actor = new User('audience-owner@example.test', 'Audience Owner');
+        $viewer = new User('audience-viewer@example.test', 'Audience Viewer');
+        $baseSnapshot = $this->baseSnapshot($actor->id(), [
+            'hand' => [$this->card('audience-card', 'Audience Card', 'hand')],
+        ]);
+        $baseSnapshot['players'][$viewer->id()] = [
+            'user' => ['id' => $viewer->id(), 'email' => $viewer->email(), 'displayName' => $viewer->displayName(), 'roles' => []],
+            'life' => 40,
+            'zones' => ['library' => [], 'hand' => [], 'battlefield' => [], 'graveyard' => [], 'exile' => [], 'command' => []],
+            'commanderDamage' => [],
+            'counters' => [],
+        ];
+        $baseSnapshot['loc']['audience-card'] = ['playerId' => $actor->id(), 'zone' => 'hand', 'index' => 0];
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $targeted = new GameEvent($game, 'card.revealed', [
+            'instanceId' => 'audience-card',
+            'revealed' => true,
+            'audience' => ['scope' => 'players', 'playerIds' => [$viewer->id()]],
+        ], $actor, 'audience-targeted', 2);
+
+        $replay = new GameEventReplayService();
+        $targetedSnapshot = $replay->replay($baseSnapshot, [$targeted]);
+        self::assertSame([$viewer->id()], $this->cardById($targetedSnapshot, $actor->id(), 'hand', 'audience-card')['revealedTo']);
+
+        $public = new GameEvent($game, 'card.revealed', [
+            'instanceId' => 'audience-card',
+            'revealed' => true,
+            'audience' => ['scope' => 'public'],
+        ], $actor, 'audience-public', 3);
+        $publicSnapshot = $replay->replay($targetedSnapshot, [$public]);
+        self::assertSame(['all'], $this->cardById($publicSnapshot, $actor->id(), 'hand', 'audience-card')['revealedTo']);
+    }
+
+    public function testRuntimeRevealAudienceReplayMergesAndRevokesOnlyAddressedViewers(): void
+    {
+        $owner = new User('audience-merge-owner@example.test', 'Audience Merge Owner');
+        $viewer = new User('audience-merge-viewer@example.test', 'Audience Merge Viewer');
+        $third = new User('audience-merge-third@example.test', 'Audience Merge Third');
+        $baseSnapshot = $this->baseSnapshot($owner->id(), [
+            'hand' => [$this->card('audience-merge-card', 'Audience Merge Card', 'hand')],
+        ]);
+        foreach ([$viewer, $third] as $player) {
+            $baseSnapshot['players'][$player->id()] = [
+                'user' => ['id' => $player->id(), 'email' => $player->email(), 'displayName' => $player->displayName(), 'roles' => []],
+                'life' => 40,
+                'zones' => ['library' => [], 'hand' => [], 'battlefield' => [], 'graveyard' => [], 'exile' => [], 'command' => []],
+                'commanderDamage' => [],
+                'counters' => [],
+            ];
+        }
+        $baseSnapshot['loc']['audience-merge-card'] = ['playerId' => $owner->id(), 'zone' => 'hand', 'index' => 0];
+        $game = new Game(new Room($owner), $baseSnapshot);
+        $events = [
+            new GameEvent($game, 'card.revealed', [
+                'instanceId' => 'audience-merge-card',
+                'revealed' => true,
+                'audience' => ['scope' => 'players', 'playerIds' => [$viewer->id()]],
+            ], $owner, 'audience-merge-viewer', 2),
+            new GameEvent($game, 'card.revealed', [
+                'instanceId' => 'audience-merge-card',
+                'revealed' => true,
+                'audience' => ['scope' => 'players', 'playerIds' => [$viewer->id(), $third->id()]],
+            ], $owner, 'audience-merge-third', 3),
+            new GameEvent($game, 'card.revealed', [
+                'instanceId' => 'audience-merge-card',
+                'revealed' => false,
+                'audience' => ['scope' => 'players', 'playerIds' => [$viewer->id()]],
+            ], $owner, 'audience-revoke-viewer', 4),
+        ];
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, $events);
+
+        self::assertSame(
+            [$third->id()],
+            $this->cardById($rebuilt, $owner->id(), 'hand', 'audience-merge-card')['revealedTo'],
+        );
+    }
+
+    public function testRuntimeLibraryRevealTopReplaysCanonicalMultiViewerWindow(): void
+    {
+        $owner = new User('library-reveal-owner@example.test', 'Library Reveal Owner');
+        $viewer = new User('library-reveal-viewer@example.test', 'Library Reveal Viewer');
+        $third = new User('library-reveal-third@example.test', 'Library Reveal Third');
+        $baseSnapshot = $this->baseSnapshot($owner->id(), [
+            'library' => [
+                $this->card('library-bottom', 'Library Bottom', 'library'),
+                $this->card('library-top-two', 'Library Top Two', 'library'),
+                $this->card('library-top-one', 'Library Top One', 'library'),
+            ],
+        ]);
+        foreach ([$viewer, $third] as $player) {
+            $baseSnapshot['players'][$player->id()] = [
+                'user' => ['id' => $player->id(), 'email' => $player->email(), 'displayName' => $player->displayName(), 'roles' => []],
+                'life' => 40,
+                'zones' => ['library' => [], 'hand' => [], 'battlefield' => [], 'graveyard' => [], 'exile' => [], 'command' => []],
+                'commanderDamage' => [],
+                'counters' => [],
+            ];
+        }
+        $game = new Game(new Room($owner), $baseSnapshot);
+        $event = new GameEvent($game, 'library.reveal_top', [
+            'playerId' => $owner->id(),
+            'count' => 2,
+            'instanceIds' => ['library-top-one', 'library-top-two'],
+            'visibilityEpoch' => 7,
+            'audience' => ['scope' => 'players', 'playerIds' => [$viewer->id(), $third->id()]],
+        ], $owner, 'library-reveal-top-group', 2);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$event]);
+
+        self::assertSame(7, $rebuilt['players'][$owner->id()][GameLibraryOps::VISIBILITY_EPOCH_KEY]);
+        foreach (['library-top-one', 'library-top-two'] as $instanceId) {
+            $card = $this->cardById($rebuilt, $owner->id(), 'library', $instanceId);
+            self::assertSame([$viewer->id(), $third->id()], $card['revealedTo']);
+            self::assertSame(7, $card[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY]);
+        }
+        self::assertSame([], $this->cardById($rebuilt, $owner->id(), 'library', 'library-bottom')['revealedTo']);
     }
 
     public function testReplayAndBootstrapPreserveLongRunningTurnStateAfterConcede(): void
@@ -1606,6 +1728,131 @@ class GameEventStoreV2Test extends TestCase
         self::assertStringNotContainsString('oracleText', $encoded);
         self::assertStringNotContainsString('imageUris', $encoded);
         self::assertStringNotContainsString('cardFaces', $encoded);
+    }
+
+    public function testPrivateReplayParityAppliesCanonicalStatefulRuntimeEventsAndLegacyFallbacks(): void
+    {
+        $owner = new User('owner@example.test', 'Replay Owner');
+        $flags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($owner->id(), [
+            'library' => [
+                $this->card('library-1', 'Library 1', 'library'),
+                $this->card('library-2', 'Library 2', 'library'),
+                $this->card('library-3', 'Library 3', 'library'),
+                $this->card('library-4', 'Library 4', 'library'),
+            ],
+            'hand' => [
+                $this->card('hand-1', 'Hand 1', 'hand'),
+                $this->card('hand-2', 'Hand 2', 'hand'),
+            ],
+            'battlefield' => [
+                $this->card('battlefield-put', 'Put Bottom', 'battlefield'),
+                $this->card('battlefield-marker', 'Dungeon Card', 'battlefield'),
+            ],
+        ]));
+        $game = new Game(new Room($owner), $baseSnapshot);
+        $events = [
+            new GameEvent($game, 'cards.moved', [
+                'faceDown' => true,
+                'moves' => [
+                    [
+                        'instanceId' => 'hand-1',
+                        'from' => ['playerId' => $owner->id(), 'zone' => 'hand', 'index' => 0],
+                        'to' => ['playerId' => $owner->id(), 'zone' => 'battlefield', 'index' => 2],
+                    ],
+                    [
+                        'instanceId' => 'hand-2',
+                        'from' => ['playerId' => $owner->id(), 'zone' => 'hand', 'index' => 1],
+                        'to' => ['playerId' => $owner->id(), 'zone' => 'battlefield', 'index' => 3],
+                        'faceDown' => true,
+                    ],
+                ],
+            ], $owner, 'face-down-batch', 2),
+            new GameEvent($game, 'library.reorder_top', [
+                'playerId' => $owner->id(),
+                'instanceIds' => ['library-2', 'library-1'],
+            ], $owner, 'reorder-top', 3),
+            new GameEvent($game, 'library.move_top', [
+                'playerId' => $owner->id(),
+                'targetPlayerId' => $owner->id(),
+                'destination' => 'graveyard',
+                'count' => 1,
+                'instanceIds' => ['library-2'],
+            ], $owner, 'move-top', 4),
+            new GameEvent($game, 'library.put_top', [
+                'playerId' => $owner->id(),
+                'instanceId' => 'hand-1',
+                'fromPlayerId' => $owner->id(),
+                'fromZone' => 'battlefield',
+                'position' => 'top',
+            ], $owner, 'put-top', 5),
+            new GameEvent($game, 'library.put_bottom', [
+                'playerId' => $owner->id(),
+                'instanceId' => 'battlefield-put',
+                'fromPlayerId' => $owner->id(),
+                'fromZone' => 'battlefield',
+                'position' => 'bottom',
+            ], $owner, 'put-bottom', 6),
+            new GameEvent($game, 'stack.card_added', [
+                'stackId' => 'stack-a',
+                'item' => [
+                    'stackId' => 'stack-a',
+                    'id' => 'stack-a',
+                    'kind' => 'card',
+                    'sourceInstanceId' => 'battlefield-marker',
+                    'cardKey' => 'marker:key',
+                    'controllerId' => $owner->id(),
+                    'ownerId' => $owner->id(),
+                    'visibility' => 'public',
+                    'createdAt' => '2026-01-01T00:00:07+00:00',
+                ],
+            ], $owner, 'stack-a', 7),
+            new GameEvent($game, 'stack.card_added', [
+                'stackId' => 'stack-b',
+                'item' => [
+                    'stackId' => 'stack-b',
+                    'id' => 'stack-b',
+                    'kind' => 'card',
+                    'sourceInstanceId' => 'hand-2',
+                    'cardKey' => 'private:key',
+                    'controllerId' => $owner->id(),
+                    'ownerId' => $owner->id(),
+                    'createdAt' => '2026-01-01T00:00:08+00:00',
+                ],
+            ], $owner, 'stack-b', 8),
+            new GameEvent($game, 'stack.item_removed', ['stackId' => 'stack-a'], $owner, 'remove-stack-a', 9),
+            new GameEvent($game, 'card.dungeon_marker.changed', [
+                'instanceId' => 'battlefield-marker',
+                'dungeonMarker' => ['x' => 0.37, 'y' => 0.62, 'unit' => 'ratio'],
+            ], $owner, 'marker', 10),
+        ];
+
+        $store = $this->eventStore($handler, $flags);
+        $rebuilt = $store->rebuildSnapshot(new Game(new Room($owner), $baseSnapshot), null, $events);
+        $mapper = new CompactGameCardStateMapper();
+        $compact = $mapper->compactSnapshot($baseSnapshot, $game->id(), $game->status());
+        $compactRecord = new GameSnapshotCompact($game, 1, $compact, $store->checksum($compact));
+        $fromStaleCompact = $store->rebuildSnapshot(new Game(new Room($owner), $baseSnapshot), $compactRecord, $events);
+
+        self::assertSame(['hand-1', 'library-1', 'library-3', 'library-4', 'battlefield-put'], $this->libraryProjectionIds($rebuilt, $owner->id()));
+        self::assertSame(['library-2'], $this->zoneIds($rebuilt, $owner->id(), 'graveyard'));
+        self::assertSame([], $this->zoneIds($rebuilt, $owner->id(), 'hand'));
+        self::assertTrue($this->cardById($rebuilt, $owner->id(), 'battlefield', 'hand-2')['faceDown'] ?? false);
+        self::assertSame([$owner->id()], $this->cardById($rebuilt, $owner->id(), 'battlefield', 'hand-2')['revealedTo'] ?? null);
+        self::assertSame(['stack-b'], array_values(array_map(static fn (array $item): string => (string) ($item['stackId'] ?? ''), $rebuilt['stack'])));
+        self::assertSame('player:'.$owner->id(), $rebuilt['stack'][0]['visibility'] ?? null);
+        self::assertSame(
+            ['x' => 0.37, 'y' => 0.62],
+            $this->cardById($rebuilt, $owner->id(), 'battlefield', 'battlefield-marker')['dungeonMarker'] ?? null,
+        );
+        self::assertSame($this->libraryProjectionIds($rebuilt, $owner->id()), $this->libraryProjectionIds($fromStaleCompact, $owner->id()));
+        self::assertSame($this->zoneIds($rebuilt, $owner->id(), 'graveyard'), $this->zoneIds($fromStaleCompact, $owner->id(), 'graveyard'));
+        self::assertSame($rebuilt['stack'][0]['stackId'] ?? null, $fromStaleCompact['stack'][0]['stackId'] ?? null);
+        self::assertSame(
+            $this->cardById($rebuilt, $owner->id(), 'battlefield', 'battlefield-marker')['dungeonMarker'] ?? null,
+            $this->cardById($fromStaleCompact, $owner->id(), 'battlefield', 'battlefield-marker')['dungeonMarker'] ?? null,
+        );
     }
 
     private function eventStore(

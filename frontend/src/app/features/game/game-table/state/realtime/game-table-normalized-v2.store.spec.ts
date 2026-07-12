@@ -1440,6 +1440,237 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-1'].zones.library[1]?.name).toBe('Card');
   });
 
+  it('keeps private stack identity when a public shell for the same item follows and removes idempotently', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const added = applyPatchEnvelopeV2(initial, patch(6, [
+      {
+        op: 'stack.item.add',
+        item: {
+          id: 'stack-private',
+          stackId: 'stack-private',
+          kind: 'card',
+          sourceInstanceId: 'hand-private-1',
+          cardKey: 'private:key',
+          controllerId: 'player-1',
+          createdAt: '2026-01-01T00:00:02.000Z',
+        },
+      },
+      {
+        op: 'stack.item.add',
+        item: {
+          id: 'stack-private',
+          stackId: 'stack-private',
+          kind: 'card',
+          createdAt: '2026-01-01T00:00:02.000Z',
+        },
+      },
+    ]));
+
+    expect(added.status).toBe('applied');
+    expect(added.state.stack.order).toEqual(['stack-1', 'stack-private']);
+    expect(added.state.stack.byId['stack-private'].sourceInstanceId).toBe('hand-private-1');
+    expect(added.state.stack.byId['stack-private'].cardKey).toBe('private:key');
+
+    const removed = applyPatchEnvelopeV2(added.state, patch(7, [{ op: 'stack.item.remove', id: 'stack-private' }]));
+    const retried = applyPatchEnvelopeV2(removed.state, patch(8, [{ op: 'stack.item.remove', id: 'stack-private' }]));
+    expect(removed.status).toBe('applied');
+    expect(retried.status).toBe('applied');
+    expect(retried.state.stack.order).toEqual(['stack-1']);
+  });
+
+  it('atomically materializes revealed private hand placeholders without changing the zone count', () => {
+    const bootstrap = bootstrapV2();
+    delete bootstrap.instances['opp-hand-1'];
+    bootstrap.zones['player-2:hand'].instanceIds = ['player-2-hidden-hand-0', 'player-2-hidden-hand-1'];
+    bootstrap.instances['player-2-hidden-hand-0'] = {
+      instanceId: 'player-2-hidden-hand-0', cardRef: 'instance:player-2-hidden-hand-0', zoneId: 'player-2:hand',
+      ownerId: 'player-2', controllerId: 'player-2', hidden: true, faceDown: true,
+    };
+    bootstrap.instances['player-2-hidden-hand-1'] = {
+      instanceId: 'player-2-hidden-hand-1', cardRef: 'instance:player-2-hidden-hand-1', zoneId: 'player-2:hand',
+      ownerId: 'player-2', controllerId: 'player-2', hidden: true, faceDown: true,
+    };
+    bootstrap.zoneCounts['player-2:hand'] = 2;
+    bootstrap.players['player-2'].zoneCounts.hand = 2;
+
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'private.cards.materialize',
+      playerId: 'player-2',
+      zone: 'hand',
+      entries: [
+        {
+          placeholderId: 'player-2-hidden-hand-0',
+          index: 0,
+          card: { instanceId: 'real-hand-0', cardKey: 'card:revealed-0', ownerId: 'player-2', controllerId: 'player-2', zone: 'hand', revealedTo: ['player-1'] },
+        },
+        {
+          placeholderId: 'player-2-hidden-hand-1',
+          index: 1,
+          card: { instanceId: 'real-hand-1', cardKey: 'card:revealed-1', ownerId: 'player-2', controllerId: 'player-2', zone: 'hand', revealedTo: ['player-1'] },
+        },
+      ],
+      staticCards: {
+        'card:revealed-0': { cardRef: 'card:revealed-0', cardKey: 'card:revealed-0', printId: 'print-0', cardVersion: 'v1', language: 'en', viewerVisibility: 'private', name: 'First reveal' },
+        'card:revealed-1': { cardRef: 'card:revealed-1', cardKey: 'card:revealed-1', printId: 'print-1', cardVersion: 'v1', language: 'en', viewerVisibility: 'private', name: 'Second reveal' },
+      },
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].hand).toEqual(['real-hand-0', 'real-hand-1']);
+    expect(result.state.instances['player-2-hidden-hand-0']).toBeUndefined();
+    expect(result.state.instances['player-2-hidden-hand-1']).toBeUndefined();
+    expect(result.state.zoneCounts['player-2'].hand).toBe(2);
+    expect(hydrateGameSnapshotFromV2State(result.state).players['player-2'].zones.hand.map((card) => card.name))
+      .toEqual(['First reveal', 'Second reveal']);
+  });
+
+  it('rejects an invalid materialization batch without partially replacing placeholders', () => {
+    const bootstrap = bootstrapV2();
+    delete bootstrap.instances['opp-hand-1'];
+    bootstrap.zones['player-2:hand'].instanceIds = ['player-2-hidden-hand-0'];
+    bootstrap.instances['player-2-hidden-hand-0'] = {
+      instanceId: 'player-2-hidden-hand-0', cardRef: 'instance:player-2-hidden-hand-0', zoneId: 'player-2:hand',
+      ownerId: 'player-2', controllerId: 'player-2', hidden: true, faceDown: true,
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'private.cards.materialize',
+      playerId: 'player-2',
+      zone: 'hand',
+      entries: [
+        { placeholderId: 'player-2-hidden-hand-0', index: 0, card: { instanceId: 'real-hand-0', cardKey: 'card:one', zone: 'hand' } },
+        { placeholderId: 'missing-placeholder', index: 1, card: { instanceId: 'real-hand-1', cardKey: 'card:two', zone: 'hand' } },
+      ],
+    }]));
+
+    expect(result.status).toBe('resync_required');
+    expect(initial.zones['player-2'].hand).toEqual(['player-2-hidden-hand-0']);
+    expect(initial.instances['real-hand-0']).toBeUndefined();
+  });
+
+  it('conceals a previously materialized opponent hand card without erasing the owner view', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.game.viewerId = 'player-1';
+    bootstrap.zones['player-2:hand'].instanceIds = ['real-hand-0'];
+    delete bootstrap.instances['opp-hand-1'];
+    bootstrap.instances['real-hand-0'] = {
+      instanceId: 'real-hand-0', cardRef: 'card:revealed', cardKey: 'card:revealed', zoneId: 'player-2:hand',
+      ownerId: 'player-2', controllerId: 'player-2', hidden: false, revealedTo: ['player-1'],
+    };
+    bootstrap.staticCards['card:revealed'] = { cardRef: 'card:revealed', name: 'Secret card' };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'private.cards.conceal',
+      playerId: 'player-2',
+      zone: 'hand',
+      entries: [{ instanceId: 'real-hand-0', placeholderId: 'player-2-hidden-hand-0', index: 0 }],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].hand).toEqual(['player-2-hidden-hand-0']);
+    expect(result.state.instances['real-hand-0']).toBeUndefined();
+    expect(result.state.staticCards['card:revealed']).toBeUndefined();
+    expect(result.state.zoneCounts['player-2'].hand).toBe(1);
+
+    const ownerBootstrap = bootstrapV2();
+    ownerBootstrap.game.viewerId = 'player-2';
+    ownerBootstrap.zones['player-2:hand'].instanceIds = ['real-hand-0'];
+    ownerBootstrap.instances['real-hand-0'] = bootstrap.instances['real-hand-0'];
+    const ownerInitial = createGameTableNormalizedV2State(ownerBootstrap);
+    const ownerResult = applyPatchEnvelopeV2(ownerInitial, patch(6, [{
+      op: 'private.cards.conceal', playerId: 'player-2', zone: 'hand',
+      entries: [{ instanceId: 'real-hand-0', placeholderId: 'player-2-hidden-hand-0', index: 0 }],
+    }]));
+    expect(ownerResult.status).toBe('applied');
+    expect(ownerResult.state.zones['player-2'].hand).toEqual(['real-hand-0']);
+  });
+
+  it('conceals a public card moved into an opponent private zone after its public removal', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.game.viewerId = 'player-1';
+    bootstrap.zones['player-2:hand'].instanceIds = [];
+    bootstrap.zones['player-2:battlefield'].instanceIds = ['public-to-private'];
+    bootstrap.instances['public-to-private'] = {
+      instanceId: 'public-to-private', cardRef: 'card:public-to-private', cardKey: 'card:public-to-private',
+      zoneId: 'player-2:battlefield', ownerId: 'player-2', controllerId: 'player-2', hidden: false,
+    };
+    bootstrap.staticCards['card:public-to-private'] = { cardRef: 'card:public-to-private', name: 'Known card' };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.remove', playerId: 'player-2', zone: 'battlefield', instanceIds: ['public-to-private'],
+    }, {
+      op: 'private.cards.conceal', playerId: 'player-2', zone: 'hand',
+      entries: [{ instanceId: 'public-to-private', placeholderId: 'player-2-hidden-hand-0', index: 0 }],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].battlefield).toEqual([]);
+    expect(result.state.zones['player-2'].hand).toEqual(['player-2-hidden-hand-0']);
+    expect(result.state.instances['public-to-private']).toBeUndefined();
+    expect(result.state.staticCards['card:public-to-private']).toBeUndefined();
+  });
+
+  it('compacts opaque hand ordinals after a private-to-public removal', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.game.viewerId = 'player-1';
+    bootstrap.zones['player-2:hand'].instanceIds = [
+      'player-2-hidden-hand-0',
+      'materialized-hand-1',
+      'player-2-hidden-hand-2',
+      'player-2-hidden-hand-3',
+    ];
+    for (const index of [0, 2, 3]) {
+      const instanceId = `player-2-hidden-hand-${index}`;
+      bootstrap.instances[instanceId] = {
+        instanceId, cardRef: `placeholder:${instanceId}`, zoneId: 'player-2:hand',
+        ownerId: 'player-2', controllerId: 'player-2', hidden: true, faceDown: true,
+      };
+    }
+    bootstrap.instances['materialized-hand-1'] = {
+      instanceId: 'materialized-hand-1', cardRef: 'card:materialized', zoneId: 'player-2:hand',
+      ownerId: 'player-2', controllerId: 'player-2', hidden: false,
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.remove', playerId: 'player-2', zone: 'hand',
+      instanceIds: ['materialized-hand-1', 'player-2-hidden-hand-1'],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].hand).toEqual([
+      'player-2-hidden-hand-0',
+      'player-2-hidden-hand-1',
+      'player-2-hidden-hand-2',
+    ]);
+    expect(result.state.instances['player-2-hidden-hand-3']).toBeUndefined();
+  });
+
+  it('materializes several library cards from the single opaque top placeholder', () => {
+    const bootstrap = bootstrapV2();
+    delete bootstrap.instances['opp-library-1'];
+    bootstrap.zones['player-2:library'].instanceIds = ['player-2-hidden-library-top'];
+    bootstrap.instances['player-2-hidden-library-top'] = {
+      instanceId: 'player-2-hidden-library-top', cardRef: 'instance:player-2-hidden-library-top', zoneId: 'player-2:library',
+      ownerId: 'player-2', controllerId: 'player-2', hidden: true, faceDown: true,
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'private.cards.materialize', playerId: 'player-2', zone: 'library',
+      entries: [
+        { placeholderId: 'player-2-hidden-library-top', index: 0, card: { instanceId: 'top-1', cardKey: 'card:top-1', zone: 'library' } },
+        { index: 1, card: { instanceId: 'top-2', cardKey: 'card:top-2', zone: 'library' } },
+      ],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].library).toEqual(['top-1', 'top-2']);
+    expect(result.state.instances['player-2-hidden-library-top']).toBeUndefined();
+    expect(result.state.zoneCounts['player-2'].library).toBe(98);
+  });
+
   it('applies runtime draw patches without snapshot refetch', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [
@@ -1740,7 +1971,7 @@ describe('game table normalized v2 store', () => {
     expect(reordered.status).toBe('applied');
     expect(reordered.state.zones['player-1'].library).toEqual(['library-2', 'library-1']);
     expect(moved.status).toBe('applied');
-    expect(moved.state.zones['player-1'].library).toEqual([]);
+    expect(moved.state.zones['player-1'].library).toEqual(['library-1', 'library-2']);
     expect(moved.state.zoneCounts['player-1'].library).toBe(98);
     expect(shuffled.status).toBe('applied');
     expect(shuffled.state.zones['player-1'].library).toEqual([]);
@@ -1759,6 +1990,35 @@ describe('game table normalized v2 store', () => {
     expect(result.status).toBe('applied');
     expect(result.state.zoneCounts['player-1'].library).toBe(98);
     expect(hydrateGameSnapshotFromV2State(result.state).players['player-1'].zones.library[0]?.name).toBe('Forest');
+  });
+
+  it('keeps canonical top and bottom order for runtime library put patches', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const putTop = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'hand', instanceIds: ['hand-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'library',
+        index: 0,
+        cards: [initial.instances['hand-1']],
+      },
+    ]));
+    const putBottom = applyPatchEnvelopeV2(putTop.state, patch(7, [
+      { op: 'zone.cards.remove', playerId: 'player-1', zone: 'battlefield', instanceIds: ['battlefield-1'] },
+      {
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'library',
+        index: 999,
+        cards: [initial.instances['battlefield-1']],
+      },
+    ]));
+
+    expect(putTop.status).toBe('applied');
+    expect(putTop.state.zones['player-1'].library).toEqual(['hand-1', 'library-1', 'library-2']);
+    expect(putBottom.status).toBe('applied');
+    expect(putBottom.state.zones['player-1'].library).toEqual(['hand-1', 'library-1', 'library-2', 'battlefield-1']);
   });
 
   it('moves one viewed library card without revealing the rest of the library', () => {

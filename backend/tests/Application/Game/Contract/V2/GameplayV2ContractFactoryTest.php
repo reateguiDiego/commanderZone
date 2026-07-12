@@ -68,6 +68,23 @@ class GameplayV2ContractFactoryTest extends TestCase
         ]);
     }
 
+    public function testPatchEnvelopeRejectsNonNumericOrZeroGroupMasks(): void
+    {
+        foreach (['group:players', 'group:0'] as $visibility) {
+            try {
+                PatchEnvelopeV2::fromArray([
+                    'gameId' => 'game-1',
+                    'version' => 2,
+                    'visibility' => $visibility,
+                    'ops' => [['op' => 'x']],
+                ]);
+                self::fail(sprintf('Visibility %s should be rejected.', $visibility));
+            } catch (\InvalidArgumentException) {
+                self::addToAssertionCount(1);
+            }
+        }
+    }
+
     public function testFactoryBuildsBootstrapV2FromProjectedSnapshot(): void
     {
         [$game, $viewer] = $this->game();
