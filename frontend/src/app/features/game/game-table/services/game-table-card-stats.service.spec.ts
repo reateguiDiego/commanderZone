@@ -14,15 +14,10 @@ describe('GameTableCardStatsService', () => {
     vi.useRealTimers();
   });
 
-  it('accumulates quick power and toughness clicks over the pending value', async () => {
-    const baseCard = card({ power: 2, toughness: 2 });
+  it('accumulates each quick axis independently and sends only the changed axis', async () => {
+    const baseCard = card({ defaultPower: '2', defaultToughness: '2' });
     const command = vi.fn(async () => undefined);
-    const updates: Array<{ power: number; toughness: number }> = [];
-    const context = statsContext(baseCard, command, {
-      updateLocalCardPowerToughness: (_playerId, _zone, _instanceId, power, toughness) => {
-        updates.push({ power, toughness });
-      },
-    });
+    const context = statsContext(baseCard, command);
 
     await service.changePower(context, 'player-1', 'battlefield', baseCard, 1);
     await service.changeToughness(context, 'player-1', 'battlefield', baseCard, 1);
@@ -30,18 +25,52 @@ describe('GameTableCardStatsService', () => {
     vi.advanceTimersByTime(450);
     await Promise.resolve();
 
-    expect(updates).toEqual([
-      { power: 3, toughness: 2 },
-      { power: 3, toughness: 3 },
-      { power: 4, toughness: 3 },
-    ]);
-    expect(command).toHaveBeenCalledWith('card.power_toughness.changed', {
+    expect(command).toHaveBeenCalledWith('card.stats.override.set', {
       playerId: 'player-1',
       zone: 'battlefield',
       instanceId: 'card-1',
+      faceIndex: 0,
       power: 4,
+    }, true);
+    expect(command).toHaveBeenCalledWith('card.stats.override.set', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      faceIndex: 0,
       toughness: 3,
     }, true);
+  });
+
+  it('rejects a quick adjustment on a formula without inventing zero or sending a command', async () => {
+    const baseCard = card({ defaultPower: '*', defaultToughness: '1+*' });
+    const command = vi.fn(async () => undefined);
+    const setError = vi.fn();
+    const context = statsContext(baseCard, command, { setError });
+
+    await service.changePower(context, 'player-1', 'battlefield', baseCard, 1);
+    vi.advanceTimersByTime(450);
+    await Promise.resolve();
+
+    expect(setError).toHaveBeenCalledWith('Set a numeric override before using quick stat controls.');
+    expect(command).not.toHaveBeenCalled();
+  });
+
+  it('uses explicit zero and preserves decimals for quick adjustments', async () => {
+    const baseCard = card({
+      defaultPower: '*',
+      defaultToughness: '*',
+      manualOverrides: { '0': { faceKey: '0', faceIndex: 0, power: 0, toughness: 1.5, provenance: 'manual' } },
+    });
+    const command = vi.fn(async () => undefined);
+    const context = statsContext(baseCard, command);
+
+    await service.changePower(context, 'player-1', 'battlefield', baseCard, 1);
+    await service.changeToughness(context, 'player-1', 'battlefield', baseCard, 1);
+    vi.advanceTimersByTime(450);
+    await Promise.resolve();
+
+    expect(command).toHaveBeenCalledWith('card.stats.override.set', expect.objectContaining({ power: 1 }), true);
+    expect(command).toHaveBeenCalledWith('card.stats.override.set', expect.objectContaining({ toughness: 2.5 }), true);
   });
 
   it('accumulates quick loyalty clicks over the pending value', async () => {
@@ -196,7 +225,6 @@ function statsContext(
     canControlOwnedCard: () => true,
     findCard: (_playerId: string, _zone: GameZoneName, instanceId: string) =>
       instanceId === sourceCard.instanceId ? sourceCard : null,
-    updateLocalCardPowerToughness: vi.fn(),
     updateLocalCardBattleValue: vi.fn(),
     updateLocalCardSagaValue: vi.fn(),
     updateLocalCardLoyalty: vi.fn(),

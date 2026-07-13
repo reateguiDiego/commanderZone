@@ -188,6 +188,10 @@ class GameWebsocketMessageHandlerTest extends TestCase
         self::assertSame(5, $reply['operations'][0]['power']);
         self::assertSame(6, $reply['operations'][0]['toughness']);
         self::assertSame(7, $reply['operations'][0]['loyalty']);
+        $card = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertSame(5, $card['manualOverrides']['0']['power'] ?? null);
+        self::assertSame(6, $card['manualOverrides']['0']['toughness'] ?? null);
+        self::assertSame('manual', $card['manualOverrides']['0']['provenance'] ?? null);
     }
 
     public function testRejectsUnsupportedCommandsOverWebsocket(): void

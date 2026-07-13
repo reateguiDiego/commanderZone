@@ -28,6 +28,25 @@ func RebuildLocIndexForRecoveryOnly(game *GameState) {
 }
 
 func ValidateInvariants(game GameState) error {
+	if len(game.TurnOrder) > 0 {
+		seenPlayers := map[string]bool{}
+		for _, playerID := range game.TurnOrder {
+			if _, ok := game.Players[playerID]; !ok || seenPlayers[playerID] {
+				return fmt.Errorf("%w: invalid turn order player %s", ErrInvariantViolation, playerID)
+			}
+			seenPlayers[playerID] = true
+		}
+		if len(seenPlayers) != len(game.Players) {
+			return fmt.Errorf("%w: turn order does not cover all players", ErrInvariantViolation)
+		}
+	}
+	if game.WinnerPlayerID != "" {
+		player, ok := game.Players[game.WinnerPlayerID]
+		status, _ := player["status"].(string)
+		if !ok || (status != "" && status != "active") {
+			return fmt.Errorf("%w: winner is not active", ErrInvariantViolation)
+		}
+	}
 	seen := map[string]Location{}
 	for playerID, zones := range game.Zones {
 		if err := validateZone(game, seen, playerID, ZoneLibrary, zones.Library); err != nil {

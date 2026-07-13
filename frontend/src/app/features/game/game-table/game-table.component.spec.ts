@@ -4247,9 +4247,11 @@ describe('GameTableComponent', () => {
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
     snapshot.players['user-2']!.life = 0;
+		snapshot.players['user-2']!.status = 'defeated';
     snapshot.players['user-3'] = {
       ...snapshot.players['user-2']!,
       user: { id: 'user-3', email: 'third@test', displayName: 'Third', roles: [] },
+		status: 'active',
       life: 32,
     };
     snapshot.players['user-4'] = {
@@ -5455,13 +5457,13 @@ describe('GameTableComponent', () => {
     });
 
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'card.power_toughness.changed',
+      type: 'card.stats.override.clear',
       payload: {
         playerId: 'user-1',
         zone: 'battlefield',
         instanceId: 'card-1',
-        power: null,
-        toughness: null,
+        faceIndex: 0,
+        axes: ['power', 'toughness'],
       },
     }), 'game-1'));
   });
@@ -5701,6 +5703,7 @@ describe('GameTableComponent', () => {
       life: 38,
     };
     snapshot.players['user-1'].life = 0;
+		snapshot.players['user-1'].status = 'defeated';
     snapshot.rematch = {
       votes: {
         'user-1': {
@@ -5734,8 +5737,10 @@ describe('GameTableComponent', () => {
       ...snapshot.players['user-2'],
       user: { id: 'user-3', email: 'third@test', displayName: 'Third', roles: [] },
       life: 0,
+		status: 'defeated',
     };
     snapshot.players['user-1'].life = 0;
+		snapshot.players['user-1'].status = 'defeated';
     snapshot.rematch = {
       votes: {
         'user-1': {

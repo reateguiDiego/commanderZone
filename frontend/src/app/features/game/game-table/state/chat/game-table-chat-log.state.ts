@@ -179,6 +179,7 @@ export class GameTableChatLogState {
     return {
       actor: actorPlayerId ? this.playerDisplayName(snapshot, entry, actorPlayerId) : entry.displayName ?? 'System',
       player: playerId ? this.playerDisplayName(snapshot, entry, playerId) : entry.displayName ?? 'System',
+      source: this.playerLabelParam(snapshot, entry, params, 'sourcePlayerId'),
       target: this.playerLabelParam(snapshot, entry, params, 'targetPlayerId'),
       count: params['count'] ?? '',
       fromZone: this.zoneLabel(this.stringParam(params, 'fromZone')),
@@ -187,6 +188,9 @@ export class GameTableChatLogState {
       value: params['value'] ?? '',
       previousLife: params['previousLife'] ?? '',
       life: params['life'] ?? '',
+      previousDamage: params['previousDamage'] ?? '',
+      damage: params['damage'] ?? '',
+      delta: params['delta'] ?? '',
       kind: this.diceKindLabel(this.stringParam(params, 'kind')),
       result: params['result'] ?? '',
       tokenName: params['tokenName'] ?? 'Token',

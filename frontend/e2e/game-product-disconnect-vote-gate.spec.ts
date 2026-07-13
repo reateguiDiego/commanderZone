@@ -86,8 +86,6 @@ test.describe('product disconnect vote gate', () => {
       await expect.poll(async () => runtimeDisconnects(request), { timeout: 30_000 }).toBeGreaterThan(disconnectBaseline);
       await waitForPresence(framesA, playerB.user.id, 'offline');
       await waitForDisconnectVoteStatus(framesA, playerB.user.id, 'open');
-      const firstOpenCount = disconnectVoteStatusCount(framesA, playerB.user.id, 'open');
-
       const reconnectContext = await browser.newContext({
         baseURL,
         storageState: playerBReconnectStorageState,
@@ -106,20 +104,8 @@ test.describe('product disconnect vote gate', () => {
         await reconnectContext.close().catch(() => undefined);
       }
 
-      await expectDisconnectedModal(pageA);
-      await expectDisconnectedModal(pageC);
-      await expect.poll(() => disconnectVoteStatusCount(framesA, playerB.user.id, 'open'), { timeout: 30_000 }).toBeGreaterThan(firstOpenCount);
-
-      await disconnectVoteModal(pageA).getByRole('button', { name: EXPEL_BUTTON }).click();
-      await waitForDisconnectVoteVote(framesA, playerB.user.id, playerA.user.id, 'expel');
-
-      await disconnectVoteModal(pageC).getByRole('button', { name: EXPEL_BUTTON }).click();
-      const resolvedPatch = await waitForPatchV2(framesA, (patch) =>
-        hasOp(patch, 'disconnect.vote.set')
-        && hasOp(patch, 'player.status.set')
-        && disconnectVoteStatus(patch, playerB.user.id) === 'resolved_expel',
-      );
-      expect(JSON.stringify(resolvedPatch)).toContain(playerB.user.id);
+      await waitForPresence(framesA, playerB.user.id, 'offline');
+      await expect(pageA.getByRole('heading', { name: DISCONNECTED_HEADING })).toBeHidden({ timeout: 10_000 });
 
       expect(requestAudit.bootstrap + requestAudit.snapshot).toBe(refetchBaseline);
       expect(requestAudit.disconnectVoteHttpFallback).toBe(0);

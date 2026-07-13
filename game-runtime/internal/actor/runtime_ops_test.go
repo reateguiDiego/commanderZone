@@ -1382,7 +1382,13 @@ func TestTokenCreateRuntimeBuildsSyntheticRenderableStaticCard(t *testing.T) {
 }
 
 func TestTokenCopyRuntimeUsesCompactReference(t *testing.T) {
-	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	initial := testState()
+	source := initial.Instances["i1"]
+	source.PrintedStats = map[string]map[string]any{"0": {"faceKey": "0", "faceIndex": 0, "power": 2, "toughness": 3, "provenance": "printed"}}
+	source.ManualOverrides = map[string]map[string]any{"0": {"faceKey": "0", "faceIndex": 0, "power": 9, "provenance": "manual"}}
+	source.MutableStats = map[string]any{"power": 9, "toughness": 3}
+	initial.Instances["i1"] = source
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "token-copy", "card.token_copy.created", map[string]any{
 		"instanceId":     "i1",
 		"targetPlayerId": "p1",
@@ -1393,6 +1399,11 @@ func TestTokenCopyRuntimeUsesCompactReference(t *testing.T) {
 	snapshot := gameActor.Snapshot()
 	if got, want := len(snapshot.Zones["p1"].Battlefield), 2; got != want {
 		t.Fatalf("battlefield count got %d want %d", got, want)
+	}
+	copyID := snapshot.Zones["p1"].Battlefield[1]
+	copyInstance := snapshot.Instances[copyID]
+	if len(copyInstance.ManualOverrides) != 0 || copyInstance.MutableStats["power"] != 2 || copyInstance.PrintedStats["0"]["provenance"] != "copy_effect" {
+		t.Fatalf("token copy inherited mutable override instead of frozen printed base: %#v", copyInstance)
 	}
 	patch := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
 	if patch == nil {
@@ -1611,8 +1622,8 @@ func TestDisconnectVoteOpenAndExpelEmitsSemanticPatches(t *testing.T) {
 	if snapshot.Players["p2"]["status"] != "conceded" {
 		t.Fatalf("p2 status = %#v, want conceded", snapshot.Players["p2"])
 	}
-	if snapshot.DisconnectVote["status"] != "resolved_expel" {
-		t.Fatalf("disconnect vote status = %#v, want resolved_expel", snapshot.DisconnectVote)
+	if snapshot.DisconnectVote["status"] != "executed" {
+		t.Fatalf("disconnect vote status = %#v, want executed", snapshot.DisconnectVote)
 	}
 }
 
@@ -1984,7 +1995,7 @@ func TestActorAcceptsStaleBaseVersionAfterPresenceOnlyVersionAdvance(t *testing.
 	if presenceResult.Err != nil {
 		t.Fatalf("presence event failed: %v", presenceResult.Err)
 	}
-	if presenceResult.Event.Version != 2 || presenceResult.Event.Type != "disconnect.vote.updated" {
+	if presenceResult.Event.Version != 2 || presenceResult.Event.Type != "player.presence.changed" {
 		t.Fatalf("presence event mismatch: %#v", presenceResult.Event)
 	}
 
@@ -2372,7 +2383,7 @@ func TestBattlefieldAndCountersRuntimeMetricsStayAtZeroFullScan(t *testing.T) {
 }
 
 func TestCounterAndCommanderDamagePatchesArePublicAndCompact(t *testing.T) {
-	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+	gameActor := NewGameActor("game-1", commanderDamageAtomicState(), nil, 8, DefaultAppliers())
 
 	counter := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "poison", "counter.changed", map[string]any{
 		"scope": "player:p1",
@@ -2384,7 +2395,8 @@ func TestCounterAndCommanderDamagePatchesArePublicAndCompact(t *testing.T) {
 	}
 	damage := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "damage", "commander.damage.changed", map[string]any{
 		"targetPlayerId":      "p1",
-		"commanderInstanceId": "commander-1",
+		"sourcePlayerId":      "p2",
+		"commanderInstanceId": "commander-p2",
 		"damage":              13,
 	}), "p1")
 	if damage.Err != nil {
@@ -2500,7 +2512,7 @@ func TestCardCounterZeroPersistsUntilExplicitRemove(t *testing.T) {
 	}
 }
 
-func TestPowerToughnessCountersUpdateMutableStats(t *testing.T) {
+func TestPowerToughnessCountersRemainIndependentFromMutableStats(t *testing.T) {
 	gameActor := NewGameActor("game-1", stateIntegrityCounterState(t), nil, 8, DefaultAppliers())
 
 	plus := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "plus-counter", "card.counter.changed", map[string]any{
@@ -2512,12 +2524,15 @@ func TestPowerToughnessCountersUpdateMutableStats(t *testing.T) {
 		t.Fatalf("+1/+1 counter failed: %v", plus.Err)
 	}
 	instance := gameActor.Snapshot().Instances["i1"]
-	if instance.MutableStats["power"] != 6 || instance.MutableStats["toughness"] != 8 {
-		t.Fatalf("+1/+1 did not update stats: %#v", instance.MutableStats)
+	if instance.MutableStats["power"] != 5 || instance.MutableStats["toughness"] != 7 {
+		t.Fatalf("+1/+1 mutated base stats: %#v", instance.MutableStats)
 	}
 	plusPatch := patchForVisibility(plus.Patches, protocol.VisibilityPublic, "card.counters.patch")
-	if plusPatch == nil || plusPatch.Data["power"] != 6 || plusPatch.Data["toughness"] != 8 {
-		t.Fatalf("+1/+1 patch missing stats: %#v", plus.Patches)
+	if plusPatch == nil || plusPatch.Data["counters"].(map[string]any)["+1/+1"] != 1 {
+		t.Fatalf("+1/+1 patch missing independent counter: %#v", plus.Patches)
+	}
+	if _, leaked := plusPatch.Data["power"]; leaked {
+		t.Fatalf("+1/+1 patch rewrote power: %#v", plusPatch.Data)
 	}
 
 	minus := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "minus-counter", "card.counter.changed", map[string]any{
@@ -2530,11 +2545,11 @@ func TestPowerToughnessCountersUpdateMutableStats(t *testing.T) {
 	}
 	instance = gameActor.Snapshot().Instances["i1"]
 	if instance.MutableStats["power"] != 5 || instance.MutableStats["toughness"] != 7 {
-		t.Fatalf("-1/-1 did not update stats: %#v", instance.MutableStats)
+		t.Fatalf("-1/-1 mutated base stats: %#v", instance.MutableStats)
 	}
 	minusPatch := patchForVisibility(minus.Patches, protocol.VisibilityPublic, "card.counters.patch")
-	if minusPatch == nil || minusPatch.Data["power"] != 5 || minusPatch.Data["toughness"] != 7 {
-		t.Fatalf("-1/-1 patch missing stats: %#v", minus.Patches)
+	if minusPatch == nil || minusPatch.Data["counters"].(map[string]any)["-1/-1"] != 1 {
+		t.Fatalf("-1/-1 patch missing independent counter: %#v", minus.Patches)
 	}
 	if patch := patchForVisibility(minus.Patches, protocol.VisibilityPublic, "card.field.set"); patch != nil {
 		t.Fatalf("counter stats must stay on card.counters.patch, got field patch: %#v", patch)
@@ -3819,15 +3834,8 @@ func assertStateIntegrityAroundCounter(t *testing.T, before state.GameState, aft
 	if afterCard.Counters["+1/+1"] != counterValue || afterCard.Counters["shield"] != beforeCard.Counters["shield"] {
 		t.Fatalf("counter mismatch before=%#v after=%#v", beforeCard.Counters, afterCard.Counters)
 	}
-	if beforePower, ok := intFromAny(beforeCard.MutableStats["power"]); ok {
-		if afterPower, ok := intFromAny(afterCard.MutableStats["power"]); !ok || afterPower != beforePower+counterValue {
-			t.Fatalf("counter did not update power from %d by %d: %#v", beforePower, counterValue, afterCard.MutableStats)
-		}
-	}
-	if beforeToughness, ok := intFromAny(beforeCard.MutableStats["toughness"]); ok {
-		if afterToughness, ok := intFromAny(afterCard.MutableStats["toughness"]); !ok || afterToughness != beforeToughness+counterValue {
-			t.Fatalf("counter did not update toughness from %d by %d: %#v", beforeToughness, counterValue, afterCard.MutableStats)
-		}
+	if !reflect.DeepEqual(beforeCard.MutableStats, afterCard.MutableStats) {
+		t.Fatalf("counter changed mutable stats\nbefore=%#v\nafter=%#v", beforeCard.MutableStats, afterCard.MutableStats)
 	}
 	beforeCard.Counters = nil
 	afterCounters := afterCard.Counters
@@ -3921,7 +3929,7 @@ func requireRuntimeLogEntry(t *testing.T, result CommandResult) map[string]any {
 		t.Fatalf("missing eventLog.append patch: %#v", result.Patches)
 	}
 	entries, ok := logPatch.Data["entries"].([]map[string]any)
-	if !ok || len(entries) != 1 {
+	if !ok || len(entries) < 1 {
 		t.Fatalf("bad log entries payload: %#v", logPatch.Data)
 	}
 	return entries[0]

@@ -242,8 +242,6 @@ export class GameTableContextStore {
     return {
       canControlOwnedCard: (playerId, card) => this.playersStore.canControlOwnedCard(playerId, card, this.interaction()),
       findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
-      updateLocalCardPowerToughness: (playerId, zone, instanceId, power, toughness) =>
-        this.updateLocalCardPowerToughness(playerId, zone, instanceId, power, toughness),
       updateLocalCardBattleValue: (playerId, zone, instanceId, defense) =>
         this.updateLocalCardBattleValue(playerId, zone, instanceId, defense),
       updateLocalCardSagaValue: (playerId, zone, instanceId, saga) =>
@@ -464,21 +462,6 @@ export class GameTableContextStore {
 
   private findCard(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null {
     return this.core.snapshot()?.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
-  }
-
-  private updateLocalCardPowerToughness(playerId: string, zone: GameZoneName, instanceId: string, power: number, toughness: number): void {
-    const snapshot = this.core.snapshot();
-    if (!snapshot) {
-      return;
-    }
-
-    const next = structuredClone(snapshot);
-    const card = next.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId);
-    if (card) {
-      card.power = power;
-      card.toughness = toughness;
-      this.boundSource().setSnapshot(next);
-    }
   }
 
   private updateLocalCardBattleValue(playerId: string, zone: GameZoneName, instanceId: string, defense: number): void {

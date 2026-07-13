@@ -38,7 +38,8 @@ export class GameTableTurnActionsService {
       return;
     }
 
-    const players = this.turnEligiblePlayers(context.players());
+		const players = this.turnEligiblePlayers(context.players(), snapshot.turnOrder);
+		if (players.length <= 1) { return; }
     const activeIndex = players.findIndex((player) => player.id === snapshot.turn.activePlayerId);
     const nextPlayer = players[(activeIndex + 1) % players.length] ?? players[0];
     const nextNumber = this.nextTurnNumber(snapshot.turn.number, activeIndex, nextPlayer ? players.indexOf(nextPlayer) : -1);
@@ -55,7 +56,8 @@ export class GameTableTurnActionsService {
       return;
     }
 
-    const players = this.turnEligiblePlayers(context.players());
+		const players = this.turnEligiblePlayers(context.players(), snapshot.turnOrder);
+		if (players.length <= 1) { return; }
     const activeIndex = players.findIndex((player) => player.id === snapshot.turn.activePlayerId);
     const nextPlayer = players[(activeIndex + 1) % players.length] ?? players[0];
     const nextNumber = this.nextTurnNumber(snapshot.turn.number, activeIndex, nextPlayer ? players.indexOf(nextPlayer) : -1);
@@ -66,10 +68,12 @@ export class GameTableTurnActionsService {
     });
   }
 
-  private turnEligiblePlayers(players: PlayerView[]): PlayerView[] {
-    const alivePlayers = players.filter((player) => playerIsActiveForTurn(player));
-
-    return alivePlayers.length >= 2 ? alivePlayers : players;
+  private turnEligiblePlayers(players: PlayerView[], turnOrder: string[] | undefined): PlayerView[] {
+		const byId = new Map(players.map((player) => [player.id, player]));
+		const ordered = (turnOrder ?? players.map((player) => player.id))
+			.map((playerId) => byId.get(playerId))
+			.filter((player): player is PlayerView => Boolean(player));
+		return ordered.filter((player) => playerIsActiveForTurn(player));
   }
 
   private nextTurnNumber(currentNumber: number, activeIndex: number, nextIndex: number): number {

@@ -9,13 +9,25 @@ import (
 )
 
 const (
-	AuthorizationCodeInstanceNotFound      = "INSTANCE_NOT_FOUND"
-	AuthorizationCodeInstanceNotControlled = "INSTANCE_NOT_CONTROLLED"
-	AuthorizationCodeInstanceNotOwned      = "INSTANCE_NOT_OWNED"
-	AuthorizationCodeZoneMismatch          = "ZONE_MISMATCH"
-	AuthorizationCodeMixedAuthorityBatch   = "MIXED_AUTHORITY_BATCH"
-	AuthorizationCodeDuplicateInstance     = "DUPLICATE_INSTANCE"
-	AuthorizationCodePermissionDenied      = "PERMISSION_DENIED"
+	AuthorizationCodeInstanceNotFound          = "INSTANCE_NOT_FOUND"
+	AuthorizationCodeInstanceNotControlled     = "INSTANCE_NOT_CONTROLLED"
+	AuthorizationCodeInstanceNotOwned          = "INSTANCE_NOT_OWNED"
+	AuthorizationCodeZoneMismatch              = "ZONE_MISMATCH"
+	AuthorizationCodeMixedAuthorityBatch       = "MIXED_AUTHORITY_BATCH"
+	AuthorizationCodeDuplicateInstance         = "DUPLICATE_INSTANCE"
+	AuthorizationCodePermissionDenied          = "PERMISSION_DENIED"
+	AuthorizationCodeCommanderNotFound         = "COMMANDER_NOT_FOUND"
+	AuthorizationCodeInvalidCommander          = "INVALID_COMMANDER"
+	AuthorizationCodeInvalidSource             = "INVALID_SOURCE"
+	AuthorizationCodeInvalidTarget             = "INVALID_TARGET"
+	AuthorizationCodePlayerDefeated            = "PLAYER_DEFEATED"
+	AuthorizationCodePlayerConceded            = "PLAYER_CONCEDED"
+	AuthorizationCodeGameClosed                = "GAME_CLOSED"
+	AuthorizationCodeInvalidFace               = "INVALID_FACE"
+	AuthorizationCodeInvalidPowerOverride      = "INVALID_POWER_OVERRIDE"
+	AuthorizationCodeInvalidToughnessOverride  = "INVALID_TOUGHNESS_OVERRIDE"
+	AuthorizationCodeNoStatsAxisProvided       = "NO_STATS_AXIS_PROVIDED"
+	AuthorizationCodeNonNumericQuickAdjustment = "NON_NUMERIC_QUICK_ADJUSTMENT"
 )
 
 // AuthorizationError is safe to serialize to the command actor. InstanceID is
@@ -41,6 +53,30 @@ func (e *AuthorizationError) Error() string {
 		return "batch contains instances with mixed authority"
 	case AuthorizationCodeDuplicateInstance:
 		return "batch contains a duplicate instance"
+	case AuthorizationCodeInvalidFace:
+		return "card face is invalid"
+	case AuthorizationCodeInvalidPowerOverride:
+		return "power override is invalid"
+	case AuthorizationCodeInvalidToughnessOverride:
+		return "toughness override is invalid"
+	case AuthorizationCodeNoStatsAxisProvided:
+		return "no power or toughness axis was provided"
+	case AuthorizationCodeNonNumericQuickAdjustment:
+		return "quick adjustment requires a numeric base or override"
+	case AuthorizationCodeCommanderNotFound:
+		return "command references a commander instance that does not exist"
+	case AuthorizationCodeInvalidCommander:
+		return "command references an invalid commander"
+	case AuthorizationCodeInvalidSource:
+		return "commander damage source is invalid"
+	case AuthorizationCodeInvalidTarget:
+		return "commander damage target is invalid"
+	case AuthorizationCodePlayerDefeated:
+		return "defeated players cannot perform gameplay mutations"
+	case AuthorizationCodePlayerConceded:
+		return "conceded players cannot perform gameplay mutations"
+	case AuthorizationCodeGameClosed:
+		return "closed or resolved games cannot receive gameplay mutations"
 	default:
 		return "actor is not allowed to perform command"
 	}
@@ -85,6 +121,8 @@ var ownPlayerPayloadCommands = map[string]string{
 	"card.revealed":                "playerId",
 	"card.controller.changed":      "playerId",
 	"card.power_toughness.changed": "playerId",
+	"card.stats.override.set":      "playerId",
+	"card.stats.override.clear":    "playerId",
 	"card.counter.changed":         "playerId",
 	"stack.card_added":             "playerId",
 	"arrow.created":                "ownerId",
@@ -110,6 +148,8 @@ var ownInstanceSubjectCommands = map[string][]string{
 	"card.revealed":                {"instanceId"},
 	"card.controller.changed":      {"instanceId"},
 	"card.power_toughness.changed": {"instanceId"},
+	"card.stats.override.set":      {"instanceId"},
+	"card.stats.override.clear":    {"instanceId"},
 	"card.counter.changed":         {"instanceId"},
 	"card.token_copy.created":      {"instanceId"},
 	"stack.card_added":             {"instanceId"},
@@ -126,6 +166,22 @@ func (a *GameActor) permissionErrorLocked(command protocol.CommandEnvelopeV2, ac
 	}
 	if actorID == "" {
 		return ErrActorPermission
+	}
+	if command.Type == "commander.damage.changed" {
+		targetPlayerID, ok := command.Payload["targetPlayerId"].(string)
+		targetPlayerID = strings.TrimSpace(targetPlayerID)
+		if !ok || targetPlayerID == "" {
+			return &AuthorizationError{Code: AuthorizationCodeInvalidTarget, CommandType: command.Type}
+		}
+		if _, exists := a.state.Players[targetPlayerID]; !exists {
+			return &AuthorizationError{Code: AuthorizationCodeInvalidTarget, CommandType: command.Type}
+		}
+		if targetPlayerID != actorID {
+			return &AuthorizationError{Code: AuthorizationCodePermissionDenied, CommandType: command.Type}
+		}
+	}
+	if err := a.activeGameplayActorError(command.Type, actorID); err != nil {
+		return err
 	}
 	if command.Type == "game.close" {
 		return nil
@@ -170,6 +226,32 @@ func (a *GameActor) permissionErrorLocked(command protocol.CommandEnvelopeV2, ac
 		return err
 	}
 	return nil
+}
+
+func (a *GameActor) activeGameplayActorError(commandType string, actorID string) error {
+	switch commandType {
+	case "game.close", "disconnect.vote":
+		return nil
+	}
+	if commandType == "game.concede" && playerStatus(a.state, actorID) == "conceded" {
+		return nil
+	}
+	player, ok := a.state.Players[actorID]
+	if !ok {
+		return ErrActorPermission
+	}
+	status, _ := player["status"].(string)
+	switch status {
+	case "defeated":
+		return &AuthorizationError{Code: AuthorizationCodePlayerDefeated, CommandType: commandType}
+	case "conceded":
+		return &AuthorizationError{Code: AuthorizationCodePlayerConceded, CommandType: commandType}
+	default:
+		if a.state.Status == "finished" || a.state.Status == "closed" || a.state.Phase == state.PhaseFinished || a.state.ResultState != "" {
+			return &AuthorizationError{Code: AuthorizationCodeGameClosed, CommandType: commandType}
+		}
+		return nil
+	}
 }
 
 func (a *GameActor) requirePayloadPlayer(payload map[string]any, key string, actorID string) error {

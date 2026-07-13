@@ -7359,6 +7359,19 @@ components:
             $ref: '#/components/schemas/GamePlayer'
         turn:
           $ref: '#/components/schemas/TurnState'
+        turnOrder:
+          type: array
+          items:
+            type: string
+            format: uuid
+        winnerPlayerId:
+          type: [string, 'null']
+          format: uuid
+        resultState:
+          type: [string, 'null']
+          enum: [survivor, no_active_players, null]
+        finishedReason:
+          type: [string, 'null']
         timer:
           $ref: '#/components/schemas/GameTimerState'
         stack:
@@ -7391,6 +7404,14 @@ components:
           oneOf:
             - $ref: '#/components/schemas/GameDisconnectVote'
             - type: 'null'
+        presence:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/GamePlayerPresence'
+        disconnectCooldowns:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/GameDisconnectCooldown'
         createdAt:
           type: string
           format: date-time
@@ -7419,10 +7440,20 @@ components:
           $ref: '#/components/schemas/User'
         status:
           type: string
-          enum: [active, conceded]
+          enum: [active, defeated, conceded]
         concededAt:
           type: [string, 'null']
           format: date-time
+        eliminationReason:
+          type: [string, 'null']
+          enum: [life, commander_damage, concede, expelled, null]
+        eliminatedAtVersion:
+          type: [integer, 'null']
+        sourcePlayerId:
+          type: [string, 'null']
+          format: uuid
+        commanderInstanceId:
+          type: [string, 'null']
         deckName:
           type: [string, 'null']
         colorIdentity:
@@ -7525,13 +7556,13 @@ components:
             enum: [W, U, B, R, G]
         power:
           oneOf:
-            - type: integer
+            - type: number
             - type: string
             - type: 'null'
           description: Current power. Can be a printed non-numeric value such as X or *.
         toughness:
           oneOf:
-            - type: integer
+            - type: number
             - type: string
             - type: 'null'
           description: Current toughness. Can be a printed non-numeric value such as X or *.
@@ -7549,16 +7580,42 @@ components:
           description: Current battle defense. Can be a printed non-numeric value.
         defaultPower:
           oneOf:
-            - type: integer
+            - type: number
             - type: string
             - type: 'null'
           description: Printed/default power used to reset battlefield stat changes.
         defaultToughness:
           oneOf:
-            - type: integer
+            - type: number
             - type: string
             - type: 'null'
           description: Printed/default toughness used to reset battlefield stat changes.
+        printedStats:
+          type: object
+          description: Immutable printed power/toughness per card face. Formulas and symbols remain strings.
+          additionalProperties:
+            type: object
+            required: [faceKey, faceIndex, power, toughness]
+            properties:
+              faceKey: { type: string }
+              faceIndex: { type: integer, minimum: 0 }
+              power: { type: [string, 'null'] }
+              toughness: { type: [string, 'null'] }
+              provenance: { type: string, enum: [printed, token_creation, copy_effect] }
+        manualOverrides:
+          type: object
+          description: Explicit per-face manual base values; absent axes are not overrides and explicit zero is preserved.
+          additionalProperties:
+            type: object
+            required: [faceKey, faceIndex, provenance]
+            properties:
+              faceKey: { type: string }
+              faceIndex: { type: integer, minimum: 0 }
+              power: { oneOf: [{ type: number }, { type: string }] }
+              toughness: { oneOf: [{ type: number }, { type: string }] }
+              provenance: { type: string, enum: [manual, token_creation, copy_effect, imported_legacy] }
+              updatedByPlayerId: { type: [string, 'null'] }
+              updatedAtVersion: { type: [integer, 'null'], minimum: 0 }
         defaultLoyalty:
           oneOf:
             - type: integer
@@ -7791,23 +7848,53 @@ components:
           format: date-time
     GameDisconnectVote:
       type: object
-      required: [targetPlayerId, status, openedAt, deadlineAt, cooldownUntil, votes]
+      required: [voteId, targetPlayerId, openedByPlayerId, status, eligibleVoterIds, requiredVotes, openedAt, expiresAt, resolvedAt, cooldownUntil, resolution, votesByPlayerId, effectVersion]
       properties:
+        voteId:
+          type: string
+          format: uuid
         targetPlayerId:
+          type: [string, 'null']
+          format: uuid
+        openedByPlayerId:
           type: [string, 'null']
           format: uuid
         status:
           type: string
-          enum: [open, resolved_wait, resolved_expel, cancelled]
+          enum: [open, waiting, passed, rejected, cancelled, expired, executed]
+        eligibleVoterIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        requiredVotes:
+          type: integer
+          minimum: 1
         openedAt:
+          type: [string, 'null']
+          format: date-time
+        expiresAt:
           type: [string, 'null']
           format: date-time
         deadlineAt:
           type: [string, 'null']
           format: date-time
+        resolvedAt:
+          type: [string, 'null']
+          format: date-time
         cooldownUntil:
           type: [string, 'null']
           format: date-time
+        resolution:
+          type: [string, 'null']
+          enum: [expel, wait, reconnected, player_eliminated, game_closed, null]
+        effectVersion:
+          type: integer
+          minimum: 4
+        votesByPlayerId:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/GameDisconnectVoteEntry'
         votes:
           type: object
           additionalProperties:
@@ -7824,9 +7911,29 @@ components:
         vote:
           type: string
           enum: [wait, expel]
+        decision:
+          type: string
+          enum: [wait, expel]
         votedAt:
           type: string
           format: date-time
+    GamePlayerPresence:
+      type: object
+      required: [playerId, connected, activeConnectionCount]
+      properties:
+        playerId: {type: string, format: uuid}
+        connected: {type: boolean}
+        activeConnectionCount: {type: integer, minimum: 0}
+        disconnectedAt: {type: [string, 'null'], format: date-time}
+        lastSeenAt: {type: [string, 'null'], format: date-time}
+    GameDisconnectCooldown:
+      type: object
+      required: [targetPlayerId, voteId, reason, cooldownUntil]
+      properties:
+        targetPlayerId: {type: string, format: uuid}
+        voteId: {type: string, format: uuid}
+        reason: {type: string}
+        cooldownUntil: {type: string, format: date-time}
     RematchVoteRequest:
       type: object
       required: [vote]
@@ -7857,12 +7964,15 @@ components:
           type: boolean
     DisconnectVoteRequest:
       type: object
-      required: [targetPlayerId, vote]
+      required: [targetPlayerId, voteId, decision]
       properties:
         targetPlayerId:
           type: string
           format: uuid
-        vote:
+        voteId:
+          type: string
+          format: uuid
+        decision:
           type: string
           enum: [wait, expel]
     DisconnectVoteResponse:
@@ -7989,6 +8099,8 @@ components:
             - counter.changed
             - card.counter.changed
             - card.power_toughness.changed
+            - card.stats.override.set
+            - card.stats.override.clear
             - card.moved
             - cards.moved
             - card.tapped
@@ -8028,16 +8140,26 @@ components:
           description: >
             Command payload. For commander.damage.changed, the actor must be the
             target player and must send targetPlayerId, sourcePlayerId, and
-            commanderInstanceId; reaching 21 damage from one commander defeats
-            that player. For counter.changed with a commander:<instanceId> scope
+            commanderInstanceId plus the absolute final damage. The source must
+            exist, be active, and own the referenced isCommander instance. A
+            positive delta subtracts the same amount of life; zero or negative
+            deltas never restore life. Reaching 21 damage from one commander or
+            reducing life to zero defeats that player atomically and advances
+            the turn when necessary. Atomic lifecycle events persist their life,
+            status, and turn result for replay; legacy events retain their former
+            commander-damage-only replay semantics. For counter.changed with a commander:<instanceId> scope
             and key=casts, the instanceId must identify one of the actor's
             commander cards.
             For counter.changed with a player:<playerId> scope, the actor must
             be that player and may send either value or delta. For
             card.counter.changed, send key plus either value, delta, or
             remove=true to delete that counter from the card. For
-            card.power_toughness.changed, power/toughness/loyalty may be numbers
-            or null to clear manually assigned stats. For card.moved into
+            card.power_toughness.changed is the legacy adapter for mutable
+            loyalty/defense/saga fields. New manual power/toughness changes use
+            card.stats.override.set or card.stats.override.clear with instanceId,
+            faceIndex (or faceKey), and only the axes being changed. Explicit zero
+            and decimal values are preserved; printed formulas and counters remain
+            independent. For card.moved into
             battlefield, faceDown=true places the moved card face down. For
             cards.moved into library, randomOrder=true randomizes only the moved
             cards before placing them at the requested top/bottom position.
@@ -8158,6 +8280,8 @@ components:
         `private.cards.materialize` atomically replaces opaque private-zone placeholders using `{ playerId, zone, entries: [{ placeholderId?, index, card }], staticCards? }`;
         only server-routed authorized viewers receive real card identity. `private.cards.conceal` reverses that projection using
         `{ playerId, zone, entries: [{ instanceId, placeholderId, index }] }` without carrying card identity. Placeholder IDs never contain the real instance ID.
+        Lifecycle transitions use same-version `player.status.set`, `player.elimination.set`, `turn.set`, `turn.order.set`, helper designation ops,
+        `game.result.set`, and optional game status/phase ops; clients must merge them atomically without refetch.
       required: [op]
       properties:
         op:
@@ -8196,6 +8320,10 @@ components:
         turn:
           type: object
           additionalProperties: true
+        turnOrder:
+          type: array
+          items:
+            type: string
         staticCards:
           type: object
           additionalProperties:
@@ -8228,4 +8356,3 @@ components:
         createdAt:
           type: string
           format: date-time
-

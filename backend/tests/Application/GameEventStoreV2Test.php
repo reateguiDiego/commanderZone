@@ -243,6 +243,46 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame($snapshot['disconnectVote'], $hydrated['disconnectVote']);
     }
 
+	public function testReplayCopiesDurableDisconnectVoteEffectsWithoutRecalculation(): void
+	{
+		$actor = new User('durable-vote-owner@example.test', 'Durable Owner');
+		$target = new User('durable-vote-target@example.test', 'Durable Target');
+		$handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, true));
+		$base = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), []));
+		$base['players'][$target->id()] = $base['players'][$actor->id()];
+		$base['players'][$target->id()]['user'] = $target->toArray();
+		$game = new Game(new Room($actor), $base);
+		$vote = [
+			'voteId' => 'vote-durable', 'targetPlayerId' => $target->id(), 'openedByPlayerId' => $actor->id(),
+			'status' => 'executed', 'eligibleVoterIds' => [$actor->id()], 'requiredVotes' => 1,
+			'votesByPlayerId' => [$actor->id() => ['playerId' => $actor->id(), 'decision' => 'expel']],
+			'votes' => [$actor->id() => ['playerId' => $actor->id(), 'vote' => 'expel']],
+			'openedAt' => '2026-07-13T12:00:00Z', 'expiresAt' => null, 'resolvedAt' => '2026-07-13T12:00:05Z',
+			'cooldownUntil' => null, 'resolution' => 'expel', 'effectVersion' => 4,
+		];
+		$event = new GameEvent($game, 'disconnect.vote.resolved', [
+			'effectVersion' => 4, 'targetPlayerId' => $target->id(), 'status' => 'executed', 'resolution' => 'expel',
+			'eliminationReason' => 'expelled', 'eliminatedAtVersion' => 2, 'concededAt' => '2026-07-13T12:00:05Z',
+			'disconnectVote' => $vote,
+			'presence' => [$target->id() => ['playerId' => $target->id(), 'connected' => false, 'activeConnectionCount' => 0]],
+			'disconnectCooldowns' => [],
+			'rematch' => ['votes' => [$target->id() => ['playerId' => $target->id(), 'vote' => 'leave']]],
+			'turn' => ['activePlayerId' => $actor->id(), 'phase' => 'combat', 'number' => 2],
+			'turnOrder' => [$actor->id(), $target->id()], 'winnerPlayerId' => $actor->id(),
+			'resultState' => 'survivor', 'finishedReason' => 'last_active', 'designationsAfter' => [],
+		], $actor, 'vote-durable-action', 2);
+
+		$rebuilt = (new GameEventReplayService())->replay($base, [$event]);
+
+		self::assertSame($vote, $rebuilt['disconnectVote']);
+		self::assertFalse($rebuilt['presence'][$target->id()]['connected']);
+		self::assertSame('conceded', $rebuilt['players'][$target->id()]['status']);
+		self::assertSame('expelled', $rebuilt['players'][$target->id()]['eliminationReason']);
+		self::assertSame('leave', $rebuilt['rematch']['votes'][$target->id()]['vote']);
+		self::assertSame($actor->id(), $rebuilt['turn']['activePlayerId']);
+		self::assertSame($actor->id(), $rebuilt['winnerPlayerId']);
+	}
+
     public function testRuntimeRevealAudienceReplaysCanonicalPublicAndPlayerTargets(): void
     {
         $actor = new User('audience-owner@example.test', 'Audience Owner');
@@ -1150,8 +1190,8 @@ class GameEventStoreV2Test extends TestCase
         self::assertTrue($card['faceDown'] ?? false);
         self::assertSame($controller->id(), $card['controllerId'] ?? null);
         self::assertSame(['+1/+1' => 3], $card['counters'] ?? null);
-        self::assertSame(8, $card['power'] ?? null);
-        self::assertSame(10, $card['toughness'] ?? null);
+        self::assertSame(5, $card['power'] ?? null);
+        self::assertSame(7, $card['toughness'] ?? null);
         self::assertSame('arrow-1', $rebuilt['arrows'][0]['id'] ?? null);
         self::assertSame('attachment-1', $rebuilt['attachments'][0]['id'] ?? null);
         $equipment = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'equipment-1');
@@ -1399,12 +1439,73 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(3, $rebuilt['players'][$actor->id()]['counters']['energy'] ?? null);
         self::assertSame(4, $rebuilt['players'][$actor->id()]['counters']['experience'] ?? null);
         self::assertSame(7, $rebuilt['players'][$actor->id()]['commanderDamage']['opponent-commander'] ?? null);
+        self::assertSame(40, $rebuilt['players'][$actor->id()]['life'] ?? null);
+        self::assertSame('active', $rebuilt['players'][$actor->id()]['status'] ?? 'active');
+        self::assertSame($actor->id(), $rebuilt['turn']['activePlayerId'] ?? null);
         $card = $this->cardById($rebuilt, $actor->id(), 'battlefield', 'battlefield-1');
         self::assertSame(2, $card['counters']['charge'] ?? null);
         self::assertSame(5, $card['power'] ?? null);
         self::assertSame(6, $card['toughness'] ?? null);
         self::assertSame('citys_blessing', $rebuilt['specialEntities'][0]['template'] ?? null);
         self::assertSame($actor->id(), $rebuilt['specialEntities'][0]['ownerPlayerId'] ?? null);
+    }
+
+    public function testReplayCopiesAtomicCommanderDamageLifecycleAndGameLogWithoutRecalculation(): void
+    {
+        $actor = new User('runtime-atomic-damage@example.test', 'Atomic Damage Target');
+        $opponent = new User('runtime-atomic-damage-source@example.test', 'Atomic Damage Source');
+        $flags = new GameplayV2Flags(true, false, false, true, false, true, 'commander.damage.changed');
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $rawSnapshot = $this->baseSnapshot($actor->id(), []);
+        $rawSnapshot['players'][$opponent->id()] = [
+            'user' => ['id' => $opponent->id(), 'email' => $opponent->email(), 'displayName' => $opponent->displayName(), 'roles' => []],
+            'life' => 40,
+            'zones' => [
+                'library' => [], 'hand' => [], 'battlefield' => [], 'graveyard' => [], 'exile' => [],
+                'command' => [[
+                    ...$this->card('opponent-commander', 'Atomic Commander', 'command'),
+                    'ownerId' => $opponent->id(),
+                    'controllerId' => $opponent->id(),
+                    'isCommander' => true,
+                ]],
+            ],
+            'commanderDamage' => [],
+            'counters' => [],
+        ];
+        $baseSnapshot = $handler->normalizeSnapshot($rawSnapshot);
+        $game = new Game(new Room($actor), $baseSnapshot);
+        $turn = ['activePlayerId' => $opponent->id(), 'phase' => 'main-1', 'number' => 1];
+        $logEntries = [
+            ['id' => 'atomic-damage-log', 'type' => 'commander_damage.changed', 'message' => 'fallback', 'i18nKey' => 'gameLog.commanderDamage.changed'],
+            ['id' => 'atomic-defeat-log', 'type' => 'player.defeated', 'message' => 'fallback', 'i18nKey' => 'gameLog.player.defeatedByCommanderDamage'],
+        ];
+        $event = new GameEvent($game, 'commander.damage.changed', [
+            'effectVersion' => 2,
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'commanderInstanceId' => 'opponent-commander',
+            'previousDamage' => 20,
+            'damage' => 21,
+            'delta' => 1,
+            'previousLife' => 40,
+            'life' => 35,
+            'previousStatus' => 'active',
+            'status' => 'defeated',
+            'statusChanged' => true,
+            'turn' => $turn,
+            'eventLogEntries' => $logEntries,
+        ], $actor, 'runtime-atomic-damage', 2);
+
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$event]);
+        $rebuilt = $handler->normalizeSnapshot($rebuilt);
+        $mapper = new CompactGameCardStateMapper();
+        $rebuilt = $handler->normalizeSnapshot($mapper->hydrateSnapshot($mapper->compactSnapshot($rebuilt)));
+
+        self::assertSame(21, $rebuilt['players'][$actor->id()]['commanderDamage']['opponent-commander'] ?? null);
+        self::assertSame(35, $rebuilt['players'][$actor->id()]['life'] ?? null);
+        self::assertSame('defeated', $rebuilt['players'][$actor->id()]['status'] ?? null);
+        self::assertSame($turn, $rebuilt['turn'] ?? null);
+        self::assertSame(['gameLog.commanderDamage.changed', 'gameLog.player.defeatedByCommanderDamage'], array_column($rebuilt['eventLog'] ?? [], 'i18nKey'));
     }
 
     public function testReplayRebuildsRuntimeGoTokenCreateAndCopyForReconnect(): void

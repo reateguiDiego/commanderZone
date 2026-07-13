@@ -16,6 +16,18 @@ use PHPUnit\Framework\TestCase;
 
 class GameCommandHandlerV2Test extends TestCase
 {
+	public function testLegacySnapshotDerivesAndThenPreservesPlayerTurnOrder(): void
+	{
+		$owner = new User('turn-order-owner@example.test', 'Turn Owner');
+		$other = new User('turn-order-other@example.test', 'Turn Other');
+		$raw = self::baseSnapshot($owner->id(), [], $other->id());
+		unset($raw['turnOrder']);
+
+		$normalized = (new GameCommandHandler())->normalizeSnapshot($raw);
+
+		self::assertSame(array_keys($raw['players']), $normalized['turnOrder']);
+	}
+
     #[DataProvider('scenarioProvider')]
     public function testSupportedV2CommandsMatchLegacyVisibleState(
         string $type,

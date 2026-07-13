@@ -21,6 +21,17 @@ import (
 
 const testTicketSecret = "test-runtime-ticket-secret"
 
+func TestWebSocketConnectionStateDoesNotExposeInternalConnectionID(t *testing.T) {
+	server, _ := testWebSocketServer(t, "game-1", 128, 256)
+	defer server.Close()
+	conn := dialRuntime(t, server.URL, "game-1", 0, nil)
+	defer conn.Close()
+	message := readUntil(t, conn, "connection_state")
+	if message.ConnectionID != "" {
+		t.Fatalf("connection_state leaked internal connection id %q", message.ConnectionID)
+	}
+}
+
 func TestWebSocketAcceptsValidTicketAndEmitsPatch(t *testing.T) {
 	server, runtimeService := testWebSocketServer(t, "game-1", 128, 256)
 	defer server.Close()
@@ -111,10 +122,15 @@ func TestWebSocketDisconnectOpensRuntimeDisconnectVote(t *testing.T) {
 	if patch.Version != 2 {
 		t.Fatalf("disconnect vote patch version = %d, want 2", patch.Version)
 	}
-	if len(patch.Ops) == 0 || patch.Ops[0]["op"] != "disconnect.vote.set" {
+	if !hasPatchOp(patch.Ops, "disconnect.vote.set") {
 		t.Fatalf("ops = %#v, want disconnect.vote.set", patch.Ops)
 	}
-	vote := patch.Ops[0]["disconnectVote"].(map[string]any)
+	var vote map[string]any
+	for _, op := range patch.Ops {
+		if op["op"] == "disconnect.vote.set" {
+			vote, _ = op["disconnectVote"].(map[string]any)
+		}
+	}
 	if vote["status"] != "open" || vote["targetPlayerId"] != "p2" {
 		t.Fatalf("disconnect vote = %#v, want open for p2", vote)
 	}
@@ -123,6 +139,48 @@ func TestWebSocketDisconnectOpensRuntimeDisconnectVote(t *testing.T) {
 	}
 	if handler.Metrics().RuntimeDisconnects != 1 {
 		t.Fatalf("runtime disconnect metric = %#v, want 1", handler.Metrics())
+	}
+}
+
+func TestWebSocketClosingOneOfMultiplePlayerSessionsDoesNotMarkPlayerDisconnected(t *testing.T) {
+	initial := testInitialState("game-1")
+	initial.Players["p3"] = map[string]any{"life": 40}
+	server, runtimeService, handler := testWebSocketServerWithStateAndHandler(t, "game-1", initial, 128, 256)
+	handler.disconnectVoteGrace = 20 * time.Millisecond
+	defer server.Close()
+
+	observer := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID: "p1", PlayerID: "p1", GameID: "game-1", Role: "player",
+		Permissions: []string{"view", "command"}, Protocol: "v2",
+	})
+	defer observer.Close()
+	firstTab := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID: "p2", PlayerID: "p2", GameID: "game-1", Role: "player",
+		Permissions: []string{"view", "command"}, Protocol: "v2",
+	})
+	secondTab := dialRuntimeWithClaims(t, server.URL, "game-1", 0, TicketClaims{
+		UserID: "p2", PlayerID: "p2", GameID: "game-1", Role: "player",
+		Permissions: []string{"view", "command"}, Protocol: "v2",
+	})
+	defer secondTab.Close()
+
+	if got := handler.countConnectionsForPlayerInGame("game-1", "p2"); got != 2 {
+		t.Fatalf("p2 connections=%d want 2", got)
+	}
+	_ = firstTab.Close()
+	deadline := time.Now().Add(time.Second)
+	for handler.countConnectionsForPlayerInGame("game-1", "p2") != 1 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	time.Sleep(2 * handler.disconnectVoteGrace)
+	if got := handler.countConnectionsForPlayerInGame("game-1", "p2"); got != 1 {
+		t.Fatalf("p2 connections=%d want 1", got)
+	}
+	if version := runtimeServiceActorVersion(t, runtimeService, "game-1"); version != 1 {
+		t.Fatalf("closing one tab mutated durable state to version %d", version)
+	}
+	if handler.Metrics().RuntimeDisconnects != 0 {
+		t.Fatalf("single-tab close counted as disconnect: %#v", handler.Metrics())
 	}
 }
 

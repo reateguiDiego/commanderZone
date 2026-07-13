@@ -1177,7 +1177,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(3, $copy['defaultToughness']);
     }
 
-    public function testStatCountersAdjustPowerAndToughness(): void
+    public function testStatCountersRemainIndependentFromPowerAndToughness(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
@@ -1203,8 +1203,9 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         $card = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
-        self::assertSame(3, $card['power']);
-        self::assertSame(3, $card['toughness']);
+        self::assertSame(2, $card['power']);
+        self::assertSame(2, $card['toughness']);
+        self::assertSame(['+1/+1' => 2, '-1/-1' => 1], $card['counters']);
     }
 
     public function testRegularTokenEvaporatesWithoutCopyPrefixWhenItLeavesBattlefieldForNonBattlefieldZone(): void
@@ -2369,17 +2370,16 @@ class GameCommandHandlerTest extends TestCase
             'playerId' => $actor->id(),
             'delta' => -40,
         ], $actor);
-        $handler->apply($game, 'library.draw', [
-            'playerId' => $actor->id(),
-        ], $actor);
-        $handler->apply($game, 'life.changed', [
-            'playerId' => $actor->id(),
-            'delta' => -1,
-        ], $actor);
+		try {
+			$handler->apply($game, 'library.draw', ['playerId' => $actor->id()], $actor);
+			self::fail('Defeated player action must be rejected.');
+		} catch (\InvalidArgumentException $error) {
+			self::assertStringContainsString('cannot perform', $error->getMessage());
+		}
 
         $snapshot = $game->snapshot();
-        self::assertSame(-1, $snapshot['players'][$actor->id()]['life']);
-        self::assertSame(['card-1'], array_map(
+		self::assertSame(0, $snapshot['players'][$actor->id()]['life']);
+		self::assertSame([], array_map(
             static fn (array $card): string => $card['instanceId'],
             $snapshot['players'][$actor->id()]['zones']['hand'],
         ));
@@ -2412,13 +2412,11 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $game->snapshot()['players'][$actor->id()]['zones']['hand'],
         ));
-        self::assertSame([
-            'ha muerto.',
-        ], array_map(
+		self::assertSame(['ha robado 1 carta.'], array_map(
             static fn (array $entry): string => $entry['message'],
             $game->snapshot()['eventLog'],
         ));
-        self::assertSame('player.defeated', $game->snapshot()['eventLog'][0]['type']);
+		self::assertSame('library.draw', $game->snapshot()['eventLog'][0]['type']);
     }
 
     public function testAlreadyDefeatedPlayerCannotCreateLifeLogByRaisingLifeBeforeDeathIsLogged(): void
@@ -2434,9 +2432,7 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         self::assertSame(5, $game->snapshot()['players'][$actor->id()]['life']);
-        self::assertSame([
-            'ha muerto.',
-        ], array_map(
+		self::assertSame(['Gained 5 life (0 -> 5).'], array_map(
             static fn (array $entry): string => $entry['message'],
             $game->snapshot()['eventLog'],
         ));
@@ -2468,6 +2464,7 @@ class GameCommandHandlerTest extends TestCase
         $snapshot = $this->snapshot($actor->id(), [], $defeated->id());
         $snapshot['players'][$alive->id()] = $this->player($alive->id(), []);
         $snapshot['players'][$defeated->id()]['life'] = 0;
+		$snapshot['players'][$defeated->id()]['status'] = 'defeated';
         $game = new Game(new Room($actor), $snapshot);
 
         (new GameCommandHandler())->apply($game, 'turn.changed', [
@@ -2489,6 +2486,7 @@ class GameCommandHandlerTest extends TestCase
         $defeated = new User('defeated@example.test', 'Defeated');
         $snapshot = $this->snapshot($actor->id(), [], $defeated->id());
         $snapshot['players'][$defeated->id()]['life'] = 0;
+		$snapshot['players'][$defeated->id()]['status'] = 'defeated';
         $game = new Game(new Room($actor), $snapshot);
 
         (new GameCommandHandler())->apply($game, 'turn.changed', [
@@ -2497,7 +2495,7 @@ class GameCommandHandlerTest extends TestCase
             'number' => 2,
         ], $actor);
 
-        self::assertSame($defeated->id(), $game->snapshot()['turn']['activePlayerId']);
+		self::assertSame($actor->id(), $game->snapshot()['turn']['activePlayerId']);
     }
 
     public function testConcedeByActiveTurnPlayerAdvancesTurnToNextAlivePlayer(): void
@@ -2518,7 +2516,7 @@ class GameCommandHandlerTest extends TestCase
 
         self::assertSame('conceded', $game->snapshot()['players'][$actor->id()]['status']);
         self::assertSame($next->id(), $game->snapshot()['turn']['activePlayerId']);
-        self::assertSame('untap', $game->snapshot()['turn']['phase']);
+		self::assertSame('main-1', $game->snapshot()['turn']['phase']);
         self::assertSame(3, $game->snapshot()['turn']['number']);
     }
 

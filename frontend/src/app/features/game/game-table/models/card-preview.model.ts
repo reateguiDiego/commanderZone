@@ -1,4 +1,4 @@
-import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GamePowerToughnessValue, GameZoneName } from '../../../../core/models/game.model';
 
 export interface CardPreviewSourceRect {
   readonly left: number;
@@ -34,8 +34,8 @@ export interface CardPreviewCounterItem {
 }
 
 export interface CardPreviewPowerToughnessInfo {
-  readonly power: number;
-  readonly toughness: number;
+  readonly power: GamePowerToughnessValue;
+  readonly toughness: GamePowerToughnessValue;
 }
 
 export interface CardPreviewCardStateInfo {

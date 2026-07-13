@@ -72,6 +72,7 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 			Position:      tokenPosition(index, quantity, command.Payload),
 			Counters:      map[string]int{},
 			MutableStats:  tokenMutableStats(card),
+			PrintedStats:  tokenPrintedStats(card, "token_creation"),
 			VisibleToMask: 1,
 		}
 	}
@@ -135,13 +136,14 @@ func (CardTokenCopyCreatedApplier) Apply(_ context.Context, game *state.GameStat
 	if !sourcePublic {
 		cardKey = "token-copy:" + sanitizeID(instanceID)
 	}
+	copiedStats := copyBaseMutableStats(source)
 	tokenMeta := map[string]any{
 		"isCopy":               true,
 		"copiedFromInstanceId": sourceID,
 		"copiedValues": map[string]any{
-			"power":     source.MutableStats["power"],
-			"toughness": source.MutableStats["toughness"],
-			"loyalty":   source.MutableStats["loyalty"],
+			"power":     copiedStats["power"],
+			"toughness": copiedStats["toughness"],
+			"loyalty":   copiedStats["loyalty"],
 		},
 	}
 	if sourcePublic {
@@ -157,7 +159,8 @@ func (CardTokenCopyCreatedApplier) Apply(_ context.Context, game *state.GameStat
 		TokenMeta:     tokenMeta,
 		Position:      offsetTokenCopyPosition(source.Position),
 		Counters:      map[string]int{},
-		MutableStats:  cloneMap(source.MutableStats),
+		MutableStats:  copiedStats,
+		PrintedStats:  copyPrintedStats(source),
 		ActiveFace:    source.ActiveFace,
 		VisibleToMask: 1,
 	}
@@ -363,6 +366,8 @@ func tokenPatchData(instance state.CardInstanceRuntime, name string, isCopy bool
 		"tokenMeta":        cloneMap(instance.TokenMeta),
 		"position":         cloneMap(instance.Position),
 		"counters":         cloneIntMap(instance.Counters),
+		"printedStats":     copyNestedStatsMap(instance.PrintedStats),
+		"manualOverrides":  copyNestedStatsMap(instance.ManualOverrides),
 	}
 	for key, value := range instance.MutableStats {
 		data[key] = value
@@ -547,6 +552,78 @@ func tokenMutableStats(card map[string]any) map[string]any {
 		stats["loyalty"] = value
 	}
 	return stats
+}
+
+func tokenPrintedStats(card map[string]any, provenance string) map[string]map[string]any {
+	stats := map[string]map[string]any{}
+	faces := sanitizedCardFaces(card["cardFaces"])
+	if len(faces) == 0 {
+		stats["0"] = map[string]any{
+			"faceKey":    "0",
+			"faceIndex":  0,
+			"power":      compactStat(card["power"], fallbackTokenStat(card, "power", 1)),
+			"toughness":  compactStat(card["toughness"], fallbackTokenStat(card, "toughness", 1)),
+			"provenance": provenance,
+		}
+		return stats
+	}
+	for index, face := range faces {
+		key := strconv.Itoa(index)
+		stats[key] = map[string]any{
+			"faceKey":    key,
+			"faceIndex":  index,
+			"power":      compactStat(face["power"], nil),
+			"toughness":  compactStat(face["toughness"], nil),
+			"provenance": provenance,
+		}
+	}
+	return stats
+}
+
+func copyPrintedStats(source state.CardInstanceRuntime) map[string]map[string]any {
+	printed := copyNestedStatsMap(source.PrintedStats)
+	if len(printed) == 0 {
+		printed = map[string]map[string]any{
+			strconv.Itoa(source.ActiveFace): {
+				"faceKey":   strconv.Itoa(source.ActiveFace),
+				"faceIndex": source.ActiveFace,
+				"power":     source.MutableStats["power"],
+				"toughness": source.MutableStats["toughness"],
+			},
+		}
+	}
+	for _, face := range printed {
+		face["provenance"] = "copy_effect"
+	}
+	return printed
+}
+
+func copyBaseMutableStats(source state.CardInstanceRuntime) map[string]any {
+	stats := cloneMap(source.MutableStats)
+	if len(source.PrintedStats) == 0 {
+		return stats
+	}
+	face := source.PrintedStats[strconv.Itoa(source.ActiveFace)]
+	for _, axis := range []string{"power", "toughness"} {
+		value, ok := face[axis]
+		if !ok || value == nil {
+			delete(stats, axis)
+			continue
+		}
+		stats[axis] = value
+	}
+	return stats
+}
+
+func copyNestedStatsMap(source map[string]map[string]any) map[string]map[string]any {
+	if len(source) == 0 {
+		return nil
+	}
+	copy := make(map[string]map[string]any, len(source))
+	for key, value := range source {
+		copy[key] = cloneMap(value)
+	}
+	return copy
 }
 
 func fallbackTokenStat(card map[string]any, key string, fallback any) any {

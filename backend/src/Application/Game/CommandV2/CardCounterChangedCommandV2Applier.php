@@ -51,7 +51,6 @@ final class CardCounterChangedCommandV2Applier implements GameCommandV2ApplierIn
                 $message = sprintf('Set %s %s counters to 1.', $helper->v2CardLogName($card), $key);
             } else {
                 unset($card['counters'][$key]);
-                $helper->v2ApplyStatCounterDelta($card, $key, -$previousValue);
                 $message = sprintf('Removed %s counter from %s.', $key, $helper->v2CardLogName($card));
             }
         } else {
@@ -67,7 +66,6 @@ final class CardCounterChangedCommandV2Applier implements GameCommandV2ApplierIn
                 ? max(1, min(4, $value))
                 : max(0, $value);
             $card['counters'][$key] = $nextValue;
-            $helper->v2ApplyStatCounterDelta($card, $key, $nextValue - $previousValue);
             $message = sprintf('Set %s %s counters to %d.', $helper->v2CardLogName($card), $key, $nextValue);
         }
 
@@ -78,11 +76,6 @@ final class CardCounterChangedCommandV2Applier implements GameCommandV2ApplierIn
             'instanceId' => (string) ($card['instanceId'] ?? ''),
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
         ]);
-        $statsOperation = $helper->v2CardStatsOperation($location, $card);
-        if ($statsOperation !== null) {
-            $emitter->emitPublic($statsOperation);
-        }
-
         return $emitter->toResult(
             $message,
             [

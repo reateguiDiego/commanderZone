@@ -17,7 +17,7 @@ import (
 
 func TestGameActorAppliesSimpleCommandsInOrder(t *testing.T) {
 	store := persistence.NewInMemoryEventStore()
-	gameActor := NewGameActor("game-1", testState(), store, 8, DefaultAppliers())
+	gameActor := NewGameActor("game-1", commanderDamageAtomicState(), store, 8, DefaultAppliers())
 
 	commands := []protocol.CommandEnvelopeV2{
 		command("game-1", 1, "a-life", "life.changed", map[string]any{"playerId": "p1", "life": 37}),
@@ -27,7 +27,7 @@ func TestGameActorAppliesSimpleCommandsInOrder(t *testing.T) {
 		command("game-1", 5, "a-counter", "card.counter.changed", map[string]any{"instanceId": "i1", "counter": "+1/+1", "value": 2}),
 		command("game-1", 6, "a-position", "card.position.changed", map[string]any{"instanceId": "i1", "position": map[string]any{"x": 0.4, "y": 0.2, "unit": "ratio"}}),
 		command("game-1", 7, "a-player-counter", "counter.changed", map[string]any{"scope": "player:p1", "key": "poison", "value": 3}),
-		command("game-1", 8, "a-commander-damage", "commander.damage.changed", map[string]any{"targetPlayerId": "p1", "commanderInstanceId": "commander-1", "damage": 11}),
+		command("game-1", 8, "a-commander-damage", "commander.damage.changed", commanderDamagePayload("p1", "p2", "commander-p2", 11)),
 		command("game-1", 9, "a-pt", "card.power_toughness.changed", map[string]any{"instanceId": "i1", "power": 5, "toughness": 6, "loyalty": 4}),
 	}
 
@@ -57,7 +57,7 @@ func TestGameActorAppliesSimpleCommandsInOrder(t *testing.T) {
 	if snapshot.Version != 10 {
 		t.Fatalf("version got %d want 10", snapshot.Version)
 	}
-	if snapshot.Players["p1"]["life"] != 37 {
+	if snapshot.Players["p1"]["life"] != 26 {
 		t.Fatalf("life not updated: %#v", snapshot.Players["p1"]["life"])
 	}
 	if snapshot.Turn["activePlayerId"] != "p2" {
@@ -79,7 +79,7 @@ func TestGameActorAppliesSimpleCommandsInOrder(t *testing.T) {
 	if snapshot.Players["p1"]["counters"].(map[string]any)["poison"] != 3 {
 		t.Fatalf("player counters not updated: %#v", snapshot.Players["p1"]["counters"])
 	}
-	if snapshot.Players["p1"]["commanderDamage"].(map[string]any)["commander-1"] != 11 {
+	if snapshot.Players["p1"]["commanderDamage"].(map[string]any)["commander-p2"] != 11 {
 		t.Fatalf("commander damage not updated: %#v", snapshot.Players["p1"]["commanderDamage"])
 	}
 
@@ -330,7 +330,7 @@ func TestGameActorSeenActionCacheIsBoundedAndStoreKeepsIdempotency(t *testing.T)
 		actionID := fmt.Sprintf("bounded-%03d", i)
 		result := gameActor.ApplyDirect(
 			context.Background(),
-			command("game-1", int64(i+1), actionID, "life.changed", map[string]any{"playerId": "p1", "life": 40 - i}),
+			command("game-1", int64(i+1), actionID, "life.changed", map[string]any{"playerId": "p1", "life": 1000 - i}),
 			"p1",
 		)
 		if result.Err != nil {
@@ -349,7 +349,7 @@ func TestGameActorSeenActionCacheIsBoundedAndStoreKeepsIdempotency(t *testing.T)
 
 	duplicate := gameActor.ApplyDirect(
 		context.Background(),
-		command("game-1", 1, "bounded-000", "life.changed", map[string]any{"playerId": "p1", "life": 40}),
+		command("game-1", 1, "bounded-000", "life.changed", map[string]any{"playerId": "p1", "life": 1000}),
 		"p1",
 	)
 	if duplicate.Err != nil {

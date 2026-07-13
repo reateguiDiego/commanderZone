@@ -60,6 +60,7 @@ describe('GameTableChatStore', () => {
     const core = TestBed.inject(GameTableCoreState);
     const state = snapshot();
     state.players['user-2']!.life = 0;
+		state.players['user-2']!.status = 'defeated';
     state.players['user-3'] = player('user-3', 'Alive opponent');
     core.snapshot.set(state);
 

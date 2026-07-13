@@ -1,4 +1,98 @@
 {
+  "gameLifecycleLog": {
+    "player": {
+      "defeatedByLife": "{{ target }} was defeated by life total.",
+      "conceded": "{{ target }} conceded.",
+      "expelled": "{{ target }} was expelled."
+    },
+    "turn": {
+      "passedByElimination": "Turn passed to {{ activePlayer }} after elimination."
+    },
+    "result": {
+      "lastActive": "{{ winner }} is the last active player."
+    },
+    "game": {
+      "closed": "The game was closed."
+    },
+    "monarch": {
+      "reassigned": "Monarch was reassigned to {{ owner }}."
+    },
+    "initiative": {
+      "reassigned": "Initiative was reassigned to {{ owner }}."
+    }
+  },
+  "gameLog": {
+    "commanderDamage": {
+      "changed": "Commanderschade van {{ source }} aan {{ target }} is gewijzigd van {{ previousDamage }} naar {{ damage }}. Leven is gewijzigd van {{ previousLife }} naar {{ life }}."
+    },
+    "player": {
+      "defeatedByCommanderDamage": "{{ target }} is verslagen door commanderschade van {{ source }}.",
+      "reconnectedDuringVote": "{{ target }} reconnected during the disconnect vote."
+    },
+    "disconnect": {
+      "vote": {
+        "opened": "A disconnect vote was opened for {{ target }}.",
+        "castExpel": "{{ actor }} voted to expel {{ target }}.",
+        "castWait": "{{ actor }} voted to wait for {{ target }}.",
+        "expired": "The disconnect vote for {{ target }} expired.",
+        "cancelledByReconnect": "The disconnect vote was cancelled because {{ target }} reconnected.",
+        "rejected": "The table decided to wait for {{ target }}.",
+        "passed": "The table voted to expel {{ target }}."
+      },
+      "cooldown": {
+        "started": "A disconnect-vote cooldown started for {{ target }}."
+      }
+    },
+    "library": {
+      "draw": "{{ actor }} drew a card.",
+      "drawMany": "{{ actor }} drew {{ count }} cards.",
+      "shuffle": "{{ actor }} shuffled their library."
+    },
+    "card": {
+      "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
+      "tapped": "{{ actor }} tapped a permanent.",
+      "untapped": "{{ actor }} untapped a permanent.",
+      "statsOverrideSet": "{{ actor }} stelde een handmatige kracht/weerstand-aanpassing in.",
+      "statsOverrideCleared": "{{ actor }} verwijderde een handmatige kracht/weerstand-aanpassing."
+    },
+    "cardCounter": {
+      "changed": "{{ actor }} set {{ counter }} counters to {{ value }}."
+    },
+    "life": {
+      "changed": "{{ actor }} changed {{ player }}'s life from {{ previousLife }} to {{ life }}."
+    },
+    "dice": {
+      "rolled": "{{ actor }} rolled {{ kind }} and got {{ result }}.",
+      "coin": "a coin",
+      "dice": "dice",
+      "d4": "d4",
+      "d6": "d6",
+      "d10": "d10",
+      "d20": "d20"
+    },
+    "commander": {
+      "cast": "{{ actor }} cast their commander from the command zone. Commander cast count is {{ commanderCastCount }}."
+    },
+    "token": {
+      "created": "{{ actor }} created a token: {{ tokenName }}.",
+      "createdMany": "{{ actor }} created {{ count }} tokens: {{ tokenName }}."
+    },
+    "tokenCopy": {
+      "created": "{{ actor }} created a token copy."
+    },
+    "game": {
+      "concede": "{{ player }} conceded."
+    },
+    "zone": {
+      "battlefield": "battlefield",
+      "graveyard": "graveyard",
+      "exile": "exile",
+      "hand": "hand",
+      "library": "library",
+      "command": "command zone",
+      "zone": "zone"
+    }
+  },
   "common": {
     "app": {
       "app": {
@@ -2226,8 +2320,6 @@
       "manaEfficiency": "Mana efficiency",
       "detected": "Detected",
       "notDetected": "Not detected",
-      "yes": "Yes",
-      "no": "No",
       "yes": "Yes",
       "no": "No"
     }

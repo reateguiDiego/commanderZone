@@ -74,12 +74,15 @@ type ServerMessage struct {
 }
 
 type ServerErrorPayload struct {
-	Code        string `json:"code"`
-	Message     string `json:"message"`
-	Retryable   bool   `json:"retryable"`
-	CommandType string `json:"commandType,omitempty"`
-	InstanceID  string `json:"instanceId,omitempty"`
-	Index       *int   `json:"index,omitempty"`
+	Code             string `json:"code"`
+	Message          string `json:"message"`
+	Retryable        bool   `json:"retryable"`
+	CommandType      string `json:"commandType,omitempty"`
+	InstanceID       string `json:"instanceId,omitempty"`
+	Index            *int   `json:"index,omitempty"`
+	VoteID           string `json:"voteId,omitempty"`
+	TargetPlayerID   string `json:"targetPlayerId,omitempty"`
+	RemainingSeconds int    `json:"remainingSeconds,omitempty"`
 }
 
 type WebSocketServer struct {
@@ -226,8 +229,9 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	registered := s.register(client)
 	if registered.WasOfflineBeyondGrace {
 		s.broadcastPresence(client.claims.GameID, client.playerID(), "online")
-		go s.submitDisconnectPresence(context.Background(), client.claims.GameID, client.playerID(), "online", registered.ConnectedPlayerIDs)
+		go s.submitDisconnectPresence(context.Background(), client.claims.GameID, client.playerID(), "online", registered.ConnectedPlayerIDs, "")
 	}
+	go s.resolveExpiredDisconnectVoteOnWake(client.claims.GameID)
 	defer func() {
 		left := s.unregister(client)
 		if left.PlayerID == "" {
@@ -240,11 +244,10 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	s.sendJSON(client, ServerMessage{
-		Kind:         "connection_state",
-		GameID:       claims.GameID,
-		ConnectionID: fmt.Sprintf("%p", client),
-		Status:       "connected",
-		ServerTime:   time.Now().UTC().Format(time.RFC3339Nano),
+		Kind:       "connection_state",
+		GameID:     claims.GameID,
+		Status:     "connected",
+		ServerTime: time.Now().UTC().Format(time.RFC3339Nano),
 	})
 
 	lastApplied := parseLastAppliedVersion(r)
@@ -257,6 +260,7 @@ func (s *WebSocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type presenceRegistration struct {
 	ConnectedPlayerIDs    []string
 	WasOfflineBeyondGrace bool
+	UserConnections       int
 }
 
 type presenceUnregistration struct {
@@ -281,6 +285,7 @@ func (s *WebSocketServer) register(client *wsClient) presenceRegistration {
 	return presenceRegistration{
 		ConnectedPlayerIDs:    s.connectedPlayerIDsForGameLocked(client.claims.GameID),
 		WasOfflineBeyondGrace: wasOfflineBeyondGrace,
+		UserConnections:       s.countConnectionsForPlayerInGameLocked(client.claims.GameID, playerID),
 	}
 }
 
@@ -338,11 +343,11 @@ func (s *WebSocketServer) scheduleDisconnectVoteOpen(gameID string, playerID str
 		if !s.isPlayerOfflineBeyondGrace(gameID, playerID, grace) {
 			return
 		}
-		s.submitDisconnectPresence(context.Background(), gameID, playerID, "offline", s.connectedPlayerIDsForGame(gameID))
+		s.submitDisconnectPresence(context.Background(), gameID, playerID, "offline", s.connectedPlayerIDsForGame(gameID), "")
 	})
 }
 
-func (s *WebSocketServer) submitDisconnectPresence(ctx context.Context, gameID string, playerID string, status string, connectedPlayerIDs []string) {
+func (s *WebSocketServer) submitDisconnectPresence(ctx context.Context, gameID string, playerID string, status string, connectedPlayerIDs []string, voteID string) {
 	gameActor, _, err := s.runtime.LoadActorRecovered(ctx, gameID, nil)
 	if err != nil {
 		slog.Warn("runtime websocket disconnect vote actor load failed", "gameId", gameID, "playerId", playerID, "status", status, "error", err)
@@ -358,11 +363,17 @@ func (s *WebSocketServer) submitDisconnectPresence(ctx context.Context, gameID s
 		ClientActionID: fmt.Sprintf("runtime-presence-%s-%s-%d", status, playerID, time.Now().UnixNano()),
 		Type:           "disconnect.vote",
 		Payload: map[string]any{
-			"targetPlayerId":   playerID,
-			"status":           status,
-			"connectedUserIds": connectedPlayerIDs,
+			"targetPlayerId":        playerID,
+			"status":                status,
+			"connectedUserIds":      connectedPlayerIDs,
+			"activeConnectionCount": s.countConnectionsForPlayerInGame(gameID, playerID),
+			"occurredAt":            time.Now().UTC().Format(time.RFC3339Nano),
 		},
 		Client: map[string]any{"source": "runtime_ws_presence"},
+	}
+	if voteID != "" {
+		command.Payload["voteId"] = voteID
+		command.ClientActionID = "runtime-disconnect-timeout-" + voteID
 	}
 	commandCtx, cancel := context.WithTimeout(ctx, s.commandTimeout)
 	defer cancel()
@@ -378,13 +389,56 @@ func (s *WebSocketServer) submitDisconnectPresence(ctx context.Context, gameID s
 	}
 	s.history(gameID).Append(result.Patches)
 	s.broadcast(gameID, result.Patches)
+	if result.Event.Type == "disconnect.vote.opened" {
+		s.scheduleDurableDisconnectVoteTimeout(gameID, result.Event.Payload)
+	}
+}
+
+func (s *WebSocketServer) scheduleDurableDisconnectVoteTimeout(gameID string, payload map[string]any) {
+	vote, _ := payload["disconnectVote"].(map[string]any)
+	targetID, _ := vote["targetPlayerId"].(string)
+	voteID, _ := vote["voteId"].(string)
+	expiresText, _ := vote["expiresAt"].(string)
+	expiresAt, err := time.Parse(time.RFC3339Nano, expiresText)
+	if err != nil || targetID == "" || voteID == "" {
+		return
+	}
+	delay := time.Until(expiresAt)
+	if delay < 0 {
+		delay = 0
+	}
+	// Never submit the durable timeout on the expiry boundary: scheduler and
+	// RFC3339Nano timestamps can otherwise observe the command a few ticks early.
+	delay += 25 * time.Millisecond
+	time.AfterFunc(delay, func() {
+		s.submitDisconnectPresence(context.Background(), gameID, targetID, "timeout", s.connectedPlayerIDsForGame(gameID), voteID)
+	})
+}
+
+func (s *WebSocketServer) resolveExpiredDisconnectVoteOnWake(gameID string) {
+	gameActor, ok := s.runtime.Actor(gameID)
+	if !ok {
+		return
+	}
+	snapshot := gameActor.Snapshot()
+	if snapshot.DisconnectVote["status"] != "open" {
+		return
+	}
+	payload := map[string]any{"disconnectVote": snapshot.DisconnectVote}
+	s.scheduleDurableDisconnectVoteTimeout(gameID, payload)
 }
 
 func isBenignDisconnectPresenceError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, persistence.ErrDuplicateVersion) || errors.Is(err, persistence.ErrGameNotFound)
+	if errors.Is(err, persistence.ErrDuplicateVersion) || errors.Is(err, persistence.ErrGameNotFound) {
+		return true
+	}
+	if controlError, ok := actor.AsControlPlaneError(err); ok {
+		return controlError.Code == "VOTE_NOT_OPEN" || controlError.Code == "VOTE_NOT_FOUND" || controlError.Code == "GAME_CLOSED"
+	}
+	return false
 }
 
 func (s *WebSocketServer) isPlayerOfflineBeyondGrace(gameID string, playerID string, grace time.Duration) bool {
@@ -427,6 +481,12 @@ func (s *WebSocketServer) countConnectionsForPlayerInGameLocked(gameID string, p
 		}
 	}
 	return count
+}
+
+func (s *WebSocketServer) countConnectionsForPlayerInGame(gameID string, playerID string) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.countConnectionsForPlayerInGameLocked(gameID, playerID)
 }
 
 func (s *WebSocketServer) replayOrRequestResync(ctx context.Context, client *wsClient, lastAppliedVersion int64) {
@@ -610,6 +670,14 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 		s.sendJSON(client, commandRejectedMessage(command, "ACTOR_RECOVERY_FAILED", err.Error(), true))
 		return
 	}
+	if vote := gameActor.Snapshot().DisconnectVote; vote["status"] == "open" {
+		expiresAt, parseErr := time.Parse(time.RFC3339Nano, firstGatewayString(vote["expiresAt"], vote["deadlineAt"]))
+		if parseErr == nil && !time.Now().Before(expiresAt) {
+			s.submitDisconnectPresence(ctx, command.GameID, firstGatewayString(vote["targetPlayerId"]), "timeout", s.connectedPlayerIDsForGame(command.GameID), firstGatewayString(vote["voteId"]))
+		} else {
+			s.scheduleDurableDisconnectVoteTimeout(command.GameID, map[string]any{"disconnectVote": vote})
+		}
+	}
 	commandCtx, cancel := context.WithTimeout(ctx, s.commandTimeout)
 	defer cancel()
 	result := gameActor.Submit(commandCtx, command, client.claims.PlayerID)
@@ -637,6 +705,10 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 			}))
 			return
 		}
+		if controlError, ok := actor.AsControlPlaneError(result.Err); ok {
+			s.sendJSON(client, commandControlPlaneRejectedMessage(command, controlError))
+			return
+		}
 		s.sendJSON(client, commandRejectedMessage(command, "COMMAND_FAILED", result.Err.Error(), false))
 		return
 	}
@@ -651,6 +723,18 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 	}
 	s.history(command.GameID).Append(result.Patches)
 	s.broadcast(command.GameID, result.Patches)
+}
+
+func commandControlPlaneRejectedMessage(command protocol.CommandEnvelopeV2, controlError *actor.ControlPlaneError) ServerMessage {
+	return ServerMessage{
+		Kind: "command_ack", GameID: command.GameID, ClientActionID: command.ClientActionID,
+		Status: "rejected", Version: command.BaseVersion,
+		Error: &ServerErrorPayload{
+			Code: controlError.Code, Message: controlError.Error(), CommandType: controlError.CommandType,
+			VoteID: controlError.VoteID, TargetPlayerID: controlError.TargetPlayerID,
+			RemainingSeconds: controlError.RemainingSeconds,
+		},
+	}
 }
 
 func (s *WebSocketServer) handleActivityCommand(ctx context.Context, client *wsClient, command protocol.CommandEnvelopeV2) {
@@ -1212,6 +1296,15 @@ func clonePayload(payload map[string]any) map[string]any {
 		out[key] = value
 	}
 	return out
+}
+
+func firstGatewayString(values ...any) string {
+	for _, value := range values {
+		if text, ok := value.(string); ok && strings.TrimSpace(text) != "" {
+			return strings.TrimSpace(text)
+		}
+	}
+	return ""
 }
 
 func parseLastAppliedVersion(r *http.Request) int64 {

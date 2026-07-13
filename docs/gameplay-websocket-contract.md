@@ -122,7 +122,7 @@ interface GameplayGamePatchMessage {
 
 El runtime Go acepta `type` solo como adaptador explicito de entrada para clientes antiguos. Los mensajes servidor -> cliente deben emitirse con `kind`; no se permite emitir `type` como contrato principal.
 
-Los mensajes `connection_state`, `connection_joined` y `connection_left` son presencia tecnica de socket. No son estado de jugador ni gameplay.
+Los mensajes `connection_state`, `connection_joined` y `connection_left` son presencia tecnica de socket. No son estado de jugador ni gameplay, y su proyeccion publica no incluye IDs de socket, tickets, tokens ni epochs internos.
 
 ## Patches Tipados
 
@@ -137,6 +137,8 @@ Operaciones actuales:
 - `card.projection.set`
 - `card.counters.set`
 - `card.stats.set`
+- `card.stats.override.set`
+- `card.stats.override.clear`
 - `cards.state.set`
 - `card.create`
 - `zone.counts.set`
@@ -170,7 +172,7 @@ Operaciones actuales:
 
 `card.create` solo se usa para nuevas instancias, por ejemplo tokens o copias de token. No sustituye zonas completas.
 
-`card.counters.set`, `card.stats.set` y `cards.state.set` mantienen cambios avanzados de carta en payloads pequenos y tipados.
+`card.counters.set`, `card.stats.set` y `cards.state.set` mantienen cambios avanzados de carta en payloads pequenos y tipados. `card.stats.override.set/clear` conserva por cara la distinción entre fórmula impresa, ausencia de override y cero explícito; nunca incorpora counters al override.
 
 `stack.item.add/remove`, `arrow.add/remove` y `attachment.add/remove` son las operaciones normales para relaciones y stack. Los `*.set` completos quedan como fallback acotado para listas pequenas cuando el diff por ids no es suficientemente expresivo; si la lista crece o no se puede proyectar con seguridad, el servidor debe emitir `resync_required`.
 

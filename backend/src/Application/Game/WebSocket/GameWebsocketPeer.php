@@ -35,7 +35,6 @@ final readonly class GameWebsocketPeer
     public function presencePayload(): array
     {
         return [
-            'connectionId' => $this->connectionId,
             'gameId' => $this->gameId,
             'userId' => $this->userId,
             'playerId' => $this->effectivePlayerId(),

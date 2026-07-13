@@ -656,7 +656,6 @@ describe('GameTableWebsocketGameplayService', () => {
       kind: 'connection_state',
       gameId: 'game-1',
       status: 'connected',
-      connectionId: 'conn-1',
       serverTime: new Date(0).toISOString(),
     });
 
@@ -670,14 +669,12 @@ describe('GameTableWebsocketGameplayService', () => {
       kind: 'connection_state',
       gameId: 'game-1',
       status: 'connected',
-      connectionId: 'conn-1',
       serverTime: new Date(0).toISOString(),
     });
     messages.next({
       kind: 'connection_state',
       gameId: 'game-1',
       status: 'connected',
-      connectionId: 'conn-2',
       serverTime: new Date(1).toISOString(),
     });
 

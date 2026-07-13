@@ -45,7 +45,7 @@ describe('GameTableTurnActionsService', () => {
 
     await service.passTurn({
       snapshot: () => snapshot({ activePlayerId: 'player-1', phase: 'combat', number: 4 }),
-      players: () => [player('player-1', 12), player('player-2', 0), player('player-3', 8)],
+		players: () => [player('player-1', 12), player('player-2', 0, {}, 'defeated'), player('player-3', 8)],
       phases: () => ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end'],
       command,
     });
@@ -75,7 +75,7 @@ describe('GameTableTurnActionsService', () => {
     });
   });
 
-  it('skips players with lethal commander damage', async () => {
+  it('uses authoritative status instead of deriving defeat from commander damage', async () => {
     const command = vi.fn().mockResolvedValue(undefined);
     const service = new GameTableTurnActionsService();
 
@@ -91,7 +91,7 @@ describe('GameTableTurnActionsService', () => {
     });
 
     expect(command).toHaveBeenCalledWith('turn.changed', {
-      activePlayerId: 'player-3',
+		activePlayerId: 'player-2',
       phase: 'untap',
       number: 4,
     });
@@ -103,7 +103,7 @@ describe('GameTableTurnActionsService', () => {
 
     await service.passTurn({
       snapshot: () => snapshot({ activePlayerId: 'player-3', phase: 'combat', number: 4 }),
-      players: () => [player('player-1', 12), player('player-2', 0), player('player-3', 8)],
+		players: () => [player('player-1', 12), player('player-2', 0, {}, 'defeated'), player('player-3', 8)],
       phases: () => ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end'],
       command,
     });
@@ -115,22 +115,18 @@ describe('GameTableTurnActionsService', () => {
     });
   });
 
-  it('keeps the two-player endgame behavior when only one player is alive', async () => {
+	it('does not reintroduce an eliminated player when only the survivor remains', async () => {
     const command = vi.fn().mockResolvedValue(undefined);
     const service = new GameTableTurnActionsService();
 
     await service.passTurn({
       snapshot: () => snapshot({ activePlayerId: 'player-1', phase: 'combat', number: 4 }),
-      players: () => [player('player-1', 12), player('player-2', 0)],
+		players: () => [player('player-1', 12), player('player-2', 0, {}, 'defeated')],
       phases: () => ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end'],
       command,
     });
 
-    expect(command).toHaveBeenCalledWith('turn.changed', {
-      activePlayerId: 'player-2',
-      phase: 'untap',
-      number: 4,
-    });
+		expect(command).not.toHaveBeenCalled();
   });
 });
 

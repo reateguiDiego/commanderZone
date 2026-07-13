@@ -137,7 +137,6 @@ export interface GameplayPongMessage {
 export interface GameplayConnectionStateMessage {
   kind: 'connection_state';
   gameId: string;
-  connectionId: string;
   status: 'connected';
   serverTime: string;
 }
@@ -247,7 +246,6 @@ export interface GameplayMulliganCompletedMessage {
 }
 
 export interface GameplayConnectionPresence {
-  connectionId: string;
   gameId: string;
   userId: string;
   displayName: string;
@@ -337,6 +335,14 @@ export type GameSnapshotPatchOperation =
       instanceId: string;
       counters: GameCardInstance['counters'];
     }
+  | {
+      op: 'card.stats.override.set' | 'card.stats.override.clear';
+      instanceId: string;
+      faceKey: string;
+      faceIndex: number;
+      previousOverride?: NonNullable<GameCardInstance['manualOverrides']>[string] | null;
+      override: NonNullable<GameCardInstance['manualOverrides']>[string] | null;
+    }
     | {
         op: 'card.stats.set';
         playerId: string;
@@ -421,6 +427,16 @@ export type GameSnapshotPatchOperation =
       status: GameSnapshot['players'][string]['status'];
       concededAt?: GameSnapshot['players'][string]['concededAt'];
     }
+	| {
+		op: 'player.elimination.set';
+		playerId: string;
+		eliminationReason: NonNullable<GameSnapshot['players'][string]['eliminationReason']>;
+		eliminatedAtVersion: number;
+		sourcePlayerId?: string | null;
+		commanderInstanceId?: string | null;
+	}
+	| { op: 'turn.order.set'; turnOrder: string[] }
+	| { op: 'game.result.set'; winnerPlayerId?: string | null; resultState?: string | null; finishedReason?: string | null }
   | {
       op: 'stack.item.add';
       item: GameSnapshot['stack'][number];
@@ -511,6 +527,16 @@ export type GameSnapshotPatchOperation =
   | {
       op: 'disconnect.vote.set';
       disconnectVote: GameSnapshot['disconnectVote'];
+	}
+	| {
+		op: 'player.presence.set';
+		playerId: string;
+		presence: NonNullable<GameSnapshot['presence']>[string];
+	}
+	| {
+		op: 'disconnect.cooldown.set';
+		targetPlayerId: string;
+		cooldown: NonNullable<GameSnapshot['disconnectCooldowns']>[string] | null;
     };
 
 export type GamePatchDecision = 'apply' | 'ignore' | 'resync';

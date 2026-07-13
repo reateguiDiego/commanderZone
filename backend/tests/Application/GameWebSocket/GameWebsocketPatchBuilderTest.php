@@ -64,11 +64,16 @@ class GameWebsocketPatchBuilderTest extends TestCase
             'commanderDamage' => ['commander-1' => 7],
             ],
             [
+				'op' => 'player.life.set',
+				'playerId' => $actor->id(),
+				'value' => 33,
+			],
+			[
                 'op' => 'eventLog.append',
-                'entries' => [$commanderDamage['operations'][1]['entries'][0]],
+				'entries' => [$commanderDamage['operations'][2]['entries'][0]],
             ],
         ], $commanderDamage['operations']);
-        self::assertSame('commander.damage.changed', $commanderDamage['operations'][1]['entries'][0]['type']);
+		self::assertSame('commander.damage.changed', $commanderDamage['operations'][2]['entries'][0]['type']);
 
         $counter = $this->applyAndBuild($game, $actor, 'counter.changed', [
             'scope' => 'player:'.$actor->id(),
@@ -87,6 +92,61 @@ class GameWebsocketPatchBuilderTest extends TestCase
             ],
         ], $counter['operations']);
         self::assertSame('counter.changed', $counter['operations'][1]['entries'][0]['type']);
+    }
+
+    public function testBuildsAtomicCommanderDamageLifeDefeatTurnAndGameLogInOnePatchVersion(): void
+    {
+        [$game, $actor, $opponent] = $this->game();
+        $previous = $game->snapshot();
+        $next = $previous;
+        $next['version'] = 2;
+        $next['players'][$actor->id()]['commanderDamage'] = ['commander-1' => 21];
+        $next['players'][$actor->id()]['life'] = 19;
+        $next['players'][$actor->id()]['status'] = 'defeated';
+        $next['turn'] = ['activePlayerId' => $opponent->id(), 'phase' => 'main-1', 'number' => 1];
+        $next['eventLog'] = [
+            ['id' => 'log-damage', 'type' => 'commander_damage.changed', 'message' => 'fallback', 'i18nKey' => 'gameLog.commanderDamage.changed'],
+            ['id' => 'log-defeat', 'type' => 'player.defeated', 'message' => 'fallback', 'i18nKey' => 'gameLog.player.defeatedByCommanderDamage'],
+        ];
+        $payload = [
+            'effectVersion' => 2,
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'commanderInstanceId' => 'commander-1',
+            'previousDamage' => 20,
+            'damage' => 21,
+            'delta' => 1,
+            'previousLife' => 20,
+            'life' => 19,
+            'status' => 'defeated',
+            'turn' => $next['turn'],
+        ];
+        $event = new GameEvent($game, 'commander.damage.changed', $payload, $actor, 'atomic-damage', 2);
+
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build(
+            $game->id(),
+            $previous,
+            $next,
+            $event,
+            $payload,
+        );
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame(1, $message['baseVersion']);
+        self::assertSame(2, $message['version']);
+        self::assertSame([
+            'player.commanderDamage.set',
+            'player.life.set',
+            'player.status.set',
+			'player.elimination.set',
+            'turn.set',
+            'eventLog.append',
+        ], array_column($message['operations'], 'op'));
+        self::assertSame(21, $message['operations'][0]['commanderDamage']['commander-1'] ?? null);
+        self::assertSame(19, $message['operations'][1]['value'] ?? null);
+        self::assertSame('defeated', $message['operations'][2]['status'] ?? null);
+		self::assertSame($opponent->id(), $message['operations'][4]['turn']['activePlayerId'] ?? null);
+		self::assertSame(['gameLog.commanderDamage.changed', 'gameLog.player.defeatedByCommanderDamage'], array_column($message['operations'][5]['entries'] ?? [], 'i18nKey'));
     }
 
     public function testBuildsChatDiceAndTurnPatchesFromAppendedEntries(): void
@@ -1119,10 +1179,11 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $encodedClose = json_encode($close, JSON_THROW_ON_ERROR);
 
         self::assertSame('game_patch', $close['kind']);
-        self::assertSame('eventLog.append', $close['operations'][0]['op']);
-        self::assertSame('game.close', $close['operations'][0]['entries'][0]['type']);
+		self::assertSame('game.status.set', $close['operations'][0]['op']);
+		self::assertSame('game.phase.set', $close['operations'][1]['op']);
+		self::assertSame('game.close', $close['operations'][2]['entries'][0]['type']);
         self::assertStringNotContainsString('"snapshot"', $encodedClose);
-        self::assertStringNotContainsString('"status":"finished"', $encodedClose);
+		self::assertStringContainsString('"status":"finished"', $encodedClose);
     }
 
     public function testConcedeDoesNotEmitTurnSetWhenTurnDoesNotChange(): void
@@ -1307,6 +1368,108 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('eventLog.append', $message['operations'][1]['op']);
     }
 
+    public function testStatsOverridePatchPreservesExplicitZeroIndependentAxesAndCounters(): void
+    {
+        [$game, $actor] = $this->gameWithAdvancedBattlefieldCards();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['defaultPower'] = '*';
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['defaultToughness'] = '1+*';
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['power'] = 0;
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['toughness'] = 0;
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['counters'] = ['+1/+1' => 2];
+        $game->replaceSnapshot($snapshot);
+
+        $set = $this->applyAndBuildProjected($game, $actor, 'card.stats.override.set', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'advanced-1',
+            'faceIndex' => 0,
+            'power' => 0,
+        ], 'action-stats-override-zero', $actor);
+        self::assertSame('card.stats.override.set', $set['operations'][0]['op']);
+        self::assertSame(0, $set['operations'][0]['override']['power']);
+        self::assertArrayNotHasKey('toughness', $set['operations'][0]['override']);
+        self::assertSame(['+1/+1' => 2], $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']);
+        self::assertSame('gameLog.card.statsOverrideSet', $set['operations'][1]['entries'][0]['i18nKey']);
+
+        $clear = $this->applyAndBuildProjected($game, $actor, 'card.stats.override.clear', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'advanced-1',
+            'faceIndex' => 0,
+            'axes' => ['power'],
+        ], 'action-stats-override-clear', $actor);
+        self::assertSame('card.stats.override.clear', $clear['operations'][0]['op']);
+        self::assertNull($clear['operations'][0]['override']);
+        self::assertSame('*', $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['power']);
+        self::assertSame('1+*', $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['toughness']);
+        self::assertSame(['+1/+1' => 2], $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']);
+    }
+
+    public function testBuildsDurableDisconnectControlPlaneProjectionInOnePatch(): void
+    {
+        [$game, $actor, $opponent] = $this->game();
+        $previous = $game->snapshot();
+        $next = $previous;
+        $next['version'] = 2;
+        $next['presence'][$opponent->id()] = [
+            'playerId' => $opponent->id(),
+            'connected' => false,
+            'activeConnectionCount' => 0,
+            'connectionEpoch' => 2,
+            'lastSeenAt' => '2026-01-01T00:00:00+00:00',
+            'disconnectedAt' => '2026-01-01T00:00:00+00:00',
+        ];
+        $next['disconnectVote'] = [
+            'voteId' => 'vote-1',
+            'targetPlayerId' => $opponent->id(),
+            'openedByPlayerId' => $actor->id(),
+            'status' => 'expired',
+            'eligibleVoterIds' => [$actor->id()],
+            'requiredVotes' => 1,
+            'votesByPlayerId' => [],
+            'openedAt' => '2026-01-01T00:00:00+00:00',
+            'expiresAt' => null,
+            'resolvedAt' => '2026-01-01T00:01:00+00:00',
+            'cooldownUntil' => '2026-01-01T00:06:00+00:00',
+            'resolution' => 'wait',
+            'effectVersion' => 4,
+        ];
+        $next['disconnectCooldowns'][$opponent->id()] = [
+            'targetPlayerId' => $opponent->id(),
+            'voteId' => 'vote-1',
+            'reason' => 'wait',
+            'cooldownUntil' => '2026-01-01T00:06:00+00:00',
+        ];
+        $next['rematch'] = ['votes' => []];
+        $event = new GameEvent($game, 'disconnect.vote.expired', [
+            'effectVersion' => 4,
+            'disconnectVote' => $next['disconnectVote'],
+            'presence' => $next['presence'],
+            'disconnectCooldowns' => $next['disconnectCooldowns'],
+            'rematch' => $next['rematch'],
+        ], null, 'disconnect-timeout', 2);
+
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build(
+            $game->id(),
+            $previous,
+            $next,
+            $event,
+            $event->payload(),
+        );
+
+        self::assertSame(1, $message['baseVersion']);
+        self::assertSame(2, $message['version']);
+        self::assertSame([
+            'disconnect.vote.set',
+            'player.presence.set',
+            'disconnect.cooldown.set',
+            'rematch.set',
+        ], array_column($message['operations'], 'op'));
+		$presenceOperation = array_values(array_filter($message['operations'], static fn (array $operation): bool => $operation['op'] === 'player.presence.set'))[0];
+		self::assertArrayNotHasKey('connectionEpoch', $presenceOperation['presence']);
+    }
+
     public function testBuildsRematchVotePatchWithEventLogAppend(): void
     {
         [$game, $actor, $opponent] = $this->game();
@@ -1394,11 +1557,12 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame($opponent->id(), $message['operations'][2]['playerId']);
         self::assertSame('conceded', $message['operations'][2]['status']);
         self::assertSame('2026-01-01T00:00:10+00:00', $message['operations'][2]['concededAt']);
-        self::assertSame('turn.set', $message['operations'][3]['op']);
-        self::assertSame($actor->id(), $message['operations'][3]['turn']['activePlayerId']);
-        self::assertSame('untap', $message['operations'][3]['turn']['phase']);
-        self::assertSame(5, $message['operations'][3]['turn']['number']);
-        self::assertSame('eventLog.append', $message['operations'][4]['op']);
+		self::assertSame('player.elimination.set', $message['operations'][3]['op']);
+		self::assertSame('turn.set', $message['operations'][4]['op']);
+		self::assertSame($actor->id(), $message['operations'][4]['turn']['activePlayerId']);
+		self::assertSame('untap', $message['operations'][4]['turn']['phase']);
+		self::assertSame(5, $message['operations'][4]['turn']['number']);
+		self::assertSame('eventLog.append', $message['operations'][5]['op']);
     }
 
     public function testZoneMoveAllRequiresResyncWhenProjectionWouldBeTooLarge(): void

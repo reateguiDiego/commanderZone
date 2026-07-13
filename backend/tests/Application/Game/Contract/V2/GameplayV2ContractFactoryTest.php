@@ -106,6 +106,14 @@ class GameplayV2ContractFactoryTest extends TestCase
             'ready' => false,
             'handCount' => 10,
         ];
+        $snapshot['players'][$viewer->id()]['life'] = 19;
+        $snapshot['players'][$viewer->id()]['status'] = 'defeated';
+        $snapshot['players'][$viewer->id()]['commanderDamage'] = ['opponent-commander' => 21];
+        $snapshot['turn'] = ['activePlayerId' => 'next-player', 'phase' => 'main-1', 'number' => 4];
+		$snapshot['presence'] = [$viewer->id() => ['playerId' => $viewer->id(), 'connected' => false, 'activeConnectionCount' => 0, 'connectionEpoch' => 7]];
+		$snapshot['disconnectVote'] = ['voteId' => 'vote-1', 'targetPlayerId' => $viewer->id(), 'status' => 'open', 'eligibleVoterIds' => ['next-player'], 'requiredVotes' => 1, 'votes' => []];
+		$snapshot['disconnectCooldowns'] = [$viewer->id() => ['targetPlayerId' => $viewer->id(), 'voteId' => 'vote-old', 'reason' => 'wait', 'cooldownUntil' => '2026-07-13T12:05:00Z']];
+		$snapshot['rematch'] = ['votes' => [$viewer->id() => ['playerId' => $viewer->id(), 'vote' => 'leave', 'votedAt' => '2026-07-13T12:00:00Z']]];
         $bootstrap = $factory->bootstrap($game, $viewer, $snapshot);
 
         self::assertInstanceOf(BootstrapV2::class, $bootstrap);
@@ -118,6 +126,15 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertSame(['U', 'R', 'G'], $bootstrap->players[$viewer->id()]['colorIdentity']);
         self::assertSame('R_7', $bootstrap->players[$viewer->id()]['backgroundName']);
         self::assertSame('custom-sleeves', $bootstrap->players[$viewer->id()]['sleevesName']);
+        self::assertSame(19, $bootstrap->players[$viewer->id()]['life']);
+        self::assertSame('defeated', $bootstrap->players[$viewer->id()]['status']);
+        self::assertSame(['opponent-commander' => 21], $bootstrap->players[$viewer->id()]['commanderDamage']);
+        self::assertSame('next-player', $bootstrap->turn['activePlayerId'] ?? null);
+		self::assertFalse($bootstrap->game['presence'][$viewer->id()]['connected']);
+		self::assertArrayNotHasKey('connectionEpoch', $bootstrap->game['presence'][$viewer->id()]);
+		self::assertSame('vote-1', $bootstrap->game['disconnectVote']['voteId']);
+		self::assertSame('vote-old', $bootstrap->game['disconnectCooldowns'][$viewer->id()]['voteId']);
+		self::assertSame('leave', $bootstrap->game['rematch']['votes'][$viewer->id()]['vote']);
         self::assertSame(3, $bootstrap->players[$viewer->id()]['mulligan']['bottomSelectionCount'] ?? null);
         self::assertSame('RANDOM_SERVER_SIDE', $bootstrap->players[$viewer->id()]['mulligan']['bottomOrderMode'] ?? null);
         self::assertNotEmpty($bootstrap->staticCards);
@@ -158,6 +175,18 @@ class GameplayV2ContractFactoryTest extends TestCase
 
         self::assertTrue($bootstrap->instances['commander-without-flag']['isCommander'] ?? false);
     }
+
+	public function testBootstrapNormalizesLegacyEmptyRematchProjection(): void
+	{
+		[$game, $viewer] = $this->game();
+		$snapshot = $this->projectedSnapshot($viewer);
+		$snapshot['rematch'] = [];
+
+		$bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $viewer, $snapshot);
+
+		self::assertSame([], $bootstrap->game['rematch']['votes']);
+		self::assertNull($bootstrap->game['disconnectVote']);
+	}
 
     public function testBootstrapUsesSharedStaticRefForGenericTokensAndCompactStackRelations(): void
     {

@@ -123,6 +123,15 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         ...(operation.concededAt !== undefined ? { concededAt: operation.concededAt } : {}),
       }));
 
+		case 'player.elimination.set':
+			return updatePlayer(snapshot, operation.playerId, (player) => ({
+				...player,
+				eliminationReason: operation.eliminationReason,
+				eliminatedAtVersion: operation.eliminatedAtVersion,
+				sourcePlayerId: operation.sourcePlayerId ?? null,
+				commanderInstanceId: operation.commanderInstanceId ?? null,
+			}));
+
     case 'card.position.set':
       return updateCard(snapshot, operation.playerId, operation.zone, operation.instanceId, (card) => ({
         ...card,
@@ -164,6 +173,13 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         counters: { ...operation.counters },
       }));
 
+    case 'card.stats.override.set':
+    case 'card.stats.override.clear':
+      return updateCardByInstanceId(snapshot, operation.instanceId, (card) => ({
+        ...card,
+        manualOverrides: mergeStatsOverride(card.manualOverrides, operation.faceKey, operation.override),
+      }));
+
     case 'card.stats.set':
       return updateCard(snapshot, operation.playerId, operation.zone, operation.instanceId, (card) => ({
         ...card,
@@ -182,6 +198,17 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
 
     case 'turn.set':
       return { status: 'applied', snapshot: { ...snapshot, turn: { ...operation.turn } } };
+
+		case 'turn.order.set':
+			return { status: 'applied', snapshot: { ...snapshot, turnOrder: [...operation.turnOrder] } };
+
+		case 'game.result.set':
+			return { status: 'applied', snapshot: {
+				...snapshot,
+				winnerPlayerId: operation.winnerPlayerId ?? null,
+				resultState: operation.resultState as GameSnapshot['resultState'],
+				finishedReason: operation.finishedReason ?? null,
+			} };
 
     case 'game.phase.set':
       return { status: 'applied', snapshot: { ...snapshot, gamePhase: operation.phase } };
@@ -210,6 +237,22 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         },
       };
 
+	case 'player.presence.set':
+		return {
+			status: 'applied',
+			snapshot: { ...snapshot, presence: { ...(snapshot.presence ?? {}), [operation.playerId]: { ...operation.presence } } },
+		};
+
+	case 'disconnect.cooldown.set': {
+		const cooldowns = { ...(snapshot.disconnectCooldowns ?? {}) };
+		if (operation.cooldown) {
+			cooldowns[operation.targetPlayerId] = { ...operation.cooldown };
+		} else {
+			delete cooldowns[operation.targetPlayerId];
+		}
+		return { status: 'applied', snapshot: { ...snapshot, disconnectCooldowns: cooldowns } };
+	}
+
     case 'rematch.set':
       return {
         status: 'applied',
@@ -218,7 +261,7 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
           rematch: operation.rematch
             ? {
                 ...operation.rematch,
-                votes: { ...operation.rematch.votes },
+                votes: { ...(operation.rematch.votes ?? {}) },
               }
             : undefined,
         },
@@ -400,7 +443,12 @@ function disconnectVotePayload(operation: GameSnapshotPatchOperation): GameDisco
     data?: { disconnectVote?: GameDisconnectVoteState | null };
   };
 
-  return payload.disconnectVote ?? payload.data?.disconnectVote ?? null;
+  const vote = payload.disconnectVote ?? payload.data?.disconnectVote ?? null;
+  if (!vote?.targetPlayerId || !vote.status) {
+    return null;
+  }
+  const votes = { ...(vote.votes ?? vote.votesByPlayerId ?? {}) };
+  return { ...vote, votes, votesByPlayerId: { ...(vote.votesByPlayerId ?? votes) } };
 }
 
 function applyCardPositions(
@@ -449,6 +497,35 @@ function updateCard(
   nextCards[cardIndex] = update(cards[cardIndex]);
 
   return replaceZone(snapshot, playerId, zone, nextCards);
+}
+
+function updateCardByInstanceId(
+  snapshot: GameSnapshot,
+  instanceId: string,
+  update: (card: GameCardInstance) => GameCardInstance,
+): OperationResult {
+  for (const [playerId, player] of Object.entries(snapshot.players)) {
+    for (const zone of ZONE_NAMES) {
+      if (player.zones[zone]?.some((card) => card.instanceId === instanceId)) {
+        return updateCard(snapshot, playerId, zone, instanceId, update);
+      }
+    }
+  }
+  return { status: 'failed', reason: 'target_not_found' };
+}
+
+function mergeStatsOverride(
+  current: GameCardInstance['manualOverrides'],
+  faceKey: string,
+  override: NonNullable<GameCardInstance['manualOverrides']>[string] | null,
+): NonNullable<GameCardInstance['manualOverrides']> {
+  const next = { ...(current ?? {}) };
+  if (override === null) {
+    delete next[faceKey];
+  } else {
+    next[faceKey] = { ...override };
+  }
+  return next;
 }
 
 function applyCardsState(

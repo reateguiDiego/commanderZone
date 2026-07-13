@@ -29,11 +29,15 @@ type CommandHTTPRequest struct {
 }
 
 type CommandHTTPResponse struct {
-	Event   protocol.EventPayloadV2    `json:"event"`
-	Patches []protocol.PatchEnvelopeV2 `json:"patches"`
-	Metrics map[string]any             `json:"metrics,omitempty"`
-	Error   string                     `json:"error,omitempty"`
-	Code    string                     `json:"code,omitempty"`
+	Event            protocol.EventPayloadV2    `json:"event"`
+	Patches          []protocol.PatchEnvelopeV2 `json:"patches"`
+	Metrics          map[string]any             `json:"metrics,omitempty"`
+	Error            string                     `json:"error,omitempty"`
+	Code             string                     `json:"code,omitempty"`
+	CommandType      string                     `json:"commandType,omitempty"`
+	VoteID           string                     `json:"voteId,omitempty"`
+	TargetPlayerID   string                     `json:"targetPlayerId,omitempty"`
+	RemainingSeconds int                        `json:"remainingSeconds,omitempty"`
 }
 
 func NewCommandHTTPServer(runtime *runtimesvc.Service) *CommandHTTPServer {
@@ -102,6 +106,14 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if result.Err != nil {
 		status := http.StatusConflict
 		code := "command_failed"
+		if controlError, ok := actor.AsControlPlaneError(result.Err); ok {
+			writeCommandHTTPJSON(w, status, CommandHTTPResponse{
+				Error: controlError.Error(), Code: controlError.Code, CommandType: controlError.CommandType,
+				VoteID: controlError.VoteID, TargetPlayerID: controlError.TargetPlayerID,
+				RemainingSeconds: controlError.RemainingSeconds,
+			})
+			return
+		}
 		if authorizationError, ok := actor.AsAuthorizationError(result.Err); ok {
 			writeCommandHTTPError(w, http.StatusForbidden, strings.ToLower(authorizationError.Code), authorizationError.Error())
 			return

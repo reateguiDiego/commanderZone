@@ -1444,12 +1444,12 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    await this.command('card.power_toughness.changed', {
+    await this.command('card.stats.override.clear', {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
-      power: null,
-      toughness: null,
+      faceIndex: Number.isInteger(menu.card.activeFaceIndex) ? Number(menu.card.activeFaceIndex) : 0,
+      axes: ['power', 'toughness'],
     });
     this.closeContextMenu();
   }

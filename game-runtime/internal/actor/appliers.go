@@ -33,6 +33,8 @@ func DefaultAppliers() []Applier {
 		CardCounterChangedApplier{},
 		CounterChangedApplier{},
 		CommanderDamageChangedApplier{},
+		CardStatsOverrideSetApplier{},
+		CardStatsOverrideClearApplier{},
 		CardPowerToughnessChangedApplier{},
 		CardPositionChangedApplier{},
 		LibraryDrawApplier{},
@@ -67,7 +69,7 @@ func DefaultAppliers() []Applier {
 		HelperRemovedApplier{},
 		GameConcedeApplier{},
 		GameCloseApplier{},
-		DisconnectVoteApplier{},
+		DurableDisconnectVoteApplier{},
 		MulliganTakeApplier{},
 		MulliganKeepApplier{},
 		MulliganCardsBottomedApplier{},
@@ -90,7 +92,10 @@ func (LifeChangedApplier) Apply(_ context.Context, game *state.GameState, comman
 	}
 	player, ok := game.Players[playerID]
 	if !ok {
-		return nil, fmt.Errorf("%w: playerId", ErrInvalidPayloadField)
+		return nil, &AuthorizationError{Code: AuthorizationCodeInvalidTarget, CommandType: command.Type}
+	}
+	if err := playerMutationStatusError(game, playerID, AuthorizationCodeInvalidTarget, command.Type); err != nil {
+		return nil, err
 	}
 	life, ok := intField(command.Payload, "life")
 	if !ok {
@@ -103,17 +108,35 @@ func (LifeChangedApplier) Apply(_ context.Context, game *state.GameState, comman
 	}
 	previousLife, _ := intFromAny(player["life"])
 	player["life"] = life
+	game.Players[playerID] = player
 	emitter.EmitPublic(protocol.PatchOp{
 		Op:   "player.life.set",
 		Data: map[string]any{"playerId": playerID, "value": life},
 	})
-	return map[string]any{
-		"playerId":     playerID,
-		"life":         life,
-		"previousLife": previousLife,
-		"delta":        life - previousLife,
-		"metrics":      simpleMetrics("simple.runtime_route", start, emitter),
-	}, nil
+	transition := defeatTransition{PreviousStatus: playerStatus(game, playerID), Status: playerStatus(game, playerID)}
+	if life <= 0 {
+		transition = applyMinimalDefeat(game, playerID, emitter)
+	}
+	payload := map[string]any{
+		"effectVersion":  atomicLifecycleEffectVersion,
+		"playerId":       playerID,
+		"life":           life,
+		"previousLife":   previousLife,
+		"delta":          life - previousLife,
+		"previousStatus": transition.PreviousStatus,
+		"status":         transition.Status,
+		"statusChanged":  transition.StatusChanged,
+		"metrics":        simpleMetrics("simple.runtime_route", start, emitter),
+	}
+	if transition.Turn != nil {
+		payload["turn"] = cloneMap(transition.Turn)
+	}
+	if transition.StatusChanged {
+		payload["effectVersion"] = authoritativeLifecycleEffectVersion
+		payload["eliminationReason"] = "life"
+		addLifecycleEffects(payload, game, transition)
+	}
+	return payload, nil
 }
 
 type TurnChangedApplier struct{}
@@ -122,6 +145,9 @@ func (TurnChangedApplier) Type() string { return "turn.changed" }
 
 func (TurnChangedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
 	start := nowUTC()
+	if requested, ok := command.Payload["activePlayerId"].(string); ok && requested != "" && playerStatus(game, requested) != "active" {
+		return nil, &AuthorizationError{Code: AuthorizationCodeInvalidTarget, CommandType: command.Type}
+	}
 	if game.Turn == nil {
 		game.Turn = map[string]any{}
 	}
@@ -226,7 +252,6 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	if instance.Counters == nil {
 		instance.Counters = map[string]int{}
 	}
-	previousValue := instance.Counters[counter]
 	remove, _ := boolField(command.Payload, "remove")
 	value, ok := intField(command.Payload, "value")
 	if remove {
@@ -244,7 +269,6 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 	} else {
 		instance.Counters[counter] = value
 	}
-	statPatch, hasStatPatch := applyPowerToughnessCounterDelta(&instance, counter, value-previousValue)
 	game.Instances[instanceID] = instance
 	patch := map[string]any{
 		"instanceId": instanceID,
@@ -254,21 +278,11 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 		"value":      value,
 		"counters":   cloneIntMapAny(instance.Counters),
 	}
-	if hasStatPatch {
-		for key, value := range statPatch {
-			patch[key] = value
-		}
-	}
 	patchData := map[string]any{
 		"instanceId": instanceID,
 		"playerId":   location.PlayerID,
 		"zone":       location.Zone,
 		"counters":   cloneIntMapAny(instance.Counters),
-	}
-	if hasStatPatch {
-		for key, value := range statPatch {
-			patchData[key] = value
-		}
 	}
 	emitter.EmitPublic(protocol.PatchOp{
 		Op:   "card.counters.patch",
@@ -312,36 +326,6 @@ func randomIntInclusive(minimum int, maximum int) (int, error) {
 		return 0, err
 	}
 	return minimum + int(value.Int64()), nil
-}
-
-func applyPowerToughnessCounterDelta(instance *state.CardInstanceRuntime, counter string, delta int) (map[string]any, bool) {
-	modifier := 0
-	switch counter {
-	case "+1/+1":
-		modifier = 1
-	case "-1/-1":
-		modifier = -1
-	default:
-		return nil, false
-	}
-	if delta == 0 {
-		return nil, false
-	}
-	if instance.MutableStats == nil {
-		instance.MutableStats = map[string]any{}
-	}
-	power := numericMutableStat(instance.MutableStats["power"]) + (delta * modifier)
-	toughness := numericMutableStat(instance.MutableStats["toughness"]) + (delta * modifier)
-	instance.MutableStats["power"] = power
-	instance.MutableStats["toughness"] = toughness
-	return map[string]any{"power": power, "toughness": toughness}, true
-}
-
-func numericMutableStat(value any) int {
-	if parsed, ok := intFromAny(value); ok {
-		return parsed
-	}
-	return 0
 }
 
 func cardCounterName(payload map[string]any) (string, error) {

@@ -49,7 +49,7 @@ describe('PlayersOrderComponent', () => {
     fixture.componentRef.setInput('currentPlayerId', 'player-1');
     fixture.componentRef.setInput('players', [
       player('player-1', 'Alive'),
-      player('player-2', 'Dead', { life: 0 }),
+		player('player-2', 'Dead', { life: 0, status: 'defeated' }),
       player('player-3', 'Conceded', { status: 'conceded' }),
     ]);
     fixture.detectChanges();

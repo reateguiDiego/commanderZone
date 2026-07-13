@@ -5,6 +5,7 @@ namespace App\Application\Game;
 use App\Application\Game\CommandV2\GameCommandV2Dispatcher;
 use App\Application\Game\CommandV2\GameCommandV2Result;
 use App\Application\Game\Compact\CompactGameCardStateMapper;
+use App\Application\Game\Compact\PowerToughnessModel;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\Compact\GameplayCompactRuntimeFlags;
 use App\Application\Game\Performance\GameplayMetricsInspector;
@@ -53,6 +54,8 @@ class GameCommandHandler
         'counter.changed',
         'card.counter.changed',
         'card.power_toughness.changed',
+        'card.stats.override.set',
+        'card.stats.override.clear',
         'card.moved',
         'cards.moved',
         'card.tapped',
@@ -115,6 +118,8 @@ class GameCommandHandler
         'card.token_copy.created',
         'card.controller.changed',
         'card.power_toughness.changed',
+        'card.stats.override.set',
+        'card.stats.override.clear',
         'card.counter.changed',
         'battlefield.untap_all',
         'stack.card_added',
@@ -283,7 +288,9 @@ class GameCommandHandler
                     'commander.damage.changed' => $log = $this->applyCommanderDamageChanged($snapshot, $payload),
                     'counter.changed' => $log = $this->applyLegacyCounterChanged($snapshot, $payload),
                     'card.counter.changed' => $log = $this->applyCardCounterChanged($snapshot, $payload),
-                    'card.power_toughness.changed' => $log = $this->applyPowerToughnessChanged($snapshot, $payload),
+                    'card.power_toughness.changed' => $log = $this->applyPowerToughnessChanged($snapshot, $payload, $actor),
+                    'card.stats.override.set' => $log = $this->applyStatsOverride($snapshot, $payload, $actor, false),
+                    'card.stats.override.clear' => $log = $this->applyStatsOverride($snapshot, $payload, $actor, true),
                     'card.moved' => $log = $this->applyCardMoved($snapshot, $payload),
                     'cards.moved' => $log = $this->applyCardsMoved($snapshot, $payload),
                     'card.tapped' => $log = $this->applyCardTapped($snapshot, $payload),
@@ -420,15 +427,29 @@ class GameCommandHandler
             $snapshot['eventLog'] ??= [];
         }
         $snapshot['counters'] ??= [];
+		$snapshot['presence'] = is_array($snapshot['presence'] ?? null) ? $snapshot['presence'] : [];
+		$snapshot['disconnectCooldowns'] = is_array($snapshot['disconnectCooldowns'] ?? null) ? $snapshot['disconnectCooldowns'] : [];
+		$snapshot['rematch'] = is_array($snapshot['rematch'] ?? null) ? $snapshot['rematch'] : [];
+		$snapshot['rematch']['votes'] = is_array($snapshot['rematch']['votes'] ?? null) ? $snapshot['rematch']['votes'] : [];
         $snapshot['updatedAt'] ??= $snapshot['createdAt'] ?? (new \DateTimeImmutable())->format(DATE_ATOM);
 
         if (!isset($snapshot['players']) || !is_array($snapshot['players'])) {
             $snapshot['players'] = [];
         }
+		$turnOrder = array_values(array_filter(
+			is_array($snapshot['turnOrder'] ?? null) ? $snapshot['turnOrder'] : [],
+			static fn (mixed $playerId): bool => is_string($playerId) && isset($snapshot['players'][$playerId]),
+		));
+		foreach (array_keys($snapshot['players']) as $playerId) {
+			if (is_string($playerId) && !in_array($playerId, $turnOrder, true)) {
+				$turnOrder[] = $playerId;
+			}
+		}
+		$snapshot['turnOrder'] = $turnOrder;
 
         foreach ($snapshot['players'] as $playerId => &$player) {
             $status = $player['status'] ?? 'active';
-            $player['status'] = in_array($status, ['active', 'conceded'], true) ? $status : 'active';
+            $player['status'] = in_array($status, ['active', 'defeated', 'conceded'], true) ? $status : 'active';
             $player['concededAt'] ??= null;
             $player['deckName'] = is_string($player['deckName'] ?? null) ? $player['deckName'] : null;
             $player['colorIdentity'] = $this->orderedColorIdentity(is_array($player['colorIdentity'] ?? null) ? $player['colorIdentity'] : []);
@@ -648,8 +669,13 @@ class GameCommandHandler
         $rawToughness = $card['toughness'] ?? null;
         $rawLoyalty = $card['loyalty'] ?? null;
         $rawDefense = $card['defense'] ?? null;
-        $power = $this->gameplayStat($rawPower);
-        $toughness = $this->gameplayStat($rawToughness);
+		$activeFaceIndex = $this->activeFaceIndex($card);
+		$printedStats = is_array($card['printedStats'] ?? null)
+			? $card['printedStats']
+			: PowerToughnessModel::printedStats($card);
+		$manualOverrides = PowerToughnessModel::manualOverrides($card, $printedStats);
+		$power = PowerToughnessModel::activeAxis($printedStats, $manualOverrides, $activeFaceIndex, 'power');
+		$toughness = PowerToughnessModel::activeAxis($printedStats, $manualOverrides, $activeFaceIndex, 'toughness');
         $baseStats = $this->baseStats($card, $rawPower, $rawToughness);
         $loyalty = array_key_exists('loyalty', $card) ? $this->gameplayStat($rawLoyalty) : null;
         $defaultLoyalty = $this->defaultLoyalty($card, $rawLoyalty);
@@ -680,9 +706,11 @@ class GameCommandHandler
             'defaultToughness' => $baseStats['toughness'],
             'defaultLoyalty' => $defaultLoyalty,
             'defaultDefense' => $defaultDefense,
+			'printedStats' => $printedStats,
+			'manualOverrides' => $manualOverrides,
             'tapped' => $tapped,
             'faceDown' => (bool) ($card['faceDown'] ?? false),
-            'activeFaceIndex' => $this->activeFaceIndex($card),
+			'activeFaceIndex' => $activeFaceIndex,
             'revealedTo' => is_array($card['revealedTo'] ?? null) ? $card['revealedTo'] : [],
             'position' => $this->normalizedPosition($card['position'] ?? null),
             'rotation' => $tapped ? (int) ($card['rotation'] ?? 90) : 0,
@@ -789,6 +817,48 @@ class GameCommandHandler
             'defaultDefense' => $card['defaultDefense'] ?? null,
             'activeFaceIndex' => $card['activeFaceIndex'] ?? null,
         ], static fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /**
+     * A token copy freezes the source's printed/default base, not its mutable
+     * manual overrides. Catalog-resolved defaults win over ambiguous legacy
+     * root power/toughness values for the active face.
+     *
+     * @param array<string,mixed> $source
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function tokenCopyPrintedStats(array $source): array
+    {
+        $printedStats = is_array($source['printedStats'] ?? null)
+            ? $source['printedStats']
+            : PowerToughnessModel::printedStats($source);
+        $activeFaceIndex = $this->activeFaceIndex($source);
+        $activeFaceKey = (string) $activeFaceIndex;
+        if (!is_array($printedStats[$activeFaceKey] ?? null)) {
+            $printedStats[$activeFaceKey] = [
+                'faceKey' => $activeFaceKey,
+                'faceIndex' => $activeFaceIndex,
+            ];
+        }
+
+        foreach ($printedStats as $faceKey => &$stats) {
+            if (!is_array($stats)) {
+                $stats = [];
+            }
+            $stats['faceKey'] = (string) $faceKey;
+            $stats['faceIndex'] = isset($stats['faceIndex']) ? max(0, (int) $stats['faceIndex']) : max(0, (int) $faceKey);
+            $stats['provenance'] = 'copy_effect';
+        }
+        unset($stats);
+
+        foreach (['power' => 'defaultPower', 'toughness' => 'defaultToughness'] as $axis => $defaultKey) {
+            if (array_key_exists($defaultKey, $source)) {
+                $printedStats[$activeFaceKey][$axis] = PowerToughnessModel::classify($source[$defaultKey])['value'];
+            }
+        }
+
+        return $printedStats;
     }
 
     /**
@@ -924,12 +994,8 @@ class GameCommandHandler
         if (($snapshot['players'][$playerId]['status'] ?? 'active') === 'conceded') {
             throw new \InvalidArgumentException('Player already conceded.');
         }
-        $previousActivePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? '');
-
-        $snapshot['players'][$playerId]['status'] = 'conceded';
         $snapshot['players'][$playerId]['concededAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
-        GameTurnSuccession::advanceWhenActivePlayerLeaves($snapshot, $playerId, $previousActivePlayerId);
-        $this->reassignMonarchWhenPlayerLeaves($snapshot, $playerId, $previousActivePlayerId);
+        GameLifecycleTransition::eliminate($snapshot, $playerId, 'concede');
 
         return sprintf('%s conceded.', $this->playerName($snapshot, $playerId));
     }
@@ -941,6 +1007,9 @@ class GameCommandHandler
         }
 
         $game->finish();
+		$snapshot['status'] = 'finished';
+		$snapshot['gamePhase'] = 'FINISHED';
+		$snapshot['finishedReason'] ??= 'explicit_close';
 
         return 'Closed the game.';
     }
@@ -1120,10 +1189,21 @@ class GameCommandHandler
             ? (int) $payload['life']
             : $oldLife + (int) ($payload['delta'] ?? 0);
         $snapshot['players'][$playerId]['life'] = $newLife;
-        if ($oldLife <= 0 && !$this->hasPlayerDefeatedLog($snapshot, $playerId)) {
-            $this->pendingDefeatedPlayerId = $playerId;
-            $this->pendingDefeatPreexisted = true;
-        } elseif ($oldLife > 0 && $newLife <= 0 && !$this->hasPlayerDefeatedLog($snapshot, $playerId)) {
+		if ($newLife <= 0 && ($snapshot['players'][$playerId]['status'] ?? 'active') === 'active') {
+			GameLifecycleTransition::eliminate($snapshot, $playerId, 'life');
+		}
+		$this->pendingEventPayload = [
+			...$payload, 'playerId' => $playerId, 'previousLife' => $oldLife, 'life' => $newLife,
+			'delta' => $newLife - $oldLife, 'effectVersion' => 3,
+			'status' => $snapshot['players'][$playerId]['status'] ?? 'active',
+			'eliminationReason' => $snapshot['players'][$playerId]['eliminationReason'] ?? null,
+			'eliminatedAtVersion' => $snapshot['players'][$playerId]['eliminatedAtVersion'] ?? null,
+			'turn' => $snapshot['turn'] ?? [], 'turnOrder' => $snapshot['turnOrder'] ?? [],
+			'winnerPlayerId' => $snapshot['winnerPlayerId'] ?? null,
+			'resultState' => $snapshot['resultState'] ?? null,
+			'finishedReason' => $snapshot['finishedReason'] ?? null,
+		];
+		if ($oldLife > 0 && $newLife <= 0 && !$this->hasPlayerDefeatedLog($snapshot, $playerId)) {
             $this->pendingDefeatedPlayerId = $playerId;
         }
 
@@ -1148,18 +1228,39 @@ class GameCommandHandler
             ? (int) $payload['damage']
             : $current + (int) ($payload['delta'] ?? 0);
         $nextDamage = max(0, $damage);
-        $snapshot['players'][$targetPlayerId]['commanderDamage'][$commanderInstanceId] = $nextDamage;
+        $previousLife = (int) ($snapshot['players'][$targetPlayerId]['life'] ?? 40);
+		$delta = $nextDamage - $current;
+		$life = $delta > 0 ? $previousLife - $delta : $previousLife;
+		$snapshot['players'][$targetPlayerId]['commanderDamage'][$commanderInstanceId] = $nextDamage;
+		$snapshot['players'][$targetPlayerId]['life'] = $life;
+		if (($nextDamage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD || $life <= 0)
+			&& ($snapshot['players'][$targetPlayerId]['status'] ?? 'active') === 'active') {
+			GameLifecycleTransition::eliminate($snapshot, $targetPlayerId, $nextDamage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD ? 'commander_damage' : 'life', [
+				'sourcePlayerId' => $sourcePlayerId,
+				'commanderInstanceId' => $commanderInstanceId,
+			]);
+		}
         $this->pendingEventPayload = [
             ...$payload,
             'targetPlayerId' => $targetPlayerId,
             'sourcePlayerId' => $sourcePlayerId,
             'commanderInstanceId' => $commanderInstanceId,
             'damage' => $nextDamage,
+			'previousDamage' => $current,
+			'delta' => $delta,
+			'previousLife' => $previousLife,
+			'life' => $life,
+			'effectVersion' => 3,
+			'status' => $snapshot['players'][$targetPlayerId]['status'] ?? 'active',
+			'eliminationReason' => $snapshot['players'][$targetPlayerId]['eliminationReason'] ?? null,
+			'eliminatedAtVersion' => $snapshot['players'][$targetPlayerId]['eliminatedAtVersion'] ?? null,
+			'turn' => $snapshot['turn'] ?? [],
+			'turnOrder' => $snapshot['turnOrder'] ?? [],
+			'winnerPlayerId' => $snapshot['winnerPlayerId'] ?? null,
+			'resultState' => $snapshot['resultState'] ?? null,
+			'finishedReason' => $snapshot['finishedReason'] ?? null,
         ];
-        if ($current >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD && !$this->hasPlayerDefeatedLog($snapshot, $targetPlayerId)) {
-            $this->pendingDefeatedPlayerId = $targetPlayerId;
-            $this->pendingDefeatPreexisted = true;
-        } elseif ($current < self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD
+		if ($current < self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD
             && $nextDamage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD
             && !$this->hasPlayerDefeatedLog($snapshot, $targetPlayerId)
         ) {
@@ -1307,8 +1408,6 @@ class GameCommandHandler
                 return sprintf('Set %s %s counters to 1.', $this->cardLogName($card), $key);
             }
             unset($card['counters'][$key]);
-            $this->applyStatCounterDelta($card, $key, -$previousValue);
-
             return sprintf('Removed %s counter from %s.', $key, $this->cardLogName($card));
         }
 
@@ -1319,12 +1418,10 @@ class GameCommandHandler
         $value = array_key_exists('value', $payload)
             ? (int) $payload['value']
             : (int) ($card['counters'][$key] ?? 0) + (int) ($payload['delta'] ?? 0);
-        $previousValue = (int) ($card['counters'][$key] ?? 0);
         $nextValue = $this->isTheRingLevelCounter($card, $key)
             ? max(1, min(4, $value))
             : max(0, $value);
         $card['counters'][$key] = $nextValue;
-        $this->applyStatCounterDelta($card, $key, $nextValue - $previousValue);
 
         return sprintf('Set %s %s counters to %d.', $this->cardLogName($card), $key, $nextValue);
     }
@@ -1334,7 +1431,7 @@ class GameCommandHandler
         return strtolower(trim($key)) === 'level' && $this->isTheRingCard($card);
     }
 
-    private function applyPowerToughnessChanged(array &$snapshot, array $payload): string
+    private function applyPowerToughnessChanged(array &$snapshot, array $payload, User $actor): string
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
@@ -1343,12 +1440,7 @@ class GameCommandHandler
         $previousLoyalty = $card['loyalty'] ?? null;
         $previousDefense = $card['defense'] ?? null;
         $previousSaga = $card['saga'] ?? null;
-        if (array_key_exists('power', $payload)) {
-            $card['power'] = $payload['power'] === null ? null : (int) $payload['power'];
-        }
-        if (array_key_exists('toughness', $payload)) {
-            $card['toughness'] = $payload['toughness'] === null ? null : (int) $payload['toughness'];
-        }
+        $this->v2ApplyLegacyPowerToughnessOverride($card, $payload, $actor, max(1, (int) ($snapshot['version'] ?? 1)) + 1);
         if (array_key_exists('loyalty', $payload)) {
             $card['loyalty'] = $payload['loyalty'] === null ? null : (int) $payload['loyalty'];
         }
@@ -1427,6 +1519,110 @@ class GameCommandHandler
             $this->statLabel($card['power'] ?? null),
             $this->statLabel($card['toughness'] ?? null),
         );
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function applyStatsOverride(array &$snapshot, array $payload, User $actor, bool $clear): string
+    {
+        $location = $this->requiredCardLocation($snapshot, $payload);
+        $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+        $faceIndex = filter_var($payload['faceIndex'] ?? null, FILTER_VALIDATE_INT);
+        $faceKey = is_string($payload['faceKey'] ?? null) ? trim($payload['faceKey']) : '';
+        if ($faceIndex === false && $faceKey !== '' && ctype_digit($faceKey)) {
+            $faceIndex = (int) $faceKey;
+        }
+        if ($faceIndex === false || $faceIndex < 0) {
+            throw new \InvalidArgumentException('INVALID_FACE');
+        }
+        $faceKey = $faceKey !== '' ? $faceKey : (string) $faceIndex;
+        $printedStats = is_array($card['printedStats'] ?? null) ? $card['printedStats'] : PowerToughnessModel::printedStats($card);
+        if ($printedStats !== [] && !array_key_exists($faceKey, $printedStats)) {
+            throw new \InvalidArgumentException('INVALID_FACE');
+        }
+        $card['printedStats'] = $printedStats;
+        $card['manualOverrides'] = is_array($card['manualOverrides'] ?? null) ? $card['manualOverrides'] : [];
+        $previous = is_array($card['manualOverrides'][$faceKey] ?? null) ? $card['manualOverrides'][$faceKey] : [];
+        $next = $previous;
+        $axes = [];
+        if ($clear) {
+            $requested = is_array($payload['axes'] ?? null) ? $payload['axes'] : [];
+            foreach (['power', 'toughness'] as $axis) {
+                if (in_array($axis, $requested, true) || ($payload[$axis] ?? false) === true) {
+                    unset($next[$axis]);
+                    $axes[] = $axis;
+                }
+            }
+        } else {
+            foreach (['power', 'toughness'] as $axis) {
+                if (!array_key_exists($axis, $payload)) {
+                    continue;
+                }
+                $axes[] = $axis;
+                if ($payload[$axis] === null) {
+                    unset($next[$axis]);
+                    continue;
+                }
+                if ((!is_scalar($payload[$axis]) || is_bool($payload[$axis])) || (is_string($payload[$axis]) && trim($payload[$axis]) === '')) {
+                    throw new \InvalidArgumentException($axis === 'power' ? 'INVALID_POWER_OVERRIDE' : 'INVALID_TOUGHNESS_OVERRIDE');
+                }
+                $normalized = PowerToughnessModel::overrideValue($payload[$axis]);
+                if ($normalized === null) {
+                    throw new \InvalidArgumentException($axis === 'power' ? 'INVALID_POWER_OVERRIDE' : 'INVALID_TOUGHNESS_OVERRIDE');
+                }
+                $next[$axis] = $normalized;
+            }
+        }
+        if ($axes === []) {
+            throw new \InvalidArgumentException('NO_STATS_AXIS_PROVIDED');
+        }
+        if (!array_key_exists('power', $next) && !array_key_exists('toughness', $next)) {
+            unset($card['manualOverrides'][$faceKey]);
+            $next = [];
+        } else {
+            $next['faceKey'] = $faceKey;
+            $next['faceIndex'] = $faceIndex;
+            $next['provenance'] = 'manual';
+            $next['updatedByPlayerId'] = $actor->id();
+            $next['updatedAtVersion'] = max(1, (int) ($snapshot['version'] ?? 1)) + 1;
+            $card['manualOverrides'][$faceKey] = $next;
+        }
+        if (max(0, (int) ($card['activeFaceIndex'] ?? 0)) === $faceIndex) {
+            foreach (['power', 'toughness'] as $axis) {
+                $card[$axis] = PowerToughnessModel::activeAxis($printedStats, $card['manualOverrides'], $faceIndex, $axis);
+            }
+        }
+        $this->pendingEventPayload = [
+            'effectVersion' => 1,
+            'instanceId' => (string) ($card['instanceId'] ?? ''),
+            'playerId' => $location['playerId'],
+            'zone' => $location['zone'],
+            'faceKey' => $faceKey,
+            'faceIndex' => $faceIndex,
+            'previousOverride' => $previous,
+            'override' => $next !== [] ? $next : null,
+            'provenance' => 'manual',
+            'actorPlayerId' => $actor->id(),
+            'updatedAtVersion' => max(1, (int) ($snapshot['version'] ?? 1)) + 1,
+            'axes' => $axes,
+        ];
+		$this->pendingLogContext = [
+			'i18nKey' => $clear ? 'gameLog.card.statsOverrideCleared' : 'gameLog.card.statsOverrideSet',
+			'i18nParams' => [
+				'actorPlayerId' => $actor->id(),
+				'face' => $faceKey,
+				'previousPower' => $previous['power'] ?? null,
+				'power' => $next['power'] ?? null,
+				'previousToughness' => $previous['toughness'] ?? null,
+				'toughness' => $next['toughness'] ?? null,
+			],
+		];
+		if (!in_array($location['zone'], ['hand', 'library'], true)) {
+			$this->pendingLogContext['cardInstanceId'] = (string) ($card['instanceId'] ?? '');
+		}
+
+        return $clear ? 'Cleared a card power/toughness override.' : 'Set a card power/toughness override.';
     }
 
     private function applyCardMoved(array &$snapshot, array $payload): string
@@ -1771,6 +1967,7 @@ class GameCommandHandler
         if (!isset($snapshot['players'][$targetPlayerId])) {
             $targetPlayerId = $location['playerId'];
         }
+        $copyPrintedStats = $this->tokenCopyPrintedStats($source);
 
         $copy = $this->normalizeCard([
             ...$source,
@@ -1780,6 +1977,8 @@ class GameCommandHandler
             'power' => $source['defaultPower'] ?? null,
             'toughness' => $source['defaultToughness'] ?? null,
             'loyalty' => $source['defaultLoyalty'] ?? null,
+            'printedStats' => $copyPrintedStats,
+            'manualOverrides' => [],
             'counters' => [],
             'zone' => 'battlefield',
             'isToken' => true,
@@ -3687,30 +3886,6 @@ class GameCommandHandler
 
     /**
      * @param array<string,mixed> $card
-     */
-    private function applyStatCounterDelta(array &$card, string $key, int $delta): void
-    {
-        if ($delta === 0) {
-            return;
-        }
-
-        $modifier = match ($key) {
-            '+1/+1' => 1,
-            '-1/-1' => -1,
-            default => 0,
-        };
-        if ($modifier === 0) {
-            return;
-        }
-
-        $card['power'] = (int) ($this->numericStat($card['power'] ?? null) ?? $this->numericStat($card['defaultPower'] ?? null) ?? 0)
-            + ($delta * $modifier);
-        $card['toughness'] = (int) ($this->numericStat($card['toughness'] ?? null) ?? $this->numericStat($card['defaultToughness'] ?? null) ?? 0)
-            + ($delta * $modifier);
-    }
-
-    /**
-     * @param array<string,mixed> $card
      *
      * @return array{power:int|string|null,toughness:int|string|null}
      */
@@ -4064,12 +4239,17 @@ class GameCommandHandler
         if ($actorPlayerId === null) {
             throw new \InvalidArgumentException('Actor is not a game player.');
         }
-        if ($type === 'game.concede' || $type === 'game.close') {
+        if ($type === 'game.close') {
             return;
         }
-        if (($snapshot['players'][$actorPlayerId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
-            throw new \InvalidArgumentException('Conceded players cannot perform game actions.');
+		$status = $snapshot['players'][$actorPlayerId]['status'] ?? 'active';
+        if (in_array($status, ['defeated', 'conceded'], true) && !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
+            throw new \InvalidArgumentException('Eliminated players cannot perform game actions.');
         }
+		if ((($snapshot['status'] ?? null) === 'finished' || ($snapshot['gamePhase'] ?? null) === 'FINISHED' || ($snapshot['resultState'] ?? null) !== null)
+			&& !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
+			throw new \InvalidArgumentException('Closed or resolved games cannot receive gameplay actions.');
+		}
 
         if ($this->specialEntityCommandHandler->supports($type)) {
             $this->specialEntityCommandHandler->assertActorCanApply($snapshot, $type, $payload, $actor);
@@ -4344,9 +4524,9 @@ class GameCommandHandler
         return $this->isVariablePrintedStat($printed) ? 0 : $printed;
     }
 
-    private function powerToughnessStat(mixed $value): int|string|null
+    private function powerToughnessStat(mixed $value): int|float|string|null
     {
-        return $this->printedStat($value);
+		return PowerToughnessModel::overrideValue($value);
     }
 
     private function isVariablePrintedStat(string $value): bool
@@ -5028,9 +5208,53 @@ class GameCommandHandler
         return in_array($zone, self::HIDDEN_ZONES, true) || (($card['faceDown'] ?? false) === true);
     }
 
-    public function v2ApplyStatCounterDelta(array &$card, string $key, int $delta): void
+    /**
+     * Preserve the historical command surface while materializing its P/T
+     * mutation in the explicit per-face override model.
+     *
+     * @param array<string,mixed> $card
+     * @param array<string,mixed> $payload
+     */
+    public function v2ApplyLegacyPowerToughnessOverride(array &$card, array $payload, User $actor, int $version): void
     {
-        $this->applyStatCounterDelta($card, $key, $delta);
+        if (!array_key_exists('power', $payload) && !array_key_exists('toughness', $payload)) {
+            return;
+        }
+
+        $faceIndex = $this->activeFaceIndex($card);
+        $faceKey = (string) $faceIndex;
+        $printedStats = is_array($card['printedStats'] ?? null)
+            ? $card['printedStats']
+            : PowerToughnessModel::printedStats($card);
+        $manualOverrides = is_array($card['manualOverrides'] ?? null) ? $card['manualOverrides'] : [];
+        $next = is_array($manualOverrides[$faceKey] ?? null) ? $manualOverrides[$faceKey] : [];
+        foreach (['power', 'toughness'] as $axis) {
+            if (!array_key_exists($axis, $payload)) {
+                continue;
+            }
+            $value = PowerToughnessModel::overrideValue($payload[$axis]);
+            if ($value === null) {
+                unset($next[$axis]);
+            } else {
+                $next[$axis] = $value;
+            }
+        }
+        if (!array_key_exists('power', $next) && !array_key_exists('toughness', $next)) {
+            unset($manualOverrides[$faceKey]);
+        } else {
+            $next['faceKey'] = $faceKey;
+            $next['faceIndex'] = $faceIndex;
+            $next['provenance'] = 'manual';
+            $next['updatedByPlayerId'] = $actor->id();
+            $next['updatedAtVersion'] = max(1, $version);
+            $manualOverrides[$faceKey] = $next;
+        }
+
+        $card['printedStats'] = $printedStats;
+        $card['manualOverrides'] = $manualOverrides;
+        foreach (['power', 'toughness'] as $axis) {
+            $card[$axis] = PowerToughnessModel::activeAxis($printedStats, $manualOverrides, $faceIndex, $axis);
+        }
     }
 
     /**
@@ -6578,7 +6802,7 @@ class GameCommandHandler
             }
 
             $playerStatus = is_string($player['status'] ?? null) ? $player['status'] : 'active';
-            $player['status'] = in_array($playerStatus, ['active', 'conceded'], true)
+            $player['status'] = in_array($playerStatus, ['active', 'defeated', 'conceded'], true)
                 ? $playerStatus
                 : 'active';
             $player['life'] = (int) ($player['life'] ?? 40);
@@ -6636,6 +6860,8 @@ class GameCommandHandler
             case 'counter.changed':
             case 'card.counter.changed':
             case 'card.power_toughness.changed':
+            case 'card.stats.override.set':
+            case 'card.stats.override.clear':
             case 'card.tapped':
             case 'card.position.changed':
             case 'card.dungeon_marker.changed':

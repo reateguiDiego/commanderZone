@@ -1,6 +1,7 @@
 import { GameCardInstance, GameSnapshot } from '../../../../core/models/game.model';
 import { CardFace } from '../../../../core/models/card.model';
 import { isBattleCard, isSagaCard } from './gameplay-card-kind';
+import { selectCardPowerToughness } from './game-card-power-toughness';
 import {
   CardPreviewEvent,
   CardPreviewAttachmentInfo,
@@ -109,24 +110,21 @@ function currentPowerToughness(card: GameCardInstance): CardPreviewCardStateInfo
     return null;
   }
 
-  const currentPower = currentCardNumericValue(card, 'power');
-  const currentToughness = currentCardNumericValue(card, 'toughness');
-  if (currentPower === null || currentToughness === null) {
+  const view = selectCardPowerToughness(card);
+  const hasOverride = card.manualOverrides?.[view.faceKey] !== undefined;
+  const hasLegacyChange = card.manualOverrides === undefined
+    && (view.manualPowerOverride !== null || view.manualToughnessOverride !== null);
+  const hasFaceSpecificChange = (card.cardFaces?.length ?? 0) > 0
+    && (String(view.printedPower ?? '') !== String(card.defaultPower ?? '')
+      || String(view.printedToughness ?? '') !== String(card.defaultToughness ?? ''));
+  if (!hasOverride && !hasLegacyChange && !hasFaceSpecificChange && view.netPowerToughnessCounters === 0) {
+    return null;
+  }
+  if (view.displayPower === null || view.displayToughness === null) {
     return null;
   }
 
-  const defaultPower = Number(card.defaultPower);
-  const defaultToughness = Number(card.defaultToughness);
-  if (
-    !Number.isFinite(defaultPower)
-    || !Number.isFinite(defaultToughness)
-  ) {
-    return null;
-  }
-
-  return currentPower !== defaultPower || currentToughness !== defaultToughness
-    ? { power: currentPower, toughness: currentToughness }
-    : null;
+  return { power: view.displayPower, toughness: view.displayToughness };
 }
 
 function cardPreviewLoyalty(card: GameCardInstance): number | null {

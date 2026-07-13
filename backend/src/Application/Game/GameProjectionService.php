@@ -144,6 +144,14 @@ class GameProjectionService
             $requestedLanguage,
             $localizedCardsByLanguage,
         );
+		if (is_array($snapshot['presence'] ?? null)) {
+			foreach ($snapshot['presence'] as &$presence) {
+				if (is_array($presence)) {
+					unset($presence['connectionEpoch']);
+				}
+			}
+			unset($presence);
+		}
         // loc and the mask index are server-authoritative replay/projection
         // structures. Both are keyed by real instance IDs and must never be
         // serialized to a viewer bootstrap after hidden zones are projected

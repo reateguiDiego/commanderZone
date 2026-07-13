@@ -99,7 +99,6 @@ describe('game realtime contract', () => {
       {
         kind: 'connection_state',
         gameId: 'game-1',
-        connectionId: 'connection-1',
         status: 'connected',
         serverTime: '2026-01-01T00:00:01+00:00',
       },
@@ -452,7 +451,6 @@ function snapshotFixture(): GameSnapshot {
 
 function connectionPresence(): GameplayConnectionPresence {
   return {
-    connectionId: 'connection-1',
     gameId: 'game-1',
     userId: 'player-1',
     displayName: 'Player 1',

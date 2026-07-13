@@ -181,6 +181,10 @@ final class GameplayV2ContractFactory
                 'backgroundName' => is_string($player['backgroundName'] ?? null) ? $player['backgroundName'] : null,
                 'sleevesName' => is_string($player['sleevesName'] ?? null) ? $player['sleevesName'] : null,
                 'mulligan' => is_array($player['mulligan'] ?? null) ? $player['mulligan'] : null,
+				'eliminationReason' => is_string($player['eliminationReason'] ?? null) ? $player['eliminationReason'] : null,
+				'eliminatedAtVersion' => is_int($player['eliminatedAtVersion'] ?? null) ? $player['eliminatedAtVersion'] : null,
+				'sourcePlayerId' => is_string($player['sourcePlayerId'] ?? null) ? $player['sourcePlayerId'] : null,
+				'commanderInstanceId' => is_string($player['commanderInstanceId'] ?? null) ? $player['commanderInstanceId'] : null,
             ];
         }
 
@@ -192,16 +196,35 @@ final class GameplayV2ContractFactory
             'specialEntities' => array_values(array_filter($projectedSnapshot['specialEntities'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
         ];
 
+        $rematch = is_array($projectedSnapshot['rematch'] ?? null) ? $projectedSnapshot['rematch'] : [];
+        $rematch['votes'] = is_array($rematch['votes'] ?? null) ? $rematch['votes'] : [];
+		$disconnectVote = is_array($projectedSnapshot['disconnectVote'] ?? null) ? $projectedSnapshot['disconnectVote'] : null;
+		if (!is_string($disconnectVote['targetPlayerId'] ?? null) || !is_string($disconnectVote['status'] ?? null)) {
+			$disconnectVote = null;
+		} else {
+			$disconnectVote['votes'] = is_array($disconnectVote['votes'] ?? null) ? $disconnectVote['votes'] : [];
+			$disconnectVote['votesByPlayerId'] = is_array($disconnectVote['votesByPlayerId'] ?? null)
+				? $disconnectVote['votesByPlayerId']
+				: $disconnectVote['votes'];
+		}
+
         $payload = [
             'game' => [
                 'id' => $game->id(),
-                'status' => $game->status(),
+				'status' => is_string($projectedSnapshot['status'] ?? null) ? $projectedSnapshot['status'] : $game->status(),
                 'version' => max(1, (int) ($projectedSnapshot['version'] ?? 1)),
                 'viewerId' => $viewer->id(),
                 'ownerId' => $projectedSnapshot['ownerId'] ?? null,
                 'gamePhase' => $projectedSnapshot['gamePhase'] ?? 'PLAYING',
                 'createdAt' => $projectedSnapshot['createdAt'] ?? null,
                 'updatedAt' => $projectedSnapshot['updatedAt'] ?? null,
+				'winnerPlayerId' => $projectedSnapshot['winnerPlayerId'] ?? null,
+				'resultState' => $projectedSnapshot['resultState'] ?? null,
+				'finishedReason' => $projectedSnapshot['finishedReason'] ?? null,
+				'presence' => $this->publicPresence($projectedSnapshot['presence'] ?? null),
+				'disconnectVote' => $disconnectVote,
+				'disconnectCooldowns' => is_array($projectedSnapshot['disconnectCooldowns'] ?? null) ? $projectedSnapshot['disconnectCooldowns'] : [],
+				'rematch' => $rematch,
             ],
             'players' => $players,
             'zones' => $zones,
@@ -210,6 +233,10 @@ final class GameplayV2ContractFactory
             'sharedCounters' => $this->sharedCounters($projectedSnapshot['counters'] ?? []),
             'relations' => $relations,
             'turn' => is_array($projectedSnapshot['turn'] ?? null) ? $projectedSnapshot['turn'] : [],
+			'turnOrder' => array_values(array_filter(
+				is_array($projectedSnapshot['turnOrder'] ?? null) ? $projectedSnapshot['turnOrder'] : array_keys($players),
+				'is_string',
+			)),
             'staticCards' => $staticCards,
             'chat' => array_values(array_filter($projectedSnapshot['chat'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
             'eventLog' => array_values(array_filter($projectedSnapshot['eventLog'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
@@ -222,6 +249,24 @@ final class GameplayV2ContractFactory
 
         return BootstrapV2::fromArray($payload);
     }
+
+	/** @return array<string,array<string,mixed>> */
+	private function publicPresence(mixed $value): array
+	{
+		if (!is_array($value)) {
+			return [];
+		}
+		$presenceByPlayer = [];
+		foreach ($value as $playerId => $presence) {
+			if (!is_string($playerId) || !is_array($presence)) {
+				continue;
+			}
+			unset($presence['connectionEpoch']);
+			$presenceByPlayer[$playerId] = $presence;
+		}
+
+		return $presenceByPlayer;
+	}
 
     /**
      * @return array<string,array<string,int>>
@@ -387,6 +432,8 @@ final class GameplayV2ContractFactory
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
             'power' => $card['power'] ?? null,
             'toughness' => $card['toughness'] ?? null,
+			'printedStats' => is_array($card['printedStats'] ?? null) ? $card['printedStats'] : [],
+			'manualOverrides' => is_array($card['manualOverrides'] ?? null) ? $card['manualOverrides'] : [],
             'loyalty' => $card['loyalty'] ?? null,
             'defense' => $card['defense'] ?? null,
             'activeFaceIndex' => $card['activeFaceIndex'] ?? null,

@@ -984,9 +984,10 @@ class GamesController extends ApiController
 
         $payload = $this->payload($request);
         $targetPlayerId = trim((string) ($payload['targetPlayerId'] ?? ''));
-        $vote = trim((string) ($payload['vote'] ?? ''));
-        if ($targetPlayerId === '' || $vote === '') {
-            return $this->fail('targetPlayerId and vote are required.');
+		$voteId = trim((string) ($payload['voteId'] ?? ''));
+		$vote = trim((string) ($payload['decision'] ?? $payload['vote'] ?? ''));
+		if ($targetPlayerId === '' || $voteId === '' || $vote === '') {
+			return $this->fail('targetPlayerId, voteId and decision are required.');
         }
 
         $room = $game->room();
@@ -1001,6 +1002,8 @@ class GamesController extends ApiController
                 $targetPlayerId,
                 $vote,
                 array_values(array_unique([...$rooms->connectedUserIdsForGame($game->id()), $user->id()])),
+				now: null,
+				voteId: $voteId,
             );
             $event = $recorded['event'];
             $entityManager->persist($event);

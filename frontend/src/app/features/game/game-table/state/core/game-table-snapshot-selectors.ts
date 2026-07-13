@@ -6,6 +6,7 @@ import { gameBackgroundImageUrl, gameSleevesImageUrl } from '../../utils/game-ta
 import { BattlefieldCardSize, BattlefieldSize, renderedBattlefieldPosition } from '../../utils/battlefield-position';
 import { isKnownCommanderCard, knownCommanderInstanceIds, knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zone-drop';
 import { isBattleCard } from '../../utils/gameplay-card-kind';
+import { selectCardPowerToughness } from '../../utils/game-card-power-toughness';
 
 export interface PlayerView {
   id: string;
@@ -159,11 +160,11 @@ export class GameTableSnapshotSelectors {
   }
 
   cardPowerValue(card: GameCardInstance): GamePowerToughnessValue {
-    return this.activeCardPowerToughnessValue(card, 'power');
+    return selectCardPowerToughness(card).displayPower;
   }
 
   cardToughnessValue(card: GameCardInstance): GamePowerToughnessValue {
-    return this.activeCardPowerToughnessValue(card, 'toughness');
+    return selectCardPowerToughness(card).displayToughness;
   }
 
   cardLoyaltyValue(card: GameCardInstance): GameCardStatValue {

@@ -67,6 +67,8 @@ final readonly class GameWebsocketCommandPatchService
         'card.revealed' => 'playerId',
         'card.controller.changed' => 'playerId',
         'card.power_toughness.changed' => 'playerId',
+        'card.stats.override.set' => 'playerId',
+        'card.stats.override.clear' => 'playerId',
         'card.counter.changed' => 'playerId',
         'stack.card_added' => 'playerId',
         'arrow.created' => 'ownerId',
@@ -871,8 +873,10 @@ final readonly class GameWebsocketCommandPatchService
                         $game,
                         $actor,
                         (string) ($payload['targetPlayerId'] ?? ''),
-                        (string) ($payload['vote'] ?? ''),
-                        $this->rooms->connectedUserIdsForGame($game->id()),
+						(string) ($payload['decision'] ?? $payload['vote'] ?? ''),
+						$this->rooms->connectedUserIdsForGame($game->id()),
+						now: null,
+						voteId: is_string($payload['voteId'] ?? null) ? $payload['voteId'] : null,
                     );
                     $event = $recorded['event'];
                     $disconnectVoteDirectPatchPayload = $this->disconnectVoteDirectPatchPayload($recorded['snapshot'], $event, $clientActionId);

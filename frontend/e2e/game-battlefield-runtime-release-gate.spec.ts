@@ -50,7 +50,14 @@ test.describe('battlefield/counters runtime release gate', () => {
     const { gameId, playerA, playerB } = setup;
     const initialSnapshot = await gameSnapshot(request, gameId, playerA.token);
     const playerSnapshot = initialSnapshot.players?.[playerA.user.id] as JsonObject | undefined;
+    const opponentSnapshot = initialSnapshot.players?.[playerB.user.id] as JsonObject | undefined;
     const playerZones = (playerSnapshot?.['zones'] as JsonObject | undefined) ?? {};
+    const opponentZones = (opponentSnapshot?.['zones'] as JsonObject | undefined) ?? {};
+    const opponentCommand = Array.isArray(opponentZones['command']) ? opponentZones['command'] as JsonObject[] : [];
+    const opponentCommanderId = String((opponentCommand.find((card) => card['isCommander'] === true) ?? opponentCommand[0])?.['instanceId'] ?? '');
+    if (!opponentCommanderId) {
+      throw new Error('Battlefield runtime gate requires the opponent commander instance.');
+    }
     const handCards = Array.isArray(playerZones['hand'])
       ? (playerZones['hand'] as JsonObject[])
       : [];
@@ -261,7 +268,8 @@ ${(
         type: 'commander.damage.changed',
         payload: {
           targetPlayerId: playerA.user.id,
-          commanderInstanceId: `${playerB.user.id}:commander`,
+          sourcePlayerId: playerB.user.id,
+          commanderInstanceId: opponentCommanderId,
           damage: 7,
         },
         ownerPatch: (patch) => hasOp(patch, 'player.commanderDamage.set'),
@@ -269,7 +277,10 @@ ${(
       nextBaseVersion = outcome.version;
       expect(
         operation(outcome.patch, 'player.commanderDamage.set')?.['commanderDamage'],
-      ).toMatchObject({ [`${playerB.user.id}:commander`]: 7 });
+      ).toMatchObject({ [opponentCommanderId]: 7 });
+      await expect
+        .poll(async () => readTableLife(pageA, playerA.user.displayName))
+        .toBe(initialLifeA - 7);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
       outcome = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
@@ -292,10 +303,15 @@ ${(
       nextBaseVersion = outcome.version;
       await expect
         .poll(async () => readTableLife(pageA, playerA.user.displayName))
-        .toBe(initialLifeA - 1);
+        .toBe(initialLifeA - 8);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      outcome = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+      const currentTurnPlayerId = String((initialSnapshot['turn'] as JsonObject | undefined)?.['activePlayerId'] ?? '');
+      const turnTicket = currentTurnPlayerId === playerA.user.id
+        ? ticket
+        : await websocketTicket(request, gameId, playerB.token);
+      const turnFrames = currentTurnPlayerId === playerA.user.id ? framesA : framesB;
+      outcome = await sendRuntimeCommandAndWait(commandPage, turnTicket.websocketUrl, turnFrames, {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'turn.changed',
@@ -318,11 +334,13 @@ ${(
         ownerPatch: (patch) => hasOp(patch, 'dice.result'),
       });
       nextBaseVersion = outcome.version;
-      expect(operation(outcome.patch, 'dice.result')).toMatchObject({
+      const diceResult = operation(outcome.patch, 'dice.result');
+      expect(diceResult).toMatchObject({
         kind: 'd20',
-        result: 13,
         playerId: playerA.user.id,
       });
+      expect(Number(diceResult?.['result'])).toBeGreaterThanOrEqual(1);
+      expect(Number(diceResult?.['result'])).toBeLessThanOrEqual(20);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
       if (debug.enabled) {

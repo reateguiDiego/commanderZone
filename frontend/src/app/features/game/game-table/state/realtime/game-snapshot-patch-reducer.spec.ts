@@ -4,6 +4,43 @@ import { CardFace } from '../../../../../core/models/card.model';
 import { applyGameSnapshotPatch, applyGameSnapshotPatchOperations } from './game-snapshot-patch-reducer';
 
 describe('game snapshot patch reducer', () => {
+	it('applies and clears explicit per-face stat overrides without touching counters', () => {
+		const source = snapshotFixture();
+		source.players['player-1'].zones.battlefield[0].printedStats = {
+			'0': { faceKey: '0', faceIndex: 0, power: '*', toughness: '*', provenance: 'printed' },
+		};
+		source.players['player-1'].zones.battlefield[0].counters = { '+1/+1': 2 };
+		const set = applyGameSnapshotPatch(source, patch([{
+			op: 'card.stats.override.set', instanceId: 'battlefield-1', faceKey: '0', faceIndex: 0,
+			override: { faceKey: '0', faceIndex: 0, power: 0, provenance: 'manual' },
+		}]));
+		expect(set.status).toBe('applied');
+		expect(set.snapshot.players['player-1'].zones.battlefield[0].manualOverrides?.['0']?.power).toBe(0);
+		expect(set.snapshot.players['player-1'].zones.battlefield[0].counters).toEqual({ '+1/+1': 2 });
+
+		const cleared = applyGameSnapshotPatch(set.snapshot, { ...patch([{
+			op: 'card.stats.override.clear', instanceId: 'battlefield-1', faceKey: '0', faceIndex: 0,
+			override: null,
+		}]), baseVersion: 2, version: 3 });
+		expect(cleared.status).toBe('applied');
+		expect(cleared.snapshot.players['player-1'].zones.battlefield[0].manualOverrides).toEqual({});
+		expect(cleared.snapshot.players['player-1'].zones.battlefield[0].printedStats?.['0']?.power).toBe('*');
+	});
+	it('applies an authoritative lifecycle transition in one version', () => {
+		const result = applyGameSnapshotPatch(snapshotFixture(), patch([
+			{ op: 'player.status.set', playerId: 'player-1', status: 'defeated' },
+			{ op: 'player.elimination.set', playerId: 'player-1', eliminationReason: 'life', eliminatedAtVersion: 2 },
+			{ op: 'turn.set', turn: { activePlayerId: 'player-2', phase: 'combat', number: 1 } },
+			{ op: 'turn.order.set', turnOrder: ['player-2', 'player-1'] },
+			{ op: 'game.result.set', winnerPlayerId: 'player-2', resultState: 'survivor', finishedReason: 'last_active' },
+		]));
+		expect(result.status).toBe('applied');
+		expect(result.snapshot.players['player-1'].status).toBe('defeated');
+		expect(result.snapshot.players['player-1'].eliminationReason).toBe('life');
+		expect(result.snapshot.turn.activePlayerId).toBe('player-2');
+		expect(result.snapshot.turnOrder).toEqual(['player-2', 'player-1']);
+		expect(result.snapshot.winnerPlayerId).toBe('player-2');
+	});
   it('applies player scalar state updates and publishes the patch version', () => {
     const snapshot = snapshotFixture();
 
@@ -904,6 +941,22 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot).not.toBe(snapshot);
     expect(result.snapshot.players['player-1']).not.toBe(snapshot.players['player-1']);
   });
+
+	it('applies durable presence, frozen vote, cooldown and rematch in one version', () => {
+		const snapshot = snapshotFixture();
+		const result = applyGameSnapshotPatch(snapshot, patch([
+			{ op: 'player.presence.set', playerId: 'player-2', presence: { playerId: 'player-2', connected: false, activeConnectionCount: 0, disconnectedAt: '2026-07-13T12:00:00Z' } },
+			{ op: 'disconnect.vote.set', disconnectVote: { voteId: 'vote-1', targetPlayerId: 'player-2', openedByPlayerId: 'player-1', status: 'expired', eligibleVoterIds: ['player-1'], requiredVotes: 1, openedAt: '2026-07-13T12:00:00Z', expiresAt: null, deadlineAt: null, resolvedAt: '2026-07-13T12:01:00Z', cooldownUntil: '2026-07-13T12:06:00Z', resolution: 'wait', votes: {}, votesByPlayerId: {} } },
+			{ op: 'disconnect.cooldown.set', targetPlayerId: 'player-2', cooldown: { targetPlayerId: 'player-2', voteId: 'vote-1', reason: 'wait', cooldownUntil: '2026-07-13T12:06:00Z' } },
+			{ op: 'rematch.set', rematch: { votes: { 'player-2': { playerId: 'player-2', displayName: 'Player 2', vote: 'leave', votedAt: '2026-07-13T12:01:00Z' } } } },
+		]));
+
+		expect(result.status).toBe('applied');
+		expect(result.snapshot.presence?.['player-2'].connected).toBe(false);
+		expect(result.snapshot.disconnectVote?.requiredVotes).toBe(1);
+		expect(result.snapshot.disconnectCooldowns?.['player-2'].voteId).toBe('vote-1');
+		expect(result.snapshot.rematch?.votes['player-2'].vote).toBe('leave');
+	});
 });
 
 function patch(

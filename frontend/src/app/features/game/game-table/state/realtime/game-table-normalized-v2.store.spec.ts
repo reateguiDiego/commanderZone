@@ -8,6 +8,40 @@ import {
 } from './game-table-normalized-v2.store';
 
 describe('game table normalized v2 store', () => {
+	it('roundtrips per-face overrides and accepts their same-version visibility merge', () => {
+		const initial = createGameTableNormalizedV2State(bootstrapV2());
+		const result = applyPatchEnvelopeV2(initial, patch(6, [{
+			op: 'card.stats.override.set', instanceId: 'battlefield-1', faceKey: '0', faceIndex: 0,
+			override: { faceKey: '0', faceIndex: 0, power: 0, toughness: 2.5, provenance: 'manual' },
+		}]));
+		expect(result.status).toBe('applied');
+		expect(result.state.instances['battlefield-1'].manualOverrides?.['0']?.power).toBe(0);
+		expect(hydrateGameSnapshotFromV2State(result.state).players['player-1'].zones.battlefield[0].manualOverrides?.['0']?.toughness).toBe(2.5);
+
+		const sameVersion = applyPatchEnvelopeV2(result.state, {
+			gameId: 'game-1', version: 6, visibility: 'player:player-1', ackClientActionId: 'stats-private',
+			ops: [{ op: 'card.stats.override.clear', instanceId: 'battlefield-1', faceKey: '0', faceIndex: 0, override: null }],
+		});
+		expect(sameVersion.status).toBe('applied');
+		expect(sameVersion.state.instances['battlefield-1'].manualOverrides).toEqual({});
+	});
+	it('merges all lifecycle ops from one version without order-derived state', () => {
+		const initial = createGameTableNormalizedV2State(bootstrapV2());
+		const result = applyPatchEnvelopeV2(initial, patch(6, [
+			{ op: 'game.result.set', winnerPlayerId: 'player-2', resultState: 'survivor', finishedReason: 'last_active' },
+			{ op: 'turn.order.set', turnOrder: ['player-2', 'player-1'] },
+			{ op: 'player.elimination.set', playerId: 'player-1', eliminationReason: 'life', eliminatedAtVersion: 6 },
+			{ op: 'turn.set', turn: { activePlayerId: 'player-2', phase: 'combat', number: 4 } },
+			{ op: 'player.status.set', playerId: 'player-1', status: 'defeated' },
+		]));
+		expect(result.status).toBe('applied');
+		const snapshot = hydrateGameSnapshotFromV2State(result.state);
+		expect(snapshot.players['player-1'].status).toBe('defeated');
+		expect(snapshot.players['player-1'].eliminationReason).toBe('life');
+		expect(snapshot.turnOrder).toEqual(['player-2', 'player-1']);
+		expect(snapshot.turn.activePlayerId).toBe('player-2');
+		expect(snapshot.winnerPlayerId).toBe('player-2');
+	});
   it('applies bootstrap v2 into normalized state and hydrates a compatible snapshot', () => {
     const state = createGameTableNormalizedV2State(bootstrapV2());
     const snapshot = hydrateGameSnapshotFromV2State(state);
@@ -341,6 +375,47 @@ describe('game table normalized v2 store', () => {
     expect(result.state.players['player-1'].commanderDamage).toEqual({ 'commander-2': 11 });
     expect(result.state.sharedCounters['commander:commander-1']).toEqual({ casts: 2 });
     expect(snapshot.counters).toEqual({ 'commander:commander-1': { casts: 2 } });
+  });
+
+  it('applies atomic commander damage, life, defeat, turn and log in one version without refetch', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const result = applyPatchEnvelopeV2(initial, patch(6, [
+      { op: 'player.commanderDamage.set', playerId: 'player-1', commanderDamage: { 'commander-2': 21 } },
+      { op: 'player.life.set', playerId: 'player-1', value: 19 },
+      { op: 'player.status.set', playerId: 'player-1', status: 'defeated' },
+      { op: 'turn.set', turn: { activePlayerId: 'player-2', phase: 'main-1', number: 3 } },
+      {
+        op: 'eventLog.append',
+        entries: [
+          {
+            id: 'atomic-damage-log',
+            type: 'commander_damage.changed',
+            message: 'fallback',
+            i18nKey: 'gameLog.commanderDamage.changed',
+            createdAt: '2026-01-01T00:00:14.000Z',
+          },
+          {
+            id: 'atomic-defeat-log',
+            type: 'player.defeated',
+            message: 'fallback',
+            i18nKey: 'gameLog.player.defeatedByCommanderDamage',
+            createdAt: '2026-01-01T00:00:14.000Z',
+          },
+        ],
+      },
+    ]));
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+
+    expect(result.status).toBe('applied');
+    expect(result.state.lastAppliedVersion).toBe(6);
+    expect(snapshot.players['player-1'].commanderDamage).toEqual({ 'commander-2': 21 });
+    expect(snapshot.players['player-1'].life).toBe(19);
+    expect(snapshot.players['player-1'].status).toBe('defeated');
+    expect(snapshot.turn?.activePlayerId).toBe('player-2');
+    expect(snapshot.eventLog.map((entry) => entry.i18nKey)).toEqual([
+      'gameLog.commanderDamage.changed',
+      'gameLog.player.defeatedByCommanderDamage',
+    ]);
   });
 
   it('applies runtime battlefield stats patches without snapshot refetch', () => {
@@ -1439,6 +1514,42 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-1'].zones.library[0]?.name).toBe('Forest');
     expect(snapshot.players['player-1'].zones.library[1]?.name).toBe('Card');
   });
+
+	it('hydrates and applies durable disconnect control-plane projection', () => {
+		const bootstrap = bootstrapV2();
+		bootstrap.game.disconnectVote = { voteId: 'vote-1', targetPlayerId: 'player-2', status: 'open', eligibleVoterIds: ['player-1'], requiredVotes: 1, openedAt: '2026-07-13T12:00:00Z', expiresAt: '2026-07-13T12:01:00Z', deadlineAt: '2026-07-13T12:01:00Z', cooldownUntil: null, votes: {}, votesByPlayerId: {} };
+		bootstrap.game.presence = { 'player-2': { playerId: 'player-2', connected: false, activeConnectionCount: 0 } };
+		bootstrap.game.rematch = { votes: {} };
+		const initial = createGameTableNormalizedV2State(bootstrap);
+		const result = applyPatchEnvelopeV2(initial, patch(6, [
+			{ op: 'disconnect.vote.set', disconnectVote: { ...bootstrap.game.disconnectVote, status: 'cancelled', resolution: 'reconnected', resolvedAt: '2026-07-13T12:00:10Z', expiresAt: null, deadlineAt: null, cooldownUntil: '2026-07-13T12:05:10Z' } },
+			{ op: 'player.presence.set', playerId: 'player-2', presence: { playerId: 'player-2', connected: true, activeConnectionCount: 1 } },
+			{ op: 'disconnect.cooldown.set', targetPlayerId: 'player-2', cooldown: { targetPlayerId: 'player-2', voteId: 'vote-1', reason: 'reconnected', cooldownUntil: '2026-07-13T12:05:10Z' } },
+		]));
+
+		expect(result.status).toBe('applied');
+		expect(result.state.game.disconnectVote?.status).toBe('cancelled');
+		expect(result.state.game.presence?.['player-2'].connected).toBe(true);
+		expect(result.state.game.disconnectCooldowns?.['player-2'].reason).toBe('reconnected');
+	});
+
+	it('normalizes a legacy empty rematch projection before hydration', () => {
+		const bootstrap = bootstrapV2();
+		bootstrap.game.rematch = {} as typeof bootstrap.game.rematch;
+
+		const snapshot = hydrateGameSnapshotFromV2State(createGameTableNormalizedV2State(bootstrap));
+
+		expect(snapshot.rematch?.votes).toEqual({});
+	});
+
+	it('normalizes a legacy empty disconnect vote projection to absence', () => {
+		const bootstrap = bootstrapV2();
+		bootstrap.game.disconnectVote = {} as typeof bootstrap.game.disconnectVote;
+
+		const snapshot = hydrateGameSnapshotFromV2State(createGameTableNormalizedV2State(bootstrap));
+
+		expect(snapshot.disconnectVote).toBeNull();
+	});
 
   it('keeps private stack identity when a public shell for the same item follows and removes idempotently', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());

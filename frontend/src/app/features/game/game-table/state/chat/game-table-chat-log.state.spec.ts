@@ -75,6 +75,46 @@ describe('GameTableChatLogState', () => {
     expect(entry?.messagePrefix).toBe('Alicia cambi\u00f3 la vida de Bruno de 40 a 37.');
   });
 
+  it('resolves commander damage and defeat semantic log params by source and target', () => {
+    const state = new GameTableChatLogState({
+      instant: (key: string, params?: Record<string, unknown>) => `${key}:${params?.['source']}:${params?.['target']}:${params?.['previousDamage']}:${params?.['damage']}:${params?.['delta']}:${params?.['previousLife']}:${params?.['life']}`,
+    } as never);
+    const base = {
+      ...snapshot(),
+      players: {
+        'player-1': playerState('Alicia'),
+        'player-2': playerState('Bruno'),
+      },
+    };
+
+    const entries = state.eventLogView({
+      ...base,
+      eventLog: [
+        {
+          id: 'damage-log',
+          type: 'commander_damage.changed',
+          message: 'fallback',
+          i18nKey: 'gameLog.commanderDamage.changed',
+          params: { sourcePlayerId: 'player-2', targetPlayerId: 'player-1', previousDamage: 20, damage: 21, delta: 1, previousLife: 20, life: 19 },
+          refs: { players: { 'player-1': { id: 'player-1', displayName: 'Alicia' }, 'player-2': { id: 'player-2', displayName: 'Bruno' } } },
+        },
+        {
+          id: 'defeat-log',
+          type: 'player.defeated',
+          message: 'fallback',
+          i18nKey: 'gameLog.player.defeatedByCommanderDamage',
+          params: { sourcePlayerId: 'player-2', targetPlayerId: 'player-1', previousDamage: 20, damage: 21, delta: 1, previousLife: 20, life: 19 },
+          refs: { players: { 'player-1': { id: 'player-1', displayName: 'Alicia' }, 'player-2': { id: 'player-2', displayName: 'Bruno' } } },
+        },
+      ],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entries.map((entry) => entry.messagePrefix)).toEqual([
+      'gameLog.commanderDamage.changed:Bruno:Alicia:20:21:1:20:19',
+      'gameLog.player.defeatedByCommanderDamage:Bruno:Alicia:20:21:1:20:19',
+    ]);
+  });
+
   it('falls back to the legacy message when a semantic key is unknown', () => {
     const state = new GameTableChatLogState();
 

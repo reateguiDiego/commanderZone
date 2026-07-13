@@ -40,6 +40,8 @@ final readonly class GameWebsocketMessageHandler
         'card.revealed',
         'card.counter.changed',
         'card.power_toughness.changed',
+        'card.stats.override.set',
+        'card.stats.override.clear',
         'card.controller.changed',
         'battlefield.untap_all',
         'card.token.created',

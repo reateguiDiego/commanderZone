@@ -343,6 +343,22 @@ final class CompactGameCardStateMapper
         $tokenMeta = is_array($card['tokenMeta'] ?? null) ? $card['tokenMeta'] : [];
         $layout = $bundle->layoutMetadata['layout'] ?? null;
         $preserveIdentity = $this->zoneCarriesPublicIdentity((string) ($card['zone'] ?? $zone));
+		$activeFaceIndex = max(0, (int) ($card['activeFace'] ?? 0));
+		$legacyStatsCard = [
+			...$card,
+			'cardFaces' => $bundle->cardFaces,
+			'defaultPower' => $bundle->baseStats['power'],
+			'defaultToughness' => $bundle->baseStats['toughness'],
+			'power' => $mutableStats['power'] ?? $bundle->baseStats['power'],
+			'toughness' => $mutableStats['toughness'] ?? $bundle->baseStats['toughness'],
+			'activeFaceIndex' => $activeFaceIndex,
+			'isTokenCopy' => (bool) ($tokenMeta['isCopy'] ?? false),
+		];
+		$printedStats = is_array($card['printedStats'] ?? null)
+			? $card['printedStats']
+			: PowerToughnessModel::printedStats($legacyStatsCard);
+		$legacyStatsCard['manualOverrides'] = $card['manualOverrides'] ?? null;
+		$manualOverrides = PowerToughnessModel::manualOverrides($legacyStatsCard, $printedStats);
 
         $hydrated = [
             'instanceId' => (string) ($card['instanceId'] ?? ''),
@@ -357,17 +373,19 @@ final class CompactGameCardStateMapper
             'manaCost' => $bundle->manaCost,
             'oracleText' => $bundle->oracleText,
             'colorIdentity' => $bundle->colorIdentity,
-            'power' => $mutableStats['power'] ?? $bundle->baseStats['power'],
-            'toughness' => $mutableStats['toughness'] ?? $bundle->baseStats['toughness'],
+            'power' => PowerToughnessModel::activeAxis($printedStats, $manualOverrides, $activeFaceIndex, 'power'),
+            'toughness' => PowerToughnessModel::activeAxis($printedStats, $manualOverrides, $activeFaceIndex, 'toughness'),
             'loyalty' => $mutableStats['loyalty'] ?? $bundle->baseStats['loyalty'],
             'defense' => $mutableStats['defense'] ?? $bundle->baseStats['defense'],
             'defaultPower' => $bundle->baseStats['power'],
             'defaultToughness' => $bundle->baseStats['toughness'],
             'defaultLoyalty' => $bundle->baseStats['loyalty'],
             'defaultDefense' => $bundle->baseStats['defense'],
+			'printedStats' => $printedStats,
+			'manualOverrides' => $manualOverrides,
             'tapped' => (bool) ($card['tapped'] ?? false),
             'faceDown' => (bool) ($card['faceDown'] ?? false),
-            'activeFaceIndex' => max(0, (int) ($card['activeFace'] ?? 0)),
+            'activeFaceIndex' => $activeFaceIndex,
             'revealedTo' => is_array($card['visibleTo'] ?? null) ? array_values($card['visibleTo']) : [],
             'visibleToMask' => max(0, (int) ($card['visibleToMask'] ?? 0)),
             'position' => is_array($card['position'] ?? null) ? $card['position'] : null,
@@ -668,10 +686,19 @@ final class CompactGameCardStateMapper
             'gamePhase' => $snapshot['gamePhase'] ?? 'PLAYING',
             'mulligan' => is_array($snapshot['mulligan'] ?? null) ? $snapshot['mulligan'] : [],
             'disconnectVote' => is_array($snapshot['disconnectVote'] ?? null) ? $snapshot['disconnectVote'] : null,
+			'presence' => is_array($snapshot['presence'] ?? null) ? $snapshot['presence'] : [],
+			'disconnectCooldowns' => is_array($snapshot['disconnectCooldowns'] ?? null) ? $snapshot['disconnectCooldowns'] : [],
+			'rematch' => $this->compactRematch($snapshot['rematch'] ?? null),
             'timer' => is_array($snapshot['timer'] ?? null) ? $snapshot['timer'] : [],
             'createdAt' => $snapshot['createdAt'] ?? null,
             'updatedAt' => $snapshot['updatedAt'] ?? null,
+			'winnerPlayerId' => $snapshot['winnerPlayerId'] ?? null,
+			'resultState' => $snapshot['resultState'] ?? null,
+			'finishedReason' => $snapshot['finishedReason'] ?? null,
         ];
+		if (is_array($snapshot['turnOrder'] ?? null)) {
+			$extra['turnOrder'] = $snapshot['turnOrder'];
+		}
         if (array_key_exists('chat', $snapshot)) {
             $extra['chat'] = is_array($snapshot['chat'] ?? null) ? $snapshot['chat'] : [];
         }
@@ -681,4 +708,13 @@ final class CompactGameCardStateMapper
 
         return $extra;
     }
+
+	/** @return array{votes: array<string,mixed>} */
+	private function compactRematch(mixed $value): array
+	{
+		$rematch = is_array($value) ? $value : [];
+		$rematch['votes'] = is_array($rematch['votes'] ?? null) ? $rematch['votes'] : [];
+
+		return $rematch;
+	}
 }

@@ -4,19 +4,16 @@ namespace App\Application\Game;
 
 final class GameTurnSuccession
 {
-    private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
-
     /**
      * @param array<string,mixed> $snapshot
      */
     public static function eligiblePlayerId(array $snapshot, string $requestedPlayerId): string
     {
-        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
         $alivePlayerIds = array_values(array_filter(
-            array_keys($players),
+            self::turnOrder($snapshot),
             static fn (string $playerId): bool => self::playerIsAliveForTurn($snapshot, $playerId),
         ));
-        if (count($alivePlayerIds) < 2 || self::playerIsAliveForTurn($snapshot, $requestedPlayerId)) {
+		if (self::playerIsAliveForTurn($snapshot, $requestedPlayerId)) {
             return $requestedPlayerId;
         }
 
@@ -39,13 +36,7 @@ final class GameTurnSuccession
 
         $previousTurnNumber = max(1, (int) ($snapshot['turn']['number'] ?? 1));
         $snapshot['turn']['activePlayerId'] = $nextActivePlayerId;
-        $snapshot['turn']['phase'] = 'untap';
-        $snapshot['turn']['number'] = self::nextTurnNumberAfterActivePlayerShift(
-            $snapshot,
-            $previousActivePlayerId,
-            $nextActivePlayerId,
-            $previousTurnNumber,
-        );
+		$snapshot['turn']['number'] = $previousTurnNumber;
     }
 
     /**
@@ -53,8 +44,7 @@ final class GameTurnSuccession
      */
     public static function playerIsAliveForTurn(array $snapshot, string $playerId): bool
     {
-        return ($snapshot['players'][$playerId]['status'] ?? 'active') === 'active'
-            && !self::playerIsDefeated($snapshot, $playerId);
+        return ($snapshot['players'][$playerId]['status'] ?? 'active') === 'active';
     }
 
     /**
@@ -62,7 +52,7 @@ final class GameTurnSuccession
      */
     public static function playerIsDefeated(array $snapshot, string $playerId): bool
     {
-        return self::playerLife($snapshot, $playerId) <= 0 || self::hasLethalCommanderDamage($snapshot, $playerId);
+        return ($snapshot['players'][$playerId]['status'] ?? 'active') === 'defeated';
     }
 
     /**
@@ -70,11 +60,7 @@ final class GameTurnSuccession
      */
     private static function nextAlivePlayerId(array $snapshot, string $fromPlayerId): ?string
     {
-        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
-        $playerIds = array_keys($players);
-        if (count($playerIds) < 2) {
-            return null;
-        }
+        $playerIds = self::turnOrder($snapshot);
 
         $fromIndex = array_search($fromPlayerId, $playerIds, true);
         $startIndex = $fromIndex === false ? -1 : $fromIndex;
@@ -92,47 +78,29 @@ final class GameTurnSuccession
     /**
      * @param array<string,mixed> $snapshot
      */
-    private static function playerLife(array $snapshot, string $playerId): int
+    public static function ensureTurnOrder(array &$snapshot): void
     {
-        return (int) ($snapshot['players'][$playerId]['life'] ?? 40);
+        $snapshot['turnOrder'] = self::turnOrder($snapshot);
     }
 
-    /**
-     * @param array<string,mixed> $snapshot
-     */
-    private static function hasLethalCommanderDamage(array $snapshot, string $playerId): bool
+    /** @return list<string> */
+    public static function turnOrder(array $snapshot): array
     {
-        $commanderDamage = $snapshot['players'][$playerId]['commanderDamage'] ?? [];
-        if (!is_array($commanderDamage)) {
-            return false;
-        }
-
-        foreach ($commanderDamage as $damage) {
-            if ((int) $damage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD) {
-                return true;
+        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
+        $order = is_array($snapshot['turnOrder'] ?? null) ? $snapshot['turnOrder'] : array_keys($players);
+        $seen = [];
+        $normalized = [];
+        foreach ($order as $playerId) {
+            if (is_string($playerId) && isset($players[$playerId]) && !isset($seen[$playerId])) {
+                $seen[$playerId] = true;
+                $normalized[] = $playerId;
             }
         }
-
-        return false;
-    }
-
-    /**
-     * @param array<string,mixed> $snapshot
-     */
-    private static function nextTurnNumberAfterActivePlayerShift(
-        array $snapshot,
-        string $previousActivePlayerId,
-        string $nextActivePlayerId,
-        int $currentTurnNumber,
-    ): int {
-        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
-        $playerIds = array_keys($players);
-        $previousIndex = array_search($previousActivePlayerId, $playerIds, true);
-        $nextIndex = array_search($nextActivePlayerId, $playerIds, true);
-        if (!is_int($previousIndex) || !is_int($nextIndex)) {
-            return $currentTurnNumber;
+        foreach (array_keys($players) as $playerId) {
+            if (!isset($seen[$playerId])) {
+                $normalized[] = $playerId;
+            }
         }
-
-        return $nextIndex <= $previousIndex ? $currentTurnNumber + 1 : $currentTurnNumber;
+        return $normalized;
     }
 }

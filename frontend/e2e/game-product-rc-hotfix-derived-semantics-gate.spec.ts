@@ -116,8 +116,8 @@ test.describe('rc hotfix derived gameplay semantics gate', () => {
         payload: { playerId: playerA.user.id, instanceId: tokenId, counter: '+1/+1', value: 1 },
       });
       baseVersion = plusOne.version;
-      expect(counterStatFromPatch(plusOne.patch, 'power')).toBe(3);
-      expect(counterStatFromPatch(plusOne.patch, 'toughness')).toBe(3);
+      expect(operation(plusOne.patch, 'card.counters.patch')).not.toHaveProperty('power');
+      expect(operation(plusOne.patch, 'card.counters.patch')).not.toHaveProperty('toughness');
       await expect(statValues(pageA, playerA.user.id, tokenId)).toHaveText(['3', '3'], { timeout: 15_000 });
 
       const minusOne = await runRuntime(request, commandFrames, {
@@ -128,8 +128,8 @@ test.describe('rc hotfix derived gameplay semantics gate', () => {
         payload: { playerId: playerA.user.id, instanceId: tokenId, counter: '-1/-1', value: 1 },
       });
       baseVersion = minusOne.version;
-      expect(counterStatFromPatch(minusOne.patch, 'power')).toBe(2);
-      expect(counterStatFromPatch(minusOne.patch, 'toughness')).toBe(2);
+      expect(operation(minusOne.patch, 'card.counters.patch')).not.toHaveProperty('power');
+      expect(operation(minusOne.patch, 'card.counters.patch')).not.toHaveProperty('toughness');
       await expect(statValues(pageA, playerA.user.id, tokenId)).toHaveText(['2', '2'], { timeout: 15_000 });
 
       await pageA.reload();
@@ -488,11 +488,6 @@ function firstAddedCardId(message: JsonObject): string {
     throw new Error(`Expected zone.cards.add in patch: ${JSON.stringify(message)}`);
   }
   return String((cards[0] as JsonObject)['instanceId'] ?? '');
-}
-
-function counterStatFromPatch(message: JsonObject, field: 'power' | 'toughness'): number {
-  const op = operation(message, 'card.counters.patch');
-  return Number(op?.[field] ?? Number.NaN);
 }
 
 function movedCard(message: JsonObject): JsonObject | null {

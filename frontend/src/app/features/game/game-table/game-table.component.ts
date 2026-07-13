@@ -777,7 +777,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly currentRematchVote = computed<GameRematchVote | null>(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
 
-    return currentPlayerId ? this.store.snapshot()?.rematch?.votes[currentPlayerId]?.vote ?? null : null;
+    return currentPlayerId ? this.store.snapshot()?.rematch?.votes?.[currentPlayerId]?.vote ?? null : null;
   });
   readonly rematchPromptKind = computed<'defeated' | 'winner' | null>(() => {
     const currentPlayer = this.store.currentPlayer();
@@ -3773,8 +3773,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.closeContextMenu();
     this.powerToughnessDialog.set({
       menu,
-      power: String(menu.card.power ?? 0),
-      toughness: String(menu.card.toughness ?? 0),
+      power: String(this.store.cardPowerValue(menu.card) ?? ''),
+      toughness: String(this.store.cardToughnessValue(menu.card) ?? ''),
     });
   }
 

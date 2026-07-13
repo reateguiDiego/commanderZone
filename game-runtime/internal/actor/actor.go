@@ -353,6 +353,10 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		a.recordUnsupported()
 		return a.rejectedResult(ErrUnknownCommand, queueWait, startedAt)
 	}
+	if command.Type == "disconnect.vote" && command.Client["source"] != "runtime_ws_presence" {
+		command.Client = cloneMap(command.Client)
+		command.Client["playerId"] = request.ActorID
+	}
 	// Authority must be evaluated against the current recovered state. No
 	// applier, rollback capture, version increment, event append or patch emit
 	// occurs before this full command-level prevalidation succeeds.
@@ -546,7 +550,8 @@ func actorExternalNoopEvent(eventType string) bool {
 
 func actorAllowsStaleBaseOverEvent(eventType string) bool {
 	switch eventType {
-	case "rematch.vote", "chat.message", "chat.reaction.toggled", "disconnect.vote.updated":
+	case "rematch.vote", "chat.message", "chat.reaction.toggled", "disconnect.vote.updated",
+		"player.presence.changed", "disconnect.vote.opened", "disconnect.vote.cast", "disconnect.vote.resolved", "disconnect.vote.cancelled", "disconnect.vote.expired":
 		return true
 	default:
 		return false

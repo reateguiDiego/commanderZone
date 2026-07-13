@@ -97,6 +97,8 @@ final readonly class GameWebsocketPatchBuilder
             'card.revealed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload),
             'card.counter.changed' => $this->cardCounterChanged($previousSnapshot, $nextSnapshot, $payload),
             'card.power_toughness.changed' => $this->cardStatsChanged($previousSnapshot, $nextSnapshot, $payload),
+            'card.stats.override.set' => $this->cardStatsOverrideChanged($previousSnapshot, $nextSnapshot, $payload, false),
+            'card.stats.override.cleared', 'card.stats.override.clear' => $this->cardStatsOverrideChanged($previousSnapshot, $nextSnapshot, $payload, true),
             'card.controller.changed' => $this->cardControllerChanged($previousSnapshot, $nextSnapshot, $payload),
             'battlefield.untap_all' => $this->battlefieldUntapAll($previousSnapshot, $nextSnapshot, $payload),
             'card.token.created' => $this->tokenCreated($previousSnapshot, $nextSnapshot),
@@ -112,8 +114,14 @@ final readonly class GameWebsocketPatchBuilder
             'helper.removed' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'rematch.vote' => $this->rematchVote($previousSnapshot, $nextSnapshot),
             'game.concede' => $this->gameConcede($previousSnapshot, $nextSnapshot, $eventData),
-            'game.close' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
+			'game.close' => $this->gameClose($previousSnapshot, $nextSnapshot),
             'disconnect.vote.updated' => $this->disconnectVoteUpdated($previousSnapshot, $nextSnapshot),
+			'player.presence.changed',
+			'disconnect.vote.opened',
+			'disconnect.vote.cast',
+			'disconnect.vote.resolved',
+			'disconnect.vote.cancelled',
+			'disconnect.vote.expired' => $this->disconnectVoteUpdated($previousSnapshot, $nextSnapshot),
             default => null,
         };
     }
@@ -134,6 +142,7 @@ final readonly class GameWebsocketPatchBuilder
                 'playerId' => $playerId,
                 'value' => (int) $nextSnapshot['players'][$playerId]['life'],
             ],
+            ...$this->playerLifecycleDiffOperations($previousSnapshot, $nextSnapshot, $playerId),
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
     }
@@ -148,14 +157,91 @@ final readonly class GameWebsocketPatchBuilder
             return null;
         }
 
-        return [
+        $operations = [
             [
                 'op' => 'player.commanderDamage.set',
                 'playerId' => $targetPlayerId,
                 'commanderDamage' => $this->stringIntMap($nextSnapshot['players'][$targetPlayerId]['commanderDamage']),
             ],
+        ];
+        $previousLife = $previousSnapshot['players'][$targetPlayerId]['life'] ?? null;
+        $nextLife = $nextSnapshot['players'][$targetPlayerId]['life'] ?? null;
+        if ((int) ($payload['effectVersion'] ?? 0) >= 2 || $previousLife !== $nextLife) {
+            $operations[] = [
+                'op' => 'player.life.set',
+                'playerId' => $targetPlayerId,
+                'value' => (int) $nextLife,
+            ];
+        }
+
+        return [
+            ...$operations,
+            ...$this->playerLifecycleDiffOperations($previousSnapshot, $nextSnapshot, $targetPlayerId),
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function playerLifecycleDiffOperations(array $previousSnapshot, array $nextSnapshot, string $playerId): array
+    {
+        $operations = [];
+        $previousPlayer = is_array($previousSnapshot['players'][$playerId] ?? null) ? $previousSnapshot['players'][$playerId] : [];
+        $nextPlayer = is_array($nextSnapshot['players'][$playerId] ?? null) ? $nextSnapshot['players'][$playerId] : [];
+        $previousStatus = (string) ($previousPlayer['status'] ?? 'active');
+        $nextStatus = (string) ($nextPlayer['status'] ?? 'active');
+        if ($previousStatus !== $nextStatus) {
+            $statusOperation = [
+                'op' => 'player.status.set',
+                'playerId' => $playerId,
+                'status' => $nextStatus,
+            ];
+            if (array_key_exists('concededAt', $nextPlayer)) {
+                $statusOperation['concededAt'] = $nextPlayer['concededAt'];
+            }
+            $operations[] = $statusOperation;
+			$operations[] = [
+				'op' => 'player.elimination.set',
+				'playerId' => $playerId,
+				'eliminationReason' => $nextPlayer['eliminationReason'] ?? null,
+				'eliminatedAtVersion' => $nextPlayer['eliminatedAtVersion'] ?? null,
+				'sourcePlayerId' => $nextPlayer['sourcePlayerId'] ?? null,
+				'commanderInstanceId' => $nextPlayer['commanderInstanceId'] ?? null,
+			];
+        }
+
+        $previousTurn = $previousSnapshot['turn'] ?? null;
+        $nextTurn = $nextSnapshot['turn'] ?? null;
+        if (is_array($nextTurn) && $previousTurn !== $nextTurn) {
+            $operations[] = [
+                'op' => 'turn.set',
+                'turn' => $nextTurn,
+            ];
+        }
+		$previousTurnOrder = is_array($previousSnapshot['turnOrder'] ?? null)
+			? array_values($previousSnapshot['turnOrder'])
+			: array_values(array_keys(is_array($previousSnapshot['players'] ?? null) ? $previousSnapshot['players'] : []));
+		$nextTurnOrder = is_array($nextSnapshot['turnOrder'] ?? null)
+			? array_values($nextSnapshot['turnOrder'])
+			: array_values(array_keys(is_array($nextSnapshot['players'] ?? null) ? $nextSnapshot['players'] : []));
+		if ($previousTurnOrder !== $nextTurnOrder) {
+			$operations[] = ['op' => 'turn.order.set', 'turnOrder' => $nextTurnOrder];
+		}
+		if (($previousSnapshot['winnerPlayerId'] ?? null) !== ($nextSnapshot['winnerPlayerId'] ?? null)
+			|| ($previousSnapshot['resultState'] ?? null) !== ($nextSnapshot['resultState'] ?? null)
+			|| ($previousSnapshot['finishedReason'] ?? null) !== ($nextSnapshot['finishedReason'] ?? null)) {
+			$operations[] = [
+				'op' => 'game.result.set',
+				'winnerPlayerId' => $nextSnapshot['winnerPlayerId'] ?? null,
+				'resultState' => $nextSnapshot['resultState'] ?? null,
+				'finishedReason' => $nextSnapshot['finishedReason'] ?? null,
+			];
+		}
+		$special = $this->specialEntityDiffOperations($previousSnapshot, $nextSnapshot);
+		if (is_array($special)) { $operations = [...$operations, ...$special]; }
+
+        return $operations;
     }
 
     /**
@@ -1363,34 +1449,56 @@ final readonly class GameWebsocketPatchBuilder
             return null;
         }
 
-        $operations = [
-            [
-                'op' => 'player.status.set',
-                'playerId' => $playerId,
-                'status' => (string) ($nextSnapshot['players'][$playerId]['status'] ?? 'active'),
-                'concededAt' => $nextSnapshot['players'][$playerId]['concededAt'] ?? null,
-            ],
-        ];
-
-        $previousTurn = $previousSnapshot['turn'] ?? null;
-        $nextTurn = $nextSnapshot['turn'] ?? null;
-        if (is_array($previousTurn) && is_array($nextTurn) && $previousTurn !== $nextTurn) {
-            $operations[] = [
-                'op' => 'turn.set',
-                'turn' => $nextTurn,
-            ];
-        }
-        $specialEntityOperations = $this->specialEntityDiffOperations($previousSnapshot, $nextSnapshot);
-        if ($specialEntityOperations === null) {
-            return null;
-        }
+		$operations = $this->playerLifecycleDiffOperations($previousSnapshot, $nextSnapshot, $playerId);
 
         return [
             ...$operations,
-            ...$specialEntityOperations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
     }
+
+    /** @return list<array<string,mixed>>|null */
+    private function cardStatsOverrideChanged(array $previousSnapshot, array $nextSnapshot, array $payload, bool $cleared): ?array
+    {
+        $location = $this->payloadCardLocation($payload);
+        if ($location === null) {
+            return null;
+        }
+        $nextCard = $this->card($nextSnapshot, $location['playerId'], $location['zone'], $location['instanceId']);
+        if ($nextCard === null) {
+            return $this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, true);
+        }
+        if ($this->isSensitiveProjectedCard($nextCard)) {
+            $operations = $this->projectedCardRefreshOperations($nextSnapshot, $location['playerId'], $location['zone'], $location['instanceId']);
+            if ($operations === null) {
+                return null;
+            }
+
+            return [...$operations, ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, true)];
+        }
+        $faceKey = is_string($payload['faceKey'] ?? null) ? trim($payload['faceKey']) : (string) max(0, (int) ($payload['faceIndex'] ?? 0));
+        $override = is_array($nextCard['manualOverrides'][$faceKey] ?? null) ? $nextCard['manualOverrides'][$faceKey] : null;
+        $operation = [
+            'op' => $cleared ? 'card.stats.override.clear' : 'card.stats.override.set',
+            'instanceId' => $location['instanceId'],
+            'faceKey' => $faceKey,
+            'faceIndex' => max(0, (int) ($payload['faceIndex'] ?? 0)),
+            'override' => $override,
+            'previousOverride' => is_array($payload['previousOverride'] ?? null) ? $payload['previousOverride'] : null,
+        ];
+
+        return [$operation, ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot)];
+    }
+
+	/** @return list<array<string,mixed>> */
+	private function gameClose(array $previousSnapshot, array $nextSnapshot): array
+	{
+		return [
+			['op' => 'game.status.set', 'status' => $nextSnapshot['status'] ?? 'finished', 'phase' => $nextSnapshot['gamePhase'] ?? 'FINISHED'],
+			['op' => 'game.phase.set', 'phase' => $nextSnapshot['gamePhase'] ?? 'FINISHED'],
+			...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+		];
+	}
 
     /**
      * @return list<array<string,mixed>>|null
@@ -1401,6 +1509,21 @@ final readonly class GameWebsocketPatchBuilder
             'op' => 'disconnect.vote.set',
             'disconnectVote' => is_array($nextSnapshot['disconnectVote'] ?? null) ? $nextSnapshot['disconnectVote'] : null,
         ]];
+		$previousPresence = is_array($previousSnapshot['presence'] ?? null) ? $previousSnapshot['presence'] : [];
+		$nextPresence = is_array($nextSnapshot['presence'] ?? null) ? $nextSnapshot['presence'] : [];
+		foreach ($nextPresence as $playerId => $presence) {
+			if (is_string($playerId) && is_array($presence) && ($previousPresence[$playerId] ?? null) !== $presence) {
+				unset($presence['connectionEpoch']);
+				$operations[] = ['op' => 'player.presence.set', 'playerId' => $playerId, 'presence' => $presence];
+			}
+		}
+		$previousCooldowns = is_array($previousSnapshot['disconnectCooldowns'] ?? null) ? $previousSnapshot['disconnectCooldowns'] : [];
+		$nextCooldowns = is_array($nextSnapshot['disconnectCooldowns'] ?? null) ? $nextSnapshot['disconnectCooldowns'] : [];
+		foreach ($nextCooldowns as $playerId => $cooldown) {
+			if (is_string($playerId) && is_array($cooldown) && ($previousCooldowns[$playerId] ?? null) !== $cooldown) {
+				$operations[] = ['op' => 'disconnect.cooldown.set', 'targetPlayerId' => $playerId, 'cooldown' => $cooldown];
+			}
+		}
         $rematchOperations = $this->rematchChanged($previousSnapshot, $nextSnapshot);
         if ($rematchOperations === null) {
             return null;
@@ -1415,37 +1538,10 @@ final readonly class GameWebsocketPatchBuilder
         if ($targetPlayerId !== null) {
             $previousPlayer = $previousSnapshot['players'][$targetPlayerId] ?? null;
             $nextPlayer = $nextSnapshot['players'][$targetPlayerId] ?? null;
-            if (is_array($previousPlayer) && is_array($nextPlayer)) {
-                $previousStatus = (string) ($previousPlayer['status'] ?? 'active');
-                $nextStatus = (string) ($nextPlayer['status'] ?? 'active');
-                $previousConcededAt = $previousPlayer['concededAt'] ?? null;
-                $nextConcededAt = $nextPlayer['concededAt'] ?? null;
-                if ($previousStatus !== $nextStatus || $previousConcededAt !== $nextConcededAt) {
-                    $operations[] = [
-                        'op' => 'player.status.set',
-                        'playerId' => $targetPlayerId,
-                        'status' => $nextStatus,
-                        'concededAt' => $nextConcededAt,
-                    ];
-                }
-            }
+			if (is_array($previousPlayer) && is_array($nextPlayer)) {
+				$operations = [...$operations, ...$this->playerLifecycleDiffOperations($previousSnapshot, $nextSnapshot, $targetPlayerId)];
+			}
         }
-        $previousTurn = $previousSnapshot['turn'] ?? null;
-        $nextTurn = $nextSnapshot['turn'] ?? null;
-        if (is_array($previousTurn) && is_array($nextTurn) && $previousTurn !== $nextTurn) {
-            $operations[] = [
-                'op' => 'turn.set',
-                'turn' => $nextTurn,
-            ];
-        }
-        $specialEntityOperations = $this->specialEntityDiffOperations($previousSnapshot, $nextSnapshot);
-        if ($specialEntityOperations === null) {
-            return null;
-        }
-        if ($specialEntityOperations !== []) {
-            $operations = [...$operations, ...$specialEntityOperations];
-        }
-
         return [
             ...$operations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),

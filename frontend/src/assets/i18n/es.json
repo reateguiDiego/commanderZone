@@ -1,4 +1,26 @@
 {
+  "gameLifecycleLog": {
+    "player": {
+      "defeatedByLife": "{{ target }} was defeated by life total.",
+      "conceded": "{{ target }} conceded.",
+      "expelled": "{{ target }} was expelled."
+    },
+    "turn": {
+      "passedByElimination": "Turn passed to {{ activePlayer }} after elimination."
+    },
+    "result": {
+      "lastActive": "{{ winner }} is the last active player."
+    },
+    "game": {
+      "closed": "The game was closed."
+    },
+    "monarch": {
+      "reassigned": "Monarch was reassigned to {{ owner }}."
+    },
+    "initiative": {
+      "reassigned": "Initiative was reassigned to {{ owner }}."
+    }
+  },
   "common": {
     "app": {
       "app": {
@@ -948,23 +970,32 @@
   },
   "gameLog": {
     "library": {
-      "draw": "{{ actor }} rob\u00f3 una carta.",
-      "drawMany": "{{ actor }} rob\u00f3 {{ count }} cartas.",
-      "shuffle": "{{ actor }} baraj\u00f3 su biblioteca."
+      "draw": "{{ actor }} robó una carta.",
+      "drawMany": "{{ actor }} robó {{ count }} cartas.",
+      "shuffle": "{{ actor }} barajó su biblioteca."
     },
     "card": {
-      "moved": "{{ actor }} movi\u00f3 una carta de {{ fromZone }} a {{ toZone }}.",
-      "tapped": "{{ actor }} gir\u00f3 un permanente.",
-      "untapped": "{{ actor }} enderez\u00f3 un permanente."
+      "moved": "{{ actor }} movió una carta de {{ fromZone }} a {{ toZone }}.",
+      "tapped": "{{ actor }} giró un permanente.",
+      "untapped": "{{ actor }} enderezó un permanente.",
+      "statsOverrideSet": "{{ actor }} estableció un ajuste manual de fuerza/resistencia.",
+      "statsOverrideCleared": "{{ actor }} eliminó un ajuste manual de fuerza/resistencia."
     },
     "cardCounter": {
       "changed": "{{ actor }} puso los contadores {{ counter }} en {{ value }}."
     },
     "life": {
-      "changed": "{{ actor }} cambi\u00f3 la vida de {{ player }} de {{ previousLife }} a {{ life }}."
+      "changed": "{{ actor }} cambió la vida de {{ player }} de {{ previousLife }} a {{ life }}."
+    },
+    "commanderDamage": {
+      "changed": "El daño de comandante de {{ source }} a {{ target }} cambió de {{ previousDamage }} a {{ damage }}. La vida cambió de {{ previousLife }} a {{ life }}."
+    },
+    "player": {
+      "defeatedByCommanderDamage": "{{ target }} fue derrotado por daño de comandante de {{ source }}.",
+      "reconnectedDuringVote": "{{ target }} se reconectó durante la votación de desconexión."
     },
     "dice": {
-      "rolled": "{{ actor }} tir\u00f3 {{ kind }} y sac\u00f3 {{ result }}.",
+      "rolled": "{{ actor }} tiró {{ kind }} y sacó {{ result }}.",
       "coin": "una moneda",
       "dice": "dados",
       "d4": "d4",
@@ -973,17 +1004,17 @@
       "d20": "d20"
     },
     "commander": {
-      "cast": "{{ actor }} lanz\u00f3 su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}."
+      "cast": "{{ actor }} lanzó su comandante desde la zona de mando. El contador de lanzamientos de comandante es {{ commanderCastCount }}."
     },
     "token": {
-      "created": "{{ actor }} cre\u00f3 una ficha: {{ tokenName }}.",
-      "createdMany": "{{ actor }} cre\u00f3 {{ count }} fichas: {{ tokenName }}."
+      "created": "{{ actor }} creó una ficha: {{ tokenName }}.",
+      "createdMany": "{{ actor }} creó {{ count }} fichas: {{ tokenName }}."
     },
     "tokenCopy": {
-      "created": "{{ actor }} cre\u00f3 una copia de ficha."
+      "created": "{{ actor }} creó una copia de ficha."
     },
     "game": {
-      "concede": "{{ player }} concedi\u00f3."
+      "concede": "{{ player }} concedió."
     },
     "zone": {
       "battlefield": "campo de batalla",
@@ -993,6 +1024,20 @@
       "library": "biblioteca",
       "command": "zona de mando",
       "zone": "zona"
+    },
+    "disconnect": {
+      "vote": {
+        "opened": "Se abrió una votación de desconexión para {{ target }}.",
+        "castExpel": "{{ actor }} votó expulsar a {{ target }}.",
+        "castWait": "{{ actor }} votó esperar a {{ target }}.",
+        "expired": "La votación de desconexión de {{ target }} expiró.",
+        "cancelledByReconnect": "La votación se canceló porque {{ target }} se reconectó.",
+        "rejected": "La mesa decidió esperar a {{ target }}.",
+        "passed": "La mesa votó expulsar a {{ target }}."
+      },
+      "cooldown": {
+        "started": "Comenzó el cooldown de votación de desconexión para {{ target }}."
+      }
     }
   },
   "deckBuilder": {

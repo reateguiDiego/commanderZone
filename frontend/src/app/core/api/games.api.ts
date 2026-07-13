@@ -45,10 +45,10 @@ export class GamesApi {
     return this.http.post<RematchVoteResponse>(`${API_BASE_URL}/games/${gameId}/rematch-vote`, { vote });
   }
 
-  disconnectVote(gameId: string, targetPlayerId: string, vote: GameDisconnectVoteChoice): Observable<DisconnectVoteResponse> {
+	disconnectVote(gameId: string, targetPlayerId: string, voteId: string, decision: GameDisconnectVoteChoice): Observable<DisconnectVoteResponse> {
     return this.http.post<DisconnectVoteResponse>(
       `${API_BASE_URL}/games/${gameId}/disconnect-vote`,
-      { targetPlayerId, vote },
+		{ targetPlayerId, voteId, decision },
     );
   }
 

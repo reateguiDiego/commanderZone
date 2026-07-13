@@ -160,28 +160,53 @@ func (CommanderDamageChangedApplier) Type() string { return "commander.damage.ch
 
 func (CommanderDamageChangedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
 	start := nowUTC()
-	targetPlayerID, err := stringField(command.Payload, "targetPlayerId")
-	if err != nil {
+	targetPlayerID, targetErr := stringField(command.Payload, "targetPlayerId")
+	if targetErr != nil {
+		return nil, &AuthorizationError{Code: AuthorizationCodeInvalidTarget, CommandType: command.Type}
+	}
+	sourcePlayerID, sourceErr := stringField(command.Payload, "sourcePlayerId")
+	if sourceErr != nil || sourcePlayerID == targetPlayerID {
+		return nil, &AuthorizationError{Code: AuthorizationCodeInvalidSource, CommandType: command.Type}
+	}
+	commanderInstanceID, commanderErr := stringField(command.Payload, "commanderInstanceId")
+	if commanderErr != nil {
+		return nil, &AuthorizationError{Code: AuthorizationCodeCommanderNotFound, CommandType: command.Type}
+	}
+	if err := playerMutationStatusError(game, targetPlayerID, AuthorizationCodeInvalidTarget, command.Type); err != nil {
 		return nil, err
 	}
-	commanderInstanceID, err := stringField(command.Payload, "commanderInstanceId")
-	if err != nil {
+	if err := playerMutationStatusError(game, sourcePlayerID, AuthorizationCodeInvalidSource, command.Type); err != nil {
 		return nil, err
 	}
-	player, ok := game.Players[targetPlayerID]
+	commander, ok := game.Instances[commanderInstanceID]
 	if !ok {
-		return nil, fmt.Errorf("%w: targetPlayerId", ErrInvalidPayloadField)
+		return nil, &AuthorizationError{Code: AuthorizationCodeCommanderNotFound, CommandType: command.Type, InstanceID: commanderInstanceID}
+	}
+	if !commander.IsCommander {
+		return nil, &AuthorizationError{Code: AuthorizationCodeInvalidCommander, CommandType: command.Type, InstanceID: commanderInstanceID}
+	}
+	if commander.OwnerID != sourcePlayerID {
+		return nil, &AuthorizationError{Code: AuthorizationCodeInvalidSource, CommandType: command.Type, InstanceID: commanderInstanceID}
 	}
 	damage, ok := intField(command.Payload, "damage")
-	if !ok {
-		return nil, fmt.Errorf("%w: damage", ErrMissingPayloadField)
+	if !ok || damage < 0 {
+		return nil, &AuthorizationError{Code: AuthorizationCodeInvalidTarget, CommandType: command.Type, InstanceID: commanderInstanceID}
 	}
-	if damage < 0 {
-		damage = 0
-	}
+	player := game.Players[targetPlayerID]
 	commanderDamage := intMapFromAny(player["commanderDamage"])
+	previousDamage := commanderDamage[commanderInstanceID]
+	delta := damage - previousDamage
+	previousLife, hasLife := intFromAny(player["life"])
+	if !hasLife {
+		previousLife = 40
+	}
+	life := previousLife
+	if delta > 0 {
+		life -= delta
+	}
 	commanderDamage[commanderInstanceID] = damage
 	player["commanderDamage"] = anyMapFromIntMap(commanderDamage)
+	player["life"] = life
 	game.Players[targetPlayerID] = player
 	emitter.EmitPublic(protocol.PatchOp{
 		Op: "player.commanderDamage.set",
@@ -190,12 +215,43 @@ func (CommanderDamageChangedApplier) Apply(_ context.Context, game *state.GameSt
 			"commanderDamage": cloneIntMapAny(commanderDamage),
 		},
 	})
-	return map[string]any{
+	emitter.EmitPublic(protocol.PatchOp{
+		Op:   "player.life.set",
+		Data: map[string]any{"playerId": targetPlayerID, "value": life},
+	})
+	transition := defeatTransition{PreviousStatus: playerStatus(game, targetPlayerID), Status: playerStatus(game, targetPlayerID)}
+	if damage >= 21 || life <= 0 {
+		reason := "commander_damage"
+		if damage < 21 {
+			reason = "life"
+		}
+		transition, _ = eliminatePlayer(game, targetPlayerID, reason, eliminationContext{
+			SourcePlayerID: sourcePlayerID, CommanderInstanceID: commanderInstanceID,
+		}, emitter)
+	}
+	payload := map[string]any{
+		"effectVersion":       atomicLifecycleEffectVersion,
 		"targetPlayerId":      targetPlayerID,
+		"sourcePlayerId":      sourcePlayerID,
 		"commanderInstanceId": commanderInstanceID,
+		"previousDamage":      previousDamage,
 		"damage":              damage,
+		"delta":               delta,
+		"previousLife":        previousLife,
+		"life":                life,
+		"previousStatus":      transition.PreviousStatus,
+		"status":              transition.Status,
+		"statusChanged":       transition.StatusChanged,
 		"metrics":             countersMetrics(start, emitter),
-	}, nil
+	}
+	if transition.StatusChanged {
+		payload["defeatReason"] = transition.EliminationReason
+		addLifecycleEffects(payload, game, transition)
+	}
+	if transition.Turn != nil {
+		payload["turn"] = cloneMap(transition.Turn)
+	}
+	return payload, nil
 }
 
 type CardPowerToughnessChangedApplier struct{}

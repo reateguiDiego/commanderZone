@@ -25,10 +25,10 @@ func (GameConcedeApplier) Apply(_ context.Context, game *state.GameState, comman
 	if !ok {
 		return nil, fmt.Errorf("%w: playerId", ErrInvalidPayloadField)
 	}
-	if player["status"] == "conceded" {
+	if playerStatus(game, playerID) != "active" {
 		return map[string]any{
 			"playerId":   playerID,
-			"status":     "conceded",
+			"status":     player["status"],
 			"concededAt": player["concededAt"],
 			"metrics":    lifecycleMetrics(start, emitter),
 		}, nil
@@ -37,25 +37,11 @@ func (GameConcedeApplier) Apply(_ context.Context, game *state.GameState, comman
 	if value, ok := command.Payload["concededAt"].(string); ok && value != "" {
 		concededAt = value
 	}
-	player["status"] = "conceded"
 	player["concededAt"] = concededAt
 	game.Players[playerID] = player
-
-	emitter.EmitPublic(protocol.PatchOp{
-		Op: "player.status.set",
-		Data: map[string]any{
-			"playerId":   playerID,
-			"status":     "conceded",
-			"concededAt": concededAt,
-		},
-	})
-	var nextTurn map[string]any
-	if game.Turn != nil && game.Turn["activePlayerId"] == playerID {
-		if nextPlayerID := nextActivePlayerID(game, playerID); nextPlayerID != "" {
-			game.Turn["activePlayerId"] = nextPlayerID
-			nextTurn = cloneMap(game.Turn)
-			emitter.EmitPublic(protocol.PatchOp{Op: "turn.set", Data: map[string]any{"turn": nextTurn}})
-		}
+	transition, err := eliminatePlayer(game, playerID, "concede", eliminationContext{}, emitter)
+	if err != nil {
+		return nil, err
 	}
 
 	payload := map[string]any{
@@ -64,9 +50,7 @@ func (GameConcedeApplier) Apply(_ context.Context, game *state.GameState, comman
 		"concededAt": concededAt,
 		"metrics":    lifecycleMetrics(start, emitter),
 	}
-	if nextTurn != nil {
-		payload["turn"] = nextTurn
-	}
+	addLifecycleEffects(payload, game, transition)
 
 	return payload, nil
 }
@@ -77,8 +61,13 @@ func (GameCloseApplier) Type() string { return "game.close" }
 
 func (GameCloseApplier) Apply(_ context.Context, game *state.GameState, _ protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
 	start := nowUTC()
+	invalidateDurableVoteForLifecycle(game, "", "game_closed", start, emitter)
+	previousStatus, previousPhase := game.Status, game.Phase
 	game.Status = "finished"
 	game.Phase = state.PhaseFinished
+	if game.FinishedReason == "" {
+		game.FinishedReason = "explicit_close"
+	}
 	emitter.EmitPublic(protocol.PatchOp{
 		Op: "game.status.set",
 		Data: map[string]any{
@@ -92,9 +81,16 @@ func (GameCloseApplier) Apply(_ context.Context, game *state.GameState, _ protoc
 	})
 
 	return map[string]any{
-		"status":  "finished",
-		"phase":   state.PhaseFinished,
-		"metrics": lifecycleMetrics(start, emitter),
+		"effectVersion":  disconnectVoteEffectVersion,
+		"previousStatus": previousStatus, "previousPhase": previousPhase,
+		"status": "finished", "phase": state.PhaseFinished,
+		"winnerPlayerId": game.WinnerPlayerID, "resultState": game.ResultState,
+		"finishedReason":      game.FinishedReason,
+		"disconnectVote":      cloneMap(game.DisconnectVote),
+		"presence":            cloneNestedMap(game.Presence),
+		"disconnectCooldowns": cloneNestedMap(game.DisconnectCooldowns),
+		"rematch":             cloneMap(game.Rematch),
+		"metrics":             lifecycleMetrics(start, emitter),
 	}, nil
 }
 
@@ -117,19 +113,11 @@ func (DisconnectVoteApplier) Apply(_ context.Context, game *state.GameState, com
 		emitDisconnectVotePatch(game, emitter)
 		if command.Payload["status"] == "resolved_expel" {
 			if player, ok := game.Players[targetPlayerID]; ok {
-				player["status"] = "conceded"
 				if concededAt, ok := command.Payload["concededAt"].(string); ok && concededAt != "" {
 					player["concededAt"] = concededAt
 				}
 				game.Players[targetPlayerID] = player
-				emitter.EmitPublic(protocol.PatchOp{
-					Op: "player.status.set",
-					Data: map[string]any{
-						"playerId":   targetPlayerID,
-						"status":     "conceded",
-						"concededAt": player["concededAt"],
-					},
-				})
+				_, _ = eliminatePlayer(game, targetPlayerID, "expelled", eliminationContext{}, emitter)
 			}
 		}
 		if turn, ok := command.Payload["turn"].(map[string]any); ok {
@@ -263,6 +251,7 @@ func recordDisconnectVote(game *state.GameState, command protocol.CommandEnvelop
 	majority := len(eligible)/2 + 1
 	reason := "vote.recorded"
 	var nextTurn map[string]any
+	var elimination *defeatTransition
 	if expelVotes >= majority {
 		reason = "vote.resolved"
 		current["status"] = "resolved_expel"
@@ -271,24 +260,11 @@ func recordDisconnectVote(game *state.GameState, command protocol.CommandEnvelop
 		current["cooldownUntil"] = nil
 		concededAt := start.Format(time.RFC3339)
 		player := game.Players[targetPlayerID]
-		player["status"] = "conceded"
 		player["concededAt"] = concededAt
 		game.Players[targetPlayerID] = player
-		emitter.EmitPublic(protocol.PatchOp{
-			Op: "player.status.set",
-			Data: map[string]any{
-				"playerId":   targetPlayerID,
-				"status":     "conceded",
-				"concededAt": concededAt,
-			},
-		})
-		if game.Turn != nil && game.Turn["activePlayerId"] == targetPlayerID {
-			if nextPlayerID := nextActivePlayerID(game, targetPlayerID); nextPlayerID != "" {
-				game.Turn["activePlayerId"] = nextPlayerID
-				nextTurn = cloneMap(game.Turn)
-				emitter.EmitPublic(protocol.PatchOp{Op: "turn.set", Data: map[string]any{"turn": nextTurn}})
-			}
-		}
+		transition, _ := eliminatePlayer(game, targetPlayerID, "expelled", eliminationContext{}, emitter)
+		elimination = &transition
+		nextTurn = cloneMap(transition.Turn)
 	} else if waitVotes >= majority {
 		reason = "vote.resolved"
 		current["status"] = "resolved_wait"
@@ -306,6 +282,9 @@ func recordDisconnectVote(game *state.GameState, command protocol.CommandEnvelop
 	}
 	if playerStatus(game, targetPlayerID) == "conceded" {
 		payload["concededAt"] = game.Players[targetPlayerID]["concededAt"]
+	}
+	if elimination != nil {
+		addLifecycleEffects(payload, game, *elimination)
 	}
 	return payload, nil
 }
@@ -421,32 +400,23 @@ func stringSliceContains(values []string, target string) bool {
 }
 
 func nextActivePlayerID(game *state.GameState, currentPlayerID string) string {
-	if game == nil || len(game.Players) == 0 {
+	if game == nil || len(game.TurnOrder) == 0 {
 		return ""
 	}
-	playerIDs := make([]string, 0, len(game.Players))
-	for playerID := range game.Players {
-		playerIDs = append(playerIDs, playerID)
+	start := -1
+	for i, playerID := range game.TurnOrder {
+		if playerID == currentPlayerID {
+			start = i
+			break
+		}
 	}
-	sort.Strings(playerIDs)
-	afterCurrent := false
-	firstActive := ""
-	for _, playerID := range playerIDs {
-		player := game.Players[playerID]
-		if player["status"] == "conceded" {
-			continue
-		}
-		if firstActive == "" {
-			firstActive = playerID
-		}
-		if afterCurrent {
+	for step := 1; step <= len(game.TurnOrder); step++ {
+		playerID := game.TurnOrder[(start+step+len(game.TurnOrder))%len(game.TurnOrder)]
+		if playerStatus(game, playerID) == "active" {
 			return playerID
 		}
-		if playerID == currentPlayerID {
-			afterCurrent = true
-		}
 	}
-	return firstActive
+	return ""
 }
 
 func lifecycleMetrics(start time.Time, emitter *PatchEmitter) map[string]any {

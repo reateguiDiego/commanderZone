@@ -41,7 +41,13 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 	switch event.Type {
 	case "game.started":
 		return nil
-	case "life.changed", "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "card.position.changed", "cards.position.changed", "counter.changed", "commander.damage.changed", "card.power_toughness.changed":
+	case "life.changed":
+		return replayLifeChangedEvent(game, event)
+	case "commander.damage.changed":
+		return replayCommanderDamageChangedEvent(game, event)
+	case "card.stats.override.set", "card.stats.override.cleared":
+		return replayCardStatsOverrideEvent(game, event)
+	case "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "card.position.changed", "cards.position.changed", "counter.changed", "card.power_toughness.changed":
 		return replayViaApplier(game, event, appliers)
 	case "card.moved", "cards.moved", "zone.reorderedByIds", "zone.move_all", "battlefield.untap_all":
 		return replayViaApplier(game, event, appliers)
@@ -53,14 +59,254 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayStackEvent(game, event)
 	case "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
 		return replayViaApplier(game, event, appliers)
-	case "game.concede", "game.close":
+	case "game.concede":
+		if effectVersion, _ := intField(event.Payload, "effectVersion"); effectVersion >= authoritativeLifecycleEffectVersion {
+			playerID := optionalString(event.Payload, "playerId")
+			if _, ok := game.Players[playerID]; !ok {
+				return fmt.Errorf("%w: playerId", ErrInvalidPayloadField)
+			}
+			game.Players[playerID]["status"] = optionalString(event.Payload, "status")
+			game.Players[playerID]["concededAt"] = event.Payload["concededAt"]
+			applyPersistedLifecycleEffects(game, event.Payload, playerID)
+			return nil
+		}
+		return replayViaApplier(game, event, appliers)
+	case "game.close":
+		if effectVersion, _ := intField(event.Payload, "effectVersion"); effectVersion >= authoritativeLifecycleEffectVersion {
+			game.Status = optionalString(event.Payload, "status")
+			game.Phase = state.GamePhase(optionalString(event.Payload, "phase"))
+			game.WinnerPlayerID = optionalString(event.Payload, "winnerPlayerId")
+			game.ResultState = optionalString(event.Payload, "resultState")
+			game.FinishedReason = optionalString(event.Payload, "finishedReason")
+			applyPersistedDisconnectControlPlane(game, event.Payload)
+			return nil
+		}
 		return replayViaApplier(game, event, appliers)
 	case "mulligan.player_took", "mulligan.player_kept", "mulligan.cards_bottomed", "mulligan.scry_confirmed", "mulligan.player_ready", "mulligan.completed", "game.phase_changed":
 		return replayMulliganEvent(game, event)
+	case "player.presence.changed", "disconnect.vote.opened", "disconnect.vote.cast", "disconnect.vote.resolved", "disconnect.vote.cancelled", "disconnect.vote.expired":
+		if effectVersion, _ := intField(event.Payload, "effectVersion"); effectVersion >= disconnectVoteEffectVersion {
+			if vote, ok := event.Payload["disconnectVote"].(map[string]any); ok {
+				game.DisconnectVote = cloneMap(vote)
+			}
+			applyPersistedDisconnectControlPlane(game, event.Payload)
+			if optionalString(event.Payload, "eliminationReason") == "expelled" {
+				target := optionalString(event.Payload, "targetPlayerId")
+				if _, ok := game.Players[target]; !ok {
+					return fmt.Errorf("%w: targetPlayerId", ErrInvalidPayloadField)
+				}
+				game.Players[target]["status"] = "conceded"
+				game.Players[target]["concededAt"] = event.Payload["concededAt"]
+				applyPersistedLifecycleEffects(game, event.Payload, target)
+			}
+			return nil
+		}
+		return nil
 	case "disconnect.vote.updated":
-		return replayViaApplierWithType(game, event, appliers, "disconnect.vote")
+		if effectVersion, _ := intField(event.Payload, "effectVersion"); effectVersion >= disconnectVoteEffectVersion {
+			if vote, ok := event.Payload["disconnectVote"].(map[string]any); ok {
+				game.DisconnectVote = cloneMap(vote)
+			}
+			applyPersistedDisconnectControlPlane(game, event.Payload)
+			if optionalString(event.Payload, "eliminationReason") == "expelled" {
+				target := optionalString(event.Payload, "targetPlayerId")
+				game.Players[target]["status"] = "conceded"
+				game.Players[target]["concededAt"] = event.Payload["concededAt"]
+				applyPersistedLifecycleEffects(game, event.Payload, target)
+			}
+			return nil
+		}
+		if effectVersion, _ := intField(event.Payload, "effectVersion"); effectVersion >= authoritativeLifecycleEffectVersion && optionalString(event.Payload, "status") == "resolved_expel" {
+			if vote, ok := event.Payload["disconnectVote"].(map[string]any); ok {
+				game.DisconnectVote = cloneMap(vote)
+			}
+			target := optionalString(event.Payload, "targetPlayerId")
+			if _, ok := game.Players[target]; !ok {
+				return fmt.Errorf("%w: targetPlayerId", ErrInvalidPayloadField)
+			}
+			game.Players[target]["status"] = "conceded"
+			game.Players[target]["concededAt"] = event.Payload["concededAt"]
+			applyPersistedLifecycleEffects(game, event.Payload, target)
+			return nil
+		}
+		if vote, ok := event.Payload["disconnectVote"].(map[string]any); ok {
+			game.DisconnectVote = cloneMap(vote)
+		}
+		return nil
 	default:
 		return ReplayEvent(game, event)
+	}
+}
+
+func replayCardStatsOverrideEvent(game *state.GameState, event protocol.EventPayloadV2) error {
+	effectVersion, _ := intField(event.Payload, "effectVersion")
+	if effectVersion < cardStatsOverrideEffectVersion {
+		return nil
+	}
+	instanceID := optionalString(event.Payload, "instanceId")
+	faceKey := optionalString(event.Payload, "faceKey")
+	instance, ok := game.Instances[instanceID]
+	if !ok || faceKey == "" {
+		return fmt.Errorf("%w: instanceId/faceKey", ErrInvalidPayloadField)
+	}
+	if instance.ManualOverrides == nil {
+		instance.ManualOverrides = map[string]map[string]any{}
+	}
+	if override, ok := event.Payload["override"].(map[string]any); ok && override != nil {
+		instance.ManualOverrides[faceKey] = cloneMap(override)
+	} else {
+		delete(instance.ManualOverrides, faceKey)
+	}
+	game.Instances[instanceID] = instance
+	return nil
+}
+
+func replayLifeChangedEvent(game *state.GameState, event protocol.EventPayloadV2) error {
+	playerID := optionalString(event.Payload, "playerId")
+	player, ok := game.Players[playerID]
+	if playerID == "" || !ok {
+		return fmt.Errorf("%w: playerId", ErrInvalidPayloadField)
+	}
+	if effectVersion, _ := intField(event.Payload, "effectVersion"); effectVersion >= atomicLifecycleEffectVersion {
+		life, ok := intField(event.Payload, "life")
+		if !ok {
+			return fmt.Errorf("%w: life", ErrMissingPayloadField)
+		}
+		player["life"] = life
+		if status := optionalString(event.Payload, "status"); status != "" {
+			player["status"] = status
+		}
+		game.Players[playerID] = player
+		if effectVersion >= authoritativeLifecycleEffectVersion {
+			applyPersistedLifecycleEffects(game, event.Payload, playerID)
+		}
+		if turn, ok := event.Payload["turn"].(map[string]any); ok {
+			game.Turn = cloneMap(turn)
+		}
+		return nil
+	}
+
+	if life, ok := intField(event.Payload, "life"); ok {
+		player["life"] = life
+	} else if value, ok := intField(event.Payload, "value"); ok {
+		player["life"] = value
+	} else if delta, ok := intField(event.Payload, "delta"); ok {
+		current, _ := intFromAny(player["life"])
+		player["life"] = current + delta
+	} else {
+		return fmt.Errorf("%w: life", ErrMissingPayloadField)
+	}
+	game.Players[playerID] = player
+	return nil
+}
+
+func applyPersistedDisconnectControlPlane(game *state.GameState, payload map[string]any) {
+	if raw, ok := payload["presence"].(map[string]any); ok {
+		game.Presence = map[string]map[string]any{}
+		for playerID, value := range raw {
+			if entry, ok := value.(map[string]any); ok {
+				game.Presence[playerID] = cloneMap(entry)
+			}
+		}
+	}
+	if raw, ok := payload["disconnectCooldowns"].(map[string]any); ok {
+		game.DisconnectCooldowns = map[string]map[string]any{}
+		for playerID, value := range raw {
+			if entry, ok := value.(map[string]any); ok {
+				game.DisconnectCooldowns[playerID] = cloneMap(entry)
+			}
+		}
+	}
+	if rematch, ok := payload["rematch"].(map[string]any); ok {
+		game.Rematch = cloneMap(rematch)
+	}
+}
+
+func replayCommanderDamageChangedEvent(game *state.GameState, event protocol.EventPayloadV2) error {
+	targetPlayerID := optionalString(event.Payload, "targetPlayerId")
+	commanderInstanceID := optionalString(event.Payload, "commanderInstanceId")
+	player, ok := game.Players[targetPlayerID]
+	if targetPlayerID == "" || !ok {
+		return fmt.Errorf("%w: targetPlayerId", ErrInvalidPayloadField)
+	}
+	if commanderInstanceID == "" {
+		return fmt.Errorf("%w: commanderInstanceId", ErrMissingPayloadField)
+	}
+	damage, ok := intField(event.Payload, "damage")
+	if !ok {
+		return fmt.Errorf("%w: damage", ErrMissingPayloadField)
+	}
+	commanderDamage := intMapFromAny(player["commanderDamage"])
+	commanderDamage[commanderInstanceID] = damage
+	player["commanderDamage"] = anyMapFromIntMap(commanderDamage)
+
+	if effectVersion, _ := intField(event.Payload, "effectVersion"); effectVersion >= atomicLifecycleEffectVersion {
+		life, ok := intField(event.Payload, "life")
+		if !ok {
+			return fmt.Errorf("%w: life", ErrMissingPayloadField)
+		}
+		player["life"] = life
+		if status := optionalString(event.Payload, "status"); status != "" {
+			player["status"] = status
+		}
+		if turn, ok := event.Payload["turn"].(map[string]any); ok {
+			game.Turn = cloneMap(turn)
+		}
+		if effectVersion >= authoritativeLifecycleEffectVersion {
+			game.Players[targetPlayerID] = player
+			applyPersistedLifecycleEffects(game, event.Payload, targetPlayerID)
+			return nil
+		}
+	}
+	game.Players[targetPlayerID] = player
+	return nil
+}
+
+func applyPersistedLifecycleEffects(game *state.GameState, payload map[string]any, playerID string) {
+	player := game.Players[playerID]
+	if reason := optionalString(payload, "eliminationReason"); reason != "" {
+		player["eliminationReason"] = reason
+	}
+	if version, ok := intField(payload, "eliminatedAtVersion"); ok {
+		player["eliminatedAtVersion"] = version
+	}
+	for _, key := range []string{"sourcePlayerId", "commanderInstanceId"} {
+		if value := optionalString(payload, key); value != "" {
+			player[key] = value
+		}
+	}
+	game.Players[playerID] = player
+	if turn, ok := payload["turn"].(map[string]any); ok {
+		game.Turn = cloneMap(turn)
+	}
+	if order, err := stringSliceField(payload, "turnOrder"); err == nil {
+		game.TurnOrder = order
+	}
+	game.WinnerPlayerID = optionalString(payload, "winnerPlayerId")
+	game.ResultState = optionalString(payload, "resultState")
+	game.FinishedReason = optionalString(payload, "finishedReason")
+	if after, ok := payload["designationsAfter"].(map[string]any); ok {
+		applyPersistedDesignations(game, after)
+	}
+	applyPersistedDisconnectControlPlane(game, payload)
+}
+
+func applyPersistedDesignations(game *state.GameState, after map[string]any) {
+	for id, relation := range game.Relations.Helpers {
+		if template, _ := relation.Meta["template"].(string); template == "monarch" || template == "initiative" {
+			delete(game.Relations.Helpers, id)
+		}
+	}
+	for _, template := range []string{"monarch", "initiative"} {
+		entity, ok := after[template].(map[string]any)
+		if !ok {
+			continue
+		}
+		id := optionalString(entity, "id")
+		if id == "" {
+			continue
+		}
+		game.Relations.Helpers[id] = state.Relation{ID: id, Meta: helperMeta(entity)}
 	}
 }
 

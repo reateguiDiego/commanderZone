@@ -23,7 +23,7 @@ class GameDisconnectVoteServiceTest extends TestCase
         $recorded = $service->openVoteIfEligible($game, $target->id(), [$owner->id(), $voter->id()], $now);
 
         self::assertNotNull($recorded);
-        self::assertSame(GameDisconnectVoteService::EVENT_TYPE, $recorded['event']->toArray()['type']);
+		self::assertSame('disconnect.vote.opened', $recorded['event']->toArray()['type']);
         self::assertSame(GameDisconnectVoteService::STATUS_OPEN, $recorded['snapshot']['disconnectVote']['status']);
         self::assertSame($target->id(), $recorded['snapshot']['disconnectVote']['targetPlayerId']);
         self::assertSame('2026-01-01T00:01:00+00:00', $recorded['snapshot']['disconnectVote']['deadlineAt']);
@@ -59,7 +59,8 @@ class GameDisconnectVoteServiceTest extends TestCase
         self::assertSame(GameDisconnectVoteService::STATUS_RESOLVED_EXPEL, $recorded['snapshot']['disconnectVote']['status']);
         self::assertSame('conceded', $recorded['snapshot']['players'][$target->id()]['status']);
         self::assertSame(GameRematchService::VOTE_LEAVE, $recorded['snapshot']['rematch']['votes'][$target->id()]['vote']);
-        self::assertFalse($game->room()->hasPlayer($target));
+		self::assertTrue($game->room()->hasPlayer($target));
+		self::assertSame('expelled', $recorded['snapshot']['players'][$target->id()]['eliminationReason']);
         self::assertSame($persistedBefore, $game->persistedSnapshot());
         self::assertSame(0, $recorded['event']->payload()['snapshot_write_count']);
     }
@@ -96,7 +97,7 @@ class GameDisconnectVoteServiceTest extends TestCase
         );
 
         self::assertSame($voter->id(), $recorded['snapshot']['turn']['activePlayerId']);
-        self::assertSame('untap', $recorded['snapshot']['turn']['phase']);
+		self::assertSame('combat', $recorded['snapshot']['turn']['phase']);
         self::assertSame(4, $recorded['snapshot']['turn']['number']);
     }
 
@@ -194,7 +195,7 @@ class GameDisconnectVoteServiceTest extends TestCase
         );
 
         self::assertNotNull($resolved);
-        self::assertSame(GameDisconnectVoteService::STATUS_RESOLVED_WAIT, $resolved['snapshot']['disconnectVote']['status']);
+		self::assertSame(GameDisconnectVoteService::STATUS_EXPIRED, $resolved['snapshot']['disconnectVote']['status']);
         self::assertSame('2026-01-01T00:06:01+00:00', $resolved['snapshot']['disconnectVote']['cooldownUntil']);
     }
 
@@ -253,6 +254,103 @@ class GameDisconnectVoteServiceTest extends TestCase
         );
         self::assertNotNull($reopened);
         self::assertSame(GameDisconnectVoteService::STATUS_OPEN, $reopened['snapshot']['disconnectVote']['status']);
+    }
+
+    public function testOpenFreezesEligibleVotersAndStrictMajority(): void
+    {
+        [$game, $owner, $target, $voter] = $this->gameWithThreePlayers();
+        $service = new GameDisconnectVoteService(new GameCommandHandler());
+
+        $opened = $service->openVoteIfEligible(
+            $game,
+            $target->id(),
+            [$owner->id(), $voter->id()],
+            new \DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        );
+
+        self::assertNotNull($opened);
+        self::assertSame([$owner->id(), $voter->id()], $opened['snapshot']['disconnectVote']['eligibleVoterIds']);
+        self::assertSame(2, $opened['snapshot']['disconnectVote']['requiredVotes']);
+        self::assertNotEmpty($opened['snapshot']['disconnectVote']['voteId']);
+        self::assertSame('2026-01-01T00:01:00+00:00', $opened['snapshot']['disconnectVote']['expiresAt']);
+    }
+
+    public function testDisconnectedFrozenVoterCannotCastAndRejectionDoesNotMutateVersion(): void
+    {
+        [$game, $owner, $target, $voter] = $this->gameWithThreePlayers();
+        $service = new GameDisconnectVoteService(new GameCommandHandler());
+        $opened = $service->openVoteIfEligible(
+            $game,
+            $target->id(),
+            [$owner->id(), $voter->id()],
+            new \DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        );
+        self::assertNotNull($opened);
+        $versionBefore = $game->snapshot()['version'];
+        $eventCountBefore = count($game->events());
+
+        try {
+            $service->recordVote(
+                $game,
+                $voter,
+                $target->id(),
+                GameDisconnectVoteService::VOTE_EXPEL,
+                [$owner->id()],
+                new \DateTimeImmutable('2026-01-01T00:00:10+00:00'),
+                $opened['snapshot']['disconnectVote']['voteId'],
+            );
+            self::fail('Disconnected frozen voter should be rejected.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertSame('NOT_ELIGIBLE_VOTER', $exception->getMessage());
+        }
+
+        self::assertSame($versionBefore, $game->snapshot()['version']);
+        self::assertCount($eventCountBefore, $game->events());
+    }
+
+    public function testDuplicateAndStaleVoteIdAreRejectedWithoutMutation(): void
+    {
+        [$game, $owner, $target, $voter] = $this->gameWithThreePlayers();
+        $service = new GameDisconnectVoteService(new GameCommandHandler());
+        $opened = $service->openVoteIfEligible(
+            $game,
+            $target->id(),
+            [$owner->id(), $voter->id()],
+            new \DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        );
+        self::assertNotNull($opened);
+        $voteId = $opened['snapshot']['disconnectVote']['voteId'];
+
+        $service->recordVote(
+            $game,
+            $owner,
+            $target->id(),
+            GameDisconnectVoteService::VOTE_EXPEL,
+            [$owner->id(), $voter->id()],
+            new \DateTimeImmutable('2026-01-01T00:00:10+00:00'),
+            $voteId,
+        );
+        $versionBefore = $game->snapshot()['version'];
+        $eventCountBefore = count($game->events());
+
+        foreach (['stale-vote-id', $voteId] as $candidateVoteId) {
+            try {
+                $service->recordVote(
+                    $game,
+                    $owner,
+                    $target->id(),
+                    GameDisconnectVoteService::VOTE_EXPEL,
+                    [$owner->id(), $voter->id()],
+                    new \DateTimeImmutable('2026-01-01T00:00:11+00:00'),
+                    $candidateVoteId,
+                );
+                self::fail('Stale or duplicate vote should be rejected.');
+            } catch (\InvalidArgumentException $exception) {
+                self::assertContains($exception->getMessage(), ['VOTE_NOT_FOUND', 'DUPLICATE_VOTE']);
+            }
+            self::assertSame($versionBefore, $game->snapshot()['version']);
+            self::assertCount($eventCountBefore, $game->events());
+        }
     }
 
     /**

@@ -52,7 +52,7 @@ describe('OpponentMiniBoardComponent', () => {
   });
 
   it('replaces the mini battlefield with a defeated board when opponent life is zero or lower', () => {
-    fixture.componentRef.setInput('player', playerView({ life: 0 }));
+		fixture.componentRef.setInput('player', playerView({ life: 0, status: 'defeated' }));
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
@@ -60,7 +60,7 @@ describe('OpponentMiniBoardComponent', () => {
   });
 
   it('replaces the mini battlefield with a defeated board when opponent has lethal commander damage', () => {
-    fixture.componentRef.setInput('player', playerView({ commanderDamage: { 'user-1': 21 } }));
+		fixture.componentRef.setInput('player', playerView({ commanderDamage: { 'user-1': 21 }, status: 'defeated' }));
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
@@ -68,7 +68,7 @@ describe('OpponentMiniBoardComponent', () => {
   });
 
   it('keeps the defeated board instead of cards target when opponent life is zero or lower', () => {
-    fixture.componentRef.setInput('player', playerView({ life: -3 }));
+		fixture.componentRef.setInput('player', playerView({ life: -3, status: 'defeated' }));
     fixture.componentRef.setInput('cardsTargetCards', [{ card: cardInstance('card-1', 'Target'), role: 'target' }]);
     fixture.detectChanges();
 

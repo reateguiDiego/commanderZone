@@ -26,12 +26,12 @@ final class CardPowerToughnessChangedCommandV2Applier implements GameCommandV2Ap
         $previousLoyalty = $card['loyalty'] ?? null;
         $previousDefense = $card['defense'] ?? null;
         $previousSaga = $card['saga'] ?? null;
-        if (array_key_exists('power', $payload)) {
-            $card['power'] = $payload['power'] === null ? null : (int) $payload['power'];
-        }
-        if (array_key_exists('toughness', $payload)) {
-            $card['toughness'] = $payload['toughness'] === null ? null : (int) $payload['toughness'];
-        }
+        $helper->v2ApplyLegacyPowerToughnessOverride(
+            $card,
+            $payload,
+            $actor,
+            max(1, (int) ($snapshot['version'] ?? 1)) + 1,
+        );
         if (array_key_exists('loyalty', $payload)) {
             $card['loyalty'] = $payload['loyalty'] === null ? null : (int) $payload['loyalty'];
         }

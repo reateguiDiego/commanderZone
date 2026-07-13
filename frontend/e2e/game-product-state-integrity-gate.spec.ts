@@ -172,9 +172,9 @@ test.describe('product state integrity runtime gate', () => {
       expect(operation(counterOutcome.patch, 'card.counters.patch')).toMatchObject({
         instanceId: permanentId,
         counters: { '+1/+1': 3 },
-        power: 8,
-        toughness: 10,
       });
+	  expect(operation(counterOutcome.patch, 'card.counters.patch')).not.toHaveProperty('power');
+	  expect(operation(counterOutcome.patch, 'card.counters.patch')).not.toHaveProperty('toughness');
       expect(operation(counterOutcome.patch, 'card.field.set')).toBeNull();
       expect(requestAudit.bootstrap + requestAudit.snapshot).toBe(liveRequestBaseline);
 
@@ -186,8 +186,8 @@ test.describe('product state integrity runtime gate', () => {
         faceDown: true,
         controllerId: playerB.user.id,
         counters: { '+1/+1': 3 },
-        power: 8,
-        toughness: 10,
+		power: 5,
+		toughness: 7,
       });
       expect(playerLife(liveSnapshot, playerA.user.id)).toBe(33);
       expect(relationCount(liveSnapshot, 'arrows')).toBeGreaterThanOrEqual(1);

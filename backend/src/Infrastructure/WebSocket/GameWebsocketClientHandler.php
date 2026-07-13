@@ -90,7 +90,6 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
         $connectionState = [
             'kind' => 'connection_state',
             'gameId' => $peer->gameId,
-            'connectionId' => $peer->connectionId,
             'status' => 'connected',
             'serverTime' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ];

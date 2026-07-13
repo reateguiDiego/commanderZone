@@ -2,11 +2,14 @@
 
 namespace App\Application\Game;
 
+use App\Application\Game\Compact\PowerToughnessModel;
 use App\Domain\Game\GameEvent;
 
 final class GameEventReplayService
 {
     private const DETERMINISTIC_SHUFFLE_ALGORITHM = 'cz.lcg32.fisher-yates.v1';
+    private const ATOMIC_LIFECYCLE_EFFECT_VERSION = 2;
+    private const AUTHORITATIVE_LIFECYCLE_EFFECT_VERSION = 3;
 
     public function __construct(
         private readonly ?GameLibraryOps $libraryOps = null,
@@ -30,12 +33,14 @@ final class GameEventReplayService
             $hasLegacyReplayOps = is_array($replay['ops'] ?? null) || is_array($replay['entries'] ?? null);
             if (!$hasLegacyReplayOps) {
                 if ($this->applyRuntimeMulliganEvent($snapshot, $event, $payload)) {
+                    $this->appendRuntimeEventLogEntries($snapshot, $payload);
                     $snapshot['version'] = $event->version();
                     $snapshot['updatedAt'] = $event->createdAt()->format(DATE_ATOM);
 
                     continue;
                 }
                 if ($this->applyRuntimeGameplayEvent($snapshot, $event, $payload)) {
+                    $this->appendRuntimeEventLogEntries($snapshot, $payload);
                     $snapshot['version'] = $event->version();
                     $snapshot['updatedAt'] = $event->createdAt()->format(DATE_ATOM);
 
@@ -64,21 +69,31 @@ final class GameEventReplayService
                 }
             }
 
-            $eventLogEntries = is_array($payload['eventLogEntries'] ?? null)
-                ? array_values(array_filter($payload['eventLogEntries'], static fn (mixed $entry): bool => is_array($entry)))
-                : [];
-            if ($eventLogEntries !== []) {
-                $snapshot['eventLog'] = array_values(array_slice([
-                    ...(is_array($snapshot['eventLog'] ?? null) ? $snapshot['eventLog'] : []),
-                    ...$eventLogEntries,
-                ], -250));
-            }
+            $this->appendRuntimeEventLogEntries($snapshot, $payload);
 
             $snapshot['version'] = $event->version();
             $snapshot['updatedAt'] = $event->createdAt()->format(DATE_ATOM);
         }
 
         return $snapshot;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function appendRuntimeEventLogEntries(array &$snapshot, array $payload): void
+    {
+        $eventLogEntries = is_array($payload['eventLogEntries'] ?? null)
+            ? array_values(array_filter($payload['eventLogEntries'], static fn (mixed $entry): bool => is_array($entry)))
+            : [];
+        if ($eventLogEntries === []) {
+            return;
+        }
+
+        $snapshot['eventLog'] = array_values(array_slice([
+            ...(is_array($snapshot['eventLog'] ?? null) ? $snapshot['eventLog'] : []),
+            ...$eventLogEntries,
+        ], -250));
     }
 
     /**
@@ -230,6 +245,16 @@ final class GameEventReplayService
                 $this->applyRuntimeDisconnectVoteUpdated($snapshot, $payload);
 
                 return true;
+
+			case 'player.presence.changed':
+			case 'disconnect.vote.opened':
+			case 'disconnect.vote.cast':
+			case 'disconnect.vote.resolved':
+			case 'disconnect.vote.cancelled':
+			case 'disconnect.vote.expired':
+				$this->applyRuntimeDisconnectControlPlane($snapshot, $payload);
+
+				return true;
 
             case 'life.changed':
                 $this->applyRuntimeLifeChanged($snapshot, $payload);
@@ -388,6 +413,13 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'card.stats.override.set':
+            case 'card.stats.override.cleared':
+            case 'card.stats.override.clear':
+                $this->applyRuntimeCardStatsOverride($snapshot, $payload);
+
+                return true;
+
             case 'card.face.changed':
                 $this->applyRuntimeCardFaceChanged($snapshot, $payload);
 
@@ -454,6 +486,9 @@ final class GameEventReplayService
                 if (is_array($payload['turn'] ?? null)) {
                     $snapshot['turn'] = $payload['turn'];
                 }
+				if ((int) ($payload['effectVersion'] ?? 0) >= self::AUTHORITATIVE_LIFECYCLE_EFFECT_VERSION) {
+					$this->applyAuthoritativeLifecycleEffects($snapshot, $payload, $playerId);
+				}
 
                 return true;
 
@@ -461,6 +496,13 @@ final class GameEventReplayService
                 if (is_string($payload['phase'] ?? null) && $payload['phase'] !== '') {
                     $snapshot['gamePhase'] = $payload['phase'];
                 }
+				if ((int) ($payload['effectVersion'] ?? 0) >= self::AUTHORITATIVE_LIFECYCLE_EFFECT_VERSION) {
+					$snapshot['status'] = $payload['status'] ?? 'finished';
+					foreach (['winnerPlayerId', 'resultState', 'finishedReason'] as $field) {
+						$snapshot[$field] = $payload[$field] ?? null;
+					}
+					$this->applyRuntimeDisconnectControlPlane($snapshot, $payload);
+				}
 
                 return true;
 
@@ -474,6 +516,11 @@ final class GameEventReplayService
      */
     private function applyRuntimeDisconnectVoteUpdated(array &$snapshot, array $payload): void
     {
+		if ((int) ($payload['effectVersion'] ?? 0) >= 4) {
+			$this->applyRuntimeDisconnectControlPlane($snapshot, $payload);
+
+			return;
+		}
         if (is_array($payload['disconnectVote'] ?? null)) {
             $disconnectVote = $payload['disconnectVote'];
             $disconnectVote['votes'] = is_array($disconnectVote['votes'] ?? null) ? $disconnectVote['votes'] : [];
@@ -491,7 +538,31 @@ final class GameEventReplayService
         if (is_array($payload['turn'] ?? null)) {
             $snapshot['turn'] = $payload['turn'];
         }
+		if ($targetPlayerId !== '' && (int) ($payload['effectVersion'] ?? 0) >= self::AUTHORITATIVE_LIFECYCLE_EFFECT_VERSION && ($payload['status'] ?? null) === 'resolved_expel') {
+			$this->applyAuthoritativeLifecycleEffects($snapshot, $payload, $targetPlayerId);
+		}
     }
+
+	/** @param array<string,mixed> $payload */
+	private function applyRuntimeDisconnectControlPlane(array &$snapshot, array $payload): void
+	{
+		foreach (['presence', 'disconnectCooldowns', 'rematch'] as $field) {
+			if (is_array($payload[$field] ?? null)) {
+				$snapshot[$field] = $payload[$field];
+			}
+		}
+		if (is_array($payload['disconnectVote'] ?? null)) {
+			$snapshot['disconnectVote'] = $payload['disconnectVote'];
+		}
+		$targetPlayerId = is_string($payload['targetPlayerId'] ?? null) ? trim($payload['targetPlayerId']) : '';
+		if ($targetPlayerId !== '' && ($payload['eliminationReason'] ?? null) === 'expelled' && isset($snapshot['players'][$targetPlayerId])) {
+			$snapshot['players'][$targetPlayerId]['status'] = 'conceded';
+			if (is_string($payload['concededAt'] ?? null)) {
+				$snapshot['players'][$targetPlayerId]['concededAt'] = $payload['concededAt'];
+			}
+			$this->applyAuthoritativeLifecycleEffects($snapshot, $payload, $targetPlayerId);
+		}
+	}
 
     /**
      * @param array<string,mixed> $payload
@@ -500,6 +571,22 @@ final class GameEventReplayService
     {
         $playerId = is_string($payload['playerId'] ?? null) ? trim($payload['playerId']) : '';
         if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+            return;
+        }
+        if ((int) ($payload['effectVersion'] ?? 0) >= self::ATOMIC_LIFECYCLE_EFFECT_VERSION) {
+            if (array_key_exists('life', $payload)) {
+                $snapshot['players'][$playerId]['life'] = (int) $payload['life'];
+            }
+            if (is_string($payload['status'] ?? null) && trim($payload['status']) !== '') {
+                $snapshot['players'][$playerId]['status'] = trim($payload['status']);
+            }
+            if (is_array($payload['turn'] ?? null)) {
+                $snapshot['turn'] = $payload['turn'];
+            }
+			if ((int) ($payload['effectVersion'] ?? 0) >= self::AUTHORITATIVE_LIFECYCLE_EFFECT_VERSION) {
+				$this->applyAuthoritativeLifecycleEffects($snapshot, $payload, $playerId);
+			}
+
             return;
         }
         if (array_key_exists('life', $payload)) {
@@ -1039,7 +1126,61 @@ final class GameEventReplayService
             : [];
         $commanderDamage[$commanderInstanceId] = max(0, (int) ($payload['damage'] ?? 0));
         $snapshot['players'][$targetPlayerId]['commanderDamage'] = $commanderDamage;
+        if ((int) ($payload['effectVersion'] ?? 0) < self::ATOMIC_LIFECYCLE_EFFECT_VERSION) {
+            return;
+        }
+        if (array_key_exists('life', $payload)) {
+            $snapshot['players'][$targetPlayerId]['life'] = (int) $payload['life'];
+        }
+        if (is_string($payload['status'] ?? null) && trim($payload['status']) !== '') {
+            $snapshot['players'][$targetPlayerId]['status'] = trim($payload['status']);
+        }
+        if (is_array($payload['turn'] ?? null)) {
+            $snapshot['turn'] = $payload['turn'];
+        }
+		if ((int) ($payload['effectVersion'] ?? 0) >= self::AUTHORITATIVE_LIFECYCLE_EFFECT_VERSION) {
+			$this->applyAuthoritativeLifecycleEffects($snapshot, $payload, $targetPlayerId);
+		}
     }
+
+	/** @param array<string,mixed> $snapshot @param array<string,mixed> $payload */
+	private function applyAuthoritativeLifecycleEffects(array &$snapshot, array $payload, string $playerId): void
+	{
+		foreach (['eliminationReason', 'eliminatedAtVersion', 'sourcePlayerId', 'commanderInstanceId'] as $field) {
+			if (array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '') {
+				$snapshot['players'][$playerId][$field] = $payload[$field];
+			}
+		}
+		if (is_array($payload['turnOrder'] ?? null)) {
+			$snapshot['turnOrder'] = array_values(array_filter($payload['turnOrder'], 'is_string'));
+		}
+		if (is_array($payload['turn'] ?? null)) {
+			$snapshot['turn'] = $payload['turn'];
+		}
+		foreach (['winnerPlayerId', 'resultState', 'finishedReason'] as $field) {
+			$snapshot[$field] = $payload[$field] ?? null;
+		}
+		if (is_array($payload['designationsAfter'] ?? null)) {
+			$others = array_values(array_filter(
+				is_array($snapshot['specialEntities'] ?? null) ? $snapshot['specialEntities'] : [],
+				static fn (mixed $entity): bool => !is_array($entity) || !in_array($entity['template'] ?? null, ['monarch', 'initiative'], true),
+			));
+			foreach (['monarch', 'initiative'] as $template) {
+				if (is_array($payload['designationsAfter'][$template] ?? null)) {
+					$others[] = $payload['designationsAfter'][$template];
+				}
+			}
+			$snapshot['specialEntities'] = $others;
+		}
+		foreach (['presence', 'disconnectCooldowns', 'rematch'] as $field) {
+			if (is_array($payload[$field] ?? null)) {
+				$snapshot[$field] = $payload[$field];
+			}
+		}
+		if (is_array($payload['disconnectVote'] ?? null)) {
+			$snapshot['disconnectVote'] = $payload['disconnectVote'];
+		}
+	}
 
     /**
      * @param array<string,mixed> $payload
@@ -1090,6 +1231,30 @@ final class GameEventReplayService
         if (!is_array($card)) {
             return;
         }
+		$faceIndex = max(0, (int) ($card['activeFaceIndex'] ?? $card['activeFace'] ?? 0));
+		$faceKey = (string) $faceIndex;
+		$manualOverrides = is_array($card['manualOverrides'] ?? null) ? $card['manualOverrides'] : [];
+		$override = is_array($manualOverrides[$faceKey] ?? null) ? $manualOverrides[$faceKey] : [];
+		foreach (['power', 'toughness'] as $axis) {
+			if (!array_key_exists($axis, $payload)) {
+				continue;
+			}
+			$value = PowerToughnessModel::overrideValue($payload[$axis]);
+			if ($value === null) {
+				unset($override[$axis]);
+			} else {
+				$override[$axis] = $value;
+			}
+		}
+		if (array_key_exists('power', $override) || array_key_exists('toughness', $override)) {
+			$override['faceKey'] = $faceKey;
+			$override['faceIndex'] = $faceIndex;
+			$override['provenance'] = 'imported_legacy';
+			$manualOverrides[$faceKey] = $override;
+		} else {
+			unset($manualOverrides[$faceKey]);
+		}
+		$card['manualOverrides'] = $manualOverrides;
         foreach (['power', 'toughness', 'loyalty', 'defense', 'saga'] as $field) {
             if (array_key_exists($field, $payload)) {
                 $card[$field] = $payload[$field];
@@ -1551,6 +1716,9 @@ final class GameEventReplayService
                 'tokenMeta' => is_array($token['tokenMeta'] ?? null) ? $token['tokenMeta'] : ['isCopy' => $copy],
                 'position' => is_array($token['position'] ?? null) ? $token['position'] : ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
                 'counters' => is_array($token['counters'] ?? null) ? $token['counters'] : [],
+				'printedStats' => is_array($token['printedStats'] ?? null) ? $token['printedStats'] : [],
+				'manualOverrides' => is_array($token['manualOverrides'] ?? null) ? $token['manualOverrides'] : [],
+				'activeFaceIndex' => max(0, (int) ($token['activeFaceIndex'] ?? $token['activeFace'] ?? 0)),
                 'tapped' => ($token['tapped'] ?? false) === true,
                 'faceDown' => ($token['faceDown'] ?? false) === true,
                 'revealedTo' => ['all'],
@@ -1901,10 +2069,23 @@ final class GameEventReplayService
         $card['defense'] = $this->gameplayStat($card['defaultDefense'] ?? null);
         $card['saga'] = null;
         $card['activeFaceIndex'] = 0;
+        $printedStats = is_array($card['printedStats'] ?? null)
+            ? $card['printedStats']
+            : PowerToughnessModel::printedStats($card);
+        if (!is_array($printedStats['0'] ?? null)) {
+            $printedStats['0'] = ['faceKey' => '0', 'faceIndex' => 0, 'provenance' => 'printed'];
+        }
+        foreach (['power' => 'defaultPower', 'toughness' => 'defaultToughness'] as $axis => $defaultKey) {
+            if (array_key_exists($defaultKey, $card) && $card[$defaultKey] !== null && $card[$defaultKey] !== '') {
+                $printedStats['0'][$axis] = PowerToughnessModel::classify($card[$defaultKey])['value'];
+            }
+        }
+        $card['printedStats'] = $printedStats;
+        $card['manualOverrides'] = [];
         unset($card['position']);
     }
 
-    private function gameplayStat(mixed $value): int|string|null
+    private function gameplayStat(mixed $value): int|float|string|null
     {
         if ($value === null || $value === '') {
             return null;
@@ -1913,15 +2094,15 @@ final class GameEventReplayService
             return $value;
         }
         if (is_float($value)) {
-            return (int) $value;
+            return $value;
         }
         if (is_string($value) && is_numeric($value)) {
-            return (int) $value;
+            return str_contains($value, '.') ? (float) $value : (int) $value;
         }
 
         $printed = is_string($value) ? trim($value) : (string) $value;
 
-        return in_array($printed, ['*', 'X', 'x', '?', '∞'], true) ? 0 : $printed;
+        return str_replace('x', 'X', $printed);
     }
 
     private function pruneBattlefieldRelationsForMovedInstance(array &$snapshot, string $instanceId): void
@@ -2067,6 +2248,35 @@ final class GameEventReplayService
 
     /**
      * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeCardStatsOverride(array &$snapshot, array $payload): void
+    {
+        if ((int) ($payload['effectVersion'] ?? 0) < 1) {
+            return;
+        }
+        $card =& $this->locateCard($snapshot, (string) ($payload['instanceId'] ?? ''));
+        $faceKey = is_string($payload['faceKey'] ?? null) ? trim($payload['faceKey']) : '';
+        if (!is_array($card) || $faceKey === '') {
+            return;
+        }
+        $card['manualOverrides'] = is_array($card['manualOverrides'] ?? null) ? $card['manualOverrides'] : [];
+        if (is_array($payload['override'] ?? null)) {
+            $card['manualOverrides'][$faceKey] = $payload['override'];
+        } else {
+            unset($card['manualOverrides'][$faceKey]);
+        }
+        $activeFace = max(0, (int) ($card['activeFaceIndex'] ?? 0));
+        if ((string) $activeFace !== $faceKey) {
+            return;
+        }
+        $printedStats = is_array($card['printedStats'] ?? null) ? $card['printedStats'] : PowerToughnessModel::printedStats($card);
+        foreach (['power', 'toughness'] as $axis) {
+            $card[$axis] = PowerToughnessModel::activeAxis($printedStats, $card['manualOverrides'], $activeFace, $axis);
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
      *
      * @return list<string>
      */
@@ -2189,7 +2399,12 @@ final class GameEventReplayService
             }
         }
 
-        foreach (is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [] as $playerId => &$player) {
+        if (!is_array($snapshot['players'] ?? null)) {
+            $null = null;
+
+            return $null;
+        }
+        foreach ($snapshot['players'] as $playerId => &$player) {
             if (!is_array($player) || !is_array($player['zones'] ?? null)) {
                 continue;
             }

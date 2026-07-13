@@ -78,7 +78,7 @@ describe('ArrowTargetDialogComponent', () => {
   it('filters defeated players and falls back to the first alive player', async () => {
     const fixture = await renderDialog('player-2', [
       { id: 'player-1', state: playerState('player-1', 'Alice') },
-      { id: 'player-2', state: { ...playerState('player-2', 'Bob'), life: 0 } },
+		{ id: 'player-2', state: { ...playerState('player-2', 'Bob'), life: 0, status: 'defeated' } },
       { id: 'player-3', state: playerState('player-3', 'Cara') },
     ]);
     const confirmed = vi.fn();

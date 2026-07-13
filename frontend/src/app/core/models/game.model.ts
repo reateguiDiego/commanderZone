@@ -6,6 +6,24 @@ export type GameSpecialEntityTemplate = 'monarch' | 'initiative' | 'citys_blessi
 export type GameSpecialEntityScope = 'global' | 'player';
 export type GameCardStatValue = number | string | null;
 export type GamePowerToughnessValue = GameCardStatValue;
+export type GamePrintedStatKind = 'NUMERIC' | 'FORMULA' | 'UNKNOWN_SYMBOLIC' | 'ABSENT';
+export type GameStatsOverrideProvenance = 'manual' | 'token_creation' | 'copy_effect' | 'imported_legacy';
+export interface GamePrintedStatsFace {
+  faceKey: string;
+  faceIndex: number;
+  power: string | null;
+  toughness: string | null;
+  provenance?: 'printed' | 'token_creation' | 'copy_effect';
+}
+export interface GameManualStatsOverride {
+  faceKey: string;
+  faceIndex: number;
+  power?: number | string;
+  toughness?: number | string;
+  provenance: GameStatsOverrideProvenance;
+  updatedByPlayerId?: string | null;
+  updatedAtVersion?: number | null;
+}
 export type GamePhase = 'MULLIGAN' | 'PLAYING' | 'FINISHED';
 export type MulliganRule = 'LONDON' | 'VANCOUVER' | 'PARIS' | 'GENEROUS';
 export type BottomOrderMode = 'NONE' | 'PLAYER_CHOSEN_ORDER' | 'RANDOM_SERVER_SIDE';
@@ -40,6 +58,8 @@ export type GameCommandType =
   | 'counter.changed'
   | 'card.counter.changed'
   | 'card.power_toughness.changed'
+  | 'card.stats.override.set'
+  | 'card.stats.override.clear'
   | 'card.moved'
   | 'cards.moved'
   | 'card.tapped'
@@ -98,6 +118,8 @@ export interface GameCardInstance {
   saga?: number | null;
   defaultPower?: GamePowerToughnessValue;
   defaultToughness?: GamePowerToughnessValue;
+  printedStats?: Record<string, GamePrintedStatsFace>;
+  manualOverrides?: Record<string, GameManualStatsOverride>;
   defaultLoyalty?: GameCardStatValue;
   defaultDefense?: GameCardStatValue;
   tapped: boolean;
@@ -155,8 +177,12 @@ export interface GamePlayerMulliganState {
 
 export interface GamePlayerState {
   user: User;
-  status?: 'active' | 'conceded';
+  status?: 'active' | 'defeated' | 'conceded';
   concededAt?: string | null;
+	eliminationReason?: 'life' | 'commander_damage' | 'concede' | 'expelled' | null;
+	eliminatedAtVersion?: number | null;
+	sourcePlayerId?: string | null;
+	commanderInstanceId?: string | null;
   deckName?: string | null;
   colorIdentity?: string[];
   backgroundName?: string;
@@ -287,22 +313,47 @@ export interface GameRematchState {
 }
 
 export type GameDisconnectVoteChoice = 'wait' | 'expel';
-export type GameDisconnectVoteStatus = 'open' | 'resolved_wait' | 'resolved_expel' | 'cancelled';
+export type GameDisconnectVoteStatus = 'open' | 'waiting' | 'passed' | 'rejected' | 'cancelled' | 'expired' | 'executed' | 'resolved_wait' | 'resolved_expel';
+
+export interface GamePlayerPresenceState {
+  playerId: string;
+  connected: boolean;
+  disconnectedAt?: string | null;
+  lastSeenAt?: string | null;
+  activeConnectionCount?: number;
+}
+
+export interface GameDisconnectCooldownState {
+  targetPlayerId: string;
+  voteId: string;
+  reason: string;
+  cooldownUntil: string;
+}
 
 export interface GameDisconnectVoteEntry {
   playerId: string;
   displayName: string;
   vote: GameDisconnectVoteChoice;
+  decision?: GameDisconnectVoteChoice;
   votedAt: string;
 }
 
 export interface GameDisconnectVoteState {
+	voteId?: string;
   targetPlayerId: string | null;
+	openedByPlayerId?: string | null;
   status: GameDisconnectVoteStatus;
+	eligibleVoterIds?: string[];
+	requiredVotes?: number;
   openedAt: string | null;
+	expiresAt?: string | null;
   deadlineAt: string | null;
+	resolvedAt?: string | null;
   cooldownUntil: string | null;
+	resolution?: string | null;
+	effectVersion?: number;
   votes: Record<string, GameDisconnectVoteEntry>;
+	votesByPlayerId?: Record<string, GameDisconnectVoteEntry>;
 }
 
 export interface GameSnapshot {
@@ -312,6 +363,10 @@ export interface GameSnapshot {
   mulligan?: GameMulliganConfig;
   players: Record<string, GamePlayerState>;
   turn: GameTurn;
+	turnOrder?: string[];
+	winnerPlayerId?: string | null;
+	resultState?: 'survivor' | 'no_active_players' | null;
+	finishedReason?: 'last_active' | 'no_active_players' | string | null;
   timer?: {
     mode: 'none' | 'turn';
     status: 'idle' | 'running' | 'paused';
@@ -326,6 +381,8 @@ export interface GameSnapshot {
   eventLog: GameLogEntry[];
   rematch?: GameRematchState;
   disconnectVote?: GameDisconnectVoteState | null;
+	presence?: Record<string, GamePlayerPresenceState>;
+	disconnectCooldowns?: Record<string, GameDisconnectCooldownState>;
   createdAt: string;
   updatedAt?: string;
   counters?: Record<string, Record<string, number>>;

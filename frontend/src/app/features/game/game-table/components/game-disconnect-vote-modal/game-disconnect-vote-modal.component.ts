@@ -18,6 +18,9 @@ export class GameDisconnectVoteModalComponent {
   readonly currentVote = input<GameDisconnectVoteChoice | null>(null);
   readonly players = input<readonly DisconnectVotePlayerView[]>([]);
   readonly pending = input(false);
+	readonly canVote = input(true);
+	readonly requiredVotes = input(0);
+	readonly expelVotes = input(0);
   readonly countdownSeconds = input<number | null>(null);
   readonly error = input<string | null>(null);
 

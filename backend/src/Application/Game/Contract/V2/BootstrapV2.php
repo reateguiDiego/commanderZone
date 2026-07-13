@@ -26,6 +26,7 @@ final readonly class BootstrapV2 implements \JsonSerializable
         public array $sharedCounters,
         public array $relations,
         public array $turn,
+		public array $turnOrder,
         public array $staticCards,
         public array $chat,
         public array $eventLog,
@@ -51,6 +52,7 @@ final readonly class BootstrapV2 implements \JsonSerializable
             self::validateSharedCounters(self::optionalSharedCountersMap($data)),
             ContractV2Assert::requiredMap($data, 'relations'),
             ContractV2Assert::requiredMap($data, 'turn'),
+			self::optionalStringList($data, 'turnOrder'),
             self::validateStaticCards($data),
             self::optionalListOfMaps($data, 'chat'),
             self::optionalListOfMaps($data, 'eventLog'),
@@ -79,6 +81,7 @@ final readonly class BootstrapV2 implements \JsonSerializable
             'zoneCounts' => $this->zoneCounts,
             'relations' => $this->relations,
             'turn' => $this->turn,
+			'turnOrder' => $this->turnOrder,
             'staticCards' => $this->staticCards,
             'rulesVersion' => $this->rulesVersion,
             'cardCatalogVersion' => $this->cardCatalogVersion,
@@ -161,6 +164,12 @@ final readonly class BootstrapV2 implements \JsonSerializable
 
         return array_values(array_filter($value, static fn (mixed $entry): bool => is_array($entry)));
     }
+
+	/** @param array<string,mixed> $data @return list<string> */
+	private static function optionalStringList(array $data, string $field): array
+	{
+		return array_values(array_filter(is_array($data[$field] ?? null) ? $data[$field] : [], 'is_string'));
+	}
 
     /**
      * @param array<string,mixed> $sharedCounters

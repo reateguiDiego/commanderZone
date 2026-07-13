@@ -1,6 +1,5 @@
 import { Injectable, OnDestroy, computed, effect, inject, signal } from '@angular/core';
-import { firstValueFrom, Subscription } from 'rxjs';
-import { GamesApi } from '../../../../core/api/games.api';
+import { Subscription } from 'rxjs';
 import { GameDisconnectVoteChoice } from '../../../../core/models/game.model';
 import { GameplayServerMessage } from '../../../../core/models/game-realtime.model';
 import { GameTableStore } from '../game-table.store';
@@ -19,7 +18,6 @@ export interface DisconnectVotePlayerView {
 export class GameTableDisconnectVoteService implements OnDestroy {
   private readonly store = inject(GameTableStore);
   private readonly contexts = inject(GameTableContextStore);
-  private readonly gamesApi = inject(GamesApi);
   private readonly websocket = inject(GameTableWebsocketGameplayService);
   private readonly transport = inject(GameTableWebsocketTransportService);
 
@@ -50,7 +48,8 @@ export class GameTableDisconnectVoteService implements OnDestroy {
       return false;
     }
 
-    return this.onlineByPlayerId()[targetPlayerId] === true;
+    return this.store.snapshot()?.presence?.[targetPlayerId]?.connected === true
+		|| this.onlineByPlayerId()[targetPlayerId] === true;
   });
   readonly currentPlayerId = computed(() => this.store.currentPlayer()?.id ?? null);
   readonly currentVote = computed<GameDisconnectVoteChoice | null>(() => {
@@ -60,7 +59,7 @@ export class GameTableDisconnectVoteService implements OnDestroy {
       return null;
     }
 
-    const vote = state.votes[currentPlayerId]?.vote;
+    const vote = (state.votesByPlayerId ?? state.votes ?? {})[currentPlayerId]?.vote;
     return vote === 'wait' || vote === 'expel' ? vote : null;
   });
   readonly canVote = computed(() => {
@@ -73,12 +72,14 @@ export class GameTableDisconnectVoteService implements OnDestroy {
     if (currentPlayerId === state.targetPlayerId) {
       return false;
     }
-    if (snapshot.players[currentPlayerId]?.status === 'conceded') {
+    if (snapshot.players[currentPlayerId]?.status !== 'active') {
       return false;
     }
-
-    return true;
+	return state.eligibleVoterIds?.includes(currentPlayerId) ?? true;
   });
+	readonly requiredVotes = computed(() => this.voteState()?.requiredVotes ?? 0);
+	readonly expelVotes = computed(() => Object.values(this.voteState()?.votesByPlayerId ?? this.voteState()?.votes ?? {})
+		.filter((entry) => (entry.decision ?? entry.vote) === 'expel').length);
   readonly players = computed<DisconnectVotePlayerView[]>(() => {
     const snapshot = this.store.snapshot();
     const state = this.voteState();
@@ -86,25 +87,27 @@ export class GameTableDisconnectVoteService implements OnDestroy {
       return [];
     }
 
-    const votes = state.votes;
+    const votes = state.votesByPlayerId ?? state.votes ?? {};
     const onlineByPlayerId = this.onlineByPlayerId();
 
-    return Object.entries(snapshot.players)
-      .filter(([playerId]) => playerId !== state.targetPlayerId)
+	const eligible = state.eligibleVoterIds ?? Object.keys(snapshot.players).filter((playerId) => playerId !== state.targetPlayerId);
+	return eligible
+		.map((playerId) => [playerId, snapshot.players[playerId]] as const)
+		.filter((entry): entry is readonly [string, NonNullable<typeof entry[1]>] => Boolean(entry[1]))
       .map(([playerId, player]) => {
         const vote = votes[playerId]?.vote;
 
         return {
           playerId,
           displayName: player.user.displayName,
-          online: onlineByPlayerId[playerId] !== false,
+			online: snapshot.presence?.[playerId]?.connected ?? onlineByPlayerId[playerId] !== false,
           vote: vote === 'wait' || vote === 'expel' ? vote : null,
         };
       });
   });
   readonly countdownSeconds = computed(() => {
     this.countdownTick();
-    const deadlineAt = this.voteState()?.deadlineAt;
+	const deadlineAt = this.voteState()?.expiresAt ?? this.voteState()?.deadlineAt;
     if (!deadlineAt || this.voteState()?.status !== 'open') {
       return null;
     }
@@ -183,11 +186,10 @@ export class GameTableDisconnectVoteService implements OnDestroy {
       const sent = await this.websocket.sendCommand(
         this.contexts.command().websocket(),
         'disconnect.vote',
-        { targetPlayerId, vote: choice },
+		{ targetPlayerId, voteId: this.voteState()?.voteId, decision: choice },
       );
       if (!sent) {
-        await firstValueFrom(this.gamesApi.disconnectVote(gameId, targetPlayerId, choice));
-        await this.store.refetch(true, 'disconnect_vote.http_fallback');
+		throw new Error('Disconnect vote requires the authoritative realtime connection.');
       }
     } catch (error) {
       this.error.set(this.errorMessage(error));

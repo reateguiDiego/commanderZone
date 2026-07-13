@@ -146,7 +146,7 @@ test.describe('product correctness gameplay semantics runtime gate', () => {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'commander.damage.changed',
-        payload: { targetPlayerId: playerA.user.id, commanderInstanceId: opposingCommanderId, damage: 7 },
+        payload: { targetPlayerId: playerA.user.id, sourcePlayerId: playerB.user.id, commanderInstanceId: opposingCommanderId, damage: 7 },
         ownerPatch: (patch) => commanderDamageFromPatch(patch, opposingCommanderId) === 7,
       });
       nextBaseVersion = damageOutcome.version;

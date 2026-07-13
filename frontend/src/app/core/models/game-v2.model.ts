@@ -8,9 +8,12 @@ import type {
   GameCardPosition,
   GameDisconnectVoteState,
   GameLogEntry,
+  GameManualStatsOverride,
+  GamePrintedStatsFace,
   GamePowerToughnessValue,
   GamePlayerMulliganState,
   GameRematchState,
+	GameSnapshot,
   GameSpecialEntity,
   GameTurn,
   GameZoneName,
@@ -57,6 +60,13 @@ export interface BootstrapGameV2 {
   gamePhase?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+	winnerPlayerId?: string | null;
+	resultState?: string | null;
+	finishedReason?: string | null;
+	presence?: GameSnapshot['presence'];
+	disconnectVote?: GameDisconnectVoteState | null;
+	disconnectCooldowns?: GameSnapshot['disconnectCooldowns'];
+	rematch?: GameRematchState | null;
 }
 
 export interface BootstrapPlayerV2 {
@@ -76,6 +86,10 @@ export interface BootstrapPlayerV2 {
   sleevesName?: string | null;
   playTopLibraryRevealed?: boolean;
   mulligan?: GamePlayerMulliganState | null;
+	eliminationReason?: 'life' | 'commander_damage' | 'concede' | 'expelled' | null;
+	eliminatedAtVersion?: number | null;
+	sourcePlayerId?: string | null;
+	commanderInstanceId?: string | null;
 }
 
 export interface BootstrapZoneV2 {
@@ -120,6 +134,8 @@ export interface BootstrapInstanceV2 {
   defense?: number | string | null;
   saga?: number | null;
   activeFaceIndex?: number | null;
+  printedStats?: Record<string, GamePrintedStatsFace>;
+  manualOverrides?: Record<string, GameManualStatsOverride>;
   dungeonMarker?: { x: number; y: number } | null;
   revealedTo?: string[];
   isToken?: boolean;
@@ -177,6 +193,7 @@ export interface BootstrapV2 {
   sharedCounters?: Record<string, Record<string, number>>;
   relations: BootstrapRelationsV2;
   turn: GameTurn;
+	turnOrder?: string[];
   staticCards: Record<string, BootstrapStaticCardV2>;
   chat?: ChatMessage[];
   eventLog?: GameLogEntry[];
@@ -212,6 +229,8 @@ export interface LegacyCardPatchPayload {
   saga?: number | null;
   defaultPower?: GamePowerToughnessValue;
   defaultToughness?: GamePowerToughnessValue;
+  printedStats?: Record<string, GamePrintedStatsFace>;
+  manualOverrides?: Record<string, GameManualStatsOverride>;
   defaultLoyalty?: number | string | null;
   defaultDefense?: number | string | null;
   tapped?: boolean;
@@ -610,6 +629,14 @@ export type GameplayPatchV2Operation =
       saga?: number | null;
     }
   | {
+      op: 'card.stats.override.set' | 'card.stats.override.clear';
+      instanceId: string;
+      faceKey: string;
+      faceIndex: number;
+      previousOverride?: GameManualStatsOverride | null;
+      override: GameManualStatsOverride | null;
+    }
+  | {
       op: 'card.counters.set';
       playerId: string;
       zone: GameZoneName;
@@ -655,9 +682,21 @@ export type GameplayPatchV2Operation =
   | {
       op: 'player.status.set';
       playerId: string;
-      status: 'active' | 'conceded';
+      status: 'active' | 'defeated' | 'conceded';
       concededAt?: string | null;
     }
+	| {
+		op: 'player.elimination.set';
+		playerId: string;
+		eliminationReason: 'life' | 'commander_damage' | 'concede' | 'expelled';
+		eliminatedAtVersion: number;
+		sourcePlayerId?: string | null;
+		commanderInstanceId?: string | null;
+	}
+	| { op: 'turn.order.set'; turnOrder: string[] }
+	| { op: 'game.result.set'; winnerPlayerId?: string | null; resultState?: string | null; finishedReason?: string | null }
+	| { op: 'player.presence.set'; playerId: string; presence: NonNullable<GameSnapshot['presence']>[string] }
+	| { op: 'disconnect.cooldown.set'; targetPlayerId: string; cooldown: NonNullable<GameSnapshot['disconnectCooldowns']>[string] | null }
   | {
       op: 'disconnect.vote.set';
       disconnectVote: GameDisconnectVoteState | null;

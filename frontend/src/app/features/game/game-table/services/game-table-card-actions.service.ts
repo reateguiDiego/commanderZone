@@ -607,10 +607,11 @@ export class GameTableCardActionsService {
       return;
     }
 
-    await context.command('card.power_toughness.changed', {
+    await context.command('card.stats.override.set', {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
+      faceIndex: Number.isInteger(menu.card.activeFaceIndex) ? Number(menu.card.activeFaceIndex) : 0,
       power,
       toughness,
     });

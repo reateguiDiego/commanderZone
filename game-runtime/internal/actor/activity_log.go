@@ -15,10 +15,16 @@ func runtimeEventLogEntries(game *state.GameState, command protocol.CommandEnvel
 	if game == nil {
 		return nil
 	}
+	if command.Type == "disconnect.vote" {
+		return append(runtimeDisconnectVoteLogEntries(game, command, payload, actorID, version, createdAt), runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, false)...)
+	}
+	if command.Type == "commander.damage.changed" {
+		return append(runtimeCommanderDamageLogEntries(game, command, payload, actorID, version, createdAt), runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, true)...)
+	}
 	displayName := playerDisplayName(game, actorID)
 	message := runtimeLogMessage(game, command, payload, displayName)
 	if strings.TrimSpace(message) == "" {
-		return nil
+		return runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, false)
 	}
 	entry := map[string]any{
 		"id":          stableRuntimeLogID(command.GameID, command.ClientActionID, command.Type),
@@ -42,7 +48,175 @@ func runtimeEventLogEntries(game *state.GameState, command protocol.CommandEnvel
 	for key, value := range runtimeLogSemantic(game, command, payload, actorID) {
 		entry[key] = value
 	}
-	return []map[string]any{entry}
+	return append([]map[string]any{entry}, runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, false)...)
+}
+
+func runtimeDisconnectVoteLogEntries(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, actorID string, version int64, createdAt time.Time) []map[string]any {
+	eventType := optionalString(payload, "eventType")
+	decision := optionalString(payload, "decision")
+	resolution := optionalString(payload, "resolution")
+	key := ""
+	switch eventType {
+	case "disconnect.vote.opened":
+		key = "gameLog.disconnect.vote.opened"
+	case "disconnect.vote.cast":
+		if decision == "expel" {
+			key = "gameLog.disconnect.vote.castExpel"
+		} else {
+			key = "gameLog.disconnect.vote.castWait"
+		}
+	case "disconnect.vote.expired":
+		key = "gameLog.disconnect.vote.expired"
+	case "disconnect.vote.cancelled":
+		if resolution == "reconnected" {
+			key = "gameLog.disconnect.vote.cancelledByReconnect"
+		}
+	case "disconnect.vote.resolved":
+		if resolution == "expel" {
+			key = "gameLog.disconnect.vote.passed"
+		} else {
+			key = "gameLog.disconnect.vote.rejected"
+		}
+	}
+	if key == "" {
+		return nil
+	}
+	targetID := optionalString(payload, "targetPlayerId")
+	params := map[string]any{
+		"voteId": optionalString(payload, "voteId"), "targetPlayerId": targetID,
+		"actorPlayerId": actorID, "decision": decision, "resolution": resolution,
+	}
+	entry := map[string]any{
+		"id": stableRuntimeLogID(command.GameID, command.ClientActionID, eventType), "type": eventType,
+		"message": key, "i18nKey": key, "params": params, "version": version,
+		"actorId": actorID, "displayName": playerDisplayName(game, actorID),
+		"createdAt": createdAt.UTC().Format(time.RFC3339), "visibility": "public",
+	}
+	entries := []map[string]any{entry}
+	if resolution == "reconnected" {
+		entries = append(entries, map[string]any{
+			"id": stableRuntimeLogID(command.GameID, command.ClientActionID, "reconnected"), "type": "player.reconnectedDuringVote",
+			"message": "gameLog.player.reconnectedDuringVote", "i18nKey": "gameLog.player.reconnectedDuringVote", "params": params,
+			"version": version, "actorId": targetID, "displayName": playerDisplayName(game, targetID),
+			"createdAt": createdAt.UTC().Format(time.RFC3339), "visibility": "public",
+		})
+	}
+	if eventType == "disconnect.vote.expired" || (eventType == "disconnect.vote.resolved" && resolution != "expel") || resolution == "reconnected" {
+		entries = append(entries, map[string]any{
+			"id": stableRuntimeLogID(command.GameID, command.ClientActionID, "cooldown"), "type": "disconnect.cooldown.started",
+			"message": "gameLog.disconnect.cooldown.started", "i18nKey": "gameLog.disconnect.cooldown.started", "params": params,
+			"version": version, "actorId": actorID, "displayName": playerDisplayName(game, actorID),
+			"createdAt": createdAt.UTC().Format(time.RFC3339), "visibility": "public",
+		})
+	}
+	return entries
+}
+
+func runtimeLifecycleLogEntries(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, actorID string, version int64, createdAt time.Time, commanderLogged bool) []map[string]any {
+	if !firstBool(payload["statusChanged"]) && optionalString(payload, "eliminationReason") == "" {
+		return nil
+	}
+	target := firstString(payload["targetPlayerId"], payload["playerId"], command.Payload["playerId"])
+	reason := optionalString(payload, "eliminationReason")
+	key := ""
+	if reason == "life" {
+		key = "gameLifecycleLog.player.defeatedByLife"
+	}
+	if reason == "concede" {
+		key = "gameLifecycleLog.player.conceded"
+	}
+	if reason == "expelled" {
+		key = "gameLifecycleLog.player.expelled"
+	}
+	if reason == "commander_damage" && commanderLogged {
+		key = ""
+	}
+	entries := []map[string]any{}
+	add := func(suffix, i18nKey string, params map[string]any) {
+		entries = append(entries, map[string]any{"id": stableRuntimeLogID(command.GameID, command.ClientActionID, suffix), "type": "player.eliminated", "message": i18nKey, "version": version, "actorId": actorID, "displayName": playerDisplayName(game, actorID), "createdAt": createdAt.UTC().Format(time.RFC3339), "i18nKey": i18nKey, "params": params, "visibility": "public"})
+	}
+	params := map[string]any{"targetPlayerId": target, "sourcePlayerId": optionalString(payload, "sourcePlayerId")}
+	if key != "" {
+		add("lifecycle."+reason, key, params)
+	}
+	previousTurn, _ := payload["previousTurn"].(map[string]any)
+	turn, _ := payload["turn"].(map[string]any)
+	if optionalString(previousTurn, "activePlayerId") != optionalString(turn, "activePlayerId") {
+		add("lifecycle.turn", "gameLifecycleLog.turn.passedByElimination", map[string]any{"targetPlayerId": target, "activePlayerId": optionalString(turn, "activePlayerId")})
+	}
+	if optionalString(payload, "resultState") != "" {
+		add("lifecycle.result", "gameLifecycleLog.result.lastActive", map[string]any{"winnerPlayerId": optionalString(payload, "winnerPlayerId"), "resultState": optionalString(payload, "resultState")})
+	}
+	before, _ := payload["designationsBefore"].(map[string]any)
+	after, _ := payload["designationsAfter"].(map[string]any)
+	for _, template := range []string{"monarch", "initiative"} {
+		if fmt.Sprint(before[template]) == fmt.Sprint(after[template]) {
+			continue
+		}
+		entity, _ := after[template].(map[string]any)
+		add("lifecycle."+template, "gameLifecycleLog."+template+".reassigned", map[string]any{"ownerPlayerId": optionalString(entity, "ownerPlayerId")})
+	}
+	return entries
+}
+
+func runtimeCommanderDamageLogEntries(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, actorID string, version int64, createdAt time.Time) []map[string]any {
+	targetPlayerID := firstString(payload["targetPlayerId"], command.Payload["targetPlayerId"])
+	sourcePlayerID := firstString(payload["sourcePlayerId"], command.Payload["sourcePlayerId"])
+	commanderInstanceID := firstString(payload["commanderInstanceId"], command.Payload["commanderInstanceId"])
+	previousDamage := intFromPayload(payload, "previousDamage", 0)
+	damage := intFromPayload(payload, "damage", previousDamage)
+	delta := intFromPayload(payload, "delta", damage-previousDamage)
+	previousLife := intFromPayload(payload, "previousLife", 0)
+	life := intFromPayload(payload, "life", previousLife)
+	params := map[string]any{
+		"actorPlayerId":       actorID,
+		"sourcePlayerId":      sourcePlayerID,
+		"targetPlayerId":      targetPlayerID,
+		"commanderInstanceId": commanderInstanceID,
+		"previousDamage":      previousDamage,
+		"damage":              damage,
+		"delta":               delta,
+		"previousLife":        previousLife,
+		"life":                life,
+	}
+	refs := runtimeLogRefs(game, []string{actorID, sourcePlayerID, targetPlayerID}, []string{commanderInstanceID})
+	changed := map[string]any{
+		"id":             stableRuntimeLogID(command.GameID, command.ClientActionID, "commanderDamage.changed"),
+		"type":           command.Type,
+		"message":        fmt.Sprintf("Commander damage from %s to %s changed from %d to %d; life changed from %d to %d.", playerDisplayName(game, sourcePlayerID), playerDisplayName(game, targetPlayerID), previousDamage, damage, previousLife, life),
+		"version":        version,
+		"actorId":        actorID,
+		"displayName":    playerDisplayName(game, actorID),
+		"createdAt":      createdAt.UTC().Format(time.RFC3339),
+		"cardInstanceId": commanderInstanceID,
+		"i18nKey":        "gameLog.commanderDamage.changed",
+		"params":         params,
+		"visibility":     "public",
+	}
+	if len(refs) > 0 {
+		changed["refs"] = refs
+	}
+	entries := []map[string]any{changed}
+	if firstBool(payload["statusChanged"]) && firstString(payload["status"]) == "defeated" {
+		defeated := map[string]any{
+			"id":             stableRuntimeLogID(command.GameID, command.ClientActionID, "player.defeatedByCommanderDamage"),
+			"type":           "player.defeated",
+			"message":        fmt.Sprintf("%s was defeated by commander damage from %s.", playerDisplayName(game, targetPlayerID), playerDisplayName(game, sourcePlayerID)),
+			"version":        version,
+			"actorId":        targetPlayerID,
+			"displayName":    playerDisplayName(game, targetPlayerID),
+			"createdAt":      createdAt.UTC().Format(time.RFC3339),
+			"cardInstanceId": commanderInstanceID,
+			"i18nKey":        "gameLog.player.defeatedByCommanderDamage",
+			"params":         params,
+			"visibility":     "public",
+		}
+		if len(refs) > 0 {
+			defeated["refs"] = refs
+		}
+		entries = append(entries, defeated)
+	}
+	return entries
 }
 
 func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, actorID string) map[string]any {
@@ -126,6 +300,26 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 			params["cardInstanceId"] = instanceID
 		}
 		return semantic("gameLog.cardCounter.changed", params, []string{actorPlayerID}, []string{instanceID})
+	case "card.stats.override.set", "card.stats.override.clear":
+		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
+		params := baseParams()
+		params["face"] = payload["faceKey"]
+		previous, _ := payload["previousOverride"].(map[string]any)
+		next, _ := payload["override"].(map[string]any)
+		params["previousPower"] = previous["power"]
+		params["power"] = next["power"]
+		params["previousToughness"] = previous["toughness"]
+		params["toughness"] = next["toughness"]
+		instances := []string(nil)
+		if location, ok := game.Loc[instanceID]; ok && location.Zone != state.ZoneHand && location.Zone != state.ZoneLibrary {
+			params["cardInstanceId"] = instanceID
+			instances = []string{instanceID}
+		}
+		key := "gameLog.card.statsOverrideSet"
+		if command.Type == "card.stats.override.clear" {
+			key = "gameLog.card.statsOverrideCleared"
+		}
+		return semantic(key, params, []string{actorPlayerID}, instances)
 	case "life.changed":
 		playerID := firstString(payload["playerId"], command.Payload["playerId"])
 		params := baseParams()
@@ -174,6 +368,8 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 		params := baseParams()
 		params["playerId"] = playerID
 		return semantic("gameLog.game.concede", params, []string{actorPlayerID, playerID}, nil)
+	case "game.close":
+		return semantic("gameLifecycleLog.game.closed", baseParams(), []string{actorPlayerID}, nil)
 	}
 
 	return nil
@@ -298,6 +494,10 @@ func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2
 		counter := firstString(payload["counter"], command.Payload["counter"])
 		value := intFromPayload(payload, "value", 0)
 		return fmt.Sprintf("%s set %s counters to %d.", displayName, counterLabel(counter), value)
+	case "card.stats.override.set":
+		return fmt.Sprintf("%s set a card's power/toughness override.", displayName)
+	case "card.stats.override.clear":
+		return fmt.Sprintf("%s cleared a card's power/toughness override.", displayName)
 	case "counter.changed":
 		scope := firstString(payload["scope"], command.Payload["scope"])
 		key := firstString(payload["key"], command.Payload["key"])

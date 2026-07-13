@@ -1,12 +1,14 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance, GameCardStatValue, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
+import { quickAdjustmentBase, selectCardPowerToughness } from '../utils/game-card-power-toughness';
 
 interface PendingPowerToughnessChange {
   playerId: string;
   zone: GameZoneName;
   instanceId: string;
-  power: number;
-  toughness: number;
+  faceIndex: number;
+  stat: 'power' | 'toughness';
+  value: number;
 }
 
 interface PendingLoyaltyChange {
@@ -33,7 +35,6 @@ interface PendingSagaChange {
 export interface GameTableCardStatsContext {
   canControlOwnedCard(playerId: string, card: GameCardInstance): boolean;
   findCard(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null;
-  updateLocalCardPowerToughness(playerId: string, zone: GameZoneName, instanceId: string, power: number, toughness: number): void;
   updateLocalCardBattleValue(playerId: string, zone: GameZoneName, instanceId: string, defense: number): void;
   updateLocalCardSagaValue(playerId: string, zone: GameZoneName, instanceId: string, saga: number): void;
   updateLocalCardLoyalty(playerId: string, zone: GameZoneName, instanceId: string, loyalty: number): void;
@@ -147,21 +148,28 @@ export class GameTableCardStatsService {
       return;
     }
 
-    const key = this.powerToughnessKey(playerId, zone, card.instanceId);
+    const view = selectCardPowerToughness(context.findCard(playerId, zone, card.instanceId) ?? card);
+    const key = this.powerToughnessKey(playerId, zone, card.instanceId, view.faceIndex, stat);
     const pendingChange = this.pendingChanges.get(key);
     const currentCard = context.findCard(playerId, zone, card.instanceId) ?? card;
-    const currentPower = pendingChange?.power ?? this.numericStat(currentCard.power) ?? this.numericStat(currentCard.defaultPower) ?? 0;
-    const currentToughness = pendingChange?.toughness ?? this.numericStat(currentCard.toughness) ?? this.numericStat(currentCard.defaultToughness) ?? 0;
-    const nextPower = stat === 'power' ? currentPower + delta : currentPower;
-    const nextToughness = stat === 'toughness' ? currentToughness + delta : currentToughness;
+    const currentValue = pendingChange?.value ?? quickAdjustmentBase(currentCard, stat);
+    if (currentValue === null) {
+      context.setError('Set a numeric override before using quick stat controls.');
+      return;
+    }
+    const nextValue = currentValue + delta;
+    if (!Number.isFinite(nextValue)) {
+      context.setError('The stat adjustment is not a finite number.');
+      return;
+    }
 
-    context.updateLocalCardPowerToughness(playerId, zone, card.instanceId, nextPower, nextToughness);
     this.pendingChanges.set(key, {
       playerId,
       zone,
       instanceId: card.instanceId,
-      power: nextPower,
-      toughness: nextToughness,
+      faceIndex: view.faceIndex,
+      stat,
+      value: nextValue,
     });
     this.scheduleFlush(key, () => void this.flushPowerToughnessChange(context, key));
   }
@@ -174,12 +182,12 @@ export class GameTableCardStatsService {
       return;
     }
 
-    await context.command('card.power_toughness.changed', {
+    await context.command('card.stats.override.set', {
       playerId: change.playerId,
       zone: change.zone,
       instanceId: change.instanceId,
-      power: change.power,
-      toughness: change.toughness,
+      faceIndex: change.faceIndex,
+      [change.stat]: change.value,
     }, true);
   }
 
@@ -248,8 +256,8 @@ export class GameTableCardStatsService {
     return Number.isFinite(numericValue) ? numericValue : null;
   }
 
-  private powerToughnessKey(playerId: string, zone: GameZoneName, instanceId: string): string {
-    return `pt:${playerId}:${zone}:${instanceId}`;
+  private powerToughnessKey(playerId: string, zone: GameZoneName, instanceId: string, faceIndex: number, stat: 'power' | 'toughness'): string {
+    return `pt:${playerId}:${zone}:${instanceId}:${faceIndex}:${stat}`;
   }
 
   private loyaltyKey(playerId: string, zone: GameZoneName, instanceId: string): string {

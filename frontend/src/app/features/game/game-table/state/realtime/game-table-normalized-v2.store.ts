@@ -49,6 +49,11 @@ export interface GameTableNormalizedV2GameState {
   } | null;
   disconnectVote?: GameDisconnectVoteState | null;
   rematch?: GameRematchState | null;
+	presence?: GameSnapshot['presence'];
+	disconnectCooldowns?: GameSnapshot['disconnectCooldowns'];
+	winnerPlayerId?: string | null;
+	resultState?: string | null;
+	finishedReason?: string | null;
 }
 
 export interface GameTableNormalizedV2PlayerState {
@@ -68,6 +73,10 @@ export interface GameTableNormalizedV2PlayerState {
   concededAt?: string | null;
   mulligan?: GamePlayerMulliganState;
   playTopLibraryRevealed?: boolean;
+	eliminationReason?: GamePlayerState['eliminationReason'];
+	eliminatedAtVersion?: number | null;
+	sourcePlayerId?: string | null;
+	commanderInstanceId?: string | null;
 }
 
 export interface GameTableNormalizedV2RelationsState {
@@ -104,6 +113,7 @@ export interface GameTableNormalizedV2State {
   players: Record<string, GameTableNormalizedV2PlayerState>;
   sharedCounters: Record<string, Record<string, number>>;
   turn: GameTurn;
+	turnOrder: string[];
   instances: Record<string, BootstrapInstanceV2>;
   zones: Record<string, ZoneMap>;
   zoneCounts: Record<string, ZoneCountMap>;
@@ -210,9 +220,14 @@ export function createGameTableNormalizedV2State(
       gamePhase: bootstrap.game.gamePhase ?? null,
       createdAt: bootstrap.game.createdAt ?? null,
       updatedAt: bootstrap.game.updatedAt ?? null,
-      disconnectVote: null,
-      rematch: null,
+		disconnectVote: normalizeDisconnectVote(bootstrap.game.disconnectVote),
+		rematch: normalizeRematch(bootstrap.game.rematch),
+		presence: bootstrap.game.presence ? structuredClone(bootstrap.game.presence) : {},
+		disconnectCooldowns: bootstrap.game.disconnectCooldowns ? structuredClone(bootstrap.game.disconnectCooldowns) : {},
       lastDiceResult: null,
+		winnerPlayerId: bootstrap.game.winnerPlayerId ?? null,
+		resultState: bootstrap.game.resultState ?? null,
+		finishedReason: bootstrap.game.finishedReason ?? null,
     },
     players: Object.fromEntries(
       Object.entries(bootstrap.players).map(([playerId, player]) => [playerId, normalizePlayer(player)]),
@@ -221,6 +236,7 @@ export function createGameTableNormalizedV2State(
       Object.entries(bootstrap.sharedCounters ?? {}).map(([scope, counters]) => [scope, { ...counters }]),
     ),
     turn: { ...bootstrap.turn },
+		turnOrder: [...(bootstrap.turnOrder ?? Object.keys(bootstrap.players))],
     instances: Object.fromEntries(
       Object.entries(bootstrap.instances).map(([instanceId, instance]) => [instanceId, normalizeInstance(instance)]),
     ),
@@ -247,6 +263,10 @@ export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State
     version: state.lastAppliedVersion,
     ownerId: state.game.ownerId ?? undefined,
     gamePhase: (state.game.gamePhase as GameSnapshot['gamePhase']) ?? undefined,
+		turnOrder: [...state.turnOrder],
+		winnerPlayerId: state.game.winnerPlayerId ?? null,
+		resultState: (state.game.resultState as GameSnapshot['resultState']) ?? null,
+		finishedReason: state.game.finishedReason ?? null,
     players,
     counters: Object.fromEntries(
       Object.entries(state.sharedCounters).map(([scope, counters]) => [scope, { ...counters }]),
@@ -260,8 +280,10 @@ export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State
     specialEntities: Object.values(state.relations.specialEntities),
     chat: state.chat.order.map((id) => state.chat.byId[id]).filter((message): message is ChatMessage => Boolean(message)),
     eventLog: state.log.order.map((id) => state.log.byId[id]).filter((entry): entry is GameLogEntry => Boolean(entry)),
-    rematch: state.game.rematch ?? undefined,
-    disconnectVote: state.game.disconnectVote ?? null,
+    rematch: normalizeRematch(state.game.rematch) ?? undefined,
+    disconnectVote: normalizeDisconnectVote(state.game.disconnectVote),
+		presence: state.game.presence ?? {},
+		disconnectCooldowns: state.game.disconnectCooldowns ?? {},
     createdAt: state.game.createdAt ?? new Date(0).toISOString(),
     updatedAt: state.game.updatedAt ?? undefined,
   };
@@ -469,6 +491,8 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'mulligan.scry.available.set':
     case 'mulligan.completed':
     case 'game.phase.set':
+    case 'card.stats.override.set':
+    case 'card.stats.override.clear':
     case 'eventLog.append':
       return true;
     default:
@@ -519,11 +543,31 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         ...(operation.concededAt !== undefined ? { concededAt: operation.concededAt } : {}),
       }));
 
+		case 'player.elimination.set':
+			return updatePlayer(state, operation.playerId, (player) => ({
+				...player,
+				eliminationReason: operation.eliminationReason,
+				eliminatedAtVersion: operation.eliminatedAtVersion,
+				sourcePlayerId: operation.sourcePlayerId ?? null,
+				commanderInstanceId: operation.commanderInstanceId ?? null,
+			}));
+
     case 'turn.set':
       return {
         status: 'applied',
         state: { ...state, turn: { ...operation.turn } },
       };
+
+		case 'turn.order.set':
+			return { status: 'applied', state: { ...state, turnOrder: [...operation.turnOrder] } };
+
+		case 'game.result.set':
+			return { status: 'applied', state: { ...state, game: {
+				...state.game,
+				winnerPlayerId: operation.winnerPlayerId ?? null,
+				resultState: operation.resultState ?? null,
+				finishedReason: operation.finishedReason ?? null,
+			} } };
 
     case 'dice.result': {
       const diceResult = operation.result ?? operation.value;
@@ -572,6 +616,30 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         ...(operation.power !== undefined ? { power: operation.power } : {}),
         ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
       }));
+
+    case 'card.stats.override.set':
+    case 'card.stats.override.clear': {
+      const instance = state.instances[operation.instanceId];
+      if (!instance) {
+        return { status: 'failed', reason: 'target_not_found' };
+      }
+      const manualOverrides = { ...(instance.manualOverrides ?? {}) };
+      if (operation.override === null) {
+        delete manualOverrides[operation.faceKey];
+      } else {
+        manualOverrides[operation.faceKey] = { ...operation.override };
+      }
+      return {
+        status: 'applied',
+        state: {
+          ...state,
+          instances: {
+            ...state.instances,
+            [operation.instanceId]: { ...instance, manualOverrides },
+          },
+        },
+      };
+    }
 
     case 'private.cards.materialize':
       return materializePrivateCards(
@@ -927,6 +995,22 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         },
       };
 
+	case 'player.presence.set':
+		return {
+			status: 'applied',
+			state: { ...state, game: { ...state.game, presence: { ...(state.game.presence ?? {}), [operation.playerId]: { ...operation.presence } } } },
+		};
+
+	case 'disconnect.cooldown.set': {
+		const cooldowns = { ...(state.game.disconnectCooldowns ?? {}) };
+		if (operation.cooldown) {
+			cooldowns[operation.targetPlayerId] = { ...operation.cooldown };
+		} else {
+			delete cooldowns[operation.targetPlayerId];
+		}
+		return { status: 'applied', state: { ...state, game: { ...state.game, disconnectCooldowns: cooldowns } } };
+	}
+
     case 'rematch.set':
       return {
         status: 'applied',
@@ -934,7 +1018,7 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
           ...state,
           game: {
             ...state.game,
-            rematch: operation.rematch ?? null,
+            rematch: normalizeRematch(operation.rematch),
           },
         },
       };
@@ -950,7 +1034,16 @@ function disconnectVotePayload(operation: GameplayPatchV2Operation): GameDisconn
     data?: { disconnectVote?: GameDisconnectVoteState | null };
   };
 
-  return payload.disconnectVote ?? payload.data?.disconnectVote ?? null;
+  return normalizeDisconnectVote(payload.disconnectVote ?? payload.data?.disconnectVote ?? null);
+}
+
+function normalizeDisconnectVote(vote: GameDisconnectVoteState | null | undefined): GameDisconnectVoteState | null {
+  if (!vote?.targetPlayerId || !vote.status) {
+    return null;
+  }
+
+  const votes = { ...(vote.votes ?? vote.votesByPlayerId ?? {}) };
+  return { ...vote, votes, votesByPlayerId: { ...(vote.votesByPlayerId ?? votes) } };
 }
 
 function addCardsToZone(
@@ -1068,6 +1161,14 @@ function removeCardsFromZone(
       },
     },
   };
+}
+
+function normalizeRematch(rematch: GameRematchState | null | undefined): GameRematchState | null {
+  if (!rematch) {
+    return null;
+  }
+
+  return { ...rematch, votes: { ...(rematch.votes ?? {}) } };
 }
 
 function normalizeOpaqueHandOrdinals(
@@ -2165,6 +2266,10 @@ function hydratePlayerState(
     },
     status: player.status as GamePlayerState['status'],
     concededAt: player.concededAt ?? null,
+		eliminationReason: player.eliminationReason ?? null,
+		eliminatedAtVersion: player.eliminatedAtVersion ?? null,
+		sourcePlayerId: player.sourcePlayerId ?? null,
+		commanderInstanceId: player.commanderInstanceId ?? null,
     deckName: player.deckName ?? null,
     colorIdentity: [...player.colorIdentity],
     backgroundName: player.backgroundName ?? undefined,
@@ -2229,6 +2334,8 @@ function hydrateCardInstance(
     position: instance.position ?? undefined,
     rotation: instance.rotation ?? 0,
     counters: instance.counters ? { ...instance.counters } : undefined,
+    printedStats: instance.printedStats ? structuredClone(instance.printedStats) : undefined,
+    manualOverrides: instance.manualOverrides ? structuredClone(instance.manualOverrides) : undefined,
     zone,
     isToken: instance.isToken ?? false,
     isTokenCopy: instance.isTokenCopy ?? false,
@@ -2293,6 +2400,10 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
     sleevesName: player.sleevesName ?? null,
     playTopLibraryRevealed: player.playTopLibraryRevealed ?? false,
     mulligan: player.mulligan ? { ...player.mulligan } : undefined,
+		eliminationReason: player.eliminationReason ?? null,
+		eliminatedAtVersion: player.eliminatedAtVersion ?? null,
+		sourcePlayerId: player.sourcePlayerId ?? null,
+		commanderInstanceId: player.commanderInstanceId ?? null,
   };
 }
 
@@ -2301,6 +2412,8 @@ function normalizeInstance(instance: BootstrapInstanceV2): BootstrapInstanceV2 {
     ...instance,
     counters: instance.counters ? { ...instance.counters } : {},
     revealedTo: instance.revealedTo ? [...instance.revealedTo] : [],
+    printedStats: instance.printedStats ? structuredClone(instance.printedStats) : undefined,
+    manualOverrides: instance.manualOverrides ? structuredClone(instance.manualOverrides) : undefined,
     tokenMeta: instance.tokenMeta ? structuredClone(instance.tokenMeta) : undefined,
   };
 }
@@ -2486,6 +2599,8 @@ function normalizeIncomingCard(
       position: legacy.position ?? null,
       rotation: legacy.rotation ?? 0,
       counters: legacy.counters ? { ...legacy.counters } : {},
+      printedStats: legacy.printedStats ? structuredClone(legacy.printedStats) : undefined,
+      manualOverrides: legacy.manualOverrides ? structuredClone(legacy.manualOverrides) : undefined,
       power: legacy.power ?? null,
       toughness: legacy.toughness ?? null,
       loyalty: legacy.loyalty ?? null,

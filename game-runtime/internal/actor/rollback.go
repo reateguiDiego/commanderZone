@@ -33,9 +33,13 @@ type locationBackup struct {
 }
 
 type commandRollback struct {
-	version int64
-	status  string
-	phase   state.GamePhase
+	version        int64
+	status         string
+	phase          state.GamePhase
+	turnOrder      []string
+	winnerPlayerID string
+	resultState    string
+	finishedReason string
 
 	full *state.GameState
 
@@ -62,6 +66,10 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		version:        game.Version,
 		status:         game.Status,
 		phase:          game.Phase,
+		turnOrder:      append([]string(nil), game.TurnOrder...),
+		winnerPlayerID: game.WinnerPlayerID,
+		resultState:    game.ResultState,
+		finishedReason: game.FinishedReason,
 		players:        map[string]playerMapBackup{},
 		sharedCounters: map[string]sharedCounterBackup{},
 		instances:      map[string]instanceBackup{},
@@ -72,10 +80,12 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 	switch command.Type {
 	case "life.changed":
 		rollback.capturePlayer(game, stringPayload(command.Payload, "playerId"))
+		rollback.captureTurn(game)
+		rollback.captureRelations(game)
 	case "turn.changed":
 		rollback.captureTurn(game)
 	case "dice.rolled":
-	case "card.tapped", "card.counter.changed", "card.power_toughness.changed", "card.position.changed":
+	case "card.tapped", "card.counter.changed", "card.power_toughness.changed", "card.stats.override.set", "card.stats.override.clear", "card.position.changed":
 		rollback.captureInstanceWithLocation(game, stringPayload(command.Payload, "instanceId"))
 	case "card.face_down.changed", "card.revealed":
 		rollback.captureInstanceWithLocation(game, stringPayload(command.Payload, "instanceId"))
@@ -97,6 +107,8 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		}
 	case "commander.damage.changed":
 		rollback.capturePlayer(game, stringPayload(command.Payload, "targetPlayerId"))
+		rollback.captureTurn(game)
+		rollback.captureRelations(game)
 	case "library.draw", "library.draw_many", "library.shuffle", "library.reveal_top", "library.reorder_top", "library.move_top", "library.view":
 		playerID := stringPayload(command.Payload, "playerId")
 		rollback.capturePlayerZonesAndCards(game, playerID)
@@ -155,6 +167,7 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		playerID := stringPayload(command.Payload, "playerId")
 		rollback.capturePlayer(game, playerID)
 		rollback.captureTurn(game)
+		rollback.captureRelations(game)
 	case "game.close":
 	case "mulligan.take", "mulligan.keep", "mulligan.cards_bottomed", "mulligan.scry.confirm", "mulligan.ready", "mulligan.completed", "game.phase.set":
 		rollback.captureMulligan(game)
@@ -182,6 +195,10 @@ func (r *commandRollback) Restore(game *state.GameState) {
 	game.Version = r.version
 	game.Status = r.status
 	game.Phase = r.phase
+	game.TurnOrder = append([]string(nil), r.turnOrder...)
+	game.WinnerPlayerID = r.winnerPlayerID
+	game.ResultState = r.resultState
+	game.FinishedReason = r.finishedReason
 
 	for playerID, backup := range r.players {
 		if !backup.Exists {

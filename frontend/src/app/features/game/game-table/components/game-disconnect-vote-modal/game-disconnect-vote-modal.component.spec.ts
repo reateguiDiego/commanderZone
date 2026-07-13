@@ -35,4 +35,16 @@ describe('GameDisconnectVoteModalComponent', () => {
     expect(text).toContain('Player B has disconnected.');
     expect(text).toContain('Expel');
   });
+
+	it('renders frozen quorum and hides vote actions for a read-only viewer', () => {
+		fixture.componentRef.setInput('open', true);
+		fixture.componentRef.setInput('canVote', false);
+		fixture.componentRef.setInput('expelVotes', 2);
+		fixture.componentRef.setInput('requiredVotes', 3);
+		fixture.detectChanges();
+
+		const element = fixture.nativeElement as HTMLElement;
+		expect(element.querySelector('[data-testid="disconnect-vote-quorum"]')?.textContent).toContain('2 / 3');
+		expect(element.querySelectorAll('footer button').length).toBe(0);
+	});
 });

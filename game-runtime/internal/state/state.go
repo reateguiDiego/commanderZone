@@ -1,8 +1,10 @@
 package state
 
 import (
+	"bytes"
 	"encoding/json"
 	"sort"
+	"strconv"
 )
 
 type Zone string
@@ -74,31 +76,35 @@ type PlayerZones struct {
 }
 
 type CardInstanceRuntime struct {
-	InstanceID    string         `json:"instanceId"`
-	CardKey       string         `json:"cardKey,omitempty"`
-	PrintID       string         `json:"printId,omitempty"`
-	CardVersion   string         `json:"cardVersion,omitempty"`
-	Language      string         `json:"language,omitempty"`
-	OwnerID       string         `json:"ownerId"`
-	ControllerID  string         `json:"controllerId"`
-	Zone          Zone           `json:"zone"`
-	IsCommander   bool           `json:"isCommander"`
-	IsToken       bool           `json:"isToken"`
-	TokenMeta     map[string]any `json:"tokenMeta,omitempty"`
-	Tapped        bool           `json:"tapped"`
-	Rotation      int            `json:"rotation"`
-	Counters      map[string]int `json:"counters,omitempty"`
-	MutableStats  map[string]any `json:"mutableStats,omitempty"`
-	Position      map[string]any `json:"position,omitempty"`
-	FaceDown      bool           `json:"faceDown"`
-	ActiveFace    int            `json:"activeFace"`
-	VisibleToMask uint64         `json:"visibleToMask,omitempty"`
+	InstanceID      string                    `json:"instanceId"`
+	CardKey         string                    `json:"cardKey,omitempty"`
+	PrintID         string                    `json:"printId,omitempty"`
+	CardVersion     string                    `json:"cardVersion,omitempty"`
+	Language        string                    `json:"language,omitempty"`
+	OwnerID         string                    `json:"ownerId"`
+	ControllerID    string                    `json:"controllerId"`
+	Zone            Zone                      `json:"zone"`
+	IsCommander     bool                      `json:"isCommander"`
+	IsToken         bool                      `json:"isToken"`
+	TokenMeta       map[string]any            `json:"tokenMeta,omitempty"`
+	Tapped          bool                      `json:"tapped"`
+	Rotation        int                       `json:"rotation"`
+	Counters        map[string]int            `json:"counters,omitempty"`
+	MutableStats    map[string]any            `json:"mutableStats,omitempty"`
+	PrintedStats    map[string]map[string]any `json:"printedStats,omitempty"`
+	ManualOverrides map[string]map[string]any `json:"manualOverrides,omitempty"`
+	Position        map[string]any            `json:"position,omitempty"`
+	FaceDown        bool                      `json:"faceDown"`
+	ActiveFace      int                       `json:"activeFace"`
+	VisibleToMask   uint64                    `json:"visibleToMask,omitempty"`
 }
 
 func (c *CardInstanceRuntime) UnmarshalJSON(data []byte) error {
 	type alias CardInstanceRuntime
 	aux := struct {
-		Counters json.RawMessage `json:"counters"`
+		Counters        json.RawMessage `json:"counters"`
+		PrintedStats    json.RawMessage `json:"printedStats"`
+		ManualOverrides json.RawMessage `json:"manualOverrides"`
 		*alias
 	}{
 		alias: (*alias)(c),
@@ -106,20 +112,38 @@ func (c *CardInstanceRuntime) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
-	if len(aux.Counters) == 0 || string(aux.Counters) == "null" {
+	if err := decodeMapOrEmpty(aux.Counters, &c.Counters); err != nil {
+		return err
+	}
+	if err := decodeStatsMapOrList(aux.PrintedStats, &c.PrintedStats); err != nil {
+		return err
+	}
+	if err := decodeStatsMapOrList(aux.ManualOverrides, &c.ManualOverrides); err != nil {
+		return err
+	}
+	return nil
+}
+
+func decodeStatsMapOrList(raw json.RawMessage, out *map[string]map[string]any) error {
+	if err := decodeMapOrEmpty(raw, out); err == nil {
 		return nil
 	}
-	var counters map[string]int
-	if err := json.Unmarshal(aux.Counters, &counters); err == nil {
-		c.Counters = counters
-		return nil
+	var entries []map[string]any
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return err
 	}
-	var empty []any
-	if err := json.Unmarshal(aux.Counters, &empty); err == nil && len(empty) == 0 {
-		c.Counters = map[string]int{}
-		return nil
+	normalized := make(map[string]map[string]any, len(entries))
+	for index, entry := range entries {
+		faceKey := strconv.Itoa(index)
+		if value, ok := entry["faceKey"].(string); ok && value != "" {
+			faceKey = value
+		} else if value, ok := entry["faceIndex"].(float64); ok {
+			faceKey = strconv.Itoa(int(value))
+		}
+		normalized[faceKey] = entry
 	}
-	return json.Unmarshal(aux.Counters, &c.Counters)
+	*out = normalized
+	return nil
 }
 
 type VisibilityIndex struct {
@@ -250,36 +274,122 @@ func firstRaw(values ...json.RawMessage) json.RawMessage {
 }
 
 type GameState struct {
-	GameID         string                         `json:"gameId"`
-	Version        int64                          `json:"version"`
-	Status         string                         `json:"status"`
-	Phase          GamePhase                      `json:"phase,omitempty"`
-	Players        map[string]map[string]any      `json:"players"`
-	SharedCounters map[string]map[string]int      `json:"sharedCounters,omitempty"`
-	Turn           map[string]any                 `json:"turn"`
-	DisconnectVote map[string]any                 `json:"disconnectVote,omitempty"`
-	Instances      map[string]CardInstanceRuntime `json:"instances"`
-	Zones          map[string]PlayerZones         `json:"zones"`
-	Loc            map[string]Location            `json:"loc"`
-	Visibility     VisibilityIndex                `json:"visibility"`
-	Relations      Relations                      `json:"relations"`
-	Stack          []StackItem                    `json:"stack"`
-	Mulligan       MulliganState                  `json:"mulligan,omitempty"`
+	GameID              string                         `json:"gameId"`
+	OwnerID             string                         `json:"ownerId,omitempty"`
+	Version             int64                          `json:"version"`
+	Status              string                         `json:"status"`
+	Phase               GamePhase                      `json:"phase,omitempty"`
+	Players             map[string]map[string]any      `json:"players"`
+	TurnOrder           []string                       `json:"turnOrder,omitempty"`
+	WinnerPlayerID      string                         `json:"winnerPlayerId,omitempty"`
+	ResultState         string                         `json:"resultState,omitempty"`
+	FinishedReason      string                         `json:"finishedReason,omitempty"`
+	SharedCounters      map[string]map[string]int      `json:"sharedCounters,omitempty"`
+	Turn                map[string]any                 `json:"turn"`
+	Presence            map[string]map[string]any      `json:"presence,omitempty"`
+	DisconnectVote      map[string]any                 `json:"disconnectVote,omitempty"`
+	DisconnectCooldowns map[string]map[string]any      `json:"disconnectCooldowns,omitempty"`
+	Rematch             map[string]any                 `json:"rematch,omitempty"`
+	Instances           map[string]CardInstanceRuntime `json:"instances"`
+	Zones               map[string]PlayerZones         `json:"zones"`
+	Loc                 map[string]Location            `json:"loc"`
+	Visibility          VisibilityIndex                `json:"visibility"`
+	Relations           Relations                      `json:"relations"`
+	Stack               []StackItem                    `json:"stack"`
+	Mulligan            MulliganState                  `json:"mulligan,omitempty"`
 }
 
 func (s *GameState) UnmarshalJSON(data []byte) error {
 	type alias GameState
+	normalizedData, err := normalizeLegacyEmptyObjectFields(
+		data,
+		"players",
+		"sharedCounters",
+		"turn",
+		"presence",
+		"disconnectVote",
+		"disconnectCooldowns",
+		"rematch",
+		"instances",
+		"zones",
+		"loc",
+	)
+	if err != nil {
+		return err
+	}
 	aux := struct {
 		GamePhase GamePhase `json:"gamePhase"`
 		*alias
 	}{
 		alias: (*alias)(s),
 	}
-	if err := json.Unmarshal(data, &aux); err != nil {
+	if err := json.Unmarshal(normalizedData, &aux); err != nil {
 		return err
 	}
 	if s.Phase == "" && aux.GamePhase != "" {
 		s.Phase = aux.GamePhase
+	}
+	if len(s.TurnOrder) == 0 {
+		s.TurnOrder = orderedObjectKeys(data, "players")
+	}
+	return nil
+}
+
+func normalizeLegacyEmptyObjectFields(data []byte, fields ...string) ([]byte, error) {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(data, &object); err != nil {
+		return nil, err
+	}
+	changed := false
+	for _, field := range fields {
+		raw, ok := object[field]
+		if !ok || !bytes.Equal(bytes.TrimSpace(raw), []byte("[]")) {
+			continue
+		}
+		object[field] = json.RawMessage(`{}`)
+		changed = true
+	}
+	if !changed {
+		return data, nil
+	}
+	return json.Marshal(object)
+}
+
+func orderedObjectKeys(data []byte, field string) []string {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') {
+		return nil
+	}
+	for decoder.More() {
+		key, err := decoder.Token()
+		if err != nil {
+			return nil
+		}
+		if key != field {
+			var ignored json.RawMessage
+			if decoder.Decode(&ignored) != nil {
+				return nil
+			}
+			continue
+		}
+		if token, err = decoder.Token(); err != nil || token != json.Delim('{') {
+			return nil
+		}
+		keys := []string{}
+		for decoder.More() {
+			key, err := decoder.Token()
+			if err != nil {
+				return nil
+			}
+			keys = append(keys, key.(string))
+			var ignored json.RawMessage
+			if decoder.Decode(&ignored) != nil {
+				return nil
+			}
+		}
+		_, _ = decoder.Token()
+		return keys
 	}
 	return nil
 }
@@ -294,11 +404,24 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	if game.Players == nil {
 		game.Players = map[string]map[string]any{}
 	}
+	game.TurnOrder = normalizeTurnOrder(game.TurnOrder, game.Players)
 	if game.SharedCounters == nil {
 		game.SharedCounters = map[string]map[string]int{}
 	}
 	if game.Turn == nil {
 		game.Turn = map[string]any{}
+	}
+	if game.Presence == nil {
+		game.Presence = map[string]map[string]any{}
+	}
+	if game.DisconnectCooldowns == nil {
+		game.DisconnectCooldowns = map[string]map[string]any{}
+	}
+	if game.Rematch == nil {
+		game.Rematch = map[string]any{}
+	}
+	if _, ok := game.Rematch["votes"].(map[string]any); !ok {
+		game.Rematch["votes"] = map[string]any{}
 	}
 	if game.Instances == nil {
 		game.Instances = map[string]CardInstanceRuntime{}
@@ -347,6 +470,7 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 
 func (s GameState) Clone() GameState {
 	clone := s
+	clone.TurnOrder = append([]string(nil), s.TurnOrder...)
 	clone.Players = map[string]map[string]any{}
 	for playerID, player := range s.Players {
 		clone.Players[playerID] = cloneAnyMap(player)
@@ -356,7 +480,16 @@ func (s GameState) Clone() GameState {
 		clone.SharedCounters[scope] = cloneIntMap(counters)
 	}
 	clone.Turn = cloneAnyMap(s.Turn)
+	clone.Presence = map[string]map[string]any{}
+	for playerID, presence := range s.Presence {
+		clone.Presence[playerID] = cloneAnyMap(presence)
+	}
 	clone.DisconnectVote = cloneAnyMap(s.DisconnectVote)
+	clone.DisconnectCooldowns = map[string]map[string]any{}
+	for playerID, cooldown := range s.DisconnectCooldowns {
+		clone.DisconnectCooldowns[playerID] = cloneAnyMap(cooldown)
+	}
+	clone.Rematch = cloneAnyMap(s.Rematch)
 	clone.Instances = map[string]CardInstanceRuntime{}
 	for instanceID, instance := range s.Instances {
 		clone.Instances[instanceID] = instance.Clone()
@@ -374,6 +507,25 @@ func (s GameState) Clone() GameState {
 	clone.Stack = append([]StackItem(nil), s.Stack...)
 	clone.Mulligan = s.Mulligan.Clone()
 	return clone
+}
+
+func normalizeTurnOrder(current []string, players map[string]map[string]any) []string {
+	seen := map[string]bool{}
+	order := make([]string, 0, len(players))
+	for _, playerID := range current {
+		if _, ok := players[playerID]; ok && !seen[playerID] {
+			seen[playerID] = true
+			order = append(order, playerID)
+		}
+	}
+	missing := make([]string, 0, len(players)-len(order))
+	for playerID := range players {
+		if !seen[playerID] {
+			missing = append(missing, playerID)
+		}
+	}
+	sort.Strings(missing)
+	return append(order, missing...)
 }
 
 func (s *GameState) GetLocation(instanceID string) (Location, bool) {
@@ -399,8 +551,21 @@ func (c CardInstanceRuntime) Clone() CardInstanceRuntime {
 	c.TokenMeta = cloneAnyMap(c.TokenMeta)
 	c.Counters = cloneIntMap(c.Counters)
 	c.MutableStats = cloneAnyMap(c.MutableStats)
+	c.PrintedStats = cloneNestedAnyMap(c.PrintedStats)
+	c.ManualOverrides = cloneNestedAnyMap(c.ManualOverrides)
 	c.Position = cloneAnyMap(c.Position)
 	return c
+}
+
+func cloneNestedAnyMap(source map[string]map[string]any) map[string]map[string]any {
+	if source == nil {
+		return nil
+	}
+	clone := make(map[string]map[string]any, len(source))
+	for key, value := range source {
+		clone[key] = cloneAnyMap(value)
+	}
+	return clone
 }
 
 func (z PlayerZones) Clone() PlayerZones {
