@@ -905,9 +905,10 @@ describe('GameTableDragDropStore', () => {
   });
 
   function context(players: PlayerView[] = [], snapshot: GameSnapshot | null = null): GameTableDragDropContext {
+    const resolvedSnapshot = snapshot ?? snapshotForPlayers(players);
     return {
       zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],
-      snapshot: () => snapshot,
+      snapshot: () => resolvedSnapshot,
       players: () => players,
       selectedCards: () => selectedCards,
       setSelectedCards: (cards) => {
@@ -916,7 +917,7 @@ describe('GameTableDragDropStore', () => {
       canControlOwnedCard: () => true,
       battlefieldDragContext: () => ({
         zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],
-        snapshot: () => null,
+        snapshot: () => resolvedSnapshot,
         selectedCards: () => selectedCards,
         findCard: () => null,
         cardPosition: () => null,
@@ -935,6 +936,39 @@ describe('GameTableDragDropStore', () => {
     };
   }
 });
+
+function snapshotForPlayers(players: readonly PlayerView[]): GameSnapshot | null {
+  if (players.length === 0) {
+    return null;
+  }
+  const order = new Map([['top', 0], ['middle', 1], ['under', 1], ['bottom', 2]]);
+  const stackIds = players
+    .flatMap((player) => player.state.zones.battlefield)
+    .filter((candidate) => order.has(candidate.instanceId))
+    .sort((left, right) => order.get(left.instanceId)! - order.get(right.instanceId)!)
+    .map((candidate) => candidate.instanceId);
+
+  return {
+    version: 1,
+    ownerId: players[0]!.id,
+    players: Object.fromEntries(players.map((player) => [player.id, player.state])),
+    turn: { activePlayerId: players[0]!.id, phase: 'main-1', number: 1 },
+    stack: [],
+    arrows: [],
+    attachments: [],
+    battlefieldStacks: stackIds.length >= 2 ? [{
+      id: 'stack-1',
+      relationType: 'battlefield_stack',
+      rootInstanceId: stackIds[0]!,
+      orderedMemberIds: stackIds,
+      stackKind: 'land',
+      effectVersion: 1,
+    }] : [],
+    chat: [],
+    eventLog: [],
+    createdAt: '',
+  };
+}
 
 function selected(playerId: string, zone: GameZoneName, instanceId: string): SelectedCard {
   return {

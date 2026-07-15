@@ -48,7 +48,7 @@ import { GameTableCoreState } from './state/core/game-table-core.state';
 import { GameTablePendingTransferRegistrarState } from './state/core/game-table-pending-transfer-registrar.state';
 import { GameTableBattlefieldDragState } from './state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableBattlefieldState } from './state/battlefield/game-table-battlefield.state';
-import { GameTableBattlefieldZoomState, MIN_BATTLEFIELD_ZOOM_PERCENT } from './state/battlefield/game-table-battlefield-zoom.state';
+import { GameTableBattlefieldZoomState } from './state/battlefield/game-table-battlefield-zoom.state';
 import { GameTableCardsState } from './state/cards/game-table-cards.state';
 import { GameTableContextStore } from './state/core/game-table-context.store';
 import { GameTableCountersState } from './state/cards/game-table-counters.state';
@@ -117,6 +117,10 @@ import { isDayNightCard, isDungeonCard, isEmblemCard, isGameplayCardTapLocked, i
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { GameTablePlayerSpecialEntitiesSummary, GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
 import { VentureCardKind } from './utils/venture-card-kind';
+import {
+  resolveGameTableResponsiveState,
+  type GameTableResponsiveState,
+} from './utils/game-table-responsive-state';
 
 const MANA_POOL_TARGET_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 
@@ -528,12 +532,16 @@ interface MotionSourceRect {
     GameTableSpecialEntitiesState,
   ],
   templateUrl: './game-table.component.html',
-  styleUrls: ['./game-table.component.scss', './game-table-chat-panel.scss', './game-table-responsive.scss'],
+  styleUrls: [
+    './game-table.component.scss',
+    './game-table-chat-panel.scss',
+    './game-table-responsive.scss',
+    './game-table-four-state-responsive.scss',
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
   private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
-  private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
@@ -549,12 +557,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly e2eStaticCardCacheTools = inject(GameTableE2eStaticCardCacheToolsService);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
-  readonly aggressiveCompactViewport = signal(false);
-  readonly effectiveBattlefieldZoomPercent = computed(() => (
-    this.aggressiveCompactViewport()
-      ? MIN_BATTLEFIELD_ZOOM_PERCENT
-      : this.battlefieldZoom.zoomPercent()
-  ));
+  readonly responsiveState = signal<GameTableResponsiveState>('normal');
+  readonly responsiveSupported = signal(true);
+  readonly responsiveContainerWidth = signal(0);
+  readonly responsiveContainerHeight = signal(0);
+  readonly aggressiveCompactViewport = computed(() => {
+    const state = this.responsiveState();
+    return state === 'aggressive' || state === 'minimal';
+  });
+  readonly effectiveBattlefieldZoomPercent = computed(() => this.battlefieldZoom.zoomPercent());
   readonly effectiveBattlefieldCardWidthRem = computed(() => this.battlefieldZoom.cardWidthRemFor(this.effectiveBattlefieldZoomPercent()));
   readonly effectiveBattlefieldGapRem = computed(() => this.battlefieldZoom.gapRemFor(this.effectiveBattlefieldZoomPercent()));
   readonly effectiveBattlefieldManaLaneHeightRem = computed(() => this.battlefieldZoom.manaLaneMinHeightRemFor(this.effectiveBattlefieldZoomPercent()));
@@ -882,10 +893,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly battlefieldDragStartRects = new Map<string, MotionSourceRect>();
   private readonly realtimeAnimationSubscriptions = new Subscription();
   private mobileScrollLockMediaQuery: MediaQueryList | null = null;
-  private aggressiveCompactMediaQuery: MediaQueryList | null = null;
+  private responsiveResizeObserver: ResizeObserver | null = null;
+  private responsiveResizeFrame: number | null = null;
   private mobileScrollLocked = false;
   private readonly handleMobileScrollLockChange = (): void => this.syncMobileScrollLock();
-  private readonly handleAggressiveCompactChange = (): void => this.syncAggressiveCompactViewport();
+  private readonly handleResponsiveWindowResize = (): void => this.queueResponsiveStateResolution();
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
@@ -967,6 +979,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         }
       });
     });
+
+    effect(() => {
+      this.store.players().length;
+      this.opponentsDrawerOpen();
+      queueMicrotask(() => this.queueResponsiveStateResolution());
+    });
   }
 
   ngAfterViewInit(): void {
@@ -976,7 +994,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.notificationSound.startUserGestureUnlock();
     this.startChatReactionClock();
     this.setupMobileScrollLock();
-    this.setupAggressiveCompactViewport();
+    this.setupResponsiveState();
   }
 
   ngAfterViewChecked(): void {
@@ -1005,7 +1023,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.destroyed = true;
     this.realtimeAnimationSubscriptions.unsubscribe();
     this.destroyMobileScrollLock();
-    this.destroyAggressiveCompactViewport();
+    this.destroyResponsiveState();
     this.motion.destroy();
     this.clearQueuedFloatingContentScroll();
     this.clearQueuedBattlefieldReflow();
@@ -1066,29 +1084,69 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.bodyScrollLock.unlock();
   }
 
-  private setupAggressiveCompactViewport(): void {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+  private setupResponsiveState(): void {
+    const host = this.gameScreen?.nativeElement;
+    if (!host || typeof window === 'undefined') {
       return;
     }
 
-    this.aggressiveCompactMediaQuery = window.matchMedia(this.aggressiveCompactQuery);
-    this.aggressiveCompactMediaQuery.addEventListener('change', this.handleAggressiveCompactChange);
-    this.syncAggressiveCompactViewport();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.responsiveResizeObserver = new ResizeObserver(() => this.queueResponsiveStateResolution());
+      this.responsiveResizeObserver.observe(host);
+    }
+    window.addEventListener('resize', this.handleResponsiveWindowResize, { passive: true });
+    this.resolveResponsiveState();
   }
 
-  private syncAggressiveCompactViewport(): void {
-    const isAggressiveCompact = this.aggressiveCompactMediaQuery?.matches === true;
-    if (isAggressiveCompact === this.aggressiveCompactViewport()) {
+  private queueResponsiveStateResolution(): void {
+    if (this.destroyed || !this.gameScreen || this.responsiveResizeFrame !== null || typeof window === 'undefined') {
       return;
     }
-
-    this.aggressiveCompactViewport.set(isAggressiveCompact);
-    this.queueBattlefieldZoomReflow();
+    this.responsiveResizeFrame = window.requestAnimationFrame(() => {
+      this.responsiveResizeFrame = null;
+      this.resolveResponsiveState();
+    });
   }
 
-  private destroyAggressiveCompactViewport(): void {
-    this.aggressiveCompactMediaQuery?.removeEventListener('change', this.handleAggressiveCompactChange);
-    this.aggressiveCompactMediaQuery = null;
+  private resolveResponsiveState(): void {
+    const host = this.gameScreen?.nativeElement;
+    if (!host) {
+      return;
+    }
+    const bounds = host.getBoundingClientRect();
+    const width = host.clientWidth || bounds.width || window.innerWidth || 0;
+    const height = host.clientHeight || bounds.height || window.innerHeight || 0;
+    const resolution = resolveGameTableResponsiveState({
+      containerWidth: width,
+      containerHeight: height,
+      playerCount: this.store.players().length,
+      visiblePanels: {
+        opponents: this.opponentsDrawerOpen(),
+        activity: false,
+      },
+      orientation: width >= height ? 'landscape' : 'portrait',
+      previousState: this.responsiveState(),
+    });
+    const stateChanged = resolution.state !== this.responsiveState();
+    this.responsiveContainerWidth.set(width);
+    this.responsiveContainerHeight.set(height);
+    this.responsiveSupported.set(resolution.supported);
+    this.responsiveState.set(resolution.state);
+    if (stateChanged) {
+      this.queueBattlefieldZoomReflow();
+    }
+  }
+
+  private destroyResponsiveState(): void {
+    this.responsiveResizeObserver?.disconnect();
+    this.responsiveResizeObserver = null;
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', this.handleResponsiveWindowResize);
+      if (this.responsiveResizeFrame !== null) {
+        window.cancelAnimationFrame(this.responsiveResizeFrame);
+      }
+    }
+    this.responsiveResizeFrame = null;
   }
 
   scrollFloatingContentToBottom(): void {

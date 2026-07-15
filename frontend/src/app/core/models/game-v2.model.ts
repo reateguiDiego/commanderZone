@@ -4,8 +4,10 @@ import type {
   ChatReactions,
   GameArrow,
   GameAttachment,
+  GameBattlefieldStack,
   GameCompactCardRef,
   GameCardPosition,
+  GameCardRatioPosition,
   GameDisconnectVoteState,
   GameLogEntry,
   GameManualStatsOverride,
@@ -181,6 +183,7 @@ export interface BootstrapRelationsV2 {
   stack: BootstrapStackItemV2[];
   arrows: GameArrow[];
   attachments: GameAttachment[];
+  battlefieldStacks?: GameBattlefieldStack[];
   specialEntities: GameSpecialEntity[];
 }
 
@@ -612,10 +615,21 @@ export type GameplayPatchV2Operation =
     }
   | {
       op: 'card.position.set';
+      effectVersion?: 1;
       playerId: string;
       zone: GameZoneName;
       instanceId: string;
-      position: GameCardPosition | null;
+      position: GameCardRatioPosition | null;
+    }
+  | {
+      op: 'cards.position.set';
+      effectVersion?: 1;
+      playerId: string;
+      zone: GameZoneName;
+      positions: Array<{
+        instanceId: string;
+        position: GameCardRatioPosition;
+      }>;
     }
   | {
       op: 'card.stats.set';
@@ -660,12 +674,31 @@ export type GameplayPatchV2Operation =
       id: string;
     }
   | {
-      op: 'attachment.add';
+      op: 'attachment.add' | 'attachment.set';
       attachment: GameAttachment;
     }
   | {
       op: 'attachment.remove';
       id: string;
+    }
+  | {
+      op: 'attachment.order.set';
+      attachedToInstanceId: string;
+      orderedAttachmentIds: string[];
+    }
+  | {
+      op: 'battlefield.stack.set';
+      stack: GameBattlefieldStack;
+    }
+  | {
+      op: 'battlefield.stack.remove';
+      id: string;
+    }
+  | {
+      op: 'battlefield.stack.order.set';
+      stackId: string;
+      rootInstanceId: string;
+      orderedInstanceIds: string[];
     }
   | {
       op: 'chat.append';

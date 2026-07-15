@@ -2,6 +2,7 @@ package actor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -221,14 +222,21 @@ func (AttachmentCreatedApplier) Apply(_ context.Context, game *state.GameState, 
 	if err != nil {
 		return nil, err
 	}
+	if equipmentID == attachedToID {
+		return nil, &RelationValidationError{Code: RelationCodeSelfReference, CommandType: command.Type, InstanceID: equipmentID}
+	}
 	id := optionalString(command.Payload, "id")
 	if id == "" {
 		id = "attachment-" + command.ClientActionID
 	}
 	relation := state.Relation{
-		ID:       id,
-		SourceID: equipmentID,
-		TargetID: attachedToID,
+		ID:               id,
+		RelationType:     "attachment",
+		SourceID:         equipmentID,
+		TargetID:         attachedToID,
+		OwnerPlayerID:    actorPlayerID(command),
+		EffectVersion:    1,
+		CreatedAtVersion: game.Version + 1,
 		Meta: map[string]any{
 			"ownerId":   actorPlayerID(command),
 			"createdAt": nowUTC().Format(time.RFC3339Nano),
@@ -236,11 +244,18 @@ func (AttachmentCreatedApplier) Apply(_ context.Context, game *state.GameState, 
 	}
 	ops := state.NewRelationsOps()
 	if err := ops.AddAttachment(game, relation); err != nil {
-		return nil, err
+		return nil, relationStateError(command.Type, equipmentID, err)
 	}
+	relation = game.Relations.Attachments[id]
 	patch := attachmentPatch(relation)
-	emitter.EmitPublic(protocol.PatchOp{Op: "attachment.add", Data: map[string]any{"attachment": patch}})
-	return map[string]any{"id": id, "equipmentInstanceId": equipmentID, "attachedToInstanceId": attachedToID, "metrics": relationsMetrics(start, ops, emitter)}, nil
+	emitter.EmitPublic(protocol.PatchOp{Op: "attachment.set", Data: map[string]any{"attachment": patch}})
+	return map[string]any{
+		"id": id, "relationType": "attachment", "equipmentInstanceId": equipmentID,
+		"attachedToInstanceId": attachedToID, "order": relation.Order,
+		"ownerPlayerId": relation.OwnerPlayerID, "effectVersion": relation.EffectVersion,
+		"createdAtVersion": relation.CreatedAtVersion, "createdAt": stringFromMap(relation.Meta, "createdAt"),
+		"attachment": patch, "actorPlayerId": actorPlayerID(command), "metrics": relationsMetrics(start, ops, emitter),
+	}, nil
 }
 
 type AttachmentRemovedApplier struct{}
@@ -266,11 +281,294 @@ func (AttachmentRemovedApplier) Apply(_ context.Context, game *state.GameState, 
 	if id == "" {
 		return nil, state.ErrMissingRelation
 	}
-	if _, err := ops.RemoveAttachment(game, id); err != nil {
-		return nil, err
+	removed, err := ops.RemoveAttachment(game, id)
+	if err != nil {
+		return nil, relationStateError(command.Type, optionalString(command.Payload, "equipmentInstanceId"), err)
 	}
 	emitter.EmitPublic(protocol.PatchOp{Op: "attachment.remove", Data: map[string]any{"id": id}})
-	return map[string]any{"id": id, "metrics": relationsMetrics(start, ops, emitter)}, nil
+	payload := map[string]any{
+		"id": id, "effectVersion": 1, "previousAttachment": attachmentPatch(removed),
+		"actorPlayerId": actorPlayerID(command), "metrics": relationsMetrics(start, ops, emitter),
+	}
+	if rawPosition, exists := command.Payload["position"]; exists {
+		position, positionErr := canonicalRatioPosition(rawPosition, command.Type, removed.SourceID, 0)
+		if positionErr != nil {
+			return nil, positionErr
+		}
+		instance := game.Instances[removed.SourceID]
+		instance.Position = cloneMap(position)
+		game.Instances[removed.SourceID] = instance
+		emitter.EmitPublic(protocol.PatchOp{Op: "card.position.set", Data: map[string]any{
+			"instanceId": removed.SourceID, "position": cloneMap(position), "effectVersion": PositionContractEffectVersion,
+		}})
+		payload["instanceId"] = removed.SourceID
+		payload["position"] = cloneMap(position)
+	}
+	return payload, nil
+}
+
+type AttachmentReorderedApplier struct{}
+
+func (AttachmentReorderedApplier) Type() string { return "attachment.reordered" }
+
+func (AttachmentReorderedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
+	targetID, err := stringField(command.Payload, "attachedToInstanceId")
+	if err != nil {
+		return nil, err
+	}
+	orderedIDs, err := stringSliceField(command.Payload, "orderedAttachmentIds")
+	if err != nil {
+		return nil, err
+	}
+	ops := state.NewRelationsOps()
+	ordered, err := ops.ReorderAttachments(game, targetID, orderedIDs)
+	if err != nil {
+		return nil, relationStateError(command.Type, targetID, err)
+	}
+	attachments := make([]map[string]any, 0, len(ordered))
+	for _, relation := range ordered {
+		attachments = append(attachments, attachmentPatch(relation))
+	}
+	emitter.EmitPublic(protocol.PatchOp{Op: "attachment.order.set", Data: map[string]any{
+		"attachedToInstanceId": targetID, "orderedAttachmentIds": append([]string(nil), orderedIDs...),
+	}})
+	return map[string]any{
+		"attachedToInstanceId": targetID, "orderedAttachmentIds": append([]string(nil), orderedIDs...),
+		"attachments": attachments, "effectVersion": 1, "actorPlayerId": actorPlayerID(command),
+		"metrics": relationsMetrics(start, ops, emitter),
+	}, nil
+}
+
+type BattlefieldStackCreatedApplier struct{}
+
+func (BattlefieldStackCreatedApplier) Type() string { return "battlefield.stack.created" }
+
+func (BattlefieldStackCreatedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
+	members, err := canonicalStackMembers(command, "orderedInstanceIds")
+	if err != nil {
+		return nil, err
+	}
+	if len(members) < 2 {
+		return nil, &RelationValidationError{Code: RelationCodeMemberMissing, CommandType: command.Type}
+	}
+	rootID := optionalString(command.Payload, "rootInstanceId")
+	if rootID == "" {
+		rootID = members[0]
+	}
+	stackKind := defaultString(optionalString(command.Payload, "stackKind"), "land")
+	if stackKind != "land" && stackKind != "generic" {
+		return nil, &RelationValidationError{Code: RelationCodeInvalidType, CommandType: command.Type}
+	}
+	stackID := optionalString(command.Payload, "stackId")
+	if stackID == "" {
+		stackID = "battlefield-stack-" + command.ClientActionID
+	}
+	stack := state.BattlefieldStack{
+		ID: stackID, RelationType: "battlefield_stack", RootInstanceID: rootID,
+		OrderedMemberIDs: members, StackKind: stackKind, CreatedByPlayerID: actorPlayerID(command),
+		EffectVersion: 1, CreatedAtVersion: game.Version + 1,
+	}
+	ops := state.NewRelationsOps()
+	if err := ops.AddBattlefieldStack(game, stack); err != nil {
+		return nil, relationStateError(command.Type, rootID, err)
+	}
+	patch := battlefieldStackPatch(stack)
+	emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.set", Data: map[string]any{"stack": patch}})
+	return map[string]any{
+		"stackId": stackID, "rootInstanceId": rootID, "orderedInstanceIds": append([]string(nil), members...),
+		"stackKind": stackKind, "stack": patch, "effectVersion": 1,
+		"actorPlayerId": actorPlayerID(command), "metrics": relationsMetrics(start, ops, emitter),
+	}, nil
+}
+
+type BattlefieldStackMemberAddedApplier struct{}
+
+func (BattlefieldStackMemberAddedApplier) Type() string { return "battlefield.stack.member_added" }
+
+func (BattlefieldStackMemberAddedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
+	stackID, err := stringField(command.Payload, "stackId")
+	if err != nil {
+		return nil, err
+	}
+	instanceID, err := stringField(command.Payload, "instanceId")
+	if err != nil {
+		return nil, err
+	}
+	stack, ok := game.Relations.BattlefieldStacks[stackID]
+	if !ok {
+		return nil, &RelationValidationError{Code: RelationCodeNotFound, CommandType: command.Type}
+	}
+	index := len(stack.OrderedMemberIDs)
+	if rawIndex, exists := command.Payload["index"]; exists {
+		parsed, valid := intFromAny(rawIndex)
+		if !valid || parsed < 0 || parsed > len(stack.OrderedMemberIDs) {
+			return nil, &RelationValidationError{Code: RelationCodeOrderMismatch, CommandType: command.Type}
+		}
+		index = parsed
+	}
+	previous := battlefieldStackPatch(stack)
+	stack.OrderedMemberIDs = append(stack.OrderedMemberIDs, "")
+	copy(stack.OrderedMemberIDs[index+1:], stack.OrderedMemberIDs[index:])
+	stack.OrderedMemberIDs[index] = instanceID
+	ops := state.NewRelationsOps()
+	if err := ops.SetBattlefieldStack(game, stack); err != nil {
+		return nil, relationStateError(command.Type, instanceID, err)
+	}
+	patch := battlefieldStackPatch(stack)
+	emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.set", Data: map[string]any{"stack": patch}})
+	return map[string]any{
+		"stackId": stackID, "instanceId": instanceID, "previousStack": previous, "stack": patch,
+		"effectVersion": 1, "actorPlayerId": actorPlayerID(command), "metrics": relationsMetrics(start, ops, emitter),
+	}, nil
+}
+
+type BattlefieldStackMemberRemovedApplier struct{}
+
+func (BattlefieldStackMemberRemovedApplier) Type() string { return "battlefield.stack.member_removed" }
+
+func (BattlefieldStackMemberRemovedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
+	stackID, err := stringField(command.Payload, "stackId")
+	if err != nil {
+		return nil, err
+	}
+	instanceID, err := stringField(command.Payload, "instanceId")
+	if err != nil {
+		return nil, err
+	}
+	position, err := canonicalRatioPosition(command.Payload["position"], command.Type, instanceID, 0)
+	if err != nil {
+		return nil, err
+	}
+	stack, ok := game.Relations.BattlefieldStacks[stackID]
+	if !ok {
+		return nil, &RelationValidationError{Code: RelationCodeNotFound, CommandType: command.Type}
+	}
+	previous := battlefieldStackPatch(stack)
+	remaining := make([]string, 0, len(stack.OrderedMemberIDs)-1)
+	found := false
+	for _, memberID := range stack.OrderedMemberIDs {
+		if memberID == instanceID {
+			found = true
+			continue
+		}
+		remaining = append(remaining, memberID)
+	}
+	if !found {
+		return nil, &RelationValidationError{Code: RelationCodeMemberMissing, CommandType: command.Type, InstanceID: instanceID}
+	}
+	instance := game.Instances[instanceID]
+	instance.Position = cloneMap(position)
+	game.Instances[instanceID] = instance
+	ops := state.NewRelationsOps()
+	var finalStack map[string]any
+	if len(remaining) < 2 {
+		_, _ = ops.RemoveBattlefieldStack(game, stackID)
+		emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.remove", Data: map[string]any{"id": stackID}})
+	} else {
+		stack.OrderedMemberIDs = remaining
+		if stack.RootInstanceID == instanceID {
+			stack.RootInstanceID = remaining[0]
+		}
+		if err := ops.SetBattlefieldStack(game, stack); err != nil {
+			return nil, relationStateError(command.Type, instanceID, err)
+		}
+		finalStack = battlefieldStackPatch(stack)
+		emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.set", Data: map[string]any{"stack": finalStack}})
+	}
+	emitter.EmitPublic(protocol.PatchOp{Op: "card.position.set", Data: map[string]any{
+		"instanceId": instanceID, "position": cloneMap(position), "effectVersion": PositionContractEffectVersion,
+	}})
+	return compactMap(map[string]any{
+		"stackId": stackID, "instanceId": instanceID, "position": cloneMap(position),
+		"previousStack": previous, "stack": finalStack, "effectVersion": 1,
+		"actorPlayerId": actorPlayerID(command), "metrics": relationsMetrics(start, ops, emitter),
+	}), nil
+}
+
+type BattlefieldStackReorderedApplier struct{}
+
+func (BattlefieldStackReorderedApplier) Type() string { return "battlefield.stack.reordered" }
+
+func (BattlefieldStackReorderedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
+	stackID, err := stringField(command.Payload, "stackId")
+	if err != nil {
+		return nil, err
+	}
+	members, err := canonicalStackMembers(command, "orderedInstanceIds")
+	if err != nil {
+		return nil, err
+	}
+	stack, ok := game.Relations.BattlefieldStacks[stackID]
+	if !ok {
+		return nil, &RelationValidationError{Code: RelationCodeNotFound, CommandType: command.Type}
+	}
+	if !sameStringSet(stack.OrderedMemberIDs, members) {
+		return nil, &RelationValidationError{Code: RelationCodeOrderMismatch, CommandType: command.Type}
+	}
+	rootID := defaultString(optionalString(command.Payload, "rootInstanceId"), stack.RootInstanceID)
+	if !relationSliceContains(members, rootID) {
+		return nil, &RelationValidationError{Code: RelationCodeMemberMissing, CommandType: command.Type, InstanceID: rootID}
+	}
+	previous := battlefieldStackPatch(stack)
+	stack.OrderedMemberIDs = members
+	stack.RootInstanceID = rootID
+	ops := state.NewRelationsOps()
+	if err := ops.SetBattlefieldStack(game, stack); err != nil {
+		return nil, relationStateError(command.Type, rootID, err)
+	}
+	patch := battlefieldStackPatch(stack)
+	emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.order.set", Data: map[string]any{
+		"stackId": stackID, "rootInstanceId": rootID, "orderedInstanceIds": append([]string(nil), members...),
+	}})
+	return map[string]any{
+		"stackId": stackID, "rootInstanceId": rootID, "orderedInstanceIds": append([]string(nil), members...),
+		"previousStack": previous, "stack": patch, "effectVersion": 1,
+		"actorPlayerId": actorPlayerID(command), "metrics": relationsMetrics(start, ops, emitter),
+	}, nil
+}
+
+type BattlefieldStackDissolvedApplier struct{}
+
+func (BattlefieldStackDissolvedApplier) Type() string { return "battlefield.stack.dissolved" }
+
+func (BattlefieldStackDissolvedApplier) Apply(_ context.Context, game *state.GameState, command protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
+	start := nowUTC()
+	stackID, err := stringField(command.Payload, "stackId")
+	if err != nil {
+		return nil, err
+	}
+	stack, ok := game.Relations.BattlefieldStacks[stackID]
+	if !ok {
+		return nil, &RelationValidationError{Code: RelationCodeNotFound, CommandType: command.Type}
+	}
+	positions, err := canonicalRelationPositions(command, stack.OrderedMemberIDs)
+	if err != nil {
+		return nil, err
+	}
+	previous := battlefieldStackPatch(stack)
+	for instanceID, position := range positions {
+		instance := game.Instances[instanceID]
+		instance.Position = cloneMap(position)
+		game.Instances[instanceID] = instance
+	}
+	ops := state.NewRelationsOps()
+	if _, err := ops.RemoveBattlefieldStack(game, stackID); err != nil {
+		return nil, relationStateError(command.Type, "", err)
+	}
+	positionPatches := orderedPositionPatches(stack.OrderedMemberIDs, positions)
+	emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.remove", Data: map[string]any{"id": stackID}})
+	emitter.EmitPublic(protocol.PatchOp{Op: "cards.position.set", Data: map[string]any{
+		"positions": positionPatches, "effectVersion": PositionContractEffectVersion,
+	}})
+	return map[string]any{
+		"stackId": stackID, "previousStack": previous, "positions": positionPatches,
+		"effectVersion": 1, "actorPlayerId": actorPlayerID(command), "metrics": relationsMetrics(start, ops, emitter),
+	}, nil
 }
 
 type HelperCreatedApplier struct{}
@@ -385,11 +683,142 @@ func arrowPatch(relation state.Relation) map[string]any {
 func attachmentPatch(relation state.Relation) map[string]any {
 	return compactMap(map[string]any{
 		"id":                   relation.ID,
-		"ownerId":              stringFromMap(relation.Meta, "ownerId"),
+		"relationType":         defaultString(relation.RelationType, "attachment"),
+		"ownerId":              defaultString(relation.OwnerPlayerID, stringFromMap(relation.Meta, "ownerId")),
+		"ownerPlayerId":        defaultString(relation.OwnerPlayerID, stringFromMap(relation.Meta, "ownerId")),
 		"equipmentInstanceId":  relation.SourceID,
 		"attachedToInstanceId": relation.TargetID,
+		"order":                relation.Order,
+		"effectVersion":        relation.EffectVersion,
+		"createdAtVersion":     relation.CreatedAtVersion,
 		"createdAt":            stringFromMap(relation.Meta, "createdAt"),
 	})
+}
+
+func battlefieldStackPatch(stack state.BattlefieldStack) map[string]any {
+	return map[string]any{
+		"id": stack.ID, "stackId": stack.ID,
+		"relationType":      defaultString(stack.RelationType, "battlefield_stack"),
+		"rootInstanceId":    stack.RootInstanceID,
+		"orderedMemberIds":  append([]string(nil), stack.OrderedMemberIDs...),
+		"stackKind":         defaultString(stack.StackKind, "land"),
+		"createdByPlayerId": stack.CreatedByPlayerID,
+		"effectVersion":     stack.EffectVersion,
+		"createdAtVersion":  stack.CreatedAtVersion,
+	}
+}
+
+func canonicalStackMembers(command protocol.CommandEnvelopeV2, key string) ([]string, error) {
+	members, err := stringSliceField(command.Payload, key)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	for index, instanceID := range members {
+		if seen[instanceID] {
+			return nil, &RelationValidationError{Code: RelationCodeMemberDuplicate, CommandType: command.Type, InstanceID: instanceID, Index: index}
+		}
+		seen[instanceID] = true
+	}
+	return members, nil
+}
+
+func relationStateError(commandType string, instanceID string, err error) error {
+	switch {
+	case errors.Is(err, state.ErrMissingRelation):
+		return &RelationValidationError{Code: RelationCodeNotFound, CommandType: commandType, InstanceID: instanceID}
+	case errors.Is(err, state.ErrRelationExists):
+		return &RelationValidationError{Code: RelationCodeAlreadyExists, CommandType: commandType, InstanceID: instanceID}
+	case errors.Is(err, state.ErrRelationCycle):
+		return &RelationValidationError{Code: RelationCodeCycle, CommandType: commandType, InstanceID: instanceID}
+	case errors.Is(err, state.ErrInstanceAlreadyStacked):
+		return &RelationValidationError{Code: RelationCodeAlreadyStacked, CommandType: commandType, InstanceID: instanceID}
+	case errors.Is(err, state.ErrMissingInstance):
+		return &AuthorizationError{Code: AuthorizationCodeInstanceNotFound, CommandType: commandType, InstanceID: instanceID}
+	default:
+		return &RelationValidationError{Code: RelationCodeOrderMismatch, CommandType: commandType, InstanceID: instanceID}
+	}
+}
+
+func sameStringSet(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	seen := make(map[string]int, len(left))
+	for _, value := range left {
+		seen[value]++
+	}
+	for _, value := range right {
+		seen[value]--
+		if seen[value] < 0 {
+			return false
+		}
+	}
+	for _, count := range seen {
+		if count != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func relationSliceContains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func canonicalRelationPositions(command protocol.CommandEnvelopeV2, expectedIDs []string) (map[string]map[string]any, error) {
+	raw, ok := command.Payload["positions"]
+	if !ok {
+		return nil, &PositionValidationError{Code: PositionCodeInvalid, CommandType: command.Type}
+	}
+	entries := []map[string]any{}
+	switch typed := raw.(type) {
+	case []map[string]any:
+		entries = typed
+	case []any:
+		for _, value := range typed {
+			entry, ok := value.(map[string]any)
+			if !ok {
+				return nil, &PositionValidationError{Code: PositionCodeInvalid, CommandType: command.Type}
+			}
+			entries = append(entries, entry)
+		}
+	default:
+		return nil, &PositionValidationError{Code: PositionCodeInvalid, CommandType: command.Type}
+	}
+	if len(entries) != len(expectedIDs) {
+		return nil, &RelationValidationError{Code: RelationCodeOrderMismatch, CommandType: command.Type}
+	}
+	expected := map[string]bool{}
+	for _, instanceID := range expectedIDs {
+		expected[instanceID] = true
+	}
+	positions := make(map[string]map[string]any, len(entries))
+	for index, entry := range entries {
+		instanceID := optionalString(entry, "instanceId")
+		if !expected[instanceID] || positions[instanceID] != nil {
+			return nil, &RelationValidationError{Code: RelationCodeOrderMismatch, CommandType: command.Type, InstanceID: instanceID, Index: index}
+		}
+		position, err := canonicalRatioPosition(entry["position"], command.Type, instanceID, index)
+		if err != nil {
+			return nil, err
+		}
+		positions[instanceID] = position
+	}
+	return positions, nil
+}
+
+func orderedPositionPatches(order []string, positions map[string]map[string]any) []map[string]any {
+	out := make([]map[string]any, 0, len(order))
+	for _, instanceID := range order {
+		out = append(out, map[string]any{"instanceId": instanceID, "position": cloneMap(positions[instanceID])})
+	}
+	return out
 }
 
 func helperPatch(relation state.Relation) map[string]any {
@@ -476,7 +905,13 @@ func relationsMetrics(start time.Time, ops *state.RelationsOps, emitter *PatchEm
 }
 
 func actorPlayerID(command protocol.CommandEnvelopeV2) string {
+	if playerID, ok := command.Payload["actorPlayerId"].(string); ok && playerID != "" {
+		return playerID
+	}
 	if playerID, ok := command.Payload["playerId"].(string); ok && playerID != "" {
+		return playerID
+	}
+	if playerID, ok := command.Payload["ownerPlayerId"].(string); ok && playerID != "" {
 		return playerID
 	}
 	if ownerID, ok := command.Payload["ownerId"].(string); ok && ownerID != "" {

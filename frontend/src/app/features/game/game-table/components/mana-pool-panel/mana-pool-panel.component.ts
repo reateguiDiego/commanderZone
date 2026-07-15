@@ -4,9 +4,10 @@ import { LucideAngularModule } from 'lucide-angular';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { ManaPool } from '../../state/mana/game-table-mana-pool.state';
 import { ManaPoolColor } from '../../utils/mana-source-detector';
+import { resolveManaHelperColors } from '../../utils/effective-mana-identity';
+import { type GameTableResponsiveState } from '../../utils/game-table-responsive-state';
 
-const IDENTITY_MANA_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G'];
-const MANA_POOL_COLORS: readonly ManaPoolColor[] = [...IDENTITY_MANA_COLORS, 'C'];
+const MANA_POOL_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 const MANA_TYPE_NAMES: Readonly<Record<ManaPoolColor, string>> = {
   W: 'White mana',
   U: 'Blue mana',
@@ -55,8 +56,9 @@ export class ManaPoolPanelComponent {
 
   readonly pool = input.required<ManaPool>();
   readonly backgroundName = input<string | null | undefined>(null);
-  readonly colorIdentity = input<readonly string[] | null | undefined>(IDENTITY_MANA_COLORS);
+  readonly colorIdentity = input<readonly string[] | null | undefined>(null);
   readonly pendingColors = input<readonly ManaPoolColor[]>([]);
+  readonly responsiveState = input<GameTableResponsiveState>('normal');
 
   readonly colorAdded = output<ManaPoolColor>();
   readonly colorRemoved = output<ManaPoolColor>();
@@ -64,14 +66,7 @@ export class ManaPoolPanelComponent {
   readonly menuOpened = output<MouseEvent>();
 
   readonly activeControls = signal<string | null>(null);
-  readonly colors = computed<readonly ManaPoolColor[]>(() => {
-    const identity = new Set((this.colorIdentity() ?? []).map((color) => color.toUpperCase()));
-    const pending = new Set(this.pendingColors());
-    const pool = this.pool();
-    const visibleIdentityColors = IDENTITY_MANA_COLORS.filter((color) => identity.has(color) || pool[color] > 0 || pending.has(color));
-
-    return [...visibleIdentityColors, 'C'];
-  });
+  readonly colors = computed<readonly ManaPoolColor[]>(() => resolveManaHelperColors(this.colorIdentity()));
   readonly visibleColorCount = computed(() => this.colors().length);
   readonly total = computed(() => MANA_POOL_COLORS.reduce((sum, color) => sum + this.pool()[color], 0));
   readonly symbolColor = computed(() => contrastManaColorForBackground(this.backgroundName()));
@@ -110,6 +105,25 @@ export class ManaPoolPanelComponent {
 
   manaTypeName(color: ManaPoolColor): string {
     return MANA_TYPE_NAMES[color];
+  }
+
+  manaValueLabel(color: ManaPoolColor): string {
+    return `${this.manaTypeName(color)}: ${this.value(color)}`;
+  }
+
+  navigateColors(event: KeyboardEvent, index: number): void {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    const buttons = Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLButtonElement>('[data-mana-pool-color]'),
+    );
+    const offset = event.key === 'ArrowDown' ? 1 : -1;
+    const nextIndex = (index + offset + buttons.length) % buttons.length;
+    buttons[nextIndex]?.focus();
   }
 
   @HostListener('document:pointerdown', ['$event'])

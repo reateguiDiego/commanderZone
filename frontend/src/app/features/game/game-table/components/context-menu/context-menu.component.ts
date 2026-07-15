@@ -11,6 +11,7 @@ import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { gameplayCardKind, isDayNightCard, isInitiativeCard, isMonarchCard, isSagaCard, isTheRingCard } from '../../utils/gameplay-card-kind';
 import { ventureCardKind, VentureCardKind } from '../../utils/venture-card-kind';
+import { type GameTableResponsiveState } from '../../utils/game-table-responsive-state';
 
 export type ContextMenuAction =
   | { type: 'drawMine' }
@@ -97,8 +98,6 @@ type ContextSubmenu =
   | 'libraryView'
   | 'gameMechanics';
 
-const AGGRESSIVE_COMPACT_MEDIA_QUERY = '(max-width: 1180px) and (max-height: 768px)';
-
 @Component({
   selector: 'app-context-menu',
   imports: [RuntimeTranslatePipe, ContextSubmenuComponent, LucideAngularModule, ManaSymbolsComponent],
@@ -132,6 +131,7 @@ export class ContextMenuComponent {
   readonly initiativeOwnerPlayerId = input<string | null>(null);
   readonly playerHasCitysBlessing = input<(playerId: string) => boolean>(() => false);
   readonly playerHasTheRing = input<(playerId: string) => boolean>(() => false);
+  readonly responsiveState = input<GameTableResponsiveState>('normal');
 
   readonly actionSelected = output<ContextMenuAction>();
   readonly interacted = output<void>();
@@ -552,7 +552,9 @@ export class ContextMenuComponent {
       return true;
     }
 
-    return !currentMenu.card && currentMenu.zone === 'library' && this.isAggressiveCompactViewport();
+    return !currentMenu.card
+      && currentMenu.zone === 'library'
+      && (this.responsiveState() === 'aggressive' || this.responsiveState() === 'minimal');
   }
 
   submenuSide(): ContextSubmenuSide {
@@ -795,12 +797,6 @@ export class ContextMenuComponent {
 
   private sortedItems(items: readonly ContextSubmenuItem[]): readonly ContextSubmenuItem[] {
     return [...items].sort((left, right) => left.label.localeCompare(right.label));
-  }
-
-  private isAggressiveCompactViewport(): boolean {
-    return typeof window !== 'undefined'
-      && typeof window.matchMedia === 'function'
-      && window.matchMedia(AGGRESSIVE_COMPACT_MEDIA_QUERY).matches;
   }
 
   private buildMoveAllToMenuItems(): readonly ContextSubmenuItem[] {

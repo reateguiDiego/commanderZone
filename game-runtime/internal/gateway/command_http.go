@@ -118,6 +118,14 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeCommandHTTPError(w, http.StatusForbidden, strings.ToLower(authorizationError.Code), authorizationError.Error())
 			return
 		}
+		if positionError, ok := actor.AsPositionValidationError(result.Err); ok {
+			writeCommandHTTPError(w, http.StatusBadRequest, strings.ToLower(positionError.Code), positionError.Error())
+			return
+		}
+		if relationError, ok := actor.AsRelationValidationError(result.Err); ok {
+			writeCommandHTTPError(w, http.StatusBadRequest, strings.ToLower(relationError.Code), relationError.Error())
+			return
+		}
 		if errors.Is(result.Err, actor.ErrActorPermission) {
 			writeCommandHTTPError(w, http.StatusForbidden, "permission_denied", result.Err.Error())
 			return

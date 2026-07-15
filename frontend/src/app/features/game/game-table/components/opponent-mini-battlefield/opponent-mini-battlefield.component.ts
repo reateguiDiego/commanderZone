@@ -10,12 +10,13 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameBattlefieldStack, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { BattlefieldMechanicsOverlayComponent } from '../battlefield-mechanics-overlay/battlefield-mechanics-overlay.component';
 import { CardPreviewEvent, CardPreviewSourceRect } from '../../models/card-preview.model';
 import { AttachmentStackView, attachmentStackViewFor, buildAttachmentStackGroups } from '../../utils/attachment-stack';
 import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
+import { buildLandStackGroups } from '../../utils/land-stack';
 import {
   MiniBattlefieldCardLayout,
   MiniBattlefieldSize,
@@ -38,6 +39,7 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
   readonly cards = input.required<readonly GameCardInstance[]>();
   readonly mechanicCards = input<readonly GameCardInstance[]>([]);
   readonly attachments = input<readonly GameAttachment[]>([]);
+  readonly battlefieldStacks = input<readonly GameBattlefieldStack[]>([]);
   readonly backgroundImage = input<string>('');
   readonly battlefieldSize = input<MiniBattlefieldSize>({ width: 900, height: 520 });
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
@@ -66,6 +68,11 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
     this.attachments(),
     (candidate) => this.cardPosition()(candidate),
   ));
+  readonly landStackGroups = computed(() => buildLandStackGroups(
+    this.layoutCards(),
+    this.battlefieldStacks(),
+    (candidate) => this.cardPosition()(candidate),
+  ));
   readonly attachmentStackViews = computed<ReadonlyMap<string, AttachmentStackView>>(() => {
     const views = new Map<string, AttachmentStackView>();
 
@@ -83,10 +90,9 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
   readonly cardLayouts = computed(() => {
     const baseLayouts = layoutOpponentMiniBattlefield(this.layoutCards(), this.viewportSize(), {
       boardSize: this.battlefieldSize(),
-      getPosition: this.cardPosition(),
     });
 
-    return this.withAttachmentStackLayouts(baseLayouts);
+    return this.withAttachmentStackLayouts(this.withLandStackLayouts(baseLayouts));
   });
   readonly mechanicMiniCardWidthPx = computed(() => {
     const referenceLayout = this.cardLayouts()[0];
@@ -243,6 +249,28 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
       }
     }
 
+    return baseLayouts.map((layout) => layoutsById.get(layout.instanceId) ?? layout);
+  }
+
+  private withLandStackLayouts(baseLayouts: readonly MiniBattlefieldCardLayout[]): MiniBattlefieldCardLayout[] {
+    const layoutsById = new Map(baseLayouts.map((layout) => [layout.instanceId, { ...layout }]));
+    const viewport = this.viewportSize();
+    for (const group of this.landStackGroups()) {
+      const rootLayout = layoutsById.get(group.topCard.instanceId);
+      if (!rootLayout) {
+        continue;
+      }
+      const offsetX = Math.max(2, rootLayout.width * 0.085);
+      const offsetY = Math.max(3, rootLayout.height * 0.11);
+      const proposed = group.members.map((member) => {
+        const current = layoutsById.get(member.card.instanceId);
+        return current ? { ...current, left: rootLayout.left + offsetX * member.layer, top: rootLayout.top - offsetY * member.layer } : null;
+      }).filter((layout): layout is MiniBattlefieldCardLayout => layout !== null);
+      const shift = miniStackViewportShift(proposed, viewport);
+      for (const layout of proposed) {
+        layoutsById.set(layout.instanceId, { ...layout, left: roundMiniPixel(layout.left + shift.x), top: roundMiniPixel(layout.top + shift.y) });
+      }
+    }
     return baseLayouts.map((layout) => layoutsById.get(layout.instanceId) ?? layout);
   }
 

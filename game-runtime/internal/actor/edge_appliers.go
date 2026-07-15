@@ -32,6 +32,14 @@ func (CardTokenCreatedApplier) Apply(_ context.Context, game *state.GameState, c
 	if value, ok := intField(command.Payload, "quantity"); ok {
 		quantity = max(1, min(value, maxRuntimeTokenCreateQuantity))
 	}
+	if rawPosition, exists := command.Payload["position"]; exists && quantity == 1 {
+		position, positionErr := canonicalRatioPosition(rawPosition, command.Type, "", 0)
+		if positionErr != nil {
+			return nil, positionErr
+		}
+		command.Payload = cloneMap(command.Payload)
+		command.Payload["position"] = position
+	}
 	card := mapField(command.Payload, "card")
 	name := cleanString(card["name"])
 	if name == "" {

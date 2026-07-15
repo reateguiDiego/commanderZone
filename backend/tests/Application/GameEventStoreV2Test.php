@@ -73,6 +73,67 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame(3, $rebuiltSnapshot['version']);
     }
 
+    public function testReplayAppliesTypedSingleAndBatchRatioPositionOperations(): void
+    {
+        $actor = new User('spatial-replay-owner@example.test', 'Spatial Replay Owner');
+        $flags = new GameplayV2Flags(true, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('battlefield-1', 'Bear', 'battlefield'),
+                    'ownerId' => $actor->id(),
+                    'controllerId' => $actor->id(),
+                    'position' => ['x' => 0.1, 'y' => 0.2, 'unit' => 'ratio'],
+                ],
+                [
+                    ...$this->card('battlefield-2', 'Wolf', 'battlefield'),
+                    'ownerId' => $actor->id(),
+                    'controllerId' => $actor->id(),
+                    'position' => ['x' => 0.3, 'y' => 0.4, 'unit' => 'ratio'],
+                ],
+            ],
+        ]));
+        $runtimeGame = new Game(new Room($actor), $baseSnapshot);
+
+        $singleEvent = $handler->apply($runtimeGame, 'card.position.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'battlefield-1',
+            'position' => ['x' => 0.42, 'y' => 0.22, 'unit' => 'ratio'],
+        ], $actor, 'spatial-single');
+        $batchEvent = $handler->apply($runtimeGame, 'cards.position.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'positions' => [
+                [
+                    'instanceId' => 'battlefield-1',
+                    'position' => ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
+                ],
+                [
+                    'instanceId' => 'battlefield-2',
+                    'position' => ['x' => 0.7, 'y' => 0.6, 'unit' => 'ratio'],
+                ],
+            ],
+        ], $actor, 'spatial-batch');
+
+        $rebuiltGame = new Game(new Room($actor), $baseSnapshot);
+        $rebuiltSnapshot = $this->eventStore($handler, $flags)->rebuildSnapshot(
+            $rebuiltGame,
+            null,
+            [$singleEvent, $batchEvent],
+        );
+
+        self::assertSame(
+            ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
+            $this->cardById($rebuiltSnapshot, $actor->id(), 'battlefield', 'battlefield-1')['position'] ?? null,
+        );
+        self::assertSame(
+            ['x' => 0.7, 'y' => 0.6, 'unit' => 'ratio'],
+            $this->cardById($rebuiltSnapshot, $actor->id(), 'battlefield', 'battlefield-2')['position'] ?? null,
+        );
+    }
+
     public function testReplayCanRecoverFromCompactSnapshotPlusLaterEvents(): void
     {
         $actor = new User('owner@example.test', 'Owner');

@@ -108,9 +108,7 @@ class GameCommandHandler
         'card.moved',
         'cards.moved',
         'card.tapped',
-        'card.position.changed',
         'card.dungeon_marker.changed',
-        'cards.position.changed',
         'card.face_down.changed',
         'card.face.changed',
         'card.revealed',
@@ -177,6 +175,7 @@ class GameCommandHandler
         ?GameVisibilityIndex $visibilityIndex = null,
         ?GameplayStreamsFlags $streamFlags = null,
         ?GameplayRuntimeLimits $runtimeLimits = null,
+        ?GameSpatialPositionContract $spatialPositionContract = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
@@ -190,6 +189,7 @@ class GameCommandHandler
         $this->visibilityIndex = $visibilityIndex ?? new GameVisibilityIndex();
         $this->streamFlags = $streamFlags ?? new GameplayStreamsFlags();
         $this->runtimeLimits = $runtimeLimits ?? new GameplayRuntimeLimits();
+        $this->spatialPositionContract = $spatialPositionContract ?? new GameSpatialPositionContract();
     }
 
     private readonly GameRandomizer $randomizer;
@@ -203,6 +203,7 @@ class GameCommandHandler
     private readonly GameVisibilityIndex $visibilityIndex;
     private readonly GameplayStreamsFlags $streamFlags;
     private readonly GameplayRuntimeLimits $runtimeLimits;
+    private readonly GameSpatialPositionContract $spatialPositionContract;
 
     /**
      * @return list<string>
@@ -419,6 +420,7 @@ class GameCommandHandler
         $snapshot['stack'] ??= [];
         $snapshot['arrows'] ??= [];
         $snapshot['attachments'] ??= [];
+        $snapshot['battlefieldStacks'] ??= [];
         if ($this->streamsEnabled()) {
             unset($snapshot['chat'], $snapshot['eventLog']);
         } else {
@@ -1841,6 +1843,7 @@ class GameCommandHandler
             throw new \InvalidArgumentException('Only battlefield cards can be freely positioned.');
         }
 
+        $position = $this->spatialPositionContract->canonicalRatioPosition($payload['position'] ?? null);
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
         if ($this->isDayNightCard($card)) {
             $card['position'] = $this->dayNightFixedPosition();
@@ -1848,7 +1851,7 @@ class GameCommandHandler
             return sprintf('Moved %s on battlefield.', $this->cardLogName($card));
         }
 
-        $card['position'] = $this->normalizedPosition($payload['position'] ?? null);
+        $card['position'] = $position;
 
         return sprintf('Moved %s on battlefield.', $this->cardLogName($card));
     }
@@ -1883,10 +1886,11 @@ class GameCommandHandler
             throw new \InvalidArgumentException('positions must contain at least one card position.');
         }
 
-        $moved = 0;
-        foreach ($positions as $positionPayload) {
+        $validated = [];
+        $seen = [];
+        foreach ($positions as $index => $positionPayload) {
             if (!is_array($positionPayload)) {
-                throw new \InvalidArgumentException('Each position entry must be an object.');
+                throw new \InvalidArgumentException('INVALID_POSITION: each position entry must be an object.');
             }
 
             $location = $this->requiredCardLocation($snapshot, [
@@ -1894,6 +1898,20 @@ class GameCommandHandler
                 'zone' => $zone,
                 'instanceId' => $positionPayload['instanceId'] ?? null,
             ]);
+            $instanceId = (string) ($positionPayload['instanceId'] ?? '');
+            if (isset($seen[$instanceId])) {
+                throw new \InvalidArgumentException(sprintf('DUPLICATE_INSTANCE: duplicate instance at index %d.', $index));
+            }
+            $seen[$instanceId] = true;
+            $validated[] = [
+                'location' => $location,
+                'position' => $this->spatialPositionContract->canonicalRatioPosition($positionPayload['position'] ?? null),
+            ];
+        }
+
+        $moved = 0;
+        foreach ($validated as $entry) {
+            $location = $entry['location'];
             $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
             if ($this->isDayNightCard($card)) {
                 $card['position'] = $this->dayNightFixedPosition();
@@ -1901,7 +1919,7 @@ class GameCommandHandler
                 continue;
             }
 
-            $card['position'] = $this->normalizedPosition($positionPayload['position'] ?? null);
+            $card['position'] = $entry['position'];
             unset($card);
             ++$moved;
         }
@@ -2016,7 +2034,7 @@ class GameCommandHandler
             : $this->positiveInt($payload['quantity'] ?? 1, 1, $this->runtimeLimits->maxTokenCreateQuantity());
         $tokens = [];
         $position = $quantity === 1 && array_key_exists('position', $payload)
-            ? $this->normalizedPosition($payload['position'])
+            ? $this->spatialPositionContract->canonicalRatioPosition($payload['position'])
             : null;
         $tokenMeta = [
             'isCopy' => false,
@@ -2169,7 +2187,7 @@ class GameCommandHandler
             $targetPlayerId,
             'battlefield',
             $card,
-            $this->battlefieldCenterPosition(),
+            is_array($card['position'] ?? null) ? $card['position'] : $this->battlefieldCenterPosition(),
             true,
         );
 
@@ -3582,6 +3600,9 @@ class GameCommandHandler
     {
         if (array_key_exists('position', $payload)) {
             $position = $payload['position'];
+            if ($toZone === 'battlefield' && is_array($position)) {
+                return $this->spatialPositionContract->canonicalRatioPosition($position);
+            }
 
             return is_array($position) ? $position : (string) $position;
         }
@@ -4242,14 +4263,14 @@ class GameCommandHandler
         if ($type === 'game.close') {
             return;
         }
-		$status = $snapshot['players'][$actorPlayerId]['status'] ?? 'active';
+        $status = $snapshot['players'][$actorPlayerId]['status'] ?? 'active';
         if (in_array($status, ['defeated', 'conceded'], true) && !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
             throw new \InvalidArgumentException('Eliminated players cannot perform game actions.');
         }
-		if ((($snapshot['status'] ?? null) === 'finished' || ($snapshot['gamePhase'] ?? null) === 'FINISHED' || ($snapshot['resultState'] ?? null) !== null)
-			&& !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
-			throw new \InvalidArgumentException('Closed or resolved games cannot receive gameplay actions.');
-		}
+        if ((($snapshot['status'] ?? null) === 'finished' || ($snapshot['gamePhase'] ?? null) === 'FINISHED' || ($snapshot['resultState'] ?? null) !== null)
+            && !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
+            throw new \InvalidArgumentException('Closed or resolved games cannot receive gameplay actions.');
+        }
 
         if ($this->specialEntityCommandHandler->supports($type)) {
             $this->specialEntityCommandHandler->assertActorCanApply($snapshot, $type, $payload, $actor);
@@ -4264,6 +4285,38 @@ class GameCommandHandler
 
         if ($type === 'commander.damage.changed') {
             $this->assertActorPlayer($snapshot, $payload, $actor, 'targetPlayerId', 'You can only change your own commander damage.');
+            return;
+        }
+
+        if ($type === 'card.position.changed') {
+            $location = $this->requiredCardLocation($snapshot, $payload);
+            $this->v2AssertActorControlsLocation($snapshot, $location, $actor);
+
+            return;
+        }
+        if ($type === 'cards.position.changed') {
+            $positions = $payload['positions'] ?? null;
+            if (!is_array($positions) || $positions === []) {
+                throw new \InvalidArgumentException('positions must contain at least one card position.');
+            }
+            $seen = [];
+            foreach ($positions as $index => $entry) {
+                if (!is_array($entry)) {
+                    throw new \InvalidArgumentException('INVALID_POSITION: each position entry must be an object.');
+                }
+                $instanceId = trim((string) ($entry['instanceId'] ?? ''));
+                if ($instanceId === '' || isset($seen[$instanceId])) {
+                    throw new \InvalidArgumentException(sprintf('DUPLICATE_INSTANCE: invalid instance at index %d.', $index));
+                }
+                $seen[$instanceId] = true;
+                $location = $this->requiredCardLocation($snapshot, [
+                    'playerId' => $payload['playerId'] ?? null,
+                    'zone' => 'battlefield',
+                    'instanceId' => $instanceId,
+                ]);
+                $this->v2AssertActorControlsLocation($snapshot, $location, $actor);
+            }
+
             return;
         }
 
@@ -5069,6 +5122,16 @@ class GameCommandHandler
         $this->assertActorPlayer($snapshot, $payload, $actor, $key, $message);
     }
 
+    /**
+     * @param array{playerId:string,zone:string,index:int,controllerId:string} $location
+     */
+    public function v2AssertActorControlsLocation(array $snapshot, array $location, User $actor): void
+    {
+        $actorPlayerId = $this->resolveSnapshotPlayerId($snapshot, $actor->id());
+        $controllerPlayerId = $this->resolveSnapshotPlayerId($snapshot, $location['controllerId'] ?? null);
+        $this->spatialPositionContract->assertControlledBattlefield($location, $actorPlayerId, $controllerPlayerId);
+    }
+
     public function v2AssertActorIsActiveTurnPlayer(array $snapshot, User $actor): void
     {
         $activePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? '');
@@ -5304,6 +5367,14 @@ class GameCommandHandler
     public function v2NormalizedPosition(mixed $position): array
     {
         return $this->normalizedPosition($position);
+    }
+
+    /**
+     * @return array{x:float,y:float,unit:'ratio'}
+     */
+    public function v2CanonicalRatioPosition(mixed $position): array
+    {
+        return $this->spatialPositionContract->canonicalRatioPosition($position);
     }
 
     public function v2PowerToughnessLog(

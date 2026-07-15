@@ -88,6 +88,64 @@ func ValidateInvariants(game GameState) error {
 	if len(game.Loc) != len(seen) {
 		return fmt.Errorf("%w: loc index contains stale entries", ErrInvariantViolation)
 	}
+	attachmentBySource := map[string]Relation{}
+	for relationID, relation := range game.Relations.Attachments {
+		if relation.ID == "" || relation.ID != relationID || relation.SourceID == "" || relation.TargetID == "" || relation.SourceID == relation.TargetID {
+			return fmt.Errorf("%w: invalid attachment %s", ErrInvariantViolation, relationID)
+		}
+		for _, instanceID := range []string{relation.SourceID, relation.TargetID} {
+			if location, ok := game.Loc[instanceID]; !ok || location.Zone != ZoneBattlefield {
+				return fmt.Errorf("%w: attachment %s references non-battlefield instance %s", ErrInvariantViolation, relationID, instanceID)
+			}
+		}
+		if _, duplicate := attachmentBySource[relation.SourceID]; duplicate {
+			return fmt.Errorf("%w: attachment source %s has multiple targets", ErrInvariantViolation, relation.SourceID)
+		}
+		attachmentBySource[relation.SourceID] = relation
+	}
+	for sourceID, relation := range attachmentBySource {
+		visited := map[string]bool{sourceID: true}
+		cursor := relation.TargetID
+		for cursor != "" {
+			if visited[cursor] {
+				return fmt.Errorf("%w: attachment cycle through %s", ErrInvariantViolation, cursor)
+			}
+			visited[cursor] = true
+			next, ok := attachmentBySource[cursor]
+			if !ok {
+				break
+			}
+			cursor = next.TargetID
+		}
+	}
+	stackMemberships := map[string]string{}
+	for stackID, stack := range game.Relations.BattlefieldStacks {
+		if stack.ID == "" || stack.ID != stackID || len(stack.OrderedMemberIDs) < 2 {
+			return fmt.Errorf("%w: invalid battlefield stack %s", ErrInvariantViolation, stackID)
+		}
+		rootFound := false
+		localSeen := map[string]bool{}
+		for _, instanceID := range stack.OrderedMemberIDs {
+			if localSeen[instanceID] {
+				return fmt.Errorf("%w: duplicate battlefield stack member %s", ErrInvariantViolation, instanceID)
+			}
+			localSeen[instanceID] = true
+			rootFound = rootFound || instanceID == stack.RootInstanceID
+			if location, ok := game.Loc[instanceID]; !ok || location.Zone != ZoneBattlefield {
+				return fmt.Errorf("%w: battlefield stack %s references non-battlefield member %s", ErrInvariantViolation, stackID, instanceID)
+			}
+			if instanceHasAttachment(game.Relations.Attachments, instanceID) {
+				return fmt.Errorf("%w: battlefield stack member %s also belongs to an attachment", ErrInvariantViolation, instanceID)
+			}
+			if previous, duplicate := stackMemberships[instanceID]; duplicate {
+				return fmt.Errorf("%w: member %s belongs to stacks %s and %s", ErrInvariantViolation, instanceID, previous, stackID)
+			}
+			stackMemberships[instanceID] = stackID
+		}
+		if !rootFound {
+			return fmt.Errorf("%w: root missing from battlefield stack %s", ErrInvariantViolation, stackID)
+		}
+	}
 	return nil
 }
 

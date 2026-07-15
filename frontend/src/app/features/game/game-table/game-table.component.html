@@ -3,6 +3,11 @@
   class="game-screen"
   [class.has-table-exit-modal]="tableExitAction() !== null"
   data-testid="game-screen"
+  [attr.data-responsive-state]="responsiveState()"
+  [attr.data-responsive-supported]="responsiveSupported()"
+  [attr.data-player-count]="store.players().length"
+  [attr.data-container-width]="responsiveContainerWidth()"
+  [attr.data-container-height]="responsiveContainerHeight()"
   [style.--game-wallpaper-image]="tableBackgroundImage()"
   (click)="handleTableClick($event)"
   (contextmenu)="store.openGameMenu($event)"
@@ -271,21 +276,19 @@
           [class.active]="snapshot.turn.activePlayerId === player.id"
           [class.dragging-card]="store.draggingCardInstanceId()"
         >
-          @if (!aggressiveCompactViewport()) {
-            <app-battlefield-zoom-controls
-              class="battlefield-zoom-host"
-              [zoomPercent]="battlefieldZoom.zoomPercent()"
-              [minZoomPercent]="battlefieldZoom.minZoomPercent"
-              [maxZoomPercent]="battlefieldZoom.maxZoomPercent"
-              [defaultZoomPercent]="battlefieldZoom.defaultZoomPercent"
-              [zoomStepPercent]="battlefieldZoom.zoomStepPercent"
-              [canResetZoom]="battlefieldZoom.canResetZoom()"
-              (zoomPercentChanged)="setBattlefieldZoom($event)"
-              (resetZoom)="resetBattlefieldZoom()"
-              (click)="$event.stopPropagation()"
-              (contextmenu)="$event.stopPropagation()"
-            />
-          }
+          <app-battlefield-zoom-controls
+            class="battlefield-zoom-host"
+            [zoomPercent]="battlefieldZoom.zoomPercent()"
+            [minZoomPercent]="battlefieldZoom.minZoomPercent"
+            [maxZoomPercent]="battlefieldZoom.maxZoomPercent"
+            [defaultZoomPercent]="battlefieldZoom.defaultZoomPercent"
+            [zoomStepPercent]="battlefieldZoom.zoomStepPercent"
+            [canResetZoom]="battlefieldZoom.canResetZoom()"
+            (zoomPercentChanged)="setBattlefieldZoom($event)"
+            (resetZoom)="resetBattlefieldZoom()"
+            (click)="$event.stopPropagation()"
+            (contextmenu)="$event.stopPropagation()"
+          />
 
           @if (focusedOpponentPlayer(); as battlefieldOwner) {
             <div
@@ -323,6 +326,7 @@
 
           <app-focused-battlefield
             [player]="player"
+            [responsiveState]="responsiveState()"
             [isCurrentPlayer]="isCurrentPlayer"
             [allowArrowTargetSelection]="manualRelationTargetingActive()"
             [focusEffectsEnabled]="focusEffectsEnabled()"
@@ -350,6 +354,7 @@
             [zoomPercent]="effectiveBattlefieldZoomPercent()"
             [landStackDropPreview]="store.landStackDropPreview()"
             [attachments]="snapshot.attachments ?? []"
+            [battlefieldStacks]="snapshot.battlefieldStacks ?? []"
             [isCardDropSettling]="isCardDropSettling"
             [isManaDropSettling]="isManaDropSettling"
             [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
@@ -457,6 +462,7 @@
       <aside appPrettyScroll class="player-sidebar game-table-opponents" [class.opponents-open]="opponentsDrawerOpen()">
         <button
           class="drawer-handle opponents-drawer-handle"
+          data-testid="opponents-drawer-toggle"
           type="button"
           [attr.aria-expanded]="opponentsDrawerOpen()"
           aria-controls="game-table-opponents-list"
@@ -469,6 +475,7 @@
             <app-opponent-mini-board
               [player]="player"
               [attachments]="snapshot.attachments ?? []"
+              [battlefieldStacks]="snapshot.battlefieldStacks ?? []"
               [colorAccent]="colorAccent"
               [deckLabel]="deckLabel"
               [backgroundImage]="gameBackgroundImage"
@@ -876,6 +883,7 @@
         [initiativeOwnerPlayerId]="initiativeOwnerPlayerId()"
         [playerHasCitysBlessing]="playerHasCitysBlessing"
         [playerHasTheRing]="playerHasTheRing"
+        [responsiveState]="responsiveState()"
         (interacted)="store.clearCardPreview()"
         (actionSelected)="handleContextMenuAction($event, menu)"
         (close)="store.closeContextMenu()"

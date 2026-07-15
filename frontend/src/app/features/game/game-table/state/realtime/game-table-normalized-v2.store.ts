@@ -5,6 +5,7 @@ import type {
   ChatReactions,
   GameArrow,
   GameAttachment,
+  GameBattlefieldStack,
   GameCompactCardRef,
   GameCardDungeonMarker,
   GameCardInstance,
@@ -82,12 +83,14 @@ export interface GameTableNormalizedV2PlayerState {
 export interface GameTableNormalizedV2RelationsState {
   arrows: Record<string, GameArrow>;
   attachments: Record<string, GameAttachment>;
+  battlefieldStacks: Record<string, GameBattlefieldStack>;
   specialEntities: Record<string, GameSpecialEntity>;
   indexes: {
     arrowsBySource: Record<string, string[]>;
     arrowsByTarget: Record<string, string[]>;
     attachmentsByEquipment: Record<string, string[]>;
     attachmentsByTarget: Record<string, string[]>;
+    battlefieldStacksByMember: Record<string, string[]>;
   };
 }
 
@@ -205,7 +208,12 @@ export function createGameTableNormalizedV2State(
     zoneCounts[zone.playerId][zone.name] = Math.max(0, bootstrap.zoneCounts[zone.zoneId] ?? zone.instanceIds.length);
   }
 
-  const relations = createRelationsState(bootstrap.relations.arrows, bootstrap.relations.attachments, bootstrap.relations.specialEntities);
+  const relations = createRelationsState(
+    bootstrap.relations.arrows,
+    bootstrap.relations.attachments,
+    bootstrap.relations.specialEntities,
+    bootstrap.relations.battlefieldStacks ?? [],
+  );
   const stack = createStackState(bootstrap.relations.stack);
   const chat = createChatState(bootstrap.chat, bootstrap.chatCursor ?? null);
   const log = createLogState(bootstrap.eventLog, bootstrap.logCursor ?? null);
@@ -277,6 +285,7 @@ export function hydrateGameSnapshotFromV2State(state: GameTableNormalizedV2State
       .filter((item): item is NonNullable<typeof item> => item !== null),
     arrows: Object.values(state.relations.arrows),
     attachments: Object.values(state.relations.attachments),
+    battlefieldStacks: Object.values(state.relations.battlefieldStacks),
     specialEntities: Object.values(state.relations.specialEntities),
     chat: state.chat.order.map((id) => state.chat.byId[id]).filter((message): message is ChatMessage => Boolean(message)),
     eventLog: state.log.order.map((id) => state.log.byId[id]).filter((entry): entry is GameLogEntry => Boolean(entry)),
@@ -931,6 +940,34 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
         position: operation.position,
       });
 
+    case 'cards.position.set': {
+      const zoneInstances = state.zones[operation.playerId]?.[operation.zone] ?? [];
+      const uniqueIds = new Set(operation.positions.map((entry) => entry.instanceId));
+      if (
+        uniqueIds.size !== operation.positions.length
+        || operation.positions.some((entry) => !zoneInstances.includes(entry.instanceId) || !state.instances[entry.instanceId])
+      ) {
+        return { status: 'failed', reason: 'target_not_found' };
+      }
+
+      let next = state;
+      for (const entry of operation.positions) {
+        const result = applyOperation(next, {
+          op: 'card.field.set',
+          playerId: operation.playerId,
+          zone: operation.zone,
+          instanceId: entry.instanceId,
+          position: entry.position,
+        });
+        if (result.status !== 'applied') {
+          return result;
+        }
+        next = result.state;
+      }
+
+      return { status: 'applied', state: next };
+    }
+
     case 'card.stats.set':
       return applyOperation(state, {
         op: 'card.field.set',
@@ -960,10 +997,23 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
       return removeRelation(state, 'arrow', operation.id);
 
     case 'attachment.add':
+    case 'attachment.set':
       return addRelation(state, 'attachment', operation.attachment);
 
     case 'attachment.remove':
       return removeRelation(state, 'attachment', operation.id);
+
+    case 'attachment.order.set':
+      return setAttachmentOrder(state, operation.attachedToInstanceId, operation.orderedAttachmentIds);
+
+    case 'battlefield.stack.set':
+      return setBattlefieldStack(state, operation.stack);
+
+    case 'battlefield.stack.remove':
+      return removeBattlefieldStack(state, operation.id);
+
+    case 'battlefield.stack.order.set':
+      return setBattlefieldStackOrder(state, operation.stackId, operation.rootInstanceId, operation.orderedInstanceIds);
 
     case 'chat.append': {
       let nextState = state;
@@ -1796,6 +1846,7 @@ function addRelation(
           [...Object.values(state.relations.arrows).filter((entry) => entry.id !== arrow.id), arrow],
           Object.values(state.relations.attachments),
           Object.values(state.relations.specialEntities),
+          Object.values(state.relations.battlefieldStacks),
         ),
       },
     };
@@ -1810,6 +1861,7 @@ function addRelation(
         Object.values(state.relations.arrows),
         [...Object.values(state.relations.attachments).filter((entry) => entry.id !== attachment.id), attachment],
         Object.values(state.relations.specialEntities),
+        Object.values(state.relations.battlefieldStacks),
       ),
     },
   };
@@ -1829,6 +1881,7 @@ function removeRelation(
           Object.values(state.relations.arrows).filter((entry) => entry.id !== id),
           Object.values(state.relations.attachments),
           Object.values(state.relations.specialEntities),
+          Object.values(state.relations.battlefieldStacks),
         ),
       },
     };
@@ -1842,9 +1895,110 @@ function removeRelation(
         Object.values(state.relations.arrows),
         Object.values(state.relations.attachments).filter((entry) => entry.id !== id),
         Object.values(state.relations.specialEntities),
+        Object.values(state.relations.battlefieldStacks),
       ),
     },
   };
+}
+
+function setAttachmentOrder(
+  state: GameTableNormalizedV2State,
+  targetInstanceId: string,
+  orderedAttachmentIds: readonly string[],
+): OperationApplyResult {
+  const targetAttachments = Object.values(state.relations.attachments)
+    .filter((attachment) => attachment.attachedToInstanceId === targetInstanceId);
+  if (!sameIdSet(targetAttachments.map((attachment) => attachment.id), orderedAttachmentIds)) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+  const order = new Map(orderedAttachmentIds.map((id, index) => [id, index + 1]));
+  const attachments = Object.values(state.relations.attachments).map((attachment) => ({
+    ...attachment,
+    order: attachment.attachedToInstanceId === targetInstanceId ? order.get(attachment.id) : attachment.order,
+  }));
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      relations: createRelationsState(
+        Object.values(state.relations.arrows),
+        attachments,
+        Object.values(state.relations.specialEntities),
+        Object.values(state.relations.battlefieldStacks),
+      ),
+    },
+  };
+}
+
+function setBattlefieldStack(state: GameTableNormalizedV2State, stack: GameBattlefieldStack): OperationApplyResult {
+  const members = [...stack.orderedMemberIds];
+  if (!validBattlefieldStack(stack.rootInstanceId, members)) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+  const memberSet = new Set(members);
+  const conflicts = Object.values(state.relations.battlefieldStacks)
+    .some((candidate) => candidate.id !== stack.id && candidate.orderedMemberIds.some((id) => memberSet.has(id)));
+  if (conflicts) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+  const stacks = [
+    ...Object.values(state.relations.battlefieldStacks).filter((candidate) => candidate.id !== stack.id),
+    { ...stack, orderedMemberIds: members },
+  ];
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      relations: createRelationsState(
+        Object.values(state.relations.arrows),
+        Object.values(state.relations.attachments),
+        Object.values(state.relations.specialEntities),
+        stacks,
+      ),
+    },
+  };
+}
+
+function removeBattlefieldStack(state: GameTableNormalizedV2State, stackId: string): OperationApplyResult {
+  if (!state.relations.battlefieldStacks[stackId]) {
+    return { status: 'applied', state };
+  }
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      relations: createRelationsState(
+        Object.values(state.relations.arrows),
+        Object.values(state.relations.attachments),
+        Object.values(state.relations.specialEntities),
+        Object.values(state.relations.battlefieldStacks).filter((stack) => stack.id !== stackId),
+      ),
+    },
+  };
+}
+
+function setBattlefieldStackOrder(
+  state: GameTableNormalizedV2State,
+  stackId: string,
+  rootInstanceId: string,
+  orderedInstanceIds: readonly string[],
+): OperationApplyResult {
+  const stack = state.relations.battlefieldStacks[stackId];
+  if (!stack || !sameIdSet(stack.orderedMemberIds, orderedInstanceIds) || !validBattlefieldStack(rootInstanceId, orderedInstanceIds)) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+  return setBattlefieldStack(state, { ...stack, rootInstanceId, orderedMemberIds: [...orderedInstanceIds] });
+}
+
+function validBattlefieldStack(rootInstanceId: string, orderedMemberIds: readonly string[]): boolean {
+  return orderedMemberIds.length >= 2
+    && new Set(orderedMemberIds).size === orderedMemberIds.length
+    && orderedMemberIds.includes(rootInstanceId);
+}
+
+function sameIdSet(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && new Set(left).size === left.length && left.every((id) => right.includes(id));
 }
 
 function upsertHelper(state: GameTableNormalizedV2State, entity: GameSpecialEntity): OperationApplyResult {
@@ -1856,6 +2010,7 @@ function upsertHelper(state: GameTableNormalizedV2State, entity: GameSpecialEnti
         Object.values(state.relations.arrows),
         Object.values(state.relations.attachments),
         [...Object.values(state.relations.specialEntities).filter((entry) => entry.id !== entity.id), entity],
+        Object.values(state.relations.battlefieldStacks),
       ),
     },
   };
@@ -1870,6 +2025,7 @@ function removeHelper(state: GameTableNormalizedV2State, id: string): OperationA
         Object.values(state.relations.arrows),
         Object.values(state.relations.attachments),
         Object.values(state.relations.specialEntities).filter((entry) => entry.id !== id),
+        Object.values(state.relations.battlefieldStacks),
       ),
     },
   };
@@ -2902,11 +3058,13 @@ function createRelationsState(
   arrows: GameArrow[],
   attachments: GameAttachment[],
   specialEntities: GameSpecialEntity[],
+  battlefieldStacks: GameBattlefieldStack[] = [],
 ): GameTableNormalizedV2RelationsState {
   const arrowsBySource: Record<string, string[]> = {};
   const arrowsByTarget: Record<string, string[]> = {};
   const attachmentsByEquipment: Record<string, string[]> = {};
   const attachmentsByTarget: Record<string, string[]> = {};
+  const battlefieldStacksByMember: Record<string, string[]> = {};
 
   for (const arrow of arrows) {
     appendIndex(arrowsBySource, arrow.fromInstanceId, arrow.id);
@@ -2916,16 +3074,26 @@ function createRelationsState(
     appendIndex(attachmentsByEquipment, attachment.equipmentInstanceId, attachment.id);
     appendIndex(attachmentsByTarget, attachment.attachedToInstanceId, attachment.id);
   }
+  for (const stack of battlefieldStacks) {
+    for (const instanceId of stack.orderedMemberIds) {
+      appendIndex(battlefieldStacksByMember, instanceId, stack.id);
+    }
+  }
 
   return {
     arrows: Object.fromEntries(arrows.map((arrow) => [arrow.id, { ...arrow }])),
     attachments: Object.fromEntries(attachments.map((attachment) => [attachment.id, { ...attachment }])),
+    battlefieldStacks: Object.fromEntries(battlefieldStacks.map((stack) => [stack.id, {
+      ...stack,
+      orderedMemberIds: [...stack.orderedMemberIds],
+    }])),
     specialEntities: Object.fromEntries(specialEntities.map((entity) => [entity.id, { ...entity }])),
     indexes: {
       arrowsBySource,
       arrowsByTarget,
       attachmentsByEquipment,
       attachmentsByTarget,
+      battlefieldStacksByMember,
     },
   };
 }

@@ -460,6 +460,28 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'attachment.reordered':
+                $this->applyRuntimeAttachmentReordered($snapshot, $payload);
+
+                return true;
+
+            case 'battlefield.stack.created':
+            case 'battlefield.stack.member_added':
+            case 'battlefield.stack.reordered':
+                $this->applyRuntimeBattlefieldStackSet($snapshot, $payload);
+
+                return true;
+
+            case 'battlefield.stack.member_removed':
+                $this->applyRuntimeBattlefieldStackMemberRemoved($snapshot, $payload);
+
+                return true;
+
+            case 'battlefield.stack.dissolved':
+                $this->applyRuntimeBattlefieldStackDissolved($snapshot, $payload);
+
+                return true;
+
             case 'helper.created':
                 $this->applyRuntimeHelperCreated($snapshot, $event, $payload);
 
@@ -1061,6 +1083,9 @@ final class GameEventReplayService
             return;
         }
         $card['controllerId'] = $controllerId;
+        if (is_array($payload['dissolvedBattlefieldStack'] ?? null)) {
+            $this->removeRuntimeBattlefieldStack($snapshot, (string) ($payload['dissolvedBattlefieldStack']['id'] ?? ''));
+        }
         $this->rebuildLoc($snapshot);
     }
 
@@ -1313,6 +1338,18 @@ final class GameEventReplayService
      */
     private function applyRuntimeAttachmentCreated(array &$snapshot, GameEvent $event, array $payload): void
     {
+        if (is_array($payload['attachment'] ?? null)) {
+            $relation = $this->canonicalRuntimeAttachment($payload['attachment']);
+            if ($relation !== null) {
+                $snapshot['attachments'] = array_values(array_filter(
+                    is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : [],
+                    static fn (mixed $attachment): bool => !is_array($attachment)
+                        || (($attachment['id'] ?? null) !== $relation['id'] && ($attachment['equipmentInstanceId'] ?? null) !== $relation['equipmentInstanceId']),
+                ));
+                $this->upsertRuntimeRelation($snapshot, 'attachments', $relation);
+                return;
+            }
+        }
         $id = $this->runtimeRelationId($event, $payload, 'attachment');
         $equipmentInstanceId = is_string($payload['equipmentInstanceId'] ?? null) ? trim($payload['equipmentInstanceId']) : '';
         $attachedToInstanceId = is_string($payload['attachedToInstanceId'] ?? null) ? trim($payload['attachedToInstanceId']) : '';
@@ -1325,8 +1362,13 @@ final class GameEventReplayService
             : ($event->createdBy()?->id() ?? null);
         $relation = [
             'id' => $id,
+            'relationType' => 'attachment',
             'equipmentInstanceId' => $equipmentInstanceId,
             'attachedToInstanceId' => $attachedToInstanceId,
+            'ownerPlayerId' => $ownerId,
+            'order' => max(1, (int) ($payload['order'] ?? 1)),
+            'effectVersion' => max(1, (int) ($payload['effectVersion'] ?? 1)),
+            'createdAtVersion' => max(0, (int) ($payload['createdAtVersion'] ?? 0)),
             'createdAt' => is_string($payload['createdAt'] ?? null) && trim($payload['createdAt']) !== ''
                 ? trim($payload['createdAt'])
                 : $event->createdAt()->format(DATE_ATOM),
@@ -1347,6 +1389,9 @@ final class GameEventReplayService
      */
     private function applyRuntimeAttachmentRemoved(array &$snapshot, array $payload): void
     {
+        if (is_array($payload['position'] ?? null)) {
+            $this->applyRuntimeCardPositionChanged($snapshot, $payload);
+        }
         $id = is_string($payload['id'] ?? null) ? trim($payload['id']) : '';
         $equipmentInstanceId = is_string($payload['equipmentInstanceId'] ?? null) ? trim($payload['equipmentInstanceId']) : '';
         if ($id === '' && $equipmentInstanceId === '') {
@@ -1361,6 +1406,123 @@ final class GameEventReplayService
                     && ($equipmentInstanceId === '' || ($attachment['equipmentInstanceId'] ?? null) !== $equipmentInstanceId)
                 ),
         ));
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function applyRuntimeAttachmentReordered(array &$snapshot, array $payload): void
+    {
+        $canonical = [];
+        foreach (is_array($payload['attachments'] ?? null) ? $payload['attachments'] : [] as $attachment) {
+            if (is_array($attachment) && ($relation = $this->canonicalRuntimeAttachment($attachment)) !== null) {
+                $canonical[] = $relation;
+            }
+        }
+        if ($canonical !== []) {
+            foreach ($canonical as $relation) {
+                $this->upsertRuntimeRelation($snapshot, 'attachments', $relation);
+            }
+            return;
+        }
+
+        $targetId = is_string($payload['attachedToInstanceId'] ?? null) ? trim($payload['attachedToInstanceId']) : '';
+        $orderedIds = $this->stringList($payload['orderedAttachmentIds'] ?? []);
+        if ($targetId === '' || $orderedIds === []) {
+            return;
+        }
+        $orders = array_flip($orderedIds);
+        foreach ($snapshot['attachments'] as &$attachment) {
+            $id = is_array($attachment) ? (string) ($attachment['id'] ?? '') : '';
+            if (is_array($attachment) && ($attachment['attachedToInstanceId'] ?? null) === $targetId && isset($orders[$id])) {
+                $attachment['order'] = $orders[$id] + 1;
+            }
+        }
+        unset($attachment);
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function applyRuntimeBattlefieldStackSet(array &$snapshot, array $payload): void
+    {
+        $stack = is_array($payload['stack'] ?? null) ? $payload['stack'] : $payload;
+        $id = is_string($stack['id'] ?? null) ? trim($stack['id']) : (is_string($stack['stackId'] ?? null) ? trim($stack['stackId']) : '');
+        $root = is_string($stack['rootInstanceId'] ?? null) ? trim($stack['rootInstanceId']) : '';
+        $members = $this->stringList($stack['orderedMemberIds'] ?? $stack['orderedInstanceIds'] ?? []);
+        if ($id === '' || $root === '' || count($members) < 2 || !in_array($root, $members, true) || count($members) !== count(array_unique($members))) {
+            return;
+        }
+        $existing = [];
+        foreach (is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [] as $candidate) {
+            if (is_array($candidate) && (string) ($candidate['id'] ?? '') === $id) {
+                $existing = $candidate;
+                break;
+            }
+        }
+        $this->upsertRuntimeRelation($snapshot, 'battlefieldStacks', [
+            ...$existing,
+            'id' => $id,
+            'relationType' => 'battlefield_stack',
+            'rootInstanceId' => $root,
+            'orderedMemberIds' => $members,
+            'stackKind' => is_string($stack['stackKind'] ?? null) ? $stack['stackKind'] : ($existing['stackKind'] ?? 'land'),
+            'createdByPlayerId' => $stack['createdByPlayerId'] ?? $payload['actorPlayerId'] ?? $existing['createdByPlayerId'] ?? null,
+            'effectVersion' => max(1, (int) ($stack['effectVersion'] ?? $payload['effectVersion'] ?? 1)),
+            'createdAtVersion' => max(0, (int) ($stack['createdAtVersion'] ?? 0)),
+        ]);
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function applyRuntimeBattlefieldStackMemberRemoved(array &$snapshot, array $payload): void
+    {
+        $this->applyRuntimeCardPositionChanged($snapshot, $payload);
+        if (is_array($payload['stack'] ?? null)) {
+            $this->applyRuntimeBattlefieldStackSet($snapshot, $payload);
+        } else {
+            $this->removeRuntimeBattlefieldStack($snapshot, (string) ($payload['stackId'] ?? ''));
+        }
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function applyRuntimeBattlefieldStackDissolved(array &$snapshot, array $payload): void
+    {
+        $this->applyRuntimeCardsPositionChanged($snapshot, $payload);
+        $this->removeRuntimeBattlefieldStack($snapshot, (string) ($payload['stackId'] ?? ''));
+    }
+
+    private function removeRuntimeBattlefieldStack(array &$snapshot, string $stackId): void
+    {
+        $stackId = trim($stackId);
+        if ($stackId === '') {
+            return;
+        }
+        $snapshot['battlefieldStacks'] = array_values(array_filter(
+            is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [],
+            static fn (mixed $stack): bool => !is_array($stack) || (string) ($stack['id'] ?? $stack['stackId'] ?? '') !== $stackId,
+        ));
+    }
+
+    /** @param array<string,mixed> $attachment @return array<string,mixed>|null */
+    private function canonicalRuntimeAttachment(array $attachment): ?array
+    {
+        $id = is_string($attachment['id'] ?? null) ? trim($attachment['id']) : '';
+        $sourceValue = $attachment['equipmentInstanceId'] ?? $attachment['sourceInstanceId'] ?? $attachment['sourceId'] ?? null;
+        $targetValue = $attachment['attachedToInstanceId'] ?? $attachment['targetInstanceId'] ?? $attachment['targetId'] ?? null;
+        $source = is_string($sourceValue) ? trim($sourceValue) : '';
+        $target = is_string($targetValue) ? trim($targetValue) : '';
+        if ($id === '' || $source === '' || $target === '' || $source === $target) {
+            return null;
+        }
+
+        return array_filter([
+            'id' => $id,
+            'relationType' => 'attachment',
+            'equipmentInstanceId' => $source,
+            'attachedToInstanceId' => $target,
+            'ownerPlayerId' => $attachment['ownerPlayerId'] ?? $attachment['ownerId'] ?? null,
+            'ownerId' => $attachment['ownerId'] ?? $attachment['ownerPlayerId'] ?? null,
+            'order' => max(1, (int) ($attachment['order'] ?? 1)),
+            'effectVersion' => max(1, (int) ($attachment['effectVersion'] ?? 1)),
+            'createdAtVersion' => max(0, (int) ($attachment['createdAtVersion'] ?? 0)),
+            'createdAt' => $attachment['createdAt'] ?? null,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
     }
 
     /**
@@ -1845,6 +2007,37 @@ final class GameEventReplayService
                 }
                 return;
 
+            case 'card.position.set':
+                $this->applyRuntimeCardPositionChanged($snapshot, $operation);
+                return;
+
+            case 'cards.position.set':
+                $this->applyRuntimeCardsPositionChanged($snapshot, $operation);
+                return;
+
+            case 'attachment.set':
+                if (is_array($operation['attachment'] ?? null) && ($attachment = $this->canonicalRuntimeAttachment($operation['attachment'])) !== null) {
+                    $this->upsertRuntimeRelation($snapshot, 'attachments', $attachment);
+                }
+                return;
+
+            case 'attachment.remove':
+                $this->applyRuntimeAttachmentRemoved($snapshot, $operation);
+                return;
+
+            case 'attachment.order.set':
+                $this->applyRuntimeAttachmentReordered($snapshot, $operation);
+                return;
+
+            case 'battlefield.stack.set':
+            case 'battlefield.stack.order.set':
+                $this->applyRuntimeBattlefieldStackSet($snapshot, $operation);
+                return;
+
+            case 'battlefield.stack.remove':
+                $this->removeRuntimeBattlefieldStack($snapshot, (string) ($operation['id'] ?? $operation['stackId'] ?? ''));
+                return;
+
             case 'card.counters.patch':
                 $card =& $this->locateCard($snapshot, (string) ($operation['instanceId'] ?? ''));
                 if (!is_array($card)) {
@@ -1902,6 +2095,8 @@ final class GameEventReplayService
                         is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : [],
                         static fn (mixed $attachment): bool => !is_array($attachment) || (string) ($attachment['id'] ?? '') !== $id,
                     ));
+                } elseif ($kind === 'battlefield_stack') {
+                    $this->removeRuntimeBattlefieldStack($snapshot, $id);
                 }
                 return;
 
@@ -2126,6 +2321,27 @@ final class GameEventReplayService
                     && (string) ($attachment['attachedToInstanceId'] ?? $attachment['targetId'] ?? '') !== $instanceId
                 ),
         ));
+        $normalizedStacks = [];
+        foreach (is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : [] as $stack) {
+            if (!is_array($stack)) {
+                continue;
+            }
+            $members = $this->stringList($stack['orderedMemberIds'] ?? []);
+            if (!in_array($instanceId, $members, true)) {
+                $normalizedStacks[] = $stack;
+                continue;
+            }
+            $remaining = array_values(array_filter($members, static fn (string $memberId): bool => $memberId !== $instanceId));
+            if (count($remaining) < 2) {
+                continue;
+            }
+            $stack['orderedMemberIds'] = $remaining;
+            if (($stack['rootInstanceId'] ?? null) === $instanceId) {
+                $stack['rootInstanceId'] = $remaining[0];
+            }
+            $normalizedStacks[] = $stack;
+        }
+        $snapshot['battlefieldStacks'] = $normalizedStacks;
     }
 
     /**

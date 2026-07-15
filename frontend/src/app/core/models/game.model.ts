@@ -31,7 +31,7 @@ export type MulliganPlayerStatus = 'DECIDING' | 'BOTTOMING' | 'SCRYING' | 'READY
 export interface GameCardPixelPosition {
   x: number;
   y: number;
-  unit?: undefined;
+  unit?: 'px';
 }
 
 export interface GameCardRatioPosition {
@@ -92,6 +92,12 @@ export type GameCommandType =
   | 'arrow.removed'
   | 'attachment.created'
   | 'attachment.removed'
+  | 'attachment.reordered'
+  | 'battlefield.stack.created'
+  | 'battlefield.stack.member_added'
+  | 'battlefield.stack.member_removed'
+  | 'battlefield.stack.reordered'
+  | 'battlefield.stack.dissolved'
   | 'helper.created'
   | 'helper.updated'
   | 'helper.removed'
@@ -273,10 +279,27 @@ export interface GameArrow {
 
 export interface GameAttachment {
   id: string;
+  relationType?: 'attachment';
   ownerId?: string;
+  ownerPlayerId?: string;
   equipmentInstanceId: string;
   attachedToInstanceId: string;
+  order?: number;
+  effectVersion?: number;
+  createdAtVersion?: number;
   createdAt: string;
+}
+
+/** Visual battlefield grouping; deliberately distinct from GameStackItem. */
+export interface GameBattlefieldStack {
+  id: string;
+  relationType: 'battlefield_stack';
+  rootInstanceId: string;
+  orderedMemberIds: string[];
+  stackKind: 'land' | 'generic';
+  createdByPlayerId?: string | null;
+  effectVersion: number;
+  createdAtVersion?: number;
 }
 
 export interface GameSpecialEntityCardRef {
@@ -376,6 +399,7 @@ export interface GameSnapshot {
   stack: GameStackItem[];
   arrows: GameArrow[];
   attachments?: GameAttachment[];
+  battlefieldStacks?: GameBattlefieldStack[];
   specialEntities?: GameSpecialEntity[];
   chat: ChatMessage[];
   eventLog: GameLogEntry[];

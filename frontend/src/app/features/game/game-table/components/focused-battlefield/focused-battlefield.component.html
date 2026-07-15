@@ -57,6 +57,7 @@
       [loyaltyValue]="cardLoyaltyValue()(card)"
       [counter]="firstCounter()(card)"
       [countersEditable]="isCurrentPlayer()(focusedPlayer.id)"
+      [responsiveState]="responsiveState()"
       [landStackRole]="stackView?.role ?? null"
       [landStackLayer]="stackView?.layer ?? null"
       [landStackSize]="stackView?.size ?? null"
@@ -99,6 +100,20 @@
   @if (activeAlignmentGuide; as guide) {
     <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
   }
+  @if (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id)) {
+    <app-mana-pool-panel
+      class="mana-pool-panel-anchor"
+      [pool]="manaPool()(focusedPlayer.id)"
+      [backgroundName]="focusedPlayer.state.backgroundName"
+      [colorIdentity]="focusedPlayer.state.colorIdentity ?? []"
+      [pendingColors]="pendingManaColors()"
+      [responsiveState]="responsiveState()"
+      (colorAdded)="manaPoolColorAdded.emit({ playerId: focusedPlayer.id, color: $event })"
+      (colorRemoved)="manaPoolColorRemoved.emit({ playerId: focusedPlayer.id, color: $event })"
+      (hidden)="manaPoolHidden.emit({ playerId: focusedPlayer.id })"
+      (menuOpened)="manaPoolMenuOpened.emit({ event: $event, playerId: focusedPlayer.id })"
+    />
+  }
   <div
     class="mana-lane"
     [class.drag-over]="isManaLaneHighlighted()(focusedPlayer.id)"
@@ -110,18 +125,5 @@
     (drop)="manaLaneDropped.emit({ event: $event, playerId: focusedPlayer.id })"
     [attr.aria-label]="'game.focusedBattlefield.manaRow' | runtimeTranslate"
   >
-    @if (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id)) {
-      <app-mana-pool-panel
-        class="mana-pool-panel-anchor"
-        [pool]="manaPool()(focusedPlayer.id)"
-        [backgroundName]="focusedPlayer.state.backgroundName"
-        [colorIdentity]="focusedPlayer.state.colorIdentity ?? []"
-        [pendingColors]="pendingManaColors()"
-        (colorAdded)="manaPoolColorAdded.emit({ playerId: focusedPlayer.id, color: $event })"
-        (colorRemoved)="manaPoolColorRemoved.emit({ playerId: focusedPlayer.id, color: $event })"
-        (hidden)="manaPoolHidden.emit({ playerId: focusedPlayer.id })"
-        (menuOpened)="manaPoolMenuOpened.emit({ event: $event, playerId: focusedPlayer.id })"
-      />
-    }
   </div>
 </div>

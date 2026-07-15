@@ -64,6 +64,12 @@ func DefaultAppliers() []Applier {
 		ArrowRemovedApplier{},
 		AttachmentCreatedApplier{},
 		AttachmentRemovedApplier{},
+		AttachmentReorderedApplier{},
+		BattlefieldStackCreatedApplier{},
+		BattlefieldStackMemberAddedApplier{},
+		BattlefieldStackMemberRemovedApplier{},
+		BattlefieldStackReorderedApplier{},
+		BattlefieldStackDissolvedApplier{},
 		HelperCreatedApplier{},
 		HelperUpdatedApplier{},
 		HelperRemovedApplier{},
@@ -353,25 +359,56 @@ func (CardPositionChangedApplier) Apply(_ context.Context, game *state.GameState
 	if err != nil {
 		return nil, err
 	}
-	position, ok := command.Payload["position"].(map[string]any)
-	if !ok || position == nil {
-		return nil, fmt.Errorf("%w: position", ErrMissingPayloadField)
+	if _, stack, stacked := state.NewRelationsOps().BattlefieldStackForInstance(game, instanceID); stacked && stack.RootInstanceID != instanceID {
+		return nil, &RelationValidationError{Code: RelationCodeMemberMoveAmbiguous, CommandType: command.Type, InstanceID: instanceID}
 	}
 	instance, location, err := instanceAt(game, instanceID, state.ZoneBattlefield)
 	if err != nil {
 		return nil, err
 	}
+	if _, exists := command.Payload["playerId"]; exists {
+		playerID, playerErr := stringField(command.Payload, "playerId")
+		if playerErr != nil {
+			return nil, playerErr
+		}
+		if playerID != location.PlayerID {
+			return nil, &AuthorizationError{
+				Code:        AuthorizationCodeZoneMismatch,
+				CommandType: command.Type,
+				InstanceID:  instanceID,
+			}
+		}
+	}
+	if rawZone, exists := command.Payload["zone"]; exists {
+		zone, zoneOK := rawZone.(string)
+		if !zoneOK || state.Zone(zone) != location.Zone {
+			return nil, &AuthorizationError{
+				Code:        AuthorizationCodeZoneMismatch,
+				CommandType: command.Type,
+				InstanceID:  instanceID,
+			}
+		}
+	}
+	position, err := canonicalRatioPosition(command.Payload["position"], command.Type, instanceID, 0)
+	if err != nil {
+		return nil, err
+	}
+	previousPosition := cloneMap(instance.Position)
 	instance.Position = cloneMap(position)
 	game.Instances[instanceID] = instance
 	patch := map[string]any{
-		"instanceId": instanceID,
-		"playerId":   location.PlayerID,
-		"zone":       location.Zone,
-		"position":   cloneMap(position),
+		"effectVersion": PositionContractEffectVersion,
+		"instanceId":    instanceID,
+		"playerId":      location.PlayerID,
+		"zone":          location.Zone,
+		"position":      cloneMap(position),
 	}
-	emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: patch})
-	patch["metrics"] = battlefieldMetrics(start, emitter)
-	return patch, nil
+	emitter.EmitPublic(protocol.PatchOp{Op: "card.position.set", Data: patch})
+	eventPayload := positionEventPayload(instanceID, previousPosition, position)
+	eventPayload["playerId"] = location.PlayerID
+	eventPayload["zone"] = location.Zone
+	eventPayload["metrics"] = battlefieldMetrics(start, emitter)
+	return eventPayload, nil
 }
 
 func instanceAt(game *state.GameState, instanceID string, expectedZone state.Zone) (state.CardInstanceRuntime, state.Location, error) {

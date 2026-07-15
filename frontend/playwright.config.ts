@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const manualBrowserZoomQa = process.env['E2E_MANUAL_BROWSER_ZOOM'] === '1';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -14,14 +16,23 @@ export default defineConfig({
   },
   use: {
     baseURL: 'http://127.0.0.1:4200',
-    trace: 'retain-on-failure',
+    trace: manualBrowserZoomQa ? 'off' : 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: manualBrowserZoomQa ? 'off' : 'retain-on-failure',
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: manualBrowserZoomQa ? {
+          args: [
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+          ],
+        } : undefined,
+      },
     },
   ],
 });

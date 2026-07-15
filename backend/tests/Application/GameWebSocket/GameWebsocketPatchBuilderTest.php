@@ -208,6 +208,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
 
         self::assertSame([[
             'op' => 'card.position.set',
+            'effectVersion' => 1,
             'playerId' => $actor->id(),
             'zone' => 'battlefield',
             'instanceId' => 'battlefield-1',
@@ -254,6 +255,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
 
         self::assertSame([[
             'op' => 'cards.position.set',
+            'effectVersion' => 1,
             'playerId' => $actor->id(),
             'zone' => 'battlefield',
             'positions' => [
@@ -1117,7 +1119,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
             'attachedToInstanceId' => 'battlefield-2',
         ], 'action-attachment-add');
 
-        self::assertSame('attachment.add', $attachment['operations'][0]['op']);
+        self::assertSame('attachment.set', $attachment['operations'][0]['op']);
         self::assertSame($actor->id(), $attachment['operations'][0]['attachment']['ownerId']);
         self::assertSame('battlefield-1', $attachment['operations'][0]['attachment']['equipmentInstanceId']);
 

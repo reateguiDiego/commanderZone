@@ -301,6 +301,7 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
       return { status: 'applied', snapshot: { ...snapshot, arrows: [...operation.arrows] } };
 
     case 'attachment.add':
+    case 'attachment.set':
       return addAttachment(snapshot, operation.attachment);
 
     case 'attachment.remove':
@@ -308,6 +309,33 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
 
     case 'attachments.set':
       return { status: 'applied', snapshot: { ...snapshot, attachments: [...operation.attachments] } };
+
+    case 'attachment.order.set':
+      return setSnapshotAttachmentOrder(snapshot, operation.attachedToInstanceId, operation.orderedAttachmentIds);
+
+    case 'battlefield.stack.set':
+      return setSnapshotBattlefieldStack(snapshot, operation.stack);
+
+    case 'battlefield.stack.remove':
+      return {
+        status: 'applied',
+        snapshot: { ...snapshot, battlefieldStacks: (snapshot.battlefieldStacks ?? []).filter((stack) => stack.id !== operation.id) },
+      };
+
+    case 'battlefield.stacks.set':
+      return { status: 'applied', snapshot: { ...snapshot, battlefieldStacks: operation.stacks.map((stack) => ({ ...stack, orderedMemberIds: [...stack.orderedMemberIds] })) } };
+
+    case 'battlefield.stack.order.set': {
+      const stack = (snapshot.battlefieldStacks ?? []).find((candidate) => candidate.id === operation.stackId);
+      if (!stack || !sameSnapshotIdSet(stack.orderedMemberIds, operation.orderedInstanceIds) || !operation.orderedInstanceIds.includes(operation.rootInstanceId)) {
+        return { status: 'failed', reason: 'invalid_operation' };
+      }
+      return setSnapshotBattlefieldStack(snapshot, {
+        ...stack,
+        rootInstanceId: operation.rootInstanceId,
+        orderedMemberIds: [...operation.orderedInstanceIds],
+      });
+    }
 
     case 'specialEntity.add':
       return {
@@ -341,6 +369,48 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
     default:
       return { status: 'failed', reason: 'invalid_operation' };
   }
+}
+
+function setSnapshotAttachmentOrder(snapshot: GameSnapshot, targetId: string, orderedIds: readonly string[]): OperationResult {
+  const related = (snapshot.attachments ?? []).filter((attachment) => attachment.attachedToInstanceId === targetId);
+  if (!sameSnapshotIdSet(related.map((attachment) => attachment.id), orderedIds)) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+  const order = new Map(orderedIds.map((id, index) => [id, index + 1]));
+  return {
+    status: 'applied',
+    snapshot: {
+      ...snapshot,
+      attachments: (snapshot.attachments ?? []).map((attachment) => attachment.attachedToInstanceId === targetId
+        ? { ...attachment, order: order.get(attachment.id) }
+        : attachment),
+    },
+  };
+}
+
+function setSnapshotBattlefieldStack(snapshot: GameSnapshot, stack: NonNullable<GameSnapshot['battlefieldStacks']>[number]): OperationResult {
+  const members = [...stack.orderedMemberIds];
+  if (members.length < 2 || new Set(members).size !== members.length || !members.includes(stack.rootInstanceId)) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+  const membersSet = new Set(members);
+  if ((snapshot.battlefieldStacks ?? []).some((candidate) => candidate.id !== stack.id && candidate.orderedMemberIds.some((id) => membersSet.has(id)))) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+  return {
+    status: 'applied',
+    snapshot: {
+      ...snapshot,
+      battlefieldStacks: [
+        ...(snapshot.battlefieldStacks ?? []).filter((candidate) => candidate.id !== stack.id),
+        { ...stack, orderedMemberIds: members },
+      ],
+    },
+  };
+}
+
+function sameSnapshotIdSet(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && new Set(left).size === left.length && left.every((id) => right.includes(id));
 }
 
 function specialEntities(snapshot: GameSnapshot): GameSpecialEntity[] {

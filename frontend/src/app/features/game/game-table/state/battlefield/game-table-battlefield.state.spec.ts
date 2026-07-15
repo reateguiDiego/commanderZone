@@ -134,6 +134,47 @@ describe('GameTableBattlefieldState', () => {
     expect(state.cardPosition(currentSnapshot.players['player-1']!.zones.battlefield[0]!)).toEqual({ x: 180, y: 20 });
   });
 
+  it('measures a transferred card in its owner battlefield instead of the controller battlefield', () => {
+    const transferred = {
+      ...card('card-1', 'Transferred Card', { x: 1, y: 1, unit: 'ratio' }),
+      controllerId: 'player-2',
+    };
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+      </section>
+      <section class="battlefield" data-player-id="player-2"></section>
+    `;
+    const cardElement = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
+    Object.defineProperty(cardElement, 'offsetWidth', { configurable: true, value: 120 });
+    Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 180 });
+    state.setLayoutSize({ width: 300, height: 200 });
+
+    expect(state.cardPosition(transferred)).toEqual({ x: 180, y: 20 });
+  });
+
+  it('never rewrites a canonical ratio during repeated resize reflow', () => {
+    const canonical = { x: 0.42123456789, y: 0.68123456789, unit: 'ratio' } as const;
+    currentSnapshot = snapshot({ hand: [], battlefield: [card('card-1', 'Stable Card', canonical)] });
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+      </section>
+    `;
+    const battlefield = document.querySelector<HTMLElement>('.battlefield')!;
+    const cardElement = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
+    Object.defineProperty(cardElement, 'offsetWidth', { configurable: true, value: 111 });
+    Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 157 });
+
+    for (const [width, height] of [[900, 520], [640, 420], [1200, 700], [900, 520]]) {
+      Object.defineProperty(battlefield, 'clientWidth', { configurable: true, value: width });
+      Object.defineProperty(battlefield, 'clientHeight', { configurable: true, value: height });
+      state.reflowBattlefieldCardPositions(context());
+    }
+
+    expect(currentSnapshot?.players['player-1']?.zones.battlefield[0]?.position).toEqual(canonical);
+  });
+
   it('queues the final battlefield position persist callback and keeps the optimistic ratio position local', async () => {
     currentSnapshot = snapshot({
       hand: [],
@@ -188,6 +229,64 @@ describe('GameTableBattlefieldState', () => {
     expect(persist).toHaveBeenCalledTimes(1);
   });
 
+  it('does not accept legacy pixels or malformed ratio values as new optimistic writes', () => {
+    currentSnapshot = snapshot({ hand: [], battlefield: [card('card-1', 'Stable Card', { x: 0.1, y: 0.2, unit: 'ratio' })] });
+
+    expect(state.tryQueueBattlefieldPositionCommand(context(), 'game-1', {
+      playerId: 'player-1', zone: 'battlefield', instanceId: 'card-1', position: { x: 20, y: 30 },
+    }, vi.fn())).toBe(false);
+    expect(state.tryQueueBattlefieldPositionCommand(context(), 'game-1', {
+      playerId: 'player-1', zone: 'battlefield', instanceId: 'card-1', position: { x: 1.2, y: 0.3, unit: 'ratio' },
+    }, vi.fn())).toBe(false);
+  });
+
+  it('rolls back every locally moved card to its exact pre-drag position when a batch write is rejected', async () => {
+    currentSnapshot = snapshot({
+      hand: [],
+      battlefield: [
+        card('card-1', 'First', { x: 0.123456789, y: 0.234567891, unit: 'ratio' }),
+        card('card-2', 'Second', { x: 0.345678912, y: 0.456789123, unit: 'ratio' }),
+      ],
+    });
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+        <div data-testid="game-card" data-card-instance-id="card-2"></div>
+      </section>
+    `;
+    const battlefield = document.querySelector<HTMLElement>('.battlefield')!;
+    Object.defineProperty(battlefield, 'clientWidth', { configurable: true, value: 1000 });
+    Object.defineProperty(battlefield, 'clientHeight', { configurable: true, value: 800 });
+    for (const cardElement of document.querySelectorAll<HTMLElement>('[data-card-instance-id]')) {
+      Object.defineProperty(cardElement, 'offsetWidth', { configurable: true, value: 100 });
+      Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 200 });
+    }
+    const localContext = context();
+    const setError = vi.fn();
+    const rollbackContext = { ...localContext, setError };
+    state.updateLocalCardPosition(rollbackContext, 'player-1', 'card-1', { x: 540, y: 360 });
+    state.updateLocalCardPosition(rollbackContext, 'player-1', 'card-2', { x: 630, y: 420 });
+    const rejectedPositions = currentSnapshot!.players['player-1']!.zones.battlefield.map((item) => item.position);
+    const persist = vi.fn(async () => {
+      throw new Error('POSITION_OUT_OF_RANGE');
+    });
+
+    expect(state.tryQueueBattlefieldPositionCommand(rollbackContext, 'game-1', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      positions: [
+        { instanceId: 'card-1', position: rejectedPositions[0] },
+        { instanceId: 'card-2', position: rejectedPositions[1] },
+      ],
+    }, persist)).toBe(true);
+
+    await vi.waitFor(() => expect(setError).toHaveBeenCalledWith('error'));
+    expect(currentSnapshot?.players['player-1']?.zones.battlefield.map((item) => item.position)).toEqual([
+      { x: 0.123456789, y: 0.234567891, unit: 'ratio' },
+      { x: 0.345678912, y: 0.456789123, unit: 'ratio' },
+    ]);
+  });
+
   it('normalizes local drag pixels to ratio without carrying zoom state into the command payload', () => {
     document.body.innerHTML = `
       <section class="battlefield" data-player-id="player-1">
@@ -239,6 +338,9 @@ function snapshot(options: {
   battlefield: GameCardInstance[];
   zoneCounts?: Partial<Record<'hand' | 'battlefield', number>>;
 }): GameSnapshot {
+  const landIds = options.battlefield
+    .filter((candidate) => /\bland\b/i.test(candidate.typeLine ?? ''))
+    .map((candidate) => candidate.instanceId);
   return {
     version: 1,
     ownerId: 'player-1',
@@ -251,6 +353,14 @@ function snapshot(options: {
     chat: [],
     eventLog: [],
     createdAt: '2026-05-19T00:00:00+00:00',
+    battlefieldStacks: landIds.length >= 2 ? [{
+      id: 'stack-1',
+      relationType: 'battlefield_stack',
+      rootInstanceId: landIds[0]!,
+      orderedMemberIds: landIds,
+      stackKind: 'land',
+      effectVersion: 1,
+    }] : [],
   };
 }
 

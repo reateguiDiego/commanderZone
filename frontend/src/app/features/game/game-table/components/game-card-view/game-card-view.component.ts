@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, ElementRef, OnChanges, OnDestroy, computed, inject, input, output, signal, type WritableSignal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnChanges, OnDestroy, computed, inject, input, output, signal, type WritableSignal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardDungeonMarker, GameCardInstance, GameCardStatValue, GamePowerToughnessValue, GameZoneName } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
@@ -18,6 +18,8 @@ import { MTGIconComponent } from '../../../../../shared/mtg/mtg-icon/mtg-icon.co
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
 import { isBattleCard, isDayNightCard, isGameplayCardTapLocked, isMonarchCard, isSagaCard } from '../../utils/gameplay-card-kind';
+import { resolveCardCounterLayout, type CardCounterRelationRole } from '../../utils/card-counter-layout';
+import { type GameTableResponsiveState } from '../../utils/game-table-responsive-state';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
@@ -100,10 +102,10 @@ interface DungeonMarkerDragPoint {
     MTGIconComponent,
   ],
   templateUrl: './game-card-view.component.html',
-  styleUrls: ['./game-card-view.component.scss', './game-card-view-effects.scss'],
+  styleUrls: ['./game-card-view.component.scss', './game-card-view-effects.scss', './game-card-view-counter-responsive.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameCardViewComponent implements OnChanges, OnDestroy {
+export class GameCardViewComponent implements AfterViewInit, OnChanges, OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly defaultHoverLiftDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
   private readonly singleStatPulseMs = 420;
@@ -138,6 +140,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private optimisticDungeonMarkerInstanceId: string | null = null;
   private readonly faceFlipAnimationMs = 620;
   private readonly previewPointerMoveHandler = (event: PointerEvent): void => this.syncPreviewPointerBounds(event);
+  private counterLayoutResizeObserver: ResizeObserver | null = null;
 
   readonly mode = input.required<GameCardViewMode>();
   readonly card = input.required<GameCardInstance>();
@@ -190,6 +193,9 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly loyaltyValue = input<GameCardStatValue>(null);
   readonly counter = input<CardCounterView | null>(null);
   readonly countersEditable = input(true);
+  readonly responsiveState = input<GameTableResponsiveState>('normal');
+  readonly renderedCardSize = signal({ width: 116, height: 162 });
+  readonly counterAvailableRect = signal({ width: 116, height: 162 });
   readonly handDepth = computed(() => `${Math.min(Math.max(0, this.handIndex() ?? 0), Math.max(0, (this.handCount() ?? 1) - 1))}`);
   readonly handFanRotationDeg = computed(() => {
     const distance = this.handFanDistance();
@@ -232,6 +238,28 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
     return counters.length > 0 ? counters : this.counter() ? [this.counter()!] : [];
   });
+  readonly counterRelationRole = computed<CardCounterRelationRole>(() => {
+    if (this.landStackRole() === 'top') {
+      return 'stack-root';
+    }
+    if (this.landStackRole() === 'under') {
+      return 'stack-member';
+    }
+    if (this.attachmentStackRole() !== null) {
+      return 'attachment';
+    }
+
+    return 'independent';
+  });
+  readonly counterLayout = computed(() => resolveCardCounterLayout({
+    cardWidth: this.renderedCardSize().width,
+    cardHeight: this.renderedCardSize().height,
+    counterCount: this.visibleCounters().length,
+    responsiveState: this.responsiveState(),
+    tapped: this.card().tapped === true || this.battleRotated(),
+    relationRole: this.counterRelationRole(),
+    availableRect: this.counterAvailableRect(),
+  }));
 
   readonly cardPointerDown = output<CardPointerEvent>();
   readonly cardClicked = output<CardMouseEvent>();
@@ -285,6 +313,11 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
   readonly battleRotated = computed(() => !this.faceDown() && isBattleCard(this.card()));
   readonly showRulingsMarker = computed(() => this.rulingsMarkerEligible() && this.card().hasRulings === true);
+  readonly hasCardMarkers = computed(() => (
+    this.visibleCounters().length > 0
+    || this.card().isTokenCopy === true
+    || this.showRulingsMarker()
+  ));
   readonly dungeonMarkerPosition = computed(() => this.draggingDungeonMarker() ?? this.optimisticDungeonMarkerForCurrentCard() ?? dungeonMarkerForCard(this.card()));
   readonly showDungeonMarker = computed(() => (
     this.mode() === 'battlefield'
@@ -353,13 +386,53 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.syncOptimisticDungeonMarker();
   }
 
+  ngAfterViewInit(): void {
+    this.measureCounterLayout();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const card = this.cardElement();
+    if (!card) {
+      return;
+    }
+
+    this.counterLayoutResizeObserver = new ResizeObserver(() => this.measureCounterLayout());
+    this.counterLayoutResizeObserver.observe(card);
+    const battlefield = card.closest<HTMLElement>('.battlefield');
+    if (battlefield) {
+      this.counterLayoutResizeObserver.observe(battlefield);
+    }
+  }
+
   ngOnDestroy(): void {
+    this.counterLayoutResizeObserver?.disconnect();
+    this.counterLayoutResizeObserver = null;
     this.clearHoverLiftTimer();
     this.clearStatPulseTimers();
     this.clearStatOverlayArrivalTimer();
     this.clearFaceFlipTimer();
     this.clearDungeonMarkerDrag();
     this.stopPreviewBoundsWatcher();
+  }
+
+  private measureCounterLayout(): void {
+    const card = this.cardElement();
+    if (!card) {
+      return;
+    }
+
+    const bounds = card.getBoundingClientRect();
+    const width = Math.max(1, Math.round(card.offsetWidth || bounds.width || 116));
+    const height = Math.max(1, Math.round(card.offsetHeight || bounds.height || 162));
+    this.renderedCardSize.set({ width, height });
+
+    const battlefield = card.closest<HTMLElement>('.battlefield');
+    const battlefieldBounds = battlefield?.getBoundingClientRect();
+    this.counterAvailableRect.set({
+      width: Math.max(width, Math.round(battlefield?.clientWidth || battlefieldBounds?.width || width)),
+      height: Math.max(height, Math.round(battlefield?.clientHeight || battlefieldBounds?.height || height)),
+    });
   }
 
   fallbackLabel(): string {

@@ -92,6 +92,7 @@
     [class.land-stack-drop-target]="landStackDropTarget()"
     [class.attachment-stack-drop-target]="landStackDropTarget() && landStackDropKind() === 'attachment'"
     [class.face-down]="faceDown()"
+    [class.has-card-markers]="hasCardMarkers()"
     [class.hand-motion-active]="motionActive()"
     [class.hand-drop-before]="handClass('before')"
     [class.hand-drop-after]="handClass('after')"
@@ -146,16 +147,17 @@
         }
       </span>
     }
+    <app-card-marker-rail
+      [showTokenCopyMarker]="currentCard.isTokenCopy === true"
+      [showRulingsMarker]="showRulingsMarker()"
+      [counters]="visibleCounters()"
+      [countersInteractive]="countersEditable()"
+      [layout]="counterLayout()"
+      (rulingsRequested)="openRulings($event)"
+      (counterChanged)="changeCounter($event)"
+      (counterDeleteRequested)="requestCounterDelete($event)"
+    />
     <span class="card-visual">
-      <app-card-marker-rail
-        [showTokenCopyMarker]="currentCard.isTokenCopy === true"
-        [showRulingsMarker]="showRulingsMarker()"
-        [counters]="visibleCounters()"
-        [countersInteractive]="countersEditable()"
-        (rulingsRequested)="openRulings($event)"
-        (counterChanged)="changeCounter($event)"
-        (counterDeleteRequested)="requestCounterDelete($event)"
-      />
       @if (image(); as cardImage) {
         <img [src]="cardImage" [alt]="currentCard.name" draggable="false" />
       } @else if (monarchCard()) {

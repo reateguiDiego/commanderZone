@@ -371,7 +371,7 @@ export class GameTableBattlefieldDragCoordinatorService {
       return null;
     }
 
-    const groups = buildLandStackGroups(battlefield, (card) => context.cardPosition(card));
+    const groups = buildLandStackGroups(battlefield, context.snapshot()?.battlefieldStacks ?? [], (card) => context.cardPosition(card));
     const attachmentGroups = buildAttachmentStackGroups(
       battlefield,
       context.snapshot()?.attachments ?? [],

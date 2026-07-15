@@ -19,7 +19,7 @@ describe('attachment stack layout', () => {
     );
 
     expect(moves).toEqual([
-      { instanceId: 'equipment', position: { x: 110, y: 62 } },
+      { instanceId: 'equipment', position: { x: 109.86, y: 62.18 } },
     ]);
   });
 
@@ -36,9 +36,9 @@ describe('attachment stack layout', () => {
     );
 
     expect(moves).toEqual([
-      { instanceId: 'equipment-a', position: { x: 110, y: 62 } },
-      { instanceId: 'equipment-b', position: { x: 120, y: 44 } },
-      { instanceId: 'equipment-c', position: { x: 130, y: 26 } },
+      { instanceId: 'equipment-a', position: { x: 109.86, y: 62.18 } },
+      { instanceId: 'equipment-b', position: { x: 119.72, y: 44.36 } },
+      { instanceId: 'equipment-c', position: { x: 129.58, y: 26.54 } },
     ]);
   });
 
@@ -62,9 +62,9 @@ describe('attachment stack layout', () => {
     );
 
     expect(moves).toEqual([
-      { instanceId: 'equipment-b', position: { x: 110, y: 62 } },
-      { instanceId: 'equipment-c', position: { x: 310, y: 62 } },
-      { instanceId: 'equipment-a', position: { x: 320, y: 44 } },
+      { instanceId: 'equipment-b', position: { x: 109.86, y: 62.18 } },
+      { instanceId: 'equipment-c', position: { x: 309.86, y: 62.18 } },
+      { instanceId: 'equipment-a', position: { x: 319.72, y: 44.36 } },
     ]);
   });
 
@@ -84,8 +84,8 @@ describe('attachment stack layout', () => {
     const source = attachmentStackDetachSource('player-1', attachments, group, 'equipment-b')!;
 
     expect(detachAttachmentStackMoves(source)).toEqual([
-      { instanceId: 'equipment-a', position: { x: 110, y: 62 } },
-      { instanceId: 'equipment-c', position: { x: 120, y: 44 } },
+      { instanceId: 'equipment-a', position: { x: 109.86, y: 62.18 } },
+      { instanceId: 'equipment-c', position: { x: 119.72, y: 44.36 } },
     ]);
   });
 
@@ -106,6 +106,7 @@ describe('attachment stack layout', () => {
     const target = attachmentDropTarget(
       [card('equipment', 90, 78), card('target', 100, 80)],
       [],
+      [],
       'equipment',
       { x: 90, y: 78 },
       positionFor,
@@ -119,12 +120,14 @@ describe('attachment stack layout', () => {
     const lightEdgeTarget = attachmentDropTarget(
       [card('equipment', 193, 80), card('target', 100, 80)],
       [],
+      [],
       'equipment',
       { x: 193, y: 80 },
       positionFor,
     );
     const deliberateTarget = attachmentDropTarget(
       [card('equipment', 169, 80), card('target', 100, 80)],
+      [],
       [],
       'equipment',
       { x: 169, y: 80 },
@@ -139,6 +142,7 @@ describe('attachment stack layout', () => {
     const target = attachmentDropTarget(
       [card('equipment-new', 90, 50), card('target', 100, 80), card('equipment-a', 100, 62)],
       [attachment('attachment-a', 'equipment-a', 'target')],
+      [],
       'equipment-new',
       { x: 90, y: 50 },
       positionFor,
@@ -152,10 +156,11 @@ describe('attachment stack layout', () => {
     const sourceTarget = card('source-target', 90, 78);
     const target = card('target', 100, 80);
 
-    expect(attachmentDropTarget([land, target], [], land.instanceId, { x: 90, y: 78 }, positionFor)).toBeNull();
+    expect(attachmentDropTarget([land, target], [], [], land.instanceId, { x: 90, y: 78 }, positionFor)).toBeNull();
     expect(attachmentDropTarget(
       [sourceTarget, target, card('attached-card', 90, 64)],
       [attachment('attachment-a', 'attached-card', 'source-target')],
+      [],
       sourceTarget.instanceId,
       { x: 90, y: 78 },
       positionFor,
@@ -170,10 +175,10 @@ describe('attachment stack layout', () => {
     const equipment = card('equipment', 90, 78);
     const target = card('target', 100, 80);
 
-    expect(attachmentDropTarget([sourceEmblem, target], [], sourceEmblem.instanceId, { x: 90, y: 78 }, positionFor)).toBeNull();
-    expect(attachmentDropTarget([equipment, targetEmblem], [], equipment.instanceId, { x: 100, y: 80 }, positionFor)).toBeNull();
-    expect(attachmentDropTarget([sourceDungeon, target], [], sourceDungeon.instanceId, { x: 90, y: 78 }, positionFor)).toBeNull();
-    expect(attachmentDropTarget([equipment, targetDungeon], [], equipment.instanceId, { x: 100, y: 80 }, positionFor)).toBeNull();
+    expect(attachmentDropTarget([sourceEmblem, target], [], [], sourceEmblem.instanceId, { x: 90, y: 78 }, positionFor)).toBeNull();
+    expect(attachmentDropTarget([equipment, targetEmblem], [], [], equipment.instanceId, { x: 100, y: 80 }, positionFor)).toBeNull();
+    expect(attachmentDropTarget([sourceDungeon, target], [], [], sourceDungeon.instanceId, { x: 90, y: 78 }, positionFor)).toBeNull();
+    expect(attachmentDropTarget([equipment, targetDungeon], [], [], equipment.instanceId, { x: 100, y: 80 }, positionFor)).toBeNull();
   });
 
   it('allows The Ring as an attachment source when it is stored as the front face', () => {
@@ -184,7 +189,7 @@ describe('attachment stack layout', () => {
       scryfallId: '7215460e-8c06-47d0-94e5-d1832d0218af',
     };
     const target = card('target', 100, 80);
-    const dropTarget = attachmentDropTarget([sourceRing, target], [], sourceRing.instanceId, { x: 90, y: 78 }, positionFor);
+    const dropTarget = attachmentDropTarget([sourceRing, target], [], [], sourceRing.instanceId, { x: 90, y: 78 }, positionFor);
 
     expect(dropTarget?.targetCard.instanceId).toBe('target');
   });
@@ -199,6 +204,14 @@ describe('attachment stack layout', () => {
     expect(attachmentDropTarget(
       targetStack,
       [],
+      [{
+        id: 'stack-1',
+        relationType: 'battlefield_stack',
+        rootInstanceId: 'target',
+        orderedMemberIds: ['target', 'target-under'],
+        stackKind: 'land',
+        effectVersion: 1,
+      }],
       'equipment',
       { x: 300, y: 80 },
       positionFor,

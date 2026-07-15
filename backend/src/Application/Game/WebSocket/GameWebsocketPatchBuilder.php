@@ -107,8 +107,14 @@ final readonly class GameWebsocketPatchBuilder
             'stack.item_removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'stack', 'stack.item.add', 'stack.item.remove', 'stack.set', 'item', 'stack'),
             'arrow.created' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'arrows', 'arrow.add', 'arrow.remove', 'arrows.set', 'arrow', 'arrows'),
             'arrow.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'arrows', 'arrow.add', 'arrow.remove', 'arrows.set', 'arrow', 'arrows'),
-            'attachment.created' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
-            'attachment.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
+            'attachment.created' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.set', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
+            'attachment.removed' => $this->attachmentRemoved($previousSnapshot, $nextSnapshot, $payload),
+            'attachment.reordered' => $this->attachmentOrderChanged($previousSnapshot, $nextSnapshot, $payload),
+            'battlefield.stack.created',
+            'battlefield.stack.member_added' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'battlefieldStacks', 'battlefield.stack.set', 'battlefield.stack.remove', 'battlefield.stacks.set', 'stack', 'stacks'),
+            'battlefield.stack.member_removed' => $this->battlefieldStackMemberRemoved($previousSnapshot, $nextSnapshot, $payload),
+            'battlefield.stack.reordered' => $this->battlefieldStackOrderChanged($previousSnapshot, $nextSnapshot, $payload),
+            'battlefield.stack.dissolved' => $this->battlefieldStackDissolved($previousSnapshot, $nextSnapshot, $payload),
             'helper.created' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.updated' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.removed' => $this->helperChanged($previousSnapshot, $nextSnapshot),
@@ -396,6 +402,7 @@ final readonly class GameWebsocketPatchBuilder
 
         return [[
             'op' => 'card.position.set',
+            'effectVersion' => 1,
             'playerId' => $playerId,
             'zone' => $zone,
             'instanceId' => $instanceId,
@@ -465,6 +472,7 @@ final readonly class GameWebsocketPatchBuilder
 
         return [[
             'op' => 'cards.position.set',
+            'effectVersion' => 1,
             'playerId' => $playerId,
             'zone' => $zone,
             'positions' => $positions,
@@ -1209,8 +1217,9 @@ final readonly class GameWebsocketPatchBuilder
     private function withSharedMovementOperations(array $previousSnapshot, array $nextSnapshot, array $operations): ?array
     {
         $arrowOperations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'arrows', 'arrow.add', 'arrow.remove', 'arrows.set', 'arrow', 'arrows');
-        $attachmentOperations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments');
-        if ($arrowOperations === null || $attachmentOperations === null) {
+        $attachmentOperations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.set', 'attachment.remove', 'attachments.set', 'attachment', 'attachments');
+        $battlefieldStackOperations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'battlefieldStacks', 'battlefield.stack.set', 'battlefield.stack.remove', 'battlefield.stacks.set', 'stack', 'stacks');
+        if ($arrowOperations === null || $attachmentOperations === null || $battlefieldStackOperations === null) {
             return null;
         }
 
@@ -1218,6 +1227,7 @@ final readonly class GameWebsocketPatchBuilder
             ...$operations,
             ...$arrowOperations,
             ...$attachmentOperations,
+            ...$battlefieldStackOperations,
             ...$this->zoneCountOperations($previousSnapshot, $nextSnapshot),
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
@@ -1245,6 +1255,148 @@ final readonly class GameWebsocketPatchBuilder
             ...$operations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
+    }
+
+    /** @param array<string,mixed> $payload @return list<array<string,mixed>>|null */
+    private function attachmentRemoved(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    {
+        $operations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.set', 'attachment.remove', 'attachments.set', 'attachment', 'attachments');
+        if ($operations === null) {
+            return null;
+        }
+
+        $position = $this->relationCardPositionOperation($previousSnapshot, $nextSnapshot, $payload);
+
+        return [
+            ...$operations,
+            ...($position === null ? [] : [$position]),
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
+    }
+
+    /** @param array<string,mixed> $payload @return list<array<string,mixed>>|null */
+    private function battlefieldStackMemberRemoved(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    {
+        $operations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'battlefieldStacks', 'battlefield.stack.set', 'battlefield.stack.remove', 'battlefield.stacks.set', 'stack', 'stacks');
+        if ($operations === null) {
+            return null;
+        }
+
+        $position = $this->relationCardPositionOperation($previousSnapshot, $nextSnapshot, $payload);
+        if ($position === null) {
+            return null;
+        }
+
+        return [...$operations, $position, ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot)];
+    }
+
+    /** @param array<string,mixed> $payload @return list<array<string,mixed>>|null */
+    private function battlefieldStackDissolved(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    {
+        $operations = $this->collectionDiffOperations($previousSnapshot, $nextSnapshot, 'battlefieldStacks', 'battlefield.stack.set', 'battlefield.stack.remove', 'battlefield.stacks.set', 'stack', 'stacks');
+        $positionOperation = $this->relationCardsPositionOperation($previousSnapshot, $nextSnapshot, $payload);
+        if ($operations === null || $positionOperation === null) {
+            return null;
+        }
+
+        return [...$operations, $positionOperation, ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot)];
+    }
+
+    /** @param array<string,mixed> $payload @return array<string,mixed>|null */
+    private function relationCardPositionOperation(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    {
+        $instanceId = $this->payloadString($payload, 'instanceId');
+        $position = $payload['position'] ?? null;
+        if ($instanceId === null || !is_array($position)) {
+            return null;
+        }
+        $playerId = $this->nextCardPlayerId($nextSnapshot, $instanceId) ?? $this->nextCardPlayerId($previousSnapshot, $instanceId);
+        if ($playerId === null) {
+            return null;
+        }
+
+        return [
+            'op' => 'card.position.set',
+            'effectVersion' => 1,
+            'playerId' => $playerId,
+            'zone' => 'battlefield',
+            'instanceId' => $instanceId,
+            'position' => $position,
+        ];
+    }
+
+    /** @param array<string,mixed> $payload @return array<string,mixed>|null */
+    private function relationCardsPositionOperation(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    {
+        $rawPositions = $payload['positions'] ?? null;
+        if (!is_array($rawPositions) || $rawPositions === []) {
+            return null;
+        }
+        $positions = [];
+        $playerId = null;
+        foreach ($rawPositions as $entry) {
+            if (!is_array($entry) || !is_array($entry['position'] ?? null)) {
+                return null;
+            }
+            $instanceId = $this->payloadString($entry, 'instanceId');
+            if ($instanceId === null) {
+                return null;
+            }
+            $entryPlayerId = $this->nextCardPlayerId($nextSnapshot, $instanceId) ?? $this->nextCardPlayerId($previousSnapshot, $instanceId);
+            if ($entryPlayerId === null || ($playerId !== null && $entryPlayerId !== $playerId)) {
+                return null;
+            }
+            $playerId = $entryPlayerId;
+            $positions[] = ['instanceId' => $instanceId, 'position' => $entry['position']];
+        }
+
+        return [
+            'op' => 'cards.position.set',
+            'effectVersion' => 1,
+            'playerId' => $playerId,
+            'zone' => 'battlefield',
+            'positions' => $positions,
+        ];
+    }
+
+    /** @param array<string,mixed> $payload @return list<array<string,mixed>>|null */
+    private function attachmentOrderChanged(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    {
+        $targetId = is_string($payload['attachedToInstanceId'] ?? null) ? trim($payload['attachedToInstanceId']) : '';
+        $orderedIds = array_values(array_filter(
+            is_array($payload['orderedAttachmentIds'] ?? null) ? $payload['orderedAttachmentIds'] : [],
+            static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
+        ));
+        if ($targetId === '' || $orderedIds === []) {
+            return $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.set', 'attachment.remove', 'attachments.set', 'attachment', 'attachments');
+        }
+
+        return [[
+            'op' => 'attachment.order.set',
+            'attachedToInstanceId' => $targetId,
+            'orderedAttachmentIds' => $orderedIds,
+        ], ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot)];
+    }
+
+    /** @param array<string,mixed> $payload @return list<array<string,mixed>>|null */
+    private function battlefieldStackOrderChanged(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    {
+        $stackId = is_string($payload['stackId'] ?? null) ? trim($payload['stackId']) : '';
+        $rootId = is_string($payload['rootInstanceId'] ?? null) ? trim($payload['rootInstanceId']) : '';
+        $orderedIds = array_values(array_filter(
+            is_array($payload['orderedInstanceIds'] ?? null) ? $payload['orderedInstanceIds'] : [],
+            static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
+        ));
+        if ($stackId === '' || $rootId === '' || $orderedIds === []) {
+            return $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'battlefieldStacks', 'battlefield.stack.set', 'battlefield.stack.remove', 'battlefield.stacks.set', 'stack', 'stacks');
+        }
+
+        return [[
+            'op' => 'battlefield.stack.order.set',
+            'stackId' => $stackId,
+            'rootInstanceId' => $rootId,
+            'orderedInstanceIds' => $orderedIds,
+        ], ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot)];
     }
 
     /**

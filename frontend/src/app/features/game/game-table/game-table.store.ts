@@ -1580,7 +1580,7 @@ export class GameTableStore implements OnDestroy {
       playerId,
       zone: 'battlefield',
       instanceId: card.instanceId,
-      position,
+      position: this.battlefieldState.ratioPositionForBattlefield(playerId, card.instanceId, position),
     });
   }
 

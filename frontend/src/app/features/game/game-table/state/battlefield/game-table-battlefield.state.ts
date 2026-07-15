@@ -1,11 +1,13 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { GameCardInstance, GameCardPosition, GameSnapshot } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GameCardRatioPosition, GameSnapshot } from '../../../../../core/models/game.model';
 import {
   BattlefieldSize,
   DEFAULT_BATTLEFIELD_CARD_SIZE,
   DEFAULT_BATTLEFIELD_SIZE,
   isRatioPosition,
+  logicalRatioToRenderedPosition,
   ratioBattlefieldPosition,
+  resolveBattlefieldContentRect,
   sameBattlefieldPosition,
 } from '../../utils/battlefield-position';
 import { BattlefieldPositionBatchCommand, BattlefieldPositionCommand, ViewportClampedBattlefieldPosition } from '../../models/game-table-battlefield.model';
@@ -34,10 +36,17 @@ interface MeasuredBattlefieldCard {
   readonly cardSize: { width: number; height: number };
 }
 
+interface BattlefieldPositionOrigin {
+  readonly playerId: string;
+  readonly instanceId: string;
+  readonly position?: GameCardPosition;
+}
+
 @Injectable()
 export class GameTableBattlefieldState {
   private battlefieldPositionQueue: Promise<void> = Promise.resolve();
   private readonly optimisticBattlefieldPositions = new Map<string, BattlefieldPositionCommand>();
+  private readonly localBattlefieldPositionOrigins = new Map<string, BattlefieldPositionOrigin>();
   private readonly viewportClampedBattlefieldPositions = new Map<string, ViewportClampedBattlefieldPosition>();
   private readonly battlefieldDrag = inject(GameTableBattlefieldDragCoordinatorService);
   private readonly selectors = inject(GameTableSnapshotSelectors);
@@ -45,7 +54,7 @@ export class GameTableBattlefieldState {
   readonly layoutSize = signal<BattlefieldSize>(DEFAULT_BATTLEFIELD_SIZE);
 
   cardPosition(card: GameCardInstance): { x: number; y: number } | null {
-    const playerId = card.controllerId ?? card.ownerId ?? '';
+    const playerId = card.ownerId ?? card.controllerId ?? '';
     const cardSize = isRatioPosition(card.position)
       ? this.battlefieldCardSize(playerId, card.instanceId)
       : undefined;
@@ -117,7 +126,7 @@ export class GameTableBattlefieldState {
         measuredCards.get(card.instanceId)?.sourcePosition ?? null;
       const processed = new Set<string>();
 
-      for (const group of buildLandStackGroups(sourceCards, sourcePositionFor)) {
+      for (const group of buildLandStackGroups(sourceCards, snapshot.battlefieldStacks ?? [], sourcePositionFor)) {
         for (const member of group.members) {
           processed.add(member.card.instanceId);
           this.viewportClampedBattlefieldPositions.delete(this.battlefieldPositionKey({ playerId, instanceId: member.card.instanceId }));
@@ -164,17 +173,8 @@ export class GameTableBattlefieldState {
 
     if (isRatioPosition(measured.card.position)) {
       this.viewportClampedBattlefieldPositions.delete(positionKey);
-      const ratioPosition = ratioBattlefieldPosition(nextPosition, bounds, measured.cardSize);
-      if (sameBattlefieldPosition(measured.card.position, ratioPosition)) {
-        return nextSnapshot;
-      }
-
-      nextSnapshot ??= structuredClone(snapshot);
-      const nextCard = nextSnapshot.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === measured.card.instanceId);
-      if (nextCard) {
-        nextCard.position = ratioPosition;
-      }
-
+      // Ratio is shared logical state. Resize/zoom reflow changes only the
+      // rendered transform and must never rewrite or round the canonical value.
       return nextSnapshot;
     }
 
@@ -213,6 +213,14 @@ export class GameTableBattlefieldState {
     const next = structuredClone(snapshot);
     const card = next.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === instanceId);
     if (card) {
+      const key = this.battlefieldPositionKey({ playerId, instanceId });
+      if (!this.localBattlefieldPositionOrigins.has(key)) {
+        this.localBattlefieldPositionOrigins.set(key, {
+          playerId,
+          instanceId,
+          ...(card.position ? { position: structuredClone(card.position) } : {}),
+        });
+      }
       card.position = this.ratioPositionForBattlefield(playerId, instanceId, position);
       context.setSnapshot(next);
     }
@@ -359,7 +367,7 @@ export class GameTableBattlefieldState {
     instanceId: string,
     position: { x: number; y: number },
     rawZone?: string,
-  ): GameCardPosition {
+  ): GameCardRatioPosition {
     const snapped = rawZone === 'mana'
       ? position
       : this.battlefieldDrag.positionWithAlignmentGuide(
@@ -373,8 +381,16 @@ export class GameTableBattlefieldState {
     return this.ratioPositionForBattlefield(playerId, instanceId, snapped);
   }
 
-  ratioPositionForBattlefield(playerId: string, instanceId: string, position: { x: number; y: number }): GameCardPosition {
+  ratioPositionForBattlefield(playerId: string, instanceId: string, position: { x: number; y: number }): GameCardRatioPosition {
     return ratioBattlefieldPosition(
+      position,
+      this.battlefieldElementSize(playerId),
+      this.battlefieldCardSize(playerId, instanceId),
+    );
+  }
+
+  renderedPositionForBattlefield(playerId: string, instanceId: string, position: GameCardRatioPosition): { x: number; y: number } {
+    return logicalRatioToRenderedPosition(
       position,
       this.battlefieldElementSize(playerId),
       this.battlefieldCardSize(playerId, instanceId),
@@ -388,24 +404,70 @@ export class GameTableBattlefieldState {
   ): Promise<void> {
     try {
       await persist();
-      this.clearOptimisticBattlefieldPositions(positionBatch);
+      this.confirmOptimisticBattlefieldPositions(positionBatch);
     } catch (error) {
-      this.clearOptimisticBattlefieldPositions(positionBatch);
+      this.rollbackOptimisticBattlefieldPositions(context, positionBatch);
       context.setError(context.errorMessage(error));
     }
   }
 
-  private clearOptimisticBattlefieldPositions(positionBatch: BattlefieldPositionBatchCommand): void {
+  private confirmOptimisticBattlefieldPositions(positionBatch: BattlefieldPositionBatchCommand): void {
     for (const positionCommand of positionBatch.positions) {
-      this.clearOptimisticBattlefieldPosition(positionCommand);
+      const key = this.battlefieldPositionKey(positionCommand);
+      const current = this.optimisticBattlefieldPositions.get(key);
+      if (current && this.samePosition(current.position, positionCommand.position)) {
+        this.optimisticBattlefieldPositions.delete(key);
+        this.localBattlefieldPositionOrigins.delete(key);
+      } else if (current) {
+        // A newer drag is already queued. Its exact rollback target is the
+        // position that this command has just made authoritative.
+        this.localBattlefieldPositionOrigins.set(key, {
+          playerId: positionCommand.playerId,
+          instanceId: positionCommand.instanceId,
+          position: structuredClone(positionCommand.position),
+        });
+      } else {
+        this.localBattlefieldPositionOrigins.delete(key);
+      }
     }
   }
 
-  private clearOptimisticBattlefieldPosition(positionCommand: BattlefieldPositionCommand): void {
-    const key = this.battlefieldPositionKey(positionCommand);
-    const current = this.optimisticBattlefieldPositions.get(key);
-    if (current && this.samePosition(current.position, positionCommand.position)) {
+  private rollbackOptimisticBattlefieldPositions(
+    context: GameTableBattlefieldContext,
+    positionBatch: BattlefieldPositionBatchCommand,
+  ): void {
+    const snapshot = context.snapshot();
+    let nextSnapshot: GameSnapshot | null = null;
+    for (const positionCommand of positionBatch.positions) {
+      const key = this.battlefieldPositionKey(positionCommand);
+      const current = this.optimisticBattlefieldPositions.get(key);
+      if (!current || !this.samePosition(current.position, positionCommand.position)) {
+        continue;
+      }
+
       this.optimisticBattlefieldPositions.delete(key);
+      const origin = this.localBattlefieldPositionOrigins.get(key);
+      this.localBattlefieldPositionOrigins.delete(key);
+      if (!snapshot || !origin) {
+        continue;
+      }
+
+      nextSnapshot ??= structuredClone(snapshot);
+      const card = nextSnapshot.players[origin.playerId]?.zones.battlefield.find(
+        (candidate) => candidate.instanceId === origin.instanceId,
+      );
+      if (!card) {
+        continue;
+      }
+      if (origin.position) {
+        card.position = structuredClone(origin.position);
+      } else {
+        delete card.position;
+      }
+    }
+
+    if (nextSnapshot) {
+      context.setSnapshot(nextSnapshot);
     }
   }
 
@@ -448,7 +510,7 @@ export class GameTableBattlefieldState {
     return { playerId, positions: normalized };
   }
 
-  private positionPayload(value: unknown): GameCardPosition | null {
+  private positionPayload(value: unknown): GameCardRatioPosition | null {
     if (!value || typeof value !== 'object') {
       return null;
     }
@@ -459,13 +521,16 @@ export class GameTableBattlefieldState {
       || !Number.isFinite(candidate.x)
       || typeof candidate.y !== 'number'
       || !Number.isFinite(candidate.y)
+      || candidate.x < 0
+      || candidate.x > 1
+      || candidate.y < 0
+      || candidate.y > 1
+      || candidate.unit !== 'ratio'
     ) {
       return null;
     }
 
-    return candidate.unit === 'ratio'
-      ? { x: candidate.x, y: candidate.y, unit: 'ratio' }
-      : { x: candidate.x, y: candidate.y };
+    return { x: candidate.x, y: candidate.y, unit: 'ratio' };
   }
 
   private stringPayload(payload: Record<string, unknown>, key: string): string | null {
@@ -511,11 +576,11 @@ export class GameTableBattlefieldState {
   }
 
   private battlefieldLayoutBounds(battlefield: HTMLElement): BattlefieldSize {
-    const bounds = battlefield.getBoundingClientRect();
+    const bounds = resolveBattlefieldContentRect(battlefield);
 
     return {
-      width: Math.round(battlefield.clientWidth || bounds.width),
-      height: Math.round(battlefield.clientHeight || bounds.height),
+      width: bounds.width,
+      height: bounds.height,
     };
   }
 

@@ -120,7 +120,7 @@ describe('GameTableHandState', () => {
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceIds: ['hand-land'],
-      position: { x: 110, y: 182, unit: 'ratio' },
+      position: { x: 100, y: 200, unit: 'ratio' },
     });
     expect(commandCalls[0]).toEqual({
       type: 'card.moved',
@@ -130,7 +130,15 @@ describe('GameTableHandState', () => {
         toZone: 'battlefield',
         targetPlayerId: 'player-1',
         instanceId: 'hand-land',
-        position: { x: 110, y: 182, unit: 'ratio' },
+        position: { x: 100, y: 200, unit: 'ratio' },
+      },
+    });
+    expect(commandCalls[1]).toEqual({
+      type: 'battlefield.stack.created',
+      payload: {
+        rootInstanceId: 'battlefield-land',
+        orderedInstanceIds: ['battlefield-land', 'hand-land'],
+        stackKind: 'land',
       },
     });
   });
@@ -150,7 +158,7 @@ describe('GameTableHandState', () => {
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceIds: ['hand-land'],
-      position: { x: 120, y: 164, unit: 'ratio' },
+      position: { x: 100, y: 200, unit: 'ratio' },
     });
     expect(commandCalls[0]).toEqual({
       type: 'card.moved',
@@ -160,8 +168,12 @@ describe('GameTableHandState', () => {
         toZone: 'battlefield',
         targetPlayerId: 'player-1',
         instanceId: 'hand-land',
-        position: { x: 120, y: 164, unit: 'ratio' },
+        position: { x: 100, y: 200, unit: 'ratio' },
       },
+    });
+    expect(commandCalls[1]).toEqual({
+      type: 'battlefield.stack.member_added',
+      payload: { stackId: 'stack-1', instanceId: 'hand-land' },
     });
   });
 
@@ -180,7 +192,7 @@ describe('GameTableHandState', () => {
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceIds: ['hand-land'],
-      position: { x: 120, y: 164, unit: 'ratio' },
+      position: { x: 100, y: 200, unit: 'ratio' },
     });
   });
 
@@ -197,7 +209,7 @@ describe('GameTableHandState', () => {
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceIds: ['hand-equipment'],
-      position: { x: 110, y: 182, unit: 'ratio' },
+      position: { x: 100, y: 200, unit: 'ratio' },
     });
     expect(commandCalls).toEqual([
       {
@@ -208,7 +220,7 @@ describe('GameTableHandState', () => {
           toZone: 'battlefield',
           targetPlayerId: 'player-1',
           instanceId: 'hand-equipment',
-          position: { x: 110, y: 182, unit: 'ratio' },
+          position: { x: 100, y: 200, unit: 'ratio' },
         },
       },
       {
@@ -268,6 +280,8 @@ describe('GameTableHandState', () => {
 });
 
 function snapshot(hand: GameCardInstance[], battlefield: GameCardInstance[] = []): GameSnapshot {
+  const explicitStackIds = ['stack-top', 'stack-under'].filter((instanceId) =>
+    battlefield.some((candidate) => candidate.instanceId === instanceId));
   return {
     version: 1,
     ownerId: 'player-1',
@@ -280,6 +294,14 @@ function snapshot(hand: GameCardInstance[], battlefield: GameCardInstance[] = []
     chat: [],
     eventLog: [],
     createdAt: '2026-05-19T00:00:00+00:00',
+    battlefieldStacks: explicitStackIds.length >= 2 ? [{
+      id: 'stack-1',
+      relationType: 'battlefield_stack',
+      rootInstanceId: explicitStackIds[0]!,
+      orderedMemberIds: explicitStackIds,
+      stackKind: 'land',
+      effectVersion: 1,
+    }] : [],
   };
 }
 

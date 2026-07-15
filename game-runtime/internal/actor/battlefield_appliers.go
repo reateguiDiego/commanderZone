@@ -43,42 +43,91 @@ func (CardsPositionChangedApplier) Apply(_ context.Context, game *state.GameStat
 		return nil, fmt.Errorf("%w: positions", ErrMissingPayloadField)
 	}
 
-	applied := make([]map[string]any, 0, len(positions))
-	for _, entry := range positions {
+	type validatedPosition struct {
+		instanceID       string
+		instance         state.CardInstanceRuntime
+		location         state.Location
+		previousPosition map[string]any
+		position         map[string]any
+	}
+	validated := make([]validatedPosition, 0, len(positions))
+	seen := make(map[string]struct{}, len(positions))
+	for index, entry := range positions {
 		instanceID, err := stringField(entry, "instanceId")
 		if err != nil {
 			return nil, err
 		}
-		position, ok := entry["position"].(map[string]any)
-		if !ok || position == nil {
-			return nil, fmt.Errorf("%w: position", ErrMissingPayloadField)
+		if _, exists := seen[instanceID]; exists {
+			return nil, duplicatePositionError(command.Type, instanceID, index)
 		}
+		seen[instanceID] = struct{}{}
 		instance, location, err := instanceAt(game, instanceID, state.ZoneBattlefield)
 		if err != nil {
 			return nil, err
 		}
+		if _, stack, stacked := state.NewRelationsOps().BattlefieldStackForInstance(game, instanceID); stacked && stack.RootInstanceID != instanceID {
+			return nil, &RelationValidationError{Code: RelationCodeMemberMoveAmbiguous, CommandType: command.Type, InstanceID: instanceID, Index: index}
+		}
+		if location.PlayerID != playerID {
+			return nil, &AuthorizationError{
+				Code:        AuthorizationCodeZoneMismatch,
+				CommandType: command.Type,
+				InstanceID:  instanceID,
+				Index:       index,
+			}
+		}
+		position, err := canonicalRatioPosition(entry["position"], command.Type, instanceID, index)
+		if err != nil {
+			return nil, err
+		}
+		validated = append(validated, validatedPosition{
+			instanceID:       instanceID,
+			instance:         instance,
+			location:         location,
+			previousPosition: cloneMap(instance.Position),
+			position:         position,
+		})
+	}
+
+	applied := make([]map[string]any, 0, len(validated))
+	previousPositions := make([]map[string]any, 0, len(validated))
+	patchPositions := make([]map[string]any, 0, len(validated))
+	for _, entry := range validated {
+		instanceID := entry.instanceID
+		instance := entry.instance
+		position := entry.position
 		instance.Position = cloneMap(position)
 		game.Instances[instanceID] = instance
-		emitter.EmitPublic(protocol.PatchOp{
-			Op: "card.field.set",
-			Data: map[string]any{
-				"instanceId": instanceID,
-				"playerId":   location.PlayerID,
-				"zone":       location.Zone,
-				"position":   cloneMap(position),
-			},
-		})
 		applied = append(applied, map[string]any{
 			"instanceId": instanceID,
 			"position":   cloneMap(position),
 		})
+		previousPositions = append(previousPositions, map[string]any{
+			"instanceId": instanceID,
+			"position":   cloneMap(entry.previousPosition),
+		})
+		patchPositions = append(patchPositions, map[string]any{
+			"instanceId": instanceID,
+			"position":   cloneMap(position),
+		})
 	}
+	emitter.EmitPublic(protocol.PatchOp{
+		Op: "cards.position.set",
+		Data: map[string]any{
+			"effectVersion": PositionContractEffectVersion,
+			"playerId":      playerID,
+			"zone":          state.ZoneBattlefield,
+			"positions":     patchPositions,
+		},
+	})
 
 	return map[string]any{
-		"playerId":  playerID,
-		"zone":      state.ZoneBattlefield,
-		"positions": applied,
-		"metrics":   battlefieldMetrics(start, emitter),
+		"effectVersion":     PositionContractEffectVersion,
+		"playerId":          playerID,
+		"zone":              state.ZoneBattlefield,
+		"previousPositions": previousPositions,
+		"positions":         applied,
+		"metrics":           battlefieldMetrics(start, emitter),
 	}, nil
 }
 

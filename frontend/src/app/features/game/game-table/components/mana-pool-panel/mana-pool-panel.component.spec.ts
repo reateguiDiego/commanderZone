@@ -71,14 +71,14 @@ describe('ManaPoolPanelComponent', () => {
     expect(buttons.some((button) => button.title.includes('Any color'))).toBe(false);
   });
 
-  it('shows off-identity colored mana while its pool amount is positive and hides it again at zero', () => {
+  it('does not expose legacy off-identity mana even while its local amount is positive', () => {
     const fixture = createFixture(
       { W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 },
       null,
       ['U'],
     );
 
-    expect(colorButtonTitles(fixture)).toContain('White mana');
+    expect(colorButtonTitles(fixture)).not.toContain('White mana');
     expect(colorButtonTitles(fixture)).toContain('Blue mana');
 
     fixture.componentRef.setInput('pool', { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
@@ -89,7 +89,7 @@ describe('ManaPoolPanelComponent', () => {
     expect(colorButtonTitles(fixture)).toContain('Colorless mana');
   });
 
-  it('shows off-identity colored mana while it has a pending comet target', () => {
+  it('does not add off-identity colors for pending effects', () => {
     const fixture = createFixture(
       { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
       null,
@@ -97,7 +97,7 @@ describe('ManaPoolPanelComponent', () => {
       ['U'],
     );
 
-    expect(colorButtonTitles(fixture)).toContain('Blue mana');
+    expect(colorButtonTitles(fixture)).not.toContain('Blue mana');
     expect(colorButtonTitles(fixture)).toContain('Green mana');
 
     fixture.componentRef.setInput('pendingColors', []);
@@ -105,6 +105,43 @@ describe('ManaPoolPanelComponent', () => {
 
     expect(colorButtonTitles(fixture)).not.toContain('Blue mana');
     expect(colorButtonTitles(fixture)).toContain('Green mana');
+  });
+
+  it.each([
+    { identity: ['W'], titles: ['White mana', 'Colorless mana'] },
+    { identity: ['U', 'R'], titles: ['Blue mana', 'Red mana', 'Colorless mana'] },
+    { identity: ['W', 'U', 'B', 'R', 'G'], titles: ['White mana', 'Blue mana', 'Black mana', 'Red mana', 'Green mana', 'Colorless mana'] },
+    { identity: [], titles: ['Colorless mana'] },
+    { identity: ['invalid'], titles: ['Colorless mana'] },
+  ])('renders only canonical effective identity rows for $identity', ({ identity, titles }) => {
+    const fixture = createFixture({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }, null, identity);
+
+    expect(colorButtonTitles(fixture)).toEqual(titles);
+  });
+
+  it.each(['normal', 'compact', 'aggressive', 'minimal'] as const)('stays vertical and present in %s', (responsiveState) => {
+    const fixture = createFixture({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 100 }, null, ['W']);
+    fixture.componentRef.setInput('responsiveState', responsiveState);
+    fixture.detectChanges();
+
+    const panel = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-testid="mana-helper"]');
+    expect(panel?.dataset['responsiveState']).toBe(responsiveState);
+    expect(panel?.dataset['manaHelperOrientation']).toBe('vertical');
+    expect(panel?.textContent).toContain('100');
+  });
+
+  it('announces current values and supports vertical arrow-key navigation', () => {
+    const fixture = createFixture({ W: 9, U: 10, B: 0, R: 0, G: 0, C: 99 }, null, ['W', 'U']);
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-mana-pool-color]'));
+
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'White mana: 9',
+      'Blue mana: 10',
+      'Colorless mana: 99',
+    ]);
+    buttons[0]?.focus();
+    buttons[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(document.activeElement).toBe(buttons[1]);
   });
 
   it('emits a context menu request from the panel context menu', () => {
@@ -171,9 +208,7 @@ function createFixture(
   fixture.componentRef.setInput('pool', pool);
   fixture.componentRef.setInput('backgroundName', backgroundName);
   fixture.componentRef.setInput('pendingColors', pendingColors);
-  if (colorIdentity) {
-    fixture.componentRef.setInput('colorIdentity', colorIdentity);
-  }
+  fixture.componentRef.setInput('colorIdentity', colorIdentity ?? ['W', 'U', 'B', 'R', 'G']);
   fixture.detectChanges();
 
   return fixture;
@@ -199,5 +234,5 @@ function dispatchPointerDown(target: Element | undefined, pointerType: 'mouse' |
 function colorButtonTitles(fixture: ComponentFixture<ManaPoolPanelComponent>): readonly string[] {
   const poolGrid = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.mana-pool-grid');
 
-  return Array.from(poolGrid?.querySelectorAll('button') ?? []).map((button) => button.title);
+  return Array.from(poolGrid?.querySelectorAll<HTMLButtonElement>('[data-mana-pool-color]') ?? []).map((button) => button.title);
 }

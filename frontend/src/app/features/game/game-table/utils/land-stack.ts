@@ -1,4 +1,4 @@
-import { GameCardInstance } from '../../../../core/models/game.model';
+import { GameBattlefieldStack, GameCardInstance } from '../../../../core/models/game.model';
 import { DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
 
 export type LandStackRole = 'top' | 'under';
@@ -27,7 +27,7 @@ export interface LandStackDropTarget {
   readonly targetCard: GameCardInstance;
   readonly targetPosition: { x: number; y: number };
   readonly targetStack: LandStackGroup | null;
-  readonly nextSize: 2 | 3;
+  readonly nextSize: number;
 }
 
 export interface LandStackLayoutMove {
@@ -36,6 +36,7 @@ export interface LandStackLayoutMove {
 }
 
 export interface LandStackDetachSource {
+  readonly stackId: string;
   readonly playerId: string;
   readonly detachedInstanceId: string;
   readonly members: readonly {
@@ -46,28 +47,12 @@ export interface LandStackDetachSource {
   }[];
 }
 
-const STACK_OFFSET_Y = 18;
-const STACK_OFFSET_X = 10;
-const PREVIOUS_STACK_OFFSET_Y = 28;
-const LEGACY_STACK_OFFSET_Y = 20;
-const STACK_LAYER_OFFSETS = [STACK_OFFSET_Y, PREVIOUS_STACK_OFFSET_Y, LEGACY_STACK_OFFSET_Y] as const;
-const STACK_X_TOLERANCE = 10;
-const STACK_Y_TOLERANCE = 8;
+const STACK_OFFSET_Y_RATIO = 0.11;
+const STACK_OFFSET_X_RATIO = 0.085;
 const DROP_OVERLAP_RATIO = 0.32;
 const REMOVE_STACK_GAP = 14;
 
 type StackableCardKind = 'land';
-
-interface PositionedStackableCard {
-  readonly card: GameCardInstance;
-  readonly position: { x: number; y: number };
-  readonly stackKind: StackableCardKind;
-}
-
-interface StackLayerScore {
-  readonly distance: number;
-  readonly legacyPenalty: number;
-}
 
 export function isLandCard(card: GameCardInstance | null | undefined): boolean {
   return /\bland\b/i.test(card?.typeLine ?? '');
@@ -77,55 +62,46 @@ function stackableCardKind(card: GameCardInstance | null | undefined): Stackable
   return isLandCard(card) ? 'land' : null;
 }
 
-export function landStackOffsetY(): number {
-  return STACK_OFFSET_Y;
+export function landStackOffsetY(cardHeight = DEFAULT_BATTLEFIELD_CARD_SIZE.height): number {
+  return Math.max(1, cardHeight * STACK_OFFSET_Y_RATIO);
 }
 
-export function landStackOffsetX(): number {
-  return STACK_OFFSET_X;
+export function landStackOffsetX(cardWidth = DEFAULT_BATTLEFIELD_CARD_SIZE.width): number {
+  return Math.max(1, cardWidth * STACK_OFFSET_X_RATIO);
 }
 
 export function buildLandStackGroups(
   cards: readonly GameCardInstance[],
+  battlefieldStacks: readonly GameBattlefieldStack[],
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
+  cardSize: { width: number; height: number } = DEFAULT_BATTLEFIELD_CARD_SIZE,
 ): LandStackGroup[] {
-  const lands = cards
-    .map((card) => ({ card, position: positionFor(card), stackKind: stackableCardKind(card) }))
-    .filter((entry): entry is PositionedStackableCard => entry.stackKind !== null && entry.position !== null)
-    .sort((left, right) => right.position.y - left.position.y || left.position.x - right.position.x);
-  const used = new Set<string>();
-  const groups: LandStackGroup[] = [];
+  const cardsById = new Map(cards.map((card) => [card.instanceId, card]));
+  const offsetX = landStackOffsetX(cardSize.width);
+  const offsetY = landStackOffsetY(cardSize.height);
 
-  for (const top of lands) {
-    if (used.has(top.card.instanceId)) {
-      continue;
+  return battlefieldStacks.flatMap((stack): LandStackGroup[] => {
+    const root = cardsById.get(stack.rootInstanceId);
+    const rootPosition = root ? positionFor(root) : null;
+    const orderedIds = [stack.rootInstanceId, ...stack.orderedMemberIds.filter((id) => id !== stack.rootInstanceId)];
+    if (!root || !rootPosition || orderedIds.length < 2 || new Set(orderedIds).size !== orderedIds.length) {
+      return [];
     }
-
-    const firstUnder = nearestStackLayer(lands, top, 1, used);
-    if (!firstUnder) {
-      continue;
-    }
-
-    const usedWithFirstLayer = new Set([...used, firstUnder.card.instanceId]);
-    const secondUnder = nearestStackLayer(lands, top, 2, usedWithFirstLayer);
-    const members: LandStackMember[] = [
-      { card: top.card, position: top.position, layer: 0, role: 'top' },
-      { card: firstUnder.card, position: firstUnder.position, layer: 1, role: 'under' },
-      ...(secondUnder ? [{ card: secondUnder.card, position: secondUnder.position, layer: 2, role: 'under' } satisfies LandStackMember] : []),
-    ];
-
-    for (const member of members) {
-      used.add(member.card.instanceId);
-    }
-
-    groups.push({
-      id: members.map((member) => member.card.instanceId).join(':'),
-      topCard: top.card,
-      members,
-    });
-  }
-
-  return groups;
+    const members = orderedIds.map((instanceId, layer): LandStackMember | null => {
+      const card = cardsById.get(instanceId);
+      return card
+        ? {
+            card,
+            position: { x: rootPosition.x + offsetX * layer, y: rootPosition.y - offsetY * layer },
+            layer,
+            role: layer === 0 ? 'top' : 'under',
+          }
+        : null;
+    }).filter((member): member is LandStackMember => member !== null);
+    return members.length === orderedIds.length
+      ? [{ id: stack.id, topCard: root, members }]
+      : [];
+  });
 }
 
 export function landStackViewFor(groups: readonly LandStackGroup[], instanceId: string): LandStackView | null {
@@ -149,6 +125,7 @@ export function landStackGroupContaining(groups: readonly LandStackGroup[], inst
 
 export function landStackDropTarget(
   cards: readonly GameCardInstance[],
+  battlefieldStacks: readonly GameBattlefieldStack[],
   draggedInstanceId: string,
   draggedPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
@@ -161,7 +138,7 @@ export function landStackDropTarget(
   }
 
   const targetCards = cards.filter((card) => card.instanceId !== draggedInstanceId);
-  const groups = buildLandStackGroups(targetCards, positionFor);
+  const groups = buildLandStackGroups(targetCards, battlefieldStacks, positionFor);
   const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor);
   if (!target || stackableCardKind(target) !== draggedStackKind) {
     return null;
@@ -170,7 +147,7 @@ export function landStackDropTarget(
   const targetStack = landStackGroupContaining(groups, target.instanceId);
   if (targetStack) {
     if (
-      targetStack.members.length >= 3
+      targetStack.members.length >= 8
       || targetStack.members.some((member) => member.card.instanceId === draggedInstanceId)
       || targetStack.members.some((member) => blockedInstanceIds.has(member.card.instanceId))
     ) {
@@ -181,7 +158,7 @@ export function landStackDropTarget(
       targetCard: targetStack.topCard,
       targetPosition: targetStack.members[0]!.position,
       targetStack,
-      nextSize: 3,
+      nextSize: targetStack.members.length + 1,
     };
   }
 
@@ -199,6 +176,7 @@ export function landStackDropTarget(
 
 export function fullLandStackDropTarget(
   cards: readonly GameCardInstance[],
+  battlefieldStacks: readonly GameBattlefieldStack[],
   draggedInstanceId: string,
   draggedPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
@@ -210,10 +188,10 @@ export function fullLandStackDropTarget(
   }
 
   const targetCards = cards.filter((card) => card.instanceId !== draggedInstanceId);
-  const groups = buildLandStackGroups(targetCards, positionFor);
+  const groups = buildLandStackGroups(targetCards, battlefieldStacks, positionFor);
   const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor);
   const targetStack = target ? landStackGroupContaining(groups, target.instanceId) : null;
-  if (!targetStack || stackableCardKind(targetStack.topCard) !== draggedStackKind || targetStack.members.length < 3) {
+  if (!targetStack || stackableCardKind(targetStack.topCard) !== draggedStackKind || targetStack.members.length < 8) {
     return null;
   }
 
@@ -237,15 +215,15 @@ export function createLandStackMoves(
       ...target.targetStack.members.map((member) => ({
         card: member.card,
         position: {
-          x: top.x + STACK_OFFSET_X * member.layer,
-          y: top.y - STACK_OFFSET_Y * member.layer,
+          x: top.x + landStackOffsetX() * member.layer,
+          y: top.y - landStackOffsetY() * member.layer,
         },
       })),
       {
         card: dragged,
         position: {
-          x: top.x + STACK_OFFSET_X * layer,
-          y: top.y - STACK_OFFSET_Y * layer,
+          x: top.x + landStackOffsetX() * layer,
+          y: top.y - landStackOffsetY() * layer,
         },
       },
     ];
@@ -254,8 +232,8 @@ export function createLandStackMoves(
   return [{
     card: dragged,
     position: {
-      x: top.x + STACK_OFFSET_X * layer,
-      y: top.y - STACK_OFFSET_Y * layer,
+      x: top.x + landStackOffsetX() * layer,
+      y: top.y - landStackOffsetY() * layer,
     },
   }];
 }
@@ -295,8 +273,8 @@ export function detachLandStackMoves(source: LandStackDetachSource): readonly { 
   return remaining.map((member, index) => ({
     instanceId: member.instanceId,
     position: {
-      x: top.x + STACK_OFFSET_X * index,
-      y: top.y - STACK_OFFSET_Y * index,
+      x: top.x + landStackOffsetX() * index,
+      y: top.y - landStackOffsetY() * index,
     },
   }));
 }
@@ -308,6 +286,7 @@ export function landStackDetachSource(playerId: string, group: LandStackGroup, d
   }
 
   return {
+    stackId: group.id,
     playerId,
     detachedInstanceId,
     members: group.members.map((member) => ({
@@ -317,53 +296,6 @@ export function landStackDetachSource(playerId: string, group: LandStackGroup, d
       layer: member.layer,
     })),
   };
-}
-
-function nearestStackLayer(
-  lands: readonly PositionedStackableCard[],
-  top: PositionedStackableCard,
-  layer: 1 | 2,
-  used: ReadonlySet<string>,
-): PositionedStackableCard | null {
-  return lands
-    .filter((candidate) =>
-      candidate.stackKind === top.stackKind
-      && candidate.card.instanceId !== top.card.instanceId
-      && !used.has(candidate.card.instanceId))
-    .map((candidate) => ({
-      candidate,
-      dx: nearestLayerXDistance(candidate.position.x, top.position.x, layer),
-      yScore: nearestLayerScore(candidate.position.y, top.position.y, layer),
-    }))
-    .filter((entry) => entry.dx <= STACK_X_TOLERANCE && entry.yScore.distance <= STACK_Y_TOLERANCE)
-    .sort((left, right) =>
-      left.yScore.legacyPenalty - right.yScore.legacyPenalty
-      || left.yScore.distance - right.yScore.distance
-      || left.dx - right.dx,
-    )[0]?.candidate ?? null;
-}
-
-function nearestLayerScore(candidateY: number, topY: number, layer: 1 | 2): StackLayerScore {
-  const currentDistance = Math.min(
-    Math.abs(candidateY - topY),
-    Math.abs(candidateY - (topY - STACK_OFFSET_Y * layer)),
-  );
-  if (currentDistance <= STACK_Y_TOLERANCE) {
-    return { distance: currentDistance, legacyPenalty: 0 };
-  }
-
-  const legacyDistance = Math.min(...STACK_LAYER_OFFSETS
-    .filter((offset) => offset !== STACK_OFFSET_Y)
-    .map((offset) => Math.abs(candidateY - (topY - offset * layer))));
-
-  return { distance: legacyDistance, legacyPenalty: 1 };
-}
-
-function nearestLayerXDistance(candidateX: number, topX: number, layer: 1 | 2): number {
-  return Math.min(
-    Math.abs(candidateX - topX),
-    Math.abs(candidateX - (topX + STACK_OFFSET_X * layer)),
-  );
 }
 
 function bestDropTarget(

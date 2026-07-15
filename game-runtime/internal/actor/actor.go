@@ -357,6 +357,11 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 		command.Client = cloneMap(command.Client)
 		command.Client["playerId"] = request.ActorID
 	}
+	command.Payload = cloneMap(command.Payload)
+	// The authenticated gateway actor is authoritative. Relation events need
+	// this value for durable ownership/audit metadata, but clients may not
+	// spoof it in the command payload.
+	command.Payload["actorPlayerId"] = request.ActorID
 	// Authority must be evaluated against the current recovered state. No
 	// applier, rollback capture, version increment, event append or patch emit
 	// occurs before this full command-level prevalidation succeeds.
@@ -379,6 +384,9 @@ func (a *GameActor) apply(ctx context.Context, request CommandRequest) CommandRe
 	}
 	if eventPayload == nil {
 		eventPayload = map[string]any{}
+	}
+	if command.Type == "card.position.changed" || command.Type == "cards.position.changed" {
+		eventPayload["actorPlayerId"] = request.ActorID
 	}
 	addCommandMetric(eventPayload, "command.runtime_coverage_percent", a.commandRuntimeCoveragePercent())
 	addCommandMetric(eventPayload, "command.unsupported_count", 0)

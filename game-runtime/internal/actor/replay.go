@@ -47,9 +47,13 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayCommanderDamageChangedEvent(game, event)
 	case "card.stats.override.set", "card.stats.override.cleared":
 		return replayCardStatsOverrideEvent(game, event)
-	case "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "card.position.changed", "cards.position.changed", "counter.changed", "card.power_toughness.changed":
+	case "card.position.changed", "cards.position.changed":
+		return replayPositionEvent(game, event)
+	case "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "counter.changed", "card.power_toughness.changed":
 		return replayViaApplier(game, event, appliers)
-	case "card.moved", "cards.moved", "zone.reorderedByIds", "zone.move_all", "battlefield.untap_all":
+	case "card.moved", "cards.moved":
+		return replayMovementEvent(game, event, appliers)
+	case "zone.reorderedByIds", "zone.move_all", "battlefield.untap_all":
 		return replayViaApplier(game, event, appliers)
 	case "library.reveal", "library.play_top_revealed":
 		return replayViaApplier(game, event, appliers)
@@ -57,7 +61,9 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayViaApplier(game, event, appliers)
 	case "stack.card_added", "stack.item_removed":
 		return replayStackEvent(game, event)
-	case "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
+	case "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "attachment.reordered", "helper.created", "helper.updated", "helper.removed":
+		return replayViaApplier(game, event, appliers)
+	case "battlefield.stack.created", "battlefield.stack.member_added", "battlefield.stack.member_removed", "battlefield.stack.reordered", "battlefield.stack.dissolved":
 		return replayViaApplier(game, event, appliers)
 	case "game.concede":
 		if effectVersion, _ := intField(event.Payload, "effectVersion"); effectVersion >= authoritativeLifecycleEffectVersion {
@@ -136,6 +142,116 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 	default:
 		return ReplayEvent(game, event)
 	}
+}
+
+func replayPositionEvent(game *state.GameState, event protocol.EventPayloadV2) error {
+	positions := []map[string]any{}
+	if event.Type == "card.position.changed" {
+		positions = append(positions, event.Payload)
+	} else {
+		rawPositions, ok := event.Payload["positions"].([]any)
+		if !ok {
+			if typed, typedOK := event.Payload["positions"].([]map[string]any); typedOK {
+				positions = append(positions, typed...)
+			} else {
+				return fmt.Errorf("%w: positions", ErrInvalidPayloadField)
+			}
+		} else {
+			for _, raw := range rawPositions {
+				entry, entryOK := raw.(map[string]any)
+				if !entryOK {
+					return fmt.Errorf("%w: positions", ErrInvalidPayloadField)
+				}
+				positions = append(positions, entry)
+			}
+		}
+	}
+	type replayedPosition struct {
+		instanceID string
+		position   map[string]any
+	}
+	validated := make([]replayedPosition, 0, len(positions))
+	for _, entry := range positions {
+		instanceID := optionalString(entry, "instanceId")
+		position, ok := entry["position"].(map[string]any)
+		_, exists := game.Instances[instanceID]
+		if instanceID == "" || !ok || !exists {
+			return fmt.Errorf("%w: instanceId/position", ErrInvalidPayloadField)
+		}
+		validated = append(validated, replayedPosition{instanceID: instanceID, position: position})
+	}
+	for _, entry := range validated {
+		instance := game.Instances[entry.instanceID]
+		instance.Position = cloneMap(entry.position)
+		game.Instances[entry.instanceID] = instance
+	}
+	return nil
+}
+
+// Historical movement events may contain pixel positions without a stable
+// battlefield reference size. Replay keeps those values literal and lets the
+// viewer-only legacy fallback render them until the next canonical movement.
+func replayMovementEvent(game *state.GameState, event protocol.EventPayloadV2, appliers []Applier) error {
+	position, isPosition := event.Payload["position"].(map[string]any)
+	if !isPosition || position == nil || position["unit"] == "ratio" {
+		return replayViaApplier(game, event, appliers)
+	}
+
+	legacyByInstance := legacyMovementPositions(event.Payload, position)
+	replayEvent := event
+	replayEvent.Payload = cloneMap(event.Payload)
+	delete(replayEvent.Payload, "position")
+	if err := replayViaApplier(game, replayEvent, appliers); err != nil {
+		return err
+	}
+	for instanceID, legacyPosition := range legacyByInstance {
+		location, located := game.GetLocation(instanceID)
+		instance, exists := game.Instances[instanceID]
+		if !located || !exists || location.Zone != state.ZoneBattlefield {
+			continue
+		}
+		instance.Position = cloneMap(legacyPosition)
+		game.Instances[instanceID] = instance
+	}
+	return nil
+}
+
+func legacyMovementPositions(payload map[string]any, fallback map[string]any) map[string]map[string]any {
+	positions := map[string]map[string]any{}
+	if rawMoves, ok := payload["moves"].([]any); ok {
+		for _, rawMove := range rawMoves {
+			move, moveOK := rawMove.(map[string]any)
+			if !moveOK {
+				continue
+			}
+			instanceID := optionalString(move, "instanceId")
+			position, positionOK := move["position"].(map[string]any)
+			if instanceID != "" && positionOK && position != nil {
+				positions[instanceID] = cloneMap(position)
+			}
+		}
+	}
+	if rawMoves, ok := payload["moves"].([]map[string]any); ok {
+		for _, move := range rawMoves {
+			instanceID := optionalString(move, "instanceId")
+			position, positionOK := move["position"].(map[string]any)
+			if instanceID != "" && positionOK && position != nil {
+				positions[instanceID] = cloneMap(position)
+			}
+		}
+	}
+	instanceIDs, _ := stringSliceField(payload, "instanceIds")
+	if len(instanceIDs) == 0 {
+		if instanceID := optionalString(payload, "instanceId"); instanceID != "" {
+			instanceIDs = []string{instanceID}
+		}
+	}
+	for _, instanceID := range instanceIDs {
+		if _, exists := positions[instanceID]; !exists {
+			positions[instanceID] = cloneMap(fallback)
+		}
+	}
+	return positions
 }
 
 func replayCardStatsOverrideEvent(game *state.GameState, event protocol.EventPayloadV2) error {

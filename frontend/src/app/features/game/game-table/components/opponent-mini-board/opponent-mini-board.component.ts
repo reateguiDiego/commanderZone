@@ -1,7 +1,7 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { GameAttachment, GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameBattlefieldStack, GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { OpponentCardsTargetComponent } from '../opponent-cards-target/opponent-cards-target.component';
 import { OpponentCardsTargetCard } from '../../models/opponent-cards-target-card.model';
@@ -75,6 +75,7 @@ export class OpponentMiniBoardComponent {
 
   readonly player = input.required<PlayerView>();
   readonly attachments = input<readonly GameAttachment[]>([]);
+  readonly battlefieldStacks = input<readonly GameBattlefieldStack[]>([]);
   readonly colorAccent = input.required<(player: PlayerView | null) => string>();
   readonly deckLabel = input.required<(player: PlayerView | null) => string>();
   readonly backgroundImage = input.required<(player: PlayerView | null) => string>();

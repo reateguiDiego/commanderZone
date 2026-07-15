@@ -113,8 +113,6 @@ var ownPlayerPayloadCommands = map[string]string{
 	"card.moved":                   "playerId",
 	"cards.moved":                  "playerId",
 	"card.tapped":                  "playerId",
-	"card.position.changed":        "playerId",
-	"cards.position.changed":       "playerId",
 	"card.dungeon_marker.changed":  "playerId",
 	"card.face_down.changed":       "playerId",
 	"card.face.changed":            "playerId",
@@ -350,6 +348,9 @@ func (a *GameActor) authorizationSubjects(command protocol.CommandEnvelopeV2) []
 	}
 
 	switch command.Type {
+	case "card.position.changed":
+		instanceID, _ := command.Payload["instanceId"].(string)
+		return fromIDs([]string{instanceID}, state.ZoneBattlefield)
 	case "card.moved":
 		instanceID, _ := command.Payload["instanceId"].(string)
 		expectedZone := state.Zone(optionalPayloadString(command.Payload, "fromZone"))
@@ -363,6 +364,33 @@ func (a *GameActor) authorizationSubjects(command protocol.CommandEnvelopeV2) []
 		return fromIDs(instanceIDs, expectedZone)
 	case "cards.position.changed":
 		return positionAuthorizationSubjects(command.Payload["positions"])
+	case "attachment.reordered":
+		orderedIDs, err := stringSliceField(command.Payload, "orderedAttachmentIds")
+		if err != nil {
+			return nil
+		}
+		instanceIDs := make([]string, 0, len(orderedIDs))
+		for _, relationID := range orderedIDs {
+			if relation, ok := a.state.Relations.Attachments[relationID]; ok {
+				instanceIDs = append(instanceIDs, relation.SourceID)
+			}
+		}
+		return fromIDs(instanceIDs, state.ZoneBattlefield)
+	case "battlefield.stack.created":
+		instanceIDs, err := stringSliceField(command.Payload, "orderedInstanceIds")
+		if err != nil {
+			return nil
+		}
+		return fromIDs(instanceIDs, state.ZoneBattlefield)
+	case "battlefield.stack.member_added":
+		stackID := optionalPayloadString(command.Payload, "stackId")
+		instanceIDs := battlefieldStackMemberIDs(a.state, stackID)
+		if instanceID := optionalPayloadString(command.Payload, "instanceId"); instanceID != "" {
+			instanceIDs = append(instanceIDs, instanceID)
+		}
+		return fromIDs(instanceIDs, state.ZoneBattlefield)
+	case "battlefield.stack.member_removed", "battlefield.stack.reordered", "battlefield.stack.dissolved":
+		return fromIDs(battlefieldStackMemberIDs(a.state, optionalPayloadString(command.Payload, "stackId")), state.ZoneBattlefield)
 	case "zone.reorderedByIds", "library.reorder_top":
 		instanceIDs, err := stringSliceField(command.Payload, "instanceIds")
 		if err != nil {
@@ -395,6 +423,17 @@ func (a *GameActor) authorizationSubjects(command protocol.CommandEnvelopeV2) []
 		}
 	}
 	return subjects
+}
+
+func battlefieldStackMemberIDs(game *state.GameState, stackID string) []string {
+	if game == nil {
+		return nil
+	}
+	stack, ok := game.Relations.BattlefieldStacks[stackID]
+	if !ok {
+		return nil
+	}
+	return append([]string(nil), stack.OrderedMemberIDs...)
 }
 
 func positionAuthorizationSubjects(raw any) []authorizationSubject {

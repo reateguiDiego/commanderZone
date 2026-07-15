@@ -1,9 +1,9 @@
-import { GameCardPosition } from '../../../../core/models/game.model';
+import { GameCardRatioPosition } from '../../../../core/models/game.model';
 
 export interface BattlefieldPositionCommand {
   playerId: string;
   instanceId: string;
-  position: GameCardPosition;
+  position: GameCardRatioPosition;
 }
 
 export interface BattlefieldPositionBatchCommand {

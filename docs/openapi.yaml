@@ -7346,7 +7346,7 @@ components:
           format: date-time
     GameSnapshot:
       type: object
-      required: [version, players, turn, stack, arrows, attachments, specialEntities, chat, eventLog, createdAt]
+      required: [version, players, turn, stack, arrows, attachments, battlefieldStacks, specialEntities, chat, eventLog, createdAt]
       properties:
         version:
           type: integer
@@ -7386,6 +7386,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GameAttachment'
+        battlefieldStacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameBattlefieldStack'
         specialEntities:
           type: array
           items:
@@ -7644,29 +7648,8 @@ components:
             type: string
         position:
           oneOf:
-            - type: object
-              description: Legacy pixel position. Preserved for existing snapshots.
-              properties:
-                x:
-                  type: number
-                y:
-                  type: number
-              required: [x, y]
-            - type: object
-              description: Responsive battlefield position. Values are normalized against the available rendered battlefield axis.
-              properties:
-                x:
-                  type: number
-                  minimum: 0
-                  maximum: 1
-                y:
-                  type: number
-                  minimum: 0
-                  maximum: 1
-                unit:
-                  type: string
-                  enum: [ratio]
-              required: [x, y, unit]
+            - $ref: '#/components/schemas/GameCardLegacyPixelPosition'
+            - $ref: '#/components/schemas/GameCardRatioPosition'
         rotation:
           type: integer
         counters:
@@ -8020,19 +8003,63 @@ components:
           format: date-time
     GameAttachment:
       type: object
-      required: [id, equipmentInstanceId, attachedToInstanceId, createdAt]
+      additionalProperties: false
+      required: [id, relationType, equipmentInstanceId, attachedToInstanceId, order, effectVersion]
       properties:
         id:
           type: string
+        relationType:
+          type: string
+          const: attachment
         ownerId:
+          type: string
+        ownerPlayerId:
           type: string
         equipmentInstanceId:
           type: string
         attachedToInstanceId:
           type: string
+        order:
+          type: integer
+          minimum: 1
+        effectVersion:
+          type: integer
+          minimum: 1
+        createdAtVersion:
+          type: integer
+          minimum: 1
         createdAt:
           type: string
           format: date-time
+    GameBattlefieldStack:
+      type: object
+      additionalProperties: false
+      required: [id, relationType, rootInstanceId, orderedMemberIds, stackKind, effectVersion]
+      properties:
+        id:
+          type: string
+        relationType:
+          type: string
+          const: battlefield_stack
+        rootInstanceId:
+          type: string
+        orderedMemberIds:
+          type: array
+          minItems: 2
+          uniqueItems: true
+          items:
+            type: string
+        stackKind:
+          type: string
+          enum: [land, generic]
+        createdByPlayerId:
+          type: [string, 'null']
+        effectVersion:
+          type: integer
+          minimum: 1
+        createdAtVersion:
+          type: integer
+          minimum: 1
     GameSpecialEntity:
       type: object
       required: [id, template, scope, ownerPlayerId, card, state, createdAt]
@@ -8082,9 +8109,157 @@ components:
           type: [string, 'null']
         layout:
           type: [string, 'null']
+    GameCardLegacyPixelPosition:
+      type: object
+      description: Read-only historical pixel position. It is never accepted by a new position write.
+      additionalProperties: false
+      required: [x, y]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        unit:
+          type: string
+          const: px
+    GameCardRatioPosition:
+      type: object
+      description: Canonical top-left position over the available battlefield content-box axis.
+      additionalProperties: false
+      required: [x, y, unit]
+      properties:
+        x:
+          type: number
+          minimum: 0
+          maximum: 1
+        y:
+          type: number
+          minimum: 0
+          maximum: 1
+        unit:
+          type: string
+          const: ratio
+      examples:
+        - { x: 0.42, y: 0.68, unit: ratio }
+      x-invalidExamples:
+        numericString: { x: '0.42', y: 0.68, unit: ratio }
+        pixelWrite: { x: 420, y: 180, unit: px }
+        outOfRange: { x: 1.2, y: -0.1, unit: ratio }
+        localGeometry: { x: 0.42, y: 0.68, unit: ratio, battlefieldZoom: 1.4 }
+    CardPositionChangedPayload:
+      type: object
+      additionalProperties: false
+      required: [playerId, instanceId, position]
+      properties:
+        playerId:
+          type: string
+        zone:
+          type: string
+          const: battlefield
+        instanceId:
+          type: string
+          minLength: 1
+        position:
+          $ref: '#/components/schemas/GameCardRatioPosition'
+    CardsPositionChangedPayload:
+      type: object
+      additionalProperties: false
+      required: [playerId, positions]
+      properties:
+        playerId:
+          type: string
+        zone:
+          type: string
+          const: battlefield
+        positions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [instanceId, position]
+            properties:
+              instanceId:
+                type: string
+                minLength: 1
+              position:
+                $ref: '#/components/schemas/GameCardRatioPosition'
+    GameCardStoredPosition:
+      oneOf:
+        - $ref: '#/components/schemas/GameCardRatioPosition'
+        - $ref: '#/components/schemas/GameCardLegacyPixelPosition'
+        - type: 'null'
+    CardPositionChangedEventPayload:
+      type: object
+      additionalProperties: true
+      description: Canonical events include effectVersion, actorPlayerId and previousPosition. Historical events may contain only instanceId and a stored legacy position.
+      required: [instanceId, position]
+      properties:
+        effectVersion:
+          type: integer
+          const: 1
+        actorPlayerId:
+          type: string
+        instanceId:
+          type: string
+        previousPosition:
+          $ref: '#/components/schemas/GameCardStoredPosition'
+        position:
+          $ref: '#/components/schemas/GameCardStoredPosition'
+    CardsPositionChangedEventPayload:
+      type: object
+      additionalProperties: true
+      description: Canonical events include effectVersion, actorPlayerId and previousPositions. Historical batches may contain only their final stored positions.
+      required: [positions]
+      properties:
+        effectVersion:
+          type: integer
+          const: 1
+        actorPlayerId:
+          type: string
+        previousPositions:
+          type: array
+          items:
+            type: object
+            required: [instanceId, position]
+            properties:
+              instanceId:
+                type: string
+              position:
+                $ref: '#/components/schemas/GameCardStoredPosition'
+        positions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [instanceId, position]
+            properties:
+              instanceId:
+                type: string
+              position:
+                $ref: '#/components/schemas/GameCardStoredPosition'
     GameCommand:
       type: object
       required: [type, payload]
+      allOf:
+        - if:
+            properties:
+              type:
+                const: card.position.changed
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardPositionChangedPayload'
+        - if:
+            properties:
+              type:
+                const: cards.position.changed
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardsPositionChangedPayload'
       properties:
         type:
           type: string
@@ -8132,6 +8307,12 @@ components:
             - arrow.removed
             - attachment.created
             - attachment.removed
+            - attachment.reordered
+            - battlefield.stack.created
+            - battlefield.stack.member_added
+            - battlefield.stack.member_removed
+            - battlefield.stack.reordered
+            - battlefield.stack.dissolved
             - helper.created
             - helper.updated
             - helper.removed
@@ -8161,6 +8342,12 @@ components:
             and decimal values are preserved; printed formulas and counters remain
             independent. For card.moved into
             battlefield, faceDown=true places the moved card face down. For
+            card.position.changed and cards.position.changed, every new position
+            is a finite top-left ratio in [0,1]. Pixel positions are read-only
+            legacy data; viewport, card size, browser zoom, battlefield zoom,
+            DOM offsets, raw pointer coordinates, and devicePixelRatio are never
+            accepted or persisted. The current controller authorizes movement.
+            For
             cards.moved into library, randomOrder=true randomizes only the moved
             cards before placing them at the requested top/bottom position.
             zone.random_card.selected logs one random card name from library,
@@ -8175,12 +8362,17 @@ components:
             to let another room player inspect the actor's full library; closing
             that read-only view may send library.shuffle with
             reason=revealed-library-closed to shuffle and clear the reveal.
-            attachment.created manually attaches one non-land battlefield
-            permanent to another permanent on the same battlefield through
-            equipmentInstanceId and attachedToInstanceId; lands may be targets
-            but cannot be the attachment source, and permanents with attached
-            cards cannot be attachment sources. attachment.removed detaches by
-            id or equipmentInstanceId.
+            attachment.created creates an explicit source-to-target battlefield
+            relation by instanceId. attachment.reordered submits the exact ordered
+            relation ids for one target. attachment.removed detaches by id or
+            equipmentInstanceId and may include the source's final ratio position.
+            Battlefield visual stacks are distinct from the action stack:
+            battlefield.stack.created submits explicit orderedInstanceIds and a
+            rootInstanceId; member_added, member_removed, reordered, and dissolved
+            mutate that relation atomically. Member removal and dissolution carry
+            final canonical ratio positions. Relation payloads never accept pixel
+            offsets, viewport, browser zoom, battlefield zoom, card dimensions,
+            DOM rectangles, or devicePixelRatio.
             dice.rolled only requires kind in the request; the backend generates
             the authoritative finalResult and returns it in the resulting event
             payload. battlefield.untap_all
@@ -8201,6 +8393,25 @@ components:
     GameEvent:
       type: object
       required: [id, type, payload, createdAt]
+      allOf:
+        - if:
+            properties:
+              type:
+                const: card.position.changed
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardPositionChangedEventPayload'
+        - if:
+            properties:
+              type:
+                const: cards.position.changed
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardsPositionChangedEventPayload'
       properties:
         id:
           type: string
@@ -8234,6 +8445,25 @@ components:
     CommandEnvelopeV2:
       type: object
       required: [gameId, baseVersion, clientActionId, type, payload]
+      allOf:
+        - if:
+            properties:
+              type:
+                const: card.position.changed
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardPositionChangedPayload'
+        - if:
+            properties:
+              type:
+                const: cards.position.changed
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardsPositionChangedPayload'
       properties:
         gameId:
           type: string
@@ -8283,6 +8513,55 @@ components:
         Lifecycle transitions use same-version `player.status.set`, `player.elimination.set`, `turn.set`, `turn.order.set`, helper designation ops,
         `game.result.set`, and optional game status/phase ops; clients must merge them atomically without refetch.
       required: [op]
+      allOf:
+        - if:
+            properties:
+              op:
+                const: card.position.set
+            required: [op]
+          then:
+            required: [playerId, zone, instanceId, position, effectVersion]
+            properties:
+              playerId:
+                type: string
+              zone:
+                type: string
+                const: battlefield
+              instanceId:
+                type: string
+              position:
+                $ref: '#/components/schemas/GameCardRatioPosition'
+              effectVersion:
+                type: integer
+                minimum: 1
+        - if:
+            properties:
+              op:
+                const: cards.position.set
+            required: [op]
+          then:
+            required: [playerId, zone, positions, effectVersion]
+            properties:
+              playerId:
+                type: string
+              zone:
+                type: string
+                const: battlefield
+              positions:
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [instanceId, position]
+                  properties:
+                    instanceId:
+                      type: string
+                    position:
+                      $ref: '#/components/schemas/GameCardRatioPosition'
+              effectVersion:
+                type: integer
+                minimum: 1
       properties:
         op:
           type: string
@@ -8336,6 +8615,25 @@ components:
     EventPayloadV2:
       type: object
       required: [gameId, version, type, payload, createdAt]
+      allOf:
+        - if:
+            properties:
+              type:
+                const: card.position.changed
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardPositionChangedEventPayload'
+        - if:
+            properties:
+              type:
+                const: cards.position.changed
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/CardsPositionChangedEventPayload'
       properties:
         gameId:
           type: string

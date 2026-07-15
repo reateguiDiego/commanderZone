@@ -395,11 +395,13 @@ describe('GameTableDropActionsService', () => {
     const target = { ...land('target', 'Forest', 'battlefield'), position: { x: 122, y: 158 } };
     const snapshot = snapshotWith({ graveyard: [moved], battlefield: [target] });
     const command = vi.fn(async () => undefined);
+    const battlefieldPosition = vi.fn(() => ({ x: 0.2, y: 0.3, unit: 'ratio' as const }));
     const context = dropContext(
       () => snapshot,
       command,
       {
-        snapBattlefieldPosition: vi.fn(() => ({ x: 700, y: 500 })),
+        battlefieldPosition,
+        snapBattlefieldPosition: vi.fn(() => ({ x: 0.7, y: 0.5, unit: 'ratio' as const })),
       },
     );
 
@@ -411,8 +413,14 @@ describe('GameTableDropActionsService', () => {
       toZone: 'battlefield',
       targetPlayerId: 'player-1',
       instanceId: 'moved',
-      position: { x: 132, y: 140 },
+      position: { x: 0.2, y: 0.3, unit: 'ratio' },
     }));
+    expect(battlefieldPosition).toHaveBeenCalledWith('player-1', 'moved', { x: 122, y: 158 });
+    expect(command).toHaveBeenNthCalledWith(2, 'battlefield.stack.created', {
+      rootInstanceId: 'target',
+      orderedInstanceIds: ['target', 'moved'],
+      stackKind: 'land',
+    });
   });
 
   it('attaches a nonland directly from a zone pile and bypasses alignment snap', async () => {
@@ -420,11 +428,13 @@ describe('GameTableDropActionsService', () => {
     const target = { ...permanent('target', 'Baleful Strix', 'battlefield'), position: { x: 122, y: 158 } };
     const snapshot = snapshotWith({ graveyard: [moved], battlefield: [target] });
     const command = vi.fn(async () => undefined);
+    const battlefieldPosition = vi.fn(() => ({ x: 0.2, y: 0.3, unit: 'ratio' as const }));
     const context = dropContext(
       () => snapshot,
       command,
       {
-        snapBattlefieldPosition: vi.fn(() => ({ x: 700, y: 500 })),
+        battlefieldPosition,
+        snapBattlefieldPosition: vi.fn(() => ({ x: 0.7, y: 0.5, unit: 'ratio' as const })),
       },
     );
 
@@ -436,8 +446,9 @@ describe('GameTableDropActionsService', () => {
       toZone: 'battlefield',
       targetPlayerId: 'player-1',
       instanceId: 'moved',
-      position: { x: 132, y: 140 },
+      position: { x: 0.2, y: 0.3, unit: 'ratio' },
     }));
+    expect(battlefieldPosition).toHaveBeenCalledWith('player-1', 'moved', { x: 122, y: 158 });
     expect(command).toHaveBeenNthCalledWith(2, 'attachment.created', {
       equipmentInstanceId: 'moved',
       attachedToInstanceId: 'target',
@@ -558,7 +569,7 @@ describe('GameTableDropActionsService', () => {
         toZone: 'battlefield',
         targetPlayerId: 'player-1',
         instanceIds: ['moved', 'selected-2'],
-        position: { x: 122, y: 198 },
+        position: { x: 0.1525, y: 0.33, unit: 'ratio' },
       },
     }]);
   });
@@ -590,7 +601,7 @@ describe('GameTableDropActionsService', () => {
         toZone: 'battlefield',
         targetPlayerId: 'player-1',
         instanceIds: ['moved', 'selected-2'],
-        position: { x: 122, y: 158 },
+        position: { x: 0.1525, y: 0.2633333333333333, unit: 'ratio' },
       },
     }]);
   });
@@ -622,7 +633,7 @@ describe('GameTableDropActionsService', () => {
         toZone: 'battlefield',
         targetPlayerId: 'player-1',
         instanceIds: ['moved', 'selected-2'],
-        position: { x: 122, y: 158 },
+        position: { x: 0.1525, y: 0.2633333333333333, unit: 'ratio' },
       },
     }]);
   });
@@ -650,7 +661,8 @@ function dropContext(
     suppressCardPreview: vi.fn(),
     setError: vi.fn(),
     cardPosition: (card) => card.position ? { x: card.position.x, y: card.position.y } : null,
-    snapBattlefieldPosition: (_playerId, _instanceId, position) => position,
+    battlefieldPosition: (_playerId, _instanceId, position) => ({ x: position.x / 800, y: position.y / 600, unit: 'ratio' }),
+    snapBattlefieldPosition: (_playerId, _instanceId, position) => ({ x: position.x / 800, y: position.y / 600, unit: 'ratio' }),
     markPendingManaDrop: vi.fn(),
     markPendingTransfer: vi.fn(),
     syncOpenZoneModalAfterMove: vi.fn(async () => undefined),

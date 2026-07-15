@@ -92,6 +92,7 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		rollback.captureVisibility(game)
 	case "card.controller.changed":
 		rollback.captureInstanceWithLocation(game, stringPayload(command.Payload, "instanceId"))
+		rollback.captureRelations(game)
 	case "cards.position.changed":
 		for _, instanceID := range positionInstanceIDs(command.Payload) {
 			rollback.captureInstanceWithLocation(game, instanceID)
@@ -161,8 +162,25 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		rollback.capturePlayerZoneInstances(game, playerID, zone)
 	case "stack.card_added", "stack.item_removed":
 		rollback.captureStack(game)
-	case "arrow.created", "arrow.removed", "attachment.created", "attachment.removed", "helper.created", "helper.updated", "helper.removed":
+	case "arrow.created", "arrow.removed", "attachment.created", "attachment.reordered", "helper.created", "helper.updated", "helper.removed":
 		rollback.captureRelations(game)
+	case "attachment.removed":
+		rollback.captureRelations(game)
+		if relation, ok := game.Relations.Attachments[stringPayload(command.Payload, "id")]; ok {
+			rollback.captureInstanceWithLocation(game, relation.SourceID)
+		} else {
+			rollback.captureInstanceWithLocation(game, stringPayload(command.Payload, "equipmentInstanceId"))
+		}
+	case "battlefield.stack.created", "battlefield.stack.member_added", "battlefield.stack.reordered":
+		rollback.captureRelations(game)
+	case "battlefield.stack.member_removed":
+		rollback.captureRelations(game)
+		rollback.captureInstanceWithLocation(game, stringPayload(command.Payload, "instanceId"))
+	case "battlefield.stack.dissolved":
+		rollback.captureRelations(game)
+		for _, instanceID := range positionInstanceIDs(command.Payload) {
+			rollback.captureInstanceWithLocation(game, instanceID)
+		}
 	case "game.concede":
 		playerID := stringPayload(command.Payload, "playerId")
 		rollback.capturePlayer(game, playerID)

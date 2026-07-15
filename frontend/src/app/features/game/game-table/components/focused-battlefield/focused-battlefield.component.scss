@@ -5,7 +5,6 @@
 .battlefield {
   --game-card-view-width: var(--battlefield-card-width, 7.2rem);
   --focused-mana-lane-height: var(--battlefield-mana-lane-height, 11.2rem);
-  --focused-mana-pool-stack-clearance: 3.8rem;
 
   position: relative;
   z-index: 1;
@@ -113,11 +112,13 @@
 
 .mana-pool-panel-anchor {
   position: absolute;
-  right: 0.6rem;
-  top: 0;
-  z-index: 2;
+  top: 50%;
+  right: auto;
+  left: var(--mana-helper-safe-gutter, 0.4rem);
+  z-index: 65;
+  max-height: calc(100% - 0.8rem);
   pointer-events: auto;
-  transform: translateY(calc(-50% - var(--focused-mana-pool-stack-clearance)));
+  transform: translateY(-50%);
 }
 
 .mana-lane.drag-over {
@@ -127,7 +128,6 @@
 @media (max-width: 760px) and (min-height: 769px) {
   .battlefield {
     --focused-mana-lane-height: 7.4rem;
-    --focused-mana-pool-stack-clearance: 2.8rem;
 
     gap: 0.45rem;
     overflow: auto;
@@ -141,16 +141,12 @@
     padding: 0.4rem;
   }
 
-  .mana-pool-panel-anchor {
-    right: 0.4rem;
-  }
 }
 
 @media (max-width: 430px) and (min-height: 769px),
   (max-height: 768px) and (max-width: 1180px) {
   .battlefield {
     --focused-mana-lane-height: 6.2rem;
-    --focused-mana-pool-stack-clearance: 2.35rem;
 
     gap: 0.35rem;
     padding: 0.18rem 0.28rem 0.45rem;

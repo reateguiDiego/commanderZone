@@ -153,6 +153,7 @@ function context(options: ContextOptions = {}): GameTableDropActionContext {
     suppressCardPreview: vi.fn(),
     setError: vi.fn(),
     cardPosition: vi.fn(() => null),
+    battlefieldPosition: (_playerId, _instanceId, position) => ({ x: position.x / 800, y: position.y / 600, unit: 'ratio' }),
     snapBattlefieldPosition: vi.fn((_playerId, _instanceId, position) => ({ ...position, unit: 'ratio' as const })),
     markPendingManaDrop: vi.fn(),
     markPendingTransfer: vi.fn(),

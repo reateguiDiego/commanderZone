@@ -43,7 +43,18 @@ describe('game table normalized v2 store', () => {
 		expect(snapshot.winnerPlayerId).toBe('player-2');
 	});
   it('applies bootstrap v2 into normalized state and hydrates a compatible snapshot', () => {
-    const state = createGameTableNormalizedV2State(bootstrapV2());
+    const bootstrap = bootstrapV2();
+    bootstrap.relations.battlefieldStacks = [{
+      id: 'battlefield-stack-1',
+      relationType: 'battlefield_stack',
+      rootInstanceId: 'battlefield-1',
+      orderedMemberIds: ['battlefield-1', 'commander-1'],
+      stackKind: 'land',
+      createdByPlayerId: 'player-1',
+      effectVersion: 1,
+      createdAtVersion: 5,
+    }];
+    const state = createGameTableNormalizedV2State(bootstrap);
     const snapshot = hydrateGameSnapshotFromV2State(state);
 
     expect(state.lastAppliedVersion).toBe(5);
@@ -56,6 +67,8 @@ describe('game table normalized v2 store', () => {
     expect(snapshot.players['player-1'].zones.hand[0]?.name).toBe('Lightning Bolt');
     expect(snapshot.players['player-2'].zones.hand[0]?.scryfallId).toBeUndefined();
     expect(snapshot.players['player-2'].zones.hand[0]?.name).toBe('Card');
+    expect(state.relations.battlefieldStacks['battlefield-stack-1']?.orderedMemberIds).toEqual(['battlefield-1', 'commander-1']);
+    expect(snapshot.battlefieldStacks).toEqual(bootstrap.relations.battlefieldStacks);
   });
 
   it('applies ordered patches and keeps version idempotent', () => {
@@ -375,6 +388,36 @@ describe('game table normalized v2 store', () => {
     expect(result.state.players['player-1'].commanderDamage).toEqual({ 'commander-2': 11 });
     expect(result.state.sharedCounters['commander:commander-1']).toEqual({ casts: 2 });
     expect(snapshot.counters).toEqual({ 'commander:commander-1': { casts: 2 } });
+  });
+
+  it('applies a canonical position batch atomically in one version and preserves full precision', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    initial.instances['battlefield-2'] = {
+      ...initial.instances['battlefield-1'],
+      instanceId: 'battlefield-2',
+      position: { x: 0.2, y: 0.3, unit: 'ratio' },
+    };
+    initial.zones['player-1'].battlefield.push('battlefield-2');
+    const positions = [
+      { instanceId: 'battlefield-1', position: { x: 0.42123456789, y: 0.68123456789, unit: 'ratio' as const } },
+      { instanceId: 'battlefield-2', position: { x: 0.71123456789, y: 0.23123456789, unit: 'ratio' as const } },
+    ];
+
+    const applied = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'cards.position.set', effectVersion: 1, playerId: 'player-1', zone: 'battlefield', positions,
+    }]));
+    expect(applied.status).toBe('applied');
+    expect(applied.state.lastAppliedVersion).toBe(6);
+    expect(applied.state.instances['battlefield-1'].position).toEqual(positions[0]!.position);
+    expect(applied.state.instances['battlefield-2'].position).toEqual(positions[1]!.position);
+
+    const rejected = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'cards.position.set', effectVersion: 1, playerId: 'player-1', zone: 'battlefield',
+      positions: [positions[0]!, { instanceId: 'missing', position: { x: 0.5, y: 0.5, unit: 'ratio' } }],
+    }]));
+    expect(rejected.status).toBe('resync_required');
+    expect(rejected.state.instances['battlefield-1'].position).toEqual(initial.instances['battlefield-1'].position);
+    expect(rejected.state.lastAppliedVersion).toBe(initial.lastAppliedVersion);
   });
 
   it('applies atomic commander damage, life, defeat, turn and log in one version without refetch', () => {

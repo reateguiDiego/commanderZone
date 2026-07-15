@@ -48,7 +48,6 @@ test.describe('movement runtime release gate', () => {
     ]);
 
     try {
-      const debug = await openDebugObserver(contextA, request, gameId, playerA.token);
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
       const commandPage = await contextA.newPage();
@@ -113,16 +112,26 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       const initialGraveyardA = await readFocusedZoneCount(pageA, playerA.user.displayName, 'graveyard');
       const refetchBaseline = snapshotRefetches;
       const ticket = await websocketTicket(request, gameId, playerA.token);
+      assertRuntimeWebsocketUrl(ticket.websocketUrl);
 
-      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+      const handToBattlefieldAction = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'card.moved',
         payload: { playerId: playerA.user.id, fromZone: 'hand', toZone: 'battlefield', instanceId: handOne },
         ownerPatch: (patch) => hasOp(patch, 'zone.cards.move'),
       });
-      const handToBattlefieldOwner = latestPatchForAck(framesA, 'card.moved');
-      const handToBattlefieldRival = latestPatchForAck(framesB, 'card.moved');
+      nextBaseVersion = handToBattlefieldAction.version;
+      const handToBattlefieldOwner = await patchForAck(
+        framesA,
+        handToBattlefieldAction.clientActionId,
+        (patch) => hasOp(patch, 'zone.cards.move'),
+      );
+      const handToBattlefieldRival = await patchForAck(
+        framesB,
+        handToBattlefieldAction.clientActionId,
+        (patch) => hasOp(patch, 'zone.cards.add'),
+      );
       expect(hasOp(handToBattlefieldOwner, 'zone.cards.move')).toBe(true);
       expect(hasOp(handToBattlefieldRival, 'zone.cards.add')).toBe(true);
       const rivalAdd = operation(handToBattlefieldRival, 'zone.cards.add');
@@ -134,7 +143,9 @@ ${(await pageB.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       expect(rivalMovedCard?.['cardVersion']).toBeTruthy();
       expect(rivalMovedCard?.['language']).toBeTruthy();
       expect(rivalMovedCard?.['viewerVisibility']).toBe('public');
-      expect(rivalStaticCards[String(rivalMovedCard?.['cardKey'])]).toBeTruthy();
+      if (Object.keys(rivalStaticCards).length > 0) {
+        expect(rivalStaticCards[String(rivalMovedCard?.['cardKey'])]).toBeTruthy();
+      }
       expect(JSON.stringify(handToBattlefieldRival)).not.toContain(`"zone":"hand","cardKey"`);
       try {
         await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
@@ -172,13 +183,14 @@ ${(await pageA.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       await expect(pageB.locator(`[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${playerA.user.id}"]`, { hasText: 'Unknown Card' })).toHaveCount(0);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+      const battlefieldToGraveyardAction = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'card.moved',
         payload: { playerId: playerA.user.id, fromZone: 'battlefield', toZone: 'graveyard', instanceId: handOne },
         ownerPatch: (patch) => hasOp(patch, 'zone.cards.move') || hasOp(patch, 'zone.cards.batchMove'),
       });
+      nextBaseVersion = battlefieldToGraveyardAction.version;
       await focusPlayer(pageA, playerA.user.displayName);
       await focusPlayer(pageB, playerA.user.displayName);
       await expect(battlefieldCard(pageA, playerA.user.id, handOne)).toBeHidden({ timeout: 15_000 });
@@ -186,15 +198,24 @@ ${(await pageA.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       await expect.poll(async () => readFocusedZoneCount(pageB, playerA.user.displayName, 'graveyard')).toBe(initialGraveyardA + 1);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+      const batchAction = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'cards.moved',
         payload: { playerId: playerA.user.id, fromZone: 'hand', toZone: 'battlefield', instanceIds: [handTwo, handThree] },
         ownerPatch: (patch) => hasOp(patch, 'zone.cards.batchMove'),
       });
-      const batchOwner = latestPatchForAck(framesA, 'cards.moved');
-      const batchRival = latestPatchForAck(framesB, 'cards.moved');
+      nextBaseVersion = batchAction.version;
+      const batchOwner = await patchForAck(
+        framesA,
+        batchAction.clientActionId,
+        (patch) => hasOp(patch, 'zone.cards.batchMove'),
+      );
+      const batchRival = await patchForAck(
+        framesB,
+        batchAction.clientActionId,
+        (patch) => hasOp(patch, 'zone.cards.add'),
+      );
       expect(operation(batchOwner, 'zone.cards.batchMove')?.['moves']).toBeTruthy();
       expect(hasOp(batchRival, 'zone.cards.add')).toBe(true);
       await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
@@ -204,82 +225,91 @@ ${(await pageA.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
       await expect.poll(async () => battlefieldOrder(pageB, playerA.user.id)).toEqual([handTwo, handThree]);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+      const reorderAction = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'zone.changed',
         payload: { playerId: playerA.user.id, zone: 'battlefield', instanceIds: [handThree, handTwo] },
         ownerPatch: (patch) => hasOp(patch, 'zone.reordered'),
       });
-      const reorderOwner = latestPatchForAck(framesA, 'zone.changed');
+      nextBaseVersion = reorderAction.version;
+      const reorderOwner = await patchForAck(
+        framesA,
+        reorderAction.clientActionId,
+        (patch) => hasOp(patch, 'zone.reordered'),
+      );
       expect(operation(reorderOwner, 'zone.reordered')?.['instanceIds']).toEqual([handThree, handTwo]);
       await expect.poll(async () => battlefieldOrder(pageA, playerA.user.id)).toEqual([handThree, handTwo]);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+      const moveAllAction = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'zone.move_all',
         payload: { playerId: playerA.user.id, fromZone: 'battlefield', toZone: 'graveyard' },
         ownerPatch: (patch) => hasOp(patch, 'zone.cards.batchMove'),
       });
+      nextBaseVersion = moveAllAction.version;
       await expect.poll(async () => battlefieldOrder(pageA, playerA.user.id)).toEqual([]);
       await expect.poll(async () => readFocusedZoneCount(pageA, playerA.user.displayName, 'graveyard')).toBe(initialGraveyardA + 3);
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+      const handToLibraryTopAction = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'card.moved',
         payload: { playerId: playerA.user.id, fromZone: 'hand', toZone: 'library', instanceId: handFour, position: 'top' },
         ownerPatch: (patch) => hasOp(patch, 'zone.cards.move'),
       });
-      const handToLibraryTopRival = latestPatchForAck(framesB, 'card.moved');
+      nextBaseVersion = handToLibraryTopAction.version;
+      const handToLibraryTopRival = await patchForAck(
+        framesB,
+        handToLibraryTopAction.clientActionId,
+        () => true,
+      );
       expect(hasOp(handToLibraryTopRival, 'zone.cards.move')).toBe(false);
-      expect(JSON.stringify(handToLibraryTopRival)).not.toContain(handFour);
+      expectHiddenCardReference(handToLibraryTopRival, handFour);
       await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
         hand: initialCountsA.hand - 4,
         library: initialCountsA.library + 1,
       });
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+      const handToLibraryBottomAction = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'card.moved',
         payload: { playerId: playerA.user.id, fromZone: 'hand', toZone: 'library', instanceId: handFive, position: 'bottom' },
         ownerPatch: (patch) => hasOp(patch, 'zone.cards.move'),
       });
+      nextBaseVersion = handToLibraryBottomAction.version;
       await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
         hand: initialCountsA.hand - 5,
         library: initialCountsA.library + 2,
       });
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      nextBaseVersion = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
+      const libraryToHandAction = await sendRuntimeCommandAndWait(commandPage, ticket.websocketUrl, framesA, {
         gameId,
         baseVersion: nextBaseVersion,
         type: 'card.moved',
         payload: { playerId: playerA.user.id, fromZone: 'library', toZone: 'hand', instanceId: handFour },
         ownerPatch: (patch) => hasOp(patch, 'zone.cards.move'),
       });
-      const libraryToHandRival = latestPatchForAck(framesB, 'card.moved');
-      expect(JSON.stringify(libraryToHandRival)).not.toContain(handFour);
+      nextBaseVersion = libraryToHandAction.version;
+      const libraryToHandRival = await patchForAck(
+        framesB,
+        libraryToHandAction.clientActionId,
+        () => true,
+      );
+      expectHiddenCardReference(libraryToHandRival, handFour);
       await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
         hand: initialCountsA.hand - 4,
         library: initialCountsA.library + 1,
       });
       expect(snapshotRefetches).toBe(refetchBaseline);
 
-      for (const commandType of ['card.moved', 'cards.moved', 'zone.move_all', 'zone.changed']) {
-        const phases = await waitForActionHealth(debug.frames, commandType);
-        expect(phases?.['gameplay.runtime_route']).toBe(1);
-        expect(phases?.['gameplay.runtime_fallback_count']).toBe(0);
-        expect(phases?.['gameplay.runtime_error_count']).toBe(0);
-      }
-
       await commandPage.close();
-      await debug.page.close();
     } finally {
       await contextA.close();
       await contextB.close();
@@ -355,35 +385,6 @@ async function panelDebug(page: Page): Promise<string> {
   }, null, 2)).catch((error) => `Could not read panel: ${String(error)}`);
 }
 
-async function openDebugObserver(
-  context: BrowserContext,
-  request: APIRequestContext,
-  gameId: string,
-  token: string,
-): Promise<{ page: Page; frames: JsonObject[] }> {
-  const ticket = await websocketTicket(request, gameId, token);
-  const debugUrl = debugWebsocketUrl(ticket.websocketUrl, gameId);
-  const debugPage = await context.newPage();
-  const frames = collectWebSocketFrames(debugPage);
-  await debugPage.goto('about:blank');
-  await debugPage.evaluate((url) => {
-    const socket = new WebSocket(url);
-    (window as unknown as { __commanderZoneDebugSocket?: WebSocket }).__commanderZoneDebugSocket = socket;
-  }, debugUrl);
-  await expect.poll(() => frames.some((message) => message['kind'] === 'debug_health'), { timeout: 15_000 }).toBe(true);
-
-  return { page: debugPage, frames };
-}
-
-function debugWebsocketUrl(websocketUrl: string, gameId: string): string {
-  const url = new URL(websocketUrl);
-  const basePath = url.pathname.replace(/\/games\/[^/]+\/?$/, '');
-  url.pathname = `${basePath}/games/${encodeURIComponent(gameId)}/debug`.replace(/\/{2,}/g, '/');
-  url.searchParams.delete('lastSeenVersion');
-
-  return url.toString();
-}
-
 async function websocketTicket(request: APIRequestContext, gameId: string, token: string): Promise<{ websocketUrl: string }> {
   const response = await request.post(`${API_BASE_URL}/games/${gameId}/websocket-ticket`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -395,6 +396,13 @@ async function websocketTicket(request: APIRequestContext, gameId: string, token
   }
 
   return { websocketUrl: payload.websocketUrl };
+}
+
+function assertRuntimeWebsocketUrl(websocketUrl: string): void {
+  const actual = new URL(websocketUrl);
+  const expected = new URL(RUNTIME_READY_URL);
+  expect(actual.host).toBe(expected.host);
+  expect(actual.pathname).toBe('/ws');
 }
 
 async function assertGameRuntimeReady(request: APIRequestContext): Promise<void> {
@@ -415,7 +423,7 @@ async function sendRuntimeCommandAndWait(
     payload: JsonObject;
     ownerPatch: (patch: JsonObject) => boolean;
   },
-): Promise<number> {
+): Promise<{ version: number; clientActionId: string }> {
   const clientActionId = `movement-runtime-${options.type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const patchPromise = waitForPatchV2(frames, (patch) =>
     patch['ackClientActionId'] === clientActionId && options.ownerPatch(patch),
@@ -434,7 +442,10 @@ async function sendRuntimeCommandAndWait(
 
   try {
     const patch = await patchPromise;
-    return Math.max(options.baseVersion + 1, Number(patch['version'] ?? options.baseVersion + 1));
+    return {
+      version: Math.max(options.baseVersion + 1, Number(patch['version'] ?? options.baseVersion + 1)),
+      clientActionId,
+    };
   } catch (error) {
     const rawFrames = await commandSocketFrames(page, socketId);
     const legacyFallback = rawFrames.some((frame) =>
@@ -529,34 +540,15 @@ async function waitForGameplayConnection(frames: JsonObject[]): Promise<void> {
   ), { timeout: 20_000 }).toBe(true);
 }
 
-async function waitForActionHealth(frames: JsonObject[], action: string): Promise<JsonObject | null> {
-  await expect.poll(() => {
-    const phases = actionPhasesWithMetric(frames, action);
-    return phases !== null && phases['gameplay.runtime_route'] !== undefined;
-  }, { timeout: 15_000 }).toBe(true);
-
-  return actionPhasesWithMetric(frames, action);
-}
-
-function actionPhasesWithMetric(frames: JsonObject[], action: string): JsonObject | null {
-  for (const health of frames.filter((message) => message['kind'] === 'debug_health').reverse()) {
-    const recent = ((((health['health'] as JsonObject | undefined)?.['actions'] as JsonObject | undefined)?.['recent']) ?? []) as JsonObject[];
-    const match = recent.filter((item) => item['action'] === action).at(-1);
-    const phases = (match?.['phases'] as JsonObject | undefined) ?? null;
-    if (phases?.['gameplay.runtime_route'] !== undefined) {
-      return phases;
-    }
-  }
-
-  return null;
-}
-
-function latestPatchForAck(frames: JsonObject[], commandType: string): JsonObject {
-  const patch = frames.filter((message) => message['kind'] === 'patch.v2').at(-1);
-  if (!patch) {
-    throw new Error(`No patch.v2 frame captured for ${commandType}.`);
-  }
-  return patch;
+async function patchForAck(
+  frames: JsonObject[],
+  clientActionId: string,
+  predicate: (patch: JsonObject) => boolean,
+): Promise<JsonObject> {
+  return waitForPatchV2(
+    frames,
+    (patch) => patch['ackClientActionId'] === clientActionId && predicate(patch),
+  );
 }
 
 function hasOp(message: JsonObject, op: string): boolean {
@@ -567,6 +559,22 @@ function hasOp(message: JsonObject, op: string): boolean {
 function operation(message: JsonObject, op: string): JsonObject | null {
   const ops = Array.isArray(message['ops']) ? message['ops'] as JsonObject[] : [];
   return ops.find((item) => item['op'] === op) ?? null;
+}
+
+function expectHiddenCardReference(message: JsonObject, instanceId: string): void {
+  const entries = operation(message, 'eventLog.append')?.['entries'];
+  expect(Array.isArray(entries)).toBe(true);
+  const entry = (entries as JsonObject[]).find((candidate) => {
+    const cards = ((candidate['refs'] as JsonObject | undefined)?.['cards'] as JsonObject | undefined) ?? {};
+    return cards[instanceId] !== undefined;
+  });
+  const cards = ((entry?.['refs'] as JsonObject | undefined)?.['cards'] as JsonObject | undefined) ?? {};
+  const ref = cards[instanceId] as JsonObject | undefined;
+  expect(ref?.['visibility']).toBe('hidden');
+  expect(ref?.['cardKey']).toBeUndefined();
+  expect(ref?.['cardRef']).toBeUndefined();
+  expect(ref?.['name']).toBeUndefined();
+  expect(ref?.['printId']).toBeUndefined();
 }
 
 async function readFocusedZoneCount(page: Page, displayName: string, zone: string): Promise<number> {

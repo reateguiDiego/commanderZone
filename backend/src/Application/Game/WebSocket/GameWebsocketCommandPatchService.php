@@ -3428,10 +3428,14 @@ final readonly class GameWebsocketCommandPatchService
         }
 
         if (array_key_exists('position', $operation)) {
+            $position = $operation['position'];
             $legacy[] = [
                 'op' => 'card.position.set',
                 ...$identity,
-                'position' => $operation['position'],
+                ...(is_array($position) && ($position['unit'] ?? null) === 'ratio'
+                    ? ['effectVersion' => max(1, (int) ($operation['effectVersion'] ?? 1))]
+                    : []),
+                'position' => $position,
             ];
         }
 

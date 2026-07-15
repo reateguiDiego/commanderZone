@@ -543,6 +543,10 @@ async function focusPlayerById(page: Page, playerId: string): Promise<void> {
     return;
   }
 
+  const drawerToggle = page.getByTestId('opponents-drawer-toggle');
+  if (await drawerToggle.isVisible() && await drawerToggle.getAttribute('aria-expanded') === 'false') {
+    await drawerToggle.click();
+  }
   const board = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
   await expect(board).toBeVisible({ timeout: 15_000 });
   await board.click();

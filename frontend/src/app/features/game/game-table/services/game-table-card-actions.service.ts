@@ -310,9 +310,9 @@ export class GameTableCardActionsService {
     context.clearSelectedCards();
   }
 
-  isLandStacked(context: Pick<GameTableCardActionContext, 'battlefieldCards' | 'cardPosition'>, playerId: string, card: GameCardInstance): boolean {
+  isLandStacked(context: Pick<GameTableCardActionContext, 'snapshot' | 'battlefieldCards' | 'cardPosition'>, playerId: string, card: GameCardInstance): boolean {
     const group = landStackGroupContaining(
-      buildLandStackGroups(context.battlefieldCards(playerId), context.cardPosition),
+      buildLandStackGroups(context.battlefieldCards(playerId), context.snapshot()?.battlefieldStacks ?? [], context.cardPosition),
       card.instanceId,
     );
 
@@ -330,7 +330,7 @@ export class GameTableCardActionsService {
     }
 
     const group = landStackGroupContaining(
-      buildLandStackGroups(context.battlefieldCards(menu.playerId), context.cardPosition),
+      buildLandStackGroups(context.battlefieldCards(menu.playerId), context.snapshot()?.battlefieldStacks ?? [], context.cardPosition),
       menu.card.instanceId,
     );
     if (!group) {
@@ -349,9 +349,8 @@ export class GameTableCardActionsService {
     }
 
     context.closeContextMenu();
-    await context.command('cards.position.changed', {
-      playerId: menu.playerId,
-      zone: 'battlefield',
+    await context.command('battlefield.stack.dissolved', {
+      stackId: group.id,
       positions: moves.map((move) => ({
         instanceId: move.card.instanceId,
         position: context.battlefieldPosition(menu.playerId, move.card.instanceId, move.position),

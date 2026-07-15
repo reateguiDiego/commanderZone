@@ -37,9 +37,8 @@ describe('GameTableCommandStore', () => {
     core = TestBed.inject(GameTableCoreState);
   });
 
-  it('suppresses the empty batch position error toast', async () => {
+  it('rejects malformed battlefield position commands before transport', async () => {
     const payload = { playerId: 'player-1', zone: 'battlefield', positions: [] };
-    send.mockRejectedValue(new Error('Rejected'));
 
     await store.command(
       commandContext('positions must contain at least one card position.'),
@@ -47,8 +46,9 @@ describe('GameTableCommandStore', () => {
       payload,
     );
 
-    expect(send).toHaveBeenCalledWith('game-1', 'cards.position.changed', payload);
-    expect(core.error()).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+    expect(websocketSendCommand).not.toHaveBeenCalled();
+    expect(core.error()).toBe('Invalid battlefield position.');
     expect(core.pending()).toBe(false);
   });
 
@@ -57,8 +57,8 @@ describe('GameTableCommandStore', () => {
 
     await store.command(
       commandContext('Could not apply game action.'),
-      'cards.position.changed',
-      { playerId: 'player-1', zone: 'battlefield', positions: [] },
+      'life.changed',
+      { playerId: 'player-1', delta: -1 },
     );
 
     expect(core.error()).toBe('Could not apply game action.');

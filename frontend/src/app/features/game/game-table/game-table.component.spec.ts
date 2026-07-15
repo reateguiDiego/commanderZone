@@ -476,22 +476,9 @@ describe('GameTableComponent', () => {
     }
   });
 
-  it('uses the historical aggressive compact media query for narrow low-height viewports', async () => {
-    const matchMedia = vi.fn((query: string): MediaQueryList => ({
-      matches: query === '(max-width: 1180px) and (max-height: 768px)',
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: matchMedia,
-    });
-
+  it('keeps battlefield zoom available in the aggressive state resolved from available space', async () => {
+    vi.stubGlobal('innerWidth', 900);
+    vi.stubGlobal('innerHeight', 600);
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -499,11 +486,19 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.snapshot.set(snapshotWithStatus('active'));
     fixture.detectChanges();
 
-    expect(matchMedia).toHaveBeenCalledWith('(max-width: 1180px) and (max-height: 768px)');
+    expect(fixture.nativeElement.querySelector('.game-screen')?.dataset['responsiveState']).toBe('aggressive');
     expect(fixture.componentInstance.aggressiveCompactViewport()).toBe(true);
-    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-controls"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-controls"]')).not.toBeNull();
+
+    fixture.componentInstance.setBattlefieldZoom(140);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.effectiveBattlefieldZoomPercent()).toBe(140);
+    expect((fixture.nativeElement.querySelector('[data-testid="player-panel"]') as HTMLElement).style
+      .getPropertyValue('--battlefield-card-width')).toBe('10.08rem');
 
     fixture.destroy();
+    vi.unstubAllGlobals();
   });
 
   it('reflows the focused opponent battlefield with the local zoom applied', async () => {
@@ -519,6 +514,8 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
 
     const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
       callback(0);
@@ -945,7 +942,7 @@ describe('GameTableComponent', () => {
     }
   });
 
-  it('materializes an off-identity mana target before animating the comet into it', () => {
+  it('keeps an off-identity mana target concealed while resolving the local mana action', () => {
     vi.useFakeTimers();
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const fixture = TestBed.createComponent(GameTableComponent);
@@ -1003,15 +1000,15 @@ describe('GameTableComponent', () => {
       fixture.componentInstance.confirmManaActionDialog();
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('[data-mana-pool-color="U"]')).not.toBeNull();
-      expect(fixture.componentInstance.store.manaPool('user-1').U).toBe(0);
-      expect(fixture.componentInstance.manaComets.effects().some((effect) => effect.color === 'U')).toBe(true);
+      expect(fixture.nativeElement.querySelector('[data-mana-pool-color="U"]')).toBeNull();
+      expect(fixture.componentInstance.store.manaPool('user-1').U).toBe(1);
+      expect(fixture.componentInstance.manaComets.effects().some((effect) => effect.color === 'U')).toBe(false);
 
       vi.advanceTimersByTime(880);
       fixture.detectChanges();
 
       expect(fixture.componentInstance.store.manaPool('user-1').U).toBe(1);
-      expect(fixture.nativeElement.querySelector('[data-mana-pool-color="U"]')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-mana-pool-color="U"]')).toBeNull();
     } finally {
       requestAnimationFrame.mockRestore();
       getBoundingClientRect.mockRestore();
@@ -4071,7 +4068,10 @@ describe('GameTableComponent', () => {
     const optimisticSnapshot = fixture.componentInstance.store.snapshot();
     expect(optimisticSnapshot?.players['user-1']?.zones.hand).toEqual([]);
     expect(optimisticSnapshot?.players['user-1']?.zones.battlefield).toEqual([
-      expect.objectContaining({ instanceId: 'hand-card', position: { x: 0.030612, y: 0.100559, unit: 'ratio' } }),
+      expect.objectContaining({
+        instanceId: 'hand-card',
+        position: { x: 0.030612244897959183, y: 0.1005586592178771, unit: 'ratio' },
+      }),
     ]);
     expect(optimisticSnapshot?.players['user-1']?.zoneCounts?.hand).toBe(0);
     expect(optimisticSnapshot?.players['user-1']?.zoneCounts?.battlefield).toBe(1);
@@ -5812,7 +5812,7 @@ describe('GameTableComponent', () => {
       playerId: 'user-1',
       zone: 'battlefield',
       instanceId: 'card-1',
-      position: { x: 120, y: 140 },
+      position: { x: 0.25, y: 0.5, unit: 'ratio' },
     });
 
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledOnce());
@@ -6456,7 +6456,7 @@ describe('GameTableComponent', () => {
         toZone: 'battlefield',
         targetPlayerId: 'user-1',
         instanceIds: ['hand-1', 'hand-2'],
-        position: { x: 0.141582, y: 0.620112, unit: 'ratio' },
+        position: { x: 0.14158163265306123, y: 0.6201117318435754, unit: 'ratio' },
       },
     }), 'game-1');
   });

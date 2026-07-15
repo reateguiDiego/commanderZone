@@ -326,6 +326,67 @@ class GameCommandHandlerV2Test extends TestCase
         ], $actor);
     }
 
+    public function testV2PositionBatchRejectsMalformedSecondEntryAtomically(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $snapshot = $handler->normalizeSnapshot(self::baseSnapshot($actor->id(), [
+            'battlefield' => [
+                [...self::card('battlefield-1', 'Bear', 'battlefield'), 'controllerId' => $actor->id()],
+                [...self::card('battlefield-2', 'Wolf', 'battlefield'), 'controllerId' => $actor->id()],
+            ],
+        ]));
+        $game = new Game(new Room($actor), $snapshot);
+        $before = $game->snapshot();
+
+        try {
+            $handler->apply($game, 'cards.position.changed', [
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'positions' => [
+                    ['instanceId' => 'battlefield-1', 'position' => ['x' => 0.2, 'y' => 0.3, 'unit' => 'ratio']],
+                    ['instanceId' => 'battlefield-2', 'position' => ['x' => '0.4', 'y' => 0.5, 'unit' => 'ratio']],
+                ],
+            ], $actor);
+            self::fail('Expected malformed position batch to be rejected.');
+        } catch (\InvalidArgumentException $error) {
+            self::assertStringStartsWith('INVALID_POSITION', $error->getMessage());
+        }
+
+        self::assertSame($before, $game->snapshot());
+        self::assertNull($handler->consumeLastDirectPatchPayload());
+    }
+
+    public function testV2PositionPatchUsesCanonicalTypedOperationAndContractMetadata(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler(flagsV2: new GameplayV2Flags(true, false, false, false));
+        $snapshot = $handler->normalizeSnapshot(self::baseSnapshot($actor->id(), [
+            'battlefield' => [[
+                ...self::card('battlefield-1', 'Bear', 'battlefield'),
+                'controllerId' => $actor->id(),
+                'position' => ['x' => 0.1, 'y' => 0.2, 'unit' => 'ratio'],
+            ]],
+        ]));
+        $game = new Game(new Room($actor), $snapshot);
+
+        $handler->apply($game, 'card.position.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'battlefield-1',
+            'position' => ['x' => 0.42123456789, 'y' => 0.68123456789, 'unit' => 'ratio'],
+        ], $actor, 'spatial-position');
+
+        $direct = $handler->consumeLastDirectPatchPayload();
+        self::assertSame('card.position.set', $direct['operations'][0]['op'] ?? null);
+        self::assertSame(1, $direct['operations'][0]['effectVersion'] ?? null);
+        self::assertSame(['x' => 0.42123456789, 'y' => 0.68123456789, 'unit' => 'ratio'], $direct['operations'][0]['position'] ?? null);
+        self::assertSame(['x' => 0.1, 'y' => 0.2, 'unit' => 'ratio'], $direct['eventPayload']['previousPosition'] ?? null);
+        self::assertSame($actor->id(), $direct['eventPayload']['actorPlayerId'] ?? null);
+        self::assertArrayNotHasKey('viewport', $direct['operations'][0]);
+        self::assertArrayNotHasKey('zoom', $direct['operations'][0]);
+    }
+
     public function testCardMovedV2EvaporatesTokenAndPrunesRelations(): void
     {
         $actor = new User('owner@example.test', 'Owner');

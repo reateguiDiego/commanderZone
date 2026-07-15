@@ -399,7 +399,13 @@ async function validateIntegratedRestart(
   const beforeRestart = canonicalContinuity(state, owner.user.id, cardId, currentId, offline.user.id, commanderId);
 
   await restartRuntime();
-  await expect.poll(async () => (await request.get(`${RUNTIME}/readyz`)).ok(), { timeout: 60_000 }).toBe(true);
+  await expect.poll(async () => {
+    try {
+      return (await request.get(`${RUNTIME}/readyz`)).ok();
+    } catch {
+      return false;
+    }
+  }, { timeout: 60_000 }).toBe(true);
   const afterRestart = await snapshot(request, setup.gameId, owner.token);
   expect(canonicalContinuity(afterRestart, owner.user.id, cardId, currentId, offline.user.id, commanderId)).toEqual(beforeRestart);
 

@@ -14,7 +14,7 @@ describe('GameTableCardActionsService', () => {
     service = TestBed.inject(GameTableCardActionsService);
   });
 
-  it('detects land stack membership from compact battlefield positions', () => {
+  it('detects land stack membership only from the explicit relation', () => {
     const battlefield = [land('top', 100, 200), land('under', 100, 180), card('artifact', 'Artifact', 100, 160)];
     const ctx = context(battlefield);
 
@@ -42,10 +42,9 @@ describe('GameTableCardActionsService', () => {
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'bottom', { x: 360, y: 200 });
     expect(closeContextMenu).toHaveBeenCalledOnce();
     expect(commands).toEqual([{
-      type: 'cards.position.changed',
+      type: 'battlefield.stack.dissolved',
       payload: {
-        playerId: 'player-1',
-        zone: 'battlefield',
+        stackId: 'stack-1',
         positions: [
           { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
           { instanceId: 'under', position: { x: 230, y: 200, unit: 'ratio' } },
@@ -355,6 +354,7 @@ function context(
 }
 
 function snapshot(battlefield: readonly GameCardInstance[]): GameSnapshot {
+  const landIds = battlefield.filter((candidate) => /\bland\b/i.test(candidate.typeLine ?? '')).map((candidate) => candidate.instanceId);
   return {
     version: 1,
     ownerId: 'player-1',
@@ -381,6 +381,14 @@ function snapshot(battlefield: readonly GameCardInstance[]): GameSnapshot {
     chat: [],
     eventLog: [],
     counters: {},
+    battlefieldStacks: landIds.length >= 2 ? [{
+      id: 'stack-1',
+      relationType: 'battlefield_stack',
+      rootInstanceId: landIds[0]!,
+      orderedMemberIds: landIds,
+      stackKind: 'land',
+      effectVersion: 1,
+    }] : [],
   };
 }
 

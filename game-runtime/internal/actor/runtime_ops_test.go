@@ -2735,7 +2735,7 @@ func TestRelationsCreateRemoveAndIndexesStayCompact(t *testing.T) {
 	if attachment.Err != nil {
 		t.Fatalf("attachment add failed: %v", attachment.Err)
 	}
-	if patch := patchForVisibility(attachment.Patches, "public", "attachment.add"); patch == nil {
+	if patch := patchForVisibility(attachment.Patches, "public", "attachment.set"); patch == nil {
 		t.Fatalf("missing attachment add patch: %#v", attachment.Patches)
 	}
 

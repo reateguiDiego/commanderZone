@@ -42,7 +42,10 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 		return nil, err
 	}
 	position := insertPosition(command.Payload)
-	visualPosition := movementVisualPosition(command.Payload)
+	visualPosition, err := movementVisualPosition(command.Payload, command.Type)
+	if err != nil {
+		return nil, err
+	}
 	requestedFaceDown, hasRequestedFaceDown := boolField(command.Payload, "faceDown")
 	for _, instanceID := range instanceIDs {
 		location, ok := game.GetLocation(instanceID)
@@ -80,6 +83,7 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 		"position":              visualPosition,
 		"moves":                 movementEventMoves(game, moves, evaporated),
 		"commanderCastCounters": commanderCastCounters,
+		"relationChanges":       relationChangesPayload(removedRelations),
 		"metrics":               movementMetrics(start, ops, len(moves), emitter),
 	}
 	if target := uniformMoveTargetPlayerID(moves); target != "" {
@@ -167,7 +171,7 @@ func (ZoneMoveAllApplier) Apply(_ context.Context, game *state.GameState, comman
 	emitCommanderCastCounterPatches(emitter, commanderCastCounters)
 	emitPrunedRelationPatches(emitter, removedRelations)
 	emitTouchedZoneCounts(emitter, game, moves)
-	payload := map[string]any{"playerId": playerID, "fromZone": string(fromZone), "toZone": string(toZone), "count": len(moves), "moves": movementEventMoves(game, moves, evaporated), "commanderCastCounters": commanderCastCounters, "metrics": movementMetrics(start, ops, len(moves), emitter)}
+	payload := map[string]any{"playerId": playerID, "fromZone": string(fromZone), "toZone": string(toZone), "count": len(moves), "moves": movementEventMoves(game, moves, evaporated), "commanderCastCounters": commanderCastCounters, "relationChanges": relationChangesPayload(removedRelations), "metrics": movementMetrics(start, ops, len(moves), emitter)}
 	if target := uniformMoveTargetPlayerID(moves); target != "" {
 		payload["targetPlayerId"] = target
 	}
@@ -233,12 +237,18 @@ func insertPosition(payload map[string]any) state.ZoneInsertPosition {
 	}
 }
 
-func movementVisualPosition(payload map[string]any) map[string]any {
-	position, ok := payload["position"].(map[string]any)
-	if !ok {
-		return nil
+func movementVisualPosition(payload map[string]any, commandType string) (map[string]any, error) {
+	raw, exists := payload["position"]
+	if !exists {
+		return nil, nil
 	}
-	return normalizedPoint(position)
+	position, spatial := raw.(map[string]any)
+	if !spatial || position == nil {
+		// Movement also uses the position field for zone insertion values such as
+		// "top" and "bottom". Those are not battlefield coordinates.
+		return nil, nil
+	}
+	return canonicalRatioPosition(position, commandType, "", 0)
 }
 
 func moveManyWithZoneTransitionRules(game *state.GameState, ops *state.ZoneOps, instanceIDs []string, requestedToPlayerID string, toZone state.Zone, position state.ZoneInsertPosition) ([]state.ZoneMove, error) {
@@ -466,9 +476,21 @@ func validBattlefieldPosition(position map[string]any) bool {
 	if position == nil {
 		return false
 	}
-	x := toFloat(position["x"], 0)
-	y := toFloat(position["y"], 0)
-	return x > 0 || y > 0
+	x, xOK := finitePositionCoordinate(position["x"])
+	y, yOK := finitePositionCoordinate(position["y"])
+	if !xOK || !yOK {
+		return false
+	}
+	switch position["unit"] {
+	case "ratio":
+		return x >= 0 && x <= 1 && y >= 0 && y <= 1
+	case "px":
+		return x > 0 || y > 0
+	case nil:
+		return x > 0 || y > 0
+	default:
+		return false
+	}
 }
 
 func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []state.ZoneMove) {
@@ -741,8 +763,24 @@ func emitPrunedRelationPatches(emitter *PatchEmitter, removed []state.RemovedRel
 		case "attachment":
 			emitter.EmitPublic(protocol.PatchOp{Op: "attachment.remove", Data: map[string]any{"id": relation.ID}})
 			emitter.EmitPublic(protocol.PatchOp{Op: "relation.remove", Data: map[string]any{"kind": "attachment", "id": relation.ID}})
+		case "battlefield_stack":
+			emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.remove", Data: map[string]any{"id": relation.ID}})
+		case "battlefield_stack_set":
+			emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.set", Data: map[string]any{"stack": battlefieldStackPatch(relation.Stack)}})
 		}
 	}
+}
+
+func relationChangesPayload(changes []state.RemovedRelation) []map[string]any {
+	payload := make([]map[string]any, 0, len(changes))
+	for _, change := range changes {
+		entry := map[string]any{"kind": change.Kind, "id": change.ID}
+		if change.Kind == "battlefield_stack_set" {
+			entry["stack"] = battlefieldStackPatch(change.Stack)
+		}
+		payload = append(payload, entry)
+	}
+	return payload
 }
 
 func movementMetrics(start time.Time, ops *state.ZoneOps, movedCount int, emitter *PatchEmitter) map[string]any {

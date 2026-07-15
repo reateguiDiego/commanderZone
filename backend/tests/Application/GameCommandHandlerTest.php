@@ -369,7 +369,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(2, $ownerGraveyardCard['toughness']);
     }
 
-    public function testChangingControllerMovesBattlefieldCardToCenterOfTargetBattlefield(): void
+    public function testChangingControllerPreservesPositionAndTransfersMovementAuthority(): void
     {
         $owner = new User('owner@example.test', 'Owner');
         $controller = new User('controller@example.test', 'Controller');
@@ -379,7 +379,7 @@ class GameCommandHandlerTest extends TestCase
                     ...$this->card('card-1', 'Borrowed Bear', 'battlefield', 9, 9, 2, 2),
                     'ownerId' => $owner->id(),
                     'controllerId' => $owner->id(),
-                    'position' => ['x' => 2070, 'y' => 837],
+                    'position' => ['x' => 0.37, 'y' => 0.61, 'unit' => 'ratio'],
                 ],
             ],
         ], $controller->id()));
@@ -397,12 +397,37 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('card-1', $controlledCard['instanceId']);
         self::assertSame($owner->id(), $controlledCard['ownerId']);
         self::assertSame($controller->id(), $controlledCard['controllerId']);
-        self::assertSame(['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'], $controlledCard['position']);
+        self::assertSame(['x' => 0.37, 'y' => 0.61, 'unit' => 'ratio'], $controlledCard['position']);
         self::assertSame(9, $controlledCard['power']);
         self::assertSame(9, $controlledCard['toughness']);
+
+        (new GameCommandHandler())->apply($game, 'card.position.changed', [
+            'playerId' => $controller->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'position' => ['x' => 0.42, 'y' => 0.68, 'unit' => 'ratio'],
+        ], $controller);
+        self::assertSame(
+            ['x' => 0.42, 'y' => 0.68, 'unit' => 'ratio'],
+            $game->snapshot()['players'][$controller->id()]['zones']['battlefield'][0]['position'],
+        );
+
+        $beforeDenied = $game->snapshot();
+        try {
+            (new GameCommandHandler())->apply($game, 'card.position.changed', [
+                'playerId' => $controller->id(),
+                'zone' => 'battlefield',
+                'instanceId' => 'card-1',
+                'position' => ['x' => 0.8, 'y' => 0.8, 'unit' => 'ratio'],
+            ], $owner);
+            self::fail('Expected displaced owner movement to be rejected.');
+        } catch (\InvalidArgumentException $error) {
+            self::assertStringStartsWith('INSTANCE_NOT_CONTROLLED', $error->getMessage());
+        }
+        self::assertSame($beforeDenied, $game->snapshot());
     }
 
-    public function testPositionCommandAcceptsAndClampsRatioPosition(): void
+    public function testPositionCommandRejectsOutOfRangeRatioWithoutMutation(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
@@ -411,20 +436,22 @@ class GameCommandHandlerTest extends TestCase
             ],
         ]));
 
-        (new GameCommandHandler())->apply($game, 'card.position.changed', [
-            'playerId' => $actor->id(),
-            'zone' => 'battlefield',
-            'instanceId' => 'card-1',
-            'position' => ['x' => 1.5, 'y' => -0.25, 'unit' => 'ratio'],
-        ], $actor);
-
-        self::assertSame(
-            ['x' => 1.0, 'y' => 0.0, 'unit' => 'ratio'],
-            $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['position'],
-        );
+        $before = $game->snapshot();
+        try {
+            (new GameCommandHandler())->apply($game, 'card.position.changed', [
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'instanceId' => 'card-1',
+                'position' => ['x' => 1.5, 'y' => -0.25, 'unit' => 'ratio'],
+            ], $actor);
+            self::fail('Expected out-of-range ratio to be rejected.');
+        } catch (\InvalidArgumentException $error) {
+            self::assertStringStartsWith('POSITION_OUT_OF_RANGE', $error->getMessage());
+        }
+        self::assertSame($before, $game->snapshot());
     }
 
-    public function testPositionCommandStillAcceptsLegacyPixelPosition(): void
+    public function testPositionCommandRejectsLegacyPixelWriteWithoutMutation(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
@@ -433,17 +460,19 @@ class GameCommandHandlerTest extends TestCase
             ],
         ]));
 
-        (new GameCommandHandler())->apply($game, 'card.position.changed', [
-            'playerId' => $actor->id(),
-            'zone' => 'battlefield',
-            'instanceId' => 'card-1',
-            'position' => ['x' => 120, 'y' => 240],
-        ], $actor);
-
-        self::assertSame(
-            ['x' => 120, 'y' => 240],
-            $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['position'],
-        );
+        $before = $game->snapshot();
+        try {
+            (new GameCommandHandler())->apply($game, 'card.position.changed', [
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'instanceId' => 'card-1',
+                'position' => ['x' => 120, 'y' => 240],
+            ], $actor);
+            self::fail('Expected legacy pixel write to be rejected.');
+        } catch (\InvalidArgumentException $error) {
+            self::assertStringStartsWith('UNSUPPORTED_POSITION_UNIT', $error->getMessage());
+        }
+        self::assertSame($before, $game->snapshot());
     }
 
     public function testDayNightLegacyBattlefieldCardCannotBeMoved(): void
@@ -3010,7 +3039,10 @@ class GameCommandHandlerTest extends TestCase
         $snapshot = $this->snapshot($actor->id(), [
             'battlefield' => [
                 $this->card('card-1', 'Bear', 'battlefield', 2, 2, 2, 2),
-                $this->card('card-2', 'Elf', 'battlefield', 1, 1, 1, 1),
+                [
+                    ...$this->card('card-2', 'Elf', 'battlefield', 1, 1, 1, 1),
+                    'position' => ['x' => 0.27, 'y' => 0.63, 'unit' => 'ratio'],
+                ],
             ],
         ], $opponent->id());
         $snapshot['arrows'] = [[
@@ -3032,7 +3064,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('arrow-1', $game->snapshot()['arrows'][0]['id'] ?? null);
         self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][1] ?? []);
         self::assertSame('card-2', $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0]['instanceId']);
-        self::assertSame(['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'], $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0]['position']);
+        self::assertSame(['x' => 0.27, 'y' => 0.63, 'unit' => 'ratio'], $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0]['position']);
     }
 
     public function testAttachmentCreatedStoresManualPermanentRelation(): void

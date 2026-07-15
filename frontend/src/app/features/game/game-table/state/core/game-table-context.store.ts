@@ -271,6 +271,8 @@ export class GameTableContextStore {
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       setError: (message) => this.core.error.set(message),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      battlefieldPosition: (playerId, instanceId, position) =>
+        this.battlefieldState.ratioPositionForBattlefield(playerId, instanceId, position),
       snapBattlefieldPosition: (playerId, instanceId, position, rawZone) =>
         this.battlefieldState.snappedBattlefieldPosition(this.battlefield(), playerId, instanceId, position, rawZone),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
@@ -383,6 +385,8 @@ export class GameTableContextStore {
       canControlOwnedCard: (playerId, card) => this.playersStore.canControlOwnedCard(playerId, card, this.interaction()),
       playerName: (playerId) => this.playersStore.playerName(playerId),
       battlefieldPosition: (playerId, instanceId, position) => this.battlefieldState.ratioPositionForBattlefield(playerId, instanceId, position),
+      renderedBattlefieldPosition: (playerId, instanceId, position) =>
+        this.battlefieldState.renderedPositionForBattlefield(playerId, instanceId, position),
       updateLocalCardPosition: (playerId, instanceId, position) =>
         this.battlefieldState.updateLocalCardPosition(this.battlefield(), playerId, instanceId, position),
       setPendingBattlefieldMove: (move) => source.setPendingBattlefieldMove(move),

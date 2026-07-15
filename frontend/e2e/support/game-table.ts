@@ -8,6 +8,10 @@ export async function focusPlayer(page: Page, displayName: string): Promise<void
     // The requested player is in the opponents column when it is not focused.
   }
 
+  const drawerToggle = page.getByTestId('opponents-drawer-toggle');
+  if (await drawerToggle.isVisible() && await drawerToggle.getAttribute('aria-expanded') === 'false') {
+    await drawerToggle.click();
+  }
   const thumb = await resolveOpponentBoard(page, displayName);
   await expect(thumb).toBeVisible();
   await thumb.click();

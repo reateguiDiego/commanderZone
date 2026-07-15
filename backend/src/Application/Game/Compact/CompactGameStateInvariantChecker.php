@@ -110,6 +110,35 @@ final class CompactGameStateInvariantChecker
             }
         }
 
+        $stackMemberships = [];
+        foreach (is_array($relations['battlefieldStacks'] ?? null) ? $relations['battlefieldStacks'] : [] as $stackId => $stack) {
+            if (!is_array($stack)) {
+                $issues[] = sprintf('battlefield stack %s must be an array.', (string) $stackId);
+                continue;
+            }
+            $members = is_array($stack['orderedMemberIds'] ?? null) ? array_values($stack['orderedMemberIds']) : [];
+            $root = is_string($stack['rootInstanceId'] ?? null) ? trim($stack['rootInstanceId']) : '';
+            if (count($members) < 2 || $root === '' || !in_array($root, $members, true)) {
+                $issues[] = sprintf('battlefield stack %s has invalid root or member count.', (string) $stackId);
+            }
+            if (count($members) !== count(array_unique(array_filter($members, 'is_string')))) {
+                $issues[] = sprintf('battlefield stack %s contains duplicate members.', (string) $stackId);
+            }
+            foreach ($members as $memberId) {
+                if (!is_string($memberId) || trim($memberId) === '') {
+                    $issues[] = sprintf('battlefield stack %s contains invalid member.', (string) $stackId);
+                    continue;
+                }
+                if (($loc[$memberId]['zone'] ?? null) !== 'battlefield') {
+                    $issues[] = sprintf('battlefield stack %s references non-battlefield instance %s.', (string) $stackId, $memberId);
+                }
+                if (isset($stackMemberships[$memberId]) && $stackMemberships[$memberId] !== (string) $stackId) {
+                    $issues[] = sprintf('instance %s belongs to multiple battlefield stacks.', $memberId);
+                }
+                $stackMemberships[$memberId] = (string) $stackId;
+            }
+        }
+
         foreach (is_array($relations['arrows'] ?? null) ? $relations['arrows'] : [] as $arrowId => $arrow) {
             $fromInstanceId = (string) ($arrow['fromInstanceId'] ?? '');
             $toInstanceId = (string) ($arrow['toInstanceId'] ?? '');
@@ -128,6 +157,7 @@ final class CompactGameStateInvariantChecker
             ...$issues,
             ...$this->checkRelationIndex($relationIndexes['attachmentsByEquipment'] ?? null, $relations['attachments'] ?? null, 'equipmentInstanceId', 'attachmentsByEquipment'),
             ...$this->checkRelationIndex($relationIndexes['attachmentsByTarget'] ?? null, $relations['attachments'] ?? null, 'attachedToInstanceId', 'attachmentsByTarget'),
+            ...$this->checkStackMemberIndex($relationIndexes['battlefieldStacksByMember'] ?? null, $relations['battlefieldStacks'] ?? null),
             ...$this->checkRelationIndex($relationIndexes['arrowsBySource'] ?? null, $relations['arrows'] ?? null, 'fromInstanceId', 'arrowsBySource'),
             ...$this->checkRelationIndex($relationIndexes['arrowsByTarget'] ?? null, $relations['arrows'] ?? null, 'toInstanceId', 'arrowsByTarget'),
         ];
@@ -201,6 +231,31 @@ final class CompactGameStateInvariantChecker
                 }
                 if ((string) ($relations[$relationId][$field] ?? '') !== $instanceId) {
                     $issues[] = sprintf('relations.indexes.%s.%s is inconsistent for relation %s.', $label, $instanceId, $relationId);
+                }
+            }
+        }
+
+        return $issues;
+    }
+
+    /** @return list<string> */
+    private function checkStackMemberIndex(mixed $index, mixed $relations): array
+    {
+        if (!is_array($index) || !is_array($relations)) {
+            return [];
+        }
+        $issues = [];
+        foreach ($index as $instanceId => $stackIds) {
+            if (!is_string($instanceId) || !is_array($stackIds)) {
+                $issues[] = 'relations.indexes.battlefieldStacksByMember has invalid entry.';
+                continue;
+            }
+            foreach ($stackIds as $stackId) {
+                $members = is_string($stackId) && is_array($relations[$stackId]['orderedMemberIds'] ?? null)
+                    ? $relations[$stackId]['orderedMemberIds']
+                    : [];
+                if (!in_array($instanceId, $members, true)) {
+                    $issues[] = sprintf('relations.indexes.battlefieldStacksByMember.%s references inconsistent stack %s.', $instanceId, (string) $stackId);
                 }
             }
         }

@@ -12,7 +12,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { GameAttachment, GameCardDungeonMarker, GameCardInstance, GameCardStatValue, GamePowerToughnessValue, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameBattlefieldStack, GameCardDungeonMarker, GameCardInstance, GameCardStatValue, GamePowerToughnessValue, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { ManaPoolPanelComponent } from '../mana-pool-panel/mana-pool-panel.component';
@@ -30,6 +30,8 @@ import {
   MIN_BATTLEFIELD_ZOOM_PERCENT,
 } from '../../state/battlefield/game-table-battlefield-zoom.state';
 import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
+import { DEFAULT_BATTLEFIELD_CARD_SIZE } from '../../utils/battlefield-position';
+import { type GameTableResponsiveState } from '../../utils/game-table-responsive-state';
 
 interface CardCounterView {
   key: string;
@@ -114,8 +116,6 @@ interface BattlefieldSizeEvent {
 
 type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 
-const MIN_STACK_VISUAL_OFFSET_Y = 12;
-const MAX_STACK_VISUAL_OFFSET_Y = 25;
 const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 @Component({
@@ -136,6 +136,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
 
   readonly player = input.required<PlayerView>();
+  readonly responsiveState = input<GameTableResponsiveState>('normal');
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly allowArrowTargetSelection = input(false);
   readonly focusEffectsEnabled = input(true);
@@ -166,15 +167,31 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly zoomPercent = input(DEFAULT_BATTLEFIELD_ZOOM_PERCENT);
   readonly landStackDropPreview = input<LandStackDropPreview | null>(null);
   readonly attachments = input<readonly GameAttachment[]>([]);
+  readonly battlefieldStacks = input<readonly GameBattlefieldStack[]>([]);
   readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
+  readonly relationCardSize = computed(() => {
+    const zoomPercent = Math.max(
+      MIN_BATTLEFIELD_ZOOM_PERCENT,
+      Math.min(MAX_BATTLEFIELD_ZOOM_PERCENT, this.zoomPercent()),
+    );
+    const scale = zoomPercent / DEFAULT_BATTLEFIELD_ZOOM_PERCENT;
+
+    return {
+      width: DEFAULT_BATTLEFIELD_CARD_SIZE.width * scale,
+      height: DEFAULT_BATTLEFIELD_CARD_SIZE.height * scale,
+    };
+  });
+
   readonly landStackGroups = computed(() => buildLandStackGroups(
     this.battlefieldCards().filter((card) => !this.isDraggingCard()(card)),
+    this.battlefieldStacks(),
     (candidate) => this.cardPosition()(candidate),
+    this.relationCardSize(),
   ));
   readonly battlefieldDragOver = output<DragEvent>();
   readonly battlefieldDropped = output<BattlefieldDropEvent>();
@@ -225,19 +242,27 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.layoutKey();
     this.measuredLayoutVersion();
     const positions = new Map<string, { x: number; y: number }>();
-    const stackOffsetY = this.stackVisualOffsetY();
+    const cardSize = this.relationCardSize();
+    const stackOffsetX = landStackOffsetX(cardSize.width);
+    const stackOffsetY = landStackOffsetY(cardSize.height);
 
     for (const group of this.landStackGroups()) {
       const top = group.members.find((member) => member.layer === 0);
       if (!top) {
         continue;
       }
+      const verticalDirection = this.relationVerticalDirection(
+        top.card,
+        top.position.y,
+        group.members.length - 1,
+        stackOffsetY,
+      );
 
       const rawPositions = group.members.map((member) => ({
         member,
         position: {
-          x: top.position.x + landStackOffsetX() * member.layer,
-          y: top.position.y - stackOffsetY * member.layer,
+          x: top.position.x + stackOffsetX * member.layer,
+          y: top.position.y + stackOffsetY * member.layer * verticalDirection,
         },
       }));
       const shiftY = this.verticalOverflowShift(rawPositions.map((item) => ({
@@ -247,8 +272,8 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
       for (const member of group.members) {
         positions.set(member.card.instanceId, {
-          x: top.position.x + landStackOffsetX() * member.layer,
-          y: top.position.y - stackOffsetY * member.layer - shiftY,
+          x: top.position.x + stackOffsetX * member.layer,
+          y: top.position.y + stackOffsetY * member.layer * verticalDirection - shiftY,
         });
       }
     }
@@ -259,6 +284,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.player().state.zones.battlefield,
     this.attachments(),
     (candidate) => this.cardPosition()(candidate),
+    this.relationCardSize(),
   ));
   readonly attachmentStackViews = computed<ReadonlyMap<string, AttachmentStackView>>(() => {
     const views = new Map<string, AttachmentStackView>();
@@ -278,19 +304,27 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.layoutKey();
     this.measuredLayoutVersion();
     const positions = new Map<string, { x: number; y: number }>();
-    const stackOffsetY = this.stackVisualOffsetY();
+    const cardSize = this.relationCardSize();
+    const stackOffsetX = landStackOffsetX(cardSize.width);
+    const stackOffsetY = landStackOffsetY(cardSize.height);
 
     for (const group of this.attachmentStackGroups()) {
       const target = group.members.find((member) => member.layer === 0);
       if (!target) {
         continue;
       }
+      const verticalDirection = this.relationVerticalDirection(
+        target.card,
+        target.position.y,
+        group.members.length - 1,
+        stackOffsetY,
+      );
 
       const rawPositions = group.members.map((member) => ({
         member,
         position: {
-          x: target.position.x + landStackOffsetX() * member.layer,
-          y: target.position.y - stackOffsetY * member.layer,
+          x: target.position.x + stackOffsetX * member.layer,
+          y: target.position.y + stackOffsetY * member.layer * verticalDirection,
         },
       }));
       const shiftY = this.verticalOverflowShift(rawPositions.map((item) => ({
@@ -300,8 +334,8 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
       for (const member of group.members) {
         positions.set(member.card.instanceId, {
-          x: target.position.x + landStackOffsetX() * member.layer,
-          y: target.position.y - stackOffsetY * member.layer - shiftY,
+          x: target.position.x + stackOffsetX * member.layer,
+          y: target.position.y + stackOffsetY * member.layer * verticalDirection - shiftY,
         });
       }
     }
@@ -621,48 +655,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
     const shiftY = this.verticalOverflowShift([{ instanceId, position }]);
 
-    return shiftY > 0 ? { ...position, y: position.y - shiftY } : position;
-  }
-
-  private stackVisualOffsetY(): number {
-    const zoomPercent = Math.max(
-      MIN_BATTLEFIELD_ZOOM_PERCENT,
-      Math.min(MAX_BATTLEFIELD_ZOOM_PERCENT, Math.round(this.zoomPercent())),
-    );
-    const offset = zoomPercent <= DEFAULT_BATTLEFIELD_ZOOM_PERCENT
-      ? this.interpolateStackVisualOffset(
-        zoomPercent,
-        MIN_BATTLEFIELD_ZOOM_PERCENT,
-        DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
-        MIN_STACK_VISUAL_OFFSET_Y,
-        landStackOffsetY(),
-      )
-      : this.interpolateStackVisualOffset(
-        zoomPercent,
-        DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
-        MAX_BATTLEFIELD_ZOOM_PERCENT,
-        landStackOffsetY(),
-        MAX_STACK_VISUAL_OFFSET_Y,
-      );
-
-    return Number(offset.toFixed(2));
-  }
-
-  private interpolateStackVisualOffset(
-    value: number,
-    minValue: number,
-    maxValue: number,
-    minOffset: number,
-    maxOffset: number,
-  ): number {
-    const range = maxValue - minValue;
-    if (range <= 0) {
-      return minOffset;
-    }
-
-    const ratio = (value - minValue) / range;
-
-    return minOffset + (maxOffset - minOffset) * ratio;
+    return shiftY !== 0 ? { ...position, y: position.y - shiftY } : position;
   }
 
   private verticalOverflowShift(items: readonly { instanceId: string; position: { x: number; y: number } }[]): number {
@@ -678,17 +671,75 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
     let maxBottom = Number.NEGATIVE_INFINITY;
     let minTop = Number.POSITIVE_INFINITY;
+    let maxRight = Number.NEGATIVE_INFINITY;
+    let minLeft = Number.POSITIVE_INFINITY;
     for (const item of items) {
       const size = this.measuredCardSize(item.instanceId);
       maxBottom = Math.max(maxBottom, item.position.y + size.height);
       minTop = Math.min(minTop, item.position.y);
+      maxRight = Math.max(maxRight, item.position.x + size.width);
+      minLeft = Math.min(minLeft, item.position.x);
     }
 
-    if (!Number.isFinite(maxBottom) || maxBottom <= battlefieldHeight) {
+    if (![maxBottom, minTop, maxRight, minLeft].every(Number.isFinite)) {
+      return 0;
+    }
+
+    let minimumVisibleTop = 0;
+    const battlefieldRect = battlefield.getBoundingClientRect();
+    const ownerSummaryHost = battlefield.closest<HTMLElement>('.focused-board') ?? battlefield.parentElement;
+    const ownerSummary = ownerSummaryHost?.querySelector<HTMLElement>('[data-testid="battlefield-owner-summary"]');
+    const ownerSummaryRect = ownerSummary?.getBoundingClientRect();
+    if (ownerSummaryRect && ownerSummaryRect.width > 0 && ownerSummaryRect.height > 0) {
+      const overlayLeft = ownerSummaryRect.left - battlefieldRect.left;
+      const overlayRight = ownerSummaryRect.right - battlefieldRect.left;
+      const overlayTop = ownerSummaryRect.top - battlefieldRect.top;
+      const overlayBottom = ownerSummaryRect.bottom - battlefieldRect.top;
+      const overlapsHorizontally = minLeft < overlayRight && maxRight > overlayLeft;
+      const overlapsVertically = minTop < overlayBottom && maxBottom > overlayTop;
+      if (overlapsHorizontally && overlapsVertically) {
+        minimumVisibleTop = Math.max(0, Math.round(overlayBottom + 4));
+      }
+    }
+
+    if (minTop < minimumVisibleTop) {
+      const downwardShift = Math.round(minimumVisibleTop - minTop);
+      if (maxBottom + downwardShift <= battlefieldHeight) {
+        return -downwardShift;
+      }
+    }
+
+    if (maxBottom <= battlefieldHeight) {
       return 0;
     }
 
     return Math.min(Math.round(maxBottom - battlefieldHeight), Math.max(0, Math.round(minTop)));
+  }
+
+  private relationVerticalDirection(root: GameCardInstance, rootY: number, maxLayer: number, offsetY: number): -1 | 1 {
+    const battlefield = this.battlefieldRoot?.nativeElement;
+    const battlefieldHeight = Math.round(battlefield?.clientHeight || battlefield?.getBoundingClientRect().height || 0);
+    if (battlefieldHeight <= 0 || maxLayer <= 0) {
+      return -1;
+    }
+
+    // Relation direction is part of the logical projection. Base it on the
+    // shared ratio when available so viewers with different local viewports,
+    // battlefield zooms, or browser zooms cannot fan the same graph in
+    // opposite directions. Legacy pixel positions retain a local fallback.
+    if (root.position?.unit === 'ratio') {
+      return root.position.y < 0.5 ? 1 : -1;
+    }
+
+    const requiredSpace = Math.max(0, maxLayer * offsetY);
+    const rootHeight = this.measuredCardSize(root.instanceId).height;
+    const spaceAbove = Math.max(0, rootY);
+    const spaceBelow = Math.max(0, battlefieldHeight - rootY - rootHeight);
+    if (spaceAbove >= requiredSpace) {
+      return -1;
+    }
+
+    return spaceBelow >= requiredSpace || spaceBelow > spaceAbove ? 1 : -1;
   }
 
   private measuredCardSize(instanceId: string): { width: number; height: number } {

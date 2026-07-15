@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GameCardRatioPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { HandDropPreview } from '../state/drag-drop/game-table-battlefield-drag.state';
-import { attachmentDropTarget, attachmentRelationInstanceIds, createAttachmentStackMoves } from '../utils/attachment-stack';
+import { attachmentDropTarget, attachmentRelationInstanceIds } from '../utils/attachment-stack';
 import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
-import { createLandStackMoves, landStackDropTarget } from '../utils/land-stack';
+import { landStackDropTarget } from '../utils/land-stack';
 import { GameTableDragService } from './game-table-drag.service';
 
 export interface PendingBattlefieldMove {
@@ -39,7 +39,8 @@ export interface GameTableDropActionContext {
   suppressCardPreview(): void;
   setError(message: string): void;
   cardPosition(card: GameCardInstance): { x: number; y: number } | null;
-  snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): GameCardPosition;
+  battlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }): GameCardRatioPosition;
+  snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): GameCardRatioPosition;
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
   markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[], options?: MarkPendingTransferOptions): void;
   syncOpenZoneModalAfterMove(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): Promise<void>;
@@ -107,7 +108,7 @@ export class GameTableDropActionsService {
       : null;
     if (dropPosition) {
       payload['position'] = battlefieldRelationMove
-        ? battlefieldRelationMove.position
+        ? context.battlefieldPosition(targetPlayerId, dragged.instanceId, battlefieldRelationMove.position)
         : toZone === 'battlefield'
           ? context.snapBattlefieldPosition(targetPlayerId, dragged.instanceId, dropPosition, rawDropZone)
           : dropPosition;
@@ -181,6 +182,14 @@ export class GameTableDropActionsService {
       context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
     }
     await context.command(isMultiMove ? 'cards.moved' : 'card.moved', payload);
+    if (battlefieldRelationMove?.kind === 'land' && battlefieldRelationMove.rootInstanceId) {
+      await context.command(
+        battlefieldRelationMove.stackId ? 'battlefield.stack.member_added' : 'battlefield.stack.created',
+        battlefieldRelationMove.stackId
+          ? { stackId: battlefieldRelationMove.stackId, instanceId: dragged.instanceId }
+          : { rootInstanceId: battlefieldRelationMove.rootInstanceId, orderedInstanceIds: [battlefieldRelationMove.rootInstanceId, dragged.instanceId], stackKind: 'land' },
+      );
+    }
     if (battlefieldRelationMove?.kind === 'attachment') {
       await context.command('attachment.created', {
         equipmentInstanceId: dragged.instanceId,
@@ -461,7 +470,7 @@ export class GameTableDropActionsService {
     targetPlayerId: string,
     toZone: GameZoneName,
     dropPosition: { x: number; y: number },
-  ): { readonly kind: 'land' | 'attachment'; readonly position: GameCardPosition; readonly targetInstanceId?: string } | null {
+  ): { readonly kind: 'land' | 'attachment'; readonly position: GameCardPosition; readonly targetInstanceId?: string; readonly stackId?: string; readonly rootInstanceId?: string } | null {
     if (
       toZone !== 'battlefield'
       || targetPlayerId !== dragged.playerId
@@ -485,21 +494,25 @@ export class GameTableDropActionsService {
     };
     const landTarget = landStackDropTarget(
       cards,
+      snapshot?.battlefieldStacks ?? [],
       sourceCard.instanceId,
       dropPosition,
       positionFor,
       attachmentRelationInstanceIds(snapshot?.attachments ?? []),
     );
     if (landTarget) {
-      const moves = createLandStackMoves(landTarget, droppedCard);
-      const droppedMove = moves.find((move) => move.card.instanceId === sourceCard.instanceId);
-
-      return droppedMove ? { kind: 'land', position: droppedMove.position } : null;
+      return {
+        kind: 'land',
+        position: landTarget.targetPosition,
+        stackId: landTarget.targetStack?.id,
+        rootInstanceId: landTarget.targetCard.instanceId,
+      };
     }
 
     const attachmentTarget = attachmentDropTarget(
       cards,
       snapshot?.attachments ?? [],
+      snapshot?.battlefieldStacks ?? [],
       sourceCard.instanceId,
       dropPosition,
       positionFor,
@@ -508,18 +521,11 @@ export class GameTableDropActionsService {
       return null;
     }
 
-    const moves = createAttachmentStackMoves(
-      cards,
-      snapshot?.attachments ?? [],
-      sourceCard.instanceId,
-      attachmentTarget.targetCard.instanceId,
-      positionFor,
-    );
-    const droppedMove = moves.find((move) => move.instanceId === sourceCard.instanceId);
-
-    return droppedMove
-      ? { kind: 'attachment', position: droppedMove.position, targetInstanceId: attachmentTarget.targetCard.instanceId }
-      : null;
+    return {
+      kind: 'attachment',
+      position: attachmentTarget.targetPosition,
+      targetInstanceId: attachmentTarget.targetCard.instanceId,
+    };
   }
 
   private validHandPreview(

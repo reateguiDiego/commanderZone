@@ -1168,24 +1168,21 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'openLibraryView', mode: 'all' });
   });
 
-  it('opens library submenus to the left in aggressive compact mode', () => {
-    const restoreMatchMedia = mockMatchMedia(true);
-    try {
-      const fixture = createContextMenuFixture({
-        kind: 'zone',
-        playerId: 'user-1',
-        zone: 'library',
-      });
+  it('opens library submenus to the left in aggressive responsive mode', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'library',
+    }, {
+      responsiveState: 'aggressive',
+    });
 
-      fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryMoveTop');
-      fixture.detectChanges();
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryMoveTop');
+    fixture.detectChanges();
 
-      expect((fixture.nativeElement as HTMLElement).querySelector('.context-menu.side-left-menu')).not.toBeNull();
-      expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.side-left')).not.toBeNull();
-      expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.child-side-left')).not.toBeNull();
-    } finally {
-      restoreMatchMedia();
-    }
+    expect((fixture.nativeElement as HTMLElement).querySelector('.context-menu.side-left-menu')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.side-left')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.child-side-left')).not.toBeNull();
   });
 
   it('keeps battlefield card actions and omits moving to the current zone', () => {
@@ -1694,6 +1691,7 @@ interface ContextMenuFixtureOptions {
   initiativeOwnerPlayerId?: string | null;
   playerHasCitysBlessing?: (playerId: string) => boolean;
   playerHasTheRing?: (playerId: string) => boolean;
+  responsiveState?: 'normal' | 'compact' | 'aggressive' | 'minimal';
 }
 
 function createContextMenuFixture(menu: Partial<GameContextMenu>, options: ContextMenuFixtureOptions = {}) {
@@ -1730,6 +1728,7 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   fixture.componentRef.setInput('initiativeOwnerPlayerId', options.initiativeOwnerPlayerId ?? null);
   fixture.componentRef.setInput('playerHasCitysBlessing', options.playerHasCitysBlessing ?? (() => false));
   fixture.componentRef.setInput('playerHasTheRing', options.playerHasTheRing ?? (() => false));
+  fixture.componentRef.setInput('responsiveState', options.responsiveState ?? 'normal');
   fixture.detectChanges();
 
   return fixture;
@@ -1773,30 +1772,6 @@ function buttonLabels(fixture: ComponentFixture<ContextMenuComponent>): string[]
 
 function menuButtons(fixture: ComponentFixture<ContextMenuComponent>): HTMLButtonElement[] {
   return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
-}
-
-function mockMatchMedia(matches: boolean): () => void {
-  const original = window.matchMedia;
-  Object.defineProperty(window, 'matchMedia', {
-    configurable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-
-  return () => {
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      value: original,
-    });
-  };
 }
 
 function card(instanceId: string, oracleText = ''): GameCardInstance {

@@ -33,10 +33,12 @@ export class GameTableCommandStore {
       return;
     }
 
-    if (
-      this.isBattlefieldPositionCommand(type)
-      && context.queueBattlefieldPositionCommand(gameId, payload, () => this.sendAndApplyCommand(context, gameId, type, payload))
-    ) {
+    if (this.isBattlefieldPositionCommand(type)) {
+      if (context.queueBattlefieldPositionCommand(gameId, payload, () => this.sendAndApplyCommand(context, gameId, type, payload))) {
+        return;
+      }
+
+      this.core.error.set('Invalid battlefield position.');
       return;
     }
 

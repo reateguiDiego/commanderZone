@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { canDropCardOnZone } from '../utils/command-zone-drop';
+import { resolveBattlefieldContentRect } from '../utils/battlefield-position';
 
 interface PointerCardDrag {
   playerId: string;
@@ -363,15 +364,15 @@ export class GameTableDragService {
     cardWidth = 116,
     cardHeight = 162,
   ): { x: number; y: number } {
-    const bounds = battlefield.getBoundingClientRect();
+    const bounds = resolveBattlefieldContentRect(battlefield);
     const manaLane = this.manaLaneForCardTop(battlefield, clientX, clientY, offsetX, offsetY, cardWidth);
     const manaLaneBounds = manaLane?.getBoundingClientRect();
     const rawY = manaLaneBounds
-      ? Math.round(manaLaneBounds.bottom - bounds.top - cardHeight)
-      : Math.round(clientY - bounds.top - offsetY);
-    const availableHeight = manaLaneBounds ? Math.round(manaLaneBounds.bottom - bounds.top) : bounds.height;
+      ? manaLaneBounds.bottom - bounds.top + bounds.scrollTop - cardHeight
+      : clientY - bounds.top + bounds.scrollTop - offsetY;
+    const availableHeight = manaLaneBounds ? manaLaneBounds.bottom - bounds.top + bounds.scrollTop : bounds.height;
 
-    return this.clampPosition(Math.round(clientX - bounds.left - offsetX), rawY, bounds.width, availableHeight, cardWidth, cardHeight);
+    return this.clampPosition(clientX - bounds.left + bounds.scrollLeft - offsetX, rawY, bounds.width, availableHeight, cardWidth, cardHeight);
   }
 
   private isSupportedDragEvent(event: DragEvent): boolean {
@@ -460,14 +461,15 @@ export class GameTableDragService {
     cardWidth: number,
     cardHeight: number,
   ): { x: number; y: number } {
-    const bounds = battlefield.getBoundingClientRect();
-    if (this.isInsideBounds(clientX, clientY, bounds)) {
+    const outerBounds = battlefield.getBoundingClientRect();
+    if (this.isInsideBounds(clientX, clientY, outerBounds)) {
       return this.positionInBattlefield(battlefield, clientX, clientY, offsetX, offsetY, cardWidth, cardHeight);
     }
+    const bounds = resolveBattlefieldContentRect(battlefield);
 
     return this.clampPosition(
-      Math.round(clientX - bounds.left - offsetX),
-      Math.round(clientY - bounds.top - offsetY),
+      clientX - bounds.left + bounds.scrollLeft - offsetX,
+      clientY - bounds.top + bounds.scrollTop - offsetY,
       bounds.width,
       bounds.height,
       cardWidth,

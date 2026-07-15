@@ -3,8 +3,11 @@ package state
 import "errors"
 
 var (
-	ErrMissingRelation = errors.New("missing relation")
-	ErrInvalidRelation = errors.New("invalid relation")
+	ErrMissingRelation        = errors.New("missing relation")
+	ErrInvalidRelation        = errors.New("invalid relation")
+	ErrRelationExists         = errors.New("relation already exists")
+	ErrRelationCycle          = errors.New("relation cycle")
+	ErrInstanceAlreadyStacked = errors.New("instance already stacked")
 )
 
 type RelationsOps struct {
@@ -62,17 +65,141 @@ func (ops *RelationsOps) AddAttachment(game *GameState, relation Relation) error
 		return ErrMissingInstance
 	}
 	ensureRelations(game)
-	if existingIDs := game.Relations.Indexes.BySource[relation.SourceID]; len(existingIDs) > 0 {
-		for _, existingID := range append([]string(nil), existingIDs...) {
-			if _, ok := game.Relations.Attachments[existingID]; ok {
-				_, _ = ops.RemoveAttachment(game, existingID)
-			}
+	if _, _, ok := ops.BattlefieldStackForInstance(game, relation.SourceID); ok {
+		return ErrInvalidRelation
+	}
+	if _, _, ok := ops.BattlefieldStackForInstance(game, relation.TargetID); ok {
+		return ErrInvalidRelation
+	}
+	for _, existing := range game.Relations.Attachments {
+		if existing.ID == relation.ID || existing.SourceID == relation.SourceID {
+			return ErrRelationExists
 		}
+	}
+	if attachmentPathExists(game.Relations.Attachments, relation.TargetID, relation.SourceID) {
+		return ErrRelationCycle
+	}
+	relation.RelationType = "attachment"
+	relation.EffectVersion = max(relation.EffectVersion, 1)
+	if relation.Order <= 0 {
+		relation.Order = nextAttachmentOrder(game.Relations.Attachments, relation.TargetID)
 	}
 	game.Relations.Attachments[relation.ID] = relation.Clone()
 	addRelationIndex(game, relation.SourceID, relation.ID, true)
 	addRelationIndex(game, relation.TargetID, relation.ID, false)
 	return nil
+}
+
+func (ops *RelationsOps) ReorderAttachments(game *GameState, targetID string, orderedIDs []string) ([]Relation, error) {
+	ensureRelations(game)
+	existing := make([]Relation, 0)
+	for _, relation := range game.Relations.Attachments {
+		if relation.TargetID == targetID {
+			existing = append(existing, relation)
+		}
+	}
+	if len(existing) != len(orderedIDs) || len(existing) == 0 {
+		return nil, ErrInvalidRelation
+	}
+	byID := make(map[string]Relation, len(existing))
+	for _, relation := range existing {
+		byID[relation.ID] = relation
+	}
+	seen := map[string]bool{}
+	ordered := make([]Relation, 0, len(orderedIDs))
+	for index, id := range orderedIDs {
+		relation, ok := byID[id]
+		if !ok || seen[id] {
+			return nil, ErrInvalidRelation
+		}
+		seen[id] = true
+		relation.Order = index + 1
+		game.Relations.Attachments[id] = relation
+		ordered = append(ordered, relation.Clone())
+	}
+	return ordered, nil
+}
+
+func (ops *RelationsOps) AddBattlefieldStack(game *GameState, stack BattlefieldStack) error {
+	ensureRelations(game)
+	if stack.ID == "" || stack.RootInstanceID == "" || len(stack.OrderedMemberIDs) < 2 {
+		return ErrInvalidRelation
+	}
+	if _, exists := game.Relations.BattlefieldStacks[stack.ID]; exists {
+		return ErrRelationExists
+	}
+	seen := map[string]bool{}
+	rootFound := false
+	for _, instanceID := range stack.OrderedMemberIDs {
+		if instanceID == "" || seen[instanceID] {
+			return ErrInvalidRelation
+		}
+		seen[instanceID] = true
+		rootFound = rootFound || instanceID == stack.RootInstanceID
+		if _, ok := game.AssertLocation(instanceID, zonePtr(ZoneBattlefield)); !ok {
+			return ErrMissingInstance
+		}
+		if instanceHasAttachment(game.Relations.Attachments, instanceID) {
+			return ErrInvalidRelation
+		}
+		if _, _, ok := ops.BattlefieldStackForInstance(game, instanceID); ok {
+			return ErrInstanceAlreadyStacked
+		}
+	}
+	if !rootFound {
+		return ErrInvalidRelation
+	}
+	stack.RelationType = "battlefield_stack"
+	stack.EffectVersion = max(stack.EffectVersion, 1)
+	stack.OrderedMemberIDs = append([]string(nil), stack.OrderedMemberIDs...)
+	game.Relations.BattlefieldStacks[stack.ID] = stack
+	return nil
+}
+
+func instanceHasAttachment(attachments map[string]Relation, instanceID string) bool {
+	for _, relation := range attachments {
+		if relation.SourceID == instanceID || relation.TargetID == instanceID {
+			return true
+		}
+	}
+	return false
+}
+
+func (ops *RelationsOps) BattlefieldStackForInstance(game *GameState, instanceID string) (string, BattlefieldStack, bool) {
+	if game == nil {
+		return "", BattlefieldStack{}, false
+	}
+	for stackID, stack := range game.Relations.BattlefieldStacks {
+		for _, memberID := range stack.OrderedMemberIDs {
+			if memberID == instanceID {
+				return stackID, stack, true
+			}
+		}
+	}
+	return "", BattlefieldStack{}, false
+}
+
+func (ops *RelationsOps) SetBattlefieldStack(game *GameState, stack BattlefieldStack) error {
+	ensureRelations(game)
+	if _, exists := game.Relations.BattlefieldStacks[stack.ID]; !exists {
+		return ErrMissingRelation
+	}
+	delete(game.Relations.BattlefieldStacks, stack.ID)
+	if err := ops.AddBattlefieldStack(game, stack); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ops *RelationsOps) RemoveBattlefieldStack(game *GameState, id string) (BattlefieldStack, error) {
+	ensureRelations(game)
+	stack, ok := game.Relations.BattlefieldStacks[id]
+	if !ok {
+		return BattlefieldStack{}, ErrMissingRelation
+	}
+	delete(game.Relations.BattlefieldStacks, id)
+	stack.OrderedMemberIDs = append([]string(nil), stack.OrderedMemberIDs...)
+	return stack, nil
 }
 
 func (ops *RelationsOps) RemoveAttachment(game *GameState, id string) (Relation, error) {
@@ -155,17 +282,41 @@ func (ops *RelationsOps) PruneForMovedInstance(game *GameState, instanceID strin
 			removed = append(removed, RemovedRelation{Kind: "attachment", ID: relationID})
 		}
 	}
+	if stackID, _, ok := ops.BattlefieldStackForInstance(game, instanceID); ok {
+		stack := game.Relations.BattlefieldStacks[stackID]
+		remaining := make([]string, 0, len(stack.OrderedMemberIDs)-1)
+		for _, memberID := range stack.OrderedMemberIDs {
+			if memberID != instanceID {
+				remaining = append(remaining, memberID)
+			}
+		}
+		if len(remaining) < 2 {
+			delete(game.Relations.BattlefieldStacks, stackID)
+			removed = append(removed, RemovedRelation{Kind: "battlefield_stack", ID: stackID})
+		} else {
+			stack.OrderedMemberIDs = remaining
+			if stack.RootInstanceID == instanceID {
+				stack.RootInstanceID = remaining[0]
+			}
+			game.Relations.BattlefieldStacks[stackID] = stack
+			removed = append(removed, RemovedRelation{Kind: "battlefield_stack_set", ID: stackID, Stack: stack})
+		}
+	}
 	return removed
 }
 
 type RemovedRelation struct {
-	Kind string
-	ID   string
+	Kind  string
+	ID    string
+	Stack BattlefieldStack
 }
 
 func ensureRelations(game *GameState) {
 	if game.Relations.Attachments == nil {
 		game.Relations.Attachments = map[string]Relation{}
+	}
+	if game.Relations.BattlefieldStacks == nil {
+		game.Relations.BattlefieldStacks = map[string]BattlefieldStack{}
 	}
 	if game.Relations.Arrows == nil {
 		game.Relations.Arrows = map[string]Relation{}
@@ -179,6 +330,37 @@ func ensureRelations(game *GameState) {
 	if game.Relations.Indexes.ByTarget == nil {
 		game.Relations.Indexes.ByTarget = map[string][]string{}
 	}
+}
+
+func nextAttachmentOrder(attachments map[string]Relation, targetID string) int {
+	next := 1
+	for _, relation := range attachments {
+		if relation.TargetID == targetID && relation.Order >= next {
+			next = relation.Order + 1
+		}
+	}
+	return next
+}
+
+func attachmentPathExists(attachments map[string]Relation, fromID string, toID string) bool {
+	visited := map[string]bool{}
+	var visit func(string) bool
+	visit = func(instanceID string) bool {
+		if instanceID == toID {
+			return true
+		}
+		if visited[instanceID] {
+			return false
+		}
+		visited[instanceID] = true
+		for _, relation := range attachments {
+			if relation.SourceID == instanceID && visit(relation.TargetID) {
+				return true
+			}
+		}
+		return false
+	}
+	return visit(fromID)
 }
 
 func addRelationIndex(game *GameState, instanceID string, relationID string, source bool) {

@@ -2,7 +2,9 @@ import type {
   GameCardInstance,
   GameCompactCardRef,
   GameCardPosition,
+  GameCardRatioPosition,
   GameCommand,
+  GameBattlefieldStack,
   GamePhase,
   GameSpecialEntity,
   GameSpecialEntityCardRef,
@@ -272,18 +274,20 @@ export interface GameplayVersionConflict {
 export type GameSnapshotPatchOperation =
   | {
       op: 'card.position.set';
+      effectVersion?: 1;
       playerId: string;
       zone: GameZoneName;
       instanceId: string;
-      position: GameCardPosition;
+      position: GameCardRatioPosition;
     }
   | {
       op: 'cards.position.set';
+      effectVersion?: 1;
       playerId: string;
       zone: GameZoneName;
       positions: Array<{
         instanceId: string;
-        position: GameCardPosition;
+        position: GameCardRatioPosition;
       }>;
     }
   | {
@@ -462,7 +466,7 @@ export type GameSnapshotPatchOperation =
       arrows: GameSnapshot['arrows'];
     }
   | {
-      op: 'attachment.add';
+      op: 'attachment.add' | 'attachment.set';
       attachment: NonNullable<GameSnapshot['attachments']>[number];
     }
   | {
@@ -472,6 +476,29 @@ export type GameSnapshotPatchOperation =
   | {
       op: 'attachments.set';
       attachments: NonNullable<GameSnapshot['attachments']>;
+    }
+  | {
+      op: 'attachment.order.set';
+      attachedToInstanceId: string;
+      orderedAttachmentIds: string[];
+    }
+  | {
+      op: 'battlefield.stack.set';
+      stack: GameBattlefieldStack;
+    }
+  | {
+      op: 'battlefield.stack.remove';
+      id: string;
+    }
+  | {
+      op: 'battlefield.stacks.set';
+      stacks: GameBattlefieldStack[];
+    }
+  | {
+      op: 'battlefield.stack.order.set';
+      stackId: string;
+      rootInstanceId: string;
+      orderedInstanceIds: string[];
     }
   | {
       op: 'rematch.set';

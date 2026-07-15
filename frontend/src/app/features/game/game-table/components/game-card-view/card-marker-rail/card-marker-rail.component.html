@@ -1,6 +1,20 @@
 @if (hasMarkers()) {
   @if (showTokenCopyMarker() || markerCounters().length > 0) {
-    <span class="card-marker-rail" [class.compact]="compact()" aria-hidden="false">
+    <span
+      class="card-marker-rail"
+      data-testid="card-counter-rail"
+      [attr.data-counter-orientation]="resolvedLayout().orientation"
+      [attr.data-counter-label-mode]="resolvedLayout().labelMode"
+      [attr.data-counter-count]="markerCounters().length"
+      [style.--counter-rows]="resolvedLayout().rows"
+      [style.--counter-columns]="resolvedLayout().columns"
+      [style.--counter-badge-size]="resolvedLayout().badgeSize + 'px'"
+      [style.--counter-hit-size]="resolvedLayout().hitSize + 'px'"
+      [style.--counter-gap]="resolvedLayout().gap + 'px'"
+      [style.--counter-font-size]="resolvedLayout().fontSize + 'px'"
+      [style.--counter-rail-z-index]="resolvedLayout().zIndex"
+      aria-hidden="false"
+    >
       @if (showTokenCopyMarker()) {
         <span class="card-marker token-copy-marker" [title]="'game.cardMarkerRail.tokenCopyLabel' | runtimeTranslate" [attr.aria-label]="'game.cardMarkerRail.tokenCopyLabel' | runtimeTranslate">
           <img src="assets/icons/gameplay/token-copy.png" alt="" />
@@ -14,22 +28,28 @@
           [class.stat-counter-marker]="currentCounter.kind === 'stat'"
           [class.generic-counter-marker]="currentCounter.kind === 'generic'"
           [style.--counter-color]="currentCounter.color"
+          [attr.data-counter-key]="currentCounter.key"
+          [attr.data-counter-value]="currentCounter.value"
           [attr.aria-label]="currentCounter.key + ' counter ' + currentCounter.value"
           [title]="countersInteractive() ? currentCounter.key + ' counter. Left click adds, right click removes.' : currentCounter.key + ' counter.'"
           [attr.role]="countersInteractive() ? 'button' : null"
           [attr.tabindex]="countersInteractive() ? '0' : null"
+          [attr.aria-keyshortcuts]="countersInteractive() ? 'Enter Space ArrowUp ArrowDown + -' : null"
           (pointerdown)="stopMarkerPointer($event)"
           (pointerup)="onMarkerPointerUp($event, currentCounter.key)"
           (click)="swallowMouseEvent($event)"
           (auxclick)="swallowMouseEvent($event)"
           (dblclick)="swallowMouseEvent($event)"
           (contextmenu)="changeCounter($event, currentCounter, -1)"
+          (keydown)="onCounterKeyDown($event, currentCounter)"
         >
           @if (currentCounter.kind === 'stat') {
             <strong class="counter-value-badge">{{ currentCounter.value }}</strong>
-            <span>{{ currentCounter.label }}</span>
+            <span class="counter-label counter-label--full">{{ currentCounter.label }}</span>
+            <span class="counter-label counter-label--abbreviated" aria-hidden="true">{{ currentCounter.abbreviatedLabel }}</span>
           } @else {
-            <span>{{ currentCounter.label }}</span>
+            <span class="counter-label counter-label--full">{{ currentCounter.label }}</span>
+            <span class="counter-label counter-label--abbreviated" aria-hidden="true">{{ currentCounter.abbreviatedLabel }}</span>
             <strong class="counter-value-badge">{{ currentCounter.value }}</strong>
           }
         </span>

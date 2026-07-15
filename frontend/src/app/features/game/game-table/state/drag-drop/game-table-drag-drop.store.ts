@@ -445,7 +445,7 @@ export class GameTableDragDropStore {
       return;
     }
 
-    const groups = buildLandStackGroups(player.state.zones.battlefield, context.cardPosition);
+    const groups = buildLandStackGroups(player.state.zones.battlefield, context.snapshot()?.battlefieldStacks ?? [], context.cardPosition);
     const group = landStackGroupContaining(groups, card.instanceId);
     if (!group) {
       this.prepareAttachmentStackDrag(context, playerId, card, player.state.zones.battlefield);
@@ -509,13 +509,13 @@ export class GameTableDragDropStore {
     const player = context.players().find((candidate) => candidate.id === selected.playerId);
     const blockedByAttachments = attachmentRelationInstanceIds(context.snapshot()?.attachments ?? []);
     const target = player
-      ? landStackDropTarget(player.state.zones.battlefield, instanceId, position, context.cardPosition, blockedByAttachments)
+      ? landStackDropTarget(player.state.zones.battlefield, context.snapshot()?.battlefieldStacks ?? [], instanceId, position, context.cardPosition, blockedByAttachments)
       : null;
 
     if (!target) {
       if (
         player
-        && fullLandStackDropTarget(player.state.zones.battlefield, instanceId, position, context.cardPosition)
+        && fullLandStackDropTarget(player.state.zones.battlefield, context.snapshot()?.battlefieldStacks ?? [], instanceId, position, context.cardPosition)
         && !this.isDetachingLandStackCard()
       ) {
         if (clearOnMiss) {
@@ -559,6 +559,7 @@ export class GameTableDragDropStore {
       ? attachmentDropTarget(
         player.state.zones.battlefield,
         context.snapshot()?.attachments ?? [],
+        context.snapshot()?.battlefieldStacks ?? [],
         instanceId,
         position,
         context.cardPosition,
@@ -614,6 +615,7 @@ export class GameTableDragDropStore {
     };
     const landTarget = landStackDropTarget(
       cards,
+      context.snapshot()?.battlefieldStacks ?? [],
       sourceCard.instanceId,
       dropPosition,
       positionFor,
@@ -629,7 +631,7 @@ export class GameTableDragDropStore {
       return true;
     }
 
-    if (fullLandStackDropTarget(cards, sourceCard.instanceId, dropPosition, positionFor)) {
+    if (fullLandStackDropTarget(cards, context.snapshot()?.battlefieldStacks ?? [], sourceCard.instanceId, dropPosition, positionFor)) {
       this.clearLandStackDropPreview();
       return true;
     }
@@ -637,6 +639,7 @@ export class GameTableDragDropStore {
     const attachmentTarget = attachmentDropTarget(
       cards,
       context.snapshot()?.attachments ?? [],
+      context.snapshot()?.battlefieldStacks ?? [],
       sourceCard.instanceId,
       dropPosition,
       positionFor,
@@ -688,6 +691,7 @@ export class GameTableDragDropStore {
     };
     const landTarget = landStackDropTarget(
       cards,
+      context.snapshot()?.battlefieldStacks ?? [],
       source.card.instanceId,
       target.position,
       positionFor,
@@ -703,7 +707,7 @@ export class GameTableDragDropStore {
       return true;
     }
 
-    if (fullLandStackDropTarget(cards, source.card.instanceId, target.position, positionFor)) {
+    if (fullLandStackDropTarget(cards, context.snapshot()?.battlefieldStacks ?? [], source.card.instanceId, target.position, positionFor)) {
       this.clearLandStackDropPreview();
       return true;
     }
@@ -711,6 +715,7 @@ export class GameTableDragDropStore {
     const attachmentTarget = attachmentDropTarget(
       cards,
       context.snapshot()?.attachments ?? [],
+      context.snapshot()?.battlefieldStacks ?? [],
       source.card.instanceId,
       target.position,
       positionFor,

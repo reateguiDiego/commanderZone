@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
 import { CircleQuestionMark, LucideAngularModule } from 'lucide-angular';
 import { CardMarkerRailComponent } from './card-marker-rail.component';
+import { resolveCardCounterLayout } from '../../../utils/card-counter-layout';
 
 describe('CardMarkerRailComponent', () => {
   beforeEach(async () => {
@@ -72,7 +73,8 @@ describe('CardMarkerRailComponent', () => {
 
     const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
     expect(marker.classList).toContain('color-counter-marker');
-    expect(marker.textContent?.trim()).toBe('red3');
+    expect(marker.textContent).toContain('red');
+    expect(marker.textContent).toContain('3');
   });
 
   it('renders plus and minus counters as stat pills', () => {
@@ -192,6 +194,66 @@ describe('CardMarkerRailComponent', () => {
 
     expect(parentPointerDown).not.toHaveBeenCalled();
     expect(parentClick).not.toHaveBeenCalled();
+  });
+
+  it('renders five complete counter controls with visible values including three digits', () => {
+    const fixture = createFixture();
+    fixture.componentRef.setInput('counters', [
+      { key: 'Charge', value: 1 },
+      { key: 'Quest progress', value: 10 },
+      { key: '+1/+1', value: 100 },
+      { key: 'Shield', value: 9 },
+      { key: 'red', value: 99 },
+    ]);
+    fixture.detectChanges();
+
+    const rail = fixture.nativeElement.querySelector('[data-testid="card-counter-rail"]') as HTMLElement;
+    const markers = Array.from(rail.querySelectorAll<HTMLElement>('[data-counter-key]'));
+    expect(rail.dataset['counterCount']).toBe('5');
+    expect(rail.dataset['counterOrientation']).toBe('vertical');
+    expect(markers).toHaveLength(5);
+    expect(markers.map((marker) => marker.dataset['counterValue'])).toEqual(['1', '10', '100', '9', '99']);
+    expect(markers.every((marker) => marker.getAttribute('role') === 'button' && marker.tabIndex === 0)).toBe(true);
+  });
+
+  it.each(['compact', 'aggressive', 'minimal'] as const)('uses the resolved contained grid in %s', (responsiveState) => {
+    const fixture = createFixture();
+    const counters = Array.from({ length: 5 }, (_, index) => ({ key: `Long counter ${index + 1}`, value: index + 1 }));
+    fixture.componentRef.setInput('counters', counters);
+    fixture.componentRef.setInput('layout', resolveCardCounterLayout({
+      cardWidth: responsiveState === 'minimal' ? 60 : 82,
+      cardHeight: responsiveState === 'minimal' ? 84 : 115,
+      counterCount: counters.length,
+      responsiveState,
+      tapped: false,
+      relationRole: 'independent',
+      availableRect: { width: responsiveState === 'minimal' ? 60 : 82, height: responsiveState === 'minimal' ? 84 : 115 },
+    }));
+    fixture.detectChanges();
+
+    const rail = fixture.nativeElement.querySelector('[data-testid="card-counter-rail"]') as HTMLElement;
+    expect(rail.dataset['counterOrientation']).toBe('grid');
+    expect(rail.querySelectorAll('[data-counter-key]')).toHaveLength(5);
+    expect(rail.style.getPropertyValue('--counter-rows')).toBe('3');
+    expect(rail.style.getPropertyValue('--counter-columns')).toBe('2');
+  });
+
+  it('supports keyboard increment and decrement without bubbling to the card', () => {
+    const fixture = createFixture();
+    const changed = vi.fn();
+    fixture.componentInstance.counterChanged.subscribe(changed);
+    fixture.componentRef.setInput('counters', [{ key: 'charge', value: 4 }]);
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    const parentKeydown = vi.fn();
+    (fixture.nativeElement as HTMLElement).addEventListener('keydown', parentKeydown);
+    marker.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    marker.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+
+    expect(changed).toHaveBeenNthCalledWith(1, { event: expect.any(MouseEvent), key: 'charge', delta: 1 });
+    expect(changed).toHaveBeenNthCalledWith(2, { event: expect.any(MouseEvent), key: 'charge', delta: -1 });
+    expect(parentKeydown).not.toHaveBeenCalled();
   });
 
   it('does not render an empty rail', () => {

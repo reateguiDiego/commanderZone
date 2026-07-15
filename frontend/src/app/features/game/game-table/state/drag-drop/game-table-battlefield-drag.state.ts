@@ -33,7 +33,7 @@ export interface LandStackDropPreview {
   playerId: string;
   targetInstanceId: string;
   kind: 'land' | 'attachment';
-  nextSize?: 2 | 3;
+  nextSize?: number;
 }
 
 @Injectable()

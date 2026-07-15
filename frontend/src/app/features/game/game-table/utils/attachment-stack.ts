@@ -1,4 +1,4 @@
-import { GameAttachment, GameCardInstance } from '../../../../core/models/game.model';
+import { GameAttachment, GameBattlefieldStack, GameCardInstance } from '../../../../core/models/game.model';
 import { DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
 import { isDayNightCard, isGameplayCard, isTheRingCard } from './gameplay-card-kind';
 import { buildLandStackGroups, landStackGroupContaining, landStackOffsetX, landStackOffsetY } from './land-stack';
@@ -53,12 +53,13 @@ const DROP_OVERLAP_RATIO = 0.32;
 export function attachmentDropTarget(
   cards: readonly GameCardInstance[],
   attachments: readonly GameAttachment[],
+  battlefieldStacks: readonly GameBattlefieldStack[],
   equipmentInstanceId: string,
   equipmentPosition: { x: number; y: number },
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
 ): AttachmentDropTarget | null {
   const equipment = cards.find((card) => card.instanceId === equipmentInstanceId);
-  const landGroups = buildLandStackGroups(cards, positionFor);
+  const landGroups = buildLandStackGroups(cards, battlefieldStacks, positionFor);
   if (
     !equipment
     || isLandPermanent(equipment)
@@ -164,6 +165,7 @@ export function buildAttachmentStackGroups(
   cards: readonly GameCardInstance[],
   attachments: readonly GameAttachment[],
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
+  cardSize: { width: number; height: number } = DEFAULT_BATTLEFIELD_CARD_SIZE,
 ): AttachmentStackGroup[] {
   const cardsById = new Map(cards.map((card) => [card.instanceId, card]));
   const attachmentsByTarget = new Map<string, GameAttachment[]>();
@@ -186,27 +188,70 @@ export function buildAttachmentStackGroups(
         return null;
       }
 
+      const orderedAttachments = [...targetAttachments].sort((left, right) =>
+        (left.order ?? Number.MAX_SAFE_INTEGER) - (right.order ?? Number.MAX_SAFE_INTEGER)
+        || left.id.localeCompare(right.id));
       const members: AttachmentStackMember[] = [
         { card: targetCard, position: targetPosition, layer: 0, role: 'target' },
-        ...targetAttachments
+        ...orderedAttachments
           .map((attachment, index): AttachmentStackMember | null => {
             const card = cardsById.get(attachment.equipmentInstanceId);
-            const position = card ? positionFor(card) : null;
+            const offset = resolveAttachmentOffset(index + 1, cardSize);
 
-            return card && position
-              ? { card, position, layer: index + 1, role: 'equipment' }
+            return card
+              ? {
+                  card,
+                  position: { x: targetPosition.x + offset.x, y: targetPosition.y + offset.y },
+                  layer: index + 1,
+                  role: 'equipment',
+                }
               : null;
           })
           .filter((member): member is AttachmentStackMember => member !== null),
       ];
 
       return {
-        id: members.map((member) => member.card.instanceId).join(':'),
+        id: `attachment-target:${targetInstanceId}`,
         targetCard,
         members,
       };
     })
     .filter((group): group is AttachmentStackGroup => group !== null && group.members.length > 1);
+}
+
+export function resolveAttachmentOffset(
+  orderedIndex: number,
+  cardSize: { width: number; height: number } = DEFAULT_BATTLEFIELD_CARD_SIZE,
+): { x: number; y: number } {
+  const layer = Math.max(0, orderedIndex);
+  return {
+    x: landStackOffsetX(cardSize.width) * layer,
+    y: -landStackOffsetY(cardSize.height) * layer,
+  };
+}
+
+export function resolveAttachmentZIndex(orderedIndex: number, interaction: 'idle' | 'hover' | 'focus' | 'drag' = 'idle'): number {
+  const interactionBoost = interaction === 'drag' ? 400 : interaction === 'focus' ? 300 : interaction === 'hover' ? 200 : 0;
+  return 100 + Math.max(0, orderedIndex) + interactionBoost;
+}
+
+export function resolveAttachmentHitRegion(
+  position: { x: number; y: number },
+  cardSize: { width: number; height: number } = DEFAULT_BATTLEFIELD_CARD_SIZE,
+): { left: number; top: number; right: number; bottom: number } {
+  return {
+    left: position.x,
+    top: position.y,
+    right: position.x + cardSize.width,
+    bottom: position.y + cardSize.height,
+  };
+}
+
+export function resolveAttachmentPreviewAnchor(
+  position: { x: number; y: number },
+  cardSize: { width: number; height: number } = DEFAULT_BATTLEFIELD_CARD_SIZE,
+): { x: number; y: number } {
+  return { x: position.x + cardSize.width / 2, y: position.y + cardSize.height / 2 };
 }
 
 export function attachmentStackViewFor(groups: readonly AttachmentStackGroup[], instanceId: string): AttachmentStackView | null {

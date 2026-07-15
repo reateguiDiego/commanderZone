@@ -305,10 +305,10 @@ test.describe('Sprint 1 integrated privacy, authority and continuity release gat
       await accepted(1, 'card.moved', { playerId: playerB.user.id, fromZone: 'hand', toZone: 'battlefield', instanceId: b1 });
       await accepted(2, 'card.moved', { playerId: playerC.user.id, fromZone: 'hand', toZone: 'battlefield', instanceId: c1 });
       await accepted(1, 'card.controller.changed', { playerId: playerB.user.id, instanceId: b1, targetPlayerId: playerC.user.id });
-      await accepted(2, 'card.position.changed', { playerId: playerC.user.id, instanceId: b1, position: { x: 0.31, y: 0.46, unit: 'ratio' } });
+      await accepted(2, 'card.position.changed', { playerId: playerB.user.id, instanceId: b1, position: { x: 0.31, y: 0.46, unit: 'ratio' } });
       await accepted(2, 'card.tapped', { playerId: playerC.user.id, instanceId: b1, tapped: true });
       await accepted(0, 'card.controller.changed', { playerId: playerA.user.id, instanceId: faceDownA, targetPlayerId: playerC.user.id });
-      await accepted(2, 'card.position.changed', { playerId: playerC.user.id, instanceId: faceDownA, position: { x: 0.41, y: 0.52, unit: 'ratio' } });
+      await accepted(2, 'card.position.changed', { playerId: playerA.user.id, instanceId: faceDownA, position: { x: 0.41, y: 0.52, unit: 'ratio' } });
       projected = await Promise.all(setup.players.map((player) => gameSnapshot(request, setup.gameId, player.token)));
       expect(findCard(projected[0]!, faceDownA)?.['controllerId']).toBe(playerC.user.id);
       expect(findCard(projected[2]!, faceDownA)?.['controllerId']).toBe(playerC.user.id);
@@ -870,6 +870,10 @@ function cardSelector(zone: string, ownerId: string, instanceId: string): string
 async function focusPlayer(page: Page, playerId: string): Promise<void> {
   await expect(page.getByTestId('player-panel')).toBeVisible({ timeout: 20_000 });
   if (await page.getByTestId('player-panel').getAttribute('data-player-id') === playerId) return;
+  const drawerToggle = page.getByTestId('opponents-drawer-toggle');
+  if (await drawerToggle.isVisible() && await drawerToggle.getAttribute('aria-expanded') === 'false') {
+    await drawerToggle.click();
+  }
   const miniBoard = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
   await expect(miniBoard).toBeVisible({ timeout: 20_000 });
   await miniBoard.click();

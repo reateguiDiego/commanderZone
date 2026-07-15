@@ -116,7 +116,7 @@ test.describe('batch authorization and atomicity closure gate', () => {
       await accepted(1, 'card.controller.changed', { playerId: playerB.user.id, instanceId: b1, targetPlayerId: playerC.user.id });
 
       await accepted(2, 'card.position.changed', {
-        playerId: playerC.user.id,
+        playerId: playerB.user.id,
         instanceId: b1,
         position: { x: 0.31, y: 0.46, unit: 'ratio' },
       });
@@ -218,8 +218,16 @@ test.describe('batch authorization and atomicity closure gate', () => {
 
   test('actor restart preserves only authorized events and runtime remains healthy', async ({ request }) => {
     test.setTimeout(180_000);
+    const immediatelyBeforeRestart = await gameSnapshot(request, setup.gameId, setup.players[0].token);
+    expectedRestart = { ...expectedRestart, version: Number(immediatelyBeforeRestart['version']) };
     await restartRuntime();
-    await expect.poll(async () => (await request.get(SERVICE_URLS[5]!)).ok(), { timeout: 60_000 }).toBe(true);
+    await expect.poll(async () => {
+      try {
+        return (await request.get(SERVICE_URLS[5]!)).ok();
+      } catch {
+        return false;
+      }
+    }, { timeout: 60_000 }).toBe(true);
     const snapshots = await Promise.all(setup.players.map((player) => gameSnapshot(request, setup.gameId, player.token)));
     for (const snapshot of snapshots) {
       expect(snapshot['version']).toBe(expectedRestart.version);

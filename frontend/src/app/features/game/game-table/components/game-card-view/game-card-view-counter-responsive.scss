@@ -1,0 +1,8 @@
+/* The card visual keeps clipping artwork; only the responsive marker rail may
+ * use the card shell overflow so five controls remain reachable. */
+.game-card.has-card-markers,
+.game-card.land-stack-card.has-card-markers,
+.game-card.attachment-stack-target.has-card-markers,
+.game-card.attachment-stack-equipment.has-card-markers {
+  overflow: visible;
+}

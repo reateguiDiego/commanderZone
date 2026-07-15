@@ -5,8 +5,6 @@ import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTablePermanentRelationService } from '../../services/game-table-permanent-relation.service';
 import {
   buildAttachmentStackGroups,
-  createAttachmentStackMoves,
-  detachAttachmentStackMoves,
   removeAttachmentStackMoves,
 } from '../../utils/attachment-stack';
 
@@ -27,7 +25,7 @@ export interface GameTableAttachmentInteractionContext {
   readonly showTargetToast: (message: string) => void;
   readonly clearTargetToast: () => void;
   readonly command: (
-    type: Extract<GameCommandType, 'attachment.created' | 'attachment.removed' | 'cards.position.changed'>,
+    type: Extract<GameCommandType, 'attachment.created' | 'attachment.removed'>,
     payload: Record<string, unknown>,
   ) => Promise<void>;
 }
@@ -119,7 +117,7 @@ export class GameTableAttachmentsState {
     }
 
     this.pendingAttachmentSource.set(null);
-    this.queueAttachmentCommand(context, sourceLocation.playerId, targetLocation.playerId, {
+    this.queueAttachmentCommand(context, {
       equipmentInstanceId: pendingAttachment.instanceId,
       attachedToInstanceId: card.instanceId,
     });
@@ -149,34 +147,20 @@ export class GameTableAttachmentsState {
       context.cardPosition,
     );
     const group = groups.find((candidate) => candidate.members.some((member) => member.card.instanceId === equipment.instanceId)) ?? null;
-    const source = group ? {
-      playerId,
-      detachedInstanceId: equipment.instanceId,
-      attachmentId: attachment.id,
-      members: group.members.map((member) => ({
-        instanceId: member.card.instanceId,
-        x: member.position.x,
-        y: member.position.y,
-        layer: member.layer,
-      })),
-    } : null;
-    const moves = source ? detachAttachmentStackMoves(source) : [];
-
-    if (moves.length > 0) {
-      for (const move of moves) {
-        context.updateLocalCardPosition(playerId, move.instanceId, move.position);
-      }
-      await context.command('cards.position.changed', {
-        playerId,
-        zone: 'battlefield',
-        positions: moves.map((move) => ({
-          instanceId: move.instanceId,
-          position: context.battlefieldPosition(playerId, move.instanceId, move.position),
-        })),
-      });
+    const detachedPosition = group?.members.find((member) => member.card.instanceId === equipment.instanceId)?.position
+      ?? context.cardPosition(equipment);
+    const position = detachedPosition
+      ? context.battlefieldPosition(playerId, equipment.instanceId, detachedPosition)
+      : undefined;
+    if (detachedPosition) {
+      context.updateLocalCardPosition(playerId, equipment.instanceId, detachedPosition);
     }
 
-    await context.command('attachment.removed', { equipmentInstanceId: equipment.instanceId });
+    await context.command('attachment.removed', {
+      id: attachment.id,
+      equipmentInstanceId: equipment.instanceId,
+      ...(position ? { position } : {}),
+    });
   }
 
   async removeAttachmentsFromTarget(context: GameTableAttachmentInteractionContext, playerId: string, target: GameCardInstance): Promise<void> {
@@ -194,56 +178,28 @@ export class GameTableAttachmentsState {
     const group = groups.find((candidate) => candidate.targetCard.instanceId === target.instanceId) ?? null;
     const moves = group ? removeAttachmentStackMoves(group) : [];
 
-    if (moves.length > 0) {
-      for (const move of moves) {
+    for (const attachment of attachments) {
+      const move = moves.find((candidate) => candidate.instanceId === attachment.equipmentInstanceId);
+      const position = move
+        ? context.battlefieldPosition(playerId, move.instanceId, move.position)
+        : undefined;
+      if (move) {
         context.updateLocalCardPosition(playerId, move.instanceId, move.position);
       }
-      await context.command('cards.position.changed', {
-        playerId,
-        zone: 'battlefield',
-        positions: moves.map((move) => ({
-          instanceId: move.instanceId,
-          position: context.battlefieldPosition(playerId, move.instanceId, move.position),
-        })),
+      await context.command('attachment.removed', {
+        id: attachment.id,
+        equipmentInstanceId: attachment.equipmentInstanceId,
+        ...(position ? { position } : {}),
       });
-    }
-
-    for (const attachment of attachments) {
-      await context.command('attachment.removed', { id: attachment.id });
     }
   }
 
   private queueAttachmentCommand(
     context: GameTableAttachmentInteractionContext,
-    sourcePlayerId: string | null,
-    targetPlayerId: string | null,
     payload: { equipmentInstanceId: string; attachedToInstanceId: string },
   ): void {
     this.attachmentCommandQueue = this.attachmentCommandQueue
       .then(async () => {
-        if (sourcePlayerId && sourcePlayerId === targetPlayerId) {
-          const moves = createAttachmentStackMoves(
-            context.battlefieldCards(sourcePlayerId),
-            context.snapshot()?.attachments ?? [],
-            payload.equipmentInstanceId,
-            payload.attachedToInstanceId,
-            context.cardPosition,
-          );
-          if (moves.length > 0) {
-            for (const move of moves) {
-              context.updateLocalCardPosition(sourcePlayerId, move.instanceId, move.position);
-            }
-            await context.command('cards.position.changed', {
-              playerId: sourcePlayerId,
-              zone: 'battlefield',
-              positions: moves.map((move) => ({
-                instanceId: move.instanceId,
-                position: context.battlefieldPosition(sourcePlayerId, move.instanceId, move.position),
-              })),
-            });
-          }
-        }
-
         await context.command('attachment.created', payload);
       })
       .catch(() => undefined);

@@ -156,9 +156,15 @@ Operaciones actuales:
 - `arrow.add`
 - `arrow.remove`
 - `arrows.set`
-- `attachment.add`
+- `attachment.add` (legacy adapter)
+- `attachment.set`
 - `attachment.remove`
+- `attachment.order.set`
 - `attachments.set`
+- `battlefield.stack.set`
+- `battlefield.stack.remove`
+- `battlefield.stack.order.set`
+- `battlefield.stacks.set`
 - `chat.append`
 - `eventLog.append`
 - `turn.set`
@@ -174,7 +180,7 @@ Operaciones actuales:
 
 `card.counters.set`, `card.stats.set` y `cards.state.set` mantienen cambios avanzados de carta en payloads pequenos y tipados. `card.stats.override.set/clear` conserva por cara la distinción entre fórmula impresa, ausencia de override y cero explícito; nunca incorpora counters al override.
 
-`stack.item.add/remove`, `arrow.add/remove` y `attachment.add/remove` son las operaciones normales para relaciones y stack. Los `*.set` completos quedan como fallback acotado para listas pequenas cuando el diff por ids no es suficientemente expresivo; si la lista crece o no se puede proyectar con seguridad, el servidor debe emitir `resync_required`.
+`stack.item.add/remove` pertenece al game/action stack. Los attachments usan `attachment.set/remove/order.set` y los stacks visuales de battlefield usan `battlefield.stack.set/remove/order.set`; son grafos distintos. Los `*.set` de coleccion completa quedan como adaptadores legacy acotados, no como la escritura normal.
 
 `player.status.set` cubre cambios de estado del jugador, como `game.concede`, sin alterar `backgroundName` ni `sleevesName`.
 
@@ -183,6 +189,18 @@ Operaciones actuales:
 `turn.set` y `timer.set` evitan pedir snapshot completo para cambios de turno o temporizador. `timer.set` existe porque `timer` forma parte del `GameSnapshot` actual.
 
 Si una accion nueva no encaja, se anade una operacion de dominio nueva en vez de usar `unknown`, JSON Pointer o paths genericos.
+
+### Posiciones espaciales
+
+`card.position.changed` y `cards.position.changed` solo aceptan posiciones canónicas top-left `{x,y,unit:"ratio"}` con números finitos en `[0,1]`. Pixel positions quedan limitadas a lectura de snapshots/eventos legacy. Single emite `card.position.set`; batch se prevalida completo y emite una sola `cards.position.set` en la misma versión.
+
+Sus payloads no contienen card size, battlefield size, browser/battlefield zoom, viewport, puntero, offsets DOM ni `devicePixelRatio`. Cada viewer transforma localmente los mismos ratios. Los rechazos espaciales usan `INVALID_POSITION`, `POSITION_NOT_FINITE`, `POSITION_OUT_OF_RANGE` o `UNSUPPORTED_POSITION_UNIT`, son no retryable y no producen evento, patch ni incremento de versión.
+
+### Relaciones de battlefield
+
+`attachment.created/reordered/removed` y `battlefield.stack.created/member_added/member_removed/reordered/dissolved` son comandos semanticos autoritativos. Sus payloads identifican relaciones y cartas por `instanceId`; nunca contienen geometria renderizada. La proximidad puede sugerir una accion en UI, pero el runtime solo acepta membership explicito.
+
+El target/root conserva la posicion ratio compartida. Detach y member removal incluyen una posicion ratio final y emiten la op de relacion junto con `card.position.set`; dissolve incluye todas las posiciones ratio finales y emite `battlefield.stack.remove` junto con `cards.position.set`. Un cambio de zoom/viewport no emite comandos. El contrato completo, incluyendo autoridad, privacidad, lifecycle, replay y legacy, esta en `GAMEPLAY_BATTLEFIELD_RELATIONS_CONTRACT.md`.
 
 ## Versiones Y Resync
 

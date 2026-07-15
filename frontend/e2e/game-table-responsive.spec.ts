@@ -4,7 +4,7 @@ import { createCommanderGameWithValidDecks, type CommanderGameWithValidDecksResu
 
 test.setTimeout(240000);
 
-test('game table requires landscape on mobile and tablet and keeps play surfaces usable there', async ({ browser, request, baseURL }) => {
+test('game table exposes exactly four responsive states and a clear minimum supported viewport', async ({ browser, request, baseURL }) => {
   if (!baseURL) {
     throw new Error('Playwright baseURL is required.');
   }
@@ -13,13 +13,14 @@ test('game table requires landscape on mobile and tablet and keeps play surfaces
     runId: `responsive-${Date.now()}`,
   });
 
-  await assertPortraitOrientationLock(browser, baseURL, setup, { width: 390, height: 844 });
-  await assertPortraitOrientationLock(browser, baseURL, setup, { width: 820, height: 1180 });
-  await assertLandscapePlaySurface(browser, baseURL, setup, { width: 844, height: 390 });
-  await assertLandscapePlaySurface(browser, baseURL, setup, { width: 1180, height: 820 });
+  await assertUnsupportedMinimum(browser, baseURL, setup, { width: 479, height: 359 });
+  await assertPlaySurface(browser, baseURL, setup, { width: 820, height: 1180 }, 'aggressive');
+  await assertPlaySurface(browser, baseURL, setup, { width: 844, height: 390 }, 'minimal');
+  await assertPlaySurface(browser, baseURL, setup, { width: 1180, height: 820 }, 'compact');
+  await assertPlaySurface(browser, baseURL, setup, { width: 1600, height: 1000 }, 'normal');
 });
 
-async function assertPortraitOrientationLock(
+async function assertUnsupportedMinimum(
   browser: Browser,
   baseURL: string,
   setup: CommanderGameWithValidDecksResult,
@@ -41,20 +42,22 @@ async function assertPortraitOrientationLock(
     await page.goto(`/games/${setup.gameId}`);
 
     await expect(page.getByTestId('game-screen')).toBeVisible();
-    await expect(page.getByTestId('game-orientation-lock')).toBeVisible();
-    await expect(page.getByTestId('game-orientation-lock')).toContainText('landscape');
-    await expectOrientationLockToCoverViewport(page, viewport);
+    await expect(page.getByTestId('game-screen')).toHaveAttribute('data-responsive-state', 'minimal');
+    await expect(page.getByTestId('game-screen')).toHaveAttribute('data-responsive-supported', 'false');
+    await expect(page.getByTestId('game-unsupported-resolution-lock')).toBeVisible();
+    await expect(page.getByTestId('game-orientation-lock')).toBeHidden();
     await expectNoHorizontalDocumentOverflow(page);
   } finally {
     await context.close();
   }
 }
 
-async function assertLandscapePlaySurface(
+async function assertPlaySurface(
   browser: Browser,
   baseURL: string,
   setup: CommanderGameWithValidDecksResult,
   viewport: { width: number; height: number },
+  expectedState: 'normal' | 'compact' | 'aggressive' | 'minimal',
 ): Promise<void> {
   const context = await browser.newContext({
     baseURL,
@@ -72,7 +75,10 @@ async function assertLandscapePlaySurface(
     await page.goto(`/games/${setup.gameId}`);
 
     await expect(page.getByTestId('game-screen')).toBeVisible();
+    await expect(page.getByTestId('game-screen')).toHaveAttribute('data-responsive-state', expectedState);
+    await expect(page.getByTestId('game-screen')).toHaveAttribute('data-responsive-supported', 'true');
     await expect(page.getByTestId('game-orientation-lock')).toBeHidden();
+    await expect(page.getByTestId('game-unsupported-resolution-lock')).toBeHidden();
     await expect(page.getByTestId('battlefield-zone')).toBeVisible();
     await expect(page.getByTestId('hand-area')).toBeVisible();
     await expect(page.getByTestId('zone-piles')).toBeVisible();
@@ -104,16 +110,4 @@ async function expectNoHorizontalDocumentOverflow(page: Page): Promise<void> {
       return scrollWidth <= root.clientWidth + 1;
     }),
   ).toBe(true);
-}
-
-async function expectOrientationLockToCoverViewport(page: Page, viewport: { width: number; height: number }): Promise<void> {
-  await expect.poll(async () => {
-    const box = await page.getByTestId('game-orientation-lock').boundingBox();
-
-    return box !== null
-      && Math.round(box.x) === 0
-      && Math.round(box.y) === 0
-      && Math.round(box.width) === viewport.width
-      && Math.round(box.height) === viewport.height;
-  }).toBe(true);
 }

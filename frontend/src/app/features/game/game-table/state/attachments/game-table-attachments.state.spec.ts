@@ -310,7 +310,7 @@ describe('GameTableAttachmentsState', () => {
     expect(context.command).not.toHaveBeenCalled();
   });
 
-  it('positions equipment under the target before creating the attachment', async () => {
+  it('creates the semantic attachment without persisting child layout offsets', async () => {
     const context = attachmentContext({
       battlefieldCards: () => [
         card('equipment-card', 'Artifact', { x: 10, y: 10 }),
@@ -343,15 +343,8 @@ describe('GameTableAttachmentsState', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(context.command).toHaveBeenNthCalledWith(1, 'cards.position.changed', {
-      playerId: 'player-1',
-      zone: 'battlefield',
-      positions: [
-        { instanceId: 'first-equipment', position: { x: 110, y: 62, unit: 'ratio' } },
-        { instanceId: 'equipment-card', position: { x: 120, y: 44, unit: 'ratio' } },
-      ],
-    });
-    expect(context.command).toHaveBeenNthCalledWith(2, 'attachment.created', {
+    expect(context.command).toHaveBeenCalledTimes(1);
+    expect(context.command).toHaveBeenCalledWith('attachment.created', {
       equipmentInstanceId: 'equipment-card',
       attachedToInstanceId: 'target-card',
     });

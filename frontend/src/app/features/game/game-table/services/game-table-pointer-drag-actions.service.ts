@@ -1,12 +1,10 @@
 import { Injectable, inject } from '@angular/core';
-import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameCardRatioPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { HandDropPreview } from '../state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableBattlefieldDragContext, GameTableBattlefieldDragCoordinatorService } from './game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './game-table-drag.service';
 import { MarkPendingTransferOptions, PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
 import {
-  createLandStackMoves,
-  detachLandStackMoves,
   fullLandStackDropTarget,
   LandStackDetachSource,
   buildLandStackGroups,
@@ -16,19 +14,22 @@ import {
   landStackDropTarget,
   landStackGroupContaining,
 } from '../utils/land-stack';
-import { DEFAULT_BATTLEFIELD_CARD_SIZE } from '../utils/battlefield-position';
+import { DEFAULT_BATTLEFIELD_CARD_SIZE, isRatioPosition, translateRatioPositionGroup } from '../utils/battlefield-position';
 import { GameTableMotionService } from './game-table-motion.service';
 import {
   AttachmentStackDetachSource,
   attachmentDropTarget,
   attachmentRelationInstanceIds,
-  createAttachmentStackMoves,
-  detachAttachmentStackMoves,
+  buildAttachmentStackGroups,
 } from '../utils/attachment-stack';
 import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 
 type BattlefieldSelection = { playerId: string; zone: GameZoneName; card: GameCardInstance };
-type BattlefieldSelectionMove = { item: BattlefieldSelection; position: { x: number; y: number } };
+type BattlefieldSelectionMove = {
+  item: BattlefieldSelection;
+  position: { x: number; y: number };
+  logicalPosition?: GameCardRatioPosition;
+};
 
 export interface GameTablePointerDragActionContext {
   zones: readonly GameZoneName[];
@@ -45,7 +46,8 @@ export interface GameTablePointerDragActionContext {
   canControlPlayer(playerId: string): boolean;
   canControlOwnedCard(playerId: string, card: GameCardInstance): boolean;
   playerName(playerId: string): string;
-  battlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }): GameCardPosition;
+  battlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }): GameCardRatioPosition;
+  renderedBattlefieldPosition(playerId: string, instanceId: string, position: GameCardRatioPosition): { x: number; y: number };
   updateLocalCardPosition(playerId: string, instanceId: string, position: { x: number; y: number }): void;
   setPendingBattlefieldMove(move: PendingBattlefieldMove): void;
   setPendingLibraryMove(move: PendingLibraryMove): void;
@@ -273,6 +275,7 @@ export class GameTablePointerDragActionsService {
 
     const target = landStackDropTarget(
       battlefield,
+      context.snapshot()?.battlefieldStacks ?? [],
       draggedInstanceId,
       draggedPosition,
       context.cardPosition,
@@ -285,22 +288,34 @@ export class GameTablePointerDragActionsService {
     const stackTopPosition = target.nextSize === 3 && this.battlefieldDrag.isManaLanePosition(playerId, target.targetPosition)
       ? this.manaLanePositionForDrag(playerId, target.targetPosition)
       : target.targetPosition;
-    const moves = createLandStackMoves(target, dragged, stackTopPosition);
-    if (moves.length === 0) {
-      return false;
-    }
-
-    for (const move of moves) {
-      context.updateLocalCardPosition(playerId, move.card.instanceId, move.position);
-    }
-
     const animatedInstanceIds = this.landStackPulseInstanceIds(
       target.targetStack ? target.targetStack.members.map((member) => member.card.instanceId) : [target.targetCard.instanceId],
-      moves.map((move) => move.card.instanceId),
+      [dragged.instanceId],
     );
     window.requestAnimationFrame(() => this.motion?.pulseLandStack(animatedInstanceIds, 'stack'));
 
-    await context.command('cards.position.changed', this.battlefieldPositionsPayload(context, playerId, moves));
+    if (stackTopPosition.x !== target.targetPosition.x || stackTopPosition.y !== target.targetPosition.y) {
+      context.updateLocalCardPosition(playerId, target.targetCard.instanceId, stackTopPosition);
+      await context.command('card.position.changed', {
+        playerId,
+        zone: 'battlefield',
+        instanceId: target.targetCard.instanceId,
+        position: context.battlefieldPosition(playerId, target.targetCard.instanceId, stackTopPosition),
+      });
+    }
+    if (target.targetStack) {
+      await context.command('battlefield.stack.member_added', {
+        stackId: target.targetStack.id,
+        instanceId: dragged.instanceId,
+        index: target.targetStack.members.length,
+      });
+    } else {
+      await context.command('battlefield.stack.created', {
+        rootInstanceId: target.targetCard.instanceId,
+        orderedInstanceIds: [target.targetCard.instanceId, dragged.instanceId],
+        stackKind: 'land',
+      });
+    }
 
     return true;
   }
@@ -318,21 +333,22 @@ export class GameTablePointerDragActionsService {
     const selectedCards = context.selectedCards()
       .filter((item) => item.playerId === playerId && item.zone === 'battlefield' && instanceIds.includes(item.card.instanceId))
       .map((item) => item.card);
-    if (selectedCards.length === instanceIds.length && this.cardsFormDraggedLandStack(selectedCards, draggedInstanceId, instanceIds, context.cardPosition)) {
+    if (selectedCards.length === instanceIds.length && this.cardsFormDraggedLandStack(selectedCards, context.snapshot()?.battlefieldStacks ?? [], draggedInstanceId, instanceIds, context.cardPosition)) {
       return true;
     }
 
     const battlefield = context.snapshot()?.players[playerId]?.zones.battlefield ?? [];
-    return this.cardsFormDraggedLandStack(battlefield, draggedInstanceId, instanceIds, context.cardPosition);
+    return this.cardsFormDraggedLandStack(battlefield, context.snapshot()?.battlefieldStacks ?? [], draggedInstanceId, instanceIds, context.cardPosition);
   }
 
   private cardsFormDraggedLandStack(
     cards: readonly GameCardInstance[],
+    battlefieldStacks: NonNullable<GameSnapshot['battlefieldStacks']>,
     draggedInstanceId: string,
     instanceIds: readonly string[],
     positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
   ): boolean {
-    const group = landStackGroupContaining(buildLandStackGroups(cards, positionFor), draggedInstanceId);
+    const group = landStackGroupContaining(buildLandStackGroups(cards, battlefieldStacks, positionFor), draggedInstanceId);
     if (!group || group.topCard.instanceId !== draggedInstanceId || group.members.length !== instanceIds.length) {
       return false;
     }
@@ -355,6 +371,7 @@ export class GameTablePointerDragActionsService {
 
     const target = landStackDropTarget(
       battlefield,
+      context.snapshot()?.battlefieldStacks ?? [],
       draggedInstanceId,
       draggedPosition,
       context.cardPosition,
@@ -367,27 +384,38 @@ export class GameTablePointerDragActionsService {
     const stackTopPosition = target.nextSize === 3 && this.battlefieldDrag.isManaLanePosition(playerId, target.targetPosition)
       ? this.manaLanePositionForDrag(playerId, target.targetPosition)
       : target.targetPosition;
-    const stackMoves = createLandStackMoves(target, dragged, stackTopPosition);
-    if (stackMoves.length === 0) {
-      return false;
+    if (stackTopPosition.x !== target.targetPosition.x || stackTopPosition.y !== target.targetPosition.y) {
+      context.updateLocalCardPosition(playerId, target.targetCard.instanceId, stackTopPosition);
+      await context.command('card.position.changed', {
+        playerId,
+        zone: 'battlefield',
+        instanceId: target.targetCard.instanceId,
+        position: context.battlefieldPosition(playerId, target.targetCard.instanceId, stackTopPosition),
+      });
     }
-
-    const compactMoves = detachLandStackMoves(detachSource);
-    const moves = [
-      ...stackMoves.map((move) => ({ instanceId: move.card.instanceId, position: move.position })),
-      ...compactMoves.filter((move) => !stackMoves.some((stackMove) => stackMove.card.instanceId === move.instanceId)),
-    ];
-
-    for (const move of moves) {
-      context.updateLocalCardPosition(playerId, move.instanceId, move.position);
+    await context.command('battlefield.stack.member_removed', {
+      stackId: detachSource.stackId,
+      instanceId: draggedInstanceId,
+      position: context.battlefieldPosition(playerId, draggedInstanceId, draggedPosition),
+    });
+    if (target.targetStack) {
+      await context.command('battlefield.stack.member_added', {
+        stackId: target.targetStack.id,
+        instanceId: draggedInstanceId,
+        index: target.targetStack.members.length,
+      });
+    } else {
+      await context.command('battlefield.stack.created', {
+        rootInstanceId: target.targetCard.instanceId,
+        orderedInstanceIds: [target.targetCard.instanceId, draggedInstanceId],
+        stackKind: 'land',
+      });
     }
-
-    await context.command('cards.position.changed', this.battlefieldPositionsPayload(context, playerId, moves));
 
     this.motion?.pulseLandStack(
       this.landStackPulseInstanceIds(
         target.targetStack ? target.targetStack.members.map((member) => member.card.instanceId) : [target.targetCard.instanceId],
-        moves.map((move) => move.instanceId),
+        [draggedInstanceId],
       ),
       'detach',
     );
@@ -453,7 +481,7 @@ export class GameTablePointerDragActionsService {
   ): boolean {
     const battlefield = context.snapshot()?.players[playerId]?.zones.battlefield ?? [];
 
-    return fullLandStackDropTarget(battlefield, draggedInstanceId, draggedPosition, context.cardPosition) !== null;
+    return fullLandStackDropTarget(battlefield, context.snapshot()?.battlefieldStacks ?? [], draggedInstanceId, draggedPosition, context.cardPosition) !== null;
   }
 
   private async tryCreateAttachmentStack(
@@ -472,6 +500,7 @@ export class GameTablePointerDragActionsService {
     const target = attachmentDropTarget(
       battlefield,
       snapshot?.attachments ?? [],
+      snapshot?.battlefieldStacks ?? [],
       draggedInstanceId,
       draggedPosition,
       context.cardPosition,
@@ -480,29 +509,13 @@ export class GameTablePointerDragActionsService {
       return false;
     }
 
-    const moves = createAttachmentStackMoves(
-      battlefield,
-      snapshot?.attachments ?? [],
-      draggedInstanceId,
-      target.targetCard.instanceId,
-      context.cardPosition,
-    );
-    if (moves.length === 0) {
-      return false;
-    }
-
-    for (const move of moves) {
-      context.updateLocalCardPosition(playerId, move.instanceId, move.position);
-    }
-
-    await context.command('cards.position.changed', this.battlefieldPositionsPayload(context, playerId, moves));
     await context.command('attachment.created', {
       equipmentInstanceId: draggedInstanceId,
       attachedToInstanceId: target.targetCard.instanceId,
     });
 
     window.requestAnimationFrame(() => this.motion?.pulseLandStack(
-      moves.map((move) => move.instanceId),
+      [target.targetCard.instanceId, draggedInstanceId],
       'stack',
     ));
 
@@ -515,19 +528,14 @@ export class GameTablePointerDragActionsService {
     detachSource: LandStackDetachSource,
     detachedPosition: { x: number; y: number },
   ): Promise<void> {
-    const compactMoves = detachLandStackMoves(detachSource);
-    const moves = [
-      { instanceId: drag.instanceId, position: detachedPosition },
-      ...compactMoves,
-    ];
+    context.updateLocalCardPosition(drag.playerId, drag.instanceId, detachedPosition);
+    await context.command('battlefield.stack.member_removed', {
+      stackId: detachSource.stackId,
+      instanceId: drag.instanceId,
+      position: context.battlefieldPosition(drag.playerId, drag.instanceId, detachedPosition),
+    });
 
-    for (const move of moves) {
-      context.updateLocalCardPosition(drag.playerId, move.instanceId, move.position);
-    }
-
-    await context.command('cards.position.changed', this.battlefieldPositionsPayload(context, drag.playerId, moves));
-
-    this.motion?.pulseLandStack(moves.map((move) => move.instanceId), 'detach');
+    this.motion?.pulseLandStack(detachSource.members.map((move) => move.instanceId), 'detach');
   }
 
   private async moveDetachedAttachmentStackCard(
@@ -536,20 +544,13 @@ export class GameTablePointerDragActionsService {
     detachSource: AttachmentStackDetachSource,
     detachedPosition: { x: number; y: number },
   ): Promise<void> {
-    const compactMoves = detachAttachmentStackMoves(detachSource);
-    const moves = [
-      { instanceId: drag.instanceId, position: detachedPosition },
-      ...compactMoves,
-    ];
+    context.updateLocalCardPosition(drag.playerId, drag.instanceId, detachedPosition);
+    await context.command('attachment.removed', {
+      id: detachSource.attachmentId,
+      position: context.battlefieldPosition(drag.playerId, drag.instanceId, detachedPosition),
+    });
 
-    for (const move of moves) {
-      context.updateLocalCardPosition(drag.playerId, move.instanceId, move.position);
-    }
-
-    await context.command('cards.position.changed', this.battlefieldPositionsPayload(context, drag.playerId, moves));
-    await context.command('attachment.removed', { id: detachSource.attachmentId });
-
-    this.motion?.pulseLandStack(moves.map((move) => move.instanceId), 'detach');
+    this.motion?.pulseLandStack(detachSource.members.map((move) => move.instanceId), 'detach');
   }
 
   private prepareBattlefieldTransfer(
@@ -633,6 +634,24 @@ export class GameTablePointerDragActionsService {
     draggedPosition: { x: number; y: number },
     alignY = false,
   ): Promise<void> {
+    const attachmentGroup = buildAttachmentStackGroups(
+      selected.map((item) => item.card),
+      context.snapshot()?.attachments ?? [],
+      context.cardPosition,
+    ).find((group) => group.targetCard.instanceId === draggedInstanceId && group.members.length === selected.length);
+    if (attachmentGroup) {
+      const root = selected.find((item) => item.card.instanceId === draggedInstanceId);
+      if (root) {
+        context.updateLocalCardPosition(root.playerId, draggedInstanceId, draggedPosition);
+        await context.command('card.position.changed', {
+          playerId: root.playerId,
+          zone: 'battlefield',
+          instanceId: draggedInstanceId,
+          position: context.battlefieldPosition(root.playerId, draggedInstanceId, draggedPosition),
+        });
+      }
+      return;
+    }
     const dragged = selected.find((item) => item.card.instanceId === draggedInstanceId);
     const origin = dragged ? context.cardPosition(dragged.card) ?? { x: 0, y: 0 } : { x: 0, y: 0 };
     const delta = {
@@ -641,23 +660,32 @@ export class GameTablePointerDragActionsService {
     };
     const shouldAlignY = alignY && !this.isMovingWholeLandStack(selected, draggedInstanceId);
 
-    const moves = this.wholeLandStackMoves(context, selected, draggedInstanceId, draggedPosition) ?? selected.map((item) => {
-      const current = context.cardPosition(item.card) ?? { x: 0, y: 0 };
-      return {
-        item,
-        position: {
-          x: Math.max(0, current.x + delta.x),
-          y: shouldAlignY ? draggedPosition.y : Math.max(0, current.y + delta.y),
-        },
-      };
-    });
+    const stackMoves = this.wholeLandStackMoves(context, selected, draggedInstanceId, draggedPosition);
+    const moves: readonly BattlefieldSelectionMove[] = stackMoves ?? (shouldAlignY
+      ? selected.map((item) => {
+        const current = context.cardPosition(item.card) ?? { x: 0, y: 0 };
+        return { item, position: { x: Math.max(0, current.x + delta.x), y: draggedPosition.y } };
+      })
+      : this.logicalGroupMoves(context, selected, draggedInstanceId, draggedPosition));
 
-    for (const move of moves) {
+    const persistedMoves = stackMoves ? stackMoves.slice(0, 1) : moves;
+    for (const move of persistedMoves) {
       context.updateLocalCardPosition(move.item.playerId, move.item.card.instanceId, move.position);
     }
 
     const firstPlayerId = moves[0]?.item.playerId;
     if (!firstPlayerId) {
+      return;
+    }
+
+    if (stackMoves) {
+      const root = persistedMoves[0]!;
+      await context.command('card.position.changed', {
+        playerId: firstPlayerId,
+        zone: 'battlefield',
+        instanceId: root.item.card.instanceId,
+        position: root.logicalPosition ?? context.battlefieldPosition(firstPlayerId, root.item.card.instanceId, root.position),
+      });
       return;
     }
 
@@ -667,8 +695,54 @@ export class GameTablePointerDragActionsService {
       moves.map((move) => ({
         instanceId: move.item.card.instanceId,
         position: move.position,
+        logicalPosition: move.logicalPosition,
       })),
     ));
+  }
+
+  private logicalGroupMoves(
+    context: GameTablePointerDragActionContext,
+    selected: readonly BattlefieldSelection[],
+    draggedInstanceId: string,
+    draggedPosition: { x: number; y: number },
+  ): BattlefieldSelectionMove[] {
+    const logicalPositions = selected.map((item) => {
+      if (isRatioPosition(item.card.position)) {
+        return { ...item.card.position };
+      }
+      const rendered = context.cardPosition(item.card) ?? { x: 0, y: 0 };
+      return context.battlefieldPosition(item.playerId, item.card.instanceId, rendered);
+    });
+    if (logicalPositions.some((position) => position.x < 0 || position.x > 1 || position.y < 0 || position.y > 1)) {
+      const dragged = selected.find((item) => item.card.instanceId === draggedInstanceId);
+      const origin = dragged ? context.cardPosition(dragged.card) ?? { x: 0, y: 0 } : { x: 0, y: 0 };
+      const delta = { x: draggedPosition.x - origin.x, y: draggedPosition.y - origin.y };
+
+      return selected.map((item) => {
+        const current = context.cardPosition(item.card) ?? { x: 0, y: 0 };
+        return { item, position: { x: Math.max(0, current.x + delta.x), y: Math.max(0, current.y + delta.y) } };
+      });
+    }
+    const draggedIndex = selected.findIndex((item) => item.card.instanceId === draggedInstanceId);
+    const origin = logicalPositions[Math.max(0, draggedIndex)] ?? { x: 0, y: 0, unit: 'ratio' };
+    const draggedItem = selected[Math.max(0, draggedIndex)];
+    const target = draggedItem
+      ? context.battlefieldPosition(draggedItem.playerId, draggedItem.card.instanceId, draggedPosition)
+      : origin;
+    const translated = translateRatioPositionGroup(logicalPositions, {
+      x: target.x - origin.x,
+      y: target.y - origin.y,
+    });
+
+    return selected.map((item, index) => {
+      const logicalPosition = translated[index] ?? logicalPositions[index] ?? origin;
+
+      return {
+        item,
+        logicalPosition,
+        position: context.renderedBattlefieldPosition(item.playerId, item.card.instanceId, logicalPosition),
+      };
+    });
   }
 
   private wholeLandStackMoves(
@@ -681,7 +755,7 @@ export class GameTablePointerDragActionsService {
       return null;
     }
 
-    const groups = buildLandStackGroups(selected.map((item) => item.card), context.cardPosition);
+    const groups = buildLandStackGroups(selected.map((item) => item.card), context.snapshot()?.battlefieldStacks ?? [], context.cardPosition);
     const group = landStackGroupContaining(groups, draggedInstanceId);
     const draggedMember = group?.members.find((member) => member.card.instanceId === draggedInstanceId);
     if (!group || !draggedMember) {
@@ -712,7 +786,12 @@ export class GameTablePointerDragActionsService {
   private battlefieldPositionsPayload(
     context: GameTablePointerDragActionContext,
     playerId: string,
-    moves: readonly { instanceId?: string; card?: GameCardInstance; position: { x: number; y: number } }[],
+    moves: readonly {
+      instanceId?: string;
+      card?: GameCardInstance;
+      position: { x: number; y: number };
+      logicalPosition?: GameCardRatioPosition;
+    }[],
   ): Record<string, unknown> {
     return {
       playerId,
@@ -722,7 +801,7 @@ export class GameTablePointerDragActionsService {
 
         return {
           instanceId,
-          position: context.battlefieldPosition(playerId, instanceId, move.position),
+          position: move.logicalPosition ?? context.battlefieldPosition(playerId, instanceId, move.position),
         };
       }),
     };

@@ -162,23 +162,28 @@ type TopRevealWindow struct {
 }
 
 type Relations struct {
-	Attachments map[string]Relation `json:"attachments"`
-	Arrows      map[string]Relation `json:"arrows"`
-	Helpers     map[string]Relation `json:"helpers"`
-	Indexes     RelationIndexes     `json:"indexes"`
+	Attachments       map[string]Relation         `json:"attachments"`
+	BattlefieldStacks map[string]BattlefieldStack `json:"battlefieldStacks"`
+	Arrows            map[string]Relation         `json:"arrows"`
+	Helpers           map[string]Relation         `json:"helpers"`
+	Indexes           RelationIndexes             `json:"indexes"`
 }
 
 func (r *Relations) UnmarshalJSON(data []byte) error {
 	aux := struct {
-		Attachments json.RawMessage `json:"attachments"`
-		Arrows      json.RawMessage `json:"arrows"`
-		Helpers     json.RawMessage `json:"helpers"`
-		Indexes     RelationIndexes `json:"indexes"`
+		Attachments       json.RawMessage `json:"attachments"`
+		BattlefieldStacks json.RawMessage `json:"battlefieldStacks"`
+		Arrows            json.RawMessage `json:"arrows"`
+		Helpers           json.RawMessage `json:"helpers"`
+		Indexes           RelationIndexes `json:"indexes"`
 	}{}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
 	if err := decodeMapOrEmpty(aux.Attachments, &r.Attachments); err != nil {
+		return err
+	}
+	if err := decodeMapOrEmpty(aux.BattlefieldStacks, &r.BattlefieldStacks); err != nil {
 		return err
 	}
 	if err := decodeMapOrEmpty(aux.Arrows, &r.Arrows); err != nil {
@@ -198,10 +203,65 @@ func (r *Relations) UnmarshalJSON(data []byte) error {
 }
 
 type Relation struct {
-	ID       string         `json:"id"`
-	SourceID string         `json:"sourceId,omitempty"`
-	TargetID string         `json:"targetId,omitempty"`
-	Meta     map[string]any `json:"meta,omitempty"`
+	ID               string         `json:"id"`
+	RelationType     string         `json:"relationType,omitempty"`
+	SourceID         string         `json:"sourceId,omitempty"`
+	TargetID         string         `json:"targetId,omitempty"`
+	OwnerPlayerID    string         `json:"ownerPlayerId,omitempty"`
+	Order            int            `json:"order,omitempty"`
+	EffectVersion    int            `json:"effectVersion,omitempty"`
+	CreatedAtVersion int64          `json:"createdAtVersion,omitempty"`
+	Meta             map[string]any `json:"meta,omitempty"`
+}
+
+func (r *Relation) UnmarshalJSON(data []byte) error {
+	type alias Relation
+	aux := struct {
+		SourceInstanceID     string `json:"sourceInstanceId"`
+		TargetInstanceID     string `json:"targetInstanceId"`
+		EquipmentInstanceID  string `json:"equipmentInstanceId"`
+		AttachedToInstanceID string `json:"attachedToInstanceId"`
+		FromInstanceID       string `json:"fromInstanceId"`
+		ToInstanceID         string `json:"toInstanceId"`
+		OwnerID              string `json:"ownerId"`
+		*alias
+	}{alias: (*alias)(r)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if r.SourceID == "" {
+		for _, candidate := range []string{aux.SourceInstanceID, aux.EquipmentInstanceID, aux.FromInstanceID} {
+			if candidate != "" {
+				r.SourceID = candidate
+				break
+			}
+		}
+	}
+	if r.TargetID == "" {
+		for _, candidate := range []string{aux.TargetInstanceID, aux.AttachedToInstanceID, aux.ToInstanceID} {
+			if candidate != "" {
+				r.TargetID = candidate
+				break
+			}
+		}
+	}
+	if r.OwnerPlayerID == "" {
+		r.OwnerPlayerID = aux.OwnerID
+	}
+	return nil
+}
+
+// BattlefieldStack is a visual grouping on the battlefield. It is distinct
+// from GameState.Stack, which represents pending game actions.
+type BattlefieldStack struct {
+	ID                string   `json:"id"`
+	RelationType      string   `json:"relationType"`
+	RootInstanceID    string   `json:"rootInstanceId"`
+	OrderedMemberIDs  []string `json:"orderedMemberIds"`
+	StackKind         string   `json:"stackKind"`
+	CreatedByPlayerID string   `json:"createdByPlayerId"`
+	EffectVersion     int      `json:"effectVersion"`
+	CreatedAtVersion  int64    `json:"createdAtVersion"`
 }
 
 type RelationIndexes struct {
@@ -445,6 +505,9 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	if game.Relations.Attachments == nil {
 		game.Relations.Attachments = map[string]Relation{}
 	}
+	if game.Relations.BattlefieldStacks == nil {
+		game.Relations.BattlefieldStacks = map[string]BattlefieldStack{}
+	}
 	if game.Relations.Arrows == nil {
 		game.Relations.Arrows = map[string]Relation{}
 	}
@@ -649,14 +712,27 @@ func ensureViewerBits(game *GameState) {
 
 func (r Relations) Clone() Relations {
 	return Relations{
-		Attachments: cloneRelationMap(r.Attachments),
-		Arrows:      cloneRelationMap(r.Arrows),
-		Helpers:     cloneRelationMap(r.Helpers),
+		Attachments:       cloneRelationMap(r.Attachments),
+		BattlefieldStacks: cloneBattlefieldStackMap(r.BattlefieldStacks),
+		Arrows:            cloneRelationMap(r.Arrows),
+		Helpers:           cloneRelationMap(r.Helpers),
 		Indexes: RelationIndexes{
 			BySource: cloneStringSliceMap(r.Indexes.BySource),
 			ByTarget: cloneStringSliceMap(r.Indexes.ByTarget),
 		},
 	}
+}
+
+func cloneBattlefieldStackMap(values map[string]BattlefieldStack) map[string]BattlefieldStack {
+	if values == nil {
+		return nil
+	}
+	clone := make(map[string]BattlefieldStack, len(values))
+	for key, value := range values {
+		value.OrderedMemberIDs = append([]string(nil), value.OrderedMemberIDs...)
+		clone[key] = value
+	}
+	return clone
 }
 
 func cloneAnyMap(values map[string]any) map[string]any {

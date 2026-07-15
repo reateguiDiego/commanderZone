@@ -107,7 +107,8 @@ final class CompactGameCardStateMapper
             $catalog,
             $loc,
         );
-        $legacy['attachments'] = array_values(is_array($relations['attachments'] ?? null) ? $relations['attachments'] : []);
+        $legacy['attachments'] = $this->normalizeAttachments(array_values(is_array($relations['attachments'] ?? null) ? $relations['attachments'] : []));
+        $legacy['battlefieldStacks'] = array_values(is_array($relations['battlefieldStacks'] ?? null) ? $relations['battlefieldStacks'] : []);
         $legacy['arrows'] = array_values(is_array($relations['arrows'] ?? null) ? $relations['arrows'] : []);
         $legacy['specialEntities'] = array_values(is_array($relations['helpers'] ?? null) ? $relations['helpers'] : []);
 
@@ -175,15 +176,18 @@ final class CompactGameCardStateMapper
             }
         }
 
-        $attachments = $this->indexById(is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : []);
+        $attachments = $this->indexById($this->normalizeAttachments(is_array($snapshot['attachments'] ?? null) ? $snapshot['attachments'] : []));
+        $battlefieldStacks = $this->indexById(is_array($snapshot['battlefieldStacks'] ?? null) ? $snapshot['battlefieldStacks'] : []);
         $arrows = $this->indexById(is_array($snapshot['arrows'] ?? null) ? $snapshot['arrows'] : []);
         $relations = [
             'attachments' => $attachments,
+            'battlefieldStacks' => $battlefieldStacks,
             'arrows' => $arrows,
             'helpers' => $this->indexById(is_array($snapshot['specialEntities'] ?? null) ? $snapshot['specialEntities'] : []),
             'indexes' => [
                 'attachmentsByEquipment' => $this->relationIdsByField($attachments, 'equipmentInstanceId'),
                 'attachmentsByTarget' => $this->relationIdsByField($attachments, 'attachedToInstanceId'),
+                'battlefieldStacksByMember' => $this->relationIdsByMember($battlefieldStacks),
                 'arrowsBySource' => $this->relationIdsByField($arrows, 'fromInstanceId'),
                 'arrowsByTarget' => $this->relationIdsByField($arrows, 'toInstanceId'),
             ],
@@ -707,6 +711,56 @@ final class CompactGameCardStateMapper
         }
 
         return $extra;
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $relations
+     * @return array<string,list<string>>
+     */
+    private function relationIdsByMember(array $relations): array
+    {
+        $index = [];
+        foreach ($relations as $relationId => $relation) {
+            foreach (is_array($relation['orderedMemberIds'] ?? null) ? $relation['orderedMemberIds'] : [] as $instanceId) {
+                if (is_string($instanceId) && trim($instanceId) !== '') {
+                    $index[$instanceId][] = (string) $relationId;
+                }
+            }
+        }
+
+        return $index;
+    }
+
+    /**
+     * Normalize Go canonical fields and historical attachment aliases without
+     * inventing relations that were only inferred visually.
+     *
+     * @param array<array-key,mixed> $attachments
+     * @return list<array<string,mixed>>
+     */
+    private function normalizeAttachments(array $attachments): array
+    {
+        $normalized = [];
+        foreach ($attachments as $attachment) {
+            if (!is_array($attachment)) {
+                continue;
+            }
+            $source = $attachment['equipmentInstanceId'] ?? $attachment['sourceInstanceId'] ?? $attachment['sourceId'] ?? null;
+            $target = $attachment['attachedToInstanceId'] ?? $attachment['targetInstanceId'] ?? $attachment['targetId'] ?? null;
+            if (!is_string($source) || trim($source) === '' || !is_string($target) || trim($target) === '') {
+                continue;
+            }
+            $attachment['relationType'] = 'attachment';
+            $attachment['equipmentInstanceId'] = trim($source);
+            $attachment['attachedToInstanceId'] = trim($target);
+            $attachment['ownerPlayerId'] = $attachment['ownerPlayerId'] ?? $attachment['ownerId'] ?? null;
+            $attachment['order'] = max(1, (int) ($attachment['order'] ?? 1));
+            $attachment['effectVersion'] = max(1, (int) ($attachment['effectVersion'] ?? 1));
+            unset($attachment['sourceId'], $attachment['targetId'], $attachment['sourceInstanceId'], $attachment['targetInstanceId']);
+            $normalized[] = $attachment;
+        }
+
+        return $normalized;
     }
 
 	/** @return array{votes: array<string,mixed>} */

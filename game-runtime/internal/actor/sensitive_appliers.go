@@ -182,6 +182,22 @@ func (CardControllerChangedApplier) Apply(_ context.Context, game *state.GameSta
 	game.Instances[instanceID] = instance
 	location.ControllerID = controllerID
 	game.Loc[instanceID] = location
+	var dissolvedStack map[string]any
+	if stackID, stack, stacked := state.NewRelationsOps().BattlefieldStackForInstance(game, instanceID); stacked {
+		compatible := true
+		for _, memberID := range stack.OrderedMemberIDs {
+			member := game.Instances[memberID]
+			if member.ControllerID != controllerID {
+				compatible = false
+				break
+			}
+		}
+		if !compatible {
+			dissolvedStack = battlefieldStackPatch(stack)
+			delete(game.Relations.BattlefieldStacks, stackID)
+			emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.remove", Data: map[string]any{"id": stackID}})
+		}
+	}
 
 	data := cardFieldData(instanceID, location, map[string]any{"controllerId": controllerID})
 	if privateZone(location.Zone) || instance.FaceDown {
@@ -194,13 +210,17 @@ func (CardControllerChangedApplier) Apply(_ context.Context, game *state.GameSta
 		emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: data})
 	}
 
-	return map[string]any{
+	payload := map[string]any{
 		"instanceId":   instanceID,
 		"playerId":     location.PlayerID,
 		"zone":         location.Zone,
 		"controllerId": controllerID,
 		"metrics":      sensitiveMetrics("sensitive.controller_ms", start, emitter),
-	}, nil
+	}
+	if dissolvedStack != nil {
+		payload["dissolvedBattlefieldStack"] = dissolvedStack
+	}
+	return payload, nil
 }
 
 type LibraryRevealApplier struct{}

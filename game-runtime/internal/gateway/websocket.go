@@ -698,6 +698,14 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 			s.sendJSON(client, commandAuthorizationRejectedMessage(command, authorizationError))
 			return
 		}
+		if positionError, ok := actor.AsPositionValidationError(result.Err); ok {
+			s.sendJSON(client, commandPositionRejectedMessage(command, positionError))
+			return
+		}
+		if relationError, ok := actor.AsRelationValidationError(result.Err); ok {
+			s.sendJSON(client, commandRejectedMessage(command, relationError.Code, relationError.Error(), false))
+			return
+		}
 		if errors.Is(result.Err, actor.ErrActorPermission) {
 			s.sendJSON(client, commandAuthorizationRejectedMessage(command, &actor.AuthorizationError{
 				Code:        actor.AuthorizationCodePermissionDenied,
@@ -1099,6 +1107,28 @@ func commandAuthorizationRejectedMessage(command protocol.CommandEnvelopeV2, aut
 	switch command.Type {
 	case "cards.moved", "cards.position.changed", "zone.reorderedByIds", "library.reorder_top", "zone.move_all":
 		index := authorizationError.Index
+		errorPayload.Index = &index
+	}
+	return ServerMessage{
+		Kind:           "command_ack",
+		GameID:         command.GameID,
+		ClientActionID: command.ClientActionID,
+		Status:         "rejected",
+		Version:        command.BaseVersion,
+		Error:          errorPayload,
+	}
+}
+
+func commandPositionRejectedMessage(command protocol.CommandEnvelopeV2, positionError *actor.PositionValidationError) ServerMessage {
+	errorPayload := &ServerErrorPayload{
+		Code:        positionError.Code,
+		Message:     positionError.Error(),
+		Retryable:   false,
+		CommandType: positionError.CommandType,
+		InstanceID:  positionError.InstanceID,
+	}
+	if command.Type == "cards.position.changed" {
+		index := positionError.Index
 		errorPayload.Index = &index
 	}
 	return ServerMessage{
