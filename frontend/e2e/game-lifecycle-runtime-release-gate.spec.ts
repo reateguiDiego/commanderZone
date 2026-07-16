@@ -212,7 +212,6 @@ test('leave table concedes through runtime and navigates back to rooms', async (
   await enableFrontendGameplayV2(contextA);
 
   try {
-    const debug = await openDebugObserver(contextA, request, gameId, playerA.token);
     const pageA = await contextA.newPage();
     const framesA = collectWebSocketFrames(pageA);
     let snapshotRefetches = 0;
@@ -230,7 +229,7 @@ test('leave table concedes through runtime and navigates back to rooms', async (
       }
     });
 
-    await pageA.setViewportSize({ width: 740, height: 500 });
+    await pageA.setViewportSize({ width: 479, height: 359 });
     await pageA.goto(`/games/${gameId}`);
     await expect(pageA.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
     await waitForGameplayConnection(framesA);
@@ -280,15 +279,6 @@ async function assertGameRuntimeReady(request: APIRequestContext): Promise<void>
   if (!response.ok()) {
     throw new Error(`game-runtime is not ready at ${RUNTIME_READY_URL}: ${response.status()} ${await response.text()}`);
   }
-}
-
-async function openDebugObserver(context: BrowserContext, request: APIRequestContext, gameId: string, token: string): Promise<{ page: Page; frames: JsonObject[] }> {
-  const ticket = await websocketTicket(request, gameId, token);
-  const page = await context.newPage();
-  const frames = collectWebSocketFrames(page);
-  await page.goto(`/games/${gameId}/debug?token=${encodeURIComponent(ticket.token)}`);
-  await expect.poll(() => frames.some((message) => message['kind'] === 'debug_health'), { timeout: 15_000 }).toBe(true);
-  return { page, frames };
 }
 
 function collectWebSocketFrames(page: Page): JsonObject[] {

@@ -283,11 +283,11 @@ test.describe('rc final 3-player real game regression gate', () => {
       })).version;
       baseVersion = (await runRuntime(request, commandFrames, {
         gameId,
-        token: playerA.token,
+        token: playerB.token,
         baseVersion,
         type: 'card.moved',
         payload: {
-          playerId: playerA.user.id,
+          playerId: playerB.user.id,
           targetPlayerId: playerB.user.id,
           fromZone: 'battlefield',
           toZone: 'graveyard',
@@ -315,11 +315,11 @@ test.describe('rc final 3-player real game regression gate', () => {
       })).version;
       baseVersion = (await runRuntime(request, commandFrames, {
         gameId,
-        token: playerA.token,
+        token: playerB.token,
         baseVersion,
         type: 'card.moved',
         payload: {
-          playerId: playerA.user.id,
+          playerId: playerB.user.id,
           targetPlayerId: playerB.user.id,
           fromZone: 'battlefield',
           toZone: 'exile',
@@ -446,8 +446,11 @@ test.describe('rc final 3-player real game regression gate', () => {
       })).version;
       let commanderSnapshot = await gameSnapshot(request, gameId, playerA.token);
       const commanderBattlefield = zoneCard(commanderSnapshot, playerA.user.id, 'battlefield', commanderId);
-      expect(commanderBattlefield['power']).toBe(4);
-      expect(commanderBattlefield['toughness']).toBe(5);
+      const commanderOverrides = commanderBattlefield['manualOverrides'] as Record<string, JsonObject>;
+      expect(commanderOverrides['0']?.['power']).toBe(4);
+      expect(commanderOverrides['0']?.['toughness']).toBe(5);
+      expect(commanderBattlefield['power']).toBeNull();
+      expect(commanderBattlefield['toughness']).toBeNull();
       expect(commanderBattlefield['activeFaceIndex']).toBe(1);
       expect(commanderBattlefield['tapped']).toBe(true);
 
@@ -645,7 +648,7 @@ test.describe('rc final 3-player real game regression gate', () => {
       expect(afterConcede['gamePhase']).not.toBe('FINISHED');
       expect(requestAudit.bootstrap + requestAudit.snapshot).toBe(liveRequestBaseline);
 
-      await pageBReconnect.setViewportSize({ width: 740, height: 500 });
+      await pageBReconnect.setViewportSize({ width: 479, height: 359 });
       const leaveResponse = pageBReconnect.waitForResponse((response) =>
         response.request().method() === 'POST' && response.url().includes(`/rooms/${roomId}/leave`),
         { timeout: 30_000 },
@@ -907,6 +910,11 @@ async function focusPlayerForRcGate(page: Page, playerId: string, displayName: s
 
   const byId = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
   if (await byId.count() > 0) {
+    const drawer = page.getByTestId('opponents-drawer-toggle');
+    if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') !== 'true') {
+      await drawer.click();
+      await expect(drawer).toHaveAttribute('aria-expanded', 'true');
+    }
     await expect(byId.first()).toBeVisible({ timeout: 10_000 });
     await byId.first().click();
     await expect.poll(() => page.getByTestId('player-panel').getAttribute('data-player-id'), { timeout: 10_000 }).toBe(playerId);

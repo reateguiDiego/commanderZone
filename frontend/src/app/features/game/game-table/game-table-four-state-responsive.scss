@@ -17,7 +17,7 @@
   display: none !important;
 }
 
-.game-screen[data-responsive-supported='false'] > .unsupported-resolution-lock {
+.game-screen[data-responsive-supported='false']:not(.has-table-exit-modal) > .unsupported-resolution-lock {
   display: grid !important;
 }
 
@@ -112,6 +112,11 @@
 .game-screen[data-responsive-state='compact'] .player-sidebar.opponents-open,
 .game-screen[data-responsive-state='minimal'] .player-sidebar.opponents-open {
   transform: translateX(0);
+}
+
+.game-screen:is([data-responsive-state='compact'], [data-responsive-state='aggressive'], [data-responsive-state='minimal'])
+  .player-sidebar:not(.opponents-open) {
+  z-index: 650;
 }
 
 .game-screen[data-responsive-state='compact'] .table-surface:has(.player-sidebar.opponents-open),
