@@ -149,16 +149,42 @@ func decodeStatsMapOrList(raw json.RawMessage, out *map[string]map[string]any) e
 type VisibilityIndex struct {
 	ViewerBits          map[string]uint64          `json:"viewerBits"`
 	InstanceMasks       map[string]uint64          `json:"instanceMasks"`
+	HandRevealStates    map[string]HandRevealState `json:"handRevealStates,omitempty"`
 	LibraryEpochByOwner map[string]int64           `json:"libraryEpochByOwner"`
 	TopRevealWindows    map[string]TopRevealWindow `json:"topRevealWindows"`
+	LibraryWindows      map[string]LibraryWindow   `json:"libraryWindows,omitempty"`
+}
+
+type HandRevealState struct {
+	OwnerID              string   `json:"ownerId"`
+	Zone                 Zone     `json:"zone"`
+	Active               bool     `json:"active"`
+	VisibleToMask        uint64   `json:"visibleToMask"`
+	RevealedTo           []string `json:"revealedTo"`
+	RevealedAtVersion    int64    `json:"revealedAtVersion,omitempty"`
+	LastChangedVersion   int64    `json:"lastChangedVersion"`
+	SourceCommand        string   `json:"sourceCommand"`
+	SourceClientActionID string   `json:"sourceClientActionId,omitempty"`
 }
 
 type TopRevealWindow struct {
-	OwnerID string   `json:"ownerId"`
-	Count   int      `json:"count"`
-	Epoch   int64    `json:"epoch"`
-	To      []string `json:"to"`
-	Mask    uint64   `json:"mask"`
+	OwnerID     string   `json:"ownerId"`
+	Count       int      `json:"count"`
+	Epoch       int64    `json:"epoch"`
+	To          []string `json:"to"`
+	Mask        uint64   `json:"mask"`
+	InstanceIDs []string `json:"instanceIds,omitempty"`
+}
+
+type LibraryWindow struct {
+	WindowID          string   `json:"windowId"`
+	OwnerID           string   `json:"ownerId"`
+	InstanceIDs       []string `json:"instanceIds,omitempty"`
+	ExpectedEpoch     int64    `json:"expectedEpoch"`
+	OpenedAtVersion   int64    `json:"openedAtVersion"`
+	CreatedByPlayerID string   `json:"createdByPlayerId,omitempty"`
+	CreatedBySession  string   `json:"createdBySession,omitempty"`
+	Status            string   `json:"status"`
 }
 
 type Relations struct {
@@ -502,6 +528,15 @@ func NormalizeForRecovery(gameID string, game *GameState) {
 	if game.Visibility.TopRevealWindows == nil {
 		game.Visibility.TopRevealWindows = map[string]TopRevealWindow{}
 	}
+	if game.Visibility.LibraryWindows == nil {
+		game.Visibility.LibraryWindows = map[string]LibraryWindow{}
+	}
+	for ownerID, window := range game.Visibility.TopRevealWindows {
+		if len(window.InstanceIDs) == 0 && window.Count > 0 {
+			window.InstanceIDs = libraryTopFirstIDs(game.Zones[ownerID].Library, window.Count)
+			game.Visibility.TopRevealWindows[ownerID] = window
+		}
+	}
 	if game.Relations.Attachments == nil {
 		game.Relations.Attachments = map[string]Relation{}
 	}
@@ -659,8 +694,10 @@ func (v VisibilityIndex) Clone() VisibilityIndex {
 	clone := VisibilityIndex{
 		ViewerBits:          map[string]uint64{},
 		InstanceMasks:       map[string]uint64{},
+		HandRevealStates:    map[string]HandRevealState{},
 		LibraryEpochByOwner: map[string]int64{},
 		TopRevealWindows:    map[string]TopRevealWindow{},
+		LibraryWindows:      map[string]LibraryWindow{},
 	}
 	for key, value := range v.ViewerBits {
 		clone.ViewerBits[key] = value
@@ -668,12 +705,21 @@ func (v VisibilityIndex) Clone() VisibilityIndex {
 	for key, value := range v.InstanceMasks {
 		clone.InstanceMasks[key] = value
 	}
+	for key, value := range v.HandRevealStates {
+		value.RevealedTo = append([]string(nil), value.RevealedTo...)
+		clone.HandRevealStates[key] = value
+	}
 	for key, value := range v.LibraryEpochByOwner {
 		clone.LibraryEpochByOwner[key] = value
 	}
 	for key, value := range v.TopRevealWindows {
 		value.To = append([]string(nil), value.To...)
+		value.InstanceIDs = append([]string(nil), value.InstanceIDs...)
 		clone.TopRevealWindows[key] = value
+	}
+	for key, value := range v.LibraryWindows {
+		value.InstanceIDs = append([]string(nil), value.InstanceIDs...)
+		clone.LibraryWindows[key] = value
 	}
 	return clone
 }

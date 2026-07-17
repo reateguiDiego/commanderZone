@@ -31,7 +31,7 @@ final class GameLibraryOps
             $player[self::ORIENTATION_KEY] = self::ORIENTATION_TAIL_TOP;
         }
 
-        $player[self::VISIBILITY_EPOCH_KEY] = max(1, (int) ($player[self::VISIBILITY_EPOCH_KEY] ?? 1));
+        $player[self::VISIBILITY_EPOCH_KEY] = max(0, (int) ($player[self::VISIBILITY_EPOCH_KEY] ?? 1));
         $player['revealedLibraryTo'] = is_array($player['revealedLibraryTo'] ?? null)
             ? array_values($player['revealedLibraryTo'])
             : [];
@@ -85,6 +85,9 @@ final class GameLibraryOps
     {
         $this->ensurePlayer($player);
         $library =& $player['zones']['library'];
+		if ($library !== []) {
+			$this->clearReveals($player);
+		}
         $card = array_pop($library);
 
         return is_array($card) ? $this->detachFromLibrary($card) : null;
@@ -103,6 +106,7 @@ final class GameLibraryOps
             return [];
         }
 
+		$this->clearReveals($player);
         $removed = array_splice($player['zones']['library'], -$count);
 
         return array_values(array_map(
@@ -118,6 +122,7 @@ final class GameLibraryOps
     public function putOnTop(array &$player, array $card): int
     {
         $this->ensurePlayer($player);
+		$this->clearReveals($player);
         $player['zones']['library'][] = $this->attachToLibrary($card);
 
         return count($player['zones']['library']) - 1;
@@ -130,6 +135,7 @@ final class GameLibraryOps
     public function putOnBottom(array &$player, array $card): int
     {
         $this->ensurePlayer($player);
+		$this->clearReveals($player);
         array_splice($player['zones']['library'], 0, 0, [$this->attachToLibrary($card)]);
 
         return 0;
@@ -142,12 +148,16 @@ final class GameLibraryOps
     public function putManyOnTop(array &$player, array $cards): void
     {
         $this->ensurePlayer($player);
+		$prepared = [];
         foreach ($cards as $card) {
             if (!is_array($card)) {
                 continue;
             }
-
-            $player['zones']['library'][] = $this->attachToLibrary($card);
+			$prepared[] = $this->attachToLibrary($card);
+		}
+		if ($prepared !== []) {
+			$this->clearReveals($player);
+			$player['zones']['library'] = [...$player['zones']['library'], ...$prepared];
         }
     }
 
@@ -175,6 +185,7 @@ final class GameLibraryOps
             return;
         }
 
+		$this->clearReveals($player);
         $player['zones']['library'] = [...$prepared, ...$player['zones']['library']];
     }
 
@@ -190,6 +201,7 @@ final class GameLibraryOps
             return null;
         }
 
+		$this->clearReveals($player);
         $removed = array_splice($player['zones']['library'], $index, 1);
         $card = $removed[0] ?? null;
 
@@ -237,6 +249,7 @@ final class GameLibraryOps
             throw new \InvalidArgumentException('Card not found.');
         }
 
+		$this->clearReveals($player);
         $player['zones']['library'] = array_values($remaining);
 
         return array_values(array_map(
@@ -278,6 +291,7 @@ final class GameLibraryOps
             throw new \InvalidArgumentException('Can only reorder the currently viewed top library cards.');
         }
 
+		$this->clearReveals($player);
         $replacement = array_values(array_map(
             static fn (string $instanceId): array => $topById[$instanceId],
             array_reverse($orderedTopIds),
@@ -354,7 +368,7 @@ final class GameLibraryOps
         }
 
         $cardEpoch = (int) ($card[self::CARD_VISIBILITY_EPOCH_KEY] ?? 0);
-        $playerEpoch = max(1, (int) ($player[self::VISIBILITY_EPOCH_KEY] ?? 1));
+        $playerEpoch = max(0, (int) ($player[self::VISIBILITY_EPOCH_KEY] ?? 1));
         if ($cardEpoch !== $playerEpoch) {
             return false;
         }

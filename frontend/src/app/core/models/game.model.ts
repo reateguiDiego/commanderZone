@@ -69,6 +69,8 @@ export type GameCommandType =
   | 'card.face_down.changed'
   | 'card.face.changed'
   | 'card.revealed'
+  | 'hand.cards.reveal'
+  | 'hand.cards.revoke'
   | 'card.token.created'
   | 'card.token_copy.created'
   | 'card.controller.changed'
@@ -84,6 +86,8 @@ export type GameCommandType =
   | 'library.reveal_top'
   | 'library.reveal'
   | 'library.view'
+  | 'library.selection.move'
+  | 'library.top.play_face_down'
   | 'library.play_top_revealed'
   | 'library.reorder_top'
   | 'stack.card_added'
@@ -195,6 +199,8 @@ export interface GamePlayerState {
   sleevesName?: string;
   playTopLibraryRevealed?: boolean;
   revealedLibraryTo?: string[];
+  libraryVisibilityEpoch?: number;
+  libraryWindow?: GameLibraryWindowState | null;
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;
@@ -288,6 +294,14 @@ export interface GameAttachment {
   effectVersion?: number;
   createdAtVersion?: number;
   createdAt: string;
+}
+
+export interface GameLibraryWindowState {
+  windowId: string;
+  expectedEpoch: number;
+  openedAtVersion: number;
+  status: 'active' | 'consumed' | 'stale' | 'closed';
+  reason?: string | null;
 }
 
 /** Visual battlefield grouping; deliberately distinct from GameStackItem. */

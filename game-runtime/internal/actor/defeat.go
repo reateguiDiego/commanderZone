@@ -67,6 +67,10 @@ func eliminatePlayer(game *state.GameState, playerID, reason string, context eli
 	}
 	game.Players[playerID] = player
 	invalidateDurableVoteForLifecycle(game, playerID, "player_eliminated", nowUTC(), emitter)
+	if window, exists := game.LibraryWindow(playerID); exists && window.Status == "active" {
+		game.InvalidateLibraryWindow(playerID, "closed")
+		emitLibraryWindowInvalidated(emitter, playerID, window.WindowID, "closed", "player_eliminated", game.Visibility.LibraryEpochByOwner[playerID])
+	}
 	transition.Status = status
 	transition.StatusChanged = true
 	transition.EliminationReason = reason

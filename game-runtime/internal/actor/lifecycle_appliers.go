@@ -62,6 +62,13 @@ func (GameCloseApplier) Type() string { return "game.close" }
 func (GameCloseApplier) Apply(_ context.Context, game *state.GameState, _ protocol.CommandEnvelopeV2, emitter *PatchEmitter) (map[string]any, error) {
 	start := nowUTC()
 	invalidateDurableVoteForLifecycle(game, "", "game_closed", start, emitter)
+	for ownerID, window := range game.Visibility.LibraryWindows {
+		if window.Status != "active" {
+			continue
+		}
+		game.InvalidateLibraryWindow(ownerID, "closed")
+		emitLibraryWindowInvalidated(emitter, ownerID, window.WindowID, "closed", "game_closed", game.Visibility.LibraryEpochByOwner[ownerID])
+	}
 	previousStatus, previousPhase := game.Status, game.Phase
 	game.Status = "finished"
 	game.Phase = state.PhaseFinished

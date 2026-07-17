@@ -2817,7 +2817,7 @@ paths:
     post:
       tags: [Games]
       summary: Issue a short-lived gameplay WebSocket ticket.
-      description: The ticket is scoped to the game and current authenticated user, carries the server-derived viewer mask used for `group:<mask>` routing, and opens the Go runtime gameplay WebSocket route (`runtime_ws`). PHP websocket routes are not returned for gameplay. Runtime authorization rejections use `command_ack` with status `rejected`; the error contains a stable code, commandType, and only the submitted instanceId/index when applicable. Rejected commands do not emit Patch.v2, increment the game version, persist an event, or fall back to PHP. In prod, `GAME_RUNTIME_WEBSOCKET_PUBLIC_URL` must be configured as the public `wss://` runtime `/ws` endpoint.
+      description: The ticket is scoped to the game and current authenticated user, carries the server-derived viewer mask used for `group:<mask>` routing, and opens the Go runtime gameplay WebSocket route (`runtime_ws`). PHP websocket routes are not returned for gameplay. Runtime authorization rejections use `command_ack` with status `rejected`; the error contains a stable code, commandType, and only actor-submitted safe fields. Private-library window errors may additionally contain the authenticated owner's windowId, expectedEpoch, currentEpoch, count, and invalid index, but never card identity. Rejected commands do not emit Patch.v2, increment the game version, persist an event, or fall back to PHP. In prod, `GAME_RUNTIME_WEBSOCKET_PUBLIC_URL` must be configured as the public `wss://` runtime `/ws` endpoint.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -3222,7 +3222,22 @@ components:
         count:
           type: integer
           minimum: 0
-          description: Present on login failures with the active failed-login attempt count.
+          description: Present on login failures with the active failed-login attempt count, or on authenticated runtime window rejections with the submitted batch count.
+        commandType:
+          type: string
+        windowId:
+          type: string
+          description: Authenticated owner-only transient library window identifier; never contains card identity.
+        expectedEpoch:
+          type: integer
+          minimum: 0
+        currentEpoch:
+          type: integer
+          minimum: 0
+        index:
+          type: integer
+          minimum: 0
+          description: Invalid submitted selection index when applicable; no card identity is returned.
     GameWebsocketTicketResponse:
       type: object
       required: [ticket, expiresAt, websocketUrl, route, claims]
@@ -7515,6 +7530,10 @@ components:
           type: object
           additionalProperties:
             type: integer
+        libraryVisibilityEpoch:
+          type: integer
+          minimum: 0
+          description: Public-safe authoritative epoch used to reject stale private-library intents.
     GameCard:
       type: object
       description: >
@@ -7772,9 +7791,11 @@ components:
           description: Semantic translation key for viewer-localized game log rendering.
         params:
           type: object
+          description: Public entries may contain generic action metadata such as actor, source/destination zone, count, and faceDown, but never private card identity.
           additionalProperties: true
         refs:
           type: object
+          description: Public entries may reference players and face-up public cards. Private-zone and face-down cards omit refs.cards entirely; stable opaque hashes are not emitted as substitutes.
           properties:
             players:
               type: object
@@ -7802,7 +7823,8 @@ components:
                     type: string
                   visibility:
                     type: string
-                    enum: [public, hidden]
+                    description: Card references present in a public GameLog entry are always public. Hidden cards are represented only by generic action metadata.
+                    enum: [public]
         visibility:
           type: string
           enum: [public, private, group]
@@ -8184,6 +8206,86 @@ components:
                 minLength: 1
               position:
                 $ref: '#/components/schemas/GameCardRatioPosition'
+    LibrarySelectionMovePayload:
+      type: object
+      additionalProperties: false
+      required: [playerId, windowId, expectedEpoch, orderedInstanceIds, toZone]
+      properties:
+        playerId: { type: string }
+        windowId: { type: string, minLength: 1 }
+        expectedEpoch: { type: integer, minimum: 0 }
+        orderedInstanceIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        toZone:
+          type: string
+          enum: [hand, battlefield, graveyard, exile, library]
+        faceDown:
+          type: boolean
+          description: Valid only for battlefield; private and face-down public projections never expose these IDs.
+        position:
+          type: string
+          enum: [top, bottom]
+          description: Required only when toZone=library. Selection order is independent from internal bottom-to-top storage.
+    LibraryTopPlayFaceDownPayload:
+      type: object
+      additionalProperties: false
+      required: [playerId, windowId, expectedEpoch, count]
+      properties:
+        playerId: { type: string }
+        windowId: { type: string, minLength: 1 }
+        expectedEpoch: { type: integer, minimum: 0 }
+        count:
+          type: integer
+          minimum: 1
+          description: Selects canonical top X server-side; this intent never accepts client-supplied instance IDs.
+    HandCardsVisibilityPayload:
+      type: object
+      additionalProperties: false
+      required: [playerId, expectedZone, orderedInstanceIds, to]
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+          description: Authenticated owner of the hand.
+        expectedZone:
+          type: string
+          const: hand
+          description: Stale-zone guard; every selected instance must still be in hand.
+        orderedInstanceIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+          description: Ordered selection. Every instance must still be in the owner's hand when the batch is applied.
+        to:
+          oneOf:
+            - type: string
+              minLength: 1
+              description: A player ID or the literal all.
+            - type: array
+              minItems: 1
+              uniqueItems: true
+              items: { type: string, minLength: 1 }
+          description: Canonical common audience for the entire atomic batch. The server derives viewer masks.
+    LibraryWindowState:
+      type: object
+      additionalProperties: false
+      required: [windowId, ownerPlayerId, instanceIds, expectedEpoch, openedAtVersion, status]
+      properties:
+        windowId: { type: string }
+        ownerPlayerId: { type: string }
+        instanceIds:
+          type: array
+          description: Owner-private exact top-first IDs.
+          items: { type: string }
+        expectedEpoch: { type: integer, minimum: 0 }
+        openedAtVersion: { type: integer, minimum: 1 }
+        createdByPlayerId: { type: string }
+        createdBySession: { type: string }
+        status: { type: string, enum: [active, consumed, stale, closed] }
     GameCardStoredPosition:
       oneOf:
         - $ref: '#/components/schemas/GameCardRatioPosition'
@@ -8260,6 +8362,33 @@ components:
             properties:
               payload:
                 $ref: '#/components/schemas/CardsPositionChangedPayload'
+        - if:
+            properties:
+              type:
+                const: library.selection.move
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/LibrarySelectionMovePayload'
+        - if:
+            properties:
+              type:
+                const: library.top.play_face_down
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/LibraryTopPlayFaceDownPayload'
+        - if:
+            properties:
+              type:
+                enum: [hand.cards.reveal, hand.cards.revoke]
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/HandCardsVisibilityPayload'
       properties:
         type:
           type: string
@@ -8285,6 +8414,8 @@ components:
             - card.face_down.changed
             - card.face.changed
             - card.revealed
+            - hand.cards.reveal
+            - hand.cards.revoke
             - card.token.created
             - card.token_copy.created
             - card.controller.changed
@@ -8298,8 +8429,13 @@ components:
             - library.shuffle
             - library.move_top
             - library.reveal_top
+            - library.reorder_top
+            - library.put_top
+            - library.put_bottom
             - library.reveal
             - library.view
+            - library.selection.move
+            - library.top.play_face_down
             - library.play_top_revealed
             - stack.card_added
             - stack.item_removed
@@ -8319,6 +8455,23 @@ components:
         payload:
           type: object
           description: >
+            `library.selection.move` is an owner-only atomic mutation over an
+            active server-created View X window. It requires windowId,
+            expectedEpoch, an ordered unique subset of that window, and one
+            supported destination. `library.top.play_face_down` is a distinct
+            intent: it accepts count plus the active window identity/epoch and
+            never accepts client-supplied card IDs. Both commands persist one
+            final-effects event/version, use server-derived ratio positions for
+            battlefield entries, consume or invalidate the window, and reject
+            stale/invalid input without event, patch, log, or version change.
+            `hand.cards.reveal` and `hand.cards.revoke` are owner-only atomic
+            hand visibility batches. They require a non-empty, ordered, unique
+            selection and one common player/multiviewer/all audience. The
+            runtime prevalidates every card in hand, persists one final-effects
+            event/version, emits batched materialize/conceal deltas, and logs
+            only the count and high-level action publicly. Rejection contains
+            no private card identity and causes no mutation, event, patch, log,
+            version increment, fallback, or refetch.
             Command payload. For commander.damage.changed, the actor must be the
             target player and must send targetPlayerId, sourcePlayerId, and
             commanderInstanceId plus the absolute final damage. The source must
@@ -8362,6 +8515,13 @@ components:
             to let another room player inspect the actor's full library; closing
             that read-only view may send library.shuffle with
             reason=revealed-library-closed to shuffle and clear the reveal.
+            The canonical library array is bottom-to-top (top at the final element).
+            library.reveal_top persists the exact top-first instanceIds it authorized;
+            draw, reorder, move, put, and shuffle invalidate that window. Legacy
+            count-only reveal replay reads from the array tail and fails closed when
+            there is insufficient state. Public eventLog.append entries for private or
+            face-down cards omit all card IDs, identity fields, and refs.cards while
+            retaining generic zones, count, and faceDown metadata.
             attachment.created creates an explicit source-to-target battlefield
             relation by instanceId. attachment.reordered submits the exact ordered
             relation ids for one target. attachment.removed detaches by id or
@@ -8464,6 +8624,33 @@ components:
             properties:
               payload:
                 $ref: '#/components/schemas/CardsPositionChangedPayload'
+        - if:
+            properties:
+              type:
+                const: library.selection.move
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/LibrarySelectionMovePayload'
+        - if:
+            properties:
+              type:
+                const: library.top.play_face_down
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/LibraryTopPlayFaceDownPayload'
+        - if:
+            properties:
+              type:
+                enum: [hand.cards.reveal, hand.cards.revoke]
+            required: [type]
+          then:
+            properties:
+              payload:
+                $ref: '#/components/schemas/HandCardsVisibilityPayload'
       properties:
         gameId:
           type: string
@@ -8512,6 +8699,9 @@ components:
         `{ playerId, zone, entries: [{ instanceId, placeholderId, index }] }` without carrying card identity. Placeholder IDs never contain the real instance ID.
         Lifecycle transitions use same-version `player.status.set`, `player.elimination.set`, `turn.set`, `turn.order.set`, helper designation ops,
         `game.result.set`, and optional game status/phase ops; clients must merge them atomically without refetch.
+        Owner-private `library.top.viewed` carries windowId, expectedEpoch, openedAtVersion, status and authorized top-first cards.
+        Owner-private `library.window.invalidated` closes local tabs with a safe status/reason/currentEpoch, while public-safe
+        `library.epoch.set` advances stale detection. Library batch movement, counts, visibility transitions, positions and GameLog append share one version.
       required: [op]
       allOf:
         - if:
@@ -8562,6 +8752,45 @@ components:
               effectVersion:
                 type: integer
                 minimum: 1
+        - if:
+            properties:
+              op:
+                const: library.top.viewed
+            required: [op]
+          then:
+            required: [playerId, windowId, expectedEpoch, openedAtVersion, status, cards]
+            properties:
+              playerId: { type: string }
+              windowId: { type: string, minLength: 1 }
+              expectedEpoch: { type: integer, minimum: 0 }
+              openedAtVersion: { type: integer, minimum: 1 }
+              status: { type: string, const: active }
+              cards:
+                type: array
+                items: { type: object }
+        - if:
+            properties:
+              op:
+                const: library.window.invalidated
+            required: [op]
+          then:
+            required: [playerId, windowId, status, reason, currentEpoch]
+            properties:
+              playerId: { type: string }
+              windowId: { type: string, minLength: 1 }
+              status: { type: string, enum: [consumed, stale, closed] }
+              reason: { type: string }
+              currentEpoch: { type: integer, minimum: 0 }
+        - if:
+            properties:
+              op:
+                const: library.epoch.set
+            required: [op]
+          then:
+            required: [playerId, epoch]
+            properties:
+              playerId: { type: string }
+              epoch: { type: integer, minimum: 0 }
       properties:
         op:
           type: string

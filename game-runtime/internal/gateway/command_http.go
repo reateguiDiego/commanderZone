@@ -38,6 +38,11 @@ type CommandHTTPResponse struct {
 	VoteID           string                     `json:"voteId,omitempty"`
 	TargetPlayerID   string                     `json:"targetPlayerId,omitempty"`
 	RemainingSeconds int                        `json:"remainingSeconds,omitempty"`
+	WindowID         string                     `json:"windowId,omitempty"`
+	ExpectedEpoch    *int64                     `json:"expectedEpoch,omitempty"`
+	CurrentEpoch     *int64                     `json:"currentEpoch,omitempty"`
+	Count            *int                       `json:"count,omitempty"`
+	Index            *int                       `json:"index,omitempty"`
 }
 
 func NewCommandHTTPServer(runtime *runtimesvc.Service) *CommandHTTPServer {
@@ -120,6 +125,32 @@ func (s *CommandHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if positionError, ok := actor.AsPositionValidationError(result.Err); ok {
 			writeCommandHTTPError(w, http.StatusBadRequest, strings.ToLower(positionError.Code), positionError.Error())
+			return
+		}
+		if windowError, ok := actor.AsLibraryWindowError(result.Err); ok {
+			expectedEpoch := windowError.ExpectedEpoch
+			currentEpoch := windowError.CurrentEpoch
+			count := windowError.Count
+			var index *int
+			if windowError.Index >= 0 {
+				value := windowError.Index
+				index = &value
+			}
+			writeCommandHTTPJSON(w, http.StatusConflict, CommandHTTPResponse{
+				Error: windowError.Error(), Code: windowError.Code, CommandType: windowError.CommandType,
+				WindowID: windowError.WindowID, ExpectedEpoch: &expectedEpoch, CurrentEpoch: &currentEpoch,
+				Count: &count, Index: index,
+			})
+			return
+		}
+		if revealError, ok := actor.AsHandRevealError(result.Err); ok {
+			count := revealError.Count
+			var index *int
+			if revealError.Index >= 0 {
+				value := revealError.Index
+				index = &value
+			}
+			writeCommandHTTPJSON(w, http.StatusConflict, CommandHTTPResponse{Error: revealError.Error(), Code: revealError.Code, CommandType: revealError.CommandType, Count: &count, Index: index})
 			return
 		}
 		if relationError, ok := actor.AsRelationValidationError(result.Err); ok {

@@ -1,20 +1,114 @@
 @let currentModal = modal();
 
-<section class="zone-modal-backdrop">
-  <div class="zone-modal" data-testid="zone-modal" [class.has-zone-filters]="currentModal.showFilters" (click)="stopClick($event)">
+<section
+  class="zone-modal-backdrop"
+  data-testid="zone-modal-backdrop"
+  (click)="handleBackdropClick($event)"
+>
+  <div
+    #dialog
+    class="zone-modal"
+    data-testid="zone-modal"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    [attr.aria-labelledby]="'zone-modal-title'"
+    [attr.aria-describedby]="currentModal.localMultiSelect ? 'zone-modal-description' : null"
+    [attr.data-lifecycle]="currentModal.lifecycle"
+    [attr.data-interaction-mode]="currentModal.localMultiSelect ? interactionMode() : null"
+    [attr.aria-busy]="currentModal.mutationPending === true"
+    [class.has-zone-filters]="currentModal.showFilters"
+    [class.has-local-toolbar]="currentModal.localMultiSelect"
+    (click)="stopClick($event)"
+    (keydown)="handleDialogKeydown($event)"
+  >
     <header class="zone-modal-header">
       <div class="zone-title-block">
         <span class="zone-eyebrow">{{ currentModal.zone }}</span>
-        <h2>{{ currentModal.title }}</h2>
-        @if (currentModal.readOnly) {
+        <h2 id="zone-modal-title">{{ currentModal.title }}</h2>
+        @if (currentModal.localMultiSelect) {
+          <small id="zone-modal-description">{{ 'game.zoneModal.selectionInstructions' | runtimeTranslate }}</small>
+        } @else if (currentModal.readOnly) {
           <small>{{ 'game.zoneModal.readOnlyLibraryReview' | runtimeTranslate }}</small>
         }
-        <strong>{{ currentModal.total }} cards</strong>
+        <strong>{{ 'game.zoneModal.cardCount' | runtimeTranslate: { count: currentModal.total } }}</strong>
       </div>
-      <button class="zone-modal-close" type="button" data-testid="zone-modal-close" [attr.aria-label]="'game.zoneModal.closeZone' | runtimeTranslate" (click)="close.emit()">
-        <lucide-icon name="x" size="18" />
+      <button
+        class="zone-modal-close"
+        type="button"
+        data-testid="zone-modal-close"
+        [attr.aria-label]="'game.zoneModal.closeZone' | runtimeTranslate"
+        (click)="close.emit()"
+      >
+        <lucide-icon name="x" size="18" aria-hidden="true" />
       </button>
     </header>
+
+    @if (currentModal.localMultiSelect) {
+      <div
+        class="zone-selection-toolbar"
+        role="toolbar"
+        data-testid="zone-modal-selection-toolbar"
+        [attr.aria-label]="'game.zoneModal.selectionToolbar' | runtimeTranslate"
+      >
+        <span class="selection-summary" aria-live="polite">
+          {{ 'game.zoneModal.selectedCount' | runtimeTranslate: { selected: selectedCount(), total: currentModal.total } }}
+        </span>
+        <div class="selection-actions">
+          <button
+            type="button"
+            data-testid="zone-modal-select-all"
+            [disabled]="!selectionEnabled() || currentModal.cards.length === 0 || selectedCount() === currentModal.cards.length"
+            (click)="selectAll()"
+          >
+            {{ 'game.zoneModal.selectAll' | runtimeTranslate }}
+          </button>
+          <button
+            type="button"
+            data-testid="zone-modal-clear-all"
+            [disabled]="!selectionEnabled() || selectedCount() === 0"
+            (click)="clearAll()"
+          >
+            {{ 'game.zoneModal.clearAll' | runtimeTranslate }}
+          </button>
+          @if (currentModal.allowReorder) {
+            <button
+              type="button"
+              data-testid="zone-modal-interaction-mode"
+              [disabled]="currentModal.lifecycle !== 'ready'"
+              [attr.aria-pressed]="interactionMode() === 'reorder'"
+              (click)="toggleInteractionMode()"
+            >
+              {{ (interactionMode() === 'select' ? 'game.zoneModal.reorderMode' : 'game.zoneModal.selectionMode') | runtimeTranslate }}
+            </button>
+          }
+        </div>
+      </div>
+      <div
+        class="zone-batch-toolbar"
+        role="toolbar"
+        data-testid="zone-modal-batch-toolbar"
+        [attr.aria-label]="'game.zoneModal.batchToolbar' | runtimeTranslate"
+      >
+        <span>{{ 'game.zoneModal.batchActions' | runtimeTranslate }}</span>
+        <div class="zone-batch-action-list" (focusin)="handleBatchActionFocus($event)">
+          <button type="button" data-testid="zone-modal-action-hand" [disabled]="!selectionEnabled() || selectedCount() === 0 || currentModal.mutationPending" (click)="requestSelectionAction($event, 'hand')">{{ 'game.zoneModal.action.hand' | runtimeTranslate }}</button>
+          <button type="button" data-testid="zone-modal-action-battlefield-face-up" [disabled]="!selectionEnabled() || selectedCount() === 0 || currentModal.mutationPending" (click)="requestSelectionAction($event, 'battlefield-face-up')">{{ 'game.zoneModal.action.battlefield-face-up' | runtimeTranslate }}</button>
+          <button type="button" data-testid="zone-modal-action-battlefield-face-down" [disabled]="!selectionEnabled() || selectedCount() === 0 || currentModal.mutationPending" (click)="requestSelectionAction($event, 'battlefield-face-down')">{{ 'game.zoneModal.action.battlefield-face-down' | runtimeTranslate }}</button>
+          <button type="button" data-testid="zone-modal-action-graveyard" [disabled]="!selectionEnabled() || selectedCount() === 0 || currentModal.mutationPending" (click)="requestSelectionAction($event, 'graveyard')">{{ 'game.zoneModal.action.graveyard' | runtimeTranslate }}</button>
+          <button type="button" data-testid="zone-modal-action-exile" [disabled]="!selectionEnabled() || selectedCount() === 0 || currentModal.mutationPending" (click)="requestSelectionAction($event, 'exile')">{{ 'game.zoneModal.action.exile' | runtimeTranslate }}</button>
+          <button type="button" data-testid="zone-modal-action-library-top" [disabled]="!selectionEnabled() || selectedCount() === 0 || currentModal.mutationPending" (click)="requestSelectionAction($event, 'library-top')">{{ 'game.zoneModal.action.library-top' | runtimeTranslate }}</button>
+          <button type="button" data-testid="zone-modal-action-library-bottom" [disabled]="!selectionEnabled() || selectedCount() === 0 || currentModal.mutationPending" (click)="requestSelectionAction($event, 'library-bottom')">{{ 'game.zoneModal.action.library-bottom' | runtimeTranslate }}</button>
+          <button type="button" class="top-intent" data-testid="zone-modal-action-top-face-down" [disabled]="!selectionEnabled() || currentModal.cards.length === 0 || currentModal.mutationPending" (click)="requestTopFaceDown($event)">{{ 'game.zoneModal.action.playTopFaceDown' | runtimeTranslate: { count: currentModal.viewTopCount ?? currentModal.cards.length } }}</button>
+        </div>
+        @if (currentModal.mutationPending) {
+          <span class="batch-status" data-testid="zone-modal-batch-pending" role="status" aria-live="polite">{{ 'game.zoneModal.batchPending' | runtimeTranslate }}</span>
+        } @else if (currentModal.mutationErrorKey) {
+          <span class="batch-status error" data-testid="zone-modal-batch-error" role="alert">{{ currentModal.mutationErrorKey | runtimeTranslate }}</span>
+        }
+      </div>
+    }
+
     @if (currentModal.showFilters) {
       <div class="zone-filters">
         <label>
@@ -36,21 +130,64 @@
         </label>
       </div>
     }
+
     <div class="zone-modal-body">
-      <app-card-spoiler-grid
-        [cards]="currentModal.cards"
-        [selectedCardId]="currentModal.selectedCard?.instanceId ?? null"
-        [loading]="currentModal.loading"
-        [allowContextMenu]="!currentModal.readOnly"
-        [allowReorder]="currentModal.allowReorder"
-        [allowSelection]="!currentModal.allowReorder"
-        [orderLabels]="currentModal.drawOrderLabels"
-        [cardImage]="cardImage()"
-        emptyLabel="I'm empty now. You can close me if you want, and only if you want. 🙂"
-        (cardSelected)="cardSelected.emit($event)"
-        (cardsReordered)="cardsReordered.emit($event)"
-        (cardMenuOpened)="cardMenuOpened.emit($event)"
-      />
+      @if (currentModal.lifecycle === 'stale' || currentModal.lifecycle === 'error') {
+        <div
+          class="zone-modal-status"
+          data-testid="zone-modal-status"
+          [attr.role]="currentModal.lifecycle === 'error' ? 'alert' : 'status'"
+          aria-live="assertive"
+        >
+          <lucide-icon name="triangle-alert" size="26" aria-hidden="true" />
+          <strong>{{ (currentModal.statusMessageKey ?? 'game.zoneModal.viewStale') | runtimeTranslate }}</strong>
+        </div>
+      } @else {
+        <app-card-spoiler-grid
+          [cards]="currentModal.cards"
+          [selectedCardId]="currentModal.localMultiSelect ? null : currentModal.selectedCard?.instanceId ?? null"
+          [selectedCardIds]="selectedIds()"
+          [focusedCardId]="selection().focusedId"
+          [multiSelect]="currentModal.localMultiSelect && interactionMode() === 'select'"
+          [loading]="currentModal.loading"
+          [allowContextMenu]="!currentModal.readOnly && !currentModal.localMultiSelect"
+          [allowReorder]="currentModal.allowReorder && (!currentModal.localMultiSelect || interactionMode() === 'reorder')"
+          [allowSelection]="!currentModal.allowReorder || !currentModal.localMultiSelect || interactionMode() === 'select'"
+          [orderLabels]="currentModal.drawOrderLabels"
+          [cardImage]="cardImage()"
+          [emptyLabel]="'game.zoneModal.emptyView' | runtimeTranslate"
+          (cardSelected)="cardSelected.emit($event)"
+          (cardInteracted)="handleCardInteraction($event)"
+          (cardKeyPressed)="handleCardKey($event)"
+          (cardFocused)="handleCardFocused($event)"
+          (cardsReordered)="cardsReordered.emit($event)"
+          (cardMenuOpened)="cardMenuOpened.emit($event)"
+        />
+      }
     </div>
+
+    @if (confirmation(); as batchConfirmation) {
+      <div class="zone-batch-confirmation-backdrop">
+        <section
+          #confirmationDialog
+          class="zone-batch-confirmation"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="zone-batch-confirmation-title"
+          aria-describedby="zone-batch-confirmation-description"
+          data-testid="zone-modal-batch-confirmation"
+        >
+          <h3 id="zone-batch-confirmation-title">{{ 'game.zoneModal.confirmTitle' | runtimeTranslate }}</h3>
+          <p id="zone-batch-confirmation-description">
+            {{ 'game.zoneModal.confirmCount' | runtimeTranslate: { count: batchConfirmation.kind === 'selection' ? batchConfirmation.orderedInstanceIds.length : batchConfirmation.count } }}
+            <strong>{{ confirmationActionKey(batchConfirmation) | runtimeTranslate }}</strong>
+          </p>
+          <div class="zone-batch-confirmation-actions">
+            <button type="button" data-testid="zone-modal-batch-cancel" [disabled]="currentModal.mutationPending" (click)="cancelConfirmation()">{{ 'game.zoneModal.cancel' | runtimeTranslate }}</button>
+            <button type="button" data-testid="zone-modal-batch-confirm" [disabled]="currentModal.mutationPending" (click)="confirmBatchAction()">{{ 'game.zoneModal.confirm' | runtimeTranslate }}</button>
+          </div>
+        </section>
+      </div>
+    }
   </div>
 </section>

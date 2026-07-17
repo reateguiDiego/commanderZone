@@ -260,10 +260,7 @@ func TestRuntimeP0GameLogEntriesCarrySemanticI18nMetadata(t *testing.T) {
 				if params["counter"] != "+1/+1" || params["value"] != 3 {
 					t.Fatalf("bad counter params: %#v", params)
 				}
-				cardRef := requireCardRef(t, entry, "i1")
-				if cardRef["visibility"] != "hidden" || cardRef["cardKey"] != nil {
-					t.Fatalf("face-down counter ref leaked identity: %#v", cardRef)
-				}
+				assertPublicLogOmitsPrivateCard(t, entry, "i1", "card-a@1")
 			},
 		},
 		{
@@ -808,6 +805,80 @@ func TestRevealTopEmitsGroupPatchWithCardKey(t *testing.T) {
 	}
 }
 
+func TestRevealTopPersistsExactLibraryTailAndReplayParity(t *testing.T) {
+	game := testState()
+	game.Players["p3"] = map[string]any{"life": 40}
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-exact-tail", "library.reveal_top", map[string]any{
+		"playerId": "p1", "count": 2, "to": []any{"p2", "p3"},
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("reveal failed: %v", result.Err)
+	}
+	if got, want := result.Event.Payload["instanceIds"], []string{"l3", "l2"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("event top IDs got %#v want %#v", got, want)
+	}
+	window := gameActor.Snapshot().Visibility.TopRevealWindows["p1"]
+	if got, want := window.InstanceIDs, []string{"l3", "l2"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("window top IDs got %#v want %#v", got, want)
+	}
+	for _, viewerID := range []string{"p2", "p3"} {
+		projected := gameActor.Snapshot()
+		if !projected.CanViewerSeeCardKey(viewerID, "l3") || !projected.CanViewerSeeCardKey(viewerID, "l2") {
+			t.Fatalf("%s cannot see exact top cards", viewerID)
+		}
+		if projected.CanViewerSeeCardKey(viewerID, "l1") {
+			t.Fatalf("%s can see the bottom card", viewerID)
+		}
+	}
+
+	replayed := game
+	if err := ReplayEvent(&replayed, result.Event); err != nil {
+		t.Fatalf("replay failed: %v", err)
+	}
+	if got, want := replayed.Visibility.TopRevealWindows["p1"].InstanceIDs, []string{"l3", "l2"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("replayed window got %#v want %#v", got, want)
+	}
+	if replayed.CanViewerSeeCardKey("p2", "l1") {
+		t.Fatal("replay authorized the bottom card")
+	}
+}
+
+func TestRevealTopInvalidatesOnLibraryMutations(t *testing.T) {
+	tests := []struct {
+		name        string
+		commandType string
+		payload     map[string]any
+	}{
+		{name: "reorder", commandType: "library.reorder_top", payload: map[string]any{"playerId": "p1", "instanceIds": []any{"l2", "l3"}}},
+		{name: "move top", commandType: "library.move_top", payload: map[string]any{"playerId": "p1", "count": 1, "toZone": "hand"}},
+		{name: "put top", commandType: "library.put_top", payload: map[string]any{"playerId": "p1", "instanceId": "h1"}},
+		{name: "put bottom", commandType: "library.put_bottom", payload: map[string]any{"playerId": "p1", "instanceId": "h1"}},
+		{name: "shuffle", commandType: "library.shuffle", payload: map[string]any{"playerId": "p1"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+			reveal := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-"+test.name, "library.reveal_top", map[string]any{
+				"playerId": "p1", "count": 2, "to": "p2",
+			}), "p1")
+			if reveal.Err != nil {
+				t.Fatalf("reveal failed: %v", reveal.Err)
+			}
+			mutation := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "mutate-"+test.name, test.commandType, test.payload), "p1")
+			if mutation.Err != nil {
+				t.Fatalf("mutation failed: %v", mutation.Err)
+			}
+			if _, exists := gameActor.Snapshot().Visibility.TopRevealWindows["p1"]; exists {
+				t.Fatal("top reveal window survived library mutation")
+			}
+			if patchForVisibility(mutation.Patches, protocol.PlayerVisibility("p2"), "private.cards.conceal") == nil {
+				t.Fatalf("missing same-version conceal patch: %#v", mutation.Patches)
+			}
+		})
+	}
+}
+
 func TestRevealTopAcceptsToAliasForPrivateViewerPatch(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "reveal-to", "library.reveal_top", map[string]any{"playerId": "p1", "count": 1, "to": []any{"p1"}}), "p1")
@@ -1039,8 +1110,8 @@ func TestLibraryShuffleUsesCompactSeededPayloadAndPublicInvalidation(t *testing.
 	if public == nil || public.Data["visibilityEpoch"] == nil {
 		t.Fatalf("missing public shuffle invalidation: %#v", shuffle.Patches)
 	}
-	if encoded := fmt.Sprintf("%#v", shuffle.Patches); contains(encoded, "cardKey") || contains(encoded, "library-") {
-		t.Fatalf("shuffle patch leaked card identity/order: %s", encoded)
+	if encoded := fmt.Sprintf("%#v", public.Data); contains(encoded, "cardKey") || contains(encoded, "library-") || contains(encoded, "instanceId") {
+		t.Fatalf("public shuffle operation leaked card identity/order: %s", encoded)
 	}
 
 	replayed := testState()
@@ -1062,6 +1133,7 @@ func TestLibraryCommandsAreIdempotentForRetry(t *testing.T) {
 		payload     map[string]any
 	}{
 		{name: "draw", commandType: "library.draw", payload: map[string]any{"playerId": "p1"}},
+		{name: "reveal-top", commandType: "library.reveal_top", payload: map[string]any{"playerId": "p1", "count": 2, "to": "p2"}},
 		{name: "move-top-bottom", commandType: "library.move_top", payload: map[string]any{"playerId": "p1", "toZone": "library", "position": "bottom", "count": 1}},
 		{name: "reorder-top", commandType: "library.reorder_top", payload: map[string]any{"playerId": "p1", "instanceIds": []string{"l2", "l3"}}},
 		{name: "shuffle", commandType: "library.shuffle", payload: map[string]any{"playerId": "p1"}},
@@ -1119,14 +1191,12 @@ func TestCardFaceDownRuntimeHidesPublicIdentityAndSendsPrivateOwnerPatch(t *test
 	if result.Err != nil {
 		t.Fatalf("faceDown failed: %v", result.Err)
 	}
-	public := patchForVisibility(result.Patches, protocol.VisibilityPublic, "card.field.set")
+	public := patchForVisibility(result.Patches, protocol.VisibilityPublic, "private.cards.conceal")
 	if public == nil {
 		t.Fatalf("missing public faceDown patch: %#v", result.Patches)
 	}
-	if _, leaked := public.Data["cardKey"]; leaked {
-		t.Fatalf("public faceDown patch leaked cardKey: %#v", public.Data)
-	}
-	if public.Data["hidden"] != true || public.Data["faceDown"] != true {
+	entries, _ := public.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["placeholderId"] != "p1-hidden-battlefield-0" {
 		t.Fatalf("bad public faceDown patch: %#v", public.Data)
 	}
 	private := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "card.field.set")
@@ -1238,6 +1308,63 @@ func TestControllerChangeOnPrivateCardDoesNotEmitPublicIdentity(t *testing.T) {
 	}
 	if encoded := fmt.Sprintf("%#v", result.Patches); contains(encoded, "hand-1@1") {
 		t.Fatalf("private controller patch leaked cardKey: %s", encoded)
+	}
+}
+
+func TestControllerChangeOnFaceDownBattlefieldMaterializesOnlyNewController(t *testing.T) {
+	game := testState()
+	game.Players["p3"] = map[string]any{"life": 40}
+	instance := game.Instances["i1"]
+	instance.FaceDown = true
+	game.Instances["i1"] = instance
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "control-face-down", "card.controller.changed", map[string]any{
+		"instanceId":     "i1",
+		"targetPlayerId": "p2",
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("face-down controller change failed: %v", result.Err)
+	}
+	public := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add")
+	if public == nil || contains(fmt.Sprintf("%#v", public.Data), "i1") || contains(fmt.Sprintf("%#v", public.Data), "card-a@1") {
+		t.Fatalf("public controller patch did not remain opaque: %#v", result.Patches)
+	}
+	materialize := patchForVisibility(result.Patches, protocol.PlayerVisibility("p2"), "private.cards.materialize")
+	if materialize == nil {
+		t.Fatalf("new controller did not receive materialization: %#v", result.Patches)
+	}
+	entries := materialize.Data["entries"].([]map[string]any)
+	if len(entries) != 1 || entries[0]["placeholderId"] != "p1-hidden-battlefield-0" || entries[0]["card"].(map[string]any)["cardKey"] != "card-a@1" {
+		t.Fatalf("new controller received invalid materialization: %#v", entries)
+	}
+	if patchForVisibility(result.Patches, protocol.PlayerVisibility("p3"), "private.cards.materialize") != nil {
+		t.Fatalf("unauthorized viewer received face-down identity: %#v", result.Patches)
+	}
+	snapshot := gameActor.Snapshot()
+	if !snapshot.CanViewerSeeCardKey("p1", "i1") || !snapshot.CanViewerSeeCardKey("p2", "i1") || snapshot.CanViewerSeeCardKey("p3", "i1") {
+		t.Fatalf("owner/controller visibility mismatch after control change: %#v", snapshot.Instances["i1"])
+	}
+	position := gameActor.ApplyDirect(context.Background(), command("game-1", 2, "move-controlled-face-down", "card.position.changed", map[string]any{
+		"playerId":   "p1",
+		"instanceId": "i1",
+		"position":   map[string]any{"x": 0.42, "y": 0.58, "unit": "ratio"},
+	}), "p2")
+	if position.Err != nil {
+		t.Fatalf("face-down controller position failed: %v", position.Err)
+	}
+	if patchForVisibility(position.Patches, protocol.VisibilityPublic, "card.position.set") != nil {
+		t.Fatalf("face-down position leaked a public real-id op: %#v", position.Patches)
+	}
+	for _, viewerID := range []string{"p1", "p2"} {
+		op := patchForVisibility(position.Patches, protocol.PlayerVisibility(viewerID), "card.position.set")
+		if op == nil || op.Data["instanceId"] != "i1" {
+			t.Fatalf("authorized viewer %s did not receive real position target: %#v", viewerID, position.Patches)
+		}
+	}
+	third := patchForVisibility(position.Patches, protocol.PlayerVisibility("p3"), "card.position.set")
+	if third == nil || third.Data["instanceId"] != "p1-hidden-battlefield-0" {
+		t.Fatalf("unauthorized viewer did not receive opaque position target: %#v", position.Patches)
 	}
 }
 
@@ -2194,7 +2321,7 @@ func TestMoveToPrivateZoneDoesNotExposeCardKeyPublicly(t *testing.T) {
 	}
 }
 
-func TestMoveFromPrivateZoneRemovesRealAndOpaqueSourceIdsPublicly(t *testing.T) {
+func TestMoveFromPrivateZoneRemovesOnlyOpaqueSourceIDPublicly(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "move-public", "card.moved", map[string]any{
 		"playerId":   "p1",
@@ -2209,7 +2336,7 @@ func TestMoveFromPrivateZoneRemovesRealAndOpaqueSourceIdsPublicly(t *testing.T) 
 	if publicRemove == nil {
 		t.Fatalf("missing public private-zone removal: %#v", result.Patches)
 	}
-	if got, want := publicRemove.Data["instanceIds"], []string{"h1", "p1-hidden-hand-0"}; !reflect.DeepEqual(got, want) {
+	if got, want := publicRemove.Data["instanceIds"], []string{"p1-hidden-hand-0"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("public removal ids = %#v, want %#v", got, want)
 	}
 	if add := patchForVisibility(result.Patches, protocol.VisibilityPublic, "zone.cards.add"); add == nil {
@@ -3390,6 +3517,14 @@ func TestHandToBattlefieldFaceDownMoveStaysHidden(t *testing.T) {
 	if _, leaked := cards[0]["cardKey"]; leaked {
 		t.Fatalf("public faceDown move leaked identity: %#v", cards[0])
 	}
+	entry := requireRuntimeLogEntry(t, result)
+	assertPublicLogOmitsPrivateCard(t, entry, "h1", "hand-1@1")
+	params := requireMap(t, entry["params"])
+	if params["fromZone"] != "hand" || params["toZone"] != "battlefield" || params["count"] != 1 || params["faceDown"] != true {
+		t.Fatalf("redacted log lost safe movement metadata: %#v", params)
+	}
+	eventEntries := result.Event.Payload["eventLogEntries"].([]map[string]any)
+	assertPublicLogOmitsPrivateCard(t, eventEntries[0], "h1", "hand-1@1")
 
 	replayed, err := ReplayEvents(testState(), []protocol.EventPayloadV2{result.Event}, DefaultAppliers())
 	if err != nil {
@@ -3422,6 +3557,14 @@ func TestCardsMovedFaceDownBatchPersistsFlagPerMove(t *testing.T) {
 			t.Fatalf("faceDown missing from canonical move: %#v", move)
 		}
 	}
+	entry := requireRuntimeLogEntry(t, result)
+	for _, privateValue := range []string{"h1", "h2", "hand-1@1", "hand-2@1"} {
+		assertPublicLogOmitsPrivateCard(t, entry, privateValue)
+	}
+	params := requireMap(t, entry["params"])
+	if params["count"] != 2 || params["faceDown"] != true {
+		t.Fatalf("redacted batch log lost safe metadata: %#v", params)
+	}
 
 	replayed, err := ReplayEvents(testState(), []protocol.EventPayloadV2{result.Event}, DefaultAppliers())
 	if err != nil {
@@ -3431,6 +3574,42 @@ func TestCardsMovedFaceDownBatchPersistsFlagPerMove(t *testing.T) {
 		if !replayed.Instances[instanceID].FaceDown {
 			t.Fatalf("%s lost faceDown during replay: %#v", instanceID, replayed.Instances[instanceID])
 		}
+	}
+}
+
+func TestLibraryToBattlefieldFaceDownLogsArePublicSafe(t *testing.T) {
+	tests := []struct {
+		name        string
+		commandType string
+		payload     map[string]any
+		private     []string
+		count       int
+	}{
+		{
+			name: "single", commandType: "card.moved", count: 1,
+			payload: map[string]any{"playerId": "p1", "fromZone": "library", "toZone": "battlefield", "instanceId": "l3", "faceDown": true},
+			private: []string{"l3", "library-3@1"},
+		},
+		{
+			name: "batch", commandType: "cards.moved", count: 2,
+			payload: map[string]any{"playerId": "p1", "fromZone": "library", "toZone": "battlefield", "instanceIds": []string{"l3", "l2"}, "faceDown": true},
+			private: []string{"l3", "l2", "library-3@1", "library-2@1"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
+			result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "library-face-down-"+test.name, test.commandType, test.payload), "p1")
+			if result.Err != nil {
+				t.Fatalf("move failed: %v", result.Err)
+			}
+			entry := requireRuntimeLogEntry(t, result)
+			assertPublicLogOmitsPrivateCard(t, entry, test.private...)
+			params := requireMap(t, entry["params"])
+			if params["count"] != test.count || params["faceDown"] != true || params["fromZone"] != "library" || params["toZone"] != "battlefield" {
+				t.Fatalf("redacted log lost safe metadata: %#v", params)
+			}
+		})
 	}
 }
 
@@ -3972,6 +4151,70 @@ func assertNoPrivateCardIdentity(t *testing.T, entry map[string]any) {
 	if contains(encoded, "cardKey") || contains(encoded, "library-") {
 		t.Fatalf("log leaked private card identity: %s", encoded)
 	}
+}
+
+func assertPublicLogOmitsPrivateCard(t *testing.T, entry map[string]any, privateValues ...string) {
+	t.Helper()
+	for _, value := range privateValues {
+		if value != "" && runtimeLogContainsExactValue(entry, value) {
+			t.Fatalf("public log leaked private value %q: %#v", value, entry)
+		}
+	}
+	for _, key := range []string{"cardInstanceId", "instanceId", "instanceIds", "cardKey", "cardRef", "printId", "imageUris", "cardFaces", "staticBundle"} {
+		if runtimeLogContainsKey(entry, key) {
+			t.Fatalf("public log retained private identity key %q: %#v", key, entry)
+		}
+	}
+}
+
+func runtimeLogContainsExactValue(value any, target string) bool {
+	switch typed := value.(type) {
+	case string:
+		return typed == target
+	case map[string]any:
+		for _, nested := range typed {
+			if runtimeLogContainsExactValue(nested, target) {
+				return true
+			}
+		}
+	case []map[string]any:
+		for _, nested := range typed {
+			if runtimeLogContainsExactValue(nested, target) {
+				return true
+			}
+		}
+	case []any:
+		for _, nested := range typed {
+			if runtimeLogContainsExactValue(nested, target) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func runtimeLogContainsKey(value any, target string) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, nested := range typed {
+			if key == target || runtimeLogContainsKey(nested, target) {
+				return true
+			}
+		}
+	case []map[string]any:
+		for _, nested := range typed {
+			if runtimeLogContainsKey(nested, target) {
+				return true
+			}
+		}
+	case []any:
+		for _, nested := range typed {
+			if runtimeLogContainsKey(nested, target) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func equalStrings(a []string, b []string) bool {

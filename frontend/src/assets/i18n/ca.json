@@ -22,6 +22,7 @@
     }
   },
   "gameLog": {
+    "hand": { "revealed": "{{ actor }} ha revelat {{ count }} cartes de la seva mà.", "revoked": "{{ actor }} ha revocat l'accés a {{ count }} cartes revelades de la seva mà." },
     "commanderDamage": {
       "changed": "El dany de comandant de {{ source }} a {{ target }} ha canviat de {{ previousDamage }} a {{ damage }}. La vida ha canviat de {{ previousLife }} a {{ life }}."
     },
@@ -46,7 +47,16 @@
     "library": {
       "draw": "{{ actor }} drew a card.",
       "drawMany": "{{ actor }} drew {{ count }} cards.",
-      "shuffle": "{{ actor }} shuffled their library."
+      "shuffle": "{{ actor }} shuffled their library.",
+      "selectedMoved": "{{ actor }} ha mogut {{ count }} cartes seleccionades de la biblioteca a {{ destination }}.",
+      "playedSelectedFaceDown": "{{ actor }} ha jugat {{ count }} cartes seleccionades de la biblioteca boca avall.",
+      "selectedToHand": "{{ actor }} ha mogut {{ count }} cartes seleccionades de la biblioteca a la mà.",
+      "selectedToGraveyard": "{{ actor }} ha mogut {{ count }} cartes seleccionades de la biblioteca al cementiri.",
+      "selectedToExile": "{{ actor }} ha mogut {{ count }} cartes seleccionades de la biblioteca a l'exili.",
+      "selectedToBattlefield": "{{ actor }} ha mogut {{ count }} cartes seleccionades de la biblioteca al camp de batalla.",
+      "putSelectedTop": "{{ actor }} ha posat {{ count }} cartes seleccionades a dalt de la biblioteca.",
+      "putSelectedBottom": "{{ actor }} ha posat {{ count }} cartes seleccionades a baix de la biblioteca.",
+      "playedTopFaceDown": "{{ actor }} ha jugat boca avall les {{ count }} cartes superiors de la biblioteca."
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
@@ -851,6 +861,13 @@
       "focusTurn": "Gir de focus",
       "passTurn": "Passar torn"
     },
+    "handRevealDialog": {
+      "title": "Revela cartes de la mà", "summary": "Revisa els destinataris abans de canviar l'accés a {{ count }} carta(es).",
+      "action": "Acció", "reveal": "Revela", "revoke": "Revoca l'accés", "recipients": "Destinataris", "allPlayers": "Tots els jugadors",
+      "confirmReveal": "Revela {{ count }} carta(es) a {{ recipients }} destinatari(s).", "confirmRevoke": "Revoca {{ recipients }} destinatari(s) de {{ count }} carta(es).",
+      "pending": "S'està aplicant el canvi de visibilitat...", "cancel": "Cancel·la", "confirmRevealButton": "Confirma la revelació", "confirmRevokeButton": "Confirma la revocació",
+      "invalidSelection": "Selecciona cartes vàlides de la teva mà.", "stale": "Les cartes seleccionades han canviat. Torna a obrir l'acció."
+    },
     "zoneModal": {
       "searchByName": "Cerca pel nom",
       "closeZone": "Zona tancada",
@@ -864,7 +881,38 @@
       "enchantments": "Encantaments",
       "planeswalkers": "Planeswalkers",
       "lands": "Terres",
-      "search": "Cerca"
+      "search": "Cerca",
+      "cardCount": "{{count}} cartes",
+      "selectionInstructions": "Selecciona cartes localment. La biblioteca no es modifica.",
+      "selectionToolbar": "Selecció de cartes",
+      "selectedCount": "{{selected}} de {{total}} seleccionades",
+      "selectAll": "Selecciona-les totes",
+      "clearAll": "Neteja la selecció",
+      "reorderMode": "Reordena",
+      "selectionMode": "Selecciona",
+      "viewStale": "Aquesta vista de la biblioteca ja no és vàlida. Tanca-la i obre'n una de nova.",
+      "viewError": "No s'ha pogut obrir la vista privada de la biblioteca. Tanca-la i torna-ho a provar.",
+      "connectionChanged": "La connexió ha canviat i aquesta vista privada s'ha tancat per seguretat. Obre-la de nou.",
+      "emptyView": "No hi ha cartes autoritzades disponibles en aquesta vista.",
+      "batchToolbar": "Accions privades de biblioteca",
+      "batchActions": "Accions",
+      "batchPending": "S'està aplicant l'acció confirmada...",
+      "batchError": "No s'ha pogut aplicar l'acció. La biblioteca no ha canviat.",
+      "invalidBatch": "Selecciona almenys una carta vàlida abans de continuar.",
+      "confirmTitle": "Confirma l'acció de biblioteca",
+      "confirmCount": "Aquesta acció afectarà {{count}} carta(es).",
+      "cancel": "Cancel·la",
+      "confirm": "Confirma",
+      "action": {
+        "hand": "Mou la selecció a la mà",
+        "battlefield-face-up": "Mou la selecció al camp boca amunt",
+        "battlefield-face-down": "Mou la selecció al camp boca avall",
+        "graveyard": "Mou la selecció al cementiri",
+        "exile": "Mou la selecció a l'exili",
+        "library-top": "Posa la selecció a dalt",
+        "library-bottom": "Posa la selecció a baix",
+        "playTopFaceDown": "Juga les {{count}} superiors boca avall"
+      }
     },
     "gameTable": {
       "message": "Missatge",

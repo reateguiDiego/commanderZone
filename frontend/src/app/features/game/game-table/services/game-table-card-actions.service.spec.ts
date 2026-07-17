@@ -14,6 +14,49 @@ describe('GameTableCardActionsService', () => {
     service = TestBed.inject(GameTableCardActionsService);
   });
 
+  it('uses one ordered semantic command for a selected hand reveal batch', async () => {
+    const hand = [card('hand-1', 'Card', 0, 0), card('hand-2', 'Card', 0, 0)].map((item) => ({ ...item, zone: 'hand' as const }));
+    const command = vi.fn(async () => undefined);
+    const ctx = context([], {
+      selectedCards: () => hand.map((target) => ({ playerId: 'player-1', zone: 'hand', card: target })),
+      command,
+    });
+    const targets = service.handRevealTargets(ctx, { ...menu(hand[0]!), zone: 'hand' });
+
+    await service.applyHandRevealBatch(ctx, 'player-1', targets.map((target) => target.card.instanceId), ['player-2', 'player-3'], 'reveal');
+
+    expect(command).toHaveBeenCalledOnce();
+    expect(command).toHaveBeenCalledWith('hand.cards.reveal', {
+      playerId: 'player-1',
+      expectedZone: 'hand',
+      orderedInstanceIds: ['hand-1', 'hand-2'],
+      to: ['player-2', 'player-3'],
+    });
+  });
+
+  it('uses the same atomic batch contract for revoke all', async () => {
+    const command = vi.fn(async () => undefined);
+    const ctx = context([], { command });
+    await service.applyHandRevealBatch(ctx, 'player-1', ['hand-1', 'hand-2'], 'all', 'revoke');
+    expect(command).toHaveBeenCalledWith('hand.cards.revoke', {
+      playerId: 'player-1', expectedZone: 'hand', orderedInstanceIds: ['hand-1', 'hand-2'], to: 'all',
+    });
+  });
+
+  it('orders the reveal batch by the current visual hand instead of click order', () => {
+    const first = { ...card('hand-1', 'Card', 0, 0), zone: 'hand' as const };
+    const second = { ...card('hand-2', 'Card', 0, 0), zone: 'hand' as const };
+    const visualSnapshot = snapshot([]);
+    visualSnapshot.players['player-1']!.zones.hand = [second, first];
+    const ctx = context([], {
+      snapshot: () => visualSnapshot,
+      selectedCards: () => [first, second].map((target) => ({ playerId: 'player-1', zone: 'hand', card: target })),
+    });
+
+    expect(service.handRevealTargets(ctx, { ...menu(first), zone: 'hand' }).map((target) => target.card.instanceId))
+      .toEqual(['hand-2', 'hand-1']);
+  });
+
   it('detects land stack membership only from the explicit relation', () => {
     const battlefield = [land('top', 100, 200), land('under', 100, 180), card('artifact', 'Artifact', 100, 160)];
     const ctx = context(battlefield);
@@ -141,6 +184,10 @@ describe('GameTableCardActionsService', () => {
         viewTopCount: 3,
         selectedCard: libraryCards[0]!,
         loading: false,
+        lifecycle: 'ready',
+        statusMessageKey: null,
+        localMultiSelect: true,
+        selectionRevision: 'view-1',
       }),
     });
 
@@ -186,6 +233,10 @@ describe('GameTableCardActionsService', () => {
         viewTopCount: 2,
         selectedCard: libraryCards[0]!,
         loading: false,
+        lifecycle: 'ready',
+        statusMessageKey: null,
+        localMultiSelect: true,
+        selectionRevision: 'view-2',
       }),
     });
 
@@ -230,6 +281,10 @@ describe('GameTableCardActionsService', () => {
         viewTopCount: null,
         selectedCard: graveyardCard,
         loading: false,
+        lifecycle: 'ready',
+        statusMessageKey: null,
+        localMultiSelect: false,
+        selectionRevision: 'zone-1',
       }),
     });
 
@@ -270,6 +325,10 @@ describe('GameTableCardActionsService', () => {
         viewTopCount: null,
         selectedCard: exileCards[0]!,
         loading: false,
+        lifecycle: 'ready',
+        statusMessageKey: null,
+        localMultiSelect: false,
+        selectionRevision: 'zone-2',
       }),
     });
 
@@ -315,14 +374,14 @@ describe('GameTableCardActionsService', () => {
 
 function context(
   battlefield: readonly GameCardInstance[],
-  overrides: Partial<Pick<GameTableCardActionContext, 'clearSelectedCards' | 'closeContextMenu' | 'command' | 'loadZone' | 'replaceZoneModalCards' | 'selectedCards' | 'setError' | 'syncOpenZoneModalAfterMove' | 'updateLocalCardPosition' | 'zoneModal'>> = {},
+  overrides: Partial<Pick<GameTableCardActionContext, 'clearSelectedCards' | 'closeContextMenu' | 'command' | 'loadZone' | 'replaceZoneModalCards' | 'selectedCards' | 'setError' | 'snapshot' | 'syncOpenZoneModalAfterMove' | 'updateLocalCardPosition' | 'zoneModal'>> = {},
 ): GameTableCardActionContext {
   const zoneModal = overrides.zoneModal ?? (() => null);
   const loadZone = overrides.loadZone ?? vi.fn(async () => undefined);
   const replaceZoneModalCards = overrides.replaceZoneModalCards ?? vi.fn();
 
   return {
-    snapshot: () => snapshot(battlefield),
+    snapshot: overrides.snapshot ?? (() => snapshot(battlefield)),
     canControlPlayer: () => true,
     activeKeyboardCard: () => null,
     selectedCards: overrides.selectedCards ?? (() => []),

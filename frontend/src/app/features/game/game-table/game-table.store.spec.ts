@@ -31,6 +31,7 @@ describe('GameTableStore snapshot UI consistency', () => {
       lastSeenActiveTurnPlayerId: null,
       manaPoolState: { resetAll: vi.fn() },
       snapshotCoordinatorState: { setSnapshot: vi.fn() },
+      zoneModalState: { reconcileLibraryView: vi.fn() },
       openRevealedLibraryFromSnapshot: vi.fn(),
       selectedCards,
       uiState: { activeHoveredSelection: vi.fn(() => null) },

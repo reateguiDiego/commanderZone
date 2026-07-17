@@ -1,9 +1,9 @@
 <div
   class="submenu"
   [class.expanded]="expanded()"
-  [class.direction-up]="direction() === 'up'"
-  [class.side-left]="side() === 'left'"
-  [class.child-side-left]="childSide() === 'left'"
+  [class.direction-up]="(resolvedDirection() ?? direction()) === 'up'"
+  [class.side-left]="(resolvedSide() ?? side()) === 'left'"
+  [class.child-side-left]="(resolvedChildSide() ?? childSide()) === 'left'"
 >
   <button type="button" class="submenu-trigger" [attr.aria-expanded]="expanded()" (click)="toggle($event)">
     <span class="submenu-item-label">

@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { authStorageState, createRealUserSession } from './support/auth';
 import { resolveGameToPlaying } from './support/commander-game';
 import { createBasicCommanderDeckFromDatabase } from './support/decks';
@@ -66,6 +66,7 @@ test.describe('Gameplay 1.0 Sprint 3D mana helper and card counters responsive g
         const audits = pages.map(auditPage);
         await Promise.all(pages.map((page) => page.goto(`/games/${setup.gameId}`)));
         await Promise.all(pages.map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })));
+				await expectStablePresence(request, setup, pages);
         await Promise.all(pages.map((page) => focusPlayerById(page, setup.players[0]!.user.id)));
 
         await expect(pages[0]!.getByTestId('game-screen')).toHaveAttribute('data-responsive-state', scenario.state);
@@ -307,7 +308,11 @@ async function assertRefreshReconnectRestart(
   await Promise.all(pages.map((page) => page.reload()));
   await Promise.all(pages.map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })));
   await Promise.all(pages.map((page) => focusPlayerById(page, setup.players[0]!.user.id)));
-  expect(await canonicalCounterState(request, setup, instanceId)).toEqual(sharedBefore);
+  const sharedAfter = await canonicalCounterState(request, setup, instanceId);
+  expect(Number(sharedAfter['version'])).toBeGreaterThanOrEqual(Number(sharedBefore['version']));
+  const { version: _beforeVersion, ...gameplayBefore } = sharedBefore;
+  const { version: _afterVersion, ...gameplayAfter } = sharedAfter;
+  expect(gameplayAfter).toEqual(gameplayBefore);
   await assertFiveCounters(pages.at(-1)!, instanceId, false);
 }
 
@@ -350,13 +355,11 @@ async function createContexts(
   ownerViewport: { width: number; height: number },
   ownerZoom: 70 | 100 | 140,
 ): Promise<BrowserContext[]> {
-  const profiles = [
-    { player: setup.players[0]!, viewport: ownerViewport, zoom: ownerZoom },
-    { player: setup.players[1]!, viewport: { width: 900, height: 620 }, zoom: 70 },
-  ];
-  if (setup.players[2]) {
-    profiles.push({ player: setup.players[2], viewport: { width: 1600, height: 1000 }, zoom: 140 });
-  }
+  const profiles = setup.players.map((player, index) => ({
+		player,
+		viewport: index === 0 ? ownerViewport : (index === 1 ? { width: 900, height: 620 } : { width: 1600, height: 1000 }),
+		zoom: index === 0 ? ownerZoom : (index === 1 ? 70 as const : 140 as const),
+	}));
   return Promise.all(profiles.map(async ({ player, viewport, zoom }) => {
     const context = await browser.newContext({
       baseURL,
@@ -371,18 +374,39 @@ async function createContexts(
   }));
 }
 
+async function expectStablePresence(request: APIRequestContext, setup: Setup, pages: readonly Page[]): Promise<void> {
+	await expect.poll(async () => {
+		const snapshot = await gameSnapshot(request, setup.gameId, setup.players[0]!.token);
+		const presence = (snapshot['presence'] ?? {}) as Record<string, JsonObject>;
+		return setup.players.every((player) => presence[player.user.id]?.['connected'] !== false);
+	}, { timeout: 30_000 }).toBe(true);
+	await Promise.all(pages.map((page) => expect(page.locator('app-game-disconnect-vote-modal [role="dialog"]')).toHaveCount(0)));
+}
+
 async function focusPlayerById(page: Page, playerId: string): Promise<void> {
   const panel = page.getByTestId('player-panel');
   if (await panel.getAttribute('data-player-id') === playerId) return;
   const drawer = page.getByTestId('opponents-drawer-toggle');
-  if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') !== 'true') {
+  const drawerVisible = await drawer.isVisible();
+  if (drawerVisible && await drawer.getAttribute('aria-expanded') !== 'true') {
     await drawer.click();
     await expect(drawer).toHaveAttribute('aria-expanded', 'true');
   }
   const board = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
   await expect(board).toBeVisible();
+	if (drawerVisible) await expectWithinViewport(page, board);
   await board.click();
   await expect(panel).toHaveAttribute('data-player-id', playerId);
+}
+
+async function expectWithinViewport(page: Page, locator: Locator): Promise<void> {
+	await expect.poll(async () => {
+		const box = await locator.boundingBox();
+		const viewport = page.viewportSize();
+		if (box !== null && viewport !== null && box.x >= 0 && box.y >= 0
+			&& box.x + box.width <= viewport.width && box.y + box.height <= viewport.height) return 'inside';
+		return JSON.stringify({ box, viewport });
+	}).toBe('inside');
 }
 
 async function seedCounterRelations(request: APIRequestContext, setup: Setup): Promise<CounterFixture> {

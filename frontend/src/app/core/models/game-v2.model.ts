@@ -87,6 +87,7 @@ export interface BootstrapPlayerV2 {
   backgroundName?: string | null;
   sleevesName?: string | null;
   playTopLibraryRevealed?: boolean;
+  libraryVisibilityEpoch?: number;
   mulligan?: GamePlayerMulliganState | null;
 	eliminationReason?: 'life' | 'commander_damage' | 'concede' | 'expelled' | null;
 	eliminatedAtVersion?: number | null;
@@ -418,6 +419,23 @@ export type GameplayPatchV2Operation =
       count?: number;
       cards: Array<BootstrapInstanceV2 | LegacyCardPatchPayload>;
       staticCards?: Record<string, BootstrapStaticCardV2>;
+      windowId: string;
+      expectedEpoch: number;
+      openedAtVersion: number;
+      status: 'active';
+    }
+  | {
+      op: 'library.window.invalidated';
+      playerId: string;
+      windowId: string;
+      status: 'consumed' | 'stale' | 'closed';
+      reason?: string;
+      currentEpoch: number;
+    }
+  | {
+      op: 'library.epoch.set';
+      playerId: string;
+      epoch: number;
     }
   | {
       op: 'library.revealed.set';

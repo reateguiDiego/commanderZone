@@ -104,6 +104,8 @@ var ownPlayerPayloadCommands = map[string]string{
 	"library.put_top":              "playerId",
 	"library.put_bottom":           "playerId",
 	"library.view":                 "playerId",
+	"library.selection.move":       "playerId",
+	"library.top.play_face_down":   "playerId",
 	"library.shuffle":              "playerId",
 	"zone.reorderedByIds":          "playerId",
 	"zone.move_all":                "playerId",
@@ -117,6 +119,8 @@ var ownPlayerPayloadCommands = map[string]string{
 	"card.face_down.changed":       "playerId",
 	"card.face.changed":            "playerId",
 	"card.revealed":                "playerId",
+	"hand.cards.reveal":            "playerId",
+	"hand.cards.revoke":            "playerId",
 	"card.controller.changed":      "playerId",
 	"card.power_toughness.changed": "playerId",
 	"card.stats.override.set":      "playerId",
@@ -305,6 +309,9 @@ func (a *GameActor) requireAuthorizedCommandInstances(command protocol.CommandEn
 			return commandAuthorizationError(command, AuthorizationCodeInstanceNotFound, subject.instanceID, subject.index)
 		}
 		if subject.expectedZone != "" && location.Zone != subject.expectedZone {
+			if command.Type == "hand.cards.reveal" || command.Type == "hand.cards.revoke" {
+				return &HandRevealError{Code: HandRevealCodeNotInHand, CommandType: command.Type, Count: len(subjects), Index: subject.index}
+			}
 			return commandAuthorizationError(command, AuthorizationCodeZoneMismatch, subject.instanceID, subject.index)
 		}
 		locations[index] = location
@@ -362,6 +369,12 @@ func (a *GameActor) authorizationSubjects(command protocol.CommandEnvelopeV2) []
 		}
 		expectedZone := state.Zone(optionalPayloadString(command.Payload, "fromZone"))
 		return fromIDs(instanceIDs, expectedZone)
+	case "hand.cards.reveal", "hand.cards.revoke":
+		instanceIDs, err := stringSliceField(command.Payload, "orderedInstanceIds")
+		if err != nil {
+			return nil
+		}
+		return fromIDs(instanceIDs, state.ZoneHand)
 	case "cards.position.changed":
 		return positionAuthorizationSubjects(command.Payload["positions"])
 	case "attachment.reordered":

@@ -28,6 +28,7 @@ func (CardFaceDownChangedApplier) Apply(_ context.Context, game *state.GameState
 		faceDown = !instance.FaceDown
 	}
 
+	previousFaceDown := instance.FaceDown
 	instance.FaceDown = faceDown
 	previousVisibilityMask := instance.VisibleToMask
 	if faceDown {
@@ -53,6 +54,14 @@ func (CardFaceDownChangedApplier) Apply(_ context.Context, game *state.GameState
 				emitVisibilityAudiencePatch(emitter, audience, privateCardsConcealOp(location.PlayerID, location.Zone, []privateCardSlot{{InstanceID: instanceID, PlaceholderID: privatePlaceholderID(location.PlayerID, location.Zone, location.Index), Index: privateProjectedIndex(game, location)}}))
 			}
 		}
+	} else if faceDown {
+		emitter.EmitPublic(privateCardsConcealOp(location.PlayerID, location.Zone, []privateCardSlot{{
+			InstanceID: instanceID, PlaceholderID: privatePlaceholderID(location.PlayerID, location.Zone, location.Index), Index: location.Index,
+		}}))
+	} else if previousFaceDown {
+		emitter.EmitPublic(privateCardsMaterializeOp(game, location.PlayerID, location.Zone, []privateCardSlot{{
+			InstanceID: instanceID, PlaceholderID: privatePlaceholderID(location.PlayerID, location.Zone, location.Index), Index: location.Index,
+		}}, []string{"all"}))
 	} else {
 		emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: publicData})
 	}
@@ -178,6 +187,10 @@ func (CardControllerChangedApplier) Apply(_ context.Context, game *state.GameSta
 	if err != nil {
 		return nil, err
 	}
+	previousControllerID := instance.ControllerID
+	if previousControllerID == "" {
+		previousControllerID = location.ControllerID
+	}
 	instance.ControllerID = controllerID
 	game.Instances[instanceID] = instance
 	location.ControllerID = controllerID
@@ -196,6 +209,36 @@ func (CardControllerChangedApplier) Apply(_ context.Context, game *state.GameSta
 			dissolvedStack = battlefieldStackPatch(stack)
 			delete(game.Relations.BattlefieldStacks, stackID)
 			emitter.EmitPublic(protocol.PatchOp{Op: "battlefield.stack.remove", Data: map[string]any{"id": stackID}})
+		}
+	}
+	if instance.FaceDown && location.Zone == state.ZoneBattlefield {
+		slot := privateCardSlot{
+			InstanceID:    instanceID,
+			PlaceholderID: privatePlaceholderID(location.PlayerID, location.Zone, location.Index),
+			Index:         location.Index,
+		}
+		emitter.EmitPublic(protocol.PatchOp{Op: "zone.cards.add", Data: map[string]any{
+			"playerId": location.PlayerID,
+			"zone":     location.Zone,
+			"index":    location.Index,
+			"cards": []map[string]any{{
+				"instanceId": slot.PlaceholderID, "ownerId": instance.OwnerID, "controllerId": controllerID,
+				"playerId": location.PlayerID, "zone": location.Zone, "tapped": instance.Tapped,
+				"rotation": instance.Rotation, "counters": instance.Counters, "position": cloneMap(instance.Position),
+				"faceDown": true, "hidden": true,
+			}},
+		}})
+		if previousControllerID != "" && previousControllerID != location.PlayerID && previousControllerID != controllerID {
+			emitter.EmitPrivate(previousControllerID, privateCardsConcealOp(location.PlayerID, location.Zone, []privateCardSlot{slot}))
+		}
+		if controllerID != location.PlayerID {
+			emitter.EmitPrivate(controllerID, privateCardsMaterializeOp(
+				game,
+				location.PlayerID,
+				location.Zone,
+				[]privateCardSlot{slot},
+				[]string{controllerID},
+			))
 		}
 	}
 
@@ -421,6 +464,9 @@ func privateLibrarySlots(playerID string, instanceIDs []string) []privateCardSlo
 func privatePlaceholderID(playerID string, zone state.Zone, index int) string {
 	if zone == state.ZoneLibrary {
 		return fmt.Sprintf("%s-hidden-library-top", playerID)
+	}
+	if zone == state.ZoneBattlefield {
+		return fmt.Sprintf("%s-hidden-battlefield-%d", playerID, index)
 	}
 	return fmt.Sprintf("%s-hidden-hand-%d", playerID, index)
 }

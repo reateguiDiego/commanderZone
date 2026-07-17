@@ -47,6 +47,7 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 		return nil, err
 	}
 	requestedFaceDown, hasRequestedFaceDown := boolField(command.Payload, "faceDown")
+	previousFaceDown := map[string]bool{}
 	for _, instanceID := range instanceIDs {
 		location, ok := game.GetLocation(instanceID)
 		if !ok {
@@ -55,7 +56,13 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 		if expectedFrom, ok := command.Payload["fromZone"].(string); ok && expectedFrom != "" && location.Zone != state.Zone(expectedFrom) {
 			return nil, ErrInvalidPayloadField
 		}
+		previousFaceDown[instanceID] = game.Instances[instanceID].FaceDown
 	}
+	libraryEpochs := invalidateLibraryVisibility(
+		game,
+		emitter,
+		libraryVisibilityOwnersForMove(game, instanceIDs, toPlayerID, toZone)...,
+	)
 
 	ops := state.NewZoneOps()
 	moves, err := moveManyWithZoneTransitionRules(game, ops, instanceIDs, toPlayerID, toZone, position)
@@ -69,22 +76,23 @@ func (CardsMovedApplier) Apply(_ context.Context, game *state.GameState, command
 	removeEvaporatedInstances(game, moves, evaporated)
 	normalMoves := nonEvaporatingMoves(moves, evaporated)
 	commanderCastCounters := applyCommanderCastCounters(game, normalMoves)
-	emitMovementPatches(emitter, game, normalMoves)
+	emitMovementPatches(emitter, game, normalMoves, previousFaceDown)
 	emitEvaporatedRemovalPatches(emitter, moves, evaporated)
 	emitCommanderCastCounterPatches(emitter, commanderCastCounters)
 	emitPrunedRelationPatches(emitter, removedRelations)
 	emitTouchedZoneCounts(emitter, game, moves)
 	payload := map[string]any{
-		"playerId":              playerID,
-		"fromZone":              string(moves[0].From.Zone),
-		"instanceIds":           instanceIDs,
-		"instanceId":            instanceIDs[0],
-		"toZone":                string(toZone),
-		"position":              visualPosition,
-		"moves":                 movementEventMoves(game, moves, evaporated),
-		"commanderCastCounters": commanderCastCounters,
-		"relationChanges":       relationChangesPayload(removedRelations),
-		"metrics":               movementMetrics(start, ops, len(moves), emitter),
+		"playerId":                playerID,
+		"fromZone":                string(moves[0].From.Zone),
+		"instanceIds":             instanceIDs,
+		"instanceId":              instanceIDs[0],
+		"toZone":                  string(toZone),
+		"position":                visualPosition,
+		"moves":                   movementEventMoves(game, moves, evaporated),
+		"commanderCastCounters":   commanderCastCounters,
+		"relationChanges":         relationChangesPayload(removedRelations),
+		"libraryVisibilityEpochs": libraryEpochs,
+		"metrics":                 movementMetrics(start, ops, len(moves), emitter),
 	}
 	if target := uniformMoveTargetPlayerID(moves); target != "" {
 		payload["toPlayerId"] = target
@@ -115,6 +123,10 @@ func (ZoneReorderedByIDsApplier) Apply(_ context.Context, game *state.GameState,
 		return nil, err
 	}
 	ops := state.NewZoneOps()
+	libraryEpochs := map[string]int64{}
+	if zone == state.ZoneLibrary {
+		libraryEpochs = invalidateLibraryVisibility(game, emitter, playerID)
+	}
 	if err := ops.ReorderByIDs(game, playerID, zone, orderedIDs); err != nil {
 		return nil, err
 	}
@@ -132,7 +144,7 @@ func (ZoneReorderedByIDsApplier) Apply(_ context.Context, game *state.GameState,
 	} else {
 		emitter.EmitPublic(patch)
 	}
-	return map[string]any{"playerId": playerID, "zone": string(zone), "instanceIds": orderedIDs, "metrics": movementMetrics(start, ops, len(orderedIDs), emitter)}, nil
+	return map[string]any{"playerId": playerID, "zone": string(zone), "instanceIds": orderedIDs, "libraryVisibilityEpochs": libraryEpochs, "metrics": movementMetrics(start, ops, len(orderedIDs), emitter)}, nil
 }
 
 type ZoneMoveAllApplier struct{}
@@ -156,6 +168,11 @@ func (ZoneMoveAllApplier) Apply(_ context.Context, game *state.GameState, comman
 	toPlayerID := targetPlayerID(command.Payload, playerID)
 	ops := state.NewZoneOps()
 	ids := append([]string(nil), movementZoneIDs(game.Zones[playerID], fromZone)...)
+	libraryEpochs := invalidateLibraryVisibility(
+		game,
+		emitter,
+		libraryVisibilityOwnersForMove(game, ids, toPlayerID, toZone)...,
+	)
 	moves, err := moveManyWithZoneTransitionRules(game, ops, ids, toPlayerID, toZone, insertPosition(command.Payload))
 	if err != nil {
 		return nil, err
@@ -166,12 +183,12 @@ func (ZoneMoveAllApplier) Apply(_ context.Context, game *state.GameState, comman
 	removeEvaporatedInstances(game, moves, evaporated)
 	normalMoves := nonEvaporatingMoves(moves, evaporated)
 	commanderCastCounters := applyCommanderCastCounters(game, normalMoves)
-	emitMovementPatches(emitter, game, normalMoves)
+	emitMovementPatches(emitter, game, normalMoves, nil)
 	emitEvaporatedRemovalPatches(emitter, moves, evaporated)
 	emitCommanderCastCounterPatches(emitter, commanderCastCounters)
 	emitPrunedRelationPatches(emitter, removedRelations)
 	emitTouchedZoneCounts(emitter, game, moves)
-	payload := map[string]any{"playerId": playerID, "fromZone": string(fromZone), "toZone": string(toZone), "count": len(moves), "moves": movementEventMoves(game, moves, evaporated), "commanderCastCounters": commanderCastCounters, "relationChanges": relationChangesPayload(removedRelations), "metrics": movementMetrics(start, ops, len(moves), emitter)}
+	payload := map[string]any{"playerId": playerID, "fromZone": string(fromZone), "toZone": string(toZone), "count": len(moves), "moves": movementEventMoves(game, moves, evaporated), "commanderCastCounters": commanderCastCounters, "relationChanges": relationChangesPayload(removedRelations), "libraryVisibilityEpochs": libraryEpochs, "metrics": movementMetrics(start, ops, len(moves), emitter)}
 	if target := uniformMoveTargetPlayerID(moves); target != "" {
 		payload["targetPlayerId"] = target
 	}
@@ -302,6 +319,11 @@ func ownerDestinationPlayerID(game *state.GameState, instanceID string, fallback
 func applyMovementZoneState(game *state.GameState, moves []state.ZoneMove, requestedPosition map[string]any, hasRequestedFaceDown bool, requestedFaceDown bool) {
 	for offset, move := range moves {
 		instance := game.Instances[move.InstanceID]
+		if move.From.Zone != move.To.Zone && (move.From.Zone == state.ZoneHand || move.To.Zone == state.ZoneHand) {
+			markHandRevealInactive(game, move.InstanceID, "zone.transition")
+			instance.VisibleToMask = 0
+			delete(game.Visibility.InstanceMasks, move.InstanceID)
+		}
 		if move.To.Zone != state.ZoneBattlefield {
 			if move.From.Zone == state.ZoneBattlefield {
 				resetBattlefieldExitState(game, move.InstanceID)
@@ -493,7 +515,7 @@ func validBattlefieldPosition(position map[string]any) bool {
 	}
 }
 
-func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []state.ZoneMove) {
+func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []state.ZoneMove, previousFaceDown map[string]bool) {
 	publicMoves := []map[string]any{}
 	publicAddsByZone := map[string][]map[string]any{}
 	publicRemovesByZone := map[string][]string{}
@@ -503,9 +525,24 @@ func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []s
 	for _, move := range moves {
 		fromPrivate := privateZone(move.From.Zone)
 		toPrivate := privateZone(move.To.Zone)
+		fromFaceDown := previousFaceDown[move.InstanceID]
+		toFaceDown := game.Instances[move.InstanceID].FaceDown && move.To.Zone == state.ZoneBattlefield
 		moveData := movementPatchMove(game, "", move)
 		privatePlayers := map[string]struct{}{}
-		if !fromPrivate && !toPrivate {
+		if fromPrivate && toFaceDown {
+			removeKey := zoneKey(move.From.PlayerID, move.From.Zone)
+			placeholderID := privatePlaceholderID(move.From.PlayerID, move.From.Zone, privateProjectedIndex(game, move.From))
+			publicRemovesByZone[removeKey] = append(publicRemovesByZone[removeKey], placeholderID)
+			key := zoneKey(move.To.PlayerID, move.To.Zone)
+			publicAddsByZone[key] = append(publicAddsByZone[key], publicFaceDownCardPatch(game, move))
+		} else if fromFaceDown {
+			removeKey := zoneKey(move.From.PlayerID, move.From.Zone)
+			publicRemovesByZone[removeKey] = append(publicRemovesByZone[removeKey], privatePlaceholderID(move.From.PlayerID, move.From.Zone, move.From.Index))
+			if !toPrivate && !toFaceDown {
+				key := zoneKey(move.To.PlayerID, move.To.Zone)
+				publicAddsByZone[key] = append(publicAddsByZone[key], cardPatchData(game, "", move.InstanceID))
+			}
+		} else if !fromPrivate && !toPrivate {
 			publicMoves = append(publicMoves, moveData)
 		} else {
 			if !fromPrivate && toPrivate {
@@ -522,7 +559,7 @@ func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []s
 			if fromPrivate && !toPrivate {
 				removeKey := zoneKey(move.From.PlayerID, move.From.Zone)
 				placeholderID := privatePlaceholderID(move.From.PlayerID, move.From.Zone, privateProjectedIndex(game, move.From))
-				publicRemovesByZone[removeKey] = append(publicRemovesByZone[removeKey], move.InstanceID, placeholderID)
+				publicRemovesByZone[removeKey] = append(publicRemovesByZone[removeKey], placeholderID)
 				key := zoneKey(move.To.PlayerID, move.To.Zone)
 				publicAddsByZone[key] = append(publicAddsByZone[key], cardPatchData(game, "", move.InstanceID))
 			}
@@ -553,6 +590,17 @@ func emitMovementPatches(emitter *PatchEmitter, game *state.GameState, moves []s
 	}
 	for playerID, privateMoves := range privateMovesByPlayer {
 		emitMoveBatch(func(op protocol.PatchOp) { emitter.EmitPrivate(playerID, op) }, privateMoves)
+	}
+}
+
+func publicFaceDownCardPatch(game *state.GameState, move state.ZoneMove) map[string]any {
+	instance := game.Instances[move.InstanceID]
+	return map[string]any{
+		"instanceId": privatePlaceholderID(move.To.PlayerID, move.To.Zone, move.To.Index),
+		"ownerId":    instance.OwnerID, "controllerId": instance.ControllerID,
+		"playerId": move.To.PlayerID, "zone": move.To.Zone,
+		"tapped": instance.Tapped, "rotation": instance.Rotation, "counters": instance.Counters,
+		"position": cloneMap(instance.Position), "faceDown": true, "hidden": true,
 	}
 }
 
@@ -608,6 +656,12 @@ func localizedPublicIdentityPatchPlayers(game *state.GameState, move state.ZoneM
 		return nil
 	}
 	instance := game.Instances[move.InstanceID]
+	// A face-down battlefield transition remains identity-private. Localized
+	// identity overlays are only valid once the destination is public face-up;
+	// the owner/controller already receives the authoritative private move.
+	if move.To.Zone == state.ZoneBattlefield && instance.FaceDown {
+		return nil
+	}
 	seen := map[string]struct{}{}
 	players := []string{}
 	add := func(playerID string) {
@@ -664,8 +718,8 @@ func movementEventMoves(game *state.GameState, moves []state.ZoneMove, evaporate
 	for _, move := range moves {
 		entry := map[string]any{
 			"instanceId": move.InstanceID,
-			"from":       map[string]any{"playerId": move.From.PlayerID, "zone": move.From.Zone, "index": move.From.Index},
-			"to":         map[string]any{"playerId": move.To.PlayerID, "zone": move.To.Zone, "index": move.To.Index},
+			"from":       map[string]any{"playerId": move.From.PlayerID, "zone": string(move.From.Zone), "index": move.From.Index},
+			"to":         map[string]any{"playerId": move.To.PlayerID, "zone": string(move.To.Zone), "index": move.To.Index},
 		}
 		if _, ok := evaporated[move.InstanceID]; ok {
 			entry["evaporates"] = true
@@ -721,6 +775,7 @@ func removeEvaporatedInstances(game *state.GameState, moves []state.ZoneMove, ev
 		_, _ = state.RemoveFromCurrentZone(game, move.InstanceID)
 		delete(game.Instances, move.InstanceID)
 		delete(game.Visibility.InstanceMasks, move.InstanceID)
+		delete(game.Visibility.HandRevealStates, move.InstanceID)
 	}
 }
 

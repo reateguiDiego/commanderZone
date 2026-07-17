@@ -1,5 +1,11 @@
 # Gameplay 1.0 Sprint 1 — Privacy, Authority & Continuity
 
+## Sprint 4A.1 compatibility clarification
+
+The library is stored `bottom -> top`. A persisted top-reveal window authorizes its exact top-first `instanceIds`; count-only legacy recovery reads from the tail and never from `Index < count`. Runtime library epochs are zero-based and PHP preserves epoch `0`; library mutations invalidate the matching window in the same version.
+
+Public GameLog entries for private-zone or face-down cards contain generic action metadata only. Real card IDs and identity are absent recursively from direct fields, params, and refs, including replay/bootstrap of historical events.
+
 ## Release contract
 
 Sprint 1 closes one server-authoritative contract across Runtime Go, event persistence, PHP replay/bootstrap, WebSocket routing, Patch.v2 and the normalized frontend store:
@@ -95,4 +101,3 @@ The gate covers audience/materialization, concealment, private/public transition
 ## Outside Sprint 1
 
 Responsive redesign, GSAP/visual animation, View X UX, commander damage changes, grouped tokens, text-driven helpers, premium cosmetics, advanced selection UX and performance optimization remain outside this release contract.
-

@@ -1,5 +1,9 @@
 # Gameplay Four-State Responsive Contract
 
+## Opponent drawer interaction
+
+Normal keeps opponent boards in the table layout. Compact, aggressive, and minimal require the explicit accessible drawer trigger: while closed, opponent content is `aria-hidden`, inert, and cannot intercept input; while open, boards are placed within the viewport. Aggressive/minimal tables with three or more opponent boards use the existing drawer as a denser two-column grid; this is layout within the approved state, not a new breakpoint. Hover/focus does not implicitly open the drawer. Multi-player responsive gates keep every player session connected before testing layout so the disconnect control-plane is not exercised by unrelated assertions.
+
 ## Alcance
 
 Este documento define el contrato responsive global de Gameplay 1.0 Sprint 3C. CommanderZone sigue siendo una mesa manual de Commander. El responsive no modifica reglas, autoridad, privacidad, coordenadas espaciales ni relaciones de battlefield.

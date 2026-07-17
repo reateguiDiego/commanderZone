@@ -275,7 +275,14 @@ async function waitForConnection(frames: JsonObject[]): Promise<void> {
 async function focusPlayer(page: Page, playerId: string): Promise<void> {
   await expect(page.getByTestId('player-panel')).toBeVisible({ timeout: 20_000 });
   if (await page.getByTestId('player-panel').getAttribute('data-player-id') === playerId) return;
-  await page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`).click();
+	const drawer = page.getByTestId('opponents-drawer-toggle');
+	if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') !== 'true') {
+		await drawer.click();
+		await expect(drawer).toHaveAttribute('aria-expanded', 'true');
+	}
+	const board = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
+	await expect(board).toBeVisible();
+	await board.click();
   await expect(page.getByTestId('player-panel')).toHaveAttribute('data-player-id', playerId);
 }
 async function enableFrontendGameplayV2(context: BrowserContext): Promise<void> {

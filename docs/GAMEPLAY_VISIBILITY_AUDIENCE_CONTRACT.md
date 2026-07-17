@@ -84,3 +84,11 @@ command `to`
 ```
 
 Masks are internal routing/index data. They are not product-facing quantities and are not accepted from clients.
+
+## Sprint 4D hand batches
+
+`hand.cards.reveal` and `hand.cards.revoke` reuse this contract without adding a second audience model. The authenticated owner sends `playerId`, `expectedZone: hand`, a non-empty ordered unique `orderedInstanceIds`, and `to` as one player, an explicit player list, or `all`. The runtime canonicalizes the audience and prevalidates the complete hand selection before mutation.
+
+Reveal is cumulative per card. Revoke subtracts only the addressed viewers; an absent viewer is an accepted idempotent no-op, while `to: all` removes the full audience. Crossing from a partial audience to public materializes through a public envelope so spectators covered by `all` are included. Crossing from public to partial conceals publicly first and rematerializes only the final authorized player group, preventing a spectator from retaining identity.
+
+Each successful batch persists one final-effects event/version with previous/final masks and audiences, materialized/concealed deltas, final `revealedTo`, and authoritative reveal lifecycle metadata. `private.cards.materialize` and `private.cards.conceal` remain the only identity transition operations. Moving a card across the hand boundary invalidates the hand reveal immediately. Rejected stale, mixed-zone, duplicate, unauthorized, or invalid-audience batches produce no state, event, patch, version, or GameLog change.

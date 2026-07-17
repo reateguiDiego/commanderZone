@@ -22,6 +22,7 @@
     }
   },
   "gameLog": {
+    "hand": { "revealed": "{{ actor }} onthulde {{ count }} handkaarten.", "revoked": "{{ actor }} trok de toegang tot {{ count }} onthulde handkaarten in." },
     "commanderDamage": {
       "changed": "Commanderschade van {{ source }} aan {{ target }} is gewijzigd van {{ previousDamage }} naar {{ damage }}. Leven is gewijzigd van {{ previousLife }} naar {{ life }}."
     },
@@ -46,7 +47,16 @@
     "library": {
       "draw": "{{ actor }} drew a card.",
       "drawMany": "{{ actor }} drew {{ count }} cards.",
-      "shuffle": "{{ actor }} shuffled their library."
+      "shuffle": "{{ actor }} shuffled their library.",
+      "selectedMoved": "{{ actor }} verplaatste {{ count }} geselecteerde bibliotheekkaarten naar {{ destination }}.",
+      "playedSelectedFaceDown": "{{ actor }} speelde {{ count }} geselecteerde bibliotheekkaarten gedekt.",
+      "selectedToHand": "{{ actor }} nam {{ count }} geselecteerde bibliotheekkaarten op hand.",
+      "selectedToGraveyard": "{{ actor }} legde {{ count }} geselecteerde bibliotheekkaarten op het kerkhof.",
+      "selectedToExile": "{{ actor }} verbande {{ count }} geselecteerde bibliotheekkaarten.",
+      "selectedToBattlefield": "{{ actor }} verplaatste {{ count }} geselecteerde bibliotheekkaarten naar het slagveld.",
+      "putSelectedTop": "{{ actor }} legde {{ count }} geselecteerde kaarten bovenop de bibliotheek.",
+      "putSelectedBottom": "{{ actor }} legde {{ count }} geselecteerde kaarten onderop de bibliotheek.",
+      "playedTopFaceDown": "{{ actor }} speelde de bovenste {{ count }} bibliotheekkaarten gedekt."
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
@@ -851,6 +861,13 @@
       "focusTurn": "Focus beurt",
       "passTurn": "Beurt voorbij"
     },
+    "handRevealDialog": {
+      "title": "Handkaarten onthullen", "summary": "Controleer ontvangers voor {{ count }} geselecteerde kaart(en).",
+      "action": "Actie", "reveal": "Onthullen", "revoke": "Toegang intrekken", "recipients": "Ontvangers", "allPlayers": "Alle spelers",
+      "confirmReveal": "Onthul {{ count }} kaart(en) aan {{ recipients }} ontvanger(s).", "confirmRevoke": "Trek {{ recipients }} ontvanger(s) in voor {{ count }} kaart(en).",
+      "pending": "Zichtbaarheid wordt gewijzigd...", "cancel": "Annuleren", "confirmRevealButton": "Onthullen bevestigen", "confirmRevokeButton": "Intrekken bevestigen",
+      "invalidSelection": "Selecteer geldige handkaarten.", "stale": "De geselecteerde handkaarten zijn gewijzigd. Open de actie opnieuw."
+    },
     "zoneModal": {
       "searchByName": "Zoek op naam",
       "closeZone": "Zone sluiten",
@@ -864,7 +881,38 @@
       "enchantments": "Enchantmenten",
       "planeswalkers": "Planeswalkers",
       "lands": "Lands",
-      "search": "Zoeken"
+      "search": "Zoeken",
+      "cardCount": "{{count}} kaarten",
+      "selectionInstructions": "Selecteer kaarten lokaal. De bibliotheek wordt niet gewijzigd.",
+      "selectionToolbar": "Kaartselectie",
+      "selectedCount": "{{selected}} van {{total}} geselecteerd",
+      "selectAll": "Alles selecteren",
+      "clearAll": "Selectie wissen",
+      "reorderMode": "Herordenen",
+      "selectionMode": "Selecteren",
+      "viewStale": "Deze bibliotheekweergave is niet meer geldig. Sluit deze en open een nieuwe.",
+      "viewError": "De privéweergave van de bibliotheek kon niet worden geopend. Sluit deze en probeer het opnieuw.",
+      "connectionChanged": "De verbinding is gewijzigd. Deze privéweergave is voor de veiligheid gesloten. Open deze opnieuw.",
+      "emptyView": "Er zijn geen geautoriseerde kaarten beschikbaar in deze weergave.",
+      "batchToolbar": "Privé-bibliotheekacties",
+      "batchActions": "Acties",
+      "batchPending": "Bevestigde actie wordt uitgevoerd...",
+      "batchError": "De actie kon niet worden uitgevoerd. De bibliotheek is niet gewijzigd.",
+      "invalidBatch": "Selecteer minstens één geldige kaart.",
+      "confirmTitle": "Bibliotheekactie bevestigen",
+      "confirmCount": "Deze actie heeft invloed op {{count}} kaart(en).",
+      "cancel": "Annuleren",
+      "confirm": "Bevestigen",
+      "action": {
+        "hand": "Selectie naar hand",
+        "battlefield-face-up": "Selectie open naar het slagveld",
+        "battlefield-face-down": "Selectie gedekt naar het slagveld",
+        "graveyard": "Selectie naar kerkhof",
+        "exile": "Selectie verbannen",
+        "library-top": "Selectie bovenop leggen",
+        "library-bottom": "Selectie onderop leggen",
+        "playTopFaceDown": "Bovenste {{count}} gedekt spelen"
+      }
     },
     "gameTable": {
       "message": "Bericht",

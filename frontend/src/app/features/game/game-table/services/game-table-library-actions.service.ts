@@ -132,6 +132,51 @@ export class GameTableLibraryActionsService {
     await context.command('library.reorder_top', { playerId, instanceIds: sanitizedIds });
   }
 
+  async moveSelection(
+    context: GameTableLibraryActionContext,
+    playerId: string,
+    windowId: string,
+    expectedEpoch: number,
+    orderedInstanceIds: readonly string[],
+    toZone: Extract<GameZoneName, 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'library'>,
+    options: { faceDown?: boolean; position?: 'top' | 'bottom' } = {},
+  ): Promise<void> {
+    if (!context.isCurrentPlayer(playerId)) {
+      context.setError('You can only move cards from your own library.');
+      return;
+    }
+
+    await context.command('library.selection.move', {
+      playerId,
+      windowId,
+      expectedEpoch: Math.max(0, Math.floor(expectedEpoch)),
+      orderedInstanceIds: [...orderedInstanceIds],
+      toZone,
+      ...(toZone === 'battlefield' ? { faceDown: options.faceDown === true } : {}),
+      ...(toZone === 'library' && options.position ? { position: options.position } : {}),
+    });
+  }
+
+  async playTopFaceDown(
+    context: GameTableLibraryActionContext,
+    playerId: string,
+    windowId: string,
+    count: number,
+    expectedEpoch: number,
+  ): Promise<void> {
+    if (!context.isCurrentPlayer(playerId)) {
+      context.setError('You can only play cards from your own library.');
+      return;
+    }
+
+    await context.command('library.top.play_face_down', {
+      playerId,
+      windowId,
+      count: this.sanitizeCount(count),
+      expectedEpoch: Math.max(0, Math.floor(expectedEpoch)),
+    });
+  }
+
   private sanitizeCount(count: number): number {
     return Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
   }

@@ -51,8 +51,12 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 		return replayPositionEvent(game, event)
 	case "turn.changed", "dice.rolled", "card.tapped", "card.face_down.changed", "card.revealed", "card.controller.changed", "card.counter.changed", "counter.changed", "card.power_toughness.changed":
 		return replayViaApplier(game, event, appliers)
+	case "hand.cards.reveal", "hand.cards.revoke":
+		return replayHandRevealBatchEvent(game, event)
 	case "card.moved", "cards.moved":
 		return replayMovementEvent(game, event, appliers)
+	case "library.selection.move", "library.top.play_face_down":
+		return replayLibraryBatchEvent(game, event)
 	case "zone.reorderedByIds", "zone.move_all", "battlefield.untap_all":
 		return replayViaApplier(game, event, appliers)
 	case "library.reveal", "library.play_top_revealed":
@@ -85,6 +89,11 @@ func ReplayEventWithAppliers(game *state.GameState, event protocol.EventPayloadV
 			game.ResultState = optionalString(event.Payload, "resultState")
 			game.FinishedReason = optionalString(event.Payload, "finishedReason")
 			applyPersistedDisconnectControlPlane(game, event.Payload)
+			for ownerID, window := range game.Visibility.LibraryWindows {
+				if window.Status == "active" {
+					game.InvalidateLibraryWindow(ownerID, "closed")
+				}
+			}
 			return nil
 		}
 		return replayViaApplier(game, event, appliers)
@@ -392,6 +401,9 @@ func applyPersistedLifecycleEffects(game *state.GameState, payload map[string]an
 		}
 	}
 	game.Players[playerID] = player
+	if status := playerStatus(game, playerID); status == "defeated" || status == "conceded" {
+		game.InvalidateLibraryWindow(playerID, "closed")
+	}
 	if turn, ok := payload["turn"].(map[string]any); ok {
 		game.Turn = cloneMap(turn)
 	}
@@ -627,14 +639,17 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 		if err != nil {
 			return err
 		}
+		game.InvalidateLibraryVisibility(playerID)
 		for _, instanceID := range instanceIDs {
 			if _, err := state.MoveInstance(game, instanceID, playerID, state.ZoneHand, -1); err != nil {
 				return err
 			}
 		}
 		return nil
-	case "library.reveal_top", "library.view":
-		return nil
+	case "library.reveal_top":
+		return replayLibraryRevealTop(game, event.Payload)
+	case "library.view":
+		return replayLibraryViewWindow(game, event.Payload)
 	case "library.reorder_top":
 		playerID, err := stringField(event.Payload, "playerId")
 		if err != nil {
@@ -644,6 +659,7 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 		if err != nil {
 			return err
 		}
+		game.InvalidateLibraryVisibility(playerID)
 		return state.NewLibraryOps().ReorderTop(game, playerID, instanceIDs)
 	case "library.move_top":
 		playerID, err := stringField(event.Payload, "playerId")
@@ -668,6 +684,7 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 		if !equalStringOrder(currentTop, instanceIDs) {
 			return state.ErrInvalidWindow
 		}
+		game.InvalidateLibraryVisibility(playerID)
 		targetPlayerID := playerID
 		if value, ok := event.Payload["targetPlayerId"].(string); ok && value != "" {
 			targetPlayerID = value
@@ -695,6 +712,7 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 		if err != nil {
 			return err
 		}
+		game.InvalidateLibraryVisibility(playerID)
 		if _, err := state.RemoveFromCurrentZone(game, instanceID); err != nil {
 			return err
 		}
@@ -729,6 +747,200 @@ func ReplayEvent(game *state.GameState, event protocol.EventPayloadV2) error {
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownCommand, event.Type)
 	}
+}
+
+func replayLibraryViewWindow(game *state.GameState, payload map[string]any) error {
+	windowID := optionalString(payload, "windowId")
+	if windowID == "" {
+		// Historical library.view events were deliberately transient.
+		return nil
+	}
+	playerID, err := stringField(payload, "playerId")
+	if err != nil {
+		return err
+	}
+	instanceIDs, err := stringSliceField(payload, "instanceIds")
+	if err != nil || len(instanceIDs) == 0 {
+		return fmt.Errorf("%w: instanceIds", ErrInvalidPayloadField)
+	}
+	expectedEpoch, ok := intField(payload, "expectedEpoch")
+	if !ok || expectedEpoch < 0 {
+		return fmt.Errorf("%w: expectedEpoch", ErrInvalidPayloadField)
+	}
+	openedAtVersion, _ := intField(payload, "openedAtVersion")
+	game.Visibility.LibraryEpochByOwner[playerID] = int64(expectedEpoch)
+	game.OpenLibraryWindow(playerID, state.LibraryWindow{
+		WindowID: windowID, OwnerID: playerID, InstanceIDs: instanceIDs,
+		ExpectedEpoch: int64(expectedEpoch), OpenedAtVersion: int64(openedAtVersion),
+		CreatedByPlayerID: optionalString(payload, "createdByPlayerId"),
+		CreatedBySession:  optionalString(payload, "createdBySession"), Status: "active",
+	})
+	return nil
+}
+
+func replayLibraryBatchEvent(game *state.GameState, event protocol.EventPayloadV2) error {
+	playerID, err := stringField(event.Payload, "playerId")
+	if err != nil {
+		return err
+	}
+	rawMoves := mapsFromAny(event.Payload["moves"])
+	if len(rawMoves) == 0 {
+		return fmt.Errorf("%w: moves", ErrInvalidPayloadField)
+	}
+	instanceIDs := make([]string, 0, len(rawMoves))
+	toPlayerID := playerID
+	toZone := state.Zone("")
+	for _, move := range rawMoves {
+		instanceID := optionalString(move, "instanceId")
+		to, _ := move["to"].(map[string]any)
+		candidatePlayerID := optionalString(to, "playerId")
+		candidateZone := state.Zone(optionalString(to, "zone"))
+		if instanceID == "" || candidatePlayerID == "" || candidateZone == "" {
+			return fmt.Errorf("%w: moves", ErrInvalidPayloadField)
+		}
+		if toZone != "" && (candidatePlayerID != toPlayerID || candidateZone != toZone) {
+			return fmt.Errorf("%w: mixed destination", ErrInvalidPayloadField)
+		}
+		toPlayerID = candidatePlayerID
+		toZone = candidateZone
+		instanceIDs = append(instanceIDs, instanceID)
+	}
+	position := state.ZoneInsertAppend
+	if optionalString(event.Payload, "position") == "top" {
+		position = state.ZoneInsertTop
+	} else if optionalString(event.Payload, "position") == "bottom" {
+		position = state.ZoneInsertBottom
+	}
+	moves, err := state.NewZoneOps().MoveMany(game, instanceIDs, toPlayerID, toZone, position)
+	if err != nil {
+		return err
+	}
+	for index, move := range moves {
+		persisted := rawMoves[index]
+		instance := game.Instances[move.InstanceID]
+		if toZone == state.ZoneBattlefield {
+			position, ok := persisted["position"].(map[string]any)
+			if !ok {
+				return fmt.Errorf("%w: moves.position", ErrInvalidPayloadField)
+			}
+			instance.Position = cloneMap(position)
+		} else {
+			instance.Position = nil
+		}
+		if toZone == state.ZoneBattlefield {
+			faceDown, ok := persisted["faceDown"].(bool)
+			if !ok {
+				return fmt.Errorf("%w: moves.faceDown", ErrInvalidPayloadField)
+			}
+			instance.FaceDown = faceDown
+		} else {
+			instance.FaceDown = false
+		}
+		game.Instances[move.InstanceID] = instance
+	}
+	if finalEpoch, ok := intField(event.Payload, "finalEpoch"); ok && finalEpoch >= 0 {
+		game.Visibility.LibraryEpochByOwner[playerID] = int64(finalEpoch)
+	}
+	status := "stale"
+	if event.Type == "library.selection.move" {
+		status = "consumed"
+	}
+	game.InvalidateLibraryWindow(playerID, status)
+	return nil
+}
+
+func mapsFromAny(raw any) []map[string]any {
+	if typed, ok := raw.([]map[string]any); ok {
+		return typed
+	}
+	values, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(values))
+	for _, value := range values {
+		entry, ok := value.(map[string]any)
+		if !ok {
+			return nil
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+func replayLibraryRevealTop(game *state.GameState, payload map[string]any) error {
+	playerID, err := stringField(payload, "playerId")
+	if err != nil {
+		return err
+	}
+	game.EnsureVisibility()
+	instanceIDs := stringsFromAny(payload["instanceIds"])
+	if len(instanceIDs) == 0 {
+		count, ok := intField(payload, "count")
+		if !ok || count <= 0 {
+			return fmt.Errorf("%w: instanceIds", ErrMissingPayloadField)
+		}
+		instanceIDs, err = state.NewLibraryOps().PeekTop(game, playerID, count)
+		if err != nil {
+			return err
+		}
+	}
+	currentTop, err := state.NewLibraryOps().PeekTop(game, playerID, len(instanceIDs))
+	if err != nil || !equalStringOrder(currentTop, instanceIDs) {
+		return state.ErrInvalidWindow
+	}
+
+	viewers := stringsFromAny(payload["viewers"])
+	if audience, ok := payload["audience"].(map[string]any); ok {
+		scope, _ := audience["scope"].(string)
+		if scope == audienceScopePublic {
+			viewers = []string{"all"}
+		} else if scope == audienceScopePlayers {
+			viewers = stringsFromAny(audience["playerIds"])
+		}
+	}
+	if len(viewers) == 0 {
+		viewers = stringsFromAny(payload["to"])
+		if target, ok := payload["to"].(string); ok && target != "" {
+			viewers = []string{target}
+		}
+	}
+	if len(viewers) == 0 {
+		return fmt.Errorf("%w: viewers", ErrMissingPayloadField)
+	}
+
+	mask := uint64(0)
+	if rawMask, ok := intField(payload, "visibleToMask"); ok && rawMask > 0 {
+		mask = uint64(rawMask)
+	}
+	if mask == 0 {
+		for _, viewerID := range viewers {
+			if viewerID == "all" {
+				mask = allPlayersVisibilityMask(game)
+				break
+			}
+			mask |= game.Visibility.ViewerBits[viewerID]
+		}
+	}
+	if mask == 0 {
+		return fmt.Errorf("%w: visibleToMask", ErrInvalidPayloadField)
+	}
+
+	game.ClearTopRevealWindow(playerID)
+	if epoch, ok := intField(payload, "visibilityEpoch"); ok && epoch >= 0 {
+		game.Visibility.LibraryEpochByOwner[playerID] = int64(epoch)
+	}
+	game.RevealTopWindow(playerID, instanceIDs, viewers, mask)
+	for _, instanceID := range instanceIDs {
+		instance, ok := game.Instances[instanceID]
+		if !ok {
+			return state.ErrMissingInstance
+		}
+		instance.VisibleToMask |= mask
+		game.Instances[instanceID] = instance
+		game.Visibility.InstanceMasks[instanceID] |= mask
+	}
+	return nil
 }
 
 func equalStringOrder(left []string, right []string) bool {

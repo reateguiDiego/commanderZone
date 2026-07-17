@@ -12,8 +12,9 @@
 }
 
 .zone-modal {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  position: relative;
+  display: flex;
+  flex-direction: column;
   width: clamp(20rem, 90vw, 88rem);
   height: clamp(30rem, 86dvh, 54rem);
   min-width: 20rem;
@@ -75,9 +76,110 @@
 }
 
 .zone-modal-close {
-  width: 2.55rem;
-  min-width: 2.55rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   padding: 0;
+}
+
+.zone-batch-toolbar {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem 0.65rem;
+  border-bottom: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  background: rgb(8 10 8 / 95%);
+}
+
+.zone-batch-toolbar > span:first-child {
+  color: var(--game-muted, #aaa99f);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.zone-batch-action-list {
+  display: flex;
+  gap: 0.45rem;
+  padding-bottom: 0.1rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+
+.zone-batch-action-list button {
+  flex: 0 0 auto;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  scroll-margin-inline: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.zone-batch-action-list .top-intent {
+  border-color: rgb(215 180 106 / 52%);
+}
+
+.batch-status {
+  color: var(--game-accent, #d7b46a);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.batch-status.error {
+  color: #ffb2a8;
+}
+
+.zone-batch-confirmation-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 74%);
+}
+
+.zone-batch-confirmation {
+  display: grid;
+  width: min(28rem, 100%);
+  max-height: 100%;
+  gap: 0.85rem;
+  padding: 1.1rem;
+  border: 1px solid var(--game-accent-line, rgb(215 180 106 / 42%));
+  border-radius: 10px;
+  background: rgb(18 22 17 / 99%);
+  box-shadow: 0 1.2rem 4rem rgb(0 0 0 / 62%);
+  overflow-y: auto;
+}
+
+.zone-batch-confirmation h3,
+.zone-batch-confirmation p {
+  margin: 0;
+}
+
+.zone-batch-confirmation p {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--game-muted, #aaa99f);
+}
+
+.zone-batch-confirmation p strong {
+  color: var(--game-text, #f3f0e8);
+}
+
+.zone-batch-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.zone-batch-confirmation-actions button {
+  min-width: 6.5rem;
+  min-height: 2.75rem;
+  padding: 0 0.8rem;
+  font-weight: 850;
 }
 
 button,
@@ -113,6 +215,47 @@ input {
   border-bottom: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
 }
 
+.zone-selection-toolbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 1.1rem;
+  border-bottom: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  background: rgb(10 12 10 / 92%);
+}
+
+.selection-summary {
+  color: var(--game-text, #f3f0e8);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.selection-actions button {
+  min-height: 2.75rem;
+  padding: 0 0.8rem;
+  font-weight: 800;
+}
+
+.selection-actions button[aria-pressed='true'] {
+  border-color: rgb(246 216 141 / 76%);
+  background: rgb(84 64 25 / 74%);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .zone-filters label {
   display: grid;
   gap: 0.28rem;
@@ -127,17 +270,101 @@ input {
 }
 
 .zone-modal-body {
+  flex: 1 1 auto;
   min-height: 0;
   padding: 1rem 1.1rem;
   overflow: hidden;
 }
 
-.zone-modal.has-zone-filters {
-  grid-template-rows: auto auto minmax(0, 1fr);
-}
-
 .zone-modal-body app-card-spoiler-grid {
   height: 100%;
+}
+
+.zone-modal-status {
+  display: grid;
+  width: min(32rem, 100%);
+  min-height: 100%;
+  margin: auto;
+  place-content: center;
+  justify-items: center;
+  gap: 0.75rem;
+  color: var(--game-text, #f3f0e8);
+  text-align: center;
+}
+
+.zone-modal-status lucide-icon {
+  color: var(--gold);
+}
+
+.zone-modal.has-local-toolbar app-card-spoiler-grid {
+  --card-spoiler-width: 13.75rem;
+  --card-spoiler-height: 19rem;
+}
+
+:host-context(.game-screen[data-responsive-state='compact']) .zone-modal.has-local-toolbar app-card-spoiler-grid {
+  --card-spoiler-width: 11.25rem;
+  --card-spoiler-height: 15.55rem;
+}
+
+:host-context(.game-screen[data-responsive-state='aggressive']) .zone-modal.has-local-toolbar app-card-spoiler-grid {
+  --card-spoiler-width: 9.4rem;
+  --card-spoiler-height: 13rem;
+}
+
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-modal-backdrop {
+  padding: 0.35rem;
+}
+
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-modal {
+  width: calc(100vw - 0.7rem);
+  height: calc(100dvh - 0.7rem);
+  min-width: 0;
+  min-height: 0;
+  max-width: calc(100vw - 0.7rem);
+  max-height: calc(100dvh - 0.7rem);
+}
+
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-modal-header,
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-selection-toolbar,
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-batch-toolbar,
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-modal-body {
+  padding-right: 0.55rem;
+  padding-left: 0.55rem;
+}
+
+:host-context(.game-screen[data-responsive-state='aggressive']) .zone-batch-toolbar,
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-batch-toolbar {
+  padding-top: 0.4rem;
+  padding-bottom: 0.45rem;
+}
+
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-batch-action-list button {
+  min-height: 2.75rem;
+  padding: 0 0.6rem;
+  font-size: 0.72rem;
+}
+
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-selection-toolbar {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+:host-context(.game-screen[data-responsive-state='minimal']) .selection-actions {
+  flex-wrap: nowrap;
+  justify-content: stretch;
+}
+
+:host-context(.game-screen[data-responsive-state='minimal']) .selection-actions button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 0.4rem;
+  font-size: 0.76rem;
+}
+
+:host-context(.game-screen[data-responsive-state='minimal']) .zone-modal.has-local-toolbar app-card-spoiler-grid {
+  --card-spoiler-width: 7.8rem;
+  --card-spoiler-height: 10.8rem;
 }
 
 @media (max-width: 760px) {
@@ -152,5 +379,11 @@ input {
   .zone-filters,
   .zone-modal-body {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zone-modal-backdrop {
+    backdrop-filter: none;
   }
 }

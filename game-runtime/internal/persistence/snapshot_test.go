@@ -80,6 +80,55 @@ func TestCompactSnapshotChecksumRoundTrip(t *testing.T) {
 	}
 }
 
+func TestCompactSnapshotPreservesExactTopRevealWindowIDs(t *testing.T) {
+	game := compactState()
+	game.Visibility.LibraryEpochByOwner["p1"] = 4
+	game.Visibility.TopRevealWindows["p1"] = state.TopRevealWindow{
+		OwnerID: "p1", Count: 2, Epoch: 4, To: []string{"p2"}, Mask: 2, InstanceIDs: []string{"d", "c"},
+	}
+	snapshot, err := NewCompactSnapshot(game)
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var recovered CompactSnapshot
+	if err := json.Unmarshal(payload, &recovered); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got, want := recovered.State.Visibility.TopRevealWindows["p1"].InstanceIDs, []string{"d", "c"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("top reveal IDs = %#v want %#v", got, want)
+	}
+}
+
+func TestCompactSnapshotPreservesAuthoritativeLibraryActionWindow(t *testing.T) {
+	game := compactState()
+	game.EnsureVisibility()
+	game.Visibility.LibraryEpochByOwner["p1"] = 7
+	game.Visibility.LibraryWindows["p1"] = state.LibraryWindow{
+		WindowID: "lw-compact", OwnerID: "p1", InstanceIDs: []string{"d", "c"},
+		ExpectedEpoch: 7, OpenedAtVersion: 2, CreatedByPlayerID: "p1", CreatedBySession: "tab-a", Status: "active",
+	}
+	snapshot, err := NewCompactSnapshot(game)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recovered CompactSnapshot
+	if err := json.Unmarshal(payload, &recovered); err != nil {
+		t.Fatal(err)
+	}
+	window := recovered.State.Visibility.LibraryWindows["p1"]
+	if window.WindowID != "lw-compact" || window.ExpectedEpoch != 7 || window.Status != "active" || !reflect.DeepEqual(window.InstanceIDs, []string{"d", "c"}) {
+		t.Fatalf("recovered library window = %#v", window)
+	}
+}
+
 func TestCompactSnapshotRejectsCorruptChecksum(t *testing.T) {
 	snapshot, err := NewCompactSnapshot(compactState())
 	if err != nil {

@@ -157,6 +157,39 @@ class GameplayV2ContractFactoryTest extends TestCase
         self::assertIsInt($bootstrap->payloadBytes);
     }
 
+    public function testBootstrapRedactsHistoricalPrivateGameLogEntries(): void
+    {
+        [$game, $viewer] = $this->game();
+        $snapshot = $this->projectedSnapshot($viewer);
+        $snapshot['eventLog'][] = [
+            'id' => 'legacy-private-bootstrap-log',
+            'type' => 'hand.cards.reveal',
+            'message' => 'Owner revealed a secret card.',
+            'i18nKey' => 'gameLog.hand.revealed',
+            'cardInstanceId' => 'private-bootstrap-instance',
+            'params' => [
+                'count' => 1,
+                'orderedInstanceIds' => ['private-bootstrap-instance'],
+            ],
+            'refs' => [
+                'cards' => [
+                    'private-bootstrap-instance' => [
+                        'instanceId' => 'private-bootstrap-instance',
+                        'visibility' => 'hidden',
+                    ],
+                ],
+            ],
+        ];
+
+        $bootstrap = (new GameplayV2ContractFactory())->bootstrap($game, $viewer, $snapshot);
+        $encoded = json_encode($bootstrap->eventLog, JSON_THROW_ON_ERROR);
+
+        self::assertStringNotContainsString('private-bootstrap-instance', $encoded);
+        self::assertStringNotContainsString('cardInstanceId', $encoded);
+        self::assertSame('gameLog.hand.revealed', $bootstrap->eventLog[array_key_last($bootstrap->eventLog)]['i18nKey'] ?? null);
+        self::assertSame(1, $bootstrap->eventLog[array_key_last($bootstrap->eventLog)]['params']['count'] ?? null);
+    }
+
     public function testBootstrapMarksCommandZoneCardsAsCommandersWhenLegacySnapshotOmittedFlag(): void
     {
         [$game, $viewer] = $this->game();

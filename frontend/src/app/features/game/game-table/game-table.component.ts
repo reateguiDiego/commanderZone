@@ -1,4 +1,4 @@
-import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../core/localization/runtime-translate.pipe';
 import { AfterViewChecked, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -83,6 +83,7 @@ import { FocusedBattlefieldComponent } from './components/focused-battlefield/fo
 import { BattlefieldZoomControlsComponent } from './components/battlefield-zoom-controls/battlefield-zoom-controls.component';
 import { ContextMenuAction, ContextMenuComponent } from './components/context-menu/context-menu.component';
 import { ZoneModalComponent } from './components/zone-modal/zone-modal.component';
+import { HandRevealDialogComponent, HandRevealDialogValue } from './components/hand-reveal-dialog/hand-reveal-dialog.component';
 import { NumberActionDialogComponent } from './components/number-action-dialog/number-action-dialog.component';
 import { ManaActionDialogComponent, ManaActionDialogValueChange } from './components/mana-action-dialog/mana-action-dialog.component';
 import { ManaCometLayerComponent } from './components/mana-comet-layer/mana-comet-layer.component';
@@ -179,6 +180,16 @@ interface HandCardGiveRequest {
   readonly targetPlayerId: string;
   readonly targetPlayerName: string;
   readonly cardName: string;
+}
+
+interface HandRevealRequest {
+  readonly key: string;
+  readonly playerId: string;
+  readonly orderedInstanceIds: readonly string[];
+  readonly initialTarget: string;
+  readonly revokePlayerIds: readonly string[];
+  readonly publicRevealSelected: boolean;
+  readonly trigger: HTMLElement | null;
 }
 
 interface LibraryCardMoveToHandRequest {
@@ -448,6 +459,7 @@ interface MotionSourceRect {
     BattlefieldZoomControlsComponent,
     ContextMenuComponent,
     ZoneModalComponent,
+    HandRevealDialogComponent,
     NumberActionDialogComponent,
     ManaActionDialogComponent,
     ManaCometLayerComponent,
@@ -674,6 +686,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly zoneMoveAllLibraryDialog = signal<ZoneMoveAllLibraryRequest | null>(null);
   readonly zoneMoveAllLibraryRandomOrder = signal(false);
   readonly handCardGiveDialog = signal<HandCardGiveRequest | null>(null);
+  readonly handRevealDialog = signal<HandRevealRequest | null>(null);
+  readonly handRevealPending = signal(false);
+  readonly handRevealError = signal<string | null>(null);
   readonly libraryCardMoveToHandDialog = signal<LibraryCardMoveToHandRequest | null>(null);
   private readonly pendingCardMotion = signal<PendingCardMotion | null>(null);
   readonly followActiveTurnPlayer = signal(false);
@@ -984,6 +999,24 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       this.store.players().length;
       this.opponentsDrawerOpen();
       queueMicrotask(() => this.queueResponsiveStateResolution());
+    });
+
+    effect(() => {
+      const request = this.handRevealDialog();
+      const snapshot = this.store.snapshot();
+      if (!request || !snapshot) {
+        return;
+      }
+      const availableIds = new Set((snapshot.players[request.playerId]?.zones.hand ?? []).map((card) => card.instanceId));
+      if (request.orderedInstanceIds.every((instanceId) => availableIds.has(instanceId))) {
+        return;
+      }
+      queueMicrotask(() => {
+        if (this.handRevealDialog()?.key === request.key) {
+          this.store.reportError(runtimeTranslationFallback('game.handRevealDialog.stale'));
+          this.closeHandRevealDialog();
+        }
+      });
     });
   }
 
@@ -2439,7 +2472,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         void this.store.flipCardFace(menu);
         return;
       case 'revealCard':
-        void this.store.revealCard(menu, action.target);
+        this.openHandRevealDialog(menu, action.target);
         return;
       case 'createToken':
         this.openGameplayCardSearchModal(menu.playerId, 'token');
@@ -3106,6 +3139,70 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   cancelHandCardGive(): void {
     this.handCardGiveDialog.set(null);
+  }
+
+  openHandRevealDialog(menu: GameContextMenu, initialTarget: string = 'all'): void {
+    const targets = this.store.handRevealTargets(menu);
+    if (targets.length === 0 || targets.some((target) => target.playerId !== menu.playerId || target.zone !== 'hand')) {
+      this.store.closeContextMenu();
+      return;
+    }
+    const trigger = this.handCardTrigger(menu.card?.instanceId) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    const revealedTo = targets.flatMap((target) => target.card.revealedTo ?? []);
+    this.handRevealError.set(null);
+    this.handRevealDialog.set({
+      key: `${menu.playerId}:${targets.map((target) => target.card.instanceId).join(',')}:${Date.now()}`,
+      playerId: menu.playerId,
+      orderedInstanceIds: targets.map((target) => target.card.instanceId),
+      initialTarget,
+      revokePlayerIds: [...new Set(revealedTo.filter((playerId) => playerId !== 'all'))],
+      publicRevealSelected: revealedTo.includes('all'),
+      trigger,
+    });
+    this.store.closeContextMenu();
+  }
+
+  async confirmHandRevealDialog(value: HandRevealDialogValue): Promise<void> {
+    const request = this.handRevealDialog();
+    if (!request || this.handRevealPending()) {
+      return;
+    }
+    this.handRevealPending.set(true);
+    this.handRevealError.set(null);
+    await this.store.applyHandRevealBatch(request.playerId, request.orderedInstanceIds, value.audience, value.mode);
+    this.handRevealPending.set(false);
+    const error = this.store.error();
+    if (error) {
+      this.handRevealError.set(error);
+      return;
+    }
+    this.store.clearSelection();
+    this.closeHandRevealDialog();
+  }
+
+  closeHandRevealDialog(returnFocus = true): void {
+    const request = this.handRevealDialog();
+    if (!request || this.handRevealPending()) {
+      return;
+    }
+    this.handRevealDialog.set(null);
+    if (returnFocus) {
+      queueMicrotask(() => {
+        if (request.trigger?.isConnected) {
+          request.trigger.focus();
+          return;
+        }
+        this.gameScreen?.nativeElement.focus({ preventScroll: true });
+      });
+    }
+  }
+
+  private handCardTrigger(instanceId: string | undefined): HTMLElement | null {
+    if (!instanceId) {
+      return null;
+    }
+    return Array.from(document.querySelectorAll<HTMLElement>('[data-card-instance-id]'))
+      .find((element) => element.dataset['cardInstanceId'] === instanceId && element.dataset['zone'] === 'hand') ?? null;
   }
 
   updatePowerToughnessValue(change: PowerToughnessDialogValueChange): void {

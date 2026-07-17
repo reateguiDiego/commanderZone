@@ -16,10 +16,10 @@ func runtimeEventLogEntries(game *state.GameState, command protocol.CommandEnvel
 		return nil
 	}
 	if command.Type == "disconnect.vote" {
-		return append(runtimeDisconnectVoteLogEntries(game, command, payload, actorID, version, createdAt), runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, false)...)
+		return sanitizeRuntimePublicLogEntries(game, command, payload, append(runtimeDisconnectVoteLogEntries(game, command, payload, actorID, version, createdAt), runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, false)...))
 	}
 	if command.Type == "commander.damage.changed" {
-		return append(runtimeCommanderDamageLogEntries(game, command, payload, actorID, version, createdAt), runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, true)...)
+		return sanitizeRuntimePublicLogEntries(game, command, payload, append(runtimeCommanderDamageLogEntries(game, command, payload, actorID, version, createdAt), runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, true)...))
 	}
 	displayName := playerDisplayName(game, actorID)
 	message := runtimeLogMessage(game, command, payload, displayName)
@@ -48,7 +48,7 @@ func runtimeEventLogEntries(game *state.GameState, command protocol.CommandEnvel
 	for key, value := range runtimeLogSemantic(game, command, payload, actorID) {
 		entry[key] = value
 	}
-	return append([]map[string]any{entry}, runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, false)...)
+	return sanitizeRuntimePublicLogEntries(game, command, payload, append([]map[string]any{entry}, runtimeLifecycleLogEntries(game, command, payload, actorID, version, createdAt, false)...))
 }
 
 func runtimeDisconnectVoteLogEntries(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, actorID string, version int64, createdAt time.Time) []map[string]any {
@@ -244,6 +244,50 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 	}
 
 	switch command.Type {
+	case "hand.cards.reveal", "hand.cards.revoke":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "count", len(stringsFromAny(payload["orderedInstanceIds"])))
+		if audience, ok := payload["audience"].(map[string]any); ok {
+			params["audienceScope"] = optionalString(audience, "scope")
+		}
+		key := "gameLog.hand.revealed"
+		if command.Type == "hand.cards.revoke" {
+			key = "gameLog.hand.revoked"
+		}
+		return semantic(key, params, []string{actorPlayerID}, nil)
+	case "library.selection.move":
+		count := intFromPayload(payload, "count", len(stringsFromAny(payload["orderedInstanceIds"])))
+		destination := firstString(payload["destination"], payload["toZone"], command.Payload["toZone"])
+		position := firstString(payload["position"], command.Payload["position"])
+		faceDown := firstBool(payload["faceDown"], command.Payload["faceDown"])
+		params := baseParams()
+		params["count"] = count
+		params["destination"] = destination
+		params["faceDown"] = faceDown
+		key := "gameLog.library.selectedMoved"
+		switch {
+		case destination == "battlefield" && faceDown:
+			key = "gameLog.library.playedSelectedFaceDown"
+		case destination == "hand":
+			key = "gameLog.library.selectedToHand"
+		case destination == "graveyard":
+			key = "gameLog.library.selectedToGraveyard"
+		case destination == "exile":
+			key = "gameLog.library.selectedToExile"
+		case destination == "battlefield":
+			key = "gameLog.library.selectedToBattlefield"
+		case destination == "library" && position == "top":
+			key = "gameLog.library.putSelectedTop"
+		case destination == "library" && position == "bottom":
+			key = "gameLog.library.putSelectedBottom"
+		}
+		return semantic(key, params, []string{actorPlayerID}, nil)
+	case "library.top.play_face_down":
+		params := baseParams()
+		params["count"] = intFromPayload(payload, "count", intFromPayload(command.Payload, "count", 1))
+		params["destination"] = "battlefield"
+		params["faceDown"] = true
+		return semantic("gameLog.library.playedTopFaceDown", params, []string{actorPlayerID}, nil)
 	case "library.draw", "library.draw_many":
 		count := intFromPayload(payload, "count", 1)
 		playerID := firstString(payload["playerId"], command.Payload["playerId"], actorPlayerID)
@@ -260,14 +304,28 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 		params := baseParams()
 		params["playerId"] = playerID
 		return semantic("gameLog.library.shuffle", params, []string{actorPlayerID, playerID}, nil)
-	case "card.moved":
+	case "card.moved", "cards.moved":
+		instanceIDs := stringsFromAny(payload["instanceIds"])
+		if len(instanceIDs) == 0 {
+			instanceIDs = stringsFromAny(command.Payload["instanceIds"])
+		}
 		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
+		if instanceID == "" && len(instanceIDs) > 0 {
+			instanceID = instanceIDs[0]
+		}
+		if len(instanceIDs) == 0 && instanceID != "" {
+			instanceIDs = []string{instanceID}
+		}
 		fromZone := firstString(payload["fromZone"], command.Payload["fromZone"])
 		toZone := firstString(payload["toZone"], command.Payload["toZone"], payload["destination"], command.Payload["destination"])
 		params := baseParams()
 		params["fromZone"] = fromZone
 		params["toZone"] = toZone
-		params["count"] = 1
+		params["count"] = len(instanceIDs)
+		if params["count"] == 0 {
+			params["count"] = 1
+		}
+		params["faceDown"] = firstBool(payload["faceDown"], command.Payload["faceDown"])
 		if instanceID != "" {
 			params["cardInstanceId"] = instanceID
 		}
@@ -277,7 +335,7 @@ func runtimeLogSemantic(game *state.GameState, command protocol.CommandEnvelopeV
 				return semantic("gameLog.commander.cast", params, []string{actorPlayerID}, []string{instanceID})
 			}
 		}
-		return semantic("gameLog.card.moved", params, []string{actorPlayerID}, []string{instanceID})
+		return semantic("gameLog.card.moved", params, []string{actorPlayerID}, instanceIDs)
 	case "card.tapped":
 		instanceID := firstString(payload["instanceId"], command.Payload["instanceId"])
 		params := baseParams()
@@ -444,6 +502,24 @@ func runtimeLogCardIsPublic(instance state.CardInstanceRuntime, location state.L
 
 func runtimeLogMessage(game *state.GameState, command protocol.CommandEnvelopeV2, payload map[string]any, displayName string) string {
 	switch command.Type {
+	case "hand.cards.reveal":
+		return fmt.Sprintf("%s revealed %d cards from their hand.", displayName, intFromPayload(payload, "count", 1))
+	case "hand.cards.revoke":
+		return fmt.Sprintf("%s revoked access to %d revealed hand cards.", displayName, intFromPayload(payload, "count", 1))
+	case "library.selection.move":
+		count := intFromPayload(payload, "count", len(stringsFromAny(payload["orderedInstanceIds"])))
+		destination := firstString(payload["destination"], payload["toZone"], command.Payload["toZone"])
+		if destination == "library" {
+			position := firstString(payload["position"], command.Payload["position"])
+			return fmt.Sprintf("%s put %d selected cards on the %s of their library.", displayName, count, position)
+		}
+		if destination == "battlefield" && firstBool(payload["faceDown"], command.Payload["faceDown"]) {
+			return fmt.Sprintf("%s played %d selected cards face-down.", displayName, count)
+		}
+		return fmt.Sprintf("%s moved %d selected library cards to %s.", displayName, count, readableZone(destination))
+	case "library.top.play_face_down":
+		count := intFromPayload(payload, "count", intFromPayload(command.Payload, "count", 1))
+		return fmt.Sprintf("%s played the top %d cards of their library face-down.", displayName, count)
 	case "library.draw", "library.draw_many":
 		count := intFromPayload(payload, "count", 1)
 		if count == 1 {

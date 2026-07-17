@@ -24,7 +24,7 @@ export class GameTableZoneActionsService {
     zone: GameZoneName,
     selectedCardId: string | null = null,
     readOnly = false,
-    options: { allowGiveDestination?: boolean } = {},
+    options: { allowGiveDestination?: boolean; localMultiSelect?: boolean } = {},
   ): Promise<void> {
     if (this.shouldBlockEmptyZone(context.snapshot(), playerId, zone)) {
       context.setError(`No cards in ${context.zoneTitle(zone).toLowerCase()}.`);
@@ -87,7 +87,7 @@ export class GameTableZoneActionsService {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
+    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null; localMultiSelect?: boolean } = {},
   ): void {
     this.zoneModalState.openFixed(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
   }

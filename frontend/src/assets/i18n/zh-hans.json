@@ -22,6 +22,7 @@
     }
   },
   "gameLog": {
+    "hand": { "revealed": "{{ actor }} 展示了 {{ count }} 张手牌。", "revoked": "{{ actor }} 撤销了对 {{ count }} 张已展示手牌的访问。" },
     "commanderDamage": {
       "changed": "{{ source }} 对 {{ target }} 造成的指挥官伤害从 {{ previousDamage }} 变为 {{ damage }}。生命值从 {{ previousLife }} 变为 {{ life }}。"
     },
@@ -46,7 +47,16 @@
     "library": {
       "draw": "{{ actor }} drew a card.",
       "drawMany": "{{ actor }} drew {{ count }} cards.",
-      "shuffle": "{{ actor }} shuffled their library."
+      "shuffle": "{{ actor }} shuffled their library.",
+      "selectedMoved": "{{ actor }}将牌库中所选的{{ count }}张牌移至{{ destination }}。",
+      "playedSelectedFaceDown": "{{ actor }}将牌库中所选的{{ count }}张牌背面打出。",
+      "selectedToHand": "{{ actor }}将牌库中所选的{{ count }}张牌移至手牌。",
+      "selectedToGraveyard": "{{ actor }}将牌库中所选的{{ count }}张牌移至坟墓场。",
+      "selectedToExile": "{{ actor }}放逐了牌库中所选的{{ count }}张牌。",
+      "selectedToBattlefield": "{{ actor }}将牌库中所选的{{ count }}张牌移至战场。",
+      "putSelectedTop": "{{ actor }}将所选的{{ count }}张牌置于牌库顶。",
+      "putSelectedBottom": "{{ actor }}将所选的{{ count }}张牌置于牌库底。",
+      "playedTopFaceDown": "{{ actor }}将牌库顶的{{ count }}张牌背面打出。"
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
@@ -851,6 +861,13 @@
       "focusTurn": "èšç„¦å›žåˆ",
       "passTurn": "è®©è¿‡å›žåˆ"
     },
+    "handRevealDialog": {
+      "title": "展示手牌", "summary": "请确认 {{ count }} 张已选牌的接收者。",
+      "action": "操作", "reveal": "展示", "revoke": "撤销访问", "recipients": "接收者", "allPlayers": "所有玩家",
+      "confirmReveal": "向 {{ recipients }} 位接收者展示 {{ count }} 张牌。", "confirmRevoke": "从 {{ count }} 张牌撤销 {{ recipients }} 位接收者。",
+      "pending": "正在应用可见性更改...", "cancel": "取消", "confirmRevealButton": "确认展示", "confirmRevokeButton": "确认撤销",
+      "invalidSelection": "请选择有效的手牌。", "stale": "已选手牌发生变化，请重新打开此操作。"
+    },
     "zoneModal": {
       "searchByName": "æŒ‰åç§°æœç´¢",
       "closeZone": "å…³é—­åŒºåŸŸ",
@@ -864,7 +881,38 @@
       "enchantments": "ç»“ç•Œ",
       "planeswalkers": "é¹æ´›å®¢",
       "lands": "åœ°",
-      "search": "æœç´¢"
+      "search": "æœç´¢",
+      "cardCount": "{{count}} cards",
+      "selectionInstructions": "Select cards locally. No library changes are made.",
+      "selectionToolbar": "Card selection",
+      "selectedCount": "{{selected}} of {{total}} selected",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "reorderMode": "Reorder",
+      "selectionMode": "Select",
+      "viewStale": "This library view is no longer valid. Close it and open a new view.",
+      "viewError": "The private library view could not be opened. Close it and try again.",
+      "connectionChanged": "The connection changed, so this private view was closed for safety. Open it again.",
+      "emptyView": "No authorized cards are available in this view.",
+      "batchToolbar": "牌库私密操作",
+      "batchActions": "操作",
+      "batchPending": "正在应用已确认的操作...",
+      "batchError": "无法应用操作，牌库未发生变化。",
+      "invalidBatch": "请至少选择一张有效牌。",
+      "confirmTitle": "确认牌库操作",
+      "confirmCount": "此操作将影响{{count}}张牌。",
+      "cancel": "取消",
+      "confirm": "确认",
+      "action": {
+        "hand": "将所选牌移至手牌",
+        "battlefield-face-up": "将所选牌正面移至战场",
+        "battlefield-face-down": "将所选牌背面移至战场",
+        "graveyard": "将所选牌移至坟墓场",
+        "exile": "放逐所选牌",
+        "library-top": "将所选牌置于牌库顶",
+        "library-bottom": "将所选牌置于牌库底",
+        "playTopFaceDown": "将牌库顶{{count}}张牌背面打出"
+      }
     },
     "gameTable": {
       "message": "ä¿¡æ¯",

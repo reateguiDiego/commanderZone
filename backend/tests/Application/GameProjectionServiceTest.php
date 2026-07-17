@@ -83,6 +83,30 @@ class GameProjectionServiceTest extends TestCase
         self::assertTrue($hand[4]['hidden']);
     }
 
+    public function testBatchRevealFinalAudienceProjectsOnlyToAuthorizedViewers(): void
+    {
+        $owner = new User('batch-owner@example.test', 'Batch Owner');
+        $revoked = new User('batch-revoked@example.test', 'Batch Revoked');
+        $retained = new User('batch-retained@example.test', 'Batch Retained');
+        $snapshot = $this->snapshot($owner->id(), $revoked->id());
+        $snapshot['players'][$retained->id()] = $this->player($retained->id(), []);
+        $snapshot['players'][$owner->id()]['zones']['hand'] = [
+            [...$this->card('batch-secret-a', 'Batch Secret A'), 'ownerId' => $owner->id(), 'controllerId' => $owner->id(), 'revealedTo' => [$retained->id()]],
+            [...$this->card('batch-secret-b', 'Batch Secret B'), 'ownerId' => $owner->id(), 'controllerId' => $owner->id(), 'revealedTo' => [$retained->id()]],
+        ];
+        $projection = new GameProjectionService(new GameCommandHandler());
+
+        $revokedHand = $projection->projectSnapshot($snapshot, $revoked)['players'][$owner->id()]['zones']['hand'];
+        $retainedHand = $projection->projectSnapshot($snapshot, $retained)['players'][$owner->id()]['zones']['hand'];
+        $ownerHand = $projection->projectSnapshot($snapshot, $owner)['players'][$owner->id()]['zones']['hand'];
+
+        self::assertSame(['Hidden card', 'Hidden card'], array_column($revokedHand, 'name'));
+        self::assertStringNotContainsString('batch-secret-', json_encode($revokedHand, JSON_THROW_ON_ERROR));
+        self::assertSame(['Batch Secret A', 'Batch Secret B'], array_column($retainedHand, 'name'));
+        self::assertSame(['batch-secret-a', 'batch-secret-b'], array_column($retainedHand, 'instanceId'));
+        self::assertSame(['Batch Secret A', 'Batch Secret B'], array_column($ownerHand, 'name'));
+    }
+
     public function testOpponentLibraryProjectionShowsOnlyTopRevealTargetTheRealCard(): void
     {
         $owner = new User('owner@example.test', 'Owner');
@@ -968,6 +992,8 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame('library', $libraryTop['zone']);
 
         $faceDown = $ownerProjection['zones']['battlefield'][0];
+        self::assertSame($owner->id().'-hidden-battlefield-0', $faceDown['instanceId']);
+        self::assertNotSame('face-down-permanent', $faceDown['instanceId']);
         self::assertSame('Face-down card', $faceDown['name']);
         self::assertSame($owner->id(), $faceDown['ownerId']);
         self::assertSame($owner->id(), $faceDown['controllerId']);
@@ -977,6 +1003,7 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame(['x' => 0.25, 'y' => 0.75, 'unit' => 'ratio'], $faceDown['position']);
         self::assertSame(90, $faceDown['rotation']);
         self::assertSame(['shield' => 1], $faceDown['counters']);
+        self::assertStringNotContainsString('face-down-permanent', json_encode($faceDown, JSON_THROW_ON_ERROR));
 
         $publicPermanent = $ownerProjection['zones']['battlefield'][1];
         self::assertSame('public-permanent', $publicPermanent['instanceId']);
@@ -1015,6 +1042,37 @@ class GameProjectionServiceTest extends TestCase
         self::assertArrayNotHasKey('cardKey', $viewerItem);
         self::assertArrayNotHasKey('controllerId', $viewerItem);
         self::assertArrayNotHasKey('ownerId', $viewerItem);
+    }
+
+    public function testFaceDownBattlefieldControllerReceivesIdentityWhileOtherViewersRemainOpaque(): void
+    {
+        $owner = new User('face-down-owner@example.test', 'Face-down Owner');
+        $controller = new User('face-down-controller@example.test', 'Face-down Controller');
+        $snapshot = $this->snapshot($owner->id(), $controller->id());
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('controlled-face-down', 'Controller Secret'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $controller->id(),
+            'zone' => 'battlefield',
+            'faceDown' => true,
+            'position' => ['x' => 0.4, 'y' => 0.6, 'unit' => 'ratio'],
+        ]];
+
+        $visibility = new GameVisibilityIndex();
+        $visibility->rebuild($snapshot);
+        self::assertTrue($visibility->canViewerSeeCardIdentity(
+            $snapshot,
+            $snapshot['players'][$owner->id()]['zones']['battlefield'][0],
+            $controller->id(),
+        ));
+
+        $controllerProjection = (new GameProjectionService(new GameCommandHandler()))
+            ->projectSnapshot($snapshot, $controller);
+        $projected = $controllerProjection['players'][$owner->id()]['zones']['battlefield'][0];
+        self::assertSame('controlled-face-down', $projected['instanceId']);
+        self::assertSame('Controller Secret', $projected['name']);
+        self::assertSame($controller->id(), $projected['controllerId']);
+        self::assertTrue($projected['faceDown']);
     }
 
     private function snapshot(string $ownerId, string $viewerId): array

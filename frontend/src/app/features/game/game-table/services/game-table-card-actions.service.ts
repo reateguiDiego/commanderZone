@@ -49,6 +49,39 @@ type LibraryTopViewSourceContext = {
 
 @Injectable()
 export class GameTableCardActionsService {
+  handRevealTargets(context: Pick<GameTableCardActionContext, 'selectedCards' | 'snapshot'>, menu: GameContextMenu): readonly GameTableCardSelection[] {
+    if (!menu.card || menu.zone !== 'hand') {
+      return [];
+    }
+    const targets = this.actionTargets(context, menu, 'hand');
+    const visualOrder = new Map(
+      (context.snapshot()?.players[menu.playerId]?.zones.hand ?? []).map((card, index) => [card.instanceId, index]),
+    );
+    return [...targets].sort((left, right) =>
+      (visualOrder.get(left.card.instanceId) ?? Number.MAX_SAFE_INTEGER)
+      - (visualOrder.get(right.card.instanceId) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }
+
+  async applyHandRevealBatch(
+    context: GameTableCardActionContext,
+    playerId: string,
+    orderedInstanceIds: readonly string[],
+    audience: 'all' | readonly string[],
+    mode: 'reveal' | 'revoke',
+  ): Promise<void> {
+    if (!context.canControlPlayer(playerId) || orderedInstanceIds.length === 0) {
+      context.setError('game.handRevealDialog.invalidSelection');
+      return;
+    }
+    await context.command(mode === 'reveal' ? 'hand.cards.reveal' : 'hand.cards.revoke', {
+      playerId,
+      expectedZone: 'hand',
+      orderedInstanceIds: [...orderedInstanceIds],
+      to: audience === 'all' ? 'all' : [...audience],
+    });
+  }
+
   async playCard(context: GameTableCardActionContext, playerId: string, zone: GameZoneName, card: GameCardInstance): Promise<void> {
     if (!context.canControlPlayer(playerId)) {
       context.setError('You can only move your own cards.');

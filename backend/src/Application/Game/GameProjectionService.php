@@ -111,15 +111,25 @@ class GameProjectionService
                         fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
                     ));
                 } else {
-                    $cards = array_values(array_map(
-                        fn (array $card): array => $this->projectCard($card, $viewerId, $playerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup),
-                        $cards,
-                    ));
+					$cards = array_values(array_map(
+						fn (array $card, int $index): array => $this->projectCard(
+							$card,
+							$viewerId,
+							$playerId === $viewerId,
+							$requestedLanguage,
+							$localizedCardsByLanguage,
+							$rulingsLookup,
+							(string) $zone === 'battlefield' ? $index : null,
+						),
+						$cards,
+						array_keys($cards),
+					));
                 }
             }
             unset($cards);
             $player['zoneCounts'] = $zoneCounts;
             $player['handCount'] = $zoneCounts['hand'] ?? 0;
+            $player[GameLibraryOps::VISIBILITY_EPOCH_KEY] = max(0, (int) ($rawPlayer[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 0));
             if ($isMulliganPhase) {
                 $player['mulligan'] = $this->projectMulliganState(
                     is_array($player['mulligan'] ?? null) ? $player['mulligan'] : [],
@@ -242,12 +252,23 @@ class GameProjectionService
             $cards = array_values(array_filter($cards, fn (array $card): bool => $this->isVisibleCard($card, $viewerId)));
         }
 
-        return array_values(array_map(
-            fn (array $card): array => $this->projectCard($card, $viewerId, $ownerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup),
-            $zone === 'library'
-                ? $this->orderedLibraryCards($cards, $this->libraryOps()->usesTailTop(is_array($playerState) ? $playerState : []))
-                : $cards,
-        ));
+		$orderedCards = $zone === 'library'
+			? $this->orderedLibraryCards($cards, $this->libraryOps()->usesTailTop(is_array($playerState) ? $playerState : []))
+			: array_values($cards);
+
+		return array_values(array_map(
+			fn (array $card, int $index): array => $this->projectCard(
+				$card,
+				$viewerId,
+				$ownerId === $viewerId,
+				$requestedLanguage,
+				$localizedCardsByLanguage,
+				$rulingsLookup,
+				$zone === 'battlefield' ? $index : null,
+			),
+			$orderedCards,
+			array_keys($orderedCards),
+		));
     }
 
     /**
@@ -498,7 +519,7 @@ class GameProjectionService
 
         $topRevealedTo = $topCard['revealedTo'] ?? [];
         $topCardEpoch = (int) ($topCard[GameLibraryOps::CARD_VISIBILITY_EPOCH_KEY] ?? 0);
-        $playerEpoch = max(1, (int) ($playerState[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1));
+        $playerEpoch = max(0, (int) ($playerState[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1));
         if (is_array($topRevealedTo) && $topRevealedTo !== [] && (!$tailTop || $topCardEpoch === 0 || $topCardEpoch === $playerEpoch)) {
             return [$this->hiddenOpponentLibraryTopCard($ownerId)];
         }
@@ -623,6 +644,7 @@ class GameProjectionService
         ?string $requestedLanguage = null,
         ?array $localizedCardsByLanguage = null,
         ?array $rulingsLookup = null,
+		?int $opaqueBattlefieldIndex = null,
     ): array
     {
         $zone = (string) ($card['zone'] ?? '');
@@ -631,9 +653,13 @@ class GameProjectionService
             $card['rotation'] = 0;
         }
 
-        if (($card['faceDown'] ?? false) === true && !$ownerView && !$this->isVisibleCard($card, $viewerId)) {
+        $controllerView = $zone === 'battlefield'
+            && trim((string) ($card['controllerId'] ?? '')) === $viewerId;
+        if (($card['faceDown'] ?? false) === true && !$ownerView && !$controllerView && !$this->isVisibleCard($card, $viewerId)) {
             return [
-                'instanceId' => $card['instanceId'],
+				'instanceId' => $zone === 'battlefield'
+					? sprintf('%s-hidden-battlefield-%d', (string) ($card['ownerId'] ?? 'player'), max(0, $opaqueBattlefieldIndex ?? 0))
+					: $card['instanceId'],
                 'ownerId' => $card['ownerId'] ?? null,
                 'controllerId' => $card['controllerId'] ?? null,
                 'name' => 'Face-down card',
@@ -1030,7 +1056,10 @@ class GameProjectionService
 
     private function cardRetainsIdentityForViewer(array $card, string $viewerId, bool $ownerView): bool
     {
-        return !(($card['faceDown'] ?? false) === true && !$ownerView && !$this->isVisibleCard($card, $viewerId));
+        $controllerView = (string) ($card['zone'] ?? '') === 'battlefield'
+            && trim((string) ($card['controllerId'] ?? '')) === $viewerId;
+
+        return !(($card['faceDown'] ?? false) === true && !$ownerView && !$controllerView && !$this->isVisibleCard($card, $viewerId));
     }
 
     /**

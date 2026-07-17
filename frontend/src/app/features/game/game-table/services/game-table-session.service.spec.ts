@@ -224,6 +224,20 @@ describe('GameTableSessionService', () => {
     expect(setSnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it('does not bootstrap from Mercure while patch.v2 transport is reconnecting', async () => {
+    gameplayV2Flags.enabled.mockReturnValue(true);
+    websocketStatus.set('disconnected');
+    const setSnapshot = vi.fn();
+    gamesApi.bootstrapV2.mockReturnValue(of(bootstrapV2()));
+
+    await service.load(context(snapshot(), setSnapshot));
+    gameRealtimeHandlers().onSnapshotInvalidated(gameEvent('card.moved', bootstrapV2().game.version + 1));
+    await Promise.resolve();
+
+    expect(gamesApi.bootstrapV2).toHaveBeenCalledTimes(1);
+    expect(setSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   it('does not refetch when the current snapshot is already at the realtime event version', async () => {
     const current = snapshot();
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));

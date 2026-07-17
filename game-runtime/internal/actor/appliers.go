@@ -28,6 +28,8 @@ func DefaultAppliers() []Applier {
 		CardTappedApplier{},
 		CardFaceDownChangedApplier{},
 		CardRevealedApplier{},
+		HandCardsRevealApplier{},
+		HandCardsRevokeApplier{},
 		CardControllerChangedApplier{},
 		CardsPositionChangedApplier{},
 		CardCounterChangedApplier{},
@@ -47,6 +49,8 @@ func DefaultAppliers() []Applier {
 		LibraryPutTopApplier{},
 		LibraryPutBottomApplier{},
 		LibraryViewApplier{},
+		LibrarySelectionMoveApplier{},
+		LibraryTopPlayFaceDownApplier{},
 		LibraryShuffleApplier{},
 		CardTokenCreatedApplier{},
 		CardTokenCopyCreatedApplier{},
@@ -396,14 +400,10 @@ func (CardPositionChangedApplier) Apply(_ context.Context, game *state.GameState
 	previousPosition := cloneMap(instance.Position)
 	instance.Position = cloneMap(position)
 	game.Instances[instanceID] = instance
-	patch := map[string]any{
-		"effectVersion": PositionContractEffectVersion,
-		"instanceId":    instanceID,
-		"playerId":      location.PlayerID,
-		"zone":          location.Zone,
-		"position":      cloneMap(position),
-	}
-	emitter.EmitPublic(protocol.PatchOp{Op: "card.position.set", Data: patch})
+	emitPositionPatchByViewer(emitter, game, location.PlayerID, "card.position.set", []map[string]any{{
+		"instanceId": instanceID,
+		"position":   cloneMap(position),
+	}})
 	eventPayload := positionEventPayload(instanceID, previousPosition, position)
 	eventPayload["playerId"] = location.PlayerID
 	eventPayload["zone"] = location.Zone

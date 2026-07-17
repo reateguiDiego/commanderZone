@@ -1003,7 +1003,10 @@ describe('ContextMenuComponent', () => {
     fixture.detectChanges();
     const revealText = menuText(fixture);
     expect(revealText).toContain('All');
-    expect(revealText).toContain('User');
+    // The current player is the owner of this private hand card and is not a
+    // valid reveal recipient. Keep the audience contract aligned with the
+    // runtime: only opponents (or all opponents) are offered here.
+    expect(revealText).not.toContain('User');
     expect(revealText).toContain('Opponent');
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.direction-up')).not.toBeNull();
     expect(text).not.toContain('Tap / untap');

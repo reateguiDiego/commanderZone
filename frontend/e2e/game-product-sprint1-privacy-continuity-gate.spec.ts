@@ -248,11 +248,12 @@ test.describe('Sprint 1 integrated privacy, authority and continuity release gat
         playerId: playerA.user.id, fromZone: 'library', toZone: 'battlefield', instanceIds: libraryFaceDown, faceDown: true,
       });
       projected = await Promise.all(setup.players.map((player) => gameSnapshot(request, setup.gameId, player.token)));
-      for (const id of [faceDownA, stackPrivate, ...libraryFaceDown]) {
+      const privateFaceDownIds = [faceDownA, stackPrivate, ...libraryFaceDown];
+      for (const id of privateFaceDownIds) {
         expect(findCard(projected[0]!, id)?.['faceDown']).toBe(true);
-        assertHiddenIdentity(findCard(projected[1]!, id));
-        assertHiddenIdentity(findCard(projected[2]!, id));
       }
+      assertOpaqueBattlefieldProjection(projected[1]!, playerA.user.id, privateFaceDownIds, privateFaceDownIds.length);
+      assertOpaqueBattlefieldProjection(projected[2]!, playerA.user.id, privateFaceDownIds, privateFaceDownIds.length);
       assertPrivateGameLog(projected[1]!, ownerCardNames(initial[0]!, playerA.user.id, [faceDownA, stackPrivate, ...libraryFaceDown]));
       assertPrivateGameLog(projected[2]!, ownerCardNames(initial[0]!, playerA.user.id, [faceDownA, stackPrivate, ...libraryFaceDown]));
 
@@ -312,7 +313,7 @@ test.describe('Sprint 1 integrated privacy, authority and continuity release gat
       projected = await Promise.all(setup.players.map((player) => gameSnapshot(request, setup.gameId, player.token)));
       expect(findCard(projected[0]!, faceDownA)?.['controllerId']).toBe(playerC.user.id);
       expect(findCard(projected[2]!, faceDownA)?.['controllerId']).toBe(playerC.user.id);
-      assertHiddenIdentity(findCard(projected[1]!, faceDownA));
+      assertOpaqueBattlefieldProjection(projected[1]!, playerA.user.id, [faceDownA]);
 
       const eventBeforeRejections = await eventStoreState(setup.gameId);
       await rejected(1, 'card.tapped', { playerId: playerB.user.id, instanceId: b1, tapped: false }, 'INSTANCE_NOT_CONTROLLED', b1);
@@ -751,6 +752,20 @@ function assertHiddenIdentity(card: JsonObject | undefined): void {
   expect(card?.['cardRef'] ?? '').toBe('');
   expect(card?.['printId'] ?? '').toBe('');
   expect(String(card?.['name'] ?? '')).not.toMatch(/Unknown Card/i);
+}
+
+function assertOpaqueBattlefieldProjection(
+  snapshot: JsonObject,
+  ownerId: string,
+  privateInstanceIds: string[],
+  expectedShellCount?: number,
+): void {
+  for (const instanceId of privateInstanceIds) expect(findCard(snapshot, instanceId)).toBeUndefined();
+  const shells = zoneCards(snapshot, ownerId, 'battlefield').filter((card) =>
+    String(card['instanceId'] ?? '').startsWith(`${ownerId}-hidden-battlefield-`));
+  if (expectedShellCount !== undefined) expect(shells).toHaveLength(expectedShellCount);
+  else expect(shells.length).toBeGreaterThanOrEqual(1);
+  for (const shell of shells) assertHiddenIdentity(shell);
 }
 
 function assertViewerPrivateAuthorization(viewer: JsonObject, owner: JsonObject, ownerId: string, allowed: Set<string>): void {

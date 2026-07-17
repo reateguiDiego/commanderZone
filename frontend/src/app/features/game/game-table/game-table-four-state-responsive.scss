@@ -57,6 +57,8 @@
 
 .game-screen[data-responsive-state='normal'] .opponents-list {
   display: contents;
+	visibility: visible;
+	pointer-events: auto;
 }
 
 .game-screen[data-responsive-state='compact'] {
@@ -219,6 +221,33 @@
   display: grid;
   grid-column: 1;
   align-content: start;
+}
+
+.game-screen:is([data-responsive-state='compact'], [data-responsive-state='aggressive'], [data-responsive-state='minimal'])
+	.player-sidebar:not(.opponents-open) .opponents-list {
+	visibility: hidden;
+	pointer-events: none;
+}
+
+.game-screen:is([data-responsive-state='compact'], [data-responsive-state='aggressive'], [data-responsive-state='minimal'])
+	.player-sidebar.opponents-open .opponents-list {
+	visibility: visible;
+	pointer-events: auto;
+}
+
+.game-screen:is([data-responsive-state='aggressive'], [data-responsive-state='minimal'])
+	.player-sidebar.opponents-open .opponents-list:has(app-opponent-mini-board:nth-child(3)) {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.game-screen:is([data-responsive-state='compact'], [data-responsive-state='minimal'])
+	.player-sidebar:not(.opponents-open):is(:hover, :focus-within) {
+	transform: translateX(calc(100% - 2.65rem));
+}
+
+.game-screen[data-responsive-state='aggressive']
+	.player-sidebar:not(.opponents-open):is(:hover, :focus-within) {
+	transform: translateX(calc(-100% + 2.5rem));
 }
 
 .game-screen[data-responsive-state='aggressive'] .floating-panel {

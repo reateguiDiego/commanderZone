@@ -358,6 +358,31 @@ func TestWebSocketPingReturnsKindPong(t *testing.T) {
 	}
 }
 
+func TestLibraryWindowRejectionPayloadIsStructuredAndIdentityFree(t *testing.T) {
+	command := command("game-1", 7, "stale-window", "library.selection.move", map[string]any{
+		"playerId": "p1", "windowId": "lw-safe", "expectedEpoch": 3,
+		"orderedInstanceIds": []string{"private-card-id"}, "toZone": "hand",
+	}, nil)
+	message := commandLibraryWindowRejectedMessage(command, &actor.LibraryWindowError{
+		Code: actor.LibraryWindowCodeInstanceMissing, CommandType: command.Type,
+		WindowID: "lw-safe", ExpectedEpoch: 3, CurrentEpoch: 4, Count: 1, Index: 0,
+	})
+
+	if message.Status != "rejected" || message.Version != 7 || message.Error == nil {
+		t.Fatalf("message = %#v", message)
+	}
+	if message.Error.Code != actor.LibraryWindowCodeInstanceMissing || message.Error.WindowID != "lw-safe" ||
+		message.Error.ExpectedEpoch == nil || *message.Error.ExpectedEpoch != 3 ||
+		message.Error.CurrentEpoch == nil || *message.Error.CurrentEpoch != 4 ||
+		message.Error.Count == nil || *message.Error.Count != 1 ||
+		message.Error.Index == nil || *message.Error.Index != 0 {
+		t.Fatalf("structured window error = %#v", message.Error)
+	}
+	if message.Error.InstanceID != "" || strings.Contains(fmt.Sprintf("%#v", message.Error), "private-card-id") {
+		t.Fatalf("window error leaked submitted private identity: %#v", message.Error)
+	}
+}
+
 func TestWebSocketRejectsCommandsWithoutCommandPermission(t *testing.T) {
 	server, _ := testWebSocketServer(t, "game-1", 128, 256)
 	defer server.Close()

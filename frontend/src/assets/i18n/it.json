@@ -22,6 +22,7 @@
     }
   },
   "gameLog": {
+    "hand": { "revealed": "{{ actor }} ha rivelato {{ count }} carte dalla propria mano.", "revoked": "{{ actor }} ha revocato l'accesso a {{ count }} carte rivelate dalla propria mano." },
     "commanderDamage": {
       "changed": "Il danno da comandante di {{ source }} a {{ target }} è cambiato da {{ previousDamage }} a {{ damage }}. I punti vita sono cambiati da {{ previousLife }} a {{ life }}."
     },
@@ -46,7 +47,16 @@
     "library": {
       "draw": "{{ actor }} drew a card.",
       "drawMany": "{{ actor }} drew {{ count }} cards.",
-      "shuffle": "{{ actor }} shuffled their library."
+      "shuffle": "{{ actor }} shuffled their library.",
+      "selectedMoved": "{{ actor }} ha spostato {{ count }} carte selezionate dalla libreria a {{ destination }}.",
+      "playedSelectedFaceDown": "{{ actor }} ha giocato coperte {{ count }} carte selezionate dalla libreria.",
+      "selectedToHand": "{{ actor }} ha spostato in mano {{ count }} carte selezionate dalla libreria.",
+      "selectedToGraveyard": "{{ actor }} ha spostato nel cimitero {{ count }} carte selezionate dalla libreria.",
+      "selectedToExile": "{{ actor }} ha esiliato {{ count }} carte selezionate dalla libreria.",
+      "selectedToBattlefield": "{{ actor }} ha spostato sul campo {{ count }} carte selezionate dalla libreria.",
+      "putSelectedTop": "{{ actor }} ha messo {{ count }} carte selezionate in cima alla libreria.",
+      "putSelectedBottom": "{{ actor }} ha messo {{ count }} carte selezionate in fondo alla libreria.",
+      "playedTopFaceDown": "{{ actor }} ha giocato coperte le prime {{ count }} carte della libreria."
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
@@ -851,6 +861,13 @@
       "focusTurn": "Turno di messa a fuoco",
       "passTurn": "Passa il turno"
     },
+    "handRevealDialog": {
+      "title": "Rivela carte dalla mano", "summary": "Controlla i destinatari per {{ count }} carta/e selezionata/e.",
+      "action": "Azione", "reveal": "Rivela", "revoke": "Revoca accesso", "recipients": "Destinatari", "allPlayers": "Tutti i giocatori",
+      "confirmReveal": "Rivela {{ count }} carta/e a {{ recipients }} destinatario/i.", "confirmRevoke": "Revoca {{ recipients }} destinatario/i da {{ count }} carta/e.",
+      "pending": "Applicazione della modifica di visibilità...", "cancel": "Annulla", "confirmRevealButton": "Conferma rivelazione", "confirmRevokeButton": "Conferma revoca",
+      "invalidSelection": "Seleziona carte valide dalla tua mano.", "stale": "Le carte selezionate sono cambiate. Riapri l'azione."
+    },
     "zoneModal": {
       "searchByName": "Cerca per nome",
       "closeZone": "Zona chiusa",
@@ -864,7 +881,38 @@
       "enchantments": "Incantesimi",
       "planeswalkers": "Planeswalker",
       "lands": "Terre",
-      "search": "Cerca"
+      "search": "Cerca",
+      "cardCount": "{{count}} carte",
+      "selectionInstructions": "Seleziona le carte localmente. La biblioteca non viene modificata.",
+      "selectionToolbar": "Selezione carte",
+      "selectedCount": "{{selected}} di {{total}} selezionate",
+      "selectAll": "Seleziona tutto",
+      "clearAll": "Cancella selezione",
+      "reorderMode": "Riordina",
+      "selectionMode": "Seleziona",
+      "viewStale": "Questa vista della biblioteca non è più valida. Chiudila e aprine una nuova.",
+      "viewError": "Non è stato possibile aprire la vista privata della biblioteca. Chiudila e riprova.",
+      "connectionChanged": "La connessione è cambiata e questa vista privata è stata chiusa per sicurezza. Aprila di nuovo.",
+      "emptyView": "Non sono disponibili carte autorizzate in questa vista.",
+      "batchToolbar": "Azioni private della libreria",
+      "batchActions": "Azioni",
+      "batchPending": "Applicazione dell'azione confermata...",
+      "batchError": "Impossibile applicare l'azione. La libreria non è cambiata.",
+      "invalidBatch": "Seleziona almeno una carta valida.",
+      "confirmTitle": "Conferma azione della libreria",
+      "confirmCount": "Questa azione coinvolgerà {{count}} carta/e.",
+      "cancel": "Annulla",
+      "confirm": "Conferma",
+      "action": {
+        "hand": "Sposta la selezione in mano",
+        "battlefield-face-up": "Sposta la selezione scoperta sul campo",
+        "battlefield-face-down": "Sposta la selezione coperta sul campo",
+        "graveyard": "Sposta la selezione nel cimitero",
+        "exile": "Esilia la selezione",
+        "library-top": "Metti la selezione in cima",
+        "library-bottom": "Metti la selezione in fondo",
+        "playTopFaceDown": "Gioca coperte le prime {{count}}"
+      }
     },
     "gameTable": {
       "message": "Messaggio",

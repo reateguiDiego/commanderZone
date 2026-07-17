@@ -83,6 +83,10 @@ type ServerErrorPayload struct {
 	VoteID           string `json:"voteId,omitempty"`
 	TargetPlayerID   string `json:"targetPlayerId,omitempty"`
 	RemainingSeconds int    `json:"remainingSeconds,omitempty"`
+	WindowID         string `json:"windowId,omitempty"`
+	ExpectedEpoch    *int64 `json:"expectedEpoch,omitempty"`
+	CurrentEpoch     *int64 `json:"currentEpoch,omitempty"`
+	Count            *int   `json:"count,omitempty"`
 }
 
 type WebSocketServer struct {
@@ -702,6 +706,14 @@ func (s *WebSocketServer) handleCommand(ctx context.Context, client *wsClient, c
 			s.sendJSON(client, commandPositionRejectedMessage(command, positionError))
 			return
 		}
+		if windowError, ok := actor.AsLibraryWindowError(result.Err); ok {
+			s.sendJSON(client, commandLibraryWindowRejectedMessage(command, windowError))
+			return
+		}
+		if revealError, ok := actor.AsHandRevealError(result.Err); ok {
+			s.sendJSON(client, commandHandRevealRejectedMessage(command, revealError))
+			return
+		}
 		if relationError, ok := actor.AsRelationValidationError(result.Err); ok {
 			s.sendJSON(client, commandRejectedMessage(command, relationError.Code, relationError.Error(), false))
 			return
@@ -1105,7 +1117,7 @@ func commandAuthorizationRejectedMessage(command protocol.CommandEnvelopeV2, aut
 		InstanceID:  authorizationError.InstanceID,
 	}
 	switch command.Type {
-	case "cards.moved", "cards.position.changed", "zone.reorderedByIds", "library.reorder_top", "zone.move_all":
+	case "cards.moved", "cards.position.changed", "zone.reorderedByIds", "library.reorder_top", "zone.move_all", "hand.cards.reveal", "hand.cards.revoke":
 		index := authorizationError.Index
 		errorPayload.Index = &index
 	}
@@ -1117,6 +1129,16 @@ func commandAuthorizationRejectedMessage(command protocol.CommandEnvelopeV2, aut
 		Version:        command.BaseVersion,
 		Error:          errorPayload,
 	}
+}
+
+func commandHandRevealRejectedMessage(command protocol.CommandEnvelopeV2, revealError *actor.HandRevealError) ServerMessage {
+	count := revealError.Count
+	errorPayload := &ServerErrorPayload{Code: revealError.Code, Message: revealError.Error(), Retryable: false, CommandType: revealError.CommandType, Count: &count}
+	if revealError.Index >= 0 {
+		index := revealError.Index
+		errorPayload.Index = &index
+	}
+	return ServerMessage{Kind: "command_ack", GameID: command.GameID, ClientActionID: command.ClientActionID, Status: "rejected", Version: command.BaseVersion, Error: errorPayload}
 }
 
 func commandPositionRejectedMessage(command protocol.CommandEnvelopeV2, positionError *actor.PositionValidationError) ServerMessage {
@@ -1139,6 +1161,23 @@ func commandPositionRejectedMessage(command protocol.CommandEnvelopeV2, position
 		Version:        command.BaseVersion,
 		Error:          errorPayload,
 	}
+}
+
+func commandLibraryWindowRejectedMessage(command protocol.CommandEnvelopeV2, windowError *actor.LibraryWindowError) ServerMessage {
+	expectedEpoch := windowError.ExpectedEpoch
+	currentEpoch := windowError.CurrentEpoch
+	count := windowError.Count
+	errorPayload := &ServerErrorPayload{
+		Code: windowError.Code, Message: windowError.Error(), Retryable: false,
+		CommandType: windowError.CommandType, WindowID: windowError.WindowID,
+		ExpectedEpoch: &expectedEpoch, CurrentEpoch: &currentEpoch, Count: &count,
+	}
+	if windowError.Index >= 0 {
+		index := windowError.Index
+		errorPayload.Index = &index
+	}
+	return ServerMessage{Kind: "command_ack", GameID: command.GameID, ClientActionID: command.ClientActionID,
+		Status: "rejected", Version: command.BaseVersion, Error: errorPayload}
 }
 
 func commandResyncRequiredMessage(command protocol.CommandEnvelopeV2, currentVersion int64, code string, message string, retryable bool) ServerMessage {

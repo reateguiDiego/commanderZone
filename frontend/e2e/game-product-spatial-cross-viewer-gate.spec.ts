@@ -23,6 +23,7 @@ type JsonObject = Record<string, unknown>;
 type Setup = Awaited<ReturnType<typeof createCommanderGameWithBasicDecks>>;
 type BrowserAudit = { frames: JsonObject[]; recoveryRequests: number; errors: string[] };
 type RatioPosition = { x: number; y: number; unit: 'ratio' };
+type OpaqueSpatialProjection = { faceDownId: string; ownerId: string; ownerPage: Page };
 type SpatialRestartState = { version: number; controlledId: string; positions: Record<string, RatioPosition> };
 type ManualPlayer = Awaited<ReturnType<typeof createRealUserSession>> & {
   deck: { deckId: string };
@@ -122,16 +123,26 @@ test.describe('canonical spatial coordinates cross-viewer gate', () => {
       expect(batchOp?.['positions']).toEqual(cardIds.map((instanceId) => ({ instanceId, position: grid[instanceId] })));
       expect(JSON.stringify(batchOp)).not.toMatch(/viewport|zoom|devicePixelRatio|pointer|offset|width/i);
 
-      await Promise.all(pages.flatMap((page) => cardIds.map((instanceId) =>
-        expect(battlefieldCard(page, playerA.user.id, instanceId)).toBeVisible({ timeout: 20_000 }),
-      )));
-      await assertRenderedGrid(pages, playerA.user.id, grid);
-      await assertViewerRatios(request, setup, cardIds, grid, version);
+      const opaqueProjection: OpaqueSpatialProjection = {
+        faceDownId: bottomRightId!,
+        ownerId: playerA.user.id,
+        ownerPage: pageA,
+      };
+      for (const page of pages) {
+        for (const instanceId of cardIds) {
+          if (page !== pageA && instanceId === bottomRightId) {
+            await expect(battlefieldCard(page, playerA.user.id, instanceId)).toHaveCount(0);
+          }
+          await expect(projectedBattlefieldCard(page, playerA.user.id, instanceId, opaqueProjection)).toBeVisible({ timeout: 20_000 });
+        }
+      }
+      await assertRenderedGrid(pages, playerA.user.id, grid, opaqueProjection);
+      await assertViewerRatios(request, setup, cardIds, grid, version, bottomRightId!);
 
       const beforeLocalGeometryChanges = positionsFromSnapshot(await gameSnapshot(request, gameId, playerA.token), cardIds);
       await pageB.setViewportSize({ width: 1024, height: 760 });
       await setBattlefieldZoom(pageC, 120);
-      await assertRenderedGrid([pageB, pageC], playerA.user.id, grid);
+      await assertRenderedGrid([pageB, pageC], playerA.user.id, grid, opaqueProjection);
       expect(positionsFromSnapshot(await gameSnapshot(request, gameId, playerA.token), cardIds)).toEqual(beforeLocalGeometryChanges);
       expect(await pageB.evaluate((key) => window.localStorage.getItem(key), ZOOM_STORAGE_KEY)).toBe('70');
       expect(await pageC.evaluate((key) => window.localStorage.getItem(key), ZOOM_STORAGE_KEY)).toBe('120');
@@ -160,7 +171,7 @@ test.describe('canonical spatial coordinates cross-viewer gate', () => {
         positions: [topRightId, bottomLeftId].map((instanceId) => ({ instanceId, position: batchPositions[instanceId!] })),
       });
       Object.assign(grid, batchPositions);
-      await assertViewerRatios(request, setup, cardIds, grid, version);
+      await assertViewerRatios(request, setup, cardIds, grid, version, bottomRightId!);
 
       const beforeRejected = await gameSnapshot(request, gameId, playerA.token);
       const pagePatchCount = audits.reduce((sum, audit) => sum + patchCount(audit.frames), 0);
@@ -185,7 +196,9 @@ test.describe('canonical spatial coordinates cross-viewer gate', () => {
 
       const faceDownBefore = findCard(beforeRejected, bottomRightId!)?.['position'];
       expect(findCard(await gameSnapshot(request, gameId, playerA.token), bottomRightId!)?.['faceDown']).toBe(true);
-      const rivalFaceDown = findCard(await gameSnapshot(request, gameId, playerB.token), bottomRightId!);
+      const rivalSnapshot = await gameSnapshot(request, gameId, playerB.token);
+      expect(findCard(rivalSnapshot, bottomRightId!)).toBeUndefined();
+      const rivalFaceDown = opaqueBattlefieldSnapshotCard(rivalSnapshot, playerA.user.id);
       expect(rivalFaceDown?.['position']).toEqual(faceDownBefore);
       expect(rivalFaceDown?.['cardKey']).toBeUndefined();
       expect(emptyRecord(rivalFaceDown?.['imageUris'])).toBe(true);
@@ -238,7 +251,11 @@ test.describe('canonical spatial coordinates cross-viewer gate', () => {
       await pageB.goto(`/games/${gameId}`);
       await expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
       await waitForConnection(reconnectAudit.frames);
-      expect(positionsFromSnapshot(await gameSnapshot(request, gameId, playerB.token), cardIds)).toEqual(beforeRefresh);
+      expect(positionsFromSnapshot(
+        await gameSnapshot(request, gameId, playerB.token),
+        cardIds,
+        { ownerId: playerA.user.id, faceDownId: bottomRightId! },
+      )).toEqual(beforeRefresh);
       expect(audits.reduce((sum, audit) => sum + audit.recoveryRequests, 0)).toBeGreaterThanOrEqual(recoveryBaseline + 2);
       assertNoLegacyRecovery(audits);
       const persisted = await gameSnapshot(request, gameId, playerA.token);
@@ -1026,21 +1043,26 @@ async function focusSpatialPlayer(page: Page, playerId: string, displayName: str
   await focusPlayer(page, displayName);
 }
 
-async function assertRenderedGrid(pages: Page[], playerId: string, expected: Record<string, RatioPosition>): Promise<void> {
+async function assertRenderedGrid(
+  pages: Page[],
+  playerId: string,
+  expected: Record<string, RatioPosition>,
+  opaqueProjection?: OpaqueSpatialProjection,
+): Promise<void> {
   const ids = Object.keys(expected);
   for (const page of pages) {
     for (const instanceId of ids) {
       try {
         await expect.poll(async () => {
-          const rendered = await renderedLogicalPosition(page, playerId, instanceId);
+          const rendered = await renderedLogicalPosition(page, playerId, instanceId, opaqueProjection);
           return Math.max(
             Math.abs(rendered.x - expected[instanceId]!.x),
             Math.abs(rendered.y - expected[instanceId]!.y),
           );
         }, { timeout: 10_000 }).toBeLessThan(0.05);
       } catch (error) {
-        const rendered = await renderedLogicalPosition(page, playerId, instanceId);
-        const diagnostics = await battlefieldCard(page, playerId, instanceId).evaluate((element) => {
+        const rendered = await renderedLogicalPosition(page, playerId, instanceId, opaqueProjection);
+        const diagnostics = await projectedBattlefieldCard(page, playerId, instanceId, opaqueProjection).evaluate((element) => {
           const card = element as HTMLElement;
           const battlefield = card.closest<HTMLElement>('.battlefield[data-player-id]');
           const summary = battlefield?.closest<HTMLElement>('.focused-board')
@@ -1067,7 +1089,7 @@ async function assertRenderedGrid(pages: Page[], playerId: string, expected: Rec
     }
     const rendered = Object.fromEntries(await Promise.all(ids.map(async (instanceId) => [
       instanceId,
-      await renderedLogicalPosition(page, playerId, instanceId),
+      await renderedLogicalPosition(page, playerId, instanceId, opaqueProjection),
     ])));
     for (const instanceId of ids) {
       expect(rendered[instanceId]!.x).toBeCloseTo(expected[instanceId]!.x, 1);
@@ -1078,8 +1100,13 @@ async function assertRenderedGrid(pages: Page[], playerId: string, expected: Rec
   }
 }
 
-async function renderedLogicalPosition(page: Page, playerId: string, instanceId: string): Promise<{ x: number; y: number }> {
-  return battlefieldCard(page, playerId, instanceId).evaluate((element) => {
+async function renderedLogicalPosition(
+  page: Page,
+  playerId: string,
+  instanceId: string,
+  opaqueProjection?: OpaqueSpatialProjection,
+): Promise<{ x: number; y: number }> {
+  return projectedBattlefieldCard(page, playerId, instanceId, opaqueProjection).evaluate((element) => {
     const card = element as HTMLElement;
     const battlefield = card.closest<HTMLElement>('.battlefield[data-player-id]');
     if (!battlefield) throw new Error('Card is not inside a battlefield.');
@@ -1101,14 +1128,19 @@ async function assertViewerRatios(
   cardIds: string[],
   expected: Record<string, RatioPosition>,
   version: number,
+  faceDownId: string,
 ): Promise<void> {
   const snapshots = await Promise.all([
     gameSnapshot(request, game.gameId, game.playerA.token),
     gameSnapshot(request, game.gameId, game.playerB.token),
   ]);
-  for (const snapshot of snapshots) {
+  for (const [index, snapshot] of snapshots.entries()) {
     expect(snapshot['version']).toBe(version);
-    expect(positionsFromSnapshot(snapshot, cardIds)).toEqual(expected);
+    expect(positionsFromSnapshot(
+      snapshot,
+      cardIds,
+      index === 0 ? undefined : { ownerId: game.playerA.user.id, faceDownId },
+    )).toEqual(expected);
   }
 }
 
@@ -1269,6 +1301,20 @@ function battlefieldCard(page: Page, ownerPlayerId: string, instanceId: string) 
   return page.locator(`[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${ownerPlayerId}"][data-card-instance-id="${instanceId}"]`);
 }
 
+function projectedBattlefieldCard(
+  page: Page,
+  ownerPlayerId: string,
+  instanceId: string,
+  opaqueProjection?: OpaqueSpatialProjection,
+) {
+  if (opaqueProjection && page !== opaqueProjection.ownerPage && instanceId === opaqueProjection.faceDownId) {
+    return page.locator(
+      `[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${ownerPlayerId}"][data-card-instance-id^="${ownerPlayerId}-hidden-battlefield-"]`,
+    ).first();
+  }
+  return battlefieldCard(page, ownerPlayerId, instanceId);
+}
+
 function operation(message: JsonObject, op: string): JsonObject | null {
   const ops = Array.isArray(message['ops']) ? message['ops'] as JsonObject[] : [];
   return ops.find((item) => item['op'] === op) ?? null;
@@ -1298,14 +1344,28 @@ function findCard(snapshot: JsonObject, instanceId: string): JsonObject | undefi
   return undefined;
 }
 
-function positionsFromSnapshot(snapshot: JsonObject, instanceIds: string[]): Record<string, RatioPosition> {
+function positionsFromSnapshot(
+  snapshot: JsonObject,
+  instanceIds: string[],
+  opaqueProjection?: { ownerId: string; faceDownId: string },
+): Record<string, RatioPosition> {
   return Object.fromEntries(instanceIds.map((instanceId) => {
-    const position = findCard(snapshot, instanceId)?.['position'] as RatioPosition | undefined;
+    const card = findCard(snapshot, instanceId)
+      ?? (opaqueProjection && instanceId === opaqueProjection.faceDownId
+        ? opaqueBattlefieldSnapshotCard(snapshot, opaqueProjection.ownerId)
+        : undefined);
+    const position = card?.['position'] as RatioPosition | undefined;
     expect(position?.unit, instanceId).toBe('ratio');
     expect(Number.isFinite(position?.x) && position!.x >= 0 && position!.x <= 1, instanceId).toBe(true);
     expect(Number.isFinite(position?.y) && position!.y >= 0 && position!.y <= 1, instanceId).toBe(true);
     return [instanceId, position!];
   }));
+}
+
+function opaqueBattlefieldSnapshotCard(snapshot: JsonObject, ownerId: string): JsonObject | undefined {
+  const player = (snapshot['players'] as Record<string, JsonObject> | undefined)?.[ownerId];
+  const cards = (player?.['zones'] as Record<string, JsonObject[]> | undefined)?.['battlefield'] ?? [];
+  return cards.find((card) => String(card['instanceId'] ?? '').startsWith(`${ownerId}-hidden-battlefield-`));
 }
 
 function containsForbiddenSpatialKey(value: unknown): boolean {

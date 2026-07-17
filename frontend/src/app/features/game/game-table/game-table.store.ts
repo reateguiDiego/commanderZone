@@ -15,6 +15,7 @@ import { GameTableSnapshotSelectors, PlayerView } from './state/core/game-table-
 import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.state';
 import { CardPreviewEvent, previewRectFromElement } from './models/card-preview.model';
 import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
+import { LibrarySelectionBatchRequest, LibraryTopFaceDownRequest } from './state/zones/library-batch-action.model';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
 import { PendingBattlefieldMove, PendingLibraryMove } from './services/game-table-drop-actions.service';
@@ -72,6 +73,7 @@ export class GameTableStore implements OnDestroy {
   private openingRevealedLibraryPlayerId: string | null = null;
   private locallyConcededPlayerId: string | null = null;
   private lastSeenActiveTurnPlayerId: string | null = null;
+  private libraryViewObservedLiveConnection = false;
 
   private readonly debouncedValueCommands = inject(GameTableDebouncedValueCommandsService);
   private readonly cardActions = inject(GameTableCardActionsService);
@@ -248,6 +250,21 @@ export class GameTableStore implements OnDestroy {
     effect(() => {
       this.toastState.scheduleErrorDismiss(this.error(), this.snapshot() !== null);
     });
+    effect(() => {
+      const modal = this.zoneModalState.zoneModal();
+      const realtimeStatus = this.session.realtimeStatus();
+      if (!modal?.localMultiSelect) {
+        this.libraryViewObservedLiveConnection = false;
+        return;
+      }
+      if (realtimeStatus === 'live') {
+        this.libraryViewObservedLiveConnection = true;
+        return;
+      }
+      if (this.libraryViewObservedLiveConnection && modal.lifecycle === 'ready') {
+        this.zoneModalState.markLibraryViewStale('game.zoneModal.connectionChanged');
+      }
+    });
     void this.load();
   }
 
@@ -260,6 +277,7 @@ export class GameTableStore implements OnDestroy {
     this.dropFeedbackState.destroy();
     this.pendingTransferState.setExpirationHandler(null);
     this.pendingTransferState.clear();
+    this.zoneModalState.close();
     this.session.stop();
   }
 
@@ -641,6 +659,23 @@ export class GameTableStore implements OnDestroy {
     this.interactionActions.clearSelection();
   }
 
+  reportError(message: string): void {
+    this.coreState.error.set(message);
+  }
+
+  handRevealTargets(menu: GameContextMenu): readonly SelectedCard[] {
+    return this.cardActions.handRevealTargets(this.contexts.cardAction(), menu) as readonly SelectedCard[];
+  }
+
+  async applyHandRevealBatch(
+    playerId: string,
+    orderedInstanceIds: readonly string[],
+    audience: 'all' | readonly string[],
+    mode: 'reveal' | 'revoke',
+  ): Promise<void> {
+    await this.cardActions.applyHandRevealBatch(this.contexts.cardAction(), playerId, orderedInstanceIds, audience, mode);
+  }
+
   selectAllZoneCards(playerId: string, zone: GameZoneName): void {
     const cards = this.snapshot()?.players[playerId]?.zones[zone] ?? [];
     if (cards.length <= 1 || !this.canControlPlayer(playerId) || (zone !== 'hand' && zone !== 'battlefield')) {
@@ -734,7 +769,7 @@ export class GameTableStore implements OnDestroy {
 
   openZoneModalCardMenu(event: MouseEvent, card: GameCardInstance): void {
     const modal = this.zoneModal();
-    if (!modal || modal.readOnly) {
+    if (!modal || modal.readOnly || modal.localMultiSelect) {
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -978,10 +1013,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   async viewLibrary(playerId: string): Promise<void> {
-    await this.libraryActions.view(this.contexts.libraryAction(), playerId);
-    await this.openZone(playerId, 'library', null, false, { allowGiveDestination: true });
-    this.shuffleLibraryOnModalClosePlayerId.set(playerId);
-    this.shuffleLibraryOnModalCloseReason.set('owner-view');
+    await this.libraryTopState.viewLibrary(playerId);
   }
 
   async viewTopLibrary(playerId: string, count: number): Promise<void> {
@@ -990,6 +1022,14 @@ export class GameTableStore implements OnDestroy {
 
   async reorderTopLibraryCards(cards: readonly GameCardInstance[]): Promise<void> {
     await this.libraryTopState.reorderTopLibraryCards(cards);
+  }
+
+  async moveSelectedLibraryCards(request: LibrarySelectionBatchRequest): Promise<void> {
+    await this.libraryTopState.moveSelected(request);
+  }
+
+  async playTopLibraryFaceDown(request: LibraryTopFaceDownRequest): Promise<void> {
+    await this.libraryTopState.playTopFaceDown(request);
   }
 
   async moveAllZoneCards(
@@ -1611,7 +1651,7 @@ export class GameTableStore implements OnDestroy {
     zone: GameZoneName,
     selectedCardId: string | null = null,
     readOnly = false,
-    options: { allowGiveDestination?: boolean } = {},
+    options: { allowGiveDestination?: boolean; localMultiSelect?: boolean } = {},
   ): Promise<void> {
     this.clearCardPreview();
     await this.zoneActions.openZone(this.contexts.zoneAction(), playerId, zone, selectedCardId, readOnly, {
@@ -1627,7 +1667,7 @@ export class GameTableStore implements OnDestroy {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
+    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null; localMultiSelect?: boolean } = {},
   ): void {
     this.clearCardPreview();
     this.zoneActions.openFixedZone(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
@@ -1886,6 +1926,7 @@ export class GameTableStore implements OnDestroy {
     this.snapshotCoordinatorState.setSnapshot({
       openRevealedLibraryFromSnapshot: (nextSnapshot) => this.openRevealedLibraryFromSnapshot(nextSnapshot),
     }, snapshot);
+    this.zoneModalState.reconcileLibraryView(snapshot);
     this.pruneTransientCardUiState(snapshot);
   }
 

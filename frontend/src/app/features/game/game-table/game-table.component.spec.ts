@@ -3493,7 +3493,7 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.zoneModal()?.selectedCard).toBe(libraryCard);
   });
 
-  it('keeps a viewed top-library modal bounded after moving one viewed card', async () => {
+  it('keeps View X card selection local and does not expose mutation context actions', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
@@ -3509,6 +3509,10 @@ describe('GameTableComponent', () => {
     };
     snapshot.players['user-1']!.zones.library = [firstLibraryCard, secondLibraryCard];
     snapshot.players['user-1']!.zoneCounts!.library = 20;
+    snapshot.players['user-1']!.libraryVisibilityEpoch = 0;
+    snapshot.players['user-1']!.libraryWindow = {
+      windowId: 'lw-component-top', expectedEpoch: 0, openedAtVersion: snapshot.version + 1, status: 'active',
+    };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-library', type: 'library.view', payload: {}, createdBy: 'user-1', createdAt: '' },
@@ -3522,38 +3526,29 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.store.viewTopLibrary('user-1', 2);
     expect(gamesApi.zone).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.zoneModal()?.showFilters).toBe(false);
+    expect(fixture.componentInstance.store.zoneModal()?.localMultiSelect).toBe(true);
     expect(fixture.componentInstance.store.zoneModal()?.cards.map((card) => card.instanceId)).toEqual(['library-card-1', 'library-card-2']);
 
-    fixture.componentInstance.handleContextMenuAction({ type: 'moveCard', zone: 'graveyard' }, {
-      x: 0,
-      y: 0,
-      playerId: 'user-1',
-      zone: 'library',
-      kind: 'card',
-      card: firstLibraryCard,
-      fromFixedZoneModal: true,
-    });
+    fixture.componentInstance.store.openZoneModalCardMenu({
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as MouseEvent, firstLibraryCard);
 
-    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'card.moved',
-      payload: expect.objectContaining({
-        playerId: 'user-1',
-        fromZone: 'library',
-        toZone: 'graveyard',
-        instanceId: 'library-card-1',
-        sourceContext: { type: 'libraryTopView', count: 2 },
-      }),
-    }), 'game-1'));
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+    expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1);
     expect(gamesApi.zone).not.toHaveBeenCalled();
-    await vi.waitFor(() => expect(fixture.componentInstance.store.zoneModal()?.cards.map((card) => card.instanceId)).toEqual(['library-card-2']));
     expect(fixture.componentInstance.store.zoneModal()?.total).toBe(2);
   });
 
-  it('shuffles the library after closing a view all library modal', async () => {
+  it('opens and closes a transient view-all modal without zone fetch or library mutation', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     const libraryCard = snapshot.players['user-1'].zones.library[0]!;
+    snapshot.players['user-1'].libraryVisibilityEpoch = 0;
+    snapshot.players['user-1'].libraryWindow = {
+      windowId: 'lw-component-all', expectedEpoch: 0, openedAtVersion: snapshot.version + 1, status: 'active',
+    };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-library', type: 'library.view', payload: {}, createdBy: 'user-1', createdAt: '' },
@@ -3579,25 +3574,27 @@ describe('GameTableComponent', () => {
       kind: 'zone',
     });
 
-    await vi.waitFor(() => expect(gamesApi.zone).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(fixture.componentInstance.store.zoneModal()?.lifecycle).toBe('ready'));
+    expect(gamesApi.zone).not.toHaveBeenCalled();
     await fixture.componentInstance.store.closeZoneModal();
 
-    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(2));
-    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1);
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'library.view',
       payload: { playerId: 'user-1' },
     }), 'game-1');
-    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      type: 'library.shuffle',
-      payload: { playerId: 'user-1' },
-    }), 'game-1');
+    expect(fixture.componentInstance.store.zoneModal()).toBeNull();
   });
 
-  it('opens view-all library card menus with give destinations enabled', async () => {
+  it('does not expose card mutation menus from a view-all library modal', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     const libraryCard = snapshot.players['user-1'].zones.library[0]!;
+    snapshot.players['user-1'].libraryVisibilityEpoch = 0;
+    snapshot.players['user-1'].libraryWindow = {
+      windowId: 'lw-component-readonly', expectedEpoch: 0, openedAtVersion: snapshot.version + 1, status: 'active',
+    };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-library', type: 'library.view', payload: {}, createdBy: 'user-1', createdAt: '' },
@@ -3624,12 +3621,7 @@ describe('GameTableComponent', () => {
       clientY: 160,
     } as unknown as MouseEvent, libraryCard);
 
-    expect(fixture.componentInstance.store.contextMenu()).toEqual(expect.objectContaining({
-      kind: 'card',
-      zone: 'library',
-      card: libraryCard,
-      fromFixedZoneModal: true,
-    }));
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
   });
 
   it.each(['graveyard', 'exile'] as const)('opens %s modal card menus with give destinations enabled', async (zone) => {
@@ -4240,6 +4232,33 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-1');
     expect(fixture.componentInstance.opponentSidebarPlayers().map((player) => player.id)).toEqual(['user-2']);
   });
+
+	it('keeps responsive opponent content inert until the explicit drawer trigger opens it', async () => {
+		routeParams['id'] = 'game-1';
+		authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+		const snapshot = snapshotWithStatus('active');
+		addOpponent(snapshot);
+		gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+		const fixture = TestBed.createComponent(GameTableComponent);
+		fixture.detectChanges();
+		await fixture.whenStable();
+		fixture.detectChanges();
+		await fixture.whenStable();
+		fixture.componentInstance.responsiveState.set('minimal');
+		fixture.detectChanges();
+
+		const list = (fixture.nativeElement as HTMLElement).querySelector('#game-table-opponents-list') as HTMLElement;
+		const trigger = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="opponents-drawer-toggle"]') as HTMLButtonElement;
+		expect(trigger.getAttribute('aria-expanded')).toBe('false');
+		expect(list.getAttribute('aria-hidden')).toBe('true');
+		expect(list.hasAttribute('inert')).toBe(true);
+
+		trigger.click();
+		fixture.detectChanges();
+		expect(trigger.getAttribute('aria-expanded')).toBe('true');
+		expect(list.getAttribute('aria-hidden')).toBe('false');
+		expect(list.hasAttribute('inert')).toBe(false);
+	});
 
   it('keeps defeated opponents at the bottom of the opponent sidebar', async () => {
     routeParams['id'] = 'game-1';

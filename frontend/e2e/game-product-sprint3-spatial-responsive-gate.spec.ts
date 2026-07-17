@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { authStorageState, createRealUserSession } from './support/auth';
 import { resolveGameToPlaying } from './support/commander-game';
 import { createBasicCommanderDeckFromDatabase } from './support/decks';
@@ -87,6 +87,7 @@ test.describe('Gameplay 1.0 Sprint 3E integrated spatial, relations and responsi
           await Promise.all(pages.map((page) => page.goto(`/games/${setup.gameId}`)));
         }
         await Promise.all(pages.map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })));
+				await expectStablePresence(request, setup, pages);
         await Promise.all(pages.map((page) => focusPlayerById(page, setup.players[0]!.user.id)));
 
         await assertResponsiveSurface(pages[0]!, scenario.state, scenario.players);
@@ -511,7 +512,9 @@ async function assertRefreshReconnectRestart(
     await expect(pages[2]!.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
     await focusPlayerById(pages[2]!, setup.players[0]!.user.id);
   }
-  expect(await canonicalSharedState(request, setup, fixture)).toEqual(before);
+  const afterReconnect = await canonicalSharedState(request, setup, fixture);
+  expect(canonicalStateWithoutVersion(afterReconnect)).toEqual(canonicalStateWithoutVersion(before));
+  expect(Number(afterReconnect['version'] ?? 0)).toBeGreaterThanOrEqual(version);
 
   await restartRuntime();
   await expect.poll(async () => {
@@ -520,12 +523,14 @@ async function assertRefreshReconnectRestart(
   await Promise.all(pages.map((page) => page.reload()));
   await Promise.all(pages.map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })));
   await Promise.all(pages.map((page) => focusPlayerById(page, setup.players[0]!.user.id)));
-  expect(await canonicalSharedState(request, setup, fixture)).toEqual(before);
+  const afterRestart = await canonicalSharedState(request, setup, fixture);
+  expect(canonicalStateWithoutVersion(afterRestart)).toEqual(canonicalStateWithoutVersion(before));
+  expect(Number(afterRestart['version'] ?? 0)).toBeGreaterThanOrEqual(Number(afterReconnect['version'] ?? 0));
 
   const action = await sendRuntimeCommand(request, {
     gameId: setup.gameId,
     token: setup.players[0]!.token,
-    baseVersion: version,
+    baseVersion: Number(afterRestart['version'] ?? version),
     type: 'card.counter.changed',
     payload: { playerId: setup.players[0]!.user.id, instanceId: fixture.targetId, counter: 'shield', value: 11 },
   });
@@ -533,6 +538,11 @@ async function assertRefreshReconnectRestart(
   await assertPatchOnAllViewers(audits, action.clientActionId, action.version);
   await assertFiveCounters(pages[0]!, fixture.targetId, true, 11);
   await assertServicesAndMetrics(request);
+}
+
+function canonicalStateWithoutVersion(state: JsonObject): JsonObject {
+  const { version: _durablePresenceVersion, ...gameplayState } = state;
+  return gameplayState;
 }
 
 async function assertResponsiveSurface(page: Page, state: ResponsiveState, playerCount: number): Promise<void> {
@@ -570,8 +580,14 @@ async function assertMulliganAcrossFourStates(page: Page): Promise<void> {
 async function assertOpponentPanels(page: Page, playerCount: number): Promise<void> {
   const drawer = page.getByTestId('opponents-drawer-toggle');
   if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') !== 'true') await drawer.click();
+	if (await drawer.isVisible()) await expect(drawer).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByTestId('opponent-mini-board')).toHaveCount(playerCount - 1);
-  await expect(page.getByTestId('opponent-mini-board').first()).toBeVisible();
+  const boards = page.getByTestId('opponent-mini-board');
+  const visibleBoardCount = await drawer.isVisible() ? await boards.count() : Math.min(1, await boards.count());
+  for (let index = 0; index < visibleBoardCount; index += 1) {
+    await expect(boards.nth(index)).toBeVisible();
+		await expectWithinViewport(page, boards.nth(index));
+  }
   if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') === 'true') {
     await drawer.click();
     await expect(drawer).toHaveAttribute('aria-expanded', 'false');
@@ -584,6 +600,10 @@ async function assertClosedOpponentsDrawerDoesNotInterceptChat(page: Page): Prom
     await drawer.click();
   }
   if (await drawer.isVisible()) await expect(drawer).toHaveAttribute('aria-expanded', 'false');
+	if (await drawer.isVisible()) {
+		await expect(page.locator('#game-table-opponents-list')).toHaveAttribute('aria-hidden', 'true');
+		await expect(page.locator('#game-table-opponents-list')).toHaveAttribute('inert', '');
+	}
   await openChat(page);
   const input = page.getByTestId('chat-input');
   await input.fill('');
@@ -643,7 +663,9 @@ async function assertDenseCards(pages: Page[], ownerId: string, fixture: DenseFi
   const ids = [fixture.targetId, ...fixture.attachmentIds, ...fixture.stackIds, fixture.faceDownId, ...fixture.freeIds];
   for (const page of pages) {
     for (const instanceId of ids) {
-      const card = battlefieldCard(page, ownerId, instanceId);
+      const privateFaceDown = page !== pages[0] && instanceId === fixture.faceDownId;
+      const card = privateFaceDown ? opaqueBattlefieldShell(page, ownerId) : battlefieldCard(page, ownerId, instanceId);
+      if (privateFaceDown) await expect(battlefieldCard(page, ownerId, instanceId)).toHaveCount(0);
       await expect(card).toBeVisible();
       const box = await card.boundingBox();
       expect(box).not.toBeNull();
@@ -674,7 +696,8 @@ async function assertZoneModalFits(page: Page): Promise<void> {
 async function assertPrivacy(request: APIRequestContext, setup: Setup, faceDownId: string): Promise<void> {
   for (const viewer of setup.players.slice(1, 3)) {
     const snapshot = await gameSnapshot(request, setup.gameId, viewer.token);
-    const shell = findCard(snapshot, faceDownId);
+    expect(findCard(snapshot, faceDownId)).toBeUndefined();
+    const shell = opaqueBattlefieldSnapshotCard(snapshot, setup.players[0]!.user.id);
     expect(shell?.['faceDown']).toBe(true);
     expect(JSON.stringify(shell)).not.toMatch(/cardKey|cardRef|printId|imageUris|cardFaces|oracleText|printedStats|manualOverrides|viewerMask|socketId|connectionEpoch/i);
   }
@@ -691,7 +714,9 @@ async function canonicalSharedState(request: APIRequestContext, setup: Setup, fi
   return {
     version: snapshot['version'],
     cards: Object.fromEntries(ids.map((instanceId) => {
-      const card = findCard(snapshot, instanceId) ?? {};
+      const card = instanceId === fixture.faceDownId
+        ? findCard(snapshot, instanceId) ?? opaqueBattlefieldSnapshotCard(snapshot, setup.players[0]!.user.id) ?? {}
+        : findCard(snapshot, instanceId) ?? {};
       return [instanceId, {
         position: card['position'],
         controllerId: card['controllerId'],
@@ -843,11 +868,11 @@ async function createContexts(
   ownerViewport: { width: number; height: number },
   ownerZoom: 70 | 100 | 140,
 ): Promise<BrowserContext[]> {
-  const profiles = [
-    { player: setup.players[0]!, viewport: ownerViewport, zoom: ownerZoom },
-    { player: setup.players[1]!, viewport: { width: 900, height: 620 }, zoom: 70 },
-  ];
-  if (setup.players[2]) profiles.push({ player: setup.players[2], viewport: { width: 1600, height: 1000 }, zoom: 140 });
+  const profiles = setup.players.map((player, index) => ({
+		player,
+		viewport: index === 0 ? ownerViewport : (index === 1 ? { width: 900, height: 620 } : { width: 1600, height: 1000 }),
+		zoom: index === 0 ? ownerZoom : (index === 1 ? 70 as const : 140 as const),
+	}));
   return Promise.all(profiles.map(async ({ player, viewport, zoom }) => {
     const context = await browser.newContext({ baseURL, viewport, storageState: authStorageState(baseURL, player.user, player.refreshToken) });
     await context.addInitScript(({ key, value }) => {
@@ -862,11 +887,22 @@ async function focusPlayerById(page: Page, playerId: string): Promise<void> {
   const panel = page.getByTestId('player-panel');
   if (await panel.getAttribute('data-player-id') === playerId) return;
   const drawer = page.getByTestId('opponents-drawer-toggle');
-  if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') !== 'true') await drawer.click();
+  const drawerVisible = await drawer.isVisible();
+  if (drawerVisible && await drawer.getAttribute('aria-expanded') !== 'true') await drawer.click();
   const board = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
   await expect(board).toBeVisible();
+	if (drawerVisible) await expectWithinViewport(page, board);
   await board.click();
   await expect(panel).toHaveAttribute('data-player-id', playerId);
+}
+
+async function expectWithinViewport(page: Page, locator: Locator): Promise<void> {
+	await expect.poll(async () => {
+		const box = await locator.boundingBox();
+		const viewport = page.viewportSize();
+		return box !== null && viewport !== null && box.x >= 0 && box.y >= 0
+			&& box.x + box.width <= viewport.width && box.y + box.height <= viewport.height;
+	}).toBe(true);
 }
 
 async function assertServicesAndMetrics(request: APIRequestContext): Promise<void> {
@@ -978,6 +1014,15 @@ async function gameSnapshot(request: APIRequestContext, gameId: string, token: s
   return ((await response.json()) as { game: { snapshot: JsonObject } }).game.snapshot;
 }
 
+async function expectStablePresence(request: APIRequestContext, setup: Setup, pages: readonly Page[]): Promise<void> {
+	await expect.poll(async () => {
+		const live = await gameSnapshot(request, setup.gameId, setup.players[0]!.token);
+		const presence = (live['presence'] ?? {}) as Record<string, JsonObject>;
+		return setup.players.every((player) => presence[player.user.id]?.['connected'] !== false);
+	}, { timeout: 30_000 }).toBe(true);
+	await Promise.all(pages.map((page) => expect(page.locator('app-game-disconnect-vote-modal [role="dialog"]')).toHaveCount(0)));
+}
+
 async function waitForSnapshotVersion(request: APIRequestContext, gameId: string, token: string, version: number): Promise<void> {
   await expect.poll(async () => Number((await gameSnapshot(request, gameId, token))['version']), { timeout: 20_000 }).toBe(version);
 }
@@ -1031,6 +1076,18 @@ function parseFrame(payload: string | Buffer): JsonObject | null {
 
 function battlefieldCard(page: Page, ownerId: string, instanceId: string) {
   return page.locator(`[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${ownerId}"][data-card-instance-id="${instanceId}"]`);
+}
+
+function opaqueBattlefieldShell(page: Page, ownerId: string) {
+  return page.locator(
+    `[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${ownerId}"][data-card-instance-id^="${ownerId}-hidden-battlefield-"]`,
+  ).first();
+}
+
+function opaqueBattlefieldSnapshotCard(snapshot: JsonObject, ownerId: string): JsonObject | undefined {
+  const player = (snapshot['players'] as Record<string, JsonObject> | undefined)?.[ownerId];
+  const cards = (player?.['zones'] as Record<string, JsonObject[]> | undefined)?.['battlefield'] ?? [];
+  return cards.find((card) => String(card['instanceId'] ?? '').startsWith(`${ownerId}-hidden-battlefield-`));
 }
 
 async function expectNoGlobalOverflow(page: Page): Promise<void> {

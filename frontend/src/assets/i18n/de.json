@@ -22,6 +22,7 @@
     }
   },
   "gameLog": {
+    "hand": { "revealed": "{{ actor }} deckte {{ count }} Handkarten auf.", "revoked": "{{ actor }} entzog den Zugriff auf {{ count }} aufgedeckte Handkarten." },
     "commanderDamage": {
       "changed": "Der Kommandeursschaden von {{ source }} an {{ target }} wurde von {{ previousDamage }} auf {{ damage }} geändert. Die Lebenspunkte wurden von {{ previousLife }} auf {{ life }} geändert."
     },
@@ -46,7 +47,16 @@
     "library": {
       "draw": "{{ actor }} drew a card.",
       "drawMany": "{{ actor }} drew {{ count }} cards.",
-      "shuffle": "{{ actor }} shuffled their library."
+      "shuffle": "{{ actor }} shuffled their library.",
+      "selectedMoved": "{{ actor }} verschob {{ count }} ausgewählte Bibliothekskarten nach {{ destination }}.",
+      "playedSelectedFaceDown": "{{ actor }} spielte {{ count }} ausgewählte Bibliothekskarten verdeckt.",
+      "selectedToHand": "{{ actor }} nahm {{ count }} ausgewählte Bibliothekskarten auf die Hand.",
+      "selectedToGraveyard": "{{ actor }} legte {{ count }} ausgewählte Bibliothekskarten auf den Friedhof.",
+      "selectedToExile": "{{ actor }} schickte {{ count }} ausgewählte Bibliothekskarten ins Exil.",
+      "selectedToBattlefield": "{{ actor }} brachte {{ count }} ausgewählte Bibliothekskarten ins Spiel.",
+      "putSelectedTop": "{{ actor }} legte {{ count }} ausgewählte Karten oben auf die Bibliothek.",
+      "putSelectedBottom": "{{ actor }} legte {{ count }} ausgewählte Karten unter die Bibliothek.",
+      "playedTopFaceDown": "{{ actor }} spielte die obersten {{ count }} Bibliothekskarten verdeckt."
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
@@ -851,6 +861,13 @@
       "focusTurn": "Fokusdrehung",
       "passTurn": "Pass dran"
     },
+    "handRevealDialog": {
+      "title": "Handkarten aufdecken", "summary": "Prüfe die Empfänger für {{ count }} ausgewählte Karte(n).",
+      "action": "Aktion", "reveal": "Aufdecken", "revoke": "Zugriff entziehen", "recipients": "Empfänger", "allPlayers": "Alle Spieler",
+      "confirmReveal": "{{ count }} Karte(n) für {{ recipients }} Empfänger aufdecken.", "confirmRevoke": "{{ recipients }} Empfängern den Zugriff auf {{ count }} Karte(n) entziehen.",
+      "pending": "Sichtbarkeit wird geändert...", "cancel": "Abbrechen", "confirmRevealButton": "Aufdecken bestätigen", "confirmRevokeButton": "Entzug bestätigen",
+      "invalidSelection": "Wähle gültige Handkarten.", "stale": "Die ausgewählten Handkarten haben sich geändert. Öffne die Aktion erneut."
+    },
     "zoneModal": {
       "searchByName": "Suche nach Namen",
       "closeZone": "Nahbereich",
@@ -864,7 +881,38 @@
       "enchantments": "Verzauberungen",
       "planeswalkers": "Planeswalkers",
       "lands": "LÃ¤ndereien",
-      "search": "Suchen"
+      "search": "Suchen",
+      "cardCount": "{{count}} Karten",
+      "selectionInstructions": "Wähle Karten lokal aus. Die Bibliothek wird nicht verändert.",
+      "selectionToolbar": "Kartenauswahl",
+      "selectedCount": "{{selected}} von {{total}} ausgewählt",
+      "selectAll": "Alle auswählen",
+      "clearAll": "Auswahl löschen",
+      "reorderMode": "Neu anordnen",
+      "selectionMode": "Auswählen",
+      "viewStale": "Diese Bibliotheksansicht ist nicht mehr gültig. Schließe sie und öffne eine neue.",
+      "viewError": "Die private Bibliotheksansicht konnte nicht geöffnet werden. Schließe sie und versuche es erneut.",
+      "connectionChanged": "Die Verbindung hat sich geändert. Diese private Ansicht wurde zur Sicherheit geschlossen. Öffne sie erneut.",
+      "emptyView": "In dieser Ansicht sind keine autorisierten Karten verfügbar.",
+      "batchToolbar": "Private Bibliotheksaktionen",
+      "batchActions": "Aktionen",
+      "batchPending": "Bestätigte Aktion wird ausgeführt...",
+      "batchError": "Die Aktion konnte nicht ausgeführt werden. Die Bibliothek blieb unverändert.",
+      "invalidBatch": "Wähle mindestens eine gültige Karte aus.",
+      "confirmTitle": "Bibliotheksaktion bestätigen",
+      "confirmCount": "Diese Aktion betrifft {{count}} Karte(n).",
+      "cancel": "Abbrechen",
+      "confirm": "Bestätigen",
+      "action": {
+        "hand": "Auswahl auf die Hand nehmen",
+        "battlefield-face-up": "Auswahl offen ins Spiel bringen",
+        "battlefield-face-down": "Auswahl verdeckt ins Spiel bringen",
+        "graveyard": "Auswahl auf den Friedhof legen",
+        "exile": "Auswahl ins Exil schicken",
+        "library-top": "Auswahl oben auflegen",
+        "library-bottom": "Auswahl unter die Bibliothek legen",
+        "playTopFaceDown": "Oberste {{count}} verdeckt spielen"
+      }
     },
     "gameTable": {
       "message": "Nachricht",

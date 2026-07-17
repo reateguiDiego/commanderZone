@@ -157,7 +157,11 @@ export class GameTableSessionService {
   }
 
   private refetchIfSnapshotIsBehind(context: GameTableSessionContext, event: MercureGameEvent): void {
-    if (this.gameplayV2Flags.enabled() && this.websocket.status() === 'connected') {
+    // Patch.v2 owns continuity for the migrated gameplay path, including a
+    // short transport restart. Mercure invalidations must not fall back to a
+    // bootstrap while that path reconnects; doing so races the replay stream
+    // and turns an actor restart into an unsolicited refetch.
+    if (this.gameplayV2Flags.enabled()) {
       return;
     }
 

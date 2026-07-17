@@ -111,15 +111,7 @@ func (CardsPositionChangedApplier) Apply(_ context.Context, game *state.GameStat
 			"position":   cloneMap(position),
 		})
 	}
-	emitter.EmitPublic(protocol.PatchOp{
-		Op: "cards.position.set",
-		Data: map[string]any{
-			"effectVersion": PositionContractEffectVersion,
-			"playerId":      playerID,
-			"zone":          state.ZoneBattlefield,
-			"positions":     patchPositions,
-		},
-	})
+	emitPositionPatchByViewer(emitter, game, playerID, "cards.position.set", patchPositions)
 
 	return map[string]any{
 		"effectVersion":     PositionContractEffectVersion,
@@ -129,6 +121,69 @@ func (CardsPositionChangedApplier) Apply(_ context.Context, game *state.GameStat
 		"positions":         applied,
 		"metrics":           battlefieldMetrics(start, emitter),
 	}, nil
+}
+
+func emitPositionPatchByViewer(
+	emitter *PatchEmitter,
+	game *state.GameState,
+	playerID string,
+	opName string,
+	positions []map[string]any,
+) {
+	hasFaceDown := false
+	for _, entry := range positions {
+		instanceID, _ := entry["instanceId"].(string)
+		if game.Instances[instanceID].FaceDown {
+			hasFaceDown = true
+			break
+		}
+	}
+	emit := func(visibilityPlayerID string, projected []map[string]any) {
+		data := map[string]any{
+			"effectVersion": PositionContractEffectVersion,
+			"playerId":      playerID,
+			"zone":          state.ZoneBattlefield,
+		}
+		if opName == "card.position.set" {
+			data["instanceId"] = projected[0]["instanceId"]
+			data["position"] = cloneMap(projected[0]["position"].(map[string]any))
+			op := protocol.PatchOp{Op: "card.position.set", Data: data}
+			if visibilityPlayerID == "" {
+				emitter.EmitPublic(op)
+			} else {
+				emitter.EmitPrivate(visibilityPlayerID, op)
+			}
+			return
+		}
+		data["positions"] = projected
+		op := protocol.PatchOp{Op: "cards.position.set", Data: data}
+		if visibilityPlayerID == "" {
+			emitter.EmitPublic(op)
+		} else {
+			emitter.EmitPrivate(visibilityPlayerID, op)
+		}
+	}
+	if !hasFaceDown {
+		emit("", positions)
+		return
+	}
+	for viewerID := range game.Players {
+		projected := make([]map[string]any, 0, len(positions))
+		for _, entry := range positions {
+			instanceID, _ := entry["instanceId"].(string)
+			projectedID := instanceID
+			if game.Instances[instanceID].FaceDown && !game.CanViewerSeeCardKey(viewerID, instanceID) {
+				location := game.Loc[instanceID]
+				projectedID = privatePlaceholderID(location.PlayerID, location.Zone, location.Index)
+			}
+			position, _ := entry["position"].(map[string]any)
+			projected = append(projected, map[string]any{
+				"instanceId": projectedID,
+				"position":   cloneMap(position),
+			})
+		}
+		emit(viewerID, projected)
+	}
 }
 
 type CounterChangedApplier struct{}

@@ -11,6 +11,16 @@ type CardSpoilerSlot = {
   card: GameCardInstance | null;
 };
 
+export interface CardSpoilerPointerInteraction {
+  readonly card: GameCardInstance;
+  readonly event: MouseEvent;
+}
+
+export interface CardSpoilerKeyboardInteraction {
+  readonly card: GameCardInstance;
+  readonly event: KeyboardEvent;
+}
+
 @Component({
   selector: 'app-card-spoiler-grid',
   imports: [RuntimeTranslatePipe, PrettyScrollDirective, GameTableLongPressDirective, LucideAngularModule],
@@ -27,11 +37,17 @@ export class CardSpoilerGridComponent implements OnDestroy {
   readonly allowContextMenu = input(true);
   readonly allowReorder = input(false);
   readonly allowSelection = input(true);
+  readonly multiSelect = input(false);
+  readonly selectedCardIds = input<readonly string[]>([]);
+  readonly focusedCardId = input<string | null>(null);
   readonly orderLabels = input<readonly string[]>([]);
   readonly emptyLabel = input('No cards found');
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
 
   readonly cardSelected = output<GameCardInstance>();
+  readonly cardInteracted = output<CardSpoilerPointerInteraction>();
+  readonly cardKeyPressed = output<CardSpoilerKeyboardInteraction>();
+  readonly cardFocused = output<GameCardInstance>();
   readonly cardDoubleClicked = output<GameCardInstance>();
   readonly cardMenuOpened = output<{ event: MouseEvent; card: GameCardInstance }>();
   readonly cardsReordered = output<readonly GameCardInstance[]>();
@@ -60,12 +76,64 @@ export class CardSpoilerGridComponent implements OnDestroy {
     this.clearFaceFlipTimers();
   }
 
-  selectCard(card: GameCardInstance): void {
+  selectCard(event: MouseEvent, card: GameCardInstance): void {
     if (!this.allowSelection()) {
       return;
     }
 
     this.cardSelected.emit(card);
+    this.cardInteracted.emit({ card, event });
+  }
+
+  handleCardKeydown(event: KeyboardEvent, card: GameCardInstance): void {
+    if (!this.allowSelection()) {
+      return;
+    }
+
+    if (event.key === ' ' || event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.cardKeyPressed.emit({ card, event });
+      return;
+    }
+
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.moveFocus(card.instanceId, event.key);
+  }
+
+  focusCard(card: GameCardInstance): void {
+    this.cardFocused.emit(card);
+  }
+
+  focusCardById(instanceId: string | null): boolean {
+    const target = this.cardElements().find((element) => element.dataset['cardInstanceId'] === instanceId)
+      ?? this.cardElements()[0]
+      ?? null;
+    if (!target) {
+      return false;
+    }
+
+    target.focus({ preventScroll: true });
+    target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    return true;
+  }
+
+  isMultiSelected(card: GameCardInstance): boolean {
+    return this.selectedCardIds().includes(card.instanceId);
+  }
+
+  cardTabIndex(card: GameCardInstance): number {
+    if (!this.multiSelect()) {
+      return 0;
+    }
+
+    const focusedId = this.focusedCardId() ?? this.cards()[0]?.instanceId ?? null;
+    return focusedId === card.instanceId ? 0 : -1;
   }
 
   doubleClickCard(event: MouseEvent, card: GameCardInstance): void {
@@ -292,6 +360,61 @@ export class CardSpoilerGridComponent implements OnDestroy {
 
   private cardElements(): HTMLElement[] {
     return Array.from(this.hostElement.querySelectorAll<HTMLElement>('[data-card-instance-id]'));
+  }
+
+  private moveFocus(currentId: string, key: string): void {
+    const elements = this.cardElements();
+    const currentIndex = elements.findIndex((element) => element.dataset['cardInstanceId'] === currentId);
+    if (currentIndex < 0 || elements.length === 0) {
+      return;
+    }
+
+    let targetIndex = currentIndex;
+    if (key === 'Home') {
+      targetIndex = 0;
+    } else if (key === 'End') {
+      targetIndex = elements.length - 1;
+    } else if (key === 'ArrowLeft') {
+      targetIndex = Math.max(0, currentIndex - 1);
+    } else if (key === 'ArrowRight') {
+      targetIndex = Math.min(elements.length - 1, currentIndex + 1);
+    } else {
+      targetIndex = this.verticalNavigationTarget(elements, currentIndex, key === 'ArrowDown');
+    }
+
+    const targetId = elements[targetIndex]?.dataset['cardInstanceId'] ?? null;
+    this.focusCardById(targetId);
+  }
+
+  private verticalNavigationTarget(elements: readonly HTMLElement[], currentIndex: number, down: boolean): number {
+    const currentRect = elements[currentIndex]?.getBoundingClientRect();
+    if (!currentRect) {
+      return currentIndex;
+    }
+
+    const currentX = currentRect.left + currentRect.width / 2;
+    const currentY = currentRect.top + currentRect.height / 2;
+    let bestIndex = currentIndex;
+    let bestScore = Number.POSITIVE_INFINITY;
+    elements.forEach((element, index) => {
+      if (index === currentIndex) {
+        return;
+      }
+      const rect = element.getBoundingClientRect();
+      const targetY = rect.top + rect.height / 2;
+      const verticalDistance = down ? targetY - currentY : currentY - targetY;
+      if (verticalDistance <= 1) {
+        return;
+      }
+      const horizontalDistance = Math.abs(rect.left + rect.width / 2 - currentX);
+      const score = verticalDistance * 1000 + horizontalDistance;
+      if (score < bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+
+    return bestIndex;
   }
 
   private clearDropTarget(): void {

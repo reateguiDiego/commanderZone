@@ -1,0 +1,89 @@
+<div class="hand-reveal-backdrop" data-testid="hand-reveal-dialog" role="presentation">
+  <form
+    class="hand-reveal-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="hand-reveal-title"
+    aria-describedby="hand-reveal-description"
+    (click)="$event.stopPropagation()"
+    (ngSubmit)="confirm()"
+  >
+    <header>
+      <h2 id="hand-reveal-title">{{ 'game.handRevealDialog.title' | runtimeTranslate }}</h2>
+      <p id="hand-reveal-description">
+        {{ 'game.handRevealDialog.summary' | runtimeTranslate:{ count: cardCount() } }}
+      </p>
+    </header>
+
+    <fieldset class="mode-options" [disabled]="pending()">
+      <legend>{{ 'game.handRevealDialog.action' | runtimeTranslate }}</legend>
+      <label>
+        <input
+          data-hand-reveal-initial-focus
+          type="radio"
+          name="hand-reveal-mode"
+          value="reveal"
+          [checked]="mode() === 'reveal'"
+          (change)="setMode('reveal')"
+        />
+        <span>{{ 'game.handRevealDialog.reveal' | runtimeTranslate }}</span>
+      </label>
+      <label>
+        <input
+          type="radio"
+          name="hand-reveal-mode"
+          value="revoke"
+          [disabled]="!canRevoke()"
+          [checked]="mode() === 'revoke'"
+          (change)="setMode('revoke')"
+        />
+        <span>{{ 'game.handRevealDialog.revoke' | runtimeTranslate }}</span>
+      </label>
+    </fieldset>
+
+    <fieldset class="audience-options" [disabled]="pending()">
+      <legend>{{ 'game.handRevealDialog.recipients' | runtimeTranslate }}</legend>
+      <label class="audience-all">
+        <input
+          type="checkbox"
+          data-testid="hand-reveal-audience-all"
+          [checked]="allPlayers()"
+          (change)="setAllPlayers($any($event.target).checked)"
+        />
+        <span>{{ 'game.handRevealDialog.allPlayers' | runtimeTranslate }}</span>
+      </label>
+      <div class="player-options">
+        @for (player of availablePlayers(); track player.id) {
+          <label>
+            <input
+              type="checkbox"
+              [attr.data-testid]="'hand-reveal-audience-' + player.id"
+              [checked]="!allPlayers() && isPlayerSelected(player.id)"
+              (change)="togglePlayer(player.id, $any($event.target).checked)"
+            />
+            <span>{{ player.state.user.displayName }}</span>
+          </label>
+        }
+      </div>
+    </fieldset>
+
+    <p class="confirmation-copy">
+      {{ (mode() === 'reveal' ? 'game.handRevealDialog.confirmReveal' : 'game.handRevealDialog.confirmRevoke') | runtimeTranslate:{ count: cardCount(), recipients: selectedCount() } }}
+    </p>
+    @if (pending()) {
+      <p class="status" role="status">{{ 'game.handRevealDialog.pending' | runtimeTranslate }}</p>
+    }
+    @if (error()) {
+      <p class="error" role="alert">{{ error()! | runtimeTranslate }}</p>
+    }
+
+    <footer>
+      <button type="button" class="secondary-button" [disabled]="pending()" (click)="cancel()">
+        {{ 'game.handRevealDialog.cancel' | runtimeTranslate }}
+      </button>
+      <button type="submit" class="primary-button" data-testid="hand-reveal-confirm" [disabled]="!canConfirm()">
+        {{ (mode() === 'reveal' ? 'game.handRevealDialog.confirmRevealButton' : 'game.handRevealDialog.confirmRevokeButton') | runtimeTranslate }}
+      </button>
+    </footer>
+  </form>
+</div>

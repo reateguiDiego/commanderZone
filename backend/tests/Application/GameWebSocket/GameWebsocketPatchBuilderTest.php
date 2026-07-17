@@ -842,9 +842,13 @@ class GameWebsocketPatchBuilderTest extends TestCase
         ], 'action-face-down', $opponent);
         $encoded = json_encode($message, JSON_THROW_ON_ERROR);
 
-        self::assertSame('card.projection.set', $message['operations'][0]['op']);
-        self::assertSame('Face-down card', $message['operations'][0]['card']['name']);
-        self::assertTrue($message['operations'][0]['card']['hidden']);
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame('card.remove', $message['operations'][0]['op']);
+        self::assertSame('advanced-1', $message['operations'][0]['instanceId']);
+        self::assertSame('card.create', $message['operations'][1]['op']);
+        self::assertSame('Face-down card', $message['operations'][1]['card']['name']);
+        self::assertTrue($message['operations'][1]['card']['hidden']);
+        self::assertNotSame('advanced-1', $message['operations'][1]['card']['instanceId']);
         self::assertStringNotContainsString('Secret Dragon', $encoded);
         self::assertStringNotContainsString('Private oracle', $encoded);
     }
@@ -863,6 +867,109 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('zone.visible.set', $message['operations'][0]['op']);
         self::assertSame('hand', $message['operations'][0]['zone']);
         self::assertStringContainsString('Private Hand Reveal', json_encode($message['operations'][0]['cards'], JSON_THROW_ON_ERROR));
+    }
+
+    public function testHandRevealBatchMaterializesOnlyAuthorizedViewerWithoutResync(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateHandCards();
+        $previous = $game->snapshot();
+        $next = $previous;
+        $next['version'] = 2;
+        foreach ($next['players'][$actor->id()]['zones']['hand'] as &$card) {
+            $card['revealedTo'] = [$opponent->id()];
+        }
+        unset($card);
+        $next['eventLog'][] = [
+            'id' => 'hand-reveal-log',
+            'type' => 'hand.cards.reveal',
+            'message' => 'Owner revealed 2 cards from their hand.',
+            'i18nKey' => 'gameLog.hand.revealed',
+            'params' => ['count' => 2, 'audienceScope' => 'players'],
+            'createdAt' => '2026-01-01T00:00:01+00:00',
+        ];
+        $event = new GameEvent($game, 'hand.cards.reveal', [
+            'playerId' => $actor->id(),
+            'expectedZone' => 'hand',
+            'orderedInstanceIds' => ['hand-1', 'hand-2'],
+            'count' => 2,
+        ], $actor, 'hand-reveal-batch', 2);
+        $projection = new GameProjectionService(new GameCommandHandler());
+        $builder = new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory());
+
+        $message = $builder->build(
+            $game->id(),
+            $projection->projectSnapshot($previous, $opponent),
+            $projection->projectSnapshot($next, $opponent),
+            $event,
+            $event->payload(),
+            $opponent->id(),
+        );
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertNotContains('resync_required', [$message['kind']]);
+        self::assertSame('private.cards.materialize', $message['operations'][0]['op']);
+        self::assertCount(2, $message['operations'][0]['entries']);
+        self::assertSame($actor->id().'-hidden-hand-0', $message['operations'][0]['entries'][0]['placeholderId']);
+        self::assertSame('hand-1', $message['operations'][0]['entries'][0]['card']['instanceId']);
+        self::assertSame($actor->id().'-hidden-hand-1', $message['operations'][0]['entries'][1]['placeholderId']);
+        self::assertSame('hand-2', $message['operations'][0]['entries'][1]['card']['instanceId']);
+        self::assertStringContainsString('gameLog.hand.revealed', json_encode($message, JSON_THROW_ON_ERROR));
+    }
+
+    public function testHandRevokeBatchConcealsOnlyRevokedViewerAndRedactsLogIdentity(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithPrivateHandCards();
+        $previous = $game->snapshot();
+        foreach ($previous['players'][$actor->id()]['zones']['hand'] as &$card) {
+            $card['revealedTo'] = [$opponent->id()];
+        }
+        unset($card);
+        $next = $previous;
+        $next['version'] = 2;
+        foreach ($next['players'][$actor->id()]['zones']['hand'] as &$card) {
+            $card['revealedTo'] = [];
+        }
+        unset($card);
+        $privateId = 'hand-1';
+        $next['eventLog'][] = [
+            'id' => 'hand-revoke-log',
+            'type' => 'hand.cards.revoke',
+            'message' => 'Owner revoked access to 2 revealed hand cards.',
+            'i18nKey' => 'gameLog.hand.revoked',
+            'cardInstanceId' => $privateId,
+            'params' => ['count' => 2, 'instanceIds' => [$privateId, 'hand-2']],
+            'createdAt' => '2026-01-01T00:00:01+00:00',
+        ];
+        $event = new GameEvent($game, 'hand.cards.revoke', [
+            'playerId' => $actor->id(),
+            'expectedZone' => 'hand',
+            'orderedInstanceIds' => ['hand-1', 'hand-2'],
+            'count' => 2,
+        ], $actor, 'hand-revoke-batch', 2);
+        $projection = new GameProjectionService(new GameCommandHandler());
+        $builder = new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory());
+
+        $message = $builder->build(
+            $game->id(),
+            $projection->projectSnapshot($previous, $opponent),
+            $projection->projectSnapshot($next, $opponent),
+            $event,
+            $event->payload(),
+            $opponent->id(),
+        );
+        $encoded = json_encode($message, JSON_THROW_ON_ERROR);
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame('private.cards.conceal', $message['operations'][0]['op']);
+        self::assertCount(2, $message['operations'][0]['entries']);
+        self::assertSame('hand-1', $message['operations'][0]['entries'][0]['instanceId']);
+        self::assertSame($actor->id().'-hidden-hand-0', $message['operations'][0]['entries'][0]['placeholderId']);
+        $logOperation = array_values(array_filter(
+            $message['operations'],
+            static fn (array $operation): bool => ($operation['op'] ?? null) === 'eventLog.append',
+        ))[0] ?? [];
+        self::assertStringNotContainsString($privateId, json_encode($logOperation, JSON_THROW_ON_ERROR));
+        self::assertStringContainsString('gameLog.hand.revoked', $encoded);
     }
 
     public function testCounterAndStatsPatchesUpdateOnlyTheTargetCard(): void

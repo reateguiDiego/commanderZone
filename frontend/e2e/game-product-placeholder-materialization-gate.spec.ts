@@ -687,6 +687,11 @@ async function focusPlayerById(page: Page, playerId: string): Promise<void> {
   if (await page.getByTestId('player-panel').getAttribute('data-player-id') === playerId) {
     return;
   }
+	const drawer = page.getByTestId('opponents-drawer-toggle');
+	if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') !== 'true') {
+		await drawer.click();
+		await expect(drawer).toHaveAttribute('aria-expanded', 'true');
+	}
   const board = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
   await expect(board).toBeVisible({ timeout: 15_000 });
   await board.click();

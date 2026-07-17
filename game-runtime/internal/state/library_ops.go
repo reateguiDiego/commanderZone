@@ -263,6 +263,7 @@ func (ops *LibraryOps) Shuffle(game *GameState, playerID string) error {
 	if !ok {
 		return ErrMissingZone
 	}
+	game.InvalidateLibraryVisibility(playerID)
 	ops.rand.Shuffle(len(zones.Library), func(i, j int) {
 		zones.Library[i], zones.Library[j] = zones.Library[j], zones.Library[i]
 	})
@@ -274,15 +275,13 @@ func (ops *LibraryOps) ShuffleWithSeed(game *GameState, playerID string, seed ui
 	if !ok {
 		return ErrMissingZone
 	}
+	game.InvalidateLibraryVisibility(playerID)
 	shuffleStringsWithSeed(zones.Library, seed)
 	return finishLibraryShuffle(game, playerID, zones)
 }
 
 func finishLibraryShuffle(game *GameState, playerID string, zones PlayerZones) error {
 	game.Zones[playerID] = zones
-	game.EnsureVisibility()
-	game.Visibility.LibraryEpochByOwner[playerID]++
-	delete(game.Visibility.TopRevealWindows, playerID)
 	for index, instanceID := range zones.Library {
 		instance := game.Instances[instanceID]
 		game.Loc[instanceID] = Location{PlayerID: playerID, Zone: ZoneLibrary, Index: index, ControllerID: instance.ControllerID}
@@ -295,20 +294,106 @@ func (s *GameState) EnsureVisibility() {
 	if s.Visibility.InstanceMasks == nil {
 		s.Visibility.InstanceMasks = map[string]uint64{}
 	}
+	if s.Visibility.HandRevealStates == nil {
+		s.Visibility.HandRevealStates = map[string]HandRevealState{}
+	}
 	if s.Visibility.LibraryEpochByOwner == nil {
 		s.Visibility.LibraryEpochByOwner = map[string]int64{}
 	}
 	if s.Visibility.TopRevealWindows == nil {
 		s.Visibility.TopRevealWindows = map[string]TopRevealWindow{}
 	}
+	if s.Visibility.LibraryWindows == nil {
+		s.Visibility.LibraryWindows = map[string]LibraryWindow{}
+	}
 }
 
-func (s *GameState) RevealTopWindow(ownerID string, count int, viewers []string, mask uint64) TopRevealWindow {
+func (s *GameState) RevealTopWindow(ownerID string, instanceIDs []string, viewers []string, mask uint64) TopRevealWindow {
 	s.EnsureVisibility()
 	epoch := s.Visibility.LibraryEpochByOwner[ownerID]
-	window := TopRevealWindow{OwnerID: ownerID, Count: count, Epoch: epoch, To: append([]string(nil), viewers...), Mask: mask}
+	window := TopRevealWindow{
+		OwnerID:     ownerID,
+		Count:       len(instanceIDs),
+		Epoch:       epoch,
+		To:          append([]string(nil), viewers...),
+		Mask:        mask,
+		InstanceIDs: append([]string(nil), instanceIDs...),
+	}
 	s.Visibility.TopRevealWindows[ownerID] = window
 	return window
+}
+
+// InvalidateLibraryVisibility advances the authoritative library epoch and
+// removes the single transient top-reveal window. Library arrays are stored
+// bottom-to-top; InstanceIDs are stored in top-first display order.
+func (s *GameState) InvalidateLibraryVisibility(ownerID string) (TopRevealWindow, bool) {
+	s.EnsureVisibility()
+	window, existed := s.ClearTopRevealWindow(ownerID)
+	s.InvalidateLibraryWindow(ownerID, "stale")
+	s.Visibility.LibraryEpochByOwner[ownerID]++
+	return window, existed
+}
+
+func (s *GameState) OpenLibraryWindow(ownerID string, window LibraryWindow) (LibraryWindow, bool) {
+	s.EnsureVisibility()
+	previous, existed := s.Visibility.LibraryWindows[ownerID]
+	window.OwnerID = ownerID
+	window.InstanceIDs = append([]string(nil), window.InstanceIDs...)
+	window.ExpectedEpoch = s.Visibility.LibraryEpochByOwner[ownerID]
+	window.Status = "active"
+	s.Visibility.LibraryWindows[ownerID] = window
+	return previous, existed
+}
+
+func (s *GameState) LibraryWindow(ownerID string) (LibraryWindow, bool) {
+	s.EnsureVisibility()
+	window, ok := s.Visibility.LibraryWindows[ownerID]
+	window.InstanceIDs = append([]string(nil), window.InstanceIDs...)
+	return window, ok
+}
+
+func (s *GameState) InvalidateLibraryWindow(ownerID string, status string) (LibraryWindow, bool) {
+	s.EnsureVisibility()
+	window, existed := s.Visibility.LibraryWindows[ownerID]
+	if !existed || window.WindowID == "" {
+		return LibraryWindow{}, false
+	}
+	if status == "" {
+		status = "stale"
+	}
+	previous := window
+	window.Status = status
+	window.InstanceIDs = nil
+	s.Visibility.LibraryWindows[ownerID] = window
+	return previous, true
+}
+
+// ClearTopRevealWindow replaces a reveal without changing library order or
+// epoch. It is used by replay and subsequent reveal commands.
+func (s *GameState) ClearTopRevealWindow(ownerID string) (TopRevealWindow, bool) {
+	s.EnsureVisibility()
+	window, existed := s.Visibility.TopRevealWindows[ownerID]
+	if existed {
+		ids := window.InstanceIDs
+		if len(ids) == 0 {
+			ids = libraryTopFirstIDs(s.Zones[ownerID].Library, window.Count)
+			window.InstanceIDs = append([]string(nil), ids...)
+		}
+		for _, instanceID := range ids {
+			instance, ok := s.Instances[instanceID]
+			if ok {
+				instance.VisibleToMask &^= window.Mask
+				s.Instances[instanceID] = instance
+			}
+			if mask := s.Visibility.InstanceMasks[instanceID] &^ window.Mask; mask == 0 {
+				delete(s.Visibility.InstanceMasks, instanceID)
+			} else {
+				s.Visibility.InstanceMasks[instanceID] = mask
+			}
+		}
+	}
+	delete(s.Visibility.TopRevealWindows, ownerID)
+	return window, existed
 }
 
 func (s *GameState) CanViewerSeeCardKey(viewerID string, instanceID string) bool {
@@ -322,6 +407,13 @@ func (s *GameState) CanViewerSeeCardKey(viewerID string, instanceID string) bool
 	}
 	ownerView := location.PlayerID == viewerID
 	if ownerView && (location.Zone == ZoneHand || location.Zone == ZoneLibrary || instance.FaceDown) {
+		return true
+	}
+	controllerID := instance.ControllerID
+	if controllerID == "" {
+		controllerID = location.ControllerID
+	}
+	if instance.FaceDown && location.Zone == ZoneBattlefield && controllerID == viewerID {
 		return true
 	}
 	viewerMask := s.Visibility.ViewerBits[viewerID]
@@ -355,7 +447,7 @@ func (s *GameState) canViewerSeeTopRevealWindow(viewerID string, location Locati
 	if current := s.Visibility.LibraryEpochByOwner[location.PlayerID]; window.Epoch != current {
 		return false
 	}
-	if location.Index < 0 || location.Index >= window.Count {
+	if !s.topRevealWindowContains(location.PlayerID, window, location) {
 		return false
 	}
 	for _, candidate := range window.To {
@@ -364,6 +456,43 @@ func (s *GameState) canViewerSeeTopRevealWindow(viewerID string, location Locati
 		}
 	}
 	return false
+}
+
+func (s *GameState) topRevealWindowContains(ownerID string, window TopRevealWindow, location Location) bool {
+	library := s.Zones[ownerID].Library
+	if location.Index < 0 || location.Index >= len(library) {
+		return false
+	}
+	if len(window.InstanceIDs) > 0 {
+		currentTop := libraryTopFirstIDs(library, len(window.InstanceIDs))
+		if len(currentTop) != len(window.InstanceIDs) {
+			return false
+		}
+		matched := false
+		for index := range currentTop {
+			if currentTop[index] != window.InstanceIDs[index] {
+				return false
+			}
+			if currentTop[index] == library[location.Index] {
+				matched = true
+			}
+		}
+		return matched
+	}
+
+	// Legacy compact snapshots may only carry count. The canonical array is
+	// bottom-to-top, so the fallback window is the tail, never Index < count.
+	start := len(library) - window.Count
+	return window.Count > 0 && start >= 0 && location.Index >= start
+}
+
+func libraryTopFirstIDs(library []string, count int) []string {
+	if count <= 0 || len(library) < count {
+		return nil
+	}
+	ids := append([]string(nil), library[len(library)-count:]...)
+	reverseStrings(ids)
+	return ids
 }
 
 func RemoveFromCurrentZone(game *GameState, instanceID string) (Location, error) {

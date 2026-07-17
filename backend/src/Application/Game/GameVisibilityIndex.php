@@ -83,7 +83,7 @@ final class GameVisibilityIndex
                 $viewerBits,
                 $allPlayersMask,
             );
-            $epoch = max(1, (int) ($player[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1));
+            $epoch = max(0, (int) ($player[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1));
             $topWindowIds = [];
             $topWindowMasks = [];
             foreach ($this->orderedLibraryCards($player) as $card) {
@@ -230,7 +230,7 @@ final class GameVisibilityIndex
                 $viewerBits,
                 $allPlayersMask,
             );
-            $epoch = max(1, (int) ($player[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1));
+            $epoch = max(0, (int) ($player[GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1));
             $topWindowIds = [];
             $topWindowMasks = [];
             foreach ($this->orderedLibraryCards($player) as $card) {
@@ -317,6 +317,13 @@ final class GameVisibilityIndex
             return true;
         }
         if ($ownerView && $zone === 'battlefield' && (($card['faceDown'] ?? false) === true)) {
+            return true;
+        }
+        if (
+            $zone === 'battlefield'
+            && (($card['faceDown'] ?? false) === true)
+            && trim((string) ($card['controllerId'] ?? '')) === $viewerId
+        ) {
             return true;
         }
 

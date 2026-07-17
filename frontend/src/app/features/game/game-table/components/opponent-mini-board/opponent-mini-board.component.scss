@@ -490,6 +490,25 @@
   transform: translateY(-0.04rem);
 }
 
+:host-context(.game-screen[data-responsive-state='aggressive']) .player-thumb,
+:host-context(.game-screen[data-responsive-state='minimal']) .player-thumb {
+  gap: 0.24rem;
+  padding: 0.24rem 0.16rem 0.16rem;
+}
+
+:host-context(.game-screen[data-responsive-state='aggressive']) .opponent-board-stage,
+:host-context(.game-screen[data-responsive-state='aggressive']) .opponent-defeated-board,
+:host-context(.game-screen[data-responsive-state='minimal']) .opponent-board-stage,
+:host-context(.game-screen[data-responsive-state='minimal']) .opponent-defeated-board {
+  min-height: 6rem;
+}
+
+:host-context(.game-screen[data-responsive-state='aggressive']) .opponent-deck-title,
+:host-context(.game-screen[data-responsive-state='minimal']) .opponent-deck-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 760px) and (min-height: 769px) {
   .player-thumb {
     gap: 0.42rem;

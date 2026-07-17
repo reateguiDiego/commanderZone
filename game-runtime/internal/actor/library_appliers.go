@@ -34,6 +34,7 @@ func (LibraryDrawManyApplier) Apply(_ context.Context, game *state.GameState, co
 	if !ok {
 		count = 1
 	}
+	epochs := invalidateLibraryVisibility(game, emitter, playerID)
 	ops := state.NewLibraryOps()
 	drawn, err := ops.DrawMany(game, playerID, count)
 	if err != nil {
@@ -62,10 +63,11 @@ func (LibraryDrawManyApplier) Apply(_ context.Context, game *state.GameState, co
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	emitZoneCount(emitter, game, playerID, state.ZoneHand)
 	return map[string]any{
-		"playerId":    playerID,
-		"count":       len(drawn),
-		"instanceIds": drawn,
-		"metrics":     libraryMetrics(command.Type, start, ops),
+		"playerId":        playerID,
+		"count":           len(drawn),
+		"instanceIds":     drawn,
+		"visibilityEpoch": libraryVisibilityEpochValue(epochs, playerID),
+		"metrics":         libraryMetrics(command.Type, start, ops),
 	}, nil
 }
 
@@ -94,7 +96,10 @@ func (LibraryRevealTopApplier) Apply(_ context.Context, game *state.GameState, c
 	}
 	viewers := audience.revealedTo()
 	mask := audience.Mask
-	window := game.RevealTopWindow(playerID, count, viewers, mask)
+	if previousWindow, existed := game.ClearTopRevealWindow(playerID); existed {
+		emitTopRevealWindowConceal(game, emitter, playerID, previousWindow)
+	}
+	window := game.RevealTopWindow(playerID, top, viewers, mask)
 	cards := make([]map[string]any, 0, len(top))
 	for _, instanceID := range top {
 		instance := game.Instances[instanceID]
@@ -146,6 +151,7 @@ func (LibraryReorderTopApplier) Apply(_ context.Context, game *state.GameState, 
 		return nil, err
 	}
 	ops := state.NewLibraryOps()
+	epochs := invalidateLibraryVisibility(game, emitter, playerID)
 	if err := ops.ReorderTop(game, playerID, orderedTopIDs); err != nil {
 		return nil, err
 	}
@@ -157,7 +163,7 @@ func (LibraryReorderTopApplier) Apply(_ context.Context, game *state.GameState, 
 		},
 	})
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
-	return map[string]any{"playerId": playerID, "instanceIds": orderedTopIDs, "metrics": libraryMetrics(command.Type, start, ops)}, nil
+	return map[string]any{"playerId": playerID, "instanceIds": orderedTopIDs, "visibilityEpoch": libraryVisibilityEpochValue(epochs, playerID), "metrics": libraryMetrics(command.Type, start, ops)}, nil
 }
 
 type LibraryMoveTopApplier struct{}
@@ -186,6 +192,7 @@ func (LibraryMoveTopApplier) Apply(_ context.Context, game *state.GameState, com
 	}
 	toPlayerID := targetPlayerID(command.Payload, playerID)
 	ops := state.NewLibraryOps()
+	epochs := invalidateLibraryVisibility(game, emitter, playerID)
 	var moved []string
 	if destination == state.ZoneLibrary {
 		position, _ := command.Payload["position"].(string)
@@ -211,7 +218,7 @@ func (LibraryMoveTopApplier) Apply(_ context.Context, game *state.GameState, com
 			},
 		})
 		emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
-		return map[string]any{"playerId": playerID, "targetPlayerId": toPlayerID, "count": len(moved), "destination": string(destination), "instanceIds": moved, "metrics": libraryMetrics(command.Type, start, ops)}, nil
+		return map[string]any{"playerId": playerID, "targetPlayerId": toPlayerID, "count": len(moved), "destination": string(destination), "instanceIds": moved, "visibilityEpoch": libraryVisibilityEpochValue(epochs, playerID), "metrics": libraryMetrics(command.Type, start, ops)}, nil
 	}
 	cards := make([]map[string]any, 0, len(moved))
 	for _, instanceID := range moved {
@@ -221,7 +228,7 @@ func (LibraryMoveTopApplier) Apply(_ context.Context, game *state.GameState, com
 	emitter.EmitPrivate(toPlayerID, protocol.PatchOp{Op: "zone.cards.add", Data: map[string]any{"playerId": toPlayerID, "zone": destination, "cards": cards}})
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
 	emitZoneCount(emitter, game, toPlayerID, destination)
-	return map[string]any{"playerId": playerID, "targetPlayerId": toPlayerID, "count": len(moved), "destination": string(destination), "instanceIds": moved, "metrics": libraryMetrics(command.Type, start, ops)}, nil
+	return map[string]any{"playerId": playerID, "targetPlayerId": toPlayerID, "count": len(moved), "destination": string(destination), "instanceIds": moved, "visibilityEpoch": libraryVisibilityEpochValue(epochs, playerID), "metrics": libraryMetrics(command.Type, start, ops)}, nil
 }
 
 type LibraryPutTopApplier struct{}
@@ -252,7 +259,7 @@ func (LibraryViewApplier) Apply(_ context.Context, game *state.GameState, comman
 	}
 	count, ok := intField(command.Payload, "count")
 	if !ok {
-		count = 1
+		count = len(game.Zones[playerID].Library)
 	}
 	ops := state.NewLibraryOps()
 	top, err := ops.PeekTop(game, playerID, count)
@@ -263,16 +270,39 @@ func (LibraryViewApplier) Apply(_ context.Context, game *state.GameState, comman
 	for _, instanceID := range top {
 		cards = append(cards, cardPatchData(game, playerID, instanceID))
 	}
+	windowID, err := newLibraryWindowID()
+	if err != nil {
+		return nil, err
+	}
+	createdBy, _ := command.Payload["actorPlayerId"].(string)
+	createdBySession, _ := command.Client["sessionId"].(string)
+	window := state.LibraryWindow{
+		WindowID: windowID, OwnerID: playerID, InstanceIDs: top,
+		ExpectedEpoch: game.Visibility.LibraryEpochByOwner[playerID], OpenedAtVersion: game.Version + 1,
+		CreatedByPlayerID: createdBy, CreatedBySession: createdBySession, Status: "active",
+	}
+	previousWindow, hadPreviousWindow := game.OpenLibraryWindow(playerID, window)
+	if hadPreviousWindow && previousWindow.WindowID != "" && previousWindow.Status == "active" {
+		emitLibraryWindowInvalidated(emitter, playerID, previousWindow.WindowID, "stale", "replaced", window.ExpectedEpoch)
+	}
 	emitter.EmitPrivate(playerID, protocol.PatchOp{
 		Op: "library.top.viewed",
 		Data: map[string]any{
-			"playerId": playerID,
-			"count":    len(cards),
-			"cards":    cards,
+			"playerId": playerID, "count": len(cards), "cards": cards,
+			"windowId": window.WindowID, "expectedEpoch": window.ExpectedEpoch,
+			"openedAtVersion": window.OpenedAtVersion, "status": window.Status,
 		},
 	})
+	emitter.EmitPrivate(playerID, libraryEpochSetOp(playerID, window.ExpectedEpoch))
 	emitZoneCount(emitter, game, playerID, state.ZoneLibrary)
-	return map[string]any{"playerId": playerID, "count": len(cards), "instanceIds": top, "metrics": libraryMetrics(command.Type, start, ops)}, nil
+	return map[string]any{
+		"effectVersion": LibraryBatchEffectVersion,
+		"playerId":      playerID, "ownerPlayerId": playerID, "count": len(cards), "instanceIds": top,
+		"windowId": window.WindowID, "expectedEpoch": window.ExpectedEpoch, "openedAtVersion": window.OpenedAtVersion,
+		"createdByPlayerId": window.CreatedByPlayerID, "createdBySession": window.CreatedBySession,
+		"status": window.Status, "replacedWindowId": previousWindow.WindowID,
+		"metrics": libraryMetrics(command.Type, start, ops),
+	}, nil
 }
 
 type LibraryShuffleApplier struct{}
@@ -286,6 +316,8 @@ func (LibraryShuffleApplier) Apply(_ context.Context, game *state.GameState, com
 		return nil, err
 	}
 	before := game.Visibility.LibraryEpochByOwner[playerID]
+	previousWindow, hadPreviousWindow := game.Visibility.TopRevealWindows[playerID]
+	actionWindow, hadActionWindow := game.LibraryWindow(playerID)
 	seed := libraryShuffleSeed()
 	ops := state.NewLibraryOps()
 	if err := ops.ShuffleWithSeed(game, playerID, seed); err != nil {
@@ -294,6 +326,12 @@ func (LibraryShuffleApplier) Apply(_ context.Context, game *state.GameState, com
 	after := game.Visibility.LibraryEpochByOwner[playerID]
 	if after <= before {
 		return nil, fmt.Errorf("%w: visibilityEpoch", ErrInvalidPayloadField)
+	}
+	if hadPreviousWindow {
+		emitTopRevealWindowConceal(game, emitter, playerID, previousWindow)
+	}
+	if hadActionWindow && actionWindow.Status == "active" {
+		emitLibraryWindowInvalidated(emitter, playerID, actionWindow.WindowID, "stale", "shuffle", after)
 	}
 	emitter.EmitPublic(protocol.PatchOp{
 		Op: "library.shuffled",
@@ -330,6 +368,7 @@ func applyLibraryPut(command protocol.CommandEnvelopeV2, game *state.GameState, 
 	if !ok {
 		return nil, state.ErrMissingInstance
 	}
+	epochs := invalidateLibraryVisibility(game, emitter, playerID)
 	_, err = state.RemoveFromCurrentZone(game, instanceID)
 	if err != nil {
 		return nil, err
@@ -356,7 +395,7 @@ func applyLibraryPut(command protocol.CommandEnvelopeV2, game *state.GameState, 
 	if top {
 		position = "top"
 	}
-	return map[string]any{"playerId": playerID, "instanceId": instanceID, "fromPlayerId": from.PlayerID, "fromZone": from.Zone, "position": position, "cardKey": instance.CardKey, "metrics": libraryMetrics(command.Type, start, ops)}, nil
+	return map[string]any{"playerId": playerID, "instanceId": instanceID, "fromPlayerId": from.PlayerID, "fromZone": from.Zone, "position": position, "cardKey": instance.CardKey, "visibilityEpoch": libraryVisibilityEpochValue(epochs, playerID), "metrics": libraryMetrics(command.Type, start, ops)}, nil
 }
 
 func libraryMetrics(commandType string, start time.Time, ops *state.LibraryOps) map[string]any {

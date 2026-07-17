@@ -22,6 +22,7 @@
     }
   },
   "gameLog": {
+    "hand": { "revealed": "{{ actor }} revelou {{ count }} cartas da mão.", "revoked": "{{ actor }} revogou o acesso a {{ count }} cartas reveladas da mão." },
     "commanderDamage": {
       "changed": "O dano de comandante de {{ source }} a {{ target }} mudou de {{ previousDamage }} para {{ damage }}. A vida mudou de {{ previousLife }} para {{ life }}."
     },
@@ -46,7 +47,16 @@
     "library": {
       "draw": "{{ actor }} drew a card.",
       "drawMany": "{{ actor }} drew {{ count }} cards.",
-      "shuffle": "{{ actor }} shuffled their library."
+      "shuffle": "{{ actor }} shuffled their library.",
+      "selectedMoved": "{{ actor }} moveu {{ count }} cartas selecionadas do grimório para {{ destination }}.",
+      "playedSelectedFaceDown": "{{ actor }} jogou {{ count }} cartas selecionadas do grimório viradas para baixo.",
+      "selectedToHand": "{{ actor }} moveu {{ count }} cartas selecionadas do grimório para a mão.",
+      "selectedToGraveyard": "{{ actor }} moveu {{ count }} cartas selecionadas do grimório para o cemitério.",
+      "selectedToExile": "{{ actor }} moveu {{ count }} cartas selecionadas do grimório para o exílio.",
+      "selectedToBattlefield": "{{ actor }} moveu {{ count }} cartas selecionadas do grimório para o campo de batalha.",
+      "putSelectedTop": "{{ actor }} colocou {{ count }} cartas selecionadas no topo do grimório.",
+      "putSelectedBottom": "{{ actor }} colocou {{ count }} cartas selecionadas no fundo do grimório.",
+      "playedTopFaceDown": "{{ actor }} jogou viradas para baixo as {{ count }} cartas do topo do grimório."
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
@@ -851,6 +861,13 @@
       "focusTurn": "Focar turno",
       "passTurn": "Passar o turno"
     },
+    "handRevealDialog": {
+      "title": "Revelar cartas da mão", "summary": "Revise os destinatários para {{ count }} carta(s) selecionada(s).",
+      "action": "Ação", "reveal": "Revelar", "revoke": "Revogar acesso", "recipients": "Destinatários", "allPlayers": "Todos os jogadores",
+      "confirmReveal": "Revelar {{ count }} carta(s) a {{ recipients }} destinatário(s).", "confirmRevoke": "Revogar {{ recipients }} destinatário(s) de {{ count }} carta(s).",
+      "pending": "Aplicando a alteração de visibilidade...", "cancel": "Cancelar", "confirmRevealButton": "Confirmar revelação", "confirmRevokeButton": "Confirmar revogação",
+      "invalidSelection": "Selecione cartas válidas da sua mão.", "stale": "As cartas selecionadas mudaram. Abra a ação novamente."
+    },
     "zoneModal": {
       "searchByName": "Pesquisar por nome",
       "closeZone": "Fechar zona",
@@ -864,7 +881,38 @@
       "enchantments": "Encantamentos",
       "planeswalkers": "Planeswalkers",
       "lands": "Terrenos",
-      "search": "Pesquisar"
+      "search": "Pesquisar",
+      "cardCount": "{{count}} cartas",
+      "selectionInstructions": "Selecione cartas localmente. A biblioteca não é alterada.",
+      "selectionToolbar": "Seleção de cartas",
+      "selectedCount": "{{selected}} de {{total}} selecionadas",
+      "selectAll": "Selecionar tudo",
+      "clearAll": "Limpar seleção",
+      "reorderMode": "Reordenar",
+      "selectionMode": "Selecionar",
+      "viewStale": "Esta visualização da biblioteca já não é válida. Feche-a e abra uma nova.",
+      "viewError": "Não foi possível abrir a visualização privada da biblioteca. Feche-a e tente novamente.",
+      "connectionChanged": "A ligação mudou e esta visualização privada foi fechada por segurança. Abra-a novamente.",
+      "emptyView": "Não há cartas autorizadas disponíveis nesta visualização.",
+      "batchToolbar": "Ações privadas do grimório",
+      "batchActions": "Ações",
+      "batchPending": "Aplicando a ação confirmada...",
+      "batchError": "Não foi possível aplicar a ação. O grimório não mudou.",
+      "invalidBatch": "Selecione pelo menos uma carta válida.",
+      "confirmTitle": "Confirmar ação do grimório",
+      "confirmCount": "Esta ação afetará {{count}} carta(s).",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "action": {
+        "hand": "Mover seleção para a mão",
+        "battlefield-face-up": "Mover seleção virada para cima ao campo",
+        "battlefield-face-down": "Mover seleção virada para baixo ao campo",
+        "graveyard": "Mover seleção para o cemitério",
+        "exile": "Mover seleção para o exílio",
+        "library-top": "Colocar seleção no topo",
+        "library-bottom": "Colocar seleção no fundo",
+        "playTopFaceDown": "Jogar as {{count}} do topo viradas para baixo"
+      }
     },
     "gameTable": {
       "message": "Mensagem",

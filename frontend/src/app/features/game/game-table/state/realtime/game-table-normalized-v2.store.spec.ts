@@ -461,6 +461,25 @@ describe('game table normalized v2 store', () => {
     ]);
   });
 
+	it('keeps a redacted face-down movement log generic in normalized state and hydration', () => {
+		const initial = createGameTableNormalizedV2State(bootstrapV2());
+		const result = applyPatchEnvelopeV2(initial, patch(6, [{
+			op: 'eventLog.append', entries: [{
+				id: 'face-down-safe-log', type: 'card.moved', message: 'Player moved a card from hand to battlefield.',
+				i18nKey: 'gameLog.card.moved', visibility: 'public',
+				params: { actorPlayerId: 'player-1', fromZone: 'hand', toZone: 'battlefield', count: 1, faceDown: true },
+				refs: { players: { 'player-1': { id: 'player-1', displayName: 'Player One' } } },
+			}],
+		}]));
+		const snapshot = hydrateGameSnapshotFromV2State(result.state);
+		const serialized = JSON.stringify({ normalized: result.state.log, hydrated: snapshot.eventLog });
+
+		expect(result.status).toBe('applied');
+		expect(serialized).not.toContain('private-hand-instance');
+		expect(serialized).not.toMatch(/cardInstanceId|instanceId|cardKey|cardRef|printId|imageUris|cardFaces/);
+		expect(snapshot.eventLog[0]?.params).toEqual(expect.objectContaining({ fromZone: 'hand', toZone: 'battlefield', count: 1, faceDown: true }));
+	});
+
   it('applies runtime battlefield stats patches without snapshot refetch', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [{
@@ -1703,6 +1722,32 @@ describe('game table normalized v2 store', () => {
     expect(initial.instances['real-hand-0']).toBeUndefined();
   });
 
+  it('applies same-version batch materialization and final audience metadata in order', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.game.viewerId = 'player-1';
+    delete bootstrap.instances['opp-hand-1'];
+    bootstrap.zones['player-2:hand'].instanceIds = ['player-2-hidden-hand-0'];
+    bootstrap.instances['player-2-hidden-hand-0'] = {
+      instanceId: 'player-2-hidden-hand-0', cardRef: 'placeholder:hand-0', zoneId: 'player-2:hand',
+      ownerId: 'player-2', controllerId: 'player-2', hidden: true, faceDown: true,
+    };
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const result = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'private.cards.materialize', playerId: 'player-2', zone: 'hand',
+      entries: [{
+        placeholderId: 'player-2-hidden-hand-0', index: 0,
+        card: { instanceId: 'revealed-batch-card', cardKey: 'card:batch', ownerId: 'player-2', controllerId: 'player-2', zone: 'hand', revealedTo: ['player-1'] },
+      }],
+      staticCards: { 'card:batch': { cardRef: 'card:batch', cardKey: 'card:batch', printId: 'print-batch', cardVersion: 'v1', language: 'en', viewerVisibility: 'private', name: 'Batch reveal' } },
+    }, {
+      op: 'card.field.set', playerId: 'player-2', zone: 'hand', instanceId: 'revealed-batch-card', revealedTo: ['player-1', 'player-3'],
+    }]));
+
+    expect(result.status).toBe('applied');
+    expect(result.state.zones['player-2'].hand).toEqual(['revealed-batch-card']);
+    expect(result.state.instances['revealed-batch-card']?.revealedTo).toEqual(['player-1', 'player-3']);
+  });
+
   it('conceals a previously materialized opponent hand card without erasing the owner view', () => {
     const bootstrap = bootstrapV2();
     bootstrap.game.viewerId = 'player-1';
@@ -1739,6 +1784,34 @@ describe('game table normalized v2 store', () => {
     expect(ownerResult.status).toBe('applied');
     expect(ownerResult.state.zones['player-2'].hand).toEqual(['real-hand-0']);
   });
+
+	it('conceals a multi-card library reveal into one opaque top placeholder without resync', () => {
+		const bootstrap = bootstrapV2();
+		bootstrap.game.viewerId = 'player-1';
+		bootstrap.zones['player-2:library'].instanceIds = ['revealed-top', 'revealed-second'];
+		for (const [instanceId, cardRef] of [['revealed-top', 'card:top'], ['revealed-second', 'card:second']] as const) {
+			bootstrap.instances[instanceId] = {
+				instanceId, cardRef, cardKey: cardRef, zoneId: 'player-2:library',
+				ownerId: 'player-2', controllerId: 'player-2', hidden: false, revealedTo: ['player-1'],
+			};
+			bootstrap.staticCards[cardRef] = { cardRef, name: instanceId };
+		}
+		const initial = createGameTableNormalizedV2State(bootstrap);
+		const result = applyPatchEnvelopeV2(initial, patch(6, [{
+			op: 'private.cards.conceal', playerId: 'player-2', zone: 'library',
+			entries: [
+				{ instanceId: 'revealed-top', placeholderId: 'player-2-hidden-library-top', index: 0 },
+				{ instanceId: 'revealed-second', placeholderId: '', index: 1 },
+			],
+		}]));
+
+		expect(result.status).toBe('applied');
+		expect(result.state.zones['player-2'].library).toEqual(['player-2-hidden-library-top']);
+		expect(result.state.instances['revealed-top']).toBeUndefined();
+		expect(result.state.instances['revealed-second']).toBeUndefined();
+		expect(result.state.staticCards['card:top']).toBeUndefined();
+		expect(result.state.staticCards['card:second']).toBeUndefined();
+	});
 
   it('conceals a public card moved into an opponent private zone after its public removal', () => {
     const bootstrap = bootstrapV2();
@@ -2098,6 +2171,141 @@ describe('game table normalized v2 store', () => {
     expect(result.state.staticCards['instance:opp-hidden-runtime']).toBeUndefined();
   });
 
+  it('ignores the public face-down shell for the owner and applies the private real instance in the same version', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.game.viewerId = 'player-1';
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const publicPatch = applyPatchEnvelopeV2(initial, {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'public',
+      ackClientActionId: 'batch-face-down',
+      ops: [
+        {
+          op: 'zone.cards.add',
+          playerId: 'player-1',
+          zone: 'battlefield',
+          cards: [{
+            instanceId: 'player-1-hidden-battlefield-1',
+            ownerId: 'player-1',
+            controllerId: 'player-1',
+            hidden: true,
+            faceDown: true,
+          }],
+        },
+        { op: 'zone.count.set', playerId: 'player-1', zone: 'battlefield', count: 2 },
+      ],
+    });
+    const privatePatch = applyPatchEnvelopeV2(publicPatch.state, {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'player:player-1',
+      ackClientActionId: 'batch-face-down',
+      ops: [{
+        op: 'zone.cards.add',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        cards: [{
+          instanceId: 'private-library-top',
+          cardRef: 'card:secret',
+          cardKey: 'card:secret',
+          printId: 'print-secret',
+          cardVersion: 'v1',
+          language: 'en',
+          viewerVisibility: 'private',
+          zoneId: 'player-1:battlefield',
+          ownerId: 'player-1',
+          controllerId: 'player-1',
+          hidden: false,
+          faceDown: true,
+          position: { x: 0.35, y: 0.42 },
+        }],
+        staticCards: {
+          'card:secret': {
+            cardRef: 'card:secret', cardKey: 'card:secret', printId: 'print-secret',
+            cardVersion: 'v1', language: 'en', viewerVisibility: 'private', name: 'Owner secret',
+          },
+        },
+      }],
+    });
+
+    expect(publicPatch.status).toBe('applied');
+    expect(publicPatch.state.instances['player-1-hidden-battlefield-1']).toBeUndefined();
+    expect(privatePatch.status).toBe('applied');
+    expect(privatePatch.state.zones['player-1'].battlefield).toContain('private-library-top');
+    expect(privatePatch.state.zones['player-1'].battlefield).not.toContain('player-1-hidden-battlefield-1');
+    expect(privatePatch.state.instances['private-library-top']).toMatchObject({
+      cardKey: 'card:secret',
+      faceDown: true,
+      position: { x: 0.35, y: 0.42 },
+    });
+  });
+
+  it('materializes a face-down battlefield card for its controller and conceals it when control ends', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.game.viewerId = 'player-2';
+    delete bootstrap.instances['battlefield-1'];
+    bootstrap.instances['player-1-hidden-battlefield-0'] = {
+      instanceId: 'player-1-hidden-battlefield-0',
+      cardRef: 'placeholder:player-1-hidden-battlefield-0',
+      zoneId: 'player-1:battlefield',
+      ownerId: 'player-1',
+      controllerId: 'player-1',
+      hidden: true,
+      faceDown: true,
+      tapped: false,
+      position: { x: 0.2, y: 0.3, unit: 'ratio' },
+    };
+    bootstrap.zones['player-1:battlefield'].instanceIds = ['player-1-hidden-battlefield-0'];
+    const initial = createGameTableNormalizedV2State(bootstrap);
+    const publicGrant = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'zone.cards.add', playerId: 'player-1', zone: 'battlefield', index: 0,
+      cards: [{
+        instanceId: 'player-1-hidden-battlefield-0', ownerId: 'player-1', controllerId: 'player-2',
+        hidden: true, faceDown: true, position: { x: 0.2, y: 0.3, unit: 'ratio' },
+      }],
+    }]));
+    const privateGrant = applyPatchEnvelopeV2(publicGrant.state, {
+      gameId: 'game-1', version: 6, visibility: 'player:player-2', ackClientActionId: 'control-granted',
+      ops: [{
+        op: 'private.cards.materialize', playerId: 'player-1', zone: 'battlefield',
+        entries: [{
+          index: 0, placeholderId: 'player-1-hidden-battlefield-0',
+          card: {
+            instanceId: 'battlefield-1', cardRef: 'card:sol-ring', cardKey: 'card:sol-ring',
+            printId: 's-ring', zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-2',
+            hidden: false, faceDown: true, position: { x: 0.2, y: 0.3, unit: 'ratio' },
+          },
+        }],
+        staticCards: { 'card:sol-ring': bootstrap.staticCards['card:sol-ring'] },
+      }],
+    });
+
+    expect(privateGrant.status).toBe('applied');
+    expect(privateGrant.state.zones['player-1'].battlefield).toEqual(['battlefield-1']);
+    expect(privateGrant.state.instances['battlefield-1']).toMatchObject({ cardKey: 'card:sol-ring', controllerId: 'player-2', faceDown: true });
+    expect(privateGrant.state.instances['player-1-hidden-battlefield-0']).toBeUndefined();
+
+    const publicRevoke = applyPatchEnvelopeV2(privateGrant.state, patch(7, [{
+      op: 'zone.cards.add', playerId: 'player-1', zone: 'battlefield', index: 0,
+      cards: [{
+        instanceId: 'player-1-hidden-battlefield-0', ownerId: 'player-1', controllerId: 'player-1',
+        hidden: true, faceDown: true, position: { x: 0.2, y: 0.3, unit: 'ratio' },
+      }],
+    }]));
+    const privateRevoke = applyPatchEnvelopeV2(publicRevoke.state, {
+      gameId: 'game-1', version: 7, visibility: 'player:player-2', ackClientActionId: 'control-revoked',
+      ops: [{
+        op: 'private.cards.conceal', playerId: 'player-1', zone: 'battlefield',
+        entries: [{ instanceId: 'battlefield-1', placeholderId: 'player-1-hidden-battlefield-0', index: 0 }],
+      }],
+    });
+    expect(privateRevoke.status).toBe('applied');
+    expect(privateRevoke.state.zones['player-1'].battlefield).toEqual(['player-1-hidden-battlefield-0']);
+    expect(privateRevoke.state.instances['battlefield-1']).toBeUndefined();
+    expect(privateRevoke.state.instances['player-1-hidden-battlefield-0']).toMatchObject({ hidden: true, faceDown: true });
+  });
+
   it('accepts library count patches as a compatibility alias without resync', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [
@@ -2137,13 +2345,62 @@ describe('game table normalized v2 store', () => {
     const result = applyPatchEnvelopeV2(initial, patch(6, [{
       op: 'library.top.viewed',
       playerId: 'player-1',
+      windowId: 'lw-view-1',
+      expectedEpoch: 1,
+      openedAtVersion: 6,
+      status: 'active',
       cards: [{ instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' }],
       staticCards: { 'card:forest': { cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', name: 'Forest', imageUris: null, cardFaces: [] } },
     }]));
 
     expect(result.status).toBe('applied');
     expect(result.state.zoneCounts['player-1'].library).toBe(98);
-    expect(hydrateGameSnapshotFromV2State(result.state).players['player-1'].zones.library[0]?.name).toBe('Forest');
+    const snapshot = hydrateGameSnapshotFromV2State(result.state);
+    expect(snapshot.players['player-1'].zones.library[0]?.name).toBe('Forest');
+    expect(snapshot.players['player-1'].libraryVisibilityEpoch).toBe(1);
+    expect(snapshot.players['player-1'].libraryWindow).toEqual({
+      windowId: 'lw-view-1',
+      expectedEpoch: 1,
+      openedAtVersion: 6,
+      status: 'active',
+    });
+  });
+
+  it('applies same-version window invalidation without resync or card-order mutation', () => {
+    const initial = createGameTableNormalizedV2State(bootstrapV2());
+    const viewed = applyPatchEnvelopeV2(initial, patch(6, [{
+      op: 'library.top.viewed',
+      playerId: 'player-1',
+      windowId: 'lw-first',
+      expectedEpoch: 2,
+      openedAtVersion: 6,
+      status: 'active',
+      cards: [{ instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' }],
+      staticCards: { 'card:forest': { cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', name: 'Forest', imageUris: null, cardFaces: [] } },
+    }]));
+    const beforeOrder = [...viewed.state.zones['player-1'].library];
+    const invalidated = applyPatchEnvelopeV2(viewed.state, {
+      gameId: 'game-1',
+      version: 6,
+      visibility: 'player:player-1',
+      ackClientActionId: 'replace-window',
+      ops: [{
+        op: 'library.window.invalidated',
+        playerId: 'player-1',
+        windowId: 'lw-first',
+        status: 'stale',
+        reason: 'replaced',
+        currentEpoch: 2,
+      }],
+    });
+
+    expect(invalidated.status).toBe('applied');
+    expect(invalidated.state.zones['player-1'].library).toEqual(beforeOrder);
+    expect(hydrateGameSnapshotFromV2State(invalidated.state).players['player-1'].libraryWindow).toMatchObject({
+      windowId: 'lw-first',
+      status: 'stale',
+      reason: 'replaced',
+    });
   });
 
   it('keeps canonical top and bottom order for runtime library put patches', () => {
@@ -2180,6 +2437,10 @@ describe('game table normalized v2 store', () => {
     const viewed = applyPatchEnvelopeV2(initial, patch(6, [{
       op: 'library.top.viewed',
       playerId: 'player-1',
+      windowId: 'lw-view-2',
+      expectedEpoch: 1,
+      openedAtVersion: 6,
+      status: 'active',
       cards: [
         { instanceId: 'library-1', cardRef: 'card:forest', cardKey: 'card:forest', printId: 's-forest', cardVersion: 'forest-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' },
         { instanceId: 'library-2', cardRef: 'card:island', cardKey: 'card:island', printId: 's-island', cardVersion: 'island-v1', language: 'en', viewerVisibility: 'private', zoneId: 'player-1:library', ownerId: 'player-1', controllerId: 'player-1' },

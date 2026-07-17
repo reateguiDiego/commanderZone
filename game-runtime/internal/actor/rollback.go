@@ -110,7 +110,7 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 		rollback.capturePlayer(game, stringPayload(command.Payload, "targetPlayerId"))
 		rollback.captureTurn(game)
 		rollback.captureRelations(game)
-	case "library.draw", "library.draw_many", "library.shuffle", "library.reveal_top", "library.reorder_top", "library.move_top", "library.view":
+	case "library.draw", "library.draw_many", "library.shuffle", "library.reveal_top", "library.reorder_top", "library.move_top", "library.view", "library.selection.move", "library.top.play_face_down":
 		playerID := stringPayload(command.Payload, "playerId")
 		rollback.capturePlayerZonesAndCards(game, playerID)
 		if target := targetPlayerID(command.Payload, playerID); target != "" && target != playerID {
@@ -156,10 +156,14 @@ func newCommandRollback(game *state.GameState, command protocol.CommandEnvelopeV
 			rollback.capturePlayerZonesAndCards(game, targetID)
 		}
 		rollback.captureRelations(game)
+		rollback.captureVisibility(game)
 	case "zone.reorderedByIds":
 		playerID := stringPayload(command.Payload, "playerId")
 		zone := state.Zone(stringPayload(command.Payload, "zone"))
 		rollback.capturePlayerZoneInstances(game, playerID, zone)
+		if zone == state.ZoneLibrary {
+			rollback.captureVisibility(game)
+		}
 	case "stack.card_added", "stack.item_removed":
 		rollback.captureStack(game)
 	case "arrow.created", "arrow.removed", "attachment.created", "attachment.reordered", "helper.created", "helper.updated", "helper.removed":
@@ -416,6 +420,7 @@ func (r *commandRollback) captureMovement(game *state.GameState, payload map[str
 		r.captureInstanceWithLocation(game, instanceID)
 	}
 	r.captureRelations(game)
+	r.captureVisibility(game)
 }
 
 func stringPayload(payload map[string]any, key string) string {

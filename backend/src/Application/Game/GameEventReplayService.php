@@ -13,6 +13,7 @@ final class GameEventReplayService
 
     public function __construct(
         private readonly ?GameLibraryOps $libraryOps = null,
+        private readonly ?GameLogPrivacySanitizer $gameLogPrivacySanitizer = null,
     ) {
     }
 
@@ -89,6 +90,12 @@ final class GameEventReplayService
         if ($eventLogEntries === []) {
             return;
         }
+
+        $sanitizer = $this->gameLogPrivacySanitizer ?? new GameLogPrivacySanitizer();
+        $eventLogEntries = array_values(array_map(
+            static fn (array $entry): array => $sanitizer->sanitizePublicEntry($entry),
+            $eventLogEntries,
+        ));
 
         $snapshot['eventLog'] = array_values(array_slice([
             ...(is_array($snapshot['eventLog'] ?? null) ? $snapshot['eventLog'] : []),
@@ -296,6 +303,12 @@ final class GameEventReplayService
 
                 return true;
 
+            case 'hand.cards.reveal':
+            case 'hand.cards.revoke':
+                $this->applyRuntimeHandRevealBatch($snapshot, $payload);
+
+                return true;
+
             case 'card.controller.changed':
                 $this->applyRuntimeCardControllerChanged($snapshot, $payload);
 
@@ -314,6 +327,7 @@ final class GameEventReplayService
                         'to' => ['playerId' => $playerId, 'zone' => 'hand'],
                     ]);
                 }
+				$this->applyRuntimeLibraryInvalidation($snapshot, $playerId, $payload['visibilityEpoch'] ?? null);
 
                 return true;
 
@@ -341,6 +355,8 @@ final class GameEventReplayService
             case 'card.moved':
             case 'cards.moved':
             case 'zone.move_all':
+            case 'library.selection.move':
+            case 'library.top.play_face_down':
                 $moves = array_values(array_filter($payload['moves'] ?? [], static fn (mixed $move): bool => is_array($move)));
                 if (array_key_exists('faceDown', $payload)) {
                     foreach ($moves as &$move) {
@@ -351,9 +367,12 @@ final class GameEventReplayService
                     }
                     unset($move);
                 }
-                foreach ($moves as $move) {
-                    $this->applyMove($snapshot, $move);
+                if (!$this->applyRuntimeSameLibraryBatch($snapshot, $moves)) {
+                    foreach ($moves as $move) {
+                        $this->applyMove($snapshot, $move);
+                    }
                 }
+				$this->applyRuntimeLibraryMoveInvalidations($snapshot, $payload, $moves);
                 $this->applyRuntimeCommanderCastCounters($snapshot, $payload);
 
                 return true;
@@ -370,6 +389,7 @@ final class GameEventReplayService
                         $snapshot['players'][$playerId],
                         fn (array $cards): array => $this->shuffleCardsWithSeed($cards, $shuffleSeed),
                     );
+					$this->applyRuntimeLibraryInvalidation($snapshot, $playerId, $payload['visibilityEpoch'] ?? null);
                     $this->rebuildLoc($snapshot);
 
                     return true;
@@ -378,6 +398,7 @@ final class GameEventReplayService
                 if ($playerId !== '' && $libraryOrder !== [] && isset($snapshot['players'][$playerId])) {
                     $cardsById = $this->cardsByInstanceId($snapshot, $playerId, ['library']);
                     $snapshot['players'][$playerId]['zones']['library'] = $this->orderedCardsFromIds($cardsById, $libraryOrder, 'library', $playerId);
+					$this->applyRuntimeLibraryInvalidation($snapshot, $playerId, $payload['visibilityEpoch'] ?? null);
                     $this->rebuildLoc($snapshot);
                 }
 
@@ -823,6 +844,45 @@ final class GameEventReplayService
     }
 
     /**
+     * Runtime batch events persist each card's final audience. Replay copies
+     * that effect and never recomputes it from the current player list.
+     *
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $payload
+     */
+    private function applyRuntimeHandRevealBatch(array &$snapshot, array $payload): void
+    {
+        // Runtime hand reveal events created before the versioned payload field
+        // was persisted remain replayable. Their per-card final audience is
+        // already explicit, so treating a missing version as v1 is safe and
+        // avoids dropping an active reveal after compact hydration.
+        if (array_key_exists('effectVersion', $payload) && (int) $payload['effectVersion'] < 1) {
+            return;
+        }
+
+        foreach (array_values(array_filter($payload['effects'] ?? [], static fn (mixed $effect): bool => is_array($effect))) as $effect) {
+            $instanceId = is_string($effect['instanceId'] ?? null) ? trim($effect['instanceId']) : '';
+            if ($instanceId === '') {
+                continue;
+            }
+            $card =& $this->locateCard($snapshot, $instanceId);
+            if (!is_array($card)) {
+                unset($card);
+                continue;
+            }
+            $card['revealedTo'] = $this->stringList($effect['finalRevealedTo'] ?? []);
+            $snapshot['visibility'] = is_array($snapshot['visibility'] ?? null) ? $snapshot['visibility'] : [];
+            $snapshot['visibility']['handRevealStates'] = is_array($snapshot['visibility']['handRevealStates'] ?? null)
+                ? $snapshot['visibility']['handRevealStates']
+                : [];
+            if (is_array($effect['revealState'] ?? null)) {
+                $snapshot['visibility']['handRevealStates'][$instanceId] = $effect['revealState'];
+            }
+            unset($card);
+        }
+    }
+
+    /**
      * @param array<string,mixed> $payload
      */
     private function applyRuntimeLibraryRevealTop(array &$snapshot, array $payload): void
@@ -840,7 +900,7 @@ final class GameEventReplayService
             $viewers = ['all'];
         }
 
-        $epoch = max(1, (int) ($payload['visibilityEpoch'] ?? $snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1));
+        $epoch = max(0, (int) ($payload['visibilityEpoch'] ?? $snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? 1));
         $snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] = $epoch;
         $snapshot['players'][$playerId]['revealedLibraryTo'] = [];
         $library =& $snapshot['players'][$playerId]['zones']['library'];
@@ -853,7 +913,15 @@ final class GameEventReplayService
         }
         unset($libraryCard);
 
-        $revealedIds = array_fill_keys($this->stringList($payload['instanceIds'] ?? []), true);
+        $instanceIds = $this->stringList($payload['instanceIds'] ?? []);
+        if ($instanceIds === []) {
+            $legacyCount = max(0, (int) ($payload['count'] ?? 0));
+            $instanceIds = array_values(array_filter(array_map(
+                static fn (array $card): string => is_string($card['instanceId'] ?? null) ? trim($card['instanceId']) : '',
+                $this->libraryOps()->peekTop($snapshot['players'][$playerId], $legacyCount),
+            ), static fn (string $instanceId): bool => $instanceId !== ''));
+        }
+        $revealedIds = array_fill_keys($instanceIds, true);
         foreach ($library as &$libraryCard) {
             if (!is_array($libraryCard) || !isset($revealedIds[(string) ($libraryCard['instanceId'] ?? '')])) {
                 continue;
@@ -878,6 +946,7 @@ final class GameEventReplayService
         }
 
         $this->libraryOps()->reorderTop($snapshot['players'][$playerId], $instanceIds);
+		$this->applyRuntimeLibraryInvalidation($snapshot, $playerId, $payload['visibilityEpoch'] ?? null);
         $this->rebuildLoc($snapshot);
     }
 
@@ -933,6 +1002,7 @@ final class GameEventReplayService
         } else {
             $this->appendRuntimeCardsToZone($snapshot['players'][$targetPlayerId], $targetPlayerId, $destination, $cards);
         }
+		$this->applyRuntimeLibraryInvalidation($snapshot, $playerId, $payload['visibilityEpoch'] ?? null);
         $this->rebuildLoc($snapshot);
     }
 
@@ -963,8 +1033,51 @@ final class GameEventReplayService
         } else {
             $this->libraryOps()->putOnBottom($snapshot['players'][$playerId], $card);
         }
+		$this->applyRuntimeLibraryInvalidation($snapshot, $playerId, $payload['visibilityEpoch'] ?? null);
         $this->rebuildLoc($snapshot);
     }
+
+	/** @param array<string,mixed> $snapshot */
+	private function applyRuntimeLibraryInvalidation(array &$snapshot, string $playerId, mixed $epoch): void
+	{
+		if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+			return;
+		}
+		$this->libraryOps()->clearReveals($snapshot['players'][$playerId]);
+		if (is_numeric($epoch)) {
+			$snapshot['players'][$playerId][GameLibraryOps::VISIBILITY_EPOCH_KEY] = max(0, (int) $epoch);
+		}
+	}
+
+	/**
+	 * @param array<string,mixed>              $snapshot
+	 * @param array<string,mixed>              $payload
+	 * @param list<array<string,mixed>>        $moves
+	 */
+	private function applyRuntimeLibraryMoveInvalidations(array &$snapshot, array $payload, array $moves): void
+	{
+		$epochs = is_array($payload['libraryVisibilityEpochs'] ?? null) ? $payload['libraryVisibilityEpochs'] : [];
+		foreach ($epochs as $playerId => $epoch) {
+			if (is_string($playerId)) {
+				$this->applyRuntimeLibraryInvalidation($snapshot, $playerId, $epoch);
+			}
+		}
+		if ($epochs !== []) {
+			return;
+		}
+		$owners = [];
+		foreach ($moves as $move) {
+			foreach (['from', 'to'] as $side) {
+				$location = is_array($move[$side] ?? null) ? $move[$side] : [];
+				if (($location['zone'] ?? null) === 'library' && is_string($location['playerId'] ?? null)) {
+					$owners[$location['playerId']] = true;
+				}
+			}
+		}
+		foreach (array_keys($owners) as $playerId) {
+			$this->applyRuntimeLibraryInvalidation($snapshot, $playerId, null);
+		}
+	}
 
     /**
      * @param array<string,mixed> $payload
@@ -2052,11 +2165,14 @@ final class GameEventReplayService
                 return;
 
             case 'zone.cards.move':
+				$this->invalidateLegacyLibraryMoves($snapshot, [$operation]);
                 $this->applyMove($snapshot, $operation);
                 return;
 
             case 'zone.cards.batchMove':
-                foreach (array_values(array_filter($operation['moves'] ?? [], static fn (mixed $move): bool => is_array($move))) as $move) {
+				$moves = array_values(array_filter($operation['moves'] ?? [], static fn (mixed $move): bool => is_array($move)));
+				$this->invalidateLegacyLibraryMoves($snapshot, $moves);
+				foreach ($moves as $move) {
                     $this->applyMove($snapshot, $move);
                 }
                 return;
@@ -2222,6 +2338,21 @@ final class GameEventReplayService
         $targetPlayerId = (string) ($to['playerId'] ?? '');
         $targetZone = (string) ($to['zone'] ?? '');
         $targetIndex = array_key_exists('index', $to) ? max(0, (int) $to['index']) : null;
+        if ($sourceZone !== $targetZone && ($sourceZone === 'hand' || $targetZone === 'hand')) {
+            $card['revealedTo'] = [];
+            if (is_array($snapshot['visibility']['handRevealStates'][$instanceId] ?? null)) {
+                $snapshot['visibility']['handRevealStates'][$instanceId] = [
+                    ...$snapshot['visibility']['handRevealStates'][$instanceId],
+                    'active' => false,
+                    'visibleToMask' => 0,
+                    'revealedTo' => [],
+                    'zone' => $targetZone,
+                    'lastChangedVersion' => max(1, (int) ($snapshot['version'] ?? 0) + 1),
+                    'sourceCommand' => 'zone.transition',
+                    'sourceClientActionId' => '',
+                ];
+            }
+        }
         if ($sourceZone === 'battlefield' && $targetZone !== 'battlefield') {
             $this->resetBattlefieldExitCard($card, $targetPlayerId);
             $this->pruneBattlefieldRelationsForMovedInstance($snapshot, $instanceId);
@@ -2241,6 +2372,115 @@ final class GameEventReplayService
         }
         $this->insertCard($snapshot, $targetPlayerId, $targetZone, $card, $targetIndex);
     }
+
+    /**
+     * Runtime batch events persist final destination indexes. Applying same-library moves one by
+     * one shifts the remaining source indexes and can interleave selected cards. Reconstruct the
+     * final array atomically from those persisted indexes instead.
+     *
+     * @param list<array<string,mixed>> $moves
+     */
+    private function applyRuntimeSameLibraryBatch(array &$snapshot, array $moves): bool
+    {
+        if (count($moves) < 2) {
+            return false;
+        }
+
+        $playerId = null;
+        $targetCards = [];
+        $targetIndexes = [];
+        foreach ($moves as $move) {
+            $from = is_array($move['from'] ?? null) ? $move['from'] : [];
+            $to = is_array($move['to'] ?? null) ? $move['to'] : [];
+            $sourcePlayerId = is_string($from['playerId'] ?? null) ? trim($from['playerId']) : '';
+            $targetPlayerId = is_string($to['playerId'] ?? null) ? trim($to['playerId']) : '';
+            $instanceId = is_string($move['instanceId'] ?? null) ? trim($move['instanceId']) : '';
+            if ($sourcePlayerId === '' || $sourcePlayerId !== $targetPlayerId || $instanceId === ''
+                || ($from['zone'] ?? null) !== 'library' || ($to['zone'] ?? null) !== 'library'
+                || !array_key_exists('index', $to)) {
+                return false;
+            }
+            $playerId ??= $sourcePlayerId;
+            if ($playerId !== $sourcePlayerId) {
+                return false;
+            }
+            $targetIndex = (int) $to['index'];
+            if ($targetIndex < 0 || isset($targetIndexes[$targetIndex]) || isset($targetCards[$instanceId])) {
+                return false;
+            }
+            $targetIndexes[$targetIndex] = $instanceId;
+            $targetCards[$instanceId] = is_array($move['card'] ?? null) ? $move['card'] : null;
+        }
+        if ($playerId === null || !is_array($snapshot['players'][$playerId]['zones']['library'] ?? null)) {
+            return false;
+        }
+
+        $current = array_values($snapshot['players'][$playerId]['zones']['library']);
+        $cardsById = [];
+        $remaining = [];
+        foreach ($current as $card) {
+            $instanceId = is_array($card) && is_string($card['instanceId'] ?? null) ? $card['instanceId'] : '';
+            if ($instanceId !== '' && array_key_exists($instanceId, $targetCards)) {
+                $cardsById[$instanceId] = $card;
+            } else {
+                $remaining[] = $card;
+            }
+        }
+        if (count($cardsById) !== count($moves)) {
+            return false;
+        }
+
+        $final = array_fill(0, count($current), null);
+        foreach ($targetIndexes as $targetIndex => $instanceId) {
+            if ($targetIndex >= count($final)) {
+                return false;
+            }
+            $card = is_array($targetCards[$instanceId]) ? $targetCards[$instanceId] : $cardsById[$instanceId];
+            $card['zone'] = 'library';
+            $card['ownerId'] = (string) ($card['ownerId'] ?? $playerId);
+            $card['controllerId'] = (string) ($card['controllerId'] ?? $playerId);
+            unset($card['position']);
+            $final[$targetIndex] = $card;
+        }
+        $remainingIndex = 0;
+        foreach ($final as $index => $card) {
+            if ($card !== null) {
+                continue;
+            }
+            if (!array_key_exists($remainingIndex, $remaining)) {
+                return false;
+            }
+            $final[$index] = $remaining[$remainingIndex++];
+        }
+        if ($remainingIndex !== count($remaining)) {
+            return false;
+        }
+
+        $snapshot['players'][$playerId]['zones']['library'] = $final;
+        $this->rebuildLoc($snapshot);
+
+        return true;
+    }
+
+	/**
+	 * @param array<string,mixed>       $snapshot
+	 * @param list<array<string,mixed>> $moves
+	 */
+	private function invalidateLegacyLibraryMoves(array &$snapshot, array $moves): void
+	{
+		$owners = [];
+		foreach ($moves as $move) {
+			foreach (['from', 'to'] as $side) {
+				$location = is_array($move[$side] ?? null) ? $move[$side] : [];
+				if (($location['zone'] ?? null) === 'library' && is_string($location['playerId'] ?? null)) {
+					$owners[$location['playerId']] = true;
+				}
+			}
+		}
+		foreach (array_keys($owners) as $playerId) {
+			$this->applyRuntimeLibraryInvalidation($snapshot, $playerId, null);
+		}
+	}
 
     /**
      * @param array<string,mixed> $card

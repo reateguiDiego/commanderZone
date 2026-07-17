@@ -74,6 +74,8 @@ export interface GameTableNormalizedV2PlayerState {
   concededAt?: string | null;
   mulligan?: GamePlayerMulliganState;
   playTopLibraryRevealed?: boolean;
+	libraryVisibilityEpoch?: number;
+	libraryWindow?: GamePlayerState['libraryWindow'];
 	eliminationReason?: GamePlayerState['eliminationReason'];
 	eliminatedAtVersion?: number | null;
 	sourcePlayerId?: string | null;
@@ -485,6 +487,8 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'library.count.set':
     case 'library.top.revealed':
     case 'library.top.viewed':
+    case 'library.window.invalidated':
+    case 'library.epoch.set':
     case 'library.revealed.set':
     case 'library.play_top_revealed.set':
     case 'library.top.hidden':
@@ -698,8 +702,24 @@ function applyOperation(state: GameTableNormalizedV2State, operation: GameplayPa
     case 'library.top.revealed':
       return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
 
-    case 'library.top.viewed':
-      return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+    case 'library.top.viewed': {
+      const revealed = revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
+      if (revealed.status === 'failed') {
+        return revealed;
+      }
+      return setLibraryWindow(revealed.state, operation.playerId, {
+        windowId: operation.windowId,
+        expectedEpoch: operation.expectedEpoch,
+        openedAtVersion: operation.openedAtVersion,
+        status: operation.status,
+      });
+    }
+
+    case 'library.window.invalidated':
+      return invalidateLibraryWindow(state, operation);
+
+    case 'library.epoch.set':
+      return setLibraryEpoch(state, operation.playerId, operation.epoch);
 
     case 'library.revealed.set':
       return revealLibraryTop(state, operation.playerId, operation.cards, operation.staticCards ?? {});
@@ -1110,10 +1130,17 @@ function addCardsToZone(
     return { status: 'failed', reason: 'target_not_found' };
   }
 
+  const visibleCards = zone === 'battlefield' && state.game.viewerId === playerId
+    ? cards.filter((card) => !isOpaqueBattlefieldShell(card, playerId))
+    : cards;
+  if (visibleCards.length === 0) {
+    return { status: 'applied', state };
+  }
+
   const nextInstances = { ...state.instances };
   const nextStaticCards = { ...state.staticCards };
   const insertedIds: string[] = [];
-  for (const card of cards) {
+  for (const card of visibleCards) {
     const normalized = normalizeIncomingCard(card, playerId, zone, staticCards ?? {}, {
       instances: nextInstances,
       staticCards: nextStaticCards,
@@ -1170,6 +1197,16 @@ function addCardsToZone(
       },
     },
   };
+}
+
+function isOpaqueBattlefieldShell(
+  card: BootstrapInstanceV2 | LegacyCardPatchPayload,
+  playerId: string,
+): boolean {
+  return card.hidden === true
+    && card.faceDown === true
+    && typeof card.instanceId === 'string'
+    && card.instanceId.startsWith(`${playerId}-hidden-battlefield-`);
 }
 
 function removeCardsFromZone(
@@ -1508,6 +1545,49 @@ function revealLibraryTop(
   };
 }
 
+function setLibraryWindow(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  window: NonNullable<GamePlayerState['libraryWindow']>,
+): OperationApplyResult {
+  return updatePlayer(state, playerId, (player) => ({
+    ...player,
+    libraryVisibilityEpoch: window.expectedEpoch,
+    libraryWindow: { ...window },
+  }));
+}
+
+function setLibraryEpoch(
+  state: GameTableNormalizedV2State,
+  playerId: string,
+  epoch: number,
+): OperationApplyResult {
+  return updatePlayer(state, playerId, (player) => ({
+    ...player,
+    libraryVisibilityEpoch: Math.max(0, Math.floor(epoch)),
+  }));
+}
+
+function invalidateLibraryWindow(
+  state: GameTableNormalizedV2State,
+  operation: Extract<GameplayPatchV2Operation, { op: 'library.window.invalidated' }>,
+): OperationApplyResult {
+  return updatePlayer(state, operation.playerId, (player) => {
+    const current = player.libraryWindow;
+    return {
+      ...player,
+      libraryVisibilityEpoch: Math.max(0, Math.floor(operation.currentEpoch)),
+      libraryWindow: current?.windowId === operation.windowId
+        ? {
+            ...current,
+            status: operation.status,
+            reason: operation.reason ?? null,
+          }
+        : current,
+    };
+  });
+}
+
 function materializePrivateCards(
   state: GameTableNormalizedV2State,
   playerId: string,
@@ -1601,12 +1681,14 @@ function concealPrivateCards(
   const removedCardRefs = new Set<string>();
 
   for (const entry of entries) {
-    if (!entry.instanceId.trim() || !entry.placeholderId.trim() || !Number.isInteger(entry.index) || entry.index < 0) {
+    const placeholderId = entry.placeholderId.trim();
+    const removeWithoutPlaceholder = zone === 'library' && placeholderId.length === 0;
+    if (!entry.instanceId.trim() || (!placeholderId && !removeWithoutPlaceholder) || !Number.isInteger(entry.index) || entry.index < 0) {
       return { status: 'failed', reason: 'invalid_operation' };
     }
 
     const realIndex = nextZone.indexOf(entry.instanceId);
-    const placeholderIndex = nextZone.indexOf(entry.placeholderId);
+    const placeholderIndex = placeholderId ? nextZone.indexOf(placeholderId) : -1;
     if (realIndex < 0) {
       if (placeholderIndex >= 0) {
         continue;
@@ -1619,9 +1701,11 @@ function concealPrivateCards(
         removedCardRefs.add(removed.cardRef);
       }
       delete nextInstances[entry.instanceId];
-      const insertIndex = Math.min(entry.index, nextZone.length);
-      nextZone.splice(insertIndex, 0, entry.placeholderId);
-      nextInstances[entry.placeholderId] = hiddenPlaceholderInstance(playerId, zone, entry.placeholderId);
+      if (placeholderId) {
+        const insertIndex = Math.min(entry.index, nextZone.length);
+        nextZone.splice(insertIndex, 0, placeholderId);
+        nextInstances[placeholderId] = hiddenPlaceholderInstance(playerId, zone, placeholderId);
+      }
       continue;
     }
 
@@ -1631,11 +1715,11 @@ function concealPrivateCards(
     }
     delete nextInstances[entry.instanceId];
 
-    if (placeholderIndex >= 0) {
+    if (placeholderIndex >= 0 || !placeholderId) {
       nextZone.splice(realIndex, 1);
     } else {
-      nextZone.splice(realIndex, 1, entry.placeholderId);
-      nextInstances[entry.placeholderId] = hiddenPlaceholderInstance(playerId, zone, entry.placeholderId);
+      nextZone.splice(realIndex, 1, placeholderId);
+      nextInstances[placeholderId] = hiddenPlaceholderInstance(playerId, zone, placeholderId);
     }
   }
 
@@ -1679,8 +1763,8 @@ function hiddenPlaceholderInstance(playerId: string, zone: GameZoneName, instanc
   };
 }
 
-function isPlaceholderPrivateZone(zone: GameZoneName): zone is 'hand' | 'library' {
-  return zone === 'hand' || zone === 'library';
+function isPlaceholderPrivateZone(zone: GameZoneName): zone is 'hand' | 'library' | 'battlefield' {
+  return zone === 'hand' || zone === 'library' || zone === 'battlefield';
 }
 
 function reorderLibraryTop(
@@ -2443,6 +2527,8 @@ function hydratePlayerState(
     handCount: zoneCounts.hand ?? player.handCount,
     mulligan: player.mulligan ? { ...player.mulligan } : undefined,
     playTopLibraryRevealed: player.playTopLibraryRevealed,
+    libraryVisibilityEpoch: Math.max(0, player.libraryVisibilityEpoch ?? 0),
+    libraryWindow: player.libraryWindow ? { ...player.libraryWindow } : null,
     commanderDamage: { ...player.commanderDamage },
     counters: { ...player.counters },
   };
@@ -2555,6 +2641,8 @@ function normalizePlayer(player: BootstrapPlayerV2): GameTableNormalizedV2Player
     backgroundName: player.backgroundName ?? null,
     sleevesName: player.sleevesName ?? null,
     playTopLibraryRevealed: player.playTopLibraryRevealed ?? false,
+    libraryVisibilityEpoch: Math.max(0, player.libraryVisibilityEpoch ?? 0),
+    libraryWindow: null,
     mulligan: player.mulligan ? { ...player.mulligan } : undefined,
 		eliminationReason: player.eliminationReason ?? null,
 		eliminatedAtVersion: player.eliminatedAtVersion ?? null,

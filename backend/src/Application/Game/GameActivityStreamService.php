@@ -65,8 +65,10 @@ final readonly class GameActivityStreamService
      */
     public function logEntries(Game $game, int $limit = self::LOG_LIMIT, ?string $cursor = null): array
     {
+        $sanitizer = new GameLogPrivacySanitizer();
+
         return array_values(array_map(
-            static fn (GameLogEntry $entry): array => $entry->toArray(),
+            fn (GameLogEntry $entry): array => $sanitizer->sanitizePublicEntry($entry->toArray()),
             $this->logRecords($game, $limit, $cursor),
         ));
     }
@@ -153,8 +155,9 @@ final readonly class GameActivityStreamService
      */
     public function activityEntries(Game $game, User $viewer, int $limit = 200, ?string $cursor = null): array
     {
+        $sanitizer = new GameLogPrivacySanitizer();
         $activity = [
-            ...array_map(static fn (GameLogEntry $entry): array => $entry->toEventArray(), $this->logRecords($game, $limit, $cursor)),
+            ...array_map(fn (GameLogEntry $entry): array => $sanitizer->sanitizePublicEntry($entry->toEventArray()), $this->logRecords($game, $limit, $cursor)),
             ...array_map(static fn (GameChatMessage $message): array => $message->toEventArray(), array_filter(
                 $this->chatMessages($game, $limit, $cursor),
                 fn (GameChatMessage $message): bool => $this->canViewChatMessage($message, $viewer->id()),

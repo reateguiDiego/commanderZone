@@ -661,6 +661,17 @@
     max-height: var(--game-zone-row-height, 5.45rem);
     overflow-y: hidden;
     padding: 0.12rem 0.55rem calc(var(--bottom-gap, 0.7rem) + 0.08rem);
+    // The collapsed hand must leave the hover strip as the interaction
+    // surface. Re-enable card/scroll interaction only after the hand opens;
+    // otherwise the row intercepts the strip and the hand cannot be revealed
+    // at compact/minimal heights.
+    pointer-events: none;
+  }
+
+  .hand-area.hand-revealed .hand-row,
+  .hand-area.hand-revealed .hand-row-expanded,
+  .hand-area.hand-dragging .hand-row,
+  .hand-area.hand-external-dragging .hand-row {
     pointer-events: auto;
   }
 
@@ -733,6 +744,20 @@
 
   .hand-hover-strip {
     pointer-events: none;
+  }
+
+  // On fine pointers the collapsed hand still needs a reachable hover
+  // affordance at compact/minimal heights. Touch input does not depend on
+  // hover, so keep the existing touch-safe behavior there.
+  @media (pointer: fine) {
+    .hand-hover-strip {
+      pointer-events: auto;
+    }
+
+    .hand-area.hand-revealed .hand-hover-strip,
+    .hand-area.hand-dragging .hand-hover-strip {
+      pointer-events: none;
+    }
   }
 
   .empty-hand-drop-target {

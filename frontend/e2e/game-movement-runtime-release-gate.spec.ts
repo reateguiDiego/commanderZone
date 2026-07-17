@@ -268,7 +268,7 @@ ${(await pageA.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
         () => true,
       );
       expect(hasOp(handToLibraryTopRival, 'zone.cards.move')).toBe(false);
-      expectHiddenCardReference(handToLibraryTopRival, handFour);
+      expectNoPrivateCardReference(handToLibraryTopRival, handFour);
       await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
         hand: initialCountsA.hand - 4,
         library: initialCountsA.library + 1,
@@ -302,7 +302,7 @@ ${(await pageA.locator('body').innerText().catch(() => '')).slice(0, 2000)}`);
         libraryToHandAction.clientActionId,
         () => true,
       );
-      expectHiddenCardReference(libraryToHandRival, handFour);
+      expectNoPrivateCardReference(libraryToHandRival, handFour);
       await expect.poll(async () => readTableZoneCounts(pageA, playerA.user.displayName)).toEqual({
         hand: initialCountsA.hand - 4,
         library: initialCountsA.library + 1,
@@ -561,20 +561,13 @@ function operation(message: JsonObject, op: string): JsonObject | null {
   return ops.find((item) => item['op'] === op) ?? null;
 }
 
-function expectHiddenCardReference(message: JsonObject, instanceId: string): void {
+function expectNoPrivateCardReference(message: JsonObject, instanceId: string): void {
   const entries = operation(message, 'eventLog.append')?.['entries'];
   expect(Array.isArray(entries)).toBe(true);
-  const entry = (entries as JsonObject[]).find((candidate) => {
-    const cards = ((candidate['refs'] as JsonObject | undefined)?.['cards'] as JsonObject | undefined) ?? {};
-    return cards[instanceId] !== undefined;
-  });
-  const cards = ((entry?.['refs'] as JsonObject | undefined)?.['cards'] as JsonObject | undefined) ?? {};
-  const ref = cards[instanceId] as JsonObject | undefined;
-  expect(ref?.['visibility']).toBe('hidden');
-  expect(ref?.['cardKey']).toBeUndefined();
-  expect(ref?.['cardRef']).toBeUndefined();
-  expect(ref?.['name']).toBeUndefined();
-  expect(ref?.['printId']).toBeUndefined();
+  expect((entries as JsonObject[]).length).toBeGreaterThan(0);
+  const serialized = JSON.stringify(entries);
+  expect(serialized).not.toContain(instanceId);
+  expect(serialized).not.toMatch(/"(?:cardInstanceId|cardKey|cardRef|printId|imageUris|cardFaces)"/);
 }
 
 async function readFocusedZoneCount(page: Page, displayName: string, zone: string): Promise<number> {

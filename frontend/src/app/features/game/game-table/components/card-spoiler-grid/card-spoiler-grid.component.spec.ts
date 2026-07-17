@@ -129,7 +129,7 @@ describe('CardSpoilerGridComponent', () => {
     }));
   });
 
-  it('shows an inert centered face toggle affordance for double-faced card spoilers', async () => {
+  it('shows a keyboard-accessible centered face toggle for double-faced card spoilers', async () => {
     await TestBed.configureTestingModule({
       imports: [CardSpoilerGridComponent],
       providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
@@ -148,10 +148,13 @@ describe('CardSpoilerGridComponent', () => {
 
     const regularCard = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLButtonElement;
     const doubleFaced = fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]') as HTMLButtonElement;
-    const toggle = doubleFaced.querySelector('.double-face-toggle') as HTMLElement | null;
+    const regularSlot = regularCard.closest('.card-spoiler-slot') as HTMLElement;
+    const doubleFacedSlot = doubleFaced.closest('.card-spoiler-slot') as HTMLElement;
+    const toggle = doubleFacedSlot.querySelector('.double-face-toggle') as HTMLButtonElement | null;
 
-    expect(regularCard.querySelector('.double-face-toggle')).toBeNull();
+    expect(regularSlot.querySelector('.double-face-toggle')).toBeNull();
     expect(toggle).not.toBeNull();
+    expect(toggle?.tagName).toBe('BUTTON');
     expect(toggle?.getAttribute('title')).toBe('Look at other face');
     expect(toggle?.getAttribute('aria-label')).toBe('Look at other face');
     expect(toggle?.querySelector('lucide-icon[name="rotate-cw"]')).not.toBeNull();
@@ -172,7 +175,7 @@ describe('CardSpoilerGridComponent', () => {
 
       expect(doubleFaced.querySelector('.zone-art')?.classList).not.toContain('face-flipping');
 
-      doubleFaced.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+      doubleFacedSlot.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
       fixture.detectChanges();
 
       expect(doubleFaced.querySelector('img')?.getAttribute('src')).toBe('/face-0.jpg');
@@ -246,6 +249,58 @@ describe('CardSpoilerGridComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+  });
+
+  it('uses roving focus and emits Space without relying on DOM position state', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CardSpoilerGridComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
+    }).compileComponents();
+    const fixture = createFixture([
+      card('card-1', 'Top'),
+      card('card-2', 'Second'),
+      card('card-3', 'Third'),
+    ]);
+    fixture.componentRef.setInput('multiSelect', true);
+    fixture.componentRef.setInput('focusedCardId', 'card-1');
+    const pressed = vi.fn();
+    fixture.componentInstance.cardKeyPressed.subscribe(pressed);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>('[data-card-instance-id]'));
+    expect(buttons.map((button) => button.tabIndex)).toEqual([0, -1, -1]);
+
+    buttons[0]?.focus();
+    buttons[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(buttons[1]);
+
+    buttons[1]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(buttons[2]);
+
+    buttons[2]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(buttons[0]);
+
+    buttons[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+    expect(pressed).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ instanceId: 'card-1' }),
+      event: expect.objectContaining({ key: ' ' }),
+    }));
+  });
+
+  it('keeps the full long card name accessible when no image is available', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CardSpoilerGridComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
+    }).compileComponents();
+    const longName = 'A Very Long Transforming Card Name That Must Remain Available to Assistive Technology';
+    const fixture = createFixture([card('card-1', longName)], () => null);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLButtonElement;
+    expect(button.getAttribute('aria-label')).toBe(longName);
+    expect(button.getAttribute('title')).toBe(longName);
+    expect(button.querySelector('.card-spoiler-fallback')?.textContent?.trim()).toBe(longName);
   });
 });
 

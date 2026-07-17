@@ -22,6 +22,7 @@
     }
   },
   "gameLog": {
+    "hand": { "revealed": "{{ actor }} が手札から {{ count }} 枚を公開しました。", "revoked": "{{ actor }} が公開済み手札 {{ count }} 枚へのアクセスを取り消しました。" },
     "commanderDamage": {
       "changed": "{{ source }} から {{ target }} への統率者ダメージが {{ previousDamage }} から {{ damage }} に変更されました。ライフは {{ previousLife }} から {{ life }} に変更されました。"
     },
@@ -46,7 +47,16 @@
     "library": {
       "draw": "{{ actor }} drew a card.",
       "drawMany": "{{ actor }} drew {{ count }} cards.",
-      "shuffle": "{{ actor }} shuffled their library."
+      "shuffle": "{{ actor }} shuffled their library.",
+      "selectedMoved": "{{ actor }}はライブラリーから選択した{{ count }}枚を{{ destination }}へ移動しました。",
+      "playedSelectedFaceDown": "{{ actor }}はライブラリーから選択した{{ count }}枚を裏向きで出しました。",
+      "selectedToHand": "{{ actor }}はライブラリーから選択した{{ count }}枚を手札へ移動しました。",
+      "selectedToGraveyard": "{{ actor }}はライブラリーから選択した{{ count }}枚を墓地へ移動しました。",
+      "selectedToExile": "{{ actor }}はライブラリーから選択した{{ count }}枚を追放しました。",
+      "selectedToBattlefield": "{{ actor }}はライブラリーから選択した{{ count }}枚を戦場へ移動しました。",
+      "putSelectedTop": "{{ actor }}は選択した{{ count }}枚をライブラリーの一番上に置きました。",
+      "putSelectedBottom": "{{ actor }}は選択した{{ count }}枚をライブラリーの一番下に置きました。",
+      "playedTopFaceDown": "{{ actor }}はライブラリーの上から{{ count }}枚を裏向きで出しました。"
     },
     "card": {
       "moved": "{{ actor }} moved a card from {{ fromZone }} to {{ toZone }}.",
@@ -851,6 +861,13 @@
       "focusTurn": "ã‚¿ãƒ¼ãƒ³ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹",
       "passTurn": "ã‚¿ãƒ¼ãƒ³ã‚’æ¸¡ã™"
     },
+    "handRevealDialog": {
+      "title": "手札を公開", "summary": "選択した {{ count }} 枚の対象を確認します。",
+      "action": "操作", "reveal": "公開", "revoke": "アクセス取消", "recipients": "対象", "allPlayers": "すべてのプレイヤー",
+      "confirmReveal": "{{ count }} 枚を {{ recipients }} 人に公開します。", "confirmRevoke": "{{ count }} 枚から {{ recipients }} 人のアクセスを取り消します。",
+      "pending": "表示変更を適用しています...", "cancel": "キャンセル", "confirmRevealButton": "公開を確認", "confirmRevokeButton": "取消を確認",
+      "invalidSelection": "有効な手札を選択してください。", "stale": "選択した手札が変更されました。操作を開き直してください。"
+    },
     "zoneModal": {
       "searchByName": "åå‰ã§æ¤œç´¢",
       "closeZone": "ã‚¯ãƒ­ãƒ¼ã‚ºã‚¾ãƒ¼ãƒ³",
@@ -864,7 +881,38 @@
       "enchantments": "ã‚¨ãƒ³ãƒãƒ£ãƒ³ãƒˆ",
       "planeswalkers": "ãƒ—ãƒ¬ã‚¤ãƒ³ã‚ºã‚¦ã‚©ãƒ¼ã‚«ãƒ¼",
       "lands": "åœŸåœ°",
-      "search": "æ¤œç´¢"
+      "search": "æ¤œç´¢",
+      "cardCount": "{{count}} cards",
+      "selectionInstructions": "Select cards locally. No library changes are made.",
+      "selectionToolbar": "Card selection",
+      "selectedCount": "{{selected}} of {{total}} selected",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "reorderMode": "Reorder",
+      "selectionMode": "Select",
+      "viewStale": "This library view is no longer valid. Close it and open a new view.",
+      "viewError": "The private library view could not be opened. Close it and try again.",
+      "connectionChanged": "The connection changed, so this private view was closed for safety. Open it again.",
+      "emptyView": "No authorized cards are available in this view.",
+      "batchToolbar": "ライブラリーの非公開操作",
+      "batchActions": "操作",
+      "batchPending": "確認済みの操作を適用しています...",
+      "batchError": "操作を適用できませんでした。ライブラリーは変更されていません。",
+      "invalidBatch": "有効なカードを1枚以上選択してください。",
+      "confirmTitle": "ライブラリー操作の確認",
+      "confirmCount": "この操作は{{count}}枚のカードに影響します。",
+      "cancel": "キャンセル",
+      "confirm": "確認",
+      "action": {
+        "hand": "選択したカードを手札へ",
+        "battlefield-face-up": "選択したカードを表向きで戦場へ",
+        "battlefield-face-down": "選択したカードを裏向きで戦場へ",
+        "graveyard": "選択したカードを墓地へ",
+        "exile": "選択したカードを追放",
+        "library-top": "選択したカードを一番上へ",
+        "library-bottom": "選択したカードを一番下へ",
+        "playTopFaceDown": "上から{{count}}枚を裏向きで出す"
+      }
     },
     "gameTable": {
       "message": "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸",

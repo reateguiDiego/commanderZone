@@ -2,6 +2,8 @@
 
 namespace App\Application\Game\WebSocket;
 
+use App\Application\Game\GameLogPrivacySanitizer;
+
 use App\Domain\Game\GameEvent;
 
 final readonly class GameWebsocketPatchBuilder
@@ -92,6 +94,8 @@ final readonly class GameWebsocketPatchBuilder
             'library.view' => $this->libraryView($previousSnapshot, $nextSnapshot, $payload, $viewerId),
             'library.play_top_revealed' => $this->libraryPlayTopRevealed($previousSnapshot, $nextSnapshot, $payload, $viewerId),
             'library.reorder_top' => $this->libraryReorderTop($previousSnapshot, $nextSnapshot, $payload, $viewerId),
+            'hand.cards.reveal' => $this->handCardsVisibility($previousSnapshot, $nextSnapshot, $payload, true),
+            'hand.cards.revoke' => $this->handCardsVisibility($previousSnapshot, $nextSnapshot, $payload, false),
             'card.face_down.changed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload),
             'card.face.changed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload),
             'card.revealed' => $this->cardProjectionChanged($previousSnapshot, $nextSnapshot, $payload),
@@ -917,6 +921,132 @@ final readonly class GameWebsocketPatchBuilder
     }
 
     /**
+     * Build the viewer-local patch for an atomic hand reveal/revoke batch.
+     *
+     * The owner and viewers retaining access already have a materialized
+     * projection, while a newly-authorized viewer receives one materialize
+     * operation per batch and a revoked viewer receives one conceal operation.
+     * We deliberately derive this from the projected before/after snapshots:
+     * the real instance id therefore only appears for a viewer that already
+     * had (or is now receiving) authorization.
+     *
+     * @return list<array<string,mixed>>|null
+     */
+    private function handCardsVisibility(
+        array $previousSnapshot,
+        array $nextSnapshot,
+        array $payload,
+        bool $reveal,
+    ): ?array {
+        $playerId = $this->payloadString($payload, 'playerId');
+        if ($playerId === null) {
+            return null;
+        }
+
+        $requestedIds = $payload['orderedInstanceIds'] ?? [];
+        if (!is_array($requestedIds) || $requestedIds === []) {
+            // Runtime event payloads always include orderedInstanceIds. The
+            // defensive fallback keeps legacy replay payloads deterministic.
+            $requestedIds = $payload['instanceIds'] ?? [];
+        }
+        $instanceIds = [];
+        foreach ($requestedIds as $instanceId) {
+            if (!is_string($instanceId) || trim($instanceId) === '' || in_array($instanceId, $instanceIds, true)) {
+                return null;
+            }
+            $instanceIds[] = trim($instanceId);
+        }
+        if ($instanceIds === []) {
+            return null;
+        }
+
+        $materialize = [];
+        $conceal = [];
+        $fieldUpdates = [];
+        foreach ($instanceIds as $instanceId) {
+            $previousCard = $this->card($previousSnapshot, $playerId, 'hand', $instanceId);
+            $nextCard = $this->card($nextSnapshot, $playerId, 'hand', $instanceId);
+            $previousIndex = $this->cardIndex($previousSnapshot, $playerId, 'hand', $instanceId);
+            $nextIndex = $this->cardIndex($nextSnapshot, $playerId, 'hand', $instanceId);
+
+            if ($reveal) {
+                // A newly authorized viewer has no real card in the previous
+                // projection. The next projection contains the full card and
+                // its stable hand slot; replace that slot atomically.
+                if ($nextCard !== null && $previousCard === null && $nextIndex !== null) {
+                    $placeholder = $this->cardAtIndex($previousSnapshot, $playerId, 'hand', $nextIndex);
+                    if ($placeholder === null) {
+                        return null;
+                    }
+                    $materialize[] = [
+                        'placeholderId' => $this->cardInstanceId($placeholder) ?? '',
+                        'index' => $nextIndex,
+                        'card' => $nextCard,
+                    ];
+                    continue;
+                }
+            } else {
+                // A revoked viewer loses the real card and receives the
+                // deterministic opaque placeholder for the same hand slot.
+                if ($previousCard !== null && $nextCard === null && $previousIndex !== null) {
+                    $placeholder = $this->cardAtIndex($nextSnapshot, $playerId, 'hand', $previousIndex);
+                    if ($placeholder === null) {
+                        return null;
+                    }
+                    $conceal[] = [
+                        'instanceId' => $this->cardInstanceId($previousCard) ?? $instanceId,
+                        'placeholderId' => $this->cardInstanceId($placeholder) ?? '',
+                        'index' => $previousIndex,
+                    ];
+                    continue;
+                }
+            }
+
+            // Existing authorized viewers (including the owner) retain the
+            // card identity but may need the final audience metadata updated.
+            if ($previousCard !== null && $nextCard !== null
+                && ($previousCard['revealedTo'] ?? []) !== ($nextCard['revealedTo'] ?? [])) {
+                $fieldUpdates[] = [
+                    'op' => 'card.field.set',
+                    'playerId' => $playerId,
+                    'zone' => 'hand',
+                    'instanceId' => $instanceId,
+                    'revealedTo' => is_array($nextCard['revealedTo'] ?? null)
+                        ? array_values($nextCard['revealedTo'])
+                        : [],
+                ];
+            }
+        }
+
+        $operations = [];
+        if ($materialize !== []) {
+            $operations[] = [
+                'op' => 'private.cards.materialize',
+                'playerId' => $playerId,
+                'zone' => 'hand',
+                'entries' => $materialize,
+            ];
+        }
+        if ($conceal !== []) {
+            $operations[] = [
+                'op' => 'private.cards.conceal',
+                'playerId' => $playerId,
+                'zone' => 'hand',
+                'entries' => $conceal,
+            ];
+        }
+
+        return [
+            ...$operations,
+            ...$fieldUpdates,
+            // Hand reveal identity is private even for the owner-facing
+            // public log envelope. Redact recursively while retaining safe
+            // aggregate count/audience metadata and semantic i18n keys.
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, true),
+        ];
+    }
+
+    /**
      * @return list<array<string,mixed>>|null
      */
     private function cardProjectionChanged(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
@@ -928,6 +1058,10 @@ final readonly class GameWebsocketPatchBuilder
 
         $operations = $this->projectedCardRefreshOperations($nextSnapshot, $location['playerId'], $location['zone'], $location['instanceId']);
         if ($operations === null) {
+            if ($location['zone'] === 'battlefield') {
+                return $this->projectedBattlefieldCardReplacementOperations($previousSnapshot, $nextSnapshot, $location);
+            }
+
             return null;
         }
 
@@ -1864,6 +1998,48 @@ final readonly class GameWebsocketPatchBuilder
     }
 
     /**
+     * A public battlefield card that becomes private is projected with a new opaque shell id.
+     * Replace the previously public projection explicitly instead of forcing a resync or
+     * addressing the shell with the now-private instance id.
+     *
+     * @param array{playerId:string,zone:string,instanceId:string} $location
+     *
+     * @return list<array<string,mixed>>|null
+     */
+    private function projectedBattlefieldCardReplacementOperations(array $previousSnapshot, array $nextSnapshot, array $location): ?array
+    {
+        $removed = array_values(array_filter(
+            $this->removedBattlefieldCards($previousSnapshot, $nextSnapshot),
+            static fn (array $entry): bool => $entry['playerId'] === $location['playerId']
+                && $entry['instanceId'] === $location['instanceId'],
+        ));
+        $created = array_values(array_filter(
+            $this->createdBattlefieldCards($previousSnapshot, $nextSnapshot),
+            static fn (array $entry): bool => $entry['playerId'] === $location['playerId'],
+        ));
+        if (count($removed) !== 1 || count($created) !== 1) {
+            return null;
+        }
+
+        return [
+            [
+                'op' => 'card.remove',
+                'playerId' => $location['playerId'],
+                'zone' => 'battlefield',
+                'instanceId' => $location['instanceId'],
+            ],
+            [
+                'op' => 'card.create',
+                'playerId' => $location['playerId'],
+                'zone' => 'battlefield',
+                'index' => $created[0]['index'],
+                'card' => $created[0]['card'],
+            ],
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, true),
+        ];
+    }
+
+    /**
      * @param array{playerId:string,zone:string,instanceId:string} $location
      *
      * @return array<string,mixed>|null
@@ -2211,10 +2387,7 @@ final readonly class GameWebsocketPatchBuilder
      */
     private function sanitizedPrivateCardLogEntry(array $entry): array
     {
-        unset($entry['cardNames'], $entry['cardInstanceId'], $entry['cardPlayerId'], $entry['cardZone']);
-        $entry['message'] = 'Updated a hidden card.';
-
-        return $entry;
+        return (new GameLogPrivacySanitizer())->sanitizePublicEntry($entry, true);
     }
 
     /**
@@ -2289,6 +2462,19 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function cardAtIndex(array $snapshot, string $playerId, string $zone, int $index): ?array
+    {
+        $cards = $snapshot['players'][$playerId]['zones'][$zone] ?? null;
+        if (!is_array($cards) || !isset($cards[$index]) || !is_array($cards[$index])) {
+            return null;
+        }
+
+        return $cards[$index];
     }
 
     private function nextCardPlayerId(array $snapshot, string $instanceId): ?string

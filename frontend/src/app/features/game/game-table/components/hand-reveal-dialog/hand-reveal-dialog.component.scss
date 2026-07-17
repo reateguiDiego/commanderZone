@@ -1,0 +1,148 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+}
+
+.hand-reveal-backdrop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.5rem, 2.5vw, 1.5rem);
+  background: rgb(3 8 18 / 78%);
+}
+
+.hand-reveal-dialog {
+  display: grid;
+  gap: 1rem;
+  width: min(34rem, 100%);
+  max-height: calc(100dvh - 1rem);
+  overflow: auto;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  color: #f8fafc;
+  background: #111827;
+  border: 1px solid rgb(148 163 184 / 35%);
+  border-radius: 1rem;
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%);
+}
+
+h2,
+p {
+  margin: 0;
+}
+
+header,
+fieldset,
+.player-options {
+  display: grid;
+  gap: 0.65rem;
+}
+
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid rgb(148 163 184 / 28%);
+  border-radius: 0.75rem;
+}
+
+legend {
+  padding-inline: 0.35rem;
+  font-weight: 700;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+label:focus-within {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+input {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.confirmation-copy,
+.status {
+  color: #cbd5e1;
+}
+
+.error {
+  color: #fca5a5;
+}
+
+footer {
+  position: sticky;
+  bottom: -1px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  background: #111827;
+}
+
+button {
+  min-width: 7rem;
+  min-height: 2.75rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.65rem;
+  font: inherit;
+  font-weight: 700;
+}
+
+.primary-button {
+  color: #fff;
+  background: #2563eb;
+  border: 1px solid #60a5fa;
+}
+
+.secondary-button {
+  color: #e2e8f0;
+  background: #1f2937;
+  border: 1px solid #64748b;
+}
+
+button:disabled {
+  opacity: 0.55;
+}
+
+@media (max-width: 56rem), (max-height: 38rem) {
+  .hand-reveal-dialog {
+    gap: 0.7rem;
+    padding: 0.8rem;
+  }
+
+  fieldset {
+    padding: 0.55rem;
+  }
+}
+
+@media (max-width: 42rem), (max-height: 30rem) {
+  .hand-reveal-backdrop {
+    padding: 0.25rem;
+  }
+
+  .hand-reveal-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 0.5rem);
+    border-radius: 0.65rem;
+  }
+
+  footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  button {
+    min-width: 0;
+  }
+}

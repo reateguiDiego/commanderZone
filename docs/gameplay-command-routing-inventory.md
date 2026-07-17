@@ -43,8 +43,8 @@ Current fallback policy:
 ## Audit 4 Alignment And Permission Notes
 
 Catalog alignment:
-- PHP `GameplayCommandCatalog::finalRuntimeCommands()` and Go `actor.FinalGameplayCommandTypes()` both contain 52 canonical final runtime commands.
-- PHP `GameplayCommandCatalog::clientRuntimeCommands()` and Go `actor.ClientInvocableRuntimeCommandTypes()` both classify 48 runtime-primary commands as directly client-invocable over runtime WS.
+- PHP `GameplayCommandCatalog::finalRuntimeCommands()` and Go `actor.FinalGameplayCommandTypes()` both contain 56 canonical final runtime commands.
+- PHP `GameplayCommandCatalog::clientRuntimeCommands()` and Go `actor.ClientInvocableRuntimeCommandTypes()` both classify 52 runtime-primary commands as directly client-invocable over runtime WS.
 - PHP `GameplayCommandCatalog::internalRuntimeCommands()` and Go `actor.InternalOnlyCommandTypes()` both classify 4 runtime commands as internal-only: `mulligan.cards_bottomed`, `mulligan.ready`, `mulligan.completed`, `game.phase.set`.
 - Alias maps match in PHP and Go: `zone.changed -> zone.reorderedByIds`, `mulligan.scry_confirm -> mulligan.scry.confirm`.
 - Frontend `GameCommandType` and WebSocket migrated command sets are covered by Go runtime appliers or the explicit non-runtime list (`chat.message`, `chat.reaction.toggled`, `disconnect.vote`).
@@ -68,6 +68,8 @@ Runtime-primary permission policy:
 | card.tapped | - | YES | YES | YES | YES | catalog | N/A | applier replay path | OK |
 | card.face_down.changed | - | YES | YES | YES | YES | catalog, existing sensitive tests | YES | applier replay path | OK |
 | card.revealed | - | YES | YES | YES | YES | catalog, existing sensitive tests | YES | applier replay path | OK |
+| hand.cards.reveal | - | YES | PHP WS allowlist only | YES | YES, batched materialize + audience metadata | Sprint 4D runtime/frontend/E2E | YES, single/multi/all + recursive log checks | final-effects Go/PHP replay | OK, ordered atomic cumulative reveal |
+| hand.cards.revoke | - | YES | PHP WS allowlist only | YES | YES, batched conceal + retained audience metadata | Sprint 4D runtime/frontend/E2E | YES, partial/full/public-boundary checks | final-effects Go/PHP replay | OK, idempotent absent-viewer revoke |
 | card.controller.changed | - | YES | YES | YES | YES | catalog, existing sensitive tests | YES | applier replay path | OK |
 | cards.position.changed | - | YES | YES | YES | YES | catalog | N/A | applier replay path | OK |
 | card.counter.changed | - | YES | YES | YES | YES | catalog | N/A | applier replay path | OK |
@@ -85,6 +87,8 @@ Runtime-primary permission policy:
 | library.put_top | - | NO UI emit; YES E2E raw runtime WS | PHP WS allowlist only | YES | YES | catalog, existing runtime ops tests, edge E2E | YES | existing replay path | OK client runtime WS, not UI-emitted |
 | library.put_bottom | - | NO UI emit; YES E2E raw runtime WS | PHP WS allowlist only | YES | YES | catalog, existing runtime ops tests, edge E2E | YES | existing replay path | OK client runtime WS, not UI-emitted |
 | library.view | - | YES | YES | YES | YES | catalog, existing library tests | YES | existing replay tests | OK |
+| library.selection.move | - | YES | PHP WS allowlist only | YES | YES, atomic multi-op version | Sprint 4C runtime/frontend/E2E | YES, recursive A/B/C checks | final-effects Go/PHP replay | OK, active window + epoch required |
+| library.top.play_face_down | - | YES | PHP WS allowlist only | YES | YES, atomic multi-op version | Sprint 4C runtime/frontend/E2E | YES, opaque shells and safe log | final-effects Go/PHP replay | OK, count-only top intent + active window |
 | library.shuffle | - | YES | YES | YES | YES | catalog, existing library tests | YES | existing replay tests | OK |
 | card.token.created | - | YES | YES | YES | YES | catalog | N/A | applier replay path | OK |
 | card.token_copy.created | - | YES | YES | YES | YES | catalog | N/A | applier replay path | OK |

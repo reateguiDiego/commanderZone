@@ -11,6 +11,8 @@ use App\Application\Game\GameEventReplayService;
 use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameLibraryOps;
 use App\Application\Game\GameMulliganEventTypes;
+use App\Application\Game\GameProjectionService;
+use App\Application\Game\GameVisibilityIndex;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Game\GameSnapshotCompact;
@@ -424,6 +426,78 @@ class GameEventStoreV2Test extends TestCase
         );
     }
 
+    public function testRuntimeHandRevealBatchReplayCopiesFinalAudienceForEveryCard(): void
+    {
+        $owner = new User('batch-reveal-owner@example.test', 'Batch Reveal Owner');
+        $viewer = new User('batch-reveal-viewer@example.test', 'Batch Reveal Viewer');
+        $third = new User('batch-reveal-third@example.test', 'Batch Reveal Third');
+        $baseSnapshot = $this->baseSnapshot($owner->id(), [
+            'hand' => [
+                $this->card('batch-hand-a', 'Batch Hand A', 'hand'),
+                $this->card('batch-hand-b', 'Batch Hand B', 'hand'),
+            ],
+        ]);
+        foreach ([$viewer, $third] as $player) {
+            $baseSnapshot['players'][$player->id()] = [
+                'user' => ['id' => $player->id(), 'email' => $player->email(), 'displayName' => $player->displayName(), 'roles' => []],
+                'life' => 40,
+                'zones' => ['library' => [], 'hand' => [], 'battlefield' => [], 'graveyard' => [], 'exile' => [], 'command' => []],
+                'commanderDamage' => [],
+                'counters' => [],
+            ];
+        }
+        $game = new Game(new Room($owner), $baseSnapshot);
+        $reveal = new GameEvent($game, 'hand.cards.reveal', [
+            'effectVersion' => 1,
+            'playerId' => $owner->id(),
+            'orderedInstanceIds' => ['batch-hand-b', 'batch-hand-a'],
+            'count' => 2,
+            'audience' => ['scope' => 'players', 'playerIds' => [$viewer->id(), $third->id()]],
+            'effects' => [
+                ['instanceId' => 'batch-hand-b', 'finalVisibleToMask' => 6, 'finalRevealedTo' => [$viewer->id(), $third->id()], 'revealState' => ['ownerId' => $owner->id(), 'zone' => 'hand', 'active' => true, 'visibleToMask' => 6, 'revealedTo' => [$viewer->id(), $third->id()], 'revealedAtVersion' => 2, 'lastChangedVersion' => 2, 'sourceCommand' => 'hand.cards.reveal']],
+                ['instanceId' => 'batch-hand-a', 'finalVisibleToMask' => 6, 'finalRevealedTo' => [$viewer->id(), $third->id()], 'revealState' => ['ownerId' => $owner->id(), 'zone' => 'hand', 'active' => true, 'visibleToMask' => 6, 'revealedTo' => [$viewer->id(), $third->id()], 'revealedAtVersion' => 2, 'lastChangedVersion' => 2, 'sourceCommand' => 'hand.cards.reveal']],
+            ],
+        ], $owner, 'batch-reveal', 2);
+        $partialRevoke = new GameEvent($game, 'hand.cards.revoke', [
+            'effectVersion' => 1,
+            'playerId' => $owner->id(),
+            'orderedInstanceIds' => ['batch-hand-b', 'batch-hand-a'],
+            'count' => 2,
+            'audience' => ['scope' => 'players', 'playerIds' => [$viewer->id()]],
+            'effects' => [
+                ['instanceId' => 'batch-hand-b', 'finalVisibleToMask' => 4, 'finalRevealedTo' => [$third->id()], 'revealState' => ['ownerId' => $owner->id(), 'zone' => 'hand', 'active' => true, 'visibleToMask' => 4, 'revealedTo' => [$third->id()], 'revealedAtVersion' => 2, 'lastChangedVersion' => 3, 'sourceCommand' => 'hand.cards.revoke']],
+                ['instanceId' => 'batch-hand-a', 'finalVisibleToMask' => 4, 'finalRevealedTo' => [$third->id()], 'revealState' => ['ownerId' => $owner->id(), 'zone' => 'hand', 'active' => true, 'visibleToMask' => 4, 'revealedTo' => [$third->id()], 'revealedAtVersion' => 2, 'lastChangedVersion' => 3, 'sourceCommand' => 'hand.cards.revoke']],
+            ],
+        ], $owner, 'batch-revoke-viewer', 3);
+        $move = new GameEvent($game, 'card.moved', [
+            'moves' => [[
+                'instanceId' => 'batch-hand-a',
+                'from' => ['playerId' => $owner->id(), 'zone' => 'hand', 'index' => 0],
+                'to' => ['playerId' => $owner->id(), 'zone' => 'graveyard', 'index' => 0],
+            ]],
+        ], $owner, 'batch-move-revealed', 4);
+
+        $events = [$reveal, $partialRevoke, $move];
+        $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, $events);
+        $mapper = new CompactGameCardStateMapper();
+        $handler = new GameCommandHandler();
+        $compactBase = $handler->normalizeSnapshot($mapper->hydrateSnapshot($mapper->compactSnapshot($baseSnapshot)));
+        $fromCompact = (new GameEventReplayService())->replay($compactBase, $events);
+        $fromCompact = $handler->normalizeSnapshot($mapper->hydrateSnapshot($mapper->compactSnapshot($fromCompact)));
+
+        self::assertSame([$third->id()], $this->cardById($rebuilt, $owner->id(), 'hand', 'batch-hand-b')['revealedTo']);
+        self::assertSame([], $this->cardById($rebuilt, $owner->id(), 'graveyard', 'batch-hand-a')['revealedTo']);
+        self::assertFalse($rebuilt['visibility']['handRevealStates']['batch-hand-a']['active']);
+        self::assertSame('zone.transition', $rebuilt['visibility']['handRevealStates']['batch-hand-a']['sourceCommand']);
+        self::assertTrue($rebuilt['visibility']['handRevealStates']['batch-hand-b']['active']);
+        self::assertSame(4, $rebuilt['version']);
+        self::assertSame($rebuilt['visibility']['handRevealStates'], $fromCompact['visibility']['handRevealStates']);
+        self::assertSame(
+            $this->cardById($rebuilt, $owner->id(), 'graveyard', 'batch-hand-a')['revealedTo'],
+            $this->cardById($fromCompact, $owner->id(), 'graveyard', 'batch-hand-a')['revealedTo'],
+        );
+    }
+
     public function testRuntimeLibraryRevealTopReplaysCanonicalMultiViewerWindow(): void
     {
         $owner = new User('library-reveal-owner@example.test', 'Library Reveal Owner');
@@ -464,6 +538,88 @@ class GameEventStoreV2Test extends TestCase
         }
         self::assertSame([], $this->cardById($rebuilt, $owner->id(), 'library', 'library-bottom')['revealedTo']);
     }
+
+	public function testRuntimeLibraryRevealTopLegacyCountUsesTailAndReplayRedactsHistoricPrivateLog(): void
+	{
+		$owner = new User('legacy-library-owner@example.test', 'Legacy Library Owner');
+		$viewer = new User('legacy-library-viewer@example.test', 'Legacy Library Viewer');
+		$baseSnapshot = $this->baseSnapshot($owner->id(), [
+			'library' => [
+				$this->card('a', 'Bottom A', 'library'),
+				$this->card('b', 'Middle B', 'library'),
+				$this->card('c', 'Top C', 'library'),
+				$this->card('d', 'Top D', 'library'),
+			],
+		]);
+		$baseSnapshot['players'][$viewer->id()] = [
+			'user' => ['id' => $viewer->id(), 'email' => $viewer->email(), 'displayName' => $viewer->displayName(), 'roles' => []],
+			'life' => 40, 'zones' => ['library' => [], 'hand' => [], 'battlefield' => [], 'graveyard' => [], 'exile' => [], 'command' => []],
+			'commanderDamage' => [], 'counters' => [],
+		];
+		$baseSnapshot['players'][$owner->id()][GameLibraryOps::ORIENTATION_KEY] = GameLibraryOps::ORIENTATION_TAIL_TOP;
+		$game = new Game(new Room($owner), $baseSnapshot);
+		$event = new GameEvent($game, 'library.reveal_top', [
+			'playerId' => $owner->id(), 'count' => 2, 'visibilityEpoch' => 4,
+			'audience' => ['scope' => 'players', 'playerIds' => [$viewer->id()]],
+			'eventLogEntries' => [[
+				'id' => 'legacy-private-log', 'type' => 'card.moved', 'message' => 'Moved a hidden card.',
+				'cardInstanceId' => 'private-historic-id',
+				'params' => ['fromZone' => 'hand', 'toZone' => 'battlefield', 'faceDown' => true, 'cardInstanceId' => 'private-historic-id'],
+				'refs' => ['cards' => ['private-historic-id' => ['instanceId' => 'private-historic-id', 'visibility' => 'hidden']]],
+			]],
+		], $owner, 'legacy-library-reveal', 2);
+
+		$rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$event]);
+		self::assertSame([$viewer->id()], $this->cardById($rebuilt, $owner->id(), 'library', 'd')['revealedTo']);
+		self::assertSame([$viewer->id()], $this->cardById($rebuilt, $owner->id(), 'library', 'c')['revealedTo']);
+		self::assertSame([], $this->cardById($rebuilt, $owner->id(), 'library', 'a')['revealedTo']);
+		$encoded = json_encode($rebuilt['eventLog'], JSON_THROW_ON_ERROR);
+		self::assertStringNotContainsString('private-historic-id', $encoded);
+		self::assertStringNotContainsString('cardInstanceId', $encoded);
+	}
+
+	public function testRuntimeZeroBasedLibraryEpochInvalidatesACompactRevealWindow(): void
+	{
+		$owner = new User('zero-epoch-owner@example.test', 'Zero Epoch Owner');
+		$viewer = new User('zero-epoch-viewer@example.test', 'Zero Epoch Viewer');
+		$baseSnapshot = $this->baseSnapshot($owner->id(), [
+			'library' => [
+				$this->card('a', 'Bottom A', 'library'),
+				$this->card('b', 'Middle B', 'library'),
+				$this->card('c', 'Top C', 'library'),
+				$this->card('d', 'Top D', 'library'),
+			],
+		]);
+		$baseSnapshot['players'][$owner->id()][GameLibraryOps::ORIENTATION_KEY] = GameLibraryOps::ORIENTATION_TAIL_TOP;
+		$baseSnapshot['players'][$owner->id()][GameLibraryOps::VISIBILITY_EPOCH_KEY] = 0;
+		$baseSnapshot['players'][$viewer->id()] = [
+			'user' => ['id' => $viewer->id(), 'email' => $viewer->email(), 'displayName' => $viewer->displayName(), 'roles' => []],
+			'life' => 40, 'zones' => ['library' => [], 'hand' => [], 'battlefield' => [], 'graveyard' => [], 'exile' => [], 'command' => []],
+			'commanderDamage' => [], 'counters' => [],
+		];
+		$game = new Game(new Room($owner), $baseSnapshot);
+		$events = [
+			new GameEvent($game, 'library.reveal_top', [
+				'playerId' => $owner->id(), 'count' => 2, 'instanceIds' => ['d', 'c'], 'visibilityEpoch' => 0,
+				'audience' => ['scope' => 'players', 'playerIds' => [$viewer->id()]],
+			], $owner, 'zero-epoch-reveal', 2),
+			new GameEvent($game, 'library.reorder_top', [
+				'playerId' => $owner->id(), 'instanceIds' => ['c', 'd'], 'visibilityEpoch' => 1,
+			], $owner, 'zero-epoch-reorder', 3),
+		];
+
+		$rebuilt = (new GameEventReplayService())->replay($baseSnapshot, $events);
+		self::assertSame(1, $rebuilt['players'][$owner->id()][GameLibraryOps::VISIBILITY_EPOCH_KEY]);
+		(new GameVisibilityIndex())->rebuild($rebuilt);
+		$projected = (new GameProjectionService(new GameCommandHandler(), null, null, null, new GameVisibilityIndex()))
+			->projectSnapshot($rebuilt, $viewer);
+
+		$projectedLibrary = $projected['players'][$owner->id()]['zones']['library'];
+		self::assertCount(1, $projectedLibrary);
+		self::assertSame($owner->id().'-hidden-library-top', $projectedLibrary[0]['instanceId']);
+		self::assertStringNotContainsString('"instanceId":"c"', json_encode($projected, JSON_THROW_ON_ERROR));
+		self::assertStringNotContainsString('"instanceId":"d"', json_encode($projected, JSON_THROW_ON_ERROR));
+	}
 
     public function testReplayAndBootstrapPreserveLongRunningTurnStateAfterConcede(): void
     {
@@ -1145,6 +1301,115 @@ class GameEventStoreV2Test extends TestCase
         self::assertSame([], $rebuilt['attachments'] ?? null);
         self::assertSame(31, $rebuilt['players'][$owner->id()]['life']);
         self::assertSame(35, $rebuilt['players'][$controller->id()]['life']);
+    }
+
+    public function testReplayCopiesPrivateLibraryBatchFinalEffectsAcrossCompactSnapshot(): void
+    {
+        $owner = new User('library-batch-owner@example.test', 'Library Batch Owner');
+        $handler = new GameCommandHandler();
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($owner->id(), [
+            'library' => [
+                $this->card('library-bottom', 'Bottom Secret', 'library'),
+                $this->card('library-middle', 'Middle Secret', 'library'),
+                $this->card('library-top', 'Top Secret', 'library'),
+            ],
+        ]));
+        $baseSnapshot['players'][$owner->id()][GameLibraryOps::ORIENTATION_KEY] = GameLibraryOps::ORIENTATION_TAIL_TOP;
+        $baseSnapshot['players'][$owner->id()]['zones']['library'] = array_reverse($baseSnapshot['players'][$owner->id()]['zones']['library']);
+        $baseSnapshot['players'][$owner->id()][GameLibraryOps::VISIBILITY_EPOCH_KEY] = 4;
+        $game = new Game(new Room($owner), $baseSnapshot);
+        $event = new GameEvent($game, 'library.top.play_face_down', [
+            'effectVersion' => 1,
+            'playerId' => $owner->id(),
+            'ownerPlayerId' => $owner->id(),
+            'expectedEpoch' => 4,
+            'finalEpoch' => 5,
+            'count' => 2,
+            'libraryVisibilityEpochs' => [$owner->id() => 5],
+            'moves' => [
+                [
+                    'instanceId' => 'library-top',
+                    'from' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 2],
+                    'to' => ['playerId' => $owner->id(), 'zone' => 'battlefield', 'index' => 0],
+                    'faceDown' => true,
+                    'position' => ['x' => 0.24, 'y' => 0.72, 'unit' => 'ratio'],
+                ],
+                [
+                    'instanceId' => 'library-middle',
+                    'from' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 1],
+                    'to' => ['playerId' => $owner->id(), 'zone' => 'battlefield', 'index' => 1],
+                    'faceDown' => true,
+                    'position' => ['x' => 0.36, 'y' => 0.72, 'unit' => 'ratio'],
+                ],
+            ],
+            'eventLogEntries' => [[
+                'id' => 'library-batch-log',
+                'type' => 'library.top.play_face_down',
+                'i18nKey' => 'gameLog.library.playedTopFaceDown',
+                'params' => ['actorPlayerId' => $owner->id(), 'count' => 2, 'destination' => 'battlefield', 'faceDown' => true],
+            ]],
+        ], $owner, 'library-top-face-down', 2);
+
+        $mapper = new CompactGameCardStateMapper();
+        $compactBase = $handler->normalizeSnapshot($mapper->hydrateSnapshot($mapper->compactSnapshot($baseSnapshot)));
+        $rebuilt = (new GameEventReplayService())->replay($compactBase, [$event]);
+        $rebuilt = $handler->normalizeSnapshot($mapper->hydrateSnapshot($mapper->compactSnapshot($rebuilt)));
+
+        self::assertSame(['library-bottom'], $this->zoneIds($rebuilt, $owner->id(), 'library'));
+        self::assertSame(['library-top', 'library-middle'], $this->zoneIds($rebuilt, $owner->id(), 'battlefield'));
+        self::assertSame(5, $rebuilt['players'][$owner->id()][GameLibraryOps::VISIBILITY_EPOCH_KEY] ?? null);
+        foreach ([
+            'library-top' => ['x' => 0.24, 'y' => 0.72, 'unit' => 'ratio'],
+            'library-middle' => ['x' => 0.36, 'y' => 0.72, 'unit' => 'ratio'],
+        ] as $instanceId => $position) {
+            $card = $this->cardById($rebuilt, $owner->id(), 'battlefield', $instanceId);
+            self::assertTrue($card['faceDown'] ?? false);
+            self::assertSame($position, $card['position'] ?? null);
+        }
+        self::assertSame('gameLog.library.playedTopFaceDown', $rebuilt['eventLog'][0]['i18nKey'] ?? null);
+    }
+
+    public function testReplayAppliesSameLibraryBatchFinalIndexesAtomically(): void
+    {
+        $owner = new User('library-order-owner@example.test', 'Library Order Owner');
+        $handler = new GameCommandHandler();
+        $baseSnapshot = $handler->normalizeSnapshot($this->baseSnapshot($owner->id(), [
+            'library' => [
+                $this->card('a', 'A', 'library'),
+                $this->card('b', 'B', 'library'),
+                $this->card('c', 'C', 'library'),
+                $this->card('d', 'D', 'library'),
+            ],
+        ]));
+        $baseSnapshot['players'][$owner->id()][GameLibraryOps::ORIENTATION_KEY] = GameLibraryOps::ORIENTATION_TAIL_TOP;
+        $baseSnapshot['players'][$owner->id()]['zones']['library'] = array_reverse($baseSnapshot['players'][$owner->id()]['zones']['library']);
+
+        foreach ([
+            'top' => [
+                ['instanceId' => 'a', 'from' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 0], 'to' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 2]],
+                ['instanceId' => 'c', 'from' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 2], 'to' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 3]],
+            ],
+            'bottom' => [
+                ['instanceId' => 'c', 'from' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 2], 'to' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 0]],
+                ['instanceId' => 'a', 'from' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 0], 'to' => ['playerId' => $owner->id(), 'zone' => 'library', 'index' => 1]],
+            ],
+        ] as $position => $moves) {
+            $game = new Game(new Room($owner), $baseSnapshot);
+            $event = new GameEvent($game, 'library.selection.move', [
+                'effectVersion' => 1,
+                'playerId' => $owner->id(),
+                'toZone' => 'library',
+                'position' => $position,
+                'moves' => $moves,
+            ], $owner, 'library-order-'.$position, 2);
+
+            $rebuilt = (new GameEventReplayService())->replay($baseSnapshot, [$event]);
+
+            self::assertSame(
+                $position === 'top' ? ['b', 'd', 'a', 'c'] : ['c', 'a', 'b', 'd'],
+                $this->zoneIds($rebuilt, $owner->id(), 'library'),
+            );
+        }
     }
 
     public function testRuntimeGoReplayPreservesBattlefieldStateAcrossCounterForRefresh(): void

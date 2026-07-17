@@ -93,6 +93,46 @@ class GameLibraryOpsTest extends TestCase
         self::assertFalse($ops->isCardVisibleTo($player, $projected[2], $viewerId));
     }
 
+	public function testTailTopConventionRevealsExactlyDThenCAndNeverA(): void
+	{
+		$ops = new GameLibraryOps();
+		$viewerId = 'viewer@example.test';
+		$player = [
+			GameLibraryOps::ORIENTATION_KEY => GameLibraryOps::ORIENTATION_TAIL_TOP,
+			GameLibraryOps::VISIBILITY_EPOCH_KEY => 1,
+			'revealedLibraryTo' => [],
+			'zones' => ['library' => array_map(fn (string $id): array => $this->card($id), ['a', 'b', 'c', 'd'])],
+		];
+
+		self::assertSame(['d', 'c'], array_column($ops->peekTop($player, 2), 'instanceId'));
+		$ops->revealTop($player, 2, [$viewerId]);
+		$cards = array_column($player['zones']['library'], null, 'instanceId');
+		self::assertTrue($ops->isCardVisibleTo($player, $cards['d'], $viewerId));
+		self::assertTrue($ops->isCardVisibleTo($player, $cards['c'], $viewerId));
+		self::assertFalse($ops->isCardVisibleTo($player, $cards['a'], $viewerId));
+		self::assertFalse($ops->isCardVisibleTo($player, $cards['b'], $viewerId));
+	}
+
+	public function testEveryLibraryMutationInvalidatesTopRevealEpoch(): void
+	{
+		$mutations = [
+			'draw' => static fn (GameLibraryOps $ops, array &$player): mixed => $ops->drawOne($player),
+			'reorder' => static fn (GameLibraryOps $ops, array &$player): mixed => $ops->reorderTop($player, ['second-card', 'top-card']),
+			'put top' => fn (GameLibraryOps $ops, array &$player): mixed => $ops->putOnTop($player, $this->card('new-top')),
+			'put bottom' => fn (GameLibraryOps $ops, array &$player): mixed => $ops->putOnBottom($player, $this->card('new-bottom')),
+			'remove' => static fn (GameLibraryOps $ops, array &$player): mixed => $ops->removeAt($player, 0),
+			'shuffle' => static fn (GameLibraryOps $ops, array &$player): mixed => $ops->shuffle($player, static fn (array $cards): array => array_reverse($cards)),
+		];
+		foreach ($mutations as $name => $mutation) {
+			$ops = new GameLibraryOps();
+			$player = $this->playerWithLibrary(['top-card', 'second-card', 'bottom-card']);
+			$ops->revealTop($player, 2, ['viewer']);
+			$before = $player[GameLibraryOps::VISIBILITY_EPOCH_KEY];
+			$mutation($ops, $player);
+			self::assertGreaterThan($before, $player[GameLibraryOps::VISIBILITY_EPOCH_KEY], $name);
+		}
+	}
+
     public function testReorderTopOnlyMutatesRequestedWindow(): void
     {
         $ops = new GameLibraryOps();

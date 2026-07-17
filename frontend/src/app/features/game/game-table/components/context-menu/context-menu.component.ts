@@ -167,7 +167,7 @@ export class ContextMenuComponent {
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
   readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
     { value: 'all', label: 'game.contextMenu.labels.all', icon: 'users' },
-    ...this.sortedItems(this.players().map((player) => ({
+    ...this.sortedItems(this.players().filter((player) => player.id !== this.menu().playerId).map((player) => ({
       value: player.id,
       label: this.playerLabel(player),
       icon: 'users',
@@ -989,4 +989,11 @@ export class ContextMenuComponent {
 
     this.close.emit();
   }
+
+	@HostListener('document:keydown.escape', ['$event'])
+	closeFromEscape(event: Event): void {
+		event.preventDefault();
+		this.expandedSubmenu.set(null);
+		this.close.emit();
+	}
 }

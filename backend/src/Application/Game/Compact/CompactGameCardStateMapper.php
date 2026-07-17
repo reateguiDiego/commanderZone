@@ -101,6 +101,14 @@ final class CompactGameCardStateMapper
             ];
         }
 
+        // Runtime compact snapshots keep private visibility in the indexed
+        // mask structures rather than duplicating viewer IDs on each card.
+        // Rehydrate the canonical revealedTo projection before the normal
+        // viewer projection runs. Without this, a compact snapshot created
+        // after a hand reveal would silently turn an active reveal back into
+        // an opaque placeholder until a later event was replayed.
+        $this->restoreCompactVisibility($legacy, is_array($snapshot['visibility'] ?? null) ? $snapshot['visibility'] : []);
+
         $legacy['stack'] = $this->hydrateStructuredStack(
             is_array($snapshot['stack'] ?? null) ? $snapshot['stack'] : [],
             $instances,
@@ -113,6 +121,85 @@ final class CompactGameCardStateMapper
         $legacy['specialEntities'] = array_values(is_array($relations['helpers'] ?? null) ? $relations['helpers'] : []);
 
         return $legacy;
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     * @param array<string,mixed> $visibility
+     */
+    private function restoreCompactVisibility(array &$snapshot, array $visibility): void
+    {
+        $viewerBits = is_array($visibility['viewerBits'] ?? null) ? $visibility['viewerBits'] : [];
+        $masks = is_array($visibility['instanceMasks'] ?? null)
+            ? $visibility['instanceMasks']
+            : (is_array($visibility['instances'] ?? null) ? $visibility['instances'] : []);
+        $handRevealStates = is_array($visibility['handRevealStates'] ?? null) ? $visibility['handRevealStates'] : [];
+
+        $revealedToByInstance = [];
+        foreach ($handRevealStates as $instanceId => $state) {
+            if (!is_array($state) || ($state['active'] ?? true) !== true) {
+                continue;
+            }
+            $targets = is_array($state['revealedTo'] ?? null) ? $state['revealedTo'] : [];
+            $targets = array_values(array_filter(
+                array_map(static fn (mixed $target): string => is_string($target) ? trim($target) : '', $targets),
+                static fn (string $target): bool => $target !== '',
+            ));
+            if ($targets !== []) {
+                $revealedToByInstance[(string) $instanceId] = array_values(array_unique($targets));
+            }
+        }
+
+        foreach ($masks as $instanceId => $entry) {
+            $instanceId = (string) $instanceId;
+            if ($instanceId === '' || isset($revealedToByInstance[$instanceId])) {
+                continue;
+            }
+            $mask = is_array($entry) ? (int) ($entry['mask'] ?? 0) : (int) $entry;
+            if ($mask <= 0 || $viewerBits === []) {
+                continue;
+            }
+            $targets = [];
+            foreach ($viewerBits as $viewerId => $bit) {
+                if (is_string($viewerId) && $viewerId !== '' && is_int($bit) && (($mask & $bit) !== 0)) {
+                    $targets[] = $viewerId;
+                }
+            }
+            if ($targets !== []) {
+                $revealedToByInstance[$instanceId] = $targets;
+            }
+        }
+
+        if ($revealedToByInstance === []) {
+            return;
+        }
+
+        if (!is_array($snapshot['players'] ?? null)) {
+            return;
+        }
+
+        foreach ($snapshot['players'] as &$player) {
+            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                continue;
+            }
+            foreach ($player['zones'] as &$cards) {
+                if (!is_array($cards)) {
+                    continue;
+                }
+                foreach ($cards as &$card) {
+                    if (!is_array($card)) {
+                        continue;
+                    }
+                    $instanceId = is_string($card['instanceId'] ?? null) ? trim($card['instanceId']) : '';
+                    if ($instanceId !== '' && isset($revealedToByInstance[$instanceId])) {
+                        $card['revealedTo'] = $revealedToByInstance[$instanceId];
+                    }
+                }
+                unset($card);
+            }
+            unset($cards);
+        }
+        unset($player);
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameActivityStreamService;
+use App\Application\Game\GameLogPrivacySanitizer;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameEventStoreV2;
 use App\Application\Game\GameplayStreamsFlags;
@@ -1095,7 +1096,8 @@ class GamesController extends ApiController
 
         return $this->json([
             'data' => array_map(
-                static fn (\App\Domain\Game\GameEvent $event) => $event->toArray(),
+                static fn (\App\Domain\Game\GameEvent $event): array => (new GameLogPrivacySanitizer())
+                    ->sanitizePublicEntry($event->toArray()),
                 $queryBuilder->getQuery()->getResult(),
             ),
             'limit' => $limit,

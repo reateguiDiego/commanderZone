@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { authStorageState, createRealUserSession } from './support/auth';
 import { resolveGameToPlaying } from './support/commander-game';
 import { createBasicCommanderDeckFromDatabase } from './support/decks';
@@ -67,22 +67,24 @@ test.describe('Gameplay 1.0 Sprint 3C four-state responsive gate', () => {
         await seedZoneModalCard(request, setup);
       }
 
-      const ownerContext = await responsiveContext(browser, baseURL, setup.players[0]!, scenario.viewport, scenario.battlefieldZoom);
-      const viewerContext = await responsiveContext(
-        browser,
-        baseURL,
-        setup.players[1]!,
-        scenario.players === 5 ? { width: 1500, height: 900 } : { width: 900, height: 620 },
-        scenario.battlefieldZoom === 140 ? 70 : 140,
-      );
-      const contexts = [ownerContext, viewerContext];
+      const contexts = await Promise.all(setup.players.map((player, index) => responsiveContext(
+				browser,
+				baseURL,
+				player,
+				index === 0
+					? scenario.viewport
+					: (index === 1 && scenario.players === 5 ? { width: 1500, height: 900 } : (index === 1 ? { width: 900, height: 620 } : { width: 1600, height: 1000 })),
+				index === 0 ? scenario.battlefieldZoom : (index === 1 && scenario.battlefieldZoom === 140 ? 70 : 140),
+			)));
       try {
-        const owner = await ownerContext.newPage();
-        const viewer = await viewerContext.newPage();
+				const pages = await Promise.all(contexts.map((context) => context.newPage()));
+				const owner = pages[0]!;
+				const viewer = pages[1]!;
         const ownerAudit = auditPage(owner);
         const viewerAudit = auditPage(viewer);
-        await Promise.all([owner, viewer].map((page) => page.goto(`/games/${setup.gameId}`)));
-        await Promise.all([owner, viewer].map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })));
+				await Promise.all(pages.map((page) => page.goto(`/games/${setup.gameId}`)));
+				await Promise.all(pages.map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })));
+				await expectStablePresence(request, setup, pages);
 
         if (scenario.players === 2) {
           await assertMulliganAcrossFourStates(owner);
@@ -155,7 +157,7 @@ test.describe('Gameplay 1.0 Sprint 3C four-state responsive gate', () => {
           const commandBaseline = responsiveMutationCommands(auditA.sentCommands).length;
           await setBattlefieldZoom(pageA, battlefieldZoom);
           await assertResponsiveSurface(pageA, entry.state, 6);
-          await assertRelationCardsUsable(pageA, setup.players[0]!.user.id, relationFixture);
+          await assertRelationCardsUsable(pageA, setup.players[0]!.user.id, relationFixture, true);
           await assertResponsiveSurface(pageB, 'normal', 6);
           expect(await canonicalSharedState(request, setup)).toEqual(baseline);
           expect(responsiveMutationCommands(auditA.sentCommands)).toHaveLength(commandBaseline);
@@ -255,8 +257,12 @@ async function assertOpponentProjection(page: Page, playerCount: number): Promis
     await expect(drawer).toHaveAttribute('aria-expanded', 'true');
   }
   await expect(page.getByTestId('opponent-mini-board')).toHaveCount(playerCount - 1);
-  await expect(page.getByTestId('opponent-mini-board').first()).toBeVisible();
-  await expectElementInsideViewport(page, page.getByTestId('opponent-mini-board').first());
+  const boards = page.getByTestId('opponent-mini-board');
+  const visibleBoardCount = await drawer.isVisible() ? await boards.count() : Math.min(1, await boards.count());
+  for (let index = 0; index < visibleBoardCount; index += 1) {
+    await expect(boards.nth(index)).toBeVisible();
+    await expectElementInsideViewport(page, boards.nth(index));
+  }
   await expectNoGlobalOverflow(page);
   if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') === 'true') {
     await drawer.click();
@@ -298,23 +304,40 @@ async function assertRelationsAcrossStateTransitions(
   for (const transition of transitions) {
     await owner.setViewportSize(transition.viewport);
     await assertResponsiveSurface(owner, transition.state, 6);
-    await assertRelationCardsUsable(owner, setup.players[0]!.user.id, fixture);
+    await assertRelationCardsUsable(owner, setup.players[0]!.user.id, fixture, true);
   }
   expect(await observedResponsiveStates(owner)).toEqual(transitions.map((item) => item.state));
   expect(await canonicalSharedState(request, setup)).toEqual(baseline);
   expect(responsiveMutationCommands(audit.sentCommands)).toHaveLength(mutationBaseline);
-  await assertRelationCardsUsable(viewer, setup.players[0]!.user.id, fixture);
+  await assertRelationCardsUsable(viewer, setup.players[0]!.user.id, fixture, false);
 }
 
-async function assertRelationCardsUsable(page: Page, ownerId: string, fixture: RelationFixture): Promise<void> {
+async function assertRelationCardsUsable(
+  page: Page,
+  ownerId: string,
+  fixture: RelationFixture,
+  authorizedOwner: boolean,
+): Promise<void> {
   for (const instanceId of Object.values(fixture)) {
-    const card = page.locator(`[data-testid="game-card"][data-owner-player-id="${ownerId}"][data-card-instance-id="${instanceId}"]`);
+    const isPrivateFaceDown = instanceId === fixture.faceDownId && !authorizedOwner;
+    const card = isPrivateFaceDown
+      ? opaqueBattlefieldShell(page, ownerId)
+      : page.locator(`[data-testid="game-card"][data-owner-player-id="${ownerId}"][data-card-instance-id="${instanceId}"]`);
+    if (isPrivateFaceDown) {
+      await expect(page.locator(`[data-testid="game-card"][data-card-instance-id="${instanceId}"]`)).toHaveCount(0);
+    }
     await expect(card).toBeVisible();
     await expect.poll(async () => {
       const box = await card.boundingBox();
       return box !== null && box.width >= 12 && box.height >= 12;
     }).toBe(true);
   }
+}
+
+function opaqueBattlefieldShell(page: Page, ownerId: string): Locator {
+  return page.locator(
+    `[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${ownerId}"][data-card-instance-id^="${ownerId}-hidden-battlefield-"]`,
+  ).first();
 }
 
 async function setBattlefieldZoom(page: Page, zoom: 70 | 100 | 140): Promise<void> {
@@ -336,14 +359,25 @@ async function focusPlayerById(page: Page, playerId: string): Promise<void> {
   const panel = page.getByTestId('player-panel');
   if (await panel.getAttribute('data-player-id') === playerId) return;
   const drawer = page.locator('.opponents-drawer-handle');
-  if (await drawer.isVisible() && await drawer.getAttribute('aria-expanded') !== 'true') {
+  const drawerVisible = await drawer.isVisible();
+  if (drawerVisible && await drawer.getAttribute('aria-expanded') !== 'true') {
     await drawer.click();
     await expect(drawer).toHaveAttribute('aria-expanded', 'true');
   }
   const board = page.locator(`[data-testid="opponent-mini-board"][data-player-id="${playerId}"]`);
   await expect(board).toBeVisible();
+	if (drawerVisible) await expectWithinViewport(page, board);
   await board.click();
   await expect(panel).toHaveAttribute('data-player-id', playerId);
+}
+
+async function expectWithinViewport(page: Page, locator: Locator): Promise<void> {
+	await expect.poll(async () => {
+		const box = await locator.boundingBox();
+		const viewport = page.viewportSize();
+		return box !== null && viewport !== null && box.x >= 0 && box.y >= 0
+			&& box.x + box.width <= viewport.width && box.y + box.height <= viewport.height;
+	}).toBe(true);
 }
 
 function auditPage(page: Page): BrowserAudit {
@@ -527,6 +561,15 @@ async function gameSnapshot(request: APIRequestContext, gameId: string, token: s
   const response = await request.get(`${API_BASE_URL}/games/${gameId}/snapshot`, { headers: bearer(token) });
   expect(response.ok(), await response.text()).toBe(true);
   return ((await response.json()) as { game: { snapshot: JsonObject } }).game.snapshot;
+}
+
+async function expectStablePresence(request: APIRequestContext, setup: Setup, pages: readonly Page[]): Promise<void> {
+	await expect.poll(async () => {
+		const live = await gameSnapshot(request, setup.gameId, setup.players[0]!.token);
+		const presence = (live['presence'] ?? {}) as Record<string, JsonObject>;
+		return setup.players.every((player) => presence[player.user.id]?.['connected'] !== false);
+	}, { timeout: 30_000 }).toBe(true);
+	await Promise.all(pages.map((page) => expect(page.locator('app-game-disconnect-vote-modal [role="dialog"]')).toHaveCount(0)));
 }
 
 function zoneIds(snapshot: JsonObject, playerId: string, zone: string): string[] {

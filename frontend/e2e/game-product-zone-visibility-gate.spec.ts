@@ -123,7 +123,8 @@ test.describe('product zone visibility runtime gate', () => {
         },
       });
       await expect(battlefieldCard(pageA, playerA.user.id, controlledId)).toBeVisible({ timeout: 15_000 });
-      await expect(battlefieldCard(pageB, playerA.user.id, faceDownId)).toBeVisible({ timeout: 15_000 });
+      await expect(battlefieldCard(pageB, playerA.user.id, faceDownId)).toHaveCount(0);
+      await expect(opaqueBattlefieldShell(pageB, playerA.user.id)).toBeVisible({ timeout: 15_000 });
 
       baseVersion = await applyRuntime(request, commandFrames, {
         gameId,
@@ -171,7 +172,8 @@ test.describe('product zone visibility runtime gate', () => {
       const faceDownOwnerSnapshot = await gameSnapshot(request, gameId, playerA.token);
       const faceDownRivalSnapshot = await gameSnapshot(request, gameId, playerC.token);
       expect(zoneCard(faceDownOwnerSnapshot, playerA.user.id, 'battlefield', faceDownId)['faceDown']).toBe(true);
-      assertHiddenForUnauthorized(zoneCard(faceDownRivalSnapshot, playerA.user.id, 'battlefield', faceDownId));
+      expect(findZoneCard(faceDownRivalSnapshot, playerA.user.id, 'battlefield', faceDownId)).toBeUndefined();
+      assertHiddenForUnauthorized(opaqueBattlefieldSnapshotCard(faceDownRivalSnapshot, playerA.user.id));
 
       const moveToGraveyard = await sendRuntimeCommand(request, {
         gameId,
@@ -274,7 +276,8 @@ test.describe('product zone visibility runtime gate', () => {
       await pageB.reload();
       await expect(pageB.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
       await focusPlayerById(pageB, playerA.user.id);
-      await expect(battlefieldCard(pageB, playerA.user.id, faceDownId)).toBeVisible({ timeout: 15_000 });
+      await expect(battlefieldCard(pageB, playerA.user.id, faceDownId)).toHaveCount(0);
+      await expect(opaqueBattlefieldShell(pageB, playerA.user.id)).toBeVisible({ timeout: 15_000 });
       expect(requestAudit.bootstrap + requestAudit.snapshot).toBeGreaterThan(beforeRefreshRequests);
 
       const reconnectContext = await browser.newContext({
@@ -289,11 +292,13 @@ test.describe('product zone visibility runtime gate', () => {
       await expect(reconnectPage.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
       await waitForGameplayConnection(reconnectFrames);
       await focusPlayerById(reconnectPage, playerA.user.id);
-      await expect(battlefieldCard(reconnectPage, playerA.user.id, faceDownId)).toBeVisible({ timeout: 15_000 });
+      await expect(battlefieldCard(reconnectPage, playerA.user.id, faceDownId)).toHaveCount(0);
+      await expect(opaqueBattlefieldShell(reconnectPage, playerA.user.id)).toBeVisible({ timeout: 15_000 });
       await reconnectContext.close();
 
       const rivalAfterReconnect = await gameSnapshot(request, gameId, playerC.token);
-      assertHiddenForUnauthorized(zoneCard(rivalAfterReconnect, playerA.user.id, 'battlefield', faceDownId));
+      expect(findZoneCard(rivalAfterReconnect, playerA.user.id, 'battlefield', faceDownId)).toBeUndefined();
+      assertHiddenForUnauthorized(opaqueBattlefieldSnapshotCard(rivalAfterReconnect, playerA.user.id));
       for (const frames of [framesA, framesB, framesC, reconnectFrames, commandFrames]) {
         expect(frames.some((message) => message['kind'] === 'game_patch')).toBe(false);
         expect(frames.some((message) => message['kind'] === 'resync_required' || message['status'] === 'resync_required')).toBe(false);
@@ -434,10 +439,21 @@ function zoneCards(snapshot: JsonObject, playerId: string, zone: string): JsonOb
 }
 
 function zoneCard(snapshot: JsonObject, playerId: string, zone: string, instanceId: string): JsonObject {
-  const card = zoneCards(snapshot, playerId, zone).find((candidate) => candidate['instanceId'] === instanceId);
+  const card = findZoneCard(snapshot, playerId, zone, instanceId);
   if (!card) {
     throw new Error(`Missing ${zone} card ${instanceId} for player ${playerId}.`);
   }
+  return card;
+}
+
+function findZoneCard(snapshot: JsonObject, playerId: string, zone: string, instanceId: string): JsonObject | undefined {
+  return zoneCards(snapshot, playerId, zone).find((candidate) => candidate['instanceId'] === instanceId);
+}
+
+function opaqueBattlefieldSnapshotCard(snapshot: JsonObject, ownerId: string): JsonObject {
+  const card = zoneCards(snapshot, ownerId, 'battlefield').find((candidate) =>
+    String(candidate['instanceId'] ?? '').startsWith(`${ownerId}-hidden-battlefield-`));
+  if (!card) throw new Error(`Missing opaque battlefield shell for player ${ownerId}.`);
   return card;
 }
 
@@ -489,6 +505,12 @@ function relationTouches(snapshot: JsonObject, instanceId: string): boolean {
 
 function battlefieldCard(page: Page, ownerPlayerId: string, instanceId: string) {
   return page.locator(`[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${ownerPlayerId}"][data-card-instance-id="${instanceId}"]`);
+}
+
+function opaqueBattlefieldShell(page: Page, ownerPlayerId: string) {
+  return page.locator(
+    `[data-testid="game-card"][data-zone="battlefield"][data-owner-player-id="${ownerPlayerId}"][data-card-instance-id^="${ownerPlayerId}-hidden-battlefield-"]`,
+  ).first();
 }
 
 function operation(message: JsonObject, op: string): JsonObject | null {

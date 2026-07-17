@@ -19,11 +19,19 @@
   padding: 0.75rem 0.25rem 0.35rem 0;
 }
 
+.card-spoiler-slot,
 .card-spoiler {
   position: relative;
-  display: block;
   width: var(--card-spoiler-width);
   height: var(--card-spoiler-height);
+}
+
+.card-spoiler-slot {
+  flex: 0 0 auto;
+}
+
+.card-spoiler {
+  display: block;
   min-height: 0;
   padding: 0;
   border: 0;
@@ -92,6 +100,33 @@
     0 0.9rem 1.6rem rgb(0 0 0 / 34%),
     0 0 0 2px rgb(215 180 106 / 30%),
     inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.card-spoiler.multi-selected .zone-art {
+  border-color: rgb(255 232 153 / 96%);
+  box-shadow:
+    0 0.9rem 1.6rem rgb(0 0 0 / 34%),
+    0 0 0 3px rgb(215 180 106 / 56%),
+    inset 0 0 0 2px rgb(255 245 204 / 34%);
+}
+
+.card-spoiler.multi-selected::after {
+  content: '✓';
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  z-index: 5;
+  display: grid;
+  width: 2rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 2px solid rgb(255 248 219 / 86%);
+  border-radius: 999px;
+  color: #161108;
+  background: #e5bd68;
+  box-shadow: 0 0.35rem 0.8rem rgb(0 0 0 / 58%);
+  font-weight: 1000;
+  pointer-events: none;
 }
 
 .card-spoiler.drop-target .zone-art {
@@ -220,11 +255,15 @@
 
 .double-face-toggle {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: 0.45rem;
+  right: 0.45rem;
+  left: auto;
   z-index: 4;
   display: grid;
-  width: 2.2rem;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 1px solid rgb(255 232 166 / 64%);
   aspect-ratio: 1;
   place-items: center;
   border-radius: 999px;
@@ -233,15 +272,16 @@
   line-height: 0;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -50%);
+  transform: none;
 }
 
 .double-face-toggle lucide-icon {
   display: block;
 }
 
-.card-spoiler:hover .double-face-toggle,
-.card-spoiler:focus-visible .double-face-toggle {
+.card-spoiler-slot:hover .double-face-toggle,
+.card-spoiler:focus-visible + .double-face-toggle,
+.double-face-toggle:focus-visible {
   opacity: 1;
   pointer-events: auto;
 }
@@ -252,6 +292,8 @@
   padding: 0.75rem;
   color: var(--gold);
   font-weight: 900;
+  hyphens: auto;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 

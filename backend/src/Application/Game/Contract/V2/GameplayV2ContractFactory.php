@@ -2,6 +2,7 @@
 
 namespace App\Application\Game\Contract\V2;
 
+use App\Application\Game\GameLogPrivacySanitizer;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Localization\LanguageCatalog;
@@ -174,6 +175,7 @@ final class GameplayV2ContractFactory
                 'handCount' => (int) ($player['handCount'] ?? ($player['zoneCounts']['hand'] ?? 0)),
                 'zoneIds' => $playerZoneIds,
                 'zoneCounts' => is_array($player['zoneCounts'] ?? null) ? $player['zoneCounts'] : [],
+                'libraryVisibilityEpoch' => max(0, (int) ($player['libraryVisibilityEpoch'] ?? 0)),
                 'commanderDamage' => is_array($player['commanderDamage'] ?? null) ? $player['commanderDamage'] : [],
                 'counters' => is_array($player['counters'] ?? null) ? $player['counters'] : [],
                 'deckName' => is_string($player['deckName'] ?? null) ? $player['deckName'] : null,
@@ -209,6 +211,15 @@ final class GameplayV2ContractFactory
 				: $disconnectVote['votes'];
 		}
 
+        // Event-store snapshots may contain historical log entries written
+        // before the privacy boundary existed. Bootstrap is a public viewer
+        // projection, so redact recursively here without rewriting history.
+        $eventLogSanitizer = new GameLogPrivacySanitizer();
+        $eventLog = array_values(array_map(
+            fn (array $entry): array => $eventLogSanitizer->sanitizePublicEntry($entry),
+            array_values(array_filter($projectedSnapshot['eventLog'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+        ));
+
         $payload = [
             'game' => [
                 'id' => $game->id(),
@@ -240,7 +251,7 @@ final class GameplayV2ContractFactory
 			)),
             'staticCards' => $staticCards,
             'chat' => array_values(array_filter($projectedSnapshot['chat'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
-            'eventLog' => array_values(array_filter($projectedSnapshot['eventLog'] ?? [], static fn (mixed $entry): bool => is_array($entry))),
+            'eventLog' => $eventLog,
             'chatCursor' => $this->cursorForEntries($projectedSnapshot['chat'] ?? []),
             'logCursor' => $this->cursorForEntries($projectedSnapshot['eventLog'] ?? []),
             'rulesVersion' => self::RULES_VERSION,

@@ -493,6 +493,50 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertArrayNotHasKey('imageUris', $spectatorProjection['players'][$owner->id()]['zones']['library'][0]);
     }
 
+    public function testRuntimeCompactHandRevealMasksRestoreAudienceAfterHydration(): void
+    {
+        $owner = $this->user('hand-owner@example.test', 'Hand Owner', 'hand-owner-id');
+        $viewer = $this->user('hand-viewer@example.test', 'Hand Viewer', 'hand-viewer-id');
+        $spectator = $this->user('hand-spectator@example.test', 'Hand Spectator', 'hand-spectator-id');
+        $flags = new GameplayV2Flags(false, false, false, false, true);
+        $handler = new GameCommandHandler(flagsV2: $flags);
+        $projection = new GameProjectionService($handler, null, null, null, new GameVisibilityIndex(), $flags);
+        $snapshot = $handler->normalizeSnapshot($this->snapshot($owner, [
+            'hand' => [$this->richCard('hand-revealed', 'Revealed Hand Card', 'hand', [
+                'ownerId' => $owner->id(),
+                'controllerId' => $owner->id(),
+                'revealedTo' => [$viewer->id()],
+            ])],
+        ], $viewer));
+        $mapper = new CompactGameCardStateMapper();
+        $compact = $mapper->compactSnapshot($snapshot, 'game-runtime-hand-reveal', Game::STATUS_ACTIVE);
+
+        // Go runtime compact snapshots carry masks and the active reveal model,
+        // but intentionally do not duplicate viewer IDs on each card instance.
+        $compact['visibility'] = [
+            'viewerBits' => [$owner->id() => 1, $viewer->id() => 2, $spectator->id() => 4],
+            'instanceMasks' => ['hand-revealed' => 2],
+            'handRevealStates' => [
+                'hand-revealed' => [
+                    'active' => true,
+                    'revealedTo' => [$viewer->id()],
+                ],
+            ],
+        ];
+        unset($compact['instances']['hand-revealed']['visibleTo']);
+
+        $roundTrip = $mapper->hydrateSnapshot($compact);
+        $viewerProjection = $projection->projectSnapshot($roundTrip, $viewer, false);
+        $spectatorProjection = $projection->projectSnapshot($roundTrip, $spectator, false);
+
+        self::assertSame(
+            'Revealed Hand Card',
+            $viewerProjection['players'][$owner->id()]['zones']['hand'][0]['name'] ?? null,
+        );
+        self::assertSame('Hidden card', $spectatorProjection['players'][$owner->id()]['zones']['hand'][0]['name'] ?? null);
+        self::assertArrayNotHasKey('cardKey', $spectatorProjection['players'][$owner->id()]['zones']['hand'][0]);
+    }
+
     public function testInvariantCheckerDetectsLocationDivergence(): void
     {
         $fixture = (new GameplayBaselineFixtureFactory())->create('compact-divergence');

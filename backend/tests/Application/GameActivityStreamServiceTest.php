@@ -44,6 +44,36 @@ class GameActivityStreamServiceTest extends TestCase
         self::assertSame('lost 2 life', $decorated['eventLog'][0]['message']);
     }
 
+    public function testActivityStreamRedactsHistoricalPrivateHandIdentity(): void
+    {
+        [$game, $actor, , $spectator] = $this->gameWithPlayers();
+        $logEntry = new GameLogEntry($game, 3, 'hand.cards.reveal', 'Owner revealed a secret card.', [
+            'i18nKey' => 'gameLog.hand.revealed',
+            'cardInstanceId' => 'stream-private-card',
+            'params' => [
+                'count' => 1,
+                'orderedInstanceIds' => ['stream-private-card'],
+            ],
+            'refs' => [
+                'cards' => [
+                    'stream-private-card' => [
+                        'instanceId' => 'stream-private-card',
+                        'visibility' => 'hidden',
+                    ],
+                ],
+            ],
+            'actorId' => $actor->id(),
+        ]);
+        $service = $this->service(logResults: [$logEntry]);
+
+        $entries = $service->logEntries($game);
+        $encoded = json_encode($entries, JSON_THROW_ON_ERROR);
+
+        self::assertStringNotContainsString('stream-private-card', $encoded);
+        self::assertSame('gameLog.hand.revealed', $entries[0]['i18nKey'] ?? null);
+        self::assertSame(1, $entries[0]['params']['count'] ?? null);
+    }
+
     public function testToggleReactionReplacesPreviousReactionAndCanClearIt(): void
     {
         [$game, $actor, $target] = $this->gameWithPlayers();

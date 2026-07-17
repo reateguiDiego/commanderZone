@@ -779,6 +779,18 @@
       "focusTurn": "Enfocar turno",
       "passTurn": "Pasar turno"
     },
+    "handRevealDialog": {
+      "title": "Revelar cartas de la mano",
+      "summary": "Revisa los destinatarios antes de cambiar el acceso a {{ count }} carta(s) seleccionada(s).",
+      "action": "Acción", "reveal": "Revelar", "revoke": "Revocar acceso",
+      "recipients": "Destinatarios", "allPlayers": "Todos los jugadores",
+      "confirmReveal": "Revelar {{ count }} carta(s) a {{ recipients }} destinatario(s).",
+      "confirmRevoke": "Revocar {{ recipients }} destinatario(s) de {{ count }} carta(s).",
+      "pending": "Aplicando el cambio de visibilidad confirmado...", "cancel": "Cancelar",
+      "confirmRevealButton": "Confirmar revelado", "confirmRevokeButton": "Confirmar revocación",
+      "invalidSelection": "Selecciona cartas válidas de tu mano.",
+      "stale": "Las cartas seleccionadas cambiaron. Abre la acción de nuevo."
+    },
     "zoneModal": {
       "searchByName": "Buscar por nombre",
       "closeZone": "Zona cerrada",
@@ -792,7 +804,38 @@
       "enchantments": "Encantamientos",
       "planeswalkers": "Planeswalkers",
       "lands": "Tierras",
-      "search": "Buscar"
+      "search": "Buscar",
+      "cardCount": "{{count}} cartas",
+      "selectionInstructions": "Selecciona cartas localmente. La biblioteca no se modifica.",
+      "selectionToolbar": "Selección de cartas",
+      "selectedCount": "{{selected}} de {{total}} seleccionadas",
+      "selectAll": "Seleccionar todas",
+      "clearAll": "Limpiar selección",
+      "reorderMode": "Reordenar",
+      "selectionMode": "Seleccionar",
+      "viewStale": "Esta vista de la biblioteca ya no es válida. Ciérrala y abre una nueva.",
+      "viewError": "No se pudo abrir la vista privada de la biblioteca. Ciérrala e inténtalo de nuevo.",
+      "connectionChanged": "La conexión cambió y esta vista privada se cerró por seguridad. Ábrela de nuevo.",
+      "emptyView": "No hay cartas autorizadas disponibles en esta vista.",
+      "batchToolbar": "Acciones privadas de biblioteca",
+      "batchActions": "Acciones",
+      "batchPending": "Aplicando la acción confirmada...",
+      "batchError": "No se pudo aplicar la acción. La biblioteca no cambió.",
+      "invalidBatch": "Selecciona al menos una carta válida antes de continuar.",
+      "confirmTitle": "Confirmar acción de biblioteca",
+      "confirmCount": "Esta acción afectará a {{count}} carta(s).",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "action": {
+        "hand": "Mover selección a la mano",
+        "battlefield-face-up": "Mover selección al campo boca arriba",
+        "battlefield-face-down": "Mover selección al campo boca abajo",
+        "graveyard": "Mover selección al cementerio",
+        "exile": "Mover selección al exilio",
+        "library-top": "Poner selección arriba",
+        "library-bottom": "Poner selección abajo",
+        "playTopFaceDown": "Jugar las {{count}} superiores boca abajo"
+      }
     },
     "gameTable": {
       "message": "Mensaje",
@@ -969,10 +1012,20 @@
     }
   },
   "gameLog": {
+    "hand": { "revealed": "{{ actor }} reveló {{ count }} cartas de su mano.", "revoked": "{{ actor }} revocó el acceso a {{ count }} cartas reveladas de su mano." },
     "library": {
       "draw": "{{ actor }} robó una carta.",
       "drawMany": "{{ actor }} robó {{ count }} cartas.",
-      "shuffle": "{{ actor }} barajó su biblioteca."
+      "shuffle": "{{ actor }} barajó su biblioteca.",
+      "selectedMoved": "{{ actor }} movió {{ count }} cartas seleccionadas de la biblioteca a {{ destination }}.",
+      "playedSelectedFaceDown": "{{ actor }} jugó {{ count }} cartas seleccionadas de la biblioteca boca abajo.",
+      "selectedToHand": "{{ actor }} movió {{ count }} cartas seleccionadas de la biblioteca a su mano.",
+      "selectedToGraveyard": "{{ actor }} movió {{ count }} cartas seleccionadas de la biblioteca a su cementerio.",
+      "selectedToExile": "{{ actor }} movió {{ count }} cartas seleccionadas de la biblioteca al exilio.",
+      "selectedToBattlefield": "{{ actor }} movió {{ count }} cartas seleccionadas de la biblioteca al campo de batalla.",
+      "putSelectedTop": "{{ actor }} puso {{ count }} cartas seleccionadas en la parte superior de su biblioteca.",
+      "putSelectedBottom": "{{ actor }} puso {{ count }} cartas seleccionadas en la parte inferior de su biblioteca.",
+      "playedTopFaceDown": "{{ actor }} jugó boca abajo las {{ count }} cartas superiores de su biblioteca."
     },
     "card": {
       "moved": "{{ actor }} movió una carta de {{ fromZone }} a {{ toZone }}.",

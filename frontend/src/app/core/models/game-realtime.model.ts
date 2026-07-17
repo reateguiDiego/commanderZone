@@ -261,6 +261,10 @@ export interface GameplayErrorPayload {
   commandType?: string;
   instanceId?: string;
   index?: number;
+  windowId?: string;
+  expectedEpoch?: number;
+  currentEpoch?: number;
+  count?: number;
   conflict?: GameplayVersionConflict;
 }
 

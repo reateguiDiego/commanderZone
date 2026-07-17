@@ -58,10 +58,10 @@ func TestLibraryOpsPeekAndReorderTop(t *testing.T) {
 	}
 }
 
-func TestLibraryOpsShuffleBumpsEpochWithoutPerCardCleanup(t *testing.T) {
+func TestLibraryOpsShuffleInvalidatesWindowAndCleansWindowMasks(t *testing.T) {
 	game := libraryTestState()
 	game.Visibility.InstanceMasks["d"] = 7
-	game.Visibility.TopRevealWindows["p1"] = TopRevealWindow{OwnerID: "p1", Count: 2, Epoch: 1, Mask: 7}
+	game.Visibility.TopRevealWindows["p1"] = TopRevealWindow{OwnerID: "p1", Count: 2, Epoch: 1, Mask: 7, InstanceIDs: []string{"d", "c"}}
 	ops := NewLibraryOpsWithRand(rand.New(rand.NewSource(1)))
 	if err := ops.Shuffle(&game, "p1"); err != nil {
 		t.Fatal(err)
@@ -72,8 +72,67 @@ func TestLibraryOpsShuffleBumpsEpochWithoutPerCardCleanup(t *testing.T) {
 	if _, ok := game.Visibility.TopRevealWindows["p1"]; ok {
 		t.Fatal("top reveal window was not invalidated")
 	}
-	if got := game.Visibility.InstanceMasks["d"]; got != 7 {
-		t.Fatalf("shuffle should not clean per-card masks, got %d", got)
+	if got := game.Visibility.InstanceMasks["d"]; got != 0 {
+		t.Fatalf("shuffle retained the invalidated window mask: %d", got)
+	}
+}
+
+func TestTopRevealWindowUsesPersistedTailIDsAndOrder(t *testing.T) {
+	game := libraryTestState()
+	game.Players["p2"] = map[string]any{"life": 40}
+	game.Players["p3"] = map[string]any{"life": 40}
+	game.EnsureVisibility()
+
+	window := game.RevealTopWindow("p1", []string{"d", "c"}, []string{"p2"}, game.Visibility.ViewerBits["p2"])
+	if got, want := join(window.InstanceIDs), "d,c"; got != want {
+		t.Fatalf("persisted top order got %s want %s", got, want)
+	}
+	for _, instanceID := range []string{"d", "c"} {
+		if !game.CanViewerSeeCardKey("p2", instanceID) {
+			t.Fatalf("target cannot see revealed top card %s", instanceID)
+		}
+	}
+	for _, instanceID := range []string{"a", "b"} {
+		if game.CanViewerSeeCardKey("p2", instanceID) {
+			t.Fatalf("target can see non-top card %s", instanceID)
+		}
+	}
+	if game.CanViewerSeeCardKey("p3", "d") || game.CanViewerSeeCardKey("p3", "c") {
+		t.Fatal("non-target can see targeted top reveal")
+	}
+
+	// A stale persisted ID list must fail closed instead of following the index.
+	zones := game.Zones["p1"]
+	zones.Library = []string{"a", "b", "d", "c"}
+	game.Zones["p1"] = zones
+	for index, instanceID := range game.Zones["p1"].Library {
+		location := game.Loc[instanceID]
+		location.Index = index
+		game.Loc[instanceID] = location
+	}
+	if game.CanViewerSeeCardKey("p2", "c") || game.CanViewerSeeCardKey("p2", "d") {
+		t.Fatal("stale top reveal window authorized reordered cards")
+	}
+}
+
+func TestLegacyTopRevealWindowUsesLibraryTailAndRecoveryPersistsIDs(t *testing.T) {
+	game := libraryTestState()
+	game.Players["p2"] = map[string]any{"life": 40}
+	game.EnsureVisibility()
+	game.Visibility.TopRevealWindows["p1"] = TopRevealWindow{
+		OwnerID: "p1", Count: 2, Epoch: 1, To: []string{"p2"}, Mask: game.Visibility.ViewerBits["p2"],
+	}
+
+	if !game.CanViewerSeeCardKey("p2", "d") || !game.CanViewerSeeCardKey("p2", "c") {
+		t.Fatal("legacy top window did not authorize the library tail")
+	}
+	if game.CanViewerSeeCardKey("p2", "a") || game.CanViewerSeeCardKey("p2", "b") {
+		t.Fatal("legacy top window authorized the library bottom")
+	}
+
+	NormalizeForRecovery(game.GameID, &game)
+	if got, want := join(game.Visibility.TopRevealWindows["p1"].InstanceIDs), "d,c"; got != want {
+		t.Fatalf("recovered explicit IDs got %s want %s", got, want)
 	}
 }
 

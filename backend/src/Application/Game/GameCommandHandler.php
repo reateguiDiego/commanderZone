@@ -5873,12 +5873,12 @@ class GameCommandHandler
      */
     public function v2SanitizedEventLogEntries(array $entries): array
     {
-        return array_values(array_map(function (array $entry): array {
-            unset($entry['cardNames'], $entry['cardInstanceId'], $entry['cardPlayerId'], $entry['cardZone']);
-            $entry['message'] = 'Updated a hidden card.';
+        $sanitizer = new GameLogPrivacySanitizer();
 
-            return $entry;
-        }, $entries));
+        return array_values(array_map(
+            static fn (array $entry): array => $sanitizer->sanitizePublicEntry($entry, true),
+            $entries,
+        ));
     }
 
     /**

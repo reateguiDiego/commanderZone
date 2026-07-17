@@ -21,7 +21,7 @@ type visibilityAudience struct {
 
 func validateClientVisibilityAudience(game *state.GameState, command protocol.CommandEnvelopeV2) error {
 	switch command.Type {
-	case "card.revealed", "library.reveal", "library.reveal_top":
+	case "card.revealed", "hand.cards.reveal", "hand.cards.revoke", "library.reveal", "library.reveal_top":
 	default:
 		return nil
 	}

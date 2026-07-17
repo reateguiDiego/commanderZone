@@ -1,6 +1,7 @@
 <section
   #gameScreen
   class="game-screen"
+  tabindex="-1"
   [class.has-table-exit-modal]="tableExitAction() !== null"
   data-testid="game-screen"
   [attr.data-responsive-state]="responsiveState()"
@@ -470,7 +471,12 @@
         >
           {{ 'game.gameTable.opponents' | runtimeTranslate }}
         </button>
-        <div id="game-table-opponents-list" class="opponents-list">
+        <div
+			id="game-table-opponents-list"
+			class="opponents-list"
+			[attr.aria-hidden]="responsiveState() === 'normal' ? false : !opponentsDrawerOpen()"
+			[attr.inert]="responsiveState() === 'normal' || opponentsDrawerOpen() ? null : ''"
+		>
           @for (player of opponentSidebarPlayers(); track player.id) {
             <app-opponent-mini-board
               [player]="player"
@@ -810,6 +816,8 @@
           (filterChanged)="store.updateZoneFilter($event)"
           (cardSelected)="store.selectZoneCard($event)"
           (cardsReordered)="store.reorderTopLibraryCards($event)"
+          (selectionBatchRequested)="store.moveSelectedLibraryCards($event)"
+          (topFaceDownRequested)="store.playTopLibraryFaceDown($event)"
           (cardMenuOpened)="store.openZoneModalCardMenu($event.event, $event.card)"
         />
       }
@@ -887,6 +895,22 @@
         (interacted)="store.clearCardPreview()"
         (actionSelected)="handleContextMenuAction($event, menu)"
         (close)="store.closeContextMenu()"
+      />
+    }
+
+    @if (handRevealDialog(); as dialog) {
+      <app-hand-reveal-dialog
+        [requestKey]="dialog.key"
+        [ownerPlayerId]="dialog.playerId"
+        [cardCount]="dialog.orderedInstanceIds.length"
+        [players]="store.players()"
+        [initialTarget]="dialog.initialTarget"
+        [revokePlayerIds]="dialog.revokePlayerIds"
+        [publicRevealSelected]="dialog.publicRevealSelected"
+        [pending]="handRevealPending()"
+        [error]="handRevealError()"
+        (confirmed)="confirmHandRevealDialog($event)"
+        (cancelled)="closeHandRevealDialog()"
       />
     }
   } @else if (store.error()) {

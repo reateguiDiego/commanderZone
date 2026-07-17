@@ -2,6 +2,8 @@
 
 namespace App\Application\Game\WebSocket;
 
+use App\Application\Game\GameLogPrivacySanitizer;
+
 use App\Application\Game\Compact\CardStaticBundle;
 use App\Application\Game\Contract\V2\GameplayV2ContractFactory;
 use App\Application\Game\Contract\V2\GameplayV2Flags;
@@ -50,6 +52,8 @@ final readonly class GameWebsocketCommandPatchService
         'library.put_top' => 'playerId',
         'library.put_bottom' => 'playerId',
         'library.view' => 'playerId',
+        'library.selection.move' => 'playerId',
+        'library.top.play_face_down' => 'playerId',
         'library.shuffle' => 'playerId',
         'zone.reorderedByIds' => 'playerId',
         'zone.move_all' => 'playerId',
@@ -65,6 +69,8 @@ final readonly class GameWebsocketCommandPatchService
         'card.face_down.changed' => 'playerId',
         'card.face.changed' => 'playerId',
         'card.revealed' => 'playerId',
+        'hand.cards.reveal' => 'playerId',
+        'hand.cards.revoke' => 'playerId',
         'card.controller.changed' => 'playerId',
         'card.power_toughness.changed' => 'playerId',
         'card.stats.override.set' => 'playerId',
@@ -3512,10 +3518,7 @@ final readonly class GameWebsocketCommandPatchService
      */
     private function sanitizePrivateCardLogEntry(array $entry): array
     {
-        unset($entry['cardNames'], $entry['cardInstanceId'], $entry['cardPlayerId'], $entry['cardZone']);
-        $entry['message'] = 'Updated a hidden card.';
-
-        return $entry;
+        return (new GameLogPrivacySanitizer())->sanitizePublicEntry($entry, true);
     }
 
     /**

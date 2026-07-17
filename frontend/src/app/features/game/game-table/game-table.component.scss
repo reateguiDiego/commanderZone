@@ -76,6 +76,15 @@
   z-index: 1800;
 }
 
+// The table gives direct children a relative stacking context for the board.
+// Modal hosts must opt back into a viewport-level fixed layer so their dialog
+// is not constrained to the layout slot where the trigger lives.
+.game-screen > app-hand-reveal-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1800;
+}
+
 .game-screen > app-card-preview-overlay {
   position: fixed;
   inset: 0;
@@ -428,6 +437,15 @@
 
 .floating-panel:not(:hover):not(:focus-within) .floating-expanded-content {
   display: none;
+}
+
+.floating-panel:not(:hover):not(:focus-within) {
+  pointer-events: none;
+}
+
+.floating-panel:not(:hover):not(:focus-within) .floating-handle,
+.floating-panel:not(:hover):not(:focus-within) .floating-handle button {
+  pointer-events: auto;
 }
 
 .floating-panel header {
