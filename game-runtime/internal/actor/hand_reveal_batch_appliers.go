@@ -279,18 +279,21 @@ func emitHandRevealBatchPatches(game *state.GameState, ownerID string, effects [
 		}
 	}
 
-	// Existing authorized viewers also need the final audience metadata. New
-	// viewers receive this after materialization in the same version.
+	// Existing authorized viewers also need the final audience metadata. Newly
+	// authorized viewers already receive it inside private.cards.materialize;
+	// sending them a real-id card.field.set in a separate visibility envelope
+	// can arrive before materialization and target only their opaque placeholder.
 	for _, effect := range effects {
-		if effect.finalMask == 0 {
+		retainedMask := effect.previousMask & effect.finalMask
+		if retainedMask == 0 {
 			continue
 		}
-		audience, err := visibilityAudienceFromMask(game, effect.finalMask)
+		audience, err := visibilityAudienceFromMask(game, retainedMask)
 		if err != nil {
 			continue
 		}
 		emitVisibilityAudiencePatch(emitter, audience, protocol.PatchOp{Op: "card.field.set", Data: cardFieldData(effect.instanceID, effect.location, map[string]any{
-			"revealedTo": audience.revealedTo(),
+			"revealedTo": revealedToForMask(game, effect.finalMask),
 		})})
 	}
 }

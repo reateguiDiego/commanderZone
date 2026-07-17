@@ -297,7 +297,15 @@ function auditRequests(page: Page, gameId: string, audit: { fallback: number; re
   page.on('request', (request) => {
     const url = request.url();
     if (request.method() === 'POST' && url.includes(`/games/${gameId}/disconnect-vote`)) audit.fallback++;
-    if (request.method() === 'GET' && (url.includes(`/games/${gameId}/snapshot`) || url.includes(`/games/${gameId}/bootstrap`))) audit.refetch++;
+    if (request.method() !== 'GET') return;
+    const parsed = new URL(url);
+    const isSnapshot = parsed.pathname.includes(`/games/${gameId}/snapshot`);
+    const isBootstrap = parsed.pathname.includes(`/games/${gameId}/bootstrap`);
+    // Compact static-card hydration is an intentional follow-up to the initial
+    // bootstrap, not snapshot recovery. In dense 6P games it can finish after
+    // presence becomes stable, so counting it made the recovery baseline race.
+    const isStaticHydration = isBootstrap && parsed.searchParams.has('knownStaticCards');
+    if (isSnapshot || (isBootstrap && !isStaticHydration)) audit.refetch++;
   });
 }
 

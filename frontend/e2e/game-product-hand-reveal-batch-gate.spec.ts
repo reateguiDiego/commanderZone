@@ -184,9 +184,16 @@ test.describe('Gameplay 1.0 Sprint 4D hand reveal batch gate', () => {
 
       audits.forEach(assertCleanAudit);
       for (let index = 0; index < audits.length; index += 1) {
-        // The third viewer intentionally reloads once and is then rehydrated
-        // once when the actor is restarted. No other viewer may recover.
-        expect(audits[index].recoveryRequests.length).toBe(recoveryBaseline[index]! + (index === 2 ? 2 : 0));
+        if (index === 2) {
+          // The explicit page reload always hydrates once. Depending on whether
+          // the WebSocket reconnect completes before or after actor recovery,
+          // the restart may reuse the resumed stream or perform one additional
+          // expected hydration; neither path is normal-flow recovery.
+          expect(audits[index].recoveryRequests.length).toBeGreaterThanOrEqual(recoveryBaseline[index]! + 1);
+          expect(audits[index].recoveryRequests.length).toBeLessThanOrEqual(recoveryBaseline[index]! + 2);
+        } else {
+          expect(audits[index].recoveryRequests.length).toBe(recoveryBaseline[index]!);
+        }
       }
     } finally {
       await Promise.all(contexts.map((context) => context.close().catch(() => undefined)));

@@ -62,6 +62,18 @@ func TestHandRevealBatchIsAtomicOrderedAndCumulative(t *testing.T) {
 	if patchForVisibility(revealC.Patches, protocol.PlayerVisibility("p3"), "private.cards.materialize") == nil {
 		t.Fatalf("only C should be materialized: %#v", revealC.Patches)
 	}
+	if patchForVisibility(revealC.Patches, protocol.PlayerVisibility("p3"), "card.field.set") != nil {
+		t.Fatalf("newly authorized C received a real-id field update before materialization: %#v", revealC.Patches)
+	}
+	retainedMetadata := patchForVisibility(revealC.Patches, protocol.PlayerVisibility("p2"), "card.field.set")
+	if retainedMetadata == nil || !reflect.DeepEqual(retainedMetadata.Data["revealedTo"], []string{"p2", "p3"}) {
+		t.Fatalf("retained B metadata = %#v, want final cumulative audience", retainedMetadata)
+	}
+	materializedForC := patchForVisibility(revealC.Patches, protocol.PlayerVisibility("p3"), "private.cards.materialize")
+	materializedEntries := materializedForC.Data["entries"].([]map[string]any)
+	if !reflect.DeepEqual(materializedEntries[0]["card"].(map[string]any)["revealedTo"], []string{"p2", "p3"}) {
+		t.Fatalf("new viewer materialization lost final audience metadata: %#v", materializedEntries[0])
+	}
 
 	revokeB := gameActor.ApplyDirect(context.Background(), command("game-1", 3, "revoke-b", "hand.cards.revoke", map[string]any{
 		"playerId": "p1", "expectedZone": "hand", "orderedInstanceIds": []any{"h2", "h1"}, "to": "p2",
