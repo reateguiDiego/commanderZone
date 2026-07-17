@@ -868,6 +868,14 @@
       "pending": "正在应用可见性更改...", "cancel": "取消", "confirmRevealButton": "确认展示", "confirmRevokeButton": "确认撤销",
       "invalidSelection": "请选择有效的手牌。", "stale": "已选手牌发生变化，请重新打开此操作。"
     },
+    "activeReveals": {
+      "ownerEyebrow": "已共享牌", "targetEyebrow": "向你展示", "ownerTitle": "你共享的手牌", "targetTitle": "{{ player }} 展示的牌",
+      "ownerDescription": "当前共享 {{ count }} 张手牌。", "targetDescription": "你当前可查看 {{ count }} 张手牌。", "close": "关闭展示牌",
+      "empty": "没有正在展示的牌。", "allPlayers": "所有牌手", "sharedWith": "共享给", "manageAccess": "管理访问",
+      "ownerIndicatorLabel": "与其他牌手共享了 {{ count }} 张牌", "targetIndicatorLabel": "{{ player }} 展示了 {{ count }} 张牌",
+      "ownerSharedIncreased": "你又共享了 {{ count }} 张手牌。", "ownerSharedDecreased": "你停止共享 {{ count }} 张手牌。",
+      "targetRevealedIncreased": "{{ player }} 向你展示了 {{ count }} 张手牌。", "targetRevealedDecreased": "{{ player }} 停止向你共享 {{ count }} 张手牌。"
+    },
     "zoneModal": {
       "searchByName": "æŒ‰åç§°æœç´¢",
       "closeZone": "å…³é—­åŒºåŸŸ",

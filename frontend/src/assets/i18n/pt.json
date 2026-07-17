@@ -868,6 +868,14 @@
       "pending": "Aplicando a alteração de visibilidade...", "cancel": "Cancelar", "confirmRevealButton": "Confirmar revelação", "confirmRevokeButton": "Confirmar revogação",
       "invalidSelection": "Selecione cartas válidas da sua mão.", "stale": "As cartas selecionadas mudaram. Abra a ação novamente."
     },
+    "activeReveals": {
+      "ownerEyebrow": "Cartas partilhadas", "targetEyebrow": "Reveladas para ti", "ownerTitle": "As tuas cartas partilhadas", "targetTitle": "Cartas reveladas de {{ player }}",
+      "ownerDescription": "{{ count }} carta(s) da mão estão partilhadas.", "targetDescription": "{{ count }} carta(s) da mão estão visíveis para ti.", "close": "Fechar cartas reveladas",
+      "empty": "Sem revelações ativas.", "allPlayers": "Todos os jogadores", "sharedWith": "Partilhada com", "manageAccess": "Gerir acesso",
+      "ownerIndicatorLabel": "{{ count }} cartas partilhadas com outros jogadores", "targetIndicatorLabel": "{{ count }} cartas reveladas por {{ player }}",
+      "ownerSharedIncreased": "Partilhaste mais {{ count }} carta(s).", "ownerSharedDecreased": "Deixaste de partilhar {{ count }} carta(s).",
+      "targetRevealedIncreased": "{{ player }} revelou-te {{ count }} carta(s).", "targetRevealedDecreased": "{{ player }} deixou de partilhar {{ count }} carta(s) contigo."
+    },
     "zoneModal": {
       "searchByName": "Pesquisar por nome",
       "closeZone": "Fechar zona",

@@ -34,6 +34,21 @@
         <small>{{ label }}</small>
       }
       <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" size="small" />
+      @if (revealCount() > 0) {
+        <button
+          type="button"
+          class="player-reveal-indicator"
+          data-testid="reveal-indicator"
+          [attr.data-reveal-indicator-owner]="currentPlayer.id"
+          [attr.aria-expanded]="revealPanelExpanded()"
+          [attr.aria-controls]="revealPanelId()"
+          [attr.aria-label]="(revealOwnerMode() ? 'game.activeReveals.ownerIndicatorLabel' : 'game.activeReveals.targetIndicatorLabel') | runtimeTranslate:{ count: revealCount(), player: currentPlayer.state.user.displayName }"
+          (click)="activateRevealIndicator($event)"
+        >
+          <lucide-icon name="eye" size="17" aria-hidden="true" />
+          <strong aria-hidden="true">{{ revealCount() }}</strong>
+        </button>
+      }
     </div>
   </div>
   <div class="life-controls" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">

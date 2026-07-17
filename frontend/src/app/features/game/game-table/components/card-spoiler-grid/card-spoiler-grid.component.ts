@@ -37,6 +37,7 @@ export class CardSpoilerGridComponent implements OnDestroy {
   readonly allowContextMenu = input(true);
   readonly allowReorder = input(false);
   readonly allowSelection = input(true);
+  readonly readOnlyNavigation = input(false);
   readonly multiSelect = input(false);
   readonly selectedCardIds = input<readonly string[]>([]);
   readonly focusedCardId = input<string | null>(null);
@@ -86,18 +87,15 @@ export class CardSpoilerGridComponent implements OnDestroy {
   }
 
   handleCardKeydown(event: KeyboardEvent, card: GameCardInstance): void {
-    if (!this.allowSelection()) {
-      return;
-    }
-
-    if (event.key === ' ' || event.key === 'Enter') {
+    if (this.allowSelection() && (event.key === ' ' || event.key === 'Enter')) {
       event.preventDefault();
       event.stopPropagation();
       this.cardKeyPressed.emit({ card, event });
       return;
     }
 
-    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+    if ((!this.allowSelection() && !this.readOnlyNavigation())
+      || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
       return;
     }
 
@@ -128,7 +126,7 @@ export class CardSpoilerGridComponent implements OnDestroy {
   }
 
   cardTabIndex(card: GameCardInstance): number {
-    if (!this.multiSelect()) {
+    if (!this.multiSelect() && !this.readOnlyNavigation()) {
       return 0;
     }
 

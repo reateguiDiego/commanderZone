@@ -5,6 +5,7 @@ import { Flip } from 'gsap/Flip';
 gsap.registerPlugin(Flip);
 
 type CardPunchVariant = 'play' | 'tap' | 'damage';
+export type GameTableMotionMode = 'full' | 'reduced' | 'disabled';
 
 interface ThrowGhostOptions {
   readonly rotate?: number;
@@ -36,6 +37,18 @@ interface HandElementSnapshot extends MotionRect {
   readonly instanceId: string | null;
 }
 
+interface RevealMotionAuditEntry {
+  readonly kind: 'materialize' | 'conceal' | 'indicator' | 'panel-open' | 'panel-close';
+  readonly count: number;
+  readonly mode: GameTableMotionMode;
+}
+
+declare global {
+  interface Window {
+    __czRevealMotionAudit?: RevealMotionAuditEntry[];
+  }
+}
+
 @Injectable()
 export class GameTableMotionService {
   private readonly ngZone = inject(NgZone);
@@ -47,6 +60,9 @@ export class GameTableMotionService {
   private reducedMotionQuery: MediaQueryList | null = null;
   private compactMotionHeightQuery: MediaQueryList | null = null;
   private compactMotionWidthQuery: MediaQueryList | null = null;
+  private motionModeOverride: GameTableMotionMode | null = null;
+  private readonly processedRevealEffects = new Set<string>();
+  private readonly processedRevealEffectOrder: string[] = [];
 
   init(hostRef: ElementRef<HTMLElement>): void {
     this.destroy();
@@ -70,6 +86,154 @@ export class GameTableMotionService {
     this.reducedMotionQuery = null;
     this.compactMotionHeightQuery = null;
     this.compactMotionWidthQuery = null;
+    this.processedRevealEffects.clear();
+    this.processedRevealEffectOrder.length = 0;
+  }
+
+  setMotionMode(mode: GameTableMotionMode | null): void {
+    this.motionModeOverride = mode;
+  }
+
+  motionMode(): GameTableMotionMode {
+    return this.motionModeOverride ?? (this.reducedMotionQuery?.matches ? 'reduced' : 'full');
+  }
+
+  animateHandRevealMaterialized(instanceIds: readonly string[], effectKey: string): void {
+    if (!this.acceptRevealEffect(effectKey) || this.motionMode() === 'disabled') {
+      return;
+    }
+    const targets = this.revealTargets(instanceIds);
+    if (targets.length === 0) {
+      return;
+    }
+    this.recordRevealMotion('materialize', targets.length);
+
+    this.runInContext(() => {
+      gsap.killTweensOf(targets);
+      if (this.motionMode() === 'reduced') {
+        gsap.fromTo(targets, { opacity: 0.72 }, {
+          clearProps: 'opacity',
+          duration: 0.08,
+          ease: 'none',
+          opacity: 1,
+        });
+        return;
+      }
+      gsap.fromTo(targets, {
+        filter: 'brightness(1.18) saturate(1.08)',
+        opacity: 0.35,
+        rotateY: -12,
+        scale: 0.96,
+      }, {
+        clearProps: 'filter,opacity,rotateY,scale',
+        duration: 0.28,
+        ease: 'power2.out',
+        filter: 'brightness(1)',
+        opacity: 1,
+        rotateY: 0,
+        scale: 1,
+        stagger: { each: 0.035, from: 'start' },
+      });
+    });
+  }
+
+  animateHandRevealConcealed(
+    placeholderIds: readonly string[],
+    effectKey: string,
+    fallbackOwnerPlayerId?: string,
+  ): void {
+    if (!this.acceptRevealEffect(effectKey) || this.motionMode() === 'disabled') {
+      return;
+    }
+    let targets = this.revealTargets(placeholderIds);
+    if (targets.length === 0 && fallbackOwnerPlayerId) {
+      targets = this.cardElements('[data-reveal-indicator-owner]')
+        .filter((element) => element.dataset['revealIndicatorOwner'] === fallbackOwnerPlayerId && this.isVisibleTarget(element));
+    }
+    if (targets.length === 0) {
+      return;
+    }
+    this.recordRevealMotion('conceal', targets.length);
+
+    this.runInContext(() => {
+      gsap.killTweensOf(targets);
+      if (this.motionMode() === 'reduced') {
+        gsap.fromTo(targets, { opacity: 0.72 }, {
+          clearProps: 'opacity',
+          duration: 0.08,
+          ease: 'none',
+          opacity: 1,
+        });
+        return;
+      }
+      gsap.fromTo(targets, {
+        filter: 'brightness(0.82)',
+        opacity: 0.45,
+        scale: 0.98,
+      }, {
+        clearProps: 'filter,opacity,scale',
+        duration: 0.2,
+        ease: 'power1.out',
+        filter: 'brightness(1)',
+        opacity: 1,
+        scale: 1,
+        stagger: { each: 0.025, from: 'start' },
+      });
+    });
+  }
+
+  animateRevealIndicatorCountChanged(ownerPlayerId: string, effectKey: string): void {
+    if (!this.acceptRevealEffect(effectKey) || this.motionMode() === 'disabled') {
+      return;
+    }
+    const targets = this.cardElements('[data-reveal-indicator-owner]')
+      .filter((element) => element.dataset['revealIndicatorOwner'] === ownerPlayerId && this.isVisibleTarget(element));
+    if (targets.length === 0) {
+      return;
+    }
+    this.recordRevealMotion('indicator', targets.length);
+
+    this.runInContext(() => {
+      gsap.killTweensOf(targets);
+      gsap.fromTo(targets, {
+        filter: 'brightness(1.2)',
+        scale: this.motionMode() === 'reduced' ? 1 : 0.9,
+      }, {
+        clearProps: 'filter,scale',
+        duration: this.motionMode() === 'reduced' ? 0.08 : 0.2,
+        ease: this.motionMode() === 'reduced' ? 'none' : 'back.out(1.8)',
+        filter: 'brightness(1)',
+        scale: 1,
+      });
+    });
+  }
+
+  animateRevealPanelTransition(element: HTMLElement, opening: boolean, effectKey: string): void {
+    if (!this.acceptRevealEffect(effectKey) || this.motionMode() === 'disabled') {
+      return;
+    }
+    this.recordRevealMotion(opening ? 'panel-open' : 'panel-close', 1);
+    this.runInContext(() => {
+      gsap.killTweensOf(element);
+      if (this.motionMode() === 'reduced') {
+        gsap.fromTo(element, { opacity: opening ? 0.8 : 1 }, {
+          clearProps: 'opacity', duration: 0.08, ease: 'none', opacity: opening ? 1 : 0.8,
+        });
+        return;
+      }
+      gsap.fromTo(element, {
+        opacity: opening ? 0 : 1,
+        scale: opening ? 0.985 : 1,
+        y: opening ? 8 : 0,
+      }, {
+        clearProps: 'opacity,scale,y',
+        duration: opening ? 0.22 : 0.14,
+        ease: 'power2.out',
+        opacity: opening ? 1 : 0,
+        scale: opening ? 1 : 0.99,
+        y: opening ? 0 : 4,
+      });
+    });
   }
 
   punchCard(instanceId: string, variant: CardPunchVariant = 'play'): void {
@@ -829,6 +993,49 @@ export class GameTableMotionService {
     });
   }
 
+  private revealTargets(instanceIds: readonly string[]): HTMLElement[] {
+    const seen = new Set<HTMLElement>();
+    const targets: HTMLElement[] = [];
+    for (const instanceId of instanceIds) {
+      const target = this.findCard(instanceId);
+      if (target && !seen.has(target)) {
+        seen.add(target);
+        targets.push(target);
+      }
+    }
+
+    return targets;
+  }
+
+  private acceptRevealEffect(effectKey: string): boolean {
+    if (!effectKey || this.processedRevealEffects.has(effectKey)) {
+      return false;
+    }
+    this.processedRevealEffects.add(effectKey);
+    this.processedRevealEffectOrder.push(effectKey);
+    if (this.processedRevealEffectOrder.length > 512) {
+      const oldest = this.processedRevealEffectOrder.shift();
+      if (oldest) {
+        this.processedRevealEffects.delete(oldest);
+      }
+    }
+
+    return true;
+  }
+
+  private recordRevealMotion(kind: RevealMotionAuditEntry['kind'], count: number): void {
+    try {
+      if (window.localStorage?.getItem('commanderzone.e2eRevealMotionAudit') !== '1') {
+        return;
+      }
+      const audit = window.__czRevealMotionAudit ?? [];
+      audit.push({ kind, count, mode: this.motionMode() });
+      window.__czRevealMotionAudit = audit.slice(-200);
+    } catch {
+      // Local storage can be unavailable in privacy-restricted contexts.
+    }
+  }
+
   private findCard(instanceId: string): HTMLElement | null {
     const candidates = this.cardElements('[data-card-instance-id], [data-motion-origin-card-id]')
       .filter((element) =>
@@ -954,7 +1161,7 @@ export class GameTableMotionService {
   }
 
   private prefersReducedMotion(): boolean {
-    return this.reducedMotionQuery?.matches ?? false;
+    return this.motionMode() !== 'full';
   }
 
   private isCompactMotionViewport(): boolean {

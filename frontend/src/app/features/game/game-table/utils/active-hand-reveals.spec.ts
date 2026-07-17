@@ -2,13 +2,18 @@ import { GameCardInstance, GameSnapshot } from '../../../../core/models/game.mod
 import type { GameTableNormalizedV2State } from '../state/realtime/game-table-normalized-v2.store';
 import {
   activeHandRevealCountForViewer,
+  activeRevealPanelCardIds,
+  activeRevealRecipients,
   activeHandRevealsForOwner,
   cardIsActivelyRevealedToViewer,
   isHandCardRevealedToViewer,
+  opponentRevealIndicator,
+  ownerSharedRevealIndicator,
   revealedHandCardsForViewer,
   revealedHandCountForViewer,
   sharedHandCardsByOwner,
   sharedHandUniqueCount,
+  shouldShowRevealIndicator,
   viewersForSharedCard,
 } from './active-hand-reveals';
 
@@ -51,6 +56,34 @@ describe('active hand reveal selectors', () => {
     expect(cardIsActivelyRevealedToViewer(card('revoked', []), 'player-2')).toBe(false);
     expect(cardIsActivelyRevealedToViewer({ ...card('concealed', ['player-2']), hidden: true }, 'player-2')).toBe(false);
     expect(activeHandRevealCountForViewer(snapshotWithHand([]), 'player-1', 'player-2')).toBe(0);
+  });
+
+  it('derives viewer-local and owner indicators while excluding self-only audiences', () => {
+    const snapshot = snapshotWithHand([
+      card('target-only', ['player-2']),
+      card('third-only', ['player-3']),
+      card('public', ['all']),
+      card('self-only', ['player-1']),
+    ]);
+
+    expect(opponentRevealIndicator(snapshot, 'player-1', 'player-2')).toEqual({ count: 2, ownerMode: false, visible: true });
+    expect(opponentRevealIndicator(snapshot, 'player-1', 'player-4')).toEqual({ count: 1, ownerMode: false, visible: true });
+    expect(ownerSharedRevealIndicator(snapshot, 'player-1')).toEqual({ count: 3, ownerMode: true, visible: true });
+    expect(shouldShowRevealIndicator(snapshot, 'player-1', 'player-3')).toBe(true);
+    expect(shouldShowRevealIndicator(snapshotWithHand([]), 'player-1', 'player-2')).toBe(false);
+  });
+
+  it('returns panel IDs in hand order and never exposes recipients to a non-owner selector', () => {
+    const snapshot = snapshotWithHand([
+      card('first', ['player-2']),
+      card('private-third', ['player-3']),
+      card('public', ['all']),
+    ]);
+
+    expect(activeRevealPanelCardIds(snapshot, 'player-1', 'player-2')).toEqual(['first', 'public']);
+    expect(activeRevealPanelCardIds(snapshot, 'player-1', 'player-1')).toEqual(['first', 'private-third', 'public']);
+    expect(activeRevealRecipients(snapshot, 'player-1', 'first', 'player-2')).toEqual([]);
+    expect(activeRevealRecipients(snapshot, 'player-1', 'first', 'player-1')).toEqual(['player-2']);
   });
 });
 

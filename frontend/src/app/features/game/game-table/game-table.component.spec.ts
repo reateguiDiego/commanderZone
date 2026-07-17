@@ -6580,6 +6580,74 @@ describe('GameTableComponent', () => {
 
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
+
+  it('derives the owner shared-card indicator and returns focus after closing the panel', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-1']!.zones.hand = [
+      handRevealCard('shared-b', ['user-2']),
+      handRevealCard('shared-all', ['all']),
+      handRevealCard('self-only', ['user-1']),
+    ];
+    snapshot.players['user-1']!.zoneCounts!.hand = 3;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.revealIndicatorCount('user-1')).toBe(2);
+    const indicator = document.createElement('button');
+    document.body.appendChild(indicator);
+    fixture.componentInstance.openActiveRevealPanel('user-1', indicator);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="active-reveal-panel"] [data-card-instance-id]').length).toBe(2);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="active-reveal-recipients"]')).not.toBeNull();
+    ((fixture.nativeElement as HTMLElement).querySelector('[data-testid="active-reveal-close"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(indicator);
+    indicator.remove();
+  });
+
+  it('renders only target-authorized cards and strips recipient metadata from the read-only panel', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-2']!.zones.hand = [
+      { ...handRevealCard('authorized-card', ['user-1', 'user-3']), ownerId: 'user-2', controllerId: 'user-2', name: 'Authorized Secret' },
+      { ...handRevealCard('opaque-placeholder', []), ownerId: 'user-2', controllerId: 'user-2', name: 'Hidden card', hidden: true, faceDown: true },
+    ];
+    snapshot.players['user-2']!.zoneCounts!.hand = 2;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.revealIndicatorCount('user-2')).toBe(1);
+    const indicator = document.createElement('button');
+    document.body.appendChild(indicator);
+    fixture.componentInstance.openActiveRevealPanel('user-2', indicator);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const panel = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="active-reveal-panel"]') as HTMLElement;
+    expect(panel.querySelectorAll('[data-card-instance-id]').length).toBe(1);
+    expect(panel.textContent).toContain('Authorized Secret');
+    expect(panel.querySelector('[data-testid="active-reveal-recipients"]')).toBeNull();
+    expect(fixture.componentInstance.activeRevealPanelCards()[0]?.revealedTo).toBeUndefined();
+    indicator.remove();
+  });
 });
 
 describe('GameTableChatLogState', () => {
@@ -6780,6 +6848,21 @@ function addOpponent(snapshot: GameSnapshot): void {
     },
     commanderDamage: {},
     counters: {},
+  };
+}
+
+function handRevealCard(instanceId: string, revealedTo: string[]): GameCardInstance {
+  return {
+    instanceId,
+    ownerId: 'user-1',
+    controllerId: 'user-1',
+    name: instanceId,
+    typeLine: 'Instant',
+    zone: 'hand',
+    tapped: false,
+    hidden: false,
+    revealedTo,
+    imageUris: {},
   };
 }
 

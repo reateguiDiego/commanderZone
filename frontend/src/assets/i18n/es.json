@@ -791,6 +791,20 @@
       "invalidSelection": "Selecciona cartas válidas de tu mano.",
       "stale": "Las cartas seleccionadas cambiaron. Abre la acción de nuevo."
     },
+    "activeReveals": {
+      "ownerEyebrow": "Cartas compartidas", "targetEyebrow": "Reveladas para ti",
+      "ownerTitle": "Tus cartas de mano compartidas", "targetTitle": "Cartas reveladas de {{ player }}",
+      "ownerDescription": "Actualmente compartes {{ count }} carta(s) de mano distintas.",
+      "targetDescription": "Actualmente puedes ver {{ count }} carta(s) de mano.",
+      "close": "Cerrar cartas reveladas", "empty": "No hay revelados activos.",
+      "allPlayers": "Todos los jugadores", "sharedWith": "Compartida con", "manageAccess": "Gestionar acceso",
+      "ownerIndicatorLabel": "{{ count }} cartas compartidas con otros jugadores",
+      "targetIndicatorLabel": "{{ count }} cartas reveladas por {{ player }}",
+      "ownerSharedIncreased": "Has compartido {{ count }} carta(s) de mano adicional(es).",
+      "ownerSharedDecreased": "Has dejado de compartir {{ count }} carta(s) de mano.",
+      "targetRevealedIncreased": "{{ player }} te ha revelado {{ count }} carta(s) de mano.",
+      "targetRevealedDecreased": "{{ player }} ha dejado de compartir contigo {{ count }} carta(s) de mano."
+    },
     "zoneModal": {
       "searchByName": "Buscar por nombre",
       "closeZone": "Zona cerrada",

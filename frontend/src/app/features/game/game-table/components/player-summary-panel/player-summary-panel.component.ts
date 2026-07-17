@@ -96,6 +96,10 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly specialEntities = input<readonly GameSpecialEntity[]>([]);
   readonly contextLabel = input<string | null>(null);
   readonly returnActionLabel = input<string | null>(null);
+  readonly revealCount = input(0);
+  readonly revealOwnerMode = input(false);
+  readonly revealPanelExpanded = input(false);
+  readonly revealPanelId = input<string | null>(null);
   readonly lifeChanged = output<LifeChangeEvent>();
   readonly commanderDamageChanged = output<CommanderDamageChangeEvent>();
   readonly playerCounterChanged = output<PlayerCounterChangeEvent>();
@@ -103,6 +107,7 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly helperPreviewHidden = output<void>();
   readonly helperContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly returnRequested = output<void>();
+  readonly revealIndicatorActivated = output<HTMLElement>();
   readonly lifeFeedback = signal<LifeFeedback | null>(null);
   readonly otherCountersExpanded = signal(false);
   readonly visibleSpecialEntities = computed(() =>
@@ -135,6 +140,12 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     const currentPlayer = this.player();
     return clampPlayerLife(currentPlayer.state.life + this.pendingLifeDelta(currentPlayer.id));
   });
+
+  activateRevealIndicator(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.revealIndicatorActivated.emit(event.currentTarget as HTMLElement);
+  }
 
   ngOnDestroy(): void {
     for (const timer of this.flushTimers.values()) {

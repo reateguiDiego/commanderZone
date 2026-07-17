@@ -868,6 +868,16 @@
       "pending": "S'està aplicant el canvi de visibilitat...", "cancel": "Cancel·la", "confirmRevealButton": "Confirma la revelació", "confirmRevokeButton": "Confirma la revocació",
       "invalidSelection": "Selecciona cartes vàlides de la teva mà.", "stale": "Les cartes seleccionades han canviat. Torna a obrir l'acció."
     },
+    "activeReveals": {
+      "ownerEyebrow": "Cartes compartides", "targetEyebrow": "Revelades per a tu",
+      "ownerTitle": "Les teves cartes compartides", "targetTitle": "Cartes revelades de {{ player }}",
+      "ownerDescription": "Comparteixes {{ count }} carta(es) de la mà.", "targetDescription": "Pots veure {{ count }} carta(es) de la mà.",
+      "close": "Tanca les cartes revelades", "empty": "No hi ha revelacions actives.", "allPlayers": "Tots els jugadors",
+      "sharedWith": "Compartida amb", "manageAccess": "Gestiona l'accés", "ownerIndicatorLabel": "{{ count }} cartes compartides amb altres jugadors",
+      "targetIndicatorLabel": "{{ count }} cartes revelades per {{ player }}", "ownerSharedIncreased": "Has compartit {{ count }} carta(es) més.",
+      "ownerSharedDecreased": "Has deixat de compartir {{ count }} carta(es).", "targetRevealedIncreased": "{{ player }} t'ha revelat {{ count }} carta(es).",
+      "targetRevealedDecreased": "{{ player }} ha deixat de compartir {{ count }} carta(es) amb tu."
+    },
     "zoneModal": {
       "searchByName": "Cerca pel nom",
       "closeZone": "Zona tancada",

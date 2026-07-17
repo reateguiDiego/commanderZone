@@ -678,6 +678,14 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       this.gameplayDebugCounters.patchV2ApplyOk += 1;
       context.onMulliganPatchV2Applied?.(hydratedPatch, result.snapshot);
       context.setSnapshot(result.snapshot);
+      if (previousSnapshot) {
+        this.realtimeAnimationBus.emitPatchAnimation({
+          previousSnapshot,
+          nextSnapshot: result.snapshot,
+          patch: hydratedPatch,
+          isLocalPatch: this.isPatchV2ForInFlightCommand(hydratedPatch),
+        });
+      }
       this.publishSnapshotMetric(context.gameId(), hydratedPatch, previousSnapshotSize, this.snapshotSize(result.snapshot));
       this.logGameplayDebug('debug', context, {
         source: 'handlePatchV2',
@@ -733,6 +741,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     const inFlight = this.inFlightCommand;
 
     return Boolean(inFlight && this.matchesInFlight(inFlight, patch.clientActionId));
+  }
+
+  private isPatchV2ForInFlightCommand(patch: GameplayPatchV2Message): boolean {
+    const inFlight = this.inFlightCommand;
+
+    return Boolean(inFlight && this.matchesInFlight(inFlight, patch.ackClientActionId ?? undefined));
   }
 
   private async handleCommandAck(context: GameTableWebsocketGameplayContext, ack: GameplayCommandAckMessage): Promise<void> {

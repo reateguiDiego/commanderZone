@@ -868,6 +868,14 @@
       "pending": "表示変更を適用しています...", "cancel": "キャンセル", "confirmRevealButton": "公開を確認", "confirmRevokeButton": "取消を確認",
       "invalidSelection": "有効な手札を選択してください。", "stale": "選択した手札が変更されました。操作を開き直してください。"
     },
+    "activeReveals": {
+      "ownerEyebrow": "共有カード", "targetEyebrow": "あなたに公開", "ownerTitle": "共有中の手札", "targetTitle": "{{ player }} の公開カード",
+      "ownerDescription": "手札 {{ count }} 枚を共有中です。", "targetDescription": "手札 {{ count }} 枚を見ることができます。", "close": "公開カードを閉じる",
+      "empty": "公開中のカードはありません。", "allPlayers": "すべてのプレイヤー", "sharedWith": "共有先", "manageAccess": "アクセスを管理",
+      "ownerIndicatorLabel": "他のプレイヤーと共有中のカード {{ count }} 枚", "targetIndicatorLabel": "{{ player }} が公開したカード {{ count }} 枚",
+      "ownerSharedIncreased": "手札をさらに {{ count }} 枚共有しました。", "ownerSharedDecreased": "手札 {{ count }} 枚の共有を停止しました。",
+      "targetRevealedIncreased": "{{ player }} が手札 {{ count }} 枚を公開しました。", "targetRevealedDecreased": "{{ player }} が手札 {{ count }} 枚の共有を停止しました。"
+    },
     "zoneModal": {
       "searchByName": "åå‰ã§æ¤œç´¢",
       "closeZone": "ã‚¯ãƒ­ãƒ¼ã‚ºã‚¾ãƒ¼ãƒ³",

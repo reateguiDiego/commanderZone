@@ -2,11 +2,12 @@ import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 import { GameSnapshot } from '../../../../core/models/game.model';
 import { GameplayGamePatchMessage } from '../../../../core/models/game-realtime.model';
+import { GameplayPatchV2Message } from '../../../../core/models/game-realtime.model';
 
 export interface GameTableRealtimePatchAnimationEvent {
   readonly previousSnapshot: GameSnapshot;
   readonly nextSnapshot: GameSnapshot;
-  readonly patch: GameplayGamePatchMessage;
+  readonly patch: GameplayGamePatchMessage | GameplayPatchV2Message;
   readonly isLocalPatch: boolean;
 }
 

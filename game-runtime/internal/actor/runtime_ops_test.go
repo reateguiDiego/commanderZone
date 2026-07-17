@@ -1628,6 +1628,38 @@ func TestDungeonMarkerAndFaceChangeRuntimePatches(t *testing.T) {
 	}
 }
 
+func TestDungeonMarkerOnFaceDownBattlefieldUsesViewerVisibleInstanceIDs(t *testing.T) {
+	game := testState()
+	instance := game.Instances["i1"]
+	instance.FaceDown = true
+	game.Instances["i1"] = instance
+	game.EnsureVisibility()
+	delete(game.Visibility.InstanceMasks, "i1")
+	gameActor := NewGameActor("game-1", game, nil, 8, DefaultAppliers())
+
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "dungeon-private", "card.dungeon_marker.changed", map[string]any{
+		"instanceId": "i1",
+		"position":   map[string]any{"x": 0.25, "y": 0.75, "unit": "ratio"},
+	}), "p1")
+	if result.Err != nil {
+		t.Fatalf("dungeon marker failed: %v", result.Err)
+	}
+	if public := patchForVisibility(result.Patches, protocol.VisibilityPublic, "card.field.set"); public != nil {
+		t.Fatalf("face-down marker leaked a real-id public field patch: %#v", public.Data)
+	}
+	owner := patchForVisibility(result.Patches, protocol.PlayerVisibility("p1"), "card.field.set")
+	third := patchForVisibility(result.Patches, protocol.PlayerVisibility("p2"), "card.field.set")
+	if owner == nil || owner.Data["instanceId"] != "i1" {
+		t.Fatalf("owner marker patch = %#v, want real instance", owner)
+	}
+	if third == nil || third.Data["instanceId"] != "p1-hidden-battlefield-0" {
+		t.Fatalf("third-viewer marker patch = %#v, want opaque battlefield shell", third)
+	}
+	if third.Data["dungeonMarker"] == nil {
+		t.Fatalf("third-viewer marker patch lost public marker state: %#v", third.Data)
+	}
+}
+
 func TestEdgeCommandsReplayReconstructsState(t *testing.T) {
 	gameActor := NewGameActor("game-1", testState(), nil, 8, DefaultAppliers())
 	token := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "token-create", "card.token.created", map[string]any{"playerId": "p1", "quantity": 1}), "p1")

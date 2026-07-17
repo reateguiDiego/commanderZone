@@ -8,7 +8,7 @@ import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GamePowerToughnessValue, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
-import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
+import { GameplayGamePatchMessage, GameplayPatchV2Message, GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
 import { Card } from '../../../core/models/card.model';
 import { CardsApi } from '../../../core/api/cards.api';
 import { GamesApi } from '../../../core/api/games.api';
@@ -84,6 +84,7 @@ import { BattlefieldZoomControlsComponent } from './components/battlefield-zoom-
 import { ContextMenuAction, ContextMenuComponent } from './components/context-menu/context-menu.component';
 import { ZoneModalComponent } from './components/zone-modal/zone-modal.component';
 import { HandRevealDialogComponent, HandRevealDialogValue } from './components/hand-reveal-dialog/hand-reveal-dialog.component';
+import { ActiveRevealPanelComponent, ActiveRevealRevokeRequest } from './components/active-reveal-panel/active-reveal-panel.component';
 import { NumberActionDialogComponent } from './components/number-action-dialog/number-action-dialog.component';
 import { ManaActionDialogComponent, ManaActionDialogValueChange } from './components/mana-action-dialog/mana-action-dialog.component';
 import { ManaCometLayerComponent } from './components/mana-comet-layer/mana-comet-layer.component';
@@ -122,6 +123,13 @@ import {
   resolveGameTableResponsiveState,
   type GameTableResponsiveState,
 } from './utils/game-table-responsive-state';
+import {
+  activeRevealPanelCardIds,
+  opponentRevealIndicator,
+  ownerSharedRevealIndicator,
+  revealedHandCountForViewer,
+  sharedHandUniqueCount,
+} from './utils/active-hand-reveals';
 
 const MANA_POOL_TARGET_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 
@@ -191,6 +199,20 @@ interface HandRevealRequest {
   readonly publicRevealSelected: boolean;
   readonly trigger: HTMLElement | null;
 }
+
+interface ActiveRevealPanelRequest {
+  readonly ownerPlayerId: string;
+  readonly trigger: HTMLElement | null;
+}
+
+interface RevealAnnouncement {
+  readonly key: string;
+  readonly params: Readonly<Record<string, string | number>>;
+}
+
+type LegacyRealtimePatchAnimationEvent = Omit<GameTableRealtimePatchAnimationEvent, 'patch'> & {
+  readonly patch: GameplayGamePatchMessage;
+};
 
 interface LibraryCardMoveToHandRequest {
   readonly menu: GameContextMenu;
@@ -460,6 +482,7 @@ interface MotionSourceRect {
     ContextMenuComponent,
     ZoneModalComponent,
     HandRevealDialogComponent,
+    ActiveRevealPanelComponent,
     NumberActionDialogComponent,
     ManaActionDialogComponent,
     ManaCometLayerComponent,
@@ -565,6 +588,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly manaComets = inject(GameTableManaCometService);
   private readonly notificationSound = inject(GameTableNotificationSoundService);
   private readonly realtimeAnimations = inject(GameTableRealtimeAnimationBusService);
+  private readonly session = inject(GameTableSessionService);
   private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly e2eStaticCardCacheTools = inject(GameTableE2eStaticCardCacheToolsService);
@@ -689,6 +713,27 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly handRevealDialog = signal<HandRevealRequest | null>(null);
   readonly handRevealPending = signal(false);
   readonly handRevealError = signal<string | null>(null);
+  readonly activeRevealPanel = signal<ActiveRevealPanelRequest | null>(null);
+  readonly revealAnnouncement = signal<RevealAnnouncement | null>(null);
+  readonly activeRevealPanelOwner = computed(() => {
+    const ownerPlayerId = this.activeRevealPanel()?.ownerPlayerId;
+
+    return ownerPlayerId ? this.store.players().find((player) => player.id === ownerPlayerId) ?? null : null;
+  });
+  readonly activeRevealPanelCards = computed<readonly GameCardInstance[]>(() => {
+    const request = this.activeRevealPanel();
+    const snapshot = this.store.snapshot();
+    if (!request || !snapshot) {
+      return [];
+    }
+    const viewerPlayerId = this.revealViewerPlayerId();
+    const authorizedIds = new Set(activeRevealPanelCardIds(snapshot, request.ownerPlayerId, viewerPlayerId));
+    const ownerMode = request.ownerPlayerId === viewerPlayerId;
+
+    return (snapshot.players[request.ownerPlayerId]?.zones.hand ?? [])
+      .filter((card) => authorizedIds.has(card.instanceId))
+      .map((card) => ownerMode ? card : { ...card, revealedTo: undefined });
+  });
   readonly libraryCardMoveToHandDialog = signal<LibraryCardMoveToHandRequest | null>(null);
   private readonly pendingCardMotion = signal<PendingCardMotion | null>(null);
   readonly followActiveTurnPlayer = signal(false);
@@ -891,6 +936,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private battlefieldReflowFrame: number | null = null;
   private battlefieldZoomReflowFrame: number | null = null;
   private destroyed = false;
+  private revealPanelObservedLiveConnection = false;
+  private revealPanelMotionSequence = 0;
   private rematchToastTimer: number | null = null;
   private rematchCountdownTimer: number | null = null;
   private rematchCountdownDeadlineMs: number | null = null;
@@ -1017,6 +1064,35 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
           this.closeHandRevealDialog();
         }
       });
+    });
+
+    effect(() => {
+      const request = this.activeRevealPanel();
+      const cards = this.activeRevealPanelCards();
+      if (!request || cards.length > 0) {
+        return;
+      }
+      queueMicrotask(() => {
+        if (this.activeRevealPanel()?.ownerPlayerId === request.ownerPlayerId && this.activeRevealPanelCards().length === 0) {
+          this.closeActiveRevealPanel();
+        }
+      });
+    });
+
+    effect(() => {
+      const request = this.activeRevealPanel();
+      const realtimeStatus = this.session.realtimeStatus();
+      if (!request) {
+        this.revealPanelObservedLiveConnection = false;
+        return;
+      }
+      if (realtimeStatus === 'live') {
+        this.revealPanelObservedLiveConnection = true;
+        return;
+      }
+      if (this.revealPanelObservedLiveConnection) {
+        queueMicrotask(() => this.closeActiveRevealPanel());
+      }
     });
   }
 
@@ -1631,11 +1707,106 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     });
   }
 
-  private handleRealtimePatchAnimation(event: GameTableRealtimePatchAnimationEvent): void {
-    const rotationAnimations = this.realtimePatchRotationAnimationsFor(event);
+  revealIndicatorCount(ownerPlayerId: string): number {
+    const snapshot = this.store.snapshot();
+    const viewerPlayerId = this.revealViewerPlayerId();
 
-    if (!event.isLocalPatch) {
-      this.playRealtimeMoveGhosts(event);
+    return ownerPlayerId === viewerPlayerId
+      ? ownerSharedRevealIndicator(snapshot, ownerPlayerId).count
+      : opponentRevealIndicator(snapshot, ownerPlayerId, viewerPlayerId).count;
+  }
+
+  revealIndicatorOwnerMode(ownerPlayerId: string): boolean {
+    return ownerPlayerId === this.revealViewerPlayerId();
+  }
+
+  revealPanelExpanded(ownerPlayerId: string): boolean {
+    return this.activeRevealPanel()?.ownerPlayerId === ownerPlayerId;
+  }
+
+  revealPanelId(_ownerPlayerId: string): string {
+    return 'active-reveal-panel';
+  }
+
+  openActiveRevealPanel(ownerPlayerId: string, trigger: HTMLElement): void {
+    if (this.revealIndicatorCount(ownerPlayerId) <= 0) {
+      return;
+    }
+    if (this.activeRevealPanel()?.ownerPlayerId === ownerPlayerId) {
+      this.closeActiveRevealPanel();
+      return;
+    }
+    this.activeRevealPanel.set({ ownerPlayerId, trigger });
+  }
+
+  closeActiveRevealPanel(returnFocus = true): void {
+    const request = this.activeRevealPanel();
+    if (!request) {
+      return;
+    }
+    this.activeRevealPanel.set(null);
+    if (returnFocus) {
+      queueMicrotask(() => {
+        if (request.trigger?.isConnected) {
+          request.trigger.focus();
+        } else {
+          this.gameScreen?.nativeElement.focus({ preventScroll: true });
+        }
+      });
+    }
+  }
+
+  handleActiveRevealPanelOpened(element: HTMLElement): void {
+    const gameId = this.store.gameId() || 'game';
+    this.revealPanelMotionSequence += 1;
+    this.motion.animateRevealPanelTransition(
+      element,
+      true,
+      `${gameId}:panel-open:${this.revealPanelMotionSequence}`,
+    );
+  }
+
+  openActiveRevealRevoke(request: ActiveRevealRevokeRequest): void {
+    const panel = this.activeRevealPanel();
+    const snapshot = this.store.snapshot();
+    const currentPlayerId = this.store.currentPlayer()?.id;
+    if (!panel || !snapshot || panel.ownerPlayerId !== currentPlayerId) {
+      return;
+    }
+    const card = snapshot.players[panel.ownerPlayerId]?.zones.hand
+      .find((candidate) => candidate.instanceId === request.instanceId);
+    if (!card || !card.revealedTo?.some((viewerId) => viewerId === 'all' || viewerId !== panel.ownerPlayerId)) {
+      return;
+    }
+    const revealedTo = card.revealedTo ?? [];
+    const trigger = panel.trigger;
+    this.closeActiveRevealPanel(false);
+    this.handRevealError.set(null);
+    this.handRevealDialog.set({
+      key: `${panel.ownerPlayerId}:${card.instanceId}:${Date.now()}`,
+      playerId: panel.ownerPlayerId,
+      orderedInstanceIds: [card.instanceId],
+      initialTarget: revealedTo.find((viewerId) => viewerId !== 'all' && viewerId !== panel.ownerPlayerId) ?? 'all',
+      revokePlayerIds: [...new Set(revealedTo.filter((viewerId) => viewerId !== 'all' && viewerId !== panel.ownerPlayerId))],
+      publicRevealSelected: revealedTo.includes('all'),
+      trigger,
+    });
+  }
+
+  private revealViewerPlayerId(): string {
+    return this.store.currentPlayer()?.id ?? '__spectator__';
+  }
+
+  private handleRealtimePatchAnimation(event: GameTableRealtimePatchAnimationEvent): void {
+    if ('ops' in event.patch) {
+      this.handleRealtimeRevealPatchV2(event, event.patch);
+      return;
+    }
+    const legacyEvent = event as LegacyRealtimePatchAnimationEvent;
+    const rotationAnimations = this.realtimePatchRotationAnimationsFor(legacyEvent);
+
+    if (!legacyEvent.isLocalPatch) {
+      this.playRealtimeMoveGhosts(legacyEvent);
     }
 
     if (rotationAnimations.length > 0 || !event.isLocalPatch) {
@@ -1648,14 +1819,113 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
           playAnimation();
         }
 
-        if (!event.isLocalPatch) {
-          this.playRealtimePatchArrivalAnimations(event);
+        if (!legacyEvent.isLocalPatch) {
+          this.playRealtimePatchArrivalAnimations(legacyEvent);
         }
       });
     }
   }
 
-  private realtimePatchRotationAnimationsFor(event: GameTableRealtimePatchAnimationEvent): Array<() => void> {
+  private handleRealtimeRevealPatchV2(
+    event: GameTableRealtimePatchAnimationEvent,
+    patch: GameplayPatchV2Message,
+  ): void {
+    const affectedOwnerIds = new Set<string>();
+    const materializeEffects: Array<{ key: string; instanceIds: readonly string[] }> = [];
+    const concealEffects: Array<{ key: string; ownerPlayerId: string; placeholderIds: readonly string[] }> = [];
+
+    patch.ops.forEach((operation, index) => {
+      if (operation.op === 'private.cards.materialize' && operation.zone === 'hand') {
+        affectedOwnerIds.add(operation.playerId);
+        materializeEffects.push({
+          key: `${patch.gameId}:${patch.version}:hand-materialize:${index}:${operation.entries.map((entry) => entry.card.instanceId).join(',')}`,
+          instanceIds: operation.entries.map((entry) => entry.card.instanceId),
+        });
+        return;
+      }
+      if (operation.op === 'private.cards.conceal' && operation.zone === 'hand') {
+        affectedOwnerIds.add(operation.playerId);
+        concealEffects.push({
+          key: `${patch.gameId}:${patch.version}:hand-conceal:${index}:${operation.entries.map((entry) => entry.instanceId).join(',')}`,
+          ownerPlayerId: operation.playerId,
+          placeholderIds: operation.entries.map((entry) => entry.placeholderId),
+        });
+        return;
+      }
+      if ('playerId' in operation && 'zone' in operation && operation.zone === 'hand') {
+        affectedOwnerIds.add(operation.playerId);
+      }
+      if (operation.op === 'zone.cards.move') {
+        if (operation.from.zone === 'hand') {
+          affectedOwnerIds.add(operation.from.playerId);
+        }
+        if (operation.to.zone === 'hand') {
+          affectedOwnerIds.add(operation.to.playerId);
+        }
+      }
+      if (operation.op === 'zone.cards.batchMove') {
+        for (const move of operation.moves) {
+          if (move.from.zone === 'hand') {
+            affectedOwnerIds.add(move.from.playerId);
+          }
+          if (move.to.zone === 'hand') {
+            affectedOwnerIds.add(move.to.playerId);
+          }
+        }
+      }
+    });
+
+    const viewerPlayerId = this.revealViewerPlayerId();
+    let announcement: RevealAnnouncement | null = null;
+    for (const ownerPlayerId of affectedOwnerIds) {
+      const previousCount = ownerPlayerId === viewerPlayerId
+        ? sharedHandUniqueCount(event.previousSnapshot, ownerPlayerId)
+        : revealedHandCountForViewer(event.previousSnapshot, ownerPlayerId, viewerPlayerId);
+      const nextCount = ownerPlayerId === viewerPlayerId
+        ? sharedHandUniqueCount(event.nextSnapshot, ownerPlayerId)
+        : revealedHandCountForViewer(event.nextSnapshot, ownerPlayerId, viewerPlayerId);
+      if (previousCount === nextCount) {
+        continue;
+      }
+      const ownerName = event.nextSnapshot.players[ownerPlayerId]?.user.displayName
+        ?? event.previousSnapshot.players[ownerPlayerId]?.user.displayName
+        ?? ownerPlayerId;
+      announcement ??= {
+        key: ownerPlayerId === viewerPlayerId
+          ? (nextCount > previousCount ? 'game.activeReveals.ownerSharedIncreased' : 'game.activeReveals.ownerSharedDecreased')
+          : (nextCount > previousCount ? 'game.activeReveals.targetRevealedIncreased' : 'game.activeReveals.targetRevealedDecreased'),
+        params: {
+          count: Math.abs(nextCount - previousCount),
+          player: ownerName,
+        },
+      };
+    }
+
+    if (announcement) {
+      this.revealAnnouncement.set(null);
+      queueMicrotask(() => this.revealAnnouncement.set(announcement));
+    }
+
+    window.requestAnimationFrame(() => {
+      if (this.destroyed) {
+        return;
+      }
+      for (const effect of materializeEffects) {
+        this.motion.animateHandRevealMaterialized(effect.instanceIds, effect.key);
+      }
+      for (const effect of concealEffects) {
+        this.motion.animateHandRevealConcealed(effect.placeholderIds, effect.key, effect.ownerPlayerId);
+      }
+      for (const ownerPlayerId of affectedOwnerIds) {
+        this.motion.animateRevealIndicatorCountChanged(
+          ownerPlayerId,
+          `${patch.gameId}:${patch.version}:reveal-indicator:${ownerPlayerId}`,
+        );
+      }
+    });
+  }
+
+  private realtimePatchRotationAnimationsFor(event: LegacyRealtimePatchAnimationEvent): Array<() => void> {
     if (event.isLocalPatch) {
       return [];
     }
@@ -1718,7 +1988,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       || state.rotation !== undefined && card.rotation !== state.rotation;
   }
 
-  private playRealtimeMoveGhosts(event: GameTableRealtimePatchAnimationEvent): void {
+  private playRealtimeMoveGhosts(event: LegacyRealtimePatchAnimationEvent): void {
     for (const operation of event.patch.operations) {
       if (operation.op === 'card.move') {
         this.playRealtimeCardMoveGhost(operation);
@@ -1764,7 +2034,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       || this.store.dockZones.includes(zone);
   }
 
-  private playRealtimePatchArrivalAnimations(event: GameTableRealtimePatchAnimationEvent): void {
+  private playRealtimePatchArrivalAnimations(event: LegacyRealtimePatchAnimationEvent): void {
     const punchCardIds = new Set<string>();
 
     for (const operation of event.patch.operations) {

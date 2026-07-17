@@ -234,6 +234,8 @@ describe('GameTableWebsocketGameplayService', () => {
     gameplayV2Flags.enabled.mockReturnValue(true);
     cardsApi.getSilently.mockReturnValue(of({ card: catalogCard('runtime-print-secret', 'Revealed Secret') }));
     const normalizedStore = TestBed.inject(GameTableNormalizedV2Store);
+    const animationEvents: unknown[] = [];
+    TestBed.inject(GameTableRealtimeAnimationBusService).patchAnimation$.subscribe((event) => animationEvents.push(event));
     const bootstrap = bootstrapV2();
     bootstrap.players['player-2'].handCount = 1;
     bootstrap.players['player-2'].zoneCounts.hand = 1;
@@ -282,6 +284,12 @@ describe('GameTableWebsocketGameplayService', () => {
     ]);
     expect(cardsApi.getSilently).toHaveBeenCalledWith('runtime-print-secret');
     expect(refetchSpy).not.toHaveBeenCalled();
+    expect(animationEvents).toHaveLength(1);
+    expect(animationEvents[0]).toMatchObject({
+      previousSnapshot: expect.objectContaining({ version: 1 }),
+      nextSnapshot: expect.objectContaining({ version: 2 }),
+      patch: expect.objectContaining({ kind: 'patch.v2', version: 2 }),
+    });
   });
 
   it('does not loop refetches when patch.v2 arrives before bootstrap v2 is initialized', async () => {

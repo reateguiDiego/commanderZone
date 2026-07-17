@@ -289,16 +289,41 @@ func (CardDungeonMarkerChangedApplier) Apply(_ context.Context, game *state.Game
 		instance.MutableStats["dungeonMarker"] = canonicalMarker
 	}
 	game.Instances[instanceID] = instance
-	emitter.EmitPublic(protocol.PatchOp{
-		Op:   "card.field.set",
-		Data: cardFieldData(instanceID, location, map[string]any{"dungeonMarker": canonicalMarker}),
-	})
+	emitDungeonMarkerPatchByViewer(emitter, game, instanceID, location, canonicalMarker)
 	return map[string]any{
 		"instanceId":    instanceID,
 		"playerId":      location.PlayerID,
 		"dungeonMarker": canonicalMarker,
 		"metrics":       edgeMetrics("edge.dungeon_marker_ms", start, emitter),
 	}, nil
+}
+
+func emitDungeonMarkerPatchByViewer(
+	emitter *PatchEmitter,
+	game *state.GameState,
+	instanceID string,
+	location state.Location,
+	marker any,
+) {
+	instance := game.Instances[instanceID]
+	if !instance.FaceDown {
+		emitter.EmitPublic(protocol.PatchOp{
+			Op:   "card.field.set",
+			Data: cardFieldData(instanceID, location, map[string]any{"dungeonMarker": marker}),
+		})
+		return
+	}
+
+	for viewerID := range game.Players {
+		projectedID := instanceID
+		if !game.CanViewerSeeCardKey(viewerID, instanceID) {
+			projectedID = privatePlaceholderID(location.PlayerID, location.Zone, location.Index)
+		}
+		emitter.EmitPrivate(viewerID, protocol.PatchOp{
+			Op:   "card.field.set",
+			Data: cardFieldData(projectedID, location, map[string]any{"dungeonMarker": marker}),
+		})
+	}
 }
 
 type CardFaceChangedApplier struct{}

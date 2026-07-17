@@ -868,6 +868,14 @@
       "pending": "Sichtbarkeit wird geändert...", "cancel": "Abbrechen", "confirmRevealButton": "Aufdecken bestätigen", "confirmRevokeButton": "Entzug bestätigen",
       "invalidSelection": "Wähle gültige Handkarten.", "stale": "Die ausgewählten Handkarten haben sich geändert. Öffne die Aktion erneut."
     },
+    "activeReveals": {
+      "ownerEyebrow": "Geteilte Karten", "targetEyebrow": "Für dich aufgedeckt", "ownerTitle": "Deine geteilten Handkarten", "targetTitle": "Aufgedeckte Karten von {{ player }}",
+      "ownerDescription": "{{ count }} Handkarte(n) sind geteilt.", "targetDescription": "{{ count }} Handkarte(n) sind für dich sichtbar.", "close": "Aufgedeckte Karten schließen",
+      "empty": "Keine aktiven Aufdeckungen.", "allPlayers": "Alle Spieler", "sharedWith": "Geteilt mit", "manageAccess": "Zugriff verwalten",
+      "ownerIndicatorLabel": "{{ count }} Karten mit anderen Spielern geteilt", "targetIndicatorLabel": "{{ count }} Karten von {{ player }} aufgedeckt",
+      "ownerSharedIncreased": "Du hast {{ count }} weitere Handkarte(n) geteilt.", "ownerSharedDecreased": "Du teilst {{ count }} Handkarte(n) nicht mehr.",
+      "targetRevealedIncreased": "{{ player }} hat dir {{ count }} Handkarte(n) aufgedeckt.", "targetRevealedDecreased": "{{ player }} teilt {{ count }} Handkarte(n) nicht mehr mit dir."
+    },
     "zoneModal": {
       "searchByName": "Suche nach Namen",
       "closeZone": "Nahbereich",

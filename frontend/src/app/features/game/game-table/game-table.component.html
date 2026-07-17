@@ -70,12 +70,17 @@
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="canControlPlayer(summaryPlayer.id)"
               [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
+              [revealCount]="revealIndicatorCount(summaryPlayer.id)"
+              [revealOwnerMode]="revealIndicatorOwnerMode(summaryPlayer.id)"
+              [revealPanelExpanded]="revealPanelExpanded(summaryPlayer.id)"
+              [revealPanelId]="revealPanelId(summaryPlayer.id)"
               (helperPreviewRequested)="showHelperPreview($event)"
               (helperPreviewHidden)="store.hideCardPreview()"
               (helperContextRequested)="handleHelperContextRequest($event)"
               (lifeChanged)="store.changeLife($event.playerId, $event.delta, { debounce: false })"
               (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.commanderInstanceId, $event.delta)"
               (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
+              (revealIndicatorActivated)="openActiveRevealPanel(summaryPlayer.id, $event)"
             />
           }
 
@@ -310,10 +315,15 @@
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="false"
               [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
+              [revealCount]="revealIndicatorCount(battlefieldOwner.id)"
+              [revealOwnerMode]="false"
+              [revealPanelExpanded]="revealPanelExpanded(battlefieldOwner.id)"
+              [revealPanelId]="revealPanelId(battlefieldOwner.id)"
               (helperPreviewRequested)="showHelperPreview($event)"
               (helperPreviewHidden)="store.hideCardPreview()"
               (helperContextRequested)="handleHelperContextRequest($event)"
               (returnRequested)="returnToCurrentPlayerBattlefield()"
+              (revealIndicatorActivated)="openActiveRevealPanel(battlefieldOwner.id, $event)"
               />
             </div>
           }
@@ -500,6 +510,10 @@
               [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
               [specialEntitiesSummary]="playerSpecialEntitiesSummary(player.id)"
               [mechanicCards]="battlefieldMechanicCardsForPlayer(player.id)"
+              [revealCount]="revealIndicatorCount(player.id)"
+              [revealOwnerMode]="revealIndicatorOwnerMode(player.id)"
+              [revealPanelExpanded]="revealPanelExpanded(player.id)"
+              [revealPanelId]="revealPanelId(player.id)"
               [battlefieldSize]="battlefieldLayoutSize()"
               (focusPlayer)="focusOpponentFromSidebar($event)"
               (helperPreviewRequested)="showHelperPreview($event)"
@@ -511,6 +525,7 @@
               (cardPreviewShown)="store.showCardPreview($event)"
               (cardPreviewHidden)="store.hideCardPreview()"
               (battlefieldCardClicked)="handleOpponentMiniBattlefieldCardClick($event)"
+              (revealIndicatorActivated)="openActiveRevealPanel(player.id, $event)"
             />
           }
         </div>
@@ -913,6 +928,27 @@
         (cancelled)="closeHandRevealDialog()"
       />
     }
+
+    @if (activeRevealPanelOwner(); as owner) {
+      <app-active-reveal-panel
+        [owner]="owner"
+        [viewerPlayerId]="store.currentPlayer()?.id ?? '__spectator__'"
+        [ownerMode]="revealIndicatorOwnerMode(owner.id)"
+        [cards]="activeRevealPanelCards()"
+        [players]="store.players()"
+        [cardImage]="cardImage"
+        [responsiveState]="responsiveState()"
+        (opened)="handleActiveRevealPanelOpened($event)"
+        (revokeRequested)="openActiveRevealRevoke($event)"
+        (closed)="closeActiveRevealPanel()"
+      />
+    }
+
+    <p class="reveal-live-region" aria-live="polite" aria-atomic="true">
+      @if (revealAnnouncement(); as announcement) {
+        {{ announcement.key | runtimeTranslate:announcement.params }}
+      }
+    </p>
   } @else if (store.error()) {
     <p class="notice error">{{ store.error() }}</p>
   }

@@ -95,6 +95,10 @@ export class OpponentMiniBoardComponent {
   readonly cardsTargetCards = input<readonly OpponentCardsTargetCard[]>([]);
   readonly specialEntitiesSummary = input<GameTablePlayerSpecialEntitiesSummary | null>(null);
   readonly mechanicCards = input<readonly GameCardInstance[]>([]);
+  readonly revealCount = input(0);
+  readonly revealOwnerMode = input(false);
+  readonly revealPanelExpanded = input(false);
+  readonly revealPanelId = input<string | null>(null);
 
   readonly focusPlayer = output<string>();
   readonly dropAllowed = output<DragEvent>();
@@ -111,6 +115,7 @@ export class OpponentMiniBoardComponent {
     card: GameCardInstance;
     forceOpenLeft?: boolean;
   }>();
+  readonly revealIndicatorActivated = output<HTMLElement>();
   readonly mechanicsEntities = computed(() =>
     this.specialEntitiesSummary()?.displayEntities.filter((entity) => entity.template !== 'the_ring') ?? [],
   );
@@ -175,6 +180,12 @@ export class OpponentMiniBoardComponent {
     event.preventDefault();
     event.stopPropagation();
     this.focusPlayer.emit(this.player().id);
+  }
+
+  activateRevealIndicator(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.revealIndicatorActivated.emit(event.currentTarget as HTMLElement);
   }
 
   private identityColors(player: PlayerView): ManaColor[] {

@@ -1,0 +1,63 @@
+<div class="active-reveal-backdrop" data-testid="active-reveal-backdrop" (click)="closeFromBackdrop($event)">
+  <section
+    id="active-reveal-panel"
+    class="active-reveal-dialog"
+    data-testid="active-reveal-panel"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="active-reveal-title"
+    aria-describedby="active-reveal-description"
+    [attr.data-responsive-state]="responsiveState()"
+    (click)="$event.stopPropagation()"
+  >
+    <header>
+      <span>
+        <small>{{ ownerMode() ? ('game.activeReveals.ownerEyebrow' | runtimeTranslate) : ('game.activeReveals.targetEyebrow' | runtimeTranslate) }}</small>
+        <h2 id="active-reveal-title">
+          {{ (ownerMode() ? 'game.activeReveals.ownerTitle' : 'game.activeReveals.targetTitle') | runtimeTranslate:{ player: owner().state.user.displayName } }}
+        </h2>
+      </span>
+      <button
+        type="button"
+        class="active-reveal-close"
+        data-testid="active-reveal-close"
+        [attr.aria-label]="'game.activeReveals.close' | runtimeTranslate"
+        (click)="close()"
+      >
+        <lucide-icon name="x" size="20" aria-hidden="true" />
+      </button>
+    </header>
+
+    <p id="active-reveal-description">
+      {{ (ownerMode() ? 'game.activeReveals.ownerDescription' : 'game.activeReveals.targetDescription') | runtimeTranslate:{ count: cards().length } }}
+    </p>
+
+    <app-card-spoiler-grid
+      [cards]="cards()"
+      [cardImage]="cardImage()"
+      [allowContextMenu]="false"
+      [allowSelection]="false"
+      [readOnlyNavigation]="true"
+      [focusedCardId]="focusedCardId()"
+      [emptyLabel]="'game.activeReveals.empty' | runtimeTranslate"
+      (cardFocused)="focusCard($event)"
+    />
+
+    @if (ownerMode() && focusedCard(); as card) {
+      <aside class="active-reveal-sharing" data-testid="active-reveal-recipients">
+        <span>
+          <strong>{{ 'game.activeReveals.sharedWith' | runtimeTranslate }}</strong>
+          <small>{{ card.name }}</small>
+        </span>
+        <ul>
+          @for (label of recipientLabels(); track label) {
+            <li>{{ label.startsWith('game.') ? (label | runtimeTranslate) : label }}</li>
+          }
+        </ul>
+        <button type="button" class="secondary-button" (click)="requestRevoke($event)">
+          {{ 'game.activeReveals.manageAccess' | runtimeTranslate }}
+        </button>
+      </aside>
+    }
+  </section>
+</div>

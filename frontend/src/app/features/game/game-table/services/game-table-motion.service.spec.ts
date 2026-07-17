@@ -331,6 +331,68 @@ describe('GameTableMotionService', () => {
     expect(bottom.classList).not.toContain('cz-card-rotation-muted');
   });
 
+  it('materializes a reveal batch once in visual hand order', () => {
+    const first = addHandCard(host, 'revealed-1');
+    const second = addHandCard(host, 'revealed-2');
+
+    service.animateHandRevealMaterialized(['revealed-1', 'revealed-2'], 'game:2:materialize');
+    service.animateHandRevealMaterialized(['revealed-1', 'revealed-2'], 'game:2:materialize');
+
+    expect(gsapFromToSpy).toHaveBeenCalledOnce();
+    expect(gsapFromToSpy.mock.calls[0]?.[0]).toEqual([first, second]);
+    expect(gsapFromToSpy.mock.calls[0]?.[2]).toMatchObject({
+      duration: 0.28,
+      stagger: { each: 0.035, from: 'start' },
+    });
+  });
+
+  it('animates only the safe placeholder after conceal and never creates an identity ghost', () => {
+    const placeholder = addHandCard(host, 'opaque-placeholder');
+
+    service.animateHandRevealConcealed(['opaque-placeholder'], 'game:3:conceal');
+
+    expect(gsapFromToSpy).toHaveBeenCalledOnce();
+    expect(gsapFromToSpy.mock.calls[0]?.[0]).toEqual([placeholder]);
+    expect(document.body.querySelector('.cz-motion-ghost')).toBeNull();
+  });
+
+  it('uses the visible owner indicator as a safe conceal target when no hand placeholder is rendered', () => {
+    const indicator = addMotionTarget(host, { left: 20, top: 20, width: 44, height: 44 });
+    indicator.dataset['revealIndicatorOwner'] = 'player-2';
+
+    service.animateHandRevealConcealed(['unrendered-placeholder'], 'game:3:conceal-indicator', 'player-2');
+
+    expect(gsapFromToSpy).toHaveBeenCalledOnce();
+    expect(gsapFromToSpy.mock.calls[0]?.[0]).toEqual([indicator]);
+    expect(indicator.dataset['cardInstanceId']).toBeUndefined();
+    expect(document.body.querySelector('.cz-motion-ghost')).toBeNull();
+  });
+
+  it('uses the central reduced and disabled reveal motion modes', () => {
+    addHandCard(host, 'revealed-1');
+    service.setMotionMode('reduced');
+
+    service.animateHandRevealMaterialized(['revealed-1'], 'game:4:materialize');
+
+    expect(gsapFromToSpy.mock.calls[0]?.[2]).toMatchObject({ duration: 0.08, ease: 'none' });
+    expect(gsapFromToSpy.mock.calls[0]?.[2]).not.toHaveProperty('stagger');
+
+    service.setMotionMode('disabled');
+    service.animateHandRevealMaterialized(['revealed-1'], 'game:5:materialize');
+    expect(gsapFromToSpy).toHaveBeenCalledOnce();
+  });
+
+  it('animates all visible indicator instances without exposing card identifiers', () => {
+    const indicator = addMotionTarget(host, { left: 20, top: 20, width: 44, height: 44 });
+    indicator.dataset['revealIndicatorOwner'] = 'player-2';
+
+    service.animateRevealIndicatorCountChanged('player-2', 'game:6:indicator');
+
+    expect(gsapFromToSpy).toHaveBeenCalledOnce();
+    expect(gsapFromToSpy.mock.calls[0]?.[0]).toEqual([indicator]);
+    expect(indicator.dataset['cardInstanceId']).toBeUndefined();
+  });
+
   function reinitWithMatchMedia(matches: (query: string) => boolean): void {
     service.destroy();
     stubMatchMedia(matches);

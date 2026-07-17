@@ -868,6 +868,14 @@
       "pending": "Zichtbaarheid wordt gewijzigd...", "cancel": "Annuleren", "confirmRevealButton": "Onthullen bevestigen", "confirmRevokeButton": "Intrekken bevestigen",
       "invalidSelection": "Selecteer geldige handkaarten.", "stale": "De geselecteerde handkaarten zijn gewijzigd. Open de actie opnieuw."
     },
+    "activeReveals": {
+      "ownerEyebrow": "Gedeelde kaarten", "targetEyebrow": "Aan jou onthuld", "ownerTitle": "Jouw gedeelde handkaarten", "targetTitle": "Onthulde kaarten van {{ player }}",
+      "ownerDescription": "{{ count }} handkaart(en) zijn gedeeld.", "targetDescription": "{{ count }} handkaart(en) zijn voor jou zichtbaar.", "close": "Onthulde kaarten sluiten",
+      "empty": "Geen actieve onthullingen.", "allPlayers": "Alle spelers", "sharedWith": "Gedeeld met", "manageAccess": "Toegang beheren",
+      "ownerIndicatorLabel": "{{ count }} kaarten gedeeld met andere spelers", "targetIndicatorLabel": "{{ count }} kaarten onthuld door {{ player }}",
+      "ownerSharedIncreased": "Je hebt {{ count }} extra handkaart(en) gedeeld.", "ownerSharedDecreased": "Je deelt {{ count }} handkaart(en) niet meer.",
+      "targetRevealedIncreased": "{{ player }} heeft {{ count }} handkaart(en) aan je onthuld.", "targetRevealedDecreased": "{{ player }} deelt {{ count }} handkaart(en) niet meer met je."
+    },
     "zoneModal": {
       "searchByName": "Zoek op naam",
       "closeZone": "Zone sluiten",

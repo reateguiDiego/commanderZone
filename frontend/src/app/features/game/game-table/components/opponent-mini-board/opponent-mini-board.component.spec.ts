@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Ban, Circle, Crown, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
+import { Ban, Circle, Crown, Eye, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { OpponentMiniBoardComponent } from './opponent-mini-board.component';
 import { PlayerView } from '../../game-table.store';
@@ -12,7 +12,7 @@ describe('OpponentMiniBoardComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OpponentMiniBoardComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Ban, Circle, Crown, Flag, Library, Sparkles })),
+        importProvidersFrom(LucideAngularModule.pick({ Ban, Circle, Crown, Eye, Flag, Library, Sparkles })),
       ],
     }).compileComponents();
 
@@ -85,6 +85,22 @@ describe('OpponentMiniBoardComponent', () => {
     expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-opponent-cards-target')).not.toBeNull();
     expect(fixture.nativeElement.querySelectorAll('[data-testid="opponent-cards-target-card"]').length).toBe(1);
+  });
+
+  it('keeps the reveal indicator as an accessible sibling control', () => {
+    fixture.componentRef.setInput('revealCount', 2);
+    fixture.componentRef.setInput('revealPanelExpanded', true);
+    const activated = vi.fn();
+    fixture.componentInstance.revealIndicatorActivated.subscribe(activated);
+    fixture.detectChanges();
+
+    const board = fixture.nativeElement.querySelector('[data-testid="opponent-mini-board"]') as HTMLElement;
+    const indicator = fixture.nativeElement.querySelector('[data-testid="reveal-indicator"]') as HTMLButtonElement;
+    expect(board.contains(indicator)).toBe(false);
+    expect(indicator.getAttribute('aria-expanded')).toBe('true');
+    expect(indicator.getAttribute('aria-label')).toBe('game.activeReveals.targetIndicatorLabel');
+    indicator.click();
+    expect(activated).toHaveBeenCalledWith(indicator);
   });
 });
 

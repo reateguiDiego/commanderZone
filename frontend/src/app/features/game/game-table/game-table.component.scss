@@ -79,7 +79,8 @@
 // The table gives direct children a relative stacking context for the board.
 // Modal hosts must opt back into a viewport-level fixed layer so their dialog
 // is not constrained to the layout slot where the trigger lives.
-.game-screen > app-hand-reveal-dialog {
+.game-screen > app-hand-reveal-dialog,
+.game-screen > app-active-reveal-panel {
   position: fixed;
   inset: 0;
   z-index: 1800;
@@ -664,3 +665,15 @@
 }
 
 
+.reveal-live-region {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}

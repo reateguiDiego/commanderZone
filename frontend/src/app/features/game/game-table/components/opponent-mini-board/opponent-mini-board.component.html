@@ -145,3 +145,18 @@
     }
   </span>
 </section>
+@if (revealCount() > 0) {
+  <button
+    type="button"
+    class="opponent-reveal-indicator"
+    data-testid="reveal-indicator"
+    [attr.data-reveal-indicator-owner]="opponent.id"
+    [attr.aria-expanded]="revealPanelExpanded()"
+    [attr.aria-controls]="revealPanelId()"
+    [attr.aria-label]="(revealOwnerMode() ? 'game.activeReveals.ownerIndicatorLabel' : 'game.activeReveals.targetIndicatorLabel') | runtimeTranslate:{ count: revealCount(), player: opponent.state.user.displayName }"
+    (click)="activateRevealIndicator($event)"
+  >
+    <lucide-icon name="eye" size="17" aria-hidden="true" />
+    <strong aria-hidden="true">{{ revealCount() }}</strong>
+  </button>
+}

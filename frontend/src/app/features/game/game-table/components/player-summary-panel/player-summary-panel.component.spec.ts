@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Biohazard, ChevronDown, Circle, Crown, Flag, Library, LucideAngularModule, Minus, Plus, Radiation, Sparkles, Tickets, Zap } from 'lucide-angular';
+import { Biohazard, ChevronDown, Circle, Crown, Eye, Flag, Library, LucideAngularModule, Minus, Plus, Radiation, Sparkles, Tickets, Zap } from 'lucide-angular';
 import { GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../state/core/game-table-snapshot-selectors';
 import {
@@ -12,7 +12,7 @@ describe('PlayerSummaryPanelComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PlayerSummaryPanelComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ Biohazard, ChevronDown, Circle, Crown, Flag, Library, Minus, Plus, Radiation, Sparkles, Tickets, Zap }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ Biohazard, ChevronDown, Circle, Crown, Eye, Flag, Library, Minus, Plus, Radiation, Sparkles, Tickets, Zap }))],
     }).compileComponents();
   });
 
@@ -157,6 +157,20 @@ describe('PlayerSummaryPanelComponent', () => {
       delta: 1,
     });
     expect(playerCounterChanged).toHaveBeenCalledWith({ playerId: 'player-1', key: 'poison', delta: -1 });
+  });
+
+  it('renders an accessible viewer-local reveal indicator and emits its trigger', () => {
+    const fixture = createFixture({ revealCount: 3, revealOwnerMode: false });
+    const activated = vi.fn();
+    fixture.componentInstance.revealIndicatorActivated.subscribe(activated);
+    const indicator = fixture.nativeElement.querySelector('[data-testid="reveal-indicator"]') as HTMLButtonElement;
+
+    expect(indicator.textContent?.trim()).toBe('3');
+    expect(indicator.getAttribute('aria-label')).toBe('game.activeReveals.targetIndicatorLabel');
+    expect(indicator.getAttribute('aria-expanded')).toBe('false');
+    expect(indicator.getBoundingClientRect).toBeTruthy();
+    indicator.click();
+    expect(activated).toHaveBeenCalledWith(indicator);
   });
 
   it('groups commander damage from the same opponent in one row', () => {
@@ -331,6 +345,8 @@ function createFixture(
     commanderDamage?: Record<string, number>;
     opponentCommanders?: GameCardInstance[];
     specialEntities?: readonly GameSpecialEntity[];
+    revealCount?: number;
+    revealOwnerMode?: boolean;
   } = {},
 ): ComponentFixture<PlayerSummaryPanelComponent> {
   const fixture = TestBed.createComponent(PlayerSummaryPanelComponent);
@@ -353,6 +369,8 @@ function createFixture(
   fixture.componentRef.setInput('specialEntities', options.specialEntities ?? []);
   fixture.componentRef.setInput('contextLabel', options.contextLabel ?? null);
   fixture.componentRef.setInput('returnActionLabel', options.returnActionLabel ?? null);
+  fixture.componentRef.setInput('revealCount', options.revealCount ?? 0);
+  fixture.componentRef.setInput('revealOwnerMode', options.revealOwnerMode ?? false);
   fixture.detectChanges();
 
   return fixture;

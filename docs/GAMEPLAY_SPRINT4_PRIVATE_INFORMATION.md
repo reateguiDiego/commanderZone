@@ -139,3 +139,37 @@ Bootstrap and the persisted activity/log stream apply the same centralized PHP r
 The hand context action opens a local accessible audience dialog for the selected visual-order hand batch. It offers active non-owner players, multiselect or All, explicit Reveal/Revoke modes, and for revoke only the union of recipients actually active on the selected cards (or All for a public reveal). It traps focus, locks body scroll, supports Escape/cancel, uses explicit confirmation, disables duplicate submission while pending, returns focus, and clears global hand selection only after ack. Reconnect or a moved selected card closes fail-closed without refetch. Two owner tabs share only authoritative visibility patches; their selection/dialog state remains local.
 
 Normal, compact, aggressive, and minimal remain the only responsive states. The dialog uses internal scrolling, wrapping controls and 44px essential targets; no new breakpoint or motion system was added. Eye/count, the read-only reveal panel, GSAP, and reveal choreography remain reserved for Sprint 4E.
+
+## Sprint 4E reveal indicator, active reveal panel, and motion
+
+### Viewer-local indicator and selectors
+
+Eye/count is derived on every render from the authorized hand projection established in Sprint 4D. A target sees the unique cards of an opponent currently materialized and revealed to that target; an owner sees unique hand cards shared with at least one other viewer. `all` counts once, self-only metadata does not count as sharing, and revoked, concealed, moved, library, and View X cards are excluded. No counter is persisted in Patch.v2, replay, bootstrap, or frontend state.
+
+The UI selectors add `opponentRevealIndicator`, `ownerSharedRevealIndicator`, `activeRevealPanelCardIds`, `activeRevealRecipients`, and `shouldShowRevealIndicator` on top of the 4D selectors. Recipient lookup returns data only when the requesting viewer is the owner. Target panel cards are copied without `revealedTo`, so other recipients cannot enter target DOM, accessibility text, or component state.
+
+The indicator is a native button with a localized accessible name, exact count, focus-visible treatment, `aria-expanded`, and `aria-controls`. It appears in the main player summary, focused-opponent summary, and opponent drawer without covering life, turn, presence, or zone counts. Zero removes the control. The existing four responsive states remain unchanged.
+
+### Read-only active reveal panel
+
+The eye button opens one transient named `role=dialog` with `aria-modal=true`. It uses the already-authorized hand state and performs no fetch, bootstrap, or refetch. Targets get a read-only hand-order card grid with DFC preview and missing-image fallback, but no selection, movement, revoke, recipient list, or global selection side effect. Owners get the unique shared cards plus recipients for the focused card; Manage Access delegates to the existing Sprint 4D revoke dialog rather than implementing a second command path.
+
+Initial focus is the first card. Roving Arrow/Home/End navigation follows visual order, DFC has its own keyboard button, Tab is trapped, Escape/backdrop/Close are explicit, document scrolling is locked, and focus returns to the exact eye trigger or the gameplay fallback. Revoking the focused card reconciles focus; count zero, lost authorization, or reconnect closes and clears the panel immediately. Refresh and actor recovery rebuild only authoritative reveal state, never the panel.
+
+### State-first reveal motion
+
+`GameTableRealtimeAnimationBusService` now carries applied Patch.v2 transitions as well as legacy patches. Only successfully applied live Patch.v2 envelopes enter reveal motion; ignored retries, bootstrap hydration, refresh, replay, actor recovery, and repeated state do not. The component compares the previous and next authorized snapshots for count and aria-live announcements, then schedules visual work after state application. Batch changes produce one aggregate announcement.
+
+`GameTableMotionService` remains the single GSAP pipeline. Materialization animates the now-authorized real card elements as one ordered batch. Conceal first replaces identity in state and then animates only the new opaque placeholders; it never clones or snapshots the private card. Indicator and panel opening use the same service. Effect keys combine game, applied version, operation, and affected viewer-local transition in an in-memory bounded dedup set; they are never written to DOM, data attributes, GSAP labels, logs, or network payloads. Destroy/reconnect clears the component and GSAP context, and canceling motion cannot revert state.
+
+Motion mode is centralized as `full`, `reduced`, or `disabled`. `prefers-reduced-motion` selects reduced mode: no flip, large movement, or stagger, only an 80ms opacity cue. Disabled test mode performs no reveal animation. Focus, state, counts, and announcements are identical in all modes. The opt-in browser audit records only effect kind, batch size, and mode—never game/card/viewer identity.
+
+### Privacy, tabs, lifecycle, responsive, and gates
+
+Unauthorized viewers have no indicator, panel, private card DOM, names, images, faces, recipients, IDs, or animation targets. Public/all reveals remain visible to every eligible projected viewer. Disconnect does not revoke authority; reconnect does not replay historical motion. Existing defeated/conceded/game-close command guards remain unchanged, while already-authorized state stays read-only according to Sprint 4D. A hand-zone move removes the card from counts and any open panel in the same applied transition.
+
+The integrated replay gate also closes a directly reproduced viewer-projection regression: a public field update on a face-down battlefield card must address each viewer's already-projected instance identity. Authorized viewers receive the real instance ID and unauthorized viewers receive the opaque battlefield placeholder; no public real-ID `card.field.set`, `target_not_found`, recovery bootstrap, or identity correlation is permitted.
+
+Each browser tab owns panel, focus, announcement, and dedup state. All tabs consume the same authoritative patches, animate one live transition per tab, reconcile an open panel, and do not animate hydrated state in a newly opened or refreshed tab.
+
+Normal, compact, aggressive, and minimal use the same dialog with state-driven density, internal scroll, 44px essential controls, and no global overflow or fifth breakpoint. Permanent coverage includes selector owner/target/all/revoke/move privacy, indicator semantics, panel focus/DFC/no-image/privacy, full/reduced/disabled materialize/conceal/dedup, Patch.v2 live bus delivery, and the A/B/C Playwright gate `game-product-reveal-indicator-motion-gate.spec.ts` for live, refresh, reconnect, restart, multi-tab, reduced motion, four-state responsive, and recursive privacy assertions.

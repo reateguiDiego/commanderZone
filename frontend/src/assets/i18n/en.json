@@ -791,6 +791,20 @@
       "invalidSelection": "Select valid cards from your hand.",
       "stale": "The selected hand cards changed. Open the action again."
     },
+    "activeReveals": {
+      "ownerEyebrow": "Shared cards", "targetEyebrow": "Revealed to you",
+      "ownerTitle": "Your active hand shares", "targetTitle": "{{ player }}'s revealed cards",
+      "ownerDescription": "{{ count }} unique hand card(s) are currently shared.",
+      "targetDescription": "{{ count }} hand card(s) are currently visible to you.",
+      "close": "Close active reveals", "empty": "No active reveals.",
+      "allPlayers": "All players", "sharedWith": "Shared with", "manageAccess": "Manage access",
+      "ownerIndicatorLabel": "{{ count }} cards shared with other players",
+      "targetIndicatorLabel": "{{ count }} cards revealed by {{ player }}",
+      "ownerSharedIncreased": "You shared {{ count }} additional hand card(s).",
+      "ownerSharedDecreased": "You stopped sharing {{ count }} hand card(s).",
+      "targetRevealedIncreased": "{{ player }} revealed {{ count }} hand card(s) to you.",
+      "targetRevealedDecreased": "{{ player }} stopped sharing {{ count }} hand card(s) with you."
+    },
     "zoneModal": {
       "searchByName": "Search by name",
       "closeZone": "Close zone",

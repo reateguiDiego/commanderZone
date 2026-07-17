@@ -868,6 +868,14 @@
       "pending": "Изменение видимости применяется...", "cancel": "Отмена", "confirmRevealButton": "Подтвердить показ", "confirmRevokeButton": "Подтвердить отзыв",
       "invalidSelection": "Выберите действительные карты из руки.", "stale": "Выбранные карты изменились. Откройте действие снова."
     },
+    "activeReveals": {
+      "ownerEyebrow": "Открытые карты", "targetEyebrow": "Открыто вам", "ownerTitle": "Ваши открытые карты руки", "targetTitle": "Открытые карты {{ player }}",
+      "ownerDescription": "Открыто карт руки: {{ count }}.", "targetDescription": "Вам доступны карты руки: {{ count }}.", "close": "Закрыть открытые карты",
+      "empty": "Нет активных открытых карт.", "allPlayers": "Все игроки", "sharedWith": "Открыто для", "manageAccess": "Управлять доступом",
+      "ownerIndicatorLabel": "Карт открыто другим игрокам: {{ count }}", "targetIndicatorLabel": "{{ player }} открыл карт: {{ count }}",
+      "ownerSharedIncreased": "Вы открыли ещё {{ count }} карт(ы).", "ownerSharedDecreased": "Вы закрыли доступ к {{ count }} карт(ам).",
+      "targetRevealedIncreased": "{{ player }} открыл вам {{ count }} карт(ы).", "targetRevealedDecreased": "{{ player }} закрыл вам доступ к {{ count }} карт(ам)."
+    },
     "zoneModal": {
       "searchByName": "ÐŸÐ¾Ð¸ÑÐº Ð¿Ð¾ Ð¸Ð¼ÐµÐ½Ð¸",
       "closeZone": "Ð—Ð°ÐºÑ€Ñ‹Ñ‚ÑŒ Ð·Ð¾Ð½Ñƒ",

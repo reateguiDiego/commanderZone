@@ -138,9 +138,9 @@ test.describe('private replay parity closure gate', () => {
         expect(hiddenCards.every((card) => !/Unknown Card/i.test(card.name)), JSON.stringify(hiddenCards)).toBe(true);
         expect(hiddenCards.every((card) => !privateNames.has(card.name)), JSON.stringify(hiddenCards)).toBe(true);
       }
-      for (const page of pages) {
+      for (const [index, page] of pages.entries()) {
         await expect.poll(async () => (await battlefieldIds(page, owner.user.id)).sort(), { timeout: 20_000 }).toEqual(
-          expectedByViewer[0]!.battlefield.map((card) => card.instanceId).sort(),
+          expectedByViewer[index]!.battlefield.map((card) => card.instanceId).sort(),
         );
       }
 
