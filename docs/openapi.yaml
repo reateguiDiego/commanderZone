@@ -8697,6 +8697,8 @@ components:
         `private.cards.materialize` atomically replaces opaque private-zone placeholders using `{ playerId, zone, entries: [{ placeholderId?, index, card }], staticCards? }`;
         only server-routed authorized viewers receive real card identity. `private.cards.conceal` reverses that projection using
         `{ playerId, zone, entries: [{ instanceId, placeholderId, index }] }` without carrying card identity. Placeholder IDs never contain the real instance ID.
+        `card.counters.patch` carries final public counter values but is routed per viewer for a face-down instance: authorized viewers receive the canonical
+        instanceId and unauthorized viewers receive the opaque placeholder ID already present in their projection. It never carries card/static identity.
         Lifecycle transitions use same-version `player.status.set`, `player.elimination.set`, `turn.set`, `turn.order.set`, helper designation ops,
         `game.result.set`, and optional game status/phase ops; clients must merge them atomically without refetch.
         Owner-private `library.top.viewed` carries windowId, expectedEpoch, openedAtVersion, status and authorized top-first cards.
@@ -8724,6 +8726,25 @@ components:
               effectVersion:
                 type: integer
                 minimum: 1
+        - if:
+            properties:
+              op:
+                const: card.counters.patch
+            required: [op]
+          then:
+            required: [playerId, zone, instanceId, counters]
+            properties:
+              playerId:
+                type: string
+              zone:
+                type: string
+              instanceId:
+                type: string
+                description: Canonical ID for an authorized viewer or the existing opaque placeholder ID for an unauthorized face-down projection.
+              counters:
+                type: object
+                additionalProperties:
+                  type: integer
         - if:
             properties:
               op:

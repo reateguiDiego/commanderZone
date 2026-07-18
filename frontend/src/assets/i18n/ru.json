@@ -734,7 +734,13 @@
     "contextSubmenu": {
       "x": "X"
     },
+    "selection": {
+      "selectedCount": "Выбрано карт: {{count}}",
+      "clear": "Очистить выбор",
+      "handRegion": "Область выбора вашей руки"
+    },
     "focusedBattlefield": {
+      "selectionRegion": "Область выбора поля боя",
       "manaRow": "ÐœÐ°Ð½Ð° Ñ€ÑÐ´"
     },
     "gameAdBanner": {

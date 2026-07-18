@@ -504,6 +504,8 @@ function isSameVersionVisibilityMergeOperation(operation: GameplayPatchV2Operati
     case 'mulligan.scry.available.set':
     case 'mulligan.completed':
     case 'game.phase.set':
+    case 'card.field.set':
+    case 'card.counters.patch':
     case 'card.stats.override.set':
     case 'card.stats.override.clear':
     case 'eventLog.append':
@@ -1704,7 +1706,7 @@ function concealPrivateCards(
       if (placeholderId) {
         const insertIndex = Math.min(entry.index, nextZone.length);
         nextZone.splice(insertIndex, 0, placeholderId);
-        nextInstances[placeholderId] = hiddenPlaceholderInstance(playerId, zone, placeholderId);
+        nextInstances[placeholderId] = hiddenPlaceholderInstance(playerId, zone, placeholderId, removed);
       }
       continue;
     }
@@ -1719,7 +1721,7 @@ function concealPrivateCards(
       nextZone.splice(realIndex, 1);
     } else {
       nextZone.splice(realIndex, 1, placeholderId);
-      nextInstances[placeholderId] = hiddenPlaceholderInstance(playerId, zone, placeholderId);
+      nextInstances[placeholderId] = hiddenPlaceholderInstance(playerId, zone, placeholderId, removed);
     }
   }
 
@@ -1748,17 +1750,24 @@ function concealPrivateCards(
   };
 }
 
-function hiddenPlaceholderInstance(playerId: string, zone: GameZoneName, instanceId: string): BootstrapInstanceV2 {
+function hiddenPlaceholderInstance(
+  playerId: string,
+  zone: GameZoneName,
+  instanceId: string,
+  previous?: BootstrapInstanceV2,
+): BootstrapInstanceV2 {
   return {
     instanceId,
     cardRef: `placeholder:${instanceId}`,
     zoneId: zoneId(playerId, zone),
-    ownerId: playerId,
-    controllerId: playerId,
+    ownerId: previous?.ownerId ?? playerId,
+    controllerId: previous?.controllerId ?? playerId,
     hidden: true,
     faceDown: true,
-    tapped: false,
-    counters: {},
+    tapped: previous?.tapped ?? false,
+    ...(previous?.rotation !== undefined ? { rotation: previous.rotation } : {}),
+    ...(previous?.position != null ? { position: { ...previous.position } } : {}),
+    counters: { ...(previous?.counters ?? {}) },
     revealedTo: [],
   };
 }

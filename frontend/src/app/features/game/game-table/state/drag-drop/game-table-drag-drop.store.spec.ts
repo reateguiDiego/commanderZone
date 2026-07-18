@@ -134,6 +134,18 @@ describe('GameTableDragDropStore', () => {
     expect(store.selectedDragInstanceIds(context(), 'player-1', 'battlefield', 'card-2')).toEqual(['card-2']);
   });
 
+  it('preserves the compatible base selection when a pointer drag is cancelled', () => {
+    selectedCards = [
+      selected('player-1', 'battlefield', 'card-1'),
+      selected('player-1', 'battlefield', 'card-2'),
+    ];
+
+    store.cancelCardPointerDrag(context());
+
+    expect(dragService.cancelCardPointerDrag).toHaveBeenCalledOnce();
+    expect(selectedCards.map((selection) => selection.card.instanceId)).toEqual(['card-1', 'card-2']);
+  });
+
   it('uses explicit instance ids when starting a native drag', () => {
     selectedCards = [
       selected('player-1', 'graveyard', 'commander-1'),

@@ -20,6 +20,31 @@
   border-radius: 0;
   background: transparent;
   -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.battlefield[data-selection-interaction='pointerPending'],
+.battlefield[data-selection-interaction='marquee'] {
+  cursor: crosshair;
+}
+
+.battlefield:focus-visible {
+  outline: 2px solid var(--game-accent, #d7b46a);
+  outline-offset: -2px;
+}
+
+.marquee-selection-rect {
+  position: absolute;
+  z-index: 60;
+  box-sizing: border-box;
+  border: 2px solid rgb(255 218 113 / 92%);
+  border-radius: 4px;
+  background: rgb(215 180 106 / 18%);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 64%),
+    0 0 1rem rgb(215 180 106 / 24%),
+    inset 0 0 0 1px rgb(255 255 255 / 18%);
+  pointer-events: none;
 }
 
 .drop-target-active {

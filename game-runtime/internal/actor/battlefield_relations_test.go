@@ -2,6 +2,7 @@ package actor
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -123,6 +124,92 @@ func TestBattlefieldRelationAuthorizationAndMixedMembershipAreAtomic(t *testing.
 	}), "p1")
 	if mixed.Err == nil || gameActor.Snapshot().Version != before.Version || len(gameActor.Snapshot().Relations.BattlefieldStacks) != 0 {
 		t.Fatalf("mixed relation rejection was not atomic: err=%v state=%#v", mixed.Err, gameActor.Snapshot().Relations)
+	}
+}
+
+func TestFaceDownCounterProjectionPreservesAttachmentAndStackGraphs(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		prepare    func(t *testing.T, gameActor *GameActor)
+		instanceID string
+		index      int
+	}{
+		{
+			name: "attachment source",
+			prepare: func(t *testing.T, gameActor *GameActor) {
+				result := gameActor.ApplyDirect(context.Background(), command("game-1", gameActor.Snapshot().Version, "attach-before-counter", "attachment.created", map[string]any{
+					"equipmentInstanceId": "i2", "attachedToInstanceId": "i1",
+				}), "p1")
+				if result.Err != nil {
+					t.Fatalf("attachment setup failed: %v", result.Err)
+				}
+			},
+			instanceID: "i2",
+			index:      1,
+		},
+		{
+			name: "stack root",
+			prepare: func(t *testing.T, gameActor *GameActor) {
+				result := gameActor.ApplyDirect(context.Background(), command("game-1", gameActor.Snapshot().Version, "stack-before-counter", "battlefield.stack.created", map[string]any{
+					"rootInstanceId": "i1", "orderedInstanceIds": []any{"i1", "i2", "i3", "i4"}, "stackKind": "land",
+				}), "p1")
+				if result.Err != nil {
+					t.Fatalf("stack setup failed: %v", result.Err)
+				}
+			},
+			instanceID: "i1",
+			index:      0,
+		},
+		{
+			name: "stack member",
+			prepare: func(t *testing.T, gameActor *GameActor) {
+				result := gameActor.ApplyDirect(context.Background(), command("game-1", gameActor.Snapshot().Version, "stack-member-before-counter", "battlefield.stack.created", map[string]any{
+					"rootInstanceId": "i1", "orderedInstanceIds": []any{"i1", "i2", "i3", "i4"}, "stackKind": "land",
+				}), "p1")
+				if result.Err != nil {
+					t.Fatalf("stack setup failed: %v", result.Err)
+				}
+			},
+			instanceID: "i3",
+			index:      2,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			initial := relationActorState()
+			initial.Players["p3"] = map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}}
+			initial.Zones["p3"] = state.PlayerZones{}
+			initial.EnsureVisibility()
+			gameActor := NewGameActor("game-1", initial, nil, 16, DefaultAppliers())
+			tt.prepare(t, gameActor)
+
+			faceDown := gameActor.ApplyDirect(context.Background(), command("game-1", gameActor.Snapshot().Version, "hide-"+tt.instanceID, "card.face_down.changed", map[string]any{
+				"instanceId": tt.instanceID, "faceDown": true,
+			}), "p1")
+			if faceDown.Err != nil {
+				t.Fatalf("face down failed: %v", faceDown.Err)
+			}
+			beforeRelations := gameActor.Snapshot().Relations.Clone()
+			counter := gameActor.ApplyDirect(context.Background(), command("game-1", gameActor.Snapshot().Version, "counter-"+tt.instanceID, "card.counter.changed", map[string]any{
+				"instanceId": tt.instanceID, "counter": "shield", "value": 2,
+			}), "p1")
+			if counter.Err != nil {
+				t.Fatalf("counter failed: %v", counter.Err)
+			}
+			if !reflect.DeepEqual(beforeRelations, gameActor.Snapshot().Relations) {
+				t.Fatalf("counter changed relation graph\nbefore=%#v\nafter=%#v", beforeRelations, gameActor.Snapshot().Relations)
+			}
+			owner := patchForVisibility(counter.Patches, protocol.PlayerVisibility("p1"), "card.counters.patch")
+			if owner == nil || owner.Data["instanceId"] != tt.instanceID {
+				t.Fatalf("owner counter projection = %#v", counter.Patches)
+			}
+			for _, viewerID := range []string{"p2", "p3"} {
+				op := patchForVisibility(counter.Patches, protocol.PlayerVisibility(viewerID), "card.counters.patch")
+				wantID := fmt.Sprintf("p1-hidden-battlefield-%d", tt.index)
+				if op == nil || op.Data["instanceId"] != wantID {
+					t.Fatalf("viewer %s counter projection got %#v want %s", viewerID, op, wantID)
+				}
+			}
+		})
 	}
 }
 

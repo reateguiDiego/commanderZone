@@ -10,6 +10,7 @@
   [attr.data-container-width]="responsiveContainerWidth()"
   [attr.data-container-height]="responsiveContainerHeight()"
   [style.--game-wallpaper-image]="tableBackgroundImage()"
+  (pointerdown)="handleTablePointerDown()"
   (click)="handleTableClick($event)"
   (contextmenu)="store.openGameMenu($event)"
   (dragstart)="handleNativeDragStart($event)"
@@ -296,6 +297,29 @@
             (contextmenu)="$event.stopPropagation()"
           />
 
+          @if (store.selectedCards().length > 0) {
+            <div
+              class="selection-status"
+              data-testid="selection-status"
+              role="status"
+              aria-live="polite"
+              (click)="$event.stopPropagation()"
+              (contextmenu)="$event.stopPropagation()"
+            >
+              <span data-testid="selection-count">
+                {{ 'game.selection.selectedCount' | runtimeTranslate: { count: store.selectedCards().length } }}
+              </span>
+              <button
+                type="button"
+                data-testid="clear-selection"
+                [attr.aria-label]="'game.selection.clear' | runtimeTranslate"
+                (click)="store.clearSelection()"
+              >
+                {{ 'game.selection.clear' | runtimeTranslate }}
+              </button>
+            </div>
+          }
+
           @if (focusedOpponentPlayer(); as battlefieldOwner) {
             <div
               class="battlefield-owner-summary"
@@ -339,6 +363,10 @@
             [player]="player"
             [responsiveState]="responsiveState()"
             [isCurrentPlayer]="isCurrentPlayer"
+            [selectedInstanceIds]="selectedIdsForFocusedBattlefield()"
+            [marqueeEnabled]="marqueeEnabled()"
+            [marqueeBlocked]="marqueeBlocked()"
+            [marqueeLayoutKey]="marqueeLayoutKey()"
             [allowArrowTargetSelection]="manualRelationTargetingActive()"
             [focusEffectsEnabled]="focusEffectsEnabled()"
             [mechanicCards]="battlefieldMechanicCardsForPlayer(player.id)"
@@ -397,6 +425,8 @@
             (manaPoolColorRemoved)="store.decrementMana($event.playerId, $event.color)"
             (manaPoolHidden)="store.hideManaPool($event.playerId)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
+            (battlefieldEmptyClicked)="handleBattlefieldEmptyClicked()"
+            (marqueeSelectionCommitted)="store.applyMarqueeSelection($event.playerId, $event.cards, $event.mode)"
           />
 
           <div class="bottom-play-area">

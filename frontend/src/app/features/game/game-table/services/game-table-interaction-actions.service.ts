@@ -44,17 +44,22 @@ export class GameTableInteractionActionsService {
   }
 
   canControlOwnedCard(context: Pick<GameTableInteractionContext, 'currentPlayer'>, playerId: string, card: GameCardInstance): boolean {
-    const currentPlayerId = context.currentPlayer()?.id;
+    const currentPlayer = context.currentPlayer();
+    const currentPlayerId = currentPlayer?.id;
 
-    if (!currentPlayerId || !this.canControlPlayer(context, playerId)) {
+    if (!currentPlayerId || currentPlayer.state.status !== 'active') {
       return false;
     }
 
-    if (card.zone === 'battlefield' || card.zone === 'hand') {
-      return !card.controllerId || card.controllerId === currentPlayerId || playerId === currentPlayerId;
+    if (card.zone === 'battlefield') {
+      return (card.controllerId || playerId) === currentPlayerId;
     }
 
-    return !card.ownerId || card.ownerId === currentPlayerId;
+    if (card.zone === 'hand') {
+      return playerId === currentPlayerId && (!card.controllerId || card.controllerId === currentPlayerId);
+    }
+
+    return playerId === currentPlayerId && (!card.ownerId || card.ownerId === currentPlayerId);
   }
 
   canUseHiddenZone(context: Pick<GameTableInteractionContext, 'currentPlayer'>, playerId: string, zone: GameZoneName): boolean {
@@ -94,24 +99,12 @@ export class GameTableInteractionActionsService {
       return;
     }
 
-    const alreadySelected = this.isOnlySelectedCard(card.instanceId);
-    if (alreadySelected && !event.shiftKey) {
-      this.ripple(event.currentTarget as HTMLElement);
-      return;
-    }
-
     this.toggleCardSelection(context, event, playerId, 'battlefield', card);
   }
 
   handleHandCardClick(context: GameTableInteractionContext, event: MouseEvent, playerId: string, card: GameCardInstance): void {
     event.stopPropagation();
     if (this.drag.consumeSuppressedClick(card.instanceId)) {
-      return;
-    }
-
-    const alreadySelected = this.isOnlySelectedCard(card.instanceId);
-    if (alreadySelected && !event.shiftKey) {
-      this.ripple(event.currentTarget as HTMLElement);
       return;
     }
 
@@ -138,6 +131,14 @@ export class GameTableInteractionActionsService {
     }
     if (zone === 'battlefield' && !this.isCurrentPlayer(context, playerId)) {
       return;
+    }
+
+    if (
+      (zone === 'battlefield' || zone === 'hand')
+      && this.canControlOwnedCard(context, playerId, card)
+      && !this.selection.isSelected(card.instanceId)
+    ) {
+      this.selection.selectSingle(playerId, zone, card);
     }
 
     const target = {
@@ -199,12 +200,6 @@ export class GameTableInteractionActionsService {
 
   closeContextMenu(): void {
     this.uiState.closeContextMenu();
-  }
-
-  private isOnlySelectedCard(instanceId: string): boolean {
-    const selected = this.selection.selectedCards();
-
-    return selected.length === 1 && selected[0]?.card.instanceId === instanceId;
   }
 
   private prepareContextMenuEvent(event: MouseEvent): void {

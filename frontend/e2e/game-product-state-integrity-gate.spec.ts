@@ -173,9 +173,55 @@ test.describe('product state integrity runtime gate', () => {
         instanceId: permanentId,
         counters: { '+1/+1': 3 },
       });
-	  expect(operation(counterOutcome.patch, 'card.counters.patch')).not.toHaveProperty('power');
-	  expect(operation(counterOutcome.patch, 'card.counters.patch')).not.toHaveProperty('toughness');
+      expect(operation(counterOutcome.patch, 'card.counters.patch')).not.toHaveProperty('power');
+      expect(operation(counterOutcome.patch, 'card.counters.patch')).not.toHaveProperty('toughness');
       expect(operation(counterOutcome.patch, 'card.field.set')).toBeNull();
+
+      const incrementOutcome = await sendRuntimeCommand(request, {
+        gameId,
+        token: playerB.token,
+        baseVersion,
+        type: 'card.counter.changed',
+        payload: { playerId: playerB.user.id, instanceId: permanentId, counter: '+1/+1', delta: 1 },
+      });
+      commandFrames.push(...incrementOutcome.frames);
+      baseVersion = incrementOutcome.version;
+      expect(operation(incrementOutcome.patch, 'card.counters.patch')).toMatchObject({
+        instanceId: permanentId,
+        counters: { '+1/+1': 4 },
+      });
+
+      const decrementOutcome = await sendRuntimeCommand(request, {
+        gameId,
+        token: playerB.token,
+        baseVersion,
+        type: 'card.counter.changed',
+        payload: { playerId: playerB.user.id, instanceId: permanentId, counter: '+1/+1', delta: -2 },
+      });
+      commandFrames.push(...decrementOutcome.frames);
+      baseVersion = decrementOutcome.version;
+      expect(operation(decrementOutcome.patch, 'card.counters.patch')).toMatchObject({
+        instanceId: permanentId,
+        counters: { '+1/+1': 2 },
+      });
+
+      const secondCounterOutcome = await sendRuntimeCommand(request, {
+        gameId,
+        token: playerB.token,
+        baseVersion,
+        type: 'card.counter.changed',
+        payload: { playerId: playerB.user.id, instanceId: permanentId, counter: 'shield', value: 2 },
+      });
+      commandFrames.push(...secondCounterOutcome.frames);
+      baseVersion = secondCounterOutcome.version;
+      expect(operation(secondCounterOutcome.patch, 'card.counters.patch')).toMatchObject({
+        instanceId: permanentId,
+        counters: { '+1/+1': 2, shield: 2 },
+      });
+
+      await expect.poll(() => latestOperation(framesC, 'card.counters.patch'), { timeout: 15_000 }).toMatchObject({
+        counters: { '+1/+1': 2, shield: 2 },
+      });
       expect(requestAudit.bootstrap + requestAudit.snapshot).toBe(liveRequestBaseline);
 
       const liveSnapshot = await gameSnapshot(request, gameId, playerA.token);
@@ -185,9 +231,9 @@ test.describe('product state integrity runtime gate', () => {
         rotation: 90,
         faceDown: true,
         controllerId: playerB.user.id,
-        counters: { '+1/+1': 3 },
-		power: 5,
-		toughness: 7,
+        counters: { '+1/+1': 2, shield: 2 },
+        power: 5,
+        toughness: 7,
       });
       expect(playerLife(liveSnapshot, playerA.user.id)).toBe(33);
       expect(relationCount(liveSnapshot, 'arrows')).toBeGreaterThanOrEqual(1);
@@ -198,10 +244,23 @@ test.describe('product state integrity runtime gate', () => {
       expect(nonOriginPosition(await cardCssPosition(pageB, playerA.user.id, permanentId))).toBe(true);
 
       const viewerSnapshot = await gameSnapshot(request, gameId, playerC.token);
-      const viewerCard = snapshotCard(viewerSnapshot, playerA.user.id, permanentId);
+      expect(() => snapshotCard(viewerSnapshot, playerA.user.id, permanentId)).toThrow();
+      const viewerCard = opaqueBattlefieldCard(viewerSnapshot, playerA.user.id);
+      const opaqueId = String(viewerCard['instanceId'] ?? '');
+      expect(opaqueId).toMatch(new RegExp(`^${escapeRegExp(playerA.user.id)}-hidden-battlefield-\\d+$`));
+      expect(opaqueId).not.toContain(permanentId);
       expect(viewerCard['faceDown']).toBe(true);
+      expect(viewerCard['hidden']).toBe(true);
+      expect(viewerCard['counters']).toMatchObject({ '+1/+1': 2, shield: 2 });
       expect(String(viewerCard['name'] ?? '')).not.toContain('Sol Ring');
       expect(String(viewerCard['name'] ?? '')).not.toContain('Lightning Bolt');
+      expect(JSON.stringify(viewerCard)).not.toMatch(/cardKey|cardRef|printId|imageUris|cardFaces|printedStats|manualOverrides|visibilityIndex|viewerMask|visibleToMask/);
+      expect(latestOperation(framesA, 'card.counters.patch')).toMatchObject({ instanceId: permanentId, counters: { '+1/+1': 2, shield: 2 } });
+      expect(latestOperation(framesB, 'card.counters.patch')).toMatchObject({ instanceId: permanentId, counters: { '+1/+1': 2, shield: 2 } });
+      expect(latestOperation(framesC, 'card.counters.patch')).toMatchObject({ instanceId: opaqueId, counters: { '+1/+1': 2, shield: 2 } });
+      expect(JSON.stringify(latestOperation(framesC, 'card.counters.patch'))).not.toContain(permanentId);
+      await expect(battlefieldCard(pageC, playerA.user.id, opaqueId)).toBeVisible({ timeout: 15_000 });
+      await expect(battlefieldCard(pageC, playerA.user.id, permanentId)).toHaveCount(0);
 
       const beforeRefreshRequests = requestAudit.bootstrap + requestAudit.snapshot;
       await pageA.reload();
@@ -225,8 +284,9 @@ test.describe('product state integrity runtime gate', () => {
       await expect(reconnectPage.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 });
       await waitForGameplayConnection(reconnectFrames);
       await focusPlayerById(reconnectPage, playerA.user.id);
-      await expect(battlefieldCard(reconnectPage, playerA.user.id, permanentId)).toBeVisible({ timeout: 15_000 });
-      expect(nonOriginPosition(await cardCssPosition(reconnectPage, playerA.user.id, permanentId))).toBe(true);
+      await expect(battlefieldCard(reconnectPage, playerA.user.id, opaqueId)).toBeVisible({ timeout: 15_000 });
+      await expect(battlefieldCard(reconnectPage, playerA.user.id, permanentId)).toHaveCount(0);
+      expect(nonOriginPosition(await cardCssPosition(reconnectPage, playerA.user.id, opaqueId))).toBe(true);
       await reconnectContext.close();
 
       for (const frames of [framesA, framesB, framesC, reconnectFrames, commandFrames]) {
@@ -376,6 +436,16 @@ function snapshotCard(snapshot: JsonObject, playerId: string, instanceId: string
   return card;
 }
 
+function opaqueBattlefieldCard(snapshot: JsonObject, playerId: string): JsonObject {
+  const players = snapshot['players'] as Record<string, JsonObject> | undefined;
+  const zones = players?.[playerId]?.['zones'] as Record<string, JsonObject[]> | undefined;
+  const card = zones?.['battlefield']?.find((candidate) => candidate['hidden'] === true && candidate['faceDown'] === true);
+  if (!card) {
+    throw new Error(`Missing opaque face-down battlefield card for player ${playerId}.`);
+  }
+  return card;
+}
+
 function playerLife(snapshot: JsonObject, playerId: string): number {
   const players = snapshot['players'] as Record<string, JsonObject> | undefined;
   return Number(players?.[playerId]?.['life']);
@@ -409,6 +479,18 @@ function nonOriginPosition(position: { left: number; top: number }): boolean {
 function operation(message: JsonObject, op: string): JsonObject | null {
   const ops = Array.isArray(message['ops']) ? message['ops'] as JsonObject[] : [];
   return ops.find((item) => item['op'] === op) ?? null;
+}
+
+function latestOperation(frames: JsonObject[], op: string): JsonObject | null {
+  for (let frameIndex = frames.length - 1; frameIndex >= 0; frameIndex -= 1) {
+    const found = operation(frames[frameIndex]!, op);
+    if (found) return found;
+  }
+  return null;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function collectWebSocketFrames(page: Page): JsonObject[] {

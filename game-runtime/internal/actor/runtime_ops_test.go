@@ -2,6 +2,7 @@ package actor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -2586,7 +2587,7 @@ func TestCardCounterChangedDoesNotMutateUnrelatedState(t *testing.T) {
 		t.Fatalf("counter failed: %v", result.Err)
 	}
 
-	op := patchForVisibility(result.Patches, protocol.VisibilityPublic, "card.counters.patch")
+	op := patchForVisibility(result.Patches, protocol.PlayerVisibility("p2"), "card.counters.patch")
 	if op == nil {
 		t.Fatalf("missing card.counters.patch: %#v", result.Patches)
 	}
@@ -2610,6 +2611,122 @@ func TestCardCounterChangedDoesNotMutateUnrelatedState(t *testing.T) {
 
 	after := gameActor.Snapshot()
 	assertStateIntegrityAroundCounter(t, before, after, 3)
+}
+
+func TestCardCounterChangedProjectsFaceDownInstanceReferencePerViewer(t *testing.T) {
+	initial := stateIntegrityCounterState(t)
+	initial.Players["p3"] = map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}}
+	initial.Zones["p3"] = state.PlayerZones{}
+	initial.EnsureVisibility()
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "face-down-counter", "card.counter.changed", map[string]any{
+		"instanceId": "i1",
+		"counter":    "+1/+1",
+		"value":      3,
+	}), "p2")
+	if result.Err != nil {
+		t.Fatalf("counter failed: %v", result.Err)
+	}
+	if public := patchForVisibility(result.Patches, protocol.VisibilityPublic, "card.counters.patch"); public != nil {
+		t.Fatalf("face-down counter leaked a public real-id patch: %#v", public.Data)
+	}
+
+	for _, viewerID := range []string{"p1", "p2"} {
+		op := patchForVisibility(result.Patches, protocol.PlayerVisibility(viewerID), "card.counters.patch")
+		if op == nil || op.Data["instanceId"] != "i1" {
+			t.Fatalf("authorized viewer %s did not receive the real instance reference: %#v", viewerID, result.Patches)
+		}
+		if counters, ok := op.Data["counters"].(map[string]any); !ok || counters["+1/+1"] != 3 || counters["shield"] != 1 {
+			t.Fatalf("authorized viewer %s received bad counters: %#v", viewerID, op.Data)
+		}
+	}
+
+	third := patchForVisibility(result.Patches, protocol.PlayerVisibility("p3"), "card.counters.patch")
+	if third == nil || third.Data["instanceId"] != "p1-hidden-battlefield-0" {
+		t.Fatalf("unauthorized viewer did not receive the existing opaque placeholder: %#v", result.Patches)
+	}
+	encoded, err := json.Marshal(third.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"i1", "card-a@1", "cardKey", "cardRef", "printId", "name", "imageUris", "cardFaces", "printedStats", "manualOverrides", "visibilityIndex", "viewerMask", "visibleToMask"} {
+		if strings.Contains(string(encoded), forbidden) {
+			t.Fatalf("unauthorized counter patch leaked %q: %s", forbidden, encoded)
+		}
+	}
+	publicLog := patchForVisibility(result.Patches, protocol.VisibilityPublic, "eventLog.append")
+	if publicLog == nil {
+		t.Fatalf("missing public counter log: %#v", result.Patches)
+	}
+	entries := publicLog.Data["entries"].([]map[string]any)
+	if len(entries) != 1 {
+		t.Fatalf("public counter log entries = %#v", entries)
+	}
+	params, _ := entries[0]["params"].(map[string]any)
+	refs, _ := entries[0]["refs"].(map[string]any)
+	if _, leaked := params["cardInstanceId"]; leaked || refs["cards"] != nil {
+		t.Fatalf("public counter log leaked face-down card identity: %#v", entries[0])
+	}
+}
+
+func TestFaceDownCounterAuthorityRemainsControllerOnly(t *testing.T) {
+	initial := stateIntegrityCounterState(t)
+	initial.Players["p3"] = map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}}
+	initial.Zones["p3"] = state.PlayerZones{}
+	initial.EnsureVisibility()
+	store := persistence.NewInMemoryEventStore()
+	gameActor := NewGameActor("game-1", initial.Clone(), store, 8, DefaultAppliers())
+	before := gameActor.Snapshot()
+
+	for _, actorID := range []string{"p1", "p3"} {
+		result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "denied-counter-"+actorID, "card.counter.changed", map[string]any{
+			"instanceId": "i1", "counter": "charge", "value": 2,
+		}), actorID)
+		assertAuthorizationError(t, result.Err, AuthorizationCodeInstanceNotControlled, "i1", 0)
+		if result.Event.Version != 0 || len(result.Patches) != 0 || !reflect.DeepEqual(before, gameActor.Snapshot()) {
+			t.Fatalf("rejected counter by %s changed output or state: event=%#v patches=%#v", actorID, result.Event, result.Patches)
+		}
+	}
+	events, err := store.EventsAfter(context.Background(), "game-1", 0)
+	if err != nil || len(events) != 0 {
+		t.Fatalf("rejected counters persisted events: events=%#v err=%v", events, err)
+	}
+
+	allowed := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "allowed-counter-p2", "card.counter.changed", map[string]any{
+		"instanceId": "i1", "counter": "charge", "value": 2,
+	}), "p2")
+	if allowed.Err != nil || gameActor.Snapshot().Instances["i1"].Counters["charge"] != 2 {
+		t.Fatalf("controller counter failed: result=%#v counters=%#v", allowed, gameActor.Snapshot().Instances["i1"].Counters)
+	}
+}
+
+func TestFaceDownPowerToughnessPatchUsesTheSameViewerReferenceContract(t *testing.T) {
+	initial := stateIntegrityCounterState(t)
+	initial.Players["p3"] = map[string]any{"life": 40, "counters": map[string]any{}, "commanderDamage": map[string]any{}}
+	initial.Zones["p3"] = state.PlayerZones{}
+	initial.EnsureVisibility()
+	gameActor := NewGameActor("game-1", initial, nil, 8, DefaultAppliers())
+
+	result := gameActor.ApplyDirect(context.Background(), command("game-1", 1, "face-down-stats", "card.power_toughness.changed", map[string]any{
+		"instanceId": "i1", "power": 8, "toughness": 9,
+	}), "p2")
+	if result.Err != nil {
+		t.Fatalf("stats failed: %v", result.Err)
+	}
+	if public := patchForVisibility(result.Patches, protocol.VisibilityPublic, "card.field.set"); public != nil {
+		t.Fatalf("face-down stats leaked a public real-id patch: %#v", public.Data)
+	}
+	for _, viewerID := range []string{"p1", "p2"} {
+		op := patchForVisibility(result.Patches, protocol.PlayerVisibility(viewerID), "card.field.set")
+		if op == nil || op.Data["instanceId"] != "i1" || op.Data["power"] != 8 || op.Data["toughness"] != 9 {
+			t.Fatalf("authorized viewer %s stats projection = %#v", viewerID, result.Patches)
+		}
+	}
+	third := patchForVisibility(result.Patches, protocol.PlayerVisibility("p3"), "card.field.set")
+	if third != nil {
+		t.Fatalf("third viewer received private face-down stats: %#v", third.Data)
+	}
 }
 
 func TestCardCounterChangedAcceptsLegacyKeyPayload(t *testing.T) {
@@ -2642,7 +2759,7 @@ func TestCardCounterZeroPersistsUntilExplicitRemove(t *testing.T) {
 	if got, ok := gameActor.Snapshot().Instances["i1"].Counters["charge"]; !ok || got != 0 {
 		t.Fatalf("zero counter was not persisted: %#v", gameActor.Snapshot().Instances["i1"].Counters)
 	}
-	patch := patchForVisibility(zero.Patches, protocol.VisibilityPublic, "card.counters.patch")
+	patch := patchForVisibility(zero.Patches, protocol.PlayerVisibility("p2"), "card.counters.patch")
 	if patch == nil || patch.Data["counters"].(map[string]any)["charge"] != 0 {
 		t.Fatalf("zero counter missing from patch: %#v", zero.Patches)
 	}
@@ -2686,7 +2803,7 @@ func TestPowerToughnessCountersRemainIndependentFromMutableStats(t *testing.T) {
 	if instance.MutableStats["power"] != 5 || instance.MutableStats["toughness"] != 7 {
 		t.Fatalf("+1/+1 mutated base stats: %#v", instance.MutableStats)
 	}
-	plusPatch := patchForVisibility(plus.Patches, protocol.VisibilityPublic, "card.counters.patch")
+	plusPatch := patchForVisibility(plus.Patches, protocol.PlayerVisibility("p2"), "card.counters.patch")
 	if plusPatch == nil || plusPatch.Data["counters"].(map[string]any)["+1/+1"] != 1 {
 		t.Fatalf("+1/+1 patch missing independent counter: %#v", plus.Patches)
 	}
@@ -2706,7 +2823,7 @@ func TestPowerToughnessCountersRemainIndependentFromMutableStats(t *testing.T) {
 	if instance.MutableStats["power"] != 5 || instance.MutableStats["toughness"] != 7 {
 		t.Fatalf("-1/-1 mutated base stats: %#v", instance.MutableStats)
 	}
-	minusPatch := patchForVisibility(minus.Patches, protocol.VisibilityPublic, "card.counters.patch")
+	minusPatch := patchForVisibility(minus.Patches, protocol.PlayerVisibility("p2"), "card.counters.patch")
 	if minusPatch == nil || minusPatch.Data["counters"].(map[string]any)["-1/-1"] != 1 {
 		t.Fatalf("-1/-1 patch missing independent counter: %#v", minus.Patches)
 	}

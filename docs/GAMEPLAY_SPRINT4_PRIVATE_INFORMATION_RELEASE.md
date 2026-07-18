@@ -36,6 +36,14 @@ The product remains a manual Commander table. Sprint 4 does not introduce rules 
 - Public GameLog entries contain action and count only; they do not contain instance IDs, card references, print identity, names, order, recipients, or stable private correlations.
 - Replay and bootstrap sanitize historical public projections without rewriting the event store.
 
+### Face-down counter projection integrity
+
+- Counters remain public dynamic battlefield state, including on an opaque face-down shell, but `card.counters.patch` is routed per viewer whenever the instance is face-down.
+- Owners, current controllers, and explicitly authorized viewers receive the canonical instance ID; unauthorized viewers receive the opaque placeholder ID already present in their projection.
+- The runtime resolves that reference through one shared viewer-projection function. It never publishes a canonical face-down ID, embeds it in a placeholder, or uses bootstrap/refetch/resync as normal counter delivery.
+- `private.cards.conceal` preserves only the shell-safe dynamic state already visible to that viewer: owner/controller, tapped/rotation, ratio position, and counters. It never carries card/static identity, printed stats, or manual overrides.
+- Replay and compact persistence continue to store canonical counter state internally. Live Patch.v2, refresh, reconnect, and actor restart project that same state through the viewer-specific identity contract; historical events are not rewritten.
+
 ## Hand reveal and revoke
 
 - `hand.cards.reveal` and `hand.cards.revoke` support ordered batches and single, multiviewer, or all audiences.

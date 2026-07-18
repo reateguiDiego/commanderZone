@@ -734,7 +734,13 @@
     "contextSubmenu": {
       "x": "Ã—"
     },
+    "selection": {
+      "selectedCount": "{{count}}枚のカードを選択中",
+      "clear": "選択を解除",
+      "handRegion": "手札の選択領域"
+    },
     "focusedBattlefield": {
+      "selectionRegion": "戦場の選択領域",
       "manaRow": "ãƒžãƒŠåˆ—"
     },
     "gameAdBanner": {

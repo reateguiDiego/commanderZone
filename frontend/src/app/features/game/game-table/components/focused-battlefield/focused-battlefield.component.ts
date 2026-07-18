@@ -5,6 +5,7 @@ import {
   Component,
   DoCheck,
   ElementRef,
+  HostListener,
   OnDestroy,
   ViewChild,
   computed,
@@ -32,6 +33,17 @@ import {
 import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
 import { DEFAULT_BATTLEFIELD_CARD_SIZE } from '../../utils/battlefield-position';
 import { type GameTableResponsiveState } from '../../utils/game-table-responsive-state';
+import { type SelectionModifierMode } from '../../services/game-table-selection.service';
+import {
+  type MarqueeCandidateBounds,
+  type MarqueePoint,
+  type MarqueeRect,
+  applySelectionModifier,
+  exceedsMarqueeThreshold,
+  marqueeModifierMode,
+  normalizeMarqueeRect,
+  resolveMarqueeCandidates,
+} from '../../utils/marquee-selection';
 
 interface CardCounterView {
   key: string;
@@ -114,9 +126,52 @@ interface BattlefieldSizeEvent {
   bottom: number;
 }
 
+interface MarqueeSelectionCommitEvent {
+  readonly playerId: string;
+  readonly cards: readonly GameCardInstance[];
+  readonly mode: SelectionModifierMode;
+}
+
+interface MarqueePerformanceMetrics {
+  readonly pointerMoves: number;
+  readonly animationFrames: number;
+  readonly boundsCaptures: number;
+  readonly layoutReads: number;
+  readonly candidateCount: number;
+  readonly durationMs: number;
+  readonly outcome: 'commit' | 'cancel';
+}
+
+interface PointerPendingInteraction {
+  readonly kind: 'pointerPending';
+  readonly pointerId: number;
+  readonly startClientPoint: MarqueePoint;
+  readonly currentClientPoint: MarqueePoint;
+  readonly modifierMode: SelectionModifierMode;
+  readonly baseSelection: readonly string[];
+  readonly startedAt: number;
+  readonly pointerMoves: number;
+}
+
+interface MarqueeInteraction extends Omit<PointerPendingInteraction, 'kind'> {
+  readonly kind: 'marquee';
+  readonly rootRect: DOMRect;
+  readonly rect: MarqueeRect;
+  readonly localRect: MarqueeRect;
+  readonly cachedBounds: readonly MarqueeCandidateBounds[];
+  readonly candidateIds: readonly string[];
+  readonly previewSelectedIds: readonly string[];
+  readonly animationFrames: number;
+  readonly boundsCaptures: number;
+  readonly layoutReads: number;
+}
+
+type BattlefieldSelectionInteraction = { readonly kind: 'idle' } | PointerPendingInteraction | MarqueeInteraction;
+
 type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 
 const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+const MARQUEE_THRESHOLD_PX = 5;
 
 @Component({
   selector: 'app-focused-battlefield',
@@ -130,14 +185,24 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   private lastBattlefieldSize: BattlefieldSizeEvent | null = null;
   private lastPlayerId: string | null = null;
   private lastLayoutKey: unknown = null;
+  private lastMarqueeLayoutKey: unknown = null;
+  private lastMarqueeBlocked = false;
   private boardTransitionTimer: number | null = null;
   private layoutRefreshFrame: number | null = null;
+  private marqueeFrame: number | null = null;
+  private cancelledPointerId: number | null = null;
+  private suppressNextBackgroundClick = false;
+  private suppressBackgroundClickTimer: number | null = null;
 
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
 
   readonly player = input.required<PlayerView>();
   readonly responsiveState = input<GameTableResponsiveState>('normal');
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
+  readonly selectedInstanceIds = input<readonly string[]>([]);
+  readonly marqueeEnabled = input(false);
+  readonly marqueeBlocked = input(false);
+  readonly marqueeLayoutKey = input<unknown>(null);
   readonly allowArrowTargetSelection = input(false);
   readonly focusEffectsEnabled = input(true);
   readonly mechanicCards = input<readonly GameCardInstance[]>([]);
@@ -219,7 +284,19 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly manaPoolColorRemoved = output<{ playerId: string; color: ManaPoolColor }>();
   readonly manaPoolHidden = output<{ playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
+  readonly battlefieldEmptyClicked = output<void>();
+  readonly marqueeSelectionCommitted = output<MarqueeSelectionCommitEvent>();
   readonly boardTransitioning = signal(false);
+  readonly selectionInteraction = signal<BattlefieldSelectionInteraction>({ kind: 'idle' });
+  readonly lastMarqueeMetrics = signal<MarqueePerformanceMetrics | null>(null);
+  readonly marqueeVisualRect = computed(() => {
+    const interaction = this.selectionInteraction();
+    return interaction.kind === 'marquee' ? interaction.localRect : null;
+  });
+  readonly marqueePreviewIds = computed<ReadonlySet<string>>(() => {
+    const interaction = this.selectionInteraction();
+    return new Set(interaction.kind === 'marquee' ? interaction.previewSelectedIds : []);
+  });
   readonly hoveredAttachmentStackId = signal<string | null>(null);
   private readonly measuredLayoutVersion = signal(0);
   readonly landStackViews = computed<ReadonlyMap<string, LandStackView>>(() => {
@@ -357,6 +434,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
     this.resizeObserver = new ResizeObserver(([entry]) => {
       if (entry) {
+        this.cancelSelectionInteraction('layout');
         this.emitBattlefieldSize(element);
         this.queueMeasuredLayoutRefresh();
       }
@@ -365,6 +443,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   }
 
   ngOnDestroy(): void {
+    this.cancelSelectionInteraction('destroy');
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     if (this.boardTransitionTimer !== null) {
@@ -375,15 +454,25 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       window.cancelAnimationFrame(this.layoutRefreshFrame);
       this.layoutRefreshFrame = null;
     }
+    if (this.suppressBackgroundClickTimer !== null) {
+      window.clearTimeout(this.suppressBackgroundClickTimer);
+      this.suppressBackgroundClickTimer = null;
+    }
   }
 
   ngDoCheck(): void {
     const playerId = this.player().id;
     const layoutKey = this.layoutKey();
+    const marqueeLayoutKey = this.marqueeLayoutKey();
+    const marqueeBlocked = this.marqueeBlocked() || !this.marqueeEnabled();
     const playerChanged = this.lastPlayerId !== playerId;
     const layoutChanged = this.lastLayoutKey !== layoutKey;
+    const marqueeLayoutChanged = this.lastMarqueeLayoutKey !== marqueeLayoutKey;
+    const marqueeBecameBlocked = !this.lastMarqueeBlocked && marqueeBlocked;
 
     this.lastLayoutKey = layoutKey;
+    this.lastMarqueeLayoutKey = marqueeLayoutKey;
+    this.lastMarqueeBlocked = marqueeBlocked;
 
     if (playerChanged) {
       this.lastPlayerId = playerId;
@@ -393,10 +482,332 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     if (playerChanged || layoutChanged) {
       this.queueMeasuredLayoutRefresh();
     }
+
+    if (playerChanged || marqueeLayoutChanged || marqueeBecameBlocked) {
+      this.cancelSelectionInteraction('layout');
+    }
+  }
+
+  @HostListener('window:blur')
+  handleWindowBlur(): void {
+    this.cancelSelectionInteraction('blur');
+  }
+
+  @HostListener('window:scroll')
+  handleStructuralScroll(): void {
+    this.cancelSelectionInteraction('scroll');
   }
 
   canInteractWithCard(playerId: string, card: GameCardInstance): boolean {
     return this.isCurrentPlayer()(playerId) && this.canDragBattlefieldCard()(playerId, card);
+  }
+
+  isVisuallySelected(card: GameCardInstance): boolean {
+    const interaction = this.selectionInteraction();
+    if (interaction.kind === 'marquee') {
+      return this.marqueePreviewIds().has(card.instanceId);
+    }
+
+    return this.isCurrentPlayer()(this.player().id) && this.isSelected()(card.instanceId);
+  }
+
+  isMarqueeCandidate(card: GameCardInstance): boolean {
+    return this.canInteractWithCard(this.player().id, card)
+      && this.cardVisibility(this.player().id, card)
+      && this.landStackView(card)?.role !== 'under';
+  }
+
+  beginMarqueePointer(event: PointerEvent): void {
+    const root = this.battlefieldRoot?.nativeElement;
+    if (!root) {
+      return;
+    }
+    if (event.pointerType === 'touch') {
+      this.cancelSelectionInteraction('touch');
+      return;
+    }
+    this.cancelledPointerId = null;
+    if (event.defaultPrevented || event.target !== root) {
+      return;
+    }
+    if (
+      event.button !== 0
+      || event.isPrimary === false && event.pointerType !== ''
+      || !this.marqueeEnabled()
+      || this.marqueeBlocked()
+      || !this.isCurrentPlayer()(this.player().id)
+      || this.player().state.status !== 'active'
+      || this.selectionInteraction().kind !== 'idle'
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    const startClientPoint = { x: event.clientX, y: event.clientY };
+    this.selectionInteraction.set({
+      kind: 'pointerPending',
+      pointerId: event.pointerId,
+      startClientPoint,
+      currentClientPoint: startClientPoint,
+      modifierMode: marqueeModifierMode(event),
+      baseSelection: [...this.selectedInstanceIds()],
+      startedAt: performance.now(),
+      pointerMoves: 0,
+    });
+    root.focus({ preventScroll: true });
+    try {
+      root.setPointerCapture?.(event.pointerId);
+    } catch {
+      this.cancelSelectionInteraction('capture');
+    }
+  }
+
+  moveMarqueePointer(event: PointerEvent): void {
+    const interaction = this.selectionInteraction();
+    if (interaction.kind === 'idle' || interaction.pointerId !== event.pointerId) {
+      return;
+    }
+    event.preventDefault();
+    const currentClientPoint = { x: event.clientX, y: event.clientY };
+    const pointerMoves = interaction.pointerMoves + 1;
+    if (interaction.kind === 'pointerPending') {
+      if (!exceedsMarqueeThreshold(interaction.startClientPoint, currentClientPoint, MARQUEE_THRESHOLD_PX)) {
+        this.selectionInteraction.set({ ...interaction, currentClientPoint, pointerMoves });
+        return;
+      }
+
+      const capture = this.captureMarqueeBounds();
+      if (!capture) {
+        this.cancelSelectionInteraction('layout');
+        return;
+      }
+      const rect = normalizeMarqueeRect(interaction.startClientPoint, currentClientPoint);
+      this.selectionInteraction.set({
+        ...interaction,
+        kind: 'marquee',
+        currentClientPoint,
+        pointerMoves,
+        rootRect: capture.rootRect,
+        rect,
+        localRect: this.localMarqueeRect(rect, capture.rootRect),
+        cachedBounds: capture.bounds,
+        candidateIds: [],
+        previewSelectedIds: interaction.baseSelection,
+        animationFrames: 0,
+        boundsCaptures: 1,
+        layoutReads: capture.layoutReads,
+      });
+      this.scheduleMarqueeFrame();
+      return;
+    }
+
+    this.selectionInteraction.set({ ...interaction, currentClientPoint, pointerMoves });
+    this.scheduleMarqueeFrame();
+  }
+
+  endMarqueePointer(event: PointerEvent): void {
+    const interaction = this.selectionInteraction();
+    if (interaction.kind === 'idle') {
+      if (this.cancelledPointerId === event.pointerId) {
+        this.cancelledPointerId = null;
+        this.suppressNextBattlefieldBackgroundClick();
+      }
+      return;
+    }
+    if (interaction.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (interaction.kind === 'pointerPending') {
+      this.suppressNextBattlefieldBackgroundClick();
+      this.finishSelectionInteraction('cancel');
+      this.battlefieldEmptyClicked.emit();
+      return;
+    }
+
+    this.flushMarqueeFrame();
+    const committed = this.selectionInteraction();
+    if (committed.kind !== 'marquee') {
+      return;
+    }
+    const cardsById = new Map(this.battlefieldCards().map((card) => [card.instanceId, card]));
+    const cards = committed.previewSelectedIds
+      .map((instanceId) => cardsById.get(instanceId))
+      .filter((card): card is GameCardInstance => Boolean(card));
+    this.marqueeSelectionCommitted.emit({
+      playerId: this.player().id,
+      cards,
+      mode: 'replace',
+    });
+    this.suppressNextBattlefieldBackgroundClick();
+    this.finishSelectionInteraction('commit');
+  }
+
+  onBattlefieldBackgroundClick(event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.cancelledPointerId !== null) {
+      this.cancelledPointerId = null;
+      return;
+    }
+    if (this.suppressNextBackgroundClick) {
+      this.suppressNextBackgroundClick = false;
+      return;
+    }
+    if (event.target === this.battlefieldRoot?.nativeElement) {
+      this.battlefieldEmptyClicked.emit();
+    }
+  }
+
+  onBattlefieldContextMenu(event: MouseEvent): void {
+    this.cancelSelectionInteraction('contextMenu');
+    this.battlefieldMenuOpened.emit({ event, playerId: this.player().id, zone: 'battlefield' });
+  }
+
+  cancelActiveSelectionInteraction(): boolean {
+    if (this.selectionInteraction().kind === 'idle') {
+      return false;
+    }
+    this.cancelSelectionInteraction('escape');
+    return true;
+  }
+
+  cancelMarqueeForLayoutChange(): boolean {
+    const active = this.selectionInteraction().kind !== 'idle';
+    this.cancelSelectionInteraction('layout');
+    return active;
+  }
+
+  private suppressNextBattlefieldBackgroundClick(timeoutMs = 0): void {
+    this.suppressNextBackgroundClick = true;
+    if (this.suppressBackgroundClickTimer !== null) {
+      window.clearTimeout(this.suppressBackgroundClickTimer);
+    }
+    this.suppressBackgroundClickTimer = window.setTimeout(() => {
+      this.suppressNextBackgroundClick = false;
+      this.suppressBackgroundClickTimer = null;
+    }, timeoutMs);
+  }
+
+  private captureMarqueeBounds(): { rootRect: DOMRect; bounds: MarqueeCandidateBounds[]; layoutReads: number } | null {
+    const root = this.battlefieldRoot?.nativeElement;
+    if (!root) {
+      return null;
+    }
+    const rootRect = root.getBoundingClientRect();
+    const elements = new Map(
+      Array.from(root.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-card-instance-id]'))
+        .map((element) => [element.dataset['cardInstanceId'] ?? '', element] as const),
+    );
+    const bounds: MarqueeCandidateBounds[] = [];
+    let layoutReads = 1;
+    for (const card of this.battlefieldCards()) {
+      if (!this.isMarqueeCandidate(card)) {
+        continue;
+      }
+      const element = elements.get(card.instanceId);
+      if (!element) {
+        continue;
+      }
+      const rect = element.getBoundingClientRect();
+      layoutReads += 1;
+      if (rect.width <= 0 || rect.height <= 0) {
+        continue;
+      }
+      bounds.push({
+        instanceId: card.instanceId,
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+      });
+    }
+
+    return { rootRect, bounds, layoutReads };
+  }
+
+  private scheduleMarqueeFrame(): void {
+    if (this.marqueeFrame !== null) {
+      return;
+    }
+    this.marqueeFrame = window.requestAnimationFrame(() => {
+      this.marqueeFrame = null;
+      this.updateMarqueeFrame();
+    });
+  }
+
+  private flushMarqueeFrame(): void {
+    if (this.marqueeFrame === null) {
+      return;
+    }
+    window.cancelAnimationFrame(this.marqueeFrame);
+    this.marqueeFrame = null;
+    this.updateMarqueeFrame();
+  }
+
+  private updateMarqueeFrame(): void {
+    const interaction = this.selectionInteraction();
+    if (interaction.kind !== 'marquee') {
+      return;
+    }
+    const rect = normalizeMarqueeRect(interaction.startClientPoint, interaction.currentClientPoint);
+    const candidateIds = resolveMarqueeCandidates(rect, interaction.cachedBounds);
+    const previewSelectedIds = applySelectionModifier(interaction.baseSelection, candidateIds, interaction.modifierMode);
+    this.selectionInteraction.set({
+      ...interaction,
+      rect,
+      localRect: this.localMarqueeRect(rect, interaction.rootRect),
+      candidateIds,
+      previewSelectedIds,
+      animationFrames: interaction.animationFrames + 1,
+    });
+  }
+
+  private localMarqueeRect(rect: MarqueeRect, rootRect: DOMRect): MarqueeRect {
+    const left = Math.max(0, Math.min(rootRect.width, rect.left - rootRect.left));
+    const top = Math.max(0, Math.min(rootRect.height, rect.top - rootRect.top));
+    const right = Math.max(0, Math.min(rootRect.width, rect.right - rootRect.left));
+    const bottom = Math.max(0, Math.min(rootRect.height, rect.bottom - rootRect.top));
+    return { left, top, right, bottom, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+  }
+
+  private cancelSelectionInteraction(_reason: string): void {
+    const interaction = this.selectionInteraction();
+    if (interaction.kind === 'idle') {
+      return;
+    }
+    this.cancelledPointerId = interaction.pointerId;
+    this.finishSelectionInteraction('cancel');
+  }
+
+  private finishSelectionInteraction(outcome: 'commit' | 'cancel'): void {
+    const interaction = this.selectionInteraction();
+    if (interaction.kind === 'idle') {
+      return;
+    }
+    if (this.marqueeFrame !== null) {
+      window.cancelAnimationFrame(this.marqueeFrame);
+      this.marqueeFrame = null;
+    }
+    if (interaction.kind === 'marquee') {
+      this.lastMarqueeMetrics.set({
+        pointerMoves: interaction.pointerMoves,
+        animationFrames: interaction.animationFrames,
+        boundsCaptures: interaction.boundsCaptures,
+        layoutReads: interaction.layoutReads,
+        candidateCount: interaction.cachedBounds.length,
+        durationMs: Math.max(0, performance.now() - interaction.startedAt),
+        outcome,
+      });
+    }
+    const root = this.battlefieldRoot?.nativeElement;
+    try {
+      if (root?.hasPointerCapture?.(interaction.pointerId)) {
+        root.releasePointerCapture(interaction.pointerId);
+      }
+    } catch {
+      // Capture may already have been released by the browser.
+    }
+    this.selectionInteraction.set({ kind: 'idle' });
   }
 
   onCardDoubleClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {

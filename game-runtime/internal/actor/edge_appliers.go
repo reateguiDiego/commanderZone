@@ -315,9 +315,9 @@ func emitDungeonMarkerPatchByViewer(
 	}
 
 	for viewerID := range game.Players {
-		projectedID := instanceID
-		if !game.CanViewerSeeCardKey(viewerID, instanceID) {
-			projectedID = privatePlaceholderID(location.PlayerID, location.Zone, location.Index)
+		projectedID, visible := projectInstanceReferenceForViewer(game, instanceID, viewerID)
+		if !visible {
+			continue
 		}
 		emitter.EmitPrivate(viewerID, protocol.PatchOp{
 			Op:   "card.field.set",

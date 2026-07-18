@@ -8,6 +8,7 @@ import { GameTableSelectionService } from './game-table-selection.service';
 
 describe('GameTableInteractionActionsService', () => {
   let service: GameTableInteractionActionsService;
+  let selection: GameTableSelectionService;
   let uiState: { openContextMenu: ReturnType<typeof vi.fn>; openContextMenuAt: ReturnType<typeof vi.fn> };
   let toastState: { showTargetToast: ReturnType<typeof vi.fn> };
 
@@ -28,6 +29,7 @@ describe('GameTableInteractionActionsService', () => {
     });
 
     service = TestBed.inject(GameTableInteractionActionsService);
+    selection = TestBed.inject(GameTableSelectionService);
   });
 
   it('allows a player to control a card they received in hand without becoming the owner', () => {
@@ -145,6 +147,38 @@ describe('GameTableInteractionActionsService', () => {
         kind: 'card',
       }),
     );
+  });
+
+  it('selects an actionable unselected card before opening its context menu', () => {
+    const event = contextMenuEvent();
+    const card = handCard({ instanceId: 'card-1', zone: 'battlefield', ownerId: 'player-1', controllerId: 'player-1' });
+
+    service.openCardMenu(interactionContext(), event, 'player-1', 'battlefield', card);
+
+    expect(selection.selectedCards()).toEqual([{ playerId: 'player-1', zone: 'battlefield', card }]);
+    expect(uiState.openContextMenu).toHaveBeenCalledOnce();
+  });
+
+  it('preserves a compatible multi-selection when opening the context menu on an already-selected card', () => {
+    const first = handCard({ instanceId: 'card-1', zone: 'battlefield', ownerId: 'player-1', controllerId: 'player-1' });
+    const second = handCard({ instanceId: 'card-2', zone: 'battlefield', ownerId: 'player-1', controllerId: 'player-1' });
+    selection.selectMany('player-1', 'battlefield', [first, second]);
+
+    service.openCardMenu(interactionContext(), contextMenuEvent(), 'player-1', 'battlefield', second);
+
+    expect(selection.selectedCards().map((selected) => selected.card.instanceId)).toEqual(['card-1', 'card-2']);
+  });
+
+  it('blocks all mutative card interactions when the actor is no longer active', () => {
+    const context = {
+      ...interactionContext(),
+      currentPlayer: () => ({ id: 'player-1', state: { status: 'defeated' } }),
+    };
+    const card = handCard({ instanceId: 'card-1', zone: 'battlefield', ownerId: 'player-1', controllerId: 'player-1' });
+
+    service.handleBattlefieldCardClick(context, clickEvent(false), 'player-1', card);
+
+    expect(selection.selectedCards()).toEqual([]);
   });
 
   it('shows the homogeneous-zone selection toast when shift selection changes source', () => {

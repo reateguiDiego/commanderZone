@@ -577,6 +577,7 @@ interface MotionSourceRect {
 })
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
   private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
+  private suppressNextTableBackgroundClick = false;
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
@@ -769,6 +770,53 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.pendingArrowSource() !== null || this.store.pendingAttachmentSource() !== null,
   );
   readonly focusEffectsEnabled = computed(() => this.arrowTargetDialog() === null && !this.manualRelationTargetingActive());
+  readonly selectedIdsForFocusedBattlefield = computed(() => {
+    const focusedPlayerId = this.store.focusedPlayer()?.id ?? null;
+    return focusedPlayerId
+      ? this.store.selectedCards()
+        .filter((selection) => selection.playerId === focusedPlayerId && selection.zone === 'battlefield')
+        .map((selection) => selection.card.instanceId)
+      : [];
+  });
+  readonly marqueeEnabled = computed(() => {
+    const current = this.store.currentPlayer();
+    const focused = this.store.focusedPlayer();
+    return Boolean(
+      current
+      && focused
+      && current.id === focused.id
+      && current.state.status === 'active'
+      && this.store.snapshot()?.gamePhase !== 'FINISHED',
+    );
+  });
+  readonly marqueeBlocked = computed(() => Boolean(
+    this.store.contextMenu()
+    || this.store.zoneModal()
+    || this.store.draggingCardInstanceId()
+    || this.manualRelationTargetingActive()
+    || this.numberActionDialog()
+    || this.powerToughnessDialog()
+    || this.manaActionDialog()
+    || this.arrowTargetDialog()
+    || this.handRevealDialog()
+    || this.handCardGiveDialog()
+    || this.libraryCardMoveToHandDialog()
+    || this.zoneMoveAllLibraryDialog()
+    || this.closeGameDialogOpen()
+    || this.tableExitAction()
+    || this.gameplayCardSearchRequest()
+    || this.pendingDungeonReplacement()
+    || this.pendingCitysBlessingRemoval()
+    || this.rematchModalOpen()
+    || this.rollModalOpen()
+    || this.opponentsDrawerOpen(),
+  ));
+  readonly marqueeLayoutKey = computed(() => [
+    this.store.snapshot()?.version ?? 0,
+    this.store.focusedPlayer()?.id ?? '',
+    this.responsiveState(),
+    this.effectiveBattlefieldZoomPercent(),
+  ].join(':'));
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
   readonly contextMenuAvoidRect = computed<ContextMenuAvoidRect | null>(() => {
     const menu = this.store.contextMenu();
@@ -962,6 +1010,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly handleResponsiveWindowResize = (): void => this.queueResponsiveStateResolution();
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
+  @ViewChild(FocusedBattlefieldComponent) private readonly focusedBattlefield?: FocusedBattlefieldComponent;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
 
@@ -1266,6 +1315,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   handleTableClick(event: MouseEvent): void {
+    if (this.suppressNextTableBackgroundClick) {
+      this.suppressNextTableBackgroundClick = false;
+      return;
+    }
     this.store.handleTableClick(event);
 
     const target = event.target instanceof Element ? event.target : null;
@@ -1415,11 +1468,13 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   setBattlefieldZoom(percent: number): void {
+    this.suppressNextTableBackgroundClick = this.focusedBattlefield?.cancelMarqueeForLayoutChange() === true;
     this.battlefieldZoom.setZoomPercent(percent);
     this.queueBattlefieldZoomReflow();
   }
 
   resetBattlefieldZoom(): void {
+    this.suppressNextTableBackgroundClick = this.focusedBattlefield?.cancelMarqueeForLayoutChange() === true;
     this.battlefieldZoom.resetZoom();
     this.queueBattlefieldZoomReflow();
   }
@@ -1431,27 +1486,90 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   @HostListener('window:resize')
   handleViewportResize(): void {
+    this.suppressNextTableBackgroundClick = this.focusedBattlefield?.cancelMarqueeForLayoutChange() === true;
     this.queueBattlefieldReflow();
+  }
+
+  handleTablePointerDown(): void {
+    this.suppressNextTableBackgroundClick = false;
+  }
+
+  handleBattlefieldEmptyClicked(): void {
+    if (this.suppressNextTableBackgroundClick) {
+      this.suppressNextTableBackgroundClick = false;
+      return;
+    }
+    this.store.clearSelection();
   }
 
   @HostListener('document:keydown', ['$event'])
   handleShortcut(event: KeyboardEvent): void {
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (event.key.toLowerCase() === 'escape') {
+      if (this.consumeModalEscape()) {
+        event.preventDefault();
+        return;
+      }
+      if (this.store.contextMenu()) {
+        event.preventDefault();
+        this.store.closeContextMenu();
+        return;
+      }
+      if (this.focusedBattlefield?.cancelActiveSelectionInteraction()) {
+        event.preventDefault();
+        return;
+      }
+      if (this.store.hasActivePointerDrag()) {
+        event.preventDefault();
+        this.clearBattlefieldDragStartRect(this.store.draggingCardInstanceId());
+        this.store.cancelCardPointerDrag();
+        return;
+      }
+      if (this.store.cancelRelationInteraction()) {
+        event.preventDefault();
+        return;
+      }
+      if (this.store.selectedCards().length > 0) {
+        event.preventDefault();
+        this.store.clearSelection();
+      }
+      return;
+    }
+
+    if (this.isEditableShortcutTarget(target)) {
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      if (target?.closest('[role="dialog"], [role="menu"]')) {
+        return;
+      }
+      const region = target?.closest<HTMLElement>('[data-zone="hand"], [data-zone="battlefield"]') ?? null;
+      const zone = region?.dataset['zone'];
+      const playerId = region?.dataset['playerId'];
+      if (playerId && (zone === 'hand' || zone === 'battlefield') && playerId === this.store.currentPlayer()?.id) {
+        event.preventDefault();
+        this.store.selectAllZoneCards(playerId, zone);
+      }
+      return;
+    }
+
+    if (event.key === ' ' || event.key.toLowerCase() === 'spacebar') {
+      const cardElement = target?.closest<HTMLElement>('[data-testid="game-card"][data-card-instance-id]') ?? null;
+      const zone = cardElement?.dataset['zone'];
+      const playerId = cardElement?.dataset['ownerPlayerId'];
+      const instanceId = cardElement?.dataset['cardInstanceId'];
+      if ((zone === 'hand' || zone === 'battlefield') && playerId && instanceId) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.store.toggleKeyboardCardSelection(playerId, zone, instanceId);
+      }
       return;
     }
 
     const current = this.store.currentPlayer();
     const selected = this.store.activeKeyboardCard();
     switch (event.key.toLowerCase()) {
-      case 'escape':
-        this.store.closeContextMenu();
-        this.store.closeZoneModal();
-        this.cancelNumberAction();
-        this.cancelPowerToughnessDialog();
-        this.cancelArrowTargetDialog();
-        this.closeGameDialogOpen.set(false);
-        this.store.clearSelection();
-        break;
       case 'd':
         if (current) {
           event.preventDefault();
@@ -1754,6 +1872,83 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         }
       });
     }
+  }
+
+  private isEditableShortcutTarget(target: Element | null): boolean {
+    return Boolean(target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'));
+  }
+
+  private consumeModalEscape(): boolean {
+    if (this.store.zoneModal()) {
+      void this.store.closeZoneModal();
+      return true;
+    }
+    if (this.numberActionDialog()) {
+      this.cancelNumberAction();
+      return true;
+    }
+    if (this.powerToughnessDialog()) {
+      this.cancelPowerToughnessDialog();
+      return true;
+    }
+    if (this.manaActionDialog()) {
+      this.cancelManaActionDialog();
+      return true;
+    }
+    if (this.arrowTargetDialog()) {
+      this.cancelArrowTargetDialog();
+      return true;
+    }
+    if (this.zoneMoveAllLibraryDialog()) {
+      this.cancelZoneMoveAllToLibrary();
+      return true;
+    }
+    if (this.handCardGiveDialog()) {
+      this.cancelHandCardGive();
+      return true;
+    }
+    if (this.handRevealDialog()) {
+      this.closeHandRevealDialog();
+      return true;
+    }
+    if (this.libraryCardMoveToHandDialog()) {
+      this.cancelLibraryCardMoveToHand();
+      return true;
+    }
+    if (this.closeGameDialogOpen()) {
+      this.cancelCloseGame();
+      return true;
+    }
+    if (this.tableExitAction()) {
+      this.cancelTableExitAction();
+      return true;
+    }
+    if (this.gameplayCardSearchRequest()) {
+      this.closeGameplayCardSearchModal();
+      return true;
+    }
+    if (this.pendingDungeonReplacement()) {
+      this.cancelDungeonReplacement();
+      return true;
+    }
+    if (this.pendingCitysBlessingRemoval()) {
+      this.cancelCitysBlessingRemoval();
+      return true;
+    }
+    if (this.rollModalOpen()) {
+      this.closeRollModal();
+      return true;
+    }
+    if (this.rematchModalOpen()) {
+      this.closeRematchModal();
+      return true;
+    }
+    if (this.activeRevealPanel()) {
+      this.closeActiveRevealPanel();
+      return true;
+    }
+
+    return false;
   }
 
   handleActiveRevealPanelOpened(element: HTMLElement): void {

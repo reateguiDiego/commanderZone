@@ -2306,6 +2306,94 @@ describe('game table normalized v2 store', () => {
     expect(privateRevoke.state.instances['player-1-hidden-battlefield-0']).toMatchObject({ hidden: true, faceDown: true });
   });
 
+  it('applies face-down counter patches to the viewer placeholder across materialize and conceal without recovery', () => {
+    const bootstrap = bootstrapV2();
+    bootstrap.game.viewerId = 'player-3';
+    delete bootstrap.instances['battlefield-1'];
+    bootstrap.instances['player-1-hidden-battlefield-0'] = {
+      instanceId: 'player-1-hidden-battlefield-0',
+      cardRef: 'placeholder:player-1-hidden-battlefield-0',
+      zoneId: 'player-1:battlefield',
+      ownerId: 'player-1',
+      controllerId: 'player-2',
+      hidden: true,
+      faceDown: true,
+      tapped: false,
+      counters: { shield: 1 },
+      position: { x: 0.2, y: 0.3, unit: 'ratio' },
+    };
+    bootstrap.zones['player-1:battlefield'].instanceIds = ['player-1-hidden-battlefield-0'];
+    const initial = createGameTableNormalizedV2State(bootstrap);
+
+    const publicCarrierFirst = applyPatchEnvelopeV2(initial, {
+      gameId: 'game-1', version: 6, visibility: 'public', ackClientActionId: 'hidden-counter',
+      ops: [{ op: 'version.advance' }],
+    });
+    expect(publicCarrierFirst.status).toBe('applied');
+
+    const hiddenCounter = applyPatchEnvelopeV2(publicCarrierFirst.state, {
+      gameId: 'game-1', version: 6, visibility: 'player:player-3', ackClientActionId: 'hidden-counter',
+      ops: [{
+        op: 'card.counters.patch', playerId: 'player-1', zone: 'battlefield',
+        instanceId: 'player-1-hidden-battlefield-0', counters: { shield: 1, charge: 2 },
+      }],
+    });
+    expect(hiddenCounter.status).toBe('applied');
+    expect(hiddenCounter.state.instances['player-1-hidden-battlefield-0'].counters).toEqual({ shield: 1, charge: 2 });
+    expect(hiddenCounter.state.instances['battlefield-1']).toBeUndefined();
+    expect(JSON.stringify(hiddenCounter.state.instances['player-1-hidden-battlefield-0']))
+      .not.toMatch(/cardKey|printId|cardVersion|language|viewerVisibility|printedStats|manualOverrides|sol-ring/i);
+    expect(hiddenCounter.state.staticCards['card:sol-ring']).toBeDefined();
+    expect(hiddenCounter.state.staticCards['instance:player-1-hidden-battlefield-0']).toBeUndefined();
+
+    const materialized = applyPatchEnvelopeV2(hiddenCounter.state, {
+      gameId: 'game-1', version: 7, visibility: 'player:player-3', ackClientActionId: 'materialize-after-counter',
+      ops: [{
+        op: 'private.cards.materialize', playerId: 'player-1', zone: 'battlefield',
+        entries: [{
+          index: 0,
+          placeholderId: 'player-1-hidden-battlefield-0',
+          card: {
+            instanceId: 'battlefield-1', cardRef: 'card:sol-ring', cardKey: 'card:sol-ring',
+            printId: 's-ring', cardVersion: 'v1', language: 'en', viewerVisibility: 'private',
+            zoneId: 'player-1:battlefield', ownerId: 'player-1', controllerId: 'player-3',
+            hidden: false, faceDown: true, counters: { shield: 1, charge: 2 },
+          },
+        }],
+        staticCards: { 'card:sol-ring': bootstrap.staticCards['card:sol-ring'] },
+      }],
+    });
+    expect(materialized.status).toBe('applied');
+    expect(materialized.state.instances['player-1-hidden-battlefield-0']).toBeUndefined();
+    expect(materialized.state.instances['battlefield-1'].counters).toEqual({ shield: 1, charge: 2 });
+
+    const concealed = applyPatchEnvelopeV2(materialized.state, {
+      gameId: 'game-1', version: 8, visibility: 'player:player-3', ackClientActionId: 'conceal-after-counter',
+      ops: [{
+        op: 'private.cards.conceal', playerId: 'player-1', zone: 'battlefield',
+        entries: [{ instanceId: 'battlefield-1', placeholderId: 'player-1-hidden-battlefield-0', index: 0 }],
+      }],
+    });
+    expect(concealed.status).toBe('applied');
+    expect(concealed.state.instances['battlefield-1']).toBeUndefined();
+    expect(concealed.state.instances['player-1-hidden-battlefield-0']).toMatchObject({
+      hidden: true,
+      faceDown: true,
+      counters: { shield: 1, charge: 2 },
+    });
+
+    const secondCounter = applyPatchEnvelopeV2(concealed.state, {
+      gameId: 'game-1', version: 9, visibility: 'player:player-3', ackClientActionId: 'second-hidden-counter',
+      ops: [{
+        op: 'card.counters.patch', playerId: 'player-1', zone: 'battlefield',
+        instanceId: 'player-1-hidden-battlefield-0', counters: { shield: 1, charge: 1, poison: 2 },
+      }],
+    });
+    expect(secondCounter.status).toBe('applied');
+    expect(secondCounter.state.instances['player-1-hidden-battlefield-0'].counters).toEqual({ shield: 1, charge: 1, poison: 2 });
+    expect(secondCounter.state.zones['player-1'].battlefield).toEqual(['player-1-hidden-battlefield-0']);
+  });
+
   it('accepts library count patches as a compatibility alias without resync', () => {
     const initial = createGameTableNormalizedV2State(bootstrapV2());
     const result = applyPatchEnvelopeV2(initial, patch(6, [

@@ -652,8 +652,14 @@
     "contextSubmenu": {
       "x": "X"
     },
+    "selection": {
+      "selectedCount": "{{count}} cards selected",
+      "clear": "Clear selection",
+      "handRegion": "Your hand selection region"
+    },
     "focusedBattlefield": {
-      "manaRow": "Mana row"
+      "manaRow": "Mana row",
+      "selectionRegion": "Battlefield selection region"
     },
     "gameAdBanner": {
       "advertisingBanner": "Advertising banner"

@@ -142,11 +142,35 @@ test.describe('attachments and battlefield stacks cross-viewer gate', () => {
         instanceId: attachmentTwoId,
         faceDown: true,
       });
+      const attachmentGraphBeforeCounter = await assertIdenticalGraph(request, setup);
       for (const viewer of [playerB, playerC]) {
-        const shell = findCard(await gameSnapshot(request, setup.gameId, viewer.token), attachmentTwoId);
+        const projected = await gameSnapshot(request, setup.gameId, viewer.token);
+        expect(findCard(projected, attachmentTwoId)).toBeUndefined();
+        const shell = findOpaqueBattlefieldCard(projected, playerA.user.id, startingPositions[attachmentTwoId]);
         expect(shell?.['faceDown']).toBe(true);
+        expect(shell?.['hidden']).toBe(true);
+        expect(String(shell?.['instanceId'] ?? '')).toMatch(new RegExp(`^${escapeRegExp(playerA.user.id)}-hidden-battlefield-\\d+$`));
+        expect(String(shell?.['instanceId'] ?? '')).not.toContain(attachmentTwoId);
         expect(JSON.stringify(shell)).not.toMatch(/cardKey|cardRef|printId|imageUris|cardFaces|oracleText/);
       }
+      await accepted(0, 'card.counter.changed', {
+        playerId: playerA.user.id,
+        instanceId: attachmentTwoId,
+        counter: 'shield',
+        value: 2,
+      });
+      expect(findCard(await gameSnapshot(request, setup.gameId, playerA.token), attachmentTwoId)?.['counters']).toMatchObject({ shield: 2 });
+      for (const [viewer, page] of [[playerB, pages[1]], [playerC, pages[2]]] as const) {
+        const projected = await gameSnapshot(request, setup.gameId, viewer.token);
+        expect(findCard(projected, attachmentTwoId)).toBeUndefined();
+        const shell = findOpaqueBattlefieldCard(projected, playerA.user.id, startingPositions[attachmentTwoId]);
+        expect(shell?.['counters']).toMatchObject({ shield: 2 });
+        const opaqueId = String(shell?.['instanceId'] ?? '');
+        await expect(battlefieldCard(page!, playerA.user.id, opaqueId)).toBeVisible({ timeout: 10_000 });
+        await expect(battlefieldCard(page!, playerA.user.id, attachmentTwoId)).toHaveCount(0);
+      }
+      expect(await assertIdenticalGraph(request, setup)).toEqual(attachmentGraphBeforeCounter);
+      assertNoRecoveryFailures(audits);
       await accepted(0, 'card.controller.changed', {
         playerId: playerA.user.id,
         instanceId: attachmentTwoId,
@@ -225,6 +249,10 @@ test.describe('attachments and battlefield stacks cross-viewer gate', () => {
       await Promise.all(pages.map((page) => expect(page.getByTestId('game-screen')).toBeVisible({ timeout: 30_000 })));
       await Promise.all(pages.map((page) => focusOwner(page, playerA.user.id, playerA.user.displayName)));
       expect(await graphState(request, setup, version)).toEqual(beforeRestart);
+      expect(findCard(await gameSnapshot(request, setup.gameId, playerA.token), attachmentTwoId)?.['counters']).toMatchObject({ shield: 2 });
+      const restartedThirdSnapshot = await gameSnapshot(request, setup.gameId, playerC.token);
+      expect(findCard(restartedThirdSnapshot, attachmentTwoId)).toBeUndefined();
+      expect(findOpaqueBattlefieldCard(restartedThirdSnapshot, playerA.user.id, ratio(0.68, 0.36))?.['counters']).toMatchObject({ shield: 2 });
 
       graph = await assertIdenticalGraph(request, setup);
       const restartedStackId = String(graph.stacks[0]?.['id']);
@@ -859,6 +887,22 @@ function findCard(snapshot: JsonObject, instanceId: string): JsonObject | undefi
     }
   }
   return undefined;
+}
+
+function findOpaqueBattlefieldCard(snapshot: JsonObject, ownerId: string, expectedPosition: RatioPosition): JsonObject | undefined {
+  const players = snapshot['players'] as Record<string, JsonObject> | undefined;
+  const zones = players?.[ownerId]?.['zones'] as Record<string, JsonObject[]> | undefined;
+  return (zones?.['battlefield'] ?? []).find((card) => {
+    const position = card['position'] as RatioPosition | undefined;
+    return card['hidden'] === true
+      && card['faceDown'] === true
+      && position?.x === expectedPosition.x
+      && position?.y === expectedPosition.y;
+  });
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function positions(snapshot: JsonObject, instanceIds: string[]): Record<string, RatioPosition> {

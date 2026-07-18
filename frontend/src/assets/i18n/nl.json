@@ -734,8 +734,14 @@
     "contextSubmenu": {
       "x": "X"
     },
+    "selection": {
+      "selectedCount": "{{count}} kaarten geselecteerd",
+      "clear": "Selectie wissen",
+      "handRegion": "Selectiegebied van je hand"
+    },
     "focusedBattlefield": {
-      "manaRow": "Mana-rij"
+      "manaRow": "Mana-rij",
+      "selectionRegion": "Selectiegebied van het speelveld"
     },
     "gameAdBanner": {
       "advertisingBanner": "Reclamebanner"

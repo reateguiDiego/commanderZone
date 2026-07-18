@@ -9,6 +9,7 @@ describe('pruneTransientCardUiState', () => {
 
     const result = pruneTransientCardUiState(snapshot, {
       selectedCards: [{ playerId: 'player-1', zone: 'hand', card }],
+      currentPlayerId: 'player-1',
       hoveredSelection: null,
       contextMenu: null,
     });
@@ -24,6 +25,7 @@ describe('pruneTransientCardUiState', () => {
 
     const result = pruneTransientCardUiState(snapshot, {
       selectedCards: [{ playerId: 'player-1', zone: 'hand', card }],
+      currentPlayerId: 'player-1',
       hoveredSelection: null,
       contextMenu: null,
     });
@@ -37,6 +39,7 @@ describe('pruneTransientCardUiState', () => {
 
     const result = pruneTransientCardUiState(snapshot, {
       selectedCards: [],
+      currentPlayerId: 'player-1',
       hoveredSelection: { playerId: 'player-1', zone: 'hand', card },
       contextMenu: null,
     });
@@ -50,21 +53,89 @@ describe('pruneTransientCardUiState', () => {
 
     const result = pruneTransientCardUiState(snapshot, {
       selectedCards: [],
+      currentPlayerId: 'player-1',
       hoveredSelection: null,
       contextMenu: { playerId: 'player-1', zone: 'hand', card },
     });
 
     expect(result.closeContextMenu).toBe(true);
   });
+
+  it('prunes only cards that lose controller authority and preserves the remaining order', () => {
+    const first = gameCard('card-1');
+    const lost = gameCard('card-2', { controllerId: 'player-2' });
+    const third = gameCard('card-3');
+    const snapshot = snapshotWithZones({ hand: [], battlefield: [first, lost, third] });
+
+    const result = pruneTransientCardUiState(snapshot, {
+      selectedCards: [first, lost, third].map((card) => ({ playerId: 'player-1', zone: 'battlefield' as const, card })),
+      currentPlayerId: 'player-1',
+      hoveredSelection: null,
+      contextMenu: null,
+    });
+
+    expect(result.selectedCards.map((selection) => selection.card.instanceId)).toEqual(['card-1', 'card-3']);
+  });
+
+  it('prunes collapsed stack members while retaining the root exactly once', () => {
+    const root = gameCard('root');
+    const member = gameCard('member');
+    const snapshot = snapshotWithZones({ hand: [], battlefield: [root, member] });
+    snapshot.battlefieldStacks = [{
+      id: 'stack-1', relationType: 'battlefield_stack', rootInstanceId: 'root',
+      orderedMemberIds: ['root', 'member'], stackKind: 'land', effectVersion: 1, createdAtVersion: 1,
+    }];
+
+    const result = pruneTransientCardUiState(snapshot, {
+      selectedCards: [root, member, root].map((card) => ({ playerId: 'player-1', zone: 'battlefield' as const, card })),
+      currentPlayerId: 'player-1',
+      hoveredSelection: null,
+      contextMenu: null,
+    });
+
+    expect(result.selectedCards.map((selection) => selection.card.instanceId)).toEqual(['root']);
+  });
+
+  it.each(['conceded', 'defeated'] as const)('clears all selection when the actor is %s', (status) => {
+    const card = gameCard('card-1');
+    const snapshot = snapshotWithZones({ hand: [], battlefield: [card] });
+    snapshot.players['player-1']!.status = status;
+
+    const result = pruneTransientCardUiState(snapshot, {
+      selectedCards: [{ playerId: 'player-1', zone: 'battlefield', card }],
+      currentPlayerId: 'player-1',
+      hoveredSelection: null,
+      contextMenu: null,
+    });
+
+    expect(result.selectedCards).toEqual([]);
+  });
+
+  it('clears all selection when the game finishes or hydration is absent', () => {
+    const card = gameCard('card-1');
+    const snapshot = snapshotWithZones({ hand: [], battlefield: [card] });
+    snapshot.gamePhase = 'FINISHED';
+    const state = {
+      selectedCards: [{ playerId: 'player-1', zone: 'battlefield' as const, card }],
+      currentPlayerId: 'player-1',
+      hoveredSelection: null,
+      contextMenu: null,
+    };
+
+    expect(pruneTransientCardUiState(snapshot, state).selectedCards).toEqual([]);
+    expect(pruneTransientCardUiState(null, state).selectedCards).toEqual([]);
+  });
 });
 
-function gameCard(instanceId: string): GameCardInstance {
+function gameCard(instanceId: string, overrides: Partial<GameCardInstance> = {}): GameCardInstance {
   return {
     instanceId,
     ownerId: 'player-1',
     controllerId: 'player-1',
     name: 'Sol Ring',
     tapped: false,
+    zone: 'battlefield',
+    ...overrides,
   };
 }
 

@@ -7,6 +7,7 @@ import { GameTablePointerDragService, HandPointerDropPreview, PointerDropTarget 
 import { CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
 import { GameTableMotionService } from '../../services/game-table-motion.service';
 import { knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zone-drop';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 
 interface HandZoneDropEvent {
   event: DragEvent;
@@ -73,7 +74,7 @@ interface ResolvedHandPointerDrag {
 
 @Component({
   selector: 'app-player-hand-panel',
-  imports: [GameCardViewComponent, PrettyScrollDirective],
+  imports: [GameCardViewComponent, PrettyScrollDirective, RuntimeTranslatePipe],
   templateUrl: './player-hand-panel.component.html',
   styleUrl: './player-hand-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

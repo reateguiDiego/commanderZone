@@ -262,7 +262,6 @@ export class GameTableDragDropStore {
   cancelCardPointerDrag(context: GameTableDragDropContext, event?: PointerEvent): void {
     this.drag.cancelCardPointerDrag(event);
     this.endCardDrag(context);
-    context.setSelectedCards([]);
     context.applyDeferredRemoteSnapshot();
   }
 

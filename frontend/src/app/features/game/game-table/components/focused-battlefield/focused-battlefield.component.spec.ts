@@ -312,6 +312,200 @@ describe('FocusedBattlefieldComponent', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it('keeps a primary background pointer pending below the threshold and clears on an empty click', async () => {
+    const { fixture } = await renderFocusedBattlefield({ marqueeEnabled: true });
+    const component = fixture.componentInstance;
+    const battlefield = battlefieldElement(fixture);
+    const cleared = vi.fn();
+    component.battlefieldEmptyClicked.subscribe(cleared);
+
+    component.beginMarqueePointer(marqueePointer(battlefield, 40, 40));
+    component.moveMarqueePointer(marqueePointer(battlefield, 43, 43));
+
+    expect(component.selectionInteraction().kind).toBe('pointerPending');
+    expect(component.marqueeVisualRect()).toBeNull();
+
+    component.endMarqueePointer(marqueePointer(battlefield, 43, 43));
+    component.onBattlefieldBackgroundClick({ target: battlefield, stopPropagation: vi.fn() } as unknown as MouseEvent);
+
+    expect(component.selectionInteraction().kind).toBe('idle');
+    expect(cleared).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['left-to-right/down', 20, 20, 220, 160],
+    ['right-to-left/down', 220, 20, 20, 160],
+    ['left-to-right/up', 20, 160, 220, 20],
+    ['right-to-left/up', 220, 160, 20, 20],
+  ])('commits center-hit marquee candidates in the %s direction', async (_label, startX, startY, endX, endY) => {
+    const { fixture } = await renderFocusedBattlefield({ marqueeEnabled: true });
+    installMarqueeGeometry(fixture, {
+      'card-1': new DOMRect(80, 60, 80, 100),
+      'card-2': new DOMRect(260, 60, 80, 100),
+      'card-3': new DOMRect(390, 60, 80, 100),
+    });
+    const committed = vi.fn();
+    fixture.componentInstance.marqueeSelectionCommitted.subscribe(committed);
+    performMarquee(fixture, { x: startX, y: startY }, { x: endX, y: endY });
+
+    expect(committed).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      cards: [expect.objectContaining({ instanceId: 'card-1' })],
+      mode: 'replace',
+    }));
+    expect(fixture.componentInstance.lastMarqueeMetrics()).toMatchObject({
+      boundsCaptures: 1,
+      layoutReads: 4,
+      candidateCount: 3,
+      outcome: 'commit',
+    });
+  });
+
+  it('uses the visual center rather than any overlap for candidate hit testing', async () => {
+    const { fixture } = await renderFocusedBattlefield({ marqueeEnabled: true });
+    installMarqueeGeometry(fixture, {
+      'card-1': new DOMRect(80, 80, 80, 100),
+      'card-2': new DOMRect(145, 145, 100, 100),
+      'card-3': new DOMRect(300, 300, 80, 100),
+    });
+    const committed = vi.fn();
+    fixture.componentInstance.marqueeSelectionCommitted.subscribe(committed);
+
+    performMarquee(fixture, { x: 0, y: 0 }, { x: 160, y: 160 });
+
+    expect(committed.mock.calls[0]?.[0].cards.map((card: GameCardInstance) => card.instanceId)).toEqual(['card-1']);
+  });
+
+  it('previews and commits Shift-add and Ctrl-toggle against the stable base selection', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      marqueeEnabled: true,
+      selectedInstanceIds: ['card-1'],
+      isSelected: (instanceId) => instanceId === 'card-1',
+    });
+    installMarqueeGeometry(fixture, {
+      'card-1': new DOMRect(80, 60, 80, 100),
+      'card-2': new DOMRect(220, 60, 80, 100),
+      'card-3': new DOMRect(390, 60, 80, 100),
+    });
+    const committed = vi.fn();
+    fixture.componentInstance.marqueeSelectionCommitted.subscribe(committed);
+
+    performMarquee(fixture, { x: 180, y: 20 }, { x: 330, y: 180 }, { shiftKey: true });
+    expect(committed.mock.calls[0]?.[0].cards.map((card: GameCardInstance) => card.instanceId)).toEqual(['card-1', 'card-2']);
+
+    performMarquee(fixture, { x: 20, y: 20 }, { x: 330, y: 180 }, { ctrlKey: true });
+    expect(committed.mock.calls[1]?.[0].cards.map((card: GameCardInstance) => card.instanceId)).toEqual(['card-2']);
+  });
+
+  it('treats visible attachments independently and collapses a battlefield stack to its visual root', async () => {
+    const cards = [
+      { instanceId: 'target', name: 'Target', typeLine: 'Creature', tapped: false },
+      { instanceId: 'equipment', name: 'Equipment', typeLine: 'Artifact', tapped: false },
+      { instanceId: 'stack-root', name: 'Island', typeLine: 'Land', tapped: false },
+      { instanceId: 'stack-member', name: 'Forest', typeLine: 'Land', tapped: false },
+    ] satisfies GameCardInstance[];
+    const { fixture } = await renderFocusedBattlefield({
+      marqueeEnabled: true,
+      battlefieldCards: cards,
+      attachments: [attachment('attachment-1', 'equipment', 'target')],
+      battlefieldStacks: [{
+        id: 'stack-1', relationType: 'battlefield_stack', rootInstanceId: 'stack-root',
+        orderedMemberIds: ['stack-root', 'stack-member'], stackKind: 'land', effectVersion: 1, createdAtVersion: 1,
+      }],
+      cardPosition: (card) => card.instanceId === 'stack-root' ? { x: 240, y: 80 } : { x: 40, y: 80 },
+    });
+    installMarqueeGeometry(fixture, Object.fromEntries(cards.map((card, index) => [
+      card.instanceId,
+      new DOMRect(30 + index * 100, 40, 80, 100),
+    ])));
+    const committed = vi.fn();
+    fixture.componentInstance.marqueeSelectionCommitted.subscribe(committed);
+
+    performMarquee(fixture, { x: 0, y: 0 }, { x: 500, y: 200 });
+
+    expect(committed.mock.calls[0]?.[0].cards.map((card: GameCardInstance) => card.instanceId)).toEqual([
+      'target', 'equipment', 'stack-root',
+    ]);
+  });
+
+  it('cancels marquee on Escape/layout changes without committing or clearing the base selection', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      marqueeEnabled: true,
+      selectedInstanceIds: ['card-1'],
+      isSelected: (instanceId) => instanceId === 'card-1',
+    });
+    installMarqueeGeometry(fixture, {
+      'card-1': new DOMRect(80, 60, 80, 100),
+      'card-2': new DOMRect(220, 60, 80, 100),
+      'card-3': new DOMRect(390, 60, 80, 100),
+    });
+    const committed = vi.fn();
+    const cleared = vi.fn();
+    fixture.componentInstance.marqueeSelectionCommitted.subscribe(committed);
+    fixture.componentInstance.battlefieldEmptyClicked.subscribe(cleared);
+    const battlefield = battlefieldElement(fixture);
+
+    fixture.componentInstance.beginMarqueePointer(marqueePointer(battlefield, 20, 20));
+    fixture.componentInstance.moveMarqueePointer(marqueePointer(battlefield, 330, 180));
+    expect(fixture.componentInstance.cancelActiveSelectionInteraction()).toBe(true);
+    expect(fixture.componentInstance.selectionInteraction().kind).toBe('idle');
+    expect(fixture.componentInstance.isVisuallySelected(fixture.componentInstance.battlefieldCards()[0]!)).toBe(true);
+    expect(committed).not.toHaveBeenCalled();
+
+    fixture.componentInstance.beginMarqueePointer(marqueePointer(battlefield, 20, 20));
+    fixture.componentInstance.moveMarqueePointer(marqueePointer(battlefield, 330, 180));
+    fixture.componentInstance.cancelMarqueeForLayoutChange();
+    fixture.componentInstance.onBattlefieldBackgroundClick({ target: battlefield, stopPropagation: vi.fn() } as unknown as MouseEvent);
+    expect(fixture.componentInstance.lastMarqueeMetrics()?.outcome).toBe('cancel');
+    expect(committed).not.toHaveBeenCalled();
+    expect(cleared).not.toHaveBeenCalled();
+  });
+
+  it('rejects touch marquee, accepts pen, and cancels a pending gesture on multitouch-compatible touch input', async () => {
+    const { fixture } = await renderFocusedBattlefield({ marqueeEnabled: true });
+    const battlefield = battlefieldElement(fixture);
+
+    fixture.componentInstance.beginMarqueePointer(marqueePointer(battlefield, 20, 20, { pointerType: 'touch' }));
+    expect(fixture.componentInstance.selectionInteraction().kind).toBe('idle');
+
+    fixture.componentInstance.beginMarqueePointer(marqueePointer(battlefield, 20, 20, { pointerType: 'pen' }));
+    expect(fixture.componentInstance.selectionInteraction().kind).toBe('pointerPending');
+    fixture.componentInstance.beginMarqueePointer(marqueePointer(cardElement(fixture, 'card-1'), 25, 25, { pointerId: 2, pointerType: 'touch' }));
+    expect(fixture.componentInstance.selectionInteraction().kind).toBe('idle');
+  });
+
+  it('captures 100 candidate bounds once, throttles preview through rAF, and releases all interaction state', async () => {
+    const cards = Array.from({ length: 100 }, (_, index) => ({
+      instanceId: `dense-${index}`,
+      name: `Dense ${index}`,
+      typeLine: index % 4 === 0 ? 'Creature' : 'Token',
+      tapped: false,
+    } satisfies GameCardInstance));
+    const { fixture } = await renderFocusedBattlefield({ marqueeEnabled: true, battlefieldCards: cards });
+    installMarqueeGeometry(fixture, Object.fromEntries(cards.map((card, index) => [
+      card.instanceId,
+      new DOMRect(10 + (index % 10) * 70, 10 + Math.floor(index / 10) * 55, 60, 80),
+    ])));
+    const battlefield = battlefieldElement(fixture);
+
+    fixture.componentInstance.beginMarqueePointer(marqueePointer(battlefield, 0, 0));
+    for (let index = 1; index <= 20; index += 1) {
+      fixture.componentInstance.moveMarqueePointer(marqueePointer(battlefield, 10 + index * 35, 10 + index * 25));
+    }
+    fixture.componentInstance.endMarqueePointer(marqueePointer(battlefield, 710, 510));
+
+    expect(fixture.componentInstance.selectionInteraction().kind).toBe('idle');
+    expect(fixture.componentInstance.marqueeVisualRect()).toBeNull();
+    expect(fixture.componentInstance.lastMarqueeMetrics()).toMatchObject({
+      pointerMoves: 20,
+      boundsCaptures: 1,
+      layoutReads: 101,
+      candidateCount: 100,
+      outcome: 'commit',
+    });
+    expect(fixture.componentInstance.lastMarqueeMetrics()!.animationFrames).toBeLessThanOrEqual(20);
+  });
+
   it('renders monarch using its physical card image when provided', async () => {
     const monarch = {
       instanceId: 'monarch:entity-1',
@@ -406,6 +600,9 @@ interface RenderFocusedBattlefieldOptions {
   isManaPoolHidden?: (playerId: string) => boolean;
   mechanicCards?: readonly GameCardInstance[];
   cardImage?: (card: GameCardInstance) => string | null;
+  selectedInstanceIds?: readonly string[];
+  isSelected?: (instanceId: string) => boolean;
+  marqueeEnabled?: boolean;
 }
 
 async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions = {}): Promise<{ fixture: ComponentFixture<FocusedBattlefieldComponent> }> {
@@ -424,7 +621,9 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('mechanicCards', options.mechanicCards ?? []);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));
-  fixture.componentRef.setInput('isSelected', (_instanceId: string) => false);
+  fixture.componentRef.setInput('selectedInstanceIds', options.selectedInstanceIds ?? []);
+  fixture.componentRef.setInput('isSelected', options.isSelected ?? ((_instanceId: string) => false));
+  fixture.componentRef.setInput('marqueeEnabled', options.marqueeEnabled ?? false);
   fixture.componentRef.setInput('isDraggingCard', options.isDraggingCard ?? ((_card: GameCardInstance) => false));
   fixture.componentRef.setInput('canDragBattlefieldCard', (_playerId: string, _card: GameCardInstance) => true);
   fixture.componentRef.setInput('isPendingBattlefieldTransfer', (_card: GameCardInstance) => false);
@@ -451,6 +650,57 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
 
 function cardElement(fixture: ComponentFixture<FocusedBattlefieldComponent>, instanceId: string): HTMLElement {
   return fixture.nativeElement.querySelector(`[data-card-instance-id="${instanceId}"]`);
+}
+
+function battlefieldElement(fixture: ComponentFixture<FocusedBattlefieldComponent>): HTMLElement {
+  return fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]');
+}
+
+function installMarqueeGeometry(
+  fixture: ComponentFixture<FocusedBattlefieldComponent>,
+  cardRects: Record<string, DOMRect>,
+): void {
+  battlefieldElement(fixture).getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+  for (const [instanceId, rect] of Object.entries(cardRects)) {
+    cardElement(fixture, instanceId).getBoundingClientRect = () => rect;
+  }
+}
+
+function marqueePointer(
+  target: HTMLElement,
+  clientX: number,
+  clientY: number,
+  options: Partial<PointerEvent> = {},
+): PointerEvent {
+  return {
+    button: 0,
+    clientX,
+    clientY,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+    altKey: false,
+    defaultPrevented: false,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: 'mouse',
+    target,
+    preventDefault: vi.fn(),
+    ...options,
+  } as unknown as PointerEvent;
+}
+
+function performMarquee(
+  fixture: ComponentFixture<FocusedBattlefieldComponent>,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  modifiers: Partial<PointerEvent> = {},
+): void {
+  const battlefield = battlefieldElement(fixture);
+  fixture.componentInstance.beginMarqueePointer(marqueePointer(battlefield, start.x, start.y, modifiers));
+  fixture.componentInstance.moveMarqueePointer(marqueePointer(battlefield, end.x, end.y, modifiers));
+  fixture.componentInstance.endMarqueePointer(marqueePointer(battlefield, end.x, end.y, modifiers));
+  fixture.detectChanges();
 }
 
 function cardElements(fixture: ComponentFixture<FocusedBattlefieldComponent>, instanceId: string): HTMLElement[] {

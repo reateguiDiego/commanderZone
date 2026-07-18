@@ -10,17 +10,33 @@
   [attr.data-zone]="'battlefield'"
   [attr.data-game-drop-zone]="'battlefield'"
   [attr.data-motion-zone]="focusedPlayer.id + ':battlefield'"
+  [attr.data-selection-interaction]="selectionInteraction().kind"
+  [attr.data-marquee-bounds-captures]="lastMarqueeMetrics()?.boundsCaptures ?? 0"
+  [attr.data-marquee-layout-reads]="lastMarqueeMetrics()?.layoutReads ?? 0"
+  [attr.data-marquee-pointer-moves]="lastMarqueeMetrics()?.pointerMoves ?? 0"
+  [attr.data-marquee-raf-updates]="lastMarqueeMetrics()?.animationFrames ?? 0"
+  [attr.data-marquee-candidate-count]="lastMarqueeMetrics()?.candidateCount ?? 0"
+  [attr.data-marquee-outcome]="lastMarqueeMetrics()?.outcome ?? null"
+  [attr.tabindex]="isCurrentPlayer()(focusedPlayer.id) ? 0 : null"
+  role="region"
+  [attr.aria-label]="'game.focusedBattlefield.selectionRegion' | runtimeTranslate"
   [class.drop-target-active]="isDropZoneHighlighted()(focusedPlayer.id, 'battlefield')"
   [class.arrow-targeting]="allowArrowTargetSelection()"
   [class.board-transitioning]="boardTransitioning()"
   appGameTableLongPress
   [appGameTableLongPressSelfOnly]="true"
-  (appGameTableLongPressed)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
-  (pointerdown)="suppressExcessivePrimaryClick($event)"
+  (appGameTableLongPressed)="onBattlefieldContextMenu($event)"
+  (pointerdown)="suppressExcessivePrimaryClick($event); beginMarqueePointer($event)"
+  (pointermove)="moveMarqueePointer($event)"
+  (pointerup)="endMarqueePointer($event)"
+  (pointercancel)="cancelActiveSelectionInteraction()"
+  (lostpointercapture)="cancelActiveSelectionInteraction()"
+  (scroll)="cancelMarqueeForLayoutChange()"
+  (click)="onBattlefieldBackgroundClick($event)"
   (dragstart)="preventUnexpectedNativeDragStart($event)"
   (dragover)="battlefieldDragOver.emit($event)"
   (drop)="battlefieldDropped.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
-  (contextmenu)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
+  (contextmenu)="onBattlefieldContextMenu($event)"
 >
   @for (card of battlefieldCards(); track card.instanceId) {
     @let stackView = landStackView(card);
@@ -35,7 +51,7 @@
       [image]="cardImage()(card)"
       [freePosition]="!!displayPosition"
       [position]="displayPosition"
-      [selected]="isCurrentPlayer()(focusedPlayer.id) && isSelected()(card.instanceId)"
+      [selected]="isVisuallySelected(card)"
       [dragging]="isDraggingCard()(card)"
       [locked]="!isCurrentPlayer()(focusedPlayer.id) || !canDragBattlefieldCard()(focusedPlayer.id, card)"
       [pendingTransfer]="isPendingBattlefieldTransfer()(card)"
@@ -99,6 +115,17 @@
   }
   @if (activeAlignmentGuide; as guide) {
     <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
+  }
+  @if (marqueeVisualRect(); as rect) {
+    <div
+      class="marquee-selection-rect"
+      data-testid="marquee-selection-rect"
+      aria-hidden="true"
+      [style.left.px]="rect.left"
+      [style.top.px]="rect.top"
+      [style.width.px]="rect.width"
+      [style.height.px]="rect.height"
+    ></div>
   }
   @if (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id)) {
     <app-mana-pool-panel

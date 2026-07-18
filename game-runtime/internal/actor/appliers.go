@@ -294,10 +294,7 @@ func (CardCounterChangedApplier) Apply(_ context.Context, game *state.GameState,
 		"zone":       location.Zone,
 		"counters":   cloneIntMapAny(instance.Counters),
 	}
-	emitter.EmitPublic(protocol.PatchOp{
-		Op:   "card.counters.patch",
-		Data: patchData,
-	})
+	emitInstancePatchByViewer(emitter, game, instanceID, "card.counters.patch", patchData, true)
 	patch["metrics"] = countersMetrics(start, emitter)
 	return patch, nil
 }

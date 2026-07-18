@@ -303,6 +303,45 @@
   z-index: 260;
 }
 
+.selection-status {
+  position: absolute;
+  top: 3.65rem;
+  right: 0.75rem;
+  z-index: 258;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.7rem;
+  border: 1px solid rgb(215 180 106 / 42%);
+  border-radius: 9px;
+  background: rgb(8 10 8 / 88%);
+  box-shadow: 0 0.6rem 1.2rem rgb(0 0 0 / 30%);
+  color: rgb(255 241 204);
+  font-size: 0.78rem;
+  font-weight: 800;
+  pointer-events: auto;
+}
+
+.selection-status button {
+  min-width: 2.75rem;
+  min-height: 2.25rem;
+  padding-inline: 0.65rem;
+  border: 1px solid rgb(215 180 106 / 46%);
+  border-radius: 7px;
+  background: rgb(42 48 36 / 92%);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.selection-status button:hover,
+.selection-status button:focus-visible {
+  border-color: var(--game-accent, #d7b46a);
+  outline: 2px solid rgb(215 180 106 / 58%);
+  outline-offset: 2px;
+}
+
 .battlefield-owner-summary {
   position: absolute;
   top: 0;

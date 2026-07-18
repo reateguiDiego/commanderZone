@@ -169,6 +169,20 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.style.zIndex).toBe('40');
   });
 
+  it('exposes selection semantics and an accessible card name to assistive technology', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    expect(cardElement.getAttribute('aria-selected')).toBe('false');
+    expect(cardElement.getAttribute('aria-pressed')).toBe('false');
+    expect(cardElement.getAttribute('aria-label')).toContain('Arcane Signet');
+
+    fixture.componentRef.setInput('selected', true);
+    fixture.detectChanges();
+
+    expect(cardElement.getAttribute('aria-selected')).toBe('true');
+    expect(cardElement.getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('keeps attachment stack targets eligible for the normal battlefield hover glow', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();

@@ -734,8 +734,14 @@
     "contextSubmenu": {
       "x": "X"
     },
+    "selection": {
+      "selectedCount": "{{count}} Karten ausgewählt",
+      "clear": "Auswahl aufheben",
+      "handRegion": "Auswahlbereich deiner Hand"
+    },
     "focusedBattlefield": {
-      "manaRow": "Mana-Reihe"
+      "manaRow": "Mana-Reihe",
+      "selectionRegion": "Auswahlbereich des Spielfelds"
     },
     "gameAdBanner": {
       "advertisingBanner": "Werbebanner"

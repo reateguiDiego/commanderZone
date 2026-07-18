@@ -171,10 +171,9 @@ func emitPositionPatchByViewer(
 		projected := make([]map[string]any, 0, len(positions))
 		for _, entry := range positions {
 			instanceID, _ := entry["instanceId"].(string)
-			projectedID := instanceID
-			if game.Instances[instanceID].FaceDown && !game.CanViewerSeeCardKey(viewerID, instanceID) {
-				location := game.Loc[instanceID]
-				projectedID = privatePlaceholderID(location.PlayerID, location.Zone, location.Index)
+			projectedID, visible := projectInstanceReferenceForViewer(game, instanceID, viewerID)
+			if !visible {
+				continue
 			}
 			position, _ := entry["position"].(map[string]any)
 			projected = append(projected, map[string]any{
@@ -388,7 +387,7 @@ func (CardPowerToughnessChangedApplier) Apply(_ context.Context, game *state.Gam
 		patch[key] = command.Payload[key]
 	}
 	game.Instances[instanceID] = instance
-	emitter.EmitPublic(protocol.PatchOp{Op: "card.field.set", Data: patch})
+	emitInstancePatchByViewer(emitter, game, instanceID, "card.field.set", patch, false)
 	patch["metrics"] = battlefieldMetrics(start, emitter)
 	return patch, nil
 }

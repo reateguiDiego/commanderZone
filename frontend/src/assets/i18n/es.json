@@ -652,8 +652,14 @@
     "contextSubmenu": {
       "x": "X"
     },
+    "selection": {
+      "selectedCount": "{{count}} cartas seleccionadas",
+      "clear": "Limpiar selección",
+      "handRegion": "Región de selección de tu mano"
+    },
     "focusedBattlefield": {
-      "manaRow": "Fila de maná"
+      "manaRow": "Fila de maná",
+      "selectionRegion": "Región de selección del campo de batalla"
     },
     "gameAdBanner": {
       "advertisingBanner": "Banner publicitario"

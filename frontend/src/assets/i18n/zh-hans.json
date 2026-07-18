@@ -734,7 +734,13 @@
     "contextSubmenu": {
       "x": "X"
     },
+    "selection": {
+      "selectedCount": "已选择 {{count}} 张牌",
+      "clear": "清除选择",
+      "handRegion": "手牌选择区域"
+    },
     "focusedBattlefield": {
+      "selectionRegion": "战场选择区域",
       "manaRow": "æ³•æœ¯åŠ›è¡Œ"
     },
     "gameAdBanner": {

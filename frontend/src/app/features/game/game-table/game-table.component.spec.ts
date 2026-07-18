@@ -6368,7 +6368,7 @@ describe('GameTableComponent', () => {
       card: handCards[0],
     });
 
-    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['hand-1', 'hand-2']);
+    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['hand-1']);
     expect(fixture.componentInstance.store.contextMenu()).toBeNull();
   });
 
@@ -6433,8 +6433,150 @@ describe('GameTableComponent', () => {
       zone: 'battlefield',
     });
 
-    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['card-1', 'card-2']);
+    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['card-1']);
     expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+  });
+
+  it('scopes Ctrl/Cmd+A to the focused own hand or battlefield and ignores editable surfaces', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const handCard = { ...snapshot.players['user-1'].zones.battlefield[0]!, instanceId: 'hand-1', zone: 'hand' as const };
+    snapshot.players['user-1'].zones.hand = [handCard];
+    snapshot.players['user-1'].zoneCounts!.hand = 1;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const handRegion = document.createElement('section');
+    handRegion.dataset['zone'] = 'hand';
+    handRegion.dataset['playerId'] = 'user-1';
+    const handTarget = document.createElement('button');
+    handRegion.appendChild(handTarget);
+    const handEvent = shortcutEvent('a', handTarget, { ctrlKey: true });
+
+    fixture.componentInstance.handleShortcut(handEvent);
+
+    expect(handEvent.preventDefault).toHaveBeenCalledOnce();
+    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['hand-1']);
+
+    const battlefieldRegion = document.createElement('section');
+    battlefieldRegion.dataset['zone'] = 'battlefield';
+    battlefieldRegion.dataset['playerId'] = 'user-1';
+    const battlefieldTarget = document.createElement('button');
+    battlefieldRegion.appendChild(battlefieldTarget);
+    fixture.componentInstance.handleShortcut(shortcutEvent('a', battlefieldTarget, { metaKey: true }));
+    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['card-1']);
+
+    const input = document.createElement('input');
+    const inputEvent = shortcutEvent('a', input, { ctrlKey: true });
+    fixture.componentInstance.handleShortcut(inputEvent);
+    expect(inputEvent.preventDefault).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['card-1']);
+  });
+
+  it('toggles the focused actionable card with Space and exposes the minimal selection status UI', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const card = document.createElement('button');
+    card.dataset['testid'] = 'game-card';
+    card.dataset['zone'] = 'battlefield';
+    card.dataset['ownerPlayerId'] = 'user-1';
+    card.dataset['cardInstanceId'] = 'card-1';
+
+    fixture.componentInstance.handleShortcut(shortcutEvent(' ', card));
+    fixture.componentRef.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentRef.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['card-1']);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="selection-count"]')?.textContent).toContain('1');
+    const clear = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="clear-selection"]')!;
+    expect(clear.getAttribute('aria-label')).toBeTruthy();
+
+    clear.click();
+    fixture.componentRef.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
+
+    fixture.componentInstance.handleShortcut(shortcutEvent(' ', card));
+    fixture.componentInstance.handleShortcut(shortcutEvent(' ', card));
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
+  });
+
+  it('applies Escape priority without clearing selection in the same keypress that closes a menu or modal', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const card = fixture.componentInstance.store.snapshot()!.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.store.selectedCards.set([{ playerId: 'user-1', zone: 'battlefield', card }]);
+    fixture.componentInstance.store.contextMenu.set({ x: 0, y: 0, kind: 'card', playerId: 'user-1', zone: 'battlefield', card });
+
+    fixture.componentInstance.handleShortcut(shortcutEvent('Escape', document.body));
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+    expect(fixture.componentInstance.store.selectedCards()).toHaveLength(1);
+
+    fixture.componentInstance.closeGameDialogOpen.set(true);
+    fixture.componentInstance.handleShortcut(shortcutEvent('Escape', document.body));
+    expect(fixture.componentInstance.closeGameDialogOpen()).toBe(false);
+    expect(fixture.componentInstance.store.selectedCards()).toHaveLength(1);
+
+    fixture.componentInstance.handleShortcut(shortcutEvent('Escape', document.body));
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
+  });
+
+  it('consumes only the residual table click after layout cancellation', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const card = fixture.componentInstance.store.snapshot()!.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.store.selectedCards.set([{ playerId: 'user-1', zone: 'battlefield', card }]);
+    fixture.componentInstance['suppressNextTableBackgroundClick'] = true;
+
+    fixture.componentInstance.handleBattlefieldEmptyClicked();
+    expect(fixture.componentInstance.store.selectedCards()).toHaveLength(1);
+
+    fixture.componentInstance.handleBattlefieldEmptyClicked();
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
+  });
+
+  it('clears mutative selection when focusing an opponent and does not restore it on return', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const card = fixture.componentInstance.store.snapshot()!.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.store.selectedCards.set([{ playerId: 'user-1', zone: 'battlefield', card }]);
+
+    fixture.componentInstance.store.focusPlayer('user-2');
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
+    expect(fixture.componentInstance.marqueeEnabled()).toBe(false);
+    const opponentCard = document.createElement('button');
+    opponentCard.dataset['testid'] = 'game-card';
+    opponentCard.dataset['zone'] = 'battlefield';
+    opponentCard.dataset['ownerPlayerId'] = 'user-2';
+    opponentCard.dataset['cardInstanceId'] = 'card-2';
+    fixture.componentInstance.handleShortcut(shortcutEvent(' ', opponentCard));
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
+
+    fixture.componentInstance.store.focusPlayer('user-1');
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
   });
 
   it('keeps the exact previewed battlefield position when pointer-moving selected hand cards', async () => {
@@ -6849,6 +6991,24 @@ function addOpponent(snapshot: GameSnapshot): void {
     commanderDamage: {},
     counters: {},
   };
+}
+
+function shortcutEvent(
+  key: string,
+  target: EventTarget,
+  modifiers: Partial<KeyboardEvent> = {},
+): KeyboardEvent {
+  return {
+    key,
+    target,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+    altKey: false,
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+    ...modifiers,
+  } as unknown as KeyboardEvent;
 }
 
 function handRevealCard(instanceId: string, revealedTo: string[]): GameCardInstance {

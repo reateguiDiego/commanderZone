@@ -6,6 +6,7 @@ import { GameTableStore } from './game-table.store';
 describe('GameTableStore.load', () => {
   it('loads the session with the session context', async () => {
     const storeLike = {
+      selection: { clearSelection: vi.fn() },
       session: {
         load: vi.fn(async () => undefined),
       },
@@ -17,7 +18,41 @@ describe('GameTableStore.load', () => {
     await GameTableStore.prototype.load.call(storeLike as never);
 
     expect(storeLike.contexts.session).toHaveBeenCalledTimes(1);
+    expect(storeLike.selection.clearSelection).toHaveBeenCalledOnce();
     expect(storeLike.session.load).toHaveBeenCalledWith(storeLike.contexts.session.mock.results[0]?.value);
+  });
+});
+
+describe('GameTableStore selection connection cleanup', () => {
+  it('clears selection once when a previously live runtime connection is interrupted', () => {
+    const storeLike = {
+      selectionObservedLiveConnection: false,
+      selection: { clearSelection: vi.fn() },
+    };
+    const reconcile = GameTableStore.prototype['reconcileSelectionConnectionStatus'];
+
+    reconcile.call(storeLike as never, 'connecting');
+    reconcile.call(storeLike as never, 'live');
+    reconcile.call(storeLike as never, 'connecting');
+    reconcile.call(storeLike as never, 'degraded');
+
+    expect(storeLike.selection.clearSelection).toHaveBeenCalledOnce();
+    expect(storeLike.selectionObservedLiveConnection).toBe(false);
+  });
+
+  it('arms cleanup again after a successful reconnect', () => {
+    const storeLike = {
+      selectionObservedLiveConnection: false,
+      selection: { clearSelection: vi.fn() },
+    };
+    const reconcile = GameTableStore.prototype['reconcileSelectionConnectionStatus'];
+
+    reconcile.call(storeLike as never, 'live');
+    reconcile.call(storeLike as never, 'connecting');
+    reconcile.call(storeLike as never, 'live');
+    reconcile.call(storeLike as never, 'degraded');
+
+    expect(storeLike.selection.clearSelection).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -34,6 +69,8 @@ describe('GameTableStore snapshot UI consistency', () => {
       zoneModalState: { reconcileLibraryView: vi.fn() },
       openRevealedLibraryFromSnapshot: vi.fn(),
       selectedCards,
+      currentPlayer: vi.fn(() => ({ id: 'player-1' })),
+      selection: { reconcileSelectedCards: vi.fn((cards) => selectedCards.set(cards)) },
       uiState: { activeHoveredSelection: vi.fn(() => null) },
       contextMenu: signal(null),
       clearCardPreview: vi.fn(),

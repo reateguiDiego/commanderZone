@@ -6,7 +6,7 @@ import { GameplayMulliganPublicPlayerState } from '../../../core/models/game-rea
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
-import { GameTableSelectionService } from './services/game-table-selection.service';
+import { GameTableSelectionService, type SelectionModifierMode } from './services/game-table-selection.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { AlignmentGuide } from './state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableDropFeedbackState } from './state/drag-drop/game-table-drop-feedback.state';
@@ -74,6 +74,7 @@ export class GameTableStore implements OnDestroy {
   private locallyConcededPlayerId: string | null = null;
   private lastSeenActiveTurnPlayerId: string | null = null;
   private libraryViewObservedLiveConnection = false;
+  private selectionObservedLiveConnection = false;
 
   private readonly debouncedValueCommands = inject(GameTableDebouncedValueCommandsService);
   private readonly cardActions = inject(GameTableCardActionsService);
@@ -265,7 +266,23 @@ export class GameTableStore implements OnDestroy {
         this.zoneModalState.markLibraryViewStale('game.zoneModal.connectionChanged');
       }
     });
+    effect(() => {
+      this.reconcileSelectionConnectionStatus(this.session.realtimeStatus());
+    });
     void this.load();
+  }
+
+  private reconcileSelectionConnectionStatus(status: 'connecting' | 'live' | 'degraded'): void {
+    if (status === 'live') {
+      this.selectionObservedLiveConnection = true;
+      return;
+    }
+    if (!this.selectionObservedLiveConnection) {
+      return;
+    }
+
+    this.selectionObservedLiveConnection = false;
+    this.selection.clearSelection();
   }
 
   ngOnDestroy(): void {
@@ -282,10 +299,12 @@ export class GameTableStore implements OnDestroy {
   }
 
   async load(): Promise<void> {
+    this.selection.clearSelection();
     await this.session.load(this.contexts.session());
   }
 
   async refetch(force = false, source = 'store.refetch'): Promise<void> {
+    this.selection.clearSelection();
     if (force) {
       this.logForcedRefetch(source);
       this.dragDropStore.clearForceRefreshState();
@@ -297,7 +316,12 @@ export class GameTableStore implements OnDestroy {
   }
 
   focusPlayer(playerId: string): boolean {
-    return this.playersStore.focusPlayer(playerId);
+    const focused = this.playersStore.focusPlayer(playerId);
+    if (focused && this.focusedPlayer()?.id !== this.currentPlayer()?.id) {
+      this.selection.clearSelection();
+    }
+
+    return focused;
   }
 
   focusCurrentPlayer(): void {
@@ -659,6 +683,16 @@ export class GameTableStore implements OnDestroy {
     this.interactionActions.clearSelection();
   }
 
+  cancelRelationInteraction(): boolean {
+    const active = this.pendingArrowSource() !== null || this.pendingAttachmentSource() !== null;
+    if (active) {
+      this.pendingArrowSource.set(null);
+      this.pendingAttachmentSource.set(null);
+    }
+
+    return active;
+  }
+
   reportError(message: string): void {
     this.coreState.error.set(message);
   }
@@ -678,13 +712,51 @@ export class GameTableStore implements OnDestroy {
 
   selectAllZoneCards(playerId: string, zone: GameZoneName): void {
     const cards = this.snapshot()?.players[playerId]?.zones[zone] ?? [];
-    if (cards.length <= 1 || !this.canControlPlayer(playerId) || (zone !== 'hand' && zone !== 'battlefield')) {
+    if (!this.canControlPlayer(playerId) || (zone !== 'hand' && zone !== 'battlefield')) {
       this.closeContextMenu();
       return;
     }
 
-    this.selection.selectMany(playerId, zone, cards);
+    const hiddenStackMemberIds = zone === 'battlefield' ? this.hiddenBattlefieldStackMemberIds() : new Set<string>();
+    const selectableCards = cards.filter((card) =>
+      this.canControlOwnedCard(playerId, card) && !hiddenStackMemberIds.has(card.instanceId),
+    );
+    this.selection.selectMany(playerId, zone, selectableCards);
     this.closeContextMenu();
+  }
+
+  applyMarqueeSelection(
+    playerId: string,
+    cards: readonly GameCardInstance[],
+    mode: SelectionModifierMode,
+  ): void {
+    if (!this.canControlPlayer(playerId) || this.focusedPlayer()?.id !== playerId) {
+      return;
+    }
+
+    const hiddenStackMemberIds = this.hiddenBattlefieldStackMemberIds();
+    this.selection.applyMarqueeSelection(
+      playerId,
+      'battlefield',
+      cards.filter((card) => this.canControlOwnedCard(playerId, card) && !hiddenStackMemberIds.has(card.instanceId)),
+      mode,
+    );
+  }
+
+  toggleKeyboardCardSelection(playerId: string, zone: GameZoneName, instanceId: string): void {
+    if (
+      (zone !== 'hand' && zone !== 'battlefield')
+      || this.currentPlayer()?.id !== playerId
+      || this.focusedPlayer()?.id !== playerId
+    ) {
+      return;
+    }
+    const card = this.cardFromCurrentSnapshot(playerId, zone, instanceId);
+    if (!card || !this.canControlOwnedCard(playerId, card)) {
+      return;
+    }
+
+    this.selection.toggleKeyboardSelection(playerId, zone, card);
   }
 
   isDraggingCard(card: GameCardInstance): boolean {
@@ -1933,13 +2005,12 @@ export class GameTableStore implements OnDestroy {
   private pruneTransientCardUiState(snapshot: GameSnapshot | null): void {
     const result = pruneTransientCardUiState(snapshot, {
       selectedCards: this.selectedCards(),
+      currentPlayerId: this.currentPlayer()?.id ?? null,
       hoveredSelection: this.uiState.activeHoveredSelection(),
       contextMenu: this.contextMenu(),
     });
 
-    if (result.selectedCards.length !== this.selectedCards().length) {
-      this.selectedCards.set(result.selectedCards);
-    }
+    this.selection.reconcileSelectedCards(result.selectedCards);
     if (result.clearCardPreview) {
       this.clearCardPreview();
     }
@@ -2013,6 +2084,19 @@ export class GameTableStore implements OnDestroy {
 
   private battlefieldCards(playerId: string): readonly GameCardInstance[] {
     return this.snapshot()?.players[playerId]?.zones.battlefield ?? [];
+  }
+
+  private hiddenBattlefieldStackMemberIds(): ReadonlySet<string> {
+    const ids = new Set<string>();
+    for (const stack of this.snapshot()?.battlefieldStacks ?? []) {
+      for (const instanceId of stack.orderedMemberIds) {
+        if (instanceId !== stack.rootInstanceId) {
+          ids.add(instanceId);
+        }
+      }
+    }
+
+    return ids;
   }
 
   private markNewPowerToughnessTokensSettling(playerId: string, previousBattlefieldIds: ReadonlySet<string>): void {
